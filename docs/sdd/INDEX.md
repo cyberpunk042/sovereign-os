@@ -9,7 +9,7 @@ Numbering is three-digit zero-padded, never recycled.
 | 000 | Project charter | accepted | PR 1 | This repo's foundational charter — mission, SDD+TDD, SFIF, IaC bar, Debian-as-Ark, non-goals. |
 | 001 | Cross-repo boundaries | accepted | PR 2 | Cross-repo reference contract (sovereign-os ↔ selfdef ↔ info-hub). Q-011 partial resolution; final closure at CI-guard PR. |
 | 002 | Documentation pipeline | accepted | PR 3 | mdbook + MCP config template + CI publishing. Q-A..Q-D open (deploy cadence; missing-page handling; Pages provider; sovereign-os MCP stub). |
-| 003 | Substrate survey | — | PR 4 | Resolves Q-001 + Q-016 at Gate 2. |
+| 003 | Substrate survey | review | PR 4 | Resolves Q-001 + Q-016 at Gate 2. Primary recommendation: mkosi-on-Debian-13. Alternatives A (live-build), B (rpm-ostree/Silverblue), C (NixOS). Q4-A..Q4-E open for Gate 2 closure. |
 | 004 | Profile schema | — | PR 5 | Resolves Q-002 (in part) at Gate 3. |
 | 005 | Initial profile stubs (sain-01 + old-workstation) | — | PR 6 | Validates schema against real profiles. |
 | 006 | Debian (or successor) surface audit | — | PR 7 | Whitelabel target inventory. |
