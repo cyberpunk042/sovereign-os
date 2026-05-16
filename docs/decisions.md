@@ -368,6 +368,38 @@ the operator depends on. Honest scope > false confidence.
 land later as additive coverage.
 **Linked**: direct-to-main commit on 2026-05-16.
 
+### D-007 — 2026-05-16 — Secure-boot posture: 3-level enum (none/shim/signed) per-profile; operator-supplied keys (Q-006 resolved)
+
+**Decision**: secure_boot is a per-profile enum with three values:
+**none** (UEFI off / unsigned, dev VMs), **shim** (Microsoft-signed
+shim → operator MOK → kernel; constrained / legacy hardware),
+**signed** (direct sbsign with operator's Platform Key, no shim;
+production sovereign hardware). Operator supplies signing keys at
+build time via SOVEREIGN_OS_{MOK,PK}_{KEY,CERT} env vars — keys are
+NEVER stored in-repo. preflight-tpm.sh gates install-time TPM2
+readiness for posture=shim/signed. step 08-image-sign.sh is the only
+script that signs.
+**Question**: Q-006 — Secure-boot posture for sovereign-os.
+**Source**: `docs/sdd/015-secure-boot-posture.md`;
+`profiles/{sain-01,old-workstation,minimal}.yaml` § kernel.cmdline.
+secure_boot; existing `preflight-tpm.sh` + `08-image-sign.sh`.
+**Rationale**: 3-level posture matches the substrate's natural
+capabilities (mkosi supports SecureBoot=yes), allows constrained
+profiles (old-workstation = shim) without forcing them through PK
+enrollment, and keeps production sain-01 on the operator-owned chain
+(direct PK, no Microsoft-CA dep). Operator-supplied keys preserve
+sovereignty — sovereign-os ships zero shared secrets. Q15-A..Q15-C
+sub-questions tracked in SDD-015.
+**Affected items**: `docs/sdd/015-secure-boot-posture.md`;
+`profiles/*.yaml` (no changes — posture values already declared
+per-profile); `scripts/hooks/pre-install/preflight-tpm.sh`;
+`scripts/build/08-image-sign.sh`.
+**Reversibility**: partial — adding new enum values is additive,
+removing is breaking. Switching a profile from signed→shim is a
+build-time decision with no migration cost; the reverse requires
+operator PK enrollment.
+**Linked**: direct-to-main commit on 2026-05-16.
+
 ---
 
 ## Cross-references

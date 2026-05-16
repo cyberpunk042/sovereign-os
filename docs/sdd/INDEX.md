@@ -21,6 +21,7 @@ Numbering is three-digit zero-padded, never recycled.
 | 012 | Brand identity placeholder strategy | review | post-Gate-5 | Q-003 deferred-with-criteria: placeholder contract specified, legal-floor contract restated, promotion criteria + mechanism for when a real brand lands. CI gates placeholder-leak detection. |
 | 013 | Installer experience | review | post-Gate-5 | Q-008 resolution: image-only (mkosi-built bootable image) + cloud-init/preseed pre-supplied answers. No d-i / Calamares / custom TUI. CI gate `test_install_configs.sh` (24 assertions). |
 | 014 | Decommission testing scope | review | post-Gate-5 | Q-014 resolution: test gates (require_root + SOVEREIGN_OS_CONFIRM_DESTROY env + interactive confirm + idempotency) not destruction. CI gate `test_decommission_gates.sh` (12 assertions). |
+| 015 | Secure-boot posture | review | post-Gate-5 | Q-006 resolution: 3-level posture (none/shim/signed) declared per profile; operator-supplied keys (never in-repo); preflight-tpm + 08-image-sign as the only gates. TPM2 PCR binding partial (PCR-7 + PCR-11 prescribed; disk-encryption binding deferred). Q15-A..Q15-C open. |
 
 ## Slots reserved for Stage 2 onwards (preview, non-binding)
 
