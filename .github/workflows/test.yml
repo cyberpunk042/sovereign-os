@@ -310,6 +310,9 @@ jobs:
       - name: nspawn — selfdef-modules-gate (Round 170: selfdef SD-R14+R15 cross-repo mirror)
         run: |
           tests/nspawn/test_selfdef_modules_gate.sh
+      - name: nspawn — thermal-watch (Round 172: per-profile thermal thresholds + OCSF events)
+        run: |
+          tests/nspawn/test_thermal_watch.sh
       - name: nspawn — secure-boot gen-keys (Round 143: F-05 MED closure — operator-owned key generation)
         run: |
           tests/nspawn/test_secure_boot_gen_keys.sh

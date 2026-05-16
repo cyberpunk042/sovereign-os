@@ -1,0 +1,28 @@
+[Unit]
+Description=sovereign-os thermal-watch — per-sensor thermal threshold check (R172)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/recurrent/thermal-watch.sh
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/sovereign-os/scripts/hooks/recurrent/thermal-watch.sh
+TimeoutStartSec=30s
+StandardOutput=journal
+StandardError=journal
+# Reads /sys/class/hwmon + invokes nvidia-smi; writes textfile collector
+# .prom + JSONL events file under /var/lib/sovereign-os/events/.
+# R171 defense-in-depth (Layer 1 lint enforced)
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+ReadWritePaths=/var/lib/sovereign-os /var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true

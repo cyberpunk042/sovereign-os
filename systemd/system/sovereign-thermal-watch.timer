@@ -1,0 +1,18 @@
+[Unit]
+Description=5-minute thermal-watch tick (R172)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hardware/thermal-watch.py
+
+[Timer]
+# Run 30 seconds after boot, then every 5 minutes. The 5-minute cadence
+# is a balance between catching thermal events early enough to react +
+# avoiding I/O storms from frequent nvidia-smi spawns under sustained
+# inference load.
+OnBootSec=30s
+OnUnitActiveSec=5min
+RandomizedDelaySec=15s
+AccuracySec=10s
+Persistent=true
+Unit=sovereign-thermal-watch.service
+
+[Install]
+WantedBy=timers.target
