@@ -48,12 +48,12 @@ surfaces:
 
   /etc/os-release:
     strategy: template-substitution
-    template: templates/os-release.tmpl
+    template: default/templates/os-release.tmpl
     when: pre-build
 
   /usr/lib/os-release:
     strategy: template-substitution
-    template: templates/os-release.tmpl
+    template: default/templates/os-release.tmpl
     when: pre-build
 
   /etc/issue:
@@ -105,12 +105,12 @@ surfaces:
 
   plymouth-theme:
     strategy: file-overlay
-    overlay: overlays/plymouth-theme/
+    overlay: default/overlays/plymouth-theme/
     when: pre-build
 
   grub-theme:
     strategy: file-overlay
-    overlay: overlays/grub-theme/
+    overlay: default/overlays/grub-theme/
     when: pre-build
 
   plymouth-alternative:
@@ -137,7 +137,7 @@ surfaces:
     strategy: install-time-substitution
     operation: template-substitute
     target: installer/welcome.txt
-    template: templates/installer-welcome.tmpl
+    template: default/templates/installer-welcome.tmpl
     when: during-install
 
   first-boot-greeting:
