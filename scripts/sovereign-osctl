@@ -72,6 +72,7 @@ COMMANDS:
   audit friction               Runtime friction-audit (lspci/lscpu/IOMMU)
   audit perimeter              Perimeter integrity (Tetragon policy)
   audit storage                ZFS pool + dataset health
+  audit provenance [<path>]    Inspect build-provenance.json + cross-check sha256sums.txt
 
   maintenance scrub            Trigger ZFS scrub now
   maintenance arc-status       Show ZFS ARC stats
@@ -441,6 +442,82 @@ cmd_audit() {
       else
         echo "zfs not installed"
       fi
+      ;;
+    provenance)
+      # SDD-019: verify build-provenance.json against sha256sums.txt.
+      # Accepts a manifest path or auto-discovers from common locations.
+      local manifest="${1:-}"
+      if [ -z "${manifest}" ]; then
+        for candidate in \
+          "/var/lib/sovereign-os/build-provenance.json" \
+          "${SOVEREIGN_OS_IMAGE_DIR:-/no-such-path}/build-provenance.json" \
+          "${HOME}/.sovereign-os/build-state/build-provenance.json"; do
+          if [ -f "${candidate}" ]; then
+            manifest="${candidate}"
+            break
+          fi
+        done
+      fi
+      if [ -z "${manifest}" ] || [ ! -f "${manifest}" ]; then
+        log_error "no build-provenance.json found"
+        log_error "  pass path: sovereign-osctl audit provenance <path>"
+        log_error "  or set SOVEREIGN_OS_IMAGE_DIR to the directory containing it"
+        return 1
+      fi
+      local sums="$(dirname "${manifest}")/sha256sums.txt"
+      log_info "manifest: ${manifest}"
+      [ -f "${sums}" ] && log_info "sha256sums: ${sums}" || log_warn "sha256sums.txt absent — content-verify skipped"
+      python3 - "${manifest}" "${sums:-/dev/null}" <<'PY'
+import json, sys, hashlib, pathlib
+manifest_path = pathlib.Path(sys.argv[1])
+sums_path = pathlib.Path(sys.argv[2]) if sys.argv[2] != '/dev/null' else None
+data = json.loads(manifest_path.read_text())
+
+# Header
+print(f"  _type:         {data.get('_type', '?')}")
+print(f"  predicateType: {data.get('predicateType', '?')}")
+subjects = data.get('subject') or []
+print(f"  subjects:      {len(subjects)} artifact(s)")
+
+# Pretty-print externalParameters
+ext = (data.get('predicate', {})
+            .get('buildDefinition', {})
+            .get('externalParameters', {}))
+if ext:
+    print("  build inputs:")
+    for k, v in sorted(ext.items()):
+        v_disp = v if v else '<unset>'
+        print(f"    {k:24s} {v_disp}")
+
+# Cross-check against sha256sums.txt if present
+if sums_path and sums_path.exists():
+    declared = {s['name']: s['digest']['sha256'] for s in subjects}
+    sums = {}
+    for line in sums_path.read_text().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        digest, _, name = line.partition('  ')
+        if name.startswith('./'):
+            name = name[2:]
+        sums[name] = digest
+    mismatches = []
+    missing_in_sums = []
+    for name, sha in declared.items():
+        if name not in sums:
+            missing_in_sums.append(name)
+        elif sums[name] != sha:
+            mismatches.append((name, sums[name], sha))
+    if mismatches:
+        print(f"  ✗ {len(mismatches)} digest mismatch(es):")
+        for name, expected, actual in mismatches[:5]:
+            print(f"    {name}: sha256sums={expected[:12]}…  manifest={actual[:12]}…")
+        sys.exit(2)
+    elif missing_in_sums:
+        print(f"  ! {len(missing_in_sums)} subject(s) not in sha256sums.txt (subset audit ok)")
+    else:
+        print(f"  ✓ all {len(declared)} subject digests match sha256sums.txt")
+PY
       ;;
     *)
       log_error "unknown audit subcommand: ${sub}"
