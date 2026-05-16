@@ -295,6 +295,9 @@ jobs:
       - name: nspawn — perimeter check-overlap (Round 165: selfdef SDD-015 cross-repo mirror per Q15-C)
         run: |
           tests/nspawn/test_perimeter_check_overlap.sh
+      - name: nspawn — bootstrap hardware-match (Round 166: selfdef SDD-017 Sain01Match cross-repo mirror)
+        run: |
+          tests/nspawn/test_bootstrap_hardware_match.sh
       - name: nspawn — secure-boot gen-keys (Round 143: F-05 MED closure — operator-owned key generation)
         run: |
           tests/nspawn/test_secure_boot_gen_keys.sh

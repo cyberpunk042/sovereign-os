@@ -3005,6 +3005,18 @@ cmd_bootstrap() {
       fi
       exec "${phases_script}" "$@"
       ;;
+    hardware-match)
+      # R166: cross-repo mirror of selfdef SDD-017 Sain01Match.
+      # Same logic, same dimensions, same exit codes — operators can
+      # ask "is THIS box the SAIN-01 spec?" from either CLI.
+      local match_script
+      match_script="$(dirname "${BASH_SOURCE[0]}")/hardware/sain01-match.py"
+      if [ ! -x "${match_script}" ]; then
+        log_error "hardware match script missing or not executable: ${match_script}"
+        return 1
+      fi
+      exec python3 "${match_script}" "$@"
+      ;;
     -h|--help|help)
       cat <<EOF
 sovereign-osctl bootstrap — Master Bootstrap Verification + Pipeline surface
@@ -3022,6 +3034,13 @@ Subverbs:
       I    Minimal Trixie Base
       II   Zen 5 Kernel Compilation
       III  Storage Layer + DKMS (ZFS)
+
+  hardware-match [--json] [--verdict-only]
+    Cross-repo mirror of selfdef SDD-017 Sain01Match (R166):
+    probe CPU/memory/GPU/PCIe/motherboard and report the 5-dimensional
+    fitness verdict (FullMatch / PartialMatch / NoMatch) against the
+    SAIN-01 hardware spec. Same logic as selfdef-side; exit 0 on
+    Full/Partial, 2 on NoMatch.
       IV   Container + Network Edge Isolation
       V    Tetragon + Guardian + State Fabric
 
