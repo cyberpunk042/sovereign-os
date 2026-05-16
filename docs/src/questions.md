@@ -16,7 +16,7 @@ at a specific PR and produces a `D-NNN` entry in the decisions log.
 | Q-004 | Legal scope (public-distributable vs internal) | PR 7/8 → Gate 4 | open |
 | Q-005 | ZFS root layout details | Stage 2+ | **resolved (SDD-017, 2026-05-16)** — tank/single pool, raid0 across dual NVMe-PCIe-5, 3 tiered datasets with explicit recordsize/compression/sync; durability via copies=2 on state-fabric |
 | Q-006 | Secure-boot posture | Stage 2+ | **resolved (SDD-015, 2026-05-16)** — 3-level posture (none/shim/signed) per-profile; operator-supplied keys; preflight-tpm + 08-image-sign as the only gates |
-| Q-007 | Kernel choice (stock · custom-tuned) | Stage 2+ | open |
+| Q-007 | Kernel choice (stock · custom-tuned) | Stage 2+ | **resolved (SDD-018, 2026-05-16)** — dual strategy: sain-01 = kernel.org-stable custom Zen-5-tuned; old-workstation + minimal = substrate-default |
 | Q-008 | Installer experience (debian-installer · Calamares · custom TUI · image-only) | Stage 2+ | **resolved (SDD-013, 2026-05-16)** — image-only + cloud-init/preseed pre-supplied answers; no installer UI |
 | Q-009 | SAIN-01 hardware procurement timeline | operator-side | open |
 | Q-010 | CI infrastructure (GHA · self-hosted) | PR 3 + PR 10 | open |

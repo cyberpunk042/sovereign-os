@@ -468,6 +468,39 @@ topology (raid0 → raidz1) requires destroy+recreate. Per-dataset
 parameters (recordsize/compression) can be tuned in-place via zfs set.
 **Linked**: direct-to-main commit on 2026-05-16.
 
+### D-010 — 2026-05-16 — Kernel choice: dual strategy per profile (sain-01 custom-tuned; others substrate-default) (Q-007 resolved)
+
+**Decision**: Profile decides kernel source. **sain-01** =
+`kernel.org-stable` (≥ 6.12) custom-built with `-march=znver5` +
+AVX-512 codegen + ATLANTIC (Marvell 10 GbE) + ZFS + VFIO_PCI +
+SECURITY_BPF_LSM (Tetragon kernel-LSM perimeter) compiled in.
+**old-workstation + minimal** = `substrate-default` (Debian
+linux-image-amd64). Build pipeline steps 02 (kernel-fetch), 03
+(kernel-config), 04 (kernel-compile) only run for custom-tuned
+profiles; substrate-default profiles skip them (substrate adapter
+pulls the kernel from the Debian archive).
+**Question**: Q-007 — kernel choice: stock vs custom-tuned.
+**Source**: `docs/sdd/018-kernel-choice.md`;
+`profiles/*.yaml` § kernel block;
+`scripts/build/02-kernel-fetch.sh`, `03-kernel-config.sh`,
+`04-kernel-compile.sh`.
+**Rationale**: sain-01's hardware (9900X Zen 5 + AVX-512 VNNI/bf16)
+benefits measurably from -march=znver5 codegen on the BitNet ternary
+path. Tetragon kernel-LSM perimeter needs SECURITY_BPF_LSM which is
+off in Debian's stable kernel. Operator-owned signing chain (SDD-015
+posture=signed) is cleanest when we own every byte. For
+old-workstation + minimal there's no tuning win and substrate-managed
+reduces maintenance — security patches, ABI compat, module signing
+all handled by Debian. Schema enum already supports both — additive.
+**Affected items**: `docs/sdd/018-kernel-choice.md`;
+no profile changes (declarations already match); future Stage-2+
+patch to short-circuit steps 02-04 at the step-script level for
+substrate-default profiles (Q18-A tracked).
+**Reversibility**: fully-reversible per-profile — switching a profile
+from custom → substrate-default removes the build cost; switching the
+other way adds it.
+**Linked**: direct-to-main commit on 2026-05-16.
+
 ---
 
 ## Cross-references
