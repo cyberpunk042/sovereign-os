@@ -632,6 +632,82 @@ TPM binding is in-place via systemd-cryptenroll / zfs change-key.
 
 ---
 
+### D-015 — 2026-05-16 — Operator-derived alerts: in-tree 6-rule engine over Layer B; no Alertmanager (codifies Rounds 89-90; SDD-023)
+
+**Decision**: Operators must be able to answer "is anything wrong
+right now?" without standing up Prometheus + Alertmanager + rules.yml
++ notification chain. Sovereign-os ships an in-tree rules engine that
+reads ONLY `${SOVEREIGN_OS_METRICS_DIR}/sovereign-os-*.prom` and emits
+ALERT/WARN entries with remediation hints. Six canonical rules cover:
+failing build/install/hook steps, friction-audit failures, perimeter
+inactivity, ZFS pool degradation, pending security updates, and stale
+recurrent-timer last-run timestamps. Operators access via
+`sovereign-osctl alerts` (human + `--json`),
+`sovereign-osctl maintenance alerts-check` (on-demand re-run), and
+the hourly `sovereign-alerts-check.timer` which also emits
+meta-counters back into Layer B (alert volume becomes a time-series).
+**Why**: "Reach our ultimate sovereignty" (operator verbatim,
+sacrosanct) — alerting without third-party SaaS is non-negotiable.
+Two levels (ALERT/WARN) keep the operator mental model small. The
+meta-observability rule EXCLUDES `sovereign_os_meta_*` metrics from
+rule application — prevents self-reinforcing alert loops.
+**Affected items**: `scripts/sovereign-osctl` cmd_alerts (Round 89);
+`scripts/hooks/recurrent/alerts-check.sh` + `systemd/system/sovereign-
+alerts-check.{service,timer}` (Round 90); `docs/sdd/023-alerts-contract.md`
+(Round 94); `docs/observability/dashboards/README.md` (Round 87 51-metric
+inventory); `docs/src/install-runbook.md` § 5b (Round 92);
+`docs/handoff/003-operator-observability-arc.md` (Round 93).
+Layer 3: `test_sovereign_osctl_alerts.sh` 13 assertions +
+`test_alerts_check_hook.sh` 15 assertions. Layer 1 lockstep lints
+(`test_metric_inventory_lockstep.py` + `test_hook_layer_b_coverage.py`)
+ensure the contract cannot silently drift.
+**Reversibility**: high — rules + levels are code; replacing the engine
+with Prometheus + Alertmanager (or adding as a parallel path) requires
+no schema changes. Operators wanting custom rules already run their own
+Prometheus stack. Q23-A..Q23-D sub-questions tracked in SDD-023.
+**Linked**: direct-to-main commit (Round 94) on 2026-05-16.
+
+---
+
+### D-016 — 2026-05-16 — Headless server hardening: actual IaC drop-ins for auditd + fail2ban + unattended-upgrades (Round 96)
+
+**Decision**: The role-server mixin installed auditd, fail2ban, and
+unattended-upgrades as packages but left their config at stock Debian
+defaults — operator-facing docs advertised hardening that runtime
+reality did not deliver. Sovereign-os now ships three opinionated
+drop-in files (`config/server/{auditd.rules, fail2ban-jail.local,
+unattended-upgrades.conf}`) deployed at first-boot by
+`scripts/hooks/post-install/apply-server-hardening.sh` on profiles
+whose mixin chain includes role-server.
+**Why**: "we always deliver IaC" (operator verbatim, sacrosanct).
+Hardened packages without hardened config are theater. The three
+drop-ins encode load-bearing invariants:
+  • auditd: -e 2 immutable ruleset + -f 2 panic on loss + watches on
+    sovereign-os surfaces + tetragon perimeter + auth surfaces
+  • fail2ban: nftables (no iptables fallback) + systemd journal
+    backend + aggressive sshd jail + 1-week recidive for repeat
+    offenders
+  • unattended-upgrades: ONLY Debian-Security origin auto-applied
+    (main-channel commented for operator opt-in) +
+    Automatic-Reboot=false (operator owns reboot windows)
+**Affected items**: `config/server/*` (3 files);
+`scripts/hooks/post-install/apply-server-hardening.sh`;
+`profiles/headless.yaml` § post_install_first_boot;
+`docs/observability/dashboards/README.md` (inventory +2 metrics);
+`tests/lint/test_server_hardening_config.py` (6 invariant assertions);
+`tests/nspawn/test_apply_server_hardening.sh` (11 assertions). Layer 1
+lint pins the invariants — silent weakening of hardening posture
+in a future PR fails CI.
+**Reversibility**: high — drop-ins are operator-overridable. Operators
+write `/etc/audit/rules.d/zz-operator.rules` (lexicographically AFTER
+sovereign-os.rules), `/etc/fail2ban/jail.d/zz-operator.local`, or
+`/etc/apt/apt.conf.d/99operator-unattended.conf` to override per-host.
+Removing the hardening entirely requires `# HARDENING-WAIVER:` comment
++ a CI-visible diff.
+**Linked**: direct-to-main commit (Round 96) on 2026-05-16.
+
+---
+
 ## Cross-references
 
 - Charter: `docs/sdd/000-charter.md`
