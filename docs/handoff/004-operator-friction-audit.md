@@ -112,7 +112,16 @@ copies the base, updates identity.id + sets `parent: <base-id>` for
 inheritance traceability, validates immediately, registers in
 `profiles/INDEX.md`.
 
-### F-05 — MED — No secure-boot key-generation helper
+### F-05 — MED — No secure-boot key-generation helper  ✅ **CLOSED (Round 143)**
+
+`sovereign-osctl secure-boot {gen-keys, status}` shipped.
+`gen-keys --out <dir> [--cn <name>]` generates 4096-bit RSA / 10-year
+PK + KEK + db triple via openssl; emits .key/.crt/.cer (and .esl/.auth
+if efitools present); 0600 perms on private keys; writes README.md
+with SDD-015 enrollment contract + backup discipline + efi-updatevar
++ sbsign recipes. HARD REFUSAL if --out is under repo root (operator-
+supplied keys MUST NOT live in-repo per SDD-015). `status` surfaces
+UEFI / SecureBoot / MOK state. 25-assertion L3.
 
 **Where**: SDD-015 says operator-supplied keys (never in-repo). What
 operator manually runs `openssl + sbsigntools` to produce PK/KEK/db?
