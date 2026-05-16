@@ -1,0 +1,120 @@
+"""vLLM adapter — Logic Engine (3090 VFIO) + Oracle Core (Blackwell).
+
+Per SDD-011 + E109 (DFlash integration): vLLM v0.20.1+ pinned.
+DFlash speculative-decoding drafts wired when the target model has a
+pre-trained DFlash checkpoint on Z-Lab's HuggingFace org.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from lib.backend import Backend, BackendConfig  # noqa: E402
+
+
+class VllmBackend(Backend):
+    name = "vllm"
+    tier = "logic_engine"  # or "oracle_core" — operator picks via tier= arg
+
+    MIN_VERSION = "0.20.1"  # required for DFlash
+
+    def __init__(
+        self,
+        config: BackendConfig,
+        *,
+        tier: str = "logic_engine",
+        tensor_parallel_size: int = 1,
+        dflash_draft_model: str | None = None,
+        kv_cache_dtype: str = "auto",  # "fp8" for Blackwell deep-context per L0
+        gpu_memory_utilization: float = 0.92,
+    ):
+        super().__init__(config)
+        self.tier = tier
+        self.tensor_parallel_size = tensor_parallel_size
+        self.dflash_draft_model = dflash_draft_model
+        self.kv_cache_dtype = kv_cache_dtype
+        self.gpu_memory_utilization = gpu_memory_utilization
+
+    def start_command(self) -> list[str]:
+        argv: list[str] = []
+
+        # Podman wrapping for VFIO-isolated 3090 (Logic Engine);
+        # native for Blackwell (Oracle Core).
+        if self.config.podman:
+            argv += [
+                "podman", "run", "--rm",
+                "--device", "nvidia.com/gpu=all",
+                "--security-opt=label=disable",
+                "-v", "/mnt/vault/models:/models:ro",
+                "-p", f"{self.config.port}:{self.config.port}",
+                "--name", f"vllm-{self.tier}",
+                "vllm/vllm-openai:latest",
+            ]
+        else:
+            argv += ["python3", "-m", "vllm.entrypoints.openai.api_server"]
+
+        argv += [
+            "--model", self.config.model_path,
+            "--host", self.config.host,
+            "--port", str(self.config.port),
+            "--tensor-parallel-size", str(self.tensor_parallel_size),
+            "--gpu-memory-utilization", str(self.gpu_memory_utilization),
+        ]
+
+        if self.kv_cache_dtype != "auto":
+            argv += ["--kv-cache-dtype", self.kv_cache_dtype]
+
+        # DFlash speculative decoding (E109) — only when a draft checkpoint
+        # is supplied; vLLM 0.20.1+ understands the speculative-config flag
+        if self.dflash_draft_model:
+            argv += [
+                "--speculative-config",
+                f'{{"model": "{self.dflash_draft_model}", "method": "dflash"}}',
+            ]
+
+        argv += self.config.extra_args
+        return argv
+
+    def health_url(self) -> str:
+        return f"http://{self.config.host}:{self.config.port}/v1/models"
+
+    @classmethod
+    def for_logic_engine(cls, model_path: str) -> "VllmBackend":
+        cfg = BackendConfig(
+            model_path=model_path,
+            host="127.0.0.1",
+            port=8082,
+            podman=True,
+            # 3090 is VFIO-bound; podman injects it as the only visible GPU
+            cuda_visible_devices="0",
+        )
+        return cls(cfg, tier="logic_engine", tensor_parallel_size=1)
+
+    @classmethod
+    def for_oracle_core(
+        cls,
+        model_path: str,
+        *,
+        dflash_draft_model: str | None = None,
+        kv_cache_dtype: str = "fp8",
+    ) -> "VllmBackend":
+        cfg = BackendConfig(
+            model_path=model_path,
+            host="127.0.0.1",
+            port=8083,
+            podman=False,
+            # Blackwell is host-resident; assumes index 0 after VFIO
+            # claims the 3090 (which lives in a separate IOMMU group).
+            cuda_visible_devices="0",
+        )
+        return cls(
+            cfg,
+            tier="oracle_core",
+            tensor_parallel_size=1,
+            dflash_draft_model=dflash_draft_model,
+            kv_cache_dtype=kv_cache_dtype,
+            gpu_memory_utilization=0.92,
+        )

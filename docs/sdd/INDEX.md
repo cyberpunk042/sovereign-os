@@ -17,6 +17,7 @@ Numbering is three-digit zero-padded, never recycled.
 | 008 | TDD harness specification | review | PR 9 | 5-layer pyramid; CI for Layer 1; substantive Layer 3/4/5 added alongside script bodies at Stage 2+. Q9-A..Q9-E open. |
 | 009 | TDD harness bootstrap | accepted | PR 10 | Layer 1 schema + lint pytest + shellcheck CI shipped; chroot/nspawn/qemu scaffolds present; substantive Layer 3+ at Stage 2+. |
 | 010 | Stage-2 stub | scoping | post-Gate-5 | Build pipeline + hooks + render engine + sovereign-osctl already on main. Subsequent Stage-2 rounds deferred items documented. |
+| 011 | Inference backend stack | review | post-Gate-5 | Q-017 resolution path: direct-stack architecture (vLLM + bitnet.cpp + llama.cpp, no unifying abstraction); scripts/inference/ scaffold shipped (router + 3 backends + 3 start scripts). Q11-A..Q11-E open. |
 
 ## Slots reserved for Stage 2 onwards (preview, non-binding)
 
