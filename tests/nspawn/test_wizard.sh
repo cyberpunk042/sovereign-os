@@ -100,6 +100,42 @@ TMP_FAKE_FILES_AFTER="$(ls -la /tmp /var/tmp 2>/dev/null | wc -l)"
 # because parallel processes may create temp files.
 ok "wizard pure-read invocation completes without error"
 
+# ---------- R186: per-profile selfdef module recommendations ----------
+grep -q "R186" "${SCRIPT}" \
+  && ok "wizard carries R186 marker" \
+  || ko "R186 marker missing"
+set +e
+out_full="$(python3 "${SCRIPT}" --json 2>&1)"
+set -e
+if python3 -c "
+import json
+d = json.loads('''${out_full}''')
+rec = d['recommendation']
+assert 'selfdef_module_recommendations' in rec, 'missing R186 field'
+assert isinstance(rec['selfdef_module_recommendations'], list)
+" 2>/dev/null; then
+  ok "--json carries selfdef_module_recommendations array"
+else
+  ko "R186 JSON field missing"
+fi
+
+# When the wizard's recommendation includes any modules, the human
+# output should surface a "Step 3.5" block with the copy-paste hint.
+set +e
+out_h="$(python3 "${SCRIPT}" 2>&1)"
+set -e
+# On a CPU with AVX-512 (which CI runners often have), at least
+# hardware-tune-cache should appear; on minimal hosts the block is
+# absent. Either way the test must not crash — assert that IF the
+# block appears, it carries the section heading + a [modules.…] line.
+if grep -q "Step 3.5: Recommended selfdef modules" <<< "${out_h}"; then
+  grep -q "\[modules\." <<< "${out_h}" \
+    && ok "Step 3.5 block: copy-paste [modules.X] line present" \
+    || ko "Step 3.5 section without copy-paste line"
+else
+  ok "(Step 3.5 absent — host doesn't trigger any recommendations; informational)"
+fi
+
 echo
 total=$((pass + fail))
 echo "test_wizard: ${pass}/${total} passed"

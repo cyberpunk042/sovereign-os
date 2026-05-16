@@ -151,10 +151,36 @@ def recommend_profile(probe: dict) -> dict:
             " adaptive AVX-512 flags in sovereign-os wasm-aot + build-bitnet",
         )
 
+    # R186: per-profile selfdef-module recommendations. Same matrix
+    # as R185 (sovereign-osctl install suggest-modules) but inlined
+    # here so the wizard surfaces it in one shot. Operator runs the
+    # wizard once → gets profile + module recommendations + cross-repo
+    # guidance, no follow-up command needed.
+    has_vnni = bool(cpu.get("avx512_vnni", False))
+    has_avx512 = bool(cpu.get("avx512_present", False)) or has_vnni
+    selfdef_modules: list[str] = []
+    if profile == "sain-01":
+        if has_avx512:
+            selfdef_modules.append("hardware-tune-cache")
+        if has_avx512 and gpu_count >= 1:
+            selfdef_modules.append("bitnet-gpu-inference")
+    elif profile in ("developer", "headless"):
+        if has_avx512:
+            selfdef_modules.append("hardware-tune-cache")
+    # minimal / old-workstation get no selfdef modules
+    if selfdef_modules:
+        # Surface as copy-paste hints in next_steps. Use separate
+        # list entries (no embedded \n) so JSON consumers can parse
+        # without unescaping multi-line strings.
+        next_steps.append("# (optional) add to /etc/selfdef/modules.toml:")
+        for m in selfdef_modules:
+            next_steps.append(f"#   [modules.{m}]")
+
     return {
         "recommended_profile": profile,
         "rationale": rationale,
         "selfdef_capabilities_present": selfdef_caps_present,
+        "selfdef_module_recommendations": selfdef_modules,
         "next_steps": next_steps,
     }
 
@@ -201,6 +227,18 @@ def render_human(probe: dict, rec: dict) -> str:
         )
         out.append("  wasm-aot + build-bitnet (R167 + R168).")
     out.append("")
+    # R186: selfdef module recommendations inline.
+    mods = rec.get("selfdef_module_recommendations") or []
+    if mods:
+        out.append("## Step 3.5: Recommended selfdef modules (R186)")
+        out.append("  Based on your profile + probed hardware, these")
+        out.append("  selfdef modules will land on this host:")
+        for m in mods:
+            out.append(f"    • {m}")
+        out.append("  Copy this block into /etc/selfdef/modules.toml:")
+        for m in mods:
+            out.append(f"    [modules.{m}]")
+        out.append("")
     out.append("## Step 4: Next steps")
     for s in rec["next_steps"]:
         out.append(f"  $ {s}")
