@@ -84,6 +84,9 @@ jobs:
         run: |
           tests/nspawn/test_mkosi_adapter.sh sain-01
           tests/nspawn/test_mkosi_adapter.sh old-workstation
+      - name: nspawn — live-build adapter (ALT-A substrate + substrate-agnosticism)
+        run: |
+          tests/nspawn/test_live_build_adapter.sh sain-01
 
   shellcheck:
     name: shellcheck
