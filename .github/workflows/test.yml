@@ -199,6 +199,9 @@ jobs:
       - name: nspawn — Makefile end-to-end execution (Round 76: make-target runs)
         run: |
           tests/nspawn/test_makefile_execution.sh
+      - name: nspawn — sovereign-osctl lib-path detection (Round 82: 5-candidate lookup)
+        run: |
+          tests/nspawn/test_sovereign_osctl_lib_paths.sh
 
   shellcheck:
     name: shellcheck
