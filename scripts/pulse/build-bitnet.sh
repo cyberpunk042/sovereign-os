@@ -105,10 +105,34 @@ else
   fi
 
   # ---- configure with znver5 + AVX-512 flags (master spec § 16) ----
-  log_info "configuring with -march=znver5 + AVX-512 flags..."
+  # R168: when the selfdef SD-R10 hardware-capabilities.json is
+  # present, derive CFLAGS from it (recommended_march +
+  # recommended_compile_flags) instead of the hardcoded znver5
+  # default. Operator can override by setting BITNET_CFLAGS explicitly.
+  : "${BITNET_CAPABILITIES_FILE:=/var/lib/selfdef/hardware-capabilities.json}"
+  if [ -z "${BITNET_CFLAGS:-}" ] && [ -f "${BITNET_CAPABILITIES_FILE}" ]; then
+    derived="$(python3 - "${BITNET_CAPABILITIES_FILE}" <<'PYEOF' 2>/dev/null
+import json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+    cpu = d.get("cpu", {})
+    march = cpu.get("recommended_march", "")
+    flags = cpu.get("recommended_compile_flags", []) or []
+    if march and march != "native":
+        print(f"-march={march} -O3 " + " ".join(flags))
+except Exception:
+    pass
+PYEOF
+)"
+    if [ -n "${derived}" ]; then
+      log_info "R168: deriving CFLAGS from selfdef HardwareCapabilities (${BITNET_CAPABILITIES_FILE})"
+      BITNET_CFLAGS="${derived}"
+    fi
+  fi
+  : "${BITNET_CFLAGS:=-march=znver5 -O3 -mavx512f -mavx512dq -mavx512bw -mavx512vl -mavx512bf16 -mavx512fp16}"
+  log_info "configuring with CFLAGS=${BITNET_CFLAGS}"
   cd "${BITNET_BUILD_DIR}/BitNet"
-  # Master spec § 2.2 + § 9.1 verbatim compile flags
-  export CFLAGS="-march=znver5 -O3 -mavx512f -mavx512dq -mavx512bw -mavx512vl -mavx512bf16 -mavx512fp16"
+  export CFLAGS="${BITNET_CFLAGS}"
   export CXXFLAGS="${CFLAGS}"
   export GGML_AVX512=1
   export GGML_AVX512_VBMI=1
