@@ -1,0 +1,22 @@
+NAME="${os_name}"
+PRETTY_NAME="${os_pretty_name}"
+ID=${os_id}
+ID_LIKE=debian
+VERSION="${os_version} (${os_codename})"
+VERSION_ID="${os_version}"
+VERSION_CODENAME=${os_codename}
+HOME_URL="${home_url}"
+SUPPORT_URL="${support_url}"
+BUG_REPORT_URL="${bug_report_url}"
+DOCUMENTATION_URL="${documentation_url}"
+VENDOR_NAME="${vendor}"
+VENDOR_URL="${home_url}"
+
+# This file is rendered by sovereign-os whitelabel render.py per
+# SDD-007 (template-substitution strategy). Variables ${var} come
+# from whitelabel/<id>.yaml's `branding:` block.
+#
+# Provenance preserved: ID_LIKE=debian signals downstream tools
+# (apt, snap, lsb, etc.) that this is a Debian derivative. The
+# /etc/debian_version file is preserved untouched per SDD-006 legal
+# floor.

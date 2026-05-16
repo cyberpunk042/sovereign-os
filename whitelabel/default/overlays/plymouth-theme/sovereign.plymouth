@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=Sovereign
+Description=sovereign-os boot splash (placeholder pending Q-003 brand identity)
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/sovereign
+ScriptFile=/usr/share/plymouth/themes/sovereign/sovereign.script

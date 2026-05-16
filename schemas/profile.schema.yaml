@@ -267,8 +267,6 @@ properties:
             - { $ref: "#/$defs/hook" }
             - type: object
               required: [schedule]
-              properties:
-                schedule: { type: string }
       decommission: { $ref: "#/$defs/hookList" }
 
   lifecycle:
@@ -333,9 +331,12 @@ $defs:
         pattern: '^[a-z0-9][a-z0-9-]*$'
       type:
         type: string
-        enum: [validation, setup, security, network, interactive, maintenance, cleanup]
+        enum: [validation, setup, security, secure-boot, network, interactive, maintenance, cleanup]
       script: { type: string }
       mandatory: { type: boolean }
+      schedule:
+        type: string
+        description: Only meaningful for post_install_recurrent hooks; ignored elsewhere.
   hookList:
     type: array
     items: { $ref: "#/$defs/hook" }

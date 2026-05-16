@@ -1,0 +1,38 @@
+# sovereign-os GRUB theme — minimal placeholder pending Q-003 brand.
+# Replace with real theme + background asset when brand identity lands.
+
+title-text: "Sovereign OS"
+title-color: "#d8d8e0"
+title-font: "DejaVu Sans Bold 18"
+desktop-color: "#0c0c12"
+message-color: "#a8a8b0"
+message-font: "DejaVu Sans 12"
+terminal-box: "terminal_box_*.png"
+terminal-font: "DejaVu Sans Mono 10"
+
++ boot_menu {
+    left = 15%
+    top = 25%
+    width = 70%
+    height = 50%
+    item_font = "DejaVu Sans 14"
+    item_color = "#c8c8d0"
+    selected_item_color = "#ffffff"
+    item_height = 28
+    item_padding = 8
+    item_spacing = 0
+    selected_item_pixmap_style = "select_*.png"
+}
+
++ vbox {
+    left = 50%-200
+    top = 80%
+    width = 400
+    align = "center"
+
+    + label {
+        text = "Use ↑↓ to select; press Enter to boot."
+        font = "DejaVu Sans 12"
+        color = "#a8a8b0"
+    }
+}
