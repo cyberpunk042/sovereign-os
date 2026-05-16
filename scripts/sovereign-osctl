@@ -1,0 +1,531 @@
+#!/usr/bin/env bash
+# scripts/sovereign-osctl — lifecycle management CLI for sovereign-os.
+#
+# Q-019 implementation. The operator-facing single-entry-point for
+# managing an installed sovereign-os system.
+#
+# Verbatim operator framing (sacrosanct):
+#   "even once installed and configured it will be possible to manage
+#    the OS like we need to even if we need to add such an additional
+#    tool and even service possibly or even multiple adapted if need be"
+#
+# Designed to be installed at /usr/local/bin/sovereign-osctl on the
+# running system. In-repo it dispatches to scripts/hooks/* via the
+# common lib.
+
+set -euo pipefail
+
+__SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Detect installation context: in-repo vs installed-system
+if [ -f "${__SCRIPT_DIR}/build/lib/common.sh" ]; then
+  # In-repo
+  __REPO_ROOT="${__SCRIPT_DIR}/.."
+  # shellcheck source=./build/lib/common.sh
+  . "${__SCRIPT_DIR}/build/lib/common.sh"
+elif [ -f /usr/lib/sovereign-os/lib/common.sh ]; then
+  # Installed-system
+  __REPO_ROOT="/usr/lib/sovereign-os"
+  # shellcheck source=/dev/null
+  . /usr/lib/sovereign-os/lib/common.sh
+else
+  echo "error: sovereign-osctl can't locate its lib (tried in-repo + /usr/lib/sovereign-os/)" >&2
+  exit 1
+fi
+
+: "${SOVEREIGN_OS_PROFILE:=$(cat /etc/sovereign-os/active-profile 2>/dev/null || echo sain-01)}"
+
+# ------------------------------ help -----------------------------------------
+
+cmd_help() {
+  cat <<'EOF'
+sovereign-osctl — sovereign-os lifecycle management
+
+USAGE:
+  sovereign-osctl <command> [<subcommand>] [<args>]
+
+COMMANDS:
+
+  status                       System state overview
+  assistant                    Re-run the first-login assistant
+  doctor                       Sanity checks across the system
+
+  profiles list                List declared profiles
+  profiles show <id>           Print effective profile (with mixins resolved)
+  profiles active              Show active profile id
+  profiles switch <id>         Swap active profile (flags items requiring rebuild)
+
+  whitelabel show              Show active whitelabel branding
+  whitelabel apply <id>        Re-render whitelabel surfaces on the running system
+  whitelabel list              List declared whitelabels
+
+  perimeter status             Tetragon perimeter status
+  perimeter verify             Run perimeter integrity audit
+  perimeter reload             Reload Tetragon TracingPolicies
+
+  models list                  List resident models (tank/models)
+  models pull <hf-id>          Pull model from HuggingFace into tank/models
+  models verify                Verify resident-model integrity (stub; full at Stage 2+)
+
+  audit friction               Runtime friction-audit (lspci/lscpu/IOMMU)
+  audit perimeter              Perimeter integrity (Tetragon policy)
+  audit storage                ZFS pool + dataset health
+
+  maintenance scrub            Trigger ZFS scrub now
+  maintenance arc-status       Show ZFS ARC stats
+
+  decommission start           Begin decommission flow (interactive; confirms)
+
+  version                      sovereign-osctl + sovereign-os version info
+  help                         This help
+
+ENV VARS (override defaults):
+  SOVEREIGN_OS_PROFILE         active profile (default: read from /etc/sovereign-os/active-profile)
+  SOVEREIGN_OS_LOG_LEVEL       debug|info|warn|error
+  SOVEREIGN_OS_NONINTERACTIVE  set to skip all prompts (CI mode)
+
+EXAMPLES:
+  sudo sovereign-osctl status
+  sudo sovereign-osctl assistant
+  sudo sovereign-osctl whitelabel apply default
+  sudo sovereign-osctl models pull microsoft/bitnet-b1.58-2B-4T
+  sudo sovereign-osctl audit friction
+EOF
+}
+
+# ------------------------------ status ---------------------------------------
+
+cmd_status() {
+  echo "sovereign-os status"
+  echo "==================="
+  echo
+  echo "Profile:    ${SOVEREIGN_OS_PROFILE}"
+  if [ -r /etc/os-release ]; then
+    echo "OS release: $(grep PRETTY_NAME /etc/os-release | cut -d= -f2-)"
+  fi
+  echo "Kernel:     $(uname -r)"
+  echo "Uptime:     $(uptime -p 2>/dev/null || uptime)"
+  echo
+
+  # ZFS pool
+  if command -v zpool >/dev/null 2>&1; then
+    echo "[ZFS pool 'tank']"
+    if zpool list tank >/dev/null 2>&1; then
+      zpool list tank
+      echo
+      zfs list -r tank -o name,used,available,refer,mountpoint 2>/dev/null
+    else
+      echo "  pool 'tank' not present"
+    fi
+    echo
+  fi
+
+  # Tetragon
+  if command -v tetragon >/dev/null 2>&1; then
+    echo "[Tetragon]"
+    if systemctl is-active --quiet tetragon; then
+      echo "  status: active"
+    else
+      echo "  status: INACTIVE"
+    fi
+    echo
+  fi
+
+  # GPUs (host-visible)
+  if command -v nvidia-smi >/dev/null 2>&1; then
+    echo "[NVIDIA GPUs (host-visible)]"
+    nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader 2>/dev/null | sed 's/^/  /' || echo "  nvidia-smi present but no GPUs visible (VFIO bound?)"
+    echo
+  fi
+
+  # Network
+  echo "[Network]"
+  ip -brief addr show | grep -v '^lo' | sed 's/^/  /'
+  echo
+
+  # Whitelabel
+  echo "[Whitelabel]"
+  if [ -r /etc/sovereign-os/active-whitelabel ]; then
+    echo "  active: $(cat /etc/sovereign-os/active-whitelabel)"
+  else
+    echo "  active: default (no /etc/sovereign-os/active-whitelabel)"
+  fi
+}
+
+# ------------------------------ doctor ---------------------------------------
+
+cmd_doctor() {
+  echo "sovereign-osctl doctor"
+  echo "======================"
+  echo
+  local issues=0
+
+  # Required tools
+  for tool in zpool zfs tetragon podman nvidia-smi systemctl; do
+    if command -v "${tool}" >/dev/null 2>&1; then
+      echo "  ✓ ${tool} installed"
+    else
+      echo "  ✗ ${tool} NOT installed"
+      issues=$((issues + 1))
+    fi
+  done
+
+  # Systemd units
+  for svc in tetragon systemd-networkd; do
+    if systemctl is-active --quiet "${svc}"; then
+      echo "  ✓ ${svc} active"
+    else
+      echo "  ✗ ${svc} not active"
+      issues=$((issues + 1))
+    fi
+  done
+
+  # ZFS pool
+  if zpool list tank >/dev/null 2>&1; then
+    if zpool status tank | grep -q "state: ONLINE"; then
+      echo "  ✓ tank pool ONLINE"
+    else
+      echo "  ✗ tank pool DEGRADED or UNAVAILABLE"
+      issues=$((issues + 1))
+    fi
+  else
+    echo "  ✗ tank pool not present"
+    issues=$((issues + 1))
+  fi
+
+  echo
+  if [ "${issues}" -eq 0 ]; then
+    echo "doctor: PASS"
+  else
+    echo "doctor: ${issues} issue(s) detected"
+    return 1
+  fi
+}
+
+# ------------------------------ assistant ------------------------------------
+
+cmd_assistant() {
+  SOVEREIGN_OS_ASSISTANT_FORCE=1 "${__REPO_ROOT}/scripts/hooks/post-install/first-login-assistant.sh"
+}
+
+# ------------------------------ profiles -------------------------------------
+
+cmd_profiles() {
+  local sub="${1:-list}"
+  shift || true
+  case "${sub}" in
+    list)
+      echo "Declared profiles:"
+      find "${__REPO_ROOT}/profiles" -maxdepth 1 -name '*.yaml' -type f 2>/dev/null | sort | while read -r p; do
+        local id name status
+        id="$(basename "$p" .yaml)"
+        SOVEREIGN_OS_PROFILE_FILE="$p" name="$(profile_field identity.name 2>/dev/null)"
+        SOVEREIGN_OS_PROFILE_FILE="$p" status="$(profile_field identity.status 2>/dev/null)"
+        printf "  %-20s %-50s [%s]\n" "${id}" "${name}" "${status}"
+      done
+      ;;
+    show)
+      local id="${1:-${SOVEREIGN_OS_PROFILE}}"
+      local f="${__REPO_ROOT}/profiles/${id}.yaml"
+      require_file "$f"
+      cat "$f"
+      ;;
+    active)
+      echo "${SOVEREIGN_OS_PROFILE}"
+      ;;
+    switch)
+      local id="${1:?usage: profiles switch <id>}"
+      local f="${__REPO_ROOT}/profiles/${id}.yaml"
+      require_file "$f"
+      mkdir -p /etc/sovereign-os
+      echo "${id}" > /etc/sovereign-os/active-profile
+      log_info "active profile set to: ${id}"
+      log_warn "NOTE: kernel changes require rebuild; package changes via apt; "
+      log_warn "      hardware changes may require post-install hook re-run."
+      ;;
+    *)
+      log_error "unknown profiles subcommand: ${sub}"
+      cmd_help
+      exit 2
+      ;;
+  esac
+}
+
+# ------------------------------ whitelabel -----------------------------------
+
+cmd_whitelabel() {
+  local sub="${1:-show}"
+  shift || true
+  case "${sub}" in
+    show)
+      local active="default"
+      if [ -r /etc/sovereign-os/active-whitelabel ]; then
+        active="$(cat /etc/sovereign-os/active-whitelabel)"
+      fi
+      local f="${__REPO_ROOT}/whitelabel/${active}.yaml"
+      if [ -r "$f" ]; then
+        echo "active whitelabel: ${active}"
+        echo
+        cat "$f"
+      else
+        echo "active whitelabel: ${active} (file not found at ${f})"
+      fi
+      ;;
+    list)
+      echo "Declared whitelabels:"
+      find "${__REPO_ROOT}/whitelabel" -maxdepth 1 -name '*.yaml' -type f 2>/dev/null | sort | while read -r w; do
+        local id name
+        id="$(basename "$w" .yaml)"
+        name="$(python3 -c "import yaml;d=yaml.safe_load(open('$w'));print(d.get('identity',{}).get('name',''))" 2>/dev/null)"
+        printf "  %-20s %s\n" "${id}" "${name}"
+      done
+      ;;
+    apply)
+      local id="${1:?usage: whitelabel apply <id>}"
+      local wl_file="${__REPO_ROOT}/whitelabel/${id}.yaml"
+      require_file "${wl_file}"
+      local profile_file="${__REPO_ROOT}/profiles/${SOVEREIGN_OS_PROFILE}.yaml"
+      require_file "${profile_file}"
+
+      log_info "applying whitelabel '${id}' to running system"
+      log_warn "  Note: build-time-flag strategies (kernel KBUILD_BUILD_USER etc.)"
+      log_warn "        require kernel rebuild. Only template-substitution +"
+      log_warn "        file-overlay + first-boot-script swap cleanly on running system."
+
+      if ! confirm "Apply whitelabel '${id}' to running system?" default-yes; then
+        log_info "aborted"
+        return 0
+      fi
+
+      # Use render engine in "live-apply" mode (Stage-2+ path; for now,
+      # just re-render and let the orchestrator pick up).
+      python3 "${__REPO_ROOT}/scripts/whitelabel/render.py" \
+        --profile "${profile_file}" \
+        --whitelabel "${wl_file}" \
+        --out "/tmp/sovereign-os-whitelabel-${id}" \
+        --substrate mkosi
+
+      mkdir -p /etc/sovereign-os
+      echo "${id}" > /etc/sovereign-os/active-whitelabel
+
+      # Stage-2+ wires apply-to-running-system; for now, log next steps
+      log_info "render complete to /tmp/sovereign-os-whitelabel-${id}"
+      log_info "  to apply non-rebuild surfaces (os-release, issue, motd):"
+      log_info "    sudo cp /tmp/sovereign-os-whitelabel-${id}/mkosi.skeleton/etc/* /etc/"
+      log_info "  some surfaces (kernel /proc/version) require rebuild."
+      ;;
+    *)
+      log_error "unknown whitelabel subcommand: ${sub}"
+      cmd_help
+      exit 2
+      ;;
+  esac
+}
+
+# ------------------------------ perimeter ------------------------------------
+
+cmd_perimeter() {
+  local sub="${1:-status}"
+  shift || true
+  case "${sub}" in
+    status)
+      if command -v tetragon >/dev/null 2>&1; then
+        if systemctl is-active --quiet tetragon; then
+          echo "tetragon: ACTIVE"
+        else
+          echo "tetragon: INACTIVE"
+        fi
+        echo
+        echo "Loaded policies:"
+        find /etc/tetragon/tracing-policies -name '*.yaml' -type f 2>/dev/null | while read -r p; do
+          echo "  $(basename "$p")"
+        done
+      else
+        echo "tetragon: NOT INSTALLED"
+      fi
+      ;;
+    verify)
+      "${__REPO_ROOT}/scripts/hooks/recurrent/tetragon-policy-verify.sh"
+      ;;
+    reload)
+      require_root
+      log_info "restarting tetragon to reload policies"
+      systemctl restart tetragon
+      systemctl is-active --quiet tetragon && log_info "tetragon active" || log_error "tetragon failed to start"
+      ;;
+    *)
+      log_error "unknown perimeter subcommand: ${sub}"
+      cmd_help
+      exit 2
+      ;;
+  esac
+}
+
+# ------------------------------ models ---------------------------------------
+
+cmd_models() {
+  local sub="${1:-list}"
+  shift || true
+  : "${SOVEREIGN_OS_MODELS_DIR:=/mnt/vault/models}"
+  case "${sub}" in
+    list)
+      if [ ! -d "${SOVEREIGN_OS_MODELS_DIR}" ]; then
+        echo "models dir not present: ${SOVEREIGN_OS_MODELS_DIR}"
+        return 0
+      fi
+      echo "Resident models in ${SOVEREIGN_OS_MODELS_DIR}:"
+      find "${SOVEREIGN_OS_MODELS_DIR}" -maxdepth 2 -type d -mindepth 1 | sort | while read -r d; do
+        local size
+        size="$(du -sh "$d" 2>/dev/null | cut -f1)"
+        printf "  %-50s %s\n" "${d##*/}" "${size}"
+      done
+      ;;
+    pull)
+      local hf_id="${1:?usage: models pull <hf-id> e.g. microsoft/bitnet-b1.58-2B-4T}"
+      log_info "pulling ${hf_id} → ${SOVEREIGN_OS_MODELS_DIR}/$(basename "${hf_id}")"
+      if ! command -v huggingface-cli >/dev/null 2>&1; then
+        log_error "huggingface-cli not installed; pip install huggingface_hub"
+        return 1
+      fi
+      mkdir -p "${SOVEREIGN_OS_MODELS_DIR}"
+      huggingface-cli download "${hf_id}" --local-dir "${SOVEREIGN_OS_MODELS_DIR}/$(basename "${hf_id}")"
+      log_info "model pulled"
+      ;;
+    verify)
+      "${__REPO_ROOT}/scripts/hooks/recurrent/model-catalog-sync.sh"
+      ;;
+    *)
+      log_error "unknown models subcommand: ${sub}"
+      cmd_help
+      exit 2
+      ;;
+  esac
+}
+
+# ------------------------------ audit ----------------------------------------
+
+cmd_audit() {
+  local sub="${1:-friction}"
+  shift || true
+  case "${sub}" in
+    friction)
+      "${__REPO_ROOT}/scripts/hooks/post-install/friction-audit-runtime.sh"
+      ;;
+    perimeter)
+      "${__REPO_ROOT}/scripts/hooks/recurrent/tetragon-policy-verify.sh"
+      ;;
+    storage)
+      if command -v zpool >/dev/null 2>&1; then
+        zpool status -v
+        zpool list
+        zfs list
+      else
+        echo "zfs not installed"
+      fi
+      ;;
+    *)
+      log_error "unknown audit subcommand: ${sub}"
+      cmd_help
+      exit 2
+      ;;
+  esac
+}
+
+# ------------------------------ maintenance ----------------------------------
+
+cmd_maintenance() {
+  local sub="${1:-arc-status}"
+  shift || true
+  case "${sub}" in
+    scrub)
+      "${__REPO_ROOT}/scripts/hooks/recurrent/zfs-scrub.sh"
+      ;;
+    arc-status)
+      if [ -r /proc/spl/kstat/zfs/arcstats ]; then
+        grep -E "^(size|c$|c_min|c_max)" /proc/spl/kstat/zfs/arcstats
+      else
+        echo "ARC stats not available (ZFS not loaded)"
+      fi
+      ;;
+    *)
+      log_error "unknown maintenance subcommand: ${sub}"
+      cmd_help
+      exit 2
+      ;;
+  esac
+}
+
+# ------------------------------ decommission ---------------------------------
+
+cmd_decommission() {
+  local sub="${1:-start}"
+  case "${sub}" in
+    start)
+      log_warn "decommission begins; this is DESTRUCTIVE."
+      log_warn "  three phases:"
+      log_warn "    1. wipe state-fabric (tank/context shred)"
+      log_warn "    2. destroy ZFS pool"
+      log_warn "    3. secure-wipe block devices"
+      if ! confirm "Continue with decommission?" default-no; then
+        log_info "aborted"
+        return 0
+      fi
+      "${__REPO_ROOT}/scripts/hooks/decommission/secure-wipe-context.sh"
+      log_info ""
+      log_info "Phase 1 complete. To continue:"
+      log_info "  SOVEREIGN_OS_CONFIRM_DESTROY=YES sudo sovereign-osctl decommission pool"
+      ;;
+    pool)
+      SOVEREIGN_OS_CONFIRM_DESTROY="${SOVEREIGN_OS_CONFIRM_DESTROY:-}" \
+        "${__REPO_ROOT}/scripts/hooks/decommission/zfs-pool-destroy.sh"
+      log_info ""
+      log_info "Phase 2 complete. To wipe block devices:"
+      log_info "  SOVEREIGN_OS_CONFIRM_DESTROY=YES SOVEREIGN_OS_WIPE_DEVICES='/dev/...' \\"
+      log_info "    sudo sovereign-osctl decommission wipe"
+      ;;
+    wipe)
+      "${__REPO_ROOT}/scripts/hooks/decommission/secure-wipe.sh"
+      log_info "decommission complete"
+      ;;
+    *)
+      log_error "unknown decommission subcommand: ${sub}"
+      cmd_help
+      exit 2
+      ;;
+  esac
+}
+
+# ------------------------------ version --------------------------------------
+
+cmd_version() {
+  echo "sovereign-osctl 0.1.0 (foundation phase)"
+  echo "active profile: ${SOVEREIGN_OS_PROFILE}"
+  if [ -r /etc/os-release ]; then
+    echo "OS:             $(grep PRETTY_NAME /etc/os-release | cut -d= -f2- | tr -d '"')"
+  fi
+}
+
+# ------------------------------ dispatch -------------------------------------
+
+cmd="${1:-help}"
+shift || true
+
+case "${cmd}" in
+  status)        cmd_status "$@" ;;
+  doctor)        cmd_doctor "$@" ;;
+  assistant)     cmd_assistant "$@" ;;
+  profiles)      cmd_profiles "$@" ;;
+  whitelabel)    cmd_whitelabel "$@" ;;
+  perimeter)     cmd_perimeter "$@" ;;
+  models)        cmd_models "$@" ;;
+  audit)         cmd_audit "$@" ;;
+  maintenance)   cmd_maintenance "$@" ;;
+  decommission)  cmd_decommission "$@" ;;
+  version|--version|-V) cmd_version ;;
+  help|--help|-h|"") cmd_help ;;
+  *)
+    log_error "unknown command: ${cmd}"
+    cmd_help
+    exit 2
+    ;;
+esac
