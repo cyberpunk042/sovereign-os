@@ -66,7 +66,7 @@ Cross-references:
   KVM-equipped self-hosted runner (Q10-B per SDD-020).
 - Layer 5 (hardware): operator-driven on real SAIN-01.
 
-### Fixed (10 real wiring bugs caught by L3 discipline)
+### Fixed (14 real wiring bugs caught by L3 discipline)
 1. `whitelabel/default.yaml` template paths
 2. `orchestrate.sh` cmd_help sed truncation
 3. `state_step_status` empty-string default
@@ -77,9 +77,51 @@ Cross-references:
 8. `first-login-assistant.sh` unconditional hostnamectl in containers
 9. inference start scripts `${VAR:=…}` defaults not exported
 10. `sovereign-osctl doctor` missing load_profile
+11. `sovereign-osctl models remove` `${1:?word}` brace ambiguity (R62)
+12. `sovereign-osctl` lib-path mismatch (`/usr/local/lib` vs `/usr/lib`) (R81)
+13. `live-build-emit.sh` README embedded tmpdir basename → non-reproducible (R84)
+14. `first-login-assistant.sh` shipped without Layer B coverage; gap closed
+    + Layer 1 lint authored to prevent regression class (R86)
 
 See `docs/src/tdd/bugs-caught.md` for the ledger + 3 distilled
 cross-bug Learnings.
+
+### Rounds 61-94 — operator-observability + Phase F + G arcs
+
+**Phase F closer (Rounds 61-77)** — operator surface deepening:
+- `sovereign-osctl models {size, remove, list, pull, verify}` complete
+- `model-catalog-sync` substantive recurrent hook (replaced stub)
+- `version --json` (7-key contract) + `status --json` (8-key contract)
+- `whitelabel diff` operator preview verb
+- `maintenance` surface expanded 2 → 8 subverbs
+- `assistant` surface: full / status / reset / list
+- 5-candidate lib-path detection (operator-actionable error on miss)
+- Layer B parity across all during-install + post-install hooks
+- 3rd Grafana dashboard: `sovereign-os-install.json`
+- Root Makefile + `make install` / `make uninstall` (PREFIX/DESTDIR)
+- Comprehensive dispatcher-surface L3 (33/33)
+
+**Phase G — operator-observability arc (Rounds 78-94)**:
+- Reproducibility self-test gate (`test_reproducibility_self_test.sh`):
+  byte-identical mkosi + live-build emissions under pinned inputs
+- 51-metric Layer B inventory (was 21) restructured into 7 labeled
+  sections; two-way contract enforced (code ↔ inventory) by
+  `test_metric_inventory_lockstep.py`
+- Hook Layer-B coverage lint (`test_hook_layer_b_coverage.py`):
+  every lifecycle hook calls `emit_metric` or carries a waiver
+- `sovereign-osctl metrics {list, show, tail, health}` — read .prom
+  files without third-party tooling (20-assertion L3)
+- `sovereign-osctl alerts [--json]` — 6-rule in-tree engine over .prom
+  files; ALERT/WARN with remediation hints (13-assertion L3)
+- `sovereign-osctl journal {list, show, tail, errors}` — Layer A
+  JSONL surface symmetrical with metrics (21-assertion L3)
+- `alerts-check.sh` recurrent hook + `sovereign-alerts-check.timer`
+  (hourly); meta-counters back into Layer B (15-assertion L3)
+- SDD-023 codifies the alerts contract (6 rules, 2 levels, 5
+  tunables, 4 surfaces, 5 test gates, 4 open Q23-X)
+- Handoff 003 — operator-observability cold-start signpost
+- Install-runbook §5b — Layer A/B/C walkthrough with sovereignty
+  posture restated
 
 ### Question closures (every PR-1-seed Q-X resolved/partial)
 | Q | Status | Resolution |
