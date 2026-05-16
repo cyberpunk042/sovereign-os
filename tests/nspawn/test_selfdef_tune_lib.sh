@@ -40,7 +40,7 @@ trap 'rm -rf "${WORK}"' EXIT
 # ---------- 1) capabilities-JSON fallback path ----------
 cat > "${WORK}/caps.json" <<'JSON'
 {
-  "schema_version": "1",
+  "schema_version": "1.2.0",
   "cpu": {
     "recommended_march": "znver5",
     "recommended_compile_flags": [
@@ -50,6 +50,12 @@ cat > "${WORK}/caps.json" <<'JSON'
     "avx512vnni": true,
     "avx512bf16": true,
     "avx512f": true
+  },
+  "wasm_aot": {
+    "target_triple": "x86_64-unknown-linux-gnu",
+    "target_cpu": "znver5",
+    "target_features": "+avx512f,+avx512vnni,+avx512bf16,+avx2,+fma",
+    "compile_command_hint": "wasmtime compile --target x86_64-unknown-linux-gnu --target-feature +avx512f,+avx512vnni,+avx512bf16,+avx2,+fma module.wasm -o module.cwasm"
   }
 }
 JSON
@@ -68,6 +74,10 @@ printf 'cflags=%s\n' "\${SELFDEF_HARDWARE_CFLAGS}"
 printf 'vnni=%s\n'   "\${SELFDEF_HARDWARE_AVX512_VNNI}"
 printf 'bf16=%s\n'   "\${SELFDEF_HARDWARE_AVX512_BF16}"
 printf 'src=%s\n'    "\${SELFDEF_HARDWARE_TUNE_SOURCE}"
+# R179: SD-R30 wasm-AOT block surfacing
+printf 'wa_triple=%s\n'   "\${SELFDEF_HARDWARE_WASM_AOT_TARGET_TRIPLE:-}"
+printf 'wa_cpu=%s\n'      "\${SELFDEF_HARDWARE_WASM_AOT_TARGET_CPU:-}"
+printf 'wa_features=%s\n' "\${SELFDEF_HARDWARE_WASM_AOT_TARGET_FEATURES:-}"
 EOF
   chmod +x "${script}"
   "${script}"
@@ -94,6 +104,17 @@ grep -q "vnni=true" <<< "${out_json}" \
 grep -q "src=capabilities_json" <<< "${out_json}" \
   && ok "JSON path: SELFDEF_HARDWARE_TUNE_SOURCE = capabilities_json" \
   || ko "source label wrong"
+
+# ---------- R179 (SD-R30 wasm-AOT surfacing) ----------
+grep -q "wa_triple=x86_64-unknown-linux-gnu" <<< "${out_json}" \
+  && ok "JSON path: SELFDEF_HARDWARE_WASM_AOT_TARGET_TRIPLE surfaced" \
+  || ko "wasm-AOT target_triple missing: ${out_json}"
+grep -q "wa_cpu=znver5" <<< "${out_json}" \
+  && ok "JSON path: SELFDEF_HARDWARE_WASM_AOT_TARGET_CPU surfaced" \
+  || ko "wasm-AOT target_cpu missing"
+grep -q "wa_features=+avx512f,+avx512vnni" <<< "${out_json}" \
+  && ok "JSON path: SELFDEF_HARDWARE_WASM_AOT_TARGET_FEATURES surfaced" \
+  || ko "wasm-AOT target_features missing"
 
 # ---------- 2) native fallback (no selfdefctl, no JSON) ----------
 set +e

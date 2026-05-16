@@ -21,6 +21,12 @@
 #   SELFDEF_HARDWARE_AVX512_BF16
 #   SELFDEF_HARDWARE_TUNE_SOURCE       # which path produced the vars
 #
+# R179 — also surfaces the SD-R30 Wasm-AOT block when present:
+#   SELFDEF_HARDWARE_WASM_AOT_TARGET_TRIPLE
+#   SELFDEF_HARDWARE_WASM_AOT_TARGET_CPU
+#   SELFDEF_HARDWARE_WASM_AOT_TARGET_FEATURES
+# Empty strings on hosts without the new field (forward-compat).
+#
 # Idempotent: calling selfdef_tune_load twice is a no-op when the first
 # call succeeded (SELFDEF_HARDWARE_MARCH is set).
 
@@ -67,6 +73,8 @@ selfdef_tune__try_capabilities_json() {
   # via python3 (jq is not part of the build-host baseline). The
   # ||| sentinel keeps the parts robust against cflag whitespace.
   local out march cflags vnni bf16 zmm
+  # R179: also extract the SD-R30 wasm_aot block when present.
+  # Missing block → empty strings; same fail-soft semantics.
   out="$(python3 - "${SELFDEF_CAPABILITIES_FILE}" <<'PYEOF'
 import json, sys
 try:
@@ -77,23 +85,34 @@ try:
     vnni = "true" if cpu.get("avx512vnni") else "false"
     bf16 = "true" if cpu.get("avx512bf16") else "false"
     zmm = " -mprefer-vector-width=512" if cpu.get("avx512f") else ""
-    print(f"{march}|||{flags}|||{vnni}|||{bf16}|||{zmm}")
+    wa = d.get("wasm_aot") or {}
+    wa_triple = wa.get("target_triple", "")
+    wa_cpu = wa.get("target_cpu", "")
+    wa_feats = wa.get("target_features", "")
+    print(f"{march}|||{flags}|||{vnni}|||{bf16}|||{zmm}|||{wa_triple}|||{wa_cpu}|||{wa_feats}")
 except Exception:
     sys.exit(1)
 PYEOF
   )"
   [ -z "${out}" ] && return 1
+  local wa_triple wa_cpu wa_feats
   march="${out%%|||*}"; out="${out#*|||}"
   cflags="${out%%|||*}"; out="${out#*|||}"
   vnni="${out%%|||*}"; out="${out#*|||}"
   bf16="${out%%|||*}"; out="${out#*|||}"
-  zmm="${out}"
+  zmm="${out%%|||*}"; out="${out#*|||}"
+  wa_triple="${out%%|||*}"; out="${out#*|||}"
+  wa_cpu="${out%%|||*}"; out="${out#*|||}"
+  wa_feats="${out}"
 
   export SELFDEF_HARDWARE_MARCH="${march}"
   export SELFDEF_HARDWARE_CFLAGS="-march=${march}${zmm} ${cflags}"
   export SELFDEF_HARDWARE_KCFLAGS="-march=${march}${zmm} ${cflags}"
   export SELFDEF_HARDWARE_AVX512_VNNI="${vnni}"
   export SELFDEF_HARDWARE_AVX512_BF16="${bf16}"
+  export SELFDEF_HARDWARE_WASM_AOT_TARGET_TRIPLE="${wa_triple}"
+  export SELFDEF_HARDWARE_WASM_AOT_TARGET_CPU="${wa_cpu}"
+  export SELFDEF_HARDWARE_WASM_AOT_TARGET_FEATURES="${wa_feats}"
   export SELFDEF_HARDWARE_TUNE_SOURCE="capabilities_json"
   return 0
 }

@@ -90,6 +90,49 @@ grep -q "target CPU:.*znver5" <<< "${out}" && ok "missing caps file → znver5 d
 ! grep -q "R167:" <<< "${out}" && ok "missing caps file → no R167 log line" \
   || ko "R167 log fired without caps file"
 
+# ---------- R179: SD-R30 wasm_aot block surfaces through the bridge ----------
+TMP_CAP_R179="$(mktemp /tmp/wasm-aot-caps-r179.XXXXXX.json)"
+cat > "${TMP_CAP_R179}" <<'JSON'
+{
+  "schema_version": "1.2.0",
+  "cpu": {
+    "recommended_march": "znver5",
+    "recommended_compile_flags": ["-mavx512f", "-mavx512vnni"],
+    "avx512vnni": true,
+    "avx512bf16": true,
+    "avx512f": true
+  },
+  "wasm_aot": {
+    "target_triple": "x86_64-unknown-linux-gnu",
+    "target_cpu": "znver5",
+    "target_features": "+avx512f,+avx512vnni,+avx512bf16,+avx2,+fma",
+    "compile_command_hint": "..."
+  }
+}
+JSON
+set +e
+out_r179="$(WASM_CAPABILITIES_FILE="${TMP_CAP_R179}" SOVEREIGN_OS_DRY_RUN=1 bash "${SCRIPT}" 2>&1)"
+set -e
+
+grep -q "R179: WASM_TARGET_FEATURES=" <<< "${out_r179}" \
+  && ok "R179 log fired when SD-R30 wasm_aot block present" \
+  || ko "R179 log missing: ${out_r179}"
+grep -q "target features:.*+avx512vnni" <<< "${out_r179}" \
+  && ok "R179: features list cited in pipeline banner" \
+  || ko "feature line missing in banner"
+
+# Operator override: WASM_TARGET_FEATURES explicitly set → bridge
+# preserves operator's value, no R179 log fires.
+set +e
+out_explicit="$(WASM_CAPABILITIES_FILE="${TMP_CAP_R179}" \
+  WASM_TARGET_FEATURES='+avx2,+fma' \
+  SOVEREIGN_OS_DRY_RUN=1 bash "${SCRIPT}" 2>&1)"
+set -e
+rm -f "${TMP_CAP_R179}"
+! grep -q "R179: WASM_TARGET_FEATURES=" <<< "${out_explicit}" \
+  && ok "operator-set WASM_TARGET_FEATURES suppresses bridge override" \
+  || ko "bridge overwrote operator value (would be a regression)"
+
 echo
 total=$((pass + fail))
 echo "test_pulse_wasm_aot_capabilities: ${pass}/${total} passed"

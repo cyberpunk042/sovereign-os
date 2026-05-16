@@ -73,12 +73,22 @@ if [ "${WASM_TARGET_CPU}" = "znver5" ]; then
   fi
 fi
 
+# R179: when selfdef SD-R30 surfaced wasm_aot.target_features via the
+# capabilities JSON, pass them through to wasmtime via
+# --target-feature. Operator override: set WASM_TARGET_FEATURES
+# explicitly to skip the bridge.
+if [ -z "${WASM_TARGET_FEATURES:-}" ] && [ -n "${SELFDEF_HARDWARE_WASM_AOT_TARGET_FEATURES:-}" ]; then
+  WASM_TARGET_FEATURES="${SELFDEF_HARDWARE_WASM_AOT_TARGET_FEATURES}"
+  log_info "R179: WASM_TARGET_FEATURES=${WASM_TARGET_FEATURES} (from selfdef SD-R30 wasm_aot block)"
+fi
+
 log_info "==== sovereign-os Wasm-to-AVX-512 AOT pipeline ===="
 log_info "  master spec § 20 (The Pulse Implementation)"
 log_info "  wasmtime version:   ${WASMTIME_VERSION}"
 log_info "  input:              ${WASM_INPUT}"
 log_info "  output dir:         ${WASM_OUTPUT_DIR}"
 log_info "  target CPU:         ${WASM_TARGET_CPU}"
+log_info "  target features:    ${WASM_TARGET_FEATURES:-(none — wasmtime infers)}"
 log_info "  opt level:          ${WASM_OPT_LEVEL}"
 log_info "  affinity:           ${WASM_AFFINITY} (CCD0+CCD1 0-9 per master spec § 19.2)"
 
@@ -127,10 +137,16 @@ log_info "AOT-compiling → ${out_path}"
 
 # Master spec § 20.2 verbatim: explicit task execution on CCD0 cores
 # only. Compile with target-cpu=znver5 + opt-level=speed.
+# R179: forward --target-feature when SD-R30 surfaced one.
+wasm_feat_args=()
+if [ -n "${WASM_TARGET_FEATURES:-}" ]; then
+  wasm_feat_args=(--target-feature "${WASM_TARGET_FEATURES}")
+fi
 if command -v taskset >/dev/null 2>&1; then
   taskset -c "${WASM_AFFINITY}" \
     wasmtime compile \
       --target "${WASM_TARGET_CPU}" \
+      "${wasm_feat_args[@]}" \
       -O "${WASM_OPT_LEVEL}" \
       -o "${out_path}" \
       "${WASM_INPUT}" || {
@@ -142,6 +158,7 @@ else
   log_warn "taskset not available; compiling without CCD pinning"
   wasmtime compile \
     --target "${WASM_TARGET_CPU}" \
+    "${wasm_feat_args[@]}" \
     -O "${WASM_OPT_LEVEL}" \
     -o "${out_path}" \
     "${WASM_INPUT}" || {
