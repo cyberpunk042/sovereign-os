@@ -169,6 +169,9 @@ jobs:
       - name: nspawn — substrate-prepare (Round 45: step 05 dispatch + DRY_RUN + Layer B)
         run: |
           tests/nspawn/test_substrate_prepare.sh
+      - name: nspawn — image-build dispatch (Round 46: step 07 mkosi/lb runners + DRY_RUN + Layer B)
+        run: |
+          tests/nspawn/test_image_build_dispatch.sh
 
   shellcheck:
     name: shellcheck

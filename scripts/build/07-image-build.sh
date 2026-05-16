@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
 # scripts/build/07-image-build.sh — invoke the substrate to produce the
 # bootable image artifact.
+#
+# mkosi: 'mkosi build' from the prepared config tree (step 05 + 06).
+# live-build: 'lb build' from the prepared config tree (step 05 + 06).
+# rpm-ostree, nixos: deferred to Stage 2+ (ALT paths).
 
 __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=./lib/common.sh
 . "${__SCRIPT_DIR}/lib/common.sh"
+# shellcheck source=./lib/observability.sh
+. "${__SCRIPT_DIR}/lib/observability.sh"
 
 STEP_ID="07-image-build"
 
@@ -32,46 +38,92 @@ fi
 log_step_header "${STEP_ID}" "build image (substrate=${SOVEREIGN_OS_SUBSTRATE})"
 state_step_start "${STEP_ID}" "${inputs_hash}"
 
+emit_build_metric() {
+  emit_metric sovereign_os_build_step_image_build_total 1 \
+    "substrate=\"${SOVEREIGN_OS_SUBSTRATE}\",profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"$1\""
+}
+
+# Stage compiled kernel .debs into substrate-specific cache (mkosi:
+# mkosi.extra/...; live-build: config/packages.chroot/...)
+stage_kernel_debs() {
+  local cache_dir="$1"
+  if [ -n "${SOVEREIGN_OS_KERNEL_DEBS_DIR:-}" ] && [ -d "${SOVEREIGN_OS_KERNEL_DEBS_DIR}" ]; then
+    mkdir -p "${cache_dir}"
+    cp "${SOVEREIGN_OS_KERNEL_DEBS_DIR}"/*.deb "${cache_dir}/" 2>/dev/null \
+      || log_warn "no kernel .debs to copy (dry-run mode? substrate-default kernel?)"
+  fi
+}
+
 case "${SOVEREIGN_OS_SUBSTRATE}" in
   mkosi)
-    require_command mkosi
-
-    # Copy compiled kernel .debs into mkosi.extra/var/cache/local-debs/
-    # so mkosi can install them during the build.
-    if [ -n "${SOVEREIGN_OS_KERNEL_DEBS_DIR:-}" ] && [ -d "${SOVEREIGN_OS_KERNEL_DEBS_DIR}" ]; then
-      cache_dir="${SOVEREIGN_OS_BUILD_OUT}/mkosi.extra/var/cache/local-debs"
-      mkdir -p "${cache_dir}"
-      cp "${SOVEREIGN_OS_KERNEL_DEBS_DIR}"/*.deb "${cache_dir}/" 2>/dev/null || log_warn "no kernel .debs to copy (dry-run mode?)"
-    fi
-
+    stage_kernel_debs "${SOVEREIGN_OS_BUILD_OUT}/mkosi.extra/var/cache/local-debs"
     cd "${SOVEREIGN_OS_BUILD_OUT}"
-    log_info "running 'mkosi build' in ${SOVEREIGN_OS_BUILD_OUT}"
-
     if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
-      log_warn "SOVEREIGN_OS_DRY_RUN set — skipping actual mkosi build"
+      log_warn "SOVEREIGN_OS_DRY_RUN — skipping 'mkosi build'"
+      emit_build_metric skip
+      state_step_complete "${STEP_ID}"
+      exit 0
+    fi
+    require_command mkosi
+    log_info "running 'mkosi build' in ${SOVEREIGN_OS_BUILD_OUT}"
+    if mkosi build 2>&1 | tee "${SOVEREIGN_OS_LOG_DIR}/image-build-${SOVEREIGN_OS_BUILD_ID}.log"; then
+      emit_build_metric success
     else
-      mkosi build 2>&1 | tee "${SOVEREIGN_OS_LOG_DIR}/image-build-${SOVEREIGN_OS_BUILD_ID}.log"
+      rc=${PIPESTATUS[0]}
+      log_error "mkosi build failed (rc=${rc})"
+      emit_build_metric fail
+      state_step_fail "${STEP_ID}" "mkosi-build-failed-${rc}"
+      exit 1
     fi
     ;;
 
-  live-build|rpm-ostree|nixos)
+  live-build)
+    stage_kernel_debs "${SOVEREIGN_OS_BUILD_OUT}/config/packages.chroot"
+    cd "${SOVEREIGN_OS_BUILD_OUT}"
+    if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
+      log_warn "SOVEREIGN_OS_DRY_RUN — skipping 'lb build'"
+      emit_build_metric skip
+      state_step_complete "${STEP_ID}"
+      exit 0
+    fi
+    require_command lb
+    log_info "running 'lb build' in ${SOVEREIGN_OS_BUILD_OUT}"
+    if lb build 2>&1 | tee "${SOVEREIGN_OS_LOG_DIR}/image-build-${SOVEREIGN_OS_BUILD_ID}.log"; then
+      emit_build_metric success
+    else
+      rc=${PIPESTATUS[0]}
+      log_error "lb build failed (rc=${rc})"
+      emit_build_metric fail
+      state_step_fail "${STEP_ID}" "lb-build-failed-${rc}"
+      exit 1
+    fi
+    ;;
+
+  rpm-ostree|nixos)
     log_error "substrate '${SOVEREIGN_OS_SUBSTRATE}' image-build not yet implemented (Stage 2+ ALT path)"
+    emit_build_metric not-implemented
     state_step_fail "${STEP_ID}" "substrate-image-build-not-implemented"
     exit 1
     ;;
 
   *)
     log_error "unknown substrate: ${SOVEREIGN_OS_SUBSTRATE}"
+    emit_build_metric unknown
     state_step_fail "${STEP_ID}" "unknown-substrate"
     exit 1
     ;;
 esac
 
-# Discover output
-output_dir="${SOVEREIGN_OS_BUILD_OUT}/output"
+# Discover output (per substrate)
+case "${SOVEREIGN_OS_SUBSTRATE}" in
+  mkosi)      output_dir="${SOVEREIGN_OS_BUILD_OUT}/output" ;;
+  live-build) output_dir="${SOVEREIGN_OS_BUILD_OUT}" ;;  # lb build emits to the same dir
+esac
+
 if [ -d "${output_dir}" ] && [ -z "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
-  log_info "image artifacts:"
-  find "${output_dir}" -maxdepth 1 -type f -exec ls -lh {} \; | while read -r line; do
+  log_info "image artifacts in ${output_dir}:"
+  find "${output_dir}" -maxdepth 1 -type f \( -name '*.raw' -o -name '*.img' -o -name '*.iso' -o -name '*.qcow2' \) \
+    -exec ls -lh {} \; | while read -r line; do
     log_info "  ${line}"
   done
 fi
