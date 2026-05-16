@@ -122,6 +122,9 @@ jobs:
       - name: nspawn — first-login assistant (Q-018 idempotency + state + force)
         run: |
           tests/nspawn/test_first_login_assistant.sh
+      - name: nspawn — observability lib (SDD-016 Layer B emit_metric)
+        run: |
+          tests/nspawn/test_observability_lib.sh
 
   shellcheck:
     name: shellcheck

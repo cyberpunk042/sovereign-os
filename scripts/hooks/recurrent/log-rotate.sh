@@ -23,6 +23,8 @@ __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../../.." && pwd)"
 # shellcheck source=../../build/lib/common.sh
 . "${__REPO_ROOT}/scripts/build/lib/common.sh"
+# shellcheck source=../../build/lib/observability.sh
+. "${__REPO_ROOT}/scripts/build/lib/observability.sh"
 
 : "${SOVEREIGN_OS_LOG_DIR:=${HOME}/.sovereign-os/log}"
 : "${SOVEREIGN_OS_LOG_RETENTION_DAYS:=14}"
@@ -76,4 +78,17 @@ while IFS= read -r f; do
 done < <(find "${archive_dir}" -maxdepth 1 -name '*.gz' -type f -mtime "+${SOVEREIGN_OS_LOG_ARCHIVE_DAYS}" 2>/dev/null)
 
 log_info "log-rotate: ${rotated} rotated, ${purged} purged"
+
+# ---- emit Layer B metrics (SDD-016) ----
+emit_metric_set log-rotation \
+  '# HELP sovereign_os_log_rotation_files_rotated Files rotated by the last log-rotate run' \
+  '# TYPE sovereign_os_log_rotation_files_rotated gauge' \
+  "sovereign_os_log_rotation_files_rotated ${rotated}" \
+  '# HELP sovereign_os_log_rotation_files_purged Archive files purged by the last log-rotate run' \
+  '# TYPE sovereign_os_log_rotation_files_purged gauge' \
+  "sovereign_os_log_rotation_files_purged ${purged}" \
+  '# HELP sovereign_os_log_rotation_last_run_timestamp Unix timestamp of last successful run' \
+  '# TYPE sovereign_os_log_rotation_last_run_timestamp gauge' \
+  "sovereign_os_log_rotation_last_run_timestamp $(date +%s)"
+
 exit 0
