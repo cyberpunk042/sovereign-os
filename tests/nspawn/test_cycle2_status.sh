@@ -183,7 +183,7 @@ out_aud_h="$(python3 "${SCRIPT}" \
   --schedule-path "${WORK}/no-such.json" \
   --audit-path "${WORK}/audit/modules-audit.jsonl" 2>&1)"
 set -e
-grep -q "Override audit (SD-R47): ⚠ 2" <<< "${out_aud_h}" \
+grep -qE "Override audit \(SD-R47( \+ SD-R53)?\): ⚠ 2" <<< "${out_aud_h}" \
   && ok "R191: human output cites override audit count" \
   || ko "human audit line missing: ${out_aud_h}"
 
@@ -254,6 +254,50 @@ set -e
 grep -q "Wasm-AOT cache (SD-R48): ✗ absent" <<< "${out_no_wac}" \
   && ok "R192: human output cites absent wasm-aot-cache" \
   || ko "absent cache line missing: ${out_no_wac}"
+
+# ---------- R194: audit split by SD-R47 + SD-R53 categories ----------
+cat > "${WORK}/audit/mixed.jsonl" <<'JSON'
+{"schema_version":"1.0.0","timestamp":"2026-05-16T10:00:00Z","category":"selfdef.modules.override","severity":"medium","source":"selfdefctl","flag":"--ignore-hardware","host_tag":"h","gated_modules":["a"]}
+{"schema_version":"1.0.0","timestamp":"2026-05-16T11:00:00Z","category":"selfdef.modules.skip-strict","severity":"medium","source":"selfdefctl","flag":"--strict-hardware","host_tag":"h","gated_modules":["b"]}
+{"schema_version":"1.0.0","timestamp":"2026-05-16T15:00:00Z","category":"selfdef.modules.override","severity":"medium","source":"selfdefctl","flag":"--ignore-hardware","host_tag":"h","gated_modules":["c","d"]}
+JSON
+set +e
+out_mix="$(python3 "${SCRIPT}" \
+  --caps-path "${WORK}/caps/hardware-capabilities.json" \
+  --modules-dir "${WORK}/modules" \
+  --host-config "${WORK}/host/modules.toml" \
+  --models-dir "${WORK}/models" \
+  --schedule-path "${WORK}/no-such.json" \
+  --audit-path "${WORK}/audit/mixed.jsonl" --json 2>&1)"
+set -e
+if python3 -c "
+import json
+d = json.loads('''${out_mix}''')
+assert d['override_audit']['count'] == 3
+bc = d['override_audit']['by_category']
+assert bc['selfdef.modules.override'] == 2
+assert bc['selfdef.modules.skip-strict'] == 1
+" 2>/dev/null; then
+  ok "R194: by_category JSON splits override (2) + skip-strict (1)"
+else
+  ko "R194 by_category wrong: ${out_mix}"
+fi
+
+set +e
+out_mix_h="$(python3 "${SCRIPT}" \
+  --caps-path "${WORK}/caps/hardware-capabilities.json" \
+  --modules-dir "${WORK}/modules" \
+  --host-config "${WORK}/host/modules.toml" \
+  --models-dir "${WORK}/models" \
+  --schedule-path "${WORK}/no-such.json" \
+  --audit-path "${WORK}/audit/mixed.jsonl" 2>&1)"
+set -e
+grep -q "2 × --ignore-hardware" <<< "${out_mix_h}" \
+  && ok "R194: human output shows 2 × --ignore-hardware" \
+  || ko "R194 human ignore-hardware count missing: ${out_mix_h}"
+grep -q "1 × --strict-hardware" <<< "${out_mix_h}" \
+  && ok "R194: human output shows 1 × --strict-hardware (refused)" \
+  || ko "R194 human strict count missing: ${out_mix_h}"
 
 echo
 total=$((pass + fail))

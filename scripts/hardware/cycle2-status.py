@@ -108,10 +108,8 @@ def run_models_gate(
 
 
 def read_audit_log_count(audit_path: Path) -> tuple[int, str | None]:
-    """R191: read the SD-R47 OCSF audit trail (one JSONL line per
-    --ignore-hardware invocation). Returns (line_count, last_timestamp)
-    or (0, None) when the file doesn't exist (most operators won't
-    have used --ignore-hardware)."""
+    """R191: read the SD-R47 OCSF audit trail. Returns total line
+    count + last timestamp. Used for the operator-summary count."""
     if not audit_path.exists():
         return 0, None
     try:
@@ -129,6 +127,30 @@ def read_audit_log_count(audit_path: Path) -> tuple[int, str | None]:
         except json.JSONDecodeError:
             continue
     return len(lines), last_ts
+
+
+def read_audit_log_by_category(audit_path: Path) -> dict[str, int]:
+    """R194: split the audit log by OCSF category prefix. The
+    SD-R47 category "selfdef.modules.override" and the SD-R53
+    "selfdef.modules.skip-strict" are operator-distinct events;
+    dashboards want them split so '--ignore-hardware' overrides
+    don't get conflated with '--strict-hardware' refusals."""
+    if not audit_path.exists():
+        return {}
+    out: dict[str, int] = {}
+    try:
+        for ln in audit_path.read_text().splitlines():
+            if not ln.strip():
+                continue
+            try:
+                d = json.loads(ln)
+                cat = d.get("category", "unknown")
+                out[cat] = out.get(cat, 0) + 1
+            except json.JSONDecodeError:
+                continue
+    except OSError:
+        return {}
+    return out
 
 
 def summarize(
@@ -175,6 +197,7 @@ def summarize(
         "override_audit": {
             "count": read_audit_log_count(audit_path)[0],
             "last_timestamp": read_audit_log_count(audit_path)[1],
+            "by_category": read_audit_log_by_category(audit_path),
             "path": str(audit_path),
         },
         # R192 (mirror of selfdef SD-R48): wasm-aot-cache provisioning state.
@@ -261,13 +284,21 @@ def render_human(summary: dict[str, Any]) -> str:
     else:
         out.append("## Wasm-AOT cache (SD-R48): ✗ absent (module not applied)")
     # R191: SD-R47 override audit trail surface.
+    # R194: split by category when both SD-R47 + SD-R53 events present.
     audit = summary["override_audit"]
     if audit["count"] > 0:
         out.append("")
         out.append(
-            f"## Override audit (SD-R47): ⚠ {audit['count']} `--ignore-hardware`"
-            " event(s) recorded"
+            f"## Override audit (SD-R47 + SD-R53): ⚠ {audit['count']}"
+            " operator-action event(s) recorded"
         )
+        by_cat = audit.get("by_category", {}) or {}
+        for cat, count in sorted(by_cat.items()):
+            label = {
+                "selfdef.modules.override": "--ignore-hardware",
+                "selfdef.modules.skip-strict": "--strict-hardware (refused)",
+            }.get(cat, cat)
+            out.append(f"  - {count} × {label}")
         if audit["last_timestamp"]:
             out.append(f"  last: {audit['last_timestamp']}")
         out.append(f"  path: {audit['path']}")
