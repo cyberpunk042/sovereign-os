@@ -10,6 +10,8 @@
 __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=./lib/common.sh
 . "${__SCRIPT_DIR}/lib/common.sh"
+# shellcheck source=./lib/observability.sh
+. "${__SCRIPT_DIR}/lib/observability.sh"
 
 STEP_ID="06-whitelabel-render"
 
@@ -45,11 +47,31 @@ log_info "  profile:    ${SOVEREIGN_OS_PROFILE_FILE}"
 log_info "  whitelabel: ${wl_file}"
 log_info "  out:        ${SOVEREIGN_OS_BUILD_OUT}"
 
-python3 "${render_engine}" \
-  --profile "${SOVEREIGN_OS_PROFILE_FILE}" \
-  --whitelabel "${wl_file}" \
-  --out "${SOVEREIGN_OS_BUILD_OUT}" \
-  --substrate "${SOVEREIGN_OS_SUBSTRATE}"
+emit_render_metric() {
+  emit_metric sovereign_os_build_step_render_total 1 \
+    "whitelabel=\"${wl_profile_name}\",substrate=\"${SOVEREIGN_OS_SUBSTRATE}\",profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"$1\""
+}
+
+if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
+  log_info "DRY-RUN — would invoke render engine"
+  emit_render_metric skip
+  state_step_complete "${STEP_ID}"
+  exit 0
+fi
+
+if python3 "${render_engine}" \
+     --profile "${SOVEREIGN_OS_PROFILE_FILE}" \
+     --whitelabel "${wl_file}" \
+     --out "${SOVEREIGN_OS_BUILD_OUT}" \
+     --substrate "${SOVEREIGN_OS_SUBSTRATE}"; then
+  emit_render_metric success
+else
+  rc=$?
+  log_error "render engine failed (rc=${rc})"
+  emit_render_metric fail
+  state_step_fail "${STEP_ID}" "render-failed-${rc}"
+  exit 1
+fi
 
 state_step_complete "${STEP_ID}"
 log_info "step ${STEP_ID} complete"
