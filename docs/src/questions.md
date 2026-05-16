@@ -10,10 +10,10 @@ at a specific PR and produces a `D-NNN` entry in the decisions log.
 
 | Q | Topic | Resolves at | Status |
 |---|---|---|---|
-| Q-001 | Substrate selection (live-build · mkosi · debootstrap · ostree · Nix · …) | PR 4 → Gate 2 | open |
-| Q-002 | Profile inheritance model (single-parent · composition) | PR 5 → Gate 3 | open |
+| Q-001 | Substrate selection (live-build · mkosi · debootstrap · ostree · Nix · …) | PR 4 → Gate 2 | **resolved (SDD-003, 2026-05-16)** — mkosi primary, live-build as ALT-A (substrate-agnostic content); both adapters shipped under `scripts/build/adapters/`; Q4-A..Q4-E sub-questions tracked in SDD-003 |
+| Q-002 | Profile inheritance model (single-parent · composition) | PR 5 → Gate 3 | **partial (SDD-004, 2026-05-16)** — single-parent inheritance + composition via mixins; 5 profiles + 6 mixins shipped; schema validates raw + resolved at L1; Q5-A..Q5-E sub-questions tracked in SDD-004 (partial because some operator-driven workflows around forking/overlay are still future work) |
 | Q-003 | Whitelabel brand identity (name · palette · logo) | deferrable past PR 8 | **deferred-with-criteria (SDD-012)** — placeholder contract specified; real brand lands as data when operator promotes |
-| Q-004 | Legal scope (public-distributable vs internal) | PR 7/8 → Gate 4 | open |
+| Q-004 | Legal scope (public-distributable vs internal) | PR 7/8 → Gate 4 | **resolved (SDD-007, 2026-05-16)** — `dfsg-only` legal compliance target; 7-strategy whitelabel taxonomy (all 7 implemented + 7/7 test-pinned at R122); legal-floor list enforced at render time (SDD-006) |
 | Q-005 | ZFS root layout details | Stage 2+ | **resolved (SDD-017, 2026-05-16)** — tank/single pool, raid0 across dual NVMe-PCIe-5, 3 tiered datasets with explicit recordsize/compression/sync; durability via copies=2 on state-fabric |
 | Q-006 | Secure-boot posture | Stage 2+ | **resolved (SDD-015, 2026-05-16)** — 3-level posture (none/shim/signed) per-profile; operator-supplied keys; preflight-tpm + 08-image-sign as the only gates |
 | Q-007 | Kernel choice (stock · custom-tuned) | Stage 2+ | **resolved (SDD-018, 2026-05-16)** — dual strategy: sain-01 = kernel.org-stable custom Zen-5-tuned; old-workstation + minimal = substrate-default |
