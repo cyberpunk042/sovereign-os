@@ -21,6 +21,7 @@
 #
 # Commands:
 #   run [--profile <id>] [--dry-run]   run the pipeline; resume from last state
+#   preflight [--profile <id>]   run all pre-install hooks (no build state mutated)
 #   status                  print state summary
 #   reset                   wipe build state (confirms first)
 #   rewind <step>           mark step + later as pending (re-runs them)
@@ -118,6 +119,56 @@ cmd_skip() {
   return 1
 }
 
+cmd_preflight() {
+  # preflight: run every executable in scripts/hooks/pre-install/ against
+  # the active profile. No build state mutation. Used by operators (and CI)
+  # to validate the install-time environment before commit ing to a build.
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --profile)   SOVEREIGN_OS_PROFILE="${2:?--profile requires an id}"; shift 2 ;;
+      --profile=*) SOVEREIGN_OS_PROFILE="${1#--profile=}"; shift ;;
+      *) log_error "unknown preflight flag: $1"; return 2 ;;
+    esac
+  done
+
+  log_init
+  load_profile "${SOVEREIGN_OS_PROFILE}"
+
+  local pre_dir="${__SCRIPT_DIR}/../hooks/pre-install"
+  if [ ! -d "${pre_dir}" ]; then
+    log_error "pre-install hook dir missing: ${pre_dir}"
+    return 1
+  fi
+
+  log_info "running pre-install hooks for profile=${SOVEREIGN_OS_PROFILE}"
+  local fail=0 count=0
+  while IFS= read -r hook; do
+    count=$((count + 1))
+    local hook_name; hook_name="$(basename "${hook}")"
+    log_info "→ ${hook_name}"
+    if SOVEREIGN_OS_LOG_STEP="preflight/${hook_name%.sh}" "${hook}"; then
+      log_info "  ${hook_name}: PASS"
+    else
+      log_error "  ${hook_name}: FAIL"
+      fail=$((fail + 1))
+    fi
+  done < <(find "${pre_dir}" -maxdepth 1 -name '*.sh' -type f -executable | sort)
+
+  if [ "${count}" -eq 0 ]; then
+    log_warn "no pre-install hooks found in ${pre_dir}"
+    return 0
+  fi
+
+  echo
+  if [ "${fail}" -eq 0 ]; then
+    log_info "preflight: ${count}/${count} hooks PASSED"
+    return 0
+  else
+    log_error "preflight: ${fail}/${count} hook(s) FAILED"
+    return 1
+  fi
+}
+
 cmd_run() {
   # Parse run-time flags
   local dry_run="${SOVEREIGN_OS_DRY_RUN:-}"
@@ -189,12 +240,13 @@ cmd="${1:-help}"
 shift || true
 
 case "${cmd}" in
-  run|"") cmd_run "$@" ;;
-  status) cmd_status "$@" ;;
-  reset)  cmd_reset "$@" ;;
-  rewind) cmd_rewind "$@" ;;
-  skip)   cmd_skip "$@" ;;
-  list)   cmd_list "$@" ;;
+  run|"")    cmd_run "$@" ;;
+  preflight) cmd_preflight "$@" ;;
+  status)    cmd_status "$@" ;;
+  reset)     cmd_reset "$@" ;;
+  rewind)    cmd_rewind "$@" ;;
+  skip)      cmd_skip "$@" ;;
+  list)      cmd_list "$@" ;;
   help|--help|-h) cmd_help ;;
   *)
     log_error "unknown command: ${cmd}"

@@ -94,6 +94,10 @@ jobs:
         run: |
           tests/nspawn/test_orchestrator_dry_run.sh sain-01
           tests/nspawn/test_orchestrator_dry_run.sh old-workstation
+      - name: nspawn — orchestrator preflight (pre-install lifecycle hooks)
+        run: |
+          tests/nspawn/test_orchestrator_preflight.sh sain-01
+          tests/nspawn/test_orchestrator_preflight.sh old-workstation
 
   shellcheck:
     name: shellcheck

@@ -16,11 +16,38 @@ What runs **before** the OS image exists on disk. All on the build host (your de
 | 08 | `08-image-sign.sh` | `sbsign` vmlinuz + EFI binaries (if `secure_boot=signed`) |
 | 09 | `09-image-verify.sh` | QEMU boot smoke test |
 
-## Pre-install hooks (per profile)
+## Pre-install hooks
 
-Profile `hooks.pre_install` array. Currently for `sain-01`:
+Live under `scripts/hooks/pre-install/`. Run as a batch via
+`scripts/build/orchestrate.sh preflight`. Profile-aware; each hook
+loads the active profile and either runs its checks, SKIPs (when the
+profile doesn't require this gate), or FAILs (with a remediation hint).
 
-- `friction-audit-spec.sh` — validates profile YAML internal consistency
+| Hook | Purpose | Profile-conditioned |
+|---|---|---|
+| `friction-audit-spec.sh` | Validates profile YAML internal consistency (CPU march/features, GPU role coherence, storage roles, vfio_companion, motherboard PCIe constraints) | always runs |
+| `preflight-network.sh` | DNS resolves the Debian mirror + huggingface.co; HTTP 200 from `<mirror>/debian/dists/<release>/Release`; default route present | always runs; can skip HF via `SOVEREIGN_OS_PREFLIGHT_SKIP_HF=1` |
+| `preflight-tpm.sh` | TPM2 device node + tpm2-tools + UEFI vars + MOK key/cert coherence | SKIPs unless `kernel.cmdline.secure_boot=true` |
+| `preflight-storage.sh` | Each declared storage device size-class matches lsblk reality; zpool/zfs tooling present for zfs-tiered layouts; >10GB writable disk available | always runs; size-mismatches WARN (not FAIL) |
+
+Run the full preflight against the active profile:
+
+```sh
+scripts/build/orchestrate.sh preflight
+# or against a specific profile
+scripts/build/orchestrate.sh preflight --profile old-workstation
+# or in plan-only / observability mode
+SOVEREIGN_OS_DRY_RUN=1 scripts/build/orchestrate.sh preflight
+```
+
+Preflight never mutates build state. It is safe to run repeatedly + at
+any time (before `run`, after a `reset`, between aborted builds).
+
+Adding a new pre-install hook is "drop a `*.sh` script into
+`scripts/hooks/pre-install/`, make it executable, source
+`scripts/build/lib/common.sh`, emit `PASS`/`FAIL`, exit appropriately."
+The orchestrator's `preflight` command auto-discovers it. Layer 3 test
+`tests/nspawn/test_orchestrator_preflight.sh` gates the count + names.
 
 ## Build state + resume
 

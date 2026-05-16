@@ -52,8 +52,11 @@ check() {
 check "CPU march is set (currently: $(profile_field hardware.cpu.march))" \
   test -n "$(profile_field hardware.cpu.march)"
 
-check "CPU required features list non-empty" \
-  bash -c '[ -n "$(profile_field hardware.cpu.features.required)" ] && [ "$(profile_field hardware.cpu.features.required)" != "[]" ]'
+# Pre-compute the field (profile_field is a function — not visible inside
+# a fresh `bash -c` subshell). Outer-shell expansion solves it.
+cpu_required="$(profile_field hardware.cpu.features.required)"
+check "CPU required features list non-empty (currently: ${cpu_required:-empty})" \
+  test -n "${cpu_required}" -a "${cpu_required}" != "[]"
 
 check "CPU topology declared" \
   test -n "$(profile_field hardware.cpu.cores.topology)"
