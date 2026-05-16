@@ -70,7 +70,13 @@ STEPS=(
 )
 
 cmd_help() {
-  sed -n 's/^# \?//p' "$0" | sed '1,/^Usage:/!d' | head -100
+  # Strip leading '# ' from the file's top comment block; stop at the
+  # first empty (non-comment) line after Usage: (so we get the full
+  # USAGE + Commands + Steps + env-vars sections).
+  sed -n '
+    /^[^#]/q
+    s/^# \?//p
+  ' "$0"
 }
 
 cmd_list() {
