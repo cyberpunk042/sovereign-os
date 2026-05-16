@@ -6,10 +6,20 @@
 
 ```sh
 sovereign-osctl status                # one-page system overview
-sovereign-osctl doctor                # sanity checks
-sovereign-osctl inference status      # per-tier inference table
+sovereign-osctl doctor                # profile-conditioned multi-section health audit
+                                      # (tooling / systemd / zfs / tpm2 /
+                                      # observability / inference / build-state)
+sovereign-osctl inference status      # per-tier systemd unit state
+sovereign-osctl inference health      # per-tier HTTP /healthz probe + TCP fallback
 sovereign-osctl audit friction        # runtime hardware audit
+sovereign-osctl audit perimeter       # Tetragon policy integrity
+sovereign-osctl audit storage         # ZFS pool + dataset health
+sovereign-osctl audit provenance      # SLSA v1 build-provenance + sha256sums cross-check
 ```
+
+`doctor` and `inference health` are both safe to run unprivileged and
+exit non-zero when something needs attention — wire them into
+operator-side cron / Prometheus blackbox / fleet-manager dashboards.
 
 ## Profile management
 
@@ -72,3 +82,21 @@ SOVEREIGN_OS_CONFIRM_DESTROY=YES sudo sovereign-osctl decommission pool
 SOVEREIGN_OS_CONFIRM_DESTROY=YES SOVEREIGN_OS_WIPE_DEVICES='/dev/nvme0n1 /dev/nvme1n1' \
   sudo sovereign-osctl decommission wipe
 ```
+
+## Observability dashboards
+
+Two Grafana JSON dashboard templates ship at
+`docs/observability/dashboards/`:
+
+| File | Coverage |
+|---|---|
+| `sovereign-os-overview.json` | At-a-glance: pipeline last-run, per-tier inference counters, ZFS health, perimeter status, build step durations, log rotation, snapshots, pending security updates |
+| `sovereign-os-inference.json` | Per-tier route rate + cumulative, last-router-decision age, backend start success/fail/skip counts |
+
+Operator imports via Grafana → Dashboards → New → Import → Upload JSON.
+See `docs/observability/dashboards/README.md` for the full metric
+inventory (21 metric names emitted across pipeline + recurrent +
+inference) and provisioning notes.
+
+CI gates dashboard-vs-emitter lockstep — a panel that references a
+metric no script emits fails Layer 1 lint before it ships.
