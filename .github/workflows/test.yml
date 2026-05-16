@@ -154,6 +154,9 @@ jobs:
       - name: nspawn — new recurrent hooks (Round 35: security-update-check + backup-snapshot)
         run: |
           tests/nspawn/test_recurrent_new_hooks.sh
+      - name: nspawn — image-sign gates (Round 39: SDD-015 posture none/shim/signed + PK preference)
+        run: |
+          tests/nspawn/test_image_sign_gates.sh
 
   shellcheck:
     name: shellcheck
