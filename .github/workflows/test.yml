@@ -235,6 +235,9 @@ jobs:
       - name: nspawn — orchestrate.sh recover (Round 135: F-13 CRIT closure — mid-pipeline recovery guidance)
         run: |
           tests/nspawn/test_orchestrator_recover.sh
+      - name: nspawn — sovereign-osctl init (Round 136: F-02 HIGH closure — interactive setup wizard)
+        run: |
+          tests/nspawn/test_sovereign_osctl_init.sh
 
   shellcheck:
     name: shellcheck

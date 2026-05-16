@@ -117,6 +117,10 @@ COMMANDS:
                                   (gates: not-mounted-root + fingerprint + SOVEREIGN_OS_CONFIRM_DESTROY=YES)
   install image --plan <img> --to <dev>  Show fingerprint + plan, do nothing
 
+  init [--non-interactive]     Interactive setup wizard — walk through 5 decisions
+                               (profile · substrate · secure-boot · encryption · whitelabel)
+                               and write .sovereign-os/init-state.yaml
+
   inference status             Per-tier backend status (Pulse / Logic / Oracle / Router)
   inference health             HTTP-probe every tier's /healthz (with TCP fallback)
   inference start <tier>       Start a tier (pulse | logic | oracle | router | all)
@@ -1799,6 +1803,174 @@ for line in sys.stdin.read().splitlines():
   [ "${alert_count}" -eq 0 ] && exit 0 || exit 1
 }
 
+# ------------------------------ init -----------------------------------------
+#
+# Round 136 (F-02 HIGH closure): operator-facing setup wizard.
+# Walks the operator through the 5 mandatory decisions (profile,
+# substrate, secure-boot posture, disk encryption, whitelabel) ONCE,
+# at fresh-machine onboarding time, instead of forcing them to read
+# 26 SDDs to compose a build invocation.
+#
+# Writes the chosen values to .sovereign-os/init-state.yaml + prints
+# the EXACT next command. Idempotent — re-running re-prompts and
+# overwrites (operator may want to change decisions).
+#
+# --non-interactive mode: accepts defaults for every decision; writes
+# the state file; prints the next command. Suitable for CI / scripted
+# fleet bootstrap.
+
+cmd_init() {
+  local non_interactive=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --non-interactive|--ni) non_interactive=1; shift ;;
+      -*) log_error "unknown init flag: $1"; return 2 ;;
+      *)  shift ;;
+    esac
+  done
+  [ -n "${SOVEREIGN_OS_NONINTERACTIVE:-}" ] && non_interactive=1
+
+  local repo_root
+  repo_root="$(cd "${__REPO_ROOT}" && pwd)"
+  local state_dir="${repo_root}/.sovereign-os"
+  local state_file="${state_dir}/init-state.yaml"
+  mkdir -p "${state_dir}"
+
+  echo
+  echo "  sovereign-osctl init — operator setup wizard"
+  echo "  ============================================="
+  echo
+  echo "  Walks you through 5 decisions. Defaults shown in [brackets]."
+  echo "  Press Enter at any prompt to accept the default."
+  echo
+
+  # ---- Decision 1: profile ----
+  echo "  [1/5] PROFILE — which hardware archetype?"
+  echo "    sain-01         AI workstation (Zen 5 · 128GB · 2x NVMe-PCIe-5 · 3090 + 5090 VFIO + Tetragon)"
+  echo "    old-workstation constrained dev box (single 3090, ext4)"
+  echo "    minimal         VM baseline (generic x86-64-v3, virtio-blk)"
+  echo "    developer       polyglot dev workstation (full toolchain)"
+  echo "    headless        bare-metal server (8c/16t · 32GB ECC · auditd + fail2ban)"
+  echo "    recommendation: sain-01 if SAIN-01 hardware; else minimal for VM testing"
+  local profile_id="sain-01"
+  if [ "${non_interactive}" -eq 0 ]; then
+    read -rp "  profile [${profile_id}]: " ans
+    [ -n "${ans}" ] && profile_id="${ans}"
+  fi
+  # Validate
+  if [ ! -f "${repo_root}/profiles/${profile_id}.yaml" ]; then
+    log_error "  no such profile: ${profile_id} (looked in profiles/)"
+    return 1
+  fi
+  echo "    → ${profile_id}"
+  echo
+
+  # ---- Decision 2: substrate ----
+  echo "  [2/5] SUBSTRATE — image-build backend"
+  echo "    mkosi           SDD-003 primary; Debian 13 trixie"
+  echo "    live-build      ALT-A; substrate-agnostic content"
+  echo "    recommendation: mkosi (primary path; faster builds; reproducibility-tested)"
+  local substrate="mkosi"
+  if [ "${non_interactive}" -eq 0 ]; then
+    read -rp "  substrate [${substrate}]: " ans
+    [ -n "${ans}" ] && substrate="${ans}"
+  fi
+  case "${substrate}" in
+    mkosi|live-build) ;;
+    *) log_error "  unknown substrate: ${substrate} (valid: mkosi, live-build)"; return 1 ;;
+  esac
+  echo "    → ${substrate}"
+  echo
+
+  # ---- Decision 3: secure-boot posture ----
+  # Pull profile default if set
+  local secure_boot_default
+  secure_boot_default="$(python3 -c "
+import yaml, sys
+try:
+    with open('${repo_root}/profiles/${profile_id}.yaml') as f:
+        data = yaml.safe_load(f) or {}
+    print((data.get('kernel') or {}).get('cmdline', {}).get('secure_boot', 'none'))
+except: print('none')
+" 2>/dev/null)"
+  echo "  [3/5] SECURE-BOOT — UEFI signing posture (SDD-015)"
+  echo "    none            no signing chain (dev / VM)"
+  echo "    shim            Microsoft-CA shim + operator MOK (most operators)"
+  echo "    signed          operator-owned PK chain (advanced; pre-enrolled hardware)"
+  echo "    profile default: ${secure_boot_default}"
+  local secure_boot="${secure_boot_default}"
+  if [ "${non_interactive}" -eq 0 ]; then
+    read -rp "  secure_boot [${secure_boot}]: " ans
+    [ -n "${ans}" ] && secure_boot="${ans}"
+  fi
+  case "${secure_boot}" in
+    none|shim|signed) ;;
+    *) log_error "  invalid secure_boot: ${secure_boot}"; return 1 ;;
+  esac
+  echo "    → ${secure_boot}"
+  echo
+
+  # ---- Decision 4: disk encryption opt-in ----
+  echo "  [4/5] DISK ENCRYPTION — opt-in toggle (SDD-022)"
+  echo "    yes             ZFS-native (zfs-tiered profiles) or LUKS2 (ext4)"
+  echo "    no              clear-text rootfs (dev/VM only)"
+  echo "    recommendation: yes for sain-01 + headless; profile-specific for others"
+  local encrypt_default="yes"
+  case "${profile_id}" in
+    minimal) encrypt_default="no" ;;
+    developer|old-workstation) encrypt_default="yes" ;;
+  esac
+  local encrypt="${encrypt_default}"
+  if [ "${non_interactive}" -eq 0 ]; then
+    read -rp "  encrypt [${encrypt}]: " ans
+    [ -n "${ans}" ] && encrypt="${ans}"
+  fi
+  case "${encrypt}" in yes|no) ;; *) log_error "  invalid (yes|no): ${encrypt}"; return 1 ;; esac
+  echo "    → ${encrypt}"
+  echo
+
+  # ---- Decision 5: whitelabel ----
+  echo "  [5/5] WHITELABEL — operator branding identity"
+  echo "    default         sovereign-os default whitelabel (motd · plymouth · grub)"
+  echo "    fork            operator-owned fork (you author whitelabel/<id>.yaml later)"
+  echo "    recommendation: default (operator can fork later via 'profiles fork')"
+  local whitelabel="default"
+  if [ "${non_interactive}" -eq 0 ]; then
+    read -rp "  whitelabel [${whitelabel}]: " ans
+    [ -n "${ans}" ] && whitelabel="${ans}"
+  fi
+  echo "    → ${whitelabel}"
+  echo
+
+  # ---- Write state file ----
+  local now; now="$(date -u --iso-8601=seconds)"
+  cat > "${state_file}" <<EOF
+# auto-generated by sovereign-osctl init
+# rewrite by re-running 'sovereign-osctl init'
+schema_version: "1.0.0"
+init_completed_at: "${now}"
+decisions:
+  profile: "${profile_id}"
+  substrate: "${substrate}"
+  secure_boot: "${secure_boot}"
+  encrypt: "${encrypt}"
+  whitelabel: "${whitelabel}"
+EOF
+  log_info "init state written: ${state_file}"
+  echo
+  echo "  NEXT STEPS:"
+  echo "    # 1. Run preflight against your chosen profile"
+  echo "    SOVEREIGN_OS_PROFILE=${profile_id} scripts/build/orchestrate.sh preflight"
+  echo
+  echo "    # 2. Build the image (dry-run first; remove --dry-run when ready)"
+  echo "    SOVEREIGN_OS_PROFILE=${profile_id} SOVEREIGN_OS_SUBSTRATE=${substrate} \\"
+  echo "      scripts/build/orchestrate.sh run --dry-run"
+  echo
+  echo "    # 3. After build succeeds, dump to target device (gated):"
+  echo "    sovereign-osctl install image --plan build/${profile_id}/output/${profile_id} --to /dev/<target>"
+  echo
+}
+
 # ------------------------------ install --------------------------------------
 #
 # Round 134 (F-01 CRIT closure): safety-gated wrapper around `dd` for
@@ -2209,6 +2381,7 @@ case "${cmd}" in
   maintenance)   cmd_maintenance "$@" ;;
   decommission)  cmd_decommission "$@" ;;
   install)       cmd_install "$@" ;;
+  init)          cmd_init "$@" ;;
   inference)     cmd_inference "$@" ;;
   metrics)       cmd_metrics "$@" ;;
   alerts)        cmd_alerts "$@" ;;

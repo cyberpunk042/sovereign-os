@@ -42,7 +42,15 @@ of what's about to be destroyed.
 - gates with `SOVEREIGN_OS_CONFIRM_DESTROY=YES` like the decommission verbs
 - delegates to `dd` only after both gates pass
 
-### F-02 — HIGH — No interactive `sovereign-osctl init` wizard
+### F-02 — HIGH — No interactive `sovereign-osctl init` wizard  ✅ **CLOSED (Round 136)**
+
+`sovereign-osctl init [--non-interactive]` shipped. Walks operator
+through 5 decisions (profile · substrate · secure-boot · encrypt ·
+whitelabel) with recommendations + per-decision rationale, writes
+`.sovereign-os/init-state.yaml`, prints exact next-command block
+(preflight → orchestrate.sh run --dry-run → install image --plan).
+Honors SOVEREIGN_OS_NONINTERACTIVE for CI/fleet bootstrap. Idempotent
+(re-running overwrites). 27-assertion L3.
 
 **Where**: Fresh-machine operator clones the repo, reads README, has
 to read 26 SDDs to understand the choice space (profile · substrate ·
