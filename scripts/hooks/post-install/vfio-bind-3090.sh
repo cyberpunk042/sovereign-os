@@ -10,6 +10,8 @@ __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../../.." && pwd)"
 # shellcheck source=../../build/lib/common.sh
 . "${__REPO_ROOT}/scripts/build/lib/common.sh"
+# shellcheck source=../../build/lib/observability.sh
+. "${__REPO_ROOT}/scripts/build/lib/observability.sh"
 
 STEP_ID="vfio-bind"
 
@@ -88,4 +90,6 @@ if command -v update-initramfs >/dev/null 2>&1; then
 fi
 
 log_info "VFIO binding configured; reboot to apply"
+emit_metric sovereign_os_post_install_vfio_bind_total 1 \
+  "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"configured\""
 log_info "${STEP_ID} complete"

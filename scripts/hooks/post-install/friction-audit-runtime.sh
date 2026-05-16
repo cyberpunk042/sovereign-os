@@ -15,6 +15,8 @@ __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../../.." && pwd)"
 # shellcheck source=../../build/lib/common.sh
 . "${__REPO_ROOT}/scripts/build/lib/common.sh"
+# shellcheck source=../../build/lib/observability.sh
+. "${__REPO_ROOT}/scripts/build/lib/observability.sh"
 
 STEP_ID="friction-audit-runtime"
 
@@ -152,6 +154,17 @@ if command -v dmidecode >/dev/null 2>&1; then
 fi
 
 # ----------------- Result -----------------
+
+emit_metric_set friction-audit \
+  '# HELP sovereign_os_friction_audit_failures Number of failing checks in last runtime friction audit' \
+  '# TYPE sovereign_os_friction_audit_failures gauge' \
+  "sovereign_os_friction_audit_failures{profile=\"${SOVEREIGN_OS_PROFILE}\"} ${fail}" \
+  '# HELP sovereign_os_friction_audit_warnings Number of warnings in last runtime friction audit' \
+  '# TYPE sovereign_os_friction_audit_warnings gauge' \
+  "sovereign_os_friction_audit_warnings{profile=\"${SOVEREIGN_OS_PROFILE}\"} ${warn}" \
+  '# HELP sovereign_os_friction_audit_last_run_timestamp Unix timestamp of the last friction-audit run' \
+  '# TYPE sovereign_os_friction_audit_last_run_timestamp gauge' \
+  "sovereign_os_friction_audit_last_run_timestamp{profile=\"${SOVEREIGN_OS_PROFILE}\"} $(date +%s)"
 
 echo
 if [ "${fail}" -eq 0 ]; then
