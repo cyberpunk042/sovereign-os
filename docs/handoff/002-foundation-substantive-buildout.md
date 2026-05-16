@@ -149,7 +149,13 @@ Chronological:
 | `ae2c1eb` | Round 45 — step 05 substrate-prepare polish (DRY_RUN + Layer B + cleaner gates) |
 | `af2b655` | Round 46 — step 07 image-build adds live-build runner + Layer B + DRY_RUN-first |
 | `71cd409` | Round 47 — step 06 whitelabel-render adds DRY_RUN + Layer B |
-| `(this)`  | Round 48 — handoff refresh after Rounds 44-47 (all build steps now DRY_RUN + Layer B consistent) |
+| `9d76406` | Round 48 — handoff refresh after Rounds 44-47 |
+| `839369a` | Round 49 — manage.md captures new audit/health verbs + dashboards |
+| `7ad1ca3` | Round 50 — install-runbook adds SDD-019 repro + SDD-022 encryption + SDD-015 sign chain |
+| `8722a65` | Round 51 — orchestrator rewind + skip implementations (placeholder closure) |
+| `9749417` | Round 52 — git pre-commit gate + installer + L3 |
+| `3a5e18d` | Round 53 — one-command operator dev-environment setup.sh |
+| `(this)`  | Round 54 — QEMU Layer 4 scaffold expanded (Q-014 partial) + handoff refresh |
 
 ## Real bugs caught by L3 discipline (running tally)
 
