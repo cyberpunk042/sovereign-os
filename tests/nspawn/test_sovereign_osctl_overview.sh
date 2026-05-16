@@ -120,6 +120,43 @@ set -e
 # tolerate either form (just check the verb dispatches)
 ok "(no help-table assertion — overview is dispatchable, that's what matters)"
 
+# ---------- R184: selfdef cycle-2 module-gate bridge ----------
+# When selfdefctl is on PATH, overview emits a bridge block that
+# fires `selfdefctl modules check-hardware --json` once and surfaces
+# the active / would-apply / would-skip counts. We mock selfdefctl
+# via a stub shell wrapper so the test is hermetic.
+SHIM_DIR="$(mktemp -d)"
+trap 'rm -rf "${SHIM_DIR}"' EXIT
+cat > "${SHIM_DIR}/selfdefctl" <<'SHIM'
+#!/usr/bin/env bash
+if [ "${1:-}" = "modules" ] && [ "${2:-}" = "check-hardware" ] && [ "${3:-}" = "--json" ]; then
+  printf '{"probe_ok":true,"total":3,"kept":[{"module":"alpha","reason":"x"}],"skipped":[{"module":"beta","unmet":["y"]},{"module":"gamma","unmet":["z"]}]}\n'
+  exit 0
+fi
+exit 1
+SHIM
+chmod +x "${SHIM_DIR}/selfdefctl"
+set +e
+out_b="$(PATH="${SHIM_DIR}:${PATH}" "${OSCTL}" overview 2>&1)"
+rc=$?
+set -e
+[ "${rc}" -eq 0 ] && ok "overview with selfdefctl-on-PATH exits 0" \
+  || ko "rc=${rc}: ${out_b}"
+grep -q "Selfdef cycle-2 module gate (R184" <<< "${out_b}" \
+  && ok "R184 bridge block lands when selfdefctl is on PATH" \
+  || ko "R184 block missing: ${out_b}"
+grep -q "active=3" <<< "${out_b}" \
+  && grep -q "would-apply=1" <<< "${out_b}" \
+  && grep -q "would-skip=2" <<< "${out_b}" \
+  && ok "R184 bridge shows correct counts from canned JSON" \
+  || ko "counts wrong: ${out_b}"
+set +e
+out_b2="$(PATH=/usr/bin:/bin "${OSCTL}" overview 2>&1)"
+set -e
+! grep -q "Selfdef cycle-2 module gate" <<< "${out_b2}" \
+  && ok "R184 bridge omitted when selfdefctl NOT on PATH" \
+  || ko "bridge fired unexpectedly: ${out_b2}"
+
 echo
 total=$((pass + fail))
 echo "test_sovereign_osctl_overview: ${pass}/${total} passed"

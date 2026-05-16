@@ -450,6 +450,33 @@ EOF
   echo "    sovereign-osctl bootstrap verify"
   echo "    sovereign-osctl trinity status"
   echo "    sovereign-osctl models list"
+  # R184: surface the selfdef cycle-2 module-gate state when the
+  # capabilities JSON + selfdefctl are both present. This is purely
+  # informational — overview stays operator-readable on hosts where
+  # selfdef isn't installed.
+  if command -v selfdefctl >/dev/null 2>&1; then
+    echo
+    echo "[Selfdef cycle-2 module gate (R184 — bridge to selfdef SD-R14..R39)]"
+    local mod_total mod_kept mod_skipped gate_json
+    # Use --json so we don't have to parse the human output. The
+    # gate dry-run is read-only — safe to fire on every overview.
+    if gate_json="$(selfdefctl modules check-hardware --json 2>/dev/null)"; then
+      mod_total="$(python3 -c "import json,sys; d=json.loads(sys.argv[1]); print(d.get('total', 0))" "${gate_json}" 2>/dev/null || echo 0)"
+      mod_kept="$(python3 -c "import json,sys; d=json.loads(sys.argv[1]); print(len(d.get('kept', [])))" "${gate_json}" 2>/dev/null || echo 0)"
+      mod_skipped="$(python3 -c "import json,sys; d=json.loads(sys.argv[1]); print(len(d.get('skipped', [])))" "${gate_json}" 2>/dev/null || echo 0)"
+      if [ "${mod_total}" -eq 0 ]; then
+        printf "  (no active selfdef modules — /etc/selfdef/modules.toml empty?)\n"
+      else
+        printf "  active=%s · would-apply=%s · would-skip=%s\n" \
+          "${mod_total}" "${mod_kept}" "${mod_skipped}"
+        if [ "${mod_skipped}" != "0" ]; then
+          printf "  ⚠ run: selfdefctl modules check-hardware  (see WOULD SKIP list)\n"
+        fi
+      fi
+    else
+      printf "  (selfdefctl present but `modules check-hardware --json` failed; daemon state?)\n"
+    fi
+  fi
 }
 
 # ------------------------------ doctor ---------------------------------------
