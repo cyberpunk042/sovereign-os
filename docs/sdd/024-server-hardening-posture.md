@@ -148,9 +148,15 @@ universal hardening, not server-specific.
   not aggressive-default escalation.
 - **Q24-C** — Should `apply-server-hardening.sh` also configure
   `/etc/issue.net` (network banner shown before login) symmetrically
-  with `/etc/issue` (post-login)? Recommend: YES at Stage 3+ when the
-  whitelabel renderer learns the issue.net surface (currently only
-  /etc/issue is rendered).
+  with `/etc/issue` (post-login)? **RESOLVED (Round 112)** —
+  whitelabel/default.yaml already renders /etc/issue.net (was minimal
+  os_pretty_name only). Round 112: sshd_config Banner directive
+  switched from /etc/issue → /etc/issue.net for BOTH server +
+  workstation drop-ins (standard SSH pre-auth banner convention);
+  /etc/issue.net content extended with "Authorized use only. All
+  connections may be logged." Operators wanting the full motd
+  pre-auth override via `/etc/ssh/sshd_config.d/99operator.conf`
+  with `Banner /etc/issue`.
 - **Q24-D** — Should the hook generate a `/etc/security/pwquality.conf`
   drop-in for headless's pubkey-only fleet (operators with sudo still
   use passwords)? **RESOLVED (Round 101)** — YES; shipped as

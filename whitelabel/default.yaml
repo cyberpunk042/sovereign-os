@@ -68,8 +68,14 @@ surfaces:
 
   /etc/issue.net:
     strategy: template-substitution
+    # Pre-auth SSH banner (Banner /etc/issue.net in sshd_config.d/50sovereign-os.conf).
+    # SDD-024 Q24-C: minimal pre-auth content; the full motd appears post-login
+    # via /etc/issue + PrintMotd. Operators can replace with a legal-notice
+    # banner via /etc/issue.net.local or a whitelabel override.
     content: |
       ${os_pretty_name}
+
+      Authorized use only. All connections may be logged.
     when: pre-build
 
   /etc/lsb-release:
