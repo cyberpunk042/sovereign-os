@@ -15,10 +15,18 @@ RestartSec=10s
 # Memory limit: bitnet.cpp models < 10GB; cap to leave room for ZFS ARC + GPU mappings
 MemoryHigh=12G
 MemoryMax=16G
-# Security
+# Security — defense in depth (R160 hardening pass)
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryDenyWriteExecute=false  # bitnet.cpp JIT-loads .so; must allow
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 ReadWritePaths=/var/log/sovereign-os /var/lib/sovereign-os
 ReadOnlyPaths=/mnt/vault/models
 PrivateTmp=true

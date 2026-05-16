@@ -15,9 +15,19 @@ ExecStop=/usr/bin/podman stop vllm-logic_engine
 Restart=on-failure
 RestartSec=15s
 TimeoutStartSec=180s
-# Security
+# Security — defense in depth (R160 hardening pass)
+# Note: Logic Engine uses GPU via podman; we DO NOT add ProtectHome
+# since podman may need access to /root/.config in some setups, and
+# DO NOT lock down NVIDIA driver paths (vLLM needs CUDA introspection).
 NoNewPrivileges=true
 ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictNamespaces=false  # podman creates namespaces internally
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
 ReadWritePaths=/var/log/sovereign-os /var/lib/sovereign-os
 ReadOnlyPaths=/mnt/vault/models
 PrivateTmp=true

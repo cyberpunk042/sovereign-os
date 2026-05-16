@@ -117,6 +117,44 @@ panel queries lock to them.
 - `sovereign_os_perimeter_status`
 - `sovereign_os_perimeter_verify_last_run_timestamp`
 
+### Trinity execution machinery (R152-R155 — master spec §§ 10, 17, 20, 21)
+
+Pulse (CPU ternary inference; bitnet.cpp + Wasm AOT):
+- `sovereign_os_pulse_build_total{result}` — bitnet.cpp build outcomes per run of `scripts/pulse/build-bitnet.sh`
+- `sovereign_os_pulse_build_last_run_timestamp` — last Pulse-runtime build attempt
+- `sovereign_os_pulse_wasm_aot_total{result}` — Wasm-to-AVX-512 AOT invocations from `scripts/pulse/wasm-aot.sh` (success/skip/fail)
+- `sovereign_os_pulse_wasm_aot_last_run_timestamp` — last AOT compile
+
+Weaver (atomic state transitions; master spec § 21):
+- `sovereign_os_weaver_atomic_write_total{file,result}` — per-state-file atomic commit outcomes (IDENTITY/SOUL/AGENTS/CLAUDE)
+- `sovereign_os_weaver_atomic_write_bytes{file}` — bytes committed per atomic write
+- `sovereign_os_weaver_atomic_write_last_timestamp{file}` — last successful atomic commit per file
+
+Auditor (Tetragon eBPF event-loop guardian; master spec § 10):
+- `sovereign_os_auditor_neutralization_total{result}` — `podman kill` outcomes per perimeter violation (success/kill-failed/no-container-id/dry-run)
+- `sovereign_os_auditor_event_parse_total{outcome}` — Tetragon event parse classification (trigger/benign/bad-json)
+- `sovereign_os_auditor_last_neutralization_timestamp` — last neutralization event
+
+### Inference fabric extensions (R156-R157)
+
+Model catalog (R156 — master spec § 17/18):
+- `sovereign_os_models_pull_total{model,result}` — outcomes of `scripts/models/pull.sh` per declared model (success/fail/skip-aspirational/missing-tool/dry-run)
+- `sovereign_os_models_pull_last_timestamp{model}` — last successful pull per model
+
+DFlash speculative decoding (R157 — master spec Block 7):
+- `sovereign_os_dflash_decision_total{task_type,decision}` — per-task-type gating decisions from `scripts/inference/dflash-wrap.sh` (enabled/disabled/disabled-no-install)
+- `sovereign_os_dflash_last_invocation_timestamp{task_type}` — last DFlash decision per task type
+
+### Substrate fabric (R158-R159 — master spec §§ 8, 22)
+
+Asymmetric Zero-Trust network rendering (R158 — master spec § 8):
+- `sovereign_os_network_asymmetric_render_total{profile,result}` — outcomes of `scripts/network/render-asymmetric.sh` (success/dry-run/legacy-rendered/skip-empty/skip-no-address)
+- `sovereign_os_network_asymmetric_render_last_timestamp{profile}` — last successful render per profile
+
+Master bootstrap verification (R159 — master spec § 22):
+- `sovereign_os_bootstrap_check_total{check,result}` — per-check outcome (PASS/FAIL/SKIP) for the 6 master spec § 22 checks
+- `sovereign_os_bootstrap_verify_last_run_timestamp` — last verify run (any subset)
+
 When a new hook adds metrics: add a row to the section above + a panel
 to the relevant dashboard JSON + bump the dashboard `version`.
 Operators re-import to pick up. The `test_metric_inventory_lockstep.py`

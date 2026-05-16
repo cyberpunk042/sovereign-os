@@ -51,6 +51,9 @@ def _emitted_metric_names() -> set[str]:
         re.compile(r"'(sovereign_os_[a-z][a-z0-9_]*)\s"),
         # # HELP / # TYPE lines
         re.compile(r"#\s+(?:HELP|TYPE)\s+(sovereign_os_[a-z][a-z0-9_]*)\b"),
+        # Python: _emit_metric("sovereign_os_xxx", ...) / emit_metric("...")
+        # (R160: catches Python emitters in scripts/weaver, scripts/auditor)
+        re.compile(r"_?emit_metric\(\s*[\"'](sovereign_os_[a-z][a-z0-9_]*)[\"']"),
     ]
     for root in EMITTING_ROOTS:
         if not root.is_dir():
