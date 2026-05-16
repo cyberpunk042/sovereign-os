@@ -1,14 +1,24 @@
-# sovereign-os GRUB theme — minimal placeholder pending Q-003 brand.
-# Replace with real theme + background asset when brand identity lands.
+# sovereign-os GRUB boot-menu theme.
+#
+# Monochrome palette per SDD-012 (Q-003 deferred-with-criteria —
+# placeholder until operator promotes a real brand). Layout aims for
+# operator-readable boot menu + visible motd at the bottom.
 
 title-text: "Sovereign OS"
 title-color: "#d8d8e0"
 title-font: "DejaVu Sans Bold 18"
 desktop-color: "#0c0c12"
+desktop-image: "background.png"
 message-color: "#a8a8b0"
 message-font: "DejaVu Sans 12"
+message-bg-color: "#0c0c12"
 terminal-box: "terminal_box_*.png"
 terminal-font: "DejaVu Sans Mono 10"
+terminal-left: "5%"
+terminal-top: "5%"
+terminal-width: "90%"
+terminal-height: "90%"
+terminal-border: "0"
 
 + boot_menu {
     left = 15%
@@ -18,10 +28,14 @@ terminal-font: "DejaVu Sans Mono 10"
     item_font = "DejaVu Sans 14"
     item_color = "#c8c8d0"
     selected_item_color = "#ffffff"
+    selected_item_font = "DejaVu Sans Bold 14"
     item_height = 28
     item_padding = 8
     item_spacing = 0
     selected_item_pixmap_style = "select_*.png"
+    scrollbar = true
+    scrollbar_width = 12
+    scrollbar_thumb = "scrollbar_*.png"
 }
 
 + vbox {
@@ -31,8 +45,39 @@ terminal-font: "DejaVu Sans Mono 10"
     align = "center"
 
     + label {
-        text = "Use ↑↓ to select; press Enter to boot."
-        font = "DejaVu Sans 12"
-        color = "#a8a8b0"
+        text = "press 'e' to edit · press 'c' for grub shell"
+        color = "#888892"
+        font = "DejaVu Sans 10"
+        align = "center"
     }
+
+    + label {
+        text = "—"
+        color = "#444448"
+        font = "DejaVu Sans 10"
+        align = "center"
+    }
+
+    # Operator-verbatim motd (sacrosanct) — visible at every boot,
+    # in the most-eyed-on surface of the system.
+    + label {
+        text = "quality over quantity · honesty over cheats and lies"
+        color = "#888892"
+        font = "DejaVu Sans Italic 10"
+        align = "center"
+    }
+}
+
++ progress_bar {
+    id = "__timeout__"
+    left = 25%
+    top = 88%
+    width = 50%
+    height = 16
+    show_text = true
+    text_color = "#a8a8b0"
+    font = "DejaVu Sans 10"
+    fg_color = "#7878a0"
+    bg_color = "#1a1a22"
+    border_color = "#444448"
 }

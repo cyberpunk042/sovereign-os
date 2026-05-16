@@ -145,6 +145,9 @@ jobs:
       - name: nspawn — kernel-fetch SHA recording (step 02 against fake git remote)
         run: |
           tests/nspawn/test_kernel_fetch_sha_recording.sh
+      - name: nspawn — whitelabel overlays substantive (Round 33: plymouth + grub themes carry operator motd)
+        run: |
+          tests/nspawn/test_whitelabel_overlays_present.sh
 
   shellcheck:
     name: shellcheck

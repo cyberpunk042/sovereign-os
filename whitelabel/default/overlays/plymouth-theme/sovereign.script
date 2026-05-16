@@ -1,26 +1,81 @@
-# sovereign-os Plymouth script — minimal placeholder pending Q-003.
-# Replace with real script + image assets once brand identity (name,
-# palette, logo SVG) is committed.
+# sovereign-os Plymouth boot script.
+#
+# Operator-verbatim motd (sacrosanct) is surfaced at the bottom of the
+# splash so it's visible during every boot — fulfills the
+# "we will still see it written somewhere" intent from the operator
+# /goal (2026-05-16), at the highest-visibility surface of all.
 #
 # References:
 #   https://www.freedesktop.org/wiki/Software/Plymouth/Scripts/
 
+# ---- canvas ----
 Window.SetBackgroundTopColor(0.10, 0.10, 0.14);
 Window.SetBackgroundBottomColor(0.05, 0.05, 0.08);
 
-# Centered text — placeholder until logo asset lands
+# ---- title + subtitle ----
 title = Image.Text("Sovereign OS", 0.85, 0.85, 0.90, 1.0, "Sans Bold 36");
 title_sprite = Sprite(title);
 title_sprite.SetX(Window.GetWidth() / 2 - title.GetWidth() / 2);
-title_sprite.SetY(Window.GetHeight() / 2 - title.GetHeight() / 2 - 20);
+title_sprite.SetY(Window.GetHeight() / 2 - title.GetHeight() / 2 - 60);
 
 subtitle = Image.Text("foundation phase", 0.6, 0.6, 0.65, 1.0, "Sans 14");
 subtitle_sprite = Sprite(subtitle);
 subtitle_sprite.SetX(Window.GetWidth() / 2 - subtitle.GetWidth() / 2);
-subtitle_sprite.SetY(Window.GetHeight() / 2 + 20);
+subtitle_sprite.SetY(Window.GetHeight() / 2 - 10);
+
+# ---- operator motd (sacrosanct verbatim) ----
+motd_line1 = Image.Text("quality over quantity", 0.55, 0.55, 0.60, 1.0, "Sans Italic 11");
+motd_line1_sprite = Sprite(motd_line1);
+motd_line1_sprite.SetX(Window.GetWidth() / 2 - motd_line1.GetWidth() / 2);
+motd_line1_sprite.SetY(Window.GetHeight() - 60);
+
+motd_line2 = Image.Text("honesty over cheats and lies", 0.55, 0.55, 0.60, 1.0, "Sans Italic 11");
+motd_line2_sprite = Sprite(motd_line2);
+motd_line2_sprite.SetX(Window.GetWidth() / 2 - motd_line2.GetWidth() / 2);
+motd_line2_sprite.SetY(Window.GetHeight() - 40);
+
+# ---- spinner (procedural — no asset dependency) ----
+spinner_angle = 0;
+spinner = Image.Text(".", 0.7, 0.7, 0.75, 1.0, "Sans Bold 24");
+spinner_sprite = Sprite(spinner);
+spinner_sprite.SetX(Window.GetWidth() / 2);
+spinner_sprite.SetY(Window.GetHeight() / 2 + 30);
 
 fun refresh_callback() {
-  # No animation in placeholder. Real theme: spinner / progress.
+  spinner_angle = (spinner_angle + 1) % 8;
+  glyphs = [".", "o", "O", "*", "O", "o", ".", " "];
+  spinner = Image.Text(glyphs[spinner_angle], 0.7, 0.7, 0.75, 1.0, "Sans Bold 24");
+  spinner_sprite.SetImage(spinner);
 }
-
 Plymouth.SetRefreshFunction(refresh_callback);
+
+# ---- status message hook (cryptsetup / fsck etc.) ----
+status_sprite = NULL;
+fun display_message_callback(text) {
+  if (status_sprite) {
+    status_sprite.SetOpacity(0);
+  }
+  status = Image.Text(text, 0.85, 0.85, 0.85, 1.0, "Sans 12");
+  status_sprite = Sprite(status);
+  status_sprite.SetX(Window.GetWidth() / 2 - status.GetWidth() / 2);
+  status_sprite.SetY(Window.GetHeight() / 2 + 70);
+}
+Plymouth.SetDisplayMessageFunction(display_message_callback);
+
+# ---- password prompt (LUKS / fscrypt) ----
+fun display_password_callback(prompt, bullets) {
+  prompt_img = Image.Text(prompt, 0.9, 0.9, 0.9, 1.0, "Sans 14");
+  prompt_sprite = Sprite(prompt_img);
+  prompt_sprite.SetX(Window.GetWidth() / 2 - prompt_img.GetWidth() / 2);
+  prompt_sprite.SetY(Window.GetHeight() / 2 + 100);
+
+  bullet_str = "";
+  for (i = 0; i < bullets; i++) {
+    bullet_str = bullet_str + "•";
+  }
+  bullet_img = Image.Text(bullet_str, 0.9, 0.9, 0.9, 1.0, "Sans Bold 18");
+  bullet_sprite = Sprite(bullet_img);
+  bullet_sprite.SetX(Window.GetWidth() / 2 - bullet_img.GetWidth() / 2);
+  bullet_sprite.SetY(Window.GetHeight() / 2 + 130);
+}
+Plymouth.SetDisplayPasswordFunction(display_password_callback);
