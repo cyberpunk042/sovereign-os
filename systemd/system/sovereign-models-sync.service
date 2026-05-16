@@ -8,3 +8,9 @@ ExecStart=/opt/sovereign-os/scripts/hooks/recurrent/model-catalog-sync.sh
 TimeoutStartSec=300s
 StandardOutput=journal
 StandardError=journal
+# Defense-in-depth — reads /mnt/vault/models; may write per-model
+# verification ledgers + metrics output
+ProtectSystem=strict
+ReadWritePaths=/mnt/vault/models /var/lib/sovereign-os /var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true

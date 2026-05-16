@@ -9,3 +9,8 @@ ExecStart=/opt/sovereign-os/scripts/hooks/recurrent/tetragon-policy-verify.sh
 TimeoutStartSec=60s
 StandardOutput=journal
 StandardError=journal
+# Defense-in-depth — read-only verifier; writes only metrics + audit log
+ProtectSystem=strict
+ReadWritePaths=/mnt/vault/context /var/lib/sovereign-os /var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true

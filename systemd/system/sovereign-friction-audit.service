@@ -17,6 +17,11 @@ ExecStart=/opt/sovereign-os/scripts/hooks/post-install/friction-audit-runtime.sh
 SuccessExitStatus=0 1
 StandardOutput=journal
 StandardError=journal
+# Defense-in-depth — read-only audit; only writes to journal + state dir
+ProtectSystem=strict
+ReadWritePaths=/var/lib/sovereign-os /var/log/sovereign-os
+NoNewPrivileges=true
+PrivateTmp=true
 
 [Install]
 WantedBy=sovereign-firstboot.target

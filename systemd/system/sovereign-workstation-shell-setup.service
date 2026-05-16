@@ -11,6 +11,11 @@ EnvironmentFile=-/etc/sovereign-os/active-profile.env
 ExecStart=/opt/sovereign-os/scripts/hooks/post-install/workstation-shell-setup.sh
 StandardOutput=journal
 StandardError=journal
+# Defense-in-depth — sets /etc/skel + /etc/profile.d defaults
+ProtectSystem=strict
+ReadWritePaths=/etc/skel /etc/profile.d /etc/bash.bashrc.d /var/lib/sovereign-os
+NoNewPrivileges=true
+PrivateTmp=true
 
 [Install]
 WantedBy=sovereign-firstboot.target

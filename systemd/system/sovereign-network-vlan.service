@@ -13,6 +13,12 @@ EnvironmentFile=-/etc/sovereign-os/active-profile.env
 ExecStart=/opt/sovereign-os/scripts/hooks/post-install/network-vlan-config.sh
 StandardOutput=journal
 StandardError=journal
+# Defense-in-depth — writes systemd-networkd config; needs CAP_NET_ADMIN
+# but no unrelated filesystem write
+ProtectSystem=strict
+ReadWritePaths=/etc/systemd/network /var/lib/sovereign-os
+NoNewPrivileges=true
+PrivateTmp=true
 
 [Install]
 WantedBy=sovereign-firstboot.target

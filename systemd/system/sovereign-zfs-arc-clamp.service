@@ -13,6 +13,11 @@ EnvironmentFile=-/etc/sovereign-os/active-profile.env
 ExecStart=/opt/sovereign-os/scripts/hooks/post-install/zfs-arc-clamp.sh
 StandardOutput=journal
 StandardError=journal
+# Defense-in-depth — writes /etc/modprobe.d/zfs.conf + /sys/module/zfs
+ProtectSystem=full
+ReadWritePaths=/etc/modprobe.d /var/lib/sovereign-os
+NoNewPrivileges=true
+PrivateTmp=true
 
 [Install]
 WantedBy=sovereign-firstboot.target

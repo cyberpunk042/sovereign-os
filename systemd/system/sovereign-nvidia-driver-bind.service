@@ -12,6 +12,13 @@ EnvironmentFile=-/etc/sovereign-os/active-profile.env
 ExecStart=/opt/sovereign-os/scripts/hooks/post-install/nvidia-driver-bind.sh
 StandardOutput=journal
 StandardError=journal
+# Defense-in-depth — writes /etc/modprobe.d for nouveau blacklist;
+# reads /sys/bus/pci. Can't ProtectSystem=strict because kmod operations
+# need /sys + module-loading capability. ReadWritePaths narrowed.
+ProtectSystem=full
+ReadWritePaths=/etc/modprobe.d /var/lib/sovereign-os
+NoNewPrivileges=true
+PrivateTmp=true
 
 [Install]
 WantedBy=sovereign-firstboot.target

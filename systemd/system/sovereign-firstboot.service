@@ -14,6 +14,11 @@ ExecStart=/bin/sh -c 'date -u --iso-8601=seconds > /var/lib/sovereign-os/first-b
 ExecStartPost=/bin/sh -c '[ -f /var/lib/sovereign-os/.vfio-bind-needs-reboot ] && echo "NOTICE: reboot required for VFIO binding to take effect" > /dev/console || true'
 StandardOutput=journal
 StandardError=journal
+# Defense-in-depth — completion marker only writes /var/lib/sovereign-os
+ProtectSystem=strict
+ReadWritePaths=/var/lib/sovereign-os
+NoNewPrivileges=true
+PrivateTmp=true
 
 [Install]
 WantedBy=sovereign-firstboot.target

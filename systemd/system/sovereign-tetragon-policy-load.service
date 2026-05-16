@@ -13,6 +13,12 @@ EnvironmentFile=-/etc/sovereign-os/active-profile.env
 ExecStart=/opt/sovereign-os/scripts/hooks/post-install/tetragon-policy-load.sh
 StandardOutput=journal
 StandardError=journal
+# Defense-in-depth — copies policy files to /etc/tetragon; appends to
+# /mnt/vault/context security_audit.log on drift.
+ProtectSystem=strict
+ReadWritePaths=/etc/tetragon /mnt/vault/context /var/lib/sovereign-os
+NoNewPrivileges=true
+PrivateTmp=true
 
 [Install]
 WantedBy=sovereign-firstboot.target
