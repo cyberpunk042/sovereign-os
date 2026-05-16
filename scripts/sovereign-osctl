@@ -80,6 +80,7 @@ COMMANDS:
   decommission start           Begin decommission flow (interactive; confirms)
 
   inference status             Per-tier backend status (Pulse / Logic / Oracle / Router)
+  inference health             HTTP-probe every tier's /healthz (with TCP fallback)
   inference start <tier>       Start a tier (pulse | logic | oracle | router | all)
   inference stop <tier>        Stop a tier
   inference restart <tier>     Restart a tier
@@ -662,6 +663,55 @@ from router import classify
 body = {"model": "auto", "messages": [{"role": "user", "content": """${prompt}"""}]}
 print(f"would route to: {classify(body)}")
 PY
+      ;;
+
+    health)
+      # HTTP-probe every tier's /healthz endpoint + the router's /healthz.
+      # Used by ops dashboards + operator quick-check. Falls back to TCP-
+      # liveness if HTTP returns non-2xx (some backends don't expose
+      # /healthz but their port being open is signal enough).
+      local any_fail=0
+      printf "%-15s %-25s %-10s %s\n" "TIER" "ENDPOINT" "STATUS" "DETAIL"
+      printf "%-15s %-25s %-10s %s\n" "----" "--------" "------" "------"
+      for tier in pulse logic oracle router; do
+        local port endpoint
+        case "${tier}" in
+          pulse)  port=8081 ;;
+          logic)  port=8082 ;;
+          oracle) port=8083 ;;
+          router) port=8080 ;;
+        esac
+        endpoint="http://127.0.0.1:${port}"
+
+        # Try /healthz first
+        local status detail
+        local rc=1
+        if command -v curl >/dev/null 2>&1; then
+          local code; code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 "${endpoint}/healthz" 2>/dev/null || echo 000)"
+          if [ "${code}" = "200" ]; then
+            status="✓ ok"; detail="200 /healthz"; rc=0
+          elif [ "${code}" = "000" ]; then
+            # Try TCP fallback
+            if (echo >/dev/tcp/127.0.0.1/"${port}") 2>/dev/null; then
+              status="~ tcp"; detail="port open, /healthz unreachable"; rc=0
+            else
+              status="✗ down"; detail="no listener"; rc=1
+            fi
+          else
+            status="? code"; detail="${code} /healthz"; rc=1
+          fi
+        else
+          # curl absent — pure-bash TCP probe via /dev/tcp
+          if (echo >/dev/tcp/127.0.0.1/"${port}") 2>/dev/null; then
+            status="~ tcp"; detail="port open (no curl for /healthz)"; rc=0
+          else
+            status="✗ down"; detail="no listener (no curl for /healthz)"; rc=1
+          fi
+        fi
+        [ "${rc}" -ne 0 ] && any_fail=1
+        printf "%-15s %-25s %-10s %s\n" "${tier}" "${endpoint}" "${status}" "${detail}"
+      done
+      [ "${any_fail}" -eq 0 ] && return 0 || return 1
       ;;
 
     logs)

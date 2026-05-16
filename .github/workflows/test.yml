@@ -160,6 +160,9 @@ jobs:
       - name: nspawn — sovereign-osctl audit provenance (Round 41: SDD-019 operator verification)
         run: |
           tests/nspawn/test_sovereign_osctl_audit_provenance.sh
+      - name: nspawn — sovereign-osctl inference health (Round 42: HTTP /healthz + TCP fallback)
+        run: |
+          tests/nspawn/test_sovereign_osctl_inference_health.sh
 
   shellcheck:
     name: shellcheck
