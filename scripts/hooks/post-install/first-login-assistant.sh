@@ -70,11 +70,22 @@ if confirm "Set hostname to '${default_hostname}'?" default-yes; then
     new_hostname="${new_hostname:-${default_hostname}}"
   fi
   if [ "$(id -u)" -eq 0 ]; then
-    hostnamectl set-hostname "${new_hostname}"
-    choices[hostname]="${new_hostname}"
-    log_info "  hostname set to ${new_hostname}"
+    # hostnamectl requires systemd as PID 1; containers / chroots
+    # don't have that — fall back to /etc/hostname write in that case.
+    if command -v hostnamectl >/dev/null 2>&1 && hostnamectl set-hostname "${new_hostname}" 2>/dev/null; then
+      choices[hostname]="${new_hostname}"
+      log_info "  hostname set to ${new_hostname} (via hostnamectl)"
+    elif [ -w /etc/hostname ] || [ -w /etc ]; then
+      echo "${new_hostname}" > /etc/hostname
+      choices[hostname]="${new_hostname}"
+      log_info "  hostname written to /etc/hostname (hostnamectl unavailable — container/chroot?)"
+    else
+      log_warn "  could not set hostname (no hostnamectl + /etc not writable)"
+      choices[hostname]="unchanged"
+    fi
   else
     log_warn "  not root — hostname change skipped (re-run with sudo)"
+    choices[hostname]="skipped-no-root"
   fi
 fi
 

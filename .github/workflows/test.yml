@@ -119,6 +119,9 @@ jobs:
       - name: nspawn — inference router HTTP spawn + classify()
         run: |
           tests/nspawn/test_inference_router_http.sh
+      - name: nspawn — first-login assistant (Q-018 idempotency + state + force)
+        run: |
+          tests/nspawn/test_first_login_assistant.sh
 
   shellcheck:
     name: shellcheck

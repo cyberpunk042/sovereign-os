@@ -27,5 +27,5 @@ at a specific PR and produces a `D-NNN` entry in the decisions log.
 | Q-015 | Reproducibility target | PR 4 (substrate constrains) | open |
 | Q-016 | Distro-base reconsideration ("Debian-as-Ark") | PR 4 → Gate 2 | open |
 | Q-017 | Inference-backend stack (LocalAI vs vLLM · llama.cpp · custom) | dedicated SDD post-PR-10 | open |
-| Q-018 | First-login post-install assistant | Stage 2+ Stage 6 | open |
-| Q-019 | Lifecycle-management surface (`sovereign-osctl` · systemd-units · hybrid) | Stage 2+ Stage 7 | open |
+| Q-018 | First-login post-install assistant | Stage 2+ Stage 6 | **partial** — assistant + cloud-init pre-add path shipped; L3 idempotency + state-shape + force-rerun gates landed (`test_first_login_assistant.sh`, 16 assertions) |
+| Q-019 | Lifecycle-management surface (`sovereign-osctl` · systemd-units · hybrid) | Stage 2+ Stage 7 | **partial** — hybrid (sovereign-osctl 639 lines + 16 systemd unit files) shipped; L3 management-surface gate (`test_sovereign_osctl.sh`, 23 assertions) |
