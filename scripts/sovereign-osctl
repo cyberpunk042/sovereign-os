@@ -1978,8 +1978,8 @@ PY
 # ------------------------------ version --------------------------------------
 
 cmd_version() {
-  local sovereign_version="0.2.0"
-  local phase="Stage-2 onset"
+  local sovereign_version="0.3.0"
+  local phase="Stage-2 operator-observability + hardening complete"
   local active_profile="${SOVEREIGN_OS_PROFILE:-unknown}"
   local active_whitelabel="default"
   [ -r /etc/sovereign-os/active-whitelabel ] && \
