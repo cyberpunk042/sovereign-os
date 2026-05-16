@@ -241,6 +241,60 @@ def emit_for_mkosi(cs: Changeset, out_dir: pathlib.Path) -> None:
     print(f"  + manifest: {manifest}")
 
 
+def emit_for_live_build(cs: Changeset, out_dir: pathlib.Path) -> None:
+    """Apply changeset into the live-build config/includes.chroot/ tree.
+
+    live-build merges everything under config/includes.chroot/ into the
+    rootfs late in the build, after the package install pass. This is
+    the substrate-parallel of mkosi.skeleton/ + mkosi.extra/.
+
+    Surface mapping:
+      pre_build_files     → config/includes.chroot/<path>
+      pre_build_overlays  → config/includes.chroot/<path>/  (recursive copy)
+      build_time_env      → config/auto/config.d/10-whitelabel-env.conf (lb_config snippet)
+      install/first_boot  → whitelabel-manifest.json (substrate-agnostic; hooks read it)
+    """
+    chroot = out_dir / "config" / "includes.chroot"
+    chroot.mkdir(parents=True, exist_ok=True)
+
+    for surface_path, content in cs.pre_build_files.items():
+        rel = surface_path.lstrip("/")
+        target = chroot / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content)
+        print(f"  + chroot: {surface_path}")
+
+    for surface_path, src_dir in cs.pre_build_overlays.items():
+        src = pathlib.Path(src_dir)
+        if not src.exists():
+            print(f"  ! overlay source missing: {src} (Stage 2+ ships content)")
+            continue
+        rel = surface_path.lstrip("/")
+        target = chroot / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if target.exists():
+            shutil.rmtree(target)
+        shutil.copytree(src, target)
+        print(f"  + overlay: {surface_path} ← {src}")
+
+    if cs.build_time_env:
+        env_conf = out_dir / "config" / "auto" / "config.d" / "10-whitelabel-env.conf"
+        env_conf.parent.mkdir(parents=True, exist_ok=True)
+        lines = ["# whitelabel build-time env (lb_config picks up via shell-source)"]
+        for k, v in cs.build_time_env.items():
+            lines.append(f'export {k}="{v}"')
+        env_conf.write_text("\n".join(lines) + "\n")
+        print(f"  + build-env: {env_conf}")
+
+    manifest = out_dir / "whitelabel-manifest.json"
+    manifest.write_text(json.dumps({
+        "install_time": cs.install_time,
+        "first_boot_scripts": cs.first_boot_scripts,
+        "package_actions": cs.package_actions,
+    }, indent=2))
+    print(f"  + manifest: {manifest}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="sovereign-os whitelabel render engine")
     parser.add_argument("--profile", required=True, help="profile YAML path")
@@ -265,10 +319,12 @@ def main() -> int:
 
     if args.substrate == "mkosi":
         emit_for_mkosi(cs, out_dir)
+    elif args.substrate == "live-build":
+        emit_for_live_build(cs, out_dir)
     else:
         sys.stderr.write(
             f"error: substrate '{args.substrate}' adapter not yet implemented; "
-            f"only mkosi shipped in foundation phase\n"
+            f"mkosi + live-build are the foundation-phase substrates\n"
         )
         return 5
 

@@ -64,9 +64,13 @@ jobs:
       - name: profile schema-validation (raw + resolved)
         run: |
           scripts/validate-profiles.sh
-      - name: nspawn — whitelabel render to disk
+      - name: nspawn — whitelabel render to disk (mkosi substrate)
         run: |
           tests/nspawn/test_whitelabel_render_to_disk.sh sain-01
+      - name: nspawn — whitelabel render to disk (live-build substrate + substrate-agnostic content)
+        run: |
+          tests/nspawn/test_whitelabel_render_live_build.sh sain-01
+          tests/nspawn/test_whitelabel_render_live_build.sh minimal
       - name: nspawn — profile hook resolution
         run: |
           tests/nspawn/test_profile_hooks_resolve.sh sain-01
