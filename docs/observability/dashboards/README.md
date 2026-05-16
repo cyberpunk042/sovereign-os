@@ -102,6 +102,7 @@ panel queries lock to them.
 - `sovereign_os_models_catalog_resident_count`
 - `sovereign_os_models_catalog_last_run_timestamp`
 - `sovereign_os_meta_alert_count{level}` — count of derived alerts by level (ALERT/WARN) from the hourly alerts-check
+- `sovereign_os_meta_alert_by_metric{metric,level}` — per-(metric,level) histogram of derived alerts; lets operators graph which underlying metric is the noisiest
 - `sovereign_os_meta_alerts_check_last_run_timestamp`
 
 ### Inference router (scripts/inference)

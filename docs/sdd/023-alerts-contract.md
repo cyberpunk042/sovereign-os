@@ -147,9 +147,12 @@ rules to the same inputs:
   with a (level_rank, metric) key). Recommend: lock this as part of
   the JSON schema, not implementation detail.
 - **Q23-B** — Should `alerts-check.sh` also emit a HISTOGRAM of how
-  many of each rule fired (vs just a sum across rules)? Recommend:
-  YES at Stage 3+ when an operator-facing trend dashboard is built.
-  Until then, the per-metric .prom files are queryable.
+  many of each rule fired (vs just a sum across rules)?
+  **RESOLVED (Round 121)** — shipped. Hook emits
+  `sovereign_os_meta_alert_by_metric{metric,level}` gauge per
+  (metric, level) combination on every run; operators graph WHICH
+  underlying metric is the noisiest over time (single counter doesn't
+  tell you whether 5 alerts came from 1 metric or 5 different metrics).
 - **Q23-C** — Should the rule engine support operator-supplied custom
   rules (e.g. `/etc/sovereign-os/alerts.d/*.yaml`)? Recommend: NO
   in foundation phase — operators with custom rules already run
