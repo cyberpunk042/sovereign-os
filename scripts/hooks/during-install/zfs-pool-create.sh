@@ -10,6 +10,8 @@ __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../../.." && pwd)"
 # shellcheck source=../../build/lib/common.sh
 . "${__REPO_ROOT}/scripts/build/lib/common.sh"
+# shellcheck source=../../build/lib/observability.sh
+. "${__REPO_ROOT}/scripts/build/lib/observability.sh"
 
 STEP_ID="zfs-pool-create"
 
@@ -21,10 +23,23 @@ load_profile "${SOVEREIGN_OS_PROFILE}"
 
 log_step_header "${STEP_ID}" "create ZFS pool ${SOVEREIGN_OS_POOL_NAME}"
 
+emit_pool_metric() {
+  emit_metric sovereign_os_during_install_pool_create_total 1 \
+    "pool=\"${SOVEREIGN_OS_POOL_NAME}\",topology=\"${topology:-unknown}\",result=\"$1\""
+}
+
 # Layout sanity check
 layout="$(profile_field hardware.storage.layout)"
 if [ "${layout}" != "zfs-tiered" ]; then
   log_warn "profile storage layout is '${layout}' (not zfs-tiered); skipping pool create"
+  emit_pool_metric skip-layout
+  exit 0
+fi
+
+# DRY-RUN early so operator can plan without zpool / root
+if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
+  log_info "DRY-RUN — would create pool ${SOVEREIGN_OS_POOL_NAME} on devices: ${SOVEREIGN_OS_POOL_DEVICES:-<unset>}"
+  emit_pool_metric skip-dry-run
   exit 0
 fi
 
@@ -34,12 +49,14 @@ require_command zpool
 if zpool list "${SOVEREIGN_OS_POOL_NAME}" >/dev/null 2>&1; then
   log_info "pool ${SOVEREIGN_OS_POOL_NAME} already exists"
   zpool status "${SOVEREIGN_OS_POOL_NAME}"
+  emit_pool_metric skip-already-exists
   exit 0
 fi
 
 if [ -z "${SOVEREIGN_OS_POOL_DEVICES}" ]; then
   log_error "SOVEREIGN_OS_POOL_DEVICES env not set"
   log_error "  Example: SOVEREIGN_OS_POOL_DEVICES='/dev/nvme0n1 /dev/nvme1n1' $0"
+  emit_pool_metric missing-devices
   exit 1
 fi
 
@@ -84,9 +101,11 @@ case "${topology}" in
     ;;
   *)
     log_error "unsupported topology: ${topology}"
+    emit_pool_metric unsupported-topology
     exit 1
     ;;
 esac
 
 zpool status "${SOVEREIGN_OS_POOL_NAME}"
+emit_pool_metric success
 log_info "${STEP_ID} complete"
