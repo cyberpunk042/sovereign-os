@@ -23,6 +23,7 @@ Numbering is three-digit zero-padded, never recycled.
 | 014 | Decommission testing scope | review | post-Gate-5 | Q-014 resolution: test gates (require_root + SOVEREIGN_OS_CONFIRM_DESTROY env + interactive confirm + idempotency) not destruction. CI gate `test_decommission_gates.sh` (12 assertions). |
 | 015 | Secure-boot posture | review | post-Gate-5 | Q-006 resolution: 3-level posture (none/shim/signed) declared per profile; operator-supplied keys (never in-repo); preflight-tpm + 08-image-sign as the only gates. TPM2 PCR binding partial (PCR-7 + PCR-11 prescribed; disk-encryption binding deferred). Q15-A..Q15-C open. |
 | 016 | Observability bindings | review | post-Gate-5 | Q-013 resolution: 3-layer stack (A: JSONL logs, B: Prometheus textfile collector contract, C: sovereign-osctl + Grafana JSON templates). Layer A shipped + gated; Layer B contract locked + emission deferred; Layer C CLI gated. Local-default sovereignty; no black-box dispatchers. Q16-A..Q16-D open. |
+| 017 | ZFS root layout | review | post-Gate-5 | Q-005 resolution: `tank` single pool, raid0 across dual NVMe-PCIe-5, three tiered datasets (`models` 1M/lz4, `context` 16k/zstd-9/copies=2/sync=always, `agents` 128k/zstd-3). Mount base `/mnt/vault`. Operator-acknowledged no device-level redundancy; logical redundancy via copies=2 on irreducible state-fabric. Only sain-01 uses zfs-tiered; ext4 profiles SKIP cleanly via gates. |
 
 ## Slots reserved for Stage 2 onwards (preview, non-binding)
 

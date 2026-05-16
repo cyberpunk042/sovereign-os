@@ -433,6 +433,41 @@ journald-pipe / Loki-direct / other in the future. The textfile
 collector pattern is broad enough to retrofit.
 **Linked**: direct-to-main commit on 2026-05-16.
 
+### D-009 — 2026-05-16 — ZFS root layout: `tank` raid0 + tiered datasets with copies=2 on state-fabric (Q-005 resolved)
+
+**Decision**: sain-01 uses a single ZFS pool `tank` with raid0
+topology across the dual NVMe-PCIe-5 (no device-level redundancy —
+operator-acknowledged tradeoff for max throughput + capacity).
+Three first-class datasets with explicit parameters:
+  - `tank/models` (recordsize=1M, lz4): large weight files
+  - `tank/context` (recordsize=16k, zstd-9, copies=2, sync=always):
+    state-fabric — irreducible durability via copies=2
+  - `tank/agents` (recordsize=128k, zstd-3): runtime cache + scratch
+Mount base `/mnt/vault`. Rootfs is a small partition on the boot
+device (not on ZFS — keeps GRUB/initramfs simple). Pool name + dataset
+parameters + ARC bounds all env-overridable. Only sain-01 uses
+zfs-tiered; old-workstation + minimal pick layout=ext4 and the
+zfs-* hooks SKIP cleanly per test_during_install_gates.sh.
+**Question**: Q-005 — ZFS root layout details for sain-01.
+**Source**: `docs/sdd/017-zfs-root-layout.md`;
+`profiles/sain-01.yaml` § hardware.storage (already declares the
+layout); existing during-install + recurrent + decommission ZFS hooks.
+**Rationale**: Each dataset's parameters are picked to match its
+access pattern. The raid0 tradeoff is intentional (operator stated
+during /goal — see info-hub directive verbatim); the load-bearing
+durability lives at the per-dataset copies=2 + sync=always on the
+state-fabric. Snapshot-replicate to external storage is the binding
+plan for the rest of the data (future SDD). Schema already supports
+raidz alternatives — operator can author a variant profile.
+**Affected items**: `docs/sdd/017-zfs-root-layout.md`;
+`profiles/sain-01.yaml` (no changes — formalizes existing declarations);
+during-install + recurrent + decommission ZFS hooks (no behavioral
+change; SDD locks the contract).
+**Reversibility**: partial — adding L2ARC/SLOG is additive; switching
+topology (raid0 → raidz1) requires destroy+recreate. Per-dataset
+parameters (recordsize/compression) can be tuned in-place via zfs set.
+**Linked**: direct-to-main commit on 2026-05-16.
+
 ---
 
 ## Cross-references
