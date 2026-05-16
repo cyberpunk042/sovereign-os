@@ -1,0 +1,127 @@
+# JSON Schema (Draft 2020-12) for sovereign-os model catalog.
+#
+# Master spec § 17 (The Genesis Trinity) names the 3 tiers — Pulse,
+# Logic (Weaver), Oracle — and the master spec § 18 runtime profiles
+# pin specific models to each tier. This catalog is the operator-facing
+# canonical declaration of which models the system intends to host,
+# their HuggingFace identifiers (where real), their tier mapping, and
+# their status (verified-real / aspirational / operator-must-confirm).
+#
+# Companion docs:
+#   - models/catalog.yaml — instance document
+#   - scripts/models/pull.sh — operator-runnable downloader
+#   - scripts/models/verify.sh — verification against this declared catalog
+#   - profiles/runtime/*.yaml — runtime-profile-to-model bindings
+
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://github.com/cyberpunk042/sovereign-os/schemas/model-catalog.schema.yaml"
+title: "sovereign-os model catalog"
+type: object
+required: [schema_version, catalog]
+additionalProperties: false
+
+properties:
+  schema_version:
+    type: string
+    const: "1.0.0"
+
+  catalog:
+    type: object
+    required: [version, models]
+    additionalProperties: false
+    properties:
+      version:
+        type: string
+        description: "Catalog revision identifier"
+      description:
+        type: string
+        minLength: 30
+      models:
+        type: array
+        minItems: 1
+        items:
+          $ref: "#/$defs/model"
+
+$defs:
+  model:
+    type: object
+    required: [id, tier, engine, status, license]
+    additionalProperties: false
+    properties:
+      id:
+        description: |
+          Canonical model id as referenced in profiles/runtime/*.yaml
+          (e.g. BitNet-b1.58-3B, Qwen-32B-Ternary-Quant). MAY be an
+          aspirational name when the master spec calls one out but no
+          real HF repo exists yet.
+        type: string
+        pattern: "^[A-Za-z0-9._-]+$"
+
+      tier:
+        description: |
+          Master spec § 17 tier mapping. router=internal selector layer.
+        type: string
+        enum: [pulse, logic, oracle, router]
+
+      engine:
+        type: string
+        enum: [bitnet.cpp, vllm, vllm-vulkan, llama.cpp, transformers, custom]
+
+      status:
+        type: string
+        enum:
+          - verified-real        # hf_repo_id confirmed live on HF Hub
+          - aspirational         # master spec names this; no real repo (yet)
+          - operator-must-confirm # candidate; operator hasn't decided
+
+      license:
+        description: |
+          SPDX-ish license identifier or 'other' (matches HF metadata).
+        type: string
+
+      hf_repo_id:
+        description: "HuggingFace repo id (author/name); required when status=verified-real"
+        type: string
+        pattern: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+
+      hf_revision:
+        description: "HF revision pin (commit sha or tag). Strongly recommended for verified-real."
+        type: string
+
+      closest_real_alternative:
+        description: "When status=aspirational, the closest real HF repo the operator may substitute."
+        type: string
+
+      parameters_millions:
+        description: "Approximate parameter count in millions. Operator-facing reality check vs profile vram_limit_bytes."
+        type: number
+        exclusiveMinimum: 0
+
+      master_spec_section:
+        description: "Master spec § anchor that introduces or pins this model."
+        type: string
+
+      runtime_profile_bindings:
+        description: |
+          The runtime-profile ids (master spec § 18) where this model
+          appears. Cross-checked at L1 against profiles/runtime/*.yaml.
+        type: array
+        items:
+          type: string
+          enum:
+            - ultra-sovereign-efficiency
+            - high-concurrency-burst
+            - deep-context-synthesis
+
+      operator_note:
+        description: "Free-text operator-facing note (provenance, caveat, swap rationale)."
+        type: string
+
+    # status-specific required field rules
+    allOf:
+      - if:
+          properties:
+            status:
+              const: verified-real
+        then:
+          required: [hf_repo_id]

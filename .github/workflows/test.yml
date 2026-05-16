@@ -274,6 +274,9 @@ jobs:
       - name: nspawn — Auditor Guardian Daemon (Round 155: master spec § 10)
         run: |
           tests/nspawn/test_auditor_guardian_core.sh
+      - name: nspawn — models catalog (Round 156: master spec § 17 + § 18 model declarations)
+        run: |
+          tests/nspawn/test_models_catalog.sh
       - name: nspawn — secure-boot gen-keys (Round 143: F-05 MED closure — operator-owned key generation)
         run: |
           tests/nspawn/test_secure_boot_gen_keys.sh

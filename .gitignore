@@ -32,7 +32,9 @@ config/auto/build
 /mnt/kernel_forge/
 
 # Models cache (never committed; weights live on tank/models)
-/models/
+# — but DO commit the declared catalog manifest authored at R156.
+/models/*
+!/models/catalog.yaml
 *.gguf
 *.safetensors
 *.bin
