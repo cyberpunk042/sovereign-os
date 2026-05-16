@@ -223,6 +223,9 @@ jobs:
       - name: nspawn — apply-workstation-hardening hook (Round 104: role-workstation IaC drop-ins)
         run: |
           tests/nspawn/test_apply_workstation_hardening.sh
+      - name: nspawn — sovereign-osctl history verb (Round 107: per-run summary derived from JSONL)
+        run: |
+          tests/nspawn/test_sovereign_osctl_history.sh
 
   shellcheck:
     name: shellcheck

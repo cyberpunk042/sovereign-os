@@ -132,6 +132,9 @@ COMMANDS:
   journal tail [N]             Tail the N most recent log files (default: 3)
   journal errors               Show every error/warn entry across all log files
 
+  history list                 Per-run summary derived from JSONL files (profile · steps · result · duration)
+  history show <run-id>        Drill into one run (step-by-step pass/fail)
+
   version [--json]             sovereign-osctl + sovereign-os version info (--json for fleet tooling)
   help                         This help
 
@@ -1248,6 +1251,241 @@ PY
   esac
 }
 
+# ------------------------------ history --------------------------------------
+#
+# Per-run summary view derived from the Layer A JSONL files. Each
+# build-<ts>.jsonl is one run; this verb groups events into a
+# tabular history surface that complements 'journal' (per-file events)
+# and 'metrics' (point-in-time aggregates).
+#
+# Run-id format: timestamp suffix of the JSONL filename
+#   build-20260516T010000Z.jsonl → 20260516T010000Z
+#
+# Derived per run:
+#   - profile  (from "loaded profile: <name>" event)
+#   - steps    (count of "STEP_ID: PASS" + "STEP_ID: FAIL" markers)
+#   - result   (success if no errors; fail if any error events)
+#   - duration (last ts - first ts, ISO 8601)
+
+cmd_history() {
+  local sub="${1:-list}"
+  shift || true
+
+  local log_dir=""
+  if [ -n "${SOVEREIGN_OS_LOG_DIR:-}" ] && [ -d "${SOVEREIGN_OS_LOG_DIR}" ]; then
+    log_dir="${SOVEREIGN_OS_LOG_DIR}"
+  elif [ -d /var/log/sovereign-os ]; then
+    log_dir="/var/log/sovereign-os"
+  elif [ -d "${HOME}/.sovereign-os/log" ]; then
+    log_dir="${HOME}/.sovereign-os/log"
+  fi
+
+  if [ -z "${log_dir}" ]; then
+    echo "no Layer A log dir found"
+    return 0
+  fi
+
+  case "${sub}" in
+    list)
+      python3 - "${log_dir}" <<'PY'
+import sys, json, pathlib, re
+from datetime import datetime
+
+log_dir = pathlib.Path(sys.argv[1])
+files = sorted(log_dir.glob("*.jsonl"))
+if not files:
+    print(f"no .jsonl files in {log_dir}")
+    sys.exit(0)
+
+# Wider headers; right-align numeric columns
+print(f"{'RUN ID':<24} {'PROFILE':<16} {'STEPS':>5} {'ERR':>4} {'RESULT':<8} {'DURATION':<10} {'STARTED'}")
+
+PROFILE_RE = re.compile(r"loaded profile:\s+(\S+)")
+STEP_DONE_RE = re.compile(r"(\S+):\s+(PASS|FAIL)\s*$")
+
+for path in files:
+    # run-id = filename stem without 'build-' prefix
+    stem = path.stem
+    run_id = stem.removeprefix("build-")
+    profile = "?"
+    step_count = 0
+    err_count = 0
+    info_count = 0
+    first_ts = None
+    last_ts = None
+    try:
+        with path.open() as fh:
+            for line in fh:
+                line = line.strip()
+                if not line: continue
+                try:
+                    e = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                ts = e.get("ts", "")
+                msg = e.get("msg", "")
+                lvl = (e.get("level") or "").lower()
+                if first_ts is None:
+                    first_ts = ts
+                last_ts = ts
+                m = PROFILE_RE.search(msg)
+                if m and profile == "?":
+                    # Strip trailing path/parens
+                    profile = m.group(1).strip()
+                if STEP_DONE_RE.search(msg):
+                    step_count += 1
+                if lvl == "error":
+                    err_count += 1
+                elif lvl == "info":
+                    info_count += 1
+    except OSError:
+        continue
+
+    # Result: success if no errors AND at least 1 step OR info > 0
+    if err_count > 0:
+        result = "FAIL"
+    elif step_count > 0 or info_count > 0:
+        result = "ok"
+    else:
+        result = "empty"
+
+    # Duration: last - first as seconds, prettified
+    duration = "?"
+    try:
+        if first_ts and last_ts:
+            t0 = datetime.fromisoformat(first_ts.replace("Z", "+00:00"))
+            t1 = datetime.fromisoformat(last_ts.replace("Z", "+00:00"))
+            secs = int((t1 - t0).total_seconds())
+            if secs >= 3600:
+                duration = f"{secs//3600}h{(secs%3600)//60}m"
+            elif secs >= 60:
+                duration = f"{secs//60}m{secs%60}s"
+            else:
+                duration = f"{secs}s"
+    except (ValueError, TypeError):
+        pass
+
+    started = first_ts or "?"
+    print(f"{run_id:<24} {profile:<16} {step_count:>5} {err_count:>4} {result:<8} {duration:<10} {started}")
+PY
+      ;;
+
+    show)
+      local run_id="${1:-}"
+      if [ -z "${run_id}" ]; then
+        log_error "usage: sovereign-osctl history show <run-id>"
+        log_error "  run 'sovereign-osctl history list' to see available run-ids"
+        return 2
+      fi
+      # Resolve: try exact filename, then prepend 'build-' + append '.jsonl'
+      local file=""
+      for cand in \
+        "${log_dir}/${run_id}" \
+        "${log_dir}/${run_id}.jsonl" \
+        "${log_dir}/build-${run_id}" \
+        "${log_dir}/build-${run_id}.jsonl"; do
+        if [ -f "${cand}" ]; then file="${cand}"; break; fi
+      done
+      if [ -z "${file}" ]; then
+        log_error "no log file matches run-id '${run_id}' in ${log_dir}"
+        return 1
+      fi
+      python3 - "${file}" <<'PY'
+import sys, json, pathlib, re
+path = pathlib.Path(sys.argv[1])
+PROFILE_RE = re.compile(r"loaded profile:\s+(\S+)")
+STEP_HEADER_RE = re.compile(r"━{3,}\s+STEP\s+(\S+)")
+STEP_DONE_RE = re.compile(r"(\S+):\s+(PASS|FAIL)\s*$")
+
+events = []
+for line in path.read_text().splitlines():
+    line = line.strip()
+    if not line: continue
+    try:
+        events.append(json.loads(line))
+    except json.JSONDecodeError:
+        continue
+
+if not events:
+    print(f"  (run is empty)")
+    sys.exit(0)
+
+# Header
+profile = "?"
+for e in events:
+    m = PROFILE_RE.search(e.get("msg",""))
+    if m:
+        profile = m.group(1).strip()
+        break
+
+first_ts = events[0].get("ts", "")
+last_ts = events[-1].get("ts", "")
+errors = [e for e in events if (e.get("level") or "").lower() == "error"]
+warns = [e for e in events if (e.get("level") or "").lower() == "warn"]
+
+print(f"  run-id:   {path.stem.removeprefix('build-')}")
+print(f"  file:     {path}")
+print(f"  profile:  {profile}")
+print(f"  started:  {first_ts}")
+print(f"  ended:    {last_ts}")
+print(f"  events:   {len(events)}  (errors: {len(errors)}, warns: {len(warns)})")
+print()
+
+# Step-by-step results
+print(f"  STEPS:")
+shown_steps = []
+for e in events:
+    msg = e.get("msg", "")
+    m = STEP_HEADER_RE.search(msg)
+    if m:
+        shown_steps.append({"id": m.group(1), "events": [], "result": None, "start_ts": e.get("ts")})
+        continue
+    m = STEP_DONE_RE.search(msg)
+    if m and shown_steps:
+        # Match to most recent step header by id or fall back to last
+        sid = m.group(1)
+        for s in reversed(shown_steps):
+            if s["id"].startswith(sid) or sid.startswith(s["id"]):
+                s["result"] = m.group(2)
+                s["end_ts"] = e.get("ts")
+                break
+        else:
+            shown_steps[-1]["result"] = m.group(2)
+            shown_steps[-1]["end_ts"] = e.get("ts")
+    if shown_steps and (e.get("level") or "").lower() == "error":
+        shown_steps[-1]["events"].append(e.get("msg", "")[:80])
+
+if not shown_steps:
+    # No explicit step headers; fall back to listing pass/fail markers
+    for e in events:
+        m = STEP_DONE_RE.search(e.get("msg",""))
+        if m:
+            print(f"    {m.group(2):<5}  {m.group(1)}")
+else:
+    for s in shown_steps:
+        result = s["result"] or "running"
+        marker = "✓" if result == "PASS" else ("✗" if result == "FAIL" else "·")
+        print(f"    {marker} {s['id']:<32} {result}")
+        for err_msg in s["events"][:3]:
+            print(f"        {err_msg}")
+
+# Top-level errors not associated with a step
+if not shown_steps and errors:
+    print()
+    print(f"  ERRORS:")
+    for e in errors[:5]:
+        print(f"    [{e.get('ts','?')}] {e.get('msg','')[:100]}")
+PY
+      ;;
+
+    *)
+      log_error "unknown history subcommand: ${sub}"
+      log_error "  available: list / show <run-id>"
+      return 2
+      ;;
+  esac
+}
+
 # ------------------------------ alerts ---------------------------------------
 #
 # Derives operator-actionable alerts from the SDD-016 Layer B textfile
@@ -1690,6 +1928,7 @@ case "${cmd}" in
   metrics)       cmd_metrics "$@" ;;
   alerts)        cmd_alerts "$@" ;;
   journal)       cmd_journal "$@" ;;
+  history)       cmd_history "$@" ;;
   version|--version|-V) cmd_version "$@" ;;
   help|--help|-h|"") cmd_help ;;
   *)
