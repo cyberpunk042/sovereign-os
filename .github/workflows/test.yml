@@ -1,0 +1,47 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  PYTHONUNBUFFERED: "1"
+
+permissions:
+  contents: read
+
+jobs:
+  schema-lint:
+    name: layer 1 — schema + lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: install deps
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install pytest pyyaml jsonschema
+      - name: pytest layer 1
+        run: |
+          python3 -m pytest tests/schema tests/lint -v
+
+  shellcheck:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: lint scripts
+        run: |
+          find scripts -name '*.sh' -type f -print0 | \
+            xargs -0 shellcheck --severity=warning --external-sources --source-path=scripts/build/lib || true
+        # Currently warning-only; tighten to fail-on-error at Stage 2+ once
+        # all scripts are shellcheck-clean.

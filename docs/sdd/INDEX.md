@@ -14,9 +14,9 @@ Numbering is three-digit zero-padded, never recycled.
 | 005 | Initial profile stubs (sain-01 + old-workstation) | review | PR 6 | Validates schema against real profiles. 2 stubs + 3 mixins + INDEX + validation harness placeholder. Q6-A..Q6-D open. |
 | 006 | Debian (or successor) surface audit | review | PR 7 | Whitelabel target inventory. ~50 surfaces / 10 sections / legal floor explicit. Q7-A..Q7-E open. |
 | 007 | Whitelabel mechanism | review | PR 8 | Resolves Q-004 (legal scope) at Gate 4; Q-003 may stay open. 7-strategy taxonomy; schema + default whitelabel placeholder. Q8-A..Q8-E open. |
-| 008 | TDD harness specification | — | PR 9 | Resolves Q-010 + Q-014 + Q-015 (in part). |
-| 009 | TDD harness bootstrap | — | PR 10 | First passing tests. |
-| 010 | Stage-2 first-build-scripts stub | — | PR 10 | Reserves slot for post-Gate-5 work. |
+| 008 | TDD harness specification | review | PR 9 | 5-layer pyramid; CI for Layer 1; substantive Layer 3/4/5 added alongside script bodies at Stage 2+. Q9-A..Q9-E open. |
+| 009 | TDD harness bootstrap | accepted | PR 10 | Layer 1 schema + lint pytest + shellcheck CI shipped; chroot/nspawn/qemu scaffolds present; substantive Layer 3+ at Stage 2+. |
+| 010 | Stage-2 stub | scoping | post-Gate-5 | Build pipeline + hooks + render engine + sovereign-osctl already on main. Subsequent Stage-2 rounds deferred items documented. |
 
 ## Slots reserved for Stage 2 onwards (preview, non-binding)
 
