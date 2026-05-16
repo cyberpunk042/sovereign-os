@@ -1,0 +1,13 @@
+[book]
+authors = ["cyberpunk042"]
+language = "en"
+multilingual = false
+src = "src"
+title = "sovereign-os"
+description = "OS-image generation + customization + lifecycle pipeline for the SAIN-01 AI Workstation."
+
+[output.html]
+default-theme = "navy"
+preferred-dark-theme = "navy"
+git-repository-url = "https://github.com/cyberpunk042/sovereign-os"
+edit-url-template = "https://github.com/cyberpunk042/sovereign-os/edit/main/docs/{path}"
