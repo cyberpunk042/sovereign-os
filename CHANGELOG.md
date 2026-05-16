@@ -66,7 +66,7 @@ Cross-references:
   KVM-equipped self-hosted runner (Q10-B per SDD-020).
 - Layer 5 (hardware): operator-driven on real SAIN-01.
 
-### Fixed (14 real wiring bugs caught by L3 discipline)
+### Fixed (15 real wiring bugs caught by L1/L2/L3 discipline)
 1. `whitelabel/default.yaml` template paths
 2. `orchestrate.sh` cmd_help sed truncation
 3. `state_step_status` empty-string default
@@ -122,6 +122,58 @@ cross-bug Learnings.
 - Handoff 003 — operator-observability cold-start signpost
 - Install-runbook §5b — Layer A/B/C walkthrough with sovereignty
   posture restated
+
+### Rounds 95-114 — Phase H: contracts + hardening + audit surfaces
+
+**Closing arcs**:
+- Rounds 95-103 — closer for the observability arc: CHANGELOG R61-94
+  catchup · headless hardening IaC (5 drop-ins) · SDD-024 server
+  hardening posture · Handoff 003 trajectory
+- Rounds 104-105 — workstation hardening parallel (sain-01 + old-workstation
+  get 4 drop-ins, share auditd/pwquality/unattended with server, get
+  workstation-tuned sshd, deliberately NO fail2ban) + D-017 + SDD-024
+  extended
+- Round 106 — in-toto verifier `--deep` mode closes the SDD-019
+  triangle (manifest ↔ sums ↔ on-disk)
+- Round 107 — `sovereign-osctl history` verb (per-run summary derived
+  from JSONL); fourth observability-family verb completing symmetry
+- Round 108 — 15th bug caught by L2 contract test: alerts engine
+  reacted to `sovereign_os_meta_*` metrics → self-reinforcing loop;
+  fix + 9-assertion L2 schema gate codifying SDD-023 Q23-A
+- Round 109 — SDD-007 strategy 7 (must-not-touch) implementation;
+  7/7 strategies now covered
+- Round 110 — Handoff 003 refresh through R109
+- Round 111 — `sovereign-osctl audit drift` verb: compares deployed
+  hardening drop-ins vs config/{server,workstation} sources; --json mode
+- Round 112 — SDD-024 Q24-C resolved: sshd Banner → /etc/issue.net
+  (standard pre-auth convention); /etc/issue.net extended with
+  "Authorized use only" legal-language line
+- Round 113 — SDD-025 codifies the observability CLI architecture
+  (4-verb shape + dir resolution + exit codes + --json contract)
+- Round 114 — L2 schema test for audit drift --json (parallels alerts
+  schema test)
+
+**Operator-facing additions** (Rounds 95-114):
+- 6 hardening drop-ins (5 server + 1 workstation-specific sshd)
+  totaling ~250 lines of opinionated IaC with invariants pinned in
+  Layer 1 lint
+- 2 apply hooks (server + workstation) with DEST_PREFIX support for
+  chroot/image-build flows + idempotency + drift detection
+- 4 new sovereign-osctl verbs: `history` + `audit drift` + (carried
+  from R88-91) `metrics`/`alerts`/`journal`
+- `audit provenance --deep` flag completing the in-toto verifier
+- 3 new SDDs: SDD-023 (alerts contract) · SDD-024 (server + workstation
+  hardening posture) · SDD-025 (observability CLI architecture)
+- 3 new decision-log entries: D-015 (alerts) · D-016 (server hardening) ·
+  D-017 (workstation hardening parallel)
+- 2 new L2 schema contract tests (alerts JSON + drift JSON)
+- ~115 lint assertions (was ~92); ~70 unit tests (was ~62); ~55 L3
+  nspawn tests (was ~52)
+
+**Bug ledger**: now at 15 real wiring bugs caught (was 14 at start of
+Phase H). #15 — alerts engine reacted to its own meta-metrics — caught
+by L2 schema test within minutes of being authored, locked by an
+explicit code guard + permanent test gate.
 
 ### Question closures (every PR-1-seed Q-X resolved/partial)
 | Q | Status | Resolution |
