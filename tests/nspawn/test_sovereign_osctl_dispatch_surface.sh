@@ -70,6 +70,9 @@ declare -A SUBVERB_PROBE=(
   [maintenance]=list
   [inference]=status
   [assistant]=list
+  [metrics]=list
+  [journal]=list
+  [history]=list
 )
 
 for cmd in "${!SUBVERB_PROBE[@]}"; do
