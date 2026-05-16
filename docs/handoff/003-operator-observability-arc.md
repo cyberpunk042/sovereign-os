@@ -15,20 +15,25 @@ arc** AND the **role-server hardening IaC arc**. Operators get:
   sshd / pwquality) deployed by a profile-aware hook with idempotency,
   drift detection, and DEST_PREFIX support for chroot/image-build flows
 
-State at HEAD (`main` = `da30e8c`):
-- **55 Layer B metrics** emitted across 9 build steps + 24 lifecycle hooks
+State at HEAD (`main` = `f66b5cc`):
+- **56 Layer B metrics** (added `sovereign_os_meta_alert_by_metric` per Q23-B resolution)
 - **3 Grafana dashboards** + 3-way CI contract (code ↔ inventory ↔ panels)
-- **15 sovereign-osctl verb groups** (`metrics`, `alerts`, `journal`, `history` added; `maintenance` expanded to 8 subverbs)
+- **15 sovereign-osctl verb groups** (`metrics`, `alerts`, `journal`, `history` added; `audit` grew from 4 → 5 subverbs; `maintenance` expanded to 8 subverbs)
+- **sovereign-osctl version 0.3.0** — "operator-observability + hardening complete" phase
 - **1 new recurrent hook** + systemd timer (`alerts-check`, hourly)
-- **15 real bugs caught** by L1/L2/L3 discipline (running tally; bug #15 was meta-metric self-reinforcement caught by L2 contract test)
-- **2 new SDDs**: SDD-023 (alerts contract) · SDD-024 (server + workstation hardening posture)
-- **3 new decisions**: D-015 (alerts) · D-016 (server hardening IaC) · D-017 (workstation hardening)
-- **~54 L3 nspawn tests** · ~110 Layer 1 lint · ~70 Layer 2 unit · shellcheck
+- **15 real bugs caught** by L1/L2/L3 discipline
+- **3 new SDDs**: SDD-023 (alerts contract) · SDD-024 (server + workstation hardening) · SDD-025 (observability CLI architecture)
+- **4 new decisions**: D-015 (alerts) · D-016 (server hardening) · D-017 (workstation hardening) · D-018 (in-toto --deep + audit drift)
+- **4 L2 schema contract gates**: alerts (Q23-A) · audit drift · version --json (R64) · status --json (R83)
+- **~56 L3 nspawn tests** · ~110 Layer 1 lint · ~80 Layer 2 unit · shellcheck
 - All 5 profiles still pass DRY-RUN smoke + preflight matrix
 - Install-runbook §5b walks operators through Layer A/B/C end-to-end
 - config/server/README.md + config/workstation/README.md walk operators
   through the override surfaces
-- SDD-007 7-strategy whitelabel taxonomy: 7/7 strategies implemented
+- SDD-007 7-strategy whitelabel taxonomy: 7/7 strategies implemented +
+  7/7 test-pinned (R122)
+- SDD-023 Q23-A,B RESOLVED · SDD-024 Q24-C,D RESOLVED (Q24-A,B + Q23-C,D
+  open with documented recommendations)
 
 ## What to do FIRST in the next session
 
@@ -91,6 +96,19 @@ Likely next-most-valuable rounds (operator-priority order):
 | **107** | sovereign-osctl | New `history` verb: per-run summary derived from JSONL (list + show); 19-assertion L3 |
 | **108** | tests(L2) + bug fix | 15th bug caught (Rule 6 reacted to meta_alerts_check_last_run_timestamp → self-reinforcing loop); fix + 9-assertion L2 schema contract test (SDD-023 Q23-A) |
 | **109** | whitelabel renderer | SDD-007 strategy 7 (must-not-touch) implementation + 2 L2 tests; closes 7-strategy taxonomy |
+| **110** | docs/handoff | Handoff 003 refresh through R109 |
+| **111** | sovereign-osctl audit | `audit drift` verb (deployed vs source) + 10-assertion L3 + JSON mode |
+| **112** | hardening + sdd | SDD-024 Q24-C RESOLVED: sshd Banner → /etc/issue.net (standard pre-auth convention) + issue.net legal-language line |
+| **113** | sdd | SDD-025 codifies observability CLI architecture (4-verb pattern + dir resolution + exit codes + --json contract) |
+| **114** | tests(L2) | audit drift --json schema contract (8 assertions; parallels alerts schema test) |
+| **115** | docs/changelog | CHANGELOG Rounds 95-114 captured (Phase H) |
+| **116** | docs/decisions | D-018 (in-toto --deep + audit drift; closes SDD-019 triangle) |
+| **117** | docs/tdd | bugs-caught Learnings 4 + 5 (SDD-vs-code drift; test-pattern pluralization) |
+| **118** | chore | version bump 0.2.0 → 0.3.0; phase = 'operator-observability + hardening complete' |
+| **119** | docs/readme | README catch-up to Phase H state (15 verb groups · 55 metrics · 15 bugs · SDD-024/025) |
+| **120** | tests(L2) | version --json (7-key) + status --json (8-key) schema contracts; 4 L2 schema gates now |
+| **121** | recurrent + sdd | SDD-023 Q23-B RESOLVED: alerts-check hook now emits per-(metric,level) histogram via `sovereign_os_meta_alert_by_metric` gauge |
+| **122** | tests(L2) | SDD-007 7-strategy taxonomy fully test-pinned (file-overlay + package-replacement + 7/7 meta-test) |
 
 ## Layer-A/B/C operator entry points (cold-start reference)
 
