@@ -13,16 +13,34 @@ SOVEREIGN_OS_PROFILE=old-workstation \
 SOVEREIGN_OS_SUBSTRATE=live-build \
   sudo scripts/build/orchestrate.sh run
 
-# CI mode (no QEMU; no actual compile)
-SOVEREIGN_OS_DRY_RUN=1 \
-SOVEREIGN_OS_SKIP_QEMU=1 \
-  sudo scripts/build/orchestrate.sh run
+# Dry-run: plan only — validate profile load + each step script's
+# existence / executable bit, no state mutation, no step execution
+scripts/build/orchestrate.sh run --dry-run
+SOVEREIGN_OS_DRY_RUN=1 scripts/build/orchestrate.sh run    # equivalent
 
 # Status / list / reset
 scripts/build/orchestrate.sh status
 scripts/build/orchestrate.sh list
 scripts/build/orchestrate.sh reset
 ```
+
+## Dry-run
+
+`run --dry-run` (or `SOVEREIGN_OS_DRY_RUN=1`) is the operator-facing
+"what would happen if I built now" pass:
+
+- Loads the profile (catches missing/invalid profile early).
+- Enumerates the 9 steps in order, with their absolute script paths.
+- Verifies each step script exists + is executable.
+- **Does not** touch `${SOVEREIGN_OS_STATE_DIR}/state.yaml` — a
+  subsequent real `run` resumes from the same point it would have
+  without the dry-run.
+- Emits the same JSONL log line stream (`${SOVEREIGN_OS_LOG_DIR}/build-<ts>.jsonl`)
+  so observability tooling sees a consistent log surface.
+- Exits `0` on a clean plan, `1` if any step script is missing/non-exec.
+
+Gated in CI via `tests/nspawn/test_orchestrator_dry_run.sh` for both
+profiles.
 
 ## Env-var overrides (per IaC bar)
 

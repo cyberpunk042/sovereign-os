@@ -20,13 +20,17 @@
 #   scripts/build/orchestrate.sh [<command>] [<options>]
 #
 # Commands:
-#   run [--profile <id>]    run the pipeline; resume from last state
+#   run [--profile <id>] [--dry-run]   run the pipeline; resume from last state
 #   status                  print state summary
 #   reset                   wipe build state (confirms first)
 #   rewind <step>           mark step + later as pending (re-runs them)
 #   skip <step>             mark step as completed (do not run)
 #   list                    list all step IDs in order
 #   help                    show this message
+#
+# --dry-run validates the plan (profile loads, each step script exists +
+# is executable) without executing any step and without mutating state.
+# Same effect via env: SOVEREIGN_OS_DRY_RUN=1.
 #
 # Steps (executed in order; can be skipped/rewound individually):
 #   01-bootstrap-forge      install dev tools + mount tmpfs ramdisk
@@ -115,7 +119,46 @@ cmd_skip() {
 }
 
 cmd_run() {
+  # Parse run-time flags
+  local dry_run="${SOVEREIGN_OS_DRY_RUN:-}"
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --dry-run)        dry_run=1; shift ;;
+      --profile)        SOVEREIGN_OS_PROFILE="${2:?--profile requires an id}"; shift 2 ;;
+      --profile=*)      SOVEREIGN_OS_PROFILE="${1#--profile=}"; shift ;;
+      *)                log_error "unknown run flag: $1"; return 2 ;;
+    esac
+  done
+
   log_init
+
+  if [ -n "${dry_run}" ]; then
+    # Dry-run: validate plan without mutating state. Useful for CI gating
+    # + operator preview ("what would happen if I ran this now").
+    load_profile "${SOVEREIGN_OS_PROFILE}"
+    log_info "DRY-RUN mode — no state mutation, no step execution"
+    log_info "profile:   ${SOVEREIGN_OS_PROFILE}"
+    log_info "substrate: ${SOVEREIGN_OS_SUBSTRATE}"
+    log_info "planned step execution order:"
+    local step idx=1 missing=0
+    for step in "${STEPS[@]}"; do
+      local script="${__SCRIPT_DIR}/${step}.sh"
+      if [ -x "${script}" ]; then
+        log_info "  [${idx}/${#STEPS[@]}] ${step} — would execute ${script}"
+      else
+        log_warn "  [${idx}/${#STEPS[@]}] ${step} — script missing or not executable: ${script}"
+        missing=$((missing + 1))
+      fi
+      idx=$((idx + 1))
+    done
+    if [ "${missing}" -gt 0 ]; then
+      log_warn "DRY-RUN: ${missing} step(s) missing or not executable"
+      return 1
+    fi
+    log_info "DRY-RUN complete: all ${#STEPS[@]} steps present + executable"
+    return 0
+  fi
+
   state_init
   load_profile "${SOVEREIGN_OS_PROFILE}"
 

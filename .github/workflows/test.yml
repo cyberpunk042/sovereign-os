@@ -90,6 +90,10 @@ jobs:
       - name: nspawn — sovereign-osctl management surface (Q-019)
         run: |
           tests/nspawn/test_sovereign_osctl.sh
+      - name: nspawn — orchestrator dry-run end-to-end (all 9 steps planned)
+        run: |
+          tests/nspawn/test_orchestrator_dry_run.sh sain-01
+          tests/nspawn/test_orchestrator_dry_run.sh old-workstation
 
   shellcheck:
     name: shellcheck
