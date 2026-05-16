@@ -31,6 +31,50 @@ jobs:
         run: |
           python3 -m pytest tests/schema tests/lint -v
 
+  unit:
+    name: layer 2 — unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: install deps
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install pytest pyyaml jsonschema
+      - name: pytest layer 2
+        run: |
+          python3 -m pytest tests/unit -v
+
+  layer3-stage-acceptance:
+    name: layer 3 — stage acceptance (nspawn-style)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: install deps
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install pyyaml jsonschema
+      - name: profile schema-validation (raw + resolved)
+        run: |
+          scripts/validate-profiles.sh
+      - name: nspawn — whitelabel render to disk
+        run: |
+          tests/nspawn/test_whitelabel_render_to_disk.sh sain-01
+      - name: nspawn — profile hook resolution
+        run: |
+          tests/nspawn/test_profile_hooks_resolve.sh sain-01
+          tests/nspawn/test_profile_hooks_resolve.sh old-workstation
+      - name: nspawn — orchestrator status surface
+        run: |
+          tests/nspawn/test_orchestrator_status.sh
+
   shellcheck:
     name: shellcheck
     runs-on: ubuntu-latest
@@ -43,5 +87,5 @@ jobs:
         run: |
           find scripts -name '*.sh' -type f -print0 | \
             xargs -0 shellcheck --severity=warning --external-sources --source-path=scripts/build/lib || true
-        # Currently warning-only; tighten to fail-on-error at Stage 2+ once
-        # all scripts are shellcheck-clean.
+        # Currently warning-only; tighten to fail-on-error once all
+        # scripts are shellcheck-clean.
