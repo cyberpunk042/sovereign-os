@@ -196,6 +196,9 @@ jobs:
       - name: nspawn — sovereign-osctl dispatch surface (Round 68: every verb + subverb reachable)
         run: |
           tests/nspawn/test_sovereign_osctl_dispatch_surface.sh
+      - name: nspawn — Makefile end-to-end execution (Round 76: make-target runs)
+        run: |
+          tests/nspawn/test_makefile_execution.sh
 
   shellcheck:
     name: shellcheck
