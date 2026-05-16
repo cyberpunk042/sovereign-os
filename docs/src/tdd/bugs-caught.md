@@ -23,6 +23,7 @@ class is documented as Project Learning 1.
 | 8 | `first-login-assistant.sh` unconditional hostnamectl | failed in containers without systemd-as-PID-1 (`System has not been booted with systemd…`) | graceful fallback: hostnamectl → `/etc/hostname` → `log_warn` | `test_first_login_assistant.sh` |
 | 9 | inference start scripts `${VAR:=…}` defaults | not exported → inline `python3` saw empty `os.environ`, KeyError at startup | explicit `export PULSE_*` / `LOGIC_*` / `ORACLE_*` after defaults | `test_inference_start_scripts.sh` |
 | 10 | `sovereign-osctl doctor` missing load_profile | profile_field returned 'unknown' → ALL profile-conditioning inert; sain-01 doctor ≡ minimal doctor | early `load_profile "${SOVEREIGN_OS_PROFILE}"` in cmd_doctor | `test_sovereign_osctl_doctor_v2.sh` |
+| 11 | `sovereign-osctl models remove` `${1:?word}` brace ambiguity — usage text embedded `\${SOVEREIGN_OS_MODELS_DIR}` inside `:?word`; bash absorbed trailing `)}` into `$1` → "model not resident" with corrupted path | replaced `${1:?text}` with explicit `${1:-}` + `if [ -z … ]` + `log_error` + `return 2` (quote-safe regardless of message content) | `test_sovereign_osctl_models.sh` |
 
 ## Project learnings
 

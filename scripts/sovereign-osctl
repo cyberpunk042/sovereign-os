@@ -67,7 +67,9 @@ COMMANDS:
 
   models list                  List resident models (tank/models)
   models pull <hf-id>          Pull model from HuggingFace into tank/models
-  models verify                Verify resident-model integrity (stub; full at Stage 2+)
+  models verify                Verify resident-model integrity
+  models size                  Disk-usage breakdown of tank/models
+  models remove <name>         Delete a resident model (confirms)
 
   audit friction               Runtime friction-audit (lspci/lscpu/IOMMU)
   audit perimeter              Perimeter integrity (Tetragon policy)
@@ -511,6 +513,41 @@ cmd_models() {
       ;;
     verify)
       "${__REPO_ROOT}/scripts/hooks/recurrent/model-catalog-sync.sh"
+      ;;
+    size)
+      if [ ! -d "${SOVEREIGN_OS_MODELS_DIR}" ]; then
+        echo "models dir not present: ${SOVEREIGN_OS_MODELS_DIR}"
+        return 0
+      fi
+      echo "Disk usage at ${SOVEREIGN_OS_MODELS_DIR}:"
+      du -sh "${SOVEREIGN_OS_MODELS_DIR}" 2>/dev/null
+      echo
+      echo "Per-model breakdown:"
+      find "${SOVEREIGN_OS_MODELS_DIR}" -maxdepth 2 -type d -mindepth 1 2>/dev/null \
+        | xargs -I{} du -sh {} 2>/dev/null \
+        | sort -h
+      ;;
+    remove)
+      local target="${1:-}"
+      if [ -z "${target}" ]; then
+        log_error "usage: models remove <model-name>  (subdir name under SOVEREIGN_OS_MODELS_DIR)"
+        return 2
+      fi
+      local target_path="${SOVEREIGN_OS_MODELS_DIR}/${target}"
+      if [ ! -d "${target_path}" ]; then
+        log_error "model not resident: ${target_path}"
+        return 1
+      fi
+      local sz; sz="$(du -sh "${target_path}" 2>/dev/null | cut -f1)"
+      log_warn "about to DELETE: ${target_path} (${sz})"
+      if [ "${SOVEREIGN_OS_ASSUME_YES:-}" != "1" ]; then
+        if ! confirm "Confirm permanent delete of ${target} (${sz})?" default-no; then
+          log_info "remove cancelled"
+          return 0
+        fi
+      fi
+      rm -rf "${target_path}"
+      log_info "removed: ${target}"
       ;;
     *)
       log_error "unknown models subcommand: ${sub}"
