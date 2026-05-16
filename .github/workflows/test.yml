@@ -328,6 +328,9 @@ jobs:
       - name: nspawn — verify-checksum (Round 190: SDD-019 T-3 partial closure)
         run: |
           tests/nspawn/test_verify_checksum.sh
+      - name: nspawn — selfdef-signing-audit (Round 195: SD-R55 cross-repo audit)
+        run: |
+          tests/nspawn/test_selfdef_signing_audit.sh
       - name: nspawn — thermal-watch (Round 172: per-profile thermal thresholds + OCSF events)
         run: |
           tests/nspawn/test_thermal_watch.sh
