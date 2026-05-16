@@ -9,13 +9,14 @@
 A continuous-direct-push session through 2026-05-16 took sovereign-os
 from "scaffold + charter + initial profiles" to "substantive Stage-2-
 onset deeply built out" with **23 SDDs**, **5 profiles + 6 mixins**,
-9-step build pipeline + 5 lifecycle stages + 6 recurrent hooks, all
-gated by **30 Layer-3 tests** + Layer 1 schema + Layer 2 unit + Layer 1
-hardening lint + Layer 1 dashboard lint + Layer 1 metric-lockstep lint
-+ shellcheck + Layer B observability emission. Direct push to main per
-operator's authorized workflow.
+9-step build pipeline (every step DRY_RUN + Layer B metric consistent)
++ 5 lifecycle stages + 6 recurrent hooks, all gated by **32 Layer-3
+tests** + Layer 1 schema + Layer 2 unit + Layer 1 hardening lint +
+Layer 1 dashboard lint + Layer 1 metric-lockstep lint + shellcheck +
+Layer B observability emission across pipeline + recurrent + inference
+surfaces. Direct push to main per operator's authorized workflow.
 
-Three Stage-2+ phases ran in this same session:
+Four Stage-2+ phases ran in this same session:
 1. **Phase A** (pre-plan-mode, 27 commits): foundation phase + Stage-2-
    onset. Every PR-1-seed Q-X resolved or partial.
 2. **Phase B** (Rounds 28-36, 9 commits post-plan-approval): substantive
@@ -26,6 +27,10 @@ Three Stage-2+ phases ran in this same session:
    surfaces — handoff refresh / Grafana dashboards + lockstep / image-
    sign rewrite / 3 new `sovereign-osctl` subcommands (audit provenance,
    inference health, doctor v2).
+4. **Phase D** (Rounds 44-47, 4 commits): build-pipeline consistency —
+   handoff refresh / steps 05+06+07 all gain DRY_RUN-first + Layer B
+   metric emission for substrate/render/build-result counters. Every
+   gateable build step now has identical operability semantics.
 
 **EVERY PR-1-seed open question is closed/partial.** All Q-X items from
 the original docs/decisions.md "Open questions" section are resolved.
@@ -140,7 +145,11 @@ Chronological:
 | `32dc5c6` | Round 41 — `sovereign-osctl audit provenance` end-to-end |
 | `7923340` | Round 42 — `sovereign-osctl inference health` HTTP probe + TCP fallback |
 | `23cd7d6` | Round 43 — `sovereign-osctl doctor` v2 profile-conditioned multi-section (10th bug caught) |
-| `(this)`  | Round 44 — handoff refresh after Rounds 38-43 |
+| `862ca3c` | Round 44 — handoff refresh after Rounds 38-43 |
+| `ae2c1eb` | Round 45 — step 05 substrate-prepare polish (DRY_RUN + Layer B + cleaner gates) |
+| `af2b655` | Round 46 — step 07 image-build adds live-build runner + Layer B + DRY_RUN-first |
+| `71cd409` | Round 47 — step 06 whitelabel-render adds DRY_RUN + Layer B |
+| `(this)`  | Round 48 — handoff refresh after Rounds 44-47 (all build steps now DRY_RUN + Layer B consistent) |
 
 ## Real bugs caught by L3 discipline (running tally)
 
