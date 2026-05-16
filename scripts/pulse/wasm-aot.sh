@@ -49,6 +49,23 @@ type emit_metric >/dev/null 2>&1 || emit_metric() { :; }
 : "${WASM_TARGET_CPU:=znver5}"
 : "${WASM_OPT_LEVEL:=speed}"
 : "${WASM_AFFINITY:=0-11}"
+# R167: when set, read selfdef SDD-017 SD-R10 capabilities JSON and
+# use the recommended_march + recommended_compile_flags from it
+# instead of the hardcoded znver5 defaults. Empty = use defaults.
+# Operators producing the JSON: `selfdefctl hardware export
+# --output /var/lib/selfdef/hardware-capabilities.json` (or wire the
+# daemon's `[deployment].hardware_capabilities_path` knob).
+: "${WASM_CAPABILITIES_FILE:=/var/lib/selfdef/hardware-capabilities.json}"
+
+# Honor the capabilities file when present (and operator didn't pin
+# WASM_TARGET_CPU explicitly).
+if [ -f "${WASM_CAPABILITIES_FILE}" ] && [ "${WASM_TARGET_CPU}" = "znver5" ]; then
+  caps_march="$(python3 -c "import json,sys; print(json.load(open('${WASM_CAPABILITIES_FILE}'))['cpu']['recommended_march'])" 2>/dev/null || echo "")"
+  if [ -n "${caps_march}" ] && [ "${caps_march}" != "native" ]; then
+    log_info "R167: reading selfdef HardwareCapabilities (recommended_march=${caps_march}) from ${WASM_CAPABILITIES_FILE}"
+    WASM_TARGET_CPU="${caps_march}"
+  fi
+fi
 
 log_info "==== sovereign-os Wasm-to-AVX-512 AOT pipeline ===="
 log_info "  master spec § 20 (The Pulse Implementation)"

@@ -298,6 +298,9 @@ jobs:
       - name: nspawn — bootstrap hardware-match (Round 166: selfdef SDD-017 Sain01Match cross-repo mirror)
         run: |
           tests/nspawn/test_bootstrap_hardware_match.sh
+      - name: nspawn — pulse wasm-aot honors selfdef capabilities (Round 167: SD-R10 bridge)
+        run: |
+          tests/nspawn/test_pulse_wasm_aot_capabilities.sh
       - name: nspawn — secure-boot gen-keys (Round 143: F-05 MED closure — operator-owned key generation)
         run: |
           tests/nspawn/test_secure_boot_gen_keys.sh
