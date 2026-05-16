@@ -56,6 +56,8 @@
 __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=./lib/common.sh
 . "${__SCRIPT_DIR}/lib/common.sh"
+# shellcheck source=./lib/observability.sh
+. "${__SCRIPT_DIR}/lib/observability.sh"
 
 : "${SOVEREIGN_OS_PROFILE:=sain-01}"
 : "${SOVEREIGN_OS_SUBSTRATE:=mkosi}"   # working hypothesis; Q-001 locks at Gate 2
@@ -217,6 +219,10 @@ cmd_run() {
   log_info "state: ${SOVEREIGN_OS_STATE_FILE}"
   log_info "log:   ${SOVEREIGN_OS_LOG_FILE}"
 
+  # Pipeline timing (SDD-016 Layer B)
+  local pipeline_start; pipeline_start="$(date +%s)"
+  local steps_run=0 steps_failed=0
+
   local step
   for step in "${STEPS[@]}"; do
     local script="${__SCRIPT_DIR}/${step}.sh"
@@ -224,14 +230,42 @@ cmd_run() {
       log_warn "step ${step}: script not found or not executable (${script}) — skipping (will land in subsequent PR)"
       continue
     fi
-    SOVEREIGN_OS_LOG_STEP="${step}" \
-      "${script}" || {
-        log_error "step ${step} failed; resume by re-running 'orchestrate.sh run'"
-        exit 1
-      }
+
+    local step_start; step_start="$(date +%s)"
+    if SOVEREIGN_OS_LOG_STEP="${step}" "${script}"; then
+      local step_dur=$(( $(date +%s) - step_start ))
+      steps_run=$((steps_run + 1))
+      emit_metric sovereign_os_build_step_duration_seconds "${step_dur}" \
+        "step=\"${step}\",profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"success\""
+    else
+      local step_dur=$(( $(date +%s) - step_start ))
+      steps_failed=$((steps_failed + 1))
+      emit_metric sovereign_os_build_step_duration_seconds "${step_dur}" \
+        "step=\"${step}\",profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"fail\""
+      log_error "step ${step} failed; resume by re-running 'orchestrate.sh run'"
+      _emit_pipeline_metrics "${pipeline_start}" "${steps_run}" "${steps_failed}" "fail"
+      exit 1
+    fi
   done
 
   log_info "build pipeline complete"
+  _emit_pipeline_metrics "${pipeline_start}" "${steps_run}" "${steps_failed}" "success"
+}
+
+_emit_pipeline_metrics() {
+  local start="$1" run="$2" failed="$3" result="$4"
+  local dur=$(( $(date +%s) - start ))
+  emit_metric_set build-pipeline \
+    '# HELP sovereign_os_build_pipeline_duration_seconds Wall-clock duration of last pipeline run' \
+    '# TYPE sovereign_os_build_pipeline_duration_seconds gauge' \
+    "sovereign_os_build_pipeline_duration_seconds{profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"${result}\"} ${dur}" \
+    '# HELP sovereign_os_build_pipeline_steps_total Steps executed in last pipeline run' \
+    '# TYPE sovereign_os_build_pipeline_steps_total gauge' \
+    "sovereign_os_build_pipeline_steps_total{profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"success\"} ${run}" \
+    "sovereign_os_build_pipeline_steps_total{profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"fail\"} ${failed}" \
+    '# HELP sovereign_os_build_pipeline_last_run_timestamp Unix timestamp of last pipeline run completion' \
+    '# TYPE sovereign_os_build_pipeline_last_run_timestamp gauge' \
+    "sovereign_os_build_pipeline_last_run_timestamp{profile=\"${SOVEREIGN_OS_PROFILE}\"} $(date +%s)"
 }
 
 # Dispatch ----------------------------------------------------------------
