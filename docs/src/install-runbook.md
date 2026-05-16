@@ -35,11 +35,40 @@ Exit 0 = ready to build.
 
 ### 1.2 Run the build pipeline
 
+Bare-minimum build (defaults — useful for first-pass / dev iteration):
+
 ```sh
 # All knobs env-overridable; restart-from-state across crashes
 SOVEREIGN_OS_PROFILE=sain-01 \
 SOVEREIGN_OS_SUBSTRATE=mkosi \
   sudo scripts/build/orchestrate.sh run
+```
+
+Full sovereign build (SDD-019 reproducibility + SDD-015 signed + SDD-022
+encrypted; operator-owned chain end-to-end):
+
+```sh
+SOVEREIGN_OS_PROFILE=sain-01 \
+SOVEREIGN_OS_SUBSTRATE=mkosi \
+SOURCE_DATE_EPOCH=$(date +%s) \                             # SDD-019: pinned epoch
+DEBIAN_SNAPSHOT=20260515T000000Z \                          # SDD-019: pinned mirror
+SOVEREIGN_OS_KERNEL_TAG=v6.12.5 \                           # SDD-018: kernel-org-stable exact tag
+SOVEREIGN_OS_PK_KEY=/path/to/PK.priv \                      # SDD-015: Platform Key (preferred)
+SOVEREIGN_OS_PK_CERT=/path/to/PK.der \                      # SDD-015
+SOVEREIGN_OS_MOK_KEY=/path/to/MOK.priv \                    # SDD-015: MOK fallback
+SOVEREIGN_OS_MOK_CERT=/path/to/MOK.der \                    # SDD-015
+SOVEREIGN_OS_ENCRYPT=1 \                                    # SDD-022: enable encryption
+SOVEREIGN_OS_ENCRYPT_TPM_BIND=1 \                           # SDD-022: PCR-7+11 binding
+SOVEREIGN_OS_ENCRYPT_PASSPHRASE_FILE=/run/install/pass \    # SDD-022: passphrase floor
+  sudo scripts/build/orchestrate.sh run
+```
+
+Dry-run first (validates all step scripts exist + profile loads + no
+state mutation):
+
+```sh
+SOVEREIGN_OS_PROFILE=sain-01 \
+  scripts/build/orchestrate.sh run --dry-run
 ```
 
 Executes 9 steps:
@@ -64,10 +93,33 @@ After step 09 passes:
 
 ```
 build/sain-01/output/
-  sain-01            ← bootable disk image
+  sain-01                       ← bootable disk image
   vmlinuz-6.12.x-znver5
   initrd.img-...
+  sha256sums.txt                ← SDD-019: digest of every artifact
+  build-provenance.json         ← SDD-019: SLSA v1 in-toto manifest
   ...
+```
+
+### 1.4 Verify the build is reproducible (optional, recommended)
+
+```sh
+sovereign-osctl audit provenance build/sain-01/output/build-provenance.json
+```
+
+Prints the manifest header (predicateType, subject count), the
+reproducibility inputs that drove the build (profile, substrate,
+SOURCE_DATE_EPOCH, DEBIAN_SNAPSHOT), and cross-checks every subject
+digest against `sha256sums.txt`. Exit 0 = clean; exit 2 = tampered
+or non-reproducible.
+
+Independent reproducibility verification — run the build again on
+another machine with the SAME env vars and compare:
+
+```sh
+diff /machine-A/sha256sums.txt /machine-B/sha256sums.txt
+# Expected: identical line for every artifact except signed binaries
+# (operator-key-specific signatures by design per SDD-015).
 ```
 
 ## 2. DURING-INSTALL — write to disk
