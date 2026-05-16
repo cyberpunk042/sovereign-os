@@ -88,15 +88,20 @@ for cmd in "${!SUBVERB_PROBE[@]}"; do
   fi
 done
 
-# Every cmd_<name> function in the source has a dispatcher entry
+# Every cmd_<name> function in the source has a dispatcher entry.
+# Convention: function names use underscores (`cmd_secure_boot`), verbs
+# use hyphens in the dispatcher (`secure-boot)`). Normalize both forms.
 mapfile -t functions < <(grep -oE "^cmd_[a-z_]+" "${CTL}" | sort -u)
 for fn in "${functions[@]}"; do
-  verb="${fn#cmd_}"
+  verb_u="${fn#cmd_}"
+  verb_h="${verb_u//_/-}"
   # cmd_help is reachable via 'help' / '--help' / '-h' / no-args
-  if grep -qE "^\s+${verb}[\)\|]" "${CTL}" \
-     || grep -qE "${verb}\|" "${CTL}" \
-     || [ "${verb}" = "help" ]; then
-    ok "dispatcher has entry for: ${verb}"
+  if grep -qE "^\s+${verb_u}[\)\|]" "${CTL}" \
+     || grep -qE "^\s+${verb_h}[\)\|]" "${CTL}" \
+     || grep -qE "${verb_u}\|" "${CTL}" \
+     || grep -qE "${verb_h}\|" "${CTL}" \
+     || [ "${verb_u}" = "help" ]; then
+    ok "dispatcher has entry for: ${verb_u} (or ${verb_h})"
   else
     ko "function ${fn}() defined but no dispatcher entry"
   fi

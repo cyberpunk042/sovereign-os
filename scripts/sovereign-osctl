@@ -154,10 +154,11 @@ COMMANDS:
 
   alerts [--json]              Derive operator alerts from .prom files (no Alertmanager needed)
 
-  journal list                 List Layer A JSONL log files (size + first/last event)
-  journal show <file>          Pretty-print one JSONL log file as a table
-  journal tail [N]             Tail the N most recent log files (default: 3)
-  journal errors               Show every error/warn entry across all log files
+  journal list [--all-dirs]    List Layer A JSONL log files (size + first/last event)
+  journal show <file> [--all-dirs]  Pretty-print one JSONL log file as a table
+  journal tail [--all-dirs] [N]  Tail the N most recent log files (default: 3)
+  journal errors [--all-dirs]  Show every error/warn entry across all log files
+                               (--all-dirs merges build-host + installed-system log dirs)
 
   history list                 Per-run summary derived from JSONL files (profile · steps · result · duration)
   history show <run-id>        Drill into one run (step-by-step pass/fail)
@@ -1459,16 +1460,44 @@ cmd_journal() {
   local sub="${1:-list}"
   shift || true
 
-  local log_dir=""
-  if [ -n "${SOVEREIGN_OS_LOG_DIR:-}" ] && [ -d "${SOVEREIGN_OS_LOG_DIR}" ]; then
-    log_dir="${SOVEREIGN_OS_LOG_DIR}"
-  elif [ -d /var/log/sovereign-os ]; then
-    log_dir="/var/log/sovereign-os"
-  elif [ -d "${HOME}/.sovereign-os/log" ]; then
-    log_dir="${HOME}/.sovereign-os/log"
+  # R144 (F-10 LOW closure): --all-dirs flag merges build-host
+  # (~/.sovereign-os/log) AND installed-system (/var/log/sovereign-os)
+  # JSONL files into one chronological view. Without the flag the
+  # first-match resolution (env > /var/log > ~) wins, matching the
+  # prior R91 behavior.
+  local all_dirs=0
+  if [ "${1:-}" = "--all-dirs" ]; then
+    all_dirs=1
+    shift
   fi
 
-  if [ -z "${log_dir}" ]; then
+  local -a log_dirs=()
+  if [ "${all_dirs}" -eq 1 ]; then
+    [ -n "${SOVEREIGN_OS_LOG_DIR:-}" ] && [ -d "${SOVEREIGN_OS_LOG_DIR}" ] && log_dirs+=("${SOVEREIGN_OS_LOG_DIR}")
+    [ -d /var/log/sovereign-os ] && log_dirs+=("/var/log/sovereign-os")
+    [ -d "${HOME}/.sovereign-os/log" ] && log_dirs+=("${HOME}/.sovereign-os/log")
+    # de-dupe while preserving order
+    local -a uniq=()
+    local d
+    for d in "${log_dirs[@]}"; do
+      local seen=0; local e
+      for e in "${uniq[@]:-}"; do [ "${d}" = "${e}" ] && { seen=1; break; }; done
+      [ "${seen}" -eq 0 ] && uniq+=("${d}")
+    done
+    log_dirs=("${uniq[@]:-}")
+  else
+    local log_dir=""
+    if [ -n "${SOVEREIGN_OS_LOG_DIR:-}" ] && [ -d "${SOVEREIGN_OS_LOG_DIR}" ]; then
+      log_dir="${SOVEREIGN_OS_LOG_DIR}"
+    elif [ -d /var/log/sovereign-os ]; then
+      log_dir="/var/log/sovereign-os"
+    elif [ -d "${HOME}/.sovereign-os/log" ]; then
+      log_dir="${HOME}/.sovereign-os/log"
+    fi
+    [ -n "${log_dir}" ] && log_dirs=("${log_dir}")
+  fi
+
+  if [ "${#log_dirs[@]}" -eq 0 ]; then
     echo "no Layer A log dir found; checked:"
     echo "  \$SOVEREIGN_OS_LOG_DIR (unset)"
     echo "  /var/log/sovereign-os/"
@@ -1476,9 +1505,12 @@ cmd_journal() {
     return 0
   fi
 
+  # For backward-compat: when not --all-dirs, log_dir is the single one.
+  local log_dir="${log_dirs[0]}"
+
   case "${sub}" in
     list)
-      mapfile -t files < <(find "${log_dir}" -maxdepth 1 -name '*.jsonl' -type f 2>/dev/null | sort)
+      mapfile -t files < <(find "${log_dirs[@]}" -maxdepth 1 -name '*.jsonl' -type f 2>/dev/null | sort)
       if [ "${#files[@]}" -eq 0 ]; then
         echo "no .jsonl files in ${log_dir}"
         return 0
@@ -1506,11 +1538,15 @@ cmd_journal() {
         return 2
       fi
       local file=""
-      for cand in "${log_dir}/${name}" "${log_dir}/${name}.jsonl" "${name}"; do
-        if [ -f "${cand}" ]; then file="${cand}"; break; fi
+      local _d
+      for _d in "${log_dirs[@]}"; do
+        for cand in "${_d}/${name}" "${_d}/${name}.jsonl" "${name}"; do
+          if [ -f "${cand}" ]; then file="${cand}"; break 2; fi
+        done
       done
       if [ -z "${file}" ]; then
-        log_error "no log file matches '${name}' (in ${log_dir} or as absolute path)"
+        local _dirs_csv; _dirs_csv="$(IFS=,; echo "${log_dirs[*]}")"
+        log_error "no log file matches '${name}' (in ${_dirs_csv} or as absolute path)"
         return 1
       fi
       echo "# file: ${file}"
@@ -1541,7 +1577,7 @@ PY
         log_error "tail count must be a non-negative integer (got: ${n})"
         return 2
       fi
-      mapfile -t recent < <(find "${log_dir}" -maxdepth 1 -name '*.jsonl' -type f -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n "${n}" | awk '{print $2}')
+      mapfile -t recent < <(find "${log_dirs[@]}" -maxdepth 1 -name '*.jsonl' -type f -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n "${n}" | awk '{print $2}')
       if [ "${#recent[@]}" -eq 0 ]; then
         echo "no .jsonl files in ${log_dir}"
         return 0
@@ -1570,7 +1606,7 @@ PY
       done
       ;;
     errors)
-      mapfile -t files < <(find "${log_dir}" -maxdepth 1 -name '*.jsonl' -type f 2>/dev/null | sort)
+      mapfile -t files < <(find "${log_dirs[@]}" -maxdepth 1 -name '*.jsonl' -type f 2>/dev/null | sort)
       if [ "${#files[@]}" -eq 0 ]; then
         echo "no .jsonl files in ${log_dir}"
         return 0
@@ -2840,10 +2876,9 @@ new_entry = {
     "mandatory": mandatory,
 }
 entries.append(new_entry)
-with open(pfile, "w") as f:
-    # Preserve the schema header (assumed to live in the first 5 lines)
-    # by re-reading them
-    pass
+# R144 fix (bug #18): preserve the schema header by reading the
+# ORIGINAL file before any write (the prior `open(..., "w")` truncated
+# the file BEFORE the header re-read, wiping all comments).
 with open(pfile) as f_orig:
     orig_lines = f_orig.readlines()
 header_lines = []

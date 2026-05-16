@@ -238,6 +238,27 @@ for kw in "journal list" "journal show" "journal tail" "journal errors"; do
   fi
 done
 
+# ---------- R144: --all-dirs flag ----------
+# Build a second log dir to verify merge behavior. We can't easily
+# redirect /var/log/sovereign-os, but the env-override path + the
+# default-fallback paths still exercise the multi-dir code.
+set +e
+out="$(SOVEREIGN_OS_LOG_DIR="${logdir}" "${OSCTL}" journal list --all-dirs 2>&1)"
+rc=$?
+set -e
+if [ "${rc}" -eq 0 ] && grep -q "build-20260516T010000Z" <<< "${out}"; then
+  ok "--all-dirs list works on env-overridden single dir"
+else
+  ko "--all-dirs broken (rc=${rc})"
+fi
+# --all-dirs help-text
+help_out="$("${OSCTL}" help 2>&1)"
+if grep -q "all-dirs" <<< "${help_out}"; then
+  ok "help documents --all-dirs flag"
+else
+  ko "help missing --all-dirs"
+fi
+
 # ---------- result ----------
 echo
 total=$((pass + fail))

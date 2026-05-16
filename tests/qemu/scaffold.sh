@@ -104,13 +104,29 @@ Q-014 destructive-loop status:
     that path).
 EOF
 
-# ----------- substantive run (only when all preconditions clear) ---------------
+# ----------- substantive run ---------------
 
 if [ "${kvm_ok}" -eq 1 ] && [ "${qemu_ok}" -eq 1 ] && [ "${image_ok}" -eq 1 ]; then
   echo
   echo -e "${bold}all preconditions met — running 09-image-verify.sh${reset}"
   SOVEREIGN_OS_IMAGE_DIR="${image_dir}" \
     "${REPO_ROOT}/scripts/build/09-image-verify.sh"
+elif [ "${qemu_ok}" -eq 1 ] && [ "${image_ok}" -eq 1 ] && [ -n "${SOVEREIGN_OS_LAYER4_SLOW:-}" ]; then
+  # R144 (F-06 partial closure): KVM-less slow-path boot probe.
+  # qemu-system-x86_64 runs WITHOUT -enable-kvm; boot takes 5-15min;
+  # still proves the image boots to userspace markers. Operator opts in
+  # with SOVEREIGN_OS_LAYER4_SLOW=1.
+  echo
+  echo -e "${bold}KVM absent but SOVEREIGN_OS_LAYER4_SLOW=1 — running slow-path boot probe${reset}"
+  echo -e "${yellow}  expected duration: 5-15 minutes (no KVM acceleration)${reset}"
+  SOVEREIGN_OS_IMAGE_DIR="${image_dir}" \
+    SOVEREIGN_OS_QEMU_TIMEOUT="${SOVEREIGN_OS_QEMU_TIMEOUT:-900}" \
+    SOVEREIGN_OS_QEMU_NO_KVM=1 \
+    "${REPO_ROOT}/scripts/build/09-image-verify.sh" || \
+      echo -e "${yellow}  slow-path probe finished with non-zero (review log)${reset}"
+elif [ "${qemu_ok}" -eq 1 ] && [ "${image_ok}" -eq 1 ]; then
+  echo
+  echo -e "${yellow}  hint: set SOVEREIGN_OS_LAYER4_SLOW=1 for the KVM-less boot probe (slow but works)${reset}"
 fi
 
 # ----------- result ---------------

@@ -137,7 +137,15 @@ hostname-keyed CN), writes them outside the repo, prints the
 enrollment command, and emits a clear "now back these up; sovereign-os
 never sees them again" warning.
 
-### F-06 — MED — Layer 4 QEMU validation requires KVM
+### F-06 — MED — Layer 4 QEMU validation requires KVM  ✅ **PARTIAL CLOSURE (Round 144)**
+
+`tests/qemu/scaffold.sh` now offers a slow-path opt-in via
+`SOVEREIGN_OS_LAYER4_SLOW=1`. When KVM is absent but qemu + image are
+present, the scaffold bridges to `09-image-verify.sh` with no-KVM mode
++ extended timeout (default 900s). Proves the image boots to userspace
+markers. Still 5-15 minute walltime per probe — KVM remains the
+recommended path. Operator can opt-in for CI / development without
+KVM-equipped runner.
 
 **Where**: `tests/qemu/scaffold.sh` SKIPs gracefully without KVM.
 Operator on a WSL or non-KVM host can't validate their build
@@ -219,7 +227,13 @@ new operators trip on the YAML schema.
 that updates the active profile YAML in-place + validates the path
 exists + checks the script is executable.
 
-### F-10 — LOW — Split log dirs between build-host and installed-system
+### F-10 — LOW — Split log dirs between build-host and installed-system  ✅ **CLOSED (Round 144)**
+
+`sovereign-osctl journal --all-dirs` flag added to list/show/tail/errors.
+Merges build-host (`~/.sovereign-os/log`), installed-system
+(`/var/log/sovereign-os`), and env-overridden dirs into one
+chronological view. Without the flag the prior first-match resolution
+(env > /var/log > ~) wins (R91 compat).
 
 **Where**: Build runs log to `~/.sovereign-os/log/build-<ts>.jsonl`.
 Installed-system hooks log to `/var/log/sovereign-os/*.jsonl`.
