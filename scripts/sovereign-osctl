@@ -98,7 +98,7 @@ COMMANDS:
   audit friction               Runtime friction-audit (lspci/lscpu/IOMMU)
   audit perimeter              Perimeter integrity (Tetragon policy)
   audit storage                ZFS pool + dataset health
-  audit provenance [<path>]    Inspect build-provenance.json + cross-check sha256sums.txt
+  audit provenance [--deep] [<path>]    Inspect build-provenance.json + cross-check sha256sums.txt (+ recompute SHA256 on disk with --deep)
 
   maintenance list             List on-demand maintenance subverbs
   maintenance scrub            Trigger ZFS scrub now
@@ -735,6 +735,17 @@ cmd_audit() {
     provenance)
       # SDD-019: verify build-provenance.json against sha256sums.txt.
       # Accepts a manifest path or auto-discovers from common locations.
+      # --deep: also recompute SHA256 of files on disk and compare vs manifest
+      #         (closes the in-toto verifier loop — manifest ↔ sums ↔ disk).
+      local deep_mode=0
+      while [ $# -gt 0 ]; do
+        case "$1" in
+          --deep) deep_mode=1; shift ;;
+          --) shift; break ;;
+          -*) log_error "unknown flag: $1"; return 2 ;;
+          *) break ;;
+        esac
+      done
       local manifest="${1:-}"
       if [ -z "${manifest}" ]; then
         for candidate in \
@@ -749,18 +760,21 @@ cmd_audit() {
       fi
       if [ -z "${manifest}" ] || [ ! -f "${manifest}" ]; then
         log_error "no build-provenance.json found"
-        log_error "  pass path: sovereign-osctl audit provenance <path>"
+        log_error "  pass path: sovereign-osctl audit provenance [--deep] <path>"
         log_error "  or set SOVEREIGN_OS_IMAGE_DIR to the directory containing it"
         return 1
       fi
       local sums="$(dirname "${manifest}")/sha256sums.txt"
       log_info "manifest: ${manifest}"
       [ -f "${sums}" ] && log_info "sha256sums: ${sums}" || log_warn "sha256sums.txt absent — content-verify skipped"
-      python3 - "${manifest}" "${sums:-/dev/null}" <<'PY'
+      [ "${deep_mode}" -eq 1 ] && log_info "deep mode: will recompute SHA256 of files on disk"
+      python3 - "${manifest}" "${sums:-/dev/null}" "${deep_mode}" <<'PY'
 import json, sys, hashlib, pathlib
 manifest_path = pathlib.Path(sys.argv[1])
 sums_path = pathlib.Path(sys.argv[2]) if sys.argv[2] != '/dev/null' else None
+deep_mode = (sys.argv[3] == '1') if len(sys.argv) > 3 else False
 data = json.loads(manifest_path.read_text())
+artifact_dir = manifest_path.parent
 
 # Header
 print(f"  _type:         {data.get('_type', '?')}")
@@ -806,6 +820,44 @@ if sums_path and sums_path.exists():
         print(f"  ! {len(missing_in_sums)} subject(s) not in sha256sums.txt (subset audit ok)")
     else:
         print(f"  ✓ all {len(declared)} subject digests match sha256sums.txt")
+
+# Deep mode: recompute SHA256 of each subject's file on disk
+if deep_mode:
+    print()
+    print("  deep verification — recomputing SHA256 of files on disk:")
+    declared = {s['name']: s['digest']['sha256'] for s in subjects}
+    deep_mismatches = []
+    deep_missing = []
+    deep_verified = 0
+    for name, expected_sha in declared.items():
+        path = artifact_dir / name
+        if not path.is_file():
+            deep_missing.append(name)
+            continue
+        h = hashlib.sha256()
+        with path.open('rb') as fh:
+            for chunk in iter(lambda: fh.read(1024 * 1024), b''):
+                h.update(chunk)
+        actual = h.hexdigest()
+        if actual != expected_sha:
+            deep_mismatches.append((name, expected_sha, actual))
+        else:
+            deep_verified += 1
+    if deep_missing:
+        print(f"  ! {len(deep_missing)} file(s) listed in manifest but missing on disk:")
+        for name in deep_missing[:5]:
+            print(f"      {name}")
+    if deep_mismatches:
+        print(f"  ✗ {len(deep_mismatches)} file(s) on disk differ from manifest digest:")
+        for name, expected, actual in deep_mismatches[:5]:
+            print(f"      {name}")
+            print(f"        manifest: {expected[:16]}…")
+            print(f"        on disk:  {actual[:16]}…")
+        sys.exit(3)
+    if deep_verified == len(declared):
+        print(f"  ✓ all {deep_verified} files on disk match manifest digest")
+    elif deep_verified > 0:
+        print(f"  ✓ {deep_verified}/{len(declared)} files on disk match manifest digest")
 PY
       ;;
     *)

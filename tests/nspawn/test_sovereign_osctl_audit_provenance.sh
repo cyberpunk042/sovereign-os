@@ -47,7 +47,7 @@ else
   ko "no-manifest gate broken: rc=${rc} out=${out:0:200}"
 fi
 
-if grep -q "sovereign-osctl audit provenance <path>" <<< "${out}"; then
+if grep -qE "sovereign-osctl audit provenance .*<path>" <<< "${out}"; then
   ok "error message includes operator-actionable remediation"
 else
   ko "no remediation hint in error"
@@ -145,6 +145,92 @@ if grep -q "audit provenance" <<< "${help_out}"; then
   ok "help documents 'audit provenance' subcommand"
 else
   ko "help missing 'audit provenance'"
+fi
+
+if grep -q -- "--deep" <<< "${help_out}"; then
+  ok "help documents 'audit provenance --deep' flag (Round 106)"
+else
+  ko "help missing --deep flag documentation"
+fi
+
+# ----------- Round 106 --deep mode: closes the in-toto verifier loop ---------------
+# Build a fresh manifest + sums + actual files; verify --deep accepts all match.
+deep_img="${tmp}/deep"
+mkdir -p "${deep_img}"
+echo "content-of-a" > "${deep_img}/artifact-a.img"
+echo "content-of-b" > "${deep_img}/artifact-b.img"
+deep_sha_a="$(sha256sum "${deep_img}/artifact-a.img" | cut -d' ' -f1)"
+deep_sha_b="$(sha256sum "${deep_img}/artifact-b.img" | cut -d' ' -f1)"
+
+# sums.txt format: "<digest>  ./<name>" (two spaces, then ./)
+{
+  echo "${deep_sha_a}  ./artifact-a.img"
+  echo "${deep_sha_b}  ./artifact-b.img"
+} > "${deep_img}/sha256sums.txt"
+
+# Manifest in SLSA-v1 minimal shape
+cat > "${deep_img}/build-provenance.json" <<EOF
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "predicateType": "https://slsa.dev/provenance/v1",
+  "subject": [
+    {"name": "artifact-a.img", "digest": {"sha256": "${deep_sha_a}"}},
+    {"name": "artifact-b.img", "digest": {"sha256": "${deep_sha_b}"}}
+  ],
+  "predicate": {
+    "buildDefinition": {
+      "buildType": "https://github.com/cyberpunk042/sovereign-os/build/v1",
+      "externalParameters": {"profile": "sain-01", "substrate": "mkosi", "source_date_epoch": "1715817600"}
+    }
+  }
+}
+EOF
+
+set +e
+out="$("${CTL}" audit provenance --deep "${deep_img}/build-provenance.json" 2>&1)"
+rc=$?
+set -e
+if [ "${rc}" -eq 0 ] && grep -q "all 2 files on disk match manifest digest" <<< "${out}"; then
+  ok "--deep on clean tree → exit 0 + all-match summary"
+else
+  ko "--deep clean-tree gate broken: rc=${rc}; out=${out:0:300}"
+fi
+
+# Tamper with one file on disk; manifest unchanged; --deep should catch the drift
+echo "MUTATED" >> "${deep_img}/artifact-a.img"
+set +e
+out="$("${CTL}" audit provenance --deep "${deep_img}/build-provenance.json" 2>&1)"
+rc=$?
+set -e
+if [ "${rc}" -eq 3 ] && grep -qE "file\(s\) on disk differ from manifest digest" <<< "${out}"; then
+  ok "--deep on tampered tree → exit 3 + flags on-disk drift"
+else
+  ko "--deep drift-detection broken: rc=${rc}; out=${out:0:300}"
+fi
+
+# Missing file on disk → reported as missing
+rm "${deep_img}/artifact-b.img"
+# Restore artifact-a so the only issue is missing-b
+echo "content-of-a" > "${deep_img}/artifact-a.img"
+set +e
+out="$("${CTL}" audit provenance --deep "${deep_img}/build-provenance.json" 2>&1)"
+rc=$?
+set -e
+if grep -q "listed in manifest but missing on disk" <<< "${out}" && grep -q "artifact-b.img" <<< "${out}"; then
+  ok "--deep on missing-file tree → reports the missing file by name"
+else
+  ko "--deep missing-file detection broken: rc=${rc}; out=${out:0:300}"
+fi
+
+# Unknown flag → exit 2
+set +e
+out="$("${CTL}" audit provenance --not-a-flag "${deep_img}/build-provenance.json" 2>&1)"
+rc=$?
+set -e
+if [ "${rc}" -eq 2 ] && grep -q "unknown flag: --not-a-flag" <<< "${out}"; then
+  ok "unknown flag → exit 2 + clear error"
+else
+  ko "unknown-flag gate broken: rc=${rc}"
 fi
 
 # ----------- result ---------------
