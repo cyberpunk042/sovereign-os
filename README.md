@@ -28,14 +28,18 @@
 - **5 lifecycle stages** with substantive hooks:
   pre-install (4 preflight) · during-install (4 setup) · post-install
   (8 first-boot) · recurrent (6 timer-driven) · decommission (3 gated).
-- **Operator management CLI** (`sovereign-osctl`): 11 top-level
-  commands. `status`, `doctor` v2 (profile-conditioned multi-section),
-  `audit` (4 subverbs incl. `provenance`), `inference` (7 subverbs
-  incl. `health`), plus profiles/whitelabel/models/perimeter/
-  maintenance/decommission.
-- **5-layer test pyramid** in CI: ~25 schema + ~51 unit + ~35 Layer-3
-  nspawn + 6 Layer-1 lint suites + shellcheck. Layer-3 catches real
-  wiring bugs that Layer-1+2 cannot — running tally at **10 bugs
+- **Operator management CLI** (`sovereign-osctl`): 15 top-level
+  command groups. `status`/`doctor`/`assistant` overview; `audit` (5
+  subverbs incl. `provenance --deep` + `drift`); `inference` (7
+  subverbs incl. `health` + `route`); `metrics`/`alerts`/`journal`/
+  `history` (Layer-A/B observability surface); `maintenance` (8 on-
+  demand subverbs incl. `alerts-check`); plus profiles/whitelabel/
+  models/perimeter/decommission. SDD-025 codifies the observability
+  CLI architecture.
+- **5-layer test pyramid** in CI: ~25 schema + ~70 unit (incl. 2 L2
+  JSON-schema contract gates for SDD-023 alerts + SDD-025 audit drift)
+  + ~55 Layer-3 nspawn + 11 Layer-1 lint suites + shellcheck. L1/L2/L3
+  combined catch real wiring bugs — running tally at **15 bugs
   caught** (see `docs/src/tdd/bugs-caught.md`).
 - **Reproducibility chain end-to-end**:
   pin SOURCE_DATE_EPOCH + DEBIAN_SNAPSHOT + KERNEL_TAG → reproducible
@@ -47,10 +51,18 @@
 - **Disk encryption** (SDD-022): ZFS native for zfs-tiered profiles;
   LUKS2 for ext4; passphrase + TPM2 PCR-7+11 default for sain-01 +
   headless.
-- **Observability (Layer B)**: 21 metric names emitted across build
-  pipeline + recurrent hooks + inference router. 2 Grafana JSON
-  dashboard templates (`docs/observability/dashboards/`); CI gates
-  dashboard ↔ emitter lockstep.
+- **Observability (Layer A/B/C, SDD-016 + SDD-023 + SDD-025)**: 55
+  metric names emitted across build pipeline + 24 lifecycle hooks +
+  inference router; 3 Grafana JSON dashboard templates
+  (`docs/observability/dashboards/`). In-tree 6-rule alerts engine
+  + hourly meta-observability hook — operators get rule-derived
+  alerts WITHOUT Alertmanager/Prometheus/SaaS. CI gates the three-way
+  contract: code ↔ dashboard panels ↔ README inventory.
+- **Hardening IaC (SDD-024)**: 5 server drop-ins + 4 workstation
+  drop-ins (auditd ruleset · fail2ban jails · unattended-upgrades ·
+  sshd · pwquality) with load-bearing invariants pinned at L1 lint
+  (silent weakening fails CI); operator override via lexicographically-
+  later drop-ins; `audit drift` verb detects deployed-vs-source drift.
 - **Operator-side gates**: `scripts/setup.sh` one-command fresh-clone
   bootstrap; `scripts/git-hooks/pre-commit` runs L1 lint + profile
   validation + L3 fast sample before every commit.
