@@ -5,6 +5,8 @@
 __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=./lib/common.sh
 . "${__SCRIPT_DIR}/lib/common.sh"
+# shellcheck source=./lib/observability.sh
+. "${__SCRIPT_DIR}/lib/observability.sh"
 
 STEP_ID="04-kernel-compile"
 
@@ -121,5 +123,7 @@ export SOVEREIGN_OS_KERNEL_DEBS_DIR="${output_dir}"
 EOF
 log_info "env handoff: ${env_file_out}"
 
+emit_metric sovereign_os_build_step_kernel_compile_total 1 \
+  "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"success\""
 state_step_complete "${STEP_ID}"
 log_info "step ${STEP_ID} complete"

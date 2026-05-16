@@ -7,6 +7,8 @@
 __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=./lib/common.sh
 . "${__SCRIPT_DIR}/lib/common.sh"
+# shellcheck source=./lib/observability.sh
+. "${__SCRIPT_DIR}/lib/observability.sh"
 
 STEP_ID="03-kernel-config"
 
@@ -92,5 +94,7 @@ EOF
 log_info "compile flags env: ${env_file}"
 log_info "KCFLAGS=${kcflags}"
 
+emit_metric sovereign_os_build_step_kernel_config_total 1 \
+  "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"success\""
 state_step_complete "${STEP_ID}"
 log_info "step ${STEP_ID} complete"

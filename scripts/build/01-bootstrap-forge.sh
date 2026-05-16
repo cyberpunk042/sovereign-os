@@ -11,6 +11,8 @@
 __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=./lib/common.sh
 . "${__SCRIPT_DIR}/lib/common.sh"
+# shellcheck source=./lib/observability.sh
+. "${__SCRIPT_DIR}/lib/observability.sh"
 
 STEP_ID="01-bootstrap-forge"
 
@@ -105,5 +107,7 @@ export SOVEREIGN_OS_FORGE_DIR="${SOVEREIGN_OS_FORGE_DIR}"
 EOF
 log_info "env handoff written: ${env_file}"
 
+emit_metric sovereign_os_build_step_bootstrap_forge_total 1 \
+  "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"success\""
 state_step_complete "${STEP_ID}"
 log_info "step ${STEP_ID} complete"
