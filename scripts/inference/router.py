@@ -41,6 +41,13 @@ log = logging.getLogger("sovereign-os.router")
 _ROUTE_COUNTS: dict[str, int] = {t: 0 for t in (
     "pulse", "logic_engine", "oracle_core", "llama_old", "llama_fb"
 )}
+# R161 — task_type classification counter (closes R157 follow-up).
+# Per-request task_type is computed by `classify_task_type()` and
+# surfaced as Layer B label + as an X-Sovereign-Task-Type response
+# header so operators can observe the gating signal end-to-end.
+_TASK_TYPE_COUNTS: dict[str, int] = {t: 0 for t in (
+    "code", "math", "conversational", "creative"
+)}
 _METRICS_LOCK = threading.Lock()
 _METRICS_DIR = pathlib.Path(
     os.environ.get(
@@ -52,12 +59,19 @@ _METRICS_FILE = _METRICS_DIR / "sovereign-os-inference-router.prom"
 _METRICS_DISABLED = os.environ.get("SOVEREIGN_OS_METRICS_DISABLE") == "1"
 
 
-def _record_route(tier: str) -> None:
-    """Increment the per-tier counter + flush the .prom file atomically."""
+def _record_route(tier: str, task_type: str = "") -> None:
+    """Increment the per-tier counter + flush the .prom file atomically.
+
+    R161: also increments the task_type counter and emits its label
+    set so operators can observe which task_type each request resolved
+    to (closes R157 follow-up: task_type signal flows through router).
+    """
     if _METRICS_DISABLED:
         return
     with _METRICS_LOCK:
         _ROUTE_COUNTS[tier] = _ROUTE_COUNTS.get(tier, 0) + 1
+        if task_type:
+            _TASK_TYPE_COUNTS[task_type] = _TASK_TYPE_COUNTS.get(task_type, 0) + 1
         try:
             _METRICS_DIR.mkdir(parents=True, exist_ok=True)
         except OSError:
@@ -68,6 +82,10 @@ def _record_route(tier: str) -> None:
         ]
         for t, n in sorted(_ROUTE_COUNTS.items()):
             lines.append(f'sovereign_os_inference_route_total{{tier="{t}"}} {n}')
+        lines.append("# HELP sovereign_os_inference_router_task_type_total Per-task-type routing classification (R161, closes R157 follow-up)")
+        lines.append("# TYPE sovereign_os_inference_router_task_type_total counter")
+        for t, n in sorted(_TASK_TYPE_COUNTS.items()):
+            lines.append(f'sovereign_os_inference_router_task_type_total{{task_type="{t}"}} {n}')
         lines.append("# HELP sovereign_os_inference_router_last_route_timestamp Unix timestamp of last routing decision")
         lines.append("# TYPE sovereign_os_inference_router_last_route_timestamp gauge")
         lines.append(f"sovereign_os_inference_router_last_route_timestamp {int(time.time())}")
@@ -131,6 +149,59 @@ def classify(request_body: dict[str, Any]) -> str:
     return "logic_engine"
 
 
+def classify_task_type(request_body: dict[str, Any]) -> str:
+    """R161 — closes R157 follow-up. Classify request task_type so DFlash
+    gating + per-task metric labels can be applied downstream.
+
+    Precedence:
+      1. Explicit `request_body['sovereign_os_task_type']` if a known
+         value (caller-asserted; operator escape hatch).
+      2. Structured-output hints (response_format=json_object or tools)
+         → 'code' (DFlash benefits both per R157).
+      3. Code markers in the last user message (```/def/function ...)
+         → 'code'.
+      4. Math markers (solve/prove/compute/math) → 'math'.
+      5. Creative cues (story/poem/imagine/write a) → 'creative'
+         (DFlash is gated OFF per operator-verbatim § Block 7).
+      6. Default → 'conversational'.
+
+    Keep this function readable in one screen — operators trace the
+    classification path directly. NO ML model; deterministic rules.
+    """
+    known = ("code", "math", "conversational", "creative")
+    explicit = (request_body.get("sovereign_os_task_type") or "").lower()
+    if explicit in known:
+        return explicit
+
+    if request_body.get("response_format", {}).get("type") == "json_object":
+        return "code"
+    if request_body.get("tools"):
+        return "code"
+
+    messages = request_body.get("messages") or []
+    last_user = next(
+        (m.get("content", "") for m in reversed(messages) if m.get("role") == "user"),
+        "",
+    ).lower()
+
+    code_markers = ("```", "def ", "function ", "class ", "import ", "package ", "#include")
+    if any(marker in last_user for marker in code_markers):
+        return "code"
+
+    math_markers = ("solve ", "prove ", "compute ", "integral", "derivative", "math problem", "equation")
+    if any(marker in last_user for marker in math_markers):
+        return "math"
+
+    creative_markers = (
+        "story", "poem", "haiku", "lyric", "imagine ",
+        "write a ", "write me a ", "compose a ", "creative ",
+    )
+    if any(marker in last_user for marker in creative_markers):
+        return "creative"
+
+    return "conversational"
+
+
 class RouterHandler(http.server.BaseHTTPRequestHandler):
     server_version = "sovereign-os-router/0.1"
 
@@ -148,13 +219,21 @@ class RouterHandler(http.server.BaseHTTPRequestHandler):
             return
 
         tier = classify(body)
+        # R161: classify task_type alongside tier; both surface in metrics
+        # and the task_type also lands in the response header so operators
+        # can curl -v and see what the router decided.
+        task_type = classify_task_type(body)
+
         target = TIER_ENDPOINTS.get(tier)
         if target is None:
             self.send_error(503, f"tier {tier} not configured")
             return
 
-        log.info("route: model=%r → tier=%s (%s)", body.get("model"), tier, target)
-        _record_route(tier)
+        log.info(
+            "route: model=%r → tier=%s task_type=%s (%s)",
+            body.get("model"), tier, task_type, target,
+        )
+        _record_route(tier, task_type)
 
         # Proxy the request unchanged
         target_url = target.rstrip("/") + self.path
@@ -172,6 +251,10 @@ class RouterHandler(http.server.BaseHTTPRequestHandler):
         try:
             with urllib.request.urlopen(req, timeout=300) as resp:
                 self.send_response(resp.status)
+                # R161: surface routing decision in response headers for
+                # end-to-end operator observability.
+                self.send_header("X-Sovereign-Routed-Tier", tier)
+                self.send_header("X-Sovereign-Task-Type", task_type)
                 for k, v in resp.headers.items():
                     if k.lower() in {"content-length", "transfer-encoding", "connection"}:
                         continue

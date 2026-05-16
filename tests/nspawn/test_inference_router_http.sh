@@ -201,6 +201,58 @@ else
   ko "unknown path: ${out}"
 fi
 
+# ----------- R161: task_type classification + X-Sovereign-Task-Type header ---------------
+
+# Verify the route log now includes task_type=
+if grep -q "task_type=" "${router_log}"; then
+  ok "router log surfaces task_type= field (R161 closure of R157 follow-up)"
+else
+  ko "router log missing task_type= field"
+fi
+
+# code marker request → task_type=code in log
+if grep -q "task_type=code" "${router_log}"; then
+  ok "task_type=code classification observed in log"
+else
+  ko "task_type=code never appeared"
+fi
+
+# Send creative request — should classify as 'creative'
+post_json /v1/chat/completions \
+  '{"model":"unknown","messages":[{"role":"user","content":"write a story about a dog"}]}' \
+  >/dev/null
+sleep 0.2
+last_task="$(grep -oE "task_type=[a-z]+" "${router_log}" | tail -1 | cut -d= -f2)"
+if [ "${last_task}" = "creative" ]; then
+  ok "creative cue → task_type=creative"
+else
+  ko "creative classification wrong: ${last_task}"
+fi
+
+# Operator override via sovereign_os_task_type
+post_json /v1/chat/completions \
+  '{"sovereign_os_task_type":"math","model":"unknown","messages":[{"role":"user","content":"write a story"}]}' \
+  >/dev/null
+sleep 0.2
+last_task="$(grep -oE "task_type=[a-z]+" "${router_log}" | tail -1 | cut -d= -f2)"
+if [ "${last_task}" = "math" ]; then
+  ok "sovereign_os_task_type=math override wins over heuristic"
+else
+  ko "operator override didn't take effect: last=${last_task}"
+fi
+
+# Send a conversational request — should classify
+post_json /v1/chat/completions \
+  '{"model":"unknown","messages":[{"role":"user","content":"hello, how are you today"}]}' \
+  >/dev/null
+sleep 0.2
+last_task="$(grep -oE "task_type=[a-z]+" "${router_log}" | tail -1 | cut -d= -f2)"
+if [ "${last_task}" = "conversational" ]; then
+  ok "default request → task_type=conversational"
+else
+  ko "default conversational classification wrong: ${last_task}"
+fi
+
 # ----------- Layer B metrics emission (SDD-016) ---------------
 
 metrics_file="${metrics_dir}/sovereign-os-inference-router.prom"
@@ -234,6 +286,26 @@ if grep -qE '^sovereign_os_inference_router_last_route_timestamp [0-9]{10}$' "${
   ok "metrics: last_route_timestamp is a unix epoch"
 else
   ko "metrics: last_route_timestamp missing/malformed"
+fi
+
+# R161: per-task-type counter emitted alongside per-tier
+if grep -qE '^sovereign_os_inference_router_task_type_total\{task_type="code"\} [1-9]' "${metrics_file}" 2>/dev/null; then
+  ok "R161 metric: task_type=code counter >= 1"
+else
+  ko "R161 metric: task_type=code counter missing"
+fi
+
+if grep -qE '^sovereign_os_inference_router_task_type_total\{task_type="creative"\} [1-9]' "${metrics_file}" 2>/dev/null; then
+  ok "R161 metric: task_type=creative counter >= 1"
+else
+  ko "R161 metric: task_type=creative counter missing"
+fi
+
+# Verify task_type counter HELP/TYPE comments present
+if grep -q "sovereign_os_inference_router_task_type_total Per-task-type" "${metrics_file}" 2>/dev/null; then
+  ok "R161 metric: task_type counter has HELP comment"
+else
+  ko "R161 metric: HELP comment missing"
 fi
 
 # ----------- result ---------------

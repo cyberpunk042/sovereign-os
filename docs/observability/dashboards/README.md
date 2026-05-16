@@ -108,6 +108,7 @@ panel queries lock to them.
 ### Inference router (scripts/inference)
 
 - `sovereign_os_inference_route_total{tier}`
+- `sovereign_os_inference_router_task_type_total{task_type}` — per-task-type classification (R161, closes R157 follow-up). Also surfaced as `X-Sovereign-Task-Type` HTTP response header per request.
 - `sovereign_os_inference_router_last_route_timestamp`
 - `sovereign_os_inference_backend_start_total{tier,backend,result}`
 - `sovereign_os_inference_backend_pid{tier}`
