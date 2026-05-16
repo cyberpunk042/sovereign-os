@@ -8,14 +8,22 @@
 
 A continuous-direct-push session through 2026-05-16 took sovereign-os
 from "scaffold + charter + initial profiles" to "substantive Stage-2-
-onset with **21 SDDs**, 4 profiles + 5 mixins, 9-step build pipeline + 5
-lifecycle stages all gated by 19 Layer-3 tests + Layer 1 schema +
-Layer 2 unit + shellcheck + Layer B observability emission". Direct
+onset deeply built out" with **23 SDDs**, **5 profiles + 6 mixins**,
+9-step build pipeline + 5 lifecycle stages + 6 recurrent hooks, all
+gated by **25 Layer-3 tests** + Layer 1 schema + Layer 2 unit + Layer 1
+hardening lint + shellcheck + Layer B observability emission. Direct
 push to main per operator's authorized workflow.
 
-**Foundation-phase open questions: only Q-016 remains open** (distro-base
-reconsideration — informed by SDD-003 mkosi-on-Debian-13 pick; needs
-no further work unless operator wants to revisit).
+**EVERY PR-1-seed open question is closed/partial.** All Q-X items from
+the original docs/decisions.md "Open questions" section are resolved.
+
+**Stage-2+ Round 28-36 also done** (post-NEVER-STOP-affirmation):
+headless profile · reproducibility wiring (SOURCE_DATE_EPOCH +
+snapshot.debian.org + sha256sums + in-toto SLSA v1) · kernel-step
+short-circuit · systemd hardening (16/16 units) · step-02 tag pin +
+SHA recording · substantive whitelabel overlays (motd at boot in
+plymouth + grub) · inference start-script polish · security-update-
+check + backup-snapshot hooks · disk encryption SDD-022.
 
 Numbers:
 - **Build pipeline**: 9 ordered steps + orchestrator with `run`,
@@ -30,10 +38,15 @@ Numbers:
 - **SDDs**: 19 (000-018 + 010 + 011) — 8 new in this session
 - **Layer-3 tests**: 19 nspawn-style scripts gating ~250+ assertions
 - **Bugs caught + fixed by L3 discipline**: 8 real wiring bugs
-- **Open questions closed this session**: Q-003 (deferred-with-criteria),
-  Q-005, Q-006, Q-007, Q-008, Q-010, Q-013, Q-014, Q-015;
-  **partial**: Q-012 (2/3), Q-018, Q-019. **Remaining open**:
-  Q-016 only (informed by SDD-003)
+- **Open questions all closed/partial**: Q-001 → SDD-003; Q-002 → SDD-004 partial;
+  Q-003 → SDD-012 (deferred-with-criteria); Q-004 → SDD-007; Q-005 → SDD-017;
+  Q-006 → SDD-015; Q-007 → SDD-018; Q-008 → SDD-013; Q-010 → SDD-020;
+  Q-011 → SDD-001; Q-012 → resolved (3/3 — minimal+developer+headless);
+  Q-013 → SDD-016; Q-014 → SDD-014; Q-015 → SDD-019; Q-016 → SDD-021;
+  Q-017 → SDD-011; Q-018 partial; Q-019 partial.
+- **Plus Stage-2+ sub-questions tracked**: Q15-B → SDD-022 (this round);
+  Q18-A → closed (Round 30 short-circuit). Q16-A..D / Q22-A..C / Q15-A,C
+  remain tracked deferred.
 
 ## What to do FIRST in the next session
 
@@ -95,7 +108,19 @@ Chronological:
 | `47cd72f` | feat tetragon-policy-verify emits perimeter status metrics |
 | `34ca966` | sdd(019) reproducibility target (Q-015 resolved) |
 | `ffb40f0` | sdd(020) CI infrastructure (Q-010 resolved) |
-| `(this)`  | docs(handoff) 002 — final updates reflecting Q-010/Q-015 closes |
+| `a998bd2` | docs(handoff) 002 — refresh after Q-010/Q-015 closes |
+| `c927396` | sdd(021) distro-base lock-in (Q-016 — every PR-1 question closed) |
+| **Stage-2+ Rounds 28-36 (plan-approved direct push)** | |
+| `c6fc427` | Round 28 — headless profile (Q-012 slot 3/3) |
+| `32fb91c` | Round 29 — SDD-019 reproducibility wiring (SOURCE_DATE_EPOCH + DEBIAN_SNAPSHOT + sha256sums + in-toto SLSA v1) |
+| `fff0e8f` | Round 30 — Q18-A kernel-step short-circuit for substrate-default profiles |
+| `5c4cd4d` | Round 31 — systemd unit hardening pass (11 units + L1 lint gate) |
+| `3013d8d` | Round 32 — step 02 tag pin + SHA recording (fake-remote L3) |
+| `11814ee` | Round 33 — substantive whitelabel overlays (motd at boot in plymouth + grub) |
+| `b620667` | Round 34 — inference start-script polish (9th real bug caught: export-vs-shell-var) |
+| `bffec0e` | Round 35 — security-update-check + backup-snapshot recurrent hooks |
+| `cba2b96` | Round 36 — SDD-022 disk encryption posture (Q15-B closure) |
+| `(this)`  | Round 37 — handoff refresh after Stage-2+ Rounds 28-36 |
 
 ## Real bugs caught by L3 discipline (running tally)
 
@@ -109,6 +134,7 @@ Chronological:
 | 6 | `friction-audit-spec.sh` bash -c profile_field unscope | preflight test against minimal | pre-compute value in outer shell |
 | 7 | `test_decisions_log_sequence.py` regex never matched (silent test gap) | adding 4th decision | `^#{2,3} D-` |
 | 8 | `first-login-assistant.sh` unconditional hostnamectl in containers | `test_first_login_assistant.sh` | graceful fallback: hostnamectl → `/etc/hostname` → log_warn |
+| 9 | inference start scripts: `${VAR:=…}` defaults never exported, inline python3 subshell sees empty `os.environ` → KeyError | `test_inference_start_scripts.sh` | explicit `export PULSE_*` / `LOGIC_*` / `ORACLE_*` after defaults |
 
 ## Layer-3 test inventory (CI gated)
 
@@ -159,6 +185,8 @@ tests/nspawn/
 | **018** | **Kernel choice + tuning** | **review** | **Q-007** |
 | **019** | **Reproducibility target** | **review** | **Q-015** |
 | **020** | **CI infrastructure** | **review** | **Q-010** |
+| **021** | **Distro-base** | **review** | **Q-016** |
+| **022** | **Disk encryption posture** | **review** | **SDD-015 Q15-B** |
 
 (Bold rows = this session's adds.)
 
