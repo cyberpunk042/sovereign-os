@@ -1,0 +1,66 @@
+{
+  "_comment": "sovereign-os inference-detail dashboard. Per-tier route counts, route timing, backend health. Imports into Grafana via Settings → JSON Model.",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Route rate per tier (req/s, 1m window)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "rate(sovereign_os_inference_route_total[1m])", "refId": "A", "legendFormat": "{{tier}}"}],
+      "fieldConfig": {"defaults": {"unit": "reqps"}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+    },
+    {
+      "type": "bargauge",
+      "title": "Total routed per tier (cumulative)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sovereign_os_inference_route_total", "refId": "A", "legendFormat": "{{tier}}"}],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "Router last decision (seconds ago)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "time() - sovereign_os_inference_router_last_route_timestamp", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "s"}},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 8}
+    },
+    {
+      "type": "stat",
+      "title": "Backend starts (success) - last 24h",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_inference_backend_start_total{result=\"success\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 8}
+    },
+    {
+      "type": "stat",
+      "title": "Backend starts (fail) - last 24h",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_inference_backend_start_total{result=\"fail\"})", "refId": "A"}],
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 8}
+    },
+    {
+      "type": "stat",
+      "title": "Backend starts (skip - idempotent no-op)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_inference_backend_start_total{result=\"skip\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 8}
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["sovereign-os", "inference"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
+  "timezone": "browser",
+  "title": "sovereign-os inference",
+  "uid": "sovereign-os-inference",
+  "version": 1,
+  "weekStart": ""
+}

@@ -1,0 +1,108 @@
+{
+  "_comment": "sovereign-os overview dashboard. Operator imports into Grafana via Settings → JSON Model. Metrics are emitted by sovereign-os/scripts/build/lib/observability.sh + hooked recurrent scripts (log-rotate / zfs-scrub / tetragon-policy-verify / security-update-check / backup-snapshot) + inference router. Per SDD-016 Layer C — JSON templates (not auto-installed; operator-imported).",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Pipeline last run",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "time() - sovereign_os_build_pipeline_last_run_timestamp", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "s", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 86400}, {"color": "red", "value": 604800}]}}},
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "Inference: pulse route total",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sovereign_os_inference_route_total{tier=\"pulse\"}", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "Inference: logic_engine route total",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sovereign_os_inference_route_total{tier=\"logic_engine\"}", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "Inference: oracle_core route total",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sovereign_os_inference_route_total{tier=\"oracle_core\"}", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "ZFS tank health",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sovereign_os_zfs_pool_health{pool=\"tank\"}", "refId": "A"}],
+      "fieldConfig": {"defaults": {"mappings": [{"type": "value", "options": {"0": {"text": "DEGRADED", "color": "red"}, "1": {"text": "ONLINE", "color": "green"}}}]}},
+      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "Perimeter status",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sovereign_os_perimeter_status", "refId": "A"}],
+      "fieldConfig": {"defaults": {"mappings": [{"type": "value", "options": {"0": {"text": "DRIFT", "color": "red"}, "1": {"text": "LOADED", "color": "green"}}}]}},
+      "gridPos": {"h": 4, "w": 4, "x": 20, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "Inference routes per tier (over time)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "rate(sovereign_os_inference_route_total[5m])", "refId": "A", "legendFormat": "{{tier}}"}],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "Build step duration (seconds, per step)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sovereign_os_build_step_duration_seconds", "refId": "A", "legendFormat": "{{step}}"}],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "Log rotation activity",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sovereign_os_log_rotation_files_rotated", "refId": "A", "legendFormat": "rotated"},
+        {"expr": "sovereign_os_log_rotation_files_purged", "refId": "B", "legendFormat": "purged"}
+      ],
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 12}
+    },
+    {
+      "type": "timeseries",
+      "title": "ZFS snapshots (count + pruned)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sovereign_os_snapshot_count", "refId": "A", "legendFormat": "total"},
+        {"expr": "sovereign_os_snapshot_pruned_total", "refId": "B", "legendFormat": "pruned (last run)"}
+      ],
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 12}
+    },
+    {
+      "type": "stat",
+      "title": "Pending security updates",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sovereign_os_security_updates_available", "refId": "A"}],
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 1}, {"color": "red", "value": 10}]}}},
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 12}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["sovereign-os"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "sovereign-os overview",
+  "uid": "sovereign-os-overview",
+  "version": 1,
+  "weekStart": ""
+}
