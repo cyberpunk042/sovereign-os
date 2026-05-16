@@ -1,0 +1,112 @@
+#cloud-config
+# sovereign-os unattended install — SAIN-01 profile
+#
+# Pre-supplies answers for the first-login assistant (Q-018 pre-add
+# path). Provide this file on a NoCloud datasource (USB stick, ISO,
+# or HTTP) at first boot to skip interactive prompts.
+#
+# Usage:
+#   1. Copy this file to <NoCloud-source>/user-data, edit operator-
+#      specific values (hostname, ssh keys, model picks, etc.).
+#   2. Add a meta-data file with at least: 'instance-id: <uuid>'.
+#   3. Attach the source to the install media (e.g., as a vfat USB
+#      stick labeled CIDATA, or via -drive in QEMU).
+#   4. First-boot cloud-init reads + applies.
+
+# ---- system identity ----
+hostname: sain-01
+fqdn: sain-01.local
+manage_etc_hosts: localhost
+
+# ---- users + SSH ----
+users:
+  - name: operator
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: [adm, sudo, podman, render, video]
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAA<REPLACE-WITH-OPERATOR-PUBLIC-KEY> operator@example
+    # Optional: set initial password; force change on first login
+    lock_passwd: true   # SSH-key-only by default
+
+# ---- locale + timezone ----
+locale: en_US.UTF-8
+timezone: UTC
+
+# ---- sovereign-os specific ----
+write_files:
+  - path: /etc/sovereign-os/active-profile.env
+    content: |
+      SOVEREIGN_OS_PROFILE=sain-01
+      SOVEREIGN_OS_LOG_LEVEL=info
+    permissions: '0644'
+
+  - path: /etc/sovereign-os/active-profile
+    content: sain-01
+    permissions: '0644'
+
+  - path: /etc/sovereign-os/active-whitelabel
+    content: default
+    permissions: '0644'
+
+  - path: /var/lib/sovereign-os/assistant/state.yaml
+    content: |
+      # Pre-populated by cloud-init — first-login assistant skips
+      # interactive prompts when this file is present with completed:true.
+      completed: true
+      completed_at: "0000-00-00T00:00:00+00:00"
+      profile: "sain-01"
+      preadded_by: cloud-init
+      choices:
+        hostname: "sain-01"
+        nvidia_driver: "enabled"
+        model_pull: "deferred"
+        tetragon: "active"
+        whitelabel: "applied"
+    permissions: '0644'
+
+# ---- package list (sovereign apt repo + extras) ----
+# Note: most packages are baked into the image via profiles/sain-01.yaml
+# packages.profile. Add operator-personal extras here only.
+package_update: false      # operator-pulled per sovereignty principle
+package_upgrade: false     # same
+packages:
+  - tmux
+  - htop
+
+# ---- post-install runcmd ----
+runcmd:
+  # Enable sovereign-os first-boot target (idempotent; ConditionFirstBoot
+  # = no after the first run completes).
+  - [systemctl, enable, --now, sovereign-firstboot.target]
+
+  # Enable inference stack services. Operator can disable individual
+  # tiers via:
+  #   sudo systemctl disable sovereign-pulse.service
+  - [systemctl, enable, --now, sovereign-pulse.service]
+  - [systemctl, enable, --now, sovereign-logic-engine.service]
+  - [systemctl, enable, --now, sovereign-oracle-core.service]
+  - [systemctl, enable, --now, sovereign-router.service]
+
+  # Enable recurrent timers
+  - [systemctl, enable, --now, sovereign-zfs-scrub.timer]
+  - [systemctl, enable, --now, sovereign-tetragon-verify.timer]
+  - [systemctl, enable, --now, sovereign-models-sync.timer]
+
+  # Optional: pre-pull a default model into tank/models. Comment out
+  # if operator wants to choose later via 'sovereign-osctl models pull'.
+  # - [sovereign-osctl, models, pull, microsoft/bitnet-b1.58-2B-4T]
+
+  # Log unattended completion
+  - [sh, -c, 'echo "$(date -u --iso-8601=seconds) cloud-init unattended install complete" >> /var/lib/sovereign-os/cloud-init.log']
+
+# ---- final-message ----
+final_message: |
+  ╔══════════════════════════════════════════════════════════════════╗
+  ║  sovereign-os unattended install complete                        ║
+  ║                                                                  ║
+  ║  Verify with: sovereign-osctl status                             ║
+  ║                                                                  ║
+  ║  If VFIO binding was needed, REBOOT now for vfio-pci to claim    ║
+  ║  the RTX 3090 from the initramfs.                                ║
+  ╚══════════════════════════════════════════════════════════════════╝

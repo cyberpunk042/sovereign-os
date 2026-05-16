@@ -1,0 +1,67 @@
+#cloud-config
+# sovereign-os unattended install — old-workstation profile
+# (constrained hardware: ~11GB RAM + 8GB GPU)
+
+hostname: old-workstation
+fqdn: old-workstation.local
+manage_etc_hosts: localhost
+
+users:
+  - name: operator
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: [adm, sudo, podman, render, video]
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAA<REPLACE-WITH-OPERATOR-PUBLIC-KEY> operator@example
+    lock_passwd: true
+
+locale: en_US.UTF-8
+timezone: UTC
+
+write_files:
+  - path: /etc/sovereign-os/active-profile.env
+    content: |
+      SOVEREIGN_OS_PROFILE=old-workstation
+      SOVEREIGN_OS_LOGIC_BACKEND=llama_cpp
+      SOVEREIGN_OS_LOG_LEVEL=info
+    permissions: '0644'
+
+  - path: /etc/sovereign-os/active-profile
+    content: old-workstation
+    permissions: '0644'
+
+  - path: /var/lib/sovereign-os/assistant/state.yaml
+    content: |
+      completed: true
+      completed_at: "0000-00-00T00:00:00+00:00"
+      profile: "old-workstation"
+      preadded_by: cloud-init
+      choices:
+        hostname: "old-workstation"
+        nvidia_driver: "enabled"
+        tetragon: "skipped"
+        whitelabel: "applied"
+    permissions: '0644'
+
+package_update: false
+package_upgrade: false
+
+runcmd:
+  # Old-workstation profile uses llama.cpp on the single 8GB GPU.
+  # Pulse + Oracle Core not applicable (no AVX-512 ternary; no
+  # Blackwell). Disable those services.
+  - [systemctl, mask, sovereign-pulse.service]
+  - [systemctl, mask, sovereign-oracle-core.service]
+
+  # Enable Logic Engine (with llama.cpp backend) + router
+  - [systemctl, enable, --now, sovereign-logic-engine.service]
+  - [systemctl, enable, --now, sovereign-router.service]
+
+  # Tetragon perimeter optional on old-workstation
+  # - [systemctl, enable, --now, tetragon.service]
+
+  - [sh, -c, 'echo "$(date -u --iso-8601=seconds) cloud-init unattended install complete" >> /var/lib/sovereign-os/cloud-init.log']
+
+final_message: |
+  sovereign-os (old-workstation profile) unattended install complete.
+  Verify: sovereign-osctl status
