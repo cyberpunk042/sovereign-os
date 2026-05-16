@@ -116,6 +116,9 @@ jobs:
       - name: nspawn — recurrent log-rotate
         run: |
           tests/nspawn/test_log_rotate.sh
+      - name: nspawn — inference router HTTP spawn + classify()
+        run: |
+          tests/nspawn/test_inference_router_http.sh
 
   shellcheck:
     name: shellcheck
