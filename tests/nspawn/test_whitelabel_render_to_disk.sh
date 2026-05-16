@@ -109,6 +109,19 @@ assert_not_present "${tmpdir}/mkosi.skeleton/etc/debian_version" \
 assert_not_present "${tmpdir}/mkosi.skeleton/usr/share/doc" \
   "/usr/share/doc/ legal-floor preservation"
 
+# 6. Manifest must contain the /etc/default/grub line-replace action.
+# Round 129 bug #17 regression gate at the L3 layer (L2 already covers
+# the renderer-side contract via tests/unit/test_whitelabel_render.py).
+manifest="${tmpdir}/whitelabel-manifest.json"
+if [ -f "${manifest}" ] && grep -q '"type": "line-replace"' "${manifest}" \
+                          && grep -q '"path": "/etc/default/grub"' "${manifest}"; then
+  echo "  PASS — whitelabel-manifest.json records /etc/default/grub line-replace"
+  pass=$((pass + 1))
+else
+  echo "  FAIL — manifest missing /etc/default/grub line-replace (R129 regression)"
+  fail=$((fail + 1))
+fi
+
 # ----------- result -----------
 
 echo
