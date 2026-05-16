@@ -1,0 +1,305 @@
+# yaml-language-server: $schema=../schemas/profile.schema.yaml
+#
+# SAIN-01 — Sovereign AI Node default profile.
+#
+# Hardware target locked per the SAIN-01 milestone in
+# cyberpunk042/devops-solutions-information-hub
+# (wiki/backlog/milestones/sain-01-sovereign-node.md). Kernel /
+# packages / hooks blocks are PLACEHOLDER — fill in at Stage 2+ once
+# Gate 2 picks substrate (Q-001) and Q-006 (secure boot) + Q-008
+# (installer) + Q-017 (inference backend) resolve.
+
+schema_version: "1.0.0"
+
+mixins:
+  - role-workstation
+  - whitelabel-default
+  - observability-tier-1
+
+identity:
+  id: sain-01
+  name: "SAIN-01 AI Workstation"
+  version: "0.1.0"
+  parent: null
+  status: draft
+  maintainer: cyberpunk042
+  description: |
+    Bare-metal AMD Zen 5 + dual-NVIDIA AI orchestration workstation
+    with custom Zen-5-tuned kernel, ZFS-stratified storage, VFIO-
+    isolated dual GPUs, kernel-level Tetragon perimeter, and the SRP
+    Trinity runtime (Pulse / Weaver / Auditor). Default profile for
+    sovereign-os; targets the operator's procured hardware per the
+    SAIN-01 milestone in cyberpunk042/devops-solutions-information-hub.
+
+hardware:
+  cpu:
+    architecture: x86_64
+    family: amd-zen5
+    march: znver5
+    features:
+      required:
+        - avx512f
+        - avx512_vnni
+        - avx512_bf16
+        - avx512_fp16
+        - avx512dq
+        - avx512bw
+        - avx512vl
+      preferred:
+        - sha_ni
+        - avxvnni
+        - movdiri
+        - movdir64b
+        - prefetchi
+    cores:
+      physical: 12
+      threads: 24
+      topology: dual-ccd
+      partition:
+        ccd0_mask: "0xfff"
+        ccd1_mask: "0xff000"
+        host_mask: "0xf00000"
+
+  gpu:
+    - vendor: nvidia
+      model: rtx-pro-6000-blackwell
+      pci_id: "10de:????"
+      vram_gb: 96
+      role: primary
+      driver: nvidia-560-open
+    - vendor: nvidia
+      model: rtx-3090
+      pci_id: "10de:2204"
+      vram_gb: 24
+      role: vfio
+      vfio_companion: "10de:1ad8"
+
+  memory:
+    minimum_gb: 128
+    target_gb: 256
+    type: ddr5
+    ecc: false
+
+  storage:
+    layout: zfs-tiered
+    devices:
+      - role: rootfs
+        type: nvme-pcie-5
+        count: 2
+        topology: raid0
+    datasets:
+      - name: tank/models
+        recordsize: 1M
+        compression: lz4
+        redundant_metadata: most
+        purpose: "100GB+ weight files; sequential reads; low-FS-metadata overhead"
+      - name: tank/context
+        recordsize: 16k
+        compression: zstd-9
+        copies: 2
+        sync: always
+        purpose: "state-fabric race-free atomic transitions (Weaver writes; Pulse + Auditor read)"
+      - name: tank/agents
+        recordsize: 128k
+        compression: zstd-3
+        purpose: "runtime cache + sub-agent scratch"
+
+  network:
+    - role: mgmt
+      vendor: intel
+      model: i226-v
+      speed_gbps: 2.5
+      vlan: 100
+      default_gateway: true
+    - role: data
+      vendor: marvell
+      model: aqc113c
+      speed_gbps: 10
+      vlan: 200
+      mtu: 9000
+      default_gateway: false
+
+  motherboard:
+    vendor: asus
+    model: proart-x870e-creator
+    bios_pinned: false
+    pcie_constraints:
+      - description: "M.2_2 must remain empty to preserve x8/x8 GPU bifurcation (PCIEX16_2 shares lanes with M.2_2)"
+        check: m2_2_empty
+        severity: blocker
+      - description: "Blackwell + 3090 must be in distinct IOMMU groups for clean VFIO binding"
+        check: iommu_groups_distinct
+        severity: blocker
+
+kernel:
+  source: kernel.org-stable
+  version_minimum: "6.12"
+  packaging: bindeb-pkg
+  compile_flags:
+    KCFLAGS: "-march=znver5 -O3 -pipe -mabm -madx -mavx512f -mavx512dq -mavx512bw -mavx512vl -mavx512bf16 -mavx512fp16"
+    KCPPFLAGS: "-march=znver5"
+    KBUILD_BUILD_USER: "sovereign-os"
+    KBUILD_BUILD_HOST: "sovereign-os"
+  config:
+    enable:
+      - ATLANTIC
+      - ZFS
+      - VFIO_PCI
+      - VFIO_IOMMU_TYPE1
+      - INTEL_IOMMU
+      - AMD_IOMMU
+      - AMD_IOMMU_V2
+      - SECURITY_BPF_LSM
+      - BPF_LSM
+      - KVM_AMD
+      - KVM_INTEL
+    disable: []
+    require_microcode: amd
+  cmdline:
+    base:
+      - quiet
+      - splash
+      - "loglevel=3"
+    vfio:
+      - "vfio-pci.ids=10de:2204,10de:1ad8"
+      - "amd_iommu=on"
+      - "iommu=pt"
+      - "pcie_aspm=off"
+    secure_boot: signed
+  modules:
+    blacklist:
+      - nouveau
+    load_at_boot:
+      - zfs
+      - nvidia
+      - vfio_pci
+
+packages:
+  base:
+    - openssh-server
+    - sudo
+    - tmux
+    - curl
+    - git
+    - python3-minimal
+    - python3-pip
+    - htop
+    - jq
+    - ca-certificates
+  profile:
+    - linux-image-${KERNEL_VERSION}-znver5
+    - linux-headers-${KERNEL_VERSION}-znver5
+    - nvidia-open-kernel-dkms
+    - nvidia-driver
+    - nvidia-smi
+    - nvidia-container-toolkit
+    - zfsutils-linux
+    - zfs-dkms
+    - podman
+    - tetragon
+    - mokutil
+    - sbsigntool
+  deny:
+    - popularity-contest
+    - apport
+    - whoopsie
+    - motd-news-config
+    - snapd
+    - ubuntu-advantage-tools
+
+hooks:
+  pre_install:
+    - id: friction-audit-spec
+      type: validation
+      script: scripts/hooks/pre-install/friction-audit-spec.sh
+      mandatory: true
+
+  during_install:
+    - id: zfs-pool-create
+      type: setup
+      script: scripts/hooks/during-install/zfs-pool-create.sh
+      mandatory: true
+    - id: zfs-datasets-create
+      type: setup
+      script: scripts/hooks/during-install/zfs-datasets-create.sh
+      mandatory: true
+    - id: mok-enroll
+      type: secure-boot
+      script: scripts/hooks/during-install/mok-enroll.sh
+      mandatory: false
+
+  post_install_first_boot:
+    - id: friction-audit-runtime
+      type: validation
+      script: scripts/hooks/post-install/friction-audit-runtime.sh
+      mandatory: true
+    - id: vfio-bind-3090
+      type: setup
+      script: scripts/hooks/post-install/vfio-bind-3090.sh
+      mandatory: true
+    - id: network-vlan-config
+      type: network
+      script: scripts/hooks/post-install/network-vlan-config.sh
+      mandatory: true
+    - id: tetragon-policy-load
+      type: security
+      script: scripts/hooks/post-install/tetragon-policy-load.sh
+      mandatory: true
+    - id: arc-clamp-128gb
+      type: setup
+      script: scripts/hooks/post-install/zfs-arc-clamp.sh
+      mandatory: true
+    - id: first-login-assistant
+      type: interactive
+      script: scripts/hooks/post-install/first-login-assistant.sh
+      mandatory: false
+
+  post_install_recurrent:
+    - id: zfs-scrub
+      type: maintenance
+      schedule: weekly
+      script: scripts/hooks/recurrent/zfs-scrub.sh
+    - id: tetragon-policy-verify
+      type: security
+      schedule: daily
+      script: scripts/hooks/recurrent/tetragon-policy-verify.sh
+    - id: model-catalog-sync
+      type: maintenance
+      schedule: daily
+      script: scripts/hooks/recurrent/model-catalog-sync.sh
+
+  decommission:
+    - id: secure-wipe-context
+      type: cleanup
+      script: scripts/hooks/decommission/secure-wipe-context.sh
+      mandatory: true
+    - id: zfs-pool-destroy
+      type: cleanup
+      script: scripts/hooks/decommission/zfs-pool-destroy.sh
+      mandatory: true
+
+lifecycle:
+  evolution_policy: replaceable
+  supported_substrate:
+    - "mkosi >= 23.0"
+    - "live-build >= 20240101"
+  supported_kernel:
+    - "6.12.x"
+    - "6.13.x"
+  deprecation_target: null
+  successor_profile: null
+
+whitelabel:
+  profile: default
+  surfaces:
+    - all
+  legal_compliance: dfsg-only
+
+observability:
+  telemetry_sink: prometheus-local
+  log_retention_days: 30
+  audit_hooks:
+    tetragon: tank/context/security_audit.log
+    install: ~/.sovereign-os/log/install-${EPOCH}.log
+    build: .sovereign-os-build/log/build-${EPOCH}.log
+  metrics_endpoint: "127.0.0.1:9090"

@@ -11,7 +11,7 @@ Numbering is three-digit zero-padded, never recycled.
 | 002 | Documentation pipeline | accepted | PR 3 | mdbook + MCP config template + CI publishing. Q-A..Q-D open (deploy cadence; missing-page handling; Pages provider; sovereign-os MCP stub). |
 | 003 | Substrate survey | review | PR 4 | Resolves Q-001 + Q-016 at Gate 2. Primary recommendation: mkosi-on-Debian-13. Alternatives A (live-build), B (rpm-ostree/Silverblue), C (NixOS). Q4-A..Q4-E open for Gate 2 closure. |
 | 004 | Profile schema | — | PR 5 | Resolves Q-002 (in part) at Gate 3. |
-| 005 | Initial profile stubs (sain-01 + old-workstation) | — | PR 6 | Validates schema against real profiles. |
+| 005 | Initial profile stubs (sain-01 + old-workstation) | review | PR 6 | Validates schema against real profiles. 2 stubs + 3 mixins + INDEX + validation harness placeholder. Q6-A..Q6-D open. |
 | 006 | Debian (or successor) surface audit | — | PR 7 | Whitelabel target inventory. |
 | 007 | Whitelabel mechanism | — | PR 8 | Resolves Q-004 (legal scope) at Gate 4; Q-003 may stay open. |
 | 008 | TDD harness specification | — | PR 9 | Resolves Q-010 + Q-014 + Q-015 (in part). |

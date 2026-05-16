@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../../schemas/mixin.schema.yaml
+#
+# role-workstation mixin — shared package set + hooks for any profile
+# whose role is a workstation (interactive use, GPU-bearing, container
+# runtime).
+#
+# Composed into sain-01 + old-workstation. Future minimal / headless
+# profiles deliberately do NOT include this mixin (they're not
+# workstation-class).
+#
+# Merge rules per SDD-004 § Inheritance model:
+# - Scalars: child > parent > mixins (mixins lose conflicts)
+# - Lists: child appends; deny-list entries remove
+# - Maps: deep-merge
+
+schema_version: "1.0.0"
+
+mixin:
+  id: role-workstation
+  description: |
+    Shared workstation-role contribution: container runtime,
+    interactive tooling, NVIDIA driver baseline.
+
+packages:
+  base:
+    # Workstations get a slightly larger base than headless / minimal
+    - bash-completion
+    - less
+    - vim
+    - rsync
+    - openssl
+
+  role:
+    workstation:
+      - podman
+      - podman-toolbox
+      - python3-pip
+      - build-essential
+      - pkg-config
+
+  deny:
+    # Workstation profile vehemently rejects phone-home defaults
+    - popularity-contest
+    - apport
+    - whoopsie
+
+hooks:
+  post_install_first_boot:
+    - id: workstation-shell-setup
+      type: setup
+      script: scripts/hooks/post-install/workstation-shell-setup.sh
+      mandatory: false
