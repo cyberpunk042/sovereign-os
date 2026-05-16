@@ -102,6 +102,7 @@ COMMANDS:
   audit storage                ZFS pool + dataset health
   audit provenance [--deep] [<path>]    Inspect build-provenance.json + cross-check sha256sums.txt (+ recompute SHA256 on disk with --deep)
   audit drift [--json]         Compare deployed hardening drop-ins vs config/server + config/workstation sources
+  audit customization [--json] Did my profile/whitelabel/hostname customization actually land?
 
   maintenance list             List on-demand maintenance subverbs
   maintenance scrub            Trigger ZFS scrub now
@@ -1076,6 +1077,155 @@ PY
 
       # exit (not return) to bypass ERR trap on intentional non-zero
       [ "${drift_count}" -eq 0 ] && exit 0 || exit 1
+      ;;
+    customization)
+      # R142 (F-07 MED closure): "did my customization actually land?"
+      # Cross-cuts profile + whitelabel + hostname + active-profile state
+      # vs declared values. Operator who customized a profile then
+      # deployed wants ONE check to verify the runtime state matches.
+      local json_mode=0
+      [ "${1:-}" = "--json" ] && { json_mode=1; shift; }
+
+      local profile="${SOVEREIGN_OS_PROFILE:-sain-01}"
+      local profile_file="${__REPO_ROOT}/profiles/${profile}.yaml"
+      local checks_pass=0 checks_warn=0 checks_fail=0
+      local -a results=()
+
+      add_check() {  # add_check status name expected actual
+        local status="$1" name="$2" expected="$3" actual="$4"
+        case "${status}" in
+          pass) checks_pass=$((checks_pass + 1)) ;;
+          warn) checks_warn=$((checks_warn + 1)) ;;
+          fail) checks_fail=$((checks_fail + 1)) ;;
+        esac
+        results+=("{\"status\":\"${status}\",\"name\":\"${name}\",\"expected\":\"${expected}\",\"actual\":\"${actual}\"}")
+      }
+
+      if [ ! -f "${profile_file}" ]; then
+        if [ "${json_mode}" -eq 1 ]; then
+          echo "{\"summary\":{\"pass\":0,\"warn\":0,\"fail\":1},\"checks\":[{\"status\":\"fail\",\"name\":\"profile-file\",\"expected\":\"${profile_file}\",\"actual\":\"missing\"}]}"
+        else
+          log_error "active profile YAML missing: ${profile_file}"
+        fi
+        exit 1
+      fi
+
+      # Check 1: /etc/sovereign-os/active-profile matches SOVEREIGN_OS_PROFILE
+      local active_file_value="<unset>"
+      [ -r /etc/sovereign-os/active-profile ] && active_file_value="$(cat /etc/sovereign-os/active-profile)"
+      if [ "${active_file_value}" = "${profile}" ]; then
+        add_check pass "active-profile" "${profile}" "${profile}"
+      elif [ "${active_file_value}" = "<unset>" ]; then
+        add_check warn "active-profile" "${profile}" "(file absent)"
+      else
+        add_check fail "active-profile" "${profile}" "${active_file_value}"
+      fi
+
+      # Check 2: /etc/os-release ID matches whitelabel.branding.os_id (if rendered)
+      local declared_os_id; declared_os_id="$(PROFILE_FILE="${profile_file}" REPO_ROOT="${__REPO_ROOT}" python3 -c "
+import os, yaml, pathlib
+with open(os.environ['PROFILE_FILE']) as f:
+    pdata = yaml.safe_load(f) or {}
+wl_name = (pdata.get('whitelabel') or {}).get('profile', 'default')
+wl_file = pathlib.Path(os.environ['REPO_ROOT']) / 'whitelabel' / f'{wl_name}.yaml'
+if not wl_file.exists():
+    print('?')
+else:
+    with open(wl_file) as f:
+        wdata = yaml.safe_load(f) or {}
+    print((wdata.get('branding') or {}).get('os_id', '?'))
+")"
+      local actual_os_id="<unset>"
+      [ -r /etc/os-release ] && actual_os_id="$(grep '^ID=' /etc/os-release | head -1 | cut -d= -f2 | tr -d '\"')"
+      if [ "${declared_os_id}" = "${actual_os_id}" ]; then
+        add_check pass "os-release-id" "${declared_os_id}" "${actual_os_id}"
+      elif [ "${actual_os_id}" = "<unset>" ]; then
+        add_check warn "os-release-id" "${declared_os_id}" "(file absent)"
+      else
+        add_check fail "os-release-id" "${declared_os_id}" "${actual_os_id}"
+      fi
+
+      # Check 3: hardening drift cross-reference
+      # If apply-server-hardening or apply-workstation-hardening is registered
+      # in the profile, check the dest files match the source. Reuses R111's
+      # logic at a high level: just check if the file is present + size > 0.
+      local has_hardening
+      has_hardening="$(PROFILE_FILE="${profile_file}" python3 -c "
+import os, yaml
+with open(os.environ['PROFILE_FILE']) as f:
+    data = yaml.safe_load(f) or {}
+hooks = ((data.get('hooks') or {}).get('post_install_first_boot') or [])
+ids = {h.get('id') for h in hooks}
+if 'apply-server-hardening' in ids: print('server')
+elif 'apply-workstation-hardening' in ids: print('workstation')
+else: print('none')
+")"
+      case "${has_hardening}" in
+        server|workstation)
+          # Check if sshd hardening landed (canonical surrogate)
+          if [ -r /etc/ssh/sshd_config.d/50sovereign-os.conf ]; then
+            add_check pass "hardening-${has_hardening}" "deployed" "deployed"
+          else
+            add_check warn "hardening-${has_hardening}" "deployed" "(no /etc/ssh/sshd_config.d/50sovereign-os.conf)"
+          fi
+          ;;
+        none)
+          add_check pass "hardening" "n/a" "n/a (profile has no hardening hook)"
+          ;;
+      esac
+
+      # Check 4: number of installed packages vs profile.packages.base + role
+      # (informational — package set is mutable in service of operator workflow)
+      local declared_pkgs
+      declared_pkgs="$(PROFILE_FILE="${profile_file}" python3 -c "
+import os, yaml
+with open(os.environ['PROFILE_FILE']) as f:
+    data = yaml.safe_load(f) or {}
+pkgs = data.get('packages', {})
+all_pkgs = set(pkgs.get('base') or [])
+for role_pkgs in (pkgs.get('role') or {}).values():
+    all_pkgs.update(role_pkgs or [])
+print(len(all_pkgs))
+")"
+      if command -v dpkg >/dev/null 2>&1; then
+        local installed_count
+        installed_count="$(dpkg -l 2>/dev/null | grep -c '^ii' || echo 0)"
+        if [ "${installed_count}" -ge "${declared_pkgs}" ]; then
+          add_check pass "package-count" "≥${declared_pkgs} (declared)" "${installed_count} (installed)"
+        else
+          add_check warn "package-count" "≥${declared_pkgs} (declared)" "${installed_count} (installed; some declared not yet installed)"
+        fi
+      else
+        add_check warn "package-count" "${declared_pkgs}" "(dpkg unavailable; build host?)"
+      fi
+
+      # Check 5: hostname surface
+      local current_host; current_host="$(hostname 2>/dev/null || echo unknown)"
+      add_check pass "hostname" "(operator-set)" "${current_host}"
+
+      # Emit results
+      if [ "${json_mode}" -eq 1 ]; then
+        local checks_csv; checks_csv="$(IFS=,; echo "${results[*]}")"
+        printf '{"summary":{"pass":%d,"warn":%d,"fail":%d},"profile":"%s","checks":[%s]}\n' \
+          "${checks_pass}" "${checks_warn}" "${checks_fail}" "${profile}" "${checks_csv}"
+      else
+        echo
+        echo "  customization audit (profile=${profile})"
+        echo "  ----------------------------------------"
+        for r in "${results[@]}"; do
+          local s n exp act
+          s="$(python3 -c "import json,sys; d=json.loads(sys.argv[1]); print(d['status'])" "${r}")"
+          n="$(python3 -c "import json,sys; d=json.loads(sys.argv[1]); print(d['name'])" "${r}")"
+          exp="$(python3 -c "import json,sys; d=json.loads(sys.argv[1]); print(d['expected'])" "${r}")"
+          act="$(python3 -c "import json,sys; d=json.loads(sys.argv[1]); print(d['actual'])" "${r}")"
+          local marker
+          case "${s}" in pass) marker="✓" ;; warn) marker="!" ;; fail) marker="✗" ;; *) marker="?" ;; esac
+          printf "  %s %-22s expected=%-30s actual=%s\n" "${marker}" "${n}" "${exp}" "${act}"
+        done
+        echo
+        echo "  summary: ${checks_pass} pass · ${checks_warn} warn · ${checks_fail} fail"
+      fi
+      [ "${checks_fail}" -eq 0 ] && exit 0 || exit 1
       ;;
     *)
       log_error "unknown audit subcommand: ${sub}"

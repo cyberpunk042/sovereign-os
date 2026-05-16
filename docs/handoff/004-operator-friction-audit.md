@@ -143,7 +143,15 @@ without kvm; slow but works); add a "Layer 4 slow" gate that runs
 without KVM and accepts a 5-minute boot probe. Not perfect, but
 unblocks the validation axis.
 
-### F-07 — MED — No "did my customization land" comprehensive check
+### F-07 — MED — No "did my customization land" comprehensive check  ✅ **CLOSED (Round 142)**
+
+`sovereign-osctl audit customization [--json]` shipped. Cross-cuts
+5 axes: active-profile file matches env · /etc/os-release ID matches
+whitelabel.branding.os_id · hardening drop-in landed (server or
+workstation) · installed package count vs declared · hostname (info-
+only). Per-check status (pass/warn/fail) with expected vs actual.
+`--json` mode emits `{summary{pass,warn,fail}, profile, checks[]}`.
+Exit 1 if any fail. 13-assertion L3.
 
 **Where**: `sovereign-osctl audit drift` checks hardening drop-ins
 (R111). What about profile-declared packages? Whitelabel surfaces

@@ -253,6 +253,9 @@ jobs:
       - name: nspawn — hooks list/add/remove (Round 141: F-09 MED closure — operator hook editor)
         run: |
           tests/nspawn/test_hooks.sh
+      - name: nspawn — audit customization (Round 142: F-07 MED closure — "did my customization land")
+        run: |
+          tests/nspawn/test_audit_customization.sh
 
   shellcheck:
     name: shellcheck
