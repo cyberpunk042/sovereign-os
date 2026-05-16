@@ -179,6 +179,24 @@ properties:
             vlan: { type: integer, minimum: 0, maximum: 4094 }
             mtu: { type: integer, minimum: 576, maximum: 9216 }
             default_gateway: { type: boolean }
+            # Master spec § 8.1 verbatim values (R158): when address +
+            # gateway are present, the asymmetric-config renderer emits
+            # the exact /etc/network/interfaces + systemd-networkd
+            # blocks per § 8.1 rather than the generic DHCP fallback.
+            address:
+              type: string
+              pattern: '^[0-9.]+/[0-9]{1,2}$'
+              description: "CIDR address (e.g. 10.0.100.50/24)"
+            gateway:
+              type: string
+              pattern: '^[0-9.]+$'
+              description: "Gateway IP (mgmt role only; data role MUST omit)"
+            dns_nameservers:
+              type: array
+              items: { type: string, pattern: '^[0-9.]+$' }
+            iface_hint:
+              type: string
+              description: "Hint for kernel-discovered iface name (e.g. enp6s0)"
       motherboard:
         type: object
         additionalProperties: false

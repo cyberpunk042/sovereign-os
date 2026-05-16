@@ -105,12 +105,21 @@ hardware:
         purpose: "runtime cache + sub-agent scratch"
 
   network:
+    # Master spec § 8 — asymmetric Zero-Trust segregation.
+    # VLAN 100 (Management/Telemetry) on Intel 2.5GbE; VLAN 200 (Model
+    # Ingestion/Storage) on Marvell 10GbE; Marvell MUST NOT carry the
+    # default route (no outbound WAN access per master spec § 8 ASCII
+    # topology diagram).
     - role: mgmt
       vendor: intel
       model: i226-v
       speed_gbps: 2.5
       vlan: 100
       default_gateway: true
+      address: "10.0.100.50/24"   # master spec § 8.1 verbatim
+      gateway: "10.0.100.1"
+      dns_nameservers: ["10.0.100.1"]
+      iface_hint: enp6s0           # master spec § 8.1 verbatim
     - role: data
       vendor: marvell
       model: aqc113c
@@ -118,6 +127,8 @@ hardware:
       vlan: 200
       mtu: 9000
       default_gateway: false
+      address: "10.0.200.50/24"   # master spec § 8.1 verbatim
+      iface_hint: enp5s0           # master spec § 8.1 verbatim
 
   motherboard:
     vendor: asus
