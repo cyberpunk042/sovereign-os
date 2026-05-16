@@ -48,9 +48,14 @@ Layer 1 lint; silent weakening fails CI.
   list. Other profiles SKIP cleanly with explanatory log + Layer B
   `result="skipped"` counter.
 - Idempotent: reports `applied / unchanged / failed` counts. Re-running
-  on already-hardened state is a no-op.
+  on already-hardened state is a no-op. Drift detection: modified
+  drop-in is re-applied; unmodified drop-ins skipped.
 - DRY-RUN-safe: `SOVEREIGN_OS_DRY_RUN=1` lists the actions without
   side effects.
+- **DEST_PREFIX-aware**: `SOVEREIGN_OS_HARDENING_DEST_PREFIX=<path>`
+  redirects all destinations under that root. Used for chroot /
+  container / image-build-tree workflows. Service reload is SKIPPED
+  in this mode (we're not on the running system).
 - Best-effort service reload: in chroot / container where systemctl
   is unwired, warns instead of failing.
 - SSH safety gate: `sshd -t` config validation runs BEFORE `systemctl
@@ -103,7 +108,7 @@ the mixin.
 | Layer | Gate | Asserts |
 |---|---|---|
 | L1 | `tests/lint/test_server_hardening_config.py` | 7 invariant suites (dir present · auditd locked · fail2ban locked · unattended security-only · sshd hardened · hook executable · headless registers hook) |
-| L3 | `tests/nspawn/test_apply_server_hardening.sh` | 11 assertions (SKIP minimal · DRY-RUN headless · source readable · invariants verified at source · metric emission) |
+| L3 | `tests/nspawn/test_apply_server_hardening.sh` | 25 assertions (SKIP minimal · DRY-RUN headless · source readable · invariants verified at source · metric emission · **live apply via DEST_PREFIX** · all 5 files land · mode 0644 · byte-identical to source · idempotent re-run · drift detection · reload-skipped-in-prefix-mode · success counter) |
 | L1 | `tests/lint/test_hook_layer_b_coverage.py` | `apply-server-hardening.sh` participates in Layer B emission |
 | L1 | `tests/lint/test_metric_inventory_lockstep.py` | Two new metrics documented in inventory |
 

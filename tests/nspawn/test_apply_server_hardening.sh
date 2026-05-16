@@ -131,6 +131,111 @@ else
   ko "dry-run counter announcement missing"
 fi
 
+# ---------- LIVE apply via SOVEREIGN_OS_HARDENING_DEST_PREFIX ----------
+# Operator-friendly: hook supports redirecting destinations into a
+# target tree (chroot / container / image-build). This is the path
+# that proves the live-write logic without needing root + /etc/ access.
+target="${tmp}/target-root"
+mkdir -p "${target}"
+
+set +e
+out="$(SOVEREIGN_OS_PROFILE=headless \
+       SOVEREIGN_OS_HARDENING_DEST_PREFIX="${target}" \
+       SOVEREIGN_OS_METRICS_DIR="${tmp}/live-mdir" \
+       "${HOOK}" 2>&1)"
+rc=$?
+set -e
+if [ "${rc}" -eq 0 ]; then
+  ok "live apply via DEST_PREFIX → exit 0"
+else
+  ko "live apply broken (rc=${rc}); out=${out:0:300}"
+fi
+
+# All 5 files landed at the expected paths inside the target tree
+for dst in \
+    "${target}/etc/audit/rules.d/sovereign-os.rules" \
+    "${target}/etc/fail2ban/jail.d/sovereign-os.local" \
+    "${target}/etc/apt/apt.conf.d/52sovereign-os-unattended.conf" \
+    "${target}/etc/ssh/sshd_config.d/50sovereign-os.conf" \
+    "${target}/etc/security/pwquality.conf.d/50sovereign-os.conf"; do
+  if [ -f "${dst}" ]; then
+    ok "drop-in landed: ${dst##*/}"
+  else
+    ko "drop-in MISSING: ${dst}"
+  fi
+done
+
+# File mode is 0644 (operator-readable, not executable)
+mode="$(stat -c '%a' "${target}/etc/audit/rules.d/sovereign-os.rules" 2>/dev/null || echo unknown)"
+if [ "${mode}" = "644" ]; then
+  ok "drop-ins installed with mode 0644"
+else
+  ko "wrong file mode: ${mode}"
+fi
+
+# Content matches the source
+if cmp -s "${__REPO_ROOT}/config/server/sshd.conf" "${target}/etc/ssh/sshd_config.d/50sovereign-os.conf"; then
+  ok "drop-in content byte-identical to source (sshd.conf)"
+else
+  ko "drop-in content drifted from source"
+fi
+
+# Log message reports the apply count
+if grep -q "5 applied, 0 unchanged, 0 failed" <<< "${out}"; then
+  ok "first live apply → 5 applied / 0 unchanged / 0 failed"
+else
+  ko "apply tally wrong: ${out:0:200}"
+fi
+
+# Idempotency: second run reports 0 applied / 5 unchanged
+set +e
+out2="$(SOVEREIGN_OS_PROFILE=headless \
+        SOVEREIGN_OS_HARDENING_DEST_PREFIX="${target}" \
+        SOVEREIGN_OS_METRICS_DIR="${tmp}/live-mdir" \
+        "${HOOK}" 2>&1)"
+rc=$?
+set -e
+if [ "${rc}" -eq 0 ] && grep -q "0 applied, 5 unchanged, 0 failed" <<< "${out2}"; then
+  ok "second live apply (idempotent) → 0 applied / 5 unchanged / 0 failed"
+else
+  ko "idempotency broken (rc=${rc}); out=${out2:0:200}"
+fi
+
+# Modification + reapply: change content, hook should re-apply just that one
+echo "# operator-modified" >> "${target}/etc/ssh/sshd_config.d/50sovereign-os.conf"
+set +e
+out3="$(SOVEREIGN_OS_PROFILE=headless \
+        SOVEREIGN_OS_HARDENING_DEST_PREFIX="${target}" \
+        SOVEREIGN_OS_METRICS_DIR="${tmp}/live-mdir" \
+        "${HOOK}" 2>&1)"
+rc=$?
+set -e
+if [ "${rc}" -eq 0 ] && grep -q "1 applied, 4 unchanged, 0 failed" <<< "${out3}"; then
+  ok "drift detection: modified file → 1 applied / 4 unchanged"
+else
+  ko "drift re-apply broken (rc=${rc})"
+fi
+
+# DEST_PREFIX path skips service reload (we're not running on host)
+if ! grep -q "reloading affected services" <<< "${out}"; then
+  ok "DEST_PREFIX skips service reload (target tree, not running system)"
+else
+  ko "service reload incorrectly ran in DEST_PREFIX mode"
+fi
+if grep -q "DEST_PREFIX is set; skipping service reload" <<< "${out}"; then
+  ok "DEST_PREFIX skip is logged explicitly"
+else
+  ko "DEST_PREFIX skip not logged"
+fi
+
+# Layer B success counter emitted on live apply
+prom_live="${tmp}/live-mdir/sovereign-os-post.prom"
+if [ -f "${prom_live}" ] && grep -q 'sovereign_os_post_install_server_hardening_total{profile="headless",result="success"}' "${prom_live}"; then
+  ok "live apply emits success counter to .prom"
+else
+  ko "success counter missing from .prom"
+fi
+
 # ---------- result ----------
 echo
 total=$((pass + fail))

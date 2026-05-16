@@ -92,12 +92,18 @@ sudo rm /etc/audit/rules.d/sovereign-os.rules && sudo augenrules --load
 # All hardening invariants enforced at lint time
 python3 -m pytest tests/lint/test_server_hardening_config.py -v
 
-# Hook behavior under DRY-RUN (no root needed)
-tests/nspawn/test_apply_server_hardening.sh
+# Hook behavior — full coverage including live-apply via DEST_PREFIX
+tests/nspawn/test_apply_server_hardening.sh   # 25 assertions
 
 # On a live install, the hook runs at first-boot. Manually re-run with:
 sudo SOVEREIGN_OS_PROFILE=headless \
   /opt/sovereign-os/scripts/hooks/post-install/apply-server-hardening.sh
+
+# Apply into a target tree (chroot / container / image build):
+SOVEREIGN_OS_PROFILE=headless \
+SOVEREIGN_OS_HARDENING_DEST_PREFIX=/mnt/target \
+  /opt/sovereign-os/scripts/hooks/post-install/apply-server-hardening.sh
+# (service reload is automatically skipped in this mode)
 ```
 
 ## Cross-references

@@ -51,12 +51,19 @@ log_info "  applies to profile=${SOVEREIGN_OS_PROFILE} (role-server)"
 src_dir="${__REPO_ROOT}/config/server"
 require_dir "${src_dir}"
 
+# Destination prefix override (default empty = absolute /etc/* paths).
+# Operators applying hardening into a chroot / container / image
+# building tree set this to a target root, e.g.:
+#   SOVEREIGN_OS_HARDENING_DEST_PREFIX=/mnt/target sovereign-osctl maintenance ...
+# The hook then writes to ${PREFIX}/etc/audit/rules.d/...  etc.
+: "${SOVEREIGN_OS_HARDENING_DEST_PREFIX:=}"
+
 declare -a actions=(
-  "auditd.rules:/etc/audit/rules.d/sovereign-os.rules"
-  "fail2ban-jail.local:/etc/fail2ban/jail.d/sovereign-os.local"
-  "unattended-upgrades.conf:/etc/apt/apt.conf.d/52sovereign-os-unattended.conf"
-  "sshd.conf:/etc/ssh/sshd_config.d/50sovereign-os.conf"
-  "pwquality.conf:/etc/security/pwquality.conf.d/50sovereign-os.conf"
+  "auditd.rules:${SOVEREIGN_OS_HARDENING_DEST_PREFIX}/etc/audit/rules.d/sovereign-os.rules"
+  "fail2ban-jail.local:${SOVEREIGN_OS_HARDENING_DEST_PREFIX}/etc/fail2ban/jail.d/sovereign-os.local"
+  "unattended-upgrades.conf:${SOVEREIGN_OS_HARDENING_DEST_PREFIX}/etc/apt/apt.conf.d/52sovereign-os-unattended.conf"
+  "sshd.conf:${SOVEREIGN_OS_HARDENING_DEST_PREFIX}/etc/ssh/sshd_config.d/50sovereign-os.conf"
+  "pwquality.conf:${SOVEREIGN_OS_HARDENING_DEST_PREFIX}/etc/security/pwquality.conf.d/50sovereign-os.conf"
 )
 
 if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
@@ -99,7 +106,12 @@ done
 # Reload services where applicable. Best-effort: in chroot / container,
 # systemctl may not be wired — that's not a failure of this hook, just
 # an environmental fact, so we warn instead of fail.
-if [ "${applied}" -gt 0 ] && [ "${fail}" -eq 0 ]; then
+#
+# When DEST_PREFIX is set we wrote into a target tree, not the running
+# system; reloading services on the build host would be wrong.
+if [ -n "${SOVEREIGN_OS_HARDENING_DEST_PREFIX:-}" ]; then
+  log_info "DEST_PREFIX is set; skipping service reload (target tree, not running system)"
+elif [ "${applied}" -gt 0 ] && [ "${fail}" -eq 0 ]; then
   log_info "reloading affected services (best-effort)"
   if command -v systemctl >/dev/null 2>&1; then
     systemctl is-active --quiet auditd && {
