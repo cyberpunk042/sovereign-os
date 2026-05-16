@@ -80,6 +80,10 @@ jobs:
       - name: nspawn — common lib (helpers + profile_field + confirm)
         run: |
           tests/nspawn/test_common_lib.sh
+      - name: nspawn — mkosi adapter (substrate-pattern correctness)
+        run: |
+          tests/nspawn/test_mkosi_adapter.sh sain-01
+          tests/nspawn/test_mkosi_adapter.sh old-workstation
 
   shellcheck:
     name: shellcheck
