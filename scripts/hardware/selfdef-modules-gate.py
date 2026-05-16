@@ -23,6 +23,9 @@ implementation does in crates/selfdef-cli/src/modules.rs:
   - gpu_count_min                u32    host GPU count >= this
   - gpu_vram_gib_min             u64    SD-R26: at least one GPU vram >= this
   - gpu_power_headroom_watts_min u32    SD-R26: sum(limit-draw) >= this
+  - wasm_aot_features_required   string SD-R32: every +feature in CSV
+                                              must land in
+                                              caps.wasm_aot.target_features
   - sain01_verdict_min           string host Sain01Match.overall >= rank
 
 CLI:
@@ -244,6 +247,28 @@ def evaluate(req: dict[str, Any], caps: dict[str, Any]) -> list[str]:
                 f" (host headroom is {total_headroom} W)"
             )
 
+    # R181 (mirror of selfdef SD-R32 cycle-2): wasm-AOT feature
+    # requirement. Both sides use comma-separated `+feature` syntax
+    # (LLVM/wasmtime convention). Tolerates whitespace.
+    wa_required = (req.get("wasm_aot_features_required", "") or "").strip()
+    if wa_required:
+        wa = caps.get("wasm_aot", {}) or {}
+        actual_set = {
+            f.strip()
+            for f in (wa.get("target_features", "") or "").split(",")
+            if f.strip()
+        }
+        missing = [
+            f.strip()
+            for f in wa_required.split(",")
+            if f.strip() and f.strip() not in actual_set
+        ]
+        if missing:
+            unmet.append(
+                f"wasm_aot_features_required = {wa_required!r}"
+                f" (host missing: {','.join(missing)})"
+            )
+
     verdict_min = req.get("sain01_verdict_min", "") or ""
     if verdict_min:
         actual = sain01.get("overall", "NoMatch")
@@ -266,6 +291,7 @@ def is_empty_req(req: dict[str, Any]) -> bool:
         or int(req.get("gpu_count_min", 0) or 0) > 0
         or int(req.get("gpu_vram_gib_min", 0) or 0) > 0
         or int(req.get("gpu_power_headroom_watts_min", 0) or 0) > 0
+        or (req.get("wasm_aot_features_required", "") or "").strip()
         or (req.get("sain01_verdict_min", "") or "")
     )
 

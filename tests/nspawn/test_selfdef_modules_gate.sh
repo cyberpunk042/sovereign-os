@@ -264,6 +264,73 @@ else
   ko "SD-R26 mirror partition wrong: ${out26}"
 fi
 
+# ---------- R181: SD-R32 mirror — wasm_aot_features_required ----------
+grep -q "SD-R32" "${SCRIPT}" \
+  && ok "R181 mirror cites selfdef SD-R32 (wasm-AOT features gate)" \
+  || ko "SD-R32 citation missing"
+grep -q "wasm_aot_features_required" "${SCRIPT}" \
+  && ok "evaluate() handles wasm_aot_features_required" \
+  || ko "wasm_aot_features_required missing"
+
+mkdir -p "${WORK}/caps32" "${WORK}/mod32/needs-vnni-bf16" \
+         "${WORK}/mod32/needs-fp16" "${WORK}/etc32"
+cat > "${WORK}/caps32/hardware-capabilities.json" <<'JSON'
+{
+  "schema_version": "1.2.0",
+  "cpu": {"avx512vnni": true, "avx512bf16": true},
+  "memory": {"total_bytes": 274877906944},
+  "gpu": {"device_count": 0, "device_nodes": [], "devices": []},
+  "sain01_match": {"overall": "PartialMatch"},
+  "wasm_aot": {
+    "target_triple": "x86_64-unknown-linux-gnu",
+    "target_cpu": "znver5",
+    "target_features": "+avx512f,+avx512vnni,+avx512bf16,+avx2,+fma",
+    "compile_command_hint": "..."
+  }
+}
+JSON
+cat > "${WORK}/mod32/needs-vnni-bf16/module.toml" <<'TOML'
+name = "needs-vnni-bf16"
+version = "0.0.0"
+summary = "wants VNNI + BF16"
+[requires_hardware]
+wasm_aot_features_required = "+avx512vnni,+avx512bf16"
+TOML
+cat > "${WORK}/mod32/needs-fp16/module.toml" <<'TOML'
+name = "needs-fp16"
+version = "0.0.0"
+summary = "wants AVX-512 FP16 (not on the synth host)"
+[requires_hardware]
+wasm_aot_features_required = "+avx512fp16"
+TOML
+cat > "${WORK}/etc32/modules.toml" <<'TOML'
+[modules.needs-vnni-bf16]
+[modules.needs-fp16]
+TOML
+
+set +e
+out32="$(python3 "${SCRIPT}" \
+  --caps-path "${WORK}/caps32/hardware-capabilities.json" \
+  --modules-dir "${WORK}/mod32" \
+  --host-config "${WORK}/etc32/modules.toml" --json 2>&1)"
+set -e
+if python3 -c "
+import json, sys
+d = json.loads('''${out32}''')
+kept = sorted(x['module'] for x in d['kept'])
+skipped = sorted(x['module'] for x in d['skipped'])
+assert kept == ['needs-vnni-bf16'], f'kept={kept}'
+assert skipped == ['needs-fp16'], f'skipped={skipped}'
+unmet = d['skipped'][0]['unmet']
+assert any('wasm_aot_features_required' in u for u in unmet), unmet
+assert any('+avx512fp16' in u for u in unmet), unmet
+" 2>/dev/null; then
+  ok "SD-R32 mirror: vnni+bf16 module kept on znver5 host"
+  ok "SD-R32 mirror: fp16-only module skipped with feature cited"
+else
+  ko "SD-R32 mirror partition wrong: ${out32}"
+fi
+
 echo
 total=$((pass + fail))
 echo "test_selfdef_modules_gate: ${pass}/${total} passed"
