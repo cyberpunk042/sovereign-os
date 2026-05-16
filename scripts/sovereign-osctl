@@ -1569,6 +1569,14 @@ for path in sorted(glob.glob(os.path.join(mdir, "sovereign-os-*.prom"))):
         except ValueError:
             continue
 
+        # SDD-023 meta-exclusion: sovereign_os_meta_* metrics MUST NOT
+        # trigger rules. They are the OUTPUT of the alerts engine
+        # (alerts-check.sh recurrent hook emits meta_alert_count +
+        # meta_alerts_check_last_run_timestamp); reacting to them would
+        # create a self-reinforcing alert loop on every hourly tick.
+        if name.startswith("sovereign_os_meta_"):
+            continue
+
         # Rule 1: any *_total with result="fail" and value > 0
         if name.endswith("_total") and labels.get("result") == "fail" and value > 0:
             alerts.append({
