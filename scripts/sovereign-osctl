@@ -1021,6 +1021,17 @@ cmd_models() {
       rm -rf "${target_path}"
       log_info "removed: ${target}"
       ;;
+    registered)
+      # R183: surface the R182 selfdef SD-R34 model-registry catalog
+      # via osctl. Operators ALSO get the gate dry-run from here so
+      # `sovereign-osctl models` becomes the single discovery surface.
+      "${__REPO_ROOT}/scripts/models/selfdef-models.py" list "$@"
+      ;;
+    check-hardware)
+      # R183: bridge to R182 selfdef-models.py — shows which
+      # registered models WOULD apply on this host.
+      "${__REPO_ROOT}/scripts/models/selfdef-models.py" check-hardware "$@"
+      ;;
     *)
       log_error "unknown models subcommand: ${sub}"
       cmd_help

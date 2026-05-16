@@ -316,6 +316,9 @@ jobs:
       - name: nspawn — selfdef-models (Round 182: selfdef SD-R34 model-registry cross-repo mirror)
         run: |
           tests/nspawn/test_selfdef_models.sh
+      - name: nspawn — osctl models registry (Round 183: sovereign-osctl bridges to R182)
+        run: |
+          tests/nspawn/test_osctl_models_registry.sh
       - name: nspawn — thermal-watch (Round 172: per-profile thermal thresholds + OCSF events)
         run: |
           tests/nspawn/test_thermal_watch.sh
