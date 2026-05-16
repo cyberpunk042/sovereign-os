@@ -1,12 +1,17 @@
-# Handoff 005 — Master spec materialization arc R145-R159 (2026-05-16)
+# Handoff 005 — Master spec materialization arc R145-R163 (2026-05-16)
 
 > Read this first if you are starting a new session on `sovereign-os`.
 > Supersedes: `004-operator-friction-audit.md` (Round 144 close).
+> Last updated: R163 close — extended past the original R145-R159 arc
+> with R160 hardening + lint extension + doc-drift closure, R161
+> router task_type (closes R157 follow-up), R162 master spec § 12
+> 5-phase pipeline surface, R163 sovereign-osctl overview consolidator.
 
 ## TL;DR — what's at HEAD now
 
-Rounds 145-159 (15 direct-to-main commits) closed the
-**master-spec-materialization arc**. The 1139-line SAIN-01 master
+Rounds 145-163 (19 direct-to-main commits) closed the
+**master-spec-materialization arc** AND a four-round follow-up arc
+that hardened the production surface + made it operator-discoverable. The 1139-line SAIN-01 master
 specification (info-hub `raw/dumps/2026-05-15-sain-01-master-spec-...
 .md`) now has a real, tested, operator-runnable surface in the repo
 for every load-bearing section.
@@ -54,6 +59,34 @@ State at HEAD (`main` = `52dcc3d`):
     `sovereign-osctl bootstrap verify` — master spec § 22 6-check
     operational grid with lock-state semantics
 
+## Follow-up arc (R160-R163)
+
+- **R160** — Long-running systemd service hardening pass (defense-in
+  -depth directives across pulse/logic-engine/oracle-core/router) +
+  extended `tests/lint/test_systemd_unit_hardening.py` with the
+  ProtectHome/ProtectKernelTunables/ProtectControlGroups/
+  LockPersonality/RestrictRealtime bar for long-running services.
+  Also extended metric-inventory lint to detect Python `_emit_metric`
+  call sites (caught 6 weaver+auditor metrics the prior pattern missed)
+  + added 18 missing metric inventory rows + missing SDD-026 INDEX row.
+- **R161** — Router task_type classification (closes the R157
+  follow-up explicitly noted in SDD-026). `classify_task_type()` over
+  request body; per-request `X-Sovereign-Task-Type` HTTP response
+  header; `sovereign_os_inference_router_task_type_total{task_type}`
+  Layer B counter; operator override via `sovereign_os_task_type`
+  request field.
+- **R162** — `sovereign-osctl bootstrap phases` — master spec § 12
+  chronological 5-phase pipeline artifact inventory. Companion to R159
+  verify (§ 22): verify runs the LIVE grid; phases inventories the
+  AUTHORING artifacts that build to that gate. 25 artifacts inventoried
+  across Phase I-V, all present at HEAD.
+- **R163** — `sovereign-osctl overview` — consolidated single-screen
+  status snapshot composing phases (§ 12), verify (§ 22), trinity
+  (§ 17), models (§ 17/18), perimeter (§ 10) into one observable
+  surface. JSON output for fleet aggregation; drill-down hints in
+  human output. The "first command to run" after fresh clone or
+  post-install.
+
 ## Test inventory added this arc
 
 | Round | L3 test | Tests | Layer |
@@ -70,9 +103,14 @@ State at HEAD (`main` = `52dcc3d`):
 | 157 | test_dflash_wrap.sh | 21 | L3 |
 | 158 | test_network_asymmetric.sh | 39 | L3 |
 | 159 | test_bootstrap_verify.sh | 33 | L3 |
+| 160 | test_systemd_unit_hardening.py (extended) | +12 | L1 |
+| 161 | test_inference_router_http.sh (extended) | +8 | L3 |
+| 162 | test_bootstrap_phases.sh | 31 | L3 |
+| 163 | test_sovereign_osctl_overview.sh | 22 | L3 |
 
-Total: 9 new L3 tests + 2 new L1 schema-conformance suites. CI wired
-in `.github/workflows/test.yml`.
+Total: 11 new L3 tests + 2 new L1 schema-conformance suites + 1 L1
+hardening lint extension + 1 L1 metric-inventory lint extension. CI
+wired in `.github/workflows/test.yml`.
 
 ## What to do FIRST in the next session
 
