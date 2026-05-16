@@ -195,8 +195,8 @@ explicit code guard + permanent test gate.
 | Q-015 | resolved | SDD-019 (reproducibility target) |
 | Q-016 | resolved | SDD-021 (distro-base — Debian 13) |
 | Q-017 | resolved | SDD-011 (inference backend stack) |
-| Q-018 | partial  | first-login-assistant + cloud-init pre-add path |
-| Q-019 | partial  | sovereign-osctl + L3 management-surface gate |
+| Q-018 | resolved | first-login-assistant + cloud-init pre-add path + sovereign-osctl assistant surface (R67) + Layer B (R86) |
+| Q-019 | resolved | sovereign-osctl 15 verb groups + 30+ subverbs + SDD-025 CLI architecture; 37-assertion dispatch L3 gate |
 
 Plus Stage-2+ sub-questions: Q15-B (SDD-022) + Q18-A (Round 30
 short-circuit) resolved; Q15-A/C, Q16-A..D, Q18-B..C, Q22-A..C tracked.
