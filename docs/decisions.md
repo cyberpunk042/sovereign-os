@@ -751,6 +751,54 @@ tunable per-host without affecting other workstations.
 
 ---
 
+### D-018 — 2026-05-16 — In-toto verifier --deep mode + audit drift verb close the verification triangle (Rounds 106 + 111; SDD-019 + SDD-024 extended)
+
+**Decision**: Operators must be able to verify their installed
+sovereign-os system locally without trusting the recording. Two parallel
+extensions, both shipped as `sovereign-osctl audit` subverbs:
+
+  1. **`audit provenance --deep`** (Round 106) — beyond cross-checking
+     build-provenance.json subjects vs sha256sums.txt (Round 41 behavior),
+     recomputes SHA256 of every subject file ON DISK and compares vs
+     manifest digest. Closes the SDD-019 triangle: manifest ↔ sums.txt ↔
+     on-disk content. Exit 3 = on-disk drift detected (reserved code per
+     SDD-025). Operators verify "what shipped" matches "what's running".
+
+  2. **`audit drift`** (Round 111) — compares deployed hardening drop-ins
+     vs source files in `config/{server,workstation}/`. Per-file states:
+     unchanged / drifted / not-deployed / source-missing. Exit 1 if any
+     drift. DEST_PREFIX-aware for chroot/image-build flows. Operators
+     verify "what was deployed" still matches "what was intended".
+
+Both verbs are non-destructive (no re-apply, no overwrite) — the
+contract is OBSERVATION, not REMEDIATION.
+
+**Why**: "Reach our ultimate sovereignty" + "observable and operable,
+at all stages of lifecycle" (operator verbatim, sacrosanct). Operators
+running long-lived sovereign-os fleets need:
+  (a) integrity verification of the immutable build artifacts
+  (b) configuration drift detection of the mutable runtime state
+The build pipeline already emitted provenance + sha256sums; Round 106
+made them verifiable. The hardening hooks already wrote drop-ins;
+Round 111 made the deployed state auditable. Both gaps closed.
+
+**Affected items**: `scripts/sovereign-osctl` cmd_audit dispatch +
+provenance branch (Round 106 added --deep flag) + new drift branch
+(Round 111). Tests: `tests/nspawn/test_sovereign_osctl_audit_provenance.sh`
+(14 assertions, was 9) + new `test_sovereign_osctl_audit_drift.sh`
+(10 assertions). L2 schema gate: `tests/unit/test_audit_drift_json_schema.py`
+(8 assertions per SDD-025 § --json mode contract). SDD-019 implicitly
+extended ("strong build-reproducibility" now has an in-tree verifier);
+SDD-024 explicitly extended via Q24 sub-question close-outs.
+
+**Reversibility**: high — both verbs are read-only. Operators rely on
+them defensively; adding/removing rules in either is a code-only change
+covered by the existing L3 tests.
+
+**Linked**: direct-to-main commits (Round 106 + Round 111) on 2026-05-16.
+
+---
+
 ## Cross-references
 
 - Charter: `docs/sdd/000-charter.md`
