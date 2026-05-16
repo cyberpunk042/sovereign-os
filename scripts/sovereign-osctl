@@ -933,6 +933,17 @@ cmd_perimeter() {
       systemctl restart tetragon
       systemctl is-active --quiet tetragon && log_info "tetragon active" || log_error "tetragon failed to start"
       ;;
+    check-overlap)
+      # R165: mirror of selfdef SDD-015 perimeter check-overlap; gives
+      # operators an equivalent surface on the sovereign-os side per
+      # SDD-015 Q15-C recommendation ("operator invokes from either
+      # side"). Detects:
+      #   1. duplicate metadata.name across policies
+      #   2. non-sovereign-os policies asserting on host-scoped
+      #      syscalls without container scope (would conflict with
+      #      sovereign-kernel-fence)
+      exec python3 "${__REPO_ROOT}/scripts/perimeter/check-overlap.py" "$@"
+      ;;
     *)
       log_error "unknown perimeter subcommand: ${sub}"
       cmd_help
