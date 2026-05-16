@@ -85,18 +85,29 @@ SOVEREIGN_OS_CONFIRM_DESTROY=YES SOVEREIGN_OS_WIPE_DEVICES='/dev/nvme0n1 /dev/nv
 
 ## Observability dashboards
 
-Two Grafana JSON dashboard templates ship at
+Three Grafana JSON dashboard templates ship at
 `docs/observability/dashboards/`:
 
 | File | Coverage |
 |---|---|
 | `sovereign-os-overview.json` | At-a-glance: pipeline last-run, per-tier inference counters, ZFS health, perimeter status, build step durations, log rotation, snapshots, pending security updates |
 | `sovereign-os-inference.json` | Per-tier route rate + cumulative, last-router-decision age, backend start success/fail/skip counts |
+| `sovereign-os-install.json` | Install lifecycle: rootfs-format / pool-create / datasets-create / MOK enroll / friction-audit failures + warnings / VFIO bind / NVIDIA bind / ARC max bytes / Tetragon policy / network VLAN / shell setup / image-sign per posture |
 
 Operator imports via Grafana → Dashboards → New → Import → Upload JSON.
 See `docs/observability/dashboards/README.md` for the full metric
-inventory (21 metric names emitted across pipeline + recurrent +
-inference) and provisioning notes.
+inventory (51 metric names emitted across build pipeline, pre-install,
+during-install, post-install, recurrent maintenance, inference, and
+perimeter) and provisioning notes.
 
-CI gates dashboard-vs-emitter lockstep — a panel that references a
-metric no script emits fails Layer 1 lint before it ships.
+CI gates a two-way contract:
+  • `test_dashboard_metrics_lockstep.py` — a panel that references a
+    metric no script emits fails Layer 1 lint
+  • `test_metric_inventory_lockstep.py` — a metric emitted by a script
+    that isn't documented in the inventory fails Layer 1 lint
+  • `test_hook_layer_b_coverage.py` — a lifecycle hook that never calls
+    `emit_metric` (and lacks an explicit `# LAYER-B-WAIVER:`) fails
+    Layer 1 lint
+
+Together: every metric the code emits is documented, every metric the
+dashboards reference is emitted, and every lifecycle hook participates.

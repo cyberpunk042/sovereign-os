@@ -205,6 +205,9 @@ jobs:
       - name: nspawn — reproducibility self-test (Round 84: byte-identical outputs + 13th bug)
         run: |
           tests/nspawn/test_reproducibility_self_test.sh sain-01
+      - name: nspawn — sovereign-osctl metrics verb (Round 88: textfile collector surface)
+        run: |
+          tests/nspawn/test_sovereign_osctl_metrics.sh
 
   shellcheck:
     name: shellcheck
