@@ -17,6 +17,13 @@ __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../../.." && pwd)"
 STEP_ID="thermal-watch"
 log_step_header "${STEP_ID}" "per-sensor thermal threshold check + Layer B emission"
 
+# LAYER-B-WAIVER: Layer B emission is performed by the underlying
+# scripts/hardware/thermal-watch.py via atomic Python write (tempfile
+# + os.replace), not via the build/lib/observability.sh helpers. The
+# emitted metrics (sovereign_os_thermal_celsius / _severity /
+# _breach_total / _last_run_unix) are documented in the inventory
+# README under "Hardware (thermal)".
+
 # Profile resolution: the active-profile.env exports SOVEREIGN_OS_PROFILE_ID;
 # fall back to sain-01 if absent (matches script default).
 if [ -f /etc/sovereign-os/active-profile.env ]; then
