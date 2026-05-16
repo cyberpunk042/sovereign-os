@@ -87,6 +87,9 @@ jobs:
       - name: nspawn — live-build adapter (ALT-A substrate + substrate-agnosticism)
         run: |
           tests/nspawn/test_live_build_adapter.sh sain-01
+      - name: nspawn — sovereign-osctl management surface (Q-019)
+        run: |
+          tests/nspawn/test_sovereign_osctl.sh
 
   shellcheck:
     name: shellcheck

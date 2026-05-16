@@ -228,8 +228,11 @@ cmd_profiles() {
       find "${__REPO_ROOT}/profiles" -maxdepth 1 -name '*.yaml' -type f 2>/dev/null | sort | while read -r p; do
         local id name status
         id="$(basename "$p" .yaml)"
-        SOVEREIGN_OS_PROFILE_FILE="$p" name="$(profile_field identity.name 2>/dev/null)"
-        SOVEREIGN_OS_PROFILE_FILE="$p" status="$(profile_field identity.status 2>/dev/null)"
+        # Must export — profile_field invokes python3 which only sees the
+        # *exported* environment, not bash shell vars.
+        export SOVEREIGN_OS_PROFILE_FILE="$p"
+        name="$(profile_field identity.name 2>/dev/null || true)"
+        status="$(profile_field identity.status 2>/dev/null || true)"
         printf "  %-20s %-50s [%s]\n" "${id}" "${name}" "${status}"
       done
       ;;
