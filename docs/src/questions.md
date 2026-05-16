@@ -25,7 +25,7 @@ at a specific PR and produces a `D-NNN` entry in the decisions log.
 | Q-013 | Observability bindings | Stage 2+ | **resolved (SDD-016, 2026-05-16)** — 3-layer stack: JSONL logs (shipped) + Prometheus textfile collector contract (locked, emission Stage 2+) + sovereign-osctl + Grafana JSON templates (deferred). Local-default sovereignty. |
 | Q-014 | Decommission / wipe testing scope | PR 9/10 | **resolved (SDD-014, 2026-05-16)** — gates tested in Layer 3; destruction in Layer 5 only (operator-driven) |
 | Q-015 | Reproducibility target | PR 4 (substrate constrains) | **resolved (SDD-019, 2026-05-16)** — strong build-reproducibility (mkosi image + kernel + whitelabel + substrate emit) given pinned inputs; signed artifacts intentionally not cross-operator bit-identical |
-| Q-016 | Distro-base reconsideration ("Debian-as-Ark") | PR 4 → Gate 2 | open |
+| Q-016 | Distro-base reconsideration ("Debian-as-Ark") | PR 4 → Gate 2 | **resolved (SDD-021, 2026-05-16)** — Debian 13 (trixie) is the Ark; reconsideration criteria specified for operator-on-demand revisit |
 | Q-017 | Inference-backend stack (LocalAI vs vLLM · llama.cpp · custom) | dedicated SDD post-PR-10 | open |
 | Q-018 | First-login post-install assistant | Stage 2+ Stage 6 | **partial** — assistant + cloud-init pre-add path shipped; L3 idempotency + state-shape + force-rerun gates landed (`test_first_login_assistant.sh`, 16 assertions) |
 | Q-019 | Lifecycle-management surface (`sovereign-osctl` · systemd-units · hybrid) | Stage 2+ Stage 7 | **partial** — hybrid (sovereign-osctl 639 lines + 16 systemd unit files) shipped; L3 management-surface gate (`test_sovereign_osctl.sh`, 23 assertions) |

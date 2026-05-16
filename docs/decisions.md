@@ -564,6 +564,37 @@ contained script runnable locally; self-hosted or alternative
 providers can be added without changing the test surface.
 **Linked**: direct-to-main commit on 2026-05-16.
 
+### D-013 — 2026-05-16 — Distro-base: Debian 13 (trixie) is the foundation Ark; reconsideration criteria locked (Q-016 resolved)
+
+**Decision**: Debian 13 (trixie) is the foundation-phase distro-base
+for all sovereign-os profiles. SDD-003 (substrate survey) implicitly
+chose this by picking mkosi-on-Debian-13; this SDD makes it explicit
+and specifies the criteria under which a future SDD would revisit
+the choice (Debian feature deprecation; atomic-OS adoption; driver-gap;
+sovereignty pressure to fork). None of those are present in the
+foundation phase. Operator's "Debian as Ark" framing is honored —
+sovereign-os departs from Debian visually + via Tetragon perimeter +
+whitelabel + custom kernel for sain-01, but the Ark stays Debian.
+**Question**: Q-016 — distro-base reconsideration ("Debian-as-Ark").
+**Source**: `docs/sdd/021-distro-base.md`; the operator's verbatim
+"Debian is a bit like saying we have our Arc but we start from there,
+kind of thing" (info-hub 2026-05-16 directive log).
+**Rationale**: Debian 13 satisfies all foundation-phase requirements:
+mkosi-native substrate, systemd-only lifecycle, AGPL-3.0+-compatible
+ecosystem, predictable security cadence, operator-familiar (matches
+selfdef + info-hub). No proximate trigger exists for moving to
+Fedora/SUSE/NixOS. Locking the choice with explicit revisitation
+criteria preserves the operator's right to swap the Ark later without
+forcing a swap now.
+**Affected items**: `docs/sdd/021-distro-base.md`; no code change
+(SDD-003 already encodes the choice in mkosi.conf templates).
+**Reversibility**: partial — switching distro-base is a substrate
+rewrite (mkosi.conf + apt sources + kernel build deps + Debian-specific
+hooks) but the schema + render engine + lifecycle orchestrator are
+substrate-agnostic by design (SDD-007 + SDD-003) so a future swap is
+bounded scope, not full rewrite.
+**Linked**: direct-to-main commit on 2026-05-16.
+
 ---
 
 ## Cross-references
