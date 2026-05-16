@@ -2816,16 +2816,34 @@ cmd_bootstrap() {
       fi
       exec "${verify_script}" "$@"
       ;;
+    phases)
+      local phases_script
+      phases_script="$(dirname "${BASH_SOURCE[0]}")/bootstrap/phases.sh"
+      if [ ! -x "${phases_script}" ]; then
+        log_error "bootstrap phases script missing or not executable: ${phases_script}"
+        return 1
+      fi
+      exec "${phases_script}" "$@"
+      ;;
     -h|--help|help)
       cat <<EOF
-sovereign-osctl bootstrap — Master Bootstrap Verification (master spec § 22)
+sovereign-osctl bootstrap — Master Bootstrap Verification + Pipeline surface
 
 Subverbs:
   verify [--only IDS] [--json] [--strict]
-    Run the 6-check operational grid:
+    Run the master spec § 22 6-check operational grid (LIVE node):
       01 Microcode/ISA   02 Bus Geometry   03 Linux Memory (ZFS ARC)
       04 Driver Fabric   05 Security Core  06 Network Line (Jumbo MTU)
     Exit 1 if any check FAILs → master spec § 22 lock-state.
+
+  phases [--phase N] [--json]
+    Inventory the master spec § 12 chronological 5-phase pipeline
+    (AUTHORING-time artifact presence in-repo):
+      I    Minimal Trixie Base
+      II   Zen 5 Kernel Compilation
+      III  Storage Layer + DKMS (ZFS)
+      IV   Container + Network Edge Isolation
+      V    Tetragon + Guardian + State Fabric
 
 Env vars:
   BOOTSTRAP_VERIFY_STRICT=1        promote SKIPs to FAILs (real SAIN-01)

@@ -279,9 +279,10 @@ networking applied:
 
 **In repo**:
 - `scripts/hooks/post-install/vfio-bind-3090.sh` (VFIO ✅)
-- `scripts/hooks/post-install/network-vlan-config.sh` (PARTIAL — exists
-  but is generic; not yet opinionated to the master spec's exact VLAN
-  numbers and interface names. Tracked in R158.)
+- `scripts/hooks/post-install/network-vlan-config.sh` (generic VLAN
+  renderer; profile-driven ✅)
+- `scripts/network/render-asymmetric.sh` (R158: opinionated master
+  spec § 8.1 verbatim renderer — VLAN 100/200, MTU 9000, addresses ✅)
 
 ### Phase V — Tetragon eBPF + Guardian + State Fabric Mount
 
@@ -294,8 +295,17 @@ PCIe link state + ZFS pool health + AVX-512 presence at every boot.
 
 **In repo**:
 - `scripts/hooks/post-install/tetragon-policy-load.sh` (✅)
-- `scripts/hooks/post-install/friction-audit-runtime.sh` (✅)
-- Guardian Daemon **NOT YET BUILT** (tracked R155).
+- `scripts/hooks/recurrent/tetragon-policy-verify.sh` (✅)
+- `scripts/auditor/guardian-core.py` (R155: eBPF circuit-breaker
+  daemon ✅; master spec § 10 verbatim)
+- `systemd/system/sovereign-guardian-core.service` (R155 ✅; master
+  spec § 10.2 verbatim After=/Requires=tetragon.service)
+- `scripts/weaver/atomic-state.py` (R154: master spec § 21 atomic
+  state transitions for IDENTITY/SOUL/AGENTS/CLAUDE ✅)
+
+**Operator inventory**: `sovereign-osctl bootstrap phases` (R162)
+surfaces all 5 phases with ✓/✗ markers and JSON output for fleet
+tooling.
 
 ---
 
