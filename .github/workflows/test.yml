@@ -142,6 +142,9 @@ jobs:
       - name: nspawn — kernel-step short-circuit (SDD-018 Q18-A: substrate-default profiles skip steps 02/03/04)
         run: |
           tests/nspawn/test_kernel_step_short_circuit.sh
+      - name: nspawn — kernel-fetch SHA recording (step 02 against fake git remote)
+        run: |
+          tests/nspawn/test_kernel_fetch_sha_recording.sh
 
   shellcheck:
     name: shellcheck
