@@ -400,6 +400,39 @@ build-time decision with no migration cost; the reverse requires
 operator PK enrollment.
 **Linked**: direct-to-main commit on 2026-05-16.
 
+### D-008 — 2026-05-16 — Observability bindings: 3-layer local-default stack; no black-box dispatchers (Q-013 resolved)
+
+**Decision**: sovereign-os observability is a three-layer stack —
+**Layer A (structured logs)** = JSONL events from every script via
+`logging.sh`, rotated via `log-rotate.sh`. **Layer B (metrics)** =
+Prometheus textfile collector pattern (write `.prom` files to
+`/var/lib/node_exporter/textfile_collector/`; operator picks the
+scraper). **Layer C (operator dashboards)** = `sovereign-osctl
+status/doctor` CLI now; Grafana JSON template dashboards deferred to
+Stage 2+. All layers local-default; no remote-sink without explicit
+operator config; no auto-installed scraper / agent.
+**Question**: Q-013 — observability bindings for sovereign-os.
+**Source**: `docs/sdd/016-observability-bindings.md`;
+`scripts/build/lib/logging.sh`;
+`scripts/hooks/recurrent/log-rotate.sh`;
+`scripts/sovereign-osctl status / doctor`.
+**Rationale**: Operator IaC bar (sacrosanct verbatim): "observable
+and operable, at all stages of lifecycle". 3-layer stack covers the
+range cheaply (text logs + textfile metrics + CLI inspection) while
+preserving sovereignty (no auto-shipping anywhere; no daemon agents
+phoning home; operator owns the scraper choice). Layer A is already
+gated (test_log_rotate.sh, 10 assertions). Layer B is a contract
+landed here; emission lands at Stage 2+ via an emit_metric helper.
+Layer C CLI is gated (test_sovereign_osctl.sh, 23 assertions);
+Grafana dashboards deferred until concrete operator need.
+**Affected items**: `docs/sdd/016-observability-bindings.md`; no
+code changes (contract is forward-looking; existing artifacts already
+implement Layer A + Layer C CLI).
+**Reversibility**: fully-reversible — Layer B can be implemented as
+journald-pipe / Loki-direct / other in the future. The textfile
+collector pattern is broad enough to retrofit.
+**Linked**: direct-to-main commit on 2026-05-16.
+
 ---
 
 ## Cross-references

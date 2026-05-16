@@ -22,7 +22,7 @@ at a specific PR and produces a `D-NNN` entry in the decisions log.
 | Q-010 | CI infrastructure (GHA · self-hosted) | PR 3 + PR 10 | open |
 | Q-011 | Cross-repo commit-pinning posture | PR 2 (partial) + CI-guard PR (final) | partial (per-artifact rule locked in SDD-001) |
 | Q-012 | Future-profile timeline (`minimal` · `developer` · `headless`) | Stage 2+ | **partial** — `minimal` substantive body lands as Q-012 demonstration; `developer` + `headless` remain reserved |
-| Q-013 | Observability bindings | Stage 2+ | open |
+| Q-013 | Observability bindings | Stage 2+ | **resolved (SDD-016, 2026-05-16)** — 3-layer stack: JSONL logs (shipped) + Prometheus textfile collector contract (locked, emission Stage 2+) + sovereign-osctl + Grafana JSON templates (deferred). Local-default sovereignty. |
 | Q-014 | Decommission / wipe testing scope | PR 9/10 | **resolved (SDD-014, 2026-05-16)** — gates tested in Layer 3; destruction in Layer 5 only (operator-driven) |
 | Q-015 | Reproducibility target | PR 4 (substrate constrains) | open |
 | Q-016 | Distro-base reconsideration ("Debian-as-Ark") | PR 4 → Gate 2 | open |
