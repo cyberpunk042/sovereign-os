@@ -1,0 +1,71 @@
+#cloud-config
+# sovereign-os unattended install — minimal profile
+#
+# Headless / VM baseline. Boots to a quiet ready state; operator
+# manages everything else via SSH + sovereign-osctl. Designed for
+# QEMU/KVM, libvirt, cloud VMs, and small bare-metal boxes.
+#
+# Usage:
+#   1. Edit operator-specific values (hostname, ssh keys, packages).
+#   2. Drop alongside meta-data on a NoCloud datasource.
+#   3. First-boot cloud-init reads + applies.
+
+# ---- system identity ----
+hostname: sovereign-minimal
+fqdn: sovereign-minimal.local
+manage_etc_hosts: localhost
+
+# ---- users + SSH ----
+users:
+  - name: operator
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: [adm, sudo]
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAA<REPLACE-WITH-OPERATOR-PUBLIC-KEY> operator@example
+    lock_passwd: true
+
+# ---- locale + timezone ----
+locale: en_US.UTF-8
+timezone: UTC
+
+# ---- sovereign-os specific ----
+write_files:
+  - path: /etc/sovereign-os/active-profile.env
+    content: |
+      SOVEREIGN_OS_PROFILE=minimal
+      SOVEREIGN_OS_LOG_LEVEL=info
+    permissions: '0644'
+
+  - path: /etc/sovereign-os/active-profile
+    content: minimal
+    permissions: '0644'
+
+  - path: /etc/sovereign-os/active-whitelabel
+    content: default
+    permissions: '0644'
+
+  # No first-login-assistant pre-population for minimal — there's no
+  # interactive flow to skip. The minimal profile boots to a quiet
+  # ready state.
+
+# ---- package set ----
+# Minimal stays minimal — packages baked into the image are enough.
+# Operators add what they need post-install.
+package_update: false
+package_upgrade: false
+
+# ---- post-install runcmd ----
+runcmd:
+  # Enable first-boot target (runs friction-audit-runtime + whatever
+  # else the profile declared)
+  - [systemctl, enable, --now, sovereign-firstboot.target]
+
+  # Log completion
+  - [sh, -c, 'echo "$(date -u --iso-8601=seconds) cloud-init unattended install complete" >> /var/lib/sovereign-os/cloud-init.log']
+
+# ---- final message ----
+final_message: |
+  sovereign-os minimal install complete.
+  Verify with: sovereign-osctl status
+  SSH in as: operator@<host>

@@ -285,6 +285,67 @@ management story is in scope.
 
 ---
 
+### D-004 — 2026-05-16 — Installer experience: image-only (mkosi-built) + cloud-init/preseed pre-supplied answers; no installer UI
+
+**Decision**: sovereign-os ships **bootable disk images** built by
+mkosi (per SDD-003 substrate choice) and reads pre-supplied answers
+from **cloud-init** (NoCloud datasource) and/or **debian-installer
+preseed**. **No interactive installer UI** — no d-i Q&A flow, no
+Calamares, no custom TUI. The post-install `first-login-assistant`
+covers interactive operator decisions.
+**Question**: Q-008 — Which installer experience: debian-installer
+preseed · Calamares · custom TUI · image-only with no installer?
+**Source**: `docs/sdd/013-installer-experience.md`; existing artifacts
+in `config/cloud-init/` + `config/preseed/`.
+**Rationale**: image-only minimizes installer surface (no Q&A UI to
+maintain), is reproducible (image bits + answer file = deterministic),
+matches the IaC bar (cloud-init = declarative pre-config), and aligns
+with the sovereignty principle (no install-time phone-home, no third-
+party UI surface, no network dep for first boot). The d-i preseed
+path stays available for operators who prefer it. Calamares pulls in
+Qt5 (wrong shape for headless / sain-01). Custom TUI would reinvent
+the installer — wrong investment.
+**Affected items**: `docs/sdd/013-installer-experience.md` (this SDD);
+`config/cloud-init/{sain-01,old-workstation,minimal}.user-data.example.yaml`;
+`config/preseed/sain-01.preseed.example.cfg`;
+`scripts/hooks/post-install/first-login-assistant.sh`;
+`tests/nspawn/test_install_configs.sh` (CI gate).
+**Reversibility**: fully-reversible — if the operator later wants a
+TUI installer, it lands as additive (image-only path stays). The
+configs are operator-edited examples, not enforced policy.
+**Linked**: direct-to-main commit on 2026-05-16.
+
+### D-005 — 2026-05-16 — Brand identity: placeholder strategy with promotion criteria (Q-003 deferred-with-criteria)
+
+**Decision**: Q-003 (whitelabel brand identity) stays **deferred** —
+no permanent name, palette, or logo yet — but with explicit criteria
+for when a "real" brand becomes required (public distribution per
+Q-004 · second public-facing UI surface · operator rebrand) AND with
+an explicit promotion mechanism (`whitelabel/<brand>/` + `<brand>.yaml`
+drop-in, no render-engine code change). Until then, the placeholder
+in `whitelabel/default.yaml` ships. Legal floor (`/etc/debian_version`
++ `/usr/share/doc/*/copyright` + `ID_LIKE=debian`) is preserved
+regardless of brand choice — verified by Layer 3 tests.
+**Question**: Q-003 — Whitelabel brand identity: name · palette · logo.
+**Source**: `docs/sdd/012-brand-identity-placeholder.md`; existing
+artifacts in `whitelabel/default/`.
+**Rationale**: Operator's focus is technical sovereignty, not branding.
+A premature brand decision would either (a) ship aesthetically weak
+artifacts that get replaced or (b) consume design budget the project
+doesn't have yet. Placeholder-with-promotion-mechanism keeps the
+image shippable without committing to a brand. The legal-floor
+contract is unaffected by Q-003 resolution timing — that's already
+locked at SDD-006/007.
+**Affected items**: `docs/sdd/012-brand-identity-placeholder.md`;
+`whitelabel/default.yaml` (placeholder values stay);
+`tests/nspawn/test_whitelabel_render_live_build.sh` (placeholder-leak
+gate guards against unsubstituted `${var}` sigils in production builds).
+**Reversibility**: fully-reversible — a real brand promotes any time
+by adding `whitelabel/<id>/` content + flipping `active-whitelabel`.
+**Linked**: direct-to-main commit on 2026-05-16.
+
+---
+
 ## Cross-references
 
 - Charter: `docs/sdd/000-charter.md`

@@ -107,6 +107,9 @@ jobs:
           tests/nspawn/test_orchestrator_preflight.sh sain-01
           tests/nspawn/test_orchestrator_preflight.sh old-workstation
           tests/nspawn/test_orchestrator_preflight.sh minimal
+      - name: nspawn — install configs lockstep (SDD-013 Q-008 gate)
+        run: |
+          tests/nspawn/test_install_configs.sh
 
   shellcheck:
     name: shellcheck

@@ -18,6 +18,8 @@ Numbering is three-digit zero-padded, never recycled.
 | 009 | TDD harness bootstrap | accepted | PR 10 | Layer 1 schema + lint pytest + shellcheck CI shipped; chroot/nspawn/qemu scaffolds present; substantive Layer 3+ at Stage 2+. |
 | 010 | Stage-2 stub | scoping | post-Gate-5 | Build pipeline + hooks + render engine + sovereign-osctl already on main. Subsequent Stage-2 rounds deferred items documented. |
 | 011 | Inference backend stack | review | post-Gate-5 | Q-017 resolution path: direct-stack architecture (vLLM + bitnet.cpp + llama.cpp, no unifying abstraction); scripts/inference/ scaffold shipped (router + 3 backends + 3 start scripts). Q11-A..Q11-E open. |
+| 012 | Brand identity placeholder strategy | review | post-Gate-5 | Q-003 deferred-with-criteria: placeholder contract specified, legal-floor contract restated, promotion criteria + mechanism for when a real brand lands. CI gates placeholder-leak detection. |
+| 013 | Installer experience | review | post-Gate-5 | Q-008 resolution: image-only (mkosi-built bootable image) + cloud-init/preseed pre-supplied answers. No d-i / Calamares / custom TUI. CI gate `test_install_configs.sh` (24 assertions). |
 
 ## Slots reserved for Stage 2 onwards (preview, non-binding)
 

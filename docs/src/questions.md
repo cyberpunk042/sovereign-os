@@ -12,12 +12,12 @@ at a specific PR and produces a `D-NNN` entry in the decisions log.
 |---|---|---|---|
 | Q-001 | Substrate selection (live-build · mkosi · debootstrap · ostree · Nix · …) | PR 4 → Gate 2 | open |
 | Q-002 | Profile inheritance model (single-parent · composition) | PR 5 → Gate 3 | open |
-| Q-003 | Whitelabel brand identity (name · palette · logo) | deferrable past PR 8 | open |
+| Q-003 | Whitelabel brand identity (name · palette · logo) | deferrable past PR 8 | **deferred-with-criteria (SDD-012)** — placeholder contract specified; real brand lands as data when operator promotes |
 | Q-004 | Legal scope (public-distributable vs internal) | PR 7/8 → Gate 4 | open |
 | Q-005 | ZFS root layout details | Stage 2+ | open |
 | Q-006 | Secure-boot posture | Stage 2+ | open |
 | Q-007 | Kernel choice (stock · custom-tuned) | Stage 2+ | open |
-| Q-008 | Installer experience (debian-installer · Calamares · custom TUI · image-only) | Stage 2+ | open |
+| Q-008 | Installer experience (debian-installer · Calamares · custom TUI · image-only) | Stage 2+ | **resolved (SDD-013, 2026-05-16)** — image-only + cloud-init/preseed pre-supplied answers; no installer UI |
 | Q-009 | SAIN-01 hardware procurement timeline | operator-side | open |
 | Q-010 | CI infrastructure (GHA · self-hosted) | PR 3 + PR 10 | open |
 | Q-011 | Cross-repo commit-pinning posture | PR 2 (partial) + CI-guard PR (final) | partial (per-artifact rule locked in SDD-001) |
