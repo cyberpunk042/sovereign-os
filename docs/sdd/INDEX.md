@@ -12,7 +12,7 @@ Numbering is three-digit zero-padded, never recycled.
 | 003 | Substrate survey | review | PR 4 | Resolves Q-001 + Q-016 at Gate 2. Primary recommendation: mkosi-on-Debian-13. Alternatives A (live-build), B (rpm-ostree/Silverblue), C (NixOS). Q4-A..Q4-E open for Gate 2 closure. |
 | 004 | Profile schema | — | PR 5 | Resolves Q-002 (in part) at Gate 3. |
 | 005 | Initial profile stubs (sain-01 + old-workstation) | — | PR 6 | Validates schema against real profiles. |
-| 006 | Debian (or successor) surface audit | — | PR 7 | Whitelabel target inventory. |
+| 006 | Debian (or successor) surface audit | review | PR 7 | Whitelabel target inventory. ~50 surfaces / 10 sections / legal floor explicit. Q7-A..Q7-E open. |
 | 007 | Whitelabel mechanism | — | PR 8 | Resolves Q-004 (legal scope) at Gate 4; Q-003 may stay open. |
 | 008 | TDD harness specification | — | PR 9 | Resolves Q-010 + Q-014 + Q-015 (in part). |
 | 009 | TDD harness bootstrap | — | PR 10 | First passing tests. |
