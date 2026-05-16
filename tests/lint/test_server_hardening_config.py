@@ -103,6 +103,55 @@ def test_unattended_upgrades_security_only_no_reboot():
         'Unattended-Upgrade::Automatic-Reboot MUST be "false" — operator owns reboot windows'
 
 
+def test_sshd_hardening_locked():
+    p = SRV_DIR / "sshd.conf"
+    assert p.is_file(), f"missing: {p}"
+    text = p.read_text()
+    if _waived(text):
+        return
+    # Helper: scan non-comment lines for an exact "key value" match
+    def has_directive(key: str, expected_value: str) -> bool:
+        for line in text.splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            # sshd_config uses whitespace separation
+            parts = stripped.split(None, 1)
+            if len(parts) == 2 and parts[0] == key and parts[1].strip() == expected_value:
+                return True
+        return False
+
+    # Load-bearing invariants — silent weakening would defeat every
+    # other hardening layer
+    assert has_directive("PermitRootLogin", "no"), \
+        "sshd.conf MUST set PermitRootLogin no"
+    assert has_directive("PasswordAuthentication", "no"), \
+        "sshd.conf MUST set PasswordAuthentication no"
+    assert has_directive("PubkeyAuthentication", "yes"), \
+        "sshd.conf MUST enable PubkeyAuthentication"
+    assert has_directive("AuthenticationMethods", "publickey"), \
+        "sshd.conf MUST restrict AuthenticationMethods to publickey"
+    assert has_directive("X11Forwarding", "no"), "sshd.conf MUST disable X11Forwarding"
+    assert has_directive("PermitEmptyPasswords", "no"), \
+        "sshd.conf MUST disable PermitEmptyPasswords"
+    # NO sha1, NO cbc-mode ciphers in any algorithm directive
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#") or not stripped:
+            continue
+        lower = stripped.lower()
+        if any(lower.startswith(k.lower()) for k in
+               ("kexalgorithms", "ciphers", "macs", "pubkeyacceptedalgorithms",
+                "hostkeyalgorithms")):
+            assert "sha1" not in lower, \
+                f"sshd.conf MUST NOT enable sha1-based algorithm: {line!r}"
+            # cbc-mode ciphers are MAC-then-encrypt — vulnerable. Modern
+            # configs use AEAD (gcm, chacha20-poly1305) or etm MACs.
+            if lower.startswith("ciphers"):
+                assert "-cbc" not in lower, \
+                    f"sshd.conf MUST NOT enable cbc-mode ciphers: {line!r}"
+
+
 def test_hook_present_and_executable():
     h = REPO_ROOT / "scripts" / "hooks" / "post-install" / "apply-server-hardening.sh"
     assert h.is_file(), f"missing hook: {h}"

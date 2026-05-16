@@ -55,6 +55,7 @@ declare -a actions=(
   "auditd.rules:/etc/audit/rules.d/sovereign-os.rules"
   "fail2ban-jail.local:/etc/fail2ban/jail.d/sovereign-os.local"
   "unattended-upgrades.conf:/etc/apt/apt.conf.d/52sovereign-os-unattended.conf"
+  "sshd.conf:/etc/ssh/sshd_config.d/50sovereign-os.conf"
 )
 
 if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
@@ -107,6 +108,18 @@ if [ "${applied}" -gt 0 ] && [ "${fail}" -eq 0 ]; then
     systemctl is-active --quiet fail2ban && {
       systemctl reload fail2ban 2>/dev/null || \
         log_warn "  could not reload fail2ban (manual: 'systemctl reload fail2ban')"
+    }
+    systemctl is-active --quiet ssh && {
+      # SSH reload — drop in is sshd_config.d/*.conf, sshd parses on reload
+      # Validate config syntax FIRST to avoid locking the operator out
+      if sshd -t 2>/dev/null; then
+        systemctl reload ssh 2>/dev/null || \
+          log_warn "  could not reload ssh (manual: 'systemctl reload ssh')"
+      else
+        log_error "  sshd -t failed; NOT reloading ssh (would lock operator out)"
+        log_error "  inspect: /etc/ssh/sshd_config.d/50sovereign-os.conf"
+        fail=$((fail + 1))
+      fi
     }
     # unattended-upgrades is timer-driven; no daemon to reload
   else
