@@ -166,6 +166,9 @@ jobs:
       - name: nspawn — sovereign-osctl doctor v2 (Round 43: profile-conditioned multi-section)
         run: |
           tests/nspawn/test_sovereign_osctl_doctor_v2.sh
+      - name: nspawn — substrate-prepare (Round 45: step 05 dispatch + DRY_RUN + Layer B)
+        run: |
+          tests/nspawn/test_substrate_prepare.sh
 
   shellcheck:
     name: shellcheck

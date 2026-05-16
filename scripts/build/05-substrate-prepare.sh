@@ -10,12 +10,19 @@
 __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=./lib/common.sh
 . "${__SCRIPT_DIR}/lib/common.sh"
+# shellcheck source=./lib/observability.sh
+. "${__SCRIPT_DIR}/lib/observability.sh"
 
 STEP_ID="05-substrate-prepare"
 
 : "${SOVEREIGN_OS_PROFILE:=sain-01}"
 : "${SOVEREIGN_OS_SUBSTRATE:=mkosi}"
 load_profile "${SOVEREIGN_OS_PROFILE}"
+
+emit_substrate_metric() {
+  emit_metric sovereign_os_build_step_substrate_total 1 \
+    "substrate=\"${SOVEREIGN_OS_SUBSTRATE}\",profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"$1\""
+}
 
 inputs_hash="$(state_inputs_hash "${BASH_SOURCE[0]}" "${SOVEREIGN_OS_PROFILE_FILE}")"
 
@@ -33,33 +40,48 @@ mkdir -p "${SOVEREIGN_OS_BUILD_OUT}"
 case "${SOVEREIGN_OS_SUBSTRATE}" in
   mkosi)
     adapter="${__SCRIPT_DIR}/adapters/mkosi-emit.sh"
-    if [ ! -x "${adapter}" ]; then
-      log_error "mkosi adapter missing or not executable: ${adapter}"
-      state_step_fail "${STEP_ID}" "missing-mkosi-adapter"
-      exit 1
-    fi
-    "${adapter}" "${SOVEREIGN_OS_PROFILE_FILE}" "${SOVEREIGN_OS_BUILD_OUT}"
     ;;
   live-build)
     adapter="${__SCRIPT_DIR}/adapters/live-build-emit.sh"
-    if [ ! -x "${adapter}" ]; then
-      log_warn "live-build adapter not yet implemented; ALT-A path lands at Stage 2+"
-      state_step_fail "${STEP_ID}" "live-build-adapter-not-implemented"
-      exit 1
-    fi
-    "${adapter}" "${SOVEREIGN_OS_PROFILE_FILE}" "${SOVEREIGN_OS_BUILD_OUT}"
     ;;
   rpm-ostree|nixos)
     log_error "substrate '${SOVEREIGN_OS_SUBSTRATE}' is an ALT path (B/C); adapter not implemented in foundation phase"
+    emit_substrate_metric not-implemented
     state_step_fail "${STEP_ID}" "alt-substrate-not-implemented"
     exit 1
     ;;
   *)
-    log_error "unknown substrate: ${SOVEREIGN_OS_SUBSTRATE}"
+    log_error "unknown substrate: ${SOVEREIGN_OS_SUBSTRATE} (valid: mkosi, live-build, rpm-ostree, nixos)"
+    emit_substrate_metric unknown
     state_step_fail "${STEP_ID}" "unknown-substrate"
     exit 1
     ;;
 esac
+
+if [ ! -x "${adapter}" ]; then
+  log_error "${SOVEREIGN_OS_SUBSTRATE} adapter missing or not executable: ${adapter}"
+  emit_substrate_metric missing-adapter
+  state_step_fail "${STEP_ID}" "missing-${SOVEREIGN_OS_SUBSTRATE}-adapter"
+  exit 1
+fi
+
+if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
+  log_info "DRY-RUN — would invoke ${adapter} ${SOVEREIGN_OS_PROFILE_FILE} ${SOVEREIGN_OS_BUILD_OUT}"
+  emit_substrate_metric skip
+  state_step_complete "${STEP_ID}"
+  exit 0
+fi
+
+if "${adapter}" "${SOVEREIGN_OS_PROFILE_FILE}" "${SOVEREIGN_OS_BUILD_OUT}"; then
+  log_info "${SOVEREIGN_OS_SUBSTRATE} adapter emit succeeded → ${SOVEREIGN_OS_BUILD_OUT}"
+  emit_substrate_metric success
+else
+  rc=$?
+  log_error "${SOVEREIGN_OS_SUBSTRATE} adapter emit failed (rc=${rc})"
+  emit_substrate_metric fail
+  state_step_fail "${STEP_ID}" "adapter-emit-failed-${rc}"
+  exit 1
+fi
 
 env_file="${SOVEREIGN_OS_STATE_DIR}/env-substrate.sh"
 cat > "${env_file}" <<EOF
