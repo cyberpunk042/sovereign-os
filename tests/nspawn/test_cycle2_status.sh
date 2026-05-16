@@ -145,6 +145,62 @@ else
   ko "absent-caps JSON wrong: ${out_no_caps}"
 fi
 
+# ---------- R191: override audit trail surface ----------
+# Stage an audit JSONL file with two override events.
+mkdir -p "${WORK}/audit"
+cat > "${WORK}/audit/modules-audit.jsonl" <<'JSON'
+{"schema_version":"1.0.0","timestamp":"2026-05-16T10:00:00Z","category":"selfdef.modules.override","severity":"medium","source":"selfdefctl","flag":"--ignore-hardware","host_tag":"test-1","gated_modules":["a"]}
+{"schema_version":"1.0.0","timestamp":"2026-05-16T15:00:00Z","category":"selfdef.modules.override","severity":"medium","source":"selfdefctl","flag":"--ignore-hardware","host_tag":"test-1","gated_modules":["b","c"]}
+JSON
+
+set +e
+out_aud="$(python3 "${SCRIPT}" \
+  --caps-path "${WORK}/caps/hardware-capabilities.json" \
+  --modules-dir "${WORK}/modules" \
+  --host-config "${WORK}/host/modules.toml" \
+  --models-dir "${WORK}/models" \
+  --schedule-path "${WORK}/no-such.json" \
+  --audit-path "${WORK}/audit/modules-audit.jsonl" --json 2>&1)"
+set -e
+if python3 -c "
+import json
+d = json.loads('''${out_aud}''')
+assert d['override_audit']['count'] == 2
+assert d['override_audit']['last_timestamp'] == '2026-05-16T15:00:00Z'
+" 2>/dev/null; then
+  ok "R191: override_audit JSON shape — count=2 + last_timestamp"
+else
+  ko "R191 audit JSON wrong: ${out_aud}"
+fi
+
+# Human output mentions the SD-R47 audit when count > 0.
+set +e
+out_aud_h="$(python3 "${SCRIPT}" \
+  --caps-path "${WORK}/caps/hardware-capabilities.json" \
+  --modules-dir "${WORK}/modules" \
+  --host-config "${WORK}/host/modules.toml" \
+  --models-dir "${WORK}/models" \
+  --schedule-path "${WORK}/no-such.json" \
+  --audit-path "${WORK}/audit/modules-audit.jsonl" 2>&1)"
+set -e
+grep -q "Override audit (SD-R47): ⚠ 2" <<< "${out_aud_h}" \
+  && ok "R191: human output cites override audit count" \
+  || ko "human audit line missing: ${out_aud_h}"
+
+# Absent audit file → block omitted from output.
+set +e
+out_no_audit="$(python3 "${SCRIPT}" \
+  --caps-path "${WORK}/caps/hardware-capabilities.json" \
+  --modules-dir "${WORK}/modules" \
+  --host-config "${WORK}/host/modules.toml" \
+  --models-dir "${WORK}/models" \
+  --schedule-path "${WORK}/no-such.json" \
+  --audit-path "${WORK}/no-such-audit.jsonl" 2>&1)"
+set -e
+! grep -q "Override audit" <<< "${out_no_audit}" \
+  && ok "R191: human output omits audit block when count=0" \
+  || ko "audit block fired with count=0: ${out_no_audit}"
+
 echo
 total=$((pass + fail))
 echo "test_cycle2_status: ${pass}/${total} passed"

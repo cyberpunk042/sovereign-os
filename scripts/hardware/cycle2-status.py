@@ -37,6 +37,7 @@ DEFAULT_MODULES_DIR = Path("/usr/share/selfdef/modules")
 DEFAULT_HOST_CONFIG = Path("/etc/selfdef/modules.toml")
 DEFAULT_MODELS_DIR = Path("/etc/selfdef/models")
 DEFAULT_BITNET_SCHEDULE = Path("/etc/selfdef/bitnet/schedule.json")
+DEFAULT_AUDIT_PATH = Path("/var/log/selfdef/modules-audit.jsonl")
 
 
 def read_capabilities(caps_path: Path) -> dict[str, Any] | None:
@@ -105,11 +106,36 @@ def run_models_gate(
         return None
 
 
+def read_audit_log_count(audit_path: Path) -> tuple[int, str | None]:
+    """R191: read the SD-R47 OCSF audit trail (one JSONL line per
+    --ignore-hardware invocation). Returns (line_count, last_timestamp)
+    or (0, None) when the file doesn't exist (most operators won't
+    have used --ignore-hardware)."""
+    if not audit_path.exists():
+        return 0, None
+    try:
+        lines = [
+            l for l in audit_path.read_text().splitlines() if l.strip()
+        ]
+    except OSError:
+        return 0, None
+    last_ts: str | None = None
+    for ln in reversed(lines):
+        try:
+            d = json.loads(ln)
+            last_ts = d.get("timestamp")
+            break
+        except json.JSONDecodeError:
+            continue
+    return len(lines), last_ts
+
+
 def summarize(
     caps: dict[str, Any] | None,
     mods: dict[str, Any] | None,
     models: dict[str, Any] | None,
     schedule_path: Path,
+    audit_path: Path,
 ) -> dict[str, Any]:
     cpu = (caps or {}).get("cpu", {}) or {}
     wa = (caps or {}).get("wasm_aot", {}) or {}
@@ -144,6 +170,11 @@ def summarize(
             "skipped": len((models or {}).get("skipped", []) or []),
         },
         "bitnet_schedule_present": schedule_path.exists(),
+        "override_audit": {
+            "count": read_audit_log_count(audit_path)[0],
+            "last_timestamp": read_audit_log_count(audit_path)[1],
+            "path": str(audit_path),
+        },
     }
 
 
@@ -200,6 +231,17 @@ def render_human(summary: dict[str, Any]) -> str:
         out.append("## BitNet schedule (SD-R28): ✓ present")
     else:
         out.append("## BitNet schedule (SD-R28): ✗ absent (module not applied)")
+    # R191: SD-R47 override audit trail surface.
+    audit = summary["override_audit"]
+    if audit["count"] > 0:
+        out.append("")
+        out.append(
+            f"## Override audit (SD-R47): ⚠ {audit['count']} `--ignore-hardware`"
+            " event(s) recorded"
+        )
+        if audit["last_timestamp"]:
+            out.append(f"  last: {audit['last_timestamp']}")
+        out.append(f"  path: {audit['path']}")
     return "\n".join(out) + "\n"
 
 
@@ -232,13 +274,20 @@ def main() -> int:
             "SELFDEF_BITNET_SCHEDULE_FILE", str(DEFAULT_BITNET_SCHEDULE)
         )),
     )
+    p.add_argument(
+        "--audit-path",
+        type=Path,
+        default=Path(os.environ.get(
+            "SELFDEF_MODULES_AUDIT_PATH", str(DEFAULT_AUDIT_PATH)
+        )),
+    )
     p.add_argument("--json", action="store_true")
     args = p.parse_args()
 
     caps = read_capabilities(args.caps_path)
     mods = run_modules_gate(args.caps_path, args.modules_dir, args.host_config)
     models = run_models_gate(args.caps_path, args.models_dir)
-    summary = summarize(caps, mods, models, args.schedule_path)
+    summary = summarize(caps, mods, models, args.schedule_path, args.audit_path)
 
     if args.json:
         print(json.dumps(summary, indent=2))
