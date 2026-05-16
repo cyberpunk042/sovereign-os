@@ -187,6 +187,9 @@ jobs:
       - name: nspawn — model-catalog-sync substantive (Round 63: manifest verification + Layer B)
         run: |
           tests/nspawn/test_model_catalog_sync.sh
+      - name: nspawn — sovereign-osctl maintenance (Round 66: 8-subverb on-demand recurrent surface)
+        run: |
+          tests/nspawn/test_sovereign_osctl_maintenance.sh
 
   shellcheck:
     name: shellcheck

@@ -77,8 +77,14 @@ COMMANDS:
   audit storage                ZFS pool + dataset health
   audit provenance [<path>]    Inspect build-provenance.json + cross-check sha256sums.txt
 
+  maintenance list             List on-demand maintenance subverbs
   maintenance scrub            Trigger ZFS scrub now
   maintenance arc-status       Show ZFS ARC stats
+  maintenance log-rotate       Rotate ~/.sovereign-os/log/*.jsonl now
+  maintenance snapshot         Take tank/context ZFS snapshot now
+  maintenance security-check   Scan for pending security updates now
+  maintenance models-sync      Verify resident model catalog now
+  maintenance perimeter-check  Verify Tetragon perimeter policy now
 
   decommission start           Begin decommission flow (interactive; confirms)
 
@@ -696,9 +702,28 @@ PY
 # ------------------------------ maintenance ----------------------------------
 
 cmd_maintenance() {
-  local sub="${1:-arc-status}"
+  local sub="${1:-list}"
   shift || true
   case "${sub}" in
+    list)
+      cat <<EOF
+Maintenance subverbs (each runs the matching recurrent hook on demand):
+
+  list                   This list.
+  scrub                  Trigger ZFS scrub of the tank pool now.
+  arc-status             Show ZFS ARC stats (size + c + c_min + c_max).
+  log-rotate             Manually rotate ~/.sovereign-os/log/*.jsonl now.
+  snapshot               Manually take a tank/context ZFS snapshot now.
+  security-check         Manually scan for pending security updates now.
+  models-sync            Manually verify the resident model catalog now.
+  perimeter-check        Manually verify Tetragon perimeter policy now.
+
+All of these run via the matching systemd timer (daily/weekly cadence);
+this surface gives operators on-demand control when they need it.
+
+Most subverbs require root; honor SOVEREIGN_OS_DRY_RUN=1.
+EOF
+      ;;
     scrub)
       "${__REPO_ROOT}/scripts/hooks/recurrent/zfs-scrub.sh"
       ;;
@@ -709,9 +734,24 @@ cmd_maintenance() {
         echo "ARC stats not available (ZFS not loaded)"
       fi
       ;;
+    log-rotate)
+      "${__REPO_ROOT}/scripts/hooks/recurrent/log-rotate.sh"
+      ;;
+    snapshot)
+      "${__REPO_ROOT}/scripts/hooks/recurrent/backup-snapshot.sh"
+      ;;
+    security-check)
+      "${__REPO_ROOT}/scripts/hooks/recurrent/security-update-check.sh"
+      ;;
+    models-sync)
+      "${__REPO_ROOT}/scripts/hooks/recurrent/model-catalog-sync.sh"
+      ;;
+    perimeter-check)
+      "${__REPO_ROOT}/scripts/hooks/recurrent/tetragon-policy-verify.sh"
+      ;;
     *)
       log_error "unknown maintenance subcommand: ${sub}"
-      cmd_help
+      log_error "  available: list / scrub / arc-status / log-rotate / snapshot / security-check / models-sync / perimeter-check"
       exit 2
       ;;
   esac
