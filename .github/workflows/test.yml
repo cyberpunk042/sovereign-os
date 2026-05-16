@@ -74,6 +74,9 @@ jobs:
       - name: nspawn — orchestrator status surface
         run: |
           tests/nspawn/test_orchestrator_status.sh
+      - name: nspawn — state lib (IaC restart-from-state)
+        run: |
+          tests/nspawn/test_state_lib.sh
 
   shellcheck:
     name: shellcheck
