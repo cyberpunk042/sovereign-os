@@ -135,6 +135,11 @@ COMMANDS:
                                     REFUSES to write under the repo root. Operator-owned.
   secure-boot status                Inspect current PK/KEK/db enrollment + MOK state
 
+  trinity status                    Master spec § 17 — Pulse · Weaver · Auditor at a glance
+  trinity pulse                     Vector Core layer (AVX-512 · bitnet.cpp · CCD0)
+  trinity weaver                    Sandboxed Fabric layer (Podman · VFIO · state fabric · CCD1 0-9)
+  trinity auditor                   Immutable Gatekeeper layer (Tetragon · Guardian · always-on)
+
   env list [--filter <regex>]  List every SOVEREIGN_OS_* env var with its default
                                + the file that consumes it. --filter narrows.
   env show <NAME>              Detail one env var (default · all consumers · currently-set value)
@@ -2404,6 +2409,248 @@ EOF
   echo
 }
 
+# ------------------------------ trinity --------------------------------------
+#
+# Master spec § 17 — the Genesis Trinity (Pulse · Weaver · Auditor).
+# Three SRP-aligned modules that materialize the operator's "Zero to Hero"
+# architecture. This verb surfaces them as first-class so operators don't
+# have to grep across 15 generic verb groups to understand the spine.
+#
+# R149: status surfaces. R150 adds runtime-profile selection. R151 wires
+# CCD-pinned start scripts. R152+ adds substantive bitnet.cpp / Wasm AOT /
+# Guardian Daemon implementations.
+
+cmd_trinity() {
+  local sub="${1:-status}"
+  shift || true
+
+  case "${sub}" in
+    status)
+      echo "  Genesis Trinity — master spec § 17"
+      echo "  =================================="
+      echo
+      _trinity_pulse_brief
+      echo
+      _trinity_weaver_brief
+      echo
+      _trinity_auditor_brief
+      echo
+      echo "  Detail: sovereign-osctl trinity {pulse,weaver,auditor}"
+      ;;
+    pulse)
+      _trinity_pulse_full
+      ;;
+    weaver)
+      _trinity_weaver_full
+      ;;
+    auditor)
+      _trinity_auditor_full
+      ;;
+    *)
+      log_error "unknown trinity subcommand: ${sub}"
+      log_error "  available: status | pulse | weaver | auditor"
+      return 2
+      ;;
+  esac
+}
+
+# Pulse — Vector Core (CCD0; AVX-512; bitnet.cpp; Wasm AOT)
+_trinity_pulse_brief() {
+  echo "  [Pulse] — Vector Core (master spec § 17 Module 1; CCD0 cores 0-5)"
+  local avx512="absent"
+  if grep -q "avx512_vnni" /proc/cpuinfo 2>/dev/null; then
+    avx512="present (vnni)"
+    grep -q "avx512_bf16" /proc/cpuinfo 2>/dev/null && avx512="${avx512} + bf16"
+  fi
+  echo "    AVX-512 ISA:        ${avx512}"
+  local bitnet_running="not running"
+  if systemctl is-active --quiet sovereign-pulse 2>/dev/null; then
+    bitnet_running="active (sovereign-pulse.service)"
+  fi
+  echo "    pulse service:      ${bitnet_running}"
+  echo "    backend file:       scripts/inference/backends/bitnet.py"
+  echo "    start script:       scripts/inference/start-pulse.sh"
+}
+
+_trinity_pulse_full() {
+  echo "  [Pulse] — Vector Core (master spec § 17 Module 1, § 20 Wasm-to-AVX-512 AOT)"
+  echo
+  echo "  PHYSICAL PINNING (master spec § 19.2):"
+  echo "    CCD0 cores 0-5; thread mask 0xfff (threads 0-11)"
+  echo "    isolation from CCD1 to avoid Infinity Fabric latency"
+  echo
+  echo "  CPUINFO:"
+  grep -E "model name|cpu cores|cache size" /proc/cpuinfo 2>/dev/null | head -3 | sed 's/^/    /'
+  echo
+  echo "  AVX-512 instruction set markers:"
+  for flag in avx512f avx512dq avx512bw avx512vl avx512bf16 avx512fp16 avx512_vnni; do
+    if grep -qw "${flag}" /proc/cpuinfo 2>/dev/null; then
+      echo "    ✓ ${flag}"
+    else
+      echo "    ✗ ${flag} (master spec demands this; pulse will be degraded)"
+    fi
+  done
+  echo
+  echo "  RUNTIME (when built — R152+):"
+  echo "    bitnet.cpp                 → 1-bit/ternary BitNet-b1.58 native execution"
+  echo "    Wasm AOT (Cranelift/LLVM)  → znver5 target; pulse_core.wasm"
+  echo
+  echo "  SERVICE STATE:"
+  if command -v systemctl >/dev/null 2>&1; then
+    systemctl status sovereign-pulse 2>/dev/null | head -5 | sed 's/^/    /' || \
+      echo "    sovereign-pulse.service not installed (R152 wires this)"
+  fi
+  echo
+  echo "  LAYER B METRICS (where to look):"
+  echo "    sovereign_os_inference_route_total{tier=\"pulse\"}"
+  echo "    sovereign_os_inference_backend_start_total{tier=\"pulse\",backend=\"bitnet\"}"
+  echo "    sovereign_os_inference_backend_pid{tier=\"pulse\"}"
+}
+
+# Weaver — Sandboxed Fabric (CCD1 cores 6-9; Podman + VFIO + atomic state)
+_trinity_weaver_brief() {
+  echo "  [Weaver] — Sandboxed Fabric (master spec § 17 Module 2; CCD1 cores 6-9)"
+  local podman_state="not installed"
+  command -v podman >/dev/null 2>&1 && podman_state="$(podman --version 2>/dev/null | head -1)"
+  echo "    podman:             ${podman_state}"
+  local vfio_state="unknown"
+  if [ -d /sys/bus/pci/drivers/vfio-pci ]; then
+    local vfio_count
+    vfio_count="$(ls /sys/bus/pci/drivers/vfio-pci/[0-9]* 2>/dev/null | wc -l)"
+    vfio_state="vfio-pci loaded; ${vfio_count} device(s) bound"
+  fi
+  echo "    vfio:               ${vfio_state}"
+  local ctx_state="absent"
+  command -v zfs >/dev/null 2>&1 && zfs list tank/context >/dev/null 2>&1 && {
+    local sync_setting; sync_setting="$(zfs get -H -o value sync tank/context 2>/dev/null)"
+    ctx_state="present; sync=${sync_setting}"
+  }
+  echo "    tank/context:       ${ctx_state}"
+}
+
+_trinity_weaver_full() {
+  echo "  [Weaver] — Sandboxed Fabric (master spec § 17 Module 2, § 21 Atomic State Protocol)"
+  echo
+  echo "  PHYSICAL PINNING (master spec § 19.2):"
+  echo "    CCD1 cores 6-9; thread mask 0xff000 (threads 12-19)"
+  echo "    handles state engine + Tetragon gRPC + network I/O"
+  echo
+  echo "  PODMAN:"
+  if command -v podman >/dev/null 2>&1; then
+    podman --version 2>/dev/null | sed 's/^/    /'
+    podman info --format "    rootless: {{.Host.Security.Rootless}}, runtime: {{.Host.OCIRuntime.Name}}" 2>/dev/null
+  else
+    echo "    not installed (apt install podman)"
+  fi
+  echo
+  echo "  VFIO (RTX 3090 sandbox per master spec § 4.3):"
+  if [ -d /sys/bus/pci/drivers/vfio-pci ]; then
+    echo "    vfio-pci loaded"
+    for dev in /sys/bus/pci/drivers/vfio-pci/[0-9]*; do
+      [ -e "${dev}" ] || continue
+      local addr; addr="$(basename "${dev}")"
+      local devid; devid="$(cat "${dev}/device" 2>/dev/null)"
+      local vendid; vendid="$(cat "${dev}/vendor" 2>/dev/null)"
+      echo "    ✓ ${addr}  vendor=${vendid:-?} device=${devid:-?}"
+    done
+  else
+    echo "    vfio-pci not loaded (modprobe vfio-pci or check kernel cmdline)"
+  fi
+  echo
+  echo "  STATE FABRIC (master spec § 7 — tank/context dataset):"
+  if command -v zfs >/dev/null 2>&1 && zfs list tank/context >/dev/null 2>&1; then
+    echo "    ✓ tank/context dataset"
+    for prop in sync primarycache logbias compression copies; do
+      local v; v="$(zfs get -H -o value "${prop}" tank/context 2>/dev/null)"
+      echo "      ${prop}: ${v}"
+    done
+  else
+    echo "    tank/context dataset: absent (zfs-tiered profile not yet installed?)"
+  fi
+  echo
+  echo "  VIBE STATE FILES (master spec § 7 — operator-readable):"
+  for fname in IDENTITY.md SOUL.md AGENTS.md CLAUDE.md; do
+    if [ -f "/mnt/vault/context/${fname}" ]; then
+      echo "    ✓ /mnt/vault/context/${fname}"
+    else
+      echo "    ✗ /mnt/vault/context/${fname} (absent; lands when zfs-tiered installed)"
+    fi
+  done
+  echo
+  echo "  ATOMIC STATE PROTOCOL (R154):"
+  echo "    Not yet built — scripts/weaver/atomic-state.py per master spec § 21.1"
+}
+
+# Auditor — Immutable Gatekeeper (always-on; Tetragon eBPF + Guardian)
+_trinity_auditor_brief() {
+  echo "  [Auditor] — Immutable Gatekeeper (master spec § 17 Module 3)"
+  local tetra_state="not installed"
+  if command -v tetragon >/dev/null 2>&1; then
+    if systemctl is-active --quiet tetragon 2>/dev/null; then
+      tetra_state="active"
+    else
+      tetra_state="installed but inactive"
+    fi
+  fi
+  echo "    tetragon:           ${tetra_state}"
+  local guardian_state="not built (R155)"
+  [ -x /usr/local/bin/guardian-core ] && {
+    if systemctl is-active --quiet guardian-core 2>/dev/null; then
+      guardian_state="installed + active"
+    else
+      guardian_state="installed but inactive"
+    fi
+  }
+  echo "    guardian-core:      ${guardian_state}"
+  local policy="absent"
+  [ -f /etc/tetragon/sovereign-perimeter.yaml ] && policy="loaded (sovereign-kernel-fence)"
+  echo "    tetragon policy:    ${policy}"
+}
+
+_trinity_auditor_full() {
+  echo "  [Auditor] — Immutable Gatekeeper (master spec § 17 Module 3, § 10 Native Guardian Loop)"
+  echo
+  echo "  TETRAGON (kernel-level eBPF):"
+  if command -v tetragon >/dev/null 2>&1; then
+    echo "    tetragon binary present"
+    systemctl is-active tetragon 2>/dev/null | sed 's/^/    state: /'
+    systemctl is-enabled tetragon 2>/dev/null | sed 's/^/    boot:  /'
+  else
+    echo "    NOT installed — see scripts/hooks/post-install/tetragon-policy-load.sh"
+  fi
+  echo
+  echo "  POLICY (master spec § 6 — sovereign-kernel-fence):"
+  if [ -f /etc/tetragon/sovereign-perimeter.yaml ]; then
+    echo "    ✓ /etc/tetragon/sovereign-perimeter.yaml present"
+  else
+    echo "    ✗ policy file absent"
+    echo "      apply via: scripts/hooks/post-install/tetragon-policy-load.sh"
+  fi
+  echo
+  echo "  GUARDIAN DAEMON (master spec § 10 — R155, not yet built):"
+  if [ -x /usr/local/bin/guardian-core ]; then
+    echo "    ✓ /usr/local/bin/guardian-core present"
+    systemctl is-active guardian-core 2>/dev/null | sed 's/^/    state: /'
+  else
+    echo "    NOT yet implemented — tracked in R155"
+    echo "    when built: reads /var/run/tetragon/tetragon.events;"
+    echo "    SIGKILL on policy violation via 'podman kill';"
+    echo "    atomic append to /mnt/vault/context/security_audit.log"
+  fi
+  echo
+  echo "  RECENT VIOLATIONS:"
+  if [ -f /mnt/vault/context/security_audit.log ]; then
+    tail -5 /mnt/vault/context/security_audit.log 2>/dev/null | sed 's/^/    /' || \
+      echo "    (audit log empty)"
+  else
+    echo "    audit log not present (security_audit.log)"
+  fi
+  echo
+  echo "  LAYER B METRICS:"
+  echo "    sovereign_os_perimeter_status (1=active, 0=inactive)"
+  echo "    sovereign_os_perimeter_verify_last_run_timestamp"
+}
+
 # ------------------------------ secure-boot ----------------------------------
 #
 # R143 (F-05 MED closure): SDD-015 'signed' posture requires operator-
@@ -3260,6 +3507,7 @@ case "${cmd}" in
   decommission)  cmd_decommission "$@" ;;
   install)       cmd_install "$@" ;;
   secure-boot)   cmd_secure_boot "$@" ;;
+  trinity)       cmd_trinity "$@" ;;
   init)          cmd_init "$@" ;;
   env)           cmd_env "$@" ;;
   inference)     cmd_inference "$@" ;;
