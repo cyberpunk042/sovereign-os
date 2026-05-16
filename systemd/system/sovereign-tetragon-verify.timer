@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily Tetragon TracingPolicy verification
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/recurrent/tetragon-policy-verify.sh
+
+[Timer]
+OnCalendar=*-*-* 04:00:00
+RandomizedDelaySec=900
+Persistent=true
+Unit=sovereign-tetragon-verify.service
+
+[Install]
+WantedBy=timers.target

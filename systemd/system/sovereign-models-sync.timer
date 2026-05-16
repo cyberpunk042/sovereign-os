@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily model catalog integrity check
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/recurrent/model-catalog-sync.sh
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=1800
+Persistent=true
+Unit=sovereign-models-sync.service
+
+[Install]
+WantedBy=timers.target

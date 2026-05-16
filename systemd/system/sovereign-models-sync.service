@@ -1,0 +1,10 @@
+[Unit]
+Description=Verify resident model catalog integrity
+After=zfs.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/sovereign-os/scripts/hooks/recurrent/model-catalog-sync.sh
+TimeoutStartSec=300s
+StandardOutput=journal
+StandardError=journal

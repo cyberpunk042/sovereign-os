@@ -1,0 +1,11 @@
+[Unit]
+Description=Verify Tetragon perimeter policy integrity
+After=tetragon.service
+Requires=tetragon.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/sovereign-os/scripts/hooks/recurrent/tetragon-policy-verify.sh
+TimeoutStartSec=60s
+StandardOutput=journal
+StandardError=journal

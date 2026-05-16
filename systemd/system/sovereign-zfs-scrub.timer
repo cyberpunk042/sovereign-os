@@ -1,0 +1,14 @@
+[Unit]
+Description=Weekly ZFS scrub for sovereign-os tank pool
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/recurrent/zfs-scrub.sh
+
+[Timer]
+# Sunday 02:00 local time; randomize +/- 30 minutes to avoid coincident I/O
+# storms on fleet machines.
+OnCalendar=Sun *-*-* 02:00:00
+RandomizedDelaySec=1800
+Persistent=true
+Unit=sovereign-zfs-scrub.service
+
+[Install]
+WantedBy=timers.target

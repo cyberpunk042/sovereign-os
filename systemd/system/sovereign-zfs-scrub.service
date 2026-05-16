@@ -1,0 +1,14 @@
+[Unit]
+Description=ZFS scrub (weekly)
+After=zfs.target
+Requires=zfs.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/sovereign-os/scripts/hooks/recurrent/zfs-scrub.sh
+# Scrub kicks off async; the script returns once started. Don't hold
+# systemd waiting for the full scrub (can take hours).
+TimeoutStartSec=120s
+# Log to journal
+StandardOutput=journal
+StandardError=journal
