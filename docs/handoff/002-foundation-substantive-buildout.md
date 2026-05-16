@@ -10,9 +10,22 @@ A continuous-direct-push session through 2026-05-16 took sovereign-os
 from "scaffold + charter + initial profiles" to "substantive Stage-2-
 onset deeply built out" with **23 SDDs**, **5 profiles + 6 mixins**,
 9-step build pipeline + 5 lifecycle stages + 6 recurrent hooks, all
-gated by **25 Layer-3 tests** + Layer 1 schema + Layer 2 unit + Layer 1
-hardening lint + shellcheck + Layer B observability emission. Direct
-push to main per operator's authorized workflow.
+gated by **30 Layer-3 tests** + Layer 1 schema + Layer 2 unit + Layer 1
+hardening lint + Layer 1 dashboard lint + Layer 1 metric-lockstep lint
++ shellcheck + Layer B observability emission. Direct push to main per
+operator's authorized workflow.
+
+Three Stage-2+ phases ran in this same session:
+1. **Phase A** (pre-plan-mode, 27 commits): foundation phase + Stage-2-
+   onset. Every PR-1-seed Q-X resolved or partial.
+2. **Phase B** (Rounds 28-36, 9 commits post-plan-approval): substantive
+   build-out — headless profile / repro wiring / kernel short-circuit /
+   systemd hardening / step-02 SHA / whitelabel overlays / inference
+   polish / new recurrent hooks / disk-encryption SDD.
+3. **Phase C** (Rounds 37-43, 7 commits): observability + operator
+   surfaces — handoff refresh / Grafana dashboards + lockstep / image-
+   sign rewrite / 3 new `sovereign-osctl` subcommands (audit provenance,
+   inference health, doctor v2).
 
 **EVERY PR-1-seed open question is closed/partial.** All Q-X items from
 the original docs/decisions.md "Open questions" section are resolved.
@@ -120,7 +133,14 @@ Chronological:
 | `b620667` | Round 34 — inference start-script polish (9th real bug caught: export-vs-shell-var) |
 | `bffec0e` | Round 35 — security-update-check + backup-snapshot recurrent hooks |
 | `cba2b96` | Round 36 — SDD-022 disk encryption posture (Q15-B closure) |
-| `(this)`  | Round 37 — handoff refresh after Stage-2+ Rounds 28-36 |
+| `0eb9d17` | Round 37 — handoff refresh after Rounds 28-36 |
+| `6bb8616` | Round 38 — Grafana JSON dashboard templates (SDD-016 Layer C closure) + lockstep lint |
+| `1ca4b22` | Round 40 — dashboard-vs-emitter metric lockstep gate (L1) |
+| `fab6e60` | Round 39 — image-sign per SDD-015 3-level posture + PK preference |
+| `32dc5c6` | Round 41 — `sovereign-osctl audit provenance` end-to-end |
+| `7923340` | Round 42 — `sovereign-osctl inference health` HTTP probe + TCP fallback |
+| `23cd7d6` | Round 43 — `sovereign-osctl doctor` v2 profile-conditioned multi-section (10th bug caught) |
+| `(this)`  | Round 44 — handoff refresh after Rounds 38-43 |
 
 ## Real bugs caught by L3 discipline (running tally)
 
@@ -135,6 +155,7 @@ Chronological:
 | 7 | `test_decisions_log_sequence.py` regex never matched (silent test gap) | adding 4th decision | `^#{2,3} D-` |
 | 8 | `first-login-assistant.sh` unconditional hostnamectl in containers | `test_first_login_assistant.sh` | graceful fallback: hostnamectl → `/etc/hostname` → log_warn |
 | 9 | inference start scripts: `${VAR:=…}` defaults never exported, inline python3 subshell sees empty `os.environ` → KeyError | `test_inference_start_scripts.sh` | explicit `export PULSE_*` / `LOGIC_*` / `ORACLE_*` after defaults |
+| 10 | `sovereign-osctl doctor` called `profile_field` but never `load_profile` → SOVEREIGN_OS_PROFILE_FILE not exported → all profile-conditioning returned 'unknown'; doctor would apply sain-01 checks to minimal etc. | `test_sovereign_osctl_doctor_v2.sh` | explicit `load_profile "${SOVEREIGN_OS_PROFILE}"` early in cmd_doctor |
 
 ## Layer-3 test inventory (CI gated)
 
@@ -150,14 +171,32 @@ tests/nspawn/
   test_first_login_assistant.sh           # Q-018 idempotency + state
   test_log_rotate.sh                      # recurrent log rotation
   test_observability_lib.sh               # Layer B emit_metric
-  test_inference_router_http.sh           # router HTTP + metrics
+  test_inference_router_http.sh           # router HTTP + metrics + per-tier counter
+  test_inference_start_scripts.sh         # Round 34 — pulse/logic/oracle start polish
   test_install_configs.sh                 # cloud-init + preseed lockstep
   test_mkosi_adapter.sh                   # mkosi substrate emit
   test_live_build_adapter.sh              # live-build substrate emit
   test_whitelabel_render_to_disk.sh       # mkosi whitelabel render
   test_whitelabel_render_live_build.sh    # live-build whitelabel + leak
+  test_whitelabel_overlays_present.sh     # Round 33 — substantive overlays + motd at boot
   test_profile_hooks_resolve.sh           # hook path resolution
   test_sovereign_osctl.sh                 # management CLI surface
+  test_sovereign_osctl_audit_provenance.sh # Round 41 — SDD-019 verification
+  test_sovereign_osctl_inference_health.sh # Round 42 — HTTP /healthz probe
+  test_sovereign_osctl_doctor_v2.sh       # Round 43 — profile-conditioned doctor
+  test_reproducibility_inputs.sh          # Round 29 — SOURCE_DATE_EPOCH/snapshot/sha256sums/in-toto
+  test_kernel_step_short_circuit.sh       # Round 30 — Q18-A substrate-default short-circuit
+  test_kernel_fetch_sha_recording.sh      # Round 32 — step 02 tag pin + SHA recording
+  test_image_sign_gates.sh                # Round 39 — SDD-015 posture gates
+  test_recurrent_new_hooks.sh             # Round 35 — security-update-check + backup-snapshot
+
+tests/lint/
+  test_decisions_log_sequence.py          # D-NNN monotonic + Q-NNN cross-ref
+  test_hook_script_paths.py               # profile.hooks.* paths resolve
+  test_sdd_index_consistency.py           # every SDD file in INDEX.md
+  test_systemd_unit_hardening.py          # Round 31 — every service unit hardened
+  test_dashboard_json_valid.py            # Round 38 — Grafana JSON shape
+  test_dashboard_metrics_lockstep.py      # Round 40 — dashboard ↔ emitter lockstep
 ```
 
 ## SDD index snapshot
