@@ -22,9 +22,14 @@ __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${__SCRIPT_DIR}/../build/lib/common.sh"
 # shellcheck source=../build/lib/observability.sh
 . "${__SCRIPT_DIR}/../build/lib/observability.sh"
+# shellcheck source=../build/lib/runtime-profile.sh
+. "${__SCRIPT_DIR}/../build/lib/runtime-profile.sh"
 
 STEP_ID="inference-logic-engine"
 TIER="logic_engine"
+
+# R151: honor active runtime profile § 18 logic-tier allocation
+runtime_profile_override LOGIC_MODEL logic model
 
 : "${SOVEREIGN_OS_LOGIC_BACKEND:=vllm}"
 : "${LOGIC_MODEL:=/mnt/vault/models/qwen3-coder}"
@@ -35,6 +40,7 @@ TIER="logic_engine"
 export SOVEREIGN_OS_LOGIC_BACKEND LOGIC_MODEL LOGIC_HOST LOGIC_PORT
 
 log_step_header "${STEP_ID}" "start Logic Engine (backend=${SOVEREIGN_OS_LOGIC_BACKEND}, RTX 3090 VFIO)"
+runtime_profile_log_active
 
 emit_start_metric() {
   emit_metric sovereign_os_inference_backend_start_total 1 \

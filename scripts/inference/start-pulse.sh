@@ -32,11 +32,20 @@ __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${__SCRIPT_DIR}/../build/lib/common.sh"
 # shellcheck source=../build/lib/observability.sh
 . "${__SCRIPT_DIR}/../build/lib/observability.sh"
+# shellcheck source=../build/lib/runtime-profile.sh
+. "${__SCRIPT_DIR}/../build/lib/runtime-profile.sh"
 
 STEP_ID="inference-pulse"
 TIER="pulse"
 
 : "${SOVEREIGN_OS_PROFILE:=sain-01}"
+
+# R151: honor active runtime profile (master spec § 18) for core_mask +
+# model when the operator hasn't pre-set the env var. Operator-set env
+# vars ALWAYS WIN — the runtime profile only fills gaps.
+runtime_profile_override PULSE_AFFINITY pulse core_mask
+runtime_profile_override PULSE_MODEL    pulse model
+
 : "${PULSE_MODEL:=/mnt/vault/models/microsoft__bitnet-b1.58-2B-4T}"
 : "${PULSE_HOST:=127.0.0.1}"
 : "${PULSE_PORT:=8081}"
@@ -49,6 +58,7 @@ TIER="pulse"
 export PULSE_MODEL PULSE_HOST PULSE_PORT PULSE_AFFINITY PULSE_THREADS PULSE_CTX BITNET_BIN
 
 log_step_header "${STEP_ID}" "start Pulse (bitnet.cpp, CCD 0 cores ${PULSE_AFFINITY})"
+runtime_profile_log_active
 
 emit_start_metric() {
   emit_metric sovereign_os_inference_backend_start_total 1 \

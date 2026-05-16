@@ -24,6 +24,7 @@ runtime_profile:
 
   allocations:
     - agent_id: synthesizer_01
+      tier: oracle
       target_hardware: cuda:0,cuda:1
       tensor_parallel_size: 2
       pipeline_parallel_size: 1

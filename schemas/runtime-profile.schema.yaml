@@ -55,6 +55,10 @@ properties:
             agent_id:
               type: string
               pattern: '^[a-z][a-z0-9_-]*$'
+            tier:
+              description: Maps allocation → inference router tier (start scripts look it up)
+              type: string
+              enum: [pulse, logic, oracle, router]
             target_hardware:
               # cpu | cuda:N | cuda:0,cuda:1 etc.
               type: string

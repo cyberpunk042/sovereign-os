@@ -24,6 +24,7 @@ runtime_profile:
 
   allocations:
     - agent_id: conductor_01
+      tier: pulse
       target_hardware: cpu
       core_mask: "0-11"
       engine: bitnet.cpp
@@ -35,6 +36,7 @@ runtime_profile:
           --threads 12 --memory-f32
 
     - agent_id: translator_01
+      tier: logic
       target_hardware: cuda:0
       vram_limit_bytes: 22548578304   # 21 GB (Qwen-32B-Ternary fits in 24GB 3090)
       engine: vllm-vulkan
@@ -47,6 +49,7 @@ runtime_profile:
           --max-model-len 32768
 
     - agent_id: deep_reasoner_01
+      tier: oracle
       target_hardware: cuda:1
       vram_limit_bytes: 94489280512   # 88 GB (DeepSeek-R1-70B FP16 fits in 96GB Blackwell)
       engine: llama.cpp

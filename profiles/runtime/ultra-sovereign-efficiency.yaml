@@ -22,6 +22,7 @@ runtime_profile:
 
   allocations:
     - agent_id: conductor_01
+      tier: pulse
       target_hardware: cpu
       core_mask: "0-7"
       engine: bitnet.cpp
