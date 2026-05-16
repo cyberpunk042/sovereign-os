@@ -21,7 +21,7 @@ bootstrap + `scripts/git-hooks/pre-commit` runs L1 + profile + L3
 fast-sample before every commit. Direct push to main per operator's
 authorized workflow.
 
-Five Stage-2+ phases ran in this same session:
+Six Stage-2+ phases ran in this same session:
 1. **Phase A** (pre-plan-mode, 27 commits): foundation phase + Stage-2-
    onset. Every PR-1-seed Q-X resolved or partial.
 2. **Phase B** (Rounds 28-36, 9 commits post-plan-approval): substantive
@@ -42,6 +42,14 @@ Five Stage-2+ phases ran in this same session:
    smoke across all profiles, provenance Layer 2 unit, bugs-caught
    ledger doc, runbook §7 expansion for all 4 non-sain-01 profiles,
    README + CHANGELOG operator-facing refresh.
+6. **Phase F** (Rounds 62-77, 16 commits): sovereign-osctl depth +
+   Layer B parity across entire lifecycle — sovereign-osctl deepening
+   (models size/remove + whitelabel diff + maintenance 8-subverb +
+   assistant 4-subverb + version --json + dispatch-surface gate +
+   model-catalog-sync substantive); Layer B parity for all 4 during-
+   install hooks + all 7 non-assistant post-install hooks; 3rd Grafana
+   dashboard (install lifecycle); root Makefile operator surface +
+   L1 lint gate + L3 execution gate; 11th wiring bug caught.
 
 **EVERY PR-1-seed open question is closed/partial.** All Q-X items from
 the original docs/decisions.md "Open questions" section are resolved.
@@ -173,7 +181,24 @@ Chronological:
 | `be6891f` | Round 58 — install-runbook §7 expanded for all 4 non-sain-01 profiles |
 | `54aab57` | Round 59 — README captures the substantive current state |
 | `5864152` | Round 60 — CHANGELOG.md anchors Stage-2-onset state |
-| `(this)`  | Round 61 — handoff refresh after Rounds 54-60 (mature documentation surface) |
+| `629b0fe` | Round 61 — handoff refresh after Rounds 54-60 |
+| **Phase F (Rounds 62-76, 15 commits): sovereign-osctl depth + Layer B parity + ops surface** | |
+| `b6d62d3` | Round 62 — sovereign-osctl models size/remove (11th bug caught) |
+| `f5853a6` | Round 63 — model-catalog-sync substantive (manifest verification) |
+| `f171a72` | Round 64 — sovereign-osctl version --json (fleet integration) |
+| `9db56be` | Round 65 — whitelabel diff verb |
+| `cc10ead` | Round 66 — maintenance 8-subverb surface |
+| `c71f9c8` | Round 67 — assistant full/status/reset/list |
+| `38838e6` | Round 68 — dispatch-surface comprehensive L3 |
+| `f56e643` | Round 69 — during-install Layer B (rootfs-format + pool-create) |
+| `f3c972e` | Round 70 — during-install Layer B (datasets-create + mok-enroll) |
+| `074b696` | Round 71 — post-install Layer B (friction-audit + vfio-bind + arc-clamp + tetragon) |
+| `3f8ddb2` | Round 72 — post-install Layer B (network-vlan + nvidia-bind + shell-setup) |
+| `9f6aca5` | Round 73 — sovereign-os-install Grafana dashboard (3rd template) |
+| `7bb4518` | Round 74 — root Makefile operator surface |
+| `65827a6` | Round 75 — Makefile L1 lint gate + README make-verbs |
+| `c2e896f` | Round 76 — Makefile L3 execution gate |
+| `(this)`  | Round 77 — handoff refresh after Phase F (sovereign-osctl + Layer B + Makefile fully mature) |
 
 ## Real bugs caught by L3 discipline (running tally)
 
