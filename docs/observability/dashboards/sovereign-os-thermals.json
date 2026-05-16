@@ -1,0 +1,153 @@
+{
+  "_comment": "sovereign-os thermals dashboard (R176). Operator imports into Grafana via Settings → JSON Model. Metrics emitted by scripts/hardware/thermal-watch.py (R172) via the sovereign-thermal-watch.timer 5-min tick, written to the node_exporter textfile collector. Cross-repo provenance: selfdef SD-R17 (per-sensor probe) + selfdef SD-R22 (daemon-side periodic loop with OCSF event emission) emit the same time series when selfdef-daemon is also installed and [hardware_probe] is enabled.",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Last thermal-watch tick (age)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "time() - sovereign_os_thermal_last_run_unix", "refId": "A"}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green"},
+              {"color": "yellow", "value": 600},
+              {"color": "red", "value": 1800}
+            ]
+          }
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "Sensors at WARN+CRITICAL",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sovereign_os_thermal_breach_total", "refId": "A"}],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green"},
+              {"color": "yellow", "value": 1},
+              {"color": "red", "value": 3}
+            ]
+          }
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "Hottest sensor (°C)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "max(sovereign_os_thermal_celsius)", "refId": "A"}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green"},
+              {"color": "yellow", "value": 75},
+              {"color": "red", "value": 90}
+            ]
+          }
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "CRITICAL count",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_thermal_severity{level=\"critical\"})", "refId": "A"}],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green"},
+              {"color": "red", "value": 1}
+            ]
+          }
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "Per-sensor temperature (°C)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sovereign_os_thermal_celsius", "refId": "A", "legendFormat": "{{sensor}}"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "custom": {"drawStyle": "line", "lineWidth": 1, "fillOpacity": 0}
+        }
+      },
+      "gridPos": {"h": 9, "w": 24, "x": 0, "y": 4}
+    },
+    {
+      "type": "table",
+      "title": "Current sensor status",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sovereign_os_thermal_celsius", "refId": "C", "instant": true, "format": "table", "legendFormat": "{{sensor}}"},
+        {"expr": "sovereign_os_thermal_severity == 1", "refId": "S", "instant": true, "format": "table", "legendFormat": "{{sensor}} {{level}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 13}
+    },
+    {
+      "type": "timeseries",
+      "title": "Sensors breaching thresholds (rolling)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sovereign_os_thermal_breach_total", "refId": "A", "legendFormat": "breaching sensors"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10}
+        }
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 13}
+    },
+    {
+      "type": "timeseries",
+      "title": "Selfdef daemon hardware probe (SD-R22 — when [hardware_probe].enabled)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sovereign_os_selfdef_hardware_thermal_celsius", "refId": "A", "legendFormat": "{{sensor}}"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "custom": {"drawStyle": "line", "lineWidth": 1, "fillOpacity": 0}
+        }
+      },
+      "gridPos": {"h": 9, "w": 24, "x": 0, "y": 21}
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 38,
+  "tags": ["sovereign-os", "thermals", "R176", "hardware"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timepicker": {},
+  "timezone": "",
+  "title": "Sovereign-OS — Thermal observability (R176)",
+  "uid": "sovereign-os-thermals-r176",
+  "version": 1,
+  "weekStart": ""
+}

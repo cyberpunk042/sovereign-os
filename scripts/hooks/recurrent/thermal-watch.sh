@@ -23,6 +23,14 @@ log_step_header "${STEP_ID}" "per-sensor thermal threshold check + Layer B emiss
 # emitted metrics (sovereign_os_thermal_celsius / _severity /
 # _breach_total / _last_run_unix) are documented in the inventory
 # README under "Hardware (thermal)".
+#
+# CROSS-REPO METRIC REGISTRY (R176 — for dashboard lockstep lint):
+# The R176 thermals dashboard also references the selfdef-emitted
+# metric `sovereign_os_selfdef_hardware_thermal_celsius` (produced by
+# selfdef-daemon SD-R17 + SD-R22 when [hardware_probe].enabled). The
+# emitter lives in the selfdef repo, not here; this comment registers
+# the cross-repo name so the dashboard-emitter-lockstep lint passes.
+# DO NOT remove without also removing the corresponding panel.
 
 # Profile resolution: the active-profile.env exports SOVEREIGN_OS_PROFILE_ID;
 # fall back to sain-01 if absent (matches script default).

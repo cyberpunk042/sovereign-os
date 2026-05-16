@@ -16,6 +16,7 @@ the load-bearing piece — dashboards are convenience.
 | `sovereign-os-overview.json` | sovereign-os overview | Pipeline last-run · per-tier inference counters · ZFS health · perimeter status · build step duration · log rotation · snapshots · pending security updates — at-a-glance health |
 | `sovereign-os-inference.json` | sovereign-os inference | Per-tier route rate + cumulative · last decision age · backend start success/fail/skip counts |
 | `sovereign-os-install.json` | sovereign-os install lifecycle | during-install + post-install audit: rootfs-format · pool-create · datasets-create · MOK enroll · friction-audit failures/warnings · VFIO bind · NVIDIA bind · ARC max bytes · Tetragon policy · network VLAN · shell setup · image-sign per posture · friction-audit last-run age |
+| `sovereign-os-thermals.json` | sovereign-os thermal observability (R176) | last-tick age · breach_total · hottest sensor · critical count · per-sensor time series · current-status table · breach-count rolling chart · selfdef-daemon hardware probe panel (when SD-R22 [hardware_probe].enabled) |
 
 ## Import (one-time, per dashboard)
 
