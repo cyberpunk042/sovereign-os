@@ -108,17 +108,89 @@ cmd_reset() {
 }
 
 cmd_rewind() {
-  local from="$1"
-  log_warn "rewind not yet implemented — manual edit ${SOVEREIGN_OS_STATE_FILE} OR use 'reset'"
-  log_warn "tracked in Q9-? for the harness PR; placeholder for now"
-  return 1
+  local from="${1:-}"
+  if [ -z "${from}" ]; then
+    log_error "usage: orchestrate.sh rewind <step-id>"
+    log_error "  marks <step-id> + all later steps as pending; next 'run' re-executes from <step-id>"
+    log_error "  step IDs: $(IFS=,; echo "${STEPS[*]}")"
+    return 2
+  fi
+
+  # Validate the step name
+  local found=0 idx
+  for idx in "${!STEPS[@]}"; do
+    if [ "${STEPS[$idx]}" = "${from}" ]; then
+      found=1
+      break
+    fi
+  done
+  if [ "${found}" -eq 0 ]; then
+    log_error "unknown step: ${from} (valid: ${STEPS[*]})"
+    return 2
+  fi
+
+  state_init
+
+  # Confirm — rewind is reversible (just re-runs steps) but destroys
+  # state-history for the rewound range. SOVEREIGN_OS_ASSUME_YES=1
+  # bypasses the prompt for scripted invocations.
+  if [ "${SOVEREIGN_OS_ASSUME_YES:-}" != "1" ]; then
+    if ! confirm "Rewind from ${from} (and all later steps) to pending state?" default-no; then
+      log_info "rewind cancelled"
+      return 0
+    fi
+  fi
+
+  # Strip every step from <from> onward out of state.yaml. Steps NOT in
+  # state.yaml are 'pending' by default (state_step_status returns
+  # 'pending' when the step entry is absent).
+  local removed=0
+  for ((i = idx; i < ${#STEPS[@]}; i++)); do
+    local s="${STEPS[$i]}"
+    # Same sed pattern state_step_start uses to wipe a step entry.
+    sed -i "/^  ${s}:/,/^  [a-z]/{ /^  ${s}:/d ; /^  [a-z]/!d ; }" "${SOVEREIGN_OS_STATE_FILE}" 2>/dev/null || true
+    log_info "  rewound: ${s} → pending"
+    removed=$((removed + 1))
+  done
+
+  log_info "rewind complete — ${removed} step(s) marked pending"
+  log_info "  next 'orchestrate.sh run' will re-execute from ${from}"
 }
 
 cmd_skip() {
-  local step="$1"
-  log_warn "skip not yet implemented — manual edit ${SOVEREIGN_OS_STATE_FILE}"
-  log_warn "placeholder for now; tracked alongside rewind"
-  return 1
+  local step="${1:-}"
+  if [ -z "${step}" ]; then
+    log_error "usage: orchestrate.sh skip <step-id>"
+    log_error "  marks <step-id> as completed WITHOUT running it"
+    log_error "  step IDs: $(IFS=,; echo "${STEPS[*]}")"
+    return 2
+  fi
+
+  # Validate the step name
+  local found=0
+  local s
+  for s in "${STEPS[@]}"; do
+    [ "${s}" = "${step}" ] && found=1
+  done
+  if [ "${found}" -eq 0 ]; then
+    log_error "unknown step: ${step} (valid: ${STEPS[*]})"
+    return 2
+  fi
+
+  state_init
+
+  if [ "${SOVEREIGN_OS_ASSUME_YES:-}" != "1" ]; then
+    if ! confirm "Mark ${step} as completed (skip its body)?" default-no; then
+      log_info "skip cancelled"
+      return 0
+    fi
+  fi
+
+  # Pretend the step started + completed with a sentinel inputs_hash
+  state_step_start "${step}" "skipped-by-operator"
+  state_step_complete "${step}"
+  log_info "  ${step} marked completed (skipped — body not executed)"
+  log_info "  next 'orchestrate.sh run' will move past ${step}"
 }
 
 cmd_preflight() {

@@ -172,6 +172,9 @@ jobs:
       - name: nspawn — image-build dispatch (Round 46: step 07 mkosi/lb runners + DRY_RUN + Layer B)
         run: |
           tests/nspawn/test_image_build_dispatch.sh
+      - name: nspawn — orchestrator rewind + skip (Round 51: state-machine ops)
+        run: |
+          tests/nspawn/test_orchestrator_rewind_skip.sh
 
   shellcheck:
     name: shellcheck
