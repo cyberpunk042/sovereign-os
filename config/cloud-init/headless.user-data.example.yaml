@@ -1,0 +1,83 @@
+#cloud-config
+# sovereign-os unattended install — headless profile
+#
+# Bare-metal headless server install. Boots to ssh + journald +
+# auditd + fail2ban + chrony ready. No GUI. Operator manages via
+# ssh + sovereign-osctl.
+
+hostname: sovereign-headless
+fqdn: sovereign-headless.local
+manage_etc_hosts: localhost
+
+users:
+  - name: operator
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: [adm, sudo, podman, systemd-journal]
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAA<REPLACE-WITH-OPERATOR-PUBLIC-KEY> operator@example
+    lock_passwd: true
+
+locale: en_US.UTF-8
+timezone: UTC
+
+write_files:
+  - path: /etc/sovereign-os/active-profile.env
+    content: |
+      SOVEREIGN_OS_PROFILE=headless
+      SOVEREIGN_OS_LOG_LEVEL=info
+    permissions: '0644'
+
+  - path: /etc/sovereign-os/active-profile
+    content: headless
+    permissions: '0644'
+
+  - path: /etc/sovereign-os/active-whitelabel
+    content: default
+    permissions: '0644'
+
+  # SSH hardening — server-class default. Operator can soften if needed.
+  - path: /etc/ssh/sshd_config.d/sovereign-headless.conf
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+      PubkeyAuthentication yes
+      X11Forwarding no
+      AllowTcpForwarding no
+      ClientAliveInterval 300
+      ClientAliveCountMax 2
+    permissions: '0644'
+
+  # unattended-upgrades — security-only by default; operator can broaden
+  - path: /etc/apt/apt.conf.d/50sovereign-unattended-upgrades.conf
+    content: |
+      Unattended-Upgrade::Origins-Pattern {
+        "origin=Debian,codename=${distro_codename}-security,label=Debian-Security";
+      };
+      Unattended-Upgrade::Automatic-Reboot "false";
+      Unattended-Upgrade::Remove-Unused-Dependencies "true";
+    permissions: '0644'
+
+package_update: false
+package_upgrade: false
+
+runcmd:
+  # Enable first-boot target
+  - [systemctl, enable, --now, sovereign-firstboot.target]
+  # Enable server-class default services
+  - [systemctl, enable, --now, auditd]
+  - [systemctl, enable, --now, fail2ban]
+  - [systemctl, enable, --now, chrony]
+  - [systemctl, enable, --now, unattended-upgrades]
+  # Reload sshd to pick up hardening conf
+  - [systemctl, reload, ssh]
+  - [sh, -c, 'echo "$(date -u --iso-8601=seconds) cloud-init unattended install complete" >> /var/lib/sovereign-os/cloud-init.log']
+
+final_message: |
+  sovereign-os headless server install complete.
+
+  ssh in as: operator@<host>
+  status:    sovereign-osctl status
+  audit:     journalctl -u auditd
+  bans:      fail2ban-client status
+  time:      chronyc tracking

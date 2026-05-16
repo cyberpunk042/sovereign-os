@@ -21,7 +21,7 @@ at a specific PR and produces a `D-NNN` entry in the decisions log.
 | Q-009 | SAIN-01 hardware procurement timeline | operator-side | open |
 | Q-010 | CI infrastructure (GHA · self-hosted) | PR 3 + PR 10 | **resolved (SDD-020, 2026-05-16)** — GitHub Actions only for foundation phase; self-hosted deferred (hardware-conformance only) |
 | Q-011 | Cross-repo commit-pinning posture | PR 2 (partial) + CI-guard PR (final) | partial (per-artifact rule locked in SDD-001) |
-| Q-012 | Future-profile timeline (`minimal` · `developer` · `headless`) | Stage 2+ | **partial (2/3)** — `minimal` + `developer` substantively landed; `headless` (bare-metal server-class) remains reserved until concrete operator need |
+| Q-012 | Future-profile timeline (`minimal` · `developer` · `headless`) | Stage 2+ | **resolved (3/3, 2026-05-16)** — all three slots filled: `minimal` (VM baseline) + `developer` (polyglot toolchain) + `headless` (bare-metal server with auditd/fail2ban/chrony) |
 | Q-013 | Observability bindings | Stage 2+ | **resolved (SDD-016, 2026-05-16)** — 3-layer stack: JSONL logs (shipped) + Prometheus textfile collector contract (locked, emission Stage 2+) + sovereign-osctl + Grafana JSON templates (deferred). Local-default sovereignty. |
 | Q-014 | Decommission / wipe testing scope | PR 9/10 | **resolved (SDD-014, 2026-05-16)** — gates tested in Layer 3; destruction in Layer 5 only (operator-driven) |
 | Q-015 | Reproducibility target | PR 4 (substrate constrains) | **resolved (SDD-019, 2026-05-16)** — strong build-reproducibility (mkosi image + kernel + whitelabel + substrate emit) given pinned inputs; signed artifacts intentionally not cross-operator bit-identical |

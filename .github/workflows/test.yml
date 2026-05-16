@@ -77,6 +77,7 @@ jobs:
           tests/nspawn/test_profile_hooks_resolve.sh old-workstation
           tests/nspawn/test_profile_hooks_resolve.sh minimal
           tests/nspawn/test_profile_hooks_resolve.sh developer
+          tests/nspawn/test_profile_hooks_resolve.sh headless
       - name: nspawn — orchestrator status surface
         run: |
           tests/nspawn/test_orchestrator_status.sh
@@ -92,6 +93,7 @@ jobs:
           tests/nspawn/test_mkosi_adapter.sh old-workstation
           tests/nspawn/test_mkosi_adapter.sh minimal
           tests/nspawn/test_mkosi_adapter.sh developer
+          tests/nspawn/test_mkosi_adapter.sh headless
       - name: nspawn — live-build adapter (ALT-A substrate + substrate-agnosticism)
         run: |
           tests/nspawn/test_live_build_adapter.sh sain-01
@@ -105,12 +107,14 @@ jobs:
           tests/nspawn/test_orchestrator_dry_run.sh old-workstation
           tests/nspawn/test_orchestrator_dry_run.sh minimal
           tests/nspawn/test_orchestrator_dry_run.sh developer
+          tests/nspawn/test_orchestrator_dry_run.sh headless
       - name: nspawn — orchestrator preflight (pre-install lifecycle hooks)
         run: |
           tests/nspawn/test_orchestrator_preflight.sh sain-01
           tests/nspawn/test_orchestrator_preflight.sh old-workstation
           tests/nspawn/test_orchestrator_preflight.sh minimal
           tests/nspawn/test_orchestrator_preflight.sh developer
+          tests/nspawn/test_orchestrator_preflight.sh headless
       - name: nspawn — install configs lockstep (SDD-013 Q-008 gate)
         run: |
           tests/nspawn/test_install_configs.sh

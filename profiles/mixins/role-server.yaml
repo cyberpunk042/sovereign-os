@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=../../schemas/mixin.schema.yaml
+#
+# role-server mixin — bare-metal headless-server contribution.
+# Composed into profiles/headless.yaml.
+#
+# Differs from role-headless (minimal VM baseline):
+#   - role-headless: VM/embedded; minimal base; no auditd; cloud-init driven
+#   - role-server:   bare-metal server; auditd + fail2ban + unattended-upgrades;
+#                    ssh hardening; chrony for time; full logging surface
+
+schema_version: "1.0.0"
+
+mixin:
+  id: role-server
+  description: |
+    Bare-metal headless-server role: audit logging, intrusion
+    detection, automatic security-only upgrades, hardened SSH,
+    time sync, journald persistence.
+
+packages:
+  base:
+    - openssh-server
+    - sudo
+    - ca-certificates
+    - curl
+    - jq
+    - rsync
+    - tmux
+
+  role:
+    server:
+      # Audit + intrusion
+      - auditd
+      - audispd-plugins
+      - fail2ban
+      # Time sync — critical for any server
+      - chrony
+      # Automatic security updates only
+      - unattended-upgrades
+      - apt-listchanges
+      # Logging
+      - rsyslog
+      - logrotate
+      # Operational utilities
+      - htop
+      - iotop
+      - sysstat
+      - lsof
+      - tcpdump
+      # Container runtime for service workloads
+      - podman
+
+  deny:
+    # Reject phone-home defaults + GUI bits
+    - popularity-contest
+    - apport
+    - whoopsie
+    - snapd
+    - ubuntu-advantage-tools
+    - xserver-common
+    - gdm3
+    - plymouth-themes
+    - network-manager     # systemd-networkd is the server-class choice
+
+hooks:
+  post_install_first_boot:
+    - id: friction-audit-runtime
+      type: validation
+      script: scripts/hooks/post-install/friction-audit-runtime.sh
+      mandatory: false

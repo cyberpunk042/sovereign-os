@@ -1,0 +1,174 @@
+# yaml-language-server: $schema=../schemas/profile.schema.yaml
+#
+# headless — bare-metal headless-server profile.
+#
+# Q-012 future-profile slot 3/3 (after minimal + developer). Closes
+# Q-012 fully.
+#
+# Contrast with minimal:
+#   minimal:  VM-baseline, 2c/4t, 4GB, virtio-blk, ext4, no audit
+#   headless: bare-metal server, 8c/16t, 32GB, nvme + redundant data
+#             drive, auditd + fail2ban + unattended-upgrades + chrony
+
+schema_version: "1.0.0"
+
+mixins:
+  - role-server
+  - whitelabel-default
+  - observability-tier-1
+
+identity:
+  id: headless
+  name: "Headless Server"
+  version: "0.1.0"
+  parent: null
+  status: draft
+  maintainer: cyberpunk042
+  description: |
+    Bare-metal headless server profile. Target: operator-class server
+    (8+ cores, 32+ GB RAM, redundant storage). Boots to ssh + journald
+    + auditd + fail2ban + chrony ready. No GUI, no AI workstation
+    coupling, no VFIO. Operator manages via ssh + sovereign-osctl.
+
+hardware:
+  cpu:
+    architecture: x86_64
+    family: generic
+    march: x86-64-v3
+    features:
+      required:
+        - sse4_2
+        - avx2
+      preferred:
+        - avx
+        - fma
+        - bmi2
+        - aes
+    cores:
+      physical: 8
+      threads: 16
+      topology: monolithic
+
+  gpu: []          # headless = no display GPU
+
+  memory:
+    minimum_gb: 16
+    target_gb: 32
+    type: ddr4
+    ecc: true       # server-class default — ECC preferred
+
+  storage:
+    layout: ext4
+    devices:
+      - role: rootfs
+        type: nvme-pcie-4
+        count: 1
+        topology: single
+      - role: data
+        type: sata-ssd
+        count: 2
+        topology: raid1     # server-class default: redundancy on data
+
+  network:
+    - role: lan
+      speed_gbps: 1
+      default_gateway: true
+
+  motherboard:
+    vendor: generic
+    model: "server-class motherboard"
+    bios_pinned: false
+
+kernel:
+  source: substrate-default
+  version_minimum: "6.1"
+  packaging: substrate-default
+  config:
+    enable: []
+    require_microcode: none
+  cmdline:
+    base:
+      - quiet
+      - splash
+    secure_boot: signed     # server-class default — owned chain
+
+packages:
+  base:
+    - openssh-server
+    - sudo
+    - ca-certificates
+    - curl
+  profile:
+    - apt-utils
+    - software-properties-common
+    - lsb-release
+  deny:
+    - popularity-contest
+    - apport
+    - whoopsie
+    - snapd
+    - ubuntu-advantage-tools
+
+hooks:
+  pre_install:
+    - id: friction-audit-spec
+      type: validation
+      script: scripts/hooks/pre-install/friction-audit-spec.sh
+      mandatory: true
+    - id: preflight-network
+      type: validation
+      script: scripts/hooks/pre-install/preflight-network.sh
+      mandatory: true
+    - id: preflight-storage
+      type: validation
+      script: scripts/hooks/pre-install/preflight-storage.sh
+      mandatory: true
+    - id: preflight-tpm
+      type: validation
+      script: scripts/hooks/pre-install/preflight-tpm.sh
+      mandatory: true
+
+  during_install:
+    - id: rootfs-format
+      type: setup
+      script: scripts/hooks/during-install/rootfs-format-ext4.sh
+      mandatory: true
+
+  post_install_first_boot:
+    - id: friction-audit-runtime
+      type: validation
+      script: scripts/hooks/post-install/friction-audit-runtime.sh
+      mandatory: false
+    # No first-login-assistant: server boots to ready state; operator
+    # logs in via ssh + uses sovereign-osctl.
+
+  decommission:
+    - id: secure-wipe
+      type: cleanup
+      script: scripts/hooks/decommission/secure-wipe.sh
+      mandatory: true
+
+lifecycle:
+  evolution_policy: replaceable
+  supported_substrate:
+    - "mkosi >= 23.0"
+    - "live-build >= 20240101"
+  supported_kernel:
+    - "6.1.x"
+    - "6.6.x"
+    - "6.12.x"
+  deprecation_target: null
+  successor_profile: null
+
+whitelabel:
+  profile: default
+  surfaces:
+    - all
+  legal_compliance: dfsg-only
+
+observability:
+  telemetry_sink: prometheus-local
+  log_retention_days: 30
+  audit_hooks:
+    install: ~/.sovereign-os/log/install-${EPOCH}.log
+    build: .sovereign-os-build/log/build-${EPOCH}.log
