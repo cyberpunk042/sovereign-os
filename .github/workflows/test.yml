@@ -148,6 +148,9 @@ jobs:
       - name: nspawn — whitelabel overlays substantive (Round 33: plymouth + grub themes carry operator motd)
         run: |
           tests/nspawn/test_whitelabel_overlays_present.sh
+      - name: nspawn — inference start scripts (Round 34: argv shape + Layer B metrics + idempotency)
+        run: |
+          tests/nspawn/test_inference_start_scripts.sh
 
   shellcheck:
     name: shellcheck
