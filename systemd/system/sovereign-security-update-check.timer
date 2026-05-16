@@ -1,0 +1,13 @@
+[Unit]
+Description=Daily sovereign-os security-update availability check
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/recurrent/security-update-check.sh
+
+[Timer]
+# Daily 04:15 local + jitter; lighter cadence than log-rotate (03:30)
+OnCalendar=*-*-* 04:15:00
+RandomizedDelaySec=1800
+Persistent=true
+Unit=sovereign-security-update-check.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,18 @@
+[Unit]
+Description=sovereign-os daily ZFS snapshot of state-fabric (tank/context)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/recurrent/backup-snapshot.sh
+After=zfs.target
+Requires=zfs.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/sovereign-os/scripts/hooks/recurrent/backup-snapshot.sh
+TimeoutStartSec=300s
+StandardOutput=journal
+StandardError=journal
+# Defense-in-depth — zfs operations need /sys + /dev/zfs; script
+# writes metrics under textfile_collector
+ProtectSystem=strict
+ReadWritePaths=/var/lib/node_exporter/textfile_collector /var/lib/sovereign-os
+NoNewPrivileges=true
+PrivateTmp=true

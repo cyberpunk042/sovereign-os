@@ -1,0 +1,14 @@
+[Unit]
+Description=Daily sovereign-os state-fabric snapshot
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/recurrent/backup-snapshot.sh
+
+[Timer]
+# Daily 02:30 local + jitter — before the 03:30 log-rotate so snapshot
+# captures pre-rotation state
+OnCalendar=*-*-* 02:30:00
+RandomizedDelaySec=1800
+Persistent=true
+Unit=sovereign-backup-snapshot.service
+
+[Install]
+WantedBy=timers.target
