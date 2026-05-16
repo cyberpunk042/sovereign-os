@@ -9,6 +9,7 @@ exactly where the project sits and what to do next.
 | 2026-05-16 | [001-architecture-baseline.md](001-architecture-baseline.md) | (none — first) |
 | 2026-05-16 | [002-foundation-substantive-buildout.md](002-foundation-substantive-buildout.md) | 001 |
 | 2026-05-16 | [003-operator-observability-arc.md](003-operator-observability-arc.md) | 002 |
+| 2026-05-16 | [004-operator-friction-audit.md](004-operator-friction-audit.md) | (companion to 003 — honest critical review of operator-journey friction) |
 
 Handoffs land at:
 
