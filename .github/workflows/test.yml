@@ -202,6 +202,9 @@ jobs:
       - name: nspawn — sovereign-osctl lib-path detection (Round 82: 5-candidate lookup)
         run: |
           tests/nspawn/test_sovereign_osctl_lib_paths.sh
+      - name: nspawn — reproducibility self-test (Round 84: byte-identical outputs + 13th bug)
+        run: |
+          tests/nspawn/test_reproducibility_self_test.sh sain-01
 
   shellcheck:
     name: shellcheck
