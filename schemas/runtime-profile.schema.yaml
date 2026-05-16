@@ -1,0 +1,117 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://github.com/cyberpunk042/sovereign-os/schemas/runtime-profile.schema.yaml"
+title: sovereign-os runtime-profile schema
+description: |
+  Schema for a runtime profile YAML at `profiles/runtime/<id>.yaml`.
+  Runtime profiles materialize master spec § 18 — 3 explicit modes the
+  operator can pick after install. Selection drives core pinning,
+  inference backend deployment, GPU power states, and observability.
+
+type: object
+required:
+  - schema_version
+  - runtime_profile
+
+properties:
+  schema_version:
+    type: string
+    pattern: '^\d+\.\d+\.\d+$'
+
+  runtime_profile:
+    type: object
+    required:
+      - id
+      - name
+      - description
+      - hardware_profile_compat
+      - allocations
+    properties:
+      id:
+        type: string
+        pattern: '^[a-z][a-z0-9-]*$'
+      name:
+        type: string
+      description:
+        type: string
+        minLength: 30
+      hardware_profile_compat:
+        type: array
+        items:
+          type: string
+          pattern: '^[a-z][a-z0-9-]*$'
+        minItems: 1
+
+      allocations:
+        type: array
+        minItems: 1
+        items:
+          type: object
+          required:
+            - agent_id
+            - target_hardware
+            - engine
+            - model
+          properties:
+            agent_id:
+              type: string
+              pattern: '^[a-z][a-z0-9_-]*$'
+            target_hardware:
+              # cpu | cuda:N | cuda:0,cuda:1 etc.
+              type: string
+              pattern: '^(cpu|cuda:[0-9](,cuda:[0-9])*)$'
+            core_mask:
+              # taskset-compatible (0-7 or 0,1,2,3 etc.)
+              type: string
+            vram_limit_bytes:
+              type: integer
+              minimum: 0
+            tensor_parallel_size:
+              type: integer
+              minimum: 1
+            pipeline_parallel_size:
+              type: integer
+              minimum: 1
+            gpu_memory_utilization:
+              type: number
+              minimum: 0
+              maximum: 1
+            kv_cache_dtype:
+              type: string
+              enum: [fp8, fp16, bf16, int8]
+            engine:
+              type: string
+              enum: [bitnet.cpp, vllm, vllm-vulkan, llama.cpp]
+            model:
+              type: string
+            runtime_invocation:
+              type: string
+
+      gpu_state:
+        type: object
+        properties:
+          primary:
+            $ref: "#/$defs/gpu-state"
+          secondary:
+            $ref: "#/$defs/gpu-state"
+
+      expected_power_draw_watts:
+        type: object
+        additionalProperties:
+          oneOf:
+            - {type: number, minimum: 0}
+            - {type: string}
+
+      observability:
+        type: object
+        additionalProperties: true
+
+$defs:
+  gpu-state:
+    type: object
+    required: [mode, command]
+    properties:
+      mode:
+        type: string
+        enum: [full-power, persistence-throttled, off]
+      command:
+        type: string

@@ -139,6 +139,10 @@ COMMANDS:
   trinity pulse                     Vector Core layer (AVX-512 · bitnet.cpp · CCD0)
   trinity weaver                    Sandboxed Fabric layer (Podman · VFIO · state fabric · CCD1 0-9)
   trinity auditor                   Immutable Gatekeeper layer (Tetragon · Guardian · always-on)
+  trinity profile list              List runtime profiles (master spec § 18)
+  trinity profile show <id>         Detail a runtime profile (allocations · GPU state · power · observability)
+  trinity profile active            Show the currently-active runtime profile
+  trinity profile switch <id>       Switch to a different runtime profile
 
   env list [--filter <regex>]  List every SOVEREIGN_OS_* env var with its default
                                + the file that consumes it. --filter narrows.
@@ -2446,9 +2450,12 @@ cmd_trinity() {
     auditor)
       _trinity_auditor_full
       ;;
+    profile)
+      _trinity_profile "$@"
+      ;;
     *)
       log_error "unknown trinity subcommand: ${sub}"
-      log_error "  available: status | pulse | weaver | auditor"
+      log_error "  available: status | pulse | weaver | auditor | profile {list,show,active,switch}"
       return 2
       ;;
   esac
@@ -2649,6 +2656,134 @@ _trinity_auditor_full() {
   echo "  LAYER B METRICS:"
   echo "    sovereign_os_perimeter_status (1=active, 0=inactive)"
   echo "    sovereign_os_perimeter_verify_last_run_timestamp"
+}
+
+# Trinity runtime-profile picker (master spec § 18: Ultra-Sovereign /
+# High-Concurrency / Deep Context). YAMLs at `profiles/runtime/*.yaml`;
+# active profile recorded at /etc/sovereign-os/active-runtime-profile
+# (or per-operator fallback at ~/.sovereign-os/active-runtime-profile).
+
+_trinity_profile() {
+  local sub="${1:-list}"
+  shift || true
+  local runtime_dir="${__REPO_ROOT}/profiles/runtime"
+  local active_file="/etc/sovereign-os/active-runtime-profile"
+  [ -w /etc 2>/dev/null ] || active_file="${HOME}/.sovereign-os/active-runtime-profile"
+
+  case "${sub}" in
+    list)
+      if [ ! -d "${runtime_dir}" ]; then
+        log_error "runtime profiles dir missing: ${runtime_dir}"
+        return 1
+      fi
+      echo "  Runtime profiles (master spec § 18):"
+      echo
+      local active=""
+      [ -f "${active_file}" ] && active="$(cat "${active_file}")"
+      for f in "${runtime_dir}"/*.yaml; do
+        [ -f "${f}" ] || continue
+        local id name desc
+        id="$(basename "$f" .yaml)"
+        name="$(grep '^\s*name:' "${f}" | head -1 | sed 's/.*name:\s*//' | tr -d '"')"
+        local marker="  "
+        [ "${id}" = "${active}" ] && marker="* "
+        printf "  %s%-30s %s\n" "${marker}" "${id}" "${name}"
+      done
+      echo
+      echo "  * = currently active"
+      echo "  detail: sovereign-osctl trinity profile show <id>"
+      ;;
+    show)
+      local id="${1:-}"
+      if [ -z "${id}" ]; then
+        log_error "usage: sovereign-osctl trinity profile show <id>"
+        return 2
+      fi
+      local f="${runtime_dir}/${id}.yaml"
+      if [ ! -f "${f}" ]; then
+        log_error "no such runtime profile: ${id}"
+        log_error "  available: $(ls ${runtime_dir}/*.yaml 2>/dev/null | xargs -n1 basename | sed 's/\.yaml//' | tr '\n' ' ')"
+        return 1
+      fi
+      RUNTIME_FILE="${f}" python3 - <<'PY'
+import os, yaml
+with open(os.environ["RUNTIME_FILE"]) as fh:
+    data = yaml.safe_load(fh) or {}
+rp = data.get("runtime_profile", {})
+print(f"  id:            {rp.get('id', '?')}")
+print(f"  name:          {rp.get('name', '?')}")
+print(f"  description:")
+for line in (rp.get('description') or '').splitlines():
+    print(f"    {line}")
+print(f"  hardware compat:  {', '.join(rp.get('hardware_profile_compat', []))}")
+print()
+print(f"  ALLOCATIONS ({len(rp.get('allocations') or [])}):")
+for a in rp.get('allocations') or []:
+    print(f"    {a.get('agent_id', '?')}")
+    print(f"      target_hardware:   {a.get('target_hardware', '?')}")
+    if a.get('core_mask'):
+        print(f"      core_mask:         {a['core_mask']}")
+    if a.get('vram_limit_bytes'):
+        gb = a['vram_limit_bytes'] / 1024**3
+        print(f"      vram_limit:        {gb:.1f} GB")
+    if a.get('tensor_parallel_size'):
+        print(f"      tensor_parallel:   {a['tensor_parallel_size']}")
+    if a.get('kv_cache_dtype'):
+        print(f"      kv_cache_dtype:    {a['kv_cache_dtype']}")
+    print(f"      engine:            {a.get('engine', '?')}")
+    print(f"      model:             {a.get('model', '?')}")
+print()
+gpu_state = rp.get('gpu_state') or {}
+if gpu_state:
+    print(f"  GPU STATE:")
+    for slot in ('primary', 'secondary'):
+        g = gpu_state.get(slot, {})
+        if g:
+            print(f"    {slot}: {g.get('mode', '?')}  ({g.get('command', '')})")
+power = rp.get('expected_power_draw_watts') or {}
+if power:
+    print()
+    print(f"  EXPECTED POWER:")
+    for k, v in power.items():
+        print(f"    {k:<20} {v} W")
+obs = rp.get('observability') or {}
+if obs:
+    print()
+    print(f"  OBSERVABILITY:")
+    for k, v in obs.items():
+        print(f"    {k}: {v}")
+PY
+      ;;
+    active)
+      if [ -f "${active_file}" ]; then
+        cat "${active_file}"
+      else
+        echo "(none)"
+        echo "  no active runtime profile set; pick one with: sovereign-osctl trinity profile switch <id>"
+      fi
+      ;;
+    switch)
+      local id="${1:-}"
+      if [ -z "${id}" ]; then
+        log_error "usage: sovereign-osctl trinity profile switch <id>"
+        return 2
+      fi
+      local f="${runtime_dir}/${id}.yaml"
+      if [ ! -f "${f}" ]; then
+        log_error "no such runtime profile: ${id}"
+        return 1
+      fi
+      mkdir -p "$(dirname "${active_file}")" 2>/dev/null || true
+      echo "${id}" > "${active_file}"
+      log_info "active runtime profile set to: ${id}"
+      log_info "  (R151 wires start scripts to honor this; until then the YAML is the contract)"
+      ;;
+    *)
+      log_error "unknown trinity profile subcommand: ${sub}"
+      log_error "  available: list | show <id> | active | switch <id>"
+      return 2
+      ;;
+  esac
 }
 
 # ------------------------------ secure-boot ----------------------------------

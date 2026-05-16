@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../../schemas/runtime-profile.schema.yaml
+#
+# Master spec § 18 — Profile 3: Deep Context Synthesis Mode (Unified Memory Span)
+#
+# Verbatim master spec framing:
+#   "Designed for reading whole-system telemetry outputs or parsing an
+#    entire application's source files simultaneously."
+
+schema_version: "1.0.0"
+
+runtime_profile:
+  id: deep-context-synthesis
+  name: "Deep Context Synthesis"
+  description: |
+    Chains both GPUs into one unified execution space via tensor-parallel.
+    Uses CPU only for streaming tokenizers (no Pulse). KV cache compressed
+    to fp8 to maximize active context length.
+    Use for: whole-application source parsing · telemetry-wide reasoning ·
+    long-context architectural analysis · codebase validation across
+    1M+ token windows.
+
+  hardware_profile_compat:
+    - sain-01
+
+  allocations:
+    - agent_id: synthesizer_01
+      target_hardware: cuda:0,cuda:1
+      tensor_parallel_size: 2
+      pipeline_parallel_size: 1
+      gpu_memory_utilization: 0.95
+      kv_cache_dtype: fp8
+      engine: vllm
+      model: DeepSeek-V3-Quant
+      runtime_invocation: |
+        podman run --device nvidia.com/gpu=all \
+          -v /mnt/vault/models:/models:ro \
+          --network host \
+          vllm/vllm-openai:latest \
+          --model /models/DeepSeek-V3-Quant \
+          --tensor-parallel-size 2 \
+          --pipeline-parallel-size 1 \
+          --gpu-memory-utilization 0.95 \
+          --kv-cache-dtype fp8 \
+          --max-model-len 1048576
+
+  gpu_state:
+    primary:
+      mode: full-power
+      command: "nvidia-smi -i 0 -pm 1 -lgc 1410,1965"
+    secondary:
+      mode: full-power
+      command: "nvidia-smi -i 1 -pm 1"
+
+  expected_power_draw_watts:
+    cpu: 80
+    gpu_primary: 600
+    gpu_secondary: 350
+    system_total: ~1100
+
+  observability:
+    primary_metric: sovereign_os_inference_route_total{tier="oracle"}
+    expected_context_length_tokens: "1048576 (1M)"

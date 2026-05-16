@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../schemas/runtime-profile.schema.yaml
+#
+# Master spec § 18 — Profile 1: Ultra-Sovereign Efficiency Mode (CPU Focused)
+#
+# Verbatim master spec framing:
+#   "Designed for continuous background state monitoring, log auditing,
+#    and autonomous maintenance tasks with near-zero power draw."
+
+schema_version: "1.0.0"
+
+runtime_profile:
+  id: ultra-sovereign-efficiency
+  name: "Ultra-Sovereign Efficiency"
+  description: |
+    CPU-focused execution. BitNet-b1.58-3B via bitnet.cpp pinned to
+    cores 0-7 on CCD0; GPUs in persistence-mode-on-but-throttled state.
+    Use for: background state monitoring · log auditing · autonomous
+    maintenance · idle hours.
+
+  hardware_profile_compat:
+    - sain-01
+
+  allocations:
+    - agent_id: conductor_01
+      target_hardware: cpu
+      core_mask: "0-7"
+      engine: bitnet.cpp
+      model: BitNet-b1.58-3B
+      runtime_invocation: |
+        taskset -c 0-7 bitnet-cli \
+          -m /mnt/vault/models/bitnet_b1_58_3b/ggml-model-i2.gguf \
+          -p "Evaluate state transition from CLAUDE.md" \
+          --threads 8 --memory-f32
+
+  gpu_state:
+    primary:
+      mode: persistence-throttled
+      command: "nvidia-smi -i 0 -pm 1 -ac 5001,675"
+    secondary:
+      mode: persistence-throttled
+      command: "nvidia-smi -i 1 -pm 1 -ac 5001,675"
+
+  expected_power_draw_watts:
+    cpu: 45
+    gpu_primary: 30
+    gpu_secondary: 25
+    system_total: ~150
+
+  observability:
+    primary_metric: sovereign_os_inference_route_total{tier="pulse"}
+    expected_throughput_tokens_per_sec: "5-12"

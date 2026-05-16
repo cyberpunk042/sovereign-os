@@ -142,6 +142,106 @@ else
   ko "auditor missing perimeter metric pointer"
 fi
 
+# ---------- trinity profile list ----------
+set +e
+out="$("${OSCTL}" trinity profile list 2>&1)"
+rc=$?
+set -e
+if [ "${rc}" -eq 0 ] && grep -q "master spec § 18" <<< "${out}"; then
+  ok "trinity profile list → exit 0 + cites § 18"
+else
+  ko "profile list broken (rc=${rc})"
+fi
+for p in ultra-sovereign-efficiency high-concurrency-burst deep-context-synthesis; do
+  if grep -q "${p}" <<< "${out}"; then
+    ok "profile list contains: ${p}"
+  else
+    ko "profile list missing: ${p}"
+  fi
+done
+
+# ---------- trinity profile show <id> ----------
+set +e
+out="$("${OSCTL}" trinity profile show ultra-sovereign-efficiency 2>&1)"
+rc=$?
+set -e
+if [ "${rc}" -eq 0 ] && grep -q "ALLOCATIONS" <<< "${out}"; then
+  ok "trinity profile show → exit 0 + ALLOCATIONS section"
+else
+  ko "profile show broken (rc=${rc})"
+fi
+for kw in "BitNet-b1.58-3B" "core_mask" "GPU STATE" "EXPECTED POWER"; do
+  if grep -q "${kw}" <<< "${out}"; then
+    ok "profile show surfaces: ${kw}"
+  else
+    ko "profile show missing: ${kw}"
+  fi
+done
+
+# ---------- trinity profile show <missing> ----------
+set +e
+out="$("${OSCTL}" trinity profile show no-such-profile 2>&1)"
+rc=$?
+set -e
+if [ "${rc}" -eq 1 ] && grep -q "no such runtime profile" <<< "${out}"; then
+  ok "profile show missing → exit 1 + clear error"
+else
+  ko "profile show missing-gate broken (rc=${rc})"
+fi
+
+# ---------- trinity profile show with no arg ----------
+set +e
+out="$("${OSCTL}" trinity profile show 2>&1)"
+rc=$?
+set -e
+if [ "${rc}" -eq 2 ] && grep -q "usage:" <<< "${out}"; then
+  ok "profile show no-arg → exit 2 + usage"
+else
+  ko "profile show no-arg gate broken (rc=${rc})"
+fi
+
+# ---------- trinity profile switch + active ----------
+set +e
+out="$("${OSCTL}" trinity profile switch high-concurrency-burst 2>&1)"
+rc=$?
+set -e
+if [ "${rc}" -eq 0 ] && grep -q "active runtime profile set to: high-concurrency-burst" <<< "${out}"; then
+  ok "profile switch → exit 0 + confirmation"
+else
+  ko "profile switch broken (rc=${rc})"
+fi
+
+set +e
+out="$("${OSCTL}" trinity profile active 2>&1)"
+set -e
+if grep -q "high-concurrency-burst" <<< "${out}"; then
+  ok "profile active returns the just-switched-to profile"
+else
+  ko "profile active not reflecting switch"
+fi
+
+# ---------- profile switch to missing ----------
+set +e
+out="$("${OSCTL}" trinity profile switch no-such 2>&1)"
+rc=$?
+set -e
+if [ "${rc}" -eq 1 ] && grep -q "no such runtime profile" <<< "${out}"; then
+  ok "profile switch missing → exit 1"
+else
+  ko "profile switch missing-gate broken (rc=${rc})"
+fi
+
+# ---------- profile subverb unknown ----------
+set +e
+out="$("${OSCTL}" trinity profile bogus 2>&1)"
+rc=$?
+set -e
+if [ "${rc}" -eq 2 ] && grep -q "unknown trinity profile subcommand" <<< "${out}"; then
+  ok "profile bogus → exit 2"
+else
+  ko "profile bogus gate broken (rc=${rc})"
+fi
+
 # ---------- unknown subverb ----------
 set +e
 out="$("${OSCTL}" trinity bogus 2>&1)"

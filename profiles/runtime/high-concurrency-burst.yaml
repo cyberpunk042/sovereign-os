@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=../../schemas/runtime-profile.schema.yaml
+#
+# Master spec § 18 — Profile 2: High-Concurrency Agent Burst Mode (Asymmetric Load Balancing)
+#
+# Verbatim master spec framing:
+#   "Designed for tasks requiring multiple specialist sub-agents to
+#    process an extensive code repository simultaneously."
+
+schema_version: "1.0.0"
+
+runtime_profile:
+  id: high-concurrency-burst
+  name: "High-Concurrency Agent Burst"
+  description: |
+    Asymmetric load balancing across all three hardware planes:
+    BitNet-13B on full CCD0+CCD1 (CPU cores 0-11),
+    Qwen-32B-Ternary on RTX 3090 (vfio sandbox via vllm-vulkan),
+    DeepSeek-R1-Distill-Llama-70B on Blackwell (llama.cpp FP16).
+    Use for: multi-agent code-repo processing · long-running parallel
+    inference tasks · burst workloads.
+
+  hardware_profile_compat:
+    - sain-01
+
+  allocations:
+    - agent_id: conductor_01
+      target_hardware: cpu
+      core_mask: "0-11"
+      engine: bitnet.cpp
+      model: BitNet-b1.58-13B
+      runtime_invocation: |
+        taskset -c 0-11 bitnet-cli \
+          -m /mnt/vault/models/bitnet_b1_58_13b/ggml-model-i2.gguf \
+          -p "{prompt}" \
+          --threads 12 --memory-f32
+
+    - agent_id: translator_01
+      target_hardware: cuda:0
+      vram_limit_bytes: 22548578304   # 21 GB (Qwen-32B-Ternary fits in 24GB 3090)
+      engine: vllm-vulkan
+      model: Qwen-32B-Ternary-Quant
+      runtime_invocation: |
+        CUDA_VISIBLE_DEVICES=0 \
+        python -m vllm.entrypoints.openai.api_server \
+          --model Qwen/Qwen2.5-32B-Instruct-AWQ \
+          --gpu-memory-utilization 0.93 \
+          --max-model-len 32768
+
+    - agent_id: deep_reasoner_01
+      target_hardware: cuda:1
+      vram_limit_bytes: 94489280512   # 88 GB (DeepSeek-R1-70B FP16 fits in 96GB Blackwell)
+      engine: llama.cpp
+      model: DeepSeek-R1-Distill-Llama-70B-FP16
+      runtime_invocation: |
+        CUDA_VISIBLE_DEVICES=1 \
+        llama-server \
+          -m /mnt/vault/models/deepseek-r1-distill-70b/ggml-model-f16.gguf \
+          -ngl 80 --port 8083 --threads 4
+
+  gpu_state:
+    primary:
+      mode: full-power
+      command: "nvidia-smi -i 0 -pm 1 -lgc 1410,1965"
+    secondary:
+      mode: full-power
+      command: "nvidia-smi -i 1 -pm 1"
+
+  expected_power_draw_watts:
+    cpu: 170
+    gpu_primary: 600
+    gpu_secondary: 350
+    system_total: ~1200
+
+  observability:
+    primary_metric: sovereign_os_inference_route_total
+    expected_concurrency: "3 specialist sub-agents simultaneously"
