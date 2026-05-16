@@ -22,6 +22,7 @@ implementation does in crates/selfdef-cli/src/modules.rs:
   - memory_gib_min               u64    host memory >= this many GiB
   - gpu_count_min                u32    host GPU count >= this
   - gpu_vram_gib_min             u64    SD-R26: at least one GPU vram >= this
+  - gpu_vram_gib_each_min        u64    SD-R51: ALL GPUs must report vram >= this
   - gpu_power_headroom_watts_min u32    SD-R26: sum(limit-draw) >= this
   - wasm_aot_features_required   string SD-R32: every +feature in CSV
                                               must land in
@@ -223,6 +224,26 @@ def evaluate(req: dict[str, Any], caps: dict[str, Any]) -> list[str]:
                 f"gpu_vram_gib_min = {vram_min} (host best is {best_gib} GiB)"
             )
 
+    # R193 (mirror of selfdef SD-R51 cycle-2): ALL-semantics
+    # per-GPU VRAM threshold. EVERY GPU must report vram_bytes ≥ bar.
+    # Fail-closed on empty per-device list.
+    each_min = int(req.get("gpu_vram_gib_each_min", 0) or 0)
+    if each_min > 0:
+        want_bytes = each_min * (1024**3)
+        devices = gpu.get("devices", []) or []
+        all_big_enough = bool(devices) and all(
+            (d.get("vram_bytes") or 0) >= want_bytes for d in devices
+        )
+        if not all_big_enough:
+            worst_gib = min(
+                ((d.get("vram_bytes") or 0) // (1024**3) for d in devices),
+                default=0,
+            )
+            unmet.append(
+                f"gpu_vram_gib_each_min = {each_min}"
+                f" (host worst is {worst_gib} GiB across {len(devices)} GPU(s))"
+            )
+
     # SD-R26 mirror: aggregate power-headroom across all GPUs.
     headroom_min = int(req.get("gpu_power_headroom_watts_min", 0) or 0)
     if headroom_min > 0:
@@ -290,6 +311,7 @@ def is_empty_req(req: dict[str, Any]) -> bool:
         or int(req.get("memory_gib_min", 0) or 0) > 0
         or int(req.get("gpu_count_min", 0) or 0) > 0
         or int(req.get("gpu_vram_gib_min", 0) or 0) > 0
+        or int(req.get("gpu_vram_gib_each_min", 0) or 0) > 0
         or int(req.get("gpu_power_headroom_watts_min", 0) or 0) > 0
         or (req.get("wasm_aot_features_required", "") or "").strip()
         or (req.get("sain01_verdict_min", "") or "")

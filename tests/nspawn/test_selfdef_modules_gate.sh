@@ -331,6 +331,72 @@ else
   ko "SD-R32 mirror partition wrong: ${out32}"
 fi
 
+# ---------- R193: SD-R51 mirror — gpu_vram_gib_each_min ALL-semantics ----------
+grep -q "SD-R51" "${SCRIPT}" \
+  && ok "R193 mirror cites selfdef SD-R51 (ALL-semantics VRAM gate)" \
+  || ko "SD-R51 citation missing"
+grep -q "gpu_vram_gib_each_min" "${SCRIPT}" \
+  && ok "evaluate() handles gpu_vram_gib_each_min" \
+  || ko "gpu_vram_gib_each_min missing"
+
+mkdir -p "${WORK}/caps51" "${WORK}/mod51/needs-each-32" \
+         "${WORK}/mod51/needs-each-16" "${WORK}/etc51"
+# Mixed dual-GPU host: 98 GiB + 24 GiB (SAIN-01 shape).
+cat > "${WORK}/caps51/hardware-capabilities.json" <<'JSON'
+{
+  "schema_version": "1.2.0",
+  "cpu": {"avx512vnni": true, "avx512bf16": true},
+  "memory": {"total_bytes": 274877906944},
+  "gpu": {"device_count": 2, "device_nodes": [], "devices": [
+    {"vram_bytes": 105226698752},
+    {"vram_bytes": 25769803776}
+  ]},
+  "sain01_match": {"overall": "FullMatch"},
+  "wasm_aot": {"target_features": ""}
+}
+JSON
+cat > "${WORK}/mod51/needs-each-32/module.toml" <<'TOML'
+name = "needs-each-32"
+version = "0.0.0"
+summary = "every GPU ≥ 32 GiB"
+[requires_hardware]
+gpu_vram_gib_each_min = 32
+TOML
+cat > "${WORK}/mod51/needs-each-16/module.toml" <<'TOML'
+name = "needs-each-16"
+version = "0.0.0"
+summary = "every GPU ≥ 16 GiB"
+[requires_hardware]
+gpu_vram_gib_each_min = 16
+TOML
+cat > "${WORK}/etc51/modules.toml" <<'TOML'
+[modules.needs-each-32]
+[modules.needs-each-16]
+TOML
+
+set +e
+out51="$(python3 "${SCRIPT}" \
+  --caps-path "${WORK}/caps51/hardware-capabilities.json" \
+  --modules-dir "${WORK}/mod51" \
+  --host-config "${WORK}/etc51/modules.toml" --json 2>&1)"
+set -e
+if python3 -c "
+import json
+d = json.loads('''${out51}''')
+kept = sorted(x['module'] for x in d['kept'])
+skipped = sorted(x['module'] for x in d['skipped'])
+assert kept == ['needs-each-16'], f'kept={kept}'
+assert skipped == ['needs-each-32'], f'skipped={skipped}'
+unmet = d['skipped'][0]['unmet']
+assert any('gpu_vram_gib_each_min' in u for u in unmet), unmet
+assert any('worst is 24 GiB' in u for u in unmet), unmet
+" 2>/dev/null; then
+  ok "SD-R51 mirror: each-16 kept (24 ≥ 16); each-32 skipped (worst=24)"
+  ok "SD-R51 mirror: 'host worst is 24 GiB' message cited"
+else
+  ko "SD-R51 mirror partition wrong: ${out51}"
+fi
+
 echo
 total=$((pass + fail))
 echo "test_selfdef_modules_gate: ${pass}/${total} passed"
