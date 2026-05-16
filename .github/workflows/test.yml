@@ -307,6 +307,9 @@ jobs:
       - name: nspawn — sovereign-osctl wizard (Round 169: selfdef SD-R11 cross-repo mirror)
         run: |
           tests/nspawn/test_wizard.sh
+      - name: nspawn — selfdef-modules-gate (Round 170: selfdef SD-R14+R15 cross-repo mirror)
+        run: |
+          tests/nspawn/test_selfdef_modules_gate.sh
       - name: nspawn — secure-boot gen-keys (Round 143: F-05 MED closure — operator-owned key generation)
         run: |
           tests/nspawn/test_secure_boot_gen_keys.sh
