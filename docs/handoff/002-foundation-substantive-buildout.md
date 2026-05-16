@@ -10,13 +10,18 @@ A continuous-direct-push session through 2026-05-16 took sovereign-os
 from "scaffold + charter + initial profiles" to "substantive Stage-2-
 onset deeply built out" with **23 SDDs**, **5 profiles + 6 mixins**,
 9-step build pipeline (every step DRY_RUN + Layer B metric consistent)
-+ 5 lifecycle stages + 6 recurrent hooks, all gated by **32 Layer-3
-tests** + Layer 1 schema + Layer 2 unit + Layer 1 hardening lint +
-Layer 1 dashboard lint + Layer 1 metric-lockstep lint + shellcheck +
-Layer B observability emission across pipeline + recurrent + inference
-surfaces. Direct push to main per operator's authorized workflow.
++ 5 lifecycle stages + 6 recurrent hooks, all gated by **35 Layer-3
+tests** + ~61 Layer 2 unit + ~25 Layer 1 schema + 6 Layer 1 lint
+suites (decisions-log, hook-paths, SDD-index, systemd-hardening,
+dashboard-JSON, dashboard-metric-lockstep) + shellcheck + Layer B
+observability emission across pipeline + recurrent + inference +
+perimeter + log-rotation + ZFS-health + snapshot + security-updates
+surfaces. Operator-side gates: `scripts/setup.sh` one-command
+bootstrap + `scripts/git-hooks/pre-commit` runs L1 + profile + L3
+fast-sample before every commit. Direct push to main per operator's
+authorized workflow.
 
-Four Stage-2+ phases ran in this same session:
+Five Stage-2+ phases ran in this same session:
 1. **Phase A** (pre-plan-mode, 27 commits): foundation phase + Stage-2-
    onset. Every PR-1-seed Q-X resolved or partial.
 2. **Phase B** (Rounds 28-36, 9 commits post-plan-approval): substantive
@@ -31,6 +36,12 @@ Four Stage-2+ phases ran in this same session:
    handoff refresh / steps 05+06+07 all gain DRY_RUN-first + Layer B
    metric emission for substrate/render/build-result counters. Every
    gateable build step now has identical operability semantics.
+5. **Phase E** (Rounds 48-61, 13 commits): mature surface — orchestrator
+   rewind+skip closure (was placeholder), git pre-commit gate,
+   setup.sh fresh-clone bootstrap, QEMU Layer 4 scaffold, e2e DRY-RUN
+   smoke across all profiles, provenance Layer 2 unit, bugs-caught
+   ledger doc, runbook §7 expansion for all 4 non-sain-01 profiles,
+   README + CHANGELOG operator-facing refresh.
 
 **EVERY PR-1-seed open question is closed/partial.** All Q-X items from
 the original docs/decisions.md "Open questions" section are resolved.
@@ -155,7 +166,14 @@ Chronological:
 | `8722a65` | Round 51 — orchestrator rewind + skip implementations (placeholder closure) |
 | `9749417` | Round 52 — git pre-commit gate + installer + L3 |
 | `3a5e18d` | Round 53 — one-command operator dev-environment setup.sh |
-| `(this)`  | Round 54 — QEMU Layer 4 scaffold expanded (Q-014 partial) + handoff refresh |
+| `a659cca` | Round 54 — QEMU Layer 4 scaffold expanded (Q-014 partial) + handoff refresh |
+| `9d2d398` | Round 55 — e2e DRY-RUN smoke across all 5 profiles (26 assertions) |
+| `81f7089` | Round 56 — Layer 2 unit tests for provenance manifest shape (10 cases) |
+| `96309b2` | Round 57 — bugs-caught ledger + 3 distilled cross-bug Learnings |
+| `be6891f` | Round 58 — install-runbook §7 expanded for all 4 non-sain-01 profiles |
+| `54aab57` | Round 59 — README captures the substantive current state |
+| `5864152` | Round 60 — CHANGELOG.md anchors Stage-2-onset state |
+| `(this)`  | Round 61 — handoff refresh after Rounds 54-60 (mature documentation surface) |
 
 ## Real bugs caught by L3 discipline (running tally)
 
