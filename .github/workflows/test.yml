@@ -77,6 +77,9 @@ jobs:
       - name: nspawn — state lib (IaC restart-from-state)
         run: |
           tests/nspawn/test_state_lib.sh
+      - name: nspawn — common lib (helpers + profile_field + confirm)
+        run: |
+          tests/nspawn/test_common_lib.sh
 
   shellcheck:
     name: shellcheck

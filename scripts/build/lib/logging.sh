@@ -41,12 +41,19 @@ __log_emit() {
   ts="$(date -u --iso-8601=seconds)"
   printf '%s%s%-5s%s [%s] %s%s\n' "${color}" "${__C_BOLD}" "${level^^}" "${__C_RESET}${color}" "${step}" "${message}" "${__C_RESET}" >&2
   if [ -n "${SOVEREIGN_OS_LOG_FILE:-}" ]; then
+    # Lazy-init the log dir on first write — operators sourcing common.sh
+    # without calling log_init() should still get JSONL output.
+    local log_dir
+    log_dir="$(dirname "${SOVEREIGN_OS_LOG_FILE}")"
+    if [ ! -d "${log_dir}" ]; then
+      mkdir -p "${log_dir}" 2>/dev/null || return 0
+    fi
     # Escape message for JSON (basic — handles quotes + backslashes; sufficient for build-step messages)
     local esc="${message//\\/\\\\}"
     esc="${esc//\"/\\\"}"
     esc="${esc//$'\n'/\\n}"
     printf '{"ts":"%s","level":"%s","step":"%s","msg":"%s"}\n' \
-      "${ts}" "${level}" "${step}" "${esc}" >> "${SOVEREIGN_OS_LOG_FILE}"
+      "${ts}" "${level}" "${step}" "${esc}" >> "${SOVEREIGN_OS_LOG_FILE}" 2>/dev/null || true
   fi
 }
 
