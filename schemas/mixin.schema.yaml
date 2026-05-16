@@ -1,0 +1,134 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://github.com/cyberpunk042/sovereign-os/schemas/mixin.schema.yaml"
+title: sovereign-os mixin schema
+description: |
+  Schema for a mixin YAML file under `profiles/mixins/*.yaml`. Mixins
+  compose into profiles per SDD-004 § Inheritance model: a profile
+  declares `mixins: [name1, name2, ...]` and the mixin contributes
+  packages / hooks / observability / etc. that the profile's effective
+  resolution merges with its own declarations.
+
+  Authored at Round 124 (was missing — every mixin file referenced
+  this schema via `yaml-language-server: $schema=...` but the file
+  didn't exist). The schema validates the actual on-disk structure of
+  the 6 current mixins (role-server, role-workstation, role-developer,
+  role-headless, observability-tier-1, whitelabel-default).
+
+type: object
+required:
+  - schema_version
+  - mixin
+
+properties:
+  schema_version:
+    description: Semantic version of the mixin schema itself
+    type: string
+    pattern: '^\d+\.\d+\.\d+$'
+
+  mixin:
+    description: Metadata about this mixin (id + description)
+    type: object
+    required:
+      - id
+      - description
+    properties:
+      id:
+        description: Stable identifier; must match the filename stem
+        type: string
+        pattern: '^[a-z][a-z0-9-]*$'
+      description:
+        description: Free-form prose explaining what this mixin contributes
+        type: string
+
+  packages:
+    description: Package contributions composed into the profile's package layer
+    type: object
+    properties:
+      base:
+        description: Base packages always installed when this mixin is composed
+        type: array
+        items:
+          type: string
+      role:
+        description: Role-specific package groups (operator-readable buckets)
+        type: object
+        additionalProperties:
+          type: array
+          items:
+            type: string
+      deny:
+        description: Packages this mixin actively REJECTS (deny-list)
+        type: array
+        items:
+          type: string
+
+  hooks:
+    description: Lifecycle hook contributions
+    type: object
+    properties:
+      pre_install:
+        type: array
+        items:
+          $ref: "#/$defs/hook-decl"
+      during_install:
+        type: array
+        items:
+          $ref: "#/$defs/hook-decl"
+      post_install_first_boot:
+        type: array
+        items:
+          $ref: "#/$defs/hook-decl"
+      post_install_recurrent:
+        type: array
+        items:
+          $ref: "#/$defs/hook-decl"
+      decommission:
+        type: array
+        items:
+          $ref: "#/$defs/hook-decl"
+
+  observability:
+    description: Layer-A/B/C observability bindings
+    type: object
+    properties:
+      telemetry_sink:
+        type: string
+        enum: [prometheus-local, prometheus-remote, none]
+      log_retention_days:
+        type: integer
+        minimum: 1
+      metrics_endpoint:
+        type: string
+      audit_hooks:
+        type: object
+        additionalProperties:
+          type: string
+
+  whitelabel:
+    description: Whitelabel surface declarations or overrides
+    type: object
+    additionalProperties: true
+
+additionalProperties: true
+
+$defs:
+  hook-decl:
+    type: object
+    required:
+      - id
+      - script
+    properties:
+      id:
+        type: string
+        pattern: '^[a-z][a-z0-9-]*$'
+      type:
+        type: string
+        enum: [validation, setup, security, network, maintenance, cleanup, interactive]
+      script:
+        description: Path relative to repo root
+        type: string
+      mandatory:
+        type: boolean
+      schedule:
+        description: For recurrent hooks (daily, weekly, hourly, etc.)
+        type: string
