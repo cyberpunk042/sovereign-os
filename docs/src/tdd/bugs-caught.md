@@ -1,13 +1,20 @@
-# Bugs caught by Layer 3 discipline
+# Bugs caught by Layer 1/2/3 discipline
 
 A running ledger of real wiring bugs caught by the 5-layer TDD pyramid
-(SDD-008). Every entry is a bug that ALSO passed Layer 1 (schema/lint)
-+ Layer 2 (unit) — only the substantive Layer 3 nspawn-style tests
-surfaced them.
+(SDD-008). Most early entries (bugs 1-10) surfaced ONLY in Layer 3
+nspawn-style tests despite passing L1 + L2. Later bugs (#14-17) were
+caught by Layer 1 lint (hook coverage gates) and Layer 2 contract
+tests (--json schema, SDD-stated invariants).
 
-Operationally important: 60% of these bugs belong to ONE class
-(shell-var-vs-exported-env propagation into Python subshells). The
-class is documented as Project Learning 1.
+Running tally: **17 bugs caught** as of Round 130. Each surfaced + fixed
++ pinned by a test that prevents the regression class.
+
+Operationally important: 5 of these bugs belong to the
+shell-var-vs-exported-env propagation class (Learning 1). The
+SDD-stated-invariant-without-code-guard class (bugs #15 + #17,
+Learning 4) is now the second-largest. Test patterns themselves are
+the third bug surface (bug #7 regex bug; bug-class noted under
+Learning 5 about test pattern pluralization).
 
 ## The ledger
 
