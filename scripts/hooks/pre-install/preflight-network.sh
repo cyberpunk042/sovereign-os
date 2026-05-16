@@ -23,6 +23,8 @@ __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../../.." && pwd)"
 # shellcheck source=../../build/lib/common.sh
 . "${__REPO_ROOT}/scripts/build/lib/common.sh"
+# shellcheck source=../../build/lib/observability.sh
+. "${__REPO_ROOT}/scripts/build/lib/observability.sh"
 
 STEP_ID="preflight-network"
 
@@ -85,8 +87,12 @@ fi
 
 if [ "${fail}" -eq 0 ]; then
   log_info "${STEP_ID}: PASS"
+  emit_metric sovereign_os_pre_install_preflight_total 1 \
+    "hook=\"preflight-network\",result=\"pass\""
   exit 0
 else
   log_error "${STEP_ID}: FAIL (${fail} issue(s))"
+  emit_metric sovereign_os_pre_install_preflight_total 1 \
+    "hook=\"preflight-network\",result=\"fail\""
   exit 1
 fi

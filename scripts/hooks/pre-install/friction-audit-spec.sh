@@ -26,6 +26,8 @@ __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../../.." && pwd)"
 # shellcheck source=../../build/lib/common.sh
 . "${__REPO_ROOT}/scripts/build/lib/common.sh"
+# shellcheck source=../../build/lib/observability.sh
+. "${__REPO_ROOT}/scripts/build/lib/observability.sh"
 
 STEP_ID="friction-audit-spec"
 
@@ -166,8 +168,16 @@ fi
 echo
 if [ "${fail}" -eq 0 ]; then
   log_info "friction-audit-spec: PASS (profile=${SOVEREIGN_OS_PROFILE})"
+  emit_metric sovereign_os_pre_install_friction_audit_spec_total 1 \
+    "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"pass\""
+  emit_metric sovereign_os_pre_install_friction_audit_spec_failures 0 \
+    "profile=\"${SOVEREIGN_OS_PROFILE}\""
   exit 0
 else
   log_error "friction-audit-spec: FAIL (${fail} issue(s) in profile=${SOVEREIGN_OS_PROFILE})"
+  emit_metric sovereign_os_pre_install_friction_audit_spec_total 1 \
+    "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"fail\""
+  emit_metric sovereign_os_pre_install_friction_audit_spec_failures "${fail}" \
+    "profile=\"${SOVEREIGN_OS_PROFILE}\""
   exit 1
 fi
