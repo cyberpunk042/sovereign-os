@@ -595,6 +595,41 @@ substrate-agnostic by design (SDD-007 + SDD-003) so a future swap is
 bounded scope, not full rewrite.
 **Linked**: direct-to-main commit on 2026-05-16.
 
+### D-014 — 2026-05-16 — Disk encryption posture: ZFS native (zfs-tiered) + LUKS2 (ext4); passphrase + TPM2 PCR-7+11 for sain-01/headless (SDD-015 Q15-B resolved)
+
+**Decision**: Disk encryption is **required** for production profiles
+(sain-01, headless) and operator-optional for dev/constrained
+(developer, old-workstation, minimal). Mechanism is per-layout: ZFS
+native encryption for zfs-tiered profiles, LUKS2 for ext4 profiles.
+On sain-01, encryption is per-dataset: tank/context + tank/agents
+encrypted (state-fabric carries secrets), tank/models NOT encrypted
+(weights reconstructible from HF — no sovereignty benefit). Key
+binding is passphrase + TPM2 PCR-7+11 by default on sain-01/headless;
+passphrase-only on developer/old-workstation. Passphrase is always
+the floor (TPM is convenience, never replaces recovery). Orthogonal
+to SDD-015 secure_boot posture — both axes pick independently.
+**Question**: SDD-015 Q15-B — TPM2 PCR-bound disk encryption posture.
+**Source**: `docs/sdd/022-disk-encryption.md`; SDD-015 § Q15-B
+deferral; SDD-017 § tank/{context,agents,models} purpose statements.
+**Rationale**: state-fabric at-rest encryption is non-negotiable for
+sovereignty. Model weights are publicly available + reconstructible
+— encrypting them costs CPU on every model load with no sovereignty
+benefit. TPM PCR-7+11 binding gives operator-friendly auto-unlock
+when boot chain matches (SDD-015 signed posture compose) + falls
+back to passphrase prompt (Plymouth password callback from Round 33)
+when PCRs differ. Schema additions (encryption block) are forward-
+compatible; current operator workflow uses SOVEREIGN_OS_ENCRYPT* env
+vars. Q22-A..Q22-C sub-questions tracked in SDD-022.
+**Affected items**: `docs/sdd/022-disk-encryption.md`; future commits
+will: extend `schemas/profile.schema.yaml` with encryption block;
+add `scripts/hooks/during-install/encryption-setup.sh`; extend
+`preflight-tpm.sh` to gate TPM-bind readiness; add Layer 3 test for
+encryption gates; (Stage 2+) Layer 4 QEMU encrypted-boot test.
+**Reversibility**: partial — switching mechanism (LUKS↔ZFS-native)
+requires destroy+recreate of the encrypted volume. Adding/removing
+TPM binding is in-place via systemd-cryptenroll / zfs change-key.
+**Linked**: direct-to-main commit on 2026-05-16.
+
 ---
 
 ## Cross-references
