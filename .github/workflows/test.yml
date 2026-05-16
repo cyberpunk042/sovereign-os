@@ -184,6 +184,9 @@ jobs:
       - name: nspawn — sovereign-osctl models verbs (Round 62: list/size/remove + 11th bug)
         run: |
           tests/nspawn/test_sovereign_osctl_models.sh
+      - name: nspawn — model-catalog-sync substantive (Round 63: manifest verification + Layer B)
+        run: |
+          tests/nspawn/test_model_catalog_sync.sh
 
   shellcheck:
     name: shellcheck
