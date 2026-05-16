@@ -8,10 +8,14 @@
 
 A continuous-direct-push session through 2026-05-16 took sovereign-os
 from "scaffold + charter + initial profiles" to "substantive Stage-2-
-onset with 19 SDDs, 4 profiles + 5 mixins, 9-step build pipeline + 5
+onset with **21 SDDs**, 4 profiles + 5 mixins, 9-step build pipeline + 5
 lifecycle stages all gated by 19 Layer-3 tests + Layer 1 schema +
 Layer 2 unit + shellcheck + Layer B observability emission". Direct
 push to main per operator's authorized workflow.
+
+**Foundation-phase open questions: only Q-016 remains open** (distro-base
+reconsideration — informed by SDD-003 mkosi-on-Debian-13 pick; needs
+no further work unless operator wants to revisit).
 
 Numbers:
 - **Build pipeline**: 9 ordered steps + orchestrator with `run`,
@@ -26,10 +30,10 @@ Numbers:
 - **SDDs**: 19 (000-018 + 010 + 011) — 8 new in this session
 - **Layer-3 tests**: 19 nspawn-style scripts gating ~250+ assertions
 - **Bugs caught + fixed by L3 discipline**: 8 real wiring bugs
-- **Open questions closed**: Q-003 (deferred-with-criteria), Q-005,
-  Q-006, Q-007, Q-008, Q-013, Q-014; **partial**: Q-012 (2/3),
-  Q-018, Q-019. **Remaining open**: Q-010, Q-015, Q-016 (informed
-  by SDD-003)
+- **Open questions closed this session**: Q-003 (deferred-with-criteria),
+  Q-005, Q-006, Q-007, Q-008, Q-010, Q-013, Q-014, Q-015;
+  **partial**: Q-012 (2/3), Q-018, Q-019. **Remaining open**:
+  Q-016 only (informed by SDD-003)
 
 ## What to do FIRST in the next session
 
@@ -87,7 +91,11 @@ Chronological:
 | `17f9ff3` | sdd(017) ZFS root layout (Q-005 resolved) |
 | `494583d` | sdd(018) kernel choice (Q-007 resolved) |
 | `6a8f306` | feat profiles/developer + role-developer mixin (Q-012 slot 2/3) |
-| `(this)`  | docs(handoff) 002 — this anchor |
+| `fde37cb` | docs(handoff) 002 — this anchor (first version) |
+| `47cd72f` | feat tetragon-policy-verify emits perimeter status metrics |
+| `34ca966` | sdd(019) reproducibility target (Q-015 resolved) |
+| `ffb40f0` | sdd(020) CI infrastructure (Q-010 resolved) |
+| `(this)`  | docs(handoff) 002 — final updates reflecting Q-010/Q-015 closes |
 
 ## Real bugs caught by L3 discipline (running tally)
 
@@ -149,6 +157,8 @@ tests/nspawn/
 | **016** | **Observability bindings** | **review** | **Q-013** |
 | **017** | **ZFS root layout** | **review** | **Q-005** |
 | **018** | **Kernel choice + tuning** | **review** | **Q-007** |
+| **019** | **Reproducibility target** | **review** | **Q-015** |
+| **020** | **CI infrastructure** | **review** | **Q-010** |
 
 (Bold rows = this session's adds.)
 
