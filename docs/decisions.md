@@ -537,6 +537,33 @@ looking; weakening to "best-effort" or strengthening to
 "fully-deterministic-incl-CI" are both additive.
 **Linked**: direct-to-main commit on 2026-05-16.
 
+### D-012 — 2026-05-16 — CI infrastructure: GitHub Actions only for foundation phase; self-hosted deferred (Q-010 resolved)
+
+**Decision**: sovereign-os runs all CI on GitHub-hosted runners
+(`runs-on: ubuntu-latest`) for the foundation phase. ~19 Layer-3
+nspawn-style test scripts + Layer 1 schema/lint pytest + Layer 2
+unit pytest + shellcheck. No self-hosted runners; no CI-resident
+signing keys (operator-supplied per SDD-015); Layer 4 (QEMU boot
+smoke) + Layer 5 (hardware conformance) deferred to operator-driven
+runs until SAIN-01 hardware arrives.
+**Question**: Q-010 — CI infrastructure choice (GHA vs self-hosted).
+**Source**: `docs/sdd/020-ci-infrastructure.md`;
+`.github/workflows/test.yml`; `.github/workflows/mdbook-build.yml`.
+**Rationale**: GHA is free for public repos, fast (~3-5min full
+cycle), well-known reproduction surface (ubuntu-latest matches any
+operator's dev box), and zero-infrastructure-maintenance. The only
+case for self-hosted would be hardware-conformance Layer 5 (needs
+real SAIN-01) or build-time runs requiring custom kernels — both
+operator-driven, not CI-gated. CI scripts are pure bash + python +
+GHA-agnostic, so a future migration to GitLab CI / self-hosted is
+additive.
+**Affected items**: `docs/sdd/020-ci-infrastructure.md`;
+`.github/workflows/*.yml` (no changes — formalizes current state).
+**Reversibility**: fully-reversible — every CI step is a self-
+contained script runnable locally; self-hosted or alternative
+providers can be added without changing the test surface.
+**Linked**: direct-to-main commit on 2026-05-16.
+
 ---
 
 ## Cross-references

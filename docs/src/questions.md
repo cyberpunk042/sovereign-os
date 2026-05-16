@@ -19,7 +19,7 @@ at a specific PR and produces a `D-NNN` entry in the decisions log.
 | Q-007 | Kernel choice (stock · custom-tuned) | Stage 2+ | **resolved (SDD-018, 2026-05-16)** — dual strategy: sain-01 = kernel.org-stable custom Zen-5-tuned; old-workstation + minimal = substrate-default |
 | Q-008 | Installer experience (debian-installer · Calamares · custom TUI · image-only) | Stage 2+ | **resolved (SDD-013, 2026-05-16)** — image-only + cloud-init/preseed pre-supplied answers; no installer UI |
 | Q-009 | SAIN-01 hardware procurement timeline | operator-side | open |
-| Q-010 | CI infrastructure (GHA · self-hosted) | PR 3 + PR 10 | open |
+| Q-010 | CI infrastructure (GHA · self-hosted) | PR 3 + PR 10 | **resolved (SDD-020, 2026-05-16)** — GitHub Actions only for foundation phase; self-hosted deferred (hardware-conformance only) |
 | Q-011 | Cross-repo commit-pinning posture | PR 2 (partial) + CI-guard PR (final) | partial (per-artifact rule locked in SDD-001) |
 | Q-012 | Future-profile timeline (`minimal` · `developer` · `headless`) | Stage 2+ | **partial (2/3)** — `minimal` + `developer` substantively landed; `headless` (bare-metal server-class) remains reserved until concrete operator need |
 | Q-013 | Observability bindings | Stage 2+ | **resolved (SDD-016, 2026-05-16)** — 3-layer stack: JSONL logs (shipped) + Prometheus textfile collector contract (locked, emission Stage 2+) + sovereign-osctl + Grafana JSON templates (deferred). Local-default sovereignty. |
