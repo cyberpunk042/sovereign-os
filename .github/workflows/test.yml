@@ -319,6 +319,9 @@ jobs:
       - name: nspawn — osctl models registry (Round 183: sovereign-osctl bridges to R182)
         run: |
           tests/nspawn/test_osctl_models_registry.sh
+      - name: nspawn — osctl install suggest-modules (Round 185: profile × hardware recommendation matrix)
+        run: |
+          tests/nspawn/test_osctl_install_suggest_modules.sh
       - name: nspawn — thermal-watch (Round 172: per-profile thermal thresholds + OCSF events)
         run: |
           tests/nspawn/test_thermal_watch.sh

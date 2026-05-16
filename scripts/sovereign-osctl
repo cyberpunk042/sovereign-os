@@ -3568,9 +3568,72 @@ EXAMPLES:
 EOF
       ;;
 
+    suggest-modules)
+      # R185: recommend which selfdef modules to enable based on the
+      # operator's chosen profile + probed hardware. Read-only —
+      # doesn't WRITE /etc/selfdef/modules.toml; the operator copy-
+      # pastes the suggested block.
+      local profile="${SOVEREIGN_OS_PROFILE:-sain-01}"
+      while [ $# -gt 0 ]; do
+        case "$1" in
+          --profile) profile="$2"; shift 2 ;;
+          *) log_error "unknown suggest-modules flag: $1"; return 2 ;;
+        esac
+      done
+
+      echo "# R185: sovereign-osctl install suggest-modules"
+      echo "# profile: ${profile}"
+      echo "#"
+      echo "# Recommendation matrix (profile × probed hardware):"
+      echo "#"
+
+      # Probe AVX-512 + GPU presence (best-effort, no failure exit).
+      # Use loop + test -e to avoid glob-unmatch exits firing the
+      # script-level ERR trap from common.sh.
+      local has_avx512=0 gpu_count=0 _i
+      if grep -q "avx512f" /proc/cpuinfo 2>/dev/null; then has_avx512=1; fi
+      for _i in 0 1 2 3 4 5 6 7; do
+        if [ -e "/dev/nvidia${_i}" ]; then
+          gpu_count=$((gpu_count + 1))
+        fi
+      done
+      echo "# detected: avx512f=${has_avx512} gpu_count=${gpu_count}"
+      echo ""
+      echo "# Copy-paste this block into /etc/selfdef/modules.toml:"
+      echo ""
+
+      case "${profile}" in
+        sain-01)
+          if [ "${has_avx512}" = "1" ]; then
+            echo "[modules.hardware-tune-cache]"
+          fi
+          if [ "${has_avx512}" = "1" ] && [ "${gpu_count}" -ge 1 ]; then
+            echo "[modules.bitnet-gpu-inference]"
+          fi
+          ;;
+        developer)
+          if [ "${has_avx512}" = "1" ]; then
+            echo "[modules.hardware-tune-cache]"
+          fi
+          ;;
+        headless)
+          if [ "${has_avx512}" = "1" ]; then
+            echo "[modules.hardware-tune-cache]"
+          fi
+          ;;
+        minimal|old-workstation)
+          echo "# (no selfdef modules recommended for ${profile} —"
+          echo "#  it's CPU/VM-only or pre-AVX-512; the gate would skip them all.)"
+          ;;
+        *)
+          echo "# (unknown profile ${profile}; valid: sain-01 / developer / headless / minimal / old-workstation)"
+          return 2
+          ;;
+      esac
+      ;;
     *)
       log_error "unknown install subcommand: ${sub}"
-      log_error "  available: image [--plan] <img> --to <dev> | help"
+      log_error "  available: image [--plan] <img> --to <dev> | suggest-modules [--profile <p>] | help"
       return 2
       ;;
   esac
