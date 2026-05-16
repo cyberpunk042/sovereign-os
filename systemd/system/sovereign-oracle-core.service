@@ -1,0 +1,26 @@
+[Unit]
+Description=sovereign-os Oracle Core — vLLM + DFlash on Blackwell (host-resident)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/docs/sdd/011-inference-backend-stack.md
+After=network-online.target nvidia-persistenced.service tetragon.service
+Wants=network-online.target
+Requires=tetragon.service
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/sovereign-os/inference-oracle-core.env
+ExecStart=/opt/sovereign-os/scripts/inference/start-oracle-core.sh
+Restart=on-failure
+RestartSec=20s
+# Oracle Core loads can be slow (large weights + DFlash draft); generous startup
+TimeoutStartSec=600s
+# Memory pressure: vLLM uses GPU VRAM, but host buffers also; leave headroom
+MemoryHigh=32G
+# Security
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/log/sovereign-os /var/lib/sovereign-os
+ReadOnlyPaths=/mnt/vault/models
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

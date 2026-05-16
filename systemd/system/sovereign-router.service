@@ -1,0 +1,25 @@
+[Unit]
+Description=sovereign-os inference router (OpenAI-compatible front for the direct stack)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/docs/sdd/011-inference-backend-stack.md
+After=network-online.target sovereign-pulse.service sovereign-logic-engine.service sovereign-oracle-core.service
+Wants=network-online.target
+# Router doesn't require any single backend — it routes deterministically
+# and returns 502 if a tier is unreachable. Soft-binds via Wants= only.
+Wants=sovereign-pulse.service sovereign-logic-engine.service sovereign-oracle-core.service
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/sovereign-os/inference-router.env
+ExecStart=/usr/bin/python3 /opt/sovereign-os/scripts/inference/router.py --host 127.0.0.1 --port 8080
+Restart=on-failure
+RestartSec=5s
+# Security — router is pure-Python, no GPU/CPU pinning needed
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+DynamicUser=true
+ReadWritePaths=/var/log/sovereign-os
+
+[Install]
+WantedBy=multi-user.target

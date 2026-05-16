@@ -76,6 +76,13 @@ COMMANDS:
 
   decommission start           Begin decommission flow (interactive; confirms)
 
+  inference status             Per-tier backend status (Pulse / Logic / Oracle / Router)
+  inference start <tier>       Start a tier (pulse | logic | oracle | router | all)
+  inference stop <tier>        Stop a tier
+  inference restart <tier>     Restart a tier
+  inference route <prompt>     Show which tier the router would pick for a sample request
+  inference logs <tier>        Tail systemd journal for the tier
+
   version                      sovereign-osctl + sovereign-os version info
   help                         This help
 
@@ -495,6 +502,97 @@ cmd_decommission() {
   esac
 }
 
+# ------------------------------ inference ------------------------------------
+
+cmd_inference() {
+  local sub="${1:-status}"
+  shift || true
+
+  # Map tier short-names → systemd unit names
+  declare -A tier_units=(
+    [pulse]="sovereign-pulse.service"
+    [logic]="sovereign-logic-engine.service"
+    [logic-engine]="sovereign-logic-engine.service"
+    [oracle]="sovereign-oracle-core.service"
+    [oracle-core]="sovereign-oracle-core.service"
+    [router]="sovereign-router.service"
+  )
+
+  case "${sub}" in
+    status)
+      printf "%-25s %-12s %-20s %s\n" "TIER" "STATE" "ENDPOINT" "BACKEND"
+      printf "%-25s %-12s %-20s %s\n" "----" "-----" "--------" "-------"
+      for tier in pulse logic oracle router; do
+        local unit="${tier_units[$tier]}"
+        local state="not-installed"
+        if systemctl list-unit-files "${unit}" >/dev/null 2>&1; then
+          state="$(systemctl is-active "${unit}" 2>/dev/null || echo unknown)"
+        fi
+        local port endpoint backend
+        case "${tier}" in
+          pulse)  port=8081; backend="bitnet.cpp (CCD 0)" ;;
+          logic)  port=8082; backend="vLLM (3090 VFIO) or llama.cpp" ;;
+          oracle) port=8083; backend="vLLM + DFlash (Blackwell)" ;;
+          router) port=8080; backend="OpenAI-compatible front" ;;
+        esac
+        endpoint="http://127.0.0.1:${port}"
+        printf "%-25s %-12s %-20s %s\n" "${tier}" "${state}" "${endpoint}" "${backend}"
+      done
+      ;;
+
+    start|stop|restart)
+      local target="${1:-all}"
+      shift || true
+      require_root
+      if [ "${target}" = "all" ]; then
+        for tier in pulse logic oracle router; do
+          local unit="${tier_units[$tier]}"
+          if systemctl list-unit-files "${unit}" >/dev/null 2>&1; then
+            log_info "${sub} ${unit}"
+            systemctl "${sub}" "${unit}" || log_warn "  ${sub} failed for ${unit}"
+          else
+            log_warn "${unit} not installed; skipping"
+          fi
+        done
+      else
+        local unit="${tier_units[${target}]:-}"
+        if [ -z "${unit}" ]; then
+          log_error "unknown tier: ${target} (use pulse|logic|oracle|router|all)"
+          return 2
+        fi
+        systemctl "${sub}" "${unit}"
+      fi
+      ;;
+
+    route)
+      local prompt="${*:-hello}"
+      python3 - <<PY
+import sys
+sys.path.insert(0, "${__REPO_ROOT}/scripts/inference")
+from router import classify
+body = {"model": "auto", "messages": [{"role": "user", "content": """${prompt}"""}]}
+print(f"would route to: {classify(body)}")
+PY
+      ;;
+
+    logs)
+      local target="${1:?usage: inference logs <pulse|logic|oracle|router>}"
+      local unit="${tier_units[${target}]:-}"
+      if [ -z "${unit}" ]; then
+        log_error "unknown tier: ${target}"
+        return 2
+      fi
+      journalctl -u "${unit}" -f --no-pager
+      ;;
+
+    *)
+      log_error "unknown inference subcommand: ${sub}"
+      cmd_help
+      exit 2
+      ;;
+  esac
+}
+
 # ------------------------------ version --------------------------------------
 
 cmd_version() {
@@ -521,6 +619,7 @@ case "${cmd}" in
   audit)         cmd_audit "$@" ;;
   maintenance)   cmd_maintenance "$@" ;;
   decommission)  cmd_decommission "$@" ;;
+  inference)     cmd_inference "$@" ;;
   version|--version|-V) cmd_version ;;
   help|--help|-h|"") cmd_help ;;
   *)

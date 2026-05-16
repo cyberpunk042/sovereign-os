@@ -1,0 +1,26 @@
+[Unit]
+Description=sovereign-os Logic Engine — vLLM/llama.cpp on RTX 3090 (VFIO sandbox)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/docs/sdd/011-inference-backend-stack.md
+After=network-online.target podman.service nvidia-persistenced.service
+Wants=network-online.target
+# Logic Engine needs the 3090 VFIO binding active; tetragon perimeter loaded first
+After=tetragon.service
+Requires=tetragon.service
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/sovereign-os/inference-logic-engine.env
+ExecStart=/opt/sovereign-os/scripts/inference/start-logic-engine.sh
+ExecStop=/usr/bin/podman stop vllm-logic_engine
+Restart=on-failure
+RestartSec=15s
+TimeoutStartSec=180s
+# Security
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/log/sovereign-os /var/lib/sovereign-os
+ReadOnlyPaths=/mnt/vault/models
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
