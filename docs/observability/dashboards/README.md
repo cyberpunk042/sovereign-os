@@ -78,6 +78,8 @@ panel queries lock to them.
 - `sovereign_os_post_install_first_login_assistant_choices{profile}` — number of opt-in choices the operator made
 - `sovereign_os_post_install_server_hardening_total{profile,result}` — apply-server-hardening hook (role-server profiles): success / dry-run / skipped / fail
 - `sovereign_os_post_install_server_hardening_applied{profile}` — count of drop-in files actually applied on the last run
+- `sovereign_os_post_install_workstation_hardening_total{profile,result}` — apply-workstation-hardening hook (role-workstation profiles): success / dry-run / skipped / fail
+- `sovereign_os_post_install_workstation_hardening_applied{profile}` — count of drop-in files applied (workstation = 4 vs server = 5)
 - `sovereign_os_friction_audit_failures{profile}` — runtime friction-audit fails (lspci / IOMMU mismatch)
 - `sovereign_os_friction_audit_warnings{profile}`
 - `sovereign_os_friction_audit_last_run_timestamp{profile}`

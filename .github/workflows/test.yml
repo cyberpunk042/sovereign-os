@@ -220,6 +220,9 @@ jobs:
       - name: nspawn — apply-server-hardening hook (Round 96: role-server IaC drop-ins)
         run: |
           tests/nspawn/test_apply_server_hardening.sh
+      - name: nspawn — apply-workstation-hardening hook (Round 104: role-workstation IaC drop-ins)
+        run: |
+          tests/nspawn/test_apply_workstation_hardening.sh
 
   shellcheck:
     name: shellcheck

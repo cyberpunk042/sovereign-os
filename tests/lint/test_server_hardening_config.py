@@ -205,3 +205,68 @@ def test_headless_profile_registers_hook():
     ids = {h.get("id") for h in hooks}
     assert "apply-server-hardening" in ids, \
         "headless.yaml must register apply-server-hardening in post_install_first_boot"
+
+
+def test_workstation_sshd_present_and_looser_than_server():
+    """role-workstation gets a DIFFERENT sshd posture from role-server.
+    Pin the intentional differences so silent drift fails CI."""
+    ws_dir = REPO_ROOT / "config" / "workstation"
+    assert ws_dir.is_dir(), f"config/workstation/ missing"
+    p = ws_dir / "sshd.conf"
+    assert p.is_file(), f"missing: {p}"
+    text = p.read_text()
+    if _waived(text):
+        return
+
+    def has_directive(key: str, expected_value: str) -> bool:
+        for line in text.splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            parts = stripped.split(None, 1)
+            if len(parts) == 2 and parts[0] == key and parts[1].strip() == expected_value:
+                return True
+        return False
+
+    # Workstation-specific deviations from server posture
+    assert has_directive("PasswordAuthentication", "yes"), \
+        "workstation sshd PasswordAuthentication MUST be yes (console-fallback)"
+    assert has_directive("AllowAgentForwarding", "yes"), \
+        "workstation sshd AllowAgentForwarding MUST be yes (dev hop pattern)"
+    assert has_directive("AllowTcpForwarding", "yes"), \
+        "workstation sshd AllowTcpForwarding MUST be yes (dev hop pattern)"
+
+    # Universal hardening MUST mirror server posture
+    assert has_directive("PermitRootLogin", "no"), \
+        "workstation sshd MUST still set PermitRootLogin no"
+    assert has_directive("PermitEmptyPasswords", "no"), \
+        "workstation sshd MUST still set PermitEmptyPasswords no"
+    assert has_directive("X11Forwarding", "no"), \
+        "workstation sshd MUST still disable X11Forwarding (ssh-X11 has known issues)"
+
+    # No SHA-1, no -cbc in any algo directive — same rule as server
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#") or not stripped:
+            continue
+        lower = stripped.lower()
+        if any(lower.startswith(k.lower()) for k in
+               ("kexalgorithms", "ciphers", "macs", "pubkeyacceptedalgorithms",
+                "hostkeyalgorithms")):
+            assert "sha1" not in lower, \
+                f"workstation sshd MUST NOT enable sha1 algo: {line!r}"
+            if lower.startswith("ciphers"):
+                assert "-cbc" not in lower, \
+                    f"workstation sshd MUST NOT enable cbc-mode: {line!r}"
+
+
+def test_workstation_profiles_register_hook():
+    """sain-01 + old-workstation MUST register apply-workstation-hardening."""
+    import yaml
+    for profile_name in ("sain-01", "old-workstation"):
+        p = REPO_ROOT / "profiles" / f"{profile_name}.yaml"
+        data = yaml.safe_load(p.read_text())
+        hooks = (data.get("hooks") or {}).get("post_install_first_boot") or []
+        ids = {h.get("id") for h in hooks}
+        assert "apply-workstation-hardening" in ids, \
+            f"{profile_name}.yaml must register apply-workstation-hardening"

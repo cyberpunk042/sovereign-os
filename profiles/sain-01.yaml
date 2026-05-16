@@ -249,6 +249,10 @@ hooks:
       type: setup
       script: scripts/hooks/post-install/zfs-arc-clamp.sh
       mandatory: true
+    - id: apply-workstation-hardening
+      type: setup
+      script: scripts/hooks/post-install/apply-workstation-hardening.sh
+      mandatory: true
     - id: first-login-assistant
       type: interactive
       script: scripts/hooks/post-install/first-login-assistant.sh
