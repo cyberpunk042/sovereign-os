@@ -175,6 +175,9 @@ jobs:
       - name: nspawn — orchestrator rewind + skip (Round 51: state-machine ops)
         run: |
           tests/nspawn/test_orchestrator_rewind_skip.sh
+      - name: nspawn — git pre-commit hook (Round 52: operator-side gate)
+        run: |
+          tests/nspawn/test_git_hooks.sh
 
   shellcheck:
     name: shellcheck

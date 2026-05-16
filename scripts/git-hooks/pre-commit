@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+# scripts/git-hooks/pre-commit — sovereign-os operator pre-commit gate.
+#
+# Runs Layer 1 lint suite + (optionally) layer-3 fast tests before
+# every commit so CI failures surface locally first.
+#
+# Install via:
+#   ln -sf "$(pwd)/scripts/git-hooks/pre-commit" .git/hooks/pre-commit
+#
+# Disable for one commit via:
+#   git commit --no-verify
+# (sovereign-os direct-push workflow means operator commits straight to
+# main, so the local gate is the only pre-merge enforcement.)
+#
+# Tunable env:
+#   SOVEREIGN_OS_PRECOMMIT_SKIP_L3=1   Skip the (fast) L3 sample
+#   SOVEREIGN_OS_PRECOMMIT_FULL=1      Run the entire L3 suite (slow)
+
+set -euo pipefail
+
+__REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "${__REPO_ROOT}"
+
+bold='\033[1m'; red='\033[31m'; green='\033[32m'; yellow='\033[33m'; reset='\033[0m'
+
+echo -e "${bold}sovereign-os pre-commit gate${reset}"
+echo
+
+failed=0
+
+# ----------- Layer 1 lint ---------------
+
+echo -e "${bold}[L1] schema + lint pytest${reset}"
+if python3 -m pytest tests/schema tests/lint -q 2>&1 | tail -3; then
+  echo -e "  ${green}✓${reset} Layer 1 passes"
+else
+  echo -e "  ${red}✗${reset} Layer 1 FAILED"
+  failed=1
+fi
+echo
+
+# ----------- profile validation ---------------
+
+if [ -x "${__REPO_ROOT}/scripts/validate-profiles.sh" ]; then
+  echo -e "${bold}[profiles] schema-validate all${reset}"
+  if "${__REPO_ROOT}/scripts/validate-profiles.sh" >/dev/null 2>&1; then
+    echo -e "  ${green}✓${reset} all profiles validate"
+  else
+    echo -e "  ${red}✗${reset} profile validation FAILED"
+    "${__REPO_ROOT}/scripts/validate-profiles.sh" 2>&1 | tail -10
+    failed=1
+  fi
+  echo
+fi
+
+# ----------- shellcheck (warning-only, mirrors CI) ---------------
+
+if command -v shellcheck >/dev/null 2>&1; then
+  echo -e "${bold}[shellcheck] scripts/${reset}"
+  shellcheck_issues="$(find scripts -name '*.sh' -type f -print0 \
+    | xargs -0 shellcheck --severity=warning --source-path=scripts/build/lib --external-sources 2>&1 \
+    | wc -l || true)"
+  if [ "${shellcheck_issues}" -le 1 ]; then
+    echo -e "  ${green}✓${reset} no shellcheck warnings"
+  else
+    echo -e "  ${yellow}!${reset} ${shellcheck_issues} shellcheck warning line(s) (informational; CI is warning-only)"
+  fi
+  echo
+fi
+
+# ----------- L3 sample (fast subset by default) ---------------
+
+if [ -z "${SOVEREIGN_OS_PRECOMMIT_SKIP_L3:-}" ]; then
+  if [ -n "${SOVEREIGN_OS_PRECOMMIT_FULL:-}" ]; then
+    echo -e "${bold}[L3 — full suite]${reset} (this can take 30+ seconds)"
+    sample_tests=(tests/nspawn/test_*.sh)
+  else
+    # Fast representative sample — full suite available via _FULL=1
+    echo -e "${bold}[L3 — fast sample]${reset}"
+    sample_tests=(
+      tests/nspawn/test_common_lib.sh
+      tests/nspawn/test_state_lib.sh
+      tests/nspawn/test_observability_lib.sh
+      tests/nspawn/test_orchestrator_dry_run.sh
+    )
+  fi
+  for t in "${sample_tests[@]}"; do
+    [ -x "${t}" ] || continue
+    name="$(basename "${t}" .sh)"
+    if "${t}" >/dev/null 2>&1; then
+      echo -e "  ${green}✓${reset} ${name}"
+    else
+      echo -e "  ${red}✗${reset} ${name} FAILED — run \`${t}\` to see details"
+      failed=1
+    fi
+  done
+  echo
+fi
+
+# ----------- result ---------------
+
+if [ "${failed}" -ne 0 ]; then
+  echo -e "${bold}${red}✗ pre-commit gate FAILED${reset} — fix issues or use \`git commit --no-verify\` to bypass (last resort)"
+  exit 1
+fi
+
+echo -e "${bold}${green}✓ pre-commit gate clean${reset} — commit proceeding"
+exit 0
