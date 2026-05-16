@@ -113,6 +113,9 @@ jobs:
       - name: nspawn — decommission gates (SDD-014 Q-014 gate)
         run: |
           tests/nspawn/test_decommission_gates.sh
+      - name: nspawn — recurrent log-rotate
+        run: |
+          tests/nspawn/test_log_rotate.sh
 
   shellcheck:
     name: shellcheck

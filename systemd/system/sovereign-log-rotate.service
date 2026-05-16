@@ -1,0 +1,17 @@
+[Unit]
+Description=sovereign-os JSONL log rotation
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/recurrent/log-rotate.sh
+
+[Service]
+Type=oneshot
+ExecStart=/opt/sovereign-os/scripts/hooks/recurrent/log-rotate.sh
+# Rotation is fast; allow at most one minute
+TimeoutStartSec=60s
+StandardOutput=journal
+StandardError=journal
+# Defense-in-depth — log rotation needs to read the log dir, not the
+# whole filesystem.
+ProtectSystem=strict
+ReadWritePaths=/root/.sovereign-os /home /var/log
+NoNewPrivileges=true
+PrivateTmp=true
