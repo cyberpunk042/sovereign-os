@@ -28,6 +28,12 @@ Exit codes:
   0  picked successfully (role matched OR fallback returned an idx)
   1  schedule.json present but no entry matches role + no fallback
   2  bad args (e.g. missing role)
+
+Cross-repo metrics this script makes assumptions about (emitted by
+selfdef SD-R24, scraped by node_exporter textfile collector,
+visualised by docs/observability/dashboards/sovereign-os-wasm-aot.json):
+  sovereign_os_selfdef_hardware_gpu_power_draw_watts{gpu="<idx>"}
+  sovereign_os_selfdef_hardware_gpu_power_limit_watts{gpu="<idx>"}
 """
 
 from __future__ import annotations

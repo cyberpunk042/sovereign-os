@@ -1,0 +1,194 @@
+{
+  "_comment": "sovereign-os Wasm-AOT bridge dashboard (R180). Visualises the selfdef SD-R30 wasm_aot block surfaced via the SD-R31 Layer B metrics: which AVX-512 / AVX2 features wasmtime is compiling against, fleet-wide drift, and missed-bridge alerts. Operator imports into Grafana via Settings → JSON Model. Metrics emitted by selfdef-daemon hardware-probe loop (SD-R22) when [hardware_probe] is enabled — written to the node_exporter textfile collector. Cross-repo provenance chain: selfdef SD-R10 (capabilities export) → SD-R25 (per-GPU detail) → SD-R30 (wasm_aot block) → SD-R31 (Layer B metric) → R179 (sovereign-os wasm-aot.sh consumes) → R180 (this dashboard).",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Hosts with Wasm-AOT bridge live",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "count(sovereign_os_selfdef_hardware_wasm_aot_info)", "refId": "A"}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red"},
+              {"color": "yellow", "value": 1},
+              {"color": "green", "value": 1}
+            ]
+          }
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "AVX-512 feature count (median across fleet)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "quantile(0.5, sovereign_os_selfdef_hardware_wasm_aot_feature_count)", "refId": "A"}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red"},
+              {"color": "yellow", "value": 4},
+              {"color": "green", "value": 7}
+            ]
+          }
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "Hosts with SAIN-01 full feature set (≥ 9 features)",
+      "_comment_threshold": "SAIN-01 9900X full surface = avx512f + dq + bw + vl + vnni + bf16 + vbmi + vbmi2 + avx2 + fma = 10 features. Threshold of 9 keeps hosts that fall one bit short (e.g. fp16 unavailable on some 9900X steppings) in the green band.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "count(sovereign_os_selfdef_hardware_wasm_aot_feature_count >= 9)", "refId": "A"}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red"},
+              {"color": "yellow", "value": 1},
+              {"color": "green", "value": 1}
+            ]
+          }
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "Fleet AVX-512 coverage",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "count(sovereign_os_selfdef_hardware_wasm_aot_info{target_features=~\".*avx512f.*\"}) / count(sovereign_os_selfdef_hardware_wasm_aot_info)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red"},
+              {"color": "yellow", "value": 0.5},
+              {"color": "green", "value": 0.9}
+            ]
+          }
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "table",
+      "title": "Per-host wasm-AOT surface (target_cpu + features)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "sovereign_os_selfdef_hardware_wasm_aot_info",
+          "refId": "A",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {"Time": true, "Value": true, "__name__": true, "job": true},
+            "renameByName": {
+              "instance": "host",
+              "target_cpu": "march",
+              "target_features": "AVX-512 + AVX2 features"
+            }
+          }
+        }
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "table",
+      "title": "Feature-count distribution (drift detector)",
+      "_comment_drift": "When a fleet member silently downgrades (CPU microcode bug, BIOS reset, fresh-install regression), its feature_count drops while the rest stay high. This table surfaces the laggards.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "sort_desc(sovereign_os_selfdef_hardware_wasm_aot_feature_count)",
+          "refId": "A",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {"Time": true, "__name__": true, "job": true},
+            "renameByName": {
+              "instance": "host",
+              "Value": "features"
+            }
+          }
+        }
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+    },
+    {
+      "type": "row",
+      "title": "Per-GPU NVCC arch (SD-R29) — CUDA build matrix surface",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 12},
+      "collapsed": false
+    },
+    {
+      "type": "table",
+      "title": "Detected GPUs (model + VRAM + power)",
+      "_comment_gpu": "Cross-references the SD-R24 power telemetry with SD-R25 per-device info. Together with SD-R29 NVCC arch derivation they tell the operator which gencode flags the build pipeline will pick.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "sovereign_os_selfdef_hardware_gpu_power_limit_watts",
+          "refId": "A",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {"Time": true, "__name__": true, "job": true},
+            "renameByName": {
+              "instance": "host",
+              "gpu": "gpu_idx",
+              "Value": "power_limit_W"
+            }
+          }
+        }
+      ],
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 13}
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 38,
+  "tags": ["sovereign-os", "wasm-aot", "selfdef", "cross-repo", "R180"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
+  "timezone": "",
+  "title": "sovereign-os — Wasm-AOT bridge (R180)",
+  "uid": "sovereign-os-wasm-aot",
+  "version": 1
+}

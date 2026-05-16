@@ -25,9 +25,15 @@
 #   WASM_AFFINITY          taskset CPU list (default: 0-11 per master spec § 19.2 CCD0+CCD1 0-9)
 #   SOVEREIGN_OS_DRY_RUN   print intent + exit 0
 #
-# Layer B metrics:
+# Layer B metrics emitted by this script:
 #   sovereign_os_pulse_wasm_aot_total{result="success|skip|fail"}
 #   sovereign_os_pulse_wasm_aot_last_run_timestamp
+#
+# Layer B metrics surfaced by selfdef SD-R31 (cross-repo, written by
+# selfdef-daemon's hardware-probe loop into the same textfile dir,
+# referenced by docs/observability/dashboards/sovereign-os-wasm-aot.json):
+#   sovereign_os_selfdef_hardware_wasm_aot_feature_count
+#   sovereign_os_selfdef_hardware_wasm_aot_info{target_cpu,target_features}
 
 set -euo pipefail
 
