@@ -15,6 +15,8 @@ __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../../.." && pwd)"
 # shellcheck source=../../build/lib/common.sh
 . "${__REPO_ROOT}/scripts/build/lib/common.sh"
+# shellcheck source=../../build/lib/observability.sh
+. "${__REPO_ROOT}/scripts/build/lib/observability.sh"
 
 STEP_ID="first-login-assistant"
 
@@ -32,6 +34,8 @@ state_file="${SOVEREIGN_OS_ASSISTANT_STATE_DIR}/state.yaml"
 if [ -f "${state_file}" ] && grep -q "completed: true" "${state_file}" && [ -z "${SOVEREIGN_OS_ASSISTANT_FORCE:-}" ]; then
   log_info "first-login assistant already completed (state at ${state_file})"
   log_info "  re-run with SOVEREIGN_OS_ASSISTANT_FORCE=1 to repeat"
+  emit_metric sovereign_os_post_install_first_login_assistant_total 1 \
+    "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"skipped\""
   exit 0
 fi
 
@@ -160,3 +164,8 @@ cat <<EOF
 EOF
 
 log_info "${STEP_ID} complete"
+
+emit_metric sovereign_os_post_install_first_login_assistant_total 1 \
+  "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"completed\""
+emit_metric sovereign_os_post_install_first_login_assistant_choices "${#choices[@]}" \
+  "profile=\"${SOVEREIGN_OS_PROFILE}\""
