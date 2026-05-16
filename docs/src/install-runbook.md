@@ -325,6 +325,34 @@ All Layer A/B/C surfaces are **local-default**. Operators decide whether
 to scrape, ship logs off-host, or run Grafana — sovereign-os never
 phones home and never dictates the observability stack downstream.
 
+## 5c. RECOVERY — when a build step fails mid-pipeline
+
+(Round 135 / F-13 closure.) The 9-step pipeline is resumable + tracks
+state in `~/.sovereign-os/build-state/state.yaml`. When a step fails:
+
+```sh
+# 1. Diagnose: shows the failed step, its recorded fail_reason, and
+#    the last 5 error/warn events from the JSONL log, then surfaces
+#    4 recommended next actions with their tradeoffs.
+scripts/build/orchestrate.sh recover
+```
+
+The four options the `recover` verb presents:
+
+| Option | When to choose |
+|---|---|
+| (a) Fix underlying issue + `orchestrate.sh run` | Most common — pipeline resumes from the failed step (inputs_hash gates skip already-completed steps) |
+| (b) `rewind <step>` + `run` | Failure was transient / environmental; want a clean retry without changing inputs |
+| (c) `skip <step>` + `run` | Step genuinely doesn't apply to your profile (e.g. 02-kernel-fetch on a substrate-default profile) |
+| (d) `reset` + `run` | Want to start over (DESTRUCTIVE — wipes all build state) |
+
+Full event log inspection:
+
+```sh
+sovereign-osctl journal show <jsonl-stem>    # specific run
+sovereign-osctl journal errors               # warn+error across all runs
+```
+
 ## 6. Troubleshooting
 
 | Symptom | Diagnostic |

@@ -201,7 +201,14 @@ resolved profiles + emits a unified diff (yq-style) on the merged
 output (so mixin contributions show as merged-in, not as inheritance
 indirection).
 
-### F-13 — CRIT — No documented recovery path for failed mid-pipeline
+### F-13 — CRIT — No documented recovery path for failed mid-pipeline  ✅ **CLOSED (Round 135)**
+
+`scripts/build/orchestrate.sh recover` shipped (17-assertion L3). Reads
+current state.yaml, identifies failed step + fail_reason, surfaces last
+5 error/warn events from the JSONL log, presents 4 ranked next-action
+options (a) fix+run, (b) rewind+run, (c) skip+run, (d) reset+run —
+each with tradeoff rationale. Cross-references `sovereign-osctl
+journal` for log inspection. install-runbook §5c documents the flow.
 
 **Where**: If `orchestrate.sh run` fails at step 5 (substrate-prepare)
 because mkosi.conf is broken, the operator runs `orchestrate.sh status`

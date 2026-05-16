@@ -23,6 +23,7 @@
 #   run [--profile <id>] [--dry-run]   run the pipeline; resume from last state
 #   preflight [--profile <id>]   run all pre-install hooks (no build state mutated)
 #   status                  print state summary
+#   recover                 diagnose failed step + suggest next action (F-13 closure)
 #   reset                   wipe build state (confirms first)
 #   rewind <step>           mark step + later as pending (re-runs them)
 #   skip <step>             mark step as completed (do not run)
@@ -96,6 +97,118 @@ cmd_list() {
 
 cmd_status() {
   state_summary
+}
+
+cmd_recover() {
+  # Round 135 (F-13 CRIT closure): when an operator's pipeline fails
+  # mid-run, this verb inspects state + the most recent JSONL log + the
+  # failure reason recorded in state.yaml and surfaces ONE recommended
+  # next action with rationale. Never executes the action — operator
+  # decides.
+
+  state_init
+  echo "sovereign-osctl orchestrate.sh recover"
+  echo "======================================"
+  echo
+  echo "  state file: ${SOVEREIGN_OS_STATE_FILE}"
+  echo
+
+  # Find the FIRST failed step (state machine: pending → running →
+  # completed | failed). If no failure, surface the next pending step.
+  local failed_step="" failed_reason="" first_pending="" any_completed=0
+  for s in "${STEPS[@]}"; do
+    local st
+    st="$(state_step_status "$s")"
+    case "${st}" in
+      failed)
+        failed_step="${s}"
+        # Extract the recorded fail reason from state.yaml
+        failed_reason="$(awk -v step="${s}" '
+          $0 ~ "  " step ":" { in_step = 1; next }
+          in_step && /^    fail_reason:/ { gsub(/"/, "", $2); print $2; exit }
+          in_step && /^  [a-z]/ { exit }
+        ' "${SOVEREIGN_OS_STATE_FILE}" 2>/dev/null)"
+        break
+        ;;
+      completed)
+        any_completed=1
+        ;;
+      pending|running)
+        [ -z "${first_pending}" ] && first_pending="${s}"
+        ;;
+    esac
+  done
+
+  if [ -n "${failed_step}" ]; then
+    echo "  ✗ FAILED step: ${failed_step}"
+    [ -n "${failed_reason}" ] && echo "    reason:      ${failed_reason}"
+    echo
+
+    # Find most recent JSONL log lines relevant to this step
+    local log_dir="${HOME}/.sovereign-os/log"
+    local recent_log
+    recent_log="$(find "${log_dir}" -maxdepth 1 -name '*.jsonl' -printf '%T@ %p\n' 2>/dev/null \
+                 | sort -nr | head -1 | awk '{print $2}')"
+    if [ -n "${recent_log}" ] && [ -f "${recent_log}" ]; then
+      echo "  recent log: ${recent_log}"
+      echo "  last 5 error/warn events:"
+      grep -E '"level":"(error|warn)"' "${recent_log}" 2>/dev/null \
+        | tail -5 \
+        | python3 -c "
+import sys, json
+for line in sys.stdin:
+    try: e = json.loads(line)
+    except: continue
+    print(f'    [{e.get(\"level\",\"?\").upper()}] {e.get(\"msg\",\"\")[:100]}')
+" 2>/dev/null
+      echo
+    fi
+
+    echo "  RECOMMENDED NEXT ACTIONS (operator decides):"
+    echo
+    echo "  (a) Most common — fix the underlying issue, then re-run:"
+    echo "        scripts/build/orchestrate.sh run"
+    echo "      The pipeline will resume from ${failed_step} (inputs_hash gate"
+    echo "      re-runs only changed steps)."
+    echo
+    echo "  (b) If the failure is transient / environmental and you want"
+    echo "      to retry without changing inputs:"
+    echo "        scripts/build/orchestrate.sh rewind ${failed_step}"
+    echo "        scripts/build/orchestrate.sh run"
+    echo
+    echo "  (c) If the step is genuinely not-applicable to your profile"
+    echo "      and you want to bypass it (e.g., 02-kernel-fetch on a"
+    echo "      substrate-default profile):"
+    echo "        scripts/build/orchestrate.sh skip ${failed_step}"
+    echo "        scripts/build/orchestrate.sh run"
+    echo
+    echo "  (d) If you want to start completely over (DESTRUCTIVE):"
+    echo "        scripts/build/orchestrate.sh reset"
+    echo "        scripts/build/orchestrate.sh run"
+    echo
+    echo "  Full event log:    sovereign-osctl journal show $(basename "${recent_log:-?}" .jsonl 2>/dev/null)"
+    echo "  Filter to errors:  sovereign-osctl journal errors"
+    return 0
+  fi
+
+  # No failure — surface state
+  if [ -n "${first_pending}" ]; then
+    echo "  no failure recorded"
+    echo "  next pending step: ${first_pending}"
+    echo
+    echo "  RECOMMENDED:"
+    echo "    scripts/build/orchestrate.sh run"
+    echo "  resumes from ${first_pending}."
+  elif [ "${any_completed}" -eq 1 ]; then
+    echo "  ✓ all steps completed; nothing to recover"
+    echo
+    echo "  RECOMMENDED:"
+    echo "    sovereign-osctl install image --plan build/<profile>/output/<image> --to /dev/<target>"
+    echo "  (Round 134 safety-gated install verb)"
+  else
+    echo "  state is empty (no steps run yet)"
+    echo "  RECOMMENDED: scripts/build/orchestrate.sh run"
+  fi
 }
 
 cmd_reset() {
@@ -349,6 +462,7 @@ case "${cmd}" in
   run|"")    cmd_run "$@" ;;
   preflight) cmd_preflight "$@" ;;
   status)    cmd_status "$@" ;;
+  recover)   cmd_recover "$@" ;;
   reset)     cmd_reset "$@" ;;
   rewind)    cmd_rewind "$@" ;;
   skip)      cmd_skip "$@" ;;

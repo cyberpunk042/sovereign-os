@@ -232,6 +232,9 @@ jobs:
       - name: nspawn — sovereign-osctl install image (Round 134: F-01 CRIT closure — safety-gated dd wrapper)
         run: |
           tests/nspawn/test_sovereign_osctl_install.sh
+      - name: nspawn — orchestrate.sh recover (Round 135: F-13 CRIT closure — mid-pipeline recovery guidance)
+        run: |
+          tests/nspawn/test_orchestrator_recover.sh
 
   shellcheck:
     name: shellcheck
