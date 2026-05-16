@@ -1,0 +1,39 @@
+{
+  "_comment": "MCP server configuration template for the sovereign-os repo. Copy to '.mcp/config.json' (gitignored) and fill in operator-specific values. No secrets ship in this template.",
+  "_description": "This template documents the MCP servers a developer / operator might want when working on sovereign-os. Sister projects (info-hub, selfdef, AICP) expose their own MCP servers; sovereign-os does not yet expose one of its own (Stage 2+ may add a lifecycle-management MCP per Q-019).",
+
+  "mcpServers": {
+    "_info_hub": {
+      "_purpose": "Reach the second-brain wiki for the SAIN-01 architectural baseline, 11 epics, L1-L3 syntheses, comparisons, and operator-directive verbatim provenance.",
+      "_invocation": "OPERATOR FILLS IN — typically the info-hub repo's MCP server entry per its own README. See https://github.com/cyberpunk042/devops-solutions-information-hub",
+      "command": "REPLACE_WITH_INFO_HUB_MCP_COMMAND",
+      "args": [],
+      "env": {}
+    },
+    "_selfdef": {
+      "_purpose": "Reach the selfdef daemon's runtime introspection / module-helper APIs (optional; only relevant when working on the selfdef-on-SAIN-01 integration once Stage 2 opens).",
+      "_invocation": "OPERATOR FILLS IN — see https://github.com/cyberpunk042/selfdef",
+      "command": "REPLACE_WITH_SELFDEF_MCP_COMMAND",
+      "args": [],
+      "env": {}
+    },
+    "_aicp": {
+      "_purpose": "Reach AICP (devops-expert-local-ai) for inference + research workflows. Particularly relevant for Q-017 (inference-backend stack) evaluation when that SDD opens, and possibly for Q-019 (lifecycle management) integration.",
+      "_invocation": "OPERATOR FILLS IN — see https://github.com/cyberpunk042/devops-expert-local-ai",
+      "command": "REPLACE_WITH_AICP_MCP_COMMAND",
+      "args": [],
+      "env": {}
+    },
+    "_github": {
+      "_purpose": "GitHub MCP for cross-repo PR / issue management. Same MCP the agent uses to interact with this repo.",
+      "_invocation": "OPERATOR-MANAGED — typically installed at the user level, not per-repo",
+      "_note": "Not configured at the repo level; this entry is documentation-only."
+    }
+  },
+
+  "_notes": [
+    "Underscore-prefixed keys are documentation-only and should be stripped when authoring the actual .mcp/config.json (which is gitignored).",
+    "Lifecycle-management MCP for sovereign-os itself is a Q-019 question; if/when that SDD opens, this template gets a real entry.",
+    "Secrets (API tokens, etc.) MUST NOT live in this template or its .json counterpart — use env vars per the IaC bar."
+  ]
+}
