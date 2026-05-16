@@ -33,32 +33,87 @@ the JSON templates work either path.
 ## Metric inventory consumed by these dashboards
 
 All emitted from `scripts/build/lib/observability.sh` via
-`emit_metric` / `emit_metric_set` helpers:
+`emit_metric` / `emit_metric_set` helpers. Names are stable contracts —
+panel queries lock to them.
+
+### Build pipeline (scripts/build/01..09)
 
 - `sovereign_os_build_step_duration_seconds{step,profile,result}`
 - `sovereign_os_build_pipeline_duration_seconds{profile,result}`
 - `sovereign_os_build_pipeline_steps_total{profile,result}`
 - `sovereign_os_build_pipeline_last_run_timestamp{profile}`
+- `sovereign_os_build_step_bootstrap_forge_total{profile,result}`
+- `sovereign_os_build_step_kernel_fetch_total{profile,result}`
+- `sovereign_os_build_step_kernel_config_total{profile,result}`
+- `sovereign_os_build_step_kernel_compile_total{profile,result}`
+- `sovereign_os_build_step_substrate_total{profile,substrate,result}`
+- `sovereign_os_build_step_render_total{profile,result}`
+- `sovereign_os_build_step_image_build_total{profile,substrate,result}`
+- `sovereign_os_build_step_sign_total{profile,posture,result}`
+- `sovereign_os_build_step_image_verify_total{profile,result}`
+
+### Pre-install lifecycle hooks (scripts/hooks/pre-install)
+
+- `sovereign_os_pre_install_preflight_total{hook,result}` — pass/fail counters for preflight-network / preflight-storage / preflight-tpm
+- `sovereign_os_pre_install_friction_audit_spec_total{profile,result}`
+- `sovereign_os_pre_install_friction_audit_spec_failures{profile}` — count of structural issues found in the profile YAML
+
+### During-install lifecycle hooks (scripts/hooks/during-install)
+
+- `sovereign_os_during_install_rootfs_format_total{profile,fs,result}`
+- `sovereign_os_during_install_pool_create_total{profile,pool,result}`
+- `sovereign_os_during_install_datasets_create_total{profile,result}`
+- `sovereign_os_during_install_mok_enroll_total{profile,result}`
+
+### Post-install lifecycle hooks (scripts/hooks/post-install)
+
+- `sovereign_os_post_install_nvidia_bind_total{profile,result}`
+- `sovereign_os_post_install_vfio_bind_total{profile,result}`
+- `sovereign_os_post_install_arc_clamp_total{profile,result}`
+- `sovereign_os_post_install_arc_max_bytes{profile}` — applied ZFS ARC ceiling
+- `sovereign_os_post_install_network_vlan_total{profile,result}`
+- `sovereign_os_post_install_shell_setup_total{profile,result}`
+- `sovereign_os_post_install_tetragon_policy_load_total{profile,result}`
+- `sovereign_os_post_install_first_login_assistant_total{profile,result}`
+- `sovereign_os_post_install_first_login_assistant_choices{profile}` — number of opt-in choices the operator made
+- `sovereign_os_friction_audit_failures{profile}` — runtime friction-audit fails (lspci / IOMMU mismatch)
+- `sovereign_os_friction_audit_warnings{profile}`
+- `sovereign_os_friction_audit_last_run_timestamp{profile}`
+
+### Recurrent maintenance (scripts/hooks/recurrent + systemd timers)
+
 - `sovereign_os_log_rotation_files_rotated`
 - `sovereign_os_log_rotation_files_purged`
 - `sovereign_os_log_rotation_last_run_timestamp`
 - `sovereign_os_zfs_pool_health{pool}`
 - `sovereign_os_zfs_scrub_last_run_timestamp{pool}`
-- `sovereign_os_inference_route_total{tier}`
-- `sovereign_os_inference_router_last_route_timestamp`
-- `sovereign_os_inference_backend_start_total{tier,backend,result}`
-- `sovereign_os_inference_backend_pid{tier}`
-- `sovereign_os_perimeter_status`
-- `sovereign_os_perimeter_verify_last_run_timestamp`
-- `sovereign_os_security_updates_available`
-- `sovereign_os_security_update_check_last_run_timestamp`
 - `sovereign_os_snapshot_count{dataset}`
 - `sovereign_os_snapshot_last_created_timestamp{dataset}`
 - `sovereign_os_snapshot_pruned_total{dataset}`
 - `sovereign_os_snapshot_created_total{dataset}`
+- `sovereign_os_security_updates_available`
+- `sovereign_os_security_update_check_last_run_timestamp`
+- `sovereign_os_models_catalog_total{result}` — verified / missing-manifest / corrupt counters from the last catalog-sync
+- `sovereign_os_models_catalog_total_bytes`
+- `sovereign_os_models_catalog_resident_count`
+- `sovereign_os_models_catalog_last_run_timestamp`
 
-When a new hook adds metrics: add a panel to the relevant dashboard
-JSON + bump the dashboard `version`. Operators re-import to pick up.
+### Inference router (scripts/inference)
+
+- `sovereign_os_inference_route_total{tier}`
+- `sovereign_os_inference_router_last_route_timestamp`
+- `sovereign_os_inference_backend_start_total{tier,backend,result}`
+- `sovereign_os_inference_backend_pid{tier}`
+
+### Perimeter
+
+- `sovereign_os_perimeter_status`
+- `sovereign_os_perimeter_verify_last_run_timestamp`
+
+When a new hook adds metrics: add a row to the section above + a panel
+to the relevant dashboard JSON + bump the dashboard `version`.
+Operators re-import to pick up. The `test_metric_inventory_lockstep.py`
+lint guards against forgetting the README row.
 
 ## Layer 3 coverage
 
