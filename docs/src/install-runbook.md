@@ -243,9 +243,62 @@ curl http://127.0.0.1:8080/v1/chat/completions \
 | Oracle Core OOM | `ORACLE_KV_CACHE_DTYPE=fp8` (default for sain-01); reduce `gpu_memory_utilization` in vLLM start script |
 | Router 502 for tier X | `sovereign-osctl inference logs <tier>`; tier daemon likely crashed/not started |
 
-## 7. Old-workstation profile install
+## 7. Other profile installs (cross-profile differences)
 
-Same flow, simpler: skip MOK / VFIO / dual-GPU / ZFS-tiered steps;
-ext4 rootfs; only `sovereign-router.service` + `sovereign-logic-engine.service`
-(with `SOVEREIGN_OS_LOGIC_BACKEND=llama_cpp`). No Pulse, no Oracle Core,
-no DFlash. Tetragon optional.
+Sovereign-os ships 5 profiles. SAIN-01 is the default reference;
+others differ in concrete ways:
+
+### 7.1 `old-workstation` (constrained AI dev box)
+
+- `kernel.source: substrate-default` — steps 02/03/04 short-circuit (Q18-A)
+- `storage.layout: ext4` — rootfs-format-ext4 handles disk
+- `kernel.cmdline.secure_boot: shim` — operator enrolls MOK post-install
+- Inference: `SOVEREIGN_OS_LOGIC_BACKEND=llama_cpp` (3090 only); no
+  Pulse + no Oracle Core + no DFlash. Tetragon optional.
+
+```sh
+SOVEREIGN_OS_PROFILE=old-workstation \
+SOVEREIGN_OS_LOGIC_BACKEND=llama_cpp \
+SOVEREIGN_OS_MOK_KEY=/path/MOK.priv \
+SOVEREIGN_OS_MOK_CERT=/path/MOK.der \
+  sudo scripts/build/orchestrate.sh run
+```
+
+### 7.2 `minimal` (VM baseline)
+
+- generic x86-64-v3, no GPU, virtio-blk root + ext4
+- `kernel.source: substrate-default`; `secure_boot: signed` (useful for
+  VM-testing the signing chain without real hardware)
+- No first-login-assistant (boots to a quiet ready state)
+- Useful for: pre-hardware QEMU smoke, substrate-adapter validation
+  against a 3rd profile shape
+
+### 7.3 `developer` (polyglot dev workstation)
+
+- generic x86-64-v3, 16 GB RAM, single nvme-pcie-4, ext4
+- `kernel.source: substrate-default`; `secure_boot: shim`
+- role-developer mixin: full polyglot toolchain (gcc/clang/rust/go/
+  python/node + gdb/lldb/strace/valgrind + cmake/meson/ninja +
+  podman/buildah/skopeo + vim/neovim/emacs-nox)
+- first-login-assistant left interactive (operator picks setup)
+
+### 7.4 `headless` (bare-metal server)
+
+- 8c/16t, 32 GB ECC, nvme rootfs + dual sata-ssd raid1 data
+- `secure_boot: signed` (server-class operator-owned PK chain)
+- role-server mixin: auditd + fail2ban + chrony + unattended-upgrades
+  + hardened SSH (PermitRootLogin no, PasswordAuth no, X11Forwarding no)
+- All 4 preflight hooks MANDATORY (preflight-tpm required since
+  secure_boot != none)
+- 30-day log retention; no GUI; no first-login-assistant
+
+### 7.5 Build all 5 profiles in dry-run
+
+```sh
+for p in sain-01 old-workstation minimal developer headless; do
+  SOVEREIGN_OS_PROFILE="$p" scripts/build/orchestrate.sh run --dry-run
+done
+```
+
+CI gates this via `tests/nspawn/test_e2e_dry_run_smoke.sh` — 26
+assertions across all 5 profiles + cross-profile invariants.
