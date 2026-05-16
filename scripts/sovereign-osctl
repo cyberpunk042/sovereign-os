@@ -169,21 +169,50 @@ cmd_doctor() {
   echo "sovereign-osctl doctor"
   echo "======================"
   echo
-  local issues=0
 
-  # Required tools
-  for tool in zpool zfs tetragon podman nvidia-smi systemctl; do
+  # Load profile so profile_field can read SOVEREIGN_OS_PROFILE_FILE
+  # (its python3 subshell reads it via os.environ).
+  load_profile "${SOVEREIGN_OS_PROFILE}" 2>/dev/null || true
+
+  # Profile-aware: which checks apply?
+  local layout secure_boot
+  layout="$(profile_field hardware.storage.layout 2>/dev/null || echo unknown)"
+  secure_boot="$(profile_field kernel.cmdline.secure_boot 2>/dev/null || echo unknown)"
+  echo "  profile=${SOVEREIGN_OS_PROFILE:-unknown} layout=${layout} secure_boot=${secure_boot}"
+  echo
+
+  local issues=0 warnings=0
+
+  # ---- Required tools (profile-conditioned) ----
+  echo "[tooling]"
+  local required_tools=(systemctl)
+  case "${layout}" in
+    zfs-tiered) required_tools+=(zpool zfs) ;;
+    ext4)       required_tools+=(mkfs.ext4) ;;
+  esac
+  # Profile-conditioned tools
+  if profile_field hardware.gpu 2>/dev/null | grep -q nvidia; then
+    required_tools+=(nvidia-smi)
+  fi
+  if [ "${SOVEREIGN_OS_PROFILE:-}" = "sain-01" ]; then
+    required_tools+=(tetragon podman)
+  fi
+  for tool in "${required_tools[@]}"; do
     if command -v "${tool}" >/dev/null 2>&1; then
       echo "  ✓ ${tool} installed"
     else
-      echo "  ✗ ${tool} NOT installed"
+      echo "  ✗ ${tool} NOT installed (required by profile=${SOVEREIGN_OS_PROFILE:-unknown})"
       issues=$((issues + 1))
     fi
   done
 
-  # Systemd units
-  for svc in tetragon systemd-networkd; do
-    if systemctl is-active --quiet "${svc}"; then
+  # ---- Systemd units ----
+  echo
+  echo "[systemd]"
+  local required_svcs=(systemd-networkd)
+  [ "${SOVEREIGN_OS_PROFILE:-}" = "sain-01" ] && required_svcs+=(tetragon)
+  for svc in "${required_svcs[@]}"; do
+    if systemctl is-active --quiet "${svc}" 2>/dev/null; then
       echo "  ✓ ${svc} active"
     else
       echo "  ✗ ${svc} not active"
@@ -191,24 +220,92 @@ cmd_doctor() {
     fi
   done
 
-  # ZFS pool
-  if zpool list tank >/dev/null 2>&1; then
-    if zpool status tank | grep -q "state: ONLINE"; then
-      echo "  ✓ tank pool ONLINE"
+  # ---- ZFS pool (only for zfs-tiered profiles) ----
+  if [ "${layout}" = "zfs-tiered" ]; then
+    echo
+    echo "[zfs]"
+    if zpool list tank >/dev/null 2>&1; then
+      if zpool status tank | grep -q "state: ONLINE"; then
+        echo "  ✓ tank pool ONLINE"
+      else
+        echo "  ✗ tank pool DEGRADED or UNAVAILABLE"
+        issues=$((issues + 1))
+      fi
     else
-      echo "  ✗ tank pool DEGRADED or UNAVAILABLE"
+      echo "  ✗ tank pool not present"
       issues=$((issues + 1))
     fi
+  fi
+
+  # ---- TPM2 (when secure_boot != none) ----
+  if [ "${secure_boot}" != "none" ] && [ "${secure_boot}" != "unknown" ]; then
+    echo
+    echo "[tpm2]"
+    if [ -e /dev/tpm0 ] || [ -e /dev/tpmrm0 ]; then
+      echo "  ✓ TPM device node present"
+    else
+      echo "  ✗ TPM device node missing (required by secure_boot=${secure_boot})"
+      issues=$((issues + 1))
+    fi
+    if [ -d /sys/firmware/efi ]; then
+      echo "  ✓ UEFI booted (efi vars dir present)"
+    else
+      echo "  ✗ no /sys/firmware/efi — BIOS/legacy boot? secure_boot=${secure_boot} expects UEFI"
+      issues=$((issues + 1))
+    fi
+  fi
+
+  # ---- Layer B metrics observability ----
+  echo
+  echo "[observability]"
+  local mdir="${SOVEREIGN_OS_METRICS_DIR:-/var/lib/node_exporter/textfile_collector}"
+  if [ -d "${mdir}" ]; then
+    local n; n="$(find "${mdir}" -name 'sovereign-os-*.prom' -type f 2>/dev/null | wc -l)"
+    if [ "${n}" -gt 0 ]; then
+      echo "  ✓ ${n} sovereign-os metrics file(s) at ${mdir}"
+    else
+      echo "  ! no sovereign-os-*.prom files yet (recurrent hooks haven't run?)"
+      warnings=$((warnings + 1))
+    fi
   else
-    echo "  ✗ tank pool not present"
-    issues=$((issues + 1))
+    echo "  ! metrics dir ${mdir} not present (node_exporter not installed?)"
+    warnings=$((warnings + 1))
+  fi
+
+  # ---- inference reachability ----
+  echo
+  echo "[inference]"
+  local any_inf=0
+  for port in 8080 8081 8082 8083; do
+    if (echo >/dev/tcp/127.0.0.1/"${port}") 2>/dev/null; then
+      echo "  ✓ port ${port} listening"
+      any_inf=1
+    fi
+  done
+  if [ "${any_inf}" -eq 0 ]; then
+    echo "  ! no inference tiers listening on 8080/8081/8082/8083"
+    warnings=$((warnings + 1))
+  fi
+
+  # ---- build-state freshness ----
+  echo
+  echo "[build-state]"
+  local state_file="${SOVEREIGN_OS_STATE_DIR:-${HOME}/.sovereign-os/build-state}/state.yaml"
+  if [ -f "${state_file}" ]; then
+    local age=$(( $(date +%s) - $(stat -c %Y "${state_file}" 2>/dev/null || echo 0) ))
+    echo "  ✓ state.yaml present (last modified ${age}s ago)"
+  else
+    echo "  ! no build state at ${state_file} (image never built?)"
+    warnings=$((warnings + 1))
   fi
 
   echo
-  if [ "${issues}" -eq 0 ]; then
-    echo "doctor: PASS"
+  if [ "${issues}" -eq 0 ] && [ "${warnings}" -eq 0 ]; then
+    echo "doctor: PASS (no issues, no warnings)"
+  elif [ "${issues}" -eq 0 ]; then
+    echo "doctor: PASS with ${warnings} warning(s) (informational; not blocking)"
   else
-    echo "doctor: ${issues} issue(s) detected"
+    echo "doctor: FAIL — ${issues} issue(s) + ${warnings} warning(s)"
     return 1
   fi
 }

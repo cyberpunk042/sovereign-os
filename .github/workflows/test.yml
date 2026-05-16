@@ -163,6 +163,9 @@ jobs:
       - name: nspawn — sovereign-osctl inference health (Round 42: HTTP /healthz + TCP fallback)
         run: |
           tests/nspawn/test_sovereign_osctl_inference_health.sh
+      - name: nspawn — sovereign-osctl doctor v2 (Round 43: profile-conditioned multi-section)
+        run: |
+          tests/nspawn/test_sovereign_osctl_doctor_v2.sh
 
   shellcheck:
     name: shellcheck
