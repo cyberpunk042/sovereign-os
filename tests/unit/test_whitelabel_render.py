@@ -143,6 +143,79 @@ def test_template_substitution_strategy_populates_pre_build_files():
     assert "ID=test\n" == cs.pre_build_files["/etc/os-release"]
 
 
+def test_file_overlay_strategy_records_overlay_pair():
+    """SDD-007 strategy 2: file-overlay copies whole subtrees from
+    whitelabel directory to a build-out path. Renderer records the
+    (destination, source) pair; substrate adapter applies later."""
+    wl = _wl(
+        {
+            "surfaces": {
+                "/usr/share/plymouth/themes/sovereign": {
+                    "strategy": "file-overlay",
+                    "overlay": "default/plymouth/sovereign",
+                    "when": "pre-build",
+                }
+            }
+        }
+    )
+    profile = _profile()
+    with tempfile.TemporaryDirectory() as td:
+        cs = render.build_changeset(profile, wl, pathlib.Path(td))
+    assert "/usr/share/plymouth/themes/sovereign" in cs.pre_build_overlays
+    # Source path is resolved against wl_dir
+    src = cs.pre_build_overlays["/usr/share/plymouth/themes/sovereign"]
+    assert "default/plymouth/sovereign" in src
+
+
+def test_package_replacement_strategy_records_action():
+    """SDD-007 strategy 3: package-replacement diverts/alternatives
+    for binaries/themes. Renderer captures the action; substrate
+    adapter dpkg-divert / update-alternatives later."""
+    wl = _wl(
+        {
+            "surfaces": {
+                "debian-logos": {
+                    "strategy": "package-replacement",
+                    "package": "debian-logo",
+                    "alternative": "sovereign-logo",
+                    "points_to": "/usr/share/pixmaps/sovereign.png",
+                    "diverts": ["/usr/share/desktop-base/debian-logos"],
+                    "when": "pre-build",
+                }
+            }
+        }
+    )
+    profile = _profile()
+    with tempfile.TemporaryDirectory() as td:
+        cs = render.build_changeset(profile, wl, pathlib.Path(td))
+    pkg_actions = [a for a in cs.package_actions if a.get("type") == "package-replacement"]
+    assert len(pkg_actions) == 1
+    assert pkg_actions[0]["package"] == "debian-logo"
+    assert pkg_actions[0]["alternative"] == "sovereign-logo"
+    assert pkg_actions[0]["points_to"] == "/usr/share/pixmaps/sovereign.png"
+    assert "/usr/share/desktop-base/debian-logos" in pkg_actions[0]["diverts"]
+
+
+def test_all_seven_sdd_007_strategies_have_explicit_handlers():
+    """Meta-test: every SDD-007 strategy must be handled WITHOUT
+    falling through to the 'unknown strategy' warning. Catches future
+    SDD-007 additions that ship in the docstring before the renderer."""
+    import io, contextlib
+    strategies = (
+        "template-substitution", "file-overlay", "package-replacement",
+        "build-time-flag", "install-time-substitution", "first-boot-script",
+        "must-not-touch",
+    )
+    for strategy in strategies:
+        wl = _wl({"surfaces": {"/some/path": {"strategy": strategy, "when": "pre-build"}}})
+        profile = _profile()
+        stderr = io.StringIO()
+        with tempfile.TemporaryDirectory() as td, contextlib.redirect_stderr(stderr):
+            render.build_changeset(profile, wl, pathlib.Path(td))
+        assert f"unknown strategy '{strategy}'" not in stderr.getvalue(), \
+            f"SDD-007 strategy '{strategy}' falls through to unknown-strategy warning"
+
+
 def test_build_time_flag_strategy_populates_env():
     wl = _wl(
         {
