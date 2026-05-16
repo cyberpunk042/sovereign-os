@@ -211,6 +211,9 @@ jobs:
       - name: nspawn — sovereign-osctl alerts verb (Round 89: Layer B rule engine)
         run: |
           tests/nspawn/test_sovereign_osctl_alerts.sh
+      - name: nspawn — alerts-check recurrent hook (Round 90: meta-counters + state persistence)
+        run: |
+          tests/nspawn/test_alerts_check_hook.sh
 
   shellcheck:
     name: shellcheck

@@ -108,6 +108,7 @@ COMMANDS:
   maintenance security-check   Scan for pending security updates now
   maintenance models-sync      Verify resident model catalog now
   maintenance perimeter-check  Verify Tetragon perimeter policy now
+  maintenance alerts-check     Derive alerts + emit meta-counters now
 
   decommission start           Begin decommission flow (interactive; confirms)
 
@@ -828,6 +829,7 @@ Maintenance subverbs (each runs the matching recurrent hook on demand):
   security-check         Manually scan for pending security updates now.
   models-sync            Manually verify the resident model catalog now.
   perimeter-check        Manually verify Tetragon perimeter policy now.
+  alerts-check           Derive alerts + emit meta-counters now (hourly timer).
 
 All of these run via the matching systemd timer (daily/weekly cadence);
 this surface gives operators on-demand control when they need it.
@@ -860,9 +862,12 @@ EOF
     perimeter-check)
       "${__REPO_ROOT}/scripts/hooks/recurrent/tetragon-policy-verify.sh"
       ;;
+    alerts-check)
+      "${__REPO_ROOT}/scripts/hooks/recurrent/alerts-check.sh"
+      ;;
     *)
       log_error "unknown maintenance subcommand: ${sub}"
-      log_error "  available: list / scrub / arc-status / log-rotate / snapshot / security-check / models-sync / perimeter-check"
+      log_error "  available: list / scrub / arc-status / log-rotate / snapshot / security-check / models-sync / perimeter-check / alerts-check"
       exit 2
       ;;
   esac

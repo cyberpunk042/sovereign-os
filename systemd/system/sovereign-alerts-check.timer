@@ -1,0 +1,13 @@
+[Unit]
+Description=Hourly sovereign-os alert derivation
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/recurrent/alerts-check.sh
+
+[Timer]
+# Hourly + jitter so fleet-wide timing doesn't synchronize
+OnCalendar=hourly
+RandomizedDelaySec=600
+Persistent=true
+Unit=sovereign-alerts-check.service
+
+[Install]
+WantedBy=timers.target

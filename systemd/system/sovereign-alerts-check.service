@@ -1,0 +1,17 @@
+[Unit]
+Description=sovereign-os hourly alert derivation (Layer B rule engine)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/recurrent/alerts-check.sh
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/sovereign-os/scripts/hooks/recurrent/alerts-check.sh
+TimeoutStartSec=60s
+StandardOutput=journal
+StandardError=journal
+# Reads .prom files + writes alert payload to /var/lib/sovereign-os/alerts.json
+# + writes meta-counters to the textfile collector dir.
+ProtectSystem=strict
+ReadWritePaths=/var/lib/sovereign-os /var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true
