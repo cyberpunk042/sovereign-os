@@ -86,6 +86,27 @@ else
   ko "version missing active profile: ${out_v}"
 fi
 
+# Round 65: whitelabel diff error paths
+set +e
+out="$("${CTL}" whitelabel diff 2>&1)"
+rc=$?
+set -e
+if [ "${rc}" -eq 2 ] && grep -q "usage: whitelabel diff" <<< "${out}"; then
+  ok "whitelabel diff without arg → exit 2 + usage hint"
+else
+  ko "whitelabel diff no-arg gate broken: rc=${rc}"
+fi
+
+set +e
+out="$("${CTL}" whitelabel diff bogus-target-xyz 2>&1)"
+rc=$?
+set -e
+if [ "${rc}" -ne 0 ] && grep -q "missing required file" <<< "${out}"; then
+  ok "whitelabel diff with nonexistent target → exits with file-missing error"
+else
+  ko "whitelabel diff bogus-target gate broken"
+fi
+
 # Round 64: --json mode for fleet tooling
 out_json="$("${CTL}" version --json 2>&1)"
 if python3 -c "

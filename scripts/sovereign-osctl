@@ -60,6 +60,7 @@ COMMANDS:
   whitelabel show              Show active whitelabel branding
   whitelabel apply <id>        Re-render whitelabel surfaces on the running system
   whitelabel list              List declared whitelabels
+  whitelabel diff <id>         Unified diff: active whitelabel → <id>
 
   perimeter status             Tetragon perimeter status
   perimeter verify             Run perimeter integrity audit
@@ -433,6 +434,36 @@ cmd_whitelabel() {
       log_info "  to apply non-rebuild surfaces (os-release, issue, motd):"
       log_info "    sudo cp /tmp/sovereign-os-whitelabel-${id}/mkosi.skeleton/etc/* /etc/"
       log_info "  some surfaces (kernel /proc/version) require rebuild."
+      ;;
+    diff)
+      local target="${1:-}"
+      if [ -z "${target}" ]; then
+        log_error "usage: whitelabel diff <id>"
+        log_error "  shows what would change if <id> were applied vs current active"
+        return 2
+      fi
+      local active="default"
+      [ -r /etc/sovereign-os/active-whitelabel ] && \
+        active="$(cat /etc/sovereign-os/active-whitelabel)"
+      local active_file="${__REPO_ROOT}/whitelabel/${active}.yaml"
+      local target_file="${__REPO_ROOT}/whitelabel/${target}.yaml"
+      require_file "${active_file}"
+      require_file "${target_file}"
+      if [ "${active}" = "${target}" ]; then
+        log_info "active whitelabel is already '${target}' — no diff"
+        return 0
+      fi
+      log_info "diff: ${active}.yaml → ${target}.yaml"
+      echo
+      if command -v diff >/dev/null 2>&1; then
+        diff -u "${active_file}" "${target_file}" || true
+      else
+        echo "(diff unavailable; showing both files)"
+        echo "=== ${active}.yaml ==="
+        cat "${active_file}"
+        echo "=== ${target}.yaml ==="
+        cat "${target_file}"
+      fi
       ;;
     *)
       log_error "unknown whitelabel subcommand: ${sub}"
