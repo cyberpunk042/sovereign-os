@@ -1,0 +1,123 @@
+{
+  "_comment": "sovereign-os install-lifecycle dashboard. Covers the during-install + post-install + first-boot configuration metrics — useful immediately after operator installs a new node or after a profile switch. Per SDD-016 Layer C — JSON template (operator-imported into Grafana).",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "rootfs format",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sovereign_os_during_install_rootfs_format_total{result=\"success\"}", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "ZFS pool create",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sovereign_os_during_install_pool_create_total{result=\"success\"}", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "ZFS datasets create",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sovereign_os_during_install_datasets_create_total{result=\"success\"}", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "MOK enroll",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sovereign_os_during_install_mok_enroll_total{result=\"success\"}", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "Friction audit: failures",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sovereign_os_friction_audit_failures", "refId": "A"}],
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 4}
+    },
+    {
+      "type": "stat",
+      "title": "Friction audit: warnings",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sovereign_os_friction_audit_warnings", "refId": "A"}],
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 4}
+    },
+    {
+      "type": "stat",
+      "title": "VFIO bind",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sovereign_os_post_install_vfio_bind_total{result=\"configured\"}", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 4}
+    },
+    {
+      "type": "stat",
+      "title": "NVIDIA bind",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sovereign_os_post_install_nvidia_bind_total{result=\"configured\"}", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 4}
+    },
+    {
+      "type": "stat",
+      "title": "ZFS ARC max (bytes)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sovereign_os_post_install_arc_max_bytes", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "bytes"}},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 8}
+    },
+    {
+      "type": "stat",
+      "title": "Tetragon policy loaded",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sovereign_os_post_install_tetragon_policy_load_total{result=\"loaded\"}", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 8}
+    },
+    {
+      "type": "stat",
+      "title": "Network VLAN configured",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sovereign_os_post_install_network_vlan_total{result=\"configured\"}", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 8}
+    },
+    {
+      "type": "stat",
+      "title": "Shell defaults",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sovereign_os_post_install_shell_setup_total{result=\"configured\"}", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 8}
+    },
+    {
+      "type": "stat",
+      "title": "Image sign: success / fail (by posture)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sovereign_os_build_step_sign_total", "refId": "A", "legendFormat": "{{posture}}/{{result}}"}],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+    },
+    {
+      "type": "stat",
+      "title": "Friction audit: last run age",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "time() - sovereign_os_friction_audit_last_run_timestamp", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "s"}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["sovereign-os", "install"],
+  "templating": {"list": []},
+  "time": {"from": "now-24h", "to": "now"},
+  "timezone": "browser",
+  "title": "sovereign-os install lifecycle",
+  "uid": "sovereign-os-install",
+  "version": 1,
+  "weekStart": ""
+}
