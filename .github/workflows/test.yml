@@ -283,6 +283,9 @@ jobs:
       - name: nspawn — asymmetric Zero-Trust networking (Round 158: master spec § 8.1 verbatim renderer)
         run: |
           tests/nspawn/test_network_asymmetric.sh
+      - name: nspawn — Master Bootstrap Verification (Round 159: master spec § 22 6-check checklist)
+        run: |
+          tests/nspawn/test_bootstrap_verify.sh
       - name: nspawn — secure-boot gen-keys (Round 143: F-05 MED closure — operator-owned key generation)
         run: |
           tests/nspawn/test_secure_boot_gen_keys.sh

@@ -2799,6 +2799,47 @@ PY
 # enrollment commands. Operator backs them up; sovereign-os never
 # sees them again.
 
+# ----------------------------------------------------------------------------
+# bootstrap — Master Bootstrap Verification Checklist (master spec § 22).
+# ----------------------------------------------------------------------------
+cmd_bootstrap() {
+  local sub="${1:-verify}"
+  shift || true
+
+  case "${sub}" in
+    verify)
+      local verify_script
+      verify_script="$(dirname "${BASH_SOURCE[0]}")/bootstrap/verify.sh"
+      if [ ! -x "${verify_script}" ]; then
+        log_error "bootstrap verify script missing or not executable: ${verify_script}"
+        return 1
+      fi
+      exec "${verify_script}" "$@"
+      ;;
+    -h|--help|help)
+      cat <<EOF
+sovereign-osctl bootstrap — Master Bootstrap Verification (master spec § 22)
+
+Subverbs:
+  verify [--only IDS] [--json] [--strict]
+    Run the 6-check operational grid:
+      01 Microcode/ISA   02 Bus Geometry   03 Linux Memory (ZFS ARC)
+      04 Driver Fabric   05 Security Core  06 Network Line (Jumbo MTU)
+    Exit 1 if any check FAILs → master spec § 22 lock-state.
+
+Env vars:
+  BOOTSTRAP_VERIFY_STRICT=1        promote SKIPs to FAILs (real SAIN-01)
+  BOOTSTRAP_VERIFY_DATA_IFACE=...  override the data NIC (default: enp5s0)
+  BOOTSTRAP_VERIFY_ARC_MAX_BYTES=  override expected ARC max
+EOF
+      ;;
+    *)
+      log_error "unknown bootstrap subverb: ${sub}"
+      return 2
+      ;;
+  esac
+}
+
 cmd_secure_boot() {
   local sub="${1:-status}"
   shift || true
@@ -3642,6 +3683,7 @@ case "${cmd}" in
   decommission)  cmd_decommission "$@" ;;
   install)       cmd_install "$@" ;;
   secure-boot)   cmd_secure_boot "$@" ;;
+  bootstrap)     cmd_bootstrap "$@" ;;
   trinity)       cmd_trinity "$@" ;;
   init)          cmd_init "$@" ;;
   env)           cmd_env "$@" ;;
