@@ -1,0 +1,22 @@
+[Unit]
+Description=sovereign-os runtime friction audit (one-shot, first boot)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/post-install/friction-audit-runtime.sh
+ConditionFirstBoot=yes
+After=zfs.target
+Wants=zfs.target
+PartOf=sovereign-firstboot.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=-/etc/sovereign-os/active-profile.env
+ExecStart=/opt/sovereign-os/scripts/hooks/post-install/friction-audit-runtime.sh
+# Friction audit FAILURE on first boot is operator-actionable but not
+# system-breaking; non-zero exit logs to journal but doesn't block
+# subsequent services.
+SuccessExitStatus=0 1
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=sovereign-firstboot.target

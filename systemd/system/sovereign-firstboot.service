@@ -1,0 +1,19 @@
+[Unit]
+Description=sovereign-os first-boot completion marker
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/docs/src/lifecycle/post-install.md
+ConditionFirstBoot=yes
+After=sovereign-friction-audit.service sovereign-vfio-bind.service sovereign-network-vlan.service sovereign-tetragon-policy-load.service sovereign-zfs-arc-clamp.service sovereign-nvidia-driver-bind.service sovereign-workstation-shell-setup.service
+Requires=sovereign-friction-audit.service sovereign-network-vlan.service sovereign-tetragon-policy-load.service sovereign-zfs-arc-clamp.service
+PartOf=sovereign-firstboot.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=/bin/mkdir -p /var/lib/sovereign-os
+ExecStart=/bin/sh -c 'date -u --iso-8601=seconds > /var/lib/sovereign-os/first-boot-complete'
+ExecStartPost=/bin/sh -c '[ -f /var/lib/sovereign-os/.vfio-bind-needs-reboot ] && echo "NOTICE: reboot required for VFIO binding to take effect" > /dev/console || true'
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=sovereign-firstboot.target

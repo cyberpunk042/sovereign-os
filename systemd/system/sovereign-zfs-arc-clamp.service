@@ -1,0 +1,18 @@
+[Unit]
+Description=sovereign-os ZFS ARC clamp (one-shot, first boot)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/post-install/zfs-arc-clamp.sh
+ConditionFirstBoot=yes
+After=zfs.target
+Wants=zfs.target
+PartOf=sovereign-firstboot.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=-/etc/sovereign-os/active-profile.env
+ExecStart=/opt/sovereign-os/scripts/hooks/post-install/zfs-arc-clamp.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=sovereign-firstboot.target

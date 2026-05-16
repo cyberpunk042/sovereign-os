@@ -1,0 +1,17 @@
+[Unit]
+Description=sovereign-os NVIDIA driver bind + nouveau blacklist (one-shot, first boot)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/post-install/nvidia-driver-bind.sh
+ConditionFirstBoot=yes
+After=sovereign-friction-audit.service
+PartOf=sovereign-firstboot.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=-/etc/sovereign-os/active-profile.env
+ExecStart=/opt/sovereign-os/scripts/hooks/post-install/nvidia-driver-bind.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=sovereign-firstboot.target

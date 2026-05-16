@@ -1,0 +1,16 @@
+[Unit]
+Description=sovereign-os workstation shell defaults (one-shot, first boot)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/post-install/workstation-shell-setup.sh
+ConditionFirstBoot=yes
+PartOf=sovereign-firstboot.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=-/etc/sovereign-os/active-profile.env
+ExecStart=/opt/sovereign-os/scripts/hooks/post-install/workstation-shell-setup.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=sovereign-firstboot.target

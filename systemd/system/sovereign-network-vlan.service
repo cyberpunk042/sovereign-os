@@ -1,0 +1,18 @@
+[Unit]
+Description=sovereign-os network VLAN configuration (one-shot, first boot)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/post-install/network-vlan-config.sh
+ConditionFirstBoot=yes
+After=sovereign-friction-audit.service systemd-networkd.service
+Wants=systemd-networkd.service
+PartOf=sovereign-firstboot.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=-/etc/sovereign-os/active-profile.env
+ExecStart=/opt/sovereign-os/scripts/hooks/post-install/network-vlan-config.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=sovereign-firstboot.target

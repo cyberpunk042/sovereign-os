@@ -1,0 +1,21 @@
+[Unit]
+Description=sovereign-os VFIO GPU binding (one-shot, first boot)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/post-install/vfio-bind-3090.sh
+ConditionFirstBoot=yes
+After=sovereign-friction-audit.service
+PartOf=sovereign-firstboot.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=-/etc/sovereign-os/active-profile.env
+ExecStart=/opt/sovereign-os/scripts/hooks/post-install/vfio-bind-3090.sh
+# After this runs, reboot is required for vfio-pci to claim the
+# device from the initramfs. The service writes a flag the next-boot
+# completion service checks.
+ExecStartPost=/bin/touch /var/lib/sovereign-os/.vfio-bind-needs-reboot
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=sovereign-firstboot.target

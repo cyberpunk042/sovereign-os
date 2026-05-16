@@ -1,0 +1,12 @@
+[Unit]
+Description=sovereign-os first-boot orchestration target
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/docs/src/lifecycle/post-install.md
+After=multi-user.target zfs.target
+Wants=zfs.target
+
+# This target groups all sovereign-os first-boot oneshot services.
+# Reaching it means every required first-boot hook has run successfully.
+# The first-login-assistant runs separately (only at actual first login).
+
+[Install]
+WantedBy=multi-user.target
