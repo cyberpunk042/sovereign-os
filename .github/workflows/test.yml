@@ -136,6 +136,9 @@ jobs:
       - name: nspawn — during-install gates (profile-conditioned skips + env-gate refusals)
         run: |
           tests/nspawn/test_during_install_gates.sh
+      - name: nspawn — reproducibility inputs (SDD-019 wiring: SOURCE_DATE_EPOCH, DEBIAN_SNAPSHOT, sha256sums, in-toto)
+        run: |
+          tests/nspawn/test_reproducibility_inputs.sh
 
   shellcheck:
     name: shellcheck

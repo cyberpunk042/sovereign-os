@@ -97,5 +97,57 @@ else
   fi
 fi
 
+# ---- reproducibility artifacts (SDD-019) ----
+# Emit sha256sums.txt for every artifact in the image dir + a skeleton
+# in-toto build-provenance manifest. Operator can independently verify
+# bit-identicality (Build A vs Build B with same env → same hashes).
+
+if [ -n "${SOVEREIGN_OS_IMAGE_DIR:-}" ] && [ -d "${SOVEREIGN_OS_IMAGE_DIR}" ]; then
+  sums_file="${SOVEREIGN_OS_IMAGE_DIR}/sha256sums.txt"
+  (cd "${SOVEREIGN_OS_IMAGE_DIR}" && find . -maxdepth 2 -type f \
+     ! -name 'sha256sums.txt' ! -name 'build-provenance.json' \
+     -exec sha256sum {} \; | sort) > "${sums_file}"
+  log_info "sha256sums.txt written: ${sums_file} ($(wc -l < "${sums_file}") entries)"
+
+  # Skeleton in-toto-style build provenance manifest. Format aligned with
+  # https://slsa.dev/provenance/v1 minimal subset; full schema lands Stage 2+.
+  prov_file="${SOVEREIGN_OS_IMAGE_DIR}/build-provenance.json"
+  python3 - <<PY > "${prov_file}"
+import hashlib, json, os, pathlib, time
+img_dir = pathlib.Path("${SOVEREIGN_OS_IMAGE_DIR}")
+subjects = []
+for f in sorted(img_dir.rglob("*")):
+    if not f.is_file(): continue
+    if f.name in ("sha256sums.txt", "build-provenance.json"): continue
+    h = hashlib.sha256(f.read_bytes()).hexdigest()
+    subjects.append({"name": str(f.relative_to(img_dir)), "digest": {"sha256": h}})
+provenance = {
+    "_type": "https://in-toto.io/Statement/v1",
+    "predicateType": "https://slsa.dev/provenance/v1",
+    "subject": subjects,
+    "predicate": {
+        "buildDefinition": {
+            "buildType": "https://github.com/cyberpunk042/sovereign-os/build/v1",
+            "externalParameters": {
+                "profile": "${SOVEREIGN_OS_PROFILE}",
+                "substrate": os.environ.get("SOVEREIGN_OS_SUBSTRATE", "mkosi"),
+                "source_date_epoch": os.environ.get("SOURCE_DATE_EPOCH", ""),
+                "debian_snapshot": os.environ.get("DEBIAN_SNAPSHOT", ""),
+            },
+        },
+        "runDetails": {
+            "builder": {"id": "https://github.com/cyberpunk042/sovereign-os/orchestrator"},
+            "metadata": {
+                "invocationId": os.environ.get("SOVEREIGN_OS_BUILD_ID", ""),
+                "startedOn": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            },
+        },
+    },
+}
+print(json.dumps(provenance, indent=2))
+PY
+  log_info "in-toto build-provenance manifest: ${prov_file}"
+fi
+
 state_step_complete "${STEP_ID}"
 log_info "step ${STEP_ID} complete"

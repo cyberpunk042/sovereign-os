@@ -31,6 +31,31 @@ with open(os.environ["SOVEREIGN_OS_PROFILE_FILE"]) as f:
 
 profile_id = p["identity"]["id"]
 
+# Reproducibility inputs (SDD-019). When operator pins SOURCE_DATE_EPOCH
+# and/or DEBIAN_SNAPSHOT in the environment, propagate them into the
+# emitted mkosi.conf. Both are optional — sovereign-os doesn't force them.
+source_date_epoch = os.environ.get("SOURCE_DATE_EPOCH", "")
+debian_snapshot = os.environ.get("DEBIAN_SNAPSHOT", "")
+
+# Build distribution repository line. Default mkosi pulls from
+# deb.debian.org; with DEBIAN_SNAPSHOT set, we pin to a snapshot.debian.org
+# stamp for bit-identical apt resolution.
+repos_block = ""
+if debian_snapshot:
+    repos_block = textwrap.dedent(f"""
+        [Distribution]
+        Repositories=main
+        Mirror=http://snapshot.debian.org/archive/debian/{debian_snapshot}
+        """)
+
+env_block = ""
+if source_date_epoch:
+    env_block = textwrap.dedent(f"""
+        [Build]
+        Environment=
+            SOURCE_DATE_EPOCH={source_date_epoch}
+        """)
+
 # ---- top-level mkosi.conf (distro-agnostic baseline) ----
 top = textwrap.dedent(f"""\
     # auto-generated from profiles/{profile_id}.yaml
@@ -48,7 +73,7 @@ top = textwrap.dedent(f"""\
     Bootable=yes
     Bootloader=systemd-boot
     SecureBoot=yes
-    """)
+    """) + repos_block + env_block
 (out_dir / "mkosi.conf").write_text(top)
 
 # ---- profile-specific override ----

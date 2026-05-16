@@ -15,7 +15,17 @@ load_profile "${SOVEREIGN_OS_PROFILE}"
 : "${SOVEREIGN_OS_KERNEL_SRC:=${SOVEREIGN_OS_FORGE_DIR}/linux-stable}"
 : "${SOVEREIGN_OS_PARALLEL:=$(nproc)}"
 
-inputs_hash="$(state_inputs_hash "${BASH_SOURCE[0]}" "${SOVEREIGN_OS_PROFILE_FILE}" "${SOVEREIGN_OS_STATE_DIR}/kernel.config")"
+# Reproducibility (SDD-019): when SOURCE_DATE_EPOCH is set, propagate
+# it to the kernel build. This drives KBUILD_BUILD_TIMESTAMP +
+# embedded mtimes in the .deb. Folding it into inputs_hash ensures the
+# state machine notices when the operator pins a new epoch.
+if [ -n "${SOURCE_DATE_EPOCH:-}" ]; then
+  export SOURCE_DATE_EPOCH
+  export KBUILD_BUILD_TIMESTAMP="$(date -u -d "@${SOURCE_DATE_EPOCH}" '+%a %b %d %H:%M:%S UTC %Y' 2>/dev/null || date -u '+%a %b %d %H:%M:%S UTC %Y')"
+  inputs_hash="$(state_inputs_hash "${BASH_SOURCE[0]}" "${SOVEREIGN_OS_PROFILE_FILE}" "${SOVEREIGN_OS_STATE_DIR}/kernel.config" "epoch=${SOURCE_DATE_EPOCH}")"
+else
+  inputs_hash="$(state_inputs_hash "${BASH_SOURCE[0]}" "${SOVEREIGN_OS_PROFILE_FILE}" "${SOVEREIGN_OS_STATE_DIR}/kernel.config")"
+fi
 
 if ! state_step_should_run "${STEP_ID}" "${inputs_hash}"; then
   log_info "step ${STEP_ID} already completed with matching inputs — skipping"
@@ -61,6 +71,10 @@ case "${packaging}" in
 esac
 
 # ---- compile ----
+if [ -n "${SOURCE_DATE_EPOCH:-}" ]; then
+  log_info "reproducibility: SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH} → KBUILD_BUILD_TIMESTAMP=${KBUILD_BUILD_TIMESTAMP}"
+fi
+
 log_info "starting kernel compile (this can take 30+ minutes on SAIN-01-class hardware)"
 
 if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
