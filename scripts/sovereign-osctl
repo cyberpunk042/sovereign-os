@@ -282,6 +282,175 @@ EOF
   fi
 }
 
+# ----------------------------------------------------------------------------
+# overview — consolidated single-screen status snapshot across the
+# master-spec-materialized surfaces (R163). Composes phases (§ 12),
+# verify (§ 22), trinity (§ 17), models (§ 17/18), perimeter (§ 10),
+# whitelabel + reproducibility into one operator-facing report.
+# ----------------------------------------------------------------------------
+cmd_overview() {
+  local json=0
+  case "${1:-}" in
+    --json) json=1 ;;
+    -h|--help)
+      cat <<EOF
+sovereign-osctl overview — consolidated cross-surface status snapshot
+
+Single-screen "where am I" report combining:
+  - master spec § 12 5-phase pipeline artifact inventory (R162)
+  - master spec § 22 6-check bootstrap grid (R159, non-strict)
+  - Trinity surface status (R149)
+  - Model catalog residency (R156)
+  - Active profile / whitelabel / kernel
+  - Tetragon perimeter state
+
+  --json    machine-readable for fleet aggregation
+EOF
+      return 0
+      ;;
+  esac
+
+  local script_dir; script_dir="$(dirname "${BASH_SOURCE[0]}")"
+  local phases_script="${script_dir}/bootstrap/phases.sh"
+  local verify_script="${script_dir}/bootstrap/verify.sh"
+  local models_verify="${script_dir}/models/verify.sh"
+
+  # ---- gather facts ----
+  local profile="${SOVEREIGN_OS_PROFILE:-unknown}"
+  local whitelabel="default"
+  [ -r /etc/sovereign-os/active-whitelabel ] && \
+    whitelabel="$(cat /etc/sovereign-os/active-whitelabel)"
+  local kernel; kernel="$(uname -r)"
+
+  local phases_rc=0 phases_missing=0
+  if [ -x "${phases_script}" ]; then
+    set +e
+    local phases_json; phases_json="$("${phases_script}" --json 2>/dev/null)"
+    phases_rc=$?
+    set -e
+    phases_missing="$(python3 -c "import json,sys; print(json.loads('''${phases_json}''')['overall_missing'])" 2>/dev/null || echo 0)"
+  fi
+
+  local verify_pass=0 verify_fail=0 verify_skip=0
+  if [ -x "${verify_script}" ]; then
+    set +e
+    local verify_out; verify_out="$("${verify_script}" --json 2>/dev/null)"
+    set -e
+    if grep -q '"summary"' <<< "${verify_out}"; then
+      verify_pass="$(python3 -c "import json,sys; d=json.loads('''$(awk '/^{/,/^}/' <<< "${verify_out}")'''); print(d['summary']['pass'])" 2>/dev/null || echo 0)"
+      verify_fail="$(python3 -c "import json,sys; d=json.loads('''$(awk '/^{/,/^}/' <<< "${verify_out}")'''); print(d['summary']['fail'])" 2>/dev/null || echo 0)"
+      verify_skip="$(python3 -c "import json,sys; d=json.loads('''$(awk '/^{/,/^}/' <<< "${verify_out}")'''); print(d['summary']['skip'])" 2>/dev/null || echo 0)"
+    fi
+  fi
+
+  # Trinity files presence — proxy for Trinity surface readiness
+  local trinity_ready=0
+  for f in scripts/auditor/guardian-core.py scripts/weaver/atomic-state.py scripts/pulse/build-bitnet.sh; do
+    [ -f "${script_dir}/../${f}" ] && trinity_ready=$((trinity_ready + 1))
+  done
+
+  # Catalog declared vs resident
+  local catalog_declared=0 catalog_resident=0
+  if [ -f "${script_dir}/../models/catalog.yaml" ]; then
+    catalog_declared="$(python3 -c "import yaml; print(sum(1 for m in yaml.safe_load(open('${script_dir}/../models/catalog.yaml'))['catalog']['models'] if m['status']=='verified-real'))" 2>/dev/null || echo 0)"
+    if [ -d "${SOVEREIGN_OS_MODELS_DIR:-/mnt/vault/models}" ]; then
+      while IFS= read -r d; do
+        catalog_resident=$((catalog_resident + 1))
+      done < <(find "${SOVEREIGN_OS_MODELS_DIR:-/mnt/vault/models}" -maxdepth 1 -mindepth 1 -type d 2>/dev/null)
+    fi
+  fi
+
+  # Tetragon
+  local tetragon_state="not-installed"
+  if command -v tetragon >/dev/null 2>&1; then
+    systemctl is-active --quiet tetragon 2>/dev/null && tetragon_state="active" || tetragon_state="inactive"
+  fi
+  local guardian_state="not-installed"
+  if [ -f /usr/local/bin/guardian-core ] || [ -f "${script_dir}/auditor/guardian-core.py" ]; then
+    if systemctl is-active --quiet sovereign-guardian-core 2>/dev/null; then
+      guardian_state="active"
+    elif [ -f "${script_dir}/auditor/guardian-core.py" ]; then
+      guardian_state="in-repo-only"
+    fi
+  fi
+
+  # ---- emit ----
+  if [ "${json}" -eq 1 ]; then
+    cat <<EOF
+{
+  "profile": "${profile}",
+  "whitelabel": "${whitelabel}",
+  "kernel": "${kernel}",
+  "master_spec_section_12_pipeline": {
+    "phases_artifacts_missing": ${phases_missing},
+    "exit_code": ${phases_rc}
+  },
+  "master_spec_section_22_grid": {
+    "pass": ${verify_pass},
+    "fail": ${verify_fail},
+    "skip": ${verify_skip}
+  },
+  "trinity_repo_artifacts_present": ${trinity_ready},
+  "model_catalog": {
+    "declared_verified_real": ${catalog_declared},
+    "resident": ${catalog_resident}
+  },
+  "perimeter": {
+    "tetragon": "${tetragon_state}",
+    "guardian": "${guardian_state}"
+  },
+  "timestamp": $(date +%s)
+}
+EOF
+    return 0
+  fi
+
+  echo "sovereign-os — overview (R163)"
+  echo "════════════════════════════════════════════════════════════"
+  echo
+  printf "  Profile:         %s\n" "${profile}"
+  printf "  Whitelabel:      %s\n" "${whitelabel}"
+  printf "  Kernel:          %s\n" "${kernel}"
+  echo
+  echo "[Master spec § 12 5-phase pipeline (R162)]"
+  if [ "${phases_missing}" -eq 0 ]; then
+    printf "  ✓ all 5 phases fully populated (no missing artifacts)\n"
+  else
+    printf "  ⚠ %s artifact(s) missing — run: sovereign-osctl bootstrap phases\n" "${phases_missing}"
+  fi
+  echo
+  echo "[Master spec § 22 6-check bootstrap grid (R159, non-strict)]"
+  printf "  pass=%s · skip=%s · fail=%s\n" "${verify_pass}" "${verify_skip}" "${verify_fail}"
+  if [ "${verify_fail}" != "0" ]; then
+    printf "  ✗ LOCK-STATE: run: sovereign-osctl bootstrap verify\n"
+  elif [ "${verify_skip}" != "0" ]; then
+    printf "  — SKIPs present (likely non-SAIN-01 host); re-run with --strict on real hw\n"
+  else
+    printf "  ✓ grid clear\n"
+  fi
+  echo
+  echo "[Trinity (master spec § 17 — R149-R155)]"
+  printf "  in-repo artifacts present: %s/3 (pulse + weaver + auditor)\n" "${trinity_ready}"
+  echo
+  echo "[Model catalog (master spec § 17/18 — R156)]"
+  printf "  declared verified-real:   %s\n" "${catalog_declared}"
+  printf "  resident on disk:         %s\n" "${catalog_resident}"
+  if [ "${catalog_declared}" != "0" ] && [ "${catalog_resident}" -lt "${catalog_declared}" ]; then
+    printf "  ⚠ run: sovereign-osctl models verify\n"
+  fi
+  echo
+  echo "[Perimeter (master spec § 10 — R155)]"
+  printf "  tetragon: %s\n" "${tetragon_state}"
+  printf "  guardian: %s\n" "${guardian_state}"
+  echo
+  echo "──────────────────────────────────────────────────────────"
+  echo "  Drill down with:"
+  echo "    sovereign-osctl bootstrap phases"
+  echo "    sovereign-osctl bootstrap verify"
+  echo "    sovereign-osctl trinity status"
+  echo "    sovereign-osctl models list"
+}
+
 # ------------------------------ doctor ---------------------------------------
 
 cmd_doctor() {
@@ -3689,6 +3858,7 @@ shift || true
 
 case "${cmd}" in
   status)        cmd_status "$@" ;;
+  overview)      cmd_overview "$@" ;;
   doctor)        cmd_doctor "$@" ;;
   assistant)     cmd_assistant "$@" ;;
   profiles)      cmd_profiles "$@" ;;

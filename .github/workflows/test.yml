@@ -289,6 +289,9 @@ jobs:
       - name: nspawn — Bootstrap phases inventory (Round 162: master spec § 12 5-phase pipeline surface)
         run: |
           tests/nspawn/test_bootstrap_phases.sh
+      - name: nspawn — sovereign-osctl overview (Round 163: consolidated cross-surface status snapshot)
+        run: |
+          tests/nspawn/test_sovereign_osctl_overview.sh
       - name: nspawn — secure-boot gen-keys (Round 143: F-05 MED closure — operator-owned key generation)
         run: |
           tests/nspawn/test_secure_boot_gen_keys.sh
