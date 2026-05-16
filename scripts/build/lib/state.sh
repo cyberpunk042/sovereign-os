@@ -54,11 +54,14 @@ state_step_status() {
   fi
   # Naive parse: look for "<step>: { status: <X> }" line. yq-free for
   # zero-dep guarantee; supports the limited shape we write.
-  awk -v step="${step}" '
+  local result
+  result="$(awk -v step="${step}" '
     $0 ~ "  " step ":" { in_step = 1; next }
     in_step && /^    status:/ { gsub(/[" ,]/,"",$2); print $2; exit }
     in_step && /^  [a-z]/ { exit }
-  ' "${SOVEREIGN_OS_STATE_FILE}" || echo "pending"
+  ' "${SOVEREIGN_OS_STATE_FILE}")"
+  # awk exits 0 on no-match (with empty output); default to "pending"
+  echo "${result:-pending}"
 }
 
 state_step_start() {
