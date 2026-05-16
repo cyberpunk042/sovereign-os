@@ -184,6 +184,23 @@ def build_changeset(profile: dict, whitelabel: dict, wl_dir: pathlib.Path) -> Ch
             if script:
                 cs.first_boot_scripts.append(script)
 
+        elif strategy == "must-not-touch":
+            # SDD-007 strategy 7: explicit "this whitelabel declines to
+            # override this surface". Declarative opt-out — different from
+            # the legal-floor LIST (hard refuse for anyone). Useful when a
+            # whitelabel inherits from a parent that DOES override the
+            # surface, and the child wants to revert to the upstream.
+            #
+            # No changeset emission. Operator-readable side effect: emit
+            # a tracking entry so 'sovereign-osctl whitelabel show' can
+            # surface "explicitly NOT touched" surfaces alongside the
+            # touched ones.
+            cs.package_actions.append({
+                "type": "must-not-touch",
+                "path": surface_path,
+                "reason": decl.get("reason", "explicit no-op declaration"),
+            })
+
         else:
             sys.stderr.write(f"warn: unknown strategy '{strategy}' on {surface_path}\n")
 

@@ -179,6 +179,52 @@ def test_first_boot_script_strategy_collects_scripts():
     assert "scripts/whitelabel/first-boot-greeting.sh" in cs.first_boot_scripts
 
 
+def test_must_not_touch_strategy_records_declaration():
+    """SDD-007 strategy 7: declarative opt-out — whitelabel explicitly
+    declines to override a surface. Tracked but emits no file content."""
+    wl = _wl(
+        {
+            "surfaces": {
+                "/usr/share/locale/de/LC_MESSAGES": {
+                    "strategy": "must-not-touch",
+                    "reason": "preserve upstream German translations",
+                    "when": "pre-build",
+                }
+            }
+        }
+    )
+    profile = _profile()
+    with tempfile.TemporaryDirectory() as td:
+        cs = render.build_changeset(profile, wl, pathlib.Path(td))
+    # No file content emitted
+    assert "/usr/share/locale/de/LC_MESSAGES" not in cs.pre_build_files
+    # But a tracking entry is recorded in package_actions
+    must_not_touch_entries = [a for a in cs.package_actions if a.get("type") == "must-not-touch"]
+    assert len(must_not_touch_entries) == 1
+    assert must_not_touch_entries[0]["path"] == "/usr/share/locale/de/LC_MESSAGES"
+    assert "preserve upstream" in must_not_touch_entries[0]["reason"]
+
+
+def test_must_not_touch_without_reason_uses_default():
+    """Reason field is optional; gets a default explanation."""
+    wl = _wl(
+        {
+            "surfaces": {
+                "/usr/share/wallpapers/upstream": {
+                    "strategy": "must-not-touch",
+                    "when": "pre-build",
+                }
+            }
+        }
+    )
+    profile = _profile()
+    with tempfile.TemporaryDirectory() as td:
+        cs = render.build_changeset(profile, wl, pathlib.Path(td))
+    entries = [a for a in cs.package_actions if a.get("type") == "must-not-touch"]
+    assert len(entries) == 1
+    assert entries[0]["reason"] == "explicit no-op declaration"
+
+
 def test_install_time_substitution_strategy_collects_entries():
     wl = _wl(
         {
