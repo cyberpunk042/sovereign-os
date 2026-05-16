@@ -51,9 +51,11 @@ COMMANDS:
   doctor                       Sanity checks across the system
 
   profiles list                List declared profiles
-  profiles show <id>           Print effective profile (with mixins resolved)
+  profiles show <id>           Print profile YAML (raw, no mixin resolution)
+  profiles show-effective <id> Print profile with mixins + parent resolved
   profiles active              Show active profile id
   profiles switch <id>         Swap active profile (flags items requiring rebuild)
+  profiles validate            Schema-validate all profiles (raw + resolved)
 
   whitelabel show              Show active whitelabel branding
   whitelabel apply <id>        Re-render whitelabel surfaces on the running system
@@ -236,6 +238,13 @@ cmd_profiles() {
       local f="${__REPO_ROOT}/profiles/${id}.yaml"
       require_file "$f"
       cat "$f"
+      ;;
+    show-effective)
+      local id="${1:-${SOVEREIGN_OS_PROFILE}}"
+      (cd "${__REPO_ROOT}" && python3 -m tools.profile_merger "${id}")
+      ;;
+    validate)
+      "${__REPO_ROOT}/scripts/validate-profiles.sh"
       ;;
     active)
       echo "${SOVEREIGN_OS_PROFILE}"
