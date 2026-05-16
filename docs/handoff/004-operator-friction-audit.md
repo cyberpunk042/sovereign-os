@@ -182,7 +182,14 @@ Operator on a fresh laptop sees: "here's a build pipeline" but no
 dev-env) — runs `sovereign-osctl init` wizard + `make build` for the
 chosen profile + tells operator what to do next.
 
-### F-09 — MED — Hook authoring requires manual YAML editing
+### F-09 — MED — Hook authoring requires manual YAML editing  ✅ **CLOSED (Round 141)**
+
+`sovereign-osctl hooks {list, add, remove}` shipped. `add` validates
+stage (5-enum) + script exists + script executable + id pattern; refuses
+duplicate id in same stage. `remove` is its inverse. Both preserve the
+yaml-language-server header on the profile file. Round-trip (add then
+remove) leaves the profile byte-equivalent for the relevant section
+and schema-validates clean. 21-assertion L3.
 
 **Where**: Operator wanting to add a post-install hook (e.g. "after
 install, set up my dotfiles") edits the profile YAML manually.

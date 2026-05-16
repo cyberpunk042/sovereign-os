@@ -250,6 +250,9 @@ jobs:
       - name: nspawn — profiles fork (Round 140: F-04 MED closure — profile scaffold helper)
         run: |
           tests/nspawn/test_profiles_fork.sh
+      - name: nspawn — hooks list/add/remove (Round 141: F-09 MED closure — operator hook editor)
+        run: |
+          tests/nspawn/test_hooks.sh
 
   shellcheck:
     name: shellcheck

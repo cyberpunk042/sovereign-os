@@ -113,6 +113,12 @@ COMMANDS:
   maintenance perimeter-check  Verify Tetragon perimeter policy now
   maintenance alerts-check     Derive alerts + emit meta-counters now
 
+  hooks list [<profile>]       List hooks declared in a profile (default: active)
+  hooks add <stage> <script-path> [--id <id>] [--mandatory] [--profile <id>]
+                               Append a hook to the profile YAML (validates path + executable)
+  hooks remove <id> [--profile <id>]
+                               Remove a hook by id from the profile YAML
+
   decommission start           Begin decommission flow (interactive; confirms)
   decommission --plan          Preview ALL 3 decommission phases (paths, sizes, commands); writes nothing
 
@@ -2386,6 +2392,213 @@ EOF
 
 # ------------------------------ decommission ---------------------------------
 
+# ------------------------------ hooks ----------------------------------------
+#
+# R141 (F-09 MED closure): operator-facing profile-hook editor.
+# Before this verb operators wanting to add a post-install hook (e.g.,
+# 'after install, set up my dotfiles') edited the profile YAML manually
+# and could typo the path or forget the schema shape. This verb does
+# the YAML mutation safely + validates the path + flags the schema.
+#
+# Stages (must match profile.schema.yaml § hooks):
+#   pre_install · during_install · post_install_first_boot ·
+#   post_install_recurrent · decommission
+
+cmd_hooks() {
+  local sub="${1:-list}"
+  shift || true
+
+  case "${sub}" in
+    list)
+      local id="${1:-${SOVEREIGN_OS_PROFILE}}"
+      local f="${__REPO_ROOT}/profiles/${id}.yaml"
+      if [ ! -f "${f}" ]; then
+        log_error "no such profile: ${id}"
+        return 1
+      fi
+      PROFILE_FILE="${f}" python3 - <<'PY'
+import os, yaml
+with open(os.environ["PROFILE_FILE"]) as fh:
+    data = yaml.safe_load(fh) or {}
+hooks = data.get("hooks") or {}
+total = 0
+for stage in ("pre_install", "during_install", "post_install_first_boot",
+              "post_install_recurrent", "decommission"):
+    entries = hooks.get(stage) or []
+    if not entries: continue
+    print(f"  {stage}:")
+    for h in entries:
+        total += 1
+        mand = " [mandatory]" if h.get("mandatory") else ""
+        sch = f" schedule={h.get('schedule')}" if h.get("schedule") else ""
+        print(f"    - {h.get('id', '?'):<32} {h.get('script', '?')}{mand}{sch}")
+print(f"  total: {total} hook(s) declared")
+PY
+      ;;
+
+    add)
+      local stage="" script="" id="" mandatory=0 profile="${SOVEREIGN_OS_PROFILE}"
+      stage="${1:-}"; shift || true
+      script="${1:-}"; shift || true
+      while [ $# -gt 0 ]; do
+        case "$1" in
+          --id) id="${2:-}"; shift 2 ;;
+          --mandatory) mandatory=1; shift ;;
+          --profile) profile="${2:-}"; shift 2 ;;
+          *) log_error "unknown hooks add flag: $1"; return 2 ;;
+        esac
+      done
+      if [ -z "${stage}" ] || [ -z "${script}" ]; then
+        log_error "usage: sovereign-osctl hooks add <stage> <script-path> [--id <id>] [--mandatory] [--profile <id>]"
+        return 2
+      fi
+      # Validate stage
+      case "${stage}" in
+        pre_install|during_install|post_install_first_boot|post_install_recurrent|decommission) ;;
+        *) log_error "invalid stage: ${stage}"
+           log_error "  valid: pre_install · during_install · post_install_first_boot · post_install_recurrent · decommission"
+           return 2 ;;
+      esac
+      # Validate profile
+      local f="${__REPO_ROOT}/profiles/${profile}.yaml"
+      if [ ! -f "${f}" ]; then
+        log_error "no such profile: ${profile}"
+        return 1
+      fi
+      # Validate script path (relative to repo root, must exist + be executable)
+      local script_full="${__REPO_ROOT}/${script}"
+      if [ ! -f "${script_full}" ]; then
+        log_error "script not found: ${script_full}"
+        log_error "  path must be relative to repo root (e.g. scripts/hooks/post-install/my-hook.sh)"
+        return 1
+      fi
+      if [ ! -x "${script_full}" ]; then
+        log_error "script not executable: ${script_full}"
+        log_error "  run: chmod +x ${script_full}"
+        return 1
+      fi
+      # Default id from basename
+      if [ -z "${id}" ]; then
+        id="$(basename "${script}" .sh)"
+      fi
+      # Validate id pattern
+      if ! [[ "${id}" =~ ^[a-z][a-z0-9-]*$ ]]; then
+        log_error "invalid hook id: ${id}"
+        log_error "  must match: ^[a-z][a-z0-9-]*$"
+        return 2
+      fi
+      # Mutate the profile YAML
+      PROFILE_FILE="${f}" STAGE="${stage}" HOOK_ID="${id}" SCRIPT="${script}" \
+      MAND="${mandatory}" python3 - <<'PY'
+import os, yaml, sys
+pfile = os.environ["PROFILE_FILE"]
+stage = os.environ["STAGE"]
+hook_id = os.environ["HOOK_ID"]
+script = os.environ["SCRIPT"]
+mandatory = os.environ["MAND"] == "1"
+with open(pfile) as f:
+    data = yaml.safe_load(f) or {}
+hooks = data.setdefault("hooks", {})
+entries = hooks.setdefault(stage, [])
+# Refuse on duplicate id within the same stage
+for e in entries:
+    if e.get("id") == hook_id:
+        print(f"hook id '{hook_id}' already exists in {stage}; refusing to duplicate", file=sys.stderr)
+        sys.exit(1)
+new_entry = {
+    "id": hook_id,
+    "type": "setup",
+    "script": script,
+    "mandatory": mandatory,
+}
+entries.append(new_entry)
+with open(pfile, "w") as f:
+    # Preserve the schema header (assumed to live in the first 5 lines)
+    # by re-reading them
+    pass
+with open(pfile) as f_orig:
+    orig_lines = f_orig.readlines()
+header_lines = []
+for line in orig_lines:
+    if line.startswith("#") or not line.strip():
+        header_lines.append(line)
+    else:
+        break
+with open(pfile, "w") as f:
+    f.writelines(header_lines)
+    yaml.safe_dump(data, f, sort_keys=False, default_flow_style=False)
+print(f"hook added: id={hook_id} stage={stage} script={script} mandatory={mandatory}")
+PY
+      local rc=$?
+      if [ "${rc}" -ne 0 ]; then
+        return "${rc}"
+      fi
+      log_info "  edited: ${f}"
+      log_info "  NEXT:  sovereign-osctl profiles validate"
+      ;;
+
+    remove)
+      local id="${1:-}" profile="${SOVEREIGN_OS_PROFILE}"
+      shift || true
+      while [ $# -gt 0 ]; do
+        case "$1" in
+          --profile) profile="${2:-}"; shift 2 ;;
+          *) log_error "unknown hooks remove flag: $1"; return 2 ;;
+        esac
+      done
+      if [ -z "${id}" ]; then
+        log_error "usage: sovereign-osctl hooks remove <id> [--profile <id>]"
+        return 2
+      fi
+      local f="${__REPO_ROOT}/profiles/${profile}.yaml"
+      if [ ! -f "${f}" ]; then
+        log_error "no such profile: ${profile}"
+        return 1
+      fi
+      PROFILE_FILE="${f}" HOOK_ID="${id}" python3 - <<'PY'
+import os, yaml, sys
+pfile = os.environ["PROFILE_FILE"]
+hook_id = os.environ["HOOK_ID"]
+with open(pfile) as f:
+    data = yaml.safe_load(f) or {}
+hooks = data.get("hooks") or {}
+removed = 0
+for stage, entries in hooks.items():
+    if not entries: continue
+    before = len(entries)
+    hooks[stage] = [e for e in entries if e.get("id") != hook_id]
+    removed += before - len(hooks[stage])
+if removed == 0:
+    print(f"no hook with id '{hook_id}' found in {pfile}", file=sys.stderr)
+    sys.exit(1)
+with open(pfile) as f_orig:
+    orig_lines = f_orig.readlines()
+header_lines = []
+for line in orig_lines:
+    if line.startswith("#") or not line.strip():
+        header_lines.append(line)
+    else:
+        break
+with open(pfile, "w") as f:
+    f.writelines(header_lines)
+    yaml.safe_dump(data, f, sort_keys=False, default_flow_style=False)
+print(f"removed {removed} hook entry(ies) with id={hook_id}")
+PY
+      local rc=$?
+      if [ "${rc}" -ne 0 ]; then
+        return "${rc}"
+      fi
+      log_info "  edited: ${f}"
+      ;;
+
+    *)
+      log_error "unknown hooks subcommand: ${sub}"
+      log_error "  available: list [<profile>] | add <stage> <script> [--id ... --mandatory --profile ...] | remove <id> [--profile <id>]"
+      return 2
+      ;;
+  esac
+}
+
 cmd_decommission() {
   local sub="${1:-start}"
   case "${sub}" in
@@ -2679,6 +2892,7 @@ case "${cmd}" in
   perimeter)     cmd_perimeter "$@" ;;
   models)        cmd_models "$@" ;;
   audit)         cmd_audit "$@" ;;
+  hooks)         cmd_hooks "$@" ;;
   maintenance)   cmd_maintenance "$@" ;;
   decommission)  cmd_decommission "$@" ;;
   install)       cmd_install "$@" ;;
