@@ -127,6 +127,11 @@ COMMANDS:
 
   alerts [--json]              Derive operator alerts from .prom files (no Alertmanager needed)
 
+  journal list                 List Layer A JSONL log files (size + first/last event)
+  journal show <file>          Pretty-print one JSONL log file as a table
+  journal tail [N]             Tail the N most recent log files (default: 3)
+  journal errors               Show every error/warn entry across all log files
+
   version [--json]             sovereign-osctl + sovereign-os version info (--json for fleet tooling)
   help                         This help
 
@@ -1012,6 +1017,185 @@ cmd_metrics() {
   esac
 }
 
+# ------------------------------ journal --------------------------------------
+#
+# Surfaces SDD-016 Layer A — the structured JSONL logs that every
+# scripts/build/* and scripts/hooks/* emits via the common log_info /
+# log_warn / log_error helpers. Operators can grep/jq these directly,
+# but a first-class verb makes the surface usable without third-party
+# tooling. Symmetrical with `metrics` (Layer B) + `alerts` (rules over
+# Layer B).
+#
+# Log dir resolution:
+#   1. SOVEREIGN_OS_LOG_DIR env override
+#   2. /var/log/sovereign-os/ (installed system)
+#   3. ~/.sovereign-os/log/   (per-operator build host)
+#   4. fall back to the first that exists
+
+cmd_journal() {
+  local sub="${1:-list}"
+  shift || true
+
+  local log_dir=""
+  if [ -n "${SOVEREIGN_OS_LOG_DIR:-}" ] && [ -d "${SOVEREIGN_OS_LOG_DIR}" ]; then
+    log_dir="${SOVEREIGN_OS_LOG_DIR}"
+  elif [ -d /var/log/sovereign-os ]; then
+    log_dir="/var/log/sovereign-os"
+  elif [ -d "${HOME}/.sovereign-os/log" ]; then
+    log_dir="${HOME}/.sovereign-os/log"
+  fi
+
+  if [ -z "${log_dir}" ]; then
+    echo "no Layer A log dir found; checked:"
+    echo "  \$SOVEREIGN_OS_LOG_DIR (unset)"
+    echo "  /var/log/sovereign-os/"
+    echo "  ${HOME}/.sovereign-os/log/"
+    return 0
+  fi
+
+  case "${sub}" in
+    list)
+      mapfile -t files < <(find "${log_dir}" -maxdepth 1 -name '*.jsonl' -type f 2>/dev/null | sort)
+      if [ "${#files[@]}" -eq 0 ]; then
+        echo "no .jsonl files in ${log_dir}"
+        return 0
+      fi
+      echo "log dir: ${log_dir}"
+      echo
+      printf "%-44s  %-8s  %s\n" "FILE" "EVENTS" "FIRST → LAST"
+      for f in "${files[@]}"; do
+        local bn n first_ts last_ts
+        bn="$(basename "${f}")"
+        n="$(wc -l < "${f}" | tr -d ' ')"
+        if [ "${n}" -gt 0 ]; then
+          first_ts="$(python3 -c "import json,sys; print(json.loads(sys.stdin.readline()).get('ts','?'))" < "${f}" 2>/dev/null || echo '?')"
+          last_ts="$(tail -1 "${f}" | python3 -c "import json,sys; print(json.loads(sys.stdin.read()).get('ts','?'))" 2>/dev/null || echo '?')"
+        else
+          first_ts="(empty)"; last_ts=""
+        fi
+        printf "%-44s  %-8s  %s → %s\n" "${bn}" "${n}" "${first_ts}" "${last_ts}"
+      done
+      ;;
+    show)
+      local name="${1:-}"
+      if [ -z "${name}" ]; then
+        log_error "usage: sovereign-osctl journal show <file>"
+        return 2
+      fi
+      local file=""
+      for cand in "${log_dir}/${name}" "${log_dir}/${name}.jsonl" "${name}"; do
+        if [ -f "${cand}" ]; then file="${cand}"; break; fi
+      done
+      if [ -z "${file}" ]; then
+        log_error "no log file matches '${name}' (in ${log_dir} or as absolute path)"
+        return 1
+      fi
+      echo "# file: ${file}"
+      echo
+      python3 - "${file}" <<'PY'
+import sys, json
+fn = sys.argv[1]
+print(f"{'TS':<26} {'LEVEL':<6} {'STEP':<22} MSG")
+with open(fn) as fh:
+    for line in fh:
+        line = line.strip()
+        if not line: continue
+        try:
+            e = json.loads(line)
+        except json.JSONDecodeError:
+            print(f"{'?':<26} {'?':<6} {'?':<22} (malformed: {line[:120]})")
+            continue
+        ts = e.get("ts", "")
+        level = (e.get("level") or "?").upper()
+        step = e.get("step", "?")
+        msg = e.get("msg", "")
+        print(f"{ts:<26} {level:<6} {step:<22} {msg}")
+PY
+      ;;
+    tail)
+      local n="${1:-3}"
+      if ! [[ "${n}" =~ ^[0-9]+$ ]]; then
+        log_error "tail count must be a non-negative integer (got: ${n})"
+        return 2
+      fi
+      mapfile -t recent < <(find "${log_dir}" -maxdepth 1 -name '*.jsonl' -type f -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n "${n}" | awk '{print $2}')
+      if [ "${#recent[@]}" -eq 0 ]; then
+        echo "no .jsonl files in ${log_dir}"
+        return 0
+      fi
+      for f in "${recent[@]}"; do
+        echo "===== $(basename "${f}") ====="
+        python3 - "${f}" <<'PY'
+import sys, json
+fn = sys.argv[1]
+with open(fn) as fh:
+    for line in fh:
+        line = line.strip()
+        if not line: continue
+        try:
+            e = json.loads(line)
+        except json.JSONDecodeError:
+            print(f"(malformed: {line[:120]})")
+            continue
+        ts = e.get("ts", "")
+        level = (e.get("level") or "?").upper()
+        step = e.get("step", "?")
+        msg = e.get("msg", "")
+        print(f"{ts}  {level:<5}  [{step}]  {msg}")
+PY
+        echo
+      done
+      ;;
+    errors)
+      mapfile -t files < <(find "${log_dir}" -maxdepth 1 -name '*.jsonl' -type f 2>/dev/null | sort)
+      if [ "${#files[@]}" -eq 0 ]; then
+        echo "no .jsonl files in ${log_dir}"
+        return 0
+      fi
+      local found=0
+      for f in "${files[@]}"; do
+        local block
+        block="$(python3 - "${f}" <<'PY'
+import sys, json
+fn = sys.argv[1]
+out = []
+with open(fn) as fh:
+    for line in fh:
+        line = line.strip()
+        if not line: continue
+        try:
+            e = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        level = (e.get("level") or "").lower()
+        if level not in ("warn", "error"):
+            continue
+        ts = e.get("ts", "")
+        step = e.get("step", "?")
+        msg = e.get("msg", "")
+        out.append(f"  {ts}  {level.upper():<5}  [{step}]  {msg}")
+print("\n".join(out))
+PY
+)"
+        if [ -n "${block}" ]; then
+          echo "===== $(basename "${f}") ====="
+          echo "${block}"
+          echo
+          found=1
+        fi
+      done
+      if [ "${found}" -eq 0 ]; then
+        echo "no warn/error entries in any .jsonl file in ${log_dir}"
+      fi
+      ;;
+    *)
+      log_error "unknown journal subcommand: ${sub}"
+      log_error "  available: list / show <file> / tail [N] / errors"
+      return 2
+      ;;
+  esac
+}
+
 # ------------------------------ alerts ---------------------------------------
 #
 # Derives operator-actionable alerts from the SDD-016 Layer B textfile
@@ -1453,6 +1637,7 @@ case "${cmd}" in
   inference)     cmd_inference "$@" ;;
   metrics)       cmd_metrics "$@" ;;
   alerts)        cmd_alerts "$@" ;;
+  journal)       cmd_journal "$@" ;;
   version|--version|-V) cmd_version "$@" ;;
   help|--help|-h|"") cmd_help ;;
   *)
