@@ -232,6 +232,83 @@ curl http://127.0.0.1:8080/v1/chat/completions \
 | Inference logs | `sovereign-osctl inference logs <tier>` |
 | Decommission | `sovereign-osctl decommission start` (3-phase; gated by env var) |
 
+## 5b. OBSERVABILITY (SDD-016 Layer A / B / C)
+
+Sovereign-os ships **three observability layers**, all local-default
+and operator-pullable — no phone-home, no required external service.
+
+### Layer A — structured JSONL logs
+
+Every script in the pipeline emits structured JSONL events.
+
+| Source | Path |
+|---|---|
+| Build host (per-operator) | `~/.sovereign-os/log/build-<ts>.jsonl` |
+| Installed system | `/var/log/sovereign-os/*.jsonl` |
+
+Surface them through sovereign-osctl (no jq required):
+
+```sh
+sovereign-osctl journal list             # tabular index with event counts + ts range
+sovereign-osctl journal show <file>      # pretty-printed table (TS / LEVEL / STEP / MSG)
+sovereign-osctl journal tail 3           # 3 most-recently-updated files
+sovereign-osctl journal errors           # all warn/error entries across all files
+```
+
+Auto-rotation: `sovereign-log-rotate.timer` rotates daily per profile
+(`observability.log_retention_days`; default 14d for sain-01,
+30d for headless, 7d for minimal).
+
+### Layer B — Prometheus textfile metrics
+
+51 metric names emitted into `/var/lib/node_exporter/textfile_collector/sovereign-os-*.prom`,
+covering: build pipeline (9 steps) · pre-install (4 hooks) ·
+during-install (4 hooks) · post-install (8 hooks) · recurrent
+maintenance (7 hooks) · inference router · Tetragon perimeter. See
+`docs/observability/dashboards/README.md` for the full inventory.
+
+Three surfaces:
+
+```sh
+# A) raw inspection (no Grafana needed)
+sovereign-osctl metrics list             # which .prom files exist + when last updated
+sovereign-osctl metrics show <name>      # pretty-print one .prom file
+sovereign-osctl metrics tail 5           # 5 most-recently-updated
+sovereign-osctl metrics health           # stale / malformed detection
+
+# B) derived alerts (no Alertmanager needed)
+sovereign-osctl alerts                   # rule engine; ALERT/WARN with remediation
+sovereign-osctl alerts --json            # machine-readable for fleet tooling
+
+# C) continuous self-monitoring (hourly timer)
+sovereign-osctl maintenance alerts-check # on-demand; cached at /var/lib/sovereign-os/alerts.json
+```
+
+Operators running Grafana import the three JSON dashboards at
+`docs/observability/dashboards/`:
+`sovereign-os-overview.json` · `sovereign-os-inference.json` ·
+`sovereign-os-install.json`.
+
+CI enforces a three-way contract via Layer 1 lint:
+  - every metric the code emits is in the README inventory
+  - every metric the README inventory lists is emitted by a script
+  - every lifecycle hook calls `emit_metric` (or carries an explicit waiver)
+
+### Layer C — operator CLI overview
+
+```sh
+sovereign-osctl status            # human-readable: profile / kernel / ZFS / Tetragon / GPUs / whitelabel
+sovereign-osctl status --json     # machine-readable for fleet aggregation (8-key contract)
+sovereign-osctl doctor            # profile-conditioned sanity check; emits remediation hints
+sovereign-osctl audit provenance  # verify build-provenance.json + sha256sums.txt (SDD-019)
+```
+
+### Sovereignty posture
+
+All Layer A/B/C surfaces are **local-default**. Operators decide whether
+to scrape, ship logs off-host, or run Grafana — sovereign-os never
+phones home and never dictates the observability stack downstream.
+
 ## 6. Troubleshooting
 
 | Symptom | Diagnostic |
