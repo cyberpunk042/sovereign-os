@@ -201,6 +201,60 @@ set -e
   && ok "R191: human output omits audit block when count=0" \
   || ko "audit block fired with count=0: ${out_no_audit}"
 
+# ---------- R192: wasm-aot-cache (SD-R48) presence ----------
+# Stage a wasm-aot-cache directory with 2 .cwasm artifacts.
+mkdir -p "${WORK}/wasm-aot/cwasm" "${WORK}/wasm-aot/meta"
+touch "${WORK}/wasm-aot/cwasm/foo.cwasm" "${WORK}/wasm-aot/cwasm/bar.cwasm"
+touch "${WORK}/wasm-aot/cwasm/ignored.txt"  # non-.cwasm files not counted
+
+set +e
+out_wac="$(python3 "${SCRIPT}" \
+  --caps-path "${WORK}/caps/hardware-capabilities.json" \
+  --modules-dir "${WORK}/modules" \
+  --host-config "${WORK}/host/modules.toml" \
+  --models-dir "${WORK}/models" \
+  --schedule-path "${WORK}/no-such.json" \
+  --wasm-aot-cache "${WORK}/wasm-aot" --json 2>&1)"
+set -e
+if python3 -c "
+import json
+d = json.loads('''${out_wac}''')
+assert d['wasm_aot_cache']['present'] is True
+assert d['wasm_aot_cache']['cwasm_count'] == 2
+" 2>/dev/null; then
+  ok "R192: wasm_aot_cache present + cwasm count correct (2)"
+else
+  ko "R192 wasm_aot_cache JSON wrong: ${out_wac}"
+fi
+
+# Human output cites the cache.
+set +e
+out_wac_h="$(python3 "${SCRIPT}" \
+  --caps-path "${WORK}/caps/hardware-capabilities.json" \
+  --modules-dir "${WORK}/modules" \
+  --host-config "${WORK}/host/modules.toml" \
+  --models-dir "${WORK}/models" \
+  --schedule-path "${WORK}/no-such.json" \
+  --wasm-aot-cache "${WORK}/wasm-aot" 2>&1)"
+set -e
+grep -q "Wasm-AOT cache (SD-R48): ✓.*2 cached artifact" <<< "${out_wac_h}" \
+  && ok "R192: human output cites wasm-aot-cache + cwasm count" \
+  || ko "human cache line wrong: ${out_wac_h}"
+
+# Absent wasm-aot-cache → human output cites the absent state.
+set +e
+out_no_wac="$(python3 "${SCRIPT}" \
+  --caps-path "${WORK}/caps/hardware-capabilities.json" \
+  --modules-dir "${WORK}/modules" \
+  --host-config "${WORK}/host/modules.toml" \
+  --models-dir "${WORK}/models" \
+  --schedule-path "${WORK}/no-such.json" \
+  --wasm-aot-cache "${WORK}/no-such-cache" 2>&1)"
+set -e
+grep -q "Wasm-AOT cache (SD-R48): ✗ absent" <<< "${out_no_wac}" \
+  && ok "R192: human output cites absent wasm-aot-cache" \
+  || ko "absent cache line missing: ${out_no_wac}"
+
 echo
 total=$((pass + fail))
 echo "test_cycle2_status: ${pass}/${total} passed"

@@ -38,6 +38,7 @@ DEFAULT_HOST_CONFIG = Path("/etc/selfdef/modules.toml")
 DEFAULT_MODELS_DIR = Path("/etc/selfdef/models")
 DEFAULT_BITNET_SCHEDULE = Path("/etc/selfdef/bitnet/schedule.json")
 DEFAULT_AUDIT_PATH = Path("/var/log/selfdef/modules-audit.jsonl")
+DEFAULT_WASM_AOT_CACHE = Path("/var/lib/selfdef/wasm-aot")
 
 
 def read_capabilities(caps_path: Path) -> dict[str, Any] | None:
@@ -136,6 +137,7 @@ def summarize(
     models: dict[str, Any] | None,
     schedule_path: Path,
     audit_path: Path,
+    wasm_aot_cache: Path,
 ) -> dict[str, Any]:
     cpu = (caps or {}).get("cpu", {}) or {}
     wa = (caps or {}).get("wasm_aot", {}) or {}
@@ -175,7 +177,25 @@ def summarize(
             "last_timestamp": read_audit_log_count(audit_path)[1],
             "path": str(audit_path),
         },
+        # R192 (mirror of selfdef SD-R48): wasm-aot-cache provisioning state.
+        "wasm_aot_cache": {
+            "present": (wasm_aot_cache / "cwasm").is_dir(),
+            "cwasm_count": _wasm_aot_cwasm_count(wasm_aot_cache),
+            "path": str(wasm_aot_cache),
+        },
     }
+
+
+def _wasm_aot_cwasm_count(cache_dir: Path) -> int:
+    """Count .cwasm files in the SD-R48 cache. Returns 0 when the
+    cache hasn't been provisioned or is empty."""
+    cwasm = cache_dir / "cwasm"
+    if not cwasm.is_dir():
+        return 0
+    try:
+        return sum(1 for p in cwasm.iterdir() if p.suffix == ".cwasm")
+    except OSError:
+        return 0
 
 
 def render_human(summary: dict[str, Any]) -> str:
@@ -231,6 +251,15 @@ def render_human(summary: dict[str, Any]) -> str:
         out.append("## BitNet schedule (SD-R28): ✓ present")
     else:
         out.append("## BitNet schedule (SD-R28): ✗ absent (module not applied)")
+    # R192: wasm-aot-cache (SD-R48) presence.
+    wac = summary["wasm_aot_cache"]
+    if wac["present"]:
+        out.append(
+            f"## Wasm-AOT cache (SD-R48): ✓ {wac['path']}"
+            f" ({wac['cwasm_count']} cached artifact(s))"
+        )
+    else:
+        out.append("## Wasm-AOT cache (SD-R48): ✗ absent (module not applied)")
     # R191: SD-R47 override audit trail surface.
     audit = summary["override_audit"]
     if audit["count"] > 0:
@@ -281,13 +310,27 @@ def main() -> int:
             "SELFDEF_MODULES_AUDIT_PATH", str(DEFAULT_AUDIT_PATH)
         )),
     )
+    p.add_argument(
+        "--wasm-aot-cache",
+        type=Path,
+        default=Path(os.environ.get(
+            "SELFDEF_WASM_AOT_CACHE_DIR", str(DEFAULT_WASM_AOT_CACHE)
+        )),
+    )
     p.add_argument("--json", action="store_true")
     args = p.parse_args()
 
     caps = read_capabilities(args.caps_path)
     mods = run_modules_gate(args.caps_path, args.modules_dir, args.host_config)
     models = run_models_gate(args.caps_path, args.models_dir)
-    summary = summarize(caps, mods, models, args.schedule_path, args.audit_path)
+    summary = summarize(
+        caps,
+        mods,
+        models,
+        args.schedule_path,
+        args.audit_path,
+        args.wasm_aot_cache,
+    )
 
     if args.json:
         print(json.dumps(summary, indent=2))
