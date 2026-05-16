@@ -93,9 +93,39 @@ if [ "${SOVEREIGN_OS_ASSUME_YES:-}" != "1" ]; then
 fi
 ```
 
+### Learning 4 — SDD-stated invariants need CODE GUARDS, not just SDD comments (bug 15, round 108)
+
+**Class:** SDD text said "X MUST NOT happen" but the code path didn't
+enforce it — only the SDD comment did. SDD-023 § Meta-observability
+EXPLICITLY warned the alerts rule engine "MUST NOT react to `sovereign_os_meta_*`
+metrics — prevents self-reinforcing alert loops." The rule engine was
+shipped without that guard. Bug latent in production until a Layer 2
+schema test specifically asserted the invariant.
+
+**Fix pattern:** every SDD-stated MUST/MUST-NOT invariant gets:
+1. An explicit code guard (`if name.startswith("sovereign_os_meta_"): continue`)
+2. A test that would fail if the guard is removed (the L2 schema test)
+
+Catches: silent contract drift between SDDs (where invariants are
+written) and code (where invariants must be enforced).
+
+### Learning 5 — Singular-vs-plural in test grep patterns (round 106)
+
+**Class:** L3 test grep `"files on disk differ"` failed against output
+`"file(s) on disk differ"` — the production code parenthesizes for
+"1 file vs N files" grammar. Test pattern didn't account for that.
+The test failure made the new feature look broken when it wasn't.
+
+**Fix pattern:** test patterns use regex with `file\(s\)` or `files?`
+to match either form. More broadly: prefer regex over literal grep
+when the production string might pluralize, capitalize, or punctuate
+contextually.
+
 ## Cross-references
 
 - SDD-008 § Layer 3 stage acceptance — where this discipline is specified
-- `tests/nspawn/test_*.sh` — the 35+ scripts implementing it
-- `docs/handoff/002-foundation-substantive-buildout.md` — chronological
+- `tests/nspawn/test_*.sh` — the ~55 L3 scripts implementing it
+- `tests/unit/test_*_json_schema.py` — the L2 schema-pinning tests
+  (SDD-023 alerts contract + SDD-025 audit drift contract)
+- `docs/handoff/003-operator-observability-arc.md` — chronological
   trajectory + the ledger above is the running tally
