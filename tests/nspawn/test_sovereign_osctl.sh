@@ -80,10 +80,25 @@ else
   ko "version output unexpected: ${out_v}"
 fi
 
-if grep -q "active profile: sain-01" <<< "${out_v}"; then
+if grep -q "active profile:    sain-01" <<< "${out_v}"; then
   ok "version reports active profile"
 else
   ko "version missing active profile: ${out_v}"
+fi
+
+# Round 64: --json mode for fleet tooling
+out_json="$("${CTL}" version --json 2>&1)"
+if python3 -c "
+import json, sys
+d = json.loads('''${out_json}''')
+for k in ('sovereign_osctl_version', 'phase', 'active_profile',
+          'active_whitelabel', 'kernel_release', 'os_pretty_name', 'repo'):
+    assert k in d, f'missing {k}'
+sys.exit(0)
+" 2>/dev/null; then
+  ok "version --json: valid JSON with all 7 required keys"
+else
+  ko "version --json malformed: ${out_json:0:200}"
 fi
 
 # -V alias

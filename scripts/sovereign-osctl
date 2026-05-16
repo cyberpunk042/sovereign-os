@@ -89,7 +89,7 @@ COMMANDS:
   inference route <prompt>     Show which tier the router would pick for a sample request
   inference logs <tier>        Tail systemd journal for the tier
 
-  version                      sovereign-osctl + sovereign-os version info
+  version [--json]             sovereign-osctl + sovereign-os version info (--json for fleet tooling)
   help                         This help
 
 ENV VARS (override defaults):
@@ -869,10 +869,37 @@ PY
 # ------------------------------ version --------------------------------------
 
 cmd_version() {
-  echo "sovereign-osctl 0.1.0 (foundation phase)"
-  echo "active profile: ${SOVEREIGN_OS_PROFILE}"
+  local sovereign_version="0.2.0"
+  local phase="Stage-2 onset"
+  local active_profile="${SOVEREIGN_OS_PROFILE:-unknown}"
+  local active_whitelabel="default"
+  [ -r /etc/sovereign-os/active-whitelabel ] && \
+    active_whitelabel="$(cat /etc/sovereign-os/active-whitelabel)"
+  local kernel_release; kernel_release="$(uname -r)"
+  local os_pretty="unknown"
   if [ -r /etc/os-release ]; then
-    echo "OS:             $(grep PRETTY_NAME /etc/os-release | cut -d= -f2- | tr -d '"')"
+    os_pretty="$(grep PRETTY_NAME /etc/os-release | cut -d= -f2- | tr -d '"')"
+  fi
+
+  if [ "${1:-}" = "--json" ]; then
+    # Machine-readable for fleet tooling. Stable field set.
+    cat <<EOF
+{
+  "sovereign_osctl_version": "${sovereign_version}",
+  "phase": "${phase}",
+  "active_profile": "${active_profile}",
+  "active_whitelabel": "${active_whitelabel}",
+  "kernel_release": "${kernel_release}",
+  "os_pretty_name": "${os_pretty}",
+  "repo": "https://github.com/cyberpunk042/sovereign-os"
+}
+EOF
+  else
+    echo "sovereign-osctl ${sovereign_version} (${phase})"
+    echo "active profile:    ${active_profile}"
+    echo "active whitelabel: ${active_whitelabel}"
+    echo "kernel release:    ${kernel_release}"
+    echo "OS:                ${os_pretty}"
   fi
 }
 
@@ -893,7 +920,7 @@ case "${cmd}" in
   maintenance)   cmd_maintenance "$@" ;;
   decommission)  cmd_decommission "$@" ;;
   inference)     cmd_inference "$@" ;;
-  version|--version|-V) cmd_version ;;
+  version|--version|-V) cmd_version "$@" ;;
   help|--help|-h|"") cmd_help ;;
   *)
     log_error "unknown command: ${cmd}"
