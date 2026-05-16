@@ -34,6 +34,7 @@
 
 - [Test layers + invariants](./tdd/layers.md)
 - [chroot · nspawn · QEMU](./tdd/runtimes.md)
+- [Bugs caught by L3 (ledger + learnings)](./tdd/bugs-caught.md)
 
 # Lifecycle stages
 
