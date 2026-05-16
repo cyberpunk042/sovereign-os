@@ -178,6 +178,9 @@ jobs:
       - name: nspawn — git pre-commit hook (Round 52: operator-side gate)
         run: |
           tests/nspawn/test_git_hooks.sh
+      - name: nspawn — e2e DRY-RUN smoke (Round 55: preflight + run --dry-run across all 5 profiles)
+        run: |
+          tests/nspawn/test_e2e_dry_run_smoke.sh
 
   shellcheck:
     name: shellcheck
