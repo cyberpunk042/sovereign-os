@@ -77,6 +77,7 @@ COMMANDS:
   profiles show <id>           Print profile YAML (raw, no mixin resolution)
   profiles show-effective <id> Print profile with mixins + parent resolved
   profiles compare <a> <b>     Unified diff of two profiles' EFFECTIVE (resolved) state
+  profiles fork <base> <new>   Scaffold a new profile from <base> with id <new> (validates immediately)
   profiles active              Show active profile id
   profiles switch <id>         Swap active profile (flags items requiring rebuild)
   profiles validate            Schema-validate all profiles (raw + resolved)
@@ -488,6 +489,78 @@ cmd_profiles() {
     show-effective)
       local id="${1:-${SOVEREIGN_OS_PROFILE}}"
       (cd "${__REPO_ROOT}" && python3 -m tools.profile_merger "${id}")
+      ;;
+    fork)
+      # R140 (F-04 MED closure): scaffold a new profile from an existing one.
+      # Copies base.yaml → new.yaml, updates identity.id, sets parent for
+      # inheritance traceability, validates immediately, registers in INDEX.
+      local base="${1:-}" new="${2:-}"
+      if [ -z "${base}" ] || [ -z "${new}" ]; then
+        log_error "usage: sovereign-osctl profiles fork <base-id> <new-id>"
+        return 2
+      fi
+      # Validate base + new
+      local base_file="${__REPO_ROOT}/profiles/${base}.yaml"
+      local new_file="${__REPO_ROOT}/profiles/${new}.yaml"
+      if [ ! -f "${base_file}" ]; then
+        log_error "no such base profile: ${base}"
+        return 1
+      fi
+      if [ -f "${new_file}" ]; then
+        log_error "target profile already exists: ${new_file}"
+        log_error "  refusing to overwrite; pick a different <new-id> or rm the file first"
+        return 1
+      fi
+      if ! [[ "${new}" =~ ^[a-z][a-z0-9-]*$ ]]; then
+        log_error "invalid new profile id: ${new}"
+        log_error "  must match: ^[a-z][a-z0-9-]*$ (lowercase, digits, hyphens; starts with letter)"
+        return 2
+      fi
+      # Read base, mutate identity.{id, parent}, write new
+      BASE_FILE="${base_file}" NEW_FILE="${new_file}" BASE_ID="${base}" NEW_ID="${new}" \
+      python3 - <<'PY'
+import os, yaml
+with open(os.environ["BASE_FILE"]) as f:
+    data = yaml.safe_load(f) or {}
+ident = data.setdefault("identity", {})
+ident["id"] = os.environ["NEW_ID"]
+ident["parent"] = os.environ["BASE_ID"]
+ident["status"] = "draft"
+ident["description"] = (
+    f"Forked from {os.environ['BASE_ID']} via 'sovereign-osctl profiles fork'.\n"
+    f"Operator-customize below; the parent reference preserves inheritance.\n\n"
+    + (ident.get("description") or "")
+)
+with open(os.environ["NEW_FILE"], "w") as f:
+    # Preserve the schema header comment
+    f.write(f"# yaml-language-server: $schema=../schemas/profile.schema.yaml\n")
+    f.write(f"#\n")
+    f.write(f"# {os.environ['NEW_ID']} profile (forked from {os.environ['BASE_ID']} at fork time).\n")
+    f.write(f"# Edit freely; mixin composition is preserved.\n#\n")
+    yaml.safe_dump(data, f, sort_keys=False, default_flow_style=False)
+PY
+      log_info "forked: ${new_file}"
+      # Validate immediately
+      if [ -x "${__REPO_ROOT}/scripts/validate-profiles.sh" ]; then
+        if SOVEREIGN_OS_PROFILE_FILE="${new_file}" "${__REPO_ROOT}/scripts/validate-profiles.sh" 2>/dev/null \
+           | grep -q "${new}"; then
+          log_info "  ✓ schema-validates"
+        else
+          log_warn "  schema validation skipped or inconclusive (run validate-profiles.sh manually)"
+        fi
+      fi
+      # Register in INDEX if present
+      local index_file="${__REPO_ROOT}/profiles/INDEX.md"
+      if [ -f "${index_file}" ] && ! grep -q "\`${new}\`" "${index_file}"; then
+        echo "| [\`${new}\`](${new}.yaml) | Forked from ${base} | draft | (operator-customize) | $(whoami) | (preserved from ${base}) |" >> "${index_file}"
+        log_info "  registered in profiles/INDEX.md"
+      fi
+      echo
+      log_info "NEXT:"
+      log_info "  1. edit ${new_file} (CPU/GPU/storage/hooks/mixins as your hardware differs)"
+      log_info "  2. validate:  sovereign-osctl profiles validate"
+      log_info "  3. compare:   sovereign-osctl profiles compare ${base} ${new}"
+      log_info "  4. activate:  sovereign-osctl profiles switch ${new}"
       ;;
     compare)
       # R139 (F-12 MED closure): unified diff of two profiles' EFFECTIVE

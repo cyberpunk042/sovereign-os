@@ -247,6 +247,9 @@ jobs:
       - name: nspawn — decommission --plan + profiles compare (Round 139: F-11 + F-12 MED closures)
         run: |
           tests/nspawn/test_decommission_plan_and_profiles_compare.sh
+      - name: nspawn — profiles fork (Round 140: F-04 MED closure — profile scaffold helper)
+        run: |
+          tests/nspawn/test_profiles_fork.sh
 
   shellcheck:
     name: shellcheck

@@ -88,7 +88,15 @@ update.
 description (parsed from the `: "${VAR:=default}" # comment` pattern)
 + where they're consumed. Optional `--filter <regex>` for narrowing.
 
-### F-04 — MED — No profile fork/scaffold helper
+### F-04 — MED — No profile fork/scaffold helper  ✅ **CLOSED (Round 140)**
+
+`sovereign-osctl profiles fork <base> <new>` shipped. Copies base
+profile YAML, mutates `identity.{id, parent, status, description}` to
+mark the fork relationship, preserves mixin composition + the
+language-server header hint, validates schema immediately, registers
+in `profiles/INDEX.md`. Refuses on existing target (exit 1) or
+invalid id (exit 2 + pattern hint) or missing base. Prints NEXT-steps
+block (edit / validate / compare / switch). 16-assertion L3.
 
 **Where**: Operator wanting a custom profile copies `sain-01.yaml` →
 `my-host.yaml`, edits manually. No validator runs until they
