@@ -1,0 +1,341 @@
+# yaml-language-server: $schema=https://json-schema.org/draft/2020-12/schema
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://github.com/cyberpunk042/sovereign-os/schemas/profile.schema.yaml"
+title: sovereign-os profile schema
+description: |
+  Declarative schema for a sovereign-os OS profile. Every
+  profile in `profiles/<id>.yaml` MUST validate against this
+  schema. See `docs/sdd/004-profile-schema.md` for the design
+  rationale and inheritance semantics.
+
+type: object
+required: [schema_version, identity, hardware, kernel, packages, hooks, lifecycle]
+additionalProperties: false
+
+properties:
+
+  schema_version:
+    description: Version of this schema the profile targets (semver).
+    type: string
+    pattern: '^[0-9]+\.[0-9]+\.[0-9]+$'
+
+  mixins:
+    description: Cross-cutting fragments composed into this profile (resolved before parent).
+    type: array
+    items:
+      type: string
+      pattern: '^[a-z0-9-]+$'
+
+  identity:
+    type: object
+    required: [id, name, version, parent, status, maintainer, description]
+    additionalProperties: false
+    properties:
+      id:
+        type: string
+        pattern: '^[a-z0-9][a-z0-9-]*$'
+        description: Unique profile slug; matches filename profiles/<id>.yaml
+      name:
+        type: string
+        minLength: 1
+      version:
+        type: string
+        pattern: '^[0-9]+\.[0-9]+\.[0-9]+$'
+        description: Semver of the profile body
+      parent:
+        oneOf:
+          - { type: string, pattern: '^[a-z0-9][a-z0-9-]*$' }
+          - { type: 'null' }
+        description: Single-parent inheritance; null = root profile
+      status:
+        type: string
+        enum: [draft, active, deprecated, abandoned]
+      maintainer:
+        type: string
+        minLength: 1
+      description:
+        type: string
+        minLength: 30
+
+  hardware:
+    type: object
+    required: [cpu, memory, storage, network]
+    additionalProperties: false
+    properties:
+      cpu:
+        type: object
+        required: [architecture, family, march, features, cores]
+        additionalProperties: false
+        properties:
+          architecture: { type: string, enum: [x86_64, aarch64, riscv64] }
+          family: { type: string }
+          march: { type: string, description: "GCC -march= value" }
+          features:
+            type: object
+            additionalProperties: false
+            properties:
+              required: { type: array, items: { type: string } }
+              preferred: { type: array, items: { type: string } }
+          cores:
+            type: object
+            required: [physical, threads]
+            additionalProperties: false
+            properties:
+              physical: { type: integer, minimum: 1 }
+              threads: { type: integer, minimum: 1 }
+              topology:
+                type: string
+                enum: [single-ccd, dual-ccd, multi-ccd, tile-based, monolithic]
+              partition:
+                type: object
+                additionalProperties: { type: string }
+                description: Per-CCD/tile responsibility map; keys are operator-defined
+      gpu:
+        type: array
+        items:
+          type: object
+          required: [vendor, model, role]
+          additionalProperties: false
+          properties:
+            vendor: { type: string, enum: [nvidia, amd, intel] }
+            model: { type: string }
+            pci_id:
+              type: string
+              pattern: '^[0-9a-fA-F]{4}:[0-9a-fA-F?]{4}$'
+            vram_gb: { type: integer, minimum: 1 }
+            role:
+              type: string
+              enum: [primary, vfio, headless, secondary]
+            driver: { type: string }
+            vfio_companion:
+              type: string
+              pattern: '^[0-9a-fA-F]{4}:[0-9a-fA-F?]{4}$'
+      memory:
+        type: object
+        required: [minimum_gb, type]
+        additionalProperties: false
+        properties:
+          minimum_gb: { type: integer, minimum: 1 }
+          target_gb: { type: integer, minimum: 1 }
+          type:
+            type: string
+            enum: [ddr3, ddr4, ddr5, lpddr5, hbm2, hbm3]
+          ecc: { type: boolean }
+      storage:
+        type: object
+        required: [layout, devices]
+        additionalProperties: false
+        properties:
+          layout:
+            type: string
+            enum: [zfs-tiered, btrfs, ext4, xfs, ostree]
+          devices:
+            type: array
+            items:
+              type: object
+              required: [role, type]
+              additionalProperties: false
+              properties:
+                role: { type: string, enum: [rootfs, data, swap, scratch] }
+                type:
+                  type: string
+                  enum: [nvme-pcie-4, nvme-pcie-5, sata-ssd, sata-hdd, sas-hdd, optane]
+                count: { type: integer, minimum: 1 }
+                topology:
+                  type: string
+                  enum: [single, raid0, raid1, raid10, raidz, raidz2, raidz3]
+          datasets:
+            type: array
+            description: ZFS-specific; ignored for non-ZFS layouts
+            items:
+              type: object
+              required: [name, purpose]
+              additionalProperties: false
+              properties:
+                name: { type: string }
+                recordsize: { type: string }
+                compression:
+                  type: string
+                  enum: [off, lz4, zstd, "zstd-1", "zstd-3", "zstd-9", "zstd-19", gzip]
+                copies: { type: integer, minimum: 1, maximum: 3 }
+                sync:
+                  type: string
+                  enum: [standard, always, disabled]
+                redundant_metadata:
+                  type: string
+                  enum: [all, most, some, none]
+                purpose: { type: string }
+      network:
+        type: array
+        items:
+          type: object
+          required: [role, speed_gbps]
+          additionalProperties: false
+          properties:
+            role: { type: string, enum: [mgmt, data, wan, lan] }
+            vendor: { type: string }
+            model: { type: string }
+            speed_gbps: { type: number }
+            vlan: { type: integer, minimum: 0, maximum: 4094 }
+            mtu: { type: integer, minimum: 576, maximum: 9216 }
+            default_gateway: { type: boolean }
+      motherboard:
+        type: object
+        additionalProperties: false
+        properties:
+          vendor: { type: string }
+          model: { type: string }
+          bios_pinned: { type: boolean }
+          pcie_constraints:
+            type: array
+            items:
+              type: object
+              required: [description, check, severity]
+              additionalProperties: false
+              properties:
+                description: { type: string }
+                check: { type: string }
+                severity:
+                  type: string
+                  enum: [blocker, warning, info]
+
+  kernel:
+    type: object
+    required: [source, version_minimum]
+    additionalProperties: false
+    properties:
+      source:
+        type: string
+        enum: [kernel.org-stable, xanmod, liquorix, substrate-default, custom]
+      version_minimum: { type: string, pattern: '^[0-9]+\.[0-9]+$' }
+      packaging:
+        type: string
+        enum: [bindeb-pkg, rpm, nix, substrate-default]
+      compile_flags:
+        type: object
+        additionalProperties: { type: string }
+      config:
+        type: object
+        additionalProperties: false
+        properties:
+          enable: { type: array, items: { type: string } }
+          disable: { type: array, items: { type: string } }
+          require_microcode:
+            type: string
+            enum: [amd, intel, none]
+      cmdline:
+        type: object
+        additionalProperties: false
+        properties:
+          base: { type: array, items: { type: string } }
+          vfio: { type: array, items: { type: string } }
+          secure_boot:
+            type: string
+            enum: [signed, shim, disabled]
+      modules:
+        type: object
+        additionalProperties: false
+        properties:
+          blacklist: { type: array, items: { type: string } }
+          load_at_boot: { type: array, items: { type: string } }
+
+  packages:
+    type: object
+    required: [base]
+    additionalProperties: false
+    properties:
+      base: { type: array, items: { type: string } }
+      role:
+        type: object
+        additionalProperties:
+          type: array
+          items: { type: string }
+      profile: { type: array, items: { type: string } }
+      deny: { type: array, items: { type: string } }
+
+  hooks:
+    type: object
+    additionalProperties: false
+    properties:
+      pre_install: { $ref: "#/$defs/hookList" }
+      during_install: { $ref: "#/$defs/hookList" }
+      post_install_first_boot: { $ref: "#/$defs/hookList" }
+      post_install_recurrent:
+        type: array
+        items:
+          allOf:
+            - { $ref: "#/$defs/hook" }
+            - type: object
+              required: [schedule]
+              properties:
+                schedule: { type: string }
+      decommission: { $ref: "#/$defs/hookList" }
+
+  lifecycle:
+    type: object
+    required: [evolution_policy]
+    additionalProperties: false
+    properties:
+      evolution_policy:
+        type: string
+        enum: [frozen, append-only, replaceable]
+      supported_substrate:
+        type: array
+        items: { type: string }
+      supported_kernel:
+        type: array
+        items: { type: string }
+      deprecation_target:
+        oneOf:
+          - { type: string, format: date }
+          - { type: 'null' }
+      successor_profile:
+        oneOf:
+          - { type: string }
+          - { type: 'null' }
+
+  whitelabel:
+    type: object
+    required: [profile, legal_compliance]
+    additionalProperties: false
+    properties:
+      profile: { type: string }
+      surfaces:
+        type: array
+        items: { type: string }
+      legal_compliance:
+        type: string
+        enum: [dfsg-only, trademark-cleared, internal-only]
+
+  observability:
+    type: object
+    additionalProperties: false
+    properties:
+      telemetry_sink:
+        type: string
+        enum: [prometheus-local, otel, none]
+      log_retention_days: { type: integer, minimum: 0 }
+      audit_hooks:
+        type: object
+        additionalProperties: { type: string }
+      metrics_endpoint:
+        type: string
+        pattern: '^[0-9.]+:[0-9]+$'
+
+$defs:
+  hook:
+    type: object
+    required: [id, type, script]
+    additionalProperties: false
+    properties:
+      id:
+        type: string
+        pattern: '^[a-z0-9][a-z0-9-]*$'
+      type:
+        type: string
+        enum: [validation, setup, security, network, interactive, maintenance, cleanup]
+      script: { type: string }
+      mandatory: { type: boolean }
+  hookList:
+    type: array
+    items: { $ref: "#/$defs/hook" }

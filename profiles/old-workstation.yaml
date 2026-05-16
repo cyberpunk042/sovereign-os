@@ -1,0 +1,166 @@
+# yaml-language-server: $schema=../schemas/profile.schema.yaml
+#
+# old-workstation — constrained-hardware alternate profile.
+#
+# Targets the operator's existing 11 GB RAM + 8 GB GPU workstation
+# class. Substantive body is intentionally minimal pending operator-
+# supplied details on the actual hardware spec; this stub establishes
+# schema-conformance and validates the schema against a non-SAIN-01
+# hardware target.
+
+schema_version: "1.0.0"
+
+mixins:
+  - role-workstation
+  - whitelabel-default
+  - observability-tier-1
+
+identity:
+  id: old-workstation
+  name: "Old Workstation (constrained-hardware alternate)"
+  version: "0.1.0"
+  parent: null
+  status: draft
+  maintainer: cyberpunk042
+  description: |
+    Constrained-hardware profile targeting the operator's existing
+    workstation (~11 GB system RAM + ~8 GB GPU). Used to validate
+    schema-pluralism and to host smaller-model deployments (SLMs /
+    RLMs / quantized variants) per the operator's overnight goal
+    directive. Substantive hardware specifics filled in once the
+    operator supplies the actual machine details (CPU model + GPU
+    model + storage layout).
+
+hardware:
+  cpu:
+    architecture: x86_64
+    family: unknown          # TBD — operator-supplied at PR-revisit
+    march: x86-64-v3         # safe baseline; revise to actual march once known
+    features:
+      required:
+        - sse4_2
+        - avx2
+      preferred:
+        - avx
+    cores:
+      physical: 4
+      threads: 8
+      topology: monolithic
+
+  gpu:
+    - vendor: nvidia
+      model: unknown-8gb
+      vram_gb: 8
+      role: primary
+
+  memory:
+    minimum_gb: 8
+    target_gb: 11
+    type: ddr4
+    ecc: false
+
+  storage:
+    layout: ext4
+    devices:
+      - role: rootfs
+        type: sata-ssd
+        count: 1
+        topology: single
+
+  network:
+    - role: lan
+      speed_gbps: 1
+      default_gateway: true
+
+  motherboard:
+    vendor: unknown
+    model: unknown
+    bios_pinned: false
+
+kernel:
+  source: substrate-default     # stock Debian/substrate kernel; no custom build for constrained hardware
+  version_minimum: "6.1"
+  packaging: substrate-default
+  config:
+    enable:
+      - ZFS                     # optional; depending on storage layout decision
+    require_microcode: intel    # placeholder; revise based on actual CPU vendor
+  cmdline:
+    base:
+      - quiet
+      - splash
+    secure_boot: shim
+
+packages:
+  base:
+    - openssh-server
+    - sudo
+    - tmux
+    - curl
+    - git
+    - python3-minimal
+    - htop
+  profile:
+    - nvidia-driver
+    - podman
+  deny:
+    - popularity-contest
+    - apport
+    - whoopsie
+    - motd-news-config
+    - snapd
+    - ubuntu-advantage-tools
+
+hooks:
+  pre_install:
+    - id: friction-audit-spec
+      type: validation
+      script: scripts/hooks/pre-install/friction-audit-spec.sh
+      mandatory: true
+
+  during_install:
+    - id: rootfs-format
+      type: setup
+      script: scripts/hooks/during-install/rootfs-format-ext4.sh
+      mandatory: true
+
+  post_install_first_boot:
+    - id: nvidia-driver-bind
+      type: setup
+      script: scripts/hooks/post-install/nvidia-driver-bind.sh
+      mandatory: true
+    - id: first-login-assistant
+      type: interactive
+      script: scripts/hooks/post-install/first-login-assistant.sh
+      mandatory: false
+
+  decommission:
+    - id: secure-wipe
+      type: cleanup
+      script: scripts/hooks/decommission/secure-wipe.sh
+      mandatory: true
+
+lifecycle:
+  evolution_policy: replaceable
+  supported_substrate:
+    - "mkosi >= 23.0"
+    - "live-build >= 20240101"
+  supported_kernel:
+    - "6.1.x"
+    - "6.6.x"
+    - "6.12.x"
+  deprecation_target: null
+  successor_profile: null
+
+whitelabel:
+  profile: default
+  surfaces:
+    - all
+  legal_compliance: dfsg-only
+
+observability:
+  telemetry_sink: prometheus-local
+  log_retention_days: 14
+  audit_hooks:
+    install: ~/.sovereign-os/log/install-${EPOCH}.log
+    build: .sovereign-os-build/log/build-${EPOCH}.log

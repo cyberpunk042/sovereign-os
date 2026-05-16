@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../../schemas/mixin.schema.yaml
+#
+# whitelabel-default mixin — placeholder whitelabel binding until
+# Q-003 (brand identity: name, palette, logo) resolves and PR 8
+# whitelabel mechanism (SDD-007) ships the mechanism.
+#
+# Effective behavior pre-Q-003-resolution: rebrand all must-rebrand
+# surfaces per SDD-006 § A-I to placeholder strings ("Sovereign OS"
+# / "sovereign" / etc.); preserve must-not-touch legal-floor surfaces.
+
+schema_version: "1.0.0"
+
+mixin:
+  id: whitelabel-default
+  description: |
+    Default whitelabel binding; placeholder branding pending Q-003.
+    Will revisit once operator commits brand identity.
+
+whitelabel:
+  profile: default
+  surfaces:
+    - all
+  legal_compliance: dfsg-only

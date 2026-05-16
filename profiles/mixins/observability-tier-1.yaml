@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=../../schemas/mixin.schema.yaml
+#
+# observability-tier-1 mixin — basic observability for any profile.
+# Tiers 2+ (deeper telemetry, OTel, distributed tracing) land at
+# Stage 2+ once Q-013 resolves.
+
+schema_version: "1.0.0"
+
+mixin:
+  id: observability-tier-1
+  description: |
+    Tier-1 observability: local Prometheus exporter on 127.0.0.1:9090,
+    structured logs to ~/.sovereign-os/log/, 30-day retention default.
+
+observability:
+  telemetry_sink: prometheus-local
+  log_retention_days: 30
+  audit_hooks:
+    install: ~/.sovereign-os/log/install-${EPOCH}.log
+    build: .sovereign-os-build/log/build-${EPOCH}.log
+  metrics_endpoint: "127.0.0.1:9090"

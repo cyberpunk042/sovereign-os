@@ -1,0 +1,159 @@
+# yaml-language-server: $schema=../schemas/whitelabel.schema.yaml
+#
+# Default whitelabel for sovereign-os.
+#
+# Status: PLACEHOLDER pending Q-003 (brand identity: name, palette,
+# logo). Uses neutral "Sovereign OS" naming + GitHub-hosted URLs as
+# the operator-uncommitted baseline. Operator commits real brand
+# identity at a future PR; this file's `branding:` block becomes the
+# real brand once decided.
+#
+# Structurally complete: every must-rebrand surface from SDD-006 has
+# a declaration here. Mechanism implementation (render engine +
+# substrate adapter) ships at Stage 2+.
+
+schema_version: "1.0.0"
+
+identity:
+  id: sovereign-default
+  name: "Sovereign OS Default Whitelabel"
+  version: "0.1.0"
+  status: draft
+  maintainer: cyberpunk042
+  description: |
+    Placeholder default whitelabel pending Q-003 brand-identity
+    commit. Provides a structurally-complete rebrand using neutral
+    placeholder strings + GitHub-hosted URLs; operator commits actual
+    brand identity (name, palette, logo) at a future PR.
+
+compliance_target: dfsg-only
+
+branding:
+  os_id: sovereign
+  os_name: "Sovereign OS"
+  os_pretty_name: "Sovereign OS v0.1 (Foundation Phase)"
+  os_version: "0.1"
+  os_codename: "trinity"
+  vendor: "cyberpunk042"
+  home_url: "https://github.com/cyberpunk042/sovereign-os"
+  bug_report_url: "https://github.com/cyberpunk042/sovereign-os/issues"
+  support_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/README.md"
+  documentation_url: "https://cyberpunk042.github.io/sovereign-os/"
+  privacy_policy_url: null
+  motd: |
+    We want quality over quantity and honesty over cheats and lies.
+    We do not want hacks, quick fixes, and shortcuts.
+
+surfaces:
+
+  /etc/os-release:
+    strategy: template-substitution
+    template: templates/os-release.tmpl
+    when: pre-build
+
+  /usr/lib/os-release:
+    strategy: template-substitution
+    template: templates/os-release.tmpl
+    when: pre-build
+
+  /etc/issue:
+    strategy: template-substitution
+    content: |
+      ${os_pretty_name}
+
+      ${motd}
+
+      \n \l
+    when: pre-build
+
+  /etc/issue.net:
+    strategy: template-substitution
+    content: |
+      ${os_pretty_name}
+    when: pre-build
+
+  /etc/lsb-release:
+    strategy: template-substitution
+    content: |
+      DISTRIB_ID=${os_id}
+      DISTRIB_RELEASE=${os_version}
+      DISTRIB_CODENAME=${os_codename}
+      DISTRIB_DESCRIPTION="${os_pretty_name}"
+    when: pre-build
+
+  /etc/motd:
+    strategy: template-substitution
+    content: |
+      ${motd}
+    when: pre-build
+
+  /etc/dpkg/origins/sovereign:
+    strategy: template-substitution
+    content: |
+      Vendor: ${os_name}
+      Vendor-URL: ${home_url}
+      Bugs: ${bug_report_url}
+      Parent: Debian
+    when: pre-build
+
+  /etc/default/grub:
+    strategy: template-substitution
+    operation: line-replace
+    pattern: '^GRUB_DISTRIBUTOR='
+    replacement: 'GRUB_DISTRIBUTOR="${os_name}"'
+    when: pre-build
+
+  plymouth-theme:
+    strategy: file-overlay
+    overlay: overlays/plymouth-theme/
+    when: pre-build
+
+  grub-theme:
+    strategy: file-overlay
+    overlay: overlays/grub-theme/
+    when: pre-build
+
+  plymouth-alternative:
+    strategy: package-replacement
+    alternative: default.plymouth
+    points_to: /usr/share/plymouth/themes/sovereign/sovereign.plymouth
+    when: pre-build
+
+  kernel-buildflags:
+    strategy: build-time-flag
+    flags:
+      KBUILD_BUILD_USER: ${os_id}
+      KBUILD_BUILD_HOST: ${os_id}
+    when: pre-build
+
+  hostname-default:
+    strategy: install-time-substitution
+    operation: preseed
+    key: "d-i netcfg/get_hostname"
+    value: "${os_id}"
+    when: during-install
+
+  installer-banner:
+    strategy: install-time-substitution
+    operation: template-substitute
+    target: installer/welcome.txt
+    template: templates/installer-welcome.tmpl
+    when: during-install
+
+  first-boot-greeting:
+    strategy: first-boot-script
+    script: scripts/whitelabel/first-boot-greeting.sh
+    when: post-install
+
+legal_floor:
+  preserved:
+    - /etc/debian_version
+    - "/usr/share/doc/*/copyright"
+    - "/usr/share/man/*"
+    - "*/debian-logo*"
+    - "*/debian-swirl*"
+  rationale: |
+    Debian trademark policy + DFSG + GPL/AGPL attribution require
+    these surfaces remain untouched regardless of whitelabel. See
+    SDD-006 § "Legal floor" for the full reasoning. The render
+    engine MUST refuse to overwrite any of these paths.
