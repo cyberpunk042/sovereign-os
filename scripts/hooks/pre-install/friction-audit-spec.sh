@@ -62,6 +62,12 @@ check "CPU topology declared" \
   test -n "$(profile_field hardware.cpu.cores.topology)"
 
 # ----------------- GPU checks -----------------
+#
+# GPU is optional at the schema level (headless / VM profiles declare
+# gpu: [] or omit it). When zero GPUs are declared, GPU-shape checks
+# are skipped — they don't apply. When >=1 is declared, structural
+# rules apply (exactly one primary, vfio_companion required for vfio
+# entries, etc.).
 
 gpu_count="$(python3 -c "
 import yaml, os
@@ -71,10 +77,12 @@ gpus = data.get('hardware', {}).get('gpu', []) or []
 print(len(gpus))
 ")"
 
-check "at least one GPU declared" \
-  test "${gpu_count}" -ge 1
+if [ "${gpu_count}" -eq 0 ]; then
+  log_info "  SKIP — no GPUs declared (headless / VM profile)"
+else
+  log_info "  ${gpu_count} GPU(s) declared — applying GPU structural checks"
 
-primary_gpu_count="$(python3 -c "
+  primary_gpu_count="$(python3 -c "
 import yaml, os
 with open(os.environ['SOVEREIGN_OS_PROFILE_FILE']) as f:
     data = yaml.safe_load(f)
@@ -82,10 +90,12 @@ gpus = data.get('hardware', {}).get('gpu', []) or []
 print(sum(1 for g in gpus if g.get('role') == 'primary'))
 ")"
 
-check "exactly one GPU with role=primary (found ${primary_gpu_count})" \
-  test "${primary_gpu_count}" -eq 1
+  check "exactly one GPU with role=primary (found ${primary_gpu_count})" \
+    test "${primary_gpu_count}" -eq 1
+fi
 
-vfio_companion_check="$(python3 -c "
+if [ "${gpu_count}" -gt 0 ]; then
+  vfio_companion_check="$(python3 -c "
 import yaml, os, sys
 with open(os.environ['SOVEREIGN_OS_PROFILE_FILE']) as f:
     data = yaml.safe_load(f)
@@ -98,11 +108,12 @@ if issues:
     print('missing vfio_companion: ' + ', '.join(issues), file=sys.stderr)
     sys.exit(1)
 ")"
-if [ $? -eq 0 ]; then
-  log_info "  PASS — all role=vfio GPUs declare vfio_companion"
-else
-  log_error "  FAIL — vfio_companion missing on at least one role=vfio GPU"
-  fail=$((fail + 1))
+  if [ $? -eq 0 ]; then
+    log_info "  PASS — all role=vfio GPUs declare vfio_companion"
+  else
+    log_error "  FAIL — vfio_companion missing on at least one role=vfio GPU"
+    fail=$((fail + 1))
+  fi
 fi
 
 # ----------------- Storage checks -----------------

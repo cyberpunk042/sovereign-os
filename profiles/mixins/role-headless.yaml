@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../../schemas/mixin.schema.yaml
+#
+# role-headless mixin — shared package set + hooks for any profile
+# whose role is a headless server / VM (no GUI, no interactive
+# shell-setup, smaller base, more aggressive deny-list).
+#
+# Used by: profiles/minimal.yaml (Q-012 future-profile demonstration).
+# Future headless variants compose this same mixin.
+#
+# Contrast with role-workstation: no vim/build-essential/podman in the
+# default surface, no first-login-assistant by default (operator drives
+# config through cloud-init / preseed instead), deny-list adds GUI bits.
+
+schema_version: "1.0.0"
+
+mixin:
+  id: role-headless
+  description: |
+    Minimal headless contribution. Targets VMs, embedded boxes, and
+    pre-hardware test substrates. Conservative base packages, no
+    interactive flows, no GUI bits.
+
+packages:
+  base:
+    # Smaller surface — no editor, no compiler. Operators ssh in for ops.
+    - openssh-server
+    - sudo
+    - tmux
+    - curl
+    - ca-certificates
+
+  role:
+    headless:
+      - cloud-init
+      - systemd-networkd
+      - python3-minimal
+
+  deny:
+    # Reject anything that assumes a desktop session
+    - popularity-contest
+    - apport
+    - whoopsie
+    - snapd
+    - ubuntu-advantage-tools
+    # GUI bits that sometimes land via recommends
+    - xserver-common
+    - gdm3
+    - plymouth-themes
+    # Headless deliberately keeps the network simple — no NetworkManager
+    - network-manager
+
+hooks:
+  # Headless profiles deliberately do NOT register
+  # first-login-assistant by default — they boot to a ready state and
+  # operators configure via cloud-init or preseed.
+  post_install_first_boot:
+    - id: friction-audit-runtime
+      type: validation
+      script: scripts/hooks/post-install/friction-audit-runtime.sh
+      mandatory: false

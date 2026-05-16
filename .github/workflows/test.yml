@@ -71,6 +71,7 @@ jobs:
         run: |
           tests/nspawn/test_profile_hooks_resolve.sh sain-01
           tests/nspawn/test_profile_hooks_resolve.sh old-workstation
+          tests/nspawn/test_profile_hooks_resolve.sh minimal
       - name: nspawn — orchestrator status surface
         run: |
           tests/nspawn/test_orchestrator_status.sh
@@ -84,9 +85,11 @@ jobs:
         run: |
           tests/nspawn/test_mkosi_adapter.sh sain-01
           tests/nspawn/test_mkosi_adapter.sh old-workstation
+          tests/nspawn/test_mkosi_adapter.sh minimal
       - name: nspawn — live-build adapter (ALT-A substrate + substrate-agnosticism)
         run: |
           tests/nspawn/test_live_build_adapter.sh sain-01
+          tests/nspawn/test_live_build_adapter.sh minimal
       - name: nspawn — sovereign-osctl management surface (Q-019)
         run: |
           tests/nspawn/test_sovereign_osctl.sh
@@ -94,10 +97,12 @@ jobs:
         run: |
           tests/nspawn/test_orchestrator_dry_run.sh sain-01
           tests/nspawn/test_orchestrator_dry_run.sh old-workstation
+          tests/nspawn/test_orchestrator_dry_run.sh minimal
       - name: nspawn — orchestrator preflight (pre-install lifecycle hooks)
         run: |
           tests/nspawn/test_orchestrator_preflight.sh sain-01
           tests/nspawn/test_orchestrator_preflight.sh old-workstation
+          tests/nspawn/test_orchestrator_preflight.sh minimal
 
   shellcheck:
     name: shellcheck

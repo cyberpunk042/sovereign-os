@@ -21,7 +21,7 @@ at a specific PR and produces a `D-NNN` entry in the decisions log.
 | Q-009 | SAIN-01 hardware procurement timeline | operator-side | open |
 | Q-010 | CI infrastructure (GHA · self-hosted) | PR 3 + PR 10 | open |
 | Q-011 | Cross-repo commit-pinning posture | PR 2 (partial) + CI-guard PR (final) | partial (per-artifact rule locked in SDD-001) |
-| Q-012 | Future-profile timeline (`minimal` · `developer` · `headless`) | Stage 2+ | open |
+| Q-012 | Future-profile timeline (`minimal` · `developer` · `headless`) | Stage 2+ | **partial** — `minimal` substantive body lands as Q-012 demonstration; `developer` + `headless` remain reserved |
 | Q-013 | Observability bindings | Stage 2+ | open |
 | Q-014 | Decommission / wipe testing scope | PR 9/10 | open |
 | Q-015 | Reproducibility target | PR 4 (substrate constrains) | open |

@@ -139,7 +139,7 @@ properties:
                 role: { type: string, enum: [rootfs, data, swap, scratch] }
                 type:
                   type: string
-                  enum: [nvme-pcie-4, nvme-pcie-5, sata-ssd, sata-hdd, sas-hdd, optane]
+                  enum: [nvme-pcie-4, nvme-pcie-5, sata-ssd, sata-hdd, sas-hdd, optane, virtio-blk, virtio-scsi, nvme-of]
                 count: { type: integer, minimum: 1 }
                 topology:
                   type: string
