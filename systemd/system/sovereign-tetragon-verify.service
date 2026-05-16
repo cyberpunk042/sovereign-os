@@ -10,7 +10,18 @@ TimeoutStartSec=60s
 StandardOutput=journal
 StandardError=journal
 # Defense-in-depth — read-only verifier; writes only metrics + audit log
+# R171 defense-in-depth (Layer 1 lint enforced)
 ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
 ReadWritePaths=/mnt/vault/context /var/lib/sovereign-os /var/lib/node_exporter/textfile_collector
 NoNewPrivileges=true
 PrivateTmp=true

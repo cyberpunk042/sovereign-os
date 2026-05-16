@@ -11,7 +11,18 @@ StandardOutput=journal
 StandardError=journal
 # Reads .prom files + writes alert payload to /var/lib/sovereign-os/alerts.json
 # + writes meta-counters to the textfile collector dir.
+# R171 defense-in-depth (Layer 1 lint enforced)
 ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
 ReadWritePaths=/var/lib/sovereign-os /var/lib/node_exporter/textfile_collector
 NoNewPrivileges=true
 PrivateTmp=true

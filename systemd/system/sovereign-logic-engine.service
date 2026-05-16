@@ -20,7 +20,12 @@ TimeoutStartSec=180s
 # since podman may need access to /root/.config in some setups, and
 # DO NOT lock down NVIDIA driver paths (vLLM needs CUDA introspection).
 NoNewPrivileges=true
+# R171 defense-in-depth (Layer 1 lint enforced)
 ProtectSystem=strict
+ProtectKernelModules=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
 ProtectHome=read-only
 ProtectKernelTunables=true
 ProtectControlGroups=true

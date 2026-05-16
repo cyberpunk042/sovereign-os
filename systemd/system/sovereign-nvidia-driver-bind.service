@@ -15,7 +15,18 @@ StandardError=journal
 # Defense-in-depth — writes /etc/modprobe.d for nouveau blacklist;
 # reads /sys/bus/pci. Can't ProtectSystem=strict because kmod operations
 # need /sys + module-loading capability. ReadWritePaths narrowed.
+# R171 defense-in-depth (Layer 1 lint enforced)
 ProtectSystem=full
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
 ReadWritePaths=/etc/modprobe.d /var/lib/sovereign-os
 NoNewPrivileges=true
 PrivateTmp=true

@@ -11,7 +11,18 @@ StandardOutput=journal
 StandardError=journal
 # Defense-in-depth — log rotation needs to read the log dir, not the
 # whole filesystem.
+# R171 defense-in-depth (Layer 1 lint enforced)
 ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
 ReadWritePaths=/root/.sovereign-os /home /var/log
 NoNewPrivileges=true
 PrivateTmp=true

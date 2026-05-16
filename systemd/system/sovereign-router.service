@@ -16,7 +16,11 @@ RestartSec=5s
 # Security — router is pure-Python, no GPU/CPU pinning needed.
 # Tightest hardening of the inference fabric (R160 hardening pass).
 NoNewPrivileges=true
+# R171 defense-in-depth (Layer 1 lint enforced)
 ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
 ProtectHome=true
 ProtectKernelTunables=true
 ProtectKernelModules=true

@@ -16,7 +16,11 @@ StandardError=journal
 
 # Defense-in-depth — Guardian only needs read on the tetragon stream
 # and append on the security audit log; everything else is read-only.
+# R171 defense-in-depth (Layer 1 lint enforced)
 ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
 ReadOnlyPaths=/var/run/tetragon
 ReadWritePaths=/mnt/vault/context /var/lib/node_exporter/textfile_collector
 NoNewPrivileges=true

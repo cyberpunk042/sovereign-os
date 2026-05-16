@@ -21,7 +21,12 @@ MemoryHigh=32G
 # kernel modules. ProtectHome=read-only allows runtime libs to read
 # user config without writable paths.
 NoNewPrivileges=true
+# R171 defense-in-depth (Layer 1 lint enforced)
 ProtectSystem=strict
+ProtectKernelModules=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
 ProtectHome=read-only
 ProtectKernelTunables=true
 ProtectControlGroups=true

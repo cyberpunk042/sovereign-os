@@ -15,7 +15,18 @@ ExecStartPost=/bin/sh -c '[ -f /var/lib/sovereign-os/.vfio-bind-needs-reboot ] &
 StandardOutput=journal
 StandardError=journal
 # Defense-in-depth — completion marker only writes /var/lib/sovereign-os
+# R171 defense-in-depth (Layer 1 lint enforced)
 ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
 ReadWritePaths=/var/lib/sovereign-os
 NoNewPrivileges=true
 PrivateTmp=true

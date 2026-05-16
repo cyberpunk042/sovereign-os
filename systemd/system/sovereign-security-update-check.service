@@ -11,7 +11,18 @@ TimeoutStartSec=120s
 StandardOutput=journal
 StandardError=journal
 # Defense-in-depth — runs 'apt update' (needs /var/lib/apt) + emits metrics
+# R171 defense-in-depth (Layer 1 lint enforced)
 ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
 ReadWritePaths=/var/lib/apt /var/cache/apt /var/lib/sovereign-os /var/lib/node_exporter/textfile_collector
 NoNewPrivileges=true
 PrivateTmp=true

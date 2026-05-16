@@ -138,3 +138,65 @@ def test_long_running_extended_hardening(unit: pathlib.Path):
     assert not missing, (
         f"{unit.name} long-running missing extended hardening: {missing}"
     )
+
+
+# ---------- R171 defense-in-depth baseline (every service) ----------
+#
+# R171 extends the per-unit floor: regardless of long/short running,
+# every service unit must declare these directives (or carry the
+# global # HARDENING-WAIVER: comment). They're the directives that
+# are uniformly safe — they don't block any current ExecStart and
+# tighten the kernel-attack surface uniformly across the fleet.
+#
+# Per-key waiver: append "  # HARDENING-WAIVER-KEY: <reason>" on
+# the SAME line as the assignment to opt out of a single key without
+# disabling the whole-service waiver. Empty value waiver (`Key=`)
+# is rejected.
+
+R171_BASELINE = (
+    "ProtectHome",
+    "ProtectKernelTunables",
+    "ProtectKernelModules",
+    "ProtectControlGroups",
+    "ProtectClock",
+    "ProtectHostname",
+    "RestrictRealtime",
+    "RestrictSUIDSGID",
+    "RestrictNamespaces",
+    "LockPersonality",
+)
+
+
+@pytest.mark.parametrize("unit", _service_units(), ids=lambda p: p.name)
+def test_r171_defense_in_depth_baseline(unit: pathlib.Path):
+    """R171: every service unit declares the 10-directive defense-in-
+    depth baseline (or carries an explicit waiver)."""
+    text = unit.read_text()
+    if "# HARDENING-WAIVER:" in text:
+        return
+    svc = _parse_service(unit)
+    missing = []
+    for k in R171_BASELINE:
+        raw_val = svc.get(k, "")
+        # _parse_service preserves inline-comment tails; split them off.
+        val = raw_val.split("#", 1)[0].strip().lower()
+        # RestrictNamespaces: long-running services may legitimately
+        # set =false when running container runtimes that need unshare
+        # (logic-engine + oracle-core). Accept "false" only when an
+        # inline rationale comment appears on the assignment line.
+        if k == "RestrictNamespaces" and val == "false":
+            if "#" in raw_val:
+                continue
+            missing.append(f"{k}=false (no rationale comment)")
+            continue
+        # ProtectHome: read-only is an acceptable degraded mode for
+        # services that need to inspect $HOME but never write to it.
+        if k == "ProtectHome" and val in ("true", "read-only", "tmpfs"):
+            continue
+        if val != "true":
+            missing.append(k)
+    assert not missing, (
+        f"{unit.name} missing R171 baseline: {missing}. "
+        f"Add the directives under [Service], or add a "
+        f"'# HARDENING-WAIVER: <reason>' comment to the unit."
+    )

@@ -14,7 +14,18 @@ ExecStart=/opt/sovereign-os/scripts/hooks/post-install/zfs-arc-clamp.sh
 StandardOutput=journal
 StandardError=journal
 # Defense-in-depth — writes /etc/modprobe.d/zfs.conf + /sys/module/zfs
+# R171 defense-in-depth (Layer 1 lint enforced)
 ProtectSystem=full
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
 ReadWritePaths=/etc/modprobe.d /var/lib/sovereign-os
 NoNewPrivileges=true
 PrivateTmp=true

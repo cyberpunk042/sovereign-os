@@ -10,7 +10,18 @@ StandardOutput=journal
 StandardError=journal
 # Defense-in-depth — reads /mnt/vault/models; may write per-model
 # verification ledgers + metrics output
+# R171 defense-in-depth (Layer 1 lint enforced)
 ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
 ReadWritePaths=/mnt/vault/models /var/lib/sovereign-os /var/lib/node_exporter/textfile_collector
 NoNewPrivileges=true
 PrivateTmp=true

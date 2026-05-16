@@ -18,7 +18,18 @@ SuccessExitStatus=0 1
 StandardOutput=journal
 StandardError=journal
 # Defense-in-depth — read-only audit; only writes to journal + state dir
+# R171 defense-in-depth (Layer 1 lint enforced)
 ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
 ReadWritePaths=/var/lib/sovereign-os /var/log/sovereign-os
 NoNewPrivileges=true
 PrivateTmp=true

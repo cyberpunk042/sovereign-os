@@ -19,7 +19,18 @@ StandardError=journal
 # Defense-in-depth — writes /etc/modprobe.d for vfio-pci.ids;
 # touches /sys/bus/pci/devices/*/driver_override. ProtectSystem=full
 # (not strict) because of /sys writes.
+# R171 defense-in-depth (Layer 1 lint enforced)
 ProtectSystem=full
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
 ReadWritePaths=/etc/modprobe.d /var/lib/sovereign-os
 NoNewPrivileges=true
 PrivateTmp=true

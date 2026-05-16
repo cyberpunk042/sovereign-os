@@ -12,7 +12,18 @@ ExecStart=/opt/sovereign-os/scripts/hooks/post-install/workstation-shell-setup.s
 StandardOutput=journal
 StandardError=journal
 # Defense-in-depth — sets /etc/skel + /etc/profile.d defaults
+# R171 defense-in-depth (Layer 1 lint enforced)
 ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
 ReadWritePaths=/etc/skel /etc/profile.d /etc/bash.bashrc.d /var/lib/sovereign-os
 NoNewPrivileges=true
 PrivateTmp=true

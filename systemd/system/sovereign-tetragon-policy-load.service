@@ -15,7 +15,18 @@ StandardOutput=journal
 StandardError=journal
 # Defense-in-depth — copies policy files to /etc/tetragon; appends to
 # /mnt/vault/context security_audit.log on drift.
+# R171 defense-in-depth (Layer 1 lint enforced)
 ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
 ReadWritePaths=/etc/tetragon /mnt/vault/context /var/lib/sovereign-os
 NoNewPrivileges=true
 PrivateTmp=true

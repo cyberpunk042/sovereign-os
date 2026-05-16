@@ -14,7 +14,18 @@ StandardOutput=journal
 StandardError=journal
 # Defense-in-depth — zpool/zfs commands only need /sys + /dev/zfs;
 # script writes metrics under textfile_collector
+# R171 defense-in-depth (Layer 1 lint enforced)
 ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
 ReadWritePaths=/var/lib/node_exporter/textfile_collector /var/lib/sovereign-os
 NoNewPrivileges=true
 PrivateTmp=true

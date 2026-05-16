@@ -17,7 +17,11 @@ MemoryHigh=12G
 MemoryMax=16G
 # Security — defense in depth (R160 hardening pass)
 NoNewPrivileges=true
+# R171 defense-in-depth (Layer 1 lint enforced)
 ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
 ProtectHome=true
 ProtectKernelTunables=true
 ProtectKernelModules=true
