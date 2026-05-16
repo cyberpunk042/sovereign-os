@@ -63,9 +63,15 @@
   sshd · pwquality) with load-bearing invariants pinned at L1 lint
   (silent weakening fails CI); operator override via lexicographically-
   later drop-ins; `audit drift` verb detects deployed-vs-source drift.
-- **Operator-side gates**: `scripts/setup.sh` one-command fresh-clone
-  bootstrap; `scripts/git-hooks/pre-commit` runs L1 lint + profile
-  validation + L3 fast sample before every commit.
+- **Operator-side gates**: `scripts/onboard.sh` one-command fresh-machine
+  onboarding (setup → init wizard → preflight; R138); `scripts/setup.sh`
+  dev-env validation; `scripts/git-hooks/pre-commit` runs L1 lint +
+  profile validation + L3 fast sample before every commit;
+  `sovereign-osctl init` standalone wizard (R136); `sovereign-osctl env
+  list` discovers 80+ env vars (R137); `sovereign-osctl install image
+  --plan` 6-gate safety check for the disk dump (R134);
+  `scripts/build/orchestrate.sh recover` diagnoses + suggests
+  mid-pipeline failure recovery (R135).
 
 ## Quick start
 

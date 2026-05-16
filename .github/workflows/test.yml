@@ -241,6 +241,9 @@ jobs:
       - name: nspawn — sovereign-osctl env (Round 137: F-03 HIGH closure — env-var discovery surface)
         run: |
           tests/nspawn/test_sovereign_osctl_env.sh
+      - name: nspawn — scripts/onboard.sh (Round 138: F-08 HIGH closure — fresh-machine wrapper)
+        run: |
+          tests/nspawn/test_onboard.sh
 
   shellcheck:
     name: shellcheck

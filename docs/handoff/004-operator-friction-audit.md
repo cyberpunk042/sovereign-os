@@ -152,7 +152,17 @@ diff:
 - /etc/hostname vs hostname declared in cloud-init
 - active sovereign-osctl version vs profile.lifecycle.expected-osctl
 
-### F-08 — HIGH — No first-time-on-machine onboarding path
+### F-08 — HIGH — No first-time-on-machine onboarding path  ✅ **CLOSED (Round 138)**
+
+`scripts/onboard.sh` shipped. 3-stage wrapper: (1) `setup.sh`
+dev-environment validation, (2) `sovereign-osctl init` decision
+wizard (R136), (3) `orchestrate.sh preflight` against the chosen
+profile. Then prints the EXACT next-command block (run --dry-run →
+real run → safety-gated install image). USEFUL OPERATOR VERBS
+section enumerates env list / doctor / alerts / audit drift /
+recover with one-line each. NONINTERACTIVE env honored for CI;
+SOVEREIGN_OS_ONBOARD_SKIP_PREFLIGHT to fast-path re-runs. Idempotent.
+17-assertion L3.
 
 **Where**: README is generic. install-runbook is sain-01-specific.
 Operator on a fresh laptop sees: "here's a build pipeline" but no
