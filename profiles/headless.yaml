@@ -139,6 +139,10 @@ hooks:
       type: validation
       script: scripts/hooks/post-install/friction-audit-runtime.sh
       mandatory: false
+    - id: apply-server-hardening
+      type: setup
+      script: scripts/hooks/post-install/apply-server-hardening.sh
+      mandatory: true
     # No first-login-assistant: server boots to ready state; operator
     # logs in via ssh + uses sovereign-osctl.
 

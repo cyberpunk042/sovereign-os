@@ -1,0 +1,37 @@
+# sovereign-os fail2ban jail config (role-server profiles)
+#
+# Override of /etc/fail2ban/jail.conf for sovereign-os defaults.
+# Deployed by scripts/hooks/post-install/apply-server-hardening.sh.
+# Operators override per-host via /etc/fail2ban/jail.d/*.local.
+
+[DEFAULT]
+# Bantime starts at 1h; recidive jail extends on repeat offenders.
+bantime  = 1h
+findtime = 10m
+maxretry = 5
+
+# Whitelist localhost + RFC1918 — operators can opt these out by
+# replacing /etc/fail2ban/jail.d/sovereign-os-trusted.local.
+ignoreip = 127.0.0.1/8 ::1 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16
+
+# Use systemd journal as the log backend on Debian 13+; works without
+# parsing fail2ban-specific log files.
+backend  = systemd
+
+# Default action: ban via nftables (sovereign-os ships nftables-only;
+# no iptables-legacy fallback).
+banaction       = nftables-multiport
+banaction_allports = nftables-allports
+
+[sshd]
+enabled  = true
+port     = ssh
+mode     = aggressive
+maxretry = 3
+
+[recidive]
+# Long-term ban (1 week) for IPs banned 3 times within a day.
+enabled  = true
+bantime  = 1w
+findtime = 1d
+maxretry = 3

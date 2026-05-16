@@ -1,0 +1,60 @@
+# sovereign-os auditd rules (role-server profiles: headless)
+#
+# Per SDD-023 sovereignty posture + operator IaC bar
+# ("observable and operable, at all stages of lifecycle"):
+# audit captures the events that matter for a sovereign sysadmin's
+# post-incident forensics WITHOUT generating noise that drowns out
+# signal. Deployed by scripts/hooks/post-install/apply-server-hardening.sh
+# on profiles whose mixin chain includes role-server.
+#
+# Reference: Linux Audit Project rules + CIS Debian 12 Benchmark v1.0
+# § 4.1.* (where compatible with sovereign-os surface).
+
+# ---------- buffer & rate ----------
+# Larger ring buffer to survive bursts (default 8192 is small for
+# server-class deployments doing parallel work).
+-b 16384
+# Failure mode: panic on disk-full so audit-loss is loud, not silent.
+# Operator must drain audit volume — silence is worse than denial.
+-f 2
+# Rate-limit: 0 means unlimited (we have the buffer). Adjust DOWN only
+# if syscall-heavy workloads (build hosts) flood; leave UP-default
+# for fleet management hosts.
+-r 0
+
+# ---------- account / authn / authz ----------
+# Privilege escalation surface
+-w /etc/sudoers       -p wa -k sovereign-sudoers
+-w /etc/sudoers.d/    -p wa -k sovereign-sudoers
+-w /etc/passwd        -p wa -k sovereign-account
+-w /etc/group         -p wa -k sovereign-account
+-w /etc/shadow        -p wa -k sovereign-account
+-w /etc/gshadow       -p wa -k sovereign-account
+-w /etc/ssh/sshd_config -p wa -k sovereign-sshd
+
+# ---------- sovereign-os surfaces (load-bearing) ----------
+-w /etc/sovereign-os/         -p wa -k sovereign-config
+-w /var/lib/sovereign-os/     -p wa -k sovereign-state
+-w /opt/sovereign-os/         -p wa -k sovereign-install
+# perimeter integrity (Tetragon policy MUST NOT be tampered with silently)
+-w /etc/tetragon/             -p wa -k sovereign-perimeter
+
+# ---------- system integrity ----------
+# Kernel modules + kexec
+-a always,exit -F arch=b64 -S init_module,delete_module -k sovereign-kmod
+-w /etc/modprobe.d/   -p wa -k sovereign-kmod
+# Time tampering (chrony / clock manipulation defeats audit chronology)
+-a always,exit -F arch=b64 -S settimeofday,adjtimex,clock_settime -k sovereign-time
+
+# ---------- network surface ----------
+-w /etc/hosts          -p wa -k sovereign-net
+-w /etc/resolv.conf    -p wa -k sovereign-net
+-w /etc/network/       -p wa -k sovereign-net
+-w /etc/systemd/network/ -p wa -k sovereign-net
+-w /etc/nftables.conf  -p wa -k sovereign-net
+
+# ---------- lock the ruleset ----------
+# After loading these rules, the audit ruleset is immutable until
+# the next reboot. Prevents runtime tampering by an attacker who
+# obtains root — they would have to reboot, which is loud.
+-e 2

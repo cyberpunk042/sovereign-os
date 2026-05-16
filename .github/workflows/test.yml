@@ -217,6 +217,9 @@ jobs:
       - name: nspawn — sovereign-osctl journal verb (Round 91: Layer A operator surface)
         run: |
           tests/nspawn/test_sovereign_osctl_journal.sh
+      - name: nspawn — apply-server-hardening hook (Round 96: role-server IaC drop-ins)
+        run: |
+          tests/nspawn/test_apply_server_hardening.sh
 
   shellcheck:
     name: shellcheck
