@@ -69,7 +69,7 @@ USAGE:
 
 COMMANDS:
 
-  status                       System state overview
+  status [--json]              System state overview (--json for fleet aggregation)
   assistant [<sub>]            First-login assistant: full | status | reset | list
   doctor                       Sanity checks across the system
 
@@ -139,6 +139,40 @@ EOF
 # ------------------------------ status ---------------------------------------
 
 cmd_status() {
+  # --json mode: machine-readable status for fleet aggregation
+  if [ "${1:-}" = "--json" ]; then
+    local profile="${SOVEREIGN_OS_PROFILE:-unknown}"
+    local active_whitelabel="default"
+    [ -r /etc/sovereign-os/active-whitelabel ] && \
+      active_whitelabel="$(cat /etc/sovereign-os/active-whitelabel)"
+    local zfs_state="absent"
+    if command -v zpool >/dev/null 2>&1 && zpool list tank >/dev/null 2>&1; then
+      if zpool status tank | grep -q "state: ONLINE"; then zfs_state="online"; else zfs_state="degraded"; fi
+    fi
+    local tetragon_state="not-installed"
+    if command -v tetragon >/dev/null 2>&1; then
+      systemctl is-active --quiet tetragon && tetragon_state="active" || tetragon_state="inactive"
+    fi
+    local kernel; kernel="$(uname -r)"
+    local os_pretty="unknown"
+    [ -r /etc/os-release ] && os_pretty="$(grep PRETTY_NAME /etc/os-release | cut -d= -f2- | tr -d '"')"
+    local first_boot_done="false"
+    [ -r /var/lib/sovereign-os/first-boot-complete ] && first_boot_done="true"
+    cat <<EOF
+{
+  "profile": "${profile}",
+  "active_whitelabel": "${active_whitelabel}",
+  "kernel_release": "${kernel}",
+  "os_pretty_name": "${os_pretty}",
+  "zfs_pool_state": "${zfs_state}",
+  "tetragon_state": "${tetragon_state}",
+  "first_boot_complete": ${first_boot_done},
+  "timestamp": $(date +%s)
+}
+EOF
+    return 0
+  fi
+
   echo "sovereign-os status"
   echo "==================="
   echo

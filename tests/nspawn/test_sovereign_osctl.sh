@@ -107,6 +107,23 @@ else
   ko "whitelabel diff bogus-target gate broken"
 fi
 
+# Round 83: status --json for fleet aggregation
+status_json="$("${CTL}" status --json 2>&1)"
+if python3 -c "
+import json, sys
+d = json.loads('''${status_json}''')
+for k in ('profile', 'active_whitelabel', 'kernel_release', 'os_pretty_name',
+          'zfs_pool_state', 'tetragon_state', 'first_boot_complete', 'timestamp'):
+    assert k in d, f'missing {k}'
+assert isinstance(d['first_boot_complete'], bool), 'first_boot_complete must be JSON bool'
+assert isinstance(d['timestamp'], int), 'timestamp must be JSON int'
+sys.exit(0)
+" 2>/dev/null; then
+  ok "status --json: valid JSON with 8 keys + correct bool/int types"
+else
+  ko "status --json malformed: ${status_json:0:300}"
+fi
+
 # Round 64: --json mode for fleet tooling
 out_json="$("${CTL}" version --json 2>&1)"
 if python3 -c "
