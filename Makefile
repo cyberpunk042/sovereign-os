@@ -6,7 +6,7 @@ SHELL := /bin/bash
 PROFILE ?= sain-01
 
 .PHONY: help setup validate lint unit l3 l3-fast test smoke dry-run \
-        preflight ci all clean dashboards-lint
+        preflight ci all clean dashboards-lint install uninstall
 
 .DEFAULT_GOAL := help
 
@@ -68,3 +68,43 @@ clean:  ## Remove build state + temporary files
 	@rm -rf ~/.sovereign-os/build-state ~/.sovereign-os/log
 	@rm -rf .sovereign-os/
 	@echo "cleaned local sovereign-os state"
+
+PREFIX ?= /usr/local
+SOVEREIGN_OS_LIB ?= $(PREFIX)/lib/sovereign-os
+
+install:  ## Install sovereign-osctl + manpage to PREFIX (default: /usr/local)
+	@echo "Installing to PREFIX=$(PREFIX)"
+	@install -d "$(DESTDIR)$(PREFIX)/bin" \
+	            "$(DESTDIR)$(SOVEREIGN_OS_LIB)/lib" \
+	            "$(DESTDIR)$(SOVEREIGN_OS_LIB)/hooks" \
+	            "$(DESTDIR)$(SOVEREIGN_OS_LIB)/whitelabel" \
+	            "$(DESTDIR)$(SOVEREIGN_OS_LIB)/profiles" \
+	            "$(DESTDIR)$(SOVEREIGN_OS_LIB)/inference" \
+	            "$(DESTDIR)$(PREFIX)/share/man/man1"
+	@install -m 755 scripts/sovereign-osctl "$(DESTDIR)$(PREFIX)/bin/sovereign-osctl"
+	@install -m 644 scripts/build/lib/common.sh "$(DESTDIR)$(SOVEREIGN_OS_LIB)/lib/common.sh"
+	@install -m 644 scripts/build/lib/observability.sh "$(DESTDIR)$(SOVEREIGN_OS_LIB)/lib/observability.sh"
+	@install -m 644 scripts/build/lib/state.sh "$(DESTDIR)$(SOVEREIGN_OS_LIB)/lib/state.sh"
+	@install -m 644 scripts/build/lib/logging.sh "$(DESTDIR)$(SOVEREIGN_OS_LIB)/lib/logging.sh"
+	@cp -r scripts/hooks/* "$(DESTDIR)$(SOVEREIGN_OS_LIB)/hooks/"
+	@cp -r scripts/whitelabel "$(DESTDIR)$(SOVEREIGN_OS_LIB)/"
+	@cp -r scripts/inference "$(DESTDIR)$(SOVEREIGN_OS_LIB)/"
+	@cp -r profiles/* "$(DESTDIR)$(SOVEREIGN_OS_LIB)/profiles/"
+	@cp -r whitelabel "$(DESTDIR)$(SOVEREIGN_OS_LIB)/"
+	@if command -v pandoc >/dev/null 2>&1; then \
+	  echo "Building manpage via pandoc"; \
+	  pandoc -s -t man docs/man/sovereign-osctl.1.md \
+	    -o "$(DESTDIR)$(PREFIX)/share/man/man1/sovereign-osctl.1"; \
+	else \
+	  echo "Skipping manpage (pandoc not installed; install pandoc + re-run for man page)"; \
+	fi
+	@echo "Installed:"
+	@echo "  $(DESTDIR)$(PREFIX)/bin/sovereign-osctl"
+	@echo "  $(DESTDIR)$(SOVEREIGN_OS_LIB)/  (lib + hooks + profiles + inference + whitelabel)"
+	@echo "  $(DESTDIR)$(PREFIX)/share/man/man1/sovereign-osctl.1  (if pandoc)"
+
+uninstall:  ## Remove sovereign-osctl + manpage from PREFIX
+	@rm -f  "$(DESTDIR)$(PREFIX)/bin/sovereign-osctl"
+	@rm -f  "$(DESTDIR)$(PREFIX)/share/man/man1/sovereign-osctl.1"
+	@rm -rf "$(DESTDIR)$(SOVEREIGN_OS_LIB)"
+	@echo "Uninstalled sovereign-osctl + lib + manpage from PREFIX=$(PREFIX)"
