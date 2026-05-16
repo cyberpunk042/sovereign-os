@@ -238,6 +238,9 @@ jobs:
       - name: nspawn — sovereign-osctl init (Round 136: F-02 HIGH closure — interactive setup wizard)
         run: |
           tests/nspawn/test_sovereign_osctl_init.sh
+      - name: nspawn — sovereign-osctl env (Round 137: F-03 HIGH closure — env-var discovery surface)
+        run: |
+          tests/nspawn/test_sovereign_osctl_env.sh
 
   shellcheck:
     name: shellcheck

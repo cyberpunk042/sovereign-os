@@ -66,7 +66,15 @@ operator through the 5 mandatory decisions in order, surfaces the
 recommendation per decision, writes the chosen values to
 `.sovereign-os/init-state.yaml`, and prints the EXACT next command.
 
-### F-03 — HIGH — No `sovereign-osctl env list` env-var reference
+### F-03 — HIGH — No `sovereign-osctl env list` env-var reference  ✅ **CLOSED (Round 137)**
+
+`sovereign-osctl env list [--filter <regex>]` + `env show <NAME>` shipped.
+Scans `scripts/` for every `SOVEREIGN_OS_*` reference, dedupes,
+discovers defaults (matches `: "${VAR:=value}"` pattern) + consumer
+files, presents tabular index. Filter narrows. `show` drills into
+one var (default · default-from-file · currently-set value · consumer
+list, capped at 20). 19-assertion L3; 80+ env vars discovered out
+of the box.
 
 **Where**: 30+ `SOVEREIGN_OS_*` env vars scattered across scripts.
 Operator hunting for "what env var changes X" greps the codebase.
