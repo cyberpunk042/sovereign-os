@@ -226,6 +226,9 @@ jobs:
       - name: nspawn — sovereign-osctl history verb (Round 107: per-run summary derived from JSONL)
         run: |
           tests/nspawn/test_sovereign_osctl_history.sh
+      - name: nspawn — sovereign-osctl audit drift (Round 111: hardening drift detection vs config sources)
+        run: |
+          tests/nspawn/test_sovereign_osctl_audit_drift.sh
 
   shellcheck:
     name: shellcheck

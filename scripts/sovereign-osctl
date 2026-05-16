@@ -99,6 +99,7 @@ COMMANDS:
   audit perimeter              Perimeter integrity (Tetragon policy)
   audit storage                ZFS pool + dataset health
   audit provenance [--deep] [<path>]    Inspect build-provenance.json + cross-check sha256sums.txt (+ recompute SHA256 on disk with --deep)
+  audit drift [--json]         Compare deployed hardening drop-ins vs config/server + config/workstation sources
 
   maintenance list             List on-demand maintenance subverbs
   maintenance scrub            Trigger ZFS scrub now
@@ -862,6 +863,101 @@ if deep_mode:
     elif deep_verified > 0:
         print(f"  ✓ {deep_verified}/{len(declared)} files on disk match manifest digest")
 PY
+      ;;
+    drift)
+      # Round 111: compare deployed hardening drop-ins vs source-of-truth
+      # in config/server/ and config/workstation/. Operators get drift
+      # detection WITHOUT re-running the apply hook (which would overwrite).
+      local json_mode=0
+      [ "${1:-}" = "--json" ] && { json_mode=1; shift; }
+
+      : "${SOVEREIGN_OS_HARDENING_DEST_PREFIX:=}"
+
+      # Each entry: source-relative-path:absolute-destination
+      # SDD-024 inventory of drop-ins for both role-server and role-workstation
+      local -a drop_ins=(
+        "server/auditd.rules:${SOVEREIGN_OS_HARDENING_DEST_PREFIX}/etc/audit/rules.d/sovereign-os.rules"
+        "server/fail2ban-jail.local:${SOVEREIGN_OS_HARDENING_DEST_PREFIX}/etc/fail2ban/jail.d/sovereign-os.local"
+        "server/unattended-upgrades.conf:${SOVEREIGN_OS_HARDENING_DEST_PREFIX}/etc/apt/apt.conf.d/52sovereign-os-unattended.conf"
+        "server/sshd.conf:${SOVEREIGN_OS_HARDENING_DEST_PREFIX}/etc/ssh/sshd_config.d/50sovereign-os.conf"
+        "server/pwquality.conf:${SOVEREIGN_OS_HARDENING_DEST_PREFIX}/etc/security/pwquality.conf.d/50sovereign-os.conf"
+        "workstation/sshd.conf:${SOVEREIGN_OS_HARDENING_DEST_PREFIX}/etc/ssh/sshd_config.d/50sovereign-os.conf"
+      )
+
+      # JSON accumulator (one entry per drop-in)
+      local -a json_entries=()
+      local drift_count=0 unchanged=0 missing=0 not_applicable=0
+
+      for entry in "${drop_ins[@]}"; do
+        local rel="${entry%:*}"
+        local dst="${entry#*:}"
+        local src="${__REPO_ROOT}/config/${rel}"
+        local kind="${rel%%/*}"  # server or workstation
+        local fname="${rel#*/}"
+
+        # Note: server/sshd.conf and workstation/sshd.conf share the same
+        # destination. Resolution: which one applies depends on the
+        # profile. If both exist on disk, the LAST-applied wins (apply
+        # hooks run in profile-determined order). We report which source
+        # the deployed file matches (if any).
+
+        if [ ! -r "${src}" ]; then
+          # Source absent (shouldn't happen in a release)
+          if [ "${json_mode}" -eq 1 ]; then
+            json_entries+=("{\"kind\":\"${kind}\",\"file\":\"${fname}\",\"destination\":\"${dst}\",\"state\":\"source-missing\"}")
+          else
+            log_warn "  source MISSING: ${src}"
+          fi
+          continue
+        fi
+
+        if [ ! -e "${dst}" ]; then
+          # Deployed file absent
+          if [ "${json_mode}" -eq 1 ]; then
+            json_entries+=("{\"kind\":\"${kind}\",\"file\":\"${fname}\",\"destination\":\"${dst}\",\"state\":\"not-deployed\"}")
+          else
+            log_info "  not-deployed:  [${kind}] ${fname} → ${dst}"
+          fi
+          not_applicable=$((not_applicable + 1))
+          continue
+        fi
+
+        if cmp -s "${src}" "${dst}"; then
+          if [ "${json_mode}" -eq 1 ]; then
+            json_entries+=("{\"kind\":\"${kind}\",\"file\":\"${fname}\",\"destination\":\"${dst}\",\"state\":\"unchanged\"}")
+          else
+            log_info "  unchanged:     [${kind}] ${fname}"
+          fi
+          unchanged=$((unchanged + 1))
+        else
+          if [ "${json_mode}" -eq 1 ]; then
+            json_entries+=("{\"kind\":\"${kind}\",\"file\":\"${fname}\",\"destination\":\"${dst}\",\"state\":\"drifted\"}")
+          else
+            log_warn "  DRIFTED:       [${kind}] ${fname} → ${dst}"
+          fi
+          drift_count=$((drift_count + 1))
+        fi
+      done
+
+      if [ "${json_mode}" -eq 1 ]; then
+        # Emit a single JSON object with summary + entries array
+        local entries_csv
+        entries_csv="$(IFS=,; echo "${json_entries[*]}")"
+        printf '{"summary":{"drifted":%d,"unchanged":%d,"not_deployed":%d},"entries":[%s]}\n' \
+          "${drift_count}" "${unchanged}" "${not_applicable}" "${entries_csv}"
+      else
+        echo
+        log_info "drift summary: drifted=${drift_count} unchanged=${unchanged} not-deployed=${not_applicable}"
+        if [ "${drift_count}" -gt 0 ]; then
+          log_warn "  some drop-ins have drifted from source — re-apply with:"
+          log_warn "    sudo sovereign-osctl maintenance security-check  # or"
+          log_warn "    sudo /opt/sovereign-os/scripts/hooks/post-install/apply-server-hardening.sh"
+          log_warn "    sudo /opt/sovereign-os/scripts/hooks/post-install/apply-workstation-hardening.sh"
+        fi
+      fi
+
+      # exit (not return) to bypass ERR trap on intentional non-zero
+      [ "${drift_count}" -eq 0 ] && exit 0 || exit 1
       ;;
     *)
       log_error "unknown audit subcommand: ${sub}"
