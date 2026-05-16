@@ -344,6 +344,30 @@ gate guards against unsubstituted `${var}` sigils in production builds).
 by adding `whitelabel/<id>/` content + flipping `active-whitelabel`.
 **Linked**: direct-to-main commit on 2026-05-16.
 
+### D-006 — 2026-05-16 — Decommission testing scope: gates in CI, destruction only on real hardware (Q-014 resolved)
+
+**Decision**: Decommission scripts are inherently destructive — CI
+tests their **gates** (require_root + SOVEREIGN_OS_CONFIRM_DESTROY
+env-gate + interactive confirm + idempotency + operator-observable
+refusals), NOT their destructive happy paths. End-to-end destruction
+is exercised on real hardware by the operator (Layer 5), never in CI.
+A potential Layer 4 destructive-loop test inside QEMU is acknowledged
+but deferred until the hardware arrives.
+**Question**: Q-014 — what is the testing scope for decommission?
+**Source**: `docs/sdd/014-decommission-testing-scope.md`;
+`scripts/hooks/decommission/`; `tests/nspawn/test_decommission_gates.sh`.
+**Rationale**: Real-pool / real-disk destruction has no value in CI
+(it would require provisioning destroyable state per run). Gate
+correctness, however, is exactly where regressions cost the operator
+real data. The 12-assertion Layer 3 gate covers every refusal path
+the operator depends on. Honest scope > false confidence.
+**Affected items**: `docs/sdd/014-decommission-testing-scope.md`;
+`tests/nspawn/test_decommission_gates.sh`;
+`.github/workflows/test.yml` (14th Layer 3 step).
+**Reversibility**: fully-reversible — a QEMU destructive-loop test can
+land later as additive coverage.
+**Linked**: direct-to-main commit on 2026-05-16.
+
 ---
 
 ## Cross-references

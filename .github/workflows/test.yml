@@ -110,6 +110,9 @@ jobs:
       - name: nspawn — install configs lockstep (SDD-013 Q-008 gate)
         run: |
           tests/nspawn/test_install_configs.sh
+      - name: nspawn — decommission gates (SDD-014 Q-014 gate)
+        run: |
+          tests/nspawn/test_decommission_gates.sh
 
   shellcheck:
     name: shellcheck

@@ -9,7 +9,7 @@ import re
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 DECISIONS = REPO_ROOT / "docs" / "decisions.md"
 
-DECISION_HEADER = re.compile(r"^## D-(\d{3}) — \d{4}-\d{2}-\d{2} — .+$", re.M)
+DECISION_HEADER = re.compile(r"^#{2,3} D-(\d{3}) — \d{4}-\d{2}-\d{2} — .+$", re.M)
 QUESTION_HEADER = re.compile(r"^### Q-(\d{3}|\w{1,3}-?\w?) — .+$", re.M)
 
 
