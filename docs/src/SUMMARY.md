@@ -25,7 +25,9 @@
 
 - [Default — sain-01](./profiles/sain-01.md)
 - [Alternate — old-workstation](./profiles/old-workstation.md)
-- [Reserved (minimal · developer · headless)](./profiles/reserved.md)
+- [Minimal (VM baseline)](./profiles/minimal.md)
+- [Developer (polyglot dev workstation)](./profiles/developer.md)
+- [Headless (bare-metal server)](./profiles/headless.md)
 
 # Whitelabel
 
