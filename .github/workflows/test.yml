@@ -244,6 +244,9 @@ jobs:
       - name: nspawn — scripts/onboard.sh (Round 138: F-08 HIGH closure — fresh-machine wrapper)
         run: |
           tests/nspawn/test_onboard.sh
+      - name: nspawn — decommission --plan + profiles compare (Round 139: F-11 + F-12 MED closures)
+        run: |
+          tests/nspawn/test_decommission_plan_and_profiles_compare.sh
 
   shellcheck:
     name: shellcheck

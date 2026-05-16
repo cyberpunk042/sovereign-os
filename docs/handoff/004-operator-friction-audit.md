@@ -200,7 +200,15 @@ the wrong dir.
 **Fix**: `sovereign-osctl journal --all-dirs` flag that merges both
 dirs into one chronological view.
 
-### F-11 — MED — Decommission has no `--plan` preview
+### F-11 — MED — Decommission has no `--plan` preview  ✅ **CLOSED (Round 139)**
+
+`sovereign-osctl decommission --plan` (alias `plan`) shipped. Shows
+all 3 phases with the hook script · target identification · operation
+description · live state check (zfs dataset/pool sizes when present) ·
+invoke command. SOVEREIGN_OS_WIPE_DEVICES targets shown with
+fingerprint when set; flagged as "NOT A BLOCK DEVICE" if invalid.
+Writes nothing — no env-gate required because nothing is destroyed.
+Parallels R134 `install image --plan` pattern.
 
 **Where**: `sovereign-osctl decommission start` walks the operator
 through 3 phases. Each requires explicit env var
@@ -215,7 +223,12 @@ side rehearsal path.
 destroy/blkdiscard commands that WOULD execute (paths + sizes), does
 not execute them, gives operator a chance to abort.
 
-### F-12 — MED — No `profiles compare` verb
+### F-12 — MED — No `profiles compare` verb  ✅ **CLOSED (Round 139)**
+
+`sovereign-osctl profiles compare <a> <b>` shipped. Resolves both
+profiles (mixin merge via `tools.profile_merger`) then emits unified
+diff. Catches usage errors (1 arg → exit 2) and missing profiles
+(→ exit 1 with clear error). Self-compare → exit 0 cleanly.
 
 **Where**: 5 profiles. Operator wondering "what's different between
 sain-01 and headless?" opens both YAMLs side-by-side manually.

@@ -76,6 +76,7 @@ COMMANDS:
   profiles list                List declared profiles
   profiles show <id>           Print profile YAML (raw, no mixin resolution)
   profiles show-effective <id> Print profile with mixins + parent resolved
+  profiles compare <a> <b>     Unified diff of two profiles' EFFECTIVE (resolved) state
   profiles active              Show active profile id
   profiles switch <id>         Swap active profile (flags items requiring rebuild)
   profiles validate            Schema-validate all profiles (raw + resolved)
@@ -112,6 +113,7 @@ COMMANDS:
   maintenance alerts-check     Derive alerts + emit meta-counters now
 
   decommission start           Begin decommission flow (interactive; confirms)
+  decommission --plan          Preview ALL 3 decommission phases (paths, sizes, commands); writes nothing
 
   install image <img> --to <dev>  Safely dd a built image to a target device
                                   (gates: not-mounted-root + fingerprint + SOVEREIGN_OS_CONFIRM_DESTROY=YES)
@@ -486,6 +488,31 @@ cmd_profiles() {
     show-effective)
       local id="${1:-${SOVEREIGN_OS_PROFILE}}"
       (cd "${__REPO_ROOT}" && python3 -m tools.profile_merger "${id}")
+      ;;
+    compare)
+      # R139 (F-12 MED closure): unified diff of two profiles' EFFECTIVE
+      # (post-mixin-merge) state. Operator wonders "what's actually
+      # different between sain-01 and headless?" — this answers it
+      # without opening two YAMLs side by side.
+      local a="${1:-}" b="${2:-}"
+      if [ -z "${a}" ] || [ -z "${b}" ]; then
+        log_error "usage: sovereign-osctl profiles compare <a> <b>"
+        return 2
+      fi
+      for p in "${a}" "${b}"; do
+        if [ ! -f "${__REPO_ROOT}/profiles/${p}.yaml" ]; then
+          log_error "no such profile: ${p}"
+          return 1
+        fi
+      done
+      local tmp_a tmp_b
+      tmp_a="$(mktemp)"; tmp_b="$(mktemp)"
+      (cd "${__REPO_ROOT}" && python3 -m tools.profile_merger "${a}") > "${tmp_a}" 2>/dev/null
+      (cd "${__REPO_ROOT}" && python3 -m tools.profile_merger "${b}") > "${tmp_b}" 2>/dev/null
+      echo "--- ${a} (effective)"
+      echo "+++ ${b} (effective)"
+      diff -u "${tmp_a}" "${tmp_b}" | tail -n +3 || true
+      rm -f "${tmp_a}" "${tmp_b}"
       ;;
     validate)
       "${__REPO_ROOT}/scripts/validate-profiles.sh"
@@ -2289,6 +2316,70 @@ EOF
 cmd_decommission() {
   local sub="${1:-start}"
   case "${sub}" in
+    --plan|plan)
+      # R139 (F-11 MED closure): non-destructive preview of every
+      # decommission phase. Operator rehearsal path — no env-gate
+      # required (no bytes are written).
+      echo
+      echo "  sovereign-osctl decommission --plan"
+      echo "  ==================================="
+      echo "  Shows EVERY destructive operation across all 3 phases."
+      echo "  Writes nothing. Operator inspects, then runs phases explicitly."
+      echo
+      echo "  Phase 1 — secure-wipe-context (state-fabric)"
+      echo "    hook: scripts/hooks/decommission/secure-wipe-context.sh"
+      echo "    target: tank/context (ZFS dataset; operator-key encrypted per SDD-022)"
+      echo "    operation: 'shred -uvz' on the unlocked content, then zfs destroy"
+      if command -v zfs >/dev/null 2>&1 && zfs list tank/context >/dev/null 2>&1; then
+        local ctx_size
+        ctx_size="$(zfs list -H -o used tank/context 2>/dev/null || echo unknown)"
+        echo "    ✓ tank/context exists; size: ${ctx_size}"
+      else
+        echo "    (tank/context not present in this environment)"
+      fi
+      echo "    invoke: sovereign-osctl decommission start"
+      echo
+      echo "  Phase 2 — zfs-pool-destroy (whole pool)"
+      echo "    hook: scripts/hooks/decommission/zfs-pool-destroy.sh"
+      echo "    target: zpool '${SOVEREIGN_OS_POOL_NAME:-tank}'"
+      echo "    operation: 'zpool destroy -f \${POOL}'"
+      if command -v zpool >/dev/null 2>&1 && zpool list "${SOVEREIGN_OS_POOL_NAME:-tank}" >/dev/null 2>&1; then
+        local pool_size pool_used
+        pool_size="$(zpool list -H -o size "${SOVEREIGN_OS_POOL_NAME:-tank}" 2>/dev/null || echo unknown)"
+        pool_used="$(zpool list -H -o allocated "${SOVEREIGN_OS_POOL_NAME:-tank}" 2>/dev/null || echo unknown)"
+        echo "    ✓ pool '${SOVEREIGN_OS_POOL_NAME:-tank}' exists; size=${pool_size} used=${pool_used}"
+      else
+        echo "    (pool '${SOVEREIGN_OS_POOL_NAME:-tank}' not present in this environment)"
+      fi
+      echo "    invoke: SOVEREIGN_OS_CONFIRM_DESTROY=YES sovereign-osctl decommission pool"
+      echo
+      echo "  Phase 3 — secure-wipe (block devices)"
+      echo "    hook: scripts/hooks/decommission/secure-wipe.sh"
+      echo "    targets: SOVEREIGN_OS_WIPE_DEVICES (e.g. '/dev/nvme0n1 /dev/nvme1n1')"
+      local wipe_devs="${SOVEREIGN_OS_WIPE_DEVICES:-(unset)}"
+      echo "    currently: ${wipe_devs}"
+      if [ "${wipe_devs}" != "(unset)" ]; then
+        for dev in ${wipe_devs}; do
+          if [ -b "${dev}" ]; then
+            local d_size d_model d_serial
+            d_size="$(lsblk -dn -o SIZE "${dev}" 2>/dev/null | xargs || echo ?)"
+            d_model="$(lsblk -dn -o MODEL "${dev}" 2>/dev/null | xargs || echo ?)"
+            d_serial="$(lsblk -dn -o SERIAL "${dev}" 2>/dev/null | xargs || echo ?)"
+            echo "      ✓ ${dev}  ${d_model}  serial=${d_serial}  size=${d_size}"
+          else
+            echo "      ! ${dev}  NOT A BLOCK DEVICE (refused at execute time)"
+          fi
+        done
+      else
+        echo "    operator must export SOVEREIGN_OS_WIPE_DEVICES before phase 3"
+      fi
+      echo "    operation: 'blkdiscard' if SSD, else 'shred -vfz'"
+      echo "    invoke: SOVEREIGN_OS_CONFIRM_DESTROY=YES SOVEREIGN_OS_WIPE_DEVICES='/dev/...' \\"
+      echo "              sovereign-osctl decommission wipe"
+      echo
+      echo "  NOTHING WAS WRITTEN. Each phase requires SOVEREIGN_OS_CONFIRM_DESTROY=YES + interactive confirm."
+      return 0
+      ;;
     start)
       log_warn "decommission begins; this is DESTRUCTIVE."
       log_warn "  three phases:"
