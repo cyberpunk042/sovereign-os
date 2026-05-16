@@ -229,6 +229,9 @@ jobs:
       - name: nspawn — sovereign-osctl audit drift (Round 111: hardening drift detection vs config sources)
         run: |
           tests/nspawn/test_sovereign_osctl_audit_drift.sh
+      - name: nspawn — sovereign-osctl install image (Round 134: F-01 CRIT closure — safety-gated dd wrapper)
+        run: |
+          tests/nspawn/test_sovereign_osctl_install.sh
 
   shellcheck:
     name: shellcheck

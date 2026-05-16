@@ -19,7 +19,14 @@
 
 ## The 13 friction points
 
-### F-01 — CRIT — Disk dump has NO safety gate
+### F-01 — CRIT — Disk dump has NO safety gate  ✅ **CLOSED (Round 134)**
+
+`sovereign-osctl install image [--plan] <img> --to <device>` shipped
+with 6 gates (image exists + non-empty + regular file · target is
+block device · target is whole disk not partition · target is NOT
+running root or its parent · `SOVEREIGN_OS_CONFIRM_DESTROY=YES` ·
+typed-device-path interactive confirm). 13-assertion L3.
+install-runbook §2.1 updated to recommend the gated path.
 
 **Where**: `docs/src/install-runbook.md` § 2.1 — operator runs
 `sudo dd if=build/sain-01/output/sain-01 of=/dev/nvme0n1 bs=4M

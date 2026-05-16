@@ -126,10 +126,26 @@ diff /machine-A/sha256sums.txt /machine-B/sha256sums.txt
 
 ### 2.1 Dump image to first NVMe
 
+**Use the safety-gated verb (Round 134 / SDD-024 friction-audit F-01 closure).**
+Raw `dd` is too easy to point at the wrong disk.
+
 ```sh
-# DESTRUCTIVE — confirm device first
-sudo dd if=build/sain-01/output/sain-01 of=/dev/nvme0n1 bs=4M status=progress conv=fsync
+# 1. PREVIEW: shows device fingerprint (model · serial · capacity · mount
+#    state) + the command that WOULD execute. Writes nothing.
+sovereign-osctl install image --plan build/sain-01/output/sain-01 --to /dev/nvme1n1
+
+# 2. EXECUTE: gates on (a) not-mounted-root, (b) whole-disk-not-partition,
+#    (c) SOVEREIGN_OS_CONFIRM_DESTROY=YES, (d) typed-device-path confirm.
+SOVEREIGN_OS_CONFIRM_DESTROY=YES \
+  sudo sovereign-osctl install image build/sain-01/output/sain-01 --to /dev/nvme1n1
 ```
+
+The verb HARD REFUSES if the target is the currently-running root or
+its parent — no `dd` typo can nuke the host the operator is sitting at.
+
+Legacy raw-`dd` is still possible for operators who explicitly want it
+(`sudo dd if=... of=... bs=4M status=progress conv=fsync`) but the
+runbook recommends the gated path.
 
 ### 2.2 Boot from NVMe + MOK enrollment
 

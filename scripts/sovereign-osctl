@@ -113,6 +113,10 @@ COMMANDS:
 
   decommission start           Begin decommission flow (interactive; confirms)
 
+  install image <img> --to <dev>  Safely dd a built image to a target device
+                                  (gates: not-mounted-root + fingerprint + SOVEREIGN_OS_CONFIRM_DESTROY=YES)
+  install image --plan <img> --to <dev>  Show fingerprint + plan, do nothing
+
   inference status             Per-tier backend status (Pulse / Logic / Oracle / Router)
   inference health             HTTP-probe every tier's /healthz (with TCP fallback)
   inference start <tier>       Start a tier (pulse | logic | oracle | router | all)
@@ -1795,6 +1799,182 @@ for line in sys.stdin.read().splitlines():
   [ "${alert_count}" -eq 0 ] && exit 0 || exit 1
 }
 
+# ------------------------------ install --------------------------------------
+#
+# Round 134 (F-01 CRIT closure): safety-gated wrapper around `dd` for
+# dumping a built sovereign-os image onto a target device. Replaces
+# the install-runbook's raw `sudo dd if=... of=...` instruction.
+#
+# Gates (ALL must pass before any byte is written):
+#   1. Image file exists + is non-empty + is a regular file
+#   2. Target device exists + is a block device
+#   3. Target is NOT a partition (must be the whole disk)
+#   4. Target is NOT the currently-mounted root or its parent
+#   5. SOVEREIGN_OS_CONFIRM_DESTROY=YES
+#   6. Interactive confirm (unless SOVEREIGN_OS_NONINTERACTIVE=1)
+#
+# --plan mode: show what WOULD happen + device fingerprint, exit 0,
+# never write a byte. Operator runs this first to inspect.
+
+cmd_install() {
+  local sub="${1:-help}"
+  shift || true
+
+  case "${sub}" in
+    image)
+      local plan_only=0
+      local image=""
+      local device=""
+      while [ $# -gt 0 ]; do
+        case "$1" in
+          --plan) plan_only=1; shift ;;
+          --to)   device="${2:-}"; shift 2 ;;
+          --)     shift; break ;;
+          -*)     log_error "unknown install image flag: $1"; return 2 ;;
+          *)      if [ -z "${image}" ]; then image="$1"; fi; shift ;;
+        esac
+      done
+
+      # Gate 1 — image file
+      if [ -z "${image}" ]; then
+        log_error "usage: sovereign-osctl install image [--plan] <image-path> --to <device>"
+        return 2
+      fi
+      if [ ! -f "${image}" ]; then
+        log_error "image not found or not a regular file: ${image}"
+        return 1
+      fi
+      local image_size
+      image_size="$(stat -c '%s' "${image}" 2>/dev/null || echo 0)"
+      if [ "${image_size}" -lt 1048576 ]; then
+        log_error "image is suspiciously small (${image_size} bytes); refusing"
+        return 1
+      fi
+
+      # Gate 2 — target device
+      if [ -z "${device}" ]; then
+        log_error "missing --to <device>"
+        return 2
+      fi
+      if [ ! -b "${device}" ]; then
+        log_error "target is not a block device: ${device}"
+        return 1
+      fi
+
+      # Gate 3 — must be a whole disk (not a partition)
+      # Heuristic: device name ends in a digit AND parent block device exists
+      local dev_basename; dev_basename="$(basename "${device}")"
+      if [[ "${dev_basename}" =~ [0-9]$ ]] && [ -e "/sys/class/block/${dev_basename}/partition" ]; then
+        log_error "target ${device} is a PARTITION, not a whole disk; refusing"
+        log_error "  pass the parent disk (e.g. /dev/nvme0n1, not /dev/nvme0n1p1)"
+        return 1
+      fi
+
+      # Gate 4 — target must NOT be the running root or its parent
+      local root_src; root_src="$(findmnt -n -o SOURCE / 2>/dev/null || echo unknown)"
+      local root_parent; root_parent="$(lsblk -no PKNAME "${root_src}" 2>/dev/null | head -1 || echo unknown)"
+      if [ "${device}" = "${root_src}" ] || [ "${dev_basename}" = "${root_parent}" ]; then
+        log_error "target ${device} IS THE RUNNING ROOT or its parent; HARD REFUSAL"
+        log_error "  running root: ${root_src}  parent: ${root_parent}"
+        return 1
+      fi
+
+      # Device fingerprint
+      local model serial size_human is_mounted
+      model="$(lsblk -dn -o MODEL "${device}" 2>/dev/null | xargs || echo unknown)"
+      serial="$(lsblk -dn -o SERIAL "${device}" 2>/dev/null | xargs || echo unknown)"
+      size_human="$(lsblk -dn -o SIZE "${device}" 2>/dev/null | xargs || echo unknown)"
+      is_mounted="$(lsblk -n -o MOUNTPOINTS "${device}" 2>/dev/null | xargs || echo)"
+
+      echo
+      echo "  target device fingerprint:"
+      echo "    path:     ${device}"
+      echo "    model:    ${model}"
+      echo "    serial:   ${serial}"
+      echo "    size:     ${size_human}"
+      echo "    mounted:  ${is_mounted:-(none)}"
+      echo
+      echo "  image:"
+      echo "    path:     ${image}"
+      echo "    size:     $(numfmt --to=iec --suffix=B "${image_size}" 2>/dev/null || echo "${image_size}B")"
+      echo
+
+      if [ "${plan_only}" -eq 1 ]; then
+        echo "  --plan mode: would run:"
+        echo "    sudo dd if='${image}' of='${device}' bs=4M status=progress conv=fsync"
+        echo "  no byte was written. drop --plan to execute (gates: SOVEREIGN_OS_CONFIRM_DESTROY=YES + interactive)."
+        return 0
+      fi
+
+      # Gate 5 — env confirmation
+      if [ "${SOVEREIGN_OS_CONFIRM_DESTROY:-}" != "YES" ]; then
+        log_error "DESTRUCTIVE operation. SOVEREIGN_OS_CONFIRM_DESTROY=YES not set."
+        log_error "  re-run with: SOVEREIGN_OS_CONFIRM_DESTROY=YES sovereign-osctl install image '${image}' --to '${device}'"
+        log_error "  or preview without writing: sovereign-osctl install image --plan '${image}' --to '${device}'"
+        return 1
+      fi
+
+      # Gate 6 — interactive confirm (unless NONINTERACTIVE)
+      if [ -z "${SOVEREIGN_OS_NONINTERACTIVE:-}" ]; then
+        echo "  This will WIPE ${device} (${model} ${serial}, ${size_human})"
+        echo "  and write ${image} ($(numfmt --to=iec --suffix=B "${image_size}" 2>/dev/null || echo "${image_size}B"))."
+        echo
+        read -rp "  Type the device path (${device}) to confirm: " typed
+        if [ "${typed}" != "${device}" ]; then
+          log_error "device confirmation mismatch; aborting"
+          return 1
+        fi
+      fi
+
+      # All gates passed — execute
+      log_info "writing ${image} → ${device} (this will take several minutes)"
+      if command -v dd >/dev/null 2>&1; then
+        sudo dd if="${image}" of="${device}" bs=4M status=progress conv=fsync
+        log_info "image dump complete"
+        log_info "sync'ing disk..."
+        sudo sync
+        log_info "done. consider 'sovereign-osctl install verify --to ${device}' (future) before unplugging."
+      else
+        log_error "dd not available; cannot proceed"
+        return 1
+      fi
+      ;;
+
+    help|--help|-h|"")
+      cat <<EOF
+sovereign-osctl install — operator-side image deployment
+
+USAGE:
+  sovereign-osctl install image [--plan] <image-path> --to <device>
+
+GATES (every byte-writing path must pass ALL):
+  • image exists + non-empty + regular file
+  • target is a block device + WHOLE DISK (not a partition)
+  • target is NOT the running root or its parent (HARD REFUSAL)
+  • SOVEREIGN_OS_CONFIRM_DESTROY=YES
+  • interactive device-path confirm (unless SOVEREIGN_OS_NONINTERACTIVE=1)
+
+--plan mode: shows the device fingerprint + the command that WOULD
+run, writes nothing. Recommended first step.
+
+EXAMPLES:
+  # 1. Preview
+  sovereign-osctl install image --plan build/sain-01/output/sain-01 --to /dev/nvme1n1
+
+  # 2. Execute (after preview review)
+  SOVEREIGN_OS_CONFIRM_DESTROY=YES \\
+    sudo sovereign-osctl install image build/sain-01/output/sain-01 --to /dev/nvme1n1
+EOF
+      ;;
+
+    *)
+      log_error "unknown install subcommand: ${sub}"
+      log_error "  available: image [--plan] <img> --to <dev> | help"
+      return 2
+      ;;
+  esac
+}
+
 # ------------------------------ decommission ---------------------------------
 
 cmd_decommission() {
@@ -2028,6 +2208,7 @@ case "${cmd}" in
   audit)         cmd_audit "$@" ;;
   maintenance)   cmd_maintenance "$@" ;;
   decommission)  cmd_decommission "$@" ;;
+  install)       cmd_install "$@" ;;
   inference)     cmd_inference "$@" ;;
   metrics)       cmd_metrics "$@" ;;
   alerts)        cmd_alerts "$@" ;;
