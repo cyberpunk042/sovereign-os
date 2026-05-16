@@ -313,6 +313,9 @@ jobs:
       - name: nspawn — pick-gpu (Round 178: selfdef SD-R28 schedule.json consumer)
         run: |
           tests/nspawn/test_pick_gpu.sh
+      - name: nspawn — selfdef-models (Round 182: selfdef SD-R34 model-registry cross-repo mirror)
+        run: |
+          tests/nspawn/test_selfdef_models.sh
       - name: nspawn — thermal-watch (Round 172: per-profile thermal thresholds + OCSF events)
         run: |
           tests/nspawn/test_thermal_watch.sh
