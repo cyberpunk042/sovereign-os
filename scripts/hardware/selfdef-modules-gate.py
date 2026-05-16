@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""sovereign-os mirror of selfdef SD-R14 + SD-R15 module hardware gate (R170).
+"""sovereign-os mirror of selfdef SD-R14/R15/R25/R26 module hardware gate (R170+R177).
 
 selfdef SD-R14 adds `[requires_hardware]` to every selfdef module.toml;
 SD-R15 ships `selfdefctl modules check-hardware` so operators can dry-run
@@ -17,11 +17,13 @@ without needing selfdefctl installed. We read:
 For each active module, we evaluate the SAME predicates the Rust
 implementation does in crates/selfdef-cli/src/modules.rs:
 
-  - avx512_vnni        bool        host must report cpu.avx512vnni
-  - avx512_bf16        bool        host must report cpu.avx512bf16
-  - memory_gib_min     u64         host memory >= this many GiB
-  - gpu_count_min      u32         host GPU count >= this
-  - sain01_verdict_min string      host Sain01Match.overall >= rank
+  - avx512_vnni                  bool   host must report cpu.avx512vnni
+  - avx512_bf16                  bool   host must report cpu.avx512bf16
+  - memory_gib_min               u64    host memory >= this many GiB
+  - gpu_count_min                u32    host GPU count >= this
+  - gpu_vram_gib_min             u64    SD-R26: at least one GPU vram >= this
+  - gpu_power_headroom_watts_min u32    SD-R26: sum(limit-draw) >= this
+  - sain01_verdict_min           string host Sain01Match.overall >= rank
 
 CLI:
   selfdef-modules-gate.py                # human-readable dry-run
@@ -200,6 +202,48 @@ def evaluate(req: dict[str, Any], caps: dict[str, Any]) -> list[str]:
         if host_gpu < gpu_min:
             unmet.append(f"gpu_count_min = {gpu_min} (host has {host_gpu} GPU(s))")
 
+    # R177 (mirror of selfdef SD-R26 cycle-2): per-GPU VRAM threshold. Passes
+    # when ANY GPU in gpu.devices reports vram_bytes >= the bar.
+    vram_min = int(req.get("gpu_vram_gib_min", 0) or 0)
+    if vram_min > 0:
+        want_bytes = vram_min * (1024**3)
+        devices = gpu.get("devices", []) or []
+        any_big_enough = any(
+            (d.get("vram_bytes") or 0) >= want_bytes for d in devices
+        )
+        if not any_big_enough:
+            best_gib = max(
+                ((d.get("vram_bytes") or 0) // (1024**3) for d in devices),
+                default=0,
+            )
+            unmet.append(
+                f"gpu_vram_gib_min = {vram_min} (host best is {best_gib} GiB)"
+            )
+
+    # SD-R26 mirror: aggregate power-headroom across all GPUs.
+    headroom_min = int(req.get("gpu_power_headroom_watts_min", 0) or 0)
+    if headroom_min > 0:
+        devices = gpu.get("devices", []) or []
+        total_headroom = 0
+        telemetry_complete = bool(devices)
+        for d in devices:
+            lim = d.get("power_limit_watts")
+            drw = d.get("power_draw_watts")
+            if lim is None or drw is None:
+                telemetry_complete = False
+            else:
+                total_headroom += max(0, int(lim) - int(drw))
+        if not telemetry_complete:
+            unmet.append(
+                f"gpu_power_headroom_watts_min = {headroom_min}"
+                " (host GPU(s) lack power telemetry — install nvidia-smi + NVML)"
+            )
+        elif total_headroom < headroom_min:
+            unmet.append(
+                f"gpu_power_headroom_watts_min = {headroom_min}"
+                f" (host headroom is {total_headroom} W)"
+            )
+
     verdict_min = req.get("sain01_verdict_min", "") or ""
     if verdict_min:
         actual = sain01.get("overall", "NoMatch")
@@ -220,6 +264,8 @@ def is_empty_req(req: dict[str, Any]) -> bool:
         or req.get("avx512_bf16")
         or int(req.get("memory_gib_min", 0) or 0) > 0
         or int(req.get("gpu_count_min", 0) or 0) > 0
+        or int(req.get("gpu_vram_gib_min", 0) or 0) > 0
+        or int(req.get("gpu_power_headroom_watts_min", 0) or 0) > 0
         or (req.get("sain01_verdict_min", "") or "")
     )
 

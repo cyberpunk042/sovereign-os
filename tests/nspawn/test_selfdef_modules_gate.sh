@@ -189,6 +189,81 @@ else
   ko "host-config-missing path wrong: ${out_no_host}"
 fi
 
+# ---------- R177: SD-R26 mirror — per-GPU VRAM + power headroom ----------
+grep -q "SD-R26" "${SCRIPT}" \
+  && ok "R177 mirror cites selfdef SD-R26 (per-GPU predicates)" \
+  || ko "SD-R26 citation missing"
+grep -q "gpu_vram_gib_min" "${SCRIPT}" \
+  && ok "evaluate() handles gpu_vram_gib_min" \
+  || ko "gpu_vram_gib_min missing in evaluate()"
+grep -q "gpu_power_headroom_watts_min" "${SCRIPT}" \
+  && ok "evaluate() handles gpu_power_headroom_watts_min" \
+  || ko "gpu_power_headroom_watts_min missing"
+
+# Build the SD-R25-shaped caps JSON with per-device data the SD-R26
+# predicates need.
+mkdir -p "${WORK}/caps26" "${WORK}/mod26/needs-vram-80" "${WORK}/mod26/needs-headroom" \
+         "${WORK}/etc26"
+cat > "${WORK}/caps26/hardware-capabilities.json" <<'JSON'
+{
+  "schema_version": "1.0.0",
+  "probed_at": "2026-05-16T00:00:00Z",
+  "host_tag": null,
+  "cpu": {"avx512vnni": true, "avx512bf16": true},
+  "memory": {"total_bytes": 274877906944},
+  "gpu": {
+    "device_count": 2,
+    "device_nodes": [],
+    "devices": [
+      {"vram_bytes": 105226698752, "power_limit_watts": 600, "power_draw_watts": 275},
+      {"vram_bytes":  25769803776, "power_limit_watts": 350, "power_draw_watts": 180}
+    ]
+  },
+  "sain01_match": {"overall": "FullMatch"}
+}
+JSON
+cat > "${WORK}/mod26/needs-vram-80/module.toml" <<'TOML'
+name = "needs-vram-80"
+version = "0.0.0"
+summary = "wants at least one GPU with 80 GiB"
+[requires_hardware]
+gpu_vram_gib_min = 80
+TOML
+cat > "${WORK}/mod26/needs-headroom/module.toml" <<'TOML'
+name = "needs-headroom"
+version = "0.0.0"
+summary = "wants 800W power headroom (the host only has 495)"
+[requires_hardware]
+gpu_power_headroom_watts_min = 800
+TOML
+cat > "${WORK}/etc26/modules.toml" <<'TOML'
+[modules.needs-vram-80]
+[modules.needs-headroom]
+TOML
+
+set +e
+out26="$(python3 "${SCRIPT}" \
+  --caps-path "${WORK}/caps26/hardware-capabilities.json" \
+  --modules-dir "${WORK}/mod26" \
+  --host-config "${WORK}/etc26/modules.toml" --json 2>&1)"
+set -e
+if python3 -c "
+import json, sys
+d = json.loads('''${out26}''')
+kept = sorted(x['module'] for x in d['kept'])
+skipped = sorted(x['module'] for x in d['skipped'])
+assert kept == ['needs-vram-80'], f'kept={kept}'
+assert skipped == ['needs-headroom'], f'skipped={skipped}'
+unmet = d['skipped'][0]['unmet']
+assert any('gpu_power_headroom_watts_min' in u for u in unmet), unmet
+assert any('495 W' in u for u in unmet), unmet
+" 2>/dev/null; then
+  ok "SD-R26 mirror: vram-80 kept on RTX-PRO-6000 host"
+  ok "SD-R26 mirror: power-headroom unmet cited with host figure (495W)"
+else
+  ko "SD-R26 mirror partition wrong: ${out26}"
+fi
+
 echo
 total=$((pass + fail))
 echo "test_selfdef_modules_gate: ${pass}/${total} passed"
