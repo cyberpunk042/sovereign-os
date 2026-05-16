@@ -56,6 +56,7 @@ declare -a actions=(
   "fail2ban-jail.local:/etc/fail2ban/jail.d/sovereign-os.local"
   "unattended-upgrades.conf:/etc/apt/apt.conf.d/52sovereign-os-unattended.conf"
   "sshd.conf:/etc/ssh/sshd_config.d/50sovereign-os.conf"
+  "pwquality.conf:/etc/security/pwquality.conf.d/50sovereign-os.conf"
 )
 
 if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then

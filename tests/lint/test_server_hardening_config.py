@@ -152,6 +152,44 @@ def test_sshd_hardening_locked():
                     f"sshd.conf MUST NOT enable cbc-mode ciphers: {line!r}"
 
 
+def test_pwquality_locked():
+    p = SRV_DIR / "pwquality.conf"
+    assert p.is_file(), f"missing: {p}"
+    text = p.read_text()
+    if _waived(text):
+        return
+
+    def get_int(key: str) -> int | None:
+        for line in text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("#") or not stripped:
+                continue
+            if "=" in stripped:
+                k, _, v = stripped.partition("=")
+                if k.strip() == key:
+                    try:
+                        return int(v.strip())
+                    except ValueError:
+                        return None
+        return None
+
+    # CIS Debian 12 § 5.4.1 minimum
+    minlen = get_int("minlen")
+    assert minlen is not None and minlen >= 14, \
+        f"pwquality minlen MUST be ≥14 (got {minlen})"
+
+    # All four character classes REQUIRED (negative-credit semantics:
+    # value <= -1 means "must have at least 1")
+    for credit in ("lcredit", "ucredit", "dcredit", "ocredit"):
+        v = get_int(credit)
+        assert v is not None and v <= -1, \
+            f"pwquality {credit} MUST be ≤ -1 (require ≥1 of that class); got {v}"
+
+    # enforce_for_root MUST be present (no root exemption)
+    assert "enforce_for_root" in text, \
+        "pwquality MUST set enforce_for_root (no root exemption from policy)"
+
+
 def test_hook_present_and_executable():
     h = REPO_ROOT / "scripts" / "hooks" / "post-install" / "apply-server-hardening.sh"
     assert h.is_file(), f"missing hook: {h}"

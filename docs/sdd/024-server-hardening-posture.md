@@ -125,8 +125,10 @@ the mixin.
   /etc/issue is rendered).
 - **Q24-D** — Should the hook generate a `/etc/security/pwquality.conf`
   drop-in for headless's pubkey-only fleet (operators with sudo still
-  use passwords)? Recommend: YES at Stage 2+ — add a fifth drop-in
-  enforcing minlen=14, dcredit=-1, ucredit=-1, lcredit=-1, ocredit=-1.
+  use passwords)? **RESOLVED (Round 101)** — YES; shipped as
+  `config/server/pwquality.conf` (5th drop-in). minlen 14 + all four
+  character classes required + enforce_for_root + maxsequence/repeat
+  limits. CIS Debian 12 § 5.4.1 minimum honored.
 
 ## Cross-references
 

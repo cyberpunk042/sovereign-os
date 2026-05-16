@@ -12,6 +12,7 @@ Operator-facing IaC for the hardening posture promised by the
 | `fail2ban-jail.local` | `/etc/fail2ban/jail.d/sovereign-os.local` | `systemctl reload fail2ban` |
 | `unattended-upgrades.conf` | `/etc/apt/apt.conf.d/52sovereign-os-unattended.conf` | none (timer-driven) |
 | `sshd.conf` | `/etc/ssh/sshd_config.d/50sovereign-os.conf` | `sshd -t && systemctl reload ssh` |
+| `pwquality.conf` | `/etc/security/pwquality.conf.d/50sovereign-os.conf` | none (PAM consults at password-change time) |
 
 Deployment hook: `scripts/hooks/post-install/apply-server-hardening.sh`.
 Runs at first-boot on profiles whose mixin chain composes `role-server`.
@@ -49,6 +50,14 @@ file.
 - No SHA-1 in KexAlgorithms / MACs / HostKey / PubkeyAccepted
 - No `-cbc` ciphers (only AEAD: GCM + chacha20-poly1305 + CTR)
 - `Banner /etc/issue` — whitelabel motd surfaced at SSH login
+
+### pwquality.conf
+- `minlen ≥ 14` (CIS Debian 12 § 5.4.1)
+- All four char classes required (`lcredit/ucredit/dcredit/ocredit = -1`)
+- `enforce_for_root` (root not exempt from policy)
+- `maxsequence 4` + `maxrepeat 3` + `maxclassrepeat 4` (catches weak patterns)
+- `usercheck 1` (reject username-containing passwords)
+- Applies even when sshd is pubkey-only — `sudo` + `su` + `passwd` still need passwords
 
 ## Operator overrides
 
