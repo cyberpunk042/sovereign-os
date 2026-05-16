@@ -9,6 +9,8 @@ __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../../.." && pwd)"
 # shellcheck source=../../build/lib/common.sh
 . "${__REPO_ROOT}/scripts/build/lib/common.sh"
+# shellcheck source=../../build/lib/observability.sh
+. "${__REPO_ROOT}/scripts/build/lib/observability.sh"
 
 STEP_ID="zfs-datasets-create"
 
@@ -20,11 +22,23 @@ load_profile "${SOVEREIGN_OS_PROFILE}"
 
 log_step_header "${STEP_ID}" "create ZFS datasets in pool ${SOVEREIGN_OS_POOL_NAME}"
 
+emit_datasets_metric() {
+  emit_metric sovereign_os_during_install_datasets_create_total 1 \
+    "pool=\"${SOVEREIGN_OS_POOL_NAME}\",result=\"$1\""
+}
+
+if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
+  log_info "DRY-RUN — would create datasets per profile in pool ${SOVEREIGN_OS_POOL_NAME}"
+  emit_datasets_metric skip-dry-run
+  exit 0
+fi
+
 require_root
 require_command zfs
 
 if ! zpool list "${SOVEREIGN_OS_POOL_NAME}" >/dev/null 2>&1; then
   log_error "pool ${SOVEREIGN_OS_POOL_NAME} does not exist; run zfs-pool-create.sh first"
+  emit_datasets_metric missing-pool
   exit 1
 fi
 
@@ -74,4 +88,5 @@ for ds in datasets:
 log_info "datasets after create:"
 zfs list -r "${SOVEREIGN_OS_POOL_NAME}" -o name,used,available,mountpoint,recordsize,compression,sync || true
 
+emit_datasets_metric success
 log_info "${STEP_ID} complete"

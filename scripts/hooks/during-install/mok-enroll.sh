@@ -9,6 +9,8 @@ __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../../.." && pwd)"
 # shellcheck source=../../build/lib/common.sh
 . "${__REPO_ROOT}/scripts/build/lib/common.sh"
+# shellcheck source=../../build/lib/observability.sh
+. "${__REPO_ROOT}/scripts/build/lib/observability.sh"
 
 STEP_ID="mok-enroll"
 
@@ -19,9 +21,31 @@ load_profile "${SOVEREIGN_OS_PROFILE}"
 
 log_step_header "${STEP_ID}" "MOK enrollment"
 
+emit_mok_metric() {
+  emit_metric sovereign_os_during_install_mok_enroll_total 1 \
+    "posture=\"${secure_boot:-unknown}\",result=\"$1\""
+}
+
 secure_boot="$(profile_field kernel.cmdline.secure_boot)"
-if [ "${secure_boot}" != "signed" ]; then
-  log_info "profile secure_boot=${secure_boot:-disabled}; MOK enrollment skipped"
+case "${secure_boot}" in
+  signed)
+    log_info "profile secure_boot=signed — MOK enrollment proceeds"
+    ;;
+  shim|none|"")
+    log_info "profile secure_boot=${secure_boot:-none}; MOK enrollment skipped"
+    emit_mok_metric skip-posture
+    exit 0
+    ;;
+  *)
+    log_warn "unknown secure_boot value: ${secure_boot}; treating as skip"
+    emit_mok_metric skip-unknown
+    exit 0
+    ;;
+esac
+
+if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
+  log_info "DRY-RUN — would generate MOK at ${SOVEREIGN_OS_MOK_DIR} + queue mokutil --import"
+  emit_mok_metric skip-dry-run
   exit 0
 fi
 
@@ -71,4 +95,5 @@ export SOVEREIGN_OS_MOK_CERT="${der}"
 EOF
 log_info "MOK paths written: ${env_file}"
 
+emit_mok_metric success
 log_info "${STEP_ID} complete (reboot required to finalize MOK enrollment)"
