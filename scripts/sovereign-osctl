@@ -3602,34 +3602,36 @@ EOF
       echo "# Copy-paste this block into /etc/selfdef/modules.toml:"
       echo ""
 
-      case "${profile}" in
-        sain-01)
-          if [ "${has_avx512}" = "1" ]; then
-            echo "[modules.hardware-tune-cache]"
-          fi
-          if [ "${has_avx512}" = "1" ] && [ "${gpu_count}" -ge 1 ]; then
-            echo "[modules.bitnet-gpu-inference]"
-          fi
-          ;;
-        developer)
-          if [ "${has_avx512}" = "1" ]; then
-            echo "[modules.hardware-tune-cache]"
-          fi
-          ;;
-        headless)
-          if [ "${has_avx512}" = "1" ]; then
-            echo "[modules.hardware-tune-cache]"
-          fi
-          ;;
-        minimal|old-workstation)
-          echo "# (no selfdef modules recommended for ${profile} —"
-          echo "#  it's CPU/VM-only or pre-AVX-512; the gate would skip them all.)"
-          ;;
-        *)
-          echo "# (unknown profile ${profile}; valid: sain-01 / developer / headless / minimal / old-workstation)"
-          return 2
-          ;;
-      esac
+      # R188: delegate to the shared matrix helper (single source of
+      # truth, closes SDD-019 T-5). The helper prints one module slug
+      # per line; we wrap in `[modules.X]` syntax for copy-paste.
+      local _avx_flag=""
+      [ "${has_avx512}" = "1" ] && _avx_flag="--has-avx512"
+      local rec_out rec_rc
+      set +e
+      rec_out="$(python3 "${__REPO_ROOT}/scripts/hardware/lib/module-recommendations.py" \
+        --profile "${profile}" ${_avx_flag} --gpu-count "${gpu_count}" 2>&1)"
+      rec_rc=$?
+      set -e
+      if [ "${rec_rc}" -ne 0 ]; then
+        echo "# (unknown profile ${profile}; valid: sain-01 / developer / headless / minimal / old-workstation)"
+        return 2
+      fi
+      if [ -z "${rec_out}" ]; then
+        case "${profile}" in
+          minimal|old-workstation)
+            echo "# (no selfdef modules recommended for ${profile} —"
+            echo "#  it's CPU/VM-only or pre-AVX-512; the gate would skip them all.)"
+            ;;
+          *)
+            echo "# (no selfdef modules recommended — host doesn't unlock cycle-2 features)"
+            ;;
+        esac
+      else
+        while IFS= read -r mod; do
+          [ -n "${mod}" ] && echo "[modules.${mod}]"
+        done <<< "${rec_out}"
+      fi
       ;;
     *)
       log_error "unknown install subcommand: ${sub}"

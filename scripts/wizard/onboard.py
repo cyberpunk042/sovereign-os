@@ -151,23 +151,26 @@ def recommend_profile(probe: dict) -> dict:
             " adaptive AVX-512 flags in sovereign-os wasm-aot + build-bitnet",
         )
 
-    # R186: per-profile selfdef-module recommendations. Same matrix
-    # as R185 (sovereign-osctl install suggest-modules) but inlined
-    # here so the wizard surfaces it in one shot. Operator runs the
-    # wizard once → gets profile + module recommendations + cross-repo
-    # guidance, no follow-up command needed.
+    # R186: per-profile selfdef-module recommendations. R188 factored
+    # the matrix into scripts/hardware/lib/module-recommendations.py
+    # (single source of truth) — closes SDD-019 T-5.
     has_vnni = bool(cpu.get("avx512_vnni", False))
     has_avx512 = bool(cpu.get("avx512_present", False)) or has_vnni
-    selfdef_modules: list[str] = []
-    if profile == "sain-01":
-        if has_avx512:
-            selfdef_modules.append("hardware-tune-cache")
-        if has_avx512 and gpu_count >= 1:
-            selfdef_modules.append("bitnet-gpu-inference")
-    elif profile in ("developer", "headless"):
-        if has_avx512:
-            selfdef_modules.append("hardware-tune-cache")
-    # minimal / old-workstation get no selfdef modules
+    # Import the shared helper lazily (the wizard runs as a script,
+    # not a package; sys.path doesn't include `scripts/`).
+    import importlib.util as _ilu
+    _spec = _ilu.spec_from_file_location(
+        "module_recommendations",
+        str(REPO_ROOT / "scripts/hardware/lib/module-recommendations.py"),
+    )
+    _modrec = _ilu.module_from_spec(_spec)  # type: ignore[arg-type]
+    _spec.loader.exec_module(_modrec)  # type: ignore[union-attr]
+    try:
+        selfdef_modules = _modrec.recommend_modules(
+            profile, has_avx512=has_avx512, gpu_count=gpu_count
+        )
+    except ValueError:
+        selfdef_modules = []
     if selfdef_modules:
         # Surface as copy-paste hints in next_steps. Use separate
         # list entries (no embedded \n) so JSON consumers can parse
