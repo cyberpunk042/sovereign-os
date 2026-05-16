@@ -13,18 +13,20 @@ for the rationale of the seed set.
 | [`sain-01`](sain-01.yaml) | SAIN-01 AI Workstation | draft | Zen 5 + RTX Pro 6000 + RTX 3090 + dual NVMe ZFS + dual NIC | cyberpunk042 | role-workstation, whitelabel-default, observability-tier-1 |
 | [`old-workstation`](old-workstation.yaml) | Old Workstation (constrained-hardware alternate) | draft | ~4 cores + ~11 GB DDR4 + 8 GB GPU + SATA SSD | cyberpunk042 | role-workstation, whitelabel-default, observability-tier-1 |
 | [`minimal`](minimal.yaml) | Minimal (headless / VM baseline) | draft | generic x86-64-v3 · 2c/4t · 4 GB RAM · no GPU · virtio-blk root · ext4 | cyberpunk042 | role-headless, whitelabel-default |
+| [`developer`](developer.yaml) | Developer Workstation | draft | generic x86-64-v3 · 4c/8t · 16 GB RAM · optional GPU · nvme-pcie-4 single · ext4 | cyberpunk042 | role-developer, whitelabel-default, observability-tier-1 |
 
 ## Reserved slots (substantive body deferred per Q-012)
 
 | id | reserved for | When body lands |
 |---|---|---|
-| `developer` | developer workstation (with DE; full toolchain; debugging tooling) | When a concrete operator need surfaces |
 | `headless` | full-fledged headless server (vs `minimal`'s VM-baseline shape — more on-bare-metal-server-class hardware + service stack) | When a concrete operator need surfaces |
 
 Reserving these slots in the index is a Q-012 acknowledgment without
 authoring placeholder bodies (which would suggest commitment).
-`minimal` was promoted out of the reserved set on 2026-05-16 (substantive
-body lands as the Q-012 future-profile demonstration).
+
+Promoted out of the reserved set on 2026-05-16:
+  - `minimal` (Q-012 future-profile slot 1/3 — VM/headless baseline)
+  - `developer` (Q-012 future-profile slot 2/3 — polyglot dev toolchain)
 
 ## Mixins (cross-cutting fragments)
 
@@ -32,6 +34,7 @@ body lands as the Q-012 future-profile demonstration).
 |---|---|
 | [`mixins/role-workstation.yaml`](mixins/role-workstation.yaml) | Shared workstation-role package set (zfsutils, nvidia, podman, etc.) — composed into sain-01 + old-workstation |
 | [`mixins/role-headless.yaml`](mixins/role-headless.yaml) | Headless / VM-class role: minimal base, no GUI bits, no first-login-assistant, more aggressive deny-list — composed into minimal |
+| [`mixins/role-developer.yaml`](mixins/role-developer.yaml) | Developer-workstation role: gcc/clang/rust/go/python/node toolchains, debuggers, containers, multiple editors — composed into developer |
 | [`mixins/whitelabel-default.yaml`](mixins/whitelabel-default.yaml) | Default whitelabel binding (placeholder until Q-003 brand identity resolves) |
 | [`mixins/observability-tier-1.yaml`](mixins/observability-tier-1.yaml) | Tier-1 observability config (prometheus-local + structured logs) |
 

@@ -1,0 +1,61 @@
+#cloud-config
+# sovereign-os unattended install — developer profile
+#
+# Developer-workstation install. Boots into a polyglot dev environment
+# with editor + compilers + containers + debuggers ready to go.
+# Operator drops in their own dotfiles via the runcmd or post-install.
+#
+# Usage: same as other profiles — copy onto a NoCloud datasource.
+
+hostname: developer
+fqdn: developer.local
+manage_etc_hosts: localhost
+
+users:
+  - name: operator
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: [adm, sudo, podman, docker]
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAA<REPLACE-WITH-OPERATOR-PUBLIC-KEY> operator@example
+    lock_passwd: true
+
+locale: en_US.UTF-8
+timezone: UTC
+
+write_files:
+  - path: /etc/sovereign-os/active-profile.env
+    content: |
+      SOVEREIGN_OS_PROFILE=developer
+      SOVEREIGN_OS_LOG_LEVEL=info
+    permissions: '0644'
+
+  - path: /etc/sovereign-os/active-profile
+    content: developer
+    permissions: '0644'
+
+  - path: /etc/sovereign-os/active-whitelabel
+    content: default
+    permissions: '0644'
+
+  # Developer profile leaves the first-login-assistant interactive
+  # (operator chooses what to set up); cloud-init does NOT pre-populate
+  # state.yaml.
+
+package_update: false
+package_upgrade: false
+
+runcmd:
+  - [systemctl, enable, --now, sovereign-firstboot.target]
+  - [sh, -c, 'echo "$(date -u --iso-8601=seconds) cloud-init unattended install complete" >> /var/lib/sovereign-os/cloud-init.log']
+
+final_message: |
+  sovereign-os developer install complete.
+
+  Toolchain available:
+    gcc / clang / rustc / cargo / go / python3 / node / npm
+  Debuggers: gdb / lldb / strace / valgrind
+  Containers: podman / buildah / skopeo
+  Editors:    vim / neovim / emacs-nox / nano
+
+  Run 'sovereign-osctl assistant' to step through post-install setup.

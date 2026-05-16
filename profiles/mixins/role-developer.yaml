@@ -1,0 +1,98 @@
+# yaml-language-server: $schema=../../schemas/mixin.schema.yaml
+#
+# role-developer mixin — developer-workstation contribution.
+# Composed into profiles/developer.yaml. Adds the dev-tooling layer
+# (compilers, debuggers, language toolchains, containers) without
+# requiring AI-workstation hardware (GPU, ZFS, VFIO, Tetragon).
+#
+# Contrast:
+#   - role-workstation: adds bash-completion + vim + rsync + openssl
+#                       + podman; assumes interactive GPU-bearing host
+#   - role-headless:    minimal base + cloud-init + systemd-networkd;
+#                       no GUI, no shell-setup
+#   - role-developer:   THIS — workstation interactivity + heavy
+#                       dev tooling; works on workstation + headless
+#                       hardware
+
+schema_version: "1.0.0"
+
+mixin:
+  id: role-developer
+  description: |
+    Developer-workstation role: full toolchain (gcc/clang/rust/go/
+    python/node), debuggers (gdb/lldb/strace), build systems (make/
+    cmake/meson/ninja), containers (podman + buildah), language
+    servers, editors (vim + neovim + emacs-nox + nano).
+
+packages:
+  base:
+    # Operator interactivity essentials
+    - bash-completion
+    - tmux
+    - rsync
+    - openssl
+    - jq
+    - tree
+
+  role:
+    developer:
+      # Compilers + linkers
+      - build-essential
+      - clang
+      - clang-tools
+      - lld
+      - cmake
+      - meson
+      - ninja-build
+      - pkg-config
+      # Debugging + tracing
+      - gdb
+      - lldb
+      - strace
+      - ltrace
+      - valgrind
+      - perf-tools-unstable
+      # Language toolchains (operator can disable individually post-install)
+      - golang
+      - rustc
+      - cargo
+      - python3-dev
+      - python3-pip
+      - python3-venv
+      - nodejs
+      - npm
+      # VCS + collaboration
+      - git
+      - git-lfs
+      - tig
+      - delta
+      # Containers
+      - podman
+      - buildah
+      - skopeo
+      # Editors (operator picks)
+      - vim
+      - neovim
+      - emacs-nox
+      - nano
+      # Networking utilities
+      - net-tools
+      - tcpdump
+      - nmap
+      - mtr-tiny
+
+  deny:
+    # Reject phone-home defaults (same as role-headless + role-workstation)
+    - popularity-contest
+    - apport
+    - whoopsie
+    # Developer profile is text-mode; reject anything that drags a DE
+    - xserver-common
+    - gdm3
+
+hooks:
+  post_install_first_boot:
+    - id: workstation-shell-setup
+      type: setup
+      script: scripts/hooks/post-install/workstation-shell-setup.sh
+      mandatory: false
