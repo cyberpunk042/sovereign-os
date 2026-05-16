@@ -1,0 +1,71 @@
+# Build artifacts (OS image pipeline)
+/build/
+/dist/
+*.iso
+*.iso.sig
+*.img
+*.img.sig
+*.qcow2
+*.raw
+*.sbom.json
+
+# Live-build / debootstrap working dirs
+/cache/
+/chroot/
+.live-build/
+binary/
+config/auto/build
+
+# Sovereign-os build state (resume-from-step)
+.sovereign-os-build/
+.build-state/
+*.build-state.json
+*.build-state.yaml
+
+# tmpfs / kernel-forge scratch
+/tmpfs-state/
+/mnt/kernel_forge/
+
+# Models cache (never committed; weights live on tank/models)
+/models/
+*.gguf
+*.safetensors
+*.bin
+*.pt
+
+# Generated profile renderings
+/rendered/
+
+# Documentation build
+/docs/book/
+/book/
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# Secrets / env / local overrides
+.env
+.env.*
+secrets/
+*.local.yaml
+*.local.toml
+local.yaml
+local.toml
+
+# Per-developer scratch
+/scratch/
+TODO.local.md
+
+# Test outputs
+/test-output/
+/test-vm-state/
+*.qemu-state
+*.nspawn-state
+
+# Snapshots (insta-style)
+**/snapshots/*.new

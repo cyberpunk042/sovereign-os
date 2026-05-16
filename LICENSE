@@ -1,0 +1,13 @@
+This software is licensed under the GNU Affero General Public License v3.0
+or later (AGPL-3.0-or-later).
+
+The full text of the license is available at:
+  https://www.gnu.org/licenses/agpl-3.0.txt
+
+A copy will be vendored into this file on first release; for now, treat the
+above URL as authoritative. The SPDX identifier carried in every published
+manifest (profile YAML, package metadata, IaC artifact, future Cargo.toml)
+is the binding declaration.
+
+License choice mirrors `cyberpunk042/selfdef` per the operator's framing
+answer 2026-05-16 ("match selfdef") and per D-026.
