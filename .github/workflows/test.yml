@@ -304,6 +304,9 @@ jobs:
       - name: nspawn — pulse build-bitnet honors selfdef capabilities (Round 168: SD-R10 bridge)
         run: |
           tests/nspawn/test_pulse_build_bitnet_capabilities.sh
+      - name: nspawn — sovereign-osctl wizard (Round 169: selfdef SD-R11 cross-repo mirror)
+        run: |
+          tests/nspawn/test_wizard.sh
       - name: nspawn — secure-boot gen-keys (Round 143: F-05 MED closure — operator-owned key generation)
         run: |
           tests/nspawn/test_secure_boot_gen_keys.sh

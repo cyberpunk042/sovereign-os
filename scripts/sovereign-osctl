@@ -2982,6 +2982,19 @@ PY
 # ----------------------------------------------------------------------------
 # bootstrap — Master Bootstrap Verification Checklist (master spec § 22).
 # ----------------------------------------------------------------------------
+cmd_wizard() {
+  # R169: cross-repo mirror of selfdef SD-R11 wizard.
+  # First-time-operator walkthrough — probes hardware, recommends a
+  # sovereign-os profile, surfaces the next-step commands. Pure-read.
+  local script
+  script="$(dirname "${BASH_SOURCE[0]}")/wizard/onboard.py"
+  if [ ! -x "${script}" ]; then
+    log_error "wizard script missing or not executable: ${script}"
+    return 1
+  fi
+  exec python3 "${script}" "$@"
+}
+
 cmd_bootstrap() {
   local sub="${1:-verify}"
   shift || true
@@ -3904,6 +3917,7 @@ case "${cmd}" in
   bootstrap)     cmd_bootstrap "$@" ;;
   trinity)       cmd_trinity "$@" ;;
   init)          cmd_init "$@" ;;
+  wizard)        cmd_wizard "$@" ;;
   env)           cmd_env "$@" ;;
   inference)     cmd_inference "$@" ;;
   metrics)       cmd_metrics "$@" ;;
