@@ -9,6 +9,8 @@ __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../../.." && pwd)"
 # shellcheck source=../../build/lib/common.sh
 . "${__REPO_ROOT}/scripts/build/lib/common.sh"
+# shellcheck source=../../build/lib/observability.sh
+. "${__REPO_ROOT}/scripts/build/lib/observability.sh"
 
 STEP_ID="workstation-shell-setup"
 
@@ -56,4 +58,6 @@ EOF
   log_info "  installed /etc/skel/.inputrc"
 fi
 
+emit_metric sovereign_os_post_install_shell_setup_total 1 \
+  "result=\"configured\""
 log_info "${STEP_ID} complete"

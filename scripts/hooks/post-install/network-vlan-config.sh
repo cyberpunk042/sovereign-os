@@ -11,6 +11,8 @@ __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../../.." && pwd)"
 # shellcheck source=../../build/lib/common.sh
 . "${__REPO_ROOT}/scripts/build/lib/common.sh"
+# shellcheck source=../../build/lib/observability.sh
+. "${__REPO_ROOT}/scripts/build/lib/observability.sh"
 
 STEP_ID="network-vlan-config"
 
@@ -94,4 +96,6 @@ if command -v systemctl >/dev/null 2>&1; then
   systemctl restart systemd-networkd 2>&1 | sed 's/^/  /' || log_warn "systemd-networkd restart failed; manual intervention may be needed"
 fi
 
+emit_metric sovereign_os_post_install_network_vlan_total 1 \
+  "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"configured\""
 log_info "${STEP_ID} complete"
