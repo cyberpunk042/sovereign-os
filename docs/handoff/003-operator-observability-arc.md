@@ -15,19 +15,20 @@ arc** AND the **role-server hardening IaC arc**. Operators get:
   sshd / pwquality) deployed by a profile-aware hook with idempotency,
   drift detection, and DEST_PREFIX support for chroot/image-build flows
 
-State at HEAD (`main` = `1fa136c`):
-- **53 Layer B metrics** emitted across 9 build steps + 23 lifecycle hooks
+State at HEAD (`main` = `da30e8c`):
+- **55 Layer B metrics** emitted across 9 build steps + 24 lifecycle hooks
 - **3 Grafana dashboards** + 3-way CI contract (code ↔ inventory ↔ panels)
-- **14 sovereign-osctl verb groups** (`metrics`, `alerts`, `journal` added; `maintenance` expanded to 8 subverbs)
+- **15 sovereign-osctl verb groups** (`metrics`, `alerts`, `journal`, `history` added; `maintenance` expanded to 8 subverbs)
 - **1 new recurrent hook** + systemd timer (`alerts-check`, hourly)
-- **14 real bugs caught** by L3 discipline (running tally)
-- **2 new SDDs**: SDD-023 (alerts contract) · SDD-024 (server hardening posture)
-- **2 new decisions**: D-015 (alerts) · D-016 (hardening IaC)
-- **~52 L3 nspawn tests** · **100 Layer 1 lint** · ~62 Layer 2 unit · shellcheck
+- **15 real bugs caught** by L1/L2/L3 discipline (running tally; bug #15 was meta-metric self-reinforcement caught by L2 contract test)
+- **2 new SDDs**: SDD-023 (alerts contract) · SDD-024 (server + workstation hardening posture)
+- **3 new decisions**: D-015 (alerts) · D-016 (server hardening IaC) · D-017 (workstation hardening)
+- **~54 L3 nspawn tests** · ~110 Layer 1 lint · ~70 Layer 2 unit · shellcheck
 - All 5 profiles still pass DRY-RUN smoke + preflight matrix
 - Install-runbook §5b walks operators through Layer A/B/C end-to-end
-- config/server/README.md walks operators through the 5-drop-in
-  override surface
+- config/server/README.md + config/workstation/README.md walk operators
+  through the override surfaces
+- SDD-007 7-strategy whitelabel taxonomy: 7/7 strategies implemented
 
 ## What to do FIRST in the next session
 
@@ -38,23 +39,27 @@ Items from the original priority list (resolved this arc):
 - ✅ SDD-023 alerts contract (R94)
 - ✅ Headless hardening IaC (R96-102) — all 5 drop-ins + L1 + L3 +
   live-apply path + DEST_PREFIX support
+- ✅ Workstation hardening parallel (R104-105) — sain-01 + old-workstation
+- ✅ In-toto --deep verifier (R106) — manifest ↔ sums ↔ disk triangle
+- ✅ History verb (R107)
+- ✅ SDD-007 strategy 7 must-not-touch (R109) — 7/7 strategy coverage
 
 Likely next-most-valuable rounds (operator-priority order):
-1. **sain-01 hardening pass** — workstation needs a DIFFERENT posture
-   (GUI session, Tetragon perimeter active, NO ssh-pubkey-only since
-   operator works at console). Author a `role-workstation` parallel
-   to role-server hardening — auditd surfaces, locked sshd_config
-   for emergency-ssh-recovery only, pam_pwquality, but no fail2ban
-   (workstation isn't internet-facing).
-2. **Substantive step-06 (whitelabel-render) expansion** — per-surface
-   strategy coverage beyond template-render + skeleton-copy.
-3. **A `sovereign-osctl history` verb** showing per-profile pipeline
-   run history (consume the build-state JSONL + .prom timestamps).
-4. **In-toto verifier** — step 09 emits a skeleton manifest; a
-   Stage-2+ verifier would cross-check the signature chain against
-   operator PK.
-5. **Q24-C** — `/etc/issue.net` symmetric with `/etc/issue` when the
-   whitelabel renderer learns the issue.net surface.
+1. **SDD-025** — codify the observability CLI architecture (metrics /
+   alerts / journal / history symmetry now has 4 parallel verbs, all
+   sharing dir-resolution + show/list patterns; writing the contract
+   keeps future additions consistent).
+2. **Q24-C** — `/etc/issue.net` symmetric with `/etc/issue` when the
+   whitelabel renderer learns the issue.net surface explicitly.
+3. **Substantive step-06 (whitelabel-render) expansion** — operator
+   has 7 strategies now; could land per-strategy operator-facing docs
+   or expand the per-surface validators.
+4. **Layer 4 QEMU substantive** — still gated on KVM-equipped runner;
+   `tests/qemu/scaffold.sh` ready when a self-hosted runner lands.
+5. **`sovereign-osctl drift` verb** — compares running system state
+   vs profile expectations (auditd ruleset matches config/server/?
+   sshd_config matches the drop-in? whitelabel surfaces unchanged?
+   model catalog matches manifest?).
 
 ## Session trajectory (Rounds 78–102)
 
@@ -79,6 +84,13 @@ Likely next-most-valuable rounds (operator-priority order):
 | **100** | sdd | SDD-024 role-server hardening posture — 5-drop-in inventory + hook contract + override map + Q24-A..D |
 | **101** | post-install hardening | pwquality drop-in (closes SDD-024 Q24-D) — minlen 14 + 4 classes + enforce_for_root; CIS Debian 12 § 5.4.1 baseline met |
 | **102** | post-install + tests(L3) | DEST_PREFIX support + 25-assertion L3 (was 11): live apply, idempotency, drift detection, mode 0644, byte-identity, reload-skipped-in-prefix-mode |
+| **103** | docs/handoff | Handoff 003 trajectory refresh through Round 102; priority list updated (✅ on closed items) |
+| **104** | post-install hardening (workstation) | apply-workstation-hardening.sh + config/workstation/sshd.conf (sain-01 + old-workstation); 4 drop-ins (no fail2ban); L1 invariants pin deltas vs server posture |
+| **105** | docs(sdd+decisions) | SDD-024 + D-017 + config/workstation/README updated for workstation hardening |
+| **106** | sovereign-osctl audit | `audit provenance --deep` recomputes SHA256 on disk vs manifest digest; closes manifest↔sums↔disk triangle; 14-assertion L3 (was 9) |
+| **107** | sovereign-osctl | New `history` verb: per-run summary derived from JSONL (list + show); 19-assertion L3 |
+| **108** | tests(L2) + bug fix | 15th bug caught (Rule 6 reacted to meta_alerts_check_last_run_timestamp → self-reinforcing loop); fix + 9-assertion L2 schema contract test (SDD-023 Q23-A) |
+| **109** | whitelabel renderer | SDD-007 strategy 7 (must-not-touch) implementation + 2 L2 tests; closes 7-strategy taxonomy |
 
 ## Layer-A/B/C operator entry points (cold-start reference)
 
