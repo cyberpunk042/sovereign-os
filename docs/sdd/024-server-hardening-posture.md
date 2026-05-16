@@ -1,11 +1,14 @@
-# SDD-024 — role-server hardening posture (Round 96-99 codification)
+# SDD-024 — role-server + role-workstation hardening posture (Rounds 96-104 codification)
 
 > Status: **review**
 > Owner: cyberpunk042
 > Last updated: 2026-05-16
-> Derived from: `profiles/mixins/role-server.yaml`, decision D-016
-> (Round 96 hardening drop-ins), Round 98 SSH addition, operator
-> verbatim "we always deliver IaC" + "Reach our ultimate sovereignty".
+> Derived from: `profiles/mixins/role-server.yaml` +
+> `profiles/mixins/role-workstation.yaml`, decisions D-016 (Round 96
+> server hardening drop-ins; Round 98 SSH addition; Round 101 pwquality;
+> Round 102 DEST_PREFIX) + D-017 (Round 104 workstation hardening),
+> operator verbatim "we always deliver IaC" + "Reach our ultimate
+> sovereignty".
 
 ## Problem
 
@@ -89,25 +92,45 @@ the operator file overriding all keys (fail2ban / sshd / unattended).
 - "honesty over cheats and lies" — the advertised role-server posture
   now matches runtime reality byte-for-byte.
 
-## Profile applicability
+## Profile applicability (Round 104 update — both axes)
 
-| Profile | Has role-server? | Hardening applies? |
-|---|---|---|
-| **headless** | yes (mixin chain) | YES — mandatory hook |
-| **sain-01** | no (workstation-class) | NO — different posture (Tetragon perimeter, GUI desktop) |
-| **developer** | no | NO — operator dev box; restrictive ssh + auditd would impede workflow |
-| **old-workstation** | no | NO — constrained hardware; full audit ring buffer may be too costly |
-| **minimal** | no | NO — VM baseline; operator picks their own posture |
+| Profile | Mixin | Hardening hook | Drop-ins applied |
+|---|---|---|---|
+| **headless** | role-server | apply-server-hardening | 5 (auditd · fail2ban · unattended · sshd-server · pwquality) |
+| **sain-01** | role-workstation | apply-workstation-hardening | 4 (auditd · unattended · sshd-workstation · pwquality) — no fail2ban (Tetragon perimeter handles IDS in-kernel) |
+| **old-workstation** | role-workstation | apply-workstation-hardening | 4 (same 4 as sain-01) |
+| **developer** | role-developer | — | none (operator dev box; restrictive auditd/ssh would impede workflow) |
+| **minimal** | role-headless | — | none (VM baseline; operator picks their own posture) |
 
-Future role-server-composing profiles (e.g. a `headless-edge` or
-`headless-zfs-tiered`) inherit the hardening automatically by composing
-the mixin.
+Future role-server-composing profiles (e.g. `headless-edge`,
+`headless-zfs-tiered`) inherit server hardening automatically.
+Future role-workstation-composing profiles inherit workstation hardening
+automatically.
+
+## role-workstation deltas vs role-server (Round 104)
+
+Workstation hardening reuses the 3 universal drop-ins from
+`config/server/` (auditd, pwquality, unattended-upgrades) and adds
+`config/workstation/sshd.conf` with deliberate deviations:
+
+| Directive | server posture | workstation posture | rationale |
+|---|---|---|---|
+| `PasswordAuthentication` | no | **yes** | console-fallback when operator forgets pubkey |
+| `AuthenticationMethods` | publickey | publickey password | either works alone |
+| `AllowAgentForwarding` | no | **yes** | dev hop pattern is standard workstation flow |
+| `AllowTcpForwarding` | no | **yes** | dev hop pattern |
+| fail2ban | enabled | **omitted** | workstation not internet-facing; sain-01 has Tetragon |
+
+Everything else (no root login · no SHA-1 · no `-cbc` ciphers · modern
+KEX/MACs · session timeouts) MIRRORS server posture — those are
+universal hardening, not server-specific.
 
 ## Test gates
 
 | Layer | Gate | Asserts |
 |---|---|---|
-| L1 | `tests/lint/test_server_hardening_config.py` | 7 invariant suites (dir present · auditd locked · fail2ban locked · unattended security-only · sshd hardened · hook executable · headless registers hook) |
+| L1 | `tests/lint/test_server_hardening_config.py` | 10 invariant suites (dir present · auditd locked · fail2ban locked · unattended security-only · server-sshd hardened · pwquality minlen/4-classes/enforce-root · hook executable · headless registers hook · **workstation-sshd looser-but-still-hardened** · **sain-01 + old-workstation register workstation hook**) |
+| L3 | `tests/nspawn/test_apply_workstation_hardening.sh` | 13 assertions (SKIP non-workstation · DRY-RUN sain-01 + old-workstation · 4-not-5 drop-in count · workstation sshd content correct · fail2ban deliberately ABSENT · live apply · idempotency · Layer B) |
 | L3 | `tests/nspawn/test_apply_server_hardening.sh` | 25 assertions (SKIP minimal · DRY-RUN headless · source readable · invariants verified at source · metric emission · **live apply via DEST_PREFIX** · all 5 files land · mode 0644 · byte-identical to source · idempotent re-run · drift detection · reload-skipped-in-prefix-mode · success counter) |
 | L1 | `tests/lint/test_hook_layer_b_coverage.py` | `apply-server-hardening.sh` participates in Layer B emission |
 | L1 | `tests/lint/test_metric_inventory_lockstep.py` | Two new metrics documented in inventory |

@@ -708,6 +708,49 @@ Removing the hardening entirely requires `# HARDENING-WAIVER:` comment
 
 ---
 
+### D-017 — 2026-05-16 — Role-workstation hardening parallel: sain-01 + old-workstation get auditd/pwquality/unattended-upgrades + workstation-tuned sshd (Round 104; SDD-024 extended)
+
+**Decision**: Apply hardening to role-workstation profiles (sain-01,
+old-workstation) symmetrically with role-server but with a workstation
+threat model. SHARED with server: auditd (universal hardening — same
+ruleset), pwquality (sudo/su/passwd still need passwords on a
+workstation), unattended-upgrades (security-only, no auto-reboot —
+workstation operators own reboot windows just like server operators).
+WORKSTATION-SPECIFIC: looser sshd at config/workstation/sshd.conf —
+`PasswordAuthentication yes` (console fallback when operator forgets
+pubkey), `AuthenticationMethods publickey password` (either works alone),
+`AllowAgentForwarding yes` + `AllowTcpForwarding yes` (standard dev
+hop pattern). DELIBERATELY OMITTED: fail2ban — workstation is not
+internet-facing; sain-01 has Tetragon perimeter in-kernel for IDS.
+Universal hardening (no root login · no SHA-1 · no -cbc ciphers · modern
+KEX/MACs · session timeouts · Banner /etc/issue) MIRRORS server posture.
+**Why**: "every word counts" + "we always deliver IaC" (operator
+verbatim, sacrosanct). role-workstation mixin advertised workstation
+posture without configuring it — same theater gap that D-016 closed for
+servers. Sain-01 specifically: the AI workstation has Tetragon active
++ VFIO + GPU passthrough; SSH hardening for SSH-pivot operations from
+another sovereign-os machine is the load-bearing concern, not anti-DDoS.
+**Affected items**: `config/workstation/sshd.conf` (new);
+`config/workstation/README.md` (new);
+`scripts/hooks/post-install/apply-workstation-hardening.sh` (new);
+`profiles/sain-01.yaml` + `profiles/old-workstation.yaml`
+§ post_install_first_boot — hook registration; SDD-024 extended with
+workstation section + deltas table + applicability matrix;
+`tests/lint/test_server_hardening_config.py` — 2 new suites
+(test_workstation_sshd_present_and_looser_than_server +
+test_workstation_profiles_register_hook);
+`tests/nspawn/test_apply_workstation_hardening.sh` — 13 assertions
+(parallel to test_apply_server_hardening's 25). Inventory adds 2
+metrics: workstation_hardening_total + workstation_hardening_applied.
+**Reversibility**: high — drop-ins are operator-overridable via
+lexicographically-later files in /etc/{audit,fail2ban,apt,ssh,security}/.
+Removing entirely requires explicit `# HARDENING-WAIVER:` + CI-visible
+diff. Workstation deltas (password auth, agent forwarding) are operator-
+tunable per-host without affecting other workstations.
+**Linked**: direct-to-main commit (Round 104) on 2026-05-16.
+
+---
+
 ## Cross-references
 
 - Charter: `docs/sdd/000-charter.md`
