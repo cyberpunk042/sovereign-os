@@ -1,0 +1,70 @@
+name: mdbook-publish
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - '.github/workflows/mdbook-publish.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/**'
+  workflow_dispatch:
+
+env:
+  MDBOOK_VERSION: 0.4.40
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment; cancel in-progress runs (skip
+# queued runs).
+concurrency:
+  group: "mdbook-publish"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build mdbook
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache cargo binaries
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin
+          key: cargo-bin-mdbook-${{ env.MDBOOK_VERSION }}
+
+      - name: Install mdbook
+        run: |
+          set -euo pipefail
+          if ! command -v mdbook >/dev/null 2>&1 || [ "$(mdbook --version 2>/dev/null | awk '{print $2}')" != "${MDBOOK_VERSION}" ]; then
+            cargo install --version "${MDBOOK_VERSION}" mdbook --locked
+          fi
+          mdbook --version
+
+      - name: Build the book
+        working-directory: docs
+        run: mdbook build
+
+      - name: Upload artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/book
+
+  deploy:
+    name: deploy to GitHub Pages
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
