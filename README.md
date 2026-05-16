@@ -1,10 +1,93 @@
 # sovereign-os
 
-> **Status:** foundation phase — no buildable artifact yet.
-> This repo is the **OS-image generation + customization pipeline** for
-> the SAIN-01 AI Workstation and other profiles. PRs 1–10 land the
-> charter, substrate-survey, profile-schema, whitelabel mechanism, and
-> hardware-free TDD harness. Build scripts begin in Stage 2 (post-Gate-5).
+> **Status:** Stage-2 onset, substantively built out.
+> The **OS-image generation + customization pipeline** for the SAIN-01
+> AI Workstation and 4 other profiles. Foundation phase complete
+> (every PR-1 question closed/partial); Stage-2+ rounds have landed
+> substantive build pipeline + lifecycle hooks + operator surfaces.
+> Real builds are operator-driven on real hardware; CI gates all
+> non-destructive paths at Layer 3.
+
+## What ships today
+
+- **23 SDDs** (`docs/sdd/000-022`) covering charter, substrate (mkosi
+  primary; live-build ALT-A), profile schema (single-parent + mixins),
+  whitelabel mechanism (7-strategy taxonomy + legal-floor preservation),
+  secure-boot posture (none/shim/signed), ZFS root layout,
+  reproducibility target, kernel-choice, disk encryption, CI
+  infrastructure, distro-base lock-in.
+- **5 profiles × 6 mixins**: `sain-01` (default AI workstation),
+  `old-workstation` (constrained), `minimal` (VM baseline),
+  `developer` (polyglot toolchain), `headless` (bare-metal server).
+- **9-step build pipeline** (`scripts/build/orchestrate.sh`):
+  bootstrap-forge → kernel-fetch → kernel-config → kernel-compile →
+  substrate-prepare → whitelabel-render → image-build → image-sign →
+  image-verify. Every step honors `--dry-run` + emits Layer B
+  Prometheus metrics. `preflight`/`status`/`reset`/`rewind`/`skip`/
+  `list`/`help` verbs operational.
+- **5 lifecycle stages** with substantive hooks:
+  pre-install (4 preflight) · during-install (4 setup) · post-install
+  (8 first-boot) · recurrent (6 timer-driven) · decommission (3 gated).
+- **Operator management CLI** (`sovereign-osctl`): 11 top-level
+  commands. `status`, `doctor` v2 (profile-conditioned multi-section),
+  `audit` (4 subverbs incl. `provenance`), `inference` (7 subverbs
+  incl. `health`), plus profiles/whitelabel/models/perimeter/
+  maintenance/decommission.
+- **5-layer test pyramid** in CI: ~25 schema + ~51 unit + ~35 Layer-3
+  nspawn + 6 Layer-1 lint suites + shellcheck. Layer-3 catches real
+  wiring bugs that Layer-1+2 cannot — running tally at **10 bugs
+  caught** (see `docs/src/tdd/bugs-caught.md`).
+- **Reproducibility chain end-to-end**:
+  pin SOURCE_DATE_EPOCH + DEBIAN_SNAPSHOT + KERNEL_TAG → reproducible
+  build → in-toto SLSA v1 build-provenance.json + sha256sums.txt →
+  operator-side `sovereign-osctl audit provenance` verification.
+- **Operator-owned signing chain**: SDD-015 3-level posture
+  (`none`/`shim`/`signed`); Platform Key preferred for production;
+  MOK fallback; preflight-tpm gates TPM2 readiness.
+- **Disk encryption** (SDD-022): ZFS native for zfs-tiered profiles;
+  LUKS2 for ext4; passphrase + TPM2 PCR-7+11 default for sain-01 +
+  headless.
+- **Observability (Layer B)**: 21 metric names emitted across build
+  pipeline + recurrent hooks + inference router. 2 Grafana JSON
+  dashboard templates (`docs/observability/dashboards/`); CI gates
+  dashboard ↔ emitter lockstep.
+- **Operator-side gates**: `scripts/setup.sh` one-command fresh-clone
+  bootstrap; `scripts/git-hooks/pre-commit` runs L1 lint + profile
+  validation + L3 fast sample before every commit.
+
+## Quick start
+
+```sh
+# Fresh clone bootstrap (install git hooks, verify deps, pick profile)
+scripts/setup.sh
+
+# Validate the build plan without running anything
+SOVEREIGN_OS_PROFILE=sain-01 scripts/build/orchestrate.sh run --dry-run
+
+# Run pre-install gates against the active profile
+scripts/build/orchestrate.sh preflight
+
+# Real build (operator-only — needs root + build toolchain)
+SOURCE_DATE_EPOCH=$(date +%s) \
+DEBIAN_SNAPSHOT=20260515T000000Z \
+SOVEREIGN_OS_PROFILE=sain-01 \
+SOVEREIGN_OS_PK_KEY=/path/PK.priv SOVEREIGN_OS_PK_CERT=/path/PK.der \
+  sudo scripts/build/orchestrate.sh run
+
+# Verify the build is reproducible after it lands
+sovereign-osctl audit provenance build/sain-01/output/build-provenance.json
+```
+
+## Documentation
+
+- `docs/src/install-runbook.md` — end-to-end runbook (all 5 profiles)
+- `docs/src/ops/manage.md` — `sovereign-osctl` operator handbook
+- `docs/src/tdd/bugs-caught.md` — L3 catch ledger + 3 distilled
+  cross-bug Learnings
+- `docs/handoff/002-foundation-substantive-buildout.md` — chronological
+  trajectory (cold-start signpost for next session)
+- `docs/observability/dashboards/README.md` — Grafana template
+  import + metric inventory
 
 ## What this repo is for
 
