@@ -179,7 +179,7 @@ explicit code guard + permanent test gate.
 | Q | Status | Resolution |
 |---|---|---|
 | Q-001 | resolved | SDD-003 (substrate survey — mkosi primary) |
-| Q-002 | partial  | SDD-004 (profile schema + mixins) |
+| Q-002 | resolved | SDD-004 (profile schema + mixins; merge rules pinned; fork/overlay are operator-side workflows) |
 | Q-003 | deferred-with-criteria | SDD-012 (brand identity placeholder) |
 | Q-004 | resolved | SDD-007 (legal scope) |
 | Q-005 | resolved | SDD-017 (ZFS root layout) |
