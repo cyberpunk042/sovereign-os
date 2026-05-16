@@ -17,21 +17,44 @@ set -euo pipefail
 
 __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Detect installation context: in-repo vs installed-system
-if [ -f "${__SCRIPT_DIR}/build/lib/common.sh" ]; then
-  # In-repo
-  __REPO_ROOT="${__SCRIPT_DIR}/.."
-  # shellcheck source=./build/lib/common.sh
-  . "${__SCRIPT_DIR}/build/lib/common.sh"
-elif [ -f /usr/lib/sovereign-os/lib/common.sh ]; then
-  # Installed-system
-  __REPO_ROOT="/usr/lib/sovereign-os"
-  # shellcheck source=/dev/null
-  . /usr/lib/sovereign-os/lib/common.sh
-else
-  echo "error: sovereign-osctl can't locate its lib (tried in-repo + /usr/lib/sovereign-os/)" >&2
+# Detect installation context: in-repo vs installed-system. Search
+# order (first hit wins):
+#   1. SOVEREIGN_OS_LIB env override (operator-specified)
+#   2. In-repo (sibling of this script's dir)
+#   3. /usr/local/lib/sovereign-os/ (make install default PREFIX)
+#   4. /usr/lib/sovereign-os/ (legacy)
+#   5. /opt/sovereign-os/ (alt convention used by systemd units)
+declare -a _lib_candidates=(
+  "${SOVEREIGN_OS_LIB:-}"
+  "${__SCRIPT_DIR}/build"
+  "/usr/local/lib/sovereign-os"
+  "/usr/lib/sovereign-os"
+  "/opt/sovereign-os"
+)
+
+for _cand in "${_lib_candidates[@]}"; do
+  [ -z "${_cand}" ] && continue
+  if [ -f "${_cand}/lib/common.sh" ]; then
+    if [ "${_cand}" = "${__SCRIPT_DIR}/build" ]; then
+      __REPO_ROOT="${__SCRIPT_DIR}/.."
+    else
+      __REPO_ROOT="${_cand}"
+    fi
+    # shellcheck source=/dev/null
+    . "${_cand}/lib/common.sh"
+    break
+  fi
+done
+
+if [ -z "${__REPO_ROOT:-}" ]; then
+  echo "error: sovereign-osctl can't locate its lib. Tried:" >&2
+  for _cand in "${_lib_candidates[@]}"; do
+    [ -n "${_cand}" ] && echo "  ${_cand}/lib/common.sh" >&2
+  done
+  echo "  Set SOVEREIGN_OS_LIB=<dir> to override." >&2
   exit 1
 fi
+unset _lib_candidates _cand
 
 : "${SOVEREIGN_OS_PROFILE:=$(cat /etc/sovereign-os/active-profile 2>/dev/null || echo sain-01)}"
 
