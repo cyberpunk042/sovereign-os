@@ -193,6 +193,9 @@ jobs:
       - name: nspawn — sovereign-osctl assistant (Round 67: full/status/reset/list)
         run: |
           tests/nspawn/test_sovereign_osctl_assistant.sh
+      - name: nspawn — sovereign-osctl dispatch surface (Round 68: every verb + subverb reachable)
+        run: |
+          tests/nspawn/test_sovereign_osctl_dispatch_surface.sh
 
   shellcheck:
     name: shellcheck
