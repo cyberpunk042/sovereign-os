@@ -1,51 +1,68 @@
 #!/usr/bin/env bash
-# scripts/validate-profiles.sh — profile schema-conformance check
+# scripts/validate-profiles.sh — profile schema-conformance + merger check
 #
-# PLACEHOLDER — substantive implementation lands at PR 10 (TDD harness
-# bootstrap). The actual validator uses a YAML/JSON-Schema library
-# (python3 jsonschema or yamale; choice decided at PR 10 per substrate
-# decision).
+# Validates every profiles/*.yaml against schemas/profile.schema.yaml
+# AND resolves mixins via tools/profile_merger.py, schema-validating
+# the effective (merged) profile too.
 #
-# When implemented, this script:
-#   1. Loads schemas/profile.schema.yaml
-#   2. For each profiles/*.yaml: resolve mixins + parent → effective
-#      profile; schema-validate; report PASS / FAIL with file:line.
-#   3. For each profiles/mixins/*.yaml: schema-validate against
-#      schemas/mixin.schema.yaml (also lands at PR 10).
-#   4. Returns 0 on PASS; non-zero on any FAIL (CI gate).
-#
-# Until then, this stub exits 0 with a notice. CI doesn't gate on
-# profile validation yet.
+# Exit 0 on PASS for every profile; non-zero on any FAIL.
 
 set -euo pipefail
 
-cat <<'EOF'
-sovereign-os profile validator — PLACEHOLDER (see scripts/validate-profiles.sh header)
-
-Schema-conformance is currently author-checked. The CI-gated
-validator lands at PR 10 (TDD harness bootstrap).
-
-For now, listing declared profiles:
-EOF
-
-# Find profiles (relative to this script's directory)
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PROFILE_DIR="${REPO_ROOT}/profiles"
+SCHEMA="${REPO_ROOT}/schemas/profile.schema.yaml"
 
-if [ -d "${PROFILE_DIR}" ]; then
-  printf '\nProfiles found:\n'
-  find "${PROFILE_DIR}" -maxdepth 1 -name '*.yaml' -type f | sort | while read -r p; do
-    printf '  - %s\n' "$(basename "$p" .yaml)"
-  done
+# Quick dep check
+python3 -c "import yaml, jsonschema" 2>/dev/null || {
+  echo "error: missing python3 deps (yaml + jsonschema)"
+  echo "  install: pip install pyyaml jsonschema"
+  exit 2
+}
 
-  if [ -d "${PROFILE_DIR}/mixins" ]; then
-    printf '\nMixins found:\n'
-    find "${PROFILE_DIR}/mixins" -name '*.yaml' -type f | sort | while read -r m; do
-      printf '  - %s\n' "$(basename "$m" .yaml)"
-    done
+fail=0
+total=0
+
+for p in "${PROFILE_DIR}"/*.yaml; do
+  [ -e "$p" ] || continue
+  id="$(basename "$p" .yaml)"
+  total=$((total + 1))
+
+  # 1. Raw-profile schema check
+  if ! python3 -c "
+import yaml, jsonschema, sys
+schema = yaml.safe_load(open('${SCHEMA}'))
+instance = yaml.safe_load(open('${p}'))
+jsonschema.Draft202012Validator(schema).validate(instance)
+" 2>&1; then
+    echo "FAIL ${id}: raw profile fails schema validation"
+    fail=$((fail + 1))
+    continue
   fi
-fi
+
+  # 2. Mixin-resolved profile schema check
+  if ! python3 -c "
+import sys
+sys.path.insert(0, '${REPO_ROOT}')
+import yaml, jsonschema
+from tools import profile_merger
+schema = yaml.safe_load(open('${SCHEMA}'))
+effective = profile_merger.resolve('${id}')
+jsonschema.Draft202012Validator(schema).validate(effective)
+" 2>&1; then
+    echo "FAIL ${id}: mixin-resolved profile fails schema validation"
+    fail=$((fail + 1))
+    continue
+  fi
+
+  echo "PASS ${id}"
+done
 
 echo
-echo "Validation skipped — implementation pending PR 10."
-exit 0
+if [ "${fail}" -eq 0 ]; then
+  echo "validate-profiles: PASS (${total} profiles)"
+  exit 0
+else
+  echo "validate-profiles: ${fail} of ${total} FAILED"
+  exit 1
+fi
