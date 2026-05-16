@@ -298,6 +298,54 @@ def test_must_not_touch_without_reason_uses_default():
     assert entries[0]["reason"] == "explicit no-op declaration"
 
 
+def test_line_replace_operation_does_not_require_template_or_content():
+    """Bug #17 (Round 129): line-replace operation under
+    template-substitution strategy uses pattern + replacement directly;
+    template/content fields are NOT required. The previous code dropped
+    these surfaces silently with a 'warn: no template/content' warning.
+
+    Regression gate: a whitelabel with line-replace + pattern +
+    replacement MUST produce a package_actions entry without needing
+    template/content."""
+    import io, contextlib
+
+    wl = _wl(
+        {
+            "surfaces": {
+                "/etc/default/grub": {
+                    "strategy": "template-substitution",
+                    "operation": "line-replace",
+                    "pattern": "^GRUB_DISTRIBUTOR=",
+                    "replacement": 'GRUB_DISTRIBUTOR="${os_name}"',
+                    "when": "pre-build",
+                    # NO template, NO content — this is the bug class
+                }
+            }
+        }
+    )
+    profile = _profile()
+    stderr = io.StringIO()
+    with tempfile.TemporaryDirectory() as td, contextlib.redirect_stderr(stderr):
+        cs = render.build_changeset(profile, wl, pathlib.Path(td))
+
+    # 1. No 'no template/content' warning emitted
+    assert "no template/content" not in stderr.getvalue(), \
+        "line-replace surface incorrectly warned about missing template/content"
+
+    # 2. line-replace action was actually recorded
+    line_replace_actions = [a for a in cs.package_actions if a.get("type") == "line-replace"]
+    assert len(line_replace_actions) == 1, \
+        f"expected 1 line-replace action, got {len(line_replace_actions)}"
+    assert line_replace_actions[0]["path"] == "/etc/default/grub"
+    assert line_replace_actions[0]["pattern"] == "^GRUB_DISTRIBUTOR="
+    # ${os_name} substituted from whitelabel branding (os_name="Test OS")
+    assert "Test OS" in line_replace_actions[0]["replacement"]
+
+    # 3. The surface is NOT in pre_build_files (line-replace doesn't write
+    #    a fresh file — it edits an existing one via the substrate adapter)
+    assert "/etc/default/grub" not in cs.pre_build_files
+
+
 def test_install_time_substitution_strategy_collects_entries():
     wl = _wl(
         {

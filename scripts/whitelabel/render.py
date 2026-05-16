@@ -119,6 +119,24 @@ def build_changeset(profile: dict, whitelabel: dict, wl_dir: pathlib.Path) -> Ch
             sys.exit(4)
 
         if strategy == "template-substitution":
+            # line-replace operation: pattern + replacement are the
+            # whole declaration; template/content fields are NOT
+            # required. Bug #17 (Round 129): the prior code required
+            # template/content even for line-replace, silently dropping
+            # the surface action (only the warning fired).
+            op = decl.get("operation")
+            if op == "line-replace":
+                pattern = decl.get("pattern", "")
+                replacement = render_template_substitution(branding, decl.get("replacement", ""))
+                cs.package_actions.append({
+                    "type": "line-replace",
+                    "path": surface_path,
+                    "pattern": pattern,
+                    "replacement": replacement,
+                })
+                continue
+
+            # Standard template-substitution path: require template OR content
             if "template" in decl:
                 tmpl_path = wl_dir / decl["template"]
                 if not tmpl_path.exists():
@@ -134,21 +152,7 @@ def build_changeset(profile: dict, whitelabel: dict, wl_dir: pathlib.Path) -> Ch
                 continue
 
             rendered = render_template_substitution(branding, content)
-
-            # line-replace operation: read existing file, replace matching line
-            op = decl.get("operation")
-            if op == "line-replace":
-                pattern = decl.get("pattern", "")
-                replacement = render_template_substitution(branding, decl.get("replacement", ""))
-                # Store as a pending edit; substrate adapter applies later
-                cs.package_actions.append({
-                    "type": "line-replace",
-                    "path": surface_path,
-                    "pattern": pattern,
-                    "replacement": replacement,
-                })
-            else:
-                cs.pre_build_files[surface_path] = rendered
+            cs.pre_build_files[surface_path] = rendered
 
         elif strategy == "file-overlay":
             overlay = decl.get("overlay")
