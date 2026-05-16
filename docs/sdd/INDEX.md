@@ -13,7 +13,7 @@ Numbering is three-digit zero-padded, never recycled.
 | 004 | Profile schema | — | PR 5 | Resolves Q-002 (in part) at Gate 3. |
 | 005 | Initial profile stubs (sain-01 + old-workstation) | — | PR 6 | Validates schema against real profiles. |
 | 006 | Debian (or successor) surface audit | — | PR 7 | Whitelabel target inventory. |
-| 007 | Whitelabel mechanism | — | PR 8 | Resolves Q-004 (legal scope) at Gate 4; Q-003 may stay open. |
+| 007 | Whitelabel mechanism | review | PR 8 | Resolves Q-004 (legal scope) at Gate 4; Q-003 may stay open. 7-strategy taxonomy (template-substitution / file-overlay / package-replacement / build-time-flag / install-time-substitution / first-boot-script / must-not-touch). Schema + default whitelabel placeholder shipped. Q8-A..Q8-E open. |
 | 008 | TDD harness specification | — | PR 9 | Resolves Q-010 + Q-014 + Q-015 (in part). |
 | 009 | TDD harness bootstrap | — | PR 10 | First passing tests. |
 | 010 | Stage-2 first-build-scripts stub | — | PR 10 | Reserves slot for post-Gate-5 work. |

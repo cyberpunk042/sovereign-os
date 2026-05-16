@@ -1,0 +1,168 @@
+# yaml-language-server: $schema=https://json-schema.org/draft/2020-12/schema
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://github.com/cyberpunk042/sovereign-os/schemas/whitelabel.schema.yaml"
+title: sovereign-os whitelabel schema
+description: |
+  Declarative schema for a sovereign-os whitelabel definition. Every
+  whitelabel in `whitelabel/<id>.yaml` MUST validate against this
+  schema. See `docs/sdd/007-whitelabel-mechanism.md` for the design
+  rationale + per-surface strategy taxonomy.
+
+type: object
+required: [schema_version, identity, branding, surfaces]
+additionalProperties: false
+
+properties:
+
+  schema_version:
+    type: string
+    pattern: '^[0-9]+\.[0-9]+\.[0-9]+$'
+
+  identity:
+    type: object
+    required: [id, name, version, status, maintainer, description]
+    additionalProperties: false
+    properties:
+      id:
+        type: string
+        pattern: '^[a-z0-9][a-z0-9-]*$'
+      name:
+        type: string
+      version:
+        type: string
+        pattern: '^[0-9]+\.[0-9]+\.[0-9]+$'
+      status:
+        type: string
+        enum: [draft, active, deprecated, abandoned]
+      maintainer:
+        type: string
+      description:
+        type: string
+        minLength: 30
+
+  compliance_target:
+    type: string
+    enum: [dfsg-only, trademark-cleared, internal-only]
+    description: Matches profile's legal_compliance field; mismatch fails validation
+
+  branding:
+    type: object
+    description: Variables consumed by template-substitution strategy
+    required: [os_id, os_name, os_pretty_name, os_version]
+    additionalProperties:
+      oneOf:
+        - { type: string }
+        - { type: 'null' }
+    properties:
+      os_id:
+        type: string
+        pattern: '^[a-z0-9][a-z0-9-]*$'
+      os_name: { type: string }
+      os_pretty_name: { type: string }
+      os_version: { type: string }
+      os_codename: { type: string }
+      vendor: { type: string }
+      home_url:
+        oneOf:
+          - { type: string, format: uri }
+          - { type: 'null' }
+      bug_report_url:
+        oneOf:
+          - { type: string, format: uri }
+          - { type: 'null' }
+      support_url:
+        oneOf:
+          - { type: string, format: uri }
+          - { type: 'null' }
+      documentation_url:
+        oneOf:
+          - { type: string, format: uri }
+          - { type: 'null' }
+      privacy_policy_url:
+        oneOf:
+          - { type: string, format: uri }
+          - { type: 'null' }
+      motd:
+        oneOf:
+          - { type: string }
+          - { type: 'null' }
+
+  surfaces:
+    type: object
+    description: |
+      Per-surface declarations. Key is the surface path or symbolic
+      identifier; value declares the strategy and content.
+    additionalProperties:
+      type: object
+      required: [strategy, when]
+      additionalProperties: false
+      properties:
+        strategy:
+          type: string
+          enum:
+            - template-substitution
+            - file-overlay
+            - package-replacement
+            - build-time-flag
+            - install-time-substitution
+            - first-boot-script
+        when:
+          type: string
+          enum: [pre-build, during-install, post-install]
+        legal_floor:
+          type: boolean
+          default: false
+        # template-substitution
+        template:
+          type: string
+          description: Relative path under whitelabel/<id>/templates/
+        content:
+          type: string
+          description: Inline content (alternative to template)
+        operation:
+          type: string
+          enum: [line-replace, full-replace, preseed, template-substitute]
+        pattern:
+          type: string
+          description: Regex (for line-replace operation)
+        replacement:
+          type: string
+        # file-overlay
+        overlay:
+          type: string
+          description: Relative path under whitelabel/<id>/overlays/
+        # package-replacement
+        package:
+          type: string
+        alternative:
+          type: string
+        points_to:
+          type: string
+        diverts:
+          type: array
+          items: { type: string }
+        # build-time-flag
+        flags:
+          type: object
+          additionalProperties: { type: string }
+        # install-time-substitution
+        key:
+          type: string
+        value:
+          type: string
+        target:
+          type: string
+        # first-boot-script
+        script:
+          type: string
+
+  legal_floor:
+    type: object
+    description: Informational; enforced by validator independent of declarations here
+    additionalProperties: false
+    properties:
+      preserved:
+        type: array
+        items: { type: string }
+      rationale:
+        type: string
