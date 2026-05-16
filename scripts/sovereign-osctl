@@ -124,6 +124,8 @@ COMMANDS:
   metrics tail [N]             Tail the N most-recently-updated .prom files (default: 5)
   metrics health               Sanity-check the textfile collector dir (presence, age, format)
 
+  alerts [--json]              Derive operator alerts from .prom files (no Alertmanager needed)
+
   version [--json]             sovereign-osctl + sovereign-os version info (--json for fleet tooling)
   help                         This help
 
@@ -1005,6 +1007,211 @@ cmd_metrics() {
   esac
 }
 
+# ------------------------------ alerts ---------------------------------------
+#
+# Derives operator-actionable alerts from the SDD-016 Layer B textfile
+# collector output WITHOUT requiring Alertmanager or any external
+# rules engine. Sovereignty principle: the operator must be able to
+# observe + act on their fleet using only what sovereign-os ships.
+#
+# Rules (each emits ALERT or WARN with the metric line + remediation hint):
+#
+#   ALERT  any *_total{...,result="fail"} > 0
+#   ALERT  sovereign_os_friction_audit_failures > 0
+#   ALERT  sovereign_os_perimeter_status != 1   (Tetragon inactive)
+#   ALERT  sovereign_os_zfs_pool_health < 1     (degraded pool)
+#   WARN   sovereign_os_security_updates_available > 0
+#   WARN   any *_last_run_timestamp older than SOVEREIGN_OS_ALERTS_STALE_DAYS (default 7)
+#
+# --json mode emits an array of {level, metric, value, remediation}.
+
+cmd_alerts() {
+  local json_mode=0
+  if [ "${1:-}" = "--json" ]; then
+    json_mode=1
+    shift || true
+  fi
+
+  : "${SOVEREIGN_OS_METRICS_DIR:=/var/lib/node_exporter/textfile_collector}"
+  : "${SOVEREIGN_OS_ALERTS_STALE_DAYS:=7}"
+
+  if [ ! -d "${SOVEREIGN_OS_METRICS_DIR}" ]; then
+    if [ "${json_mode}" -eq 1 ]; then
+      echo "[]"
+    else
+      echo "metrics dir absent: ${SOVEREIGN_OS_METRICS_DIR}"
+      echo "  no alerts can be derived"
+    fi
+    return 0
+  fi
+
+  # Concatenate all sovereign-os .prom files for rule evaluation
+  local now stale_cutoff
+  now="$(date +%s)"
+  stale_cutoff=$(( now - SOVEREIGN_OS_ALERTS_STALE_DAYS * 86400 ))
+
+  # Python rule engine: parse Prometheus-text-format, apply rules, emit JSONL on stdout
+  local alerts_jsonl
+  alerts_jsonl="$(SOVEREIGN_OS_METRICS_DIR="${SOVEREIGN_OS_METRICS_DIR}" \
+                  STALE_CUTOFF="${stale_cutoff}" \
+                  python3 - <<'PY'
+import os, re, json, glob
+
+mdir = os.environ["SOVEREIGN_OS_METRICS_DIR"]
+stale_cutoff = int(os.environ["STALE_CUTOFF"])
+
+# name{labels} value [timestamp]
+METRIC = re.compile(r"^(?P<name>[a-zA-Z_:][a-zA-Z0-9_:]*)(?:\{(?P<labels>[^}]*)\})?\s+(?P<value>-?[0-9.eE+]+)(?:\s+\d+)?\s*$")
+
+def parse_labels(s):
+    out = {}
+    if not s: return out
+    for pair in re.findall(r'(\w+)="((?:[^"\\]|\\.)*)"', s):
+        out[pair[0]] = pair[1]
+    return out
+
+alerts = []
+for path in sorted(glob.glob(os.path.join(mdir, "sovereign-os-*.prom"))):
+    try:
+        text = open(path).read()
+    except OSError:
+        continue
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        m = METRIC.match(line)
+        if not m:
+            continue
+        name = m.group("name")
+        labels = parse_labels(m.group("labels"))
+        try:
+            value = float(m.group("value"))
+        except ValueError:
+            continue
+
+        # Rule 1: any *_total with result="fail" and value > 0
+        if name.endswith("_total") and labels.get("result") == "fail" and value > 0:
+            alerts.append({
+                "level": "ALERT",
+                "metric": name,
+                "labels": labels,
+                "value": value,
+                "remediation": f"investigate the most recent {name.replace('sovereign_os_','').replace('_total','')} run; check journalctl and JSONL logs"
+            })
+
+        # Rule 2: friction-audit failures
+        if name == "sovereign_os_friction_audit_failures" and value > 0:
+            alerts.append({
+                "level": "ALERT",
+                "metric": name,
+                "labels": labels,
+                "value": value,
+                "remediation": "run 'sovereign-osctl audit friction' to see the failing hardware checks"
+            })
+
+        # Rule 3: perimeter inactive
+        if name == "sovereign_os_perimeter_status" and value != 1:
+            alerts.append({
+                "level": "ALERT",
+                "metric": name,
+                "labels": labels,
+                "value": value,
+                "remediation": "Tetragon not active; run 'sovereign-osctl perimeter status' and 'systemctl status tetragon'"
+            })
+
+        # Rule 4: zfs pool degraded
+        if name == "sovereign_os_zfs_pool_health" and value < 1:
+            alerts.append({
+                "level": "ALERT",
+                "metric": name,
+                "labels": labels,
+                "value": value,
+                "remediation": f"zpool '{labels.get('pool','tank')}' not ONLINE; run 'zpool status {labels.get('pool','tank')}'"
+            })
+
+        # Rule 5: pending security updates (WARN)
+        if name == "sovereign_os_security_updates_available" and value > 0:
+            alerts.append({
+                "level": "WARN",
+                "metric": name,
+                "labels": labels,
+                "value": value,
+                "remediation": f"{int(value)} security update(s) pending; run 'unattended-upgrade -d' or 'sovereign-osctl maintenance security-check'"
+            })
+
+        # Rule 6: stale last-run timestamps
+        if name.endswith("_last_run_timestamp") and value > 0 and value < stale_cutoff:
+            age_days = int((stale_cutoff + int(os.environ.get('NOW', 0)) - int(value)) / 86400) if False else None
+            from datetime import datetime, timezone
+            ts = datetime.fromtimestamp(value, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
+            alerts.append({
+                "level": "WARN",
+                "metric": name,
+                "labels": labels,
+                "value": value,
+                "remediation": f"last successful run was {ts}; recurrent timer may not be firing — check systemd timer status"
+            })
+
+# Stable sort: ALERT before WARN, then by metric name
+alerts.sort(key=lambda a: (0 if a["level"] == "ALERT" else 1, a["metric"]))
+for a in alerts:
+    print(json.dumps(a))
+PY
+)"
+
+  if [ "${json_mode}" -eq 1 ]; then
+    # Convert JSONL to JSON array
+    if [ -z "${alerts_jsonl}" ]; then
+      echo "[]"
+    else
+      python3 -c "
+import sys, json
+lines = [l for l in sys.stdin.read().splitlines() if l.strip()]
+print(json.dumps([json.loads(l) for l in lines], indent=2))
+" <<< "${alerts_jsonl}"
+    fi
+    return 0
+  fi
+
+  # Pretty-print
+  local alert_count warn_count
+  alert_count="$(grep -c '"level": "ALERT"' <<< "${alerts_jsonl}" || true)"
+  warn_count="$(grep -c '"level": "WARN"' <<< "${alerts_jsonl}" || true)"
+  alert_count="${alert_count:-0}"
+  warn_count="${warn_count:-0}"
+
+  if [ "${alert_count}" -eq 0 ] && [ "${warn_count}" -eq 0 ]; then
+    log_info "no alerts derived from ${SOVEREIGN_OS_METRICS_DIR}"
+    log_info "  (scanned $(find "${SOVEREIGN_OS_METRICS_DIR}" -maxdepth 1 -name 'sovereign-os-*.prom' -type f 2>/dev/null | wc -l) .prom file(s))"
+    return 0
+  fi
+
+  echo "sovereign-osctl alerts"
+  echo "======================"
+  echo
+  echo "  ALERT count: ${alert_count}"
+  echo "  WARN  count: ${warn_count}"
+  echo
+  python3 -c "
+import sys, json
+for line in sys.stdin.read().splitlines():
+    if not line.strip(): continue
+    a = json.loads(line)
+    label_str = ' '.join(f'{k}={v}' for k, v in (a.get('labels') or {}).items())
+    print(f\"  [{a['level']:>5}] {a['metric']}{(' {' + label_str + '}') if label_str else ''}\")
+    print(f\"          value: {a['value']}\")
+    print(f\"          fix:   {a['remediation']}\")
+    print()
+" <<< "${alerts_jsonl}"
+
+  # Non-zero exit on any ALERT — operator scripts can chain on this.
+  # `exit` instead of `return` to bypass the ERR trap (which would
+  # otherwise log "command failed: return 1" — confusing noise when
+  # the non-zero is deliberate signalling).
+  [ "${alert_count}" -eq 0 ] && exit 0 || exit 1
+}
+
 # ------------------------------ decommission ---------------------------------
 
 cmd_decommission() {
@@ -1240,6 +1447,7 @@ case "${cmd}" in
   decommission)  cmd_decommission "$@" ;;
   inference)     cmd_inference "$@" ;;
   metrics)       cmd_metrics "$@" ;;
+  alerts)        cmd_alerts "$@" ;;
   version|--version|-V) cmd_version "$@" ;;
   help|--help|-h|"") cmd_help ;;
   *)

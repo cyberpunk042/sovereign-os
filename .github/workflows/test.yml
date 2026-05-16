@@ -208,6 +208,9 @@ jobs:
       - name: nspawn — sovereign-osctl metrics verb (Round 88: textfile collector surface)
         run: |
           tests/nspawn/test_sovereign_osctl_metrics.sh
+      - name: nspawn — sovereign-osctl alerts verb (Round 89: Layer B rule engine)
+        run: |
+          tests/nspawn/test_sovereign_osctl_alerts.sh
 
   shellcheck:
     name: shellcheck
