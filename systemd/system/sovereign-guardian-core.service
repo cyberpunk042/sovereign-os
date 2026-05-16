@@ -1,0 +1,36 @@
+[Unit]
+Description=Sovereign Guardian Core eBPF Supervisor (master spec § 10)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/auditor/guardian-core.py
+# Master spec § 10.2 verbatim dependency declaration:
+After=tetragon.service
+Requires=tetragon.service
+
+[Service]
+Type=simple
+# Master spec § 10.2 verbatim ExecStart:
+ExecStart=/usr/local/bin/guardian-core
+Restart=always
+RestartSec=1
+StandardOutput=journal
+StandardError=journal
+
+# Defense-in-depth — Guardian only needs read on the tetragon stream
+# and append on the security audit log; everything else is read-only.
+ProtectSystem=strict
+ReadOnlyPaths=/var/run/tetragon
+ReadWritePaths=/mnt/vault/context /var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+# Guardian must be able to invoke `podman kill` — keep CAP_SYS_PTRACE
+# off; podman runs in user-namespaces by default and the kill verb does
+# not require elevated caps when the container is rootless.
+
+[Install]
+WantedBy=multi-user.target

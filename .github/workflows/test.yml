@@ -271,6 +271,9 @@ jobs:
       - name: nspawn — Weaver atomic state transition (Round 154: master spec § 21)
         run: |
           tests/nspawn/test_weaver_atomic_state.sh
+      - name: nspawn — Auditor Guardian Daemon (Round 155: master spec § 10)
+        run: |
+          tests/nspawn/test_auditor_guardian_core.sh
       - name: nspawn — secure-boot gen-keys (Round 143: F-05 MED closure — operator-owned key generation)
         run: |
           tests/nspawn/test_secure_boot_gen_keys.sh
