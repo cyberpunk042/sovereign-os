@@ -190,6 +190,9 @@ jobs:
       - name: nspawn — sovereign-osctl maintenance (Round 66: 8-subverb on-demand recurrent surface)
         run: |
           tests/nspawn/test_sovereign_osctl_maintenance.sh
+      - name: nspawn — sovereign-osctl assistant (Round 67: full/status/reset/list)
+        run: |
+          tests/nspawn/test_sovereign_osctl_assistant.sh
 
   shellcheck:
     name: shellcheck
