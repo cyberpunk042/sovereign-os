@@ -501,6 +501,42 @@ from custom → substrate-default removes the build cost; switching the
 other way adds it.
 **Linked**: direct-to-main commit on 2026-05-16.
 
+### D-011 — 2026-05-16 — Reproducibility target: strong build-reproducibility for our outputs; signing-keys intentionally per-operator (Q-015 resolved)
+
+**Decision**: sovereign-os commits to **bit-identical image bytes**
+for the mkosi-built rootfs + kernel .deb + whitelabel render +
+substrate emit given pinned inputs: SOURCE_DATE_EPOCH, apt snapshot
+(http://snapshot.debian.org/), kernel source tag, compiler version,
+mkosi version. The state machine's per-step `inputs_hash` catches
+drift step-by-step. Operator-supplied signing keys (SDD-015) are
+intentionally NOT made cross-operator bit-identical — each operator's
+signed vmlinuz / EFI has a different signature, by design. Cloud-init
++ first-login-assistant produce per-machine state; not within the
+build-reproducibility scope.
+**Question**: Q-015 — what reproducibility target does sovereign-os
+commit to?
+**Source**: `docs/sdd/019-reproducibility-target.md`;
+`scripts/build/04-kernel-compile.sh` § KBUILD_BUILD_USER/HOST pin;
+`scripts/build/lib/state.sh` § state_inputs_hash.
+**Rationale**: Strong build-reproducibility serves operator
+sovereignty — image bytes can be independently verified
+(sha256sum suffices, no specialized tooling needed). Operator-key
+per-installation signing is the load-bearing sovereignty primitive
+from SDD-015; making signatures cross-operator-identical would
+defeat its purpose. Implementation gaps tracked: apt-snapshot
+pinning not yet propagated to mkosi.conf, SOURCE_DATE_EPOCH not
+yet exported by step 04, in-toto build-provenance manifest not
+yet emitted by step 09. All Stage-2+ patches; the contract is
+locked here.
+**Affected items**: `docs/sdd/019-reproducibility-target.md`;
+future patches to mkosi.conf templates + step 04 + step 09;
+`scripts/build/lib/state.sh` (already implements inputs_hash drift
+detection — no change needed).
+**Reversibility**: fully-reversible — the contract is forward-
+looking; weakening to "best-effort" or strengthening to
+"fully-deterministic-incl-CI" are both additive.
+**Linked**: direct-to-main commit on 2026-05-16.
+
 ---
 
 ## Cross-references
