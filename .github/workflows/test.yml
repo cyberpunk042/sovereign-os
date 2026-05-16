@@ -139,6 +139,9 @@ jobs:
       - name: nspawn — reproducibility inputs (SDD-019 wiring: SOURCE_DATE_EPOCH, DEBIAN_SNAPSHOT, sha256sums, in-toto)
         run: |
           tests/nspawn/test_reproducibility_inputs.sh
+      - name: nspawn — kernel-step short-circuit (SDD-018 Q18-A: substrate-default profiles skip steps 02/03/04)
+        run: |
+          tests/nspawn/test_kernel_step_short_circuit.sh
 
   shellcheck:
     name: shellcheck

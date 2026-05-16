@@ -21,6 +21,14 @@ log_info "profile: ${SOVEREIGN_OS_PROFILE}"
 log_info "kernel source: ${kernel_source}"
 log_info "kernel version minimum: ${kernel_version_minimum}"
 
+# Q18-A: substrate-default profiles skip kernel-build steps 02-04.
+# The substrate adapter (mkosi/live-build) pulls linux-image-amd64
+# from the Debian archive instead.
+if [ "${kernel_source}" = "substrate-default" ] || [ -z "${kernel_source}" ]; then
+  log_info "skipping ${STEP_ID} (kernel.source=substrate-default — Debian archive supplies the kernel)"
+  exit 0
+fi
+
 inputs_hash="$(state_inputs_hash "${BASH_SOURCE[0]}" "${SOVEREIGN_OS_PROFILE_FILE}")"
 
 if ! state_step_should_run "${STEP_ID}" "${inputs_hash}"; then

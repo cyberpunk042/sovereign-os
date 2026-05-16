@@ -15,6 +15,13 @@ load_profile "${SOVEREIGN_OS_PROFILE}"
 : "${SOVEREIGN_OS_KERNEL_SRC:=${SOVEREIGN_OS_FORGE_DIR}/linux-stable}"
 : "${SOVEREIGN_OS_PARALLEL:=$(nproc)}"
 
+# Q18-A: substrate-default profiles skip kernel-build steps 02-04.
+kernel_source="$(profile_field kernel.source)"
+if [ "${kernel_source}" = "substrate-default" ] || [ -z "${kernel_source}" ]; then
+  log_info "skipping ${STEP_ID} (kernel.source=substrate-default — Debian archive supplies the .deb)"
+  exit 0
+fi
+
 # Reproducibility (SDD-019): when SOURCE_DATE_EPOCH is set, propagate
 # it to the kernel build. This drives KBUILD_BUILD_TIMESTAMP +
 # embedded mtimes in the .deb. Folding it into inputs_hash ensures the
