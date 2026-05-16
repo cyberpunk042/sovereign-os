@@ -105,29 +105,34 @@ else
   fi
 
   # ---- configure with znver5 + AVX-512 flags (master spec § 16) ----
-  # R168: when the selfdef SD-R10 hardware-capabilities.json is
-  # present, derive CFLAGS from it (recommended_march +
-  # recommended_compile_flags) instead of the hardcoded znver5
-  # default. Operator can override by setting BITNET_CFLAGS explicitly.
-  : "${BITNET_CAPABILITIES_FILE:=/var/lib/selfdef/hardware-capabilities.json}"
-  if [ -z "${BITNET_CFLAGS:-}" ] && [ -f "${BITNET_CAPABILITIES_FILE}" ]; then
-    derived="$(python3 - "${BITNET_CAPABILITIES_FILE}" <<'PYEOF' 2>/dev/null
-import json, sys
-try:
-    d = json.load(open(sys.argv[1]))
-    cpu = d.get("cpu", {})
-    march = cpu.get("recommended_march", "")
-    flags = cpu.get("recommended_compile_flags", []) or []
-    if march and march != "native":
-        print(f"-march={march} -O3 " + " ".join(flags))
-except Exception:
-    pass
-PYEOF
-)"
-    if [ -n "${derived}" ]; then
-      log_info "R168: deriving CFLAGS from selfdef HardwareCapabilities (${BITNET_CAPABILITIES_FILE})"
-      BITNET_CFLAGS="${derived}"
+  # R168 (original): derived CFLAGS from selfdef SD-R10 capabilities JSON
+  # via inline Python.
+  # R174: switched to the R173 selfdef-tune.sh shell library, which has
+  # 3 source-of-truth paths in preference order — selfdefctl (SD-R19),
+  # capabilities-JSON (SD-R10), native fallback — and ZMM-width hinting.
+  # Canonical capabilities-JSON path is /var/lib/selfdef/hardware-capabilities.json
+  # (operator override: BITNET_CAPABILITIES_FILE → SELFDEF_CAPABILITIES_FILE alias).
+  # Operator can still override by setting BITNET_CFLAGS explicitly OR
+  # by pre-setting SELFDEF_HARDWARE_MARCH (the lib respects both).
+  if [ -z "${BITNET_CFLAGS:-}" ]; then
+    # Legacy alias: BITNET_CAPABILITIES_FILE points at the JSON. The
+    # lib's SELFDEF_CAPABILITIES_FILE is the new canonical name.
+    if [ -n "${BITNET_CAPABILITIES_FILE:-}" ]; then
+      export SELFDEF_CAPABILITIES_FILE="${BITNET_CAPABILITIES_FILE}"
     fi
+    # shellcheck source=../build/lib/selfdef-tune.sh
+    . "${__REPO_ROOT}/build/lib/selfdef-tune.sh"
+    selfdef_tune_load
+    case "${SELFDEF_HARDWARE_TUNE_SOURCE}" in
+      selfdefctl|capabilities_json)
+        BITNET_CFLAGS="${SELFDEF_HARDWARE_CFLAGS} -O3"
+        log_info "R168/R174: BITNET_CFLAGS from selfdef-tune (source=${SELFDEF_HARDWARE_TUNE_SOURCE})"
+        ;;
+      *)
+        # Fallback / native / operator-set without VNNI on a SAIN-01
+        # target → keep the master-spec § 16 hardcoded default.
+        ;;
+    esac
   fi
   : "${BITNET_CFLAGS:=-march=znver5 -O3 -mavx512f -mavx512dq -mavx512bw -mavx512vl -mavx512bf16 -mavx512fp16}"
   log_info "configuring with CFLAGS=${BITNET_CFLAGS}"

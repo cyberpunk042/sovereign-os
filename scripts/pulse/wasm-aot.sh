@@ -49,21 +49,27 @@ type emit_metric >/dev/null 2>&1 || emit_metric() { :; }
 : "${WASM_TARGET_CPU:=znver5}"
 : "${WASM_OPT_LEVEL:=speed}"
 : "${WASM_AFFINITY:=0-11}"
-# R167: when set, read selfdef SDD-017 SD-R10 capabilities JSON and
-# use the recommended_march + recommended_compile_flags from it
-# instead of the hardcoded znver5 defaults. Empty = use defaults.
-# Operators producing the JSON: `selfdefctl hardware export
-# --output /var/lib/selfdef/hardware-capabilities.json` (or wire the
-# daemon's `[deployment].hardware_capabilities_path` knob).
+# R167 (original): WASM_CAPABILITIES_FILE → selfdef SD-R10 capabilities
+# JSON parsed inline via python3 to extract recommended_march.
+# R174: switched to the R173 selfdef-tune.sh shell library, which has
+# 3 source-of-truth paths in preference order — selfdefctl (SD-R19),
+# capabilities-JSON (SD-R10), native fallback — and ZMM-width hinting.
+# Canonical capabilities-JSON path is /var/lib/selfdef/hardware-capabilities.json
+# (operator override: WASM_CAPABILITIES_FILE → SELFDEF_CAPABILITIES_FILE alias).
 : "${WASM_CAPABILITIES_FILE:=/var/lib/selfdef/hardware-capabilities.json}"
 
 # Honor the capabilities file when present (and operator didn't pin
 # WASM_TARGET_CPU explicitly).
-if [ -f "${WASM_CAPABILITIES_FILE}" ] && [ "${WASM_TARGET_CPU}" = "znver5" ]; then
-  caps_march="$(python3 -c "import json,sys; print(json.load(open('${WASM_CAPABILITIES_FILE}'))['cpu']['recommended_march'])" 2>/dev/null || echo "")"
-  if [ -n "${caps_march}" ] && [ "${caps_march}" != "native" ]; then
-    log_info "R167: reading selfdef HardwareCapabilities (recommended_march=${caps_march}) from ${WASM_CAPABILITIES_FILE}"
-    WASM_TARGET_CPU="${caps_march}"
+if [ "${WASM_TARGET_CPU}" = "znver5" ]; then
+  if [ -n "${WASM_CAPABILITIES_FILE:-}" ]; then
+    export SELFDEF_CAPABILITIES_FILE="${WASM_CAPABILITIES_FILE}"
+  fi
+  # shellcheck source=../build/lib/selfdef-tune.sh
+  . "${__REPO_ROOT}/build/lib/selfdef-tune.sh"
+  selfdef_tune_load
+  if [ -n "${SELFDEF_HARDWARE_MARCH:-}" ] && [ "${SELFDEF_HARDWARE_MARCH}" != "native" ]; then
+    log_info "R167: (via R174 selfdef-tune lib) WASM_TARGET_CPU=${SELFDEF_HARDWARE_MARCH} (source=${SELFDEF_HARDWARE_TUNE_SOURCE})"
+    WASM_TARGET_CPU="${SELFDEF_HARDWARE_MARCH}"
   fi
 fi
 
