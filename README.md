@@ -58,11 +58,17 @@
 ## Quick start
 
 ```sh
-# Fresh clone bootstrap (install git hooks, verify deps, pick profile)
-scripts/setup.sh
+# Discover all operator verbs (canonical entry point)
+make help
+
+# Fresh clone bootstrap (git hooks + deps + smoke test)
+make setup
+
+# Run the local equivalent of CI (lint + unit + L3 fast subset)
+make test
 
 # Validate the build plan without running anything
-SOVEREIGN_OS_PROFILE=sain-01 scripts/build/orchestrate.sh run --dry-run
+make dry-run                 # or: SOVEREIGN_OS_PROFILE=sain-01 scripts/build/orchestrate.sh run --dry-run
 
 # Run pre-install gates against the active profile
 scripts/build/orchestrate.sh preflight
