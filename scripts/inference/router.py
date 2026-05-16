@@ -21,13 +21,65 @@ import argparse
 import http.server
 import json
 import logging
+import os
+import pathlib
 import socketserver
 import sys
+import threading
+import time
 import urllib.error
 import urllib.request
 from typing import Any
 
 log = logging.getLogger("sovereign-os.router")
+
+# ---- Layer B metrics (SDD-016 — Prometheus textfile collector) ------------
+
+# In-memory counters; flushed to disk on every routing decision.
+# Cheap: the resulting .prom file is < 1KB. Concurrent flush is guarded
+# by _METRICS_LOCK (writes are atomic via tempfile + rename).
+_ROUTE_COUNTS: dict[str, int] = {t: 0 for t in (
+    "pulse", "logic_engine", "oracle_core", "llama_old", "llama_fb"
+)}
+_METRICS_LOCK = threading.Lock()
+_METRICS_DIR = pathlib.Path(
+    os.environ.get(
+        "SOVEREIGN_OS_METRICS_DIR",
+        "/var/lib/node_exporter/textfile_collector",
+    )
+)
+_METRICS_FILE = _METRICS_DIR / "sovereign-os-inference-router.prom"
+_METRICS_DISABLED = os.environ.get("SOVEREIGN_OS_METRICS_DISABLE") == "1"
+
+
+def _record_route(tier: str) -> None:
+    """Increment the per-tier counter + flush the .prom file atomically."""
+    if _METRICS_DISABLED:
+        return
+    with _METRICS_LOCK:
+        _ROUTE_COUNTS[tier] = _ROUTE_COUNTS.get(tier, 0) + 1
+        try:
+            _METRICS_DIR.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            return  # graceful skip — metrics dir not provisioned
+        lines = [
+            "# HELP sovereign_os_inference_route_total Per-tier routing decisions",
+            "# TYPE sovereign_os_inference_route_total counter",
+        ]
+        for t, n in sorted(_ROUTE_COUNTS.items()):
+            lines.append(f'sovereign_os_inference_route_total{{tier="{t}"}} {n}')
+        lines.append("# HELP sovereign_os_inference_router_last_route_timestamp Unix timestamp of last routing decision")
+        lines.append("# TYPE sovereign_os_inference_router_last_route_timestamp gauge")
+        lines.append(f"sovereign_os_inference_router_last_route_timestamp {int(time.time())}")
+        tmp = _METRICS_FILE.with_suffix(".prom.tmp")
+        try:
+            tmp.write_text("\n".join(lines) + "\n")
+            tmp.replace(_METRICS_FILE)
+        except OSError:
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
 
 # Backend endpoints (env-overridable). Defaults match the adapters.
 TIER_ENDPOINTS: dict[str, str] = {
@@ -102,6 +154,7 @@ class RouterHandler(http.server.BaseHTTPRequestHandler):
             return
 
         log.info("route: model=%r → tier=%s (%s)", body.get("model"), tier, target)
+        _record_route(tier)
 
         # Proxy the request unchanged
         target_url = target.rstrip("/") + self.path

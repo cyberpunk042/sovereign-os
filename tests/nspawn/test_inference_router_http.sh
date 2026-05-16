@@ -43,13 +43,15 @@ echo
 # ----------- spawn router ---------------
 
 router_log="$(mktemp)"
-python3 "${ROUTER}" --host 127.0.0.1 --port "${port}" >"${router_log}" 2>&1 &
+metrics_dir="$(mktemp -d)"
+SOVEREIGN_OS_METRICS_DIR="${metrics_dir}" python3 "${ROUTER}" --host 127.0.0.1 --port "${port}" >"${router_log}" 2>&1 &
 router_pid=$!
 
 cleanup() {
   kill "${router_pid}" 2>/dev/null || true
   wait "${router_pid}" 2>/dev/null || true
   rm -f "${router_log}"
+  rm -rf "${metrics_dir}"
 }
 trap cleanup EXIT
 
@@ -197,6 +199,41 @@ if grep -q '^status:404' <<< "${out}"; then
   ok "unknown path → 404"
 else
   ko "unknown path: ${out}"
+fi
+
+# ----------- Layer B metrics emission (SDD-016) ---------------
+
+metrics_file="${metrics_dir}/sovereign-os-inference-router.prom"
+if [ -f "${metrics_file}" ]; then
+  ok "router emitted sovereign-os-inference-router.prom"
+else
+  ko "router metrics file missing at ${metrics_file}"
+fi
+
+# Each successful classify (pulse + oracle_core + logic_engine x 2) should
+# increment the matching tier counter. logic_engine count >= 2.
+if grep -qE '^sovereign_os_inference_route_total\{tier="pulse"\} [1-9]' "${metrics_file}" 2>/dev/null; then
+  ok "metrics: pulse counter >= 1"
+else
+  ko "metrics: pulse counter not incremented"
+fi
+
+if grep -qE '^sovereign_os_inference_route_total\{tier="logic_engine"\} [2-9]' "${metrics_file}" 2>/dev/null; then
+  ok "metrics: logic_engine counter >= 2 (json + default both route here)"
+else
+  ko "metrics: logic_engine counter wrong: $(grep logic_engine "${metrics_file}" 2>/dev/null)"
+fi
+
+if grep -qE '^sovereign_os_inference_route_total\{tier="oracle_core"\} [1-9]' "${metrics_file}" 2>/dev/null; then
+  ok "metrics: oracle_core counter >= 1"
+else
+  ko "metrics: oracle_core counter not incremented"
+fi
+
+if grep -qE '^sovereign_os_inference_router_last_route_timestamp [0-9]{10}$' "${metrics_file}" 2>/dev/null; then
+  ok "metrics: last_route_timestamp is a unix epoch"
+else
+  ko "metrics: last_route_timestamp missing/malformed"
 fi
 
 # ----------- result ---------------
