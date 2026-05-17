@@ -1,0 +1,145 @@
+# sovereign-os research-loop overlay — R287 / E1.M19.
+#
+# Operator-named (§1b mandate row, verbatim): "Hardware-exploit-to-
+# the-max research loop (continuously evolving SDD + TDD as new
+# BitNet / DFlash / VPDPBUSD findings land; 'research mode' verb
+# that surfaces upstream changes from bitnet.cpp + transformers +
+# vllm)".
+#
+# Adopts R283 / SDD-030 operator-overlay-doctrine: copy this file
+# to /etc/sovereign-os/research-loop.toml (or set
+# SOVEREIGN_OS_OVERLAY_RESEARCH_LOOP=<path>) and add/remove tracked
+# upstreams + research topics. Lists REPLACE entirely (operator-
+# overlay-doctrine §3) so this file becomes the full surface when
+# present — the in-script DEFAULT_TRACK + DEFAULT_TOPICS no longer
+# apply.
+#
+# Note: in DEV runs (when no explicit --config / env / /etc file is
+# set), the R283 helper auto-loads THIS .example as the fallback
+# overlay. So this file IS the source of truth for the dev-mode
+# tracked-set. Keep it in sync with the script's DEFAULT_* lists.
+
+# ─── Tracked upstreams ────────────────────────────────────────
+# Each entry pins a "baseline" the operator has smoke-tested.
+# `research-loop status` compares baseline against the version
+# installed RIGHT NOW on this host and emits a verdict:
+#   matches-baseline | drift | not-installed | baseline-unset
+#   probe-error      | probe-unavailable | version-unknown
+# rc=1 when any tracked component is in `drift`.
+
+[[track]]
+name     = "bitnet-cpp"
+kind     = "binary"
+id       = "bitnet-cli"
+baseline = "(not yet pinned — install drives first round)"
+notes    = "ternary VPDPBUSD fast path; see scripts/pulse/build-bitnet.sh"
+
+[[track]]
+name     = "wasmtime"
+kind     = "binary"
+id       = "wasmtime"
+baseline = "30.0.0"
+notes    = "znver5 AOT target; enforced via WASMTIME_COMPARE_OPTIONS"
+
+[[track]]
+name     = "transformers"
+kind     = "pip"
+id       = "transformers"
+baseline = "4.50.0"
+notes    = "HF reference runtime; pinned via operator-deps.toml"
+
+[[track]]
+name     = "vllm"
+kind     = "pip"
+id       = "vllm"
+baseline = "0.7.0"
+notes    = "Oracle-tier RLM serving"
+
+[[track]]
+name     = "trl"
+kind     = "pip"
+id       = "trl"
+baseline = "0.13.0"
+notes    = "SFT/DPO training pipeline"
+
+[[track]]
+name     = "huggingface_hub"
+kind     = "pip"
+id       = "huggingface_hub"
+baseline = "0.29.0"
+notes    = "model fetcher"
+
+[[track]]
+name     = "lm-eval"
+kind     = "pip"
+id       = "lm-eval"
+baseline = "0.4.4"
+notes    = "R232 eval harness"
+
+[[track]]
+name     = "selfdef-cli"
+kind     = "binary"
+id       = "selfdefctl"
+baseline = "(operator-built from selfdef checkout)"
+notes    = "selfdef control plane; provides MCP TCP per SD-R94"
+
+# ─── Research topics ─────────────────────────────────────────
+# Each topic anchors an operator-pull "what to investigate" prompt
+# to a mandate Module + SDD. `research-loop topics` enumerates
+# them. Operator can replace the entire list here.
+
+[[topics]]
+name           = "bitnet-cpp-upstream-deltas"
+mandate_anchor = "E1.M18 (1-bit/ternary ZMM probe)"
+sdd_anchor     = "SDD-027 (Pulse algorithmic foundation)"
+question       = "Has bitnet.cpp shipped new ternary kernels since R280? Faster VPDPBUSD path?"
+signal         = "git -C $REPO log --oneline --since=4w in the bitnet.cpp clone; cross-ref scripts/hardware/zmm-ternary-probe.py."
+
+[[topics]]
+name           = "wasmtime-znver5-target-stability"
+mandate_anchor = "E1.M17 (Wasm-to-AVX-512 AOT)"
+sdd_anchor     = "SDD-029 (Hardware-stack consolidation Z-17)"
+question       = "Is wasmtime --target znver5 still the recommended cwasm target for Zen 5? Cranelift opcode coverage growing?"
+signal         = "wasmtime --version + scripts/hardware/wasm-aot-enforcer.py output. Cross-ref WASMTIME_COMPARE_OPTIONS env enforcement."
+
+[[topics]]
+name           = "transformers-avx512-codepath"
+mandate_anchor = "E1.M14 (AVX-512 utilization probe)"
+sdd_anchor     = "SDD-029 (Hardware-stack consolidation)"
+question       = "Does transformers >= baseline now use AVX-512 VNNI in any default codepath we're missing?"
+signal         = "pip show transformers; check for cpu-extension-aware imports in transformers/utils."
+
+[[topics]]
+name           = "vllm-tensor-parallel-dual-gpu"
+mandate_anchor = "E1.M13 (RTX 3090 + RTX PRO 6000 dual-card)"
+sdd_anchor     = "SDD-029 (Hardware-stack consolidation Z-18)"
+question       = "Does vllm support the asymmetric VRAM split (24 GB + 98 GB) for tensor-parallel serving without manual layer pinning?"
+signal         = "vllm version + scripts/hardware/gpu-card-advisor.py output."
+
+[[topics]]
+name           = "dflash-spec-decode-integration"
+mandate_anchor = "E5.M8 (Speculative-decoding integration, ✓ prior)"
+sdd_anchor     = "scripts/inference/dflash-wrap.sh"
+question       = "Has DFlash shipped operator-facing tunables since R157? Worth re-pinning?"
+signal         = "scripts/inference/dflash-wrap.sh --help; cross-ref scripts/inference/router.py routing weights."
+
+[[topics]]
+name           = "asus-x870e-bios-microcode-deltas"
+mandate_anchor = "E1.M2 (BIOS + ASUS X870E-CREATOR WIFI advisories)"
+sdd_anchor     = "SDD-029 (Hardware-stack consolidation Z-14)"
+question       = "ASUS BIOS releases since R251 — XMP/EXPO behaviour deltas? PCIe 5.0 stability fixes? OC headroom changes?"
+signal         = "sovereign-osctl bios-info --json + scripts/hardware/known-boards lookup vs ASUS support page (operator-driven online)."
+
+[[topics]]
+name           = "psu-oc-mode-real-world-deviance"
+mandate_anchor = "E1.M5 (PSU + UPS + wattage budget + OC mode)"
+sdd_anchor     = "SDD-029 (Hardware-stack consolidation Z-19)"
+question       = "be Quiet! Dark Power Pro 13 1600W in OC-mode — how does the real-time wattage sampler (R258) deviate from the rated budget under dual-GPU + CPU + DDR5 load?"
+signal         = "sovereign-osctl power-status --json + R258 sampler 24h rollup."
+
+[[topics]]
+name           = "ternary-quant-quality-vs-fp16"
+mandate_anchor = "E5.M7 (Model variants + quantizations)"
+sdd_anchor     = "SDD-027 (Pulse algorithmic foundation)"
+question       = "For models in our registry, what's the eval gap between FP16 baseline and ternary (1.58-bit)? Worth fast-path-only on which workloads?"
+signal         = "lm-eval results vs FP16 ref on the operator's eval set."

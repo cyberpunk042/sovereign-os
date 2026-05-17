@@ -272,7 +272,7 @@ the Epic is closed — but the operator may add new Modules to it.
 | E1.M16 | **256 GB DDR5 RAM-specific advisor** (operator-system: 256 GB total; ZFS ARC clamp = 128 GB per master spec § 19 + GGUF / model-context budget tracker) [from §1a + raw-dump §1.1, §3] | ✓ shipped | R279 |
 | E1.M17 | **Wasm-to-AVX-512 AOT pipeline** (`wasmtime compile --target znver5` + `relaxed-simd=true` + `WASMTIME_COMPARE_OPTIONS` env enforcement; master spec § 20 "The Pulse Implementation") [from §1a + raw-dump § 20] | ✓ shipped | R281 |
 | E1.M18 | **1-bit / ternary ZMM utilization probe** (live: are we ACTUALLY using VPDPBUSD with packed 2-bit weights via bitnet.cpp / T-MAC? OR fallback FP16 — measured by perf-stat retired-instruction counters) [from §1a + raw-dump § 17.1] | ✓ shipped | R280 |
-| E1.M19 | **Hardware-exploit-to-the-max research loop** (continuously evolving SDD + TDD as new BitNet / DFlash / VPDPBUSD findings land; "research mode" verb that surfaces upstream changes from bitnet.cpp + transformers + vllm) | **TODO** | — |
+| E1.M19 | **Hardware-exploit-to-the-max research loop** (continuously evolving SDD + TDD as new BitNet / DFlash / VPDPBUSD findings land; "research mode" verb that surfaces upstream changes from bitnet.cpp + transformers + vllm) | ✓ shipped | R287 (`sovereign-osctl research-loop status / topics`) |
 
 ### Epic E2 — Software-stack visibility & control
 

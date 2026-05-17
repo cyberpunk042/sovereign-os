@@ -288,6 +288,21 @@ COMMANDS:
                                descriptor for selfdef MCP TCP (SD-R94).
                                Operator overlay knobs (extra_tools /
                                exclude_tools) honoured via SDD-030.
+  research-loop status [--config P] [--json|--human]
+  research-loop topics [--config P] [--json|--human]
+                               R287 (E1.M19): hardware-exploit-to-the-
+                               max research loop. status compares
+                               operator-pinned baselines for the
+                               AVX-512/Zen5 fast-path stack
+                               (bitnet.cpp, Wasmtime, transformers,
+                               vllm, trl, DFlash, etc) against
+                               what's installed locally — rc=1 when
+                               any tracked component drifts. topics
+                               enumerates research questions anchored
+                               to mandate Modules + SDDs. Operator
+                               overlay (R283/SDD-030): replace track
+                               + topics via /etc/sovereign-os/research-
+                               loop.toml.
   next-steps next|packs|apply-pack [--severity S] [--limit N] [--json]
                                R282 (E5.M10): operator "assistant feel"
                                next-best-step synthesizer. Aggregates
@@ -5356,6 +5371,15 @@ case "${cmd}" in
     # mandate): "Cross-repo MCP-tool aggregator (sovereign-os
     # surfaces selfdef tools too)".
     "${__REPO_ROOT}/scripts/interop/mcp-aggregate.py" "$@"
+    ;;
+  research-loop)
+    # R287 (E1.M19): "Hardware-exploit-to-the-max research loop"
+    # — operator-pull "what's worth investigating right now"
+    # across the AVX-512/Zen5 fast-path stack (bitnet.cpp,
+    # Wasmtime znver5, transformers, vllm, DFlash, etc).
+    # Read-only; no network calls. Operator-named (§1b mandate):
+    # "research mode verb that surfaces upstream changes".
+    "${__REPO_ROOT}/scripts/research/loop.py" "$@"
     ;;
   version|--version|-V) cmd_version "$@" ;;
   help|--help|-h|"") cmd_help ;;
