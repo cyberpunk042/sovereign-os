@@ -226,14 +226,23 @@ done
 printf "\n"
 printf "  %-4s %-25s %-7s %s\n" "ID" "Check" "Result" "Detail"
 printf "  %-4s %-25s %-7s %s\n" "──" "─────────────────────────" "──────" "──────"
-declare -A CHECK_NAMES=(
-  [01]="Microcode / ISA"
-  [02]="Bus Geometry"
-  [03]="Linux Memory (ZFS ARC)"
-  [04]="Driver Fabric (NVIDIA)"
-  [05]="Security Core (Tetragon)"
-  [06]="Network Line (Jumbo MTU)"
-)
+# R207: check metadata is canonicalized in config/bootstrap/verify-grid.yaml
+# (SDD-028 pattern). load-verify-grid.py emits id|name|spec|checks_what.
+declare -A CHECK_NAMES=()
+while IFS='|' read -r _id _name _spec _what; do
+  [ -z "${_id}" ] && continue
+  CHECK_NAMES[${_id}]="${_name}"
+done < <(python3 "${__SCRIPT_DIR}/lib/load-verify-grid.py" 2>/dev/null || true)
+unset _id _name _spec _what
+# Fallback if YAML loader unavailable — keeps the script defensive.
+if [ "${#CHECK_NAMES[@]}" -eq 0 ]; then
+  CHECK_NAMES[01]="Microcode / ISA"
+  CHECK_NAMES[02]="Bus Geometry"
+  CHECK_NAMES[03]="Linux Memory (ZFS ARC)"
+  CHECK_NAMES[04]="Driver Fabric (NVIDIA)"
+  CHECK_NAMES[05]="Security Core (Tetragon)"
+  CHECK_NAMES[06]="Network Line (Jumbo MTU)"
+fi
 fail_count=0
 skip_count=0
 pass_count=0

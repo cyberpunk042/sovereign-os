@@ -3237,6 +3237,17 @@ cmd_bootstrap() {
       fi
       exec "${phases_script}" "$@"
       ;;
+    docs-grid)
+      # R207: regenerate docs/src/bootstrap-verify-grid.md from verify-grid.yaml.
+      # Companion to `bootstrap docs` (phases) — same SDD-028 pattern.
+      local grid_render
+      grid_render="$(dirname "${BASH_SOURCE[0]}")/bootstrap/lib/render-verify-grid-md.py"
+      if [ ! -x "${grid_render}" ]; then
+        log_error "verify-grid doc renderer missing: ${grid_render}"
+        return 1
+      fi
+      exec python3 "${grid_render}" "$@"
+      ;;
     docs)
       # R203: regenerate docs/src/bootstrap-phases.md from phases.yaml.
       # Operators rebuild the operator-readable phase rundown after
@@ -3292,6 +3303,10 @@ Subverbs:
       I    Minimal Trixie Base
       II   Zen 5 Kernel Compilation
       III  Storage Layer + DKMS (ZFS)
+
+  docs-grid [--check|--stdout]   (R207, verify-grid doc generator)
+    Regenerate docs/src/bootstrap-verify-grid.md from
+    config/bootstrap/verify-grid.yaml. Same SDD-028 pattern.
 
   docs [--check|--stdout]   (R203, doc generator)
     Regenerate docs/src/bootstrap-phases.md from config/bootstrap/

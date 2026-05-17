@@ -349,6 +349,9 @@ jobs:
       - name: nspawn — models docs (Round 206: model-catalog doc renderer, SDD-028 pattern)
         run: |
           tests/nspawn/test_models_docs.sh
+      - name: nspawn — bootstrap verify-grid docs (Round 207: verify-grid doc renderer, SDD-028 pattern)
+        run: |
+          tests/nspawn/test_bootstrap_verify_grid_docs.sh
       - name: nspawn — thermal-watch (Round 172: per-profile thermal thresholds + OCSF events)
         run: |
           tests/nspawn/test_thermal_watch.sh

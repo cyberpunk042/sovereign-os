@@ -1,0 +1,68 @@
+# config/bootstrap/verify-grid.yaml — canonical master spec § 22 verify-grid metadata (R207).
+#
+# Single source of truth for the 6-check operational grid metadata.
+# Consumed by:
+#   scripts/bootstrap/verify.sh — uses CHECK_NAMES at display time (loads via lib/load-verify-grid.py)
+#   scripts/bootstrap/lib/render-verify-grid-md.py — emits docs/src/bootstrap-verify-grid.md
+#   tests/lint/test_bootstrap_verify_grid_yaml.py — schema lint
+#
+# The check IMPLEMENTATION lives in verify.sh (per-check bash function
+# bodies) — SDD-028 doctrine forbids generating shell from YAML. Only
+# the METADATA (id → name → spec section → what-it-checks) is
+# canonicalized here.
+
+schema_version: "1.0.0"
+
+verify_grid:
+  spec_section: "Master spec § 22 — Master Bootstrap Verification (Operational Grid)"
+  description: >
+    Six checks that gate sovereign-os into the master spec lock-state.
+    Run by sovereign-osctl bootstrap verify on a LIVE node. --strict
+    mode promotes SKIPs to FAILs; default mode keeps SKIPs informational
+    (allows running in CI without real SAIN-01 hardware).
+
+  checks:
+    - id: "01"
+      name: Microcode / ISA
+      master_spec_section: "§ 22.1 + § 1.1"
+      checks_what: avx512_vnni + avx512_bf16 flags present in /proc/cpuinfo
+      skip_when: /proc/cpuinfo not readable
+      tools_required: []  # /proc-only
+
+    - id: "02"
+      name: Bus Geometry
+      master_spec_section: "§ 22.2 + § 1.2"
+      checks_what: ≥2 PCIe slots at Width x8 + ≥2 at Gen 4/5 speed
+      skip_when: lspci not installed or LnkSta unreadable (needs root on real hw)
+      tools_required:
+        - lspci
+
+    - id: "03"
+      name: Linux Memory (ZFS ARC)
+      master_spec_section: "§ 22.3 + § 3.2"
+      checks_what: arc c_max equals BOOTSTRAP_VERIFY_ARC_MAX_BYTES (128 GiB target)
+      skip_when: ZFS not loaded (no arcstat + no /proc/spl/kstat/zfs/arcstats)
+      tools_required: []  # /proc-first; arcstat optional
+
+    - id: "04"
+      name: Driver Fabric (NVIDIA)
+      master_spec_section: "§ 22.4 + § 4.3"
+      checks_what: nvidia kernel module license is MIT/GPL/Dual (open module, NOT proprietary)
+      skip_when: modinfo not installed or nvidia module not loaded
+      tools_required:
+        - modinfo
+
+    - id: "05"
+      name: Security Core (Tetragon)
+      master_spec_section: "§ 22.5 + § 5"
+      checks_what: /var/run/tetragon/tetragon.events present (socket / pipe / file)
+      skip_when: tetragon dir (/var/run/tetragon) doesn't exist
+      tools_required: []  # filesystem-only
+
+    - id: "06"
+      name: Network Line (Jumbo MTU)
+      master_spec_section: "§ 22.6 + § 8.1"
+      checks_what: data-plane interface ($BOOTSTRAP_VERIFY_DATA_IFACE, default enp5s0) MTU=9000
+      skip_when: ip(8) not installed or interface not present on host
+      tools_required:
+        - ip
