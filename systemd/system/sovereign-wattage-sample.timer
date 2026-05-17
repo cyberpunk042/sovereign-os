@@ -1,0 +1,15 @@
+[Unit]
+Description=sovereign-os PSU wattage sampler, every minute (R258 / SDD-026 Z-18)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/recurrent/wattage-sample.sh
+
+[Timer]
+# Per-minute cadence: GPU draw moves on the scale of seconds during
+# inference bursts; 60s sample density is the sweet spot between
+# graph resolution + Prometheus scrape cost.
+OnBootSec=2min
+OnUnitActiveSec=1min
+Persistent=true
+Unit=sovereign-wattage-sample.service
+
+[Install]
+WantedBy=timers.target
