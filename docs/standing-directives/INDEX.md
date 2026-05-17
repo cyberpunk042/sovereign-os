@@ -9,6 +9,19 @@ work on?".
 |------|------|--------|-------|
 | 2026-05-17 | [operator-mandate.md](./2026-05-17-operator-mandate.md) | active | E1 (Hardware-stack), E2 (Software-stack), E3 (Network), E4 (Dashboard/UX), E5 (AI/LLM), E6 (Health/Doctor), E7 (Interop/MCP), E8 (REPL tiers), E9 (Process) |
 
+## Re-arming /goal autopilot
+
+See [`goal-rearming.md`](./goal-rearming.md) for the root-cause
+analysis + paste-ready snippet. Short version:
+
+- The harness `/goal` rejects strings >4000 chars; the operator's
+  full mandate is ~6967 chars.
+- Use `tools/claude/rearm-goal-from-mandate.sh` to emit a compact
+  pointer goal-text (~1130 chars) and paste it into `/goal`.
+- Layer-B option: wire SessionStart hook so it's auto-emitted.
+- L1 lint at `tests/lint/test_rearm_goal_script.py` guards the
+  char-limit + structural anti-recurrence contract.
+
 ## Rules
 
 - Active directives stay active until the operator explicitly clears them.

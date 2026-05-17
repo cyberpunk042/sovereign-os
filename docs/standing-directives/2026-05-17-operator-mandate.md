@@ -268,10 +268,11 @@ the Epic is closed — but the operator may add new Modules to it.
 
 | ID | Module | Status | Rounds |
 |----|--------|--------|--------|
-| E9.M1 | Standing-directive durable record (THIS FILE) | ✓ shipped | R264 (this round) |
-| E9.M2 | Per-round Epic/Module citation in commit messages | **TODO** (start next round) | — |
+| E9.M1 | Standing-directive durable record (THIS FILE) | ✓ shipped | R264 |
+| E9.M2 | Per-round Epic/Module citation in commit messages | ✓ in-practice from R265 | R265+ |
 | E9.M3 | Quarterly mandate review + new-axis intake process | **TODO** | — |
-| E9.M4 | Cross-link Epic/Module IDs into SDD-029 + future SDDs | **TODO** | — |
+| E9.M4 | Cross-link Epic/Module IDs into SDD-029 + future SDDs | partial | R264 (SDD-029) |
+| E9.M5 | `/goal` autopilot re-arming — root cause + compact-pointer script + L1 lint guard | ✓ shipped | R267 |
 
 ## 4. How future rounds use this file
 
