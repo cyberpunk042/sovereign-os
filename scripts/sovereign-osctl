@@ -5410,6 +5410,23 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  gpu-wattage)
+    # R303 (E1.M28): GPU per-card per-mode wattage catalog.
+    # RTX 3090 + RTX PRO 6000 idle/typical/peak/oc-peak watts +
+    # dual-card budget projection vs PSU rated. Operator-named
+    # (§1b verbatim).
+    sub="${1:-list}"
+    shift || true
+    case "${sub}" in
+      list|show|budget)
+        "${__REPO_ROOT}/scripts/hardware/gpu-wattage-catalog.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown gpu-wattage subverb: ${sub} (list, show, budget)"
+        exit 2
+        ;;
+    esac
+    ;;
   battery-ladder)
     # R302 (E1.M27): UPS battery escalation ladder — multi-threshold
     # cascade beyond R293's single-profile registry: pre-alert at
