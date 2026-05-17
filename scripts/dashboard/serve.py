@@ -377,6 +377,135 @@ def card_install_paths() -> dict[str, Any]:
     }
 
 
+def card_services() -> dict[str, Any]:
+    """R241 (SDD-026 Z-15 dashboard surface) — Services card.
+
+    Calls R240 `services shipped --json` so the operator sees in the
+    browser which sovereign-os-declared systemd units are loaded on
+    this host. Top-5 not-loaded units surface in the card body as
+    operator-enable hints.
+    """
+    bin_path = REPO_ROOT / "scripts" / "services" / "inventory.py"
+    fallback: dict[str, Any] = {
+        "round": "R241",
+        "vector": "SDD-026 Z-15 dashboard",
+        "counts": {"total": 0, "loaded": 0, "missing": 0},
+        "missing_top": [],
+        "summary": "inventory.py unavailable",
+    }
+    if not bin_path.exists():
+        return {"id": "services", "title": "Services (R240 / Z-15)", "data": fallback}
+    try:
+        r = subprocess.run(
+            [sys.executable, str(bin_path), "shipped", "--json"],
+            capture_output=True, text=True, timeout=20, check=False,
+        )
+    except (subprocess.TimeoutExpired, OSError) as e:
+        fallback["summary"] = f"invocation failed: {e}"
+        return {"id": "services", "title": "Services (R240 / Z-15)", "data": fallback}
+    if r.returncode not in (0, 1):
+        fallback["summary"] = f"inventory.py rc={r.returncode}"
+        return {"id": "services", "title": "Services (R240 / Z-15)", "data": fallback}
+    try:
+        report = json.loads(r.stdout)
+    except json.JSONDecodeError:
+        fallback["summary"] = "inventory.py emitted non-JSON"
+        return {"id": "services", "title": "Services (R240 / Z-15)", "data": fallback}
+    total = report.get("count", 0)
+    loaded = report.get("loaded_count", 0)
+    missing = report.get("missing_count", 0)
+    units = report.get("units") or []
+    missing_top = [
+        {"name": u.get("name"), "description": u.get("description")}
+        for u in units
+        if not u.get("loaded_on_this_host")
+    ][:5]
+    return {
+        "id": "services",
+        "title": "Services (R240 / Z-15)",
+        "data": {
+            "round": "R241",
+            "vector": "SDD-026 Z-15 dashboard",
+            "counts": {"total": total, "loaded": loaded, "missing": missing},
+            "missing_top": missing_top,
+            "summary": f"{loaded}/{total} loaded, {missing} not enabled",
+            "needs_attention": missing > 0,
+        },
+    }
+
+
+def card_kernel() -> dict[str, Any]:
+    """R241 (SDD-026 Z-14 dashboard surface) — Kernel-tuning card.
+
+    Calls R239 `kernel list --json` to surface available presets, then
+    `kernel show --json` (no preset filter) to capture per-preset
+    diverge counts. Operator sees in the browser which preset matches
+    the live host best + how many keys diverge from each.
+    """
+    bin_path = REPO_ROOT / "scripts" / "kernel" / "tuning.py"
+    fallback: dict[str, Any] = {
+        "round": "R241",
+        "vector": "SDD-026 Z-14 dashboard",
+        "presets": [],
+        "summary": "tuning.py unavailable",
+    }
+    if not bin_path.exists():
+        return {"id": "kernel", "title": "Kernel tuning (R239 / Z-14)", "data": fallback}
+    # Single call: `show` gives us per-preset diverge counts.
+    try:
+        r = subprocess.run(
+            [sys.executable, str(bin_path), "show", "--json"],
+            capture_output=True, text=True, timeout=20, check=False,
+        )
+    except (subprocess.TimeoutExpired, OSError) as e:
+        fallback["summary"] = f"invocation failed: {e}"
+        return {"id": "kernel", "title": "Kernel tuning (R239 / Z-14)", "data": fallback}
+    if r.returncode not in (0, 1):
+        fallback["summary"] = f"tuning.py rc={r.returncode}"
+        return {"id": "kernel", "title": "Kernel tuning (R239 / Z-14)", "data": fallback}
+    try:
+        report = json.loads(r.stdout)
+    except json.JSONDecodeError:
+        fallback["summary"] = "tuning.py emitted non-JSON"
+        return {"id": "kernel", "title": "Kernel tuning (R239 / Z-14)", "data": fallback}
+    presets = []
+    for name, p in (report.get("presets") or {}).items():
+        c = p.get("counts", {})
+        presets.append(
+            {
+                "preset": name,
+                "summary": p.get("summary", ""),
+                "match": c.get("match", 0),
+                "diverges": c.get("diverges", 0),
+                "unreadable": c.get("unreadable", 0),
+            }
+        )
+    # Best-matched preset = max(match) - prefer the one closest to live.
+    if presets:
+        best = max(presets, key=lambda p: p["match"])
+        best_name = best["preset"]
+        best_match = best["match"]
+    else:
+        best_name = None
+        best_match = 0
+    return {
+        "id": "kernel",
+        "title": "Kernel tuning (R239 / Z-14)",
+        "data": {
+            "round": "R241",
+            "vector": "SDD-026 Z-14 dashboard",
+            "presets": presets,
+            "best_match_preset": best_name,
+            "best_match_keys": best_match,
+            "summary": (
+                f"{len(presets)} preset(s); best match: "
+                f"{best_name or '(none)'} ({best_match} key(s) align)"
+            ),
+            "needs_attention": any(p["diverges"] > 0 for p in presets),
+        },
+    }
+
+
 CARDS = [
     card_gpu,
     card_network,
@@ -388,6 +517,8 @@ CARDS = [
     card_models,
     card_insights,
     card_install_paths,
+    card_services,
+    card_kernel,
 ]
 
 
