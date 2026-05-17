@@ -268,6 +268,14 @@ COMMANDS:
                                analysis layer named in operator's
                                "autohealth and doctor and analysis".
   diagnose probes [--json]     R266: list available sub-probes.
+  avx512-advisor probe|workloads|advisory [--json]
+                               R272 (E1.M14): AVX-512 extension probe
+                               + per-workload fit verdict. Maps
+                               detected flags (VNNI/BF16/FP16/IFMA/
+                               VBMI/CD/VAES/...) to 9 AI workloads.
+                               Surfaces operator advisories — Pulse
+                               tier requires VNNI minimum; BF16/FP16
+                               unlock native fast paths.
   gpu-card-advisor detect|advisories|dual-card [--json]
                                R271 (E1.M13): RTX 3090 + RTX PRO 6000
                                operator-specific advisory layer.
@@ -4843,6 +4851,20 @@ case "${cmd}" in
         ;;
       *)
         log_error "unknown diagnose subverb: ${sub} (available: run, probes)"
+        exit 2
+        ;;
+    esac
+    ;;
+  avx512-advisor)
+    # R272 (E1.M14): AVX-512 extension probe + workload-fit advisor.
+    sub="${1:-probe}"
+    shift || true
+    case "${sub}" in
+      probe|workloads|advisory)
+        "${__REPO_ROOT}/scripts/hardware/avx512-advisor.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown avx512-advisor subverb: ${sub} (available: probe, workloads, advisory)"
         exit 2
         ;;
     esac
