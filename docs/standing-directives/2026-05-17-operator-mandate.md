@@ -288,7 +288,7 @@ the Epic is closed — but the operator may add new Modules to it.
 | E2.M4 | Software RAID observation + operation + configuration | ✓ shipped (prior) | R223 |
 | E2.M5 | Logs + log-rotate + filesystem usage + insights synthesizer | ✓ shipped | R222, R234 |
 | E2.M6 | Module features sub-configuration (operator-pull TOML overrides per module) | ✓ shipped (selfdef) | SD-R99 |
-| E2.M7 | Advanced module-features lifecycle (enable/disable individual features within a module) | **TODO** | — |
+| E2.M7 | Advanced module-features lifecycle (enable/disable individual features within a module) | ✓ shipped (selfdef) | SD-R100 |
 | E2.M8 | systemd service hardening lint (R171 doctrine extension) | partial | R171 (extending) |
 | E2.M9 | Service-dependency graph visualizer (operator's drain ordering) | ✓ shipped | R277 |
 
