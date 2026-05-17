@@ -119,6 +119,47 @@ set -e
 grep -qF "ultra-sovereign-efficiency" <<< "${out_osctl}" \
   && ok "osctl --list surfaces profiles" || ko "osctl --list wrong"
 
+# --- R216: --gpu-vram-gib host budget override ---
+set +e
+python3 "${SCRIPT}" --runtime-profile high-concurrency-burst \
+  --gpu-vram-gib 8,8 > "${WORK}/r216.txt"
+rc=$?
+set -e
+[ "${rc}" -eq 1 ] && ok "--gpu-vram-gib 8,8 rc=1 (everything overflows tiny budget)" \
+  || ko "R216 expected rc=1, got ${rc}"
+grep -q "R216 host-budget override active" "${WORK}/r216.txt" \
+  && ok "R216 override banner rendered" || ko "no R216 banner"
+grep -q "8.0 GiB, 8.0 GiB" "${WORK}/r216.txt" \
+  && ok "R216 budgets shown in banner" || ko "no budget values"
+
+# Translator allocation default is 21 GiB (3090); 8-GiB override
+# should now flag VRAM overrun on the translator too.
+grep -q "VRAM requirement 24 GiB exceeds allocation limit 8.0 GiB" "${WORK}/r216.txt" \
+  && ok "R216 overrides translator default limit (21→8 GiB)" \
+  || ko "R216 override not honored on translator allocation"
+
+# JSON shape carries host_gpu_vram_gib echo
+set +e
+python3 "${SCRIPT}" --runtime-profile high-concurrency-burst \
+  --gpu-vram-gib 24,96 --json > "${WORK}/r216.json"
+set -e
+python3 - "${WORK}/r216.json" <<'PY' 2>/dev/null \
+  && ok "R216 JSON carries host_gpu_vram_gib echo + matches input" \
+  || ko "R216 JSON shape wrong"
+import json, sys
+d = json.load(open(sys.argv[1]))
+assert d.get("host_gpu_vram_gib") == [24.0, 96.0], d.get("host_gpu_vram_gib")
+PY
+
+# Bad budget → rc=2
+set +e
+python3 "${SCRIPT}" --runtime-profile high-concurrency-burst \
+  --gpu-vram-gib "junk" >/dev/null 2>&1
+rc=$?
+set -e
+[ "${rc}" -eq 2 ] && ok "malformed --gpu-vram-gib → rc=2" \
+  || ko "expected rc=2 on bad budget, got ${rc}"
+
 echo
 total=$((pass + fail))
 echo "test_models_suggest: ${pass}/${total} passed"

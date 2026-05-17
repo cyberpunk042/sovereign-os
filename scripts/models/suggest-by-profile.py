@@ -84,15 +84,41 @@ def alternatives(catalog: dict[str, dict[str, Any]],
 
 
 def analyse(profile: dict[str, Any],
-            catalog: dict[str, dict[str, Any]]) -> dict[str, Any]:
+            catalog: dict[str, dict[str, Any]],
+            host_gpu_vram_gib: list[float] | None = None) -> dict[str, Any]:
+    """Cross-reference a runtime profile against the catalog.
+
+    `host_gpu_vram_gib` (R216): optional operator-supplied GPU VRAM
+    budgets in GiB. When set, OVERRIDES the profile's static
+    vram_limit_bytes for each allocation in declaration order
+    (first allocation maps to first GPU, second to second, etc.).
+    Operators on non-SAIN-01 hosts use this to get advice tuned to
+    their actual hardware.
+    """
     rows: list[dict[str, Any]] = []
     any_flagged = False
+    gpu_alloc_idx = 0  # tracks index into host_gpu_vram_gib
     for alloc in profile.get("allocations") or []:
         model_id = alloc.get("model")
         agent = alloc.get("agent_id", "?")
         tier = alloc.get("tier", "?")
         vram_limit = alloc.get("vram_limit_bytes")
         vram_limit_gib = (vram_limit / (1024**3)) if vram_limit else None
+
+        # R216: when operator supplies --gpu-vram-gib, override per-GPU
+        # allocations in declaration order. CPU allocations
+        # (target_hardware: cpu) are unaffected.
+        target_hw = (alloc.get("target_hardware") or "").lower()
+        is_gpu = target_hw.startswith("cuda") or target_hw.startswith("gpu")
+        if is_gpu and host_gpu_vram_gib is not None:
+            if gpu_alloc_idx < len(host_gpu_vram_gib):
+                vram_limit_gib = host_gpu_vram_gib[gpu_alloc_idx]
+                gpu_alloc_idx += 1
+            else:
+                # Operator gave fewer GPUs than profile demands —
+                # remaining GPU allocations have no budget at all.
+                vram_limit_gib = 0.0
+                gpu_alloc_idx += 1
 
         declared = catalog.get(model_id)
         row: dict[str, Any] = {
@@ -160,6 +186,12 @@ def render_text(analysis: dict[str, Any]) -> str:
         f"── R214 model suggester ── runtime profile: "
         f"{analysis['profile_id']} ({analysis['profile_name']})\n"
     )
+    host_override = analysis.get("host_gpu_vram_gib")
+    if host_override:
+        lines.append(
+            "R216 host-budget override active — GPU VRAM limits: "
+            f"{', '.join(f'{v:.1f} GiB' for v in host_override)}\n"
+        )
     for row in analysis["allocations"]:
         lines.append(f"Agent: {row['agent_id']}  (tier: {row['tier']})")
         lines.append(f"  Declared model:  {row['declared_model']}")
@@ -212,7 +244,28 @@ def main() -> int:
     p.add_argument("--runtime-profile", dest="profile", help="profile id (e.g. high-concurrency-burst)")
     p.add_argument("--list", action="store_true", help="list known profile ids and exit 0")
     p.add_argument("--json", action="store_true")
+    p.add_argument(
+        "--gpu-vram-gib",
+        dest="gpu_vram",
+        help=(
+            "R216 — comma-separated per-GPU VRAM budgets in GiB "
+            "(e.g. '24,16'). Overrides the profile's vram_limit_bytes "
+            "in declaration order. Lets operators on non-SAIN-01 "
+            "hosts get advice tuned to their actual hardware."
+        ),
+    )
     args = p.parse_args()
+
+    host_gpu_vram: list[float] | None = None
+    if args.gpu_vram:
+        try:
+            host_gpu_vram = [float(x.strip()) for x in args.gpu_vram.split(",") if x.strip()]
+        except ValueError as e:
+            print(f"ERROR --gpu-vram-gib parse: {e}", file=sys.stderr)
+            return 2
+        if not host_gpu_vram:
+            print("ERROR --gpu-vram-gib empty", file=sys.stderr)
+            return 2
 
     if args.list:
         for pid in list_profile_ids():
@@ -233,7 +286,9 @@ def main() -> int:
         return 2
 
     catalog = load_catalog()
-    analysis = analyse(profile, catalog)
+    analysis = analyse(profile, catalog, host_gpu_vram_gib=host_gpu_vram)
+    if host_gpu_vram is not None:
+        analysis["host_gpu_vram_gib"] = host_gpu_vram
 
     if args.json:
         print(json.dumps(analysis, indent=2))
