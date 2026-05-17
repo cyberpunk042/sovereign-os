@@ -5698,6 +5698,22 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  config-restore)
+    # R333 (E2.M24): config-restore companion to R332.
+    # Reads R332 snapshot JSON + verifies sha256s + replays overlays
+    # back to disk under triple-gate. Records to R327 audit log.
+    sub="${1:-verify}"
+    shift || true
+    case "${sub}" in
+      verify|apply)
+        "${__REPO_ROOT}/scripts/diagnostics/config-restore.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown config-restore subverb: ${sub} (verify, apply)"
+        exit 2
+        ;;
+    esac
+    ;;
   config-snapshot)
     # R332 (E2.M23): config-snapshot for backup/migration.
     # Captures complete operator-customized state into ONE portable
