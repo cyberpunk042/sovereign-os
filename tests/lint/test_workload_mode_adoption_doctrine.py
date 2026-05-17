@@ -29,6 +29,11 @@ ADOPTERS = [
     # generalizes beyond the original 4-set.
     ("scripts/hardware/xmp-oc-room-advisor.py",          "R344",
      "_read_canonical_mode"),
+    # R345 (E2.M33): closes SDD-035 deferred candidate R293
+    # power-profiles — different shape (profile-name string) but
+    # same contract.
+    ("scripts/power/profiles.py",                        "R345",
+     "_read_canonical_mode"),
 ]
 
 

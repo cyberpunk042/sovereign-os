@@ -67,6 +67,8 @@ Per-advisor `<SHAPE>` examples shipped:
 - `WORKLOAD_MODE_TO_GOV_EPP` (R307 — discrete tuples)
 - `WORKLOAD_MODE_TO_MARGIN_DELTA` (R296 — continuous margin deltas)
 - `WORKLOAD_MODE_TO_DAMPER_DELTA` (R304 — continuous threshold + step deltas)
+- `WORKLOAD_MODE_TO_RUNTIME_KNOBS` (R315 — absolute runtime knobs replacement)
+- `WORKLOAD_MODE_TO_PROFILE_NAME` (R293 — profile-name string recommendation)
 
 Each entry MUST contain a `rationale` string explaining WHY the
 mode chose this shape value.
@@ -132,6 +134,7 @@ SOMEWHERE post-modulation the invariants are restored.
 | R296 thermal-oc-budget | R341 | continuous margin deltas | `WORKLOAD_MODE_TO_MARGIN_DELTA` |
 | R304 memory-pressure-damper | R342 | continuous threshold + step | `WORKLOAD_MODE_TO_DAMPER_DELTA` |
 | R315 xmp-oc-room-advisor | R344 | absolute runtime knob replacement | `WORKLOAD_MODE_TO_RUNTIME_KNOBS` |
+| R293 power-profiles | R345 | profile-name string (recommended profile) | `WORKLOAD_MODE_TO_PROFILE_NAME` |
 
 ## L1 lint enforcement
 
@@ -165,15 +168,12 @@ A future advisor that adopts R338 adds its script to the lint's
 
 ## Future-quarter adoption candidates
 
-- **R293 power-profiles** — different shape (lifecycle profiles vs
-  CPU performance profile); adoption requires modulation of which
-  lifecycle profile to recommend per mode (e.g. training → "thermal-
-  budget-throttle" profile; idle → "ac-loss-graceful-suspend").
-- **R315 xmp-oc-room-advisor** — natural adopter: training mode →
-  budget includes sustained-load PSU draw; idle → only single-GPU
-  draw counted.
-- **R293 / R295 etc.** — future round candidates as new advisors
-  ship; each follows the SDD-035 contract.
+- ~~**R293 power-profiles**~~ — adopted R345 (closes deferred
+  candidate; shape was profile-name string, contract generalized
+  cleanly).
+- ~~**R315 xmp-oc-room-advisor**~~ — adopted R344.
+- **R295 etc.** — future round candidates as new advisors ship; each
+  follows the SDD-035 contract.
 
 ## Doctrine evolution
 

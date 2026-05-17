@@ -177,12 +177,26 @@ AFFECTED_ADVISORS: list[dict[str, Any]] = [
     },
     {
         "advisor": "R293 power-profiles",
-        "script": "scripts/hardware/power-profiles.py",
-        "verb": "sovereign-osctl power-profiles status",
-        "consumes_mode_via": "(not yet)",
-        "future_adoption": True,
-        "operator_caveat": "Future-round candidate: training mode → "
-                            "performance governor; idle mode → powersave.",
+        "script": "scripts/power/profiles.py",
+        "verb": "sovereign-osctl power-profiles list",
+        "consumes_mode_via": ("R338 canonical "
+                                "(/etc/sovereign-os/workload-mode.toml) "
+                                "since R345; maps canonical mode → "
+                                "recommended profile name via "
+                                "WORKLOAD_MODE_TO_PROFILE_NAME (idle→"
+                                "ac-loss-graceful-suspend; training→"
+                                "thermal-budget-throttle; inference-ready→"
+                                "battery-threshold-graceful-shutdown; "
+                                "oc-burst→psu-headroom-warn). Operator's "
+                                "own `default: true` profile remains the "
+                                "active_profile — recommendation is "
+                                "additive surface."),
+        "future_adoption": False,
+        "adopted_in_round": "R345",
+        "operator_caveat": "Closes SDD-035 deferred candidate. R293's "
+                            "shape (profile-name string vs runtime knobs) "
+                            "differs from R296/R304/R307/R315 but the "
+                            "SDD-035 contract generalized cleanly.",
     },
     {
         "advisor": "R307 cpu-hotswap",

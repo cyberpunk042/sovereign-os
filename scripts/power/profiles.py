@@ -167,22 +167,103 @@ def resolve_profile(profiles: list[dict], name: str) -> dict | None:
     return None
 
 
-def load_profiles(overlay_path: Path | None) -> tuple[list[dict], dict]:
+def load_profiles(overlay_path: Path | None) -> tuple[list[dict], dict, dict]:
+    """Returns (profiles, meta, cfg).
+    cfg surfaces the R345-added knobs (follow_workload_mode_coordinator,
+    workload_mode_overlay_path) so callers can read them.
+    """
     meta = {"_source": "(defaults)", "_overlay_keys": []}
     profiles = list(DEFAULT_PROFILES)
+    # R345 (E2.M33, SDD-035): R338 workload-mode adoption knobs.
+    cfg = {
+        "follow_workload_mode_coordinator": True,
+        "workload_mode_overlay_path": "/etc/sovereign-os/workload-mode.toml",
+    }
     if load_with_overlay is not None:
-        cfg = load_with_overlay(
+        loaded = load_with_overlay(
             "power-profiles",
-            {"profiles": []},
+            {"profiles": [], **cfg},
             explicit_path=overlay_path,
         )
-        meta["_source"] = cfg.get("_source", meta["_source"])
-        meta["_overlay_keys"] = cfg.get("_overlay_keys", [])
-        if cfg.get("_parse_error"):
-            meta["_parse_error"] = cfg["_parse_error"]
-        if cfg.get("profiles"):
-            profiles = list(cfg["profiles"])
-    return profiles, meta
+        meta["_source"] = loaded.get("_source", meta["_source"])
+        meta["_overlay_keys"] = loaded.get("_overlay_keys", [])
+        if loaded.get("_parse_error"):
+            meta["_parse_error"] = loaded["_parse_error"]
+        if loaded.get("profiles"):
+            profiles = list(loaded["profiles"])
+        for k in cfg:
+            if k in loaded:
+                cfg[k] = loaded[k]
+    return profiles, meta, cfg
+
+
+# R345 (E2.M33, SDD-035): workload-mode → recommended power-profile.
+# Each entry maps a R338 canonical mode to which named profile R293
+# should advise as active. Operator-readable rationale per mode.
+WORKLOAD_MODE_TO_PROFILE_NAME: dict[str, dict[str, Any]] = {
+    "idle": {
+        "profile_name": "ac-loss-graceful-suspend",
+        "rationale": ("Idle: operator away; suspend-on-AC-loss "
+                       "preserves session state while drawing zero "
+                       "wall-power between events."),
+    },
+    "inference-ready": {
+        "profile_name": "battery-threshold-graceful-shutdown",
+        "rationale": ("Inference-ready: default operator posture; "
+                       "battery-threshold graceful shutdown is the "
+                       "sane standard for daytime keyboard use."),
+    },
+    "training": {
+        "profile_name": "thermal-budget-throttle",
+        "rationale": ("Training: sustained workload risks thermal "
+                       "incidents; thermal-budget-throttle profile "
+                       "pre-arms automatic throttle when R296 verdict "
+                       "crosses threshold."),
+    },
+    "oc-burst": {
+        "profile_name": "psu-headroom-warn",
+        "rationale": ("OC-burst: transient peak likely to approach "
+                       "PSU rated W; psu-headroom-warn alerts operator "
+                       "the moment R252 power-status reports headroom "
+                       "deficit."),
+    },
+}
+
+
+def _read_canonical_mode(cfg: dict) -> tuple[str | None, str]:
+    """R345 (E2.M33): SDD-035 contract — same shape as R339-R344.
+    NEVER raises."""
+    if not cfg.get("follow_workload_mode_coordinator", True):
+        return None, "power-profiles-overlay"
+    path = Path(cfg.get("workload_mode_overlay_path",
+                          "/etc/sovereign-os/workload-mode.toml"))
+    if not path.is_file():
+        return None, "power-profiles-overlay"
+    try:
+        body = path.read_text(encoding="utf-8")
+    except OSError:
+        return None, "power-profiles-overlay"
+    import re
+    m = re.search(r'^\s*active_mode\s*=\s*"([^"]+)"\s*$', body, re.M)
+    if m:
+        return m.group(1), "R338-canonical"
+    return None, "power-profiles-overlay"
+
+
+def _resolve_workload_recommended_profile(
+    cfg: dict, profiles: list[dict],
+) -> tuple[dict | None, str | None, str]:
+    """Resolve which profile R338 canonical mode recommends.
+    Returns (profile_dict_or_None, canonical_mode_or_None, source)."""
+    canonical, source = _read_canonical_mode(cfg)
+    if canonical is None:
+        return None, None, source
+    spec = WORKLOAD_MODE_TO_PROFILE_NAME.get(canonical)
+    if spec is None:
+        return None, canonical, f"{source}-unknown-mode"
+    name = spec["profile_name"]
+    target = resolve_profile(profiles, name)
+    return target, canonical, source
 
 
 def active_profile(profiles: list[dict]) -> dict | None:
@@ -266,7 +347,18 @@ def main(argv: list[str] | None = None) -> int:
     pa.set_defaults(fmt="json")
 
     args = p.parse_args(argv)
-    profiles, meta = load_profiles(getattr(args, "config", None))
+    profiles, meta, cfg = load_profiles(getattr(args, "config", None))
+
+    # R345 (E2.M33, SDD-035): R338 workload-mode adoption fields.
+    wm_target, wm_canonical, wm_source = _resolve_workload_recommended_profile(
+        cfg, profiles,
+    )
+    wm_fields = {
+        "workload_mode_canonical": wm_canonical,
+        "workload_mode_source": wm_source,
+        "workload_mode_recommended_profile": (wm_target or {}).get("name"),
+        "workload_mode_to_profile_name": WORKLOAD_MODE_TO_PROFILE_NAME,
+    }
 
     if args.verb == "list":
         if args.fmt == "json":
@@ -278,6 +370,7 @@ def main(argv: list[str] | None = None) -> int:
                 "active_profile": (active_profile(profiles) or {}).get("name"),
                 "profiles": profiles,
                 "overlay": meta,
+                **wm_fields,
             }, indent=2))
         else:
             print(render_list_human(profiles, meta), end="")
@@ -292,6 +385,7 @@ def main(argv: list[str] | None = None) -> int:
                 "sdd_vector": SDD_VECTOR,
                 "active_profile": act,
                 "overlay": meta,
+                **wm_fields,
             }, indent=2))
         else:
             if act is None:
@@ -317,6 +411,7 @@ def main(argv: list[str] | None = None) -> int:
                 "sdd_vector": SDD_VECTOR,
                 "profile": profile,
                 "overlay": meta,
+                **wm_fields,
             }, indent=2))
         else:
             print(render_show_human(profile), end="")
@@ -333,6 +428,7 @@ def main(argv: list[str] | None = None) -> int:
                 "steps": profile.get("steps") or [],
                 "simulate_mode": True,
                 "note": "SIMULATE is print-only — operator owns the apply.",
+                **wm_fields,
             }, indent=2))
         else:
             print(render_simulate_human(profile), end="")
