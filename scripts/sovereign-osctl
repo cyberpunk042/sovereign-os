@@ -95,6 +95,10 @@ COMMANDS:
   models query [--class C] [--tier T] [--purpose P] [--size-class S] [--quantization Q] [--status S] [--max-vram N] [--min-context N] [--engine E] [--base-model B] [--json]
                                R213: filter catalog by R212 taxonomy
                                (operator query surface; AND semantics)
+  models suggest --runtime-profile <id> [--json]
+  models suggest --list        R214: profile-aware suggester — flags
+                               aspirational + VRAM-overrun allocations
+                               + suggests smaller-quant alternatives
   models list                  List resident models (tank/models)
   models pull <hf-id>          Pull model from HuggingFace into tank/models
   models verify                Verify resident-model integrity
@@ -1090,6 +1094,13 @@ cmd_models() {
       # tier / purpose / size / quantization / max-vram / min-context).
       # Operator surface for "find me the right model for this job".
       "${__REPO_ROOT}/scripts/models/catalog-query.py" "$@"
+      ;;
+    suggest)
+      # R214: profile-aware model suggester — cross-reference a
+      # master-spec § 18 runtime profile's allocations against the
+      # R212 catalog, flag aspirational entries + VRAM overruns, and
+      # suggest smaller-quantization alternatives.
+      "${__REPO_ROOT}/scripts/models/suggest-by-profile.py" "$@"
       ;;
     *)
       log_error "unknown models subcommand: ${sub}"
