@@ -266,6 +266,19 @@ COMMANDS:
                                flags features whose default layer is
                                blocked + suggests the available
                                alternative.
+  services list [--prefix P] [--state S] [--json]
+                               R240 (SDD-026 Z-15): live systemd units
+                               + load/active/sub state + description.
+                               --prefix filters by name (e.g. sovereign-).
+                               --state ∈ {active, inactive, failed}.
+  services failures [--json]   R240: only units in failed state. rc=1
+                               when any present (operator alert).
+  services timers [--json]     R240: next/last fire times via
+                               `systemctl list-timers --all`.
+  services shipped [--json]    R240: catalog of units this repo
+                               declares + per-unit "loaded on this
+                               host?" flag. rc=1 when ≥1 declared but
+                               not loaded (operator-enable signal).
   kernel list [--json]         R239 (SDD-026 Z-14): enumerate kernel-
                                tuning presets (defaults / inference-
                                burst / low-power / server-headless).
@@ -4633,6 +4646,22 @@ case "${cmd}" in
         ;;
       *)
         log_error "unknown kernel subverb: ${sub} (available: list, show, apply, cmdline-hints)"
+        exit 2
+        ;;
+    esac
+    ;;
+  services)
+    # R240 (SDD-026 Z-15): systemd services inventory + failures +
+    # timers + shipped catalog. Operator-named "OS, Services" in the
+    # 2026-05-17 'DO not stop' addendum.
+    sub="${1:-list}"
+    shift || true
+    case "${sub}" in
+      list|failures|timers|shipped)
+        "${__REPO_ROOT}/scripts/services/inventory.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown services subverb: ${sub} (available: list, failures, timers, shipped)"
         exit 2
         ;;
     esac
