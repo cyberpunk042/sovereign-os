@@ -124,7 +124,110 @@ def card_flex() -> dict[str, Any]:
     return {"id": "flex", "title": "Flex profile (R224 / Z-3)", "data": data}
 
 
-CARDS = [card_gpu, card_network, card_cpu, card_fs, card_raid, card_flex]
+def card_health() -> dict[str, Any]:
+    """R226 Z-6 — composite health-scan JSON."""
+    data = _run_json("health-scan.py", []) or {
+        "probes": [], "summary": {}, "needs_attention": False
+    }
+    return {
+        "id": "health",
+        "title": "Health scan (R226 / Z-6)",
+        "data": data,
+    }
+
+
+def _run_models_script(script: str, args: list[str]) -> dict[str, Any] | None:
+    """Variant of _run_json for scripts/models/*.py."""
+    bin_path = REPO_ROOT / "scripts" / "models" / script
+    if not bin_path.exists():
+        return None
+    try:
+        r = subprocess.run(
+            [sys.executable, str(bin_path), *args, "--json"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return None
+    if not r.stdout.strip():
+        return None
+    try:
+        return json.loads(r.stdout)
+    except json.JSONDecodeError:
+        return None
+
+
+def card_models() -> dict[str, Any]:
+    """R227 Z-2 — Models tab (LM-Studio-equivalent surface).
+
+    Aggregates the R212 catalog query + R214 profile-aware suggester
+    into ONE dashboard card. Operators browse the curated model
+    matrix (class × quantization × size × purpose) + see for each
+    runtime profile which allocations are flagged.
+
+    Data shape:
+      catalog_count        — total catalog entries
+      verified_real_count  — operator-pullable today
+      aspirational_count   — catalog declares but no real repo
+      by_class             — taxonomy histogram
+      by_quantization      — quant histogram
+      suggester            — per-runtime-profile flag summary
+    """
+    catalog = _run_models_script("catalog-query.py", []) or {}
+    models = catalog.get("models") or []
+    by_class: dict[str, int] = {}
+    by_quant: dict[str, int] = {}
+    verified = 0
+    aspirational = 0
+    for m in models:
+        if m.get("class"):
+            by_class[m["class"]] = by_class.get(m["class"], 0) + 1
+        if m.get("quantization"):
+            by_quant[m["quantization"]] = by_quant.get(m["quantization"], 0) + 1
+        if m.get("status") == "verified-real":
+            verified += 1
+        elif m.get("status") == "aspirational":
+            aspirational += 1
+    # Per-runtime-profile suggester rollup (R214)
+    suggester_rollup: list[dict[str, Any]] = []
+    for pid in ("ultra-sovereign-efficiency", "high-concurrency-burst", "deep-context-synthesis"):
+        s = _run_models_script("suggest-by-profile.py", ["--runtime-profile", pid])
+        if s is not None:
+            allocations = s.get("allocations") or []
+            flagged = sum(1 for a in allocations if a.get("flags"))
+            suggester_rollup.append({
+                "profile_id": pid,
+                "allocations_total": len(allocations),
+                "allocations_flagged": flagged,
+                "any_flagged": s.get("any_flagged", False),
+            })
+    data: dict[str, Any] = {
+        "catalog_count": len(models),
+        "verified_real_count": verified,
+        "aspirational_count": aspirational,
+        "by_class": by_class,
+        "by_quantization": by_quant,
+        "suggester_per_profile": suggester_rollup,
+    }
+    return {
+        "id": "models",
+        "title": "Models — catalog × profile (R227 / Z-2)",
+        "data": data,
+    }
+
+
+CARDS = [
+    card_gpu,
+    card_network,
+    card_cpu,
+    card_fs,
+    card_raid,
+    card_flex,
+    card_health,
+    card_models,
+]
 
 
 # --------------------------------------------------------- rendering

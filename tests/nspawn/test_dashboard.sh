@@ -36,13 +36,15 @@ grep -q "<!doctype html>" /tmp/r225-dash.html \
   && ok "render emits doctype" || ko "no doctype"
 grep -q "sovereign-os dashboard — R225 / SDD-026 Z-1 SEED" /tmp/r225-dash.html \
   && ok "render carries R225 banner" || ko "no banner"
-# All 6 cards must render
+# All 8 cards must render (R225 seed + R226 health + R227 models)
 for needle in "GPU watt deviance (R219 / Z-5)" \
               "Network state (R220 / Z-7)" \
               "CPU mode (R221 / Z-4)" \
               "Filesystem usage (R222 / Z-10)" \
               "Software RAID (R223 / Z-9)" \
-              "Flex profile (R224 / Z-3)"; do
+              "Flex profile (R224 / Z-3)" \
+              "Health scan (R226 / Z-6)" \
+              "Models — catalog × profile (R227 / Z-2)"; do
   grep -qF "${needle}" /tmp/r225-dash.html \
     && ok "render carries card: ${needle:0:30}…" \
     || ko "missing card: ${needle}"
@@ -114,9 +116,10 @@ d = json.load(open(sys.argv[1]))
 assert d["round"] == "R225"
 assert d["sdd_vector"] == "SDD-026 Z-1"
 assert isinstance(d["cards"], list)
-assert len(d["cards"]) == 6
+# R225 SEED ships with 6 cards; R226 + R227 add 2 more.
+assert len(d["cards"]) == 8, f"expected 8 cards, got {len(d['cards'])}"
 ids = {c["id"] for c in d["cards"]}
-assert ids == {"gpu", "network", "cpu", "fs", "raid", "flex"}, ids
+assert ids == {"gpu", "network", "cpu", "fs", "raid", "flex", "health", "models"}, ids
 PY
   else
     ko "curl GET /api/health failed (rc=${curl_rc})"
