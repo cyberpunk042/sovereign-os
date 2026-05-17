@@ -91,7 +91,7 @@ The split keeps the operator-facing book focused on running / building / extendi
 - **Q-A** — Should the mdbook deploy on every push to `main`, or only on tagged releases? Trade-off: continuous-deploy serves real-time operator-readers but exposes WIP; tag-only is reproducible but stale.
 - **Q-B** — Should missing pages (reserved in SUMMARY but not yet authored) produce mdbook errors (CI fail) or warnings? Plan-agent recommends warnings during foundation phase, errors post-Gate-5.
 - **Q-C** — GitHub Pages or alternative (Cloudflare Pages, Vercel, self-hosted)? GHA + GH Pages is the lowest-friction option; alternatives revisit-able if needed.
-- **Q-D** — Should the MCP template grow a real sovereign-os MCP server entry now (stub for future Q-019), or stay strictly template-only until Q-019 resolves?
+- **Q-D** — Should the MCP template grow a real sovereign-os MCP server entry now (stub for future Q-019), or stay strictly template-only until Q-019 resolves? **Resolved by R286 / SDD-031** — sovereign-os does not run its own MCP listener (template stays template-only); instead a manifest-first aggregator (`sovereign-osctl mcp-aggregate`) emits a unified cross-repo tool catalog that MCP clients consume to wire both repos without an additional listener.
 
 These can be resolved at Stage Gate 1 or deferred to PR 10 (the TDD-harness PR has the natural surface for CI conventions).
 
@@ -109,4 +109,4 @@ These can be resolved at Stage Gate 1 or deferred to PR 10 (the TDD-harness PR h
 - Plan-agent macro-arc § PR 3: info-hub `raw/dumps/2026-05-16-sovereign-os-macro-arc-plan.md`
 - selfdef mdbook reference: `cyberpunk042/selfdef/docs/book.toml` + `docs/src/SUMMARY.md`
 - selfdef CI reference: `cyberpunk042/selfdef/.github/workflows/ci.yml`
-- Future Q-019 lifecycle-management MCP: this template grows a real sovereign-os MCP entry when Q-019 resolves
+- R286 / SDD-031 cross-repo MCP-tool aggregator: closes Q-019 — `sovereign-osctl mcp-aggregate manifest` ships the unified catalog without a sovereign-os MCP listener; the SDD-002 template stays template-only.

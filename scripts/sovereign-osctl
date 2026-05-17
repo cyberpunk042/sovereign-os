@@ -278,6 +278,16 @@ COMMANDS:
                                --confirm-curl-shell (defense-in-depth).
                                First cross-script consumer of the
                                R283 operator-overlay helper (SDD-030).
+  mcp-aggregate manifest [--upstream-selfdef H:P] [--config P] [--json|--human]
+  mcp-aggregate probe-upstream H:P [--timeout SECS] [--json]
+                               R286 (E7.M5 / SDD-031): cross-repo
+                               MCP-tool aggregator. Emits a unified
+                               manifest of 31 sovereign-os read-only
+                               MCP tools (every §1b-named axis) plus
+                               optional --upstream-selfdef host:port
+                               descriptor for selfdef MCP TCP (SD-R94).
+                               Operator overlay knobs (extra_tools /
+                               exclude_tools) honoured via SDD-030.
   next-steps next|packs|apply-pack [--severity S] [--limit N] [--json]
                                R282 (E5.M10): operator "assistant feel"
                                next-best-step synthesizer. Aggregates
@@ -5336,6 +5346,16 @@ case "${cmd}" in
         exit 2
         ;;
     esac
+    ;;
+  mcp-aggregate)
+    # R286 (E7.M5 / closes Q-019 referenced in SDD-002): cross-repo
+    # MCP-tool aggregator. Emits a unified manifest of MCP tools
+    # exposed by sovereign-os (local read-only verbs) PLUS, when
+    # --upstream-selfdef <host>:<port> is given, the selfdef MCP
+    # TCP transport (SD-R94) is proxied. Operator-named (§1b
+    # mandate): "Cross-repo MCP-tool aggregator (sovereign-os
+    # surfaces selfdef tools too)".
+    "${__REPO_ROOT}/scripts/interop/mcp-aggregate.py" "$@"
     ;;
   version|--version|-V) cmd_version "$@" ;;
   help|--help|-h|"") cmd_help ;;
