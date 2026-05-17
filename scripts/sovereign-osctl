@@ -5372,6 +5372,27 @@ case "${cmd}" in
     # surfaces selfdef tools too)".
     "${__REPO_ROOT}/scripts/interop/mcp-aggregate.py" "$@"
     ;;
+  power-profiles)
+    # R293 (E1.M21): operator-pull power-management default-profile
+    # registry — composes R252/R253/R262/R265/R292 into named
+    # profiles (battery-threshold-graceful-shutdown,
+    # scheduled-graceful-poweroff, ac-loss-graceful-suspend,
+    # thermal-budget-throttle, psu-headroom-warn). Operator-named
+    # (§1b verbatim): "the PSU/APC integration with the power
+    # mangement and the scheduled shutdown when battery reach a
+    # certain point as one default profile."
+    sub="${1:-list}"
+    shift || true
+    case "${sub}" in
+      list|show|simulate|active)
+        "${__REPO_ROOT}/scripts/power/profiles.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown power-profiles subverb: ${sub} (list, show, simulate, active)"
+        exit 2
+        ;;
+    esac
+    ;;
   oc-headroom)
     # R292 (E1.M20): operator's XMP + OC headroom model.
     # Composes memory-profile (XMP/EXPO state) + gpu-watch (per-card

@@ -1,0 +1,83 @@
+# sovereign-os power-management profile registry — R293 / E1.M21.
+#
+# Operator-named (§1b mandate row, verbatim): "the PSU/APC integration
+# with the power mangement and the scheduled shutdown when battery
+# reach a certain point as one default profile. (schedule/planifest/
+# graceful on all levels, orderly)".
+#
+# Each [[profiles]] block names one operator-pull power-management
+# profile: a trigger condition + the ordered sovereign-osctl steps to
+# run when it fires. The dashboard / a scheduler / an operator hand
+# picks the matching profile based on `trigger` semantics and runs
+# the listed steps. The registry is READ-ONLY: applying steps is the
+# operator's hand (or a confirmed automation that calls the steps).
+#
+# Adopts R283 / SDD-030 operator-overlay-doctrine: copy to
+# /etc/sovereign-os/power-profiles.toml (or set
+# SOVEREIGN_OS_OVERLAY_POWER_PROFILES=<path>). Lists REPLACE.
+#
+# Exactly ONE profile should carry `default = true` — that's the
+# profile that fires when no operator override picks otherwise.
+
+[[profiles]]
+name    = "battery-threshold-graceful-shutdown"
+default = true
+trigger = """
+UPS battery charge ≤ shutdown_minutes_remaining threshold
+(operator-pinned in /etc/sovereign-os/power.toml; default 10 min).
+R253 graceful-shutdown timer fires this profile automatically when
+SOVEREIGN_OS_CONFIRM_DESTROY=YES is set on the systemd unit env.
+"""
+steps = [
+    "sovereign-osctl power-status ups --json",
+    "sovereign-osctl power-status advisories --json",
+    "sovereign-osctl service-deps drain --json",
+    "sovereign-osctl power-shutdown plan --json",
+    "sovereign-osctl power-shutdown apply --confirm",
+]
+notes = "Composes R252 (power-status) + R253 (battery shutdown guard) + R262 (drain manifest)."
+
+[[profiles]]
+name    = "scheduled-graceful-poweroff"
+default = false
+trigger = "Operator-scheduled (cron / systemd timer)."
+steps = [
+    "sovereign-osctl service-deps drain --json",
+    "sovereign-osctl power-shutdown plan --json",
+    "sovereign-osctl power-shutdown apply --confirm",
+]
+notes = "Same drain ordering as battery profile, operator-owned schedule."
+
+[[profiles]]
+name    = "ac-loss-graceful-suspend"
+default = false
+trigger = "UPS OnBattery + battery_runtime_minutes ≥ shutdown_threshold + 5 min."
+steps = [
+    "sovereign-osctl power-status ups --json",
+    "sovereign-osctl service-deps drain --prefix slm- --json",
+    "sovereign-osctl service-deps drain --prefix oracle- --json",
+    "systemctl suspend",
+]
+notes = "Drain inference workloads first, then suspend (RAM-resident state preserved)."
+
+[[profiles]]
+name    = "thermal-budget-throttle"
+default = false
+trigger = "CPU pkg temp ≥ tjmax − 10 °C OR any GPU temp ≥ max_temp − 10 °C."
+steps = [
+    "sovereign-osctl hardware thermals --json",
+    "sovereign-osctl gpu-mode --json",
+    "sovereign-osctl gpu-remediate --dry-run --json",
+]
+notes = "Read-only diagnosis. Operator decides whether to lower gpu power_limit / pause inference."
+
+[[profiles]]
+name    = "psu-headroom-warn"
+default = false
+trigger = "R292 oc-headroom verdict in {headroom-tight, over-budget}."
+steps = [
+    "sovereign-osctl oc-headroom advisory --json",
+    "sovereign-osctl gpu-card-advisor --json",
+    "sovereign-osctl power-status budget --json",
+]
+notes = "Composes R292 + R271 (gpu-card-advisor) + R252 (power-status). Read-only diagnosis."
