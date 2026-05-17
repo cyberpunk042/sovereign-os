@@ -5513,6 +5513,26 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  autohealth)
+    # R308 (E2.M14): doctor / autohealth periodic synthesizer.
+    # Composes R226 (health-scan) + R296 (thermal-oc) + R298
+    # (storage-health) + R300 (operator-posture) + R304 (memory-
+    # pressure-damper) into ONE tick that persists state +
+    # emits notify-dispatch commands when severity crosses
+    # threshold. Operator-named (§1b verbatim: "autohealth and
+    # doctor, notification and messaging").
+    sub="${1:-status}"
+    shift || true
+    case "${sub}" in
+      tick|status|history|advisory)
+        "${__REPO_ROOT}/scripts/diagnostics/autohealth.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown autohealth subverb: ${sub} (tick, status, history, advisory)"
+        exit 2
+        ;;
+    esac
+    ;;
   cpu-hotswap)
     # R307 (E1.M31): CPU hotswap mode detection — per-CPU current
     # governor / EPP / driver state + available transitions +
