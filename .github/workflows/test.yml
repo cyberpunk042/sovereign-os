@@ -337,6 +337,9 @@ jobs:
       - name: nspawn — cycle2-fleet-aggregate (Round 199: SDD-021 W-3 file-based fleet rollup)
         run: |
           tests/nspawn/test_cycle2_fleet_aggregate.sh
+      - name: nspawn — osctl audit cycle3 (Round 200: comprehensive cycle-2+3 audit umbrella)
+        run: |
+          tests/nspawn/test_osctl_audit_cycle3.sh
       - name: nspawn — thermal-watch (Round 172: per-profile thermal thresholds + OCSF events)
         run: |
           tests/nspawn/test_thermal_watch.sh

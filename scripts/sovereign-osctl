@@ -1476,6 +1476,33 @@ print(len(all_pkgs))
       fi
       [ "${checks_fail}" -eq 0 ] && exit 0 || exit 1
       ;;
+    cycle3)
+      # R200: comprehensive cycle-2 + cycle-3 audit. Runs every
+      # available cycle audit script in sequence + reports a summary
+      # exit code (0 = all clean, 1 = at least one tool surfaced
+      # an issue). Operator's single-command "is my cycle-3 state
+      # OK across this host?" check.
+      local cycle_rc=0
+      printf '═══ R200: comprehensive cycle-2+3 audit ═══\n'
+
+      printf '\n── selfdef modules signing posture (R195/SD-R55) ──\n'
+      "${__REPO_ROOT}/scripts/hardware/selfdef-signing-audit.py" \
+        --dir "${SOVEREIGN_OS_SELFDEF_MODULES_DIR:-/usr/share/selfdef/modules}" || cycle_rc=1
+
+      printf '\n── selfdef modules resource quotas (R198/SD-R61) ──\n'
+      "${__REPO_ROOT}/scripts/hardware/selfdef-resources-audit.py" \
+        --dir "${SOVEREIGN_OS_SELFDEF_MODULES_DIR:-/usr/share/selfdef/modules}" || cycle_rc=1
+
+      printf '\n── selfdef cycle-2+3 readiness (R187) ──\n'
+      "${__REPO_ROOT}/scripts/hardware/cycle2-status.py" || cycle_rc=1
+
+      if [ "${cycle_rc}" -eq 0 ]; then
+        printf '\n✓ R200: cycle-2+3 audit clean across all sub-tools\n'
+      else
+        printf '\n⚠ R200: one or more cycle audit sub-tools surfaced issues — drill in via the per-tool output above\n'
+      fi
+      return "${cycle_rc}"
+      ;;
     *)
       log_error "unknown audit subcommand: ${sub}"
       cmd_help
