@@ -255,6 +255,11 @@ COMMANDS:
                                speed (GPUs, NVMe, NICs).
   virt-info runtimes [--json]  R255: docker / podman / containerd /
                                nerdctl / crun / runc detection.
+  services-advisor cloudflared|tailscale|traefik|show [--json]
+                               R263 (SDD-026 Z-7 expansion): per-network-
+                               service deep posture (installed / configured
+                               / service_state / advisory). rc=1 when ≥1
+                               service at attention/degraded.
   power-shutdown list [--json] R262 (SDD-029 R262): show the graceful-
                                shutdown manifest (ordered drain steps).
   power-shutdown plan [--manifest P] [--json]
@@ -4771,6 +4776,22 @@ case "${cmd}" in
         ;;
       *)
         log_error "unknown bios-info subverb: ${sub} (available: show, memory, advisories)"
+        exit 2
+        ;;
+    esac
+    ;;
+  services-advisor)
+    # R263 (SDD-026 Z-7 expansion): cloudflared / tailscale / traefik
+    # posture advisor. Operator-named "the Cloudflared ? the tailscale,
+    # Traefik".
+    sub="${1:-show}"
+    shift || true
+    case "${sub}" in
+      cloudflared|tailscale|traefik|show)
+        "${__REPO_ROOT}/scripts/network/services-advisor.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown services-advisor subverb: ${sub} (available: cloudflared, tailscale, traefik, show)"
         exit 2
         ;;
     esac
