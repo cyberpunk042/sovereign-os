@@ -5410,6 +5410,24 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  kernel-cmdline)
+    # R305 (E1.M30): kernel cmdline parameter advisor — parse
+    # /proc/cmdline + diff against operator-pinned AI-workload
+    # recommended set (iommu=pt, amd_iommu=on, thp=madvise, etc.).
+    # Complements R239 kernel/tuning.py (which emits sysctl presets)
+    # with the loaded-cmdline-vs-recommended diff layer.
+    sub="${1:-status}"
+    shift || true
+    case "${sub}" in
+      status|diff|apply-hint)
+        "${__REPO_ROOT}/scripts/kernel/cmdline-advisor.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown kernel-cmdline subverb: ${sub} (status, diff, apply-hint)"
+        exit 2
+        ;;
+    esac
+    ;;
   memory-pressure-damper)
     # R304 (E1.M29): memory-pressure → OC-profile dampening
     # advisor. Composes R269 + R292 to emit "dampen by N steps"
