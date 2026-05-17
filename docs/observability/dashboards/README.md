@@ -114,6 +114,7 @@ panel queries lock to them.
 
 - `sovereign_os_inference_route_total{tier}`
 - `sovereign_os_inference_router_task_type_total{task_type}` — per-task-type classification (R161, closes R157 follow-up). Also surfaced as `X-Sovereign-Task-Type` HTTP response header per request.
+- `sovereign_os_inference_router_class_total{class}` — per-model-class classification (R215, composes with R212 catalog taxonomy: llm/slm/rlm/ternary-lm/lora-adapter/embed/vision/multimodal/code/mixture/speculative/reranker/(unspecified)). Operators supply the explicit class via the operator-asserted request-body field; the router otherwise infers from the model id. Also surfaced as `X-Sovereign-Model-Class` HTTP response header.
 - `sovereign_os_inference_router_last_route_timestamp`
 - `sovereign_os_inference_backend_start_total{tier,backend,result}`
 - `sovereign_os_inference_backend_pid{tier}`

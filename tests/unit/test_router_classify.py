@@ -115,3 +115,58 @@ def test_priority_doc_string():
     # Function-level docstring is optional; the module-level docstring documents the rules
     module_doc = router.__doc__ or ""
     assert "Routing rules" in module_doc or "routing decision" in (doc + module_doc).lower()
+
+
+# ----------- R215: model-class classification -----------
+
+
+def test_r215_classify_model_class_honors_explicit_field():
+    """Operator-asserted sovereign_os_class wins over inference."""
+    body = {"model": "deepseek-coder-32b", "sovereign_os_class": "rlm"}
+    assert router.classify_model_class(body) == "rlm"
+
+
+def test_r215_classify_model_class_explicit_must_be_known():
+    """Unknown sovereign_os_class falls through to inference."""
+    body = {"model": "microsoft/bitnet-b1.58-2B-4T", "sovereign_os_class": "alien"}
+    # falls through to bitnet inference → ternary-lm
+    assert router.classify_model_class(body) == "ternary-lm"
+
+
+def test_r215_classify_bitnet_as_ternary_lm():
+    assert router.classify_model_class({"model": "microsoft/bitnet-b1.58-2B-4T"}) == "ternary-lm"
+
+
+def test_r215_classify_phi4_mini_as_slm():
+    assert router.classify_model_class({"model": "microsoft/Phi-4-mini-instruct"}) == "slm"
+
+
+def test_r215_classify_qwen_coder_as_code():
+    assert router.classify_model_class({"model": "Qwen/Qwen3-Coder-32B-Instruct"}) == "code"
+
+
+def test_r215_classify_deepseek_r1_as_rlm():
+    assert router.classify_model_class({"model": "deepseek-ai/DeepSeek-R1-Distill-Llama-70B"}) == "rlm"
+
+
+def test_r215_classify_deepseek_v3_as_mixture():
+    assert router.classify_model_class({"model": "deepseek-ai/DeepSeek-V3"}) == "mixture"
+
+
+def test_r215_classify_nomic_embed_as_embed():
+    assert router.classify_model_class({"model": "nomic-ai/nomic-embed-text-v2-moe"}) == "embed"
+
+
+def test_r215_classify_bge_reranker_as_reranker():
+    assert router.classify_model_class({"model": "BAAI/bge-reranker-v2-m3"}) == "reranker"
+
+
+def test_r215_classify_qwen_vl_as_vision():
+    assert router.classify_model_class({"model": "Qwen/Qwen2-VL-7B-Instruct"}) == "vision"
+
+
+def test_r215_classify_unknown_returns_empty():
+    """Unknown model + no operator override → empty string (rolled
+    into '(unspecified)' bucket in metrics)."""
+    assert router.classify_model_class({"model": "unknown-vendor/unknown-model"}) == ""
+    assert router.classify_model_class({}) == ""

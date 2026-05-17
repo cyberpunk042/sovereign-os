@@ -308,6 +308,32 @@ else
   ko "R161 metric: HELP comment missing"
 fi
 
+# ----------- R215: model-class counter ---------------
+
+if grep -q "sovereign_os_inference_router_class_total Per-model-class" "${metrics_file}" 2>/dev/null; then
+  ok "R215 metric: class counter has HELP comment"
+else
+  ko "R215 metric: HELP comment missing"
+fi
+
+# Earlier ternary request (microsoft/bitnet → pulse) must have ticked
+# class=ternary-lm at least once.
+if grep -qE '^sovereign_os_inference_router_class_total\{class="ternary-lm"\} [1-9]' "${metrics_file}" 2>/dev/null; then
+  ok "R215 metric: class=ternary-lm counter >= 1"
+else
+  ko "R215 metric: ternary-lm counter missing"
+fi
+
+# Earlier code request (code markers in last user message) routed to
+# oracle_core; the model id likely wasn't classified-by-heuristic so
+# it may roll into (unspecified). Just assert the class metric exists
+# with at least one non-zero counter.
+if grep -qE '^sovereign_os_inference_router_class_total\{class="[^"]+"\} [1-9]' "${metrics_file}" 2>/dev/null; then
+  ok "R215 metric: at least one class counter > 0"
+else
+  ko "R215 metric: no class counter incremented"
+fi
+
 # ----------- result ---------------
 
 echo

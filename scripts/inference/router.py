@@ -48,6 +48,17 @@ _ROUTE_COUNTS: dict[str, int] = {t: 0 for t in (
 _TASK_TYPE_COUNTS: dict[str, int] = {t: 0 for t in (
     "code", "math", "conversational", "creative"
 )}
+# R215 — model-class classification counter. Composes with R212
+# catalog taxonomy (class enum: llm/slm/rlm/ternary-lm/lora-adapter/
+# embed/vision/multimodal/code/mixture/speculative/reranker). Operator
+# supplies the intended class via `sovereign_os_class` in the request
+# body; metrics cross-tab class × tier so fleet dashboards can answer
+# "what fraction of traffic asked for class=rlm and routed to oracle?".
+_CLASS_COUNTS: dict[str, int] = {c: 0 for c in (
+    "llm", "slm", "rlm", "ternary-lm", "lora-adapter", "embed",
+    "vision", "multimodal", "code", "mixture", "speculative",
+    "reranker", "(unspecified)",
+)}
 _METRICS_LOCK = threading.Lock()
 _METRICS_DIR = pathlib.Path(
     os.environ.get(
@@ -59,12 +70,16 @@ _METRICS_FILE = _METRICS_DIR / "sovereign-os-inference-router.prom"
 _METRICS_DISABLED = os.environ.get("SOVEREIGN_OS_METRICS_DISABLE") == "1"
 
 
-def _record_route(tier: str, task_type: str = "") -> None:
+def _record_route(tier: str, task_type: str = "", model_class: str = "") -> None:
     """Increment the per-tier counter + flush the .prom file atomically.
 
     R161: also increments the task_type counter and emits its label
     set so operators can observe which task_type each request resolved
     to (closes R157 follow-up: task_type signal flows through router).
+
+    R215: also increments the model-class counter (R212 catalog
+    taxonomy: llm / slm / rlm / ternary-lm / etc.) so operators can
+    observe cross-tabbed class × tier demand.
     """
     if _METRICS_DISABLED:
         return
@@ -72,6 +87,10 @@ def _record_route(tier: str, task_type: str = "") -> None:
         _ROUTE_COUNTS[tier] = _ROUTE_COUNTS.get(tier, 0) + 1
         if task_type:
             _TASK_TYPE_COUNTS[task_type] = _TASK_TYPE_COUNTS.get(task_type, 0) + 1
+        # R215: tally the class label (default to "(unspecified)" so
+        # operator missing the field is still observable).
+        class_label = model_class or "(unspecified)"
+        _CLASS_COUNTS[class_label] = _CLASS_COUNTS.get(class_label, 0) + 1
         try:
             _METRICS_DIR.mkdir(parents=True, exist_ok=True)
         except OSError:
@@ -86,6 +105,16 @@ def _record_route(tier: str, task_type: str = "") -> None:
         lines.append("# TYPE sovereign_os_inference_router_task_type_total counter")
         for t, n in sorted(_TASK_TYPE_COUNTS.items()):
             lines.append(f'sovereign_os_inference_router_task_type_total{{task_type="{t}"}} {n}')
+        # R215 — model-class counter.
+        lines.append(
+            "# HELP sovereign_os_inference_router_class_total Per-model-class "
+            "routing classification (R215, composes with R212 catalog taxonomy)"
+        )
+        lines.append("# TYPE sovereign_os_inference_router_class_total counter")
+        for c, n in sorted(_CLASS_COUNTS.items()):
+            lines.append(
+                f'sovereign_os_inference_router_class_total{{class="{c}"}} {n}'
+            )
         lines.append("# HELP sovereign_os_inference_router_last_route_timestamp Unix timestamp of last routing decision")
         lines.append("# TYPE sovereign_os_inference_router_last_route_timestamp gauge")
         lines.append(f"sovereign_os_inference_router_last_route_timestamp {int(time.time())}")
@@ -202,6 +231,65 @@ def classify_task_type(request_body: dict[str, Any]) -> str:
     return "conversational"
 
 
+# R215 — model-class classification. Operators supply
+# `sovereign_os_class` directly when they want explicit control; the
+# router falls back to inferring from the `model` field (matching the
+# R212 catalog's known ids → class).
+_KNOWN_CLASSES: set[str] = {
+    "llm", "slm", "rlm", "ternary-lm", "lora-adapter", "embed",
+    "vision", "multimodal", "code", "mixture", "speculative", "reranker",
+}
+
+# Heuristics for inferring class from the `model` field — keyed by
+# substring matches against well-known id patterns. Operator-readable
+# table; ordering matters (first match wins).
+_MODEL_ID_CLASS_HINTS: list[tuple[str, str]] = [
+    ("bitnet", "ternary-lm"),
+    ("ternary", "ternary-lm"),
+    ("embed", "embed"),
+    ("reranker", "reranker"),
+    ("rerank", "reranker"),
+    ("speculative", "speculative"),
+    ("vl-", "vision"),
+    ("-vl", "vision"),
+    ("vision", "vision"),
+    ("nemotron-3-nano-omni", "multimodal"),
+    ("omni", "multimodal"),
+    ("lora", "lora-adapter"),
+    ("adapter", "lora-adapter"),
+    ("v3", "mixture"),
+    ("mixtral", "mixture"),
+    ("moe", "mixture"),
+    ("coder", "code"),
+    ("r1-distill", "rlm"),
+    ("deepseek-r1", "rlm"),
+    ("reasoning", "rlm"),
+    ("1.7b", "slm"),
+    ("phi-4-mini", "slm"),
+    ("phi-4", "slm"),
+    ("0.5b", "slm"),
+]
+
+
+def classify_model_class(request_body: dict[str, Any]) -> str:
+    """R215 — classify a request's intended model class.
+
+    Precedence:
+      1. `sovereign_os_class` field (operator-asserted).
+      2. Inference from the `model` string against
+         `_MODEL_ID_CLASS_HINTS` (first matching substring wins).
+      3. Empty string → counter rolls into "(unspecified)" bucket.
+    """
+    explicit = (request_body.get("sovereign_os_class") or "").lower().strip()
+    if explicit in _KNOWN_CLASSES:
+        return explicit
+    model = (request_body.get("model") or "").lower()
+    for needle, cls in _MODEL_ID_CLASS_HINTS:
+        if needle in model:
+            return cls
+    return ""
+
+
 class RouterHandler(http.server.BaseHTTPRequestHandler):
     server_version = "sovereign-os-router/0.1"
 
@@ -223,6 +311,9 @@ class RouterHandler(http.server.BaseHTTPRequestHandler):
         # and the task_type also lands in the response header so operators
         # can curl -v and see what the router decided.
         task_type = classify_task_type(body)
+        # R215: classify model class (R212 taxonomy); also surfaces in
+        # metrics and as an X-Sovereign-Model-Class response header.
+        model_class = classify_model_class(body)
 
         target = TIER_ENDPOINTS.get(tier)
         if target is None:
@@ -230,10 +321,10 @@ class RouterHandler(http.server.BaseHTTPRequestHandler):
             return
 
         log.info(
-            "route: model=%r → tier=%s task_type=%s (%s)",
-            body.get("model"), tier, task_type, target,
+            "route: model=%r → tier=%s task_type=%s class=%s (%s)",
+            body.get("model"), tier, task_type, model_class or "?", target,
         )
-        _record_route(tier, task_type)
+        _record_route(tier, task_type, model_class)
 
         # Proxy the request unchanged
         target_url = target.rstrip("/") + self.path
@@ -255,6 +346,9 @@ class RouterHandler(http.server.BaseHTTPRequestHandler):
                 # end-to-end operator observability.
                 self.send_header("X-Sovereign-Routed-Tier", tier)
                 self.send_header("X-Sovereign-Task-Type", task_type)
+                # R215: model-class header (R212 taxonomy). Empty when
+                # the router couldn't infer + operator didn't assert.
+                self.send_header("X-Sovereign-Model-Class", model_class or "")
                 for k, v in resp.headers.items():
                     if k.lower() in {"content-length", "transfer-encoding", "connection"}:
                         continue
