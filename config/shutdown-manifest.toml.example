@@ -1,0 +1,76 @@
+# sovereign-os graceful-shutdown manifest — R262 / SDD-029 R262.
+#
+# Operator-named (verbatim, 2026-05-17 expansion): "graceful on all
+# levels, orderly".
+#
+# Ordered drain sequence the host runs when:
+#   - R253 power-shutdown-guard fires (UPS battery critical), OR
+#   - operator runs `sovereign-osctl power-shutdown apply --confirm`.
+#
+# Each step has:
+#   name         operator-readable label (logged + JSON-surfaced)
+#   kind         systemctl-stop / shell / sleep
+#   target       systemd unit name (for kind=systemctl-stop)
+#   cmd          shell command (for kind=shell; runs as root)
+#   seconds      duration (for kind=sleep)
+#   timeout_s    abort the step after N seconds (default 30)
+#   fail_action  continue / abort  (continue = log+next; abort = halt sequence)
+#
+# RC semantics:
+#   apply rc=0  all steps ok (or dry-run)
+#   apply rc=1  ≥1 step failed (the JSON report names which)
+#   apply rc=2  manifest invalid OR --confirm/SOVEREIGN_OS_CONFIRM_DESTROY=YES missing
+
+[meta]
+description           = "default Sovereign-OS graceful poweroff sequence"
+total_budget_seconds  = 180
+
+# 1. Stop the inference router so no new requests start.
+[[steps]]
+name         = "drain-inference-router"
+kind         = "systemctl-stop"
+target       = "sovereign-inference-router.service"
+timeout_s    = 30
+fail_action  = "continue"
+
+# 2. Stop the dashboard server (operator already on the failsafe path).
+[[steps]]
+name         = "stop-dashboard"
+kind         = "systemctl-stop"
+target       = "sovereign-dashboard.service"
+timeout_s    = 15
+fail_action  = "continue"
+
+# 3. Flush filesystem buffers + JSONL logs to disk.
+[[steps]]
+name         = "flush-fs-buffers"
+kind         = "shell"
+cmd          = "sync"
+timeout_s    = 30
+fail_action  = "continue"
+
+# 4. Stop GPU-watch + thermal-watch (clean Prometheus textfile dir).
+[[steps]]
+name         = "stop-watchers"
+kind         = "shell"
+cmd          = "systemctl stop sovereign-gpu-watch.timer sovereign-thermal-watch.timer || true"
+timeout_s    = 15
+fail_action  = "continue"
+
+# 5. Give 5 seconds for any in-flight Layer B metric emission to settle.
+[[steps]]
+name         = "settle-metrics"
+kind         = "sleep"
+seconds      = 5
+timeout_s    = 10
+fail_action  = "continue"
+
+# 6. The terminal step. systemctl poweroff is intentionally inside the
+#    manifest so operators can substitute it (e.g. with `reboot` for
+#    a planned restart) by editing this file.
+[[steps]]
+name         = "poweroff"
+kind         = "shell"
+cmd          = "systemctl poweroff"
+timeout_s    = 60
+fail_action  = "abort"

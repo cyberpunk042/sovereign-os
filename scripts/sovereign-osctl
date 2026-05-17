@@ -255,6 +255,16 @@ COMMANDS:
                                speed (GPUs, NVMe, NICs).
   virt-info runtimes [--json]  R255: docker / podman / containerd /
                                nerdctl / crun / runc detection.
+  power-shutdown list [--json] R262 (SDD-029 R262): show the graceful-
+                               shutdown manifest (ordered drain steps).
+  power-shutdown plan [--manifest P] [--json]
+                               R262: describe what apply would do (DRY-
+                               RUN; no execution).
+  power-shutdown apply [--manifest P] [--confirm] [--dry-run] [--json]
+                               R262: execute the manifest in order.
+                               --confirm OR SOVEREIGN_OS_CONFIRM_DESTROY=YES
+                               required (apply stops services + runs
+                               shell + can power off the host).
   power-status psu [--json]    R252 (SDD-026 Z-18): operator-declared
                                PSU + sustained budget (= rated W ×
                                derating). Operator-named "1600W ATX
@@ -4761,6 +4771,21 @@ case "${cmd}" in
         ;;
       *)
         log_error "unknown bios-info subverb: ${sub} (available: show, memory, advisories)"
+        exit 2
+        ;;
+    esac
+    ;;
+  power-shutdown)
+    # R262 (SDD-029 R262): graceful drain-then-poweroff manifest.
+    # Operator-named "graceful on all levels, orderly".
+    sub="${1:-list}"
+    shift || true
+    case "${sub}" in
+      list|plan|apply)
+        "${__REPO_ROOT}/scripts/power/schedule-manifest.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown power-shutdown subverb: ${sub} (available: list, plan, apply)"
         exit 2
         ;;
     esac
