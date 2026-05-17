@@ -125,10 +125,18 @@ AFFECTED_ADVISORS: list[dict[str, Any]] = [
         "advisor": "R296 thermal-oc-budget",
         "script": "scripts/hardware/thermal-oc-budget.py",
         "verb": "sovereign-osctl thermal-oc-budget status",
-        "consumes_mode_via": "(not yet)",
-        "future_adoption": True,
-        "operator_caveat": "Future-round candidate: training mode → higher "
-                            "thermal headroom budget than inference-ready.",
+        "consumes_mode_via": ("R338 canonical "
+                                "(/etc/sovereign-os/workload-mode.toml) "
+                                "since R341; modulates cpu_tjmax_*_margin "
+                                "+ gpu_temp_* thresholds per "
+                                "WORKLOAD_MODE_TO_MARGIN_DELTA map; "
+                                "explicit overlay margins still win"),
+        "future_adoption": False,
+        "adopted_in_round": "R341",
+        "operator_caveat": "Third R338 adopter — pattern proven across 3 "
+                            "advisor shapes (curves/governor/margins). "
+                            "Training mode tightens margins; critical "
+                            "thresholds always preserved.",
     },
     {
         "advisor": "R304 memory-pressure-damper",

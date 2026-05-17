@@ -80,7 +80,113 @@ DEFAULTS = {
     # Real tjmax is queryable from MSR but requires root + arch-
     # specific code; operator-pinned is the safe fallback.
     "cpu_tjmax_c": 95,
+    # R341 (E2.M30): R338 workload-mode adoption. When True,
+    # thermal margins are MODULATED by the canonical workload mode:
+    #   - training mode tightens margins (operator accepts less
+    #     headroom; trade thermal for throughput)
+    #   - idle mode loosens margins (operator wants any thermal
+    #     warning to fire early)
+    # Explicit overlay knobs (cpu_tjmax_*_margin_c, gpu_temp_*_c)
+    # still win. Opt out via False.
+    "follow_workload_mode_coordinator": True,
+    "workload_mode_overlay_path": "/etc/sovereign-os/workload-mode.toml",
 }
+
+
+# R341 (E2.M30): workload-mode → margin modifier map.
+# Per-mode delta applied to default margins. Positive delta on
+# *watch_margin* = thermal-watch fires SOONER (more conservative);
+# negative delta = thermal-watch fires LATER (operator accepts
+# higher sustained heat for throughput).
+WORKLOAD_MODE_TO_MARGIN_DELTA: dict[str, dict[str, Any]] = {
+    "idle": {
+        "cpu_tjmax_watch_margin_c_delta": +5,    # warn sooner (15°C below tjmax)
+        "cpu_tjmax_critical_margin_c_delta": +3,
+        "gpu_temp_watch_c_delta": -5,             # warn at 75°C instead of 80°C
+        "gpu_temp_critical_c_delta": -3,
+        "rationale": ("Idle mode: any thermal anomaly = operator "
+                       "investigation; conservative thresholds."),
+    },
+    "inference-ready": {
+        "cpu_tjmax_watch_margin_c_delta": 0,
+        "cpu_tjmax_critical_margin_c_delta": 0,
+        "gpu_temp_watch_c_delta": 0,
+        "gpu_temp_critical_c_delta": 0,
+        "rationale": ("Inference-ready: default margins; operator "
+                       "wants first-prompt headroom + sane defaults."),
+    },
+    "training": {
+        "cpu_tjmax_watch_margin_c_delta": -5,    # warn later (5°C below tjmax)
+        "cpu_tjmax_critical_margin_c_delta": -2,
+        "gpu_temp_watch_c_delta": +3,             # warn at 83°C instead of 80°C
+        "gpu_temp_critical_c_delta": +0,
+        "rationale": ("Training: sustained heat acceptable; operator "
+                       "trades thermal margin for throughput. Critical "
+                       "thresholds preserved — never let hardware "
+                       "actually damage itself."),
+    },
+    "oc-burst": {
+        "cpu_tjmax_watch_margin_c_delta": -7,    # warn LATE (3°C below tjmax)
+        "cpu_tjmax_critical_margin_c_delta": -2,
+        "gpu_temp_watch_c_delta": +5,             # warn at 85°C
+        "gpu_temp_critical_c_delta": +0,
+        "rationale": ("OC-burst: transient peak — operator wants max "
+                       "headroom utilization. Critical thresholds "
+                       "preserved (hard limits don't move)."),
+    },
+}
+
+
+def _read_canonical_mode(cfg: dict) -> tuple[str | None, str]:
+    """R341 (E2.M30): same shape as R339/R340 helpers. NEVER raises."""
+    if not cfg.get("follow_workload_mode_coordinator", True):
+        return None, "thermal-oc-budget-overlay"
+    path = Path(cfg.get("workload_mode_overlay_path",
+                          "/etc/sovereign-os/workload-mode.toml"))
+    if not path.is_file():
+        return None, "thermal-oc-budget-overlay"
+    try:
+        body = path.read_text(encoding="utf-8")
+    except OSError:
+        return None, "thermal-oc-budget-overlay"
+    import re
+    m = re.search(r'^\s*active_mode\s*=\s*"([^"]+)"\s*$', body, re.M)
+    if m:
+        return m.group(1), "R338-canonical"
+    return None, "thermal-oc-budget-overlay"
+
+
+def _apply_mode_modulation(cfg: dict) -> tuple[dict, str | None, str]:
+    """R341: modulate cfg margins by canonical mode delta.
+
+    Returns (modulated_cfg, canonical_mode, source).
+    Mutates a COPY of cfg — original unchanged for audit.
+
+    Explicit overlay-non-default margins are PRESERVED as-is
+    (operator-explicit-wins doctrine).
+    """
+    cfg_modulated = dict(cfg)
+    canonical, source = _read_canonical_mode(cfg)
+    if canonical is None:
+        return cfg_modulated, None, source
+    delta = WORKLOAD_MODE_TO_MARGIN_DELTA.get(canonical)
+    if delta is None:
+        return cfg_modulated, canonical, f"{source}-unknown-mode"
+    # Apply each delta key to the matching margin in cfg.
+    pairs = [
+        ("cpu_tjmax_watch_margin_c", "cpu_tjmax_watch_margin_c_delta"),
+        ("cpu_tjmax_critical_margin_c", "cpu_tjmax_critical_margin_c_delta"),
+        ("gpu_temp_watch_c", "gpu_temp_watch_c_delta"),
+        ("gpu_temp_critical_c", "gpu_temp_critical_c_delta"),
+    ]
+    for cfg_key, delta_key in pairs:
+        try:
+            base = float(cfg_modulated.get(cfg_key, 0))
+            adj = float(delta.get(delta_key, 0))
+            cfg_modulated[cfg_key] = base + adj
+        except (TypeError, ValueError):
+            continue
+    return cfg_modulated, canonical, source
 
 
 # ── Sibling-probe runners (read-only; degrade gracefully) ───────────
@@ -213,11 +319,15 @@ def build_report(overlay_path: Path | None) -> dict[str, Any]:
         if loaded.get("_parse_error"):
             meta["_parse_error"] = loaded["_parse_error"]
 
+    # R341 (E2.M30): modulate margins by R338 canonical mode.
+    cfg_modulated, workload_mode_canonical, mode_source = \
+        _apply_mode_modulation(cfg)
+
     thermal_raw = probe_thermal()
     oc_raw = probe_oc_headroom()
     psu_oc_raw = probe_psu_oc()
 
-    thermal = derive_thermal_status(thermal_raw, cfg)
+    thermal = derive_thermal_status(thermal_raw, cfg_modulated)
     combined = derive_combined_verdict(thermal, oc_raw, psu_oc_raw)
 
     return {
@@ -225,6 +335,10 @@ def build_report(overlay_path: Path | None) -> dict[str, Any]:
         "round": ROUND,
         "sdd_vector": SDD_VECTOR,
         "config": cfg,
+        "config_modulated": cfg_modulated,
+        "workload_mode_canonical": workload_mode_canonical,
+        "workload_mode_source": mode_source,
+        "workload_mode_to_margin_delta": WORKLOAD_MODE_TO_MARGIN_DELTA,
         "thermal": thermal,
         "psu_headroom_verdict": (oc_raw or {}).get("verdict"),
         "psu_oc_mode_enabled": ((psu_oc_raw or {}).get("oc_mode_enabled")),

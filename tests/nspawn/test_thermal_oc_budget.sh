@@ -121,17 +121,20 @@ pass "8. sovereign-osctl thermal-oc-budget dispatches"
 
 # ── 9. Read-only invariant (two status calls identical modulo
 #       real-time fields) ────────────────────────────────────
-out2="$(python3 "${SCRIPT}" status --json)"
+f1=$(mktemp); f2=$(mktemp)
+python3 "${SCRIPT}" status --json > "${f1}"
+python3 "${SCRIPT}" status --json > "${f2}"
 python3 -c "
-import json, sys
-a = json.loads('''$(echo "${out}" | sed "s/'/'\"'\"'/g")''')
-b = json.loads('''$(echo "${out2}" | sed "s/'/'\"'\"'/g")''')
+import json
+a = json.load(open('${f1}'))
+b = json.load(open('${f2}'))
 # Strip volatile fields.
 for d in (a, b):
     d['thermal'].pop('hottest_cpu_c', None)
     d['thermal'].pop('hottest_gpu_c', None)
 assert a == b, 'two status calls diverge modulo real-time'
 " || fail "read-only invariant"
+rm -f "${f1}" "${f2}"
 pass "9. read-only invariant (two status calls match modulo real-time °C)"
 
 echo "ALL OK"
