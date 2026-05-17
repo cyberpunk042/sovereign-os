@@ -1059,6 +1059,22 @@ cmd_models() {
       # registered models WOULD apply on this host.
       "${__REPO_ROOT}/scripts/models/selfdef-models.py" check-hardware "$@"
       ;;
+    fetch)
+      # R196: bridge to selfdef SD-R57 — HTTP fetch + sha256 verify
+      # via the canonical selfdefctl path. Requires selfdefctl on PATH.
+      if ! command -v selfdefctl >/dev/null 2>&1; then
+        log_error "selfdefctl not on PATH — install selfdef before fetching models"
+        return 1
+      fi
+      selfdefctl models fetch "$@"
+      ;;
+    verify-checksum)
+      # R196: alias for the R190 standalone verify-checksum.py — operators
+      # use this AFTER a manual download (huggingface-cli, curl) to
+      # confirm artifact integrity against the manifest's sha256 pin.
+      # Distinct from `models verify` (catalog-sync) — this is per-artifact.
+      "${__REPO_ROOT}/scripts/models/verify-checksum.py" "$@"
+      ;;
     *)
       log_error "unknown models subcommand: ${sub}"
       cmd_help

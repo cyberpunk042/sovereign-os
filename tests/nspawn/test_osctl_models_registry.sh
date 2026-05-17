@@ -91,6 +91,43 @@ else
   ko "--json broken: ${out_json}"
 fi
 
+# ---------- R196: fetch + verify-checksum subcommand dispatch ----------
+grep -q "fetch)" "${OSCTL}" \
+  && ok "osctl carries R196 'fetch' dispatch" \
+  || ko "fetch subcommand missing"
+grep -q "verify-checksum)" "${OSCTL}" \
+  && ok "osctl carries R196 'verify-checksum' dispatch" \
+  || ko "verify-checksum subcommand missing"
+
+# fetch without selfdefctl on PATH → rc≠0 + clear error
+set +e
+out_fetch="$(PATH=/usr/bin:/bin "${OSCTL}" models fetch fake-slug --to /tmp/x 2>&1)"
+fetch_rc=$?
+set -e
+[ "${fetch_rc}" -ne 0 ] && ok "fetch without selfdefctl → rc≠0" \
+  || ko "fetch should fail when selfdefctl absent"
+grep -q "selfdefctl not on PATH" <<< "${out_fetch}" \
+  && ok "fetch error cites missing selfdefctl" \
+  || ko "missing error message: ${out_fetch}"
+
+# verify-checksum bridge: stage a manifest with mismatched sha → rc=1
+WORK_VC="$(mktemp -d)"
+trap 'rm -rf "${WORK}" "${WORK_VC}"' EXIT
+echo "test" > "${WORK_VC}/artifact.bin"
+cat > "${WORK_VC}/model.toml" <<'TOML'
+[model]
+name = "test"
+artifact_sha256 = "deadbeef0000000000000000000000000000000000000000000000000000beef"
+TOML
+set +e
+"${OSCTL}" models verify-checksum \
+  --manifest "${WORK_VC}/model.toml" \
+  --artifact "${WORK_VC}/artifact.bin" --quiet 2>/dev/null
+vc_rc=$?
+set -e
+[ "${vc_rc}" -eq 1 ] && ok "verify-checksum bridge: mismatched sha → rc=1" \
+  || ko "verify-checksum bridge rc=${vc_rc}"
+
 echo
 total=$((pass + fail))
 echo "test_osctl_models_registry: ${pass}/${total} passed"
