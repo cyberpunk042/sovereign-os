@@ -1,0 +1,37 @@
+# sovereign-os 9-stage workflow profiles — R291 / E5.M9.
+#
+# Operator-named (§1b mandate row, verbatim): "Operator-mutable
+# flexible profile (download / fine-tune / parameters / build / run /
+# use / train / adapt / eval workflow)".
+#
+# Each [[profiles]] block declares one operator-named workflow.
+# `sovereign-osctl workflow plan <profile>` walks the 9 stages and
+# emits the next pending command (read-only probes; no side-effects).
+#
+# Adopts R283 / SDD-030 operator-overlay-doctrine: copy to
+# /etc/sovereign-os/workflow-profiles.toml (or set
+# SOVEREIGN_OS_OVERLAY_WORKFLOW_PROFILES=<path>). Lists REPLACE — this
+# file becomes the full surface when present.
+
+[[profiles]]
+name        = "operator-flagship-9-stage"
+base        = "Qwen/Qwen2-7B-Instruct"
+method      = "sft-trl"
+dataset     = "operator-flagship-v1"
+adapter_id  = "operator-flagship"
+eval_task   = "operator-flagship-eval"
+dpo_dataset = "operator-flagship-prefs-v1"
+notes       = "Reference 9-stage workflow seed."
+
+[profiles.parameters]
+context_window = 8192
+kv_cache_gib   = 16
+
+[profiles.parameters.sampling]
+temperature = 0.7
+top_p       = 0.9
+
+[profiles.use]
+workload      = "helpdesk-assistance"
+target_qps    = 4
+target_p99_ms = 1500

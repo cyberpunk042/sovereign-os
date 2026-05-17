@@ -5390,6 +5390,15 @@ case "${cmd}" in
     # command for the operator to run.
     "${__REPO_ROOT}/scripts/models/lifecycle.py" "$@"
     ;;
+  workflow)
+    # R291 (E5.M9): operator-mutable flexible profile — full 9-stage
+    # workflow (download / fine-tune / parameters / build / run /
+    # use / train / adapt / eval) the operator named in §1b
+    # verbatim. Sibling to `lifecycle` (R290 / E5.M6); covers the
+    # broader operator surface beyond the fine-tune-focused
+    # 5-stage subset.
+    "${__REPO_ROOT}/scripts/models/workflow.py" "$@"
+    ;;
   version|--version|-V) cmd_version "$@" ;;
   help|--help|-h|"") cmd_help ;;
   *)
