@@ -268,6 +268,15 @@ COMMANDS:
                                analysis layer named in operator's
                                "autohealth and doctor and analysis".
   diagnose probes [--json]     R266: list available sub-probes.
+  ram-advisor status|budget|advisory [--json]
+                               R279 (E1.M16): 256 GB DDR5 RAM advisor
+                               per master-spec §1.1+§3+§19. Composite
+                               verdict over live MemTotal vs operator-
+                               expected total + ZFS ARC ceiling (128
+                               GiB clamp) + GGUF context budget +
+                               non-AI headroom. Critical when live
+                               total <10% below expected (DIMM fail)
+                               OR ARC blew the ceiling.
   service-deps graph|drain|dot [--unit ...|--prefix P] [--json]
                                R277 (E2.M9): service-dependency graph
                                + topo-sorted drain order. Reads
@@ -4884,6 +4893,21 @@ case "${cmd}" in
         ;;
       *)
         log_error "unknown diagnose subverb: ${sub} (available: run, probes)"
+        exit 2
+        ;;
+    esac
+    ;;
+  ram-advisor)
+    # R279 (E1.M16): 256 GB DDR5 RAM advisor with master-spec §19
+    # ARC clamp + GGUF context budget.
+    sub="${1:-status}"
+    shift || true
+    case "${sub}" in
+      status|budget|advisory)
+        "${__REPO_ROOT}/scripts/hardware/ram-advisor.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown ram-advisor subverb: ${sub} (available: status, budget, advisory)"
         exit 2
         ;;
     esac

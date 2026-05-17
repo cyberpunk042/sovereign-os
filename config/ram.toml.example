@@ -1,0 +1,27 @@
+# sovereign-os RAM advisor — R279 / E1.M16.
+#
+# Operator-named (master spec § 1.1, § 3, § 19, raw dump verbatim):
+#   "256GB DDR5 (Initial: 128GB) — High-capacity system context for
+#    ZFS ARC and GGUF offloading. To ensure ZFS does not choke memory
+#    availability for massive model execution context layers, the
+#    Adaptive Replacement Cache (ARC) limit is explicitly clamped at
+#    exactly 128GB of the system's 256GB overall space."
+#
+# Copy to /etc/sovereign-os/ram.toml; or point
+# SOVEREIGN_OS_RAM_CONFIG=<path> at this file for dev runs.
+
+# Total RAM operator expects the host to report. ram-advisor verdict
+# escalates to attention when delta_total_pct < -2% (DIMM missing /
+# firmware misreports) and to critical when < -10%.
+expected_total_gib = 256
+
+# ZFS Adaptive Replacement Cache ceiling. Master spec § 19 clamps
+# this at exactly 128 GiB on a 256 GiB host. Set this even when ZFS
+# isn't installed yet — the advisor uses it for headroom math.
+arc_max_gib = 128
+
+# GGUF context budget — how much RAM operator reserves for model
+# context (KV cache for vLLM, llama.cpp mmap, etc). Subtracted from
+# the post-ARC budget to compute "non-AI headroom" (SSH + dashboard +
+# agents). Default 64 GiB → 256 - 128 - 64 = 64 GiB headroom.
+gguf_context_max_gib = 64
