@@ -5513,6 +5513,24 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  cpu-hotswap)
+    # R307 (E1.M31): CPU hotswap mode detection — per-CPU current
+    # governor / EPP / driver state + available transitions +
+    # swap-hint operator-runnable command. Complements R221/R230
+    # (E1.M10 cpu-mode + auto-recommender) with the detect side.
+    # Operator-named (§1b verbatim).
+    sub="${1:-status}"
+    shift || true
+    case "${sub}" in
+      status|per-cpu|transitions|swap-hint)
+        "${__REPO_ROOT}/scripts/hardware/cpu-hotswap.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown cpu-hotswap subverb: ${sub} (status, per-cpu, transitions, swap-hint)"
+        exit 2
+        ;;
+    esac
+    ;;
   hardening-base)
     # R306 (E2.M13): Debian 13 base-system hardening catalog —
     # 12 OS-level items (sysctl hardening + AppArmor + unattended-
