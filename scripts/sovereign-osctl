@@ -99,6 +99,13 @@ COMMANDS:
   models suggest --list        R214: profile-aware suggester — flags
                                aspirational + VRAM-overrun allocations
                                + suggests smaller-quant alternatives
+  models info <slug> [--json]  R231 (SDD-026 Z-2): LM-Studio-equivalent
+                               rich detail for one catalog model
+                               (class / quant / size / params / vram /
+                               context / operator_note / variants /
+                               LoRA adapters / pull+verify+suggest
+                               commands). --json drives the dashboard
+                               model-detail panel.
   models list                  List resident models (tank/models)
   models pull <hf-id>          Pull model from HuggingFace into tank/models
   models verify                Verify resident-model integrity
@@ -1228,6 +1235,15 @@ cmd_models() {
       # R212 catalog, flag aspirational entries + VRAM overruns, and
       # suggest smaller-quantization alternatives.
       "${__REPO_ROOT}/scripts/models/suggest-by-profile.py" "$@"
+      ;;
+    info)
+      # R231 (SDD-026 Z-2): LM-Studio-equivalent rich detail for one
+      # catalog model — every field the YAML declares (class /
+      # quantization / size / params / vram / context / engine /
+      # operator_note / variants / LoRA adapters) + actionable
+      # next-steps (pull / verify / suggest commands). Operator
+      # gets the full surface in one verb.
+      "${__REPO_ROOT}/scripts/models/info.py" "$@"
       ;;
     *)
       log_error "unknown models subcommand: ${sub}"
