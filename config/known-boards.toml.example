@@ -1,0 +1,40 @@
+# sovereign-os known-board advisory registry — R260 / SDD-029 R260.
+#
+# Operator-pull table: when the live host's baseboard product name
+# (from dmidecode -t baseboard OR /sys/class/dmi/id/board_name)
+# matches a `[boards.<id>]` entry's `match_id`, R251 surfaces the
+# entry's curated advisories.
+#
+# Cycle-8 had this table hardcoded in scripts/hardware/bios-info.py
+# (KNOWN_BOARDS dict). R260 moves it to TOML so future operator
+# contributions don't need a Python edit + Rust workspace test cycle.
+# bios-info.py reads this file when present and falls back to the
+# hardcoded Python table when absent (graceful — no breakage on hosts
+# missing the config file).
+#
+# To add a board: copy /etc/sovereign-os/known-boards.toml from this
+# example, then append a `[boards.<your-id>]` block. The dashboard
+# advisory count picks up the new entries on next page reload.
+
+[boards."ProArt X870E-CREATOR WIFI"]
+match_id        = "ProArt X870E-CREATOR WIFI"
+vendor          = "ASUSTeK COMPUTER INC."
+chipset         = "AMD X870E"
+socket          = "AM5"
+memory_channels = 2
+memory_max_speed_jedec_mts  = 5600
+memory_max_speed_exp_oc_mts = 8000
+pcie_layout = [
+    "PCIEX16_1: x16 / x8 (drops to x8 when PCIEX16_2 populated)",
+    "PCIEX16_2: x8 (active only when populated; steals from slot 1)",
+    "M2_1:     PCIe 5.0 x4 from CPU",
+    "M2_2:     PCIe 5.0 x4 from CPU (steals lanes from PCIEX16_2)",
+]
+advisories = [
+    "Enable AMD EXPO (XMP-equivalent) in BIOS to hit DDR5-6000+ — default JEDEC-5600 wastes the kit's rated speed.",
+    "If running RTX 3090 + RTX PRO 6000 simultaneously, populate PCIEX16_1 AND PCIEX16_2; both drop to PCIe5 x8 which is fine for inference (~64 GB/s each).",
+    "Enable SVM Mode (AMD-V) in BIOS for KVM / nspawn virtualization — off by default on some firmware revs.",
+    "Enable IOMMU + ACS Override in BIOS if you plan VFIO GPU passthrough (sovereign-os Stage-3 only).",
+    "ProArt X870E firmware ≥ 1303 fixes the EXPO-instability bug when paired with high-density 64GB DIMMs. Check `dmidecode -t bios` for the version + flash if older.",
+    "Onboard 10 GbE (Marvell AQC113) MAY clash with cloudflared on some kernel versions; if you see TX hangs, switch to the 2.5 GbE port (Intel I226-V) or disable TSO/GSO via ethtool.",
+]

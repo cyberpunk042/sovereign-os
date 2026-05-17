@@ -46,8 +46,21 @@ import sys
 from pathlib import Path
 from typing import Any
 
+try:
+    import tomllib  # Python 3.11+
+except ImportError:  # pragma: no cover
+    import tomli as tomllib  # type: ignore
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_KNOWN_BOARDS_CONFIG = Path("/etc/sovereign-os/known-boards.toml")
+DEV_KNOWN_BOARDS_CONFIG = REPO_ROOT / "config" / "known-boards.toml.example"
+
 
 # Operator-named board with R251 cycle-8 hardcoded advisories.
+# R260 (SDD-029 R260): operators can override / extend this table by
+# dropping /etc/sovereign-os/known-boards.toml (see
+# config/known-boards.toml.example). Hardcoded table stays as the
+# always-on baseline so the script works without a config file.
 KNOWN_BOARDS: dict[str, dict[str, Any]] = {
     "ProArt X870E-CREATOR WIFI": {
         "vendor": "ASUSTeK COMPUTER INC.",
@@ -253,11 +266,74 @@ def probe_pci_gpus() -> list[dict[str, Any]]:
     return out
 
 
+def resolve_known_boards_config_path() -> Path | None:
+    env = os.environ.get("SOVEREIGN_OS_KNOWN_BOARDS")
+    if env:
+        p = Path(env)
+        return p if p.exists() else None
+    if DEFAULT_KNOWN_BOARDS_CONFIG.exists():
+        return DEFAULT_KNOWN_BOARDS_CONFIG
+    if DEV_KNOWN_BOARDS_CONFIG.exists():
+        return DEV_KNOWN_BOARDS_CONFIG
+    return None
+
+
+def load_known_boards_from_toml(path: Path | None) -> dict[str, dict[str, Any]]:
+    """R260: load operator-pull board registry. Returns merged dict
+    of {board_id: { vendor, chipset, socket, memory_channels,
+    memory_max_speed_jedec, memory_max_speed_exp_oc, pcie_layout,
+    advisories }} compatible with the hardcoded KNOWN_BOARDS shape.
+
+    Missing path / unparseable file = empty dict (silent — the
+    hardcoded baseline still works).
+    """
+    if path is None or not path.exists():
+        return {}
+    try:
+        with path.open("rb") as fh:
+            doc = tomllib.load(fh)
+    except (OSError, tomllib.TOMLDecodeError):
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    for board_id, blk in (doc.get("boards") or {}).items():
+        if not isinstance(blk, dict):
+            continue
+        # Translate TOML keys → in-memory shape.
+        match_id = blk.get("match_id") or board_id
+        # pcie_layout in TOML is a list of "key: description" strings;
+        # the in-memory shape expects a dict. Parse on the fly.
+        layout: dict[str, str] = {}
+        for line in blk.get("pcie_layout") or []:
+            if ":" in line:
+                k, _, v = line.partition(":")
+                layout[k.strip()] = v.strip()
+        out[match_id] = {
+            "vendor": blk.get("vendor"),
+            "chipset": blk.get("chipset"),
+            "socket": blk.get("socket"),
+            "memory_channels": blk.get("memory_channels"),
+            "memory_max_speed_jedec": blk.get("memory_max_speed_jedec_mts"),
+            "memory_max_speed_exp_oc": blk.get("memory_max_speed_exp_oc_mts"),
+            "pcie_layout": layout,
+            "advisories": blk.get("advisories") or [],
+        }
+    return out
+
+
+def merged_known_boards() -> dict[str, dict[str, Any]]:
+    """Hardcoded baseline + TOML overrides (TOML wins on key collision)."""
+    out: dict[str, dict[str, Any]] = dict(KNOWN_BOARDS)
+    overrides = load_known_boards_from_toml(resolve_known_boards_config_path())
+    for k, v in overrides.items():
+        out[k] = v
+    return out
+
+
 def derive_advisories(baseboard: dict[str, Any]) -> dict[str, Any]:
     product = baseboard.get("product") or ""
     match: dict[str, Any] | None = None
     matched_id: str | None = None
-    for board_id, board in KNOWN_BOARDS.items():
+    for board_id, board in merged_known_boards().items():
         if board_id in product:
             match = board
             matched_id = board_id
