@@ -296,7 +296,7 @@ the Epic is closed — but the operator may add new Modules to it.
 | E2.M8 | systemd service hardening lint (R171 doctrine extension) | partial | R171 (extending) |
 | E2.M9 | Service-dependency graph visualizer (operator's drain ordering) | ✓ shipped | R277 |
 | E2.M10 | **Heat budget tied to OC profile** — per-component thermal headroom (CPU pkg vs tjmax, per-GPU temp vs max) cross-referenced against R292 oc-headroom verdict + R294 PSU OC-mode state; emits "OC posture is thermally safe / tight / over" verdict [from §1b verbatim: "considering XMP profile and OC profile and room for each and estimated at 100% usage and then real time tracking and intelligence around it. (Possibly heat too I guess)"] | ✓ shipped | R296 (`sovereign-osctl thermal-oc-budget status/advisory/inputs`) |
-| E2.M11 | **Network install-layer advisor — VPN + reverse-proxy + DNS docker vs system** (Cloudflare Tunnel vs Tailscale vs Traefik — when does each run docker, when system, when both work?) [from §1b verbatim: "the DNS, the Cloudflared ? the tailscale, Traefik, non docker vs docker install ? when possible ? container level vs system level"] | **TODO** | — |
+| E2.M11 | **Network install-layer advisor — VPN + reverse-proxy + DNS docker vs system** (Cloudflare Tunnel vs Tailscale vs Traefik — when does each run docker, when system, when both work?) [from §1b verbatim: "the DNS, the Cloudflared ? the tailscale, Traefik, non docker vs docker install ? when possible ? container level vs system level"] | ✓ shipped | R297 (`sovereign-osctl network-install-advisor list/show/coexist/recommend`) |
 
 ### Epic E3 — Network visibility & control
 

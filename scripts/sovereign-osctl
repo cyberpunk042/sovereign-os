@@ -5372,6 +5372,25 @@ case "${cmd}" in
     # surfaces selfdef tools too)".
     "${__REPO_ROOT}/scripts/interop/mcp-aggregate.py" "$@"
     ;;
+  network-install-advisor)
+    # R297 (E2.M11): operator-pull network install-layer advisor —
+    # DNS / Cloudflared / Tailscale / Traefik with docker-vs-system
+    # install matrix + per-layer pros/cons + recommended defaults.
+    # Operator-named (§1b verbatim): "the DNS, the Cloudflared ?
+    # the tailscale, Traefik, non docker vs docker install ? when
+    # possible ? container level vs system level".
+    sub="${1:-list}"
+    shift || true
+    case "${sub}" in
+      list|show|coexist|recommend)
+        "${__REPO_ROOT}/scripts/network/install-layer-advisor.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown network-install-advisor subverb: ${sub} (list, show, coexist, recommend)"
+        exit 2
+        ;;
+    esac
+    ;;
   thermal-oc-budget)
     # R296 (E2.M10): heat budget tied to OC profile — composes
     # R172 thermal-watch + R292 oc-headroom + R294 psu-oc into
