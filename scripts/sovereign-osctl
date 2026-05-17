@@ -5410,6 +5410,22 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  memory-pressure-damper)
+    # R304 (E1.M29): memory-pressure → OC-profile dampening
+    # advisor. Composes R269 + R292 to emit "dampen by N steps"
+    # recommendation when memory pressure spikes.
+    sub="${1:-status}"
+    shift || true
+    case "${sub}" in
+      status|advisory)
+        "${__REPO_ROOT}/scripts/hardware/memory-pressure-oc-damper.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown memory-pressure-damper subverb: ${sub} (status, advisory)"
+        exit 2
+        ;;
+    esac
+    ;;
   gpu-wattage)
     # R303 (E1.M28): GPU per-card per-mode wattage catalog.
     # RTX 3090 + RTX PRO 6000 idle/typical/peak/oc-peak watts +
