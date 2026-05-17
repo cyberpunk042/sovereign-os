@@ -36,7 +36,7 @@ grep -q "<!doctype html>" /tmp/r225-dash.html \
   && ok "render emits doctype" || ko "no doctype"
 grep -q "sovereign-os dashboard — R225 / SDD-026 Z-1 SEED" /tmp/r225-dash.html \
   && ok "render carries R225 banner" || ko "no banner"
-# All 13 cards must render (R225 seed + R226 health + R227 models + R235 insights + R238 install-paths + R241(×2) services+kernel + R243 toolchains)
+# All 15 cards must render (R225 seed + R226 health + R227 models + R235 insights + R238 install-paths + R241(×2) services+kernel + R243 toolchains + R247(×2) fine-tune+events)
 for needle in "GPU watt deviance (R219 / Z-5)" \
               "Network state (R220 / Z-7)" \
               "CPU mode (R221 / Z-4)" \
@@ -49,7 +49,9 @@ for needle in "GPU watt deviance (R219 / Z-5)" \
               "Install paths (R237 / Z-8)" \
               "Services (R240 / Z-15)" \
               "Kernel tuning (R239 / Z-14)" \
-              "Toolchains (R242 / Z-2)"; do
+              "Toolchains (R242 / Z-2)" \
+              "Fine-tune (R244 / Z-2)" \
+              "Events (R246 / Z-16)"; do
   grep -qF "${needle}" /tmp/r225-dash.html \
     && ok "render carries card: ${needle:0:30}…" \
     || ko "missing card: ${needle}"
@@ -114,17 +116,17 @@ if grep -q "serving" /tmp/r225-api.log; then
   if [ "${curl_rc}" -eq 0 ]; then
     ok "GET /api/health returned 200"
     python3 - /tmp/r225-api.json <<'PY' 2>/dev/null \
-      && ok "JSON shape: cards[13] + round + sdd_vector" \
+      && ok "JSON shape: cards[15] + round + sdd_vector" \
       || ko "JSON shape wrong"
 import json, sys
 d = json.load(open(sys.argv[1]))
 assert d["round"] == "R225"
 assert d["sdd_vector"] == "SDD-026 Z-1"
 assert isinstance(d["cards"], list)
-# R225 SEED ships with 6 cards; R226 + R227 + R235 + R238 + R241(×2) + R243 add 7 more.
-assert len(d["cards"]) == 13, f"expected 13 cards, got {len(d['cards'])}"
+# R225 SEED ships with 6 cards; R226 + R227 + R235 + R238 + R241(×2) + R243 + R247(×2) add 9 more.
+assert len(d["cards"]) == 15, f"expected 15 cards, got {len(d['cards'])}"
 ids = {c["id"] for c in d["cards"]}
-assert ids == {"gpu", "network", "cpu", "fs", "raid", "flex", "health", "models", "insights", "install_paths", "services", "kernel", "toolchains"}, ids
+assert ids == {"gpu", "network", "cpu", "fs", "raid", "flex", "health", "models", "insights", "install_paths", "services", "kernel", "toolchains", "fine_tune", "events"}, ids
 PY
   else
     ko "curl GET /api/health failed (rc=${curl_rc})"

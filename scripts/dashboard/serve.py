@@ -568,6 +568,134 @@ def card_toolchains() -> dict[str, Any]:
     }
 
 
+def card_fine_tune() -> dict[str, Any]:
+    """R247 (SDD-026 Z-2 fine-tune dashboard surface) — Fine-tune card.
+
+    Calls R244 `fine-tune list-methods` + `fine-tune history` to surface
+    available methods + recent runs. Drives the dashboard's "what
+    LoRA/SFT/DPO runs have I done?" answer + an inline list of the
+    4 methods with their vram floors.
+    """
+    bin_path = REPO_ROOT / "scripts" / "models" / "fine_tune.py"
+    fallback: dict[str, Any] = {
+        "round": "R247",
+        "vector": "SDD-026 Z-2 fine-tune dashboard",
+        "methods": [],
+        "recent_runs": [],
+        "summary": "fine_tune.py unavailable",
+    }
+    if not bin_path.exists():
+        return {"id": "fine_tune", "title": "Fine-tune (R244 / Z-2)", "data": fallback}
+    try:
+        r_methods = subprocess.run(
+            [sys.executable, str(bin_path), "list-methods", "--json"],
+            capture_output=True, text=True, timeout=15, check=False,
+        )
+        r_history = subprocess.run(
+            [sys.executable, str(bin_path), "history", "--limit", "5", "--json"],
+            capture_output=True, text=True, timeout=15, check=False,
+        )
+    except (subprocess.TimeoutExpired, OSError) as e:
+        fallback["summary"] = f"invocation failed: {e}"
+        return {"id": "fine_tune", "title": "Fine-tune (R244 / Z-2)", "data": fallback}
+    methods: list[dict[str, Any]] = []
+    recent: list[dict[str, Any]] = []
+    try:
+        m_doc = json.loads(r_methods.stdout) if r_methods.returncode == 0 else {}
+        for key, m in (m_doc.get("methods") or {}).items():
+            methods.append(
+                {
+                    "key": key,
+                    "name": m.get("name"),
+                    "harness": m.get("harness"),
+                    "applicable_base_classes": m.get("applicable_base_classes"),
+                    "vram_floor_gib": m.get("vram_gib_required_min"),
+                    "cost_hours": m.get("cost_estimate_hours"),
+                }
+            )
+    except json.JSONDecodeError:
+        pass
+    try:
+        h_doc = json.loads(r_history.stdout) if r_history.returncode == 0 else {}
+        recent = h_doc.get("rows") or []
+    except json.JSONDecodeError:
+        pass
+    return {
+        "id": "fine_tune",
+        "title": "Fine-tune (R244 / Z-2)",
+        "data": {
+            "round": "R247",
+            "vector": "SDD-026 Z-2 fine-tune dashboard",
+            "methods": methods,
+            "recent_runs": recent,
+            "summary": f"{len(methods)} method(s); {len(recent)} recent run(s)",
+            "needs_attention": False,  # informational only
+        },
+    }
+
+
+def card_events() -> dict[str, Any]:
+    """R247 (SDD-026 Z-16 dashboard surface) — Events timeline card.
+
+    Calls R246 `events summary` for per-source counts + `events
+    timeline --limit 5` for most-recent events. Operator's "what's
+    been happening?" surface in the browser.
+    """
+    bin_path = REPO_ROOT / "scripts" / "history" / "aggregate.py"
+    fallback: dict[str, Any] = {
+        "round": "R247",
+        "vector": "SDD-026 Z-16 dashboard",
+        "total_events": 0,
+        "sources": {},
+        "recent": [],
+        "summary": "aggregate.py unavailable",
+    }
+    if not bin_path.exists():
+        return {"id": "events", "title": "Events (R246 / Z-16)", "data": fallback}
+    try:
+        r_sum = subprocess.run(
+            [sys.executable, str(bin_path), "summary", "--json"],
+            capture_output=True, text=True, timeout=15, check=False,
+        )
+        r_tl = subprocess.run(
+            [sys.executable, str(bin_path), "timeline", "--limit", "5", "--json"],
+            capture_output=True, text=True, timeout=15, check=False,
+        )
+    except (subprocess.TimeoutExpired, OSError) as e:
+        fallback["summary"] = f"invocation failed: {e}"
+        return {"id": "events", "title": "Events (R246 / Z-16)", "data": fallback}
+    sources: dict[str, Any] = {}
+    total = 0
+    recent: list[dict[str, Any]] = []
+    try:
+        s_doc = json.loads(r_sum.stdout) if r_sum.returncode == 0 else {}
+        sources = s_doc.get("sources", {})
+        total = s_doc.get("total_events", 0)
+    except json.JSONDecodeError:
+        pass
+    try:
+        tl_doc = json.loads(r_tl.stdout) if r_tl.returncode == 0 else {}
+        recent = tl_doc.get("events") or []
+    except json.JSONDecodeError:
+        pass
+    return {
+        "id": "events",
+        "title": "Events (R246 / Z-16)",
+        "data": {
+            "round": "R247",
+            "vector": "SDD-026 Z-16 dashboard",
+            "total_events": total,
+            "sources": sources,
+            "recent": recent,
+            "summary": (
+                f"{total} events across {len(sources)} source(s); "
+                f"showing 5 most-recent"
+            ),
+            "needs_attention": False,  # informational
+        },
+    }
+
+
 CARDS = [
     card_gpu,
     card_network,
@@ -582,6 +710,8 @@ CARDS = [
     card_services,
     card_kernel,
     card_toolchains,
+    card_fine_tune,
+    card_events,
 ]
 
 
