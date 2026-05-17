@@ -5698,6 +5698,23 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  fan-advisor)
+    # R337 (E1.M39): fan/cooling awareness advisor. lm-sensors fan
+    # readout + per-mode (idle/inference-ready/training/oc-burst)
+    # recommended curves + per-board BIOS-gate advice for software
+    # fan override. Operator-named §1b spec drop.
+    sub="${1:-status}"
+    shift || true
+    case "${sub}" in
+      status|recommend|modes|bios-gate)
+        "${__REPO_ROOT}/scripts/hardware/fan-advisor.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown fan-advisor subverb: ${sub} (status, recommend, modes, bios-gate)"
+        exit 2
+        ;;
+    esac
+    ;;
   config-snapshot-diff)
     # R335 (E2.M26): config-snapshot-diff verb. Given two R332
     # snapshots, emits per-overlay drift (added / removed / changed
