@@ -307,6 +307,41 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if path == "/api/health":
             self._send_json({"cards": gather_all(), "round": "R225", "sdd_vector": "SDD-026 Z-1"})
             return
+        # R233 (SDD-026 Z-2): per-model detail endpoint. Drives the
+        # dashboard's "click on a model card → see full detail" UX
+        # by proxying the R231 `models info <slug>` JSON. The slug
+        # follows after /api/models/ so URL-safe slugs work directly.
+        models_prefix = "/api/models/"
+        if path.startswith(models_prefix):
+            slug = path[len(models_prefix):]
+            # Defensive: reject path separators / control chars even
+            # though subprocess argv is shell-safe; keep slug semantics
+            # tight (model ids in the catalog are alnum + - + .).
+            if slug and all(c.isalnum() or c in "-_." for c in slug):
+                detail = _run_models_script("info.py", [slug])
+                if detail is not None:
+                    self._send_json(detail)
+                    return
+                self._send_json(
+                    {
+                        "error": "unknown model slug",
+                        "slug": slug,
+                        "round": "R233",
+                        "hint": "list available ids via /api/models or "
+                                "`sovereign-osctl models query --json`",
+                    },
+                    status=404,
+                )
+                return
+            self._send_json(
+                {
+                    "error": "invalid model slug",
+                    "slug": slug,
+                    "round": "R233",
+                },
+                status=400,
+            )
+            return
         for c in CARDS:
             card_id = c.__name__.removeprefix("card_")
             if path == f"/api/{card_id}":
