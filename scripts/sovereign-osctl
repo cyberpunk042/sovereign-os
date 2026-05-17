@@ -185,6 +185,13 @@ COMMANDS:
                                tailscale/traefik/docker). Each component
                                renders status + actionable alternative
                                when down/not-installed.
+  cpu-mode show [--json]       Current per-CPU governor + matched mode.
+  cpu-mode list [--json]       Enumerate the 4 named modes
+                               (ultra-low-power / balanced /
+                               sustained-burst / peak-inference).
+  cpu-mode set <mode>          R221 (SDD-026 Z-4): switch CPU governor
+                               to the named mode. Requires root; non-
+                               root prints the actionable shell command.
 
   journal list [--all-dirs]    List Layer A JSONL log files (size + first/last event)
   journal show <file> [--all-dirs]  Pretty-print one JSONL log file as a table
@@ -4391,6 +4398,14 @@ case "${cmd}" in
         exit 2
         ;;
     esac
+    ;;
+  cpu-mode)
+    # R221 (SDD-026 Z-4): CPU hotswap modes. ultra-low-power /
+    # balanced / sustained-burst / peak-inference. show + list are
+    # read-only; set <mode> requires root.
+    sub="${1:-show}"
+    shift || true
+    "${__REPO_ROOT}/scripts/hardware/cpu-mode.py" "${sub}" "$@"
     ;;
   version|--version|-V) cmd_version "$@" ;;
   help|--help|-h|"") cmd_help ;;
