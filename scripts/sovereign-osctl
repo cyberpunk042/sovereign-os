@@ -268,6 +268,16 @@ COMMANDS:
                                analysis layer named in operator's
                                "autohealth and doctor and analysis".
   diagnose probes [--json]     R266: list available sub-probes.
+  wasm-aot status|compile-cmd <wasm>|advisory [--json]
+                               R281 (E1.M17): Wasm-to-AVX-512 AOT
+                               pipeline enforcer per master spec §20.
+                               Checks wasmtime + Cranelift + the
+                               WASMTIME_COMPARE_OPTIONS env knobs
+                               (target-cpu=znver5 opt-level=3
+                               relaxed-simd=true). compile-cmd emits
+                               the canonical `taskset -c 0-11 wasmtime
+                               compile --target x86_64 -O speed`
+                               incantation.
   zmm-ternary status|perf-cmd|advisory [--json]
                                R280 (E1.M18): 1-bit/ternary ZMM
                                utilization probe per raw-dump §17.1+§20.
@@ -4902,6 +4912,20 @@ case "${cmd}" in
         ;;
       *)
         log_error "unknown diagnose subverb: ${sub} (available: run, probes)"
+        exit 2
+        ;;
+    esac
+    ;;
+  wasm-aot)
+    # R281 (E1.M17): Wasm-to-AVX-512 AOT pipeline enforcer.
+    sub="${1:-status}"
+    shift || true
+    case "${sub}" in
+      status|compile-cmd|advisory)
+        "${__REPO_ROOT}/scripts/hardware/wasm-aot-enforcer.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown wasm-aot subverb: ${sub} (available: status, compile-cmd, advisory)"
         exit 2
         ;;
     esac
