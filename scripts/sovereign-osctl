@@ -5698,6 +5698,23 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  fleet-aggregate)
+    # R324 (E2.M20): fleet snapshot aggregator. Ingests R322 unified
+    # state snapshots from multiple hosts; emits cross-host rollup
+    # (per-axis verdict distribution, host-level summary, outlier
+    # detection). Operator-pull "how is my whole fleet doing?"
+    sub="${1:-aggregate}"
+    shift || true
+    case "${sub}" in
+      aggregate|by-axis|outliers)
+        "${__REPO_ROOT}/scripts/fleet/snapshot-aggregator.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown fleet-aggregate subverb: ${sub} (aggregate, by-axis, outliers)"
+        exit 2
+        ;;
+    esac
+    ;;
   maintenance-window)
     # R323 (E2.M19): maintenance-window scheduler. Operator declares
     # named time windows; other advisors / autohealth / heat-oc-
