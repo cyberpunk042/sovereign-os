@@ -5513,6 +5513,26 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  install-mode)
+    # R310 (E2.M16): container-vs-system install-mode advisor.
+    # Per-installable component, advises system vs container based
+    # on isolation_need + dependency_footprint + ipc_requirement +
+    # root_required + gpu_passthrough + kernel_module. Emits
+    # operator-readable tradeoff matrix. Operator-named (§1b
+    # verbatim: "non docker vs docker install ? when possible ?
+    # container level vs system level").
+    sub="${1:-list}"
+    shift || true
+    case "${sub}" in
+      list|show|recommend)
+        "${__REPO_ROOT}/scripts/install/install-mode-advisor.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown install-mode subverb: ${sub} (list, show, recommend)"
+        exit 2
+        ;;
+    esac
+    ;;
   cot)
     # R309 (E2.M15): integrated-intelligence CoT registry —
     # named CoT routines that compose multiple sovereign-os verbs
