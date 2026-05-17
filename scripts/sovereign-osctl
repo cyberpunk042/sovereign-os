@@ -268,6 +268,15 @@ COMMANDS:
                                analysis layer named in operator's
                                "autohealth and doctor and analysis".
   diagnose probes [--json]     R266: list available sub-probes.
+  zmm-ternary status|perf-cmd|advisory [--json]
+                               R280 (E1.M18): 1-bit/ternary ZMM
+                               utilization probe per raw-dump §17.1+§20.
+                               Checks AVX-512-F/VNNI/BF16 + bitnet.cpp/
+                               T-MAC/transformers-bitnet toolchain
+                               presence. perf-cmd emits the perf-stat
+                               invocation operator runs to confirm
+                               VPDPBUSD instructions actually retire
+                               under live load.
   ram-advisor status|budget|advisory [--json]
                                R279 (E1.M16): 256 GB DDR5 RAM advisor
                                per master-spec §1.1+§3+§19. Composite
@@ -4893,6 +4902,20 @@ case "${cmd}" in
         ;;
       *)
         log_error "unknown diagnose subverb: ${sub} (available: run, probes)"
+        exit 2
+        ;;
+    esac
+    ;;
+  zmm-ternary)
+    # R280 (E1.M18): 1-bit/ternary ZMM utilization probe.
+    sub="${1:-status}"
+    shift || true
+    case "${sub}" in
+      status|perf-cmd|advisory)
+        "${__REPO_ROOT}/scripts/hardware/zmm-ternary-probe.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown zmm-ternary subverb: ${sub} (available: status, perf-cmd, advisory)"
         exit 2
         ;;
     esac
