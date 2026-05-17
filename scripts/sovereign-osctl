@@ -238,6 +238,13 @@ COMMANDS:
                                every shipped Z-vector card. rc=1 when
                                any probe needs operator attention.
                                Feeds the R228 notification fan-out.
+  insights [--threshold-bytes N] [--root D] [--limit N] [--all] [--json]
+                               R234 (SDD-026 Z-10): synthesize fs usage
+                               + log audit + log-rotation telemetry
+                               into prioritized actionable insights
+                               (critical / attention / informational).
+                               Each insight carries a copy-pasteable
+                               action. rc=1 when ≥1 critical insight.
   notify dispatch [--from-file P] [--dry-run] [--json]
                                R228 (SDD-026 Z-6): read health-scan
                                --json + fan to operator-configured
@@ -4540,6 +4547,12 @@ case "${cmd}" in
         exit 2
         ;;
     esac
+    ;;
+  insights)
+    # R234 (SDD-026 Z-10): fs/log/telemetry synthesizer with
+    # prioritized actionable insights. Operator-named "Offer
+    # insights" in the 2026-05-17 expansion. rc=1 when ≥1 critical.
+    "${__REPO_ROOT}/scripts/insights/synthesize.py" "$@"
     ;;
   notify)
     # R228 (SDD-026 Z-6): notification fan-out reading R226 health-scan
