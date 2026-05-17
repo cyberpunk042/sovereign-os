@@ -744,6 +744,129 @@ def card_events() -> dict[str, Any]:
     }
 
 
+def card_power() -> dict[str, Any]:
+    """R254 (SDD-026 Z-18 dashboard) — Power + PSU + UPS card.
+
+    Calls R252 `power-status psu` + `budget` + `advisories` JSON to
+    surface the operator-declared PSU, the live wattage budget vs
+    estimated load, and the graceful-shutdown verdict (with rc=1
+    when critical).
+    """
+    bin_path = REPO_ROOT / "scripts" / "hardware" / "power-status.py"
+    fallback: dict[str, Any] = {
+        "round": "R254",
+        "vector": "SDD-026 Z-18 dashboard",
+        "summary": "power-status.py unavailable",
+    }
+    if not bin_path.exists():
+        return {"id": "power", "title": "Power (R252 / Z-18)", "data": fallback}
+
+    def _call(verb: str) -> dict[str, Any]:
+        try:
+            r = subprocess.run(
+                [sys.executable, str(bin_path), verb, "--json"],
+                capture_output=True, text=True, timeout=15, check=False,
+            )
+        except (subprocess.TimeoutExpired, OSError):
+            return {}
+        if r.returncode not in (0, 1):
+            return {}
+        try:
+            return json.loads(r.stdout) or {}
+        except json.JSONDecodeError:
+            return {}
+
+    psu = _call("psu")
+    budget = _call("budget")
+    advisories = _call("advisories")
+    util = budget.get("utilization_pct")
+    needs_attention = bool(
+        (util is not None and util >= 85)
+        or advisories.get("verdict") in {"critical", "attention"}
+    )
+    data = {
+        "round": "R254",
+        "vector": "SDD-026 Z-18 dashboard",
+        "psu": (psu or {}).get("psu") or {},
+        "sustained_budget_watts": (psu or {}).get("sustained_budget_watts"),
+        "budget": {
+            "estimated_load_watts": (budget or {}).get("estimated_load_watts"),
+            "utilization_pct": util,
+            "headroom_watts": (budget or {}).get("headroom_watts"),
+            "warnings": (budget or {}).get("warnings") or [],
+        },
+        "advisories": {
+            "verdict": (advisories or {}).get("verdict"),
+            "advisories": (advisories or {}).get("advisories") or [],
+            "ups_present": (advisories or {}).get("ups_present"),
+        },
+        "needs_attention": needs_attention,
+        "summary": (
+            f"PSU {(psu or {}).get('psu', {}).get('rated_watts','?')} W; "
+            f"load {((budget or {}).get('estimated_load_watts') or 0):.0f} W; "
+            f"verdict {(advisories or {}).get('verdict') or '?'}"
+        ),
+    }
+    return {"id": "power", "title": "Power (R252 / Z-18)", "data": data}
+
+
+def card_bios() -> dict[str, Any]:
+    """R254 (SDD-026 Z-17 dashboard) — BIOS + board + memory card.
+
+    Calls R251 `bios-info show --json` to surface BIOS, baseboard,
+    DIMM count + speed mix, and board-specific advisory count.
+    """
+    bin_path = REPO_ROOT / "scripts" / "hardware" / "bios-info.py"
+    fallback: dict[str, Any] = {
+        "round": "R254",
+        "vector": "SDD-026 Z-17 dashboard",
+        "summary": "bios-info.py unavailable",
+    }
+    if not bin_path.exists():
+        return {"id": "bios", "title": "BIOS + memory (R251 / Z-17)", "data": fallback}
+    try:
+        r = subprocess.run(
+            [sys.executable, str(bin_path), "show", "--json"],
+            capture_output=True, text=True, timeout=15, check=False,
+        )
+    except (subprocess.TimeoutExpired, OSError) as e:
+        fallback["summary"] = f"invocation failed: {e}"
+        return {"id": "bios", "title": "BIOS + memory (R251 / Z-17)", "data": fallback}
+    if r.returncode != 0:
+        fallback["summary"] = f"bios-info.py rc={r.returncode}"
+        return {"id": "bios", "title": "BIOS + memory (R251 / Z-17)", "data": fallback}
+    try:
+        report = json.loads(r.stdout)
+    except json.JSONDecodeError:
+        fallback["summary"] = "bios-info.py emitted non-JSON"
+        return {"id": "bios", "title": "BIOS + memory (R251 / Z-17)", "data": fallback}
+    bios = report.get("bios", {})
+    bb = report.get("baseboard", {})
+    mem = report.get("memory", {})
+    adv = report.get("advisories", {})
+    return {
+        "id": "bios",
+        "title": "BIOS + memory (R251 / Z-17)",
+        "data": {
+            "round": "R254",
+            "vector": "SDD-026 Z-17 dashboard",
+            "bios_vendor": bios.get("vendor"),
+            "bios_version": bios.get("version"),
+            "baseboard_product": bb.get("product"),
+            "baseboard_vendor": bb.get("vendor"),
+            "dimm_count": mem.get("dimm_count", 0),
+            "matched_board": adv.get("matched_board"),
+            "advisory_count": len(adv.get("advisories") or []),
+            "summary": (
+                f"{bb.get('product') or '?'}; "
+                f"{mem.get('dimm_count', 0)} DIMM(s); "
+                f"{len(adv.get('advisories') or [])} advisory(ies)"
+            ),
+            "needs_attention": False,  # informational
+        },
+    }
+
+
 CARDS = [
     card_gpu,
     card_network,
@@ -760,6 +883,8 @@ CARDS = [
     card_toolchains,
     card_fine_tune,
     card_events,
+    card_power,
+    card_bios,
 ]
 
 
