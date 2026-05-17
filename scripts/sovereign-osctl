@@ -240,6 +240,13 @@ COMMANDS:
                                router + R219 GPU watt .prom files,
                                recommends a mode. Advisory by default;
                                --apply switches the governor.
+  gpu-remediate [--apply] [--policy P] [--json]
+                               R249 (SDD-026 Z-5 closure): auto-apply
+                               R219 gpu-watch fix commands. Default is
+                               DRY-RUN; --apply executes nvidia-smi -pl
+                               per deviating GPU (requires root).
+                               Closes the operator-named "warn deviance
+                               from perfection" loop.
   gpu-mode show [--json]       R236 (SDD-026 Z-5): per-GPU power limit
                                + matched mode (conservative / balanced
                                / sustained / peak).
@@ -4669,6 +4676,11 @@ case "${cmd}" in
     sub="${1:-show}"
     shift || true
     "${__REPO_ROOT}/scripts/hardware/gpu-mode.py" "${sub}" "$@"
+    ;;
+  gpu-remediate)
+    # R249 (SDD-026 Z-5 closure): auto-apply R219 fix commands.
+    # Operator-named "warn deviance from perfection" loop closure.
+    "${__REPO_ROOT}/scripts/hardware/gpu-remediate.py" "$@"
     ;;
   fs)
     # R222 (SDD-026 Z-10): filesystem + log insights.
