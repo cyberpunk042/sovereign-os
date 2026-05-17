@@ -268,6 +268,15 @@ COMMANDS:
                                analysis layer named in operator's
                                "autohealth and doctor and analysis".
   diagnose probes [--json]     R266: list available sub-probes.
+  severity evaluate [--escalate-after-seconds N] [--json]
+                               R273 (E6.M6): state-file-backed
+                               escalation engine. Runs R266 diagnose,
+                               tracks first_seen per finding identity
+                               (source+module+title hash), bumps
+                               attention → critical after dwell-time
+                               (default 4h). rc=1 when ≥1 escalation.
+  severity state [--json]      R273: dump current escalation state.
+  severity reset [--confirm]   R273: clear state file (operator-confirm).
   avx512-advisor probe|workloads|advisory [--json]
                                R272 (E1.M14): AVX-512 extension probe
                                + per-workload fit verdict. Maps
@@ -4851,6 +4860,20 @@ case "${cmd}" in
         ;;
       *)
         log_error "unknown diagnose subverb: ${sub} (available: run, probes)"
+        exit 2
+        ;;
+    esac
+    ;;
+  severity)
+    # R273 (E6.M6): severity escalation engine.
+    sub="${1:-evaluate}"
+    shift || true
+    case "${sub}" in
+      evaluate|state|reset)
+        "${__REPO_ROOT}/scripts/diagnostics/severity-escalation.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown severity subverb: ${sub} (available: evaluate, state, reset)"
         exit 2
         ;;
     esac

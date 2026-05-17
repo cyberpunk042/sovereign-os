@@ -227,7 +227,7 @@ the Epic is closed — but the operator may add new Modules to it.
 | E6.M3 | Autonomous timer-driven scan → notify loop | ✓ shipped (prior) | R229 |
 | E6.M4 | Event aggregator + insights synthesizer | ✓ shipped (prior) | R234, R246 |
 | E6.M5 | Doctor verb (analysis + recommendations across all axes) | ✓ shipped as `diagnose` | R266 |
-| E6.M6 | Severity escalation policy (e.g. attention → degraded after N hours) | **TODO** | — |
+| E6.M6 | Severity escalation policy (attention → critical after dwell-time) | ✓ shipped | R273 |
 
 ### Epic E7 — Interop / MCP / Tools / Deps
 
