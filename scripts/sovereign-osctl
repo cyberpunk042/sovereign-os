@@ -268,6 +268,13 @@ COMMANDS:
                                analysis layer named in operator's
                                "autohealth and doctor and analysis".
   diagnose probes [--json]     R266: list available sub-probes.
+  net-perf probe|record|drift [--targets ...] [--threshold-pct N] [--json]
+                               R276 (E3.M6): network performance
+                               baseline + drift detection. Records
+                               ping/dig/curl-TTFB metrics, persists
+                               baseline as first sample per target,
+                               then `drift` compares latest vs
+                               baseline + flags ≥threshold% deltas.
   reverse-proxy status|traefik|caddy|nginx|advisory [--json]
                                R275 (E3.M5): config validator for
                                Traefik / Caddy / nginx. Reads on-disk
@@ -4868,6 +4875,20 @@ case "${cmd}" in
         ;;
       *)
         log_error "unknown diagnose subverb: ${sub} (available: run, probes)"
+        exit 2
+        ;;
+    esac
+    ;;
+  net-perf)
+    # R276 (E3.M6): network performance baseline + drift.
+    sub="${1:-probe}"
+    shift || true
+    case "${sub}" in
+      probe|record|drift)
+        "${__REPO_ROOT}/scripts/network/perf-baseline.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown net-perf subverb: ${sub} (available: probe, record, drift)"
         exit 2
         ;;
     esac
