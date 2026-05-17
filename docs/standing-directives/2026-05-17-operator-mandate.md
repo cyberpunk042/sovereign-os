@@ -140,7 +140,7 @@ the Epic is closed — but the operator may add new Modules to it.
 | E1.M8 | Graceful drain-then-poweroff manifest framework | ✓ shipped | R262 |
 | E1.M9 | GPU power policy + watt deviance + remediation | ✓ shipped (prior) | R219, R249 |
 | E1.M10 | CPU mode hotswap + auto recommender | ✓ shipped (prior) | R221, R230 |
-| E1.M11 | Heat integration with budget + thermal-aware advisories | **TODO** | — |
+| E1.M11 | Heat integration with budget + thermal-aware advisories | ✓ shipped | R265 |
 | E1.M12 | PCIe lane allocation policy advisor (when both GPUs populated) | **TODO** | — |
 | E1.M13 | RTX 3090 + RTX PRO 6000 dual-card-specific advisories | **TODO** | — |
 | E1.M14 | AVX-512 utilization probe + workload-fit advisor | **TODO** | — |
@@ -226,7 +226,7 @@ the Epic is closed — but the operator may add new Modules to it.
 | E6.M2 | Notification fan-out (file / webhook / ntfy) with dedup | ✓ shipped (prior) | R228 |
 | E6.M3 | Autonomous timer-driven scan → notify loop | ✓ shipped (prior) | R229 |
 | E6.M4 | Event aggregator + insights synthesizer | ✓ shipped (prior) | R234, R246 |
-| E6.M5 | Doctor verb (analysis + recommendations across all axes) | **TODO** | — |
+| E6.M5 | Doctor verb (analysis + recommendations across all axes) | ✓ shipped as `diagnose` | R266 |
 | E6.M6 | Severity escalation policy (e.g. attention → degraded after N hours) | **TODO** | — |
 
 ### Epic E7 — Interop / MCP / Tools / Deps

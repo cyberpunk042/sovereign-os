@@ -255,6 +255,19 @@ COMMANDS:
                                speed (GPUs, NVMe, NICs).
   virt-info runtimes [--json]  R255: docker / podman / containerd /
                                nerdctl / crun / runc detection.
+  diagnose run [--severity S] [--limit N] [--all] [--json]
+                               R266 (E6.M5): cross-axis diagnostic
+                               synthesizer. Runs 8 sub-probes (health,
+                               insights, power, bios, memory, virt,
+                               services-advisor, install-paths),
+                               aggregates findings ranked by severity
+                               with Epic/Module tags. rc=1 when ≥1
+                               critical finding. Distinct from the
+                               legacy `doctor` verb (profile-aware
+                               tooling check); this is the multi-axis
+                               analysis layer named in operator's
+                               "autohealth and doctor and analysis".
+  diagnose probes [--json]     R266: list available sub-probes.
   services-advisor cloudflared|tailscale|traefik|show [--json]
                                R263 (SDD-026 Z-7 expansion): per-network-
                                service deep posture (installed / configured
@@ -4776,6 +4789,23 @@ case "${cmd}" in
         ;;
       *)
         log_error "unknown bios-info subverb: ${sub} (available: show, memory, advisories)"
+        exit 2
+        ;;
+    esac
+    ;;
+  diagnose)
+    # R266 (E6.M5): cross-axis diagnostic synthesizer.
+    # Operator-named "autohealth and doctor and analysis" — the
+    # ANALYSIS half. The pre-existing `doctor` verb covers profile-
+    # aware tooling checks; this is the multi-probe synthesizer.
+    sub="${1:-run}"
+    shift || true
+    case "${sub}" in
+      run|probes)
+        "${__REPO_ROOT}/scripts/diagnostics/doctor.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown diagnose subverb: ${sub} (available: run, probes)"
         exit 2
         ;;
     esac
