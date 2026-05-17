@@ -289,6 +289,18 @@ COMMANDS:
                                flags features whose default layer is
                                blocked + suggests the available
                                alternative.
+  events timeline [--source S] [--since ISO] [--limit N] [--json]
+                               R246 (SDD-026 Z-16): chronological
+                               aggregator across every JSONL state
+                               file the operator-facing surfaces
+                               write (notify-events, models-eval,
+                               fine-tune; +extras via
+                               SOVEREIGN_OS_HISTORY_EXTRA_PATHS).
+                               Disambiguated from `history` (which
+                               surfaces bootstrap run logs).
+  events summary [--json]      R246: per-source counts + last-event
+                               timestamp. Operator's "is anything
+                               actually firing on this host?" answer.
   services list [--prefix P] [--state S] [--json]
                                R240 (SDD-026 Z-15): live systemd units
                                + load/active/sub state + description.
@@ -4731,6 +4743,24 @@ case "${cmd}" in
         ;;
       *)
         log_error "unknown services subverb: ${sub} (available: list, failures, timers, shipped)"
+        exit 2
+        ;;
+    esac
+    ;;
+  events)
+    # R246 (SDD-026 Z-16): cross-cutting operator-EVENT-timeline
+    # aggregator over every JSONL state file shipped surfaces write.
+    # Operator-named "In between" in the 2026-05-17 'DO not stop'
+    # addendum. Disambiguated from `history` (bootstrap run log)
+    # because `history` already maps to cmd_history.
+    sub="${1:-timeline}"
+    shift || true
+    case "${sub}" in
+      timeline|summary)
+        "${__REPO_ROOT}/scripts/history/aggregate.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown events subverb: ${sub} (available: timeline, summary)"
         exit 2
         ;;
     esac
