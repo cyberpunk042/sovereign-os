@@ -106,6 +106,18 @@ COMMANDS:
                                LoRA adapters / pull+verify+suggest
                                commands). --json drives the dashboard
                                model-detail panel.
+  models eval list-benchmarks [--json]
+                               R232 (SDD-026 Z-2): enumerate supported
+                               benchmarks (mmlu / humaneval / gsm8k /
+                               arc-challenge / truthfulqa / mteb).
+  models eval plan <slug> --benchmark B [--json]
+                               R232: show the harness command + cost
+                               for one eval (no execution).
+  models eval run <slug> --benchmark B [--dry-run] [--json]
+                               R232: execute one eval (DRY-RUN default
+                               in SEED round) + record to JSONL state.
+  models eval history [--slug S] [--benchmark B] [--limit N] [--json]
+                               R232: render the eval state file.
   models list                  List resident models (tank/models)
   models pull <hf-id>          Pull model from HuggingFace into tank/models
   models verify                Verify resident-model integrity
@@ -1244,6 +1256,14 @@ cmd_models() {
       # next-steps (pull / verify / suggest commands). Operator
       # gets the full surface in one verb.
       "${__REPO_ROOT}/scripts/models/info.py" "$@"
+      ;;
+    eval)
+      # R232 (SDD-026 Z-2 expansion): model eval planner + dispatcher
+      # + history. Operator-named "eval and etc." in the 2026-05-17
+      # expansion. Cycle-8 SEED: benchmark catalog + plan/run (dry-run
+      # default) + JSONL history; harness execution (lm-eval / mteb)
+      # lands when SAIN-01 hardware comes online.
+      "${__REPO_ROOT}/scripts/models/eval.py" "$@"
       ;;
     *)
       log_error "unknown models subcommand: ${sub}"
