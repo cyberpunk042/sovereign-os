@@ -268,6 +268,14 @@ COMMANDS:
                                analysis layer named in operator's
                                "autohealth and doctor and analysis".
   diagnose probes [--json]     R266: list available sub-probes.
+  reverse-proxy status|traefik|caddy|nginx|advisory [--json]
+                               R275 (E3.M5): config validator for
+                               Traefik / Caddy / nginx. Reads on-disk
+                               configs + invokes proxy --check/-t/
+                               validate when binary present. Surfaces
+                               common misconfigs (api.insecure,
+                               server_tokens leakage, tls internal,
+                               admin-on-public-iface).
   severity evaluate [--escalate-after-seconds N] [--json]
                                R273 (E6.M6): state-file-backed
                                escalation engine. Runs R266 diagnose,
@@ -4860,6 +4868,20 @@ case "${cmd}" in
         ;;
       *)
         log_error "unknown diagnose subverb: ${sub} (available: run, probes)"
+        exit 2
+        ;;
+    esac
+    ;;
+  reverse-proxy)
+    # R275 (E3.M5): reverse-proxy config validator.
+    sub="${1:-status}"
+    shift || true
+    case "${sub}" in
+      status|traefik|caddy|nginx|advisory)
+        "${__REPO_ROOT}/scripts/network/reverse-proxy-validator.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown reverse-proxy subverb: ${sub} (available: status, traefik, caddy, nginx, advisory)"
         exit 2
         ;;
     esac

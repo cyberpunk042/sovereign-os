@@ -176,7 +176,7 @@ the Epic is closed — but the operator may add new Modules to it.
 | E3.M2 | Cloudflared / Tailscale / Traefik per-service posture advisor | ✓ shipped | R263 |
 | E3.M3 | Container-vs-system install-path matrix with grey-out logic | ✓ shipped | R237 |
 | E3.M4 | DNS provider posture (Cloudflare/Quad9/AdGuard advisories) | ✓ shipped | R268 |
-| E3.M5 | Reverse-proxy config validator (Traefik / Caddy / nginx) | **TODO** | — |
+| E3.M5 | Reverse-proxy config validator (Traefik / Caddy / nginx) | ✓ shipped | R275 |
 | E3.M6 | Network performance baseline + drift detection | **TODO** | — |
 
 ### Epic E4 — Dashboard / Operator UX
