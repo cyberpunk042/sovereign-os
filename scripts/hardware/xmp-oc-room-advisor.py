@@ -80,7 +80,104 @@ DEFAULTS = {
     "cpu_oc_multiplier": 1.0,               # 1.0 = stock; 1.1 = +10%
     "gpu_oc_notch": 0,                      # 0=stock, 1=+10%, 2=+20%
     "dual_gpu_active": True,
+    # R344 (E2.M32, SDD-035): R338 workload-mode adoption.
+    # When True, runtime-input knobs are MODULATED by canonical mode
+    # before the wattage estimate runs (training → both GPUs active +
+    # higher OC; idle → single-GPU only + zero OC).
+    "follow_workload_mode_coordinator": True,
+    "workload_mode_overlay_path": "/etc/sovereign-os/workload-mode.toml",
 }
+
+
+# R344 (E2.M32, SDD-035): per-mode runtime-knob modulation.
+# Each entry sets ABSOLUTE values (not deltas) for the 4 runtime
+# knobs since modes represent qualitative postures.
+WORKLOAD_MODE_TO_RUNTIME_KNOBS: dict[str, dict[str, Any]] = {
+    "idle": {
+        "xmp_enabled": True,
+        "cpu_oc_multiplier": 1.0,
+        "gpu_oc_notch": 0,
+        "dual_gpu_active": False,   # idle = PRO 6000 only; 3090 powered down
+        "rationale": ("Idle: single-GPU only (PRO 6000); zero OC; "
+                       "XMP kept (memory bandwidth always helpful)."),
+    },
+    "inference-ready": {
+        "xmp_enabled": True,
+        "cpu_oc_multiplier": 1.0,
+        "gpu_oc_notch": 0,
+        "dual_gpu_active": True,    # both GPUs warm + ready
+        "rationale": ("Inference-ready: both GPUs warm; stock clocks; "
+                       "default sane baseline."),
+    },
+    "training": {
+        "xmp_enabled": True,
+        "cpu_oc_multiplier": 1.1,   # +10% CPU OC for data loader throughput
+        "gpu_oc_notch": 1,           # +10% GPU OC for compute throughput
+        "dual_gpu_active": True,
+        "rationale": ("Training: dual-GPU + +10% CPU/GPU OC for "
+                       "throughput. Pair with R296 thermal-oc-budget "
+                       "(which itself modulates margins per training)."),
+    },
+    "oc-burst": {
+        "xmp_enabled": True,
+        "cpu_oc_multiplier": 1.2,   # +20% CPU OC
+        "gpu_oc_notch": 2,           # +20% GPU OC
+        "dual_gpu_active": True,
+        "rationale": ("OC-burst: max-everything transient peak. "
+                       "Operator MUST verify PSU has headroom — R344 "
+                       "wattage estimate may return over-budget."),
+    },
+}
+
+
+def _read_canonical_mode(cfg: dict) -> tuple[str | None, str]:
+    """R344 (E2.M32): SDD-035 contract — same shape as R339-R342.
+    NEVER raises."""
+    if not cfg.get("follow_workload_mode_coordinator", True):
+        return None, "xmp-oc-room-overlay"
+    path = Path(cfg.get("workload_mode_overlay_path",
+                          "/etc/sovereign-os/workload-mode.toml"))
+    if not path.is_file():
+        return None, "xmp-oc-room-overlay"
+    try:
+        body = path.read_text(encoding="utf-8")
+    except OSError:
+        return None, "xmp-oc-room-overlay"
+    import re
+    m = re.search(r'^\s*active_mode\s*=\s*"([^"]+)"\s*$', body, re.M)
+    if m:
+        return m.group(1), "R338-canonical"
+    return None, "xmp-oc-room-overlay"
+
+
+def _apply_mode_modulation(cfg: dict) -> tuple[dict, str | None, str]:
+    """R344: apply per-mode runtime knob values.
+
+    Operator-overlay explicit knobs win — if operator set any of
+    {xmp_enabled, cpu_oc_multiplier, gpu_oc_notch, dual_gpu_active}
+    in their cpu-hotswap-like override, we preserve those.
+
+    Implementation: we cannot distinguish 'operator set to default'
+    from 'unset' without overlay-source tracking. Per SDD-035 §5
+    precedence, when follow=True + canonical present, modulation
+    REPLACES runtime knobs UNLESS the cfg already differs from
+    in-source DEFAULTS by an unrelated knob (i.e. operator clearly
+    customized this advisor). To stay simple + predictable: when
+    follow=True + canonical present, ALL 4 runtime knobs come from
+    the map. Operator wants finer control: opt out with follow=False.
+    """
+    cfg_modulated = dict(cfg)
+    canonical, source = _read_canonical_mode(cfg)
+    if canonical is None:
+        return cfg_modulated, None, source
+    knobs = WORKLOAD_MODE_TO_RUNTIME_KNOBS.get(canonical)
+    if knobs is None:
+        return cfg_modulated, canonical, f"{source}-unknown-mode"
+    for k in ("xmp_enabled", "cpu_oc_multiplier",
+              "gpu_oc_notch", "dual_gpu_active"):
+        if k in knobs:
+            cfg_modulated[k] = knobs[k]
+    return cfg_modulated, canonical, source
 
 
 def estimate_load_w(cfg: dict) -> dict[str, Any]:
@@ -233,8 +330,11 @@ def main(argv: list[str] | None = None) -> int:
 
     args = p.parse_args(argv)
     cfg, meta = load_state(args.config)
-    load = estimate_load_w(cfg)
-    verdict = compute_verdict(cfg, load)
+    # R344 (E2.M32, SDD-035): modulate runtime knobs per R338 canonical mode.
+    cfg_modulated, workload_mode_canonical, mode_source = \
+        _apply_mode_modulation(cfg)
+    load = estimate_load_w(cfg_modulated)
+    verdict = compute_verdict(cfg_modulated, load)
 
     if args.verb == "budget":
         if args.fmt == "json":
@@ -299,6 +399,10 @@ def main(argv: list[str] | None = None) -> int:
         "round": ROUND,
         "sdd_vector": SDD_VECTOR,
         "config": cfg,
+        "config_modulated": cfg_modulated,
+        "workload_mode_canonical": workload_mode_canonical,
+        "workload_mode_source": mode_source,
+        "workload_mode_to_runtime_knobs": WORKLOAD_MODE_TO_RUNTIME_KNOBS,
         "load_estimate": load,
         "verdict": verdict["verdict"],
         "rc": verdict["rc"],
@@ -313,7 +417,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.fmt == "json":
         print(json.dumps(doc, indent=2))
     else:
-        print(render_status_human(cfg, load, verdict), end="")
+        print(render_status_human(cfg_modulated, load, verdict), end="")
     return verdict["rc"]
 
 

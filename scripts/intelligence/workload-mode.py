@@ -158,6 +158,24 @@ AFFECTED_ADVISORS: list[dict[str, Any]] = [
                             "lower thresholds (early warning).",
     },
     {
+        "advisor": "R315 xmp-oc-room-advisor",
+        "script": "scripts/hardware/xmp-oc-room-advisor.py",
+        "verb": "sovereign-osctl xmp-oc-room status",
+        "consumes_mode_via": ("R338 canonical "
+                                "(/etc/sovereign-os/workload-mode.toml) "
+                                "since R344; modulates 4 runtime knobs "
+                                "(xmp_enabled, cpu_oc_multiplier, "
+                                "gpu_oc_notch, dual_gpu_active) per "
+                                "WORKLOAD_MODE_TO_RUNTIME_KNOBS map"),
+        "future_adoption": False,
+        "adopted_in_round": "R344",
+        "operator_caveat": "Fifth R338 adopter — first post-SDD-035 "
+                            "adopter, validates the formal contract "
+                            "works for adopters not in the original "
+                            "4-set. Idle = single-GPU only; training = "
+                            "dual-GPU + 10% CPU/GPU OC; oc-burst = max.",
+    },
+    {
         "advisor": "R293 power-profiles",
         "script": "scripts/hardware/power-profiles.py",
         "verb": "sovereign-osctl power-profiles status",

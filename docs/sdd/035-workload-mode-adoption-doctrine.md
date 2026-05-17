@@ -123,7 +123,7 @@ The L1 lint does NOT enforce per-advisor invariants (different
 shapes); the per-advisor L3 test does. SDD-035 just requires that
 SOMEWHERE post-modulation the invariants are restored.
 
-## Current 4-adopter registry
+## Current adopter registry
 
 | Advisor | Round | Shape | Map name |
 |---------|-------|-------|----------|
@@ -131,6 +131,7 @@ SOMEWHERE post-modulation the invariants are restored.
 | R307 cpu-hotswap | R340 | discrete (gov, EPP) tuples | `WORKLOAD_MODE_TO_GOV_EPP` |
 | R296 thermal-oc-budget | R341 | continuous margin deltas | `WORKLOAD_MODE_TO_MARGIN_DELTA` |
 | R304 memory-pressure-damper | R342 | continuous threshold + step | `WORKLOAD_MODE_TO_DAMPER_DELTA` |
+| R315 xmp-oc-room-advisor | R344 | absolute runtime knob replacement | `WORKLOAD_MODE_TO_RUNTIME_KNOBS` |
 
 ## L1 lint enforcement
 

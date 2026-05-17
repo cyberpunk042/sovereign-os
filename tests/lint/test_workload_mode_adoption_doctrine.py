@@ -25,13 +25,17 @@ ADOPTERS = [
      "_read_canonical_mode"),
     ("scripts/hardware/memory-pressure-oc-damper.py",    "R342",
      "_read_canonical_mode"),
+    # R344 (E2.M32): first post-SDD-035 adopter validates contract
+    # generalizes beyond the original 4-set.
+    ("scripts/hardware/xmp-oc-room-advisor.py",          "R344",
+     "_read_canonical_mode"),
 ]
 
 
 REQUIRED_SDD_SECTIONS = [
     "## Mission",
     "## The contract — every R338 adopter MUST",
-    "## Current 4-adopter registry",
+    "## Current adopter registry",
     "## L1 lint enforcement",
     "## What this SDD does NOT do",
     "## Future-quarter adoption candidates",
