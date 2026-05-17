@@ -385,6 +385,9 @@ jobs:
       - name: nspawn — dashboard (Round 225, SDD-026 Z-1: HTTP dashboard SEED)
         run: |
           tests/nspawn/test_dashboard.sh
+      - name: nspawn — health scan (Round 226, SDD-026 Z-6: composite autohealth/doctor scan)
+        run: |
+          tests/nspawn/test_health_scan.sh
       - name: nspawn — thermal-watch (Round 172: per-profile thermal thresholds + OCSF events)
         run: |
           tests/nspawn/test_thermal_watch.sh
