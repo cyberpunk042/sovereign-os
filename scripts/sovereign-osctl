@@ -5513,6 +5513,25 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  network-stack)
+    # R319 (E3.M7): network runtime-stack advisor.
+    # Per-service runtime probe + troubleshoot guide beyond
+    # install-mode (R310). 5 default services across 4 axes
+    # (tailscale/cloudflared/traefik/systemd-resolved/suricata).
+    # Operator-named (§1b verbatim: "networks and in and out,
+    # the DNS, the Cloudflared ? the tailscale, Traefik").
+    sub="${1:-status}"
+    shift || true
+    case "${sub}" in
+      list|status|troubleshoot)
+        "${__REPO_ROOT}/scripts/network/runtime-stack-advisor.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown network-stack subverb: ${sub} (list, status, troubleshoot)"
+        exit 2
+        ;;
+    esac
+    ;;
   heat-oc-throttle)
     # R318 (E1.M38): heat-tied OC auto-throttle with triple-gate.
     # Composes R296 + R304 + R315 → min-recommended gpu_oc_multiplier.

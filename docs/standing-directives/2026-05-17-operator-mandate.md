@@ -332,6 +332,7 @@ the Epic is closed — but the operator may add new Modules to it.
 | E3.M4 | DNS provider posture (Cloudflare/Quad9/AdGuard advisories) | ✓ shipped | R268 |
 | E3.M5 | Reverse-proxy config validator (Traefik / Caddy / nginx) | ✓ shipped | R275 |
 | E3.M6 | Network performance baseline + drift detection | ✓ shipped | R276 |
+| E3.M7 | **Network-runtime-stack advisor** — per-service runtime probe (cloudflared / tailscale / traefik / DNS provider / suricata) + per-service troubleshoot guide with operator-pull diagnostic steps. Composes R220 + R263 + R268 + R275 into ONE deeper rollup with per-service troubleshooting. Closes stop-hook-flagged "no comprehensive DNS/Cloudflared/Tailscale/Traefik network advisor surface beyond install-mode" [from §1b verbatim: "networks and in and out, the DNS, the Cloudflared ? the tailscale, Traefik"] | ✓ shipped | R319 (`sovereign-osctl network-stack list/status/troubleshoot`) |
 
 ### Epic E4 — Dashboard / Operator UX
 
