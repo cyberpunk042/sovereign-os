@@ -208,6 +208,17 @@ COMMANDS:
   raid detail [<name>|--all] [--json]
                                R223 (SDD-026 Z-9): mdadm --detail for
                                one (or every) array. Read-only.
+  profiles flex show [--json]  R224 (SDD-026 Z-3): print active profile +
+                               applied flex deltas (operator-runtime
+                               JSON deltas over YAML baselines).
+  profiles flex set <key> <value> [--json]
+                               R224: append a flex delta. Value parses
+                               as JSON when valid (numbers / booleans
+                               / arrays / objects), else as a string.
+  profiles flex reset [--json] R224: clear every delta — revert to YAML
+                               baseline. rc=1 when already empty.
+  profiles flex history [--json]
+                               R224: chronological delta log (audit).
 
   journal list [--all-dirs]    List Layer A JSONL log files (size + first/last event)
   journal show <file> [--all-dirs]  Pretty-print one JSONL log file as a table
@@ -904,6 +915,14 @@ PY
       log_info "active profile set to: ${id}"
       log_warn "NOTE: kernel changes require rebuild; package changes via apt; "
       log_warn "      hardware changes may require post-install hook re-run."
+      ;;
+    flex)
+      # R224 (SDD-026 Z-3): flex-profile JSON delta surface.
+      # `profiles flex {show,set,reset,history}` namespaces the runtime
+      # delta knobs under the canonical profiles surface.
+      local sub2="${1:-show}"
+      shift || true
+      "${__REPO_ROOT}/scripts/hardware/profile-flex.py" "${sub2}" "$@"
       ;;
     *)
       log_error "unknown profiles subcommand: ${sub}"

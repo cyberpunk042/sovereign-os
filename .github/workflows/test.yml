@@ -379,6 +379,9 @@ jobs:
       - name: nspawn — raid status (Round 223, SDD-026 Z-9: software RAID surface)
         run: |
           tests/nspawn/test_raid_status.sh
+      - name: nspawn — profile flex (Round 224, SDD-026 Z-3: flex-profile JSON delta)
+        run: |
+          tests/nspawn/test_profile_flex.sh
       - name: nspawn — thermal-watch (Round 172: per-profile thermal thresholds + OCSF events)
         run: |
           tests/nspawn/test_thermal_watch.sh
