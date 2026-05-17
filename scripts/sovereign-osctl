@@ -5698,6 +5698,23 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  config-snapshot)
+    # R332 (E2.M23): config-snapshot for backup/migration.
+    # Captures complete operator-customized state into ONE portable
+    # JSON: overlays + audit + windows + inventory + helper-library
+    # manifest. Distinct from R322 state-snapshot (runtime-state).
+    sub="${1:-capture}"
+    shift || true
+    case "${sub}" in
+      capture|audit)
+        "${__REPO_ROOT}/scripts/diagnostics/config-snapshot.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown config-snapshot subverb: ${sub} (capture, audit)"
+        exit 2
+        ;;
+    esac
+    ;;
   self-test)
     # R331 (E9.M14): operator-pull self-test verb. Runs L1 lint
     # suites + unit tests + curated L3 sample + emits health summary.
