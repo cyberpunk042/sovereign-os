@@ -1,0 +1,51 @@
+# sovereign-os PSU OC-mode orchestration — R294 / E1.M22.
+#
+# Operator-named (§1b mandate row, verbatim): "My PSU even have an
+# overclock mode which might be important".
+#
+# Models the operator's PSU OC-mode switch state (PSUs don't expose
+# this in software; the operator declares it here). The script's
+# DEFAULT_PSU_SPECS seeds the be Quiet! Dark Power Pro 13 (§1b
+# reference) + a few siblings; operator can add via [[known_psus]].
+#
+# Adopts R283 / SDD-030 operator-overlay-doctrine: copy to
+# /etc/sovereign-os/psu-oc.toml (or set
+# SOVEREIGN_OS_OVERLAY_PSU_OC=<path>). Scalars REPLACE the defaults;
+# known_psus = [...] REPLACES the default registry.
+
+# ── Operator's PSU + OC-mode declaration ──
+operator_psu_model         = "be Quiet! Dark Power Pro 13 1600W"
+oc_mode_enabled            = false
+sustained_safety_margin_pct = 10
+
+# ── Known PSU spec sheets (operator-extendable) ──
+# Each entry: model, rated_standard_watts, rated_oc_mode_watts,
+# brief_peak_watts, efficiency, atx_revision, oc_mode_semantics.
+
+[[known_psus]]
+model                = "be Quiet! Dark Power Pro 13 1600W"
+rated_standard_watts = 1600
+rated_oc_mode_watts  = 1600
+brief_peak_watts     = 3200
+efficiency           = "80 Plus Titanium"
+atx_revision         = "3.1"
+oc_mode_semantics    = "Multi-rail (4×) → single-rail consolidation."
+operator_notes       = "§1b reference PSU."
+
+[[known_psus]]
+model                = "be Quiet! Dark Power Pro 13 1300W"
+rated_standard_watts = 1300
+rated_oc_mode_watts  = 1300
+brief_peak_watts     = 2600
+efficiency           = "80 Plus Titanium"
+atx_revision         = "3.1"
+oc_mode_semantics    = "Same multi-rail → single-rail toggle."
+
+[[known_psus]]
+model                = "Corsair AX1600i"
+rated_standard_watts = 1600
+rated_oc_mode_watts  = 1600
+brief_peak_watts     = 1800
+efficiency           = "80 Plus Titanium"
+atx_revision         = "2.4"
+oc_mode_semantics    = "No dedicated OC-mode switch."

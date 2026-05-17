@@ -5372,6 +5372,23 @@ case "${cmd}" in
     # surfaces selfdef tools too)".
     "${__REPO_ROOT}/scripts/interop/mcp-aggregate.py" "$@"
     ;;
+  psu-oc)
+    # R294 (E1.M22): PSU OC-mode orchestration — be Quiet! Dark
+    # Power Pro 13 1600W + operator-declared OC-mode state +
+    # wattage-budget shift. Operator-named (§1b verbatim): "My PSU
+    # even have an overclock mode which might be important".
+    sub="${1:-state}"
+    shift || true
+    case "${sub}" in
+      state|budget|projection)
+        "${__REPO_ROOT}/scripts/hardware/psu-oc.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown psu-oc subverb: ${sub} (state, budget, projection)"
+        exit 2
+        ;;
+    esac
+    ;;
   power-profiles)
     # R293 (E1.M21): operator-pull power-management default-profile
     # registry — composes R252/R253/R262/R265/R292 into named
