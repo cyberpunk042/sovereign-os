@@ -346,6 +346,9 @@ jobs:
       - name: nspawn — bootstrap docs (Round 203: phase-doc renderer + freshness gate)
         run: |
           tests/nspawn/test_bootstrap_docs.sh
+      - name: nspawn — models docs (Round 206: model-catalog doc renderer, SDD-028 pattern)
+        run: |
+          tests/nspawn/test_models_docs.sh
       - name: nspawn — thermal-watch (Round 172: per-profile thermal thresholds + OCSF events)
         run: |
           tests/nspawn/test_thermal_watch.sh

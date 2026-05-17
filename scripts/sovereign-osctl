@@ -91,6 +91,7 @@ COMMANDS:
   perimeter verify             Run perimeter integrity audit
   perimeter reload             Reload Tetragon TracingPolicies
 
+  models docs [--check|--stdout]  Regenerate docs/src/model-catalog.md (R206, SDD-028 pattern)
   models list                  List resident models (tank/models)
   models pull <hf-id>          Pull model from HuggingFace into tank/models
   models verify                Verify resident-model integrity
@@ -1074,6 +1075,12 @@ cmd_models() {
       # confirm artifact integrity against the manifest's sha256 pin.
       # Distinct from `models verify` (catalog-sync) — this is per-artifact.
       "${__REPO_ROOT}/scripts/models/verify-checksum.py" "$@"
+      ;;
+    docs)
+      # R206: regenerate docs/src/model-catalog.md from models/catalog.yaml.
+      # Applies the SDD-028 canonical-source pattern — same data the puller
+      # + verifier consume, also drives the operator-readable doc.
+      "${__REPO_ROOT}/scripts/models/render-catalog-md.py" "$@"
       ;;
     *)
       log_error "unknown models subcommand: ${sub}"
