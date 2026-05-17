@@ -382,6 +382,9 @@ jobs:
       - name: nspawn — profile flex (Round 224, SDD-026 Z-3: flex-profile JSON delta)
         run: |
           tests/nspawn/test_profile_flex.sh
+      - name: nspawn — dashboard (Round 225, SDD-026 Z-1: HTTP dashboard SEED)
+        run: |
+          tests/nspawn/test_dashboard.sh
       - name: nspawn — thermal-watch (Round 172: per-profile thermal thresholds + OCSF events)
         run: |
           tests/nspawn/test_thermal_watch.sh

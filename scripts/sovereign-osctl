@@ -208,6 +208,14 @@ COMMANDS:
   raid detail [<name>|--all] [--json]
                                R223 (SDD-026 Z-9): mdadm --detail for
                                one (or every) array. Read-only.
+  dashboard serve [--bind HOST:PORT] [--once]
+                               R225 (SDD-026 Z-1): HTTP dashboard SEED.
+                               Aggregates all Z-vector cards into one
+                               browsable page + JSON API. Default bind
+                               127.0.0.1:8443. --once handles a single
+                               request and exits (for L3 tests).
+  dashboard render             R225: render the dashboard HTML to
+                               stdout without binding a socket.
   profiles flex show [--json]  R224 (SDD-026 Z-3): print active profile +
                                applied flex deltas (operator-runtime
                                JSON deltas over YAML baselines).
@@ -4456,6 +4464,25 @@ case "${cmd}" in
     sub="${1:-status}"
     shift || true
     "${__REPO_ROOT}/scripts/hardware/raid-status.py" "${sub}" "$@"
+    ;;
+  dashboard)
+    # R225 (SDD-026 Z-1): dashboard SEED — minimal HTTP server that
+    # aggregates the shipped Z-vector cards (gpu / network / cpu /
+    # fs / raid / flex). 127.0.0.1:8443 default; --bind to expose.
+    sub="${1:-serve}"
+    shift || true
+    case "${sub}" in
+      serve)
+        "${__REPO_ROOT}/scripts/dashboard/serve.py" "$@"
+        ;;
+      render)
+        "${__REPO_ROOT}/scripts/dashboard/serve.py" --render-only "$@"
+        ;;
+      *)
+        log_error "unknown dashboard subverb: ${sub} (available: serve, render)"
+        exit 2
+        ;;
+    esac
     ;;
   version|--version|-V) cmd_version "$@" ;;
   help|--help|-h|"") cmd_help ;;
