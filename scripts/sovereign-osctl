@@ -5513,6 +5513,24 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  xmp-oc-room)
+    # R315 (E1.M35): XMP/OC profile room estimator under dual-GPU
+    # sustained load. Composes PSU rated W + estimated XMP/EXPO
+    # extra + CPU OC extra + dual-GPU sustained → budget-left
+    # + safe-(xmp, cpu_oc, gpu_oc)-combination matrix.
+    # Operator-named (§1b verbatim).
+    sub="${1:-status}"
+    shift || true
+    case "${sub}" in
+      status|budget|recommend)
+        "${__REPO_ROOT}/scripts/hardware/xmp-oc-room-advisor.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown xmp-oc-room subverb: ${sub} (status, budget, recommend)"
+        exit 2
+        ;;
+    esac
+    ;;
   apc-profile)
     # R314 (E1.M34): PSU/APC default-profile orchestration — 3
     # curated named profiles (conservative/balanced/aggressive)
