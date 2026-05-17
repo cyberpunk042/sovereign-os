@@ -388,7 +388,7 @@ the Epic is closed — but the operator may add new Modules to it.
 | E8.M3 | REPL invocation audit trail (SELFDEF_REPL_HISTORY JSONL) | ✓ shipped (selfdef) | SD-R95 |
 | E8.M4 | Integrated-intelligence modules — operator-pull CoT routines registered with @selfdef_macro | **TODO** | — |
 | E8.M5 | Tier 3 native pyo3 bindings (zero-subprocess Tier 1) | **TODO** | — |
-| E8.M6 | Token-saving aliases + wasted-path tracker | **TODO** | — |
+| E8.M6 | Token-saving aliases + wasted-path tracker | ✓ shipped (selfdef) | SD-R97 |
 
 ### Epic E9 — Operator-mandate process discipline
 
