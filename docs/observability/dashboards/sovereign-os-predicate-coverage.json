@@ -1,0 +1,181 @@
+{
+  "_comment": "sovereign-os predicate-coverage dashboard (R197). Visualises the selfdef SD-R54 per-predicate-capability gauges. Operators see fleet-wide adoption rate per [requires_hardware] predicate name — find the thresholds that the fleet actually meets vs the ones that are aspirational. Combined with the SD-R47/R53 audit dashboard panels (sovereign-os-wasm-aot), operators have complete visibility into the cycle-2+3 gate posture across their fleet. Metrics emitted by selfdef-daemon SD-R22 periodic probe loop into the node_exporter textfile collector.",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Fleet hosts reporting gate-capable metrics",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "count(count by (instance)(sovereign_os_selfdef_hardware_gate_capable))", "refId": "A"}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red"},
+              {"color": "yellow", "value": 1},
+              {"color": "green", "value": 1}
+            ]
+          }
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "Avg pass-rate across predicates (fleet)",
+      "_comment": "Per-predicate pass-rate averaged across all named predicates. 1.0 = every host satisfies every predicate. < 1.0 = some hosts lag behind. Operator can drill into the table below to find specific gaps.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "avg(sovereign_os_selfdef_hardware_gate_capable)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red"},
+              {"color": "yellow", "value": 0.5},
+              {"color": "green", "value": 0.8}
+            ]
+          }
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "Hosts with full AVX-512 stack",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "count(sovereign_os_selfdef_hardware_gate_capable{predicate=\"avx512_vnni\"} == 1 and sovereign_os_selfdef_hardware_gate_capable{predicate=\"avx512_bf16\"} == 1)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red"},
+              {"color": "yellow", "value": 1},
+              {"color": "green", "value": 1}
+            ]
+          }
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "Hosts with SAIN-01 GPU power telemetry",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "count(sovereign_os_selfdef_hardware_gate_capable{predicate=\"all_gpus_have_power_telemetry\"} == 1)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red"},
+              {"color": "yellow", "value": 1},
+              {"color": "green", "value": 1}
+            ]
+          }
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "table",
+      "title": "Pass-rate per predicate (R197 — SD-R54 / SDD-020 V-2)",
+      "_comment": "Per-predicate fleet-wide adoption rate. Each row = one predicate name; value = fraction of fleet hosts that satisfy it. Operator sorts to find the gap — e.g. `any_gpu_vram_at_least_80gib` = 0.05 means 5% of fleet has at least one ≥80 GiB GPU (typically the SAIN-01 RTX PRO 6000 boxes only). Lets operator standardise the threshold the fleet REALLY supports.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "avg by (predicate)(sovereign_os_selfdef_hardware_gate_capable)",
+          "refId": "A",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {"Time": true, "__name__": true, "job": true, "instance": true},
+            "renameByName": {
+              "predicate": "predicate",
+              "Value": "fleet pass-rate"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [{"field": "fleet pass-rate", "desc": false}]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {"unit": "percentunit"}
+      },
+      "gridPos": {"h": 10, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "table",
+      "title": "Per-host predicate matrix",
+      "_comment": "Per-host × per-predicate state. 1 = passes, 0 = fails. Operator finds the specific HOST that's lagging on a specific PREDICATE.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "sovereign_os_selfdef_hardware_gate_capable",
+          "refId": "A",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {"Time": true, "__name__": true, "job": true},
+            "renameByName": {
+              "instance": "host",
+              "predicate": "predicate",
+              "Value": "passes"
+            }
+          }
+        }
+      ],
+      "gridPos": {"h": 10, "w": 12, "x": 12, "y": 4}
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 38,
+  "tags": ["sovereign-os", "selfdef", "predicate-coverage", "cycle-3", "R197"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
+  "timezone": "",
+  "title": "sovereign-os — Predicate coverage (R197)",
+  "uid": "sovereign-os-predicate-coverage",
+  "version": 1
+}

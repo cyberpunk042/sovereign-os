@@ -2,7 +2,12 @@
 """scripts/hardware/cycle2-status.py — comprehensive cycle-2
 readiness report (R187).
 
-ONE command, ALL cycle-2 surfaces. Aggregates:
+ONE command, ALL cycle-2 + cycle-3 surfaces. Aggregates:
+
+Cross-referenced fleet-aggregate metrics (emitted by selfdef-daemon
+SD-R54, visualised by docs/observability/dashboards/sovereign-os-predicate-coverage.json):
+  sovereign_os_selfdef_hardware_gate_capable{predicate="..."}
+
   - selfdef SD-R10 capabilities export presence + freshness
   - selfdef SD-R14+R26+R32 module-gate verdict counts (via R170 mirror)
   - selfdef SD-R34 model-registry gate verdict counts (via R182 mirror)
