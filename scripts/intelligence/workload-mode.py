@@ -142,10 +142,20 @@ AFFECTED_ADVISORS: list[dict[str, Any]] = [
         "advisor": "R304 memory-pressure-damper",
         "script": "scripts/hardware/memory-pressure-oc-damper.py",
         "verb": "sovereign-osctl memory-pressure-damper status",
-        "consumes_mode_via": "(not yet)",
-        "future_adoption": True,
-        "operator_caveat": "Future-round candidate: training mode → more "
-                            "aggressive dampening on memory pressure spikes.",
+        "consumes_mode_via": ("R338 canonical "
+                                "(/etc/sovereign-os/workload-mode.toml) "
+                                "since R342; modulates "
+                                "memory_pressure_warn/crit_avg10 + "
+                                "dampen_step_mild per WORKLOAD_MODE_TO_"
+                                "DAMPER_DELTA map; explicit overlay knobs "
+                                "still win"),
+        "future_adoption": False,
+        "adopted_in_round": "R342",
+        "operator_caveat": "Fourth R338 adopter — completes the original "
+                            "4-advisor adoption registry. Training mode "
+                            "raises thresholds (sustained memory pressure "
+                            "expected during fine-tune); idle/oc-burst "
+                            "lower thresholds (early warning).",
     },
     {
         "advisor": "R293 power-profiles",

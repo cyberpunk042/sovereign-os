@@ -57,7 +57,104 @@ DEFAULTS = {
     # OC dampening recommendations per severity level.
     "dampen_step_mild":   0.05,   # subtract 5% from gpu_oc_multiplier
     "dampen_step_full":   1.0,    # revert to stock (mult = 1.0)
+    # R342 (E2.M31): R338 workload-mode adoption.
+    # When True, thresholds + dampen_step_mild are MODULATED by
+    # the canonical workload mode (training → looser thresholds +
+    # smaller mild step; oc-burst → tightest thresholds; idle → mid).
+    "follow_workload_mode_coordinator": True,
+    "workload_mode_overlay_path": "/etc/sovereign-os/workload-mode.toml",
 }
+
+
+# R342 (E2.M31): workload-mode → memory-damper modulation map.
+# Each entry per mode: warn_avg10_delta, crit_avg10_delta,
+# mild_step_delta.
+WORKLOAD_MODE_TO_DAMPER_DELTA: dict[str, dict[str, Any]] = {
+    "idle": {
+        "memory_pressure_warn_avg10_delta": -10.0,   # warn at 20% (sooner)
+        "memory_pressure_crit_avg10_delta": -10.0,   # crit at 50%
+        "dampen_step_mild_delta":  +0.02,             # mild = 7% (more aggressive)
+        "rationale": ("Idle: operator wants any memory anomaly = "
+                       "fast pullback; tighter thresholds + bigger "
+                       "mild step."),
+    },
+    "inference-ready": {
+        "memory_pressure_warn_avg10_delta": 0.0,
+        "memory_pressure_crit_avg10_delta": 0.0,
+        "dampen_step_mild_delta":  0.0,
+        "rationale": ("Inference-ready: default thresholds (warn 30%, "
+                       "crit 60%, mild 5%). Operator sane baseline."),
+    },
+    "training": {
+        "memory_pressure_warn_avg10_delta": +20.0,   # warn at 50% (later)
+        "memory_pressure_crit_avg10_delta": +10.0,   # crit at 70%
+        "dampen_step_mild_delta":  -0.03,             # mild = 2% (gentler)
+        "rationale": ("Training: sustained memory pressure is expected "
+                       "(model + KV cache + dataset); only dampen on "
+                       "EXTREME pressure. Gentler mild step preserves "
+                       "training throughput."),
+    },
+    "oc-burst": {
+        "memory_pressure_warn_avg10_delta": -15.0,   # warn at 15% (very early)
+        "memory_pressure_crit_avg10_delta": -20.0,   # crit at 40%
+        "dampen_step_mild_delta":  +0.05,             # mild = 10% (aggressive)
+        "rationale": ("OC-burst: ANY pressure during burst = abort "
+                       "the burst posture. Very tight thresholds + "
+                       "aggressive step."),
+    },
+}
+
+
+def _read_canonical_mode(cfg: dict) -> tuple[str | None, str]:
+    """R342 (E2.M31): same shape as R339/R340/R341 helpers. NEVER raises."""
+    if not cfg.get("follow_workload_mode_coordinator", True):
+        return None, "memory-damper-overlay"
+    path = Path(cfg.get("workload_mode_overlay_path",
+                          "/etc/sovereign-os/workload-mode.toml"))
+    if not path.is_file():
+        return None, "memory-damper-overlay"
+    try:
+        body = path.read_text(encoding="utf-8")
+    except OSError:
+        return None, "memory-damper-overlay"
+    import re
+    m = re.search(r'^\s*active_mode\s*=\s*"([^"]+)"\s*$', body, re.M)
+    if m:
+        return m.group(1), "R338-canonical"
+    return None, "memory-damper-overlay"
+
+
+def _apply_mode_modulation(cfg: dict) -> tuple[dict, str | None, str]:
+    """R342: modulate dampening thresholds + steps by canonical mode."""
+    cfg_modulated = dict(cfg)
+    canonical, source = _read_canonical_mode(cfg)
+    if canonical is None:
+        return cfg_modulated, None, source
+    delta = WORKLOAD_MODE_TO_DAMPER_DELTA.get(canonical)
+    if delta is None:
+        return cfg_modulated, canonical, f"{source}-unknown-mode"
+    pairs = [
+        ("memory_pressure_warn_avg10", "memory_pressure_warn_avg10_delta"),
+        ("memory_pressure_crit_avg10", "memory_pressure_crit_avg10_delta"),
+        ("dampen_step_mild", "dampen_step_mild_delta"),
+    ]
+    for cfg_key, delta_key in pairs:
+        try:
+            base = float(cfg_modulated.get(cfg_key, 0))
+            adj = float(delta.get(delta_key, 0))
+            cfg_modulated[cfg_key] = base + adj
+        except (TypeError, ValueError):
+            continue
+    # Floor warn_avg10 at 5.0 (never warn below 5%) + clamp crit ≥ warn
+    cfg_modulated["memory_pressure_warn_avg10"] = max(
+        5.0, cfg_modulated["memory_pressure_warn_avg10"])
+    cfg_modulated["memory_pressure_crit_avg10"] = max(
+        cfg_modulated["memory_pressure_warn_avg10"],
+        cfg_modulated["memory_pressure_crit_avg10"])
+    # Floor dampen_step_mild at 0.01 (never 0%)
+    cfg_modulated["dampen_step_mild"] = max(
+        0.01, cfg_modulated["dampen_step_mild"])
+    return cfg_modulated, canonical, source
 
 
 def _run_json(rel: str, args: list[str]) -> dict[str, Any] | None:
@@ -177,14 +274,22 @@ def build_report(overlay_path: Path | None) -> dict[str, Any]:
         if loaded.get("_parse_error"):
             meta["_parse_error"] = loaded["_parse_error"]
 
+    # R342 (E2.M31): modulate thresholds + steps by R338 canonical mode.
+    cfg_modulated, workload_mode_canonical, mode_source = \
+        _apply_mode_modulation(cfg)
+
     memp = probe_memory_pressure()
     oc = probe_oc_headroom()
-    rec = derive_recommendation(memp, oc, cfg)
+    rec = derive_recommendation(memp, oc, cfg_modulated)
     return {
         "schema_version": SCHEMA_VERSION,
         "round": ROUND,
         "sdd_vector": SDD_VECTOR,
         "config": cfg,
+        "config_modulated": cfg_modulated,
+        "workload_mode_canonical": workload_mode_canonical,
+        "workload_mode_source": mode_source,
+        "workload_mode_to_damper_delta": WORKLOAD_MODE_TO_DAMPER_DELTA,
         "verdict": rec["verdict"],
         "rc": rec["rc"],
         "message": rec["message"],
