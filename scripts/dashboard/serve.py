@@ -218,6 +218,76 @@ def card_models() -> dict[str, Any]:
     }
 
 
+def card_insights() -> dict[str, Any]:
+    """R235 (SDD-026 Z-10 dashboard surface) — Insights card.
+
+    Calls R234 `insights synthesize` and renders the top-3 highest-
+    severity findings as a card. needs_attention is surfaced into the
+    card payload so dashboard CSS can color the section header.
+    """
+    bin_path = REPO_ROOT / "scripts" / "insights" / "synthesize.py"
+    fallback: dict[str, Any] = {
+        "round": "R235",
+        "vector": "SDD-026 Z-10 dashboard",
+        "needs_attention": False,
+        "counts": {"critical": 0, "attention": 0, "informational": 0, "total": 0},
+        "top": [],
+        "summary": "synthesize.py unavailable",
+    }
+    if not bin_path.exists():
+        fallback["summary"] = "synthesize.py not shipped"
+        return {
+            "id": "insights",
+            "title": "Insights (R234 / Z-10)",
+            "data": fallback,
+        }
+    try:
+        r = subprocess.run(
+            [sys.executable, str(bin_path), "--json"],
+            capture_output=True,
+            text=True,
+            timeout=25,
+            check=False,
+        )
+    except (subprocess.TimeoutExpired, OSError) as e:
+        fallback["summary"] = f"invocation failed: {e}"
+        return {"id": "insights", "title": "Insights (R234 / Z-10)", "data": fallback}
+    if r.returncode not in (0, 1):
+        fallback["summary"] = f"synthesize rc={r.returncode}"
+        return {"id": "insights", "title": "Insights (R234 / Z-10)", "data": fallback}
+    try:
+        report = json.loads(r.stdout)
+    except json.JSONDecodeError:
+        fallback["summary"] = "synthesize emitted non-JSON"
+        return {"id": "insights", "title": "Insights (R234 / Z-10)", "data": fallback}
+    top = report.get("insights") or []
+    counts = report.get("counts") or {}
+    data = {
+        "round": "R235",
+        "vector": "SDD-026 Z-10 dashboard",
+        "needs_attention": report.get("needs_attention", False),
+        "counts": counts,
+        "top": [
+            {
+                "severity": i.get("severity"),
+                "title": i.get("title"),
+                "action": i.get("action"),
+            }
+            for i in top[:3]
+        ],
+        "summary": (
+            f"{counts.get('critical', 0)} critical, "
+            f"{counts.get('attention', 0)} attention, "
+            f"{counts.get('informational', 0)} informational"
+        ),
+    }
+    return {
+        "id": "insights",
+        "title": "Insights (R234 / Z-10)",
+        "data": data,
+    }
+
+
 CARDS = [
     card_gpu,
     card_network,
@@ -227,6 +297,7 @@ CARDS = [
     card_flex,
     card_health,
     card_models,
+    card_insights,
 ]
 
 

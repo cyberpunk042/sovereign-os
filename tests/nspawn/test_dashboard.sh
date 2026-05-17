@@ -36,7 +36,7 @@ grep -q "<!doctype html>" /tmp/r225-dash.html \
   && ok "render emits doctype" || ko "no doctype"
 grep -q "sovereign-os dashboard — R225 / SDD-026 Z-1 SEED" /tmp/r225-dash.html \
   && ok "render carries R225 banner" || ko "no banner"
-# All 8 cards must render (R225 seed + R226 health + R227 models)
+# All 9 cards must render (R225 seed + R226 health + R227 models + R235 insights)
 for needle in "GPU watt deviance (R219 / Z-5)" \
               "Network state (R220 / Z-7)" \
               "CPU mode (R221 / Z-4)" \
@@ -44,7 +44,8 @@ for needle in "GPU watt deviance (R219 / Z-5)" \
               "Software RAID (R223 / Z-9)" \
               "Flex profile (R224 / Z-3)" \
               "Health scan (R226 / Z-6)" \
-              "Models — catalog × profile (R227 / Z-2)"; do
+              "Models — catalog × profile (R227 / Z-2)" \
+              "Insights (R234 / Z-10)"; do
   grep -qF "${needle}" /tmp/r225-dash.html \
     && ok "render carries card: ${needle:0:30}…" \
     || ko "missing card: ${needle}"
@@ -109,17 +110,17 @@ if grep -q "serving" /tmp/r225-api.log; then
   if [ "${curl_rc}" -eq 0 ]; then
     ok "GET /api/health returned 200"
     python3 - /tmp/r225-api.json <<'PY' 2>/dev/null \
-      && ok "JSON shape: cards[6] + round + sdd_vector" \
+      && ok "JSON shape: cards[9] + round + sdd_vector" \
       || ko "JSON shape wrong"
 import json, sys
 d = json.load(open(sys.argv[1]))
 assert d["round"] == "R225"
 assert d["sdd_vector"] == "SDD-026 Z-1"
 assert isinstance(d["cards"], list)
-# R225 SEED ships with 6 cards; R226 + R227 add 2 more.
-assert len(d["cards"]) == 8, f"expected 8 cards, got {len(d['cards'])}"
+# R225 SEED ships with 6 cards; R226 + R227 + R235 add 3 more.
+assert len(d["cards"]) == 9, f"expected 9 cards, got {len(d['cards'])}"
 ids = {c["id"] for c in d["cards"]}
-assert ids == {"gpu", "network", "cpu", "fs", "raid", "flex", "health", "models"}, ids
+assert ids == {"gpu", "network", "cpu", "fs", "raid", "flex", "health", "models", "insights"}, ids
 PY
   else
     ko "curl GET /api/health failed (rc=${curl_rc})"
