@@ -92,6 +92,9 @@ COMMANDS:
   perimeter reload             Reload Tetragon TracingPolicies
 
   models docs [--check|--stdout]  Regenerate docs/src/model-catalog.md (R206, SDD-028 pattern)
+  models query [--class C] [--tier T] [--purpose P] [--size-class S] [--quantization Q] [--status S] [--max-vram N] [--min-context N] [--engine E] [--base-model B] [--json]
+                               R213: filter catalog by R212 taxonomy
+                               (operator query surface; AND semantics)
   models list                  List resident models (tank/models)
   models pull <hf-id>          Pull model from HuggingFace into tank/models
   models verify                Verify resident-model integrity
@@ -1081,6 +1084,12 @@ cmd_models() {
       # Applies the SDD-028 canonical-source pattern — same data the puller
       # + verifier consume, also drives the operator-readable doc.
       "${__REPO_ROOT}/scripts/models/render-catalog-md.py" "$@"
+      ;;
+    query)
+      # R213: filter the model catalog by R212 taxonomy (class /
+      # tier / purpose / size / quantization / max-vram / min-context).
+      # Operator surface for "find me the right model for this job".
+      "${__REPO_ROOT}/scripts/models/catalog-query.py" "$@"
       ;;
     *)
       log_error "unknown models subcommand: ${sub}"
