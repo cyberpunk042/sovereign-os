@@ -5513,6 +5513,24 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  board-advisor)
+    # R312 (E1.M32): operator's exact board ASUS ProArt X870E-CREATOR
+    # WIFI specific tuning advisor. PCIe slot allocation + M.2 speed
+    # matrix + dual-GPU bifurcation modes + BIOS-flashback recipe +
+    # memory training timeout + known issues. Operator-named (§1b
+    # verbatim).
+    sub="${1:-status}"
+    shift || true
+    case "${sub}" in
+      status|advise|slot-map)
+        "${__REPO_ROOT}/scripts/hardware/board-advisor-x870e-creator.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown board-advisor subverb: ${sub} (status, advise, slot-map)"
+        exit 2
+        ;;
+    esac
+    ;;
   model-params)
     # R311 (E5.M7 closure): LLM-runtime parametrization advisor.
     # Per-parameter catalog with hardware-aware recommended values
