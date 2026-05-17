@@ -34,6 +34,7 @@ RestrictNamespaces=false  # vLLM internals + podman compatibility
 RestrictRealtime=true
 LockPersonality=true
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+MemoryDenyWriteExecute=false  # vLLM/Triton + DFlash speculative-decode draft JIT-compile kernels; W^X would break codegen
 ReadWritePaths=/var/log/sovereign-os /var/lib/sovereign-os
 ReadOnlyPaths=/mnt/vault/models
 PrivateTmp=true

@@ -33,6 +33,7 @@ RestrictNamespaces=false  # podman creates namespaces internally
 RestrictRealtime=true
 LockPersonality=true
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+MemoryDenyWriteExecute=false  # vLLM/Triton JIT-compile CUDA kernels at request time; W^X would break codegen
 ReadWritePaths=/var/log/sovereign-os /var/lib/sovereign-os
 ReadOnlyPaths=/mnt/vault/models
 PrivateTmp=true

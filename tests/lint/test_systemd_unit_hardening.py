@@ -200,3 +200,103 @@ def test_r171_defense_in_depth_baseline(unit: pathlib.Path):
         f"Add the directives under [Service], or add a "
         f"'# HARDENING-WAIVER: <reason>' comment to the unit."
     )
+
+
+# ---------- R346 inference-service stricter posture (SDD-036) -------
+#
+# The 4 inference daemons accept attacker-controlled prompt text and
+# parse model files; they deserve harder defenses than ambient services.
+# Required directives (each may be =false with an inline-comment rationale
+# on the SAME line — codegen-needs-W^X is a real engineering tradeoff):
+#   - MemoryDenyWriteExecute    (defeats most ROP→shellcode chains)
+#   - RestrictAddressFamilies   (cuts the AF reachable from a compromised
+#                                worker — e.g. AF_PACKET, AF_VSOCK).
+#
+# Inline-comment waiver pattern (mirrors RestrictNamespaces=false):
+#   MemoryDenyWriteExecute=false  # vLLM JIT-compiles CUDA kernels
+#   RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6  # narrower set OK
+#
+# An empty waiver value (e.g. `MemoryDenyWriteExecute=`) is rejected.
+
+INFERENCE_SERVICES = {
+    "sovereign-pulse.service",
+    "sovereign-logic-engine.service",
+    "sovereign-oracle-core.service",
+    "sovereign-router.service",
+}
+
+INFERENCE_HARDER_KEYS = (
+    "MemoryDenyWriteExecute",
+    "RestrictAddressFamilies",
+)
+
+
+def _inference_units() -> list[pathlib.Path]:
+    return [p for p in _service_units() if p.name in INFERENCE_SERVICES]
+
+
+def test_inference_units_present():
+    found = {p.name for p in _inference_units()}
+    missing = INFERENCE_SERVICES - found
+    assert not missing, (
+        f"R346: expected inference service units missing: {missing}"
+    )
+
+
+@pytest.mark.parametrize(
+    "unit", _inference_units(), ids=lambda p: p.name
+)
+def test_inference_service_harder_posture(unit: pathlib.Path):
+    """R346/SDD-036: the 4 inference daemons enforce stricter posture
+    (MemoryDenyWriteExecute + RestrictAddressFamilies). Each may be
+    =false ONLY with an inline-comment rationale."""
+    text = unit.read_text()
+    if "# HARDENING-WAIVER:" in text:
+        return
+    # Build (key → (raw_value, has_inline_comment)) for [Service] section.
+    parsed: dict[str, tuple[str, bool]] = {}
+    section = ""
+    for raw in text.splitlines():
+        stripped = raw.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if stripped.startswith("[") and stripped.endswith("]"):
+            section = stripped[1:-1]
+            continue
+        if "=" not in stripped or section != "Service":
+            continue
+        k, v = stripped.split("=", 1)
+        parsed[k.strip()] = (v, "#" in v)
+
+    missing = []
+    for key in INFERENCE_HARDER_KEYS:
+        if key not in parsed:
+            missing.append(f"{key} (absent)")
+            continue
+        raw_val, has_comment = parsed[key]
+        val = raw_val.split("#", 1)[0].strip()
+        if not val:
+            missing.append(f"{key}= (empty value)")
+            continue
+        # MemoryDenyWriteExecute: accept true; =false only with rationale.
+        if key == "MemoryDenyWriteExecute":
+            low = val.lower()
+            if low == "true":
+                continue
+            if low == "false" and has_comment:
+                continue
+            missing.append(f"{key}={val} (need true OR false+rationale)")
+            continue
+        # RestrictAddressFamilies: accept any non-empty AF list; the
+        # narrower the better. Empty/AF_UNSPEC is rejected.
+        if key == "RestrictAddressFamilies":
+            low = val.lower()
+            if "af_unspec" in low or low in ("any", "true", "false"):
+                missing.append(f"{key}={val} (must enumerate AF list)")
+            continue
+
+    assert not missing, (
+        f"{unit.name} inference-service hardening (R346/SDD-036) "
+        f"insufficient: {missing}. Inline-comment waiver acceptable for "
+        f"codegen-needs-W^X tradeoffs."
+    )
