@@ -136,6 +136,39 @@ def _run_json(script: str, args: list[str]) -> dict[str, Any] | None:
         return None
 
 
+def _run_selfdefctl(args: list[str]) -> tuple[dict[str, Any] | None, str | None]:
+    """R289 (E4.M9): invoke selfdefctl with --json appended; return
+    (parsed_payload, error_hint). When selfdefctl isn't on PATH, the
+    second value is the operator-readable setup hint.
+    """
+    sd_path = shutil.which("selfdefctl")
+    if not sd_path:
+        return None, (
+            "selfdefctl not on PATH; install the selfdef-cli crate "
+            "or set PATH to include its build dir"
+        )
+    try:
+        r = subprocess.run(
+            [sd_path, *args, "--json"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except (subprocess.TimeoutExpired, OSError) as e:
+        return None, f"selfdefctl invocation failed: {type(e).__name__}: {e}"
+    if r.returncode != 0:
+        # Surface the first ~200 chars of stderr to help the operator
+        # diagnose (unknown slug, missing modules dir, etc).
+        msg = (r.stderr or r.stdout or "").strip().splitlines()
+        return None, ("selfdefctl exited "
+                      f"rc={r.returncode}: {(msg[0] if msg else '')[:200]}")
+    try:
+        return json.loads(r.stdout), None
+    except json.JSONDecodeError as e:
+        return None, f"selfdefctl JSON parse error: {e}"
+
+
 def card_gpu() -> dict[str, Any]:
     """R219 Z-5 — gpu-watch JSON."""
     data = _run_json("gpu-watch.py", []) or {"gpus": [], "any_deviance": False}
@@ -1188,6 +1221,299 @@ def gather_all() -> list[dict[str, Any]]:
     return [c() for c in CARDS]
 
 
+# ── R289 (E4.M9): dashboard editable forms for module configuration ──
+#
+# Operator-named (§1b mandate row): "Dashboard editable forms for
+# module configuration". The form composes with the SD-R99 (E2.M6) +
+# SD-R100 (E2.M7) selfdef module-features lifecycle.
+#
+# Pure read-only HTTP semantics: the form submits via GET with field
+# values in query params. The dashboard NEVER writes — it computes
+# the diff between submitted values and the current effective
+# features, then renders the equivalent
+# `selfdefctl modules feature-set <slug> <key> <value>` commands for
+# the operator to copy + run. This preserves the existing write-gate
+# discipline (SD-R96 SELFDEF_MCP_ALLOW_WRITES=YES analog) — the
+# operator stays in control of every mutation.
+def _slug_safe(s: str) -> bool:
+    # Reject the `..` path-traversal substring even though single
+    # dots are otherwise allowed (matches the /api/models/<slug>
+    # validator's existing pattern but tightens against a known
+    # attacker shape).
+    if not s or ".." in s:
+        return False
+    return all(c.isalnum() or c in "-_." for c in s)
+
+
+def _key_safe(s: str) -> bool:
+    if not s or ".." in s:
+        return False
+    return all(c.isalnum() or c in "-_." for c in s)
+
+
+def _flatten(value: Any, prefix: str = "") -> dict[str, Any]:
+    """Walk a nested features dict into dotted-path → leaf-value pairs."""
+    out: dict[str, Any] = {}
+    if isinstance(value, dict):
+        for k, v in value.items():
+            dotted = f"{prefix}.{k}" if prefix else k
+            if isinstance(v, dict):
+                out.update(_flatten(v, dotted))
+            else:
+                out[dotted] = v
+    return out
+
+
+def _parse_qs_pairs(query: str) -> list[tuple[str, str]]:
+    """Tiny URL-decoded query parser — preserves order so command
+    output is stable."""
+    import urllib.parse as _u
+    return _u.parse_qsl(query, keep_blank_values=True)
+
+
+def _coerce_for_compare(submitted: str, current: Any) -> Any:
+    """Best-effort coerce the form-submitted string to the type of
+    the current value so the diff doesn't fire for cosmetic
+    differences (`"true"` vs `True`, `"42"` vs `42`)."""
+    if isinstance(current, bool):
+        s = submitted.strip().lower()
+        if s in ("true", "on", "1", "yes"):
+            return True
+        if s in ("false", "off", "0", "no", ""):
+            return False
+        return submitted
+    if isinstance(current, int) and not isinstance(current, bool):
+        try:
+            return int(submitted)
+        except ValueError:
+            return submitted
+    if isinstance(current, float):
+        try:
+            return float(submitted)
+        except ValueError:
+            return submitted
+    return submitted
+
+
+def _toml_scalar_for(value: Any) -> str:
+    """Render a Python value as a TOML scalar literal so it round-trips
+    through `selfdefctl modules feature-set <slug> <key> <toml-scalar>`."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return repr(value)
+    s = str(value)
+    return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def render_modules_index_html(modules: list[dict] | None,
+                              error: str | None) -> str:
+    """List page — every selfdef module + a link to its features form."""
+    parts: list[str] = []
+    parts.append("<!doctype html>")
+    parts.append('<html lang="en"><head><title>sovereign-os · modules (R289)</title>')
+    parts.append('<meta charset="utf-8">')
+    parts.append('<meta name="viewport" content="width=device-width, initial-scale=1">')
+    parts.append('<link rel="stylesheet" href="/dashboard.css">')
+    parts.append("</head><body>")
+    parts.append('<h1>selfdef modules — operator-pull features (R289 / E4.M9)</h1>')
+    parts.append('<p><a href="/">← dashboard</a></p>')
+    if error:
+        parts.append('<section class="card">')
+        parts.append('<h2>selfdefctl unavailable</h2>')
+        parts.append(f'<pre>{html.escape(error)}</pre>')
+        parts.append('<p>Install the selfdef-cli crate or set PATH; '
+                     'the form route requires it for live feature reads.</p>')
+        parts.append('</section>')
+    elif modules is not None:
+        parts.append('<div class="cards">')
+        for m in modules:
+            slug = m.get("slug") or m.get("name") or ""
+            summary = m.get("summary") or ""
+            if not _slug_safe(slug):
+                continue
+            parts.append(f'<section class="card" id="mod-{html.escape(slug)}">')
+            parts.append(f'<h2>{html.escape(slug)}</h2>')
+            parts.append(f'<p>{html.escape(summary)}</p>')
+            parts.append(
+                f'<p><a href="/modules/{html.escape(slug)}">edit features →</a></p>'
+            )
+            parts.append('</section>')
+        parts.append('</div>')
+    parts.append('<footer>R289 / E4.M9 — dashboard editable forms. '
+                 'Writes stay on the CLI per SD-R96 gate doctrine.</footer>')
+    parts.append('</body></html>')
+    return "".join(parts)
+
+
+def render_module_features_form_html(
+    slug: str,
+    features_doc: dict | None,
+    error: str | None,
+    diff_commands: list[str] | None,
+) -> str:
+    parts: list[str] = []
+    parts.append("<!doctype html>")
+    parts.append(f'<html lang="en"><head><title>sovereign-os · {html.escape(slug)} features (R289)</title>')
+    parts.append('<meta charset="utf-8">')
+    parts.append('<meta name="viewport" content="width=device-width, initial-scale=1">')
+    parts.append('<link rel="stylesheet" href="/dashboard.css">')
+    parts.append("</head><body>")
+    parts.append(f'<h1>{html.escape(slug)} — features (R289 / E4.M9)</h1>')
+    parts.append('<p><a href="/modules">← all modules</a> · '
+                 '<a href="/">dashboard</a></p>')
+
+    if error:
+        parts.append('<section class="card">')
+        parts.append('<h2>error</h2>')
+        parts.append(f'<pre>{html.escape(error)}</pre>')
+        parts.append('</section>')
+    elif features_doc is not None:
+        flat = _flatten(features_doc.get("features", {}))
+        source = features_doc.get("source", "")
+
+        if diff_commands is not None:
+            parts.append('<section class="card">')
+            parts.append('<h2>Commands to apply your changes</h2>')
+            if diff_commands:
+                parts.append('<p>Copy + run on the host (each command is '
+                             'idempotent + audited via SELFDEF_REPL_HISTORY):</p>')
+                parts.append('<pre>')
+                parts.append(html.escape("\n".join(diff_commands)))
+                parts.append('</pre>')
+            else:
+                parts.append('<p>No changes detected — submitted values '
+                             'match the effective features.</p>')
+            parts.append('</section>')
+
+        parts.append('<section class="card">')
+        parts.append(f'<h2>Effective features (source: '
+                     f'<code>{html.escape(str(source))}</code>)</h2>')
+        parts.append(f'<form method="GET" action="/modules/{html.escape(slug)}">')
+        for dotted in sorted(flat.keys()):
+            current = flat[dotted]
+            field_id = "f-" + dotted.replace(".", "-")
+            parts.append('<div class="field">')
+            parts.append(f'<label for="{html.escape(field_id)}">'
+                         f'<code>{html.escape(dotted)}</code></label>')
+            if isinstance(current, bool):
+                checked = ' checked' if current else ''
+                # Hidden companion ensures unchecked checkboxes still
+                # submit "false" rather than absence.
+                parts.append(
+                    f'<input type="hidden" name="{html.escape(dotted)}" value="false">'
+                )
+                parts.append(
+                    f'<input type="checkbox" id="{html.escape(field_id)}" '
+                    f'name="{html.escape(dotted)}" value="true"{checked}>'
+                )
+            elif isinstance(current, (int, float)) and not isinstance(current, bool):
+                parts.append(
+                    f'<input type="number" id="{html.escape(field_id)}" '
+                    f'name="{html.escape(dotted)}" '
+                    f'value="{html.escape(str(current))}" step="any">'
+                )
+            else:
+                parts.append(
+                    f'<input type="text" id="{html.escape(field_id)}" '
+                    f'name="{html.escape(dotted)}" '
+                    f'value="{html.escape(str(current))}">'
+                )
+            parts.append('</div>')
+        parts.append('<button type="submit">Compute changes</button>')
+        parts.append('</form>')
+        parts.append('</section>')
+
+    parts.append('<footer>R289 / E4.M9 — Submitting computes the diff '
+                 'as <code>selfdefctl modules feature-set</code> commands. '
+                 'The dashboard does NOT write — operator runs the commands '
+                 'on the host (SD-R96 gate discipline).</footer>')
+    parts.append('</body></html>')
+    return "".join(parts)
+
+
+def diff_commands_for(slug: str, current_features: dict,
+                      submitted_pairs: list[tuple[str, str]]) -> list[str]:
+    """Compute the `selfdefctl modules feature-set` commands that
+    would land the operator's submitted values on the host. Booleans
+    use the hidden+checkbox pair, so we last-write-wins per key."""
+    flat = _flatten(current_features)
+    # Collapse duplicate keys — last value wins (matches the hidden+
+    # checkbox semantics).
+    submitted: dict[str, str] = {}
+    for k, v in submitted_pairs:
+        submitted[k] = v
+    out: list[str] = []
+    for key in sorted(submitted.keys()):
+        if key not in flat:
+            # Operator added a key not in the current features — skip
+            # (would need a manifest change, not a feature-set).
+            continue
+        new_val = _coerce_for_compare(submitted[key], flat[key])
+        if new_val == flat[key]:
+            continue
+        out.append(
+            f"selfdefctl modules feature-set {slug} {key} "
+            f"{_toml_scalar_for(new_val)}"
+        )
+    return out
+
+
+# Tiny static CSS — reuses the R288 mobile-friendly palette from
+# render_html() but in a smaller standalone form so the modules
+# pages stay mobile-friendly without re-emitting the entire <style>
+# block.
+DASHBOARD_CSS = """\
+:root{--bg:#0d1117;--fg:#c9d1d9;--card:#161b22;--border:#30363d;
+      --accent:#79c0ff;--mute:#8b949e;--ok:#3fb950;--warn:#d29922;
+      --down:#f85149;}
+*{box-sizing:border-box;}
+body{font:14px/1.4 monospace;background:var(--bg);color:var(--fg);
+     padding:1em;margin:0;-webkit-text-size-adjust:100%;}
+h1{font-size:1.2em;border-bottom:1px solid var(--border);
+   padding-bottom:.3em;margin:0 0 1em 0;word-wrap:break-word;}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));
+       gap:1em;align-items:start;}
+.card{background:var(--card);border:1px solid var(--border);
+      border-radius:6px;padding:1em;margin:1em 0;min-width:0;}
+.card h2{font-size:1em;margin:0 0 .5em 0;color:var(--accent);
+         word-wrap:break-word;}
+pre{background:var(--bg);border:1px solid var(--border);
+    border-radius:4px;padding:.5em;overflow-x:auto;
+    white-space:pre-wrap;word-wrap:break-word;font-size:.95em;}
+footer{margin-top:2em;color:var(--mute);font-size:.9em;
+       word-wrap:break-word;}
+code{background:var(--bg);padding:.1em .3em;border-radius:3px;
+     border:1px solid var(--border);word-break:break-all;}
+.field{margin:.5em 0;display:flex;flex-wrap:wrap;align-items:center;
+       gap:.5em;}
+.field label{flex:0 0 220px;min-width:0;}
+.field input[type=text], .field input[type=number]{
+    flex:1 1 200px;min-width:120px;background:var(--bg);
+    color:var(--fg);border:1px solid var(--border);
+    border-radius:4px;padding:.3em .5em;font:inherit;}
+.field input[type=checkbox]{width:1.2em;height:1.2em;}
+button{background:var(--accent);color:#0d1117;border:none;
+       border-radius:4px;padding:.5em 1em;font:inherit;
+       cursor:pointer;min-height:36px;margin-top:.5em;}
+button:hover{background:#a5d6ff;}
+a{color:var(--accent);}
+@media (max-width:480px){
+  body{padding:.6em;}
+  .cards{grid-template-columns:1fr;gap:.75em;}
+  .field{flex-direction:column;align-items:flex-start;}
+  .field label{flex:0 0 auto;}
+  .field input{width:100%;}
+  button{width:100%;min-height:44px;}
+}
+@media print{
+  body{background:#fff;color:#000;}
+  .card{background:#fff;border-color:#ccc;}
+  pre{background:#f6f6f6;border-color:#ccc;}
+}
+"""
+
+
 # --------------------------------------------------------- HTTP layer
 
 
@@ -1278,6 +1604,55 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
         if path == "/api/health":
             self._send_json({"cards": gather_all(), "round": "R225", "sdd_vector": "SDD-026 Z-1"})
+            return
+        # R289 (E4.M9): mobile-friendly shared CSS for the modules
+        # form routes — pulled out of the inline <style> block so the
+        # dashboard and the form pages stay visually consistent.
+        if path == "/dashboard.css":
+            self.send_response(200)
+            self.send_header("Content-Type", "text/css; charset=utf-8")
+            body = DASHBOARD_CSS.encode("utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        # R289 (E4.M9): modules index + per-module features form.
+        if path == "/modules" or path == "/modules/":
+            doc, err = _run_selfdefctl(["modules", "list"])
+            modules = None
+            if doc is not None:
+                # selfdefctl modules list --json shape:
+                #   {"modules": [{"slug":..., "name":..., "summary":...}, ...]}
+                modules = doc.get("modules") if isinstance(doc, dict) else None
+            self._send_html(render_modules_index_html(modules, err))
+            return
+        if path.startswith("/modules/"):
+            rest = path[len("/modules/"):]
+            slug, _, query = rest.partition("?")
+            if not _slug_safe(slug):
+                self._send_html(
+                    render_module_features_form_html(
+                        slug, None, "invalid module slug", None
+                    ),
+                    status=400,
+                )
+                return
+            features, err = _run_selfdefctl(["modules", "features", slug])
+            if features is None:
+                self._send_html(
+                    render_module_features_form_html(slug, None, err, None),
+                    status=502 if err and "selfdefctl exited" in err else 503,
+                )
+                return
+            pairs = _parse_qs_pairs(query) if query else []
+            # Defensive: drop any submitted key that isn't safe.
+            pairs = [(k, v) for k, v in pairs if _key_safe(k)]
+            commands: list[str] | None = None
+            if pairs:
+                commands = diff_commands_for(slug, features.get("features", {}), pairs)
+            self._send_html(
+                render_module_features_form_html(slug, features, None, commands)
+            )
             return
         # R233 (SDD-026 Z-2): per-model detail endpoint. Drives the
         # dashboard's "click on a model card → see full detail" UX
