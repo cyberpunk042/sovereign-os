@@ -5513,6 +5513,25 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  cot)
+    # R309 (E2.M15): integrated-intelligence CoT registry —
+    # named CoT routines that compose multiple sovereign-os verbs
+    # into single decision flows (oc-go-no-go / health-triage /
+    # psu-budget / storage-cleanup / pre-shutdown / boot-troubleshoot).
+    # Sovereign-os counterpart to selfdef SD-R98 @selfdef_macro.
+    # Operator-named (§1b verbatim).
+    sub="${1:-list}"
+    shift || true
+    case "${sub}" in
+      list|show|run)
+        "${__REPO_ROOT}/scripts/intelligence/cot-registry.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown cot subverb: ${sub} (list, show, run)"
+        exit 2
+        ;;
+    esac
+    ;;
   autohealth)
     # R308 (E2.M14): doctor / autohealth periodic synthesizer.
     # Composes R226 (health-scan) + R296 (thermal-oc) + R298
