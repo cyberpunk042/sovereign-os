@@ -5513,6 +5513,41 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  inventory)
+    # R317 (E1.M37): hardware-inventory catalog — single source of
+    # truth for operator's EXACT hardware (CPU/GPU/PSU/UPS/RAM/NVMe/
+    # board). Defaults from operator's verbatim spec drop; overlay
+    # support for swapping any slot. Other advisors compose against
+    # this catalog. Operator-named (§1b spec drop verbatim).
+    sub="${1:-list}"
+    shift || true
+    case "${sub}" in
+      list|show|audit)
+        "${__REPO_ROOT}/scripts/hardware/inventory-catalog.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown inventory subverb: ${sub} (list, show, audit)"
+        exit 2
+        ;;
+    esac
+    ;;
+  wattage-heat-trend)
+    # R316 (E1.M36): real-time wattage+heat trend watcher.
+    # Periodic-sample daemon: wattage + GPU/CPU temp tuples to
+    # JSONL + rolling-window trend intelligence. Operator-named
+    # (§1b verbatim: "real time tracking and intelligence around it").
+    sub="${1:-status}"
+    shift || true
+    case "${sub}" in
+      tick|status|history)
+        "${__REPO_ROOT}/scripts/hardware/wattage-heat-trend-watcher.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown wattage-heat-trend subverb: ${sub} (tick, status, history)"
+        exit 2
+        ;;
+    esac
+    ;;
   xmp-oc-room)
     # R315 (E1.M35): XMP/OC profile room estimator under dual-GPU
     # sustained load. Composes PSU rated W + estimated XMP/EXPO
