@@ -506,6 +506,68 @@ def card_kernel() -> dict[str, Any]:
     }
 
 
+def card_toolchains() -> dict[str, Any]:
+    """R243 (SDD-026 Z-2 dashboard surface) — Toolchains card.
+
+    Calls R242 `toolchains list --json` to surface inference + fine-
+    tune + eval toolchain inventory. Drives the dashboard's "what
+    LM-Studio-equivalents are installed?" answer.
+    """
+    bin_path = REPO_ROOT / "scripts" / "models" / "toolchains.py"
+    fallback: dict[str, Any] = {
+        "round": "R243",
+        "vector": "SDD-026 Z-2 dashboard",
+        "counts": {"total": 0, "installed": 0, "absent": 0, "by_kind": {}},
+        "installed_names": [],
+        "absent_names": [],
+        "summary": "toolchains.py unavailable",
+    }
+    if not bin_path.exists():
+        return {"id": "toolchains", "title": "Toolchains (R242 / Z-2)", "data": fallback}
+    try:
+        r = subprocess.run(
+            [sys.executable, str(bin_path), "list", "--json"],
+            capture_output=True, text=True, timeout=30, check=False,
+        )
+    except (subprocess.TimeoutExpired, OSError) as e:
+        fallback["summary"] = f"invocation failed: {e}"
+        return {"id": "toolchains", "title": "Toolchains (R242 / Z-2)", "data": fallback}
+    if r.returncode != 0:
+        fallback["summary"] = f"toolchains.py rc={r.returncode}"
+        return {"id": "toolchains", "title": "Toolchains (R242 / Z-2)", "data": fallback}
+    try:
+        report = json.loads(r.stdout)
+    except json.JSONDecodeError:
+        fallback["summary"] = "toolchains.py emitted non-JSON"
+        return {"id": "toolchains", "title": "Toolchains (R242 / Z-2)", "data": fallback}
+    rows = report.get("toolchains") or []
+    installed_names = [t["name"] for t in rows if t.get("installed")]
+    absent_names = [t["name"] for t in rows if not t.get("installed")]
+    return {
+        "id": "toolchains",
+        "title": "Toolchains (R242 / Z-2)",
+        "data": {
+            "round": "R243",
+            "vector": "SDD-026 Z-2 dashboard",
+            "counts": report.get("counts", {}),
+            "installed_names": installed_names,
+            "absent_names": absent_names,
+            "summary": (
+                f"{len(installed_names)} installed, "
+                f"{len(absent_names)} absent (operator can install via "
+                "scripts/models/toolchains.py info <name>)"
+            ),
+            # Surface up to 5 not-yet-installed entries with their install hints
+            # so operators see actionable next-steps right in the card.
+            "install_hints_top": [
+                {"name": t["name"], "install_hint": t["install_hint"]}
+                for t in rows
+                if not t.get("installed")
+            ][:5],
+        },
+    }
+
+
 CARDS = [
     card_gpu,
     card_network,
@@ -519,6 +581,7 @@ CARDS = [
     card_install_paths,
     card_services,
     card_kernel,
+    card_toolchains,
 ]
 
 
