@@ -5513,6 +5513,24 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  hardening-base)
+    # R306 (E2.M13): Debian 13 base-system hardening catalog —
+    # 12 OS-level items (sysctl hardening + AppArmor + unattended-
+    # upgrades + auditd + fail2ban + sshd config). Per-item runtime
+    # probe + recommended value + operator-readable rationale.
+    # Complements R299 (BIOS layer) + R171 (systemd unit layer).
+    sub="${1:-list}"
+    shift || true
+    case "${sub}" in
+      list|show|check)
+        "${__REPO_ROOT}/scripts/hardening/base-catalog.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown hardening-base subverb: ${sub} (list, show, check)"
+        exit 2
+        ;;
+    esac
+    ;;
   bios-directives)
     # R299 (E1.M24): ASUS X870E-CREATOR WIFI BIOS directives
     # catalog — 12 specific settings (EXPO, SVM, IOMMU, ReBAR,
