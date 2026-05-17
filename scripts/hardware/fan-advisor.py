@@ -484,6 +484,9 @@ def main(argv: list[str] | None = None) -> int:
                 "sdd_vector": SDD_VECTOR,
                 "mode": mode,
                 "mode_source": mode_source,
+                # R343 (SDD-035): canonical-pair alias.
+                "workload_mode_canonical": (mode_name if mode_source == "R338-canonical" else None),
+                "workload_mode_source": mode_source,
                 "overlay": meta,
             }, indent=2))
         else:
@@ -514,6 +517,11 @@ def main(argv: list[str] | None = None) -> int:
         "sdd_vector": SDD_VECTOR,
         "active_mode": active_mode,
         "mode_source": mode_source,
+        # R343 (SDD-035): canonical field names for cross-advisor
+        # operator audit. Aliases of active_mode + mode_source above
+        # (kept for R337/R339 backwards-compat in own L3).
+        "workload_mode_canonical": active_mode if mode_source == "R338-canonical" else None,
+        "workload_mode_source": mode_source,
         "declared_board": cfg["declared_board"],
         "config": cfg,
         "mode": mode,
