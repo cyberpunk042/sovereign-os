@@ -87,6 +87,51 @@ State at HEAD (`main` = `52dcc3d`):
   human output. The "first command to run" after fresh clone or
   post-install.
 
+## Continuation arc (R164-R203, in progress)
+
+Continued NEVER STOP execution past the R145-R163 arc. Highlights:
+
+- **R164-R199** — cycle-2/cycle-3 selfdef bridges + cross-repo
+  observability fabric: hardware-aware module gate mirror (R170/R193),
+  model-registry mirror + checksum verification (R182/R190/R196),
+  recommendation matrix shared helper (R185/R186/R188), per-profile
+  thermal thresholds (R172/R175), wasm-aot bridges (R167/R168),
+  pulse/router task_type (R178), Grafana dashboards (R197), capabilities
+  JSON lockstep (R189), signing-audit + resources-audit cross-repo
+  audits (R195/R198), fleet-aggregate file-based variant (R199).
+
+- **R200** — `sovereign-osctl audit cycle3` — single-entry-point
+  umbrella that runs every cycle-2+3 audit sub-tool
+  (signing-audit + resources-audit + cycle2-status) and aggregates
+  the exit code. Operators get one verb instead of three.
+
+- **R201** — `sovereign-osctl bootstrap run --phase N [--json]` —
+  master spec § 12 phase executor (DRY-RUN-ONLY). Closes the long-
+  standing handoff item: phases (R162) inventories artifact presence,
+  verify (R159) runs the live § 22 grid, run (R201) emits the
+  execution plan + classifies each artifact's runtime surface
+  (build-step / installer-hook / post-install-hook / recurrent-hook
+  / systemd-unit / tooling). --apply intentionally not wired this
+  round (Phase III-V artifacts are destructive — needs L5 + a
+  SOVEREIGN_OS_CONFIRM_DESTROY gate).
+
+- **R202** — `config/bootstrap/phases.yaml` canonical source +
+  `scripts/bootstrap/lib/load-phases.py` loader. Collapses the two
+  duplicated PHASES arrays in phases.sh + run.sh into ONE YAML; both
+  scripts re-parse on every invocation. R201's drift guard moves from
+  "count match" to "byte-identical source" since drift is structurally
+  impossible.
+
+- **R203** — phase pre/post-conditions added to phases.yaml +
+  `scripts/bootstrap/lib/render-phases-md.py` doc renderer +
+  `docs/src/bootstrap-phases.md` operator-readable rundown
+  auto-generated from the same source.
+  `sovereign-osctl bootstrap docs --check` (CI-gated) catches stale
+  on-disk doc edits. Five complete consumer surfaces now share the
+  same YAML: inventory (phases.sh), executor (run.sh), doc
+  (bootstrap-phases.md), schema lint (test_bootstrap_phases_yaml.py),
+  freshness gate (--check).
+
 ## Test inventory added this arc
 
 | Round | L3 test | Tests | Layer |
@@ -114,25 +159,36 @@ wired in `.github/workflows/test.yml`.
 
 ## What to do FIRST in the next session
 
-Resume the NEVER STOP `/goal` directive. The arc closed BUT the
-master spec is not exhausted; specific follow-ups identified during
-this arc:
+Resume the NEVER STOP `/goal` directive. Status of prior follow-ups:
 
-- **Q-012 closure (Q3 → 3/3)**: headless profile substantive
-  expansion (auditd/fail2ban/unattended-upgrades posture) was
-  marked in `bright-waddling-moth.md` as Round 28 — never closed.
-- **Reproducibility wiring (SDD-019 gap)**: SOURCE_DATE_EPOCH +
-  DEBIAN_SNAPSHOT propagation into mkosi.conf.
-- **Build-step source short-circuit (Q18-A)**: steps 02-04 should
-  exit-0-skip when `profile.kernel.source != custom`.
-- **systemd unit hardening pass**: 11 of 16 service units still
-  lack ProtectSystem=strict/NoNewPrivileges/PrivateTmp.
-- **R157 follow-up**: router-by-task_type signal so DFlash gating
-  can flow from request → wrapper automatically.
-- **Master spec § 12 chronological pipeline phases**: 5-phase
-  bootstrap flow not yet wired as `sovereign-osctl bootstrap run
-  --phase 1..5`. R159 only covers § 22 verification grid; the
-  authoring side (§ 11 + § 12) is still partial.
+- ~~Q-012 closure (Q3 → 3/3)~~ — DONE (headless profile shipped earlier
+  with role-headless mixin + auditd/fail2ban posture).
+- ~~Reproducibility wiring (SDD-019 gap)~~ — DONE (SOURCE_DATE_EPOCH +
+  DEBIAN_SNAPSHOT propagation present in 04-kernel-compile.sh +
+  mkosi-emit.sh; 09-image-verify.sh emits sha256sums.txt).
+- ~~Build-step source short-circuit (Q18-A)~~ — DONE (steps 02-04
+  exit-0-skip when `profile.kernel.source` is substrate-default).
+- ~~systemd unit hardening pass~~ — DONE (all 21 service units carry
+  ProtectSystem=strict + NoNewPrivileges + PrivateTmp at HEAD).
+- ~~R157 follow-up~~ — DONE in R161 (router classifies task_type +
+  emits `sovereign_os_inference_router_task_type_total`).
+- ~~Master spec § 12 chronological pipeline phases (bootstrap run
+  --phase 1..5)~~ — DONE in R201/R202/R203 (DRY-RUN-ONLY executor +
+  canonical YAML source + auto-rendered operator doc).
+
+Genuinely open + concrete:
+
+- **R201 --apply gate** — Phase III-V real execution behind
+  `SOVEREIGN_OS_CONFIRM_DESTROY=YES` + interactive prompt. Needs
+  Layer 5 SAIN-01 hardware testbed; operator-driven only.
+- **Q-014 Layer 5 destructive-loop test** — QEMU harness for the
+  full destroy/rebuild cycle; gates are tested in L3 but the
+  destruction is operator-driven on real hardware.
+- **SDD-021 W-5 sigstore integration** — LOW priority; minisign is
+  the in-tree signing primitive, sigstore is the cross-fleet option.
+- **Cross-repo: selfdef SDD-020 V-3/V-4/V-6** — out of scope for the
+  sovereign-os main workflow per the original plan envelope; revisit
+  if operator redirects.
 
 ## Standing rules (unchanged across arcs)
 
