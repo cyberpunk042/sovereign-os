@@ -343,6 +343,9 @@ jobs:
       - name: nspawn — bootstrap run (Round 201: master spec § 12 phase executor DRY-RUN)
         run: |
           tests/nspawn/test_bootstrap_run.sh
+      - name: nspawn — bootstrap docs (Round 203: phase-doc renderer + freshness gate)
+        run: |
+          tests/nspawn/test_bootstrap_docs.sh
       - name: nspawn — thermal-watch (Round 172: per-profile thermal thresholds + OCSF events)
         run: |
           tests/nspawn/test_thermal_watch.sh

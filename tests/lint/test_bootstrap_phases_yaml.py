@@ -68,6 +68,26 @@ class PhasesYamlLint(unittest.TestCase):
                     f"phase {p['id']} references missing artifact: {art}",
                 )
 
+    def test_preconditions_and_postconditions_present(self) -> None:
+        # R203 — every phase carries pre/post-condition lists.
+        for p in self.doc["phases"]:
+            self.assertIsInstance(
+                p.get("preconditions"), list,
+                f"phase {p['id']} missing preconditions list",
+            )
+            self.assertGreater(
+                len(p["preconditions"]), 0,
+                f"phase {p['id']} preconditions is empty",
+            )
+            self.assertIsInstance(
+                p.get("postconditions"), list,
+                f"phase {p['id']} missing postconditions list",
+            )
+            self.assertGreater(
+                len(p["postconditions"]), 0,
+                f"phase {p['id']} postconditions is empty",
+            )
+
     def test_no_duplicate_artifacts_within_phase(self) -> None:
         for p in self.doc["phases"]:
             self.assertEqual(

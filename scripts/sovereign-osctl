@@ -3230,6 +3230,18 @@ cmd_bootstrap() {
       fi
       exec "${phases_script}" "$@"
       ;;
+    docs)
+      # R203: regenerate docs/src/bootstrap-phases.md from phases.yaml.
+      # Operators rebuild the operator-readable phase rundown after
+      # editing the canonical YAML — same source feeds inventory + run.
+      local render_script
+      render_script="$(dirname "${BASH_SOURCE[0]}")/bootstrap/lib/render-phases-md.py"
+      if [ ! -x "${render_script}" ]; then
+        log_error "phase doc renderer missing or not executable: ${render_script}"
+        return 1
+      fi
+      exec python3 "${render_script}" "$@"
+      ;;
     run)
       # R201: master spec § 12 phase executor — DRY-RUN-ONLY first cut.
       # Emits the execution plan + classifies each artifact's runtime
@@ -3273,6 +3285,13 @@ Subverbs:
       I    Minimal Trixie Base
       II   Zen 5 Kernel Compilation
       III  Storage Layer + DKMS (ZFS)
+
+  docs [--check|--stdout]   (R203, doc generator)
+    Regenerate docs/src/bootstrap-phases.md from config/bootstrap/
+    phases.yaml. The doc renders the master spec § 12 phase rundown
+    with preconditions, postconditions, and artifact lists. --check
+    fails (rc=1) if the on-disk doc is stale (used by CI to gate
+    accidental drift).
 
   run [--phase N|all] [--json]   (R201, DRY-RUN-ONLY first cut)
     Emit the execution plan for one (or all) master spec § 12 phases:
