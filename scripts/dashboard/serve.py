@@ -288,6 +288,95 @@ def card_insights() -> dict[str, Any]:
     }
 
 
+def card_install_paths() -> dict[str, Any]:
+    """R238 (SDD-026 Z-8 dashboard surface) — Install-paths card.
+
+    Calls R237 `install-paths show --json` and renders a per-feature
+    install-layer verdict (installable / alternative / blocked). Drives
+    the dashboard's grey-out UX: blocked features render with a
+    'requires X which is down' label + the alternative offer when one
+    is available.
+    """
+    bin_path = REPO_ROOT / "scripts" / "install" / "paths.py"
+    fallback: dict[str, Any] = {
+        "round": "R238",
+        "vector": "SDD-026 Z-8 dashboard",
+        "summary": "paths.py unavailable",
+        "features": [],
+        "counts": {"installable": 0, "alternative": 0, "blocked": 0, "total": 0},
+    }
+    if not bin_path.exists():
+        return {
+            "id": "install-paths",
+            "title": "Install paths (R237 / Z-8)",
+            "data": fallback,
+        }
+    try:
+        r = subprocess.run(
+            [sys.executable, str(bin_path), "show", "--json"],
+            capture_output=True,
+            text=True,
+            timeout=20,
+            check=False,
+        )
+    except (subprocess.TimeoutExpired, OSError) as e:
+        fallback["summary"] = f"invocation failed: {e}"
+        return {
+            "id": "install-paths",
+            "title": "Install paths (R237 / Z-8)",
+            "data": fallback,
+        }
+    if r.returncode not in (0, 1):
+        fallback["summary"] = f"paths.py rc={r.returncode}"
+        return {
+            "id": "install-paths",
+            "title": "Install paths (R237 / Z-8)",
+            "data": fallback,
+        }
+    try:
+        report = json.loads(r.stdout)
+    except json.JSONDecodeError:
+        fallback["summary"] = "paths.py emitted non-JSON"
+        return {
+            "id": "install-paths",
+            "title": "Install paths (R237 / Z-8)",
+            "data": fallback,
+        }
+    counts = report.get("counts", {})
+    return {
+        "id": "install_paths",
+        "title": "Install paths (R237 / Z-8)",
+        "data": {
+            "round": "R238",
+            "vector": "SDD-026 Z-8 dashboard",
+            "counts": counts,
+            "features": [
+                {
+                    "feature": f.get("feature"),
+                    "summary": f.get("summary"),
+                    "verdict": f.get("verdict"),
+                    "default_layer": f.get("default_layer"),
+                    "recommended_layer": f.get("recommended_layer"),
+                    "reason": f.get("reason"),
+                    # Grey-out signal: any layer with unmet deps.
+                    "blocked_layers": [
+                        layer["layer"]
+                        for layer in (f.get("layers") or [])
+                        if not layer.get("available")
+                    ],
+                }
+                for f in (report.get("features") or [])
+            ],
+            "summary": (
+                f"{counts.get('installable', 0)} installable, "
+                f"{counts.get('alternative', 0)} alternative, "
+                f"{counts.get('blocked', 0)} blocked"
+            ),
+            "needs_attention": counts.get("blocked", 0) > 0,
+        },
+    }
+
+
 CARDS = [
     card_gpu,
     card_network,
@@ -298,6 +387,7 @@ CARDS = [
     card_health,
     card_models,
     card_insights,
+    card_install_paths,
 ]
 
 
