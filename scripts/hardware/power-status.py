@@ -372,6 +372,57 @@ def cmd_budget(args: argparse.Namespace) -> int:
     return 0
 
 
+def probe_thermal_breach() -> dict[str, Any]:
+    """R265 (E1.M11): read R172 thermal-watch .prom for per-sensor
+    CRITICAL/WARN state. Returns aggregate { critical_count, warn_count,
+    breached_sensors }. Empty when thermal-watch hasn't run yet.
+    """
+    lines = _read_prom_lines("sovereign-os-thermal-watch.prom")
+    critical_sensors: list[str] = []
+    warn_sensors: list[str] = []
+    breach_total: float | None = None
+    for line in lines:
+        if line.startswith("#") or not line.strip():
+            continue
+        if line.startswith("sovereign_os_thermal_severity"):
+            # Format: sovereign_os_thermal_severity{sensor="X",level="critical"} 1
+            try:
+                head, value_s = line.rsplit(None, 1)
+                value = float(value_s)
+            except ValueError:
+                continue
+            if value < 0.5:
+                continue
+            sensor = ""
+            level = ""
+            for kv in head.split("{", 1)[1].rstrip("}").split(","):
+                if "=" not in kv:
+                    continue
+                k, _, v = kv.partition("=")
+                v = v.strip().strip('"')
+                if k.strip() == "sensor":
+                    sensor = v
+                elif k.strip() == "level":
+                    level = v
+            if level == "critical":
+                critical_sensors.append(sensor)
+            elif level == "warn":
+                warn_sensors.append(sensor)
+        elif line.startswith("sovereign_os_thermal_breach_total"):
+            try:
+                breach_total = float(line.rsplit(None, 1)[1])
+            except ValueError:
+                pass
+    return {
+        "telemetry_present": bool(lines),
+        "critical_count": len(critical_sensors),
+        "warn_count": len(warn_sensors),
+        "critical_sensors": critical_sensors,
+        "warn_sensors": warn_sensors,
+        "breach_total_metric": breach_total,
+    }
+
+
 def cmd_advisories(args: argparse.Namespace) -> int:
     cfg = load_config(resolve_config_path(args.config))
     profile = cfg.get("graceful_shutdown") or {}
@@ -381,6 +432,9 @@ def cmd_advisories(args: argparse.Namespace) -> int:
     ups = detect_ups()
     bat_pct = (ups or {}).get("battery_charge_pct")
     runtime = (ups or {}).get("time_left_minutes")
+    # R265 (E1.M11): heat integration. Read R172 thermal-watch .prom +
+    # surface thermal breaches as a co-equal advisory dimension.
+    thermal = probe_thermal_breach()
     out = {
         "round": "R252",
         "vector": "SDD-026 Z-18 (graceful shutdown advisories)",
@@ -396,6 +450,10 @@ def cmd_advisories(args: argparse.Namespace) -> int:
         },
         "verdict": "no-ups",
         "advisories": [],
+        # R265 (E1.M11): thermal dimension surfaces alongside the UPS
+        # dimension. Operator sees BOTH "battery is critical" AND "GPU
+        # is overheating" in one advisory verdict.
+        "thermal": thermal,
     }
     rc = 0
     if ups is not None:
@@ -422,6 +480,28 @@ def cmd_advisories(args: argparse.Namespace) -> int:
             )
         else:
             out["verdict"] = "ok"
+
+    # R265 (E1.M11): thermal escalation. Critical sensors escalate the
+    # overall verdict to 'critical' (even on AC), forcing the
+    # shutdown-guard to consider thermal-driven shutdown alongside
+    # battery-driven shutdown. Warn sensors escalate to 'attention'.
+    if thermal["critical_count"] > 0:
+        out["verdict"] = "critical"
+        out["advisories"].append(
+            f"{thermal['critical_count']} sensor(s) at thermal CRITICAL: "
+            f"{', '.join(thermal['critical_sensors'][:3])}. Cooling failure "
+            "or sustained overload — reduce GPU power limit OR halt "
+            "inference. Consider thermal-driven graceful shutdown."
+        )
+        rc = 1
+    elif thermal["warn_count"] > 0 and out["verdict"] != "critical":
+        if out["verdict"] not in {"attention", "critical"}:
+            out["verdict"] = "attention"
+        out["advisories"].append(
+            f"{thermal['warn_count']} sensor(s) at thermal WARN: "
+            f"{', '.join(thermal['warn_sensors'][:3])}. Monitor — drop "
+            "sustained load OR improve airflow if this persists."
+        )
     if args.json:
         print(json.dumps(out, indent=2))
         return rc
