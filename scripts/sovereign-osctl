@@ -5372,6 +5372,25 @@ case "${cmd}" in
     # surfaces selfdef tools too)".
     "${__REPO_ROOT}/scripts/interop/mcp-aggregate.py" "$@"
     ;;
+  gpu-possibility)
+    # R295 (E1.M23): operator-pull GPU possibility catalog —
+    # established vs non-established per-card capabilities for the
+    # operator's RTX 3090 + RTX PRO 6000 dual rig. Operator-named
+    # (§1b verbatim): "RTX 3090 details and possibilities established
+    # and non-established, same for the RTX Pro 6000 and the CPU and
+    # AVX512".
+    sub="${1:-list}"
+    shift || true
+    case "${sub}" in
+      list|show|gaps)
+        "${__REPO_ROOT}/scripts/hardware/gpu-possibility-catalog.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown gpu-possibility subverb: ${sub} (list, show, gaps)"
+        exit 2
+        ;;
+    esac
+    ;;
   psu-oc)
     # R294 (E1.M22): PSU OC-mode orchestration — be Quiet! Dark
     # Power Pro 13 1600W + operator-declared OC-mode state +
