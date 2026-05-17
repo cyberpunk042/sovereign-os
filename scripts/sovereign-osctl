@@ -259,6 +259,21 @@ COMMANDS:
                                (critical / attention / informational).
                                Each insight carries a copy-pasteable
                                action. rc=1 when ≥1 critical insight.
+  install-paths show [--feature F] [--json]
+                               R237 (SDD-026 Z-8): per-feature install-
+                               layer matrix (system vs container). Live
+                               cross-reference with R220 network-status
+                               flags features whose default layer is
+                               blocked + suggests the available
+                               alternative.
+  install-paths grey-out [--json]
+                               R237: show only features whose install
+                               path is currently blocked (drives the
+                               dashboard's grey-out UX). rc=1 when ≥1.
+  install-paths choose <feat> --layer L [--json]
+                               R237: advisory check for one feature on
+                               one specific install layer. rc=0 if the
+                               layer is available, rc=1 if blocked.
   notify dispatch [--from-file P] [--dry-run] [--json]
                                R228 (SDD-026 Z-6): read health-scan
                                --json + fan to operator-configured
@@ -4576,6 +4591,22 @@ case "${cmd}" in
     # prioritized actionable insights. Operator-named "Offer
     # insights" in the 2026-05-17 expansion. rc=1 when ≥1 critical.
     "${__REPO_ROOT}/scripts/insights/synthesize.py" "$@"
+    ;;
+  install-paths)
+    # R237 (SDD-026 Z-8): per-feature install-layer matrix (system vs
+    # container). Operator-named "container level vs system level" +
+    # "greyout the option that require it and/or offer the alternative".
+    sub="${1:-show}"
+    shift || true
+    case "${sub}" in
+      show|grey-out|choose)
+        "${__REPO_ROOT}/scripts/install/paths.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown install-paths subverb: ${sub} (available: show, grey-out, choose)"
+        exit 2
+        ;;
+    esac
     ;;
   notify)
     # R228 (SDD-026 Z-6): notification fan-out reading R226 health-scan

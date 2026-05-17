@@ -1,0 +1,88 @@
+# sovereign-os install-layer matrix — R237 (SDD-026 Z-8).
+#
+# Operator-named (verbatim, 2026-05-17 expansion): "non docker vs
+# docker install ? possible ? greyout the option that require it
+# and/or offer the alternative and warn of the potential risk or
+# failure or such and/or offer to re-enable it if the user want the
+# feature. container level vs system level."
+#
+# Each optional feature the operator might want declares ITS install
+# layer choices — what's actually available, what's the default, and
+# (when more than one is possible) what each choice trades off.
+#
+# The osctl + dashboard read this file and surface:
+#   - features whose current install path matches their entry → shown
+#   - features whose required-layer dependency isn't available
+#     → grey out + cite the alternative + offer to re-enable
+#
+# Format: one `[features.<name>]` block per feature. Each block
+# enumerates the supported install layers in `layers = [...]` ordered
+# from most-preferred to least-preferred. The `default` field names
+# the layer the operator gets unless they override.
+#
+# Operator workflow:
+#   1. Copy this file to /etc/sovereign-os/install-layers.toml.
+#   2. For each feature, decide which `default` you want.
+#   3. `sovereign-osctl install-paths show` enumerates the matrix +
+#      flags any "you wanted X but Y is the only available layer" cases.
+#   4. `sovereign-osctl install-paths grey-out` prints the features
+#      currently un-installable on this host (drives the dashboard's
+#      grey-out UX).
+
+# ─── claude-code (operator example: AI assistant) ───
+[features.claude-code]
+summary = "Anthropic Claude Code CLI"
+layers  = ["system", "container"]
+default = "system"
+# system  = apt-installed binary under /usr/local/bin
+# container = run via podman/docker as `claude` shell wrapper
+# Per-layer requirements live below. The dashboard greys out the
+# default if its `requires` aren't met + offers the alternative.
+[features.claude-code.layers_meta.system]
+requires      = []   # no dependency components — always available
+warns         = []
+[features.claude-code.layers_meta.container]
+requires      = ["docker"]   # OR podman; matched via network-status
+warns         = ["container-network bridges may interfere with tailscale routes"]
+
+# ─── node (operator example: Node.js + npm runtime) ───
+[features.node]
+summary = "Node.js LTS + npm"
+layers  = ["system", "container"]
+default = "system"
+[features.node.layers_meta.system]
+requires = []
+warns    = ["apt nodejs lags 1-2 majors; use NodeSource repo for current LTS"]
+[features.node.layers_meta.container]
+requires = ["docker"]
+warns    = []
+
+# ─── traefik (reverse proxy) ───
+[features.traefik]
+summary = "Traefik HTTP/TLS reverse proxy"
+layers  = ["container", "system"]
+default = "container"
+[features.traefik.layers_meta.container]
+requires = ["docker"]
+warns    = []
+[features.traefik.layers_meta.system]
+requires = []
+warns    = ["systemd unit + manual TLS cert lifecycle (no Let's-Encrypt auto-renew without extras)"]
+
+# ─── cloudflared (tunnel) ───
+[features.cloudflared]
+summary = "Cloudflare Zero Trust tunnel"
+layers  = ["system"]   # only system install is supported / recommended
+default = "system"
+[features.cloudflared.layers_meta.system]
+requires = []
+warns    = ["operator MUST supply the tunnel token via env var; never in-repo"]
+
+# ─── tailscale (mesh VPN) ───
+[features.tailscale]
+summary = "Tailscale mesh VPN"
+layers  = ["system"]
+default = "system"
+[features.tailscale.layers_meta.system]
+requires = []
+warns    = []
