@@ -5513,6 +5513,25 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  apc-profile)
+    # R314 (E1.M34): PSU/APC default-profile orchestration — 3
+    # curated named profiles (conservative/balanced/aggressive)
+    # that bundle battery_pct thresholds × per-threshold actions ×
+    # drain ordering × notify dispatch × shutdown commit. Composes
+    # R253 graceful-shutdown + R302 battery-ladder + R262 drain.
+    # Operator-named (§1b verbatim).
+    sub="${1:-list}"
+    shift || true
+    case "${sub}" in
+      list|show|apply-hint)
+        "${__REPO_ROOT}/scripts/hardware/apc-default-profile.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown apc-profile subverb: ${sub} (list, show, apply-hint)"
+        exit 2
+        ;;
+    esac
+    ;;
   psu-oc-mode)
     # R313 (E1.M33): be Quiet! Dark Power Pro 13 1600W OC-mode
     # orchestration — operator's exact PSU has a physical OC switch
