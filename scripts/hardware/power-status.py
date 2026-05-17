@@ -277,7 +277,23 @@ def cmd_budget(args: argparse.Namespace) -> int:
     psu = cfg.get("psu") or {}
     rated_w = float(psu.get("rated_watts", 0))
     derating = float(cfg.get("derating", 0.85))
-    budget_w = rated_w * derating
+    # R259 (SDD-029 R259): PSU overclock mode lifts the rated-W
+    # ceiling for transient spikes. When operator has flipped the
+    # physical switch AND declared overclock_mode_enabled=true in
+    # power.toml, the sustained budget gets the OC bonus (operator-
+    # configurable, defaults to 1.10× — be Quiet! Dark Power Pro 13
+    # advertises a transient bump but treats sustained as ~10% over).
+    oc_supported = bool(psu.get("overclock_mode_supported"))
+    oc_enabled = bool(psu.get("overclock_mode_enabled"))
+    oc_multiplier = float(psu.get("overclock_multiplier", 1.10))
+    if oc_supported and oc_enabled:
+        effective_rated_w = rated_w * oc_multiplier
+        budget_w = effective_rated_w * derating
+        oc_active = True
+    else:
+        effective_rated_w = rated_w
+        budget_w = rated_w * derating
+        oc_active = False
 
     # Sum live GPU draw from R219 .prom file.
     gpu_lines = _read_prom_lines("sovereign-os-gpu-watch.prom")
@@ -299,6 +315,16 @@ def cmd_budget(args: argparse.Namespace) -> int:
         "vector": "SDD-026 Z-18 (budget)",
         "psu_rated_watts": rated_w if rated_w > 0 else None,
         "psu_sustained_budget_watts": budget_w if rated_w > 0 else None,
+        # R259: OC mode metadata so dashboards distinguish "have
+        # headroom because OC is on" from "have headroom because
+        # we're sized larger than needed".
+        "psu_overclock": {
+            "supported": oc_supported,
+            "enabled": oc_enabled,
+            "multiplier": oc_multiplier if oc_supported else None,
+            "active": oc_active,
+            "effective_rated_watts": effective_rated_w if oc_active else None,
+        },
         "components": {
             "gpu_draw_watts": gpu_draw_w,
             "cpu_tdp_watts_declared": cpu_tdp_w,
@@ -309,6 +335,12 @@ def cmd_budget(args: argparse.Namespace) -> int:
         "utilization_pct": utilization_pct,
         "warnings": [],
     }
+    if oc_supported and not oc_enabled and utilization_pct is not None and utilization_pct >= 70:
+        out["warnings"].append(
+            f"PSU supports overclock mode but it is DISABLED. Flip the "
+            f"physical switch + set [psu] overclock_mode_enabled=true in "
+            f"power.toml to lift the sustained budget by ~{round((oc_multiplier - 1) * 100)}%."
+        )
     if budget_w > 0 and utilization_pct is not None:
         if utilization_pct >= 100:
             out["warnings"].append(

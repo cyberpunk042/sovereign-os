@@ -18,6 +18,14 @@ atx_revision = "3.1"
 overclock_mode_supported = true
 overclock_mode_enabled   = false   # flip after enabling via PSU switch
 
+# R259: when overclock_mode_enabled=true the SUSTAINED budget gets
+# multiplied by this factor (default 1.10 = +10%). be Quiet! Dark
+# Power Pro 13's OC mode advertises a transient peak above this, but
+# sustained is conservatively ~10% above rated. Bump to 1.15 if you
+# have verified your cooling + airflow handle the heat, OR drop to
+# 1.05 for a more conservative posture.
+overclock_multiplier     = 1.10
+
 # Sustained budget derating: PSU rated W × this factor is the watt
 # budget the script uses for the headroom calculation. 0.85 is the
 # conservative default; bump to 1.0 if you've verified your cooling
