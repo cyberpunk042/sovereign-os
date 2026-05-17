@@ -240,6 +240,21 @@ COMMANDS:
                                router + R219 GPU watt .prom files,
                                recommends a mode. Advisory by default;
                                --apply switches the governor.
+  virt-info show [--json]      R255 (SDD-026 Z-19): virtualization +
+                               PCIe lane + container-runtime snapshot.
+                               Operator-named "pci lane splits and
+                               whatever like virtualization".
+  virt-info cpu [--json]       R255: CPU virt flags (vmx/svm + EPT/NPT).
+  virt-info kvm [--json]       R255: KVM kernel module + /dev/kvm +
+                               nested-virt state.
+  virt-info iommu [--json]     R255: IOMMU sysfs + kernel cmdline
+                               (intel_iommu=on / amd_iommu=on / ACS
+                               override). Surfaces actionable advisory
+                               when not enabled.
+  virt-info pci [--json]       R255: per-device PCIe LnkSta width +
+                               speed (GPUs, NVMe, NICs).
+  virt-info runtimes [--json]  R255: docker / podman / containerd /
+                               nerdctl / crun / runc detection.
   power-status psu [--json]    R252 (SDD-026 Z-18): operator-declared
                                PSU + sustained budget (= rated W ×
                                derating). Operator-named "1600W ATX
@@ -4739,6 +4754,22 @@ case "${cmd}" in
         ;;
       *)
         log_error "unknown power-status subverb: ${sub} (available: psu, ups, budget, advisories)"
+        exit 2
+        ;;
+    esac
+    ;;
+  virt-info)
+    # R255 (SDD-026 Z-19): virtualization + PCIe lane + container
+    # runtime snapshot. Operator-named "pci lane splits and whatever
+    # like virtualization or what we find relevant via search online".
+    sub="${1:-show}"
+    shift || true
+    case "${sub}" in
+      cpu|kvm|iommu|pci|runtimes|show)
+        "${__REPO_ROOT}/scripts/hardware/virt-info.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown virt-info subverb: ${sub} (available: cpu, kvm, iommu, pci, runtimes, show)"
         exit 2
         ;;
     esac
