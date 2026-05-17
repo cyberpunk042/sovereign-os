@@ -5372,6 +5372,24 @@ case "${cmd}" in
     # surfaces selfdef tools too)".
     "${__REPO_ROOT}/scripts/interop/mcp-aggregate.py" "$@"
     ;;
+  thermal-oc-budget)
+    # R296 (E2.M10): heat budget tied to OC profile — composes
+    # R172 thermal-watch + R292 oc-headroom + R294 psu-oc into
+    # ONE combined "is your OC posture thermally + electrically
+    # safe?" verdict. Operator-named (§1b verbatim, on heat
+    # tracking under OC posture).
+    sub="${1:-status}"
+    shift || true
+    case "${sub}" in
+      status|advisory|inputs)
+        "${__REPO_ROOT}/scripts/hardware/thermal-oc-budget.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown thermal-oc-budget subverb: ${sub} (status, advisory, inputs)"
+        exit 2
+        ;;
+    esac
+    ;;
   gpu-possibility)
     # R295 (E1.M23): operator-pull GPU possibility catalog —
     # established vs non-established per-card capabilities for the
