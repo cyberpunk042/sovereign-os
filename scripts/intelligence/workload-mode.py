@@ -152,10 +152,20 @@ AFFECTED_ADVISORS: list[dict[str, Any]] = [
         "advisor": "R307 cpu-hotswap",
         "script": "scripts/hardware/cpu-hotswap.py",
         "verb": "sovereign-osctl cpu-hotswap status",
-        "consumes_mode_via": "(not yet)",
-        "future_adoption": True,
-        "operator_caveat": "Future-round candidate: training mode → pin "
-                            "governor=performance + epp=performance.",
+        "consumes_mode_via": ("R338 canonical "
+                                "(/etc/sovereign-os/workload-mode.toml) "
+                                "since R340; derives pinned_mode + "
+                                "pinned_epp via WORKLOAD_MODE_TO_GOV_EPP "
+                                "map (idle→powersave; training→"
+                                "performance; etc.); explicit "
+                                "pinned_mode/pinned_epp overlay knobs "
+                                "still win"),
+        "future_adoption": False,
+        "adopted_in_round": "R340",
+        "operator_caveat": "Second R338 adopter — proves the R339 "
+                            "pattern replicates. Per-mode governor + EPP "
+                            "map operator-readable in `cpu-hotswap status "
+                            "--json | jq .workload_mode_to_gov_epp`.",
     },
 ]
 

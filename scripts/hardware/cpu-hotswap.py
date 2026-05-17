@@ -66,7 +66,96 @@ DEFAULTS = {
     "pinned_mode": "",   # "" = no pin, all modes accepted
     # When pinned_epp is set, status verb compares CPU's EPP too.
     "pinned_epp": "",
+    # R340 (E2.M29): R338 workload-mode adoption — when True,
+    # cpu-hotswap reads R338's canonical mode and derives pinned_mode
+    # + pinned_epp from the workload-mode → governor/EPP map below.
+    # `pinned_mode` / `pinned_epp` overlay knobs still win when set
+    # explicitly. Operator opts out by setting this False.
+    "follow_workload_mode_coordinator": True,
+    "workload_mode_overlay_path": "/etc/sovereign-os/workload-mode.toml",
 }
+
+
+# R340 (E2.M29): workload-mode → (governor, epp) map.
+# Mirrors R338 mode catalog; each entry pins a (governor, epp) pair
+# operator-readable for AI workstation workload semantics.
+WORKLOAD_MODE_TO_GOV_EPP: dict[str, dict[str, str]] = {
+    "idle": {
+        "governor": "powersave",
+        "epp": "power",
+        "rationale": ("Idle mode: minimize wattage; floor frequency; "
+                       "powersave gov + EPP=power."),
+    },
+    "inference-ready": {
+        "governor": "schedutil",
+        "epp": "balance_performance",
+        "rationale": ("Inference-ready: balanced governor + EPP "
+                       "ready for first-prompt burst without sustained "
+                       "high idle wattage."),
+    },
+    "training": {
+        "governor": "performance",
+        "epp": "performance",
+        "rationale": ("Training: sustained AI training workload; "
+                       "max-clock governor + EPP=performance to avoid "
+                       "any kernel-side throttle during multi-hour "
+                       "runs."),
+    },
+    "oc-burst": {
+        "governor": "performance",
+        "epp": "performance",
+        "rationale": ("OC-burst: short benchmark / single-shot render; "
+                       "max everything for transient peak."),
+    },
+}
+
+
+def _read_canonical_mode(cfg: dict) -> tuple[str | None, str]:
+    """R340 (E2.M29): read R338 workload-mode as canonical source.
+    Same pattern as R339 fan-advisor adoption.
+
+    Returns (mode_name, source) where source ∈
+    {"R338-canonical", "cpu-hotswap-overlay"}.
+    NEVER raises — falls back gracefully.
+    """
+    if not cfg.get("follow_workload_mode_coordinator", True):
+        return None, "cpu-hotswap-overlay"
+    path = Path(cfg.get("workload_mode_overlay_path",
+                          "/etc/sovereign-os/workload-mode.toml"))
+    if not path.is_file():
+        return None, "cpu-hotswap-overlay"
+    try:
+        body = path.read_text(encoding="utf-8")
+    except OSError:
+        return None, "cpu-hotswap-overlay"
+    import re
+    m = re.search(r'^\s*active_mode\s*=\s*"([^"]+)"\s*$', body, re.M)
+    if m:
+        return m.group(1), "R338-canonical"
+    return None, "cpu-hotswap-overlay"
+
+
+def _derive_pinned_from_workload_mode(cfg: dict) -> tuple[str, str, str]:
+    """R340: derive (pinned_mode, pinned_epp, source) from R338 canonical
+    mode when adoption is active + overlay knobs are unset.
+
+    Precedence (highest → lowest):
+      1. cpu-hotswap overlay pinned_mode / pinned_epp (explicit operator pin)
+      2. R338 canonical workload mode → mapped via WORKLOAD_MODE_TO_GOV_EPP
+      3. defaults ("" / "" = no pin, all modes accepted)
+    """
+    if cfg.get("pinned_mode") or cfg.get("pinned_epp"):
+        # Explicit overlay pin wins — preserve R307 backward-compat.
+        return (cfg.get("pinned_mode", ""), cfg.get("pinned_epp", ""),
+                "cpu-hotswap-overlay-explicit")
+    canonical, source = _read_canonical_mode(cfg)
+    if canonical is None:
+        return ("", "", source)
+    spec = WORKLOAD_MODE_TO_GOV_EPP.get(canonical)
+    if spec is None:
+        # Unknown mode → no derivation; preserves cfg defaults.
+        return ("", "", f"{source}-unknown-mode")
+    return (spec["governor"], spec["epp"], source)
 
 
 MODE_CATALOG: list[dict[str, Any]] = [
@@ -253,6 +342,15 @@ def build_report(overlay_path: Path | None) -> dict[str, Any]:
         meta["_overlay_keys"] = loaded.get("_overlay_keys", [])
         if loaded.get("_parse_error"):
             meta["_parse_error"] = loaded["_parse_error"]
+    # R340 (E2.M29): derive pinned_mode + pinned_epp from R338
+    # canonical workload-mode when adoption is active + explicit
+    # overlay pins are unset. cfg is mutated in place so derive_verdict
+    # uses the derived pins.
+    derived_gov, derived_epp, mode_source = _derive_pinned_from_workload_mode(cfg)
+    workload_mode_canonical, _ = _read_canonical_mode(cfg)
+    if mode_source != "cpu-hotswap-overlay-explicit":
+        cfg["pinned_mode"] = derived_gov or cfg["pinned_mode"]
+        cfg["pinned_epp"] = derived_epp or cfg["pinned_epp"]
     cpus = probe_cpus()
     transitions = derive_transitions(cpus)
     verdict = derive_verdict(cpus, cfg)
@@ -261,6 +359,10 @@ def build_report(overlay_path: Path | None) -> dict[str, Any]:
         "round": ROUND,
         "sdd_vector": SDD_VECTOR,
         "config": cfg,
+        "workload_mode_canonical": workload_mode_canonical,
+        "workload_mode_source": mode_source,
+        "derived_pinned_mode": derived_gov,
+        "derived_pinned_epp": derived_epp,
         "cpu_count": len(cpus),
         "cpus": cpus,
         "transitions": transitions,
@@ -269,6 +371,7 @@ def build_report(overlay_path: Path | None) -> dict[str, Any]:
         "message": verdict["message"],
         "drift": verdict.get("drift", []),
         "modes_catalog": MODE_CATALOG,
+        "workload_mode_to_gov_epp": WORKLOAD_MODE_TO_GOV_EPP,
         "overlay": meta,
     }
 
