@@ -5698,6 +5698,22 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  self-test)
+    # R331 (E9.M14): operator-pull self-test verb. Runs L1 lint
+    # suites + unit tests + curated L3 sample + emits health summary.
+    # "Is sovereign-os itself working correctly on this host?"
+    sub="${1:-run}"
+    shift || true
+    case "${sub}" in
+      run|list)
+        "${__REPO_ROOT}/scripts/diagnostics/self-test.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown self-test subverb: ${sub} (run, list)"
+        exit 2
+        ;;
+    esac
+    ;;
   next-action)
     # R329 (E2.M22): next-action advisor — composes R322 state snapshot
     # + emits ranked operator-pull recommendations of most-impactful

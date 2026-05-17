@@ -1,4 +1,4 @@
-# SDD-031 — Perpetual-intake doctrine (E9.M10 / R326)
+# SDD-033 — Perpetual-intake doctrine (E9.M10 / R326)
 
 > Status: **review**
 > Owner: sovereign-os core
@@ -14,7 +14,7 @@ The operator's mandate is a perpetual direction vector, not a
 finite checklist (R278 — multi-`/goal`-paste compounding doctrine
 + R285 §5 — new-axis intake process). Rounds keep landing as long
 as new §1b verbatim phrases are identified or operator-named
-vectors arrive. SDD-031 formalizes the pattern so future agents +
+vectors arrive. SDD-033 formalizes the pattern so future agents +
 operators see the same loop the existing 45-round continuation
 session has been running.
 
