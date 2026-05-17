@@ -397,6 +397,112 @@ else
   ko "SD-R51 mirror partition wrong: ${out51}"
 fi
 
+# ---------- R209: SD-R64 mirror — ternary_aot_capable + zmm_int8_lanes ----------
+grep -q "R209" "${SCRIPT}" \
+  && ok "R209 mirror tag present in selfdef-modules-gate.py" \
+  || ko "R209 citation missing"
+
+mkdir -p "${WORK}/caps64-sain01" "${WORK}/caps64-minimal" \
+         "${WORK}/mod64/needs-ternary" "${WORK}/mod64/needs-64-lanes" \
+         "${WORK}/etc64"
+
+# SAIN-01-flavored caps: VNNI + BF16, lane width 64, ternary capable.
+cat > "${WORK}/caps64-sain01/hardware-capabilities.json" <<'JSON'
+{
+  "schema_version": "1.3.0",
+  "cpu": {
+    "avx512vnni": true, "avx512bf16": true,
+    "ternary_aot_capable": true, "zmm_int8_lane_capacity": 64
+  },
+  "memory": {"total_bytes": 274877906944},
+  "gpu": {"device_count": 0, "device_nodes": [], "devices": []},
+  "sain01_match": {"overall": "FullMatch"},
+  "wasm_aot": {
+    "target_triple": "x86_64-unknown-linux-gnu",
+    "target_cpu": "znver5",
+    "target_features": "+avx512f,+avx512vnni,+avx512bf16",
+    "compile_command_hint": "...",
+    "ternary_kernel_hint": "bitnet.cpp/VPDPBUSD: 64×INT8 per ZMM (master spec § 16 hot path)"
+  }
+}
+JSON
+
+# Pre-SD-R64 minimal host: ternary_aot_capable absent → false; lanes absent → 0.
+cat > "${WORK}/caps64-minimal/hardware-capabilities.json" <<'JSON'
+{
+  "schema_version": "1.2.0",
+  "cpu": {"avx512vnni": false, "avx512bf16": false},
+  "memory": {"total_bytes": 8589934592},
+  "gpu": {"device_count": 0, "device_nodes": [], "devices": []},
+  "sain01_match": {"overall": "NoMatch"},
+  "wasm_aot": {"target_triple": "x86_64-unknown-linux-gnu",
+               "target_cpu": "native",
+               "target_features": "",
+               "compile_command_hint": ""}
+}
+JSON
+
+cat > "${WORK}/mod64/needs-ternary/module.toml" <<'TOML'
+name = "needs-ternary"
+version = "0.0.0"
+summary = "needs ternary hot path"
+[requires_hardware]
+ternary_aot_capable_required = true
+TOML
+
+cat > "${WORK}/mod64/needs-64-lanes/module.toml" <<'TOML'
+name = "needs-64-lanes"
+version = "0.0.0"
+summary = "needs 64 INT8 lanes"
+[requires_hardware]
+zmm_int8_lanes_min = 64
+TOML
+
+cat > "${WORK}/etc64/modules.toml" <<'TOML'
+[modules.needs-ternary]
+[modules.needs-64-lanes]
+TOML
+
+# Case 1: SAIN-01 host — both kept.
+set +e
+out64sain="$(python3 "${SCRIPT}" \
+  --caps-path "${WORK}/caps64-sain01/hardware-capabilities.json" \
+  --modules-dir "${WORK}/mod64" \
+  --host-config "${WORK}/etc64/modules.toml" --json 2>&1)"
+set -e
+if python3 -c "
+import json, sys
+d = json.loads('''${out64sain}''')
+kept = sorted(x['module'] for x in d['kept'])
+assert kept == ['needs-64-lanes', 'needs-ternary'], f'kept={kept}'
+" 2>/dev/null; then
+  ok "SD-R64 mirror: SAIN-01 caps → both ternary + 64-lane modules kept"
+else
+  ko "R209 SAIN-01 partition wrong: ${out64sain}"
+fi
+
+# Case 2: minimal host — both skipped, error messages cite the predicates.
+set +e
+out64min="$(python3 "${SCRIPT}" \
+  --caps-path "${WORK}/caps64-minimal/hardware-capabilities.json" \
+  --modules-dir "${WORK}/mod64" \
+  --host-config "${WORK}/etc64/modules.toml" --json 2>&1)"
+set -e
+if python3 -c "
+import json, sys
+d = json.loads('''${out64min}''')
+skipped = sorted(x['module'] for x in d['skipped'])
+assert skipped == ['needs-64-lanes', 'needs-ternary'], f'skipped={skipped}'
+by_mod = {x['module']: x for x in d['skipped']}
+assert any('ternary_aot_capable' in u for u in by_mod['needs-ternary']['unmet']), by_mod
+assert any('zmm_int8_lanes_min' in u for u in by_mod['needs-64-lanes']['unmet']), by_mod
+assert any('host max = 0' in u for u in by_mod['needs-64-lanes']['unmet']), by_mod
+" 2>/dev/null; then
+  ok "SD-R64 mirror: minimal caps → both modules skipped + predicate-cited"
+else
+  ko "R209 minimal-host partition wrong: ${out64min}"
+fi
+
 echo
 total=$((pass + fail))
 echo "test_selfdef_modules_gate: ${pass}/${total} passed"

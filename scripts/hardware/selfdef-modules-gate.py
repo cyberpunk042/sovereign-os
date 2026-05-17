@@ -298,6 +298,28 @@ def evaluate(req: dict[str, Any], caps: dict[str, Any]) -> list[str]:
             unmet.append(
                 f"sain01_verdict_min = {verdict_min} (host verdict = {actual})"
             )
+
+    # R209 (mirror of selfdef SD-R64 cycle-3): ternary AOT readiness +
+    # ZMM INT8 lane width predicates. The capabilities JSON carries the
+    # derived rollup fields on the cpu block (#[serde(default)] on the
+    # selfdef side keeps pre-SD-R64 dumps deserialising to false/0,
+    # which is the safe gate default).
+    if req.get("ternary_aot_capable_required") and not cpu.get(
+        "ternary_aot_capable", False
+    ):
+        unmet.append(
+            "ternary_aot_capable required (host lacks AVX-512 VNNI "
+            "+ (BF16 or FP16) — bitnet.cpp ternary hot path unavailable "
+            "per master spec § 16)"
+        )
+    lanes_min = int(req.get("zmm_int8_lanes_min", 0) or 0)
+    if lanes_min > 0:
+        host_lanes = int(cpu.get("zmm_int8_lane_capacity", 0) or 0)
+        if host_lanes < lanes_min:
+            unmet.append(
+                f"zmm_int8_lanes_min = {lanes_min} (host max = {host_lanes})"
+            )
+
     return unmet
 
 
@@ -315,6 +337,9 @@ def is_empty_req(req: dict[str, Any]) -> bool:
         or int(req.get("gpu_power_headroom_watts_min", 0) or 0) > 0
         or (req.get("wasm_aot_features_required", "") or "").strip()
         or (req.get("sain01_verdict_min", "") or "")
+        # R209 mirror of SD-R64.
+        or bool(req.get("ternary_aot_capable_required"))
+        or int(req.get("zmm_int8_lanes_min", 0) or 0) > 0
     )
 
 

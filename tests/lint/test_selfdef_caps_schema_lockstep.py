@@ -31,7 +31,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 # selfdef SD-R10..R30. Mirrors the docstring example in
 # scripts/hardware/selfdef-modules-gate.py.
 CANONICAL_FIXTURE: dict = {
-    "schema_version": "1.2.0",
+    "schema_version": "1.3.0",
     "probed_at": "2026-05-16T00:00:00Z",
     "host_tag": None,
     "cpu": {
@@ -52,6 +52,10 @@ CANONICAL_FIXTURE: dict = {
         "avx512fp16": True,
         "avx512vbmi": True,
         "avx512vbmi2": True,
+        # SD-R64 derived fields. Forward-compat: pre-SD-R64 dumps
+        # omit them; consumers read 0/false.
+        "ternary_aot_capable": True,
+        "zmm_int8_lane_capacity": 64,
         "recommended_march": "znver5",
         "recommended_compile_flags": ["-mavx512f", "-mavx512vnni"],
     },
@@ -93,6 +97,11 @@ CANONICAL_FIXTURE: dict = {
         "target_cpu": "znver5",
         "target_features": "+avx512f,+avx512vnni",
         "compile_command_hint": "",
+        # SD-R66 — operator-readable kernel hint. Forward-compat:
+        # pre-SD-R66 dumps omit; consumers treat as empty.
+        "ternary_kernel_hint": (
+            "bitnet.cpp/VPDPBUSD: 64×INT8 per ZMM (master spec § 16 hot path)"
+        ),
     },
 }
 
@@ -113,6 +122,10 @@ REQUIRED_CPU_FIELDS = [
     "avx512vnni",
     "avx512bf16",
     "recommended_march",
+    # SD-R64 derived rollup fields — R209 mirror in
+    # scripts/hardware/selfdef-modules-gate.py reads them.
+    "ternary_aot_capable",
+    "zmm_int8_lane_capacity",
 ]
 
 REQUIRED_GPU_FIELDS = [
@@ -135,6 +148,8 @@ REQUIRED_WASM_AOT_FIELDS = [
     "target_triple",
     "target_cpu",
     "target_features",
+    # SD-R66 — operator-readable kernel selection hint.
+    "ternary_kernel_hint",
 ]
 
 
