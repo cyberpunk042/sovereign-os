@@ -54,7 +54,8 @@ for needle in "GPU watt deviance (R219 / Z-5)" \
               "Events (R246 / Z-16)" \
               "Power (R252 / Z-18)" \
               "BIOS + memory (R251 / Z-17)" \
-              "Virtualization (R255 / Z-19)"; do
+              "Virtualization (R255 / Z-19)" \
+              "Dependency state (R274 / Z-7)"; do
   grep -qF "${needle}" /tmp/r225-dash.html \
     && ok "render carries card: ${needle:0:30}…" \
     || ko "missing card: ${needle}"
@@ -119,7 +120,7 @@ if grep -q "serving" /tmp/r225-api.log; then
   if [ "${curl_rc}" -eq 0 ]; then
     ok "GET /api/health returned 200"
     python3 - /tmp/r225-api.json <<'PY' 2>/dev/null \
-      && ok "JSON shape: cards[18] + round + sdd_vector" \
+      && ok "JSON shape: cards[19] + round + sdd_vector" \
       || ko "JSON shape wrong"
 import json, sys
 d = json.load(open(sys.argv[1]))
@@ -127,9 +128,9 @@ assert d["round"] == "R225"
 assert d["sdd_vector"] == "SDD-026 Z-1"
 assert isinstance(d["cards"], list)
 # R225 SEED ships with 6 cards; R226 + R227 + R235 + R238 + R241(×2) + R243 + R247(×2) + R254(×2) + R261 add 12 more.
-assert len(d["cards"]) == 18, f"expected 18 cards, got {len(d['cards'])}"
+assert len(d["cards"]) == 19, f"expected 19 cards, got {len(d['cards'])}"
 ids = {c["id"] for c in d["cards"]}
-assert ids == {"gpu", "network", "cpu", "fs", "raid", "flex", "health", "models", "insights", "install_paths", "services", "kernel", "toolchains", "fine_tune", "events", "power", "bios", "virt"}, ids
+assert ids == {"gpu", "network", "cpu", "fs", "raid", "flex", "health", "models", "insights", "install_paths", "services", "kernel", "toolchains", "fine_tune", "events", "power", "bios", "virt", "dependency_state"}, ids
 PY
   else
     ko "curl GET /api/health failed (rc=${curl_rc})"

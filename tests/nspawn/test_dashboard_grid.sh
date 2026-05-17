@@ -44,7 +44,7 @@ echo "${out}" | python3 -c "
 import json,sys
 d=json.load(sys.stdin)
 assert d['round']=='R248', d
-assert d['card_count']==18, d  # 13 + R247 (fine_tune+events) + R254 (power+bios) + R261 (virt)
+assert d['card_count']==19, d  # 13 + R247 (fine_tune+events) + R254 (power+bios) + R261 (virt) + R274 (dependency_state)
 # Every card has required summary shape.
 for c in d['cards']:
     for f in ('id','title','summary','needs_attention'):

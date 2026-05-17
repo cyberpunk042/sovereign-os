@@ -191,8 +191,8 @@ the Epic is closed — but the operator may add new Modules to it.
 | E4.M2 | 18 cards spanning every shipped axis | ✓ shipped | R227-R261 |
 | E4.M3 | Per-model detail sub-route (/api/models/<slug>) | ✓ shipped | R233 |
 | E4.M4 | Grid view for terminal-friendly snapshot | ✓ shipped | R248 |
-| E4.M5 | Dashboard auth + allowlist + ACL | **TODO** | — |
-| E4.M6 | Network-state-reactive grey-out of install/options when prerequisite unreachable | **TODO** | — |
+| E4.M5 | Dashboard auth + allowlist + ACL | ✓ shipped | R250 |
+| E4.M6 | Network-state-reactive grey-out of install/options when prerequisite unreachable | ✓ shipped | R274 |
 | E4.M7 | Dashboard event timeline (R246 → live tail) | ✓ shipped | R246 |
 | E4.M8 | Mobile-friendly card layout (CSS only, no JS framework) | **TODO** | — |
 | E4.M9 | Dashboard editable forms for module configuration | **TODO** | — |

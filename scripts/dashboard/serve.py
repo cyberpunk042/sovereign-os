@@ -336,6 +336,137 @@ def card_insights() -> dict[str, Any]:
     }
 
 
+def card_dependency_state() -> dict[str, Any]:
+    """R274 (E4.M6 closure) — Network-state-reactive grey-out card.
+
+    Operator-named (verbatim, 2026-05-17 mandate): "greyout the option
+    that require it and/or offer the alternative and warn of the
+    potential risk or failure or such".
+
+    Calls R220 network-status + builds a UI grey-out matrix:
+      down_components            list of network components reporting
+                                 status != ok (with their alternative
+                                 from R220 when available)
+      greyed_card_ids            dashboard card IDs whose data is
+                                 unreliable given the down components
+      greyed_features            per-feature grey-out reasons (for the
+                                 install-paths + toolchains cards)
+
+    Frontend renders greyed_card_ids with a 'requires X (down)' badge
+    next to the card title; greyed_features dim the affected rows
+    within those cards.
+    """
+    bin_path = REPO_ROOT / "scripts" / "hardware" / "network-status.py"
+    fallback: dict[str, Any] = {
+        "round": "R274",
+        "vector": "E4.M6 (network-state grey-out)",
+        "down_components": [],
+        "greyed_card_ids": [],
+        "greyed_features": [],
+        "summary": "network-status.py unavailable",
+    }
+    if not bin_path.exists():
+        return {"id": "dependency_state", "title": "Dependency state (R274 / Z-7)", "data": fallback}
+    try:
+        r = subprocess.run(
+            [sys.executable, str(bin_path), "--json"],
+            capture_output=True, text=True, timeout=15, check=False,
+        )
+    except (subprocess.TimeoutExpired, OSError) as e:
+        fallback["summary"] = f"invocation failed: {e}"
+        return {"id": "dependency_state", "title": "Dependency state (R274 / Z-7)", "data": fallback}
+    if r.returncode not in (0, 1):
+        fallback["summary"] = f"network-status.py rc={r.returncode}"
+        return {"id": "dependency_state", "title": "Dependency state (R274 / Z-7)", "data": fallback}
+    try:
+        report = json.loads(r.stdout)
+    except json.JSONDecodeError:
+        fallback["summary"] = "network-status.py emitted non-JSON"
+        return {"id": "dependency_state", "title": "Dependency state (R274 / Z-7)", "data": fallback}
+
+    components = report.get("components") or []
+    down = [
+        {
+            "component": c.get("component"),
+            "status": c.get("status"),
+            "detail": c.get("detail"),
+            "alternative": c.get("alternative"),
+        }
+        for c in components
+        if c.get("status") not in {"ok", None}
+    ]
+    down_ids = {d["component"] for d in down}
+
+    # Static dependency map: which dashboard card depends on which
+    # network component. Update when new cards land that depend on
+    # network state.
+    card_dependencies = {
+        "models":      ["internet"],            # HuggingFace pull
+        "toolchains":  ["internet"],            # pip / git installs
+        "fine_tune":   ["internet"],            # HF datasets
+        "install_paths": ["docker", "internet"],
+    }
+    greyed_card_ids = sorted({
+        card_id
+        for card_id, deps in card_dependencies.items()
+        if any(d in down_ids for d in deps)
+    })
+
+    # Per-feature grey-out matrix: install-paths + toolchains features
+    # that require a down component get a grey-out reason string.
+    greyed_features: list[dict[str, Any]] = []
+    feature_dependencies = {
+        # Toolchains that hit the network on install.
+        "llama.cpp":       ["internet"],
+        "vllm":            ["internet"],
+        "ollama":          ["internet"],
+        "transformers":    ["internet"],
+        "trl":             ["internet"],
+        "unsloth":         ["internet"],
+        "lm-eval-harness": ["internet"],
+        "mteb":            ["internet"],
+        "dflash":          ["internet"],
+        "huggingface-cli": ["internet"],
+        "lm-link":         ["internet"],
+        "lm-studio":       ["internet"],
+        "bitnet.cpp":      ["internet"],
+        # Install-paths features keyed on network components.
+        "cloudflared":     ["internet", "cloudflared"],
+        "tailscale":       ["internet", "tailscale"],
+        "traefik":         ["docker"],
+    }
+    for feature, deps in feature_dependencies.items():
+        blocking = [d for d in deps if d in down_ids]
+        if blocking:
+            greyed_features.append({
+                "feature": feature,
+                "blocking_components": blocking,
+                "reason": f"requires {', '.join(blocking)} (currently down)",
+                "alternative": next(
+                    (d["alternative"] for d in down if d["component"] in blocking and d.get("alternative")),
+                    None,
+                ),
+            })
+
+    return {
+        "id": "dependency_state",
+        "title": "Dependency state (R274 / Z-7)",
+        "data": {
+            "round": "R274",
+            "vector": "E4.M6 (network-state grey-out)",
+            "down_components": down,
+            "greyed_card_ids": greyed_card_ids,
+            "greyed_features": greyed_features,
+            "summary": (
+                f"{len(down)} component(s) down; "
+                f"{len(greyed_card_ids)} card(s) greyed; "
+                f"{len(greyed_features)} feature(s) greyed"
+            ),
+            "needs_attention": bool(down),
+        },
+    }
+
+
 def card_install_paths() -> dict[str, Any]:
     """R238 (SDD-026 Z-8 dashboard surface) — Install-paths card.
 
@@ -964,6 +1095,7 @@ CARDS = [
     card_power,
     card_bios,
     card_virt,
+    card_dependency_state,
 ]
 
 
