@@ -5698,6 +5698,23 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  workload-mode)
+    # R338 (E2.M27): workload-mode coordinator. Single source of
+    # truth for current operator workload mode (idle/inference-ready/
+    # training/oc-burst). `set` mutates under triple-gate via R328
+    # safe_apply helper. `affected-advisors` lists downstream surfaces.
+    sub="${1:-status}"
+    shift || true
+    case "${sub}" in
+      status|modes|affected-advisors|set)
+        "${__REPO_ROOT}/scripts/intelligence/workload-mode.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown workload-mode subverb: ${sub} (status, modes, affected-advisors, set)"
+        exit 2
+        ;;
+    esac
+    ;;
   fan-advisor)
     # R337 (E1.M39): fan/cooling awareness advisor. lm-sensors fan
     # readout + per-mode (idle/inference-ready/training/oc-burst)
