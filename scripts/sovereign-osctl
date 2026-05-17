@@ -5698,6 +5698,24 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  overlay-drift)
+    # R325 (E2.M21): operator-overlay drift detector.
+    # Scans /etc/sovereign-os/*.toml + reports which knobs the
+    # operator has overridden vs shipped defaults. Operator-pull
+    # "what have I customized on this host?" — companion to R283
+    # overlay doctrine + R322 state snapshot.
+    sub="${1:-list}"
+    shift || true
+    case "${sub}" in
+      list|show|audit)
+        "${__REPO_ROOT}/scripts/diagnostics/overlay-drift-detector.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown overlay-drift subverb: ${sub} (list, show, audit)"
+        exit 2
+        ;;
+    esac
+    ;;
   fleet-aggregate)
     # R324 (E2.M20): fleet snapshot aggregator. Ingests R322 unified
     # state snapshots from multiple hosts; emits cross-host rollup
