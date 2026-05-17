@@ -157,6 +157,43 @@ set -e
   && ok "R184 bridge omitted when selfdefctl NOT on PATH" \
   || ko "bridge fired unexpectedly: ${out_b2}"
 
+# ---- R217: runtime-profile suggest section ----
+set +e
+out_r217="$("${OSCTL}" overview 2>&1)"
+set -e
+grep -q "Runtime profile suggest (R217" <<< "${out_r217}" \
+  && ok "R217 overview section emitted" \
+  || ko "R217 section missing"
+grep -qE "active profile: +high-concurrency-burst" <<< "${out_r217}" \
+  && ok "R217 defaults to high-concurrency-burst" \
+  || ko "R217 default profile wrong"
+grep -qE "(allocation\(s\) flagged|every allocation maps)" <<< "${out_r217}" \
+  && ok "R217 flagged-count line present" \
+  || ko "R217 flagged-count line missing"
+
+# JSON: runtime_profile_suggest block present + has the 3 fields.
+set +e
+out_r217_json="$("${OSCTL}" overview --json 2>&1)"
+set -e
+python3 -c "
+import json,sys
+d = json.loads('''${out_r217_json}''')
+rps = d.get('runtime_profile_suggest', {})
+assert rps.get('profile') == 'high-concurrency-burst', rps
+assert 'flagged_allocations' in rps, rps
+assert 'exit_code' in rps, rps
+" 2>/dev/null \
+  && ok "R217 JSON carries runtime_profile_suggest block" \
+  || ko "R217 JSON shape wrong"
+
+# Override via SOVEREIGN_OS_RUNTIME_PROFILE
+set +e
+out_r217_alt="$(SOVEREIGN_OS_RUNTIME_PROFILE=ultra-sovereign-efficiency "${OSCTL}" overview 2>&1)"
+set -e
+grep -qE "active profile: +ultra-sovereign-efficiency" <<< "${out_r217_alt}" \
+  && ok "R217 honors SOVEREIGN_OS_RUNTIME_PROFILE env override" \
+  || ko "R217 env override broken"
+
 echo
 total=$((pass + fail))
 echo "test_sovereign_osctl_overview: ${pass}/${total} passed"

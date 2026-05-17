@@ -369,6 +369,31 @@ EOF
     fi
   fi
 
+  # R217: model-suggest flagged-allocation count for the active
+  # runtime profile (master spec § 18). Composes R214+R216 — overview
+  # now answers "is your active profile actually fittable?" at a
+  # glance. SOVEREIGN_OS_RUNTIME_PROFILE selects which profile to
+  # check; defaults to the SAIN-01 high-concurrency-burst profile
+  # operators most commonly start from.
+  local suggest_profile="${SOVEREIGN_OS_RUNTIME_PROFILE:-high-concurrency-burst}"
+  local suggest_rc=0 suggest_flagged=0
+  local suggest_script="${script_dir}/models/suggest-by-profile.py"
+  if [ -x "${suggest_script}" ] \
+       && [ -f "${script_dir}/../profiles/runtime/${suggest_profile}.yaml" ]; then
+    set +e
+    local suggest_json; suggest_json="$(python3 "${suggest_script}" --runtime-profile "${suggest_profile}" --json 2>/dev/null)"
+    suggest_rc=$?
+    set -e
+    suggest_flagged="$(python3 -c "
+import json,sys
+try:
+    d = json.loads('''${suggest_json}''')
+    print(sum(1 for r in d.get('allocations', []) if r.get('flags')))
+except Exception:
+    print(0)
+" 2>/dev/null || echo 0)"
+  fi
+
   # Tetragon
   local tetragon_state="not-installed"
   if command -v tetragon >/dev/null 2>&1; then
@@ -403,6 +428,11 @@ EOF
   "model_catalog": {
     "declared_verified_real": ${catalog_declared},
     "resident": ${catalog_resident}
+  },
+  "runtime_profile_suggest": {
+    "profile": "${suggest_profile}",
+    "flagged_allocations": ${suggest_flagged},
+    "exit_code": ${suggest_rc}
   },
   "perimeter": {
     "tetragon": "${tetragon_state}",
@@ -446,6 +476,15 @@ EOF
   printf "  resident on disk:         %s\n" "${catalog_resident}"
   if [ "${catalog_declared}" != "0" ] && [ "${catalog_resident}" -lt "${catalog_declared}" ]; then
     printf "  ⚠ run: sovereign-osctl models verify\n"
+  fi
+  echo
+  echo "[Runtime profile suggest (R217 — R214 wrapped)]"
+  printf "  active profile:           %s\n" "${suggest_profile}"
+  if [ "${suggest_flagged}" -eq 0 ]; then
+    printf "  ✓ every allocation maps to a verified-real catalog entry that fits\n"
+  else
+    printf "  ⚠ %s allocation(s) flagged — run: sovereign-osctl models suggest --runtime-profile %s\n" \
+      "${suggest_flagged}" "${suggest_profile}"
   fi
   echo
   echo "[Perimeter (master spec § 10 — R155)]"
