@@ -105,3 +105,81 @@ def test_aspirational_entries_carry_closest_real_alternative():
                 f"aspirational entry {m['id']} missing "
                 f"closest_real_alternative — operator left at dead-end"
             )
+
+
+# ---- R212 taxonomy lints --------------------------------------------------
+
+
+def test_r212_schema_version_is_1_1_0():
+    """R212 bumped the schema to 1.1.0 alongside the class/quantization/
+    size_class/purpose/vram_gib_min/context_window_tokens/base_model
+    additions."""
+    catalog = _load_yaml(CATALOG_FILE)
+    assert catalog["schema_version"] == "1.1.0", (
+        f"expected schema_version 1.1.0 (R212), got {catalog['schema_version']!r}"
+    )
+
+
+def test_r212_every_model_declares_class():
+    """R212 taxonomy: every model carries `class` so operators can
+    filter the catalog by what KIND of model it is."""
+    catalog = _load_yaml(CATALOG_FILE)
+    missing = [m["id"] for m in catalog["catalog"]["models"] if not m.get("class")]
+    assert not missing, f"models missing R212 `class` field: {missing}"
+
+
+def test_r212_every_model_declares_quantization():
+    """R212 taxonomy: every model carries `quantization` so operators
+    see which numeric format the catalog declares it lands as."""
+    catalog = _load_yaml(CATALOG_FILE)
+    missing = [
+        m["id"] for m in catalog["catalog"]["models"] if not m.get("quantization")
+    ]
+    assert not missing, f"models missing R212 `quantization`: {missing}"
+
+
+def test_r212_every_model_declares_size_class():
+    catalog = _load_yaml(CATALOG_FILE)
+    missing = [
+        m["id"] for m in catalog["catalog"]["models"] if not m.get("size_class")
+    ]
+    assert not missing, f"models missing R212 `size_class`: {missing}"
+
+
+def test_r212_every_model_declares_purpose():
+    catalog = _load_yaml(CATALOG_FILE)
+    missing = [
+        m["id"]
+        for m in catalog["catalog"]["models"]
+        if not (m.get("purpose") or [])
+    ]
+    assert not missing, f"models missing non-empty `purpose` array: {missing}"
+
+
+def test_r212_lora_adapters_carry_base_model():
+    """R212 schema rule: class=lora-adapter MUST set base_model.
+    This pins the operator-readable invariant."""
+    catalog = _load_yaml(CATALOG_FILE)
+    for m in catalog["catalog"]["models"]:
+        if m.get("class") == "lora-adapter":
+            assert m.get("base_model"), (
+                f"LoRA adapter {m['id']} missing `base_model`"
+            )
+
+
+def test_r212_catalog_spans_diverse_taxonomy():
+    """Operator directive: 'all the best selection of models adapted
+    for various size and at various quantization or for various
+    specific purpose'. Pin that diversity at L1 so a future operator
+    pruning the catalog can't silently collapse the taxonomy."""
+    catalog = _load_yaml(CATALOG_FILE)
+    classes = {m.get("class") for m in catalog["catalog"]["models"]}
+    quants = {m.get("quantization") for m in catalog["catalog"]["models"]}
+    sizes = {m.get("size_class") for m in catalog["catalog"]["models"]}
+    # At least 6 distinct classes, 4 distinct quantizations,
+    # 3 distinct size_classes — keeps the catalog honestly diverse.
+    assert len(classes) >= 6, f"catalog has only {len(classes)} classes: {classes}"
+    assert len(quants) >= 4, (
+        f"catalog has only {len(quants)} quantizations: {quants}"
+    )
+    assert len(sizes) >= 3, f"catalog has only {len(sizes)} size_classes: {sizes}"

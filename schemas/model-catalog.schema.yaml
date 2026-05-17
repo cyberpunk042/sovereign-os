@@ -7,10 +7,21 @@
 # their HuggingFace identifiers (where real), their tier mapping, and
 # their status (verified-real / aspirational / operator-must-confirm).
 #
+# R212 extends the schema (1.0.0 → 1.1.0) with the model-class
+# taxonomy operator named:
+#   - class       — LLM / SLM / RLM / LoRA / TernaryLM / Embed / Vision …
+#   - quantization — fp16 / bf16 / fp8 / int8 / int4 / int2 / ternary-1.58bit …
+#   - size_class  — xs / s / m / l / xl / xxl
+#   - purpose     — chat / reasoning / code / multimodal / embedding / agent …
+#   - vram_gib_min — quantization-aware minimum VRAM for live inference
+#   - base_model  — required when class=lora-adapter; the base model id
+#                   the adapter attaches to
+#
 # Companion docs:
 #   - models/catalog.yaml — instance document
 #   - scripts/models/pull.sh — operator-runnable downloader
 #   - scripts/models/verify.sh — verification against this declared catalog
+#   - scripts/models/render-catalog-md.py — auto-renders operator doc
 #   - profiles/runtime/*.yaml — runtime-profile-to-model bindings
 
 $schema: "https://json-schema.org/draft/2020-12/schema"
@@ -23,7 +34,7 @@ additionalProperties: false
 properties:
   schema_version:
     type: string
-    const: "1.0.0"
+    enum: ["1.0.0", "1.1.0"]   # 1.0.0 still valid for pre-R212 fixtures
 
   catalog:
     type: object
@@ -117,6 +128,104 @@ $defs:
         description: "Free-text operator-facing note (provenance, caveat, swap rationale)."
         type: string
 
+      # ------------- R212 model-class taxonomy --------------
+
+      class:
+        description: |
+          Model class — operator-facing taxonomy added in R212.
+          Lets operators filter the catalog by what KIND of model
+          this is, independent of the Trinity tier mapping.
+        type: string
+        enum:
+          - llm              # general large language model (>7B params)
+          - slm              # small language model (<7B params)
+          - rlm              # reasoning language model (chain-of-thought tuned)
+          - ternary-lm       # 1-bit/1.58-bit BitNet-style weights
+          - lora-adapter     # low-rank adapter; requires `base_model`
+          - embed            # embedding model
+          - vision           # vision-only (image classifier, OCR)
+          - multimodal       # any-to-any / vision+language / audio+language
+          - code             # code-specialised LM
+          - mixture          # mixture-of-experts router-gated
+          - speculative      # draft model for speculative decoding
+          - reranker         # cross-encoder / reranker
+
+      quantization:
+        description: |
+          Weight quantization the catalog declares this model lands as.
+          fp16/bf16/fp8 are native formats; int4/int8/int2 are integer
+          quantizations; ternary-1.58bit is the BitNet form; gguf-*
+          are llama.cpp's per-block schemes; awq/gptq are post-training
+          schemes.
+        type: string
+        enum:
+          - fp32
+          - fp16
+          - bf16
+          - fp8
+          - int8
+          - int4
+          - int2
+          - ternary-1.58bit
+          - awq
+          - gptq
+          - gguf-q4_k_m
+          - gguf-q5_k_m
+          - gguf-q6_k
+          - gguf-q8_0
+
+      size_class:
+        description: |
+          Operator-facing size bucket. xs = <1B, s = 1-7B, m = 7-30B,
+          l = 30-70B, xl = 70-200B, xxl = >200B.
+        type: string
+        enum: [xs, s, m, l, xl, xxl]
+
+      purpose:
+        description: |
+          Operator-readable purpose tags. Multiple allowed (a model
+          can be useful for chat AND reasoning AND function-calling).
+        type: array
+        minItems: 1
+        items:
+          type: string
+          enum:
+            - chat
+            - reasoning
+            - code
+            - multimodal
+            - embedding
+            - vision
+            - agent
+            - function-calling
+            - rag
+            - speculation
+            - reranking
+            - distillation-base
+
+      vram_gib_min:
+        description: |
+          Minimum VRAM (GiB) for live inference at this quantization +
+          a small context (≤4k tokens, batch=1). Operator-facing
+          reality check against gpu_vram_gib_min in module manifests.
+        type: number
+        exclusiveMinimum: 0
+
+      base_model:
+        description: |
+          For class=lora-adapter: the catalog id of the base model
+          this adapter attaches to. Required when class=lora-adapter.
+        type: string
+        pattern: "^[A-Za-z0-9._-]+$"
+
+      context_window_tokens:
+        description: |
+          Maximum context window in tokens (e.g. 8192, 32768, 131072,
+          1000000). Operator-facing reality check for long-context
+          workloads.
+        type: integer
+        exclusiveMinimum: 0
+
     # status-specific required field rules
     allOf:
       - if:
@@ -125,3 +234,10 @@ $defs:
               const: verified-real
         then:
           required: [hf_repo_id]
+      # R212: LoRA adapters MUST carry base_model.
+      - if:
+          properties:
+            class:
+              const: lora-adapter
+        then:
+          required: [base_model]
