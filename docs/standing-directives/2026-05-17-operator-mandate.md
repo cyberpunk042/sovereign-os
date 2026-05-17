@@ -142,7 +142,7 @@ the Epic is closed — but the operator may add new Modules to it.
 | E1.M10 | CPU mode hotswap + auto recommender | ✓ shipped (prior) | R221, R230 |
 | E1.M11 | Heat integration with budget + thermal-aware advisories | ✓ shipped | R265 |
 | E1.M12 | PCIe lane allocation policy advisor (when both GPUs populated) | ✓ shipped | R270 |
-| E1.M13 | RTX 3090 + RTX PRO 6000 dual-card-specific advisories | **TODO** | — |
+| E1.M13 | RTX 3090 + RTX PRO 6000 dual-card-specific advisories | ✓ shipped | R271 |
 | E1.M14 | AVX-512 utilization probe + workload-fit advisor | **TODO** | — |
 | E1.M15 | Memory pressure / OOM watcher + Layer B metrics | ✓ shipped | R269 |
 
