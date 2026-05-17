@@ -240,6 +240,19 @@ COMMANDS:
                                router + R219 GPU watt .prom files,
                                recommends a mode. Advisory by default;
                                --apply switches the governor.
+  bios-info show [--json]      R251 (SDD-026 Z-17): BIOS + baseboard
+                               + memory snapshot via dmidecode +
+                               /sys/class/dmi/id; lists per-DIMM speed
+                               (rated vs configured) + PCI GPU link
+                               state. Surfaces board-specific
+                               advisories (e.g. ASUS ProArt X870E-
+                               CREATOR WIFI).
+  bios-info memory [--json]    R251: DIMM-only detail (slot, channel,
+                               speed rated/configured, part_number).
+  bios-info advisories [--json]
+                               R251: board-specific optimization hints
+                               only (XMP/EXPO, PCI lane splits, AMD-V,
+                               IOMMU, firmware bug fixes).
   gpu-remediate [--apply] [--policy P] [--json]
                                R249 (SDD-026 Z-5 closure): auto-apply
                                R219 gpu-watch fix commands. Default is
@@ -4681,6 +4694,21 @@ case "${cmd}" in
     # R249 (SDD-026 Z-5 closure): auto-apply R219 fix commands.
     # Operator-named "warn deviance from perfection" loop closure.
     "${__REPO_ROOT}/scripts/hardware/gpu-remediate.py" "$@"
+    ;;
+  bios-info)
+    # R251 (SDD-026 Z-17): BIOS + baseboard + memory snapshot with
+    # board-specific advisories (ASUS ProArt X870E-CREATOR WIFI etc.).
+    sub="${1:-show}"
+    shift || true
+    case "${sub}" in
+      show|memory|advisories)
+        "${__REPO_ROOT}/scripts/hardware/bios-info.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown bios-info subverb: ${sub} (available: show, memory, advisories)"
+        exit 2
+        ;;
+    esac
     ;;
   fs)
     # R222 (SDD-026 Z-10): filesystem + log insights.
