@@ -1,0 +1,56 @@
+# sovereign-os OC + XMP headroom model — R292 / E1.M20.
+#
+# Operator-named (§1b mandate row, verbatim): "considering XMP profile
+# and OC profile and room for each and estimated at 100% usage and
+# then real time tracking and intelligence around it. (Possibly heat
+# too I guess)".
+#
+# Models the operator-pinned baselines that the headroom calculator
+# uses to project 100%-usage wattage across CPU + GPU(s) + memory +
+# chassis. Real-time deviance is sourced from R258 wattage sampler
+# (when /etc/sovereign-os/power.toml configures the AC-tap path).
+#
+# Adopts R283 / SDD-030 operator-overlay-doctrine: copy this file to
+# /etc/sovereign-os/oc-headroom.toml (or set
+# SOVEREIGN_OS_OVERLAY_OC_HEADROOM=<path>). Scalars REPLACE the
+# defaults shipped in the script.
+
+# ── CPU TDP (watts) ──
+# Operator-pinned per CPU SKU. Operator (§1b) uses Zen 5 9900X →
+# 170 W. Other SKUs: 7900X 170 W / 7950X 170 W / 9950X 170 W.
+cpu_tdp_watts = 170
+
+# ── Chassis baseline (watts) ──
+# Fans + mobo + USB devices + storage + NIC + miscellany at idle.
+# Operator-tunable. Conservative 80 W default for a ProArt-class build
+# with multiple NVMe + many fans.
+chassis_baseline_watts = 80
+
+# ── GPU OC multiplier ──
+# When the operator runs GPUs above stock power_limit, sustained draw
+# can exceed the rated power_limit by this multiplier. 1.0 = stock,
+# 1.15 = +15% OC. Operator sets per their tuning.
+gpu_oc_multiplier = 1.0
+
+# ── PSU OC-mode multiplier ──
+# be Quiet! Dark Power Pro 13 1600W has an OC-mode toggle (§1b). When
+# enabled the rated sustained-output budget shifts; this multiplier
+# applied to psu_rated_watts models that. 1.0 = standard mode.
+psu_oc_mode_multiplier = 1.0
+
+# ── Safety margin (percent) ──
+# headroom_pct < safety_margin_pct → verdict "headroom-tight".
+# headroom_watts < 0                 → verdict "over-budget".
+safety_margin_pct = 20
+
+# ── Memory power model ──
+# Per-DIMM base + per-1000-MT/s-above-JEDEC premium.
+# 4 W base + 1 W per +1000 MT/s captures DDR5 EXPO-tuned 6000 MT/s
+# (~5 W) and stock 4800 MT/s (~4 W) within tolerance.
+memory_dimm_base_watts        = 4
+memory_mts_premium_per_1000   = 1
+
+# ── PSU rated wattage (operator-pinned fallback) ──
+# When power-status.py is reachable + reports psu_rated_watts, that
+# value takes precedence. This is the fallback / cross-check.
+psu_rated_watts = 1600

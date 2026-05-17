@@ -5372,6 +5372,26 @@ case "${cmd}" in
     # surfaces selfdef tools too)".
     "${__REPO_ROOT}/scripts/interop/mcp-aggregate.py" "$@"
     ;;
+  oc-headroom)
+    # R292 (E1.M20): operator's XMP + OC headroom model.
+    # Composes memory-profile (XMP/EXPO state) + gpu-watch (per-card
+    # power_limit) + power-status (PSU rated + real-time draw) into
+    # a 100%-usage projection + real-time deviance verdict.
+    # Operator-named (§1b verbatim): "considering XMP profile and
+    # OC profile and room for each and estimated at 100% usage and
+    # then real time tracking and intelligence around it."
+    sub="${1:-status}"
+    shift || true
+    case "${sub}" in
+      status|advisory|inputs)
+        "${__REPO_ROOT}/scripts/hardware/oc-headroom.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown oc-headroom subverb: ${sub} (status, advisory, inputs)"
+        exit 2
+        ;;
+    esac
+    ;;
   research-loop)
     # R287 (E1.M19): "Hardware-exploit-to-the-max research loop"
     # — operator-pull "what's worth investigating right now"
