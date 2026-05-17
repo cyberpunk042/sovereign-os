@@ -3230,6 +3230,20 @@ cmd_bootstrap() {
       fi
       exec "${phases_script}" "$@"
       ;;
+    run)
+      # R201: master spec § 12 phase executor — DRY-RUN-ONLY first cut.
+      # Emits the execution plan + classifies each artifact's runtime
+      # surface (build-step / installer-hook / post-install-hook /
+      # recurrent-hook / systemd-unit / tooling). Real --apply is a
+      # follow-up round gated behind SOVEREIGN_OS_CONFIRM_DESTROY + L5.
+      local run_script
+      run_script="$(dirname "${BASH_SOURCE[0]}")/bootstrap/run.sh"
+      if [ ! -x "${run_script}" ]; then
+        log_error "bootstrap run script missing or not executable: ${run_script}"
+        return 1
+      fi
+      exec "${run_script}" "$@"
+      ;;
     hardware-match)
       # R166: cross-repo mirror of selfdef SDD-017 Sain01Match.
       # Same logic, same dimensions, same exit codes — operators can
@@ -3259,6 +3273,16 @@ Subverbs:
       I    Minimal Trixie Base
       II   Zen 5 Kernel Compilation
       III  Storage Layer + DKMS (ZFS)
+
+  run [--phase N|all] [--json]   (R201, DRY-RUN-ONLY first cut)
+    Emit the execution plan for one (or all) master spec § 12 phases:
+    enumerate every artifact + classify its runtime surface
+    (build-step / installer-hook / post-install-hook / recurrent-hook
+    / systemd-unit / tooling). --apply is intentionally NOT wired:
+    Phase III-V artifacts are destructive (zfs-pool-create wipes NVMe,
+    vfio-bind detaches the 3090, tetragon-policy-load installs kernel
+    BPF). Real execution lives at Layer 5 on the SAIN-01 box behind
+    SOVEREIGN_OS_CONFIRM_DESTROY=YES + interactive prompt.
 
   hardware-match [--json] [--verdict-only]
     Cross-repo mirror of selfdef SDD-017 Sain01Match (R166):

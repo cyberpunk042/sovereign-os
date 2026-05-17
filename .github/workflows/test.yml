@@ -340,6 +340,9 @@ jobs:
       - name: nspawn — osctl audit cycle3 (Round 200: comprehensive cycle-2+3 audit umbrella)
         run: |
           tests/nspawn/test_osctl_audit_cycle3.sh
+      - name: nspawn — bootstrap run (Round 201: master spec § 12 phase executor DRY-RUN)
+        run: |
+          tests/nspawn/test_bootstrap_run.sh
       - name: nspawn — thermal-watch (Round 172: per-profile thermal thresholds + OCSF events)
         run: |
           tests/nspawn/test_thermal_watch.sh
