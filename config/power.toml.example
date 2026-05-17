@@ -1,0 +1,43 @@
+# sovereign-os power-supply + UPS config — R252 (SDD-026 Z-18).
+#
+# Operator-named (verbatim, 2026-05-17 expansion): "Adapting /
+# Considering the given PSU (probably not detectable ?) wattage and
+# rating ? (me: be Quiet! Dark Power Pro 13 1600W Power Supply | ATX
+# 3.1 Compliant | 80 Plus Titanium) [...] Then there is the PSU/APC
+# integration with the power management and the scheduled shutdown
+# when battery reach a certain point as one default profile."
+
+# ─── PSU: ATX rails are not OS-probeable. Operator declares. ───
+[psu]
+model = "be Quiet! Dark Power Pro 13 1600W"
+rated_watts = 1600
+rating = "80 PLUS Titanium"
+atx_revision = "3.1"
+# This PSU has an overclock mode that lifts the 1600W rating ceiling
+# for transient spikes. Operator-detected; the script reads this flag.
+overclock_mode_supported = true
+overclock_mode_enabled   = false   # flip after enabling via PSU switch
+
+# Sustained budget derating: PSU rated W × this factor is the watt
+# budget the script uses for the headroom calculation. 0.85 is the
+# conservative default; bump to 1.0 if you've verified your cooling
+# can sustain 100% load. Drop to 0.7 if PSU is aging or environment
+# is hot.
+derating = 0.85
+
+# Drives + fans + RGB + chipset overhead (no per-component probe).
+estimated_overhead_watts = 75
+
+# ─── CPU TDP (operator-declared; AMD package power is not portably probable) ───
+[cpu]
+model = "AMD Ryzen 9 9900X"
+tdp_watts = 170
+
+# ─── Graceful-shutdown profile when on UPS battery ───
+[graceful_shutdown]
+# When battery_charge drops to this %, fire the shutdown.
+battery_critical_pct = 15
+# When battery time_left drops to this many minutes, surface a warn.
+runtime_warn_minutes = 5
+# When battery time_left drops to this many minutes, fire the shutdown.
+shutdown_minutes = 2

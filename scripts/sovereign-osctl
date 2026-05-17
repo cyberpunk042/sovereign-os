@@ -240,6 +240,23 @@ COMMANDS:
                                router + R219 GPU watt .prom files,
                                recommends a mode. Advisory by default;
                                --apply switches the governor.
+  power-status psu [--json]    R252 (SDD-026 Z-18): operator-declared
+                               PSU + sustained budget (= rated W ×
+                               derating). Operator-named "1600W ATX
+                               3.1 / 80 Plus Titanium / OC mode".
+  power-status ups [--json]    R252: live UPS state via apcupsd
+                               (APC-branded) OR nut (NUT-compatible).
+                               Surfaces battery_charge / time_left /
+                               load_pct.
+  power-status budget [--json] R252: PSU rated W vs estimated load
+                               (live GPU draw + declared CPU TDP +
+                               overhead). Warns ≥85% utilization.
+  power-status advisories [--json]
+                               R252: graceful-shutdown profile —
+                               battery_critical_pct / runtime_warn /
+                               shutdown_minutes thresholds. rc=1
+                               when battery ≤ critical (timer hook
+                               consumes this as the kill signal).
   bios-info show [--json]      R251 (SDD-026 Z-17): BIOS + baseboard
                                + memory snapshot via dmidecode +
                                /sys/class/dmi/id; lists per-DIMM speed
@@ -4706,6 +4723,22 @@ case "${cmd}" in
         ;;
       *)
         log_error "unknown bios-info subverb: ${sub} (available: show, memory, advisories)"
+        exit 2
+        ;;
+    esac
+    ;;
+  power-status)
+    # R252 (SDD-026 Z-18): PSU + UPS + wattage budget + graceful
+    # shutdown advisories. Operator-named "be Quiet! Dark Power Pro
+    # 13 1600W" + "PSU/APC integration with scheduled shutdown".
+    sub="${1:-psu}"
+    shift || true
+    case "${sub}" in
+      psu|ups|budget|advisories)
+        "${__REPO_ROOT}/scripts/hardware/power-status.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown power-status subverb: ${sub} (available: psu, ups, budget, advisories)"
         exit 2
         ;;
     esac
