@@ -357,6 +357,13 @@ COMMANDS:
                                request and exits (for L3 tests).
   dashboard render             R225: render the dashboard HTML to
                                stdout without binding a socket.
+  dashboard grid [--json] [--watch] [--interval SEC]
+                               R248 (SDD-026 Z-1 terminal view): 1-
+                               line-per-card terminal rollup of every
+                               dashboard card with status glyph + key
+                               metric. Operator's "everything in one
+                               terminal screen" SSH view. rc=1 when
+                               ≥1 card has needs_attention.
   profiles flex show [--json]  R224 (SDD-026 Z-3): print active profile +
                                applied flex deltas (operator-runtime
                                JSON deltas over YAML baselines).
@@ -4794,8 +4801,12 @@ case "${cmd}" in
       render)
         "${__REPO_ROOT}/scripts/dashboard/serve.py" --render-only "$@"
         ;;
+      grid)
+        # R248 (SDD-026 Z-1 terminal view): 1-line-per-card rollup.
+        "${__REPO_ROOT}/scripts/dashboard/grid.py" "$@"
+        ;;
       *)
-        log_error "unknown dashboard subverb: ${sub} (available: serve, render)"
+        log_error "unknown dashboard subverb: ${sub} (available: serve, render, grid)"
         exit 2
         ;;
     esac
