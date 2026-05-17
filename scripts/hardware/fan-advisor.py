@@ -66,7 +66,41 @@ DEFAULTS = {
     "active_mode": "inference-ready",
     "min_safe_rpm": 400,    # Below this with load present → flag
     "max_safe_rpm": 3000,   # Above this sustained → noise floor warn
+    # R339 (E2.M28) link to R338 workload-mode coordinator:
+    # when True, fan-advisor first reads R338's canonical mode
+    # from /etc/sovereign-os/workload-mode.toml; falls back to
+    # `active_mode` above when R338 is unset or unavailable.
+    "follow_workload_mode_coordinator": True,
+    "workload_mode_overlay_path": "/etc/sovereign-os/workload-mode.toml",
 }
+
+
+def _read_canonical_mode(cfg: dict) -> tuple[str | None, str]:
+    """R339 (E2.M28): read R338 workload-mode as canonical source.
+
+    Returns (mode_name, source) where source ∈
+    {"R338-canonical", "fan-advisor-overlay", "default"}.
+    Never raises — falls back gracefully.
+    """
+    if not cfg.get("follow_workload_mode_coordinator", True):
+        return None, "fan-advisor-overlay"
+    path = Path(cfg.get("workload_mode_overlay_path",
+                          "/etc/sovereign-os/workload-mode.toml"))
+    if not path.is_file():
+        return None, "fan-advisor-overlay"
+    # Parse the workload-mode.toml directly (lightweight; avoids
+    # subprocess to R338 script for read-only path).
+    try:
+        body = path.read_text(encoding="utf-8")
+    except OSError:
+        return None, "fan-advisor-overlay"
+    # Naïve grep for `active_mode = "<name>"` (operator-stable shape
+    # R338 writes; full TOML parse not needed for one-key file).
+    import re
+    m = re.search(r'^\s*active_mode\s*=\s*"([^"]+)"\s*$', body, re.M)
+    if m:
+        return m.group(1), "R338-canonical"
+    return None, "fan-advisor-overlay"
 
 
 # Per-mode recommended fan curves. Each entry: mode name + target
@@ -421,7 +455,19 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.cmd == "recommend":
-        mode_name = args.mode if args.mode else cfg["active_mode"]
+        # R339 (E2.M28): prefer explicit --mode, else canonical from
+        # R338 workload-mode, else fan-advisor overlay default.
+        mode_source = "explicit-flag"
+        if args.mode:
+            mode_name = args.mode
+        else:
+            canonical, canon_source = _read_canonical_mode(cfg)
+            if canonical:
+                mode_name = canonical
+                mode_source = canon_source
+            else:
+                mode_name = cfg["active_mode"]
+                mode_source = "fan-advisor-overlay"
         mode = resolve_mode(mode_name)
         if mode is None:
             print(json.dumps({
@@ -437,6 +483,7 @@ def main(argv: list[str] | None = None) -> int:
                 "round": ROUND,
                 "sdd_vector": SDD_VECTOR,
                 "mode": mode,
+                "mode_source": mode_source,
                 "overlay": meta,
             }, indent=2))
         else:
@@ -450,15 +497,23 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  caveat: {mode['operator_caveat']}")
         return 0
 
-    # status
-    mode = resolve_mode(cfg["active_mode"]) or MODE_CATALOG[0]
+    # status — R339 (E2.M28): canonical mode first, fallback to overlay.
+    canonical, canon_source = _read_canonical_mode(cfg)
+    if canonical:
+        active_mode = canonical
+        mode_source = canon_source
+    else:
+        active_mode = cfg["active_mode"]
+        mode_source = "fan-advisor-overlay"
+    mode = resolve_mode(active_mode) or MODE_CATALOG[0]
     fan_probe = probe_fans()
     status = derive_status(cfg, fan_probe, mode)
     doc = {
         "schema_version": SCHEMA_VERSION,
         "round": ROUND,
         "sdd_vector": SDD_VECTOR,
-        "active_mode": cfg["active_mode"],
+        "active_mode": active_mode,
+        "mode_source": mode_source,
         "declared_board": cfg["declared_board"],
         "config": cfg,
         "mode": mode,

@@ -111,11 +111,15 @@ AFFECTED_ADVISORS: list[dict[str, Any]] = [
         "advisor": "R337 fan-advisor",
         "script": "scripts/hardware/fan-advisor.py",
         "verb": "sovereign-osctl fan-advisor status",
-        "consumes_mode_via": "active_mode in /etc/sovereign-os/fan-advisor.toml",
+        "consumes_mode_via": ("R338 canonical "
+                                "(/etc/sovereign-os/workload-mode.toml) "
+                                "since R339; falls back to fan-advisor "
+                                "own overlay when R338 unset"),
         "future_adoption": False,
-        "operator_caveat": "Current adoption: reads its own overlay knob; "
-                            "future round links R338 mode as the canonical "
-                            "source.",
+        "adopted_in_round": "R339",
+        "operator_caveat": "First R338 adopter — proves the cross-advisor "
+                            "mode-linking pattern. R296/R304/R293/R307 "
+                            "follow the same shape in future rounds.",
     },
     {
         "advisor": "R296 thermal-oc-budget",
