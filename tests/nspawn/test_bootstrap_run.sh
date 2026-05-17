@@ -114,12 +114,17 @@ print('JSON-OK')
   && ok "JSON shape conforms" \
   || ko "JSON shape failed: $(cat ${WORK}/json.check)"
 
-# ---- drift guard: phases.sh + run.sh have same phase count ----
-phases_count=$(grep -cE '^"(I|II|III|IV|V)\|' "${PHASES}")
-run_count=$(grep -cE '^"(I|II|III|IV|V)\|' "${RUN}")
-[ "${phases_count}" -eq "${run_count}" ] && [ "${phases_count}" -eq 5 ] \
-  && ok "phases.sh + run.sh phase tables locked at 5/5" \
-  || ko "phase count drift: phases.sh=${phases_count} run.sh=${run_count}"
+# ---- R202: phases.sh + run.sh share canonical YAML loader ----
+loader_count=$(python3 "${__REPO_ROOT}/scripts/bootstrap/lib/load-phases.py" | wc -l)
+[ "${loader_count}" -eq 5 ] \
+  && ok "YAML loader emits 5/5 phases (R202 canonical source)" \
+  || ko "YAML loader phase count mismatch: ${loader_count}"
+grep -q "load-phases.py" "${PHASES}" \
+  && ok "phases.sh consumes the canonical loader" \
+  || ko "phases.sh has stale inline phase table"
+grep -q "load-phases.py" "${RUN}" \
+  && ok "run.sh consumes the canonical loader" \
+  || ko "run.sh has stale inline phase table"
 
 # ---- osctl bridge invokes run.sh ----
 set +e

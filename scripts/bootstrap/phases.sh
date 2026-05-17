@@ -68,15 +68,13 @@ case "${PHASE_FILTER}" in
 esac
 
 # ---------- phase definitions ----------
-# Format: name|description|artifact1|artifact2|...
-# Each artifact is a path relative to the repo root.
-PHASES=(
-"I|Minimal Trixie Base (master spec § 12 Phase I)|scripts/build/01-bootstrap-forge.sh|config/preseed/sain-01.preseed.example.cfg|config/cloud-init/sain-01.user-data.example.yaml"
-"II|Zen 5 Kernel Compilation (master spec § 12 Phase II + § 2)|scripts/build/02-kernel-fetch.sh|scripts/build/03-kernel-config.sh|scripts/build/04-kernel-compile.sh"
-"III|Storage Layer + DKMS — ZFS native (master spec § 12 Phase III + § 3, 4.1)|scripts/hooks/during-install/zfs-pool-create.sh|scripts/hooks/during-install/zfs-datasets-create.sh|scripts/hooks/post-install/zfs-arc-clamp.sh|scripts/hooks/recurrent/zfs-scrub.sh|systemd/system/sovereign-zfs-arc-clamp.service|systemd/system/sovereign-zfs-scrub.service|systemd/system/sovereign-zfs-scrub.timer"
-"IV|Container + Network Edge Isolation — Podman, VFIO, asymmetric net (master spec § 12 Phase IV + § 4.3, 8)|scripts/hooks/post-install/vfio-bind-3090.sh|scripts/hooks/post-install/network-vlan-config.sh|scripts/network/render-asymmetric.sh|systemd/system/sovereign-vfio-bind.service|systemd/system/sovereign-network-vlan.service|systemd/system/sovereign-nvidia-driver-bind.service"
-"V|Tetragon eBPF + Guardian + State Fabric Mount (master spec § 12 Phase V + § 5, 6, 10, 21)|scripts/hooks/post-install/tetragon-policy-load.sh|scripts/hooks/recurrent/tetragon-policy-verify.sh|scripts/auditor/guardian-core.py|systemd/system/sovereign-guardian-core.service|systemd/system/sovereign-tetragon-policy-load.service|scripts/weaver/atomic-state.py"
-)
+# R202: canonical phase table lives in config/bootstrap/phases.yaml.
+# Format emitted by load-phases.py: id|name|description|artifact...
+mapfile -t PHASES < <(python3 "${__REPO_ROOT}/scripts/bootstrap/lib/load-phases.py")
+if [ "${#PHASES[@]}" -eq 0 ]; then
+  echo "ERROR phases.yaml loader returned empty table" >&2
+  exit 2
+fi
 
 # ---------- emit ----------
 overall_missing=0
@@ -90,9 +88,10 @@ phase_idx=0
 for phase_def in "${PHASES[@]}"; do
   phase_idx=$((phase_idx + 1))
   IFS='|' read -r -a parts <<< "${phase_def}"
+  # R202: yaml format is id|name|description|artifact...
   name="${parts[0]}"
-  desc="${parts[1]}"
-  artifacts=("${parts[@]:2}")
+  desc="${parts[1]} (${parts[2]})"
+  artifacts=("${parts[@]:3}")
 
   if [ -n "${PHASE_FILTER}" ] && [ "${PHASE_FILTER}" != "${phase_idx}" ]; then
     continue

@@ -1,0 +1,71 @@
+# config/bootstrap/phases.yaml — canonical master spec § 12 phase table (R202).
+#
+# Single source of truth for the chronological 5-phase pipeline.
+# Consumed by:
+#   scripts/bootstrap/phases.sh  (R160 — inventory mode)
+#   scripts/bootstrap/run.sh     (R201 — dry-run plan)
+#   tests/lint/test_bootstrap_phases_yaml.py  (R202 — schema lint)
+#
+# Each phase carries:
+#   id            roman numeral I..V (verbatim from master spec § 12)
+#   name          short summary used as the header
+#   description   long-form spec reference
+#   artifacts     ordered list of repo-relative paths driving the phase
+#
+# The phase order is the chronological order operators MUST honor on a
+# real SAIN-01 box: master spec § 12 "Each phase must be completed and
+# validated before the downstream phase is initiated."
+#
+# Drift policy: when a phase's artifact set changes, edit THIS file
+# only — phases.sh + run.sh re-parse on every invocation.
+
+phases:
+  - id: I
+    name: Minimal Trixie Base
+    description: Master spec § 12 Phase I — empty NVMe → debootstrap'd Trixie base
+    artifacts:
+      - scripts/build/01-bootstrap-forge.sh
+      - config/preseed/sain-01.preseed.example.cfg
+      - config/cloud-init/sain-01.user-data.example.yaml
+
+  - id: II
+    name: Zen 5 Kernel Compilation
+    description: Master spec § 12 Phase II + § 2 — kernel.org-stable, AVX-512 + Zen 5 tunings
+    artifacts:
+      - scripts/build/02-kernel-fetch.sh
+      - scripts/build/03-kernel-config.sh
+      - scripts/build/04-kernel-compile.sh
+
+  - id: III
+    name: Storage Layer + DKMS (ZFS)
+    description: Master spec § 12 Phase III + §§ 3, 4.1 — ZFS native tank pool + tiered datasets
+    artifacts:
+      - scripts/hooks/during-install/zfs-pool-create.sh
+      - scripts/hooks/during-install/zfs-datasets-create.sh
+      - scripts/hooks/post-install/zfs-arc-clamp.sh
+      - scripts/hooks/recurrent/zfs-scrub.sh
+      - systemd/system/sovereign-zfs-arc-clamp.service
+      - systemd/system/sovereign-zfs-scrub.service
+      - systemd/system/sovereign-zfs-scrub.timer
+
+  - id: IV
+    name: Container + Network Edge Isolation
+    description: Master spec § 12 Phase IV + §§ 4.3, 8 — Podman, VFIO 3090 detach, asymmetric net
+    artifacts:
+      - scripts/hooks/post-install/vfio-bind-3090.sh
+      - scripts/hooks/post-install/network-vlan-config.sh
+      - scripts/network/render-asymmetric.sh
+      - systemd/system/sovereign-vfio-bind.service
+      - systemd/system/sovereign-network-vlan.service
+      - systemd/system/sovereign-nvidia-driver-bind.service
+
+  - id: V
+    name: Tetragon eBPF + Guardian + State Fabric Mount
+    description: Master spec § 12 Phase V + §§ 5, 6, 10, 21 — kernel BPF, guardian, atomic state
+    artifacts:
+      - scripts/hooks/post-install/tetragon-policy-load.sh
+      - scripts/hooks/recurrent/tetragon-policy-verify.sh
+      - scripts/auditor/guardian-core.py
+      - systemd/system/sovereign-guardian-core.service
+      - systemd/system/sovereign-tetragon-policy-load.service
+      - scripts/weaver/atomic-state.py
