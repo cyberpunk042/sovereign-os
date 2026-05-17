@@ -373,6 +373,9 @@ jobs:
       - name: nspawn — cpu-mode (Round 221, SDD-026 Z-4: CPU hotswap modes)
         run: |
           tests/nspawn/test_cpu_mode.sh
+      - name: nspawn — fs-insights (Round 222, SDD-026 Z-10: fs + log insights)
+        run: |
+          tests/nspawn/test_fs_insights.sh
       - name: nspawn — thermal-watch (Round 172: per-profile thermal thresholds + OCSF events)
         run: |
           tests/nspawn/test_thermal_watch.sh

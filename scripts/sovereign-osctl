@@ -192,6 +192,15 @@ COMMANDS:
   cpu-mode set <mode>          R221 (SDD-026 Z-4): switch CPU governor
                                to the named mode. Requires root; non-
                                root prints the actionable shell command.
+  fs usage [--threshold-pct N] [--json]
+                               R222 (SDD-026 Z-10): per-partition + global
+                               disk usage. Flags partitions ≥ threshold
+                               (default 80%). rc=1 when any flagged.
+  fs log-audit [--threshold-bytes N] [--root D] [--max-rows N] [--json]
+                               R222 (SDD-026 Z-10): scan log dirs +
+                               flag files ≥ threshold (default 100 MiB).
+                               Operator-actionable: each flagged path
+                               needs a logrotate.d entry.
 
   journal list [--all-dirs]    List Layer A JSONL log files (size + first/last event)
   journal show <file> [--all-dirs]  Pretty-print one JSONL log file as a table
@@ -4406,6 +4415,14 @@ case "${cmd}" in
     sub="${1:-show}"
     shift || true
     "${__REPO_ROOT}/scripts/hardware/cpu-mode.py" "${sub}" "$@"
+    ;;
+  fs)
+    # R222 (SDD-026 Z-10): filesystem + log insights.
+    # usage = per-partition df + global; log-audit = scan log dirs +
+    # flag oversized files with rotate hint.
+    sub="${1:-usage}"
+    shift || true
+    "${__REPO_ROOT}/scripts/hardware/fs-insights.py" "${sub}" "$@"
     ;;
   version|--version|-V) cmd_version "$@" ;;
   help|--help|-h|"") cmd_help ;;
