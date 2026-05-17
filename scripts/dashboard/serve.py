@@ -59,6 +59,54 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
 
+try:
+    import tomllib  # Python 3.11+
+except ImportError:  # pragma: no cover
+    import tomli as tomllib  # type: ignore
+
+
+# R250 (SDD-026 Z-1 auth): per-process loaded auth config. Set by
+# main() before the server starts; None means "no auth — same as
+# cycle-8 SEED behavior, safe on loopback / tailscale-private binds".
+AUTH_CONFIG: dict[str, Any] | None = None
+
+
+def load_auth_config() -> dict[str, Any] | None:
+    """R250: returns {token, allow_loopback, allow_ips} when config present.
+
+    Path resolution: env SOVEREIGN_OS_DASHBOARD_AUTH_CONFIG overrides,
+    then /etc/sovereign-os/dashboard-auth.toml, then the in-repo example
+    file. Operator-supplied token is read from the env var named by
+    `token_env` (operator secrets never in-repo per SDD-009).
+    """
+    env = os.environ.get("SOVEREIGN_OS_DASHBOARD_AUTH_CONFIG")
+    candidate_paths: list[Path] = []
+    if env:
+        candidate_paths.append(Path(env))
+    candidate_paths.append(Path("/etc/sovereign-os/dashboard-auth.toml"))
+    candidate_paths.append(REPO_ROOT / "config" / "dashboard-auth.toml.example")
+    cfg_path = next((p for p in candidate_paths if p.exists()), None)
+    if cfg_path is None:
+        return None
+    try:
+        with cfg_path.open("rb") as fh:
+            doc = tomllib.load(fh)
+    except OSError:
+        return None
+    token_env = doc.get("token_env")
+    token = os.environ.get(token_env) if token_env else None
+    return {
+        "config_source": str(cfg_path),
+        "token": token,
+        "token_env": token_env,
+        "allow_loopback": bool(doc.get("allow_loopback", True)),
+        "allow_ips": [str(s) for s in (doc.get("allow_ips") or [])],
+    }
+
+
+def _is_loopback(addr: str) -> bool:
+    return addr in {"127.0.0.1", "::1", "::ffff:127.0.0.1"}
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -784,7 +832,62 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _check_auth(self) -> bool:
+        """R250 (SDD-026 Z-1 auth): IP allowlist + Bearer-token check.
+
+        Returns True when the request is authorized; False after
+        sending a 401/403 response (do_GET caller short-circuits).
+        Default (AUTH_CONFIG is None) = always-True (cycle-8 SEED
+        behavior — safe on loopback / tailscale-private binds).
+        """
+        if AUTH_CONFIG is None:
+            return True
+        peer_ip = self.client_address[0] if self.client_address else ""
+        # Loopback shortcut.
+        if AUTH_CONFIG.get("allow_loopback") and _is_loopback(peer_ip):
+            return True
+        # IP allowlist gate first (don't even disclose token shape to
+        # off-list clients).
+        if peer_ip not in (AUTH_CONFIG.get("allow_ips") or []):
+            self._send_json(
+                {
+                    "error": "forbidden",
+                    "round": "R250",
+                    "reason": "client IP not in dashboard-auth allowlist",
+                    "peer": peer_ip,
+                },
+                status=403,
+            )
+            return False
+        # Token gate.
+        expected = AUTH_CONFIG.get("token")
+        if not expected:
+            self._send_json(
+                {
+                    "error": "server-misconfig",
+                    "round": "R250",
+                    "reason": "dashboard-auth.toml present but token_env "
+                              "resolved to empty — operator must export the env var",
+                },
+                status=500,
+            )
+            return False
+        auth = self.headers.get("Authorization", "")
+        if not auth.startswith("Bearer ") or auth[len("Bearer "):] != expected:
+            self._send_json(
+                {
+                    "error": "unauthorized",
+                    "round": "R250",
+                    "reason": "missing or invalid Bearer token",
+                },
+                status=401,
+            )
+            return False
+        return True
+
     def do_GET(self) -> None:  # noqa: N802
+        if not self._check_auth():
+            return
         path = self.path
         if path == "/" or path == "/index.html":
             self._send_html(render_html(gather_all()))
@@ -881,12 +984,25 @@ def main() -> int:
     except ValueError as e:
         print(f"ERROR {e}", file=sys.stderr)
         return 2
+    # R250: load auth config BEFORE binding so the operator sees the
+    # "auth enabled" banner alongside the bind announcement.
+    global AUTH_CONFIG
+    AUTH_CONFIG = load_auth_config()
     try:
         srv = HTTPServer((host, port), DashboardHandler)
     except OSError as e:
         print(f"ERROR bind {host}:{port}: {e}", file=sys.stderr)
         return 2
+    auth_banner = "no-auth (cycle-8 SEED)"
+    if AUTH_CONFIG is not None:
+        token_state = "token-present" if AUTH_CONFIG.get("token") else "token-MISSING-from-env"
+        auth_banner = (
+            f"auth-enabled via {AUTH_CONFIG['config_source']} "
+            f"({token_state}, allow_loopback={AUTH_CONFIG['allow_loopback']}, "
+            f"allow_ips={len(AUTH_CONFIG['allow_ips'])})"
+        )
     print(f"# R225 sovereign-os dashboard serving http://{host}:{port}/")
+    print(f"# R250 auth: {auth_banner}")
     try:
         if args.once:
             srv.handle_request()

@@ -1,0 +1,38 @@
+# sovereign-os dashboard authentication — R250 (SDD-026 Z-1 auth).
+#
+# Operator-named (verbatim, 2026-05-17 expansion): "I will obviously be
+# able to plug a screen or mainly connect remotely to ssh and/or
+# dashboard or API on whatsoever pot for whatsoever dashbaords and
+# modules and tools."
+#
+# When this file is present (operator opts into auth), the R225
+# dashboard enforces BOTH an IP allowlist AND a Bearer-token check.
+# Default (file absent) = no auth — same as cycle-8 SEED behavior,
+# only safe on loopback / tailscale-private binds.
+#
+# Operator workflow:
+#   1. Copy to /etc/sovereign-os/dashboard-auth.toml.
+#   2. Generate a token: openssl rand -hex 32
+#   3. Set the env var the dashboard reads at start:
+#        export SOVEREIGN_OS_DASHBOARD_AUTH_TOKEN=<token>
+#      OR put the token reference here:
+#        token_env = "SOVEREIGN_OS_DASHBOARD_AUTH_TOKEN"
+#      Per SDD-009, the operator's secrets NEVER live in-repo.
+#   4. Restart the dashboard.
+#   5. Clients now send: `Authorization: Bearer <token>` on every request.
+#
+# `allow_loopback = true` always permits 127.0.0.1 / ::1 (so the
+# operator's local SSH-tunneled session works without a token). Set
+# false to enforce the token on loopback too.
+
+# ─── token: required for non-loopback requests ───
+token_env = "SOVEREIGN_OS_DASHBOARD_AUTH_TOKEN"
+
+# ─── ip allowlist: requests from any IP NOT in this list are 403'd ───
+# CIDR not supported (cycle-8 SEED); plain IPs only.
+# Use `allow_loopback = true` to skip the check for 127.0.0.1 / ::1.
+allow_loopback = true
+allow_ips = [
+    # "192.168.1.42",
+    # "100.64.0.1",   # tailscale node
+]
