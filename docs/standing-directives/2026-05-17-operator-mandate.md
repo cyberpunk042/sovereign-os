@@ -162,7 +162,7 @@ the Epic is closed — but the operator may add new Modules to it.
 | E2.M6 | Module features sub-configuration (operator-pull TOML overrides per module) | **TODO** | — |
 | E2.M7 | Advanced module-features lifecycle (enable/disable individual features within a module) | **TODO** | — |
 | E2.M8 | systemd service hardening lint (R171 doctrine extension) | partial | R171 (extending) |
-| E2.M9 | Service-dependency graph visualizer (operator's drain ordering) | **TODO** | — |
+| E2.M9 | Service-dependency graph visualizer (operator's drain ordering) | ✓ shipped | R277 |
 
 ### Epic E3 — Network visibility & control
 

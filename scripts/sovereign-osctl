@@ -268,6 +268,15 @@ COMMANDS:
                                analysis layer named in operator's
                                "autohealth and doctor and analysis".
   diagnose probes [--json]     R266: list available sub-probes.
+  service-deps graph|drain|dot [--unit ...|--prefix P] [--json]
+                               R277 (E2.M9): service-dependency graph
+                               + topo-sorted drain order. Reads
+                               systemd After/Wants/Requires/BindsTo
+                               via `systemctl show` (falls back to
+                               unit-file parse). drain emits leaves-
+                               first stop order paste-able into a
+                               R262 schedule-manifest. dot emits
+                               graphviz syntax.
   net-perf probe|record|drift [--targets ...] [--threshold-pct N] [--json]
                                R276 (E3.M6): network performance
                                baseline + drift detection. Records
@@ -4875,6 +4884,20 @@ case "${cmd}" in
         ;;
       *)
         log_error "unknown diagnose subverb: ${sub} (available: run, probes)"
+        exit 2
+        ;;
+    esac
+    ;;
+  service-deps)
+    # R277 (E2.M9): service-dependency graph + drain order.
+    sub="${1:-graph}"
+    shift || true
+    case "${sub}" in
+      graph|drain|dot)
+        "${__REPO_ROOT}/scripts/services/dependency-graph.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown service-deps subverb: ${sub} (available: graph, drain, dot)"
         exit 2
         ;;
     esac
