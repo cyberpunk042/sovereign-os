@@ -1,0 +1,56 @@
+# sovereign-os GPU power-policy — R219 / SDD-026 Z-5.
+#
+# Per-GPU expected power_limit_watts + per-GPU current-draw bands.
+# `gpu-watch.py` reads this file, polls nvidia-smi for live readings,
+# and emits operator-readable deviance warnings + Layer B Prometheus
+# metrics for fleet aggregation.
+#
+# Operator workflow (verbatim from the goal directive — "warning if
+# the RTX 3090 which should be slightly reduce which isn't"):
+#
+#   1. Pin the SAFE_LIMIT_WATTS you want for each card. The default
+#      350 W on the 3090 is hot under sustained inference — operators
+#      with cooling headroom run at 280-320 W.
+#   2. Run `sovereign-osctl gpu-watch` after a fresh boot to verify
+#      the host honored your policy. Deviances are reported per-GPU
+#      with an actionable fix (`nvidia-smi -i N -pl ...`).
+#   3. Schedule it on a timer (already wired by sovereign-gpu-watch
+#      .timer when this round's hook ships).
+#
+# Format: one [gpu.MODEL_HINT_SUBSTRING] table per GPU class the
+# operator wants policed. The first model_hint substring match (case-
+# insensitive) wins. Unmatched GPUs are NOT policed (silent).
+#
+# Schema:
+#   safe_limit_watts          — power_limit_watts the operator wants
+#                               configured (operator-asserted ceiling)
+#   tolerance_watts           — accept abs(actual - safe_limit) <= this
+#                               without flagging deviance (default 5)
+#   max_sustained_draw_watts  — optional; flag when power_draw_watts
+#                               stays above this (only emitted as a
+#                               warning, not a hard fail — sustained
+#                               loads are normal during inference)
+#   note                      — operator-readable rationale
+
+[gpu."NVIDIA RTX PRO 6000"]
+safe_limit_watts = 600
+tolerance_watts  = 10
+max_sustained_draw_watts = 580
+note = "RTX PRO 6000 Blackwell 96 GiB. Master spec target — full TDP allowed; warn if sustained draw within 20 W of cap (cooling envelope tight on the ProArt X870E case)."
+
+[gpu."RTX 3090"]
+safe_limit_watts = 280
+tolerance_watts  = 10
+max_sustained_draw_watts = 270
+note = "RTX 3090 nominal cap is 350 W; operator-imposed slightly-reduced 280 W per the SDD-026 Z-5 directive ('which should be slightly reduce which isn't'). Apply with: nvidia-smi -i 1 -pl 280"
+
+# Operators add more tables as they install other GPU classes.
+# Examples (commented):
+#
+# [gpu."NVIDIA L40S"]
+# safe_limit_watts = 350
+# tolerance_watts  = 10
+#
+# [gpu."GeForce RTX 4090"]
+# safe_limit_watts = 320
+# tolerance_watts  = 10

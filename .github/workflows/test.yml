@@ -364,6 +364,9 @@ jobs:
       - name: nspawn — models suggest (Round 214: profile-aware suggester super-feature)
         run: |
           tests/nspawn/test_models_suggest.sh
+      - name: nspawn — gpu-watch (Round 219, SDD-026 Z-5: per-GPU watt deviance watcher)
+        run: |
+          tests/nspawn/test_gpu_watch.sh
       - name: nspawn — thermal-watch (Round 172: per-profile thermal thresholds + OCSF events)
         run: |
           tests/nspawn/test_thermal_watch.sh

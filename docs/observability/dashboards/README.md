@@ -110,6 +110,13 @@ panel queries lock to them.
 - `sovereign_os_thermal_breach_total` — count of sensors at WARN+CRITICAL on the last tick. Operator-facing "is anything overheating right now?" gauge.
 - `sovereign_os_thermal_last_run_unix` — timestamp of the most recent thermal-watch tick (operators alert on staleness).
 
+### GPU power policy (R219 / SDD-026 Z-5 — scripts/hardware/gpu-watch.py)
+
+- `sovereign_os_gpu_power_limit_watts{gpu,idx}` — live nvidia-smi `power.limit` reading per GPU. Gauge; sampled by `gpu-watch.py --emit-metrics` (manual / timer).
+- `sovereign_os_gpu_power_draw_watts{gpu,idx}` — live `power.draw` per GPU. Operator dashboards plot the trend for sustained-inference workloads.
+- `sovereign_os_gpu_power_limit_deviance_watts{gpu,idx}` — `abs(actual_limit - operator_safe_limit)` for GPUs matched by `/etc/sovereign-os/gpu-policy.toml`. 0 = operator's safe limit honored; >tolerance = nvidia-smi-fix needed.
+- `sovereign_os_gpu_sustained_draw_warning{gpu,idx}` — 1 when current `power_draw_watts` exceeds the operator's `max_sustained_draw_watts` band. Informational; sustained loads are normal during inference.
+
 ### Inference router (scripts/inference)
 
 - `sovereign_os_inference_route_total{tier}`

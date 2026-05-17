@@ -171,6 +171,14 @@ COMMANDS:
 
   alerts [--json]              Derive operator alerts from .prom files (no Alertmanager needed)
   thermals [--json|--probe]    Per-sensor thermal status (R175; reads R172 cached .prom or re-probes live)
+  gpu-watch [--policy PATH] [--json] [--emit-metrics]
+                               R219 (SDD-026 Z-5): per-GPU watt deviance
+                               watcher. Reads config/gpu-policy.toml,
+                               polls nvidia-smi, warns when actual
+                               power.limit deviates from operator's
+                               safe_limit. Read-only; suggests fix
+                               commands. Schedules cleanly via timer
+                               with --emit-metrics.
 
   journal list [--all-dirs]    List Layer A JSONL log files (size + first/last event)
   journal show <file> [--all-dirs]  Pretty-print one JSONL log file as a table
@@ -4356,6 +4364,13 @@ case "${cmd}" in
   journal)       cmd_journal "$@" ;;
   history)       cmd_history "$@" ;;
   thermals)      cmd_thermals "$@" ;;
+  gpu-watch)
+    # R219 (SDD-026 Z-5): GPU watt deviance watcher. Reads
+    # /etc/sovereign-os/gpu-policy.toml (or the example for dev runs),
+    # polls nvidia-smi for live power.draw + power.limit, and warns
+    # when actual config diverges from the operator's safe limits.
+    "${__REPO_ROOT}/scripts/hardware/gpu-watch.py" "$@"
+    ;;
   version|--version|-V) cmd_version "$@" ;;
   help|--help|-h|"") cmd_help ;;
   *)
