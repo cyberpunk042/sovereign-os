@@ -268,6 +268,15 @@ COMMANDS:
                                analysis layer named in operator's
                                "autohealth and doctor and analysis".
   diagnose probes [--json]     R266: list available sub-probes.
+  dns-advisor status|providers|latency [--json]
+                               R268 (E3.M4): DNS provider classification +
+                               posture verdict. Classifies /etc/resolv.conf
+                               nameservers against 14-provider table
+                               (Cloudflare/Quad9/Google/AdGuard/OpenDNS/
+                               systemd-resolved/local) + verifies DoT/DoH
+                               + cites operator-actionable hints for
+                               missing malware filtering or unknown ISP
+                               defaults.
   services-advisor cloudflared|tailscale|traefik|show [--json]
                                R263 (SDD-026 Z-7 expansion): per-network-
                                service deep posture (installed / configured
@@ -4806,6 +4815,21 @@ case "${cmd}" in
         ;;
       *)
         log_error "unknown diagnose subverb: ${sub} (available: run, probes)"
+        exit 2
+        ;;
+    esac
+    ;;
+  dns-advisor)
+    # R268 (E3.M4): DNS provider classification + posture.
+    # Operator-named "networks and in and out, the DNS".
+    sub="${1:-status}"
+    shift || true
+    case "${sub}" in
+      status|providers|latency)
+        "${__REPO_ROOT}/scripts/network/dns-advisor.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown dns-advisor subverb: ${sub} (available: status, providers, latency)"
         exit 2
         ;;
     esac
