@@ -5513,6 +5513,24 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  heat-oc-throttle)
+    # R318 (E1.M38): heat-tied OC auto-throttle with triple-gate.
+    # Composes R296 + R304 + R315 → min-recommended gpu_oc_multiplier.
+    # `apply` mutates only when --apply + --confirm-throttle +
+    # SOVEREIGN_OS_CONFIRM_DESTROY=YES all present. Operator-named
+    # (preserves NEVER-AUTO-MUTATES doctrine via explicit gate).
+    sub="${1:-status}"
+    shift || true
+    case "${sub}" in
+      status|recommend|apply)
+        "${__REPO_ROOT}/scripts/hardware/heat-oc-autothrottle.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown heat-oc-throttle subverb: ${sub} (status, recommend, apply)"
+        exit 2
+        ;;
+    esac
+    ;;
   inventory)
     # R317 (E1.M37): hardware-inventory catalog — single source of
     # truth for operator's EXACT hardware (CPU/GPU/PSU/UPS/RAM/NVMe/
