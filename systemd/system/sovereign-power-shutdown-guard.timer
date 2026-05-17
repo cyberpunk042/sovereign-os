@@ -1,0 +1,16 @@
+[Unit]
+Description=sovereign-os UPS-battery shutdown guard, every minute (R253 / SDD-026 Z-18)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/recurrent/power-shutdown-guard.sh
+
+[Timer]
+# Every minute when the host is on UPS power; the hook itself is a
+# fast no-op when battery is full, so the cost is negligible. Higher
+# frequency than hourly is essential for graceful shutdown — we don't
+# want to miss the critical threshold by 59 minutes.
+OnBootSec=2min
+OnUnitActiveSec=1min
+Persistent=true
+Unit=sovereign-power-shutdown-guard.service
+
+[Install]
+WantedBy=timers.target

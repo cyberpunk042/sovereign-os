@@ -1,0 +1,26 @@
+[Unit]
+Description=sovereign-os UPS-battery graceful shutdown guard (R253 / SDD-026 Z-18)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/recurrent/power-shutdown-guard.sh
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/sovereign-os/scripts/hooks/recurrent/power-shutdown-guard.sh
+TimeoutStartSec=120s
+StandardOutput=journal
+StandardError=journal
+# R171 defense-in-depth (Layer 1 lint enforced)
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+ReadWritePaths=/var/lib/sovereign-os /var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true
