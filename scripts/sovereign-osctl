@@ -5410,6 +5410,24 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  bios-directives)
+    # R299 (E1.M24): ASUS X870E-CREATOR WIFI BIOS directives
+    # catalog — 12 specific settings (EXPO, SVM, IOMMU, ReBAR,
+    # Above 4G, PCIe Gen5, AVX-512, Fast Boot, CSM, etc) with
+    # per-setting rationale + runtime probe surface where possible.
+    # Operator-named (§1b verbatim).
+    sub="${1:-list}"
+    shift || true
+    case "${sub}" in
+      list|show|check)
+        "${__REPO_ROOT}/scripts/hardware/bios-directives.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown bios-directives subverb: ${sub} (list, show, check)"
+        exit 2
+        ;;
+    esac
+    ;;
   thermal-oc-budget)
     # R296 (E2.M10): heat budget tied to OC profile — composes
     # R172 thermal-watch + R292 oc-headroom + R294 psu-oc into
