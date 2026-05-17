@@ -438,6 +438,7 @@ the Epic is closed — but the operator may add new Modules to it.
 | E9.M7 | **PR not-draft-by-default** — selfdef cycle-N PRs lifted from draft immediately so reviewers see active work; CI gates remain authoritative. [from §1a + this turn] | ✓ shipped | R278 (PR #198 lifted) |
 | E9.M8 | **Raw-dump re-read protocol** — when operator says "RETURN REREAD ALL THE RAW DUMP", agent reads `devops-solutions-information-hub/raw/` before asking; only ask when ambiguity remains. [from §1.0] | ✓ in-practice | R278 onward |
 | E9.M9 | **Operator-pull rounds catalog** — meta-verb that parses the mandate file + emits every shipped round with its Epic/Module mapping for operator navigation across the 300+ round codebase; supports list / show <round> / by-epic <E> / recent <N>. [from §1.0 — meta-navigation for the perpetual E9.M3 intake loop] | ✓ shipped | R321 (`sovereign-osctl rounds list/show/by-epic/recent`) |
+| E9.M10 | **SDD-031 perpetual-intake-doctrine** — formalize the E9.M3 intake pattern (§1b verbatim → TODO row → operator-runnable verb → L3-tested → ✓) as a permanent SDD with L1 lint pinning required sections. Currently implicit in mandate-review-2026-Q2.md; lifts to first-class doctrine doc. [from §1.0 — doctrine formalization for the perpetual loop] | ✓ shipped | R326 (`docs/sdd/031-perpetual-intake-doctrine.md` + `tests/lint/test_perpetual_intake_doctrine.py`) |
 
 ## 4. How future rounds use this file
 
