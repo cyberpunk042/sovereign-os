@@ -192,6 +192,12 @@ COMMANDS:
   cpu-mode set <mode>          R221 (SDD-026 Z-4): switch CPU governor
                                to the named mode. Requires root; non-
                                root prints the actionable shell command.
+  cpu-mode auto [--apply] [--aggressive] [--json]
+                               R230 (SDD-026 Z-4): workload-aware mode
+                               recommendation. Reads R215 inference
+                               router + R219 GPU watt .prom files,
+                               recommends a mode. Advisory by default;
+                               --apply switches the governor.
   fs usage [--threshold-pct N] [--json]
                                R222 (SDD-026 Z-10): per-partition + global
                                disk usage. Flags partitions ≥ threshold

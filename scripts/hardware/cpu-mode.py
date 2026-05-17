@@ -216,6 +216,179 @@ def cmd_set(mode: str) -> int:
     return 0
 
 
+METRICS_DIR = Path(
+    os.environ.get(
+        "SOVEREIGN_OS_METRICS_DIR",
+        "/var/lib/node_exporter/textfile_collector",
+    )
+)
+
+
+def _read_prom_lines(name: str) -> list[str]:
+    """Read a .prom file. Returns [] if missing/unreadable."""
+    p = METRICS_DIR / name
+    if not p.exists():
+        return []
+    try:
+        return p.read_text(errors="replace").splitlines()
+    except OSError:
+        return []
+
+
+def _sum_metric(lines: list[str], metric_prefix: str) -> float:
+    """Sum every value line whose head starts with metric_prefix."""
+    total = 0.0
+    for line in lines:
+        if line.startswith("#") or not line.startswith(metric_prefix):
+            continue
+        parts = line.rsplit(None, 1)
+        if len(parts) != 2:
+            continue
+        try:
+            total += float(parts[1])
+        except ValueError:
+            continue
+    return total
+
+
+def _max_metric(lines: list[str], metric_prefix: str) -> float:
+    best = 0.0
+    for line in lines:
+        if line.startswith("#") or not line.startswith(metric_prefix):
+            continue
+        parts = line.rsplit(None, 1)
+        if len(parts) != 2:
+            continue
+        try:
+            v = float(parts[1])
+            if v > best:
+                best = v
+        except ValueError:
+            continue
+    return best
+
+
+def derive_auto_recommendation() -> dict[str, Any]:
+    """R230 — workload-aware CPU mode recommendation.
+
+    Signal sources (Layer B textfile collector .prom files):
+
+      sovereign_os_inference_router_class_total    (R215 / Z-2)
+      sovereign_os_gpu_power_draw_watts            (R219 / Z-5)
+      sovereign_os_gpu_power_limit_deviance_watts  (R219 / Z-5)
+
+    Decision table:
+
+      gpu_draw_max ≥ 200 W → peak-inference
+      gpu_draw_max ≥ 100 W → sustained-burst
+      inference_routes > 0 → balanced
+      otherwise            → balanced (safe default — auto never drops
+                             below balanced without --aggressive)
+    """
+    infer_lines = _read_prom_lines("sovereign-os-inference-router.prom")
+    gpu_lines = _read_prom_lines("sovereign-os-gpu-watch.prom")
+
+    inference_total = _sum_metric(
+        infer_lines, "sovereign_os_inference_router_class_total"
+    )
+    gpu_draw_max = _max_metric(gpu_lines, "sovereign_os_gpu_power_draw_watts")
+    gpu_deviance = _max_metric(
+        gpu_lines, "sovereign_os_gpu_power_limit_deviance_watts"
+    )
+    signals_present = bool(infer_lines or gpu_lines)
+
+    if gpu_draw_max >= 200.0:
+        rec = "peak-inference"
+        reason = f"GPU draw {gpu_draw_max:.0f} W ≥ 200 W"
+    elif gpu_draw_max >= 100.0:
+        rec = "sustained-burst"
+        reason = f"GPU draw {gpu_draw_max:.0f} W ≥ 100 W"
+    elif inference_total > 0:
+        rec = "balanced"
+        reason = (
+            f"inference router served {int(inference_total)} route(s); "
+            f"no heavy GPU load"
+        )
+    elif signals_present:
+        rec = "balanced"
+        reason = "no inference + cold GPU — staying balanced (safe default)"
+    else:
+        rec = "balanced"
+        reason = "no Layer B signals on this host — staying balanced"
+
+    return {
+        "round": "R230",
+        "vector": "SDD-026 Z-4 (cpu-mode auto)",
+        "signals": {
+            "inference_router_total": inference_total,
+            "gpu_draw_max_watts": gpu_draw_max,
+            "gpu_limit_deviance_watts": gpu_deviance,
+            "signals_present": signals_present,
+        },
+        "recommendation": rec,
+        "reason": reason,
+    }
+
+
+def cmd_auto(apply: bool, aggressive: bool, json_out: bool) -> int:
+    """R230 — workload-aware mode recommendation, optionally apply."""
+    rec = derive_auto_recommendation()
+    if aggressive and not rec["signals"]["signals_present"]:
+        rec["recommendation"] = "ultra-low-power"
+        rec["reason"] = "no signals + --aggressive → idle posture"
+
+    dirs = cpufreq_dirs()
+    current_governor = None
+    if dirs:
+        try:
+            current_governor = (dirs[0] / "scaling_governor").read_text().strip()
+        except OSError:
+            pass
+    target_governor = MODES[rec["recommendation"]]["governor"]
+    rec["current_governor"] = current_governor
+    rec["target_governor"] = target_governor
+    rec["change_needed"] = current_governor != target_governor
+    rec["aggressive"] = bool(aggressive)
+    rec["apply_requested"] = bool(apply)
+
+    applied = False
+    apply_rc: int | None = None
+    if apply and rec["change_needed"]:
+        apply_rc = cmd_set(rec["recommendation"])
+        applied = apply_rc == 0
+    rec["applied"] = applied
+    rec["apply_rc"] = apply_rc
+
+    if json_out:
+        print(json.dumps(rec, indent=2))
+        return apply_rc if (apply and apply_rc is not None) else 0
+
+    print("── R230 sovereign-os cpu-mode auto (SDD-026 Z-4) ──")
+    s = rec["signals"]
+    print(
+        f"  signals:        inference_total={s['inference_router_total']:.0f}  "
+        f"gpu_draw_max={s['gpu_draw_max_watts']:.0f} W  "
+        f"gpu_deviance={s['gpu_limit_deviance_watts']:.0f} W"
+    )
+    if not s["signals_present"]:
+        print("  (no Layer B .prom files present — running on defaults)")
+    print(f"  current:        {current_governor or '(unknown)'}")
+    print(f"  recommendation: {rec['recommendation']}  → governor={target_governor}")
+    print(f"  reason:         {rec['reason']}")
+    if rec["change_needed"]:
+        if apply:
+            mark = "APPLIED" if applied else f"FAILED (rc={apply_rc})"
+            print(f"  action:         {mark}")
+        else:
+            print(
+                f"  action:         (advisory — re-run with --apply, "
+                f"or `cpu-mode set {rec['recommendation']}`)"
+            )
+    else:
+        print("  action:         no change needed (already on target)")
+    return apply_rc if (apply and apply_rc is not None) else 0
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description="R221 (SDD-026 Z-4) CPU hotswap modes.")
     sub = p.add_subparsers(dest="action", required=True)
@@ -225,6 +398,21 @@ def main() -> int:
     p_list.add_argument("--json", action="store_true")
     p_set = sub.add_parser("set", help="switch to a named mode (requires root)")
     p_set.add_argument("mode", choices=list(MODES.keys()))
+    p_auto = sub.add_parser(
+        "auto",
+        help="R230: workload-aware mode recommendation (advisory by default)",
+    )
+    p_auto.add_argument(
+        "--apply",
+        action="store_true",
+        help="actually set the recommended mode (otherwise advisory only)",
+    )
+    p_auto.add_argument(
+        "--aggressive",
+        action="store_true",
+        help="allow dropping to ultra-low-power on idle hosts",
+    )
+    p_auto.add_argument("--json", action="store_true")
     args = p.parse_args()
     if args.action == "show":
         return cmd_show(args.json)
@@ -232,6 +420,8 @@ def main() -> int:
         return cmd_list(args.json)
     if args.action == "set":
         return cmd_set(args.mode)
+    if args.action == "auto":
+        return cmd_auto(args.apply, args.aggressive, args.json)
     return 2
 
 
