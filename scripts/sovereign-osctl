@@ -5698,6 +5698,22 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  config-snapshot-diff)
+    # R335 (E2.M26): config-snapshot-diff verb. Given two R332
+    # snapshots, emits per-overlay drift (added / removed / changed
+    # + per-key dotted-path diff). Sibling to R334 runtime diff.
+    sub="${1:-diff}"
+    shift || true
+    case "${sub}" in
+      diff)
+        "${__REPO_ROOT}/scripts/diagnostics/config-snapshot-diff.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown config-snapshot-diff subverb: ${sub} (diff)"
+        exit 2
+        ;;
+    esac
+    ;;
   snapshot-diff)
     # R334 (E2.M25): snapshot-diff verb. Given two R322 state
     # snapshots, emits per-probe diff (rc/verdict changes, new/
