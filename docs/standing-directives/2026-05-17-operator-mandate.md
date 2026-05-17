@@ -386,7 +386,7 @@ the Epic is closed — but the operator may add new Modules to it.
 | E8.M1 | Tier 1 Proto-Programming bootstrap (Python REPL with subprocess wrappers) | ✓ shipped (selfdef) | SD-R85 |
 | E8.M2 | Tier 2 Proto-Proto-Programming examples (operator-pull macros) | ✓ shipped (selfdef) | SD-R90 |
 | E8.M3 | REPL invocation audit trail (SELFDEF_REPL_HISTORY JSONL) | ✓ shipped (selfdef) | SD-R95 |
-| E8.M4 | Integrated-intelligence modules — operator-pull CoT routines registered with @selfdef_macro | **TODO** | — |
+| E8.M4 | Integrated-intelligence modules — operator-pull CoT routines registered with @selfdef_macro | ✓ shipped (selfdef) | SD-R98 |
 | E8.M5 | Tier 3 native pyo3 bindings (zero-subprocess Tier 1) | **TODO** | — |
 | E8.M6 | Token-saving aliases + wasted-path tracker | ✓ shipped (selfdef) | SD-R97 |
 
