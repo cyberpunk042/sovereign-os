@@ -400,7 +400,7 @@ the Epic is closed — but the operator may add new Modules to it.
 |----|--------|--------|--------|
 | E9.M1 | Standing-directive durable record (THIS FILE) | ✓ shipped | R264 |
 | E9.M2 | Per-round Epic/Module citation in commit messages | ✓ in-practice from R265 | R265+ |
-| E9.M3 | Quarterly mandate review + new-axis intake process | **TODO** | — |
+| E9.M3 | Quarterly mandate review + new-axis intake process | ✓ shipped | R285 (mandate-review-2026-Q2.md) |
 | E9.M4 | Cross-link Epic/Module IDs into SDD-029 + future SDDs | partial | R264 (SDD-029) |
 | E9.M5 | `/goal` autopilot re-arming — root cause + compact-pointer script + L1 lint guard | ✓ shipped | R267 |
 | E9.M6 | **Multi-`/goal`-paste compounding doctrine** — every `/goal` text adds to the mandate; never replaces. §1.0 anchors the rule. [from §1.0 + this turn] | ✓ shipped | R278 (this round) |
