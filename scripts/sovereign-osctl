@@ -5698,6 +5698,23 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  rounds)
+    # R321 (E9.M9): operator-pull rounds catalog — meta-navigation
+    # over the now-300+ round codebase. Parses mandate.md, exposes
+    # list / show / by-epic / recent verbs. Operator-named (§1.0
+    # meta-navigation for perpetual E9.M3 intake loop).
+    sub="${1:-list}"
+    shift || true
+    case "${sub}" in
+      list|show|by-epic|recent)
+        "${__REPO_ROOT}/scripts/intelligence/rounds-catalog.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown rounds subverb: ${sub} (list, show, by-epic, recent)"
+        exit 2
+        ;;
+    esac
+    ;;
   cot)
     # R309 (E2.M15): integrated-intelligence CoT registry —
     # named CoT routines that compose multiple sovereign-os verbs
