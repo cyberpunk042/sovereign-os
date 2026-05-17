@@ -268,6 +268,15 @@ COMMANDS:
                                analysis layer named in operator's
                                "autohealth and doctor and analysis".
   diagnose probes [--json]     R266: list available sub-probes.
+  next-steps next|packs|apply-pack [--severity S] [--limit N] [--json]
+                               R282 (E5.M10): operator "assistant feel"
+                               next-best-step synthesizer. Aggregates
+                               every advisor surface's actions, ranks
+                               by severity, emits a single prioritized
+                               do-this-next list. `packs` lists curated
+                               operator-packs (inference-burst,
+                               headless-server, low-power, spec-
+                               conformance, graceful-shutdown-rehearsal).
   wasm-aot status|compile-cmd <wasm>|advisory [--json]
                                R281 (E1.M17): Wasm-to-AVX-512 AOT
                                pipeline enforcer per master spec §20.
@@ -4912,6 +4921,20 @@ case "${cmd}" in
         ;;
       *)
         log_error "unknown diagnose subverb: ${sub} (available: run, probes)"
+        exit 2
+        ;;
+    esac
+    ;;
+  next-steps)
+    # R282 (E5.M10): operator "assistant feel" next-best-step + packs.
+    sub="${1:-next}"
+    shift || true
+    case "${sub}" in
+      next|packs|apply-pack)
+        "${__REPO_ROOT}/scripts/diagnostics/assistant-next-steps.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown next-steps subverb: ${sub} (available: next, packs, apply-pack)"
         exit 2
         ;;
     esac

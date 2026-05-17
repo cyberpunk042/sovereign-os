@@ -342,7 +342,7 @@ the Epic is closed — but the operator may add new Modules to it.
 | E5.M7 | Model variants + quantizations + advanced features parametrization | partial | R231 detail surface (variants ✓; parametrization TODO) |
 | E5.M8 | Speculative-decoding (DFlash) integration | ✓ shipped (prior) | R157 |
 | E5.M9 | Operator-mutable flexible profile (download / fine-tune / parameters / build / run / use / train / adapt / eval workflow) | **TODO** | — |
-| E5.M10 | **Operator "assistant feel" UX layer** — clear paths, options, modules-combo-features, super-features. Every dashboard card + CLI verb surfaces "next-best-step" hints; module combinations get curated names ("inference-burst pack", "headless-server pack") that flip multiple knobs at once. [from §1a] | **TODO** | — |
+| E5.M10 | **Operator "assistant feel" UX layer** — clear paths, options, modules-combo-features, super-features. Every dashboard card + CLI verb surfaces "next-best-step" hints; module combinations get curated names ("inference-burst pack", "headless-server pack") that flip multiple knobs at once. [from §1a] | ✓ shipped | R282 |
 | E5.M11 | **Endless flexibility + fine-tuning + adapting** — operator-pull config layer that lets EVERY shipped script accept TOML overlays for thresholds, paths, knobs, advisory copy. [from §1a] | **TODO** | — |
 
 ### Epic E6 — Health / Doctor / Autonomy
