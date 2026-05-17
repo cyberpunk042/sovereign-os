@@ -320,6 +320,25 @@ def evaluate(req: dict[str, Any], caps: dict[str, Any]) -> list[str]:
                 f"zmm_int8_lanes_min = {lanes_min} (host max = {host_lanes})"
             )
 
+    # R211 (mirror of selfdef SD-R68 cycle-3): generalized cpuinfo-flag
+    # gate. Reads the host's SD-R68 cpu.extended_features long-tail
+    # surface; comma-separated syntax, no `+` prefix (distinguishes
+    # from wasm_aot_features_required which uses LLVM target-feature
+    # convention).
+    host_feats_req = (req.get("host_features_required", "") or "").strip()
+    if host_feats_req:
+        actual = set(cpu.get("extended_features", []) or [])
+        missing = [
+            f.strip()
+            for f in host_feats_req.split(",")
+            if f.strip() and f.strip() not in actual
+        ]
+        if missing:
+            unmet.append(
+                f"host_features_required = {host_feats_req!r}"
+                f" (host missing: {','.join(missing)})"
+            )
+
     return unmet
 
 
@@ -340,6 +359,8 @@ def is_empty_req(req: dict[str, Any]) -> bool:
         # R209 mirror of SD-R64.
         or bool(req.get("ternary_aot_capable_required"))
         or int(req.get("zmm_int8_lanes_min", 0) or 0) > 0
+        # R211 mirror of SD-R68.
+        or (req.get("host_features_required", "") or "").strip()
     )
 
 

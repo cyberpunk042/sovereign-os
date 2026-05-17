@@ -503,6 +503,102 @@ else
   ko "R209 minimal-host partition wrong: ${out64min}"
 fi
 
+# ---------- R211: SD-R68 mirror — host_features_required ----------
+grep -q "R211" "${SCRIPT}" \
+  && ok "R211 mirror tag present in selfdef-modules-gate.py" \
+  || ko "R211 citation missing"
+
+mkdir -p "${WORK}/caps68" "${WORK}/mod68/needs-vbmi2-sha" \
+         "${WORK}/mod68/needs-unobtainium" "${WORK}/etc68"
+
+# Caps with a known set of extended_features.
+cat > "${WORK}/caps68/hardware-capabilities.json" <<'JSON'
+{
+  "schema_version": "1.4.0",
+  "cpu": {
+    "avx512vnni": true, "avx512bf16": true,
+    "ternary_aot_capable": true, "zmm_int8_lane_capacity": 64,
+    "extended_features": ["avx2", "avx512_vbmi2", "sha_ni", "rdpid"]
+  },
+  "memory": {"total_bytes": 274877906944},
+  "gpu": {"device_count": 0, "device_nodes": [], "devices": []},
+  "sain01_match": {"overall": "FullMatch"},
+  "wasm_aot": {"target_triple": "x", "target_cpu": "znver5",
+               "target_features": "+avx512f", "compile_command_hint": ""}
+}
+JSON
+
+cat > "${WORK}/mod68/needs-vbmi2-sha/module.toml" <<'TOML'
+name = "needs-vbmi2-sha"
+version = "0.0.0"
+summary = "wants AVX-512 VBMI2 + SHA-NI"
+[requires_hardware]
+host_features_required = "avx512_vbmi2,sha_ni"
+TOML
+
+cat > "${WORK}/mod68/needs-unobtainium/module.toml" <<'TOML'
+name = "needs-unobtainium"
+version = "0.0.0"
+summary = "wants a fictional CPU flag"
+[requires_hardware]
+host_features_required = "avx512_unobtainium"
+TOML
+
+cat > "${WORK}/etc68/modules.toml" <<'TOML'
+[modules.needs-vbmi2-sha]
+[modules.needs-unobtainium]
+TOML
+
+set +e
+out68="$(python3 "${SCRIPT}" \
+  --caps-path "${WORK}/caps68/hardware-capabilities.json" \
+  --modules-dir "${WORK}/mod68" \
+  --host-config "${WORK}/etc68/modules.toml" --json 2>&1)"
+set -e
+if python3 -c "
+import json, sys
+d = json.loads('''${out68}''')
+kept = sorted(x['module'] for x in d['kept'])
+skipped = sorted(x['module'] for x in d['skipped'])
+assert kept == ['needs-vbmi2-sha'], f'kept={kept}'
+assert skipped == ['needs-unobtainium'], f'skipped={skipped}'
+unmet = d['skipped'][0]['unmet']
+assert any('host_features_required' in u for u in unmet), unmet
+assert any('avx512_unobtainium' in u for u in unmet), unmet
+" 2>/dev/null; then
+  ok "SD-R68 mirror: vbmi2+sha kept, unobtainium skipped + missing-flag cited"
+else
+  ko "R211 partition wrong: ${out68}"
+fi
+
+# Whitespace + empty-token tolerance
+mkdir -p "${WORK}/mod68/needs-whitespace"
+cat > "${WORK}/mod68/needs-whitespace/module.toml" <<'TOML'
+name = "needs-whitespace"
+version = "0.0.0"
+summary = "tests whitespace + empty token tolerance"
+[requires_hardware]
+host_features_required = " avx512_vbmi2, , sha_ni "
+TOML
+echo "[modules.needs-whitespace]" >> "${WORK}/etc68/modules.toml"
+
+set +e
+out68ws="$(python3 "${SCRIPT}" \
+  --caps-path "${WORK}/caps68/hardware-capabilities.json" \
+  --modules-dir "${WORK}/mod68" \
+  --host-config "${WORK}/etc68/modules.toml" --json 2>&1)"
+set -e
+if python3 -c "
+import json
+d = json.loads('''${out68ws}''')
+kept = sorted(x['module'] for x in d['kept'])
+assert 'needs-whitespace' in kept, f'kept={kept}'
+" 2>/dev/null; then
+  ok "SD-R68 mirror: whitespace + empty-token tolerated"
+else
+  ko "R211 whitespace tolerance broken: ${out68ws}"
+fi
+
 echo
 total=$((pass + fail))
 echo "test_selfdef_modules_gate: ${pass}/${total} passed"

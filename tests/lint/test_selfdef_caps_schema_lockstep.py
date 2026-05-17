@@ -31,7 +31,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 # selfdef SD-R10..R30. Mirrors the docstring example in
 # scripts/hardware/selfdef-modules-gate.py.
 CANONICAL_FIXTURE: dict = {
-    "schema_version": "1.3.0",
+    "schema_version": "1.4.0",
     "probed_at": "2026-05-16T00:00:00Z",
     "host_tag": None,
     "cpu": {
@@ -56,6 +56,18 @@ CANONICAL_FIXTURE: dict = {
         # omit them; consumers read 0/false.
         "ternary_aot_capable": True,
         "zmm_int8_lane_capacity": 64,
+        # SD-R68 long-tail surface. Sample subset only; real probes
+        # carry 100+ flags on Zen 5.
+        "extended_features": [
+            "avx",
+            "avx2",
+            "avx512_bf16",
+            "avx512_vbmi2",
+            "avx512_vnni",
+            "fma",
+            "sha_ni",
+            "sse4_2",
+        ],
         "recommended_march": "znver5",
         "recommended_compile_flags": ["-mavx512f", "-mavx512vnni"],
     },
@@ -126,6 +138,8 @@ REQUIRED_CPU_FIELDS = [
     # scripts/hardware/selfdef-modules-gate.py reads them.
     "ternary_aot_capable",
     "zmm_int8_lane_capacity",
+    # SD-R68 long-tail surface — R211 mirror gate reads it.
+    "extended_features",
 ]
 
 REQUIRED_GPU_FIELDS = [
