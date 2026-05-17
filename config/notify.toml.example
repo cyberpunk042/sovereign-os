@@ -1,0 +1,48 @@
+# sovereign-os notification fan-out — R228 / SDD-026 Z-6.
+#
+# Operator-named (verbatim, 2026-05-17 expansion): "With scans too.
+# with autohealth and doctor and analysis and event and notification
+# and messaging."
+#
+# R226 health-scan.py ships the SCAN. R228 dispatch.py ships the
+# FAN-OUT. This file is the operator-owned channel config.
+#
+# Operator workflow:
+#
+#   1. Copy this file to /etc/sovereign-os/notify.toml (or point
+#      $SOVEREIGN_OS_NOTIFY_CONFIG at it for dev runs).
+#
+#   2. Enable the channels you actually want — `file` is on by default
+#      because it's a local audit trail with no external dependencies.
+#
+#   3. For webhook + ntfy, set the env-var REFERENCES below. Per
+#      SDD-009, operator-supplied URLs / tokens NEVER live in-repo:
+#      the config carries the env-var NAME, the dispatcher reads the
+#      value at delivery time.
+#
+#   4. Test each channel with `sovereign-osctl notify test --channel
+#      <name>` before relying on it.
+#
+#   5. The dispatcher dedupes: a probe that stays at "attention" runs
+#      after run does NOT spam you. New transitions ONLY.
+
+# ─── file ─── always-on local JSONL audit trail.
+[channels.file]
+enabled = true
+path    = "/var/log/sovereign-os/notify.jsonl"
+
+# ─── webhook ─── generic HTTP POST. Body shape:
+#   { "events": [ { probe, severity, round, vector, detail, ... }, ... ] }
+# Plug this into Slack/Discord/Teams via a forwarder of your choice.
+[channels.webhook]
+enabled = false
+# URL is resolved from the env var named after `env:` — the actual
+# value never lives in this file.
+url = "env:SOVEREIGN_OS_NOTIFY_WEBHOOK_URL"
+
+# ─── ntfy ─── ntfy.sh-compatible push. Per-event POST. Severity is
+# mapped to ntfy `Priority` header so phone notifications ring.
+[channels.ntfy]
+enabled  = false
+base_url = "env:SOVEREIGN_OS_NOTIFY_NTFY_BASE_URL"   # default https://ntfy.sh
+topic    = "env:SOVEREIGN_OS_NOTIFY_NTFY_TOPIC"

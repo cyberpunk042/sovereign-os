@@ -212,7 +212,20 @@ COMMANDS:
                                R226 (SDD-026 Z-6): composite scan over
                                every shipped Z-vector card. rc=1 when
                                any probe needs operator attention.
-                               Feeds the future notification fan-out.
+                               Feeds the R228 notification fan-out.
+  notify dispatch [--from-file P] [--dry-run] [--json]
+                               R228 (SDD-026 Z-6): read health-scan
+                               --json + fan to operator-configured
+                               channels (file/webhook/ntfy). Dedupes
+                               via /var/lib/sovereign-os/notify-state.
+  notify test --channel C [--severity S]
+                               R228: send a synthetic event through ONE
+                               channel — used to validate operator-
+                               supplied URLs/topics.
+  notify list-channels [--json]
+                               R228: show configured channels + which
+                               are enabled.
+  notify state [--json]        R228: dump the dedup state file.
   dashboard serve [--bind HOST:PORT] [--once]
                                R225 (SDD-026 Z-1): HTTP dashboard SEED.
                                Aggregates all Z-vector cards into one
@@ -4482,6 +4495,22 @@ case "${cmd}" in
         ;;
       *)
         log_error "unknown health subverb: ${sub} (available: scan)"
+        exit 2
+        ;;
+    esac
+    ;;
+  notify)
+    # R228 (SDD-026 Z-6): notification fan-out reading R226 health-scan
+    # --json + delivering to operator-configured channels (file /
+    # webhook / ntfy). Operator-named "notification, messaging".
+    sub="${1:-dispatch}"
+    shift || true
+    case "${sub}" in
+      dispatch|test|list-channels|state)
+        "${__REPO_ROOT}/scripts/notify/dispatch.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown notify subverb: ${sub} (available: dispatch, test, list-channels, state)"
         exit 2
         ;;
     esac

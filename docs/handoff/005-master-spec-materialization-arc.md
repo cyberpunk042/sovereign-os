@@ -189,6 +189,36 @@ Cross-repo: SD-R64..R73 land in lockstep on selfdef PR #192
 + SDD-023 (model-taxonomy mirror doctrine) codify the cadence so
 future operator-pulled fields follow the same 6-layer pattern.
 
+## Continuation arc (R218-R228) — operator dashboard + autohealth + notify
+
+Closes the SDD-026 dashboard / Z-vector grid named by the operator's
+2026-05-17 expansion ("LM Studio / dashboard / scans / autohealth /
+notification / messaging / multi-tier REPL"). Each Z-vector is a
+named operator surface; rounds below close one each.
+
+- **R218-R224** — Z-3/Z-4/Z-5/Z-7/Z-9/Z-10 read-only hardware probes:
+  flex profile, cpu-mode show, gpu-watch deviance, network-status,
+  raid-status, fs-insights. All ship as operator-card + JSON for
+  cross-surface consumption (terminal, dashboard, future MCP).
+- **R225** — Z-1 dashboard SEED: stdlib http.server aggregator with
+  --render-only + --once + --bind, /api/health + /api/<card> JSON
+  endpoints. 23-assertion L3.
+- **R226** — Z-6 SCAN layer: `sovereign-osctl health scan` composite
+  autohealth/doctor across all 6 probes with severity model
+  (ok/attention/informational/down). rc=1 when any probe needs
+  operator attention. 21-assertion L3.
+- **R227** — dashboard `Models` tab + `Health` tab: R225 grows two
+  more cards (R212 catalog × R214 suggester × 3 runtime profiles +
+  R226 health rollup). Card count 6 → 8.
+- **R228** — Z-6 FAN-OUT: `sovereign-osctl notify dispatch` reads R226
+  --json + delivers to file/webhook/ntfy channels. Per-probe dedupe
+  via state file (transitions only — no spam). Env-var keys per
+  SDD-009 (operator secrets never in-repo). 25-assertion L3.
+
+Cross-repo cycle-8 selfdef rounds in lockstep: SD-R83 modules-diff
+(Z-13 partial), SD-R84 MCP tool manifest (Z-11), SD-R85 REPL Tier 1
+Python bootstrap (Z-12).
+
 ## Test inventory added this arc
 
 | Round | L3 test | Tests | Layer |
