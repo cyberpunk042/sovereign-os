@@ -5381,6 +5381,15 @@ case "${cmd}" in
     # "research mode verb that surfaces upstream changes".
     "${__REPO_ROOT}/scripts/research/loop.py" "$@"
     ;;
+  lifecycle)
+    # R290 (E5.M6): end-to-end fine-tune lifecycle — threads
+    # R244 fine-tune + R232 eval + R182 selfdef registry into ONE
+    # operator-pull workflow. Operator-named (§1b mandate):
+    # "End-to-end fine-tune lifecycle (operator triggers training
+    # → eval → register)". Read-only; emits the next pending
+    # command for the operator to run.
+    "${__REPO_ROOT}/scripts/models/lifecycle.py" "$@"
+    ;;
   version|--version|-V) cmd_version "$@" ;;
   help|--help|-h|"") cmd_help ;;
   *)
