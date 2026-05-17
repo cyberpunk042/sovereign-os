@@ -272,6 +272,14 @@ COMMANDS:
                                shutdown_minutes thresholds. rc=1
                                when battery ≤ critical (timer hook
                                consumes this as the kill signal).
+  memory-profile status [--json]
+                               R257 (SDD-026 Z-17 follow-up): per-DIMM
+                               XMP/EXPO verdict. rc=1 when ≥1 DIMM
+                               under-clocked vs rated (XMP/EXPO not
+                               enabled — operator BIOS action signal).
+  memory-profile advisory [--json]
+                               R257: actionable hint only ("enable
+                               EXPO in BIOS to recover X MT/s").
   bios-info show [--json]      R251 (SDD-026 Z-17): BIOS + baseboard
                                + memory snapshot via dmidecode +
                                /sys/class/dmi/id; lists per-DIMM speed
@@ -4726,6 +4734,21 @@ case "${cmd}" in
     # R249 (SDD-026 Z-5 closure): auto-apply R219 fix commands.
     # Operator-named "warn deviance from perfection" loop closure.
     "${__REPO_ROOT}/scripts/hardware/gpu-remediate.py" "$@"
+    ;;
+  memory-profile)
+    # R257 (SDD-026 Z-17 follow-up): per-DIMM XMP/EXPO verdict.
+    # Operator-named "XMP profile and OC profile and room for each".
+    sub="${1:-status}"
+    shift || true
+    case "${sub}" in
+      status|advisory)
+        "${__REPO_ROOT}/scripts/hardware/memory-profile.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown memory-profile subverb: ${sub} (available: status, advisory)"
+        exit 2
+        ;;
+    esac
     ;;
   bios-info)
     # R251 (SDD-026 Z-17): BIOS + baseboard + memory snapshot with
