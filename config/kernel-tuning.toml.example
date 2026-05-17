@@ -1,0 +1,85 @@
+# sovereign-os kernel-tuning matrix — R239 (SDD-026 Z-14).
+#
+# Operator-named (verbatim, 2026-05-17 expansion): "Kernel
+# optimisation, OS, Services, Modules, Tools, Dashboards,
+# Configurations, Options. Network, App, & In between."
+#
+# Per-workload sysctl + cmdline tuning presets. Operators copy this
+# file to /etc/sovereign-os/kernel-tuning.toml and toggle which
+# preset is active. The osctl + dashboard surface:
+#
+#   - show   = read current sysctl values + diff against the active preset
+#   - apply  = write the preset's sysctl values via `sysctl -w` (root)
+#   - list   = enumerate the named presets
+#
+# Each preset declares ONLY the sysctl knobs it explicitly owns —
+# operators can layer presets (apply `inference-burst` on top of
+# `defaults`) and the union wins.
+#
+# Cmdline hints (under [presets.<name>.cmdline_hints]) are
+# operator-readable strings; we don't auto-rewrite GRUB. The
+# operator pastes the recommended cmdline additions into
+# /etc/default/grub and reboots.
+
+# ─── defaults ─── conservative kernel posture for general workloads.
+[presets.defaults]
+summary = "Conservative defaults for general workload + low latency"
+[presets.defaults.sysctl]
+"vm.swappiness" = 10
+"vm.dirty_ratio" = 20
+"vm.dirty_background_ratio" = 10
+"net.core.somaxconn" = 1024
+"net.core.netdev_max_backlog" = 16384
+
+# ─── inference-burst ─── pegged-clock high-throughput inference.
+# Disables transparent hugepages defrag (kernel ceases to compact
+# memory under load — better tail latency at the cost of slight
+# memory fragmentation over uptime).
+[presets.inference-burst]
+summary = "Sustained-burst inference — minimize tail latency, max throughput"
+[presets.inference-burst.sysctl]
+"vm.swappiness" = 1
+"vm.dirty_ratio" = 5
+"vm.dirty_background_ratio" = 2
+"vm.zone_reclaim_mode" = 0
+"vm.overcommit_memory" = 1
+"net.core.somaxconn" = 65535
+"net.core.netdev_max_backlog" = 250000
+"net.ipv4.tcp_fastopen" = 3
+"kernel.numa_balancing" = 0
+[presets.inference-burst.cmdline_hints]
+description = "Append to GRUB_CMDLINE_LINUX in /etc/default/grub:"
+hints = [
+    "transparent_hugepage=madvise",     # only apps that ask get THP
+    "intel_pstate=passive",             # let scheduler pick perf gov
+    "mitigations=auto,nosmt",           # keep mitigations, drop SMT
+    "isolcpus=managed_irq,nohz,domain,0-3",  # reserve cores 0-3 for IRQs
+]
+
+# ─── low-power ─── battery / fanless / quiet workstation posture.
+[presets.low-power]
+summary = "Low-power idle posture for fanless/battery hosts"
+[presets.low-power.sysctl]
+"vm.swappiness" = 60
+"vm.laptop_mode" = 5
+"kernel.timer_migration" = 1
+"kernel.sched_min_granularity_ns" = 10000000  # 10ms
+[presets.low-power.cmdline_hints]
+description = "Append to GRUB_CMDLINE_LINUX:"
+hints = [
+    "intel_pstate=passive",
+    "pcie_aspm=force",                  # aggressive PCIe power management
+    "i915.enable_psr=1",                # iGPU Panel Self-Refresh
+]
+
+# ─── server-headless ─── headless server posture (auditd-friendly).
+[presets.server-headless]
+summary = "Headless-server posture — audit-friendly, conservative network"
+[presets.server-headless.sysctl]
+"vm.swappiness" = 10
+"net.ipv4.tcp_syncookies" = 1
+"net.ipv4.conf.all.rp_filter" = 1
+"net.ipv4.conf.default.rp_filter" = 1
+"kernel.kptr_restrict" = 2
+"kernel.dmesg_restrict" = 1
+"kernel.kexec_load_disabled" = 1

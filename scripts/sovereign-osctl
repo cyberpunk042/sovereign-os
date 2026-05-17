@@ -266,6 +266,20 @@ COMMANDS:
                                flags features whose default layer is
                                blocked + suggests the available
                                alternative.
+  kernel list [--json]         R239 (SDD-026 Z-14): enumerate kernel-
+                               tuning presets (defaults / inference-
+                               burst / low-power / server-headless).
+  kernel show [--preset P] [--json]
+                               R239: diff declared vs live sysctl
+                               values. rc=1 when ≥1 key diverges.
+  kernel apply <preset> [--dry-run] [--json]
+                               R239: write a preset's sysctl values.
+                               Root required (non-root prints the
+                               actionable shell commands).
+  kernel cmdline-hints <preset> [--json]
+                               R239: print GRUB_CMDLINE_LINUX hints +
+                               a one-liner the operator pastes into
+                               /etc/default/grub.
   install-paths grey-out [--json]
                                R237: show only features whose install
                                path is currently blocked (drives the
@@ -4604,6 +4618,21 @@ case "${cmd}" in
         ;;
       *)
         log_error "unknown install-paths subverb: ${sub} (available: show, grey-out, choose)"
+        exit 2
+        ;;
+    esac
+    ;;
+  kernel)
+    # R239 (SDD-026 Z-14): per-workload kernel-tuning presets
+    # (sysctl + cmdline hints). Operator-named "Kernel optimisation".
+    sub="${1:-list}"
+    shift || true
+    case "${sub}" in
+      list|show|apply|cmdline-hints)
+        "${__REPO_ROOT}/scripts/kernel/tuning.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown kernel subverb: ${sub} (available: list, show, apply, cmdline-hints)"
         exit 2
         ;;
     esac
