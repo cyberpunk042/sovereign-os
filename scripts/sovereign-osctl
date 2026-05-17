@@ -217,6 +217,20 @@ COMMANDS:
                                router + R219 GPU watt .prom files,
                                recommends a mode. Advisory by default;
                                --apply switches the governor.
+  gpu-mode show [--json]       R236 (SDD-026 Z-5): per-GPU power limit
+                               + matched mode (conservative / balanced
+                               / sustained / peak).
+  gpu-mode list [--json]       R236: enumerate the 4 named GPU modes.
+  gpu-mode set <mode>          R236: write per-GPU power limit via
+                               nvidia-smi -pl. Targets are derived
+                               from operator-set safe_limit_watts in
+                               gpu-policy.toml. Requires root.
+  gpu-mode auto [--apply] [--json]
+                               R236: workload-aware GPU mode
+                               recommendation. Reads R219 GPU watt +
+                               R215 inference Layer B .prom files;
+                               sustained-warning fires → sustained,
+                               cold GPU → conservative. Advisory.
   fs usage [--threshold-pct N] [--json]
                                R222 (SDD-026 Z-10): per-partition + global
                                disk usage. Flags partitions ≥ threshold
@@ -4516,6 +4530,15 @@ case "${cmd}" in
     sub="${1:-show}"
     shift || true
     "${__REPO_ROOT}/scripts/hardware/cpu-mode.py" "${sub}" "$@"
+    ;;
+  gpu-mode)
+    # R236 (SDD-026 Z-5 extension): GPU hotswap modes. conservative /
+    # balanced / sustained / peak — targets derived from operator-set
+    # safe_limit_watts in gpu-policy.toml. Operator-named "Same for
+    # the GPU I guess" + R230 auto pattern.
+    sub="${1:-show}"
+    shift || true
+    "${__REPO_ROOT}/scripts/hardware/gpu-mode.py" "${sub}" "$@"
     ;;
   fs)
     # R222 (SDD-026 Z-10): filesystem + log insights.
