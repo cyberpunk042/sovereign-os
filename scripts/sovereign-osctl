@@ -268,6 +268,14 @@ COMMANDS:
                                analysis layer named in operator's
                                "autohealth and doctor and analysis".
   diagnose probes [--json]     R266: list available sub-probes.
+  memory-pressure status|psi|oom-events [--json]
+                               R269 (E1.M15): memory pressure + OOM
+                               watcher. /proc/meminfo + PSI (kernel
+                               4.20+) + cgroup v2 memory.events +
+                               journalctl OOM scan. Verdict escalates
+                               to critical on PSI full.avg10 >5%,
+                               available <5%, recent OOM-kill, or
+                               cgroup oom_kill counter > 0.
   dns-advisor status|providers|latency [--json]
                                R268 (E3.M4): DNS provider classification +
                                posture verdict. Classifies /etc/resolv.conf
@@ -4815,6 +4823,20 @@ case "${cmd}" in
         ;;
       *)
         log_error "unknown diagnose subverb: ${sub} (available: run, probes)"
+        exit 2
+        ;;
+    esac
+    ;;
+  memory-pressure)
+    # R269 (E1.M15): memory pressure + OOM watcher.
+    sub="${1:-status}"
+    shift || true
+    case "${sub}" in
+      status|psi|oom-events)
+        "${__REPO_ROOT}/scripts/hardware/memory-pressure.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown memory-pressure subverb: ${sub} (available: status, psi, oom-events)"
         exit 2
         ;;
     esac
