@@ -358,7 +358,7 @@ the Epic is closed — but the operator may add new Modules to it.
 | E5.M4 | Toolchain catalog (llama.cpp / bitnet.cpp / vllm / ollama / lm-studio / lm-link / unsloth / transformers / trl / lm-eval / mteb / dflash) | ✓ shipped | R242 |
 | E5.M5 | Fine-tune workflow skeleton (R244 surface; SD-R89 selfdef state) | ✓ shipped | R244 |
 | E5.M6 | End-to-end fine-tune lifecycle (operator triggers training → eval → register) | ✓ shipped | R290 (`sovereign-osctl lifecycle list/plan/next-step` — composes R244 + R232 + R182) |
-| E5.M7 | Model variants + quantizations + advanced features parametrization | partial | R231 detail surface (variants ✓; parametrization TODO) |
+| E5.M7 | Model variants + quantizations + advanced features parametrization | ✓ shipped | R231 (variants/quantization detail) + R311 (`sovereign-osctl model-params list/show/recommend` — hardware-aware parameter advisor) |
 | E5.M8 | Speculative-decoding (DFlash) integration | ✓ shipped (prior) | R157 |
 | E5.M9 | Operator-mutable flexible profile (download / fine-tune / parameters / build / run / use / train / adapt / eval workflow) | ✓ shipped | R291 (`sovereign-osctl workflow list/plan/next-step` — full 9-stage operator-named sequence) |
 | E5.M10 | **Operator "assistant feel" UX layer** — clear paths, options, modules-combo-features, super-features. Every dashboard card + CLI verb surfaces "next-best-step" hints; module combinations get curated names ("inference-burst pack", "headless-server pack") that flip multiple knobs at once. [from §1a] | ✓ shipped | R282 |

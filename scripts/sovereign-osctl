@@ -5513,6 +5513,26 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  model-params)
+    # R311 (E5.M7 closure): LLM-runtime parametrization advisor.
+    # Per-parameter catalog with hardware-aware recommended values
+    # (context_size / n_gpu_layers / cache_type_k+v / batch_size /
+    # parallel / mlock / mmap / flash_attn / rope_freq_base /
+    # temperature / top_p). Operator-named (§1b verbatim:
+    # "Model variants + quantizations + advanced features
+    # parametrization").
+    sub="${1:-list}"
+    shift || true
+    case "${sub}" in
+      list|show|recommend)
+        "${__REPO_ROOT}/scripts/models/parametrization.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown model-params subverb: ${sub} (list, show, recommend)"
+        exit 2
+        ;;
+    esac
+    ;;
   install-mode)
     # R310 (E2.M16): container-vs-system install-mode advisor.
     # Per-installable component, advises system vs container based
