@@ -132,6 +132,63 @@ Continued NEVER STOP execution past the R145-R163 arc. Highlights:
   (bootstrap-phases.md), schema lint (test_bootstrap_phases_yaml.py),
   freshness gate (--check).
 
+## Continuation arc (R204-R217) — cross-repo SD-R64..R73 alignment
+
+- **R204** — handoff doc trajectory update through R203.
+
+- **R205-R208** — SDD-028 canonical-source pattern codification +
+  four applications: model catalog doc renderer (R206), verify-grid
+  doc renderer (R207), trinity runtime-profile doc renderer (R208).
+  Doctrine: drift between rendered docs and canonical YAML is
+  structurally impossible — every consumer re-parses on invocation.
+
+- **R209-R211** — sovereign-os mirrors of the selfdef SD-R64/R66/R67/
+  R68 hardware-exploit surface (cross-repo lockstep per SDD-022):
+  R209 mirrors SD-R64 (ternary_aot_capable + zmm_int8_lane_capacity
+  predicates) on the R170 modules-gate, R210 ports SD-R67 posture
+  verb to `sovereign-osctl bootstrap posture`, R211 mirrors SD-R68
+  `host_features_required` predicate + lockstep R189 fixture to
+  schema 1.4.0.
+
+- **R212** — model-catalog R212 expansion (schema 1.0.0 → 1.1.0):
+  full taxonomy (class × quantization × size_class × purpose ×
+  vram_gib_min × context_window_tokens × base_model), 8 → 17
+  curated entries spanning LLM / SLM / RLM / TernaryLM /
+  LoRA-adapter / Embed / Vision / Multimodal / Code / Mixture /
+  Speculative / Reranker. Operator-directive verbatim ("all the
+  best selection of models adapted for various size and at various
+  quantization or for various specific purpose").
+
+- **R213** — `sovereign-osctl models query` filter surface over the
+  R212 catalog (class / tier / purpose / size / quant / max-vram /
+  min-context / status / engine / base-model — AND-composing). One
+  command answers "which models fit my budget for this purpose?".
+
+- **R214** — `sovereign-osctl models suggest --runtime-profile <id>`
+  profile-aware super-feature. Cross-references each master-spec § 18
+  allocation against the catalog, flags aspirational/VRAM-overrun,
+  suggests smaller-quant alternatives.
+
+- **R215** — router `sovereign_os_inference_router_class_total{class}`
+  Layer B counter + `X-Sovereign-Model-Class` response header.
+  Operators observe model-class demand cross-tabbed with tier
+  routing. Inference table maps well-known model ids to R212 class
+  values (bitnet → ternary-lm, r1-distill → rlm, coder → code, …).
+
+- **R216** — `models suggest --gpu-vram-gib X,Y` host-budget override.
+  Operators on non-SAIN-01 hosts get advice tuned to actual hardware,
+  not the pinned profile defaults.
+
+- **R217** — `sovereign-osctl overview` surfaces R214 suggester
+  result for active runtime profile (defaults to
+  high-concurrency-burst; SOVEREIGN_OS_RUNTIME_PROFILE env override).
+  Single overview verb now also answers "is my profile fittable?".
+
+Cross-repo: SD-R64..R73 land in lockstep on selfdef PR #192
+(never-ending cycle-3 branch). SDD-022 (hardware-exploit doctrine)
++ SDD-023 (model-taxonomy mirror doctrine) codify the cadence so
+future operator-pulled fields follow the same 6-layer pattern.
+
 ## Test inventory added this arc
 
 | Round | L3 test | Tests | Layer |
