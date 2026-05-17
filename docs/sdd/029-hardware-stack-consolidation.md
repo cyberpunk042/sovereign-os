@@ -7,6 +7,11 @@
 > Derived from: R239 (kernel-tuning) + R251 (bios-info) + R252 (power-status)
 >                + R253 (power-shutdown-guard) + R255 (virt-info)
 
+> **Parent standing directive:**
+> [`docs/standing-directives/2026-05-17-operator-mandate.md`](../standing-directives/2026-05-17-operator-mandate.md)
+> (Epic E1 — Hardware-stack visibility & control).
+> Each round in this SDD closes one Module under E1.
+
 ## Mission
 
 Operator's 2026-05-17 expansion named SEVEN distinct hardware-stack
