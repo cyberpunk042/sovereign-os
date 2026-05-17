@@ -5698,6 +5698,24 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  maintenance-window)
+    # R323 (E2.M19): maintenance-window scheduler. Operator declares
+    # named time windows; other advisors / autohealth / heat-oc-
+    # throttle query `can-run-now <window>` before acting.
+    # Operator-named (§1b verbatim: "schedule/planifest/graceful on
+    # all levels, orderly").
+    sub="${1:-list}"
+    shift || true
+    case "${sub}" in
+      list|show|can-run-now|active)
+        "${__REPO_ROOT}/scripts/lifecycle/maintenance-window.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown maintenance-window subverb: ${sub} (list, show, can-run-now, active)"
+        exit 2
+        ;;
+    esac
+    ;;
   snapshot)
     # R322 (E2.M18): unified state snapshot — runs all read-only
     # advisors in parallel + emits one consolidated JSON document.
