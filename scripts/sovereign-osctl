@@ -5372,6 +5372,25 @@ case "${cmd}" in
     # surfaces selfdef tools too)".
     "${__REPO_ROOT}/scripts/interop/mcp-aggregate.py" "$@"
     ;;
+  storage-health)
+    # R298 (E2.M12): unified storage health rollup. Composes
+    # logrotate posture + /proc/mdstat RAID + df partition free
+    # space + journal SystemMaxUse= into ONE operator-pull verdict
+    # (healthy / watch / degraded). Operator-named (§1b verbatim):
+    # "logs, log rotate, system usage, partitions and global and
+    # such. insights".
+    sub="${1:-status}"
+    shift || true
+    case "${sub}" in
+      status|advisory|inputs)
+        "${__REPO_ROOT}/scripts/hardware/storage-health-rollup.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown storage-health subverb: ${sub} (status, advisory, inputs)"
+        exit 2
+        ;;
+    esac
+    ;;
   network-install-advisor)
     # R297 (E2.M11): operator-pull network install-layer advisor —
     # DNS / Cloudflared / Tailscale / Traefik with docker-vs-system
