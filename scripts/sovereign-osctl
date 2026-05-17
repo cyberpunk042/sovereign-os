@@ -5698,6 +5698,22 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  snapshot)
+    # R322 (E2.M18): unified state snapshot — runs all read-only
+    # advisors in parallel + emits one consolidated JSON document.
+    # Operator-pull "what's the COMPLETE state of this host right now?"
+    sub="${1:-snapshot}"
+    shift || true
+    case "${sub}" in
+      snapshot|audit)
+        "${__REPO_ROOT}/scripts/diagnostics/state-snapshot.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown snapshot subverb: ${sub} (snapshot, audit)"
+        exit 2
+        ;;
+    esac
+    ;;
   rounds)
     # R321 (E9.M9): operator-pull rounds catalog — meta-navigation
     # over the now-300+ round codebase. Parses mandate.md, exposes
