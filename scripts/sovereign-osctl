@@ -5410,6 +5410,24 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  pcie-lane-detect)
+    # R301 (E1.M26): actual lspci -vv parse of per-device PCIe
+    # LnkCap vs LnkSta. Complements R270 pcie-policy advisory with
+    # concrete runtime measurement. Operator-named (§1b verbatim):
+    # "pci lane splits and whatever like virtualization or what we
+    # find relevant via search online and such".
+    sub="${1:-status}"
+    shift || true
+    case "${sub}" in
+      status|gpu|degraded)
+        "${__REPO_ROOT}/scripts/hardware/pcie-lane-detect.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown pcie-lane-detect subverb: ${sub} (status, gpu, degraded)"
+        exit 2
+        ;;
+    esac
+    ;;
   operator-posture)
     # R300 (E1.M25): holistic operator-posture rollup. Synthesizes
     # R292 (oc-headroom) + R294 (psu-oc) + R296 (thermal-oc-budget)
