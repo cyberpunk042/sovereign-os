@@ -120,17 +120,17 @@ if grep -q "serving" /tmp/r225-api.log; then
   if [ "${curl_rc}" -eq 0 ]; then
     ok "GET /api/health returned 200"
     python3 - /tmp/r225-api.json <<'PY' 2>/dev/null \
-      && ok "JSON shape: cards[19] + round + sdd_vector" \
+      && ok "JSON shape: cards[20] + round + sdd_vector" \
       || ko "JSON shape wrong"
 import json, sys
 d = json.load(open(sys.argv[1]))
 assert d["round"] == "R225"
 assert d["sdd_vector"] == "SDD-026 Z-1"
 assert isinstance(d["cards"], list)
-# R225 SEED ships with 6 cards; R226 + R227 + R235 + R238 + R241(×2) + R243 + R247(×2) + R254(×2) + R261 add 12 more.
-assert len(d["cards"]) == 19, f"expected 19 cards, got {len(d['cards'])}"
+# R225 SEED ships with 6 cards; R226 + R227 + R235 + R238 + R241(×2) + R243 + R247(×2) + R254(×2) + R261 + R300 add 13 more.
+assert len(d["cards"]) == 20, f"expected 20 cards, got {len(d['cards'])}"
 ids = {c["id"] for c in d["cards"]}
-assert ids == {"gpu", "network", "cpu", "fs", "raid", "flex", "health", "models", "insights", "install_paths", "services", "kernel", "toolchains", "fine_tune", "events", "power", "bios", "virt", "dependency_state"}, ids
+assert ids == {"gpu", "network", "cpu", "fs", "raid", "flex", "health", "models", "insights", "install_paths", "services", "kernel", "toolchains", "fine_tune", "events", "power", "bios", "virt", "dependency_state", "operator-posture"}, ids
 PY
   else
     ko "curl GET /api/health failed (rc=${curl_rc})"

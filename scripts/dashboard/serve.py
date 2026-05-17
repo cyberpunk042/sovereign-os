@@ -1109,7 +1109,56 @@ def card_virt() -> dict[str, Any]:
     }
 
 
+def card_operator_posture() -> dict[str, Any]:
+    """R300 (E1.M25) — Holistic operator-posture rollup card.
+
+    Surfaces the worst-axis verdict across R292 (oc-headroom) +
+    R294 (psu-oc) + R296 (thermal-oc-budget) + R298 (storage-health)
+    + R299 (bios-directives) into ONE dashboard card. Operator's
+    "is my host in good shape?" answered at a glance.
+    """
+    bin_path = REPO_ROOT / "scripts" / "hardware" / "operator-posture.py"
+    fallback: dict[str, Any] = {
+        "round": "R300", "vector": "E1.M25",
+        "summary": "operator-posture.py unavailable",
+    }
+    if not bin_path.exists():
+        return {"id": "operator-posture",
+                "title": "Operator posture rollup (R300 / E1.M25)",
+                "data": fallback}
+    try:
+        r = subprocess.run(
+            [sys.executable, str(bin_path), "status", "--json"],
+            capture_output=True, text=True, timeout=30, check=False,
+        )
+    except (subprocess.TimeoutExpired, OSError) as e:
+        fallback["summary"] = f"invocation failed: {e}"
+        return {"id": "operator-posture",
+                "title": "Operator posture rollup (R300 / E1.M25)",
+                "data": fallback}
+    # operator-posture exits 0/1/2 reflecting severity; treat all
+    # as data-emitted.
+    if r.returncode not in (0, 1, 2):
+        fallback["summary"] = f"operator-posture.py rc={r.returncode}"
+        return {"id": "operator-posture",
+                "title": "Operator posture rollup (R300 / E1.M25)",
+                "data": fallback}
+    try:
+        report = json.loads(r.stdout)
+    except json.JSONDecodeError:
+        fallback["summary"] = "operator-posture.py emitted non-JSON"
+        return {"id": "operator-posture",
+                "title": "Operator posture rollup (R300 / E1.M25)",
+                "data": fallback}
+    return {
+        "id": "operator-posture",
+        "title": "Operator posture rollup (R300 / E1.M25)",
+        "data": report,
+    }
+
+
 CARDS = [
+    card_operator_posture,
     card_gpu,
     card_network,
     card_cpu,

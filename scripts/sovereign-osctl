@@ -5410,6 +5410,23 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  operator-posture)
+    # R300 (E1.M25): holistic operator-posture rollup. Synthesizes
+    # R292 (oc-headroom) + R294 (psu-oc) + R296 (thermal-oc-budget)
+    # + R298 (storage-health) + R299 (bios-directives) into ONE
+    # worst-axis verdict. Operator-named (§1b verbatim).
+    sub="${1:-status}"
+    shift || true
+    case "${sub}" in
+      status|advisory)
+        "${__REPO_ROOT}/scripts/hardware/operator-posture.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown operator-posture subverb: ${sub} (status, advisory)"
+        exit 2
+        ;;
+    esac
+    ;;
   bios-directives)
     # R299 (E1.M24): ASUS X870E-CREATOR WIFI BIOS directives
     # catalog — 12 specific settings (EXPO, SVM, IOMMU, ReBAR,
