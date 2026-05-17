@@ -185,6 +185,97 @@ def cmd_history(state: dict[str, Any], json_out: bool) -> int:
     return 0
 
 
+def cmd_export(state: dict[str, Any], json_out: bool, output: str | None) -> int:
+    """R245 (SDD-026 Z-3 expansion): emit a portable flex-profile bundle.
+
+    Operator-named (verbatim, 2026-05-17 expansion): "not just a mode
+    by profile but a profile that is flexible". Export captures the
+    operator's current delta set into a single JSON file that another
+    host (or the same host after re-image) can `import` to land an
+    identical flex posture. Round 245 closes the portability gap.
+    """
+    deltas = state.get("deltas") or []
+    bundle = {
+        "schema_version": "1.0.0",
+        "round": "R245",
+        "vector": "SDD-026 Z-3 (flex export)",
+        "exported_at": _now_iso(),
+        "delta_count": len(deltas),
+        "deltas": deltas,
+    }
+    body = json.dumps(bundle, indent=2)
+    if output:
+        try:
+            Path(output).write_text(body + "\n")
+        except OSError as e:
+            print(f"ERROR writing {output}: {e}", file=sys.stderr)
+            return 2
+        if json_out:
+            print(json.dumps({"exported": True, "path": output, "delta_count": len(deltas)}))
+        else:
+            print(f"# R245: exported {len(deltas)} delta(s) → {output}")
+        return 0
+    print(body)
+    return 0
+
+
+def cmd_import(state: dict[str, Any], path: Path, bundle_path: str, mode: str, json_out: bool) -> int:
+    """R245: import an operator-supplied flex bundle.
+
+    Modes:
+      replace  drop current deltas, install only the bundle's deltas
+      merge    keep current + append bundle's deltas (chronological log
+               grows; same-key later wins via apply-time semantics)
+    """
+    try:
+        body = Path(bundle_path).read_text()
+    except OSError as e:
+        print(f"ERROR reading {bundle_path}: {e}", file=sys.stderr)
+        return 2
+    try:
+        bundle = json.loads(body)
+    except json.JSONDecodeError as e:
+        print(f"ERROR {bundle_path} is not valid JSON: {e}", file=sys.stderr)
+        return 2
+    incoming = bundle.get("deltas")
+    if not isinstance(incoming, list):
+        print(
+            f"ERROR {bundle_path} missing `deltas` array (schema mismatch)",
+            file=sys.stderr,
+        )
+        return 2
+    pre = len(state.get("deltas") or [])
+    if mode == "replace":
+        state["deltas"] = list(incoming)
+    else:  # merge
+        state.setdefault("deltas", []).extend(incoming)
+    rc = write_state(path, state)
+    if rc != 0:
+        return rc
+    out_msg = {
+        "round": "R245",
+        "imported": True,
+        "mode": mode,
+        "bundle_path": bundle_path,
+        "prior_count": pre,
+        "incoming_count": len(incoming),
+        "final_count": len(state["deltas"]),
+    }
+    if json_out:
+        print(json.dumps(out_msg))
+    else:
+        print(
+            f"# R245: imported {len(incoming)} delta(s) from {bundle_path} "
+            f"(mode={mode}, before={pre} after={out_msg['final_count']})"
+        )
+    return 0
+
+
+def _now_iso() -> str:
+    import time
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
 # --------------------------------------------------------- entrypoint
 
 
@@ -233,6 +324,14 @@ def main() -> int:
     p_set.add_argument("value")
     sub.add_parser("reset", help="clear every delta — revert to YAML baseline")
     sub.add_parser("history", help="chronological delta log")
+    p_exp = sub.add_parser("export", help="R245: emit a portable flex bundle")
+    p_exp.add_argument("--output", help="write to file instead of stdout")
+    p_imp = sub.add_parser("import", help="R245: install a bundle")
+    p_imp.add_argument("bundle", help="path to the bundle JSON file")
+    p_imp.add_argument(
+        "--mode", choices=["replace", "merge"], default="replace",
+        help="replace (drop current) OR merge (append) — default replace",
+    )
     args = p.parse_args(cleaned)
     args.state = state_path
     args.json = json_out
@@ -246,6 +345,10 @@ def main() -> int:
         return cmd_reset(state, args.state, args.json)
     if args.action == "history":
         return cmd_history(state, args.json)
+    if args.action == "export":
+        return cmd_export(state, args.json, args.output)
+    if args.action == "import":
+        return cmd_import(state, args.state, args.bundle, args.mode, args.json)
     return 2
 
 

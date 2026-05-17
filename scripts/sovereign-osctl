@@ -356,6 +356,17 @@ COMMANDS:
                                baseline. rc=1 when already empty.
   profiles flex history [--json]
                                R224: chronological delta log (audit).
+  profiles flex export [--output PATH] [--json]
+                               R245 (SDD-026 Z-3): emit a portable
+                               flex-profile bundle (one JSON file
+                               capturing every delta). stdout or
+                               --output PATH. Operator-named "profile
+                               that is flexible".
+  profiles flex import <bundle> [--mode replace|merge] [--json]
+                               R245: install a bundle. replace =
+                               drop current deltas (default), merge =
+                               append. Same-key later-wins via the
+                               existing apply-time semantics.
 
   journal list [--all-dirs]    List Layer A JSONL log files (size + first/last event)
   journal show <file> [--all-dirs]  Pretty-print one JSONL log file as a table
