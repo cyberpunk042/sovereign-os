@@ -5698,6 +5698,22 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  snapshot-diff)
+    # R334 (E2.M25): snapshot-diff verb. Given two R322 state
+    # snapshots, emits per-probe diff (rc/verdict changes, new/
+    # resolved attention items). Pre/post-change auditing.
+    sub="${1:-diff}"
+    shift || true
+    case "${sub}" in
+      diff)
+        "${__REPO_ROOT}/scripts/diagnostics/snapshot-diff.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown snapshot-diff subverb: ${sub} (diff)"
+        exit 2
+        ;;
+    esac
+    ;;
   config-restore)
     # R333 (E2.M24): config-restore companion to R332.
     # Reads R332 snapshot JSON + verifies sha256s + replays overlays
