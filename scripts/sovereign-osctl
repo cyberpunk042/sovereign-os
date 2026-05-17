@@ -5698,6 +5698,22 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  next-action)
+    # R329 (E2.M22): next-action advisor — composes R322 state snapshot
+    # + emits ranked operator-pull recommendations of most-impactful
+    # verb to run next. "What should I do now?" decision support.
+    sub="${1:-list}"
+    shift || true
+    case "${sub}" in
+      list|top)
+        "${__REPO_ROOT}/scripts/intelligence/next-action-advisor.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown next-action subverb: ${sub} (list, top)"
+        exit 2
+        ;;
+    esac
+    ;;
   apply-audit)
     # R327 (E9.M11): central apply-audit log query CLI. Reads
     # /var/lib/sovereign-os/apply-audit.jsonl appended by every
