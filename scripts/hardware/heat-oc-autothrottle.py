@@ -62,6 +62,11 @@ try:
 except Exception:  # pragma: no cover
     load_with_overlay = None
 
+try:
+    import apply_audit  # type: ignore  # R327 audit-log helper
+except Exception:  # pragma: no cover
+    apply_audit = None
+
 
 SCHEMA_VERSION = "1.0.0"
 ROUND = "R318"
@@ -359,6 +364,23 @@ def main(argv: list[str] | None = None) -> int:
     env_gate = os.environ.get("SOVEREIGN_OS_CONFIRM_DESTROY")
     apply_doc = apply_target(cfg, target_path, result,
                               args.apply, args.confirm_throttle, env_gate)
+    # R327 (E9.M11): record this apply invocation to central audit
+    # log (NEVER raises — audit failure cannot take down apply).
+    if apply_audit is not None:
+        apply_audit.record_apply(
+            verb="heat-oc-throttle apply",
+            round_origin="R318",
+            gates_satisfied=bool(apply_doc.get("triple_gate_ok")),
+            gates_detail=apply_doc.get("gates", {}),
+            what_was_written={
+                "gpu_oc_multiplier": result.get("target"),
+                "previous_value": result.get("current"),
+                "damping_pct": result.get("damping_pct"),
+            },
+            target_path=str(target_path),
+            wrote=bool(apply_doc.get("wrote")),
+            rc=int(apply_doc.get("rc", 0)),
+        )
     if args.fmt == "json":
         print(json.dumps({
             "schema_version": SCHEMA_VERSION,

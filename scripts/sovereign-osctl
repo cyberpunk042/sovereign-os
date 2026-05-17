@@ -5698,6 +5698,22 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  apply-audit)
+    # R327 (E9.M11): central apply-audit log query CLI. Reads
+    # /var/lib/sovereign-os/apply-audit.jsonl appended by every
+    # mutating verb. Operator-pull "who mutated what when?"
+    sub="${1:-tail}"
+    shift || true
+    case "${sub}" in
+      list|tail|by-verb|audit)
+        "${__REPO_ROOT}/scripts/diagnostics/apply-audit.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown apply-audit subverb: ${sub} (list, tail, by-verb, audit)"
+        exit 2
+        ;;
+    esac
+    ;;
   overlay-drift)
     # R325 (E2.M21): operator-overlay drift detector.
     # Scans /etc/sovereign-os/*.toml + reports which knobs the
