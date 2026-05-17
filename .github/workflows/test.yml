@@ -355,6 +355,9 @@ jobs:
       - name: nspawn — trinity runtime-profile docs (Round 208: SDD-028 pattern, 4th application)
         run: |
           tests/nspawn/test_trinity_runtime_docs.sh
+      - name: nspawn — hardware posture bridge (Round 210: selfdef SD-R67 cross-repo mirror)
+        run: |
+          tests/nspawn/test_posture.sh
       - name: nspawn — thermal-watch (Round 172: per-profile thermal thresholds + OCSF events)
         run: |
           tests/nspawn/test_thermal_watch.sh

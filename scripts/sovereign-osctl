@@ -3291,6 +3291,22 @@ cmd_bootstrap() {
       fi
       exec python3 "${match_script}" "$@"
       ;;
+    posture)
+      # R210: cross-repo bridge to selfdef SD-R67 `selfdefctl
+      # hardware posture`. Reads the saved capabilities JSON the
+      # selfdef daemon emits at /var/lib/selfdef/hardware-capabilities
+      # .json and renders the same operator-readable posture summary.
+      # No selfdefctl required — sovereign-os boxes can introspect
+      # their hardware-exploit readiness even without the selfdef
+      # CLI installed (as long as the daemon dropped the JSON).
+      local posture_script
+      posture_script="$(dirname "${BASH_SOURCE[0]}")/hardware/posture.py"
+      if [ ! -x "${posture_script}" ]; then
+        log_error "posture script missing or not executable: ${posture_script}"
+        return 1
+      fi
+      exec python3 "${posture_script}" "$@"
+      ;;
     -h|--help|help)
       cat <<EOF
 sovereign-osctl bootstrap — Master Bootstrap Verification + Pipeline surface
@@ -3329,6 +3345,15 @@ Subverbs:
     vfio-bind detaches the 3090, tetragon-policy-load installs kernel
     BPF). Real execution lives at Layer 5 on the SAIN-01 box behind
     SOVEREIGN_OS_CONFIRM_DESTROY=YES + interactive prompt.
+
+  posture [--caps-path PATH] [--json]   (R210, SD-R67 bridge)
+    Render the operator-readable hardware-exploit posture summary
+    from the selfdef-emitted capabilities JSON. Composes SD-R64
+    (ternary_aot_capable + ZMM INT8 lane width) + SD-R66 (kernel
+    selection hint) into a one-screen "does this box exploit the
+    AVX-512 + ZMM hot path?" answer. No selfdefctl required —
+    sovereign-os reads the JSON the daemon dropped at
+    /var/lib/selfdef/hardware-capabilities.json.
 
   hardware-match [--json] [--verdict-only]
     Cross-repo mirror of selfdef SDD-017 Sain01Match (R166):
