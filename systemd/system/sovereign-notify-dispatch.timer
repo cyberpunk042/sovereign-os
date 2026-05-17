@@ -1,0 +1,15 @@
+[Unit]
+Description=Hourly sovereign-os health-scan + notification fan-out (R229 / SDD-026 Z-6)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/recurrent/notify-dispatch.sh
+
+[Timer]
+# Hourly + jitter so fleet-wide timing doesn't synchronize.
+# Health-scan + dispatch is cheap (a few seconds), so hourly is fine
+# even with several enabled channels.
+OnCalendar=hourly
+RandomizedDelaySec=600
+Persistent=true
+Unit=sovereign-notify-dispatch.service
+
+[Install]
+WantedBy=timers.target

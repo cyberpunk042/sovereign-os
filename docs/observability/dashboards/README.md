@@ -105,6 +105,10 @@ panel queries lock to them.
 - `sovereign_os_meta_alert_count{level}` — count of derived alerts by level (ALERT/WARN) from the hourly alerts-check
 - `sovereign_os_meta_alert_by_metric{metric,level}` — per-(metric,level) histogram of derived alerts; lets operators graph which underlying metric is the noisiest
 - `sovereign_os_meta_alerts_check_last_run_timestamp`
+- `sovereign_os_notify_events_emitted_total` — R229: count of NEW probe-transition events emitted by the hourly notify-dispatch hook (R228 dedup applied — only transitions, never spam).
+- `sovereign_os_notify_deliveries_ok_total` — R229: count of per-channel deliveries (file / webhook / ntfy) that returned ok on the last tick.
+- `sovereign_os_notify_deliveries_fail_total` — R229: count of per-channel deliveries that failed (unresolved env-var, network error, etc). Operators alert when this is non-zero.
+- `sovereign_os_notify_last_run_timestamp` — R229: timestamp of the most recent notify-dispatch tick (operators alert on staleness vs the hourly timer).
 - `sovereign_os_thermal_celsius{sensor}` — per-sensor temperature in °C (R172). Sources: `/sys/class/hwmon/<dev>/temp<N>_input` + `nvidia-smi` GPU temps. Updated every 5 min by `sovereign-thermal-watch.timer`.
 - `sovereign_os_thermal_severity{sensor,level}` — 1 if `<sensor>` is currently at `<level>` ∈ {ok, warn, critical}, 0 otherwise. Thresholds are profile-aware (sain-01: warn≥85 crit≥95; headless: warn≥75 crit≥85; GPU sensors: warn≥85 crit≥95 regardless of profile).
 - `sovereign_os_thermal_breach_total` — count of sensors at WARN+CRITICAL on the last tick. Operator-facing "is anything overheating right now?" gauge.
