@@ -129,6 +129,18 @@ COMMANDS:
                                R242: full detail for one toolchain
                                (kind, license, hardware_fit, install
                                hint, operator role, probe outcomes).
+  models fine-tune list-methods [--json]
+                               R244 (SDD-026 Z-2): enumerate the
+                               fine-tune methods (lora-unsloth /
+                               qlora-trl / sft-trl / dpo-trl).
+  models fine-tune plan <base> --method M --dataset D [--output-dir D] [--json]
+                               R244: emit harness command + cost +
+                               vram_warning for one fine-tune.
+  models fine-tune run <base> --method M --dataset D [--dry-run] [--json]
+                               R244: execute (DRY-RUN-default in
+                               SEED) + append to JSONL state file.
+  models fine-tune history [--base B] [--method M] [--limit N] [--json]
+                               R244: render the fine-tune state file.
   models list                  List resident models (tank/models)
   models pull <hf-id>          Pull model from HuggingFace into tank/models
   models verify                Verify resident-model integrity
@@ -1353,6 +1365,23 @@ cmd_models() {
           ;;
         *)
           log_error "unknown models toolchains subverb: ${sub_t} (available: list, info)"
+          exit 2
+          ;;
+      esac
+      ;;
+    fine-tune)
+      # R244 (SDD-026 Z-2 fine-tune): planner + dispatcher + history
+      # for LoRA / QLoRA / SFT / DPO. Operator-named "fine-tune,
+      # parameters, build, run, use and train and adapt". DRY-RUN
+      # default in SEED.
+      sub_f="${1:-list-methods}"
+      shift || true
+      case "${sub_f}" in
+        list-methods|plan|run|history)
+          "${__REPO_ROOT}/scripts/models/fine_tune.py" "${sub_f}" "$@"
+          ;;
+        *)
+          log_error "unknown models fine-tune subverb: ${sub_f} (available: list-methods, plan, run, history)"
           exit 2
           ;;
       esac

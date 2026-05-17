@@ -113,6 +113,20 @@ TOOLCHAINS: list[dict[str, Any]] = [
         "hardware_fit": ["CUDA"],
     },
     {
+        "name": "lm-link",
+        "kind": "inference",
+        "summary": "LM Link — multi-model gateway + per-request routing across "
+                   "local & remote LM Studio / Ollama / llama.cpp servers.",
+        "operator_role": "operator-facing single endpoint when running BOTH "
+                         "lm-studio AND ollama AND llama-server on the same "
+                         "host — LM Link multiplexes them under one OpenAI-"
+                         "compatible API URL",
+        "install_hint": "pip install lm-link (or download release from lm-link.dev)",
+        "detect": {"binary": "lm-link", "pip": "lm_link", "python_import": "lm_link"},
+        "license": "Apache-2.0",
+        "hardware_fit": ["any"],
+    },
+    {
         "name": "transformers",
         "kind": "both",
         "summary": "HuggingFace transformers — reference runtime + training loop.",
