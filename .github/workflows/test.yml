@@ -334,6 +334,9 @@ jobs:
       - name: nspawn — selfdef-resources-audit (Round 198: SD-R61 cross-repo audit)
         run: |
           tests/nspawn/test_selfdef_resources_audit.sh
+      - name: nspawn — cycle2-fleet-aggregate (Round 199: SDD-021 W-3 file-based fleet rollup)
+        run: |
+          tests/nspawn/test_cycle2_fleet_aggregate.sh
       - name: nspawn — thermal-watch (Round 172: per-profile thermal thresholds + OCSF events)
         run: |
           tests/nspawn/test_thermal_watch.sh
