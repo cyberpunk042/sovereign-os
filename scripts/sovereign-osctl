@@ -179,6 +179,12 @@ COMMANDS:
                                safe_limit. Read-only; suggests fix
                                commands. Schedules cleanly via timer
                                with --emit-metrics.
+  network status [--json] [--component NAME]
+                               R220 (SDD-026 Z-7): per-component network
+                               surface (internet/DNS/cloudflared/
+                               tailscale/traefik/docker). Each component
+                               renders status + actionable alternative
+                               when down/not-installed.
 
   journal list [--all-dirs]    List Layer A JSONL log files (size + first/last event)
   journal show <file> [--all-dirs]  Pretty-print one JSONL log file as a table
@@ -4370,6 +4376,21 @@ case "${cmd}" in
     # polls nvidia-smi for live power.draw + power.limit, and warns
     # when actual config diverges from the operator's safe limits.
     "${__REPO_ROOT}/scripts/hardware/gpu-watch.py" "$@"
+    ;;
+  network)
+    # R220 (SDD-026 Z-7): per-component network state surface.
+    # internet / DNS / cloudflared / tailscale / traefik / docker.
+    sub="${1:-status}"
+    shift || true
+    case "${sub}" in
+      status)
+        "${__REPO_ROOT}/scripts/hardware/network-status.py" "$@"
+        ;;
+      *)
+        log_error "unknown network subverb: ${sub} (available: status)"
+        exit 2
+        ;;
+    esac
     ;;
   version|--version|-V) cmd_version "$@" ;;
   help|--help|-h|"") cmd_help ;;
