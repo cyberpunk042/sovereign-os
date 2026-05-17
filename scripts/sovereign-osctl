@@ -5513,6 +5513,24 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  psu-oc-mode)
+    # R313 (E1.M33): be Quiet! Dark Power Pro 13 1600W OC-mode
+    # orchestration — operator's exact PSU has a physical OC switch
+    # the OS can't detect; operator declares state via overlay +
+    # script returns safe-ceiling recommendation for R292/R294 OC
+    # composition. Operator-named (§1b verbatim).
+    sub="${1:-status}"
+    shift || true
+    case "${sub}" in
+      status|recipe|recommend)
+        "${__REPO_ROOT}/scripts/hardware/psu-oc-mode-orchestrator.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown psu-oc-mode subverb: ${sub} (status, recipe, recommend)"
+        exit 2
+        ;;
+    esac
+    ;;
   board-advisor)
     # R312 (E1.M32): operator's exact board ASUS ProArt X870E-CREATOR
     # WIFI specific tuning advisor. PCIe slot allocation + M.2 speed
