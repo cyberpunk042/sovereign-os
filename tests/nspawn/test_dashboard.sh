@@ -36,7 +36,7 @@ grep -q "<!doctype html>" /tmp/r225-dash.html \
   && ok "render emits doctype" || ko "no doctype"
 grep -q "sovereign-os dashboard — R225 / SDD-026 Z-1 SEED" /tmp/r225-dash.html \
   && ok "render carries R225 banner" || ko "no banner"
-# All 17 cards must render (R225 seed + R226 health + R227 models + R235 insights + R238 install-paths + R241(×2) services+kernel + R243 toolchains + R247(×2) fine-tune+events + R254(×2) power+bios)
+# All 18 cards must render (... + R261 virt)
 for needle in "GPU watt deviance (R219 / Z-5)" \
               "Network state (R220 / Z-7)" \
               "CPU mode (R221 / Z-4)" \
@@ -53,7 +53,8 @@ for needle in "GPU watt deviance (R219 / Z-5)" \
               "Fine-tune (R244 / Z-2)" \
               "Events (R246 / Z-16)" \
               "Power (R252 / Z-18)" \
-              "BIOS + memory (R251 / Z-17)"; do
+              "BIOS + memory (R251 / Z-17)" \
+              "Virtualization (R255 / Z-19)"; do
   grep -qF "${needle}" /tmp/r225-dash.html \
     && ok "render carries card: ${needle:0:30}…" \
     || ko "missing card: ${needle}"
@@ -118,17 +119,17 @@ if grep -q "serving" /tmp/r225-api.log; then
   if [ "${curl_rc}" -eq 0 ]; then
     ok "GET /api/health returned 200"
     python3 - /tmp/r225-api.json <<'PY' 2>/dev/null \
-      && ok "JSON shape: cards[17] + round + sdd_vector" \
+      && ok "JSON shape: cards[18] + round + sdd_vector" \
       || ko "JSON shape wrong"
 import json, sys
 d = json.load(open(sys.argv[1]))
 assert d["round"] == "R225"
 assert d["sdd_vector"] == "SDD-026 Z-1"
 assert isinstance(d["cards"], list)
-# R225 SEED ships with 6 cards; R226 + R227 + R235 + R238 + R241(×2) + R243 + R247(×2) + R254(×2) add 11 more.
-assert len(d["cards"]) == 17, f"expected 17 cards, got {len(d['cards'])}"
+# R225 SEED ships with 6 cards; R226 + R227 + R235 + R238 + R241(×2) + R243 + R247(×2) + R254(×2) + R261 add 12 more.
+assert len(d["cards"]) == 18, f"expected 18 cards, got {len(d['cards'])}"
 ids = {c["id"] for c in d["cards"]}
-assert ids == {"gpu", "network", "cpu", "fs", "raid", "flex", "health", "models", "insights", "install_paths", "services", "kernel", "toolchains", "fine_tune", "events", "power", "bios"}, ids
+assert ids == {"gpu", "network", "cpu", "fs", "raid", "flex", "health", "models", "insights", "install_paths", "services", "kernel", "toolchains", "fine_tune", "events", "power", "bios", "virt"}, ids
 PY
   else
     ko "curl GET /api/health failed (rc=${curl_rc})"

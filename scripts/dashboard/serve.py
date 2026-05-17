@@ -867,6 +867,84 @@ def card_bios() -> dict[str, Any]:
     }
 
 
+def card_virt() -> dict[str, Any]:
+    """R261 (SDD-026 Z-19 dashboard surface) — Virtualization card.
+
+    Calls R255 `virt-info show --json` to surface CPU virt flags +
+    KVM state + IOMMU posture + PCIe-interesting devices +
+    container-runtime count. Drives the operator's "is this host
+    ready for VFIO / nested-virt / VM-orchestration?" answer.
+    """
+    bin_path = REPO_ROOT / "scripts" / "hardware" / "virt-info.py"
+    fallback: dict[str, Any] = {
+        "round": "R261",
+        "vector": "SDD-026 Z-19 dashboard",
+        "summary": "virt-info.py unavailable",
+    }
+    if not bin_path.exists():
+        return {"id": "virt", "title": "Virtualization (R255 / Z-19)", "data": fallback}
+    try:
+        r = subprocess.run(
+            [sys.executable, str(bin_path), "show", "--json"],
+            capture_output=True, text=True, timeout=20, check=False,
+        )
+    except (subprocess.TimeoutExpired, OSError) as e:
+        fallback["summary"] = f"invocation failed: {e}"
+        return {"id": "virt", "title": "Virtualization (R255 / Z-19)", "data": fallback}
+    if r.returncode != 0:
+        fallback["summary"] = f"virt-info.py rc={r.returncode}"
+        return {"id": "virt", "title": "Virtualization (R255 / Z-19)", "data": fallback}
+    try:
+        report = json.loads(r.stdout)
+    except json.JSONDecodeError:
+        fallback["summary"] = "virt-info.py emitted non-JSON"
+        return {"id": "virt", "title": "Virtualization (R255 / Z-19)", "data": fallback}
+    cpu = report.get("cpu") or {}
+    kvm = report.get("kvm") or {}
+    iommu = report.get("iommu") or {}
+    pci = report.get("pci") or {}
+    runtimes = report.get("runtimes") or {}
+    # Needs-attention when virt would be useful but isn't enabled:
+    # virt_supported=True but kvm_module_loaded=False OR IOMMU not on.
+    needs_attention = bool(
+        cpu.get("virt_supported")
+        and (
+            not kvm.get("dev_kvm_present")
+            or (not iommu.get("iommu_enabled_sysfs")
+                and not iommu.get("kernel_cmdline_intel_iommu_on")
+                and not iommu.get("kernel_cmdline_amd_iommu_on"))
+        )
+    )
+    return {
+        "id": "virt",
+        "title": "Virtualization (R255 / Z-19)",
+        "data": {
+            "round": "R261",
+            "vector": "SDD-026 Z-19 dashboard",
+            "cpu_vendor": cpu.get("vendor_flag"),
+            "cpu_virt_supported": cpu.get("virt_supported"),
+            "cpu_nested_paging": cpu.get("nested_paging_supported"),
+            "kvm_module_loaded": kvm.get("kvm_module_loaded"),
+            "kvm_dev_present": kvm.get("dev_kvm_present"),
+            "nested_virt": kvm.get("nested_virt"),
+            "iommu_enabled": iommu.get("iommu_enabled_sysfs"),
+            "iommu_cmdline_intel": iommu.get("kernel_cmdline_intel_iommu_on"),
+            "iommu_cmdline_amd": iommu.get("kernel_cmdline_amd_iommu_on"),
+            "iommu_advisory": iommu.get("advisory"),
+            "pcie_interesting_count": pci.get("interesting_count", 0),
+            "runtimes_installed_count": runtimes.get("installed_count", 0),
+            "runtimes_total_count": len(runtimes.get("runtimes") or []),
+            "needs_attention": needs_attention,
+            "summary": (
+                f"{cpu.get('vendor_flag') or '(no vendor flag)'}; "
+                f"KVM={kvm.get('dev_kvm_present')}; "
+                f"IOMMU={iommu.get('iommu_enabled_sysfs')}; "
+                f"{runtimes.get('installed_count', 0)}/{len(runtimes.get('runtimes') or [])} runtimes"
+            ),
+        },
+    }
+
+
 CARDS = [
     card_gpu,
     card_network,
@@ -885,6 +963,7 @@ CARDS = [
     card_events,
     card_power,
     card_bios,
+    card_virt,
 ]
 
 
