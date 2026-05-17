@@ -268,6 +268,16 @@ COMMANDS:
                                analysis layer named in operator's
                                "autohealth and doctor and analysis".
   diagnose probes [--json]     R266: list available sub-probes.
+  operator-deps list|plan|apply [--confirm] [--confirm-curl-shell] [--json]
+                               R284 (E7.M6): declarative dep-install
+                               hook (apt / pip / npm / curl-shell).
+                               Operator declares packages in
+                               /etc/sovereign-os/operator-deps.toml;
+                               apply requires --confirm AND for curl-
+                               shell entries additionally requires
+                               --confirm-curl-shell (defense-in-depth).
+                               First cross-script consumer of the
+                               R283 operator-overlay helper (SDD-030).
   next-steps next|packs|apply-pack [--severity S] [--limit N] [--json]
                                R282 (E5.M10): operator "assistant feel"
                                next-best-step synthesizer. Aggregates
@@ -4921,6 +4931,20 @@ case "${cmd}" in
         ;;
       *)
         log_error "unknown diagnose subverb: ${sub} (available: run, probes)"
+        exit 2
+        ;;
+    esac
+    ;;
+  operator-deps)
+    # R284 (E7.M6): declarative dep-install hook.
+    sub="${1:-list}"
+    shift || true
+    case "${sub}" in
+      list|plan|apply)
+        "${__REPO_ROOT}/scripts/install/operator-deps.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown operator-deps subverb: ${sub} (available: list, plan, apply)"
         exit 2
         ;;
     esac

@@ -372,7 +372,7 @@ the Epic is closed — but the operator may add new Modules to it.
 | E7.M3 | MCP TCP transport | ✓ shipped (selfdef) | SD-R94 |
 | E7.M4 | MCP write-tool authorization gate (SELFDEF_MCP_ALLOW_WRITES=YES) | ✓ shipped | SD-R96 |
 | E7.M5 | Cross-repo MCP-tool aggregator (sovereign-os surfaces selfdef tools too) | **TODO** | — |
-| E7.M6 | Operator-supplied dep install hooks (node + claude + arbitrary apt/pip) | **TODO** | — |
+| E7.M6 | Operator-supplied dep install hooks (node + claude + arbitrary apt/pip + curl-shell) | ✓ shipped | R284 |
 
 ### Epic E8 — Python REPL / Programming tiers / Integrated intelligence
 

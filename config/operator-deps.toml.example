@@ -1,0 +1,59 @@
+# sovereign-os operator-deps declarative install hook — R284 / E7.M6.
+#
+# Operator-named (§1b verbatim): "Allow to interoperate with an MCP
+# via tools calls and/or MCP. (e.g. I might install node, claude
+# and whatever deps and use it on it.)"
+#
+# Adopts SDD-030 (operator-overlay-doctrine R283): copy to
+# /etc/sovereign-os/operator-deps.toml; or point
+# SOVEREIGN_OS_OVERLAY_OPERATOR_DEPS=<path> for dev runs.
+#
+# Triple-gate per the SOVEREIGN_OS_CONFIRM_DESTROY=YES convention:
+#   - DRY-RUN by default
+#   - --apply requires --confirm OR env
+#   - curl-shell entries ALWAYS additionally require
+#     --confirm-curl-shell (these pipe untrusted code to bash;
+#     defense-in-depth)
+
+# ─── Debian / Ubuntu system packages ───
+[apt]
+install = [
+    "jq",           # JSON parsing in shell scripts
+    "ripgrep",      # fast grep
+    "fd-find",      # fast find
+    "dnsutils",     # `dig` for dns-advisor + perf-baseline
+    "lm-sensors",   # thermal-watch
+    "apcupsd",      # UPS interop (R252 power-status)
+    "wasmtime",     # R281 Wasm-AOT pipeline (if packaged)
+]
+
+# ─── Python pip packages ───
+[pip]
+install = [
+    "huggingface_hub",   # R242 model toolchain
+    "transformers",      # HF reference runtime (E1.M14 workload-fit)
+    "vllm",              # Oracle-tier RLM serving
+    "trl",               # SFT/DPO training pipeline
+    "lm-eval",           # R232 eval harness
+    "mteb",              # embedding eval
+    "tomli",             # TOML for Python 3.10 backports
+]
+
+# ─── Node / npm global packages ───
+[npm]
+global = [
+    "@anthropic-ai/claude-code",   # operator's primary AI assistant
+]
+
+# ─── Curl-pipe-shell installs (operator-trusted only) ───
+[curl_shell]
+# Each entry: name + url + verify (sha256 | gpg | skip).
+# `verify` is operator-readable metadata for now; future round adds
+# the actual checksum/signature check before piping to bash.
+installs = [
+    # tailscale's official install script — operator-trusted but
+    # ALWAYS requires --confirm-curl-shell to actually run.
+    # { name = "tailscale", url = "https://tailscale.com/install.sh", verify = "skip" },
+    # ollama's official install script
+    # { name = "ollama", url = "https://ollama.ai/install.sh", verify = "skip" },
+]
