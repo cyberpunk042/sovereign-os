@@ -352,6 +352,9 @@ jobs:
       - name: nspawn — bootstrap verify-grid docs (Round 207: verify-grid doc renderer, SDD-028 pattern)
         run: |
           tests/nspawn/test_bootstrap_verify_grid_docs.sh
+      - name: nspawn — trinity runtime-profile docs (Round 208: SDD-028 pattern, 4th application)
+        run: |
+          tests/nspawn/test_trinity_runtime_docs.sh
       - name: nspawn — thermal-watch (Round 172: per-profile thermal thresholds + OCSF events)
         run: |
           tests/nspawn/test_thermal_watch.sh

@@ -2852,9 +2852,14 @@ cmd_trinity() {
     profile)
       _trinity_profile "$@"
       ;;
+    docs)
+      # R208: regenerate docs/src/trinity-runtime-profiles.md from
+      # profiles/runtime/*.yaml. Fourth SDD-028 application.
+      "${__REPO_ROOT}/scripts/trinity/render-runtime-profiles-md.py" "$@"
+      ;;
     *)
       log_error "unknown trinity subcommand: ${sub}"
-      log_error "  available: status | pulse | weaver | auditor | profile {list,show,active,switch}"
+      log_error "  available: status | pulse | weaver | auditor | profile {list,show,active,switch} | docs"
       return 2
       ;;
   esac
