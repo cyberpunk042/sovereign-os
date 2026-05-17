@@ -5410,6 +5410,23 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  battery-ladder)
+    # R302 (E1.M27): UPS battery escalation ladder — multi-threshold
+    # cascade beyond R293's single-profile registry: pre-alert at
+    # rem ≥ 30, warn-watch 20-30, drain-infer 10-20, drain-all 5-10,
+    # hard-shutdown < 5. Operator-named (§1b verbatim).
+    sub="${1:-list}"
+    shift || true
+    case "${sub}" in
+      list|show|simulate)
+        "${__REPO_ROOT}/scripts/power/battery-escalation-ladder.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown battery-ladder subverb: ${sub} (list, show, simulate)"
+        exit 2
+        ;;
+    esac
+    ;;
   pcie-lane-detect)
     # R301 (E1.M26): actual lspci -vv parse of per-device PCIe
     # LnkCap vs LnkSta. Complements R270 pcie-policy advisory with
