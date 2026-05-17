@@ -201,6 +201,13 @@ COMMANDS:
                                flag files ≥ threshold (default 100 MiB).
                                Operator-actionable: each flagged path
                                needs a logrotate.d entry.
+  raid status [--json]         R223 (SDD-026 Z-9): compact per-md-array
+                               view (level/state/health/members/rebuild
+                               progress). Reads /proc/mdstat.
+                               rc=1 when any array is degraded/rebuilding.
+  raid detail [<name>|--all] [--json]
+                               R223 (SDD-026 Z-9): mdadm --detail for
+                               one (or every) array. Read-only.
 
   journal list [--all-dirs]    List Layer A JSONL log files (size + first/last event)
   journal show <file> [--all-dirs]  Pretty-print one JSONL log file as a table
@@ -4423,6 +4430,13 @@ case "${cmd}" in
     sub="${1:-usage}"
     shift || true
     "${__REPO_ROOT}/scripts/hardware/fs-insights.py" "${sub}" "$@"
+    ;;
+  raid)
+    # R223 (SDD-026 Z-9): software RAID surface (read-only).
+    # status = compact per-array view; detail = mdadm --detail.
+    sub="${1:-status}"
+    shift || true
+    "${__REPO_ROOT}/scripts/hardware/raid-status.py" "${sub}" "$@"
     ;;
   version|--version|-V) cmd_version "$@" ;;
   help|--help|-h|"") cmd_help ;;
