@@ -322,7 +322,7 @@ the Epic is closed — but the operator may add new Modules to it.
 | E4.M5 | Dashboard auth + allowlist + ACL | ✓ shipped | R250 |
 | E4.M6 | Network-state-reactive grey-out of install/options when prerequisite unreachable | ✓ shipped | R274 |
 | E4.M7 | Dashboard event timeline (R246 → live tail) | ✓ shipped | R246 |
-| E4.M8 | Mobile-friendly card layout (CSS only, no JS framework) | **TODO** | — |
+| E4.M8 | Mobile-friendly card layout (CSS only, no JS framework) | ✓ shipped | R288 (responsive CSS grid + phone breakpoint + print media-query) |
 | E4.M9 | Dashboard editable forms for module configuration | **TODO** | — |
 
 ### Epic E5 — AI / LLM / Training-station

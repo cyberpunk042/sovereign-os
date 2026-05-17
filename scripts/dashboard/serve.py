@@ -1105,27 +1105,75 @@ CARDS = [
 def render_html(cards: list[dict[str, Any]]) -> str:
     parts: list[str] = []
     parts.append("<!doctype html>")
-    parts.append("<html><head><title>sovereign-os dashboard (R225)</title>")
+    parts.append("<html lang=\"en\"><head><title>sovereign-os dashboard (R225)</title>")
+    # R288 (E4.M8): mobile-friendly viewport + responsive card grid.
+    # Operator-named (§1b): "Everything via dashboard/UInterface or
+    # terminal tools OR AI" — the dashboard must work on the
+    # operator's phone as well as a 4K monitor. CSS-only, no JS
+    # framework dependency.
+    parts.append("<meta charset=\"utf-8\">")
+    parts.append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">")
     parts.append("<style>")
-    parts.append("  body{font:14px/1.4 monospace;background:#0d1117;color:#c9d1d9;padding:1em;margin:0;}")
-    parts.append("  h1{font-size:1.2em;border-bottom:1px solid #30363d;padding-bottom:.3em;}")
-    parts.append("  .card{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:1em;margin:1em 0;}")
-    parts.append("  .card h2{font-size:1em;margin:0 0 .5em 0;color:#79c0ff;}")
-    parts.append("  pre{background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:.5em;overflow:auto;white-space:pre-wrap;}")
-    parts.append("  footer{margin-top:2em;color:#8b949e;font-size:.9em;}")
-    parts.append("  .ok{color:#3fb950;} .warn{color:#d29922;} .down{color:#f85149;}")
+    parts.append("  :root{--bg:#0d1117;--fg:#c9d1d9;--card:#161b22;")
+    parts.append("        --border:#30363d;--accent:#79c0ff;--mute:#8b949e;")
+    parts.append("        --ok:#3fb950;--warn:#d29922;--down:#f85149;}")
+    parts.append("  *{box-sizing:border-box;}")
+    parts.append("  body{font:14px/1.4 monospace;background:var(--bg);color:var(--fg);")
+    parts.append("       padding:1em;margin:0;-webkit-text-size-adjust:100%;}")
+    parts.append("  h1{font-size:1.2em;border-bottom:1px solid var(--border);")
+    parts.append("     padding-bottom:.3em;margin:0 0 1em 0;word-wrap:break-word;}")
+    # Responsive grid — auto-fits cards into columns of ≥320px.
+    # On phones (<=480px) collapses to a single column.
+    parts.append("  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));")
+    parts.append("         gap:1em;align-items:start;}")
+    parts.append("  .card{background:var(--card);border:1px solid var(--border);")
+    parts.append("        border-radius:6px;padding:1em;min-width:0;}")
+    parts.append("  .card h2{font-size:1em;margin:0 0 .5em 0;color:var(--accent);")
+    parts.append("           word-wrap:break-word;}")
+    parts.append("  pre{background:var(--bg);border:1px solid var(--border);")
+    parts.append("      border-radius:4px;padding:.5em;overflow-x:auto;")
+    parts.append("      white-space:pre-wrap;word-wrap:break-word;font-size:.95em;}")
+    parts.append("  footer{margin-top:2em;color:var(--mute);font-size:.9em;")
+    parts.append("         word-wrap:break-word;}")
+    parts.append("  code{background:var(--bg);padding:.1em .3em;border-radius:3px;")
+    parts.append("       border:1px solid var(--border);word-break:break-all;}")
+    parts.append("  .ok{color:var(--ok);} .warn{color:var(--warn);} .down{color:var(--down);}")
+    # Touch-friendly tap targets on phones — bigger pre line-height,
+    # 44px minimum link tap area per the WCAG 2.5.5 / Apple HIG
+    # mobile baseline.
+    parts.append("  @media (max-width:480px){")
+    parts.append("    body{padding:.6em;font-size:14px;}")
+    parts.append("    h1{font-size:1.05em;}")
+    parts.append("    .cards{grid-template-columns:1fr;gap:.75em;}")
+    parts.append("    .card{padding:.7em;}")
+    parts.append("    pre{font-size:.85em;}")
+    parts.append("    footer a, footer code{display:inline-block;min-height:32px;")
+    parts.append("                          line-height:32px;padding:0 .4em;}")
+    parts.append("  }")
+    # Print-friendly: drop dark background so the operator can
+    # print a snapshot.
+    parts.append("  @media print{")
+    parts.append("    body{background:#fff;color:#000;}")
+    parts.append("    .card{background:#fff;border-color:#ccc;}")
+    parts.append("    pre{background:#f6f6f6;border-color:#ccc;}")
+    parts.append("    footer{color:#444;}")
+    parts.append("  }")
     parts.append("</style></head><body>")
     parts.append("<h1>sovereign-os dashboard — R225 / SDD-026 Z-1 SEED</h1>")
     parts.append(
         "<p>Every card reads the same script the operator runs via "
         "<code>sovereign-osctl</code>. Read-only; no mutations.</p>"
     )
+    # R288 (E4.M8): wrap cards in a grid container so the responsive
+    # CSS in <head> can lay them out per viewport width.
+    parts.append('<div class="cards">')
     for c in cards:
         parts.append(f'<section class="card" id="card-{html.escape(c["id"])}">')
         parts.append(f"<h2>{html.escape(c['title'])}</h2>")
         body = json.dumps(c["data"], indent=2)
         parts.append(f"<pre>{html.escape(body)}</pre>")
         parts.append("</section>")
+    parts.append('</div>')
     parts.append('<footer>')
     parts.append('  Operator note: read-only mirror of the terminal cards.')
     parts.append('  Mutations stay on the CLI (or the future MCP server SD-R84+).')
