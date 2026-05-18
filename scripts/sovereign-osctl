@@ -5969,6 +5969,24 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  model-adapt)
+    # R350 (E5.M17): task → (base, method, target GPU) recommender.
+    # Operator-named §1b verbatim: "download, fine-tune, parameters,
+    # build, run, use and train and adapt and use and eval and etc."
+    # ADAPT sits upstream of R244 fine-tune + R232 eval; consults
+    # R317 catalog GPU VRAM via R348 inventory_consult helper.
+    sub="${1:-recipes}"
+    shift || true
+    case "${sub}" in
+      tasks|recipes|recommend|show)
+        "${__REPO_ROOT}/scripts/models/adapt.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown model-adapt subverb: ${sub} (tasks, recipes, recommend, show)"
+        exit 2
+        ;;
+    esac
+    ;;
   autohealth)
     # R308 (E2.M14): doctor / autohealth periodic synthesizer.
     # Composes R226 (health-scan) + R296 (thermal-oc) + R298
