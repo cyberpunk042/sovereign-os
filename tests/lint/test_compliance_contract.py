@@ -21,6 +21,7 @@ EXPECTED_INSTRUMENTS = [
     "ux-design-audit",
     "selfdef-discovery",  # R461 cross-repo instrument
     "selfdef-surfaces",   # R463 cross-repo instrument
+    "selfdef-ux",         # R464 cross-repo instrument
 ]
 
 
@@ -49,10 +50,10 @@ def test_documents_r458_origin():
     assert "R458" in body
 
 
-def test_references_all_six_instruments():
-    """compliance.py MUST reference all 6 R-rounds it consolidates."""
+def test_references_all_seven_instruments():
+    """compliance.py MUST reference all 7 R-rounds it consolidates."""
     body = _read(CP_PY)
-    for r in ("R453", "R454", "R456", "R457", "R461", "R463"):
+    for r in ("R453", "R454", "R456", "R457", "R461", "R463", "R464"):
         assert r in body, f"missing reference to {r}"
 
 
@@ -177,11 +178,8 @@ def test_osctl_help_references_r458():
 # --- Smoke tests ---
 
 
-def test_status_verb_aggregates_six_instruments():
-    """status --json MUST return data from all 6 instruments
-    (R453 surface-map + R454 doc-coverage + R456 anti-min-audit +
-    R457 ux-design-audit + R461 selfdef-discovery + R463
-    selfdef-surfaces)."""
+def test_status_verb_aggregates_seven_instruments():
+    """status --json MUST return data from all 7 instruments."""
     result = subprocess.run(
         ["python3", str(CP_PY), "status", "--json"],
         capture_output=True, text=True, timeout=180,
@@ -192,11 +190,13 @@ def test_status_verb_aggregates_six_instruments():
     data = json.loads(result.stdout)
     for key in ("surface_map", "doc_coverage",
                 "anti_minimization_audit", "ux_design_audit",
-                "selfdef_discovery", "selfdef_surfaces"):
+                "selfdef_discovery", "selfdef_surfaces",
+                "selfdef_ux"):
         assert key in data, f"status missing {key!r}"
     for key in ("surface_map", "doc_coverage",
                 "anti_minimization_audit", "ux_design_audit",
-                "selfdef_discovery", "selfdef_surfaces"):
+                "selfdef_discovery", "selfdef_surfaces",
+                "selfdef_ux"):
         assert "available" in data[key], (
             f"{key} missing 'available' field"
         )
@@ -204,12 +204,16 @@ def test_status_verb_aggregates_six_instruments():
     for field in ("discovered_count", "errors", "collisions",
                   "manifest_dir"):
         assert field in sd, f"selfdef_discovery missing {field!r}"
-    # R463 selfdef-surfaces MUST surface count + errors +
-    # manifest_dir + total_shipped_surfaces
     ss = data["selfdef_surfaces"]
     for field in ("discovered_count", "errors", "manifest_dir",
                   "total_shipped_surfaces"):
         assert field in ss, f"selfdef_surfaces missing {field!r}"
+    # R464 selfdef-ux MUST surface count + errors + manifest_dir +
+    # total_pass + total_fail
+    sux = data["selfdef_ux"]
+    for field in ("discovered_count", "errors", "manifest_dir",
+                  "total_pass", "total_fail"):
+        assert field in sux, f"selfdef_ux missing {field!r}"
 
 
 def test_worst_verb_runs():

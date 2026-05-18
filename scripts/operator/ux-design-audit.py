@@ -86,6 +86,16 @@ ACTION_BUDGET = int(
     os.environ.get("SOVEREIGN_OS_UX_ACTION_BUDGET", "3")
 )
 
+# R464 cross-repo: selfdef UxChecklist TOMLs live here. Each selfdef
+# module ships one declaring its 6-dimension UX-pass standing
+# (SD-R-UX-CHECKLIST-1, crate `selfdef-ux-checklist`).
+SELFDEF_UX_DIR = Path(
+    os.environ.get(
+        "SOVEREIGN_OS_SELFDEF_UX_DIR",
+        "/etc/selfdef/ux-checklists",
+    )
+)
+
 # HELP sovereign_os_operator_ux_design_audit_query_total ux-design-audit
 # operator-verb call count (verb, dimension, result).
 # TYPE sovereign_os_operator_ux_design_audit_query_total counter
@@ -487,6 +497,116 @@ def cmd_report(args) -> int:
     return 2 if rows else 0
 
 
+# --- R464 cross-repo selfdef UxChecklist discovery ---
+
+
+def load_selfdef_ux_checklists() -> tuple[list[dict], list[dict]]:
+    """Read every .toml under SELFDEF_UX_DIR.
+
+    Returns (valid, errors). Each valid entry: module + label +
+    dimensions[] + pass_count + fail_count + na_count +
+    source_repo='selfdef' + manifest_path.
+
+    Cross-repo binding: SD-R-UX-CHECKLIST-1 (selfdef crate
+    `selfdef-ux-checklist`).
+    """
+    valid: list[dict] = []
+    errors: list[dict] = []
+    if not SELFDEF_UX_DIR.is_dir():
+        return valid, errors
+    try:
+        import tomllib
+    except ImportError:
+        try:
+            import tomli as tomllib  # type: ignore[import-not-found]
+        except ImportError:
+            errors.append({
+                "path": str(SELFDEF_UX_DIR),
+                "error": "no TOML library available",
+            })
+            return valid, errors
+    valid_dims = {d["id"] for d in DIMENSIONS}
+    for p in sorted(SELFDEF_UX_DIR.glob("*.toml")):
+        try:
+            data = tomllib.loads(p.read_text(encoding="utf-8"))
+        except (OSError, Exception) as e:  # noqa: BLE001
+            errors.append({"path": str(p), "error": f"parse: {e}"})
+            continue
+        if data.get("schema_version") != 1:
+            errors.append({
+                "path": str(p),
+                "error": "unsupported schema_version",
+            })
+            continue
+        mod = data.get("module") or {}
+        dims_in = data.get("dimensions") or []
+        if not mod.get("id") or not dims_in:
+            errors.append({
+                "path": str(p),
+                "error": "missing module.id or dimensions[]",
+            })
+            continue
+        dims_out = []
+        shape_err = None
+        for d in dims_in:
+            did = d.get("id")
+            state = d.get("state")
+            if did not in valid_dims:
+                shape_err = f"unknown dimension {did!r}"
+                break
+            if state not in ("pass", "fail", "n-a"):
+                shape_err = f"unknown state {state!r}"
+                break
+            dims_out.append({
+                "id": did,
+                "state": state,
+                "reason": d.get("reason"),
+            })
+        if shape_err:
+            errors.append({"path": str(p), "error": shape_err})
+            continue
+        valid.append({
+            "module": str(mod["id"]),
+            "label": str(mod.get("label", mod["id"])),
+            "dimensions": dims_out,
+            "pass_count": sum(1 for d in dims_out
+                              if d["state"] == "pass"),
+            "fail_count": sum(1 for d in dims_out
+                              if d["state"] == "fail"),
+            "na_count": sum(1 for d in dims_out
+                            if d["state"] == "n-a"),
+            "source_repo": "selfdef",
+            "manifest_path": str(p),
+        })
+    return valid, errors
+
+
+def cmd_selfdef(args) -> int:
+    """Scan SELFDEF_UX_DIR for cross-repo UxChecklists."""
+    valid, errors = load_selfdef_ux_checklists()
+    out = {
+        "manifest_dir": str(SELFDEF_UX_DIR),
+        "discovered": valid,
+        "errors": errors,
+        "count": len(valid),
+    }
+    if args.fmt == "json":
+        print(json.dumps(out, indent=2))
+    else:
+        print(f"── ux-design-audit.selfdef "
+              f"({len(valid)} selfdef UxChecklist{'s' if len(valid)!=1 else ''} "
+              f"under {SELFDEF_UX_DIR}) ──")
+        for m in valid:
+            print(f"  ✓ {m['module']:25s} "
+                  f"pass={m['pass_count']}/6 "
+                  f"fail={m['fail_count']} na={m['na_count']}  "
+                  f"({m['label']})")
+        for e in errors:
+            print(f"  ✗ {e['path']}  {e['error']}")
+    _emit_metric("selfdef", "any", "ok" if not errors else "issues")
+    return 0
+
+
 # --- Argparse ---
 
 
@@ -528,6 +648,13 @@ def main(argv: list[str] | None = None) -> int:
                       help=f"min passes (default {DEFAULT_THRESHOLD})")
     _add_fmt(sp_r)
 
+    sp_sd = sub.add_parser(
+        "selfdef",
+        help=("R464 cross-repo: scan SELFDEF_UX_DIR for selfdef-side "
+              "UxChecklists (SD-R-UX-CHECKLIST-1)"),
+    )
+    _add_fmt(sp_sd)
+
     args = p.parse_args(argv)
     return {
         "dimensions": cmd_dimensions,
@@ -535,6 +662,7 @@ def main(argv: list[str] | None = None) -> int:
         "audit": cmd_audit,
         "score": cmd_score,
         "report": cmd_report,
+        "selfdef": cmd_selfdef,
     }[args.cmd](args)
 
 

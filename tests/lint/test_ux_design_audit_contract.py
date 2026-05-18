@@ -290,6 +290,56 @@ def test_report_low_threshold_clean():
     assert data["count"] == 0
 
 
+def test_supports_selfdef_verb():
+    """R464: cross-repo selfdef UxChecklist discovery verb."""
+    body = _read(UX_PY)
+    assert '"selfdef"' in body
+    assert "SD-R-UX-CHECKLIST-1" in body
+
+
+def test_selfdef_ux_dir_env_overridable():
+    body = _read(UX_PY)
+    assert "SOVEREIGN_OS_SELFDEF_UX_DIR" in body
+
+
+def test_selfdef_default_ux_dir():
+    body = _read(UX_PY)
+    assert "/etc/selfdef/ux-checklists" in body
+
+
+def test_selfdef_verb_smoke():
+    """R464: end-to-end with a real selfdef UxChecklist fixture."""
+    import subprocess as _sp
+    import tempfile as _tf
+    with _tf.TemporaryDirectory() as td:
+        Path(td, "agent-guard.toml").write_text(
+            'schema_version = 1\n\n'
+            '[module]\nid = "agent-guard"\nlabel = "Agent Guard"\n\n'
+            '[[dimensions]]\nid = "action-budget"\nstate = "pass"\n\n'
+            '[[dimensions]]\nid = "discoverable"\nstate = "pass"\n\n'
+            '[[dimensions]]\nid = "recoverable"\n'
+            'state = "n-a"\nreason = "read-only"\n\n'
+            '[[dimensions]]\nid = "next-step"\nstate = "pass"\n\n'
+            '[[dimensions]]\nid = "operator-named"\nstate = "pass"\n\n'
+            '[[dimensions]]\nid = "readable-30s"\nstate = "pass"\n'
+        )
+        result = _sp.run(
+            ["python3", str(UX_PY), "selfdef", "--json"],
+            capture_output=True, text=True, timeout=10,
+            env={**os.environ,
+                 "SOVEREIGN_OS_SELFDEF_UX_DIR": td},
+        )
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        assert data["count"] == 1
+        m = data["discovered"][0]
+        assert m["module"] == "agent-guard"
+        assert m["pass_count"] == 5
+        assert m["na_count"] == 1
+        assert m["fail_count"] == 0
+        assert m["source_repo"] == "selfdef"
+
+
 def test_report_high_threshold_exits_2():
     """All modules below threshold=7 (impossible — 6 dimensions max)."""
     result = subprocess.run(

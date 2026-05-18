@@ -104,6 +104,11 @@ INSTRUMENTS = [
     # surface-map selfdef verb).
     {"id": "selfdef-surfaces", "round": "R463",
      "script": "surface-map.py", "gap_verb": "selfdef"},
+    # R464 — cross-repo: selfdef-side UxChecklist discovery
+    # (consumes SD-R-UX-CHECKLIST-1 TOML output via R464
+    # ux-design-audit selfdef verb).
+    {"id": "selfdef-ux", "round": "R464",
+     "script": "ux-design-audit.py", "gap_verb": "selfdef"},
 ]
 INSTRUMENT_IDS = [i["id"] for i in INSTRUMENTS]
 
@@ -169,6 +174,10 @@ def collect_status() -> dict:
     # SurfaceManifest TOMLs. Same availability-only semantics.
     selfdef_surf = _run_json(str(OP_DIR / "surface-map.py"),
                              "selfdef", "--json", timeout=15)
+    # R464 cross-repo: ux-design-audit selfdef verb scans selfdef-side
+    # UxChecklist TOMLs.
+    selfdef_ux = _run_json(str(OP_DIR / "ux-design-audit.py"),
+                           "selfdef", "--json", timeout=15)
 
     return {
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -218,6 +227,20 @@ def collect_status() -> dict:
             "total_shipped_surfaces": sum(
                 m.get("shipped_count", 0)
                 for m in (selfdef_surf or {}).get("discovered", [])
+            ),
+        },
+        "selfdef_ux": {
+            "available": selfdef_ux is not None,
+            "discovered_count": (selfdef_ux or {}).get("count", 0),
+            "errors": (selfdef_ux or {}).get("errors", []),
+            "manifest_dir": (selfdef_ux or {}).get("manifest_dir", ""),
+            "total_pass": sum(
+                m.get("pass_count", 0)
+                for m in (selfdef_ux or {}).get("discovered", [])
+            ),
+            "total_fail": sum(
+                m.get("fail_count", 0)
+                for m in (selfdef_ux or {}).get("discovered", [])
             ),
         },
     }
@@ -326,6 +349,16 @@ def cmd_status(args) -> int:
               f"(total_shipped_surfaces="
               f"{ss['total_shipped_surfaces']}, "
               f"errors={len(ss['errors'])})")
+        sux = status["selfdef_ux"]
+        sux_mark = "✓" if sux["available"] and not sux["errors"] else (
+            "⚠" if sux["errors"] else "✗"
+        )
+        print(f"  selfdef-ux        (R464)  {sux_mark} "
+              f"{sux['discovered_count']} selfdef UxChecklist(s) under "
+              f"{sux['manifest_dir']} "
+              f"(total_pass={sux['total_pass']}, "
+              f"total_fail={sux['total_fail']}, "
+              f"errors={len(sux['errors'])})")
     _emit_metric("status", "all", "ok")
     return 0
 

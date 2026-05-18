@@ -247,6 +247,10 @@ COMMANDS:
   ux-design-audit report       Modules below UX threshold (default 4
         [--threshold N]        of 6; SOVEREIGN_OS_UX_THRESHOLD env-
         [--json]                override). Exit 2 on below.
+  ux-design-audit selfdef      R464 cross-repo: scan /etc/selfdef/
+                               [--json]                     ux-checklists/*.toml for selfdef-side
+                                                            UxChecklists (selfdef crate
+                                                            SD-R-UX-CHECKLIST-1).
 
   anti-minimization-audit patterns     R456 (E11.M11): operator §1g standing
                                [--json]                     rule "do not minimize or settle for less".
