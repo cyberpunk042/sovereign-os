@@ -637,6 +637,43 @@ COMMANDS:
   version [--json]             sovereign-osctl + sovereign-os version info (--json for fleet tooling)
   help                         This help
 
+R355-R382 /goal contract enforcement (operator-pull discovery surface):
+  architecture-qa [sub]        R355+ verbatim catalog (27 concepts +
+                               4 Q&A + 3 gotchas from §13/§14/§15-16/
+                               §19/§17.1/§20/§21/§5/§9/§18/§4/§3 +
+                               §1/§3.2/§23/§2/§6 + dump-tail + macro-
+                               arc plan). Subs: questions, gotchas,
+                               concepts, show <id>, search <text>.
+  ccd-pinning [sub]            R356 (§19.2): operator-verbatim CCD
+                               topology + live PID drift check.
+                               Subs: show, verify, recommend.
+  state-fabric [sub]           R358 (§7.1+§7.2): file-state matrix +
+                               ZFS sync=always/primarycache=all/
+                               logbias=latency. Subs: layout, verify,
+                               scaffold.
+  network-topology [sub]       R359 (§8+§8.1): operator-verbatim ASCII
+                               diagram + 2-NIC asymmetric layout +
+                               MTU/VLAN drift check. Subs: show,
+                               verify, scaffold.
+  coverage [sub]               R365: 32 operator-stated demand axes
+                               mapped to implementing verbs. Subs:
+                               axes, show, audit, search.
+  repl [sub]                   R366: 4-level (Python/System/GPU/LLM)
+                               operator-pull REPL. Subs: modes, show,
+                               exec, shell.
+  verbatim-render [sub]        R369: consolidated render of all 9
+                               verbatim catalogs (82 items). Subs:
+                               render, summary, manifest.
+  doctrine-status [sub]        R376: SDD-037 8-lint family health at
+                               a glance. Subs: status, tally, run.
+  quarterly-review [sub]       R377: composed coverage + doctrine +
+                               verbatim + mandate audit. Subs:
+                               snapshot, grade, recent.
+  layers [sub]                 R382: operator-verbatim 11-layer
+                               'guide into' enumeration (typo
+                               'experiece' preserved per SDD-037).
+                               Subs: list, show, search.
+
 ENV VARS (override defaults):
   SOVEREIGN_OS_PROFILE         active profile (default: read from /etc/sovereign-os/active-profile)
   SOVEREIGN_OS_LOG_LEVEL       debug|info|warn|error
@@ -648,6 +685,9 @@ EXAMPLES:
   sudo sovereign-osctl whitelabel apply default
   sudo sovereign-osctl models pull microsoft/bitnet-b1.58-2B-4T
   sudo sovereign-osctl audit friction
+  sudo sovereign-osctl architecture-qa concepts --human
+  sudo sovereign-osctl coverage audit --human
+  sudo sovereign-osctl quarterly-review snapshot --human
 EOF
 }
 
