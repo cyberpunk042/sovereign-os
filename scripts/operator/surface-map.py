@@ -165,11 +165,9 @@ MODULE_COVERAGE = {
         },
     },
     "global-history": {
-        "shipped_in": "R448 (E11.M5) + R481 (E11.M5+ tui surface) + R487 (E11.M5+ Grafana dashboard) + R510 (E11.M5++ read-only REST API + systemd service) + R511 (E11.M5++ MCP surface)",
-        "surfaces": ["core", "cli", "tui", "dashboard", "api", "service", "mcp"],
-        "waivers": {
-            "webapp":    "FUTURE — master-dashboard /history subpath",
-        },
+        "shipped_in": "R448 (E11.M5) + R481 (E11.M5+ tui surface) + R487 (E11.M5+ Grafana dashboard) + R510 (E11.M5++ read-only REST API + systemd service) + R511 (E11.M5++ MCP surface) + R512 (E11.M5++ webapp surface)",
+        "surfaces": ["core", "cli", "tui", "dashboard", "api", "service", "mcp", "webapp"],
+        "waivers": {},
     },
     "bashrc": {
         "shipped_in": "R447 (E11.M6)",

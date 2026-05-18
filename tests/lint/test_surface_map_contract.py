@@ -418,28 +418,31 @@ def test_coverage_reports_at_structural_ceiling_flag():
     assert rec.get("at_structural_ceiling") is True, (
         f"R478: bashrc must be at_structural_ceiling=True, got {rec!r}"
     )
-    # global-history has 3 FUTURE waivers (api/mcp/webapp) plus a
-    # durable not-applicable service waiver — NOT at ceiling.
-    # (auth-tier reached structural ceiling in R503; edge-firewall
-    # reached it in R506 with ZERO remaining waivers — the first §1g-
-    # named module to hit a fully-shipped 8-surface state; network-edge
-    # reached it in R509 with ZERO remaining waivers — the second.
-    # The R478 fixture rotates to global-history, which still carries
-    # the FUTURE-roadmap surface gap and is the next module on the
-    # tier-3 expansion arc.)
+    # The R478 fixture rotates as §1g modules drain their FUTURE
+    # waivers. Prior fixtures (and their close-out rounds):
+    #   - auth-tier        — reached ceiling in R503
+    #   - edge-firewall    — reached ceiling in R506 (first §1g-named
+    #                        module to hit a fully-shipped 8-surface
+    #                        state with ZERO remaining waivers)
+    #   - network-edge     — reached ceiling in R509 (second)
+    #   - global-history   — reached ceiling in R512 (third — closed
+    #                        the api/mcp/webapp trio across R510-R512)
+    # The fixture now rotates to `trinity`, which carries 3 FUTURE
+    # waivers (tui/mcp/webapp) and is the next module on the tier-3
+    # expansion arc.
     result2 = subprocess.run(
-        ["python3", str(SM_PY), "coverage", "--module", "global-history",
+        ["python3", str(SM_PY), "coverage", "--module", "trinity",
          "--json"],
         capture_output=True, text=True, timeout=10,
     )
     data2 = json.loads(result2.stdout)
     rec2 = data2["coverage"][0] if "coverage" in data2 else data2
     assert rec2.get("at_structural_ceiling") is False, (
-        f"R478: global-history must be at_structural_ceiling=False, "
+        f"R478: trinity must be at_structural_ceiling=False, "
         f"got {rec2!r}"
     )
     assert rec2.get("future_waiver_count", 0) >= 1, (
-        f"R478 fixture: global-history must carry FUTURE waivers; "
+        f"R478 fixture: trinity must carry FUTURE waivers; "
         f"got {rec2!r}"
     )
 

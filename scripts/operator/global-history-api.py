@@ -2,6 +2,9 @@
 """
 scripts/operator/global-history-api.py — Read-only HTTP API for the
 global-history multi-source event surface (R510, E11.M5++).
+R512 (E11.M5++) extends this daemon with the `/webapp/` surface — a
+single-file monochrome SPA served from the SAME host:port as the JSON
+endpoints (operator-§1g: same-origin, zero CORS, zero external deps).
 
 Per operator §1g verbatim (sacrosanct):
 
@@ -42,6 +45,9 @@ Read-only endpoints (R510 v1):
                                      `global-history summary`)
   GET /delta?since=ISO[&source=]   — events since timestamp (mirrors
                                      `global-history delta`)
+  GET /webapp/                     — R512 single-file monochrome SPA
+                                     mirroring the read-only verbs
+                                     (operator-§1g: zero external deps)
   GET /healthz                     — API daemon liveness (always 200)
 
 Layer-B metric (sister to the CLI's `_query_total{verb,source,result}`):
@@ -51,6 +57,7 @@ Layer-B metric (sister to the CLI's `_query_total{verb,source,result}`):
 Env vars (all overridable):
   GLOBAL_HISTORY_API_BIND        (default: 127.0.0.1)
   GLOBAL_HISTORY_API_PORT        (default: 8094)
+  GLOBAL_HISTORY_WEBAPP_PATH     (default: <repo>/webapp/global-history/index.html)
   SOVEREIGN_OS_METRICS_DIR       (default: /var/lib/node_exporter/textfile_collector)
   GLOBAL_HISTORY_API_DRY_RUN     (default: unset; set to 1 = print and exit)
 """
@@ -79,7 +86,13 @@ METRICS_DIR = os.environ.get(
 # TYPE sovereign_os_operator_global_history_api_request_total counter
 METRIC_NAME = "sovereign_os_operator_global_history_api_request_total"
 
-API_VERSION = "1.0.0-R510"
+API_VERSION = "1.1.0-R512"
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_WEBAPP_DEFAULT = _REPO_ROOT / "webapp" / "global-history" / "index.html"
+WEBAPP_PATH = Path(os.environ.get(
+    "GLOBAL_HISTORY_WEBAPP_PATH", str(_WEBAPP_DEFAULT)
+))
 
 # global-history CLI module — import directly so the API serves from
 # the SAME data model the operator-facing CLI uses (no drift).
@@ -202,11 +215,15 @@ def _version_payload() -> dict:
         "version": API_VERSION,
         "shipped_in": (
             "R510 (E11.M5++ read-only REST API + systemd service)"
+            " + R511 (E11.M5++ MCP surface)"
+            " + R512 (E11.M5++ webapp surface)"
         ),
         "source": "scripts/operator/global-history-api.py",
         "data_source": str(_GH_PATH),
+        "webapp_path": str(WEBAPP_PATH),
         "surfaces": [
-            "core", "cli", "tui", "dashboard", "api", "service",
+            "core", "cli", "tui", "dashboard",
+            "api", "service", "mcp", "webapp",
         ],
         "known_sources": list(_gh.KNOWN_SOURCES),
         "standing_rule": "We do not minimize anything.",
@@ -232,6 +249,31 @@ class GlobalHistoryAPIHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _send_webapp(self) -> None:
+        """Serve the R512 single-file SPA from the SAME host:port as
+        the JSON endpoints (operator-§1g: same-origin, zero CORS).
+        Headers carry the webapp module identity + framing/MIME hardening
+        (X-Frame-Options=DENY, X-Content-Type-Options=nosniff)."""
+        try:
+            body = WEBAPP_PATH.read_bytes()
+        except OSError as e:
+            self._send_json(500, {
+                "error": f"webapp asset unreadable: {e}",
+                "webapp_path": str(WEBAPP_PATH),
+            })
+            _emit_metric("webapp", "500")
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("X-Sovereign-Module", "global-history-webapp")
+        self.send_header("X-Sovereign-Version", API_VERSION)
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+        self.wfile.write(body)
+        _emit_metric("webapp", "ok")
+
     def do_GET(self) -> None:  # noqa: N802
         parsed = urllib.parse.urlsplit(self.path)
         path = parsed.path.rstrip("/") or "/"
@@ -240,6 +282,10 @@ class GlobalHistoryAPIHandler(BaseHTTPRequestHandler):
         if path == "/healthz" or path == "/":
             self._send_json(200, {"status": "ok", "version": API_VERSION})
             _emit_metric("healthz" if path == "/healthz" else "root", "ok")
+            return
+
+        if path in ("/webapp", "/webapp/index.html"):
+            self._send_webapp()
             return
 
         try:
@@ -306,7 +352,7 @@ class GlobalHistoryAPIHandler(BaseHTTPRequestHandler):
         self._send_json(404, {
             "error": f"unknown endpoint: {path!r}",
             "available": ["/version", "/sources", "/recent", "/summary",
-                          "/delta", "/healthz"],
+                          "/delta", "/webapp/", "/healthz"],
         })
         _emit_metric(
             path.lstrip("/").replace("-", "_").replace("/", "_")
@@ -342,7 +388,8 @@ def serve(bind: str = API_BIND, port: int = API_PORT) -> int:
     )
     print(f"  data source: {_GH_PATH}", flush=True)
     print(f"  endpoints:   /version /sources /recent /summary /delta "
-          f"+ /healthz", flush=True)
+          f"/webapp/ + /healthz", flush=True)
+    print(f"  webapp:      {WEBAPP_PATH}", flush=True)
     if bind != "127.0.0.1":
         print(
             f"  WARNING: bind={bind!r} is NOT loopback — operator "
