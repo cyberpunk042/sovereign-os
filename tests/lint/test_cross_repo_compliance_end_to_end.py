@@ -1,19 +1,20 @@
 """R469 — End-to-end meta-test for the full sovereign-os ↔ selfdef
 cross-repo arc.
 
-Synthesizes a complete operator deployment fixture (all 5 selfdef
-TOML manifests + 1 modules.jsonl event stream) and runs
+Synthesizes a complete operator deployment fixture (all 6 selfdef
+TOML manifest classes + 1 modules.jsonl event stream) and runs
 `sovereign-osctl compliance status --json` against it. Asserts the
-aggregator reports correct data from EACH of the 5 cross-repo
+aggregator reports correct data from EACH of the 6 cross-repo
 instruments simultaneously.
 
-The 5 binding paths exercised here:
+The 6 binding paths exercised here:
 
   R460 master-dashboard.discover   ← SD-R-DASHBOARD-MANIFEST-1 TOMLs
   R462 surface-map selfdef         ← SD-R-MULTI-SURFACE-AUDIT-1 TOMLs
   R464 ux-design-audit selfdef     ← SD-R-UX-CHECKLIST-1 TOMLs
   R465 global-history (modules)    ← SD-R-EVENT-LOG-1 JSONL stream
   R466 anti-min-audit selfdef      ← SD-R-AUDIT-1 TOMLs
+  R471 doc-coverage selfdef        ← SD-R-DOC-MANIFEST-1 TOMLs
 
 R468 bashrc-install combo is operator-runtime (interactive) and not
 exercised here; the per-verb lint suite covers it.
@@ -188,11 +189,43 @@ note    = "two operator-named uses in policy docs"
         encoding="utf-8",
     )
 
+    # 6. Doc manifest (R471 / SD-R-DOC-MANIFEST-1)
+    doc_dir = root / "doc-manifests"
+    _write(
+        doc_dir / "agent-guard.toml",
+        '''schema_version = 1
+
+[module]
+id    = "agent-guard"
+label = "Agent Guard"
+
+[[docs]]
+kind  = "readme"
+state = "shipped"
+path  = "modules/agent-guard/README.md"
+
+[[docs]]
+kind  = "sdd"
+state = "shipped"
+path  = "docs/sdd/004-security-threat-model.md"
+
+[[docs]]
+kind   = "metric-inventory"
+state  = "waived"
+reason = "metrics shipped via /metrics endpoint"
+
+[[docs]]
+kind  = "man-page"
+state = "planned"
+''',
+    )
+
     return {
         "SOVEREIGN_OS_SELFDEF_MANIFEST_DIR": str(dashboards_dir),
         "SOVEREIGN_OS_SELFDEF_SURFACE_DIR": str(surfaces_dir),
         "SOVEREIGN_OS_SELFDEF_UX_DIR": str(ux_dir),
         "SOVEREIGN_OS_SELFDEF_AUDIT_DIR": str(audit_dir),
+        "SOVEREIGN_OS_SELFDEF_DOC_DIR": str(doc_dir),
         "SOVEREIGN_OS_MODULES_LOG": str(events_log),
     }
 
@@ -251,6 +284,15 @@ def test_full_cross_repo_arc_end_to_end(tmp_path):
     # agent-guard fixture has 0 + 0 + 2 = 2 findings
     assert sa["total_findings"] == 2
     assert sa["errors"] == []
+
+    # ---- R471 doc-coverage selfdef (SD-R-DOC-MANIFEST-1) ----
+    sdoc = data["selfdef_doc"]
+    assert sdoc["available"] is True
+    assert sdoc["discovered_count"] == 1
+    # agent-guard fixture: 2 shipped + 1 waived + 1 planned
+    assert sdoc["total_shipped_docs"] == 2
+    assert sdoc["total_planned_docs"] == 1
+    assert sdoc["errors"] == []
 
     # ---- R465 global-history modules reader ----
     # global-history doesn't appear in compliance directly; verify
@@ -356,6 +398,7 @@ def test_synthesized_fixture_lints_clean_via_each_consumer(tmp_path):
         ("surface-map.py", "selfdef"),
         ("ux-design-audit.py", "selfdef"),
         ("anti-minimization-audit.py", "selfdef"),
+        ("doc-coverage.py", "selfdef"),
     ]
     for script, verb in verbs:
         r = subprocess.run(

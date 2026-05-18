@@ -159,7 +159,14 @@ def _run_json(*args: str, timeout: int = 30) -> dict | None:
 
 
 def collect_status() -> dict:
-    """Aggregate gap state from all 5 instruments. Read-only."""
+    """Aggregate gap state from all 9 instruments. Read-only.
+
+    4 sovereign-os internal (surface-map / doc-coverage / anti-min /
+    ux-design-audit) + 5 cross-repo selfdef discovery axes
+    (master-dashboard.discover / surface-map.selfdef /
+    ux-design-audit.selfdef / anti-minimization-audit.selfdef /
+    doc-coverage.selfdef — last one added R471 SD-R-DOC-MANIFEST-1).
+    """
     surface = _run_json(str(OP_DIR / "surface-map.py"), "gaps",
                         "--json", timeout=15)
     doc = _run_json(str(OP_DIR / "doc-coverage.py"), "gaps",
@@ -189,6 +196,10 @@ def collect_status() -> dict:
         str(OP_DIR / "anti-minimization-audit.py"),
         "selfdef", "--json", timeout=15,
     )
+    # R471 cross-repo: doc-coverage selfdef verb scans selfdef-side
+    # DocManifest TOMLs (SD-R-DOC-MANIFEST-1).
+    selfdef_doc = _run_json(str(OP_DIR / "doc-coverage.py"),
+                            "selfdef", "--json", timeout=15)
 
     return {
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -264,6 +275,22 @@ def collect_status() -> dict:
             "total_findings": sum(
                 m.get("total_findings", 0)
                 for m in (selfdef_audit or {}).get("discovered", [])
+            ),
+        },
+        "selfdef_doc": {
+            "available": selfdef_doc is not None,
+            "discovered_count": (selfdef_doc or {}).get("count", 0),
+            "errors": (selfdef_doc or {}).get("errors", []),
+            "manifest_dir": (selfdef_doc or {}).get(
+                "manifest_dir", ""
+            ),
+            "total_shipped_docs": sum(
+                m.get("shipped_count", 0)
+                for m in (selfdef_doc or {}).get("discovered", [])
+            ),
+            "total_planned_docs": sum(
+                m.get("planned_count", 0)
+                for m in (selfdef_doc or {}).get("discovered", [])
             ),
         },
     }
@@ -391,6 +418,16 @@ def cmd_status(args) -> int:
               f"{sa['manifest_dir']} "
               f"(total_findings={sa['total_findings']}, "
               f"errors={len(sa['errors'])})")
+        sdoc = status["selfdef_doc"]
+        sdoc_mark = "✓" if sdoc["available"] and not sdoc["errors"] else (
+            "⚠" if sdoc["errors"] else "✗"
+        )
+        print(f"  selfdef-doc       (R471)  {sdoc_mark} "
+              f"{sdoc['discovered_count']} selfdef DocManifest(s) under "
+              f"{sdoc['manifest_dir']} "
+              f"(total_shipped={sdoc['total_shipped_docs']}, "
+              f"planned={sdoc['total_planned_docs']}, "
+              f"errors={len(sdoc['errors'])})")
     _emit_metric("status", "all", "ok")
     return 0
 

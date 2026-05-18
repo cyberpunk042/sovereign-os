@@ -65,6 +65,15 @@ DRY_RUN = (
     os.environ.get("SOVEREIGN_OS_DRY_RUN") == "1"
     or os.environ.get("SOVEREIGN_OS_DOC_COVERAGE_DRY_RUN") == "1"
 )
+# R471 cross-repo: selfdef DocManifest TOMLs live here. Each selfdef
+# module ships one declaring its per-kind doc-coverage standing
+# (SD-R-DOC-MANIFEST-1, crate `selfdef-doc-manifest`).
+SELFDEF_DOC_DIR = Path(
+    os.environ.get(
+        "SOVEREIGN_OS_SELFDEF_DOC_DIR",
+        "/etc/selfdef/doc-manifests",
+    )
+)
 METRICS_DIR = Path(
     os.environ.get(
         "SOVEREIGN_OS_TEXTFILE_DIR",
@@ -390,6 +399,128 @@ def cmd_gaps(args) -> int:
     return 2 if below else 0
 
 
+# --- R471 cross-repo selfdef DocManifest discovery ---
+
+
+def load_selfdef_doc_manifests() -> tuple[list[dict], list[dict]]:
+    """Read every .toml under SELFDEF_DOC_DIR.
+
+    Cross-repo binding: SD-R-DOC-MANIFEST-1 (selfdef crate
+    `selfdef-doc-manifest`).
+
+    Returns (valid, errors). Each valid entry has:
+      module, label, docs (list of {kind, state, path?, reason?}),
+      shipped_count, waived_count, planned_count,
+      source_repo='selfdef', manifest_path.
+    """
+    valid: list[dict] = []
+    errors: list[dict] = []
+    if not SELFDEF_DOC_DIR.is_dir():
+        return valid, errors
+    try:
+        import tomllib
+    except ImportError:
+        try:
+            import tomli as tomllib  # type: ignore[import-not-found]
+        except ImportError:
+            errors.append({
+                "path": str(SELFDEF_DOC_DIR),
+                "error": "no TOML library available",
+            })
+            return valid, errors
+    valid_kinds = set(DOC_KIND_IDS)
+    for p in sorted(SELFDEF_DOC_DIR.glob("*.toml")):
+        try:
+            data = tomllib.loads(p.read_text(encoding="utf-8"))
+        except (OSError, Exception) as e:  # noqa: BLE001
+            errors.append({"path": str(p), "error": f"parse: {e}"})
+            continue
+        if data.get("schema_version") != 1:
+            errors.append({
+                "path": str(p),
+                "error": "unsupported schema_version",
+            })
+            continue
+        mod = data.get("module") or {}
+        docs_in = data.get("docs") or []
+        if not mod.get("id") or not docs_in:
+            errors.append({
+                "path": str(p),
+                "error": "missing module.id or docs[]",
+            })
+            continue
+        docs_out = []
+        bad = None
+        for d in docs_in:
+            kind = d.get("kind")
+            state = d.get("state")
+            if kind not in valid_kinds:
+                bad = f"unknown kind {kind!r}"
+                break
+            if state not in ("shipped", "waived", "planned"):
+                bad = f"unknown state {state!r}"
+                break
+            # Defense-in-depth: re-enforce selfdef-side rules
+            if state == "shipped" and not d.get("path"):
+                bad = f"kind {kind!r} state=shipped without path"
+                break
+            if state == "waived" and not d.get("reason"):
+                bad = f"kind {kind!r} state=waived without reason"
+                break
+            docs_out.append({
+                "kind": kind,
+                "state": state,
+                "path": d.get("path"),
+                "reason": d.get("reason"),
+            })
+        if bad:
+            errors.append({"path": str(p), "error": bad})
+            continue
+        valid.append({
+            "module": str(mod["id"]),
+            "label": str(mod.get("label", mod["id"])),
+            "docs": docs_out,
+            "shipped_count": sum(
+                1 for d in docs_out if d["state"] == "shipped"
+            ),
+            "waived_count": sum(
+                1 for d in docs_out if d["state"] == "waived"
+            ),
+            "planned_count": sum(
+                1 for d in docs_out if d["state"] == "planned"
+            ),
+            "source_repo": "selfdef",
+            "manifest_path": str(p),
+        })
+    return valid, errors
+
+
+def cmd_selfdef(args) -> int:
+    """Scan SELFDEF_DOC_DIR for cross-repo DocManifests."""
+    valid, errors = load_selfdef_doc_manifests()
+    out = {
+        "manifest_dir": str(SELFDEF_DOC_DIR),
+        "discovered": valid,
+        "errors": errors,
+        "count": len(valid),
+    }
+    if args.fmt == "json":
+        print(json.dumps(out, indent=2))
+    else:
+        print(f"── doc-coverage.selfdef "
+              f"({len(valid)} selfdef DocManifest{'s' if len(valid)!=1 else ''} "
+              f"under {SELFDEF_DOC_DIR}) ──")
+        for m in valid:
+            print(f"  ✓ {m['module']:25s} "
+                  f"shipped={m['shipped_count']}/6 "
+                  f"waived={m['waived_count']} "
+                  f"planned={m['planned_count']}  ({m['label']})")
+        for e in errors:
+            print(f"  ✗ {e['path']}  {e['error']}")
+    _emit_metric("selfdef", "any", "ok" if not errors else "issues")
+    return 0
+
+
 # --- Argparse ---
 
 
@@ -437,6 +568,11 @@ def main(argv: list[str] | None = None) -> int:
                       help=f"min doc kinds (default {DEFAULT_THRESHOLD})")
     _add_fmt(sp_g)
 
+    sp_sd = sub.add_parser("selfdef",
+                           help="discover selfdef DocManifest TOMLs "
+                                "(SD-R-DOC-MANIFEST-1 cross-repo)")
+    _add_fmt(sp_sd)
+
     args = p.parse_args(argv)
     return {
         "kinds": cmd_kinds,
@@ -444,6 +580,7 @@ def main(argv: list[str] | None = None) -> int:
         "scan": cmd_scan,
         "coverage": cmd_coverage,
         "gaps": cmd_gaps,
+        "selfdef": cmd_selfdef,
     }[args.cmd](args)
 
 

@@ -145,6 +145,97 @@ def test_supports_gaps_verb():
     assert '"gaps"' in body
 
 
+def test_supports_selfdef_verb():
+    """R471: cross-repo selfdef DocManifest discovery
+    (SD-R-DOC-MANIFEST-1)."""
+    body = _read(DC_PY)
+    assert '"selfdef"' in body, "missing selfdef verb"
+    assert "SD-R-DOC-MANIFEST-1" in body, (
+        "selfdef verb missing cross-repo binding ID"
+    )
+
+
+def test_selfdef_doc_dir_env_overridable():
+    """R471: SOVEREIGN_OS_SELFDEF_DOC_DIR env-override."""
+    body = _read(DC_PY)
+    assert "SOVEREIGN_OS_SELFDEF_DOC_DIR" in body
+
+
+def test_selfdef_default_dir_etc_selfdef():
+    """R471: default path matches /etc/selfdef/doc-manifests."""
+    body = _read(DC_PY)
+    assert "/etc/selfdef/doc-manifests" in body
+
+
+def test_selfdef_verb_smoke_with_fixture(tmp_path):
+    """End-to-end: synthesize a fixture, run selfdef verb."""
+    import json as _json
+    import os as _os
+    import subprocess as _sp
+    d = tmp_path / "manifests"
+    d.mkdir()
+    (d / "agent-guard.toml").write_text(
+        'schema_version = 1\n'
+        '[module]\n'
+        'id    = "agent-guard"\n'
+        'label = "Agent Guard"\n'
+        '[[docs]]\n'
+        'kind  = "readme"\n'
+        'state = "shipped"\n'
+        'path  = "README.md"\n'
+        '[[docs]]\n'
+        'kind   = "sdd"\n'
+        'state  = "waived"\n'
+        'reason = "no SDD chapter needed for this module"\n',
+        encoding="utf-8",
+    )
+    r = _sp.run(
+        ["python3", str(DC_PY), "selfdef", "--json"],
+        capture_output=True, text=True, timeout=15,
+        env={**_os.environ,
+             "SOVEREIGN_OS_SELFDEF_DOC_DIR": str(d)},
+    )
+    assert r.returncode == 0, r.stderr[:300]
+    data = _json.loads(r.stdout)
+    assert data["count"] == 1
+    assert data["errors"] == []
+    entry = data["discovered"][0]
+    assert entry["module"] == "agent-guard"
+    assert entry["shipped_count"] == 1
+    assert entry["waived_count"] == 1
+
+
+def test_selfdef_verb_rejects_unsupported_schema_version(tmp_path):
+    """Defense-in-depth: schema_version != 1 surfaces as error."""
+    import json as _json
+    import os as _os
+    import subprocess as _sp
+    d = tmp_path / "manifests"
+    d.mkdir()
+    (d / "bad.toml").write_text(
+        'schema_version = 99\n'
+        '[module]\n'
+        'id    = "x"\n'
+        'label = "X"\n'
+        '[[docs]]\n'
+        'kind  = "readme"\n'
+        'state = "shipped"\n'
+        'path  = "README.md"\n',
+        encoding="utf-8",
+    )
+    r = _sp.run(
+        ["python3", str(DC_PY), "selfdef", "--json"],
+        capture_output=True, text=True, timeout=15,
+        env={**_os.environ,
+             "SOVEREIGN_OS_SELFDEF_DOC_DIR": str(d)},
+    )
+    assert r.returncode == 0
+    data = _json.loads(r.stdout)
+    assert data["count"] == 0
+    assert len(data["errors"]) == 1
+    assert "schema_version" in data["errors"][0]["error"]
+
+
 def test_json_and_human_format_flags():
     body = _read(DC_PY)
     assert "--json" in body and "--human" in body
