@@ -198,6 +198,24 @@ COMMANDS:
                                + the file that consumes it. --filter narrows.
   env show <NAME>              Detail one env var (default · all consumers · currently-set value)
 
+  auth-tier list-tiers         R450 (E11.M7): operator §1g 6-tier
+                               [--json]                     auth ladder (no-auth → basic → advanced
+                                                            → social → enterprise → network-level).
+                                                            Each tier carries requires/provides/
+                                                            warning/operator-named contract.
+  auth-tier registry           Per-dashboard tier registry (which
+                               [--json]                     dashboard runs at which tier).
+  auth-tier show <dashboard>   Detail one dashboard's tier + recommended
+                               [--json]                     transition + rationale.
+  auth-tier matrix             Upgrade matrix — current → recommended
+                               [--json]                     for all registered dashboards, sorted by
+                                                            largest upgrade gap first.
+  auth-tier set <dashboard>    Triple-gated tier mutation (requires
+        <tier> [--apply]       --apply + --confirm-tier-set; transitions
+        [--confirm-tier-set]   skipping ≥3 levels need --force-skip-tiers).
+        [--force-skip-tiers]
+        [--json]
+
   network-edge detect          R449 (E11.M8): operator §1g edge-network
                                [--json]                     detection (multi-NAT workstation → OPNsense
                                                             → ISP → public, VPN bridge, capability tiers).
@@ -6502,6 +6520,12 @@ case "${cmd}" in
     # broader operator surface beyond the fine-tune-focused
     # 5-stage subset.
     "${__REPO_ROOT}/scripts/models/workflow.py" "$@"
+    ;;
+  auth-tier)
+    # R450 (E11.M7): operator §1g 6-tier auth ladder (no-auth → basic
+    # → advanced → social → enterprise → network-level). Per-dashboard
+    # tier registry + upgrade matrix + triple-gated set.
+    "${__REPO_ROOT}/scripts/operator/auth-tier.py" "$@"
     ;;
   network-edge)
     # R449 (E11.M8): network-edge + OPNsense detection. Per

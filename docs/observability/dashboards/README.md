@@ -191,6 +191,9 @@ E11.M5 (operator §1g — global history surface, delta/differential across 6 so
 E11.M8 (operator §1g — network topology + OPNsense detection):
 - `sovereign_os_operator_network_topology_query_total{verb,result}` — `sovereign-osctl network-topology <verb>` queries (verb=detect/opnsense_status/opnsense_capabilities/interfaces/nat_chain; result=ok|tier-name|unavailable)
 
+E11.M7 (operator §1g — 6-tier auth ladder per-dashboard):
+- `sovereign_os_operator_auth_tier_query_total{verb,tier,result}` — `sovereign-osctl auth-tier <verb>` queries (verb=list-tiers/registry/show/matrix/set; tier=no-auth|basic|advanced|social|enterprise|network-level|all|unknown; result=ok|preview|applied|dry-run|unknown-tier|unknown-dashboard|blocked-skip-tiers|mkdir-failed|write-failed)
+
 When a new hook adds metrics: add a row to the section above + a panel
 to the relevant dashboard JSON + bump the dashboard `version`.
 Operators re-import to pick up. The `test_metric_inventory_lockstep.py`
