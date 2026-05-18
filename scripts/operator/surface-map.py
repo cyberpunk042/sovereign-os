@@ -271,6 +271,45 @@ def _emit_metric(verb: str, surface: str, result: str) -> None:
         pass
 
 
+# R478: classify a waiver rationale into one of two operator-canonical
+# categories. The convention established across MODULE_COVERAGE is:
+#   "not applicable — ..."  → STRUCTURAL ceiling. The surface CANNOT
+#       apply to this module by definition (e.g., bashrc on `service`
+#       — bashrc is a config installer, not a daemon). The shortfall
+#       to threshold here is NOT closeable without a paradigm shift;
+#       it's already operator-fully-described.
+#   "FUTURE — ..."          → ROADMAP shortfall. The surface COULD
+#       apply but isn't shipped yet. This IS a tracked gap — operator
+#       wants the work and has a rationale for what each surface
+#       would deliver.
+# Anti-min precision (R478): only FUTURE-class shortfalls should fire
+# as 'surface-gap' in the anti-min audit. STRUCTURAL waivers are at
+# ceiling — flagging them is a false-positive (they aren't minimized
+# work, they're correctly-shaped work).
+def _classify_waiver(rationale: str) -> str:
+    """Classify a waiver rationale string. Returns 'structural' for
+    'not applicable'-prefixed rationales, 'future' for 'FUTURE'-prefixed
+    rationales, 'other' for anything that doesn't match either prefix
+    (defensive — caller treats 'other' as 'future' so unclassified
+    waivers still surface in gaps, anti-min-safe default)."""
+    if not rationale:
+        return "other"
+    head = rationale.strip().lower()
+    if head.startswith("not applicable"):
+        return "structural"
+    if head.startswith("future"):
+        return "future"
+    if head.startswith("self-referential"):
+        # "self-referential — master-dashboard IS the aggregator" is
+        # structurally-equivalent to NA: the surface IS the module.
+        return "structural"
+    if head.startswith("candidates are") or head.startswith("candidates ARE"):
+        # "candidates ARE services" — the surface concept is realized
+        # AS the unshipped-surface kind, not separately deliverable.
+        return "structural"
+    return "other"
+
+
 def coverage_for(module: str) -> dict:
     """Return coverage details for one module."""
     if module not in MODULE_COVERAGE:
@@ -279,21 +318,39 @@ def coverage_for(module: str) -> dict:
     shipped = set(entry["surfaces"])
     waivers = entry.get("waivers", {})
     matrix = []
+    structural_count = 0
+    future_count = 0
+    gap_count = 0
     for s in SURFACE_IDS:
         if s in shipped:
             matrix.append({"surface": s, "state": "shipped"})
         elif s in waivers:
+            cls = _classify_waiver(waivers[s])
             matrix.append({
                 "surface": s,
                 "state": "waived",
+                "waiver_class": cls,
                 "rationale": waivers[s],
             })
+            if cls == "structural":
+                structural_count += 1
+            else:
+                future_count += 1
         else:
             matrix.append({"surface": s, "state": "gap"})
+            gap_count += 1
+    # R478: structural ceiling = NO future-class waivers AND no bare
+    # gaps. The module is fully described and at its operator-stated
+    # ceiling; remaining shortfall to threshold is structural, not a
+    # minimization to close.
+    at_ceiling = (future_count == 0 and gap_count == 0)
     return {
         "module": module,
         "shipped_in": entry["shipped_in"],
         "surface_count": len(shipped),
+        "structural_waiver_count": structural_count,
+        "future_waiver_count": future_count,
+        "at_structural_ceiling": at_ceiling,
         "matrix": matrix,
     }
 
@@ -389,20 +446,32 @@ def cmd_gaps(args) -> int:
         return 1
 
     below = []
+    at_ceiling = []
     for m in target:
         cov = coverage_for(m)
         if cov["surface_count"] < threshold:
-            below.append({
+            row = {
                 "module": m,
                 "surface_count": cov["surface_count"],
                 "shortfall": threshold - cov["surface_count"],
                 "shipped_in": cov["shipped_in"],
-            })
+                "future_waiver_count": cov["future_waiver_count"],
+                "structural_waiver_count": cov["structural_waiver_count"],
+            }
+            # R478: split structural-ceiling modules into a separate
+            # bucket — they aren't anti-min candidates, but stay
+            # visible in the output (operator-transparency).
+            if cov["at_structural_ceiling"]:
+                at_ceiling.append(row)
+            else:
+                below.append(row)
     below.sort(key=lambda r: r["shortfall"], reverse=True)
+    at_ceiling.sort(key=lambda r: r["module"])
 
     out = {
         "threshold": threshold,
         "below_threshold": below,
+        "at_structural_ceiling": at_ceiling,
         "count": len(below),
     }
     if args.fmt == "json":
@@ -414,7 +483,16 @@ def cmd_gaps(args) -> int:
         for r in below:
             print(f"  ✗ {r['module']:25s} "
                   f"surfaces={r['surface_count']}/8 "
-                  f"(short by {r['shortfall']})")
+                  f"(short by {r['shortfall']}, "
+                  f"FUTURE-waivers={r['future_waiver_count']})")
+        if at_ceiling:
+            print(f"  — at structural ceiling (excluded, R478): "
+                  f"{len(at_ceiling)} module"
+                  f"{'s' if len(at_ceiling)!=1 else ''} —")
+            for r in at_ceiling:
+                print(f"  ◦ {r['module']:25s} "
+                      f"surfaces={r['surface_count']}/8 "
+                      f"(NA-waivers={r['structural_waiver_count']})")
     result = "ok" if not below else "below-threshold"
     _emit_metric("gaps", "all", result)
     return 2 if below else 0

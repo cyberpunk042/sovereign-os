@@ -244,6 +244,53 @@ def test_minimize_phrase_scan_applies_precision_filters():
         )
 
 
+# --- R479 doctrine-echo regex extension for meta-discourse ---
+
+
+def test_doctrine_echo_matches_meta_discourse_vocabulary():
+    """R479: extended _MINIMIZE_DOCTRINE_ECHO_RE must catch the
+    operator-doctrinal meta-discourse vocabulary that R478 itself
+    introduced: 'not a minimization to close', 'not minimization
+    candidates', 'minimization-by-silence', 'anti-minimization'.
+    These are doctrine-NAMING not admission-MAKING."""
+    import importlib.util as _ilu
+    spec = _ilu.spec_from_file_location("_amaudit_r479", AM_PY)
+    mod = _ilu.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    rgx = mod._MINIMIZE_DOCTRINE_ECHO_RE
+    for sample in (
+        "remaining shortfall is structural, not a minimization to close.",
+        "are not minimization candidates, they are operator-fully-described",
+        "transparency — not minimization-by-silence",
+        "the anti-minimization audit catches this",
+        "do not minimize the work",
+        "not minimize anything",
+    ):
+        assert rgx.search(sample), (
+            f"R479: doctrine-echo regex missed meta-discourse: {sample!r}"
+        )
+
+
+def test_doctrine_echo_does_not_overshoot_real_admissions():
+    """R479: extended doctrine-echo MUST NOT catch genuine admissions
+    that happen to share roots with the doctrinal vocabulary."""
+    import importlib.util as _ilu
+    spec = _ilu.spec_from_file_location("_amaudit_r479b", AM_PY)
+    mod = _ilu.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    rgx = mod._MINIMIZE_DOCTRINE_ECHO_RE
+    for sample in (
+        "minimization of the surface to close out work",
+        "we minimize disk I/O by batching writes",
+        "TODO: minimize the schema before shipping",
+        "this is a minimization placeholder",
+    ):
+        assert not rgx.search(sample), (
+            f"R479 overshoot: doctrine-echo falsely matched real "
+            f"admission: {sample!r}"
+        )
+
+
 # --- R477 phase-anchor vocabulary in skipped-no-followup ---
 
 

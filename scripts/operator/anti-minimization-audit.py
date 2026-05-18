@@ -226,7 +226,20 @@ _MINIMIZE_DOCTRINE_ECHO_RE = re.compile(
     # case-insensitive and tolerates a word in between
     # ("do not [rush, but never] minimize ...").
     r"\b(?:do\s+not|don'?t|never|without)\b[^.]{0,40}\bminimi[sz]"
-    r"|\bnot\s+minimi[sz]e\s+anything\b",
+    r"|\bnot\s+minimi[sz]e\s+anything\b"
+    # R479: meta-discourse vocabulary about the doctrine itself —
+    # comments / docstrings / tests that NAME the practice in order
+    # to discuss / classify / forbid it. NOT admissions; doctrine
+    # echoes. R478's surface-ceiling commentary surfaced 3 such
+    # false-positives this round:
+    #   "...is structural, not a minimization to close."
+    #   "are not minimization candidates"
+    #   "not minimization-by-silence"
+    # plus the project-name-style compound "anti-minimization".
+    r"|\bnot\s+(?:a|the|an)\s+minimi[sz](?:e|ation|ing)\b"
+    r"|\bnot\s+minimi[sz](?:ation|ing)\b"
+    r"|\bminimi[sz]ation[\s-]+(?:to|by|as)\b"
+    r"|\banti[\s-]?minimi[sz]ation\b",
     re.IGNORECASE,
 )
 _MINIMIZE_SED_SENTINEL_RE = re.compile(

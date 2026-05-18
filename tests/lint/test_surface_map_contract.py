@@ -382,3 +382,89 @@ def test_waivers_verb_runs():
     data = json.loads(result.stdout)
     assert "waivers" in data
     assert data["count"] >= 10  # many waivers across modules
+
+
+# --- R478 structural-ceiling classification ---
+
+
+def test_waiver_classification_helper_present():
+    """R478: surface-map MUST expose a waiver-rationale classifier
+    that distinguishes 'structural' ceiling waivers ('not applicable
+    — ...') from 'future' roadmap waivers ('FUTURE — ...'). The
+    classifier is the basis for the structural-ceiling exclusion
+    from the gaps verb (anti-min precision pass)."""
+    body = SM_PY.read_text(encoding="utf-8")
+    assert "_classify_waiver" in body, (
+        "R478: missing _classify_waiver helper"
+    )
+    # Must distinguish the two operator-canonical rationale prefixes.
+    assert '"structural"' in body or "'structural'" in body
+    assert '"future"' in body or "'future'" in body
+
+
+def test_coverage_reports_at_structural_ceiling_flag():
+    """R478: coverage_for MUST surface an `at_structural_ceiling`
+    boolean = True iff every unshipped surface carries a
+    'not applicable'-prefixed waiver (NO FUTURE work tracked)."""
+    result = subprocess.run(
+        ["python3", str(SM_PY), "coverage", "--module", "bashrc", "--json"],
+        capture_output=True, text=True, timeout=10,
+    )
+    assert result.returncode == 0, result.stderr
+    data = json.loads(result.stdout)
+    # `coverage` verb returns {"coverage": [<record>], "count": 1}.
+    rec = data["coverage"][0] if "coverage" in data else data
+    # bashrc ships [core, cli]; the other 6 are all "not applicable".
+    assert rec.get("at_structural_ceiling") is True, (
+        f"R478: bashrc must be at_structural_ceiling=True, got {rec!r}"
+    )
+    # auth-tier has 4 FUTURE waivers — NOT at ceiling.
+    result2 = subprocess.run(
+        ["python3", str(SM_PY), "coverage", "--module", "auth-tier", "--json"],
+        capture_output=True, text=True, timeout=10,
+    )
+    data2 = json.loads(result2.stdout)
+    rec2 = data2["coverage"][0] if "coverage" in data2 else data2
+    assert rec2.get("at_structural_ceiling") is False, (
+        f"R478: auth-tier must be at_structural_ceiling=False, "
+        f"got {rec2!r}"
+    )
+
+
+def test_gaps_excludes_structural_ceiling_modules():
+    """R478: `gaps` MUST exclude modules at structural ceiling — they
+    are not minimization candidates, they are operator-fully-described
+    at their ceiling. bashrc (2 shipped, 6 NA, 0 FUTURE) is the
+    canonical structural-ceiling case."""
+    result = subprocess.run(
+        ["python3", str(SM_PY), "gaps", "--threshold", "3", "--json"],
+        capture_output=True, text=True, timeout=10,
+    )
+    data = json.loads(result.stdout)
+    below_modules = {e["module"] for e in data.get("below_threshold", [])}
+    assert "bashrc" not in below_modules, (
+        "R478: bashrc is at structural ceiling — must be excluded "
+        f"from gaps output, got {below_modules}"
+    )
+    # auth-tier IS a real gap (has FUTURE roadmap) — stays in.
+    assert "auth-tier" in below_modules, (
+        "R478 overshoot: auth-tier has FUTURE roadmap waivers — "
+        f"must REMAIN in gaps output, got {below_modules}"
+    )
+
+
+def test_gaps_surfaces_structural_ceiling_modules_separately():
+    """R478: `gaps` JSON output MUST include an `at_structural_ceiling`
+    list so the operator can SEE the modules that were excluded
+    (transparency — not minimization-by-silence)."""
+    result = subprocess.run(
+        ["python3", str(SM_PY), "gaps", "--threshold", "3", "--json"],
+        capture_output=True, text=True, timeout=10,
+    )
+    data = json.loads(result.stdout)
+    assert "at_structural_ceiling" in data, (
+        "R478: gaps output must include at_structural_ceiling list "
+        "(operator visibility)"
+    )
+    ceiling_modules = {e["module"] for e in data["at_structural_ceiling"]}
+    assert "bashrc" in ceiling_modules
