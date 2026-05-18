@@ -153,6 +153,34 @@ if command -v dmidecode >/dev/null 2>&1; then
   fi
 fi
 
+# ----------------- ZFS pool health (R391 — closes §5.1 gap) -----------------
+#
+# Master spec §5.1 audit step 2 verbatim: "Check ZFS Array Integrity status".
+# Expected: zpool status -x → 'all pools are healthy'.
+#
+# Skips gracefully when:
+#   - zpool not installed (container / pre-substrate-prep environment)
+#   - no pools imported (also valid for container / fresh OS pre-zpool-create)
+
+if command -v zpool >/dev/null 2>&1; then
+  if pool_status="$(zpool status -x 2>&1)"; then
+    if [ "${pool_status}" = "all pools are healthy" ] \
+       || [ "${pool_status}" = "no pools available" ]; then
+      log_info "  PASS — ZFS pool integrity (${pool_status})"
+    else
+      log_error "  FAIL — ZFS pool anomalies: ${pool_status}"
+      log_error "  Master spec §5.1: 'CRITICAL ARCHITECTURAL FRICTION — Storage Pool Anomalies Discovered.'"
+      fail=$((fail + 1))
+    fi
+  else
+    log_warn "  SKIP — zpool status -x exited non-zero (no pools or permission?)"
+    warn=$((warn + 1))
+  fi
+else
+  log_warn "  SKIP — zpool not installed (container / pre-substrate-prep environment)"
+  warn=$((warn + 1))
+fi
+
 # ----------------- Result -----------------
 
 emit_metric_set friction-audit \
