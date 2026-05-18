@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os master-dashboard</title>
+<meta name="x-sovereign-module" content="master-dashboard-webapp">
+<meta name="x-sovereign-shipped-in" content="R500 (E11.M2++)">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<style>
+  /* Operator-§1g UX: readable in 30 seconds, monochrome palette,
+     no JS framework, no CDN, no fonts fetched from elsewhere —
+     sovereignty-clean single-file webapp. */
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  .ok{color:var(--good)}
+  .bad{color:var(--bad)}
+  .warn{color:var(--warn)}
+  .muted{color:var(--muted)}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border)}
+  .pill.ok{background:#143d14;color:var(--good)}
+  .pill.bad{background:#3d1414;color:var(--bad)}
+  .err{color:var(--bad);font-style:italic}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+  .stat{flex:1 1 180px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
+  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .stat .v{font-size:1.4rem;margin-top:.15rem}
+  button{font-family:var(--mono);background:var(--panel);color:var(--fg);border:1px solid var(--border);padding:.35rem .7rem;border-radius:3px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  footer{margin-top:2rem;color:var(--muted);font-size:.75rem;border-top:1px solid var(--border);padding-top:.8rem}
+  footer a{color:var(--accent)}
+  .standing-rule{color:var(--accent);font-style:italic;margin-top:.4rem}
+</style>
+</head>
+<body>
+<h1>sovereign-os master-dashboard</h1>
+<p class="sub">
+  Operator-§1g aggregator — Trinity tiers + router + Grafana + selfdef cross-repo manifests under a single super-dashboard.
+  Read-only mirror of <code>sovereign-osctl master-dashboard &lt;verb&gt;</code>.
+  Mutation verbs stay CLI-only (operator §17 sovereignty boundary).
+</p>
+
+<div class="row" id="stats">
+  <div class="stat"><div class="k">aggregator port</div><div class="v" id="stat-port">—</div></div>
+  <div class="stat"><div class="k">routes</div><div class="v" id="stat-count">—</div></div>
+  <div class="stat"><div class="k">reachable</div><div class="v ok" id="stat-reachable">—</div></div>
+  <div class="stat"><div class="k">collisions</div><div class="v" id="stat-collisions">—</div></div>
+  <div class="stat"><div class="k">selfdef manifests</div><div class="v" id="stat-selfdef">—</div></div>
+  <div class="stat"><div class="k">api version</div><div class="v muted" id="stat-version">—</div></div>
+</div>
+
+<h2>routes</h2>
+<div class="panel" id="routes-panel">
+  <table>
+    <thead>
+      <tr><th>slug</th><th>port</th><th>healthz</th><th>subpath</th><th>label</th><th>source</th><th>reachable</th></tr>
+    </thead>
+    <tbody id="routes-tbody"><tr><td colspan="7" class="muted">loading…</td></tr></tbody>
+  </table>
+</div>
+
+<h2>collisions</h2>
+<div class="panel" id="collisions-panel">
+  <div id="collisions-body" class="muted">loading…</div>
+</div>
+
+<h2>selfdef cross-repo manifests</h2>
+<div class="panel" id="discover-panel">
+  <div id="discover-body" class="muted">loading…</div>
+</div>
+
+<h2>refresh</h2>
+<div class="panel">
+  <div class="row">
+    <button id="refresh-btn">refresh now</button>
+    <span class="muted">auto-refresh every 30s — last refresh <span id="last-refresh">never</span></span>
+  </div>
+</div>
+
+<footer>
+  <div>shipped in <code>R500 (E11.M2++)</code> · serves the <code>/webapp/</code> path of the R498 API daemon (<code>scripts/operator/master-dashboard-api.py</code>) · backing CLI <code>sovereign-osctl master-dashboard</code> · MCP via <code>scripts/interop/mcp-aggregate.py</code> (R499)</div>
+  <div class="standing-rule">"We do not minimize anything." — operator §1g standing rule (sacrosanct)</div>
+</footer>
+
+<script>
+"use strict";
+// Operator-§1g UX rule: no external dependencies, no CDN fetches.
+// Same-origin XHR only — the R498 API daemon serves both this webapp
+// and the JSON endpoints under the same host:port binding.
+
+const ENDPOINTS = ["/version", "/routes", "/collisions", "/health", "/discover"];
+
+async function fetchJSON(path) {
+  const res = await fetch(path, {headers: {"Accept": "application/json"}});
+  if (!res.ok) throw new Error(path + " → " + res.status);
+  return await res.json();
+}
+
+function el(id) { return document.getElementById(id); }
+
+function pill(text, klass) {
+  const s = document.createElement("span");
+  s.className = "pill " + (klass || "");
+  s.textContent = text;
+  return s;
+}
+
+function renderStats(version, routes, health, collisions, discover) {
+  el("stat-port").textContent = routes.aggregator_port;
+  el("stat-count").textContent = routes.count;
+  el("stat-reachable").textContent = health.reachable + " / " + health.count;
+  el("stat-reachable").className = "v " + (health.reachable === health.count ? "ok" : "warn");
+  el("stat-collisions").textContent = collisions.has_collisions ? "yes" : "clean";
+  el("stat-collisions").className = "v " + (collisions.has_collisions ? "bad" : "ok");
+  el("stat-selfdef").textContent = discover.count;
+  el("stat-version").textContent = version.version;
+}
+
+function renderRoutes(routes, health) {
+  const reachableByPort = {};
+  for (const p of health.probes) reachableByPort[p.port] = p.reachable;
+  const tbody = el("routes-tbody");
+  tbody.innerHTML = "";
+  for (const r of routes.routes) {
+    const tr = document.createElement("tr");
+    const reach = reachableByPort[r.port];
+    tr.innerHTML =
+      "<td><code>" + r.slug + "</code></td>" +
+      "<td>" + r.port + "</td>" +
+      "<td><code>" + r.healthz_path + "</code></td>" +
+      "<td><code>" + r.subpath + "</code></td>" +
+      "<td>" + r.label + "</td>" +
+      "<td class=muted>" + r.source_repo + "</td>" +
+      "<td></td>";
+    tr.lastElementChild.appendChild(
+      pill(reach ? "tcp-open" : "tcp-closed", reach ? "ok" : "bad")
+    );
+    tbody.appendChild(tr);
+  }
+}
+
+function renderCollisions(collisions) {
+  const body = el("collisions-body");
+  body.innerHTML = "";
+  if (!collisions.has_collisions) {
+    body.className = "ok";
+    body.textContent = "✓ no port or subpath collisions across built-in routes.";
+    return;
+  }
+  body.className = "bad";
+  const lines = [];
+  for (const [p, slugs] of Object.entries(collisions.port_collisions || {}))
+    lines.push("port " + p + " → " + slugs.join(", "));
+  for (const [s, slugs] of Object.entries(collisions.subpath_collisions || {}))
+    lines.push("subpath " + s + " → " + slugs.join(", "));
+  body.textContent = "✗ collisions: " + lines.join(" · ");
+}
+
+function renderDiscover(discover) {
+  const body = el("discover-body");
+  body.innerHTML = "";
+  if (discover.count === 0 && (!discover.errors || discover.errors.length === 0)) {
+    body.className = "muted";
+    body.textContent = "(no selfdef manifests under " + discover.manifest_dir + ")";
+    return;
+  }
+  body.className = "";
+  if (discover.count > 0) {
+    const t = document.createElement("table");
+    t.innerHTML =
+      "<thead><tr><th>slug</th><th>port</th><th>subpath</th><th>auth-tier</th><th>source</th></tr></thead><tbody></tbody>";
+    for (const m of discover.discovered) {
+      const tr = document.createElement("tr");
+      tr.innerHTML =
+        "<td><code>" + m.slug + "</code></td>" +
+        "<td>" + m.port + "</td>" +
+        "<td><code>" + m.subpath + "</code></td>" +
+        "<td>" + (m.auth_tier || "—") + "</td>" +
+        "<td class=muted>" + m.source_repo + "</td>";
+      t.querySelector("tbody").appendChild(tr);
+    }
+    body.appendChild(t);
+  }
+  if (discover.errors && discover.errors.length > 0) {
+    const errs = document.createElement("div");
+    errs.className = "err";
+    errs.textContent = discover.errors.length + " manifest error(s) — see /discover JSON.";
+    body.appendChild(errs);
+  }
+}
+
+async function refresh() {
+  try {
+    const [version, routes, collisions, health, discover] = await Promise.all(
+      ENDPOINTS.map(fetchJSON)
+    );
+    renderStats(version, routes, health, collisions, discover);
+    renderRoutes(routes, health);
+    renderCollisions(collisions);
+    renderDiscover(discover);
+    el("last-refresh").textContent = new Date().toLocaleTimeString();
+  } catch (e) {
+    el("last-refresh").innerHTML = "<span class=bad>error: " + e.message + "</span>";
+  }
+}
+
+document.getElementById("refresh-btn").addEventListener("click", refresh);
+refresh();
+setInterval(refresh, 30000);
+</script>
+</body>
+</html>

@@ -19,13 +19,15 @@ Sovereignty (stdlib-only — zero added deps):
   - Read-only verbs only (no mutation; render/install stay CLI-only —
     operator §17 sacrosanct boundary)
 
-Read-only endpoints (R498 v1):
+Read-only endpoints (R498 v1, R500 webapp):
   GET /version                 — service version + module identity
   GET /routes                  — DASHBOARD_ROUTES table (built-in + selfdef-discovered)
   GET /collisions              — port/subpath collision detection
   GET /health                  — TCP-probe every upstream port
   GET /discover                — load selfdef cross-repo manifests
   GET /healthz                 — API daemon liveness (always 200)
+  GET /webapp/                 — single-file operator-§1g webapp (R500)
+  GET /webapp/index.html       — alias for /webapp/
 
 All responses are JSON (Content-Type: application/json). On error the
 body is {"error": "..."} with a 4xx/5xx status. Loopback CIDR ACL
@@ -66,7 +68,16 @@ METRICS_DIR = os.environ.get(
 # TYPE sovereign_os_operator_master_dashboard_api_request_total counter
 METRIC_NAME = "sovereign_os_operator_master_dashboard_api_request_total"
 
-API_VERSION = "1.0.0-R498"
+API_VERSION = "1.1.0-R500"
+
+# R500 webapp surface — single-file monochrome SPA shipped under
+# webapp/master-dashboard/index.html in the repo. Operator can override
+# the on-disk path via env (e.g., post-install relocation to /usr/share).
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_WEBAPP_DEFAULT = _REPO_ROOT / "webapp" / "master-dashboard" / "index.html"
+WEBAPP_PATH = Path(os.environ.get(
+    "MASTER_DASHBOARD_WEBAPP_PATH", str(_WEBAPP_DEFAULT)
+))
 
 # Master-dashboard CLI module — import directly so the API serves
 # from the SAME data model the operator-facing CLI uses (no drift).
@@ -155,10 +166,11 @@ def _version_payload() -> dict:
     return {
         "module": "master-dashboard-api",
         "version": API_VERSION,
-        "shipped_in": "R498 (E11.M2++)",
+        "shipped_in": "R498 (E11.M2++) + R500 (E11.M2++ webapp surface)",
         "source": "scripts/operator/master-dashboard-api.py",
         "data_source": str(_MD_PATH),
-        "surfaces": ["core", "cli", "tui", "service", "api"],
+        "webapp_path": str(WEBAPP_PATH),
+        "surfaces": ["core", "cli", "tui", "service", "api", "mcp", "webapp"],
         "standing_rule": "We do not minimize anything.",
     }
 
@@ -193,6 +205,31 @@ class MasterDashboardAPIHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _send_webapp(self) -> None:
+        """R500 — serve the single-file monochrome webapp from disk.
+        Read-only; same-origin with the JSON endpoints (no CORS dance,
+        no CDN, no cross-origin script loads — operator-§1g UX rule)."""
+        try:
+            body = WEBAPP_PATH.read_bytes()
+        except OSError as e:
+            self._send_json(500, {
+                "error": f"webapp asset unreadable: {e}",
+                "expected_path": str(WEBAPP_PATH),
+            })
+            _emit_metric("webapp", "500")
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("X-Sovereign-Module", "master-dashboard-webapp")
+        self.send_header("X-Sovereign-Version", API_VERSION)
+        # Read-only mirror — webapp does NOT need cross-origin embedding.
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.end_headers()
+        self.wfile.write(body)
+        _emit_metric("webapp", "ok")
+
     def do_GET(self) -> None:  # noqa: N802 (BaseHTTPRequestHandler API)
         # Strip query string + trailing slash
         path = self.path.split("?", 1)[0].rstrip("/") or "/"
@@ -202,11 +239,18 @@ class MasterDashboardAPIHandler(BaseHTTPRequestHandler):
             _emit_metric("healthz" if path == "/healthz" else "root", "ok")
             return
 
+        if path in ("/webapp", "/webapp/", "/webapp/index.html"):
+            self._send_webapp()
+            return
+
         handler = _ENDPOINT_HANDLERS.get(path)
         if handler is None:
             self._send_json(404, {
                 "error": f"unknown endpoint: {path!r}",
-                "available": sorted(_ENDPOINT_HANDLERS.keys()) + ["/healthz"],
+                "available": (
+                    sorted(_ENDPOINT_HANDLERS.keys())
+                    + ["/healthz", "/webapp/"]
+                ),
             })
             _emit_metric(path.lstrip("/") or "unknown", "404")
             return
