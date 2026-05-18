@@ -25,13 +25,15 @@ Sovereignty (stdlib-only — zero added deps):
   - Read-only verbs only (mutation `set` stays CLI-only — operator §17
     sacrosanct sovereignty boundary)
 
-Read-only endpoints (R501 v1):
+Read-only endpoints (R501 v1, R503 webapp):
   GET /version                 — service version + module identity
   GET /tiers                   — AUTH_TIERS ladder (operator-named levels)
   GET /registry                — current per-dashboard tier registry
   GET /show?dashboard=<name>   — per-dashboard tier resolution
   GET /matrix                  — upgrade-priority matrix across all dashboards
   GET /healthz                 — API daemon liveness (always 200)
+  GET /webapp/                 — single-file operator-§1g webapp (R503)
+  GET /webapp/index.html       — alias for /webapp/
 
 All responses are JSON (Content-Type: application/json). On error the
 body is {"error": "..."} with a 4xx/5xx status.
@@ -70,7 +72,16 @@ METRICS_DIR = os.environ.get(
 # TYPE sovereign_os_operator_auth_tier_api_request_total counter
 METRIC_NAME = "sovereign_os_operator_auth_tier_api_request_total"
 
-API_VERSION = "1.0.0-R501"
+API_VERSION = "1.1.0-R503"
+
+# R503 webapp surface — single-file monochrome SPA shipped under
+# webapp/auth-tier/index.html in the repo. Operator can override the
+# on-disk path via env (e.g., post-install relocation to /usr/share).
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_WEBAPP_DEFAULT = _REPO_ROOT / "webapp" / "auth-tier" / "index.html"
+WEBAPP_PATH = Path(os.environ.get(
+    "AUTH_TIER_WEBAPP_PATH", str(_WEBAPP_DEFAULT)
+))
 
 # auth-tier CLI module — import directly so the API serves from the
 # SAME data model the operator-facing CLI uses (no drift).
@@ -185,10 +196,12 @@ def _version_payload() -> dict:
     return {
         "module": "auth-tier-api",
         "version": API_VERSION,
-        "shipped_in": "R501 (E11.M7++)",
+        "shipped_in": "R501 (E11.M7++) + R502 (E11.M7++ MCP surface) + R503 (E11.M7++ webapp surface)",
         "source": "scripts/operator/auth-tier-api.py",
         "data_source": str(_AT_PATH),
-        "surfaces": ["core", "cli", "dashboard", "api"],
+        "webapp_path": str(WEBAPP_PATH),
+        "surfaces": ["core", "cli", "dashboard", "api", "service",
+                     "mcp", "webapp"],
         "standing_rule": "We do not minimize anything.",
     }
 
@@ -212,6 +225,30 @@ class AuthTierAPIHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _send_webapp(self) -> None:
+        """R503 — serve the single-file monochrome webapp from disk.
+        Read-only; same-origin with the JSON endpoints (no CORS dance,
+        no CDN, no cross-origin script loads — operator-§1g UX rule)."""
+        try:
+            body = WEBAPP_PATH.read_bytes()
+        except OSError as e:
+            self._send_json(500, {
+                "error": f"webapp asset unreadable: {e}",
+                "expected_path": str(WEBAPP_PATH),
+            })
+            _emit_metric("webapp", "500")
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("X-Sovereign-Module", "auth-tier-webapp")
+        self.send_header("X-Sovereign-Version", API_VERSION)
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.end_headers()
+        self.wfile.write(body)
+        _emit_metric("webapp", "ok")
+
     def do_GET(self) -> None:  # noqa: N802
         parsed = urllib.parse.urlsplit(self.path)
         path = parsed.path.rstrip("/") or "/"
@@ -220,6 +257,10 @@ class AuthTierAPIHandler(BaseHTTPRequestHandler):
         if path == "/healthz" or path == "/":
             self._send_json(200, {"status": "ok", "version": API_VERSION})
             _emit_metric("healthz" if path == "/healthz" else "root", "ok")
+            return
+
+        if path in ("/webapp", "/webapp/", "/webapp/index.html"):
+            self._send_webapp()
             return
 
         try:
@@ -257,7 +298,7 @@ class AuthTierAPIHandler(BaseHTTPRequestHandler):
         self._send_json(404, {
             "error": f"unknown endpoint: {path!r}",
             "available": ["/version", "/tiers", "/registry", "/show",
-                          "/matrix", "/healthz"],
+                          "/matrix", "/healthz", "/webapp/"],
         })
         _emit_metric(path.lstrip("/") or "unknown", "404")
 

@@ -295,7 +295,17 @@ def test_response_headers_carry_sovereign_identity():
             f"http://127.0.0.1:{port}/version", timeout=3
         ) as r:
             assert r.headers.get("X-Sovereign-Module") == "auth-tier-api"
-            assert "R501" in r.headers.get("X-Sovereign-Version", "")
+            ver = r.headers.get("X-Sovereign-Version", "")
+            # R501 introduced the daemon; later rounds extend it
+            # (R503 webapp). The version string MUST carry the active
+            # R-tag — anything from R501 onward is acceptable.
+            assert ver.startswith("1."), (
+                f"X-Sovereign-Version must be SemVer 1.x; got {ver!r}"
+            )
+            assert "R5" in ver, (
+                f"X-Sovereign-Version must reference an R5xx round; "
+                f"got {ver!r}"
+            )
     finally:
         proc.kill()
         proc.wait(timeout=3)

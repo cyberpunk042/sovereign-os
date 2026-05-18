@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os auth-tier</title>
+<meta name="x-sovereign-module" content="auth-tier-webapp">
+<meta name="x-sovereign-shipped-in" content="R503 (E11.M7++)">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<style>
+  /* Operator-§1g UX: readable in 30 seconds, monochrome palette,
+     no JS framework, no CDN, no fonts fetched from elsewhere —
+     sovereignty-clean single-file webapp. */
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border)}
+  .pill.ok{background:#143d14;color:var(--good)}
+  .pill.upgrade{background:#3d3014;color:var(--warn)}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+  .stat{flex:1 1 180px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
+  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .stat .v{font-size:1.4rem;margin-top:.15rem}
+  button{font-family:var(--mono);background:var(--panel);color:var(--fg);border:1px solid var(--border);padding:.35rem .7rem;border-radius:3px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  footer{margin-top:2rem;color:var(--muted);font-size:.75rem;border-top:1px solid var(--border);padding-top:.8rem}
+  footer a{color:var(--accent)}
+  .standing-rule{color:var(--accent);font-style:italic;margin-top:.4rem}
+  .ladder-row{display:flex;gap:.5rem;align-items:center;padding:.25rem 0}
+  .level-badge{display:inline-block;min-width:1.5rem;text-align:center;background:var(--border);border-radius:3px;padding:1px 6px;font-size:.72rem;color:var(--accent)}
+  code{color:var(--accent)}
+</style>
+</head>
+<body>
+<h1>sovereign-os auth-tier</h1>
+<p class="sub">
+  Operator-§1g 6-tier auth ladder — per-dashboard authentication posture viewer.
+  Read-only mirror of <code>sovereign-osctl auth-tier &lt;verb&gt;</code>.
+  Mutation verb <code>set</code> stays CLI-only (operator §17 sovereignty boundary).
+</p>
+
+<div class="row" id="stats">
+  <div class="stat"><div class="k">tiers</div><div class="v" id="stat-tiers">—</div></div>
+  <div class="stat"><div class="k">dashboards</div><div class="v" id="stat-dashboards">—</div></div>
+  <div class="stat"><div class="k">upgrades pending</div><div class="v" id="stat-upgrades">—</div></div>
+  <div class="stat"><div class="k">config</div><div class="v muted" id="stat-config">—</div></div>
+  <div class="stat"><div class="k">api version</div><div class="v muted" id="stat-version">—</div></div>
+</div>
+
+<h2>tier ladder (§1g operator-named)</h2>
+<div class="panel" id="ladder-panel">
+  <div id="ladder-body" class="muted">loading…</div>
+</div>
+
+<h2>upgrade-priority matrix</h2>
+<div class="panel" id="matrix-panel">
+  <table>
+    <thead>
+      <tr><th>dashboard</th><th>current</th><th></th><th>recommended</th><th>gap</th><th>rationale</th></tr>
+    </thead>
+    <tbody id="matrix-tbody"><tr><td colspan="6" class="muted">loading…</td></tr></tbody>
+  </table>
+</div>
+
+<h2>refresh</h2>
+<div class="panel">
+  <div class="row">
+    <button id="refresh-btn">refresh now</button>
+    <span class="muted">auto-refresh every 30s — last refresh <span id="last-refresh">never</span></span>
+  </div>
+</div>
+
+<footer>
+  <div>shipped in <code>R503 (E11.M7++)</code> · serves the <code>/webapp/</code> path of the R501 auth-tier-api daemon (<code>scripts/operator/auth-tier-api.py</code>) · backing CLI <code>sovereign-osctl auth-tier</code> · MCP via <code>scripts/interop/mcp-aggregate.py</code> (R502)</div>
+  <div class="standing-rule">"We do not minimize anything." — operator §1g standing rule (sacrosanct)</div>
+</footer>
+
+<script>
+"use strict";
+// Operator-§1g UX rule: no external dependencies, no CDN fetches.
+// Same-origin XHR only — the R501 API daemon serves both this webapp
+// and the JSON endpoints under the same host:port binding.
+
+const ENDPOINTS = ["/version", "/tiers", "/registry", "/matrix"];
+
+async function fetchJSON(path) {
+  const res = await fetch(path, {headers: {"Accept": "application/json"}});
+  if (!res.ok) throw new Error(path + " → " + res.status);
+  return await res.json();
+}
+
+function el(id) { return document.getElementById(id); }
+
+function pill(text, klass) {
+  const s = document.createElement("span");
+  s.className = "pill " + (klass || "");
+  s.textContent = text;
+  return s;
+}
+
+function renderStats(version, tiers, registry, matrix) {
+  el("stat-tiers").textContent = tiers.count;
+  el("stat-dashboards").textContent = registry.count;
+  el("stat-upgrades").textContent = matrix.upgrades_pending;
+  el("stat-upgrades").className = "v " +
+    (matrix.upgrades_pending === 0 ? "ok" : "warn");
+  el("stat-config").textContent = registry.config_present ? "present" : "defaults";
+  el("stat-version").textContent = version.version;
+}
+
+function renderLadder(tiers) {
+  const body = el("ladder-body");
+  body.innerHTML = "";
+  body.className = "";
+  for (const t of tiers.tiers) {
+    const row = document.createElement("div");
+    row.className = "ladder-row";
+    const lvl = document.createElement("span");
+    lvl.className = "level-badge";
+    lvl.textContent = "L" + t.level;
+    row.appendChild(lvl);
+    const name = document.createElement("strong");
+    name.textContent = t.tier;
+    row.appendChild(name);
+    const lbl = document.createElement("span");
+    lbl.className = "muted";
+    lbl.textContent = "— " + t.label;
+    row.appendChild(lbl);
+    body.appendChild(row);
+
+    const sub = document.createElement("div");
+    sub.className = "muted";
+    sub.style.paddingLeft = "2.5rem";
+    sub.style.fontSize = ".78rem";
+    sub.textContent = "operator-named: \"" + t.operator_named +
+      "\"  ·  provides: " + (t.provides || []).join(", ");
+    body.appendChild(sub);
+  }
+}
+
+function renderMatrix(matrix) {
+  const tbody = el("matrix-tbody");
+  tbody.innerHTML = "";
+  for (const r of matrix.matrix) {
+    const tr = document.createElement("tr");
+    const gap = r.upgrade_levels > 0 ? "+" + r.upgrade_levels : "—";
+    const gapClass = r.upgrade_levels > 0 ? "warn" : "ok";
+    tr.innerHTML =
+      "<td><code>" + r.dashboard + "</code></td>" +
+      "<td>" + r.current + "</td>" +
+      "<td class=muted>→</td>" +
+      "<td>" + r.recommended + "</td>" +
+      "<td class=" + gapClass + ">" + gap + "</td>" +
+      "<td class=muted>" + (r.rationale || "") + "</td>";
+    tbody.appendChild(tr);
+  }
+}
+
+async function refresh() {
+  try {
+    const [version, tiers, registry, matrix] = await Promise.all(
+      ENDPOINTS.map(fetchJSON)
+    );
+    renderStats(version, tiers, registry, matrix);
+    renderLadder(tiers);
+    renderMatrix(matrix);
+    el("last-refresh").textContent = new Date().toLocaleTimeString();
+  } catch (e) {
+    el("last-refresh").innerHTML = "<span class=bad>error: " + e.message + "</span>";
+  }
+}
+
+document.getElementById("refresh-btn").addEventListener("click", refresh);
+refresh();
+setInterval(refresh, 30000);
+</script>
+</body>
+</html>
