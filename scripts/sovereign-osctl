@@ -198,6 +198,18 @@ COMMANDS:
                                + the file that consumes it. --filter narrows.
   env show <NAME>              Detail one env var (default · all consumers · currently-set value)
 
+  global-history recent        R448 (E11.M5): operator §1g delta/diff
+                               [--since 24h] [--limit N] history surface across 6
+                               [--source s1,s2] [--json]   sources (apt / dpkg / shell / osctl /
+                                                            events / modules). More reliable
+                                                            than `.bash_history` aggregation.
+  global-history summary       R448: per-source count + last event in
+                               [--json]                     7-day window
+  global-history sources       R448: enumerate known sources + status
+                               [--json]
+  global-history delta <iso>   R448: events since timestamp (operator
+                               [--source ...] [--json]      "what changed since I last checked?")
+
   bashrc install               R447 (E11.M6): install operator-discoverable
                                bashrc integration — 10 aliases (sosctl,
                                soshelp, sosstatus, sosmodels, soshealth,
@@ -6476,6 +6488,17 @@ case "${cmd}" in
     # broader operator surface beyond the fine-tune-focused
     # 5-stage subset.
     "${__REPO_ROOT}/scripts/models/workflow.py" "$@"
+    ;;
+  global-history)
+    # R448 (E11.M5): cross-source delta/differential history surface
+    # — operator §1g verbatim "Some kind of global history too.
+    # tracking things happening, delta, differentials... apt changes
+    # and operations, or any cli or tool call I guess, in the
+    # management. more reliable and adapted than simply aggregating
+    # the .bash_history's". Reads 6 sources (apt + dpkg + shell +
+    # osctl + events + modules); read-only; --since/--limit/--source
+    # filterable; --json for fleet aggregation.
+    "${__REPO_ROOT}/scripts/operator/global-history.py" "$@"
     ;;
   bashrc)
     # R447 (E11.M6): operator-discoverable bashrc integration —

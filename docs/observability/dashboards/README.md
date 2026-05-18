@@ -180,10 +180,13 @@ Master bootstrap verification (R159 — master spec § 22):
 - `sovereign_os_bootstrap_check_total{check,result}` — per-check outcome (PASS/FAIL/SKIP) for the 6 master spec § 22 checks
 - `sovereign_os_bootstrap_verify_last_run_timestamp` — last verify run (any subset)
 
-### Operator-tooling (R447 — scripts/operator)
+### Operator-tooling (R447-R448 — scripts/operator)
 
 E11.M6 (operator §1g — bashrc integration + autocompletes + aliases + menus):
 - `sovereign_os_operator_bashrc_install_total{action,result}` — outcomes of `scripts/operator/bashrc-install.sh` (action=install/uninstall/status/dump; result=success/dry-run/absent/installed/skip-no-file/skip-no-block)
+
+E11.M5 (operator §1g — global history surface, delta/differential across 6 sources):
+- `sovereign_os_operator_global_history_query_total{verb,source,result}` — `sovereign-osctl global-history <verb>` queries (verb=recent/summary/sources/delta; source=apt|dpkg|shell|osctl|events|modules|all|comma-joined; result=ok)
 
 When a new hook adds metrics: add a row to the section above + a panel
 to the relevant dashboard JSON + bump the dashboard `version`.
