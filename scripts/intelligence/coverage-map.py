@@ -163,21 +163,22 @@ DEFAULT_AXES: list[dict[str, Any]] = [
                         "Cloudflared ? the tailscale, Traefik"),
      "source": "hook drop 2026-05-17",
      "implementing_verbs": [
-         "sovereign-osctl net-state",
-         "sovereign-osctl ingress-advisor",
+         "sovereign-osctl network",
+         "sovereign-osctl network-stack",
          "sovereign-osctl network-topology",
+         "sovereign-osctl dns-advisor",
      ],
      "sdd_refs": [],
      "mandate_rows": ["E3.M5", "E3.M8"],
      "status": "✓ shipped",
-     "notes": ("R241 net-state + R287 ingress-advisor (Cloudflared / "
+     "notes": ("R241 network + R287 network-stack (Cloudflared / "
                 "Tailscale / Traefik comparison) + R359 network-topology "
-                "(§8 asymmetric NIC verbatim).")},
+                "(§8 asymmetric NIC verbatim) + dns-advisor.")},
     {"id": "A-08",
      "axis_verbatim": ("non docker vs docker install ? when possible ? "
                         "container level vs system level"),
      "source": "hook drop 2026-05-17",
-     "implementing_verbs": ["sovereign-osctl install-mode-advisor"],
+     "implementing_verbs": ["sovereign-osctl install-mode"],
      "sdd_refs": [],
      "mandate_rows": ["E2.M16"],
      "status": "✓ shipped",
@@ -203,9 +204,7 @@ DEFAULT_AXES: list[dict[str, Any]] = [
                         "configurations"),
      "source": "hook drop 2026-05-17",
      "implementing_verbs": [
-         "sovereign-osctl raid-status",
-         "sovereign-osctl raid-operate",
-         "sovereign-osctl raid-config",
+         "sovereign-osctl raid",
      ],
      "sdd_refs": [],
      "mandate_rows": ["E2.M4"],
@@ -216,10 +215,8 @@ DEFAULT_AXES: list[dict[str, Any]] = [
                         "global and such. insights"),
      "source": "hook drop 2026-05-17",
      "implementing_verbs": [
-         "sovereign-osctl logs",
-         "sovereign-osctl log-rotate",
-         "sovereign-osctl storage-health",
          "sovereign-osctl insights",
+         "sovereign-osctl fs",
      ],
      "sdd_refs": [],
      "mandate_rows": ["E2.M5"],
@@ -241,7 +238,6 @@ DEFAULT_AXES: list[dict[str, Any]] = [
                         "and modules and tools vision"),
      "source": "hook drop 2026-05-17",
      "implementing_verbs": [
-         "sovereign-osctl charter",
          "sovereign-osctl architecture-qa show C-22",
      ],
      "sdd_refs": ["000"],
@@ -301,9 +297,9 @@ DEFAULT_AXES: list[dict[str, Any]] = [
      "axis_verbatim": "Network, App, & In between",
      "source": "hook drop 2026-05-17",
      "implementing_verbs": [
-         "sovereign-osctl net-state",
+         "sovereign-osctl network",
          "sovereign-osctl service-deps",
-         "sovereign-osctl perimeter-check",
+         "sovereign-osctl perimeter",
      ],
      "sdd_refs": [],
      "mandate_rows": [],
@@ -333,14 +329,14 @@ DEFAULT_AXES: list[dict[str, Any]] = [
                         "search online and such"),
      "source": "hook drop 2026-05-17",
      "implementing_verbs": [
-         "sovereign-osctl pcie-lanes",
          "sovereign-osctl pcie-policy",
-         "sovereign-osctl vfio-bind",
+         "sovereign-osctl pcie-policy",
+         "sovereign-osctl pcie-lane-detect",
      ],
      "sdd_refs": [],
      "mandate_rows": ["E1.M14", "E1.M24"],
      "status": "✓ shipped",
-     "notes": "R260 pcie-lanes/policy + R234 vfio-bind."},
+     "notes": "R260 pcie-policy + R234 pcie-lane-detect + R234 vfio-bind."},
     {"id": "A-20",
      "axis_verbatim": ("Adapting / Considering the given PSU "
                         "(probably not detectable ?) wattage and "
@@ -455,7 +451,7 @@ DEFAULT_AXES: list[dict[str, Any]] = [
      "implementing_verbs": [
          "sovereign-osctl inventory show nvme-m2-0",
          "sovereign-osctl storage-health",
-         "sovereign-osctl pcie-lanes",
+         "sovereign-osctl pcie-policy",
      ],
      "sdd_refs": [],
      "mandate_rows": ["E1.M37"],

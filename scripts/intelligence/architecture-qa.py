@@ -187,7 +187,7 @@ ARCHITECTURE_GOTCHAS: list[dict[str, Any]] = [
                  "bifurcation", "model-partitioning"],
         "spec_ref": "master spec §14 (gotcha 1 verbatim)",
         "related_verbs": [
-            "sovereign-osctl pcie-lanes --json",
+            "sovereign-osctl pcie-policy --json",
             "sovereign-osctl gpu-card-advisor --json",
             "sovereign-osctl model-build plan <base> --recipe quantize-awq-int4",
         ],
@@ -249,8 +249,8 @@ ARCHITECTURE_GOTCHAS: list[dict[str, Any]] = [
                  "binds-to", "eof", "socket", "dual-nic"],
         "spec_ref": "master spec §14 (gotcha 3 verbatim)",
         "related_verbs": [
-            "sovereign-osctl tetragon-status --json",
-            "sovereign-osctl net-state --json",
+            "sovereign-osctl perimeter --json",
+            "sovereign-osctl network --json",
             "systemctl cat sovereign-guardian-core",
         ],
     },

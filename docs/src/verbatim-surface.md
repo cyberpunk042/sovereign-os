@@ -66,7 +66,7 @@ _spec ref: master spec §13 (Q4 verbatim)_
 
 **Prevention:** You must hard-code model partitioning scripts to optimize execution allocations based on VRAM capacity. Load the core attention layers and high-frequency context loops entirely inside the primary card's high-speed VRAM allocation window to prevent excessive data bouncing over the shared x8 bus lane.
 
-  - `sovereign-osctl pcie-lanes --json`
+  - `sovereign-osctl pcie-policy --json`
   - `sovereign-osctl gpu-card-advisor --json`
   - `sovereign-osctl model-build plan <base> --recipe quantize-awq-int4`
 
@@ -94,8 +94,8 @@ _spec ref: master spec §14 (gotcha 2 verbatim)_
 
 **Prevention:** The guardian-core.service systemd unit file must include explicit service binding controls (BindsTo=tetragon.service) and include health checking routines that instantly restart the security loop if the local UNIX socket encounters an end-of-file (EOF) exception.
 
-  - `sovereign-osctl tetragon-status --json`
-  - `sovereign-osctl net-state --json`
+  - `sovereign-osctl perimeter --json`
+  - `sovereign-osctl network --json`
   - `systemctl cat sovereign-guardian-core`
 
 _spec ref: master spec §14 (gotcha 3 verbatim)_
@@ -326,11 +326,12 @@ Every operator-stated demand mapped to ≥1 implementing verb.
 **Source**: hook drop 2026-05-17
 
 **Implementing verbs**:
-  - `sovereign-osctl net-state`
-  - `sovereign-osctl ingress-advisor`
+  - `sovereign-osctl network`
+  - `sovereign-osctl network-stack`
   - `sovereign-osctl network-topology`
+  - `sovereign-osctl dns-advisor`
 
-**Notes**: R241 net-state + R287 ingress-advisor (Cloudflared / Tailscale / Traefik comparison) + R359 network-topology (§8 asymmetric NIC verbatim).
+**Notes**: R241 network + R287 network-stack (Cloudflared / Tailscale / Traefik comparison) + R359 network-topology (§8 asymmetric NIC verbatim) + dns-advisor.
 
 ### ✓ A-08 — non docker vs docker install ? when possible ? container level vs system level
 
@@ -338,7 +339,7 @@ Every operator-stated demand mapped to ≥1 implementing verb.
 **Source**: hook drop 2026-05-17
 
 **Implementing verbs**:
-  - `sovereign-osctl install-mode-advisor`
+  - `sovereign-osctl install-mode`
 
 **Notes**: R310 install-mode-advisor per-component recommendation (container / system / either) with operator-verbatim axis as the title.
 
@@ -359,9 +360,7 @@ Every operator-stated demand mapped to ≥1 implementing verb.
 **Source**: hook drop 2026-05-17
 
 **Implementing verbs**:
-  - `sovereign-osctl raid-status`
-  - `sovereign-osctl raid-operate`
-  - `sovereign-osctl raid-config`
+  - `sovereign-osctl raid`
 
 **Notes**: R223 raid-status / operate / config (prior round).
 
@@ -371,10 +370,8 @@ Every operator-stated demand mapped to ≥1 implementing verb.
 **Source**: hook drop 2026-05-17
 
 **Implementing verbs**:
-  - `sovereign-osctl logs`
-  - `sovereign-osctl log-rotate`
-  - `sovereign-osctl storage-health`
   - `sovereign-osctl insights`
+  - `sovereign-osctl fs`
 
 **Notes**: R222 logs + R234 insights + R298 storage-health.
 
@@ -394,7 +391,6 @@ Every operator-stated demand mapped to ≥1 implementing verb.
 **Source**: hook drop 2026-05-17
 
 **Implementing verbs**:
-  - `sovereign-osctl charter`
   - `sovereign-osctl architecture-qa show C-22`
 
 **Notes**: SDD-000 charter + C-22 'Debian as Ark' framing (R364).
@@ -445,9 +441,9 @@ Every operator-stated demand mapped to ≥1 implementing verb.
 **Source**: hook drop 2026-05-17
 
 **Implementing verbs**:
-  - `sovereign-osctl net-state`
+  - `sovereign-osctl network`
   - `sovereign-osctl service-deps`
-  - `sovereign-osctl perimeter-check`
+  - `sovereign-osctl perimeter`
 
 **Notes**: R241 net-state + R277 service-deps + R254 tetragon-status close the in-between perimeter.
 
@@ -469,11 +465,11 @@ Every operator-stated demand mapped to ≥1 implementing verb.
 **Source**: hook drop 2026-05-17
 
 **Implementing verbs**:
-  - `sovereign-osctl pcie-lanes`
   - `sovereign-osctl pcie-policy`
-  - `sovereign-osctl vfio-bind`
+  - `sovereign-osctl pcie-policy`
+  - `sovereign-osctl pcie-lane-detect`
 
-**Notes**: R260 pcie-lanes/policy + R234 vfio-bind.
+**Notes**: R260 pcie-policy + R234 pcie-lane-detect + R234 vfio-bind.
 
 ### ✓ A-20 — Adapting / Considering the given PSU (probably not detectable ?) wattage and rat
 
@@ -556,7 +552,7 @@ Every operator-stated demand mapped to ≥1 implementing verb.
 **Implementing verbs**:
   - `sovereign-osctl inventory show nvme-m2-0`
   - `sovereign-osctl storage-health`
-  - `sovereign-osctl pcie-lanes`
+  - `sovereign-osctl pcie-policy`
 
 **Notes**: R317 catalog ships 2 NVMe slots; R298 storage-health + R260 pcie-lanes cross-check.
 
