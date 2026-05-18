@@ -265,6 +265,11 @@ COMMANDS:
         [--json]                       minimization targets.
   anti-minimization-audit report       One-screen summary: total matches per
                                [--json]                     pattern (operator-discoverable).
+  anti-minimization-audit waivers      R474: list active 'anti-min-waiver:'
+                               [--json]                     annotations (operator-explicit known-OK
+                                                            exemptions). Every waiver carries its
+                                                            anchor + rationale; surfaces alongside
+                                                            the main audit (waivers cannot hide).
   anti-minimization-audit selfdef      R466 cross-repo: scan /etc/selfdef/
                                [--json]                     audit-manifests/*.toml for selfdef-side
                                                             AuditManifests (selfdef crate SD-R-AUDIT-1).

@@ -252,13 +252,49 @@ def _grep_lines(path: Path, regex: re.Pattern) -> list[tuple[int, str]]:
     ]
 
 
+# R474 audit-waiver annotation: operator can mark a line as known-OK
+# by appending an inline waiver comment. Pattern:
+#
+#   # anti-min-waiver: <R-number-or-SDD-anchor> <rationale-text>
+#
+# Examples:
+#   foo = bar  # anti-min-waiver: R474 placeholder fixture for test
+#   # TODO clean up  # anti-min-waiver: R-arc-cleanup-deferred-by-design
+#
+# The annotation MUST carry an anchor (R<N> / SDD-<N> / E<N>.M<N> /
+# R-arc-* / SD-R-*) so it itself isn't a 'todo-no-anchor' violation.
+# This is operator-§1g 'covered all angles' — the waiver mechanism
+# itself follows the anti-fabrication discipline.
+WAIVER_MARKER = "anti-min-waiver:"
+_WAIVER_RE = re.compile(
+    r"anti-min-waiver:\s*"
+    r"(?P<anchor>R\d+|SDD-\d+|E\d+\.M\d+|R-arc-[\w-]+|SD-R-[\w-]+)"
+    r"\s+(?P<rationale>\S.*)$"
+)
+
+
+def _is_waived(line: str) -> bool:
+    """True if line contains a properly-anchored waiver annotation."""
+    return bool(_WAIVER_RE.search(line))
+
+
+def _waiver_anchor(line: str) -> str | None:
+    m = _WAIVER_RE.search(line)
+    return m.group("anchor") if m else None
+
+
 def scan_todo_no_anchor(limit: int | None = None) -> list[dict]:
-    """TODO/FIXME without R-number (R\\d+) or SDD anchor (SDD-\\d+)."""
+    """TODO/FIXME without R-number (R\\d+) or SDD anchor (SDD-\\d+).
+
+    R474: lines carrying a properly-anchored `anti-min-waiver:`
+    annotation are skipped (operator-explicit known-OK)."""
     todo_re = re.compile(r"\b(?:TODO|FIXME)\b", re.IGNORECASE)
     anchor_re = re.compile(r"\b(?:R\d+|SDD-\d+|E\d+\.M\d+)\b")
     matches = []
     for f in _iter_scan_files():
         for lineno, line in _grep_lines(f, todo_re):
+            if _is_waived(line):
+                continue
             if not anchor_re.search(line):
                 matches.append({
                     "file": str(f.relative_to(REPO_ROOT)),
@@ -298,7 +334,9 @@ def scan_empty_stub(limit: int | None = None) -> list[dict]:
 
 
 def scan_skipped_no_followup(limit: int | None = None) -> list[dict]:
-    """'skipped'/'deferred'/'stub' without ticket/issue/R-number ref."""
+    """'skipped'/'deferred'/'stub' without ticket/issue/R-number ref.
+
+    R474: lines carrying an `anti-min-waiver:` annotation skipped."""
     keyword_re = re.compile(
         r"\b(?:skipped|deferred|stubbed?)\b", re.IGNORECASE
     )
@@ -309,6 +347,8 @@ def scan_skipped_no_followup(limit: int | None = None) -> list[dict]:
     matches = []
     for f in _iter_scan_files():
         for lineno, line in _grep_lines(f, keyword_re):
+            if _is_waived(line):
+                continue
             if not anchor_re.search(line):
                 matches.append({
                     "file": str(f.relative_to(REPO_ROOT)),
@@ -385,6 +425,10 @@ def scan_minimize_phrase(limit: int | None = None) -> list[dict]:
     """Code/comment contains a known minimize-phrase. Mandate file
     excluded (it discusses minimization but is not itself a violation).
     Anti-minimization-audit module itself excluded (defines patterns).
+    R474 SDD-038/R473 saturation lint excluded (defines waivers
+    + saturation policy that mentions minimize-phrases verbatim).
+
+    R474: lines carrying an `anti-min-waiver:` annotation skipped.
     """
     pat_re = re.compile(
         "|".join(re.escape(p) for p in MINIMIZE_PHRASES),
@@ -394,12 +438,15 @@ def scan_minimize_phrase(limit: int | None = None) -> list[dict]:
                     "2026-05-17-operator-mandate.md")
     self_path = "scripts/operator/anti-minimization-audit.py"
     test_path = "tests/lint/test_anti_minimization_audit_contract.py"
+    sdd038_path = "docs/sdd/038-cross-repo-binding-doctrine.md"
     matches = []
     for f in _iter_scan_files():
         rel = str(f.relative_to(REPO_ROOT))
-        if rel == mandate_path or rel == self_path or rel == test_path:
+        if rel in (mandate_path, self_path, test_path, sdd038_path):
             continue
         for lineno, line in _grep_lines(f, pat_re):
+            if _is_waived(line):
+                continue
             matches.append({
                 "file": rel,
                 "line": lineno,
@@ -641,6 +688,41 @@ def cmd_report(args) -> int:
     return 0
 
 
+def cmd_waivers(args) -> int:
+    """R474: list every active `anti-min-waiver:` annotation in the
+    repo. Operator-discoverable: every known-OK exemption surfaces
+    with its anchor + rationale, so the operator can audit waivers
+    themselves (operator-§1g 'covered all angles' — waivers cannot
+    hide; they're listed alongside the audit's main findings)."""
+    matches: list[dict] = []
+    for f in _iter_scan_files():
+        try:
+            text = f.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for i, line in enumerate(text.splitlines(), 1):
+            m = _WAIVER_RE.search(line)
+            if not m:
+                continue
+            matches.append({
+                "file": str(f.relative_to(REPO_ROOT)),
+                "line": i,
+                "anchor": m.group("anchor"),
+                "rationale": m.group("rationale")[:160],
+            })
+    out = {"waivers": matches, "count": len(matches)}
+    if args.fmt == "json":
+        print(json.dumps(out, indent=2))
+    else:
+        print(f"── anti-minimization-audit.waivers "
+              f"({len(matches)} active operator-explicit waivers) ──")
+        for w in matches:
+            print(f"  {w['file']}:{w['line']}  "
+                  f"[{w['anchor']}]  {w['rationale']}")
+    _emit_metric("waivers", "all", "ok")
+    return 0
+
+
 # --- R466 cross-repo selfdef AuditManifest discovery ---
 
 
@@ -791,6 +873,13 @@ def main(argv: list[str] | None = None) -> int:
                             help="one-screen summary")
     _add_fmt(sp_rep)
 
+    sp_w = sub.add_parser(
+        "waivers",
+        help=("R474: list active 'anti-min-waiver:' annotations "
+              "(operator-explicit known-OK exemptions)"),
+    )
+    _add_fmt(sp_w)
+
     sp_sd = sub.add_parser(
         "selfdef",
         help=("R466 cross-repo: scan SELFDEF_AUDIT_DIR for selfdef-side "
@@ -805,6 +894,7 @@ def main(argv: list[str] | None = None) -> int:
         "module": cmd_module,
         "cross-module": cmd_cross_module,
         "report": cmd_report,
+        "waivers": cmd_waivers,
         "selfdef": cmd_selfdef,
     }[args.cmd](args)
 

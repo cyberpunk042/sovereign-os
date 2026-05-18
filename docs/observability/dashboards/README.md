@@ -207,7 +207,7 @@ E11.M1 (operator §1g — documentation through-and-through):
 - `sovereign_os_operator_doc_coverage_query_total{verb,kind,result}` — `sovereign-osctl doc-coverage <verb>` queries (verb=kinds/modules/scan/coverage/gaps; kind=readme|sdd|helptext|metric-inventory|mandate-row|man-page|all|any|unknown; result=ok|below-threshold|unknown-module)
 
 E11.M11 (operator §1g — anti-minimization audit standing rule):
-- `sovereign_os_operator_anti_minimization_audit_query_total{verb,pattern,result}` — `sovereign-osctl anti-minimization-audit <verb>` queries (verb=patterns/scan/module/cross-module/report; pattern=todo-no-anchor|empty-stub|skipped-no-followup|surface-gap|doc-gap|mandate-todo|minimize-phrase|partial-status|all|any|unknown; result=ok|unknown-pattern|unknown-module)
+- `sovereign_os_operator_anti_minimization_audit_query_total{verb,pattern,result}` — `sovereign-osctl anti-minimization-audit <verb>` queries (verb=patterns/scan/module/cross-module/report/waivers/selfdef; pattern=todo-no-anchor|empty-stub|skipped-no-followup|surface-gap|doc-gap|mandate-todo|minimize-phrase|partial-status|all|any|unknown; result=ok|unknown-pattern|unknown-module). R474 added the `waivers` verb (operator-explicit `# anti-min-waiver:` annotation listing).
 
 E11.M10 (operator §1g — thorough UX design stage):
 - `sovereign_os_operator_ux_design_audit_query_total{verb,dimension,result}` — `sovereign-osctl ux-design-audit <verb>` queries (verb=dimensions/modules/audit/score/report; dimension=action-budget|discoverable|recoverable|next-step|operator-named|readable-30s|all|any|unknown; result=ok|below-threshold|unknown-module)
