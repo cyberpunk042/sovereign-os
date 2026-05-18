@@ -185,7 +185,7 @@ DFlash operator quote + arxiv 2602.06036 + 2 HF model candidates.
 
 ## L1 lint enforcement
 
-`tests/lint/test_verbatim_preservation_doctrine.py` pins:
+`tests/lint/test_verbatim_preservation_doctrine.py` (R367) pins:
 
 - This SDD-037 file carries the 7 required sections (Mission, Contract,
   Current shipped surface, L1 lint enforcement, What this SDD does NOT
@@ -193,11 +193,30 @@ DFlash operator quote + arxiv 2602.06036 + 2 HF model candidates.
 - `scripts/intelligence/architecture-qa.py` has ≥4 Q-NN questions,
   ≥3 G-NN gotchas, ≥10 C-NN concepts.
 - `scripts/intelligence/coverage-map.py` has ≥30 A-NN axes.
-- Every architecture-qa item has non-empty `spec_ref`.
+- Every architecture-qa item has non-empty `spec_ref` ≥10 chars.
 - Every coverage-map axis has ≥1 implementing verb.
 - The 4-binary Tetragon allowlist bidirectional consistency
   (R362-pattern): allowlist appears in BOTH the C-14 concept text AND
   `scripts/hooks/post-install/tetragon-policy-load.sh`.
+
+`tests/lint/test_verbatim_spec_ref_format.py` (R368) pins:
+
+- Every Q-NN / G-NN / C-NN `spec_ref` matches one of the recognized
+  operator-citation patterns (`master spec §N` / `master spec Block N`
+  / `master spec dump-tail` / `macro-arc plan dump <date>` /
+  `operator overlay <date>` / `/goal directive <date>`). Catches
+  agents fabricating non-existent citation forms.
+- Every `master spec §N` reference cites a section number that exists
+  in the master spec (§1..§23 + §N.M subsections). Catches fabricated
+  section refs like §99.
+- The concept catalog cites ≥10 distinct master spec sections
+  (top-level). Proves coverage breadth, not just depth on one section.
+- Every coverage-map axis `source` matches a known origin pattern
+  (`hook drop <date>` / `/goal directive <date>` / `mandate row …` /
+  `macro-arc plan dump <date>`).
+- Every coverage-map `implementing_verbs` entry starts with
+  `sovereign-osctl ` / `systemctl ` / `# ` (catches placeholder verbs
+  / typos that wouldn't actually dispatch).
 
 ## What this SDD does NOT do
 
