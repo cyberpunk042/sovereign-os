@@ -217,6 +217,117 @@ is the most-emphasized block.)
 > scale and you have for a very long time of work. Take your time, do
 > this right."
 
+### §1g — Documentation + master-dashboard + global history + auth tiers + firewall/VPN-bridge topology (2026-05-18, operator paste-record session)
+
+> **"lets also make sure that there is a very clear and well defined
+> documentation through and through which follow the high standards.
+> Including the Readme.md and whatever extension files of it. For both
+> Selfdef and its modules and features, and for Sovereign OS and its
+> modules and etc... Maybe there can even be an option to add a reverse
+> proxy nginx or such to do a master dashboard which regroup all those
+> of different port under a single port and super-dashboard or other
+> options to get an equivalent of it or such and whatnot. everything
+> will also need to go through a thorough UX Design stage in order to
+> be or quality, and again still SDD and the 300+ modules, options &
+> features.
+> Everything is not just core, not just cli, not just TUI, not just
+> API, not just tool and MCP but also Dashboards and Web Apps and
+> Services.
+>
+> Also here is a latest model interesting "Nvidia Nemotron 3" "Nvidia
+> Nemotron 3 *" "Nano Omni...": you can start with online research
+> obviously. Anyway make sure you break down everything and or
+> re-address everything and keep progressing and evoluing and
+> upgrading. I want a master piece, it takes a long time to deliver
+> the utmost experience to all level and have it personalize and
+> customizable and configurable and with proper observability and
+> operability and control and intelligence and rules and polices and
+> modes. Remember there is multiple levels and angle at everything and
+> its normal if we have to weave things everywhere and support
+> cross-features and augmentations. If you think something is really
+> already done, ask yourself if you covered all angles and levels and
+> layers and even if then improve it. Do not minimize or settle for
+> less or think that you can make me believe that delivering less I
+> asked for is right or a cheap version of it either.
+>
+> Some kind of global history too. tracking things happening, delta,
+> differentials... apt changes and operations, or any cli or tool call
+> I guess, in the management. more reliable and adapted than simply
+> aggregating the .bash_history's. then there is the bashrc we can
+> offer to configure it too and we can add our autocompletes and
+> aliases and manual / helps and menus. all the places to get the
+> remote management dashboard for X, Y or Z or the global one, the
+> pages to display also the way to remote connect like for LM Studio
+> or Unsloth ? a mode of access from no auth at all by default to
+> basic auth to advanced auth to social auth to enterprise auth and
+> network level access and etc.
+>
+> Like normal my AI will also be behind a firewall which will do a
+> VPN bridge to my other network since my two LANs are over two
+> different WAN and that each have an ISP router with NAT and then my
+> Opnsense Firewall with another NAT. This can be detected too I
+> guess and maybe it might require some configuration on it and we
+> would say it to the user. Maybe we can even integrate features, I
+> can even create a user and an API key and then it unlock other
+> capabilities when its detected and we want to connect to it. Be
+> aware of its state. I think that even if there isn't an Edge
+> firewall its possible to install the equivalent or even more
+> advanced if we want on this machine if we would be ready to pay the
+> performance price but that it will accept the Edge Firewall and its
+> level, even if its not a full IPS since its a 'Sharevdi Fanless
+> Firewall Mini PC Firewall Router Intel J3710/N3710 Quad Core, 4X
+> Intel 2.5GbE i226-V LAN Ports, 8G DDR3 128G SSD AES NI Network
+> Gateway Test with pf-Sense/opn-Sense' and has limitations, it being
+> 'fanless&cheap' but interesting to do the networting and VPN bridge
+> part, and we can still offer to install our own other module and do
+> whatever we want on the AI workstation no matter the edge router or
+> firewall detected and bridge state and rules and etc."**
+
+#### §1g key concretes (operator-named, NOT minimized)
+
+- **Documentation through-and-through (high standards)** — README.md
+  + extension files for **both** selfdef *and* sovereign-os, all
+  modules, all features. Quality + UX-design stage upstream of every
+  surface.
+- **Master-dashboard / reverse-proxy aggregator** — optional nginx
+  (or equivalent) consolidating per-port dashboards under a single
+  super-dashboard port. Optional, alternative paths offered.
+- **Multi-surface delivery** — core, CLI, TUI, API, tool, MCP,
+  **Dashboards, Web Apps, Services** (NOT just CLI/MCP — operator
+  explicitly enumerates dashboard + web-app + service tiers).
+- **300+ modules / options / features** scale baseline.
+- **Nvidia Nemotron 3 / Nano Omni** — new model family operator
+  flagged for online research + integration.
+- **Anti-minimization continued** — "If you think something is really
+  already done, ask yourself if you covered all angles and levels and
+  layers and even if then improve it. Do not minimize or settle for
+  less."
+- **Global history** — delta/differentials, apt changes, every CLI/
+  tool call, more reliable than aggregating `.bash_history`. Separate
+  surface in the management layer.
+- **bashrc opt-in configuration** — autocompletes, aliases, manual/
+  help, menus. Operator-discoverable.
+- **Remote-connect documentation** — every dashboard has a documented
+  remote-connect path (LM Studio, Unsloth, etc.).
+- **Auth tier ladder** — no-auth (default) → basic auth → advanced
+  auth → social auth → enterprise auth → network-level access.
+- **Network topology — VPN bridge across two LANs/WANs/NATs**:
+  - Two ISP routers (NAT 1)
+  - Opnsense firewall (NAT 2) — running on
+    `Sharevdi Fanless Firewall Mini PC` (Intel J3710/N3710 Quad Core,
+    4× Intel 2.5GbE i226-V LAN, 8G DDR3, 128G SSD, AES NI)
+  - VPN bridge between the two LANs (over different WAN)
+  - sovereign-os MUST detect this configuration
+  - MUST tell user when configuration is needed
+  - Integration features unlock when operator creates user + API key
+    in Opnsense AND sovereign-os detects connectivity to it
+  - State-awareness of the firewall (alive, configured, reachable)
+- **Edge-firewall alternatives** — if no edge firewall present,
+  offer to install equivalent (or more advanced — IPS-class) **on
+  the AI workstation itself**, with explicit performance-cost
+  disclosure. Compatible with whatever edge firewall is present,
+  even if it's the fanless+cheap variant limited by hardware.
+
 ## 2. Standing rules (sacrosanct — applies to EVERY round)
 
 - **Never minimize, reduce, conflate, or corrupt** the operator's
@@ -567,6 +678,30 @@ operator-pull intelligence vector.
 |----|--------|--------|--------|
 | E10.M1 | **Topic guide catalog** — `sovereign-osctl guide topics/list/show/walkthrough <topic>`. 9 default topics covering operator's verbatim §1b axes (kernel / hardware / gpu / psu / ups / memory / workload-mode / inference / network). Each topic carries: mission narrative + ordered layers (look-into steps) + operator_verbs (paired 1:1 with layers for `walkthrough` zip) + thresholds (operator-meaningful numbers) + bios_or_hw_caveats (per-board: ASUS X870E-CREATOR specifics, RTX 3090 shunt-mod, Dark Power Pro 13 physical OC switch, etc.) + cross_refs (SDDs / advisors). Operator-overlay (R283/SDD-030) lets operator extend or replace topics. L3 test pins layer/verb count parity across all topics (catches walkthrough zip drift at push-time) AND verifies operator-verbatim §1b SKUs (CMK128GX5M2B6400C42, SMT2200C, RTX 3090, RTX PRO 6000, Ryzen 9 9900X, be Quiet! Dark Power Pro, ASUS X870E-CREATOR) surface in topic content AND cross_refs cite SDDs that exist on disk. [from §1b verbatim hook drop quoted above — "AI as guide" is the operator's central animating vision; partial coverage via R309 CoT + R329 next-action; R349 fills the explicit "guide INTO" vector] | ✓ shipped | R349 (`sovereign-osctl guide topics/list/show/walkthrough` + 9→11 topics × 5 axes + 10 L3 covering topics-enumeration / axes / show-schema / unknown-rc / walkthrough-mode / layer-verb-parity / verbatim-SKU-preservation / axis-filter / osctl-dispatch / cross_ref-SDD-existence; R349 follow-up added autohealth + selfdef topics) |
 | E10.M2 | **Morning-brief rollup** — `sovereign-osctl morning-brief rollup` composes 4 operator-pull intelligence sources (R329 next-action top-N + R351 module-state attention items + R308 autohealth severity + R349 guide-topic suggestion) into ONE operator-readable "what should I look at first this morning?" report. Each sub-probe runs best-effort (NEVER-raise on subprocess failure; section reports `available: false` + error blurb instead of crashing the rollup). Critical-signal aggregation escalates rc=1 when next-action has priority=critical OR autohealth severity=critical OR a module is `running-without-overlay` (stock defaults in production). Topic-suggestion heuristic scores R349 topics by keyword hits across recommendations + module gaps, picks the highest-signal topic (e.g. memory-pressure recommendation → suggests `guide walkthrough memory`). Operator-overlay tunes section limits + can disable autohealth/guide-suggestion sections. R352 also extends R331 self-test curated L3 sample with R349/R350/R351/R352 tests so self-test stays current with shipped intelligence verbs. [from §1.0 — operator-pull "single screen, what matters right now?" gap; composes 4 existing verbs without coupling] | ✓ shipped | R352 (`sovereign-osctl morning-brief rollup` + 4-source composition + R331 self-test L3 sample extended + 12 L3 covering schema + 3-section coverage + module-attention surfacing + best-effort-na + autohealth-never-raises + suggested-topic-real + verb-shape + --limit + 4-section-human-render + osctl-dispatch + unknown-rc=2 + overlay-tunes-sections) |
+
+### Epic E11 — §1g "Ultimate Sovereign OS" expansion (docs + master-dashboard + global history + auth tiers + network topology + edge-firewall + Nemotron 3)
+
+> Sources §1g operator paste (2026-05-18) reproduced verbatim in §1g above.
+>
+> This Epic captures the §1g expansion that doesn't fit cleanly into
+> E1–E10 (those were operator-named axes of system functioning; E11 is
+> a NEW dimension on top — documentation/UX/dashboards/auth/network-
+> topology as cross-cutting concerns + Nemotron 3 model family).
+
+| ID | Module | Status | Rounds |
+|----|--------|--------|--------|
+| E11.M1 | **Documentation through-and-through (selfdef + sovereign-os, all modules, all features)** — README.md + extension files for both repos + all modules. High-standards UX-design stage upstream of every surface. 300+ modules/options/features at scale. NOT just `docs/sdd/*.md` (already covered E2.M11) — operator wants the README + per-module READMEs + per-feature READMEs + the human-discoverable on-ramp from "I just cloned this" → "I can do everything". [§1g verbatim: "very clear and well defined documentation through and through which follow the high standards"] | TODO | — |
+| E11.M2 | **Master-dashboard / reverse-proxy aggregator** — optional nginx (or alternative) consolidating per-port dashboards under a single super-dashboard port. Operator can choose: (a) per-port-direct, (b) reverse-proxied aggregate, (c) alternative aggregator. [§1g verbatim: "Maybe there can even be an option to add a reverse proxy nginx or such to do a master dashboard which regroup all those of different port under a single port and super-dashboard"] | TODO | — |
+| E11.M3 | **Multi-surface delivery contract** — every operator-facing capability MUST be delivered across at least: core, CLI, TUI, API, MCP, **Dashboard, Web App, Service**. Lint at push-time that every operator-facing module has at least N of these surfaces present (or explicit waiver). [§1g verbatim: "Everything is not just core, not just cli, not just TUI, not just API, not just tool and MCP but also Dashboards and Web Apps and Services"] | TODO | — |
+| E11.M4 | **Nvidia Nemotron 3 / Nano Omni integration** — research the model family, slot into model-catalog as a Trinity-tier candidate (Oracle Core or Logic Engine — operator decides), evaluate quantization paths (fp8 / bf16 / Q4_K_M etc.), update sain-01 profile + start-script defaults if operator picks it. [§1g verbatim: "Nvidia Nemotron 3, Nano Omni..."] | TODO | — |
+| E11.M5 | **Global history (delta/differentials)** — more reliable than `.bash_history` aggregation. Tracks: apt operations, every CLI/tool call, sovereign-osctl verbs, module install/uninstall, profile switches, hotswap events. Separate management-layer surface (`sovereign-osctl history` family). Operator-discoverable: "what happened to my system in the last N hours/days?". [§1g verbatim: "Some kind of global history too. tracking things happening, delta, differentials"] | TODO | — |
+| E11.M6 | **bashrc opt-in configuration** — operator-opt-in `sovereign-osctl bashrc install` adds: autocompletes for sovereign-osctl + selfdefctl, aliases, inline `man`/`--help` shortcuts, menus. Idempotent + reversible (`bashrc uninstall`). [§1g verbatim: "the bashrc we can offer to configure it too"] | TODO | — |
+| E11.M7 | **Auth tier ladder** — no-auth (default) → basic auth → advanced auth (token-bound) → social auth → enterprise auth → network-level access. Per-dashboard auth tier configurable. Operator-discoverable upgrade path; clear UX for "I want to expose this dashboard, what should I enable?". [§1g verbatim: "a mode of access from no auth at all by default to basic auth to advanced auth to social auth to enterprise auth and network level access and etc."] | TODO | — |
+| E11.M8 | **Network-topology detection — multi-NAT / VPN-bridge across two LANs/WANs / Opnsense integration** — sovereign-os detects: behind 1× NAT (ISP), behind 2× NAT (ISP + Opnsense), VPN-bridge active to second LAN. Opnsense state-awareness (reachable, configured, user+API-key present). Integration features unlock when operator creates user + API key in Opnsense AND sovereign-os has connectivity. [§1g verbatim: "Like normal my AI will also be behind a firewall which will do a VPN bridge to my other network..."] | TODO | — |
+| E11.M9 | **Edge-firewall alternative — install equivalent on workstation** — when no edge firewall present (or even when present), offer to install IPS-class firewall **on the AI workstation itself**. Explicit performance-cost disclosure. Compatible with whatever edge firewall is present, including limited fanless variants. Operator-named hardware target for edge: `Sharevdi Fanless Firewall Mini PC` (Intel J3710/N3710 + 4× Intel 2.5GbE i226-V + 8G DDR3 + 128G SSD + AES-NI, running pfSense/OPNsense). [§1g verbatim] | TODO | — |
+| E11.M10 | **UX Design stage upstream of every module** — every E11.M* (and ALL operator-facing surfaces) goes through a documented UX-design pass before SDD-codification. Standard: operator can reach the goal of the surface in N or fewer actions, with clear discovery, recoverable mistakes, and discoverable next steps. [§1g verbatim: "everything will also need to go through a thorough UX Design stage in order to be of quality"] | TODO | — |
+| E11.M11 | **Anti-minimization continued audit (cross-Epic)** — periodic re-audit of every Epic asking "have we covered all angles and levels and layers? if so, can we improve it?". Output: per-Epic improvement backlog. [§1g verbatim: "If you think something is really already done, ask yourself if you covered all angles and levels and layers and even if then improve it. Do not minimize or settle for less."] | TODO | — |
+| E11.M12 | **selfdef branch + never-ending PR setup** — establish `claude/general-session-Wk97z` branch in `cyberpunk042/selfdef`, open a DRAFT PR (not blocked at draft — accumulating + merge when massive group is ready), push selfdef-side rounds against it. sovereign-os stays direct-push to `main`. [operator's perpetual mandate text: "you can keep working in selfdef branch and have a work PR (not blocked at draft) that keep cummulating and that when a massive group of changes and features are ready we merge it"] | TODO | — |
 
 ## 4. How future rounds use this file
 
