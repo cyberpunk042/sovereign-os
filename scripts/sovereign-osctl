@@ -6006,6 +6006,24 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  model-build)
+    # R353 (E5.M18): fills the "build" verb in the §1b 9-verb AI tools
+    # pipeline (download/fine-tune/parameters/BUILD/run/use/train/
+    # adapt/eval). Plans merge/quantize/export of a deployable model
+    # artifact from {base + adapter + recipe}. Hardware-aware via the
+    # same declared-GPUs pattern as R350 adapt.
+    sub="${1:-recipes}"
+    shift || true
+    case "${sub}" in
+      recipes|plan|show|history)
+        "${__REPO_ROOT}/scripts/models/build.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown model-build subverb: ${sub} (recipes, plan, show, history)"
+        exit 2
+        ;;
+    esac
+    ;;
   morning-brief)
     # R352 (E10.M2): meta-rollup composing R329 next-action +
     # R351 module-state + R308 autohealth + R349 guide-suggestion
