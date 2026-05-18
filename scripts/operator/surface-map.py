@@ -172,10 +172,9 @@ MODULE_COVERAGE = {
         },
     },
     "master-dashboard": {
-        "shipped_in": "R452 (E11.M2) + R488 (E11.M2+ watch tui) + R498 (E11.M2++ read-only REST API)",
-        "surfaces": ["core", "cli", "tui", "service", "api"],
+        "shipped_in": "R452 (E11.M2) + R488 (E11.M2+ watch tui) + R498 (E11.M2++ read-only REST API) + R499 (E11.M2++ MCP surface)",
+        "surfaces": ["core", "cli", "tui", "service", "api", "mcp"],
         "waivers": {
-            "mcp":       "FUTURE — agent queries aggregator state via MCP (read-only mirror of the R498 REST surface)",
             "dashboard": "self-referential — master-dashboard IS the aggregator",
             "webapp":    "FUTURE — render produces Web App config (already)",
         },

@@ -274,6 +274,41 @@ LOCAL_TOOLS = [
         "argv": ["sovereign-osctl", "notify", "list", "--json"],
         "categories": ["notify"],
     },
+    # ── Master-dashboard (R499 — E11.M2++ MCP surface) ──────────────
+    # Closes master-dashboard mcp:FUTURE waiver. Read-only mirror of
+    # the R498 REST surface (scripts/operator/master-dashboard-api.py).
+    # Mutation verbs (render / install) stay CLI-only — operator §17
+    # sovereignty boundary.
+    {
+        "name": "master-dashboard-list",
+        "summary": "Master-dashboard aggregator: list all dashboard routes (slug → port + subpath + label).",
+        "argv": ["sovereign-osctl", "master-dashboard", "list", "--json"],
+        "categories": ["master-dashboard", "aggregator", "operator-§1g"],
+    },
+    {
+        "name": "master-dashboard-routes",
+        "summary": "Master-dashboard aggregator: routing table the reverse-proxy would emit (per-port-direct / reverse-proxied / alternative-aggregator modes).",
+        "argv": ["sovereign-osctl", "master-dashboard", "routes", "--json"],
+        "categories": ["master-dashboard", "routing", "operator-§1g"],
+    },
+    {
+        "name": "master-dashboard-collisions",
+        "summary": "Master-dashboard aggregator: port + subpath collision detection across built-in routes and selfdef cross-repo manifests.",
+        "argv": ["sovereign-osctl", "master-dashboard", "collisions", "--json"],
+        "categories": ["master-dashboard", "validation", "operator-§1g"],
+    },
+    {
+        "name": "master-dashboard-health",
+        "summary": "Master-dashboard aggregator: TCP-probe every upstream dashboard port (Trinity tiers / router / Grafana / textfile-collector).",
+        "argv": ["sovereign-osctl", "master-dashboard", "health", "--json"],
+        "categories": ["master-dashboard", "observability", "operator-§1g"],
+    },
+    {
+        "name": "master-dashboard-discover",
+        "summary": "Master-dashboard aggregator: load selfdef cross-repo dashboard manifests under /etc/selfdef/dashboards/ (SD-R-DASHBOARD-MANIFEST-1).",
+        "argv": ["sovereign-osctl", "master-dashboard", "discover", "--json"],
+        "categories": ["master-dashboard", "cross-repo", "operator-§1g"],
+    },
 ]
 
 
