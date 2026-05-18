@@ -979,6 +979,65 @@ ARCHITECTURE_CONCEPTS: list[dict[str, Any]] = [
         "spec_ref": "master spec §6 verbatim (Implementation Ledger)",
     },
     {
+        "id": "C-26",
+        "name": "Profile 1 — Ultra-Sovereign Efficiency Mode (CPU Focused)",
+        "explanation": ("Profile 1: Ultra-Sovereign Efficiency Mode "
+                         "(CPU Focused) — Designed for continuous "
+                         "background state monitoring, log auditing, "
+                         "and autonomous maintenance tasks with near-"
+                         "zero power draw. Conductor Configuration: "
+                         "Pinned to CPU cores 0-7. Executes "
+                         "BitNet-b1.58-3B through bitnet.cpp. GPU "
+                         "State: GPUs placed into low-power compute "
+                         "sleep states via nvidia-smi -pm 1 "
+                         "(Persistence Mode enabled, core clocks "
+                         "throttled). Orchestration Vector: taskset "
+                         "-c 0-7 bitnet-cli -m ./models/bitnet_b1_58"
+                         "_3b/ggml-model-i2.gguf -p \"Evaluate state "
+                         "transition from CLAUDE.md\" --threads 8 "
+                         "--memory-f32 — pinned execution forcing full "
+                         "AVX-512 pipeline utilization without "
+                         "scheduling tasks across the physical CCD "
+                         "boundary."),
+        "tags": ["profile-1", "ultra-sovereign-efficiency",
+                 "cpu-focused", "bitnet-b1.58-3b", "taskset", "ccd-0",
+                 "nvidia-smi-pm", "persistence-mode", "background-state",
+                 "log-auditing", "memory-f32"],
+        "spec_ref": "master spec §18 verbatim (Load Balancing Profile 1)",
+    },
+    {
+        "id": "C-27",
+        "name": "Profile 3 — Deep Context Synthesis Mode (Unified Memory Span)",
+        "explanation": ("Profile 3: Deep Context Synthesis Mode "
+                         "(Unified Memory Span) — Designed for "
+                         "reading whole-system telemetry outputs or "
+                         "parsing an entire application's source files "
+                         "simultaneously. Load Balancing Strategy: "
+                         "Chains the dual GPUs into a unified execution "
+                         "space via unified memory architectures or "
+                         "optimized layer split maps, utilizing the "
+                         "CPU solely to run high-speed streaming "
+                         "tokenizers. Layer Allocation Scheme: "
+                         "Layer 0-30 pinned to the high-throughput "
+                         "processing layer of GPU 0; Layer 31-80 "
+                         "pinned to the massive VRAM footprint of GPU "
+                         "1; KV Cache compressed to 4-bit width to "
+                         "maximize active token context length. "
+                         "Orchestration: podman run --device "
+                         "nvidia.com/gpu=all -v /mnt/vault/models:/"
+                         "models:ro vllm/vllm-openai:latest --model "
+                         "/models/DeepSeek-V3-Quant --tensor-parallel-"
+                         "size 2 --pipeline-parallel-size 1 "
+                         "--gpu-memory-utilization 0.95 --kv-cache-"
+                         "dtype fp8."),
+        "tags": ["profile-3", "deep-context-synthesis",
+                 "unified-memory", "layer-allocation", "tensor-parallel",
+                 "vllm-openai", "deepseek-v3-quant", "kv-cache-fp8",
+                 "gpu-memory-utilization", "streaming-tokenizers",
+                 "podman", "layer-split"],
+        "spec_ref": "master spec §18 verbatim (Load Balancing Profile 3)",
+    },
+    {
         "id": "C-10",
         "name": "Wasm-to-AVX-512 AOT Pipeline (The Pulse implementation)",
         "explanation": ("When The Pulse processes low-bit matrix logic "

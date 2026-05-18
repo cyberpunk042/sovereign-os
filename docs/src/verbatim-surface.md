@@ -9,7 +9,7 @@ lives in the Python catalog files; this doc regenerates from them.
 
   - **questions**: 4
   - **gotchas**: 3
-  - **concepts**: 25
+  - **concepts**: 27
   - **coverage_axes**: 32
   - **ccd_layers**: 3
   - **state_files**: 4
@@ -18,7 +18,7 @@ lives in the Python catalog files; this doc regenerates from them.
   - **network_diagram_lines**: 13
   - **repl_modes**: 4
 
-  **Total verbatim items**: 80
+  **Total verbatim items**: 82
 
 ---
 
@@ -248,6 +248,18 @@ _spec ref: master spec §2 + §2.1 + §2.2 verbatim (Bootstrap Forge)_
 Implementation Ledger (Next Steps): 1. Forge Initialization — Execute the tmpfs kernel build with znver5 flags. 2. ISO Synthesis — Generate the live-build artifact with verbatim identity injection. 3. Physical Audit — Verify the empty M.2_2 slot and x8/x8 lane negotiation. 4. Security Deployment — Load the Tetragon TracingPolicy to perimeter-fence the agents. These 4 steps are the operator's verbatim post-§5 Implementation Ledger from the [END OF SPECIFICATION] block. Mapped to sovereign-os execution flow: step 1 → bootstrap phases II (kernel build); step 2 → bootstrap phase III (OS Image / live-build); step 3 → bootstrap verify §22 friction-audit (M.2_2 + x8/x8 check); step 4 → bootstrap phase V (Perimeter / Tetragon + Guardian).
 
 _spec ref: master spec §6 verbatim (Implementation Ledger)_
+
+### C-26 — Profile 1 — Ultra-Sovereign Efficiency Mode (CPU Focused)
+
+Profile 1: Ultra-Sovereign Efficiency Mode (CPU Focused) — Designed for continuous background state monitoring, log auditing, and autonomous maintenance tasks with near-zero power draw. Conductor Configuration: Pinned to CPU cores 0-7. Executes BitNet-b1.58-3B through bitnet.cpp. GPU State: GPUs placed into low-power compute sleep states via nvidia-smi -pm 1 (Persistence Mode enabled, core clocks throttled). Orchestration Vector: taskset -c 0-7 bitnet-cli -m ./models/bitnet_b1_58_3b/ggml-model-i2.gguf -p "Evaluate state transition from CLAUDE.md" --threads 8 --memory-f32 — pinned execution forcing full AVX-512 pipeline utilization without scheduling tasks across the physical CCD boundary.
+
+_spec ref: master spec §18 verbatim (Load Balancing Profile 1)_
+
+### C-27 — Profile 3 — Deep Context Synthesis Mode (Unified Memory Span)
+
+Profile 3: Deep Context Synthesis Mode (Unified Memory Span) — Designed for reading whole-system telemetry outputs or parsing an entire application's source files simultaneously. Load Balancing Strategy: Chains the dual GPUs into a unified execution space via unified memory architectures or optimized layer split maps, utilizing the CPU solely to run high-speed streaming tokenizers. Layer Allocation Scheme: Layer 0-30 pinned to the high-throughput processing layer of GPU 0; Layer 31-80 pinned to the massive VRAM footprint of GPU 1; KV Cache compressed to 4-bit width to maximize active token context length. Orchestration: podman run --device nvidia.com/gpu=all -v /mnt/vault/models:/models:ro vllm/vllm-openai:latest --model /models/DeepSeek-V3-Quant --tensor-parallel-size 2 --pipeline-parallel-size 1 --gpu-memory-utilization 0.95 --kv-cache-dtype fp8.
+
+_spec ref: master spec §18 verbatim (Load Balancing Profile 3)_
 
 ### C-10 — Wasm-to-AVX-512 AOT Pipeline (The Pulse implementation)
 
