@@ -8,6 +8,7 @@
 - [Open questions (Q-001..Q-019)](./questions.md)
 - [Decisions log](./decisions.md)
 - [Install runbook (SAIN-01)](./install-runbook.md)
+- [Verbatim-preservation surface (SDD-037)](./verbatim-surface.md)
 
 # The 10-PR foundation phase
 
