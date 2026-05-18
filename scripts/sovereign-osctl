@@ -216,6 +216,22 @@ COMMANDS:
         [--force-skip-tiers]
         [--json]
 
+  compliance status            R458: §1g/§1h compliance dashboard
+                               [--json]                     aggregator. Consolidates R453 + R454 +
+                                                            R456 + R457 into one rollup screen.
+  compliance module <n>        Per-module rollup across 4 instruments.
+                               [--json]
+  compliance worst             Top-N modules by composite gap (axes
+        [--limit N]            flagged + composite shortfall).
+        [--json]
+  compliance history           Recent compliance snapshots from
+        [--limit N]            history journal.
+        [--json]
+  compliance snapshot          Record current state to history journal.
+        [--apply]              Triple-gated (--apply + --confirm-snapshot).
+        [--confirm-snapshot]
+        [--json]
+
   ux-design-audit dimensions   R457 (E11.M10): operator §1g
                                [--json]                     "thorough UX Design stage" — 6 dimensions
                                                             (action-budget/discoverable/recoverable/
@@ -6627,6 +6643,14 @@ case "${cmd}" in
     # → advanced → social → enterprise → network-level). Per-dashboard
     # tier registry + upgrade matrix + triple-gated set.
     "${__REPO_ROOT}/scripts/operator/auth-tier.py" "$@"
+    ;;
+  compliance)
+    # R458: §1g/§1h compliance dashboard aggregator. Consolidates the
+    # 4-tool operator-§1g compliance instrument suite (R453 surface-map
+    # + R454 doc-coverage + R456 anti-min-audit + R457 ux-design-audit)
+    # into a single operator-discoverable view. 5 verbs: status /
+    # module / worst / history / snapshot (snapshot triple-gated).
+    "${__REPO_ROOT}/scripts/operator/compliance.py" "$@"
     ;;
   ux-design-audit)
     # R457 (E11.M10): operator §1g verbatim — "everything will also

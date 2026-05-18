@@ -1,0 +1,252 @@
+"""R458 — §1g/§1h compliance dashboard aggregator contract lint.
+
+Consolidates the 4-tool §1g compliance instrument suite (R453 + R454
++ R456 + R457) into a single operator-discoverable rollup.
+"""
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+CP_PY = REPO_ROOT / "scripts" / "operator" / "compliance.py"
+OSCTL = REPO_ROOT / "scripts" / "sovereign-osctl"
+
+EXPECTED_INSTRUMENTS = [
+    "surface-map",
+    "doc-coverage",
+    "anti-minimization-audit",
+    "ux-design-audit",
+]
+
+
+def _read(p: Path) -> str:
+    return p.read_text(encoding="utf-8")
+
+
+# --- Structural ---
+
+
+def test_compliance_script_exists():
+    assert CP_PY.is_file(), f"missing {CP_PY}"
+
+
+def test_compliance_executable():
+    assert os.access(CP_PY, os.X_OK), f"{CP_PY} not executable"
+
+
+def test_python3_shebang():
+    body = _read(CP_PY)
+    assert body.startswith("#!/usr/bin/env python3")
+
+
+def test_documents_r458_origin():
+    body = _read(CP_PY)
+    assert "R458" in body
+
+
+def test_references_all_four_instruments():
+    """compliance.py MUST reference all 4 R-rounds it consolidates."""
+    body = _read(CP_PY)
+    for r in ("R453", "R454", "R456", "R457"):
+        assert r in body, f"missing reference to {r}"
+
+
+# --- Instrument catalog ---
+
+
+def test_instruments_catalog_defined():
+    body = _read(CP_PY)
+    assert "INSTRUMENTS" in body, "missing INSTRUMENTS catalog"
+    for i in EXPECTED_INSTRUMENTS:
+        assert f'"{i}"' in body, f"INSTRUMENTS missing {i!r}"
+
+
+def test_each_instrument_has_round_field():
+    body = _read(CP_PY)
+    n = body.count('"round":')
+    assert n >= 4, f"only {n} 'round' fields (expected ≥4)"
+
+
+def test_each_instrument_has_script_field():
+    body = _read(CP_PY)
+    n = body.count('"script":')
+    assert n >= 4, f"only {n} 'script' fields (expected ≥4)"
+
+
+# --- CLI surface (5 verbs) ---
+
+
+def test_supports_status_verb():
+    body = _read(CP_PY)
+    assert '"status"' in body
+
+
+def test_supports_module_verb():
+    body = _read(CP_PY)
+    assert '"module"' in body
+
+
+def test_supports_worst_verb():
+    body = _read(CP_PY)
+    assert '"worst"' in body
+
+
+def test_supports_history_verb():
+    body = _read(CP_PY)
+    assert '"history"' in body
+
+
+def test_supports_snapshot_verb():
+    body = _read(CP_PY)
+    assert '"snapshot"' in body
+
+
+def test_snapshot_has_triple_gate():
+    """snapshot MUST require --apply + --confirm-snapshot."""
+    body = _read(CP_PY)
+    assert "--apply" in body
+    assert "--confirm-snapshot" in body
+
+
+def test_json_and_human_format_flags():
+    body = _read(CP_PY)
+    assert "--json" in body and "--human" in body
+
+
+# --- DRY-RUN + env overlay ---
+
+
+def test_supports_dry_run():
+    body = _read(CP_PY)
+    assert "SOVEREIGN_OS_DRY_RUN" in body
+
+
+def test_supports_dedicated_dry_run_env():
+    body = _read(CP_PY)
+    assert "SOVEREIGN_OS_COMPLIANCE_DRY_RUN" in body
+
+
+def test_snapshot_path_env_overridable():
+    body = _read(CP_PY)
+    assert "SOVEREIGN_OS_COMPLIANCE_OUT" in body
+
+
+# --- Metric ---
+
+
+def test_emits_layer_b_metric():
+    body = _read(CP_PY)
+    assert "sovereign_os_operator_compliance_query_total" in body
+
+
+# --- osctl integration ---
+
+
+def test_osctl_dispatches_compliance():
+    body = _read(OSCTL)
+    assert "compliance)" in body, (
+        "osctl missing compliance) dispatcher"
+    )
+    assert "compliance.py" in body, (
+        "osctl dispatcher doesn't reference compliance.py"
+    )
+
+
+def test_osctl_help_documents_compliance_verbs():
+    body = _read(OSCTL)
+    for sub in (
+        "compliance status",
+        "compliance module",
+        "compliance worst",
+        "compliance history",
+        "compliance snapshot",
+    ):
+        assert sub in body, f"osctl help missing {sub!r}"
+
+
+def test_osctl_help_references_r458():
+    body = _read(OSCTL)
+    assert "R458" in body
+
+
+# --- Smoke tests ---
+
+
+def test_status_verb_aggregates_four_instruments():
+    """status --json MUST return data from all 4 instruments."""
+    result = subprocess.run(
+        ["python3", str(CP_PY), "status", "--json"],
+        capture_output=True, text=True, timeout=180,
+    )
+    assert result.returncode == 0, (
+        f"status failed: stderr={result.stderr[:500]}"
+    )
+    data = json.loads(result.stdout)
+    for key in ("surface_map", "doc_coverage",
+                "anti_minimization_audit", "ux_design_audit"):
+        assert key in data, f"status missing {key!r}"
+    # Each must report `available`
+    for key in ("surface_map", "doc_coverage",
+                "anti_minimization_audit", "ux_design_audit"):
+        assert "available" in data[key], (
+            f"{key} missing 'available' field"
+        )
+
+
+def test_worst_verb_runs():
+    result = subprocess.run(
+        ["python3", str(CP_PY), "worst", "--limit", "3", "--json"],
+        capture_output=True, text=True, timeout=180,
+    )
+    assert result.returncode == 0
+    data = json.loads(result.stdout)
+    assert "worst" in data
+    assert len(data["worst"]) <= 3
+
+
+def test_module_verb_runs():
+    result = subprocess.run(
+        ["python3", str(CP_PY), "module", "auth-tier", "--json"],
+        capture_output=True, text=True, timeout=180,
+    )
+    assert result.returncode == 0
+    data = json.loads(result.stdout)
+    assert data["module"] == "auth-tier"
+    for key in ("surface_gap", "doc_gap", "ux_gap"):
+        assert key in data
+
+
+def test_history_verb_runs():
+    result = subprocess.run(
+        ["python3", str(CP_PY), "history", "--json"],
+        capture_output=True, text=True, timeout=10,
+        env={**os.environ, "SOVEREIGN_OS_COMPLIANCE_OUT":
+             "/tmp/compliance-noexist.jsonl"},
+    )
+    assert result.returncode == 0
+    data = json.loads(result.stdout)
+    assert "history" in data
+
+
+def test_snapshot_preview_mode_runs_without_writing():
+    """snapshot without --apply MUST preview, NOT write."""
+    target = Path("/tmp/compliance-snapshot-test-noexist.jsonl")
+    if target.exists():
+        target.unlink()
+    result = subprocess.run(
+        ["python3", str(CP_PY), "snapshot", "--json"],
+        capture_output=True, text=True, timeout=180,
+        env={**os.environ,
+             "SOVEREIGN_OS_COMPLIANCE_OUT": str(target)},
+    )
+    assert result.returncode == 0, (
+        f"snapshot preview failed: stderr={result.stderr[:300]}"
+    )
+    data = json.loads(result.stdout)
+    assert data.get("preview") is True
+    assert not target.exists(), (
+        "snapshot preview wrote the journal (should not)"
+    )
