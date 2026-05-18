@@ -165,6 +165,13 @@ Plus L1 lint assertions in `tests/lint/test_<tool>_contract.py`:
 | `SD-R-UX-CHECKLIST-1`          | R464 ux-design-audit selfdef  | selfdef-ux-checklist           | 6-dimension UX-quality enum |
 | `SD-R-AUDIT-1`                 | R466 anti-min-audit selfdef   | selfdef-audit-manifest         | 8-pattern minimization      |
 | `SD-R-BASHRC-1`                | R468 bashrc-install combo     | selfdef-bashrc-install         | sentinel-bounded bashrc     |
+| `SD-R-DOC-MANIFEST-1`          | R471 doc-coverage selfdef     | selfdef-doc-manifest           | 6-kind doc-surface catalog  |
+
+The typed-mirror layer reached SATURATION at R471: every sovereign-os
+compliance instrument has its corresponding selfdef-side Rust crate.
+Saturation is enforced by `tests/lint/test_cross_repo_saturation_invariant.py`
+(R473) — any future instrument added without its selfdef mirror fails
+this lint at push-time.
 
 ### End-to-end acceptance (R469)
 
