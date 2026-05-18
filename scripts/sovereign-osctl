@@ -189,6 +189,7 @@ COMMANDS:
   trinity pulse                     Vector Core layer (AVX-512 · bitnet.cpp · CCD0)
   trinity weaver                    Sandboxed Fabric layer (Podman · VFIO · state fabric · CCD1 0-9)
   trinity auditor                   Immutable Gatekeeper layer (Tetragon · Guardian · always-on)
+  trinity watch                     R513 refresh-loop TUI (Pulse · Weaver · Auditor at a glance)
   trinity profile list              List runtime profiles (master spec § 18)
   trinity profile show <id>         Detail a runtime profile (allocations · GPU state · power · observability)
   trinity profile active            Show the currently-active runtime profile
@@ -3683,6 +3684,14 @@ cmd_trinity() {
     profile)
       _trinity_profile "$@"
       ;;
+    watch)
+      # R513 (E5++): refresh-loop TUI surface — same shape as the
+      # R488 master-dashboard.watch / R483 network-edge opnsense
+      # watch / R481 global-history tail. Drains the trinity
+      # tui:FUTURE waiver — first commit in the trinity tier-3
+      # surface-expansion arc.
+      _trinity_watch "$@"
+      ;;
     docs)
       # R208: regenerate docs/src/trinity-runtime-profiles.md from
       # profiles/runtime/*.yaml. Fourth SDD-028 application.
@@ -3690,10 +3699,102 @@ cmd_trinity() {
       ;;
     *)
       log_error "unknown trinity subcommand: ${sub}"
-      log_error "  available: status | pulse | weaver | auditor | profile {list,show,active,switch} | docs"
+      log_error "  available: status | pulse | weaver | auditor | watch | profile {list,show,active,switch} | docs"
       return 2
       ;;
   esac
+}
+
+# R513 (E5++) — Trinity TUI refresh-loop surface.
+#
+# Per operator §1g 8-surface delivery contract (verbatim):
+#
+#   "everything is not just core, not just cli, not just TUI, not just
+#   API, not just tool and MCP but also Dashboards and Web Apps and
+#   Services"
+#
+# Operator-named guarantees (mirror of R488 master-dashboard.watch):
+#   - Minimum refresh interval = 1s (max(1,...) floor) so the operator
+#     can't accidentally hammer /proc + systemctl.
+#   - SOVEREIGN_OS_DRY_RUN=1 forces single-render exit (CI-safe).
+#   - Bounded by --iterations (0 = unbounded; default = 0 unless DRY).
+#   - Ctrl-C exits cleanly.
+_trinity_watch() {
+  local refresh=5
+  local iterations=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --refresh)    refresh="${2:-5}"; shift 2 ;;
+      --refresh=*)  refresh="${1#*=}"; shift ;;
+      --iterations) iterations="${2:-0}"; shift 2 ;;
+      --iterations=*) iterations="${1#*=}"; shift ;;
+      -h|--help)
+        cat <<'TRINITY_WATCH_HELP'
+  trinity watch [--refresh N] [--iterations N]
+
+  Refresh-loop TUI surface for the Genesis Trinity (master spec § 17).
+  Combines Pulse / Weaver / Auditor brief panels into one continuously-
+  updating view. Same shape as `master-dashboard watch` (R488).
+
+  Options:
+    --refresh N       seconds between renders (default: 5, min: 1)
+    --iterations N    cap the number of renders (default: 0 = unbounded;
+                      SOVEREIGN_OS_DRY_RUN=1 forces a single render)
+TRINITY_WATCH_HELP
+        return 0
+        ;;
+      *)
+        log_error "unknown trinity watch flag: $1"
+        return 2
+        ;;
+    esac
+  done
+
+  # Numeric coercion + floor.
+  case "${refresh}" in
+    ''|*[!0-9]*) refresh=5 ;;
+  esac
+  case "${iterations}" in
+    ''|*[!0-9]*) iterations=0 ;;
+  esac
+  if [[ "${refresh}" -lt 1 ]]; then refresh=1; fi
+
+  local dry_run=0
+  if [[ "${SOVEREIGN_OS_DRY_RUN:-}" == "1" ]]; then
+    dry_run=1
+    if [[ "${iterations}" -eq 0 ]]; then iterations=1; fi
+  fi
+
+  local frame=0
+  while :; do
+    frame=$((frame + 1))
+    printf '\x1b[2J\x1b[H'
+    local now
+    now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "── trinity.watch (frame ${frame}, refresh=${refresh}s, ${now}) ──"
+    echo
+    _trinity_pulse_brief
+    echo
+    _trinity_weaver_brief
+    echo
+    _trinity_auditor_brief
+    echo
+    if [[ "${iterations}" -gt 0 && "${frame}" -ge "${iterations}" ]]; then
+      echo "  (reached --iterations=${iterations}; exit)"
+    else
+      echo "  (Ctrl-C to exit; refresh in ${refresh}s)"
+    fi
+
+    if [[ "${iterations}" -gt 0 && "${frame}" -ge "${iterations}" ]]; then
+      break
+    fi
+    if ! sleep "${refresh}" 2>/dev/null; then
+      echo
+      echo "  ── trinity.watch interrupted ──"
+      break
+    fi
+  done
+  return 0
 }
 
 # Pulse — Vector Core (CCD0; AVX-512; bitnet.cpp; Wasm AOT)

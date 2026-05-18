@@ -182,10 +182,9 @@ MODULE_COVERAGE = {
         },
     },
     "trinity": {
-        "shipped_in": "R290-R299 (E5) + R494 (Grafana dashboard)",
-        "surfaces": ["core", "cli", "api", "service", "dashboard"],
+        "shipped_in": "R290-R299 (E5) + R494 (Grafana dashboard) + R513 (E5++ refresh-loop TUI surface)",
+        "surfaces": ["core", "cli", "api", "service", "dashboard", "tui"],
         "waivers": {
-            "tui":       "FUTURE — interactive model-switcher TUI",
             "mcp":       "FUTURE — agent queries Trinity tier state",
             "webapp":    "FUTURE — master-dashboard /trinity subpath",
         },
