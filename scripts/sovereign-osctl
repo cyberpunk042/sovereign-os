@@ -333,6 +333,19 @@ COMMANDS:
         [--iterations N]       shape as `ux-design-audit watch` (R528).
                                Drains the surface-map tui:FUTURE waiver.
 
+  weaver status                Brief Weaver panel (podman / vfio /
+                               tank/context).
+  weaver list                  4 state-fabric files (IDENTITY / SOUL /
+                               AGENTS / CLAUDE) + size + last-modified.
+  weaver read <name>           Read /mnt/vault/context/<name>.md
+  weaver write <name>          Atomic-state write (master spec § 21.1
+        [--from-stdin |        lockless loopback write sequence).
+         --from-file <p>]
+  weaver watch                 R534 (E5++): refresh-loop TUI surface
+        [--refresh N]          combining the Weaver brief panel + the
+        [--iterations N]       4-state-fabric file listing. Drains the
+                               weaver tui:FUTURE waiver.
+
   master-dashboard list        R452 (E11.M2): operator §1g reverse-proxy
                                [--json]                     aggregator — enumerates dashboards
                                                             eligible for aggregation under a single
@@ -4320,6 +4333,114 @@ SURFACE_MAP_WATCH_HELP
   return 0
 }
 
+_weaver_watch() {
+  # R534 (E5++) — Weaver TUI refresh-loop surface.
+  #
+  # Per operator §1g 8-surface delivery contract (verbatim):
+  #
+  #   "everything is not just core, not just cli, not just TUI, not just
+  #   API, not just tool and MCP but also Dashboards and Web Apps and
+  #   Services"
+  #
+  # First commit in the weaver tier-3 surface-expansion arc
+  # (R534 TUI → R535 MCP → R536 API + webapp + service). Drains the
+  # weaver tui:FUTURE waiver — same shape as the surface-map
+  # R531-R533 / ux-design-audit R528-R530 / doc-coverage R525-R527
+  # arcs. Brief render combines `_trinity_weaver_brief` (operator-
+  # known shape) + the master spec § 21 atomic-state file presence
+  # listing (4-state-fabric: IDENTITY / SOUL / AGENTS / CLAUDE).
+  #
+  # Operator-named guarantees (mirror of R531 surface-map.watch):
+  #   - Minimum refresh interval = 1s (max(1,...) floor) so the operator
+  #     can't accidentally hammer the state-fabric stat() calls.
+  #   - SOVEREIGN_OS_DRY_RUN=1 forces single-render exit (CI-safe).
+  #   - Bounded by --iterations (0 = unbounded; default = 0 unless DRY).
+  #   - Ctrl-C exits cleanly.
+  local refresh=5
+  local iterations=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --refresh)    refresh="${2:-5}"; shift 2 ;;
+      --refresh=*)  refresh="${1#*=}"; shift ;;
+      --iterations) iterations="${2:-0}"; shift 2 ;;
+      --iterations=*) iterations="${1#*=}"; shift ;;
+      -h|--help)
+        cat <<'WEAVER_WATCH_HELP'
+  weaver watch [--refresh N] [--iterations N]
+
+  Refresh-loop TUI surface for the §17 Weaver (master spec § 17
+  Module 2 + § 21 Atomic State Protocol). Continuously re-renders
+  the Weaver brief panel (podman / vfio / tank/context) PLUS the
+  4-state-fabric file presence listing (IDENTITY / SOUL / AGENTS /
+  CLAUDE) per the master spec § 21.1 lockless loopback write
+  sequence.
+
+  Operator-§1g verbatim (R453 anchor): "everything is not just
+  core, not just cli, not just TUI, not just API, not just tool
+  and MCP but also Dashboards and Web Apps and Services".
+
+  Options:
+    --refresh N       seconds between renders (default: 5, min: 1)
+    --iterations N    cap the number of renders (default: 0 = unbounded;
+                      SOVEREIGN_OS_DRY_RUN=1 forces a single render)
+WEAVER_WATCH_HELP
+        return 0
+        ;;
+      *)
+        log_error "unknown weaver watch flag: $1"
+        return 2
+        ;;
+    esac
+  done
+
+  case "${refresh}" in
+    ''|*[!0-9]*) refresh=5 ;;
+  esac
+  case "${iterations}" in
+    ''|*[!0-9]*) iterations=0 ;;
+  esac
+  if [[ "${refresh}" -lt 1 ]]; then refresh=1; fi
+
+  if [[ "${SOVEREIGN_OS_DRY_RUN:-}" == "1" ]]; then
+    if [[ "${iterations}" -eq 0 ]]; then iterations=1; fi
+  fi
+
+  local frame=0
+  while :; do
+    frame=$((frame + 1))
+    printf '\x1b[2J\x1b[H'
+    local now
+    now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "── weaver.watch (frame ${frame}, refresh=${refresh}s, ${now}) ──"
+    echo
+    _trinity_weaver_brief
+    echo
+    echo "  STATE FABRIC (master spec § 7 — operator-readable):"
+    if "${__REPO_ROOT}/scripts/weaver/atomic-state.py" list 2>/dev/null \
+        | sed 's/^/    /'; then
+      :
+    else
+      echo "    (atomic-state list emit failed — context dir absent?)"
+    fi
+    echo
+    if [[ "${iterations}" -gt 0 && "${frame}" -ge "${iterations}" ]]; then
+      echo "  (reached --iterations=${iterations}; exit)"
+    else
+      echo "  (Ctrl-C to exit; refresh in ${refresh}s)"
+    fi
+
+    if [[ "${iterations}" -gt 0 && "${frame}" -ge "${iterations}" ]]; then
+      break
+    fi
+    if ! sleep "${refresh}" 2>/dev/null; then
+      echo
+      echo "  ── weaver.watch interrupted ──"
+      break
+    fi
+  done
+  return 0
+}
+
 _ux_design_audit_watch() {
   local refresh=5
   local iterations=0
@@ -7566,6 +7687,56 @@ case "${cmd}" in
         ;;
       *)
         "${__REPO_ROOT}/scripts/operator/surface-map.py" "$@"
+        ;;
+    esac
+    ;;
+  weaver)
+    # R534 (E5++): top-level Weaver subcommand. Master spec § 17
+    # Module 2 (Sandboxed Fabric / CCD1 cores 6-9) + § 21 (Atomic
+    # State Protocol — lockless loopback write sequence). Thin
+    # consolidated CLI surface over the existing
+    # `scripts/weaver/atomic-state.py` primitive + the
+    # `_trinity_weaver_brief` panel — exposes:
+    #   weaver status         brief panel (podman / vfio / tank/context)
+    #   weaver list           4-state-fabric files + size + mtime
+    #   weaver read <name>    read a state-fabric file
+    #   weaver write <name>   atomic-state write (sovereignty-critical)
+    #   weaver watch          R534 refresh-loop TUI (drains tui:FUTURE)
+    # First commit in the weaver tier-3 surface-expansion arc
+    # (R534 TUI → R535 MCP → R536 API + webapp + service). Mirror of
+    # the surface-map R531-R533 / ux-design-audit R528-R530 arcs.
+    case "${1:-}" in
+      watch)
+        shift
+        _weaver_watch "$@"
+        ;;
+      status|"")
+        _trinity_weaver_brief
+        ;;
+      list|read|write)
+        "${__REPO_ROOT}/scripts/weaver/atomic-state.py" "$@"
+        ;;
+      -h|--help|help)
+        cat <<'WEAVER_HELP'
+  weaver status                Brief Weaver panel (podman / vfio /
+                               tank/context). Defaults if no verb.
+  weaver list                  Enumerate the 4 state-fabric files
+                               (IDENTITY/SOUL/AGENTS/CLAUDE) — size +
+                               last-modified.
+  weaver read <name>           Read /mnt/vault/context/<name>.md
+  weaver write <name>          Atomically commit a payload to a state
+        [--from-stdin |        file (master spec § 21.1 lockless
+         --from-file <p>]      loopback write sequence).
+  weaver watch                 R534 (E5++): refresh-loop TUI surface
+        [--refresh N]          combining the Weaver brief panel + the
+        [--iterations N]       4-state-fabric file listing. Drains
+                               the weaver tui:FUTURE waiver.
+WEAVER_HELP
+        ;;
+      *)
+        log_error "unknown weaver subcommand: $1"
+        log_error "  available: status | list | read | write | watch"
+        return 2
         ;;
     esac
     ;;

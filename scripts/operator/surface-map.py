@@ -217,10 +217,9 @@ MODULE_COVERAGE = {
         "waivers": {},
     },
     "weaver": {
-        "shipped_in": "R152-R155 (master spec § 21) + R496 (Grafana dashboard)",
-        "surfaces": ["core", "cli", "dashboard"],
+        "shipped_in": "R152-R155 (master spec § 21) + R496 (Grafana dashboard) + R534 (E5++ refresh-loop TUI surface)",
+        "surfaces": ["core", "cli", "tui", "dashboard"],
         "waivers": {
-            "tui":       "FUTURE — interactive state-transition TUI (review-then-commit IDENTITY/SOUL/AGENTS/CLAUDE diffs before atomic write)",
             "api":       "FUTURE — REST /weaver/{list,read,write} endpoints (guarded — atomic-state writes are sovereignty-critical)",
             "mcp":       "FUTURE — agent queries Weaver state via MCP (read-only)",
             "webapp":    "FUTURE — master-dashboard /weaver subpath",
