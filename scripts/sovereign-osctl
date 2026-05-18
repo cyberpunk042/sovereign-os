@@ -6041,6 +6041,24 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  ccd-pinning)
+    # R356 (E1.M41): operator-pull "is my Ryzen 9 9900X CCD pinning
+    # correct?" Per master spec §19.2 verbatim: Pulse cores 0-5 mask
+    # 0xfff / Weaver+Auditor cores 6-9 mask 0xff000 / Host cores 10-11
+    # mask 0xf00000. Verifies live process Cpus_allowed_mask vs intended;
+    # emits taskset / systemctl set-property remediation per drifted PID.
+    sub="${1:-show}"
+    shift || true
+    case "${sub}" in
+      show|verify|recommend)
+        "${__REPO_ROOT}/scripts/hardware/ccd-pinning.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown ccd-pinning subverb: ${sub} (show, verify, recommend)"
+        exit 2
+        ;;
+    esac
+    ;;
   architecture-qa)
     # R355 (E10.M3): operator-pull SAIN-01 master spec §13
     # Architectural Q&A Matrix + §14 Critical Edge Cases & Operational
