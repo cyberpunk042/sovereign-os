@@ -148,10 +148,9 @@ MODULE_COVERAGE = {
         },
     },
     "edge-firewall": {
-        "shipped_in": "R451 (E11.M9) + R482 (E11.M9+ wizard tui) + R485 (E11.M9+ Grafana dashboard) + R504 (E11.M9++ read-only REST API + systemd service)",
-        "surfaces": ["core", "cli", "tui", "dashboard", "api", "service"],
+        "shipped_in": "R451 (E11.M9) + R482 (E11.M9+ wizard tui) + R485 (E11.M9+ Grafana dashboard) + R504 (E11.M9++ read-only REST API + systemd service) + R505 (E11.M9++ MCP surface)",
+        "surfaces": ["core", "cli", "tui", "dashboard", "api", "service", "mcp"],
         "waivers": {
-            "mcp":       "FUTURE — agent can query state via MCP",
             "webapp":    "FUTURE — install-plan as click-through web wizard",
         },
     },

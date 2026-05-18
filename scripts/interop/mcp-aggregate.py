@@ -337,6 +337,35 @@ LOCAL_TOOLS = [
         "argv": ["sovereign-osctl", "auth-tier", "matrix", "--json"],
         "categories": ["auth-tier", "matrix", "operator-§1g"],
     },
+    # R505 (E11.M9++) — edge-firewall MCP surface. Read-only verbs that
+    # delegate to `sovereign-osctl edge-firewall <verb> --json`. The
+    # mutation verb `install` and the interactive `wizard` stay
+    # CLI-only — operator §17 sacrosanct sovereignty boundary. Actual
+    # firewall changes require --apply --confirm-install on the CLI.
+    {
+        "name": "edge-firewall-state",
+        "summary": "Edge-firewall: detect local enforcement state (nftables / iptables / ufw / firewalld / fail2ban / crowdsec / suricata) plus upstream router posture (selfdef tier, network-edge tier).",
+        "argv": ["sovereign-osctl", "edge-firewall", "state", "--json"],
+        "categories": ["edge-firewall", "state", "operator-§1g"],
+    },
+    {
+        "name": "edge-firewall-candidates",
+        "summary": "Edge-firewall: list the 4-class §1g enforcement-candidate ladder (nftables-baseline / fail2ban / crowdsec / suricata) with apt packages, systemd units, config paths and perf-cost disclosure.",
+        "argv": ["sovereign-osctl", "edge-firewall", "candidates", "--json"],
+        "categories": ["edge-firewall", "ladder", "operator-§1g"],
+    },
+    {
+        "name": "edge-firewall-recommend",
+        "summary": "Edge-firewall: recommend enforcement candidates for the current local + upstream state, with rationale and ordering.",
+        "argv": ["sovereign-osctl", "edge-firewall", "recommend", "--json"],
+        "categories": ["edge-firewall", "recommend", "operator-§1g"],
+    },
+    {
+        "name": "edge-firewall-install-plan",
+        "summary": "Edge-firewall: render the install + rollback plan for a named candidate — apt packages, systemctl enable/start, config paths touched, perf-cost disclosed, plus the operator §17 wire-contract disclaimer that actual mutation requires the CLI install verb. Operator passes `--candidate <id>` via CLI arg.",
+        "argv": ["sovereign-osctl", "edge-firewall", "install-plan", "--json"],
+        "categories": ["edge-firewall", "plan", "operator-§1g"],
+    },
 ]
 
 
