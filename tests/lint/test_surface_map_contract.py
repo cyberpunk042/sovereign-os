@@ -436,23 +436,33 @@ def test_coverage_reports_at_structural_ceiling_flag():
     #                        R513-R515 triple, with the extra api
     #                        surface in the same R518 commit that
     #                        added webapp).
-    # The fixture now rotates to `compliance`, which carries 4 FUTURE
-    # waivers (tui/api/service/webapp) and is the next §1g module on
-    # the tier-3 expansion arc.
+    #   - compliance       — reached ceiling in R521 (sixth — closed
+    #                        the tui/mcp/api/webapp quartet across
+    #                        R519-R521; R521 also REPLACED the prior
+    #                        `service: not applicable` waiver with a
+    #                        real systemd-managed read-only daemon,
+    #                        same pattern R510/R515/R518 used for
+    #                        global-history, trinity, and router).
+    # The fixture now rotates to `anti-minimization-audit`, which
+    # carries 4 FUTURE waivers (tui/api/mcp/webapp) and is the next
+    # §1g instrument on the tier-3 expansion arc — same 4-surface
+    # shape as the surface-map / doc-coverage / ux-design-audit
+    # siblings (all 4 R458 instruments currently sit at the same
+    # core+cli+dashboard tier waiting for the same tier-3 arc).
     result2 = subprocess.run(
-        ["python3", str(SM_PY), "coverage", "--module", "compliance",
-         "--json"],
+        ["python3", str(SM_PY), "coverage", "--module",
+         "anti-minimization-audit", "--json"],
         capture_output=True, text=True, timeout=10,
     )
     data2 = json.loads(result2.stdout)
     rec2 = data2["coverage"][0] if "coverage" in data2 else data2
     assert rec2.get("at_structural_ceiling") is False, (
-        f"R478: compliance must be at_structural_ceiling=False, "
-        f"got {rec2!r}"
+        f"R478: anti-minimization-audit must be "
+        f"at_structural_ceiling=False, got {rec2!r}"
     )
     assert rec2.get("future_waiver_count", 0) >= 1, (
-        f"R478 fixture: compliance must carry FUTURE waivers; "
-        f"got {rec2!r}"
+        f"R478 fixture: anti-minimization-audit must carry FUTURE "
+        f"waivers; got {rec2!r}"
     )
 
 

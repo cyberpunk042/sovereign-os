@@ -192,13 +192,9 @@ MODULE_COVERAGE = {
         "waivers": {},
     },
     "compliance": {
-        "shipped_in": "R458 + R489 (Grafana dashboard) + R519 (E5++ refresh-loop TUI surface) + R520 (E5++ MCP surface)",
-        "surfaces": ["core", "cli", "dashboard", "tui", "mcp"],
-        "waivers": {
-            "api":       "FUTURE — REST /compliance/{status,worst,module} aggregator",
-            "webapp":    "FUTURE — master-dashboard /compliance subpath",
-            "service":   "not applicable — query-only aggregator, no daemon",
-        },
+        "shipped_in": "R458 + R489 (Grafana dashboard) + R519 (E5++ refresh-loop TUI surface) + R520 (E5++ MCP surface) + R521 (E5++ read-only REST API + webapp + systemd service)",
+        "surfaces": ["core", "cli", "tui", "api", "service", "dashboard", "mcp", "webapp"],
+        "waivers": {},
     },
     "anti-minimization-audit": {
         "shipped_in": "R456 + R490 (Grafana dashboard)",

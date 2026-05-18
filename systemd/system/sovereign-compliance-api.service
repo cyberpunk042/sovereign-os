@@ -1,0 +1,61 @@
+[Unit]
+Description=Sovereign compliance read-only REST API + webapp (R521, E5++)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/compliance-api.py
+# Read-only inspection API + webapp for the §1g/§1h compliance dashboard
+# (R458 aggregator). Mirrors the data the CLI exposes via `sovereign-osctl
+# compliance {status,worst,history} --json` and the R520 MCP tools
+# (compliance-status / -worst / -history). Compliance inspection is read-
+# only at every surface — operator §17 sovereignty boundary; the triple-
+# gated `compliance snapshot` CLI verb is the ONLY mutation in the module,
+# and it stays CLI-only. This daemon NEVER appends to or rewrites the
+# /var/lib/sovereign-os/compliance/snapshots.jsonl journal — it only
+# READS entries the operator has chosen to record.
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/compliance-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default — operator-§1g exposure decision is theirs.
+# To expose beyond loopback, drop an override at
+# /etc/systemd/system/sovereign-compliance-api.service.d/bind.conf:
+#   [Service]
+#   Environment=COMPLIANCE_API_BIND=0.0.0.0
+Environment=COMPLIANCE_API_BIND=127.0.0.1
+Environment=COMPLIANCE_API_PORT=8097
+
+# Defense-in-depth — read-only HTTP surface that fans out to 9 instrument
+# subprocesses (4 internal + 5 selfdef cross-repo) per /status request,
+# then reads the snapshot journal on /history. No mutation of any
+# sovereignty boundary.
+# R171 defense-in-depth (Layer 1 lint enforced)
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+# /var/lib/sovereign-os/compliance is read-only here — the journal
+# entries appear via the triple-gated CLI snapshot verb, not from this
+# daemon. ProtectSystem=strict makes everything outside ReadWritePaths
+# read-only by default.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+# Loopback default — capability lockdown matches.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target
