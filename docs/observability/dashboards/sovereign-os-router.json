@@ -1,0 +1,115 @@
+{
+  "_comment": "sovereign-os router dashboard (R495, SDD-011+ R161 R215). Visualizes the operator-§1g inference router — the OpenAI-compatible front for the Trinity stack. Routing decisions are surfaced as Layer-B metrics: per-tier route counts, per-task-type classification (R161), per-model-class classification (R215), last-route freshness. Operator imports into Grafana via Settings → JSON Model. Closes the router dashboard:FUTURE waiver and extends router surface-map to 5 surfaces (core/cli/api/service/dashboard).",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "router CLI", "url": "/d/sovereign-os-router#cli", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "router routes (total)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_inference_route_total)", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "last route age (s)",
+      "description": "Operator-§1g freshness signal — staleness of last routing decision. Red >1h, yellow >5m.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "time() - sovereign_os_inference_router_last_route_timestamp", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "s", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 300}, {"color": "red", "value": 3600}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "task-types observed",
+      "description": "Distinct task_type labels seen (R161). 4-class operator-§1g taxonomy: code / math / conversational / creative.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "count(count by (task_type) (sovereign_os_inference_router_task_type_total))", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "model-classes observed",
+      "description": "Distinct R215 model-class labels seen. 13-class operator-§1g taxonomy: llm/slm/rlm/ternary-lm/lora-adapter/embed/vision/multimodal/code/mixture/speculative/reranker/(unspecified).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "count(count by (class) (sovereign_os_inference_router_class_total))", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "route rate per tier (5m)",
+      "description": "Per-tier router decisions over time. The operator-revealed-preference signal for tier demand.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(sovereign_os_inference_route_total[5m])", "refId": "A", "legendFormat": "{{tier}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "route rate per task-type (5m)",
+      "description": "Per-task-type rate (R161). 4-class taxonomy — code / math / conversational / creative — operator's revealed task-mix.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(sovereign_os_inference_router_task_type_total[5m])", "refId": "A", "legendFormat": "{{task_type}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "route rate per model-class (5m)",
+      "description": "Per-R215-class rate. 13-class operator-§1g taxonomy. Answers: 'what fraction of traffic asked for class=rlm and routed to oracle?'",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(sovereign_os_inference_router_class_total[5m])", "refId": "A", "legendFormat": "{{class}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+    },
+    {
+      "type": "barchart",
+      "title": "cumulative routes per tier",
+      "description": "Sum-since-start per tier. Operator-§1g lifetime demand distribution.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sum by (tier) (sovereign_os_inference_route_total)", "refId": "A", "legendFormat": "{{tier}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+    },
+    {
+      "type": "table",
+      "title": "router decision matrix (tier × task-type)",
+      "description": "Cross-tab of tier × task_type since metrics start. Operator-discoverable: 'which task-types route to which tier?'",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sum by (tier) (sovereign_os_inference_route_total)", "refId": "tier", "format": "table", "instant": true},
+        {"expr": "sum by (task_type) (sovereign_os_inference_router_task_type_total)", "refId": "task_type", "format": "table", "instant": true}
+      ],
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 20}
+    },
+    {
+      "type": "text",
+      "title": "router §1g verbatim + R161/R215 taxonomy",
+      "options": {
+        "mode": "markdown",
+        "content": "**Operator §1g verbatim** (sacrosanct):\n\n> \"We do not minimize anything.\"\n\nThe router (SDD-011) is the operator-§1g OpenAI-compatible front for the Trinity stack. Every inference request enters via the router, gets classified (R161 task_type + R215 model_class), routed to a Trinity tier (pulse / logic-engine / oracle-core / llama_old / llama_fb), and the routing decision is surfaced as Layer-B metrics + as the `X-Sovereign-Task-Type` response header.\n\n**R161 task-type taxonomy (operator-§1g, sacrosanct):**\n\n1. `code` — programming, code-gen, code-review requests\n2. `math` — mathematical reasoning, symbolic computation\n3. `conversational` — chat-style multi-turn dialogue\n4. `creative` — text-generation requiring creative latitude\n\n**R215 model-class taxonomy (R212 catalog enum, 13 classes):**\n\n1. `llm` — large language model (frontier-class)\n2. `slm` — small language model\n3. `rlm` — reasoning language model (chain-of-thought specialized)\n4. `ternary-lm` — ternary-quantized LM (Pulse via bitnet.cpp)\n5. `lora-adapter` — LoRA adapter on a base model\n6. `embed` — embedding model\n7. `vision` — vision-only model\n8. `multimodal` — vision+text model\n9. `code` — code-specialized model\n10. `mixture` — mixture-of-experts\n11. `speculative` — speculative-decoding draft model\n12. `reranker` — retrieval reranker\n13. `(unspecified)` — operator didn't supply `sovereign_os_class`\n\nClass × tier cross-tabbed in metrics so the operator can answer: 'what fraction of traffic asked for class=rlm and routed to oracle?'\n\n**Signal surfaces (operator-§1g end-to-end):**\n\n1. Metric: `sovereign_os_inference_route_total{tier}` (Layer B)\n2. Metric: `sovereign_os_inference_router_task_type_total{task_type}` (R161)\n3. Metric: `sovereign_os_inference_router_class_total{class}` (R215)\n4. Metric: `sovereign_os_inference_router_last_route_timestamp` (freshness gauge)\n5. Response header: `X-Sovereign-Task-Type: <class>` (per-request)\n6. Log line: `route: model=%r → tier=%s task_type=%s class=%s` (per-request)\n\n**CLI:**\n\n```\nsovereign-osctl router status                # tier health + last-route\nsovereign-osctl router metrics               # snapshot of all Layer-B\nsovereign-osctl router classify --body @r.json  # dry-run classification\n```\n\n**Source:** SDD-011 shipped the router + R161 added task_type classification + R215 added model-class cross-tabbing. R495 (SDD-011+ R161 R215) ships THIS dashboard + extends router surface-map registration to 5 surfaces (core/cli/api/service/dashboard).\n\n**Standing operator rule (sacrosanct):**\n\n> \"We do not minimize anything.\""
+      },
+      "gridPos": {"h": 18, "w": 24, "x": 0, "y": 28}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["sovereign-os", "router", "inference", "operator", "R495"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "sovereign-os router",
+  "uid": "sovereign-os-router",
+  "version": 1,
+  "weekStart": ""
+}

@@ -213,12 +213,11 @@ MODULE_COVERAGE = {
         },
     },
     "router": {
-        "shipped_in": "SDD-011",
-        "surfaces": ["core", "cli", "api", "service"],
+        "shipped_in": "SDD-011 + R495 (Grafana dashboard)",
+        "surfaces": ["core", "cli", "api", "service", "dashboard"],
         "waivers": {
             "tui":       "FUTURE — interactive routing-policy TUI",
             "mcp":       "FUTURE — agent queries routing decisions",
-            "dashboard": "FUTURE — Grafana routing-decisions panel",
             "webapp":    "FUTURE — master-dashboard /router subpath",
         },
     },
