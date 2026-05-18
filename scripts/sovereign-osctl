@@ -198,6 +198,22 @@ COMMANDS:
                                + the file that consumes it. --filter narrows.
   env show <NAME>              Detail one env var (default · all consumers · currently-set value)
 
+  bashrc install               R447 (E11.M6): install operator-discoverable
+                               bashrc integration — 10 aliases (sosctl,
+                               soshelp, sosstatus, sosmodels, soshealth,
+                               sosdoctor, sosthermal, soswatt, soshist,
+                               sosmorning) + soshelp-menu function + tab
+                               completion for sovereign-osctl. Sentinel-
+                               bounded block: idempotent + reversible;
+                               your own edits OUTSIDE the sentinels
+                               survive reinstall.
+  bashrc uninstall             Remove the sovereign-os bashrc block
+                               (keeps a .sovereign-os-bak rc backup)
+  bashrc status                Report install state (installed | absent)
+                               + version
+  bashrc dump                  Print the block to stdout (pipe to
+                               ~/.zshrc for zsh integration)
+
   inference status             Per-tier backend status (Pulse / Logic / Oracle / Router)
   inference health             HTTP-probe every tier's /healthz (with TCP fallback)
   inference start <tier>       Start a tier (pulse | logic | oracle | router | all)
@@ -6460,6 +6476,14 @@ case "${cmd}" in
     # broader operator surface beyond the fine-tune-focused
     # 5-stage subset.
     "${__REPO_ROOT}/scripts/models/workflow.py" "$@"
+    ;;
+  bashrc)
+    # R447 (E11.M6): operator-discoverable bashrc integration —
+    # autocompletes + aliases + helper menu. Operator §1g verbatim:
+    # "the bashrc we can offer to configure it too and we can add
+    # our autocompletes and aliases and manual / helps and menus".
+    # Idempotent + reversible (sentinel-bounded block).
+    "${__REPO_ROOT}/scripts/operator/bashrc-install.sh" "$@"
     ;;
   version|--version|-V) cmd_version "$@" ;;
   help|--help|-h|"") cmd_help ;;
