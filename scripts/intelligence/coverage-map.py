@@ -252,14 +252,21 @@ DEFAULT_AXES: list[dict[str, Any]] = [
                         "and multiple level and REPL"),
      "source": "hook drop 2026-05-17",
      "implementing_verbs": [
-         "sovereign-osctl repl",
+         "sovereign-osctl repl modes",
+         "sovereign-osctl repl show python",
+         "sovereign-osctl repl show system",
+         "sovereign-osctl repl show gpu",
+         "sovereign-osctl repl show llm",
+         "sovereign-osctl repl exec <mode> <cmd>",
+         "sovereign-osctl repl shell <mode>",
      ],
      "sdd_refs": [],
      "mandate_rows": ["E2.M21"],
-     "status": "partial",
-     "notes": ("R311 REPL is shipped; Python/System/GPU/LLM "
-                "multi-level REPL is in-flight (current shape = "
-                "single REPL with mode switch).")},
+     "status": "✓ shipped",
+     "notes": ("R366 multi-level REPL ships 4 operator-named modes "
+                "(python / system / gpu / llm) with per-mode preamble "
+                "+ reference commands + exec (one-shot) + shell "
+                "(interactive). Closes A-14 partial → ✓.")},
     {"id": "A-15",
      "axis_verbatim": ("Programming, Proto-Programing, Proto-Proto-"
                         "Programming and CoT and custom CoT, integrated "

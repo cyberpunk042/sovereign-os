@@ -6095,6 +6095,24 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  repl)
+    # R366 (E2.M21 close): operator-pull multi-level REPL.
+    # Operator-named (hook drop 2026-05-17): "Python, System and GPU
+    # and LLM and multiple level and REPL". 4 modes with per-mode
+    # preambles + reference commands; exec for one-shot non-interactive
+    # + shell for operator-runnable interactive.
+    sub="${1:-modes}"
+    shift || true
+    case "${sub}" in
+      modes|show|exec|shell)
+        "${__REPO_ROOT}/scripts/intelligence/repl.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown repl subverb: ${sub} (modes, show, exec, shell)"
+        exit 2
+        ;;
+    esac
+    ;;
   coverage)
     # R365 (E10.M10): operator-pull coverage map. Catalogs every
     # operator-verbatim axis from hook drops / mandate rows / raw
