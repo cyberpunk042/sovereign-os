@@ -57,6 +57,15 @@ if ! dpkg --version >/dev/null 2>&1; then
   exit 1
 fi
 
+# ---- DRY-RUN short-circuit (operator-verbatim CI/preview safety) ----
+if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
+  log_warn "SOVEREIGN_OS_DRY_RUN set — skipping apt install + tmpfs mount"
+  emit_metric sovereign_os_build_step_bootstrap_forge_total 1 \
+    "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"dry-run\""
+  state_step_complete "${STEP_ID}"
+  exit 0
+fi
+
 # ---- install packages ----
 missing=()
 for pkg in "${REQUIRED_PACKAGES[@]}"; do

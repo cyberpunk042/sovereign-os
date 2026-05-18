@@ -35,6 +35,15 @@ fi
 log_step_header "${STEP_ID}" "derive kernel .config from profile"
 state_step_start "${STEP_ID}" "${inputs_hash}"
 
+# ---- DRY-RUN short-circuit (operator-verbatim CI/preview safety) ----
+if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
+  log_warn "SOVEREIGN_OS_DRY_RUN set — skipping defconfig + olddefconfig"
+  emit_metric sovereign_os_build_step_kernel_config_total 1 \
+    "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"dry-run\""
+  state_step_complete "${STEP_ID}"
+  exit 0
+fi
+
 require_dir "${SOVEREIGN_OS_KERNEL_SRC}"
 require_command make
 
@@ -70,11 +79,19 @@ PY
 
 # ---- resolve dependencies / fill in missing symbols ----
 log_info "running 'make olddefconfig' to resolve deps"
-make olddefconfig
+if ! make olddefconfig; then
+  log_error "make olddefconfig failed — kernel symbol resolution broken"
+  state_step_fail "${STEP_ID}" "olddefconfig-failed"
+  exit 1
+fi
 
 # ---- record produced .config ----
 config_out="${SOVEREIGN_OS_STATE_DIR}/kernel.config"
-cp .config "${config_out}"
+if ! cp .config "${config_out}"; then
+  log_error "failed to record kernel .config to state dir"
+  state_step_fail "${STEP_ID}" "config-record-failed"
+  exit 1
+fi
 log_info "kernel config saved to ${config_out} (size: $(wc -l <"${config_out}") lines)"
 
 # ---- emit env handoff with KCFLAGS/KCPPFLAGS from profile ----
