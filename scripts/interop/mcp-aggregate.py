@@ -631,6 +631,36 @@ LOCAL_TOOLS = [
         "categories": ["ux-design-audit", "operator-§1g", "score",
                        "ux"],
     },
+    # R532 (E5++): surface-map MCP surface — drains the surface-map
+    # mcp:FUTURE waiver. Three tools mirroring the R453 read-only
+    # §1g coverage inspector verbs (surfaces / modules / coverage).
+    # All read-only, no runtime-arg verbs exposed. Operator-§1g
+    # verbatim: "everything is not just core, not just cli, not just
+    # TUI, not just API, not just tool and MCP but also Dashboards
+    # and Web Apps and Services". Same shape as the ux-design-audit
+    # R529 triple, the doc-coverage R526 triple, the anti-min R523
+    # triple, the compliance R520 triple, the router R517 triple.
+    {
+        "name": "surface-map-surfaces",
+        "summary": "R453 surface-map surface catalog — enumerates the 8 operator-named §1g surfaces (core / cli / TUI / API / MCP / Dashboard / Web App / Service). Operator-§1g verbatim: 'everything is not just core, not just cli, not just TUI, not just API, not just tool and MCP but also Dashboards and Web Apps and Services'. Read-only.",
+        "argv": ["sovereign-osctl", "surface-map", "surfaces", "--json"],
+        "categories": ["surface-map", "operator-§1g", "surfaces",
+                       "coverage"],
+    },
+    {
+        "name": "surface-map-modules",
+        "summary": "R453 surface-map module catalog — enumerates the operator-facing modules tracked across the 8 §1g surfaces, with per-module surface count (X/8). Operator-§1g standing rule: every operator-facing module must ship on at least N of the 8 surfaces. Read-only.",
+        "argv": ["sovereign-osctl", "surface-map", "modules", "--json"],
+        "categories": ["surface-map", "operator-§1g", "modules",
+                       "coverage"],
+    },
+    {
+        "name": "surface-map-coverage",
+        "summary": "R453 surface-map coverage matrix — module × §1g-surface view with per-cell state (shipped / waived / gap), sorted by largest gap first. Surfaces operator-§1g delivery shortfall so the agent can target remediation. Read-only.",
+        "argv": ["sovereign-osctl", "surface-map", "coverage", "--json"],
+        "categories": ["surface-map", "operator-§1g", "coverage",
+                       "matrix"],
+    },
 ]
 
 

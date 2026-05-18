@@ -212,11 +212,10 @@ MODULE_COVERAGE = {
         "waivers": {},
     },
     "surface-map": {
-        "shipped_in": "R453 + R493 (Grafana dashboard) + R531 (E5++ refresh-loop TUI surface)",
-        "surfaces": ["core", "cli", "tui", "dashboard"],
+        "shipped_in": "R453 + R493 (Grafana dashboard) + R531 (E5++ refresh-loop TUI surface) + R532 (E5++ MCP surface)",
+        "surfaces": ["core", "cli", "tui", "mcp", "dashboard"],
         "waivers": {
             "api":       "FUTURE — REST /surface-map/{surfaces,coverage,gaps,waivers} read endpoints",
-            "mcp":       "FUTURE — agent queries surface gaps via MCP",
             "webapp":    "FUTURE — master-dashboard /surface-map subpath",
             "service":   "not applicable — query-only instrument, no daemon",
         },
