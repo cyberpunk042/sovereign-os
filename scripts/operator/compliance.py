@@ -94,6 +94,11 @@ INSTRUMENTS = [
      "script": "anti-minimization-audit.py", "gap_verb": "report"},
     {"id": "ux-design-audit", "round": "R457",
      "script": "ux-design-audit.py", "gap_verb": "report"},
+    # R461 — cross-repo: selfdef-side dashboard-manifest discovery
+    # (consumes SD-R-DASHBOARD-MANIFEST-1 TOML output via R460
+    # master-dashboard discover verb).
+    {"id": "selfdef-discovery", "round": "R461",
+     "script": "master-dashboard.py", "gap_verb": "discover"},
 ]
 INSTRUMENT_IDS = [i["id"] for i in INSTRUMENTS]
 
@@ -139,7 +144,7 @@ def _run_json(*args: str, timeout: int = 30) -> dict | None:
 
 
 def collect_status() -> dict:
-    """Aggregate gap state from all 4 instruments. Read-only."""
+    """Aggregate gap state from all 5 instruments. Read-only."""
     surface = _run_json(str(OP_DIR / "surface-map.py"), "gaps",
                         "--json", timeout=15)
     doc = _run_json(str(OP_DIR / "doc-coverage.py"), "gaps",
@@ -148,6 +153,13 @@ def collect_status() -> dict:
                      "report", "--json", timeout=120)
     ux = _run_json(str(OP_DIR / "ux-design-audit.py"), "report",
                    "--json", timeout=30)
+    # R461 cross-repo: master-dashboard discover verb scans the
+    # selfdef-side DashboardManifest TOMLs. The 5th instrument is
+    # AVAILABILITY only — it never reports gaps in the same sense
+    # (selfdef having 0 manifests installed is not a "gap", just
+    # absence). Operator sees count + errors + collisions.
+    selfdef = _run_json(str(OP_DIR / "master-dashboard.py"),
+                        "discover", "--json", timeout=15)
 
     return {
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -176,6 +188,13 @@ def collect_status() -> dict:
             "below_threshold": (ux or {}).get(
                 "below_threshold", []
             ),
+        },
+        "selfdef_discovery": {
+            "available": selfdef is not None,
+            "discovered_count": (selfdef or {}).get("count", 0),
+            "errors": (selfdef or {}).get("errors", []),
+            "collisions": (selfdef or {}).get("collisions", []),
+            "manifest_dir": (selfdef or {}).get("manifest_dir", ""),
         },
     }
 
@@ -263,6 +282,16 @@ def cmd_status(args) -> int:
               f"{'✓' if ux['available'] else '✗'} "
               f"{ux['below_threshold_count']} module(s) below default "
               f"threshold")
+        sd = status["selfdef_discovery"]
+        sd_problems = len(sd["errors"]) + len(sd["collisions"])
+        sd_mark = "✓" if sd["available"] and sd_problems == 0 else (
+            "⚠" if sd_problems else "✗"
+        )
+        print(f"  selfdef-discovery (R461)  {sd_mark} "
+              f"{sd['discovered_count']} selfdef manifest(s) under "
+              f"{sd['manifest_dir']} "
+              f"(errors={len(sd['errors'])}, "
+              f"collisions={len(sd['collisions'])})")
     _emit_metric("status", "all", "ok")
     return 0
 

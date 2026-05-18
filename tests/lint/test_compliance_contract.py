@@ -19,6 +19,7 @@ EXPECTED_INSTRUMENTS = [
     "doc-coverage",
     "anti-minimization-audit",
     "ux-design-audit",
+    "selfdef-discovery",  # R461 cross-repo instrument
 ]
 
 
@@ -47,10 +48,10 @@ def test_documents_r458_origin():
     assert "R458" in body
 
 
-def test_references_all_four_instruments():
-    """compliance.py MUST reference all 4 R-rounds it consolidates."""
+def test_references_all_five_instruments():
+    """compliance.py MUST reference all 5 R-rounds it consolidates."""
     body = _read(CP_PY)
-    for r in ("R453", "R454", "R456", "R457"):
+    for r in ("R453", "R454", "R456", "R457", "R461"):
         assert r in body, f"missing reference to {r}"
 
 
@@ -175,8 +176,10 @@ def test_osctl_help_references_r458():
 # --- Smoke tests ---
 
 
-def test_status_verb_aggregates_four_instruments():
-    """status --json MUST return data from all 4 instruments."""
+def test_status_verb_aggregates_five_instruments():
+    """status --json MUST return data from all 5 instruments
+    (R453 surface-map + R454 doc-coverage + R456 anti-min-audit +
+    R457 ux-design-audit + R461 selfdef-discovery)."""
     result = subprocess.run(
         ["python3", str(CP_PY), "status", "--json"],
         capture_output=True, text=True, timeout=180,
@@ -186,14 +189,21 @@ def test_status_verb_aggregates_four_instruments():
     )
     data = json.loads(result.stdout)
     for key in ("surface_map", "doc_coverage",
-                "anti_minimization_audit", "ux_design_audit"):
+                "anti_minimization_audit", "ux_design_audit",
+                "selfdef_discovery"):
         assert key in data, f"status missing {key!r}"
     # Each must report `available`
     for key in ("surface_map", "doc_coverage",
-                "anti_minimization_audit", "ux_design_audit"):
+                "anti_minimization_audit", "ux_design_audit",
+                "selfdef_discovery"):
         assert "available" in data[key], (
             f"{key} missing 'available' field"
         )
+    # R461 selfdef-discovery MUST surface count + errors + collisions
+    sd = data["selfdef_discovery"]
+    for field in ("discovered_count", "errors", "collisions",
+                  "manifest_dir"):
+        assert field in sd, f"selfdef_discovery missing {field!r}"
 
 
 def test_worst_verb_runs():
