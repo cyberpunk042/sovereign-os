@@ -10,6 +10,7 @@ exactly where the project sits and what to do next.
 | 2026-05-16 | [002-foundation-substantive-buildout.md](002-foundation-substantive-buildout.md) | 001 |
 | 2026-05-16 | [003-operator-observability-arc.md](003-operator-observability-arc.md) | 002 |
 | 2026-05-16 | [004-operator-friction-audit.md](004-operator-friction-audit.md) | (companion to 003 — honest critical review of operator-journey friction) |
+| 2026-05-18 | [006-verbatim-preservation-arc.md](006-verbatim-preservation-arc.md) | 005 (R355-R380 verbatim-preservation contract mechanization — 26 rounds, 82 catalogued items, 67 L1 assertions across 8 lints, 20 real bugs caught, SDD-037 codified) |
 
 Handoffs land at:
 
