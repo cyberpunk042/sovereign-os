@@ -436,6 +436,40 @@ LOCAL_TOOLS = [
         "argv": ["sovereign-osctl", "global-history", "delta", "--json"],
         "categories": ["global-history", "delta", "operator-§1g"],
     },
+    # ---- R514 (E5++) — Genesis Trinity inspection MCP tools ----
+    # Trinity has 4 read-only inspection verbs (status / pulse /
+    # weaver / auditor) exposed as 4 discrete MCP tools — operator §1g
+    # rule: full ladder visible, not collapsed under a single bundle.
+    # `watch` is the R513 refresh-loop TUI surface, not a one-shot
+    # query, so it is NOT exposed via MCP (loop tools are an MCP anti-
+    # pattern). Trinity inspection has no mutation verbs at any surface
+    # (operator §17 sovereignty boundary; the pinned-process state
+    # fabric is mutated by the runtime profile switcher, not by
+    # inspection).
+    {
+        "name": "trinity-status",
+        "summary": "Genesis Trinity status (master spec § 17) — Pulse · Weaver · Auditor at a glance. Returns the 3-tier inspection JSON (AVX-512 markers, podman/VFIO presence, service-active states). Read-only inspection surface.",
+        "argv": ["sovereign-osctl", "trinity", "status", "--json"],
+        "categories": ["trinity", "status", "operator-§1g"],
+    },
+    {
+        "name": "trinity-pulse",
+        "summary": "Genesis Trinity Pulse tier (Vector Core, CCD0 cores 0-5) — AVX-512 ISA markers, bitnet.cpp backend file, sovereign-pulse service active state. Read-only inspection of the master spec § 17 Module 1 surface.",
+        "argv": ["sovereign-osctl", "trinity", "pulse", "--json"],
+        "categories": ["trinity", "pulse", "operator-§1g"],
+    },
+    {
+        "name": "trinity-weaver",
+        "summary": "Genesis Trinity Weaver tier (Sandboxed Fabric, CCD1 cores 0-9) — Podman + VFIO presence + sovereign-weaver service active state. Read-only inspection of the master spec § 17 Module 2 surface.",
+        "argv": ["sovereign-osctl", "trinity", "weaver", "--json"],
+        "categories": ["trinity", "weaver", "operator-§1g"],
+    },
+    {
+        "name": "trinity-auditor",
+        "summary": "Genesis Trinity Auditor tier (Immutable Gatekeeper, always-on) — Tetragon presence + sovereign-auditor service active state. Read-only inspection of the master spec § 17 Module 3 surface.",
+        "argv": ["sovereign-osctl", "trinity", "auditor", "--json"],
+        "categories": ["trinity", "auditor", "operator-§1g"],
+    },
 ]
 
 

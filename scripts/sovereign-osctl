@@ -3659,6 +3659,30 @@ cmd_trinity() {
   local sub="${1:-status}"
   shift || true
 
+  # R514 (E5++) — `--json` routes inspection verbs (status / pulse /
+  # weaver / auditor) through the structured Python helper so the
+  # MCP surface + automation consumers can parse Trinity state. The
+  # human-readable text form is unchanged when `--json` is absent.
+  local want_json=0
+  local -a rest=()
+  for arg in "$@"; do
+    if [[ "${arg}" == "--json" ]]; then
+      want_json=1
+    else
+      rest+=("${arg}")
+    fi
+  done
+  set -- "${rest[@]+"${rest[@]}"}"
+
+  case "${sub}" in
+    status|pulse|weaver|auditor)
+      if [[ "${want_json}" -eq 1 ]]; then
+        "${__REPO_ROOT}/scripts/trinity/trinity-inspect.py" "${sub}"
+        return $?
+      fi
+      ;;
+  esac
+
   case "${sub}" in
     status)
       echo "  Genesis Trinity — master spec § 17"

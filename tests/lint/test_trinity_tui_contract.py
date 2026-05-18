@@ -146,8 +146,11 @@ def test_trinity_surface_map_extended_to_tui():
     assert tui_row.get("state") == "shipped", (
         f"trinity tui surface must be shipped; got {tui_row}"
     )
-    # mcp + webapp remain FUTURE (R514 + R515 will close them).
-    assert entry.get("future_waiver_count", 0) >= 2, (
-        f"trinity must still have 2 FUTURE waivers (mcp + webapp); "
+    # At least the webapp:FUTURE waiver remains post-R513 (R514 will
+    # close mcp; R515 will close webapp). This assertion is the
+    # tui-shipped invariant; the precise FUTURE remainder rotates as
+    # subsequent rounds drain the ladder.
+    assert entry.get("future_waiver_count", 0) >= 1, (
+        f"trinity must still have at least 1 FUTURE waiver post-R513; "
         f"got {entry}"
     )
