@@ -371,6 +371,10 @@ COMMANDS:
                                                             / reachable-creds-rejected / full-api).
   network-edge opnsense capabilities      What integration features unlock
                                [--json]                     based on OPNsense state.
+  network-edge opnsense watch  R483 (E11.M8+): OPNsense status TUI — live-
+        [--refresh N]          refresh state + capabilities view (default 5s
+        [--iterations N]       refresh, Ctrl-C to exit). Closes surface-map
+                               FUTURE waiver 'OPNsense status TUI worthwhile'.
   network-edge interfaces      Per-interface state (MAC/IP/MTU/link)
                                [--json]
   network-edge nat-chain       NAT layers visible from workstation

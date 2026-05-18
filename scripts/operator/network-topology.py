@@ -80,6 +80,7 @@ import socket
 import subprocess
 import sys
 import time
+from datetime import datetime, timezone
 
 # Metrics output dir
 METRICS_DIR = pathlib.Path(os.environ.get(
@@ -575,6 +576,8 @@ def cmd_opnsense(args) -> int:
                     print(f"    → {c}")
         _emit_metric("sovereign_os_operator_network_topology_query_total", "opnsense_capabilities", out.get("tier", "unknown"))
         return 0
+    if sub == "watch":
+        return cmd_opnsense_watch(args)
     sys.stderr.write(f"unknown opnsense subcommand: {sub}\n")
     return 1
 
@@ -608,6 +611,69 @@ def cmd_nat_chain(args) -> int:
     return 0
 
 
+def cmd_opnsense_watch(args) -> int:
+    """R483 (E11.M8+) — OPNsense status TUI surface.
+
+    Closes surface-map waiver-slot 'tui: FUTURE — OPNsense status TUI
+    worthwhile' for the network-edge module. Refreshes the opnsense
+    state + capabilities view every N seconds (default 5s, floored
+    ≥1s) until Ctrl-C or --iterations N exhausts.
+
+    Pairs with the existing one-shot `opnsense status` + `opnsense
+    capabilities` verbs — same data, presented as a live-refresh TUI.
+
+    Operator-discoverable: SOVEREIGN_OS_DRY_RUN=1 short-circuits to a
+    single render (so L3 tests stay deterministic).
+    """
+    refresh = max(1, int(args.refresh))
+    iterations = int(args.iterations)
+    dry_run = os.environ.get("SOVEREIGN_OS_DRY_RUN", "") == "1"
+    if dry_run and iterations == 0:
+        iterations = 1
+
+    frame = 0
+    try:
+        while True:
+            state = detect_opnsense_state()
+            caps = detect_capabilities()
+            # ANSI clear-screen + home cursor (TUI refresh surface)
+            sys.stdout.write("\x1b[2J\x1b[H")
+            now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+            print(f"── network-topology.opnsense watch  frame={frame}  "
+                  f"now={now}  refresh={refresh}s ──")
+            print("  (Ctrl-C to exit)" if iterations == 0
+                  else f"  (iterations remaining: {iterations - frame})")
+            print()
+            print(f"  Tier:        {state.get('tier', 'unknown')}")
+            print(f"  Host:        {state.get('host') or '(none)'}")
+            print(f"  Reachable:   {state.get('reachable')}")
+            print(f"  API status:  {state.get('api_status', 'n/a')}")
+            print()
+            print(f"  Capabilities unlocked: "
+                  f"{caps['unlocked_count']}/"
+                  f"{caps['unlocked_count'] + len(caps['next_to_unlock'])}")
+            for c in caps.get("unlocked", []):
+                print(f"    ✓ {c}")
+            if caps.get("next_to_unlock"):
+                print(f"  Next to unlock:")
+                for c in caps["next_to_unlock"]:
+                    print(f"    → {c}")
+            sys.stdout.flush()
+            _emit_metric(
+                "sovereign_os_operator_network_topology_query_total",
+                "opnsense_watch", state.get("tier", "unknown"),
+            )
+            frame += 1
+            if iterations > 0 and frame >= iterations:
+                break
+            if dry_run:
+                break
+            time.sleep(refresh)
+    except KeyboardInterrupt:
+        sys.stdout.write("\n")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(
         prog="network-topology.py",
@@ -632,7 +698,11 @@ def main(argv: list[str] | None = None) -> int:
 
     sp_opn = sub.add_parser("opnsense", help="OPNsense state + capabilities")
     sp_opn.add_argument("opnsense_verb",
-                         choices=["status", "capabilities"])
+                         choices=["status", "capabilities", "watch"])
+    sp_opn.add_argument("--refresh", type=int, default=5,
+                         help="watch refresh seconds (min 1; default 5)")
+    sp_opn.add_argument("--iterations", type=int, default=0,
+                         help="watch bounded loop (0 = until Ctrl-C)")
     add_fmt(sp_opn)
 
     sp_iface = sub.add_parser("interfaces", help="per-interface state")

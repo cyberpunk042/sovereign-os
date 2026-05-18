@@ -166,6 +166,47 @@ def test_opnsense_has_status_and_capabilities():
         assert v in body, f"opnsense subcommands missing {v}"
 
 
+def test_opnsense_has_watch_tui_subverb():
+    """R483 (E11.M8+) — OPNsense status TUI surface, closes surface-map
+    FUTURE waiver 'OPNsense status TUI worthwhile'."""
+    body = _read(NT_PY)
+    assert '"watch"' in body, (
+        "network-topology.py missing opnsense watch TUI subverb"
+    )
+    assert "def cmd_opnsense_watch(" in body, (
+        "network-topology.py missing cmd_opnsense_watch() function"
+    )
+
+
+def test_opnsense_watch_has_refresh_loop():
+    """watch verb MUST have refresh loop (sleep + ANSI clear)
+    — that's what makes it a TUI surface vs the one-shot status verb."""
+    body = _read(NT_PY)
+    assert "time.sleep(" in body, (
+        "opnsense watch missing refresh loop (time.sleep)"
+    )
+    assert "\\x1b[2J" in body, (
+        "opnsense watch missing ANSI clear-screen (TUI affordance)"
+    )
+
+
+def test_opnsense_watch_refuses_subsecond_refresh():
+    """Operator-discoverable: refresh ≥ 1s; the verb refuses poll-storm."""
+    body = _read(NT_PY)
+    assert "max(1, int(args.refresh)" in body or "max(1, args.refresh" in body, (
+        "opnsense watch missing refresh ≥1s floor"
+    )
+
+
+def test_opnsense_watch_emits_metric():
+    """Layer B: opnsense_watch metric label so observability aggregates
+    the new TUI surface separately."""
+    body = _read(NT_PY)
+    assert '"opnsense_watch"' in body and (
+        "sovereign_os_operator_network_topology_query_total" in body
+    ), "opnsense watch missing query_total metric emission"
+
+
 def test_json_and_human_formats():
     body = _read(NT_PY)
     assert "--json" in body and "--human" in body, (
