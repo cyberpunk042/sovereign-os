@@ -165,13 +165,11 @@ MODULE_COVERAGE = {
         },
     },
     "global-history": {
-        "shipped_in": "R448 (E11.M5) + R481 (E11.M5+ tui surface) + R487 (E11.M5+ Grafana dashboard)",
-        "surfaces": ["core", "cli", "tui", "dashboard"],
+        "shipped_in": "R448 (E11.M5) + R481 (E11.M5+ tui surface) + R487 (E11.M5+ Grafana dashboard) + R510 (E11.M5++ read-only REST API + systemd service)",
+        "surfaces": ["core", "cli", "tui", "dashboard", "api", "service"],
         "waivers": {
-            "api":       "FUTURE — /history REST endpoint",
             "mcp":       "FUTURE — agent queries history via MCP",
             "webapp":    "FUTURE — master-dashboard /history subpath",
-            "service":   "not applicable — query surface, read-only",
         },
     },
     "bashrc": {

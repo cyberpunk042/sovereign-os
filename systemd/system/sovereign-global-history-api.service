@@ -1,0 +1,54 @@
+[Unit]
+Description=Sovereign global-history read-only REST API (R510, E11.M5++)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/global-history-api.py
+# This API surface MIRRORS the data the CLI exposes via
+# `sovereign-osctl global-history <verb>` — recent / summary /
+# sources / delta across 6 source logs (apt / dpkg / shell / osctl /
+# events / modules). global-history has no mutation verbs at any
+# surface — operator §17 sovereignty boundary; the underlying logs
+# are mutated by their owning processes (dpkg, the shell, the
+# sovereign-osctl history writer, …), never by this surface.
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/global-history-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default — operator-§1g exposure decision is theirs.
+# To expose beyond loopback, drop an override at
+# /etc/systemd/system/sovereign-global-history-api.service.d/bind.conf:
+#   [Service]
+#   Environment=GLOBAL_HISTORY_API_BIND=0.0.0.0
+Environment=GLOBAL_HISTORY_API_BIND=127.0.0.1
+Environment=GLOBAL_HISTORY_API_PORT=8094
+
+# Defense-in-depth — read-only HTTP surface that reads the 6 source
+# logs and writes append-only to the metrics textfile collector dir.
+# No mutation of any source log.
+# R171 defense-in-depth (Layer 1 lint enforced)
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+# Loopback default — capability lockdown matches.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target

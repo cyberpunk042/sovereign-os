@@ -200,6 +200,7 @@ E11.M6 (operator §1g — bashrc integration + autocompletes + aliases + menus):
 
 E11.M5 (operator §1g — global history surface, delta/differential across 6 sources):
 - `sovereign_os_operator_global_history_query_total{verb,source,result}` — `sovereign-osctl global-history <verb>` queries (verb=recent/summary/sources/delta; source=apt|dpkg|shell|osctl|events|modules|all|comma-joined; result=ok)
+- `sovereign_os_operator_global_history_api_request_total{endpoint,result}` — R510 (E11.M5++) read-only REST API request counter. Endpoint ∈ {version, sources, recent, summary, delta, healthz, root, unknown, post, put, delete, patch}; result ∈ {ok, 400, 404, 405, 500}. global-history has no mutation verbs at any surface (operator §17 sovereignty boundary — the underlying 6 source logs are mutated by their owning processes, never by this surface). Daemon: `scripts/operator/global-history-api.py`; systemd unit: `sovereign-global-history-api.service` (loopback-bind default, port 8094). R510 replaces the prior surface-map `service: not applicable — query surface, read-only` waiver — the daemon IS a real systemd-managed service, just a read-only one.
 
 E11.M8 (operator §1g — network topology + OPNsense detection):
 - `sovereign_os_operator_network_topology_query_total{verb,result}` — `sovereign-osctl network-topology <verb>` queries (verb=detect/opnsense_status/opnsense_capabilities/interfaces/nat_chain; result=ok|tier-name|unavailable)
