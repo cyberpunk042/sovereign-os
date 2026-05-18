@@ -180,6 +180,54 @@ def _apply_mode_modulation(cfg: dict) -> tuple[dict, str | None, str]:
     return cfg_modulated, canonical, source
 
 
+# R347 (E1.M40): consult R317 inventory-catalog for operator-actionable
+# caveats tagged with this advisor (R315). Surfaces buried catalog
+# warnings (e.g. 4-DIMM XMP-stability at 6400MHz) to operator-pull
+# verbs that would otherwise miss them.
+def _load_inventory_caveats() -> list[dict[str, Any]]:
+    """Returns list of {slot, sku, model, caveat, severity} dicts for
+    catalog entries whose related_advisor mentions R315. NEVER raises."""
+    try:
+        cat_path = REPO_ROOT / "scripts" / "hardware" / "inventory-catalog.py"
+        if not cat_path.is_file():
+            return []
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "_inventory_catalog_r347", cat_path,
+        )
+        if spec is None or spec.loader is None:
+            return []
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        components = getattr(mod, "DEFAULT_COMPONENTS", [])
+    except Exception:
+        return []
+    caveats: list[dict[str, Any]] = []
+    for c in components:
+        if not isinstance(c, dict):
+            continue
+        related = c.get("related_advisor", "") or ""
+        caveat = c.get("operator_caveat")
+        if "R315" not in related or not caveat:
+            continue
+        # Severity heuristic: presence of "may fail" / "exceed" /
+        # "instability" → warn; else info.
+        low = caveat.lower()
+        sev = ("warn" if any(s in low
+                              for s in ("may fail", "exceed", "instability",
+                                        "drop to"))
+               else "info")
+        caveats.append({
+            "slot": c.get("slot"),
+            "sku": c.get("sku"),
+            "model": c.get("model"),
+            "category": c.get("category"),
+            "caveat": caveat,
+            "severity": sev,
+        })
+    return caveats
+
+
 def estimate_load_w(cfg: dict) -> dict[str, Any]:
     """Estimate 100% sustained load wattage per component."""
     cpu_base = cfg["cpu_baseline_w"]
@@ -394,6 +442,17 @@ def main(argv: list[str] | None = None) -> int:
         return verdict["rc"]
 
     # status
+    # R347 (E1.M40): consult R317 catalog for operator-actionable caveats
+    # tagged for R315; surface 4-DIMM XMP-stability warning when active.
+    inventory_caveats = _load_inventory_caveats()
+    xmp_stability_warnings: list[str] = []
+    if cfg_modulated.get("xmp_enabled"):
+        for cv in inventory_caveats:
+            low = (cv.get("caveat") or "").lower()
+            if "xmp" in low and ("may fail" in low or "drop to" in low):
+                xmp_stability_warnings.append(
+                    f"{cv['slot']} ({cv['sku']}): {cv['caveat']}"
+                )
     doc = {
         "schema_version": SCHEMA_VERSION,
         "round": ROUND,
@@ -413,6 +472,8 @@ def main(argv: list[str] | None = None) -> int:
         "safe_remaining_w": verdict["safe_remaining_w"],
         "message": verdict["message"],
         "overlay": meta,
+        "inventory_caveats": inventory_caveats,
+        "xmp_stability_warnings": xmp_stability_warnings,
     }
     if args.fmt == "json":
         print(json.dumps(doc, indent=2))
