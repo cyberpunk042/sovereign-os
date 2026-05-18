@@ -399,6 +399,162 @@ ARCHITECTURE_CONCEPTS: list[dict[str, Any]] = [
                  "genesis", "decoupled", "masm", "wasm", "bit-plane"],
         "spec_ref": "master spec Block 6 §Modules 1/2/3 verbatim",
     },
+    # ── R360 (E10.M5) extension — 5 more verbatim concepts ────────
+    {
+        "id": "C-06",
+        "name": "Layered Responsibility Mapping (Conductor / Logic Engine / Oracle Core)",
+        "explanation": ("The Conductor Agent (CPU Bound): Evaluates "
+                         "incoming user intent, updates CLAUDE.md, "
+                         "enforces state rules in SOUL.md, and branches "
+                         "the operational tree. Runtime Selection: "
+                         "Natively compiled 1-bit / Ternary BitNet "
+                         "models executing via bitnet.cpp pinned "
+                         "directly to high-priority CPU cores. "
+                         "Justification: State orchestration requires "
+                         "instantaneous branching and low latency for "
+                         "small context blocks. Executing this on the "
+                         "CPU via AVX-512 prevents constant small-"
+                         "kernel context-switching on the GPUs. "
+                         "The Logic Engine (GPU 0 - RTX 3090): Heavy-"
+                         "duty parsing, regular expression extraction, "
+                         "structural JSON compilation, and fast text "
+                         "embedding generation. Mid-scale quantized "
+                         "models (e.g., Llama-3-70B running at a highly "
+                         "dense Q4_K_M or IQ4_NL quantization profile) "
+                         "managed via a dedicated Podman container "
+                         "bridge. Justification: Balances high "
+                         "processing throughput against the physical "
+                         "constraint of a 24GB VRAM ceiling. "
+                         "The Oracle Core (GPU 1 - Blackwell PRO 6000): "
+                         "Extended, multi-turn recursive reasoning, "
+                         "complex architectural analysis, codebase "
+                         "validation, and large historical context "
+                         "verification. Full-precision FP16 or "
+                         "uncompromised high-precision models utilizing "
+                         "the massive 96GB Blackwell memory pool. "
+                         "Justification: Complete freedom from "
+                         "quantization degradation allows for absolute "
+                         "accuracy during complex system optimization."),
+        "tags": ["srp", "conductor", "logic-engine", "oracle-core",
+                 "blackwell", "rtx-3090", "rtx-pro-6000", "q4_k_m",
+                 "iq4_nl", "fp16", "podman", "bitnet-cpp"],
+        "spec_ref": "master spec §17.1 verbatim (Layered Responsibility Mapping)",
+    },
+    {
+        "id": "C-07",
+        "name": "Native Guardian Event Loop (eBPF Tetragon listener)",
+        "explanation": ("To replace the legacy Windows-centric "
+                         "SecureToast.ps1 concept without introducing "
+                         "visual or network bloat, we introduce a "
+                         "lightweight, native Linux event supervisor. "
+                         "This daemon listens to the local Tetragon "
+                         "eBPF UNIX socket and acts as an autonomous "
+                         "circuit breaker. The Guardian Daemon "
+                         "(/usr/local/bin/guardian-core) reads raw JSON "
+                         "stream from the kernel eBPF filter. Parse "
+                         "for policy trigger actions labeled as "
+                         "SIGKILL. The systemd unit MUST include "
+                         "BindsTo=tetragon.service so the Guardian "
+                         "restarts on Tetragon socket EOF — otherwise "
+                         "the guardian-core script will stall on its "
+                         "read loop, blinding your real-time exploit "
+                         "containment system."),
+        "tags": ["guardian-core", "tetragon", "ebpf", "sigkill",
+                 "binds-to", "auditor", "circuit-breaker",
+                 "unix-socket", "securetoast"],
+        "spec_ref": "master spec §10 + §14 G-03 verbatim",
+    },
+    {
+        "id": "C-08",
+        "name": "Atomic State Transition Protocol (O_DIRECT + O_SYNC + rename)",
+        "explanation": ("To ensure that state adjustments across "
+                         "CLAUDE.md, SOUL.md, and IDENTITY.md happen "
+                         "without filesystem lag or concurrent write "
+                         "collisions, The Weaver executes a strict, "
+                         "lockless loopback write sequence on the ZFS "
+                         "layer. The Weaver thread reads atomic input "
+                         "from memory-mapped /mnt/vault/context/"
+                         "CLAUDE.md, processes the state mutation "
+                         "(AVX-512 pinned), writes via O_DIRECT / "
+                         "POSIX AIO to ZFS Pool tank/context "
+                         "(sync=always) for atomic NVMe block commit, "
+                         "then broadcasts the state-synced "
+                         "notification via gRPC. The python primitive "
+                         "uses os.open with O_WRONLY | O_CREAT | "
+                         "O_TRUNC | O_DIRECT | O_SYNC flags, "
+                         "memory-aligned encoding for NVMe physical "
+                         "block alignment (4K boundary), and atomic "
+                         "rename so no reader ever views a partially "
+                         "written file."),
+        "tags": ["weaver", "atomic-state", "o_direct", "o_sync",
+                 "rename", "claude-md", "soul-md", "4k-boundary",
+                 "posix-aio", "zfs-sync-always"],
+        "spec_ref": "master spec §21 + §21.1 verbatim",
+    },
+    {
+        "id": "C-09",
+        "name": "Consolidated Execution Strategy (5 Phases I-V)",
+        "explanation": ("When you transpose this data into a new "
+                         "context, instruct the downstream agent to "
+                         "execute the deployment in this strict order: "
+                         "Phase I (Iron Validation): Execute Section "
+                         "5.1 (friction-audit) to verify the x8/x8 "
+                         "hardware lane topology on the ProArt board "
+                         "before compiling a single dependency. "
+                         "Phase II (The Engine): Build the custom "
+                         "Kernel 6.12 in tmpfs using the precise "
+                         "compiler flags specified in Section 2.2 "
+                         "(-march=znver5). "
+                         "Phase III (The OS Image): Assemble the "
+                         "Sovereign OS .iso using the exact "
+                         "configuration paths from Section 3. "
+                         "Phase IV (The File System): Initialize the "
+                         "ZFS NVMe pool applying the custom block "
+                         "sizes and synchronization profiles outlined "
+                         "in Section 4.1 and Section 7.2. "
+                         "Phase V (The Perimeter): Initialize Tetragon "
+                         "and launch the Native Guardian Loop (Section "
+                         "10) to secure the 120GB multi-GPU execution "
+                         "array. This artifact is complete, "
+                         "deterministic, and self-contained. No hacks, "
+                         "no shortcuts, no compromises."),
+        "tags": ["phase-i", "phase-ii", "phase-iii", "phase-iv",
+                 "phase-v", "iron-validation", "engine", "os-image",
+                 "file-system", "perimeter", "deployment-order"],
+        "spec_ref": "master spec §11 verbatim (Consolidated Execution Strategy)",
+    },
+    {
+        "id": "C-10",
+        "name": "Wasm-to-AVX-512 AOT Pipeline (The Pulse implementation)",
+        "explanation": ("When The Pulse processes low-bit matrix logic "
+                         "via WebAssembly, it avoids standard JIT "
+                         "(Just-In-Time) compilation bloat. Instead, "
+                         "it uses an Ahead-Of-Time (AOT) compilation "
+                         "lifecycle optimized via Cranelift or LLVM to "
+                         "output native Zen 5 machine code. To execute "
+                         "a ternary matrix step, the runtime takes "
+                         "packed 2-bit weight pairs from memory and "
+                         "uses the AVX-512 execution path to stream "
+                         "instructions natively through the CPU "
+                         "registers without unpacking overhead. The "
+                         "VNNI / VPDPBUSD instruction executes Parallel "
+                         "Fused Multiply-Accumulate into 32-bit "
+                         "Integer Registers. When compiling the Wasm "
+                         "execution layer natively on the node, the "
+                         "toolchain runtime parameters must be locked "
+                         "down to prevent generic x86 fallbacks: "
+                         "WASMTIME_COMPARE_OPTIONS=\"-C "
+                         "target-cpu=znver5 -C opt-level=3 -C "
+                         "relaxed-simd=true\" plus taskset -c 0-11 "
+                         "wasmtime compile --target znver5 -O speed "
+                         "/mnt/vault/agents/pulse_core.wasm to enforce "
+                         "explicit task execution on the native vector "
+                         "cores (CCD 0) only."),
+        "tags": ["wasm", "aot", "cranelift", "llvm", "znver5",
+                 "wasmtime", "vnni", "vpdpbusd", "fused-multiply-accumulate",
+                 "ccd-0", "pulse"],
+        "spec_ref": "master spec §20 + §20.1 + §20.2 verbatim",
+    },
 ]
 
 
