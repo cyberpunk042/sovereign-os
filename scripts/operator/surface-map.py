@@ -162,12 +162,11 @@ MODULE_COVERAGE = {
         },
     },
     "network-edge": {
-        "shipped_in": "R449 (E11.M8) + R483 (E11.M8+ opnsense watch tui)",
-        "surfaces": ["core", "cli", "tui"],
+        "shipped_in": "R449 (E11.M8) + R483 (E11.M8+ opnsense watch tui) + R486 (E11.M8+ Grafana dashboard)",
+        "surfaces": ["core", "cli", "tui", "dashboard"],
         "waivers": {
             "api":       "FUTURE — capability ladder as API surface",
             "mcp":       "FUTURE — agent queries upstream tier via MCP",
-            "dashboard": "FUTURE — Grafana panel for NAT chain visualization",
             "webapp":    "FUTURE — OPNsense bridge management UI",
             "service":   "not applicable — query surface, no daemon",
         },

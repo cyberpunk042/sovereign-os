@@ -419,3 +419,104 @@ def test_opnsense_status_runs_without_error():
         "reachable-credentials-rejected", "reachable-curl-failed",
         "full-api",
     ], f"unexpected tier value: {data['tier']!r}"
+
+
+# --- R486 (E11.M8+) — Grafana dashboard surface ---
+
+
+NE_DASHBOARD_JSON = (
+    REPO_ROOT / "docs" / "observability" / "dashboards"
+    / "sovereign-os-network-edge.json"
+)
+
+
+def test_dashboard_json_exists():
+    """R486 — network-edge Grafana dashboard surface (closes surface-
+    map FUTURE waiver 'dashboard: FUTURE — Grafana panel for NAT chain
+    visualization')."""
+    assert NE_DASHBOARD_JSON.is_file(), (
+        f"missing network-edge dashboard: {NE_DASHBOARD_JSON}"
+    )
+
+
+def test_dashboard_json_parseable():
+    """The dashboard MUST be valid JSON (Grafana refuses invalid JSON
+    on import)."""
+    import json
+    data = json.loads(NE_DASHBOARD_JSON.read_text(encoding="utf-8"))
+    assert "panels" in data, "dashboard missing panels"
+    assert "title" in data and data["title"], "dashboard missing title"
+    assert "uid" in data and data["uid"], "dashboard missing uid"
+
+
+def test_dashboard_references_network_topology_metric():
+    """At least one panel MUST query sovereign_os_operator_network_
+    topology_query_total — otherwise the dashboard isn't visualizing
+    the operator-§1g surface."""
+    body = NE_DASHBOARD_JSON.read_text(encoding="utf-8")
+    assert "sovereign_os_operator_network_topology_query_total" in body, (
+        "network-edge dashboard doesn't reference the Layer B metric"
+    )
+
+
+def test_dashboard_covers_six_verbs():
+    """Dashboard MUST reference all 6 verbs the operator can invoke
+    (detect / opnsense_status / opnsense_capabilities / interfaces /
+    nat_chain / watch)."""
+    body = NE_DASHBOARD_JSON.read_text(encoding="utf-8")
+    for verb in ("detect", "opnsense_status", "opnsense_capabilities",
+                 "interfaces", "nat_chain", "watch"):
+        assert verb in body, (
+            f"network-edge dashboard missing verb reference: {verb!r}"
+        )
+
+
+def test_dashboard_quotes_operator_1g_verbatim():
+    """Dashboard MUST include the §1g verbatim 'two LANs over two
+    different WAN' + 'Sharevdi' anchors — preserves operator-§1g
+    source-of-truth on the visual surface."""
+    body = NE_DASHBOARD_JSON.read_text(encoding="utf-8")
+    assert "two LANs are over two different WAN" in body, (
+        "network-edge dashboard missing §1g verbatim phrase"
+    )
+    assert "Sharevdi" in body, (
+        "network-edge dashboard missing §1g hardware-named anchor"
+    )
+
+
+def test_dashboard_documents_nat_chain():
+    """Dashboard MUST document the operator-named 'workstation →
+    OPNsense (NAT 2) → ISP router (NAT 1) → public' NAT chain."""
+    body = NE_DASHBOARD_JSON.read_text(encoding="utf-8")
+    assert "NAT 2" in body and "NAT 1" in body, (
+        "network-edge dashboard missing operator-§1g NAT-chain hop labels"
+    )
+
+
+def test_dashboard_documents_opnsense_capability_ladder():
+    """Dashboard MUST document the OPNsense reachability ladder
+    (unavailable / reachable / authenticated / full-api)."""
+    body = NE_DASHBOARD_JSON.read_text(encoding="utf-8")
+    for rung in ("unavailable", "reachable", "authenticated", "full-api"):
+        assert rung in body, (
+            f"network-edge dashboard missing OPNsense ladder rung: {rung!r}"
+        )
+
+
+def test_dashboard_listed_in_readme():
+    """README.md MUST list the new dashboard (operator-discoverable
+    inventory)."""
+    readme = (NE_DASHBOARD_JSON.parent / "README.md").read_text(encoding="utf-8")
+    assert "sovereign-os-network-edge.json" in readme, (
+        "dashboards/README.md missing sovereign-os-network-edge.json entry"
+    )
+
+
+def test_dashboard_tagged_sovereign_os():
+    """Grafana 'sovereign-os' tag MUST be set — operator's dashboard
+    folder filter depends on it."""
+    import json
+    data = json.loads(NE_DASHBOARD_JSON.read_text(encoding="utf-8"))
+    assert "sovereign-os" in (data.get("tags") or []), (
+        "network-edge dashboard missing sovereign-os tag"
+    )

@@ -1,0 +1,119 @@
+{
+  "_comment": "sovereign-os network-edge dashboard (R486, E11.M8+). Visualizes the operator-§1g network-topology surface: NAT-chain detection, OPNsense reachability + capability ladder, VPN-bridge state. Sourced from sovereign_os_operator_network_topology_query_total{verb,result} (Layer B, SDD-016) emitted by scripts/operator/network-topology.py. Operator imports into Grafana via Settings → JSON Model. Closes the network-edge surface-map FUTURE waiver 'dashboard: FUTURE — Grafana panel for NAT chain visualization'.",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "network-topology CLI", "url": "/d/sovereign-os-network-edge#cli", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "network-edge queries (total)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_network_topology_query_total)", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "detect verb (count)",
+      "description": "Full-topology detection runs. Tracks operator pulse on 'what does my network look like?' question.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_network_topology_query_total{verb=\"detect\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "opnsense_status (count)",
+      "description": "OPNsense reachability tier queries.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_network_topology_query_total{verb=\"opnsense_status\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "opnsense_capabilities (count)",
+      "description": "Integration-unlock tier queries (API-key-present check).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_network_topology_query_total{verb=\"opnsense_capabilities\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "nat_chain (count)",
+      "description": "NAT-depth detection runs. Operator-§1g 'workstation → OPNsense (NAT 2) → ISP router (NAT 1) → public' visibility.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_network_topology_query_total{verb=\"nat_chain\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "watch (count)",
+      "description": "R483 refresh-loop TUI invocations. Long-running watch sessions show up here.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_network_topology_query_total{verb=\"watch\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 20, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "network-edge query rate per verb (5m)",
+      "description": "Per-verb query rate over time. detect / opnsense_status / opnsense_capabilities / interfaces / nat_chain / watch — operator-discoverable churn pattern.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(sovereign_os_operator_network_topology_query_total[5m])", "refId": "A", "legendFormat": "{{verb}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "OPNsense reachability tier distribution (5m)",
+      "description": "OPNsense capability tier observed during opnsense_status / opnsense_capabilities calls: unavailable / reachable / authenticated / full-api. Time-series of which tier the workstation actually sees the upstream OPNsense at.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(sovereign_os_operator_network_topology_query_total{verb=~\"opnsense_.*\"}[5m])", "refId": "A", "legendFormat": "{{result}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+    },
+    {
+      "type": "barchart",
+      "title": "network-edge result distribution",
+      "description": "ok / unavailable / reachable / authenticated / full-api / unknown — operator-§1g detection-class breakdown across all verbs.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sum by (result) (sovereign_os_operator_network_topology_query_total)", "refId": "A", "legendFormat": "{{result}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+    },
+    {
+      "type": "table",
+      "title": "network-edge current state (verb × result)",
+      "description": "Per-(verb, result) histogram: which detection paths the operator exercises + which capability tier the upstream OPNsense actually reaches. Drives the operator's 'is my OPNsense integration unlocked for the features I want?' question.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sum by (verb, result) (sovereign_os_operator_network_topology_query_total)", "refId": "A", "format": "table", "instant": true}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+    },
+    {
+      "type": "text",
+      "title": "network-edge §1g verbatim + NAT chain + OPNsense capability ladder",
+      "options": {
+        "mode": "markdown",
+        "content": "**Operator §1g verbatim** (R449, E11.M8):\n\n> \"Like normal my AI will also be behind a firewall which will do a VPN bridge to my other network since my two LANs are over two different WAN and that each have an ISP router with NAT and then my Opnsense Firewall with another NAT. This can be detected too I guess and maybe it might require some configuration on it and we would say it to the user. Maybe we can even integrate features, I can even create a user and an API key and then it unlock other capabilities when its detected and we want to connect to it. Be aware of its state.\"\n\n**Operator-§1g hardware (the upstream edge):**\n\n> \"Sharevdi Fanless Firewall Mini PC Firewall Router Intel J3710/N3710 Quad Core, 4X Intel 2.5GbE i226-V LAN Ports, 8G DDR3 128G SSD AES NI Network Gateway Test with pf-Sense/opn-Sense\"\n\n**NAT chain (operator-named — 2 NAT hops to public):**\n\n```\nworkstation → OPNsense (NAT 2) → ISP router (NAT 1) → public IPv4\n```\n\n**OPNsense reachability ladder (low → high integration):**\n\n1. `unavailable` — no upstream OPNsense detected (or not on a routable path)\n2. `reachable` — TCP/443 OPNsense reachable; no API key configured\n3. `authenticated` — API key present + accepted; queries respond\n4. `full-api` — API key has the privilege level to mutate (firewall rules / NAT / aliases)\n\n**Capability-unlock contract** (per `network-topology opnsense capabilities`):\n\nWhen OPNsense reaches `authenticated` tier, the operator unlocks:\n- Read-only NAT chain inspection through API\n- Read-only firewall-state inspection\n\nWhen OPNsense reaches `full-api` tier, the operator unlocks:\n- VPN-bridge configuration delegation\n- Cross-LAN rule mutation\n- Operator-named per-LAN authentication binding\n\n**CLI:**\n\n```\nsovereign-osctl network-topology detect\nsovereign-osctl network-topology opnsense status\nsovereign-osctl network-topology opnsense capabilities\nsovereign-osctl network-topology interfaces\nsovereign-osctl network-topology nat-chain\nsovereign-osctl network-topology opnsense watch    # R483 refresh-loop TUI\n```\n\n**Metric:** `sovereign_os_operator_network_topology_query_total{verb,result}` (SDD-016 Layer B)\n\n**Source:** R449 (E11.M8) shipped the verbs + topology detector. R483 (E11.M8+) shipped the refresh-loop watch TUI. R486 (E11.M8+) ships THIS dashboard, closing the surface-map waiver-slot 'dashboard: FUTURE — Grafana panel for NAT chain visualization'."
+      },
+      "gridPos": {"h": 16, "w": 24, "x": 0, "y": 20}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["sovereign-os", "network-edge", "operator", "R486"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "sovereign-os network-edge",
+  "uid": "sovereign-os-network-edge",
+  "version": 1,
+  "weekStart": ""
+}
