@@ -568,6 +568,38 @@ LOCAL_TOOLS = [
         "categories": ["anti-minimization-audit", "operator-§1g",
                        "waivers", "audit"],
     },
+    # R526 (E5++) — doc-coverage MCP surface.
+    # Closes the doc-coverage mcp:FUTURE waiver. Second commit in the
+    # doc-coverage tier-3 surface-expansion arc (after R525 TUI).
+    # Three discrete read-only tools (kinds / modules / coverage) —
+    # `scan` and `gaps` take runtime args (--module, --threshold) and
+    # are intentionally NOT exposed (LOCAL_TOOLS uses fixed argv; same
+    # reason `router classify`, `trinity profile switch`, `compliance
+    # module` and `anti-minimization-audit scan` stay CLI-only); the
+    # `watch` refresh-loop TUI is NOT exposed (loop tools are an MCP
+    # anti-pattern). Same shape as the anti-min R523 triple, the
+    # compliance R520 triple, and the router R517 triple.
+    {
+        "name": "doc-coverage-kinds",
+        "summary": "R454 doc-coverage kind catalog — enumerates the 6 operator-named documentation surfaces tracked by the scanner (readme / sdd / helptext / metric-inventory / mandate-row / man-page). Operator-§1g standing rule: docs ARE the source of truth. Read-only.",
+        "argv": ["sovereign-osctl", "doc-coverage", "kinds", "--json"],
+        "categories": ["doc-coverage", "operator-§1g", "kinds",
+                       "documentation"],
+    },
+    {
+        "name": "doc-coverage-modules",
+        "summary": "R454 doc-coverage module catalog — enumerates the operator-facing modules tracked by the scanner. Operator-§1g standing rule: every operator-facing module must be documented across all 6 doc surfaces. Read-only.",
+        "argv": ["sovereign-osctl", "doc-coverage", "modules", "--json"],
+        "categories": ["doc-coverage", "operator-§1g", "modules",
+                       "documentation"],
+    },
+    {
+        "name": "doc-coverage-coverage",
+        "summary": "R454 doc-coverage matrix — module × doc-surface coverage view, sorted by largest gap first. Surfaces per-module shortfall across the 6 doc surfaces so the operator can target remediation. Read-only.",
+        "argv": ["sovereign-osctl", "doc-coverage", "coverage", "--json"],
+        "categories": ["doc-coverage", "operator-§1g", "coverage",
+                       "documentation"],
+    },
 ]
 
 

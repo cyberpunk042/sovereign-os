@@ -202,11 +202,10 @@ MODULE_COVERAGE = {
         "waivers": {},
     },
     "doc-coverage": {
-        "shipped_in": "R454 + R491 (Grafana dashboard) + R525 (E5++ refresh-loop TUI surface)",
-        "surfaces": ["core", "cli", "tui", "dashboard"],
+        "shipped_in": "R454 + R491 (Grafana dashboard) + R525 (E5++ refresh-loop TUI surface) + R526 (E5++ MCP surface)",
+        "surfaces": ["core", "cli", "tui", "dashboard", "mcp"],
         "waivers": {
             "api":       "FUTURE — REST /doc-coverage/{kinds,modules,coverage,gaps} read endpoints",
-            "mcp":       "FUTURE — agent queries doc gaps via MCP",
             "webapp":    "FUTURE — master-dashboard /doc-coverage subpath",
             "service":   "not applicable — query-only instrument, no daemon",
         },
