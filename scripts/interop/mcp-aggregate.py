@@ -600,6 +600,37 @@ LOCAL_TOOLS = [
         "categories": ["doc-coverage", "operator-§1g", "coverage",
                        "documentation"],
     },
+    # R529 (E5++): ux-design-audit MCP surface — drains the
+    # ux-design-audit mcp:FUTURE waiver. Three tools mirroring the
+    # R457 read-only inspector verbs (dimensions / modules / score).
+    # All read-only, no runtime-arg verbs exposed. Operator-§1g
+    # verbatim: "everything will also need to go through a thorough
+    # UX Design stage in order to be of quality". Same shape as the
+    # doc-coverage R526 triple, the anti-min R523 triple, the
+    # compliance R520 triple, and the router R517 triple.
+    {
+        "name": "ux-design-audit-dimensions",
+        "summary": "R457 ux-design-audit dimension catalog — enumerates the 6 operator-named UX dimensions (action-budget / discoverable / recoverable / next-step / operator-named / readable-30s). Operator-§1g verbatim: 'everything will also need to go through a thorough UX Design stage in order to be of quality'. Read-only.",
+        "argv": ["sovereign-osctl", "ux-design-audit", "dimensions",
+                 "--json"],
+        "categories": ["ux-design-audit", "operator-§1g", "dimensions",
+                       "ux"],
+    },
+    {
+        "name": "ux-design-audit-modules",
+        "summary": "R457 ux-design-audit module catalog — enumerates the operator-facing modules tracked by the UX auditor. Operator-§1g standing rule: every operator-facing module must pass the thorough UX Design stage across all 6 dimensions. Read-only.",
+        "argv": ["sovereign-osctl", "ux-design-audit", "modules",
+                 "--json"],
+        "categories": ["ux-design-audit", "operator-§1g", "modules",
+                       "ux"],
+    },
+    {
+        "name": "ux-design-audit-score",
+        "summary": "R457 ux-design-audit score view — per-module X/6 score across the 6 UX dimensions, sorted by lowest score first. Surfaces UX shortfall so the agent can target remediation. Read-only.",
+        "argv": ["sovereign-osctl", "ux-design-audit", "score", "--json"],
+        "categories": ["ux-design-audit", "operator-§1g", "score",
+                       "ux"],
+    },
 ]
 
 
