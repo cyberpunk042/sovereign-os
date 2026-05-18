@@ -208,7 +208,18 @@ def detect_in_kind(module: dict, kind: dict) -> bool:
         return _grep_tree(target, patterns, ".md") or \
                _grep_tree(target, patterns, ".1") or \
                _grep_tree(target, patterns, "")
-    # Single-file kinds (readme, helptext, metric-inventory, mandate-row)
+    if kind["id"] == "readme":
+        # Top-level README OR any subdirectory README.md mentioning the
+        # module (operator/README.md counts for operator/* modules).
+        if _grep_file(target, patterns):
+            return True
+        for p in REPO_ROOT.rglob("README.md"):
+            if p == target:
+                continue
+            if _grep_file(p, patterns):
+                return True
+        return False
+    # Single-file kinds (helptext, metric-inventory, mandate-row)
     return _grep_file(target, patterns)
 
 
