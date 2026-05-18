@@ -1,7 +1,7 @@
-# Handoff 006 — Verbatim-preservation arc (R355-R400)
+# Handoff 006 — Verbatim-preservation arc (R355-R430)
 
 > **Status**: structurally mature (perpetual mandate continues)
-> **Last updated**: 2026-05-18 (R400 milestone — extends R395+R381 to cover R395-R399)
+> **Last updated**: 2026-05-18 (R430 milestone — extends R400 to cover R401-R429; 30 more rounds, +18 lints, +400 assertions, +13 bidirectional-consistency lints)
 > **Owner**: sovereign-os core
 > **Predecessor handoff**: 005-master-spec-materialization-arc.md
 
@@ -85,21 +85,83 @@ ship time (E2.M21 mandate-row duplicate + A-06 fabricated row +
 - R370 static-doc drift detection (9 assertions)
 - Bidirectional Tetragon 4-binary allowlist consistency (within R367)
 
-## Final state (updated through R400 — 46-round milestone)
+## Final state (updated through R430 — 76-round milestone)
 
 ```
 Coverage:  32 ✓ shipped, 0 partial, 0 TODO (of 32 total)
-Doctrine:  23 lints / 210 assertions / 23 bugs caught
+Doctrine:  52 lints / 782 assertions / 30 bugs caught
 Verbatim:  82 catalogued items / ~537 operator-exact phrases
            mechanized at push-time across 19 master spec sections
-Operational artifacts pinned: 11 files (R387-R399)
+Operational artifacts pinned: 30+ files (R387-R429)
 Systemd Descriptions pinned: 4 (Trinity-side identity, R397)
 Trinity-side pinning: COMPLETE (Pulse + Weaver + Auditor scripts +
                                   Descriptions + ZFS + VFIO + Tetragon)
-Bidirectional-consistency lints: 4 (R367, R373, R384, R399)
-Mandate:   175+ rows / ~135KB
-Grade:     A (stable across 46 rounds)
+Bidirectional-consistency lints: 17
+  R367 (Tetragon writer↔allowlist)
+  R373 (cross-catalog)
+  R384 (handoff INDEX)
+  R399 (ZFS ARC writer↔verify-grid)
+  R403 (router TIER_ENDPOINTS↔start-*.sh ports)
+  R410 (verify.sh check_NN↔verify-grid.yaml ids + name fallback)
+  R412 (timer↔hook↔service triangle)
+  R417 (mixin.id↔filename + R415-hardening↔role-server packages)
+  R419 (Tetragon policy LOAD↔VERIFY name+dir)
+  R420 (Weaver atomic-state↔tank/context dataset)
+  R421 (Guardian service ReadWritePaths↔script write paths)
+  R422 (runtime_profile.id↔filename + engines↔R404 adapters)
+  R424 (schema↔conformance test↔data files triangle)
+  R425 (phases.yaml↔phases.sh↔render-md.py↔artifact paths)
+  R426 (whitelabel legal_floor↔render.py LEGAL_FLOOR_PATTERNS)
+  R427 (catalog tiers↔Trinity set + verified-real↔hf_repo_id)
+  R428 (4-way default-model ring: build↔backend↔catalog↔start)
+Test count: 1291 (all green)
+Mandate:   207+ rows / ~165KB
+Grade:     A (stable across 76 rounds)
 ```
+
+## R401-R429 extensions (after R400 handoff refresh)
+
+After R400 milestone consolidation, R401-R429 added 30 more rounds
+extending operational-artifact pinning across the entire build pipeline,
+inference Trinity, lifecycle hooks, runtime profiles, and bidirectional
+ring closures. 13 new bidirectional-consistency lints (R403-R428).
+
+| Round | Surface | Bugs caught |
+|-------|---------|-------------|
+| R401 | network-vlan-config §8.1 Zero-Trust dual-NIC | — |
+| R402 | Trinity start scripts (start-pulse/logic-engine/oracle-core) | — |
+| R403 | router classify + TIER_ENDPOINTS + bidir w/ start scripts | — |
+| R404 | backend adapters (bitnet.py/vllm.py/llama_cpp.py) | — |
+| R405 | 9-step build pipeline contract | 3 (#23-#25 DRY_RUN gaps) |
+| R406 | substrate adapters (mkosi-emit / live-build-emit) | — |
+| R407 | whitelabel render engine SDD-007 + SDD-006 § Legal floor | — |
+| R408 | image-sign secure-boot SDD-015 + operator-key-mandate | — |
+| R409 | image-build (step 07) + image-verify (step 09) SDD-019 | — |
+| R410 | verify.sh ↔ verify-grid.yaml § 22 implementation bidir | — |
+| R411 | lifecycle hooks (pre/during/decommission) | 3 (#26-#28 incl 2 mandate-grade) |
+| R412 | recurrent hooks + timer↔hook↔service triangle | — |
+| R413 | sovereign-osctl Q-019 sacrosanct + 25-subcommand dispatch | — |
+| R414 | cloud-init user-data templates Q-018 + ZT | 1 (#30 active-whitelabel) |
+| R415 | server + workstation hardening hooks SDD-023 + § 8 ZT | — |
+| R416 | systemd fleet defense-in-depth R171 (24 service units) | — |
+| R417 | profile mixins + R415-hardening↔role-server bidir | — |
+| R418 | build/lib/* infrastructure contract (foundation R397-R417) | — |
+| R419 | Tetragon policy LOAD ↔ VERIFY bidirectional | — |
+| R420 | Weaver atomic-state ↔ tank/context dataset bidir + § 21 | — |
+| R421 | Guardian Loop service↔script + § 10/§ 17 + bidir | — |
+| R422 | runtime profiles § 18 + 3-way bidir (id+engine+hw) | — |
+| R423 | verbatim-render aggregator R369 doctrine | — |
+| R424 | JSON-schema set consistency + schema↔test↔data triangle | — |
+| R425 | bootstrap phases.yaml § 12 + 4-way artifact bidir | — |
+| R426 | whitelabel/default.yaml + legal_floor↔render.py bidir | — |
+| R427 | model catalog content + Trinity-tier bidir | — |
+| R428 | Pulse build-bitnet.sh § 15-16 + 4-way model bidir | — |
+| R429 | Debian preseed + cloud-init R414 bidirectional | — |
+
+R401-R429 added 29 new L1 lints + 572 assertions + 7 new bugs caught
++ 13 new bidirectional-consistency lints. Operator-mandate-grade
+safety violation #27 (secure-wipe-context.sh missing SOVEREIGN_OS_
+CONFIRM_DESTROY) was the highest-impact catch.
 
 ## R395-R399 extensions (after R381 handoff)
 
