@@ -5987,6 +5987,25 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  module-state)
+    # R351 (E2.M34): "what have I installed but not yet configured?"
+    # Operator-named §1b verbatim: "installs, non-configured, modules
+    # or features and how configure them". 16-module default catalog;
+    # per-module verdict (fully-configured / installed-not-configured
+    # / running-without-overlay / config-only-no-runtime / shipped-but-
+    # untouched) + the verb to close each gap.
+    sub="${1:-recommend}"
+    shift || true
+    case "${sub}" in
+      list|show|recommend)
+        "${__REPO_ROOT}/scripts/intelligence/module-state.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown module-state subverb: ${sub} (list, show, recommend)"
+        exit 2
+        ;;
+    esac
+    ;;
   autohealth)
     # R308 (E2.M14): doctor / autohealth periodic synthesizer.
     # Composes R226 (health-scan) + R296 (thermal-oc) + R298
