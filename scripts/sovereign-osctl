@@ -6041,6 +6041,24 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  network-topology)
+    # R359 (E3.M8): operator-pull master spec §8 + §8.1 verbatim —
+    # asymmetric NIC topology (Marvell 10GbE compute / Intel 2.5GbE
+    # management) + VLAN 100/200 + MTU 9000 jumbo frames. Surfaces
+    # operator's ASCII diagram + per-NIC role + verifies live
+    # MTU/address against intent. NEVER-raises on container.
+    sub="${1:-show}"
+    shift || true
+    case "${sub}" in
+      show|verify|scaffold)
+        "${__REPO_ROOT}/scripts/network/topology.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown network-topology subverb: ${sub} (show, verify, scaffold)"
+        exit 2
+        ;;
+    esac
+    ;;
   state-fabric)
     # R358 (E1.M42): operator-pull master spec §7.1 File-State Matrix
     # + §7.2 ZFS Transactional Optimizations as discoverable + verifiable
