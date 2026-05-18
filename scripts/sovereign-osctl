@@ -315,6 +315,12 @@ COMMANDS:
         [--json]
   master-dashboard health      TCP-connect probe to each upstream port;
                                [--json]                     reports reachability per dashboard.
+  master-dashboard discover    R460 cross-repo: scan /etc/selfdef/
+                               [--json]                     dashboards/*.toml (SOVEREIGN_OS_SELFDEF_
+                                                            MANIFEST_DIR env-override) for selfdef-side
+                                                            DashboardManifests (selfdef crate
+                                                            SD-R-DASHBOARD-MANIFEST-1). Reports
+                                                            valid + errors + collisions vs built-in.
 
   edge-firewall state          R451 (E11.M9): operator §1g workstation-side
                                [--json]                     edge-firewall alternative — local install state

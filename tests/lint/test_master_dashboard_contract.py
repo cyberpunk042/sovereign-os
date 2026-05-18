@@ -172,6 +172,75 @@ def test_supports_health_verb():
     assert '"health"' in body
 
 
+def test_supports_discover_verb():
+    """R460: discover verb for selfdef cross-repo manifest binding."""
+    body = _read(MD_PY)
+    assert '"discover"' in body
+    assert "SD-R-DASHBOARD-MANIFEST-1" in body
+
+
+def test_selfdef_manifest_dir_env_overridable():
+    body = _read(MD_PY)
+    assert "SOVEREIGN_OS_SELFDEF_MANIFEST_DIR" in body
+
+
+def test_selfdef_manifest_default_path():
+    body = _read(MD_PY)
+    assert "/etc/selfdef/dashboards" in body
+
+
+def test_discover_handles_unsupported_schema_version():
+    """R460: parser MUST reject schema_version != 1."""
+    import subprocess as _sp
+    import tempfile as _tf
+    with _tf.TemporaryDirectory() as td:
+        bad = Path(td) / "bad.toml"
+        bad.write_text(
+            "schema_version = 99\n[dashboard]\nmodule = \"x\"\n"
+        )
+        result = _sp.run(
+            ["python3", str(MD_PY), "discover", "--json"],
+            capture_output=True, text=True, timeout=10,
+            env={**os.environ,
+                 "SOVEREIGN_OS_SELFDEF_MANIFEST_DIR": td},
+        )
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        assert data["count"] == 0
+        assert len(data["errors"]) == 1
+        assert "schema_version" in data["errors"][0]["error"]
+
+
+def test_discover_loads_valid_manifest():
+    import subprocess as _sp
+    import tempfile as _tf
+    with _tf.TemporaryDirectory() as td:
+        good = Path(td) / "agent-guard.toml"
+        good.write_text(
+            'schema_version = 1\n\n'
+            '[dashboard]\n'
+            'module = "agent-guard"\n'
+            'port = 8090\n'
+            'healthz_path = "/healthz"\n'
+            'subpath = "/agent-guard/"\n'
+            'label = "Agent Guard"\n'
+            'auth_tier = "advanced"\n'
+        )
+        result = _sp.run(
+            ["python3", str(MD_PY), "discover", "--json"],
+            capture_output=True, text=True, timeout=10,
+            env={**os.environ,
+                 "SOVEREIGN_OS_SELFDEF_MANIFEST_DIR": td},
+        )
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        assert data["count"] == 1
+        m = data["discovered"][0]
+        assert m["slug"] == "agent-guard"
+        assert m["source_repo"] == "selfdef"
+        assert m["auth_tier"] == "advanced"
+
+
 def test_render_has_triple_gate():
     """`render` MUST require --apply + --confirm-render."""
     body = _read(MD_PY)

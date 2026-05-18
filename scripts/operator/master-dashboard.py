@@ -155,6 +155,18 @@ DASHBOARD_ROUTES = {
 
 KNOWN_SLUGS = list(DASHBOARD_ROUTES.keys())
 
+# R460 (selfdef-cross-repo): per the selfdef-side
+# SD-R-DASHBOARD-MANIFEST-1 crate, every selfdef module exposing a
+# dashboard ships a TOML manifest at /etc/selfdef/dashboards/<m>.toml.
+# This dir is the operator-overridable directory the discover verb
+# scans to fold cross-repo dashboards into the aggregator route table.
+SELFDEF_MANIFEST_DIR = Path(
+    os.environ.get(
+        "SOVEREIGN_OS_SELFDEF_MANIFEST_DIR",
+        "/etc/selfdef/dashboards",
+    )
+)
+
 
 # HELP sovereign_os_operator_master_dashboard_query_total master-dashboard
 # operator-verb call count (verb, backend, result).
@@ -367,6 +379,115 @@ def cmd_list(args) -> int:
     return 0
 
 
+# --- R460 selfdef cross-repo manifest discovery ---
+
+
+def load_selfdef_manifests() -> tuple[list[dict], list[dict]]:
+    """Read every .toml manifest under SELFDEF_MANIFEST_DIR.
+
+    Returns (valid_manifests, errors). Each valid entry mirrors the
+    selfdef-side DashboardSpec — module/port/healthz_path/subpath/
+    label/auth_tier/surfaces — augmented with `source_repo="selfdef"`
+    and `manifest_path`. Errors collect file-level failures so the
+    operator can see WHY a manifest didn't load.
+
+    Cross-repo binding: SD-R-DASHBOARD-MANIFEST-1
+    (crates/selfdef-dashboard-manifest in selfdef repo).
+    """
+    valid: list[dict] = []
+    errors: list[dict] = []
+    if not SELFDEF_MANIFEST_DIR.is_dir():
+        return valid, errors
+    try:
+        import tomllib
+    except ImportError:
+        try:
+            import tomli as tomllib  # type: ignore[import-not-found]
+        except ImportError:
+            errors.append({
+                "path": str(SELFDEF_MANIFEST_DIR),
+                "error": "no TOML library available (need tomllib py3.11+ "
+                         "or tomli py3.10)",
+            })
+            return valid, errors
+    for p in sorted(SELFDEF_MANIFEST_DIR.glob("*.toml")):
+        try:
+            data = tomllib.loads(p.read_text(encoding="utf-8"))
+        except (OSError, Exception) as e:  # noqa: BLE001
+            errors.append({"path": str(p), "error": f"parse: {e}"})
+            continue
+        schema_v = data.get("schema_version")
+        if schema_v != 1:
+            errors.append({
+                "path": str(p),
+                "error": f"unsupported schema_version={schema_v!r}",
+            })
+            continue
+        d = data.get("dashboard") or {}
+        try:
+            entry = {
+                "slug": str(d["module"]),
+                "port": int(d["port"]),
+                "healthz_path": str(d["healthz_path"]),
+                "subpath": str(d["subpath"]),
+                "label": str(d["label"]),
+                "auth_tier": str(d["auth_tier"]),
+                "surfaces": list(d.get("surfaces", [])),
+                "source_repo": "selfdef",
+                "manifest_path": str(p),
+            }
+        except (KeyError, TypeError, ValueError) as e:
+            errors.append({"path": str(p), "error": f"shape: {e}"})
+            continue
+        valid.append(entry)
+    return valid, errors
+
+
+def cmd_discover(args) -> int:
+    """Scan SELFDEF_MANIFEST_DIR for cross-repo dashboard manifests."""
+    valid, errors = load_selfdef_manifests()
+    # Detect collisions vs the built-in DASHBOARD_ROUTES
+    builtin_ports = {r["port"] for r in DASHBOARD_ROUTES.values()}
+    builtin_subpaths = {r["subpath"] for r in DASHBOARD_ROUTES.values()}
+    builtin_slugs = set(DASHBOARD_ROUTES.keys())
+    collisions = []
+    for m in valid:
+        c = []
+        if m["slug"] in builtin_slugs:
+            c.append(f"slug collides with built-in {m['slug']!r}")
+        if m["port"] in builtin_ports:
+            c.append(f"port {m['port']} collides with built-in")
+        if m["subpath"] in builtin_subpaths:
+            c.append(
+                f"subpath {m['subpath']!r} collides with built-in"
+            )
+        if c:
+            collisions.append({"slug": m["slug"], "issues": c})
+    out = {
+        "manifest_dir": str(SELFDEF_MANIFEST_DIR),
+        "discovered": valid,
+        "errors": errors,
+        "collisions": collisions,
+        "count": len(valid),
+    }
+    if args.fmt == "json":
+        print(json.dumps(out, indent=2))
+    else:
+        print(f"── master-dashboard.discover "
+              f"({len(valid)} selfdef manifest{'s' if len(valid)!=1 else ''} "
+              f"under {SELFDEF_MANIFEST_DIR}) ──")
+        for m in valid:
+            print(f"  ✓ {m['slug']:25s} :{m['port']:<5d} → {m['subpath']:15s} "
+                  f"(auth={m['auth_tier']}, repo={m['source_repo']})")
+        for e in errors:
+            print(f"  ✗ {e['path']}  {e['error']}")
+        for c in collisions:
+            print(f"  ⚠ {c['slug']}: {'; '.join(c['issues'])}")
+    _emit_metric("discover", "any",
+                 "ok" if not errors and not collisions else "issues")
+    return 0
+
+
 def cmd_routes(args) -> int:
     mode = args.mode or "reverse-proxied"
     if mode not in OPERATOR_NAMED_MODES:
@@ -571,6 +692,14 @@ def main(argv: list[str] | None = None) -> int:
                                help="probe upstream dashboard reachability")
     _add_fmt(sp_health)
 
+    sp_disc = sub.add_parser(
+        "discover",
+        help=("scan SELFDEF_MANIFEST_DIR for selfdef-side dashboard "
+              "manifests (cross-repo binding "
+              "SD-R-DASHBOARD-MANIFEST-1)"),
+    )
+    _add_fmt(sp_disc)
+
     args = p.parse_args(argv)
     return {
         "list": cmd_list,
@@ -578,6 +707,7 @@ def main(argv: list[str] | None = None) -> int:
         "collisions": cmd_collisions,
         "render": cmd_render,
         "health": cmd_health,
+        "discover": cmd_discover,
     }[args.cmd](args)
 
 
