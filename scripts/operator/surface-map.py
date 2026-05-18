@@ -222,12 +222,9 @@ MODULE_COVERAGE = {
         "waivers": {},
     },
     "auditor": {
-        "shipped_in": "R152-R155 (master spec §§ 10, 17) + R497 (Grafana dashboard) + R537 (E5++ refresh-loop TUI surface — read-only inspection, neutralization stays CCD-triggered + CLI-gated per operator §17) + R538 (E5++ MCP surface — read-only auditor-status + auditor-last-violation + auditor-history; neutralization stays CLI-only per operator §17)",
-        "surfaces": ["core", "cli", "tui", "mcp", "service", "dashboard"],
-        "waivers": {
-            "api":       "FUTURE — REST /auditor/{status,last-violation,history} read endpoints",
-            "webapp":    "FUTURE — master-dashboard /auditor subpath",
-        },
+        "shipped_in": "R152-R155 (master spec §§ 10, 17) + R497 (Grafana dashboard) + R537 (E5++ refresh-loop TUI surface — read-only inspection) + R538 (E5++ MCP surface — read-only auditor-status + auditor-last-violation + auditor-history) + R539 (E5++ read-only REST API + webapp — separate inspection daemon, coexists with R155 guardian-core neutralization daemon; neutralization stays CCD-triggered + CLI-gated per operator §17)",
+        "surfaces": ["core", "cli", "tui", "api", "service", "dashboard", "mcp", "webapp"],
+        "waivers": {},
     },
 }
 

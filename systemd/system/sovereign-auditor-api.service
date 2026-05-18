@@ -1,0 +1,73 @@
+[Unit]
+Description=Sovereign auditor read-only REST API + webapp (R539, E5++)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/auditor-api.py
+# Read-only inspection API + webapp for the §1g auditor instrument
+# (master spec § 17 Module 3 Immutable Gatekeeper + § 10 Native
+# Guardian Loop). Mirrors the data the CLI exposes via
+# `sovereign-osctl auditor {status,last-violation,history} --json`
+# and the R538 MCP tools (auditor-status / auditor-last-violation /
+# auditor-history).
+#
+# Companion daemon to the R155 guardian-core service (a SEPARATE
+# systemd unit performing neutralization). This API daemon is
+# inspection only — it does NOT replace guardian-core, it
+# coexists with it.
+#
+# Operator §17 sovereignty boundary (load-bearing): the auditor API
+# exposes ONLY read-only inspection — `status` (brief tier panel),
+# `last-violation` (last security_audit.log entry), and `history`
+# (bounded tail of security_audit.log). The neutralization path
+# (Tetragon kernel hook → SIGKILL via guardian-core) is CCD-
+# triggered + CLI-gated and is intentionally NOT exposed at the API
+# surface: neutralization is sovereignty-critical and stays manual
+# + CCD/CLI-gated. Matches the R538 MCP surface decision verbatim.
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/auditor-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default — operator-§1g exposure decision is theirs.
+# To expose beyond loopback, drop an override at
+# /etc/systemd/system/sovereign-auditor-api.service.d/bind.conf:
+#   [Service]
+#   Environment=AUDITOR_API_BIND=0.0.0.0
+Environment=AUDITOR_API_BIND=127.0.0.1
+Environment=AUDITOR_API_PORT=8103
+Environment=AUDITOR_AUDIT_LOG=/mnt/vault/context/security_audit.log
+
+# Defense-in-depth — read-only HTTP surface that reads the master
+# spec § 10 security_audit.log under /mnt/vault/context per /history
+# and /last-violation request. No mutation of any sovereignty
+# boundary — neutralization stays CCD-triggered + CLI-only.
+# R171 defense-in-depth (Layer 1 lint enforced)
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+# The /mnt/vault/context/security_audit.log file is read-only here —
+# the daemon stat()s and reads it but NEVER opens it for write.
+# ProtectSystem=strict makes everything outside ReadWritePaths
+# read-only by default.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+# Loopback default — capability lockdown matches.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target
