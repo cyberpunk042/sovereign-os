@@ -429,6 +429,7 @@ COMMANDS:
   router status                R516 router surface (SDD-011) — service + listen check
   router classify <prompt>     Show routing decision for a prompt (delegates to inference route)
   router rules                 Print the 5 routing rules verbatim (SDD-011)
+  router metrics               R517 — routing decision counts from Layer B textfile
   router watch                 R516 refresh-loop TUI (router + 4 tiers at a glance)
 
   metrics list                 List all sovereign_os_*.prom files in the textfile collector dir
@@ -3853,6 +3854,30 @@ cmd_router() {
   local sub="${1:-status}"
   shift || true
 
+  # R517 (E5++) — `--json` routes inspection verbs (status / rules /
+  # metrics) through the structured Python helper so the MCP surface
+  # + automation consumers can parse router state. The human-readable
+  # text form is unchanged when `--json` is absent.
+  local want_json=0
+  local -a rest=()
+  for arg in "$@"; do
+    if [[ "${arg}" == "--json" ]]; then
+      want_json=1
+    else
+      rest+=("${arg}")
+    fi
+  done
+  set -- "${rest[@]+"${rest[@]}"}"
+
+  case "${sub}" in
+    status|rules|metrics)
+      if [[ "${want_json}" -eq 1 ]]; then
+        "${__REPO_ROOT}/scripts/inference/router-inspect.py" "${sub}"
+        return $?
+      fi
+      ;;
+  esac
+
   case "${sub}" in
     status)
       _router_status_brief
@@ -3862,6 +3887,9 @@ cmd_router() {
       ;;
     rules)
       _router_rules
+      ;;
+    metrics)
+      "${__REPO_ROOT}/scripts/inference/router-inspect.py" metrics
       ;;
     watch)
       _router_watch "$@"
@@ -3874,9 +3902,10 @@ cmd_router() {
   front for the Pulse / Logic Engine / Oracle Core direct stack.
 
   Subcommands:
-    status              service state + port 8080 listen check
+    status [--json]     service state + port 8080 listen check
     classify <prompt>   show which tier the router would pick
-    rules               print the 5 routing rules verbatim (SDD-011)
+    rules [--json]      print the 5 routing rules verbatim (SDD-011)
+    metrics [--json]    routing decision counts from Layer B textfile
     watch               R516 refresh-loop TUI (router + 4 tiers)
 
   See also: sovereign-osctl inference {status,health,route,start,stop}
@@ -3884,7 +3913,7 @@ ROUTER_HELP
       ;;
     *)
       log_error "unknown router subcommand: ${sub}"
-      log_error "  available: status | classify | rules | watch"
+      log_error "  available: status | classify | rules | metrics | watch"
       return 2
       ;;
   esac

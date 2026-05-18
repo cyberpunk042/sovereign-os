@@ -470,6 +470,37 @@ LOCAL_TOOLS = [
         "argv": ["sovereign-osctl", "trinity", "auditor", "--json"],
         "categories": ["trinity", "auditor", "operator-§1g"],
     },
+    # ── R517 (E5++) — Inference Router MCP tools ─────────────────
+    #
+    # Closes the router.mcp:FUTURE waiver. Three discrete read-only
+    # inspection verbs (status / rules / metrics), each delegating to
+    # `sovereign-osctl router <verb> --json`. The route-decision verb
+    # `classify` takes a runtime prompt argument and is intentionally
+    # NOT exposed via MCP (the LOCAL_TOOLS registry uses fixed argv,
+    # not parameterized invocation — same reason the R513 `trinity
+    # watch` refresh-loop TUI is not exposed). The router itself is
+    # the sovereignty boundary; mutation lives at request-routing
+    # time (operator-driven via HTTP request shape), not at the
+    # inspection surface.
+    {
+        "name": "router-status",
+        "summary": "Inference router status (SDD-011) — sovereign-router.service active state, port 8080 listen check, 3-tier backend descriptors (Pulse 8081 · Logic 8082 · Oracle 8083). Read-only inspection surface.",
+        "argv": ["sovereign-osctl", "router", "status", "--json"],
+        "categories": ["router", "inference", "status", "operator-§1g"],
+    },
+    {
+        "name": "router-rules",
+        "summary": "Inference router routing rules (SDD-011 verbatim) — the 5 first-match-wins rules that map request shape to tier (Pulse / Logic Engine / Oracle Core). Read-only inspection of the load-bearing routing contract.",
+        "argv": ["sovereign-osctl", "router", "rules", "--json"],
+        "categories": ["router", "inference", "rules", "operator-§1g"],
+    },
+    {
+        "name": "router-metrics",
+        "summary": "Inference router Layer B metrics — sovereign_os_inference_route_total{tier,class,task_type} counters aggregated from the Prometheus textfile collector (SDD-016). Surfaces per-tier / per-class / per-task-type routing-decision counts. Read-only.",
+        "argv": ["sovereign-osctl", "router", "metrics", "--json"],
+        "categories": ["router", "inference", "metrics", "observability",
+                       "operator-§1g"],
+    },
 ]
 
 
