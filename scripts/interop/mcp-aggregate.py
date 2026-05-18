@@ -309,6 +309,34 @@ LOCAL_TOOLS = [
         "argv": ["sovereign-osctl", "master-dashboard", "discover", "--json"],
         "categories": ["master-dashboard", "cross-repo", "operator-§1g"],
     },
+    # R502 (E11.M7++) — auth-tier MCP surface. Read-only verbs that
+    # delegate to `sovereign-osctl auth-tier <verb> --json`. Mutation
+    # verb `set` stays CLI-only — operator §17 sacrosanct sovereignty
+    # boundary.
+    {
+        "name": "auth-tier-list-tiers",
+        "summary": "Auth-tier registry: list the 6-tier §1g ladder (no-auth → basic → advanced → social → enterprise → network-level), with operator-named labels and provides[].",
+        "argv": ["sovereign-osctl", "auth-tier", "list-tiers", "--json"],
+        "categories": ["auth-tier", "ladder", "operator-§1g"],
+    },
+    {
+        "name": "auth-tier-registry",
+        "summary": "Auth-tier registry: per-dashboard current vs recommended tier table (loaded from config + DEFAULT_REGISTRY).",
+        "argv": ["sovereign-osctl", "auth-tier", "registry", "--json"],
+        "categories": ["auth-tier", "registry", "operator-§1g"],
+    },
+    {
+        "name": "auth-tier-show",
+        "summary": "Auth-tier registry: per-dashboard tier resolution — current, recommended, rationale, upgrade_required, allowed_transitions. Operator passes `dashboard` via CLI arg.",
+        "argv": ["sovereign-osctl", "auth-tier", "show", "--json"],
+        "categories": ["auth-tier", "query", "operator-§1g"],
+    },
+    {
+        "name": "auth-tier-matrix",
+        "summary": "Auth-tier registry: upgrade-priority matrix across all dashboards, sorted by upgrade_levels descending (highest gap first).",
+        "argv": ["sovereign-osctl", "auth-tier", "matrix", "--json"],
+        "categories": ["auth-tier", "matrix", "operator-§1g"],
+    },
 ]
 
 

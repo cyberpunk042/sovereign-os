@@ -141,11 +141,10 @@ SURFACE_IDS = [s["id"] for s in SURFACES]
 # ship on with operator-named rationale.
 MODULE_COVERAGE = {
     "auth-tier": {
-        "shipped_in": "R450 (E11.M7) + R484 (E11.M7+ Grafana dashboard) + R501 (E11.M7++ read-only REST API + systemd service)",
-        "surfaces": ["core", "cli", "dashboard", "api", "service"],
+        "shipped_in": "R450 (E11.M7) + R484 (E11.M7+ Grafana dashboard) + R501 (E11.M7++ read-only REST API + systemd service) + R502 (E11.M7++ MCP surface)",
+        "surfaces": ["core", "cli", "dashboard", "api", "service", "mcp"],
         "waivers": {
             "tui":       "not applicable — config surface, not interactive",
-            "mcp":       "FUTURE — operator wants Claude/agent to query tier",
             "webapp":    "FUTURE — master-dashboard subpath",
         },
     },
