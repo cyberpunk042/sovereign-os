@@ -216,6 +216,23 @@ COMMANDS:
         [--force-skip-tiers]
         [--json]
 
+  surface-map surfaces         R453 (E11.M3): operator §1g 8-surface
+                               [--json]                     taxonomy (core/cli/TUI/API/MCP/Dashboard/
+                                                            Web App/Service); enumerates surfaces.
+  surface-map modules          List operator-facing modules with per-
+                               [--json]                     module surface count (X/8).
+  surface-map coverage         Module × surface matrix — shipped /
+        [--module <m>]         waived / gap per cell. Sorted by largest
+        [--surface <s>]        gap first.
+        [--json]
+  surface-map gaps             Modules below surface threshold
+        [--module <m>]         (default 3, per §1g "at least N of these
+        [--threshold N]        surfaces present"). Exit code 2 on gaps.
+        [--json]
+  surface-map waivers          Per-module explicit waivers (which
+        [--module <m>]         surfaces a module legitimately doesn't
+        [--json]               ship on + operator-named rationale).
+
   master-dashboard list        R452 (E11.M2): operator §1g reverse-proxy
                                [--json]                     aggregator — enumerates dashboards
                                                             eligible for aggregation under a single
@@ -6562,6 +6579,15 @@ case "${cmd}" in
     # → advanced → social → enterprise → network-level). Per-dashboard
     # tier registry + upgrade matrix + triple-gated set.
     "${__REPO_ROOT}/scripts/operator/auth-tier.py" "$@"
+    ;;
+  surface-map)
+    # R453 (E11.M3): operator §1g verbatim — "Everything is not just
+    # core, not just cli, not just TUI, not just API, not just tool
+    # and MCP but also Dashboards and Web Apps and Services". 8
+    # operator-named surfaces × per-module coverage matrix + gap
+    # detection (threshold-driven) + per-module explicit waivers.
+    # 5 verbs: surfaces / modules / coverage / gaps / waivers.
+    "${__REPO_ROOT}/scripts/operator/surface-map.py" "$@"
     ;;
   master-dashboard)
     # R452 (E11.M2): operator §1g verbatim — "Maybe there can even be

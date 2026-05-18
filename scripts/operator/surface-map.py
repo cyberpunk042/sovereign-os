@@ -1,0 +1,496 @@
+#!/usr/bin/env python3
+"""scripts/operator/surface-map.py — R453 (E11.M3).
+
+Operator §1g verbatim:
+  "Everything is not just core, not just cli, not just TUI, not just
+   API, not just tool and MCP but also Dashboards and Web Apps and
+   Services"
+
+Multi-surface delivery contract surface. For every operator-facing
+module/capability, this module asks: which of the 8 operator-named
+surfaces does it ship on?
+
+Operator-named surfaces (8, per §1g verbatim taxonomy):
+  1. core           in-process library / functions
+  2. cli            shell command surface (sovereign-osctl <verb>)
+  3. tui            terminal UI (curses/textual/blessed)
+  4. api            HTTP REST / RPC
+  5. mcp            Model Context Protocol server
+  6. dashboard      Grafana / web dashboard
+  7. webapp         standalone web application surface
+  8. service        systemd-managed daemon
+
+CLI:
+  surface-map.py surfaces [--json|--human]
+      Enumerate the 8 operator-named surfaces with operator-§1g
+      verbatim binding.
+
+  surface-map.py modules [--json|--human]
+      List all operator-facing modules tracked.
+
+  surface-map.py coverage [--module <m>] [--surface <s>] [--json|--human]
+      Coverage matrix — module × surface → has-it / waived /
+      gap. Sorted by largest gap first.
+
+  surface-map.py gaps [--module <m>] [--threshold N] [--json|--human]
+      Modules below threshold surface count (default 3, per §1g
+      "at least N of these surfaces present").
+
+  surface-map.py waivers [--json|--human]
+      Explicit per-module surface waivers (operator-discoverable;
+      "this module legitimately doesn't ship on surface X because Y").
+
+Exit codes:
+  0 ok
+  1 unknown subcommand / module / surface
+  2 gaps above threshold (operator-discoverable failure mode)
+
+Layer B metric (SDD-016):
+  sovereign_os_operator_surface_map_query_total{verb,surface,result}
+
+Operator-environment env vars:
+  SOVEREIGN_OS_SURFACE_MAP_DRY_RUN  Logs intent; no file writes.
+  SOVEREIGN_OS_DRY_RUN              Same effect (sovereign-wide).
+  SOVEREIGN_OS_SURFACE_THRESHOLD    Minimum surface count (default 3).
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+from pathlib import Path
+
+DRY_RUN = (
+    os.environ.get("SOVEREIGN_OS_DRY_RUN") == "1"
+    or os.environ.get("SOVEREIGN_OS_SURFACE_MAP_DRY_RUN") == "1"
+)
+METRICS_DIR = Path(
+    os.environ.get(
+        "SOVEREIGN_OS_TEXTFILE_DIR",
+        "/var/lib/prometheus/node-exporter",
+    )
+)
+DEFAULT_THRESHOLD = int(
+    os.environ.get("SOVEREIGN_OS_SURFACE_THRESHOLD", "3")
+)
+
+# HELP sovereign_os_operator_surface_map_query_total surface-map operator-
+# verb call count (verb, surface, result).
+# TYPE sovereign_os_operator_surface_map_query_total counter
+METRIC_NAME = "sovereign_os_operator_surface_map_query_total"
+
+# Operator-named surfaces (8, per §1g verbatim — VERBATIM ordering
+# preserved: core → cli → TUI → API → tool/MCP → Dashboards → Web Apps
+# → Services).
+SURFACES = [
+    {
+        "id": "core",
+        "label": "core (in-process library)",
+        "operator_named": "core",
+        "§1g_position": 1,
+    },
+    {
+        "id": "cli",
+        "label": "cli (sovereign-osctl <verb>)",
+        "operator_named": "cli",
+        "§1g_position": 2,
+    },
+    {
+        "id": "tui",
+        "label": "TUI (terminal UI; curses/textual/blessed)",
+        "operator_named": "TUI",
+        "§1g_position": 3,
+    },
+    {
+        "id": "api",
+        "label": "API (HTTP REST/RPC)",
+        "operator_named": "API",
+        "§1g_position": 4,
+    },
+    {
+        "id": "mcp",
+        "label": "MCP (Model Context Protocol server)",
+        "operator_named": "tool and MCP",
+        "§1g_position": 5,
+    },
+    {
+        "id": "dashboard",
+        "label": "Dashboard (Grafana / web dashboard)",
+        "operator_named": "Dashboards",
+        "§1g_position": 6,
+    },
+    {
+        "id": "webapp",
+        "label": "Web App (standalone web application)",
+        "operator_named": "Web Apps",
+        "§1g_position": 7,
+    },
+    {
+        "id": "service",
+        "label": "Service (systemd-managed daemon)",
+        "operator_named": "Services",
+        "§1g_position": 8,
+    },
+]
+SURFACE_IDS = [s["id"] for s in SURFACES]
+
+# Per-module surface coverage. For each module, which of the 8 surfaces
+# does it currently ship on? Maintained by hand for operator-discoverable
+# accuracy. "waivers" enumerate surfaces the module legitimately doesn't
+# ship on with operator-named rationale.
+MODULE_COVERAGE = {
+    "auth-tier": {
+        "shipped_in": "R450 (E11.M7)",
+        "surfaces": ["core", "cli"],
+        "waivers": {
+            "tui":       "not applicable — config surface, not interactive",
+            "api":       "FUTURE — exposed via master-dashboard /auth-tier",
+            "mcp":       "FUTURE — operator wants Claude/agent to query tier",
+            "dashboard": "FUTURE — Grafana panel for fleet auth-tier state",
+            "webapp":    "FUTURE — master-dashboard subpath",
+            "service":   "not applicable — query-only surface, no daemon",
+        },
+    },
+    "edge-firewall": {
+        "shipped_in": "R451 (E11.M9)",
+        "surfaces": ["core", "cli"],
+        "waivers": {
+            "tui":       "FUTURE — install-wizard TUI worthwhile",
+            "api":       "not applicable — operator runs it locally",
+            "mcp":       "FUTURE — agent can query state via MCP",
+            "dashboard": "FUTURE — Grafana panel for edge-firewall state",
+            "webapp":    "FUTURE — install-plan as click-through web wizard",
+            "service":   "candidates ARE services (fail2ban/crowdsec/etc.)",
+        },
+    },
+    "network-edge": {
+        "shipped_in": "R449 (E11.M8)",
+        "surfaces": ["core", "cli"],
+        "waivers": {
+            "tui":       "FUTURE — OPNsense status TUI worthwhile",
+            "api":       "FUTURE — capability ladder as API surface",
+            "mcp":       "FUTURE — agent queries upstream tier via MCP",
+            "dashboard": "FUTURE — Grafana panel for NAT chain visualization",
+            "webapp":    "FUTURE — OPNsense bridge management UI",
+            "service":   "not applicable — query surface, no daemon",
+        },
+    },
+    "master-dashboard": {
+        "shipped_in": "R452 (E11.M2)",
+        "surfaces": ["core", "cli", "service"],
+        "waivers": {
+            "tui":       "FUTURE — interactive route-editor TUI",
+            "api":       "FUTURE — REST /routes endpoint",
+            "mcp":       "FUTURE — agent queries aggregator state",
+            "dashboard": "self-referential — master-dashboard IS the aggregator",
+            "webapp":    "FUTURE — render produces Web App config (already)",
+        },
+    },
+    "global-history": {
+        "shipped_in": "R448 (E11.M5)",
+        "surfaces": ["core", "cli"],
+        "waivers": {
+            "tui":       "FUTURE — live-tail history TUI",
+            "api":       "FUTURE — /history REST endpoint",
+            "mcp":       "FUTURE — agent queries history via MCP",
+            "dashboard": "FUTURE — Grafana timeline panel",
+            "webapp":    "FUTURE — master-dashboard /history subpath",
+            "service":   "not applicable — query surface, read-only",
+        },
+    },
+    "bashrc": {
+        "shipped_in": "R447 (E11.M6)",
+        "surfaces": ["core", "cli"],
+        "waivers": {
+            "tui":       "not applicable — config surface, idempotent install",
+            "api":       "not applicable — local shell integration",
+            "mcp":       "not applicable — local shell integration",
+            "dashboard": "not applicable — local shell integration",
+            "webapp":    "not applicable — local shell integration",
+            "service":   "not applicable — config installer, no daemon",
+        },
+    },
+    "trinity": {
+        "shipped_in": "R290-R299 (E5)",
+        "surfaces": ["core", "cli", "api", "service"],
+        "waivers": {
+            "tui":       "FUTURE — interactive model-switcher TUI",
+            "mcp":       "FUTURE — agent queries Trinity tier state",
+            "dashboard": "FUTURE — Grafana Trinity-load panel",
+            "webapp":    "FUTURE — master-dashboard /trinity subpath",
+        },
+    },
+    "router": {
+        "shipped_in": "SDD-011",
+        "surfaces": ["core", "cli", "api", "service"],
+        "waivers": {
+            "tui":       "FUTURE — interactive routing-policy TUI",
+            "mcp":       "FUTURE — agent queries routing decisions",
+            "dashboard": "FUTURE — Grafana routing-decisions panel",
+            "webapp":    "FUTURE — master-dashboard /router subpath",
+        },
+    },
+}
+
+KNOWN_MODULES = list(MODULE_COVERAGE.keys())
+
+
+def _emit_metric(verb: str, surface: str, result: str) -> None:
+    """Best-effort SDD-016 metric write; never raises."""
+    if DRY_RUN:
+        sys.stderr.write(
+            f"  would emit: {METRIC_NAME}"
+            f'{{verb="{verb}",surface="{surface}",'
+            f'result="{result}"}} 1\n'
+        )
+        return
+    try:
+        METRICS_DIR.mkdir(parents=True, exist_ok=True)
+        prom = METRICS_DIR / "sovereign-os-operator-surface-map.prom"
+        line = (
+            f"{METRIC_NAME}"
+            f'{{verb="{verb}",surface="{surface}",'
+            f'result="{result}"}} 1\n'
+        )
+        tmp = prom.with_suffix(".prom.tmp")
+        tmp.write_text(line)
+        tmp.replace(prom)
+    except OSError:
+        pass
+
+
+def coverage_for(module: str) -> dict:
+    """Return coverage details for one module."""
+    if module not in MODULE_COVERAGE:
+        return {}
+    entry = MODULE_COVERAGE[module]
+    shipped = set(entry["surfaces"])
+    waivers = entry.get("waivers", {})
+    matrix = []
+    for s in SURFACE_IDS:
+        if s in shipped:
+            matrix.append({"surface": s, "state": "shipped"})
+        elif s in waivers:
+            matrix.append({
+                "surface": s,
+                "state": "waived",
+                "rationale": waivers[s],
+            })
+        else:
+            matrix.append({"surface": s, "state": "gap"})
+    return {
+        "module": module,
+        "shipped_in": entry["shipped_in"],
+        "surface_count": len(shipped),
+        "matrix": matrix,
+    }
+
+
+# --- Verbs ---
+
+
+def cmd_surfaces(args) -> int:
+    out = {"surfaces": SURFACES, "count": len(SURFACES)}
+    if args.fmt == "json":
+        print(json.dumps(out, indent=2))
+    else:
+        print(f"── surface-map.surfaces "
+              f"({len(SURFACES)} operator-named surfaces) ──")
+        for s in SURFACES:
+            print(f"  {s['§1g_position']}. {s['id']:10s} "
+                  f"({s['operator_named']!r}) — {s['label']}")
+    _emit_metric("surfaces", "all", "ok")
+    return 0
+
+
+def cmd_modules(args) -> int:
+    out = {
+        "modules": [
+            {"id": m, "shipped_in": MODULE_COVERAGE[m]["shipped_in"],
+             "surface_count": len(MODULE_COVERAGE[m]["surfaces"])}
+            for m in KNOWN_MODULES
+        ],
+        "count": len(KNOWN_MODULES),
+    }
+    if args.fmt == "json":
+        print(json.dumps(out, indent=2))
+    else:
+        print(f"── surface-map.modules "
+              f"({len(KNOWN_MODULES)} tracked modules) ──")
+        for m in out["modules"]:
+            print(f"  {m['id']:25s} surfaces={m['surface_count']}/8 "
+                  f"({m['shipped_in']})")
+    _emit_metric("modules", "all", "ok")
+    return 0
+
+
+def cmd_coverage(args) -> int:
+    if args.module and args.module not in KNOWN_MODULES:
+        print(f"unknown module: {args.module!r}; "
+              f"known: {KNOWN_MODULES}", file=sys.stderr)
+        _emit_metric("coverage", "any", "unknown-module")
+        return 1
+    if args.surface and args.surface not in SURFACE_IDS:
+        print(f"unknown surface: {args.surface!r}; "
+              f"known: {SURFACE_IDS}", file=sys.stderr)
+        _emit_metric("coverage", args.surface or "any", "unknown-surface")
+        return 1
+
+    rows = []
+    target = [args.module] if args.module else KNOWN_MODULES
+    for m in target:
+        cov = coverage_for(m)
+        if args.surface:
+            cov["matrix"] = [
+                e for e in cov["matrix"] if e["surface"] == args.surface
+            ]
+        rows.append(cov)
+    rows.sort(key=lambda r: r["surface_count"])  # smallest first = largest gap
+    out = {"coverage": rows, "count": len(rows)}
+    if args.fmt == "json":
+        print(json.dumps(out, indent=2))
+    else:
+        print(f"── surface-map.coverage "
+              f"({len(rows)} module{'s' if len(rows)!=1 else ''}) ──")
+        for r in rows:
+            print(f"\n  {r['module']} "
+                  f"(surfaces={r['surface_count']}/8, "
+                  f"shipped={r['shipped_in']})")
+            for e in r["matrix"]:
+                mark = {"shipped": "✓", "waived": "○", "gap": "✗"}[e["state"]]
+                rat = (
+                    f"  — {e['rationale']}" if e.get("rationale") else ""
+                )
+                print(f"    {mark} {e['surface']:12s} {e['state']}{rat}")
+    _emit_metric("coverage", args.surface or "all", "ok")
+    return 0
+
+
+def cmd_gaps(args) -> int:
+    threshold = args.threshold if args.threshold else DEFAULT_THRESHOLD
+    target = [args.module] if args.module else KNOWN_MODULES
+    if args.module and args.module not in KNOWN_MODULES:
+        print(f"unknown module: {args.module!r}", file=sys.stderr)
+        _emit_metric("gaps", "any", "unknown-module")
+        return 1
+
+    below = []
+    for m in target:
+        cov = coverage_for(m)
+        if cov["surface_count"] < threshold:
+            below.append({
+                "module": m,
+                "surface_count": cov["surface_count"],
+                "shortfall": threshold - cov["surface_count"],
+                "shipped_in": cov["shipped_in"],
+            })
+    below.sort(key=lambda r: r["shortfall"], reverse=True)
+
+    out = {
+        "threshold": threshold,
+        "below_threshold": below,
+        "count": len(below),
+    }
+    if args.fmt == "json":
+        print(json.dumps(out, indent=2))
+    else:
+        print(f"── surface-map.gaps (threshold={threshold}, "
+              f"{len(below)} module{'s' if len(below)!=1 else ''} "
+              f"below) ──")
+        for r in below:
+            print(f"  ✗ {r['module']:25s} "
+                  f"surfaces={r['surface_count']}/8 "
+                  f"(short by {r['shortfall']})")
+    result = "ok" if not below else "below-threshold"
+    _emit_metric("gaps", "all", result)
+    return 2 if below else 0
+
+
+def cmd_waivers(args) -> int:
+    target = [args.module] if args.module else KNOWN_MODULES
+    if args.module and args.module not in KNOWN_MODULES:
+        print(f"unknown module: {args.module!r}", file=sys.stderr)
+        _emit_metric("waivers", "any", "unknown-module")
+        return 1
+    rows = []
+    for m in target:
+        entry = MODULE_COVERAGE[m]
+        for surface, rationale in entry.get("waivers", {}).items():
+            rows.append({
+                "module": m,
+                "surface": surface,
+                "rationale": rationale,
+            })
+    out = {"waivers": rows, "count": len(rows)}
+    if args.fmt == "json":
+        print(json.dumps(out, indent=2))
+    else:
+        print(f"── surface-map.waivers ({len(rows)} entries) ──")
+        for r in rows:
+            print(f"  {r['module']:25s} {r['surface']:10s} "
+                  f"— {r['rationale']}")
+    _emit_metric("waivers", "all", "ok")
+    return 0
+
+
+# --- Argparse ---
+
+
+def main(argv: list[str] | None = None) -> int:
+    p = argparse.ArgumentParser(
+        prog="surface-map.py",
+        description=(
+            "R453 (E11.M3): operator §1g multi-surface delivery "
+            "contract — which of the 8 operator-named surfaces "
+            "(core/cli/TUI/API/MCP/Dashboard/Web App/Service) does "
+            "each operator-facing module ship on?"
+        ),
+    )
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    def _add_fmt(sp):
+        g = sp.add_mutually_exclusive_group()
+        g.add_argument("--json", dest="fmt", action="store_const",
+                       const="json", default="human")
+        g.add_argument("--human", dest="fmt", action="store_const",
+                       const="human")
+
+    sp_surf = sub.add_parser("surfaces",
+                             help="enumerate the 8 §1g surfaces")
+    _add_fmt(sp_surf)
+
+    sp_mods = sub.add_parser("modules",
+                             help="list tracked operator-facing modules")
+    _add_fmt(sp_mods)
+
+    sp_cov = sub.add_parser("coverage",
+                            help="module × surface coverage matrix")
+    sp_cov.add_argument("--module", help="filter to one module")
+    sp_cov.add_argument("--surface", help="filter to one surface")
+    _add_fmt(sp_cov)
+
+    sp_gap = sub.add_parser("gaps",
+                            help="modules below surface threshold")
+    sp_gap.add_argument("--module", help="filter to one module")
+    sp_gap.add_argument("--threshold", type=int, default=None,
+                        help=f"min surfaces (default {DEFAULT_THRESHOLD})")
+    _add_fmt(sp_gap)
+
+    sp_waiv = sub.add_parser("waivers",
+                             help="per-module explicit surface waivers")
+    sp_waiv.add_argument("--module", help="filter to one module")
+    _add_fmt(sp_waiv)
+
+    args = p.parse_args(argv)
+    return {
+        "surfaces": cmd_surfaces,
+        "modules": cmd_modules,
+        "coverage": cmd_coverage,
+        "gaps": cmd_gaps,
+        "waivers": cmd_waivers,
+    }[args.cmd](args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

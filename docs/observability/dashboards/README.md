@@ -200,6 +200,9 @@ E11.M9 (operator §1g — workstation-side edge-firewall alternative):
 E11.M2 (operator §1g — master-dashboard / reverse-proxy aggregator):
 - `sovereign_os_operator_master_dashboard_query_total{verb,backend,result}` — `sovereign-osctl master-dashboard <verb>` queries (verb=list/routes/collisions/render/health; backend=nginx|caddy|traefik|any|unknown; result=ok|preview|applied|dry-run|clean|collisions|blocked-collisions|unknown-backend|unknown-mode|write-failed)
 
+E11.M3 (operator §1g — multi-surface delivery contract):
+- `sovereign_os_operator_surface_map_query_total{verb,surface,result}` — `sovereign-osctl surface-map <verb>` queries (verb=surfaces/modules/coverage/gaps/waivers; surface=core|cli|tui|api|mcp|dashboard|webapp|service|all|any|unknown; result=ok|below-threshold|unknown-module|unknown-surface)
+
 When a new hook adds metrics: add a row to the section above + a panel
 to the relevant dashboard JSON + bump the dashboard `version`.
 Operators re-import to pick up. The `test_metric_inventory_lockstep.py`
