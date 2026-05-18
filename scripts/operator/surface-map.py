@@ -520,6 +520,183 @@ def cmd_waivers(args) -> int:
     return 0
 
 
+# --- R540 system-wide §1g milestone rollup ---
+#
+# Per operator §1g standing rule verbatim (sacrosanct, R453 anchor):
+#
+#   "everything is not just core, not just cli, not just TUI, not just
+#    API, not just tool and MCP but also Dashboards and Web Apps and
+#    Services."
+#
+# R539 closed the §1g 8-surface delivery contract across ALL §1g-
+# named modules. This rollup verb codifies the historic milestone as
+# a first-class operator-visible observable: instead of forcing
+# operators to grep the coverage matrix to discover the system-wide
+# state, `surface-map milestone` reports the rollup directly.
+#
+# Operator-§1g UX rule: 30-second readable. The rollup MUST surface:
+#   - total modules tracked
+#   - count at structural ceiling (every unshipped surface is
+#     "not applicable — ..."; NO FUTURE work tracked)
+#   - count at full 8-surface delivery (the §1g ladder closed)
+#   - count carrying FUTURE waivers (R539 historic: must be 0)
+#   - the list of §1g-named modules at full 8/8 (in shipped-order)
+#   - the list of structural-ceiling-but-below-8 modules (e.g.
+#     bashrc 2/8, auth-tier 7/8, master-dashboard 7/8 — all with
+#     STRUCTURAL waivers, not FUTURE work)
+#   - the historic R539 anchor + verbatim §1g standing rule
+#
+# Mirrors the coverage_for(module) per-module return shape but
+# scoped to the WHOLE module set. The rollup mechanism is the
+# operator-§1g "milestone" framing the R539 historic state and
+# making any future regression (a new module added with a FUTURE
+# waiver) immediately visible at the milestone surface.
+
+R539_HISTORIC_ANCHOR = (
+    "R539 (E5++) — TWELFTH §1g-named module (auditor) reached "
+    "structural ceiling with the auditor API + webapp surfaces, "
+    "closing the §1g 8-surface delivery contract across the ENTIRE "
+    "set of §1g-named modules. The rotation pool is exhausted: ALL "
+    "twelve §1g instruments (edge-firewall R506 / network-edge R509 / "
+    "global-history R512 / trinity R515 / router R518 / compliance "
+    "R521 / anti-minimization-audit R524 / doc-coverage R527 / "
+    "ux-design-audit R530 / surface-map R533 / weaver R536 / "
+    "auditor R539) plus auth-tier / bashrc / master-dashboard are "
+    "at structural ceiling with ZERO FUTURE waivers remaining."
+)
+
+R453_STANDING_RULE = (
+    "everything is not just core, not just cli, not just TUI, "
+    "not just API, not just tool and MCP but also Dashboards and "
+    "Web Apps and Services."
+)
+
+
+def milestone_rollup() -> dict:
+    """R540 — system-wide §1g 8-surface delivery contract rollup.
+
+    Returns a dict surfacing the historic R539 milestone state for
+    operator-§1g visibility (operator-§1g UX rule: 30-second readable)
+    + structural-regression detection (a future module added with a
+    FUTURE waiver will flip future_carrying_count off zero, which is
+    the load-bearing post-R539 invariant)."""
+    records = [coverage_for(m) for m in KNOWN_MODULES]
+    full_8 = sorted(
+        [r["module"] for r in records if r.get("surface_count") == 8]
+    )
+    at_ceiling_below_8 = sorted(
+        [
+            {
+                "module": r["module"],
+                "surface_count": r.get("surface_count"),
+                "structural_waiver_count":
+                    r.get("structural_waiver_count"),
+            }
+            for r in records
+            if r.get("at_structural_ceiling") is True
+            and r.get("surface_count", 0) < 8
+        ],
+        key=lambda x: x["module"],
+    )
+    future_carrying = sorted(
+        [
+            {
+                "module": r["module"],
+                "future_waiver_count": r.get("future_waiver_count"),
+            }
+            for r in records
+            if r.get("future_waiver_count", 0) > 0
+        ],
+        key=lambda x: x["module"],
+    )
+    at_ceiling_count = sum(
+        1 for r in records if r.get("at_structural_ceiling") is True
+    )
+    return {
+        "module": "surface-map",
+        "verb": "milestone",
+        "spec_ref": (
+            "operator §1g 8-surface delivery contract (R453 anchor) — "
+            "TWELFTH §1g module at ceiling closes the ladder (R539)"
+        ),
+        "total_modules": len(records),
+        "at_structural_ceiling_count": at_ceiling_count,
+        "full_8_surface_count": len(full_8),
+        "future_carrying_count": len(future_carrying),
+        "at_full_8_surfaces": full_8,
+        "at_ceiling_below_8_surfaces": at_ceiling_below_8,
+        "future_carrying_modules": future_carrying,
+        "all_at_structural_ceiling": at_ceiling_count == len(records),
+        "all_g1g_named_at_full_8": len(full_8) >= 12,
+        "zero_future_waivers": len(future_carrying) == 0,
+        "historic_anchor": R539_HISTORIC_ANCHOR,
+        "standing_rule": R453_STANDING_RULE,
+    }
+
+
+def cmd_milestone(args) -> int:
+    """`surface-map milestone` — surface the system-wide §1g 8-surface
+    delivery contract rollup. R540 operator-§1g visibility verb."""
+    rollup = milestone_rollup()
+    if args.fmt == "json":
+        print(json.dumps(rollup, indent=2))
+    else:
+        print(
+            f"── surface-map.milestone — §1g 8-surface delivery "
+            f"contract rollup ──"
+        )
+        print(f"  total modules tracked         : "
+              f"{rollup['total_modules']}")
+        print(f"  at structural ceiling          : "
+              f"{rollup['at_structural_ceiling_count']}/"
+              f"{rollup['total_modules']}")
+        print(f"  at full 8-surface delivery     : "
+              f"{rollup['full_8_surface_count']}/"
+              f"{rollup['total_modules']}")
+        print(f"  carrying FUTURE waivers        : "
+              f"{rollup['future_carrying_count']}")
+        print(f"  ALL at structural ceiling?     : "
+              f"{rollup['all_at_structural_ceiling']}")
+        print(f"  ALL §1g-named at full 8/8?     : "
+              f"{rollup['all_g1g_named_at_full_8']}")
+        print(f"  ZERO FUTURE waivers?           : "
+              f"{rollup['zero_future_waivers']}")
+        print()
+        print(f"  Modules at full 8/8 surfaces "
+              f"({len(rollup['at_full_8_surfaces'])}):")
+        for m in rollup["at_full_8_surfaces"]:
+            print(f"    - {m}")
+        print()
+        if rollup["at_ceiling_below_8_surfaces"]:
+            print(
+                f"  Structural-ceiling modules below 8 surfaces "
+                f"({len(rollup['at_ceiling_below_8_surfaces'])} — "
+                f"all carry 'not applicable' structural waivers, "
+                f"NOT FUTURE work):"
+            )
+            for r in rollup["at_ceiling_below_8_surfaces"]:
+                print(f"    - {r['module']:25s} {r['surface_count']}/8 "
+                      f"(structural waivers: "
+                      f"{r['structural_waiver_count']})")
+            print()
+        if rollup["future_carrying_modules"]:
+            print(
+                f"  ⚠ Modules with FUTURE waivers "
+                f"({len(rollup['future_carrying_modules'])}) — "
+                f"R539 invariant violated; these need closure rounds:"
+            )
+            for r in rollup["future_carrying_modules"]:
+                print(f"    - {r['module']:25s} "
+                      f"FUTURE waivers: {r['future_waiver_count']}")
+            print()
+        print(f"  Historic anchor: {rollup['historic_anchor']}")
+        print()
+        print(f"  R453 standing rule (operator §1g sacrosanct):")
+        print(f"    \"{rollup['standing_rule']}\"")
+    _emit_metric("milestone", "all", "ok")
+    return 0
+
+
 # --- R462 cross-repo selfdef surface-manifest discovery ---
 
 
@@ -692,6 +869,15 @@ def main(argv: list[str] | None = None) -> int:
     )
     _add_fmt(sp_sd)
 
+    sp_ms = sub.add_parser(
+        "milestone",
+        help=("R540: system-wide §1g 8-surface delivery contract "
+              "rollup — surfaces the R539 historic milestone "
+              "(ALL §1g modules at structural ceiling, ZERO FUTURE "
+              "waivers across the entire codebase)"),
+    )
+    _add_fmt(sp_ms)
+
     args = p.parse_args(argv)
     return {
         "surfaces": cmd_surfaces,
@@ -700,6 +886,7 @@ def main(argv: list[str] | None = None) -> int:
         "gaps": cmd_gaps,
         "waivers": cmd_waivers,
         "selfdef": cmd_selfdef,
+        "milestone": cmd_milestone,
     }[args.cmd](args)
 
 
