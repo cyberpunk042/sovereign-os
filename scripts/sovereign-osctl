@@ -6113,6 +6113,23 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  verbatim-render)
+    # R369 (E10.M13): operator-pull consolidated rendering of every
+    # verbatim entry across all SDD-037 catalogs (architecture-qa Q/G/C
+    # + coverage-map A + ccd-pinning + state-fabric + network-topology
+    # + repl modes). One verb → entire /goal verbatim contract surface.
+    sub="${1:-render}"
+    shift || true
+    case "${sub}" in
+      render|summary|manifest)
+        "${__REPO_ROOT}/scripts/intelligence/verbatim-render.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown verbatim-render subverb: ${sub} (render, summary, manifest)"
+        exit 2
+        ;;
+    esac
+    ;;
   coverage)
     # R365 (E10.M10): operator-pull coverage map. Catalogs every
     # operator-verbatim axis from hook drops / mandate rows / raw
