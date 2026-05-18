@@ -6095,6 +6095,24 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  coverage)
+    # R365 (E10.M10): operator-pull coverage map. Catalogs every
+    # operator-verbatim axis from hook drops / mandate rows / raw
+    # dumps and maps to implementing verbs + SDD refs + mandate rows.
+    # Provides operator-auditable "what coverage do I have for X?"
+    # without forcing operator to scan the entire mandate file.
+    sub="${1:-axes}"
+    shift || true
+    case "${sub}" in
+      axes|show|audit|search)
+        "${__REPO_ROOT}/scripts/intelligence/coverage-map.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown coverage subverb: ${sub} (axes, show, audit, search)"
+        exit 2
+        ;;
+    esac
+    ;;
   architecture-qa)
     # R355 (E10.M3) + R357 (E10.M4): operator-pull SAIN-01 master spec
     # §13 Architectural Q&A Matrix + §14 Critical Edge Cases & Operational
