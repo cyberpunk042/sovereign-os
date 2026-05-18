@@ -6041,6 +6041,23 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  architecture-qa)
+    # R355 (E10.M3): operator-pull SAIN-01 master spec §13
+    # Architectural Q&A Matrix + §14 Critical Edge Cases & Operational
+    # Gotchas — verbatim operator-stated content surfaced as discoverable
+    # verbs (questions list / gotchas list / show <id> / search <text>).
+    sub="${1:-questions}"
+    shift || true
+    case "${sub}" in
+      questions|gotchas|show|search)
+        "${__REPO_ROOT}/scripts/intelligence/architecture-qa.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown architecture-qa subverb: ${sub} (questions, gotchas, show, search)"
+        exit 2
+        ;;
+    esac
+    ;;
   autohealth)
     # R308 (E2.M14): doctor / autohealth periodic synthesizer.
     # Composes R226 (health-scan) + R296 (thermal-oc) + R298
