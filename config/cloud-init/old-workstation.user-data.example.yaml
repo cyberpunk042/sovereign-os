@@ -30,6 +30,10 @@ write_files:
     content: old-workstation
     permissions: '0644'
 
+  - path: /etc/sovereign-os/active-whitelabel
+    content: default
+    permissions: '0644'
+
   - path: /var/lib/sovereign-os/assistant/state.yaml
     content: |
       completed: true
