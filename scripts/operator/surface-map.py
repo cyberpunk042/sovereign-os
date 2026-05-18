@@ -182,11 +182,9 @@ MODULE_COVERAGE = {
         },
     },
     "trinity": {
-        "shipped_in": "R290-R299 (E5) + R494 (Grafana dashboard) + R513 (E5++ refresh-loop TUI surface) + R514 (E5++ MCP surface)",
-        "surfaces": ["core", "cli", "api", "service", "dashboard", "tui", "mcp"],
-        "waivers": {
-            "webapp":    "FUTURE — master-dashboard /trinity subpath",
-        },
+        "shipped_in": "R290-R299 (E5) + R494 (Grafana dashboard) + R513 (E5++ refresh-loop TUI surface) + R514 (E5++ MCP surface) + R515 (E5++ read-only REST API + webapp)",
+        "surfaces": ["core", "cli", "tui", "dashboard", "api", "service", "mcp", "webapp"],
+        "waivers": {},
     },
     "router": {
         "shipped_in": "SDD-011 + R495 (Grafana dashboard)",

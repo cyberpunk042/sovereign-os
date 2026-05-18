@@ -146,11 +146,9 @@ def test_trinity_surface_map_extended_to_tui():
     assert tui_row.get("state") == "shipped", (
         f"trinity tui surface must be shipped; got {tui_row}"
     )
-    # At least the webapp:FUTURE waiver remains post-R513 (R514 will
-    # close mcp; R515 will close webapp). This assertion is the
-    # tui-shipped invariant; the precise FUTURE remainder rotates as
-    # subsequent rounds drain the ladder.
-    assert entry.get("future_waiver_count", 0) >= 1, (
-        f"trinity must still have at least 1 FUTURE waiver post-R513; "
-        f"got {entry}"
-    )
+    # The tui-shipped invariant is the load-bearing assertion here.
+    # Historically R513 left mcp/webapp as FUTURE; R514 (mcp) and R515
+    # (webapp) subsequently drained those — so the precise
+    # FUTURE-waiver remainder is no longer a stable assertion here. It
+    # is asserted directly in the R514/R515 contract tests at their
+    # close-out round.

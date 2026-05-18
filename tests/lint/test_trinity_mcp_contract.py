@@ -207,11 +207,11 @@ def test_trinity_surface_map_extended_to_mcp():
     assert mcp_row.get("state") == "shipped", (
         f"trinity mcp surface must be shipped; got {mcp_row}"
     )
-    # webapp remains FUTURE (R515 will close it).
-    assert entry.get("future_waiver_count", 0) >= 1, (
-        f"trinity must still have 1 FUTURE waiver (webapp); "
-        f"got {entry}"
-    )
+    # The mcp-shipped invariant is the load-bearing assertion here.
+    # Historically R514 left webapp as FUTURE; R515 closed it — so the
+    # precise FUTURE-waiver remainder is no longer a stable assertion
+    # here. It is asserted directly in the R515 contract test at the
+    # close-out round.
 
 
 def test_osctl_trinity_status_json_routes_to_helper():
