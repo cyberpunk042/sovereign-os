@@ -223,6 +223,17 @@ MODULE_COVERAGE = {
             "webapp":    "FUTURE — master-dashboard /router subpath",
         },
     },
+    "compliance": {
+        "shipped_in": "R458 + R489 (Grafana dashboard)",
+        "surfaces": ["core", "cli", "dashboard"],
+        "waivers": {
+            "tui":       "FUTURE — refresh-loop status watch TUI (same shape as R488 master-dashboard.watch)",
+            "api":       "FUTURE — REST /compliance/{status,worst,module} aggregator",
+            "mcp":       "FUTURE — agent queries compliance gaps via MCP",
+            "webapp":    "FUTURE — master-dashboard /compliance subpath",
+            "service":   "not applicable — query-only aggregator, no daemon",
+        },
+    },
 }
 
 KNOWN_MODULES = list(MODULE_COVERAGE.keys())

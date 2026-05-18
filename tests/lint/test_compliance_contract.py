@@ -274,3 +274,117 @@ def test_snapshot_preview_mode_runs_without_writing():
     assert not target.exists(), (
         "snapshot preview wrote the journal (should not)"
     )
+
+
+# --- R489 (R458+) — Grafana dashboard surface ---
+
+
+CP_DASHBOARD_JSON = (
+    REPO_ROOT / "docs" / "observability" / "dashboards"
+    / "sovereign-os-compliance.json"
+)
+
+
+def test_dashboard_json_exists():
+    """R489 — compliance Grafana dashboard surface registers compliance
+    as a first-class module + ships the operator-§1g/§1h accountability
+    visualization."""
+    assert CP_DASHBOARD_JSON.is_file(), (
+        f"missing compliance dashboard: {CP_DASHBOARD_JSON}"
+    )
+
+
+def test_dashboard_json_parseable():
+    """The dashboard MUST be valid JSON (Grafana refuses invalid JSON
+    on import)."""
+    data = json.loads(CP_DASHBOARD_JSON.read_text(encoding="utf-8"))
+    assert "panels" in data, "dashboard missing panels"
+    assert "title" in data and data["title"], "dashboard missing title"
+    assert "uid" in data and data["uid"], "dashboard missing uid"
+
+
+def test_dashboard_references_compliance_metric():
+    """At least one panel MUST query sovereign_os_operator_compliance_
+    query_total — otherwise the dashboard isn't visualizing the
+    operator-§1g/§1h surface."""
+    body = CP_DASHBOARD_JSON.read_text(encoding="utf-8")
+    assert "sovereign_os_operator_compliance_query_total" in body, (
+        "compliance dashboard doesn't reference the Layer B metric"
+    )
+
+
+def test_dashboard_covers_four_instruments():
+    """Per R458 4-instrument suite, dashboard MUST reference all 4
+    instrument labels (surface-map / doc-coverage / anti-minimization-audit / ux-design-audit)."""
+    body = CP_DASHBOARD_JSON.read_text(encoding="utf-8")
+    for inst in ("surface-map", "doc-coverage",
+                 "anti-minimization-audit", "ux-design-audit"):
+        assert inst in body, (
+            f"compliance dashboard missing instrument reference: {inst!r}"
+        )
+
+
+def test_dashboard_covers_all_verbs():
+    """Dashboard MUST reference all 5 verbs the operator can invoke
+    (status / module / worst / history / snapshot)."""
+    body = CP_DASHBOARD_JSON.read_text(encoding="utf-8")
+    for verb in ("status", "module", "worst", "history", "snapshot"):
+        assert verb in body, (
+            f"compliance dashboard missing verb reference: {verb!r}"
+        )
+
+
+def test_dashboard_quotes_operator_minimize_rule_verbatim():
+    """Dashboard MUST quote the §1g/§1h standing rule verbatim ('We do
+    not minimize anything.') — the operator-sacrosanct anti-minimization
+    mandate that the compliance aggregator enforces."""
+    body = CP_DASHBOARD_JSON.read_text(encoding="utf-8")
+    assert "We do not minimize anything" in body, (
+        "compliance dashboard missing §1g/§1h verbatim standing rule"
+    )
+
+
+def test_dashboard_listed_in_readme():
+    """README.md MUST list the new dashboard (operator-discoverable
+    inventory)."""
+    readme = (CP_DASHBOARD_JSON.parent / "README.md").read_text(encoding="utf-8")
+    assert "sovereign-os-compliance.json" in readme, (
+        "dashboards/README.md missing sovereign-os-compliance.json entry"
+    )
+
+
+def test_dashboard_tagged_sovereign_os():
+    """Grafana 'sovereign-os' tag MUST be set — operator's dashboard
+    folder filter depends on it."""
+    data = json.loads(CP_DASHBOARD_JSON.read_text(encoding="utf-8"))
+    assert "sovereign-os" in (data.get("tags") or []), (
+        "compliance dashboard missing sovereign-os tag"
+    )
+
+
+def test_compliance_registered_in_surface_map():
+    """R489 registers compliance as a first-class module in surface-
+    map.py MODULE_COVERAGE. After this round it MUST appear with at
+    least 3 shipped surfaces (core/cli/dashboard) — at threshold."""
+    sm = (REPO_ROOT / "scripts" / "operator" / "surface-map.py").read_text(encoding="utf-8")
+    assert '"compliance":' in sm, (
+        "surface-map.py MODULE_COVERAGE missing 'compliance' entry"
+    )
+
+    # Verify it's at threshold (3 surfaces minimum)
+    result = subprocess.run(
+        ["python3", str(REPO_ROOT / "scripts" / "operator" / "surface-map.py"),
+         "coverage", "--module", "compliance", "--json"],
+        capture_output=True, text=True, timeout=15,
+    )
+    assert result.returncode == 0, (
+        f"surface-map coverage compliance failed: {result.stderr[:300]}"
+    )
+    data = json.loads(result.stdout)
+    # `coverage --module X --json` returns {"coverage": [{module: X, ...}]}
+    entries = data.get("coverage", [data])
+    entry = entries[0] if entries else {}
+    surface_count = entry.get("surface_count", 0)
+    assert surface_count >= 3, (
+        f"compliance must be at threshold (>=3 surfaces); got {surface_count}"
+    )

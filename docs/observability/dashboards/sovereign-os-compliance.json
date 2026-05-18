@@ -1,0 +1,120 @@
+{
+  "_comment": "sovereign-os compliance dashboard (R489, R458+). Visualizes the operator-§1g/§1h compliance aggregator that consolidates the 4-instrument suite (surface-map / doc-coverage / anti-minimization-audit / ux-design-audit) into a single accountability view. Sourced from sovereign_os_operator_compliance_query_total{verb,instrument,result} (Layer B, SDD-016) emitted by scripts/operator/compliance.py. Operator imports into Grafana via Settings → JSON Model. Closes the future compliance-dashboard waiver and registers compliance in MODULE_COVERAGE at 3 surfaces (core/cli/dashboard).",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "compliance CLI", "url": "/d/sovereign-os-compliance#cli", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "compliance queries (total)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_compliance_query_total)", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "status verb (count)",
+      "description": "One-screen rollup — operator's primary 'where am I on compliance?' verb.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_compliance_query_total{verb=\"status\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "module verb (count)",
+      "description": "Per-module rollup across all 4 instruments.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_compliance_query_total{verb=\"module\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "worst verb (count)",
+      "description": "Top-N worst modules by composite gap score.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_compliance_query_total{verb=\"worst\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "history verb (count)",
+      "description": "Snapshot-journal reads from /var/lib/sovereign-os/compliance/snapshots.jsonl.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_compliance_query_total{verb=\"history\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "snapshot verb (count)",
+      "description": "Triple-gated snapshots persisted to the journal.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_compliance_query_total{verb=\"snapshot\"})", "refId": "A"}],
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [{"color": "yellow"}, {"color": "green", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 4, "x": 20, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "compliance query rate per verb (5m)",
+      "description": "Per-verb query rate over time. status / module / worst / history / snapshot — operator's compliance-tooling usage pattern.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(sovereign_os_operator_compliance_query_total[5m])", "refId": "A", "legendFormat": "{{verb}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "compliance instrument attention (5m)",
+      "description": "Per-instrument query rate. surface-map / doc-coverage / anti-minimization-audit / ux-design-audit / all — operator-revealed-preference signal for which axis is most-watched.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(sovereign_os_operator_compliance_query_total[5m])", "refId": "A", "legendFormat": "{{instrument}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+    },
+    {
+      "type": "barchart",
+      "title": "compliance result distribution",
+      "description": "ok / preview / applied / dry-run / write-failed — operator-§1g result-class breakdown across all verbs.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sum by (result) (sovereign_os_operator_compliance_query_total)", "refId": "A", "legendFormat": "{{result}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+    },
+    {
+      "type": "table",
+      "title": "compliance current state (verb × instrument × result)",
+      "description": "Per-(verb, instrument, result) histogram — operator-discoverable: 'which compliance instrument am I exercising most, and is it passing?'",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sum by (verb, instrument, result) (sovereign_os_operator_compliance_query_total)", "refId": "A", "format": "table", "instant": true}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+    },
+    {
+      "type": "text",
+      "title": "compliance §1g/§1h verbatim + 4-instrument suite",
+      "options": {
+        "mode": "markdown",
+        "content": "**Operator §1g/§1h verbatim** (R458 — anti-minimization standing rule):\n\n> \"We do not minimize anything.\"\n\nThis aggregator IS the §1g operator-discoverable accountability dashboard. Compliance is the SINGLE screen the operator looks at to answer: 'where is the sovereign-os ↔ operator-§1g delivery contract being silently shortened?'\n\n**4-instrument suite (read-only delegation):**\n\n1. `surface-map` (R453, E11.M3) — runtime-surface coverage per module\n   - 8-surface ladder: core / cli / tui / api / mcp / dashboard / webapp / service\n   - Threshold = 3 surfaces (modules below threshold trigger surface-gap audit)\n2. `doc-coverage` (R454, E11.M1) — doc-surface coverage per module\n   - 7-kind ladder: readme / sdd / helptext / metric-inventory / mandate-row / man-page\n3. `anti-minimization-audit` (R456, E11.M11) — cross-axis + source-code minimization patterns\n   - 8 patterns: todo-no-anchor / empty-stub / skipped-no-followup / surface-gap / doc-gap / mandate-todo / minimize-phrase / partial-status\n   - All 8 patterns currently CLEAN (R480+R484 closed the last shortfalls)\n4. `ux-design-audit` (R457, E11.M10) — 6-dimension UX quality per module\n   - 6 dimensions: action-budget / discoverable / recoverable / next-step / operator-named / readable-30s\n\n**Operator-discoverable composite gap score:** `worst` verb returns top-N modules sorted by composite (lower = worse) across all 4 instruments. The operator's daily question: 'which modules are silently shortening the contract today?'\n\n**Snapshot journal:**\n\n`/var/lib/sovereign-os/compliance/snapshots.jsonl` — operator-triple-gated append-only journal of compliance state over time. Drives the `history` verb + operator-discoverable trend analysis.\n\n**CLI:**\n\n```\nsovereign-osctl compliance status\nsovereign-osctl compliance module <name>\nsovereign-osctl compliance worst [--limit N]\nsovereign-osctl compliance history [--limit N]\nsovereign-osctl compliance snapshot --apply --confirm-snapshot\n```\n\n**Metric:** `sovereign_os_operator_compliance_query_total{verb,instrument,result}` (SDD-016 Layer B)\n\n**Source:** R458 shipped the verbs + 4-instrument aggregator. R489 (R458+) ships THIS dashboard + registers compliance as a first-class module in MODULE_COVERAGE at 3 surfaces (core/cli/dashboard).\n\n**Standing operator rule (sacrosanct):**\n\n> \"We do not minimize anything.\""
+      },
+      "gridPos": {"h": 16, "w": 24, "x": 0, "y": 20}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["sovereign-os", "compliance", "operator", "R489"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "sovereign-os compliance",
+  "uid": "sovereign-os-compliance",
+  "version": 1,
+  "weekStart": ""
+}
