@@ -418,24 +418,26 @@ def test_coverage_reports_at_structural_ceiling_flag():
     assert rec.get("at_structural_ceiling") is True, (
         f"R478: bashrc must be at_structural_ceiling=True, got {rec!r}"
     )
-    # edge-firewall has 3 FUTURE waivers (api/mcp/webapp) — NOT at
-    # ceiling. (auth-tier reached structural ceiling in R503 — all 7
-    # non-tui surfaces shipped; only the not-applicable tui waiver
-    # remains, so it now IS at ceiling, replaced here by edge-firewall
-    # which still has the FUTURE-roadmap surface gap.)
+    # network-edge has 3 FUTURE waivers (api/mcp/webapp) plus a durable
+    # not-applicable service waiver — NOT at ceiling. (auth-tier
+    # reached structural ceiling in R503; edge-firewall reached it in
+    # R506 with ZERO remaining waivers — the first §1g-named module to
+    # hit a fully-shipped 8-surface state. The R478 fixture rotates to
+    # network-edge, which still carries the FUTURE-roadmap surface
+    # gap and is the next module on the tier-3 expansion arc.)
     result2 = subprocess.run(
-        ["python3", str(SM_PY), "coverage", "--module", "edge-firewall",
+        ["python3", str(SM_PY), "coverage", "--module", "network-edge",
          "--json"],
         capture_output=True, text=True, timeout=10,
     )
     data2 = json.loads(result2.stdout)
     rec2 = data2["coverage"][0] if "coverage" in data2 else data2
     assert rec2.get("at_structural_ceiling") is False, (
-        f"R478: edge-firewall must be at_structural_ceiling=False, "
+        f"R478: network-edge must be at_structural_ceiling=False, "
         f"got {rec2!r}"
     )
     assert rec2.get("future_waiver_count", 0) >= 1, (
-        f"R478 fixture: edge-firewall must carry FUTURE waivers; "
+        f"R478 fixture: network-edge must carry FUTURE waivers; "
         f"got {rec2!r}"
     )
 

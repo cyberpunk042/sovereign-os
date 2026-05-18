@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os edge-firewall</title>
+<meta name="x-sovereign-module" content="edge-firewall-webapp">
+<meta name="x-sovereign-shipped-in" content="R506 (E11.M9++)">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<style>
+  /* Operator-§1g UX: readable in 30 seconds, monochrome palette,
+     no JS framework, no CDN, no fonts fetched from elsewhere —
+     sovereignty-clean single-file webapp. */
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border)}
+  .pill.ok{background:#143d14;color:var(--good)}
+  .pill.warn{background:#3d3014;color:var(--warn)}
+  .pill.bad{background:#3d1414;color:var(--bad)}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+  .stat{flex:1 1 180px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
+  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .stat .v{font-size:1.4rem;margin-top:.15rem}
+  button,select{font-family:var(--mono);background:var(--panel);color:var(--fg);border:1px solid var(--border);padding:.35rem .7rem;border-radius:3px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  footer{margin-top:2rem;color:var(--muted);font-size:.75rem;border-top:1px solid var(--border);padding-top:.8rem}
+  footer a{color:var(--accent)}
+  .standing-rule{color:var(--accent);font-style:italic;margin-top:.4rem}
+  .candidate-row{display:flex;gap:.5rem;align-items:center;padding:.25rem 0}
+  .level-badge{display:inline-block;min-width:1.5rem;text-align:center;background:var(--border);border-radius:3px;padding:1px 6px;font-size:.72rem;color:var(--accent)}
+  code{color:var(--accent)}
+  pre{background:#0a0a0a;border:1px solid var(--border);border-radius:3px;padding:.6rem .8rem;overflow-x:auto;font-size:.78rem;margin:.4rem 0}
+  .disclaimer{background:#2a1010;border:1px solid #5a2020;color:var(--warn);padding:.7rem .9rem;border-radius:4px;margin:.6rem 0;font-size:.82rem}
+</style>
+</head>
+<body>
+<h1>sovereign-os edge-firewall</h1>
+<p class="sub">
+  Operator-§1g 4-class enforcement-candidate ladder — workstation-side firewall state + recommendations.
+  Read-only mirror of <code>sovereign-osctl edge-firewall &lt;verb&gt;</code>.
+  Mutation verb <code>install</code> and interactive <code>wizard</code> stay CLI-only (operator §17 sovereignty boundary).
+</p>
+
+<div class="row" id="stats">
+  <div class="stat"><div class="k">candidates</div><div class="v" id="stat-candidates">—</div></div>
+  <div class="stat"><div class="k">local tier</div><div class="v" id="stat-local">—</div></div>
+  <div class="stat"><div class="k">upstream tier</div><div class="v" id="stat-upstream">—</div></div>
+  <div class="stat"><div class="k">recommendations</div><div class="v muted" id="stat-recs">—</div></div>
+  <div class="stat"><div class="k">api version</div><div class="v muted" id="stat-version">—</div></div>
+</div>
+
+<h2>local + upstream state</h2>
+<div class="panel" id="state-panel">
+  <div id="state-body" class="muted">loading…</div>
+</div>
+
+<h2>enforcement-candidate ladder (§1g 4-class)</h2>
+<div class="panel" id="ladder-panel">
+  <div id="ladder-body" class="muted">loading…</div>
+</div>
+
+<h2>recommendations for current state</h2>
+<div class="panel">
+  <table>
+    <thead>
+      <tr><th>id</th><th>label</th><th>perf cost</th><th>rationale</th></tr>
+    </thead>
+    <tbody id="recs-tbody"><tr><td colspan="4" class="muted">loading…</td></tr></tbody>
+  </table>
+</div>
+
+<h2>install plan (read-only preview)</h2>
+<div class="panel">
+  <div class="row">
+    <label class="muted">candidate</label>
+    <select id="plan-select"><option value="">— pick a candidate —</option></select>
+    <button id="plan-btn">render plan</button>
+  </div>
+  <div id="plan-body" class="muted" style="margin-top:.7rem">no plan rendered.</div>
+</div>
+
+<h2>refresh</h2>
+<div class="panel">
+  <div class="row">
+    <button id="refresh-btn">refresh now</button>
+    <span class="muted">auto-refresh every 30s — last refresh <span id="last-refresh">never</span></span>
+  </div>
+</div>
+
+<footer>
+  <div>shipped in <code>R506 (E11.M9++)</code> · serves the <code>/webapp/</code> path of the R504 edge-firewall-api daemon (<code>scripts/operator/edge-firewall-api.py</code>) · backing CLI <code>sovereign-osctl edge-firewall</code> · MCP via <code>scripts/interop/mcp-aggregate.py</code> (R505)</div>
+  <div class="standing-rule">"We do not minimize anything." — operator §1g standing rule (sacrosanct)</div>
+</footer>
+
+<script>
+"use strict";
+// Operator-§1g UX rule: no external dependencies, no CDN fetches.
+// Same-origin XHR only — the R504 API daemon serves both this webapp
+// and the JSON endpoints under the same host:port binding.
+
+const ENDPOINTS = ["/version", "/state", "/candidates", "/recommend"];
+
+async function fetchJSON(path) {
+  const res = await fetch(path, {headers: {"Accept": "application/json"}});
+  if (!res.ok) throw new Error(path + " → " + res.status);
+  return await res.json();
+}
+
+function el(id) { return document.getElementById(id); }
+
+function renderStats(version, state, candidates, recommend) {
+  el("stat-candidates").textContent = candidates.count;
+  el("stat-local").textContent = (state.local && state.local.tier) || "unknown";
+  el("stat-upstream").textContent = (state.upstream && state.upstream.tier) || "unknown";
+  el("stat-recs").textContent = recommend.count;
+  el("stat-recs").className = "v " +
+    (recommend.count === 0 ? "ok" : "warn");
+  el("stat-version").textContent = version.version;
+}
+
+function renderState(state) {
+  const body = el("state-body");
+  body.innerHTML = "";
+  body.className = "";
+  const mk = (title, obj) => {
+    const wrap = document.createElement("div");
+    wrap.style.marginBottom = ".6rem";
+    const h = document.createElement("strong");
+    h.textContent = title;
+    wrap.appendChild(h);
+    const pre = document.createElement("pre");
+    pre.textContent = JSON.stringify(obj, null, 2);
+    wrap.appendChild(pre);
+    return wrap;
+  };
+  body.appendChild(mk("local", state.local || {}));
+  body.appendChild(mk("upstream", state.upstream || {}));
+}
+
+function renderLadder(candidates) {
+  const body = el("ladder-body");
+  body.innerHTML = "";
+  body.className = "";
+  const sel = el("plan-select");
+  sel.innerHTML = '<option value="">— pick a candidate —</option>';
+  for (const c of candidates.candidates) {
+    const row = document.createElement("div");
+    row.className = "candidate-row";
+    const id = document.createElement("span");
+    id.className = "level-badge";
+    id.textContent = c.id;
+    row.appendChild(id);
+    const lbl = document.createElement("strong");
+    lbl.textContent = c.label;
+    row.appendChild(lbl);
+    const cost = document.createElement("span");
+    cost.className = "pill " + (c.perf_cost === "low" ? "ok" :
+                                c.perf_cost === "medium" ? "warn" : "bad");
+    cost.textContent = "perf: " + c.perf_cost;
+    row.appendChild(cost);
+    body.appendChild(row);
+
+    const sub = document.createElement("div");
+    sub.className = "muted";
+    sub.style.paddingLeft = "2.5rem";
+    sub.style.fontSize = ".78rem";
+    sub.textContent = "apt: " + (c.apt_packages || []).join(", ") +
+      "  ·  units: " + (c.systemd_units || []).join(", ");
+    body.appendChild(sub);
+
+    const opt = document.createElement("option");
+    opt.value = c.id;
+    opt.textContent = c.id + " — " + c.label;
+    sel.appendChild(opt);
+  }
+}
+
+function renderRecs(recommend) {
+  const tbody = el("recs-tbody");
+  tbody.innerHTML = "";
+  const recs = recommend.recommendations || [];
+  if (recs.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" class="ok">no upgrades recommended — current posture covers the upstream tier.</td></tr>';
+    return;
+  }
+  for (const r of recs) {
+    const tr = document.createElement("tr");
+    tr.innerHTML =
+      "<td><code>" + r.id + "</code></td>" +
+      "<td>" + (r.label || "") + "</td>" +
+      "<td>" + (r.perf_cost || "") + "</td>" +
+      "<td class=muted>" + (r.rationale || "") + "</td>";
+    tbody.appendChild(tr);
+  }
+}
+
+async function renderPlan() {
+  const id = el("plan-select").value;
+  const body = el("plan-body");
+  if (!id) {
+    body.className = "muted";
+    body.textContent = "no plan rendered.";
+    return;
+  }
+  body.className = "muted";
+  body.textContent = "loading plan for " + id + "…";
+  try {
+    const plan = await fetchJSON("/install-plan?candidate=" + encodeURIComponent(id));
+    body.className = "";
+    body.innerHTML = "";
+
+    const disc = document.createElement("div");
+    disc.className = "disclaimer";
+    disc.textContent = "operator §17 sovereignty boundary: " +
+      (plan.wire_contract || "actual mutation requires the CLI install verb.");
+    body.appendChild(disc);
+
+    const mk = (title, lines) => {
+      const h = document.createElement("strong");
+      h.textContent = title;
+      body.appendChild(h);
+      const pre = document.createElement("pre");
+      pre.textContent = (lines || []).join("\n");
+      body.appendChild(pre);
+    };
+    mk("install_steps", plan.install_steps);
+    mk("rollback_steps", plan.rollback_steps);
+
+    const na = document.createElement("p");
+    na.innerHTML = "<strong>next action:</strong> <code>" +
+      (plan.next_action || "") + "</code>";
+    body.appendChild(na);
+  } catch (e) {
+    body.className = "bad";
+    body.textContent = "error: " + e.message;
+  }
+}
+
+async function refresh() {
+  try {
+    const [version, state, candidates, recommend] = await Promise.all(
+      ENDPOINTS.map(fetchJSON)
+    );
+    renderStats(version, state, candidates, recommend);
+    renderState(state);
+    renderLadder(candidates);
+    renderRecs(recommend);
+    el("last-refresh").textContent = new Date().toLocaleTimeString();
+  } catch (e) {
+    el("last-refresh").innerHTML = "<span class=bad>error: " + e.message + "</span>";
+  }
+}
+
+document.getElementById("refresh-btn").addEventListener("click", refresh);
+document.getElementById("plan-btn").addEventListener("click", renderPlan);
+refresh();
+setInterval(refresh, 30000);
+</script>
+</body>
+</html>

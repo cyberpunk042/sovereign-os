@@ -148,11 +148,9 @@ MODULE_COVERAGE = {
         },
     },
     "edge-firewall": {
-        "shipped_in": "R451 (E11.M9) + R482 (E11.M9+ wizard tui) + R485 (E11.M9+ Grafana dashboard) + R504 (E11.M9++ read-only REST API + systemd service) + R505 (E11.M9++ MCP surface)",
-        "surfaces": ["core", "cli", "tui", "dashboard", "api", "service", "mcp"],
-        "waivers": {
-            "webapp":    "FUTURE — install-plan as click-through web wizard",
-        },
+        "shipped_in": "R451 (E11.M9) + R482 (E11.M9+ wizard tui) + R485 (E11.M9+ Grafana dashboard) + R504 (E11.M9++ read-only REST API + systemd service) + R505 (E11.M9++ MCP surface) + R506 (E11.M9++ webapp surface)",
+        "surfaces": ["core", "cli", "tui", "dashboard", "api", "service", "mcp", "webapp"],
+        "waivers": {},
     },
     "network-edge": {
         "shipped_in": "R449 (E11.M8) + R483 (E11.M8+ opnsense watch tui) + R486 (E11.M8+ Grafana dashboard)",

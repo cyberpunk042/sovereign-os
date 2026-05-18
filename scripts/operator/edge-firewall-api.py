@@ -26,13 +26,15 @@ Sovereignty (stdlib-only — zero added deps):
   - Read-only verbs only (mutation `install` + interactive `wizard`
     stay CLI-only — operator §17 sacrosanct sovereignty boundary)
 
-Read-only endpoints (R504 v1):
+Read-only endpoints (R504 v1, R506 webapp):
   GET /version                     — service version + module identity
   GET /state                       — local + upstream firewall state
   GET /candidates                  — CANDIDATES registry (5 options)
   GET /recommend                   — recommendations for current state
   GET /install-plan?candidate=<id> — install plan for a named candidate
   GET /healthz                     — API daemon liveness (always 200)
+  GET /webapp/                     — single-file operator-§1g webapp (R506)
+  GET /webapp/index.html           — alias for /webapp/
 
 Layer-B metric (sister to the CLI's `_query_total{verb,candidate,result}`):
 
@@ -68,7 +70,17 @@ METRICS_DIR = os.environ.get(
 # TYPE sovereign_os_operator_edge_firewall_api_request_total counter
 METRIC_NAME = "sovereign_os_operator_edge_firewall_api_request_total"
 
-API_VERSION = "1.0.0-R504"
+API_VERSION = "1.1.0-R506"
+
+# R506 webapp surface — single-file monochrome SPA shipped under
+# webapp/edge-firewall/index.html in the repo. Operator can override
+# the on-disk path via env (e.g., post-install relocation to
+# /usr/share).
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_WEBAPP_DEFAULT = _REPO_ROOT / "webapp" / "edge-firewall" / "index.html"
+WEBAPP_PATH = Path(os.environ.get(
+    "EDGE_FIREWALL_WEBAPP_PATH", str(_WEBAPP_DEFAULT)
+))
 
 # edge-firewall CLI module — import directly so the API serves from
 # the SAME data model the operator-facing CLI uses (no drift).
@@ -181,10 +193,12 @@ def _version_payload() -> dict:
     return {
         "module": "edge-firewall-api",
         "version": API_VERSION,
-        "shipped_in": "R504 (E11.M9++)",
+        "shipped_in": "R504 (E11.M9++) + R505 (E11.M9++ MCP surface) + R506 (E11.M9++ webapp surface)",
         "source": "scripts/operator/edge-firewall-api.py",
         "data_source": str(_EF_PATH),
-        "surfaces": ["core", "cli", "tui", "dashboard", "api", "service"],
+        "webapp_path": str(WEBAPP_PATH),
+        "surfaces": ["core", "cli", "tui", "dashboard", "api", "service",
+                     "mcp", "webapp"],
         "standing_rule": "We do not minimize anything.",
     }
 
@@ -208,6 +222,30 @@ class EdgeFirewallAPIHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _send_webapp(self) -> None:
+        """R506 — serve the single-file monochrome webapp from disk.
+        Read-only; same-origin with the JSON endpoints (no CORS dance,
+        no CDN, no cross-origin script loads — operator-§1g UX rule)."""
+        try:
+            body = WEBAPP_PATH.read_bytes()
+        except OSError as e:
+            self._send_json(500, {
+                "error": f"webapp asset unreadable: {e}",
+                "expected_path": str(WEBAPP_PATH),
+            })
+            _emit_metric("webapp", "500")
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("X-Sovereign-Module", "edge-firewall-webapp")
+        self.send_header("X-Sovereign-Version", API_VERSION)
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.end_headers()
+        self.wfile.write(body)
+        _emit_metric("webapp", "ok")
+
     def do_GET(self) -> None:  # noqa: N802
         parsed = urllib.parse.urlsplit(self.path)
         path = parsed.path.rstrip("/") or "/"
@@ -216,6 +254,10 @@ class EdgeFirewallAPIHandler(BaseHTTPRequestHandler):
         if path == "/healthz" or path == "/":
             self._send_json(200, {"status": "ok", "version": API_VERSION})
             _emit_metric("healthz" if path == "/healthz" else "root", "ok")
+            return
+
+        if path in ("/webapp", "/webapp/", "/webapp/index.html"):
+            self._send_webapp()
             return
 
         try:
@@ -254,7 +296,8 @@ class EdgeFirewallAPIHandler(BaseHTTPRequestHandler):
         self._send_json(404, {
             "error": f"unknown endpoint: {path!r}",
             "available": ["/version", "/state", "/candidates",
-                          "/recommend", "/install-plan", "/healthz"],
+                          "/recommend", "/install-plan", "/healthz",
+                          "/webapp/"],
         })
         _emit_metric(path.lstrip("/").replace("-", "_") or "unknown",
                      "404")
