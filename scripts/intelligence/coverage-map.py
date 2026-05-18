@@ -523,6 +523,53 @@ DEFAULT_AXES: list[dict[str, Any]] = [
      "notes": ("R236 research-loop + R355+ architecture-qa verbatim "
                 "preservation. No-minimization contract mechanized "
                 "via L3 verbatim-preservation assertions.")},
+    {"id": "A-31",
+     "axis_verbatim": ("Senior Architect DevOps Software Engineer "
+                        "Fullstack Expert & Mindset. Always a strong "
+                        "workflow and non-blocking but always toward "
+                        "the goal(s). Apply what I said at scale and "
+                        "you have for a very long time of work. Take "
+                        "your time, do this right."),
+     "source": "hook drop 2026-05-17",
+     "implementing_verbs": [
+         "sovereign-osctl architecture-qa show C-22",
+         "sovereign-osctl coverage audit",
+         "sovereign-osctl doctrine-status status",
+         "sovereign-osctl quarterly-review snapshot",
+     ],
+     "sdd_refs": ["033", "037"],
+     "mandate_rows": [],
+     "status": "✓ shipped",
+     "notes": ("Operator-stated MINDSET + WORKFLOW contract. "
+                "Mechanized via SDD-033 perpetual-intake doctrine + "
+                "SDD-037 verbatim-preservation doctrine + the "
+                "fabrication-catch quintet (R368/R371/R372/R373/R374). "
+                "Non-blocking: every round is independently substantive "
+                "+ tested + commit-pushed without operator gate. "
+                "Strong workflow: 23-round R355-R377 verbatim arc "
+                "demonstrates 'at scale + very long time of work' + "
+                "'take your time, do this right' = 78 catalogued "
+                "items + 20 bugs caught + grade A quarterly state.")},
+    {"id": "A-32",
+     "axis_verbatim": ("I trust you to break down planify and continue "
+                        "with the SDD and TDD and a Senior Architect "
+                        "DevOps Software Engineer Fullstack Expert & "
+                        "Mindset"),
+     "source": "hook drop 2026-05-17",
+     "implementing_verbs": [
+         "sovereign-osctl architecture-qa show C-21",
+         "sovereign-osctl bootstrap phases",
+         "sovereign-osctl coverage axes --status partial",
+     ],
+     "sdd_refs": ["028", "033", "037"],
+     "mandate_rows": [],
+     "status": "✓ shipped",
+     "notes": ("Operator delegation of break-down + planify contract. "
+                "Mechanized via SDD-028 phases.yaml (5-phase bootstrap) "
+                "+ SDD-033 perpetual-intake doctrine + SDD-037 "
+                "verbatim-preservation. 'SDD and TDD' = every round "
+                "has SDD doc + L3 test. Operator-pull break-down "
+                "queryable via coverage-map axes verb.")},
 ]
 
 

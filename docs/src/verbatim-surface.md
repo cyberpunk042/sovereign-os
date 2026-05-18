@@ -10,7 +10,7 @@ lives in the Python catalog files; this doc regenerates from them.
   - **questions**: 4
   - **gotchas**: 3
   - **concepts**: 25
-  - **coverage_axes**: 30
+  - **coverage_axes**: 32
   - **ccd_layers**: 3
   - **state_files**: 4
   - **state_zfs_props**: 3
@@ -18,7 +18,7 @@ lives in the Python catalog files; this doc regenerates from them.
   - **network_diagram_lines**: 13
   - **repl_modes**: 4
 
-  **Total verbatim items**: 78
+  **Total verbatim items**: 80
 
 ---
 
@@ -612,6 +612,31 @@ Every operator-stated demand mapped to ≥1 implementing verb.
   - `sovereign-osctl architecture-qa`
 
 **Notes**: R236 research-loop + R355+ architecture-qa verbatim preservation. No-minimization contract mechanized via L3 verbatim-preservation assertions.
+
+### ✓ A-31 — Senior Architect DevOps Software Engineer Fullstack Expert & Mindset. Always a s
+
+**Status**: ✓ shipped
+**Source**: hook drop 2026-05-17
+
+**Implementing verbs**:
+  - `sovereign-osctl architecture-qa show C-22`
+  - `sovereign-osctl coverage audit`
+  - `sovereign-osctl doctrine-status status`
+  - `sovereign-osctl quarterly-review snapshot`
+
+**Notes**: Operator-stated MINDSET + WORKFLOW contract. Mechanized via SDD-033 perpetual-intake doctrine + SDD-037 verbatim-preservation doctrine + the fabrication-catch quintet (R368/R371/R372/R373/R374). Non-blocking: every round is independently substantive + tested + commit-pushed without operator gate. Strong workflow: 23-round R355-R377 verbatim arc demonstrates 'at scale + very long time of work' + 'take your time, do this right' = 78 catalogued items + 20 bugs caught + grade A quarterly state.
+
+### ✓ A-32 — I trust you to break down planify and continue with the SDD and TDD and a Senior
+
+**Status**: ✓ shipped
+**Source**: hook drop 2026-05-17
+
+**Implementing verbs**:
+  - `sovereign-osctl architecture-qa show C-21`
+  - `sovereign-osctl bootstrap phases`
+  - `sovereign-osctl coverage axes --status partial`
+
+**Notes**: Operator delegation of break-down + planify contract. Mechanized via SDD-028 phases.yaml (5-phase bootstrap) + SDD-033 perpetual-intake doctrine + SDD-037 verbatim-preservation. 'SDD and TDD' = every round has SDD doc + L3 test. Operator-pull break-down queryable via coverage-map axes verb.
 
 ## §19.2 CCD pinning (Ryzen 9 9900X dual-CCD)
 
