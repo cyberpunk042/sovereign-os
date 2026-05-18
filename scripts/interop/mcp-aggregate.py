@@ -685,6 +685,43 @@ LOCAL_TOOLS = [
         "categories": ["weaver", "operator-§17", "state-fabric",
                        "catalog"],
     },
+    # R538 (E5++) — auditor MCP surface. Three read-only tools that
+    # expose Auditor state to MCP-capable agents. Master spec § 17
+    # Module 3 (Immutable Gatekeeper) + § 10 (Native Guardian Loop).
+    # Drains the auditor mcp:FUTURE waiver. Second commit in the
+    # auditor tier-3 surface-expansion arc (R537 TUI → R538 MCP →
+    # R539 API + webapp).
+    #
+    # Operator §17 sovereignty boundary: ONLY read-only inspection is
+    # exposed via MCP. The neutralization path (Tetragon → SIGKILL via
+    # guardian-core) is CCD-triggered + CLI-gated and is intentionally
+    # NOT exposed via MCP — same pattern as weaver R535 (read/write
+    # mutation verbs stay CLI-only), surface-map R532 (no waivers MCP
+    # tool because it takes a runtime arg), and the ceiling-promotion
+    # rule (R510/R515/R518/R521/R524/R527/R530/R533/R536) that
+    # mutation/runtime-arg surfaces stay CLI-gated.
+    {
+        "name": "auditor-status",
+        "summary": "Master spec § 17 Module 3 Auditor (Immutable Gatekeeper) brief status — tetragon-available, guardian-core service state, always-on flag. Read-only inspection (neutralization is CCD-triggered + CLI-gated per operator §17 sovereignty boundary).",
+        "argv": ["sovereign-osctl", "auditor", "status", "--json"],
+        "categories": ["auditor", "operator-§17", "trinity",
+                       "security"],
+    },
+    {
+        "name": "auditor-last-violation",
+        "summary": "Master spec § 10 Native Guardian Loop — last entry of /mnt/vault/context/security_audit.log (the operator-readable audit trail of policy violations + neutralizations). Returns present-flag + line + total_lines. Read-only — operator §17 sovereignty boundary (neutralization stays CCD-triggered + CLI-gated).",
+        "argv": ["sovereign-osctl", "auditor", "last-violation",
+                 "--json"],
+        "categories": ["auditor", "operator-§17", "audit-log",
+                       "security"],
+    },
+    {
+        "name": "auditor-history",
+        "summary": "Master spec § 10 Native Guardian Loop — tail of /mnt/vault/context/security_audit.log (default last 20 entries). Returns present-flag + lines[] + count + total_lines. Sister to `auditor-last-violation`; provides bounded history window for agent diagnostics. Read-only — operator §17 sovereignty boundary.",
+        "argv": ["sovereign-osctl", "auditor", "history", "--json"],
+        "categories": ["auditor", "operator-§17", "audit-log",
+                       "security"],
+    },
 ]
 
 

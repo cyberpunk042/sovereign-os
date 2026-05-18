@@ -7898,31 +7898,71 @@ WEAVER_HELP
     #   auditor last-violation    last security_audit.log entry
     #   auditor history [N]       tail -N (default 20) violation history
     #   auditor watch             R537 refresh-loop TUI (drains tui:FUTURE)
-    # First commit in the auditor tier-3 surface-expansion arc
-    # (R537 TUI → R538 MCP → R539 API + webapp). Operator §17
-    # sovereignty boundary: neutralization is CCD-triggered + CLI-
-    # gated; this CLI surface is read-only inspection only.
+    # R538 (E5++): adds --json on status / last-violation / history
+    # so the MCP aggregator can emit fixed-argv tool argv terminating
+    # with --json (R286 contract). Operator §17 sovereignty boundary:
+    # neutralization is CCD-triggered + CLI-gated; this CLI/MCP/API
+    # surface is read-only inspection only.
     _AUDITOR_LOG="/mnt/vault/context/security_audit.log"
+    _AUDITOR_WANT_JSON=0
+    _AUDITOR_REST=()
+    for _arg in "$@"; do
+      if [[ "${_arg}" == "--json" ]]; then
+        _AUDITOR_WANT_JSON=1
+      else
+        _AUDITOR_REST+=("${_arg}")
+      fi
+    done
+    set -- "${_AUDITOR_REST[@]+"${_AUDITOR_REST[@]}"}"
     case "${1:-}" in
       watch)
         shift
         _auditor_watch "$@"
         ;;
       status|"")
-        _trinity_auditor_brief
+        if [[ "${_AUDITOR_WANT_JSON}" -eq 1 ]]; then
+          "${__REPO_ROOT}/scripts/trinity/trinity-inspect.py" auditor
+        else
+          _trinity_auditor_brief
+        fi
         ;;
       full)
         _trinity_auditor_full
         ;;
       last-violation)
-        if [ -f "${_AUDITOR_LOG}" ]; then
-          tail -1 "${_AUDITOR_LOG}" 2>/dev/null || {
-            log_error "audit log unreadable: ${_AUDITOR_LOG}"
-            return 1
-          }
+        if [[ "${_AUDITOR_WANT_JSON}" -eq 1 ]]; then
+          python3 - "${_AUDITOR_LOG}" <<'PY'
+import json, os, sys
+path = sys.argv[1]
+out = {
+  "module": "auditor",
+  "verb": "last-violation",
+  "spec_ref": "master spec § 10 (Native Guardian Loop)",
+  "log_path": path,
+  "present": os.path.isfile(path),
+  "sovereignty_boundary": "operator §17 — read-only; neutralization is CCD-triggered + CLI-gated",
+  "line": None,
+}
+if out["present"]:
+  try:
+    with open(path, "r", encoding="utf-8", errors="replace") as fh:
+      lines = fh.readlines()
+    out["line"] = lines[-1].rstrip("\n") if lines else None
+    out["total_lines"] = len(lines)
+  except OSError as e:
+    out["error"] = f"{type(e).__name__}: {e}"
+print(json.dumps(out, indent=2))
+PY
         else
-          echo "  audit log not present (${_AUDITOR_LOG})"
-          echo "  (lands when guardian-core daemon writes its first event)"
+          if [ -f "${_AUDITOR_LOG}" ]; then
+            tail -1 "${_AUDITOR_LOG}" 2>/dev/null || {
+              log_error "audit log unreadable: ${_AUDITOR_LOG}"
+              return 1
+            }
+          else
+            echo "  audit log not present (${_AUDITOR_LOG})"
+            echo "  (lands when guardian-core daemon writes its first event)"
+          fi
         fi
         ;;
       history)
@@ -7931,13 +7971,47 @@ WEAVER_HELP
         case "${_AUDITOR_N}" in
           ''|*[!0-9]*) _AUDITOR_N=20 ;;
         esac
-        if [ -f "${_AUDITOR_LOG}" ]; then
-          tail -"${_AUDITOR_N}" "${_AUDITOR_LOG}" 2>/dev/null || {
-            log_error "audit log unreadable: ${_AUDITOR_LOG}"
-            return 1
-          }
+        if [[ "${_AUDITOR_WANT_JSON}" -eq 1 ]]; then
+          python3 - "${_AUDITOR_LOG}" "${_AUDITOR_N}" <<'PY'
+import json, os, sys
+path = sys.argv[1]
+try:
+  n = int(sys.argv[2])
+except (ValueError, IndexError):
+  n = 20
+if n < 1: n = 20
+out = {
+  "module": "auditor",
+  "verb": "history",
+  "spec_ref": "master spec § 10 (Native Guardian Loop)",
+  "log_path": path,
+  "present": os.path.isfile(path),
+  "requested_n": n,
+  "sovereignty_boundary": "operator §17 — read-only; neutralization is CCD-triggered + CLI-gated",
+  "count": 0,
+  "lines": [],
+}
+if out["present"]:
+  try:
+    with open(path, "r", encoding="utf-8", errors="replace") as fh:
+      lines = fh.readlines()
+    tail = lines[-n:] if n <= len(lines) else lines
+    out["lines"] = [ln.rstrip("\n") for ln in tail]
+    out["count"] = len(out["lines"])
+    out["total_lines"] = len(lines)
+  except OSError as e:
+    out["error"] = f"{type(e).__name__}: {e}"
+print(json.dumps(out, indent=2))
+PY
         else
-          echo "  audit log not present (${_AUDITOR_LOG})"
+          if [ -f "${_AUDITOR_LOG}" ]; then
+            tail -"${_AUDITOR_N}" "${_AUDITOR_LOG}" 2>/dev/null || {
+              log_error "audit log unreadable: ${_AUDITOR_LOG}"
+              return 1
+            }
+          else
+            echo "  audit log not present (${_AUDITOR_LOG})"
+          fi
         fi
         ;;
       -h|--help|help)
