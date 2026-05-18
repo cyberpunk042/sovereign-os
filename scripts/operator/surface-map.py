@@ -204,12 +204,11 @@ MODULE_COVERAGE = {
         },
     },
     "trinity": {
-        "shipped_in": "R290-R299 (E5)",
-        "surfaces": ["core", "cli", "api", "service"],
+        "shipped_in": "R290-R299 (E5) + R494 (Grafana dashboard)",
+        "surfaces": ["core", "cli", "api", "service", "dashboard"],
         "waivers": {
             "tui":       "FUTURE — interactive model-switcher TUI",
             "mcp":       "FUTURE — agent queries Trinity tier state",
-            "dashboard": "FUTURE — Grafana Trinity-load panel",
             "webapp":    "FUTURE — master-dashboard /trinity subpath",
         },
     },

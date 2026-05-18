@@ -1,0 +1,115 @@
+{
+  "_comment": "sovereign-os trinity dashboard (R494, R290-R299+ E5). Visualizes the operator-§1g Trinity 3-tier inference stack — pulse (8081, fast tier) / logic-engine (8082, reasoning tier) / oracle-core (8083, deep tier). Sourced from sovereign_os_inference_* metrics (Layer B). Closes the trinity dashboard:FUTURE waiver and registers trinity at 5 §1g surfaces (core/cli/api/service/dashboard). Operator imports into Grafana via Settings → JSON Model.",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "trinity CLI", "url": "/d/sovereign-os-trinity#cli", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "pulse routes (total)",
+      "description": "Trinity tier-1 (fast, 7B-class). 127.0.0.1:8081 backend. Default first-touch.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_inference_route_total{tier=\"pulse\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "logic-engine routes (total)",
+      "description": "Trinity tier-2 (reasoning, mid-class). 127.0.0.1:8082 backend. Operator-routed for tasks requiring chain-of-thought.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_inference_route_total{tier=\"logic_engine\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "oracle-core routes (total)",
+      "description": "Trinity tier-3 (deep, frontier-class). 127.0.0.1:8083 backend. Operator-reserved for the hardest tasks.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_inference_route_total{tier=\"oracle_core\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "last route age (s)",
+      "description": "Operator-§1g freshness signal — staleness of Trinity routing decisions.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "time() - sovereign_os_inference_router_last_route_timestamp", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "s", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 300}, {"color": "red", "value": 3600}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "Trinity route rate per tier (5m)",
+      "description": "Per-tier inference route rate. pulse / logic_engine / oracle_core — operator-revealed-preference for routing distribution across the 3-tier ladder.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(sovereign_os_inference_route_total[5m])", "refId": "A", "legendFormat": "{{tier}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "Trinity route per task-type (5m)",
+      "description": "Per-task-type route rate — operator's revealed task distribution.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(sovereign_os_inference_router_task_type_total[5m])", "refId": "A", "legendFormat": "{{task_type}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+    },
+    {
+      "type": "barchart",
+      "title": "Trinity backend start results",
+      "description": "Per-tier success/skip/fail count. Operator-§1g lifecycle — if a tier's start_total has fail>0, that tier is silently degraded.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sum by (tier, result) (sovereign_os_inference_backend_start_total{tier=~\"pulse|logic_engine|oracle_core\"})", "refId": "A", "legendFormat": "{{tier}} {{result}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+    },
+    {
+      "type": "table",
+      "title": "Trinity backend PIDs (live)",
+      "description": "PID per tier — non-existent rows indicate the tier is down.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sovereign_os_inference_backend_pid{tier=~\"pulse|logic_engine|oracle_core\"}", "refId": "A", "format": "table", "instant": true}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+    },
+    {
+      "type": "timeseries",
+      "title": "Router class distribution (5m)",
+      "description": "Operator-§1g routing-class — how requests are bucketed by the router heuristics.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(sovereign_os_inference_router_class_total[5m])", "refId": "A", "legendFormat": "{{class}}"}
+      ],
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 20}
+    },
+    {
+      "type": "text",
+      "title": "Trinity §1g verbatim + 3-tier ladder",
+      "options": {
+        "mode": "markdown",
+        "content": "**Operator §1g verbatim** (sacrosanct):\n\n> \"We do not minimize anything.\"\n\nThe Trinity is the operator-§1g 3-tier local inference stack — three operator-named backends running locally on the workstation, exposed as 127.0.0.1 ports, routed by a single operator-controlled router.\n\n**3-tier Trinity ladder (sacrosanct, R290-R299, E5):**\n\n1. `pulse` (8081) — fast tier (7B-class). Operator-named: 'pulse'. Default first-touch; the operator-discoverable always-on backend. The tier the router falls back to when class detection is ambiguous.\n2. `logic-engine` (8082) — reasoning tier (mid-class). Operator-named: 'logic-engine'. Routed when the request needs chain-of-thought, code generation, or multi-step reasoning.\n3. `oracle-core` (8083) — deep tier (frontier-class). Operator-named: 'oracle-core'. Reserved for the hardest tasks — long-context analysis, deep code review, planning.\n\n**Routing:** `scripts/inference/router.py` exposes the operator-§1g routing decision via Layer-B metrics. Tier choice = revealed preference per task-class.\n\n**Lifecycle:**\n\n```\nscripts/inference/start-pulse.sh         # 7B-class\nscripts/inference/start-logic-engine.sh  # reasoning\nscripts/inference/start-oracle-core.sh   # frontier\n```\n\nEach `start-*.sh` is operator-idempotent (re-run safely) and emits backend_start_total{tier,result=success|skip|fail}.\n\n**CLI:**\n\n```\nsovereign-osctl trinity status          # 3-tier health + routes\nsovereign-osctl trinity start <tier>    # operator-controlled lifecycle\nsovereign-osctl trinity stop <tier>\nsovereign-osctl trinity route --tier <name> --task <type>   # explicit\n```\n\n**Metrics:** \n\n- `sovereign_os_inference_route_total{tier,task_type,class}` (Layer B)\n- `sovereign_os_inference_backend_start_total{tier,result}`\n- `sovereign_os_inference_backend_pid{tier}`\n- `sovereign_os_inference_router_last_route_timestamp`\n- `sovereign_os_inference_router_task_type_total{task_type}`\n- `sovereign_os_inference_router_class_total{class}`\n\n**Source:** R290-R299 (E5) shipped the 3-tier Trinity stack + router. R494 (E5+) ships THIS dashboard + extends trinity surface-map registration to 5 surfaces (core/cli/api/service/dashboard).\n\n**Standing operator rule (sacrosanct):**\n\n> \"We do not minimize anything.\""
+      },
+      "gridPos": {"h": 18, "w": 24, "x": 0, "y": 28}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["sovereign-os", "trinity", "inference", "operator", "R494"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "sovereign-os trinity",
+  "uid": "sovereign-os-trinity",
+  "version": 1,
+  "weekStart": ""
+}
