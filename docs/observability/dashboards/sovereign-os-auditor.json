@@ -1,0 +1,116 @@
+{
+  "_comment": "sovereign-os Auditor dashboard (R497, master spec §§ 10, 17). Visualizes the operator-§17 Immutable Gatekeeper — the always-on, kernel-driven, podman-kill-armed eBPF event-loop guardian. Surfaces per-result neutralization counts, per-outcome event-parse classification, and last-neutralization freshness gauge. Operator imports into Grafana via Settings → JSON Model. Closes the auditor dashboard:FUTURE waiver and registers `auditor` as a first-class MODULE_COVERAGE entry (4 shipped surfaces: core / cli / service / dashboard).",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "auditor service", "url": "/d/sovereign-os-auditor#service", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "neutralizations (total)",
+      "description": "Sum-since-start of perimeter-violation neutralizations. Operator-§10 podman-kill outcomes across all results.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_auditor_neutralization_total)", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "neutralizations (success)",
+      "description": "Operator-§10 happy-path: result=\"success\" — podman kill returned cleanly + audit log appended.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_auditor_neutralization_total{result=\"success\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "last violation age (s)",
+      "description": "Operator-§10 freshness signal — staleness of the LAST neutralization. Green = no recent violations (quiet perimeter); transitioning to non-green = active threat just neutralized.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "time() - sovereign_os_auditor_last_neutralization_timestamp", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "s", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 60}, {"color": "red", "value": 0, "value_above": null}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "events parsed (total)",
+      "description": "Sum-since-start across all 3 parse outcomes (trigger / benign / bad-json). Operator-§10 raw event-stream throughput off the Tetragon eBPF UNIX socket.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_auditor_event_parse_total)", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "neutralization rate per result (5m)",
+      "description": "Per-result rate. Result vocabulary: success / kill-failed / no-container-id / dry-run / *+audit-log-fail. Operator alerts on kill-failed or audit-log-fail rates > 0.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(sovereign_os_auditor_neutralization_total[5m])", "refId": "A", "legendFormat": "{{result}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "event-parse rate per outcome (5m)",
+      "description": "Per-outcome event-parse rate. trigger = perimeter violation matched master spec § 10.1 predicate; benign = parsed but not a trigger; bad-json = unparseable line off the Tetragon stream.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(sovereign_os_auditor_event_parse_total[5m])", "refId": "A", "legendFormat": "{{outcome}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+    },
+    {
+      "type": "barchart",
+      "title": "cumulative neutralizations per result",
+      "description": "Sum-since-start per result. Operator-§10 lifetime outcome distribution. Tall success bar = healthy circuit breaker. Tall kill-failed bar = podman runtime issue.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sum by (result) (sovereign_os_auditor_neutralization_total)", "refId": "A", "legendFormat": "{{result}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+    },
+    {
+      "type": "barchart",
+      "title": "cumulative parse outcomes",
+      "description": "Sum-since-start per outcome. Operator-§10 event-stream distribution. Heavy benign = quiet perimeter; heavy trigger = active attack surface.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sum by (outcome) (sovereign_os_auditor_event_parse_total)", "refId": "A", "legendFormat": "{{outcome}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+    },
+    {
+      "type": "table",
+      "title": "auditor decision matrix (outcome × cumulative count)",
+      "description": "Cross-tab of event-parse outcomes since metrics start. Operator-discoverable: 'what fraction of the Tetragon stream is malformed vs benign vs triggering?'",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sum by (outcome) (sovereign_os_auditor_event_parse_total)", "refId": "parse", "format": "table", "instant": true},
+        {"expr": "sum by (result) (sovereign_os_auditor_neutralization_total)", "refId": "neutralize", "format": "table", "instant": true}
+      ],
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 20}
+    },
+    {
+      "type": "text",
+      "title": "auditor §§ 10/17 verbatim + Immutable Gatekeeper protocol",
+      "options": {
+        "mode": "markdown",
+        "content": "**Master spec § 10 verbatim** (Native Guardian Event Loop, sacrosanct):\n\n> \"To replace the legacy Windows-centric SecureToast.ps1 concept without introducing visual or network bloat, we introduce a lightweight, native Linux event supervisor. This daemon listens to the local Tetragon eBPF UNIX socket and acts as an autonomous circuit breaker.\"\n\n**Master spec § 17 — The Auditor (Immutable Gatekeeper):**\n\nThe Auditor is one of the three §17 Genesis Trinity members:\n\n1. **The Weaver** — atomic state-transition primitive (master spec § 21, R496-dashboarded)\n2. **The Auditor** — always-on, kernel-driven, podman-kill-armed event-loop guardian (master spec § 10, R497-dashboarded — THIS dashboard)\n3. **The Architect** — operator-§17 system architect role\n\n**Operator §10 circuit-breaker protocol (master spec § 10.1 verbatim hot path):**\n\n1. Tail `/var/run/tetragon/tetragon.events` (kernel eBPF event stream)\n2. Parse each JSON line\n3. Trigger predicate (verbatim): `event.get('action') == 'SIGKILL' or 'process' in event.get('action', '').lower()`\n4. On trigger: `podman kill <container_id>` (5s timeout)\n5. Append violation line to `/mnt/vault/context/security_audit.log` (master spec § 7.1 atomic append-only path; tank/context sync=always per § 7.2)\n6. Emit Layer-B counter per neutralization\n\n**3 parse-outcome vocabulary (Layer-B `event_parse_total{outcome}`):**\n\n1. `trigger` — event matched the § 10.1 predicate; neutralization fired\n2. `benign` — event parsed cleanly but didn't match the predicate\n3. `bad-json` — Tetragon emitted an unparseable line (operator alerts if rate > 0)\n\n**4+ neutralization-result vocabulary (Layer-B `neutralization_total{result}`):**\n\n1. `success` — `podman kill` returned 0 + audit log appended\n2. `kill-failed` — `podman kill` raised OSError/TimeoutExpired\n3. `no-container-id` — event had no `process.docker` field (master spec § 10.1 field extraction)\n4. `dry-run` — GUARDIAN_DRY_RUN=1 set (parse-only mode)\n5. Compound: `<result>+audit-log-fail` — neutralized but audit-log append failed\n\n**Layer-B metric contract (R497-dashboarded):**\n\n1. Metric: `sovereign_os_auditor_neutralization_total{result}` (counter)\n2. Metric: `sovereign_os_auditor_event_parse_total{outcome}` (counter)\n3. Metric: `sovereign_os_auditor_last_neutralization_timestamp` (freshness gauge — operator alerts on any non-stale reading)\n\n**Service:**\n\n```\nsystemctl status  sovereign-guardian-core.service    # daemon liveness\nsystemctl restart sovereign-guardian-core.service    # operator-controlled restart\njournalctl -u     sovereign-guardian-core.service -f # live event-loop tail\n```\n\nUnit lives at `systemd/system/sovereign-guardian-core.service` and declares `After=tetragon.service Requires=tetragon.service` (master spec § 10.2 verbatim ordering).\n\n**Env vars (all overridable, operator-§10 sacrosanct defaults):**\n\n- `GUARDIAN_SOCKET_PATH` — default `/var/run/tetragon/tetragon.events`\n- `GUARDIAN_AUDIT_LOG` — default `/mnt/vault/context/security_audit.log`\n- `GUARDIAN_PODMAN_BIN` — default `podman`\n- `GUARDIAN_DRY_RUN` — set to `1` to parse-only (no kill, no log write)\n\n**Source:** master spec §§ 10 and 17 shipped the Auditor blueprint; R152-R155 shipped the Python implementation + systemd unit + Layer-B metrics; R497 ships THIS dashboard + registers `auditor` as a first-class MODULE_COVERAGE entry (4 surfaces: core / cli / service / dashboard).\n\n**Standing operator rule (sacrosanct):**\n\n> \"We do not minimize anything.\""
+      },
+      "gridPos": {"h": 24, "w": 24, "x": 0, "y": 28}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["sovereign-os", "auditor", "guardian", "security", "operator", "R497"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "sovereign-os auditor",
+  "uid": "sovereign-os-auditor",
+  "version": 1,
+  "weekStart": ""
+}

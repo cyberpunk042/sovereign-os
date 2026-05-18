@@ -287,6 +287,16 @@ MODULE_COVERAGE = {
             "service":   "not applicable — atomic-state primitive invoked by callers, not a long-running daemon (master spec § 21 says 'lockless loopback write sequence' — there is no Weaver daemon, only the atomic-state.py primitive)",
         },
     },
+    "auditor": {
+        "shipped_in": "R152-R155 (master spec §§ 10, 17) + R497 (Grafana dashboard)",
+        "surfaces": ["core", "cli", "service", "dashboard"],
+        "waivers": {
+            "tui":       "FUTURE — live-tail violation watch TUI (refresh-loop over security_audit.log + last-neutralization tick)",
+            "api":       "FUTURE — REST /auditor/{status,last-violation,history} read endpoints",
+            "mcp":       "FUTURE — agent queries Auditor state via MCP (read-only — neutralization is operator-not-agent-controlled)",
+            "webapp":    "FUTURE — master-dashboard /auditor subpath",
+        },
+    },
 }
 
 KNOWN_MODULES = list(MODULE_COVERAGE.keys())
