@@ -1,7 +1,7 @@
-# Handoff 006 — Verbatim-preservation arc (R355-R430)
+# Handoff 006 — Verbatim-preservation arc (R355-R440)
 
 > **Status**: structurally mature (perpetual mandate continues)
-> **Last updated**: 2026-05-18 (R430 milestone — extends R400 to cover R401-R429; 30 more rounds, +18 lints, +400 assertions, +13 bidirectional-consistency lints)
+> **Last updated**: 2026-05-18 (R440 milestone — extends R430 to cover R431-R439; +10 more rounds, +9 lints, +159 assertions, +1 bidirectional-consistency lint; cumulative since R400: +40 rounds, +27 lints, +559 assertions, +14 bidirectional-consistency lints)
 > **Owner**: sovereign-os core
 > **Predecessor handoff**: 005-master-spec-materialization-arc.md
 
@@ -85,18 +85,21 @@ ship time (E2.M21 mandate-row duplicate + A-06 fabricated row +
 - R370 static-doc drift detection (9 assertions)
 - Bidirectional Tetragon 4-binary allowlist consistency (within R367)
 
-## Final state (updated through R430 — 76-round milestone)
+## Final state (updated through R440 — 86-round milestone)
 
 ```
 Coverage:  32 ✓ shipped, 0 partial, 0 TODO (of 32 total)
-Doctrine:  52 lints / 782 assertions / 30 bugs caught
+Doctrine:  61 lints / 941 assertions / 30 bugs caught
 Verbatim:  82 catalogued items / ~537 operator-exact phrases
            mechanized at push-time across 19 master spec sections
-Operational artifacts pinned: 30+ files (R387-R429)
+Operational artifacts pinned: 45+ files (R387-R439)
 Systemd Descriptions pinned: 4 (Trinity-side identity, R397)
 Trinity-side pinning: COMPLETE (Pulse + Weaver + Auditor scripts +
                                   Descriptions + ZFS + VFIO + Tetragon)
-Bidirectional-consistency lints: 17
+Catalogue-source pinning: COMPLETE (architecture-qa concepts +
+                                     coverage-map axes + selfdef bridge)
+Doc-family pinning: COMPLETE (handoffs + SDDs + decisions + mandate)
+Bidirectional-consistency lints: 18
   R367 (Tetragon writer↔allowlist)
   R373 (cross-catalog)
   R384 (handoff INDEX)
@@ -114,10 +117,35 @@ Bidirectional-consistency lints: 17
   R426 (whitelabel legal_floor↔render.py LEGAL_FLOOR_PATTERNS)
   R427 (catalog tiers↔Trinity set + verified-real↔hf_repo_id)
   R428 (4-way default-model ring: build↔backend↔catalog↔start)
-Test count: 1291 (all green)
-Mandate:   207+ rows / ~165KB
-Grade:     A (stable across 76 rounds)
+  R433 (selfdef-tune lib exports↔build-bitnet consumer reads)
+Test count: 1450 (all green)
+Mandate:   217+ rows / ~178KB
+Grade:     A (stable across 86 rounds)
 ```
+
+## R431-R439 extensions (after R430 handoff refresh)
+
+After R430 milestone consolidation, R431-R439 added 9 more rounds
+pivoting from build/runtime infrastructure to CATALOG SOURCES,
+INTELLIGENCE VERBS, and DOC-FAMILY pinning:
+
+| Round | Surface | Lint count |
+|-------|---------|------------|
+| R431 | architecture-qa.py catalog (27 C-NN concepts + Q-NN + gotchas) | 21 |
+| R432 | coverage-map.py 32-axis demand-coverage catalog | 18 |
+| R433 | selfdef-tune.sh cross-repo bridge detailed contract + bidir #18 | 22 |
+| R434 | operator-pull intelligence verbs (doctrine-status + quarterly-review + morning-brief + next-action-advisor) | 17 |
+| R435 | handoff document content contract (R384 extension) | 16 |
+| R436 | operator-mandate doc structural invariants (meta-pinning) | 15 |
+| R437 | selfdef cross-repo bridge surface (SD-R<N> integration) | 17 |
+| R438 | SDD content + INDEX extended invariants (60-lint MILESTONE) | 15 |
+| R439 | decisions.md audit-trail content + format | 18 |
+
+R431-R439 added 9 new L1 lints + 159 assertions + 1 new bidirectional-
+consistency lint (R433 selfdef-tune↔build-bitnet). Crossed 60-lint +
+900-assertion thresholds.
+
+
 
 ## R401-R429 extensions (after R400 handoff refresh)
 
