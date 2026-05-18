@@ -1,0 +1,66 @@
+[Unit]
+Description=Sovereign weaver read-only REST API + webapp (R536, E5++)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/weaver-api.py
+# Read-only inspection API + webapp for the §1g weaver instrument
+# (master spec § 7.1 / § 21 atomic-state). Mirrors the data the CLI
+# exposes via `sovereign-osctl weaver {list,state-files} --json` and
+# the R535 MCP tools (weaver-list / weaver-state-files).
+#
+# Operator §17 sovereignty boundary (load-bearing): the weaver API
+# exposes ONLY read-only inspection — `list` (LIVE state-fabric
+# presence + size + mtime) and `state-files` (STATIC master spec
+# § 7.1 catalog). The mutation verb `weaver write` (atomic-state
+# commit) and the runtime-arg verb `weaver read` (per-file read) are
+# intentionally NOT exposed at the API surface: state-fabric writes
+# are sovereignty-critical and stay manual + CLI-gated. Matches the
+# R535 MCP surface decision verbatim.
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/weaver-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default — operator-§1g exposure decision is theirs.
+# To expose beyond loopback, drop an override at
+# /etc/systemd/system/sovereign-weaver-api.service.d/bind.conf:
+#   [Service]
+#   Environment=WEAVER_API_BIND=0.0.0.0
+Environment=WEAVER_API_BIND=127.0.0.1
+Environment=WEAVER_API_PORT=8102
+
+# Defense-in-depth — read-only HTTP surface that reads the master
+# spec § 7.1 4-state-fabric files under /mnt/vault/context per /list
+# request, plus the static § 7.1 catalog on /state-files. No
+# mutation of any sovereignty boundary — write/read verbs stay
+# CLI-only.
+# R171 defense-in-depth (Layer 1 lint enforced)
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+# The state-fabric directory /mnt/vault/context is read-only here —
+# the daemon stat()s the 4 state files but NEVER opens them for
+# write. ProtectSystem=strict makes everything outside
+# ReadWritePaths read-only by default.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+# Loopback default — capability lockdown matches.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target

@@ -231,13 +231,15 @@ def test_weaver_extended_to_mcp_surface():
     assert mcp_row.get("state") == "shipped", (
         f"weaver mcp surface must be shipped post-R535; got {mcp_row}"
     )
-    # R535 drains the mcp waiver. R536 will drain api + webapp (and
-    # may REPLACE the service: not applicable waiver with a real
-    # read-only daemon, same ceiling-promotion pattern as R510/R515/
-    # R518/R521/R524/R527/R530/R533).
+    # R535 drains the mcp waiver. R536 drains api + webapp AND
+    # REPLACES the service: not applicable waiver with a real read-
+    # only daemon (same ceiling-promotion pattern as R510/R515/R518/
+    # R521/R524/R527/R530/R533). The load-bearing R535 invariant is
+    # mcp-shipped, not the residual waiver count — relax to <= 2 for
+    # forward-compat with R536.
     future_count = entry.get("future_waiver_count", 0)
-    assert future_count == 2, (
-        f"weaver must have exactly 2 FUTURE waivers remaining post-"
+    assert future_count <= 2, (
+        f"weaver must have at most 2 FUTURE waivers remaining post-"
         f"R535 (api/webapp); got {future_count}"
     )
 

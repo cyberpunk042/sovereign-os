@@ -473,24 +473,34 @@ def test_coverage_reports_at_structural_ceiling_flag():
     #                        R527/R530. Eating-our-own-dogfood: the
     #                        §1g coverage instrument itself now reports
     #                        as fully-described at the ceiling).
-    # The fixture now rotates to `weaver`, which carries 4 FUTURE
-    # waivers (tui/api/mcp/webapp) and is the next §1g instrument on
-    # the tier-3 expansion arc — same 4-surface shape as the auditor
-    # sibling (both currently sit at the same core+cli+dashboard tier
-    # waiting for the same tier-3 arc).
+    #   - weaver           — reached ceiling in R536 (eleventh — closed
+    #                        the tui/mcp/api/webapp quartet across
+    #                        R534-R536; R536 also REPLACED the prior
+    #                        `service: not applicable` waiver with a
+    #                        real systemd-managed read-only daemon,
+    #                        same pattern as R510/R515/R518/R521/R524/
+    #                        R527/R530/R533. The mutation verb `write`
+    #                        (atomic-state commit) and the runtime-arg
+    #                        verb `read` stay CLI-only per operator §17
+    #                        sovereignty boundary — the API surface
+    #                        exposes ONLY read-only inspection).
+    # The fixture now rotates to `auditor`, which carries 4 FUTURE
+    # waivers (tui/api/mcp/webapp) and is the last remaining §1g
+    # instrument with FUTURE roadmap shortfall — same 4-surface shape
+    # the weaver entry held at R533.
     result2 = subprocess.run(
         ["python3", str(SM_PY), "coverage", "--module",
-         "weaver", "--json"],
+         "auditor", "--json"],
         capture_output=True, text=True, timeout=10,
     )
     data2 = json.loads(result2.stdout)
     rec2 = data2["coverage"][0] if "coverage" in data2 else data2
     assert rec2.get("at_structural_ceiling") is False, (
-        f"R478: weaver must be "
+        f"R478: auditor must be "
         f"at_structural_ceiling=False, got {rec2!r}"
     )
     assert rec2.get("future_waiver_count", 0) >= 1, (
-        f"R478 fixture: weaver must carry FUTURE "
+        f"R478 fixture: auditor must carry FUTURE "
         f"waivers; got {rec2!r}"
     )
 

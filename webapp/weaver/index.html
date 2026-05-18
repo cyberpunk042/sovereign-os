@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os weaver</title>
+<meta name="x-sovereign-module" content="weaver-webapp">
+<meta name="x-sovereign-shipped-in" content="R536 (E5++)">
+<meta name="x-sovereign-standing-rule" content="everything is not just core, not just cli, not just TUI, not just API, not just tool and MCP but also Dashboards and Web Apps and Services.">
+<style>
+  /* Operator-§1g UX: readable in 30 seconds, monochrome palette,
+     no JS framework, no CDN, no fonts fetched from elsewhere —
+     sovereignty-clean single-file webapp. */
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border)}
+  .pill.ok{background:#143d14;color:var(--good)}
+  .pill.bad{background:#3d1414;color:var(--bad)}
+  .pill.warn{background:#3d3014;color:var(--warn)}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:stretch}
+  .stat{flex:1 1 160px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
+  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .stat .v{font-size:1.4rem;margin-top:.15rem}
+  .dim{flex:1 1 180px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem}
+  .dim h3{margin:0 0 .3rem 0;font-size:.95rem;color:var(--accent)}
+  .dim .meta{color:var(--muted);font-size:.78rem;margin-bottom:.5rem}
+  button{font-family:var(--mono);background:var(--panel);color:var(--fg);border:1px solid var(--border);padding:.35rem .7rem;border-radius:3px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  footer{margin-top:2rem;color:var(--muted);font-size:.75rem;border-top:1px solid var(--border);padding-top:.8rem}
+  .standing-rule{color:var(--accent);font-style:italic;margin-top:.4rem}
+  code{color:var(--accent)}
+  .disclaimer{background:#10202a;border:1px solid #20405a;color:var(--accent);padding:.7rem .9rem;border-radius:4px;margin:.6rem 0;font-size:.82rem}
+  .surface-ladder{display:flex;flex-wrap:wrap;gap:.35rem;margin:.4rem 0}
+  .surface-ladder .sf{display:inline-block;padding:2px 8px;border:1px solid var(--border);border-radius:3px;background:var(--panel);font-size:.78rem;color:var(--accent)}
+</style>
+</head>
+<body>
+<h1>sovereign-os weaver</h1>
+<p class="sub">
+  Operator-§1g weaver &mdash; master spec &sect; 7.1 / &sect; 21 atomic-state inspection.
+  Read-only mirror of <code>sovereign-osctl weaver {list,state-files} --json</code>.
+  The R453 8-surface delivery contract for the weaver module ships at
+  <strong>core</strong> / <strong>cli</strong> / <strong>tui</strong> / <strong>api</strong> / <strong>mcp</strong> / <strong>dashboard</strong> / <strong>webapp</strong> / <strong>service</strong>
+  &mdash; this webapp closes the webapp surface of that ladder (R536).
+</p>
+
+<div class="row" id="stats">
+  <div class="stat"><div class="k">api version</div><div class="v muted" id="stat-version">&mdash;</div></div>
+  <div class="stat"><div class="k">state files</div><div class="v" id="stat-count">&mdash;</div></div>
+  <div class="stat"><div class="k">present</div><div class="v" id="stat-present">&mdash;</div></div>
+  <div class="stat"><div class="k">context dir</div><div class="v muted" id="stat-ctxdir" style="font-size:.85rem">&mdash;</div></div>
+  <div class="stat"><div class="k">last refresh</div><div class="v muted" id="last-refresh">never</div></div>
+</div>
+
+<div class="disclaimer">
+  operator &sect;17 sovereignty boundary (operator §17): the weaver API surface is read-only. <strong>Atomic-state writes are sovereignty-critical and stay manual + CLI-gated.</strong>
+  The mutation verb <code>weaver write</code> (master spec &sect; 21.1 atomic commit) and the runtime-arg verb <code>weaver read</code> (per-file read)
+  are intentionally NOT exposed via the API or MCP surfaces &mdash; use <code>sovereign-osctl weaver write</code> from the CLI surface instead.
+  Managed by <code>sovereign-weaver-api.service</code>.
+</div>
+
+<h2>R453 &sect;1g 8-surface ladder &mdash; weaver module shipped surfaces</h2>
+<div class="surface-ladder">
+  <span class="sf">core</span>
+  <span class="sf">cli</span>
+  <span class="sf">tui</span>
+  <span class="sf">api</span>
+  <span class="sf">mcp</span>
+  <span class="sf">dashboard</span>
+  <span class="sf">webapp</span>
+  <span class="sf">service</span>
+</div>
+
+<h2>LIVE state-fabric file inventory &mdash; <code>/list</code></h2>
+<div class="panel">
+  <table>
+    <thead><tr><th>file</th><th>present</th><th>size</th><th>modified</th></tr></thead>
+    <tbody id="list-tbody"><tr><td colspan="4" class="muted">loading&hellip;</td></tr></tbody>
+  </table>
+</div>
+
+<h2>STATIC master spec &sect; 7.1 catalog &mdash; <code>/state-files</code></h2>
+<div class="panel">
+  <table>
+    <thead><tr><th>id</th><th>operator-named</th><th>master spec ref</th><th>label</th></tr></thead>
+    <tbody id="catalog-tbody"><tr><td colspan="4" class="muted">loading&hellip;</td></tr></tbody>
+  </table>
+</div>
+
+<h2>refresh</h2>
+<div class="panel">
+  <div class="row">
+    <button id="refresh-btn">refresh all</button>
+    <span class="muted">auto-refresh every 60s</span>
+  </div>
+</div>
+
+<footer>
+  <div>shipped in <code>R536 (E5++)</code> &middot; serves the <code>/webapp/</code> path of the R536 weaver-api daemon (<code>scripts/operator/weaver-api.py</code>, managed by <code>sovereign-weaver-api.service</code>) &middot; backing CLI <code>sovereign-osctl weaver</code> (R534 TUI &middot; R535 MCP) &middot; data primitive <code>scripts/weaver/atomic-state.py</code> (master spec &sect; 21.1)</div>
+  <div class="standing-rule">"everything is not just core, not just cli, not just TUI, not just API, not just tool and MCP but also Dashboards and Web Apps and Services." &mdash; operator &sect;1g (sacrosanct)</div>
+</footer>
+
+<script>
+"use strict";
+// Operator-§1g UX rule: no external dependencies, no CDN fetches.
+// Same-origin XHR only — the R536 weaver-api daemon serves both this
+// webapp and the JSON endpoints under the same host:port binding.
+
+async function fetchJSON(path) {
+  const res = await fetch(path, {headers: {"Accept": "application/json"}});
+  if (!res.ok) throw new Error(path + " => " + res.status);
+  return await res.json();
+}
+
+function el(id) { return document.getElementById(id); }
+function esc(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function fmtBytes(n) {
+  if (n == null) return '<span class="muted">&mdash;</span>';
+  if (n < 1024) return esc(n) + ' B';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KiB';
+  return (n / (1024 * 1024)).toFixed(2) + ' MiB';
+}
+
+async function refreshVersion() {
+  try {
+    const v = await fetchJSON("/version");
+    el("stat-version").textContent = v.version || "?";
+    el("stat-ctxdir").textContent = v.context_dir || "?";
+  } catch (e) {
+    el("stat-version").innerHTML = "<span class=bad>err</span>";
+  }
+}
+
+async function refreshList() {
+  try {
+    const d = await fetchJSON("/list");
+    el("stat-count").textContent = d.count != null ? d.count : "?";
+    const present = d.count_present || 0;
+    const total = d.count || 0;
+    const cls = present === total ? "ok" : (present > 0 ? "warn" : "bad");
+    el("stat-present").innerHTML = '<span class="' + cls + '">' + esc(present) + '</span><span class="muted"> / ' + esc(total) + '</span>';
+    const tbody = el("list-tbody");
+    const list = d.files || [];
+    if (!list.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="muted">no state files tracked</td></tr>';
+      return;
+    }
+    tbody.innerHTML = list.map(function(row) {
+      const pres = row.present
+        ? '<span class="pill ok">present</span>'
+        : '<span class="pill bad">absent</span>';
+      return '<tr>' +
+        '<td><code>' + esc(row.name) + '</code></td>' +
+        '<td>' + pres + '</td>' +
+        '<td>' + fmtBytes(row.size_bytes) + '</td>' +
+        '<td class="muted">' + esc(row.mtime_iso || "—") + '</td>' +
+        '</tr>';
+    }).join("");
+  } catch (e) {
+    el("list-tbody").innerHTML =
+      '<tr><td colspan="4" class="bad">error: ' + esc(e.message) + '</td></tr>';
+  }
+}
+
+async function refreshCatalog() {
+  try {
+    const d = await fetchJSON("/state-files");
+    const tbody = el("catalog-tbody");
+    const list = d.files || [];
+    if (!list.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="muted">no catalog entries</td></tr>';
+      return;
+    }
+    tbody.innerHTML = list.map(function(row) {
+      return '<tr>' +
+        '<td><code>' + esc(row.id) + '</code></td>' +
+        '<td><code>' + esc(row.operator_named) + '</code></td>' +
+        '<td class="muted">' + esc(row.master_spec_ref) + '</td>' +
+        '<td>' + esc(row.label) + '</td>' +
+        '</tr>';
+    }).join("");
+  } catch (e) {
+    el("catalog-tbody").innerHTML =
+      '<tr><td colspan="4" class="bad">error: ' + esc(e.message) + '</td></tr>';
+  }
+}
+
+async function refreshAll() {
+  await Promise.all([
+    refreshVersion(), refreshList(), refreshCatalog(),
+  ]);
+  el("last-refresh").textContent = new Date().toLocaleTimeString();
+}
+
+document.getElementById("refresh-btn").addEventListener("click", refreshAll);
+refreshAll();
+setInterval(refreshAll, 60000);
+</script>
+</body>
+</html>
