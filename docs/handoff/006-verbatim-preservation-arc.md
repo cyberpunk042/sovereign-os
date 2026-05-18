@@ -1,7 +1,7 @@
-# Handoff 006 — Verbatim-preservation arc (R355-R380)
+# Handoff 006 — Verbatim-preservation arc (R355-R394)
 
-> **Status**: complete
-> **Closed**: 2026-05-18
+> **Status**: structurally mature (perpetual mandate continues)
+> **Last updated**: 2026-05-18 (extended in R395 to cover R381-R394)
 > **Owner**: sovereign-os core
 > **Predecessor handoff**: 005-master-spec-materialization-arc.md
 
@@ -14,7 +14,7 @@ Operator issued the perpetual `/goal` directive on 2026-05-18:
 > DUMP AND REPROCESS IF YOU NEED or JUST ask me question if you are
 > lost"**
 
-This arc (26 rounds, R355 through R380) mechanized that contract at
+This arc (40 rounds, R355 through R394) mechanized that contract at
 push-time across the entire operator-verbatim content surface from
 both raw dumps:
 - `info-hub/raw/dumps/2026-05-15-sain-01-master-spec-other-conversation-transposition.md` (1139 lines)
@@ -85,33 +85,66 @@ ship time (E2.M21 mandate-row duplicate + A-06 fabricated row +
 - R370 static-doc drift detection (9 assertions)
 - Bidirectional Tetragon 4-binary allowlist consistency (within R367)
 
-## Final state
+## Final state (updated through R394)
 
 ```
 Coverage:  32 ✓ shipped, 0 partial, 0 TODO (of 32 total)
-Doctrine:  8 lints / 67 assertions / 20 bugs caught
+Doctrine:  19 lints / 167 assertions / 23 bugs caught
 Verbatim:  82 catalogued items / ~537 operator-exact phrases
            mechanized at push-time across 19 master spec sections
-Mandate:   164 rows / ~115KB
-Grade:     A (stable across 26 rounds)
+Operational artifacts pinned: 9 files (R387-R394)
+Trinity-side pinning: COMPLETE (Pulse + Weaver + Auditor)
+Mandate:   168+ rows / ~120KB
+Grade:     A (stable across 40 rounds)
 ```
 
-## 11 enforcement layers
+## Post-R381 extensions (R382-R394)
 
-The /goal contract is mechanized across 11 layers:
+After the initial R355-R380 verbatim-preservation arc, R381 shipped
+this handoff doc. R382-R394 extended the lint/pinning surface
+substantially:
 
-1. **L0 data** — operator-verbatim text in Python catalog files
-2. **L1 doctrine** — SDD-037 structure pinned (7 required sections)
-3. **L1 catalog hygiene** — IDs / floors / status enum / monotonic
-4. **L1 format** — spec_ref / mandate / verb / round format patterns
-5. **L1 cross-reference outbound** — catalog cites real §N / E.M /
+| Round | Surface | Bugs caught |
+|-------|---------|-------------|
+| R382 | `layers` verb (11 operator-verbatim layers + typo discoverability) | — |
+| R383 | osctl --help R-arc verb discoverability lint | 1 |
+| R384 | handoff INDEX consistency lint | 1 |
+| R385 | config/*.toml.example quality lint | — |
+| R386 | unified `search` verb across 3 catalog taxonomies | — |
+| R387 | profiles/sain-01.yaml verbatim pin (§2.2 KCFLAGS + §1.1 SKUs) | — |
+| R388 | whitelabel/default.yaml verbatim pin (§3.2 motd) | — |
+| R389 | bootstrap YAML verbatim pin (§22 verify-grid + §12 phases) | — |
+| R390 | Tetragon policy verbatim pin (§4.1 TracingPolicy) | — |
+| R391 | friction-audit verbatim pin (§5.1) | 1 (ZFS pool check missing) |
+| R392 | guardian-core.py pin (§10.1 Trinity Auditor) | — |
+| R393 | atomic-state.py pin (§21.1 Trinity Weaver) | — |
+| R394 | build-bitnet.sh pin (§16+§9.1+§15 Trinity Pulse) | — |
+
+R382-R394 added 11 new L1 lints + 100 assertions + closed Trinity-
+side operational pinning (3-of-3 Trinity scripts now pinned at L0
+artifact layer).
+
+## 14 enforcement layers (updated through R394)
+
+The /goal contract is mechanized across 14 layers:
+
+1. **L0 catalog data** — operator-verbatim text in Python catalog files
+2. **L0 build profile data** — profiles/sain-01.yaml KCFLAGS+SKUs (R387)
+3. **L0 whitelabel render data** — whitelabel/default.yaml motd (R388)
+4. **L0 bootstrap YAML data** — verify-grid + phases (R389)
+5. **L0 Trinity-side scripts** — Pulse + Weaver + Auditor (R392-R394)
+6. **L1 doctrine** — SDD-037 structure pinned (7 required sections)
+7. **L1 catalog hygiene** — IDs / floors / status enum / monotonic
+8. **L1 format** — spec_ref / mandate / verb / round format patterns
+9. **L1 cross-reference outbound** — catalog cites real §N / E.M /
    verb / phrase / R<N>
-6. **L1 cross-reference inbound** — SDDs reachable from catalogs
-7. **L1 bidirectional** — Tetragon allowlist C-14 ↔ shipped script
-8. **L1 cross-catalog** — 11 phrase consistency pairs
-9. **L1 git-history** — R350+ rounds need backing commits
-10. **L3 phrase layer** — per-entry operator-exact phrase preservation
-11. **Static doc layer** — mdbook-published, drift-protected
+10. **L1 cross-reference inbound** — SDDs reachable from catalogs
+11. **L1 bidirectional** — Tetragon allowlist C-14 ↔ shipped script
+12. **L1 cross-catalog** — 11 phrase consistency pairs
+13. **L1 git-history** — R350+ rounds need backing commits
+14. **L1 discoverability** — R-arc verbs visible in --help (R383)
+15. **L3 phrase layer** — per-entry operator-exact phrase preservation
+16. **Static doc layer** — mdbook-published, drift-protected
 
 ## Catalog state
 
