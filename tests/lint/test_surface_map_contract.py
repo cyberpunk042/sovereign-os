@@ -443,25 +443,32 @@ def test_coverage_reports_at_structural_ceiling_flag():
     #                        real systemd-managed read-only daemon,
     #                        same pattern R510/R515/R518 used for
     #                        global-history, trinity, and router).
-    # The fixture now rotates to `anti-minimization-audit`, which
-    # carries 4 FUTURE waivers (tui/api/mcp/webapp) and is the next
-    # §1g instrument on the tier-3 expansion arc — same 4-surface
-    # shape as the surface-map / doc-coverage / ux-design-audit
-    # siblings (all 4 R458 instruments currently sit at the same
-    # core+cli+dashboard tier waiting for the same tier-3 arc).
+    #   - anti-minimization-audit — reached ceiling in R524 (seventh —
+    #                        closed the tui/mcp/api/webapp quartet
+    #                        across R522-R524; R524 also REPLACED the
+    #                        prior `service: not applicable` waiver
+    #                        with a real systemd-managed read-only
+    #                        daemon, same pattern R510/R515/R518/R521
+    #                        used for global-history, trinity, router,
+    #                        and compliance).
+    # The fixture now rotates to `doc-coverage`, which carries 4 FUTURE
+    # waivers (tui/api/mcp/webapp) and is the next §1g instrument on
+    # the tier-3 expansion arc — same 4-surface shape as the surface-
+    # map / ux-design-audit / weaver siblings (all currently sit at
+    # the same core+cli+dashboard tier waiting for the same tier-3 arc).
     result2 = subprocess.run(
         ["python3", str(SM_PY), "coverage", "--module",
-         "anti-minimization-audit", "--json"],
+         "doc-coverage", "--json"],
         capture_output=True, text=True, timeout=10,
     )
     data2 = json.loads(result2.stdout)
     rec2 = data2["coverage"][0] if "coverage" in data2 else data2
     assert rec2.get("at_structural_ceiling") is False, (
-        f"R478: anti-minimization-audit must be "
+        f"R478: doc-coverage must be "
         f"at_structural_ceiling=False, got {rec2!r}"
     )
     assert rec2.get("future_waiver_count", 0) >= 1, (
-        f"R478 fixture: anti-minimization-audit must carry FUTURE "
+        f"R478 fixture: doc-coverage must carry FUTURE "
         f"waivers; got {rec2!r}"
     )
 

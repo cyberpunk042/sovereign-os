@@ -1,0 +1,61 @@
+[Unit]
+Description=Sovereign anti-minimization-audit read-only REST API + webapp (R524, E5++)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/anti-min-api.py
+# Read-only inspection API + webapp for the §1g anti-minimization-audit
+# instrument (R456 aggregator). Mirrors the data the CLI exposes via
+# `sovereign-osctl anti-minimization-audit {patterns,report,waivers,scan,
+# module,cross-module,selfdef} --json` and the R523 MCP tools
+# (anti-minimization-audit-patterns / -report / -waivers).
+#
+# Anti-min has NO mutation verbs at any surface — the R474
+# `anti-min-waiver:` annotations are operator-authored in-source markers,
+# NOT something a daemon toggles. Operator §17 sovereignty boundary
+# preserved.
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/anti-min-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default — operator-§1g exposure decision is theirs.
+# To expose beyond loopback, drop an override at
+# /etc/systemd/system/sovereign-anti-min-api.service.d/bind.conf:
+#   [Service]
+#   Environment=ANTI_MIN_API_BIND=0.0.0.0
+Environment=ANTI_MIN_API_BIND=127.0.0.1
+Environment=ANTI_MIN_API_PORT=8098
+
+# Defense-in-depth — read-only HTTP surface that walks the source tree
+# (scan_files() / _iter_scan_files) per /report and /scan request, plus
+# the R466 selfdef AuditManifest discovery on /selfdef. No mutation of
+# any sovereignty boundary.
+# R171 defense-in-depth (Layer 1 lint enforced)
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+# Source tree is read-only here — the audit walks it to enumerate
+# findings but never mutates it. ProtectSystem=strict makes everything
+# outside ReadWritePaths read-only by default.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+# Loopback default — capability lockdown matches.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target

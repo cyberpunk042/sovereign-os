@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os anti-minimization-audit</title>
+<meta name="x-sovereign-module" content="anti-min-webapp">
+<meta name="x-sovereign-shipped-in" content="R524 (E5++)">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<style>
+  /* Operator-§1g UX: readable in 30 seconds, monochrome palette,
+     no JS framework, no CDN, no fonts fetched from elsewhere —
+     sovereignty-clean single-file webapp. */
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border)}
+  .pill.ok{background:#143d14;color:var(--good)}
+  .pill.bad{background:#3d1414;color:var(--bad)}
+  .pill.warn{background:#3d3014;color:var(--warn)}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:stretch}
+  .stat{flex:1 1 160px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
+  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .stat .v{font-size:1.4rem;margin-top:.15rem}
+  .pat{flex:1 1 240px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem}
+  .pat h3{margin:0 0 .3rem 0;font-size:.95rem;color:var(--accent)}
+  .pat .meta{color:var(--muted);font-size:.78rem;margin-bottom:.5rem}
+  .pat .count{font-size:1.6rem;margin:.2rem 0 .4rem 0}
+  button{font-family:var(--mono);background:var(--panel);color:var(--fg);border:1px solid var(--border);padding:.35rem .7rem;border-radius:3px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  footer{margin-top:2rem;color:var(--muted);font-size:.75rem;border-top:1px solid var(--border);padding-top:.8rem}
+  .standing-rule{color:var(--accent);font-style:italic;margin-top:.4rem}
+  code{color:var(--accent)}
+  .disclaimer{background:#10202a;border:1px solid #20405a;color:var(--accent);padding:.7rem .9rem;border-radius:4px;margin:.6rem 0;font-size:.82rem}
+  .axes{color:var(--muted);font-size:.72rem}
+  .loc{font-family:var(--mono);color:var(--muted);font-size:.78rem}
+</style>
+</head>
+<body>
+<h1>sovereign-os anti-minimization-audit</h1>
+<p class="sub">
+  Operator-§1g anti-minimization-audit — 8-pattern source audit + R474 waiver enumeration + R466 cross-repo selfdef discovery (R456 aggregator).
+  Read-only mirror of <code>sovereign-osctl anti-minimization-audit {patterns,report,scan,waivers,module,cross-module,selfdef} --json</code>.
+  Anti-min has NO mutation verbs at any surface (operator §17 sovereignty boundary — the R474 <code>anti-min-waiver:</code> annotations are
+  operator-authored in-source markers, not daemon-toggled).
+</p>
+
+<div class="row" id="stats">
+  <div class="stat"><div class="k">api version</div><div class="v muted" id="stat-version">&mdash;</div></div>
+  <div class="stat"><div class="k">total findings</div><div class="v" id="stat-total">&mdash;</div></div>
+  <div class="stat"><div class="k">patterns clean</div><div class="v" id="stat-clean">&mdash;</div></div>
+  <div class="stat"><div class="k">active waivers</div><div class="v" id="stat-waivers">&mdash;</div></div>
+  <div class="stat"><div class="k">selfdef manifests</div><div class="v" id="stat-selfdef">&mdash;</div></div>
+  <div class="stat"><div class="k">last refresh</div><div class="v muted" id="last-refresh">never</div></div>
+</div>
+
+<div class="disclaimer">
+  operator §17 sovereignty boundary: anti-minimization-audit inspection is read-only at every surface. The R474
+  <code>anti-min-waiver:</code> annotations are operator-authored in-source markers — this daemon NEVER adds or removes them.
+  The CLI verbs <code>scan --pattern &lt;p&gt;</code>, <code>module &lt;n&gt;</code> and
+  <code>cross-module --threshold N</code> take runtime arguments and stay CLI-shaped; their parameterized mirrors here use same-origin
+  GET query strings (<code>?pattern=</code>, <code>?name=</code>, <code>?threshold=</code>).
+</div>
+
+<h2>8 operator-named patterns (R456 ladder)</h2>
+<div class="row" id="patterns-row">
+  <div class="pat" id="pat-todo-no-anchor"><h3>todo-no-anchor</h3><div class="meta">loading&hellip;</div></div>
+  <div class="pat" id="pat-empty-stub"><h3>empty-stub</h3><div class="meta">loading&hellip;</div></div>
+  <div class="pat" id="pat-skipped-no-followup"><h3>skipped-no-followup</h3><div class="meta">loading&hellip;</div></div>
+  <div class="pat" id="pat-surface-gap"><h3>surface-gap</h3><div class="meta">loading&hellip;</div></div>
+  <div class="pat" id="pat-doc-gap"><h3>doc-gap</h3><div class="meta">loading&hellip;</div></div>
+  <div class="pat" id="pat-mandate-todo"><h3>mandate-todo</h3><div class="meta">loading&hellip;</div></div>
+  <div class="pat" id="pat-minimize-phrase"><h3>minimize-phrase</h3><div class="meta">loading&hellip;</div></div>
+  <div class="pat" id="pat-partial-status"><h3>partial-status</h3><div class="meta">loading&hellip;</div></div>
+</div>
+
+<h2>active R474 waivers (operator-authored exemptions)</h2>
+<div class="panel">
+  <table>
+    <thead><tr><th>file</th><th>line</th><th>anchor</th><th>rationale</th></tr></thead>
+    <tbody id="waivers-tbody"><tr><td colspan="4" class="muted">loading&hellip;</td></tr></tbody>
+  </table>
+</div>
+
+<h2>cross-module priority (short on both axes, threshold=3)</h2>
+<div class="panel">
+  <table>
+    <thead><tr><th>axis</th><th>modules</th></tr></thead>
+    <tbody id="cross-tbody"><tr><td colspan="2" class="muted">loading&hellip;</td></tr></tbody>
+  </table>
+</div>
+
+<h2>R466 cross-repo selfdef AuditManifests</h2>
+<div class="panel">
+  <table>
+    <thead><tr><th>repo</th><th>module</th><th>findings</th><th>status</th></tr></thead>
+    <tbody id="selfdef-tbody"><tr><td colspan="4" class="muted">loading&hellip;</td></tr></tbody>
+  </table>
+</div>
+
+<h2>refresh</h2>
+<div class="panel">
+  <div class="row">
+    <button id="refresh-btn">refresh all</button>
+    <span class="muted">auto-refresh every 60s (report walks the source tree each refresh)</span>
+  </div>
+</div>
+
+<footer>
+  <div>shipped in <code>R524 (E5++)</code> &middot; serves the <code>/webapp/</code> path of the R524 anti-min-api daemon (<code>scripts/operator/anti-min-api.py</code>, managed by <code>sovereign-anti-min-api.service</code>) &middot; backing CLI <code>sovereign-osctl anti-minimization-audit</code> (R456 lineage + R522 TUI) &middot; MCP via <code>scripts/interop/mcp-aggregate.py</code> (R523)</div>
+  <div class="standing-rule">"We do not minimize anything." &mdash; operator &sect;1g standing rule (sacrosanct)</div>
+</footer>
+
+<script>
+"use strict";
+// Operator-§1g UX rule: no external dependencies, no CDN fetches.
+// Same-origin XHR only — the R524 anti-min-api daemon serves both this
+// webapp and the JSON endpoints under the same host:port binding.
+
+async function fetchJSON(path) {
+  const res = await fetch(path, {headers: {"Accept": "application/json"}});
+  if (!res.ok) throw new Error(path + " => " + res.status);
+  return await res.json();
+}
+
+function el(id) { return document.getElementById(id); }
+function esc(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function pillFromCount(n, goodThreshold) {
+  if (n === 0) return '<span class="pill ok">0</span>';
+  if (n <= goodThreshold) return '<span class="pill warn">' + esc(n) + '</span>';
+  return '<span class="pill bad">' + esc(n) + '</span>';
+}
+
+async function refreshVersion() {
+  try {
+    const v = await fetchJSON("/version");
+    el("stat-version").textContent = v.version || "?";
+  } catch (e) {
+    el("stat-version").innerHTML = "<span class=bad>err</span>";
+  }
+}
+
+async function refreshReport() {
+  try {
+    const r = await fetchJSON("/report");
+    const summary = r.summary || {};
+    const total = r.total || 0;
+    el("stat-total").innerHTML = pillFromCount(total, 0);
+    let clean = 0;
+    const PATTERNS = [
+      "todo-no-anchor", "empty-stub", "skipped-no-followup", "surface-gap",
+      "doc-gap", "mandate-todo", "minimize-phrase", "partial-status",
+    ];
+    for (const p of PATTERNS) {
+      const n = summary[p] || 0;
+      if (n === 0) clean++;
+      const pat = el("pat-" + p);
+      const cls = n === 0 ? "ok" : "bad";
+      pat.innerHTML =
+        '<h3>' + esc(p) + '</h3>' +
+        '<div class="count ' + cls + '">' + esc(n) + '</div>' +
+        '<div class="meta">' + (n === 0 ? 'clean' : esc(n) + ' finding' + (n === 1 ? '' : 's')) + '</div>';
+    }
+    el("stat-clean").innerHTML = pillFromCount(8 - clean, 0);
+  } catch (e) {
+    el("stat-total").innerHTML = "<span class=bad>err</span>";
+    el("stat-clean").innerHTML = "<span class=bad>err</span>";
+    const msg = '<div class="meta bad">error: ' + esc(e.message) + '</div>';
+    const PATTERNS = [
+      "todo-no-anchor", "empty-stub", "skipped-no-followup", "surface-gap",
+      "doc-gap", "mandate-todo", "minimize-phrase", "partial-status",
+    ];
+    for (const p of PATTERNS) {
+      el("pat-" + p).innerHTML = '<h3>' + esc(p) + '</h3>' + msg;
+    }
+  }
+}
+
+async function refreshWaivers() {
+  try {
+    const w = await fetchJSON("/waivers");
+    el("stat-waivers").textContent = w.count != null ? w.count : "?";
+    const tbody = el("waivers-tbody");
+    const list = w.waivers || [];
+    if (!list.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="muted">no active R474 waivers in tree</td></tr>';
+      return;
+    }
+    tbody.innerHTML = list.slice(0, 200).map(function(item) {
+      return '<tr>' +
+        '<td class="loc">' + esc(item.file) + '</td>' +
+        '<td>' + esc(item.line) + '</td>' +
+        '<td><code>' + esc(item.anchor) + '</code></td>' +
+        '<td>' + esc(item.rationale) + '</td>' +
+        '</tr>';
+    }).join("");
+  } catch (e) {
+    el("stat-waivers").innerHTML = "<span class=bad>err</span>";
+    el("waivers-tbody").innerHTML =
+      '<tr><td colspan="4" class="bad">error: ' + esc(e.message) + '</td></tr>';
+  }
+}
+
+async function refreshCrossModule() {
+  try {
+    const c = await fetchJSON("/cross-module?threshold=3");
+    const tbody = el("cross-tbody");
+    const rows = [
+      ["short on BOTH axes (highest priority)", c.short_on_both_axes || []],
+      ["short only on surface", c.short_only_surface || []],
+      ["short only on doc", c.short_only_doc || []],
+    ];
+    tbody.innerHTML = rows.map(function(r) {
+      const label = r[0], list = r[1];
+      const cell = list.length
+        ? list.map(function(m) { return '<code>' + esc(m) + '</code>'; }).join(", ")
+        : '<span class="ok">(none)</span>';
+      return '<tr><td>' + esc(label) + '</td><td>' + cell + '</td></tr>';
+    }).join("");
+  } catch (e) {
+    el("cross-tbody").innerHTML =
+      '<tr><td colspan="2" class="bad">error: ' + esc(e.message) + '</td></tr>';
+  }
+}
+
+async function refreshSelfdef() {
+  try {
+    const s = await fetchJSON("/selfdef");
+    el("stat-selfdef").textContent = (s.count_valid != null ? s.count_valid : "?");
+    const tbody = el("selfdef-tbody");
+    const list = s.valid || [];
+    if (!list.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="muted">no R466 selfdef AuditManifests discovered</td></tr>';
+      return;
+    }
+    tbody.innerHTML = list.map(function(m) {
+      return '<tr>' +
+        '<td><code>' + esc(m.repo || m.repo_name || "?") + '</code></td>' +
+        '<td><code>' + esc(m.module || m.module_name || "?") + '</code></td>' +
+        '<td>' + esc(m.findings_total != null ? m.findings_total : (m.findings || "?")) + '</td>' +
+        '<td>' + esc(m.status || "ok") + '</td>' +
+        '</tr>';
+    }).join("");
+  } catch (e) {
+    el("stat-selfdef").innerHTML = "<span class=bad>err</span>";
+    el("selfdef-tbody").innerHTML =
+      '<tr><td colspan="4" class="bad">error: ' + esc(e.message) + '</td></tr>';
+  }
+}
+
+async function refreshAll() {
+  await Promise.all([
+    refreshVersion(), refreshReport(), refreshWaivers(),
+    refreshCrossModule(), refreshSelfdef(),
+  ]);
+  el("last-refresh").textContent = new Date().toLocaleTimeString();
+}
+
+document.getElementById("refresh-btn").addEventListener("click", refreshAll);
+refreshAll();
+setInterval(refreshAll, 60000);
+</script>
+</body>
+</html>
