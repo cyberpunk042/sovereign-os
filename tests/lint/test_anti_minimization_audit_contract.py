@@ -712,3 +712,114 @@ def test_module_verb_runs():
     for key in ("surface_gaps", "doc_gaps",
                 "minimize_phrases_in_module_files"):
         assert key in data
+
+
+# --- R490 (R456+) — Grafana dashboard surface + first-class module registration ---
+
+
+AM_DASHBOARD_JSON = (
+    REPO_ROOT / "docs" / "observability" / "dashboards"
+    / "sovereign-os-anti-minimization-audit.json"
+)
+
+
+def test_dashboard_json_exists():
+    """R490 — anti-min Grafana dashboard surface registers anti-min as
+    a first-class module + ships the operator-§1g visualization."""
+    assert AM_DASHBOARD_JSON.is_file(), (
+        f"missing anti-min dashboard: {AM_DASHBOARD_JSON}"
+    )
+
+
+def test_dashboard_json_parseable():
+    """The dashboard MUST be valid JSON (Grafana refuses invalid JSON
+    on import)."""
+    data = json.loads(AM_DASHBOARD_JSON.read_text(encoding="utf-8"))
+    assert "panels" in data, "dashboard missing panels"
+    assert "title" in data and data["title"], "dashboard missing title"
+    assert "uid" in data and data["uid"], "dashboard missing uid"
+
+
+def test_dashboard_references_anti_min_metric():
+    """At least one panel MUST query the Layer-B metric — otherwise the
+    dashboard isn't visualizing the operator-§1g surface."""
+    body = AM_DASHBOARD_JSON.read_text(encoding="utf-8")
+    assert "sovereign_os_operator_anti_minimization_audit_query_total" in body, (
+        "anti-min dashboard doesn't reference the Layer B metric"
+    )
+
+
+def test_dashboard_covers_eight_patterns():
+    """Per R456 8-pattern suite, dashboard MUST reference all 8 pattern
+    labels (the canonical operator-§1g minimization-shape catalog)."""
+    body = AM_DASHBOARD_JSON.read_text(encoding="utf-8")
+    for pat in ("todo-no-anchor", "empty-stub", "skipped-no-followup",
+                "surface-gap", "doc-gap", "mandate-todo",
+                "minimize-phrase", "partial-status"):  # anti-min-waiver: R490 dashboard contract — enumerate 8 canonical pattern names verbatim
+        assert pat in body, (
+            f"anti-min dashboard missing pattern reference: {pat!r}"
+        )
+
+
+def test_dashboard_covers_core_verbs():
+    """Dashboard MUST reference the core verbs the operator can invoke
+    (patterns / scan / module / report / waivers)."""
+    body = AM_DASHBOARD_JSON.read_text(encoding="utf-8")
+    for verb in ("patterns", "scan", "module", "report", "waivers"):
+        assert verb in body, (
+            f"anti-min dashboard missing verb reference: {verb!r}"
+        )
+
+
+def test_dashboard_quotes_operator_standing_rule_verbatim():
+    """Dashboard MUST quote the §1g standing rule verbatim ('We do not
+    minimize anything.') — the sacrosanct operator-anti-min mandate
+    that this instrument enforces."""
+    body = AM_DASHBOARD_JSON.read_text(encoding="utf-8")
+    assert "We do not minimize anything" in body, (
+        "anti-min dashboard missing §1g verbatim standing rule"
+    )
+
+
+def test_dashboard_listed_in_readme():
+    """README.md MUST list the new dashboard (operator-discoverable
+    inventory)."""
+    readme = (AM_DASHBOARD_JSON.parent / "README.md").read_text(encoding="utf-8")
+    assert "sovereign-os-anti-minimization-audit.json" in readme, (
+        "dashboards/README.md missing sovereign-os-anti-minimization-audit.json entry"
+    )
+
+
+def test_dashboard_tagged_sovereign_os():
+    """Grafana 'sovereign-os' tag MUST be set — operator's dashboard
+    folder filter depends on it."""
+    data = json.loads(AM_DASHBOARD_JSON.read_text(encoding="utf-8"))
+    assert "sovereign-os" in (data.get("tags") or []), (
+        "anti-min dashboard missing sovereign-os tag"
+    )
+
+
+def test_anti_min_registered_in_surface_map():
+    """R490 registers anti-minimization-audit as a first-class module in
+    surface-map.py MODULE_COVERAGE. After this round it MUST appear with
+    at least 3 shipped surfaces (core/cli/dashboard) — at threshold."""
+    sm_path = REPO_ROOT / "scripts" / "operator" / "surface-map.py"
+    sm = sm_path.read_text(encoding="utf-8")
+    assert '"anti-minimization-audit":' in sm, (
+        "surface-map.py MODULE_COVERAGE missing 'anti-minimization-audit' entry"
+    )
+    result = subprocess.run(
+        ["python3", str(sm_path), "coverage", "--module",
+         "anti-minimization-audit", "--json"],
+        capture_output=True, text=True, timeout=15,
+    )
+    assert result.returncode == 0, (
+        f"surface-map coverage anti-min failed: {result.stderr[:300]}"
+    )
+    data = json.loads(result.stdout)
+    entries = data.get("coverage", [data])
+    entry = entries[0] if entries else {}
+    surface_count = entry.get("surface_count", 0)
+    assert surface_count >= 3, (
+        f"anti-min must be at threshold (>=3 surfaces); got {surface_count}"
+    )

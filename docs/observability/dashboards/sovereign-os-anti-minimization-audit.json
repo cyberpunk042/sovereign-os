@@ -1,0 +1,119 @@
+{
+  "_comment": "sovereign-os anti-minimization-audit dashboard (R490, R456+). Visualizes the operator-§1g/§1h anti-min instrument that scans for 8 minimization patterns across the codebase. Sourced from sovereign_os_operator_anti_minimization_audit_query_total{verb,pattern,result} (Layer B, SDD-016) emitted by scripts/operator/anti-minimization-audit.py. Operator imports into Grafana via Settings → JSON Model. Closes the future anti-min-dashboard waiver and registers anti-minimization-audit in MODULE_COVERAGE at 3 surfaces (core/cli/dashboard).",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "anti-min CLI", "url": "/d/sovereign-os-anti-minimization-audit#cli", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "anti-min queries (total)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_anti_minimization_audit_query_total)", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "patterns verb (count)",
+      "description": "Enumerates the 8 canonical anti-min patterns the operator scans for.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_anti_minimization_audit_query_total{verb=\"patterns\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "scan verb (count)",
+      "description": "Runs the scan across a pattern (or 'all'). Operator's primary 'where am I shortening the contract?' verb.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_anti_minimization_audit_query_total{verb=\"scan\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "module verb (count)",
+      "description": "Per-module anti-min match rollup.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_anti_minimization_audit_query_total{verb=\"module\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "report verb (count)",
+      "description": "Operator's clean-sheet pattern×count report — '0 total matches across 8 patterns' is the goal state.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_anti_minimization_audit_query_total{verb=\"report\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "waivers verb (count)",
+      "description": "R474 inline-waiver inventory — every operator-blessed minimization-exception, anchored + justified.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_anti_minimization_audit_query_total{verb=\"waivers\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 20, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "anti-min query rate per verb (5m)",
+      "description": "Per-verb query rate over time. patterns / scan / module / cross-module / report / waivers / selfdef — operator's anti-min-tooling usage pattern.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(sovereign_os_operator_anti_minimization_audit_query_total[5m])", "refId": "A", "legendFormat": "{{verb}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "anti-min pattern attention (5m)",
+      "description": "Per-pattern query rate. todo-no-anchor / empty-stub / skipped-no-followup / surface-gap / doc-gap / mandate-todo / minimize-phrase / partial-status — operator-revealed-preference signal for which pattern is most-watched.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(sovereign_os_operator_anti_minimization_audit_query_total[5m])", "refId": "A", "legendFormat": "{{pattern}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+    },
+    {
+      "type": "barchart",
+      "title": "anti-min result distribution",
+      "description": "ok / unknown-pattern / issues — operator-§1g result-class breakdown across all verbs.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sum by (result) (sovereign_os_operator_anti_minimization_audit_query_total)", "refId": "A", "legendFormat": "{{result}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+    },
+    {
+      "type": "table",
+      "title": "anti-min current state (verb × pattern × result)",
+      "description": "Per-(verb, pattern, result) histogram — operator-discoverable: 'which anti-min pattern am I exercising most, and is it clean?'",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sum by (verb, pattern, result) (sovereign_os_operator_anti_minimization_audit_query_total)", "refId": "A", "format": "table", "instant": true}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+    },
+    {
+      "type": "text",
+      "title": "anti-min §1g/§1h verbatim + 8-pattern suite",
+      "options": {
+        "mode": "markdown",
+        "content": "**Operator §1g/§1h verbatim** (R458 — anti-minimization standing rule, sacrosanct):\n\n> \"We do not minimize anything.\"\n\nThis instrument IS the source-code enforcement of the standing rule. anti-minimization-audit scans the codebase for the 8 canonical patterns by which a §1g delivery contract can be silently shortened — and refuses to let any of them ship.\n\n**8 canonical patterns (sacrosanct, R456):**\n\n1. `todo-no-anchor` — TODO/FIXME/XXX without an operator-resolvable anchor (issue ID, SDD ref, R-round, waiver marker)\n2. `empty-stub` — function/class declared but never implemented, no operator-explicit `# stub-waiver:` marker\n3. `skipped-no-followup` — `pytest.skip` / `unittest.skip` without a follow-up reference\n4. `surface-gap` — §1g surface listed in MODULE_COVERAGE as FUTURE-class waiver (R478 precision: STRUCTURAL waivers are at ceiling and do NOT fire)\n5. `doc-gap` — doc-surface listed in doc-coverage as missing (no readme/sdd/helptext/metric-inventory/mandate-row/man-page for module)\n6. `mandate-todo` — mandate row containing TODO/placeholder text\n7. `minimize-phrase` — source-code occurrence of 'minimize / minimization / minimized' OUTSIDE a doctrine-echo context (R476 precision: 'anti-minimization' / 'do not minimize' verbatim quotations of the operator rule are doctrine echoes and do NOT fire)\n8. `partial-status` — status field set to 'partial' / 'incomplete' / 'in-progress' without an anchor to the round that closes it\n\n**Current state goal (sacrosanct):**\n\n```\n── anti-minimization-audit.report (0 total matches across 8 patterns) ──\n  ✓ todo-no-anchor         0\n  ✓ empty-stub             0\n  ✓ skipped-no-followup    0\n  ✓ surface-gap            0\n  ✓ doc-gap                0\n  ✓ mandate-todo           0\n  ✓ minimize-phrase        0\n  ✓ partial-status         0\n```\n\nA SINGLE match across the 8 patterns is the operator-stated emergency: the contract is being silently shortened. The L3 CI gate (R456) FAILS the build if any pattern is non-zero — there is no 'merge with one outstanding'.\n\n**CLI:**\n\n```\nsovereign-osctl anti-minimization-audit patterns          # enumerate 8\nsovereign-osctl anti-minimization-audit scan [PATTERN]    # cross-codebase\nsovereign-osctl anti-minimization-audit module <name>     # per-module\nsovereign-osctl anti-minimization-audit cross-module      # heatmap\nsovereign-osctl anti-minimization-audit report            # one-screen\nsovereign-osctl anti-minimization-audit waivers           # R474 inline\nsovereign-osctl anti-minimization-audit selfdef           # cross-repo\n```\n\n**Precision filters (R474+R476+R478):**\n\n- `# anti-min-waiver: <anchor> — <rationale>` per-line annotation\n- `_MINIMIZE_DOCTRINE_ECHO_RE` — recognizes operator-rule quotations\n- `_classify_waiver()` — structural-ceiling vs FUTURE-roadmap distinction\n\n**Metric:** `sovereign_os_operator_anti_minimization_audit_query_total{verb,pattern,result}` (SDD-016 Layer B)\n\n**Source:** R456 shipped the 8-pattern instrument + 7 verbs. R490 (R456+) ships THIS dashboard + registers anti-minimization-audit as a first-class module in MODULE_COVERAGE at 3 surfaces (core/cli/dashboard).\n\n**Standing operator rule (sacrosanct, repeated for emphasis):**\n\n> \"We do not minimize anything.\""
+      },
+      "gridPos": {"h": 16, "w": 24, "x": 0, "y": 20}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["sovereign-os", "anti-minimization-audit", "operator", "R490"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "sovereign-os anti-minimization-audit",
+  "uid": "sovereign-os-anti-minimization-audit",
+  "version": 1,
+  "weekStart": ""
+}

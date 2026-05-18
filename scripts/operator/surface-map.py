@@ -234,6 +234,17 @@ MODULE_COVERAGE = {
             "service":   "not applicable — query-only aggregator, no daemon",
         },
     },
+    "anti-minimization-audit": {
+        "shipped_in": "R456 + R490 (Grafana dashboard)",
+        "surfaces": ["core", "cli", "dashboard"],
+        "waivers": {
+            "tui":       "FUTURE — refresh-loop scan-watch TUI (same shape as R488 master-dashboard.watch)",
+            "api":       "FUTURE — REST /anti-minimization-audit/{patterns,scan,report} read endpoints",
+            "mcp":       "FUTURE — agent queries anti-min gaps via MCP",
+            "webapp":    "FUTURE — master-dashboard /anti-minimization-audit subpath",
+            "service":   "not applicable — query-only instrument, no daemon",
+        },
+    },
 }
 
 KNOWN_MODULES = list(MODULE_COVERAGE.keys())
