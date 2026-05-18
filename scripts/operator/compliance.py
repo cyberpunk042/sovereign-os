@@ -109,6 +109,11 @@ INSTRUMENTS = [
     # ux-design-audit selfdef verb).
     {"id": "selfdef-ux", "round": "R464",
      "script": "ux-design-audit.py", "gap_verb": "selfdef"},
+    # R466 — cross-repo: selfdef-side AuditManifest discovery
+    # (consumes SD-R-AUDIT-1 TOML output via R466
+    # anti-minimization-audit selfdef verb).
+    {"id": "selfdef-audit", "round": "R466",
+     "script": "anti-minimization-audit.py", "gap_verb": "selfdef"},
 ]
 INSTRUMENT_IDS = [i["id"] for i in INSTRUMENTS]
 
@@ -178,6 +183,12 @@ def collect_status() -> dict:
     # UxChecklist TOMLs.
     selfdef_ux = _run_json(str(OP_DIR / "ux-design-audit.py"),
                            "selfdef", "--json", timeout=15)
+    # R466 cross-repo: anti-min-audit selfdef verb scans selfdef-side
+    # AuditManifest TOMLs.
+    selfdef_audit = _run_json(
+        str(OP_DIR / "anti-minimization-audit.py"),
+        "selfdef", "--json", timeout=15,
+    )
 
     return {
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -241,6 +252,18 @@ def collect_status() -> dict:
             "total_fail": sum(
                 m.get("fail_count", 0)
                 for m in (selfdef_ux or {}).get("discovered", [])
+            ),
+        },
+        "selfdef_audit": {
+            "available": selfdef_audit is not None,
+            "discovered_count": (selfdef_audit or {}).get("count", 0),
+            "errors": (selfdef_audit or {}).get("errors", []),
+            "manifest_dir": (selfdef_audit or {}).get(
+                "manifest_dir", ""
+            ),
+            "total_findings": sum(
+                m.get("total_findings", 0)
+                for m in (selfdef_audit or {}).get("discovered", [])
             ),
         },
     }
@@ -359,6 +382,15 @@ def cmd_status(args) -> int:
               f"(total_pass={sux['total_pass']}, "
               f"total_fail={sux['total_fail']}, "
               f"errors={len(sux['errors'])})")
+        sa = status["selfdef_audit"]
+        sa_mark = "✓" if sa["available"] and not sa["errors"] else (
+            "⚠" if sa["errors"] else "✗"
+        )
+        print(f"  selfdef-audit     (R466)  {sa_mark} "
+              f"{sa['discovered_count']} selfdef AuditManifest(s) under "
+              f"{sa['manifest_dir']} "
+              f"(total_findings={sa['total_findings']}, "
+              f"errors={len(sa['errors'])})")
     _emit_metric("status", "all", "ok")
     return 0
 

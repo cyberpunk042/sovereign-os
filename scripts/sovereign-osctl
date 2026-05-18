@@ -265,6 +265,9 @@ COMMANDS:
         [--json]                       minimization targets.
   anti-minimization-audit report       One-screen summary: total matches per
                                [--json]                     pattern (operator-discoverable).
+  anti-minimization-audit selfdef      R466 cross-repo: scan /etc/selfdef/
+                               [--json]                     audit-manifests/*.toml for selfdef-side
+                                                            AuditManifests (selfdef crate SD-R-AUDIT-1).
 
   doc-coverage kinds           R454 (E11.M1): operator §1g
                                [--json]                     "documentation through and through";

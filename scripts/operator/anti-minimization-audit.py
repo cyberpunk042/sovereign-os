@@ -87,6 +87,15 @@ DRY_RUN = (
     os.environ.get("SOVEREIGN_OS_DRY_RUN") == "1"
     or os.environ.get("SOVEREIGN_OS_AMIN_DRY_RUN") == "1"
 )
+# R466 cross-repo: selfdef AuditManifest TOMLs live here. Each
+# selfdef module ships one declaring its 8-pattern minimization
+# standing (SD-R-AUDIT-1, crate `selfdef-audit-manifest`).
+SELFDEF_AUDIT_DIR = Path(
+    os.environ.get(
+        "SOVEREIGN_OS_SELFDEF_AUDIT_DIR",
+        "/etc/selfdef/audit-manifests",
+    )
+)
 METRICS_DIR = Path(
     os.environ.get(
         "SOVEREIGN_OS_TEXTFILE_DIR",
@@ -632,6 +641,108 @@ def cmd_report(args) -> int:
     return 0
 
 
+# --- R466 cross-repo selfdef AuditManifest discovery ---
+
+
+def load_selfdef_audit_manifests() -> tuple[list[dict], list[dict]]:
+    """Read every .toml under SELFDEF_AUDIT_DIR.
+
+    Cross-repo binding: SD-R-AUDIT-1 (selfdef crate
+    `selfdef-audit-manifest`).
+    """
+    valid: list[dict] = []
+    errors: list[dict] = []
+    if not SELFDEF_AUDIT_DIR.is_dir():
+        return valid, errors
+    try:
+        import tomllib
+    except ImportError:
+        try:
+            import tomli as tomllib  # type: ignore[import-not-found]
+        except ImportError:
+            errors.append({
+                "path": str(SELFDEF_AUDIT_DIR),
+                "error": "no TOML library available",
+            })
+            return valid, errors
+    valid_patterns = set(PATTERN_IDS)
+    import os as _os
+    for p in sorted(SELFDEF_AUDIT_DIR.glob("*.toml")):
+        try:
+            data = tomllib.loads(p.read_text(encoding="utf-8"))
+        except (OSError, Exception) as e:  # noqa: BLE001
+            errors.append({"path": str(p), "error": f"parse: {e}"})
+            continue
+        if data.get("schema_version") != 1:
+            errors.append({
+                "path": str(p),
+                "error": "unsupported schema_version",
+            })
+            continue
+        mod = data.get("module") or {}
+        findings_in = data.get("findings") or []
+        if not mod.get("id") or not findings_in:
+            errors.append({
+                "path": str(p),
+                "error": "missing module.id or findings[]",
+            })
+            continue
+        findings_out = []
+        bad = None
+        for f in findings_in:
+            pat = f.get("pattern")
+            count = f.get("count")
+            if pat not in valid_patterns:
+                bad = f"unknown pattern {pat!r}"
+                break
+            if not isinstance(count, int) or count < 0:
+                bad = f"bad count {count!r} for {pat!r}"
+                break
+            findings_out.append({
+                "pattern": pat,
+                "count": int(count),
+                "note": f.get("note"),
+            })
+        if bad:
+            errors.append({"path": str(p), "error": bad})
+            continue
+        valid.append({
+            "module": str(mod["id"]),
+            "label": str(mod.get("label", mod["id"])),
+            "findings": findings_out,
+            "total_findings": sum(f["count"] for f in findings_out),
+            "source_repo": "selfdef",
+            "manifest_path": str(p),
+        })
+    return valid, errors
+
+
+def cmd_selfdef(args) -> int:
+    """Scan SELFDEF_AUDIT_DIR for cross-repo AuditManifests."""
+    valid, errors = load_selfdef_audit_manifests()
+    out = {
+        "manifest_dir": str(SELFDEF_AUDIT_DIR),
+        "discovered": valid,
+        "errors": errors,
+        "count": len(valid),
+    }
+    if args.fmt == "json":
+        print(json.dumps(out, indent=2))
+    else:
+        print(f"── anti-minimization-audit.selfdef "
+              f"({len(valid)} selfdef AuditManifest{'s' if len(valid)!=1 else ''} "
+              f"under {SELFDEF_AUDIT_DIR}) ──")
+        for m in valid:
+            mark = "✓" if m["total_findings"] == 0 else "⚠"
+            print(f"  {mark} {m['module']:25s} "
+                  f"total_findings={m['total_findings']}  "
+                  f"({m['label']})")
+        for e in errors:
+            print(f"  ✗ {e['path']}  {e['error']}")
+    _emit_metric("selfdef", "any", "ok" if not errors else "issues")
+    return 0
+
+
 # --- Argparse ---
 
 
@@ -680,6 +791,13 @@ def main(argv: list[str] | None = None) -> int:
                             help="one-screen summary")
     _add_fmt(sp_rep)
 
+    sp_sd = sub.add_parser(
+        "selfdef",
+        help=("R466 cross-repo: scan SELFDEF_AUDIT_DIR for selfdef-side "
+              "AuditManifests (SD-R-AUDIT-1)"),
+    )
+    _add_fmt(sp_sd)
+
     args = p.parse_args(argv)
     return {
         "patterns": cmd_patterns,
@@ -687,6 +805,7 @@ def main(argv: list[str] | None = None) -> int:
         "module": cmd_module,
         "cross-module": cmd_cross_module,
         "report": cmd_report,
+        "selfdef": cmd_selfdef,
     }[args.cmd](args)
 
 

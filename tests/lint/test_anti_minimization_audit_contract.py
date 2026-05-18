@@ -170,6 +170,71 @@ def test_supports_report_verb():
     assert '"report"' in body
 
 
+def test_supports_selfdef_verb():
+    """R466: cross-repo selfdef AuditManifest discovery verb."""
+    body = _read(AM_PY)
+    assert '"selfdef"' in body
+    assert "SD-R-AUDIT-1" in body
+
+
+def test_selfdef_audit_dir_env_overridable():
+    body = _read(AM_PY)
+    assert "SOVEREIGN_OS_SELFDEF_AUDIT_DIR" in body
+
+
+def test_selfdef_default_audit_dir():
+    body = _read(AM_PY)
+    assert "/etc/selfdef/audit-manifests" in body
+
+
+def test_selfdef_verb_smoke():
+    """R466: end-to-end consuming a real selfdef AuditManifest."""
+    import subprocess as _sp
+    import tempfile as _tf
+    with _tf.TemporaryDirectory() as td:
+        Path(td, "agent-guard.toml").write_text(
+            'schema_version = 1\n\n'
+            '[module]\nid = "agent-guard"\nlabel = "Agent Guard"\n\n'
+            '[[findings]]\npattern = "todo-no-anchor"\ncount = 0\n\n'
+            '[[findings]]\npattern = "minimize-phrase"\ncount = 3\n'
+            'note = "three uses in operator-§1g context"\n'
+        )
+        result = _sp.run(
+            ["python3", str(AM_PY), "selfdef", "--json"],
+            capture_output=True, text=True, timeout=10,
+            env={**os.environ,
+                 "SOVEREIGN_OS_SELFDEF_AUDIT_DIR": td},
+        )
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        assert data["count"] == 1
+        m = data["discovered"][0]
+        assert m["module"] == "agent-guard"
+        assert m["total_findings"] == 3
+        assert m["source_repo"] == "selfdef"
+
+
+def test_selfdef_verb_rejects_unknown_pattern():
+    """R466: shape-validates patterns; unknown ones surface as errors."""
+    import subprocess as _sp
+    import tempfile as _tf
+    with _tf.TemporaryDirectory() as td:
+        Path(td, "bad.toml").write_text(
+            'schema_version = 1\n[module]\nid = "x"\nlabel = "X"\n'
+            '[[findings]]\npattern = "vibes-check"\ncount = 0\n'
+        )
+        result = _sp.run(
+            ["python3", str(AM_PY), "selfdef", "--json"],
+            capture_output=True, text=True, timeout=10,
+            env={**os.environ,
+                 "SOVEREIGN_OS_SELFDEF_AUDIT_DIR": td},
+        )
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        assert data["count"] == 0
+        assert len(data["errors"]) == 1
+
+
 def test_json_and_human_format_flags():
     body = _read(AM_PY)
     assert "--json" in body and "--human" in body
