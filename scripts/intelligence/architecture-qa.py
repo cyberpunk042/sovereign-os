@@ -917,6 +917,68 @@ ARCHITECTURE_CONCEPTS: list[dict[str, Any]] = [
                       "operator refinement #4 + seed list Q-016 verbatim"),
     },
     {
+        "id": "C-24",
+        "name": "Sovereign Forge Bootstrap Forge (Stage 1 Kernel Compilation)",
+        "explanation": ("Stage 1: The Bootstrap Forge (Kernel) — Target: "
+                         "Linux Kernel 6.12+ (For Blackwell/Zen 5 native "
+                         "support). Optimization: Compiled with GCC 14 "
+                         "using -march=znver5 -O3. Process: Conducted "
+                         "entirely in a 64GB tmpfs (RAM Disk) to maximize "
+                         "compilation speed and protect NVMe longevity. "
+                         "Drivers: Strict inclusion of atlantic (10GbE), "
+                         "mt7925 (WiFi 7), and nvidia-open-kernel-dkms. "
+                         "Environmental Preparation: apt-get install -y "
+                         "build-essential libncurses-dev bison flex "
+                         "libssl-dev libelf-dev bc git rsync debhelper "
+                         "pahole bwarw tools-compiler gcc-14 g++-14; "
+                         "mount -t tmpfs -o size=64G tmpfs /mnt/kernel"
+                         "_forge. Kernel Configuration: export "
+                         "KCFLAGS=\"-march=znver5 -O3 -pipe -mabm -madx "
+                         "-mavx512f -mavx512dq -mavx512bw -mavx512vl "
+                         "-mavx512bf16 -mavx512fp16\" + explicit option "
+                         "enforcement (CONFIG_MNATIVE_AMD + CONFIG_AMD"
+                         "_IOMMU + CONFIG_VFIO + CONFIG_VFIO_PCI + "
+                         "CONFIG_ZFS + CONFIG_PREEMPT + CONFIG_HZ 1000 "
+                         "+ CONFIG_AQC111 + CONFIG_IGC + CONFIG_MT7925). "
+                         "Compilation: make -j24 deb-pkg (Parallel "
+                         "24-Thread). The kernel must be explicitly "
+                         "optimized for the Zen 5 execution pipeline "
+                         "(znver5). Compilation occurs completely within "
+                         "volatile memory (tmpfs) to minimize disk I/O "
+                         "overhead and latency."),
+        "tags": ["kernel-build", "sovereign-forge", "tmpfs", "znver5",
+                 "gcc-14", "linux-6.12", "deb-pkg", "atlantic",
+                 "mt7925", "nvidia-open-kernel-dkms", "kcflags",
+                 "stage-1", "bootstrap-forge"],
+        "spec_ref": "master spec §2 + §2.1 + §2.2 verbatim (Bootstrap Forge)",
+    },
+    {
+        "id": "C-25",
+        "name": "Implementation Ledger (4-item Next Steps verbatim)",
+        "explanation": ("Implementation Ledger (Next Steps): "
+                         "1. Forge Initialization — Execute the tmpfs "
+                         "kernel build with znver5 flags. "
+                         "2. ISO Synthesis — Generate the live-build "
+                         "artifact with verbatim identity injection. "
+                         "3. Physical Audit — Verify the empty M.2_2 "
+                         "slot and x8/x8 lane negotiation. "
+                         "4. Security Deployment — Load the Tetragon "
+                         "TracingPolicy to perimeter-fence the agents. "
+                         "These 4 steps are the operator's verbatim "
+                         "post-§5 Implementation Ledger from the "
+                         "[END OF SPECIFICATION] block. Mapped to "
+                         "sovereign-os execution flow: step 1 → "
+                         "bootstrap phases II (kernel build); step 2 → "
+                         "bootstrap phase III (OS Image / live-build); "
+                         "step 3 → bootstrap verify §22 friction-audit "
+                         "(M.2_2 + x8/x8 check); step 4 → bootstrap "
+                         "phase V (Perimeter / Tetragon + Guardian)."),
+        "tags": ["implementation-ledger", "next-steps", "forge-init",
+                 "iso-synthesis", "physical-audit", "security-deployment",
+                 "4-step", "end-of-specification"],
+        "spec_ref": "master spec §6 verbatim (Implementation Ledger)",
+    },
+    {
         "id": "C-10",
         "name": "Wasm-to-AVX-512 AOT Pipeline (The Pulse implementation)",
         "explanation": ("When The Pulse processes low-bit matrix logic "

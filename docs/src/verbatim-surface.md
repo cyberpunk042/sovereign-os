@@ -9,7 +9,7 @@ lives in the Python catalog files; this doc regenerates from them.
 
   - **questions**: 4
   - **gotchas**: 3
-  - **concepts**: 23
+  - **concepts**: 25
   - **coverage_axes**: 30
   - **ccd_layers**: 3
   - **state_files**: 4
@@ -18,7 +18,7 @@ lives in the Python catalog files; this doc regenerates from them.
   - **network_diagram_lines**: 13
   - **repl_modes**: 4
 
-  **Total verbatim items**: 76
+  **Total verbatim items**: 78
 
 ---
 
@@ -236,6 +236,18 @@ _spec ref: macro-arc plan dump 2026-05-16 — post-Plan operator refinement #3 v
 Q-016 distro-base reconsideration (added to macro-arc seed list at operator refinement #4, 2026-05-16): would switching from Debian 13 to another base unlock material new potential we'd lose by staying? Stays open through PR 4 substrate survey; resolved at Stage Gate 2 alongside Q-001 (substrate tooling). Candidates evaluated in the survey honestly include: NixOS (declarative + rollback + reproducibility wins; familiarity cost + Sovereign-OS-stranded-from-Debian-ecosystem losses); Fedora Silverblue + ostree (atomic image-based wins; loses Debian package universe); Arch Linux (rolling release pulls us into upstream entropy per master spec §13 Q-01); Buildroot/Yocto (embedded reference for contrast — too low-level for the operator's use case). Working hypothesis from operator: stay on Debian + customize the boat — but the survey is the formal honesty gate.
 
 _spec ref: macro-arc plan dump 2026-05-16 — post-Plan operator refinement #4 + seed list Q-016 verbatim_
+
+### C-24 — Sovereign Forge Bootstrap Forge (Stage 1 Kernel Compilation)
+
+Stage 1: The Bootstrap Forge (Kernel) — Target: Linux Kernel 6.12+ (For Blackwell/Zen 5 native support). Optimization: Compiled with GCC 14 using -march=znver5 -O3. Process: Conducted entirely in a 64GB tmpfs (RAM Disk) to maximize compilation speed and protect NVMe longevity. Drivers: Strict inclusion of atlantic (10GbE), mt7925 (WiFi 7), and nvidia-open-kernel-dkms. Environmental Preparation: apt-get install -y build-essential libncurses-dev bison flex libssl-dev libelf-dev bc git rsync debhelper pahole bwarw tools-compiler gcc-14 g++-14; mount -t tmpfs -o size=64G tmpfs /mnt/kernel_forge. Kernel Configuration: export KCFLAGS="-march=znver5 -O3 -pipe -mabm -madx -mavx512f -mavx512dq -mavx512bw -mavx512vl -mavx512bf16 -mavx512fp16" + explicit option enforcement (CONFIG_MNATIVE_AMD + CONFIG_AMD_IOMMU + CONFIG_VFIO + CONFIG_VFIO_PCI + CONFIG_ZFS + CONFIG_PREEMPT + CONFIG_HZ 1000 + CONFIG_AQC111 + CONFIG_IGC + CONFIG_MT7925). Compilation: make -j24 deb-pkg (Parallel 24-Thread). The kernel must be explicitly optimized for the Zen 5 execution pipeline (znver5). Compilation occurs completely within volatile memory (tmpfs) to minimize disk I/O overhead and latency.
+
+_spec ref: master spec §2 + §2.1 + §2.2 verbatim (Bootstrap Forge)_
+
+### C-25 — Implementation Ledger (4-item Next Steps verbatim)
+
+Implementation Ledger (Next Steps): 1. Forge Initialization — Execute the tmpfs kernel build with znver5 flags. 2. ISO Synthesis — Generate the live-build artifact with verbatim identity injection. 3. Physical Audit — Verify the empty M.2_2 slot and x8/x8 lane negotiation. 4. Security Deployment — Load the Tetragon TracingPolicy to perimeter-fence the agents. These 4 steps are the operator's verbatim post-§5 Implementation Ledger from the [END OF SPECIFICATION] block. Mapped to sovereign-os execution flow: step 1 → bootstrap phases II (kernel build); step 2 → bootstrap phase III (OS Image / live-build); step 3 → bootstrap verify §22 friction-audit (M.2_2 + x8/x8 check); step 4 → bootstrap phase V (Perimeter / Tetragon + Guardian).
+
+_spec ref: master spec §6 verbatim (Implementation Ledger)_
 
 ### C-10 — Wasm-to-AVX-512 AOT Pipeline (The Pulse implementation)
 

@@ -91,14 +91,19 @@ def test_round_numbers_in_active_range():
 
 
 def test_round_numbers_well_formed_no_zero_padding():
-    """R<N> citations MUST be unpadded (R5 not R005, R34 not R034).
-    Operator convention: integers, not zero-padded strings."""
-    body = MANDATE.read_text(encoding="utf-8")
-    # Find any R0\d+ patterns (zero-padded) — catches R005 / R034
-    zero_padded = re.findall(r"\bR0\d+\b", body)
-    assert not zero_padded, (
-        f"mandate contains zero-padded round numbers: {set(zero_padded)}. "
-        f"Operator convention is unpadded integers (R5, R34, etc)."
+    """R<N> citations in mandate ROUNDS COLUMN must be unpadded
+    (R5 not R005). Scope: only the Rounds column of each row.
+    Documentation examples in row text (e.g. 'R5 not R005' as a
+    counter-example) are allowed."""
+    refs = _mandate_rounds_column_refs()
+    bad: list[tuple[str, str]] = []
+    for row_id, rounds in refs.items():
+        for r in rounds:
+            if r.startswith("0") and len(r) > 1:
+                bad.append((row_id, r))
+    assert not bad, (
+        f"mandate Rounds column contains zero-padded round numbers: "
+        f"{bad}. Operator convention is unpadded integers."
     )
 
 
