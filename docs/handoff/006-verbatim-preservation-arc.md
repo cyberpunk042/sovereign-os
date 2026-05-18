@@ -1,7 +1,7 @@
-# Handoff 006 — Verbatim-preservation arc (R355-R394)
+# Handoff 006 — Verbatim-preservation arc (R355-R400)
 
 > **Status**: structurally mature (perpetual mandate continues)
-> **Last updated**: 2026-05-18 (extended in R395 to cover R381-R394)
+> **Last updated**: 2026-05-18 (R400 milestone — extends R395+R381 to cover R395-R399)
 > **Owner**: sovereign-os core
 > **Predecessor handoff**: 005-master-spec-materialization-arc.md
 
@@ -85,18 +85,36 @@ ship time (E2.M21 mandate-row duplicate + A-06 fabricated row +
 - R370 static-doc drift detection (9 assertions)
 - Bidirectional Tetragon 4-binary allowlist consistency (within R367)
 
-## Final state (updated through R394)
+## Final state (updated through R400 — 46-round milestone)
 
 ```
 Coverage:  32 ✓ shipped, 0 partial, 0 TODO (of 32 total)
-Doctrine:  19 lints / 167 assertions / 23 bugs caught
+Doctrine:  23 lints / 210 assertions / 23 bugs caught
 Verbatim:  82 catalogued items / ~537 operator-exact phrases
            mechanized at push-time across 19 master spec sections
-Operational artifacts pinned: 9 files (R387-R394)
-Trinity-side pinning: COMPLETE (Pulse + Weaver + Auditor)
-Mandate:   168+ rows / ~120KB
-Grade:     A (stable across 40 rounds)
+Operational artifacts pinned: 11 files (R387-R399)
+Systemd Descriptions pinned: 4 (Trinity-side identity, R397)
+Trinity-side pinning: COMPLETE (Pulse + Weaver + Auditor scripts +
+                                  Descriptions + ZFS + VFIO + Tetragon)
+Bidirectional-consistency lints: 4 (R367, R373, R384, R399)
+Mandate:   175+ rows / ~135KB
+Grade:     A (stable across 46 rounds)
 ```
+
+## R395-R399 extensions (after R381 handoff)
+
+After R381 handoff and R395 doc refresh, R396-R399 extended
+operational-artifact pinning by 4 more rounds:
+
+| Round | Surface | Bugs caught |
+|-------|---------|-------------|
+| R396 | ZFS dataset §4.1 spec (3 datasets × recordsize+compression+copies) | — |
+| R397 | Trinity systemd unit Descriptions (4 .service files) | — |
+| R398 | VFIO-bind §4.3 GRUB cmdline (amd_iommu=on + iommu=pt + PCI IDs) | — |
+| R399 | ZFS ARC clamp §4.2 (128 GiB = 137438953472 bytes, bidirectional) | — |
+
+R396-R399 added 4 new L1 lints + 43 assertions + 1 new bidirectional-
+consistency lint (R399 ZFS ARC writer ↔ verify-grid verifier).
 
 ## Post-R381 extensions (R382-R394)
 
