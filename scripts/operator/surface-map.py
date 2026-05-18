@@ -202,13 +202,9 @@ MODULE_COVERAGE = {
         "waivers": {},
     },
     "doc-coverage": {
-        "shipped_in": "R454 + R491 (Grafana dashboard) + R525 (E5++ refresh-loop TUI surface) + R526 (E5++ MCP surface)",
-        "surfaces": ["core", "cli", "tui", "dashboard", "mcp"],
-        "waivers": {
-            "api":       "FUTURE — REST /doc-coverage/{kinds,modules,coverage,gaps} read endpoints",
-            "webapp":    "FUTURE — master-dashboard /doc-coverage subpath",
-            "service":   "not applicable — query-only instrument, no daemon",
-        },
+        "shipped_in": "R454 + R491 (Grafana dashboard) + R525 (E5++ refresh-loop TUI surface) + R526 (E5++ MCP surface) + R527 (E5++ read-only REST API + webapp + systemd service)",
+        "surfaces": ["core", "cli", "tui", "api", "service", "dashboard", "mcp", "webapp"],
+        "waivers": {},
     },
     "ux-design-audit": {
         "shipped_in": "R457 + R492 (Grafana dashboard)",
