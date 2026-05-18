@@ -206,6 +206,9 @@ E11.M3 (operator §1g — multi-surface delivery contract):
 E11.M1 (operator §1g — documentation through-and-through):
 - `sovereign_os_operator_doc_coverage_query_total{verb,kind,result}` — `sovereign-osctl doc-coverage <verb>` queries (verb=kinds/modules/scan/coverage/gaps; kind=readme|sdd|helptext|metric-inventory|mandate-row|man-page|all|any|unknown; result=ok|below-threshold|unknown-module)
 
+E11.M11 (operator §1g — anti-minimization audit standing rule):
+- `sovereign_os_operator_anti_minimization_audit_query_total{verb,pattern,result}` — `sovereign-osctl anti-minimization-audit <verb>` queries (verb=patterns/scan/module/cross-module/report; pattern=todo-no-anchor|empty-stub|skipped-no-followup|surface-gap|doc-gap|mandate-todo|minimize-phrase|partial-status|all|any|unknown; result=ok|unknown-pattern|unknown-module)
+
 When a new hook adds metrics: add a row to the section above + a panel
 to the relevant dashboard JSON + bump the dashboard `version`.
 Operators re-import to pick up. The `test_metric_inventory_lockstep.py`

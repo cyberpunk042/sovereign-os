@@ -216,6 +216,20 @@ COMMANDS:
         [--force-skip-tiers]
         [--json]
 
+  anti-minimization-audit patterns     R456 (E11.M11): operator §1g standing
+                               [--json]                     rule "do not minimize or settle for less".
+                                                            Enumerates 8 minimization patterns.
+  anti-minimization-audit scan         Scan repo for matches (all 8 or one
+        [--pattern <p>]                via --pattern). Returns file:line
+        [--limit N] [--json]           locations.
+  anti-minimization-audit module <n>   Per-module audit: surface gaps +
+                               [--json]                     doc gaps + minimize-phrases in module files.
+  anti-minimization-audit cross-module Modules short on BOTH surface AND doc
+        [--threshold N]                axes — highest-priority anti-
+        [--json]                       minimization targets.
+  anti-minimization-audit report       One-screen summary: total matches per
+                               [--json]                     pattern (operator-discoverable).
+
   doc-coverage kinds           R454 (E11.M1): operator §1g
                                [--json]                     "documentation through and through";
                                                             enumerates 6 doc surfaces (readme/sdd/
@@ -6597,6 +6611,18 @@ case "${cmd}" in
     # → advanced → social → enterprise → network-level). Per-dashboard
     # tier registry + upgrade matrix + triple-gated set.
     "${__REPO_ROOT}/scripts/operator/auth-tier.py" "$@"
+    ;;
+  anti-minimization-audit)
+    # R456 (E11.M11): operator §1g STANDING RULE verbatim — "If you
+    # think something is really already done, ask yourself if you
+    # covered all angles and levels and layers and even if then
+    # improve it. Do not minimize or settle for less." Scans codebase
+    # for 8 operator-named minimization patterns (todo-no-anchor /
+    # empty-stub / skipped-no-followup / surface-gap / doc-gap /
+    # mandate-todo / minimize-phrase / partial-status). Operator-
+    # discoverable anti-minimization discipline; bridges R453 +
+    # R454 for cross-module §1g compliance.
+    "${__REPO_ROOT}/scripts/operator/anti-minimization-audit.py" "$@"
     ;;
   doc-coverage)
     # R454 (E11.M1): operator §1g verbatim — "very clear and well
