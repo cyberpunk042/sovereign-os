@@ -298,6 +298,10 @@ COMMANDS:
         [--module <m>]         (default 3; SOVEREIGN_OS_DOC_THRESHOLD
         [--threshold N]        env-override). Exit 2 on gaps.
         [--json]
+  doc-coverage watch           R525 (E5++): refresh-loop TUI surface
+        [--refresh N]          for the R454 doc-coverage matrix. Same
+        [--iterations N]       shape as `anti-minimization-audit watch`
+                               (R522).
 
   surface-map surfaces         R453 (E11.M3): operator §1g 8-surface
                                [--json]                     taxonomy (core/cli/TUI/API/MCP/Dashboard/
@@ -4227,6 +4231,85 @@ ANTI_MIN_WATCH_HELP
   return 0
 }
 
+# R525 (E5++) — doc-coverage refresh-loop TUI surface.
+# Continuously re-renders the R454 6-surface per-module documentation
+# coverage matrix (readme / sdd / helptext / metric-inventory /
+# mandate-row / man-page). Same shape as `compliance watch` (R519),
+# `anti-min watch` (R522), `router watch` (R516), `trinity watch`
+# (R513). Opens the doc-coverage tier-3 expansion arc.
+_doc_coverage_watch() {
+  local refresh=5
+  local iterations=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --refresh)    refresh="${2:-5}"; shift 2 ;;
+      --refresh=*)  refresh="${1#*=}"; shift ;;
+      --iterations) iterations="${2:-0}"; shift 2 ;;
+      --iterations=*) iterations="${1#*=}"; shift ;;
+      -h|--help)
+        cat <<'DOC_COVERAGE_WATCH_HELP'
+  doc-coverage watch [--refresh N] [--iterations N]
+
+  Refresh-loop TUI surface for the R454 doc-coverage matrix.
+  Continuously re-renders the per-module 6-surface coverage view
+  (readme / sdd / helptext / metric-inventory / mandate-row / man-
+  page). Operator-§1g standing rule: docs ARE the source of truth.
+
+  Options:
+    --refresh N       seconds between renders (default: 5, min: 1)
+    --iterations N    cap the number of renders (default: 0 = unbounded;
+                      SOVEREIGN_OS_DRY_RUN=1 forces a single render)
+DOC_COVERAGE_WATCH_HELP
+        return 0
+        ;;
+      *)
+        log_error "unknown doc-coverage watch flag: $1"
+        return 2
+        ;;
+    esac
+  done
+
+  case "${refresh}" in
+    ''|*[!0-9]*) refresh=5 ;;
+  esac
+  case "${iterations}" in
+    ''|*[!0-9]*) iterations=0 ;;
+  esac
+  if [[ "${refresh}" -lt 1 ]]; then refresh=1; fi
+
+  if [[ "${SOVEREIGN_OS_DRY_RUN:-}" == "1" ]]; then
+    if [[ "${iterations}" -eq 0 ]]; then iterations=1; fi
+  fi
+
+  local frame=0
+  while :; do
+    frame=$((frame + 1))
+    printf '\x1b[2J\x1b[H'
+    local now
+    now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "── doc-coverage.watch (frame ${frame}, refresh=${refresh}s, ${now}) ──"
+    echo
+    "${__REPO_ROOT}/scripts/operator/doc-coverage.py" coverage 2>/dev/null \
+      || echo "  (doc-coverage coverage emit failed — module data missing?)"
+    echo
+    if [[ "${iterations}" -gt 0 && "${frame}" -ge "${iterations}" ]]; then
+      echo "  (reached --iterations=${iterations}; exit)"
+    else
+      echo "  (Ctrl-C to exit; refresh in ${refresh}s)"
+    fi
+
+    if [[ "${iterations}" -gt 0 && "${frame}" -ge "${iterations}" ]]; then
+      break
+    fi
+    if ! sleep "${refresh}" 2>/dev/null; then
+      echo
+      echo "  ── doc-coverage.watch interrupted ──"
+      break
+    fi
+  done
+  return 0
+}
+
 # Pulse — Vector Core (CCD0; AVX-512; bitnet.cpp; Wasm AOT)
 _trinity_pulse_brief() {
   echo "  [Pulse] — Vector Core (master spec § 17 Module 1; CCD0 cores 0-5)"
@@ -7278,7 +7361,20 @@ case "${cmd}" in
     # doc surfaces (readme/sdd/helptext/metric-inventory/mandate-row/
     # man-page). Auto-discovery via grep: docs ARE the source of truth.
     # 5 verbs: kinds / modules / scan / coverage / gaps.
-    "${__REPO_ROOT}/scripts/operator/doc-coverage.py" "$@"
+    # R525 (E5++): adds the `watch` refresh-loop TUI surface — drains
+    # the doc-coverage tui:FUTURE waiver, opens the doc-coverage tier-3
+    # surface-expansion arc (R525 TUI → R526 MCP → R527 API + webapp +
+    # service), same shape as the trinity R513-R515 / router R516-R518 /
+    # compliance R519-R521 / anti-min R522-R524 arcs.
+    case "${1:-}" in
+      watch)
+        shift
+        _doc_coverage_watch "$@"
+        ;;
+      *)
+        "${__REPO_ROOT}/scripts/operator/doc-coverage.py" "$@"
+        ;;
+    esac
     ;;
   surface-map)
     # R453 (E11.M3): operator §1g verbatim — "Everything is not just
