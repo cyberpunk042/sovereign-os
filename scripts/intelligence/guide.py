@@ -379,6 +379,81 @@ DEFAULT_TOPICS: list[dict[str, Any]] = [
         ],
     },
     {
+        "topic": "autohealth",
+        "axis": "intelligence",
+        "mission": (
+            "R308 autohealth / doctor — periodic synthesizer that "
+            "composes 6 axes (health-scan + thermal-oc + storage-health "
+            "+ operator-posture + memory-pressure + network) into ONE "
+            "tick that persists state + emits notify-dispatch commands "
+            "when severity crosses threshold. Operator-pull 'is anything "
+            "asking for my attention right now?'."
+        ),
+        "layers": [
+            "1. Latest doctor tick (R308 autohealth status)",
+            "2. Doctor history (R308 autohealth recent)",
+            "3. Quick one-shot probe (R226 doctor)",
+            "4. Notification dispatch queue (R310 notify list)",
+            "5. Operator-posture trend (R300 operator-posture)",
+        ],
+        "operator_verbs": [
+            "sovereign-osctl autohealth status --json",
+            "sovereign-osctl autohealth recent --json",
+            "sovereign-osctl doctor --json",
+            "sovereign-osctl notify list --json",
+            "sovereign-osctl operator-posture --json",
+        ],
+        "thresholds": {
+            "severity-attention":
+                "any sub-axis verdict='attention' → doctor tick records",
+            "severity-critical":
+                "any sub-axis verdict='critical' → notify-dispatch fired",
+            "tick-cadence":
+                "default 5 min (systemd timer sovereign-autohealth-tick.timer)",
+        },
+        "cross_refs": ["SDD-022 doctor-axes", "R308 autohealth"],
+        "bios_or_hw_caveats": [],
+    },
+    {
+        "topic": "selfdef",
+        "axis": "ai",
+        "mission": (
+            "Selfdef is the sister repo (cyberpunk042/selfdef) — the "
+            "operator's REPL + module system + macro substrate. "
+            "Sovereign-os surfaces selfdef cross-state via the "
+            "mcp-aggregate manifest (R286): 31 read-only tools spanning "
+            "hardware/gpu/cpu/psu/network/kernel/dashboard/health/etc., "
+            "PLUS optional upstream selfdef MCP TCP descriptor (SD-R94)."
+        ),
+        "layers": [
+            "1. Unified MCP manifest (R286 mcp-aggregate manifest)",
+            "2. Probe upstream selfdef (R286 mcp-aggregate probe-upstream)",
+            "3. Selfdef cycle-N module gate (cross-repo; see selfdef README)",
+            "4. Selfdef macro / @selfdef_macro substrate (SD-R98; see selfdef)",
+        ],
+        "operator_verbs": [
+            "sovereign-osctl mcp-aggregate manifest --json",
+            "sovereign-osctl mcp-aggregate probe-upstream <host:port> --json",
+            "# cross-repo: selfdefctl modules list",
+            "# cross-repo: selfdef repl",
+        ],
+        "thresholds": {
+            "manifest-tool-count":
+                "31 sovereign-os tools (covers every §1b-named axis)",
+            "upstream-required":
+                "no — manifest stands alone; selfdef MCP is OPTIONAL upstream",
+        },
+        "cross_refs": ["SDD-031 mcp-aggregate", "SD-R98 selfdef_macro",
+                       "SD-R94 selfdef MCP"],
+        "bios_or_hw_caveats": [
+            "Sovereign-os does NOT run its own MCP listener — manifest "
+            "is the deliverable; clients wire both endpoints natively.",
+            "Selfdef repo lives at cyberpunk042/selfdef — operations on "
+            "it require a sovereign-osctl agent invocation with selfdef "
+            "repo scope, not this scope.",
+        ],
+    },
+    {
         "topic": "network",
         "axis": "network",
         "mission": (
