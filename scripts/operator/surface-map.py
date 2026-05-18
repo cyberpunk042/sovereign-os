@@ -235,6 +235,17 @@ MODULE_COVERAGE = {
 
 KNOWN_MODULES = list(MODULE_COVERAGE.keys())
 
+# R462 cross-repo: selfdef-side SurfaceManifest TOMLs live here. The
+# selfdef-surface-manifest crate (SD-R-MULTI-SURFACE-AUDIT-1) writes
+# one per module declaring its §1g surface coverage. surface-map
+# `selfdef` verb reads them.
+SELFDEF_SURFACE_DIR = Path(
+    os.environ.get(
+        "SOVEREIGN_OS_SELFDEF_SURFACE_DIR",
+        "/etc/selfdef/surfaces",
+    )
+)
+
 
 def _emit_metric(verb: str, surface: str, result: str) -> None:
     """Best-effort SDD-016 metric write; never raises."""
@@ -436,6 +447,123 @@ def cmd_waivers(args) -> int:
     return 0
 
 
+# --- R462 cross-repo selfdef surface-manifest discovery ---
+
+
+def load_selfdef_surface_manifests() -> tuple[list[dict], list[dict]]:
+    """Read every .toml under SELFDEF_SURFACE_DIR.
+
+    Returns (valid, errors). Each valid entry has:
+      module, label, surfaces (list of {id, state, reason?}),
+      shipped_count, planned_count, waived_count,
+      source_repo='selfdef', manifest_path.
+
+    Cross-repo binding: SD-R-MULTI-SURFACE-AUDIT-1
+    (crates/selfdef-surface-manifest in selfdef repo).
+    """
+    valid: list[dict] = []
+    errors: list[dict] = []
+    if not SELFDEF_SURFACE_DIR.is_dir():
+        return valid, errors
+    try:
+        import tomllib
+    except ImportError:
+        try:
+            import tomli as tomllib  # type: ignore[import-not-found]
+        except ImportError:
+            errors.append({
+                "path": str(SELFDEF_SURFACE_DIR),
+                "error": "no TOML library available",
+            })
+            return valid, errors
+    for p in sorted(SELFDEF_SURFACE_DIR.glob("*.toml")):
+        try:
+            data = tomllib.loads(p.read_text(encoding="utf-8"))
+        except (OSError, Exception) as e:  # noqa: BLE001
+            errors.append({"path": str(p), "error": f"parse: {e}"})
+            continue
+        if data.get("schema_version") != 1:
+            errors.append({
+                "path": str(p),
+                "error": "unsupported schema_version",
+            })
+            continue
+        mod = data.get("module") or {}
+        surfaces_in = data.get("surfaces") or []
+        if not mod.get("id") or not surfaces_in:
+            errors.append({
+                "path": str(p),
+                "error": "missing module.id or surfaces[]",
+            })
+            continue
+        # Validate per-entry shape; reject unknown surface ids
+        valid_surfaces = []
+        bad_id = None
+        for s in surfaces_in:
+            sid = s.get("id")
+            state = s.get("state")
+            if sid not in SURFACE_IDS:
+                bad_id = sid
+                break
+            if state not in ("shipped", "waived", "planned"):
+                bad_id = f"state={state}"
+                break
+            valid_surfaces.append({
+                "id": sid,
+                "state": state,
+                "reason": s.get("reason"),
+            })
+        if bad_id is not None:
+            errors.append({
+                "path": str(p),
+                "error": f"bad surface entry: {bad_id}",
+            })
+            continue
+        valid.append({
+            "module": str(mod["id"]),
+            "label": str(mod.get("label", mod["id"])),
+            "surfaces": valid_surfaces,
+            "shipped_count": sum(
+                1 for s in valid_surfaces if s["state"] == "shipped"
+            ),
+            "waived_count": sum(
+                1 for s in valid_surfaces if s["state"] == "waived"
+            ),
+            "planned_count": sum(
+                1 for s in valid_surfaces if s["state"] == "planned"
+            ),
+            "source_repo": "selfdef",
+            "manifest_path": str(p),
+        })
+    return valid, errors
+
+
+def cmd_selfdef(args) -> int:
+    """Scan SELFDEF_SURFACE_DIR for cross-repo SurfaceManifests."""
+    valid, errors = load_selfdef_surface_manifests()
+    out = {
+        "manifest_dir": str(SELFDEF_SURFACE_DIR),
+        "discovered": valid,
+        "errors": errors,
+        "count": len(valid),
+    }
+    if args.fmt == "json":
+        print(json.dumps(out, indent=2))
+    else:
+        print(f"── surface-map.selfdef "
+              f"({len(valid)} selfdef manifest{'s' if len(valid)!=1 else ''} "
+              f"under {SELFDEF_SURFACE_DIR}) ──")
+        for m in valid:
+            print(f"  ✓ {m['module']:25s} "
+                  f"shipped={m['shipped_count']}/8 "
+                  f"waived={m['waived_count']} "
+                  f"planned={m['planned_count']}  ({m['label']})")
+        for e in errors:
+            print(f"  ✗ {e['path']}  {e['error']}")
+    _emit_metric("selfdef", "any", "ok" if not errors else "issues")
+    return 0
+
+
 # --- Argparse ---
 
 
@@ -484,6 +612,13 @@ def main(argv: list[str] | None = None) -> int:
     sp_waiv.add_argument("--module", help="filter to one module")
     _add_fmt(sp_waiv)
 
+    sp_sd = sub.add_parser(
+        "selfdef",
+        help=("R462 cross-repo: scan SELFDEF_SURFACE_DIR for selfdef-"
+              "side SurfaceManifests (SD-R-MULTI-SURFACE-AUDIT-1)"),
+    )
+    _add_fmt(sp_sd)
+
     args = p.parse_args(argv)
     return {
         "surfaces": cmd_surfaces,
@@ -491,6 +626,7 @@ def main(argv: list[str] | None = None) -> int:
         "coverage": cmd_coverage,
         "gaps": cmd_gaps,
         "waivers": cmd_waivers,
+        "selfdef": cmd_selfdef,
     }[args.cmd](args)
 
 

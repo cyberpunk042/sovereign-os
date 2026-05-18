@@ -296,6 +296,12 @@ COMMANDS:
   surface-map waivers          Per-module explicit waivers (which
         [--module <m>]         surfaces a module legitimately doesn't
         [--json]               ship on + operator-named rationale).
+  surface-map selfdef          R462 cross-repo: scan /etc/selfdef/
+                               [--json]                     surfaces/*.toml (SOVEREIGN_OS_SELFDEF_
+                                                            SURFACE_DIR env-override) for selfdef-
+                                                            side SurfaceManifests (selfdef crate
+                                                            SD-R-MULTI-SURFACE-AUDIT-1). Reports
+                                                            shipped/waived/planned per module.
 
   master-dashboard list        R452 (E11.M2): operator §1g reverse-proxy
                                [--json]                     aggregator — enumerates dashboards

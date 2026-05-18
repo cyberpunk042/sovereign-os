@@ -167,6 +167,72 @@ def test_supports_waivers_verb():
     assert '"waivers"' in body
 
 
+def test_supports_selfdef_verb():
+    """R462: cross-repo selfdef SurfaceManifest discovery verb."""
+    body = _read(SM_PY)
+    assert '"selfdef"' in body
+    assert "SD-R-MULTI-SURFACE-AUDIT-1" in body
+
+
+def test_selfdef_surface_dir_env_overridable():
+    body = _read(SM_PY)
+    assert "SOVEREIGN_OS_SELFDEF_SURFACE_DIR" in body
+
+
+def test_selfdef_default_surface_dir():
+    body = _read(SM_PY)
+    assert "/etc/selfdef/surfaces" in body
+
+
+def test_selfdef_verb_runs_with_fixtures():
+    """R462: end-to-end smoke test consuming a real selfdef manifest."""
+    import subprocess as _sp
+    import tempfile as _tf
+    with _tf.TemporaryDirectory() as td:
+        Path(td, "agent-guard.toml").write_text(
+            'schema_version = 1\n\n'
+            '[module]\nid = "agent-guard"\nlabel = "Agent Guard"\n\n'
+            '[[surfaces]]\nid = "core"\nstate = "shipped"\n\n'
+            '[[surfaces]]\nid = "tui"\nstate = "waived"\n'
+            'reason = "no interactive surface"\n'
+        )
+        result = _sp.run(
+            ["python3", str(SM_PY), "selfdef", "--json"],
+            capture_output=True, text=True, timeout=10,
+            env={**os.environ,
+                 "SOVEREIGN_OS_SELFDEF_SURFACE_DIR": td},
+        )
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        assert data["count"] == 1
+        m = data["discovered"][0]
+        assert m["module"] == "agent-guard"
+        assert m["shipped_count"] == 1
+        assert m["waived_count"] == 1
+        assert m["source_repo"] == "selfdef"
+
+
+def test_selfdef_verb_rejects_bad_schema():
+    """R462: unsupported schema_version surfaces as an error entry."""
+    import subprocess as _sp
+    import tempfile as _tf
+    with _tf.TemporaryDirectory() as td:
+        Path(td, "bad.toml").write_text(
+            'schema_version = 99\n[module]\nid = "x"\nlabel = "X"\n'
+            '[[surfaces]]\nid = "core"\nstate = "shipped"\n'
+        )
+        result = _sp.run(
+            ["python3", str(SM_PY), "selfdef", "--json"],
+            capture_output=True, text=True, timeout=10,
+            env={**os.environ,
+                 "SOVEREIGN_OS_SELFDEF_SURFACE_DIR": td},
+        )
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        assert data["count"] == 0
+        assert len(data["errors"]) == 1
+
+
 def test_json_and_human_format_flags():
     body = _read(SM_PY)
     assert "--json" in body and "--human" in body
