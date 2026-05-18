@@ -48,6 +48,15 @@ import sys
 from pathlib import Path
 from typing import Any
 
+# R348 (E9.M17, SDD-032 §4): consult R317 catalog for R252-tagged
+# operator-actionable caveats (e.g. UPS 1980W < dual-GPU peak warning).
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_REPO_ROOT / "scripts" / "lib"))
+try:
+    from inventory_consult import find_advisor_caveats  # type: ignore
+except Exception:  # pragma: no cover
+    find_advisor_caveats = None
+
 try:
     import tomllib  # Python 3.11+
 except ImportError:  # pragma: no cover
@@ -502,6 +511,33 @@ def cmd_advisories(args: argparse.Namespace) -> int:
             f"{', '.join(thermal['warn_sensors'][:3])}. Monitor — drop "
             "sustained load OR improve airflow if this persists."
         )
+    # R348 (E9.M17): surface R317 catalog operator-actionable caveats
+    # tagged for R252. Specifically: UPS SMT2200C carries a warning that
+    # its 1980W rating < operator's PSU 1600W draw + headroom when on
+    # battery during dual-GPU sustained peak. Surface to operator as
+    # 'attention' when UPS is reporting OnBattery, regardless of bat_pct.
+    inventory_caveats: list[dict] = []
+    if find_advisor_caveats is not None:
+        try:
+            inventory_caveats = find_advisor_caveats("R252")
+        except Exception:
+            inventory_caveats = []
+    out["inventory_caveats"] = inventory_caveats
+    if ups is not None and inventory_caveats:
+        ups_state = (ups.get("status") or "").upper()
+        on_battery = (
+            "ONBATT" in ups_state or "ON BATTERY" in ups_state
+            or ups_state == "OB"
+        )
+        if on_battery:
+            for cv in inventory_caveats:
+                if cv.get("severity") == "warn":
+                    if out["verdict"] == "ok":
+                        out["verdict"] = "attention"
+                    out["advisories"].append(
+                        f"on-battery + inventory caveat ({cv['slot']}, "
+                        f"{cv.get('sku', '?')}): {cv['caveat']}"
+                    )
     if args.json:
         print(json.dumps(out, indent=2))
         return rc

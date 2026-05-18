@@ -1,7 +1,8 @@
 """R330 (E9.M13) — SDD-032 helper-library doctrine L1 lint.
+R348 (E9.M17): extended to four modules (inventory_consult added).
 
 Pins:
-- The three helper modules exist at expected paths
+- The four helper modules exist at expected paths
 - Each module exposes its declared public API surface
 - NEVER-raise contracts documented in module docstrings
 - SDD-032 carries required sections (similar to R326 pattern)
@@ -30,12 +31,16 @@ EXPECTED_API = {
         "evaluate_triple_gate", "check_maintenance_window",
         "run_apply_safe",
     },
+    # R348 (E9.M17): R317 catalog cross-binding helper.
+    "inventory_consult": {
+        "find_advisor_caveats", "caveats_matching",
+    },
 }
 
 
 REQUIRED_SDD_SECTIONS = [
     "## Mission",
-    "## The library — three public modules",
+    "## The library — four public modules",
     "## Import convention",
     "## NEVER-raise contract",
     "## L1 lint enforcement",
@@ -64,7 +69,7 @@ def test_lib_dir_exists():
     assert LIB_DIR.is_dir(), f"missing {LIB_DIR}"
 
 
-def test_all_three_helper_modules_present():
+def test_all_helper_modules_present():
     for name in EXPECTED_API:
         path = LIB_DIR / f"{name}.py"
         assert path.is_file(), f"missing helper module: {path}"
@@ -94,6 +99,15 @@ def test_safe_apply_public_api():
     for sym in EXPECTED_API["safe_apply"]:
         assert hasattr(mod, sym), (
             f"safe_apply missing public symbol: {sym}"
+        )
+
+
+def test_inventory_consult_public_api():
+    mod = _load_module("inventory_consult")
+    assert mod is not None, "inventory_consult failed to import"
+    for sym in EXPECTED_API["inventory_consult"]:
+        assert hasattr(mod, sym), (
+            f"inventory_consult missing public symbol: {sym}"
         )
 
 
@@ -133,11 +147,12 @@ def test_sdd_032_has_required_sections():
     )
 
 
-def test_sdd_032_cross_links_r283_r327_r328():
-    """SDD-032 must cross-ref the rounds that originated the three
-    helpers."""
+def test_sdd_032_cross_links_origin_rounds():
+    """SDD-032 must cross-ref the rounds that originated each helper."""
     body = SDD_PATH.read_text(encoding="utf-8")
-    for ref in ("R283", "R327", "R328"):
+    # R283 → operator_overlay; R327 → apply_audit; R328 → safe_apply;
+    # R348 → inventory_consult (R347 inline pattern promoted).
+    for ref in ("R283", "R327", "R328", "R348"):
         assert ref in body, f"SDD-032 must cross-ref {ref}"
 
 

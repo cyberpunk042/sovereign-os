@@ -49,6 +49,11 @@ try:
     from operator_overlay import load_with_overlay  # type: ignore
 except Exception:  # pragma: no cover
     load_with_overlay = None
+try:
+    # R348 (E9.M17): promoted from R347 inline pattern → SDD-032 helper.
+    from inventory_consult import find_advisor_caveats  # type: ignore
+except Exception:  # pragma: no cover
+    find_advisor_caveats = None
 
 
 SCHEMA_VERSION = "1.0.0"
@@ -180,52 +185,16 @@ def _apply_mode_modulation(cfg: dict) -> tuple[dict, str | None, str]:
     return cfg_modulated, canonical, source
 
 
-# R347 (E1.M40): consult R317 inventory-catalog for operator-actionable
-# caveats tagged with this advisor (R315). Surfaces buried catalog
-# warnings (e.g. 4-DIMM XMP-stability at 6400MHz) to operator-pull
-# verbs that would otherwise miss them.
+# R347 (E1.M40) → R348 (E9.M17, SDD-032 §4 helper promotion):
+# moved to scripts/lib/inventory_consult.find_advisor_caveats. Local
+# thin wrapper preserves NEVER-raise + lets tests stub it.
 def _load_inventory_caveats() -> list[dict[str, Any]]:
-    """Returns list of {slot, sku, model, caveat, severity} dicts for
-    catalog entries whose related_advisor mentions R315. NEVER raises."""
-    try:
-        cat_path = REPO_ROOT / "scripts" / "hardware" / "inventory-catalog.py"
-        if not cat_path.is_file():
-            return []
-        import importlib.util
-        spec = importlib.util.spec_from_file_location(
-            "_inventory_catalog_r347", cat_path,
-        )
-        if spec is None or spec.loader is None:
-            return []
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        components = getattr(mod, "DEFAULT_COMPONENTS", [])
-    except Exception:
+    if find_advisor_caveats is None:
         return []
-    caveats: list[dict[str, Any]] = []
-    for c in components:
-        if not isinstance(c, dict):
-            continue
-        related = c.get("related_advisor", "") or ""
-        caveat = c.get("operator_caveat")
-        if "R315" not in related or not caveat:
-            continue
-        # Severity heuristic: presence of "may fail" / "exceed" /
-        # "instability" → warn; else info.
-        low = caveat.lower()
-        sev = ("warn" if any(s in low
-                              for s in ("may fail", "exceed", "instability",
-                                        "drop to"))
-               else "info")
-        caveats.append({
-            "slot": c.get("slot"),
-            "sku": c.get("sku"),
-            "model": c.get("model"),
-            "category": c.get("category"),
-            "caveat": caveat,
-            "severity": sev,
-        })
-    return caveats
+    try:
+        return find_advisor_caveats("R315")
+    except Exception:  # pragma: no cover — helper itself NEVER-raises
+        return []
 
 
 def estimate_load_w(cfg: dict) -> dict[str, Any]:

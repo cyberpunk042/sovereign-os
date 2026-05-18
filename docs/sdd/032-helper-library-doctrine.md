@@ -9,7 +9,7 @@
 
 ## Mission
 
-`scripts/lib/` is now a 3-module library that every operator-pull
+`scripts/lib/` is now a 4-module library that every operator-pull
 script imports from. The contracts of these modules are operator-
 stable — consumer scripts spread across `scripts/hardware/`,
 `scripts/diagnostics/`, `scripts/network/`, `scripts/lifecycle/`,
@@ -19,7 +19,7 @@ SDD-032 codifies the public API + the import-discovery convention
 so a future maintainer who refactors `scripts/lib/` sees the
 contracts they must preserve.
 
-## The library — three public modules
+## The library — four public modules
 
 ### 1. `operator_overlay` (R283 / SDD-030)
 
@@ -97,6 +97,40 @@ would_write + wrote + write_error + rc + audit_row
 
 NEVER raises — all failure paths (gate / window / write) return
 structured result. Caller decides rc semantics for its CLI.
+
+### 4. `inventory_consult` (R348)
+
+The R317 inventory-catalog cross-binding helper. Every advisor that
+wants to surface operator-actionable caveats tagged for itself imports:
+
+```python
+from inventory_consult import find_advisor_caveats
+```
+
+Public API:
+- `find_advisor_caveats(round_id: str) -> list[dict]` —
+  returns `[{slot, sku, model, category, caveat, severity}, ...]`
+  for catalog entries whose `related_advisor` field contains
+  `round_id` (e.g. `"R315"`) AND whose `operator_caveat` is non-null.
+  Severity is heuristic: `"warn"` for caveats matching
+  `may fail / exceed / instability / drop to`; `"info"` otherwise.
+- `caveats_matching(round_id, *, contains_any=None,
+  contains_all=None) -> list[dict]` —
+  same shape as above, filtered by case-insensitive substring match
+  on the caveat string. Convenience for advisors surfacing specific
+  sub-warnings (e.g. R315 wants only XMP-stability hits).
+
+NEVER raises — missing catalog file / OS error / malformed module
+all return `[]`. Catalog liveness failure NEVER takes an advisor down.
+
+Promoted from R347 inline-pattern (xmp-oc-room-advisor) at R348 when
+R252 power-status became the second consumer. Both consumers refactored
+to call the helper in the same commit that ships the helper.
+
+Current consumers:
+- R315 xmp-oc-room-advisor → surfaces 4-DIMM XMP-stability warning
+- R252 power-status → surfaces UPS SMT2200C refurbished/rating caveat
+  when UPS reports OnBattery
 
 ## Import convention
 
