@@ -188,10 +188,9 @@ MODULE_COVERAGE = {
         },
     },
     "global-history": {
-        "shipped_in": "R448 (E11.M5)",
-        "surfaces": ["core", "cli"],
+        "shipped_in": "R448 (E11.M5) + R481 (E11.M5+ tui surface)",
+        "surfaces": ["core", "cli", "tui"],
         "waivers": {
-            "tui":       "FUTURE — live-tail history TUI",
             "api":       "FUTURE — /history REST endpoint",
             "mcp":       "FUTURE — agent queries history via MCP",
             "dashboard": "FUTURE — Grafana timeline panel",

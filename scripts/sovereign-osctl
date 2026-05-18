@@ -382,6 +382,11 @@ COMMANDS:
                                [--json]
   global-history delta <iso>   R448: events since timestamp (operator
                                [--source ...] [--json]      "what changed since I last checked?")
+  global-history tail          R481 (E11.M5+): live-tail TUI surface —
+                               [--since 24h] [--limit N] refreshes recent-events view every N
+                               [--source ...]            seconds (default 5s) until Ctrl-C.
+                               [--refresh N]             Closes the surface-map FUTURE waiver
+                               [--iterations N]          slot 'live-tail history TUI'.
 
   bashrc install               R447 (E11.M6): install operator-discoverable
                                bashrc integration — 10 aliases (sosctl,

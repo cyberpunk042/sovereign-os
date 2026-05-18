@@ -56,6 +56,19 @@ CLI:
                             timestamp. Operator-discoverable for
                             "what happened since I last checked?"
 
+  global-history.py tail [--since <iso|relative>] [--limit N]
+                          [--source <s1,s2,...>] [--refresh N]
+                          [--iterations N]
+                          R481 (E11.M5+): live-tail TUI surface.
+                          Refreshes the recent-events view every N
+                          seconds (default 5s) until Ctrl-C. The
+                          operator-named §1g "live-tail history TUI"
+                          surface — converts the FUTURE-waiver slot
+                          on surface-map into a shipped TUI.
+                          --iterations bounds the loop (N=0 ⇒ until
+                          Ctrl-C; N>0 ⇒ exit after N refreshes,
+                          operator-discoverable for scripted use).
+
 Exit codes:
   0 ok
   1 unknown subcommand / source / no sources available
@@ -544,6 +557,58 @@ def cmd_delta(args) -> int:
     return 0
 
 
+def cmd_tail(args) -> int:
+    """R481 (E11.M5+) — live-tail TUI surface.
+
+    Operator §1g: surface-map waiver-slot 'tui: FUTURE — live-tail
+    history TUI' is closed by this verb. Re-renders the recent-events
+    view on a fixed-period refresh loop until Ctrl-C (or --iterations
+    N exhausts).
+
+    ANSI clear-screen between frames; --refresh bounded ≥1s (operator
+    discoverable; refuses sub-second poll-storm).  SOVEREIGN_OS_DRY_RUN
+    short-circuits to a single render (so L3 tests stay deterministic).
+    """
+    sources = args.source.split(",") if args.source else KNOWN_SOURCES
+    refresh = max(1, int(args.refresh))
+    iterations = int(args.iterations)
+    dry_run = os.environ.get("SOVEREIGN_OS_DRY_RUN", "") == "1"
+    if dry_run and iterations == 0:
+        iterations = 1
+
+    frame = 0
+    try:
+        while True:
+            since = parse_since(args.since)
+            events = collect(since, sources)
+            events = events[:args.limit]
+            # ANSI clear-screen + home cursor (TUI refresh surface)
+            sys.stdout.write("\x1b[2J\x1b[H")
+            now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+            print(f"── global-history.tail  frame={frame}  "
+                  f"now={now}  refresh={refresh}s  "
+                  f"sources={','.join(sources)}  count={len(events)} ──")
+            print("  (Ctrl-C to exit)" if iterations == 0
+                  else f"  (iterations remaining: {iterations - frame})")
+            for e in events:
+                print(f"  {e['timestamp']}  [{e['source']:<8}] "
+                      f"{e['action']:<10}  {e['detail'][:100]}")
+            sys.stdout.flush()
+            _emit_metric(
+                "sovereign_os_operator_global_history_query_total",
+                "tail", ",".join(sources), "ok",
+            )
+            frame += 1
+            if iterations > 0 and frame >= iterations:
+                break
+            if dry_run:
+                break
+            time.sleep(refresh)
+    except KeyboardInterrupt:
+        sys.stdout.write("\n")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(
         prog="global-history.py",
@@ -586,6 +651,19 @@ def main(argv: list[str] | None = None) -> int:
     sp_delta.add_argument("--source", default="")
     add_fmt(sp_delta)
 
+    sp_tail = sub.add_parser("tail",
+                              help="live-tail TUI (R481 surface close-out)")
+    sp_tail.add_argument("--since", default="24h",
+                          help="ISO 8601 or relative; default: 24h")
+    sp_tail.add_argument("--limit", type=int, default=20)
+    sp_tail.add_argument("--source", default="",
+                          help="comma-separated source filter")
+    sp_tail.add_argument("--refresh", type=int, default=5,
+                          help="refresh interval seconds (min 1; default 5)")
+    sp_tail.add_argument("--iterations", type=int, default=0,
+                          help="bounded loop (0 = until Ctrl-C; "
+                                "N = exit after N refreshes)")
+
     args = p.parse_args(argv)
 
     if args.cmd == "recent":
@@ -596,6 +674,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_sources(args)
     if args.cmd == "delta":
         return cmd_delta(args)
+    if args.cmd == "tail":
+        return cmd_tail(args)
     return 1
 
 

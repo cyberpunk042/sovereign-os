@@ -155,6 +155,46 @@ def test_supports_delta_verb():
     assert '"delta"' in body, "missing delta verb"
 
 
+def test_supports_tail_verb():
+    """R481 (E11.M5+) — live-tail TUI surface, closes surface-map
+    FUTURE waiver 'tui: FUTURE — live-tail history TUI'."""
+    body = _read(GH_PY)
+    assert '"tail"' in body, "global-history.py missing tail verb"
+    assert "def cmd_tail(" in body, (
+        "global-history.py missing cmd_tail() function"
+    )
+
+
+def test_tail_verb_has_refresh_loop():
+    """tail verb implements a refresh loop (sleep + ANSI clear)
+    — that's what makes it a TUI surface vs a one-shot CLI verb."""
+    body = _read(GH_PY)
+    assert "time.sleep(" in body, (
+        "global-history.py tail verb missing refresh loop (time.sleep)"
+    )
+    assert "\\x1b[2J" in body, (
+        "global-history.py tail verb missing ANSI clear-screen "
+        "(refresh-flicker hint that this is a TUI surface)"
+    )
+
+
+def test_tail_verb_emits_metric_with_tail_label():
+    """Layer B metric labels{verb=tail} so observability aggregates
+    the new TUI surface separately from the one-shot verbs."""
+    body = _read(GH_PY)
+    assert '"tail"' in body and "sovereign_os_operator_global_history_query_total" in body, (
+        "global-history.py tail verb must emit query_total metric"
+    )
+
+
+def test_tail_verb_refuses_subsecond_refresh():
+    """Operator-discoverable: refresh ≥ 1s; the verb refuses poll-storm."""
+    body = _read(GH_PY)
+    assert "max(1, int(args.refresh)" in body or "max(1, args.refresh" in body, (
+        "global-history.py tail verb missing refresh ≥1s floor"
+    )
+
+
 def test_supports_json_and_human_format():
     body = _read(GH_PY)
     assert "--json" in body and "--human" in body, (
@@ -262,7 +302,8 @@ def test_osctl_help_documents_global_history():
     subcommands."""
     body = _read(OSCTL)
     for sub in ("global-history recent", "global-history summary",
-                "global-history sources", "global-history delta"):
+                "global-history sources", "global-history delta",
+                "global-history tail"):
         assert sub in body, (
             f"sovereign-osctl help missing {sub!r}"
         )
