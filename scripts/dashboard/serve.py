@@ -217,6 +217,137 @@ def card_health() -> dict[str, Any]:
     }
 
 
+def card_morning_brief() -> dict[str, Any]:
+    """R354 (E4.M10) — R352 morning-brief rollup on dashboard.
+    Operator-pull "what should I look at first this morning?" — composes
+    R329 next-action + R351 module-state + R308 autohealth + R349
+    guide-suggestion into one card."""
+    data = _run_intel_script("morning-brief.py", ["rollup"]) or {
+        "critical_signals_count": 0,
+        "critical_signals": [],
+        "sections": {},
+        "suggested_topic_guide": None,
+        "suggested_topic_verb": None,
+    }
+    crit = int(data.get("critical_signals_count") or 0)
+    suggested = data.get("suggested_topic_guide")
+    if crit:
+        summary = f"{crit} critical signal(s); start with: {suggested or 'next-action top'}"
+    elif suggested:
+        summary = f"no criticals; suggested reading: guide walkthrough {suggested}"
+    else:
+        summary = "no criticals; no specific topic suggested"
+    data["summary"] = summary
+    data["needs_attention"] = crit > 0
+    return {
+        "id": "morning_brief",
+        "title": "Morning brief (R352 / E10.M2)",
+        "data": data,
+    }
+
+
+def card_module_state() -> dict[str, Any]:
+    """R354 (E4.M10) — R351 module-state on dashboard.
+    Lists modules in {installed-not-configured / running-without-overlay
+    / config-only-no-runtime / fully-configured / shipped-but-untouched}
+    state with operator-runnable configure_verb for each gap."""
+    data = _run_intel_script("module-state.py", ["recommend"]) or {
+        "attention_count": 0, "attention_items": [],
+        "all_modules_summary": {},
+    }
+    attn = int(data.get("attention_count") or 0)
+    total = len(data.get("all_modules_summary") or {})
+    data["summary"] = (
+        f"{attn}/{total} module(s) need attention"
+        if total else "no modules catalogued"
+    )
+    # Running-without-overlay is the only state that's truly "attention"
+    # for the grid glyph (installed-not-configured is informational —
+    # operator may legitimately not have touched a module yet).
+    data["needs_attention"] = any(
+        m.get("verdict") == "running-without-overlay"
+        for m in (data.get("attention_items") or [])
+    )
+    return {
+        "id": "module_state",
+        "title": "Module state (R351 / E2.M34)",
+        "data": data,
+    }
+
+
+def card_guide() -> dict[str, Any]:
+    """R354 (E4.M10) — R349 guide topic catalog on dashboard.
+    Lists all topics (axis-grouped) so operator clicks into
+    'walkthrough <topic>' from the UI instead of remembering CLI verb."""
+    data = _run_intel_script("guide.py", ["list"]) or {
+        "topic_count": 0, "topics": [],
+    }
+    n = int(data.get("topic_count") or 0)
+    axes = sorted({t.get("axis") for t in (data.get("topics") or [])
+                   if isinstance(t, dict) and t.get("axis")})
+    data["summary"] = (
+        f"{n} topics across {len(axes)} axes: {', '.join(axes)}"
+        if n else "guide catalog unavailable"
+    )
+    data["needs_attention"] = False  # informational card
+    return {
+        "id": "guide",
+        "title": "Guide topics (R349 / E10.M1)",
+        "data": data,
+    }
+
+
+def card_model_adapt() -> dict[str, Any]:
+    """R354 (E4.M10) — R350 model-adapt recipes on dashboard.
+    Shows the recipe catalog + per-recipe VRAM fit; operator picks one
+    matching their target task before kicking off the fine-tune pipeline."""
+    data = _run_models_script("adapt.py", ["recipes"]) or {
+        "recipe_count": 0, "recipes": [], "declared_gpus": [],
+    }
+    n = int(data.get("recipe_count") or 0)
+    ng = len(data.get("declared_gpus") or [])
+    data["summary"] = (
+        f"{n} adaptation recipe(s); {ng} declared GPU(s)"
+        if n else "adapt catalog unavailable"
+    )
+    data["needs_attention"] = False  # informational catalog
+    return {
+        "id": "model_adapt",
+        "title": "Model-adapt recipes (R350 / E5.M17)",
+        "data": data,
+    }
+
+
+def card_model_build() -> dict[str, Any]:
+    """R354 (E4.M10) — R353 model-build recipes on dashboard.
+    Shows the 4 build recipes (merge-lora / quantize-gguf / quantize-awq
+    / export-safetensors) + recent build history (JSONL tail)."""
+    recipes = _run_models_script("build.py", ["recipes"]) or {
+        "recipe_count": 0, "recipes": [],
+    }
+    history = _run_models_script("build.py", ["history"]) or {
+        "entry_count": 0, "entries": [],
+    }
+    data = {
+        "recipes": recipes.get("recipes", []),
+        "recipe_count": recipes.get("recipe_count", 0),
+        "history_entry_count": history.get("entry_count", 0),
+        "recent_builds": history.get("entries", [])[-5:],
+    }
+    rc = int(data.get("recipe_count") or 0)
+    hc = int(data.get("history_entry_count") or 0)
+    data["summary"] = (
+        f"{rc} build recipe(s); {hc} historical build(s) on this host"
+        if rc else "build catalog unavailable"
+    )
+    data["needs_attention"] = False  # informational catalog
+    return {
+        "id": "model_build",
+        "title": "Model-build (R353 / E5.M18)",
+        "data": data,
+    }
+
+
 def _run_models_script(script: str, args: list[str]) -> dict[str, Any] | None:
     """Variant of _run_json for scripts/models/*.py."""
     bin_path = REPO_ROOT / "scripts" / "models" / script
@@ -228,6 +359,31 @@ def _run_models_script(script: str, args: list[str]) -> dict[str, Any] | None:
             capture_output=True,
             text=True,
             timeout=15,
+            check=False,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return None
+    if not r.stdout.strip():
+        return None
+    try:
+        return json.loads(r.stdout)
+    except json.JSONDecodeError:
+        return None
+
+
+def _run_intel_script(script: str, args: list[str]) -> dict[str, Any] | None:
+    """R354 (E4.M10): variant of _run_json for scripts/intelligence/*.py.
+    Used by R349 guide / R350 model-adapt / R351 module-state / R352
+    morning-brief cards. Same NEVER-raise semantics as _run_json."""
+    bin_path = REPO_ROOT / "scripts" / "intelligence" / script
+    if not bin_path.exists():
+        return None
+    try:
+        r = subprocess.run(
+            [sys.executable, str(bin_path), *args, "--json"],
+            capture_output=True,
+            text=True,
+            timeout=20,
             check=False,
         )
     except (subprocess.TimeoutExpired, OSError):
@@ -1158,6 +1314,9 @@ def card_operator_posture() -> dict[str, Any]:
 
 
 CARDS = [
+    # R354 (E4.M10): intelligence-tier verbs (R349-R353) surface in UI.
+    # morning_brief leads — operator's daily entry-point.
+    card_morning_brief,
     card_operator_posture,
     card_gpu,
     card_network,
@@ -1166,7 +1325,11 @@ CARDS = [
     card_raid,
     card_flex,
     card_health,
+    card_module_state,
+    card_guide,
     card_models,
+    card_model_adapt,
+    card_model_build,
     card_insights,
     card_install_paths,
     card_services,
