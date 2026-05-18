@@ -97,8 +97,9 @@ guidance baked into the CLI).
 
 ## Non-goals (this SDD)
 
-- Does NOT add a QEMU-level destructive-loop test (deferred until
+- Does NOT add a QEMU-level destructive-loop test (deferred until <!-- anti-min-waiver: R477 Layer-5-real-hardware-gate-per-SDD-014-scope-bounded-by-SAIN-01-hardware-acquisition-milestone -->
   the hardware is in place to validate the script chain on real ZFS).
+
 - Does NOT introduce a "dry-run" mode for decommission scripts —
   the gates ARE the dry-run (script refuses → no action).
 - Does NOT replace the operator-driven `confirm` final check — that

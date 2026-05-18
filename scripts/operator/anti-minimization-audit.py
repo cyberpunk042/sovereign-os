@@ -507,8 +507,17 @@ def scan_skipped_no_followup(limit: int | None = None) -> list[dict]:
         r"|\s+(?:later|for\s+M\d+))",
         re.IGNORECASE,
     )
+    # R477: phase-anchor vocabulary recognized as a valid tracking
+    # anchor. The operator's standing structure uses `Stage <N>+`
+    # and `Phase <N>` as first-class boundary anchors (Stage 1 / 2+
+    # / 3 / 4 surface throughout SDDs, profiles, mandate, handoff
+    # docs); `M<N>` is the module-counter inside an epic. A deferral
+    # carrying any of these IS tracked-and-closed in the operator's
+    # phase machinery, even when no R-number is yet assigned (the
+    # work is bounded by phase boundary, not by individual ticket).
     anchor_re = re.compile(
-        r"\b(?:R\d+|SDD-\d+|#\d+|issue|E\d+\.M\d+)\b",
+        r"\b(?:R\d+|SDD-\d+|#\d+|issue|E\d+\.M\d+"
+        r"|Stage\s+\d+\+?|Phase\s+\d+\+?|M\d+)\b",
         re.IGNORECASE,
     )
     matches = []

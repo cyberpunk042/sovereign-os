@@ -244,6 +244,94 @@ def test_minimize_phrase_scan_applies_precision_filters():
         )
 
 
+# --- R477 phase-anchor vocabulary in skipped-no-followup ---
+
+
+def test_skipped_anchor_recognizes_phase_vocabulary():
+    """R477: scan_skipped_no_followup's anchor_re MUST recognize the
+    operator's first-class phase-anchor vocabulary (`Stage <N>+` /
+    `Phase <N>` / `M<N>`). These tokens ARE tracked-and-closed in the
+    operator's phase machinery — a deferral bounded by `Stage 2+` IS
+    anchored, even when no R-number is yet assigned."""
+    body = _read(AM_PY)
+    import re as _re
+    fn_match = _re.search(
+        r"def scan_skipped_no_followup\([^)]*\)[^:]*:.*?(?=\n(?:def |class |\Z))",
+        body,
+        _re.DOTALL,
+    )
+    assert fn_match, "could not locate scan_skipped_no_followup definition"
+    fn_body = fn_match.group(0)
+    for token in (r"Stage\s+\d+\+?", r"Phase\s+\d+\+?", r"M\d+"):
+        assert token in fn_body, (
+            f"R477 contract break: anchor_re missing phase-anchor "
+            f"vocabulary token {token!r}"
+        )
+
+
+def test_skipped_anchor_matches_real_phase_anchors():
+    """R477: independently re-derive the anchor regex from the source
+    and assert it matches the three real-world phase-anchored
+    deferrals observed in the repo before R477 closed them."""
+    body = _read(AM_PY)
+    import re as _re
+    # Pull the anchor_re literal out of scan_skipped_no_followup.
+    m = _re.search(
+        r"def scan_skipped_no_followup\([^)]*\)[^:]*:.*?"
+        r"anchor_re\s*=\s*re\.compile\(\s*"
+        r"(?P<pat>(?:r?\"(?:[^\"\\]|\\.)*\"\s*|r?'(?:[^'\\]|\\.)*'\s*)+)",
+        body,
+        _re.DOTALL,
+    )
+    assert m, "could not extract anchor_re pattern literal"
+    # Concatenate all the adjacent string literals into one pattern.
+    literals = _re.findall(
+        r"r?\"((?:[^\"\\]|\\.)*)\"|r?'((?:[^'\\]|\\.)*)'", m.group("pat")
+    )
+    pat = "".join(a or b for a, b in literals)
+    anchor_re = _re.compile(pat, _re.IGNORECASE)
+    for sample in (
+        "rpm-ostree, nixos: deferred to Stage 2+ (ALT paths).",
+        "Layer B — metrics (contract; implementation deferred to Stage 2+)",
+        "stubbed for Phase 3 rollout",
+        "skipped until M12",
+    ):
+        assert anchor_re.search(sample), (
+            f"R477: phase-anchored deferral not matched by anchor_re: "
+            f"{sample!r}"
+        )
+
+
+def test_skipped_anchor_rejects_unanchored_deferrals():
+    """R477: phase-anchor extension MUST NOT cause the regex to swallow
+    deferrals that carry NO tracking token — those still need to fire
+    as skipped-no-followup matches."""
+    body = _read(AM_PY)
+    import re as _re
+    m = _re.search(
+        r"def scan_skipped_no_followup\([^)]*\)[^:]*:.*?"
+        r"anchor_re\s*=\s*re\.compile\(\s*"
+        r"(?P<pat>(?:r?\"(?:[^\"\\]|\\.)*\"\s*|r?'(?:[^'\\]|\\.)*'\s*)+)",
+        body,
+        _re.DOTALL,
+    )
+    assert m, "could not extract anchor_re pattern literal"
+    literals = _re.findall(
+        r"r?\"((?:[^\"\\]|\\.)*)\"|r?'((?:[^'\\]|\\.)*)'", m.group("pat")
+    )
+    pat = "".join(a or b for a, b in literals)
+    anchor_re = _re.compile(pat, _re.IGNORECASE)
+    for sample in (
+        "deferred until further notice",
+        "skipped — TODO clean this up later",
+        "stubbed for now (no follow-up plan)",
+    ):
+        assert not anchor_re.search(sample), (
+            f"R477 overshoot: anchor_re falsely accepted unanchored "
+            f"deferral: {sample!r}"
+        )
+
+
 # --- R453/R454 bridge ---
 
 
@@ -327,10 +415,19 @@ def test_scanners_consult_is_waived():
         "scan_minimize_phrase",
     ):
         # crude check: function body should reference _is_waived
-        # within the next ~30 lines after the def line.
+        # within the function body. R477 expanded
+        # scan_skipped_no_followup with phase-anchor commentary, so
+        # take the slice up to the NEXT top-level def/class boundary
+        # rather than a fixed byte window.
         idx = body.find(f"def {fn}(")
         assert idx >= 0, f"function {fn} not found"
-        body_slice = body[idx:idx + 2000]
+        rest = body[idx + len(f"def {fn}("):]
+        import re as _re
+        boundary = _re.search(r"\n(?:def |class )", rest)
+        end = idx + len(f"def {fn}(") + (
+            boundary.start() if boundary else len(rest)
+        )
+        body_slice = body[idx:end]
         assert "_is_waived(" in body_slice, (
             f"{fn} doesn't consult _is_waived(); R474 contract break"
         )
