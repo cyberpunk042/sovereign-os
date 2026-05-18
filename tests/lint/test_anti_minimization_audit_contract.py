@@ -117,11 +117,130 @@ def test_minimize_phrases_constant_defined():
     assert "MINIMIZE_PHRASES" in body, (
         "missing MINIMIZE_PHRASES constant"
     )
-    # Must include canonical operator-named phrases
-    for phrase in ('"for now"', '"minimize"', '"placeholder"',
-                   '"simplified"'):
+    # Must include canonical operator-named admission phrases. R476:
+    # bare verb "minimize" intentionally NOT required — it produced
+    # systematic false positives on hardware/power-optimization code
+    # ("minimize wattage", "minimize disk I/O") and on doctrine
+    # echoes of the operator's own rule ("do not minimize"). The
+    # semantically-meaningful admission signal lives in the longer
+    # phrases below + the standalone noun "minimization" + the
+    # explicit "TODO: minimize" anchor.
+    for phrase in ('"for now"', '"minimization"', '"placeholder"',
+                   '"simplified"', '"TODO: minimize"'):
         assert phrase in body, (
             f"MINIMIZE_PHRASES missing {phrase!r}"
+        )
+
+
+def test_minimize_phrase_precision_filters_constant_defined():
+    """R476: precision-filter regexes for tool-self-reference,
+    doctrine-echo, and sed-sentinel PLACEHOLDER use-as-substitution.
+    Each filter MUST be exposed as a module-level constant so it can
+    be reasoned about + unit-tested independently."""
+    body = _read(AM_PY)
+    for name in (
+        "_MINIMIZE_TOOL_SELFREF_RE",
+        "_MINIMIZE_DOCTRINE_ECHO_RE",
+        "_MINIMIZE_SED_SENTINEL_RE",
+    ):
+        assert name in body, (
+            f"R476 contract: missing precision-filter regex {name}"
+        )
+
+
+def test_minimize_phrase_precision_filters_match_known_fps():
+    """R476: each precision regex MUST match a representative
+    real-world false-positive observed in the repo before R476."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("_am", AM_PY)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    # Tool-self-reference: callsites + tests that name the tool.
+    for line in (
+        '{"id": "anti-minimization-audit",',
+        '    "script": "scripts/operator/anti-minimization-audit.py",',
+        '"anti_minimization_audit", "ux_design_audit",',
+        '"E11.M11",  # Anti-minimization audit — process',
+    ):
+        assert mod._MINIMIZE_TOOL_SELFREF_RE.search(line), (
+            f"R476: tool-self-ref filter missed: {line!r}"
+        )
+
+    # Doctrine-echo: operator-verbatim "do not minimize" / "Never
+    # minimize" surfaces (mandate quotes embedded in code/docs).
+    for line in (
+        '"Do not rush anything and do not minimize anything"',
+        "- **Never minimize, conflate, hack, or take shortcuts**",
+        '> "Do not rush anything and do not minimize anything nor',
+        "- Never minimize, conflate, hack, shortcut.",
+    ):
+        assert mod._MINIMIZE_DOCTRINE_ECHO_RE.search(line), (
+            f"R476: doctrine-echo filter missed: {line!r}"
+        )
+
+    # Sed-sentinel: test fixtures using literal "PLACEHOLDER" as a
+    # substitution marker; this is feature-of-the-system, not
+    # minimization debt.
+    for line in (
+        'path = "PLACEHOLDER"',
+        'sed -i "s|PLACEHOLDER|${TMPDIR}/events.jsonl|" "${TMPDIR}/cfg.toml"',
+    ):
+        assert mod._MINIMIZE_SED_SENTINEL_RE.search(line), (
+            f"R476: sed-sentinel filter missed: {line!r}"
+        )
+
+
+def test_minimize_phrase_precision_filters_do_not_overshoot():
+    """R476: precision filters MUST NOT match genuine admission lines.
+    Catches the 'over-tightening drops real signal' regression."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("_am", AM_PY)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    # Real admission lines — these are the kind R476 must KEEP flagging.
+    real_admissions = (
+        "    # For now: just boot to firmware + check the disk is bootable.",
+        '    log_info "  → for now, run \'sovereign-osctl models pull <id>\' manually"',
+        "# Model catalog pick (placeholder; full Q-017 + E110 integration is Stage 2+)",
+        "manual invocation for now.",
+    )
+    for line in real_admissions:
+        assert not mod._MINIMIZE_TOOL_SELFREF_RE.search(line), (
+            f"R476: tool-self-ref filter OVERSHOT to real admission: {line!r}"
+        )
+        assert not mod._MINIMIZE_DOCTRINE_ECHO_RE.search(line), (
+            f"R476: doctrine-echo filter OVERSHOT to real admission: {line!r}"
+        )
+        assert not mod._MINIMIZE_SED_SENTINEL_RE.search(line), (
+            f"R476: sed-sentinel filter OVERSHOT to real admission: {line!r}"
+        )
+
+
+def test_minimize_phrase_scan_applies_precision_filters():
+    """R476: scan_minimize_phrase MUST consult the three precision
+    filters and skip matching lines, per the same belt-and-suspenders
+    discipline R474 applied with `_is_waived`."""
+    body = _read(AM_PY)
+    # The scan_minimize_phrase function body must reference all three
+    # precision-filter constants (consults them on each candidate).
+    import re as _re
+    fn_match = _re.search(
+        r"def scan_minimize_phrase\([^)]*\)[^:]*:.*?(?=\n(?:def |class |\Z))",
+        body,
+        _re.DOTALL,
+    )
+    assert fn_match, "could not locate scan_minimize_phrase definition"
+    fn_body = fn_match.group(0)
+    for name in (
+        "_MINIMIZE_TOOL_SELFREF_RE",
+        "_MINIMIZE_DOCTRINE_ECHO_RE",
+        "_MINIMIZE_SED_SENTINEL_RE",
+    ):
+        assert name in fn_body, (
+            f"R476 contract break: scan_minimize_phrase does not "
+            f"consult {name}"
         )
 
 
