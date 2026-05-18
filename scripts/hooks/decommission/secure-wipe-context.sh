@@ -17,6 +17,16 @@ log_step_header "secure-wipe-context" "wipe state-fabric"
 
 require_root
 
+# Operator standing mandate: destructive operations require explicit
+# SOVEREIGN_OS_CONFIRM_DESTROY=YES env var (matches sibling
+# secure-wipe.sh + zfs-pool-destroy.sh hooks). Defense-in-depth alongside
+# the interactive confirm() prompt below.
+if [ "${SOVEREIGN_OS_CONFIRM_DESTROY:-}" != "YES" ]; then
+  log_error "secure-wipe-context requires SOVEREIGN_OS_CONFIRM_DESTROY=YES env var"
+  log_error "  Set: SOVEREIGN_OS_CONFIRM_DESTROY=YES $0"
+  exit 1
+fi
+
 if ! confirm "Securely wipe ${SOVEREIGN_OS_CONTEXT_PATH}? THIS DESTROYS state-fabric DATA." default-no; then
   log_info "wipe aborted by operator"
   exit 1

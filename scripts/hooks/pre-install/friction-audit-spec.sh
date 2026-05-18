@@ -36,6 +36,16 @@ load_profile "${SOVEREIGN_OS_PROFILE}"
 
 log_step_header "${STEP_ID}" "spec-time friction audit for profile=${SOVEREIGN_OS_PROFILE}"
 
+# This hook is pure metadata validation (reads YAML, no hardware touch),
+# so it's CI-safe by default. SOVEREIGN_OS_DRY_RUN downgrades any FAIL
+# to a warn for the operator-readable preview path — checks still run,
+# but the script exits 0 so the orchestrator's dry-run doesn't fail
+# on profile issues during early iteration. Matches the contract honored
+# by the other pre-install hooks (operator-discoverable preview mode).
+if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
+  log_warn "SOVEREIGN_OS_DRY_RUN set — friction findings will be reported but exit code forced to 0"
+fi
+
 fail=0
 
 check() {
@@ -179,5 +189,9 @@ else
     "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"fail\""
   emit_metric sovereign_os_pre_install_friction_audit_spec_failures "${fail}" \
     "profile=\"${SOVEREIGN_OS_PROFILE}\""
+  if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
+    log_warn "SOVEREIGN_OS_DRY_RUN — forcing exit 0 despite ${fail} finding(s)"
+    exit 0
+  fi
   exit 1
 fi
