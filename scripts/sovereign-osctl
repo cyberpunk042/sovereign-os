@@ -216,6 +216,25 @@ COMMANDS:
         [--force-skip-tiers]
         [--json]
 
+  master-dashboard list        R452 (E11.M2): operator §1g reverse-proxy
+                               [--json]                     aggregator — enumerates dashboards
+                                                            eligible for aggregation under a single
+                                                            super-dashboard port.
+  master-dashboard routes      Show route table the aggregator would emit
+        [--mode <mode>]        (slug → upstream port → subpath). 3 modes
+        [--json]               per-port-direct / reverse-proxied / alternative-
+                               aggregator.
+  master-dashboard collisions  Detect port/subpath collisions BEFORE render
+                               [--json]                     (operator-discoverable; refuses to render
+                                                            a broken aggregator).
+  master-dashboard render      Render reverse-proxy config to
+        --backend <b>          /etc/sovereign-os/master-dashboard/<b>.{conf,
+        [--apply]              Caddyfile,yaml}. 3 backends: nginx/caddy/
+        [--confirm-render]     traefik. Triple-gated (--apply + --confirm-render).
+        [--json]
+  master-dashboard health      TCP-connect probe to each upstream port;
+                               [--json]                     reports reachability per dashboard.
+
   edge-firewall state          R451 (E11.M9): operator §1g workstation-side
                                [--json]                     edge-firewall alternative — local install state
                                                             (active/inactive per candidate) + upstream tier
@@ -6543,6 +6562,17 @@ case "${cmd}" in
     # → advanced → social → enterprise → network-level). Per-dashboard
     # tier registry + upgrade matrix + triple-gated set.
     "${__REPO_ROOT}/scripts/operator/auth-tier.py" "$@"
+    ;;
+  master-dashboard)
+    # R452 (E11.M2): operator §1g verbatim — "Maybe there can even be
+    # an option to add a reverse proxy nginx or such to do a master
+    # dashboard which regroup all those of different port under a
+    # single port and super-dashboard". Sister surface to R450
+    # auth-tier (registry owner); this module owns the routing surface.
+    # 3 modes (per-port-direct / reverse-proxied / alternative-
+    # aggregator), 3 backends (nginx / caddy / traefik), 5 verbs
+    # (list / routes / collisions / render / health), triple-gated render.
+    "${__REPO_ROOT}/scripts/operator/master-dashboard.py" "$@"
     ;;
   edge-firewall)
     # R451 (E11.M9): operator §1g verbatim — "even if there isn't an

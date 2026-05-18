@@ -197,6 +197,9 @@ E11.M7 (operator §1g — 6-tier auth ladder per-dashboard):
 E11.M9 (operator §1g — workstation-side edge-firewall alternative):
 - `sovereign_os_operator_edge_firewall_query_total{verb,candidate,result}` — `sovereign-osctl edge-firewall <verb>` queries (verb=state/candidates/recommend/install-plan/install; candidate=nftables-baseline|fail2ban|crowdsec|suricata|all|unknown; result=ok|preview|applied|dry-run|already-installed|unknown-candidate|needs-root|step-failed|step-error)
 
+E11.M2 (operator §1g — master-dashboard / reverse-proxy aggregator):
+- `sovereign_os_operator_master_dashboard_query_total{verb,backend,result}` — `sovereign-osctl master-dashboard <verb>` queries (verb=list/routes/collisions/render/health; backend=nginx|caddy|traefik|any|unknown; result=ok|preview|applied|dry-run|clean|collisions|blocked-collisions|unknown-backend|unknown-mode|write-failed)
+
 When a new hook adds metrics: add a row to the section above + a panel
 to the relevant dashboard JSON + bump the dashboard `version`.
 Operators re-import to pick up. The `test_metric_inventory_lockstep.py`
