@@ -349,6 +349,20 @@ COMMANDS:
         [--iterations N]       4-state-fabric file listing. Drains the
                                weaver tui:FUTURE waiver.
 
+  auditor status               Brief Auditor panel (tetragon /
+                               guardian-core / policy state).
+  auditor full                 Full diagnostic (TETRAGON + POLICY +
+                               GUARDIAN DAEMON + RECENT VIOLATIONS +
+                               Layer B metric anchors).
+  auditor last-violation       Last entry of /mnt/vault/context/
+                               security_audit.log (operator-§17
+                               read-only).
+  auditor history [N]          tail -N (default 20) violation history.
+  auditor watch                R537 (E5++): refresh-loop TUI surface
+        [--refresh N]          combining the Auditor brief panel + the
+        [--iterations N]       recent security_audit.log tail. Drains
+                               the auditor tui:FUTURE waiver.
+
   master-dashboard list        R452 (E11.M2): operator §1g reverse-proxy
                                [--json]                     aggregator — enumerates dashboards
                                                             eligible for aggregation under a single
@@ -4444,6 +4458,133 @@ WEAVER_WATCH_HELP
   return 0
 }
 
+# R537 (E5++) — Auditor TUI refresh-loop surface.
+#
+# Per operator §1g 8-surface delivery contract (verbatim, R453 anchor):
+#
+#   "everything is not just core, not just cli, not just TUI, not just
+#   API, not just tool and MCP but also Dashboards and Web Apps and
+#   Services"
+#
+# First commit in the auditor tier-3 surface-expansion arc
+# (R537 TUI → R538 MCP → R539 API + webapp). The auditor `service`
+# surface already ships (R155 guardian-core systemd daemon) so this
+# arc differs from the weaver R534-R536 / surface-map R531-R533 /
+# ux-design-audit R528-R530 arcs in that the service waiver is
+# already drained — but the tui / api / mcp / webapp waivers all
+# remain to be closed.
+#
+# Brief render combines `_trinity_auditor_brief` (operator-known
+# shape) + master spec § 10 Native Guardian Loop violation tail
+# (tail -5 /mnt/vault/context/security_audit.log) + LAYER B metric
+# anchor names. Operator §17 sovereignty boundary: neutralization
+# stays CCD-triggered + CLI-gated — the TUI surface is read-only.
+#
+# Operator-named guarantees (mirror of R534 weaver.watch):
+#   - Minimum refresh interval = 1s (max(1,...) floor) so the operator
+#     can't accidentally hammer systemctl + audit-log stat calls.
+#   - SOVEREIGN_OS_DRY_RUN=1 forces single-render exit (CI-safe).
+#   - Bounded by --iterations (0 = unbounded; default = 0 unless DRY).
+#   - Ctrl-C exits cleanly.
+_auditor_watch() {
+  local refresh=5
+  local iterations=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --refresh)    refresh="${2:-5}"; shift 2 ;;
+      --refresh=*)  refresh="${1#*=}"; shift ;;
+      --iterations) iterations="${2:-0}"; shift 2 ;;
+      --iterations=*) iterations="${1#*=}"; shift ;;
+      -h|--help)
+        cat <<'AUDITOR_WATCH_HELP'
+  auditor watch [--refresh N] [--iterations N]
+
+  Refresh-loop TUI surface for the §17 Auditor (master spec § 17
+  Module 3 + § 10 Native Guardian Loop). Continuously re-renders
+  the Auditor brief panel (tetragon / guardian-core / policy
+  state) PLUS the recent security_audit.log tail (last 5
+  violations) — read-only operator visibility.
+
+  Operator §17 sovereignty boundary: neutralization is CCD-
+  triggered + CLI-gated; the TUI surface is INSPECTION ONLY.
+
+  Operator-§1g verbatim (R453 anchor): "everything is not just
+  core, not just cli, not just TUI, not just API, not just tool
+  and MCP but also Dashboards and Web Apps and Services".
+
+  Options:
+    --refresh N       seconds between renders (default: 5, min: 1)
+    --iterations N    cap the number of renders (default: 0 = unbounded;
+                      SOVEREIGN_OS_DRY_RUN=1 forces a single render)
+AUDITOR_WATCH_HELP
+        return 0
+        ;;
+      *)
+        log_error "unknown auditor watch flag: $1"
+        return 2
+        ;;
+    esac
+  done
+
+  case "${refresh}" in
+    ''|*[!0-9]*) refresh=5 ;;
+  esac
+  case "${iterations}" in
+    ''|*[!0-9]*) iterations=0 ;;
+  esac
+  if [[ "${refresh}" -lt 1 ]]; then refresh=1; fi
+
+  if [[ "${SOVEREIGN_OS_DRY_RUN:-}" == "1" ]]; then
+    if [[ "${iterations}" -eq 0 ]]; then iterations=1; fi
+  fi
+
+  local audit_log="/mnt/vault/context/security_audit.log"
+
+  local frame=0
+  while :; do
+    frame=$((frame + 1))
+    printf '\x1b[2J\x1b[H'
+    local now
+    now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "── auditor.watch (frame ${frame}, refresh=${refresh}s, ${now}) ──"
+    echo
+    _trinity_auditor_brief
+    echo
+    echo "  RECENT VIOLATIONS (master spec § 10 — security_audit.log tail):"
+    if [ -f "${audit_log}" ]; then
+      if tail -5 "${audit_log}" 2>/dev/null | sed 's/^/    /'; then
+        :
+      else
+        echo "    (audit log unreadable)"
+      fi
+    else
+      echo "    audit log not present (${audit_log})"
+      echo "    (lands when guardian-core daemon writes its first event)"
+    fi
+    echo
+    echo "  LAYER B METRICS (Prometheus):"
+    echo "    sovereign_os_auditor_neutralization_total{result}"
+    echo "    sovereign_os_auditor_event_parse_total{outcome}"
+    echo "    sovereign_os_auditor_last_neutralization_timestamp"
+    echo
+    if [[ "${iterations}" -gt 0 && "${frame}" -ge "${iterations}" ]]; then
+      echo "  (reached --iterations=${iterations}; exit)"
+    else
+      echo "  (Ctrl-C to exit; refresh in ${refresh}s)"
+    fi
+
+    if [[ "${iterations}" -gt 0 && "${frame}" -ge "${iterations}" ]]; then
+      break
+    fi
+    if ! sleep "${refresh}" 2>/dev/null; then
+      echo
+      echo "  ── auditor.watch interrupted ──"
+      break
+    fi
+  done
+  return 0
+}
+
 _ux_design_audit_watch() {
   local refresh=5
   local iterations=0
@@ -7741,6 +7882,87 @@ WEAVER_HELP
       *)
         log_error "unknown weaver subcommand: $1"
         log_error "  available: status | list | read | write | watch"
+        return 2
+        ;;
+    esac
+    ;;
+  auditor)
+    # R537 (E5++): top-level Auditor subcommand. Master spec § 17
+    # Module 3 (Immutable Gatekeeper — Tetragon eBPF + Guardian core)
+    # + § 10 (Native Guardian Loop). Thin consolidated CLI surface
+    # over `_trinity_auditor_brief` / `_trinity_auditor_full` and
+    # the security_audit.log tail — exposes:
+    #   auditor status            brief panel (tetragon / guardian / policy)
+    #   auditor full              full diagnostic (TETRAGON + POLICY +
+    #                              GUARDIAN + RECENT VIOLATIONS + metrics)
+    #   auditor last-violation    last security_audit.log entry
+    #   auditor history [N]       tail -N (default 20) violation history
+    #   auditor watch             R537 refresh-loop TUI (drains tui:FUTURE)
+    # First commit in the auditor tier-3 surface-expansion arc
+    # (R537 TUI → R538 MCP → R539 API + webapp). Operator §17
+    # sovereignty boundary: neutralization is CCD-triggered + CLI-
+    # gated; this CLI surface is read-only inspection only.
+    _AUDITOR_LOG="/mnt/vault/context/security_audit.log"
+    case "${1:-}" in
+      watch)
+        shift
+        _auditor_watch "$@"
+        ;;
+      status|"")
+        _trinity_auditor_brief
+        ;;
+      full)
+        _trinity_auditor_full
+        ;;
+      last-violation)
+        if [ -f "${_AUDITOR_LOG}" ]; then
+          tail -1 "${_AUDITOR_LOG}" 2>/dev/null || {
+            log_error "audit log unreadable: ${_AUDITOR_LOG}"
+            return 1
+          }
+        else
+          echo "  audit log not present (${_AUDITOR_LOG})"
+          echo "  (lands when guardian-core daemon writes its first event)"
+        fi
+        ;;
+      history)
+        shift
+        _AUDITOR_N="${1:-20}"
+        case "${_AUDITOR_N}" in
+          ''|*[!0-9]*) _AUDITOR_N=20 ;;
+        esac
+        if [ -f "${_AUDITOR_LOG}" ]; then
+          tail -"${_AUDITOR_N}" "${_AUDITOR_LOG}" 2>/dev/null || {
+            log_error "audit log unreadable: ${_AUDITOR_LOG}"
+            return 1
+          }
+        else
+          echo "  audit log not present (${_AUDITOR_LOG})"
+        fi
+        ;;
+      -h|--help|help)
+        cat <<'AUDITOR_HELP'
+  auditor status               Brief Auditor panel (tetragon /
+                               guardian-core / policy state).
+                               Defaults if no verb.
+  auditor full                 Full diagnostic (TETRAGON + POLICY +
+                               GUARDIAN DAEMON + RECENT VIOLATIONS +
+                               Layer B metric anchors).
+  auditor last-violation       Last entry of /mnt/vault/context/
+                               security_audit.log (operator-§17
+                               read-only — neutralization stays CLI-
+                               gated via CCD-triggered flows).
+  auditor history [N]          tail -N (default 20) violation history
+                               from security_audit.log.
+  auditor watch                R537 (E5++): refresh-loop TUI surface
+        [--refresh N]          combining the Auditor brief panel + the
+        [--iterations N]       recent violation tail. Drains the
+                               auditor tui:FUTURE waiver.
+AUDITOR_HELP
+        ;;
+      *)
+        log_error "unknown auditor subcommand: $1"
+        log_error "  available: status | full | last-violation | history | watch"
         return 2
         ;;
     esac

@@ -222,10 +222,9 @@ MODULE_COVERAGE = {
         "waivers": {},
     },
     "auditor": {
-        "shipped_in": "R152-R155 (master spec §§ 10, 17) + R497 (Grafana dashboard)",
-        "surfaces": ["core", "cli", "service", "dashboard"],
+        "shipped_in": "R152-R155 (master spec §§ 10, 17) + R497 (Grafana dashboard) + R537 (E5++ refresh-loop TUI surface — read-only inspection, neutralization stays CCD-triggered + CLI-gated per operator §17)",
+        "surfaces": ["core", "cli", "tui", "service", "dashboard"],
         "waivers": {
-            "tui":       "FUTURE — live-tail violation watch TUI (refresh-loop over security_audit.log + last-neutralization tick)",
             "api":       "FUTURE — REST /auditor/{status,last-violation,history} read endpoints",
             "mcp":       "FUTURE — agent queries Auditor state via MCP (read-only — neutralization is operator-not-agent-controlled)",
             "webapp":    "FUTURE — master-dashboard /auditor subpath",
