@@ -426,6 +426,11 @@ COMMANDS:
   inference route <prompt>     Show which tier the router would pick for a sample request
   inference logs <tier>        Tail systemd journal for the tier
 
+  router status                R516 router surface (SDD-011) — service + listen check
+  router classify <prompt>     Show routing decision for a prompt (delegates to inference route)
+  router rules                 Print the 5 routing rules verbatim (SDD-011)
+  router watch                 R516 refresh-loop TUI (router + 4 tiers at a glance)
+
   metrics list                 List all sovereign_os_*.prom files in the textfile collector dir
   metrics show <basename>      Pretty-print a single .prom file (resolves trailing .prom)
   metrics tail [N]             Tail the N most-recently-updated .prom files (default: 5)
@@ -3821,6 +3826,198 @@ TRINITY_WATCH_HELP
   return 0
 }
 
+# ------------------------------ router ---------------------------------------
+#
+# R516 (E5++) — Inference router TUI surface.
+#
+# SDD-011: deterministic OpenAI-compatible front for the Pulse / Logic
+# Engine / Oracle Core direct stack. R516 opens the router tier-3
+# surface-expansion arc by draining the router.tui:FUTURE waiver —
+# same shape as the trinity R513 → R514 → R515 triple.
+#
+# Per operator §1g 8-surface delivery contract (verbatim):
+#
+#   "everything is not just core, not just cli, not just TUI, not just
+#   API, not just tool and MCP but also Dashboards and Web Apps and
+#   Services"
+#
+# Router subverbs:
+#   router status         — service state + port 8080 listen check
+#   router classify <p>   — show routing decision for a prompt
+#                           (delegates to `inference route`)
+#   router rules          — print the 5 routing rules verbatim
+#                           (SDD-011 wire contract)
+#   router watch          — R516 refresh-loop TUI (router + 4 tiers)
+
+cmd_router() {
+  local sub="${1:-status}"
+  shift || true
+
+  case "${sub}" in
+    status)
+      _router_status_brief
+      ;;
+    classify)
+      cmd_inference route "$@"
+      ;;
+    rules)
+      _router_rules
+      ;;
+    watch)
+      _router_watch "$@"
+      ;;
+    -h|--help)
+      cat <<'ROUTER_HELP'
+  sovereign-osctl router <subcommand> [options]
+
+  Inference router surface (SDD-011) — deterministic OpenAI-compatible
+  front for the Pulse / Logic Engine / Oracle Core direct stack.
+
+  Subcommands:
+    status              service state + port 8080 listen check
+    classify <prompt>   show which tier the router would pick
+    rules               print the 5 routing rules verbatim (SDD-011)
+    watch               R516 refresh-loop TUI (router + 4 tiers)
+
+  See also: sovereign-osctl inference {status,health,route,start,stop}
+ROUTER_HELP
+      ;;
+    *)
+      log_error "unknown router subcommand: ${sub}"
+      log_error "  available: status | classify | rules | watch"
+      return 2
+      ;;
+  esac
+}
+
+_router_rules() {
+  cat <<'ROUTER_RULES'
+  Router routing rules (SDD-011 — first match wins):
+    1. model startswith "microsoft/bitnet" or "ternary:"  → Pulse
+    2. model contains "code"/"math" + has draft           → Oracle Core
+    3. context length > 65536                             → Oracle Core
+    4. request demands JSON-mode / structured output      → Logic Engine
+    5. default                                            → Logic Engine
+ROUTER_RULES
+}
+
+_router_status_brief() {
+  echo "  [Router] — OpenAI-compatible front (SDD-011; port 8080)"
+  local svc_state="not-installed"
+  if systemctl list-unit-files sovereign-router.service >/dev/null 2>&1; then
+    svc_state="$(systemctl is-active sovereign-router.service 2>/dev/null || echo unknown)"
+  fi
+  echo "    service:            sovereign-router.service (${svc_state})"
+  local listen="absent"
+  if command -v ss >/dev/null 2>&1; then
+    if ss -ltn 2>/dev/null | grep -q ':8080 '; then
+      listen="present (127.0.0.1:8080 LISTEN)"
+    fi
+  fi
+  echo "    listen 8080:        ${listen}"
+  echo "    backends:           Pulse 8081 · Logic 8082 · Oracle 8083"
+  echo "    metrics:            sovereign_os_inference_route_total{tier,...}"
+}
+
+# R516 (E5++) — Router TUI refresh-loop surface.
+#
+# Operator-named guarantees (mirror of R513 trinity.watch shape):
+#   - Minimum refresh interval = 1s floor.
+#   - SOVEREIGN_OS_DRY_RUN=1 forces single-render exit (CI-safe).
+#   - Bounded by --iterations (0 = unbounded; default 0 unless DRY).
+#   - Ctrl-C exits cleanly.
+_router_watch() {
+  local refresh=5
+  local iterations=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --refresh)    refresh="${2:-5}"; shift 2 ;;
+      --refresh=*)  refresh="${1#*=}"; shift ;;
+      --iterations) iterations="${2:-0}"; shift 2 ;;
+      --iterations=*) iterations="${1#*=}"; shift ;;
+      -h|--help)
+        cat <<'ROUTER_WATCH_HELP'
+  router watch [--refresh N] [--iterations N]
+
+  Refresh-loop TUI surface for the inference router (SDD-011).
+  Combines the router status + 4-tier backend states + routing rules
+  into one continuously-updating view. Same shape as `trinity watch`
+  (R513) and `master-dashboard watch` (R488).
+
+  Options:
+    --refresh N       seconds between renders (default: 5, min: 1)
+    --iterations N    cap the number of renders (default: 0 = unbounded;
+                      SOVEREIGN_OS_DRY_RUN=1 forces a single render)
+ROUTER_WATCH_HELP
+        return 0
+        ;;
+      *)
+        log_error "unknown router watch flag: $1"
+        return 2
+        ;;
+    esac
+  done
+
+  case "${refresh}" in
+    ''|*[!0-9]*) refresh=5 ;;
+  esac
+  case "${iterations}" in
+    ''|*[!0-9]*) iterations=0 ;;
+  esac
+  if [[ "${refresh}" -lt 1 ]]; then refresh=1; fi
+
+  if [[ "${SOVEREIGN_OS_DRY_RUN:-}" == "1" ]]; then
+    if [[ "${iterations}" -eq 0 ]]; then iterations=1; fi
+  fi
+
+  local frame=0
+  while :; do
+    frame=$((frame + 1))
+    printf '\x1b[2J\x1b[H'
+    local now
+    now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "── router.watch (frame ${frame}, refresh=${refresh}s, ${now}) ──"
+    echo
+    _router_status_brief
+    echo
+    _router_rules
+    echo
+    echo "  [Backends]"
+    local -A _tier_ports=( [Pulse]=8081 [Logic]=8082 [Oracle]=8083 [Router]=8080 )
+    for tier in Pulse Logic Oracle Router; do
+      local port="${_tier_ports[$tier]}"
+      local unit
+      case "${tier}" in
+        Pulse)  unit="sovereign-pulse.service" ;;
+        Logic)  unit="sovereign-logic-engine.service" ;;
+        Oracle) unit="sovereign-oracle-core.service" ;;
+        Router) unit="sovereign-router.service" ;;
+      esac
+      local state="not-installed"
+      if systemctl list-unit-files "${unit}" >/dev/null 2>&1; then
+        state="$(systemctl is-active "${unit}" 2>/dev/null || echo unknown)"
+      fi
+      printf "    %-8s port=%-5s svc=%-15s state=%s\n" "${tier}" "${port}" "${unit}" "${state}"
+    done
+    echo
+    if [[ "${iterations}" -gt 0 && "${frame}" -ge "${iterations}" ]]; then
+      echo "  (reached --iterations=${iterations}; exit)"
+    else
+      echo "  (Ctrl-C to exit; refresh in ${refresh}s)"
+    fi
+
+    if [[ "${iterations}" -gt 0 && "${frame}" -ge "${iterations}" ]]; then
+      break
+    fi
+    if ! sleep "${refresh}" 2>/dev/null; then
+      echo
+      echo "  ── router.watch interrupted ──"
+      break
+    fi
+  done
+  return 0
+}
+
 # Pulse — Vector Core (CCD0; AVX-512; bitnet.cpp; Wasm AOT)
 _trinity_pulse_brief() {
   echo "  [Pulse] — Vector Core (master spec § 17 Module 1; CCD0 cores 0-5)"
@@ -5248,6 +5445,7 @@ case "${cmd}" in
   wizard)        cmd_wizard "$@" ;;
   env)           cmd_env "$@" ;;
   inference)     cmd_inference "$@" ;;
+  router)        cmd_router "$@" ;;
   metrics)       cmd_metrics "$@" ;;
   alerts)        cmd_alerts "$@" ;;
   journal)       cmd_journal "$@" ;;
