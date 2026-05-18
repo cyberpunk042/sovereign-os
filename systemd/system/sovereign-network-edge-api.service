@@ -1,0 +1,54 @@
+[Unit]
+Description=Sovereign network-edge read-only REST API (R507, E11.M8++)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/network-edge-api.py
+# This API surface MIRRORS the data the CLI exposes via
+# `sovereign-osctl network-edge <verb>` (which dispatches to the
+# network-topology.py detection backend, R449 lineage). network-edge
+# has no mutation verbs at any surface — operator §17 sovereignty
+# boundary; OPNsense config changes are operator-driven outside the
+# sovereign-os boundary.
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/network-edge-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default — operator-§1g exposure decision is theirs.
+# To expose beyond loopback, drop an override at
+# /etc/systemd/system/sovereign-network-edge-api.service.d/bind.conf:
+#   [Service]
+#   Environment=NETWORK_EDGE_API_BIND=0.0.0.0
+Environment=NETWORK_EDGE_API_BIND=127.0.0.1
+Environment=NETWORK_EDGE_API_PORT=8093
+
+# Defense-in-depth — read-only HTTP surface that runs ip/route/ss
+# probes and TCP-connects to OPNsense for state detection. No
+# mutation. The daemon needs read on network-topology.py and append
+# on the metrics textfile collector dir.
+# R171 defense-in-depth (Layer 1 lint enforced)
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+# Loopback default — capability lockdown matches.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target
