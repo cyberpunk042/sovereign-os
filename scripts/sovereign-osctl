@@ -6153,6 +6153,16 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  search)
+    # R386 (E10.M30): unified operator-pull search across all 3
+    # verbatim-catalog taxonomies (architecture-qa + coverage-map +
+    # layers). One verb queries all catalogs at once + ranks results.
+    if [ "$#" -lt 1 ]; then
+      log_error "usage: sovereign-osctl search <needle> [--json|--human]"
+      exit 2
+    fi
+    "${__REPO_ROOT}/scripts/intelligence/unified-search.py" "$@"
+    ;;
   layers)
     # R382 (E10.M26): operator-pull verbatim 11-layer 'guide into'
     # enumeration from the 2026-05-17 hook drop opening sentence.
