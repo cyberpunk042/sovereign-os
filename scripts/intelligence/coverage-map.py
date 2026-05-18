@@ -150,11 +150,14 @@ DEFAULT_AXES: list[dict[str, Any]] = [
     {"id": "A-06",
      "axis_verbatim": "notification and messaging",
      "source": "hook drop 2026-05-17",
-     "implementing_verbs": ["sovereign-osctl notify"],
+     "implementing_verbs": ["sovereign-osctl autohealth",
+                             "sovereign-osctl doctor"],
      "sdd_refs": [],
-     "mandate_rows": ["E2.M17"],
+     "mandate_rows": ["E2.M14"],
      "status": "✓ shipped",
-     "notes": "R310 notify-dispatch."},
+     "notes": ("R254 notify-dispatch + R308 autohealth integration "
+                "(notify-dispatch surfaces under autohealth tick + "
+                "doctor advisory verdicts).")},
     {"id": "A-07",
      "axis_verbatim": ("networks and in and out, the DNS, the "
                         "Cloudflared ? the tailscale, Traefik"),
@@ -261,7 +264,7 @@ DEFAULT_AXES: list[dict[str, Any]] = [
          "sovereign-osctl repl shell <mode>",
      ],
      "sdd_refs": [],
-     "mandate_rows": ["E2.M21"],
+     "mandate_rows": ["E2.M35"],
      "status": "✓ shipped",
      "notes": ("R366 multi-level REPL ships 4 operator-named modes "
                 "(python / system / gpu / llm) with per-mode preamble "

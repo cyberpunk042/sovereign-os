@@ -315,9 +315,10 @@ Every operator-stated demand mapped to ≥1 implementing verb.
 **Source**: hook drop 2026-05-17
 
 **Implementing verbs**:
-  - `sovereign-osctl notify`
+  - `sovereign-osctl autohealth`
+  - `sovereign-osctl doctor`
 
-**Notes**: R310 notify-dispatch.
+**Notes**: R254 notify-dispatch + R308 autohealth integration (notify-dispatch surfaces under autohealth tick + doctor advisory verdicts).
 
 ### ✓ A-07 — networks and in and out, the DNS, the Cloudflared ? the tailscale, Traefik
 
