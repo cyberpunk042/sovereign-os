@@ -608,6 +608,70 @@ ARCHITECTURE_CONCEPTS: list[dict[str, Any]] = [
         "spec_ref": "master spec §18 verbatim (Load Balancing & Runtime Profiles Profile 2)",
     },
     {
+        "id": "C-14",
+        "name": "Tetragon TracingPolicy verbatim (sovereign-kernel-fence)",
+        "explanation": ("A native eBPF profile running inside Tetragon "
+                         "provides structural security without high "
+                         "application-layer parsing overhead. This "
+                         "architecture monitors container execution "
+                         "contexts dealing directly with model "
+                         "variables. The operator-verbatim §4 "
+                         "TracingPolicy YAML: "
+                         "apiVersion: cilium.io/v1alpha1 / kind: "
+                         "TracingPolicy / metadata.name: "
+                         "\"sovereign-kernel-fence\" / spec.kprobes "
+                         "with call: \"sys_execve\", syscall: true, "
+                         "args [index 0 type string], selectors "
+                         "matchArgs operator NotIn values: "
+                         "/usr/bin/python3, /usr/bin/nvidia-smi, "
+                         "/usr/local/bin/vllm, /usr/bin/podman; "
+                         "matchActions action: Sigkill. This script "
+                         "terminates any thread requesting system call "
+                         "execution outside the authorized execution "
+                         "boundaries directly in kernel space, "
+                         "maintaining system integrity. Implementation "
+                         "note: shipped policy uses __x64_sys_execve "
+                         "(architecture-specific syscall prefix per "
+                         "modern Tetragon convention) and matchBinaries "
+                         "(more efficient than matchArgs string match) "
+                         "while preserving the operator's 4-binary "
+                         "allowlist exactly: python3, nvidia-smi, vllm, "
+                         "podman."),
+        "tags": ["tetragon", "tracingpolicy", "ebpf", "sigkill",
+                 "sovereign-kernel-fence", "sys_execve", "allowlist",
+                 "kernel-space", "auditor", "podman", "vllm",
+                 "nvidia-smi", "python3"],
+        "spec_ref": "master spec §4 + §4.1 verbatim (Security & Isolation Perimeter)",
+    },
+    {
+        "id": "C-15",
+        "name": "Storage Architecture (ZFS dataset sharding per access pattern)",
+        "explanation": ("ZFS on Linux (ZoL) is utilized to shard data "
+                         "based on access patterns and reliability "
+                         "requirements. Three datasets with explicit "
+                         "operator-named purposes: tank/models with "
+                         "recordsize 1M and lz4 compression and "
+                         "Redundant Metadata — Optimized for 100GB+ "
+                         "weight files; tank/context with recordsize "
+                         "16k and zstd-9 compression and copies=2 — "
+                         "Stores [SOUL.md], [IDENTITY.md]; tank/agents "
+                         "with recordsize 128k and zstd-3 compression "
+                         "and Standard redundancy — Stateful local "
+                         "storage for agent fleets. The pool is "
+                         "created via zpool create -o ashift=12 -O "
+                         "compression=lz4 -m none tank /dev/nvme0n1 "
+                         "/dev/nvme1n1 (2x PCIe 5.0 NVMe in ZFS RAID 0 "
+                         "for maximum sequential throughput, 31.5 GB/s "
+                         "target). Per-dataset settings applied via "
+                         "zfs create + zfs set commands per the §4.1 "
+                         "ZFS Storage Tuning Matrix."),
+        "tags": ["zfs", "tank-models", "tank-context", "tank-agents",
+                 "recordsize", "compression", "lz4", "zstd-9", "zstd-3",
+                 "copies", "redundant-metadata", "raid-0", "nvme",
+                 "31.5gb-s", "ashift-12"],
+        "spec_ref": "master spec §3 + §4.1 verbatim (Storage Architecture + Tuning Matrix)",
+    },
+    {
         "id": "C-10",
         "name": "Wasm-to-AVX-512 AOT Pipeline (The Pulse implementation)",
         "explanation": ("When The Pulse processes low-bit matrix logic "
