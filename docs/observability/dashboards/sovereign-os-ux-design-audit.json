@@ -1,0 +1,119 @@
+{
+  "_comment": "sovereign-os ux-design-audit dashboard (R492, R457+). Visualizes the operator-§1g UX-quality instrument that scores each module against the 6-dimension UX ladder. Sourced from sovereign_os_operator_ux_design_audit_query_total{verb,dimension,result} (Layer B, SDD-016) emitted by scripts/operator/ux-design-audit.py. Operator imports into Grafana via Settings → JSON Model. Closes the future ux-design-audit-dashboard waiver and registers ux-design-audit in MODULE_COVERAGE at 3 surfaces (core/cli/dashboard).",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "ux-design-audit CLI", "url": "/d/sovereign-os-ux-design-audit#cli", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "ux-design-audit queries (total)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_ux_design_audit_query_total)", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "dimensions verb (count)",
+      "description": "Enumerates the 6 dimensions in the §1g operator-named UX-quality ladder.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_ux_design_audit_query_total{verb=\"dimensions\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "modules verb (count)",
+      "description": "Per-module rollup across the 6 dimensions.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_ux_design_audit_query_total{verb=\"modules\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "audit verb (count)",
+      "description": "Per-module audit run — operator's 'is this module's UX high-quality?' verb.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_ux_design_audit_query_total{verb=\"audit\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "score verb (count)",
+      "description": "Numeric score (0..6) per module — composite UX quality.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_ux_design_audit_query_total{verb=\"score\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "report verb (count)",
+      "description": "One-screen cross-module report — operator's daily UX rollup.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_ux_design_audit_query_total{verb=\"report\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 20, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "ux-design-audit query rate per verb (5m)",
+      "description": "Per-verb query rate over time. dimensions / modules / audit / score / report / selfdef — operator's UX-tooling usage pattern.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(sovereign_os_operator_ux_design_audit_query_total[5m])", "refId": "A", "legendFormat": "{{verb}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "ux-design-audit dimension attention (5m)",
+      "description": "Per-dimension query rate. action-budget / discoverable / recoverable / next-step / operator-named / readable-30s — operator-revealed-preference signal for which UX axis is most-watched.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(sovereign_os_operator_ux_design_audit_query_total[5m])", "refId": "A", "legendFormat": "{{dimension}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+    },
+    {
+      "type": "barchart",
+      "title": "ux-design-audit result distribution",
+      "description": "ok / unknown-module / issues — operator-§1g result-class breakdown across all verbs.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sum by (result) (sovereign_os_operator_ux_design_audit_query_total)", "refId": "A", "legendFormat": "{{result}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+    },
+    {
+      "type": "table",
+      "title": "ux-design-audit current state (verb × dimension × result)",
+      "description": "Per-(verb, dimension, result) histogram — operator-discoverable: 'which UX axis am I exercising most, and is it passing?'",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sum by (verb, dimension, result) (sovereign_os_operator_ux_design_audit_query_total)", "refId": "A", "format": "table", "instant": true}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+    },
+    {
+      "type": "text",
+      "title": "ux-design-audit §1g verbatim + 6-dimension ladder",
+      "options": {
+        "mode": "markdown",
+        "content": "**Operator §1g verbatim** (sacrosanct):\n\n> \"We do not minimize anything.\"\n\nOperator §1g UX rationale (R457):\n\n> \"reach the goal of the surface in N or fewer actions ... clear discovery ... recoverable mistakes ... discoverable next steps ... of quality\"\n\nThis instrument scores each operator-§1g module against the 6-dimension UX-quality ladder. The score IS the operator's daily revealed-preference: low-scoring modules have shortened the UX delivery contract; high-scoring modules respect §1g.\n\n**6-dimension UX ladder (sacrosanct, R457):**\n\n1. `action-budget` — operator reaches goal in N (default 3) actions or fewer\n   - operator-named: \"reach the goal of the surface in N or fewer actions\"\n2. `discoverable` — surface enumerable from `sovereign-osctl` help\n   - operator-named: \"clear discovery\"\n3. `recoverable` — destructive ops are preview-before-apply (triple-gate)\n   - operator-named: \"recoverable mistakes\"\n4. `next-step` — verbs surface `next_action` / `next:` hints\n   - operator-named: \"discoverable next steps\"\n5. `operator-named` — operator's verbatim words preserved in module surface\n   - operator-named: \"operator-§1g sacrosanct verbatim discipline\"\n6. `readable-30s` — help text dense enough to read in 30s (≤500 chars)\n   - operator-named: \"of quality\"\n\n**Threshold:** 6/6. The UX ladder has NO partial-credit. A module scoring 5/6 has ONE silently-shortened axis — that IS minimization, and the operator wants the work.\n\n**CLI:**\n\n```\nsovereign-osctl ux-design-audit dimensions          # enumerate 6\nsovereign-osctl ux-design-audit modules             # list audited modules\nsovereign-osctl ux-design-audit audit <module>      # per-module audit\nsovereign-osctl ux-design-audit score <module>      # numeric 0..6\nsovereign-osctl ux-design-audit report              # one-screen rollup\nsovereign-osctl ux-design-audit selfdef             # cross-repo selfdef\n```\n\n**Metric:** `sovereign_os_operator_ux_design_audit_query_total{verb,dimension,result}` (SDD-016 Layer B)\n\n**Source:** R457 shipped the 6-dimension instrument + 6 verbs. R492 (R457+) ships THIS dashboard + registers ux-design-audit as a first-class module in MODULE_COVERAGE at 3 surfaces (core/cli/dashboard).\n\n**Standing operator rule (sacrosanct):**\n\n> \"We do not minimize anything.\""
+      },
+      "gridPos": {"h": 16, "w": 24, "x": 0, "y": 20}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["sovereign-os", "ux-design-audit", "operator", "R492"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "sovereign-os ux-design-audit",
+  "uid": "sovereign-os-ux-design-audit",
+  "version": 1,
+  "weekStart": ""
+}

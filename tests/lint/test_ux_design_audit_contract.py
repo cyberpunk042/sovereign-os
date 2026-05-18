@@ -356,3 +356,99 @@ def test_audit_unknown_module_fails():
         capture_output=True, text=True, timeout=10,
     )
     assert result.returncode != 0
+
+
+# --- R492 (R457+) — Grafana dashboard surface + first-class module registration ---
+
+
+UX_DASHBOARD_JSON = (
+    REPO_ROOT / "docs" / "observability" / "dashboards"
+    / "sovereign-os-ux-design-audit.json"
+)
+
+
+def test_dashboard_json_exists():
+    """R492 — ux-design-audit Grafana dashboard surface registers ux-
+    design-audit as a first-class module + ships the operator-§1g
+    UX-quality visualization."""
+    assert UX_DASHBOARD_JSON.is_file(), (
+        f"missing ux-design-audit dashboard: {UX_DASHBOARD_JSON}"
+    )
+
+
+def test_dashboard_json_parseable():
+    data = json.loads(UX_DASHBOARD_JSON.read_text(encoding="utf-8"))
+    assert "panels" in data, "dashboard missing panels"
+    assert "title" in data and data["title"], "dashboard missing title"
+    assert "uid" in data and data["uid"], "dashboard missing uid"
+
+
+def test_dashboard_references_ux_design_audit_metric():
+    body = UX_DASHBOARD_JSON.read_text(encoding="utf-8")
+    assert "sovereign_os_operator_ux_design_audit_query_total" in body, (
+        "ux-design-audit dashboard doesn't reference the Layer B metric"
+    )
+
+
+def test_dashboard_covers_six_dimensions():
+    """Per R457 6-dimension suite, dashboard MUST reference all 6
+    dimension labels verbatim (operator-named UX axes)."""
+    body = UX_DASHBOARD_JSON.read_text(encoding="utf-8")
+    for dim in ("action-budget", "discoverable", "recoverable",
+                "next-step", "operator-named", "readable-30s"):
+        assert dim in body, (
+            f"ux-design-audit dashboard missing dimension: {dim!r}"
+        )
+
+
+def test_dashboard_covers_core_verbs():
+    body = UX_DASHBOARD_JSON.read_text(encoding="utf-8")
+    for verb in ("dimensions", "modules", "audit", "score", "report"):
+        assert verb in body, (
+            f"ux-design-audit dashboard missing verb reference: {verb!r}"
+        )
+
+
+def test_dashboard_quotes_operator_standing_rule_verbatim():
+    body = UX_DASHBOARD_JSON.read_text(encoding="utf-8")
+    assert "We do not minimize anything" in body, (
+        "ux-design-audit dashboard missing §1g verbatim standing rule"
+    )
+
+
+def test_dashboard_listed_in_readme():
+    readme = (UX_DASHBOARD_JSON.parent / "README.md").read_text(encoding="utf-8")
+    assert "sovereign-os-ux-design-audit.json" in readme, (
+        "dashboards/README.md missing sovereign-os-ux-design-audit.json entry"
+    )
+
+
+def test_dashboard_tagged_sovereign_os():
+    data = json.loads(UX_DASHBOARD_JSON.read_text(encoding="utf-8"))
+    assert "sovereign-os" in (data.get("tags") or []), (
+        "ux-design-audit dashboard missing sovereign-os tag"
+    )
+
+
+def test_ux_design_audit_registered_in_surface_map():
+    """R492 registers ux-design-audit in MODULE_COVERAGE at >=3 surfaces."""
+    sm_path = REPO_ROOT / "scripts" / "operator" / "surface-map.py"
+    sm = sm_path.read_text(encoding="utf-8")
+    assert '"ux-design-audit":' in sm, (
+        "surface-map.py MODULE_COVERAGE missing 'ux-design-audit' entry"
+    )
+    result = subprocess.run(
+        ["python3", str(sm_path), "coverage", "--module",
+         "ux-design-audit", "--json"],
+        capture_output=True, text=True, timeout=15,
+    )
+    assert result.returncode == 0, (
+        f"surface-map coverage ux-design-audit failed: {result.stderr[:300]}"
+    )
+    data = json.loads(result.stdout)
+    entries = data.get("coverage", [data])
+    entry = entries[0] if entries else {}
+    surface_count = entry.get("surface_count", 0)
+    assert surface_count >= 3, (
+        f"ux-design-audit must be at threshold (>=3 surfaces); got {surface_count}"
+    )

@@ -256,6 +256,17 @@ MODULE_COVERAGE = {
             "service":   "not applicable — query-only instrument, no daemon",
         },
     },
+    "ux-design-audit": {
+        "shipped_in": "R457 + R492 (Grafana dashboard)",
+        "surfaces": ["core", "cli", "dashboard"],
+        "waivers": {
+            "tui":       "FUTURE — refresh-loop audit-watch TUI (same shape as R488 master-dashboard.watch)",
+            "api":       "FUTURE — REST /ux-design-audit/{dimensions,modules,audit,score} read endpoints",
+            "mcp":       "FUTURE — agent queries UX gaps via MCP",
+            "webapp":    "FUTURE — master-dashboard /ux-design-audit subpath",
+            "service":   "not applicable — query-only instrument, no daemon",
+        },
+    },
 }
 
 KNOWN_MODULES = list(MODULE_COVERAGE.keys())
