@@ -216,6 +216,24 @@ COMMANDS:
         [--force-skip-tiers]
         [--json]
 
+  doc-coverage kinds           R454 (E11.M1): operator §1g
+                               [--json]                     "documentation through and through";
+                                                            enumerates 6 doc surfaces (readme/sdd/
+                                                            helptext/metric-inventory/mandate-row/
+                                                            man-page).
+  doc-coverage modules         List operator-facing modules tracked
+                               [--json]                     by the scanner.
+  doc-coverage scan            Live grep — per-module which of the
+        [--module <m>]         6 doc surfaces actually mention it.
+        [--json]               Docs ARE the source of truth.
+  doc-coverage coverage        Module × doc-surface matrix, sorted
+        [--module <m>]         by largest gap first.
+        [--json]
+  doc-coverage gaps            Modules below doc-surface threshold
+        [--module <m>]         (default 3; SOVEREIGN_OS_DOC_THRESHOLD
+        [--threshold N]        env-override). Exit 2 on gaps.
+        [--json]
+
   surface-map surfaces         R453 (E11.M3): operator §1g 8-surface
                                [--json]                     taxonomy (core/cli/TUI/API/MCP/Dashboard/
                                                             Web App/Service); enumerates surfaces.
@@ -6579,6 +6597,15 @@ case "${cmd}" in
     # → advanced → social → enterprise → network-level). Per-dashboard
     # tier registry + upgrade matrix + triple-gated set.
     "${__REPO_ROOT}/scripts/operator/auth-tier.py" "$@"
+    ;;
+  doc-coverage)
+    # R454 (E11.M1): operator §1g verbatim — "very clear and well
+    # defined documentation through and through which follow the high
+    # standards". Per-module documentation coverage scanner across 6
+    # doc surfaces (readme/sdd/helptext/metric-inventory/mandate-row/
+    # man-page). Auto-discovery via grep: docs ARE the source of truth.
+    # 5 verbs: kinds / modules / scan / coverage / gaps.
+    "${__REPO_ROOT}/scripts/operator/doc-coverage.py" "$@"
     ;;
   surface-map)
     # R453 (E11.M3): operator §1g verbatim — "Everything is not just

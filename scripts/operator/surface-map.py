@@ -368,7 +368,9 @@ def cmd_coverage(args) -> int:
 
 
 def cmd_gaps(args) -> int:
-    threshold = args.threshold if args.threshold else DEFAULT_THRESHOLD
+    threshold = (args.threshold
+                 if args.threshold is not None
+                 else DEFAULT_THRESHOLD)
     target = [args.module] if args.module else KNOWN_MODULES
     if args.module and args.module not in KNOWN_MODULES:
         print(f"unknown module: {args.module!r}", file=sys.stderr)

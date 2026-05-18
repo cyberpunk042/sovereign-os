@@ -203,6 +203,9 @@ E11.M2 (operator §1g — master-dashboard / reverse-proxy aggregator):
 E11.M3 (operator §1g — multi-surface delivery contract):
 - `sovereign_os_operator_surface_map_query_total{verb,surface,result}` — `sovereign-osctl surface-map <verb>` queries (verb=surfaces/modules/coverage/gaps/waivers; surface=core|cli|tui|api|mcp|dashboard|webapp|service|all|any|unknown; result=ok|below-threshold|unknown-module|unknown-surface)
 
+E11.M1 (operator §1g — documentation through-and-through):
+- `sovereign_os_operator_doc_coverage_query_total{verb,kind,result}` — `sovereign-osctl doc-coverage <verb>` queries (verb=kinds/modules/scan/coverage/gaps; kind=readme|sdd|helptext|metric-inventory|mandate-row|man-page|all|any|unknown; result=ok|below-threshold|unknown-module)
+
 When a new hook adds metrics: add a row to the section above + a panel
 to the relevant dashboard JSON + bump the dashboard `version`.
 Operators re-import to pick up. The `test_metric_inventory_lockstep.py`
