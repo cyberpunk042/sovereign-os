@@ -27,7 +27,7 @@ Sovereignty (stdlib-only — zero added deps):
     actual OPNsense config changes are operator-driven via the
     OPNsense UI / API directly, outside the sovereign-os boundary)
 
-Read-only endpoints (R507 v1):
+Read-only endpoints (R507 v1, R509 webapp v2):
   GET /version                     — service version + module identity
   GET /detect                      — full network-edge detection bundle
                                      (interfaces + gateway + nat-chain +
@@ -38,6 +38,9 @@ Read-only endpoints (R507 v1):
   GET /opnsense/status             — OPNsense reachability + tier
   GET /opnsense/capabilities       — capability ladder for the
                                      current OPNsense tier
+  GET /webapp/                     — R509 single-file monochrome SPA
+                                     mirroring the read-only verbs
+                                     (operator-§1g: zero external deps)
   GET /healthz                     — API daemon liveness (always 200)
 
 Layer-B metric (sister to the CLI's `_query_total{verb,result}`):
@@ -47,6 +50,7 @@ Layer-B metric (sister to the CLI's `_query_total{verb,result}`):
 Env vars (all overridable):
   NETWORK_EDGE_API_BIND          (default: 127.0.0.1)
   NETWORK_EDGE_API_PORT          (default: 8093)
+  NETWORK_EDGE_WEBAPP_PATH       (default: <repo>/webapp/network-edge/index.html)
   SOVEREIGN_OS_METRICS_DIR       (default: /var/lib/node_exporter/textfile_collector)
   NETWORK_EDGE_API_DRY_RUN       (default: unset; set to 1 = print and exit)
 """
@@ -74,7 +78,13 @@ METRICS_DIR = os.environ.get(
 # TYPE sovereign_os_operator_network_edge_api_request_total counter
 METRIC_NAME = "sovereign_os_operator_network_edge_api_request_total"
 
-API_VERSION = "1.0.0-R507"
+API_VERSION = "1.1.0-R509"
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_WEBAPP_DEFAULT = _REPO_ROOT / "webapp" / "network-edge" / "index.html"
+WEBAPP_PATH = Path(os.environ.get(
+    "NETWORK_EDGE_WEBAPP_PATH", str(_WEBAPP_DEFAULT)
+))
 
 # network-edge CLI module — import directly so the API serves from the
 # SAME data model the operator-facing CLI uses (no drift). The CLI
@@ -151,10 +161,18 @@ def _version_payload() -> dict:
     return {
         "module": "network-edge-api",
         "version": API_VERSION,
-        "shipped_in": "R507 (E11.M8++)",
+        "shipped_in": (
+            "R507 (E11.M8++ read-only REST API + systemd service) + "
+            "R508 (E11.M8++ MCP surface) + "
+            "R509 (E11.M8++ webapp surface)"
+        ),
         "source": "scripts/operator/network-edge-api.py",
         "data_source": str(_NE_PATH),
-        "surfaces": ["core", "cli", "tui", "dashboard", "api", "service"],
+        "webapp_path": str(WEBAPP_PATH),
+        "surfaces": [
+            "core", "cli", "tui", "dashboard",
+            "api", "service", "mcp", "webapp",
+        ],
         "standing_rule": "We do not minimize anything.",
     }
 
@@ -178,6 +196,31 @@ class NetworkEdgeAPIHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _send_webapp(self) -> None:
+        """Serve the R509 single-file SPA from the SAME host:port as
+        the JSON endpoints (operator-§1g: same-origin, zero CORS).
+        Headers carry the webapp module identity + framing/MIME hardening
+        (X-Frame-Options=DENY, X-Content-Type-Options=nosniff)."""
+        try:
+            body = WEBAPP_PATH.read_bytes()
+        except OSError as e:
+            self._send_json(500, {
+                "error": f"webapp asset unreadable: {e}",
+                "webapp_path": str(WEBAPP_PATH),
+            })
+            _emit_metric("webapp", "500")
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("X-Sovereign-Module", "network-edge-webapp")
+        self.send_header("X-Sovereign-Version", API_VERSION)
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+        self.wfile.write(body)
+        _emit_metric("webapp", "ok")
+
     def do_GET(self) -> None:  # noqa: N802
         parsed = urllib.parse.urlsplit(self.path)
         path = parsed.path.rstrip("/") or "/"
@@ -185,6 +228,10 @@ class NetworkEdgeAPIHandler(BaseHTTPRequestHandler):
         if path == "/healthz" or path == "/":
             self._send_json(200, {"status": "ok", "version": API_VERSION})
             _emit_metric("healthz" if path == "/healthz" else "root", "ok")
+            return
+
+        if path in ("/webapp", "/webapp/index.html"):
+            self._send_webapp()
             return
 
         try:
@@ -225,7 +272,8 @@ class NetworkEdgeAPIHandler(BaseHTTPRequestHandler):
             "error": f"unknown endpoint: {path!r}",
             "available": ["/version", "/detect", "/interfaces",
                           "/nat-chain", "/opnsense/status",
-                          "/opnsense/capabilities", "/healthz"],
+                          "/opnsense/capabilities", "/webapp/",
+                          "/healthz"],
         })
         _emit_metric(
             path.lstrip("/").replace("-", "_").replace("/", "_")
@@ -261,8 +309,9 @@ def serve(bind: str = API_BIND, port: int = API_PORT) -> int:
     )
     print(f"  data source: {_NE_PATH}", flush=True)
     print(f"  endpoints:   /version /detect /interfaces /nat-chain "
-          f"/opnsense/status /opnsense/capabilities + /healthz",
+          f"/opnsense/status /opnsense/capabilities /webapp/ + /healthz",
           flush=True)
+    print(f"  webapp:      {WEBAPP_PATH}", flush=True)
     if bind != "127.0.0.1":
         print(
             f"  WARNING: bind={bind!r} is NOT loopback — operator "

@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os network-edge</title>
+<meta name="x-sovereign-module" content="network-edge-webapp">
+<meta name="x-sovereign-shipped-in" content="R509 (E11.M8++)">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<style>
+  /* Operator-§1g UX: readable in 30 seconds, monochrome palette,
+     no JS framework, no CDN, no fonts fetched from elsewhere —
+     sovereignty-clean single-file webapp. */
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border)}
+  .pill.ok{background:#143d14;color:var(--good)}
+  .pill.warn{background:#3d3014;color:var(--warn)}
+  .pill.bad{background:#3d1414;color:var(--bad)}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+  .stat{flex:1 1 180px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
+  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .stat .v{font-size:1.4rem;margin-top:.15rem}
+  button{font-family:var(--mono);background:var(--panel);color:var(--fg);border:1px solid var(--border);padding:.35rem .7rem;border-radius:3px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  footer{margin-top:2rem;color:var(--muted);font-size:.75rem;border-top:1px solid var(--border);padding-top:.8rem}
+  .standing-rule{color:var(--accent);font-style:italic;margin-top:.4rem}
+  .cap-row{display:flex;gap:.5rem;align-items:flex-start;padding:.25rem 0}
+  .level-badge{display:inline-block;min-width:1.5rem;text-align:center;background:var(--border);border-radius:3px;padding:1px 6px;font-size:.72rem;color:var(--accent)}
+  code{color:var(--accent)}
+  pre{background:#0a0a0a;border:1px solid var(--border);border-radius:3px;padding:.6rem .8rem;overflow-x:auto;font-size:.78rem;margin:.4rem 0;white-space:pre-wrap;word-break:break-all}
+  .disclaimer{background:#10202a;border:1px solid #20405a;color:var(--accent);padding:.7rem .9rem;border-radius:4px;margin:.6rem 0;font-size:.82rem}
+</style>
+</head>
+<body>
+<h1>sovereign-os network-edge</h1>
+<p class="sub">
+  Operator-§1g multi-NAT edge-network surface — workstation → OPNsense → ISP-router → public chain, VPN bridge, OPNsense capability ladder.
+  Read-only mirror of <code>sovereign-osctl network-edge &lt;verb&gt;</code>.
+  network-edge has no mutation verbs at any surface — OPNsense config changes stay operator-driven via the OPNsense UI/API directly (operator §17 sovereignty boundary, outside the sovereign-os boundary).
+</p>
+
+<div class="row" id="stats">
+  <div class="stat"><div class="k">interfaces</div><div class="v" id="stat-ifaces">—</div></div>
+  <div class="stat"><div class="k">NAT layers</div><div class="v" id="stat-nat">—</div></div>
+  <div class="stat"><div class="k">VPN bridge</div><div class="v" id="stat-vpn">—</div></div>
+  <div class="stat"><div class="k">OPNsense tier</div><div class="v" id="stat-tier">—</div></div>
+  <div class="stat"><div class="k">capabilities</div><div class="v" id="stat-caps">—</div></div>
+  <div class="stat"><div class="k">api version</div><div class="v muted" id="stat-version">—</div></div>
+</div>
+
+<div class="disclaimer">
+  operator §17 sovereignty boundary: OPNsense configuration changes are operator-driven via the OPNsense UI / API directly — this surface is read-only and runs entirely on the workstation.
+</div>
+
+<h2>interfaces</h2>
+<div class="panel">
+  <table>
+    <thead>
+      <tr><th>name</th><th>state</th><th>mtu</th><th>addrs</th></tr>
+    </thead>
+    <tbody id="iface-tbody"><tr><td colspan="4" class="muted">loading…</td></tr></tbody>
+  </table>
+</div>
+
+<h2>NAT chain (multi-NAT visibility)</h2>
+<div class="panel" id="nat-panel">
+  <div id="nat-body" class="muted">loading…</div>
+</div>
+
+<h2>OPNsense capability ladder</h2>
+<div class="panel" id="caps-panel">
+  <div id="caps-body" class="muted">loading…</div>
+</div>
+
+<h2>full detect bundle</h2>
+<div class="panel">
+  <details>
+    <summary class="muted">expand raw JSON (full detection bundle including default_gateway, vpn_bridge, opnsense state + operator-named edge hardware)</summary>
+    <pre id="detect-body" class="muted">loading…</pre>
+  </details>
+</div>
+
+<h2>refresh</h2>
+<div class="panel">
+  <div class="row">
+    <button id="refresh-btn">refresh now</button>
+    <span class="muted">auto-refresh every 30s — last refresh <span id="last-refresh">never</span></span>
+  </div>
+</div>
+
+<footer>
+  <div>shipped in <code>R509 (E11.M8++)</code> · serves the <code>/webapp/</code> path of the R507 network-edge-api daemon (<code>scripts/operator/network-edge-api.py</code>) · backing CLI <code>sovereign-osctl network-edge</code> (dispatches to <code>network-topology.py</code>, R449 lineage) · MCP via <code>scripts/interop/mcp-aggregate.py</code> (R508)</div>
+  <div class="standing-rule">"We do not minimize anything." — operator §1g standing rule (sacrosanct)</div>
+</footer>
+
+<script>
+"use strict";
+// Operator-§1g UX rule: no external dependencies, no CDN fetches.
+// Same-origin XHR only — the R507 API daemon serves both this webapp
+// and the JSON endpoints under the same host:port binding.
+
+const ENDPOINTS = ["/version", "/interfaces", "/nat-chain",
+                   "/opnsense/status", "/opnsense/capabilities",
+                   "/detect"];
+
+async function fetchJSON(path) {
+  const res = await fetch(path, {headers: {"Accept": "application/json"}});
+  if (!res.ok) throw new Error(path + " → " + res.status);
+  return await res.json();
+}
+
+function el(id) { return document.getElementById(id); }
+
+function renderStats(version, interfaces, natChain, opnStatus,
+                    opnCaps) {
+  el("stat-ifaces").textContent = interfaces.count;
+  el("stat-nat").textContent =
+    natChain.available ? (natChain.nat_layers_visible || "?") : "n/a";
+  el("stat-vpn").textContent =
+    opnStatus && opnStatus.tier ? "—" : "—";
+  el("stat-tier").textContent =
+    (opnStatus && opnStatus.tier) || "unknown";
+  el("stat-caps").textContent =
+    (opnCaps.unlocked_count || 0) + " unlocked";
+  el("stat-version").textContent = version.version;
+}
+
+function renderInterfaces(interfaces) {
+  const tbody = el("iface-tbody");
+  tbody.innerHTML = "";
+  const list = interfaces.interfaces || [];
+  if (list.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" class="muted">no interfaces detected</td></tr>';
+    return;
+  }
+  for (const i of list) {
+    const tr = document.createElement("tr");
+    const state = i.state || "?";
+    const stateClass = state === "up" ? "ok" :
+      state === "down" ? "bad" : "muted";
+    const addrs = (i.addrs || []).join(", ") || "—";
+    tr.innerHTML =
+      "<td><code>" + (i.name || "?") + "</code></td>" +
+      "<td class=" + stateClass + ">" + state + "</td>" +
+      "<td>" + (i.mtu != null ? i.mtu : "—") + "</td>" +
+      "<td class=muted>" + addrs + "</td>";
+    tbody.appendChild(tr);
+  }
+}
+
+function renderNatChain(natChain) {
+  const body = el("nat-body");
+  body.innerHTML = "";
+  body.className = "";
+  if (!natChain.available) {
+    body.className = "muted";
+    body.textContent = "NAT-chain detection unavailable.";
+    return;
+  }
+  const pre = document.createElement("pre");
+  pre.textContent = JSON.stringify(natChain, null, 2);
+  body.appendChild(pre);
+}
+
+function renderCapabilities(opnStatus, opnCaps) {
+  const body = el("caps-body");
+  body.innerHTML = "";
+  body.className = "";
+  const tier = document.createElement("div");
+  tier.innerHTML = "<strong>tier:</strong> <code>" +
+    ((opnStatus && opnStatus.tier) || "unknown") +
+    "</code>  ·  unlocked: " + (opnCaps.unlocked_count || 0);
+  body.appendChild(tier);
+
+  const unlocked = opnCaps.unlocked || [];
+  if (unlocked.length > 0) {
+    const ul = document.createElement("div");
+    ul.style.marginTop = ".5rem";
+    ul.innerHTML = "<strong>unlocked:</strong>";
+    body.appendChild(ul);
+    for (const c of unlocked) {
+      const row = document.createElement("div");
+      row.className = "cap-row";
+      const badge = document.createElement("span");
+      badge.className = "pill ok";
+      badge.textContent = "✓";
+      row.appendChild(badge);
+      const txt = document.createElement("span");
+      txt.textContent = c;
+      row.appendChild(txt);
+      body.appendChild(row);
+    }
+  }
+
+  const next = opnCaps.next_to_unlock || [];
+  if (next.length > 0) {
+    const nu = document.createElement("div");
+    nu.style.marginTop = ".5rem";
+    nu.innerHTML = "<strong>next to unlock:</strong>";
+    body.appendChild(nu);
+    for (const c of next) {
+      const row = document.createElement("div");
+      row.className = "cap-row";
+      const badge = document.createElement("span");
+      badge.className = "pill warn";
+      badge.textContent = "→";
+      row.appendChild(badge);
+      const txt = document.createElement("span");
+      txt.className = "muted";
+      txt.textContent = c;
+      row.appendChild(txt);
+      body.appendChild(row);
+    }
+  }
+}
+
+function renderDetect(detect) {
+  const body = el("detect-body");
+  body.className = "";
+  body.textContent = JSON.stringify(detect, null, 2);
+}
+
+async function refresh() {
+  try {
+    const [version, interfaces, natChain, opnStatus, opnCaps,
+           detect] =
+      await Promise.all(ENDPOINTS.map(fetchJSON));
+    renderStats(version, interfaces, natChain, opnStatus, opnCaps);
+    renderInterfaces(interfaces);
+    renderNatChain(natChain);
+    renderCapabilities(opnStatus, opnCaps);
+    renderDetect(detect);
+    el("last-refresh").textContent = new Date().toLocaleTimeString();
+  } catch (e) {
+    el("last-refresh").innerHTML =
+      "<span class=bad>error: " + e.message + "</span>";
+  }
+}
+
+document.getElementById("refresh-btn").addEventListener("click", refresh);
+refresh();
+setInterval(refresh, 30000);
+</script>
+</body>
+</html>
