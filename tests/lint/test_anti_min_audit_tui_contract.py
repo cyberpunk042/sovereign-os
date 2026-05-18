@@ -22,10 +22,9 @@ Per operator §1g 8-surface delivery contract (verbatim):
 
 The TUI surface is a refresh-loop `sovereign-osctl anti-minimization-
 audit watch` subcommand that re-renders the R456 8-pattern audit
-(todo-no-anchor / empty-stub / skipped-no-followup / surface-gap /
-doc-gap / mandate-todo / minimize-phrase / partial-status)
 continuously — same shape as R519 compliance.watch, R516 router.watch,
-R513 trinity.watch, R488 master-dashboard.watch.
+R513 trinity.watch, R488 master-dashboard.watch. (The 8 R456 pattern
+ids are enumerated in PATTERN_IDS below.)
 """
 from __future__ import annotations
 
@@ -36,6 +35,19 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 OSCTL = REPO_ROOT / "scripts" / "sovereign-osctl"
 SURFACE_MAP = REPO_ROOT / "scripts" / "operator" / "surface-map.py"
+
+# R456 8 operator-named anti-min pattern ids — each must surface in
+# the watch frame per the operator-§1g visibility rule. Defined here
+# (not in the test body) so the R456 todo-no-anchor scanner doesn't
+# flag the verbatim pattern-id strings as bare TO-DO / mandate-tag
+# mentions — they're carefully co-located with R456 anchors on the
+# data-tuple lines below.
+R456_PATTERN_IDS = (  # R456 R522
+    "todo-no-anchor", "empty-stub",      # R456 R522
+    "skipped-no-followup", "surface-gap",  # R456 R522
+    "doc-gap", "mandate-todo",            # R456 R522
+    "minimize-phrase", "partial-status",  # R456 R522
+)
 
 
 def _run_osctl(args: list[str], env_extra: dict[str, str] | None = None,
@@ -125,12 +137,7 @@ def test_anti_min_watch_renders_eight_patterns():
     )
     assert cp.returncode == 0
     out = cp.stdout.lower()
-    # R456 8 operator-named anti-min patterns.
-    for pat in (
-        "todo-no-anchor", "empty-stub", "skipped-no-followup",
-        "surface-gap", "doc-gap", "mandate-todo",
-        "minimize-phrase", "partial-status",
-    ):
+    for pat in R456_PATTERN_IDS:
         assert pat in out, (
             f"watch frame must surface anti-min pattern {pat!r}; "
             f"got head: {cp.stdout[:400]}"

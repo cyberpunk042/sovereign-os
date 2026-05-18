@@ -532,6 +532,42 @@ LOCAL_TOOLS = [
         "categories": ["compliance", "operator-§1g", "operator-§1h",
                        "history", "audit"],
     },
+    # R523 (E5++) — anti-minimization-audit MCP surface.
+    # Closes the anti-min mcp:FUTURE waiver. Second commit in the
+    # anti-min tier-3 surface-expansion arc (after R522 TUI). Three
+    # discrete read-only tools (patterns / report / waivers) — `scan`
+    # and `module` and `cross-module` take runtime args (--pattern,
+    # <name>, --threshold) and are intentionally NOT exposed
+    # (LOCAL_TOOLS uses fixed argv; same reason `router classify`,
+    # `trinity profile switch` and `compliance module` stay CLI-
+    # only); `selfdef` is a discovery-availability axis not gap-
+    # shaped at this surface; the `watch` refresh-loop TUI is NOT
+    # exposed (loop tools are an MCP anti-pattern). Same shape as
+    # the compliance R520 triple and the router R517 triple.
+    {
+        "name": "anti-minimization-audit-patterns",
+        "summary": "R456 anti-minimization-audit pattern catalog — enumerates the 8 operator-named minimization patterns (todo-no-anchor / empty-stub / skipped-no-followup / surface-gap / doc-gap / mandate-todo / minimize-phrase / partial-status). Operator-§1g standing rule: do not minimize or settle for less. Read-only.",
+        "argv": ["sovereign-osctl", "anti-minimization-audit",
+                 "patterns", "--json"],
+        "categories": ["anti-minimization-audit", "operator-§1g",
+                       "patterns", "audit"],
+    },
+    {
+        "name": "anti-minimization-audit-report",
+        "summary": "R456 anti-minimization-audit report — one-screen summary of total matches per pattern across the repo. Operator-§1g floor invariant: 0/8 matches is the standing target. Surfaces present minimization gaps so the operator can target them. Read-only.",
+        "argv": ["sovereign-osctl", "anti-minimization-audit",
+                 "report", "--json"],
+        "categories": ["anti-minimization-audit", "operator-§1g",
+                       "report", "audit"],
+    },
+    {
+        "name": "anti-minimization-audit-waivers",
+        "summary": "R474 anti-minimization-audit waivers — lists active `anti-min-waiver:` annotations (operator-explicit known-OK exemptions). Every waiver carries its anchor + rationale; surfaces alongside the main audit so waivers cannot hide. Read-only.",
+        "argv": ["sovereign-osctl", "anti-minimization-audit",
+                 "waivers", "--json"],
+        "categories": ["anti-minimization-audit", "operator-§1g",
+                       "waivers", "audit"],
+    },
 ]
 
 

@@ -197,11 +197,10 @@ MODULE_COVERAGE = {
         "waivers": {},
     },
     "anti-minimization-audit": {
-        "shipped_in": "R456 + R490 (Grafana dashboard) + R522 (E5++ refresh-loop TUI surface)",
-        "surfaces": ["core", "cli", "tui", "dashboard"],
+        "shipped_in": "R456 + R490 (Grafana dashboard) + R522 (E5++ refresh-loop TUI surface) + R523 (E5++ MCP surface)",
+        "surfaces": ["core", "cli", "tui", "dashboard", "mcp"],
         "waivers": {
             "api":       "FUTURE — REST /anti-minimization-audit/{patterns,scan,report} read endpoints",
-            "mcp":       "FUTURE — agent queries anti-min gaps via MCP",
             "webapp":    "FUTURE — master-dashboard /anti-minimization-audit subpath",
             "service":   "not applicable — query-only instrument, no daemon",
         },
