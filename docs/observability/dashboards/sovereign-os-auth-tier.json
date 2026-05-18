@@ -1,0 +1,116 @@
+{
+  "_comment": "sovereign-os auth-tier dashboard (R484, E11.M7+). Visualizes the operator-§1g 6-tier auth ladder for every operator-facing dashboard / API / web app: no-auth → basic → advanced → social → enterprise → network-level. Sourced from sovereign_os_operator_auth_tier_query_total{verb,tier,result} (Layer B, SDD-016) emitted by scripts/operator/auth-tier.py. Operator imports into Grafana via Settings → JSON Model. Closes the auth-tier surface-map FUTURE waiver 'dashboard: FUTURE — Grafana panel for fleet auth-tier state'.",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "auth-tier CLI", "url": "/d/sovereign-os-auth-tier#cli", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "auth-tier queries (total)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_auth_tier_query_total)", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "no-auth tier (count)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_auth_tier_query_total{tier=\"no-auth\"})", "refId": "A"}],
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [{"color": "red"}, {"color": "yellow", "value": 1}, {"color": "green", "value": 10}]}}},
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "basic tier (count)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_auth_tier_query_total{tier=\"basic\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "advanced tier (count)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_auth_tier_query_total{tier=\"advanced\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "social tier (count)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_auth_tier_query_total{tier=\"social\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "enterprise tier (count)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_auth_tier_query_total{tier=\"enterprise\"})", "refId": "A"}],
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [{"color": "green"}]}}},
+      "gridPos": {"h": 4, "w": 4, "x": 20, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "auth-tier query rate per tier (5m)",
+      "description": "Per-tier query rate over time. Tracks operator's auth-tier surveillance and configuration churn across the 6-tier ladder.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(sovereign_os_operator_auth_tier_query_total[5m])", "refId": "A", "legendFormat": "{{tier}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "auth-tier query rate per verb (5m)",
+      "description": "Per-verb query rate. list-tiers / registry / show / matrix / set — operator-discoverable churn pattern.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(sovereign_os_operator_auth_tier_query_total[5m])", "refId": "A", "legendFormat": "{{verb}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+    },
+    {
+      "type": "barchart",
+      "title": "auth-tier result distribution",
+      "description": "ok / unknown-tier / unknown-dashboard / invalid-transition / blocked-no-gates — operator-§1g error-class breakdown.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sum by (result) (sovereign_os_operator_auth_tier_query_total)", "refId": "A", "legendFormat": "{{result}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+    },
+    {
+      "type": "table",
+      "title": "auth-tier current state (tier × dashboard)",
+      "description": "Per-dashboard tier registry: which operator-facing surface runs at which auth tier. Drives the operator's 'is each dashboard at the right tier for its exposure?' question.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sum by (verb, tier, result) (sovereign_os_operator_auth_tier_query_total)", "refId": "A", "format": "table", "instant": true}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+    },
+    {
+      "type": "text",
+      "title": "auth-tier ladder (§1g verbatim)",
+      "options": {
+        "mode": "markdown",
+        "content": "**Operator §1g verbatim** (R450, E11.M7):\n\n> \"a mode of access from no auth at all by default to basic auth to advanced auth to social auth to enterprise auth and network level access and etc.\"\n\n**6-tier ladder (low → high):**\n\n1. `no-auth` — loopback or LAN-trust only; no credentials\n2. `basic` — HTTP basic auth; HTTPS-only\n3. `advanced` — bearer/JWT token; per-user revocable\n4. `social` — OAuth (GitHub/Google/GitLab); cookie-session\n5. `enterprise` — SAML/OIDC SSO; group-claim authorization\n6. `network-level` — IP-allowlist + WireGuard/VPN gating before per-tier check\n\n**CLI:**\n\n```\nsovereign-osctl auth-tier list-tiers\nsovereign-osctl auth-tier registry\nsovereign-osctl auth-tier show <dashboard>\nsovereign-osctl auth-tier matrix\nsovereign-osctl auth-tier set <dashboard> <tier> --apply --confirm-tier-set\n```\n\n**Metric:** `sovereign_os_operator_auth_tier_query_total{verb,tier,result}` (SDD-016 Layer B)\n\n**Source:** R450 (E11.M7) shipped the verbs + ladder. R484 (E11.M7+) ships THIS dashboard, closing the surface-map waiver-slot 'dashboard: FUTURE — Grafana panel for fleet auth-tier state'."
+      },
+      "gridPos": {"h": 12, "w": 24, "x": 0, "y": 20}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["sovereign-os", "auth-tier", "operator", "R484"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "sovereign-os auth-tier",
+  "uid": "sovereign-os-auth-tier",
+  "version": 1,
+  "weekStart": ""
+}

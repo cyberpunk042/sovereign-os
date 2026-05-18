@@ -435,7 +435,17 @@ def test_gaps_excludes_structural_ceiling_modules():
     """R478: `gaps` MUST exclude modules at structural ceiling — they
     are not minimization candidates, they are operator-fully-described
     at their ceiling. bashrc (2 shipped, 6 NA, 0 FUTURE) is the
-    canonical structural-ceiling case."""
+    canonical structural-ceiling case.
+
+    R484 update: as of R484, ALL FUTURE-roadmap modules have been
+    drained out of below_threshold (R481/R482/R483/R484 closed the 4
+    remaining shortfalls). The principle (gaps excludes ceiling
+    modules) is still validated by the bashrc-absent assertion; the
+    inverse FUTURE-stays-in check is necessarily vacuous and tested
+    via `test_gaps_surfaces_structural_ceiling_modules_separately`
+    which assets the `at_structural_ceiling` list mechanism keeps
+    working regardless of below_threshold population.
+    """
     result = subprocess.run(
         ["python3", str(SM_PY), "gaps", "--threshold", "3", "--json"],
         capture_output=True, text=True, timeout=10,
@@ -445,11 +455,6 @@ def test_gaps_excludes_structural_ceiling_modules():
     assert "bashrc" not in below_modules, (
         "R478: bashrc is at structural ceiling — must be excluded "
         f"from gaps output, got {below_modules}"
-    )
-    # auth-tier IS a real gap (has FUTURE roadmap) — stays in.
-    assert "auth-tier" in below_modules, (
-        "R478 overshoot: auth-tier has FUTURE roadmap waivers — "
-        f"must REMAIN in gaps output, got {below_modules}"
     )
 
 

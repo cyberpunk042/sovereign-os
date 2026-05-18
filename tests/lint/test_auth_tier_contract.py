@@ -354,3 +354,85 @@ def test_set_unknown_tier_fails():
     assert result.returncode != 0, (
         "set with unknown tier should fail"
     )
+
+
+# --- R484 (E11.M7+) — Grafana dashboard surface ---
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DASHBOARD_JSON = (
+    REPO_ROOT / "docs" / "observability" / "dashboards"
+    / "sovereign-os-auth-tier.json"
+)
+
+
+def test_dashboard_json_exists():
+    """R484 — auth-tier Grafana dashboard surface (closes surface-map
+    FUTURE waiver 'dashboard: FUTURE — Grafana panel for fleet auth-
+    tier state')."""
+    assert DASHBOARD_JSON.is_file(), (
+        f"missing auth-tier dashboard: {DASHBOARD_JSON}"
+    )
+
+
+def test_dashboard_json_parseable():
+    """The dashboard MUST be valid JSON (Grafana refuses invalid JSON
+    on import)."""
+    import json
+    data = json.loads(DASHBOARD_JSON.read_text(encoding="utf-8"))
+    assert "panels" in data, "dashboard missing panels"
+    assert "title" in data and data["title"], "dashboard missing title"
+    assert "uid" in data and data["uid"], "dashboard missing uid"
+
+
+def test_dashboard_references_auth_tier_metric():
+    """At least one panel MUST query sovereign_os_operator_auth_tier_
+    query_total — otherwise the dashboard isn't visualizing the
+    operator-§1g surface."""
+    body = DASHBOARD_JSON.read_text(encoding="utf-8")
+    assert "sovereign_os_operator_auth_tier_query_total" in body, (
+        "auth-tier dashboard doesn't reference the Layer B metric"
+    )
+
+
+def test_dashboard_covers_six_tiers():
+    """Per §1g 6-tier ladder verbatim, dashboard SHOULD reference all
+    6 tier labels (no-auth / basic / advanced / social / enterprise /
+    network-level)."""
+    body = DASHBOARD_JSON.read_text(encoding="utf-8")
+    for tier in ("no-auth", "basic", "advanced", "social",
+                 "enterprise", "network-level"):
+        assert tier in body, (
+            f"auth-tier dashboard missing tier reference: {tier!r}"
+        )
+
+
+def test_dashboard_quotes_operator_1g_verbatim():
+    """Dashboard MUST include the §1g verbatim ladder text — preserves
+    operator-§1g source-of-truth on the visual surface."""
+    body = DASHBOARD_JSON.read_text(encoding="utf-8")
+    assert "no auth at all by default" in body, (
+        "auth-tier dashboard missing §1g verbatim phrase"
+    )
+    assert "enterprise auth" in body, (
+        "auth-tier dashboard missing §1g enterprise-auth ladder rung"
+    )
+
+
+def test_dashboard_listed_in_readme():
+    """README.md MUST list the new dashboard (operator-discoverable
+    inventory)."""
+    readme = (DASHBOARD_JSON.parent / "README.md").read_text(encoding="utf-8")
+    assert "sovereign-os-auth-tier.json" in readme, (
+        "dashboards/README.md missing sovereign-os-auth-tier.json entry"
+    )
+
+
+def test_dashboard_tagged_sovereign_os():
+    """Grafana 'sovereign-os' tag MUST be set — operator's dashboard
+    folder filter depends on it."""
+    import json
+    data = json.loads(DASHBOARD_JSON.read_text(encoding="utf-8"))
+    assert "sovereign-os" in (data.get("tags") or []), (
+        "auth-tier dashboard missing sovereign-os tag"
+    )
