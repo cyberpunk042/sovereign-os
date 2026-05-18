@@ -6113,6 +6113,23 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  doctrine-status)
+    # R376 (E10.M20): operator-pull "doctrine health at a glance" —
+    # wraps the SDD-037 lint family (R367+R368+R370+R371+R372+R373+R374)
+    # with operator-friendly output. status (lightweight catalog) /
+    # tally (drift modes + bugs caught) / run (executes pytest).
+    sub="${1:-status}"
+    shift || true
+    case "${sub}" in
+      status|tally|run)
+        "${__REPO_ROOT}/scripts/intelligence/doctrine-status.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown doctrine-status subverb: ${sub} (status, tally, run)"
+        exit 2
+        ;;
+    esac
+    ;;
   verbatim-render)
     # R369 (E10.M13): operator-pull consolidated rendering of every
     # verbatim entry across all SDD-037 catalogs (architecture-qa Q/G/C
