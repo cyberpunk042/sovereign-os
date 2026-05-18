@@ -4,6 +4,15 @@
 # Clamp the ZFS ARC (Adaptive Replacement Cache) to leave RAM
 # available for the AI workloads. Default for sain-01: 128GB of the
 # 256GB system memory.
+#
+# Master spec § 4.2 verbatim ("System Memory Partitioning"):
+#   "ARC limit is explicitly clamped at exactly 128GB of the
+#    system's 256GB overall space."
+#   options zfs zfs_arc_max=137438953472
+#
+# 137438953472 = 128 * 1024^3 (operator-verbatim integer in §4.2).
+# Cross-referenced by config/bootstrap/verify-grid.yaml check 03
+# (R389 + R399 bidirectional consistency).
 
 __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../../.." && pwd)"
