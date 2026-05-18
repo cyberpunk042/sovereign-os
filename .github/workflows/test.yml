@@ -136,268 +136,268 @@ jobs:
       - name: nspawn — during-install gates (profile-conditioned skips + env-gate refusals)
         run: |
           tests/nspawn/test_during_install_gates.sh
-      - name: nspawn — reproducibility inputs (SDD-019 wiring: SOURCE_DATE_EPOCH, DEBIAN_SNAPSHOT, sha256sums, in-toto)
+      - name: "nspawn — reproducibility inputs (SDD-019 wiring: SOURCE_DATE_EPOCH, DEBIAN_SNAPSHOT, sha256sums, in-toto)"
         run: |
           tests/nspawn/test_reproducibility_inputs.sh
-      - name: nspawn — kernel-step short-circuit (SDD-018 Q18-A: substrate-default profiles skip steps 02/03/04)
+      - name: "nspawn — kernel-step short-circuit (SDD-018 Q18-A: substrate-default profiles skip steps 02/03/04)"
         run: |
           tests/nspawn/test_kernel_step_short_circuit.sh
       - name: nspawn — kernel-fetch SHA recording (step 02 against fake git remote)
         run: |
           tests/nspawn/test_kernel_fetch_sha_recording.sh
-      - name: nspawn — whitelabel overlays substantive (Round 33: plymouth + grub themes carry operator motd)
+      - name: "nspawn — whitelabel overlays substantive (Round 33: plymouth + grub themes carry operator motd)"
         run: |
           tests/nspawn/test_whitelabel_overlays_present.sh
-      - name: nspawn — inference start scripts (Round 34: argv shape + Layer B metrics + idempotency)
+      - name: "nspawn — inference start scripts (Round 34: argv shape + Layer B metrics + idempotency)"
         run: |
           tests/nspawn/test_inference_start_scripts.sh
-      - name: nspawn — new recurrent hooks (Round 35: security-update-check + backup-snapshot)
+      - name: "nspawn — new recurrent hooks (Round 35: security-update-check + backup-snapshot)"
         run: |
           tests/nspawn/test_recurrent_new_hooks.sh
-      - name: nspawn — image-sign gates (Round 39: SDD-015 posture none/shim/signed + PK preference)
+      - name: "nspawn — image-sign gates (Round 39: SDD-015 posture none/shim/signed + PK preference)"
         run: |
           tests/nspawn/test_image_sign_gates.sh
-      - name: nspawn — sovereign-osctl audit provenance (Round 41: SDD-019 operator verification)
+      - name: "nspawn — sovereign-osctl audit provenance (Round 41: SDD-019 operator verification)"
         run: |
           tests/nspawn/test_sovereign_osctl_audit_provenance.sh
-      - name: nspawn — sovereign-osctl inference health (Round 42: HTTP /healthz + TCP fallback)
+      - name: "nspawn — sovereign-osctl inference health (Round 42: HTTP /healthz + TCP fallback)"
         run: |
           tests/nspawn/test_sovereign_osctl_inference_health.sh
-      - name: nspawn — sovereign-osctl doctor v2 (Round 43: profile-conditioned multi-section)
+      - name: "nspawn — sovereign-osctl doctor v2 (Round 43: profile-conditioned multi-section)"
         run: |
           tests/nspawn/test_sovereign_osctl_doctor_v2.sh
-      - name: nspawn — substrate-prepare (Round 45: step 05 dispatch + DRY_RUN + Layer B)
+      - name: "nspawn — substrate-prepare (Round 45: step 05 dispatch + DRY_RUN + Layer B)"
         run: |
           tests/nspawn/test_substrate_prepare.sh
-      - name: nspawn — image-build dispatch (Round 46: step 07 mkosi/lb runners + DRY_RUN + Layer B)
+      - name: "nspawn — image-build dispatch (Round 46: step 07 mkosi/lb runners + DRY_RUN + Layer B)"
         run: |
           tests/nspawn/test_image_build_dispatch.sh
-      - name: nspawn — orchestrator rewind + skip (Round 51: state-machine ops)
+      - name: "nspawn — orchestrator rewind + skip (Round 51: state-machine ops)"
         run: |
           tests/nspawn/test_orchestrator_rewind_skip.sh
-      - name: nspawn — git pre-commit hook (Round 52: operator-side gate)
+      - name: "nspawn — git pre-commit hook (Round 52: operator-side gate)"
         run: |
           tests/nspawn/test_git_hooks.sh
-      - name: nspawn — e2e DRY-RUN smoke (Round 55: preflight + run --dry-run across all 5 profiles)
+      - name: "nspawn — e2e DRY-RUN smoke (Round 55: preflight + run --dry-run across all 5 profiles)"
         run: |
           tests/nspawn/test_e2e_dry_run_smoke.sh
-      - name: nspawn — sovereign-osctl models verbs (Round 62: list/size/remove + 11th bug)
+      - name: "nspawn — sovereign-osctl models verbs (Round 62: list/size/remove + 11th bug)"
         run: |
           tests/nspawn/test_sovereign_osctl_models.sh
-      - name: nspawn — model-catalog-sync substantive (Round 63: manifest verification + Layer B)
+      - name: "nspawn — model-catalog-sync substantive (Round 63: manifest verification + Layer B)"
         run: |
           tests/nspawn/test_model_catalog_sync.sh
-      - name: nspawn — sovereign-osctl maintenance (Round 66: 8-subverb on-demand recurrent surface)
+      - name: "nspawn — sovereign-osctl maintenance (Round 66: 8-subverb on-demand recurrent surface)"
         run: |
           tests/nspawn/test_sovereign_osctl_maintenance.sh
-      - name: nspawn — sovereign-osctl assistant (Round 67: full/status/reset/list)
+      - name: "nspawn — sovereign-osctl assistant (Round 67: full/status/reset/list)"
         run: |
           tests/nspawn/test_sovereign_osctl_assistant.sh
-      - name: nspawn — sovereign-osctl dispatch surface (Round 68: every verb + subverb reachable)
+      - name: "nspawn — sovereign-osctl dispatch surface (Round 68: every verb + subverb reachable)"
         run: |
           tests/nspawn/test_sovereign_osctl_dispatch_surface.sh
-      - name: nspawn — Makefile end-to-end execution (Round 76: make-target runs)
+      - name: "nspawn — Makefile end-to-end execution (Round 76: make-target runs)"
         run: |
           tests/nspawn/test_makefile_execution.sh
-      - name: nspawn — sovereign-osctl lib-path detection (Round 82: 5-candidate lookup)
+      - name: "nspawn — sovereign-osctl lib-path detection (Round 82: 5-candidate lookup)"
         run: |
           tests/nspawn/test_sovereign_osctl_lib_paths.sh
-      - name: nspawn — reproducibility self-test (Round 84: byte-identical outputs + 13th bug)
+      - name: "nspawn — reproducibility self-test (Round 84: byte-identical outputs + 13th bug)"
         run: |
           tests/nspawn/test_reproducibility_self_test.sh sain-01
-      - name: nspawn — sovereign-osctl metrics verb (Round 88: textfile collector surface)
+      - name: "nspawn — sovereign-osctl metrics verb (Round 88: textfile collector surface)"
         run: |
           tests/nspawn/test_sovereign_osctl_metrics.sh
-      - name: nspawn — sovereign-osctl alerts verb (Round 89: Layer B rule engine)
+      - name: "nspawn — sovereign-osctl alerts verb (Round 89: Layer B rule engine)"
         run: |
           tests/nspawn/test_sovereign_osctl_alerts.sh
-      - name: nspawn — alerts-check recurrent hook (Round 90: meta-counters + state persistence)
+      - name: "nspawn — alerts-check recurrent hook (Round 90: meta-counters + state persistence)"
         run: |
           tests/nspawn/test_alerts_check_hook.sh
-      - name: nspawn — sovereign-osctl journal verb (Round 91: Layer A operator surface)
+      - name: "nspawn — sovereign-osctl journal verb (Round 91: Layer A operator surface)"
         run: |
           tests/nspawn/test_sovereign_osctl_journal.sh
-      - name: nspawn — apply-server-hardening hook (Round 96: role-server IaC drop-ins)
+      - name: "nspawn — apply-server-hardening hook (Round 96: role-server IaC drop-ins)"
         run: |
           tests/nspawn/test_apply_server_hardening.sh
-      - name: nspawn — apply-workstation-hardening hook (Round 104: role-workstation IaC drop-ins)
+      - name: "nspawn — apply-workstation-hardening hook (Round 104: role-workstation IaC drop-ins)"
         run: |
           tests/nspawn/test_apply_workstation_hardening.sh
-      - name: nspawn — sovereign-osctl history verb (Round 107: per-run summary derived from JSONL)
+      - name: "nspawn — sovereign-osctl history verb (Round 107: per-run summary derived from JSONL)"
         run: |
           tests/nspawn/test_sovereign_osctl_history.sh
-      - name: nspawn — sovereign-osctl audit drift (Round 111: hardening drift detection vs config sources)
+      - name: "nspawn — sovereign-osctl audit drift (Round 111: hardening drift detection vs config sources)"
         run: |
           tests/nspawn/test_sovereign_osctl_audit_drift.sh
-      - name: nspawn — sovereign-osctl install image (Round 134: F-01 CRIT closure — safety-gated dd wrapper)
+      - name: "nspawn — sovereign-osctl install image (Round 134: F-01 CRIT closure — safety-gated dd wrapper)"
         run: |
           tests/nspawn/test_sovereign_osctl_install.sh
-      - name: nspawn — orchestrate.sh recover (Round 135: F-13 CRIT closure — mid-pipeline recovery guidance)
+      - name: "nspawn — orchestrate.sh recover (Round 135: F-13 CRIT closure — mid-pipeline recovery guidance)"
         run: |
           tests/nspawn/test_orchestrator_recover.sh
-      - name: nspawn — sovereign-osctl init (Round 136: F-02 HIGH closure — interactive setup wizard)
+      - name: "nspawn — sovereign-osctl init (Round 136: F-02 HIGH closure — interactive setup wizard)"
         run: |
           tests/nspawn/test_sovereign_osctl_init.sh
-      - name: nspawn — sovereign-osctl env (Round 137: F-03 HIGH closure — env-var discovery surface)
+      - name: "nspawn — sovereign-osctl env (Round 137: F-03 HIGH closure — env-var discovery surface)"
         run: |
           tests/nspawn/test_sovereign_osctl_env.sh
-      - name: nspawn — scripts/onboard.sh (Round 138: F-08 HIGH closure — fresh-machine wrapper)
+      - name: "nspawn — scripts/onboard.sh (Round 138: F-08 HIGH closure — fresh-machine wrapper)"
         run: |
           tests/nspawn/test_onboard.sh
-      - name: nspawn — decommission --plan + profiles compare (Round 139: F-11 + F-12 MED closures)
+      - name: "nspawn — decommission --plan + profiles compare (Round 139: F-11 + F-12 MED closures)"
         run: |
           tests/nspawn/test_decommission_plan_and_profiles_compare.sh
-      - name: nspawn — profiles fork (Round 140: F-04 MED closure — profile scaffold helper)
+      - name: "nspawn — profiles fork (Round 140: F-04 MED closure — profile scaffold helper)"
         run: |
           tests/nspawn/test_profiles_fork.sh
-      - name: nspawn — hooks list/add/remove (Round 141: F-09 MED closure — operator hook editor)
+      - name: "nspawn — hooks list/add/remove (Round 141: F-09 MED closure — operator hook editor)"
         run: |
           tests/nspawn/test_hooks.sh
-      - name: nspawn — audit customization (Round 142: F-07 MED closure — "did my customization land")
+      - name: "nspawn — audit customization (Round 142: F-07 MED closure — \"did my customization land\")"
         run: |
           tests/nspawn/test_audit_customization.sh
-      - name: nspawn — sovereign-osctl trinity (Round 149: master spec § 17 surfaced; Round 150: profile picker)
+      - name: "nspawn — sovereign-osctl trinity (Round 149: master spec § 17 surfaced; Round 150: profile picker)"
         run: |
           tests/nspawn/test_trinity.sh
-      - name: nspawn — runtime profile honoring (Round 151: master spec § 18 start-script wiring)
+      - name: "nspawn — runtime profile honoring (Round 151: master spec § 18 start-script wiring)"
         run: |
           tests/nspawn/test_runtime_profile_honoring.sh
-      - name: nspawn — Pulse runtime build (Round 152: bitnet.cpp from source with znver5 + AVX-512)
+      - name: "nspawn — Pulse runtime build (Round 152: bitnet.cpp from source with znver5 + AVX-512)"
         run: |
           tests/nspawn/test_pulse_build_bitnet.sh
-      - name: nspawn — Pulse Wasm-to-AVX-512 AOT (Round 153: master spec § 20)
+      - name: "nspawn — Pulse Wasm-to-AVX-512 AOT (Round 153: master spec § 20)"
         run: |
           tests/nspawn/test_pulse_wasm_aot.sh
-      - name: nspawn — Weaver atomic state transition (Round 154: master spec § 21)
+      - name: "nspawn — Weaver atomic state transition (Round 154: master spec § 21)"
         run: |
           tests/nspawn/test_weaver_atomic_state.sh
-      - name: nspawn — Auditor Guardian Daemon (Round 155: master spec § 10)
+      - name: "nspawn — Auditor Guardian Daemon (Round 155: master spec § 10)"
         run: |
           tests/nspawn/test_auditor_guardian_core.sh
-      - name: nspawn — models catalog (Round 156: master spec § 17 + § 18 model declarations)
+      - name: "nspawn — models catalog (Round 156: master spec § 17 + § 18 model declarations)"
         run: |
           tests/nspawn/test_models_catalog.sh
-      - name: nspawn — DFlash speculative-decoding wrapper (Round 157: master spec Block 7)
+      - name: "nspawn — DFlash speculative-decoding wrapper (Round 157: master spec Block 7)"
         run: |
           tests/nspawn/test_dflash_wrap.sh
-      - name: nspawn — asymmetric Zero-Trust networking (Round 158: master spec § 8.1 verbatim renderer)
+      - name: "nspawn — asymmetric Zero-Trust networking (Round 158: master spec § 8.1 verbatim renderer)"
         run: |
           tests/nspawn/test_network_asymmetric.sh
-      - name: nspawn — Master Bootstrap Verification (Round 159: master spec § 22 6-check checklist)
+      - name: "nspawn — Master Bootstrap Verification (Round 159: master spec § 22 6-check checklist)"
         run: |
           tests/nspawn/test_bootstrap_verify.sh
-      - name: nspawn — Bootstrap phases inventory (Round 162: master spec § 12 5-phase pipeline surface)
+      - name: "nspawn — Bootstrap phases inventory (Round 162: master spec § 12 5-phase pipeline surface)"
         run: |
           tests/nspawn/test_bootstrap_phases.sh
-      - name: nspawn — sovereign-osctl overview (Round 163: consolidated cross-surface status snapshot)
+      - name: "nspawn — sovereign-osctl overview (Round 163: consolidated cross-surface status snapshot)"
         run: |
           tests/nspawn/test_sovereign_osctl_overview.sh
-      - name: nspawn — perimeter check-overlap (Round 165: selfdef SDD-015 cross-repo mirror per Q15-C)
+      - name: "nspawn — perimeter check-overlap (Round 165: selfdef SDD-015 cross-repo mirror per Q15-C)"
         run: |
           tests/nspawn/test_perimeter_check_overlap.sh
-      - name: nspawn — bootstrap hardware-match (Round 166: selfdef SDD-017 Sain01Match cross-repo mirror)
+      - name: "nspawn — bootstrap hardware-match (Round 166: selfdef SDD-017 Sain01Match cross-repo mirror)"
         run: |
           tests/nspawn/test_bootstrap_hardware_match.sh
-      - name: nspawn — pulse wasm-aot honors selfdef capabilities (Round 167: SD-R10 bridge)
+      - name: "nspawn — pulse wasm-aot honors selfdef capabilities (Round 167: SD-R10 bridge)"
         run: |
           tests/nspawn/test_pulse_wasm_aot_capabilities.sh
-      - name: nspawn — pulse build-bitnet honors selfdef capabilities (Round 168: SD-R10 bridge)
+      - name: "nspawn — pulse build-bitnet honors selfdef capabilities (Round 168: SD-R10 bridge)"
         run: |
           tests/nspawn/test_pulse_build_bitnet_capabilities.sh
-      - name: nspawn — sovereign-osctl wizard (Round 169: selfdef SD-R11 cross-repo mirror)
+      - name: "nspawn — sovereign-osctl wizard (Round 169: selfdef SD-R11 cross-repo mirror)"
         run: |
           tests/nspawn/test_wizard.sh
-      - name: nspawn — selfdef-modules-gate (Round 170: selfdef SD-R14+R15 cross-repo mirror)
+      - name: "nspawn — selfdef-modules-gate (Round 170: selfdef SD-R14+R15 cross-repo mirror)"
         run: |
           tests/nspawn/test_selfdef_modules_gate.sh
-      - name: nspawn — pick-gpu (Round 178: selfdef SD-R28 schedule.json consumer)
+      - name: "nspawn — pick-gpu (Round 178: selfdef SD-R28 schedule.json consumer)"
         run: |
           tests/nspawn/test_pick_gpu.sh
-      - name: nspawn — selfdef-models (Round 182: selfdef SD-R34 model-registry cross-repo mirror)
+      - name: "nspawn — selfdef-models (Round 182: selfdef SD-R34 model-registry cross-repo mirror)"
         run: |
           tests/nspawn/test_selfdef_models.sh
-      - name: nspawn — osctl models registry (Round 183: sovereign-osctl bridges to R182)
+      - name: "nspawn — osctl models registry (Round 183: sovereign-osctl bridges to R182)"
         run: |
           tests/nspawn/test_osctl_models_registry.sh
-      - name: nspawn — osctl install suggest-modules (Round 185: profile × hardware recommendation matrix)
+      - name: "nspawn — osctl install suggest-modules (Round 185: profile × hardware recommendation matrix)"
         run: |
           tests/nspawn/test_osctl_install_suggest_modules.sh
-      - name: nspawn — cycle2-status (Round 187: comprehensive cycle-2 readiness report)
+      - name: "nspawn — cycle2-status (Round 187: comprehensive cycle-2 readiness report)"
         run: |
           tests/nspawn/test_cycle2_status.sh
-      - name: nspawn — verify-checksum (Round 190: SDD-019 T-3 partial closure)
+      - name: "nspawn — verify-checksum (Round 190: SDD-019 T-3 partial closure)"
         run: |
           tests/nspawn/test_verify_checksum.sh
-      - name: nspawn — selfdef-signing-audit (Round 195: SD-R55 cross-repo audit)
+      - name: "nspawn — selfdef-signing-audit (Round 195: SD-R55 cross-repo audit)"
         run: |
           tests/nspawn/test_selfdef_signing_audit.sh
-      - name: nspawn — selfdef-resources-audit (Round 198: SD-R61 cross-repo audit)
+      - name: "nspawn — selfdef-resources-audit (Round 198: SD-R61 cross-repo audit)"
         run: |
           tests/nspawn/test_selfdef_resources_audit.sh
-      - name: nspawn — cycle2-fleet-aggregate (Round 199: SDD-021 W-3 file-based fleet rollup)
+      - name: "nspawn — cycle2-fleet-aggregate (Round 199: SDD-021 W-3 file-based fleet rollup)"
         run: |
           tests/nspawn/test_cycle2_fleet_aggregate.sh
-      - name: nspawn — osctl audit cycle3 (Round 200: comprehensive cycle-2+3 audit umbrella)
+      - name: "nspawn — osctl audit cycle3 (Round 200: comprehensive cycle-2+3 audit umbrella)"
         run: |
           tests/nspawn/test_osctl_audit_cycle3.sh
-      - name: nspawn — bootstrap run (Round 201: master spec § 12 phase executor DRY-RUN)
+      - name: "nspawn — bootstrap run (Round 201: master spec § 12 phase executor DRY-RUN)"
         run: |
           tests/nspawn/test_bootstrap_run.sh
-      - name: nspawn — bootstrap docs (Round 203: phase-doc renderer + freshness gate)
+      - name: "nspawn — bootstrap docs (Round 203: phase-doc renderer + freshness gate)"
         run: |
           tests/nspawn/test_bootstrap_docs.sh
-      - name: nspawn — models docs (Round 206: model-catalog doc renderer, SDD-028 pattern)
+      - name: "nspawn — models docs (Round 206: model-catalog doc renderer, SDD-028 pattern)"
         run: |
           tests/nspawn/test_models_docs.sh
-      - name: nspawn — bootstrap verify-grid docs (Round 207: verify-grid doc renderer, SDD-028 pattern)
+      - name: "nspawn — bootstrap verify-grid docs (Round 207: verify-grid doc renderer, SDD-028 pattern)"
         run: |
           tests/nspawn/test_bootstrap_verify_grid_docs.sh
-      - name: nspawn — trinity runtime-profile docs (Round 208: SDD-028 pattern, 4th application)
+      - name: "nspawn — trinity runtime-profile docs (Round 208: SDD-028 pattern, 4th application)"
         run: |
           tests/nspawn/test_trinity_runtime_docs.sh
-      - name: nspawn — hardware posture bridge (Round 210: selfdef SD-R67 cross-repo mirror)
+      - name: "nspawn — hardware posture bridge (Round 210: selfdef SD-R67 cross-repo mirror)"
         run: |
           tests/nspawn/test_posture.sh
-      - name: nspawn — catalog-query (Round 213: R212 taxonomy filter surface)
+      - name: "nspawn — catalog-query (Round 213: R212 taxonomy filter surface)"
         run: |
           tests/nspawn/test_catalog_query.sh
-      - name: nspawn — models suggest (Round 214: profile-aware suggester super-feature)
+      - name: "nspawn — models suggest (Round 214: profile-aware suggester super-feature)"
         run: |
           tests/nspawn/test_models_suggest.sh
-      - name: nspawn — gpu-watch (Round 219, SDD-026 Z-5: per-GPU watt deviance watcher)
+      - name: "nspawn — gpu-watch (Round 219, SDD-026 Z-5: per-GPU watt deviance watcher)"
         run: |
           tests/nspawn/test_gpu_watch.sh
-      - name: nspawn — network status (Round 220, SDD-026 Z-7: per-component network surface)
+      - name: "nspawn — network status (Round 220, SDD-026 Z-7: per-component network surface)"
         run: |
           tests/nspawn/test_network_status.sh
-      - name: nspawn — cpu-mode (Round 221, SDD-026 Z-4: CPU hotswap modes)
+      - name: "nspawn — cpu-mode (Round 221, SDD-026 Z-4: CPU hotswap modes)"
         run: |
           tests/nspawn/test_cpu_mode.sh
-      - name: nspawn — fs-insights (Round 222, SDD-026 Z-10: fs + log insights)
+      - name: "nspawn — fs-insights (Round 222, SDD-026 Z-10: fs + log insights)"
         run: |
           tests/nspawn/test_fs_insights.sh
-      - name: nspawn — raid status (Round 223, SDD-026 Z-9: software RAID surface)
+      - name: "nspawn — raid status (Round 223, SDD-026 Z-9: software RAID surface)"
         run: |
           tests/nspawn/test_raid_status.sh
-      - name: nspawn — profile flex (Round 224, SDD-026 Z-3: flex-profile JSON delta)
+      - name: "nspawn — profile flex (Round 224, SDD-026 Z-3: flex-profile JSON delta)"
         run: |
           tests/nspawn/test_profile_flex.sh
-      - name: nspawn — dashboard (Round 225, SDD-026 Z-1: HTTP dashboard SEED)
+      - name: "nspawn — dashboard (Round 225, SDD-026 Z-1: HTTP dashboard SEED)"
         run: |
           tests/nspawn/test_dashboard.sh
-      - name: nspawn — health scan (Round 226, SDD-026 Z-6: composite autohealth/doctor scan)
+      - name: "nspawn — health scan (Round 226, SDD-026 Z-6: composite autohealth/doctor scan)"
         run: |
           tests/nspawn/test_health_scan.sh
-      - name: nspawn — thermal-watch (Round 172: per-profile thermal thresholds + OCSF events)
+      - name: "nspawn — thermal-watch (Round 172: per-profile thermal thresholds + OCSF events)"
         run: |
           tests/nspawn/test_thermal_watch.sh
-      - name: nspawn — selfdef-tune lib (Round 173: cross-repo bridge to selfdef SD-R19 host-tuned flags)
+      - name: "nspawn — selfdef-tune lib (Round 173: cross-repo bridge to selfdef SD-R19 host-tuned flags)"
         run: |
           tests/nspawn/test_selfdef_tune_lib.sh
-      - name: nspawn — osctl thermals (Round 175: operator UX over R172 thermal-watch)
+      - name: "nspawn — osctl thermals (Round 175: operator UX over R172 thermal-watch)"
         run: |
           tests/nspawn/test_osctl_thermals.sh
-      - name: nspawn — secure-boot gen-keys (Round 143: F-05 MED closure — operator-owned key generation)
+      - name: "nspawn — secure-boot gen-keys (Round 143: F-05 MED closure — operator-owned key generation)"
         run: |
           tests/nspawn/test_secure_boot_gen_keys.sh
 
