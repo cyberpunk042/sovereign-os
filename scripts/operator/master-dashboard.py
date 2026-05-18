@@ -74,6 +74,8 @@ import json
 import os
 import socket
 import sys
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 DRY_RUN = (
@@ -645,6 +647,75 @@ def cmd_health(args) -> int:
     return 0
 
 
+def cmd_watch(args) -> int:
+    """R488 (E11.M2+) — refresh-loop TUI for master-dashboard.
+
+    Operator-§1g surface: an interactive ANSI-clear refresh-loop view
+    that combines the health probes + collision-state + per-route
+    reachability into one continuously-updating panel. Same shape as
+    R483 (network-edge opnsense watch) and R481 (global-history tail).
+
+    Operator-named guarantees:
+      - Minimum refresh interval = 1s (max(1, ...) floor) so the
+        operator can't accidentally hammer the upstreams.
+      - SOVEREIGN_OS_DRY_RUN=1 forces single-render exit (CI-safe).
+      - Bounded by --iterations (0 = unbounded).
+      - Layer B metric emitted per-tick with verb='watch'.
+    """
+    refresh = max(1, int(args.refresh))
+    iterations = int(args.iterations)
+    dry_run = os.environ.get("SOVEREIGN_OS_DRY_RUN", "") == "1"
+    if dry_run and iterations == 0:
+        iterations = 1
+
+    frame = 0
+    while True:
+        frame += 1
+        sys.stdout.write("\x1b[2J\x1b[H")
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        probes = [probe_dashboard(s, r) for s, r in DASHBOARD_ROUTES.items()]
+        reachable = sum(1 for p in probes if p["reachable"])
+        total = len(probes)
+        coll = detect_collisions()
+        collisions = coll["has_collisions"]
+        result_state = "collisions" if collisions else (
+            "all-reachable" if reachable == total else "partial"
+        )
+
+        print(f"── master-dashboard.watch (frame {frame}, "
+              f"refresh={refresh}s, {now}) ──")
+        print(f"  reachable : {reachable}/{total}")
+        print(f"  collisions: {'YES' if collisions else 'no'}")
+        if collisions:
+            for p, slugs in coll["port_collisions"].items():
+                print(f"    port {p} claimed by: {slugs}")
+            for s, slugs in coll["subpath_collisions"].items():
+                print(f"    subpath {s!r} claimed by: {slugs}")
+        print()
+        print("  per-route reachability:")
+        for p in probes:
+            mark = "✓" if p["reachable"] else "✗"
+            print(f"    {mark} {p['slug']:30s} :{p['port']:<5d} "
+                  f"({p['tier']})")
+        print()
+        if iterations > 0 and frame >= iterations:
+            print(f"  (reached --iterations={iterations}; exit)")
+        else:
+            print(f"  (Ctrl-C to exit; refresh in {refresh}s)")
+        sys.stdout.flush()
+
+        _emit_metric("watch", "any", result_state)
+
+        if iterations > 0 and frame >= iterations:
+            break
+        try:
+            time.sleep(refresh)
+        except KeyboardInterrupt:
+            print("\n  ── master-dashboard.watch interrupted ──")
+            break
+    return 0
+
+
 # --- Argparse ---
 
 
@@ -700,6 +771,19 @@ def main(argv: list[str] | None = None) -> int:
     )
     _add_fmt(sp_disc)
 
+    sp_watch = sub.add_parser(
+        "watch",
+        help=("R488 (E11.M2+): refresh-loop TUI showing health + "
+              "collisions + per-route reachability; ANSI-clear-redraw"),
+    )
+    sp_watch.add_argument("--refresh", type=int, default=5,
+                          help="refresh interval in seconds "
+                               "(floor=1s; default=5)")
+    sp_watch.add_argument("--iterations", type=int, default=0,
+                          help="max iterations before exit "
+                               "(0=unbounded; default=0)")
+    _add_fmt(sp_watch)
+
     args = p.parse_args(argv)
     return {
         "list": cmd_list,
@@ -708,6 +792,7 @@ def main(argv: list[str] | None = None) -> int:
         "render": cmd_render,
         "health": cmd_health,
         "discover": cmd_discover,
+        "watch": cmd_watch,
     }[args.cmd](args)
 
 

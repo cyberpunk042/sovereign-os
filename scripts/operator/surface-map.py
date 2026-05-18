@@ -172,10 +172,9 @@ MODULE_COVERAGE = {
         },
     },
     "master-dashboard": {
-        "shipped_in": "R452 (E11.M2)",
-        "surfaces": ["core", "cli", "service"],
+        "shipped_in": "R452 (E11.M2) + R488 (E11.M2+ watch tui)",
+        "surfaces": ["core", "cli", "tui", "service"],
         "waivers": {
-            "tui":       "FUTURE — interactive route-editor TUI",
             "api":       "FUTURE — REST /routes endpoint",
             "mcp":       "FUTURE — agent queries aggregator state",
             "dashboard": "self-referential — master-dashboard IS the aggregator",

@@ -411,3 +411,82 @@ def test_health_verb_runs():
     data = json.loads(result.stdout)
     assert "probes" in data
     assert data["total_count"] >= 6
+
+
+# --- R488 (E11.M2+) — refresh-loop watch TUI surface ---
+
+
+def test_supports_watch_verb():
+    """R488 ships the watch verb (refresh-loop TUI). MUST appear in
+    argparse subparsers + dispatch table."""
+    src = MD_PY.read_text(encoding="utf-8")
+    assert '"watch"' in src and "cmd_watch" in src, (
+        "watch verb missing from script"
+    )
+    assert '"watch": cmd_watch' in src, (
+        "watch verb missing from dispatch table"
+    )
+    assert "def cmd_watch(" in src, "cmd_watch function missing"
+
+
+def test_watch_has_refresh_loop():
+    """The watch verb MUST use the canonical ANSI-clear refresh-loop
+    shape (\\x1b[2J clear-screen + time.sleep) — same pattern as R481/
+    R483."""
+    src = MD_PY.read_text(encoding="utf-8")
+    assert r"\x1b[2J" in src, (
+        "cmd_watch missing ANSI screen-clear sequence"
+    )
+    assert "time.sleep(refresh)" in src, (
+        "cmd_watch missing time.sleep refresh-loop"
+    )
+
+
+def test_watch_refuses_subsecond_refresh():
+    """R488 floor: --refresh < 1 MUST be clamped to 1 (operator-§1g
+    guard against accidental upstream hammering)."""
+    src = MD_PY.read_text(encoding="utf-8")
+    assert "max(1, int(args.refresh))" in src, (
+        "cmd_watch missing --refresh floor (max(1, ...))"
+    )
+
+
+def test_watch_emits_layer_b_metric():
+    """The watch verb MUST emit a Layer B metric per tick with
+    verb='watch' label."""
+    src = MD_PY.read_text(encoding="utf-8")
+    assert '_emit_metric("watch"' in src, (
+        "cmd_watch missing Layer B metric emission"
+    )
+
+
+def test_watch_runs_in_dry_run():
+    """SOVEREIGN_OS_DRY_RUN=1 MUST force single-render exit (operator-
+    §1g CI-safe guard against blocking the test runner)."""
+    env = os.environ.copy()
+    env["SOVEREIGN_OS_DRY_RUN"] = "1"
+    result = subprocess.run(
+        ["python3", str(MD_PY), "watch", "--refresh", "1", "--iterations", "0"],
+        capture_output=True, text=True, timeout=10, env=env,
+        stdin=subprocess.DEVNULL,
+    )
+    assert result.returncode == 0, (
+        f"watch DRY_RUN failed: rc={result.returncode}\n"
+        f"  stderr={result.stderr[:300]}"
+    )
+    combined = result.stdout + result.stderr
+    assert "master-dashboard.watch" in combined, (
+        "watch missing canonical header marker"
+    )
+    assert "reachable :" in combined, (
+        "watch missing reachable-count render"
+    )
+
+
+def test_osctl_help_lists_watch():
+    """sovereign-osctl --help MUST list the new watch verb (operator-
+    discoverable inventory)."""
+    src = OSCTL.read_text(encoding="utf-8")
+    assert "master-dashboard watch" in src, (
+        "osctl help missing master-dashboard watch row"
+    )

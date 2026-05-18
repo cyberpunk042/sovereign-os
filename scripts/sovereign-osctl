@@ -339,6 +339,10 @@ COMMANDS:
                                                             DashboardManifests (selfdef crate
                                                             SD-R-DASHBOARD-MANIFEST-1). Reports
                                                             valid + errors + collisions vs built-in.
+  master-dashboard watch       R488 (E11.M2+): refresh-loop TUI (ANSI-clear)
+                               [--refresh N]                showing combined health probes + collisions +
+                               [--iterations N]             per-route reachability; floor=1s; --iterations=0
+                               [--json]                     unbounded; SOVEREIGN_OS_DRY_RUN=1 → single render.
 
   edge-firewall state          R451 (E11.M9): operator §1g workstation-side
                                [--json]                     edge-firewall alternative — local install state
