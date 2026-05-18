@@ -1,0 +1,116 @@
+{
+  "_comment": "sovereign-os Weaver dashboard (R496, master spec § 21). Visualizes the operator-§21 Atomic State Transition Protocol — the lockless-loopback ZFS-layer atomic-rename primitive that commits state-fabric files (IDENTITY/SOUL/AGENTS/CLAUDE) without filesystem lag or concurrent-write collisions. Surfaces atomic-write counts per file × result, bytes committed, and freshness gauge per file. Operator imports into Grafana via Settings → JSON Model. Closes the weaver dashboard:FUTURE waiver and registers weaver as a first-class MODULE_COVERAGE entry (3 shipped surfaces: core / cli / dashboard).",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "weaver CLI", "url": "/d/sovereign-os-weaver#cli", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "atomic writes (total)",
+      "description": "Sum-since-start across all 4 state-fabric files × all results.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_weaver_atomic_write_total)", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "atomic writes (success)",
+      "description": "Operator-§21 happy-path: result=\"success\" — atomic-rename committed.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_weaver_atomic_write_total{result=\"success\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "state files observed",
+      "description": "Distinct file labels seen. Operator-§7.1 ladder is fixed at 4: IDENTITY.md / SOUL.md / AGENTS.md / CLAUDE.md.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "count(count by (file) (sovereign_os_weaver_atomic_write_total))", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "freshest commit (age, s)",
+      "description": "Operator-§21 freshness signal — staleness of the MOST RECENT atomic write across all 4 state files. Red >24h, yellow >1h.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "time() - max(sovereign_os_weaver_atomic_write_last_timestamp)", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "s", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 3600}, {"color": "red", "value": 86400}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "atomic write rate per file (5m)",
+      "description": "Per-state-file write rate. IDENTITY.md / SOUL.md / AGENTS.md / CLAUDE.md.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(sovereign_os_weaver_atomic_write_total[5m])", "refId": "A", "legendFormat": "{{file}} ({{result}})"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "atomic write rate per result (5m)",
+      "description": "Per-result rate. Result vocabulary: success / dry-run / (fail emits as exception — increments aren't recorded since the primitive raises before _emit_metric).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(sovereign_os_weaver_atomic_write_total[5m])", "refId": "A", "legendFormat": "{{result}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+    },
+    {
+      "type": "barchart",
+      "title": "cumulative writes per file",
+      "description": "Sum-since-start per file × result. Operator-§21 lifetime distribution across the 4-file state fabric.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sum by (file, result) (sovereign_os_weaver_atomic_write_total)", "refId": "A", "legendFormat": "{{file}} / {{result}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+    },
+    {
+      "type": "timeseries",
+      "title": "bytes committed per file",
+      "description": "Operator-§21 payload size at commit time. The 4K-aligned padding for O_DIRECT means values are quantized to BLOCK=4096 multiples on the real I/O path.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sovereign_os_weaver_atomic_write_bytes", "refId": "A", "legendFormat": "{{file}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "bytes"}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+    },
+    {
+      "type": "table",
+      "title": "state fabric snapshot (file × last-commit age)",
+      "description": "Per-file freshness. Operator-discoverable: 'when was each state file last atomically committed?' Sentinel of the entire master spec § 21 protocol.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "time() - sovereign_os_weaver_atomic_write_last_timestamp", "refId": "A", "format": "table", "instant": true, "legendFormat": "{{file}}"}
+      ],
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 20}
+    },
+    {
+      "type": "text",
+      "title": "weaver §21 verbatim + Atomic State Transition Protocol",
+      "options": {
+        "mode": "markdown",
+        "content": "**Master spec § 21 verbatim** (The Weaver Execution, sacrosanct):\n\n> \"To ensure that state adjustments across CLAUDE.md, SOUL.md, and IDENTITY.md happen without filesystem lag or concurrent write collisions, The Weaver executes a strict, lockless loopback write sequence on the ZFS layer.\"\n\n**Operator §7.1 state fabric (4 files, sacrosanct ladder):**\n\n1. `IDENTITY.md` — who-I-am declarations (operator-asserted invariants)\n2. `SOUL.md` — values, judgement priors, refused anti-patterns\n3. `AGENTS.md` — multi-agent topology, delegation contracts\n4. `CLAUDE.md` — session-bound working memory + handoff log\n\nAll 4 live under `WEAVER_CONTEXT_DIR` (default `/mnt/vault/context`).\n\n**Atomic write protocol (master spec § 21.1 verbatim load-bearing primitives):**\n\n1. `O_DIRECT` — bypass volatile OS page caches (NVMe direct path)\n2. `O_SYNC` — synchronous write guarantees physical block commit\n3. `O_TRUNC` — old content is fully replaced (no partial-overlay state)\n4. 4K-aligned memory buffer — NVMe physical block alignment via `mmap(-1, len(payload))`\n5. `os.rename(tmp_path, context_path)` — POSIX-atomic rename, the master spec § 21.1 load-bearing guarantee. NO READER EVER SEES PARTIAL STATE.\n\nThe `O_DIRECT` path falls back to `O_SYNC`-only when the filesystem rejects direct I/O (tmpfs / overlayfs in containers don't support `O_DIRECT`). The atomicity guarantee is preserved by `O_SYNC + atomic rename` regardless.\n\n**ZFS layer prerequisites (master spec § 7.2 — caller's job):**\n\n- `tank/context` dataset with `sync=always` (forces synchronous semantics ALL THE WAY DOWN to the ZIL)\n- `recordsize=16k` recommended (accepts 4K-aligned payloads cleanly)\n- `compression=zstd` (markdown compresses well; no atomicity cost)\n\n**Layer-B metric contract (R496-dashboarded):**\n\n1. Metric: `sovereign_os_weaver_atomic_write_total{file,result}` (counter; result ∈ {success, dry-run})\n2. Metric: `sovereign_os_weaver_atomic_write_bytes{file}` (gauge; last-commit payload size, 4K-padded)\n3. Metric: `sovereign_os_weaver_atomic_write_last_timestamp{file}` (gauge; freshness)\n\n**CLI:**\n\n```\nscripts/weaver/atomic-state.py write <name> --from-stdin    # commit from stdin\nscripts/weaver/atomic-state.py write <name> --from-file <p>  # commit from file\nscripts/weaver/atomic-state.py read  <name>                  # read current state\nscripts/weaver/atomic-state.py list                          # enumerate the 4 state files\n```\n\n`<name>` MUST be one of `IDENTITY.md / SOUL.md / AGENTS.md / CLAUDE.md` (master spec § 7.1).\n\n**Source:** master spec § 21 shipped the Atomic State Transition Protocol blueprint; R152-R155 shipped the Python implementation + Layer-B metrics; R496 ships THIS dashboard + registers `weaver` as a first-class MODULE_COVERAGE entry (3 surfaces: core / cli / dashboard).\n\n**Standing operator rule (sacrosanct):**\n\n> \"We do not minimize anything.\""
+      },
+      "gridPos": {"h": 22, "w": 24, "x": 0, "y": 28}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["sovereign-os", "weaver", "atomic-state", "operator", "R496"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "sovereign-os weaver",
+  "uid": "sovereign-os-weaver",
+  "version": 1,
+  "weekStart": ""
+}

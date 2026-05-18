@@ -276,6 +276,17 @@ MODULE_COVERAGE = {
             "service":   "not applicable — query-only instrument, no daemon",
         },
     },
+    "weaver": {
+        "shipped_in": "R152-R155 (master spec § 21) + R496 (Grafana dashboard)",
+        "surfaces": ["core", "cli", "dashboard"],
+        "waivers": {
+            "tui":       "FUTURE — interactive state-transition TUI (review-then-commit IDENTITY/SOUL/AGENTS/CLAUDE diffs before atomic write)",
+            "api":       "FUTURE — REST /weaver/{list,read,write} endpoints (guarded — atomic-state writes are sovereignty-critical)",
+            "mcp":       "FUTURE — agent queries Weaver state via MCP (read-only)",
+            "webapp":    "FUTURE — master-dashboard /weaver subpath",
+            "service":   "not applicable — atomic-state primitive invoked by callers, not a long-running daemon (master spec § 21 says 'lockless loopback write sequence' — there is no Weaver daemon, only the atomic-state.py primitive)",
+        },
+    },
 }
 
 KNOWN_MODULES = list(MODULE_COVERAGE.keys())
