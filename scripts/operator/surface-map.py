@@ -207,10 +207,9 @@ MODULE_COVERAGE = {
         "waivers": {},
     },
     "ux-design-audit": {
-        "shipped_in": "R457 + R492 (Grafana dashboard)",
-        "surfaces": ["core", "cli", "dashboard"],
+        "shipped_in": "R457 + R492 (Grafana dashboard) + R528 (E5++ refresh-loop TUI surface)",
+        "surfaces": ["core", "cli", "tui", "dashboard"],
         "waivers": {
-            "tui":       "FUTURE — refresh-loop audit-watch TUI (same shape as R488 master-dashboard.watch)",
             "api":       "FUTURE — REST /ux-design-audit/{dimensions,modules,audit,score} read endpoints",
             "mcp":       "FUTURE — agent queries UX gaps via MCP",
             "webapp":    "FUTURE — master-dashboard /ux-design-audit subpath",

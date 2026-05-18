@@ -255,6 +255,9 @@ COMMANDS:
                                [--json]                     ux-checklists/*.toml for selfdef-side
                                                             UxChecklists (selfdef crate
                                                             SD-R-UX-CHECKLIST-1).
+  ux-design-audit watch        R528 (E5++): refresh-loop TUI surface
+        [--refresh N]          for the R457 UX score matrix. Same shape
+        [--iterations N]       as `doc-coverage watch` (R525).
 
   anti-minimization-audit patterns     R456 (E11.M11): operator §1g standing
                                [--json]                     rule "do not minimize or settle for less".
@@ -4237,6 +4240,81 @@ ANTI_MIN_WATCH_HELP
 # mandate-row / man-page). Same shape as `compliance watch` (R519),
 # `anti-min watch` (R522), `router watch` (R516), `trinity watch`
 # (R513). Opens the doc-coverage tier-3 expansion arc.
+_ux_design_audit_watch() {
+  local refresh=5
+  local iterations=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --refresh)    refresh="${2:-5}"; shift 2 ;;
+      --refresh=*)  refresh="${1#*=}"; shift ;;
+      --iterations) iterations="${2:-0}"; shift 2 ;;
+      --iterations=*) iterations="${1#*=}"; shift ;;
+      -h|--help)
+        cat <<'UX_AUDIT_WATCH_HELP'
+  ux-design-audit watch [--refresh N] [--iterations N]
+
+  Refresh-loop TUI surface for the R457 UX score matrix.
+  Continuously re-renders the per-module score view across the 6
+  operator-named UX dimensions (action-budget / discoverable /
+  recoverable / next-step / operator-named / readable-30s).
+  Operator-§1g standing rule: everything will also need to go
+  through a thorough UX Design stage in order to be of quality.
+
+  Options:
+    --refresh N       seconds between renders (default: 5, min: 1)
+    --iterations N    cap the number of renders (default: 0 = unbounded;
+                      SOVEREIGN_OS_DRY_RUN=1 forces a single render)
+UX_AUDIT_WATCH_HELP
+        return 0
+        ;;
+      *)
+        log_error "unknown ux-design-audit watch flag: $1"
+        return 2
+        ;;
+    esac
+  done
+
+  case "${refresh}" in
+    ''|*[!0-9]*) refresh=5 ;;
+  esac
+  case "${iterations}" in
+    ''|*[!0-9]*) iterations=0 ;;
+  esac
+  if [[ "${refresh}" -lt 1 ]]; then refresh=1; fi
+
+  if [[ "${SOVEREIGN_OS_DRY_RUN:-}" == "1" ]]; then
+    if [[ "${iterations}" -eq 0 ]]; then iterations=1; fi
+  fi
+
+  local frame=0
+  while :; do
+    frame=$((frame + 1))
+    printf '\x1b[2J\x1b[H'
+    local now
+    now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "── ux-design-audit.watch (frame ${frame}, refresh=${refresh}s, ${now}) ──"
+    echo
+    "${__REPO_ROOT}/scripts/operator/ux-design-audit.py" score 2>/dev/null \
+      || echo "  (ux-design-audit score emit failed — module data missing?)"
+    echo
+    if [[ "${iterations}" -gt 0 && "${frame}" -ge "${iterations}" ]]; then
+      echo "  (reached --iterations=${iterations}; exit)"
+    else
+      echo "  (Ctrl-C to exit; refresh in ${refresh}s)"
+    fi
+
+    if [[ "${iterations}" -gt 0 && "${frame}" -ge "${iterations}" ]]; then
+      break
+    fi
+    if ! sleep "${refresh}" 2>/dev/null; then
+      echo
+      echo "  ── ux-design-audit.watch interrupted ──"
+      break
+    fi
+  done
+  return 0
+}
+
 _doc_coverage_watch() {
   local refresh=5
   local iterations=0
@@ -7327,7 +7405,21 @@ case "${cmd}" in
     # discoverable / recoverable / next-step / operator-named /
     # readable-30s) × per-module live auditors. 5 verbs: dimensions /
     # modules / audit / score / report.
-    "${__REPO_ROOT}/scripts/operator/ux-design-audit.py" "$@"
+    # R528 (E5++): adds the `watch` refresh-loop TUI surface — drains
+    # the ux-design-audit tui:FUTURE waiver, opens the ux-design-audit
+    # tier-3 surface-expansion arc (R528 TUI → R529 MCP → R530 API +
+    # webapp + service), same shape as the trinity R513-R515 / router
+    # R516-R518 / compliance R519-R521 / anti-min R522-R524 /
+    # doc-coverage R525-R527 arcs.
+    case "${1:-}" in
+      watch)
+        shift
+        _ux_design_audit_watch "$@"
+        ;;
+      *)
+        "${__REPO_ROOT}/scripts/operator/ux-design-audit.py" "$@"
+        ;;
+    esac
     ;;
   anti-minimization-audit)
     # R456 (E11.M11): operator §1g STANDING RULE verbatim — "If you
