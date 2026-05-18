@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os surface-map</title>
+<meta name="x-sovereign-module" content="surface-map-webapp">
+<meta name="x-sovereign-shipped-in" content="R533 (E5++)">
+<meta name="x-sovereign-standing-rule" content="everything is not just core, not just cli, not just TUI, not just API, not just tool and MCP but also Dashboards and Web Apps and Services.">
+<style>
+  /* Operator-§1g UX: readable in 30 seconds, monochrome palette,
+     no JS framework, no CDN, no fonts fetched from elsewhere —
+     sovereignty-clean single-file webapp. */
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border)}
+  .pill.ok{background:#143d14;color:var(--good)}
+  .pill.bad{background:#3d1414;color:var(--bad)}
+  .pill.warn{background:#3d3014;color:var(--warn)}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:stretch}
+  .stat{flex:1 1 160px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
+  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .stat .v{font-size:1.4rem;margin-top:.15rem}
+  .dim{flex:1 1 180px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem}
+  .dim h3{margin:0 0 .3rem 0;font-size:.95rem;color:var(--accent)}
+  .dim .meta{color:var(--muted);font-size:.78rem;margin-bottom:.5rem}
+  button{font-family:var(--mono);background:var(--panel);color:var(--fg);border:1px solid var(--border);padding:.35rem .7rem;border-radius:3px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  footer{margin-top:2rem;color:var(--muted);font-size:.75rem;border-top:1px solid var(--border);padding-top:.8rem}
+  .standing-rule{color:var(--accent);font-style:italic;margin-top:.4rem}
+  code{color:var(--accent)}
+  .disclaimer{background:#10202a;border:1px solid #20405a;color:var(--accent);padding:.7rem .9rem;border-radius:4px;margin:.6rem 0;font-size:.82rem}
+  .matrix-cell{display:inline-block;width:1.3em;text-align:center}
+</style>
+</head>
+<body>
+<h1>sovereign-os surface-map</h1>
+<p class="sub">
+  Operator-§1g surface-map &mdash; 8-surface delivery matrix across operator-facing modules + R462 cross-repo selfdef
+  SurfaceManifest discovery (R453 §1g coverage instrument).
+  Read-only mirror of <code>sovereign-osctl surface-map {surfaces,modules,coverage,gaps,waivers,selfdef} --json</code>.
+  Surface-map has NO mutation verbs at any surface (operator §17 sovereignty boundary &mdash; the coverage matrix is a query;
+  remediation lives in the audited modules themselves, NOT in this daemon).
+</p>
+
+<div class="row" id="stats">
+  <div class="stat"><div class="k">api version</div><div class="v muted" id="stat-version">&mdash;</div></div>
+  <div class="stat"><div class="k">tracked modules</div><div class="v" id="stat-modules">&mdash;</div></div>
+  <div class="stat"><div class="k">&sect;1g surfaces</div><div class="v" id="stat-surfaces">&mdash;</div></div>
+  <div class="stat"><div class="k">at structural ceiling</div><div class="v" id="stat-ceiling">&mdash;</div></div>
+  <div class="stat"><div class="k">below threshold</div><div class="v" id="stat-below">&mdash;</div></div>
+  <div class="stat"><div class="k">selfdef manifests</div><div class="v" id="stat-selfdef">&mdash;</div></div>
+  <div class="stat"><div class="k">last refresh</div><div class="v muted" id="last-refresh">never</div></div>
+</div>
+
+<div class="disclaimer">
+  operator &sect;17 sovereignty boundary: surface-map inspection is read-only at every surface. The coverage matrix is a query
+  &mdash; this daemon reads the §1g MODULE_COVERAGE table to enumerate <code>core</code> / <code>cli</code> /
+  <code>tui</code> / <code>api</code> / <code>mcp</code> / <code>dashboard</code> / <code>webapp</code> /
+  <code>service</code> state per module, but NEVER authors or mutates any module's surface. The CLI verbs
+  <code>coverage --module &lt;m&gt;</code>, <code>gaps --threshold N</code>, and <code>waivers --module &lt;m&gt;</code>
+  take runtime arguments and stay CLI-shaped; their parameterized mirrors here use same-origin GET query strings
+  (<code>?module=</code>, <code>?threshold=</code>). Managed by <code>sovereign-surface-map-api.service</code>.
+</div>
+
+<h2>8 operator-named &sect;1g surfaces (R453 ladder)</h2>
+<div class="row" id="surfaces-row">
+  <div class="dim" id="surf-core"><h3>core</h3><div class="meta">loading&hellip;</div></div>
+  <div class="dim" id="surf-cli"><h3>cli</h3><div class="meta">loading&hellip;</div></div>
+  <div class="dim" id="surf-tui"><h3>tui</h3><div class="meta">loading&hellip;</div></div>
+  <div class="dim" id="surf-api"><h3>api</h3><div class="meta">loading&hellip;</div></div>
+  <div class="dim" id="surf-mcp"><h3>mcp</h3><div class="meta">loading&hellip;</div></div>
+  <div class="dim" id="surf-dashboard"><h3>dashboard</h3><div class="meta">loading&hellip;</div></div>
+  <div class="dim" id="surf-webapp"><h3>webapp</h3><div class="meta">loading&hellip;</div></div>
+  <div class="dim" id="surf-service"><h3>service</h3><div class="meta">loading&hellip;</div></div>
+</div>
+
+<h2>module &times; surface coverage (sorted by largest gap first)</h2>
+<div class="panel">
+  <table>
+    <thead><tr>
+      <th>module</th><th>X/8</th>
+      <th>core</th><th>cli</th><th>tui</th><th>api</th>
+      <th>mcp</th><th>dashboard</th><th>webapp</th><th>service</th>
+      <th>ceiling</th>
+    </tr></thead>
+    <tbody id="matrix-tbody"><tr><td colspan="11" class="muted">loading&hellip;</td></tr></tbody>
+  </table>
+</div>
+
+<h2>modules below surface threshold</h2>
+<div class="panel">
+  <table>
+    <thead><tr><th>module</th><th>surface count</th><th>shortfall</th><th>future waivers</th></tr></thead>
+    <tbody id="below-tbody"><tr><td colspan="4" class="muted">loading&hellip;</td></tr></tbody>
+  </table>
+</div>
+
+<h2>per-module explicit waivers</h2>
+<div class="panel">
+  <table>
+    <thead><tr><th>module</th><th>surface</th><th>class</th><th>rationale</th></tr></thead>
+    <tbody id="waivers-tbody"><tr><td colspan="4" class="muted">loading&hellip;</td></tr></tbody>
+  </table>
+</div>
+
+<h2>R462 cross-repo selfdef SurfaceManifests</h2>
+<div class="panel">
+  <table>
+    <thead><tr><th>repo</th><th>module</th><th>surfaces</th><th>status</th></tr></thead>
+    <tbody id="selfdef-tbody"><tr><td colspan="4" class="muted">loading&hellip;</td></tr></tbody>
+  </table>
+</div>
+
+<h2>refresh</h2>
+<div class="panel">
+  <div class="row">
+    <button id="refresh-btn">refresh all</button>
+    <span class="muted">auto-refresh every 60s</span>
+  </div>
+</div>
+
+<footer>
+  <div>shipped in <code>R533 (E5++)</code> &middot; serves the <code>/webapp/</code> path of the R533 surface-map-api daemon (<code>scripts/operator/surface-map-api.py</code>, managed by <code>sovereign-surface-map-api.service</code>) &middot; backing CLI <code>sovereign-osctl surface-map</code> (R453 lineage + R531 TUI) &middot; MCP via <code>scripts/interop/mcp-aggregate.py</code> (R532)</div>
+  <div class="standing-rule">"everything is not just core, not just cli, not just TUI, not just API, not just tool and MCP but also Dashboards and Web Apps and Services." &mdash; operator &sect;1g (sacrosanct)</div>
+</footer>
+
+<script>
+"use strict";
+// Operator-§1g UX rule: no external dependencies, no CDN fetches.
+// Same-origin XHR only — the R533 surface-map-api daemon serves
+// both this webapp and the JSON endpoints under the same host:port
+// binding.
+
+async function fetchJSON(path) {
+  const res = await fetch(path, {headers: {"Accept": "application/json"}});
+  if (!res.ok) throw new Error(path + " => " + res.status);
+  return await res.json();
+}
+
+function el(id) { return document.getElementById(id); }
+function esc(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function pillFromCount(n, goodIfZero) {
+  if (n === 0) return '<span class="pill ' + (goodIfZero ? 'ok' : '') + '">0</span>';
+  if (n <= 2) return '<span class="pill warn">' + esc(n) + '</span>';
+  return '<span class="pill bad">' + esc(n) + '</span>';
+}
+
+const SURFACE_IDS = [
+  "core", "cli", "tui", "api",
+  "mcp", "dashboard", "webapp", "service",
+];
+
+async function refreshVersion() {
+  try {
+    const v = await fetchJSON("/version");
+    el("stat-version").textContent = v.version || "?";
+  } catch (e) {
+    el("stat-version").innerHTML = "<span class=bad>err</span>";
+  }
+}
+
+async function refreshSurfaces() {
+  try {
+    const d = await fetchJSON("/surfaces");
+    el("stat-surfaces").textContent = d.count || "?";
+    const list = d.surfaces || [];
+    for (const surf of list) {
+      const node = el("surf-" + surf.id);
+      if (!node) continue;
+      node.innerHTML =
+        '<h3>' + esc(surf.id) + '</h3>' +
+        '<div class="meta">' + esc(surf.label || "") + '</div>' +
+        '<div class="meta">&sect;1g position: <code>' + esc(surf["§1g_position"] || "?") + '</code></div>';
+    }
+  } catch (e) {
+    el("stat-surfaces").innerHTML = "<span class=bad>err</span>";
+  }
+}
+
+async function refreshModulesAndMatrix() {
+  try {
+    const mods = await fetchJSON("/modules");
+    const list = mods.modules || [];
+    el("stat-modules").textContent = mods.count != null ? mods.count : "?";
+    const ceilingCount = list.filter(function(m) { return m.at_structural_ceiling; }).length;
+    el("stat-ceiling").innerHTML = '<span class="ok">' + esc(ceilingCount) + '</span><span class="muted"> / ' + esc(list.length) + '</span>';
+
+    const cov = await fetchJSON("/coverage");
+    const rows = cov.coverage || [];
+    const tbody = el("matrix-tbody");
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="11" class="muted">no modules tracked</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(function(r) {
+      const byS = {};
+      for (const x of (r.matrix || [])) byS[x.surface] = x;
+      const cells = SURFACE_IDS.map(function(s) {
+        const cell = byS[s];
+        if (!cell) return '<td class="muted">?</td>';
+        if (cell.state === "shipped") return '<td><span class="matrix-cell ok">&#10003;</span></td>';
+        if (cell.state === "waived") {
+          const cls = cell.waiver_class === "structural" ? "muted" : "warn";
+          const mark = cell.waiver_class === "structural" ? "&middot;" : "~";
+          return '<td><span class="matrix-cell ' + cls + '" title="' + esc(cell.rationale || "") + '">' + mark + '</span></td>';
+        }
+        return '<td><span class="matrix-cell bad">&#10007;</span></td>';
+      }).join("");
+      const sc = r.surface_count || 0;
+      const cls = sc >= 7 ? "ok" : (sc >= 5 ? "warn" : "bad");
+      const ceil = r.at_structural_ceiling
+        ? '<span class="pill ok">ceiling</span>'
+        : '<span class="pill warn">' + esc(r.future_waiver_count || 0) + ' future</span>';
+      return '<tr>' +
+        '<td><code>' + esc(r.module) + '</code></td>' +
+        '<td class="' + cls + '">' + esc(sc) + '/8</td>' +
+        cells +
+        '<td>' + ceil + '</td>' +
+        '</tr>';
+    }).join("");
+  } catch (e) {
+    el("matrix-tbody").innerHTML =
+      '<tr><td colspan="11" class="bad">error: ' + esc(e.message) + '</td></tr>';
+  }
+}
+
+async function refreshBelow() {
+  try {
+    const r = await fetchJSON("/gaps");
+    el("stat-below").innerHTML = pillFromCount(r.count || 0, true);
+    const tbody = el("below-tbody");
+    const list = r.below_threshold || [];
+    if (!list.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="ok">all non-ceiling modules at or above surface threshold</td></tr>';
+      return;
+    }
+    tbody.innerHTML = list.map(function(row) {
+      return '<tr>' +
+        '<td><code>' + esc(row.module) + '</code></td>' +
+        '<td class="bad">' + esc(row.surface_count) + '/8</td>' +
+        '<td>' + esc(row.shortfall) + '</td>' +
+        '<td>' + esc(row.future_waiver_count || 0) + '</td>' +
+        '</tr>';
+    }).join("");
+  } catch (e) {
+    el("stat-below").innerHTML = "<span class=bad>err</span>";
+    el("below-tbody").innerHTML =
+      '<tr><td colspan="4" class="bad">error: ' + esc(e.message) + '</td></tr>';
+  }
+}
+
+async function refreshWaivers() {
+  try {
+    const r = await fetchJSON("/waivers");
+    const list = r.waivers || [];
+    const tbody = el("waivers-tbody");
+    if (!list.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="muted">no explicit waivers</td></tr>';
+      return;
+    }
+    tbody.innerHTML = list.map(function(row) {
+      const cls = row.waiver_class === "structural" ? "muted" : "warn";
+      return '<tr>' +
+        '<td><code>' + esc(row.module) + '</code></td>' +
+        '<td><code>' + esc(row.surface) + '</code></td>' +
+        '<td class="' + cls + '">' + esc(row.waiver_class) + '</td>' +
+        '<td class="muted">' + esc(row.rationale) + '</td>' +
+        '</tr>';
+    }).join("");
+  } catch (e) {
+    el("waivers-tbody").innerHTML =
+      '<tr><td colspan="4" class="bad">error: ' + esc(e.message) + '</td></tr>';
+  }
+}
+
+async function refreshSelfdef() {
+  try {
+    const s = await fetchJSON("/selfdef");
+    el("stat-selfdef").textContent = (s.count_valid != null ? s.count_valid : "?");
+    const tbody = el("selfdef-tbody");
+    const list = s.valid || [];
+    if (!list.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="muted">no R462 selfdef SurfaceManifests discovered</td></tr>';
+      return;
+    }
+    tbody.innerHTML = list.map(function(m) {
+      return '<tr>' +
+        '<td><code>' + esc(m.repo || m.repo_name || "?") + '</code></td>' +
+        '<td><code>' + esc(m.module || m.module_name || "?") + '</code></td>' +
+        '<td>' + esc(Array.isArray(m.surfaces) ? m.surfaces.join(", ") : (m.surfaces || "?")) + '</td>' +
+        '<td>' + esc(m.status || "ok") + '</td>' +
+        '</tr>';
+    }).join("");
+  } catch (e) {
+    el("stat-selfdef").innerHTML = "<span class=bad>err</span>";
+    el("selfdef-tbody").innerHTML =
+      '<tr><td colspan="4" class="bad">error: ' + esc(e.message) + '</td></tr>';
+  }
+}
+
+async function refreshAll() {
+  await Promise.all([
+    refreshVersion(), refreshSurfaces(),
+    refreshModulesAndMatrix(), refreshBelow(),
+    refreshWaivers(), refreshSelfdef(),
+  ]);
+  el("last-refresh").textContent = new Date().toLocaleTimeString();
+}
+
+document.getElementById("refresh-btn").addEventListener("click", refreshAll);
+refreshAll();
+setInterval(refreshAll, 60000);
+</script>
+</body>
+</html>

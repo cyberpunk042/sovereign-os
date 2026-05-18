@@ -1,0 +1,62 @@
+[Unit]
+Description=Sovereign surface-map read-only REST API + webapp (R533, E5++)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/surface-map-api.py
+# Read-only inspection API + webapp for the §1g surface-map
+# instrument (R453 8-surface delivery contract). Mirrors the data the
+# CLI exposes via `sovereign-osctl surface-map {surfaces,modules,
+# coverage,gaps,waivers,selfdef} --json` and the R532 MCP tools
+# (surface-map-surfaces / -modules / -coverage).
+#
+# Surface-map has NO mutation verbs at any surface — the coverage
+# matrix is a query; remediation lives in the audited modules
+# themselves, NOT in this daemon. Operator §17 sovereignty boundary
+# preserved.
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/surface-map-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default — operator-§1g exposure decision is theirs.
+# To expose beyond loopback, drop an override at
+# /etc/systemd/system/sovereign-surface-map-api.service.d/bind.conf:
+#   [Service]
+#   Environment=SURFACE_MAP_API_BIND=0.0.0.0
+Environment=SURFACE_MAP_API_BIND=127.0.0.1
+Environment=SURFACE_MAP_API_PORT=8101
+
+# Defense-in-depth — read-only HTTP surface that reads the §1g
+# coverage table per /coverage, /gaps, /waivers request, plus the
+# R462 selfdef SurfaceManifest discovery on /selfdef. No mutation of
+# any sovereignty boundary.
+# R171 defense-in-depth (Layer 1 lint enforced)
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+# Source tree is read-only here — the coverage instrument reads its
+# own MODULE_COVERAGE dict but never mutates the filesystem.
+# ProtectSystem=strict makes everything outside ReadWritePaths
+# read-only by default.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+# Loopback default — capability lockdown matches.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target

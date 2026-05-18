@@ -464,24 +464,33 @@ def test_coverage_reports_at_structural_ceiling_flag():
     #                        real systemd-managed read-only daemon,
     #                        same pattern as R510/R515/R518/R521/R524/
     #                        R527).
-    # The fixture now rotates to `surface-map`, which carries 4 FUTURE
+    #   - surface-map      — reached ceiling in R533 (tenth — closed
+    #                        the tui/mcp/api/webapp quartet across
+    #                        R531-R533; R533 also REPLACED the prior
+    #                        `service: not applicable` waiver with a
+    #                        real systemd-managed read-only daemon,
+    #                        same pattern as R510/R515/R518/R521/R524/
+    #                        R527/R530. Eating-our-own-dogfood: the
+    #                        §1g coverage instrument itself now reports
+    #                        as fully-described at the ceiling).
+    # The fixture now rotates to `weaver`, which carries 4 FUTURE
     # waivers (tui/api/mcp/webapp) and is the next §1g instrument on
-    # the tier-3 expansion arc — same 4-surface shape as the weaver /
-    # auditor siblings (all currently sit at the same core+cli+
-    # dashboard tier waiting for the same tier-3 arc).
+    # the tier-3 expansion arc — same 4-surface shape as the auditor
+    # sibling (both currently sit at the same core+cli+dashboard tier
+    # waiting for the same tier-3 arc).
     result2 = subprocess.run(
         ["python3", str(SM_PY), "coverage", "--module",
-         "surface-map", "--json"],
+         "weaver", "--json"],
         capture_output=True, text=True, timeout=10,
     )
     data2 = json.loads(result2.stdout)
     rec2 = data2["coverage"][0] if "coverage" in data2 else data2
     assert rec2.get("at_structural_ceiling") is False, (
-        f"R478: surface-map must be "
+        f"R478: weaver must be "
         f"at_structural_ceiling=False, got {rec2!r}"
     )
     assert rec2.get("future_waiver_count", 0) >= 1, (
-        f"R478 fixture: surface-map must carry FUTURE "
+        f"R478 fixture: weaver must carry FUTURE "
         f"waivers; got {rec2!r}"
     )
 
