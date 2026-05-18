@@ -403,6 +403,39 @@ LOCAL_TOOLS = [
         "argv": ["sovereign-osctl", "network-edge", "opnsense", "capabilities", "--json"],
         "categories": ["network-edge", "opnsense", "operator-§1g"],
     },
+    # R511 (E11.M5++) — global-history MCP surface. Read-only verbs
+    # that delegate to `sovereign-osctl global-history <verb> --json`
+    # (R448 + R481 lineage). global-history has no mutation verbs at
+    # any surface — operator §17 sacrosanct sovereignty boundary; the
+    # 6 underlying source logs (apt / dpkg / shell / osctl / events /
+    # modules) are mutated by their owning processes, never by this
+    # surface. Operator §1g full-ladder visibility: each verb is its
+    # own MCP tool so the agent sees the FOUR read-only verbs as
+    # discrete tools, not collapsed under a single bundle.
+    {
+        "name": "global-history-recent",
+        "summary": "Global-history: recent events across the 6 source logs (apt / dpkg / shell / osctl / events / modules) — operator §1g delta/differential surface; `sovereign-osctl global-history recent --json` invocation.",
+        "argv": ["sovereign-osctl", "global-history", "recent", "--json"],
+        "categories": ["global-history", "recent", "operator-§1g"],
+    },
+    {
+        "name": "global-history-summary",
+        "summary": "Global-history: 7-day per-source summary (count + last event timestamp) across the 6 source logs — operator §1g aggregate-visibility surface.",
+        "argv": ["sovereign-osctl", "global-history", "summary", "--json"],
+        "categories": ["global-history", "summary", "operator-§1g"],
+    },
+    {
+        "name": "global-history-sources",
+        "summary": "Global-history: enumerate the 6 known sources (apt / dpkg / shell / osctl / events / modules) with path + existence status — operator §1g full-ladder source visibility.",
+        "argv": ["sovereign-osctl", "global-history", "sources", "--json"],
+        "categories": ["global-history", "sources", "operator-§1g"],
+    },
+    {
+        "name": "global-history-delta",
+        "summary": "Global-history: events since a caller-supplied ISO timestamp across the 6 source logs — operator-discoverable 'what changed since I last checked'. CLI takes `--since <iso>` arg.",
+        "argv": ["sovereign-osctl", "global-history", "delta", "--json"],
+        "categories": ["global-history", "delta", "operator-§1g"],
+    },
 ]
 
 
