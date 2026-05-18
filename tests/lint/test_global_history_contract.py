@@ -337,3 +337,92 @@ def test_sources_verb_runs_without_error():
     assert len(data["sources"]) == 6, (
         f"expected 6 sources, got {len(data['sources'])}"
     )
+
+
+# --- R487 (E11.M5+) — Grafana dashboard surface ---
+
+
+GH_DASHBOARD_JSON = (
+    REPO_ROOT / "docs" / "observability" / "dashboards"
+    / "sovereign-os-global-history.json"
+)
+
+
+def test_dashboard_json_exists():
+    """R487 — global-history Grafana dashboard surface (closes surface-
+    map FUTURE waiver 'dashboard: FUTURE — Grafana timeline panel')."""
+    assert GH_DASHBOARD_JSON.is_file(), (
+        f"missing global-history dashboard: {GH_DASHBOARD_JSON}"
+    )
+
+
+def test_dashboard_json_parseable():
+    """The dashboard MUST be valid JSON (Grafana refuses invalid JSON
+    on import)."""
+    import json
+    data = json.loads(GH_DASHBOARD_JSON.read_text(encoding="utf-8"))
+    assert "panels" in data, "dashboard missing panels"
+    assert "title" in data and data["title"], "dashboard missing title"
+    assert "uid" in data and data["uid"], "dashboard missing uid"
+
+
+def test_dashboard_references_global_history_metric():
+    """At least one panel MUST query sovereign_os_operator_global_
+    history_query_total — otherwise the dashboard isn't visualizing
+    the operator-§1g surface."""
+    body = GH_DASHBOARD_JSON.read_text(encoding="utf-8")
+    assert "sovereign_os_operator_global_history_query_total" in body, (
+        "global-history dashboard doesn't reference the Layer B metric"
+    )
+
+
+def test_dashboard_covers_six_sources():
+    """Per §1g 6-source registry, dashboard MUST reference all 6
+    source labels (apt / dpkg / shell / osctl / events / modules)."""
+    body = GH_DASHBOARD_JSON.read_text(encoding="utf-8")
+    for src in ("apt", "dpkg", "shell", "osctl", "events", "modules"):
+        assert src in body, (
+            f"global-history dashboard missing source reference: {src!r}"
+        )
+
+
+def test_dashboard_covers_all_verbs():
+    """Dashboard MUST reference all 5 verbs the operator can invoke
+    (recent / summary / sources / delta / tail)."""
+    body = GH_DASHBOARD_JSON.read_text(encoding="utf-8")
+    for verb in ("recent", "summary", "sources", "delta", "tail"):
+        assert verb in body, (
+            f"global-history dashboard missing verb reference: {verb!r}"
+        )
+
+
+def test_dashboard_quotes_operator_1g_verbatim():
+    """Dashboard MUST include the §1g verbatim 'delta, differentials'
+    + 'bash_history' anchors — preserves operator-§1g source-of-truth
+    on the visual surface."""
+    body = GH_DASHBOARD_JSON.read_text(encoding="utf-8")
+    assert "delta, differentials" in body, (
+        "global-history dashboard missing §1g verbatim 'delta, differentials'"
+    )
+    assert ".bash_history" in body, (
+        "global-history dashboard missing §1g verbatim '.bash_history' anchor"
+    )
+
+
+def test_dashboard_listed_in_readme():
+    """README.md MUST list the new dashboard (operator-discoverable
+    inventory)."""
+    readme = (GH_DASHBOARD_JSON.parent / "README.md").read_text(encoding="utf-8")
+    assert "sovereign-os-global-history.json" in readme, (
+        "dashboards/README.md missing sovereign-os-global-history.json entry"
+    )
+
+
+def test_dashboard_tagged_sovereign_os():
+    """Grafana 'sovereign-os' tag MUST be set — operator's dashboard
+    folder filter depends on it."""
+    import json
+    data = json.loads(GH_DASHBOARD_JSON.read_text(encoding="utf-8"))
+    assert "sovereign-os" in (data.get("tags") or []), (
+        "global-history dashboard missing sovereign-os tag"
+    )

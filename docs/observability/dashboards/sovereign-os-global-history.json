@@ -1,0 +1,119 @@
+{
+  "_comment": "sovereign-os global-history dashboard (R487, E11.M5+). Visualizes the operator-§1g 'what changed on this system in the last N hours/days?' surface: 6-source delta/differential aggregator (apt / dpkg / shell / osctl / events / modules). Sourced from sovereign_os_operator_global_history_query_total{verb,source,result} (Layer B, SDD-016) emitted by scripts/operator/global-history.py. Operator imports into Grafana via Settings → JSON Model. Closes the global-history surface-map FUTURE waiver 'dashboard: FUTURE — Grafana timeline panel'.",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "global-history CLI", "url": "/d/sovereign-os-global-history#cli", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "global-history queries (total)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_global_history_query_total)", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "recent verb (count)",
+      "description": "Chronological recent-events view — operator's primary 'what just happened?' verb.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_global_history_query_total{verb=\"recent\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "summary verb (count)",
+      "description": "Per-source count + last-event timestamp — operator's 'is each source live?' verb.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_global_history_query_total{verb=\"summary\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "delta verb (count)",
+      "description": "Operator-§1g 'delta / differential' verb — the literal verbatim phrase from §1g.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_global_history_query_total{verb=\"delta\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "sources verb (count)",
+      "description": "6-source registry view — discoverability surface.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_global_history_query_total{verb=\"sources\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "tail verb (count)",
+      "description": "R481 refresh-loop TUI invocations. Long-running tail sessions show up here.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_global_history_query_total{verb=\"tail\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 20, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "global-history query rate per verb (5m)",
+      "description": "Per-verb query rate over time. recent / summary / sources / delta / tail — operator-discoverable churn pattern; the area-under spike on `tail` tracks long-watch sessions.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(sovereign_os_operator_global_history_query_total[5m])", "refId": "A", "legendFormat": "{{verb}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "global-history per-source attention (5m)",
+      "description": "Per-source query rate. apt / dpkg / shell / osctl / events / modules / all (joined or aggregate). Tracks which source the operator is asking about — operator's revealed-preference signal.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(sovereign_os_operator_global_history_query_total[5m])", "refId": "A", "legendFormat": "{{source}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+    },
+    {
+      "type": "barchart",
+      "title": "global-history source distribution (cumulative)",
+      "description": "Cumulative per-source query count. Operator-§1g 6-source ladder visibility: apt / dpkg / shell / osctl / events / modules.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sum by (source) (sovereign_os_operator_global_history_query_total)", "refId": "A", "legendFormat": "{{source}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+    },
+    {
+      "type": "table",
+      "title": "global-history current state (verb × source)",
+      "description": "Per-(verb, source) histogram: which source the operator queries against which verb. Drives the operator's 'am I reading the source that actually answers my question?' visibility.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sum by (verb, source, result) (sovereign_os_operator_global_history_query_total)", "refId": "A", "format": "table", "instant": true}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+    },
+    {
+      "type": "text",
+      "title": "global-history §1g verbatim + 6-source ladder",
+      "options": {
+        "mode": "markdown",
+        "content": "**Operator §1g verbatim** (R448, E11.M5):\n\n> \"Some kind of global history too. tracking things happening, delta, differentials... apt changes and operations, or any cli or tool call I guess, in the management. more reliable and adapted than simply aggregating the .bash_history's.\"\n\n**6-source registry (the operator-discoverable surface):**\n\n1. `apt` — `/var/log/apt/history.log` (install/remove/upgrade with timestamps + initiator user)\n2. `dpkg` — `/var/log/dpkg.log` (lower-level package state changes)\n3. `shell` — `~/.bash_history` (with timestamps when `HISTTIMEFORMAT` was set during writes; falls back to file-mtime otherwise)\n4. `osctl` — `~/.sovereign-os/history/*.jsonl` (every `sovereign-osctl` invocation, when the per-call logger is shipped)\n5. `events` — cross-cutting JSONL state files (notify-events, models-eval, fine-tune — same sources `osctl events` reads)\n6. `modules` — selfdef + sovereign-os module install/uninstall events (when the selfdef event-log surface ships)\n\n**Distinct from** (operator-discoverable disambiguation):\n\n- `sovereign-osctl history` — BUILD pipeline run-log viewer\n- `sovereign-osctl events` — JSONL state-file aggregator (Layer A cross-cutting)\n- `sovereign-osctl journal` — systemd-journal viewer (Layer B)\n\n**The §1g promise:** `more reliable and adapted than simply aggregating the .bash_history's` — the 6-source ladder fulfills that contract by reading authoritative state-record files (apt/dpkg/jsonl), not just shell-replay logs.\n\n**CLI:**\n\n```\nsovereign-osctl global-history recent [--since 24h] [--limit 50] [--source apt,dpkg,...]\nsovereign-osctl global-history summary\nsovereign-osctl global-history sources\nsovereign-osctl global-history delta\nsovereign-osctl global-history tail [--refresh 5] [--iterations N]    # R481 refresh-loop TUI\n```\n\n**Metric:** `sovereign_os_operator_global_history_query_total{verb,source,result}` (SDD-016 Layer B)\n\n**Source:** R448 (E11.M5) shipped the verbs + 6-source aggregator. R481 (E11.M5+) shipped the refresh-loop tail TUI. R487 (E11.M5+) ships THIS dashboard, closing the surface-map waiver-slot 'dashboard: FUTURE — Grafana timeline panel'."
+      },
+      "gridPos": {"h": 14, "w": 24, "x": 0, "y": 20}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["sovereign-os", "global-history", "operator", "R487"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "sovereign-os global-history",
+  "uid": "sovereign-os-global-history",
+  "version": 1,
+  "weekStart": ""
+}
