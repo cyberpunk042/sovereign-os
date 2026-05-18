@@ -154,11 +154,25 @@ MODULES = [
                                   "bashrc opt-in"]},
     {"id": "surface-map", "patterns": ["surface-map", "surface_map",
                                        "surface map"]},
-    {"id": "trinity", "patterns": ["trinity-pulse", "Trinity Pulse",
-                                   "trinity-logic-engine",
-                                   "trinity-oracle"]},
-    {"id": "router", "patterns": ["SDD-011", "deterministic router",
-                                  "sovereign-osctl router"]},
+    # Trinity is operator-§1g three-tier inference architecture; docs
+    # use both the marketing name and per-tier names. Match either.
+    {"id": "trinity", "patterns": [
+        "trinity-pulse", "Trinity Pulse", "trinity-logic-engine",
+        "trinity-oracle", "oracle-core", "logic-engine",
+        "trinity tier", "Trinity tier", "Trinity tier-3",
+        "TRINITY", "Trinity",
+    ]},
+    # Router = SDD-011 deterministic prompt router (sovereign-osctl
+    # `inference route/start/status` verbs operate it; metric
+    # inventory has 'sovereign_os_inference_router_*' families).
+    {"id": "router", "patterns": [
+        "SDD-011", "deterministic router", "deterministic prompt router",
+        "inference router", "router tier", "prompt routing",
+        "router classify", "selfdef-router",
+        "sovereign_os_inference_router",
+        "inference route", "inference start",
+        "sovereign-router.service",
+    ]},
 ]
 MODULE_IDS = [m["id"] for m in MODULES]
 
