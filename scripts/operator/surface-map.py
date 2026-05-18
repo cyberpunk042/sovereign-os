@@ -153,10 +153,9 @@ MODULE_COVERAGE = {
         },
     },
     "edge-firewall": {
-        "shipped_in": "R451 (E11.M9)",
-        "surfaces": ["core", "cli"],
+        "shipped_in": "R451 (E11.M9) + R482 (E11.M9+ wizard tui)",
+        "surfaces": ["core", "cli", "tui"],
         "waivers": {
-            "tui":       "FUTURE — install-wizard TUI worthwhile",
             "api":       "not applicable — operator runs it locally",
             "mcp":       "FUTURE — agent can query state via MCP",
             "dashboard": "FUTURE — Grafana panel for edge-firewall state",

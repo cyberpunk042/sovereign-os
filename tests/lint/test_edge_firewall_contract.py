@@ -158,6 +158,52 @@ def test_supports_install_verb():
     assert '"install"' in body
 
 
+def test_supports_wizard_verb():
+    """R482 (E11.M9+) — install-wizard TUI surface, closes surface-map
+    FUTURE waiver 'install-wizard TUI worthwhile'."""
+    body = _read(EF_PY)
+    assert '"wizard"' in body, "edge-firewall.py missing wizard verb"
+    assert "def cmd_wizard(" in body, (
+        "edge-firewall.py missing cmd_wizard() function"
+    )
+
+
+def test_wizard_has_ansi_clear_screen():
+    """The wizard MUST clear-screen between pages — that's what makes
+    it a TUI surface vs a one-shot CLI."""
+    body = _read(EF_PY)
+    assert "\\x1b[2J" in body, (
+        "edge-firewall.py wizard missing ANSI clear-screen (TUI hint)"
+    )
+
+
+def test_wizard_supports_accept_default():
+    """Operator-discoverable: --accept-default makes the wizard
+    scriptable + L3-testable (no interactive stdin)."""
+    body = _read(EF_PY)
+    assert "--accept-default" in body, (
+        "wizard missing --accept-default for scripted/L3 use"
+    )
+
+
+def test_wizard_routes_through_triple_gate():
+    """The wizard MUST NOT bypass cmd_install's triple-gate; final
+    install step calls cmd_install() (not direct apt/systemctl)."""
+    body = _read(EF_PY)
+    assert "cmd_install(" in body, (
+        "wizard missing handoff to cmd_install() — triple-gate bypass risk"
+    )
+
+
+def test_wizard_emits_metric_with_wizard_label():
+    """Layer B observability: wizard emits Layer B metric with
+    verb=wizard so it aggregates separately from other verbs."""
+    body = _read(EF_PY)
+    assert '"wizard"' in body and (
+        "sovereign_os_operator_edge_firewall_query_total" in body
+    ), "wizard missing query_total metric emission"
+
+
 def test_install_has_triple_gate():
     """`install` MUST require --apply + --confirm-install."""
     body = _read(EF_PY)
@@ -226,6 +272,7 @@ def test_osctl_help_documents_edge_firewall_verbs():
         "edge-firewall recommend",
         "edge-firewall install-plan",
         "edge-firewall install",
+        "edge-firewall wizard",
     ):
         assert sub in body, f"osctl help missing {sub!r}"
 
@@ -309,3 +356,22 @@ def test_install_unknown_candidate_fails():
     assert result.returncode != 0, (
         "install with unknown candidate should fail"
     )
+
+
+def test_wizard_runs_non_interactive():
+    """The wizard MUST run end-to-end under --accept-default with
+    SOVEREIGN_OS_DRY_RUN=1 (zero stdin reads, exits at preview)."""
+    env = os.environ.copy()
+    env["SOVEREIGN_OS_DRY_RUN"] = "1"
+    result = subprocess.run(
+        ["python3", str(EF_PY), "wizard", "--accept-default"],
+        capture_output=True, text=True, timeout=15, env=env,
+        stdin=subprocess.DEVNULL,
+    )
+    assert result.returncode == 0, (
+        f"wizard --accept-default failed: rc={result.returncode}\n"
+        f"  stderr={result.stderr[:300]}"
+    )
+    combined = result.stdout + result.stderr
+    assert "PAGE 1/4" in combined, "wizard missing page-1 marker"
+    assert "PAGE 3/4" in combined, "wizard missing page-3 marker"

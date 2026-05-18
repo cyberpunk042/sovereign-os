@@ -640,6 +640,155 @@ def cmd_install(args) -> int:
     return 0
 
 
+def _wizard_clear():
+    """ANSI clear-screen + cursor-home. The TUI-surface affordance."""
+    sys.stdout.write("\x1b[2J\x1b[H")
+    sys.stdout.flush()
+
+
+def _wizard_prompt(question: str, default: str, no_input: bool) -> str:
+    """Operator prompt with default. In no-input mode (--accept-default or
+    SOVEREIGN_OS_DRY_RUN=1) returns default without reading stdin."""
+    if no_input:
+        print(f"{question} [{default}] (auto: {default})")
+        return default
+    try:
+        ans = input(f"{question} [{default}]: ").strip()
+    except EOFError:
+        ans = ""
+    return ans or default
+
+
+def cmd_wizard(args) -> int:
+    """R482 (E11.M9+) — install-wizard TUI surface.
+
+    Operator-§1g: surface-map waiver-slot 'tui: FUTURE — install-wizard
+    TUI worthwhile' is closed by this verb. Four-page interactive walk:
+
+      Page 1: detected state (local + upstream tier)
+      Page 2: per-state recommendations (P1 / P2 priorities)
+      Page 3: candidate-pick + install-plan preview (perf-cost
+              disclosure per §1g 'pay the performance price')
+      Page 4: triple-gate confirm — operator types 'install' verbatim
+              to commit; anything else exits as a preview
+
+    Non-interactive modes (for L3 / scripted operator use):
+      --accept-default              auto-pick the top recommendation;
+                                     never prompt; exit at page 3 preview
+      SOVEREIGN_OS_DRY_RUN=1         exits after page 3 without prompts
+
+    The triple-gate (--apply + --confirm-install + typed 'install') is
+    enforced even in interactive mode — the wizard hands control to
+    `cmd_install` for the actual apt+systemctl, never bypasses it.
+    """
+    no_input = (
+        args.accept_default
+        or os.environ.get("SOVEREIGN_OS_DRY_RUN", "") == "1"
+        or not sys.stdin.isatty()
+    )
+
+    # Page 1: state
+    _wizard_clear()
+    print("── edge-firewall.wizard  PAGE 1/4: detected state ──\n")
+    local = detect_local_state()
+    upstream = detect_upstream_state()
+    print(f"  Upstream tier (via R449 network-edge): "
+          f"{upstream.get('tier', 'unknown')}")
+    print(f"  Local candidates:")
+    for cid, info in local.items():
+        active = "✓ active" if info.get("any_unit_active") else (
+            "installed (inactive)" if info.get("installed") else "absent"
+        )
+        print(f"    {cid:<22} {active}")
+    print()
+    _wizard_prompt("press Enter to continue", "", no_input)
+
+    # Page 2: recommendations
+    _wizard_clear()
+    print("── edge-firewall.wizard  PAGE 2/4: recommendations ──\n")
+    recs = recommend_for_state(local, upstream)
+    if not recs:
+        print("  (all candidates already installed; nothing to do)")
+        _emit_metric(
+            "sovereign_os_operator_edge_firewall_query_total",
+            "wizard", "all", "no-recs",
+        )
+        return 0
+    for r in recs:
+        print(f"  [P{r['priority']}] {r['candidate']:<22} "
+              f"→ {r['operator_decision']}")
+        print(f"     {r['rationale']}\n")
+    top = recs[0]["candidate"]
+    print(f"  Default pick (highest priority): {top}")
+    print()
+    _wizard_prompt("press Enter to continue", "", no_input)
+
+    # Page 3: candidate-pick + install-plan
+    _wizard_clear()
+    print("── edge-firewall.wizard  PAGE 3/4: candidate + install-plan ──\n")
+    candidate = _wizard_prompt(
+        f"pick candidate ({', '.join(KNOWN_CANDIDATE_IDS)})",
+        top, no_input,
+    )
+    cand = _candidate(candidate)
+    if cand is None:
+        sys.stderr.write(f"unknown candidate: {candidate!r}\n")
+        _emit_metric(
+            "sovereign_os_operator_edge_firewall_query_total",
+            "wizard", candidate, "unknown-candidate",
+        )
+        return 1
+    print(f"\n  {cand['label']}")
+    print(f"  perf cost (§1g disclosure): {cand['perf_cost']}")
+    print(f"  apt: {' '.join(cand['apt_packages'])}")
+    print(f"  units: {', '.join(cand['systemd_units'])}")
+    print(f"  install steps:")
+    for s in [
+        f"apt-get update",
+        f"apt-get install -y {' '.join(cand['apt_packages'])}",
+        *[f"systemctl enable {u}" for u in cand['systemd_units']],
+        *[f"systemctl start {u}" for u in cand['systemd_units']],
+    ]:
+        print(f"    $ {s}")
+    print()
+    _emit_metric(
+        "sovereign_os_operator_edge_firewall_query_total",
+        "wizard", cand["id"], "preview",
+    )
+
+    # Page 4: triple-gate confirm
+    if no_input or DRY_RUN:
+        print(f"  (no-input mode — wizard exits at preview; "
+              f"to commit, run: sovereign-osctl edge-firewall install "
+              f"{cand['id']} --apply --confirm-install)")
+        return 0
+    print("── edge-firewall.wizard  PAGE 4/4: confirm ──\n")
+    print(f"  Type 'install' verbatim to commit; anything else exits.")
+    confirm = _wizard_prompt("confirm", "abort", no_input=False)
+    if confirm != "install":
+        print(f"  → aborted (typed {confirm!r}); no changes made.")
+        _emit_metric(
+            "sovereign_os_operator_edge_firewall_query_total",
+            "wizard", cand["id"], "aborted",
+        )
+        return 0
+
+    # Hand off to cmd_install — never bypass the triple-gate.
+    class _InstallArgs:
+        pass
+    install_args = _InstallArgs()
+    install_args.candidate = cand["id"]
+    install_args.apply = True
+    install_args.confirm_install = True
+    install_args.fmt = "human"
+    rc = cmd_install(install_args)
+    _emit_metric(
+        "sovereign_os_operator_edge_firewall_query_total",
+        "wizard", cand["id"], "applied" if rc == 0 else "install-rc-nonzero",
+    )
+    return rc
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(
         prog="edge-firewall.py",
@@ -682,6 +831,12 @@ def main(argv: list[str] | None = None) -> int:
     sp_inst.add_argument("--confirm-install", action="store_true")
     add_fmt(sp_inst)
 
+    sp_wiz = sub.add_parser("wizard",
+                             help="R482: install-wizard TUI surface")
+    sp_wiz.add_argument("--accept-default", action="store_true",
+                         help="auto-pick top recommendation; non-interactive")
+    add_fmt(sp_wiz)
+
     args = p.parse_args(argv)
     if args.cmd == "state":
         return cmd_state(args)
@@ -693,6 +848,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_install_plan(args)
     if args.cmd == "install":
         return cmd_install(args)
+    if args.cmd == "wizard":
+        return cmd_wizard(args)
     return 1
 
 

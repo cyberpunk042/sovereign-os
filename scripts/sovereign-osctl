@@ -356,6 +356,11 @@ COMMANDS:
         <candidate> [--apply]  --confirm-install). Without gates, prints the
         [--confirm-install]    install plan (preview).
         [--json]
+  edge-firewall wizard         R482 (E11.M9+): install-wizard TUI surface —
+        [--accept-default]     four-page interactive walk (state → recs →
+                               install-plan → triple-gate confirm). Closes
+                               surface-map FUTURE waiver 'install-wizard TUI
+                               worthwhile'. --accept-default for scripted use.
 
   network-edge detect          R449 (E11.M8): operator §1g edge-network
                                [--json]                     detection (multi-NAT workstation → OPNsense
