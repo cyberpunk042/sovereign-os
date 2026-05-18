@@ -216,6 +216,23 @@ COMMANDS:
         [--force-skip-tiers]
         [--json]
 
+  edge-firewall state          R451 (E11.M9): operator §1g workstation-side
+                               [--json]                     edge-firewall alternative — local install state
+                                                            (active/inactive per candidate) + upstream tier
+                                                            (via R449 network-edge bridge).
+  edge-firewall candidates     4 install-class candidates (nftables-baseline /
+                               [--json]                     fail2ban / crowdsec / suricata) with per-candidate
+                                                            threat-model + performance-cost + operator-named-use.
+  edge-firewall recommend      Local + upstream-aware recommendation list
+                               [--json]                     (operator §1g "ready to pay the performance price"
+                                                            disclosed per candidate).
+  edge-firewall install-plan   Dry-run install: apt packages + systemd units +
+        <candidate> [--json]   config paths touched + rollback steps.
+  edge-firewall install        Triple-gated install (requires --apply +
+        <candidate> [--apply]  --confirm-install). Without gates, prints the
+        [--confirm-install]    install plan (preview).
+        [--json]
+
   network-edge detect          R449 (E11.M8): operator §1g edge-network
                                [--json]                     detection (multi-NAT workstation → OPNsense
                                                             → ISP → public, VPN bridge, capability tiers).
@@ -6526,6 +6543,16 @@ case "${cmd}" in
     # → advanced → social → enterprise → network-level). Per-dashboard
     # tier registry + upgrade matrix + triple-gated set.
     "${__REPO_ROOT}/scripts/operator/auth-tier.py" "$@"
+    ;;
+  edge-firewall)
+    # R451 (E11.M9): operator §1g verbatim — "even if there isn't an
+    # Edge firewall its possible to install the equivalent or even more
+    # advanced if we want on this machine if we would be ready to pay
+    # the performance price". Workstation-side IPS-class fallback +
+    # defense-in-depth layer. 4 candidates (nftables-baseline /
+    # fail2ban / crowdsec / suricata); bridges R449 network-edge for
+    # upstream-state-aware recommendations; triple-gated install.
+    "${__REPO_ROOT}/scripts/operator/edge-firewall.py" "$@"
     ;;
   network-edge)
     # R449 (E11.M8): network-edge + OPNsense detection. Per
