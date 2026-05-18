@@ -156,13 +156,16 @@ $defs:
           fp16/bf16/fp8 are native formats; int4/int8/int2 are integer
           quantizations; ternary-1.58bit is the BitNet form; gguf-*
           are llama.cpp's per-block schemes; awq/gptq are post-training
-          schemes.
+          schemes; nvfp4 is NVIDIA's Blackwell-native 4-bit FP format
+          (operator §1g addition 2026-05-18 — Nemotron 3 Nano Omni
+          NVFP4 checkpoint surface).
         type: string
         enum:
           - fp32
           - fp16
           - bf16
           - fp8
+          - nvfp4       # Blackwell-native FP4 (operator §1g — Nemotron 3)
           - int8
           - int4
           - int2
@@ -185,6 +188,9 @@ $defs:
         description: |
           Operator-readable purpose tags. Multiple allowed (a model
           can be useful for chat AND reasoning AND function-calling).
+          'audio' added 2026-05-18 (operator §1g — Nemotron 3 Nano
+          Omni includes ASR + long-audio understanding via
+          Parakeet-TDT-0.6B-v2 audio encoder).
         type: array
         minItems: 1
         items:
@@ -196,6 +202,7 @@ $defs:
             - multimodal
             - embedding
             - vision
+            - audio           # operator §1g (Nemotron 3 Nano Omni — ASR + audio)
             - agent
             - function-calling
             - rag
