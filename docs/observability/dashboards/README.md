@@ -210,6 +210,7 @@ E11.M7 (operator §1g — 6-tier auth ladder per-dashboard):
 
 E11.M9 (operator §1g — workstation-side edge-firewall alternative):
 - `sovereign_os_operator_edge_firewall_query_total{verb,candidate,result}` — `sovereign-osctl edge-firewall <verb>` queries (verb=state/candidates/recommend/install-plan/install; candidate=nftables-baseline|fail2ban|crowdsec|suricata|all|unknown; result=ok|preview|applied|dry-run|already-installed|unknown-candidate|needs-root|step-failed|step-error)
+- `sovereign_os_operator_edge_firewall_api_request_total{endpoint,result}` — R504 (E11.M9++) read-only REST API request counter. Endpoint ∈ {version, state, candidates, recommend, install_plan, healthz, root, unknown, post, put, delete, patch}; result ∈ {ok, 400, 404, 405, 500}. Mutation verbs `install` (apply) and interactive `wizard` return 405 (operator §17 sovereignty boundary — actual firewall mutation stays CLI-only with explicit --apply --confirm-install gating). Daemon: `scripts/operator/edge-firewall-api.py`; systemd unit: `sovereign-edge-firewall-api.service` (loopback-bind default, port 8092).
 
 E11.M2 (operator §1g — master-dashboard / reverse-proxy aggregator):
 - `sovereign_os_operator_master_dashboard_query_total{verb,backend,result}` — `sovereign-osctl master-dashboard <verb>` queries (verb=list/routes/collisions/render/health; backend=nginx|caddy|traefik|any|unknown; result=ok|preview|applied|dry-run|clean|collisions|blocked-collisions|unknown-backend|unknown-mode|write-failed)

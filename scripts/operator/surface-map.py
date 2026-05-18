@@ -148,13 +148,11 @@ MODULE_COVERAGE = {
         },
     },
     "edge-firewall": {
-        "shipped_in": "R451 (E11.M9) + R482 (E11.M9+ wizard tui) + R485 (E11.M9+ Grafana dashboard)",
-        "surfaces": ["core", "cli", "tui", "dashboard"],
+        "shipped_in": "R451 (E11.M9) + R482 (E11.M9+ wizard tui) + R485 (E11.M9+ Grafana dashboard) + R504 (E11.M9++ read-only REST API + systemd service)",
+        "surfaces": ["core", "cli", "tui", "dashboard", "api", "service"],
         "waivers": {
-            "api":       "not applicable — operator runs it locally",
             "mcp":       "FUTURE — agent can query state via MCP",
             "webapp":    "FUTURE — install-plan as click-through web wizard",
-            "service":   "candidates ARE services (fail2ban/crowdsec/etc.)",
         },
     },
     "network-edge": {
