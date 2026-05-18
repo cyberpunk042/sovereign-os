@@ -1,0 +1,119 @@
+{
+  "_comment": "sovereign-os doc-coverage dashboard (R491, R454+). Visualizes the operator-§1g doc-coverage instrument that audits each module's coverage across the 6-kind documentation ladder. Sourced from sovereign_os_operator_doc_coverage_query_total{verb,kind,result} (Layer B, SDD-016) emitted by scripts/operator/doc-coverage.py. Operator imports into Grafana via Settings → JSON Model. Closes the future doc-coverage-dashboard waiver and registers doc-coverage in MODULE_COVERAGE at 3 surfaces (core/cli/dashboard).",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "doc-coverage CLI", "url": "/d/sovereign-os-doc-coverage#cli", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "doc-coverage queries (total)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_doc_coverage_query_total)", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "kinds verb (count)",
+      "description": "Enumerates the 6 doc-kinds in the §1g operator-named documentation ladder.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_doc_coverage_query_total{verb=\"kinds\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "modules verb (count)",
+      "description": "Per-module rollup across the 6 doc-kinds.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_doc_coverage_query_total{verb=\"modules\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "scan verb (count)",
+      "description": "Operator's primary scan — 'which modules are documentation-shorted today?'",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_doc_coverage_query_total{verb=\"scan\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "coverage verb (count)",
+      "description": "Per-module coverage matrix verb (operator-named-row).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_doc_coverage_query_total{verb=\"coverage\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "gaps verb (count)",
+      "description": "Doc-gap fail-loud — 'which kind is missing on which module?'",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_doc_coverage_query_total{verb=\"gaps\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 20, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "doc-coverage query rate per verb (5m)",
+      "description": "Per-verb query rate over time. kinds / modules / scan / coverage / gaps / selfdef — operator's doc-coverage-tooling usage pattern.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(sovereign_os_operator_doc_coverage_query_total[5m])", "refId": "A", "legendFormat": "{{verb}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "doc-coverage kind attention (5m)",
+      "description": "Per-doc-kind query rate. readme / sdd / helptext / metric-inventory / mandate-row / man-page — operator-revealed-preference signal for which doc-axis is most-watched.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(sovereign_os_operator_doc_coverage_query_total[5m])", "refId": "A", "legendFormat": "{{kind}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+    },
+    {
+      "type": "barchart",
+      "title": "doc-coverage result distribution",
+      "description": "ok / unknown-module / issues — operator-§1g result-class breakdown across all verbs.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sum by (result) (sovereign_os_operator_doc_coverage_query_total)", "refId": "A", "legendFormat": "{{result}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+    },
+    {
+      "type": "table",
+      "title": "doc-coverage current state (verb × kind × result)",
+      "description": "Per-(verb, kind, result) histogram — operator-discoverable: 'which doc-kind am I exercising most, and is it clean?'",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sum by (verb, kind, result) (sovereign_os_operator_doc_coverage_query_total)", "refId": "A", "format": "table", "instant": true}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+    },
+    {
+      "type": "text",
+      "title": "doc-coverage §1g verbatim + 6-kind ladder",
+      "options": {
+        "mode": "markdown",
+        "content": "**Operator §1g verbatim** (sacrosanct):\n\n> \"We do not minimize anything.\"\n\nThis instrument enforces the §1g doc-surface delivery contract: each operator-named module must have first-class documentation across the 6-kind ladder, no exceptions silently waived. doc-coverage is one of the 4 instruments aggregated by the `compliance` rollup (alongside surface-map / anti-minimization-audit / ux-design-audit).\n\n**6-kind doc ladder (sacrosanct, R454):**\n\n1. `readme` — top-level README.md mention (operator-named entry)\n2. `sdd` — dedicated SDD chapter under `docs/sdd/`\n3. `helptext` — `sovereign-osctl` cmd_help section (DX surface)\n4. `metric-inventory` — `docs/observability/dashboards/README.md` row\n5. `mandate-row` — operator-mandate row (E11.Mx or E10.Mx)\n6. `man-page` — stub under `docs/man/`\n\n**Threshold:** All 6 kinds — the documentation ladder has NO partial-credit. Each module either appears in every kind, OR carries an explicit operator-rationalized waiver row. A single missing kind is a documentation gap the operator wants closed.\n\n**CLI:**\n\n```\nsovereign-osctl doc-coverage kinds                # enumerate 6\nsovereign-osctl doc-coverage modules              # list audited modules\nsovereign-osctl doc-coverage scan                 # cross-codebase\nsovereign-osctl doc-coverage coverage <module>    # per-module matrix\nsovereign-osctl doc-coverage gaps [--module M]    # fail-loud gap list\nsovereign-osctl doc-coverage selfdef              # cross-repo (selfdef)\n```\n\n**Operator-named:** the documentation surfaces are operator-named verbatim — README / SDD chapter / help-text (DX) / metric inventory / mandate row / man page. Renames are NOT allowed; the names ARE the contract.\n\n**Metric:** `sovereign_os_operator_doc_coverage_query_total{verb,kind,result}` (SDD-016 Layer B)\n\n**Source:** R454 shipped the 6-kind instrument + 6 verbs. R491 (R454+) ships THIS dashboard + registers doc-coverage as a first-class module in MODULE_COVERAGE at 3 surfaces (core/cli/dashboard).\n\n**Standing operator rule (sacrosanct):**\n\n> \"We do not minimize anything.\""
+      },
+      "gridPos": {"h": 16, "w": 24, "x": 0, "y": 20}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["sovereign-os", "doc-coverage", "operator", "R491"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "sovereign-os doc-coverage",
+  "uid": "sovereign-os-doc-coverage",
+  "version": 1,
+  "weekStart": ""
+}

@@ -392,3 +392,99 @@ def test_scan_unknown_module_fails():
         capture_output=True, text=True, timeout=10,
     )
     assert result.returncode != 0
+
+
+# --- R491 (R454+) — Grafana dashboard surface + first-class module registration ---
+
+
+DC_DASHBOARD_JSON = (
+    REPO_ROOT / "docs" / "observability" / "dashboards"
+    / "sovereign-os-doc-coverage.json"
+)
+
+
+def test_dashboard_json_exists():
+    """R491 — doc-coverage Grafana dashboard surface registers doc-
+    coverage as a first-class module + ships the operator-§1g
+    visualization."""
+    assert DC_DASHBOARD_JSON.is_file(), (
+        f"missing doc-coverage dashboard: {DC_DASHBOARD_JSON}"
+    )
+
+
+def test_dashboard_json_parseable():
+    data = json.loads(DC_DASHBOARD_JSON.read_text(encoding="utf-8"))
+    assert "panels" in data, "dashboard missing panels"
+    assert "title" in data and data["title"], "dashboard missing title"
+    assert "uid" in data and data["uid"], "dashboard missing uid"
+
+
+def test_dashboard_references_doc_coverage_metric():
+    body = DC_DASHBOARD_JSON.read_text(encoding="utf-8")
+    assert "sovereign_os_operator_doc_coverage_query_total" in body, (
+        "doc-coverage dashboard doesn't reference the Layer B metric"
+    )
+
+
+def test_dashboard_covers_six_doc_kinds():
+    """Per R454 6-kind suite, dashboard MUST reference all 6 doc-kind
+    labels verbatim (operator-named)."""
+    body = DC_DASHBOARD_JSON.read_text(encoding="utf-8")
+    for kind in ("readme", "sdd", "helptext", "metric-inventory",
+                 "mandate-row", "man-page"):
+        assert kind in body, (
+            f"doc-coverage dashboard missing kind reference: {kind!r}"
+        )
+
+
+def test_dashboard_covers_core_verbs():
+    body = DC_DASHBOARD_JSON.read_text(encoding="utf-8")
+    for verb in ("kinds", "modules", "scan", "coverage", "gaps"):
+        assert verb in body, (
+            f"doc-coverage dashboard missing verb reference: {verb!r}"
+        )
+
+
+def test_dashboard_quotes_operator_standing_rule_verbatim():
+    body = DC_DASHBOARD_JSON.read_text(encoding="utf-8")
+    assert "We do not minimize anything" in body, (
+        "doc-coverage dashboard missing §1g verbatim standing rule"
+    )
+
+
+def test_dashboard_listed_in_readme():
+    readme = (DC_DASHBOARD_JSON.parent / "README.md").read_text(encoding="utf-8")
+    assert "sovereign-os-doc-coverage.json" in readme, (
+        "dashboards/README.md missing sovereign-os-doc-coverage.json entry"
+    )
+
+
+def test_dashboard_tagged_sovereign_os():
+    data = json.loads(DC_DASHBOARD_JSON.read_text(encoding="utf-8"))
+    assert "sovereign-os" in (data.get("tags") or []), (
+        "doc-coverage dashboard missing sovereign-os tag"
+    )
+
+
+def test_doc_coverage_registered_in_surface_map():
+    """R491 registers doc-coverage in MODULE_COVERAGE at >=3 surfaces."""
+    sm_path = REPO_ROOT / "scripts" / "operator" / "surface-map.py"
+    sm = sm_path.read_text(encoding="utf-8")
+    assert '"doc-coverage":' in sm, (
+        "surface-map.py MODULE_COVERAGE missing 'doc-coverage' entry"
+    )
+    result = subprocess.run(
+        ["python3", str(sm_path), "coverage", "--module",
+         "doc-coverage", "--json"],
+        capture_output=True, text=True, timeout=15,
+    )
+    assert result.returncode == 0, (
+        f"surface-map coverage doc-coverage failed: {result.stderr[:300]}"
+    )
+    data = json.loads(result.stdout)
+    entries = data.get("coverage", [data])
+    entry = entries[0] if entries else {}
+    surface_count = entry.get("surface_count", 0)
+    assert surface_count >= 3, (
+        f"doc-coverage must be at threshold (>=3 surfaces); got {surface_count}"
+    )
