@@ -139,6 +139,88 @@ def test_dump_action_present():
     )
 
 
+def test_combo_action_present():
+    """R468: combo verb chains sovereign-os + selfdef bashrc
+    installers (cross-repo to SD-R-BASHRC-1)."""
+    body = _read(BASHRC_SH)
+    assert "combo)" in body
+    assert "SD-R-BASHRC-1" in body
+
+
+def test_combo_probes_adjacent_selfdef_checkout():
+    """R468: combo MUST autodetect a sibling selfdef checkout."""
+    body = _read(BASHRC_SH)
+    assert "../selfdef/packaging/bash/selfdefctl-bashrc-install.sh" in body
+
+
+def test_combo_env_override_documented():
+    """R468: SELFDEF_BASHRC_INSTALL_PATH env-override MUST be present
+    AND documented in the help block."""
+    body = _read(BASHRC_SH)
+    assert body.count("SELFDEF_BASHRC_INSTALL_PATH") >= 2, (
+        "expected env var in both impl AND help text"
+    )
+
+
+def test_combo_dry_run_smoke():
+    """R468 end-to-end: combo --DRY_RUN with explicit selfdef path."""
+    import os as _os
+    import subprocess as _sp
+    import tempfile as _tf
+    with _tf.TemporaryDirectory() as td:
+        fake_selfdef = Path(td) / "selfdef-installer.sh"
+        fake_selfdef.write_text(
+            '#!/usr/bin/env bash\n'
+            'echo "fake selfdef installer ran (verb=$1)"\n'
+            'exit 0\n'
+        )
+        _os.chmod(fake_selfdef, 0o755)
+        rc_file = Path(td) / ".bashrc"
+        rc_file.write_text("")
+        result = _sp.run(
+            ["bash", str(BASHRC_SH), "combo"],
+            capture_output=True, text=True, timeout=10,
+            env={**_os.environ,
+                 "SOVEREIGN_OS_DRY_RUN": "1",
+                 "SOVEREIGN_OS_BASHRC_PATH": str(rc_file),
+                 "SELFDEF_BASHRC_INSTALL_PATH": str(fake_selfdef)},
+        )
+        assert result.returncode == 0, (
+            f"combo failed: stderr={result.stderr[:300]}"
+        )
+        combined = result.stdout + result.stderr
+        assert "combo step 1/2" in combined
+        assert "combo step 2/2" in combined
+        assert "fake selfdef installer ran" in combined
+
+
+def test_combo_graceful_when_selfdef_absent():
+    """R468: combo without a reachable selfdef installer warns +
+    completes (sovereign-os still installs)."""
+    import os as _os
+    import subprocess as _sp
+    import tempfile as _tf
+    with _tf.TemporaryDirectory() as td:
+        rc_file = Path(td) / ".bashrc"
+        rc_file.write_text("")
+        env = {k: v for k, v in _os.environ.items()
+               if not k.startswith("SELFDEF_")}
+        env.update({
+            "SOVEREIGN_OS_DRY_RUN": "1",
+            "SOVEREIGN_OS_BASHRC_PATH": str(rc_file),
+            "SELFDEF_BASHRC_INSTALL_PATH": "/nonexistent/selfdef.sh",
+        })
+        result = _sp.run(
+            ["bash", str(BASHRC_SH), "combo"],
+            capture_output=True, text=True, timeout=10,
+            env=env,
+        )
+        assert result.returncode == 0
+        combined = result.stdout + result.stderr
+        assert "SKIPPED" in combined
+        assert "selfdef installer not found" in combined
+
+
 def test_install_idempotent_via_sed_delete():
     """Idempotency: install MUST remove existing block before
     appending new one. sed -i / awk-based delete pattern present."""

@@ -256,6 +256,63 @@ case "${1:-status}" in
     emit_bashrc_metric dump success
     ;;
 
+  combo)
+    # R468 cross-repo: install BOTH the sovereign-os bashrc block AND
+    # the selfdef bashrc block in tandem when both installers are
+    # present. Operator §1g/§1h "two ultimate solutions" — operator-
+    # facing DX rollup: ONE command installs both halves.
+    #
+    # The selfdef installer is located via SELFDEF_BASHRC_INSTALL_PATH
+    # (operator-overridable). If absent, the combo verb falls back to
+    # installing sovereign-os only + warning the operator about the
+    # missing selfdef installer (operator-discoverable).
+    #
+    # Cross-repo binding to SD-R-BASHRC-1
+    # (packaging/bash/selfdefctl-bashrc-install.sh in selfdef repo).
+    selfdef_installer="${SELFDEF_BASHRC_INSTALL_PATH:-}"
+    if [ -z "${selfdef_installer}" ]; then
+      # Probe common locations (adjacent checkout, system install path)
+      for candidate in \
+          "${__REPO_ROOT}/../selfdef/packaging/bash/selfdefctl-bashrc-install.sh" \
+          "/usr/local/share/selfdef/bash/selfdefctl-bashrc-install.sh" \
+          "/usr/share/selfdef/bash/selfdefctl-bashrc-install.sh"; do
+        if [ -x "${candidate}" ]; then
+          selfdef_installer="${candidate}"
+          break
+        fi
+      done
+    fi
+
+    # First: install sovereign-os block (recurse via this script's
+    # `install` verb to share all the idempotent-replace logic).
+    log_info "── combo step 1/2: installing sovereign-os bashrc block ──"
+    "${0}" install
+    sovereign_rc="$?"
+
+    # Second: install selfdef block when reachable.
+    if [ -n "${selfdef_installer}" ] && [ -x "${selfdef_installer}" ]; then
+      log_info "── combo step 2/2: installing selfdef bashrc block ──"
+      log_info "  selfdef installer: ${selfdef_installer}"
+      if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
+        SOVEREIGN_OS_DRY_RUN=1 "${selfdef_installer}" install
+      else
+        "${selfdef_installer}" install
+      fi
+      selfdef_rc="$?"
+      log_info "── combo done: sovereign-os=${sovereign_rc} selfdef=${selfdef_rc} ──"
+      emit_bashrc_metric combo "selfdef=installed"
+    else
+      log_warn "── combo step 2/2 SKIPPED: selfdef installer not found ──"
+      log_warn "  Looked for SELFDEF_BASHRC_INSTALL_PATH env (unset),"
+      log_warn "  ${__REPO_ROOT}/../selfdef/packaging/bash/selfdefctl-bashrc-install.sh,"
+      log_warn "  /usr/local/share/selfdef/bash/selfdefctl-bashrc-install.sh,"
+      log_warn "  /usr/share/selfdef/bash/selfdefctl-bashrc-install.sh."
+      log_warn "  Set SELFDEF_BASHRC_INSTALL_PATH or clone selfdef adjacent."
+      log_info "── combo done: sovereign-os=${sovereign_rc} selfdef=absent ──"
+      emit_bashrc_metric combo "selfdef=absent"
+    fi
+    ;;
+
   --help|-h|help|"")
     cat <<'HELP'
 sovereign-osctl bashrc — operator-discoverable bashrc integration
@@ -271,6 +328,13 @@ SUBCOMMANDS:
   status      Report whether the block is installed + its version
   dump        Print the block contents to stdout (pipe to a different
               rc file like ~/.zshrc for zsh integration)
+  combo       R468 cross-repo: install BOTH this sovereign-os block
+              AND the selfdef bashrc block (SD-R-BASHRC-1) in one
+              command. Probes for selfdef installer at
+              SELFDEF_BASHRC_INSTALL_PATH, then adjacent checkout,
+              then /usr/local/share/selfdef, then /usr/share/selfdef.
+              Falls back to sovereign-os-only with warning if selfdef
+              installer not reachable.
   help        Show this message
 
 ENV VARS:
@@ -278,6 +342,9 @@ ENV VARS:
                               set to ~/.zshrc for zsh)
   SOVEREIGN_OS_BASHRC_VERSION pin version (default: matches block)
   SOVEREIGN_OS_DRY_RUN        preview only; no mutation
+  SELFDEF_BASHRC_INSTALL_PATH (combo verb) explicit path to the
+                              selfdef bashrc installer; falls back
+                              to standard search locations
 
 WHAT THE BLOCK PROVIDES:
   • 10 operator-discoverable aliases (sosctl, soshelp, sosstatus,
