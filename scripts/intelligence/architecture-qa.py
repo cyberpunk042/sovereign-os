@@ -524,6 +524,90 @@ ARCHITECTURE_CONCEPTS: list[dict[str, Any]] = [
         "spec_ref": "master spec §11 verbatim (Consolidated Execution Strategy)",
     },
     {
+        "id": "C-11",
+        "name": "Operational Logic / Vibe Manager (120GB total VRAM tiered execution fabric)",
+        "explanation": ("The orchestration layer treats the 120GB total "
+                         "VRAM as a tiered execution fabric. Primary "
+                         "Reasoning: Hosted on the 96GB Blackwell "
+                         "(Direct Host). Speculative Decoding: Smaller "
+                         "draft models run on the 24GB 3090 (VFIO "
+                         "Sandbox). State Persistence: The 9900X "
+                         "manages the 'Vibe' by updating state files "
+                         "in the tank/context ZFS dataset, ensuring "
+                         "atomic writes and data integrity. The context "
+                         "management of your multi-agent architecture "
+                         "is driven by a highly specific file-state "
+                         "matrix mapped to the high-safety ZFS dataset "
+                         "(tank/context) with strict synchronization "
+                         "enforcement."),
+        "tags": ["vibe-manager", "120gb-vram", "tiered-execution",
+                 "primary-reasoning", "speculative-decoding", "vfio-sandbox",
+                 "state-persistence", "tank-context", "atomic-writes",
+                 "9900x", "blackwell-96gb", "rtx-3090-24gb"],
+        "spec_ref": "master spec §5 + §7 verbatim (Operational Logic / Vibe Manager)",
+    },
+    {
+        "id": "C-12",
+        "name": "Container Build AVX-512 Vectorization (Dockerfile env vars)",
+        "explanation": ("The primary reason for selecting the Ryzen 9 "
+                         "9900X is its single-cycle, native 512-bit "
+                         "AVX-512 data path (unlike the double-pumped "
+                         "256-bit execution models of previous "
+                         "generations). The user-space container "
+                         "runtimes must be forced to compile and "
+                         "execute instructions using these vectors for "
+                         "the 'Manager' agent routines. When building "
+                         "containerized execution backends (e.g., "
+                         "llama.cpp or custom WASM/Assembly runtimes) "
+                         "inside your Podman infrastructure, the "
+                         "following compiler hooks must be hard-coded "
+                         "into your build pipelines to avoid fallback "
+                         "emulation: "
+                         "ENV CFLAGS=\"-march=znver5 -mavx512f "
+                         "-mavx512dq -mavx512bw -mavx512vl -mavx512bf16 "
+                         "-mavx512fp16\" + ENV CXXFLAGS=\"-march=znver5 "
+                         "-mavx512f -mavx512dq -mavx512bw -mavx512vl "
+                         "-mavx512bf16 -mavx512fp16\" + ENV GGML_AVX512=1 "
+                         "+ ENV GGML_AVX512_VBMI=1 + ENV GGML_AVX512_VNNI=1 "
+                         "to Force GGML/vLLM backends to explicitly "
+                         "target the 512-bit vector paths."),
+        "tags": ["dockerfile", "podman", "avx-512", "ggml", "vllm",
+                 "znver5", "container-build", "manager-agent",
+                 "fallback-emulation", "ggml-avx512-vnni"],
+        "spec_ref": "master spec §9 + §9.1 verbatim (Low-Level Orchestration Vectorization)",
+    },
+    {
+        "id": "C-13",
+        "name": "Load Balancing Runtime Profiles (Asymmetric_Burst JSON)",
+        "explanation": ("To implement this architecture "
+                         "deterministically, you must construct "
+                         "explicit runtime configuration profiles. "
+                         "These profiles are ingested by the "
+                         "orchestration layer to dynamically balance "
+                         "model deployment across your hardware based "
+                         "on current workload demands. Profile 2: "
+                         "High-Concurrency Agent Burst Mode "
+                         "(Asymmetric Load Balancing) — node_"
+                         "allocation_profile: Asymmetric_Burst with "
+                         "three allocations: conductor_01 on cpu with "
+                         "core_mask 0-11 using bitnet.cpp engine "
+                         "running BitNet-b1.58-13B; translator_01 on "
+                         "cuda:0 with vram_limit_bytes 22548578304 "
+                         "using vllm-vulkan engine running "
+                         "Qwen-32B-Ternary-Quant; deep_reasoner_01 on "
+                         "cuda:1 with vram_limit_bytes 94489280512 "
+                         "using llama.cpp engine running "
+                         "DeepSeek-R1-Distill-Llama-70B-FP16. The host "
+                         "CPU coordinates state tracking while the "
+                         "workloads are strictly distributed according "
+                         "to VRAM capacity and compute generation."),
+        "tags": ["runtime-profiles", "asymmetric-burst", "load-balancing",
+                 "node-allocation-profile", "bitnet-13b",
+                 "qwen-32b-ternary-quant", "deepseek-r1", "vllm-vulkan",
+                 "llama-cpp", "vram-limit-bytes"],
+        "spec_ref": "master spec §18 verbatim (Load Balancing & Runtime Profiles Profile 2)",
+    },
+    {
         "id": "C-10",
         "name": "Wasm-to-AVX-512 AOT Pipeline (The Pulse implementation)",
         "explanation": ("When The Pulse processes low-bit matrix logic "
