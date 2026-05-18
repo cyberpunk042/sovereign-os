@@ -232,6 +232,9 @@ COMMANDS:
         [--apply]              Triple-gated (--apply + --confirm-snapshot).
         [--confirm-snapshot]
         [--json]
+  compliance watch             R519 (E5++): refresh-loop TUI surface
+        [--refresh N]          for the §1g/§1h compliance dashboard.
+        [--iterations N]       Same shape as `router watch` / `trinity watch`.
 
   ux-design-audit dimensions   R457 (E11.M10): operator §1g
                                [--json]                     "thorough UX Design stage" — 6 dimensions
@@ -4047,6 +4050,100 @@ ROUTER_WATCH_HELP
   return 0
 }
 
+# R519 (E5++) — Compliance TUI refresh-loop surface.
+#
+# Per operator §1g 8-surface delivery contract (verbatim):
+#
+#   "everything is not just core, not just cli, not just TUI, not just
+#   API, not just tool and MCP but also Dashboards and Web Apps and
+#   Services"
+#
+# Operator-named guarantees (mirror of R516 router.watch /
+# R513 trinity.watch):
+#   - Minimum refresh interval = 1s (max(1,...) floor).
+#   - SOVEREIGN_OS_DRY_RUN=1 forces single-render exit (CI-safe).
+#   - Bounded by --iterations (0 = unbounded; default 0 unless DRY).
+#   - Ctrl-C exits cleanly.
+#
+# Each frame surfaces a compact rollup across the 4 §1g compliance
+# instruments (R453 surface-map / R454 doc-coverage / R456 anti-min
+# / R457 ux-design-audit) — the same data `compliance status` emits,
+# but in a continuously-updating view so the operator can watch §1g
+# coverage live as remediations land.
+_compliance_watch() {
+  local refresh=5
+  local iterations=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --refresh)    refresh="${2:-5}"; shift 2 ;;
+      --refresh=*)  refresh="${1#*=}"; shift ;;
+      --iterations) iterations="${2:-0}"; shift 2 ;;
+      --iterations=*) iterations="${1#*=}"; shift ;;
+      -h|--help)
+        cat <<'COMPLIANCE_WATCH_HELP'
+  compliance watch [--refresh N] [--iterations N]
+
+  Refresh-loop TUI surface for the §1g/§1h compliance dashboard
+  (R458). Continuously re-renders the 4-instrument rollup
+  (R453 surface-map + R454 doc-coverage + R456 anti-min-audit
+  + R457 ux-design-audit). Same shape as `router watch` (R516)
+  and `trinity watch` (R513).
+
+  Options:
+    --refresh N       seconds between renders (default: 5, min: 1)
+    --iterations N    cap the number of renders (default: 0 = unbounded;
+                      SOVEREIGN_OS_DRY_RUN=1 forces a single render)
+COMPLIANCE_WATCH_HELP
+        return 0
+        ;;
+      *)
+        log_error "unknown compliance watch flag: $1"
+        return 2
+        ;;
+    esac
+  done
+
+  case "${refresh}" in
+    ''|*[!0-9]*) refresh=5 ;;
+  esac
+  case "${iterations}" in
+    ''|*[!0-9]*) iterations=0 ;;
+  esac
+  if [[ "${refresh}" -lt 1 ]]; then refresh=1; fi
+
+  if [[ "${SOVEREIGN_OS_DRY_RUN:-}" == "1" ]]; then
+    if [[ "${iterations}" -eq 0 ]]; then iterations=1; fi
+  fi
+
+  local frame=0
+  while :; do
+    frame=$((frame + 1))
+    printf '\x1b[2J\x1b[H'
+    local now
+    now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "── compliance.watch (frame ${frame}, refresh=${refresh}s, ${now}) ──"
+    echo
+    "${__REPO_ROOT}/scripts/operator/compliance.py" status 2>/dev/null \
+      || echo "  (compliance status emit failed — instruments missing?)"
+    echo
+    if [[ "${iterations}" -gt 0 && "${frame}" -ge "${iterations}" ]]; then
+      echo "  (reached --iterations=${iterations}; exit)"
+    else
+      echo "  (Ctrl-C to exit; refresh in ${refresh}s)"
+    fi
+
+    if [[ "${iterations}" -gt 0 && "${frame}" -ge "${iterations}" ]]; then
+      break
+    fi
+    if ! sleep "${refresh}" 2>/dev/null; then
+      echo
+      echo "  ── compliance.watch interrupted ──"
+      break
+    fi
+  done
+  return 0
+}
+
 # Pulse — Vector Core (CCD0; AVX-512; bitnet.cpp; Wasm AOT)
 _trinity_pulse_brief() {
   echo "  [Pulse] — Vector Core (master spec § 17 Module 1; CCD0 cores 0-5)"
@@ -7044,7 +7141,18 @@ case "${cmd}" in
     # + R454 doc-coverage + R456 anti-min-audit + R457 ux-design-audit)
     # into a single operator-discoverable view. 5 verbs: status /
     # module / worst / history / snapshot (snapshot triple-gated).
-    "${__REPO_ROOT}/scripts/operator/compliance.py" "$@"
+    # R519 (E5++): adds the `watch` refresh-loop TUI surface — drains
+    # the compliance tui:FUTURE waiver, opens the compliance tier-3
+    # surface-expansion arc (R519 TUI → R520 MCP → R521 API + webapp).
+    case "${1:-}" in
+      watch)
+        shift
+        _compliance_watch "$@"
+        ;;
+      *)
+        "${__REPO_ROOT}/scripts/operator/compliance.py" "$@"
+        ;;
+    esac
     ;;
   ux-design-audit)
     # R457 (E11.M10): operator §1g verbatim — "everything will also
