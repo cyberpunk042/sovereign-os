@@ -99,6 +99,11 @@ INSTRUMENTS = [
     # master-dashboard discover verb).
     {"id": "selfdef-discovery", "round": "R461",
      "script": "master-dashboard.py", "gap_verb": "discover"},
+    # R463 — cross-repo: selfdef-side surface-manifest discovery
+    # (consumes SD-R-MULTI-SURFACE-AUDIT-1 TOML output via R462
+    # surface-map selfdef verb).
+    {"id": "selfdef-surfaces", "round": "R463",
+     "script": "surface-map.py", "gap_verb": "selfdef"},
 ]
 INSTRUMENT_IDS = [i["id"] for i in INSTRUMENTS]
 
@@ -160,6 +165,10 @@ def collect_status() -> dict:
     # absence). Operator sees count + errors + collisions.
     selfdef = _run_json(str(OP_DIR / "master-dashboard.py"),
                         "discover", "--json", timeout=15)
+    # R463 cross-repo: surface-map selfdef verb scans selfdef-side
+    # SurfaceManifest TOMLs. Same availability-only semantics.
+    selfdef_surf = _run_json(str(OP_DIR / "surface-map.py"),
+                             "selfdef", "--json", timeout=15)
 
     return {
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -195,6 +204,21 @@ def collect_status() -> dict:
             "errors": (selfdef or {}).get("errors", []),
             "collisions": (selfdef or {}).get("collisions", []),
             "manifest_dir": (selfdef or {}).get("manifest_dir", ""),
+        },
+        "selfdef_surfaces": {
+            "available": selfdef_surf is not None,
+            "discovered_count": (selfdef_surf or {}).get("count", 0),
+            "errors": (selfdef_surf or {}).get("errors", []),
+            "manifest_dir": (selfdef_surf or {}).get(
+                "manifest_dir", ""
+            ),
+            # Aggregate shipped-count across all discovered modules
+            # (informational; lower number = thinner selfdef surface
+            # coverage on the operator-facing axis).
+            "total_shipped_surfaces": sum(
+                m.get("shipped_count", 0)
+                for m in (selfdef_surf or {}).get("discovered", [])
+            ),
         },
     }
 
@@ -292,6 +316,16 @@ def cmd_status(args) -> int:
               f"{sd['manifest_dir']} "
               f"(errors={len(sd['errors'])}, "
               f"collisions={len(sd['collisions'])})")
+        ss = status["selfdef_surfaces"]
+        ss_mark = "✓" if ss["available"] and not ss["errors"] else (
+            "⚠" if ss["errors"] else "✗"
+        )
+        print(f"  selfdef-surfaces  (R463)  {ss_mark} "
+              f"{ss['discovered_count']} selfdef SurfaceManifest(s) under "
+              f"{ss['manifest_dir']} "
+              f"(total_shipped_surfaces="
+              f"{ss['total_shipped_surfaces']}, "
+              f"errors={len(ss['errors'])})")
     _emit_metric("status", "all", "ok")
     return 0
 
