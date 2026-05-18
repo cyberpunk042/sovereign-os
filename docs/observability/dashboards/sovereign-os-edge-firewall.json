@@ -1,0 +1,122 @@
+{
+  "_comment": "sovereign-os edge-firewall dashboard (R485, E11.M9+). Visualizes the operator-§1g workstation-side edge-firewall surface: 4-candidate ladder (nftables-baseline → fail2ban → crowdsec → suricata) with operator-named performance-cost disclosure. Sourced from sovereign_os_operator_edge_firewall_query_total{verb,candidate,result} (Layer B, SDD-016) emitted by scripts/operator/edge-firewall.py. Operator imports into Grafana via Settings → JSON Model. Closes the edge-firewall surface-map FUTURE waiver 'dashboard: FUTURE — Grafana panel for edge-firewall state'.",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "edge-firewall CLI", "url": "/d/sovereign-os-edge-firewall#cli", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "edge-firewall queries (total)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_edge_firewall_query_total)", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "nftables-baseline (count)",
+      "description": "Stateful Linux firewall (kernel-native; negligible performance cost). Recommended baseline for any workstation.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_edge_firewall_query_total{candidate=\"nftables-baseline\"})", "refId": "A"}],
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [{"color": "green"}]}}},
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "fail2ban (count)",
+      "description": "Log-driven SSH/HTTP brute-force ban — low overhead.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_edge_firewall_query_total{candidate=\"fail2ban\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "crowdsec (count)",
+      "description": "Community IP reputation + behavioral analysis — moderate overhead.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_edge_firewall_query_total{candidate=\"crowdsec\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "suricata (count)",
+      "description": "Full IDS/IPS engine — HIGH overhead. Operator pays §1g 'performance price' for IPS-class detection.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_edge_firewall_query_total{candidate=\"suricata\"})", "refId": "A"}],
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [{"color": "yellow"}, {"color": "orange", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "install-failures (count)",
+      "description": "step-failed + step-error + needs-root + install-rc-nonzero — operator-visible installer health.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_edge_firewall_query_total{result=~\"step-failed|step-error|needs-root|install-rc-nonzero\"})", "refId": "A"}],
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 4, "x": 20, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "edge-firewall query rate per candidate (5m)",
+      "description": "Per-candidate query rate over time. Tracks which firewall classes the operator is inspecting / installing across the 4-class ladder.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(sovereign_os_operator_edge_firewall_query_total[5m])", "refId": "A", "legendFormat": "{{candidate}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "edge-firewall query rate per verb (5m)",
+      "description": "Per-verb query rate. state / candidates / recommend / install-plan / install / wizard — operator-discoverable churn pattern.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(sovereign_os_operator_edge_firewall_query_total[5m])", "refId": "A", "legendFormat": "{{verb}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+    },
+    {
+      "type": "barchart",
+      "title": "edge-firewall result distribution",
+      "description": "ok / preview / applied / dry-run / already-installed / unknown-candidate / needs-root / step-failed / step-error / aborted — operator-§1g error-class breakdown.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sum by (result) (sovereign_os_operator_edge_firewall_query_total)", "refId": "A", "legendFormat": "{{result}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+    },
+    {
+      "type": "table",
+      "title": "edge-firewall current state (verb × candidate × result)",
+      "description": "Per-(verb, candidate, result) histogram: which firewall class did the operator query / install / fail on. Drives the operator's 'is the firewall ladder rung that matches my upstream actually installed?' question.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sum by (verb, candidate, result) (sovereign_os_operator_edge_firewall_query_total)", "refId": "A", "format": "table", "instant": true}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+    },
+    {
+      "type": "text",
+      "title": "edge-firewall §1g verbatim + 4-candidate ladder",
+      "options": {
+        "mode": "markdown",
+        "content": "**Operator §1g verbatim** (R451, E11.M9):\n\n> \"even if there isn't an Edge firewall its possible to install the equivalent or even more advanced if we want on this machine if we would be ready to pay the performance price but that it will accept the Edge Firewall and its level, even if its not a full IPS since its a 'Sharevdi Fanless Firewall Mini PC Firewall Router Intel J3710/N3710 Quad Core, 4X Intel 2.5GbE i226-V LAN Ports, 8G DDR3 128G SSD AES NI Network Gateway Test with pf-Sense/opn-Sense' and has limitations, it being 'fanless&cheap' but interesting to do the networting and VPN bridge part, and we can still offer to install our own other module and do whatever we want on the AI workstation no matter the edge router or firewall detected and bridge state and rules and etc.\"\n\n**4-candidate ladder (lightweight → heavy):**\n\n1. `nftables-baseline` — stateful Linux firewall (kernel-native; negligible performance cost). Recommended baseline.\n2. `fail2ban` — log-driven SSH/HTTP brute-force ban (low overhead).\n3. `crowdsec` — community-curated IP reputation + behavioral analysis (moderate overhead).\n4. `suricata` — full IDS/IPS engine (HIGH overhead — operator pays §1g 'performance price'). Only recommended when upstream is a §1g 'fanless&cheap' device that can NOT do IPS itself.\n\n**Recommendation logic** (per `edge-firewall.py recommend`):\n\n- Always recommends `nftables-baseline` (kernel-native; no excuse to skip).\n- Recommends `fail2ban` when SSH/HTTP services are exposed.\n- Recommends `crowdsec` when operator wants community-fed IP reputation.\n- Recommends `suricata` ONLY when upstream is the operator-§1g 'Sharevdi' tier — i.e. fanless+cheap and can NOT do IPS itself.\n\n**Triple-gated installer:**\n\n```\nsovereign-osctl edge-firewall state\nsovereign-osctl edge-firewall candidates\nsovereign-osctl edge-firewall recommend\nsovereign-osctl edge-firewall install-plan <candidate>\nsovereign-osctl edge-firewall install <candidate> --apply --confirm-install\nsovereign-osctl edge-firewall wizard               # R482 interactive walk\n```\n\n**Metric:** `sovereign_os_operator_edge_firewall_query_total{verb,candidate,result}` (SDD-016 Layer B)\n\n**Source:** R451 (E11.M9) shipped the verbs + 4-candidate ladder. R482 (E11.M9+) shipped the interactive wizard TUI. R485 (E11.M9+) ships THIS dashboard, closing the surface-map waiver-slot 'dashboard: FUTURE — Grafana panel for edge-firewall state'."
+      },
+      "gridPos": {"h": 14, "w": 24, "x": 0, "y": 20}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["sovereign-os", "edge-firewall", "operator", "R485"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "sovereign-os edge-firewall",
+  "uid": "sovereign-os-edge-firewall",
+  "version": 1,
+  "weekStart": ""
+}

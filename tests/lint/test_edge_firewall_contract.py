@@ -375,3 +375,82 @@ def test_wizard_runs_non_interactive():
     combined = result.stdout + result.stderr
     assert "PAGE 1/4" in combined, "wizard missing page-1 marker"
     assert "PAGE 3/4" in combined, "wizard missing page-3 marker"
+
+
+# --- R485 (E11.M9+) — Grafana dashboard surface ---
+
+
+EF_DASHBOARD_JSON = (
+    REPO_ROOT / "docs" / "observability" / "dashboards"
+    / "sovereign-os-edge-firewall.json"
+)
+
+
+def test_dashboard_json_exists():
+    """R485 — edge-firewall Grafana dashboard surface (closes surface-
+    map FUTURE waiver 'dashboard: FUTURE — Grafana panel for edge-
+    firewall state')."""
+    assert EF_DASHBOARD_JSON.is_file(), (
+        f"missing edge-firewall dashboard: {EF_DASHBOARD_JSON}"
+    )
+
+
+def test_dashboard_json_parseable():
+    """The dashboard MUST be valid JSON (Grafana refuses invalid JSON
+    on import)."""
+    data = json.loads(EF_DASHBOARD_JSON.read_text(encoding="utf-8"))
+    assert "panels" in data, "dashboard missing panels"
+    assert "title" in data and data["title"], "dashboard missing title"
+    assert "uid" in data and data["uid"], "dashboard missing uid"
+
+
+def test_dashboard_references_edge_firewall_metric():
+    """At least one panel MUST query sovereign_os_operator_edge_
+    firewall_query_total — otherwise the dashboard isn't visualizing
+    the operator-§1g surface."""
+    body = EF_DASHBOARD_JSON.read_text(encoding="utf-8")
+    assert "sovereign_os_operator_edge_firewall_query_total" in body, (
+        "edge-firewall dashboard doesn't reference the Layer B metric"
+    )
+
+
+def test_dashboard_covers_four_candidates():
+    """Per §1g 4-candidate ladder verbatim, dashboard MUST reference
+    all 4 candidate labels (nftables-baseline / fail2ban / crowdsec /
+    suricata)."""
+    body = EF_DASHBOARD_JSON.read_text(encoding="utf-8")
+    for cand in EXPECTED_CANDIDATES:
+        assert cand in body, (
+            f"edge-firewall dashboard missing candidate reference: {cand!r}"
+        )
+
+
+def test_dashboard_quotes_operator_1g_verbatim():
+    """Dashboard MUST include the §1g verbatim 'pay the performance
+    price' phrasing — preserves operator-§1g source-of-truth on the
+    visual surface."""
+    body = EF_DASHBOARD_JSON.read_text(encoding="utf-8")
+    assert "pay the performance price" in body, (
+        "edge-firewall dashboard missing §1g verbatim phrase"
+    )
+    assert "Sharevdi" in body, (
+        "edge-firewall dashboard missing §1g hardware-named anchor"
+    )
+
+
+def test_dashboard_listed_in_readme():
+    """README.md MUST list the new dashboard (operator-discoverable
+    inventory)."""
+    readme = (EF_DASHBOARD_JSON.parent / "README.md").read_text(encoding="utf-8")
+    assert "sovereign-os-edge-firewall.json" in readme, (
+        "dashboards/README.md missing sovereign-os-edge-firewall.json entry"
+    )
+
+
+def test_dashboard_tagged_sovereign_os():
+    """Grafana 'sovereign-os' tag MUST be set — operator's dashboard
+    folder filter depends on it."""
+    data = json.loads(EF_DASHBOARD_JSON.read_text(encoding="utf-8"))
+    assert "sovereign-os" in (data.get("tags") or []), (
+        "edge-firewall dashboard missing sovereign-os tag"
+    )
