@@ -473,3 +473,110 @@ def test_gaps_surfaces_structural_ceiling_modules_separately():
     )
     ceiling_modules = {e["module"] for e in data["at_structural_ceiling"]}
     assert "bashrc" in ceiling_modules
+
+
+# --- R493 (R453+) — Grafana dashboard surface + first-class self-reference module registration ---
+
+
+SM_DASHBOARD_JSON = (
+    REPO_ROOT / "docs" / "observability" / "dashboards"
+    / "sovereign-os-surface-map.json"
+)
+
+
+def test_dashboard_json_exists():
+    """R493 — surface-map Grafana dashboard surface registers surface-
+    map as a first-class module IN ITS OWN MODULE_COVERAGE — closing
+    the 4-instrument meta-coverage loop (R489 compliance + R490 anti-min
+    + R491 doc-coverage + R492 ux-design-audit + R493 surface-map)."""
+    assert SM_DASHBOARD_JSON.is_file(), (
+        f"missing surface-map dashboard: {SM_DASHBOARD_JSON}"
+    )
+
+
+def test_dashboard_json_parseable():
+    data = json.loads(SM_DASHBOARD_JSON.read_text(encoding="utf-8"))
+    assert "panels" in data
+    assert "title" in data and data["title"]
+    assert "uid" in data and data["uid"]
+
+
+def test_dashboard_references_surface_map_metric():
+    body = SM_DASHBOARD_JSON.read_text(encoding="utf-8")
+    assert "sovereign_os_operator_surface_map_query_total" in body, (
+        "surface-map dashboard doesn't reference the Layer B metric"
+    )
+
+
+def test_dashboard_covers_eight_surfaces():
+    """Per R453 8-surface suite, dashboard MUST reference all 8 §1g
+    delivery surface labels verbatim."""
+    body = SM_DASHBOARD_JSON.read_text(encoding="utf-8")
+    for sfc in ("core", "cli", "tui", "api", "mcp",
+                "dashboard", "webapp", "service"):
+        assert sfc in body, (
+            f"surface-map dashboard missing surface reference: {sfc!r}"
+        )
+
+
+def test_dashboard_covers_core_verbs():
+    body = SM_DASHBOARD_JSON.read_text(encoding="utf-8")
+    for verb in ("surfaces", "modules", "coverage", "gaps", "waivers"):
+        assert verb in body, (
+            f"surface-map dashboard missing verb reference: {verb!r}"
+        )
+
+
+def test_dashboard_quotes_operator_standing_rule_verbatim():
+    body = SM_DASHBOARD_JSON.read_text(encoding="utf-8")
+    assert "We do not minimize anything" in body, (
+        "surface-map dashboard missing §1g verbatim standing rule"
+    )
+
+
+def test_dashboard_quotes_operator_eight_surface_rule():
+    """The 8-surface §1g rationale MUST appear verbatim — this is the
+    operator-named contract surface-map enforces."""
+    body = SM_DASHBOARD_JSON.read_text(encoding="utf-8")
+    assert "not just core" in body, (
+        "surface-map dashboard missing 8-surface §1g rationale"
+    )
+
+
+def test_dashboard_listed_in_readme():
+    readme = (SM_DASHBOARD_JSON.parent / "README.md").read_text(encoding="utf-8")
+    assert "sovereign-os-surface-map.json" in readme, (
+        "dashboards/README.md missing sovereign-os-surface-map.json entry"
+    )
+
+
+def test_dashboard_tagged_sovereign_os():
+    data = json.loads(SM_DASHBOARD_JSON.read_text(encoding="utf-8"))
+    assert "sovereign-os" in (data.get("tags") or []), (
+        "surface-map dashboard missing sovereign-os tag"
+    )
+
+
+def test_surface_map_self_registered_in_module_coverage():
+    """R493 registers surface-map in its own MODULE_COVERAGE at >=3
+    surfaces. The inspector inspects the inspector — meta-coverage
+    closed."""
+    sm = SM_PY.read_text(encoding="utf-8")
+    assert '"surface-map":' in sm, (
+        "surface-map.py MODULE_COVERAGE missing 'surface-map' self-entry"
+    )
+    result = subprocess.run(
+        ["python3", str(SM_PY), "coverage", "--module",
+         "surface-map", "--json"],
+        capture_output=True, text=True, timeout=15,
+    )
+    assert result.returncode == 0, (
+        f"surface-map coverage surface-map failed: {result.stderr[:300]}"
+    )
+    data = json.loads(result.stdout)
+    entries = data.get("coverage", [data])
+    entry = entries[0] if entries else {}
+    surface_count = entry.get("surface_count", 0)
+    assert surface_count >= 3, (
+        f"surface-map must be at threshold (>=3 surfaces); got {surface_count}"
+    )

@@ -267,6 +267,17 @@ MODULE_COVERAGE = {
             "service":   "not applicable — query-only instrument, no daemon",
         },
     },
+    "surface-map": {
+        "shipped_in": "R453 + R493 (Grafana dashboard)",
+        "surfaces": ["core", "cli", "dashboard"],
+        "waivers": {
+            "tui":       "FUTURE — refresh-loop coverage-watch TUI (same shape as R488 master-dashboard.watch)",
+            "api":       "FUTURE — REST /surface-map/{surfaces,coverage,gaps,waivers} read endpoints",
+            "mcp":       "FUTURE — agent queries surface gaps via MCP",
+            "webapp":    "FUTURE — master-dashboard /surface-map subpath",
+            "service":   "not applicable — query-only instrument, no daemon",
+        },
+    },
 }
 
 KNOWN_MODULES = list(MODULE_COVERAGE.keys())
