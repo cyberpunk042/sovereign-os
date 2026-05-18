@@ -131,6 +131,19 @@ SDD_037_LINT_FAMILY: list[dict[str, Any]] = [
                      "no zero-padding"),
         "bugs_caught_at_ship": 0,
     },
+    {
+        "round": "R380",
+        "name": "SDD reachability validator (inverse of R372)",
+        "path": "tests/lint/test_sdd_reachability.py",
+        "assertion_count": 6,
+        "purpose": ("Every shipped SDD-030+ must be REACHABLE from at "
+                     "least one catalog entry (architecture-qa / "
+                     "coverage-map / mandate / SUMMARY.md). Inverse of "
+                     "R372 SDD ref check: catches SDDs that get authored "
+                     "but never wired into the discoverable surface. "
+                     "Pre-030 SDDs exempt as legacy."),
+        "bugs_caught_at_ship": 0,
+    },
 ]
 
 
@@ -153,6 +166,7 @@ DRIFT_MODE_CATALOG: list[str] = [
     "Cross-catalog phrase drift (11 specific phrases)",
     "Silent paraphrase (forbidden-list patterns)",
     "Fabricated R<N> round numbers + zero-padding + git-history-backing",
+    "Unreachable SDD docs (authored without catalog wiring)",
 ]
 
 

@@ -11,18 +11,18 @@ OSCTL="${REPO_ROOT}/scripts/sovereign-osctl"
 fail() { echo "FAIL: $*" >&2; exit 1; }
 pass() { echo "PASS: $*"; }
 
-# ── 1. status: returns 7-lint family with declared assertion counts ─
+# ── 1. status: returns 8-lint family with declared assertion counts ─
 out="$(python3 "${DS}" status --json || true)"
 echo "${out}" | python3 -c "
 import json, sys
 d = json.loads(sys.stdin.read())
-assert d['lint_family_size'] == 7
+assert d['lint_family_size'] == 8
 assert d['total_declared_assertions'] >= 60
 for l in d['lints']:
     assert 'round' in l and l['round'].startswith('R')
     assert l['assertions'] >= 6
 " || fail "status schema"
-pass "1. status returns 7-lint family with ≥60 total declared assertions"
+pass "1. status returns 8-lint family with ≥60 total declared assertions"
 
 # ── 2. status names the 7 specific rounds R367..R374 ────────────────
 out="$(python3 "${DS}" status --json || true)"
@@ -30,7 +30,7 @@ echo "${out}" | python3 -c "
 import json, sys
 d = json.loads(sys.stdin.read())
 rounds = {l['round'] for l in d['lints']}
-expected = {'R367', 'R368', 'R370', 'R371', 'R372', 'R373', 'R374'}
+expected = {'R367', 'R368', 'R370', 'R371', 'R372', 'R373', 'R374', 'R380'}
 assert rounds == expected, f'expected {expected}, got {rounds}'
 " || fail "round set"
 pass "2. status lints exactly cover R367/R368/R370/R371/R372/R373/R374"
@@ -40,7 +40,7 @@ out="$(python3 "${DS}" tally --json || true)"
 echo "${out}" | python3 -c "
 import json, sys
 d = json.loads(sys.stdin.read())
-assert d['drift_mode_count'] >= 17
+assert d['drift_mode_count'] >= 18
 assert isinstance(d['drift_modes'], list)
 # Specific drift modes must be cited
 modes = ' '.join(d['drift_modes'])
