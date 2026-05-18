@@ -336,7 +336,10 @@ COMMANDS:
   weaver status                Brief Weaver panel (podman / vfio /
                                tank/context).
   weaver list                  4 state-fabric files (IDENTITY / SOUL /
-                               AGENTS / CLAUDE) + size + last-modified.
+        [--json]               AGENTS / CLAUDE) + size + last-modified.
+  weaver state-files           R535: master spec § 7.1 4-state catalog
+        [--json]               (static vocabulary; independent of
+                               whether /mnt/vault/context/* exists).
   weaver read <name>           Read /mnt/vault/context/<name>.md
   weaver write <name>          Atomic-state write (master spec § 21.1
         [--from-stdin |        lockless loopback write sequence).
@@ -7713,7 +7716,7 @@ case "${cmd}" in
       status|"")
         _trinity_weaver_brief
         ;;
-      list|read|write)
+      list|read|write|state-files)
         "${__REPO_ROOT}/scripts/weaver/atomic-state.py" "$@"
         ;;
       -h|--help|help)
@@ -7721,8 +7724,10 @@ case "${cmd}" in
   weaver status                Brief Weaver panel (podman / vfio /
                                tank/context). Defaults if no verb.
   weaver list                  Enumerate the 4 state-fabric files
-                               (IDENTITY/SOUL/AGENTS/CLAUDE) — size +
+        [--json]               (IDENTITY/SOUL/AGENTS/CLAUDE) — size +
                                last-modified.
+  weaver state-files           R535: master spec § 7.1 4-state catalog
+        [--json]               (static vocabulary).
   weaver read <name>           Read /mnt/vault/context/<name>.md
   weaver write <name>          Atomically commit a payload to a state
         [--from-stdin |        file (master spec § 21.1 lockless

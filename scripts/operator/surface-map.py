@@ -217,11 +217,10 @@ MODULE_COVERAGE = {
         "waivers": {},
     },
     "weaver": {
-        "shipped_in": "R152-R155 (master spec § 21) + R496 (Grafana dashboard) + R534 (E5++ refresh-loop TUI surface)",
-        "surfaces": ["core", "cli", "tui", "dashboard"],
+        "shipped_in": "R152-R155 (master spec § 21) + R496 (Grafana dashboard) + R534 (E5++ refresh-loop TUI surface) + R535 (E5++ MCP surface — read-only weaver-list + weaver-state-files)",
+        "surfaces": ["core", "cli", "tui", "dashboard", "mcp"],
         "waivers": {
             "api":       "FUTURE — REST /weaver/{list,read,write} endpoints (guarded — atomic-state writes are sovereignty-critical)",
-            "mcp":       "FUTURE — agent queries Weaver state via MCP (read-only)",
             "webapp":    "FUTURE — master-dashboard /weaver subpath",
             "service":   "not applicable — atomic-state primitive invoked by callers, not a long-running daemon (master spec § 21 says 'lockless loopback write sequence' — there is no Weaver daemon, only the atomic-state.py primitive)",
         },

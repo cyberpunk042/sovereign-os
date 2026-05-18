@@ -245,8 +245,13 @@ def test_weaver_extended_to_tui_surface():
     # waiver with a real read-only daemon, same ceiling-promotion
     # pattern as R510/R515/R518/R521/R524/R527/R530/R533). The tui-
     # shipped invariant above is the load-bearing R534 contract.
+    # R534 leaves api/mcp/webapp as FUTURE waivers (3 total at R534
+    # time). Downstream rounds R535/R536 reduce this further, so the
+    # invariant we lock here is "no MORE than 3 FUTURE waivers" —
+    # the load-bearing R534 contract is tui-shipped, not the residual
+    # waiver count.
     future_count = entry.get("future_waiver_count", 0)
-    assert future_count == 3, (
-        f"weaver must have exactly 3 FUTURE waivers remaining post-"
+    assert future_count <= 3, (
+        f"weaver must have at most 3 FUTURE waivers remaining post-"
         f"R534 (api/mcp/webapp); got {future_count}"
     )

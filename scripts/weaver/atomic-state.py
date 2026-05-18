@@ -192,7 +192,43 @@ def read_state(file_name: str) -> bytes:
     return data
 
 
-def list_state() -> None:
+def list_state(json_out: bool = False) -> None:
+    """Enumerate the 4 state-fabric files (IDENTITY/SOUL/AGENTS/CLAUDE)
+    with size + mtime. R535 (E5++) adds json_out so the MCP surface
+    + future API surface can consume the data without re-parsing the
+    human-readable layout."""
+    if json_out:
+        import json as _json
+        rows = []
+        for name in STATE_FILES:
+            path = os.path.join(CONTEXT_DIR, name)
+            if os.path.exists(path):
+                st = os.stat(path)
+                rows.append({
+                    "name": name,
+                    "present": True,
+                    "size_bytes": st.st_size,
+                    "mtime_epoch": int(st.st_mtime),
+                    "mtime_iso": time.strftime(
+                        "%Y-%m-%dT%H:%M:%S",
+                        time.localtime(st.st_mtime),
+                    ),
+                })
+            else:
+                rows.append({
+                    "name": name,
+                    "present": False,
+                    "size_bytes": None,
+                    "mtime_epoch": None,
+                    "mtime_iso": None,
+                })
+        print(_json.dumps({
+            "context_dir": CONTEXT_DIR,
+            "files": rows,
+            "count": len(rows),
+            "count_present": sum(1 for r in rows if r["present"]),
+        }, indent=2))
+        return
     print(f"  context dir: {CONTEXT_DIR}")
     print()
     print(f"  {'FILE':<14} {'SIZE':>10}  {'MODIFIED'}")
@@ -205,6 +241,53 @@ def list_state() -> None:
             print(f"  {name:<14} {size:>10}  {mtime}")
         else:
             print(f"  {name:<14} {'(absent)':>10}  -")
+
+
+def state_files_catalog(json_out: bool = False) -> None:
+    """Master spec § 7.1 catalog of the 4 operator-named state-fabric
+    files. R535 (E5++) — operator-discoverable inventory independent
+    of whether the underlying /mnt/vault/context/* paths exist yet.
+    The catalog is the STATIC vocabulary; list_state() is the LIVE
+    presence + size."""
+    rows = [
+        {
+            "id": "IDENTITY.md",
+            "label": "Identity (master spec § 7.1)",
+            "master_spec_ref": "§ 7.1 / § 21",
+            "operator_named": "IDENTITY",
+        },
+        {
+            "id": "SOUL.md",
+            "label": "Soul (master spec § 7.1)",
+            "master_spec_ref": "§ 7.1 / § 21",
+            "operator_named": "SOUL",
+        },
+        {
+            "id": "AGENTS.md",
+            "label": "Agents (master spec § 7.1)",
+            "master_spec_ref": "§ 7.1 / § 21",
+            "operator_named": "AGENTS",
+        },
+        {
+            "id": "CLAUDE.md",
+            "label": "Claude — agent runtime context (master spec § 7.1)",
+            "master_spec_ref": "§ 7.1 / § 21",
+            "operator_named": "CLAUDE",
+        },
+    ]
+    if json_out:
+        import json as _json
+        print(_json.dumps({
+            "files": rows,
+            "count": len(rows),
+            "context_dir": CONTEXT_DIR,
+            "spec_anchor": "master spec § 7.1 + § 21 (Atomic State Protocol)",
+        }, indent=2))
+        return
+    print(f"  master spec § 7.1 — 4-state-fabric catalog "
+          f"(context dir: {CONTEXT_DIR}):")
+    for r in rows:
+        print(f"    {r['id']:<14} {r['label']}")
 
 
 def main() -> int:
@@ -223,7 +306,16 @@ def main() -> int:
     p_read = sub.add_parser("read", help="read current state")
     p_read.add_argument("name", choices=STATE_FILES)
 
-    sub.add_parser("list", help="enumerate state files")
+    p_list = sub.add_parser("list", help="enumerate state files")
+    p_list.add_argument("--json", action="store_true",
+                        help="emit JSON for the MCP / API surfaces")
+
+    p_catalog = sub.add_parser(
+        "state-files",
+        help="master spec § 7.1 4-state catalog (static vocabulary)",
+    )
+    p_catalog.add_argument("--json", action="store_true",
+                           help="emit JSON for the MCP / API surfaces")
 
     args = parser.parse_args()
 
@@ -255,7 +347,13 @@ def main() -> int:
         return 0
 
     if args.cmd == "list":
-        list_state()
+        list_state(json_out=bool(getattr(args, "json", False)))
+        return 0
+
+    if args.cmd == "state-files":
+        state_files_catalog(
+            json_out=bool(getattr(args, "json", False))
+        )
         return 0
 
     parser.print_help()

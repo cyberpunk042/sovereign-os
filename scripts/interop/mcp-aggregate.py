@@ -661,6 +661,30 @@ LOCAL_TOOLS = [
         "categories": ["surface-map", "operator-§1g", "coverage",
                        "matrix"],
     },
+    # ---- R535: Weaver MCP surface (drains weaver mcp:FUTURE waiver,
+    # second commit in the weaver tier-3 surface-expansion arc R534 →
+    # R535 → R536). Master spec § 17 Module 2 (Sandboxed Fabric) +
+    # § 21 (Atomic State Protocol). Two read-only inspection tools —
+    # the 4-state-fabric file inventory (LIVE: presence + size + mtime)
+    # and the master spec § 7.1 static catalog (vocabulary independent
+    # of /mnt/vault/context presence). MUTATION verbs (read/write) are
+    # intentionally NOT exposed via MCP — operator §17 sovereignty
+    # boundary: state-fabric writes are sovereignty-critical and stay
+    # manual + CLI-gated.
+    {
+        "name": "weaver-list",
+        "summary": "Master spec § 21 weaver state-fabric LIVE file inventory — enumerates the 4 operator-named state files (IDENTITY/SOUL/AGENTS/CLAUDE) under /mnt/vault/context with present/absent flag + size + mtime. Read-only inspection (state-fabric writes stay CLI-only per operator §17 sovereignty boundary).",
+        "argv": ["sovereign-osctl", "weaver", "list", "--json"],
+        "categories": ["weaver", "operator-§17", "state-fabric",
+                       "atomic-state"],
+    },
+    {
+        "name": "weaver-state-files",
+        "summary": "Master spec § 7.1 weaver state-fabric STATIC catalog — the 4 operator-named state file ids (IDENTITY/SOUL/AGENTS/CLAUDE) with labels + spec refs. Static vocabulary independent of whether the underlying files exist yet (sister to `weaver-list` which is the LIVE presence view). Read-only.",
+        "argv": ["sovereign-osctl", "weaver", "state-files", "--json"],
+        "categories": ["weaver", "operator-§17", "state-fabric",
+                       "catalog"],
+    },
 ]
 
 
