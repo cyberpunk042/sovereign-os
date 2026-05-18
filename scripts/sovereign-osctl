@@ -6006,6 +6006,23 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  morning-brief)
+    # R352 (E10.M2): meta-rollup composing R329 next-action +
+    # R351 module-state + R308 autohealth + R349 guide-suggestion
+    # into a single operator-readable "what should I look at first
+    # this morning?" report. NEVER-raise on missing sub-probes.
+    sub="${1:-rollup}"
+    shift || true
+    case "${sub}" in
+      rollup)
+        "${__REPO_ROOT}/scripts/intelligence/morning-brief.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown morning-brief subverb: ${sub} (rollup)"
+        exit 2
+        ;;
+    esac
+    ;;
   autohealth)
     # R308 (E2.M14): doctor / autohealth periodic synthesizer.
     # Composes R226 (health-scan) + R296 (thermal-oc) + R298

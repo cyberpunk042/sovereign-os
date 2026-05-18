@@ -74,6 +74,12 @@ DEFAULTS = {
         "tests/nspawn/test_maintenance_window.sh",
         "tests/nspawn/test_inventory_catalog.sh",
         "tests/nspawn/test_next_action_advisor.sh",
+        # R352 (E10.M2): extend curated sample with intelligence-tier
+        # composition verbs shipped in R349-R352.
+        "tests/nspawn/test_guide.sh",
+        "tests/nspawn/test_model_adapt.sh",
+        "tests/nspawn/test_module_state.sh",
+        "tests/nspawn/test_morning_brief.sh",
     ],
     "per_suite_timeout_sec": 60,
 }
