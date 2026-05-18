@@ -94,7 +94,7 @@ Marvell AQC113 cloudflared workaround.
 Operator-pull workflow: future round adds boards via:
 
 ```toml
-# config/known-boards.toml.example (TODO)
+# config/known-boards.toml.example (planned)  # anti-min-waiver: SDD-029 future-config-placeholder documented in §29 way-forward
 [[boards]]
 match_id = "ProArt X870E-CREATOR WIFI"
 vendor = "ASUSTeK COMPUTER INC."

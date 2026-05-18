@@ -283,15 +283,80 @@ def _waiver_anchor(line: str) -> str | None:
     return m.group("anchor") if m else None
 
 
+# R475: shared self-exclusion list applied to ALL text-based scanners.
+# These files DEFINE/DOCUMENT/REFERENCE the anti-minimization patterns
+# (TODO + 'skipped'/'deferred' + minimize-phrase) verbatim and would
+# otherwise be perpetual false-positives.
+SHARED_SELF_EXCLUSIONS = frozenset({
+    # Operator-mandate / SDDs / handoff docs that discuss the
+    # minimization patterns BY NAME (operator-§1g verbatim content).
+    "docs/standing-directives/2026-05-17-operator-mandate.md",
+    "docs/standing-directives/mandate-review-2026-Q2.md",
+    "docs/standing-directives/goal-rearming.md",
+    "docs/sdd/033-perpetual-intake-doctrine.md",
+    "docs/sdd/038-cross-repo-binding-doctrine.md",
+    "docs/handoff/002-foundation-substantive-buildout.md",
+    "docs/handoff/006-verbatim-preservation-arc.md",
+    # The audit module + its sister wrappers + its own lints.
+    "scripts/operator/anti-minimization-audit.py",
+    "scripts/operator/compliance.py",
+    "scripts/operator/README.md",
+    "scripts/sovereign-osctl",  # osctl help text describes the patterns
+    "tests/lint/test_anti_minimization_audit_contract.py",
+    "tests/lint/test_cross_repo_saturation_invariant.py",
+    "tests/lint/test_operator_mandate_doc_invariants.py",
+    "tests/lint/test_cross_repo_compliance_end_to_end.py",
+    "tests/lint/test_epic_e11_cross_repo_coverage.py",
+    "tests/lint/test_coverage_axes_catalog.py",
+    "tests/lint/test_mandate_section_1_subsections.py",
+    "tests/lint/test_rearm_goal_script.py",
+    "tests/lint/test_verbatim_preservation_doctrine.py",
+    # Sister intelligence tools that REPORT on TODOs / partials /
+    # minimization patterns (operator-named status-aggregator scripts).
+    "scripts/intelligence/coverage-map.py",
+    "scripts/intelligence/quarterly-review.py",
+    "scripts/intelligence/verbatim-render.py",
+    # nspawn tests that assert on operator-named '0 TODO / 0 partial'
+    # success states.
+    "tests/nspawn/test_coverage_map.sh",
+    "tests/nspawn/test_quarterly_review.sh",
+    "tests/nspawn/test_repl.sh",
+    # R475: whitelabel / brand-identity-placeholder domain-vocabulary
+    # exclusions. 'placeholder' here means OPERATOR-SUBSTITUTABLE
+    # brand-identity slot (the canonical term in the cross-cutting
+    # SDD-012 brand-identity-placeholder doctrine), NOT minimization
+    # debt. The cloud-init / whitelabel verbatim-test files assert on
+    # exact placeholder strings as feature-of-the-system.
+    "docs/sdd/012-brand-identity-placeholder.md",
+    "docs/sdd/005-initial-profiles.md",
+    "docs/sdd/007-whitelabel-mechanism.md",
+    "docs/sdd/004-profile-schema.md",
+    "docs/sdd/INDEX.md",
+    "docs/observability/dashboards/README.md",
+    "docs/src/verbatim-surface.md",
+    "docs/decisions.md",
+    "tests/lint/test_cloud_init_templates_verbatim.py",
+    "tests/lint/test_whitelabel_default_yaml_content.py",
+    "tests/lint/test_preseed_content_verbatim.py",
+    "tests/nspawn/test_workflow.sh",
+    "tests/nspawn/test_whitelabel_render_live_build.sh",
+    "whitelabel/default.yaml",
+    "profiles/mixins/whitelabel-default.yaml",
+})
+
+
 def scan_todo_no_anchor(limit: int | None = None) -> list[dict]:
     """TODO/FIXME without R-number (R\\d+) or SDD anchor (SDD-\\d+).
 
     R474: lines carrying a properly-anchored `anti-min-waiver:`
-    annotation are skipped (operator-explicit known-OK)."""
+    annotation are skipped (operator-explicit known-OK).
+    R475: sister-doctrine files self-excluded."""
     todo_re = re.compile(r"\b(?:TODO|FIXME)\b", re.IGNORECASE)
     anchor_re = re.compile(r"\b(?:R\d+|SDD-\d+|E\d+\.M\d+)\b")
     matches = []
     for f in _iter_scan_files():
+        if str(f.relative_to(REPO_ROOT)) in SHARED_SELF_EXCLUSIONS:
+            continue
         for lineno, line in _grep_lines(f, todo_re):
             if _is_waived(line):
                 continue
@@ -336,9 +401,23 @@ def scan_empty_stub(limit: int | None = None) -> list[dict]:
 def scan_skipped_no_followup(limit: int | None = None) -> list[dict]:
     """'skipped'/'deferred'/'stub' without ticket/issue/R-number ref.
 
-    R474: lines carrying an `anti-min-waiver:` annotation skipped."""
+    R474: lines carrying an `anti-min-waiver:` annotation skipped.
+    R475: sister-doctrine files self-excluded + context-word
+    requirement (the keyword MUST appear adjacent to a context word
+    that signals DEFERRED WORK — 'for now', 'until', 'pending',
+    'out', 'TODO', 'FIXME' — so domain-vocabulary uses like
+    'module skipped per policy' or 'beta skipped' (test fixture)
+    don't fire as false-positives)."""
+    # The keyword must appear next to a deferred-work signal. This
+    # is the operator-§1g intent of the pattern: catch software
+    # work that got pushed off WITHOUT a tracking anchor, not
+    # operational vocabulary that happens to use the same word.
     keyword_re = re.compile(
-        r"\b(?:skipped|deferred|stubbed?)\b", re.IGNORECASE
+        r"\b(?:skipped|deferred|stubbed?)\b"
+        r"(?:\s+(?:for\s+now|until|pending|out\b|to\s+(?:M\d+|stage|phase|gate))"
+        r"|\s*(?:[—:-]+\s*)?(?:TODO|FIXME)\b"
+        r"|\s+(?:later|for\s+M\d+))",
+        re.IGNORECASE,
     )
     anchor_re = re.compile(
         r"\b(?:R\d+|SDD-\d+|#\d+|issue|E\d+\.M\d+)\b",
@@ -346,6 +425,8 @@ def scan_skipped_no_followup(limit: int | None = None) -> list[dict]:
     )
     matches = []
     for f in _iter_scan_files():
+        if str(f.relative_to(REPO_ROOT)) in SHARED_SELF_EXCLUSIONS:
+            continue
         for lineno, line in _grep_lines(f, keyword_re):
             if _is_waived(line):
                 continue
@@ -434,15 +515,13 @@ def scan_minimize_phrase(limit: int | None = None) -> list[dict]:
         "|".join(re.escape(p) for p in MINIMIZE_PHRASES),
         re.IGNORECASE,
     )
-    mandate_path = ("docs/standing-directives/"
-                    "2026-05-17-operator-mandate.md")
-    self_path = "scripts/operator/anti-minimization-audit.py"
-    test_path = "tests/lint/test_anti_minimization_audit_contract.py"
-    sdd038_path = "docs/sdd/038-cross-repo-binding-doctrine.md"
+    # R475: use shared self-exclusion list (same files that the other
+    # text scanners skip — sister-doctrine documents discuss the
+    # patterns by name and would otherwise be perpetual false-positives).
     matches = []
     for f in _iter_scan_files():
         rel = str(f.relative_to(REPO_ROOT))
-        if rel in (mandate_path, self_path, test_path, sdd038_path):
+        if rel in SHARED_SELF_EXCLUSIONS:
             continue
         for lineno, line in _grep_lines(f, pat_re):
             if _is_waived(line):
