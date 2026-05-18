@@ -6041,6 +6041,24 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  state-fabric)
+    # R358 (E1.M42): operator-pull master spec §7.1 File-State Matrix
+    # + §7.2 ZFS Transactional Optimizations as discoverable + verifiable
+    # contract. The Vibe Manager (§5) state fabric on tank/context with
+    # IDENTITY.md (RO) / SOUL.md (RW Manager) / AGENTS.md (RO sub-agents)
+    # / CLAUDE.md (atomic append-only). NEVER-raises on container.
+    sub="${1:-layout}"
+    shift || true
+    case "${sub}" in
+      layout|verify|scaffold)
+        "${__REPO_ROOT}/scripts/hardware/state-fabric.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown state-fabric subverb: ${sub} (layout, verify, scaffold)"
+        exit 2
+        ;;
+    esac
+    ;;
   ccd-pinning)
     # R356 (E1.M41): operator-pull "is my Ryzen 9 9900X CCD pinning
     # correct?" Per master spec §19.2 verbatim: Pulse cores 0-5 mask
