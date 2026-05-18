@@ -328,6 +328,10 @@ COMMANDS:
                                                             side SurfaceManifests (selfdef crate
                                                             SD-R-MULTI-SURFACE-AUDIT-1). Reports
                                                             shipped/waived/planned per module.
+  surface-map watch            R531 (E5++): refresh-loop TUI surface
+        [--refresh N]          for the R453 §1g coverage matrix. Same
+        [--iterations N]       shape as `ux-design-audit watch` (R528).
+                               Drains the surface-map tui:FUTURE waiver.
 
   master-dashboard list        R452 (E11.M2): operator §1g reverse-proxy
                                [--json]                     aggregator — enumerates dashboards
@@ -4240,6 +4244,82 @@ ANTI_MIN_WATCH_HELP
 # mandate-row / man-page). Same shape as `compliance watch` (R519),
 # `anti-min watch` (R522), `router watch` (R516), `trinity watch`
 # (R513). Opens the doc-coverage tier-3 expansion arc.
+_surface_map_watch() {
+  local refresh=5
+  local iterations=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --refresh)    refresh="${2:-5}"; shift 2 ;;
+      --refresh=*)  refresh="${1#*=}"; shift ;;
+      --iterations) iterations="${2:-0}"; shift 2 ;;
+      --iterations=*) iterations="${1#*=}"; shift ;;
+      -h|--help)
+        cat <<'SURFACE_MAP_WATCH_HELP'
+  surface-map watch [--refresh N] [--iterations N]
+
+  Refresh-loop TUI surface for the R453 §1g coverage matrix.
+  Continuously re-renders the module × surface coverage view across
+  the 8 operator-named surfaces (core / cli / TUI / API / MCP /
+  Dashboard / Web App / Service).
+  Operator-§1g verbatim: "everything is not just core, not just cli,
+  not just TUI, not just API, not just tool and MCP but also
+  Dashboards and Web Apps and Services".
+
+  Options:
+    --refresh N       seconds between renders (default: 5, min: 1)
+    --iterations N    cap the number of renders (default: 0 = unbounded;
+                      SOVEREIGN_OS_DRY_RUN=1 forces a single render)
+SURFACE_MAP_WATCH_HELP
+        return 0
+        ;;
+      *)
+        log_error "unknown surface-map watch flag: $1"
+        return 2
+        ;;
+    esac
+  done
+
+  case "${refresh}" in
+    ''|*[!0-9]*) refresh=5 ;;
+  esac
+  case "${iterations}" in
+    ''|*[!0-9]*) iterations=0 ;;
+  esac
+  if [[ "${refresh}" -lt 1 ]]; then refresh=1; fi
+
+  if [[ "${SOVEREIGN_OS_DRY_RUN:-}" == "1" ]]; then
+    if [[ "${iterations}" -eq 0 ]]; then iterations=1; fi
+  fi
+
+  local frame=0
+  while :; do
+    frame=$((frame + 1))
+    printf '\x1b[2J\x1b[H'
+    local now
+    now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "── surface-map.watch (frame ${frame}, refresh=${refresh}s, ${now}) ──"
+    echo
+    "${__REPO_ROOT}/scripts/operator/surface-map.py" coverage 2>/dev/null \
+      || echo "  (surface-map coverage emit failed — module data missing?)"
+    echo
+    if [[ "${iterations}" -gt 0 && "${frame}" -ge "${iterations}" ]]; then
+      echo "  (reached --iterations=${iterations}; exit)"
+    else
+      echo "  (Ctrl-C to exit; refresh in ${refresh}s)"
+    fi
+
+    if [[ "${iterations}" -gt 0 && "${frame}" -ge "${iterations}" ]]; then
+      break
+    fi
+    if ! sleep "${refresh}" 2>/dev/null; then
+      echo
+      echo "  ── surface-map.watch interrupted ──"
+      break
+    fi
+  done
+  return 0
+}
+
 _ux_design_audit_watch() {
   local refresh=5
   local iterations=0
@@ -7475,7 +7555,19 @@ case "${cmd}" in
     # operator-named surfaces × per-module coverage matrix + gap
     # detection (threshold-driven) + per-module explicit waivers.
     # 5 verbs: surfaces / modules / coverage / gaps / waivers.
-    "${__REPO_ROOT}/scripts/operator/surface-map.py" "$@"
+    # R531 (E5++): adds the `watch` refresh-loop TUI surface — drains
+    # the surface-map tui:FUTURE waiver, opens the surface-map tier-3
+    # surface-expansion arc (R531 TUI → R532 MCP → R533 API + webapp +
+    # service), same shape as the ux-design-audit R528-R530 arc.
+    case "${1:-}" in
+      watch)
+        shift
+        _surface_map_watch "$@"
+        ;;
+      *)
+        "${__REPO_ROOT}/scripts/operator/surface-map.py" "$@"
+        ;;
+    esac
     ;;
   master-dashboard)
     # R452 (E11.M2): operator §1g verbatim — "Maybe there can even be
