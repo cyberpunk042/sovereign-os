@@ -277,6 +277,9 @@ COMMANDS:
   anti-minimization-audit selfdef      R466 cross-repo: scan /etc/selfdef/
                                [--json]                     audit-manifests/*.toml for selfdef-side
                                                             AuditManifests (selfdef crate SD-R-AUDIT-1).
+  anti-minimization-audit watch        R522 (E5++): refresh-loop TUI surface
+        [--refresh N]                  for the R456 8-pattern audit. Same
+        [--iterations N]               shape as `compliance watch` (R519).
 
   doc-coverage kinds           R454 (E11.M1): operator §1g
                                [--json]                     "documentation through and through";
@@ -4144,6 +4147,86 @@ COMPLIANCE_WATCH_HELP
   return 0
 }
 
+# R522 (E5++) — Anti-minimization-audit refresh-loop TUI surface.
+# Continuously re-renders the R456 8-pattern operator-§1g audit
+# (todo-no-anchor / empty-stub / skipped-no-followup / surface-gap /
+# doc-gap / mandate-todo / minimize-phrase / partial-status). Same
+# shape as `compliance watch` (R519), `router watch` (R516) and
+# `trinity watch` (R513). Opens the anti-min tier-3 expansion arc.
+_anti_min_watch() {
+  local refresh=5
+  local iterations=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --refresh)    refresh="${2:-5}"; shift 2 ;;
+      --refresh=*)  refresh="${1#*=}"; shift ;;
+      --iterations) iterations="${2:-0}"; shift 2 ;;
+      --iterations=*) iterations="${1#*=}"; shift ;;
+      -h|--help)
+        cat <<'ANTI_MIN_WATCH_HELP'
+  anti-minimization-audit watch [--refresh N] [--iterations N]
+
+  Refresh-loop TUI surface for the R456 anti-minimization audit.
+  Continuously re-renders the 8-pattern report (todo-no-anchor /
+  empty-stub / skipped-no-followup / surface-gap / doc-gap /
+  mandate-todo / minimize-phrase / partial-status). Operator-§1g
+  standing rule: "Do not minimize or settle for less."
+
+  Options:
+    --refresh N       seconds between renders (default: 5, min: 1)
+    --iterations N    cap the number of renders (default: 0 = unbounded;
+                      SOVEREIGN_OS_DRY_RUN=1 forces a single render)
+ANTI_MIN_WATCH_HELP
+        return 0
+        ;;
+      *)
+        log_error "unknown anti-minimization-audit watch flag: $1"
+        return 2
+        ;;
+    esac
+  done
+
+  case "${refresh}" in
+    ''|*[!0-9]*) refresh=5 ;;
+  esac
+  case "${iterations}" in
+    ''|*[!0-9]*) iterations=0 ;;
+  esac
+  if [[ "${refresh}" -lt 1 ]]; then refresh=1; fi
+
+  if [[ "${SOVEREIGN_OS_DRY_RUN:-}" == "1" ]]; then
+    if [[ "${iterations}" -eq 0 ]]; then iterations=1; fi
+  fi
+
+  local frame=0
+  while :; do
+    frame=$((frame + 1))
+    printf '\x1b[2J\x1b[H'
+    local now
+    now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "── anti-min.watch (frame ${frame}, refresh=${refresh}s, ${now}) ──"
+    echo
+    "${__REPO_ROOT}/scripts/operator/anti-minimization-audit.py" report 2>/dev/null \
+      || echo "  (anti-min report emit failed — patterns missing?)"
+    echo
+    if [[ "${iterations}" -gt 0 && "${frame}" -ge "${iterations}" ]]; then
+      echo "  (reached --iterations=${iterations}; exit)"
+    else
+      echo "  (Ctrl-C to exit; refresh in ${refresh}s)"
+    fi
+
+    if [[ "${iterations}" -gt 0 && "${frame}" -ge "${iterations}" ]]; then
+      break
+    fi
+    if ! sleep "${refresh}" 2>/dev/null; then
+      echo
+      echo "  ── anti-min.watch interrupted ──"
+      break
+    fi
+  done
+  return 0
+}
+
 # Pulse — Vector Core (CCD0; AVX-512; bitnet.cpp; Wasm AOT)
 _trinity_pulse_brief() {
   echo "  [Pulse] — Vector Core (master spec § 17 Module 1; CCD0 cores 0-5)"
@@ -7173,7 +7256,20 @@ case "${cmd}" in
     # mandate-todo / minimize-phrase / partial-status). Operator-
     # discoverable anti-minimization discipline; bridges R453 +
     # R454 for cross-module §1g compliance.
-    "${__REPO_ROOT}/scripts/operator/anti-minimization-audit.py" "$@"
+    # R522 (E5++): adds the `watch` refresh-loop TUI surface — drains
+    # the anti-minimization-audit tui:FUTURE waiver, opens the anti-
+    # min tier-3 surface-expansion arc (R522 TUI → R523 MCP → R524
+    # API + webapp), same shape as the trinity R513-R515 / router
+    # R516-R518 / compliance R519-R521 arcs.
+    case "${1:-}" in
+      watch)
+        shift
+        _anti_min_watch "$@"
+        ;;
+      *)
+        "${__REPO_ROOT}/scripts/operator/anti-minimization-audit.py" "$@"
+        ;;
+    esac
     ;;
   doc-coverage)
     # R454 (E11.M1): operator §1g verbatim — "very clear and well
