@@ -6060,18 +6060,19 @@ case "${cmd}" in
     esac
     ;;
   architecture-qa)
-    # R355 (E10.M3): operator-pull SAIN-01 master spec §13
-    # Architectural Q&A Matrix + §14 Critical Edge Cases & Operational
-    # Gotchas — verbatim operator-stated content surfaced as discoverable
-    # verbs (questions list / gotchas list / show <id> / search <text>).
+    # R355 (E10.M3) + R357 (E10.M4): operator-pull SAIN-01 master spec
+    # §13 Architectural Q&A Matrix + §14 Critical Edge Cases & Operational
+    # Gotchas + §15-16 1-Bit Paradigm & Hardware Fusion concepts +
+    # §19 dual-CCD doctrine + Trinity Genesis (Block 6 Modules 1/2/3) —
+    # verbatim operator-stated content surfaced as discoverable verbs.
     sub="${1:-questions}"
     shift || true
     case "${sub}" in
-      questions|gotchas|show|search)
+      questions|gotchas|concepts|show|search)
         "${__REPO_ROOT}/scripts/intelligence/architecture-qa.py" "${sub}" "$@"
         ;;
       *)
-        log_error "unknown architecture-qa subverb: ${sub} (questions, gotchas, show, search)"
+        log_error "unknown architecture-qa subverb: ${sub} (questions, gotchas, concepts, show, search)"
         exit 2
         ;;
     esac

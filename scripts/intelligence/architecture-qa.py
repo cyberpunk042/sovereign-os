@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""scripts/intelligence/architecture-qa.py — R355 (E10.M3).
+"""scripts/intelligence/architecture-qa.py — R355 (E10.M3) +
+R357 (E10.M4) concepts extension.
 
 Operator-pull entry-point for the SAIN-01 master spec's verbatim
 §13 Architectural Q&A Matrix + §14 Critical Edge Cases & Operational
-Gotchas. Surfaces operator-stated architectural rationale + per-board
-edge cases as discoverable operator-pull verbs.
+Gotchas + §15-16 1-Bit Paradigm & Hardware Fusion concepts. Surfaces
+operator-stated architectural rationale + per-board edge cases +
+hardware-fusion explanations as discoverable operator-pull verbs.
 
 Until R355, operator's §13 rationale ("why Debian 13?", "why
 sync=always?", "why -march=znver5?", "why bindeb-pkg?") + §14 gotchas
@@ -20,6 +22,7 @@ R355 catalogs both:
 CLI:
   architecture-qa.py questions          [--tag T] [--config P] [--json|--human]
   architecture-qa.py gotchas            [--tag T] [--config P] [--json|--human]
+  architecture-qa.py concepts           [--tag T] [--config P] [--json|--human]
   architecture-qa.py show <id>          [--config P] [--json|--human]
   architecture-qa.py search <substring> [--config P] [--json|--human]
 
@@ -254,15 +257,161 @@ ARCHITECTURE_GOTCHAS: list[dict[str, Any]] = [
 ]
 
 
+# ── §15-16 1-Bit Paradigm + Hardware Fusion concepts (verbatim) ──
+#
+# R357 extension: operator-verbatim explanatory blocks for the
+# Pulse/CPU-bound architecture justification. Without first-classing
+# these, operator had to read master spec doc to remember WHY ternary
+# weights + AVX-512 + VNNI/VPDPBUSD are the inference floor.
+ARCHITECTURE_CONCEPTS: list[dict[str, Any]] = [
+    {
+        "id": "C-01",
+        "name": "Ternary weights eliminate floating-point multiplication",
+        "explanation": ("The 1-bit evolution—pioneered by architectures "
+                         "like Microsoft's BitNet b1.58—restricts every "
+                         "single weight parameter in a network's linear "
+                         "projections to a discrete ternary set: "
+                         "{-1, 0, +1}. The designation 1.58-bit stems "
+                         "from information theory: representing three "
+                         "distinct states requires a minimum storage "
+                         "width of log_2(3) ≈ 1.585 bits per parameter. "
+                         "When your weights are strictly bounded to "
+                         "ternary values, the fundamental arithmetic of "
+                         "deep learning shifts from multiplication to "
+                         "conditional allocation: if W_ij = +1, the "
+                         "corresponding activation element is simply "
+                         "added to the accumulator. If W_ij = -1, the "
+                         "activation element is subtracted from the "
+                         "accumulator. If W_ij = 0, the operation is "
+                         "treated as a No-Op and bypassed entirely. By "
+                         "substituting expensive floating-point "
+                         "multiplications with basic integer additions "
+                         "and subtractions, the computation becomes "
+                         "vastly more energy-efficient and shifts the "
+                         "performance profile away from raw TFLOPS "
+                         "throughput toward memory bandwidth and "
+                         "instruction pipeline optimization."),
+        "tags": ["bitnet", "ternary", "1.58-bit", "no-op",
+                 "energy-efficiency", "memory-bandwidth"],
+        "spec_ref": "master spec §15 + §15.1 verbatim",
+    },
+    {
+        "id": "C-02",
+        "name": "AVX-512 ZMM register packs 64x INT8 per cycle",
+        "explanation": ("The true advantage of your Ryzen 9 9900X lies "
+                         "in its single-cycle, native AVX-512 (Zen 5) "
+                         "implementation. While legacy architectures "
+                         "double-pump two 256-bit execution units to "
+                         "emulate a 512-bit instruction, Zen 5 exposes "
+                         "true 512-bit wide ZMM registers. A single "
+                         "512-bit ZMM vector register can hold and "
+                         "manipulate 64 independent 8-bit integer "
+                         "(INT8) activations simultaneously, or 128 "
+                         "independent 4-bit packed activation snippets "
+                         "(in newer quantized variations like BitNet "
+                         "v2). Because ternary weights are packed at 2 "
+                         "bits per parameter in host RAM (to align with "
+                         "standard byte boundaries), specialized "
+                         "low-level compilation frameworks (such as "
+                         "bitnet.cpp and T-MAC) do not de-quantize "
+                         "these weights back into floating-point "
+                         "structures at execution time. Instead, they "
+                         "leverage the AVX-512 vector path to run "
+                         "Bit-wise Lookup Table (LUT) matrix operations."),
+        "tags": ["avx-512", "zmm", "zen-5", "ryzen-9-9900x", "int8",
+                 "bitnet-cpp", "t-mac", "single-cycle", "lut"],
+        "spec_ref": "master spec §16 + §16.1 verbatim",
+    },
+    {
+        "id": "C-03",
+        "name": "VNNI / VPDPBUSD fused multiply-accumulate",
+        "explanation": ("Using the VNNI (Vector Neural Network "
+                         "Instructions) extension native to your CPU's "
+                         "AVX-512 instruction block, multiple INT8 "
+                         "activations are multiplied by packed ternary "
+                         "weights and accumulated into 32-bit "
+                         "destination registers in a fraction of a "
+                         "clock cycle. This allows an ultra-low "
+                         "precision model to execute on your local CPU "
+                         "threads at speeds matching or exceeding human "
+                         "reading rates (5–12 tokens/sec even at high "
+                         "parameter scales), bypassing the PCIe bus "
+                         "bottleneck entirely and leaving your GPU "
+                         "memory unencumbered."),
+        "tags": ["vnni", "vpdpbusd", "fma", "tokens-per-sec",
+                 "pcie-bypass", "gpu-unencumbered", "cpu-inference"],
+        "spec_ref": "master spec §16.1 verbatim (closing paragraph)",
+    },
+    {
+        "id": "C-04",
+        "name": "Dual-CCD Infinity Fabric cross-die penalty",
+        "explanation": ("The Ryzen 9 9900X is an engineering "
+                         "masterpiece, but it contains a distinct "
+                         "structural boundary that will introduce "
+                         "severe 'Friction' if ignored: it utilizes a "
+                         "dual-CCD (Core Complex Die) design. CCD 0: "
+                         "Cores 0–5 (Threads 0–11) — Accesses its own "
+                         "local 32MB of L3 cache. CCD 1: Cores 6–11 "
+                         "(Threads 12–23) — Accesses its own isolated "
+                         "32MB of L3 cache. If the Conductor Agent "
+                         "running your state logic is executing on "
+                         "Core 2 (CCD 0), and it attempts to pipe a "
+                         "vector array to a compilation runtime "
+                         "executing on Core 8 (CCD 1), the data must "
+                         "traverse the internal AMD Infinity Fabric. "
+                         "This introduces an immediate L3 cache miss "
+                         "and a massive cross-die latency penalty."),
+        "tags": ["dual-ccd", "ccd-0", "ccd-1", "infinity-fabric",
+                 "l3-cache", "ryzen-9-9900x", "core-isolation"],
+        "spec_ref": "master spec §19 + §19.1 verbatim",
+    },
+    {
+        "id": "C-05",
+        "name": "Trinity Genesis: Pulse + Weaver + Auditor (decoupled SRP)",
+        "explanation": ("Before we discussed motherboard lanes, "
+                         "dual-GPU bifurcation, or specific kernel "
+                         "flags, this ecosystem was conceived as a "
+                         "pure, decoupled software trinity. THE PULSE "
+                         "was conceived as a low-level, high-"
+                         "performance assembly kernel utilizing MASM "
+                         "(Microsoft Macro Assembler) and raw "
+                         "WebAssembly (Wasm) primitives. Its sole "
+                         "responsibility was bit-plane transposition "
+                         "and accelerating low-bit mathematical "
+                         "matrices directly on the bare iron. "
+                         "THE WEAVER was designed as a lightweight "
+                         "orchestration engine. Instead of spinning up "
+                         "massive, bloated operating system images or "
+                         "slow virtual machines to run sub-agents, "
+                         "The Weaver used structured Wasm-based "
+                         "sandboxing to dynamically isolate and weave "
+                         "together multiple agent execution contexts. "
+                         "THE AUDITOR was established as the "
+                         "uncompromised security, logging, and "
+                         "validation framework of the ecosystem. Its "
+                         "single responsibility was to ensure that no "
+                         "executing agent could deviate from the core "
+                         "rules laid out in the system's manifest, "
+                         "acting as an automated, immediate circuit "
+                         "breaker against code regressions or "
+                         "unauthorized execution escapes."),
+        "tags": ["trinity", "pulse", "weaver", "auditor", "srp",
+                 "genesis", "decoupled", "masm", "wasm", "bit-plane"],
+        "spec_ref": "master spec Block 6 §Modules 1/2/3 verbatim",
+    },
+]
+
+
 # ── Loading + filtering ───────────────────────────────────────────
-def load_state(overlay_path: Path | None) -> tuple[list[dict], list[dict], dict]:
+def load_state(overlay_path: Path | None) -> tuple[list[dict], list[dict], list[dict], dict]:
     meta = {"_source": "(defaults)", "_overlay_keys": []}
     questions = list(ARCHITECTURE_QUESTIONS)
     gotchas = list(ARCHITECTURE_GOTCHAS)
+    concepts = list(ARCHITECTURE_CONCEPTS)
     if load_with_overlay is not None:
         loaded = load_with_overlay(
             "architecture-qa",
-            {"questions": [], "gotchas": []},
+            {"questions": [], "gotchas": [], "concepts": []},
             explicit_path=overlay_path,
         )
         meta["_source"] = loaded.get("_source", meta["_source"])
@@ -273,7 +422,9 @@ def load_state(overlay_path: Path | None) -> tuple[list[dict], list[dict], dict]
             questions = list(loaded["questions"])
         if loaded.get("gotchas"):
             gotchas = list(loaded["gotchas"])
-    return questions, gotchas, meta
+        if loaded.get("concepts"):
+            concepts = list(loaded["concepts"])
+    return questions, gotchas, concepts, meta
 
 
 def filter_tag(items: list[dict], tag: str | None) -> list[dict]:
@@ -284,21 +435,26 @@ def filter_tag(items: list[dict], tag: str | None) -> list[dict]:
 
 
 def resolve_by_id(
-    questions: list[dict], gotchas: list[dict], item_id: str,
+    questions: list[dict], gotchas: list[dict], concepts: list[dict],
+    item_id: str,
 ) -> tuple[dict | None, str]:
-    """Returns (item_dict, kind) or (None, ''). kind ∈ {'question', 'gotcha'}."""
+    """Returns (item_dict, kind) or (None, ''). kind ∈ {'question', 'gotcha', 'concept'}."""
     for q in questions:
         if isinstance(q, dict) and q.get("id") == item_id:
             return q, "question"
     for g in gotchas:
         if isinstance(g, dict) and g.get("id") == item_id:
             return g, "gotcha"
+    for c in concepts:
+        if isinstance(c, dict) and c.get("id") == item_id:
+            return c, "concept"
     return None, ""
 
 
 def search_items(
-    questions: list[dict], gotchas: list[dict], needle: str,
-) -> tuple[list[dict], list[dict]]:
+    questions: list[dict], gotchas: list[dict], concepts: list[dict],
+    needle: str,
+) -> tuple[list[dict], list[dict], list[dict]]:
     n = needle.lower()
     qm = [q for q in questions if isinstance(q, dict) and (
         n in (q.get("question") or "").lower()
@@ -312,7 +468,12 @@ def search_items(
         or n in (g.get("prevention") or "").lower()
         or any(n in t for t in (g.get("tags") or []))
     )]
-    return qm, gm
+    cm = [c for c in concepts if isinstance(c, dict) and (
+        n in (c.get("name") or "").lower()
+        or n in (c.get("explanation") or "").lower()
+        or any(n in t for t in (c.get("tags") or []))
+    )]
+    return qm, gm, cm
 
 
 # ── Renderers ─────────────────────────────────────────────────────
@@ -362,6 +523,36 @@ def render_question_show(q: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+def render_concept_show(c: dict) -> str:
+    lines = [f"── R357 concept: {c.get('id')} — {c.get('name')} (master spec §15-16) ──"]
+    lines.append("")
+    lines.append("  EXPLANATION (operator verbatim):")
+    body = c.get("explanation") or ""
+    cur = "    "
+    for word in body.split():
+        if len(cur) + len(word) > 76 and cur.strip():
+            lines.append(cur.rstrip())
+            cur = "    "
+        cur += word + " "
+    if cur.strip():
+        lines.append(cur.rstrip())
+    lines.append("")
+    lines.append(f"  spec ref: {c.get('spec_ref')}")
+    lines.append(f"  tags:     {', '.join(c.get('tags') or [])}")
+    return "\n".join(lines) + "\n"
+
+
+def render_concepts_human(items: list[dict]) -> str:
+    lines = ["── R357 architecture-qa concepts (master spec §15-16 + §19 verbatim) ──"]
+    for c in items:
+        lines.append("")
+        lines.append(f"  [{c.get('id')}]  {c.get('name')}")
+        lines.append(f"    tags: {', '.join(c.get('tags') or [])}")
+        lines.append(f"    spec: {c.get('spec_ref')}")
+        lines.append(f"    → sovereign-osctl architecture-qa show {c.get('id')}")
+    return "\n".join(lines) + "\n"
+
+
 def render_gotcha_show(g: dict) -> str:
     lines = [f"── R355 gotcha: {g.get('id')} — {g.get('name')} (master spec §14) ──"]
     for field, label in (
@@ -396,7 +587,7 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="architecture-qa.py")
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    for verb in ("questions", "gotchas"):
+    for verb in ("questions", "gotchas", "concepts"):
         sp = sub.add_parser(verb)
         sp.add_argument("--tag")
         sp.add_argument("--config", type=Path)
@@ -422,7 +613,7 @@ def main(argv: list[str] | None = None) -> int:
     psr.set_defaults(fmt="json")
 
     args = p.parse_args(argv)
-    questions, gotchas, meta = load_state(getattr(args, "config", None))
+    questions, gotchas, concepts, meta = load_state(getattr(args, "config", None))
 
     if args.cmd == "questions":
         items = filter_tag(questions, getattr(args, "tag", None))
@@ -456,13 +647,30 @@ def main(argv: list[str] | None = None) -> int:
             print(render_gotchas_human(items), end="")
         return 0 if items else 1
 
+    if args.cmd == "concepts":
+        items = filter_tag(concepts, getattr(args, "tag", None))
+        if args.fmt == "json":
+            print(json.dumps({
+                "schema_version": SCHEMA_VERSION,
+                "round": "R357",
+                "sdd_vector": "E10.M4",
+                "tag_filter": getattr(args, "tag", None),
+                "concept_count": len(items),
+                "concepts": items,
+                "overlay": meta,
+            }, indent=2))
+        else:
+            print(render_concepts_human(items), end="")
+        return 0 if items else 1
+
     if args.cmd == "show":
-        item, kind = resolve_by_id(questions, gotchas, args.item_id)
+        item, kind = resolve_by_id(questions, gotchas, concepts, args.item_id)
         if item is None:
             print(json.dumps({
                 "error": f"unknown id: {args.item_id}",
                 "known_questions": [q.get("id") for q in questions if isinstance(q, dict)],
                 "known_gotchas":   [g.get("id") for g in gotchas if isinstance(g, dict)],
+                "known_concepts":  [c.get("id") for c in concepts if isinstance(c, dict)],
                 "round": ROUND,
             }, indent=2), file=sys.stderr)
             return 1
@@ -476,12 +684,16 @@ def main(argv: list[str] | None = None) -> int:
                 "overlay": meta,
             }, indent=2))
         else:
-            print((render_question_show if kind == "question"
-                   else render_gotcha_show)(item), end="")
+            renderer = {
+                "question": render_question_show,
+                "gotcha":   render_gotcha_show,
+                "concept":  render_concept_show,
+            }[kind]
+            print(renderer(item), end="")
         return 0
 
     if args.cmd == "search":
-        qm, gm = search_items(questions, gotchas, args.needle)
+        qm, gm, cm = search_items(questions, gotchas, concepts, args.needle)
         if args.fmt == "json":
             print(json.dumps({
                 "schema_version": SCHEMA_VERSION,
@@ -490,18 +702,22 @@ def main(argv: list[str] | None = None) -> int:
                 "needle": args.needle,
                 "question_match_count": len(qm),
                 "gotcha_match_count": len(gm),
+                "concept_match_count": len(cm),
                 "matched_questions": qm,
                 "matched_gotchas": gm,
+                "matched_concepts": cm,
                 "overlay": meta,
             }, indent=2))
         else:
-            print(f"── R355 search: '{args.needle}' ──")
-            print(f"  {len(qm)} question match(es), {len(gm)} gotcha match(es)")
+            print(f"── R355+R357 search: '{args.needle}' ──")
+            print(f"  {len(qm)} question / {len(gm)} gotcha / {len(cm)} concept match(es)")
             for q in qm:
                 print(f"    [Q] {q.get('id')}: {(q.get('question') or '')[:60]}…")
             for g in gm:
                 print(f"    [G] {g.get('id')}: {g.get('name')}")
-        return 0 if (qm or gm) else 1
+            for c in cm:
+                print(f"    [C] {c.get('id')}: {c.get('name')}")
+        return 0 if (qm or gm or cm) else 1
 
     return 2
 
