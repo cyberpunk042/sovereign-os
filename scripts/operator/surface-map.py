@@ -192,11 +192,10 @@ MODULE_COVERAGE = {
         "waivers": {},
     },
     "compliance": {
-        "shipped_in": "R458 + R489 (Grafana dashboard) + R519 (E5++ refresh-loop TUI surface)",
-        "surfaces": ["core", "cli", "dashboard", "tui"],
+        "shipped_in": "R458 + R489 (Grafana dashboard) + R519 (E5++ refresh-loop TUI surface) + R520 (E5++ MCP surface)",
+        "surfaces": ["core", "cli", "dashboard", "tui", "mcp"],
         "waivers": {
             "api":       "FUTURE — REST /compliance/{status,worst,module} aggregator",
-            "mcp":       "FUTURE — agent queries compliance gaps via MCP",
             "webapp":    "FUTURE — master-dashboard /compliance subpath",
             "service":   "not applicable — query-only aggregator, no daemon",
         },

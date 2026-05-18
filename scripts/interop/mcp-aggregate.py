@@ -501,6 +501,37 @@ LOCAL_TOOLS = [
         "categories": ["router", "inference", "metrics", "observability",
                        "operator-§1g"],
     },
+    # R520 (E5++) — Compliance dashboard MCP surface.
+    # Closes the compliance mcp:FUTURE waiver. Second commit in the
+    # compliance tier-3 surface-expansion arc (after R519 TUI). Three
+    # discrete read-only tools (status / worst / history) — `module`
+    # takes a runtime <name> arg and is intentionally NOT exposed
+    # (LOCAL_TOOLS uses fixed argv; same reason `router classify` and
+    # `trinity profile switch` stay CLI-only); `snapshot` is mutation-
+    # shaped (triple-gated) and is forbidden at the MCP surface per
+    # the operator §17 sovereignty boundary; the `watch` refresh-loop
+    # TUI is also NOT exposed (loop tools are an MCP anti-pattern).
+    {
+        "name": "compliance-status",
+        "summary": "§1g/§1h compliance dashboard rollup (R458) — one-screen aggregation of the 4 operator-§1g compliance instruments (R453 surface-map + R454 doc-coverage + R456 anti-minimization-audit + R457 ux-design-audit). Surfaces gap counts per axis and the cross-module composite shortfall. Read-only.",
+        "argv": ["sovereign-osctl", "compliance", "status", "--json"],
+        "categories": ["compliance", "operator-§1g", "operator-§1h",
+                       "status", "audit"],
+    },
+    {
+        "name": "compliance-worst",
+        "summary": "§1g/§1h compliance dashboard worst-N (R458) — top modules ranked by composite gap score across the 4 instruments (lower composite = more underspecified). Surfaces module-level shortfall so the operator can target remediation. Read-only.",
+        "argv": ["sovereign-osctl", "compliance", "worst", "--json"],
+        "categories": ["compliance", "operator-§1g", "operator-§1h",
+                       "worst", "audit"],
+    },
+    {
+        "name": "compliance-history",
+        "summary": "§1g/§1h compliance dashboard history (R458) — recent compliance snapshots from the history journal (operator-driven `compliance snapshot` records). Surfaces the trajectory of §1g coverage over time. Read-only.",
+        "argv": ["sovereign-osctl", "compliance", "history", "--json"],
+        "categories": ["compliance", "operator-§1g", "operator-§1h",
+                       "history", "audit"],
+    },
 ]
 
 
