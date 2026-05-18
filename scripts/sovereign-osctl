@@ -198,6 +198,20 @@ COMMANDS:
                                + the file that consumes it. --filter narrows.
   env show <NAME>              Detail one env var (default · all consumers · currently-set value)
 
+  network-edge detect          R449 (E11.M8): operator §1g edge-network
+                               [--json]                     detection (multi-NAT workstation → OPNsense
+                                                            → ISP → public, VPN bridge, capability tiers).
+                                                            Sibling to `network-topology` (R359 NIC-level).
+  network-edge opnsense status            OPNsense reachability + API tier
+                               [--json]                     (absent / unreachable / reachable-no-creds
+                                                            / reachable-creds-rejected / full-api).
+  network-edge opnsense capabilities      What integration features unlock
+                               [--json]                     based on OPNsense state.
+  network-edge interfaces      Per-interface state (MAC/IP/MTU/link)
+                               [--json]
+  network-edge nat-chain       NAT layers visible from workstation
+                               [--json]
+
   global-history recent        R448 (E11.M5): operator §1g delta/diff
                                [--since 24h] [--limit N] history surface across 6
                                [--source s1,s2] [--json]   sources (apt / dpkg / shell / osctl /
@@ -6488,6 +6502,16 @@ case "${cmd}" in
     # broader operator surface beyond the fine-tune-focused
     # 5-stage subset.
     "${__REPO_ROOT}/scripts/models/workflow.py" "$@"
+    ;;
+  network-edge)
+    # R449 (E11.M8): network-edge + OPNsense detection. Per
+    # operator §1g verbatim: multi-NAT (workstation → OPNsense → ISP
+    # router → public) + VPN bridge across LANs/WANs + OPNsense
+    # state-awareness + integration features unlock when operator
+    # creates user + API key. Distinct from `network-topology` (R359
+    # master-spec §8 NIC-level asymmetric topology); network-edge is
+    # the operator-§1g edge-firewall + NAT-chain surface.
+    "${__REPO_ROOT}/scripts/operator/network-topology.py" "$@"
     ;;
   global-history)
     # R448 (E11.M5): cross-source delta/differential history surface

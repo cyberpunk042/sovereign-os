@@ -188,6 +188,9 @@ E11.M6 (operator §1g — bashrc integration + autocompletes + aliases + menus):
 E11.M5 (operator §1g — global history surface, delta/differential across 6 sources):
 - `sovereign_os_operator_global_history_query_total{verb,source,result}` — `sovereign-osctl global-history <verb>` queries (verb=recent/summary/sources/delta; source=apt|dpkg|shell|osctl|events|modules|all|comma-joined; result=ok)
 
+E11.M8 (operator §1g — network topology + OPNsense detection):
+- `sovereign_os_operator_network_topology_query_total{verb,result}` — `sovereign-osctl network-topology <verb>` queries (verb=detect/opnsense_status/opnsense_capabilities/interfaces/nat_chain; result=ok|tier-name|unavailable)
+
 When a new hook adds metrics: add a row to the section above + a panel
 to the relevant dashboard JSON + bump the dashboard `version`.
 Operators re-import to pick up. The `test_metric_inventory_lockstep.py`
