@@ -6113,6 +6113,22 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  quarterly-review)
+    # R377 (E10.M21): operator-pull quarterly review meta-audit
+    # composing coverage-map audit + doctrine-status + verbatim-render
+    # summary + mandate stats + git-history rounds into one verdict.
+    sub="${1:-snapshot}"
+    shift || true
+    case "${sub}" in
+      snapshot|grade|recent)
+        "${__REPO_ROOT}/scripts/intelligence/quarterly-review.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown quarterly-review subverb: ${sub} (snapshot, grade, recent)"
+        exit 2
+        ;;
+    esac
+    ;;
   doctrine-status)
     # R376 (E10.M20): operator-pull "doctrine health at a glance" —
     # wraps the SDD-037 lint family (R367+R368+R370+R371+R372+R373+R374)
