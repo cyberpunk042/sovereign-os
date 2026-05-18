@@ -100,10 +100,20 @@ EVENTS_DIR = pathlib.Path(os.environ.get(
     "SOVEREIGN_OS_GLOBAL_HISTORY_EVENTS_DIR",
     os.path.expanduser("~/.sovereign-os/state")
 ))
-MODULES_LOG = pathlib.Path(os.environ.get(
-    "SOVEREIGN_OS_GLOBAL_HISTORY_MODULES_LOG",
-    "/var/log/sovereign-os/modules.jsonl"
-))
+# R465 cross-repo contract fix: the selfdef-history-sink Rust crate
+# (SD-R-EVENT-LOG-1) uses `SOVEREIGN_OS_MODULES_LOG` as the operator-
+# overrideable env var name. Honor that name FIRST (the cross-repo
+# agreed identifier), falling back to the older sovereign-os-internal
+# name for backwards compatibility.
+MODULES_LOG = pathlib.Path(
+    os.environ.get(
+        "SOVEREIGN_OS_MODULES_LOG",
+        os.environ.get(
+            "SOVEREIGN_OS_GLOBAL_HISTORY_MODULES_LOG",
+            "/var/log/sovereign-os/modules.jsonl",
+        ),
+    )
+)
 
 # Metrics output dir
 METRICS_DIR = pathlib.Path(os.environ.get(
