@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os ux-design-audit</title>
+<meta name="x-sovereign-module" content="ux-design-audit-webapp">
+<meta name="x-sovereign-shipped-in" content="R530 (E5++)">
+<meta name="x-sovereign-standing-rule" content="everything will also need to go through a thorough UX Design stage in order to be of quality.">
+<style>
+  /* Operator-§1g UX: readable in 30 seconds, monochrome palette,
+     no JS framework, no CDN, no fonts fetched from elsewhere —
+     sovereignty-clean single-file webapp. */
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border)}
+  .pill.ok{background:#143d14;color:var(--good)}
+  .pill.bad{background:#3d1414;color:var(--bad)}
+  .pill.warn{background:#3d3014;color:var(--warn)}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:stretch}
+  .stat{flex:1 1 160px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
+  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .stat .v{font-size:1.4rem;margin-top:.15rem}
+  .dim{flex:1 1 240px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem}
+  .dim h3{margin:0 0 .3rem 0;font-size:.95rem;color:var(--accent)}
+  .dim .meta{color:var(--muted);font-size:.78rem;margin-bottom:.5rem}
+  button{font-family:var(--mono);background:var(--panel);color:var(--fg);border:1px solid var(--border);padding:.35rem .7rem;border-radius:3px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  footer{margin-top:2rem;color:var(--muted);font-size:.75rem;border-top:1px solid var(--border);padding-top:.8rem}
+  .standing-rule{color:var(--accent);font-style:italic;margin-top:.4rem}
+  code{color:var(--accent)}
+  .disclaimer{background:#10202a;border:1px solid #20405a;color:var(--accent);padding:.7rem .9rem;border-radius:4px;margin:.6rem 0;font-size:.82rem}
+  .matrix-cell{display:inline-block;width:1.1em;text-align:center}
+</style>
+</head>
+<body>
+<h1>sovereign-os ux-design-audit</h1>
+<p class="sub">
+  Operator-§1g ux-design-audit &mdash; 6-UX-dimension live auditor across operator-facing modules + R464 cross-repo selfdef
+  UxChecklist discovery (R457 auditor).
+  Read-only mirror of <code>sovereign-osctl ux-design-audit {dimensions,modules,audit,score,report,selfdef} --json</code>.
+  Ux-design-audit has NO mutation verbs at any surface (operator §17 sovereignty boundary &mdash; audit is a query;
+  remediation lives in the audited modules themselves, NOT in this daemon).
+</p>
+
+<div class="row" id="stats">
+  <div class="stat"><div class="k">api version</div><div class="v muted" id="stat-version">&mdash;</div></div>
+  <div class="stat"><div class="k">tracked modules</div><div class="v" id="stat-modules">&mdash;</div></div>
+  <div class="stat"><div class="k">UX dimensions</div><div class="v" id="stat-dimensions">&mdash;</div></div>
+  <div class="stat"><div class="k">modules below threshold</div><div class="v" id="stat-below">&mdash;</div></div>
+  <div class="stat"><div class="k">selfdef checklists</div><div class="v" id="stat-selfdef">&mdash;</div></div>
+  <div class="stat"><div class="k">last refresh</div><div class="v muted" id="last-refresh">never</div></div>
+</div>
+
+<div class="disclaimer">
+  operator §17 sovereignty boundary: ux-design-audit inspection is read-only at every surface. Audit is a query
+  &mdash; this daemon walks the tree to inspect <code>action-budget</code> / <code>discoverable</code> /
+  <code>recoverable</code> / <code>next-step</code> / <code>operator-named</code> / <code>readable-30s</code> per
+  module, but NEVER authors or mutates module content. The CLI verbs <code>audit --module &lt;m&gt;</code> and
+  <code>report --threshold N</code> take runtime arguments and stay CLI-shaped; their parameterized mirrors here
+  use same-origin GET query strings (<code>?module=</code>, <code>?threshold=</code>). Managed by
+  <code>sovereign-ux-design-audit-api.service</code>.
+</div>
+
+<h2>6 operator-named UX dimensions (R457 ladder)</h2>
+<div class="row" id="dimensions-row">
+  <div class="dim" id="dim-action-budget"><h3>action-budget</h3><div class="meta">loading&hellip;</div></div>
+  <div class="dim" id="dim-discoverable"><h3>discoverable</h3><div class="meta">loading&hellip;</div></div>
+  <div class="dim" id="dim-recoverable"><h3>recoverable</h3><div class="meta">loading&hellip;</div></div>
+  <div class="dim" id="dim-next-step"><h3>next-step</h3><div class="meta">loading&hellip;</div></div>
+  <div class="dim" id="dim-operator-named"><h3>operator-named</h3><div class="meta">loading&hellip;</div></div>
+  <div class="dim" id="dim-readable-30s"><h3>readable-30s</h3><div class="meta">loading&hellip;</div></div>
+</div>
+
+<h2>UX score matrix (sorted by lowest score first)</h2>
+<div class="panel">
+  <table>
+    <thead><tr><th>module</th><th>score</th><th>action-budget</th><th>discoverable</th><th>recoverable</th><th>next-step</th><th>operator-named</th><th>readable-30s</th></tr></thead>
+    <tbody id="matrix-tbody"><tr><td colspan="8" class="muted">loading&hellip;</td></tr></tbody>
+  </table>
+</div>
+
+<h2>modules below UX threshold (default=4)</h2>
+<div class="panel">
+  <table>
+    <thead><tr><th>module</th><th>score</th><th>shortfall</th><th>missing dimensions</th></tr></thead>
+    <tbody id="below-tbody"><tr><td colspan="4" class="muted">loading&hellip;</td></tr></tbody>
+  </table>
+</div>
+
+<h2>R464 cross-repo selfdef UxChecklists</h2>
+<div class="panel">
+  <table>
+    <thead><tr><th>repo</th><th>module</th><th>dimensions</th><th>status</th></tr></thead>
+    <tbody id="selfdef-tbody"><tr><td colspan="4" class="muted">loading&hellip;</td></tr></tbody>
+  </table>
+</div>
+
+<h2>refresh</h2>
+<div class="panel">
+  <div class="row">
+    <button id="refresh-btn">refresh all</button>
+    <span class="muted">auto-refresh every 60s (auditor walks the source tree each refresh)</span>
+  </div>
+</div>
+
+<footer>
+  <div>shipped in <code>R530 (E5++)</code> &middot; serves the <code>/webapp/</code> path of the R530 ux-design-audit-api daemon (<code>scripts/operator/ux-design-audit-api.py</code>, managed by <code>sovereign-ux-design-audit-api.service</code>) &middot; backing CLI <code>sovereign-osctl ux-design-audit</code> (R457 lineage + R528 TUI) &middot; MCP via <code>scripts/interop/mcp-aggregate.py</code> (R529)</div>
+  <div class="standing-rule">"everything will also need to go through a thorough UX Design stage in order to be of quality." &mdash; operator &sect;1g (sacrosanct)</div>
+</footer>
+
+<script>
+"use strict";
+// Operator-§1g UX rule: no external dependencies, no CDN fetches.
+// Same-origin XHR only — the R530 ux-design-audit-api daemon serves
+// both this webapp and the JSON endpoints under the same host:port
+// binding.
+
+async function fetchJSON(path) {
+  const res = await fetch(path, {headers: {"Accept": "application/json"}});
+  if (!res.ok) throw new Error(path + " => " + res.status);
+  return await res.json();
+}
+
+function el(id) { return document.getElementById(id); }
+function esc(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function pillFromCount(n, goodIfZero) {
+  if (n === 0) return '<span class="pill ' + (goodIfZero ? 'ok' : '') + '">0</span>';
+  if (n <= 2) return '<span class="pill warn">' + esc(n) + '</span>';
+  return '<span class="pill bad">' + esc(n) + '</span>';
+}
+
+const UX_DIMENSIONS = [
+  "action-budget", "discoverable", "recoverable",
+  "next-step", "operator-named", "readable-30s",
+];
+
+async function refreshVersion() {
+  try {
+    const v = await fetchJSON("/version");
+    el("stat-version").textContent = v.version || "?";
+  } catch (e) {
+    el("stat-version").innerHTML = "<span class=bad>err</span>";
+  }
+}
+
+async function refreshDimensions() {
+  try {
+    const d = await fetchJSON("/dimensions");
+    el("stat-dimensions").textContent = d.count || "?";
+    const list = d.dimensions || [];
+    for (const dim of list) {
+      const node = el("dim-" + dim.id);
+      if (!node) continue;
+      node.innerHTML =
+        '<h3>' + esc(dim.id) + '</h3>' +
+        '<div class="meta">' + esc(dim.label || "") + '</div>' +
+        '<div class="meta">operator-named: <code>' + esc(dim.operator_named || "") + '</code></div>';
+    }
+  } catch (e) {
+    el("stat-dimensions").innerHTML = "<span class=bad>err</span>";
+    for (const id of UX_DIMENSIONS) {
+      const node = el("dim-" + id);
+      if (node) node.innerHTML = '<h3>' + esc(id) + '</h3><div class="meta bad">error: ' + esc(e.message) + '</div>';
+    }
+  }
+}
+
+async function refreshModulesAndMatrix() {
+  try {
+    const mods = await fetchJSON("/modules");
+    el("stat-modules").textContent = mods.count != null ? mods.count : "?";
+    const aud = await fetchJSON("/audit");
+    const rows = aud.audit || [];
+    // sort by score asc for matrix display
+    rows.sort(function(a, b) { return (a.score||0) - (b.score||0); });
+    const tbody = el("matrix-tbody");
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="8" class="muted">no modules tracked</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(function(r) {
+      const byDim = {};
+      for (const x of (r.results || [])) byDim[x.dimension] = !!x.passed;
+      const cells = UX_DIMENSIONS.map(function(d) {
+        const passed = byDim[d];
+        const cls = passed ? "ok" : "bad";
+        const mark = passed ? "&#10003;" : "&#10007;";
+        return '<td><span class="matrix-cell ' + cls + '">' + mark + '</span></td>';
+      }).join("");
+      const score = r.score;
+      const total = r.total || 6;
+      const cls = score >= 5 ? "ok" : (score >= 4 ? "warn" : "bad");
+      return '<tr>' +
+        '<td><code>' + esc(r.module) + '</code></td>' +
+        '<td class="' + cls + '">' + esc(score) + '/' + esc(total) + '</td>' +
+        cells +
+        '</tr>';
+    }).join("");
+  } catch (e) {
+    el("matrix-tbody").innerHTML =
+      '<tr><td colspan="8" class="bad">error: ' + esc(e.message) + '</td></tr>';
+  }
+}
+
+async function refreshBelow() {
+  try {
+    const r = await fetchJSON("/report?threshold=4");
+    el("stat-below").innerHTML = pillFromCount(r.count || 0, true);
+    const tbody = el("below-tbody");
+    const list = r.below_threshold || [];
+    if (!list.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="ok">all tracked modules at or above UX threshold</td></tr>';
+      return;
+    }
+    tbody.innerHTML = list.map(function(row) {
+      const missing = (row.missing_dimensions || []).map(function(d) {
+        return '<code>' + esc(d) + '</code>';
+      }).join(", ");
+      return '<tr>' +
+        '<td><code>' + esc(row.module) + '</code></td>' +
+        '<td class="bad">' + esc(row.score) + '/' + esc(row.total || 6) + '</td>' +
+        '<td>' + esc(row.shortfall) + '</td>' +
+        '<td>' + missing + '</td>' +
+        '</tr>';
+    }).join("");
+  } catch (e) {
+    el("stat-below").innerHTML = "<span class=bad>err</span>";
+    el("below-tbody").innerHTML =
+      '<tr><td colspan="4" class="bad">error: ' + esc(e.message) + '</td></tr>';
+  }
+}
+
+async function refreshSelfdef() {
+  try {
+    const s = await fetchJSON("/selfdef");
+    el("stat-selfdef").textContent = (s.count_valid != null ? s.count_valid : "?");
+    const tbody = el("selfdef-tbody");
+    const list = s.valid || [];
+    if (!list.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="muted">no R464 selfdef UxChecklists discovered</td></tr>';
+      return;
+    }
+    tbody.innerHTML = list.map(function(m) {
+      return '<tr>' +
+        '<td><code>' + esc(m.repo || m.repo_name || "?") + '</code></td>' +
+        '<td><code>' + esc(m.module || m.module_name || "?") + '</code></td>' +
+        '<td>' + esc(m.passed != null ? m.passed : (m.dimensions || "?")) + '</td>' +
+        '<td>' + esc(m.status || "ok") + '</td>' +
+        '</tr>';
+    }).join("");
+  } catch (e) {
+    el("stat-selfdef").innerHTML = "<span class=bad>err</span>";
+    el("selfdef-tbody").innerHTML =
+      '<tr><td colspan="4" class="bad">error: ' + esc(e.message) + '</td></tr>';
+  }
+}
+
+async function refreshAll() {
+  await Promise.all([
+    refreshVersion(), refreshDimensions(),
+    refreshModulesAndMatrix(), refreshBelow(), refreshSelfdef(),
+  ]);
+  el("last-refresh").textContent = new Date().toLocaleTimeString();
+}
+
+document.getElementById("refresh-btn").addEventListener("click", refreshAll);
+refreshAll();
+setInterval(refreshAll, 60000);
+</script>
+</body>
+</html>

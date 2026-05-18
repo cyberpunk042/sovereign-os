@@ -1,0 +1,60 @@
+[Unit]
+Description=Sovereign ux-design-audit read-only REST API + webapp (R530, E5++)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/ux-design-audit-api.py
+# Read-only inspection API + webapp for the §1g ux-design-audit
+# instrument (R457 auditor). Mirrors the data the CLI exposes via
+# `sovereign-osctl ux-design-audit {dimensions,modules,audit,score,
+# report,selfdef} --json` and the R529 MCP tools (ux-design-audit-
+# dimensions / -modules / -score).
+#
+# Ux-design-audit has NO mutation verbs at any surface — audit is a
+# query; remediation lives in the audited modules themselves, NOT in
+# this daemon. Operator §17 sovereignty boundary preserved.
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/ux-design-audit-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default — operator-§1g exposure decision is theirs.
+# To expose beyond loopback, drop an override at
+# /etc/systemd/system/sovereign-ux-design-audit-api.service.d/bind.conf:
+#   [Service]
+#   Environment=UX_DESIGN_AUDIT_API_BIND=0.0.0.0
+Environment=UX_DESIGN_AUDIT_API_BIND=127.0.0.1
+Environment=UX_DESIGN_AUDIT_API_PORT=8100
+
+# Defense-in-depth — read-only HTTP surface that walks the source tree
+# per /audit, /score, /report request (the R457 dimension auditors
+# inspect module files), plus the R464 selfdef UxChecklist discovery
+# on /selfdef. No mutation of any sovereignty boundary.
+# R171 defense-in-depth (Layer 1 lint enforced)
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+# Source tree is read-only here — the auditor walks it to inspect
+# module surfaces but never mutates it. ProtectSystem=strict makes
+# everything outside ReadWritePaths read-only by default.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+# Loopback default — capability lockdown matches.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target

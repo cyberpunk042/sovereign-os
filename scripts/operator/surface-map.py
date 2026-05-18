@@ -207,13 +207,9 @@ MODULE_COVERAGE = {
         "waivers": {},
     },
     "ux-design-audit": {
-        "shipped_in": "R457 + R492 (Grafana dashboard) + R528 (E5++ refresh-loop TUI surface) + R529 (E5++ MCP surface)",
-        "surfaces": ["core", "cli", "tui", "mcp", "dashboard"],
-        "waivers": {
-            "api":       "FUTURE — REST /ux-design-audit/{dimensions,modules,audit,score} read endpoints",
-            "webapp":    "FUTURE — master-dashboard /ux-design-audit subpath",
-            "service":   "not applicable — query-only instrument, no daemon",
-        },
+        "shipped_in": "R457 + R492 (Grafana dashboard) + R528 (E5++ refresh-loop TUI surface) + R529 (E5++ MCP surface) + R530 (E5++ read-only REST API + webapp + systemd service)",
+        "surfaces": ["core", "cli", "tui", "api", "service", "dashboard", "mcp", "webapp"],
+        "waivers": {},
     },
     "surface-map": {
         "shipped_in": "R453 + R493 (Grafana dashboard)",
