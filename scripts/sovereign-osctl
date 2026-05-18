@@ -216,6 +216,22 @@ COMMANDS:
         [--force-skip-tiers]
         [--json]
 
+  ux-design-audit dimensions   R457 (E11.M10): operator §1g
+                               [--json]                     "thorough UX Design stage" — 6 dimensions
+                                                            (action-budget/discoverable/recoverable/
+                                                            next-step/operator-named/readable-30s).
+  ux-design-audit modules      List tracked modules with verb counts.
+                               [--json]
+  ux-design-audit audit        Per-module per-dimension audit
+        [--module <m>]         (pass/fail + rationale per cell).
+        [--json]
+  ux-design-audit score        Numeric 0..6 score per module, sorted
+        [--module <m>]         lowest first.
+        [--json]
+  ux-design-audit report       Modules below UX threshold (default 4
+        [--threshold N]        of 6; SOVEREIGN_OS_UX_THRESHOLD env-
+        [--json]                override). Exit 2 on below.
+
   anti-minimization-audit patterns     R456 (E11.M11): operator §1g standing
                                [--json]                     rule "do not minimize or settle for less".
                                                             Enumerates 8 minimization patterns.
@@ -6611,6 +6627,15 @@ case "${cmd}" in
     # → advanced → social → enterprise → network-level). Per-dashboard
     # tier registry + upgrade matrix + triple-gated set.
     "${__REPO_ROOT}/scripts/operator/auth-tier.py" "$@"
+    ;;
+  ux-design-audit)
+    # R457 (E11.M10): operator §1g verbatim — "everything will also
+    # need to go through a thorough UX Design stage in order to be of
+    # quality". 6 operator-named UX dimensions (action-budget /
+    # discoverable / recoverable / next-step / operator-named /
+    # readable-30s) × per-module live auditors. 5 verbs: dimensions /
+    # modules / audit / score / report.
+    "${__REPO_ROOT}/scripts/operator/ux-design-audit.py" "$@"
     ;;
   anti-minimization-audit)
     # R456 (E11.M11): operator §1g STANDING RULE verbatim — "If you

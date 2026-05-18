@@ -209,6 +209,9 @@ E11.M1 (operator §1g — documentation through-and-through):
 E11.M11 (operator §1g — anti-minimization audit standing rule):
 - `sovereign_os_operator_anti_minimization_audit_query_total{verb,pattern,result}` — `sovereign-osctl anti-minimization-audit <verb>` queries (verb=patterns/scan/module/cross-module/report; pattern=todo-no-anchor|empty-stub|skipped-no-followup|surface-gap|doc-gap|mandate-todo|minimize-phrase|partial-status|all|any|unknown; result=ok|unknown-pattern|unknown-module)
 
+E11.M10 (operator §1g — thorough UX design stage):
+- `sovereign_os_operator_ux_design_audit_query_total{verb,dimension,result}` — `sovereign-osctl ux-design-audit <verb>` queries (verb=dimensions/modules/audit/score/report; dimension=action-budget|discoverable|recoverable|next-step|operator-named|readable-30s|all|any|unknown; result=ok|below-threshold|unknown-module)
+
 When a new hook adds metrics: add a row to the section above + a panel
 to the relevant dashboard JSON + bump the dashboard `version`.
 Operators re-import to pick up. The `test_metric_inventory_lockstep.py`
