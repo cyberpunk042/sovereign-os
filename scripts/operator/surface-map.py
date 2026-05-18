@@ -153,10 +153,9 @@ MODULE_COVERAGE = {
         "waivers": {},
     },
     "network-edge": {
-        "shipped_in": "R449 (E11.M8) + R483 (E11.M8+ opnsense watch tui) + R486 (E11.M8+ Grafana dashboard) + R507 (E11.M8++ read-only REST API + systemd service)",
-        "surfaces": ["core", "cli", "tui", "dashboard", "api", "service"],
+        "shipped_in": "R449 (E11.M8) + R483 (E11.M8+ opnsense watch tui) + R486 (E11.M8+ Grafana dashboard) + R507 (E11.M8++ read-only REST API + systemd service) + R508 (E11.M8++ MCP surface)",
+        "surfaces": ["core", "cli", "tui", "dashboard", "api", "service", "mcp"],
         "waivers": {
-            "mcp":       "FUTURE — agent queries upstream tier via MCP",
             "webapp":    "FUTURE — OPNsense bridge management UI",
         },
     },

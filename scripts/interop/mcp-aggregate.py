@@ -366,6 +366,43 @@ LOCAL_TOOLS = [
         "argv": ["sovereign-osctl", "edge-firewall", "install-plan", "--json"],
         "categories": ["edge-firewall", "plan", "operator-§1g"],
     },
+    # R508 (E11.M8++) — network-edge MCP surface. Read-only verbs
+    # that delegate to `sovereign-osctl network-edge <verb> --json`
+    # (the CLI dispatches network-edge to network-topology.py, R449
+    # lineage). network-edge has no mutation verbs at any surface —
+    # operator §17 sacrosanct sovereignty boundary; OPNsense config
+    # changes are operator-driven via OPNsense UI/API directly,
+    # outside the sovereign-os boundary.
+    {
+        "name": "network-edge-detect",
+        "summary": "Network-edge: full detection bundle — interfaces, default gateway, NAT-chain visibility, VPN bridge, OPNsense state, capability ladder, operator-named edge hardware (R449 multi-NAT + OPNsense-aware topology).",
+        "argv": ["sovereign-osctl", "network-edge", "detect", "--json"],
+        "categories": ["network-edge", "detect", "operator-§1g"],
+    },
+    {
+        "name": "network-edge-interfaces",
+        "summary": "Network-edge: per-interface state — name, link state, MTU, IPv4/IPv6 addresses (workstation-side view from the network-topology.py detection backend).",
+        "argv": ["sovereign-osctl", "network-edge", "interfaces", "--json"],
+        "categories": ["network-edge", "interfaces", "operator-§1g"],
+    },
+    {
+        "name": "network-edge-nat-chain",
+        "summary": "Network-edge: NAT-layer visibility from the workstation — multi-NAT workstation → OPNsense → ISP-router → public chain detection per operator §1g.",
+        "argv": ["sovereign-osctl", "network-edge", "nat-chain", "--json"],
+        "categories": ["network-edge", "nat-chain", "operator-§1g"],
+    },
+    {
+        "name": "network-edge-opnsense-status",
+        "summary": "Network-edge: OPNsense reachability + tier (R449 capability ladder — unlock features when operator creates user + API key; bridge across LANs/WANs).",
+        "argv": ["sovereign-osctl", "network-edge", "opnsense", "status", "--json"],
+        "categories": ["network-edge", "opnsense", "operator-§1g"],
+    },
+    {
+        "name": "network-edge-opnsense-capabilities",
+        "summary": "Network-edge: OPNsense capability ladder for the current tier — what is unlocked now, what unlocks next, full integration feature ladder per operator §1g.",
+        "argv": ["sovereign-osctl", "network-edge", "opnsense", "capabilities", "--json"],
+        "categories": ["network-edge", "opnsense", "operator-§1g"],
+    },
 ]
 
 
