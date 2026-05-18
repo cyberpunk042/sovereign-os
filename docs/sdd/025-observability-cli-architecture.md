@@ -139,7 +139,7 @@ Every new observability-family verb MUST ship with:
   want one can use `watch sovereign-osctl alerts` or similar. Sovereign-
   os ships the data, not the chrome.
 - A REST/gRPC server in front of the verbs — Stage 4+ if operator
-  demand surfaces. The CLI is the authoritative interface for now.
+  demand surfaces. The CLI is the authoritative interface for now. <!-- anti-min-waiver: R480 CLI-authoritative-is-architectural-choice-anchored-to-Stage-4-operator-demand-not-minimization-debt -->
 - Multi-host aggregation (fleet view across many machines) — that's
   the Grafana + node_exporter scrape path; sovereign-os ships the
   metrics + dashboard templates, not a fleet manager.

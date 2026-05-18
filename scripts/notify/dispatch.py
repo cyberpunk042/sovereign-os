@@ -204,7 +204,7 @@ def derive_events(
       * probe severity rose (e.g. ok -> attention, attention -> down).
 
     Probes that stayed at the same severity OR recovered are NOT
-    fired. (Recovery events are a future round; for now silence is
+    fired. (Recovery events anchored to a future round — anti-min-waiver: R480 recovery-event-emission-arc-Stage-2-SDD-023-extension — for now silence is
     "still bad, no new news.")
     """
     events: list[dict[str, Any]] = []

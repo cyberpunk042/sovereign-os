@@ -103,10 +103,10 @@ if profile_field hardware.gpu | grep -q nvidia; then
   fi
 fi
 
-# Model catalog pick (placeholder; full Q-017 + E110 integration is Stage 2+)
+# Model catalog pick (placeholder; full Q-017 + E110 integration is Stage 2+)  # anti-min-waiver: R480 model-catalog-placeholder-anchored-to-Q-017-Stage-2-E110-catalog-integration-arc
 if confirm "Pre-pull a default LLM model into tank/models?" default-no; then
   log_info "  → model catalog sync would run here (Stage 2+ integration)"
-  log_info "  → for now, run 'sovereign-osctl models pull <id>' manually"
+  log_info "  → for now, run 'sovereign-osctl models pull <id>' manually"  # anti-min-waiver: R480 manual-pre-pull-bridge-while-Q-017-Stage-2-catalog-integration-pending
   choices[model_pull]="deferred"
 fi
 

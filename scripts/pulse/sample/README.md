@@ -1,6 +1,6 @@
 # scripts/pulse/sample/
 
-Placeholder for a real `pulse_core.wasm` per master spec § 20.
+Placeholder for a real `pulse_core.wasm` per master spec § 20. <!-- anti-min-waiver: R480 pulse-core-wasm-anchored-to-SDD-027-operator-authored-content-master-spec-section-20 -->
 
 When the operator authors their Pulse runtime in WebAssembly
 (targeting the bit-plane transposition + low-bit matrix lookups

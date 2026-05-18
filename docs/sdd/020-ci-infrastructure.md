@@ -62,7 +62,7 @@ Self-hosted runners would only be needed if:
 
 | Layer | Why not in CI |
 |---|---|
-| Layer 4 (QEMU boot smoke) | requires KVM in CI; operator-driven for now (qemu/ scaffolds exist; gate Stage 2+) |
+| Layer 4 (QEMU boot smoke) | requires KVM in CI; operator-driven for now (qemu/ scaffolds exist; gate Stage 2+) <!-- anti-min-waiver: R480 L4-CI-deferral-anchored-to-Stage-2-KVM-CI-runner-acquisition-per-SDD-008-test-harness --> |
 | Layer 5 (hardware conformance) | requires SAIN-01 hardware; operator-only |
 | Real builds (mkosi build → .raw image) | requires extensive substrate dependencies + ~10-30min CI time; operator-driven via `orchestrate.sh run` |
 | Real decommission paths | destructive; SDD-014 testing-scope decision |

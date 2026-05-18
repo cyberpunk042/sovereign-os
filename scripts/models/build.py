@@ -78,7 +78,7 @@ SDD_VECTOR = "E5.M18"
 #   - name                human-readable
 #   - artifact_kind       what the operator gets at the end
 #   - needs_adapter       True if --adapter required
-#   - command_template    operator-runnable shell command (placeholders:
+#   - command_template    operator-runnable shell command (placeholders:  # anti-min-waiver: R480 placeholders-here-are-FEATURE-template-substitution-tokens-not-minimization-debt
 #                         {base}, {adapter}, {out}, {bits})
 #   - min_vram_gib        VRAM needed to RUN the build step
 #   - cost_estimate       operator-readable wall-clock for a 7B base

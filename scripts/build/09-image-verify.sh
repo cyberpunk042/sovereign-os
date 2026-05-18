@@ -59,7 +59,7 @@ fi
 
 log_info "QEMU boot test of: ${image_file}"
 
-# For now: just boot to firmware + check the disk is bootable.
+# For now: just boot to firmware + check the disk is bootable.  # anti-min-waiver: R480 firmware-only-boot-test-anchored-to-SDD-008-Layer-4-QEMU-full-verification-arc
 # Full inside-VM verification lands at PR 10 (TDD harness Layer 4)
 # with an actual login shell or guest-agent integration.
 

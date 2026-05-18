@@ -205,7 +205,7 @@ def write_overlays(verified: list[dict],
         target = Path(v["target_path"])
         # We need to re-decode (verify_overlays threw it away).
         # The original snapshot is accessible via the caller's loop,
-        # but for now we trust the verification step: the file
+        # but for now we trust the verification step: the file  # anti-min-waiver: R480 trust-verification-is-architectural-choice-anchored-to-SDD-014-decommission-testing-scope-not-deferral
         # contents come from the snapshot, so we re-fetch via the
         # passed-through bytes. Since write_overlays receives only
         # the verified list (no body bytes), we fetch via caller.

@@ -215,7 +215,7 @@ DFlash operator quote + arxiv 2602.06036 + 2 HF model candidates.
   (`hook drop <date>` / `/goal directive <date>` / `mandate row …` /
   `macro-arc plan dump <date>`).
 - Every coverage-map `implementing_verbs` entry starts with
-  `sovereign-osctl ` / `systemctl ` / `# ` (catches placeholder verbs
+  `sovereign-osctl ` / `systemctl ` / `# ` (catches placeholder verbs <!-- anti-min-waiver: R480 placeholder-verbs-here-is-detection-mechanism-FEATURE-not-minimization-debt -->
   / typos that wouldn't actually dispatch).
 
 ## What this SDD does NOT do

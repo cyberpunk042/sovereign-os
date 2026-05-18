@@ -155,7 +155,7 @@ Planned (Stage 2+ follow-up commits):
   detail; tpm2_createpolicy + tpm2_loadexternal patterns documented at
   `man tpm2-tools(1)`).
 - Does NOT prescribe key escrow / fleet recovery semantics (single-
-  operator boxes for now; fleet-mode key management is Stage 4
+  operator boxes for now; fleet-mode key management is Stage 4 <!-- anti-min-waiver: R480 fleet-mode-key-management-anchored-to-Stage-4-reliability-per-CLAUDE-md-scale-axis -->
   reliability per CLAUDE.md scale axis).
 - Does NOT add YubiKey/smartcard backing — operator can extend via
   systemd-cryptenroll's pkcs11 support without sovereign-os changes.

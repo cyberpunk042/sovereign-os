@@ -33,7 +33,7 @@
    - `docs/src/SUMMARY.md` (mdbook nav)
    - `book.toml` (mirroring selfdef)
    - `.github/workflows/mdbook-publish.yml`
-   - `.mcp/config.template.json` (operator placeholders only)
+   - `.mcp/config.template.json` (operator placeholders only) <!-- anti-min-waiver: R480 operator-placeholders-here-is-FEATURE-template-token-surface-per-SDD-007-whitelabel-mechanism -->
    - `docs/sdd/002-documentation-pipeline.md` (publishing contract)
 3. **Open the cross-repo-reference CI guard** as part of PR 3 (or
    defer to PR 10 per operator preference). The boundary contract in

@@ -290,10 +290,10 @@ Total surfaces cataloged: **~50** (across A-I; some grouped).
 - **Q7-A** — Should sovereign-os define its own logo asset (SVG +
   PNG + Plymouth) NOW (PR 8 ready) or DEFER until Q-003 brand
   identity resolves? Recommendation: defer asset commit; PR 8
-  ships a placeholder logo.
+  ships a placeholder logo. <!-- anti-min-waiver: R480 placeholder-logo-anchored-to-Q-003-brand-identity-commit-per-SDD-012-deferred-with-criteria -->
 - **Q7-B** — Bug-report URL: should it point to the sovereign-os
   GitHub issues page, or a separate sovereignty-distinct issue
-  tracker? Recommendation: GitHub issues for now (operator-owned).
+  tracker? Recommendation: GitHub issues for now (operator-owned). <!-- anti-min-waiver: R480 GitHub-issues-recommendation-is-architectural-choice-anchored-to-Stage-4-fleet-mode-issue-tracker-decision -->
 - **Q7-C** — Should `/etc/sovereign-version` ship as a sovereign
   analogue to `/etc/debian_version`? If yes, what semantics
   (date-versioned / semver / git-sha)?

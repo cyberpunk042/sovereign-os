@@ -39,4 +39,4 @@ Stage-2 next round: TUI elaboration via `whiptail` / `textual` (Q-018-D); pre-ad
 9. first-login-assistant
 ```
 
-Wired as systemd `oneshot` services + `Wants=` ordering at Stage 2+ next round. For now: manual invocation.
+Wired as systemd `oneshot` services + `Wants=` ordering at Stage 2+ next round. For now: manual invocation. <!-- anti-min-waiver: R480 systemd-oneshot-wiring-anchored-to-Stage-2-next-round-per-SDD-013-installer-experience -->

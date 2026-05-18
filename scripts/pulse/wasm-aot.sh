@@ -128,7 +128,7 @@ log_info "  wasmtime detected: ${wasmtime_version}"
 # ---- input check ----
 if [ ! -f "${WASM_INPUT}" ]; then
   log_error "input wasm not found: ${WASM_INPUT}"
-  log_error "  sample placeholder at: ${__SCRIPT_DIR}/sample/pulse_core.wasm"
+  log_error "  sample placeholder at: ${__SCRIPT_DIR}/sample/pulse_core.wasm"  # anti-min-waiver: R480 sample-placeholder-anchored-to-SDD-027-pulse-runtime-operator-authored-content
   log_error "  or set WASM_INPUT=<path-to-your-wasm>"
   emit_aot_metric fail
   exit 1
