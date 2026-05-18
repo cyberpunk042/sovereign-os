@@ -200,9 +200,8 @@ def test_router_surface_map_extended_to_tui():
     assert tui_row.get("state") == "shipped", (
         f"router tui surface must be shipped; got {tui_row}"
     )
-    # mcp + webapp remain FUTURE post-R516 (R517 will close mcp;
-    # R518 will close webapp).
-    assert entry.get("future_waiver_count", 0) >= 1, (
-        f"router must still have FUTURE waivers post-R516; "
-        f"got {entry}"
-    )
+    # R516 drains the tui waiver. The precise count of remaining
+    # FUTURE waivers rotates as the router tier-3 arc progresses
+    # (R517 drained mcp; R518 drained webapp and lifted router to
+    # the full §1g 8-surface ceiling). The tui-shipped invariant
+    # above is the load-bearing R516 contract.

@@ -187,11 +187,9 @@ MODULE_COVERAGE = {
         "waivers": {},
     },
     "router": {
-        "shipped_in": "SDD-011 + R495 (Grafana dashboard) + R516 (E5++ refresh-loop TUI surface) + R517 (E5++ MCP surface)",
-        "surfaces": ["core", "cli", "tui", "api", "service", "dashboard", "mcp"],
-        "waivers": {
-            "webapp":    "FUTURE — master-dashboard /router subpath",
-        },
+        "shipped_in": "SDD-011 + R495 (Grafana dashboard) + R516 (E5++ refresh-loop TUI surface) + R517 (E5++ MCP surface) + R518 (E5++ read-only REST API + webapp)",
+        "surfaces": ["core", "cli", "tui", "api", "service", "dashboard", "mcp", "webapp"],
+        "waivers": {},
     },
     "compliance": {
         "shipped_in": "R458 + R489 (Grafana dashboard)",

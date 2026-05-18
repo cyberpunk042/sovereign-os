@@ -429,22 +429,29 @@ def test_coverage_reports_at_structural_ceiling_flag():
     #                        the api/mcp/webapp trio across R510-R512)
     #   - trinity          — reached ceiling in R515 (fourth — closed
     #                        the tui/mcp/webapp trio across R513-R515)
-    # The fixture now rotates to `router`, which carries 3 FUTURE
-    # waivers (tui/mcp/webapp) — same shape trinity carried pre-R513
-    # and the next module on the tier-3 expansion arc.
+    #   - router           — reached ceiling in R518 (fifth — closed
+    #                        the tui/mcp/api/webapp quartet across
+    #                        R516-R518; the tier-3 expansion arc
+    #                        following the same shape as trinity's
+    #                        R513-R515 triple, with the extra api
+    #                        surface in the same R518 commit that
+    #                        added webapp).
+    # The fixture now rotates to `compliance`, which carries 4 FUTURE
+    # waivers (tui/api/service/webapp) and is the next §1g module on
+    # the tier-3 expansion arc.
     result2 = subprocess.run(
-        ["python3", str(SM_PY), "coverage", "--module", "router",
+        ["python3", str(SM_PY), "coverage", "--module", "compliance",
          "--json"],
         capture_output=True, text=True, timeout=10,
     )
     data2 = json.loads(result2.stdout)
     rec2 = data2["coverage"][0] if "coverage" in data2 else data2
     assert rec2.get("at_structural_ceiling") is False, (
-        f"R478: router must be at_structural_ceiling=False, "
+        f"R478: compliance must be at_structural_ceiling=False, "
         f"got {rec2!r}"
     )
     assert rec2.get("future_waiver_count", 0) >= 1, (
-        f"R478 fixture: router must carry FUTURE waivers; "
+        f"R478 fixture: compliance must carry FUTURE waivers; "
         f"got {rec2!r}"
     )
 
