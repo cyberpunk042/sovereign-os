@@ -672,6 +672,124 @@ ARCHITECTURE_CONCEPTS: list[dict[str, Any]] = [
         "spec_ref": "master spec §3 + §4.1 verbatim (Storage Architecture + Tuning Matrix)",
     },
     {
+        "id": "C-16",
+        "name": "Hardware Infrastructure Table (operator-verbatim 6-row spec)",
+        "explanation": ("Section 1.1 Core Components — operator-verbatim "
+                         "hardware table: CPU AMD Ryzen 9 9900X (Rationale: "
+                         "Single-cycle AVX-512 (512-bit data path) for "
+                         "orchestration throughput); Motherboard ASUS "
+                         "ProArt X870E-Creator (Rationale: Dual PCIe 5.0 "
+                         "lanes; IOMMU topology support for VFIO "
+                         "isolation); GPU Primary RTX PRO 6000 Blackwell "
+                         "(96GB) (Rationale: Primary inference engine; "
+                         "96GB VRAM for large-scale model residence); "
+                         "GPU Secondary RTX 3090 (24GB) (Rationale: "
+                         "Sandbox isolation; speculative decoding or "
+                         "security agent offloading); Memory 256GB DDR5 "
+                         "(Initial: 128GB) (Rationale: High-capacity "
+                         "system context for ZFS ARC and GGUF "
+                         "offloading); Networking Marvell AQC113C 10GbE "
+                         "(Rationale: Native high-speed model ingestion "
+                         "from local storage). PCIe & Storage Topology: "
+                         "Lane Symmetry Slot 1 (Blackwell) and Slot 2 "
+                         "(3090) must operate in x8/x8 mode. Critical "
+                         "Constraint: The M.2_2 slot must remain empty. "
+                         "Occupying M.2_2 triggers bifurcation that "
+                         "drops Slot 2 to x4, compromising the "
+                         "'Magician' symmetry. Storage: 2x PCIe 5.0 NVMe "
+                         "in ZFS RAID 0 for maximum sequential "
+                         "throughput (31.5 GB/s target)."),
+        "tags": ["hardware", "ryzen-9-9900x", "asus-proart",
+                 "x870e-creator", "rtx-pro-6000", "rtx-3090", "96gb",
+                 "24gb", "256gb-ddr5", "marvell-aqc113c", "10gbe",
+                 "pcie-5", "m2_2-empty", "x8-x8", "magician-symmetry",
+                 "zfs-raid-0", "31.5gb-s"],
+        "spec_ref": "master spec §1 + §1.1 + §1.2 verbatim (Hardware Infrastructure)",
+    },
+    {
+        "id": "C-17",
+        "name": "Summary of System Cohesion (operator's 3-point closing)",
+        "explanation": ("We have achieved a complete synthesis of your "
+                         "technical vision: 1. The Pulse operates "
+                         "inside CCD 0, leveraging native AVX-512 "
+                         "vectors to stream 1-bit ternary logic at "
+                         "hardware speeds. 2. The Weaver coordinates "
+                         "session state within CCD 1, driving "
+                         "synchronous, lockless file transactions "
+                         "straight onto a highly specialized ZFS "
+                         "layout. 3. The Auditor acts as the silent "
+                         "kernel executor, using eBPF (Tetragon) paths "
+                         "to immediately destroy any process "
+                         "attempting to cross your defined operational "
+                         "boundaries. The blueprint is complete, "
+                         "unified, and engineered to standard."),
+        "tags": ["summary", "synthesis", "pulse-ccd0", "weaver-ccd1",
+                 "auditor", "ebpf", "ternary", "lockless-transactions",
+                 "engineered-to-standard"],
+        "spec_ref": "master spec §23 verbatim (Summary of System Cohesion)",
+    },
+    {
+        "id": "C-18",
+        "name": "Sovereign Forge Package List (sovereign.list.chroot verbatim)",
+        "explanation": ("The Sovereign Forge live-build package list — "
+                         "operator-verbatim §3.2 config/package-lists/"
+                         "sovereign.list.chroot 12-package baseline: "
+                         "nvidia-open-kernel-dkms / nvidia-driver / "
+                         "nvidia-smi / nvidia-container-toolkit / "
+                         "zfsutils-linux / zfs-dkms / podman / git / "
+                         "curl / tmux / python3-minimal / python3-pip. "
+                         "These packages are baked into the .iso via "
+                         "live-build at Stage 2 (The Sovereign OS "
+                         "Artifact); the resulting image enforces "
+                         "system identity (/etc/os-release: NAME="
+                         "\"Sovereign OS\" / ID=sovereign / "
+                         "ID_LIKE=debian / VERSION_ID=\"1.0\") and "
+                         "contains the pre-compiled hardware "
+                         "abstraction layer (Stage 1 znver5 kernel "
+                         ".deb + ZFS DKMS + NVIDIA 560+ driver stack)."),
+        "tags": ["sovereign-forge", "live-build", "package-list",
+                 "nvidia-open-kernel-dkms", "nvidia-container-toolkit",
+                 "zfs-dkms", "podman", "python3-minimal",
+                 "os-release", "sovereign-os-id", "stage-2"],
+        "spec_ref": "master spec §3.2 verbatim (sovereign.list.chroot + os-release)",
+    },
+    {
+        "id": "C-19",
+        "name": "DFlash + Model Candidates (operator-verbatim dump-tail additions)",
+        "explanation": ("Post-Block 7 operator-verbatim additions to "
+                         "the dump (2026-05-15). DFlash: 'And there is "
+                         "also Dflash I recently learned about that "
+                         "somehow with code task on model that fit in "
+                         "memory like any functional model in general "
+                         "it can work 3 times faster, does not work on "
+                         "creative tasks in general but interesting "
+                         "topic and place of introspection and "
+                         "knowledge'. Cross-ref: arxiv 2602.06036 "
+                         "'DFlash: Block Diffusion for Flash "
+                         "Speculative Decoding' (Z-Lab Feb 2026); "
+                         "github.com/z-lab/dflash. Operator framing "
+                         "'3x faster on code tasks, doesn't work on "
+                         "creative' matches paper's reported pattern "
+                         "(highest gains on math/code, moderate on "
+                         "conversational). Model candidates: 'There is "
+                         "also those I think will be good candidate in "
+                         "general for the rtx pro 6000 96gb amongs "
+                         "other we will add to the list': "
+                         "huggingface.co/inclusionAI/Ling-2.6-flash "
+                         "(107494M params, bailing_hybrid architecture, "
+                         "MIT license); huggingface.co/nvidia/"
+                         "Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16 "
+                         "(33015M params, NemotronH_Nano_Omni_Reasoning"
+                         "_V3 architecture, multimodal any-to-any, "
+                         "license 'other')."),
+        "tags": ["dflash", "speculative-decoding", "arxiv-2602.06036",
+                 "z-lab", "ling-2.6-flash", "inclusionai",
+                 "nemotron-3-nano-omni", "nvidia-30b", "multimodal",
+                 "model-candidates", "pro-6000-96gb"],
+        "spec_ref": ("master spec dump-tail operator additions "
+                      "(2026-05-15, after Block 7)"),
+    },
+    {
         "id": "C-10",
         "name": "Wasm-to-AVX-512 AOT Pipeline (The Pulse implementation)",
         "explanation": ("When The Pulse processes low-bit matrix logic "
