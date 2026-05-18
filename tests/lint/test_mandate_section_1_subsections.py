@@ -32,7 +32,7 @@ MANDATE = (
     REPO_ROOT / "docs" / "standing-directives" / "2026-05-17-operator-mandate.md"
 )
 
-EXPECTED_SUBSECTIONS = ["§1.0", "§1a", "§1b", "§1f", "§1g"]
+EXPECTED_SUBSECTIONS = ["§1.0", "§1a", "§1b", "§1f", "§1g", "§1h"]
 # §1c/§1d/§1e are grouped under a single header in the current doc;
 # allow that variant.
 
@@ -243,6 +243,73 @@ def test_section_1g_has_key_concretes():
     assert has_concretes, (
         "§1g missing key-concretes subsection (operator-discoverable "
         "decomposition surface)"
+    )
+
+
+def test_section_1h_present_with_2026_05_18():
+    """§1h landed 2026-05-18 (6th /goal block — 'two ultimate
+    solutions + perfectioning + high UX/DX')."""
+    body = _read()
+    section_1h_idx = body.find("### §1h")
+    assert section_1h_idx > 0, "mandate doc missing §1h subsection"
+    section_1h = body[section_1h_idx:body.find("## 2.", section_1h_idx)]
+    assert "2026-05-18" in section_1h, (
+        "§1h header missing 2026-05-18 date"
+    )
+
+
+def test_section_1h_operator_verbatim_phrases():
+    """§1h key operator-verbatim phrases — SACROSANCT."""
+    body = _read()
+    section_1h_idx = body.find("### §1h")
+    if section_1h_idx < 0:
+        return
+    section_1h = body[section_1h_idx:body.find("## 2.", section_1h_idx)]
+    expected_phrases = [
+        "two ultimate solutions",       # operator-named duality
+        "perfectioning",                # operator-coined verb (NOT "perfecting")
+        "high UX/DX",                   # User Experience + Developer Experience pairing
+        "continue till you meet ALL",   # perpetual mandate phrase
+        "REPROCESS",                    # raw-dump-reprocess directive
+        "Continue Endlessly",           # endless framing
+    ]
+    for phrase in expected_phrases:
+        assert phrase in section_1h, (
+            f"§1h missing operator-verbatim phrase {phrase!r}"
+        )
+
+
+def test_section_1h_names_both_targets():
+    """§1h key concretes MUST identify the 'two ultimate solutions'
+    as selfdef + sovereign-os (operator-discoverable duality)."""
+    body = _read()
+    section_1h_idx = body.find("### §1h")
+    if section_1h_idx < 0:
+        return
+    section_1h = body[section_1h_idx:body.find("## 2.", section_1h_idx)]
+    assert "selfdef" in section_1h.lower(), (
+        "§1h key-concretes missing selfdef target"
+    )
+    assert "sovereign-os" in section_1h.lower(), (
+        "§1h key-concretes missing sovereign-os target"
+    )
+
+
+def test_section_1h_pairs_ux_with_dx():
+    """'high UX/DX' explicitly pairs User Experience AND Developer
+    Experience. Both first-class. Drift = prioritize one = mandate
+    violation."""
+    body = _read()
+    section_1h_idx = body.find("### §1h")
+    if section_1h_idx < 0:
+        return
+    section_1h = body[section_1h_idx:body.find("## 2.", section_1h_idx)]
+    has_ux_dx_pairing = (
+        ("User Experience" in section_1h and "Developer Experience" in section_1h)
+        or "UX/DX" in section_1h
+    )
+    assert has_ux_dx_pairing, (
+        "§1h key-concretes missing UX/DX pairing documentation"
     )
 
 
