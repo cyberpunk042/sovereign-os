@@ -461,6 +461,22 @@ the Epic is closed — but the operator may add new Modules to it.
 | E9.M15 | **SDD-034 snapshot doctrine** — formalize the 6-script snapshot family (R322 state-snapshot + R324 fleet-aggregator + R332 config-snapshot + R333 config-restore + R334 state-snapshot-diff + R335 config-snapshot-diff) as a permanent contract. L1 lint pins round IDs, JSON schema-version field, round-mismatch detection. Lifts the implicit "snapshots carry round=R<N> + schema_version" convention to first-class doctrine. [from §1.0 — codify the snapshot family contract] | ✓ shipped | R336 (`docs/sdd/034-snapshot-doctrine.md` + `tests/lint/test_snapshot_doctrine.py` — 7 L1 assertions + INDEX update) |
 | E9.M16 | **SDD-035 workload-mode adoption contract** — formalize the cross-advisor pattern proven across R339-R342: every R338 workload-mode adopter declares `_read_canonical_mode` + `_apply_mode_modulation` (or equivalent derive) helpers, `follow_workload_mode_coordinator` + `workload_mode_overlay_path` overlay knobs, a `WORKLOAD_MODE_TO_<SHAPE>` map, and emits `workload_mode_canonical` + `workload_mode_source` fields in JSON output. L1 lint pins the contract across all 4 current adopters + auto-picks-up future adopters. [from §1.0 — formalize the cross-advisor mode coordination doctrine] | ✓ shipped | R343 (`docs/sdd/035-workload-mode-adoption-doctrine.md` + `tests/lint/test_workload_mode_adoption_doctrine.py` — 12 L1 assertions + R337 standardized to canonical-pair field names) |
 
+### Epic E10 — AI as guide (operator-pull narrative entry-points)
+
+> "[it's] only a guide into the experience, into the field, into the
+> kernel, into the hardware, into the OS, into the modules, into the
+> features, the services, the configurations, the personalisations,
+> the customizations" (§1b hook drop).
+
+R309 cot-registry answers "what's the decision-flow for <routine>?".
+R329 next-action-advisor answers "what should I do NOW?". R349 guide
+answers "what IS this system + how do I look INTO it?" — the third
+operator-pull intelligence vector.
+
+| ID | Module | Status | Rounds |
+|----|--------|--------|--------|
+| E10.M1 | **Topic guide catalog** — `sovereign-osctl guide topics/list/show/walkthrough <topic>`. 9 default topics covering operator's verbatim §1b axes (kernel / hardware / gpu / psu / ups / memory / workload-mode / inference / network). Each topic carries: mission narrative + ordered layers (look-into steps) + operator_verbs (paired 1:1 with layers for `walkthrough` zip) + thresholds (operator-meaningful numbers) + bios_or_hw_caveats (per-board: ASUS X870E-CREATOR specifics, RTX 3090 shunt-mod, Dark Power Pro 13 physical OC switch, etc.) + cross_refs (SDDs / advisors). Operator-overlay (R283/SDD-030) lets operator extend or replace topics. L3 test pins layer/verb count parity across all topics (catches walkthrough zip drift at push-time) AND verifies operator-verbatim §1b SKUs (CMK128GX5M2B6400C42, SMT2200C, RTX 3090, RTX PRO 6000, Ryzen 9 9900X, be Quiet! Dark Power Pro, ASUS X870E-CREATOR) surface in topic content AND cross_refs cite SDDs that exist on disk. [from §1b verbatim hook drop quoted above — "AI as guide" is the operator's central animating vision; partial coverage via R309 CoT + R329 next-action; R349 fills the explicit "guide INTO" vector] | ✓ shipped | R349 (`sovereign-osctl guide topics/list/show/walkthrough` + 9 topics × 5 axes + 10 L3 covering topics-enumeration / axes / show-schema / unknown-rc / walkthrough-mode / layer-verb-parity / verbatim-SKU-preservation / axis-filter / osctl-dispatch / cross_ref-SDD-existence) |
+
 ## 4. How future rounds use this file
 
 1. **Pick the next TODO Module** from any Epic above. Prefer Modules

@@ -5950,6 +5950,25 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  guide)
+    # R349 (E10.M1): AI-as-guide topic catalog — operator-pull
+    # "guide me into the kernel / hardware / gpu / psu / ups / memory
+    # / workload-mode / inference / network". Each topic carries layers
+    # + verbs + thresholds + BIOS/HW caveats. Operator-named (§1b
+    # verbatim: "only a guide into the experience, into the field, into
+    # the kernel, into the hardware, into the OS, into the modules…").
+    sub="${1:-topics}"
+    shift || true
+    case "${sub}" in
+      list|topics|show|walkthrough)
+        "${__REPO_ROOT}/scripts/intelligence/guide.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown guide subverb: ${sub} (list, topics, show, walkthrough)"
+        exit 2
+        ;;
+    esac
+    ;;
   autohealth)
     # R308 (E2.M14): doctor / autohealth periodic synthesizer.
     # Composes R226 (health-scan) + R296 (thermal-oc) + R298
