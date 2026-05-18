@@ -790,6 +790,122 @@ ARCHITECTURE_CONCEPTS: list[dict[str, Any]] = [
                       "(2026-05-15, after Block 7)"),
     },
     {
+        "id": "C-20",
+        "name": "SFIF discipline (Scaffold → Foundation → Infrastructure → Features)",
+        "explanation": ("SFIF discipline (operator-verbatim post-Plan "
+                         "refinement 2026-05-16): the arc itself "
+                         "follows Scaffold → Foundation → "
+                         "Infrastructure → Features. PRs 1-3 = "
+                         "Scaffold; PRs 4-8 = Foundation; PRs 9-10 "
+                         "begin Infrastructure (TDD harness); Stage 2 "
+                         "onwards delivers Infrastructure + Features. "
+                         "Each phase has gate criteria operator must "
+                         "confirm before next phase opens. Scaffold = "
+                         "structural seed (charter + repo skeleton + "
+                         "doc pipeline); Foundation = the substantive "
+                         "SDDs (substrate / profile / whitelabel "
+                         "research) + first conformant instances; "
+                         "Infrastructure = the test harness that makes "
+                         "every subsequent change verifiable + the "
+                         "first executable scripts; Features = the "
+                         "operator-pull surface (verbs, dashboards, "
+                         "tools, intelligence). Cross-references "
+                         "selfdef's Stage 1/2/3 doctrine — same "
+                         "macro-arc shape, sovereign-os layered on top."),
+        "tags": ["sfif", "scaffold", "foundation", "infrastructure",
+                 "features", "macro-arc", "stage-gate", "post-plan",
+                 "discipline", "doctrine"],
+        "spec_ref": ("macro-arc plan dump 2026-05-16 — post-Plan "
+                      "operator refinement #1 verbatim"),
+    },
+    {
+        "id": "C-21",
+        "name": "IaC quality bar (high-quality + restart-from-state)",
+        "explanation": ("IaC quality bar (operator-verbatim post-Plan "
+                         "refinement 2026-05-16): every PR must "
+                         "deliver high-quality scripts + libs + "
+                         "configuration + easily tweakable + "
+                         "customisable + env-var-driven + "
+                         "restart-from-state. Build pipeline is "
+                         "resumable + observable, not one-shot. Each "
+                         "script accepts overlay TOML (R283/SDD-030); "
+                         "every mutating verb goes through the triple-"
+                         "gate apply ceremony (--apply + --confirm-X "
+                         "+ SOVEREIGN_OS_CONFIRM_DESTROY=YES); every "
+                         "step in the build pipeline can resume from "
+                         "a prior state file (idempotent re-run). "
+                         "Observable = Layer B prometheus metrics + "
+                         "JSONL apply-audit (R327) + state-snapshot "
+                         "(R322). Not one-shot = phases.yaml ordering "
+                         "lets operator pause + restart at any phase "
+                         "boundary."),
+        "tags": ["iac", "quality-bar", "high-quality", "tweakable",
+                 "env-var-driven", "restart-from-state", "resumable",
+                 "observable", "triple-gate", "idempotent",
+                 "post-plan", "overlay-toml"],
+        "spec_ref": ("macro-arc plan dump 2026-05-16 — post-Plan "
+                      "operator refinement #2 verbatim"),
+    },
+    {
+        "id": "C-22",
+        "name": "Debian-as-Ark framing (Debian 13 = starting boat, not destination)",
+        "explanation": ("'Debian as Ark' framing (operator-verbatim "
+                         "post-Plan refinement 2026-05-16): Debian 13 "
+                         "is the starting boat, not the destination. "
+                         "The substrate survey (PR 4) must include "
+                         "Q-016 — distro-base reconsideration: would "
+                         "switching from Debian 13 to another base "
+                         "unlock material new potential that we'd lose "
+                         "by staying? Working hypothesis: stay on "
+                         "Debian + customize the boat. Alternatives "
+                         "evaluated honestly; trade-offs documented "
+                         "either way. The 'boat' metaphor enforces "
+                         "the operational mode: Debian gives us a "
+                         "known-stable foundation, but every layer we "
+                         "add (kernel build / package selection / "
+                         "service overlay / whitelabel) is our own "
+                         "contribution — we are NOT building a Debian "
+                         "derivative; we are building Sovereign OS "
+                         "that happens to sail on Debian-13 hull."),
+        "tags": ["debian-as-ark", "debian-13", "starting-boat",
+                 "not-destination", "boat-metaphor", "substrate",
+                 "q-016", "distro-reconsideration", "customize-boat",
+                 "post-plan", "sovereign-os-derivative-NOT"],
+        "spec_ref": ("macro-arc plan dump 2026-05-16 — post-Plan "
+                      "operator refinement #3 verbatim"),
+    },
+    {
+        "id": "C-23",
+        "name": "Q-016 distro-base reconsideration (substrate-survey honesty)",
+        "explanation": ("Q-016 distro-base reconsideration (added to "
+                         "macro-arc seed list at operator refinement "
+                         "#4, 2026-05-16): would switching from Debian "
+                         "13 to another base unlock material new "
+                         "potential we'd lose by staying? Stays open "
+                         "through PR 4 substrate survey; resolved at "
+                         "Stage Gate 2 alongside Q-001 (substrate "
+                         "tooling). Candidates evaluated in the survey "
+                         "honestly include: NixOS (declarative + "
+                         "rollback + reproducibility wins; familiarity "
+                         "cost + Sovereign-OS-stranded-from-Debian-"
+                         "ecosystem losses); Fedora Silverblue + "
+                         "ostree (atomic image-based wins; loses "
+                         "Debian package universe); Arch Linux "
+                         "(rolling release pulls us into upstream "
+                         "entropy per master spec §13 Q-01); "
+                         "Buildroot/Yocto (embedded reference for "
+                         "contrast — too low-level for the operator's "
+                         "use case). Working hypothesis from operator: "
+                         "stay on Debian + customize the boat — but "
+                         "the survey is the formal honesty gate."),
+        "tags": ["q-016", "distro-reconsideration", "substrate-survey",
+                 "nixos", "silverblue", "ostree", "arch", "buildroot",
+                 "yocto", "stage-gate-2", "honesty-gate", "post-plan",
+                 "working-hypothesis"],
+        "spec_ref": ("macro-arc plan dump 2026-05-16 — post-Plan "
+                      "operator refinement #4 + seed list Q-016 verbatim"),
+    },
+    {
         "id": "C-10",
         "name": "Wasm-to-AVX-512 AOT Pipeline (The Pulse implementation)",
         "explanation": ("When The Pulse processes low-bit matrix logic "
