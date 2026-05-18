@@ -6113,6 +6113,22 @@ case "${cmd}" in
         ;;
     esac
     ;;
+  layers)
+    # R382 (E10.M26): operator-pull verbatim 11-layer 'guide into'
+    # enumeration from the 2026-05-17 hook drop opening sentence.
+    # Operator's typo "experiece" preserved verbatim per SDD-037.
+    sub="${1:-list}"
+    shift || true
+    case "${sub}" in
+      list|show|search)
+        "${__REPO_ROOT}/scripts/intelligence/layers.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown layers subverb: ${sub} (list, show, search)"
+        exit 2
+        ;;
+    esac
+    ;;
   quarterly-review)
     # R377 (E10.M21): operator-pull quarterly review meta-audit
     # composing coverage-map audit + doctrine-status + verbatim-render
