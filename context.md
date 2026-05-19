@@ -281,8 +281,11 @@ This file is **operator-state-of-the-art**. Updates:
 - `9d1a0c5` — `sovereign-hardware-load-sample`: 5-target VRAM/util/temp snapshot
 - `0a7547f` — `sovereign-hardware-registry`: 5-target hardware catalog with SRP role
 
-Sovereign-os workspace at 80 crates (was 32 pre-session, +48 fresh this session).
-Full workspace test suite: 948 passing tests. Latest additions (all
+Sovereign-os workspace at 85 crates (was 32 pre-session, +53 fresh this session).
+Full workspace test suite: 1001 passing tests. Newer additions:
+`sovereign-cockpit-side-nav-state`, `sovereign-cockpit-status-badge`,
+`sovereign-cockpit-clock-display`, `sovereign-cockpit-confirmation-modal`,
+`sovereign-cockpit-progress-tracker`. Latest additions (all
 pure-UX, no IPS authority dimension) include `sovereign-cockpit-turn-
 annotation`, `sovereign-cockpit-density-mode`, `sovereign-cockpit-theme-
 palette`, `sovereign-cockpit-shortcut-cheatsheet`, `sovereign-cockpit-zoom-
