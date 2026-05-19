@@ -561,6 +561,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-prompt-template-registry"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-execution-mode-registry",
+ "sovereign-profile-bundles",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-router-7axis"
 version = "0.1.0"
 dependencies = [

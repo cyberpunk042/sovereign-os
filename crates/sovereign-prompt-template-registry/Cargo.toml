@@ -1,0 +1,23 @@
+[package]
+name = "sovereign-prompt-template-registry"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Runtime prompt-template registry — operator-curated reusable prompts with named variable slots ({{name}}) and rendering. Each template carries (name, body, declared variables, allowed profile bundles, allowed modes). Composes with sovereign-execution-mode-registry + sovereign-profile-bundles for context-gated availability."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sovereign-execution-mode-registry = { path = "../sovereign-execution-mode-registry" }
+sovereign-profile-bundles = { path = "../sovereign-profile-bundles" }
+
+[features]
+default = []
