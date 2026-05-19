@@ -4,6 +4,9 @@
 > Source: `raw/dumps/2026-05-18-the-ultimate-exploitation-of-the-tech-stack-AVX-plus-plus.md` lines 2016–2249.
 > All entries below extracted from the dump line range. No invention.
 
+> **AVX++ canon update — 2026-05-19**: this milestone is affected by backward-sweep redefinition(s) — Core Law (CLARIFYING) + Scheduler-as-policy-layer (BREAKING). See sovereign-os M061 for canonical pinning (commit 6f07dca). R-rows below are interpreted under the canonical later definitions per operator standing direction "layered: new direction ON TOP OF prior direction — never discarded".
+
+
 ## Epics (E0072–E0077)
 
 | Epic ID | Phrase | Dump line |
