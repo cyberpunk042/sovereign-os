@@ -641,3 +641,12 @@ Workspace count now 173. Total this resume: 63 cockpit crates.
   direction derived from corner)
 
 Workspace count now 177. Total this resume: 67 cockpit crates.
+
+### Eighteenth wave (same day, +2 more cockpit crates)
+
+- `sovereign-cockpit-hover-card` (4-phase Idle/Pending/Visible/
+  FadingOut state machine driven by tick(now))
+- `sovereign-cockpit-column-config` (Column model with pin-left/
+  pin-right + render_order projection)
+
+Workspace count now 179. Total this resume: 69 cockpit crates.
