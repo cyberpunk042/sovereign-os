@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-row-density"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit per-density row-height resolver. 4 densities (Compact/Cozy/Comfortable/Spacious) → row_height_px + line_count + show_secondary flags. Pure UX descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
