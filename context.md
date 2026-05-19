@@ -73,6 +73,7 @@ Per operator: *"little piece by little piece and progress in this massive endles
 |---|---|---|
 | SDD-040 cockpit-dashboard-implementation-bridge | ✓ | `docs/sdd/040-cockpit-dashboard-implementation-bridge.md` |
 | D-00 master-dashboard | ✓ shipped | `webapp/master-dashboard/index.html` |
+| D-01 active sessions | ✓ shipped | `webapp/d-01-active-sessions/index.html` |
 | D-02 profile choices | ✓ shipped | `webapp/d-02-profile-choices/index.html` |
 | D-06 pending approvals | ✓ shipped | `webapp/d-06-pending-approvals/index.html` |
 | D-12 networking (partial via network-edge + edge-firewall) | ✓ partial | `webapp/network-edge/`, `webapp/edge-firewall/` |
@@ -173,13 +174,27 @@ Before any new code / SDD / milestone / dashboard / CLI / mirror / systemd unit 
 4. **READ-ONLY across boundary?** Mutations proxy via MS003-signed operator request?
 5. **info-hub untouched?** Never write to info-hub from runtime+IPS sessions.
 
-## Hook integration (sovereign-os)
+## Hook integration (sovereign-os) — ACTUALLY WIRED 2026-05-19
 
-This file is referenced by:
-- `~/.claude/settings.json` `SessionStart` hook — should print this file's `## Where we are right now` section to system message so post-compaction re-orientation happens automatically
-- `~/.claude/env-bootstrap/templates/SessionStart.sh` (if exists) — should `cat sovereign-os/context.md` when entering this repo
+This file is referenced by **live, working hooks** (verified post-edit):
+
+- `~/.claude/settings.json` `SessionStart` hook chain:
+  1. `bash $HOME/.claude/env-bootstrap/apply.sh --quiet` (self-healing template reinstaller)
+  2. `bash $HOME/.claude/session-start-context.sh` — detects both repos' context.md and emits `systemMessage` JSON pointing the model at them on every new session
+- `~/.claude/settings.json` `PostCompact` hook:
+  1. `bash $HOME/.claude/post-compact-reorient.sh` — same context.md detection logic, fires on every compaction
+- Canonical templates at `~/.claude/env-bootstrap/templates/{settings.json,session-start-context.sh,post-compact-reorient.sh}` — env-bootstrap `apply.sh` reinstalls live files from templates if drift detected. Template-vs-live drift verified zero post-wire.
+- `~/.claude/validate-stop-hook-fix.sh --quiet` returns exit 0 (env clean) after wiring.
+
+Verified via smoke test post-wire:
+```
+$ bash ~/.claude/session-start-context.sh | head -1
+{"systemMessage": "SESSION-START RE-ORIENT — per operator standing direction 2026-05-19 ... | /home/user/sovereign-os/context.md | /home/user/selfdef/context.md ..."}
+```
+
+Cross-references to this file:
 - `docs/standing-directives/two-ultimate-solutions.md` — references this file as the live status snapshot
-- `docs/sdd/INDEX.md` — should link to this file as project-state-of-the-art
+- `docs/sdd/INDEX.md` — link to this file as project-state-of-the-art
 
 If you're an AI session reading this for the first time after compaction:
 1. Stop. Read this entire file.
