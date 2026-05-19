@@ -1,0 +1,25 @@
+[package]
+name = "sovereign-prompt-rationale"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Runtime prompt-dispatch rationale envelope — every model dispatch carries (provider, template_name, bundle, mode, doctrine_tag) explaining which router decision produced it. The cockpit surfaces it next to every model output for transparency."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sovereign-execution-mode-registry = { path = "../sovereign-execution-mode-registry" }
+sovereign-profile-bundles = { path = "../sovereign-profile-bundles" }
+sovereign-provider-catalog = { path = "../sovereign-provider-catalog" }
+sovereign-doctrinal-preservation = { path = "../sovereign-doctrinal-preservation" }
+
+[features]
+default = []

@@ -662,6 +662,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-prompt-rationale"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-doctrinal-preservation",
+ "sovereign-execution-mode-registry",
+ "sovereign-profile-bundles",
+ "sovereign-provider-catalog",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-prompt-template-registry"
 version = "0.1.0"
 dependencies = [
