@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os D-05 traces</title>
+<meta name="x-sovereign-module" content="d-05-traces-webapp">
+<meta name="x-sovereign-shipped-in" content="R-impl-SDD040-phaseB-item4">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<meta name="x-sovereign-catalog-source" content="M060 R10083-R10087 + M049 13-field span schema + MS026 OCSF 16-event taxonomy + MS009 replay validator">
+<style>
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1400px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  tr:hover{background:#1a1a1a;cursor:pointer}
+  .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border)}
+  .pill.ok{background:#143d14;color:var(--good)}
+  .pill.bad{background:#3d1414;color:var(--bad)}
+  .pill.warn{background:#3d2f14;color:var(--warn)}
+  .pill.accent{background:#143d3d;color:var(--accent)}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+  .stat{flex:1 1 180px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
+  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .stat .v{font-size:1.05rem;font-weight:600;margin-top:.2rem}
+  .filter-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.6rem}
+  input,select{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.35rem .55rem;font-family:inherit;font-size:.85rem}
+  input:focus,select:focus{outline:none;border-color:var(--accent)}
+  input[type=text]{flex:1 1 280px;min-width:240px}
+  button{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.35rem .8rem;font-family:inherit;font-size:.85rem;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  .span-tree{margin:.5rem 0;font-size:.78rem;font-family:var(--mono)}
+  .span-tree .node{padding:.15rem 0;border-left:1px solid var(--border);padding-left:.6rem;margin-left:.4rem}
+  .span-tree .node:hover{border-left-color:var(--accent)}
+  .span-tree .lat{color:var(--muted);font-size:.72rem;margin-left:.5rem}
+  .span-tree .name{color:var(--accent)}
+  .span-tree .name.bad{color:var(--bad)}
+  .detail{position:fixed;right:0;top:0;bottom:0;width:480px;background:var(--panel);border-left:1px solid var(--border);padding:1rem;overflow-y:auto;display:none;z-index:10}
+  .detail.open{display:block}
+  .detail .close{position:absolute;top:.6rem;right:.6rem;cursor:pointer;color:var(--muted)}
+  .detail .close:hover{color:var(--bad)}
+  .detail h3{margin:0 0 .4rem 0;font-size:1rem;color:var(--accent)}
+  .detail dl{margin:0;font-size:.82rem}
+  .detail dt{color:var(--muted);font-size:.72rem;text-transform:uppercase;margin-top:.6rem}
+  .detail dd{margin:0;word-break:break-all}
+  .detail pre{background:#0a0a0a;border:1px solid var(--border);border-radius:3px;padding:.5rem;font-size:.75rem;overflow-x:auto;white-space:pre-wrap}
+  .kbd{display:inline-block;padding:1px 5px;border-radius:3px;font-size:.7rem;background:var(--border);color:var(--muted);border:1px solid var(--border)}
+  .footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--muted);font-size:.78rem}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  code{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1>D-05 — traces</h1>
+<div class="sub">M049 13-field span search + tree + OCSF 16-event detail — <span class="kbd">Cmd-6</span> · <a href="../master-dashboard/">D-00 main</a></div>
+
+<h2>summary</h2>
+<div class="row">
+  <div class="stat"><div class="k">spans (1h)</div><div class="v" id="span-count">—</div></div>
+  <div class="stat"><div class="k">errors</div><div class="v bad" id="error-count">—</div></div>
+  <div class="stat"><div class="k">p95 latency</div><div class="v" id="p95-lat">—</div></div>
+  <div class="stat"><div class="k">OCSF events</div><div class="v" id="ocsf-count">—</div></div>
+</div>
+
+<h2>filter</h2>
+<div class="panel">
+  <div class="filter-row">
+    <input type="text" id="search-input" placeholder="search spans (trace_id, operation, attribute key/value)…" autocomplete="off">
+    <select id="severity-select">
+      <option value="">all severities</option>
+      <option value="critical">critical</option>
+      <option value="error">error</option>
+      <option value="warn">warn</option>
+      <option value="info">info</option>
+    </select>
+    <select id="ocsf-class-select">
+      <option value="">all OCSF classes</option>
+      <option value="1001">1001 System Activity</option>
+      <option value="1003">1003 Audit Activity</option>
+      <option value="2004">2004 Detection Finding</option>
+      <option value="4001">4001 Network Activity</option>
+      <option value="5001">5001 Configuration Change</option>
+    </select>
+    <select id="window-select">
+      <option value="900">last 15m</option>
+      <option value="3600" selected>last 1h</option>
+      <option value="21600">last 6h</option>
+      <option value="86400">last 24h</option>
+      <option value="604800">last 7d</option>
+    </select>
+    <button id="apply-btn">apply</button>
+    <button id="clear-btn">clear</button>
+  </div>
+  <div class="muted" style="font-size:.78rem">M049 13 span fields: trace_id, span_id, parent_span_id, operation, start_ts, duration_ms, severity, attributes, ocsf_class, actor, profile, signature, schema_version</div>
+</div>
+
+<h2>spans</h2>
+<div class="panel">
+  <table>
+    <thead>
+      <tr>
+        <th>ts</th>
+        <th>trace_id / span_id</th>
+        <th>operation</th>
+        <th>actor</th>
+        <th>profile</th>
+        <th>duration</th>
+        <th>OCSF</th>
+        <th>sev</th>
+      </tr>
+    </thead>
+    <tbody id="spans-tbody">
+      <tr><td colspan="8" class="muted">loading…</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h2>OCSF 16-event taxonomy (selfdef MS026)</h2>
+<div class="panel">
+  <table>
+    <thead><tr><th>class</th><th>name</th><th>typical emitter</th><th>count (window)</th></tr></thead>
+    <tbody id="ocsf-tbody">
+      <tr><td>1001</td><td>System Activity</td><td>L0 Observer, kernel events</td><td id="ocsf-1001">—</td></tr>
+      <tr><td>1003</td><td>Audit Activity</td><td>L2 Simulate, gate eval, restore</td><td id="ocsf-1003">—</td></tr>
+      <tr><td>2004</td><td>Detection Finding</td><td>Guardian SIGKILL, declaration mismatch, chain break</td><td id="ocsf-2004">—</td></tr>
+      <tr><td>4001</td><td>Network Activity</td><td>Ring 4 cloud exposure, MS038 grants</td><td id="ocsf-4001">—</td></tr>
+      <tr><td>5001</td><td>Configuration Change</td><td>L5 Commit, L6 Persist, profile transition</td><td id="ocsf-5001">—</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h2>actions</h2>
+<div class="panel">
+  <div class="row">
+    <button id="refresh-btn">refresh</button>
+    <button id="replay-verify-btn">MS009 replay verify (operator-signed)</button>
+    <span class="muted" style="font-size:.78rem">replay verify checks signing chain integrity end-to-end (MS009 + MS003)</span>
+  </div>
+</div>
+
+<!-- side detail panel (loaded on span click) -->
+<aside class="detail" id="detail-panel">
+  <span class="close" id="detail-close">close ✕</span>
+  <h3 id="detail-title">span detail</h3>
+  <dl id="detail-fields"></dl>
+  <h3 style="margin-top:1rem">span tree</h3>
+  <div class="span-tree" id="detail-tree"></div>
+  <h3 style="margin-top:1rem">attributes (raw)</h3>
+  <pre id="detail-attrs">—</pre>
+  <h3 style="margin-top:1rem">OCSF event payload</h3>
+  <pre id="detail-ocsf">—</pre>
+</aside>
+
+<div class="footer">
+  D-05 traces · M060 R10083-R10087 · M049 13-field span schema · MS026 OCSF 16-event taxonomy · MS009 replay validator · MS003 signature chain verification
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+function fmtTs(ts) { return new Date(ts).toISOString().replace('T', ' ').slice(0, 19); }
+function fmtDur(ms) {
+  if (ms == null) return '<span class="muted">—</span>';
+  if (ms < 1) return `${(ms*1000).toFixed(0)}μs`;
+  if (ms < 1000) return `${ms.toFixed(1)}ms`;
+  if (ms < 60000) return `${(ms/1000).toFixed(2)}s`;
+  return `${(ms/60000).toFixed(1)}m`;
+}
+function sevClass(sev) {
+  return {critical: 'bad', error: 'bad', warn: 'warn', info: 'muted', debug: 'muted'}[sev] || 'muted';
+}
+
+function renderSpans(spans) {
+  const tbody = $('spans-tbody');
+  if (!spans.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="muted">no spans match filter — adjust window or clear filter</td></tr>';
+    return;
+  }
+  tbody.innerHTML = spans.map(s => `
+    <tr data-trace="${escapeHtml(s.trace_id)}" data-span="${escapeHtml(s.span_id)}">
+      <td class="muted">${fmtTs(s.start_ts)}</td>
+      <td><code>${escapeHtml(s.trace_id.slice(0,8))}…</code> / <code>${escapeHtml(s.span_id.slice(0,6))}</code></td>
+      <td><span class="${s.severity === 'critical' || s.severity === 'error' ? 'bad' : ''}">${escapeHtml(s.operation)}</span></td>
+      <td class="muted">${escapeHtml(s.actor || '—')}</td>
+      <td><span class="pill accent">${escapeHtml(s.profile || '—')}</span></td>
+      <td>${fmtDur(s.duration_ms)}</td>
+      <td>${s.ocsf_class ? `<span class="pill ${s.ocsf_class === '2004' ? 'bad' : 'muted'}">${escapeHtml(s.ocsf_class)}</span>` : '<span class="muted">—</span>'}</td>
+      <td><span class="${sevClass(s.severity)}">${escapeHtml(s.severity || 'info')}</span></td>
+    </tr>
+  `).join('');
+  tbody.querySelectorAll('tr[data-trace]').forEach(tr => {
+    tr.addEventListener('click', () => openDetail(tr.dataset.trace, tr.dataset.span));
+  });
+}
+
+async function openDetail(traceId, spanId) {
+  const panel = $('detail-panel');
+  panel.classList.add('open');
+  $('detail-title').textContent = `span ${spanId.slice(0,12)} (trace ${traceId.slice(0,12)})`;
+  $('detail-fields').innerHTML = '<dt>status</dt><dd class="muted">loading…</dd>';
+  $('detail-tree').innerHTML = '<div class="muted">loading…</div>';
+  $('detail-attrs').textContent = '—';
+  $('detail-ocsf').textContent = '—';
+  try {
+    const res = await fetch(`/api/traces/${encodeURIComponent(traceId)}`, {credentials: 'same-origin'});
+    const j = await res.json();
+    const span = (j.spans || []).find(s => s.span_id === spanId) || (j.spans || [])[0];
+    if (!span) throw new Error('span not found');
+    $('detail-fields').innerHTML = [
+      ['trace_id', span.trace_id],
+      ['span_id', span.span_id],
+      ['parent_span_id', span.parent_span_id || '(root)'],
+      ['operation', span.operation],
+      ['start_ts', fmtTs(span.start_ts)],
+      ['duration_ms', fmtDur(span.duration_ms)],
+      ['severity', span.severity],
+      ['actor', span.actor],
+      ['profile', span.profile],
+      ['ocsf_class', span.ocsf_class || '(none)'],
+      ['schema_version', span.schema_version || '1.0.0'],
+      ['signature', span.signature ? span.signature.slice(0,32)+'…' : '(unsigned)'],
+    ].map(([k,v]) => `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(String(v))}</dd>`).join('');
+    $('detail-attrs').textContent = JSON.stringify(span.attributes || {}, null, 2);
+    if (span.ocsf_payload) {
+      $('detail-ocsf').textContent = JSON.stringify(span.ocsf_payload, null, 2);
+    }
+    // span tree
+    const allSpans = j.spans || [];
+    const byParent = {};
+    for (const s of allSpans) {
+      const p = s.parent_span_id || 'ROOT';
+      (byParent[p] = byParent[p] || []).push(s);
+    }
+    function renderTree(parent) {
+      const children = byParent[parent] || [];
+      if (!children.length) return '';
+      return children.map(c => `
+        <div class="node">
+          <span class="name ${c.severity === 'critical' || c.severity === 'error' ? 'bad' : ''}">${escapeHtml(c.operation)}</span>
+          <span class="lat">${fmtDur(c.duration_ms)}</span>
+          <span class="muted" style="font-size:.7rem"> · ${escapeHtml(c.span_id.slice(0,8))}</span>
+          ${renderTree(c.span_id)}
+        </div>
+      `).join('');
+    }
+    $('detail-tree').innerHTML = renderTree('ROOT') || '<div class="muted">no child spans</div>';
+  } catch (e) {
+    $('detail-fields').innerHTML = `<dt>error</dt><dd class="bad">${escapeHtml(e.message)}</dd>`;
+  }
+}
+$('detail-close').addEventListener('click', () => $('detail-panel').classList.remove('open'));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') $('detail-panel').classList.remove('open'); });
+
+async function fetchSpans() {
+  const params = new URLSearchParams({
+    q: $('search-input').value,
+    severity: $('severity-select').value,
+    ocsf_class: $('ocsf-class-select').value,
+    window: $('window-select').value,
+  });
+  try {
+    const res = await fetch(`/api/traces/spans?${params.toString()}`, {credentials: 'same-origin'});
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (e) {
+    return {spans: [], summary: {total: 0, errors: 0, p95_ms: null, ocsf: {}}, error: e.message};
+  }
+}
+
+async function refresh() {
+  const state = await fetchSpans();
+  $('span-count').textContent = state.summary.total ?? state.spans.length;
+  $('error-count').textContent = state.summary.errors ?? 0;
+  $('p95-lat').textContent = state.summary.p95_ms != null ? fmtDur(state.summary.p95_ms) : '—';
+  const ocsf = state.summary.ocsf || {};
+  $('ocsf-count').textContent = Object.values(ocsf).reduce((a,b) => a+b, 0) || 0;
+  $('ocsf-1001').textContent = ocsf['1001'] || 0;
+  $('ocsf-1003').textContent = ocsf['1003'] || 0;
+  $('ocsf-2004').textContent = ocsf['2004'] || 0;
+  $('ocsf-4001').textContent = ocsf['4001'] || 0;
+  $('ocsf-5001').textContent = ocsf['5001'] || 0;
+  renderSpans(state.spans || []);
+}
+
+$('apply-btn').addEventListener('click', refresh);
+$('clear-btn').addEventListener('click', () => {
+  $('search-input').value = ''; $('severity-select').value = ''; $('ocsf-class-select').value = ''; $('window-select').value = '3600';
+  refresh();
+});
+$('refresh-btn').addEventListener('click', refresh);
+$('replay-verify-btn').addEventListener('click', async () => {
+  const cmd = 'sovereign trace replay-verify --window 24h';
+  try { await navigator.clipboard.writeText(cmd); alert(`Command copied:\n\n  ${cmd}\n\nRuns MS009 replay validator against MS003 signature chain. Requires operator key for full chain depth.`); }
+  catch (e) { prompt('Copy + run:', cmd); }
+});
+$('search-input').addEventListener('keydown', e => { if (e.key === 'Enter') refresh(); });
+
+document.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === '6') { e.preventDefault(); $('search-input').focus(); refresh(); }
+});
+
+// SSE auto-refresh for new spans
+try {
+  const es = new EventSource('/api/traces/stream');
+  es.addEventListener('span-added', refresh);
+  es.addEventListener('error', () => setInterval(refresh, 5000));
+} catch (e) { setInterval(refresh, 10000); }
+
+refresh();
+</script>
+
+</body>
+</html>
