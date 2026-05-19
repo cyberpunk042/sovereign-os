@@ -370,6 +370,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-hardware-thermal-policy"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-hardware-load-sample",
+ "sovereign-hardware-registry",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-holderpo"
 version = "0.1.0"
 dependencies = [

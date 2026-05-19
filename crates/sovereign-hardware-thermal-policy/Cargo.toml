@@ -1,0 +1,23 @@
+[package]
+name = "sovereign-hardware-thermal-policy"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Runtime per-target thermal policy — for each of the 5 hardware targets, declares warn / throttle / shutdown thresholds in °C, and emits a ThermalVerdict (Cool/Warm/Throttle/Shutdown) given a live temp_c reading. The SRP scheduler uses the verdict to gate dispatch; the cockpit dashboard tints the hardware tile."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sovereign-hardware-registry = { path = "../sovereign-hardware-registry" }
+sovereign-hardware-load-sample = { path = "../sovereign-hardware-load-sample" }
+
+[features]
+default = []
