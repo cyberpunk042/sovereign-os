@@ -218,6 +218,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-dashboard-toggle"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-dashboard-coverage",
+ "tempfile",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-holderpo"
 version = "0.1.0"
 dependencies = [

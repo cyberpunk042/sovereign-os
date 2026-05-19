@@ -1,0 +1,25 @@
+[package]
+name = "sovereign-dashboard-toggle"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Per-dashboard visibility/toggle infrastructure per M060 R10038 + R10129-R10132 operator standing direction 'everything can be turned on and off'. Toggle state persisted under /etc/sovereign-os/dashboards.toml, signed via selfdef MS003, every change emits M049 trace + OCSF Configuration Change (class 5001). Composes with the 21-dashboard catalog from sovereign-dashboard-coverage."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sovereign-dashboard-coverage = { path = "../sovereign-dashboard-coverage" }
+
+[dev-dependencies]
+tempfile = "3"
+
+[features]
+default = []
