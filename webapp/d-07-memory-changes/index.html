@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os D-07 memory changes</title>
+<meta name="x-sovereign-module" content="d-07-memory-changes-webapp">
+<meta name="x-sovereign-shipped-in" content="R-impl-SDD040-phaseC-item1">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<meta name="x-sovereign-catalog-source" content="M060 R10093-R10096 (memory graph diff + promote/forget/pin + 7 trust dimension filters + Cmd-8) + M028 E0260 7 memory types (Working/Episodic/Semantic/Procedural/Temporal-Graph/Value/KV) + E0265 Reward memory (8th) + E0264 11-stage admission lifecycle + E0267 profile-affected memory">
+<meta name="x-sovereign-doctrine" content="MS043 R10212 web NEVER mutates; promote/forget/pin emit clipboard CLI only">
+<style>
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062; --added:#7ad17a; --removed:#ff7676; --changed:#e6c062;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  h3{font-size:.9rem;margin:1rem 0 .3rem 0;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
+  .num{font-variant-numeric:tabular-nums;text-align:right}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:stretch}
+  .stat{flex:1 1 200px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
+  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .stat .v{font-size:1.4rem;font-weight:600;margin-top:.2rem;font-variant-numeric:tabular-nums}
+  .stat .u{color:var(--muted);font-size:.78rem}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border)}
+  .pill.ok{background:#143d14;color:var(--good)} .pill.bad{background:#3d1414;color:var(--bad)} .pill.warn{background:#3d2f14;color:var(--warn)}
+  .pill.accent{background:#143d3d;color:var(--accent)} .pill.muted{background:#1c1c1c;color:var(--muted)}
+  .pill.added{background:#143d14;color:var(--added)} .pill.removed{background:#3d1414;color:var(--removed)} .pill.changed{background:#3d2f14;color:var(--changed)}
+  .kbd{display:inline-block;padding:1px 5px;border-radius:3px;font-size:.7rem;background:var(--border);color:var(--muted);border:1px solid var(--border)}
+  .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem}
+  .grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:.6rem}
+  @media (max-width: 920px) { .grid-4{grid-template-columns:repeat(2,1fr)} }
+  @media (max-width: 600px) { .grid-4{grid-template-columns:1fr} .grid-2{grid-template-columns:1fr} }
+  button{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.35rem .8rem;font-family:inherit;font-size:.85rem;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.danger:hover{border-color:var(--bad);color:var(--bad)}
+  .filters{display:flex;gap:.4rem;flex-wrap:wrap;margin:.5rem 0}
+  .filter{padding:.25rem .6rem;border-radius:3px;font-size:.78rem;background:var(--panel);border:1px solid var(--border);cursor:pointer;user-select:none}
+  .filter.on{background:#143d3d;color:var(--accent);border-color:var(--accent)}
+  .diff-line{font-family:var(--mono);font-size:.78rem;padding:.1rem .4rem;border-left:3px solid var(--border)}
+  .diff-line.added{border-color:var(--added);background:rgba(122,209,122,0.04);color:var(--added)}
+  .diff-line.removed{border-color:var(--removed);background:rgba(255,118,118,0.04);color:var(--removed)}
+  .diff-line.changed{border-color:var(--changed);background:rgba(230,192,98,0.04);color:var(--changed)}
+  .lifecycle-stages{display:grid;grid-template-columns:repeat(11,1fr);gap:.15rem;margin-top:.4rem}
+  .stage{padding:.35rem .2rem;border:1px solid var(--border);border-radius:3px;background:var(--panel);text-align:center;font-size:.65rem}
+  .stage .count{font-size:.95rem;font-weight:600;display:block;color:var(--accent);font-variant-numeric:tabular-nums}
+  .stage .lbl{color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  @media (max-width: 920px) { .lifecycle-stages{grid-template-columns:repeat(4,1fr)} }
+  .footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--muted);font-size:.78rem}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  code{color:var(--accent)}
+  .toast{position:fixed;bottom:1rem;right:1rem;background:var(--panel);border:1px solid var(--accent);color:var(--fg);padding:.5rem .9rem;border-radius:4px;font-size:.78rem;opacity:0;transition:opacity .2s ease;pointer-events:none}
+  .toast.show{opacity:1}
+  .checkbox-row{display:flex;align-items:center;gap:.3rem;font-size:.75rem;color:var(--muted);margin-left:auto}
+</style>
+</head>
+<body>
+
+<h1>D-07 — memory changes</h1>
+<div class="sub">8 memory types · 11-stage admission lifecycle · graph diff · promote/forget/pin (signed) — <span class="kbd">Cmd-8</span> · <a href="../master-dashboard/">D-00 main</a></div>
+
+<h2>memory types (M028 E0260 + E0265)</h2>
+<div class="grid-4">
+  <div class="stat"><div class="k">Working</div><div class="v" id="t-working">0</div><div class="u">items · KV-bounded</div></div>
+  <div class="stat"><div class="k">Episodic</div><div class="v" id="t-episodic">0</div><div class="u">episodes</div></div>
+  <div class="stat"><div class="k">Semantic</div><div class="v" id="t-semantic">0</div><div class="u">facts</div></div>
+  <div class="stat"><div class="k">Procedural</div><div class="v" id="t-procedural">0</div><div class="u">skills</div></div>
+  <div class="stat"><div class="k">Temporal-Graph</div><div class="v" id="t-temporal">0</div><div class="u">nodes / edges</div></div>
+  <div class="stat"><div class="k">Value</div><div class="v" id="t-value">0</div><div class="u">value-tagged items</div></div>
+  <div class="stat"><div class="k">KV</div><div class="v" id="t-kv">0</div><div class="u">cache entries</div></div>
+  <div class="stat"><div class="k">Reward</div><div class="v" id="t-reward">0</div><div class="u">experience base</div></div>
+</div>
+
+<h2>11-stage admission lifecycle (M028 E0264)</h2>
+<div class="lifecycle-stages" id="lifecycle">
+  <!-- populated by JS -->
+</div>
+
+<h2>7 trust dimension filters (M060 R10095 + MS039)</h2>
+<div class="panel">
+  <div class="filters" id="trust-filters" aria-label="memory trust dimensions">
+    <div class="filter on" data-dim="freshness">freshness</div>
+    <div class="filter on" data-dim="trust">trust</div>
+    <div class="filter on" data-dim="value">value</div>
+    <div class="filter on" data-dim="permission">permission</div>
+    <div class="filter on" data-dim="user-scope">user-scope</div>
+    <div class="filter on" data-dim="topic">topic</div>
+    <div class="filter on" data-dim="failure-relevance">failure-relevance</div>
+    <div class="checkbox-row"><span>profile shape</span>: <span class="pill accent" id="profile-shape">private</span></div>
+  </div>
+  <div class="muted" style="font-size:.75rem;margin-top:.4rem">private = local-only, no external augmentation · careful = +temporal validation +graph expansion · fast = shallow, high-confidence only (E0267 R04746-R04748)</div>
+</div>
+
+<h2>recent memory graph diff (latest 24h)</h2>
+<div class="panel">
+  <div style="display:flex;gap:.4rem;margin-bottom:.5rem;align-items:center;font-size:.78rem">
+    <span class="pill added">+ added</span>
+    <span class="pill removed">– removed</span>
+    <span class="pill changed">~ changed</span>
+    <span class="muted" style="margin-left:auto">scope: <code id="diff-scope">all-types</code> · base: <code id="diff-base">memos.v1147</code> → head: <code id="diff-head">memos.v1183</code></span>
+  </div>
+  <div id="diff-stream" style="display:flex;flex-direction:column;gap:.15rem;max-height:260px;overflow-y:auto"></div>
+</div>
+
+<h2>changes pending operator approval</h2>
+<table>
+  <thead>
+    <tr>
+      <th>change_id</th>
+      <th>type</th>
+      <th>memory type</th>
+      <th>scope</th>
+      <th>trust delta</th>
+      <th>requester</th>
+      <th>actions</th>
+    </tr>
+  </thead>
+  <tbody id="pending-changes"></tbody>
+</table>
+
+<h2>actions <span class="muted" style="font-size:.75rem;font-weight:400">— web emits CLI only; daemon executes after MS003 signature (MS043 R10212)</span></h2>
+<div class="row">
+  <button onclick="emit('sovereignctl memory diff --base ' + diffBase + ' --head ' + diffHead)">copy: diff snapshot</button>
+  <button onclick="emit('sovereignctl memory promote --memory-id <id>')">copy: promote</button>
+  <button onclick="emit('sovereignctl memory pin --memory-id <id> --ttl 24h')">copy: pin (24h)</button>
+  <button class="danger" onclick="emit('sovereignctl memory forget --memory-id <id> --confirm')">copy: forget (destructive, R10184)</button>
+  <button onclick="emit('sovereignctl memory snapshot --tag pre-edit')">copy: snapshot before edit</button>
+  <button onclick="emit('sovereignctl memory undo --change-id <id>')">copy: undo (R10185)</button>
+</div>
+
+<div class="footer">
+  D-07 · <a href="../d-00-master/">D-00 main</a> · <a href="../d-08-rollback-points/">D-08 rollback</a> · <a href="../d-09-hardware-pressure/">D-09 hardware</a><br>
+  source: M028 8 memory types + 11-stage lifecycle · M060 R10093-R10096 D-07 spec · MS039 7 trust dimensions · MS043 R10212 web-never-mutates
+</div>
+
+<div class="toast" id="toast">copied</div>
+
+<script>
+  // -------- mock seed data (publisher API at /api/d-07/snapshot when wired) -----
+  // No mutations from this surface — see MS043 R10212.
+  const seed = {
+    counts: { working: 23, episodic: 412, semantic: 6841, procedural: 87, temporal: 1209, value: 358, kv: 1280, reward: 942 },
+    profile: "private",
+    lifecycle: [
+      ["observe", 7], ["classify", 4], ["quarantine", 2], ["link", 11], ["score", 8],
+      ["store-raw", 14], ["extract", 9], ["verify", 6], ["promote", 3], ["decay", 21], ["archive", 5]
+    ],
+    diffBase: "memos.v1147",
+    diffHead: "memos.v1183",
+    diffs: [
+      { op: "added", text: "+ semantic 'NVFP4 uses 1x16 block + E4M3 scale + RHT + stochastic rounding' (trust=0.88, value=high)" },
+      { op: "added", text: "+ semantic 'Hölder mean with dynamic-p anneals 1→8 over training' (trust=0.91)" },
+      { op: "changed", text: "~ episodic 'A100 vs H100 perf comparison' refined with concrete benchmarks (trust 0.62→0.84)" },
+      { op: "removed", text: "- procedural 'old curl-based push workflow' (replaced by gh MCP)" },
+      { op: "added", text: "+ temporal-edge 'M077 NVFP4 → M075 SRP Logic Engine' (latency-shaped binding)" },
+      { op: "changed", text: "~ kv-entry 'oracle/blackwell warm-cache' window extended 256→512 tokens" },
+      { op: "added", text: "+ procedural 'MS043 R10212 web→CLI clipboard pattern' (codified)" },
+      { op: "removed", text: "- value 'speculation: maybe move to vLLM' (no evidence)" },
+      { op: "changed", text: "~ semantic 'MS039 L0..L6 authority levels' edge-count 4→7 (richer graph)" },
+      { op: "added", text: "+ reward 'successful D-03 dashboard ship → +1 procedural skill credit'" }
+    ],
+    pending: [
+      { id: "mc-2026-0517-001", op: "promote", mtype: "semantic", scope: "NVFP4 quant taxonomy", delta: "+0.12 trust", requester: "operator-fp" },
+      { id: "mc-2026-0517-002", op: "pin", mtype: "procedural", scope: "two-solutions doctrine commit", delta: "TTL 24h", requester: "operator-fp" },
+      { id: "mc-2026-0518-003", op: "forget", mtype: "episodic", scope: "stale handoff anchor 002", delta: "−full", requester: "operator-fp" }
+    ]
+  };
+
+  let diffBase = seed.diffBase, diffHead = seed.diffHead;
+  document.getElementById('diff-base').textContent = diffBase;
+  document.getElementById('diff-head').textContent = diffHead;
+  document.getElementById('profile-shape').textContent = seed.profile;
+  for (const [k,v] of Object.entries(seed.counts)) {
+    const el = document.getElementById('t-' + (k === 'temporal' ? 'temporal' : k));
+    if (el) el.textContent = v.toLocaleString();
+  }
+
+  // 11-stage lifecycle
+  const lc = document.getElementById('lifecycle');
+  for (const [label, count] of seed.lifecycle) {
+    const s = document.createElement('div');
+    s.className = 'stage';
+    s.innerHTML = `<span class="count">${count}</span><span class="lbl">${label}</span>`;
+    lc.appendChild(s);
+  }
+
+  // diff stream
+  const ds = document.getElementById('diff-stream');
+  for (const d of seed.diffs) {
+    const line = document.createElement('div');
+    line.className = 'diff-line ' + d.op;
+    line.textContent = d.text;
+    ds.appendChild(line);
+  }
+
+  // pending changes
+  const pc = document.getElementById('pending-changes');
+  for (const p of seed.pending) {
+    const tr = document.createElement('tr');
+    const opClass = p.op === 'forget' ? 'bad' : (p.op === 'promote' ? 'ok' : 'warn');
+    tr.innerHTML = `
+      <td><code>${p.id}</code></td>
+      <td><span class="pill ${opClass}">${p.op}</span></td>
+      <td>${p.mtype}</td>
+      <td>${p.scope}</td>
+      <td class="num">${p.delta}</td>
+      <td class="muted">${p.requester}</td>
+      <td>
+        <button onclick="emit('sovereignctl memory approve --change-id ${p.id}')">approve</button>
+        <button class="danger" onclick="emit('sovereignctl memory reject --change-id ${p.id}')">reject</button>
+      </td>
+    `;
+    pc.appendChild(tr);
+  }
+
+  // trust dim filters — toggle on/off, emit grep-style filter command on combine
+  const filters = document.getElementById('trust-filters');
+  filters.querySelectorAll('.filter').forEach(f => {
+    f.addEventListener('click', () => {
+      f.classList.toggle('on');
+      const active = [...filters.querySelectorAll('.filter.on')].map(x => x.dataset.dim);
+      // optional: emit a query-build hint
+      const dims = active.join(',') || 'none';
+      f.title = 'active trust dims: ' + dims;
+    });
+  });
+
+  // copy-to-clipboard helper (web NEVER mutates; emits CLI string only)
+  function emit(cmd) {
+    navigator.clipboard.writeText(cmd).then(() => showToast('copied: ' + cmd.slice(0, 48) + (cmd.length > 48 ? '…' : '')));
+  }
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(showToast._h);
+    showToast._h = setTimeout(() => t.classList.remove('show'), 1800);
+  }
+
+  // Cmd-8 / Ctrl-8 keyboard shortcut per R10096
+  window.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key === '8') {
+      e.preventDefault();
+      window.location.href = './';
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key === '0') {
+      e.preventDefault();
+      window.location.href = '../master-dashboard/';
+    }
+  });
+
+  // SSE auto-refresh w/ 5s polling fallback (snapshot-only; no mutations)
+  let es;
+  function startSSE() {
+    try {
+      es = new EventSource('/api/d-07/stream');
+      es.addEventListener('snapshot', ev => {
+        try { applySnapshot(JSON.parse(ev.data)); } catch {}
+      });
+      es.onerror = () => { try { es.close(); } catch {} ; setTimeout(poll, 5000); };
+    } catch { setTimeout(poll, 5000); }
+  }
+  function poll() {
+    fetch('/api/d-07/snapshot').then(r => r.json()).then(applySnapshot).catch(() => {});
+    setTimeout(poll, 5000);
+  }
+  function applySnapshot(s) {
+    if (!s) return;
+    // wire when daemon ships D-07 publisher endpoint
+  }
+  // startSSE();  // disabled until publisher exists; seed data renders alone
+</script>
+
+</body>
+</html>

@@ -76,6 +76,7 @@ Per operator: *"little piece by little piece and progress in this massive endles
 | D-01 active sessions | ✓ shipped | `webapp/d-01-active-sessions/index.html` |
 | D-02 profile choices | ✓ shipped | `webapp/d-02-profile-choices/index.html` |
 | D-03 model health | ✓ shipped | `webapp/d-03-model-health/index.html` |
+| D-07 memory changes | ✓ shipped | `webapp/d-07-memory-changes/index.html` |
 | D-04 costs | ✓ shipped | `webapp/d-04-costs/index.html` |
 | D-05 traces | ✓ shipped | `webapp/d-05-traces/index.html` |
 | D-06 pending approvals | ✓ shipped | `webapp/d-06-pending-approvals/index.html` |
@@ -107,10 +108,9 @@ Per operator: *"little piece by little piece and progress in this massive endles
 
 Per SDD-040 Phase A → E ordering + selfdef Guardian/UX-harness implementations.
 
-### Immediate next pieces (Phase B + Phase C interleave)
+### Immediate next pieces (Phase C continuation)
 
-1. **D-07 memory changes dashboard** — memory graph diff + promote/forget/pin (path: `webapp/d-07-memory-changes/index.html`)
-2. **D-08 rollback points dashboard** — ZFS snapshot list (M068) (path: `webapp/d-08-rollback-points/index.html`)
+1. **D-08 rollback points dashboard** — ZFS snapshot list (M068) (path: `webapp/d-08-rollback-points/index.html`)
 
 ### Phase D (selfdef-mirror dashboards via MS007)
 
