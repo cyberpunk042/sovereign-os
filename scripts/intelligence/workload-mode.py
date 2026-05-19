@@ -199,6 +199,27 @@ AFFECTED_ADVISORS: list[dict[str, Any]] = [
                             "SDD-035 contract generalized cleanly.",
     },
     {
+        "advisor": "R555 workload-knobs (R551-R554 umbrella)",
+        "script": "scripts/intelligence/workload-knobs.py",
+        "verb": "sovereign-osctl workload-knobs show",
+        "consumes_mode_via": ("R338 canonical "
+                                "(/etc/sovereign-os/workload-mode.toml) "
+                                "since R555 itself; reads active_mode "
+                                "via `workload-mode.py status --json` "
+                                "and fans out an atomic bundle of "
+                                "R551 nvidia-mps / R552 hugepages-sizer "
+                                "/ R553 thp-mode / R554 irq-affinity "
+                                "verbs per per-mode preset"),
+        "future_adoption": False,
+        "adopted_in_round": "R555",
+        "operator_caveat": "First R338 adopter that consumes ALL FOUR "
+                            "of the inference-latency-hygiene primitives "
+                            "(R551-R554) as one atomic per-mode bundle. "
+                            "Closes the §1g 'hotswap mode for CPU/GPU "
+                            "mode dedicated to AI inference Mode' "
+                            "directive into one operator-callable verb.",
+    },
+    {
         "advisor": "R307 cpu-hotswap",
         "script": "scripts/hardware/cpu-hotswap.py",
         "verb": "sovereign-osctl cpu-hotswap status",

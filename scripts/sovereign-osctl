@@ -6256,6 +6256,16 @@ case "${cmd}" in
     shift || true
     "${__REPO_ROOT}/scripts/hardware/irq-affinity.py" "${sub}" "$@"
     ;;
+  workload-knobs)
+    # R555 (E11.M18): atomic orchestrator of the R551-R554
+    # inference-latency primitives (MPS / hugepages / THP / IRQ).
+    # Reads R338 active workload mode, maps it to a bundle preset,
+    # and fans out to each underlying controller in one verb so the
+    # operator never has to remember four commands per mode switch.
+    sub="${1:-show}"
+    shift || true
+    "${__REPO_ROOT}/scripts/intelligence/workload-knobs.py" "${sub}" "$@"
+    ;;
   memory-profile)
     # R257 (SDD-026 Z-17 follow-up): per-DIMM XMP/EXPO verdict.
     # Operator-named "XMP profile and OC profile and room for each".
