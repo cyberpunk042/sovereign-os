@@ -308,6 +308,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-lora-foundry"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-memory-os"
 version = "0.1.0"
 dependencies = [

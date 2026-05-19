@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-lora-foundry"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M046 LoRA Foundry — 8 candidate adapters per M00774 + dump 13966-13976 + 7-step pipeline + 6-action runtime-decision matrix per E0442. Doctrine: 'Fine-tuning changes weights. Runtime adaptation changes behavior. Runtime adaptation comes first.' (E0438 verbatim) + 'station becomes adapter foundry'."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
