@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-replay-playback-rate"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit replay playback rate — discrete operator-selectable rates (0.25x / 0.5x / 1x / 2x / 4x / 8x). The replay cursor advances at the multiplied wall-time intervals between turns. Pure UX; replay correctness owned by selfdef-replay-source-authority."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []

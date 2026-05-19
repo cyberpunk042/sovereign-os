@@ -858,6 +858,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-replay-playback-rate"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-router-7axis"
 version = "0.1.0"
 dependencies = [
