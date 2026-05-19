@@ -494,6 +494,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-mode-transition-log"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-execution-mode-registry",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-module-catalog"
 version = "0.1.0"
 dependencies = [
