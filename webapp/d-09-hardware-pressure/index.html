@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os D-09 hardware pressure</title>
+<meta name="x-sovereign-module" content="d-09-hardware-pressure-webapp">
+<meta name="x-sovereign-shipped-in" content="R-impl-SDD040-phaseB-item6">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<meta name="x-sovereign-catalog-source" content="M060 R10102-R10105 + M045 Linux PSI + M058 hardware-aware scheduler backpressure + M070 Dual-CCD topology + M068 ZFS IOPS">
+<style>
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:stretch}
+  .stat{flex:1 1 200px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem;min-width:0}
+  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .stat .v{font-size:1.4rem;font-weight:600;margin-top:.2rem;font-variant-numeric:tabular-nums}
+  .stat .u{color:var(--muted);font-size:.78rem}
+  .gauge{position:relative;background:#0a0a0a;border:1px solid var(--border);border-radius:3px;height:18px;overflow:hidden;margin-top:.4rem}
+  .gauge .fill{position:absolute;top:0;left:0;bottom:0;background:var(--good);transition:width .25s ease,background-color .25s ease}
+  .gauge .fill.warn{background:var(--warn)}
+  .gauge .fill.bad{background:var(--bad)}
+  .gauge .label{position:absolute;top:50%;left:.5rem;transform:translateY(-50%);font-size:.7rem;color:var(--fg);text-shadow:0 0 2px var(--bg);font-variant-numeric:tabular-nums}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem}
+  @media (max-width: 720px) { .grid-2,.grid-3{grid-template-columns:1fr} }
+  .ccd-cell{padding:.5rem .7rem;background:#0a0a0a;border:1px solid var(--border);border-radius:3px}
+  .ccd-cell.active{border-color:var(--accent)}
+  .ccd-cell h4{margin:0 0 .2rem 0;font-size:.82rem;color:var(--accent)}
+  .ccd-cell .core-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:2px;margin-top:.3rem}
+  .core{background:var(--border);height:14px;border-radius:1px;position:relative}
+  .core .util{position:absolute;left:0;bottom:0;right:0;background:var(--good);border-radius:1px}
+  .core .util.warn{background:var(--warn)} .core .util.bad{background:var(--bad)}
+  .backpressure-rule{padding:.3rem .55rem;background:#0a0a0a;border:1px solid var(--border);border-radius:3px;margin:.25rem 0;font-size:.78rem;display:flex;justify-content:space-between;gap:.6rem}
+  .backpressure-rule.active{border-color:var(--warn);background:#1f1a0f}
+  .backpressure-rule .src{color:var(--muted)}
+  .backpressure-rule .action{color:var(--accent)}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border)}
+  .pill.ok{background:#143d14;color:var(--good)}
+  .pill.bad{background:#3d1414;color:var(--bad)}
+  .pill.warn{background:#3d2f14;color:var(--warn)}
+  .kbd{display:inline-block;padding:1px 5px;border-radius:3px;font-size:.7rem;background:var(--border);color:var(--muted);border:1px solid var(--border)}
+  .footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--muted);font-size:.78rem}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  button{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.4rem .8rem;font-family:inherit;font-size:.85rem;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1>D-09 — hardware pressure</h1>
+<div class="sub">Linux PSI + NVIDIA DCGM + ZFS IOPS + Dual-CCD utilization — <span class="kbd">Cmd-0</span> · <a href="../master-dashboard/">D-00 main</a></div>
+
+<h2>Linux PSI (M045 cgroup v2)</h2>
+<div class="panel">
+  <div class="grid-3">
+    <div>
+      <div class="stat">
+        <div class="k">CPU pressure (some, 10s avg)</div>
+        <div class="v" id="psi-cpu-some">—<span class="u"> %</span></div>
+        <div class="gauge"><div class="fill" id="psi-cpu-some-fill" style="width:0%"></div></div>
+      </div>
+    </div>
+    <div>
+      <div class="stat">
+        <div class="k">memory pressure (some, 10s avg)</div>
+        <div class="v" id="psi-mem-some">—<span class="u"> %</span></div>
+        <div class="gauge"><div class="fill" id="psi-mem-some-fill" style="width:0%"></div></div>
+      </div>
+    </div>
+    <div>
+      <div class="stat">
+        <div class="k">io pressure (some, 10s avg)</div>
+        <div class="v" id="psi-io-some">—<span class="u"> %</span></div>
+        <div class="gauge"><div class="fill" id="psi-io-some-fill" style="width:0%"></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="muted" style="font-size:.78rem;margin-top:.4rem">PSI source: <code>/proc/pressure/{cpu,memory,io}</code> per M045 R-rows. Surfaced via M049 trace pipeline per M058 backpressure-rule feedback (R09823).</div>
+</div>
+
+<h2>Dual-CCD utilization (M070 Ryzen 9 9900X)</h2>
+<div class="panel">
+  <div class="grid-2">
+    <div class="ccd-cell" id="ccd-0">
+      <h4>CCD 0 — Pulse Core (cores 0-5 / threads 0-11)</h4>
+      <div class="muted" style="font-size:.72rem">SRP: AVX-512 vector + bitnet.cpp + Wasm AOT · M075 Conductor</div>
+      <div class="core-grid" id="ccd-0-cores">
+        <div class="core" data-core="0"><div class="util" style="height:0%"></div></div>
+        <div class="core" data-core="1"><div class="util" style="height:0%"></div></div>
+        <div class="core" data-core="2"><div class="util" style="height:0%"></div></div>
+        <div class="core" data-core="3"><div class="util" style="height:0%"></div></div>
+        <div class="core" data-core="4"><div class="util" style="height:0%"></div></div>
+        <div class="core" data-core="5"><div class="util" style="height:0%"></div></div>
+      </div>
+      <div class="muted" style="font-size:.72rem;margin-top:.3rem">L3 cache miss rate: <span id="ccd-0-l3miss">—</span></div>
+    </div>
+    <div class="ccd-cell" id="ccd-1">
+      <h4>CCD 1 — Weaver+Auditor (cores 6-9) + Host (cores 10-11)</h4>
+      <div class="muted" style="font-size:.72rem">SRP: gRPC streams + state engine + Marvell 10GbE drivers · M075 Logic/Oracle scheduling</div>
+      <div class="core-grid" id="ccd-1-cores">
+        <div class="core" data-core="6"><div class="util" style="height:0%"></div></div>
+        <div class="core" data-core="7"><div class="util" style="height:0%"></div></div>
+        <div class="core" data-core="8"><div class="util" style="height:0%"></div></div>
+        <div class="core" data-core="9"><div class="util" style="height:0%"></div></div>
+        <div class="core" data-core="10"><div class="util" style="height:0%"></div></div>
+        <div class="core" data-core="11"><div class="util" style="height:0%"></div></div>
+      </div>
+      <div class="muted" style="font-size:.72rem;margin-top:.3rem">L3 cache miss rate: <span id="ccd-1-l3miss">—</span> · Infinity Fabric latency: <span id="if-lat">—</span></div>
+    </div>
+  </div>
+  <div class="muted" style="font-size:.78rem;margin-top:.4rem">M070 R11633-R11637 — SRP topology mapper detects cross-CCD pipe violations (Conductor on CCD 1 OR Weaver+Auditor on CCD 0) and emits OCSF Detection 2004.</div>
+</div>
+
+<h2>GPU pressure (NVIDIA DCGM)</h2>
+<div class="panel">
+  <div class="grid-2">
+    <div>
+      <div class="stat">
+        <div class="k">RTX PRO 6000 Blackwell — Oracle (96GB GDDR7 FP4)</div>
+        <div class="v" id="gpu-0-util">—<span class="u"> % util</span></div>
+        <div class="gauge"><div class="fill" id="gpu-0-util-fill" style="width:0%"><span class="label" id="gpu-0-util-label">—</span></div></div>
+        <div class="muted" style="font-size:.72rem;margin-top:.3rem">
+          VRAM <span id="gpu-0-vram">—</span> / 96 GB ·
+          temp <span id="gpu-0-temp">—</span>°C ·
+          power <span id="gpu-0-pow">—</span>W ·
+          KV cache <span id="gpu-0-kv">—</span>%
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="stat">
+        <div class="k">RTX 3090 — Scout (24GB GDDR6X, VFIO)</div>
+        <div class="v" id="gpu-1-util">—<span class="u"> % util</span></div>
+        <div class="gauge"><div class="fill" id="gpu-1-util-fill" style="width:0%"><span class="label" id="gpu-1-util-label">—</span></div></div>
+        <div class="muted" style="font-size:.72rem;margin-top:.3rem">
+          VRAM <span id="gpu-1-vram">—</span> / 24 GB ·
+          temp <span id="gpu-1-temp">—</span>°C ·
+          power <span id="gpu-1-pow">—</span>W ·
+          sandbox <span id="gpu-1-sandbox">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="muted" style="font-size:.78rem;margin-top:.4rem">DCGM source: <code>dcgmi dmon</code> per M058 R09824. Persistence Mode required (M076 R12593 nvidia-smi -pm 1).</div>
+</div>
+
+<h2>ZFS / NVMe IOPS (M068)</h2>
+<div class="panel">
+  <div class="grid-3">
+    <div>
+      <div class="stat">
+        <div class="k">zpool tank IOPS</div>
+        <div class="v" id="zpool-iops">—<span class="u"> /s</span></div>
+      </div>
+    </div>
+    <div>
+      <div class="stat">
+        <div class="k">read latency p95</div>
+        <div class="v" id="zpool-rlat">—<span class="u"> μs</span></div>
+      </div>
+    </div>
+    <div>
+      <div class="stat">
+        <div class="k">write latency p95</div>
+        <div class="v" id="zpool-wlat">—<span class="u"> μs</span></div>
+      </div>
+    </div>
+  </div>
+  <table style="margin-top:.5rem">
+    <thead><tr><th>dataset</th><th>used</th><th>compressratio</th><th>recordsize</th><th>sync</th></tr></thead>
+    <tbody id="zfs-tbody"><tr><td colspan="5" class="muted">loading…</td></tr></tbody>
+  </table>
+</div>
+
+<h2>active backpressure rules (M058)</h2>
+<div class="panel" id="backpressure-panel">
+  <div class="backpressure-rule" data-rule="blackwell-vram">
+    <span><span class="src">Blackwell VRAM &gt; 90%</span> → <span class="action">reduce context + evict low-value KV + switch smaller oracle</span></span>
+    <span class="pill" id="rule-blackwell-vram">idle</span>
+  </div>
+  <div class="backpressure-rule" data-rule="3090-busy">
+    <span><span class="src">3090 busy (util &gt; 85%)</span> → <span class="action">reduce branch width + use CPU classifiers</span></span>
+    <span class="pill" id="rule-3090-busy">idle</span>
+  </div>
+  <div class="backpressure-rule" data-rule="cpu-pressure">
+    <span><span class="src">CPU PSI &gt; 30%</span> → <span class="action">defer background indexing + evals</span></span>
+    <span class="pill" id="rule-cpu-pressure">idle</span>
+  </div>
+  <div class="backpressure-rule" data-rule="ram-pressure">
+    <span><span class="src">RAM PSI &gt; 20%</span> → <span class="action">hibernate branches + compact memory</span></span>
+    <span class="pill" id="rule-ram-pressure">idle</span>
+  </div>
+  <div class="backpressure-rule" data-rule="io-pressure">
+    <span><span class="src">IO PSI &gt; 25%</span> → <span class="action">delay cold scans + avoid large snapshots</span></span>
+    <span class="pill" id="rule-io-pressure">idle</span>
+  </div>
+  <div class="backpressure-rule" data-rule="human-gate">
+    <span><span class="src">human gate queue depth &gt; 5</span> → <span class="action">batch approvals + lower autonomy</span></span>
+    <span class="pill" id="rule-human-gate">idle</span>
+  </div>
+</div>
+
+<h2>actions</h2>
+<div class="panel">
+  <div class="row">
+    <button id="refresh-btn">refresh</button>
+    <button id="scrub-btn">zpool scrub (operator-signed)</button>
+    <button id="dcgm-export-btn">copy DCGM export cmd</button>
+  </div>
+</div>
+
+<div class="footer">
+  D-09 hardware pressure · M060 R10102-R10105 · M045 Linux PSI · M058 hardware-aware scheduler backpressure (R09823-R09825) · M068 ZFS IOPS · M070 Dual-CCD topology · M072 Bootstrap Check 03 ARC bound
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+function pct(v) { return Math.max(0, Math.min(100, Number(v) || 0)).toFixed(1); }
+function fillClass(p) { p = Number(p); if (p >= 80) return 'bad'; if (p >= 50) return 'warn'; return ''; }
+function fmtBytes(b) {
+  if (!b && b !== 0) return '—';
+  const u = ['B','K','M','G','T']; let i = 0;
+  while (b >= 1024 && i < u.length-1) { b /= 1024; i++; }
+  return `${b.toFixed(b < 10 ? 1 : 0)} ${u[i]}`;
+}
+function setGauge(idFill, idLabel, p) {
+  const f = $(idFill);
+  f.style.width = pct(p) + '%';
+  f.className = 'fill ' + fillClass(p);
+  if (idLabel) $(idLabel).textContent = pct(p) + '%';
+}
+function setCore(ccd, coreIdx, util) {
+  const cell = document.querySelector(`#ccd-${ccd}-cores .core[data-core="${coreIdx}"] .util`);
+  if (!cell) return;
+  cell.style.height = pct(util) + '%';
+  cell.className = 'util ' + fillClass(util);
+}
+function setRule(id, state) {
+  const pill = $(`rule-${id}`);
+  const row = document.querySelector(`.backpressure-rule[data-rule="${id}"]`);
+  pill.textContent = state;
+  pill.className = 'pill ' + (state === 'active' ? 'warn' : state === 'tripped' ? 'bad' : 'muted');
+  if (row) row.classList.toggle('active', state !== 'idle');
+}
+
+async function fetchPressure() {
+  try {
+    const res = await fetch('/api/hardware/pressure', {credentials:'same-origin'});
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (e) {
+    return {psi:{}, ccd:{0:{cores:{},l3_miss:null},1:{cores:{},l3_miss:null,infinity_fabric_ns:null}}, gpu:{}, zfs:{datasets:[]}, backpressure:{}, error:e.message};
+  }
+}
+
+async function refresh() {
+  const s = await fetchPressure();
+  // PSI
+  const psi = s.psi || {};
+  $('psi-cpu-some').firstChild.textContent = psi.cpu?.some_10s ?? '—';
+  setGauge('psi-cpu-some-fill', null, psi.cpu?.some_10s);
+  $('psi-mem-some').firstChild.textContent = psi.memory?.some_10s ?? '—';
+  setGauge('psi-mem-some-fill', null, psi.memory?.some_10s);
+  $('psi-io-some').firstChild.textContent = psi.io?.some_10s ?? '—';
+  setGauge('psi-io-some-fill', null, psi.io?.some_10s);
+  // CCD
+  const ccd = s.ccd || {};
+  for (let c = 0; c <= 5; c++) setCore(0, c, ccd[0]?.cores?.[c] ?? 0);
+  for (let c = 6; c <= 11; c++) setCore(1, c, ccd[1]?.cores?.[c] ?? 0);
+  $('ccd-0-l3miss').textContent = ccd[0]?.l3_miss != null ? `${ccd[0].l3_miss.toFixed(2)}%` : '—';
+  $('ccd-1-l3miss').textContent = ccd[1]?.l3_miss != null ? `${ccd[1].l3_miss.toFixed(2)}%` : '—';
+  $('if-lat').textContent = ccd[1]?.infinity_fabric_ns != null ? `${ccd[1].infinity_fabric_ns}ns` : '—';
+  // GPU
+  const gpu = s.gpu || {};
+  const g0 = gpu['0'] || gpu.blackwell || {};
+  $('gpu-0-util').firstChild.textContent = g0.util_pct ?? '—';
+  setGauge('gpu-0-util-fill', 'gpu-0-util-label', g0.util_pct);
+  $('gpu-0-vram').textContent = g0.vram_used_gb != null ? g0.vram_used_gb.toFixed(1) : '—';
+  $('gpu-0-temp').textContent = g0.temp_c ?? '—';
+  $('gpu-0-pow').textContent = g0.power_w ?? '—';
+  $('gpu-0-kv').textContent = g0.kv_cache_pct ?? '—';
+  const g1 = gpu['1'] || gpu.rtx3090 || {};
+  $('gpu-1-util').firstChild.textContent = g1.util_pct ?? '—';
+  setGauge('gpu-1-util-fill', 'gpu-1-util-label', g1.util_pct);
+  $('gpu-1-vram').textContent = g1.vram_used_gb != null ? g1.vram_used_gb.toFixed(1) : '—';
+  $('gpu-1-temp').textContent = g1.temp_c ?? '—';
+  $('gpu-1-pow').textContent = g1.power_w ?? '—';
+  $('gpu-1-sandbox').textContent = g1.sandbox_status || '—';
+  // ZFS
+  const z = s.zfs || {};
+  $('zpool-iops').firstChild.textContent = z.iops ?? '—';
+  $('zpool-rlat').firstChild.textContent = z.read_lat_us ?? '—';
+  $('zpool-wlat').firstChild.textContent = z.write_lat_us ?? '—';
+  const tbody = $('zfs-tbody');
+  if (z.datasets?.length) {
+    tbody.innerHTML = z.datasets.map(d => `
+      <tr>
+        <td><code>${d.name}</code></td>
+        <td>${fmtBytes(d.used_bytes)}</td>
+        <td>${d.compressratio?.toFixed?.(2) ?? d.compressratio ?? '—'}x</td>
+        <td>${d.recordsize ?? '—'}</td>
+        <td>${d.sync === 'always' ? '<span class="ok">always</span>' : d.sync ?? '—'}</td>
+      </tr>`).join('');
+  } else {
+    tbody.innerHTML = '<tr><td colspan="5" class="muted">no datasets — load via /api/hardware/zfs/datasets</td></tr>';
+  }
+  // Backpressure rules
+  const bp = s.backpressure || {};
+  ['blackwell-vram','3090-busy','cpu-pressure','ram-pressure','io-pressure','human-gate'].forEach(r => setRule(r, bp[r] || 'idle'));
+}
+
+$('refresh-btn').addEventListener('click', refresh);
+$('scrub-btn').addEventListener('click', async () => {
+  const cmd = 'sovereign zfs scrub tank';
+  try { await navigator.clipboard.writeText(cmd); alert(`Command copied:\n\n  ${cmd}\n\nRequires operator MS003 signature. Runs zpool scrub on tank/ — verify integrity end-to-end.`); }
+  catch (e) { prompt('Copy + run:', cmd); }
+});
+$('dcgm-export-btn').addEventListener('click', async () => {
+  const cmd = 'dcgmi dmon -e 203,252,1004,150,155,140 -d 1000 --json';
+  try { await navigator.clipboard.writeText(cmd); alert(`DCGM export cmd copied:\n\n  ${cmd}\n\nFields: 203=GPU temp / 252=GPU util / 1004=fb used / 150=power / 155=power-limit / 140=encoder util`); }
+  catch (e) { prompt('Copy + run:', cmd); }
+});
+
+document.addEventListener('keydown', e => { if ((e.metaKey||e.ctrlKey) && e.key === '0') { e.preventDefault(); refresh(); } });
+
+try {
+  const es = new EventSource('/api/hardware/stream');
+  es.addEventListener('pressure', refresh);
+  es.addEventListener('error', () => setInterval(refresh, 2000));
+} catch (e) { setInterval(refresh, 2000); }
+
+refresh();
+</script>
+
+</body>
+</html>

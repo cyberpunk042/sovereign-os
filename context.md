@@ -75,7 +75,9 @@ Per operator: *"little piece by little piece and progress in this massive endles
 | D-00 master-dashboard | ✓ shipped | `webapp/master-dashboard/index.html` |
 | D-01 active sessions | ✓ shipped | `webapp/d-01-active-sessions/index.html` |
 | D-02 profile choices | ✓ shipped | `webapp/d-02-profile-choices/index.html` |
+| D-05 traces | ✓ shipped | `webapp/d-05-traces/index.html` |
 | D-06 pending approvals | ✓ shipped | `webapp/d-06-pending-approvals/index.html` |
+| D-09 hardware pressure | ✓ shipped | `webapp/d-09-hardware-pressure/index.html` |
 | D-12 networking (partial via network-edge + edge-firewall) | ✓ partial | `webapp/network-edge/`, `webapp/edge-firewall/` |
 | D-14 capability tokens (partial via auth-tier) | ✓ partial | `webapp/auth-tier/` |
 | D-16 audit cycles | ✓ shipped | `webapp/auditor/` |
@@ -101,17 +103,17 @@ Per operator: *"little piece by little piece and progress in this massive endles
 
 Per SDD-040 Phase A → E ordering + selfdef Guardian/UX-harness implementations.
 
-### Immediate next pieces (Phase A continuation)
+### Immediate next pieces (Phase B continuation — Phase A all 3 shipped)
 
-1. **D-01 active sessions dashboard** — M057 12-step lifecycle view per task (path: `webapp/d-01-active-sessions/index.html`)
-2. **D-05 traces dashboard** — M049 13-field span surface (path: `webapp/d-05-traces/index.html`)
-3. **D-09 hardware pressure dashboard** — PSI + DCGM gauges (path: `webapp/d-09-hardware-pressure/index.html`)
+1. **D-04 costs dashboard** — daily budget + per-request + project/profile/model breakdowns (path: `webapp/d-04-costs/index.html`)
+2. **D-10 eval history dashboard** — adapter-promotion candidate surface for M046 LoRA Foundry (path: `webapp/d-10-eval-history/index.html`)
+3. **D-11 adapter status dashboard** — LoRA inventory + promotion gates + rollback (path: `webapp/d-11-adapter-status/index.html`)
+4. **D-03 model health dashboard** — Blackwell + 3090 + CPU + VRAM + KV cache (path: `webapp/d-03-model-health/index.html`)
 
-### Phase B (observability + cost)
+### Phase C (model + memory ops)
 
-4. D-04 costs dashboard — daily budget + per-request + project/profile/model breakdowns
-5. D-10 eval history dashboard — adapter-promotion candidate surface for M046 LoRA Foundry
-6. D-11 adapter status dashboard — LoRA inventory + promotion gates + rollback
+5. D-07 memory changes dashboard — memory graph diff + promote/forget/pin
+6. D-08 rollback points dashboard — ZFS snapshot list (M068)
 
 ### Phase C (model + memory ops)
 
