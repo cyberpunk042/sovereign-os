@@ -677,3 +677,12 @@ Workspace count now 183. Total this resume: 73 cockpit crates.
   0..=100 with min/max/static/active flag)
 
 Workspace count now 185. Total this resume: 75 cockpit crates.
+
+### Twenty-second wave (same day, +2 more cockpit crates)
+
+- `sovereign-cockpit-dnd-target` (receptor registry; companion to
+  drag-drop; Accepted/RejectedKind/Inactive/Unknown)
+- `sovereign-cockpit-cpu-meter` (sample ring + smoothed average +
+  Green/Yellow/Red tier from thresholds)
+
+Workspace count now 187. Total this resume: 77 cockpit crates.
