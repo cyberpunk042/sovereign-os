@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-action-menu"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit hierarchical action menu state. Tree of MenuNode (Item / SubMenu / Separator) with disabled per-item flag; visible() filters out items hidden by per-node visible_if predicate. Pure UX descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
