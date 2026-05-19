@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-quick-filter"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit quick filter — multi-chip filter UI (operator picks tags, types, severities, sources to AND/OR over a result list). Pure UX state with predicate evaluation against simple key-value rows."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
