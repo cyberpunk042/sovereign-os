@@ -149,7 +149,7 @@ Per SDD-040 Phase A → E ordering + selfdef Guardian/UX-harness implementations
 20. ~~M077 NVFP4 runtime crate~~ ✓ shipped 2026-05-19 — `crates/sovereign-nvfp4-runtime/` 5 recipes (NVFP4-S/M/L/XL/XXL) + E2M1 + E4M3 + 1x16 block quantize/dequantize + stochastic rounding unbiased ±2% verified (13 passing tests)
 21. ~~M078 HölderPO runtime crate~~ ✓ shipped 2026-05-19 — `crates/sovereign-holderpo/` Hölder-mean aggregator (p ∈ ℝ with geom/arith/quad/max/min limits verified) + 4 anneal schedules (Constant/Linear/Cosine/Step) + GRPO group-relative advantages with optional std normalisation (17 passing tests)
 22. M079 Intervention-class typed mirror crate
-23. M080 HRM runtime crate — 3 variants (canonical-27M / text-1B / TRM-7M)
+23. ~~M080 HRM runtime crate~~ ✓ shipped 2026-05-19 — `crates/sovereign-hrm-runtime/` 4th architectural class + 3 variants (HrmCanonical 27M / HrmText1B 1.18B / Trm7M) + two-timescale recurrence cadence stepper (outer × inner) + validators (13 passing tests)
 
 ### Stage 2+ build scripts (per M062 PR 10 → Stage Gate 5 → Stage 2)
 
