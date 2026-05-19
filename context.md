@@ -174,8 +174,11 @@ Per SDD-040 Phase A → E ordering + selfdef Guardian/UX-harness implementations
 42. ~~sovereign-continuity-manager~~ ✓ (11 tests) — M048 Module 8 6-primitive + 8-state lifecycle
 43. ~~sovereign-observability-fabric~~ ✓ (11 tests) — M048 Module 9 9-source + 6-question
 44. ~~sovereign-gateway~~ ✓ (12 tests) — M048 Module 4 6-surface + 7-responsibility Anthropic-first
+45. ~~sovereign-zfs-commit-gate~~ ✓ (14 tests) — M040 4-stage snapshot/apply/test/commit-or-rollback
+46. ~~sovereign-doctrinal-preservation~~ ✓ (8 tests) — 16-doctrine verbatim registry composite
+47. ~~sovereign-cgroup-systemd~~ ✓ (11 tests) — M045 8-OS-primitive substrate snapshot
 
-**sovereign-os Rust workspace: 26 crates total**
+**sovereign-os Rust workspace: 29 crates total**
 
 ### Stage 2+ build scripts (per M062 PR 10 → Stage Gate 5 → Stage 2)
 
