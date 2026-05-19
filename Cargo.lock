@@ -406,6 +406,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-skeleton-loader"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-sound-preferences"
 version = "0.1.0"
 dependencies = [

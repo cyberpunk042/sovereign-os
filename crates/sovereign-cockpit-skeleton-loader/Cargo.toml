@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-skeleton-loader"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit skeleton loader catalog — placeholder shapes (rectangles / circles / lines) the cockpit renders while real content loads. Per view-type (conversation / dashboard / replay / table) declares its skeleton layout. Pure UX."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
