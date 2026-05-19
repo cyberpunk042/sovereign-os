@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-status-aggregator"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit aggregate-status state. Collects N subsystem statuses (Ok/Degraded/Down/Unknown) into one global headline status by taking the worst case; reports per-subsystem details and a percentage breakdown. Pure UX descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
