@@ -661,6 +661,18 @@ LOCAL_TOOLS = [
         "categories": ["surface-map", "operator-§1g", "coverage",
                        "matrix"],
     },
+    # ---- R541: surface-map milestone (R540 rollup over MCP). First-
+    # class operator-§1g visibility surface of the R539 historic
+    # ceiling-closure milestone. Read-only by construction (the rollup
+    # is a derived view; agents discover the system-wide §1g ceiling
+    # state in one tool call instead of grepping the coverage matrix).
+    {
+        "name": "surface-map-milestone",
+        "summary": "R540 surface-map milestone rollup — first-class observable of the §1g 8-surface delivery contract closure (R453 anchor). Reports total-modules + at-structural-ceiling count + at-full-8-surfaces list + future-carrying-modules list + the historic R539 anchor (TWELFTH §1g module reaching ceiling) + the verbatim R453 standing rule. Operator-§1g UX: 30-second readable rollup. Read-only (the rollup is a derived view; no mutation routes).",
+        "argv": ["sovereign-osctl", "surface-map", "milestone", "--json"],
+        "categories": ["surface-map", "operator-§1g", "milestone",
+                       "coverage", "ceiling"],
+    },
     # ---- R535: Weaver MCP surface (drains weaver mcp:FUTURE waiver,
     # second commit in the weaver tier-3 surface-expansion arc R534 →
     # R535 → R536). Master spec § 17 Module 2 (Sandboxed Fabric) +

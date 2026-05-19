@@ -276,13 +276,17 @@ def test_live_version_8_surfaces():
         f"R533 /version must carry the R453 standing rule verbatim; "
         f"got {rule!r}"
     )
-    # 6 read-only inspection verbs — all the surface-map.py verbs
+    # Read-only inspection verbs — all the surface-map.py verbs
     # except `watch` (TUI-only, refresh-loop is an MCP/API anti-
-    # pattern).
-    assert set(payload.get("verbs", [])) == {
+    # pattern). R541 added `milestone` (R540 rollup over HTTP).
+    assert set(payload.get("verbs", [])) >= {
         "surfaces", "modules", "coverage",
         "gaps", "waivers", "selfdef",
     }
+    # R541: post-R541 the verb set MUST include milestone too.
+    assert "milestone" in set(payload.get("verbs", [])), (
+        "post-R541 /version verbs must include 'milestone'"
+    )
 
 
 def test_live_surfaces_payload_lists_eight():

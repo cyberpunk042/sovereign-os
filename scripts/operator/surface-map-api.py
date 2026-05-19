@@ -142,7 +142,9 @@ def _version_payload() -> dict:
         "module": "surface-map-api",
         "version": API_VERSION,
         "shipped_in": (
-            "R533 (E5++ read-only REST API + webapp + systemd service)"
+            "R533 (E5++ read-only REST API + webapp + systemd service) "
+            "+ R541 (E5++ /milestone endpoint — R540 first-class "
+            "rollup of the §1g 8-surface delivery contract closure)"
         ),
         "source": "scripts/operator/surface-map-api.py",
         "data_source": str(_CORE_PATH),
@@ -153,7 +155,7 @@ def _version_payload() -> dict:
         ],
         "verbs": [
             "surfaces", "modules", "coverage", "gaps",
-            "waivers", "selfdef",
+            "waivers", "selfdef", "milestone",
         ],
         "spec_ref": "R453",
         "standing_rule": (
@@ -271,6 +273,15 @@ def _selfdef_payload() -> dict:
         "count_valid": len(valid),
         "count_invalid": len(invalid),
     }
+
+
+def _milestone_payload() -> dict:
+    """R541 — surface-map milestone rollup over HTTP.
+
+    Reuses _core.milestone_rollup() so the API/CLI/MCP/TUI surfaces
+    share the same data (no drift). Returns the same dict shape as
+    `surface-map milestone --json`."""
+    return _core.milestone_rollup()
 
 
 def _parse_int(query: str, key: str, default: int,
@@ -391,6 +402,10 @@ class SurfaceMapAPIHandler(BaseHTTPRequestHandler):
                 self._send_json(200, _selfdef_payload())
                 _emit_metric("selfdef", "ok")
                 return
+            if path == "/milestone":
+                self._send_json(200, _milestone_payload())
+                _emit_metric("milestone", "ok")
+                return
         except Exception as e:  # noqa: BLE001
             self._send_json(500, {"error": str(e)})
             _emit_metric(
@@ -405,7 +420,7 @@ class SurfaceMapAPIHandler(BaseHTTPRequestHandler):
             "available": [
                 "/version", "/surfaces", "/modules",
                 "/coverage", "/gaps", "/waivers", "/selfdef",
-                "/webapp/", "/healthz",
+                "/milestone", "/webapp/", "/healthz",
             ],
         })
         _emit_metric(
