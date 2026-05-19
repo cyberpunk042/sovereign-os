@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-card-grid"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit responsive card-grid layout. Given (container_w, min_card_w, max_card_w, gap_px), compute columns + actual_card_w that fits without horizontal scroll. Pure UX math."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
