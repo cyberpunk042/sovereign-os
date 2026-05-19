@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-environment-maps"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M042 MAP doctrine — 'Do not let agents learn the environment only by failing through it. Build a map first.' Seven environment maps (repo/test/tool/risk/memory/GUI-world/dependency) per R07014-R07020 + M00704 + dump 12175-12189. Pre-loaded map data so agents work from knowledge, not blind exploration."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
