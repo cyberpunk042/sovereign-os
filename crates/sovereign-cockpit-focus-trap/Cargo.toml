@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-focus-trap"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit focus-trap state. Tracks ordered focusable elements within an open modal/overlay and the currently-focused index. Tab cycles forward and wraps, Shift+Tab cycles backward and wraps, Escape signals dismissal. Pure UX descriptor (no IPS authority dimension)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
