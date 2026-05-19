@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-value-plane"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M027 Value Plane — 12-axis reward vector + 7-question test + 5-tier Intelligence Dial per E0248-E0257 dump 7731-8121. PRM doctrine: 'PRM proposes value, CPU applies law, Oracle verifies high-stakes commitments' (E0252). Closing rule: 'Intelligence is knowing which thoughts deserve more life' (E0257 dump 8120 verbatim)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
