@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-typography-scale"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit typography scale — per-element type sizes (h1/h2/h3/h4/h5/h6/body/caption) at the operator's chosen scale (Tight / Default / Generous). Pure visual UX with no IPS authority dimension."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
