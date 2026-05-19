@@ -281,8 +281,11 @@ This file is **operator-state-of-the-art**. Updates:
 - `9d1a0c5` — `sovereign-hardware-load-sample`: 5-target VRAM/util/temp snapshot
 - `0a7547f` — `sovereign-hardware-registry`: 5-target hardware catalog with SRP role
 
-Sovereign-os workspace at 97 crates (was 32 pre-session, +65 fresh this session).
-Full workspace test suite: 1126 passing tests. Newest:
+Sovereign-os workspace at 99 crates (was 32 pre-session, +67 fresh this session).
+Full workspace test suite: 1145 passing tests. Newer:
+`sovereign-cockpit-window-position` (multi-monitor placement),
+`sovereign-cockpit-language-pack` (i18n translation table).
+Newest:
 `sovereign-cockpit-detail-panel` (8-kind right-side inspector),
 `sovereign-cockpit-toggle-tray` (6-category feature toggle tray),
 `sovereign-cockpit-quick-filter` (multi-chip facet filter).
