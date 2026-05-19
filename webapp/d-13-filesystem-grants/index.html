@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os D-13 filesystem grants</title>
+<meta name="x-sovereign-module" content="d-13-filesystem-grants-webapp">
+<meta name="x-sovereign-shipped-in" content="R-impl-SDD040-phaseD-item1">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<meta name="x-sovereign-catalog-source" content="M060 R10114-R10115 D-13 filesystem grants + selfdef MS037 filesystem boundary + MS038 network grants + MS035 capability grants + MS007 typed-mirror crate selfdef-grants-mirror (2 of 9)">
+<meta name="x-sovereign-doctrine" content="MS043 R10212 + R10115 web NEVER mutates IPS state — READ-ONLY mirror consumer; grants signed/revoked via selfdefctl + operator MS003 only">
+<meta name="x-sovereign-mirror-source" content="selfdef-grants-mirror @ schema 1.0.0">
+<style>
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  tr:hover{background:rgba(155,209,255,0.03)}
+  .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
+  .num{font-variant-numeric:tabular-nums;text-align:right}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:stretch}
+  .stat{flex:1 1 200px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
+  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .stat .v{font-size:1.4rem;font-weight:600;margin-top:.2rem;font-variant-numeric:tabular-nums}
+  .stat .u{color:var(--muted);font-size:.78rem}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border)}
+  .pill.ok{background:#143d14;color:var(--good)} .pill.bad{background:#3d1414;color:var(--bad)} .pill.warn{background:#3d2f14;color:var(--warn)}
+  .pill.accent{background:#143d3d;color:var(--accent)} .pill.muted{background:#1c1c1c;color:var(--muted)}
+  .kbd{display:inline-block;padding:1px 5px;border-radius:3px;font-size:.7rem;background:var(--border);color:var(--muted);border:1px solid var(--border)}
+  button{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.35rem .8rem;font-family:inherit;font-size:.85rem;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.danger:hover{border-color:var(--bad);color:var(--bad)}
+  .filters{display:flex;gap:.4rem;flex-wrap:wrap;margin:.5rem 0}
+  .filter{padding:.25rem .6rem;border-radius:3px;font-size:.78rem;background:var(--panel);border:1px solid var(--border);cursor:pointer;user-select:none}
+  .filter.on{background:#143d3d;color:var(--accent);border-color:var(--accent)}
+  .badge-mirror{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.7rem;background:#1c1c1c;color:var(--muted);border:1px dashed var(--border)}
+  .ttl-bar{position:relative;background:#0a0a0a;border:1px solid var(--border);border-radius:3px;height:6px;overflow:hidden;min-width:60px}
+  .ttl-bar .fill{position:absolute;top:0;left:0;bottom:0;background:var(--good);transition:width .25s ease}
+  .ttl-bar .fill.warn{background:var(--warn)} .ttl-bar .fill.bad{background:var(--bad)}
+  .footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--muted);font-size:.78rem}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  code{color:var(--accent);background:#0a0a0a;padding:0 3px;border-radius:2px}
+  .toast{position:fixed;bottom:1rem;right:1rem;background:var(--panel);border:1px solid var(--accent);color:var(--fg);padding:.5rem .9rem;border-radius:4px;font-size:.78rem;opacity:0;transition:opacity .2s ease;pointer-events:none}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<h1>D-13 — filesystem grants <span class="badge-mirror" style="font-size:.7rem">read-only via selfdef-grants-mirror</span></h1>
+<div class="sub">selfdef MS037 fanotify grants · MS038 network grants · MS035 capability grants · MS007 typed-mirror (R10115 never mutates) — <a href="../master-dashboard/">D-00 main</a></div>
+
+<h2>kind summary (MS007 mirror snapshot)</h2>
+<div class="row">
+  <div class="stat"><div class="k">filesystem grants</div><div class="v ok" id="k-filesystem">0</div><div class="u" id="ka-filesystem">— active</div></div>
+  <div class="stat"><div class="k">network grants</div><div class="v ok" id="k-network">0</div><div class="u" id="ka-network">— active</div></div>
+  <div class="stat"><div class="k">capability grants</div><div class="v ok" id="k-capability">0</div><div class="u" id="ka-capability">— active</div></div>
+  <div class="stat"><div class="k">communication grants</div><div class="v ok" id="k-communication">0</div><div class="u" id="ka-communication">— active</div></div>
+  <div class="stat"><div class="k">sandbox grants</div><div class="v ok" id="k-sandbox">0</div><div class="u" id="ka-sandbox">— active</div></div>
+  <div class="stat"><div class="k">needs attention</div><div class="v warn" id="k-attention">0</div><div class="u">pending + quarantined</div></div>
+</div>
+
+<h2>active grants (TTL countdown)</h2>
+<div class="panel">
+  <div class="filters" aria-label="kind filter" id="kind-filters">
+    <div class="filter on" data-kind="filesystem">filesystem</div>
+    <div class="filter on" data-kind="network">network</div>
+    <div class="filter on" data-kind="capability">capability</div>
+    <div class="filter on" data-kind="communication">communication</div>
+    <div class="filter on" data-kind="sandbox">sandbox</div>
+    <span style="margin-left:auto;font-size:.72rem;color:var(--muted)">filter: <span id="state-filter-label">all</span></span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>grant_id</th>
+        <th>kind</th>
+        <th>scope</th>
+        <th>reason</th>
+        <th>profile</th>
+        <th>actor</th>
+        <th>state</th>
+        <th class="num">ttl</th>
+        <th>actions</th>
+      </tr>
+    </thead>
+    <tbody id="grants-tbody"></tbody>
+  </table>
+</div>
+
+<h2>pending operator approval</h2>
+<table>
+  <thead>
+    <tr>
+      <th>grant_id</th>
+      <th>kind</th>
+      <th>scope</th>
+      <th>requester</th>
+      <th>actions</th>
+    </tr>
+  </thead>
+  <tbody id="pending-tbody"></tbody>
+</table>
+
+<h2>actions <span class="muted" style="font-size:.75rem;font-weight:400">— web is READ-ONLY mirror consumer; grants signed/revoked via selfdefctl + operator MS003 (R10115)</span></h2>
+<div class="row">
+  <button onclick="emit('selfdefctl grant list --kind filesystem')">copy: list fs grants</button>
+  <button onclick="emit('selfdefctl grant request --kind filesystem --scope /path --ttl 1h --reason \"...\"')">copy: request grant</button>
+  <button onclick="emit('selfdefctl grant approve --grant-id <id>')">copy: approve pending</button>
+  <button class="danger" onclick="emit('selfdefctl grant revoke --grant-id <id>')">copy: revoke (destructive)</button>
+  <button onclick="emit('selfdefctl grant inspect --grant-id <id>')">copy: inspect signature chain</button>
+</div>
+
+<div class="footer">
+  D-13 · <a href="../d-00-master/">D-00 main</a> · <a href="../d-14-capability-tokens/">D-14 capability</a> · <a href="../d-15-sandboxes/">D-15 sandboxes</a><br>
+  mirror source: <code>selfdef-grants-mirror @ 1.0.0</code> · selfdef MS037 + MS038 + MS035 + MS034 + MS036 boundary modules · MS007 typed-mirror crate #2 of 9
+</div>
+
+<div class="toast" id="toast">copied</div>
+
+<script>
+  // -------- seed (publisher endpoint /api/d-13/snapshot when wired) ----------
+  // Schema mirrors selfdef-grants-mirror::GrantsMirrorSnapshot 1.0.0.
+  // No mutations from this surface — R10115 + R10212.
+  const seed = {
+    schema_version: "1.0.0",
+    captured_at: "2026-05-19T03:35Z",
+    summaries: [
+      { kind: "filesystem", active: 8, pending: 1, expired_24h: 4, revoked_24h: 1, quarantined: 0 },
+      { kind: "network",    active: 3, pending: 0, expired_24h: 2, revoked_24h: 0, quarantined: 0 },
+      { kind: "capability", active: 12, pending: 2, expired_24h: 6, revoked_24h: 0, quarantined: 1 },
+      { kind: "communication", active: 5, pending: 0, expired_24h: 1, revoked_24h: 0, quarantined: 0 },
+      { kind: "sandbox",    active: 4, pending: 1, expired_24h: 2, revoked_24h: 0, quarantined: 0 }
+    ],
+    grants: [
+      { grant_id: "gr-01", kind: "filesystem", scope: "/home/user/sovereign-os/webapp/**", reason: "D-07/D-08 dashboard authoring", issued_at: "2026-05-19T03:00Z", expires_at: "2026-05-19T04:00Z", ttl_seconds: 3600, profile: "private", actor: "operator-fp", state: "active", trace_id: "trace-01" },
+      { grant_id: "gr-02", kind: "filesystem", scope: "/home/user/selfdef/crates/**",      reason: "MS007 mirror crate authoring", issued_at: "2026-05-19T03:00Z", expires_at: "2026-05-19T04:00Z", ttl_seconds: 3600, profile: "private", actor: "operator-fp", state: "active", trace_id: "trace-02" },
+      { grant_id: "gr-03", kind: "network",    scope: "api.github.com:443",                 reason: "gh MCP for issue + PR ops",   issued_at: "2026-05-19T03:00Z", expires_at: "2026-05-19T05:00Z", ttl_seconds: 7200, profile: "private", actor: "operator-fp", state: "active", trace_id: "trace-03" },
+      { grant_id: "gr-04", kind: "capability", scope: "fs.write + git.commit + git.push",   reason: "MS041 commit authority",      issued_at: "2026-05-19T03:00Z", expires_at: "2026-05-19T04:00Z", ttl_seconds: 3600, profile: "private", actor: "operator-fp", state: "active", trace_id: "trace-04" },
+      { grant_id: "gr-05", kind: "sandbox",    scope: "tier-A:rg+parsers",                  reason: "deterministic host tooling",  issued_at: "2026-05-19T03:00Z", expires_at: "2026-05-19T09:00Z", ttl_seconds: 21600, profile: "private", actor: "operator-fp", state: "active", trace_id: "trace-05" },
+      { grant_id: "gr-06", kind: "capability", scope: "tool.invoke(claude-opus)",           reason: "Trinity Logic Engine session", issued_at: "2026-05-19T03:00Z", expires_at: "2026-05-19T03:50Z", ttl_seconds: 3000, profile: "private", actor: "operator-fp", state: "active", trace_id: "trace-06" },
+      { grant_id: "gr-07", kind: "communication", scope: "ipc:tetragon.events",             reason: "Guardian Daemon event loop",  issued_at: "2026-05-19T00:00Z", expires_at: "2026-05-20T00:00Z", ttl_seconds: 86400, profile: "private", actor: "operator-fp", state: "active", trace_id: "trace-07" }
+    ],
+    pending: [
+      { grant_id: "gr-px1", kind: "network",   scope: "huggingface.co:443",  requester: "agent-fp-hf-fetch" },
+      { grant_id: "gr-px2", kind: "capability", scope: "tool.invoke(blackwell-deep-synth)", requester: "operator-fp" },
+      { grant_id: "gr-px3", kind: "filesystem", scope: "/var/lib/sovereign-os/memory/**", requester: "memory-os" }
+    ]
+  };
+
+  // populate kind tiles
+  for (const s of seed.summaries) {
+    const t = document.getElementById('k-' + s.kind);
+    if (t) {
+      t.textContent = s.active + s.pending;
+      t.classList.toggle('warn', s.pending > 0);
+      t.classList.toggle('bad', s.quarantined > 0);
+    }
+    const a = document.getElementById('ka-' + s.kind);
+    if (a) a.textContent = `${s.active} active · ${s.pending} pending · ${s.quarantined} quarantined`;
+  }
+  const attention = seed.summaries.reduce((acc, s) => acc + s.pending + s.quarantined, 0);
+  document.getElementById('k-attention').textContent = attention;
+
+  // helpers
+  function ttlPctRemaining(g) {
+    const expEpoch = new Date(g.expires_at).getTime();
+    const issEpoch = new Date(g.issued_at).getTime();
+    const now = Date.now();
+    const total = expEpoch - issEpoch;
+    const remaining = expEpoch - now;
+    return total > 0 ? Math.max(0, Math.min(100, (remaining / total) * 100)) : 0;
+  }
+  function ttlHumanRemaining(g) {
+    const ms = new Date(g.expires_at).getTime() - Date.now();
+    if (ms <= 0) return 'expired';
+    const m = Math.floor(ms / 60000);
+    if (m < 60) return m + 'm';
+    if (m < 1440) return Math.floor(m / 60) + 'h ' + (m % 60) + 'm';
+    return Math.floor(m / 1440) + 'd';
+  }
+
+  function renderGrants() {
+    const activeKinds = new Set([...document.querySelectorAll('#kind-filters .filter.on')].map(f => f.dataset.kind));
+    const tb = document.getElementById('grants-tbody');
+    tb.innerHTML = '';
+    for (const g of seed.grants) {
+      if (!activeKinds.has(g.kind)) continue;
+      const pct = ttlPctRemaining(g);
+      const cls = pct < 10 ? 'bad' : (pct < 30 ? 'warn' : '');
+      const statePill = g.state === 'active' ? 'ok' : (g.state === 'quarantined' ? 'bad' : 'warn');
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><code>${g.grant_id}</code></td>
+        <td><span class="pill accent">${g.kind}</span></td>
+        <td><code>${g.scope}</code></td>
+        <td class="muted">${g.reason}</td>
+        <td>${g.profile}</td>
+        <td class="muted">${g.actor}</td>
+        <td><span class="pill ${statePill}">${g.state}</span></td>
+        <td class="num">
+          <div class="ttl-bar"><div class="fill ${cls}" style="width:${pct}%"></div></div>
+          <div style="font-size:.72rem;margin-top:.15rem">${ttlHumanRemaining(g)}</div>
+        </td>
+        <td>
+          <button onclick="emit('selfdefctl grant inspect --grant-id ${g.grant_id}')">inspect</button>
+          <button class="danger" onclick="emit('selfdefctl grant revoke --grant-id ${g.grant_id}')">revoke</button>
+        </td>
+      `;
+      tb.appendChild(tr);
+    }
+  }
+  renderGrants();
+  document.querySelectorAll('#kind-filters .filter').forEach(f => f.addEventListener('click', () => { f.classList.toggle('on'); renderGrants(); }));
+
+  // pending
+  const pt = document.getElementById('pending-tbody');
+  for (const p of seed.pending) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><code>${p.grant_id}</code></td>
+      <td><span class="pill warn">${p.kind}</span></td>
+      <td><code>${p.scope}</code></td>
+      <td class="muted">${p.requester}</td>
+      <td>
+        <button onclick="emit('selfdefctl grant approve --grant-id ${p.grant_id}')">approve</button>
+        <button class="danger" onclick="emit('selfdefctl grant deny --grant-id ${p.grant_id}')">deny</button>
+      </td>
+    `;
+    pt.appendChild(tr);
+  }
+
+  // clipboard helper — web NEVER mutates per R10115 + R10212
+  function emit(cmd) {
+    navigator.clipboard.writeText(cmd).then(() => showToast('copied: ' + cmd.slice(0, 60) + (cmd.length > 60 ? '…' : '')));
+  }
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(showToast._h);
+    showToast._h = setTimeout(() => t.classList.remove('show'), 1800);
+  }
+
+  // live TTL countdown — re-render every 10s
+  setInterval(renderGrants, 10000);
+
+  // master shortcut Cmd-0
+  window.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key === '0') { e.preventDefault(); window.location.href = '../master-dashboard/'; }
+  });
+</script>
+
+</body>
+</html>
