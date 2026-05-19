@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-side-nav-state"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit side navigation state — operator-collapsible / pinned side panel state (left | right anchor, expanded / collapsed / pinned, width-px). Pure UX visual."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
