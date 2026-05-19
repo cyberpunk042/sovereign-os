@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-prompt-history-ring"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit prompt history ring — bounded FIFO of operator-typed prompts the cockpit surfaces via ↑-arrow recall. Capacity 500; dedups consecutive identical prompts; tracks an active cursor for ↑/↓ navigation."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []

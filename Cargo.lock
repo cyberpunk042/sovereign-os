@@ -677,6 +677,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-prompt-history-ring"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-prompt-rationale"
 version = "0.1.0"
 dependencies = [
