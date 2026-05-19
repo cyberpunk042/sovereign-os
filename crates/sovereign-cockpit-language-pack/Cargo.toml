@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-language-pack"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit i18n language pack — operator-provided translation table keyed by string-key → translated-text per locale_tag. Falls back to default-language entry when key missing in active locale. Pure UX."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
