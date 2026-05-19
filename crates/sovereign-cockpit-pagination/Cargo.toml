@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-pagination"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit pagination control state. Tracks total item count, page size, and current page index. Computes total pages and offset; bounds-checks navigation; emits a windowed page-number list around the active page (with first/last anchors + ellipses) suitable for direct render. Pure UX descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
