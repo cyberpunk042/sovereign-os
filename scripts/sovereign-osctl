@@ -6256,6 +6256,16 @@ case "${cmd}" in
     shift || true
     "${__REPO_ROOT}/scripts/hardware/irq-affinity.py" "${sub}" "$@"
     ;;
+  nvidia-persistence)
+    # R556 (E11.M19): NVIDIA persistence mode controller. Without
+    # persistence ON, the driver tears down GPU state every time the
+    # last CUDA context exits → next first-prompt pays ~2s reinit
+    # latency. Operator §1g: zero first-prompt thermal spike +
+    # inference-ready warmup.
+    sub="${1:-show}"
+    shift || true
+    "${__REPO_ROOT}/scripts/hardware/nvidia-persistence.py" "${sub}" "$@"
+    ;;
   workload-knobs)
     # R555 (E11.M18): atomic orchestrator of the R551-R554
     # inference-latency primitives (MPS / hugepages / THP / IRQ).
