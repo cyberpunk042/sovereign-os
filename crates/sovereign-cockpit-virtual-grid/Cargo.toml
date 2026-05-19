@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-virtual-grid"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit 2D virtualized grid viewport. Given total rows × cols + fixed cell dims + viewport scroll position, compute the (first_row, first_col, row_count, col_count) of visible cells with optional overscan. Pure UX descriptor (analogue of virtual-list in 2D)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
