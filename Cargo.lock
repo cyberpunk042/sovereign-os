@@ -821,6 +821,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-rich-text-toolbar"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-route-history"
 version = "0.1.0"
 dependencies = [
