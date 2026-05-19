@@ -542,6 +542,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-radio-group"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-recent-items"
 version = "0.1.0"
 dependencies = [
