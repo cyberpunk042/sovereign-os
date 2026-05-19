@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-form-validity"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit form aggregate-validity state. Collects per-field validity records (required + error message) and reports whether the form may submit; tracks `touched` so 'Required' errors don't render until the operator has interacted with the field. Pure UX descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
