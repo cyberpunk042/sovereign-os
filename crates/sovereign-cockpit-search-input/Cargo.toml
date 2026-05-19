@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-search-input"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit search-input widget state. Buffer + debounce ms + last-submitted snapshot + clear button visibility derived from buffer non-empty. should_emit(now) returns true when debounce window has elapsed since the last keystroke. Pure UX descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
