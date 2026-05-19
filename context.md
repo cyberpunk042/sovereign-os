@@ -473,3 +473,18 @@ Workspace count now 123. Total this resume cycle: 13 cockpit crates.
   stars, allow_clear on click-active)
 
 Workspace count now 130. Total this resume: 20 cockpit crates.
+
+### Fourth wave (same day, +5 more cockpit crates)
+
+- `sovereign-cockpit-status-aggregator` (worst-of-N headline +
+  rounded percentages across subsystems)
+- `sovereign-cockpit-progress-bar` (Determinate/Indeterminate +
+  buffered head + warn/critical zones with above/below semantics)
+- `sovereign-cockpit-snackbar-queue` (pending/visible/dismissed Vec
+  with max_visible cap + TTL auto-dismiss + log)
+- `sovereign-cockpit-shortcut-conflicts` (Duplicate-within-scope +
+  Global-shadows-stricter detection across 3 scopes)
+- `sovereign-cockpit-fuzzy-ranker` (consecutive + word-start
+  bonuses + skip penalty, stable-on-tie descending)
+
+Workspace count now 135. Total this resume: 25 cockpit crates.
