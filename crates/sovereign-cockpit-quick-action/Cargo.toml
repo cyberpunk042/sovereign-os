@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-quick-action"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit quick-action one-tap button registry. Each QuickAction is (id, label, icon, hotkey, enabled). Bounded MRU favorites bubble most-used to the top. Pure UX descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
