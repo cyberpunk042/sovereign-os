@@ -432,6 +432,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-fuzzy-ranker"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-input-mode"
 version = "0.1.0"
 dependencies = [

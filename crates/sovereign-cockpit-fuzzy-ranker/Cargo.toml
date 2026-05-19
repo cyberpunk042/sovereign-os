@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-fuzzy-ranker"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit fuzzy-search ranker. Scores candidate strings against an operator query using consecutive-match-bonus, word-start-bonus, case-insensitive matching, and penalty per skipped character. Returns descending-score ranked list with the chosen match positions. Pure UX descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
