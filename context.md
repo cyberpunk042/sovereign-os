@@ -281,8 +281,14 @@ This file is **operator-state-of-the-art**. Updates:
 - `9d1a0c5` — `sovereign-hardware-load-sample`: 5-target VRAM/util/temp snapshot
 - `0a7547f` — `sovereign-hardware-registry`: 5-target hardware catalog with SRP role
 
-Sovereign-os workspace at 73 crates (was 32 pre-session, +41 fresh this session).
-Full workspace test suite: 857+ passing tests. Latest additions include
+Sovereign-os workspace at 80 crates (was 32 pre-session, +48 fresh this session).
+Full workspace test suite: 948 passing tests. Latest additions (all
+pure-UX, no IPS authority dimension) include `sovereign-cockpit-turn-
+annotation`, `sovereign-cockpit-density-mode`, `sovereign-cockpit-theme-
+palette`, `sovereign-cockpit-shortcut-cheatsheet`, `sovereign-cockpit-zoom-
+level`, `sovereign-cockpit-locale-state`, `sovereign-replay-playback-rate`,
+`sovereign-cockpit-typography-scale`, `sovereign-cockpit-sound-preferences`,
+`sovereign-cockpit-pin-board`. Earlier additions include
 `sovereign-cockpit-pane-layout` (Single/SplitV/SplitH/QuadGrid),
 `sovereign-cockpit-toggle-event` (append-only toggle audit log;
 the SELFDEF-side authority is `selfdef-toggle-audit-authority`),
