@@ -365,6 +365,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-srp-scheduler"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-router-7axis",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-trinity"
 version = "0.1.0"
 dependencies = [
