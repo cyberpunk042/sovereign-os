@@ -6228,6 +6228,15 @@ case "${cmd}" in
     shift || true
     "${__REPO_ROOT}/scripts/hardware/nvidia-mps.py" "${sub}" "$@"
     ;;
+  hugepages)
+    # R552 (E11.M15): HugePages sizer. Reserves 2MiB (or 1GiB) huge
+    # pages for inference engines (llama.cpp / vllm / bitnet) to
+    # reduce TLB pressure. Operator §1g: AVX-512 + 256GB RAM + ZMM
+    # ternary models — all benefit from huge-page-backed buffers.
+    sub="${1:-show}"
+    shift || true
+    "${__REPO_ROOT}/scripts/hardware/hugepages-sizer.py" "${sub}" "$@"
+    ;;
   memory-profile)
     # R257 (SDD-026 Z-17 follow-up): per-DIMM XMP/EXPO verdict.
     # Operator-named "XMP profile and OC profile and room for each".

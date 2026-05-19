@@ -1,0 +1,37 @@
+[Unit]
+Description=sovereign-os HugePages sizer (R552 / E11.M15)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hardware/hugepages-sizer.py
+DefaultDependencies=no
+After=local-fs.target
+Before=sovereign-pulse.service sovereign-logic-engine.service sovereign-oracle-core.service
+ConditionPathExists=/etc/sovereign-os/hugepages.target-gb
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Read the operator-set target from /etc/sovereign-os/hugepages.target-gb
+# (single int, e.g. "64") and apply via the sizer's apply verb.
+ExecStart=/bin/sh -c '/opt/sovereign-os/scripts/hardware/hugepages-sizer.py apply --target-gb "$(cat /etc/sovereign-os/hugepages.target-gb)"'
+TimeoutStartSec=30s
+StandardOutput=journal
+StandardError=journal
+# R171 defense-in-depth — sizer needs to write /proc/sys/vm/nr_hugepages
+# and /etc/sysctl.d/. Nothing else.
+ProtectHome=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+NoNewPrivileges=true
+PrivateTmp=true
+# Cannot use ProtectSystem=strict — sysctl write to /proc/sys requires
+# proc to be writable. ProtectKernelTunables=false explicitly required
+# for the same reason.
+ReadWritePaths=/etc/sysctl.d /proc/sys/vm
+
+[Install]
+WantedBy=multi-user.target
