@@ -6246,6 +6246,16 @@ case "${cmd}" in
     shift || true
     "${__REPO_ROOT}/scripts/hardware/thp-mode.py" "${sub}" "$@"
     ;;
+  irq-affinity)
+    # R554 (E11.M17): IRQ affinity controller. Moves all non-locked
+    # hardware-interrupt vectors onto a housekeeping CPU set so the
+    # inference cores (pulse / logic-engine / oracle-core) aren't
+    # preempted by NIC RX, NVMe completion, USB poll, etc. Operator
+    # §1g: peak-inference / sustained-burst latency hygiene.
+    sub="${1:-show}"
+    shift || true
+    "${__REPO_ROOT}/scripts/hardware/irq-affinity.py" "${sub}" "$@"
+    ;;
   memory-profile)
     # R257 (SDD-026 Z-17 follow-up): per-DIMM XMP/EXPO verdict.
     # Operator-named "XMP profile and OC profile and room for each".
