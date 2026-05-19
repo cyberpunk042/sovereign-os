@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-memory-os"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M028 Memory OS — 8 memory types (Working/Episodic/Semantic/Procedural/TemporalGraph/Value/KV/Reward) per M00459-M00465 + E0265 + 11-stage admission lifecycle per E0264 + M00471. Doctrine 'Intelligence improves when memory stops being recall and becomes adaptive state' verbatim per E0267 dump 8423-8474."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
