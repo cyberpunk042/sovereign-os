@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>sovereign-os surface-map</title>
 <meta name="x-sovereign-module" content="surface-map-webapp">
-<meta name="x-sovereign-shipped-in" content="R533 (E5++)">
+<meta name="x-sovereign-shipped-in" content="R533 (E5++) + R542 (E5++ milestone panel — surfaces the R540 §1g ceiling-closure rollup; R539 historic milestone anchor)">
 <meta name="x-sovereign-standing-rule" content="everything is not just core, not just cli, not just TUI, not just API, not just tool and MCP but also Dashboards and Web Apps and Services.">
 <style>
   /* Operator-§1g UX: readable in 30 seconds, monochrome palette,
@@ -79,6 +79,18 @@
   (<code>?module=</code>, <code>?threshold=</code>). Managed by <code>sovereign-surface-map-api.service</code>.
 </div>
 
+<h2>&sect;1g 8-surface delivery contract &mdash; milestone rollup (R540)</h2>
+<div class="panel">
+  <div class="row" id="milestone-stats">
+    <div class="stat"><div class="k">total modules</div><div class="v" id="ms-total">&mdash;</div></div>
+    <div class="stat"><div class="k">at structural ceiling</div><div class="v" id="ms-ceiling">&mdash;</div></div>
+    <div class="stat"><div class="k">at full 8 surfaces</div><div class="v" id="ms-full8">&mdash;</div></div>
+    <div class="stat"><div class="k">future-carrying</div><div class="v" id="ms-future">&mdash;</div></div>
+  </div>
+  <div class="meta" id="ms-historic" style="margin-top:.6rem;color:var(--muted);font-size:.78rem">historic anchor loading&hellip;</div>
+  <div class="meta" id="ms-fullset" style="margin-top:.4rem;font-size:.78rem"></div>
+</div>
+
 <h2>8 operator-named &sect;1g surfaces (R453 ladder)</h2>
 <div class="row" id="surfaces-row">
   <div class="dim" id="surf-core"><h3>core</h3><div class="meta">loading&hellip;</div></div>
@@ -137,7 +149,7 @@
 </div>
 
 <footer>
-  <div>shipped in <code>R533 (E5++)</code> &middot; serves the <code>/webapp/</code> path of the R533 surface-map-api daemon (<code>scripts/operator/surface-map-api.py</code>, managed by <code>sovereign-surface-map-api.service</code>) &middot; backing CLI <code>sovereign-osctl surface-map</code> (R453 lineage + R531 TUI) &middot; MCP via <code>scripts/interop/mcp-aggregate.py</code> (R532)</div>
+  <div>shipped in <code>R533 (E5++)</code> + <code>R542 (E5++)</code> &middot; serves the <code>/webapp/</code> path of the R533 surface-map-api daemon (<code>scripts/operator/surface-map-api.py</code>, managed by <code>sovereign-surface-map-api.service</code>) &middot; backing CLI <code>sovereign-osctl surface-map</code> (R453 lineage + R531 TUI + R540 <code>milestone</code> rollup) &middot; MCP via <code>scripts/interop/mcp-aggregate.py</code> (R532 + R541 <code>surface-map-milestone</code>)</div>
   <div class="standing-rule">"everything is not just core, not just cli, not just TUI, not just API, not just tool and MCP but also Dashboards and Web Apps and Services." &mdash; operator &sect;1g (sacrosanct)</div>
 </footer>
 
@@ -320,11 +332,42 @@ async function refreshSelfdef() {
   }
 }
 
+async function refreshMilestone() {
+  // R542 — R540 §1g ceiling-closure rollup over the R541 /milestone
+  // HTTP endpoint. Surfaces the historic R539 milestone state and
+  // the verbatim R453 anchor for in-browser operator-§1g UX.
+  try {
+    const m = await fetchJSON("/milestone");
+    el("ms-total").textContent = m.total_modules != null ? m.total_modules : "?";
+    const ceilCls = m.all_at_structural_ceiling ? "ok" : "warn";
+    el("ms-ceiling").innerHTML =
+      '<span class="' + ceilCls + '">' + esc(m.at_structural_ceiling_count) + '</span>' +
+      '<span class="muted"> / ' + esc(m.total_modules) + '</span>';
+    el("ms-full8").innerHTML =
+      '<span class="ok">' + esc(m.full_8_surface_count) + '</span>';
+    el("ms-future").innerHTML = m.zero_future_waivers
+      ? '<span class="ok">0</span>'
+      : '<span class="bad">' + esc(m.future_carrying_count) + '</span>';
+    el("ms-historic").textContent = m.historic_anchor || "";
+    const full = Array.isArray(m.at_full_8_surfaces) ? m.at_full_8_surfaces : [];
+    if (full.length) {
+      el("ms-fullset").innerHTML =
+        '<span class="muted">at full 8 surfaces:</span> ' +
+        full.map(function(x) { return '<code>' + esc(x) + '</code>'; }).join(" &middot; ");
+    } else {
+      el("ms-fullset").innerHTML = "";
+    }
+  } catch (e) {
+    el("ms-historic").innerHTML = '<span class="bad">milestone fetch error: ' + esc(e.message) + '</span>';
+  }
+}
+
 async function refreshAll() {
   await Promise.all([
     refreshVersion(), refreshSurfaces(),
     refreshModulesAndMatrix(), refreshBelow(),
     refreshWaivers(), refreshSelfdef(),
+    refreshMilestone(),
   ]);
   el("last-refresh").textContent = new Date().toLocaleTimeString();
 }
