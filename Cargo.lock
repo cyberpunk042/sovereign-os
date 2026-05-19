@@ -332,6 +332,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-error-banner"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-cockpit-banner-state",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-export-bundle"
 version = "0.1.0"
 dependencies = [
