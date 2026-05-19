@@ -311,6 +311,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-conversation-search-index"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-conversation-thread",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-conversation-thread"
 version = "0.1.0"
 dependencies = [

@@ -1,0 +1,22 @@
+[package]
+name = "sovereign-conversation-search-index"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Runtime conversation search index — substring + role + branch filter over ConversationThread turns. Indexes a set of threads at registry time and answers operator queries from the cockpit search bar."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sovereign-conversation-thread = { path = "../sovereign-conversation-thread" }
+
+[features]
+default = []
