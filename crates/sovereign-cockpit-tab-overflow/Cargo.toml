@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-tab-overflow"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit tab-strip overflow partition. Given ordered tabs with per-tab widths, a measured container width, and an `active` id pin, computes which tabs render inline and which fall into an overflow chevron dropdown — always keeping the active tab visible. Pure UX descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
