@@ -393,6 +393,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-eval-suite-catalog"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-eval-plane",
+ "sovereign-execution-mode-registry",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-execution-mode-registry"
 version = "0.1.0"
 dependencies = [

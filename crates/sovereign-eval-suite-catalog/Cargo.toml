@@ -1,0 +1,23 @@
+[package]
+name = "sovereign-eval-suite-catalog"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Runtime eval-suite catalog — operator-curated evaluation suites the eval-plane can dispatch (smoke / regression / safety / drift / golden-path / red-team / latency-budget). Each suite declares (id, dimensions, required-mode, expected-runtime-seconds). Composes sovereign-eval-plane + sovereign-execution-mode-registry."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sovereign-eval-plane = { path = "../sovereign-eval-plane" }
+sovereign-execution-mode-registry = { path = "../sovereign-execution-mode-registry" }
+
+[features]
+default = []
