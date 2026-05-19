@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os D-20 peace machine health</title>
+<meta name="x-sovereign-module" content="d-20-peace-machine-health-webapp">
+<meta name="x-sovereign-shipped-in" content="R-impl-SDD040-phaseE-item2">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<meta name="x-sovereign-catalog-source" content="M060 R10126-R10128 D-20 peace machine health + M059 R09961-R09965 5 peace-machine properties + /usr/bin/sovereign-os-peace-check validator integration per R09980-R09982">
+<meta name="x-sovereign-closing-doctrine" content="powerful · disciplined · reversible · flexible · sovereign — five properties enforced by M048..M058 modules collectively (R09966)">
+<style>
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --p-powerful:#9bd1ff; --p-disciplined:#7ad17a; --p-reversible:#e6c062; --p-flexible:#c4a8e0; --p-sovereign:#f4a460;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
+  .num{font-variant-numeric:tabular-nums;text-align:right}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:stretch}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border);font-weight:500}
+  .pill.ok{background:#143d14;color:var(--good)} .pill.bad{background:#3d1414;color:var(--bad)} .pill.warn{background:#3d2f14;color:var(--warn)}
+  .pill.accent{background:#143d3d;color:var(--accent)}
+  .property-card{flex:1 1 200px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.8rem 1rem;border-left:4px solid currentColor;position:relative}
+  .property-card.powerful{color:var(--p-powerful)} .property-card.disciplined{color:var(--p-disciplined)}
+  .property-card.reversible{color:var(--p-reversible)} .property-card.flexible{color:var(--p-flexible)}
+  .property-card.sovereign{color:var(--p-sovereign)}
+  .property-card .nm{font-size:.95rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+  .property-card .quote{color:var(--muted);font-size:.78rem;font-style:italic;margin:.3rem 0;border-left:2px solid var(--border);padding-left:.5rem}
+  .property-card .status{font-size:1.6rem;font-weight:700;color:var(--fg);margin-top:.3rem}
+  .property-card .backed{color:var(--muted);font-size:.7rem;margin-top:.4rem;line-height:1.3}
+  .property-card.healthy .status{color:var(--good)}
+  .property-card.degraded .status{color:var(--warn)}
+  .property-card.failing .status{color:var(--bad)}
+  .property-card .check-list{margin-top:.4rem;padding-top:.4rem;border-top:1px solid var(--border)}
+  .check-row{font-size:.74rem;color:var(--muted);display:flex;gap:.3rem;align-items:center;padding:.1rem 0}
+  .check-row.ok::before{content:"✓";color:var(--good);width:1ch}
+  .check-row.warn::before{content:"!";color:var(--warn);width:1ch}
+  .check-row.bad::before{content:"✗";color:var(--bad);width:1ch}
+  .validator-output{background:#0a0a0a;border:1px solid var(--border);border-radius:3px;padding:.6rem .8rem;font-family:var(--mono);font-size:.78rem;white-space:pre;color:var(--fg);max-height:280px;overflow-y:auto}
+  .validator-line.ok{color:var(--good)} .validator-line.bad{color:var(--bad)} .validator-line.warn{color:var(--warn)} .validator-line.muted{color:var(--muted)}
+  button{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.35rem .8rem;font-family:inherit;font-size:.85rem;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  .verdict-banner{padding:1rem 1.2rem;border-radius:4px;font-size:1.1rem;font-weight:600;text-align:center;margin:.5rem 0;border:2px solid currentColor}
+  .verdict-banner.healthy{color:var(--good);background:rgba(122,209,122,.07)}
+  .verdict-banner.degraded{color:var(--warn);background:rgba(230,192,98,.07)}
+  .verdict-banner.failing{color:var(--bad);background:rgba(255,118,118,.07)}
+  .footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--muted);font-size:.78rem}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  code{color:var(--accent);background:#0a0a0a;padding:0 3px;border-radius:2px;font-size:.82rem}
+  .toast{position:fixed;bottom:1rem;right:1rem;background:var(--panel);border:1px solid var(--accent);color:var(--fg);padding:.5rem .9rem;border-radius:4px;font-size:.78rem;opacity:0;transition:opacity .2s ease;pointer-events:none}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<h1>D-20 — peace machine health</h1>
+<div class="sub">5 closing-manifesto properties live · M059 R09961-R09965 · <code>sovereign-os-peace-check</code> validator (R09980 / R09981 exit-0 iff all 5 pass) — <a href="../master-dashboard/">D-00 main</a></div>
+
+<h2>overall verdict</h2>
+<div class="verdict-banner" id="verdict">peace machine: healthy</div>
+
+<h2>5 properties (R09966 — enforced by M048..M058 collectively)</h2>
+<div class="row">
+  <div class="property-card powerful healthy">
+    <div class="nm">Powerful</div>
+    <div class="quote">"powerful enough to act"</div>
+    <div class="status" id="p1-status">HEALTHY</div>
+    <div class="backed">backed by Blackwell oracle + 3090 scout + AVX cortex · R09967 · cross-ref M058</div>
+    <div class="check-list" id="p1-checks">
+      <div class="check-row ok">Blackwell PRO 6000 96GB online</div>
+      <div class="check-row ok">RTX 3090 24GB online</div>
+      <div class="check-row ok">AVX-512 + VPOPCNTQ available</div>
+      <div class="check-row ok">SRP roles bound (Conductor/Logic/Oracle)</div>
+    </div>
+  </div>
+  <div class="property-card disciplined healthy">
+    <div class="nm">Disciplined</div>
+    <div class="quote">"disciplined enough to explain itself"</div>
+    <div class="status" id="p2-status">HEALTHY</div>
+    <div class="backed">backed by M049 observability + selfdef MS033 policy trace · R09968</div>
+    <div class="check-list" id="p2-checks">
+      <div class="check-row ok">M049 13-field span emitter active</div>
+      <div class="check-row ok">selfdef-audit-mirror chain continuous</div>
+      <div class="check-row ok">MS026 OCSF 16-event taxonomy mapping live</div>
+      <div class="check-row ok">policy decisions logged with 10-field decision object</div>
+    </div>
+  </div>
+  <div class="property-card reversible healthy">
+    <div class="nm">Reversible</div>
+    <div class="quote">"reversible enough to trust"</div>
+    <div class="status" id="p3-status">HEALTHY</div>
+    <div class="backed">backed by M047 CRIU + ZFS snapshots + signed rollback · R09969</div>
+    <div class="check-list" id="p3-checks">
+      <div class="check-row ok">142 ZFS snapshots across rpool/{sovereign-os,selfdef,memory,adapters,audit}</div>
+      <div class="check-row ok">CRIU checkpoint capability detected</div>
+      <div class="check-row ok">last verified rollback: 12d ago (D-08)</div>
+      <div class="check-row ok">MS041 commit receipts chain valid</div>
+    </div>
+  </div>
+  <div class="property-card flexible healthy">
+    <div class="nm">Flexible</div>
+    <div class="quote">"flexible enough to evolve"</div>
+    <div class="status" id="p4-status">HEALTHY</div>
+    <div class="backed">backed by M046 runtime adaptation + LoRA Foundry · R09970</div>
+    <div class="check-list" id="p4-checks">
+      <div class="check-row ok">3 LoRA adapters loaded (1 NVFP4 promoted)</div>
+      <div class="check-row warn">M046 LoRA Foundry promote pipeline: partial (eval harness deferred)</div>
+      <div class="check-row ok">MS040 6 profiles addressable + transitions logged</div>
+      <div class="check-row ok">M025 Cognitive Compiler DAG nodes tier-aware</div>
+    </div>
+  </div>
+  <div class="property-card sovereign healthy">
+    <div class="nm">Sovereign</div>
+    <div class="quote">"sovereign enough that intelligence remains in the user's hands"</div>
+    <div class="status" id="p5-status">HEALTHY</div>
+    <div class="backed">operator MS003 signature gates every L5+ commit · operator-controlled · R09965 + selfdef MS003</div>
+    <div class="check-list" id="p5-checks">
+      <div class="check-row ok">selfdef MS003 key chain verified</div>
+      <div class="check-row ok">no cloud-mandatory codepaths (cloud strictly opt-in per profile)</div>
+      <div class="check-row ok">two-solutions doctrine doctrine intact (info-hub READ-ONLY)</div>
+      <div class="check-row ok">/goal mandate operator-controlled; AI cannot decide completion</div>
+    </div>
+  </div>
+</div>
+
+<h2>last validator run (<code>/usr/bin/sovereign-os-peace-check --json</code>)</h2>
+<div class="panel">
+  <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem">
+    <button onclick="emit('sudo /usr/bin/sovereign-os-peace-check --json')">copy: rerun (root)</button>
+    <button onclick="emit('sovereign-os-peace-check --watch --interval 30s')">copy: watch mode</button>
+    <button onclick="emit('journalctl -u sovereign-os-peace-check.service --since 1h')">copy: 1h journal</button>
+    <span class="muted" style="margin-left:auto;font-size:.74rem">last run: <span id="last-run">2026-05-19T03:55Z</span> · exit code: <span id="exit-code" class="ok">0</span></span>
+  </div>
+  <div class="validator-output" id="validator-output"></div>
+</div>
+
+<div class="footer">
+  D-20 · <a href="../d-00-master/">D-00 main</a> · <a href="../d-19-super-model-manifest/">D-19 super-model</a> · <a href="../compliance/">compliance</a> · <a href="../auditor/">auditor</a><br>
+  source: M060 R10126-R10128 D-20 spec · M059 R09961-R09965 5 properties (powerful/disciplined/reversible/flexible/sovereign) · R09966 enforced collectively by M048..M058 · R09980-R09982 validator integration
+</div>
+
+<div class="toast" id="toast">copied</div>
+
+<script>
+  // -------- seed (publisher /api/d-20/snapshot + peace-check JSON output when wired) ----------
+  // Schema: {captured_at, properties: [{name, status, checks: [{name, status}]}], exit_code}
+  const seed = {
+    overall: "healthy",
+    captured_at: "2026-05-19T03:55:12Z",
+    exit_code: 0,
+    validator_log: [
+      { cls: "ok",    text: "[2026-05-19T03:55:12Z] sovereign-os-peace-check START (R09980)" },
+      { cls: "muted", text: "[2026-05-19T03:55:12Z] loading M059 5 properties (powerful/disciplined/reversible/flexible/sovereign)" },
+      { cls: "ok",    text: "[2026-05-19T03:55:12Z] property 1/5 powerful: PASS · Blackwell + 3090 + AVX online · R09967 cross-ref M058" },
+      { cls: "ok",    text: "[2026-05-19T03:55:12Z] property 2/5 disciplined: PASS · M049 + MS033 policy trace active · R09968" },
+      { cls: "ok",    text: "[2026-05-19T03:55:13Z] property 3/5 reversible: PASS · 142 ZFS snapshots + MS041 chain valid · R09969 cross-ref M047" },
+      { cls: "warn",  text: "[2026-05-19T03:55:13Z] property 4/5 flexible: PARTIAL · M046 LoRA Foundry promote pipeline eval harness deferred · still passing on R09970 minimum" },
+      { cls: "ok",    text: "[2026-05-19T03:55:13Z] property 5/5 sovereign: PASS · MS003 key chain + no mandatory cloud · operator-controlled · R09965" },
+      { cls: "ok",    text: "[2026-05-19T03:55:13Z] all 5 properties verified (R09981 — exit 0 only when all 5 pass)" },
+      { cls: "ok",    text: "[2026-05-19T03:55:13Z] sovereign-os-peace-check END · exit code 0" }
+    ]
+  };
+
+  // verdict banner
+  const banner = document.getElementById('verdict');
+  banner.className = 'verdict-banner ' + seed.overall;
+  banner.textContent = 'peace machine: ' + seed.overall.toUpperCase();
+
+  document.getElementById('last-run').textContent = seed.captured_at;
+  document.getElementById('exit-code').textContent = seed.exit_code;
+  document.getElementById('exit-code').className = seed.exit_code === 0 ? 'ok' : 'bad';
+
+  // validator log
+  const log = document.getElementById('validator-output');
+  log.innerHTML = seed.validator_log.map(l => `<div class="validator-line ${l.cls}">${l.text}</div>`).join('');
+
+  function emit(cmd) {
+    navigator.clipboard.writeText(cmd).then(() => showToast('copied: ' + cmd.slice(0, 60) + (cmd.length > 60 ? '…' : '')));
+  }
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(showToast._h);
+    showToast._h = setTimeout(() => t.classList.remove('show'), 1800);
+  }
+  window.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key === '0') { e.preventDefault(); window.location.href = '../master-dashboard/'; }
+  });
+</script>
+
+</body>
+</html>

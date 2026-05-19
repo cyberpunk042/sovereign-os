@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os D-19 super-model manifest</title>
+<meta name="x-sovereign-module" content="d-19-super-model-manifest-webapp">
+<meta name="x-sovereign-shipped-in" content="R-impl-SDD040-phaseE-item1">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<meta name="x-sovereign-catalog-source" content="M060 R10124-R10125 D-19 super-model manifest + M059 peace machine close + M053 11-build-phase implementation language + M066 Trinity (Pulse/Weaver/Auditor) + M070 dual-CCD topology + M075 SRP + M077 NVFP4 + M078 HölderPO + M080 HRM">
+<style>
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --pulse:#7ad17a; --weaver:#9bd1ff; --auditor:#e6c062;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  tr:hover{background:rgba(155,209,255,0.03)}
+  .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
+  .num{font-variant-numeric:tabular-nums;text-align:right}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:stretch}
+  .stat{flex:1 1 200px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
+  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .stat .v{font-size:1.4rem;font-weight:600;margin-top:.2rem;font-variant-numeric:tabular-nums}
+  .stat .u{color:var(--muted);font-size:.78rem}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border);font-weight:500}
+  .pill.ok{background:#143d14;color:var(--good)} .pill.bad{background:#3d1414;color:var(--bad)} .pill.warn{background:#3d2f14;color:var(--warn)}
+  .pill.accent{background:#143d3d;color:var(--accent)} .pill.muted{background:#1c1c1c;color:var(--muted)}
+  .pill.pulse{background:#143d14;color:var(--pulse)} .pill.weaver{background:#143d3d;color:var(--weaver)} .pill.auditor{background:#3d2f14;color:var(--auditor)}
+  .filters{display:flex;gap:.4rem;flex-wrap:wrap;margin:.5rem 0;align-items:center}
+  .filter{padding:.25rem .6rem;border-radius:3px;font-size:.78rem;background:var(--panel);border:1px solid var(--border);cursor:pointer;user-select:none}
+  .filter.on{background:#143d3d;color:var(--accent);border-color:var(--accent)}
+  .role-card{flex:1 1 220px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.65rem .9rem;border-top:3px solid currentColor}
+  .role-card.pulse{color:var(--pulse)} .role-card.weaver{color:var(--weaver)} .role-card.auditor{color:var(--auditor)}
+  .role-card .nm{font-weight:600;font-size:.85rem;text-transform:uppercase;letter-spacing:.04em}
+  .role-card .desc{color:var(--muted);font-size:.7rem;margin:.1rem 0 .3rem 0}
+  .role-card .model{font-size:.95rem;font-weight:600;color:var(--fg);font-family:var(--mono)}
+  .role-card .meta{color:var(--muted);font-size:.7rem;margin-top:.2rem}
+  .phase-bar{display:flex;gap:.2rem;margin:.4rem 0}
+  .phase-cell{flex:1;padding:.4rem .2rem;text-align:center;font-size:.7rem;background:#0a0a0a;border:1px solid var(--border);border-radius:3px}
+  .phase-cell.done{background:#143d14;color:var(--good);border-color:var(--good)}
+  .phase-cell.current{background:#143d3d;color:var(--accent);border-color:var(--accent);font-weight:600}
+  .phase-cell.future{background:#1c1c1c;color:var(--muted)}
+  .footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--muted);font-size:.78rem}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  code{color:var(--accent);background:#0a0a0a;padding:0 3px;border-radius:2px;font-size:.82rem}
+</style>
+</head>
+<body>
+
+<h1>D-19 — super-model manifest</h1>
+<div class="sub">Trinity Pulse/Weaver/Auditor · M001..M080 module-version table · M053 11-build-phase status · M059 peace machine close — <a href="../master-dashboard/">D-00 main</a></div>
+
+<h2>super-model version</h2>
+<div class="row">
+  <div class="stat" style="flex-basis:100%;border-left:3px solid var(--accent)">
+    <div class="k">current super-model identity</div>
+    <div class="v" style="font-size:1.1rem"><code id="sm-version">sovereign-os@2026.05.19-cdc9064</code></div>
+    <div class="u"><span id="sm-modules">79</span> milestones (M001..M080) · <span id="sm-rrows">~24,800</span> R-rows · <span id="sm-mirrors">9 of 9</span> MS007 mirrors · <span id="sm-dashboards">15 of 21</span> dashboards</div>
+  </div>
+</div>
+
+<h2>Trinity roles (M066)</h2>
+<div class="row">
+  <div class="role-card pulse">
+    <div class="nm">Pulse</div>
+    <div class="desc">low-latency token stream · CCD 0 cores 0-5 · M070</div>
+    <div class="model">claude-haiku-4-5 (FP8)</div>
+    <div class="meta">runtime: rocm-3090 · adapters: 0 · last warm: 2m ago</div>
+  </div>
+  <div class="role-card weaver">
+    <div class="nm">Weaver</div>
+    <div class="desc">multi-step planner · CCD 1 cores 6-9 · M070</div>
+    <div class="model">claude-sonnet-4-6 (NVFP4)</div>
+    <div class="meta">runtime: blackwell-oracle · adapters: 3 · last warm: 12m ago</div>
+  </div>
+  <div class="role-card auditor">
+    <div class="nm">Auditor</div>
+    <div class="desc">policy + commit critic · CCD 1 cores 8-9 · M070</div>
+    <div class="model">claude-opus-4-7 (NVFP4)</div>
+    <div class="meta">runtime: blackwell-oracle · adapters: 1 · last warm: 48m ago</div>
+  </div>
+</div>
+
+<h2>M053 11-build-phase status</h2>
+<div class="panel">
+  <div class="phase-bar" id="phase-bar"></div>
+  <div class="muted" style="font-size:.72rem">current build phase determines which subsystems are live · M053 reference</div>
+</div>
+
+<h2>module-version table (M001..M080)</h2>
+<div class="panel">
+  <div class="filters" id="ms-filters">
+    <span style="font-size:.72rem;color:var(--muted)">show:</span>
+    <div class="filter on" data-status="shipped">shipped</div>
+    <div class="filter on" data-status="partial">partial</div>
+    <div class="filter on" data-status="catalog">catalog only</div>
+    <span style="font-size:.72rem;color:var(--muted);margin-left:1rem">family:</span>
+    <div class="filter on" data-family="runtime">runtime</div>
+    <div class="filter on" data-family="memory">memory</div>
+    <div class="filter on" data-family="dashboard">dashboard</div>
+    <div class="filter on" data-family="hardware">hardware</div>
+    <div class="filter on" data-family="trinity">trinity</div>
+    <div class="filter on" data-family="quant">quant</div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>milestone</th>
+        <th>title (short)</th>
+        <th>family</th>
+        <th>status</th>
+        <th>R-rows</th>
+        <th>tag</th>
+      </tr>
+    </thead>
+    <tbody id="ms-tbody"></tbody>
+  </table>
+</div>
+
+<div class="footer">
+  D-19 · <a href="../d-00-master/">D-00 main</a> · <a href="../d-20-peace-machine-health/">D-20 peace machine</a> · <a href="../trinity/">trinity</a><br>
+  source: M060 R10124-R10125 D-19 spec · M059 peace machine close · M053 11-build-phase · M066 Trinity · M070 dual-CCD · M073 ternary BitLinear · M075 SRP · M077 NVFP4 · M078 HölderPO · M080 HRM
+</div>
+
+<script>
+  // -------- seed (publisher /api/d-19/snapshot when wired) ----------
+  const phases = [
+    { label: "M053-P1 substrate",   status: "done" },
+    { label: "M053-P2 boundary",    status: "done" },
+    { label: "M053-P3 policy+trace",status: "done" },
+    { label: "M053-P4 sandbox",     status: "done" },
+    { label: "M053-P5 memory",      status: "done" },
+    { label: "M053-P6 trinity",     status: "done" },
+    { label: "M053-P7 quant",       status: "done" },
+    { label: "M053-P8 cockpit",     status: "current" },
+    { label: "M053-P9 evals",       status: "future" },
+    { label: "M053-P10 LoRA foundry",status:"future" },
+    { label: "M053-P11 hand-off",   status: "future" }
+  ];
+  const pb = document.getElementById('phase-bar');
+  for (const p of phases) {
+    const c = document.createElement('div');
+    c.className = 'phase-cell ' + p.status;
+    c.textContent = p.label;
+    pb.appendChild(c);
+  }
+
+  const milestones = [
+    { ms:"M025", title:"Cognitive Compiler",          family:"runtime",   status:"shipped",  rrows:240, tag:"core" },
+    { ms:"M026", title:"SLM swarm + RLM engine",      family:"runtime",   status:"shipped",  rrows:240, tag:"core" },
+    { ms:"M027", title:"Value Plane",                 family:"runtime",   status:"shipped",  rrows:240, tag:"core" },
+    { ms:"M028", title:"Memory OS (8 types)",         family:"memory",    status:"shipped",  rrows:240, tag:"core" },
+    { ms:"M030", title:"World Model Plane",           family:"runtime",   status:"shipped",  rrows:240, tag:"core" },
+    { ms:"M031", title:"Symbolic Planning (PDDL/SMT)",family:"runtime",   status:"shipped",  rrows:240, tag:"core" },
+    { ms:"M032", title:"Cloud Expert Plane",          family:"runtime",   status:"shipped",  rrows:240, tag:"core" },
+    { ms:"M040", title:"Hyper-features (FP4 + VFIO)", family:"quant",     status:"shipped",  rrows:170, tag:"phase7" },
+    { ms:"M042", title:"Choice Architecture (9-axis)",family:"runtime",   status:"shipped",  rrows:170, tag:"phase6" },
+    { ms:"M046", title:"LoRA Foundry",                family:"runtime",   status:"partial",  rrows:240, tag:"phase10" },
+    { ms:"M047", title:"Continuity (CRIU+ZFS)",       family:"runtime",   status:"shipped",  rrows:240, tag:"phase4" },
+    { ms:"M048", title:"Modules base (10-15)",        family:"runtime",   status:"shipped",  rrows:240, tag:"core" },
+    { ms:"M049", title:"Policy Fabric + 13-field span",family:"runtime",  status:"shipped",  rrows:240, tag:"core" },
+    { ms:"M053", title:"11-build-phase blueprint",    family:"runtime",   status:"shipped",  rrows:240, tag:"meta" },
+    { ms:"M058", title:"Hardware-aware scheduler",    family:"hardware",  status:"shipped",  rrows:170, tag:"phase4" },
+    { ms:"M059", title:"Peace machine close",         family:"runtime",   status:"shipped",  rrows:170, tag:"phase8" },
+    { ms:"M060", title:"Cockpit + 21 dashboards",     family:"dashboard", status:"shipped",  rrows:240, tag:"phase8" },
+    { ms:"M061", title:"Backward-sweep canon updates",family:"runtime",   status:"shipped",  rrows:170, tag:"meta" },
+    { ms:"M062", title:"10-PR macro-arc (SG1-SG5)",   family:"runtime",   status:"shipped",  rrows:170, tag:"meta" },
+    { ms:"M066", title:"Trinity (Pulse/Weaver/Auditor)",family:"trinity", status:"shipped",  rrows:170, tag:"phase6" },
+    { ms:"M070", title:"Dual-CCD topology",           family:"hardware",  status:"shipped",  rrows:170, tag:"phase6" },
+    { ms:"M073", title:"1-bit ternary BitLinear",     family:"quant",     status:"shipped",  rrows:170, tag:"phase7" },
+    { ms:"M075", title:"SRP topology (3 GPUs)",       family:"hardware",  status:"shipped",  rrows:170, tag:"phase6" },
+    { ms:"M076", title:"3 load-balancing profiles",   family:"runtime",   status:"shipped",  rrows:170, tag:"phase6" },
+    { ms:"M077", title:"NVFP4 (5 recipe variants)",   family:"quant",     status:"shipped",  rrows:170, tag:"phase7" },
+    { ms:"M078", title:"HölderPO + GRPO",             family:"runtime",   status:"shipped",  rrows:170, tag:"phase7" },
+    { ms:"M079", title:"Activation steering (WB/BB)", family:"runtime",   status:"shipped",  rrows:170, tag:"phase7" },
+    { ms:"M080", title:"HRM (4th architectural class)",family:"runtime",  status:"shipped",  rrows:170, tag:"phase7" },
+    // selfdef cross-refs (shown as informational rows)
+    { ms:"MS007",title:"8/8 SATURATED typed-mirror",  family:"runtime",   status:"shipped",  rrows:240, tag:"selfdef" },
+    { ms:"MS043",title:"IPS operator surface (CLI/TUI/web)",family:"dashboard",status:"shipped",rrows:240,tag:"selfdef" },
+    { ms:"MS044",title:"Guardian Daemon",             family:"runtime",   status:"shipped",  rrows:240, tag:"selfdef" },
+    { ms:"MS045",title:"UX coherence test harness",   family:"dashboard", status:"shipped",  rrows:240, tag:"selfdef" }
+  ];
+
+  function renderMs() {
+    const okStatus = new Set([...document.querySelectorAll('#ms-filters .filter.on[data-status]')].map(f => f.dataset.status));
+    const okFamily = new Set([...document.querySelectorAll('#ms-filters .filter.on[data-family]')].map(f => f.dataset.family));
+    const tb = document.getElementById('ms-tbody');
+    tb.innerHTML = '';
+    for (const m of milestones) {
+      if (!okStatus.has(m.status) || !okFamily.has(m.family)) continue;
+      const sp = m.status === 'shipped' ? 'ok' : (m.status === 'partial' ? 'warn' : 'muted');
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><code>${m.ms}</code></td>
+        <td>${m.title}</td>
+        <td><span class="pill muted">${m.family}</span></td>
+        <td><span class="pill ${sp}">${m.status}</span></td>
+        <td class="num">${m.rrows}</td>
+        <td class="muted">${m.tag}</td>
+      `;
+      tb.appendChild(tr);
+    }
+  }
+  renderMs();
+  document.querySelectorAll('#ms-filters .filter').forEach(f => f.addEventListener('click', () => { f.classList.toggle('on'); renderMs(); }));
+
+  window.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key === '0') { e.preventDefault(); window.location.href = '../master-dashboard/'; }
+  });
+</script>
+
+</body>
+</html>
