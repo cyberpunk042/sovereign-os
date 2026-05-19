@@ -454,3 +454,22 @@ Companion selfdef IPS-authority crates landed in lockstep:
   (x,y) with touch-on-read MRU promotion; eviction at capacity)
 
 Workspace count now 123. Total this resume cycle: 13 cockpit crates.
+
+### Third wave (same day, +7 more cockpit crates)
+
+- `sovereign-cockpit-toolbar-overflow` (priority-aware partition
+  visible vs overflow under measured container width)
+- `sovereign-cockpit-multi-select-list` (anchor + BTreeSet selection
+  with Plain/Toggle/Range click semantics)
+- `sovereign-cockpit-form-validity` (per-field touched/empty/
+  required/custom_error + visible_errors filtered by touched)
+- `sovereign-cockpit-search-highlight` (greedy subsequence matcher
+  emitting non-overlapping byte ranges; matched_all flag)
+- `sovereign-cockpit-clipboard-buffer` (MRU ring of text/image
+  payloads with size + count caps)
+- `sovereign-cockpit-time-picker` (hour+minute with 1/5/15/30 step,
+  carry+wrap, H12/H24 display)
+- `sovereign-cockpit-rating-stars` (3/5/7/10 scale, optional half-
+  stars, allow_clear on click-active)
+
+Workspace count now 130. Total this resume: 20 cockpit crates.
