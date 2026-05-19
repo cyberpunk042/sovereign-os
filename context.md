@@ -151,6 +151,25 @@ Per SDD-040 Phase A → E ordering + selfdef Guardian/UX-harness implementations
 22. ~~M079 Intervention-class typed mirror crate~~ ✓ shipped 2026-05-19 — `crates/sovereign-intervention-class-mirror/` per arXiv 2604.09839 + 5-variant InterventionClass enum + protocol-separation enforcement (WB↔BB generalisation refused) + DOCTRINE_NON_SURJECTIVE verbatim ("almost surely, no prompt can reproduce") + tamper detection (13 passing tests)
 23. ~~M080 HRM runtime crate~~ ✓ shipped 2026-05-19 — `crates/sovereign-hrm-runtime/` 4th architectural class + 3 variants (HrmCanonical 27M / HrmText1B 1.18B / Trm7M) + two-timescale recurrence cadence stepper (outer × inner) + validators (13 passing tests)
 
+### Cockpit + runtime crates (post-/goal arc — 17 new crates)
+
+24. ~~sovereign-mirror-publisher~~ ✓ (12 tests) — 9-endpoint MS007 binding manifest
+25. ~~sovereign-dashboard-coverage~~ ✓ (12+1 tests) — 21-slot D-NN coverage verifier
+26. ~~sovereign-dashboard-toggle~~ ✓ (15 tests) — M060 R10038 per-dashboard visibility
+27. ~~sovereign-cockpit-personalization~~ ✓ (19 tests) — M060 R10137 + R10140 + R10141 per-profile UX
+28. ~~sovereign-router-7axis~~ ✓ (13 tests + 192-combo walk) — M042 NadirClaw 7-axis routing
+29. ~~sovereign-environment-maps~~ ✓ (14 tests) — M042 7-map "Build a map first" doctrine
+30. ~~sovereign-memory-os~~ ✓ (17 tests) — M028 8-type Memory OS + 11-stage lifecycle
+31. ~~sovereign-value-plane~~ ✓ (18 tests) — M027 12-axis reward + 5-tier Intelligence Dial
+32. ~~sovereign-inheritance-contracts~~ ✓ (14 tests) — M042 Symphony 6-contract schema
+33. ~~sovereign-trinity~~ ✓ (12 tests) — M066 Pulse/Weaver/Auditor genesis
+34. ~~sovereign-module-catalog~~ ✓ (15 tests) — M048 10-module catalog + KEY LINE
+35. ~~sovereign-policy-questions~~ ✓ (15 tests) — M049 7 policy questions
+36. ~~sovereign-cognitive-compiler~~ ✓ (17 tests + cycle detection) — M025 intent-to-DAG
+37. ~~sovereign-cockpit-state~~ ✓ (12 tests) — composite envelope of 6 sub-crates
+38. ~~sovereign-srp-scheduler~~ ✓ (15 tests) — M075 SRP work-placement
+39. ~~sovereign-lora-foundry~~ ✓ (11 tests) — M046 8-adapter + 7-step pipeline + 6-decision
+
 ### Stage 2+ build scripts (per M062 PR 10 → Stage Gate 5 → Stage 2)
 
 Per M062 Stage Gate 5 verbatim: "authorizes Stage 2 (first actual build scripts)". Substrate decision is locked in `docs/sdd/021-distro-base.md`. Foundation is complete. Stage 2 work = actual installable ISO build pipeline using chosen substrate tooling.
