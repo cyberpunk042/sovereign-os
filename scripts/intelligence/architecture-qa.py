@@ -1069,6 +1069,63 @@ ARCHITECTURE_CONCEPTS: list[dict[str, Any]] = [
                  "ccd-0", "pulse"],
         "spec_ref": "master spec §20 + §20.1 + §20.2 verbatim",
     },
+    {
+        "id": "C-28",
+        "name": "§1g 8-surface delivery contract (R453 anchor + SDD-039 doctrine)",
+        "explanation": ("Operator §1g 8-surface delivery contract "
+                         "(R453 verbatim anchor, sacrosanct): "
+                         "'everything is not just core, not just cli, "
+                         "not just TUI, not just API, not just tool "
+                         "and MCP but also Dashboards and Web Apps "
+                         "and Services'. The 8-surface taxonomy in "
+                         "verbatim order: core → cli → tui → api → "
+                         "mcp → dashboard → webapp → service. "
+                         "Codified by SDD-039 (R548) as a canonical "
+                         "doctrine formalizing the R453-R547 "
+                         "implementation lattice: R453 surface-map "
+                         "instrument (8-surface taxonomy + coverage "
+                         "matrix + gap detection + waiver registry) "
+                         "→ R478 structural-vs-FUTURE precision "
+                         "ruling → R532 / R286 ceiling-promotion "
+                         "rule (mutation/runtime-arg surfaces stay "
+                         "CLI-gated) → R539 historic milestone "
+                         "(ALL twelve §1g-named modules at structural "
+                         "ceiling, ZERO FUTURE waivers, rotation pool "
+                         "exhausted) → R540 milestone-rollup "
+                         "observable → R546 dashboard verb-coverage "
+                         "symmetry (milestone + selfdef stat cards "
+                         "on sovereign-os-surface-map Grafana) → "
+                         "R547 README doc-gap closure. Required "
+                         "coverage: the 4-instrument compliance "
+                         "suite — R453 surface-map + R454 "
+                         "doc-coverage + R456 anti-minimization-audit "
+                         "+ R457 ux-design-audit + R458 compliance "
+                         "rollup. Cross-repo binding via SDD-038 / "
+                         "R462 SurfaceManifest. Operator §1g "
+                         "STANDING RULE verbatim (R456-anchored, "
+                         "sacrosanct): 'If you think something is "
+                         "really already done, ask yourself if you "
+                         "covered all angles and levels and layers "
+                         "and even if then improve it. Do not "
+                         "minimize or settle for less.' Way-forward "
+                         "vector per R539 historic closure: "
+                         "quality-of-existing-surfaces, NOT "
+                         "surface-promotion churn — rotation pool "
+                         "exhausted means new surface promotions are "
+                         "NOT the productive move; quality "
+                         "improvement of existing structural ceiling "
+                         "is."),
+        "tags": ["§1g", "8-surface", "delivery-contract", "R453",
+                 "R456", "R478", "R532", "R539", "R540", "R546",
+                 "R547", "R548", "SDD-039", "SDD-038", "doctrine",
+                 "core", "cli", "tui", "api", "mcp", "dashboard",
+                 "webapp", "service", "verbatim-anchor",
+                 "structural-ceiling", "rotation-pool-exhausted",
+                 "operator-sacrosanct"],
+        "spec_ref": ("operator §1g verbatim anchor (R453) + SDD-039 "
+                      "(R548) codification of the R453-R547 "
+                      "implementation lattice"),
+    },
 ]
 
 

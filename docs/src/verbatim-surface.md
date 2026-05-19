@@ -9,8 +9,8 @@ lives in the Python catalog files; this doc regenerates from them.
 
   - **questions**: 4
   - **gotchas**: 3
-  - **concepts**: 27
-  - **coverage_axes**: 32
+  - **concepts**: 28
+  - **coverage_axes**: 33
   - **ccd_layers**: 3
   - **state_files**: 4
   - **state_zfs_props**: 3
@@ -18,7 +18,7 @@ lives in the Python catalog files; this doc regenerates from them.
   - **network_diagram_lines**: 13
   - **repl_modes**: 4
 
-  **Total verbatim items**: 82
+  **Total verbatim items**: 84
 
 ---
 
@@ -266,6 +266,12 @@ _spec ref: master spec §18 verbatim (Load Balancing Profile 3)_
 When The Pulse processes low-bit matrix logic via WebAssembly, it avoids standard JIT (Just-In-Time) compilation bloat. Instead, it uses an Ahead-Of-Time (AOT) compilation lifecycle optimized via Cranelift or LLVM to output native Zen 5 machine code. To execute a ternary matrix step, the runtime takes packed 2-bit weight pairs from memory and uses the AVX-512 execution path to stream instructions natively through the CPU registers without unpacking overhead. The VNNI / VPDPBUSD instruction executes Parallel Fused Multiply-Accumulate into 32-bit Integer Registers. When compiling the Wasm execution layer natively on the node, the toolchain runtime parameters must be locked down to prevent generic x86 fallbacks: WASMTIME_COMPARE_OPTIONS="-C target-cpu=znver5 -C opt-level=3 -C relaxed-simd=true" plus taskset -c 0-11 wasmtime compile --target znver5 -O speed /mnt/vault/agents/pulse_core.wasm to enforce explicit task execution on the native vector cores (CCD 0) only.
 
 _spec ref: master spec §20 + §20.1 + §20.2 verbatim_
+
+### C-28 — §1g 8-surface delivery contract (R453 anchor + SDD-039 doctrine)
+
+Operator §1g 8-surface delivery contract (R453 verbatim anchor, sacrosanct): 'everything is not just core, not just cli, not just TUI, not just API, not just tool and MCP but also Dashboards and Web Apps and Services'. The 8-surface taxonomy in verbatim order: core → cli → tui → api → mcp → dashboard → webapp → service. Codified by SDD-039 (R548) as a canonical doctrine formalizing the R453-R547 implementation lattice: R453 surface-map instrument (8-surface taxonomy + coverage matrix + gap detection + waiver registry) → R478 structural-vs-FUTURE precision ruling → R532 / R286 ceiling-promotion rule (mutation/runtime-arg surfaces stay CLI-gated) → R539 historic milestone (ALL twelve §1g-named modules at structural ceiling, ZERO FUTURE waivers, rotation pool exhausted) → R540 milestone-rollup observable → R546 dashboard verb-coverage symmetry (milestone + selfdef stat cards on sovereign-os-surface-map Grafana) → R547 README doc-gap closure. Required coverage: the 4-instrument compliance suite — R453 surface-map + R454 doc-coverage + R456 anti-minimization-audit + R457 ux-design-audit + R458 compliance rollup. Cross-repo binding via SDD-038 / R462 SurfaceManifest. Operator §1g STANDING RULE verbatim (R456-anchored, sacrosanct): 'If you think something is really already done, ask yourself if you covered all angles and levels and layers and even if then improve it. Do not minimize or settle for less.' Way-forward vector per R539 historic closure: quality-of-existing-surfaces, NOT surface-promotion churn — rotation pool exhausted means new surface promotions are NOT the productive move; quality improvement of existing structural ceiling is.
+
+_spec ref: operator §1g verbatim anchor (R453) + SDD-039 (R548) codification of the R453-R547 implementation lattice_
 
 ## Coverage-map axes (A-NN)
 
@@ -637,6 +643,24 @@ Every operator-stated demand mapped to ≥1 implementing verb.
   - `sovereign-osctl quarterly-review snapshot`
 
 **Notes**: Operator-stated MINDSET + WORKFLOW contract. Mechanized via SDD-033 perpetual-intake doctrine + SDD-037 verbatim-preservation doctrine + the fabrication-catch quintet (R368/R371/R372/R373/R374). Non-blocking: every round is independently substantive + tested + commit-pushed without operator gate. Strong workflow: 23-round R355-R377 verbatim arc demonstrates 'at scale + very long time of work' + 'take your time, do this right' = 78 catalogued items + 20 bugs caught + grade A quarterly state.
+
+### ✓ A-33 — everything is not just core, not just cli, not just TUI, not just API, not just 
+
+**Status**: ✓ shipped
+**Source**: §1g 8-surface delivery contract (R453 anchor verbatim)
+
+**Implementing verbs**:
+  - `sovereign-osctl surface-map coverage`
+  - `sovereign-osctl surface-map gaps`
+  - `sovereign-osctl surface-map watch`
+  - `sovereign-osctl surface-map milestone`
+  - `sovereign-osctl surface-map selfdef`
+  - `sovereign-osctl doc-coverage scan`
+  - `sovereign-osctl anti-minimization-audit scan`
+  - `sovereign-osctl ux-design-audit audit`
+  - `sovereign-osctl compliance status`
+
+**Notes**: Operator §1g 8-surface delivery contract VERBATIM anchor. Mechanized via SDD-039 doctrine (R548 codification of the R453-R547 implementation lattice) + SDD-038 cross-repo binding (R462 SurfaceManifest) + SDD-037 verbatim-preservation. Runtime instruments: R453 surface-map (8-surface taxonomy + coverage matrix + gap detection + waiver registry) + R454 doc-coverage (doc-surface coverage scanner) + R456 anti-minimization-audit + R457 ux-design-audit + R458 compliance rollup. R539 historic milestone: ALL twelve §1g-named modules at structural ceiling, ZERO FUTURE waivers — way-forward vector is quality-of-existing-surfaces NOT surface-promotion churn. R540 milestone-rollup observable + R546 dashboard verb-coverage symmetry (milestone + selfdef stat cards) + R547 README doc-gap closure. Operator §1g STANDING RULE verbatim (R456-anchored, sacrosanct): 'If you think something is really already done, ask yourself if you covered all angles and levels and layers and even if then improve it. Do not minimize or settle for less.'
 
 ### ✓ A-32 — I trust you to break down planify and continue with the SDD and TDD and a Senior
 

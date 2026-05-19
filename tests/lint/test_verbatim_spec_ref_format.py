@@ -72,6 +72,9 @@ SPEC_REF_PATTERNS = [
     re.compile(r"^shipped via R\d+"),
     # "test"  (operator-overlay test fixtures)
     re.compile(r"^test( .*)?$"),
+    # "operator §<N><letter> verbatim anchor (R<N>) ..." — operator §1g
+    # 8-surface delivery contract anchor form (R548 SDD-039 codification).
+    re.compile(r"^operator §\d+[a-z]? verbatim anchor"),
 ]
 
 
@@ -187,6 +190,9 @@ COVERAGE_SOURCE_PATTERNS = [
     re.compile(r"^macro-arc plan dump \d{4}-\d{2}-\d{2}"),
     # Test fixtures
     re.compile(r"^test$"),
+    # "§<N><letter> <name> (R<N> anchor verbatim)" — operator §1g
+    # 8-surface delivery contract origin form (R549 A-33 wiring).
+    re.compile(r"^§\d+[a-z]? "),
 ]
 
 

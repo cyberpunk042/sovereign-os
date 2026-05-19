@@ -550,6 +550,47 @@ DEFAULT_AXES: list[dict[str, Any]] = [
                 "demonstrates 'at scale + very long time of work' + "
                 "'take your time, do this right' = 78 catalogued "
                 "items + 20 bugs caught + grade A quarterly state.")},
+    {"id": "A-33",
+     "axis_verbatim": ("everything is not just core, not just cli, "
+                        "not just TUI, not just API, not just tool "
+                        "and MCP but also Dashboards and Web Apps "
+                        "and Services"),
+     "source": "§1g 8-surface delivery contract (R453 anchor verbatim)",
+     "implementing_verbs": [
+         "sovereign-osctl surface-map coverage",
+         "sovereign-osctl surface-map gaps",
+         "sovereign-osctl surface-map watch",
+         "sovereign-osctl surface-map milestone",
+         "sovereign-osctl surface-map selfdef",
+         "sovereign-osctl doc-coverage scan",
+         "sovereign-osctl anti-minimization-audit scan",
+         "sovereign-osctl ux-design-audit audit",
+         "sovereign-osctl compliance status",
+     ],
+     "sdd_refs": ["037", "038", "039"],
+     "mandate_rows": ["E10.M97", "E10.M105", "E10.M106", "E10.M110"],
+     "status": "✓ shipped",
+     "notes": ("Operator §1g 8-surface delivery contract VERBATIM "
+                "anchor. Mechanized via SDD-039 doctrine (R548 "
+                "codification of the R453-R547 implementation lattice) "
+                "+ SDD-038 cross-repo binding (R462 SurfaceManifest) "
+                "+ SDD-037 verbatim-preservation. Runtime instruments: "
+                "R453 surface-map (8-surface taxonomy + coverage matrix "
+                "+ gap detection + waiver registry) + R454 doc-coverage "
+                "(doc-surface coverage scanner) + R456 "
+                "anti-minimization-audit + R457 ux-design-audit + R458 "
+                "compliance rollup. R539 historic milestone: ALL twelve "
+                "§1g-named modules at structural ceiling, ZERO FUTURE "
+                "waivers — way-forward vector is "
+                "quality-of-existing-surfaces NOT surface-promotion "
+                "churn. R540 milestone-rollup observable + R546 "
+                "dashboard verb-coverage symmetry (milestone + selfdef "
+                "stat cards) + R547 README doc-gap closure. Operator "
+                "§1g STANDING RULE verbatim (R456-anchored, "
+                "sacrosanct): 'If you think something is really already "
+                "done, ask yourself if you covered all angles and "
+                "levels and layers and even if then improve it. Do "
+                "not minimize or settle for less.'")},
     {"id": "A-32",
      "axis_verbatim": ("I trust you to break down planify and continue "
                         "with the SDD and TDD and a Senior Architect "
