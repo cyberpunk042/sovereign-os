@@ -281,17 +281,21 @@ This file is **operator-state-of-the-art**. Updates:
 - `9d1a0c5` — `sovereign-hardware-load-sample`: 5-target VRAM/util/temp snapshot
 - `0a7547f` — `sovereign-hardware-registry`: 5-target hardware catalog with SRP role
 
-Sovereign-os workspace now at 54 crates (was 32 pre-session, +22 in this session).
+Sovereign-os workspace now at 58 crates (was 32 pre-session, +26 in this session).
 Additional crates beyond the first batch:
 `sovereign-workspace-folder-registry` (operator-declared roots with overlap detection),
 `sovereign-provider-catalog` (6-provider inference catalog with bundle gates),
 `sovereign-eval-suite-catalog` (7-suite eval catalog composing 8-dim eval-plane),
 `sovereign-cockpit-command-palette` (16-command Ctrl-K palette),
 `sovereign-mode-default-policy` (per-bundle landing mode policy),
-`sovereign-conversation-search-index` (substring+role+branch search).
+`sovereign-conversation-search-index` (substring+role+branch search),
+`sovereign-cockpit-context-panel` (sidebar context envelope),
+`sovereign-replay-bookmark-set` (operator-named anchor points),
+`sovereign-cockpit-undo-stack` (reversible action LIFO with redo),
+`sovereign-cockpit-action-throttle` (per-action minimum-spacing gate).
 
 Every crate ships with canonical builders, full validate() + serde roundtrip
-+ edge-case tests (10..15 passing tests per crate).
++ edge-case tests (9..15 passing tests per crate).
 
 ### Earlier milestones
 
