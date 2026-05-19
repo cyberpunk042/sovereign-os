@@ -595,3 +595,14 @@ Workspace count now 160. Total this resume: 50 cockpit crates.
   + dismissed; Error overrides Help; set_error undismisses)
 
 Workspace count now 164. Total this resume: 54 cockpit crates.
+
+### Fourteenth wave (same day, +3 more cockpit crates)
+
+- `sovereign-cockpit-card-grid` (responsive layout: columns from
+  container_w/min_card_w; card_w clamped to [min,max])
+- `sovereign-cockpit-step-indicator` (visual numbered renderer from
+  Stepper state with connector_filled and percent_complete)
+- `sovereign-cockpit-spinner-pool` (Hidden/Single/Multi aggregation
+  with flicker-suppression for young spinners)
+
+Workspace count now 167. Total this resume: 57 cockpit crates.
