@@ -682,6 +682,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-workspace-folder-registry"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-zfs-commit-gate"
 version = "0.1.0"
 dependencies = [
