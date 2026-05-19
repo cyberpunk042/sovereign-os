@@ -6256,6 +6256,17 @@ case "${cmd}" in
     shift || true
     "${__REPO_ROOT}/scripts/hardware/irq-affinity.py" "${sub}" "$@"
     ;;
+  cpu-isolation)
+    # R557 (E11.M20): CPU isolation cmdline emitter. Coordinated
+    # isolcpus/nohz_full/rcu_nocbs trifecta — actually removes the
+    # inference cores from the scheduler, the periodic tick, and
+    # RCU callback processing. Stronger than R554 IRQ pinning alone.
+    # Never edits GRUB (operator sovereignty boundary); emits a
+    # fragment file the operator merges on their own terms.
+    sub="${1:-show}"
+    shift || true
+    "${__REPO_ROOT}/scripts/hardware/cpu-isolation.py" "${sub}" "$@"
+    ;;
   nvidia-persistence)
     # R556 (E11.M19): NVIDIA persistence mode controller. Without
     # persistence ON, the driver tears down GPU state every time the
