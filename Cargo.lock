@@ -331,6 +331,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-execution-mode-registry"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-gateway"
 version = "0.1.0"
 dependencies = [
