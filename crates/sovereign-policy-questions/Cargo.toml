@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-policy-questions"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M049 Policy Fabric — 7-policy-question runtime surface per E0473 + F04155-F04156 + dump 14988-15000. Doctrine per E0474: 'Can subject do action on object FOR THIS INTENT UNDER THIS PROFILE?' That is sovereignty (verbatim dump 15040)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
