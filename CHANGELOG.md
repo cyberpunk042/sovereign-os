@@ -12,7 +12,21 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
-### Added
+### Added — Cockpit dashboards + Rust runtime crates (2026-05-19)
+
+Cross-repo cockpit-surface completion arc per M060 R10128 ("21 dashboards (D-00..D-20) satisfy operator '20+ dashboards and a main one' verbatim"):
+
+- **11 new dashboards** authored under `webapp/` (D-03 model health, D-07 memory changes, D-08 rollback points, D-12 networking, D-13 filesystem grants, D-14 capability tokens, D-15 sandboxes, D-17 quarantine, D-18 trust scores, D-19 super-model manifest, D-20 peace machine health). D-12..D-18 consume selfdef MS007 mirror crates READ-ONLY per MS043 R10212; all mutation routes emit clipboard CLI for operator-signed `selfdefctl` invocation.
+- **6 Rust runtime crates** (81 passing tests, cargo workspace bootstrapped):
+  - `sovereign-nvfp4-runtime` (M077, arXiv 2509.25149 / 2505.19115 — E2M1 + E4M3 + 1×16 block quant + unbiased stochastic rounding ±2% verified)
+  - `sovereign-holderpo` (M078, arXiv 2605.12058 — Hölder mean + GRPO + 4 anneal schedules)
+  - `sovereign-hrm-runtime` (M080, arXiv 2506.21734 — 4th architectural class, 3 variants 27M/1.18B/7M)
+  - `sovereign-intervention-class-mirror` (M079, arXiv 2604.09839 — WB↔BB protocol-separation invariant)
+  - `sovereign-mirror-publisher` (typed manifest of the 9 selfdef-mirror HTTP/SSE endpoints with bound-lifecycle helpers)
+  - `sovereign-dashboard-coverage` (verifies all 21 D-NN slots have on-disk coverage; one disk integration test against real repo tree)
+- **CI extension** — new `cargo-workspace` job in `test.yml` runs fmt + clippy (-D warnings) + workspace test + release build across all 6 crates.
+
+
 - 4 new SDDs (012-022): brand-identity placeholder · installer-experience
   · decommission-testing-scope · secure-boot posture · observability
   bindings · ZFS root layout · kernel choice · reproducibility target ·
