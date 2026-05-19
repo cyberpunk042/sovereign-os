@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os D-14 capability tokens</title>
+<meta name="x-sovereign-module" content="d-14-capability-tokens-webapp">
+<meta name="x-sovereign-shipped-in" content="R-impl-SDD040-phaseD-item2">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<meta name="x-sovereign-catalog-source" content="M060 R10116-R10117 D-14 capability tokens + selfdef MS035 capability_word 64-bit + MS039 Ring 0..4 + MS039 L0..L6 authority + F04146 parent-child inheritance + MS007 typed-mirror selfdef-capability-mirror (3 of 9)">
+<meta name="x-sovereign-doctrine" content="MS043 R10212 + R10117 web NEVER mutates IPS state — READ-ONLY mirror consumer; tokens minted/revoked via selfdefctl + operator MS003 only">
+<meta name="x-sovereign-mirror-source" content="selfdef-capability-mirror @ schema 1.0.0">
+<style>
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --panel:#171717; --border:#262626;
+    --ring0:#ff7676; --ring1:#e6c062; --ring2:#9bd1ff; --ring3:#7ad17a; --ring4:#888;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  tr:hover{background:rgba(155,209,255,0.03)}
+  .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
+  .num{font-variant-numeric:tabular-nums;text-align:right}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:stretch}
+  .stat{flex:1 1 200px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
+  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .stat .v{font-size:1.4rem;font-weight:600;margin-top:.2rem;font-variant-numeric:tabular-nums}
+  .stat .u{color:var(--muted);font-size:.78rem}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border);font-weight:500}
+  .pill.ok{background:#143d14;color:var(--good)} .pill.bad{background:#3d1414;color:var(--bad)} .pill.warn{background:#3d2f14;color:var(--warn)}
+  .pill.accent{background:#143d3d;color:var(--accent)} .pill.muted{background:#1c1c1c;color:var(--muted)}
+  .pill.ring0{background:#3d1414;color:var(--ring0)} .pill.ring1{background:#3d2f14;color:var(--ring1)}
+  .pill.ring2{background:#143d3d;color:var(--ring2)} .pill.ring3{background:#143d14;color:var(--ring3)}
+  .pill.ring4{background:#1c1c1c;color:var(--ring4)}
+  button{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.35rem .8rem;font-family:inherit;font-size:.85rem;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.danger:hover{border-color:var(--bad);color:var(--bad)}
+  .filters{display:flex;gap:.4rem;flex-wrap:wrap;margin:.5rem 0;align-items:center}
+  .filter{padding:.25rem .6rem;border-radius:3px;font-size:.78rem;background:var(--panel);border:1px solid var(--border);cursor:pointer;user-select:none}
+  .filter.on{background:#143d3d;color:var(--accent);border-color:var(--accent)}
+  .badge-mirror{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.7rem;background:#1c1c1c;color:var(--muted);border:1px dashed var(--border)}
+  .footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--muted);font-size:.78rem}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  code{color:var(--accent);background:#0a0a0a;padding:0 3px;border-radius:2px;font-size:.82rem}
+  .toast{position:fixed;bottom:1rem;right:1rem;background:var(--panel);border:1px solid var(--accent);color:var(--fg);padding:.5rem .9rem;border-radius:4px;font-size:.78rem;opacity:0;transition:opacity .2s ease;pointer-events:none}
+  .toast.show{opacity:1}
+  .word-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:1px;margin-top:.3rem;background:var(--border);padding:1px;border-radius:3px;max-width:520px}
+  .bit{padding:.25rem .1rem;text-align:center;font-size:.7rem;background:#0a0a0a;font-variant-numeric:tabular-nums}
+  .bit.set{background:#143d3d;color:var(--accent)}
+  .bit.clr{background:#1c1c1c;color:var(--muted)}
+  .word-legend{display:flex;flex-wrap:wrap;gap:.4rem;font-size:.7rem;color:var(--muted);margin-top:.3rem}
+  .ring-card{flex:1 1 130px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.55rem .8rem;border-top:2px solid currentColor}
+  .ring-card.ring0{color:var(--ring0)} .ring-card.ring1{color:var(--ring1)}
+  .ring-card.ring2{color:var(--ring2)} .ring-card.ring3{color:var(--ring3)}
+  .ring-card.ring4{color:var(--ring4)}
+  .ring-card .nm{font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.05em}
+  .ring-card .v{font-size:1.3rem;font-weight:600;font-variant-numeric:tabular-nums;color:var(--fg);margin-top:.2rem}
+  .ring-card .d{color:var(--muted);font-size:.7rem}
+</style>
+</head>
+<body>
+
+<h1>D-14 — capability tokens <span class="badge-mirror" style="font-size:.7rem">read-only via selfdef-capability-mirror</span></h1>
+<div class="sub">64-bit capability_word · MS039 Ring 0..4 trust topology · L0..L6 authority levels · F04146 parent-child inheritance — <a href="../master-dashboard/">D-00 main</a></div>
+
+<h2>Ring 0..4 trust topology (MS039 R09430)</h2>
+<div class="row">
+  <div class="ring-card ring0"><div class="nm">Ring 0</div><div class="v" id="r0-active">0</div><div class="d">kernel-equiv (selfdef daemon)</div></div>
+  <div class="ring-card ring1"><div class="nm">Ring 1</div><div class="v" id="r1-active">0</div><div class="d">Guardian + audit (signed bins)</div></div>
+  <div class="ring-card ring2"><div class="nm">Ring 2</div><div class="v" id="r2-active">0</div><div class="d">operator-signed CLI</div></div>
+  <div class="ring-card ring3"><div class="nm">Ring 3</div><div class="v" id="r3-active">0</div><div class="d">sandboxed agent</div></div>
+  <div class="ring-card ring4"><div class="nm">Ring 4</div><div class="v" id="r4-active">0</div><div class="d">untrusted / quarantined</div></div>
+</div>
+
+<h2>summary</h2>
+<div class="row">
+  <div class="stat"><div class="k">active tokens</div><div class="v ok" id="s-active">0</div><div class="u">across all rings</div></div>
+  <div class="stat"><div class="k">pending</div><div class="v warn" id="s-pending">0</div><div class="u">awaiting MS003 sig</div></div>
+  <div class="stat"><div class="k">quarantined</div><div class="v bad" id="s-quarantined">0</div><div class="u">MS042 mismatch</div></div>
+  <div class="stat"><div class="k">attention</div><div class="v warn" id="s-attention">0</div><div class="u">pending + quarantined</div></div>
+  <div class="stat"><div class="k">root tokens</div><div class="v" id="s-roots">0</div><div class="u">no parent</div></div>
+</div>
+
+<h2>active tokens</h2>
+<div class="panel">
+  <div class="filters" aria-label="filters" id="ring-filters">
+    <span style="font-size:.72rem;color:var(--muted)">ring:</span>
+    <div class="filter on" data-ring="ring0">Ring 0</div>
+    <div class="filter on" data-ring="ring1">Ring 1</div>
+    <div class="filter on" data-ring="ring2">Ring 2</div>
+    <div class="filter on" data-ring="ring3">Ring 3</div>
+    <div class="filter on" data-ring="ring4">Ring 4</div>
+    <span style="font-size:.72rem;color:var(--muted);margin-left:1rem">authority:</span>
+    <div class="filter on" data-auth="l0_observe">L0</div>
+    <div class="filter on" data-auth="l1_suggest">L1</div>
+    <div class="filter on" data-auth="l2_simulate">L2</div>
+    <div class="filter on" data-auth="l3_prepare">L3</div>
+    <div class="filter on" data-auth="l4_execute">L4</div>
+    <div class="filter on" data-auth="l5_commit">L5</div>
+    <div class="filter on" data-auth="l6_persist">L6</div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>token_id</th>
+        <th>capability_word</th>
+        <th>ring</th>
+        <th>L</th>
+        <th>profile</th>
+        <th>sandbox</th>
+        <th>tools</th>
+        <th>state</th>
+        <th>parent</th>
+        <th>actions</th>
+      </tr>
+    </thead>
+    <tbody id="tokens-tbody"></tbody>
+  </table>
+</div>
+
+<h2>capability_word bit decoder <span class="muted" style="font-size:.75rem;font-weight:400">(click a token to inspect bits)</span></h2>
+<div class="panel">
+  <div style="font-size:.78rem;margin-bottom:.4rem">selected: <code id="bit-target">—</code></div>
+  <div class="word-grid" id="bit-grid"></div>
+  <div class="word-legend">
+    <span><span class="pill accent">identity</span> bits 0-15 — MS003 fingerprint hash</span>
+    <span><span class="pill ring2">scope</span> bits 16-39 — allowed tools / sandbox tier / network / fs</span>
+    <span><span class="pill ring3">trust</span> bits 40-47 — Ring 0..4 encoding</span>
+    <span><span class="pill warn">lifecycle</span> bits 48-63 — TTL + inheritance</span>
+  </div>
+</div>
+
+<h2>inheritance graph (F04146 parent-child)</h2>
+<div class="panel" id="inheritance-graph" style="font-family:var(--mono);font-size:.82rem;white-space:pre;color:var(--muted)"></div>
+
+<h2>actions <span class="muted" style="font-size:.75rem;font-weight:400">— web is READ-ONLY mirror consumer; mint/revoke via selfdefctl + operator MS003 (R10117)</span></h2>
+<div class="row">
+  <button onclick="emit('selfdefctl token list --ring 2 --active')">copy: list active Ring-2</button>
+  <button onclick="emit('selfdefctl token mint --ring 3 --authority l4_execute --tools \"fs.read,net.egress\" --ttl 1h')">copy: mint Ring-3 L4</button>
+  <button onclick="emit('selfdefctl token derive --parent <token-id> --tools <subset>')">copy: derive child token</button>
+  <button class="danger" onclick="emit('selfdefctl token revoke --token-id <id>')">copy: revoke</button>
+  <button onclick="emit('selfdefctl token inspect --token-id <id>')">copy: inspect bits + signature</button>
+  <button onclick="emit('selfdefctl token trace --token-id <id> --include-children')">copy: trace inheritance</button>
+</div>
+
+<div class="footer">
+  D-14 · <a href="../d-00-master/">D-00 main</a> · <a href="../d-13-filesystem-grants/">D-13 grants</a> · <a href="../d-15-sandboxes/">D-15 sandboxes</a><br>
+  mirror source: <code>selfdef-capability-mirror @ 1.0.0</code> · MS035 capability_word · MS039 Ring 0..4 + L0..L6 · F04146 inheritance · MS007 typed-mirror crate #3 of 9
+</div>
+
+<div class="toast" id="toast">copied</div>
+
+<script>
+  // -------- seed (publisher /api/d-14/snapshot when wired) ----------
+  // Schema mirrors selfdef-capability-mirror::CapabilityMirrorSnapshot 1.0.0
+  // No mutations from this surface — R10117 + R10212.
+  const seed = {
+    schema_version: "1.0.0",
+    captured_at: "2026-05-19T03:40Z",
+    summaries: [
+      { ring: "ring0", active: 2, pending: 0, expired_24h: 0, revoked_24h: 0, quarantined: 0 },
+      { ring: "ring1", active: 4, pending: 0, expired_24h: 1, revoked_24h: 0, quarantined: 0 },
+      { ring: "ring2", active: 9, pending: 1, expired_24h: 6, revoked_24h: 0, quarantined: 0 },
+      { ring: "ring3", active: 5, pending: 1, expired_24h: 3, revoked_24h: 1, quarantined: 1 },
+      { ring: "ring4", active: 1, pending: 0, expired_24h: 2, revoked_24h: 0, quarantined: 0 }
+    ],
+    tokens: [
+      { token_id: "tok-r0-daemon",   capability_word: "0xff00ffff00aa55c0", actor: "selfdef-daemon", profile: "private", trust_ring: "ring0", authority_level: "l6_persist", allowed_tools: ["audit.write","quarantine.escalate","grant.issue"], sandbox_tier: "A", issued_at: "2026-05-19T00:00Z", expires_at: "2026-06-19T00:00Z", ttl_seconds: 2592000, state: "active", trace_id: "t-0", parent_token_id: "" },
+      { token_id: "tok-r1-guardian", capability_word: "0x0f00ffff00aa55c1", actor: "guardian-core",  profile: "private", trust_ring: "ring1", authority_level: "l5_commit",  allowed_tools: ["podman.kill","zfs.snapshot","audit.write"], sandbox_tier: "A", issued_at: "2026-05-19T00:00Z", expires_at: "2026-05-26T00:00Z", ttl_seconds: 604800, state: "active", trace_id: "t-1", parent_token_id: "tok-r0-daemon" },
+      { token_id: "tok-r2-op-cli",   capability_word: "0x00f0ffff00aa55c2", actor: "operator-fp",    profile: "private", trust_ring: "ring2", authority_level: "l5_commit",  allowed_tools: ["git.commit","git.push","fs.write"], sandbox_tier: "A", issued_at: "2026-05-19T03:00Z", expires_at: "2026-05-19T04:00Z", ttl_seconds: 3600, state: "active", trace_id: "t-2", parent_token_id: "tok-r1-guardian" },
+      { token_id: "tok-r2-claude",   capability_word: "0x00f0ffff00aa55c3", actor: "operator-fp",    profile: "private", trust_ring: "ring2", authority_level: "l4_execute", allowed_tools: ["tool.invoke(claude)","fs.read","net.egress"], sandbox_tier: "B", issued_at: "2026-05-19T03:00Z", expires_at: "2026-05-19T04:00Z", ttl_seconds: 3600, state: "active", trace_id: "t-3", parent_token_id: "tok-r2-op-cli" },
+      { token_id: "tok-r3-agent",    capability_word: "0x000fffff00aa55c4", actor: "agent-fp-hf",    profile: "fast",    trust_ring: "ring3", authority_level: "l2_simulate",allowed_tools: ["hf.fetch","fs.read:/tmp"], sandbox_tier: "B", issued_at: "2026-05-19T03:30Z", expires_at: "2026-05-19T04:30Z", ttl_seconds: 3600, state: "active", trace_id: "t-4", parent_token_id: "tok-r2-claude" },
+      { token_id: "tok-r3-pending",  capability_word: "0x0000ffff00aa55c5", actor: "agent-fp-vfio",  profile: "experimental", trust_ring: "ring3", authority_level: "l4_execute", allowed_tools: ["browser.action"], sandbox_tier: "C", issued_at: "2026-05-19T03:40Z", expires_at: "2026-05-19T04:40Z", ttl_seconds: 3600, state: "pending", trace_id: "t-5", parent_token_id: "tok-r2-op-cli" },
+      { token_id: "tok-r3-quar",     capability_word: "0x00000fff00aa55c6", actor: "agent-untrusted",profile: "experimental", trust_ring: "ring3", authority_level: "l4_execute", allowed_tools: ["exec.shell"], sandbox_tier: "D", issued_at: "2026-05-19T02:00Z", expires_at: "2026-05-19T03:00Z", ttl_seconds: 3600, state: "quarantined", trace_id: "t-6", parent_token_id: "" }
+    ]
+  };
+
+  // ring tiles
+  for (const s of seed.summaries) {
+    const el = document.getElementById('r' + s.ring.slice(4) + '-active');
+    if (el) el.textContent = s.active + (s.pending > 0 ? ` (+${s.pending})` : '');
+  }
+  // summary tiles
+  const totals = seed.summaries.reduce((acc, s) => ({
+    active: acc.active + s.active,
+    pending: acc.pending + s.pending,
+    quarantined: acc.quarantined + s.quarantined
+  }), { active: 0, pending: 0, quarantined: 0 });
+  document.getElementById('s-active').textContent = totals.active;
+  document.getElementById('s-pending').textContent = totals.pending;
+  document.getElementById('s-quarantined').textContent = totals.quarantined;
+  document.getElementById('s-attention').textContent = totals.pending + totals.quarantined;
+  const roots = seed.tokens.filter(t => !t.parent_token_id).length;
+  document.getElementById('s-roots').textContent = roots;
+
+  function renderTokens() {
+    const activeRings = new Set([...document.querySelectorAll('#ring-filters .filter.on[data-ring]')].map(f => f.dataset.ring));
+    const activeAuths = new Set([...document.querySelectorAll('#ring-filters .filter.on[data-auth]')].map(f => f.dataset.auth));
+    const tb = document.getElementById('tokens-tbody');
+    tb.innerHTML = '';
+    for (const t of seed.tokens) {
+      if (!activeRings.has(t.trust_ring) || !activeAuths.has(t.authority_level)) continue;
+      const statePill = t.state === 'active' ? 'ok' : (t.state === 'quarantined' ? 'bad' : 'warn');
+      const Lshort = t.authority_level.replace(/^l(\d)_.*/, 'L$1');
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><code>${t.token_id}</code></td>
+        <td><code style="cursor:pointer" onclick="decode('${t.token_id}','${t.capability_word}')">${t.capability_word}</code></td>
+        <td><span class="pill ${t.trust_ring}">${t.trust_ring.toUpperCase()}</span></td>
+        <td><span class="pill muted">${Lshort}</span></td>
+        <td>${t.profile}</td>
+        <td><span class="pill accent">${t.sandbox_tier}</span></td>
+        <td class="muted">${t.allowed_tools.slice(0,2).join(' · ')}${t.allowed_tools.length > 2 ? ' +' + (t.allowed_tools.length - 2) : ''}</td>
+        <td><span class="pill ${statePill}">${t.state}</span></td>
+        <td class="muted">${t.parent_token_id ? '↑ ' + t.parent_token_id : '(root)'}</td>
+        <td>
+          <button onclick="emit('selfdefctl token inspect --token-id ${t.token_id}')">inspect</button>
+          <button class="danger" onclick="emit('selfdefctl token revoke --token-id ${t.token_id}')">revoke</button>
+        </td>
+      `;
+      tb.appendChild(tr);
+    }
+  }
+  renderTokens();
+  document.querySelectorAll('#ring-filters .filter').forEach(f => f.addEventListener('click', () => { f.classList.toggle('on'); renderTokens(); }));
+
+  // capability_word bit decoder
+  function decode(tokenId, hexWord) {
+    document.getElementById('bit-target').textContent = `${tokenId} = ${hexWord}`;
+    const grid = document.getElementById('bit-grid');
+    grid.innerHTML = '';
+    const cleaned = hexWord.replace(/^0x/, '').padStart(16, '0');
+    const bigword = BigInt('0x' + cleaned);
+    // render bits 63..0 in 8 rows of 8
+    for (let bit = 63; bit >= 0; bit--) {
+      const isSet = (bigword >> BigInt(bit)) & 1n;
+      const cell = document.createElement('div');
+      cell.className = 'bit ' + (isSet ? 'set' : 'clr');
+      cell.textContent = String(bit);
+      grid.appendChild(cell);
+    }
+  }
+  // decode first token by default
+  decode(seed.tokens[0].token_id, seed.tokens[0].capability_word);
+
+  // inheritance ascii graph
+  function renderInheritance() {
+    const childMap = {};
+    for (const t of seed.tokens) {
+      if (t.parent_token_id) {
+        (childMap[t.parent_token_id] = childMap[t.parent_token_id] || []).push(t);
+      }
+    }
+    const roots = seed.tokens.filter(t => !t.parent_token_id);
+    const lines = [];
+    function walk(token, prefix, isLast) {
+      const connector = isLast ? '└─ ' : '├─ ';
+      lines.push(prefix + connector + token.token_id + '  [' + token.trust_ring + ' · ' + token.authority_level.replace(/^l(\d)_.*/, 'L$1') + ']');
+      const children = childMap[token.token_id] || [];
+      const newPrefix = prefix + (isLast ? '   ' : '│  ');
+      children.forEach((c, idx) => walk(c, newPrefix, idx === children.length - 1));
+    }
+    roots.forEach((r, idx) => {
+      lines.push(r.token_id + '  [' + r.trust_ring + ' · ' + r.authority_level.replace(/^l(\d)_.*/, 'L$1') + ']  (root)');
+      const children = childMap[r.token_id] || [];
+      children.forEach((c, ci) => walk(c, '', ci === children.length - 1));
+      if (idx < roots.length - 1) lines.push('');
+    });
+    document.getElementById('inheritance-graph').textContent = lines.join('\n');
+  }
+  renderInheritance();
+
+  // clipboard helper — web NEVER mutates per R10117 + R10212
+  function emit(cmd) {
+    navigator.clipboard.writeText(cmd).then(() => showToast('copied: ' + cmd.slice(0, 60) + (cmd.length > 60 ? '…' : '')));
+  }
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(showToast._h);
+    showToast._h = setTimeout(() => t.classList.remove('show'), 1800);
+  }
+
+  // master shortcut Cmd-0
+  window.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key === '0') { e.preventDefault(); window.location.href = '../master-dashboard/'; }
+  });
+</script>
+
+</body>
+</html>
