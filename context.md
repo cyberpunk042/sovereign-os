@@ -668,3 +668,12 @@ Workspace count now 181. Total this resume: 71 cockpit crates.
   PlaybackState + step/jump/progress_pct)
 
 Workspace count now 183. Total this resume: 73 cockpit crates.
+
+### Twenty-first wave (same day, +2 more cockpit crates)
+
+- `sovereign-cockpit-keymap-editor` (action→chord BTreeMap +
+  capture phase + conflict detection on finalize)
+- `sovereign-cockpit-status-pulse` (triangular-wave brightness
+  0..=100 with min/max/static/active flag)
+
+Workspace count now 185. Total this resume: 75 cockpit crates.
