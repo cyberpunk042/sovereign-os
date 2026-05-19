@@ -488,3 +488,14 @@ Workspace count now 130. Total this resume: 20 cockpit crates.
   bonuses + skip penalty, stable-on-tie descending)
 
 Workspace count now 135. Total this resume: 25 cockpit crates.
+
+### Fifth wave (same day, +3 more cockpit crates)
+
+- `sovereign-cockpit-image-viewer-zoom` (9 discrete zoom levels +
+  pan clamped to keep image center in viewport; fit-to-viewport)
+- `sovereign-cockpit-bulk-action` (action enablement under
+  min/max selection count + requires_unlocked flag)
+- `sovereign-cockpit-color-picker` (RGBA, recent MRU dedup,
+  favorites pin; set_hex parses #RGB/#RRGGBB/#RRGGBBAA)
+
+Workspace count now 138. Total this resume: 28 cockpit crates.
