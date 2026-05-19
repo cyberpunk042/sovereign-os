@@ -1,0 +1,23 @@
+[package]
+name = "sovereign-mode-default-policy"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Runtime mode-default policy — declares per-BundleName landing ExecutionMode at cockpit boot. Private lands in Plan; Careful in DryRun; Fast in Execute; Sovereign in Execute. Operator can override per-session."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sovereign-execution-mode-registry = { path = "../sovereign-execution-mode-registry" }
+sovereign-profile-bundles = { path = "../sovereign-profile-bundles" }
+
+[features]
+default = []
