@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os D-11 adapter status</title>
+<meta name="x-sovereign-module" content="d-11-adapter-status-webapp">
+<meta name="x-sovereign-shipped-in" content="R-impl-SDD040-phaseB-item3">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<meta name="x-sovereign-catalog-source" content="M060 R10109-R10111 + M046 LoRA Foundry + M078 HölderPO + M077 NVFP4 4-bit adapters + MS041 high-risk triple-gate + M080 HRM (note: HRM does NOT use LoRA)">
+<style>
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
+  .num{font-variant-numeric:tabular-nums;text-align:right}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:stretch}
+  .stat{flex:1 1 180px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
+  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .stat .v{font-size:1.4rem;font-weight:600;margin-top:.2rem;font-variant-numeric:tabular-nums}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border)}
+  .pill.ok{background:#143d14;color:var(--good)} .pill.bad{background:#3d1414;color:var(--bad)} .pill.warn{background:#3d2f14;color:var(--warn)}
+  .pill.accent{background:#143d3d;color:var(--accent)}
+  .pill.precision-bf16{background:#143d3d;color:var(--accent)}
+  .pill.precision-fp16{background:#143d2f;color:#9bd1c4}
+  .pill.precision-fp8{background:#3d2f14;color:var(--warn)}
+  .pill.precision-nvfp4{background:#1d143d;color:#a9b8ff}
+  .pill.precision-ternary{background:#3d143d;color:#d19bff}
+  .gate-row{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap}
+  .gate{padding:.15rem .4rem;border-radius:3px;font-size:.7rem;background:#0a0a0a;border:1px solid var(--border);color:var(--muted)}
+  .gate.passed{border-color:var(--good);color:var(--good)}
+  .gate.pending{border-color:var(--warn);color:var(--warn)}
+  .gate.failed{border-color:var(--bad);color:var(--bad)}
+  button{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.3rem .6rem;font-family:inherit;font-size:.78rem;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.promote{border-color:var(--good);color:var(--good)}
+  button.demote{border-color:var(--warn);color:var(--warn)}
+  button.rollback{border-color:var(--bad);color:var(--bad)}
+  .kbd{display:inline-block;padding:1px 5px;border-radius:3px;font-size:.7rem;background:var(--border);color:var(--muted);border:1px solid var(--border)}
+  .footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--muted);font-size:.78rem}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  code{color:var(--accent)}
+  .filter-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.6rem}
+  select{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.35rem .55rem;font-family:inherit;font-size:.85rem}
+</style>
+</head>
+<body>
+
+<h1>D-11 — adapter status</h1>
+<div class="sub">LoRA Foundry inventory + MS041 triple-gate audit + rollback · <a href="../master-dashboard/">D-00 main</a> · <a href="../d-10-eval-history/">D-10 eval history</a></div>
+
+<h2>summary</h2>
+<div class="row">
+  <div class="stat"><div class="k">total adapters</div><div class="v" id="total-adapters">—</div></div>
+  <div class="stat"><div class="k">promoted (L6)</div><div class="v ok" id="promoted-count">—</div></div>
+  <div class="stat"><div class="k">pending gates</div><div class="v warn" id="pending-count">—</div></div>
+  <div class="stat"><div class="k">total VRAM (loaded)</div><div class="v" id="vram-total">—</div></div>
+</div>
+
+<h2>active adapters by base model (M046 LoRA Foundry)</h2>
+<div class="panel">
+  <div class="filter-row">
+    <select id="base-filter"><option value="">all base models</option></select>
+    <select id="precision-filter">
+      <option value="">all precisions</option>
+      <option value="bf16">BF16</option>
+      <option value="fp16">FP16</option>
+      <option value="fp8">FP8</option>
+      <option value="nvfp4">NVFP4 (M077)</option>
+      <option value="ternary">ternary (M073)</option>
+    </select>
+    <select id="training-filter">
+      <option value="">all training</option>
+      <option value="sft">SFT</option>
+      <option value="rl-grpo">RL-GRPO</option>
+      <option value="rl-holderpo">RL-HölderPO (M078)</option>
+    </select>
+    <select id="status-filter">
+      <option value="">all status</option>
+      <option value="active">active</option>
+      <option value="pending">pending promotion</option>
+      <option value="quarantined">quarantined</option>
+      <option value="rolled-back">rolled-back</option>
+    </select>
+    <button id="apply-btn">apply</button>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>adapter</th>
+        <th>base</th>
+        <th>precision</th>
+        <th>training</th>
+        <th class="num">size</th>
+        <th class="num">eval gain</th>
+        <th>status</th>
+        <th>gates</th>
+        <th>actions</th>
+      </tr>
+    </thead>
+    <tbody id="adapters-tbody"><tr><td colspan="9" class="muted">loading…</td></tr></tbody>
+  </table>
+</div>
+
+<h2>MS041 high-risk triple-gate per pending adapter</h2>
+<div class="panel">
+  <div class="muted" style="font-size:.78rem;margin-bottom:.5rem">
+    Every L6 Persist (adapter promotion) requires three gates per MS041 R09697-R09711:
+    <span class="gate passed">snapshot (ZFS pre-commit)</span>
+    <span class="gate passed">test/eval (MS009 audit + eval suite)</span>
+    <span class="gate passed">oracle-or-human (sovereign-os Blackwell oracle OR operator)</span>
+  </div>
+  <table>
+    <thead><tr><th>adapter</th><th>snapshot</th><th>test/eval</th><th>oracle</th><th>human</th><th>composite</th></tr></thead>
+    <tbody id="gates-tbody"><tr><td colspan="6" class="muted">no adapters in pending state</td></tr></tbody>
+  </table>
+</div>
+
+<h2>NVFP4 4-bit adapter inventory (M077)</h2>
+<div class="panel">
+  <table>
+    <thead><tr><th>adapter</th><th>NVFP4 recipe</th><th class="num">VRAM (4-bit)</th><th class="num">VRAM saved vs BF16</th><th>base portability</th></tr></thead>
+    <tbody id="nvfp4-tbody"><tr><td colspan="5" class="muted">no NVFP4 adapters yet — first to promote via M077 + Quartet II Blackwell kernels</td></tr></tbody>
+  </table>
+  <div class="muted" style="font-size:.72rem;margin-top:.5rem">M077 R12815-R12816: adapter portable across NVFP4 / FP8 / BF16 base models with rescale validator</div>
+</div>
+
+<h2>recent promotions + rollbacks (last 30d)</h2>
+<div class="panel">
+  <table>
+    <thead><tr><th>ts</th><th>action</th><th>adapter</th><th>actor</th><th>rationale</th><th>signature</th></tr></thead>
+    <tbody id="history-tbody"><tr><td colspan="6" class="muted">no recent promotions or rollbacks</td></tr></tbody>
+  </table>
+</div>
+
+<h2>HRM model class (M080 — NOT LoRA-compatible)</h2>
+<div class="panel">
+  <div class="muted" style="font-size:.82rem">
+    M080 HRM (Hierarchical Reasoning Model) is the 4th architectural class beyond Transformer + Mamba + BitNet. Per arXiv 2506.21734 + R13374 + R13319, HRM does <strong>NOT use LoRA</strong> — different training paradigm (1000 samples, no pre-training, single forward pass).
+  </div>
+  <table style="margin-top:.5rem">
+    <thead><tr><th>HRM variant</th><th class="num">params</th><th>tags</th><th>training</th><th>status</th></tr></thead>
+    <tbody>
+      <tr><td>HRM canonical</td><td class="num">27M</td><td><span class="pill accent">reasoning</span></td><td><span class="muted">1000 samples no pre-training</span></td><td id="hrm-canon-status"><span class="pill muted">not installed</span></td></tr>
+      <tr><td>HRM-Text-1B (sapientinc)</td><td class="num">1.18B</td><td><span class="pill accent">prefix-lm</span> <span class="pill warn">non-instruction-tuned</span></td><td><span class="muted">apache-2.0</span></td><td id="hrm-text-1b-status"><span class="pill muted">not installed</span></td></tr>
+      <tr><td>TRM (tiny recursive)</td><td class="num">7M</td><td><span class="pill accent">2-layer</span></td><td><span class="muted">arXiv 2510.04871</span></td><td id="hrm-trm-status"><span class="pill muted">not installed</span></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h2>actions</h2>
+<div class="panel">
+  <div class="row">
+    <button id="refresh-btn">refresh</button>
+    <button id="train-btn">train new adapter (operator-signed CLI)</button>
+    <button id="export-btn">export adapter inventory CSV</button>
+  </div>
+</div>
+
+<div class="footer">
+  D-11 adapter status · M060 R10109-R10111 · M046 LoRA Foundry · M077 NVFP4 4-bit adapters · M078 HölderPO RL post-training · MS041 high-risk triple-gate (snapshot + test/eval + oracle-or-human) · M080 HRM (no LoRA)
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+function escapeHtml(s) { if (s == null) return ''; return String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+function fmtBytes(b) { if (!b && b !== 0) return '—'; const u=['B','K','M','G','T']; let i=0; while(b>=1024&&i<u.length-1){b/=1024;i++;} return `${b.toFixed(b<10?1:0)} ${u[i]}`; }
+function fmtAge(ts) { if (!ts) return '—'; const ms = Date.now() - new Date(ts).getTime(); const m=Math.floor(ms/60000); if(m<60) return `${m}m`; const h=Math.floor(m/60); if(h<24) return `${h}h`; return `${Math.floor(h/24)}d`; }
+
+function precisionPill(p) {
+  if (!p) return '<span class="pill muted">—</span>';
+  return `<span class="pill precision-${p}">${escapeHtml(p.toUpperCase())}</span>`;
+}
+function statusPill(s) {
+  const cls = s === 'active' ? 'ok' : s === 'pending' ? 'warn' : s === 'quarantined' ? 'bad' : 'muted';
+  return `<span class="pill ${cls}">${escapeHtml(s||'unknown')}</span>`;
+}
+function gateBadge(state) {
+  return `<span class="gate ${state}">${state}</span>`;
+}
+
+async function fetchAdapters() {
+  try {
+    const res = await fetch('/api/adapters/inventory', {credentials:'same-origin'});
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (e) {
+    return {adapters:[],summary:{},history:[],hrm:{},error:e.message};
+  }
+}
+
+async function refresh() {
+  const s = await fetchAdapters();
+  $('total-adapters').textContent = s.summary.total ?? s.adapters.length;
+  $('promoted-count').textContent = s.summary.promoted ?? 0;
+  $('pending-count').textContent = s.summary.pending ?? 0;
+  $('vram-total').textContent = s.summary.vram_loaded_bytes != null ? fmtBytes(s.summary.vram_loaded_bytes) : '—';
+  // Populate base-model filter dropdown
+  const bases = new Set();
+  (s.adapters || []).forEach(a => bases.add(a.base_model));
+  const baseFilter = $('base-filter');
+  const currentVal = baseFilter.value;
+  baseFilter.innerHTML = '<option value="">all base models</option>' + [...bases].sort().map(b => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join('');
+  baseFilter.value = currentVal;
+  // Apply filters
+  const fBase = $('base-filter').value;
+  const fPrec = $('precision-filter').value;
+  const fTrain = $('training-filter').value;
+  const fStatus = $('status-filter').value;
+  const filtered = (s.adapters || []).filter(a =>
+    (!fBase || a.base_model === fBase) &&
+    (!fPrec || a.precision === fPrec) &&
+    (!fTrain || a.training === fTrain) &&
+    (!fStatus || a.status === fStatus)
+  );
+  const tbody = $('adapters-tbody');
+  tbody.innerHTML = filtered.length ? filtered.map(a => `
+    <tr>
+      <td><code>${escapeHtml(a.id)}</code></td>
+      <td class="muted">${escapeHtml(a.base_model)}</td>
+      <td>${precisionPill(a.precision)}</td>
+      <td><span class="pill accent">${escapeHtml(a.training || 'sft')}</span></td>
+      <td class="num">${fmtBytes(a.size_bytes)}</td>
+      <td class="num ${a.eval_gain_pct > 5 ? 'ok' : a.eval_gain_pct > 0 ? 'warn' : a.eval_gain_pct < 0 ? 'bad' : 'muted'}">${a.eval_gain_pct != null ? (a.eval_gain_pct > 0 ? '+' : '') + a.eval_gain_pct.toFixed(1) + '%' : '—'}</td>
+      <td>${statusPill(a.status)}</td>
+      <td>
+        <div class="gate-row">
+          ${gateBadge(a.gates?.snapshot || 'pending')}
+          ${gateBadge(a.gates?.test_eval || 'pending')}
+          ${gateBadge(a.gates?.oracle_or_human || 'pending')}
+        </div>
+      </td>
+      <td>
+        ${a.status === 'pending' ? `<button class="promote" data-action="promote" data-id="${escapeHtml(a.id)}">promote</button>` : ''}
+        ${a.status === 'active' ? `<button class="demote" data-action="demote" data-id="${escapeHtml(a.id)}">demote</button>` : ''}
+        <button class="rollback" data-action="rollback" data-id="${escapeHtml(a.id)}">rollback</button>
+      </td>
+    </tr>`).join('') : '<tr><td colspan="9" class="muted">no adapters match filter</td></tr>';
+
+  tbody.querySelectorAll('button[data-action]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const cmd = `sovereign adapter ${btn.dataset.action} ${btn.dataset.id} --rationale "<operator-rationale>"`;
+      try { await navigator.clipboard.writeText(cmd); alert(`Cmd copied (MS003-signed):\n\n  ${cmd}\n\nRequires MS041 triple-gate for promote/demote.`); }
+      catch (e) { prompt('Copy + run:', cmd); }
+    });
+  });
+
+  // Gates table: pending adapters only
+  const pending = (s.adapters || []).filter(a => a.status === 'pending');
+  $('gates-tbody').innerHTML = pending.length ? pending.map(a => `
+    <tr>
+      <td><code>${escapeHtml(a.id)}</code></td>
+      <td>${gateBadge(a.gates?.snapshot || 'pending')}</td>
+      <td>${gateBadge(a.gates?.test_eval || 'pending')}</td>
+      <td>${gateBadge(a.gates?.oracle || 'pending')}</td>
+      <td>${gateBadge(a.gates?.human || 'pending')}</td>
+      <td>${(a.gates?.snapshot === 'passed' && a.gates?.test_eval === 'passed' && (a.gates?.oracle === 'passed' || a.gates?.human === 'passed')) ? '<span class="pill ok">ready to promote</span>' : '<span class="pill warn">not yet</span>'}</td>
+    </tr>
+  `).join('') : '<tr><td colspan="6" class="muted">no adapters in pending state</td></tr>';
+
+  // NVFP4 inventory
+  const nvfp4 = (s.adapters || []).filter(a => a.precision === 'nvfp4');
+  $('nvfp4-tbody').innerHTML = nvfp4.length ? nvfp4.map(a => `
+    <tr>
+      <td><code>${escapeHtml(a.id)}</code></td>
+      <td><span class="pill accent">${escapeHtml(a.nvfp4_recipe || 'NvidiaCanonical')}</span></td>
+      <td class="num">${fmtBytes(a.vram_4bit_bytes)}</td>
+      <td class="num ok">−${fmtBytes((a.vram_bf16_bytes || 0) - (a.vram_4bit_bytes || 0))} (4×)</td>
+      <td class="muted">${escapeHtml(a.base_portability || 'NVFP4/FP8/BF16 rescale')}</td>
+    </tr>
+  `).join('') : '<tr><td colspan="5" class="muted">no NVFP4 adapters yet — first to promote via M077 + Quartet II Blackwell kernels (4.2× speedup over BF16)</td></tr>';
+
+  // history
+  $('history-tbody').innerHTML = (s.history || []).length ? s.history.map(h => `
+    <tr>
+      <td class="muted">${fmtAge(h.ts)} ago</td>
+      <td><span class="pill ${h.action === 'promote' ? 'ok' : h.action === 'rollback' ? 'bad' : 'warn'}">${escapeHtml(h.action)}</span></td>
+      <td><code>${escapeHtml(h.adapter_id)}</code></td>
+      <td>${escapeHtml(h.actor || '—')}</td>
+      <td>${escapeHtml(h.rationale || '—')}</td>
+      <td class="muted">${h.signature ? h.signature.slice(0,12)+'…' : '—'}</td>
+    </tr>
+  `).join('') : '<tr><td colspan="6" class="muted">no promotion/rollback history yet</td></tr>';
+
+  // HRM status — read-only (no LoRA)
+  const hrm = s.hrm || {};
+  for (const variant of ['canon','text-1b','trm']) {
+    const installed = hrm[variant === 'canon' ? 'canonical_27m' : variant === 'text-1b' ? 'text_1b' : 'trm_7m']?.installed;
+    $(`hrm-${variant}-status`).innerHTML = installed ? '<span class="pill ok">installed</span>' : '<span class="pill muted">not installed</span>';
+  }
+}
+
+$('refresh-btn').addEventListener('click', refresh);
+$('apply-btn').addEventListener('click', refresh);
+$('train-btn').addEventListener('click', async () => {
+  const cmd = 'sovereign adapter train --base <model> --method <sft|rl-grpo|rl-holderpo> --rationale "<...>"';
+  try { await navigator.clipboard.writeText(cmd); alert(`Train cmd template copied:\n\n  ${cmd}\n\nM078 HölderPO method targets 54.9% math + 93.8% ALFWorld. M077 NVFP4 path reduces VRAM 4× vs BF16.`); }
+  catch (e) { prompt('Copy + run:', cmd); }
+});
+$('export-btn').addEventListener('click', async () => {
+  const cmd = 'sovereign adapter export --format csv > adapters-inventory.csv';
+  try { await navigator.clipboard.writeText(cmd); alert(`Export cmd copied:\n\n  ${cmd}`); }
+  catch (e) { prompt('Copy + run:', cmd); }
+});
+
+try {
+  const es = new EventSource('/api/adapters/stream');
+  es.addEventListener('adapter-state-change', refresh);
+  es.addEventListener('gate-state-change', refresh);
+  es.addEventListener('error', () => setInterval(refresh, 15000));
+} catch (e) { setInterval(refresh, 15000); }
+
+refresh();
+</script>
+
+</body>
+</html>
