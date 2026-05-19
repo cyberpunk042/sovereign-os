@@ -582,6 +582,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-replay-cursor"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-conversation-thread",
+ "sovereign-execution-mode-registry",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-router-7axis"
 version = "0.1.0"
 dependencies = [
