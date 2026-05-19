@@ -262,6 +262,31 @@ This file is **operator-state-of-the-art**. Updates:
 - `32cee89` — M076 Three Load-Balancing Profiles (LAST catalog must-add)
 - `8e39ddf` — M075 SRP hardware topology
 - `d73e658` — M074 AVX-512 VNNI fusion
+### Session 2026-05-19 (post-compaction) — 15 fresh runtime crates added
+
+- `ff91592` — `sovereign-cockpit-keystroke-map`: 5-scope shortcut registry with conflict gate
+- `15a19a5` — `sovereign-doctrine-citation`: 8-shape × 16-tag runtime citation envelope
+- `988aad2` — `sovereign-replay-cursor`: turn-walking cursor (step/pause/resume/jump-to/breakpoint)
+- `edaaed2` — `sovereign-dashboard-layout`: 12-column widget grid with overlap detection
+- `15322e7` — `sovereign-prompt-template-registry`: variable-slot rendering + context gates
+- `904d079` — `sovereign-mode-transition-log`: 7-reason mode-switch audit with danger gate
+- `413273d` — `sovereign-cockpit-toast-tray`: ephemeral notification queue (TTL, 20-cap)
+- `19fb6a1` — `sovereign-tool-invocation-record`: per-call cockpit record with catalog-gate
+- `8d835c8` — `sovereign-conversation-thread`: turn-by-turn 4-role thread schema
+- `46baf6f` — `sovereign-tool-catalog`: 8-tool cockpit registry gated on (mode × bundle)
+- `7d52db0` — `sovereign-cockpit-banner-state`: top-bar single-source-of-truth + severity
+- `8198bea` — `sovereign-execution-mode-registry`: 7-mode capability tuple catalog
+- `0bf4ee2` — `sovereign-hardware-thermal-policy`: per-target Cool/Warm/Throttle/Shutdown
+- `0cead49` — `sovereign-hardware-dispatch-eligibility`: 5-target VRAM/latency/role/util feasibility
+- `9d1a0c5` — `sovereign-hardware-load-sample`: 5-target VRAM/util/temp snapshot
+- `0a7547f` — `sovereign-hardware-registry`: 5-target hardware catalog with SRP role
+
+Sovereign-os workspace now at 48 crates (was 32 pre-session). Every crate ships
+with canonical builders, full validate() + serde roundtrip + edge-case tests
+(10..15 passing tests per crate).
+
+### Earlier milestones
+
 - `0163a46` — M073 1-bit ternary BitLinear
 - `4295c85` — M072 Master Bootstrap Verification Checklist
 - `b083908` — M071 Atomic State Transition Protocol
