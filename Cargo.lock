@@ -323,6 +323,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-trinity"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-value-plane"
 version = "0.1.0"
 dependencies = [

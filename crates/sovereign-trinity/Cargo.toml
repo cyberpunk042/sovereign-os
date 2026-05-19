@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-trinity"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M066 Trinity Framework — The Pulse / The Weaver / The Auditor. Project boundary per E0645: Pulse + Weaver live in sovereign-os; Auditor implementation lives in selfdef MS044 (this crate carries only the typed-mirror surface)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
