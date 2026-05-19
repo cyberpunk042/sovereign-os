@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-stale-banner"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit stale-content banner state. Tracks last_refresh_ms + max_fresh_ms threshold; status() returns Fresh/Slightly Stale/Stale/Very Stale with human-readable age. Pure UX descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
