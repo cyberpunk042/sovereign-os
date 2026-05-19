@@ -753,6 +753,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-routing-preference"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-profile-bundles",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-six-pillars"
 version = "0.1.0"
 dependencies = [

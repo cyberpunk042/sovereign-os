@@ -1,0 +1,22 @@
+[package]
+name = "sovereign-routing-preference"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Runtime router preferences — operator-curated weights for the routing decision (prefer-local / prefer-fast / prefer-cheap / prefer-quality / prefer-privacy) per BundleName. The router blends weights to pick among eligible providers."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sovereign-profile-bundles = { path = "../sovereign-profile-bundles" }
+
+[features]
+default = []
