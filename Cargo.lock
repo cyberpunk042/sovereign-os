@@ -161,6 +161,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-holderpo"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-nvfp4-runtime"
 version = "0.1.0"
 dependencies = [
