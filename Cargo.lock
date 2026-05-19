@@ -523,6 +523,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-toggle-tray"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-tooltip-catalog"
 version = "0.1.0"
 dependencies = [

@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-toggle-tray"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit operator-facing feature toggle tray — categorized on/off switches the operator flips. UI surface only; signed audit lives in selfdef-toggle-audit-authority. Operator groups toggles by category + searches by label."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
