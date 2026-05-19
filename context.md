@@ -659,3 +659,12 @@ Workspace count now 179. Total this resume: 69 cockpit crates.
   with auto-expand-on-fill + manual-override stickiness)
 
 Workspace count now 181. Total this resume: 71 cockpit crates.
+
+### Twentieth wave (same day, +2 more cockpit crates)
+
+- `sovereign-cockpit-multi-line-input` (buffer + soft-wrap-cols +
+  min_rows/max_rows clamp; line_count counts wraps)
+- `sovereign-cockpit-snapshot-toolbar` (replay scrubber with
+  PlaybackState + step/jump/progress_pct)
+
+Workspace count now 183. Total this resume: 73 cockpit crates.
