@@ -552,3 +552,14 @@ Workspace count now 149. Total this resume: 39 cockpit crates.
   pan_screen, world↔screen roundtrip, NaN rejection)
 
 Workspace count now 151. Total this resume: 41 cockpit crates.
+
+### Eleventh wave (same day, +2 more cockpit crates)
+
+- `sovereign-cockpit-action-bar` (3 slots Primary/Secondary/Tertiary
+  with id-collision rejection; render_order: secondary, tertiary,
+  primary right-aligned)
+- `sovereign-cockpit-virtual-grid` (2D viewport virtualization
+  computing visible (first_row, first_col, row_count, col_count)
+  with overscan + total cap)
+
+Workspace count now 153. Total this resume: 43 cockpit crates.
