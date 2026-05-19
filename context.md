@@ -281,8 +281,10 @@ This file is **operator-state-of-the-art**. Updates:
 - `9d1a0c5` — `sovereign-hardware-load-sample`: 5-target VRAM/util/temp snapshot
 - `0a7547f` — `sovereign-hardware-registry`: 5-target hardware catalog with SRP role
 
-Sovereign-os workspace at 104 crates (was 32 pre-session, +72 fresh this session).
-Full workspace test suite: 1195 passing tests. Newest batch:
+Sovereign-os workspace at 106 crates (was 32 pre-session, +74 fresh this session).
+Full workspace test suite: 1211 passing tests. Newest:
+`sovereign-cockpit-error-banner`, `sovereign-cockpit-color-blind-mode`.
+Earlier batch:
 `sovereign-cockpit-recent-items` (LRU recent-views),
 `sovereign-cockpit-input-mode` (Mouse/Keyboard/Vim/Touch),
 `sovereign-cockpit-context-menu` (per-target right-click registry).
