@@ -315,6 +315,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-shortcut-cheatsheet"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-cockpit-keystroke-map",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-state"
 version = "0.1.0"
 dependencies = [
