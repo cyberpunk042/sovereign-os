@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-status-pulse"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit pulsing-indicator state. Computes a 0..=100 brightness % from (now_ms, period_ms) following a triangular wave so a status dot pulses smoothly. Pulses only when active flag true; static brightness otherwise. Pure UX descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
