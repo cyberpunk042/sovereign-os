@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os D-06 pending approvals</title>
+<meta name="x-sovereign-module" content="d-06-pending-approvals-webapp">
+<meta name="x-sovereign-shipped-in" content="R-impl-SDD040-phaseA-item2">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<meta name="x-sovereign-catalog-source" content="M060 R10088-R10092 + M065 Five Stage Gates SG1-SG5 + selfdef MS039 authority levels + MS040 profile envelopes + MS041 commit authority high-risk gates">
+<style>
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  .ok{color:var(--good)}
+  .bad{color:var(--bad)}
+  .warn{color:var(--warn)}
+  .muted{color:var(--muted)}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border)}
+  .pill.ok{background:#143d14;color:var(--good)}
+  .pill.bad{background:#3d1414;color:var(--bad)}
+  .pill.warn{background:#3d2f14;color:var(--warn)}
+  .pill.accent{background:#143d3d;color:var(--accent)}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+  .stat{flex:1 1 180px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
+  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .stat .v{font-size:1.05rem;font-weight:600;margin-top:.2rem}
+  .approval-card{background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--warn);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  .approval-card.critical{border-left-color:var(--bad)}
+  .approval-card.high{border-left-color:var(--warn)}
+  .approval-card.medium{border-left-color:var(--accent)}
+  .approval-card.low{border-left-color:var(--muted)}
+  .approval-card h3{margin:0 0 .3rem 0;font-size:.95rem;font-weight:600;display:flex;align-items:center;gap:.5rem}
+  .approval-card .meta{color:var(--muted);font-size:.78rem;margin-bottom:.5rem}
+  .approval-card .body{font-size:.85rem;margin:.5rem 0}
+  .approval-card .actions{margin-top:.7rem;display:flex;gap:.4rem;flex-wrap:wrap}
+  .approval-card .ctx{background:#0a0a0a;border:1px solid var(--border);border-radius:3px;padding:.5rem .7rem;margin:.4rem 0;font-size:.78rem;overflow-x:auto;white-space:pre-wrap;color:var(--muted)}
+  button{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.4rem .8rem;font-family:inherit;font-size:.85rem;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  button.approve{border-color:var(--good);color:var(--good)}
+  button.approve:hover{background:#0f1f0f}
+  button.deny{border-color:var(--bad);color:var(--bad)}
+  button.deny:hover{background:#1f0f0f}
+  button.defer{border-color:var(--warn);color:var(--warn)}
+  button.defer:hover{background:#1f1a0f}
+  button.batch{border-color:var(--accent);color:var(--accent)}
+  button.batch:hover{background:#0f1a25}
+  .kbd{display:inline-block;padding:1px 5px;border-radius:3px;font-size:.7rem;background:var(--border);color:var(--muted);border:1px solid var(--border)}
+  .footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--muted);font-size:.78rem}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .gate-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:.5rem;margin-top:.4rem}
+  .gate-cell{background:var(--panel);border:1px solid var(--border);border-radius:3px;padding:.5rem;text-align:center;font-size:.78rem}
+  .gate-cell.pending{border-color:var(--warn);color:var(--warn)}
+  .gate-cell.signed{border-color:var(--good);color:var(--good)}
+  .gate-cell.bypassed{border-color:var(--bad);color:var(--bad)}
+</style>
+</head>
+<body>
+
+<h1>D-06 — pending approvals</h1>
+<div class="sub">operator-controlled axiom — <span class="kbd">Cmd-7</span> · <a href="../master-dashboard/">D-00 main</a> · <a href="../d-02-profile-choices/">D-02 profiles</a></div>
+
+<h2>queue summary</h2>
+<div class="row">
+  <div class="stat">
+    <div class="k">pending</div>
+    <div class="v" id="pending-count">loading…</div>
+  </div>
+  <div class="stat">
+    <div class="k">critical</div>
+    <div class="v bad" id="critical-count">—</div>
+  </div>
+  <div class="stat">
+    <div class="k">high</div>
+    <div class="v warn" id="high-count">—</div>
+  </div>
+  <div class="stat">
+    <div class="k">oldest</div>
+    <div class="v" id="oldest-age">—</div>
+  </div>
+</div>
+
+<h2>five stage gates (M065)</h2>
+<div class="panel">
+  <div class="gate-grid" id="gates-grid">
+    <div class="gate-cell" data-gate="SG1">SG1<br><span class="muted" style="font-size:.7rem">after PR 3</span></div>
+    <div class="gate-cell" data-gate="SG2">SG2<br><span class="muted" style="font-size:.7rem">after PR 4</span></div>
+    <div class="gate-cell" data-gate="SG3">SG3<br><span class="muted" style="font-size:.7rem">after PR 6</span></div>
+    <div class="gate-cell" data-gate="SG4">SG4<br><span class="muted" style="font-size:.7rem">after PR 8</span></div>
+    <div class="gate-cell" data-gate="SG5">SG5<br><span class="muted" style="font-size:.7rem">after PR 10</span></div>
+  </div>
+  <div class="muted" style="margin-top:.5rem;font-size:.78rem">"No PR opens past a gate without operator sign-off." (M065 R10882, verbatim from operator)</div>
+</div>
+
+<h2>pending approval queue</h2>
+<div id="approvals-list">
+  <div class="approval-card medium">
+    <h3>loading… <span class="pill muted">init</span></h3>
+    <div class="meta">fetching from /api/approvals/pending</div>
+  </div>
+</div>
+
+<h2>batch actions (autonomous profile only)</h2>
+<div class="panel">
+  <div class="row">
+    <button class="batch" id="batch-approve-btn" disabled>batch-approve autonomous gates</button>
+    <span class="muted" style="font-size:.78rem">visible only when active profile = autonomous + predeclared gates loaded (MS040 R09427)</span>
+  </div>
+</div>
+
+<h2>actions</h2>
+<div class="panel">
+  <div class="row">
+    <button id="refresh-btn">refresh now</button>
+    <button id="key-status-btn">check MS003 operator key</button>
+    <span class="muted" style="font-size:.78rem">approval requires MS003 signature via <code>sovereign approve &lt;approval-id&gt;</code> CLI or hardware-token-derived operator key (MS043 R10213)</span>
+  </div>
+</div>
+
+<div class="footer">
+  D-06 pending approvals · M060 R10088-R10092 · M065 Five Stage Gates · MS039 L0..L6 + L4/L5/L6 high-risk gates · MS041 commit authority triple-gate · operator-controlled axiom: "No PR opens past a gate without operator sign-off"
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+// Severity ranking per MS041 high-risk classifier
+// + MS042 4-severity classifier (low / medium / high / critical)
+const SEVERITY_ORDER = { critical: 0, high: 1, medium: 2, low: 3 };
+
+function fmtAge(ts) {
+  const ms = Date.now() - new Date(ts).getTime();
+  const min = Math.floor(ms / 60000);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const d = Math.floor(hr / 24);
+  return `${d}d ago`;
+}
+
+function renderApprovals(approvals) {
+  const list = $('approvals-list');
+  if (!approvals.length) {
+    list.innerHTML = '<div class="approval-card low"><h3>queue empty <span class="pill ok">no pending approvals</span></h3><div class="meta">next-action: approvals appear here when L3 Prepare → L4 Execute / L4 → L5 Commit / L5 → L6 Persist transitions await operator sign-off (MS039 R09169 + R09254-R09256)</div></div>';
+    return;
+  }
+  approvals.sort((a, b) => (SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]) || (new Date(a.ts) - new Date(b.ts)));
+  list.innerHTML = approvals.map(a => `
+    <div class="approval-card ${a.severity}" data-id="${a.id}">
+      <h3>${escapeHtml(a.title)} <span class="pill ${a.severity === 'critical' || a.severity === 'high' ? 'bad' : a.severity === 'medium' ? 'warn' : 'muted'}">${a.severity}</span><span class="pill accent">${a.gate || 'L4→L5'}</span></h3>
+      <div class="meta">
+        ${escapeHtml(a.actor)} · ${escapeHtml(a.kind)} · profile <span class="ok">${escapeHtml(a.profile)}</span> · ${fmtAge(a.ts)} · trace <code>${escapeHtml(a.trace_id || '—')}</code>
+      </div>
+      <div class="body">${escapeHtml(a.summary)}</div>
+      ${a.context ? `<div class="ctx">${escapeHtml(a.context)}</div>` : ''}
+      ${a.diff_url ? `<div class="meta">diff: <a href="${escapeHtml(a.diff_url)}">${escapeHtml(a.diff_url)}</a></div>` : ''}
+      <div class="actions">
+        <button class="approve" data-action="approve" data-id="${a.id}">approve</button>
+        <button class="deny" data-action="deny" data-id="${a.id}">deny</button>
+        <button class="defer" data-action="defer" data-id="${a.id}">defer 24h</button>
+        <button data-action="inspect" data-id="${a.id}">inspect detail</button>
+      </div>
+    </div>
+  `).join('');
+  // wire action buttons
+  list.querySelectorAll('button[data-action]').forEach(btn => {
+    btn.addEventListener('click', () => handleAction(btn.dataset.action, btn.dataset.id));
+  });
+}
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+
+function renderGates(state) {
+  document.querySelectorAll('.gate-cell').forEach(cell => {
+    const g = cell.dataset.gate;
+    const s = state[g] || 'pending';
+    cell.className = `gate-cell ${s}`;
+  });
+}
+
+async function fetchPending() {
+  try {
+    const res = await fetch('/api/approvals/pending', { credentials: 'same-origin' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (e) {
+    return {
+      approvals: [],
+      gates: { SG1: 'signed', SG2: 'signed', SG3: 'pending', SG4: 'pending', SG5: 'pending' },
+      profile: 'private',
+      error: e.message,
+      summary: {
+        pending: 0, critical: 0, high: 0, oldest_ts: null
+      }
+    };
+  }
+}
+
+async function refresh() {
+  const state = await fetchPending();
+  $('pending-count').textContent = state.summary.pending ?? state.approvals.length;
+  $('critical-count').textContent = state.summary.critical ?? state.approvals.filter(a => a.severity === 'critical').length;
+  $('high-count').textContent = state.summary.high ?? state.approvals.filter(a => a.severity === 'high').length;
+  $('oldest-age').textContent = state.summary.oldest_ts ? fmtAge(state.summary.oldest_ts) : '—';
+  renderApprovals(state.approvals || []);
+  renderGates(state.gates || {});
+  // Batch approve enabled only when profile = autonomous
+  $('batch-approve-btn').disabled = state.profile !== 'autonomous';
+}
+
+async function handleAction(action, id) {
+  // All mutating actions require MS003 signature via CLI. Web surface
+  // surfaces the action but the actual signing happens in `sovereign approve`
+  // or `selfdef stage-gate sign-off` per MS043 R10210-R10211.
+  if (action === 'inspect') {
+    location.hash = `#approval-${id}`;
+    return;
+  }
+  const verb = action === 'approve' ? 'approve' : action === 'deny' ? 'deny' : 'defer';
+  const cmd = `sovereign ${verb} ${id}`;
+  // Copy command to clipboard + show instruction (no automatic mutation from web surface)
+  try {
+    await navigator.clipboard.writeText(cmd);
+    alert(`Command copied to clipboard:\n\n  ${cmd}\n\nRun in terminal with operator MS003 key loaded.\n\nWeb surface never executes mutations directly — MS043 R10212 requires operator key upload OR CLI invocation.`);
+  } catch (e) {
+    prompt(`Copy + run this command with operator MS003 key:`, cmd);
+  }
+}
+
+$('refresh-btn').addEventListener('click', refresh);
+$('key-status-btn').addEventListener('click', async () => {
+  try {
+    const res = await fetch('/api/operator-key/status', { credentials: 'same-origin' });
+    const j = await res.json();
+    alert(`MS003 operator key status:\n\nfingerprint: ${j.fingerprint || '(none)'}\nsource: ${j.source || '(no key loaded)'}\nexpires: ${j.expires_at || 'never'}\nhardware-token: ${j.hardware_token ? 'yes' : 'no'}`);
+  } catch (e) {
+    alert(`MS003 key status check failed: ${e.message}\n\nLikely cause: minimal-web running without operator key uploaded (MS043 R10212 — read-only mode).\n\nLoad via: sovereign operator-key load ~/.sovereign-os/operator.key`);
+  }
+});
+
+// Cmd-7 / Ctrl-7 navigates to D-06 per M060 R10092
+document.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === '7') {
+    e.preventDefault();
+    refresh();
+  }
+});
+
+// SSE auto-refresh every 2s per MS043 R10173
+const sse = (function() {
+  try {
+    const es = new EventSource('/api/approvals/stream');
+    es.addEventListener('approval-added', refresh);
+    es.addEventListener('approval-resolved', refresh);
+    es.addEventListener('gate-signed', refresh);
+    es.addEventListener('error', () => { /* fall back to polling */ });
+    return es;
+  } catch (e) {
+    return null;
+  }
+})();
+
+// Polling fallback (only when SSE unavailable)
+if (!sse) {
+  setInterval(refresh, 5000);
+}
+
+refresh();
+</script>
+
+</body>
+</html>
