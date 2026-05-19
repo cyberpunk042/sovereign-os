@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-image-viewer-zoom"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit image-viewer zoom + pan state. Discrete zoom levels (25/50/75/100/125/150/200/300/400 %) with pan offset clamped so the image stays at least partially on-screen. fit_to_viewport picks the largest zoom that fits. Pure UX descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
