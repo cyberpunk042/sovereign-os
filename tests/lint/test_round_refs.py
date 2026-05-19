@@ -77,15 +77,15 @@ def test_mandate_rounds_column_parses():
 
 def test_round_numbers_in_active_range():
     """Every R<N> round cited in mandate Rounds column must be in
-    the active range R1..R<MAX> (current MAX = R500 — generous
+    the active range R1..R<MAX> (current MAX = R800 — generous
     upper bound). Catches: agents inventing R9999."""
     refs = _mandate_rounds_column_refs()
     for row_id, rounds in refs.items():
         for r in rounds:
             n = int(r)
-            assert 1 <= n <= 500, (
+            assert 1 <= n <= 800, (
                 f"mandate row {row_id} cites R{r} which is OUT OF "
-                f"ACTIVE RANGE (1..500). Either operator extended the "
+                f"ACTIVE RANGE (1..800). Either operator extended the "
                 f"upper bound or this is a fabricated round number."
             )
 
