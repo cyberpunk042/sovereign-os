@@ -617,3 +617,14 @@ Workspace count now 167. Total this resume: 57 cockpit crates.
   BlockKind; toggle_mark + set_block; CodeBlock clears marks)
 
 Workspace count now 170. Total this resume: 60 cockpit crates.
+
+### Sixteenth wave (same day, +3 more cockpit crates)
+
+- `sovereign-cockpit-table-row-selection` (per-row selected BTreeSet
+  + header tristate None/Some/All; toggle_header + toggle_row)
+- `sovereign-cockpit-text-diff` (line-level Same/Added/Removed via
+  longest-common-prefix + longest-common-suffix)
+- `sovereign-cockpit-search-filter` (composite query+facets+sort
+  snapshot with apply_facet/drop_facet/clear/set_sort)
+
+Workspace count now 173. Total this resume: 63 cockpit crates.
