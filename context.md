@@ -406,5 +406,33 @@ Earlier history: see `git log --oneline backlog/milestones/` and `CHANGELOG.md`.
 
 ---
 
-**Last updated**: 2026-05-19 (commit `918ad14` + this file `context.md`)
+**Last updated**: 2026-05-19 (commit `81724bd` + this file `context.md`)
 **Next AI session**: read this file → read two-ultimate-solutions.md → pick next item from "What's ahead" → execute → update this file.
+
+## Latest cycle (post-resume 2026-05-19)
+
+Added 8 pure-UX cockpit crates this cycle (no IPS authority dimension):
+- `sovereign-cockpit-drag-drop` (5 ObjectKinds, begin/hover/unhover
+  lifecycle, cross-kind drop rejected)
+- `sovereign-cockpit-focus-trap` (modal Tab/Shift+Tab wrap, skips
+  disabled, Escape dismisses)
+- `sovereign-cockpit-breadcrumb-trail` (push/pop/truncate-to, render
+  collapses middle to ellipsis past max_visible)
+- `sovereign-cockpit-stepper` (multi-step wizard, NotStarted/Active/
+  Done/Error/Skipped, next() gated on Done|Skipped)
+- `sovereign-cockpit-typeahead` (query + ranked candidates +
+  Down/Up wrap + Enter commit + Escape close)
+- `sovereign-cockpit-accordion` (collapsible sections + optional
+  single_open invariant)
+- `sovereign-cockpit-tag-input` (commit-on-Enter/Tab/Comma +
+  backspace-pops-last-tag + length/count/casing rules)
+- `sovereign-cockpit-pagination` (total_items/page_size/page, render
+  emits Page+Ellipsis tokens around active)
+
+All include canonical builders, full validate() + serde roundtrip +
+edge-case tests (13..17 tests each). Workspace count: 118 crates.
+
+Companion selfdef IPS-authority crates landed in lockstep:
+`emergency-stop-policy`, `quorum-approval-policy`, `clipboard-egress-policy`,
+`time-window-policy`, `prompt-injection-classifier`, `blast-radius-classifier`,
+`secret-redaction-policy`, `token-lifetime-policy`.
