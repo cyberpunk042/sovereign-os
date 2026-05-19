@@ -248,6 +248,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-clipboard-history"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-clock-display"
 version = "0.1.0"
 dependencies = [
