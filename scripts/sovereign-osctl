@@ -6237,6 +6237,15 @@ case "${cmd}" in
     shift || true
     "${__REPO_ROOT}/scripts/hardware/hugepages-sizer.py" "${sub}" "$@"
     ;;
+  thp-mode)
+    # R553 (E11.M16): Transparent HugePage controller. Orthogonal to
+    # R552 — THP is the opportunistic path; reserved hugepages are
+    # the static path. inference policy = madvise+defer (no compaction
+    # stalls). Operator §1g: predictable inference latency.
+    sub="${1:-show}"
+    shift || true
+    "${__REPO_ROOT}/scripts/hardware/thp-mode.py" "${sub}" "$@"
+    ;;
   memory-profile)
     # R257 (SDD-026 Z-17 follow-up): per-DIMM XMP/EXPO verdict.
     # Operator-named "XMP profile and OC profile and room for each".
