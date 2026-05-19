@@ -68,7 +68,10 @@ pub enum Recipe {
 impl Recipe {
     /// Whether Random Hadamard Transform pre-quant is enabled.
     pub fn rht_enabled(self) -> bool {
-        matches!(self, Recipe::NvfpM | Recipe::NvfpL | Recipe::NvfpXl | Recipe::NvfpXxl)
+        matches!(
+            self,
+            Recipe::NvfpM | Recipe::NvfpL | Recipe::NvfpXl | Recipe::NvfpXxl
+        )
     }
     /// Whether 2D (row + column) quantization is enabled.
     pub fn two_d_enabled(self) -> bool {
@@ -246,7 +249,13 @@ pub fn quantize_stochastic<R: rand::Rng>(rng: &mut R, x: f32) -> E2m1 {
     let p_up: f32 = rng.random_range(0.0..1.0);
     let chosen_idx = if p_up < frac { hi } else { lo };
     let bits_pos: u8 = match chosen_idx {
-        0 => 0b000, 1 => 0b001, 2 => 0b010, 3 => 0b011, 4 => 0b100, 5 => 0b101, _ => 0b000,
+        0 => 0b000,
+        1 => 0b001,
+        2 => 0b010,
+        3 => 0b011,
+        4 => 0b100,
+        5 => 0b101,
+        _ => 0b000,
     };
     let sign_bit: u8 = if x.is_sign_negative() { 0b1000 } else { 0b0000 };
     E2m1(sign_bit | bits_pos)
@@ -377,15 +386,19 @@ mod tests {
         let recovered = dequantize_block(&block);
         // E2M1+E4M3 quantization gives ~6% RMSE on this range; tolerance loose.
         for i in 0..BLOCK_SIZE {
-            assert!((recovered[i] - input[i]).abs() < 1.0,
-                "i={i} input={} recovered={}", input[i], recovered[i]);
+            assert!(
+                (recovered[i] - input[i]).abs() < 1.0,
+                "i={i} input={} recovered={}",
+                input[i],
+                recovered[i]
+            );
         }
     }
 
     #[test]
     fn stochastic_rounding_unbiased_over_many_samples() {
         let mut rng = ChaCha20Rng::seed_from_u64(0xdeadbeef);
-        let x: f32 = 0.75;  // between 0.5 and 1.0, expected E[ŝ] = 0.75
+        let x: f32 = 0.75; // between 0.5 and 1.0, expected E[ŝ] = 0.75
         let n = 10_000;
         let mut acc: f64 = 0.0;
         for _ in 0..n {
@@ -405,7 +418,10 @@ mod tests {
     fn runtime_config_rejects_schema_drift() {
         let mut c = RuntimeConfig::default();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), RuntimeError::SchemaMismatch { .. }));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            RuntimeError::SchemaMismatch { .. }
+        ));
     }
 
     #[test]

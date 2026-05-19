@@ -27,3 +27,9 @@ rand_chacha = "0.9"
 [workspace.lints.rust]
 unsafe_code = "forbid"
 missing_docs = "warn"
+
+[workspace.lints.clippy]
+# tests prefer "build object then mutate" pattern for readability
+field_reassign_with_default = "allow"
+# loop-index style is fine when the loop also reads other slices
+needless_range_loop = "allow"

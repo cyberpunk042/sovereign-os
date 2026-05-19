@@ -131,7 +131,10 @@ impl HolderPoConfig {
             return Ok(self.p_start);
         }
         if step >= self.total_steps {
-            return Err(HolderPoError::StepOutOfRange { step, total: self.total_steps });
+            return Err(HolderPoError::StepOutOfRange {
+                step,
+                total: self.total_steps,
+            });
         }
         let t = step as f64 / self.total_steps as f64;
         let p = match self.schedule {
@@ -339,8 +342,14 @@ mod tests {
     #[test]
     fn aggregate_trajectory_probs_per_trajectory() {
         let trajectories = vec![
-            Trajectory { token_probs: vec![0.1, 0.4], reward: 1.0 },
-            Trajectory { token_probs: vec![0.5, 0.5], reward: 0.5 },
+            Trajectory {
+                token_probs: vec![0.1, 0.4],
+                reward: 1.0,
+            },
+            Trajectory {
+                token_probs: vec![0.5, 0.5],
+                reward: 0.5,
+            },
         ];
         let aggs = aggregate_trajectory_probs(&trajectories, 0.0).unwrap();
         assert!((aggs[0] - 0.2).abs() < 1e-9);

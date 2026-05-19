@@ -224,9 +224,15 @@ impl MirrorManifest {
             return Err(ManifestError::SaturatedSetBroken(self.entries.len()));
         }
         for required in [
-            MirrorKind::Rules, MirrorKind::Grants, MirrorKind::Capability,
-            MirrorKind::Sandbox, MirrorKind::Audit, MirrorKind::Quarantine,
-            MirrorKind::TrustScore, MirrorKind::Cli, MirrorKind::Tui,
+            MirrorKind::Rules,
+            MirrorKind::Grants,
+            MirrorKind::Capability,
+            MirrorKind::Sandbox,
+            MirrorKind::Audit,
+            MirrorKind::Quarantine,
+            MirrorKind::TrustScore,
+            MirrorKind::Cli,
+            MirrorKind::Tui,
         ] {
             if !self.entries.iter().any(|e| e.kind == required) {
                 return Err(ManifestError::KindMissing(required));
@@ -272,28 +278,41 @@ mod tests {
 
     #[test]
     fn canonical_has_exactly_9_entries() {
-        assert_eq!(MirrorManifest::canonical().entries.len(), SATURATED_MIRROR_COUNT);
+        assert_eq!(
+            MirrorManifest::canonical().entries.len(),
+            SATURATED_MIRROR_COUNT
+        );
     }
 
     #[test]
     fn saturated_set_break_rejected() {
         let mut m = MirrorManifest::canonical();
         m.entries.pop();
-        assert!(matches!(m.validate().unwrap_err(), ManifestError::SaturatedSetBroken(8)));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            ManifestError::SaturatedSetBroken(8)
+        ));
     }
 
     #[test]
     fn duplicate_path_rejected() {
         let mut m = MirrorManifest::canonical();
         m.entries[1].snapshot_http_path = m.entries[0].snapshot_http_path.clone();
-        assert!(matches!(m.validate().unwrap_err(), ManifestError::DuplicatePath(_)));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            ManifestError::DuplicatePath(_)
+        ));
     }
 
     #[test]
     fn each_kind_has_unique_endpoints() {
         let m = MirrorManifest::canonical();
         use std::collections::HashSet;
-        let snaps: HashSet<&str> = m.entries.iter().map(|e| e.snapshot_http_path.as_str()).collect();
+        let snaps: HashSet<&str> = m
+            .entries
+            .iter()
+            .map(|e| e.snapshot_http_path.as_str())
+            .collect();
         let sses: HashSet<&str> = m.entries.iter().map(|e| e.sse_path.as_str()).collect();
         assert_eq!(snaps.len(), SATURATED_MIRROR_COUNT);
         assert_eq!(sses.len(), SATURATED_MIRROR_COUNT);
@@ -310,7 +329,10 @@ mod tests {
     #[test]
     fn crate_names_match_canonical() {
         assert_eq!(MirrorKind::Rules.crate_name(), "selfdef-rules-mirror");
-        assert_eq!(MirrorKind::TrustScore.crate_name(), "selfdef-trust-score-mirror");
+        assert_eq!(
+            MirrorKind::TrustScore.crate_name(),
+            "selfdef-trust-score-mirror"
+        );
         assert_eq!(MirrorKind::Tui.crate_name(), "selfdef-tui-mirror");
     }
 
@@ -328,7 +350,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut m = MirrorManifest::canonical();
         m.schema_version = "9.9.9".into();
-        assert!(matches!(m.validate().unwrap_err(), ManifestError::SchemaMismatch { .. }));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            ManifestError::SchemaMismatch { .. }
+        ));
     }
 
     #[test]
@@ -344,7 +369,10 @@ mod tests {
             sse_path: "/api/d-13-dup/stream".into(),
             bound: false,
         };
-        assert!(matches!(m.validate().unwrap_err(), ManifestError::KindMissing(MirrorKind::Rules)));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            ManifestError::KindMissing(MirrorKind::Rules)
+        ));
     }
 
     #[test]
@@ -358,7 +386,10 @@ mod tests {
 
     #[test]
     fn mirror_kind_serde_uses_kebab_case() {
-        assert_eq!(serde_json::to_string(&MirrorKind::TrustScore).unwrap(), "\"trust-score\"");
+        assert_eq!(
+            serde_json::to_string(&MirrorKind::TrustScore).unwrap(),
+            "\"trust-score\""
+        );
         assert_eq!(serde_json::to_string(&MirrorKind::Cli).unwrap(), "\"cli\"");
     }
 }

@@ -74,7 +74,8 @@ impl InterventionClass {
     pub fn requires_protocol_separation(from: Self, to: Self) -> bool {
         // White-box → black-box and vice versa: separated per the proof.
         // Mixed/undisclosed: never separable until decomposed.
-        if from == InterventionClass::MixedUndisclosed || to == InterventionClass::MixedUndisclosed {
+        if from == InterventionClass::MixedUndisclosed || to == InterventionClass::MixedUndisclosed
+        {
             return true;
         }
         from.is_white_box() != to.is_white_box()
@@ -144,7 +145,9 @@ pub enum MirrorError {
         actual: String,
     },
     /// Cross-class generalisation refused per protocol-separation invariant.
-    #[error("cross-class generalisation refused: {from:?} → {to:?} requires separated protocol per arXiv 2604.09839")]
+    #[error(
+        "cross-class generalisation refused: {from:?} → {to:?} requires separated protocol per arXiv 2604.09839"
+    )]
     ProtocolSeparationViolation {
         /// Source class.
         from: InterventionClass,
@@ -188,7 +191,8 @@ impl InterventionMirrorSnapshot {
         for c in &self.claims {
             *m.entry(c.class).or_insert(0) += 1;
         }
-        let mut out: Vec<ClassSummary> = m.into_iter()
+        let mut out: Vec<ClassSummary> = m
+            .into_iter()
             .map(|(class, count)| ClassSummary { class, count })
             .collect();
         out.sort_by_key(|s| match s.class {
@@ -252,8 +256,11 @@ mod tests {
     #[test]
     fn doctrine_tamper_is_caught() {
         let mut s = mk_snap(vec![]);
-        s.doctrine = "prompt can reproduce".into();  // tampered
-        assert!(matches!(s.validate_doctrine().unwrap_err(), MirrorError::DoctrineTampered { .. }));
+        s.doctrine = "prompt can reproduce".into(); // tampered
+        assert!(matches!(
+            s.validate_doctrine().unwrap_err(),
+            MirrorError::DoctrineTampered { .. }
+        ));
     }
 
     #[test]
@@ -268,18 +275,24 @@ mod tests {
     #[test]
     fn protocol_separation_required_wb_to_bb() {
         // WB → BB generalisation refused per arXiv 2604.09839 proof.
-        assert!(InterventionMirrorSnapshot::assert_can_generalise(
-            InterventionClass::WhiteBoxActivationSteer,
-            InterventionClass::BlackBoxPrompt,
-        ).is_err());
+        assert!(
+            InterventionMirrorSnapshot::assert_can_generalise(
+                InterventionClass::WhiteBoxActivationSteer,
+                InterventionClass::BlackBoxPrompt,
+            )
+            .is_err()
+        );
     }
 
     #[test]
     fn protocol_separation_required_bb_to_wb() {
-        assert!(InterventionMirrorSnapshot::assert_can_generalise(
-            InterventionClass::BlackBoxPrompt,
-            InterventionClass::WhiteBoxWeightEdit,
-        ).is_err());
+        assert!(
+            InterventionMirrorSnapshot::assert_can_generalise(
+                InterventionClass::BlackBoxPrompt,
+                InterventionClass::WhiteBoxWeightEdit,
+            )
+            .is_err()
+        );
     }
 
     #[test]
@@ -287,7 +300,8 @@ mod tests {
         InterventionMirrorSnapshot::assert_can_generalise(
             InterventionClass::WhiteBoxActivationSteer,
             InterventionClass::WhiteBoxWeightEdit,
-        ).unwrap();
+        )
+        .unwrap();
     }
 
     #[test]
@@ -295,20 +309,27 @@ mod tests {
         InterventionMirrorSnapshot::assert_can_generalise(
             InterventionClass::BlackBoxPrompt,
             InterventionClass::BlackBoxPrompt,
-        ).unwrap();
+        )
+        .unwrap();
     }
 
     #[test]
     fn mixed_undisclosed_always_separates() {
         // Any pairing with MixedUndisclosed should fail until decomposed.
-        assert!(InterventionMirrorSnapshot::assert_can_generalise(
-            InterventionClass::MixedUndisclosed,
-            InterventionClass::BlackBoxPrompt,
-        ).is_err());
-        assert!(InterventionMirrorSnapshot::assert_can_generalise(
-            InterventionClass::WhiteBoxActivationSteer,
-            InterventionClass::MixedUndisclosed,
-        ).is_err());
+        assert!(
+            InterventionMirrorSnapshot::assert_can_generalise(
+                InterventionClass::MixedUndisclosed,
+                InterventionClass::BlackBoxPrompt,
+            )
+            .is_err()
+        );
+        assert!(
+            InterventionMirrorSnapshot::assert_can_generalise(
+                InterventionClass::WhiteBoxActivationSteer,
+                InterventionClass::MixedUndisclosed,
+            )
+            .is_err()
+        );
     }
 
     #[test]
@@ -321,9 +342,15 @@ mod tests {
         ]);
         let s = snap.recompute_summaries();
         assert_eq!(s.len(), 3);
-        let bb = s.iter().find(|x| x.class == InterventionClass::BlackBoxPrompt).unwrap();
+        let bb = s
+            .iter()
+            .find(|x| x.class == InterventionClass::BlackBoxPrompt)
+            .unwrap();
         assert_eq!(bb.count, 2);
-        let act = s.iter().find(|x| x.class == InterventionClass::WhiteBoxActivationSteer).unwrap();
+        let act = s
+            .iter()
+            .find(|x| x.class == InterventionClass::WhiteBoxActivationSteer)
+            .unwrap();
         assert_eq!(act.count, 1);
     }
 
@@ -337,13 +364,25 @@ mod tests {
 
     #[test]
     fn class_serde_uses_kebab_case() {
-        assert_eq!(serde_json::to_string(&InterventionClass::WhiteBoxActivationSteer).unwrap(), "\"white-box-activation-steer\"");
-        assert_eq!(serde_json::to_string(&InterventionClass::BlackBoxPrompt).unwrap(), "\"black-box-prompt\"");
-        assert_eq!(serde_json::to_string(&InterventionClass::MixedUndisclosed).unwrap(), "\"mixed-undisclosed\"");
+        assert_eq!(
+            serde_json::to_string(&InterventionClass::WhiteBoxActivationSteer).unwrap(),
+            "\"white-box-activation-steer\""
+        );
+        assert_eq!(
+            serde_json::to_string(&InterventionClass::BlackBoxPrompt).unwrap(),
+            "\"black-box-prompt\""
+        );
+        assert_eq!(
+            serde_json::to_string(&InterventionClass::MixedUndisclosed).unwrap(),
+            "\"mixed-undisclosed\""
+        );
     }
 
     #[test]
     fn doctrine_constant_exposed_publicly() {
-        assert_eq!(DOCTRINE_NON_SURJECTIVE, "almost surely, no prompt can reproduce");
+        assert_eq!(
+            DOCTRINE_NON_SURJECTIVE,
+            "almost surely, no prompt can reproduce"
+        );
     }
 }

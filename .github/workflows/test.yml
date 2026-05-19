@@ -415,3 +415,23 @@ jobs:
             xargs -0 shellcheck --severity=warning --external-sources --source-path=scripts/build/lib || true
         # Currently warning-only; tighten to fail-on-error once all
         # scripts are shellcheck-clean.
+
+  cargo-workspace:
+    name: cargo workspace (runtime crates + dashboard-coverage + mirror-publisher)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.88.0
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo fmt --check
+        run: cargo fmt --all --check
+      - name: cargo clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: cargo test --workspace
+        run: cargo test --workspace --locked
+      - name: cargo build --release --workspace
+        run: cargo build --release --workspace --locked

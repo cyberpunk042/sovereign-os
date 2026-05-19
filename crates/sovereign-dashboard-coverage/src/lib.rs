@@ -94,29 +94,139 @@ impl CoverageManifest {
     /// D-16 → `webapp/auditor/`, D-21+ slots reserved.
     pub fn canonical() -> Self {
         let entries = vec![
-            slot("D-00", CoverageKind::Dedicated, "webapp/master-dashboard", "master dashboard"),
-            slot("D-01", CoverageKind::Dedicated, "webapp/d-01-active-sessions", "active sessions"),
-            slot("D-02", CoverageKind::Dedicated, "webapp/d-02-profile-choices", "profile choices"),
-            slot("D-03", CoverageKind::Dedicated, "webapp/d-03-model-health", "model health"),
-            slot("D-04", CoverageKind::Dedicated, "webapp/d-04-costs", "costs"),
-            slot("D-05", CoverageKind::Dedicated, "webapp/d-05-traces", "traces"),
-            slot("D-06", CoverageKind::Dedicated, "webapp/d-06-pending-approvals", "pending approvals"),
-            slot("D-07", CoverageKind::Dedicated, "webapp/d-07-memory-changes", "memory changes"),
-            slot("D-08", CoverageKind::Dedicated, "webapp/d-08-rollback-points", "rollback points"),
-            slot("D-09", CoverageKind::Dedicated, "webapp/d-09-hardware-pressure", "hardware pressure"),
-            slot("D-10", CoverageKind::Dedicated, "webapp/d-10-eval-history", "eval history"),
-            slot("D-11", CoverageKind::Dedicated, "webapp/d-11-adapter-status", "adapter status"),
-            slot("D-12", CoverageKind::Dedicated, "webapp/d-12-networking", "networking"),
-            slot("D-13", CoverageKind::Dedicated, "webapp/d-13-filesystem-grants", "filesystem grants"),
-            slot_notes("D-14", CoverageKind::Dedicated, "webapp/d-14-capability-tokens", "capability tokens", "consumes selfdef-capability-mirror"),
-            slot("D-15", CoverageKind::Dedicated, "webapp/d-15-sandboxes", "sandboxes"),
-            slot_notes("D-16", CoverageKind::Alias, "webapp/auditor", "audit cycles", "alias — existing auditor surface; per M060 R09xxx"),
-            slot("D-17", CoverageKind::Dedicated, "webapp/d-17-quarantine", "quarantine"),
-            slot("D-18", CoverageKind::Dedicated, "webapp/d-18-trust-scores", "trust scores"),
-            slot("D-19", CoverageKind::Dedicated, "webapp/d-19-super-model-manifest", "super-model manifest"),
-            slot("D-20", CoverageKind::Dedicated, "webapp/d-20-peace-machine-health", "peace machine health"),
+            slot(
+                "D-00",
+                CoverageKind::Dedicated,
+                "webapp/master-dashboard",
+                "master dashboard",
+            ),
+            slot(
+                "D-01",
+                CoverageKind::Dedicated,
+                "webapp/d-01-active-sessions",
+                "active sessions",
+            ),
+            slot(
+                "D-02",
+                CoverageKind::Dedicated,
+                "webapp/d-02-profile-choices",
+                "profile choices",
+            ),
+            slot(
+                "D-03",
+                CoverageKind::Dedicated,
+                "webapp/d-03-model-health",
+                "model health",
+            ),
+            slot(
+                "D-04",
+                CoverageKind::Dedicated,
+                "webapp/d-04-costs",
+                "costs",
+            ),
+            slot(
+                "D-05",
+                CoverageKind::Dedicated,
+                "webapp/d-05-traces",
+                "traces",
+            ),
+            slot(
+                "D-06",
+                CoverageKind::Dedicated,
+                "webapp/d-06-pending-approvals",
+                "pending approvals",
+            ),
+            slot(
+                "D-07",
+                CoverageKind::Dedicated,
+                "webapp/d-07-memory-changes",
+                "memory changes",
+            ),
+            slot(
+                "D-08",
+                CoverageKind::Dedicated,
+                "webapp/d-08-rollback-points",
+                "rollback points",
+            ),
+            slot(
+                "D-09",
+                CoverageKind::Dedicated,
+                "webapp/d-09-hardware-pressure",
+                "hardware pressure",
+            ),
+            slot(
+                "D-10",
+                CoverageKind::Dedicated,
+                "webapp/d-10-eval-history",
+                "eval history",
+            ),
+            slot(
+                "D-11",
+                CoverageKind::Dedicated,
+                "webapp/d-11-adapter-status",
+                "adapter status",
+            ),
+            slot(
+                "D-12",
+                CoverageKind::Dedicated,
+                "webapp/d-12-networking",
+                "networking",
+            ),
+            slot(
+                "D-13",
+                CoverageKind::Dedicated,
+                "webapp/d-13-filesystem-grants",
+                "filesystem grants",
+            ),
+            slot_notes(
+                "D-14",
+                CoverageKind::Dedicated,
+                "webapp/d-14-capability-tokens",
+                "capability tokens",
+                "consumes selfdef-capability-mirror",
+            ),
+            slot(
+                "D-15",
+                CoverageKind::Dedicated,
+                "webapp/d-15-sandboxes",
+                "sandboxes",
+            ),
+            slot_notes(
+                "D-16",
+                CoverageKind::Alias,
+                "webapp/auditor",
+                "audit cycles",
+                "alias — existing auditor surface; per M060 R09xxx",
+            ),
+            slot(
+                "D-17",
+                CoverageKind::Dedicated,
+                "webapp/d-17-quarantine",
+                "quarantine",
+            ),
+            slot(
+                "D-18",
+                CoverageKind::Dedicated,
+                "webapp/d-18-trust-scores",
+                "trust scores",
+            ),
+            slot(
+                "D-19",
+                CoverageKind::Dedicated,
+                "webapp/d-19-super-model-manifest",
+                "super-model manifest",
+            ),
+            slot(
+                "D-20",
+                CoverageKind::Dedicated,
+                "webapp/d-20-peace-machine-health",
+                "peace machine health",
+            ),
         ];
-        Self { schema_version: SCHEMA_VERSION.into(), entries }
+        Self {
+            schema_version: SCHEMA_VERSION.into(),
+            entries,
+        }
     }
 
     /// Validate canonical invariants.
@@ -160,17 +270,26 @@ impl CoverageManifest {
 
     /// Count of slots covered by a dedicated webapp/ subdirectory.
     pub fn dedicated_count(&self) -> usize {
-        self.entries.iter().filter(|e| e.kind == CoverageKind::Dedicated).count()
+        self.entries
+            .iter()
+            .filter(|e| e.kind == CoverageKind::Dedicated)
+            .count()
     }
 
     /// Count of slots covered by alias.
     pub fn alias_count(&self) -> usize {
-        self.entries.iter().filter(|e| e.kind == CoverageKind::Alias).count()
+        self.entries
+            .iter()
+            .filter(|e| e.kind == CoverageKind::Alias)
+            .count()
     }
 
     /// Count of slots that are catalog-only (no surface yet).
     pub fn catalog_only_count(&self) -> usize {
-        self.entries.iter().filter(|e| e.kind == CoverageKind::CatalogOnly).count()
+        self.entries
+            .iter()
+            .filter(|e| e.kind == CoverageKind::CatalogOnly)
+            .count()
     }
 }
 
@@ -221,7 +340,8 @@ mod tests {
     fn missing_slot_caught() {
         let mut m = CoverageManifest::canonical();
         m.entries.retain(|e| e.slot != "D-07");
-        m.entries.push(slot("D-99", CoverageKind::CatalogOnly, "", "ghost"));
+        m.entries
+            .push(slot("D-99", CoverageKind::CatalogOnly, "", "ghost"));
         let err = m.validate().unwrap_err();
         match err {
             CoverageError::SlotMissing(s) => assert_eq!(s, "D-07"),
@@ -233,14 +353,20 @@ mod tests {
     fn slot_count_invalid_caught() {
         let mut m = CoverageManifest::canonical();
         m.entries.pop();
-        assert!(matches!(m.validate().unwrap_err(), CoverageError::SlotCountInvalid(20)));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            CoverageError::SlotCountInvalid(20)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut m = CoverageManifest::canonical();
         m.schema_version = "9.9.9".into();
-        assert!(matches!(m.validate().unwrap_err(), CoverageError::SchemaMismatch { .. }));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            CoverageError::SchemaMismatch { .. }
+        ));
     }
 
     #[test]
@@ -266,7 +392,10 @@ mod tests {
         // operator standing direction 2026-05-19: "20+ dashboards and a main one"
         let m = CoverageManifest::canonical();
         let live = m.dedicated_count() + m.alias_count();
-        assert!(live >= 20, "operator target unsatisfied: only {live} live surfaces");
+        assert!(
+            live >= 20,
+            "operator target unsatisfied: only {live} live surfaces"
+        );
     }
 
     #[test]
@@ -290,8 +419,17 @@ mod tests {
 
     #[test]
     fn coverage_kind_serde_uses_kebab_case() {
-        assert_eq!(serde_json::to_string(&CoverageKind::Dedicated).unwrap(), "\"dedicated\"");
-        assert_eq!(serde_json::to_string(&CoverageKind::Alias).unwrap(), "\"alias\"");
-        assert_eq!(serde_json::to_string(&CoverageKind::CatalogOnly).unwrap(), "\"catalog-only\"");
+        assert_eq!(
+            serde_json::to_string(&CoverageKind::Dedicated).unwrap(),
+            "\"dedicated\""
+        );
+        assert_eq!(
+            serde_json::to_string(&CoverageKind::Alias).unwrap(),
+            "\"alias\""
+        );
+        assert_eq!(
+            serde_json::to_string(&CoverageKind::CatalogOnly).unwrap(),
+            "\"catalog-only\""
+        );
     }
 }

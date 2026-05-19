@@ -266,10 +266,16 @@ mod tests {
     fn zero_recurrence_rejected() {
         let mut c = HrmConfig::canonical();
         c.outer_steps = 0;
-        assert!(matches!(c.validate().unwrap_err(), HrmError::ZeroRecurrence { .. }));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            HrmError::ZeroRecurrence { .. }
+        ));
         c.outer_steps = 8;
         c.inner_steps_per_outer = 0;
-        assert!(matches!(c.validate().unwrap_err(), HrmError::ZeroRecurrence { .. }));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            HrmError::ZeroRecurrence { .. }
+        ));
     }
 
     #[test]
@@ -277,7 +283,10 @@ mod tests {
         let mut c = HrmConfig::canonical();
         c.high_level_dim = 1024;
         c.low_level_dim = 256;
-        assert!(matches!(c.validate().unwrap_err(), HrmError::DimMismatch { .. }));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            HrmError::DimMismatch { .. }
+        ));
     }
 
     #[test]
@@ -296,7 +305,8 @@ mod tests {
         let c = HrmConfig::canonical();
         let stepper = HrmStepper::new(&c).unwrap();
         let mut s = RecurrentState::zeros(&c);
-        for _ in 0..4 {  // 4 inner steps per outer
+        for _ in 0..4 {
+            // 4 inner steps per outer
             stepper.advance(&mut s);
         }
         assert_eq!(s.outer_step, 1);
@@ -312,7 +322,9 @@ mod tests {
         while stepper.should_continue(&s) {
             stepper.advance(&mut s);
             total += 1;
-            if total > 1000 { panic!("loop did not terminate"); }
+            if total > 1000 {
+                panic!("loop did not terminate");
+            }
         }
         assert_eq!(total, 32);
         assert_eq!(s.outer_step, c.outer_steps);
@@ -322,14 +334,26 @@ mod tests {
     fn schema_drift_rejected() {
         let mut c = HrmConfig::canonical();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), HrmError::SchemaMismatch { .. }));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            HrmError::SchemaMismatch { .. }
+        ));
     }
 
     #[test]
     fn variant_serde_uses_canonical_names() {
-        assert_eq!(serde_json::to_string(&HrmVariant::HrmCanonical).unwrap(), "\"hrm-canonical\"");
-        assert_eq!(serde_json::to_string(&HrmVariant::HrmText1B).unwrap(), "\"hrm-text-1b\"");
-        assert_eq!(serde_json::to_string(&HrmVariant::Trm7M).unwrap(), "\"trm-7m\"");
+        assert_eq!(
+            serde_json::to_string(&HrmVariant::HrmCanonical).unwrap(),
+            "\"hrm-canonical\""
+        );
+        assert_eq!(
+            serde_json::to_string(&HrmVariant::HrmText1B).unwrap(),
+            "\"hrm-text-1b\""
+        );
+        assert_eq!(
+            serde_json::to_string(&HrmVariant::Trm7M).unwrap(),
+            "\"trm-7m\""
+        );
     }
 
     #[test]
