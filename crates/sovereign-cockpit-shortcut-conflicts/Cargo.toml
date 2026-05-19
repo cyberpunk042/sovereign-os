@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-shortcut-conflicts"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit keyboard-shortcut conflict detector. Each Binding is (chord, scope, command). detect_conflicts() finds chords that overlap between or within scopes (Global > PaneFocused > InputFocused), returning a typed Conflict list the operator settings UI can surface. Pure UX descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
