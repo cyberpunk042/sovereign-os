@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-column-config"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit table-column configuration. Ordered column list with (id, label, visible, width_px, pinned_left, pinned_right). reorder/resize/toggle_visible. visible_in_render_order returns rendered list with pinned columns first/last regardless of base order. Pure UX descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []

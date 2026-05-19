@@ -383,6 +383,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-column-config"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-command-palette"
 version = "0.1.0"
 dependencies = [
