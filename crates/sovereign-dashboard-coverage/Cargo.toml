@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-dashboard-coverage"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Coverage check for M060 21-dashboard catalog (D-00..D-20). Walks webapp/ and verifies every catalogued D-NN slot has either a dedicated dashboard or a documented alias to an existing surface."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"
