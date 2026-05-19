@@ -640,6 +640,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-online-status"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-page-transition"
 version = "0.1.0"
 dependencies = [

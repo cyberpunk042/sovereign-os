@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-online-status"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit online-status indicator state. 4 states (Online/Reconnecting/Offline/Unknown) with reason text + last_seen timestamp. tick(now) auto-degrades Online → Reconnecting → Offline after configurable timeouts when no heartbeat. Pure UX descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
