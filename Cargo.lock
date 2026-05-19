@@ -478,6 +478,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-six-pillars"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-srp-scheduler"
 version = "0.1.0"
 dependencies = [

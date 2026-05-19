@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-six-pillars"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M042 6 foundational pillars per R06971-R06986 + dump 12110-12126. The thesis: 'Breakthrough is not one model. Breakthrough is the harness / runtime / workflow / router / memory / evals / hardware-aware execution substrate.'"
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
