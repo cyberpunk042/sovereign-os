@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-detail-panel"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit right-side detail panel — operator-toggleable inspector for the currently-selected item (turn / dashboard widget / replay step / bookmark / pin / notification / share-link / tab). Tracks (subject_kind, subject_id, width_px, collapsed). Pure UX state."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
