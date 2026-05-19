@@ -673,6 +673,20 @@ LOCAL_TOOLS = [
         "categories": ["surface-map", "operator-§1g", "milestone",
                        "coverage", "ceiling"],
     },
+    # ---- R544: surface-map selfdef — R462 cross-repo SurfaceManifest
+    # discovery over MCP. Surfaces the manifests written by sibling
+    # ecosystem repos (selfdef / info-hub / etc.) under /etc/selfdef/
+    # surfaces so agents can read the cross-repo §1g delivery state in
+    # one fixed-argv call. Read-only by construction (manifests are
+    # produced by their owning repo's CI; surface-map is the discoverer,
+    # not the author — operator §17 sovereignty boundary).
+    {
+        "name": "surface-map-selfdef",
+        "summary": "R462 cross-repo SurfaceManifest discovery — enumerates §1g 8-surface delivery manifests written by sibling ecosystem repos under /etc/selfdef/surfaces. Returns manifest_dir + discovered[] + errors[] + count. Read-only discovery (manifests are AUTHORED by their owning repo's CI per the R462 contract; surface-map only READS them — operator §17 sovereignty boundary). Operator-§1g UX: in one MCP call agents learn the cross-repo §1g delivery state without filesystem scanning.",
+        "argv": ["sovereign-osctl", "surface-map", "selfdef", "--json"],
+        "categories": ["surface-map", "operator-§1g", "selfdef",
+                       "cross-repo", "discovery"],
+    },
     # ---- R535: Weaver MCP surface (drains weaver mcp:FUTURE waiver,
     # second commit in the weaver tier-3 surface-expansion arc R534 →
     # R535 → R536). Master spec § 17 Module 2 (Sandboxed Fabric) +

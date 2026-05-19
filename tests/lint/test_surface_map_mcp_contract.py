@@ -138,22 +138,33 @@ def test_mcp_surface_map_tools_are_read_only():
 
 def test_mcp_surface_map_runtime_arg_verbs_not_exposed():
     """The runtime-argument-shaped verbs (`gaps --module <m>
-    --threshold N`, `waivers --module <m>`, `selfdef` which reads
-    SOVEREIGN_OS_SELFDEF_SURFACE_DIR) MUST NOT be exposed via MCP —
-    LOCAL_TOOLS uses fixed argv (same reason `doc-coverage scan`,
-    `router classify`, `compliance module`, `anti-minimization-audit
-    scan`, `ux-design-audit audit` stay CLI-only)."""
+    --threshold N`, `waivers --module <m>`) MUST NOT be exposed via
+    MCP — LOCAL_TOOLS uses fixed argv (same reason `doc-coverage
+    scan`, `router classify`, `compliance module`, `anti-minimization-
+    audit scan`, `ux-design-audit audit` stay CLI-only).
+
+    R544 ceiling-promotion: `selfdef` is parameterless at the argv
+    level (it consults SOVEREIGN_OS_SELFDEF_SURFACE_DIR — a deployment-
+    time env constant, NOT a per-call argument). Same shape as
+    `surface-map milestone --json` (R541): the tool returns the
+    operator's deployment view, agents can't and shouldn't override
+    the discovery dir per-call. Promoted out of this prohibition list."""
     tools = _tools_by_name(_manifest())
     for name in (
         "surface-map-gaps",
         "surface-map-waivers",
-        "surface-map-selfdef",
     ):
         assert name not in tools, (
             f"{name!r} must NOT be exposed via MCP — runtime-"
-            f"argument-shaped or env-driven, incompatible with "
-            f"LOCAL_TOOLS fixed-argv contract"
+            f"argument-shaped, incompatible with LOCAL_TOOLS fixed-"
+            f"argv contract"
         )
+    # R544 positive promotion: selfdef IS now exposed via MCP.
+    assert "surface-map-selfdef" in tools, (
+        "R544: surface-map-selfdef must be exposed via MCP (parameter-"
+        "less argv; env-var driven discovery is deployment-time config "
+        "NOT per-call argument — operator §17 read-only discovery)"
+    )
 
 
 def test_mcp_surface_map_watch_not_exposed_via_mcp():
