@@ -281,7 +281,10 @@ This file is **operator-state-of-the-art**. Updates:
 - `9d1a0c5` — `sovereign-hardware-load-sample`: 5-target VRAM/util/temp snapshot
 - `0a7547f` — `sovereign-hardware-registry`: 5-target hardware catalog with SRP role
 
-Sovereign-os workspace at 65 crates (was 32 pre-session, +33 fresh this session).
+Sovereign-os workspace at 67 crates (was 32 pre-session, +35 fresh this session).
+Full workspace test suite: 824 passing tests. Latest additions include
+`sovereign-cockpit-pane-layout` (Single/SplitV/SplitH/QuadGrid) and
+`sovereign-cockpit-toggle-event` (append-only toggle audit log).
 Final-leg crates beyond the rolled-up batch:
 `sovereign-routing-decision-log`, `sovereign-dashboard-snapshot`,
 `sovereign-routing-preference`, `sovereign-replay-export-bundle` (thread+cursor+bookmarks),
