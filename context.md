@@ -531,3 +531,15 @@ Workspace count now 143. Total this resume: 33 cockpit crates.
   per-chip removable; clear_all_removable preserves pinned)
 
 Workspace count now 146. Total this resume: 36 cockpit crates.
+
+### Ninth wave (same day, +3 more cockpit crates)
+
+- `sovereign-cockpit-side-panel-state` (4 PanelMode Closed/Peek/
+  Open/Pinned + MRU tabs + remembered width)
+- `sovereign-cockpit-dashboard-grid` (N×M cell grid; Placement
+  (id,x,y,w,h) with off-grid/overlap rejection; touching edges OK)
+- `sovereign-cockpit-action-menu` (hierarchical Item/SubMenu/
+  Separator tree; visible() prunes invisible + collapses empty
+  subs + dedup/leading/trailing separators)
+
+Workspace count now 149. Total this resume: 39 cockpit crates.
