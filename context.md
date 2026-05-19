@@ -80,6 +80,7 @@ Per operator: *"little piece by little piece and progress in this massive endles
 | D-08 rollback points | ✓ shipped | `webapp/d-08-rollback-points/index.html` |
 | D-13 filesystem grants | ✓ shipped (consumes selfdef-grants-mirror) | `webapp/d-13-filesystem-grants/index.html` |
 | D-14 capability tokens | ✓ shipped (consumes selfdef-capability-mirror) | `webapp/d-14-capability-tokens/index.html` |
+| D-15 sandboxes | ✓ shipped (consumes selfdef-sandbox-mirror) | `webapp/d-15-sandboxes/index.html` |
 | D-04 costs | ✓ shipped | `webapp/d-04-costs/index.html` |
 | D-05 traces | ✓ shipped | `webapp/d-05-traces/index.html` |
 | D-06 pending approvals | ✓ shipped | `webapp/d-06-pending-approvals/index.html` |

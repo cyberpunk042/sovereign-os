@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os D-15 sandboxes</title>
+<meta name="x-sovereign-module" content="d-15-sandboxes-webapp">
+<meta name="x-sovereign-shipped-in" content="R-impl-SDD040-phaseD-item3">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<meta name="x-sovereign-catalog-source" content="M060 R10118-R10119 D-15 sandboxes + selfdef MS036 tier A/B/C/D (E0362-E0365 dump 3528-3549) + MS032 1-9 graduated isolation + MS007 typed-mirror selfdef-sandbox-mirror (4 of 9)">
+<meta name="x-sovereign-doctrine" content="MS043 R10212 + R10119 web NEVER mutates IPS state — READ-ONLY mirror consumer; allocations created/checkpointed/released via selfdefctl + operator MS003 only">
+<meta name="x-sovereign-mirror-source" content="selfdef-sandbox-mirror @ schema 1.0.0">
+<style>
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --tierA:#7ad17a; --tierB:#9bd1ff; --tierC:#e6c062; --tierD:#ff7676;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  tr:hover{background:rgba(155,209,255,0.03)}
+  .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
+  .num{font-variant-numeric:tabular-nums;text-align:right}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:stretch}
+  .stat{flex:1 1 200px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
+  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .stat .v{font-size:1.4rem;font-weight:600;margin-top:.2rem;font-variant-numeric:tabular-nums}
+  .stat .u{color:var(--muted);font-size:.78rem}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border);font-weight:500}
+  .pill.ok{background:#143d14;color:var(--good)} .pill.bad{background:#3d1414;color:var(--bad)} .pill.warn{background:#3d2f14;color:var(--warn)}
+  .pill.accent{background:#143d3d;color:var(--accent)} .pill.muted{background:#1c1c1c;color:var(--muted)}
+  .pill.tierA{background:#143d14;color:var(--tierA)} .pill.tierB{background:#143d3d;color:var(--tierB)}
+  .pill.tierC{background:#3d2f14;color:var(--tierC)} .pill.tierD{background:#3d1414;color:var(--tierD)}
+  button{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.35rem .8rem;font-family:inherit;font-size:.85rem;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.danger:hover{border-color:var(--bad);color:var(--bad)}
+  button.warn:hover{border-color:var(--warn);color:var(--warn)}
+  .tier-card{flex:1 1 220px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem;border-top:3px solid currentColor}
+  .tier-card.A{color:var(--tierA)} .tier-card.B{color:var(--tierB)} .tier-card.C{color:var(--tierC)} .tier-card.D{color:var(--tierD)}
+  .tier-card .nm{font-weight:600;font-size:.85rem;text-transform:uppercase;letter-spacing:.04em}
+  .tier-card .desc{color:var(--muted);font-size:.72rem;margin-top:.1rem}
+  .tier-card .running{font-size:1.4rem;font-weight:600;font-variant-numeric:tabular-nums;color:var(--fg);margin-top:.4rem}
+  .tier-card .breakdown{color:var(--muted);font-size:.72rem;margin-top:.15rem}
+  .tier-card .ms032{color:var(--muted);font-size:.68rem;margin-top:.3rem;padding-top:.3rem;border-top:1px solid var(--border)}
+  .pressure-bar{position:relative;background:#0a0a0a;border:1px solid var(--border);border-radius:3px;height:8px;overflow:hidden;margin-top:.4rem}
+  .pressure-bar .fill{position:absolute;top:0;left:0;bottom:0;background:currentColor;transition:width .25s ease;opacity:.7}
+  .ttl-bar{position:relative;background:#0a0a0a;border:1px solid var(--border);border-radius:3px;height:6px;overflow:hidden;min-width:60px}
+  .ttl-bar .fill{position:absolute;top:0;left:0;bottom:0;background:var(--good);transition:width .25s ease}
+  .ttl-bar .fill.warn{background:var(--warn)} .ttl-bar .fill.bad{background:var(--bad)}
+  .filters{display:flex;gap:.4rem;flex-wrap:wrap;margin:.5rem 0;align-items:center}
+  .filter{padding:.25rem .6rem;border-radius:3px;font-size:.78rem;background:var(--panel);border:1px solid var(--border);cursor:pointer;user-select:none}
+  .filter.on{background:#143d3d;color:var(--accent);border-color:var(--accent)}
+  .badge-mirror{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.7rem;background:#1c1c1c;color:var(--muted);border:1px dashed var(--border)}
+  .footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--muted);font-size:.78rem}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  code{color:var(--accent);background:#0a0a0a;padding:0 3px;border-radius:2px;font-size:.82rem}
+  .toast{position:fixed;bottom:1rem;right:1rem;background:var(--panel);border:1px solid var(--accent);color:var(--fg);padding:.5rem .9rem;border-radius:4px;font-size:.78rem;opacity:0;transition:opacity .2s ease;pointer-events:none}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<h1>D-15 — sandboxes <span class="badge-mirror" style="font-size:.7rem">read-only via selfdef-sandbox-mirror</span></h1>
+<div class="sub">MS036 4-tier classification · MS032 1-9 isolation primitives · CRIU checkpoint + ZFS clone + Firecracker microVM — <a href="../master-dashboard/">D-00 main</a></div>
+
+<h2>MS036 4-tier topology (graduated isolation)</h2>
+<div class="row">
+  <div class="tier-card A">
+    <div class="nm">Tier A</div>
+    <div class="desc">deterministic host tools — rg, parsers, formatters, read-only queries</div>
+    <div class="running" id="A-running">0</div>
+    <div class="breakdown" id="A-breakdown">running · — pending · — checkpointed</div>
+    <div class="ms032">MS032 tier 1 — seccomp + landlock</div>
+  </div>
+  <div class="tier-card B">
+    <div class="nm">Tier B</div>
+    <div class="desc">controlled host tools — tests, builds, package managers, file edits</div>
+    <div class="running" id="B-running">0</div>
+    <div class="breakdown" id="B-breakdown">running · — pending · — checkpointed</div>
+    <div class="ms032">MS032 tiers 2-5 — user-NS / network-NS / CRIU / ZFS-clone</div>
+  </div>
+  <div class="tier-card C">
+    <div class="nm">Tier C</div>
+    <div class="desc">VM tools — risky dep installs, unknown scripts, browser actions</div>
+    <div class="running" id="C-running">0</div>
+    <div class="breakdown" id="C-breakdown">running · — pending · — checkpointed</div>
+    <div class="ms032">MS032 tier 6 — KVM VFIO 3090 / KVM headless</div>
+  </div>
+  <div class="tier-card D">
+    <div class="nm">Tier D</div>
+    <div class="desc">disposable microVM — untrusted binaries, unknown archives, hostile inputs</div>
+    <div class="running" id="D-running">0</div>
+    <div class="breakdown" id="D-breakdown">running · — pending · — checkpointed</div>
+    <div class="ms032">MS032 tiers 7-9 — Firecracker microVM</div>
+  </div>
+</div>
+
+<h2>resource pressure</h2>
+<div class="row">
+  <div class="stat"><div class="k">total resident</div><div class="v" id="r-mem">0</div><div class="u">MiB across active</div></div>
+  <div class="stat"><div class="k">aggregate CPU</div><div class="v" id="r-cpu">0</div><div class="u">% across active</div></div>
+  <div class="stat"><div class="k">running</div><div class="v ok" id="r-running">0</div><div class="u">allocations</div></div>
+  <div class="stat"><div class="k">checkpointed</div><div class="v warn" id="r-cp">0</div><div class="u">CRIU paused</div></div>
+  <div class="stat"><div class="k">quarantined</div><div class="v bad" id="r-quar">0</div><div class="u">MS042 mismatch</div></div>
+</div>
+
+<h2>active allocations</h2>
+<div class="panel">
+  <div class="filters" aria-label="filters" id="tier-filters">
+    <span style="font-size:.72rem;color:var(--muted)">tier:</span>
+    <div class="filter on" data-tier="tier-a">A</div>
+    <div class="filter on" data-tier="tier-b">B</div>
+    <div class="filter on" data-tier="tier-c">C</div>
+    <div class="filter on" data-tier="tier-d">D</div>
+    <span style="font-size:.72rem;color:var(--muted);margin-left:1rem">state:</span>
+    <div class="filter on" data-state="running">running</div>
+    <div class="filter on" data-state="checkpointed">checkpointed</div>
+    <div class="filter" data-state="idle">idle</div>
+    <div class="filter" data-state="pending">pending</div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>allocation_id</th>
+        <th>tier</th>
+        <th>MS032</th>
+        <th>isolation</th>
+        <th>tool</th>
+        <th>profile</th>
+        <th>state</th>
+        <th class="num">mem</th>
+        <th class="num">cpu</th>
+        <th class="num">ttl</th>
+        <th>actions</th>
+      </tr>
+    </thead>
+    <tbody id="alloc-tbody"></tbody>
+  </table>
+</div>
+
+<h2>actions <span class="muted" style="font-size:.75rem;font-weight:400">— web is READ-ONLY mirror consumer; allocate/checkpoint/release via selfdefctl + operator MS003 (R10119)</span></h2>
+<div class="row">
+  <button onclick="emit('selfdefctl sandbox list --all')">copy: list all</button>
+  <button onclick="emit('selfdefctl sandbox allocate --tier A --tool rg --ttl 30m')">copy: allocate Tier A</button>
+  <button onclick="emit('selfdefctl sandbox allocate --tier C --tool browser --vfio --ttl 1h')">copy: allocate Tier C (VFIO)</button>
+  <button class="warn" onclick="emit('selfdefctl sandbox checkpoint --allocation-id <id>')">copy: CRIU checkpoint</button>
+  <button onclick="emit('selfdefctl sandbox resume --allocation-id <id>')">copy: CRIU resume</button>
+  <button class="danger" onclick="emit('selfdefctl sandbox release --allocation-id <id> --confirm')">copy: release</button>
+</div>
+
+<div class="footer">
+  D-15 · <a href="../d-00-master/">D-00 main</a> · <a href="../d-14-capability-tokens/">D-14 capability</a> · <a href="../d-17-quarantine/">D-17 quarantine</a><br>
+  mirror source: <code>selfdef-sandbox-mirror @ 1.0.0</code> · MS036 4 tiers · MS032 1-9 isolation · MS007 typed-mirror crate #4 of 9
+</div>
+
+<div class="toast" id="toast">copied</div>
+
+<script>
+  // -------- seed (publisher /api/d-15/snapshot when wired) ----------
+  // Schema mirrors selfdef-sandbox-mirror::SandboxMirrorSnapshot 1.0.0
+  // No mutations from this surface — R10119 + R10212.
+  const seed = {
+    schema_version: "1.0.0",
+    captured_at: "2026-05-19T03:45Z",
+    summaries: [
+      { tier: "tier-a", running: 4, pending: 0, checkpointed: 0, idle: 1, released_24h: 12, quarantined: 0 },
+      { tier: "tier-b", running: 3, pending: 1, checkpointed: 2, idle: 0, released_24h: 7,  quarantined: 0 },
+      { tier: "tier-c", running: 1, pending: 0, checkpointed: 0, idle: 0, released_24h: 3,  quarantined: 0 },
+      { tier: "tier-d", running: 0, pending: 0, checkpointed: 1, idle: 0, released_24h: 1,  quarantined: 1 }
+    ],
+    allocations: [
+      { allocation_id: "al-01", tier: "tier-a", ms032_tier: 1, isolation: "host_seccomp",       tool: "rg",          capability_token_id: "tok-r2-op-cli", profile: "private",      actor: "operator-fp", allocated_at: "2026-05-19T03:00Z", release_at: "2026-05-19T03:30Z", ttl_seconds: 1800, resident_mb: 28,  cpu_percent: 8,   state: "running",       trace_id: "t-1" },
+      { allocation_id: "al-02", tier: "tier-a", ms032_tier: 1, isolation: "host_seccomp",       tool: "rustc",       capability_token_id: "tok-r2-op-cli", profile: "private",      actor: "operator-fp", allocated_at: "2026-05-19T03:20Z", release_at: "2026-05-19T03:50Z", ttl_seconds: 1800, resident_mb: 142, cpu_percent: 24,  state: "running",       trace_id: "t-2" },
+      { allocation_id: "al-03", tier: "tier-b", ms032_tier: 3, isolation: "user_namespace",     tool: "cargo-test",  capability_token_id: "tok-r2-op-cli", profile: "private",      actor: "operator-fp", allocated_at: "2026-05-19T03:00Z", release_at: "2026-05-19T04:00Z", ttl_seconds: 3600, resident_mb: 412, cpu_percent: 92,  state: "running",       trace_id: "t-3" },
+      { allocation_id: "al-04", tier: "tier-b", ms032_tier: 5, isolation: "zfs_clone",          tool: "build-image", capability_token_id: "tok-r2-op-cli", profile: "private",      actor: "operator-fp", allocated_at: "2026-05-19T02:30Z", release_at: "2026-05-19T05:30Z", ttl_seconds: 10800, resident_mb: 980, cpu_percent: 145, state: "checkpointed",  trace_id: "t-4" },
+      { allocation_id: "al-05", tier: "tier-b", ms032_tier: 4, isolation: "networked_namespace",tool: "npm-install", capability_token_id: "tok-r3-agent",  profile: "fast",         actor: "agent-fp",    allocated_at: "2026-05-19T03:42Z", release_at: "2026-05-19T03:55Z", ttl_seconds: 780,  resident_mb: 0,   cpu_percent: 0,   state: "pending",       trace_id: "t-5" },
+      { allocation_id: "al-06", tier: "tier-c", ms032_tier: 6, isolation: "kvm_vfio",           tool: "chrome-vfio", capability_token_id: "tok-r3-agent",  profile: "experimental", actor: "agent-fp",    allocated_at: "2026-05-19T03:00Z", release_at: "2026-05-19T04:00Z", ttl_seconds: 3600, resident_mb: 4096, cpu_percent: 320, state: "running",       trace_id: "t-6" },
+      { allocation_id: "al-07", tier: "tier-d", ms032_tier: 8, isolation: "firecracker_microvm",tool: "untrusted-bin",capability_token_id: "tok-r4-untrusted", profile: "experimental", actor: "agent-untrusted", allocated_at: "2026-05-19T03:30Z", release_at: "2026-05-19T03:45Z", ttl_seconds: 900, resident_mb: 512, cpu_percent: 60, state: "checkpointed", trace_id: "t-7" },
+      { allocation_id: "al-08", tier: "tier-b", ms032_tier: 2, isolation: "user_namespace",     tool: "criu-paused", capability_token_id: "tok-r2-op-cli", profile: "private",      actor: "operator-fp", allocated_at: "2026-05-19T02:00Z", release_at: "2026-05-19T08:00Z", ttl_seconds: 21600, resident_mb: 256, cpu_percent: 0, state: "checkpointed", trace_id: "t-8" }
+    ]
+  };
+
+  // tier cards
+  const tierMap = { "tier-a": "A", "tier-b": "B", "tier-c": "C", "tier-d": "D" };
+  for (const s of seed.summaries) {
+    const id = tierMap[s.tier];
+    document.getElementById(id + '-running').textContent = s.running;
+    document.getElementById(id + '-breakdown').innerHTML =
+      `<span class="ok">${s.running} running</span> · <span class="warn">${s.pending} pending</span> · <span style="color:var(--accent)">${s.checkpointed} cp</span>` +
+      (s.quarantined > 0 ? ` · <span class="bad">${s.quarantined} quar</span>` : '');
+  }
+  // pressure tiles
+  const active = seed.allocations.filter(a => a.state === 'running' || a.state === 'checkpointed');
+  const totalMem = active.reduce((acc, a) => acc + a.resident_mb, 0);
+  const totalCpu = active.filter(a => a.state === 'running').reduce((acc, a) => acc + a.cpu_percent, 0);
+  document.getElementById('r-mem').textContent = totalMem.toLocaleString();
+  document.getElementById('r-cpu').textContent = totalCpu;
+  document.getElementById('r-running').textContent = seed.allocations.filter(a => a.state === 'running').length;
+  document.getElementById('r-cp').textContent = seed.allocations.filter(a => a.state === 'checkpointed').length;
+  document.getElementById('r-quar').textContent = seed.summaries.reduce((acc, s) => acc + s.quarantined, 0);
+
+  function ttlPctRemaining(a) {
+    const expEpoch = new Date(a.release_at).getTime();
+    const issEpoch = new Date(a.allocated_at).getTime();
+    const now = Date.now();
+    const total = expEpoch - issEpoch;
+    const remaining = expEpoch - now;
+    return total > 0 ? Math.max(0, Math.min(100, (remaining / total) * 100)) : 0;
+  }
+  function ttlHuman(a) {
+    const ms = new Date(a.release_at).getTime() - Date.now();
+    if (ms <= 0) return 'expired';
+    const m = Math.floor(ms / 60000);
+    if (m < 60) return m + 'm';
+    if (m < 1440) return Math.floor(m / 60) + 'h' + (m % 60 ? ' ' + (m % 60) + 'm' : '');
+    return Math.floor(m / 1440) + 'd';
+  }
+
+  function renderAllocs() {
+    const activeTiers = new Set([...document.querySelectorAll('#tier-filters .filter.on[data-tier]')].map(f => f.dataset.tier));
+    const activeStates = new Set([...document.querySelectorAll('#tier-filters .filter.on[data-state]')].map(f => f.dataset.state));
+    const tb = document.getElementById('alloc-tbody');
+    tb.innerHTML = '';
+    for (const a of seed.allocations) {
+      if (!activeTiers.has(a.tier) || !activeStates.has(a.state)) continue;
+      const tierLetter = tierMap[a.tier];
+      const statePill = a.state === 'running' ? 'ok' : (a.state === 'pending' ? 'warn' : (a.state === 'checkpointed' ? 'accent' : 'muted'));
+      const pct = ttlPctRemaining(a);
+      const ttlCls = pct < 10 ? 'bad' : (pct < 30 ? 'warn' : '');
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><code>${a.allocation_id}</code></td>
+        <td><span class="pill tier${tierLetter}">${tierLetter}</span></td>
+        <td class="muted">${a.ms032_tier}</td>
+        <td class="muted">${a.isolation}</td>
+        <td><code>${a.tool}</code></td>
+        <td>${a.profile}</td>
+        <td><span class="pill ${statePill}">${a.state}</span></td>
+        <td class="num">${a.resident_mb} MiB</td>
+        <td class="num">${a.cpu_percent}%</td>
+        <td class="num">
+          <div class="ttl-bar"><div class="fill ${ttlCls}" style="width:${pct}%"></div></div>
+          <div style="font-size:.72rem;margin-top:.15rem">${ttlHuman(a)}</div>
+        </td>
+        <td>
+          <button onclick="emit('selfdefctl sandbox checkpoint --allocation-id ${a.allocation_id}')">cp</button>
+          <button class="danger" onclick="emit('selfdefctl sandbox release --allocation-id ${a.allocation_id} --confirm')">rel</button>
+        </td>
+      `;
+      tb.appendChild(tr);
+    }
+  }
+  renderAllocs();
+  document.querySelectorAll('#tier-filters .filter').forEach(f => f.addEventListener('click', () => { f.classList.toggle('on'); renderAllocs(); }));
+
+  // clipboard helper — web NEVER mutates per R10119 + R10212
+  function emit(cmd) {
+    navigator.clipboard.writeText(cmd).then(() => showToast('copied: ' + cmd.slice(0, 60) + (cmd.length > 60 ? '…' : '')));
+  }
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(showToast._h);
+    showToast._h = setTimeout(() => t.classList.remove('show'), 1800);
+  }
+
+  // live TTL countdown — re-render every 10s
+  setInterval(renderAllocs, 10000);
+
+  // master shortcut Cmd-0
+  window.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key === '0') { e.preventDefault(); window.location.href = '../master-dashboard/'; }
+  });
+</script>
+
+</body>
+</html>
