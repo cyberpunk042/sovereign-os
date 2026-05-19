@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-bulk-action"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit bulk-action toolbar state. Given a selected-id set and a list of registered actions (with required-min/required-max selection counts and per-action `disable_if_all_locked` rule), reports which actions are currently enabled. Pure UX descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
