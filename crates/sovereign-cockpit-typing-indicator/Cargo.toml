@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-typing-indicator"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit typing indicator — purely-visual chat-style 'X is typing…' state used while a model is producing a turn. Auto-clears after configurable timeout. Pure UX with no IPS authority dimension."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
