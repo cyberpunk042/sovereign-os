@@ -355,6 +355,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-doctrine-citation"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-doctrinal-preservation",
+ "sovereign-execution-mode-registry",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-environment-maps"
 version = "0.1.0"
 dependencies = [

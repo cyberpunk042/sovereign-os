@@ -1,0 +1,23 @@
+[package]
+name = "sovereign-doctrine-citation"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Runtime doctrine-citation envelope — every dispatched workload + mode transition + replay session cites at least one of the 16 sovereign doctrines from sovereign-doctrinal-preservation. The cockpit renders the citation tag chip alongside every operator-visible decision."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sovereign-doctrinal-preservation = { path = "../sovereign-doctrinal-preservation" }
+sovereign-execution-mode-registry = { path = "../sovereign-execution-mode-registry" }
+
+[features]
+default = []
