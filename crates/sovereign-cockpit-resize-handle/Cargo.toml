@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-resize-handle"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit split-pane resize handle state. Captures (orientation, current_px, min_px, max_px, dragging). drag(delta) clamps to bounds; reset() restores to a stored default. Pure UX descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
