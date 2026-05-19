@@ -4329,6 +4329,15 @@ SURFACE_MAP_WATCH_HELP
     now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     echo "── surface-map.watch (frame ${frame}, refresh=${refresh}s, ${now}) ──"
     echo
+    # R543 (E5++): system-wide §1g 8-surface ceiling-closure rollup
+    # banner (R540 milestone over the same surface-map.py importlib
+    # data source — operator-§1g UX rule: high-signal information at
+    # the top of the refresh loop, surfaced BEFORE the per-module
+    # matrix). Same R539 invariants the API + webapp surfaces show.
+    "${__REPO_ROOT}/scripts/operator/surface-map.py" milestone 2>/dev/null \
+      | sed 's/^/  /' \
+      || echo "  (surface-map milestone emit failed)"
+    echo
     "${__REPO_ROOT}/scripts/operator/surface-map.py" coverage 2>/dev/null \
       || echo "  (surface-map coverage emit failed — module data missing?)"
     echo
