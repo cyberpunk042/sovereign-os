@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-color-blind-mode"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit color-blind accessibility mode — 4 modes (None / Protanopia / Deuteranopia / Tritanopia). Each remaps the cockpit's default palette to use color combinations safe for the target vision. Pure UX accessibility surface."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
