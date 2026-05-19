@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os D-02 profile choices</title>
+<meta name="x-sovereign-module" content="d-02-profile-choices-webapp">
+<meta name="x-sovereign-shipped-in" content="R-impl-SDD040-phaseA-item1">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<meta name="x-sovereign-catalog-source" content="M060 R10063-R10068 + MS040 six-profile authority matrix + MS039 authority levels L0..L6 + Ring 0..4">
+<style>
+  /* Sovereignty-clean UX per SDD-040 D-040.1: monochrome palette, no
+     framework, no CDN, no fetched fonts. Identical doctrine to
+     /webapp/master-dashboard/index.html — operator-validated. */
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  .ok{color:var(--good)}
+  .bad{color:var(--bad)}
+  .warn{color:var(--warn)}
+  .muted{color:var(--muted)}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border)}
+  .pill.ok{background:#143d14;color:var(--good)}
+  .pill.bad{background:#3d1414;color:var(--bad)}
+  .pill.warn{background:#3d2f14;color:var(--warn)}
+  .pill.selected{background:#143d3d;color:var(--accent);border:1px solid var(--accent)}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+  .stat{flex:1 1 180px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
+  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .stat .v{font-size:1.05rem;font-weight:600;margin-top:.2rem}
+  .profile-card{flex:1 1 280px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;cursor:pointer;transition:border-color .12s}
+  .profile-card:hover{border-color:var(--accent)}
+  .profile-card.active{border-color:var(--accent);background:#0f1a25}
+  .profile-card h3{margin:0 0 .3rem 0;font-size:.95rem;font-weight:600}
+  .profile-card .scope{color:var(--muted);font-size:.78rem;margin-bottom:.5rem}
+  .ladder{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-top:.4rem}
+  .ladder-cell{padding:.15rem .25rem;font-size:.7rem;text-align:center;border-radius:2px;background:var(--border);color:var(--muted)}
+  .ladder-cell.allowed{background:#143d14;color:var(--good)}
+  .ladder-cell.gated{background:#3d2f14;color:var(--warn)}
+  .ladder-cell.denied{background:#3d1414;color:var(--bad)}
+  .rings{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;margin-top:.3rem}
+  .ring-cell{padding:.15rem .25rem;font-size:.7rem;text-align:center;border-radius:2px;background:var(--border);color:var(--muted)}
+  .ring-cell.allowed{background:#143d14;color:var(--good)}
+  .ring-cell.gated{background:#3d2f14;color:var(--warn)}
+  button{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.4rem .8rem;font-family:inherit;font-size:.85rem;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .kbd{display:inline-block;padding:1px 5px;border-radius:3px;font-size:.7rem;background:var(--border);color:var(--muted);border:1px solid var(--border)}
+  .footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--muted);font-size:.78rem}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+
+<h1>D-02 — profile choices</h1>
+<div class="sub">six-profile authority selector + L0..L6 envelope + Ring 0..4 highlights — <span class="kbd">Cmd-3</span> · catalog <a href="../master-dashboard/">D-00 main</a></div>
+
+<h2>active profile</h2>
+<div class="row">
+  <div class="stat">
+    <div class="k">active</div>
+    <div class="v" id="active-profile">loading…</div>
+  </div>
+  <div class="stat">
+    <div class="k">since</div>
+    <div class="v" id="active-since">—</div>
+  </div>
+  <div class="stat">
+    <div class="k">actor</div>
+    <div class="v" id="active-actor">—</div>
+  </div>
+  <div class="stat">
+    <div class="k">L-envelope</div>
+    <div class="v" id="active-envelope">—</div>
+  </div>
+</div>
+
+<h2>six profiles (MS040)</h2>
+<div class="row" id="profiles-row">
+  <!-- profile cards injected by JS -->
+</div>
+
+<h2>current authority ladder (L0..L6 per MS039)</h2>
+<div class="panel">
+  <div class="ladder" id="ladder">
+    <div class="ladder-cell">L0 Observe</div>
+    <div class="ladder-cell">L1 Suggest</div>
+    <div class="ladder-cell">L2 Simulate</div>
+    <div class="ladder-cell">L3 Prepare</div>
+    <div class="ladder-cell">L4 Execute</div>
+    <div class="ladder-cell">L5 Commit</div>
+    <div class="ladder-cell">L6 Persist</div>
+  </div>
+  <div class="muted" style="margin-top:.5rem;font-size:.78rem" id="ladder-legend">
+    <span class="pill ok">allowed</span>
+    <span class="pill warn">gated</span>
+    <span class="pill bad">denied</span>
+  </div>
+</div>
+
+<h2>current trust rings (Ring 0..4 per MS039)</h2>
+<div class="panel">
+  <div class="rings" id="rings">
+    <div class="ring-cell">R0 Kernel</div>
+    <div class="ring-cell">R1 Trusted</div>
+    <div class="ring-cell">R2 Sandboxed</div>
+    <div class="ring-cell">R3 Experimental</div>
+    <div class="ring-cell">R4 Cloud</div>
+  </div>
+</div>
+
+<h2>profile-change history</h2>
+<div class="panel">
+  <table>
+    <thead>
+      <tr><th>ts</th><th>from → to</th><th>actor</th><th>rationale</th><th>signature</th></tr>
+    </thead>
+    <tbody id="history-tbody">
+      <tr><td colspan="5" class="muted">loading…</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h2>predeclared gates (autonomous profile only)</h2>
+<div class="panel" id="gates-panel">
+  <div class="muted" id="gates-body">visible only when autonomous profile is active</div>
+</div>
+
+<h2>actions</h2>
+<div class="panel">
+  <div class="row">
+    <button id="refresh-btn">refresh now</button>
+    <button id="switch-btn" disabled>switch profile (operator-signed)</button>
+    <span class="muted" style="font-size:.78rem">switch requires MS003 signature via <code>sovereign profile set &lt;name&gt;</code> CLI</span>
+  </div>
+</div>
+
+<div class="footer">
+  D-02 profile choices · M060 catalog R10063-R10068 · MS040 six-profile authority matrix · MS039 L0..L6 + Ring 0..4 · operator-toggleable via /etc/sovereign-os/dashboards.toml
+</div>
+
+<script>
+// Profile envelopes per MS040 (selfdef R09366-R09460). Each profile's L-ladder
+// + ring-allowance derived from the milestone R-rows verbatim.
+const PROFILES = [
+  {
+    id: 'private',
+    name: 'Private',
+    scope: 'max L1 unless approved · local-only · no Ring 4',
+    msdef: 'MS040 R09366-R09380',
+    ladder: ['allowed','allowed','gated','gated','gated','gated','gated'],
+    rings: ['allowed','allowed','gated','denied','denied'],
+  },
+  {
+    id: 'fast',
+    name: 'Fast',
+    scope: 'bounded L4 for safe tools · favor latency',
+    msdef: 'MS040 R09381-R09395',
+    ladder: ['allowed','allowed','allowed','allowed','allowed','gated','gated'],
+    rings: ['allowed','allowed','allowed','gated','denied'],
+  },
+  {
+    id: 'careful',
+    name: 'Careful',
+    scope: 'oracle/test gates before commit · L4 requires sandbox sim',
+    msdef: 'MS040 R09396-R09410',
+    ladder: ['allowed','allowed','allowed','allowed','gated','gated','gated'],
+    rings: ['allowed','allowed','allowed','gated','gated'],
+  },
+  {
+    id: 'autonomous',
+    name: 'Autonomous',
+    scope: 'predeclared gates · execute bounded · L6 oracle+operator',
+    msdef: 'MS040 R09411-R09430',
+    ladder: ['allowed','allowed','allowed','allowed','allowed','gated','gated'],
+    rings: ['allowed','allowed','allowed','gated','denied'],
+  },
+  {
+    id: 'experimental',
+    name: 'Experimental',
+    scope: 'high exploration in sandbox · zero host commit',
+    msdef: 'MS040 R09431-R09445',
+    ladder: ['allowed','allowed','allowed','allowed','allowed','denied','denied'],
+    rings: ['gated','gated','allowed','allowed','denied'],
+  },
+  {
+    id: 'production',
+    name: 'Production',
+    scope: 'strict commit gates · strong trace · rollback required',
+    msdef: 'MS040 R09446-R09460',
+    ladder: ['allowed','allowed','allowed','allowed','gated','gated','gated'],
+    rings: ['allowed','allowed','allowed','denied','denied'],
+  },
+];
+
+const $ = (id) => document.getElementById(id);
+
+function renderCards(active) {
+  const row = $('profiles-row');
+  row.innerHTML = '';
+  for (const p of PROFILES) {
+    const card = document.createElement('div');
+    card.className = 'profile-card' + (p.id === active ? ' active' : '');
+    card.dataset.id = p.id;
+    card.innerHTML = `
+      <h3>${p.name} ${p.id === active ? '<span class="pill selected">active</span>' : ''}</h3>
+      <div class="scope">${p.scope}</div>
+      <div class="muted" style="font-size:.7rem">${p.msdef}</div>
+      <div class="ladder">
+        ${p.ladder.map((s, i) => `<div class="ladder-cell ${s}" title="L${i} ${s}">L${i}</div>`).join('')}
+      </div>
+      <div class="rings">
+        ${p.rings.map((s, i) => `<div class="ring-cell ${s}" title="Ring ${i} ${s}">R${i}</div>`).join('')}
+      </div>
+    `;
+    card.addEventListener('click', () => selectProfile(p.id));
+    row.appendChild(card);
+  }
+}
+
+function renderLadder(profile) {
+  const cells = $('ladder').children;
+  for (let i = 0; i < profile.ladder.length; i++) {
+    cells[i].className = 'ladder-cell ' + profile.ladder[i];
+  }
+}
+
+function renderRings(profile) {
+  const cells = $('rings').children;
+  for (let i = 0; i < profile.rings.length; i++) {
+    cells[i].className = 'ring-cell ' + profile.rings[i];
+  }
+}
+
+function renderGates(profile) {
+  if (profile.id === 'autonomous') {
+    $('gates-body').innerHTML = '<div class="muted">load <code>/etc/selfdef/profiles/autonomous-gates.toml</code> via <code>sovereign profile gates list</code> (selfdef MS040 R09411-R09430)</div>';
+  } else {
+    $('gates-body').innerHTML = '<div class="muted">predeclared gates apply only when profile = <code>autonomous</code></div>';
+  }
+}
+
+let activeProfileId = null;
+
+function selectProfile(id) {
+  // visually highlights the chosen card; actual switch requires MS003-signed CLI invocation
+  const card = document.querySelector(`.profile-card[data-id="${id}"]`);
+  if (!card) return;
+  document.querySelectorAll('.profile-card').forEach(c => c.classList.remove('preview'));
+  card.classList.add('preview');
+  const p = PROFILES.find(p => p.id === id);
+  renderLadder(p);
+  renderRings(p);
+  renderGates(p);
+  $('switch-btn').disabled = false;
+  $('switch-btn').textContent = `switch to ${p.name} (operator-signed via CLI)`;
+}
+
+async function fetchActiveProfile() {
+  // Read-only fetch — actual endpoint is sovereign-profile-coordinator on
+  // localhost; absent endpoint returns offline-default per MS040 R09535
+  // (Profile default resolver returns Private if no explicit selection).
+  try {
+    const res = await fetch('/api/profile/show', { credentials: 'same-origin' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (e) {
+    return {
+      active: 'private',
+      since: '(offline default per MS040 R09535)',
+      actor: '(no operator key loaded)',
+      envelope: 'L0-L1 only · no Ring 4',
+      history: [],
+      error: e.message,
+    };
+  }
+}
+
+async function refresh() {
+  $('active-profile').textContent = 'loading…';
+  const state = await fetchActiveProfile();
+  activeProfileId = state.active;
+  $('active-profile').innerHTML = `<span class="ok">${state.active}</span>`;
+  $('active-since').textContent = state.since;
+  $('active-actor').textContent = state.actor;
+  $('active-envelope').textContent = state.envelope;
+  renderCards(state.active);
+  const p = PROFILES.find(p => p.id === state.active);
+  if (p) {
+    renderLadder(p);
+    renderRings(p);
+    renderGates(p);
+  }
+  const tbody = $('history-tbody');
+  if (state.history && state.history.length) {
+    tbody.innerHTML = state.history.map(h => `
+      <tr>
+        <td class="muted">${h.ts}</td>
+        <td>${h.from} → <span class="ok">${h.to}</span></td>
+        <td>${h.actor}</td>
+        <td>${h.rationale}</td>
+        <td class="muted">${h.signature ? h.signature.slice(0, 12) + '…' : '—'}</td>
+      </tr>
+    `).join('');
+  } else {
+    tbody.innerHTML = '<tr><td colspan="5" class="muted">no profile transitions recorded yet</td></tr>';
+  }
+}
+
+$('refresh-btn').addEventListener('click', refresh);
+
+// Keyboard shortcut Cmd-3 / Ctrl-3 navigates to D-02 from any dashboard per M060 R10068
+document.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === '3') {
+    e.preventDefault();
+    refresh();
+  }
+});
+
+refresh();
+</script>
+
+</body>
+</html>
