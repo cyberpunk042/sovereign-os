@@ -239,6 +239,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-command-palette"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-execution-mode-registry",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-keystroke-map"
 version = "0.1.0"
 dependencies = [
