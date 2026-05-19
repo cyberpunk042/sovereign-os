@@ -602,6 +602,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-provider-catalog"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-profile-bundles",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-replay-cursor"
 version = "0.1.0"
 dependencies = [
