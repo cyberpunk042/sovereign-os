@@ -1,0 +1,28 @@
+[package]
+name = "sovereign-nvfp4-runtime"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M077 NVFP4 (E2M1 4-bit + E4M3 scale) pretraining + inference runtime per arXiv 2509.25149 + arXiv 2505.19115. 1x16 block allocator + RHT + 2D quantization + stochastic rounding + selective HP. Five recipe variants (NVFP4-S/M/L/XL/XXL). Targets Blackwell sm_120."
+
+[lints]
+workspace = true
+
+[dependencies]
+half = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+rand = { workspace = true }
+rand_chacha = { workspace = true }
+
+[features]
+default = []
+# Enable when Blackwell sm_120 CUDA bridge ships (M01283).
+blackwell-cuda = []
+# Enable RHT (Random Hadamard Transform) optimizations.
+rht = []

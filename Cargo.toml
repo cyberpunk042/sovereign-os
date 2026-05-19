@@ -1,0 +1,29 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "AGPL-3.0-or-later"
+repository = "https://example.org/you/sovereign-os"
+authors = ["You <you@example.org>"]
+publish = false
+
+[workspace.dependencies]
+# numeric primitives
+half = "2"
+# errors
+thiserror = "2"
+anyhow = "1"
+# serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# rand for stochastic rounding
+rand = "0.9"
+rand_chacha = "0.9"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"

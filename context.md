@@ -146,7 +146,7 @@ Per SDD-040 Phase A → E ordering + selfdef Guardian/UX-harness implementations
 
 ### sovereign-os runtime crates
 
-20. M077 NVFP4 runtime crate (`crates/sovereign-nvfp4-runtime/`) — 5 recipe variants
+20. ~~M077 NVFP4 runtime crate~~ ✓ shipped 2026-05-19 — `crates/sovereign-nvfp4-runtime/` 5 recipes (NVFP4-S/M/L/XL/XXL) + E2M1 + E4M3 + 1x16 block quantize/dequantize + stochastic rounding unbiased ±2% verified (13 passing tests)
 21. M078 HölderPO runtime crate (`crates/sovereign-holderpo/`) — Hölder-mean aggregator + dynamic-p scheduler
 22. M079 Intervention-class typed mirror crate
 23. M080 HRM runtime crate — 3 variants (canonical-27M / text-1B / TRM-7M)

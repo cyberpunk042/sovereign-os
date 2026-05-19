@@ -77,3 +77,7 @@ TODO.local.md
 # Snapshots (insta-style)
 **/snapshots/*.new
 .sovereign-os/
+
+# Rust build artifacts
+/target/
+**/*.rs.bk
