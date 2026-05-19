@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-eval-plane"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M048 Module 7 Eval/Value Plane — 10-dimension scoring + 8-profile weighting per E0464 + M00809 dump 14682-14702. Per-run eval surface that feeds M046 LoRA adapter promotion (eval-gate >= 80) + M027 value-plane reward axis aggregation. Sister to selfdef-trust-score-mirror IPS-side trust scoring."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
