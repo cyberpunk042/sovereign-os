@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-stepper"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit multi-step wizard state. Ordered steps with per-step status (NotStarted/Active/Done/Error/Skipped), forward/back navigation that respects step gating, completion check. Pure UX descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
