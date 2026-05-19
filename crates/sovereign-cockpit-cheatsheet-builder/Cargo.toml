@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-cheatsheet-builder"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit keyboard-cheatsheet builder. Takes a list of registered (action, chord, group) entries and produces a category-grouped, stable-ordered renderable cheatsheet for the operator help overlay. Pure UX descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
