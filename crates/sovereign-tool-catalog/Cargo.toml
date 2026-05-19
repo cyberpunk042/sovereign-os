@@ -1,0 +1,23 @@
+[package]
+name = "sovereign-tool-catalog"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Runtime tool catalog — curated registry of cockpit-callable tools (shell / fs-read / fs-write / web-fetch / model-inference / mcp-bridge / replay-control / cli-bridge). Each entry declares side-effect class + minimum execution mode + required profile bundle so the cockpit can gate availability per session context."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sovereign-execution-mode-registry = { path = "../sovereign-execution-mode-registry" }
+sovereign-profile-bundles = { path = "../sovereign-profile-bundles" }
+
+[features]
+default = []
