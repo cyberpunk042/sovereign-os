@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os D-12 networking</title>
+<meta name="x-sovereign-module" content="d-12-networking-webapp">
+<meta name="x-sovereign-shipped-in" content="R-impl-SDD040-phaseD-item6">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<meta name="x-sovereign-catalog-source" content="M060 R10112-R10113 D-12 networking + selfdef MS038 network boundary + MS039 Ring 0-4 traffic isolation + MS007 typed-mirror selfdef-rules-mirror (1 of 9) for nftables ruleset visualization">
+<meta name="x-sovereign-doctrine" content="MS043 R10212 + R10113 web NEVER mutates IPS state — READ-ONLY mirror consumer; nftables changes via selfdefctl + operator MS003 only">
+<meta name="x-sovereign-mirror-source" content="selfdef-rules-mirror @ schema 1.0.0">
+<style>
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --ring0:#ff7676; --ring1:#e6c062; --ring2:#9bd1ff; --ring3:#7ad17a; --ring4:#888;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
+  .num{font-variant-numeric:tabular-nums;text-align:right}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:stretch}
+  .stat{flex:1 1 200px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
+  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .stat .v{font-size:1.4rem;font-weight:600;margin-top:.2rem;font-variant-numeric:tabular-nums}
+  .stat .u{color:var(--muted);font-size:.78rem}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border);font-weight:500}
+  .pill.ok{background:#143d14;color:var(--good)} .pill.bad{background:#3d1414;color:var(--bad)} .pill.warn{background:#3d2f14;color:var(--warn)}
+  .pill.accent{background:#143d3d;color:var(--accent)} .pill.muted{background:#1c1c1c;color:var(--muted)}
+  .pill.ring0{background:#3d1414;color:var(--ring0)} .pill.ring1{background:#3d2f14;color:var(--ring1)}
+  .pill.ring2{background:#143d3d;color:var(--ring2)} .pill.ring3{background:#143d14;color:var(--ring3)}
+  .pill.ring4{background:#1c1c1c;color:var(--ring4)}
+  .pill.allow{background:#143d14;color:var(--good)} .pill.deny{background:#3d1414;color:var(--bad)}
+  .pill.log{background:#143d3d;color:var(--accent)}
+  button{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.35rem .8rem;font-family:inherit;font-size:.85rem;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.danger:hover{border-color:var(--bad);color:var(--bad)}
+  .filters{display:flex;gap:.4rem;flex-wrap:wrap;margin:.5rem 0;align-items:center}
+  .filter{padding:.25rem .6rem;border-radius:3px;font-size:.78rem;background:var(--panel);border:1px solid var(--border);cursor:pointer;user-select:none}
+  .filter.on{background:#143d3d;color:var(--accent);border-color:var(--accent)}
+  .badge-mirror{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.7rem;background:#1c1c1c;color:var(--muted);border:1px dashed var(--border)}
+  .ring-row{display:flex;align-items:center;gap:.5rem;font-size:.82rem;padding:.4rem .6rem;border:1px solid var(--border);border-radius:3px;margin:.25rem 0;background:#0a0a0a}
+  .ring-row .name{width:60px;font-weight:600}
+  .ring-row .bar{flex:1;background:#0a0a0a;border:1px solid var(--border);border-radius:3px;height:18px;position:relative;overflow:hidden}
+  .ring-row .fill{position:absolute;top:0;bottom:0;left:0;display:flex;align-items:center;padding:0 .4rem;color:#000;font-size:.7rem;font-weight:600}
+  .ring-row .fill.allow{background:var(--good)} .ring-row .fill.deny{background:var(--bad)}
+  .ring-row .counts{width:140px;text-align:right;font-size:.78rem;color:var(--muted);font-variant-numeric:tabular-nums}
+  .footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--muted);font-size:.78rem}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  code{color:var(--accent);background:#0a0a0a;padding:0 3px;border-radius:2px;font-size:.82rem}
+  .toast{position:fixed;bottom:1rem;right:1rem;background:var(--panel);border:1px solid var(--accent);color:var(--fg);padding:.5rem .9rem;border-radius:4px;font-size:.78rem;opacity:0;transition:opacity .2s ease;pointer-events:none}
+  .toast.show{opacity:1}
+  .nft-rule{font-family:var(--mono);font-size:.78rem;padding:.2rem .4rem;border-radius:3px;background:#0a0a0a;border-left:3px solid var(--accent);margin:.1rem 0;white-space:pre-wrap}
+</style>
+</head>
+<body>
+
+<h1>D-12 — networking <span class="badge-mirror" style="font-size:.7rem">read-only via selfdef-rules-mirror</span></h1>
+<div class="sub">Ring 0..4 traffic visualization · MS038 network boundary · MS024 nftables ruleset · eBPF telemetry — <a href="../master-dashboard/">D-00 main</a></div>
+
+<h2>Ring 0..4 traffic distribution (last 5 min)</h2>
+<div class="panel">
+  <div id="ring-traffic"></div>
+  <div class="muted" style="font-size:.7rem;margin-top:.5rem">Ring 0 = kernel-equiv · Ring 1 = Guardian · Ring 2 = operator-CLI · Ring 3 = sandboxed agent · Ring 4 = untrusted</div>
+</div>
+
+<h2>summary</h2>
+<div class="row">
+  <div class="stat"><div class="k">active nftables rules</div><div class="v ok" id="s-rules">0</div><div class="u">across Ring 0-4 chains</div></div>
+  <div class="stat"><div class="k">allow events (5m)</div><div class="v ok" id="s-allow">0</div><div class="u">packets matched</div></div>
+  <div class="stat"><div class="k">deny events (5m)</div><div class="v bad" id="s-deny">0</div><div class="u">packets blocked</div></div>
+  <div class="stat"><div class="k">FQDN allowlist</div><div class="v" id="s-fqdn">0</div><div class="u">resolved entries</div></div>
+  <div class="stat"><div class="k">CIDR allowlist</div><div class="v" id="s-cidr">0</div><div class="u">/32..*/16 ranges</div></div>
+  <div class="stat"><div class="k">attention</div><div class="v warn" id="s-attn">0</div><div class="u">drift / TTL near expiry</div></div>
+</div>
+
+<h2>nftables ruleset (selfdef-rules-mirror)</h2>
+<div class="panel">
+  <div class="filters" id="ring-filters">
+    <span style="font-size:.72rem;color:var(--muted)">ring:</span>
+    <div class="filter on" data-ring="ring0">Ring 0</div>
+    <div class="filter on" data-ring="ring1">Ring 1</div>
+    <div class="filter on" data-ring="ring2">Ring 2</div>
+    <div class="filter on" data-ring="ring3">Ring 3</div>
+    <div class="filter on" data-ring="ring4">Ring 4</div>
+    <span style="font-size:.72rem;color:var(--muted);margin-left:1rem">verdict:</span>
+    <div class="filter on" data-verdict="allow">allow</div>
+    <div class="filter on" data-verdict="deny">deny</div>
+    <div class="filter on" data-verdict="log">log</div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>handle</th>
+        <th>ring</th>
+        <th>chain</th>
+        <th>match</th>
+        <th>verdict</th>
+        <th class="num">packets</th>
+        <th class="num">bytes</th>
+        <th>actions</th>
+      </tr>
+    </thead>
+    <tbody id="rules-tbody"></tbody>
+  </table>
+</div>
+
+<h2>recent denied egress (eBPF tail)</h2>
+<div class="panel">
+  <div id="denied-stream" style="display:flex;flex-direction:column;gap:.1rem;max-height:200px;overflow-y:auto"></div>
+</div>
+
+<h2>actions <span class="muted" style="font-size:.75rem;font-weight:400">— web is READ-ONLY mirror consumer; rules added/removed via selfdefctl + operator MS003 (R10113)</span></h2>
+<div class="row">
+  <button onclick="emit('selfdefctl rule list --ring 2 --verdict allow')">copy: list Ring-2 allow</button>
+  <button onclick="emit('selfdefctl rule add --ring 3 --fqdn api.github.com --port 443 --verdict allow --ttl 1h --reason \"...\"')">copy: add FQDN allow</button>
+  <button onclick="emit('selfdefctl rule add --ring 4 --cidr 10.0.0.0/8 --verdict deny --reason \"private-range deny\"')">copy: add CIDR deny</button>
+  <button class="danger" onclick="emit('selfdefctl rule remove --handle <handle>')">copy: remove rule</button>
+  <button onclick="emit('selfdefctl rule reload --signed-by operator-fp')">copy: signed reload</button>
+  <button onclick="emit('journalctl -u selfdef-nft.service --since 5min')">copy: nft journal tail</button>
+</div>
+
+<div class="footer">
+  D-12 · <a href="../d-00-master/">D-00 main</a> · <a href="../d-13-filesystem-grants/">D-13 grants</a> · <a href="../network-edge/">network-edge</a> · <a href="../edge-firewall/">edge-firewall</a><br>
+  mirror source: <code>selfdef-rules-mirror @ 1.0.0</code> · MS038 network boundary · MS024 nftables rulesets · MS039 Ring 0..4 topology · MS007 typed-mirror crate #1 of 9
+</div>
+
+<div class="toast" id="toast">copied</div>
+
+<script>
+  // -------- seed (publisher /api/d-12/snapshot when wired) ----------
+  // Schema mirrors selfdef-rules-mirror::RulesMirrorSnapshot 1.0.0
+  // No mutations from this surface — R10113 + R10212.
+  const seed = {
+    schema_version: "1.0.0",
+    captured_at: "2026-05-19T04:00Z",
+    ringTraffic: [
+      { ring: "ring0", allow: 84, deny: 0 },
+      { ring: "ring1", allow: 412, deny: 2 },
+      { ring: "ring2", allow: 1840, deny: 7 },
+      { ring: "ring3", allow: 612, deny: 23 },
+      { ring: "ring4", allow: 4, deny: 89 }
+    ],
+    summaries: {
+      rules: 47,
+      fqdn: 12,
+      cidr: 28,
+      attention: 3
+    },
+    rules: [
+      { handle: 100, ring: "ring0", chain: "ring0-egress", match: "ip daddr 127.0.0.1 udp dport 8125",       verdict: "allow", packets: 412, bytes: 47120 },
+      { handle: 101, ring: "ring1", chain: "ring1-egress", match: "ip6 daddr ::1 tcp dport 5432",            verdict: "allow", packets: 84,  bytes: 19200 },
+      { handle: 102, ring: "ring2", chain: "ring2-egress", match: "tcp dport 443 fqdn 'api.github.com'",     verdict: "allow", packets: 1840, bytes: 4_829_120 },
+      { handle: 103, ring: "ring2", chain: "ring2-egress", match: "tcp dport 443 fqdn 'api.anthropic.com'",  verdict: "allow", packets: 312, bytes: 2_148_000 },
+      { handle: 104, ring: "ring3", chain: "ring3-egress", match: "tcp dport 443 fqdn 'huggingface.co'",     verdict: "allow", packets: 412, bytes: 8_192_000 },
+      { handle: 105, ring: "ring3", chain: "ring3-egress", match: "tcp dport 443 fqdn 'pypi.org'",           verdict: "allow", packets: 184, bytes: 6_148_000 },
+      { handle: 106, ring: "ring4", chain: "ring4-egress", match: "ip daddr 0.0.0.0/0 ! ip daddr 127.0.0.1", verdict: "deny",  packets: 89,  bytes: 4452 },
+      { handle: 107, ring: "ring4", chain: "ring4-egress", match: "ip daddr 10.0.0.0/8",                     verdict: "log",   packets: 12,  bytes: 612 },
+      { handle: 108, ring: "ring3", chain: "ring3-egress", match: "tcp dport 22",                            verdict: "deny",  packets: 4,   bytes: 240 },
+      { handle: 109, ring: "ring2", chain: "ring2-egress", match: "tcp dport 443 fqdn 'cloud-internal.example.com'", verdict: "log", packets: 8, bytes: 4096 }
+    ],
+    denied: [
+      { ts: "04:00:12", ring: "ring4", src: "untrusted-bin:1234", dst: "evil.example.com:443", reason: "FQDN not in allowlist" },
+      { ts: "04:00:08", ring: "ring4", src: "untrusted-bin:1234", dst: "8.8.8.8:53",           reason: "Ring4 default-deny" },
+      { ts: "03:59:55", ring: "ring3", src: "agent-fp:5678",      dst: "registry.docker.io:443", reason: "FQDN not in Ring3 allowlist" },
+      { ts: "03:59:42", ring: "ring4", src: "untrusted-bin:1234", dst: "1.1.1.1:53",           reason: "Ring4 default-deny" },
+      { ts: "03:59:30", ring: "ring2", src: "operator-cli:9012",  dst: "cloud-internal.example.com:443", reason: "logged (allow but flagged for review)" },
+      { ts: "03:59:18", ring: "ring3", src: "agent-fp:5678",      dst: "ssh.cloud.example.com:22", reason: "tcp/22 not allowed for Ring3" },
+      { ts: "03:58:50", ring: "ring4", src: "untrusted-bin:1234", dst: "evil2.example.com:443", reason: "FQDN not in allowlist" }
+    ]
+  };
+
+  // ring traffic bars
+  const rt = document.getElementById('ring-traffic');
+  for (const r of seed.ringTraffic) {
+    const total = r.allow + r.deny;
+    const allowPct = total ? (r.allow / total) * 100 : 0;
+    const denyPct = total ? (r.deny / total) * 100 : 0;
+    const row = document.createElement('div');
+    row.className = 'ring-row';
+    row.innerHTML = `
+      <span class="name"><span class="pill ${r.ring}">${r.ring.toUpperCase()}</span></span>
+      <div class="bar">
+        <div class="fill allow" style="width:${allowPct}%">${r.allow > 0 ? r.allow : ''}</div>
+        <div class="fill deny" style="left:${allowPct}%;width:${denyPct}%">${r.deny > 0 ? r.deny : ''}</div>
+      </div>
+      <span class="counts"><span class="ok">${r.allow} allow</span> / <span class="bad">${r.deny} deny</span></span>
+    `;
+    rt.appendChild(row);
+  }
+
+  // summary
+  document.getElementById('s-rules').textContent = seed.summaries.rules;
+  document.getElementById('s-allow').textContent = seed.ringTraffic.reduce((a, r) => a + r.allow, 0).toLocaleString();
+  document.getElementById('s-deny').textContent = seed.ringTraffic.reduce((a, r) => a + r.deny, 0).toLocaleString();
+  document.getElementById('s-fqdn').textContent = seed.summaries.fqdn;
+  document.getElementById('s-cidr').textContent = seed.summaries.cidr;
+  document.getElementById('s-attn').textContent = seed.summaries.attention;
+
+  function renderRules() {
+    const activeRings = new Set([...document.querySelectorAll('#ring-filters .filter.on[data-ring]')].map(f => f.dataset.ring));
+    const activeVerdicts = new Set([...document.querySelectorAll('#ring-filters .filter.on[data-verdict]')].map(f => f.dataset.verdict));
+    const tb = document.getElementById('rules-tbody');
+    tb.innerHTML = '';
+    for (const r of seed.rules) {
+      if (!activeRings.has(r.ring) || !activeVerdicts.has(r.verdict)) continue;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="muted">${r.handle}</td>
+        <td><span class="pill ${r.ring}">${r.ring.toUpperCase()}</span></td>
+        <td class="muted">${r.chain}</td>
+        <td><code>${r.match}</code></td>
+        <td><span class="pill ${r.verdict}">${r.verdict}</span></td>
+        <td class="num">${r.packets.toLocaleString()}</td>
+        <td class="num muted">${(r.bytes / 1024).toFixed(1)} KiB</td>
+        <td>
+          <button onclick="emit('selfdefctl rule inspect --handle ${r.handle}')">inspect</button>
+          <button class="danger" onclick="emit('selfdefctl rule remove --handle ${r.handle}')">remove</button>
+        </td>
+      `;
+      tb.appendChild(tr);
+    }
+  }
+  renderRules();
+  document.querySelectorAll('#ring-filters .filter').forEach(f => f.addEventListener('click', () => { f.classList.toggle('on'); renderRules(); }));
+
+  // denied stream
+  const ds = document.getElementById('denied-stream');
+  for (const d of seed.denied) {
+    const div = document.createElement('div');
+    div.className = 'nft-rule';
+    div.innerHTML = `<span class="muted">${d.ts}</span> <span class="pill ${d.ring}">${d.ring.toUpperCase()}</span> <span class="bad">${d.src}</span> → <span>${d.dst}</span> <span class="muted">· ${d.reason}</span>`;
+    ds.appendChild(div);
+  }
+
+  function emit(cmd) {
+    navigator.clipboard.writeText(cmd).then(() => showToast('copied: ' + cmd.slice(0, 60) + (cmd.length > 60 ? '…' : '')));
+  }
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(showToast._h);
+    showToast._h = setTimeout(() => t.classList.remove('show'), 1800);
+  }
+  window.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key === '0') { e.preventDefault(); window.location.href = '../master-dashboard/'; }
+  });
+</script>
+
+</body>
+</html>
