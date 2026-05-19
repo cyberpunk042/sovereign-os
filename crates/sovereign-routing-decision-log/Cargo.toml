@@ -1,0 +1,24 @@
+[package]
+name = "sovereign-routing-decision-log"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Runtime router decision log — append-only record of every routing call (selected ProviderId + reason + bundle + mode + ms-elapsed). The replay engine recreates routing from this stream; the cockpit shows it as a 'router timeline' for transparency."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sovereign-execution-mode-registry = { path = "../sovereign-execution-mode-registry" }
+sovereign-profile-bundles = { path = "../sovereign-profile-bundles" }
+sovereign-provider-catalog = { path = "../sovereign-provider-catalog" }
+
+[features]
+default = []
