@@ -476,6 +476,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-dnd-target"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-drag-drop"
 version = "0.1.0"
 dependencies = [
