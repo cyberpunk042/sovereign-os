@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os D-03 model health</title>
+<meta name="x-sovereign-module" content="d-03-model-health-webapp">
+<meta name="x-sovereign-shipped-in" content="R-impl-SDD040-phaseB-item4">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<meta name="x-sovereign-catalog-source" content="M060 R10069-R10074 + M058 hardware-aware scheduler + M075 SRP topology (Conductor/Logic/Oracle) + M077 NVFP4 + M073 ternary + M080 HRM 4th class">
+<style>
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
+  .num{font-variant-numeric:tabular-nums;text-align:right}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:stretch}
+  .stat{flex:1 1 200px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
+  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .stat .v{font-size:1.3rem;font-weight:600;margin-top:.2rem;font-variant-numeric:tabular-nums}
+  .stat .u{color:var(--muted);font-size:.78rem}
+  .role-card{flex:1 1 320px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;border-left:3px solid var(--accent)}
+  .role-card.conductor{border-left-color:var(--good)}
+  .role-card.logic{border-left-color:var(--warn)}
+  .role-card.oracle{border-left-color:#a9b8ff}
+  .role-card h3{margin:0 0 .3rem 0;font-size:1rem}
+  .role-card .scope{color:var(--muted);font-size:.78rem;margin-bottom:.5rem}
+  .gauge{position:relative;background:#0a0a0a;border:1px solid var(--border);border-radius:3px;height:14px;overflow:hidden;margin-top:.3rem}
+  .gauge .fill{position:absolute;top:0;left:0;bottom:0;background:var(--good);transition:width .25s ease,background-color .25s ease}
+  .gauge .fill.warn{background:var(--warn)} .gauge .fill.bad{background:var(--bad)}
+  .gauge .label{position:absolute;top:50%;left:.4rem;transform:translateY(-50%);font-size:.7rem;color:var(--fg);text-shadow:0 0 2px var(--bg)}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border)}
+  .pill.ok{background:#143d14;color:var(--good)} .pill.bad{background:#3d1414;color:var(--bad)} .pill.warn{background:#3d2f14;color:var(--warn)}
+  .pill.accent{background:#143d3d;color:var(--accent)}
+  .pill.precision-ternary{background:#3d143d;color:#d19bff}
+  .pill.precision-nvfp4{background:#1d143d;color:#a9b8ff}
+  .pill.precision-fp8{background:#3d2f14;color:var(--warn)}
+  .pill.precision-fp16{background:#143d2f;color:#9bd1c4}
+  .pill.precision-bf16{background:#143d3d;color:var(--accent)}
+  .pill.precision-hrm{background:#3d1414;color:#ff7676}
+  .latency-bar{display:inline-block;width:80px;height:12px;background:#0a0a0a;border:1px solid var(--border);border-radius:2px;vertical-align:middle;position:relative}
+  .latency-bar .seg{position:absolute;top:0;bottom:0;background:var(--accent)}
+  .latency-bar .p50{background:var(--good);width:50%}
+  .latency-bar .p95{background:var(--warn);width:30%;left:50%}
+  .latency-bar .p99{background:var(--bad);width:20%;left:80%}
+  .kbd{display:inline-block;padding:1px 5px;border-radius:3px;font-size:.7rem;background:var(--border);color:var(--muted);border:1px solid var(--border)}
+  .footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--muted);font-size:.78rem}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  code{color:var(--accent)}
+  button{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.35rem .8rem;font-family:inherit;font-size:.85rem;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1>D-03 — model health</h1>
+<div class="sub">SRP topology + per-role hardware status + KV cache + p50/p95/p99 latency — <span class="kbd">Cmd-4</span> · <a href="../master-dashboard/">D-00 main</a> · <a href="../d-09-hardware-pressure/">D-09 pressure</a></div>
+
+<h2>summary</h2>
+<div class="row">
+  <div class="stat"><div class="k">total loaded</div><div class="v" id="total-loaded">—</div></div>
+  <div class="stat"><div class="k">Blackwell models</div><div class="v ok" id="bw-count">—</div></div>
+  <div class="stat"><div class="k">3090 models</div><div class="v warn" id="rtx-count">—</div></div>
+  <div class="stat"><div class="k">CPU/Pulse models</div><div class="v accent" id="cpu-count">—</div></div>
+</div>
+
+<h2>SRP role health (M075 + M058)</h2>
+<div class="row">
+  <div class="role-card conductor">
+    <h3>Conductor — CPU bound</h3>
+    <div class="scope">M075 R12426-R12428: bitnet.cpp ternary on Pulse Core CCD 0 (cores 0-5)</div>
+    <div class="row" style="margin:.5rem 0">
+      <div style="flex:1">
+        <div class="muted" style="font-size:.72rem">util</div>
+        <div class="gauge"><div class="fill" id="conductor-util-fill" style="width:0%"><span class="label" id="conductor-util">—%</span></div></div>
+      </div>
+      <div style="flex:1">
+        <div class="muted" style="font-size:.72rem">tokens/sec</div>
+        <div class="num" id="conductor-tps" style="font-size:1.1rem">—</div>
+      </div>
+    </div>
+    <table style="margin-top:.3rem">
+      <tbody id="conductor-models-tbody">
+        <tr><td colspan="3" class="muted">no models loaded</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="role-card logic">
+    <h3>Logic Engine — GPU 0 RTX 3090 (24GB)</h3>
+    <div class="scope">M075 R12441-R12446: Llama-3-70B Q4_K_M / IQ4_NL in Podman</div>
+    <div class="row" style="margin:.5rem 0">
+      <div style="flex:1">
+        <div class="muted" style="font-size:.72rem">util</div>
+        <div class="gauge"><div class="fill" id="logic-util-fill" style="width:0%"><span class="label" id="logic-util">—%</span></div></div>
+      </div>
+      <div style="flex:1">
+        <div class="muted" style="font-size:.72rem">VRAM</div>
+        <div class="gauge"><div class="fill" id="logic-vram-fill" style="width:0%"><span class="label" id="logic-vram-pct">—%</span></div></div>
+        <div class="muted" style="font-size:.7rem;margin-top:.2rem"><span id="logic-vram-used">—</span> / 24 GB</div>
+      </div>
+    </div>
+    <table style="margin-top:.3rem">
+      <tbody id="logic-models-tbody">
+        <tr><td colspan="3" class="muted">no models loaded</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="role-card oracle">
+    <h3>Oracle Core — GPU 1 Blackwell PRO 6000 (96GB FP4)</h3>
+    <div class="scope">M075 R12456-R12462: FP16 / NVFP4 (M077) / HRM-Text-1B uncompromised</div>
+    <div class="row" style="margin:.5rem 0">
+      <div style="flex:1">
+        <div class="muted" style="font-size:.72rem">util</div>
+        <div class="gauge"><div class="fill" id="oracle-util-fill" style="width:0%"><span class="label" id="oracle-util">—%</span></div></div>
+      </div>
+      <div style="flex:1">
+        <div class="muted" style="font-size:.72rem">VRAM</div>
+        <div class="gauge"><div class="fill" id="oracle-vram-fill" style="width:0%"><span class="label" id="oracle-vram-pct">—%</span></div></div>
+        <div class="muted" style="font-size:.7rem;margin-top:.2rem"><span id="oracle-vram-used">—</span> / 96 GB</div>
+      </div>
+    </div>
+    <table style="margin-top:.3rem">
+      <tbody id="oracle-models-tbody">
+        <tr><td colspan="3" class="muted">no models loaded</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<h2>per-model latency p50 / p95 / p99 (last 1h)</h2>
+<div class="panel">
+  <table>
+    <thead><tr><th>model</th><th>role</th><th>precision</th><th class="num">p50</th><th class="num">p95</th><th class="num">p99</th><th>shape</th><th class="num">req/min</th></tr></thead>
+    <tbody id="latency-tbody"><tr><td colspan="8" class="muted">loading…</td></tr></tbody>
+  </table>
+</div>
+
+<h2>KV cache utilization (per-model)</h2>
+<div class="panel">
+  <table>
+    <thead><tr><th>model</th><th>cache dtype</th><th class="num">resident tokens</th><th class="num">max tokens</th><th>fill</th><th class="num">prefill hit %</th></tr></thead>
+    <tbody id="kvcache-tbody"><tr><td colspan="6" class="muted">loading…</td></tr></tbody>
+  </table>
+  <div class="muted" style="font-size:.72rem;margin-top:.3rem">M076 Profile 3 + M077 R12450: `--kv-cache-dtype fp4|fp8|bf16` selectable per profile. fp4 reduces VRAM 2× vs fp8.</div>
+</div>
+
+<h2>model availability heatmap (last 24h)</h2>
+<div class="panel">
+  <div id="heatmap-container" style="font-size:.7rem">
+    <div class="muted">loading heatmap…</div>
+  </div>
+  <div class="muted" style="font-size:.72rem;margin-top:.3rem">each row = model; each column = 1h bucket; green=available, warn=degraded, red=unavailable</div>
+</div>
+
+<h2>actions</h2>
+<div class="panel">
+  <div class="row">
+    <button id="refresh-btn">refresh</button>
+    <button id="load-model-btn">load model (operator-signed)</button>
+    <button id="unload-idle-btn">unload idle models</button>
+    <button id="warm-kv-btn">warm KV cache (Profile 3)</button>
+  </div>
+</div>
+
+<div class="footer">
+  D-03 model health · M060 R10069-R10074 · M058 hardware-aware scheduler · M075 SRP topology · M073 ternary BitLinear · M077 NVFP4 + 5 recipe variants · M080 HRM 4th class · M058 KV-cache routing (R09792-R09800)
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+function escapeHtml(s) { if (s == null) return ''; return String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+function fmtBytes(b) { if (!b && b !== 0) return '—'; const u=['B','K','M','G','T']; let i=0; while(b>=1024&&i<u.length-1){b/=1024;i++;} return `${b.toFixed(b<10?1:0)} ${u[i]}`; }
+function fmtMs(ms) { if (ms == null) return '—'; if (ms < 1) return `${(ms*1000).toFixed(0)}μs`; if (ms < 1000) return `${ms.toFixed(0)}ms`; return `${(ms/1000).toFixed(2)}s`; }
+function pct(n, d) { if (!d) return 0; return Math.min(100, (n/d)*100); }
+function fillCls(p) { p = Number(p); if (p >= 90) return 'bad'; if (p >= 70) return 'warn'; return ''; }
+function setGauge(idFill, idLabel, p) {
+  const f = $(idFill); if (!f) return;
+  f.style.width = (p || 0).toFixed(1) + '%';
+  f.className = 'fill ' + fillCls(p);
+  if (idLabel && $(idLabel)) $(idLabel).textContent = (p || 0).toFixed(0) + '%';
+}
+function precisionPill(p) {
+  if (!p) return '<span class="pill muted">—</span>';
+  return `<span class="pill precision-${p}">${escapeHtml(p.toUpperCase())}</span>`;
+}
+
+function renderRoleModels(tbody, models) {
+  if (!models || !models.length) {
+    tbody.innerHTML = '<tr><td colspan="3" class="muted">no models loaded</td></tr>';
+    return;
+  }
+  tbody.innerHTML = models.map(m => `
+    <tr>
+      <td><code>${escapeHtml(m.id)}</code></td>
+      <td>${precisionPill(m.precision)}</td>
+      <td class="num muted">${fmtBytes(m.size_bytes)}</td>
+    </tr>`).join('');
+}
+
+async function fetchHealth() {
+  try {
+    const res = await fetch('/api/models/health', {credentials:'same-origin'});
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (e) {
+    return {summary:{},roles:{},models:[],kvcache:[],heatmap:[],error:e.message};
+  }
+}
+
+async function refresh() {
+  const s = await fetchHealth();
+  // Top summary
+  $('total-loaded').textContent = s.summary.total ?? 0;
+  $('bw-count').textContent = s.summary.blackwell ?? 0;
+  $('rtx-count').textContent = s.summary.rtx3090 ?? 0;
+  $('cpu-count').textContent = s.summary.cpu ?? 0;
+  // SRP roles
+  const r = s.roles || {};
+  const c = r.conductor || {}; const l = r.logic || {}; const o = r.oracle || {};
+  setGauge('conductor-util-fill','conductor-util',c.util_pct);
+  $('conductor-tps').textContent = c.tokens_per_sec != null ? c.tokens_per_sec.toFixed(1) : '—';
+  renderRoleModels($('conductor-models-tbody'), c.models);
+  setGauge('logic-util-fill','logic-util',l.util_pct);
+  setGauge('logic-vram-fill','logic-vram-pct',pct(l.vram_used_gb, 24));
+  $('logic-vram-used').textContent = l.vram_used_gb != null ? l.vram_used_gb.toFixed(1) : '—';
+  renderRoleModels($('logic-models-tbody'), l.models);
+  setGauge('oracle-util-fill','oracle-util',o.util_pct);
+  setGauge('oracle-vram-fill','oracle-vram-pct',pct(o.vram_used_gb, 96));
+  $('oracle-vram-used').textContent = o.vram_used_gb != null ? o.vram_used_gb.toFixed(1) : '—';
+  renderRoleModels($('oracle-models-tbody'), o.models);
+  // Latency table
+  $('latency-tbody').innerHTML = (s.models || []).length ? s.models.map(m => `
+    <tr>
+      <td><code>${escapeHtml(m.id)}</code></td>
+      <td class="muted">${escapeHtml(m.role || '—')}</td>
+      <td>${precisionPill(m.precision)}</td>
+      <td class="num ${m.p50_ms > 1000 ? 'warn' : ''}">${fmtMs(m.p50_ms)}</td>
+      <td class="num ${m.p95_ms > 5000 ? 'bad' : m.p95_ms > 2000 ? 'warn' : ''}">${fmtMs(m.p95_ms)}</td>
+      <td class="num ${m.p99_ms > 10000 ? 'bad' : m.p99_ms > 5000 ? 'warn' : ''}">${fmtMs(m.p99_ms)}</td>
+      <td><span class="latency-bar"><span class="seg p50"></span><span class="seg p95"></span><span class="seg p99"></span></span></td>
+      <td class="num muted">${m.req_per_min ?? '—'}</td>
+    </tr>`).join('') : '<tr><td colspan="8" class="muted">no inference requests in last 1h</td></tr>';
+  // KV cache table
+  $('kvcache-tbody').innerHTML = (s.kvcache || []).length ? s.kvcache.map(k => `
+    <tr>
+      <td><code>${escapeHtml(k.model)}</code></td>
+      <td>${precisionPill(k.dtype)}</td>
+      <td class="num">${k.resident_tokens?.toLocaleString() ?? '—'}</td>
+      <td class="num muted">${k.max_tokens?.toLocaleString() ?? '—'}</td>
+      <td><div class="gauge" style="margin:0"><div class="fill ${fillCls(pct(k.resident_tokens, k.max_tokens))}" style="width:${pct(k.resident_tokens, k.max_tokens).toFixed(1)}%"></div></div></td>
+      <td class="num ${k.prefill_hit_pct >= 80 ? 'ok' : k.prefill_hit_pct >= 50 ? 'warn' : ''}">${k.prefill_hit_pct != null ? k.prefill_hit_pct.toFixed(0) + '%' : '—'}</td>
+    </tr>`).join('') : '<tr><td colspan="6" class="muted">no KV cache activity</td></tr>';
+  // Heatmap
+  const hm = $('heatmap-container');
+  if ((s.heatmap || []).length) {
+    hm.innerHTML = s.heatmap.map(row => `
+      <div style="display:flex;align-items:center;gap:.4rem;margin:.2rem 0">
+        <span style="flex:0 0 200px;font-size:.78rem"><code>${escapeHtml(row.model)}</code></span>
+        ${(row.buckets || []).map(b => `
+          <span title="${escapeHtml(b.ts)}: ${b.status}"
+            style="display:inline-block;width:18px;height:14px;border-radius:1px;background:${b.status === 'available' ? 'var(--good)' : b.status === 'degraded' ? 'var(--warn)' : 'var(--bad)'}"></span>
+        `).join('')}
+      </div>
+    `).join('');
+  } else {
+    hm.innerHTML = '<div class="muted">no heatmap data — accumulates over 24h of inference activity</div>';
+  }
+}
+
+$('refresh-btn').addEventListener('click', refresh);
+$('load-model-btn').addEventListener('click', async () => {
+  const cmd = 'sovereign model load <model-id> --role <conductor|logic|oracle> --precision <ternary|fp8|nvfp4|fp16|bf16>';
+  try { await navigator.clipboard.writeText(cmd); alert(`Load model cmd template copied:\n\n  ${cmd}\n\nOperator MS003-signed. Role assignment per M075 SRP topology.`); }
+  catch (e) { prompt('Copy + run:', cmd); }
+});
+$('unload-idle-btn').addEventListener('click', async () => {
+  const cmd = 'sovereign model unload --idle-for 30m --dry-run';
+  try { await navigator.clipboard.writeText(cmd); alert(`Idle unload cmd copied (dry-run first):\n\n  ${cmd}\n\nRemove --dry-run to apply.`); }
+  catch (e) { prompt('Copy + run:', cmd); }
+});
+$('warm-kv-btn').addEventListener('click', async () => {
+  const cmd = 'sovereign kv-cache warm --profile deep-context-synthesis --dtype fp8';
+  try { await navigator.clipboard.writeText(cmd); alert(`KV warm cmd copied:\n\n  ${cmd}\n\nM076 Profile 3 Deep Context Synthesis. M077 supports --dtype nvfp4 for 2× VRAM savings.`); }
+  catch (e) { prompt('Copy + run:', cmd); }
+});
+
+document.addEventListener('keydown', e => { if ((e.metaKey||e.ctrlKey) && e.key === '4') { e.preventDefault(); refresh(); } });
+
+try {
+  const es = new EventSource('/api/models/stream');
+  es.addEventListener('model-state-change', refresh);
+  es.addEventListener('latency-update', refresh);
+  es.addEventListener('error', () => setInterval(refresh, 5000));
+} catch (e) { setInterval(refresh, 5000); }
+
+refresh();
+</script>
+
+</body>
+</html>
