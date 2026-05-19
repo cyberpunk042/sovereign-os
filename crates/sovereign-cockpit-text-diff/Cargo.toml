@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-text-diff"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit line-level text-diff renderer. Given before/after line lists, produces a Vec<DiffRow> (Same/Added/Removed) using a simple linear scan with longest-common-prefix/suffix detection. Pure UX descriptor (sufficient for small diffs in the cockpit; large diffs should use a server-side diff)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
