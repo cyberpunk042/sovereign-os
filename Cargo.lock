@@ -303,6 +303,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-tab-strip"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-toast-tray"
 version = "0.1.0"
 dependencies = [
