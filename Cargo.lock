@@ -264,6 +264,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-toast-tray"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-cockpit-banner-state",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cognitive-compiler"
 version = "0.1.0"
 dependencies = [
