@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-mirror-publisher"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Typed mirror-endpoint manifest for the cockpit (D-12..D-18 dashboards) — enumerates the 9 selfdef-mirror crates, their D-NN dashboard binding, schema versions, and HTTP/SSE endpoints. Per M060 R10114-R10128 + MS043 R10182-R10193 (cross-repo SATURATED set)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
