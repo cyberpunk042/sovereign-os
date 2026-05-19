@@ -1,0 +1,38 @@
+{
+    "$schema": "https://json.schemastore.org/claude-code-settings.json",
+    "env": {
+        "CLAUDE_CODE_STOP_HOOK_BLOCK_CAP": "1000",
+        "CLAUDE_CODE_MAX_TURNS": "10000",
+        "DISABLE_AUTOCOMPACT": "1"
+    },
+    "permissions": {
+        "allow": ["Skill"],
+        "defaultMode": "plan"
+    },
+    "hooks": {
+        "Stop": [],
+        "SubagentStop": [],
+        "SessionStart": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "bash $HOME/.claude/env-bootstrap/apply.sh --quiet 2>/dev/null || true",
+                        "timeout": 15
+                    }
+                ]
+            }
+        ],
+        "PostCompact": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "bash $HOME/.claude/post-compact-reorient.sh",
+                        "timeout": 5
+                    }
+                ]
+            }
+        ]
+    }
+}
