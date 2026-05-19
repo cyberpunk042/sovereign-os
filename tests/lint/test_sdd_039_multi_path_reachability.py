@@ -205,24 +205,46 @@ def test_a33_mandate_rows_cite_e10m110():
     )
 
 
+SUMMARY = REPO_ROOT / "docs" / "src" / "SUMMARY.md"
+
+
 def test_sdd_039_reachable_via_all_4_paths():
     """End-to-end multi-path reachability: SDD-039 must be discoverable
     via ALL of {architecture-qa, coverage-map, mandate, SUMMARY}.
 
-    SUMMARY.md path is allowed to be absent in R549 (the SUMMARY
-    discipline is deferred to a later round — see Q-039-* open
-    questions); the other 3 paths are MANDATORY post-R549."""
+    R549 wired 3 paths (mandate + arch-qa + coverage-map). R550 closes
+    the 4th by linking SDD-039 from docs/src/SUMMARY.md. Post-R550, ALL
+    four paths are MANDATORY — the §1g STANDING RULE (R456) demands
+    defense-in-depth, no surface left dangling."""
     archqa_blob = ARCH_QA.read_text(encoding="utf-8")
     coverage_blob = COVERAGE.read_text(encoding="utf-8")
     mandate_blob = MANDATE.read_text(encoding="utf-8")
+    summary_blob = SUMMARY.read_text(encoding="utf-8")
 
     for label, blob in (
         ("architecture-qa.py", archqa_blob),
         ("coverage-map.py", coverage_blob),
         ("operator-mandate.md", mandate_blob),
+        ("SUMMARY.md", summary_blob),
     ):
         assert re.search(r"SDD[- ]039", blob), (
-            f"R549: SDD-039 must be cited in {label} "
+            f"R550: SDD-039 must be cited in {label} "
             f"(SDD reachability scanner reads via "
-            f"SDD[- ](\\d{{3}}) regex)"
+            f"SDD[- ](\\d{{3}}) regex). All 4 catalog paths are "
+            f"mandatory post-R550 — §1g STANDING RULE."
         )
+
+
+def test_summary_md_links_to_sdd_039_anchor():
+    """R550: docs/src/SUMMARY.md MUST link SDD-039 to the verbatim
+    surface anchor for C-28. Operator-arriving-via-mdBook discovers
+    the doctrine from the table of contents."""
+    summary_blob = SUMMARY.read_text(encoding="utf-8")
+    assert "SDD-039" in summary_blob, (
+        "R550: SUMMARY.md must mention SDD-039"
+    )
+    assert "verbatim-surface.md#c-28" in summary_blob, (
+        "R550: SUMMARY.md SDD-039 entry must deep-link to "
+        "verbatim-surface.md#c-28 (the C-28 anchor where the §1g "
+        "8-surface delivery contract is rendered)"
+    )
