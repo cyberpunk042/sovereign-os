@@ -628,3 +628,16 @@ Workspace count now 170. Total this resume: 60 cockpit crates.
   snapshot with apply_facet/drop_facet/clear/set_sort)
 
 Workspace count now 173. Total this resume: 63 cockpit crates.
+
+### Seventeenth wave (same day, +4 more cockpit crates)
+
+- `sovereign-cockpit-rate-limit-banner` (throttle countdown
+  with seconds remaining + reason text)
+- `sovereign-cockpit-popover-stack` (parent-id lineage; close drops
+  descendants; escape closes topmost subtree)
+- `sovereign-cockpit-text-input-counter` (Soft/Hard mode counter
+  with Normal/Warn/Over color)
+- `sovereign-cockpit-toast-position` (4-corner layout with stacking
+  direction derived from corner)
+
+Workspace count now 177. Total this resume: 67 cockpit crates.
