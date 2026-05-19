@@ -1,0 +1,23 @@
+[package]
+name = "sovereign-hardware-dispatch-eligibility"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Runtime hardware dispatch eligibility — for a workload request (VRAM-needed + latency-tier + role-required) computes which of the 5 hardware targets are currently eligible, given live load + thermal headroom. The SRP scheduler picks from the eligible set; the cockpit shows it for transparency."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sovereign-hardware-registry = { path = "../sovereign-hardware-registry" }
+sovereign-hardware-load-sample = { path = "../sovereign-hardware-load-sample" }
+
+[features]
+default = []

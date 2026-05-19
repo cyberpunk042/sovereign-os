@@ -340,6 +340,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-hardware-dispatch-eligibility"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-hardware-load-sample",
+ "sovereign-hardware-registry",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-hardware-load-sample"
 version = "0.1.0"
 dependencies = [
