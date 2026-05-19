@@ -732,6 +732,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-replay-export-bundle"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-conversation-thread",
+ "sovereign-execution-mode-registry",
+ "sovereign-replay-bookmark-set",
+ "sovereign-replay-cursor",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-router-7axis"
 version = "0.1.0"
 dependencies = [

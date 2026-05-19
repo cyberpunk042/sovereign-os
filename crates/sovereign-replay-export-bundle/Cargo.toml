@@ -1,0 +1,27 @@
+[package]
+name = "sovereign-replay-export-bundle"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Exportable replay bundle — packs (ConversationThread + ReplayCursor + BookmarkSet) into one envelope so the operator can hand a debug session to a colleague. Cross-validates that the cursor + bookmarks reference the bundled thread."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sovereign-conversation-thread = { path = "../sovereign-conversation-thread" }
+sovereign-replay-cursor = { path = "../sovereign-replay-cursor" }
+sovereign-replay-bookmark-set = { path = "../sovereign-replay-bookmark-set" }
+
+[dev-dependencies]
+sovereign-execution-mode-registry = { path = "../sovereign-execution-mode-registry" }
+
+[features]
+default = []
