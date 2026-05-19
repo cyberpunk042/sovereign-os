@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cognitive-compiler"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M025 Cognitive Compiler — intent to DAG. 7-input / 5-output typed compile contract + 7-field DAG node schema + 8-axis ready-node scheduler per E0230-E0237 + M00410-M00416 + dump 7000-7378. Doctrine: 'AI intent → compiler → executable cognitive DAG → scheduler → experts/tools → observations → adaptive recompile' (E0230 dump 7026-7030)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
