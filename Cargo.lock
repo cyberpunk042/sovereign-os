@@ -179,6 +179,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-intervention-class-mirror"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-nvfp4-runtime"
 version = "0.1.0"
 dependencies = [
