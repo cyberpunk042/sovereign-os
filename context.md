@@ -650,3 +650,12 @@ Workspace count now 177. Total this resume: 67 cockpit crates.
   pin-right + render_order projection)
 
 Workspace count now 179. Total this resume: 69 cockpit crates.
+
+### Nineteenth wave (same day, +2 more cockpit crates)
+
+- `sovereign-cockpit-key-stack` (multi-key chord ring with timeout
+  + max-len + matches(prefix); 'gg' / 'C-x C-f')
+- `sovereign-cockpit-collapsible-region` (single-region collapse
+  with auto-expand-on-fill + manual-override stickiness)
+
+Workspace count now 181. Total this resume: 71 cockpit crates.
