@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-zoom-pan-canvas"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit free-zoom + pan canvas state (continuous zoom factor, not discrete steps). Captures camera (cx, cy) in world coords + scale; convert_world_to_screen / convert_screen_to_world helpers; zoom bounds + pan no-clamp (canvas is infinite). Pure UX descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
