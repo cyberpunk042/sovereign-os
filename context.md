@@ -543,3 +543,12 @@ Workspace count now 146. Total this resume: 36 cockpit crates.
   subs + dedup/leading/trailing separators)
 
 Workspace count now 149. Total this resume: 39 cockpit crates.
+
+### Tenth wave (same day, +2 more cockpit crates)
+
+- `sovereign-cockpit-mini-map` (aspect-preserving scaled minimap +
+  viewport rect clamped to bounds; min 1px on each axis)
+- `sovereign-cockpit-zoom-pan-canvas` (continuous-scale camera with
+  pan_screen, world↔screen roundtrip, NaN rejection)
+
+Workspace count now 151. Total this resume: 41 cockpit crates.
