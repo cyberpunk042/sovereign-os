@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os D-10 eval history</title>
+<meta name="x-sovereign-module" content="d-10-eval-history-webapp">
+<meta name="x-sovereign-shipped-in" content="R-impl-SDD040-phaseB-item2">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<meta name="x-sovereign-catalog-source" content="M060 R10106-R10108 + M048 Eval-Value module + M046 LoRA Foundry + M078 HölderPO 54.9% math + 93.8% ALFWorld + M079 WB-vs-BB eval-protocol disaggregation + M080 HRM ARC-AGI benchmarks">
+<style>
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
+  .num{font-variant-numeric:tabular-nums;text-align:right}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:stretch}
+  .stat{flex:1 1 180px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
+  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .stat .v{font-size:1.4rem;font-weight:600;margin-top:.2rem;font-variant-numeric:tabular-nums}
+  .stat .u{color:var(--muted);font-size:.78rem}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border)}
+  .pill.ok{background:#143d14;color:var(--good)} .pill.bad{background:#3d1414;color:var(--bad)} .pill.warn{background:#3d2f14;color:var(--warn)}
+  .pill.accent{background:#143d3d;color:var(--accent)}
+  .pill.wb{background:#1d143d;color:#a9b8ff}
+  .pill.bb{background:#143d2f;color:#9bd1c4}
+  .pill.none{background:var(--border);color:var(--muted)}
+  .kbd{display:inline-block;padding:1px 5px;border-radius:3px;font-size:.7rem;background:var(--border);color:var(--muted);border:1px solid var(--border)}
+  .spark{display:inline-block;width:120px;height:18px;vertical-align:middle;background:#0a0a0a;border:1px solid var(--border);border-radius:2px;position:relative}
+  .spark .seg{display:inline-block;width:2px;background:var(--accent);position:absolute;bottom:0;border-radius:1px}
+  .spark .seg.bad{background:var(--bad)} .spark .seg.warn{background:var(--warn)}
+  button{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.35rem .8rem;font-family:inherit;font-size:.85rem;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  .footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--muted);font-size:.78rem}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  code{color:var(--accent)}
+  .filter-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.6rem}
+  input,select{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.35rem .55rem;font-family:inherit;font-size:.85rem}
+  .alert{background:#3d2f14;border:1px solid var(--warn);border-radius:3px;padding:.5rem .7rem;margin:.5rem 0;font-size:.82rem;color:var(--warn)}
+</style>
+</head>
+<body>
+
+<h1>D-10 — eval history</h1>
+<div class="sub">per-task pass/fail + per-model trend + adapter-promotion candidates — <span class="kbd">Cmd-K then 10</span> · <a href="../master-dashboard/">D-00 main</a></div>
+
+<div class="alert">
+  <strong>WB vs BB disaggregation enforced</strong> (M079 R13132-R13133): white-box benchmarks (activation steering, weight edits) NEVER averaged with black-box benchmarks (prompt-only). Eval certification refuses without disaggregation per arXiv 2604.09839 formal proof.
+</div>
+
+<h2>summary (last 30d)</h2>
+<div class="row">
+  <div class="stat">
+    <div class="k">total eval runs</div>
+    <div class="v" id="total-runs">—</div>
+  </div>
+  <div class="stat">
+    <div class="k">pass rate (BB only)</div>
+    <div class="v ok" id="bb-pass">—<span class="u"> %</span></div>
+  </div>
+  <div class="stat">
+    <div class="k">pass rate (WB only)</div>
+    <div class="v warn" id="wb-pass">—<span class="u"> %</span></div>
+  </div>
+  <div class="stat">
+    <div class="k">promotion candidates</div>
+    <div class="v accent" id="candidate-count">—</div>
+  </div>
+</div>
+
+<h2>benchmark suites (M078 HölderPO targets + M080 HRM TRM)</h2>
+<div class="panel">
+  <table>
+    <thead><tr><th>suite</th><th>class</th><th class="num">target</th><th class="num">current</th><th>trend</th><th>source</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>math (GSM8K + MATH + AIME avg)</td>
+        <td><span class="pill bb">BB</span></td>
+        <td class="num warn">54.9%</td>
+        <td class="num" id="math-cur">—</td>
+        <td><span class="spark" id="math-spark"></span></td>
+        <td class="muted">M078 HölderPO arXiv 2605.12058</td>
+      </tr>
+      <tr>
+        <td>ALFWorld</td>
+        <td><span class="pill bb">BB</span></td>
+        <td class="num warn">93.8%</td>
+        <td class="num" id="alf-cur">—</td>
+        <td><span class="spark" id="alf-spark"></span></td>
+        <td class="muted">M078 HölderPO arXiv 2605.12058</td>
+      </tr>
+      <tr>
+        <td>ARC-AGI-1 (HRM TRM target)</td>
+        <td><span class="pill bb">BB</span></td>
+        <td class="num warn">45%</td>
+        <td class="num" id="arc1-cur">—</td>
+        <td><span class="spark" id="arc1-spark"></span></td>
+        <td class="muted">M080 TRM arXiv 2510.04871</td>
+      </tr>
+      <tr>
+        <td>ARC-AGI-2</td>
+        <td><span class="pill bb">BB</span></td>
+        <td class="num warn">8%</td>
+        <td class="num" id="arc2-cur">—</td>
+        <td><span class="spark" id="arc2-spark"></span></td>
+        <td class="muted">M080 TRM arXiv 2510.04871</td>
+      </tr>
+      <tr>
+        <td>Sudoku</td>
+        <td><span class="pill bb">BB</span></td>
+        <td class="num warn">~100%</td>
+        <td class="num" id="sudoku-cur">—</td>
+        <td><span class="spark" id="sudoku-spark"></span></td>
+        <td class="muted">M080 HRM 27M (arXiv 2506.21734)</td>
+      </tr>
+      <tr>
+        <td>activation-steer probing (jailbreak surface)</td>
+        <td><span class="pill wb">WB</span></td>
+        <td class="num muted">disaggregated</td>
+        <td class="num" id="steer-cur">—</td>
+        <td><span class="spark" id="steer-spark"></span></td>
+        <td class="muted">M079 arXiv 2604.09839 R13131-R13136</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<h2>per-task eval trend</h2>
+<div class="panel">
+  <div class="filter-row">
+    <input type="text" id="task-filter" placeholder="filter by task name or trace_id…" style="flex:1 1 280px">
+    <select id="class-filter">
+      <option value="">all classes</option>
+      <option value="bb">BB only</option>
+      <option value="wb">WB only</option>
+    </select>
+    <select id="window-filter">
+      <option value="86400">last 24h</option>
+      <option value="604800" selected>last 7d</option>
+      <option value="2592000">last 30d</option>
+    </select>
+    <button id="apply-btn">apply</button>
+  </div>
+  <table>
+    <thead><tr><th>task</th><th>class</th><th class="num">runs</th><th class="num">pass %</th><th>trend</th><th class="num">last run</th></tr></thead>
+    <tbody id="tasks-tbody"><tr><td colspan="6" class="muted">loading…</td></tr></tbody>
+  </table>
+</div>
+
+<h2>per-model score trend (M046 LoRA Foundry)</h2>
+<div class="panel">
+  <table>
+    <thead><tr><th>model</th><th>role (M075)</th><th class="num">eval avg</th><th class="num">vs baseline</th><th>trend</th></tr></thead>
+    <tbody id="models-tbody"><tr><td colspan="5" class="muted">loading…</td></tr></tbody>
+  </table>
+</div>
+
+<h2>adapter-promotion candidates</h2>
+<div class="panel">
+  <table>
+    <thead><tr><th>adapter</th><th>base model</th><th>training</th><th class="num">eval gain</th><th>gate</th><th>actions</th></tr></thead>
+    <tbody id="candidates-tbody"><tr><td colspan="6" class="muted">loading…</td></tr></tbody>
+  </table>
+  <div class="muted" style="font-size:.72rem;margin-top:.5rem">M046 LoRA Foundry adapter promotion requires MS041 high-risk triple-gate (snapshot + test/eval + oracle-or-human) per R09636 + M077 NVFP4 quant-aware eval. Web copies CLI command to clipboard; never mutates directly.</div>
+</div>
+
+<h2>actions</h2>
+<div class="panel">
+  <div class="row">
+    <button id="refresh-btn">refresh</button>
+    <button id="run-suite-btn">run benchmark suite (operator-signed)</button>
+    <button id="export-btn">export 30d eval data (CSV)</button>
+  </div>
+</div>
+
+<div class="footer">
+  D-10 eval history · M060 R10106-R10108 · M048 Eval-Value · M046 LoRA Foundry · M078 HölderPO benchmark runners · M079 WB/BB disaggregation enforcer · M080 HRM ARC benchmarks · MS041 high-risk adapter promotion gates · WB benchmarks never averaged with BB per arXiv 2604.09839
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+function escapeHtml(s) { if (s == null) return ''; return String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+function pct(v) { return v == null ? '—' : `${Number(v).toFixed(1)}%`; }
+function fmtUsd(v) { return v == null ? '—' : `$${Number(v).toFixed(2)}`; }
+function fmtAge(ts) { if (!ts) return '—'; const ms = Date.now() - new Date(ts).getTime(); const m = Math.floor(ms/60000); if (m<60) return `${m}m`; const h = Math.floor(m/60); if (h<24) return `${h}h`; return `${Math.floor(h/24)}d`; }
+
+function spark(container, values, threshold) {
+  if (!container) return;
+  if (!values || !values.length) { container.innerHTML = '<span class="muted" style="font-size:.7rem;padding:.1rem .3rem">no data</span>'; return; }
+  const max = Math.max(...values, 1);
+  const n = values.length;
+  const wpx = 120; const seg = Math.floor(wpx/n) || 1;
+  container.innerHTML = values.map((v,i) => {
+    const h = (v/max*16) | 0;
+    const cls = threshold != null ? (v < threshold * 0.7 ? 'bad' : v < threshold ? 'warn' : '') : '';
+    return `<span class="seg ${cls}" style="left:${i*seg}px;width:${seg-1}px;height:${h}px"></span>`;
+  }).join('');
+}
+
+async function fetchEvals() {
+  try {
+    const res = await fetch('/api/evals/summary', {credentials:'same-origin'});
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (e) {
+    return {summary:{},suites:{},tasks:[],models:[],candidates:[],error:e.message};
+  }
+}
+
+async function refresh() {
+  const s = await fetchEvals();
+  $('total-runs').textContent = s.summary.total_runs ?? '—';
+  $('bb-pass').firstChild.textContent = s.summary.bb_pass_pct?.toFixed(1) ?? '—';
+  $('wb-pass').firstChild.textContent = s.summary.wb_pass_pct?.toFixed(1) ?? '—';
+  $('candidate-count').textContent = s.summary.candidate_count ?? 0;
+  const suites = s.suites || {};
+  const writeSuite = (id, key, target) => {
+    const data = suites[key] || {};
+    $(`${id}-cur`).textContent = data.current_pct != null ? `${data.current_pct.toFixed(1)}%` : '—';
+    spark($(`${id}-spark`), data.trend || [], target);
+  };
+  writeSuite('math', 'math_avg', 54.9);
+  writeSuite('alf', 'alfworld', 93.8);
+  writeSuite('arc1', 'arc_agi_1', 45);
+  writeSuite('arc2', 'arc_agi_2', 8);
+  writeSuite('sudoku', 'sudoku', 95);
+  writeSuite('steer', 'activation_steer', null);
+  // tasks
+  const tbody = $('tasks-tbody');
+  const filter = $('task-filter').value.toLowerCase();
+  const classFilter = $('class-filter').value;
+  const tasks = (s.tasks || []).filter(t =>
+    (!filter || t.name.toLowerCase().includes(filter) || (t.trace_id || '').includes(filter)) &&
+    (!classFilter || t.intervention_class === classFilter)
+  );
+  tbody.innerHTML = tasks.length ? tasks.map(t => `
+    <tr>
+      <td><code>${escapeHtml(t.name)}</code></td>
+      <td><span class="pill ${t.intervention_class === 'wb' ? 'wb' : t.intervention_class === 'bb' ? 'bb' : 'none'}">${escapeHtml((t.intervention_class||'none').toUpperCase())}</span></td>
+      <td class="num">${t.run_count}</td>
+      <td class="num ${t.pass_pct >= 80 ? 'ok' : t.pass_pct >= 50 ? 'warn' : 'bad'}">${pct(t.pass_pct)}</td>
+      <td><span class="spark" data-task="${escapeHtml(t.name)}"></span></td>
+      <td class="num muted">${fmtAge(t.last_run_ts)}</td>
+    </tr>`).join('') : '<tr><td colspan="6" class="muted">no tasks match filter</td></tr>';
+  tasks.forEach(t => {
+    const el = document.querySelector(`.spark[data-task="${CSS.escape(t.name)}"]`);
+    if (el) spark(el, t.trend || []);
+  });
+  // models
+  const mtbody = $('models-tbody');
+  mtbody.innerHTML = (s.models || []).map(m => `
+    <tr>
+      <td><code>${escapeHtml(m.name)}</code></td>
+      <td class="muted">${escapeHtml(m.role || '—')}</td>
+      <td class="num">${pct(m.eval_avg)}</td>
+      <td class="num ${m.vs_baseline_pct > 0 ? 'ok' : m.vs_baseline_pct < 0 ? 'bad' : 'muted'}">${m.vs_baseline_pct > 0 ? '+' : ''}${m.vs_baseline_pct?.toFixed(1) ?? '—'}%</td>
+      <td><span class="spark" data-model="${escapeHtml(m.name)}"></span></td>
+    </tr>`).join('') || '<tr><td colspan="5" class="muted">no model eval data</td></tr>';
+  (s.models || []).forEach(m => {
+    const el = document.querySelector(`.spark[data-model="${CSS.escape(m.name)}"]`);
+    if (el) spark(el, m.trend || []);
+  });
+  // candidates
+  const ctbody = $('candidates-tbody');
+  ctbody.innerHTML = (s.candidates || []).map(c => `
+    <tr>
+      <td><code>${escapeHtml(c.adapter_id)}</code></td>
+      <td class="muted">${escapeHtml(c.base_model)}</td>
+      <td><span class="pill accent">${escapeHtml(c.training_method || 'sft')}</span></td>
+      <td class="num ${c.eval_gain_pct > 5 ? 'ok' : c.eval_gain_pct > 0 ? 'warn' : 'bad'}">+${c.eval_gain_pct?.toFixed(1) ?? '—'}%</td>
+      <td>${c.gate_status === 'ready' ? '<span class="pill ok">ready</span>' : c.gate_status === 'pending-test' ? '<span class="pill warn">pending test</span>' : c.gate_status === 'pending-oracle' ? '<span class="pill warn">pending oracle</span>' : '<span class="pill muted">' + escapeHtml(c.gate_status || '—') + '</span>'}</td>
+      <td><button data-adapter="${escapeHtml(c.adapter_id)}" data-action="promote">promote (signed)</button></td>
+    </tr>`).join('') || '<tr><td colspan="6" class="muted">no adapters pending promotion</td></tr>';
+  ctbody.querySelectorAll('button[data-action="promote"]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const cmd = `sovereign adapter promote ${btn.dataset.adapter} --rationale "<operator-rationale>"`;
+      try { await navigator.clipboard.writeText(cmd); alert(`Promotion cmd copied (operator-signed, MS041 triple-gate):\n\n  ${cmd}`); }
+      catch (e) { prompt('Copy + run:', cmd); }
+    });
+  });
+}
+
+$('refresh-btn').addEventListener('click', refresh);
+$('apply-btn').addEventListener('click', refresh);
+$('run-suite-btn').addEventListener('click', async () => {
+  const cmd = 'sovereign eval run --suite math+alfworld+arc --window 24h';
+  try { await navigator.clipboard.writeText(cmd); alert(`Cmd copied:\n\n  ${cmd}\n\nRequires operator MS003 signature. Composes with M048 Eval-Value + M078 HölderPO benchmark runners.`); }
+  catch (e) { prompt('Copy + run:', cmd); }
+});
+$('export-btn').addEventListener('click', async () => {
+  const cmd = 'sovereign eval export --window 30d --format csv > evals-30d.csv';
+  try { await navigator.clipboard.writeText(cmd); alert(`Export cmd copied:\n\n  ${cmd}`); }
+  catch (e) { prompt('Copy + run:', cmd); }
+});
+
+try {
+  const es = new EventSource('/api/evals/stream');
+  es.addEventListener('eval-run-complete', refresh);
+  es.addEventListener('error', () => setInterval(refresh, 30000));
+} catch (e) { setInterval(refresh, 30000); }
+
+refresh();
+</script>
+
+</body>
+</html>

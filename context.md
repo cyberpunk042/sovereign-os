@@ -79,6 +79,7 @@ Per operator: *"little piece by little piece and progress in this massive endles
 | D-05 traces | ✓ shipped | `webapp/d-05-traces/index.html` |
 | D-06 pending approvals | ✓ shipped | `webapp/d-06-pending-approvals/index.html` |
 | D-09 hardware pressure | ✓ shipped | `webapp/d-09-hardware-pressure/index.html` |
+| D-10 eval history | ✓ shipped | `webapp/d-10-eval-history/index.html` |
 | D-12 networking (partial via network-edge + edge-firewall) | ✓ partial | `webapp/network-edge/`, `webapp/edge-firewall/` |
 | D-14 capability tokens (partial via auth-tier) | ✓ partial | `webapp/auth-tier/` |
 | D-16 audit cycles | ✓ shipped | `webapp/auditor/` |
