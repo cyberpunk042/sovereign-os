@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-fab"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit floating-action-button (FAB) state. Primary action + optional speed-dial of secondary actions revealed on long-press / hover. 4 corner positions, danger flag, visibility tied to scroll direction (auto-hide on scroll down). Pure UX descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
