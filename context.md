@@ -508,3 +508,15 @@ Workspace count now 138. Total this resume: 28 cockpit crates.
   Idle/Outgoing/Entering/Active driven by tick(dt_ms))
 
 Workspace count now 140. Total this resume: 30 cockpit crates.
+
+### Seventh wave (same day, +3 more cockpit crates)
+
+- `sovereign-cockpit-cheatsheet-builder` (Entry list → grouped
+  sorted Sections of Rows for help overlay)
+- `sovereign-cockpit-empty-search-state` (4-cause classifier
+  BlankQuery/NothingMatches/FilteredOut/NotIndexedYet with
+  per-cause headline + detail + suggested action)
+- `sovereign-cockpit-data-grid-sort` (multi-column SortEntry list
+  with Single click cycle + Multi click toggle)
+
+Workspace count now 143. Total this resume: 33 cockpit crates.
