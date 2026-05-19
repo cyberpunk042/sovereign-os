@@ -675,6 +675,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-multi-line-input"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-multi-select-list"
 version = "0.1.0"
 dependencies = [
