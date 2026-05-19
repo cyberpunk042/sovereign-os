@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os D-18 trust scores</title>
+<meta name="x-sovereign-module" content="d-18-trust-scores-webapp">
+<meta name="x-sovereign-shipped-in" content="R-impl-SDD040-phaseD-item5">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<meta name="x-sovereign-catalog-source" content="M060 R10123 D-18 trust scores + selfdef MS042 trust-score-tracker (M01095 + R09999 + R10039) + MS040 profile evaluation input + MS007 typed-mirror selfdef-trust-score-mirror (7 of 9)">
+<meta name="x-sovereign-doctrine" content="MS043 R10212 web NEVER mutates IPS state — READ-ONLY mirror consumer; score adjust/decay via selfdefctl + operator MS003 only">
+<meta name="x-sovereign-mirror-source" content="selfdef-trust-score-mirror @ schema 1.0.0">
+<style>
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --trusted:#7ad17a; --watched:#9bd1ff; --suspect:#e6c062; --untrusted:#ff7676;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  tr:hover{background:rgba(155,209,255,0.03)}
+  .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
+  .num{font-variant-numeric:tabular-nums;text-align:right}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:stretch}
+  .stat{flex:1 1 200px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
+  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .stat .v{font-size:1.4rem;font-weight:600;margin-top:.2rem;font-variant-numeric:tabular-nums}
+  .stat .u{color:var(--muted);font-size:.78rem}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border);font-weight:500}
+  .pill.ok{background:#143d14;color:var(--good)} .pill.bad{background:#3d1414;color:var(--bad)} .pill.warn{background:#3d2f14;color:var(--warn)}
+  .pill.accent{background:#143d3d;color:var(--accent)} .pill.muted{background:#1c1c1c;color:var(--muted)}
+  .pill.trusted{background:#143d14;color:var(--trusted)} .pill.watched{background:#143d3d;color:var(--watched)}
+  .pill.suspect{background:#3d2f14;color:var(--suspect)} .pill.untrusted{background:#3d1414;color:var(--untrusted)}
+  button{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.35rem .8rem;font-family:inherit;font-size:.85rem;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.danger:hover{border-color:var(--bad);color:var(--bad)}
+  .filters{display:flex;gap:.4rem;flex-wrap:wrap;margin:.5rem 0;align-items:center}
+  .filter{padding:.25rem .6rem;border-radius:3px;font-size:.78rem;background:var(--panel);border:1px solid var(--border);cursor:pointer;user-select:none}
+  .filter.on{background:#143d3d;color:var(--accent);border-color:var(--accent)}
+  .badge-mirror{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.7rem;background:#1c1c1c;color:var(--muted);border:1px dashed var(--border)}
+  .band-card{flex:1 1 200px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.55rem .8rem;border-top:3px solid currentColor}
+  .band-card.trusted{color:var(--trusted)} .band-card.watched{color:var(--watched)}
+  .band-card.suspect{color:var(--suspect)} .band-card.untrusted{color:var(--untrusted)}
+  .band-card .nm{font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.05em}
+  .band-card .v{font-size:1.4rem;font-weight:600;color:var(--fg);margin-top:.2rem;font-variant-numeric:tabular-nums}
+  .band-card .d{color:var(--muted);font-size:.7rem}
+  .sparkline{display:inline-block;height:24px;width:120px;vertical-align:middle}
+  .footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--muted);font-size:.78rem}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  code{color:var(--accent);background:#0a0a0a;padding:0 3px;border-radius:2px;font-size:.82rem}
+  .toast{position:fixed;bottom:1rem;right:1rem;background:var(--panel);border:1px solid var(--accent);color:var(--fg);padding:.5rem .9rem;border-radius:4px;font-size:.78rem;opacity:0;transition:opacity .2s ease;pointer-events:none}
+  .toast.show{opacity:1}
+  .score-bar{position:relative;background:#0a0a0a;border:1px solid var(--border);border-radius:3px;height:8px;overflow:hidden;min-width:120px}
+  .score-bar .fill{position:absolute;top:0;left:0;bottom:0;transition:width .25s ease}
+  .score-bar .fill.trusted{background:var(--trusted)} .score-bar .fill.watched{background:var(--watched)}
+  .score-bar .fill.suspect{background:var(--suspect)} .score-bar .fill.untrusted{background:var(--untrusted)}
+  .trend-down{color:var(--bad)} .trend-up{color:var(--good)} .trend-flat{color:var(--muted)}
+</style>
+</head>
+<body>
+
+<h1>D-18 — trust scores <span class="badge-mirror" style="font-size:.7rem">read-only via selfdef-trust-score-mirror</span></h1>
+<div class="sub">per-tool trust score history · 0..1000 fixed-point · 4-band classification · MS042 telemetry input · MS040 profile evaluation — <a href="../master-dashboard/">D-00 main</a></div>
+
+<h2>4-band classification</h2>
+<div class="row">
+  <div class="band-card trusted">
+    <div class="nm">Trusted (≥ 800)</div>
+    <div class="v" id="b-trusted">0</div>
+    <div class="d">Tier A/B auto-approve eligible · mean <span id="m-trusted">—</span></div>
+  </div>
+  <div class="band-card watched">
+    <div class="nm">Watched (500–799)</div>
+    <div class="v" id="b-watched">0</div>
+    <div class="d">telemetry retained · profile-gated · mean <span id="m-watched">—</span></div>
+  </div>
+  <div class="band-card suspect">
+    <div class="nm">Suspect (200–499)</div>
+    <div class="v" id="b-suspect">0</div>
+    <div class="d">operator-ask · Tier C/D escalation · mean <span id="m-suspect">—</span></div>
+  </div>
+  <div class="band-card untrusted">
+    <div class="nm">Untrusted (< 200)</div>
+    <div class="v" id="b-untrusted">0</div>
+    <div class="d">auto-quarantine · forfeit candidate · mean <span id="m-untrusted">—</span></div>
+  </div>
+</div>
+
+<h2>summary</h2>
+<div class="row">
+  <div class="stat"><div class="k">total tools</div><div class="v" id="s-total">0</div><div class="u">tracked</div></div>
+  <div class="stat"><div class="k">mean score</div><div class="v" id="s-mean">0</div><div class="u">across all tools</div></div>
+  <div class="stat"><div class="k">trending down</div><div class="v warn" id="s-down">0</div><div class="u">last 5 deltas net &lt; 0</div></div>
+  <div class="stat"><div class="k">executions (24h)</div><div class="v ok" id="s-exec">0</div><div class="u">successful</div></div>
+  <div class="stat"><div class="k">mismatches (24h)</div><div class="v bad" id="s-miss">0</div><div class="u">declaration drift</div></div>
+</div>
+
+<h2>per-tool scores</h2>
+<div class="panel">
+  <div class="filters" id="band-filters">
+    <span style="font-size:.72rem;color:var(--muted)">band:</span>
+    <div class="filter on" data-band="trusted">trusted</div>
+    <div class="filter on" data-band="watched">watched</div>
+    <div class="filter on" data-band="suspect">suspect</div>
+    <div class="filter on" data-band="untrusted">untrusted</div>
+    <span style="font-size:.72rem;color:var(--muted);margin-left:1rem">sort:</span>
+    <div class="filter" data-sort="score-desc">↓ score</div>
+    <div class="filter on" data-sort="trend">trend</div>
+    <div class="filter" data-sort="tool">name</div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>tool</th>
+        <th>band</th>
+        <th>score</th>
+        <th>trend</th>
+        <th>history</th>
+        <th class="num">exec</th>
+        <th class="num">mismatch</th>
+        <th class="num">reliability</th>
+        <th>actions</th>
+      </tr>
+    </thead>
+    <tbody id="tool-tbody"></tbody>
+  </table>
+</div>
+
+<h2>actions <span class="muted" style="font-size:.75rem;font-weight:400">— web is READ-ONLY mirror consumer; score adjust/decay via selfdefctl + operator MS003 (R10212)</span></h2>
+<div class="row">
+  <button onclick="emit('selfdefctl trust list --band trusted')">copy: list trusted</button>
+  <button onclick="emit('selfdefctl trust show --tool <name> --history 30d')">copy: 30d history</button>
+  <button class="warn" onclick="emit('selfdefctl trust adjust --tool <name> --delta -200 --reason \"...\"')">copy: penalty (-200)</button>
+  <button onclick="emit('selfdefctl trust adjust --tool <name> --delta +50 --reason \"operator endorse\"')">copy: bonus (+50)</button>
+  <button class="danger" onclick="emit('selfdefctl trust forfeit --tool <name> --confirm')">copy: forfeit (cap to 0)</button>
+</div>
+
+<div class="footer">
+  D-18 · <a href="../d-00-master/">D-00 main</a> · <a href="../d-17-quarantine/">D-17 quarantine</a> · <a href="../d-14-capability-tokens/">D-14 capability</a><br>
+  mirror source: <code>selfdef-trust-score-mirror @ 1.0.0</code> · MS042 trust-score-tracker · MS040 profile evaluation · MS007 typed-mirror crate #7 of 9
+</div>
+
+<div class="toast" id="toast">copied</div>
+
+<script>
+  // -------- seed (publisher /api/d-18/snapshot when wired) ----------
+  // Schema mirrors selfdef-trust-score-mirror::TrustScoreMirrorSnapshot 1.0.0
+  // No mutations from this surface — R10212.
+  function bandFor(score) {
+    if (score >= 800) return 'trusted';
+    if (score >= 500) return 'watched';
+    if (score >= 200) return 'suspect';
+    return 'untrusted';
+  }
+  function mkHistory(scores) {
+    return scores.map((s, i) => ({ applied_at: `2026-05-${(19 - scores.length + i).toString().padStart(2,'0')}T03:00Z`, reason: i === 0 ? "baseline" : (scores[i] > scores[i-1] ? "successful_execution" : "mismatch_minor"), delta: i === 0 ? scores[0] : (scores[i] - scores[i-1]), score_after: s, trace_id: `t-${i}`, signature: `sig-${i}` }));
+  }
+  function mkTool(name, score, scores, execs, miss) {
+    return { tool: name, declarer: "operator-fp", current_score: score, band: bandFor(score), first_admitted_at: "2026-05-01T00:00Z", last_delta_at: "2026-05-19T03:00Z", executions_total: execs, mismatches_total: miss, history: mkHistory(scores), last_trace_id: "t-last", signature: "sig" };
+  }
+  const seed = {
+    schema_version: "1.0.0",
+    captured_at: "2026-05-19T03:55Z",
+    summaries: [],
+    tools: [
+      mkTool("rg",             1000, [1000,1000,1000,1000,1000,1000,1000], 4827, 0),
+      mkTool("rustc",          985,  [1000,990,985,985,985,985,985], 1284, 2),
+      mkTool("cargo",          970,  [1000,990,980,970,975,970,970], 891, 3),
+      mkTool("formatter",      950,  [1000,980,960,950,950,950,950], 612, 4),
+      mkTool("parser",         990,  [1000,1000,995,990,990,990,990], 2104, 1),
+      mkTool("git",            930,  [1000,990,980,960,950,940,930], 304, 5),
+      mkTool("npm-install",    640,  [1000,920,850,780,720,680,640], 178, 18),
+      mkTool("build-image",    580,  [1000,900,800,720,680,620,580], 84, 14),
+      mkTool("linter",         720,  [1000,950,900,850,800,760,720], 412, 11),
+      mkTool("chrome-vfio",    420,  [1000,800,650,550,490,460,420], 27, 23),
+      mkTool("flaky-tool",     310,  [1000,700,550,440,380,340,310], 19, 31),
+      mkTool("untrusted-bin",  50,   [1000,500,250,150,100,80,50], 3, 47)
+    ]
+  };
+
+  function reliability(t) { const total = t.executions_total + t.mismatches_total; return total === 0 ? 1.0 : t.executions_total / total; }
+  function trend(t) {
+    const tail = t.history.slice(-5);
+    if (tail.length < 2) return 0;
+    return tail[tail.length - 1].score_after - tail[0].score_after;
+  }
+
+  // band tiles
+  const bands = { trusted: [], watched: [], suspect: [], untrusted: [] };
+  for (const t of seed.tools) bands[t.band].push(t);
+  for (const [name, list] of Object.entries(bands)) {
+    document.getElementById('b-' + name).textContent = list.length;
+    const mean = list.length === 0 ? 0 : Math.round(list.reduce((a, t) => a + t.current_score, 0) / list.length);
+    document.getElementById('m-' + name).textContent = mean || '—';
+  }
+  // summary tiles
+  document.getElementById('s-total').textContent = seed.tools.length;
+  const totalMean = Math.round(seed.tools.reduce((a, t) => a + t.current_score, 0) / seed.tools.length);
+  document.getElementById('s-mean').textContent = totalMean;
+  document.getElementById('s-down').textContent = seed.tools.filter(t => trend(t) < 0).length;
+  document.getElementById('s-exec').textContent = seed.tools.reduce((a, t) => a + t.executions_total, 0);
+  document.getElementById('s-miss').textContent = seed.tools.reduce((a, t) => a + t.mismatches_total, 0);
+
+  function drawSparkline(scores) {
+    const w = 120, h = 24;
+    const max = 1000, min = 0;
+    const pts = scores.map((s, i) => {
+      const x = (i / Math.max(1, scores.length - 1)) * w;
+      const y = h - ((s - min) / (max - min)) * h;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+    return `<svg class="sparkline" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+      <polyline points="${pts}" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+  }
+
+  function renderTools() {
+    const activeBands = new Set([...document.querySelectorAll('#band-filters .filter.on[data-band]')].map(f => f.dataset.band));
+    const sortFilter = [...document.querySelectorAll('#band-filters .filter.on[data-sort]')].map(f => f.dataset.sort)[0] || 'trend';
+    let tools = seed.tools.filter(t => activeBands.has(t.band));
+    if (sortFilter === 'score-desc') tools.sort((a, b) => b.current_score - a.current_score);
+    else if (sortFilter === 'trend') tools.sort((a, b) => trend(a) - trend(b));  // worst-trending first
+    else tools.sort((a, b) => a.tool.localeCompare(b.tool));
+
+    const tb = document.getElementById('tool-tbody');
+    tb.innerHTML = '';
+    for (const t of tools) {
+      const tr_ = trend(t);
+      const trendCls = tr_ < -10 ? 'trend-down' : (tr_ > 10 ? 'trend-up' : 'trend-flat');
+      const trendStr = tr_ > 0 ? '+' + tr_ : tr_;
+      const rel = reliability(t);
+      const rel_pct = (rel * 100).toFixed(1) + '%';
+      const scoreFillCls = t.band;
+      const scores = t.history.map(h => h.score_after);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><code>${t.tool}</code><br><span class="muted" style="font-size:.7rem">${t.declarer}</span></td>
+        <td><span class="pill ${t.band}">${t.band}</span></td>
+        <td>
+          <div class="num">${t.current_score}</div>
+          <div class="score-bar"><div class="fill ${scoreFillCls}" style="width:${(t.current_score/10)}%"></div></div>
+        </td>
+        <td class="num ${trendCls}">${trendStr}</td>
+        <td style="color:var(--${t.band === 'trusted' ? 'trusted' : (t.band === 'watched' ? 'watched' : (t.band === 'suspect' ? 'suspect' : 'untrusted'))})">${drawSparkline(scores)}</td>
+        <td class="num">${t.executions_total.toLocaleString()}</td>
+        <td class="num">${t.mismatches_total}</td>
+        <td class="num ${rel < 0.9 ? 'bad' : (rel < 0.98 ? 'warn' : 'ok')}">${rel_pct}</td>
+        <td>
+          <button onclick="emit('selfdefctl trust show --tool ${t.tool} --history 30d')">history</button>
+          <button class="danger" onclick="emit('selfdefctl trust adjust --tool ${t.tool} --delta -200 --reason penalty')">penalty</button>
+        </td>
+      `;
+      tb.appendChild(tr);
+    }
+  }
+  renderTools();
+
+  // filter behaviors
+  document.querySelectorAll('#band-filters .filter[data-band]').forEach(f => f.addEventListener('click', () => { f.classList.toggle('on'); renderTools(); }));
+  document.querySelectorAll('#band-filters .filter[data-sort]').forEach(f => f.addEventListener('click', () => {
+    document.querySelectorAll('#band-filters .filter[data-sort]').forEach(x => x.classList.remove('on'));
+    f.classList.add('on');
+    renderTools();
+  }));
+
+  function emit(cmd) {
+    navigator.clipboard.writeText(cmd).then(() => showToast('copied: ' + cmd.slice(0, 60) + (cmd.length > 60 ? '…' : '')));
+  }
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(showToast._h);
+    showToast._h = setTimeout(() => t.classList.remove('show'), 1800);
+  }
+  window.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key === '0') { e.preventDefault(); window.location.href = '../master-dashboard/'; }
+  });
+</script>
+
+</body>
+</html>

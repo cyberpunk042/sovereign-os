@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os D-17 quarantine</title>
+<meta name="x-sovereign-module" content="d-17-quarantine-webapp">
+<meta name="x-sovereign-shipped-in" content="R-impl-SDD040-phaseD-item4">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<meta name="x-sovereign-catalog-source" content="M060 R10121-R10122 D-17 quarantine + selfdef MS042 declaration-vs-observed (7 declaration fields + 3-step block+quarantine+trace per E0429-E0430 dump 17422-17445) + MS007 typed-mirror selfdef-quarantine-mirror (6 of 9)">
+<meta name="x-sovereign-doctrine" content="MS043 R10212 + R10122 web NEVER mutates IPS state — READ-ONLY mirror consumer; restore/forfeit via selfdefctl + operator MS003 only">
+<meta name="x-sovereign-mirror-source" content="selfdef-quarantine-mirror @ schema 1.0.0">
+<style>
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062; --crit:#ff3a3a;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  tr:hover{background:rgba(155,209,255,0.03)}
+  .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
+  .crit{color:var(--crit)}
+  .num{font-variant-numeric:tabular-nums;text-align:right}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:stretch}
+  .stat{flex:1 1 200px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
+  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .stat .v{font-size:1.4rem;font-weight:600;margin-top:.2rem;font-variant-numeric:tabular-nums}
+  .stat .u{color:var(--muted);font-size:.78rem}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border);font-weight:500}
+  .pill.ok{background:#143d14;color:var(--good)} .pill.bad{background:#3d1414;color:var(--bad)} .pill.warn{background:#3d2f14;color:var(--warn)}
+  .pill.accent{background:#143d3d;color:var(--accent)} .pill.muted{background:#1c1c1c;color:var(--muted)}
+  .pill.crit{background:#5a1010;color:var(--crit);border:1px solid var(--crit)}
+  button{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.35rem .8rem;font-family:inherit;font-size:.85rem;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.danger:hover{border-color:var(--bad);color:var(--bad)}
+  button.warn:hover{border-color:var(--warn);color:var(--warn)}
+  .filters{display:flex;gap:.4rem;flex-wrap:wrap;margin:.5rem 0;align-items:center}
+  .filter{padding:.25rem .6rem;border-radius:3px;font-size:.78rem;background:var(--panel);border:1px solid var(--border);cursor:pointer;user-select:none}
+  .filter.on{background:#143d3d;color:var(--accent);border-color:var(--accent)}
+  .badge-mirror{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.7rem;background:#1c1c1c;color:var(--muted);border:1px dashed var(--border)}
+  .field-chart{display:flex;align-items:flex-end;gap:.3rem;height:80px;margin-top:.4rem}
+  .field-bar{flex:1;display:flex;flex-direction:column;align-items:center;gap:.15rem;font-size:.68rem;color:var(--muted)}
+  .field-bar .bar{width:100%;background:var(--warn);border-radius:2px 2px 0 0;min-height:2px;display:block}
+  .field-bar .lbl{transform:rotate(-15deg);transform-origin:50% 0;white-space:nowrap;margin-top:.4rem}
+  .mismatch-detail{font-size:.74rem;background:#0a0a0a;padding:.3rem .5rem;border-radius:3px;margin:.15rem 0;border-left:3px solid var(--warn)}
+  .mismatch-detail.critical{border-color:var(--crit)}
+  .mismatch-detail.major{border-color:var(--bad)}
+  .mismatch-detail.minor{border-color:var(--warn)}
+  .mismatch-detail .declared{color:var(--good)} .mismatch-detail .observed{color:var(--bad)}
+  details summary{cursor:pointer;font-size:.78rem;color:var(--accent);padding:.2rem 0}
+  details summary:hover{text-decoration:underline}
+  .footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--muted);font-size:.78rem}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  code{color:var(--accent);background:#0a0a0a;padding:0 3px;border-radius:2px;font-size:.82rem}
+  .toast{position:fixed;bottom:1rem;right:1rem;background:var(--panel);border:1px solid var(--accent);color:var(--fg);padding:.5rem .9rem;border-radius:4px;font-size:.78rem;opacity:0;transition:opacity .2s ease;pointer-events:none}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<h1>D-17 — quarantine <span class="badge-mirror" style="font-size:.7rem">read-only via selfdef-quarantine-mirror</span></h1>
+<div class="sub">MS042 7-field declaration · declaration-vs-observed mismatch · 3-step block+quarantine+trace protocol — <a href="../master-dashboard/">D-00 main</a></div>
+
+<h2>severity summary (descending — critical first)</h2>
+<div class="row">
+  <div class="stat" style="border-left:3px solid var(--crit)"><div class="k">critical</div><div class="v crit" id="s-critical">0</div><div class="u">declared RO · observed write/secret</div></div>
+  <div class="stat" style="border-left:3px solid var(--bad)"><div class="k">major</div><div class="v bad" id="s-major">0</div><div class="u">declared FS-only · observed network</div></div>
+  <div class="stat" style="border-left:3px solid var(--warn)"><div class="k">minor</div><div class="v warn" id="s-minor">0</div><div class="u">scope drift, same class</div></div>
+  <div class="stat"><div class="k">informational</div><div class="v" id="s-info">0</div><div class="u">declaration superset</div></div>
+  <div class="stat"><div class="k">released (24h)</div><div class="v ok" id="s-released">0</div><div class="u">operator-signed</div></div>
+  <div class="stat"><div class="k">forfeited (24h)</div><div class="v bad" id="s-forfeited">0</div><div class="u">image purged</div></div>
+</div>
+
+<h2>top mismatch fields (where are mismatches coming from?)</h2>
+<div class="panel">
+  <div class="field-chart" id="field-chart"></div>
+  <div class="muted" style="font-size:.7rem;margin-top:1rem">7 MS042 declaration fields per E0429 dump 17422-17432</div>
+</div>
+
+<h2>active quarantine (block + quarantine + trace protocol)</h2>
+<div class="panel">
+  <div class="filters" id="state-filters">
+    <span style="font-size:.72rem;color:var(--muted)">state:</span>
+    <div class="filter on" data-state="quarantined">quarantined</div>
+    <div class="filter on" data-state="blocking">blocking</div>
+    <div class="filter" data-state="released">released</div>
+    <div class="filter" data-state="forfeited">forfeited</div>
+    <div class="filter" data-state="auto_released">auto-released</div>
+    <span style="font-size:.72rem;color:var(--muted);margin-left:1rem">severity:</span>
+    <div class="filter on" data-sev="critical">critical</div>
+    <div class="filter on" data-sev="major">major</div>
+    <div class="filter on" data-sev="minor">minor</div>
+    <div class="filter" data-sev="informational">info</div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>quarantine_id</th>
+        <th>tool</th>
+        <th>severity</th>
+        <th>state</th>
+        <th>blocked</th>
+        <th>mismatches</th>
+        <th>actions</th>
+      </tr>
+    </thead>
+    <tbody id="quar-tbody"></tbody>
+  </table>
+</div>
+
+<h2>actions <span class="muted" style="font-size:.75rem;font-weight:400">— web is READ-ONLY mirror consumer; restore/forfeit via selfdefctl + operator MS003 (R10122)</span></h2>
+<div class="row">
+  <button onclick="emit('selfdefctl quarantine list --active')">copy: list active</button>
+  <button onclick="emit('selfdefctl quarantine inspect --quarantine-id <id>')">copy: inspect mismatches</button>
+  <button onclick="emit('selfdefctl quarantine trace --quarantine-id <id>')">copy: M049 trace lineage</button>
+  <button class="warn" onclick="emit('selfdefctl quarantine release --quarantine-id <id> --confirm')">copy: release (MS003-signed)</button>
+  <button class="danger" onclick="emit('selfdefctl quarantine forfeit --quarantine-id <id> --confirm --purge-image')">copy: forfeit + purge (irreversible)</button>
+</div>
+
+<div class="footer">
+  D-17 · <a href="../d-00-master/">D-00 main</a> · <a href="../d-18-trust-scores/">D-18 trust</a> · <a href="../d-15-sandboxes/">D-15 sandboxes</a><br>
+  mirror source: <code>selfdef-quarantine-mirror @ 1.0.0</code> · MS042 declaration-vs-observed + 7 declaration fields + 3-step protocol · MS007 typed-mirror crate #6 of 9
+</div>
+
+<div class="toast" id="toast">copied</div>
+
+<script>
+  // -------- seed (publisher /api/d-17/snapshot when wired) ----------
+  // Schema mirrors selfdef-quarantine-mirror::QuarantineMirrorSnapshot 1.0.0
+  // No mutations from this surface — R10122 + R10212.
+  const seed = {
+    schema_version: "1.0.0",
+    captured_at: "2026-05-19T03:50Z",
+    summaries: [
+      { severity: "critical",      quarantined: 1, released_24h: 0, forfeited_24h: 1 },
+      { severity: "major",         quarantined: 2, released_24h: 1, forfeited_24h: 0 },
+      { severity: "minor",         quarantined: 3, released_24h: 4, forfeited_24h: 0 },
+      { severity: "informational", quarantined: 0, released_24h: 8, forfeited_24h: 0 }
+    ],
+    entries: [
+      {
+        quarantine_id: "qr-001", tool: "untrusted-bin",      declarer: "ext-fp",      capability_token_id: "tok-r4-untrusted",
+        blocked_at: "2026-05-19T03:30Z", updated_at: "2026-05-19T03:30Z", state: "quarantined", max_severity: "critical",
+        mismatches: [
+          { field: "secret_access", declared: "none", observed: "keyring:user@github.com", first_observed_at: "2026-05-19T03:30Z", severity: "critical" },
+          { field: "network_domains", declared: "[]", observed: "[evil.example.com:443]", first_observed_at: "2026-05-19T03:30Z", severity: "critical" }
+        ],
+        trace_id: "trace-untrust"
+      },
+      {
+        quarantine_id: "qr-002", tool: "npm-install",        declarer: "agent-fp-hf",
+        blocked_at: "2026-05-19T02:45Z", updated_at: "2026-05-19T02:46Z", state: "quarantined", max_severity: "major",
+        mismatches: [
+          { field: "network_domains", declared: "[registry.npmjs.org]", observed: "[registry.npmjs.org, deadbeef.example.com]", first_observed_at: "2026-05-19T02:45Z", severity: "major" }
+        ],
+        trace_id: "trace-npm"
+      },
+      {
+        quarantine_id: "qr-003", tool: "build-image",        declarer: "operator-fp",
+        blocked_at: "2026-05-19T01:00Z", updated_at: "2026-05-19T01:10Z", state: "quarantined", max_severity: "major",
+        mismatches: [
+          { field: "write_paths", declared: "[/build/out/**]", observed: "[/build/out/**, /tmp/cache/**]", first_observed_at: "2026-05-19T01:00Z", severity: "major" }
+        ],
+        trace_id: "trace-build"
+      },
+      {
+        quarantine_id: "qr-004", tool: "linter",             declarer: "operator-fp",
+        blocked_at: "2026-05-19T00:30Z", updated_at: "2026-05-19T00:30Z", state: "quarantined", max_severity: "minor",
+        mismatches: [
+          { field: "read_paths", declared: "[src/**]", observed: "[src/**, tests/**]", first_observed_at: "2026-05-19T00:30Z", severity: "minor" }
+        ],
+        trace_id: "trace-lint"
+      },
+      {
+        quarantine_id: "qr-005", tool: "format-tool",        declarer: "operator-fp",
+        blocked_at: "2026-05-18T23:00Z", updated_at: "2026-05-18T23:05Z", state: "released", max_severity: "minor",
+        mismatches: [
+          { field: "side_effects", declared: "format-only", observed: "format + import-sort", first_observed_at: "2026-05-18T23:00Z", severity: "minor" }
+        ],
+        trace_id: "trace-fmt"
+      },
+      {
+        quarantine_id: "qr-006", tool: "shell-runner-evil",  declarer: "ext-fp",
+        blocked_at: "2026-05-18T18:00Z", updated_at: "2026-05-18T18:05Z", state: "forfeited", max_severity: "critical",
+        mismatches: [
+          { field: "side_effects", declared: "read-only", observed: "exec(shell), spawn(child)", first_observed_at: "2026-05-18T18:00Z", severity: "critical" },
+          { field: "secret_access", declared: "none", observed: "keyring:ssh-key", first_observed_at: "2026-05-18T18:01Z", severity: "critical" }
+        ],
+        trace_id: "trace-evil"
+      }
+    ]
+  };
+
+  // severity tiles
+  const sMap = {};
+  for (const s of seed.summaries) sMap[s.severity] = s;
+  document.getElementById('s-critical').textContent = (sMap.critical?.quarantined || 0);
+  document.getElementById('s-major').textContent    = (sMap.major?.quarantined || 0);
+  document.getElementById('s-minor').textContent    = (sMap.minor?.quarantined || 0);
+  document.getElementById('s-info').textContent     = (sMap.informational?.quarantined || 0);
+  document.getElementById('s-released').textContent = seed.summaries.reduce((a, s) => a + s.released_24h, 0);
+  document.getElementById('s-forfeited').textContent= seed.summaries.reduce((a, s) => a + s.forfeited_24h, 0);
+
+  // top mismatch fields chart
+  const fieldOrder = ['read_paths','write_paths','network_domains','env_vars','secret_access','side_effects','rollback'];
+  const counts = Object.fromEntries(fieldOrder.map(f => [f, 0]));
+  for (const e of seed.entries) for (const m of e.mismatches) counts[m.field] = (counts[m.field] || 0) + 1;
+  const maxCount = Math.max(1, ...Object.values(counts));
+  const chart = document.getElementById('field-chart');
+  for (const f of fieldOrder) {
+    const h = Math.round((counts[f] / maxCount) * 70);
+    const div = document.createElement('div');
+    div.className = 'field-bar';
+    div.innerHTML = `<div style="font-size:.7rem;color:var(--fg)">${counts[f]}</div><div class="bar" style="height:${h}px"></div><div class="lbl">${f}</div>`;
+    chart.appendChild(div);
+  }
+
+  function severityClass(sev) {
+    if (sev === 'critical') return 'crit';
+    if (sev === 'major') return 'bad';
+    if (sev === 'minor') return 'warn';
+    return 'muted';
+  }
+
+  function renderQuar() {
+    const activeStates = new Set([...document.querySelectorAll('#state-filters .filter.on[data-state]')].map(f => f.dataset.state));
+    const activeSevs = new Set([...document.querySelectorAll('#state-filters .filter.on[data-sev]')].map(f => f.dataset.sev));
+    const tb = document.getElementById('quar-tbody');
+    tb.innerHTML = '';
+    for (const e of seed.entries) {
+      if (!activeStates.has(e.state) || !activeSevs.has(e.max_severity)) continue;
+      const sevPill = severityClass(e.max_severity);
+      const statePill = e.state === 'quarantined' ? 'bad' : (e.state === 'released' ? 'ok' : (e.state === 'forfeited' ? 'crit' : 'warn'));
+      const details = e.mismatches.map(m => `
+        <div class="mismatch-detail ${m.severity}">
+          <strong class="${severityClass(m.severity)}">${m.field}</strong>
+          (${m.severity}) ·
+          <span class="declared">declared: ${m.declared}</span> →
+          <span class="observed">observed: ${m.observed}</span>
+        </div>
+      `).join('');
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><code>${e.quarantine_id}</code></td>
+        <td><code>${e.tool}</code><br><span class="muted" style="font-size:.7rem">by ${e.declarer}</span></td>
+        <td><span class="pill ${sevPill}">${e.max_severity}</span></td>
+        <td><span class="pill ${statePill}">${e.state}</span></td>
+        <td class="muted">${e.blocked_at.replace('T',' ').replace('Z','')}</td>
+        <td>
+          <details>
+            <summary>${e.mismatches.length} field${e.mismatches.length === 1 ? '' : 's'}</summary>
+            ${details}
+          </details>
+        </td>
+        <td>
+          <button onclick="emit('selfdefctl quarantine trace --quarantine-id ${e.quarantine_id}')">trace</button>
+          <button class="warn" onclick="emit('selfdefctl quarantine release --quarantine-id ${e.quarantine_id} --confirm')">release</button>
+          <button class="danger" onclick="emit('selfdefctl quarantine forfeit --quarantine-id ${e.quarantine_id} --confirm --purge-image')">forfeit</button>
+        </td>
+      `;
+      tb.appendChild(tr);
+    }
+  }
+  renderQuar();
+  document.querySelectorAll('#state-filters .filter').forEach(f => f.addEventListener('click', () => { f.classList.toggle('on'); renderQuar(); }));
+
+  // clipboard helper — web NEVER mutates per R10122 + R10212
+  function emit(cmd) {
+    navigator.clipboard.writeText(cmd).then(() => showToast('copied: ' + cmd.slice(0, 60) + (cmd.length > 60 ? '…' : '')));
+  }
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(showToast._h);
+    showToast._h = setTimeout(() => t.classList.remove('show'), 1800);
+  }
+
+  // master shortcut Cmd-0
+  window.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key === '0') { e.preventDefault(); window.location.href = '../master-dashboard/'; }
+  });
+</script>
+
+</body>
+</html>
