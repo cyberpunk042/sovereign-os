@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-module-catalog"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M048 sovereign-os 10-module base catalog per M00800-M00812 + dump 14402-14812. Modules: BaseOS / ComputeFabric / SandboxFabric / Gateway / MemoryOS / WorkflowCompiler / EvalValue / ContinuityManager / Observability / LoraFoundry. KEY LINE per E0467 dump 14810: 'Every module is a controlled continuation of user intent across hardware, software, memory, and time' verbatim."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
