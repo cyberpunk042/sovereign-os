@@ -311,6 +311,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-dashboard-layout"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-dashboard-coverage",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-dashboard-toggle"
 version = "0.1.0"
 dependencies = [

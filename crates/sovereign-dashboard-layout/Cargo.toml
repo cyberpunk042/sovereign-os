@@ -1,0 +1,22 @@
+[package]
+name = "sovereign-dashboard-layout"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Runtime dashboard widget-grid layout — per dashboard slot (D-NN) declares a 12-column grid of widgets (x/y/w/h/widget-kind). Detects overlap + out-of-bounds at validation time. Composes sovereign-dashboard-coverage for slot identity."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sovereign-dashboard-coverage = { path = "../sovereign-dashboard-coverage" }
+
+[features]
+default = []
