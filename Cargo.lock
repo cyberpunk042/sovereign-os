@@ -272,6 +272,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-doctrinal-preservation"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-cognitive-compiler",
+ "sovereign-environment-maps",
+ "sovereign-gateway",
+ "sovereign-inheritance-contracts",
+ "sovereign-intervention-class-mirror",
+ "sovereign-lora-foundry",
+ "sovereign-memory-os",
+ "sovereign-module-catalog",
+ "sovereign-policy-questions",
+ "sovereign-pressure-sensors",
+ "sovereign-router-7axis",
+ "sovereign-srp-scheduler",
+ "sovereign-trinity",
+ "sovereign-value-plane",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-environment-maps"
 version = "0.1.0"
 dependencies = [

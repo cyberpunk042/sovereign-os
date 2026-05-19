@@ -1,0 +1,35 @@
+[package]
+name = "sovereign-doctrinal-preservation"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Composite verbatim doctrine registry — aggregates every doctrine string emitted by the sovereign-os runtime/cockpit crates. Counterpart to selfdef-doctrinal-preservation on the IPS side. Per operator standing direction 'you cannot invent crap' + verbatim preservation requirements throughout the M0NN catalog."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sovereign-trinity = { path = "../sovereign-trinity" }
+sovereign-module-catalog = { path = "../sovereign-module-catalog" }
+sovereign-router-7axis = { path = "../sovereign-router-7axis" }
+sovereign-environment-maps = { path = "../sovereign-environment-maps" }
+sovereign-memory-os = { path = "../sovereign-memory-os" }
+sovereign-value-plane = { path = "../sovereign-value-plane" }
+sovereign-inheritance-contracts = { path = "../sovereign-inheritance-contracts" }
+sovereign-policy-questions = { path = "../sovereign-policy-questions" }
+sovereign-cognitive-compiler = { path = "../sovereign-cognitive-compiler" }
+sovereign-srp-scheduler = { path = "../sovereign-srp-scheduler" }
+sovereign-lora-foundry = { path = "../sovereign-lora-foundry" }
+sovereign-pressure-sensors = { path = "../sovereign-pressure-sensors" }
+sovereign-gateway = { path = "../sovereign-gateway" }
+sovereign-intervention-class-mirror = { path = "../sovereign-intervention-class-mirror" }
+
+[features]
+default = []
