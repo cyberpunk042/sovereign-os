@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-inheritance-artifacts"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M042 8 inheritance artifacts per M00712 + R07137-R07139 + dump 12494-12515. Companion to sovereign-inheritance-contracts (Symphony's 6 contracts); this crate enumerates the 8 durable artifacts the operator-conversation seeds. Doctrine: 'this is how the conversation becomes executable memory' (E0406)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
