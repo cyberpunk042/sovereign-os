@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-table-row-selection"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit table-row selection (with select-all-rows checkbox). Tracks a per-row selection + a header tristate (None/Some/All). Selecting from the header toggles all visible rows; per-row click flips that row. Distinct from multi-select-list (range/shift semantics)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
