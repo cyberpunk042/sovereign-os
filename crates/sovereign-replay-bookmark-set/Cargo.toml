@@ -1,0 +1,22 @@
+[package]
+name = "sovereign-replay-bookmark-set"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Replay bookmark set — operator-named anchor points within a ConversationThread the cockpit can jump to during a Replay session. Each bookmark declares (label, thread_id, turn_index, color_tag, note). Composes sovereign-conversation-thread + sovereign-replay-cursor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sovereign-conversation-thread = { path = "../sovereign-conversation-thread" }
+
+[features]
+default = []

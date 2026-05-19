@@ -665,6 +665,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-replay-bookmark-set"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-conversation-thread",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-replay-cursor"
 version = "0.1.0"
 dependencies = [
