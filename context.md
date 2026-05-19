@@ -75,6 +75,7 @@ Per operator: *"little piece by little piece and progress in this massive endles
 | D-00 master-dashboard | ✓ shipped | `webapp/master-dashboard/index.html` |
 | D-01 active sessions | ✓ shipped | `webapp/d-01-active-sessions/index.html` |
 | D-02 profile choices | ✓ shipped | `webapp/d-02-profile-choices/index.html` |
+| D-04 costs | ✓ shipped | `webapp/d-04-costs/index.html` |
 | D-05 traces | ✓ shipped | `webapp/d-05-traces/index.html` |
 | D-06 pending approvals | ✓ shipped | `webapp/d-06-pending-approvals/index.html` |
 | D-09 hardware pressure | ✓ shipped | `webapp/d-09-hardware-pressure/index.html` |

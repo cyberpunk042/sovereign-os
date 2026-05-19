@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os D-04 costs</title>
+<meta name="x-sovereign-module" content="d-04-costs-webapp">
+<meta name="x-sovereign-shipped-in" content="R-impl-SDD040-phaseB-item1">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<meta name="x-sovereign-catalog-source" content="M060 R10075-R10082 + dump 9885-9930 cost surface (cloud_enabled / daily_budget_usd / per_request_max_usd / private_paths_never_cloud) + MS040 production-profile cost alerts">
+<style>
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
+  .num{font-variant-numeric:tabular-nums;text-align:right}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:stretch}
+  .stat{flex:1 1 200px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
+  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .stat .v{font-size:1.4rem;font-weight:600;margin-top:.2rem;font-variant-numeric:tabular-nums}
+  .stat .u{color:var(--muted);font-size:.78rem}
+  .progress{position:relative;background:#0a0a0a;border:1px solid var(--border);border-radius:3px;height:18px;overflow:hidden;margin-top:.4rem}
+  .progress .fill{position:absolute;top:0;left:0;bottom:0;background:var(--good);transition:width .25s ease,background-color .25s ease}
+  .progress .fill.warn{background:var(--warn)} .progress .fill.bad{background:var(--bad)}
+  .progress .label{position:absolute;top:50%;left:.5rem;transform:translateY(-50%);font-size:.7rem;color:var(--fg);text-shadow:0 0 2px var(--bg)}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border)}
+  .pill.ok{background:#143d14;color:var(--good)} .pill.bad{background:#3d1414;color:var(--bad)} .pill.warn{background:#3d2f14;color:var(--warn)}
+  .pill.accent{background:#143d3d;color:var(--accent)}
+  .kbd{display:inline-block;padding:1px 5px;border-radius:3px;font-size:.7rem;background:var(--border);color:var(--muted);border:1px solid var(--border)}
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem}
+  @media (max-width: 720px) { .grid-3{grid-template-columns:1fr} }
+  button{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.35rem .8rem;font-family:inherit;font-size:.85rem;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  .footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--muted);font-size:.78rem}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  code{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1>D-04 — costs</h1>
+<div class="sub">daily budget + per-request + project/profile/model breakdowns + forecast — <span class="kbd">Cmd-5</span> · <a href="../master-dashboard/">D-00 main</a></div>
+
+<h2>today's budget (operator-configurable per profile)</h2>
+<div class="row">
+  <div class="stat" style="flex-basis:100%">
+    <div class="k">today (UTC)</div>
+    <div class="v"><span id="today-spend">—</span><span class="u"> / </span><span id="today-budget">—</span><span class="u"> USD</span></div>
+    <div class="progress"><div class="fill" id="today-fill" style="width:0%"><span class="label" id="today-label">—</span></div></div>
+    <div class="muted" style="font-size:.72rem;margin-top:.3rem">
+      operator setting: <code>daily_budget_usd</code> per <code>/etc/sovereign-os/cost-policy.toml</code> (verbatim from dump 9890 R10075)
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="stat">
+    <div class="k">requests today</div>
+    <div class="v" id="req-count">—</div>
+  </div>
+  <div class="stat">
+    <div class="k">avg cost / request</div>
+    <div class="v" id="avg-req-cost">$—</div>
+  </div>
+  <div class="stat">
+    <div class="k">per-request max (alert)</div>
+    <div class="v warn" id="per-req-max">$—</div>
+  </div>
+  <div class="stat">
+    <div class="k">forecast end-of-day</div>
+    <div class="v" id="eod-forecast">$—</div>
+  </div>
+</div>
+
+<h2>cost by project</h2>
+<div class="panel">
+  <table>
+    <thead><tr><th>project</th><th class="num">today</th><th class="num">7d</th><th class="num">30d</th><th>profile</th><th>route</th></tr></thead>
+    <tbody id="project-tbody"><tr><td colspan="6" class="muted">loading…</td></tr></tbody>
+  </table>
+</div>
+
+<h2>cost by profile (MS040)</h2>
+<div class="panel">
+  <table>
+    <thead><tr><th>profile</th><th>cloud allowed</th><th class="num">today</th><th class="num">7d</th><th class="num">30d</th><th>routes</th></tr></thead>
+    <tbody id="profile-tbody">
+      <tr><td>private</td><td><span class="pill bad">no (R10747)</span></td><td class="num" id="prof-private-1d">—</td><td class="num" id="prof-private-7d">—</td><td class="num" id="prof-private-30d">—</td><td><span class="muted">local-only</span></td></tr>
+      <tr><td>fast</td><td><span class="pill ok">yes</span></td><td class="num" id="prof-fast-1d">—</td><td class="num" id="prof-fast-7d">—</td><td class="num" id="prof-fast-30d">—</td><td><span class="muted">bounded L4</span></td></tr>
+      <tr><td>careful</td><td><span class="pill ok">yes (gated)</span></td><td class="num" id="prof-careful-1d">—</td><td class="num" id="prof-careful-7d">—</td><td class="num" id="prof-careful-30d">—</td><td><span class="muted">oracle gated</span></td></tr>
+      <tr><td>autonomous</td><td><span class="pill warn">predeclared</span></td><td class="num" id="prof-auto-1d">—</td><td class="num" id="prof-auto-7d">—</td><td class="num" id="prof-auto-30d">—</td><td><span class="muted">batch approvals</span></td></tr>
+      <tr><td>experimental</td><td><span class="pill bad">sandbox only</span></td><td class="num" id="prof-exp-1d">—</td><td class="num" id="prof-exp-7d">—</td><td class="num" id="prof-exp-30d">—</td><td><span class="muted">no host commit</span></td></tr>
+      <tr><td>production</td><td><span class="pill warn">strict (R10454)</span></td><td class="num" id="prof-prod-1d">—</td><td class="num" id="prof-prod-7d">—</td><td class="num" id="prof-prod-30d">—</td><td><span class="muted">triple-gate</span></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h2>cost by model</h2>
+<div class="panel">
+  <table>
+    <thead><tr><th>model</th><th>role</th><th class="num">today</th><th class="num">tokens-in</th><th class="num">tokens-out</th><th class="num">$/Mtok</th></tr></thead>
+    <tbody id="model-tbody"><tr><td colspan="6" class="muted">loading…</td></tr></tbody>
+  </table>
+  <div class="muted" style="font-size:.72rem;margin-top:.5rem">M075 SRP roles: Conductor (CPU ternary, $0 marginal) / Logic (3090 Q4_K_M, electricity-only) / Oracle (Blackwell FP16 or cloud premium)</div>
+</div>
+
+<h2>30-day spend trend</h2>
+<div class="panel">
+  <div id="trend-chart" style="height:160px;display:flex;align-items:flex-end;gap:2px;border-bottom:1px solid var(--border);padding:.3rem">
+    <span class="muted" style="margin:auto">loading…</span>
+  </div>
+  <div class="muted" style="font-size:.72rem;margin-top:.3rem">each bar = one day; height proportional to spend; hover row for details</div>
+</div>
+
+<h2>cost policy (operator-controlled, dump 9885-9930 verbatim)</h2>
+<div class="panel">
+  <table>
+    <thead><tr><th>key</th><th>current value</th><th>source</th></tr></thead>
+    <tbody id="policy-tbody">
+      <tr><td><code>cloud_enabled</code></td><td id="pol-cloud" class="muted">—</td><td class="muted">dump 9885 R10747</td></tr>
+      <tr><td><code>cloud_requires_approval</code></td><td id="pol-approval" class="muted">—</td><td class="muted">dump 9886</td></tr>
+      <tr><td><code>daily_budget_usd</code></td><td id="pol-daily" class="muted">—</td><td class="muted">dump 9887 R10075</td></tr>
+      <tr><td><code>per_request_max_usd</code></td><td id="pol-perreq" class="muted">—</td><td class="muted">dump 9888 R10081</td></tr>
+      <tr><td><code>private_paths_never_cloud</code></td><td id="pol-private" class="muted">—</td><td class="muted">dump 9889 R10747</td></tr>
+      <tr><td><code>log_prompts</code></td><td id="pol-log" class="muted">—</td><td class="muted">dump 9890 (local_only default)</td></tr>
+    </tbody>
+  </table>
+  <div class="muted" style="font-size:.72rem;margin-top:.4rem">edits via <code>sovereign cost-policy edit</code> CLI (operator MS003-signed). Web surface read-only per MS043 R10212.</div>
+</div>
+
+<h2>actions</h2>
+<div class="panel">
+  <div class="row">
+    <button id="refresh-btn">refresh</button>
+    <button id="halt-btn">halt cloud routes (panic)</button>
+    <button id="export-btn">copy 30d export cmd</button>
+  </div>
+</div>
+
+<div class="footer">
+  D-04 costs · M060 R10075-R10082 · dump 9885-9930 (verbatim cost policy surface) · MS040 production-profile alert thresholds (R10456-R10458) · MS041 high-risk cost-bound commits · M058 Goldilocks objective: max useful intelligence per unit cost
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+function fmtUsd(v) { return v == null ? '—' : `$${Number(v).toFixed(v < 1 ? 4 : 2)}`; }
+function fmtNum(v) { return v == null ? '—' : Number(v).toLocaleString(); }
+function pct(spent, budget) { if (!budget) return 0; return Math.min(100, (spent/budget)*100); }
+function fillCls(p) { p = Number(p); if (p >= 90) return 'bad'; if (p >= 70) return 'warn'; return ''; }
+
+async function fetchCosts() {
+  try {
+    const res = await fetch('/api/costs/summary', {credentials:'same-origin'});
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (e) {
+    return {today:{},projects:[],profiles:{},models:[],trend30d:[],policy:{},error:e.message};
+  }
+}
+
+function escapeHtml(s) { if (s == null) return ''; return String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+
+async function refresh() {
+  const s = await fetchCosts();
+  // today
+  $('today-spend').textContent = fmtUsd(s.today.spend);
+  $('today-budget').textContent = fmtUsd(s.today.budget);
+  const p = pct(s.today.spend, s.today.budget);
+  const fill = $('today-fill'); fill.style.width = p + '%'; fill.className = 'fill ' + fillCls(p);
+  $('today-label').textContent = `${p.toFixed(1)}%`;
+  $('req-count').textContent = fmtNum(s.today.requests);
+  $('avg-req-cost').textContent = fmtUsd(s.today.avg_req_cost);
+  $('per-req-max').textContent = fmtUsd(s.today.per_request_max);
+  $('eod-forecast').textContent = fmtUsd(s.today.eod_forecast);
+  // projects
+  const ptbody = $('project-tbody');
+  ptbody.innerHTML = (s.projects || []).map(p => `
+    <tr>
+      <td><code>${escapeHtml(p.name)}</code></td>
+      <td class="num">${fmtUsd(p.today)}</td>
+      <td class="num">${fmtUsd(p['7d'])}</td>
+      <td class="num">${fmtUsd(p['30d'])}</td>
+      <td><span class="pill accent">${escapeHtml(p.profile)}</span></td>
+      <td class="muted">${escapeHtml(p.dominant_route || '—')}</td>
+    </tr>`).join('') || '<tr><td colspan="6" class="muted">no projects with cost activity</td></tr>';
+  // profiles
+  const prof = s.profiles || {};
+  ['private','fast','careful','autonomous','experimental','production'].forEach(name => {
+    const key = name === 'autonomous' ? 'auto' : name === 'experimental' ? 'exp' : name === 'production' ? 'prod' : name;
+    const d = prof[name] || {};
+    $('prof-'+key+'-1d').textContent = fmtUsd(d['today']);
+    $('prof-'+key+'-7d').textContent = fmtUsd(d['7d']);
+    $('prof-'+key+'-30d').textContent = fmtUsd(d['30d']);
+  });
+  // models
+  const mtbody = $('model-tbody');
+  mtbody.innerHTML = (s.models || []).map(m => `
+    <tr>
+      <td><code>${escapeHtml(m.name)}</code></td>
+      <td><span class="muted">${escapeHtml(m.role)}</span></td>
+      <td class="num">${fmtUsd(m.today)}</td>
+      <td class="num">${fmtNum(m.tokens_in)}</td>
+      <td class="num">${fmtNum(m.tokens_out)}</td>
+      <td class="num muted">${m.usd_per_mtok != null ? fmtUsd(m.usd_per_mtok) : '—'}</td>
+    </tr>`).join('') || '<tr><td colspan="6" class="muted">no model spend recorded</td></tr>';
+  // trend
+  const t = s.trend30d || [];
+  const max = Math.max(...t.map(d => d.spend || 0), 0.01);
+  const chart = $('trend-chart');
+  if (t.length) {
+    chart.innerHTML = t.map(d => `
+      <div title="${escapeHtml(d.date)}: ${fmtUsd(d.spend)}"
+           style="flex:1;background:${d.spend >= (s.policy.daily_budget_usd || Infinity) ? 'var(--bad)' : d.spend >= (s.policy.daily_budget_usd || Infinity)*0.7 ? 'var(--warn)' : 'var(--accent)'};
+                  height:${(d.spend/max*100).toFixed(1)}%;border-radius:1px 1px 0 0;min-height:1px;cursor:help"></div>
+    `).join('');
+  } else {
+    chart.innerHTML = '<span class="muted" style="margin:auto">no trend data yet — accumulates over 30 days</span>';
+  }
+  // policy
+  const pol = s.policy || {};
+  $('pol-cloud').innerHTML = pol.cloud_enabled === true ? '<span class="warn">true</span>' : pol.cloud_enabled === false ? '<span class="ok">false</span>' : '<span class="muted">—</span>';
+  $('pol-approval').innerHTML = pol.cloud_requires_approval === true ? '<span class="ok">true</span>' : pol.cloud_requires_approval === false ? '<span class="bad">false</span>' : '<span class="muted">—</span>';
+  $('pol-daily').textContent = pol.daily_budget_usd != null ? fmtUsd(pol.daily_budget_usd) : '—';
+  $('pol-perreq').textContent = pol.per_request_max_usd != null ? fmtUsd(pol.per_request_max_usd) : '—';
+  $('pol-private').innerHTML = pol.private_paths_never_cloud === true ? '<span class="ok">true</span>' : '<span class="bad">false</span>';
+  $('pol-log').innerHTML = `<code>${escapeHtml(pol.log_prompts || 'local_only')}</code>`;
+}
+
+$('refresh-btn').addEventListener('click', refresh);
+$('halt-btn').addEventListener('click', async () => {
+  const cmd = 'sovereign cost-policy halt-cloud --rationale "<operator-rationale>"';
+  try { await navigator.clipboard.writeText(cmd); alert(`Cloud-halt cmd copied (operator-signed):\n\n  ${cmd}\n\nSets cloud_enabled=false across all profiles immediately. Reversible via cost-policy unhalt-cloud.`); }
+  catch (e) { prompt('Copy + run:', cmd); }
+});
+$('export-btn').addEventListener('click', async () => {
+  const cmd = 'sovereign costs export --window 30d --format csv > costs-30d.csv';
+  try { await navigator.clipboard.writeText(cmd); alert(`Export cmd copied:\n\n  ${cmd}`); }
+  catch (e) { prompt('Copy + run:', cmd); }
+});
+
+document.addEventListener('keydown', e => { if ((e.metaKey||e.ctrlKey) && e.key === '5') { e.preventDefault(); refresh(); } });
+
+try {
+  const es = new EventSource('/api/costs/stream');
+  es.addEventListener('cost-update', refresh);
+  es.addEventListener('error', () => setInterval(refresh, 30000));
+} catch (e) { setInterval(refresh, 30000); }
+
+refresh();
+</script>
+
+</body>
+</html>
