@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-tree-view"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit tree-view state. Hierarchical node tree with expand/collapse per parent, single-selection cursor, and a flat visible-row projection (parent → its visible descendants) suitable for direct virtualized list rendering. Pure UX descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
