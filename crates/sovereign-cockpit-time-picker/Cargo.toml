@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-time-picker"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit time-picker widget state. Hour [0..24) + minute [0..60) with operator-configured step (1/5/15/30) and optional 12h/24h display. step_up/step_down navigate by step, wrapping minute carries to hour. Pure UX descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
