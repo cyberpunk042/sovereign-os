@@ -1,5 +1,5 @@
 {
-  "_comment": "sovereign-os surface-map dashboard (R493, R453+). Visualizes the operator-§1g surface-map instrument that audits each module's coverage across the 8-surface §1g delivery ladder. Sourced from sovereign_os_operator_surface_map_query_total{verb,surface,result} (Layer B, SDD-016) emitted by scripts/operator/surface-map.py. Operator imports into Grafana via Settings → JSON Model. Closes the future surface-map-dashboard waiver and registers surface-map in MODULE_COVERAGE at 3 surfaces (core/cli/dashboard) — fully closing the 4-instrument compliance meta-coverage loop (surface-map now appears in its own surface-map and tracks queries against itself).",
+  "_comment": "sovereign-os surface-map dashboard (R493, R453+, R546). Visualizes the operator-§1g surface-map instrument that audits each module's coverage across the 8-surface §1g delivery ladder. Sourced from sovereign_os_operator_surface_map_query_total{verb,surface,result} (Layer B, SDD-016) emitted by scripts/operator/surface-map.py. Operator imports into Grafana via Settings → JSON Model. Closes the future surface-map-dashboard waiver and registers surface-map in MODULE_COVERAGE at 3 surfaces (core/cli/dashboard) — fully closing the 4-instrument compliance meta-coverage loop (surface-map now appears in its own surface-map and tracks queries against itself). R546 expands the dashboard verb-stat row with two additional cards (milestone + selfdef) mirroring the R540 + R544 ceiling-promotions on the MCP surface — operator-§1g coverage symmetry: every parameterless verb exposed via MCP now has a corresponding stat card on the dashboard.",
   "annotations": {"list": []},
   "editable": true,
   "fiscalYearStartMonth": 0,
@@ -97,18 +97,34 @@
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
     },
     {
+      "type": "stat",
+      "title": "milestone verb (count)",
+      "description": "R540 first-class §1g ceiling-closure rollup verb. Post-R539 historic milestone (TWELFTH §1g module at ceiling) this verb returns the system-wide rollup: total_modules + at_structural_ceiling_count + full_8_surface_count + zero_future_waivers. Surfaced over CLI (R540) + API /milestone (R541) + webapp panel (R542) + watch TUI banner (R543) + MCP `surface-map-milestone` (R541).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_surface_map_query_total{verb=\"milestone\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 12, "x": 0, "y": 20}
+    },
+    {
+      "type": "stat",
+      "title": "selfdef verb (count)",
+      "description": "R462 cross-repo SurfaceManifest discovery verb — surfaces the §1g delivery state of sibling ecosystem repos (selfdef / info-hub / etc.) under /etc/selfdef/surfaces. Exposed over MCP via `surface-map-selfdef` (R544) for one-call cross-repo §1g visibility.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(sovereign_os_operator_surface_map_query_total{verb=\"selfdef\"})", "refId": "A"}],
+      "gridPos": {"h": 4, "w": 12, "x": 12, "y": 20}
+    },
+    {
       "type": "text",
       "title": "surface-map §1g verbatim + 8-surface ladder",
       "options": {
         "mode": "markdown",
         "content": "**Operator §1g verbatim** (sacrosanct):\n\n> \"everything is not just core, not just cli, not just TUI, not just API, not just tool and MCP but also Dashboards and Web Apps and Services\"\n\n> \"We do not minimize anything.\"\n\nThis instrument enforces the §1g 8-surface delivery contract: each operator-§1g module must ship across at least N surfaces (default threshold = 3), each remaining surface explicitly waived with an operator-rationalized note. surface-map is one of the 4 instruments aggregated by the `compliance` rollup (alongside doc-coverage / anti-minimization-audit / ux-design-audit).\n\n**8-surface §1g delivery ladder (sacrosanct, R453):**\n\n1. `core` — substrate logic (library / config / data-model)\n2. `cli` — `sovereign-osctl` verb (operator's primary terminal surface)\n3. `tui` — interactive refresh-loop surface (operator-watched dashboard)\n4. `api` — REST / gRPC endpoint (machine-to-machine access)\n5. `mcp` — Model Context Protocol surface (agent-accessible)\n6. `dashboard` — Grafana / Prometheus visualization (operator-watched chart)\n7. `webapp` — master-dashboard subpath (browser-discoverable surface)\n8. `service` — systemd unit / daemon (long-running execution)\n\n**Threshold:** ≥3 shipped surfaces per module. Below threshold = `surface-gap` anti-min pattern fires.\n\n**R478 precision (structural vs FUTURE):** a `not applicable — ...` waiver is STRUCTURAL (at operator-stated ceiling); a `FUTURE — ...` waiver is ROADMAP (tracked gap). Only FUTURE-class waivers fire the `surface-gap` anti-min pattern (R478) — structural waivers are CORRECTLY-SHAPED work, not minimized work.\n\n**Meta-coverage loop closed:** R493 registers surface-map ITSELF in MODULE_COVERAGE at 3 surfaces (core/cli/dashboard). The instrument that audits surface coverage now appears in its own audit — the inspector inspects the inspector. This closes the symmetric loop initiated by R489 (compliance self-aggregator), R490 (anti-min self-scanner), R491 (doc-coverage self-doc), R492 (ux-design-audit self-audit).\n\n**CLI:**\n\n```\nsovereign-osctl surface-map surfaces                # enumerate 8\nsovereign-osctl surface-map modules                 # list audited modules\nsovereign-osctl surface-map coverage --module <m>   # per-module matrix\nsovereign-osctl surface-map gaps                    # fail-loud gap list\nsovereign-osctl surface-map waivers [--module <m>]  # waiver inventory\nsovereign-osctl surface-map selfdef                 # cross-repo (selfdef)\n```\n\n**Metric:** `sovereign_os_operator_surface_map_query_total{verb,surface,result}` (SDD-016 Layer B)\n\n**Source:** R453 shipped the 8-surface instrument + 6 verbs. R493 (R453+) ships THIS dashboard + registers surface-map as a first-class module in its own MODULE_COVERAGE at 3 surfaces (core/cli/dashboard).\n\n**Standing operator rule (sacrosanct):**\n\n> \"We do not minimize anything.\""
       },
-      "gridPos": {"h": 18, "w": 24, "x": 0, "y": 20}
+      "gridPos": {"h": 18, "w": 24, "x": 0, "y": 24}
     }
   ],
   "refresh": "30s",
   "schemaVersion": 39,
-  "tags": ["sovereign-os", "surface-map", "operator", "R493"],
+  "tags": ["sovereign-os", "surface-map", "operator", "R493", "R546"],
   "templating": {"list": []},
   "time": {"from": "now-6h", "to": "now"},
   "timezone": "browser",
