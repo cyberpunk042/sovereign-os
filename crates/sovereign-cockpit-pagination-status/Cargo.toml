@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-pagination-status"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit pagination status-text formatter. Given (page, page_size, total_items, filtered) produces the operator-facing strings 'Showing 1-50 of 1,000' / 'Showing 1-50 of 1,000 (filtered from 10,000)' / 'No items'. Pure UX descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
