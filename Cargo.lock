@@ -208,6 +208,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-personalization"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-dashboard-coverage",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-dashboard-coverage"
 version = "0.1.0"
 dependencies = [
