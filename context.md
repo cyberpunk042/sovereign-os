@@ -281,13 +281,36 @@ This file is **operator-state-of-the-art**. Updates:
 - `9d1a0c5` — `sovereign-hardware-load-sample`: 5-target VRAM/util/temp snapshot
 - `0a7547f` — `sovereign-hardware-registry`: 5-target hardware catalog with SRP role
 
-Sovereign-os workspace at 70 crates (was 32 pre-session, +38 fresh this session).
-Full workspace test suite: 857 passing tests. Latest additions include
+Sovereign-os workspace at 73 crates (was 32 pre-session, +41 fresh this session).
+Full workspace test suite: 857+ passing tests. Latest additions include
 `sovereign-cockpit-pane-layout` (Single/SplitV/SplitH/QuadGrid),
-`sovereign-cockpit-toggle-event` (append-only toggle audit log),
+`sovereign-cockpit-toggle-event` (append-only toggle audit log;
+the SELFDEF-side authority is `selfdef-toggle-audit-authority`),
 `sovereign-cockpit-pinned-shortcuts` (top-bar quick-launch pins),
 `sovereign-conversation-fork-event` (operator-initiated branch fork log),
-`sovereign-eval-result-summary` (single-run eval summary).
+`sovereign-eval-result-summary` (single-run eval summary),
+`sovereign-cockpit-turn-annotation` (operator notes/highlights/stars),
+`sovereign-cockpit-density-mode` (Compact/Comfortable/Spacious/Touch),
+`sovereign-cockpit-theme-palette` (5 themes).
+
+### Boundary discipline (2026-05-19 correction)
+
+Operator critique: "things in Sovereign-OS you should have done in Selfdef
+and used in Sovereign-OS". Several runtime crates here (execution-mode-
+registry, mode-transition-log, tool-catalog, cockpit-toggle-event,
+routing-decision-log) carry IPS-authority semantics. Their SELFDEF
+counterparts now exist and are the source-of-truth:
+
+- selfdef-execution-mode-policy ←→ sovereign-execution-mode-registry
+- selfdef-mode-transition-authority ←→ sovereign-mode-transition-log
+- selfdef-tool-capability-policy ←→ sovereign-tool-catalog
+- selfdef-toggle-audit-authority ←→ sovereign-cockpit-toggle-event
+- selfdef-routing-decision-authority ←→ sovereign-routing-decision-log
+- selfdef-replay-source-authority ←→ sovereign-replay-cursor (Replay-entry gate)
+
+New runtime crates after this point are pure UX/display surfaces with
+no policy authority of their own (turn-annotation, density-mode,
+theme-palette).
 Final-leg crates beyond the rolled-up batch:
 `sovereign-routing-decision-log`, `sovereign-dashboard-snapshot`,
 `sovereign-routing-preference`, `sovereign-replay-export-bundle` (thread+cursor+bookmarks),
