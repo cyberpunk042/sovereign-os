@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-zfs-commit-gate"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M040 ZFS commit-gate 4-stage cycle per M00678 + R06729-R06732 dump 11692-11697. Snapshot → apply patch → test → commit or rollback. Every agent write goes through this gate."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
