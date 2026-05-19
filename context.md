@@ -499,3 +499,12 @@ Workspace count now 135. Total this resume: 25 cockpit crates.
   favorites pin; set_hex parses #RGB/#RRGGBB/#RRGGBBAA)
 
 Workspace count now 138. Total this resume: 28 cockpit crates.
+
+### Sixth wave (same day, +2 more cockpit crates)
+
+- `sovereign-cockpit-tab-overflow` (active tab always pinned inline;
+  display-order preserved across inline + chevron-overflow lists)
+- `sovereign-cockpit-page-transition` (4-phase state machine
+  Idle/Outgoing/Entering/Active driven by tick(dt_ms))
+
+Workspace count now 140. Total this resume: 30 cockpit crates.
