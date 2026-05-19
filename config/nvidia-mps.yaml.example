@@ -1,0 +1,35 @@
+# /etc/sovereign-os/nvidia-mps.yaml — NVIDIA MPS controller policy.
+#
+# Operator §1g (verbatim, sacrosanct):
+#   "Multi mode AI, multiple mode for the AI loadout and load-out switch"
+#
+# The boot-time service sovereign-nvidia-mps.service reads this file
+# via `scripts/hardware/nvidia-mps.py apply`. Set `enabled: true` to
+# spawn the MPS control daemon at boot, so concurrent inference
+# processes (pulse / logic-engine / oracle-core + ad-hoc) share each
+# GPU's SMs without round-robin context switches.
+
+enabled: false                # default off — opt-in per the gpu-policy
+                              # philosophy (mutation requires explicit ack)
+
+pipe_dir: /var/run/nvidia-mps  # MPS control pipe directory (clients
+                               # set CUDA_MPS_PIPE_DIRECTORY to this)
+log_dir: /var/log/nvidia-mps   # MPS daemon log directory
+
+# Optional: scope the daemon to a subset of GPUs by passing
+# CUDA_VISIBLE_DEVICES at daemon launch. Comment out to share ALL
+# nvidia-smi-visible GPUs.
+#
+# Operator's sain-01 has RTX PRO 6000 @ GPU index 0 (head) and
+# RTX 3090 @ GPU index 1 (tail). Common patterns:
+#   gpus: [0]        — MPS only on the PRO 6000 (3090 stays time-slicer)
+#   gpus: [0, 1]     — MPS on both
+#   gpus: [1]        — MPS only on the 3090 (offload concurrent jobs)
+#
+# gpus: [0]
+
+# Default active-thread-percentage (1..100). Lower numbers give each
+# client a smaller SM partition — useful when running many small
+# inference workers. 100 = no partitioning (default if unset).
+#
+# default_active_thread_pct: 50

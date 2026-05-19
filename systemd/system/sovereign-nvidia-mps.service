@@ -1,0 +1,34 @@
+[Unit]
+Description=sovereign-os NVIDIA MPS controller (R551 / E11.M14)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hardware/nvidia-mps.py
+After=local-fs.target nvidia-persistenced.service
+Wants=nvidia-persistenced.service
+ConditionPathExists=/etc/sovereign-os/nvidia-mps.yaml
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/sovereign-os/scripts/hardware/nvidia-mps.py apply /etc/sovereign-os/nvidia-mps.yaml
+ExecStop=/opt/sovereign-os/scripts/hardware/nvidia-mps.py stop
+TimeoutStartSec=30s
+StandardOutput=journal
+StandardError=journal
+# R171 defense-in-depth — MPS needs to write its pipe + log dirs
+# and read nvidia-smi/nvidia-cuda-mps-control. Everything else closed.
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+NoNewPrivileges=true
+PrivateTmp=true
+ReadWritePaths=/var/run/nvidia-mps /var/log/nvidia-mps
+
+[Install]
+WantedBy=multi-user.target
