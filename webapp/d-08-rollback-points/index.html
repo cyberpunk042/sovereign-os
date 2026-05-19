@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os D-08 rollback points</title>
+<meta name="x-sovereign-module" content="d-08-rollback-points-webapp">
+<meta name="x-sovereign-shipped-in" content="R-impl-SDD040-phaseC-item2">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<meta name="x-sovereign-catalog-source" content="M060 R10097-R10101 (ZFS snapshot list + commit history + rollback-preview + rollback-apply + Cmd-9) + M068 ZFS storage architecture + M047 continuity (CRIU+ZFS warm sandboxes) + MS041 commit authority + MS003 signature requirement">
+<meta name="x-sovereign-doctrine" content="MS043 R10212 web NEVER mutates; rollback-apply emits clipboard CLI for operator-signed selfdefctl invocation">
+<style>
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  tr:hover{background:rgba(155,209,255,0.03)}
+  .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
+  .num{font-variant-numeric:tabular-nums;text-align:right}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:stretch}
+  .stat{flex:1 1 200px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
+  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .stat .v{font-size:1.4rem;font-weight:600;margin-top:.2rem;font-variant-numeric:tabular-nums}
+  .stat .u{color:var(--muted);font-size:.78rem}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border)}
+  .pill.ok{background:#143d14;color:var(--good)} .pill.bad{background:#3d1414;color:var(--bad)} .pill.warn{background:#3d2f14;color:var(--warn)}
+  .pill.accent{background:#143d3d;color:var(--accent)} .pill.muted{background:#1c1c1c;color:var(--muted)}
+  .kbd{display:inline-block;padding:1px 5px;border-radius:3px;font-size:.7rem;background:var(--border);color:var(--muted);border:1px solid var(--border)}
+  button{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.35rem .8rem;font-family:inherit;font-size:.85rem;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.danger:hover{border-color:var(--bad);color:var(--bad)}
+  button.warn:hover{border-color:var(--warn);color:var(--warn)}
+  .filters{display:flex;gap:.4rem;flex-wrap:wrap;margin:.5rem 0}
+  .filter{padding:.25rem .6rem;border-radius:3px;font-size:.78rem;background:var(--panel);border:1px solid var(--border);cursor:pointer;user-select:none}
+  .filter.on{background:#143d3d;color:var(--accent);border-color:var(--accent)}
+  .footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--muted);font-size:.78rem}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  code{color:var(--accent);background:#0a0a0a;padding:0 3px;border-radius:2px}
+  .toast{position:fixed;bottom:1rem;right:1rem;background:var(--panel);border:1px solid var(--accent);color:var(--fg);padding:.5rem .9rem;border-radius:4px;font-size:.78rem;opacity:0;transition:opacity .2s ease;pointer-events:none}
+  .toast.show{opacity:1}
+  .timeline{display:flex;flex-direction:column;gap:.2rem;margin:.5rem 0}
+  .tl-row{display:flex;align-items:center;gap:.5rem;padding:.3rem .4rem;border-radius:3px;font-size:.78rem;border-left:3px solid var(--border)}
+  .tl-row.snapshot{border-color:var(--accent)}
+  .tl-row.commit{border-color:var(--good)}
+  .tl-row.rollback{border-color:var(--warn)}
+  .tl-row .ts{color:var(--muted);width:11ch;flex:0 0 11ch}
+  .tl-row .type{flex:0 0 6ch}
+  .tl-row .body{flex:1 1 auto;color:var(--fg)}
+  .tl-row .actions{flex:0 0 auto}
+  .preview-box{background:#0a0a0a;border:1px solid var(--border);border-radius:3px;padding:.6rem;font-size:.78rem;white-space:pre-wrap;max-height:240px;overflow-y:auto;color:var(--muted);display:none}
+  .preview-box.show{display:block}
+  .preview-line{font-family:var(--mono);font-size:.78rem;padding:.05rem 0}
+  .preview-line.diff-add{color:var(--good)} .preview-line.diff-del{color:var(--bad)} .preview-line.diff-ctx{color:var(--muted)}
+</style>
+</head>
+<body>
+
+<h1>D-08 — rollback points</h1>
+<div class="sub">ZFS snapshots · MS041 commit receipts · rollback preview (dry-run) · rollback apply (signed) — <span class="kbd">Cmd-9</span> · <a href="../master-dashboard/">D-00 main</a></div>
+
+<h2>summary</h2>
+<div class="row">
+  <div class="stat"><div class="k">ZFS snapshots</div><div class="v" id="s-snapshots">0</div><div class="u">across all datasets</div></div>
+  <div class="stat"><div class="k">MS041 commits (24h)</div><div class="v" id="s-commits">0</div><div class="u">durable changes</div></div>
+  <div class="stat"><div class="k">disk used (snapshots)</div><div class="v" id="s-disk">0</div><div class="u">GiB</div></div>
+  <div class="stat"><div class="k">oldest snapshot</div><div class="v ok" id="s-oldest" style="font-size:1rem">—</div><div class="u">age</div></div>
+  <div class="stat"><div class="k">last rollback</div><div class="v warn" id="s-last-rollback" style="font-size:1rem">never</div><div class="u">M047 R09xxx</div></div>
+</div>
+
+<h2>ZFS snapshot inventory (M068)</h2>
+<div class="panel">
+  <div class="filters" aria-label="dataset filter" id="dataset-filters">
+    <div class="filter on" data-ds="rpool/sovereign-os">rpool/sovereign-os</div>
+    <div class="filter on" data-ds="rpool/selfdef">rpool/selfdef</div>
+    <div class="filter on" data-ds="rpool/memory">rpool/memory</div>
+    <div class="filter on" data-ds="rpool/adapters">rpool/adapters</div>
+    <div class="filter on" data-ds="rpool/audit">rpool/audit</div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>snapshot</th>
+        <th>dataset</th>
+        <th>taken</th>
+        <th>kind</th>
+        <th class="num">used</th>
+        <th class="num">refer</th>
+        <th>tag</th>
+        <th>actions</th>
+      </tr>
+    </thead>
+    <tbody id="snapshots-tbody"></tbody>
+  </table>
+</div>
+
+<h2>commit history × snapshot timeline (last 24h)</h2>
+<div class="panel">
+  <div class="muted" style="font-size:.75rem;margin-bottom:.4rem">snapshot = ZFS auto-snapshot before MS041 commit; commit = MS041 durable change with signed receipt; rollback = past rollback-apply</div>
+  <div class="timeline" id="timeline"></div>
+</div>
+
+<h2>rollback preview (dry-run, R10099)</h2>
+<div class="panel">
+  <div style="font-size:.78rem;margin-bottom:.5rem">target: <code id="preview-target">—</code> · <span class="muted">preview computes ZFS receive plan + reverts MS041 commits between HEAD and snapshot. NO side effects.</span></div>
+  <div class="preview-box" id="preview-box"></div>
+  <div style="margin-top:.5rem">
+    <button class="warn" onclick="copyApply()">copy: rollback-apply (R10100, MS003-signature gated)</button>
+    <span class="muted" style="margin-left:.5rem;font-size:.74rem">↑ destructive · operator-signed CLI required</span>
+  </div>
+</div>
+
+<h2>actions <span class="muted" style="font-size:.75rem;font-weight:400">— web emits CLI only; daemon executes after MS003 signature (MS043 R10212)</span></h2>
+<div class="row">
+  <button onclick="emit('sovereignctl snapshot list --all')">copy: list all snapshots</button>
+  <button onclick="emit('sovereignctl snapshot create --dataset rpool/sovereign-os --tag manual-' + new Date().toISOString().slice(0,10))">copy: create manual snapshot</button>
+  <button onclick="emit('sovereignctl rollback preview --to <snapshot>')">copy: rollback preview</button>
+  <button class="danger" onclick="emit('sovereignctl rollback apply --to <snapshot> --confirm')">copy: rollback apply (destructive)</button>
+  <button onclick="emit('sovereignctl snapshot prune --retain-days 14')">copy: prune (retain 14d)</button>
+  <button onclick="emit('sovereignctl commit log --signed-only --since 24h')">copy: signed commit log</button>
+</div>
+
+<div class="footer">
+  D-08 · <a href="../d-00-master/">D-00 main</a> · <a href="../d-07-memory-changes/">D-07 memory</a> · <a href="../d-09-hardware-pressure/">D-09 hardware</a><br>
+  source: M060 R10097-R10101 D-08 spec · M068 ZFS storage architecture · M047 continuity CRIU+ZFS warm sandboxes · MS041 commit authority + receipt chain · MS003 signature verification
+</div>
+
+<div class="toast" id="toast">copied</div>
+
+<script>
+  // -------- mock seed data (publisher API at /api/d-08/snapshot when wired) -----
+  // No mutations from this surface — see MS043 R10212.
+  const seed = {
+    snapshotTotal: 142,
+    commits24h: 17,
+    diskGib: 38.4,
+    oldestAge: "23d 4h",
+    lastRollback: "12d ago",
+    snapshots: [
+      { id: "rpool/sovereign-os@pre-M080-2026-05-19T03:12", dataset: "rpool/sovereign-os", taken: "2026-05-19T03:12Z", kind: "pre-commit", used: "412 MiB", refer: "8.2 GiB", tag: "MS041 c6147b5" },
+      { id: "rpool/sovereign-os@pre-M079-2026-05-19T02:48", dataset: "rpool/sovereign-os", taken: "2026-05-19T02:48Z", kind: "pre-commit", used: "186 MiB", refer: "8.1 GiB", tag: "MS041 4aeed37" },
+      { id: "rpool/selfdef@pre-MS007#4-2026-05-19T03:30", dataset: "rpool/selfdef", taken: "2026-05-19T03:30Z", kind: "pre-commit", used: "12 MiB", refer: "1.4 GiB", tag: "MS041 bfd7405" },
+      { id: "rpool/memory@daily-2026-05-19T00:00", dataset: "rpool/memory", taken: "2026-05-19T00:00Z", kind: "daily", used: "78 MiB", refer: "3.6 GiB", tag: "auto" },
+      { id: "rpool/adapters@pre-promote-lora-NVFP4-2026-05-18", dataset: "rpool/adapters", taken: "2026-05-18T22:14Z", kind: "pre-commit", used: "1.2 GiB", refer: "14.7 GiB", tag: "MS041 trip-gate" },
+      { id: "rpool/audit@daily-2026-05-19T00:00", dataset: "rpool/audit", taken: "2026-05-19T00:00Z", kind: "daily", used: "4 MiB", refer: "190 MiB", tag: "auto" },
+      { id: "rpool/sovereign-os@manual-pre-cockpit-2026-05-18", dataset: "rpool/sovereign-os", taken: "2026-05-18T19:00Z", kind: "manual", used: "640 MiB", refer: "7.9 GiB", tag: "operator" }
+    ],
+    timeline: [
+      { ts: "03:30", type: "snapshot", text: "rpool/selfdef@pre-MS007#4 — auto before MS041 commit bfd7405" },
+      { ts: "03:30", type: "commit", text: "MS041 bfd7405 — selfdef-sandbox-mirror 4 of 9 (4 files, +480 lines)" },
+      { ts: "03:12", type: "snapshot", text: "rpool/sovereign-os@pre-M080 — auto before MS041 commit c6147b5" },
+      { ts: "03:12", type: "commit", text: "MS041 c6147b5 — webapp/d-07-memory-changes (2 files, +291 lines)" },
+      { ts: "02:55", type: "snapshot", text: "rpool/selfdef@pre-MS007#3 — auto before MS041 commit a2d7c11" },
+      { ts: "02:55", type: "commit", text: "MS041 a2d7c11 — selfdef-capability-mirror 3 of 9 (4 files, +477 lines)" },
+      { ts: "02:48", type: "snapshot", text: "rpool/sovereign-os@pre-M079 — auto before MS041 commit 4aeed37" },
+      { ts: "02:48", type: "commit", text: "MS041 4aeed37 — webapp/d-03-model-health (2 files, +320 lines)" }
+    ]
+  };
+  let currentPreview = null;
+
+  document.getElementById('s-snapshots').textContent = seed.snapshotTotal;
+  document.getElementById('s-commits').textContent = seed.commits24h;
+  document.getElementById('s-disk').textContent = seed.diskGib.toFixed(1);
+  document.getElementById('s-oldest').textContent = seed.oldestAge;
+  document.getElementById('s-last-rollback').textContent = seed.lastRollback;
+
+  function renderSnapshots() {
+    const activeDs = new Set([...document.querySelectorAll('#dataset-filters .filter.on')].map(f => f.dataset.ds));
+    const tb = document.getElementById('snapshots-tbody');
+    tb.innerHTML = '';
+    for (const s of seed.snapshots) {
+      if (!activeDs.has(s.dataset)) continue;
+      const kindPill = s.kind === 'pre-commit' ? 'accent' : (s.kind === 'manual' ? 'warn' : 'muted');
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><code>${s.id}</code></td>
+        <td>${s.dataset}</td>
+        <td class="muted">${s.taken}</td>
+        <td><span class="pill ${kindPill}">${s.kind}</span></td>
+        <td class="num">${s.used}</td>
+        <td class="num muted">${s.refer}</td>
+        <td><code>${s.tag}</code></td>
+        <td>
+          <button onclick="preview('${s.id}')">preview</button>
+          <button onclick="emit('sovereignctl snapshot diff --from ${s.id} --to HEAD')">diff</button>
+        </td>
+      `;
+      tb.appendChild(tr);
+    }
+  }
+  renderSnapshots();
+
+  document.querySelectorAll('#dataset-filters .filter').forEach(f => {
+    f.addEventListener('click', () => { f.classList.toggle('on'); renderSnapshots(); });
+  });
+
+  // timeline render
+  const tl = document.getElementById('timeline');
+  for (const e of seed.timeline) {
+    const row = document.createElement('div');
+    row.className = 'tl-row ' + e.type;
+    const pillClass = e.type === 'snapshot' ? 'accent' : (e.type === 'commit' ? 'ok' : 'warn');
+    row.innerHTML = `
+      <span class="ts">${e.ts}</span>
+      <span class="type"><span class="pill ${pillClass}">${e.type}</span></span>
+      <span class="body">${e.text}</span>
+    `;
+    tl.appendChild(row);
+  }
+
+  // rollback preview — dry-run R10099 (no side effects)
+  function preview(snapId) {
+    currentPreview = snapId;
+    document.getElementById('preview-target').textContent = snapId;
+    const box = document.getElementById('preview-box');
+    box.classList.add('show');
+    // mock dry-run output — in production this comes from /api/d-08/preview?to=<id>
+    box.innerHTML = '';
+    const lines = [
+      { c: 'diff-ctx', t: '== rollback-preview --to ' + snapId + ' (DRY-RUN, no mutations applied) ==' },
+      { c: 'diff-ctx', t: '' },
+      { c: 'diff-ctx', t: 'ZFS receive plan:' },
+      { c: 'diff-del', t: '  - revert dataset state to ' + snapId.split('@')[0] },
+      { c: 'diff-add', t: '  + zfs rollback -r ' + snapId },
+      { c: 'diff-ctx', t: '' },
+      { c: 'diff-ctx', t: 'MS041 commits between HEAD and snapshot (would be reverted):' },
+      { c: 'diff-del', t: '  bfd7405 crates/selfdef-sandbox-mirror: ship MS007 mirror crate #4' },
+      { c: 'diff-del', t: '  c6147b5 webapp/d-07-memory-changes: ship M060 D-07' },
+      { c: 'diff-del', t: '  a2d7c11 crates/selfdef-capability-mirror: ship MS007 mirror crate #3' },
+      { c: 'diff-ctx', t: '' },
+      { c: 'diff-ctx', t: 'Side effects (committed but reverted on apply):' },
+      { c: 'diff-del', t: '  - 9 files removed' },
+      { c: 'diff-del', t: '  - 1,288 lines removed' },
+      { c: 'diff-add', t: '  + 1,288 lines restored from snapshot' },
+      { c: 'diff-ctx', t: '' },
+      { c: 'diff-ctx', t: 'Apply requires: --confirm + MS003 operator signature' }
+    ];
+    for (const ln of lines) {
+      const div = document.createElement('div');
+      div.className = 'preview-line ' + ln.c;
+      div.textContent = ln.t;
+      box.appendChild(div);
+    }
+  }
+
+  function copyApply() {
+    if (!currentPreview) {
+      showToast('preview a snapshot first');
+      return;
+    }
+    emit(`sovereignctl rollback apply --to ${currentPreview} --confirm`);
+  }
+
+  // copy-to-clipboard helper (web NEVER mutates; emits CLI string only)
+  function emit(cmd) {
+    navigator.clipboard.writeText(cmd).then(() => showToast('copied: ' + cmd.slice(0, 60) + (cmd.length > 60 ? '…' : '')));
+  }
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(showToast._h);
+    showToast._h = setTimeout(() => t.classList.remove('show'), 1800);
+  }
+
+  // Cmd-9 / Ctrl-9 keyboard shortcut per R10101
+  window.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key === '9') { e.preventDefault(); window.location.href = './'; }
+    if ((e.metaKey || e.ctrlKey) && e.key === '0') { e.preventDefault(); window.location.href = '../master-dashboard/'; }
+  });
+</script>
+
+</body>
+</html>
