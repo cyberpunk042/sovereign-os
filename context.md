@@ -281,10 +281,12 @@ This file is **operator-state-of-the-art**. Updates:
 - `9d1a0c5` — `sovereign-hardware-load-sample`: 5-target VRAM/util/temp snapshot
 - `0a7547f` — `sovereign-hardware-registry`: 5-target hardware catalog with SRP role
 
-Sovereign-os workspace at 62 crates (was 32 pre-session, +30 fresh this session).
+Sovereign-os workspace at 65 crates (was 32 pre-session, +33 fresh this session).
 Final-leg crates beyond the rolled-up batch:
 `sovereign-routing-decision-log`, `sovereign-dashboard-snapshot`,
-`sovereign-routing-preference`.
+`sovereign-routing-preference`, `sovereign-replay-export-bundle` (thread+cursor+bookmarks),
+`sovereign-prompt-history-ring` (operator prompt recall),
+`sovereign-cockpit-tab-strip` (operator-managed tabs).
 Additional crates beyond the first batch:
 `sovereign-workspace-folder-registry` (operator-declared roots with overlap detection),
 `sovereign-provider-catalog` (6-provider inference catalog with bundle gates),
