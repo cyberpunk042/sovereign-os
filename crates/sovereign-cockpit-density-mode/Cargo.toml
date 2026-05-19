@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-density-mode"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit UI density preference — operator picks Compact / Comfortable / Spacious / Touch density, the cockpit renders rows/widgets/typography at the picked spacing. Pure visual UX with no IPS authority dimension."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
