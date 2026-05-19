@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-cpu-meter"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit CPU/load meter. Bounded ring of per-sample load values; emits Series for sparkline + current value + smoothed average. Color tier based on smoothed % (Green/Yellow/Red). Pure UX descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
