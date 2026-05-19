@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-progress-bar"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit progress-bar widget state. Determinate (0..=100) or Indeterminate, optional buffered (e.g., download head ahead of playback head), color thresholds for warn/critical zones. Pure UX descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
