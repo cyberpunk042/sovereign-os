@@ -379,6 +379,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-dashboard-snapshot"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-cockpit-banner-state",
+ "sovereign-cockpit-context-panel",
+ "sovereign-cockpit-toast-tray",
+ "sovereign-execution-mode-registry",
+ "sovereign-hardware-thermal-policy",
+ "sovereign-profile-bundles",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-dashboard-toggle"
 version = "0.1.0"
 dependencies = [
