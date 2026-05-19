@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-grouped-list"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit grouped-list (section list) state. Items are grouped by stable group_key with per-group `collapsed` flag. flat_render() emits an interleaved Vec<Row> (GroupHeader | Item) suitable for virtualized rendering, skipping items of collapsed groups. Pure UX descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []

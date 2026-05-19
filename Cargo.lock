@@ -495,6 +495,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-grouped-list"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-image-viewer-zoom"
 version = "0.1.0"
 dependencies = [
