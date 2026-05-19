@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-rating-stars"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit rating-stars widget state. N-star scale (3/5/7/10) with optional half-star granularity and `allow_clear` (click the active star to clear). Pure UX descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
