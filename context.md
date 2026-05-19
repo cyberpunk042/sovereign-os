@@ -563,3 +563,22 @@ Workspace count now 151. Total this resume: 41 cockpit crates.
   with overscan + total cap)
 
 Workspace count now 153. Total this resume: 43 cockpit crates.
+
+### Twelfth wave (same day, +7 more cockpit crates)
+
+- `sovereign-cockpit-keyboard-pillbox` (chord parser → OS-aware
+  pill tokens; Mac ⌃⌥⇧⌘, Linux Super, Windows Win)
+- `sovereign-cockpit-pagination-status` ('Showing A-B of N (filtered
+  from M)' with comma-grouped numbers)
+- `sovereign-cockpit-search-input` (debounced + last_submitted +
+  show_clear; Enter bypasses debounce)
+- `sovereign-cockpit-row-density` (Compact/Cozy/Comfortable/
+  Spacious → row_height_px + line_count + show_secondary)
+- `sovereign-cockpit-online-status` (4 Status state machine with
+  reconnect/offline timeouts driven by tick(now))
+- `sovereign-cockpit-stale-banner` (Fresh/SlightlyStale/Stale/
+  VeryStale buckets with compact age_text s/m/h/d)
+- `sovereign-cockpit-skeleton-list` (Loading/Loaded/Failed; rows()
+  yields SkeletonRow{index, width_pct} deterministic per seed)
+
+Workspace count now 160. Total this resume: 50 cockpit crates.
