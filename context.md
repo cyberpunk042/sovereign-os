@@ -606,3 +606,14 @@ Workspace count now 164. Total this resume: 54 cockpit crates.
   with flicker-suppression for young spinners)
 
 Workspace count now 167. Total this resume: 57 cockpit crates.
+
+### Fifteenth wave (same day, +3 more cockpit crates)
+
+- `sovereign-cockpit-tag-cloud` (weighted projection mapping weight
+  to font_size_pct linearly; all-equal weights → midpoint)
+- `sovereign-cockpit-vim-mode-indicator` (5 VimMode + command_buffer
+  + operator_count; display() renders status line)
+- `sovereign-cockpit-rich-text-toolbar` (5 InlineMark BTreeSet + 7
+  BlockKind; toggle_mark + set_block; CodeBlock clears marks)
+
+Workspace count now 170. Total this resume: 60 cockpit crates.
