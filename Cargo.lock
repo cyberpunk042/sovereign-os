@@ -242,6 +242,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-continuity-manager"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-dashboard-coverage"
 version = "0.1.0"
 dependencies = [

@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-continuity-manager"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M048 Module 8 Continuity Manager — sleeper module per E0464 + M00810 dump 14706-14720. 6 primitives (ZFS snapshots / Podman-CRIU checkpoints / workflow hibernation / context compaction / model server warm pools / session resume) + 8 continuity states (active/paused/hibernated/checkpointed/archived/quarantined/promoted/rolled-back)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
