@@ -582,3 +582,16 @@ Workspace count now 153. Total this resume: 43 cockpit crates.
   yields SkeletonRow{index, width_pct} deterministic per seed)
 
 Workspace count now 160. Total this resume: 50 cockpit crates.
+
+### Thirteenth wave (same day, +4 more cockpit crates)
+
+- `sovereign-cockpit-quick-action` (one-tap action registry with
+  use-count + ordered_for_display by descending use count)
+- `sovereign-cockpit-fab` (floating-action-button + 4-corner + speed-
+  dial + scroll-down auto-hide that collapses speed-dial)
+- `sovereign-cockpit-segmented-control` (2-6 mutually-exclusive
+  segments with arrow-key wrap that skips disabled)
+- `sovereign-cockpit-field-help` (per-field help_text + error_text
+  + dismissed; Error overrides Help; set_error undismisses)
+
+Workspace count now 164. Total this resume: 54 cockpit crates.
