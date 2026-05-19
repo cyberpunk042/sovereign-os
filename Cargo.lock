@@ -285,6 +285,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-context-menu"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-context-panel"
 version = "0.1.0"
 dependencies = [

@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-context-menu"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit right-click context menu — per-target-kind menu definitions with items, separators, and submenus. Pure UX state."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
