@@ -436,3 +436,21 @@ Companion selfdef IPS-authority crates landed in lockstep:
 `emergency-stop-policy`, `quorum-approval-policy`, `clipboard-egress-policy`,
 `time-window-policy`, `prompt-injection-classifier`, `blast-radius-classifier`,
 `secret-redaction-policy`, `token-lifetime-policy`.
+
+### Second wave (same day, +5 more cockpit crates)
+
+- `sovereign-cockpit-tree-view` (hierarchical nodes with expand/
+  collapse + single-selection cursor; visible_rows() DFS flatten
+  for virtualized rendering; cycle detection on construction)
+- `sovereign-cockpit-resize-handle` (horizontal/vertical split with
+  current_px clamped to [min, max]; drag(delta) clamps; reset
+  restores default_px; drag lifecycle for cursor)
+- `sovereign-cockpit-radio-group` (mutually-exclusive selection +
+  arrow-key wrap that skips disabled; required flag for form-gates)
+- `sovereign-cockpit-checkbox-tree` (tri-state Checked/Unchecked/
+  Indeterminate; parent state derived from children, toggle
+  propagates target state to all leaf descendants)
+- `sovereign-cockpit-scroll-restore` (bounded LRU mapping route ->
+  (x,y) with touch-on-read MRU promotion; eviction at capacity)
+
+Workspace count now 123. Total this resume cycle: 13 cockpit crates.
