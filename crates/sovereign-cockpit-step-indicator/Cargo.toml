@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-step-indicator"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit visual step-indicator (numbered bullets connected by a progress line). Pure visual projection of a Stepper-like sequence: emits per-step Visual{number, label, state, connector_filled}. Distinct from sovereign-cockpit-stepper which manages STATE; this one RENDERS."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
