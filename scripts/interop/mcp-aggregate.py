@@ -673,6 +673,20 @@ LOCAL_TOOLS = [
         "categories": ["surface-map", "operator-§1g", "milestone",
                        "coverage", "ceiling"],
     },
+    # ---- R545: surface-map gaps (parameterless default threshold).
+    # Returns the §1g coverage gap roster — modules below the default
+    # surface-count threshold (3). Post-R539 the steady state is
+    # count=0; the tool's value is REGRESSION DETECTION (any drift
+    # immediately shows up as a non-empty below_threshold list).
+    # Runtime-argument variants (`gaps --threshold N --module <m>`)
+    # stay CLI-only per R286 / R532 ceiling rule.
+    {
+        "name": "surface-map-gaps",
+        "summary": "R453 §1g delivery-gap roster — modules below the default surface-count threshold (3 of 8). Post-R539 steady state: count=0 (ALL modules at structural ceiling). Operator-§1g UX: in one MCP call agents detect §1g delivery REGRESSION (any non-empty below_threshold list signals drift from the R539 historic ceiling-closure). Read-only. Runtime-argument variants (`--threshold N --module <m>`) stay CLI-only per R286 / R532 ceiling rule.",
+        "argv": ["sovereign-osctl", "surface-map", "gaps", "--json"],
+        "categories": ["surface-map", "operator-§1g", "gaps",
+                       "coverage", "regression-detection"],
+    },
     # ---- R544: surface-map selfdef — R462 cross-repo SurfaceManifest
     # discovery over MCP. Surfaces the manifests written by sibling
     # ecosystem repos (selfdef / info-hub / etc.) under /etc/selfdef/

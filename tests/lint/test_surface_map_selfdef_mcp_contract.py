@@ -159,10 +159,16 @@ def test_mcp_aggregator_has_no_duplicate_tool_names_post_r544():
 
 def test_surface_map_mcp_tool_family_complete_post_r544():
     """The surface-map MCP family covers exactly the parameterless
-    inspection verbs: surfaces / modules / coverage / milestone /
-    selfdef. Verbs that take runtime args (waivers --module <m>,
-    gaps --threshold N, coverage --module <m>) stay CLI-only per
-    the R286 / R532 ceiling-promotion rule."""
+    inspection verbs post-R545:
+      - surfaces      (R453 catalog)
+      - modules       (per-module surface count)
+      - coverage      (module × surface matrix)
+      - milestone     (R540 system-wide rollup)
+      - selfdef       (R462 cross-repo manifest discovery)
+      - gaps          (default-threshold rollup, regression detector)
+    Verbs that take per-call runtime args (waivers --module <m>,
+    coverage --module <m>, gaps --threshold N --module <m>) stay
+    CLI-only per the R286 / R532 ceiling-promotion rule."""
     mod = _load_mcp_aggregate()
     family = {
         t["name"] for t in mod.LOCAL_TOOLS
@@ -174,11 +180,12 @@ def test_surface_map_mcp_tool_family_complete_post_r544():
         "surface-map-coverage",
         "surface-map-milestone",
         "surface-map-selfdef",
+        "surface-map-gaps",
     }
     missing = expected - family
     extra = family - expected
-    assert not missing, f"R544: missing surface-map MCP tools: {missing}"
+    assert not missing, f"R544/R545: missing surface-map MCP tools: {missing}"
     assert not extra, (
-        f"R544: unexpected surface-map MCP tools (any that takes "
+        f"R544/R545: unexpected surface-map MCP tools (any that takes "
         f"runtime args must stay CLI-only per R286): {extra}"
     )

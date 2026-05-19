@@ -145,18 +145,19 @@ def test_mcp_surface_map_runtime_arg_verbs_not_exposed():
 
     R544 ceiling-promotion: `selfdef` is parameterless at the argv
     level (it consults SOVEREIGN_OS_SELFDEF_SURFACE_DIR — a deployment-
-    time env constant, NOT a per-call argument). Same shape as
-    `surface-map milestone --json` (R541): the tool returns the
-    operator's deployment view, agents can't and shouldn't override
-    the discovery dir per-call. Promoted out of this prohibition list."""
+    time env constant, NOT a per-call argument).
+    R545 ceiling-promotion: `gaps` with default threshold is also
+    parameterless and operator-meaningful (regression-detection).
+    Both return the operator's deployment view; agents can't and
+    shouldn't pass per-call overrides via MCP."""
     tools = _tools_by_name(_manifest())
     for name in (
-        "surface-map-gaps",
         "surface-map-waivers",
     ):
         assert name not in tools, (
             f"{name!r} must NOT be exposed via MCP — runtime-"
-            f"argument-shaped, incompatible with LOCAL_TOOLS fixed-"
+            f"argument-shaped (per-module rationale dump requires "
+            f"--module <m>), incompatible with LOCAL_TOOLS fixed-"
             f"argv contract"
         )
     # R544 positive promotion: selfdef IS now exposed via MCP.
@@ -164,6 +165,13 @@ def test_mcp_surface_map_runtime_arg_verbs_not_exposed():
         "R544: surface-map-selfdef must be exposed via MCP (parameter-"
         "less argv; env-var driven discovery is deployment-time config "
         "NOT per-call argument — operator §17 read-only discovery)"
+    )
+    # R545 positive promotion: gaps default-threshold rollup IS now
+    # exposed via MCP (regression-detection use case).
+    assert "surface-map-gaps" in tools, (
+        "R545: surface-map-gaps must be exposed via MCP (parameter-"
+        "less argv; default threshold=3 returns the §1g delivery-gap "
+        "roster — post-R539 steady state count=0, regression detector)"
     )
 
 
