@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-conversation-thread"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Runtime conversation thread schema — operator/model/tool turn-by-turn record with token accounting, role tagging, branch ids, and provider provenance. The cockpit replays threads from disk; the daemon emits one record per turn into the M049 trace + the audit log."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
