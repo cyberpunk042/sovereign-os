@@ -1,0 +1,39 @@
+# CODEOWNERS — sovereign-os
+
+# Per docs/sdd/000-charter.md mission statement and operator's standing
+# direction, sovereign-os is operated by the cyberpunk042 ecosystem owner
+# acting as the sole Architect (per M065 Five Stage Gates: "manually
+# cleared by the Architect").
+
+# Default owner for everything in the repo.
+*       @cyberpunk042
+
+# Catalog backlog — operator-controlled (per M062 Macro-Arc 10-PR plan
+# and M063 SFIF discipline; modifications require operator-signed commit
+# per selfdef MS003 chain-of-trust).
+/backlog/       @cyberpunk042
+/docs/sdd/      @cyberpunk042
+/docs/decisions.md      @cyberpunk042
+/docs/handoff/  @cyberpunk042
+/docs/standing-directives/      @cyberpunk042
+
+# Profiles + schemas — schema-locked per M065 Stage Gate 3.
+/profiles/      @cyberpunk042
+/schemas/       @cyberpunk042
+
+# Whitelabel — legal posture confirmed per M065 Stage Gate 4.
+/whitelabel/    @cyberpunk042
+
+# Build infrastructure + CI workflows — Architect sign-off required.
+/.github/       @cyberpunk042
+/Makefile       @cyberpunk042
+/scripts/       @cyberpunk042
+
+# Tests — TDD harness per docs/sdd/008-test-harness.md.
+/tests/ @cyberpunk042
+
+# Systemd units — runtime layer; operator-signed changes only.
+/systemd/       @cyberpunk042
+
+# Webapp — cockpit + 21 dashboards per M060.
+/webapp/        @cyberpunk042
