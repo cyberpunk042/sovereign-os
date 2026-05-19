@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-zoom-level"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit zoom level — discrete operator zoom (75% / 100% / 125% / 150% / 200%). Pure visual UX with no IPS authority dimension; the cockpit multiplies typography + widget sizes by the zoom factor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
