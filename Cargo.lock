@@ -349,6 +349,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-turn-annotation"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-conversation-thread",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-undo-stack"
 version = "0.1.0"
 dependencies = [
