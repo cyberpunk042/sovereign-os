@@ -520,3 +520,14 @@ Workspace count now 140. Total this resume: 30 cockpit crates.
   with Single click cycle + Multi click toggle)
 
 Workspace count now 143. Total this resume: 33 cockpit crates.
+
+### Eighth wave (same day, +3 more cockpit crates)
+
+- `sovereign-cockpit-cell-editor` (single active Coord + buffer +
+  dirty + validation_error; commit/cancel return Outcome)
+- `sovereign-cockpit-grouped-list` (Groups with collapsed flag +
+  Items by group_key; flat_render emits GroupHeader+Item rows)
+- `sovereign-cockpit-filter-chip-bar` (active filter chips with
+  per-chip removable; clear_all_removable preserves pinned)
+
+Workspace count now 146. Total this resume: 36 cockpit crates.
