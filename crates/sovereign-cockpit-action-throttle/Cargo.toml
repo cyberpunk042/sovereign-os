@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-action-throttle"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit per-action throttle — minimum spacing (milliseconds) between repeats of operator-issued actions (mode switch / tool invocation / replay step). Token-bucket-equivalent that refuses an action if the previous one fired too recently."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
