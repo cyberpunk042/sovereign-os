@@ -1,0 +1,24 @@
+[package]
+name = "sovereign-tool-invocation-record"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Runtime per-invocation record for sovereign-tool-catalog tools — each cockpit-issued tool call emits one immutable record (tool, mode, bundle, started_at, completed_at, exit_kind, bytes_out, trace_id). The replay engine reconstructs the cockpit session from this stream."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sovereign-tool-catalog = { path = "../sovereign-tool-catalog" }
+sovereign-execution-mode-registry = { path = "../sovereign-execution-mode-registry" }
+sovereign-profile-bundles = { path = "../sovereign-profile-bundles" }
+
+[features]
+default = []

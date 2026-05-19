@@ -580,6 +580,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-tool-invocation-record"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-execution-mode-registry",
+ "sovereign-profile-bundles",
+ "sovereign-tool-catalog",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-trinity"
 version = "0.1.0"
 dependencies = [
