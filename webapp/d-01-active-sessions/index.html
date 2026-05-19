@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os D-01 active sessions</title>
+<meta name="x-sovereign-module" content="d-01-active-sessions-webapp">
+<meta name="x-sovereign-shipped-in" content="R-impl-SDD040-phaseA-item3">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<meta name="x-sovereign-catalog-source" content="M060 R10059-R10062 + M057 12-step task lifecycle + M047 CRIU continuity + MS040 profile envelopes">
+<style>
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border)}
+  .pill.ok{background:#143d14;color:var(--good)}
+  .pill.bad{background:#3d1414;color:var(--bad)}
+  .pill.warn{background:#3d2f14;color:var(--warn)}
+  .pill.accent{background:#143d3d;color:var(--accent)}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+  .stat{flex:1 1 180px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
+  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .stat .v{font-size:1.05rem;font-weight:600;margin-top:.2rem}
+  .step-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:2px;margin:.4rem 0}
+  .step-cell{padding:.15rem .15rem;font-size:.65rem;text-align:center;border-radius:2px;background:var(--border);color:var(--muted)}
+  .step-cell.done{background:#143d14;color:var(--good)}
+  .step-cell.active{background:#143d3d;color:var(--accent);font-weight:600}
+  .step-cell.pending{background:var(--border);color:var(--muted)}
+  .session-row td{vertical-align:middle}
+  button{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.3rem .6rem;font-family:inherit;font-size:.78rem;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.hibernate{border-color:var(--warn);color:var(--warn)}
+  button.resume{border-color:var(--good);color:var(--good)}
+  button.kill{border-color:var(--bad);color:var(--bad)}
+  .kbd{display:inline-block;padding:1px 5px;border-radius:3px;font-size:.7rem;background:var(--border);color:var(--muted);border:1px solid var(--border)}
+  .footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--muted);font-size:.78rem}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+
+<h1>D-01 — active sessions</h1>
+<div class="sub">M057 12-step task lifecycle per session — <span class="kbd">Cmd-2</span> · <a href="../master-dashboard/">D-00 main</a></div>
+
+<h2>summary</h2>
+<div class="row">
+  <div class="stat"><div class="k">active</div><div class="v ok" id="active-count">—</div></div>
+  <div class="stat"><div class="k">hibernated</div><div class="v warn" id="hibernated-count">—</div></div>
+  <div class="stat"><div class="k">blocked</div><div class="v bad" id="blocked-count">—</div></div>
+  <div class="stat"><div class="k">total branches</div><div class="v" id="branch-count">—</div></div>
+</div>
+
+<h2>M057 12-step lifecycle reference</h2>
+<div class="panel">
+  <div class="step-grid">
+    <div class="step-cell" title="Intake">1·Intake</div>
+    <div class="step-cell" title="Normalize">2·Norm</div>
+    <div class="step-cell" title="Profile Resolve">3·Profile</div>
+    <div class="step-cell" title="Map">4·Map</div>
+    <div class="step-cell" title="Plan-Compile">5·Plan</div>
+    <div class="step-cell" title="Route">6·Route</div>
+    <div class="step-cell" title="Execute">7·Exec</div>
+    <div class="step-cell" title="Observe">8·Obs</div>
+    <div class="step-cell" title="Evaluate">9·Eval</div>
+    <div class="step-cell" title="Commit-Rollback">10·Commit</div>
+    <div class="step-cell" title="Learn">11·Learn</div>
+    <div class="step-cell" title="Resume-Archive">12·Archive</div>
+  </div>
+  <div class="muted" style="font-size:.78rem;margin-top:.3rem">M057 12-step lifecycle (sovereign-os M057). Critical Data Flow Law: "Text is not the system state. Text is payload inside typed state." (M057 verbatim)</div>
+</div>
+
+<h2>sessions</h2>
+<div class="panel">
+  <table>
+    <thead>
+      <tr><th>id</th><th>kind</th><th>profile</th><th>step</th><th>SRP agent</th><th>started</th><th>ETA</th><th>branches</th><th>actions</th></tr>
+    </thead>
+    <tbody id="sessions-tbody">
+      <tr><td colspan="9" class="muted">loading…</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h2>actions</h2>
+<div class="panel">
+  <div class="row">
+    <button id="refresh-btn">refresh now</button>
+    <button id="hibernate-all-btn">hibernate all (operator-signed)</button>
+    <span class="muted" style="font-size:.78rem">hibernate composes with M047 CRIU + ZFS warm-sandbox continuity</span>
+  </div>
+</div>
+
+<div class="footer">
+  D-01 active sessions · M060 R10059-R10062 · M057 12-step task lifecycle · M047 CRIU + ZFS continuity · M075 SRP topology · MS040 profile envelopes
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const STEPS = ['Intake','Normalize','Profile','Map','Plan','Route','Execute','Observe','Evaluate','Commit','Learn','Archive'];
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+
+function renderStepBar(step) {
+  // step is 1-12; render a compact 12-cell progress
+  const cells = [];
+  for (let i = 1; i <= 12; i++) {
+    const cls = i < step ? 'done' : i === step ? 'active' : 'pending';
+    cells.push(`<div class="step-cell ${cls}" title="step ${i} ${STEPS[i-1]}">${i}</div>`);
+  }
+  return `<div class="step-grid" style="grid-template-columns:repeat(12,1fr)">${cells.join('')}</div>`;
+}
+
+function fmtAge(ts) {
+  const ms = Date.now() - new Date(ts).getTime();
+  const min = Math.floor(ms / 60000);
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  return `${Math.floor(hr/24)}d ago`;
+}
+
+function fmtEta(eta) {
+  if (!eta) return '<span class="muted">—</span>';
+  if (typeof eta === 'string') return escapeHtml(eta);
+  const min = Math.floor(eta / 60);
+  if (min < 60) return `${min}m`;
+  return `${Math.floor(min/60)}h ${min%60}m`;
+}
+
+function statusClass(state) {
+  return {active: 'ok', hibernated: 'warn', blocked: 'bad', queued: 'muted', complete: 'ok'}[state] || 'muted';
+}
+
+function renderSessions(sessions) {
+  const tbody = $('sessions-tbody');
+  if (!sessions.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="muted">no active sessions — next-action: invoke <code>sovereign run &lt;task&gt;</code> to start a session (M060 R10054 CLI quick-action)</td></tr>';
+    return;
+  }
+  tbody.innerHTML = sessions.map(s => `
+    <tr class="session-row" data-id="${escapeHtml(s.id)}">
+      <td><code>${escapeHtml(s.id.slice(0, 12))}</code></td>
+      <td>${escapeHtml(s.kind)}</td>
+      <td><span class="pill accent">${escapeHtml(s.profile)}</span></td>
+      <td>
+        <div style="display:flex;gap:.4rem;align-items:center">
+          <span class="pill ${statusClass(s.state)}">${escapeHtml(s.state)}</span>
+          <span class="muted">${s.step}/12 ${STEPS[s.step-1] || '?'}</span>
+        </div>
+        ${renderStepBar(s.step)}
+      </td>
+      <td><span class="muted">${escapeHtml(s.srp_agent || 'Conductor')}</span></td>
+      <td class="muted">${fmtAge(s.started_at)}</td>
+      <td>${fmtEta(s.eta_seconds)}</td>
+      <td>${s.branch_count || 0}</td>
+      <td>
+        ${s.state === 'active' ? `<button class="hibernate" data-action="hibernate" data-id="${escapeHtml(s.id)}">hibernate</button>` : ''}
+        ${s.state === 'hibernated' ? `<button class="resume" data-action="resume" data-id="${escapeHtml(s.id)}">resume</button>` : ''}
+        <button class="kill" data-action="kill" data-id="${escapeHtml(s.id)}">kill</button>
+      </td>
+    </tr>
+  `).join('');
+  tbody.querySelectorAll('button[data-action]').forEach(btn => {
+    btn.addEventListener('click', () => handleAction(btn.dataset.action, btn.dataset.id));
+  });
+}
+
+async function handleAction(action, id) {
+  // Web surface never mutates directly; copy CLI command per MS043 R10212
+  const cmd = {
+    hibernate: `sovereign hibernate ${id}`,
+    resume: `sovereign resume ${id}`,
+    kill: `sovereign kill ${id}`,
+  }[action];
+  try {
+    await navigator.clipboard.writeText(cmd);
+    alert(`Command copied:\n\n  ${cmd}\n\nRun with operator MS003 key loaded.\nMS047 CRIU + ZFS continuity engages on hibernate/resume.`);
+  } catch (e) {
+    prompt(`Copy + run this command:`, cmd);
+  }
+}
+
+async function fetchSessions() {
+  try {
+    const res = await fetch('/api/sessions/active', { credentials: 'same-origin' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (e) {
+    return {sessions: [], summary: {active: 0, hibernated: 0, blocked: 0, branches: 0}, error: e.message};
+  }
+}
+
+async function refresh() {
+  const state = await fetchSessions();
+  $('active-count').textContent = state.summary.active;
+  $('hibernated-count').textContent = state.summary.hibernated;
+  $('blocked-count').textContent = state.summary.blocked;
+  $('branch-count').textContent = state.summary.branches;
+  renderSessions(state.sessions || []);
+}
+
+$('refresh-btn').addEventListener('click', refresh);
+$('hibernate-all-btn').addEventListener('click', async () => {
+  const cmd = 'sovereign hibernate --all --rationale "<operator-rationale>"';
+  try { await navigator.clipboard.writeText(cmd); alert(`Command copied:\n\n  ${cmd}\n\nRequires MS003 operator signature.`); }
+  catch (e) { prompt('Copy + run:', cmd); }
+});
+
+document.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === '2') { e.preventDefault(); refresh(); }
+});
+
+// SSE auto-refresh per MS043 R10173
+try {
+  const es = new EventSource('/api/sessions/stream');
+  es.addEventListener('session-step-advance', refresh);
+  es.addEventListener('session-state-change', refresh);
+  es.addEventListener('error', () => setInterval(refresh, 5000));
+} catch (e) { setInterval(refresh, 5000); }
+
+refresh();
+</script>
+
+</body>
+</html>
