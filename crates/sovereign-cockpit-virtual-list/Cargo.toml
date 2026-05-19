@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-virtual-list"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit virtual list state — for long lists (audit log, trace stream, conversation history), tracks (total_items, first_visible_index, viewport_height_px, row_height_px) so the cockpit renders only visible rows. Pure UX paging state."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
