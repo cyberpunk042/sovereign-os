@@ -1,0 +1,25 @@
+[package]
+name = "sovereign-cockpit-banner-state"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit banner state — the always-visible top bar carrying (active ExecutionMode, active BundleName, hottest HardwareTarget thermal verdict, open alert count). The cockpit renders this on every page; the daemon updates it on every state change. Single source of truth for the operator's quick-glance signal."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sovereign-execution-mode-registry = { path = "../sovereign-execution-mode-registry" }
+sovereign-profile-bundles = { path = "../sovereign-profile-bundles" }
+sovereign-hardware-registry = { path = "../sovereign-hardware-registry" }
+sovereign-hardware-thermal-policy = { path = "../sovereign-hardware-thermal-policy" }
+
+[features]
+default = []
