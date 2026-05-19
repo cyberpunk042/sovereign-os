@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-status-badge"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit status badge — small per-state UI chip the operator can pin to the top bar (Active / Inactive / Live-Recording / Replay-Active / DRY-RUN). Operator picks visibility per badge + label override. Pure UX surface."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
