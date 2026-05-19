@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-snapshot-toolbar"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit snapshot navigation toolbar (replay scrubber). Ordered snapshot list + current index + play/pause/step-forward/step-back/jump. Pure UX descriptor for the replay timeline UI."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
