@@ -169,6 +169,13 @@ Per SDD-040 Phase A → E ordering + selfdef Guardian/UX-harness implementations
 37. ~~sovereign-cockpit-state~~ ✓ (12 tests) — composite envelope of 6 sub-crates
 38. ~~sovereign-srp-scheduler~~ ✓ (15 tests) — M075 SRP work-placement
 39. ~~sovereign-lora-foundry~~ ✓ (11 tests) — M046 8-adapter + 7-step pipeline + 6-decision
+40. ~~sovereign-pressure-sensors~~ ✓ (14 tests) — M045 PSI-DCGM-runtime 6-axis pressure model
+41. ~~sovereign-eval-plane~~ ✓ (11 tests) — M048 Module 7 10-dim + 8-profile weighting
+42. ~~sovereign-continuity-manager~~ ✓ (11 tests) — M048 Module 8 6-primitive + 8-state lifecycle
+43. ~~sovereign-observability-fabric~~ ✓ (11 tests) — M048 Module 9 9-source + 6-question
+44. ~~sovereign-gateway~~ ✓ (12 tests) — M048 Module 4 6-surface + 7-responsibility Anthropic-first
+
+**sovereign-os Rust workspace: 26 crates total**
 
 ### Stage 2+ build scripts (per M062 PR 10 → Stage Gate 5 → Stage 2)
 
