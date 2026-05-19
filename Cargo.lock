@@ -218,6 +218,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-state"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-cockpit-personalization",
+ "sovereign-dashboard-coverage",
+ "sovereign-dashboard-toggle",
+ "sovereign-mirror-publisher",
+ "sovereign-module-catalog",
+ "sovereign-trinity",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cognitive-compiler"
 version = "0.1.0"
 dependencies = [

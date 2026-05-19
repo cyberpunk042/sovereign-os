@@ -1,0 +1,27 @@
+[package]
+name = "sovereign-cockpit-state"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Unified cockpit-side state envelope — composes sovereign-mirror-publisher + sovereign-dashboard-coverage + sovereign-dashboard-toggle + sovereign-cockpit-personalization + sovereign-trinity + sovereign-module-catalog into one re-loadable snapshot. Persisted to /var/lib/sovereign-os/cockpit-state.json. Counterpart to selfdef-state-snapshot on the IPS side."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sovereign-mirror-publisher = { path = "../sovereign-mirror-publisher" }
+sovereign-dashboard-coverage = { path = "../sovereign-dashboard-coverage" }
+sovereign-dashboard-toggle = { path = "../sovereign-dashboard-toggle" }
+sovereign-cockpit-personalization = { path = "../sovereign-cockpit-personalization" }
+sovereign-trinity = { path = "../sovereign-trinity" }
+sovereign-module-catalog = { path = "../sovereign-module-catalog" }
+
+[features]
+default = []
