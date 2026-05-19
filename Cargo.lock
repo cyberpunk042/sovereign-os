@@ -479,6 +479,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-quick-action-bar"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-quick-filter"
 version = "0.1.0"
 dependencies = [
