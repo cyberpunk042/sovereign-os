@@ -3066,3 +3066,13 @@ Workspace count now 467. Total this resume: 357 cockpit crates.
   Running=1 out of 2N)
 
 Workspace count now 468. Total this resume: 358 cockpit crates.
+
+### Two-hundred-and-ninety-first wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-day-divider` (classify(now_ms, item_ms)
+  returns Today/Yesterday/EarlierThisWeek/Older based on
+  epoch-day diff ts_ms / 86_400_000; group(now, items_ms)
+  coalesces newest-first items into contiguous (Bucket,
+  Vec<u64>) groups)
+
+Workspace count now 469. Total this resume: 359 cockpit crates.
