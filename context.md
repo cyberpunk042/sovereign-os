@@ -2358,3 +2358,12 @@ Workspace count now 388. Total this resume: 278 cockpit crates.
   install promotes current and clears)
 
 Workspace count now 389. Total this resume: 279 cockpit crates.
+
+### Two-hundred-and-twelfth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-search-history` (QueryEntry{query, pinned,
+  hits}; record promotes existing to front incrementing hits,
+  or prepends new; capacity drops oldest non-pinned;
+  pin/clear_unpinned mutators)
+
+Workspace count now 390. Total this resume: 280 cockpit crates.
