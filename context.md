@@ -2873,3 +2873,12 @@ Workspace count now 447. Total this resume: 337 cockpit crates.
   returns currently-shown item or None)
 
 Workspace count now 448. Total this resume: 338 cockpit crates.
+
+### Two-hundred-and-seventy-first wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-month-picker` (YearMonth{year, month 1..=12};
+  MonthPicker{visible_year, selected, min/max bounds, explicit
+  disabled set}; cells() returns 12 Cell{ym, enabled, selected}
+  for visible year; select rejects out-of-range or disabled)
+
+Workspace count now 449. Total this resume: 339 cockpit crates.
