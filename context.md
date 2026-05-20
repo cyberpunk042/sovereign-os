@@ -854,3 +854,12 @@ Workspace count now 217. Total this resume: 107 cockpit crates.
   > system; Auto+Unknown defaults to Light)
 
 Workspace count now 218. Total this resume: 108 cockpit crates.
+
+### Forty-first wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-widget-registry` (Widget{id, kind, title,
+  enabled, min_w, min_h, allowed_in}; enable/disable + per-
+  dashboard allow-set; visible_in(dashboard_id) filter combines
+  enabled+allowed; pairs with dashboard-layout/toggle)
+
+Workspace count now 219. Total this resume: 109 cockpit crates.
