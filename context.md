@@ -1220,3 +1220,11 @@ Workspace count now 260. Total this resume: 150 cockpit crates.
   outermost→innermost + optional app suffix)
 
 Workspace count now 261. Total this resume: 151 cockpit crates.
+
+### Eighty-fourth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-tip-bar` (Tip{scope_id, message, optional
+  chord}; tips_for(scope_id) excludes dismissed; dismiss(message)
+  hides + persists; restore_all)
+
+Workspace count now 262. Total this resume: 152 cockpit crates.
