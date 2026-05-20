@@ -2029,3 +2029,12 @@ Workspace count now 351. Total this resume: 241 cockpit crates.
   extrapolation; update/inc clamp to total; finish removes)
 
 Workspace count now 352. Total this resume: 242 cockpit crates.
+
+### Hundred-and-seventy-fifth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-cooldown-meter` (State{Ready/Cooling}; fire
+  errors StillCooling until last_fire+cooldown_ms elapsed;
+  observe returns Status{state, remaining_ms, progress_bp};
+  reset is operator override)
+
+Workspace count now 353. Total this resume: 243 cockpit crates.
