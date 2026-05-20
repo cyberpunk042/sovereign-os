@@ -921,3 +921,12 @@ Workspace count now 225. Total this resume: 115 cockpit crates.
   worst on empty defaults to Healthy)
 
 Workspace count now 226. Total this resume: 116 cockpit crates.
+
+### Forty-ninth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-field-error` (per-field Entry{severity:
+  Hint<Info<Warn<Error, message}; insert dedup; worst_for_field;
+  visible_for_field(min_sev); distinct from form-validity and
+  error-banner)
+
+Workspace count now 227. Total this resume: 117 cockpit crates.
