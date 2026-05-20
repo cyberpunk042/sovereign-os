@@ -930,3 +930,12 @@ Workspace count now 226. Total this resume: 116 cockpit crates.
   error-banner)
 
 Workspace count now 227. Total this resume: 117 cockpit crates.
+
+### Fiftieth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-loading-eta` (ring-buffered samples; eta_ms
+  returns Some(remaining) via linear extrapolation across last two
+  distinct progress samples; None when <2 samples, at 100, or
+  trajectory flat)
+
+Workspace count now 228. Total this resume: 118 cockpit crates.
