@@ -737,3 +737,15 @@ Workspace count now 195. Total this resume: 85 cockpit crates.
   with activation_px threshold; DragStart/Move/End/Click)
 
 Workspace count now 198. Total this resume: 88 cockpit crates.
+
+### Twenty-eighth wave (same day, +3 more cockpit crates)
+
+- `sovereign-cockpit-marquee-loop` (overflow label →
+  Static/Looping{x_offset,cycle_px}; reduced-motion override)
+- `sovereign-cockpit-popover-anchor` (anchor+popover+viewport+
+  preferred → resolved(x,y,placement) with side flip on overflow
+  and cross-axis viewport clamp)
+- `sovereign-cockpit-pull-to-refresh` (Idle→Pulling{d,progress}
+  →Armed→Refreshing→Idle with trigger_px threshold)
+
+Workspace count now 201. Total this resume: 91 cockpit crates.
