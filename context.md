@@ -1104,3 +1104,12 @@ Workspace count now 246. Total this resume: 136 cockpit crates.
   top-level)
 
 Workspace count now 247. Total this resume: 137 cockpit crates.
+
+### Seventieth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-side-by-side-diff` (HunkKind{Context/Add/
+  Remove/Change} → AlignedPair{left, right}; Cell{Spacer/Context/
+  Modified/Added/Removed}; Add right-only with left spacer,
+  Remove left-only with right spacer; Change paired Modified)
+
+Workspace count now 248. Total this resume: 138 cockpit crates.
