@@ -1070,3 +1070,11 @@ Workspace count now 242. Total this resume: 132 cockpit crates.
   returns 1-based or None; close resets)
 
 Workspace count now 243. Total this resume: 133 cockpit crates.
+
+### Sixty-sixth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-checklist` (Item{id, label, completed_at_ms};
+  register/complete/uncomplete; progress(done,total); percent
+  integer 0..=100; duplicate-id rejected)
+
+Workspace count now 244. Total this resume: 134 cockpit crates.
