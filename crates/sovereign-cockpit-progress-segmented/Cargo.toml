@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-progress-segmented"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit segmented-progress descriptor. Tracks N named segments + per-segment state (Pending/Active/Completed/Failed). advance_to(id) marks all prior as Completed; fail(id) marks as Failed (clamps); rewind(id) resets to Pending. Distinct from progress-bar (continuous 0..=100) — this is the N-step batch / pipeline progress lane."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
