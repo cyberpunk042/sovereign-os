@@ -1,0 +1,12 @@
+[package]
+name = "sovereign-cockpit-deep-link-codec"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "Encode/decode cockpit state to/from URL deep-link fragments."
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
