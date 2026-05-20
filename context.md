@@ -880,3 +880,11 @@ Workspace count now 220. Total this resume: 110 cockpit crates.
   Suppress; cadence + animations per mode)
 
 Workspace count now 221. Total this resume: 111 cockpit crates.
+
+### Forty-fourth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-tooltip-delay` (Idle→Dwelling{entered_at}→
+  Open→Closing{left_at}→Idle; enter/leave/anchor_hidden; group
+  cool window after close skips dwell on next enter)
+
+Workspace count now 222. Total this resume: 112 cockpit crates.
