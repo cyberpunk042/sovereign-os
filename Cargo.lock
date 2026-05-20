@@ -1881,6 +1881,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-metric-card"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-mini-map"
 version = "0.1.0"
 dependencies = [
