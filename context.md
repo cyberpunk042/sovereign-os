@@ -2490,3 +2490,12 @@ Workspace count now 403. Total this resume: 293 cockpit crates.
   (path asc tie-break))
 
 Workspace count now 404. Total this resume: 294 cockpit crates.
+
+### Two-hundred-and-twenty-seventh wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-pipeline-stage` (Stage{id, label, deps,
+  Status{Pending/Running/Success/Failed/Skipped}}; ready_to_run
+  = Pending + all-deps-Success; failed_chain = Pending +
+  any-dep-Failed)
+
+Workspace count now 405. Total this resume: 295 cockpit crates.
