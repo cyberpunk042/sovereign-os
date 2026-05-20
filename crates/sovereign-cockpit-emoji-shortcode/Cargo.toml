@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-emoji-shortcode"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit emoji shortcode registry. Maps colon-delimited shortcodes (:smile:) to emoji glyphs and supports prefix lookup for autocomplete. Registry can be reseeded; resolve(text) expands shortcodes inline. Pure presentation crate."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
