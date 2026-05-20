@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-presence-roster"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit presence roster for collaborators. Each entry holds (operator_id, label, status: Online/Idle/Busy/Offline, last_seen_ts). set/observe; mark_idle_if_older(now, threshold_ms) flips Online → Idle when last_seen too old. Pure descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
