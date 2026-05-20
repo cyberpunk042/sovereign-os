@@ -2334,6 +2334,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-whats-new-feed"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-widget-registry"
 version = "0.1.0"
 dependencies = [
