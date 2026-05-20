@@ -383,6 +383,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-checklist"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-clipboard-buffer"
 version = "0.1.0"
 dependencies = [
