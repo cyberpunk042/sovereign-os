@@ -888,3 +888,12 @@ Workspace count now 221. Total this resume: 111 cockpit crates.
   cool window after close skips dwell on next enter)
 
 Workspace count now 222. Total this resume: 112 cockpit crates.
+
+### Forty-fifth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-autocomplete-list` (ranked suggestions with
+  highlight cursor; arrow_down/arrow_up wrap; accept returns
+  highlighted; validates no-empty / no-duplicate ids; pairs with
+  fuzzy-ranker)
+
+Workspace count now 223. Total this resume: 113 cockpit crates.
