@@ -1806,3 +1806,12 @@ Workspace count now 324. Total this resume: 214 cockpit crates.
   lists expanded-but-unloaded for spinner UI)
 
 Workspace count now 325. Total this resume: 215 cockpit crates.
+
+### Hundred-and-forty-eighth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-preset-chip-bar` (Preset{id, label, payload,
+  order, apply_count, last_applied_ms}; add assigns next_order;
+  apply returns payload + sets active + bumps counters; remove
+  clears active if matches; ordered() in declared order)
+
+Workspace count now 326. Total this resume: 216 cockpit crates.
