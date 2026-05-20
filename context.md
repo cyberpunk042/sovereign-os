@@ -2837,3 +2837,12 @@ Workspace count now 443. Total this resume: 333 cockpit crates.
   by limiting axis; pure geometry)
 
 Workspace count now 444. Total this resume: 334 cockpit crates.
+
+### Two-hundred-and-sixty-seventh wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-freshness-badge` (State{fetched_at_ms,
+  fresh_ttl_ms, stale_ttl_ms, revalidating, last_error}; classify
+  yields Fresh/Stale/Expired/Revalidating/Failed in priority
+  order: Revalidating > Failed > Expired > Stale > Fresh)
+
+Workspace count now 445. Total this resume: 335 cockpit crates.
