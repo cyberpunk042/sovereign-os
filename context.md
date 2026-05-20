@@ -813,3 +813,12 @@ Workspace count now 211. Total this resume: 101 cockpit crates.
   Url/Json/CodeBlock/Markdown/Csv/PlainText heuristic)
 
 Workspace count now 213. Total this resume: 103 cockpit crates.
+
+### Thirty-sixth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-color-swatch` (ordered Vec<Swatch{name,hex}>
+  + selected_index; insert/remove keep selection in sync;
+  #RRGGBB or #RRGGBBAA hex; distinct from theme-palette and
+  color-picker)
+
+Workspace count now 214. Total this resume: 104 cockpit crates.
