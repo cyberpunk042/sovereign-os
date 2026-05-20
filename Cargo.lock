@@ -3368,6 +3368,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-trash-buffer"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-tree-view"
 version = "0.1.0"
 dependencies = [
