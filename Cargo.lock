@@ -743,6 +743,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-column-filter"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-column-pin"
 version = "0.1.0"
 dependencies = [
