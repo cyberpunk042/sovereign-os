@@ -854,6 +854,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-do-not-disturb"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-dock-position"
 version = "0.1.0"
 dependencies = [
