@@ -1303,3 +1303,11 @@ Workspace count now 270. Total this resume: 160 cockpit crates.
   starts-with)
 
 Workspace count now 271. Total this resume: 161 cockpit crates.
+
+### Ninety-fourth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-code-lang-guess` (Language enum Rust..Unknown;
+  guess(filename, first_line): extension first, then shebang
+  match, else Unknown)
+
+Workspace count now 272. Total this resume: 162 cockpit crates.
