@@ -2864,3 +2864,12 @@ Workspace count now 446. Total this resume: 336 cockpit crates.
   current expired; ack dismisses)
 
 Workspace count now 447. Total this resume: 337 cockpit crates.
+
+### Two-hundred-and-seventieth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-lightbox-overlay` (items Vec<String>;
+  open(i) at index, close dismisses, next/prev advance index;
+  cyclic=true wraps at boundaries otherwise clamps; current
+  returns currently-shown item or None)
+
+Workspace count now 448. Total this resume: 338 cockpit crates.
