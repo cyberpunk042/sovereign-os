@@ -1261,3 +1261,11 @@ Workspace count now 265. Total this resume: 155 cockpit crates.
   sparkline_source_id}; register/update/get/list)
 
 Workspace count now 266. Total this resume: 156 cockpit crates.
+
+### Eighty-ninth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-stream-pause` (pause/resume/observe/
+  drop_queued; observe only counts while paused; resume clears;
+  drop_queued clears while staying paused)
+
+Workspace count now 267. Total this resume: 157 cockpit crates.
