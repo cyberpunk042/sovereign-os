@@ -787,3 +787,13 @@ Workspace count now 206. Total this resume: 96 cockpit crates.
   lines; graphemes best-effort with combining-mark + ZWJ skip)
 
 Workspace count now 208. Total this resume: 98 cockpit crates.
+
+### Thirty-third wave (same day, +2 more cockpit crates)
+
+- `sovereign-cockpit-code-gutter` (per-line annotations Error >
+  Warning > Info > Breakpoint > DiffModified/Added/Removed;
+  gutter_width_chars = digits + 2)
+- `sovereign-cockpit-focus-ring` (:focus-visible-style tracker;
+  visible iff last_source = Keyboard; focus_changed preserves)
+
+Workspace count now 210. Total this resume: 100 cockpit crates.
