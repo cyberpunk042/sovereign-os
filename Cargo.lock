@@ -684,6 +684,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-feature-toggle-grid"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-feature-tour"
 version = "0.1.0"
 dependencies = [

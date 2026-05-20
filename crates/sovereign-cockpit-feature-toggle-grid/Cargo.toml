@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-feature-toggle-grid"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit settings-grid of feature toggles. Each entry is (id, label, hint, group, on, disabled_reason). toggle(id) flips when not disabled; disable(id, reason) locks off with a hint visible to the operator; visible_by_group() partitions entries into groups for the settings UI. Distinct from sovereign-dashboard-toggle (dashboard-visibility) — this is the feature-flag UI lane."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
