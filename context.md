@@ -1037,3 +1037,12 @@ Workspace count now 238. Total this resume: 128 cockpit crates.
   per side; same id allowed across sides; empty row auto-prune)
 
 Workspace count now 239. Total this resume: 129 cockpit crates.
+
+### Sixty-second wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-keystroke-sequence` (register(action_id,
+  &[keys]); observe(key, now) → Matched/Partial/None; buffer
+  resets on inter-key gap > sequence_timeout_ms; shared-prefix
+  sequences supported (gg vs gG); distinct from keystroke-map)
+
+Workspace count now 240. Total this resume: 130 cockpit crates.
