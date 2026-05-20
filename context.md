@@ -1011,3 +1011,12 @@ Workspace count now 235. Total this resume: 125 cockpit crates.
   events for the playback engine)
 
 Workspace count now 236. Total this resume: 126 cockpit crates.
+
+### Fifty-ninth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-bottom-sheet` (Snap{Collapsed, Half, Full,
+  Custom}; set_snap teleports; drag_to clamps + snaps to nearest
+  within snap_threshold_px else Custom; validate enforces
+  collapsed<half<full ordering)
+
+Workspace count now 237. Total this resume: 127 cockpit crates.
