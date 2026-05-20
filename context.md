@@ -2472,3 +2472,12 @@ Workspace count now 401. Total this resume: 291 cockpit crates.
   if attempts<max; reset→Idle)
 
 Workspace count now 402. Total this resume: 292 cockpit crates.
+
+### Two-hundred-and-twenty-fifth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-calendar-grid` (is_leap_year, days_in_month,
+  weekday_of_first Zeller's; build(y, m, first_dow) → 42 Cell
+  array with prev-month tail / current-month / next-month head
+  padding; is_current_month flag)
+
+Workspace count now 403. Total this resume: 293 cockpit crates.
