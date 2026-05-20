@@ -2260,3 +2260,12 @@ Workspace count now 377. Total this resume: 267 cockpit crates.
   at 0; dismiss ends; current returns None unless Running)
 
 Workspace count now 378. Total this resume: 268 cockpit crates.
+
+### Two-hundred-and-first wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-sync-status` (Status{Saved/Saving/Failed/
+  Stale}; begin_save→Saving; ok(now)→Saved+last_saved_ms;
+  fail(error)→Failed; observe flips Saved→Stale after
+  stale_after_ms)
+
+Workspace count now 379. Total this resume: 269 cockpit crates.
