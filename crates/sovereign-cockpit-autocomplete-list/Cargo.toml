@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-autocomplete-list"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit autocomplete-list state. Holds (suggestions, highlight_index). update(query, ranked_pairs) replaces the list; arrow_down/arrow_up move the highlight with wrap; accept() returns the highlighted suggestion. Pure descriptor; the ranker lives elsewhere (sovereign-cockpit-fuzzy-ranker)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
