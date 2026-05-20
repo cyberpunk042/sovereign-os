@@ -1,0 +1,12 @@
+[package]
+name = "sovereign-cockpit-high-contrast-mode"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "High-contrast a11y mode with per-class color overrides."
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

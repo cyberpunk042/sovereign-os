@@ -1341,6 +1341,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-high-contrast-mode"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-hint-card"
 version = "0.1.0"
 dependencies = [
