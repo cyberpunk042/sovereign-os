@@ -2533,3 +2533,12 @@ Workspace count now 408. Total this resume: 298 cockpit crates.
   up to max_pills cap; remove by exact; clear empties)
 
 Workspace count now 409. Total this resume: 299 cockpit crates.
+
+### Two-hundred-and-thirty-second wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-trend-bar` (Segment{label, value}; render
+  returns RenderedSegment{label, width_bp} proportional to
+  value/total in basis points; widths sum to 10000 when
+  total>0 (last segment absorbs rounding))
+
+Workspace count now 410. Total this resume: 300 cockpit crates.
