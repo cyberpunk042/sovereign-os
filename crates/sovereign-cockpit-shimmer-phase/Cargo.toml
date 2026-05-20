@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-shimmer-phase"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit skeleton-shimmer phase calculator. phase(now_ms) returns 0..1000 (per-mille) cycling over period_ms; offset_for_anchor(anchor_id, now_ms) gives a per-anchor stagger so adjacent skeletons don't pulse in lockstep. Pure math; renderer paints."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []

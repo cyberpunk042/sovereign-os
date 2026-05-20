@@ -1442,6 +1442,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-shimmer-phase"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-shortcut-cheatsheet"
 version = "0.1.0"
 dependencies = [
