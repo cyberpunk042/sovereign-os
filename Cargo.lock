@@ -1133,6 +1133,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-emergency-stop"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-emoji-reactions"
 version = "0.1.0"
 dependencies = [
