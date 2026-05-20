@@ -1761,3 +1761,12 @@ Workspace count now 319. Total this resume: 209 cockpit crates.
   scroll_by adjusts; end_visible/is_visible/visible_count helpers)
 
 Workspace count now 320. Total this resume: 210 cockpit crates.
+
+### Hundred-and-forty-third wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-status-bar-segments` (Segment{id, label,
+  Zone{Left/Center/Right}, priority}; visible_in_zone returns
+  top-priority desc with alpha tie-break, truncated to max_items;
+  zones isolated)
+
+Workspace count now 321. Total this resume: 211 cockpit crates.
