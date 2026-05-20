@@ -1687,3 +1687,13 @@ Workspace count now 311. Total this resume: 201 cockpit crates.
   (counts); active sorted by label then peer_id)
 
 Workspace count now 312. Total this resume: 202 cockpit crates.
+
+### Hundred-and-thirty-fifth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-tag-color-palette` (explicit per-tag
+  assignments override deterministic FNV-1a-64(tag)%len fallback;
+  assign validates color in palette; set_palette drops invalid
+  assignments and counts them; stable colours without explicit
+  assignment)
+
+Workspace count now 313. Total this resume: 203 cockpit crates.
