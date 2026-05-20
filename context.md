@@ -2819,3 +2819,12 @@ Workspace count now 441. Total this resume: 331 cockpit crates.
   [arrow_margin, edge_len - arrow_margin]; pure geometry)
 
 Workspace count now 442. Total this resume: 332 cockpit crates.
+
+### Two-hundred-and-sixty-fifth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-swipe-gesture` (down/move/up state machine;
+  up() evaluates distance >= min_distance, velocity >=
+  min_velocity_pps, dominant-axis ratio >= 2:1; otherwise
+  TooShort / TooSlow / Diagonal)
+
+Workspace count now 443. Total this resume: 333 cockpit crates.
