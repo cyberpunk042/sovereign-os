@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-pull-to-refresh"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit pull-to-refresh gesture state machine. start/move/release events with a trigger_px threshold. State transitions Idle → Pulling{distance, progress} → Armed → Refreshing → Idle. Pure presentation state machine; the actual refresh I/O is callee-owned."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []

@@ -920,6 +920,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-pull-to-refresh"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-quick-action"
 version = "0.1.0"
 dependencies = [
