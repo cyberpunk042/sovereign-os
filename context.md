@@ -1498,3 +1498,13 @@ Workspace count now 291. Total this resume: 181 cockpit crates.
   offset}/Malformed errors; empty param keys rejected)
 
 Workspace count now 292. Total this resume: 182 cockpit crates.
+
+### Hundred-and-fifteenth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-consent-prompt` (Prompt{scope, created_at_ms,
+  PromptState{Pending/Granted/Denied/Deferred{reminder_at_ms}}};
+  grant/deny/defer transitions; terminal states reject further
+  transitions; state(now) returns Verdict including Reminder when
+  reminder_at_ms reached)
+
+Workspace count now 293. Total this resume: 183 cockpit crates.
