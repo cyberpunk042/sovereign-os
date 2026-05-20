@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-multi-step-form"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit multi-step form navigator. Step{id, label, required_fields, completed_fields}. next_allowed_from(step_id) returns true only when all required fields are completed. percent_complete sums across all steps. Pure descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
