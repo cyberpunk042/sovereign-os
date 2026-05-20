@@ -702,3 +702,10 @@ Workspace count now 189. Total this resume: 79 cockpit crates.
   with auto-unit and counter-reset detection)
 
 Workspace count now 190. Total this resume: 80 cockpit crates.
+
+### Twenty-fifth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-disk-meter` (per-mount used/total with Zone +
+  worst_zone aggregator across mounts)
+
+Workspace count now 191. Total this resume: 81 cockpit crates.
