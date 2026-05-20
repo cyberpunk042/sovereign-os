@@ -1363,3 +1363,13 @@ Workspace count now 277. Total this resume: 167 cockpit crates.
   non-monotonic ts rejected)
 
 Workspace count now 278. Total this resume: 168 cockpit crates.
+
+### Hundred-and-first wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-skip-link-set` (SkipLink{id, label, target,
+  order, enabled, activations, last_activated}; register assigns
+  next_order; set_enabled toggles without losing position;
+  activate counts usage and is no-op on disabled;
+  links_in_order returns enabled-only ordered)
+
+Workspace count now 279. Total this resume: 169 cockpit crates.
