@@ -1373,3 +1373,13 @@ Workspace count now 278. Total this resume: 168 cockpit crates.
   links_in_order returns enabled-only ordered)
 
 Workspace count now 279. Total this resume: 169 cockpit crates.
+
+### Hundred-and-second wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-infinite-scroll` (Scroller{next_cursor, loaded,
+  in_flight, at_end, last_error, fetches_ok, fetches_err};
+  start_fetch rejects double-start and at_end; complete_fetch
+  records new items, None next_cursor = at_end; fail_fetch records
+  last_error; should_fetch_at(distance, threshold) gates initiation)
+
+Workspace count now 280. Total this resume: 170 cockpit crates.
