@@ -1,0 +1,12 @@
+[package]
+name = "sovereign-cockpit-error-state-screen"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "Large error/retry screen state with category + recovery offer + retry counter."
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
