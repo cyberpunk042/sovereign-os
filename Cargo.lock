@@ -500,6 +500,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-callout-arrow"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-card-grid"
 version = "0.1.0"
 dependencies = [
