@@ -2437,3 +2437,12 @@ Workspace count now 397. Total this resume: 287 cockpit crates.
   transitions; inflight() filters)
 
 Workspace count now 398. Total this resume: 288 cockpit crates.
+
+### Two-hundred-and-twenty-first wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-press-and-hold` (Phase{Idle/Pressing/
+  Committed/Cancelled}; progress_bp=elapsed*10000/hold_ms
+  capped; release at progress>=10000 → Commit else Cancel;
+  commits/cancels counters)
+
+Workspace count now 399. Total this resume: 289 cockpit crates.
