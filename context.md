@@ -1138,3 +1138,11 @@ Workspace count now 250. Total this resume: 140 cockpit crates.
   re-layout)
 
 Workspace count now 251. Total this resume: 141 cockpit crates.
+
+### Seventy-fourth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-unsaved-guard` (mark_dirty/mark_clean per
+  scope_id; navigate returns Allow or BlockConfirm{scope_id};
+  force_navigate discards; any_dirty for app-level beforeunload)
+
+Workspace count now 252. Total this resume: 142 cockpit crates.
