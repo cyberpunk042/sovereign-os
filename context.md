@@ -1054,3 +1054,11 @@ Workspace count now 240. Total this resume: 130 cockpit crates.
   from column-config which handles visibility/sizing)
 
 Workspace count now 241. Total this resume: 131 cockpit crates.
+
+### Sixty-fourth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-edit-mode` (Mode{Read, Edit{dirty},
+  ReviewPending}; request_edit / dirty / save_draft / submit /
+  approve / reject; is_dirty accessor; bad-transition errors)
+
+Workspace count now 242. Total this resume: 132 cockpit crates.
