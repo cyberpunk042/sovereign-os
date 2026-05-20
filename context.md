@@ -1237,3 +1237,11 @@ Workspace count now 262. Total this resume: 152 cockpit crates.
   list_all/list_by_state)
 
 Workspace count now 263. Total this resume: 153 cockpit crates.
+
+### Eighty-sixth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-priority-display` (Priority{Low<Med<High<
+  Critical<Blocker} → (label, color_token, glyph); consistent
+  chrome priority chips)
+
+Workspace count now 264. Total this resume: 154 cockpit crates.
