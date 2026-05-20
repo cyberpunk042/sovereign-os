@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-text-metrics"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit text-metrics: chars (UTF-8 codepoints), graphemes (best-effort: codepoints + skip ZWJ), words (whitespace-split), lines, and bytes. measure() returns TextMetrics. Distinct from sovereign-cockpit-text-input-counter (single-input limit indicator) — this is the underlying metric computation."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
