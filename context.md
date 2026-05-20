@@ -1431,3 +1431,12 @@ Workspace count now 284. Total this resume: 174 cockpit crates.
   checked at add+validate)
 
 Workspace count now 285. Total this resume: 175 cockpit crates.
+
+### Hundred-and-eighth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-text-direction-mode` (Mode{Ltr/Rtl/Auto},
+  Direction{Ltr/Rtl}; direction_for(locale) respects override or
+  defers to locale binding in Auto; new() seeds ar/fa/he/ur Rtl;
+  bind_locale extends; is_rtl() reflects current default)
+
+Workspace count now 286. Total this resume: 176 cockpit crates.
