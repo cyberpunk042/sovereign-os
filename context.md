@@ -2454,3 +2454,12 @@ Workspace count now 399. Total this resume: 289 cockpit crates.
   with rem_euclid wrap; unique labels)
 
 Workspace count now 400. Total this resume: 290 cockpit crates.
+
+### Two-hundred-and-twenty-third wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-cascading-select` (parent→children options;
+  select_parent switches parent and clears child if no longer
+  valid (kept if still listed); select_child requires parent +
+  valid option; options_for_child accessor)
+
+Workspace count now 401. Total this resume: 291 cockpit crates.
