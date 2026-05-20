@@ -1489,3 +1489,12 @@ Workspace count now 290. Total this resume: 180 cockpit crates.
   drops entire message)
 
 Workspace count now 291. Total this resume: 181 cockpit crates.
+
+### Hundred-and-fourteenth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-deep-link-codec` (DeepLink{route, params:
+  BTreeMap}; encode renders /route?k=v with keys alphabetical;
+  %-encodes non-unreserved bytes; decode inverts; BadEncoding{
+  offset}/Malformed errors; empty param keys rejected)
+
+Workspace count now 292. Total this resume: 182 cockpit crates.
