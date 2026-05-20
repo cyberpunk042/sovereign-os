@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-unsaved-guard"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit unsaved-changes guard. mark_dirty(scope_id)/mark_clean(scope_id); navigate(scope_id) returns Allow/BlockConfirm{scope_id} when the operator tries to navigate away from a dirty scope; force_navigate clears + allows. Pure descriptor; the chrome wires beforeunload + route guards."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
