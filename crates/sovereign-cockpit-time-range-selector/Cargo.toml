@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-time-range-selector"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit time-range selector. Preset{Last5m / Last15m / LastHour / Last24h / Last7d / Last30d} or Custom{from_ms, to_ms}. resolve(now) returns (from_ms, to_ms). Validates from < to for Custom. Pure descriptor; the chart consumer queries the resolved range."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
