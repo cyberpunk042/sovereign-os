@@ -1850,3 +1850,13 @@ Workspace count now 329. Total this resume: 219 cockpit crates.
   reverts to global)
 
 Workspace count now 330. Total this resume: 220 cockpit crates.
+
+### Hundred-and-fifty-third wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-settings-form` (Field{committed, pending:
+  Option<String>}; edit sets pending (clears if equal); apply
+  commits all pending (returns count); discard drops all pending;
+  is_dirty exposes any-pending; effective returns pending or
+  committed)
+
+Workspace count now 331. Total this resume: 221 cockpit crates.
