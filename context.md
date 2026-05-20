@@ -2855,3 +2855,12 @@ Workspace count now 445. Total this resume: 335 cockpit crates.
   with pointer; pin persists across unhover)
 
 Workspace count now 446. Total this resume: 336 cockpit crates.
+
+### Two-hundred-and-sixty-ninth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-achievement-toast` (Achievement{id, title,
+  tier Bronze/Silver/Gold/Platinum}; earn rejects dup ids
+  unique-once; show(now) promotes queue front when slot free or
+  current expired; ack dismisses)
+
+Workspace count now 447. Total this resume: 337 cockpit crates.
