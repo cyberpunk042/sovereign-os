@@ -3076,3 +3076,12 @@ Workspace count now 468. Total this resume: 358 cockpit crates.
   Vec<u64>) groups)
 
 Workspace count now 469. Total this resume: 359 cockpit crates.
+
+### Two-hundred-and-ninety-second wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-image-load-state` (Image{url, placeholder,
+  phase Idle/Loading/Loaded/Failed(reason), started_at_ms,
+  ended_at_ms}; begin Idle/Failed → Loading; load Loading →
+  Loaded; fail Loading → Failed; retry allowed from Failed)
+
+Workspace count now 470. Total this resume: 360 cockpit crates.
