@@ -1,0 +1,12 @@
+[package]
+name = "sovereign-cockpit-guardian-panel"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "Cockpit panel for the selfdef IPS Guardian Daemon (sain-01 §10 guardian-core) — consumes the selfdef-emitted verdict ring buffer + OCSF jsonl at the file boundary; produces RenderRow values for the M066 main dashboard. Third leg of the three-watchdog trio (M060 friction-audit, M061 perimeter, M066 guardian)."
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
