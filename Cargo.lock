@@ -1107,6 +1107,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-external-link-policy"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-fab"
 version = "0.1.0"
 dependencies = [
