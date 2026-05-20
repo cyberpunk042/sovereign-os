@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-scroll-spy"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit scroll-spy. Maps scroll position to the currently-active section in a scrollable region (TOC / left-nav highlight). Tracks N sections with (id, top_px) and reports the section whose top crosses an activation offset. Pure UX-presentation crate."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
