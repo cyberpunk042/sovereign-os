@@ -2646,3 +2646,11 @@ Workspace count now 421. Total this resume: 311 cockpit crates.
   remove drops; resolve returns tooltip or None)
 
 Workspace count now 422. Total this resume: 312 cockpit crates.
+
+### Two-hundred-and-forty-fifth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-save-as-suggest` (suggest(base, ext,
+  existing) returns "<base>.<ext>" or increments "-2", "-3",
+  ... until free; empty ext supported)
+
+Workspace count now 423. Total this resume: 313 cockpit crates.
