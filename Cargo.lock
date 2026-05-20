@@ -900,6 +900,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-macro-recorder"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-marquee-loop"
 version = "0.1.0"
 dependencies = [

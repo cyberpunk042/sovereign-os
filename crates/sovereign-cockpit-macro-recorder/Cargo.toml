@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-macro-recorder"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit macro recorder. start(name) opens a recording; observe(action_id, ts_ms) appends, with relative-delay capture; stop() seals into a SavedMacro with id+name+events. saved() lists; play_sequence(id) returns the ordered events for the player. Pure descriptor; the chrome owns input + playback."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
