@@ -686,3 +686,12 @@ Workspace count now 185. Total this resume: 75 cockpit crates.
   Green/Yellow/Red tier from thresholds)
 
 Workspace count now 187. Total this resume: 77 cockpit crates.
+
+### Twenty-third wave (same day, +2 more cockpit crates)
+
+- `sovereign-cockpit-memory-meter` (used/total bytes + warn/critical
+  zones + render_display picks B/KB/MB/GB/TB)
+- `sovereign-cockpit-sparkline` (push f64 series; bar_heights
+  normalizes to height_px against observed min/max)
+
+Workspace count now 189. Total this resume: 79 cockpit crates.
