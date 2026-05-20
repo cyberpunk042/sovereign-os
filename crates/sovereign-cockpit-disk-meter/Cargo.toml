@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-disk-meter"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit disk-usage gauge per mountpoint. Tracks N mountpoints each with (used_bytes, total_bytes). emits per-mount zone + render_display + an overall_worst_zone aggregator. Pure UX descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
