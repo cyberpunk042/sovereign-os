@@ -2783,3 +2783,12 @@ Workspace count now 437. Total this resume: 327 cockpit crates.
   total_progress_bp aggregates across uploads)
 
 Workspace count now 438. Total this resume: 328 cockpit crates.
+
+### Two-hundred-and-sixty-first wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-streak-indicator` (Streak{current, best}
+  per key; hit increments current + updates best; miss resets
+  current to 0, best preserved; clear removes key; per-key
+  BTreeMap)
+
+Workspace count now 439. Total this resume: 329 cockpit crates.
