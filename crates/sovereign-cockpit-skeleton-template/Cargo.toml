@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-skeleton-template"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit skeleton-row template registry. Templates declared as Vec<Block{kind: Line/Circle/Box, w, h}>. render(template_id, count) returns Vec<RenderedRow> for the chrome to paint. Distinct from skeleton-loader (single placeholder) and skeleton-list (count-only)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
