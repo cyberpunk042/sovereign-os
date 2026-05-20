@@ -2233,3 +2233,12 @@ Workspace count now 374. Total this resume: 264 cockpit crates.
   with Offline at max; force_online/force_offline overrides)
 
 Workspace count now 375. Total this resume: 265 cockpit crates.
+
+### Hundred-and-ninety-eighth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-linkify` (Span{Text/Url/Mention/Hashtag};
+  scan emits ordered non-overlapping spans; Url breaks at
+  whitespace/<>(); Mention/Hashtag = @/# + [A-Za-z0-9_]+;
+  Linkify state stores last input + spans)
+
+Workspace count now 376. Total this resume: 266 cockpit crates.
