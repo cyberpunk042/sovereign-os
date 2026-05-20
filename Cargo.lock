@@ -2989,6 +2989,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-timezone-bar"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-tip-bar"
 version = "0.1.0"
 dependencies = [
