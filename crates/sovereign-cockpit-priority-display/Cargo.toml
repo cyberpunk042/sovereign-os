@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-priority-display"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit task-priority display formatter. Priority{Low/Med/High/Critical/Blocker} → (label, color_token, glyph) for the chrome to render consistent priority chips/icons. Pure mapping."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
