@@ -913,3 +913,11 @@ Workspace count now 224. Total this resume: 114 cockpit crates.
   for chrome hint; distinct from confirmation-modal)
 
 Workspace count now 225. Total this resume: 115 cockpit crates.
+
+### Forty-eighth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-status-light` (per-subject Tone Healthy<
+  Unknown<Degraded<Offline + reason + ts; set/tone_of/worst/stale;
+  worst on empty defaults to Healthy)
+
+Workspace count now 226. Total this resume: 116 cockpit crates.
