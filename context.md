@@ -709,3 +709,19 @@ Workspace count now 190. Total this resume: 80 cockpit crates.
   worst_zone aggregator across mounts)
 
 Workspace count now 191. Total this resume: 81 cockpit crates.
+
+
+### Twenty-sixth wave (same day, +3 more cockpit crates)
+
+- `sovereign-cockpit-battery-indicator` (Charging/Discharging/Full/
+  Unknown + low/critical zones + naive time-to-empty / time-to-full
+  from last two samples)
+- `sovereign-cockpit-scroll-spy` (sorted (id, top_px) sections;
+  active_at = last whose top ≤ pos + offset)
+- `sovereign-cockpit-aria-live-router` (Severity → Polite/Assertive
+  region with per-region dedup window suppressing identical
+  re-announcements)
+- `sovereign-cockpit-overflow-shadow` (top/bottom shadow intensities
+  0..=255 ramped over fade_px when content exceeds viewport)
+
+Workspace count now 195. Total this resume: 85 cockpit crates.
