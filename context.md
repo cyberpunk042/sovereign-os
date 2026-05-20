@@ -2587,3 +2587,11 @@ Workspace count now 414. Total this resume: 304 cockpit crates.
   in place; clear empties)
 
 Workspace count now 415. Total this resume: 305 cockpit crates.
+
+### Two-hundred-and-thirty-eighth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-audit-trail` (Record{actor, action, target,
+  ts_ms}; capacity-bounded with oldest eviction; by_actor /
+  by_target filters; recent(n) returns newest-first)
+
+Workspace count now 416. Total this resume: 306 cockpit crates.
