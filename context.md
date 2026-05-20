@@ -993,3 +993,12 @@ Workspace count now 233. Total this resume: 123 cockpit crates.
   distinct from tooltip-delay)
 
 Workspace count now 234. Total this resume: 124 cockpit crates.
+
+### Fifty-seventh wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-saved-view` (SavedView{id, scope_id, title,
+  filters/sort blobs, columns, created_at}; create/rename/delete/
+  list/by_scope; scope-aware filtering; chrome reapplies captured
+  blobs on activation)
+
+Workspace count now 235. Total this resume: 125 cockpit crates.
