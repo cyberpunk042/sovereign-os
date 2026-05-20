@@ -1659,6 +1659,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-widget-registry"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-window-position"
 version = "0.1.0"
 dependencies = [

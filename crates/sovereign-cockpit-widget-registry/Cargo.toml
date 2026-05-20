@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-widget-registry"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit widget registry. Each widget has (id, kind, title, enabled, min_w, min_h). Used by the dashboard layout to decide which tiles are renderable, the user-facing toggle UI to enable/disable individual widgets, and the layout placer to reserve enough room. Pure descriptor; pairs with sovereign-dashboard-layout (placement) and sovereign-dashboard-toggle (visibility)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
