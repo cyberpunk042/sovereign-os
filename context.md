@@ -1917,3 +1917,12 @@ Workspace count now 337. Total this resume: 227 cockpit crates.
   previous() returns profile just before active for "go back")
 
 Workspace count now 338. Total this resume: 228 cockpit crates.
+
+### Hundred-and-sixty-first wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-global-search` (Source{id, label, weight,
+  enabled}; merge_results sorts by composite (result.score ×
+  source.weight) desc then ts desc then title; disabled sources
+  filtered; limit truncates)
+
+Workspace count now 339. Total this resume: 229 cockpit crates.
