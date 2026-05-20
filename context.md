@@ -2046,3 +2046,11 @@ Workspace count now 353. Total this resume: 243 cockpit crates.
   precision 0..=3; picks largest unit where value>=1)
 
 Workspace count now 354. Total this resume: 244 cockpit crates.
+
+### Hundred-and-seventy-seventh wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-duration-formatter` (Style{Compact/Long};
+  units d/h/m/s/ms; zero units skipped; max_units 1..=5 caps
+  non-zero unit count; Long uses singular/plural forms)
+
+Workspace count now 355. Total this resume: 245 cockpit crates.
