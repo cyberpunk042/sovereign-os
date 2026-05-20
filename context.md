@@ -1603,3 +1603,13 @@ Workspace count now 302. Total this resume: 192 cockpit crates.
   mark_sent/mark_failed terminal; Failed → retry allowed)
 
 Workspace count now 303. Total this resume: 193 cockpit crates.
+
+### Hundred-and-twenty-sixth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-drag-snap-grid` (DragSnapGrid{step_x, step_y,
+  threshold_px, enabled}; snap_point/snap_size snap to nearest
+  intersection only within threshold_px — beyond threshold passes
+  raw values through; equidistant ties pick lower;
+  DragSnapGridConfig wraps with schema_version_marker)
+
+Workspace count now 304. Total this resume: 194 cockpit crates.
