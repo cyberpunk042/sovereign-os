@@ -1,0 +1,12 @@
+[package]
+name = "sovereign-cockpit-job-progress-card"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "Multi-stage job progress card (Pending/Running/Done/Failed per stage)."
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
