@@ -1734,3 +1734,12 @@ Workspace count now 316. Total this resume: 206 cockpit crates.
   undo with overflow drop+count; clear() resets)
 
 Workspace count now 317. Total this resume: 207 cockpit crates.
+
+### Hundred-and-fortieth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-alert-tile-board` (AlertTile{id, title,
+  severity, summary, pinned, acknowledged, ts_ms}; ordered sorts
+  pinned-first, then unacked-before-acked, higher-severity, newer
+  ts, title alpha; ack/pin toggle state)
+
+Workspace count now 318. Total this resume: 208 cockpit crates.
