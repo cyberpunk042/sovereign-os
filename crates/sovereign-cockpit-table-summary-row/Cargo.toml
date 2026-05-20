@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-table-summary-row"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit table footer-row aggregator descriptor. Each column declares an Aggregator{Sum/Avg/Min/Max/Count/None} on its data kind; compute(rows) returns the summary row. Pure math; the chrome renders the row beneath the data."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
