@@ -701,6 +701,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-cooldown-meter"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-countdown-timer"
 version = "0.1.0"
 dependencies = [
