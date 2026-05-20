@@ -2621,3 +2621,12 @@ Workspace count now 418. Total this resume: 308 cockpit crates.
   acked accessors)
 
 Workspace count now 419. Total this resume: 309 cockpit crates.
+
+### Two-hundred-and-forty-second wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-column-filter` (Rule{Contains/Equals/Range};
+  set/clear per column; matches(row) iff all rules pass;
+  missing column or non-integer parse for Range fails;
+  empty value / lo>hi rejected at set)
+
+Workspace count now 420. Total this resume: 310 cockpit crates.
