@@ -2569,3 +2569,12 @@ Workspace count now 412. Total this resume: 302 cockpit crates.
   preserves registration order)
 
 Workspace count now 413. Total this resume: 303 cockpit crates.
+
+### Two-hundred-and-thirty-sixth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-code-fold` (Region{id, start_line,
+  end_line, folded}; toggle/set_folded mutate; visible_lines
+  (total) skips start_line+1..=end_line for folded regions
+  (anchor stays))
+
+Workspace count now 414. Total this resume: 304 cockpit crates.
