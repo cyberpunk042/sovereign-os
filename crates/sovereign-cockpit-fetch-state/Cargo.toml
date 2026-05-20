@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-fetch-state"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit fetch-state machine for an async resource. State{Idle/Loading{started_at}/Ready{loaded_at}/Errored{error, ts}}. Transitions start_loading/loaded/errored/reset. classify(now, stale_after_ms) detects Ready-but-stale. Pure descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []

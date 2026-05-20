@@ -792,6 +792,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-fetch-state"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-field-error"
 version = "0.1.0"
 dependencies = [
