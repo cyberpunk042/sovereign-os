@@ -822,3 +822,11 @@ Workspace count now 213. Total this resume: 103 cockpit crates.
   color-picker)
 
 Workspace count now 214. Total this resume: 104 cockpit crates.
+
+### Thirty-seventh wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-reorderable-list` (Vec<String> ids + drag
+  cursor; begin_drag/hover/commit_drop; move_to shorthand;
+  cancel_drag; insert-after-removal index adjustment)
+
+Workspace count now 215. Total this resume: 105 cockpit crates.
