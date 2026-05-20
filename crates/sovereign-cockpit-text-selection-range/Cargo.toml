@@ -1,0 +1,12 @@
+[package]
+name = "sovereign-cockpit-text-selection-range"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "Text selection range set with merge/clear semantics."
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
