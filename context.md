@@ -2507,3 +2507,12 @@ Workspace count now 405. Total this resume: 295 cockpit crates.
   secondary; invoke bumps action counter)
 
 Workspace count now 406. Total this resume: 296 cockpit crates.
+
+### Two-hundred-and-twenty-ninth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-inline-annotation` (Annotation{id, start,
+  end, body}; apply_insert shifts at/after; apply_delete
+  clamps or removes overlapping annotations and shifts the
+  subsequent ones down)
+
+Workspace count now 407. Total this resume: 297 cockpit crates.
