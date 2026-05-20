@@ -1832,3 +1832,12 @@ Workspace count now 327. Total this resume: 217 cockpit crates.
   effective_primary/secondary respect collapse)
 
 Workspace count now 328. Total this resume: 218 cockpit crates.
+
+### Hundred-and-fifty-first wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-help-overlay` (Section{title, entries:Vec<
+  Entry{keys, description}>}; add_section/add_entry; search(q)
+  case-insensitive over description+keys; empty query returns all;
+  total_entries helper)
+
+Workspace count now 329. Total this resume: 219 cockpit crates.
