@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-cell-format"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit table-cell formatter. Per CellKind (Plain/Number/Pct/CurrencyMinor/BytesIec/DurationMs) returns the rendered string. Numeric kinds clamp at i64. Pure formatter; distinct from sovereign-cockpit-number-format (top-level) — this is the cell-by-column-kind dispatcher."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
