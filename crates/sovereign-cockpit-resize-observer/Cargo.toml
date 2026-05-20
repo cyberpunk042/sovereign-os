@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-resize-observer"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit resize-observer state. Tracks (element_id → (w, h)) and emits a SizeChanged delta only when the change exceeds noise_threshold_px in either dimension. observe(id, w, h) returns Changed{prev_w, prev_h, new_w, new_h}/SubThreshold/FirstSeen. Pure descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
