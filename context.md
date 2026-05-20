@@ -777,3 +777,13 @@ Workspace count now 205. Total this resume: 95 cockpit crates.
   autoplay; next/prev wrap or clamp; tick advances on interval)
 
 Workspace count now 206. Total this resume: 96 cockpit crates.
+
+### Thirty-second wave (same day, +2 more cockpit crates)
+
+- `sovereign-cockpit-split-pane` (two-pane split; drag clamps to
+  (min_a, container - min_b) and snaps to either min on near-edge;
+  resize_container reclamps existing split)
+- `sovereign-cockpit-text-metrics` (bytes/chars/graphemes/words/
+  lines; graphemes best-effort with combining-mark + ZWJ skip)
+
+Workspace count now 208. Total this resume: 98 cockpit crates.
