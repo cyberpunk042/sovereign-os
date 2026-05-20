@@ -1278,6 +1278,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-merge-conflict-ui"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-message-composer"
 version = "0.1.0"
 dependencies = [
