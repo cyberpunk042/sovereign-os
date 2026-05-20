@@ -1989,6 +1989,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-month-picker"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-multi-line-input"
 version = "0.1.0"
 dependencies = [
