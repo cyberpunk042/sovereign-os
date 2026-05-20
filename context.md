@@ -2215,3 +2215,12 @@ Workspace count now 372. Total this resume: 262 cockpit crates.
   all checked, Unchecked iff all unchecked, else Indeterminate)
 
 Workspace count now 373. Total this resume: 263 cockpit crates.
+
+### Hundred-and-ninety-sixth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-split-button` (Action{id, label, invokes};
+  add_action appends; primary at index 0; swap_primary promotes
+  by id; invoke bumps counter and (when last_used_first=true)
+  promotes the invoked action; menu = non-primary)
+
+Workspace count now 374. Total this resume: 264 cockpit crates.
