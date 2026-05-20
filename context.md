@@ -1095,3 +1095,12 @@ Workspace count now 245. Total this resume: 135 cockpit crates.
   500)
 
 Workspace count now 246. Total this resume: 136 cockpit crates.
+
+### Sixty-ninth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-cell-format` (CellKind{Plain/Number/Pct/
+  CurrencyMinor{code}/BytesIec/DurationMs}; format(kind, value,
+  plain) per-cell dispatcher; distinct from number-format
+  top-level)
+
+Workspace count now 247. Total this resume: 137 cockpit crates.
