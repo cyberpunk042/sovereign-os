@@ -2188,3 +2188,12 @@ Workspace count now 369. Total this resume: 259 cockpit crates.
   contains tests membership)
 
 Workspace count now 370. Total this resume: 260 cockpit crates.
+
+### Hundred-and-ninety-third wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-attention-cue` (Phase{Off/Pulsing}; notify
+  sets Pulsing+intensity=10000; observe returns current
+  intensity = max(0, 10000-decay*(now-last)/1000); auto-flips
+  Off at zero; acknowledge dismisses explicitly)
+
+Workspace count now 371. Total this resume: 261 cockpit crates.
