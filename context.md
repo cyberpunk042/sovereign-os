@@ -1163,3 +1163,11 @@ Workspace count now 253. Total this resume: 143 cockpit crates.
   items_for_notify(min_mode) filters; distinct kinds independent)
 
 Workspace count now 254. Total this resume: 144 cockpit crates.
+
+### Seventy-seventh wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-keyboard-layout` (Layout{Qwerty/QwertyUk/
+  Dvorak/Colemak/Azerty}; set/current/description for the
+  settings UI; OS owns the physical-key remap)
+
+Workspace count now 255. Total this resume: 145 cockpit crates.
