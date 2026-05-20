@@ -72,6 +72,26 @@
 | M057 | Data flow and lifecycle — 12-step task lifecycle | dump 17532–17914 |
 | M058 | Hardware-aware scheduling — resource types + queue types + backpressure | dump 17914–18268 |
 | M059 | Sovereign close — peace machine | dump 18268–18341 |
+| M060 | Cockpit + 20+ dashboards + UX surface | dump 581, 3290–3325, 14860, 15625–15665, 16440–16466 |
+| M061 | AVX++ canon update — backward-sweep redefinitions (2026-05-19) | full 18341-line reverse pass (6 redefinitions pinned) |
+| M062 | Macro-Arc 10-PR Foundation Scaffold (Stage 1) | sovereign-os macro-arc dump lines 3–17 |
+| M063 | SFIF discipline — Scaffold → Foundation → Infrastructure → Features | macro-arc dump lines 389–396 |
+| M064 | "Debian as Ark" framing + Q-016 distro-base reconsideration | macro-arc dump lines 396–399 |
+| M065 | Five Stage Gates SG1–SG5 + ExitPlanMode checkpoint ritual | macro-arc dump lines 321–330 |
+| M066 | Trinity Framework Genesis — The Pulse / The Weaver / The Auditor | sain-01 dump lines 936–987 |
+| M067 | Custom kernel build pipeline (-march=znver5, GCC 14, Linux 6.12, bindeb-pkg) | sain-01 dump lines 651–676 |
+| M068 | ZFS storage architecture (tank/context, sync=always, ashift=12, lz4, recordsize) | sain-01 dump lines 680–695 |
+| M070 | Dual-CCD cache topology + core pinning (CCD 0 Pulse, CCD 1 Weaver+Auditor+Host) | sain-01 dump lines 1013–1037 |
+| M071 | Atomic State Transition Protocol — Weaver execution (O_DIRECT + POSIX AIO + lockless ZFS) | sain-01 dump lines 1051–1089 |
+| M072 | Master Bootstrap Verification Checklist (6-phase operational grid) | sain-01 dump lines 1091–1100 |
+| M073 | 1-bit (ternary) logic + BitLinear Core ({−1, 0, +1} ≈ 1.58 bits/parameter) | avx++ dump lines 770–797 |
+| M074 | AVX-512 VNNI hardware fusion (512-bit ZMM, 64× INT8, VPDPBUSD single-cycle, LUT matrix ops) | avx++ dump lines 798–811 |
+| M075 | SRP hardware topology mapping (Conductor on CPU, Logic on GPU 0, Oracle on GPU 1) | avx++ dump lines 812–851 |
+| M076 | Three load-balancing profiles (Ultra-Sovereign Efficiency / High-Concurrency Burst / Deep Context Synthesis) | avx++ dump lines 852–926 |
+| M077 | NVFP4 pretraining + inference pipeline (Blackwell-native 4-bit, RHT + 2D quantization + stochastic rounding) | avx++ + research-arc material |
+| M078 | HölderPO + GRPO post-training pipeline (Hölder-mean token aggregation + dynamic-p annealing) | post-training research arc |
+| M079 | Activation steering interpretability surface (white-box vs black-box intervention class) | interpretability research arc |
+| M080 | HRM (Hierarchical Reasoning Model) architectural class — recurrent two-timescale brain-inspired alternative to Transformers | HRM research arc |
 
 ## Decomposition that each milestone owes
 
