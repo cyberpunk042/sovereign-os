@@ -2393,3 +2393,11 @@ Workspace count now 392. Total this resume: 282 cockpit crates.
   returns override iff On + class mapped; remove_override drops)
 
 Workspace count now 393. Total this resume: 283 cockpit crates.
+
+### Two-hundred-and-sixteenth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-radial-gauge` (min<max range; value clamped
+  on set; fill_bp = (value-min)*10000/(max-min) clamped; Zone
+  {Cold/Warm/Hot} from strictly-increasing warm_bp+hot_bp)
+
+Workspace count now 394. Total this resume: 284 cockpit crates.
