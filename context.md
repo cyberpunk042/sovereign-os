@@ -2940,3 +2940,13 @@ Workspace count now 454. Total this resume: 344 cockpit crates.
   returned in next Plain)
 
 Workspace count now 455. Total this resume: 345 cockpit crates.
+
+### Two-hundred-and-seventy-eighth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-unread-dot` (Channel{count, last_seen_ts_ms,
+  mention}; observe(ch, is_mention) increments count + sets
+  mention flag; mark_seen(ch, ts) zeroes count and clears
+  mention; dot(ch) returns Hidden / Numeric / Mention;
+  total_unread sums all channels)
+
+Workspace count now 456. Total this resume: 346 cockpit crates.
