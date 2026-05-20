@@ -1,0 +1,12 @@
+[package]
+name = "sovereign-cockpit-find-replace-bar"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "Find/replace UI state with match counts and navigation."
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
