@@ -846,3 +846,11 @@ Workspace count now 216. Total this resume: 106 cockpit crates.
   distinct from action-throttle leading-edge cooldown)
 
 Workspace count now 217. Total this resume: 107 cockpit crates.
+
+### Fortieth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-color-mode` (UserPreference + SystemSignal +
+  per-context overrides; effective(context) override > preference
+  > system; Auto+Unknown defaults to Light)
+
+Workspace count now 218. Total this resume: 108 cockpit crates.
