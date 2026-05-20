@@ -2525,3 +2525,11 @@ Workspace count now 407. Total this resume: 297 cockpit crates.
   lists exhausted)
 
 Workspace count now 408. Total this resume: 298 cockpit crates.
+
+### Two-hundred-and-thirty-first wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-pill-input` (multi-value field; commit
+  splits by separator, trims, drops empties, dedups, appends
+  up to max_pills cap; remove by exact; clear empties)
+
+Workspace count now 409. Total this resume: 299 cockpit crates.
