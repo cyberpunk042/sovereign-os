@@ -2401,3 +2401,12 @@ Workspace count now 393. Total this resume: 283 cockpit crates.
   {Cold/Warm/Hot} from strictly-increasing warm_bp+hot_bp)
 
 Workspace count now 394. Total this resume: 284 cockpit crates.
+
+### Two-hundred-and-seventeenth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-scroll-anchor` (Mode{Top/Bottom/Anchored};
+  apply_prepend shifts offset by +n under Anchored (keeps view
+  stable); apply_append snaps per mode; Bottom sticks to end;
+  at_bottom test exposed)
+
+Workspace count now 395. Total this resume: 285 cockpit crates.
