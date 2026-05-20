@@ -882,6 +882,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-keystroke-sequence"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-language-pack"
 version = "0.1.0"
 dependencies = [
