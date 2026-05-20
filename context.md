@@ -1029,3 +1029,11 @@ Workspace count now 237. Total this resume: 127 cockpit crates.
   ColorHint depends on Polarity so 'fewer errors' = Positive)
 
 Workspace count now 238. Total this resume: 128 cockpit crates.
+
+### Sixty-first wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-row-actions` (per row_id: RowSet{left, right:
+  Vec<Action{id, label, severity, requires_confirm}>}; add/remove
+  per side; same id allowed across sides; empty row auto-prune)
+
+Workspace count now 239. Total this resume: 129 cockpit crates.
