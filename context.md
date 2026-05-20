@@ -1121,3 +1121,11 @@ Workspace count now 248. Total this resume: 138 cockpit crates.
   ticks emits aligned multiples inside [from, to])
 
 Workspace count now 249. Total this resume: 139 cockpit crates.
+
+### Seventy-second wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-chart-legend` (Series{id, label, color,
+  visible}; add/toggle/solo/show_all/hover/unhover/
+  visible_series; solo isolates one; show_all restores)
+
+Workspace count now 250. Total this resume: 140 cockpit crates.
