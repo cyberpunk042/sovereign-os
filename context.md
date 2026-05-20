@@ -2349,3 +2349,12 @@ Workspace count now 387. Total this resume: 277 cockpit crates.
   reset mutators)
 
 Workspace count now 388. Total this resume: 278 cockpit crates.
+
+### Two-hundred-and-eleventh wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-update-prompt` (current_version +
+  available_version + snooze_until_ms; announce sets available;
+  should_show iff available set and now>=snooze; snooze N ms;
+  install promotes current and clears)
+
+Workspace count now 389. Total this resume: 279 cockpit crates.
