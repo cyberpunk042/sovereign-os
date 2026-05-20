@@ -1383,3 +1383,12 @@ Workspace count now 279. Total this resume: 169 cockpit crates.
   last_error; should_fetch_at(distance, threshold) gates initiation)
 
 Workspace count now 280. Total this resume: 170 cockpit crates.
+
+### Hundred-and-third wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-log-tail-viewer` (LogLevel{Trace<...<Error};
+  LogLine{level, ts, source, message}; ring buffer of capacity
+  lines, oldest dropped (counted); view(Filter{min_level, sources,
+  substring}) — composes; substring case-insensitive)
+
+Workspace count now 281. Total this resume: 171 cockpit crates.
