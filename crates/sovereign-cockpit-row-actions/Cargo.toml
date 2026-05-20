@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-row-actions"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit per-row contextual actions (left + right swipe / hover). Each row carries left_actions + right_actions (id, label, severity, requires_confirm). Pure descriptor; the chrome wires the gestures + paints them."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
