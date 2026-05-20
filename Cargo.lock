@@ -3034,6 +3034,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-streak-indicator"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-stream-pause"
 version = "0.1.0"
 dependencies = [
