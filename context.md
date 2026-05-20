@@ -2179,3 +2179,12 @@ Workspace count now 368. Total this resume: 258 cockpit crates.
   if shorter than tail); tail 0..=8)
 
 Workspace count now 369. Total this resume: 259 cockpit crates.
+
+### Hundred-and-ninety-second wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-cell-range-select` (Cell{row, col};
+  anchor+focus form selection rect; click sets both, drag
+  moves focus; rect normalizes corners; cells row-major;
+  contains tests membership)
+
+Workspace count now 370. Total this resume: 260 cockpit crates.
