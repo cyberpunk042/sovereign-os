@@ -3648,6 +3648,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-unread-dot"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-unsaved-guard"
 version = "0.1.0"
 dependencies = [
