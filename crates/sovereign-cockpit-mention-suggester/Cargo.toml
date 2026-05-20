@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-mention-suggester"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit @-mention typeahead suggester. observe(input, cursor) detects an active '@query' token; suggest(operators, max) returns up to `max` operators whose handle starts with the query. Pure presentation primitive; chrome wires the typeahead UI."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
