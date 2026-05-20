@@ -3018,3 +3018,13 @@ Workspace count now 462. Total this resume: 352 cockpit crates.
   before window; succeed/dismiss transitions)
 
 Workspace count now 463. Total this resume: 353 cockpit crates.
+
+### Two-hundred-and-eighty-sixth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-delta-pill` (render(current, prior,
+  flat_threshold, invert_polarity) → Pill{direction Up/Flat/Down,
+  sentiment Positive/Neutral/Negative post-polarity, label,
+  magnitude_bp basis points}; invert_polarity flips sentiment
+  for higher-is-worse metrics)
+
+Workspace count now 464. Total this resume: 354 cockpit crates.
