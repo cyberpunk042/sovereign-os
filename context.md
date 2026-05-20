@@ -1797,3 +1797,12 @@ Workspace count now 323. Total this resume: 213 cockpit crates.
   returns counts)
 
 Workspace count now 324. Total this resume: 214 cockpit crates.
+
+### Hundred-and-forty-seventh wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-row-expansion` (Expansion{expanded, loaded};
+  expand/collapse/toggle drive expanded; mark_loaded signals
+  subrows arrived; collapse preserves loaded flag; pending_load
+  lists expanded-but-unloaded for spinner UI)
+
+Workspace count now 325. Total this resume: 215 cockpit crates.
