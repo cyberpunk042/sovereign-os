@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-dashboard-profile"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit dashboard preset profiles (Operator / Engineer / Security / Trader / Custom). Each preset enables a specific widget allowlist and a default layout id. activate(id) swaps the active preset; widget_enabled(widget_id) reports if it's in the active set. Pairs with sovereign-cockpit-widget-registry."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
