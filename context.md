@@ -1574,3 +1574,12 @@ Workspace count now 299. Total this resume: 189 cockpit crates.
   EditOps for caller to apply)
 
 Workspace count now 300. Total this resume: 190 cockpit crates.
+
+### Hundred-and-twenty-third wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-titlebar-config` (TitlebarConfig{prefix,
+  segments:Vec, separator default " · ", pinned_status:Option<
+  StatusChip{label, Severity}>}; render_title joins prefix + segments;
+  push/pop/set_segments manage path; pin/clear status)
+
+Workspace count now 301. Total this resume: 191 cockpit crates.
