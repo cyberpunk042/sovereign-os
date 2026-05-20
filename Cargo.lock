@@ -320,6 +320,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-carousel"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-cell-editor"
 version = "0.1.0"
 dependencies = [

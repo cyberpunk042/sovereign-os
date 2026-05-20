@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-carousel"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit horizontal carousel state. Tracks N slides + current index + optional auto-advance interval. next()/prev() wrap or clamp per `wrap_around` flag. tick(now_ms) advances when the auto-interval elapses (only after `enable_autoplay`). Pure presentation crate."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
