@@ -530,6 +530,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-drag-handle"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-empty-search-state"
 version = "0.1.0"
 dependencies = [

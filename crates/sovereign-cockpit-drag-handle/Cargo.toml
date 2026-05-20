@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-drag-handle"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit drag-handle gesture state machine. press(x,y) → move(x,y) → release(). Fires DragStart only after the cursor moves past `activation_px` from the press point, so a click is not mistaken for a drag. Pure state-machine crate; renderer subscribes to the event sequence."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
