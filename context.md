@@ -1469,3 +1469,13 @@ Workspace count now 288. Total this resume: 178 cockpit crates.
   drop_facet for tear-down)
 
 Workspace count now 289. Total this resume: 179 cockpit crates.
+
+### Hundred-and-twelfth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-dictation-state` (Phase{Idle/Listening/
+  Finalizing/Errored} FSM; partial_transcript accumulates,
+  committed_transcript commits on complete; clamped mic_level_db;
+  error from Listening|Finalizing → Errored; reset Errored→Idle;
+  session_count tracks starts)
+
+Workspace count now 290. Total this resume: 180 cockpit crates.
