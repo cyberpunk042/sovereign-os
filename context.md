@@ -2542,3 +2542,12 @@ Workspace count now 409. Total this resume: 299 cockpit crates.
   total>0 (last segment absorbs rounding))
 
 Workspace count now 410. Total this resume: 300 cockpit crates.
+
+### Two-hundred-and-thirty-third wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-operation-receipt` (Receipt{id, action,
+  Outcome{Success/Failure(err)}, ts_ms}; record_success/
+  record_failure append, capacity drops oldest; recent(n)
+  newest-first; failures() filters)
+
+Workspace count now 411. Total this resume: 301 cockpit crates.
