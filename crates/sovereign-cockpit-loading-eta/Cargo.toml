@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-loading-eta"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit loading-bar ETA estimator. observe(progress_pct, now) records up to N samples; eta_ms(now) returns Some(remaining_ms) once at least two distinct progress samples exist and the trajectory is positive. Linear extrapolation across the most-recent two samples. Pure timing math; distinct from progress-bar / progress-tracker (visual)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
