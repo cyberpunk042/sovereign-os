@@ -1901,3 +1901,11 @@ Workspace count now 335. Total this resume: 225 cockpit crates.
   ordered() most-recent-first)
 
 Workspace count now 336. Total this resume: 226 cockpit crates.
+
+### Hundred-and-fifty-ninth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-stream-render-state` (Phase{Idle/Streaming/
+  Complete/Errored/Aborted}; start init; append_chunk records text
+  + first_chunk_ms; complete/error/abort terminal; ttfb_ms helper)
+
+Workspace count now 337. Total this resume: 227 cockpit crates.
