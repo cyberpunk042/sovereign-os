@@ -2698,3 +2698,12 @@ Workspace count now 427. Total this resume: 317 cockpit crates.
   clear mutators)
 
 Workspace count now 428. Total this resume: 318 cockpit crates.
+
+### Two-hundred-and-fifty-first wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-emergency-stop` (Phase{Locked/Armed/
+  Triggered}; arm(now) Locked→Armed with armed_at; trigger
+  Armed→Triggered iff within arm_window_ms (else falls
+  Locked); cancel returns Locked; Triggered one-way)
+
+Workspace count now 429. Total this resume: 319 cockpit crates.
