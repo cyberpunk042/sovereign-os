@@ -2979,3 +2979,12 @@ Workspace count now 458. Total this resume: 348 cockpit crates.
   weight/root_weight)
 
 Workspace count now 459. Total this resume: 349 cockpit crates.
+
+### Two-hundred-and-eighty-second wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-stack-trace-viewer` (Frame{idx, file, line,
+  fn_name, in_project}; push classifies against project_prefixes;
+  render(collapse_deps) yields RenderRow Vec; collapse_deps=true
+  folds contiguous out-of-project runs into Collapsed{count})
+
+Workspace count now 460. Total this resume: 350 cockpit crates.
