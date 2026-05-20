@@ -2135,3 +2135,11 @@ Workspace count now 363. Total this resume: 253 cockpit crates.
   remove by id)
 
 Workspace count now 364. Total this resume: 254 cockpit crates.
+
+### Hundred-and-eighty-seventh wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-spacing-scale` (Token{None/Xxs/Xs/Sm/Md/Lg/
+  Xl/Xxl/Xxxl} → px; defaults 0/2/4/8/12/16/24/32/48;
+  multiply saturating-scales; validate ensures non-decreasing)
+
+Workspace count now 365. Total this resume: 255 cockpit crates.
