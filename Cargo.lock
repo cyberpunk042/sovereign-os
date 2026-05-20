@@ -1883,6 +1883,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-playback-scrubber"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-popover-anchor"
 version = "0.1.0"
 dependencies = [
