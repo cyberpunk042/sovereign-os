@@ -1143,6 +1143,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-keyboard-chord-detector"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-keyboard-layout"
 version = "0.1.0"
 dependencies = [
