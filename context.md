@@ -1353,3 +1353,13 @@ Workspace count now 276. Total this resume: 166 cockpit crates.
   past window)
 
 Workspace count now 277. Total this resume: 167 cockpit crates.
+
+### One-hundredth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-draft-autosave` (per-field DraftField{text,
+  last_edit_ms, last_snapshot_ms}; snapshot_due respects
+  min_interval floor + idle_ms post-typing pause + max_age_ms
+  force-during-typing; due_fields lists all currently due;
+  non-monotonic ts rejected)
+
+Workspace count now 278. Total this resume: 168 cockpit crates.
