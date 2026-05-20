@@ -1171,3 +1171,11 @@ Workspace count now 254. Total this resume: 144 cockpit crates.
   settings UI; OS owns the physical-key remap)
 
 Workspace count now 255. Total this resume: 145 cockpit crates.
+
+### Seventy-eighth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-pip-window` (Corner{TL/TR/BL/BR}+(w,h)+
+  content_id+visible; show/hide/move_to/resize/set_content;
+  hide preserves content_id for resume)
+
+Workspace count now 256. Total this resume: 146 cockpit crates.
