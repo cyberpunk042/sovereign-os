@@ -2331,3 +2331,12 @@ Workspace count now 385. Total this resume: 275 cockpit crates.
   clear/total)
 
 Workspace count now 386. Total this resume: 276 cockpit crates.
+
+### Two-hundred-and-ninth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-filter-state` (pending + applied BTreeMap
+  key→value; set/clear/clear_all mutate pending; apply copies
+  pending→applied; discard reverts to applied; is_dirty when
+  pending != applied)
+
+Workspace count now 387. Total this resume: 277 cockpit crates.
