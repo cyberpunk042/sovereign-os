@@ -1658,3 +1658,13 @@ Workspace count now 308. Total this resume: 198 cockpit crates.
   colour match; variants_of/remove helpers)
 
 Workspace count now 309. Total this resume: 199 cockpit crates.
+
+### Hundred-and-thirty-second wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-error-state-screen` (ErrorStateScreen{Category{
+  Network/Permission/NotFound/Server/Unknown}, headline, body,
+  retry_handler_id, retry_attempts, last_attempt_ms}; with_retry
+  wires handler; attempt_retry counts (NoRetry err if absent);
+  can_retry exposes button visibility)
+
+Workspace count now 310. Total this resume: 200 cockpit crates.
