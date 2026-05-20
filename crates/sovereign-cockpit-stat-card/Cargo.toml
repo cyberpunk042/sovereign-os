@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-stat-card"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit single-stat KPI card descriptor. StatCard{id, label, value_text, hint, trend_chip: Option<TrendChip{percent_x100, direction}>, sparkline_source_id: Option<String>}. register/update/list. Pure descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
