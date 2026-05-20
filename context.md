@@ -2758,3 +2758,11 @@ Workspace count now 434. Total this resume: 324 cockpit crates.
   + Trend{Up/Flat/Down} with epsilon)
 
 Workspace count now 435. Total this resume: 325 cockpit crates.
+
+### Two-hundred-and-fifty-eighth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-day-schedule` (Block{id, start_min, end_min,
+  label}; add rejects out-of-range, start>=end, conflict
+  (overlap not edge-touch); blocks_sorted ascending start_min)
+
+Workspace count now 436. Total this resume: 326 cockpit crates.
