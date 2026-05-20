@@ -1649,3 +1649,12 @@ Workspace count now 307. Total this resume: 197 cockpit crates.
   unlock(now) clears + counts; tick(now) auto-locks idempotently)
 
 Workspace count now 308. Total this resume: 198 cockpit crates.
+
+### Hundred-and-thirty-first wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-icon-set-registry` (Icon{variants:Vec<Variant{
+  size_px, color_token, url_or_data}>}; register sorts + replaces
+  same size+color; lookup exact then closest size preferring
+  colour match; variants_of/remove helpers)
+
+Workspace count now 309. Total this resume: 199 cockpit crates.
