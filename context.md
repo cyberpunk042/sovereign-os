@@ -2143,3 +2143,11 @@ Workspace count now 364. Total this resume: 254 cockpit crates.
   multiply saturating-scales; validate ensures non-decreasing)
 
 Workspace count now 365. Total this resume: 255 cockpit crates.
+
+### Hundred-and-eighty-eighth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-volume-meter` (level_bp + peak_bp 0..=10000;
+  peak lifts on higher sample; after hold_ms, peak decays at
+  decay_bp_per_sec; tick decays without changing level)
+
+Workspace count now 366. Total this resume: 256 cockpit crates.
