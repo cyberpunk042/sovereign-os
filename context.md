@@ -2322,3 +2322,12 @@ Workspace count now 384. Total this resume: 274 cockpit crates.
   first max_visible chips + overflow count)
 
 Workspace count now 385. Total this resume: 275 cockpit crates.
+
+### Two-hundred-and-eighth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-alert-group` (Group{tag, count, max_severity,
+  latest_ts_ms}; observe bumps count, maxes severity, updates
+  latest_ts; groups_by_severity sorts severity desc + ts desc;
+  clear/total)
+
+Workspace count now 386. Total this resume: 276 cockpit crates.
