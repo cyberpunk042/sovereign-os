@@ -1195,3 +1195,11 @@ Workspace count now 257. Total this resume: 147 cockpit crates.
   reorder clamps to-end; empty kind auto-prune)
 
 Workspace count now 258. Total this resume: 148 cockpit crates.
+
+### Eighty-first wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-quick-jump` (JumpTarget{short_id, kind,
+  full_path, label}; register/resolve/unregister/by_kind;
+  operator-types-known-shortcut lane distinct from text search)
+
+Workspace count now 259. Total this resume: 149 cockpit crates.
