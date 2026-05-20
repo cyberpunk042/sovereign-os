@@ -1517,3 +1517,12 @@ Workspace count now 293. Total this resume: 183 cockpit crates.
   /total_selected helpers; empty/inverted ranges rejected)
 
 Workspace count now 294. Total this resume: 184 cockpit crates.
+
+### Hundred-and-seventeenth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-whats-new-feed` (Entry{id, title, body,
+  published_at_ms, Severity{Info/Notice/Critical}}; per-user
+  last_seen watermark drives unread; mark_all_read advances
+  watermark but never regresses (monotonic); unread_count helper)
+
+Workspace count now 295. Total this resume: 185 cockpit crates.
