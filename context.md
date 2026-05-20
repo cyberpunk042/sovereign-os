@@ -2481,3 +2481,12 @@ Workspace count now 402. Total this resume: 292 cockpit crates.
   padding; is_current_month flag)
 
 Workspace count now 403. Total this resume: 293 cockpit crates.
+
+### Two-hundred-and-twenty-sixth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-diff-stats` (FileStat{added, removed},
+  churn=sum; record(path, ...) overwrites; totals aggregate
+  {files, added, removed, churn}; files_by_churn sorts desc
+  (path asc tie-break))
+
+Workspace count now 404. Total this resume: 294 cockpit crates.
