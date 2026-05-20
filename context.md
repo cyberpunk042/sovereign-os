@@ -2463,3 +2463,12 @@ Workspace count now 400. Total this resume: 290 cockpit crates.
   valid option; options_for_child accessor)
 
 Workspace count now 401. Total this resume: 291 cockpit crates.
+
+### Two-hundred-and-twenty-fourth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-lazy-loader` (Phase{Idle/Loading/Loaded/
+  Failed(err)} per resource; request Idle/Failed→Loading
+  (bumps attempts); complete→Loaded; fail→Failed; retry only
+  if attempts<max; reset→Idle)
+
+Workspace count now 402. Total this resume: 292 cockpit crates.
