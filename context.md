@@ -2810,3 +2810,12 @@ Workspace count now 440. Total this resume: 330 cockpit crates.
   priority-desc then insertion-asc order)
 
 Workspace count now 441. Total this resume: 331 cockpit crates.
+
+### Two-hundred-and-sixty-fourth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-callout-arrow` (place(balloon Rect, target,
+  arrow_margin) picks balloon Side via max signed distance to
+  target; offset along that edge clamped within
+  [arrow_margin, edge_len - arrow_margin]; pure geometry)
+
+Workspace count now 442. Total this resume: 332 cockpit crates.
