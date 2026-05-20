@@ -2385,3 +2385,11 @@ Workspace count now 391. Total this resume: 281 cockpit crates.
   audit lists ids below current min)
 
 Workspace count now 392. Total this resume: 282 cockpit crates.
+
+### Two-hundred-and-fifteenth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-high-contrast-mode` (Mode{Off/On} + class
+  → Pair{fg, bg} overrides; add_override registers, resolve
+  returns override iff On + class mapped; remove_override drops)
+
+Workspace count now 393. Total this resume: 283 cockpit crates.
