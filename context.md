@@ -1113,3 +1113,11 @@ Workspace count now 247. Total this resume: 137 cockpit crates.
   Remove left-only with right spacer; Change paired Modified)
 
 Workspace count now 248. Total this resume: 138 cockpit crates.
+
+### Seventy-first wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-timeline-axis` (curated intervals 1s..7d;
+  pick_interval(from, to, target) closest curated to range/target;
+  ticks emits aligned multiples inside [from, to])
+
+Workspace count now 249. Total this resume: 139 cockpit crates.
