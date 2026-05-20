@@ -2882,6 +2882,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-tri-state-checkbox"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-turn-annotation"
 version = "0.1.0"
 dependencies = [
