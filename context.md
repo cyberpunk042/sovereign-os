@@ -2376,3 +2376,12 @@ Workspace count now 390. Total this resume: 280 cockpit crates.
   bp; remaining saturating)
 
 Workspace count now 391. Total this resume: 281 cockpit crates.
+
+### Two-hundred-and-fourteenth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-tap-target` (Target{width_px, height_px,
+  aria_label}; register rejects too-small (min dim < min_size_px),
+  empty label, duplicates; set_min_size_px raises threshold;
+  audit lists ids below current min)
+
+Workspace count now 392. Total this resume: 282 cockpit crates.
