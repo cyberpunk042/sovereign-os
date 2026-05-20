@@ -2499,3 +2499,11 @@ Workspace count now 404. Total this resume: 294 cockpit crates.
   any-dep-Failed)
 
 Workspace count now 405. Total this resume: 295 cockpit crates.
+
+### Two-hundred-and-twenty-eighth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-footer-bar` (primary optional + secondary[]
+  + status_text; mutators reject duplicates across primary+
+  secondary; invoke bumps action counter)
+
+Workspace count now 406. Total this resume: 296 cockpit crates.
