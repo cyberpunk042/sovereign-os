@@ -684,6 +684,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-key-binding-display"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-key-stack"
 version = "0.1.0"
 dependencies = [

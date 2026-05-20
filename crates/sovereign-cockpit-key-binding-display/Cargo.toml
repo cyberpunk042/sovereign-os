@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-key-binding-display"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit key-binding display formatter. Renders a Chord (modifiers + key) as a platform-appropriate string. Mac uses Apple glyphs ⌘ ⇧ ⌥ ⌃ ↩ ⌫ ⎋, Linux/Windows use 'Ctrl', 'Shift', 'Alt', 'Super'. Pure presentation crate; the binding capture/registry lives elsewhere."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
