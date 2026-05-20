@@ -626,6 +626,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-code-fold"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-code-gutter"
 version = "0.1.0"
 dependencies = [
