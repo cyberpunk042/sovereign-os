@@ -2170,3 +2170,12 @@ Workspace count now 367. Total this resume: 257 cockpit crates.
   at >= min; reset clears counts)
 
 Workspace count now 368. Total this resume: 258 cockpit crates.
+
+### Hundred-and-ninety-first wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-secret-reveal` (State{Masked/Revealed};
+  reveal records ts; tick auto-masks after reveal_ms;
+  masked_display shows •••••<tail> when masked (passthrough
+  if shorter than tail); tail 0..=8)
+
+Workspace count now 369. Total this resume: 259 cockpit crates.
