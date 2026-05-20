@@ -1526,3 +1526,13 @@ Workspace count now 294. Total this resume: 184 cockpit crates.
   watermark but never regresses (monotonic); unread_count helper)
 
 Workspace count now 295. Total this resume: 185 cockpit crates.
+
+### Hundred-and-eighteenth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-code-block-actions` (Block{id, lang,
+  wrap_lines, expanded, copyable, runnable, copies, runs};
+  actions_for returns Copy?/Wrap|Unwrap/Expand|Collapse/Run?
+  per flags; apply mutates + records telemetry; Copy/Run on
+  unset capability errors)
+
+Workspace count now 296. Total this resume: 186 cockpit crates.
