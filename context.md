@@ -1743,3 +1743,12 @@ Workspace count now 317. Total this resume: 207 cockpit crates.
   ts, title alpha; ack/pin toggle state)
 
 Workspace count now 318. Total this resume: 208 cockpit crates.
+
+### Hundred-and-forty-first wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-combobox-state` (Option_{id, label}; state
+  holds options + filter + open flag + highlight + accepted value;
+  set_filter case-insensitive substring; move_up/down wrap;
+  accept_highlight commits; clamps highlight when filtered shrinks)
+
+Workspace count now 319. Total this resume: 209 cockpit crates.
