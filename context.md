@@ -1613,3 +1613,12 @@ Workspace count now 303. Total this resume: 193 cockpit crates.
   DragSnapGridConfig wraps with schema_version_marker)
 
 Workspace count now 304. Total this resume: 194 cockpit crates.
+
+### Hundred-and-twenty-seventh wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-drop-zone-set` (Zone{accept_types:BTreeSet,
+  max_items, count}; decide returns Accept/RejectType{accepted}/
+  RejectFull{count, max}/Unknown; accept increments count on
+  Accept; release decrements saturating at 0; add_type extends)
+
+Workspace count now 305. Total this resume: 195 cockpit crates.
