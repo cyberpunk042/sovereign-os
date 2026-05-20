@@ -1269,3 +1269,12 @@ Workspace count now 266. Total this resume: 156 cockpit crates.
   drop_queued clears while staying paused)
 
 Workspace count now 267. Total this resume: 157 cockpit crates.
+
+### Ninetieth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-toast-stack` (Toast{id, body, severity,
+  posted_at, ttl_ms, dismissable}; post/dismiss/visible(now);
+  overflow drops oldest; past-TTL filtered; distinct from
+  toast-tray)
+
+Workspace count now 268. Total this resume: 158 cockpit crates.
