@@ -2551,3 +2551,12 @@ Workspace count now 410. Total this resume: 300 cockpit crates.
   newest-first; failures() filters)
 
 Workspace count now 411. Total this resume: 301 cockpit crates.
+
+### Two-hundred-and-thirty-fourth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-alpha-index` (build sorts items + computes
+  first-index per lowercase starting letter; present_letters
+  lists; jump_index(letter) returns first matching item index
+  (case-insensitive))
+
+Workspace count now 412. Total this resume: 302 cockpit crates.
