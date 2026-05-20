@@ -1716,3 +1716,12 @@ Workspace count now 314. Total this resume: 204 cockpit crates.
   ranks; register idempotent preserving use_count)
 
 Workspace count now 315. Total this resume: 205 cockpit crates.
+
+### Hundred-and-thirty-eighth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-input-validator-set` (Rule{Required/MinLength/
+  MaxLength/StartsWith/EndsWith/Contains/OnlyAscii}; register
+  fields with ordered rules; validate_value returns Ok or first
+  Failure{rule_index, message}; lengths in Unicode chars)
+
+Workspace count now 316. Total this resume: 206 cockpit crates.
