@@ -1392,3 +1392,13 @@ Workspace count now 280. Total this resume: 170 cockpit crates.
   substring}) — composes; substring case-insensitive)
 
 Workspace count now 281. Total this resume: 171 cockpit crates.
+
+### Hundred-and-fourth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-export-format-picker` (Format{id, label,
+  extension, mime, Capabilities{lossless, preserves_formatting,
+  supports_charts}, order}; available_for(CapFilter) returns
+  satisfying formats in declared order; record_pick updates user
+  default; pick_default falls back to first-by-order)
+
+Workspace count now 282. Total this resume: 172 cockpit crates.
