@@ -1245,3 +1245,11 @@ Workspace count now 263. Total this resume: 153 cockpit crates.
   chrome priority chips)
 
 Workspace count now 264. Total this resume: 154 cockpit crates.
+
+### Eighty-seventh wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-leaderboard` (Row{id, label, score: i64};
+  submit/remove/ranked; competition ranking (1224 style: ties
+  share rank, next rank skips tie count))
+
+Workspace count now 265. Total this resume: 155 cockpit crates.
