@@ -1212,3 +1212,11 @@ Workspace count now 259. Total this resume: 149 cockpit crates.
   distinct from presence-mode — collaborator-display lane)
 
 Workspace count now 260. Total this resume: 150 cockpit crates.
+
+### Eighty-third wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-page-title` (stack-style title manager;
+  push/pop/clear/depth; current_title(separator, suffix) joins
+  outermost→innermost + optional app suffix)
+
+Workspace count now 261. Total this resume: 151 cockpit crates.
