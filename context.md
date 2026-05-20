@@ -1450,3 +1450,13 @@ Workspace count now 286. Total this resume: 176 cockpit crates.
   UnknownColumn; cards_in lists per column)
 
 Workspace count now 287. Total this resume: 177 cockpit crates.
+
+### Hundred-and-tenth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-agenda-view` (Item{id, title, start_ms};
+  DayGroup{day_index, items}; groups() buckets by day under
+  configurable day_length_ms + day_start_offset_ms;
+  between(from, to) for half-open windowing; day_index_for exposes
+  bucket math)
+
+Workspace count now 288. Total this resume: 178 cockpit crates.
