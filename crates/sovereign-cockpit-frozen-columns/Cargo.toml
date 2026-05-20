@@ -1,0 +1,12 @@
+[package]
+name = "sovereign-cockpit-frozen-columns"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "Frozen leading/trailing columns with per-column offset computation."
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
