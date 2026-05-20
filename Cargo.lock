@@ -2017,6 +2017,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-text-direction-mode"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-text-input-counter"
 version = "0.1.0"
 dependencies = [
