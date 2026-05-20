@@ -1950,3 +1950,11 @@ Workspace count now 341. Total this resume: 231 cockpit crates.
   switches)
 
 Workspace count now 342. Total this resume: 232 cockpit crates.
+
+### Hundred-and-sixty-fifth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-tile-grid-layout` (Rect{x,y,w,h}; place rejects
+  OoB/Overlap/ZeroArea; move_to allows same-tile self-overlap;
+  tile_at queries by coords; occupied_cells totals)
+
+Workspace count now 343. Total this resume: 233 cockpit crates.
