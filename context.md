@@ -1631,3 +1631,12 @@ Workspace count now 305. Total this resume: 195 cockpit crates.
   label tie-break) then unpinned recents (last_used desc))
 
 Workspace count now 306. Total this resume: 196 cockpit crates.
+
+### Hundred-and-twenty-ninth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-filter-builder` (Clause{field, Op{Eq/Ne/Gte/
+  Lte/Contains/StartsWith}, value} joined by Combinator{And/Or}
+  with outer negation; push/remove/move_clause; render_query
+  emits deterministic "NOT (a:1 AND b:>=2)" form)
+
+Workspace count now 307. Total this resume: 197 cockpit crates.
