@@ -1770,3 +1770,12 @@ Workspace count now 320. Total this resume: 210 cockpit crates.
   zones isolated)
 
 Workspace count now 321. Total this resume: 211 cockpit crates.
+
+### Hundred-and-forty-fourth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-date-range-picker` (DateRangePicker{from_ms,
+  to_ms, presets:BTreeMap<name, Preset{days_back}>}; set_range
+  validates from<to; apply_preset(now) computes to=now,
+  from=now-days×DAY_MS; seeded last-7/30/90-days)
+
+Workspace count now 322. Total this resume: 212 cockpit crates.
