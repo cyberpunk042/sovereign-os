@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-side-by-side-diff"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit two-pane diff alignment state. Given a unified line list (left_lineno, right_lineno, kind: Context/Add/Remove/Change), produces aligned pairs for the two-pane renderer (empty cells with `Spacer` kind for missing sides). Distinct from sovereign-cockpit-text-diff (string diff)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
