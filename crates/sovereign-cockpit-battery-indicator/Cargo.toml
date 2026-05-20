@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-battery-indicator"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit battery indicator. Tracks pct + charge state (Charging / Discharging / Full / Unknown) + low/critical thresholds + naive time-remaining estimate from the last sample delta. Pure UX-presentation crate; does not touch power management."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
