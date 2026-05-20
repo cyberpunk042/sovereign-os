@@ -1179,3 +1179,11 @@ Workspace count now 255. Total this resume: 145 cockpit crates.
   hide preserves content_id for resume)
 
 Workspace count now 256. Total this resume: 146 cockpit crates.
+
+### Seventy-ninth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-snippet-library` (Snippet{id, name, body,
+  trigger, tags}; search ranks exact-name>trigger>name-startswith
+  >body-contains; tag_filter requires ALL tags)
+
+Workspace count now 257. Total this resume: 147 cockpit crates.
