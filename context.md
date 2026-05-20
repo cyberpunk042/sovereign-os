@@ -1982,3 +1982,11 @@ Workspace count now 345. Total this resume: 235 cockpit crates.
   should_show window + not-dismissed + past-snooze)
 
 Workspace count now 346. Total this resume: 236 cockpit crates.
+
+### Hundred-and-sixty-ninth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-bulk-selection` (items + selected:BTreeSet +
+  anchor; click resets to single; ctrl_click toggles; shift_click
+  selects range from anchor; select_all/clear/count helpers)
+
+Workspace count now 347. Total this resume: 237 cockpit crates.
