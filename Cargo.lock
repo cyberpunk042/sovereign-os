@@ -361,6 +361,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-aspect-ratio-box"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-attachment-tray"
 version = "0.1.0"
 dependencies = [
