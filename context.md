@@ -1278,3 +1278,11 @@ Workspace count now 267. Total this resume: 157 cockpit crates.
   toast-tray)
 
 Workspace count now 268. Total this resume: 158 cockpit crates.
+
+### Ninety-first wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-table-summary-row` (Aggregator{None/Sum/Avg/
+  Min/Max/Count}; compute(rows) → Vec<SummaryCell>; empty rows
+  yield None for Min/Max; width-mismatch rejected)
+
+Workspace count now 269. Total this resume: 159 cockpit crates.
