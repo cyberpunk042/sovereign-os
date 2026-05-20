@@ -2197,3 +2197,12 @@ Workspace count now 370. Total this resume: 260 cockpit crates.
   Off at zero; acknowledge dismisses explicitly)
 
 Workspace count now 371. Total this resume: 261 cockpit crates.
+
+### Hundred-and-ninety-fourth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-hero-stat-tile` (label + value_x100 +
+  prev_x100 centi-units + unit; delta_bp = (val-prev)*10000/
+  abs(prev) with zero-prev rule; Trend{Up/Flat/Down} from
+  delta with epsilon; display formats with optional 2-decimal)
+
+Workspace count now 372. Total this resume: 262 cockpit crates.
