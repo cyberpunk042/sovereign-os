@@ -1752,3 +1752,12 @@ Workspace count now 318. Total this resume: 208 cockpit crates.
   accept_highlight commits; clamps highlight when filtered shrinks)
 
 Workspace count now 319. Total this resume: 209 cockpit crates.
+
+### Hundred-and-forty-second wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-virtual-tree-window` (VirtualTreeWindow{
+  total_rows, first_visible, window} over externally-flattened
+  tree; set_total snaps; scroll_to aligns at top/bottom;
+  scroll_by adjusts; end_visible/is_visible/visible_count helpers)
+
+Workspace count now 320. Total this resume: 210 cockpit crates.
