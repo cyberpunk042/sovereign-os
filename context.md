@@ -2724,3 +2724,11 @@ Workspace count now 430. Total this resume: 320 cockpit crates.
   not in items) then remaining in input order)
 
 Workspace count now 431. Total this resume: 321 cockpit crates.
+
+### Two-hundred-and-fifty-fourth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-object-fit` (Mode{Contain/Cover/Fill/None/
+  ScaleDown}; compute returns Rendered{w, h, off_x, off_y}
+  centered in container; ScaleDown picks min(Contain, None))
+
+Workspace count now 432. Total this resume: 322 cockpit crates.
