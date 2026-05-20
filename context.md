@@ -1966,3 +1966,11 @@ Workspace count now 343. Total this resume: 233 cockpit crates.
   contains 2 → keyword-contains 1 → name-contains 0; ties by name)
 
 Workspace count now 344. Total this resume: 234 cockpit crates.
+
+### Hundred-and-sixty-seventh wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-drag-state` (Phase{Idle/Dragging{item, hover}/
+  Completed{item, zone}}; start/hover/drop/cancel; drop requires
+  hovered_zone; drops/cancels counters)
+
+Workspace count now 345. Total this resume: 235 cockpit crates.
