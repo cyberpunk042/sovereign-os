@@ -1344,3 +1344,12 @@ Workspace count now 275. Total this resume: 165 cockpit crates.
   rejects self-reply; outline depth-first by posted_at)
 
 Workspace count now 276. Total this resume: 166 cockpit crates.
+
+### Ninety-ninth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-fetch-state` (State{Idle/Loading{started}/
+  Ready{loaded}/Errored{error,ts}}; start_loading/loaded/errored/
+  reset; is_stale(now, stale_after) returns true only in Ready
+  past window)
+
+Workspace count now 277. Total this resume: 167 cockpit crates.
