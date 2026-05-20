@@ -3549,6 +3549,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-type-to-confirm"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-typeahead"
 version = "0.1.0"
 dependencies = [

@@ -1,0 +1,12 @@
+[package]
+name = "sovereign-cockpit-type-to-confirm"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "Type-to-confirm input gate for destructive actions."
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
