@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-split-pane"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit split-pane state. Tracks two panes separated by a draggable gutter at split_px from one edge. set_split clamps to (min_a_px, container_size - min_b_px). drag_to performs the same clamping. Includes collapse-to-min snap zones for snap-on-near-edge behavior. Pure layout math."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
