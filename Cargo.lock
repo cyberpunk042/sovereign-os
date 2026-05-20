@@ -1665,6 +1665,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-incident-card"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-incremental-search"
 version = "0.1.0"
 dependencies = [
