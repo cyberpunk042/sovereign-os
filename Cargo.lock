@@ -1891,6 +1891,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-operation-receipt"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-overflow-shadow"
 version = "0.1.0"
 dependencies = [
