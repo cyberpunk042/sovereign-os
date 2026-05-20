@@ -1420,3 +1420,14 @@ Workspace count now 283. Total this resume: 173 cockpit crates.
   Accepted/RejectedCount/RejectedSize/Duplicate; drafts independent)
 
 Workspace count now 284. Total this resume: 174 cockpit crates.
+
+### Hundred-and-seventh wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-kpi-tile-grid` (Tile{id, label, unit, decimals,
+  value, goal, warn_at, crit_at, Direction{HigherIsWorse/
+  LowerIsWorse}, order}; status_for returns Ok/Warn/Crit/Unknown by
+  comparing against thresholds in configured direction;
+  format_value renders with decimals + unit; threshold validity
+  checked at add+validate)
+
+Workspace count now 285. Total this resume: 175 cockpit crates.
