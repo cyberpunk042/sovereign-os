@@ -905,3 +905,11 @@ Workspace count now 223. Total this resume: 113 cockpit crates.
   highest-prio queued; distinct from banner-state and toast-tray)
 
 Workspace count now 224. Total this resume: 114 cockpit crates.
+
+### Forty-seventh wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-destructive-confirm` (type-to-confirm gate;
+  case-sensitive phrase match + hold_ms cooldown; progress_pct
+  for chrome hint; distinct from confirmation-modal)
+
+Workspace count now 225. Total this resume: 115 cockpit crates.
