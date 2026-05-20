@@ -2800,6 +2800,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-tap-target"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-task-stack"
 version = "0.1.0"
 dependencies = [
