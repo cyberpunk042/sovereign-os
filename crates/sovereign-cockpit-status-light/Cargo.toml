@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-status-light"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit status-light registry. Each subject (id) carries a current Tone (Healthy/Degraded/Offline/Unknown) + reason label + last-update ts. set(id, tone, reason, now); worst() returns the worst tone across all subjects; stale(id, now, ttl) reports if the last update is older than ttl. Pure descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
