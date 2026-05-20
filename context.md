@@ -2630,3 +2630,11 @@ Workspace count now 419. Total this resume: 309 cockpit crates.
   empty value / lo>hi rejected at set)
 
 Workspace count now 420. Total this resume: 310 cockpit crates.
+
+### Two-hundred-and-forty-third wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-grid-cursor` ((row, col) within (max_row,
+  max_col) inclusive; set clamps; move_by(drow, dcol) shifts
+  within bounds via i64 + clamp; home/end mutators)
+
+Workspace count now 421. Total this resume: 311 cockpit crates.
