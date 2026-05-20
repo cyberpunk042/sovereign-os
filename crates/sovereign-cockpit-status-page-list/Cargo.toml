@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-status-page-list"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit status-page registry. Each StatusPage{id, label, url, current_state, last_check_ts}. register/update_state/list_all/list_by_state. Pure descriptor for the chrome to render a 'services we depend on' status grid."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []

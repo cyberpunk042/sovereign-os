@@ -1738,6 +1738,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-status-page-list"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-status-pulse"
 version = "0.1.0"
 dependencies = [
