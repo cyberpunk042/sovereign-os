@@ -1823,3 +1823,12 @@ Workspace count now 326. Total this resume: 216 cockpit crates.
   down, net (i64)}; auto-tidies items with no remaining votes)
 
 Workspace count now 327. Total this resume: 217 cockpit crates.
+
+### Hundred-and-fiftieth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-split-view-state` (Orientation{Horizontal/
+  Vertical}; ratio_bp 0..=10000 primary share; set_ratio clamps
+  to [min_primary, 10000-min_secondary]; collapsed=primary 100%;
+  effective_primary/secondary respect collapse)
+
+Workspace count now 328. Total this resume: 218 cockpit crates.
