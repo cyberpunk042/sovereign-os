@@ -1536,3 +1536,12 @@ Workspace count now 295. Total this resume: 185 cockpit crates.
   unset capability errors)
 
 Workspace count now 296. Total this resume: 186 cockpit crates.
+
+### Hundred-and-nineteenth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-result-page-cursor` (ResultPageCursor{page,
+  page_size, total_pages}; next/prev/jump_to return Moved{from,to}/
+  AtEdge; update_total snaps current page back when shrunk;
+  first_item_index/end_item_index for window slicing)
+
+Workspace count now 297. Total this resume: 187 cockpit crates.
