@@ -939,3 +939,12 @@ Workspace count now 227. Total this resume: 117 cockpit crates.
   trajectory flat)
 
 Workspace count now 228. Total this resume: 118 cockpit crates.
+
+### Fifty-first wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-progress-segmented` (N-segment pipeline;
+  Pending/Active/Completed/Failed; advance_to / complete / fail /
+  rewind; percent_complete = Completed/total; distinct from
+  progress-bar)
+
+Workspace count now 229. Total this resume: 119 cockpit crates.
