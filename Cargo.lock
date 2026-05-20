@@ -963,6 +963,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-gutter-marker-set"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-hover-card"
 version = "0.1.0"
 dependencies = [
