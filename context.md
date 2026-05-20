@@ -2892,3 +2892,12 @@ Workspace count now 449. Total this resume: 339 cockpit crates.
   matching bytes for progress display)
 
 Workspace count now 450. Total this resume: 340 cockpit crates.
+
+### Two-hundred-and-seventy-third wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-frozen-columns` (Column{id, width};
+  freeze_lead leading + freeze_trail trailing columns pinned;
+  position(i) returns PinnedLeft(offset) / Scrolling(left) /
+  PinnedRight(offset); scrolling_width sums non-frozen widths)
+
+Workspace count now 451. Total this resume: 341 cockpit crates.
