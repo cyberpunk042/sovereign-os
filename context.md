@@ -2828,3 +2828,12 @@ Workspace count now 442. Total this resume: 332 cockpit crates.
   TooShort / TooSlow / Diagonal)
 
 Workspace count now 443. Total this resume: 333 cockpit crates.
+
+### Two-hundred-and-sixty-sixth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-aspect-ratio-box` (fit(outer_w, outer_h,
+  w_num, w_den) sizes inner Box2D preserving target ratio and
+  fitting inside outer, centered; pillarbox vs letterbox decided
+  by limiting axis; pure geometry)
+
+Workspace count now 444. Total this resume: 334 cockpit crates.
