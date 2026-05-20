@@ -1934,3 +1934,11 @@ Workspace count now 339. Total this resume: 229 cockpit crates.
   commit accepts (empty rejected); cancel discards)
 
 Workspace count now 340. Total this resume: 230 cockpit crates.
+
+### Hundred-and-sixty-third wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-column-resize` (Column{min_px, max_px,
+  width_px}; register clamps initial; set_width/drag_delta clamp;
+  reset to min)
+
+Workspace count now 341. Total this resume: 231 cockpit crates.
