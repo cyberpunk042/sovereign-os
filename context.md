@@ -1002,3 +1002,12 @@ Workspace count now 234. Total this resume: 124 cockpit crates.
   blobs on activation)
 
 Workspace count now 235. Total this resume: 125 cockpit crates.
+
+### Fifty-eighth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-macro-recorder` (Recording{name, events:
+  Vec<{action_id, delay_ms}>, last_ts}; start/observe (monotonic
+  + relative-delay)/cancel/stop+save/delete; play_sequence returns
+  events for the playback engine)
+
+Workspace count now 236. Total this resume: 126 cockpit crates.
