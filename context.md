@@ -2072,3 +2072,12 @@ Workspace count now 356. Total this resume: 246 cockpit crates.
   over_budget_frames counter)
 
 Workspace count now 357. Total this resume: 247 cockpit crates.
+
+### Hundred-and-eightieth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-breakpoint-state` (Breakpoint{Xs/Sm/Md/Lg/Xl};
+  thresholds 640/768/1024/1280 default, strictly increasing;
+  update(width) recomputes and counts transitions; at_least
+  orders breakpoints)
+
+Workspace count now 358. Total this resume: 248 cockpit crates.
