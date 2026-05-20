@@ -3088,6 +3088,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-swipe-gesture"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-sync-status"
 version = "0.1.0"
 dependencies = [
