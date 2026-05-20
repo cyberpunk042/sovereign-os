@@ -1997,3 +1997,11 @@ Workspace count now 347. Total this resume: 237 cockpit crates.
   luminance 0..255 (rough); prefer_white_text when luminance<128)
 
 Workspace count now 348. Total this resume: 238 cockpit crates.
+
+### Hundred-and-seventy-first wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-countdown-timer` (Phase{Idle/Running/Paused/
+  Finished}; start/pause/resume/reset; tick → Finished when
+  elapsed >= duration; elapsed_ms/remaining_ms)
+
+Workspace count now 349. Total this resume: 239 cockpit crates.
