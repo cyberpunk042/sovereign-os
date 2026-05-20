@@ -1203,3 +1203,12 @@ Workspace count now 258. Total this resume: 148 cockpit crates.
   operator-types-known-shortcut lane distinct from text search)
 
 Workspace count now 259. Total this resume: 149 cockpit crates.
+
+### Eighty-second wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-presence-roster` (Entry{operator_id, label,
+  status: Online/Idle/Busy/Offline, last_seen_ts}; observe flips
+  Idle→Online; mark_idle_if_older batch-flips stale Online→Idle;
+  distinct from presence-mode — collaborator-display lane)
+
+Workspace count now 260. Total this resume: 150 cockpit crates.
