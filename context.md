@@ -1129,3 +1129,12 @@ Workspace count now 249. Total this resume: 139 cockpit crates.
   visible_series; solo isolates one; show_all restores)
 
 Workspace count now 250. Total this resume: 140 cockpit crates.
+
+### Seventy-third wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-resize-observer` (observe(id, w, h) → FirstSeen
+  / Changed{prev, new} / SubThreshold; either-dim ≥ noise_threshold_
+  px triggers; sub-threshold dropped to avoid thrashing chart
+  re-layout)
+
+Workspace count now 251. Total this resume: 141 cockpit crates.
