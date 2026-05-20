@@ -2930,3 +2930,13 @@ Workspace count now 453. Total this resume: 343 cockpit crates.
   active stream + substring filter)
 
 Workspace count now 454. Total this resume: 344 cockpit crates.
+
+### Two-hundred-and-seventy-seventh wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-auto-link` (tokenize(text) returns
+  Vec<Segment>: Plain runs interleaved with Link{url}; URL
+  starts at http:// or https:// and runs until whitespace;
+  trailing punctuation [.,;:!?)\]>\"'] excluded from link and
+  returned in next Plain)
+
+Workspace count now 455. Total this resume: 345 cockpit crates.
