@@ -957,3 +957,12 @@ Workspace count now 229. Total this resume: 119 cockpit crates.
   distinct from onboarding-flow)
 
 Workspace count now 230. Total this resume: 120 cockpit crates.
+
+### Fifty-third wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-feature-toggle-grid` (Toggle{id, label, hint,
+  group, on, disabled_reason}; toggle errors with the reason when
+  disabled; visible_by_group partitions + label-sorts; distinct
+  from dashboard-toggle (visibility))
+
+Workspace count now 231. Total this resume: 121 cockpit crates.
