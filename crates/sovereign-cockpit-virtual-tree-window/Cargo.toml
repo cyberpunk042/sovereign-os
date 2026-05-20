@@ -1,0 +1,12 @@
+[package]
+name = "sovereign-cockpit-virtual-tree-window"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "Virtualized tree window: visible row range over a flattened tree."
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
