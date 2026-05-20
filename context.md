@@ -2749,3 +2749,12 @@ Workspace count now 433. Total this resume: 323 cockpit crates.
   newest; find returns most recent with id; clear empties)
 
 Workspace count now 434. Total this resume: 324 cockpit crates.
+
+### Two-hundred-and-fifty-seventh wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-metric-card` (MetricCard{title, unit,
+  value, prev, sparkline, last_updated, flat_epsilon_bp};
+  set_value shifts prev + appends bounded sparkline; delta_bp
+  + Trend{Up/Flat/Down} with epsilon)
+
+Workspace count now 435. Total this resume: 325 cockpit crates.
