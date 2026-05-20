@@ -759,3 +759,14 @@ Workspace count now 201. Total this resume: 91 cockpit crates.
   + aa/aaa normal/large flags)
 
 Workspace count now 203. Total this resume: 93 cockpit crates.
+
+### Thirtieth wave (same day, +2 more cockpit crates)
+
+- `sovereign-cockpit-number-format` (i64 integer with thousands +
+  fixed-point minor_unit + compact k/M/B/T at 1 decimal; EN ',' vs
+  FR ' ' separators)
+- `sovereign-cockpit-key-binding-display` (Chord render per Platform:
+  Mac ⌃⌥⇧⌘ glyphs joinless, Linux/Windows Ctrl+Alt+Shift+Super/Win;
+  special keys map to platform glyphs)
+
+Workspace count now 205. Total this resume: 95 cockpit crates.
