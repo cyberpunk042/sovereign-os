@@ -1593,3 +1593,13 @@ Workspace count now 301. Total this resume: 191 cockpit crates.
   root → node ancestry)
 
 Workspace count now 302. Total this resume: 192 cockpit crates.
+
+### Hundred-and-twenty-fifth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-message-composer` (MessageComposer{body,
+  attachments, reply_to, Phase{Editing/Sending/Sent/Failed},
+  send_at_ms, send_attempts, last_error}; mutations guarded to
+  Editing|Failed; try_send checks content + scheduling;
+  mark_sent/mark_failed terminal; Failed → retry allowed)
+
+Workspace count now 303. Total this resume: 193 cockpit crates.
