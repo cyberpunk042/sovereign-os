@@ -1893,3 +1893,11 @@ Workspace count now 334. Total this resume: 224 cockpit crates.
   not in DND window (critical_bypasses_dnd allowed))
 
 Workspace count now 335. Total this resume: 225 cockpit crates.
+
+### Hundred-and-fifty-eighth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-recent-files` (Entry{path, last_touched_ms};
+  touch upserts; new path at capacity drops oldest by ts;
+  ordered() most-recent-first)
+
+Workspace count now 336. Total this resume: 226 cockpit crates.
