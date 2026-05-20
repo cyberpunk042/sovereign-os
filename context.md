@@ -1779,3 +1779,12 @@ Workspace count now 321. Total this resume: 211 cockpit crates.
   from=now-days×DAY_MS; seeded last-7/30/90-days)
 
 Workspace count now 322. Total this resume: 212 cockpit crates.
+
+### Hundred-and-forty-fifth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-floating-panel-stack` (Panel{id, title, z,
+  minimized}; open assigns next_z (top); bring_to_front rebumps;
+  set_minimized hides without removing; focused() topmost
+  non-minimized; z_order() front-to-back)
+
+Workspace count now 323. Total this resume: 213 cockpit crates.
