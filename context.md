@@ -1868,3 +1868,11 @@ Workspace count now 331. Total this resume: 221 cockpit crates.
   helpers)
 
 Workspace count now 332. Total this resume: 222 cockpit crates.
+
+### Hundred-and-fifty-fifth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-wizard-flow` (Step{id, label, next:BTreeSet,
+  valid}; start sets current; set_valid gates; advance refuses
+  invalid or non-neighbor target; is_terminal when no next exists)
+
+Workspace count now 333. Total this resume: 223 cockpit crates.
