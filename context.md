@@ -1411,3 +1411,12 @@ Workspace count now 282. Total this resume: 172 cockpit crates.
   each component to 0..1000 and sums)
 
 Workspace count now 283. Total this resume: 173 cockpit crates.
+
+### Hundred-and-sixth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-attachment-tray` (Attachment{id, filename,
+  size_bytes, mime, UploadStatus{Pending/Uploaded/Failed}};
+  per-draft items with max_count + max_total_bytes; add verdict
+  Accepted/RejectedCount/RejectedSize/Duplicate; drafts independent)
+
+Workspace count now 284. Total this resume: 174 cockpit crates.
