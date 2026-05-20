@@ -2287,3 +2287,12 @@ Workspace count now 380. Total this resume: 270 cockpit crates.
   navigation state)
 
 Workspace count now 381. Total this resume: 271 cockpit crates.
+
+### Two-hundred-and-fourth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-reading-progress` (total_words + offset
+  (clamped) + wpm; progress_bp = offset*10000/total;
+  remaining_seconds = (total-offset)*60/wpm; is_complete iff
+  offset>=total)
+
+Workspace count now 382. Total this resume: 272 cockpit crates.
