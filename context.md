@@ -2671,3 +2671,12 @@ Workspace count now 424. Total this resume: 314 cockpit crates.
   lex tie-break)
 
 Workspace count now 425. Total this resume: 315 cockpit crates.
+
+### Two-hundred-and-forty-eighth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-rubber-band` (DragState{Idle/Dragging};
+  start(x, y) anchors, update tracks current, finish returns
+  normalized SelRect{lo/hi}; cancel discards; rect reads
+  current normalized box)
+
+Workspace count now 426. Total this resume: 316 cockpit crates.
