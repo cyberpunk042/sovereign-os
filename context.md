@@ -1909,3 +1909,11 @@ Workspace count now 336. Total this resume: 226 cockpit crates.
   + first_chunk_ms; complete/error/abort terminal; ttfb_ms helper)
 
 Workspace count now 337. Total this resume: 227 cockpit crates.
+
+### Hundred-and-sixtieth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-mode-profile-switch` (Profile{id, label};
+  switch sets active + appends history (capacity bounded);
+  previous() returns profile just before active for "go back")
+
+Workspace count now 338. Total this resume: 228 cockpit crates.
