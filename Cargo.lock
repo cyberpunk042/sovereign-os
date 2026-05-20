@@ -1269,6 +1269,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-job-tracker"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-kanban-board"
 version = "0.1.0"
 dependencies = [
