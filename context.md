@@ -2766,3 +2766,11 @@ Workspace count now 435. Total this resume: 325 cockpit crates.
   (overlap not edge-touch); blocks_sorted ascending start_min)
 
 Workspace count now 436. Total this resume: 326 cockpit crates.
+
+### Two-hundred-and-fifty-ninth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-service-status` (Status{Up/Degraded/Down};
+  fleet_status: Down if any Down else Degraded if any
+  Degraded else Up; counts per-status; services_with filter)
+
+Workspace count now 437. Total this resume: 327 cockpit crates.
