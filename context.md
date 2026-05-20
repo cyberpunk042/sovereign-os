@@ -1678,3 +1678,12 @@ Workspace count now 310. Total this resume: 200 cockpit crates.
   mark_all_unresolved resets)
 
 Workspace count now 311. Total this resume: 201 cockpit crates.
+
+### Hundred-and-thirty-fourth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-live-collab-cursors` (PeerCursor{peer_id,
+  label, color_token, x, y, last_seen_ms}; update upserts position;
+  active(now, max_age) filters stale; prune drops stale entries
+  (counts); active sorted by label then peer_id)
+
+Workspace count now 312. Total this resume: 202 cockpit crates.
