@@ -804,3 +804,12 @@ Workspace count now 210. Total this resume: 100 cockpit crates.
   set/inc/dec/large_inc/large_dec; snap-to-step; optional wrap)
 
 Workspace count now 211. Total this resume: 101 cockpit crates.
+
+### Thirty-fifth wave (same day, +2 more cockpit crates)
+
+- `sovereign-cockpit-emoji-shortcode` (:name: → glyph registry;
+  register/lookup/prefix/resolve; canonical 13-entry seed)
+- `sovereign-cockpit-paste-format-detector` (detect(text) →
+  Url/Json/CodeBlock/Markdown/Csv/PlainText heuristic)
+
+Workspace count now 213. Total this resume: 103 cockpit crates.
