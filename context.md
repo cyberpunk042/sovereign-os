@@ -2410,3 +2410,12 @@ Workspace count now 394. Total this resume: 284 cockpit crates.
   at_bottom test exposed)
 
 Workspace count now 395. Total this resume: 285 cockpit crates.
+
+### Two-hundred-and-eighteenth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-validation-summary` (Entry{ErrorLevel{Info/
+  Warning/Error}, message}; record appends to per-field list;
+  status Pass iff no Error-level entries; error_fields lists
+  failing fields; clear/clear_all mutators)
+
+Workspace count now 396. Total this resume: 286 cockpit crates.
