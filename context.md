@@ -749,3 +749,13 @@ Workspace count now 198. Total this resume: 88 cockpit crates.
   →Armed→Refreshing→Idle with trigger_px threshold)
 
 Workspace count now 201. Total this resume: 91 cockpit crates.
+
+### Twenty-ninth wave (same day, +2 more cockpit crates)
+
+- `sovereign-cockpit-input-mask` (formatted-input mask;
+  '#'=digit/'A'=letter/'*'=alnum/literal; returns rendered + raw +
+  complete)
+- `sovereign-cockpit-color-contrast` (WCAG 2.1 contrast; ratio_x100
+  + aa/aaa normal/large flags)
+
+Workspace count now 203. Total this resume: 93 cockpit crates.
