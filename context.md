@@ -2792,3 +2792,12 @@ Workspace count now 438. Total this resume: 328 cockpit crates.
   BTreeMap)
 
 Workspace count now 439. Total this resume: 329 cockpit crates.
+
+### Two-hundred-and-sixty-second wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-kbd-hint` (Hint{action, chord: Vec<Key>};
+  parse('Ctrl+Shift+K') canonicalizes modifiers; render returns
+  Chunk sequence alternating KeyCap + Plus so surface can wrap
+  each keycap in <kbd>; surface-only)
+
+Workspace count now 440. Total this resume: 330 cockpit crates.
