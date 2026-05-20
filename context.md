@@ -1440,3 +1440,13 @@ Workspace count now 285. Total this resume: 175 cockpit crates.
   bind_locale extends; is_rtl() reflects current default)
 
 Workspace count now 286. Total this resume: 176 cockpit crates.
+
+### Hundred-and-ninth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-kanban-board` (Column{id, label, wip_limit};
+  Card{id, title, column, moves, last_moved_ms}; add_card places
+  in first column; move_card returns Moved{from,to}/
+  RejectedAtWipLimit{column, in_column, limit}/UnknownCard/
+  UnknownColumn; cards_in lists per column)
+
+Workspace count now 287. Total this resume: 177 cockpit crates.
