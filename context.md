@@ -770,3 +770,10 @@ Workspace count now 203. Total this resume: 93 cockpit crates.
   special keys map to platform glyphs)
 
 Workspace count now 205. Total this resume: 95 cockpit crates.
+
+### Thirty-first wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-carousel` (slide_count+current+wrap_around+
+  autoplay; next/prev wrap or clamp; tick advances on interval)
+
+Workspace count now 206. Total this resume: 96 cockpit crates.
