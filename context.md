@@ -984,3 +984,12 @@ Workspace count now 232. Total this resume: 122 cockpit crates.
   clears after capture)
 
 Workspace count now 233. Total this resume: 123 cockpit crates.
+
+### Fifty-sixth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-hover-preview` (Phase Idle → Dwelling{id,
+  entered_at} → Visible{id} → Pinned{id}; enter/leave/pin/unpin/
+  anchor_hidden; Pinned survives leave + cross-anchor enter;
+  distinct from tooltip-delay)
+
+Workspace count now 234. Total this resume: 124 cockpit crates.
