@@ -2251,3 +2251,12 @@ Workspace count now 376. Total this resume: 266 cockpit crates.
   set_presentation_widget mutators)
 
 Workspace count now 377. Total this resume: 267 cockpit crates.
+
+### Two-hundredth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-coachmark-tour` (Step{anchor, title, body};
+  Status{Idle/Running/Completed/Dismissed}; start requires >=1
+  step; next advances and flips Completed at end; prev clamps
+  at 0; dismiss ends; current returns None unless Running)
+
+Workspace count now 378. Total this resume: 268 cockpit crates.
