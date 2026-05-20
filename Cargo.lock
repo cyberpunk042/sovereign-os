@@ -2567,6 +2567,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-row-hover-affordance"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-rubber-band"
 version = "0.1.0"
 dependencies = [
