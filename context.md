@@ -2151,3 +2151,13 @@ Workspace count now 365. Total this resume: 255 cockpit crates.
   decay_bp_per_sec; tick decays without changing level)
 
 Workspace count now 366. Total this resume: 256 cockpit crates.
+
+### Hundred-and-eighty-ninth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-permission-prompt` (State{Idle/Pending/
+  Granted/Denied} per (subject, capability); request flips
+  Pending or auto-resolves on remembered choice; resolve
+  Pending→Granted/Denied with optional sticky-remember;
+  reset clears state)
+
+Workspace count now 367. Total this resume: 257 cockpit crates.
