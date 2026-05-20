@@ -316,6 +316,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-alert-group"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-alert-tile-board"
 version = "0.1.0"
 dependencies = [
