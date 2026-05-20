@@ -2367,3 +2367,12 @@ Workspace count now 389. Total this resume: 279 cockpit crates.
   pin/clear_unpinned mutators)
 
 Workspace count now 390. Total this resume: 280 cockpit crates.
+
+### Two-hundred-and-thirteenth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-cost-meter` (budget + used u64; charge
+  increments; usage_bp = used*10000/budget; level() Exceeded
+  when used>=budget else Critical/Warning/Normal by threshold
+  bp; remaining saturating)
+
+Workspace count now 391. Total this resume: 281 cockpit crates.
