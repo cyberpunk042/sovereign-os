@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-saved-view"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit operator-saved-view registry. Each SavedView holds (id, scope_id, filters: JSON blob, sort: JSON blob, columns: Vec<String>, created_at). create/list/by_scope/rename/delete. Pure descriptor — the chrome reapplies the captured blobs on activation."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
