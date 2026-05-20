@@ -830,3 +830,11 @@ Workspace count now 214. Total this resume: 104 cockpit crates.
   cancel_drag; insert-after-removal index adjustment)
 
 Workspace count now 215. Total this resume: 105 cockpit crates.
+
+### Thirty-eighth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-dock-position` (Placement Edge{L/R/T/B} or
+  Floating{x,y}; dock_to snaps, float_to clamps; set_viewport
+  reclamps floating, leaves edge unchanged)
+
+Workspace count now 216. Total this resume: 106 cockpit crates.
