@@ -2882,3 +2882,13 @@ Workspace count now 448. Total this resume: 338 cockpit crates.
   for visible year; select rejects out-of-range or disabled)
 
 Workspace count now 449. Total this resume: 339 cockpit crates.
+
+### Two-hundred-and-seventy-second wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-type-to-confirm` (TypeToConfirm{required,
+  case_insensitive, current_input}; update sets input;
+  matches() iff input == required exactly or
+  case-insensitively per config; prefix_len returns leading
+  matching bytes for progress display)
+
+Workspace count now 450. Total this resume: 340 cockpit crates.
