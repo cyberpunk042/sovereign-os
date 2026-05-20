@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-pip-window"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit picture-in-picture window state. Holds content_id (which dashboard/widget is pinned), Corner{TL/TR/BL/BR}, and size in px. move_to(corner)/resize(w, h)/set_content(id). hide() returns to inline. Pure descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
