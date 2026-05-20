@@ -1086,3 +1086,12 @@ Workspace count now 244. Total this resume: 134 cockpit crates.
   from < to)
 
 Workspace count now 245. Total this resume: 135 cockpit crates.
+
+### Sixty-eighth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-shimmer-phase` (phase(now) 0..1000 per-mille
+  cycling over period_ms; phase_for_anchor FNV-1a-stagger keeps
+  adjacent skeletons out of lockstep; reduced_motion freezes at
+  500)
+
+Workspace count now 246. Total this resume: 136 cockpit crates.
