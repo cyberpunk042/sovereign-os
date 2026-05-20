@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-code-lang-guess"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit code-language heuristic guesser. guess(filename, first_line) returns a Language label by checking, in order: filename extension, shebang on first_line, content sniff. Pure heuristic; pairs with a syntax-highlighting renderer."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
