@@ -1668,3 +1668,13 @@ Workspace count now 309. Total this resume: 199 cockpit crates.
   can_retry exposes button visibility)
 
 Workspace count now 310. Total this resume: 200 cockpit crates.
+
+### Hundred-and-thirty-third wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-merge-conflict-ui` (Hunk{id, base, ours,
+  theirs, Resolution{Unresolved/AcceptOurs/AcceptTheirs/AcceptBoth/
+  Manual{body}}}; count_unresolved + is_complete gate merge-done;
+  render_merged emits resolved text or placeholder per hunk;
+  mark_all_unresolved resets)
+
+Workspace count now 311. Total this resume: 201 cockpit crates.
