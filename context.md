@@ -1990,3 +1990,10 @@ Workspace count now 346. Total this resume: 236 cockpit crates.
   selects range from anchor; select_all/clear/count helpers)
 
 Workspace count now 347. Total this resume: 237 cockpit crates.
+
+### Hundred-and-seventieth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-accent-color-policy` (hex parsed to r/g/b;
+  luminance 0..255 (rough); prefer_white_text when luminance<128)
+
+Workspace count now 348. Total this resume: 238 cockpit crates.
