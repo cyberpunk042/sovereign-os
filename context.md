@@ -897,3 +897,11 @@ Workspace count now 222. Total this resume: 112 cockpit crates.
   fuzzy-ranker)
 
 Workspace count now 223. Total this resume: 113 cockpit crates.
+
+### Forty-sixth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-banner-bus` (single-slot priority bus; post
+  replaces lower-prio + queues displaced; dismiss promotes
+  highest-prio queued; distinct from banner-state and toast-tray)
+
+Workspace count now 224. Total this resume: 114 cockpit crates.
