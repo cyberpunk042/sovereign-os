@@ -2101,6 +2101,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-split-view-state"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-stale-banner"
 version = "0.1.0"
 dependencies = [
