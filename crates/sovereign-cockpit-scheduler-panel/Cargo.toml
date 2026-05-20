@@ -1,0 +1,12 @@
+[package]
+name = "sovereign-cockpit-scheduler-panel"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "Cockpit panel for the selfdef IPS Goldilocks Scheduler (avx-plus-plus dump tail 18000-18250) — consumes the selfdef-emitted scheduler decision ring buffer + audit log at the file boundary; produces RenderRow values for the cockpit dashboard. Fourth member of the four-watchdog set (M060 friction-audit, M061 perimeter, M066 guardian, this = scheduler)."
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

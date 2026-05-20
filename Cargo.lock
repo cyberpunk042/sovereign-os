@@ -2801,6 +2801,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-scheduler-panel"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-screen-reader-hints"
 version = "0.1.0"
 dependencies = [
