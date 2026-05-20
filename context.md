@@ -2005,3 +2005,11 @@ Workspace count now 348. Total this resume: 238 cockpit crates.
   elapsed >= duration; elapsed_ms/remaining_ms)
 
 Workspace count now 349. Total this resume: 239 cockpit crates.
+
+### Hundred-and-seventy-second wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-scroll-shadow-state` (scroll_top/viewport_h/
+  content_h; show_top when scroll>0; show_bottom when scroll+
+  viewport<content)
+
+Workspace count now 350. Total this resume: 240 cockpit crates.
