@@ -1991,6 +1991,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-scroll-shadow-state"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-scroll-spy"
 version = "0.1.0"
 dependencies = [
