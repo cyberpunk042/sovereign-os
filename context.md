@@ -1311,3 +1311,11 @@ Workspace count now 271. Total this resume: 161 cockpit crates.
   match, else Unknown)
 
 Workspace count now 272. Total this resume: 162 cockpit crates.
+
+### Ninety-fifth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-celebration` (scope_id → milestone_id →
+  Pending{fired_at, shown}; fire idempotent; should_show only
+  for not-yet-shown; mark_shown silences; reset)
+
+Workspace count now 273. Total this resume: 163 cockpit crates.
