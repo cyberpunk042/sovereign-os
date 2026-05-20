@@ -695,3 +695,10 @@ Workspace count now 187. Total this resume: 77 cockpit crates.
   normalizes to height_px against observed min/max)
 
 Workspace count now 189. Total this resume: 79 cockpit crates.
+
+### Twenty-fourth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-network-meter` (cumulative rx/tx → bytes/sec
+  with auto-unit and counter-reset detection)
+
+Workspace count now 190. Total this resume: 80 cockpit crates.
