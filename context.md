@@ -2911,3 +2911,13 @@ Workspace count now 451. Total this resume: 341 cockpit crates.
   whitespace-only; cancel clears)
 
 Workspace count now 452. Total this resume: 342 cockpit crates.
+
+### Two-hundred-and-seventy-fifth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-mention-resolver` (resolve(text) walks
+  chars and emits Token::Plain runs interleaved with
+  Token::Mention when @handle matches a known user; handle =
+  ASCII alnum + underscore, length 1..=64; unknown @handles
+  stay as Plain)
+
+Workspace count now 453. Total this resume: 343 cockpit crates.
