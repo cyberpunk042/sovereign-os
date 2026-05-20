@@ -3008,3 +3008,13 @@ Workspace count now 461. Total this resume: 351 cockpit crates.
   + unread() filter)
 
 Workspace count now 462. Total this resume: 352 cockpit crates.
+
+### Two-hundred-and-eighty-fifth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-retry-banner` (Phase{Idle, Failed
+  {retry_at_ms, attempt, error}, Retrying{attempt},
+  Succeeded}; fail records attempt + carries forward;
+  ready/time_left compare retry_at vs now; retry rejected
+  before window; succeed/dismiss transitions)
+
+Workspace count now 463. Total this resume: 353 cockpit crates.
