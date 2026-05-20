@@ -966,3 +966,12 @@ Workspace count now 230. Total this resume: 120 cockpit crates.
   from dashboard-toggle (visibility))
 
 Workspace count now 231. Total this resume: 121 cockpit crates.
+
+### Fifty-fourth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-search-scope` (Scope{id, label, enabled} +
+  default_id + active_id; available filters disabled; effective_
+  active falls back to default when active disabled; validate
+  requires default ∈ scopes)
+
+Workspace count now 232. Total this resume: 122 cockpit crates.
