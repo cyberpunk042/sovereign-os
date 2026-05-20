@@ -2578,3 +2578,12 @@ Workspace count now 413. Total this resume: 303 cockpit crates.
   (anchor stays))
 
 Workspace count now 414. Total this resume: 304 cockpit crates.
+
+### Two-hundred-and-thirty-seventh wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-multi-sort` (Direction{Asc/Desc};
+  click(column, extend): non-extend replaces chain with
+  rotate Asc→Desc→Off; extend appends/rotates that column
+  in place; clear empties)
+
+Workspace count now 415. Total this resume: 305 cockpit crates.
