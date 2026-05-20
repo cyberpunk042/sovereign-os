@@ -1253,3 +1253,11 @@ Workspace count now 264. Total this resume: 154 cockpit crates.
   share rank, next rank skips tie count))
 
 Workspace count now 265. Total this resume: 155 cockpit crates.
+
+### Eighty-eighth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-stat-card` (StatCard{id, label, value_text,
+  hint, trend_chip:Option<TrendChip{direction, percent_x100}>,
+  sparkline_source_id}; register/update/get/list)
+
+Workspace count now 266. Total this resume: 156 cockpit crates.
