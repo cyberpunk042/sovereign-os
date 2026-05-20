@@ -1860,3 +1860,11 @@ Workspace count now 330. Total this resume: 220 cockpit crates.
   committed)
 
 Workspace count now 331. Total this resume: 221 cockpit crates.
+
+### Hundred-and-fifty-fourth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-view-mode-toggle` (Mode{List/Grid/Card}; per-
+  screen override with default_mode fallback; set/clear/mode_of
+  helpers)
+
+Workspace count now 332. Total this resume: 222 cockpit crates.
