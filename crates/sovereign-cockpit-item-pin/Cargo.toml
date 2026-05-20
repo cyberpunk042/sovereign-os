@@ -1,0 +1,12 @@
+[package]
+name = "sovereign-cockpit-item-pin"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "Pin/unpin items with bounded max-pins; pinned-first ordering."
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
