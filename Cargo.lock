@@ -1604,6 +1604,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-preset-chip-bar"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-print-options"
 version = "0.1.0"
 dependencies = [
