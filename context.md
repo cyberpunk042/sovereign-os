@@ -725,3 +725,15 @@ Workspace count now 191. Total this resume: 81 cockpit crates.
   0..=255 ramped over fade_px when content exceeds viewport)
 
 Workspace count now 195. Total this resume: 85 cockpit crates.
+
+### Twenty-seventh wave (same day, +3 more cockpit crates)
+
+- `sovereign-cockpit-scroll-lock` (refcounted body-scroll lock;
+  acquire(reason)→LockId, release(id))
+- `sovereign-cockpit-relative-time` ((now,then)→bucket label: just
+  now / Nm ago / Yesterday / Nd ago / Nw ago / Nmo ago / Ny ago,
+  symmetric futures)
+- `sovereign-cockpit-drag-handle` (Idle→Pressed→Dragging gesture
+  with activation_px threshold; DragStart/Move/End/Click)
+
+Workspace count now 198. Total this resume: 88 cockpit crates.
