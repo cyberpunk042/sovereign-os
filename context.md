@@ -2021,3 +2021,11 @@ Workspace count now 350. Total this resume: 240 cockpit crates.
   Pending; tick auto-resets terminal phases after transient_ms)
 
 Workspace count now 351. Total this resume: 241 cockpit crates.
+
+### Hundred-and-seventy-fourth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-job-tracker` (Job{id, label, total, done,
+  started_at, last_update}; progress_bp 0..10000; eta_ms linear
+  extrapolation; update/inc clamp to total; finish removes)
+
+Workspace count now 352. Total this resume: 242 cockpit crates.
