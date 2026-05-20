@@ -1479,3 +1479,13 @@ Workspace count now 289. Total this resume: 179 cockpit crates.
   session_count tracks starts)
 
 Workspace count now 290. Total this resume: 180 cockpit crates.
+
+### Hundred-and-thirteenth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-emoji-reactions` (MessageReactions{by_emoji:
+  BTreeMap<shortcode, BTreeSet<user_id>>}; toggle returns Added/
+  Removed with auto-tidy of empty sets; counts() descending with
+  alpha tie-break; users() sorted; has_reacted O(log n); clear()
+  drops entire message)
+
+Workspace count now 291. Total this resume: 181 cockpit crates.
