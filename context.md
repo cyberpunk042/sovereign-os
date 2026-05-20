@@ -2732,3 +2732,12 @@ Workspace count now 431. Total this resume: 321 cockpit crates.
   centered in container; ScaleDown picks min(Contain, None))
 
 Workspace count now 432. Total this resume: 322 cockpit crates.
+
+### Two-hundred-and-fifty-fifth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-trash-buffer` (TrashItem{payload,
+  deleted_at_ms}; soft_delete inserts; undo returns payload +
+  removes; purge(now) deletes entries past TTL with count;
+  undo/purge lifetime counters)
+
+Workspace count now 433. Total this resume: 323 cockpit crates.
