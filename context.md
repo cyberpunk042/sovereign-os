@@ -1640,3 +1640,12 @@ Workspace count now 306. Total this resume: 196 cockpit crates.
   emits deterministic "NOT (a:1 AND b:>=2)" form)
 
 Workspace count now 307. Total this resume: 197 cockpit crates.
+
+### Hundred-and-thirtieth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-idle-lock-screen` (Phase{Active/Warning/Locked}
+  derived from idle elapsed vs warn/lock thresholds;
+  observe_activity resets (rejected while Locked); lock() force,
+  unlock(now) clears + counts; tick(now) auto-locks idempotently)
+
+Workspace count now 308. Total this resume: 198 cockpit crates.
