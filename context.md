@@ -2269,3 +2269,12 @@ Workspace count now 378. Total this resume: 268 cockpit crates.
   stale_after_ms)
 
 Workspace count now 379. Total this resume: 269 cockpit crates.
+
+### Two-hundred-and-second wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-environment-pill` (Env{Dev/Staging/Prod/
+  Custom{label, risk}}; Risk{Low<Medium<High}; defaults Dev=
+  Low, Staging=Medium, Prod=High; requires_confirm iff
+  risk >= confirm_threshold)
+
+Workspace count now 380. Total this resume: 270 cockpit crates.
