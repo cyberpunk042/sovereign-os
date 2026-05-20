@@ -2921,3 +2921,12 @@ Workspace count now 452. Total this resume: 342 cockpit crates.
   stay as Plain)
 
 Workspace count now 453. Total this resume: 343 cockpit crates.
+
+### Two-hundred-and-seventy-sixth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-output-pane` (Line{stream Stdout/Stderr,
+  ts_ms, text}; push_stdout/push_stderr append; max_lines-bounded
+  with front-eviction; filter(opts) returns refs to lines matching
+  active stream + substring filter)
+
+Workspace count now 454. Total this resume: 344 cockpit crates.
