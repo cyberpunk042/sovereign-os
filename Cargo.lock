@@ -1926,6 +1926,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-mention-resolver"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-mention-suggester"
 version = "0.1.0"
 dependencies = [
