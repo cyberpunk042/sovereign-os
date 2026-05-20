@@ -2224,3 +2224,12 @@ Workspace count now 373. Total this resume: 263 cockpit crates.
   promotes the invoked action; menu = non-primary)
 
 Workspace count now 374. Total this resume: 264 cockpit crates.
+
+### Hundred-and-ninety-seventh wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-connectivity-state` (State{Online/Degraded/
+  Reconnecting/Offline}; observe(rtt_ms, ok): ok → Online or
+  Degraded based on threshold + reset attempts; !ok → attempts+1
+  with Offline at max; force_online/force_offline overrides)
+
+Workspace count now 375. Total this resume: 265 cockpit crates.
