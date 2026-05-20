@@ -1319,3 +1319,11 @@ Workspace count now 272. Total this resume: 162 cockpit crates.
   for not-yet-shown; mark_shown silences; reset)
 
 Workspace count now 273. Total this resume: 163 cockpit crates.
+
+### Ninety-sixth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-task-stack` (Task{id, label, started_at};
+  push dedup-by-id; pop/pop_id; current/peek_below/depth;
+  breadcrumb-friendly via peek_below)
+
+Workspace count now 274. Total this resume: 164 cockpit crates.
