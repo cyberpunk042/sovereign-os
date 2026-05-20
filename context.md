@@ -2305,3 +2305,12 @@ Workspace count now 382. Total this resume: 272 cockpit crates.
   + filters done)
 
 Workspace count now 383. Total this resume: 273 cockpit crates.
+
+### Two-hundred-and-sixth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-playback-scrubber` (current_ms 0..=total_ms;
+  advance pauses while dragging; begin/update/commit/cancel drag
+  semantics; visible_ms reports playhead or preview;
+  click_to_ms maps bp → ms)
+
+Workspace count now 384. Total this resume: 274 cockpit crates.
