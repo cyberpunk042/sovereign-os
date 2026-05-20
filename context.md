@@ -2278,3 +2278,12 @@ Workspace count now 379. Total this resume: 269 cockpit crates.
   risk >= confirm_threshold)
 
 Workspace count now 380. Total this resume: 270 cockpit crates.
+
+### Two-hundred-and-third wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-history-stack` (push truncates forward
+  stack from cursor and appends; capacity-bounded drops oldest;
+  back/forward move cursor; can_back/can_forward expose
+  navigation state)
+
+Workspace count now 381. Total this resume: 271 cockpit crates.
