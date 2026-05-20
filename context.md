@@ -2950,3 +2950,13 @@ Workspace count now 455. Total this resume: 345 cockpit crates.
   total_unread sums all channels)
 
 Workspace count now 456. Total this resume: 346 cockpit crates.
+
+### Two-hundred-and-seventy-ninth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-currency-formatter` (Spec{symbol, position
+  Prefix/Suffix, decimals 0..=8, group sep char, sep decimal
+  char}; format(amount_minor i64) renders thousands-grouped
+  integer + sep + zero-padded fractional; negative gets
+  leading '-')
+
+Workspace count now 457. Total this resume: 347 cockpit crates.
