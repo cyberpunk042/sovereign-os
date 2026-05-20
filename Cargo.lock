@@ -2297,6 +2297,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-recipient-list"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-relative-time"
 version = "0.1.0"
 dependencies = [
