@@ -2242,3 +2242,12 @@ Workspace count now 375. Total this resume: 265 cockpit crates.
   Linkify state stores last input + spans)
 
 Workspace count now 376. Total this resume: 266 cockpit crates.
+
+### Hundred-and-ninety-ninth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-focus-mode` (Mode{Off/Focus/Presentation};
+  Off=all visible; Focus=allowlist-only (empty=all visible);
+  Presentation=only presentation_widget; allow_add/remove/
+  set_presentation_widget mutators)
+
+Workspace count now 377. Total this resume: 267 cockpit crates.
