@@ -1706,3 +1706,13 @@ Workspace count now 313. Total this resume: 203 cockpit crates.
   duplicate chord registrations rejected)
 
 Workspace count now 314. Total this resume: 204 cockpit crates.
+
+### Hundred-and-thirty-seventh wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-action-discoverability` (ActionUsage{
+  action_id, label, category, created_at_ms, use_count,
+  last_used_ms}; record_use counts + bumps last_used; undiscovered(
+  min_age, now) lists never-used past min_age; most_used/least_used
+  ranks; register idempotent preserving use_count)
+
+Workspace count now 315. Total this resume: 205 cockpit crates.
