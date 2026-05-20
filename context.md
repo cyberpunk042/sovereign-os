@@ -1885,3 +1885,11 @@ Workspace count now 333. Total this resume: 223 cockpit crates.
   then title)
 
 Workspace count now 334. Total this resume: 224 cockpit crates.
+
+### Hundred-and-fifty-seventh wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-notification-prefs` (ChannelPrefs{enabled,
+  min_severity}; should_deliver requires enabled + sev >= min and
+  not in DND window (critical_bypasses_dnd allowed))
+
+Workspace count now 335. Total this resume: 225 cockpit crates.
