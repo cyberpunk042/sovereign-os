@@ -1876,3 +1876,12 @@ Workspace count now 332. Total this resume: 222 cockpit crates.
   invalid or non-neighbor target; is_terminal when no next exists)
 
 Workspace count now 333. Total this resume: 223 cockpit crates.
+
+### Hundred-and-fifty-sixth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-tab-manager` (Tab{id, title, pinned, order};
+  open assigns order + first becomes active; close auto-switches;
+  switch/set_pinned/move_to; ordered() pinned-first then by order
+  then title)
+
+Workspace count now 334. Total this resume: 224 cockpit crates.
