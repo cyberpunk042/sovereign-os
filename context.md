@@ -1725,3 +1725,12 @@ Workspace count now 315. Total this resume: 205 cockpit crates.
   Failure{rule_index, message}; lengths in Unicode chars)
 
 Workspace count now 316. Total this resume: 206 cockpit crates.
+
+### Hundred-and-thirty-ninth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-undo-redo-stack` (Command{kind, label,
+  forward_payload, inverse_payload}; push clears redo (new edit
+  branches); undo/redo move between stacks; capacity bound on
+  undo with overflow drop+count; clear() resets)
+
+Workspace count now 317. Total this resume: 207 cockpit crates.
