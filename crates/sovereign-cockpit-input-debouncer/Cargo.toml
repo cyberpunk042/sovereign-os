@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-input-debouncer"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit trailing-edge debouncer. observe(now_ms) records an input event; ready(now_ms) returns true once delay_ms has passed since the last observe. Pure timing crate; the consumer fires the debounced action when ready() flips true. Distinct from sovereign-cockpit-action-throttle (leading-edge cooldown)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
