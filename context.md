@@ -1583,3 +1583,13 @@ Workspace count now 300. Total this resume: 190 cockpit crates.
   push/pop/set_segments manage path; pin/clear status)
 
 Workspace count now 301. Total this resume: 191 cockpit crates.
+
+### Hundred-and-twenty-fourth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-submenu-tree` (Node{id, label, parent,
+  children, enabled, expanded}; add_root/add_child build tree;
+  set_expanded/toggle; activate auto-expands ancestors;
+  visible_in_order DFS over expanded subtrees; path_to traces
+  root → node ancestry)
+
+Workspace count now 302. Total this resume: 192 cockpit crates.
