@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-incremental-search"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit find-in-page incremental search. set_query(q, total_matches) opens; next/prev cycles through 0..total_matches; current_index() reports 1-based for the chrome status bar ('3 of 12'). Pure descriptor; the chrome owns text-scanning + scroll-into-view."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
