@@ -797,3 +797,10 @@ Workspace count now 208. Total this resume: 98 cockpit crates.
   visible iff last_source = Keyboard; focus_changed preserves)
 
 Workspace count now 210. Total this resume: 100 cockpit crates.
+
+### Thirty-fourth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-numeric-stepper` (bounded i64 stepper;
+  set/inc/dec/large_inc/large_dec; snap-to-step; optional wrap)
+
+Workspace count now 211. Total this resume: 101 cockpit crates.
