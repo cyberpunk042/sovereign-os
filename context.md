@@ -1555,3 +1555,12 @@ Workspace count now 297. Total this resume: 187 cockpit crates.
   marked_lines sorted)
 
 Workspace count now 298. Total this resume: 188 cockpit crates.
+
+### Hundred-and-twenty-first wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-haptic-cue-policy` (Intensity{Off<Light<Medium<
+  Strong}; Channel{intensity, muted}; master_intensity caps all
+  via min(master, channel); muted overrides to Off; unknown
+  channels return Off)
+
+Workspace count now 299. Total this resume: 189 cockpit crates.
