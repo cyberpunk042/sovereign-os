@@ -2716,3 +2716,11 @@ Workspace count now 429. Total this resume: 319 cockpit crates.
   active lists visible)
 
 Workspace count now 430. Total this resume: 320 cockpit crates.
+
+### Two-hundred-and-fifty-third wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-item-pin` (pin idempotent + AtCapacity at
+  max_pins; ordered(items) yields pinned-first (skipping ones
+  not in items) then remaining in input order)
+
+Workspace count now 431. Total this resume: 321 cockpit crates.
