@@ -1078,3 +1078,11 @@ Workspace count now 243. Total this resume: 133 cockpit crates.
   integer 0..=100; duplicate-id rejected)
 
 Workspace count now 244. Total this resume: 134 cockpit crates.
+
+### Sixty-seventh wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-time-range-selector` (Range{Last5m..Last30d,
+  Custom{from, to}}; resolve(now) → (from, to); Custom validated
+  from < to)
+
+Workspace count now 245. Total this resume: 135 cockpit crates.
