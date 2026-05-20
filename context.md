@@ -2603,3 +2603,12 @@ Workspace count now 416. Total this resume: 306 cockpit crates.
   drops from specific line; all_recipients union; total sums)
 
 Workspace count now 417. Total this resume: 307 cockpit crates.
+
+### Two-hundred-and-fortieth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-dirty-fields` (initial+current BTreeMaps
+  + cached dirty set; set_initial replaces baseline; set_current
+  updates and refreshes that field's dirty membership; diff
+  recomputes; reset reverts current to initial)
+
+Workspace count now 418. Total this resume: 308 cockpit crates.
