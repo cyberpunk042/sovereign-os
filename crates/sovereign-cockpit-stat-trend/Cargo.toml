@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-stat-trend"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit stat-trend indicator. Given (previous, current) numeric pair, returns Trend{direction: Up/Down/Flat, percent_change_x100, color_hint: Positive/Negative/Neutral}. direction uses a configurable flat_threshold_x100 (basis points). Color is independent of direction: a 'decrease in errors' is Positive, so the caller supplies the metric polarity."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
