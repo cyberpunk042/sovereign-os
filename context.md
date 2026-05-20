@@ -1545,3 +1545,13 @@ Workspace count now 296. Total this resume: 186 cockpit crates.
   first_item_index/end_item_index for window slicing)
 
 Workspace count now 297. Total this resume: 187 cockpit crates.
+
+### Hundred-and-twentieth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-gutter-marker-set` (Marker{kind, label,
+  Severity{Info<Notice<Warn<Error<Critical}}; per pane → lines →
+  alphabetical-by-kind markers; top_marker returns highest-severity
+  at a line; remove_kind auto-tidies empty lines/panes;
+  marked_lines sorted)
+
+Workspace count now 298. Total this resume: 188 cockpit crates.
