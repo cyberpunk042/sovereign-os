@@ -3056,3 +3056,13 @@ Workspace count now 466. Total this resume: 356 cockpit crates.
   wpm})
 
 Workspace count now 467. Total this resume: 357 cockpit crates.
+
+### Two-hundred-and-ninetieth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-job-progress-card` (Stage{id, label, phase
+  Pending/Running/Done/Failed(reason), started_at_ms,
+  ended_at_ms}; JobCard{job_id, title, stages}; transitions
+  Pending→Running→Done|Failed; progress_bp weights Done=2
+  Running=1 out of 2N)
+
+Workspace count now 468. Total this resume: 358 cockpit crates.
