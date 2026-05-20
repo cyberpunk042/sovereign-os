@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-destructive-confirm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit type-to-confirm gate for destructive actions. Operator types the required phrase (case-sensitive); typed(now) tracks progress and can_proceed() returns true only when the phrase matches exactly AND a configurable hold_ms has elapsed since opening. Distinct from confirmation-modal (yes/no) — this is the safety-gated 'type DELETE to confirm' lane."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
