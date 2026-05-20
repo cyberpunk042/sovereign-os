@@ -2693,6 +2693,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-service-status"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-settings-form"
 version = "0.1.0"
 dependencies = [
