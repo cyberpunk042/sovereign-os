@@ -1926,3 +1926,11 @@ Workspace count now 338. Total this resume: 228 cockpit crates.
   filtered; limit truncates)
 
 Workspace count now 339. Total this resume: 229 cockpit crates.
+
+### Hundred-and-sixty-second wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-inline-rename` (State{Idle{name}/Editing{
+  original, draft}}; enter begins editing; edit updates draft;
+  commit accepts (empty rejected); cancel discards)
+
+Workspace count now 340. Total this resume: 230 cockpit crates.
