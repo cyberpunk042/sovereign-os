@@ -1521,6 +1521,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-friction-audit-panel"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-frozen-columns"
 version = "0.1.0"
 dependencies = [
