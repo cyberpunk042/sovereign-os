@@ -734,6 +734,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-column-visibility"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-combobox-state"
 version = "0.1.0"
 dependencies = [
