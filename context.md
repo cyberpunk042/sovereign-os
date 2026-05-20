@@ -1697,3 +1697,12 @@ Workspace count now 312. Total this resume: 202 cockpit crates.
   assignment)
 
 Workspace count now 313. Total this resume: 203 cockpit crates.
+
+### Hundred-and-thirty-sixth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-keyboard-chord-detector` (Chord{keys,
+  action_id}; press returns Fired/Buffered/NoMatch; timeout clears
+  buffer; non-prefix keys clear buffer; reset() manual clear;
+  duplicate chord registrations rejected)
+
+Workspace count now 314. Total this resume: 204 cockpit crates.
