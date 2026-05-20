@@ -1841,3 +1841,12 @@ Workspace count now 328. Total this resume: 218 cockpit crates.
   total_entries helper)
 
 Workspace count now 329. Total this resume: 219 cockpit crates.
+
+### Hundred-and-fifty-second wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-text-size-policy` (scale_bp 1000..=40000;
+  presets small/normal/large/x-large/xx-large; per-element override
+  composes multiplicatively (override × global / 10000); clear
+  reverts to global)
+
+Workspace count now 330. Total this resume: 220 cockpit crates.
