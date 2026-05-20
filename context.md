@@ -1460,3 +1460,12 @@ Workspace count now 287. Total this resume: 177 cockpit crates.
   bucket math)
 
 Workspace count now 288. Total this resume: 178 cockpit crates.
+
+### Hundred-and-eleventh wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-facet-counts` (Facet{counts:BTreeMap<bucket,
+  u64>, selected:BTreeSet}; set_count/increment, toggle selection,
+  top(n) descending with alphabetical tie-break; clear_selections,
+  drop_facet for tear-down)
+
+Workspace count now 289. Total this resume: 179 cockpit crates.
