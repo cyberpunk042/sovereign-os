@@ -3047,3 +3047,12 @@ Workspace count now 465. Total this resume: 355 cockpit crates.
   toggle/is_expanded manage state; surface owns JSON)
 
 Workspace count now 466. Total this resume: 356 cockpit crates.
+
+### Two-hundred-and-eighty-ninth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-word-count` (count(text, wpm) → Stats{chars
+  all-chars, chars_no_ws excluding-whitespace, words
+  Unicode-whitespace-split, reading_time_ms = words * 60_000 /
+  wpm})
+
+Workspace count now 467. Total this resume: 357 cockpit crates.
