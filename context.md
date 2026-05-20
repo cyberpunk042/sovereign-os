@@ -1958,3 +1958,11 @@ Workspace count now 342. Total this resume: 232 cockpit crates.
   tile_at queries by coords; occupied_cells totals)
 
 Workspace count now 343. Total this resume: 233 cockpit crates.
+
+### Hundred-and-sixty-sixth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-action-search-bar` (Action{id, name, category,
+  keywords}; search ranks exact-name 4 → starts-with 3 → category-
+  contains 2 → keyword-contains 1 → name-contains 0; ties by name)
+
+Workspace count now 344. Total this resume: 234 cockpit crates.
