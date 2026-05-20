@@ -374,6 +374,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-chart-legend"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-cheatsheet-builder"
 version = "0.1.0"
 dependencies = [

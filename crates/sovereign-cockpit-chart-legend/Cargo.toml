@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-chart-legend"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit chart-legend state. Each Series{id, label, color, visible}; toggle(id), solo(id) shows only that series and hides the rest, show_all(). hovered(id) tracks hover-highlight. Pure descriptor; chart renderer reads visibility + hover."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
