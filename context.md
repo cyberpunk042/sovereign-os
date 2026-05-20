@@ -975,3 +975,12 @@ Workspace count now 231. Total this resume: 121 cockpit crates.
   requires default ∈ scopes)
 
 Workspace count now 232. Total this resume: 122 cockpit crates.
+
+### Fifty-fifth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-shortcut-recorder` (arm/record/cancel/clear;
+  record rejects bare-modifier keys, empty key, and Escape
+  (reserved for cancel); Captured{modifiers, key}; armed flag
+  clears after capture)
+
+Workspace count now 233. Total this resume: 123 cockpit crates.
