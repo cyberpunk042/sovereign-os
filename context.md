@@ -2054,3 +2054,12 @@ Workspace count now 354. Total this resume: 244 cockpit crates.
   non-zero unit count; Long uses singular/plural forms)
 
 Workspace count now 355. Total this resume: 245 cockpit crates.
+
+### Hundred-and-seventy-eighth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-table-of-contents` (Heading{id,label,
+  level 1..=6,offset}; update_scroll sets offset; active picks
+  latest heading offset<=scroll, fallback first; children_of
+  returns immediate-children indices)
+
+Workspace count now 356. Total this resume: 246 cockpit crates.
