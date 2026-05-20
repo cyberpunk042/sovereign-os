@@ -918,6 +918,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-infinite-scroll"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-input-debouncer"
 version = "0.1.0"
 dependencies = [
