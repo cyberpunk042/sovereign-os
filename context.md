@@ -838,3 +838,11 @@ Workspace count now 215. Total this resume: 105 cockpit crates.
   reclamps floating, leaves edge unchanged)
 
 Workspace count now 216. Total this resume: 106 cockpit crates.
+
+### Thirty-ninth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-input-debouncer` (trailing-edge debouncer;
+  observe/ready/consume/cancel; one-shot per quiet period;
+  distinct from action-throttle leading-edge cooldown)
+
+Workspace count now 217. Total this resume: 107 cockpit crates.
