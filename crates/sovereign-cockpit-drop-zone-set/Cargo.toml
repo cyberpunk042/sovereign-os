@@ -1,0 +1,12 @@
+[package]
+name = "sovereign-cockpit-drop-zone-set"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "Drop-zone definition and accept-by-type validation for drag-drop UI."
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

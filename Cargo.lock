@@ -773,6 +773,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-drop-zone-set"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-edit-mode"
 version = "0.1.0"
 dependencies = [
