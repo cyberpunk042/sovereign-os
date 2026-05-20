@@ -2901,3 +2901,13 @@ Workspace count now 450. Total this resume: 340 cockpit crates.
   PinnedRight(offset); scrolling_width sums non-frozen widths)
 
 Workspace count now 451. Total this resume: 341 cockpit crates.
+
+### Two-hundred-and-seventy-fourth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-reply-form` (State{parent_id, draft,
+  saved_at_ms, autosave_every_ms, persisted_draft}; type sets
+  draft; dirty compares to persisted; tick(now) autosaves if
+  elapsed and dirty; submit returns body + resets, rejects
+  whitespace-only; cancel clears)
+
+Workspace count now 452. Total this resume: 342 cockpit crates.
