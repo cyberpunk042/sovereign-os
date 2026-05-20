@@ -1020,3 +1020,12 @@ Workspace count now 236. Total this resume: 126 cockpit crates.
   collapsed<half<full ordering)
 
 Workspace count now 237. Total this resume: 127 cockpit crates.
+
+### Sixtieth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-stat-trend` (Direction{Up/Down/Flat} +
+  percent_change_x100 (signed, saturating) + ColorHint{Positive/
+  Negative/Neutral}; flat_threshold_x100 governs the Flat band;
+  ColorHint depends on Polarity so 'fewer errors' = Positive)
+
+Workspace count now 238. Total this resume: 128 cockpit crates.
