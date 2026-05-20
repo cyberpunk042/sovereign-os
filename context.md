@@ -948,3 +948,12 @@ Workspace count now 228. Total this resume: 118 cockpit crates.
   progress-bar)
 
 Workspace count now 229. Total this resume: 119 cockpit crates.
+
+### Fifty-second wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-feature-tour` (Tour{id, title, Vec<Step>};
+  register/start/next/prev/dismiss(reason)/complete; next-past-
+  last auto-completes; completed + dismissed sets persist;
+  distinct from onboarding-flow)
+
+Workspace count now 230. Total this resume: 120 cockpit crates.
