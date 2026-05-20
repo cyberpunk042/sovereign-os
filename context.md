@@ -2296,3 +2296,12 @@ Workspace count now 381. Total this resume: 271 cockpit crates.
   offset>=total)
 
 Workspace count now 382. Total this resume: 272 cockpit crates.
+
+### Two-hundred-and-fifth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-quick-notes` (Note{id, text, pinned, done,
+  ts_ms}; capacity drops oldest non-pinned (oldest if all
+  pinned); pin/mark_done toggles; visible returns pinned-first
+  + filters done)
+
+Workspace count now 383. Total this resume: 273 cockpit crates.
