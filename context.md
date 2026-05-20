@@ -1146,3 +1146,12 @@ Workspace count now 251. Total this resume: 141 cockpit crates.
   force_navigate discards; any_dirty for app-level beforeunload)
 
 Workspace count now 252. Total this resume: 142 cockpit crates.
+
+### Seventy-fifth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-skeleton-template` (Block{kind:Line/Circle/
+  Box, w_px, h_px}; register(template_id, blocks); render(id,
+  count) Vec<RenderedRow>; distinct from skeleton-loader and
+  skeleton-list)
+
+Workspace count now 253. Total this resume: 143 cockpit crates.
