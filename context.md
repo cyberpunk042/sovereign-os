@@ -3028,3 +3028,13 @@ Workspace count now 463. Total this resume: 353 cockpit crates.
   for higher-is-worse metrics)
 
 Workspace count now 464. Total this resume: 354 cockpit crates.
+
+### Two-hundred-and-eighty-seventh wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-incident-card` (IncidentCard{id, title,
+  severity Info/Warning/Error/Critical, first_seen, last_seen,
+  occurrence_count, affected_count running-max, resolved_at_ms};
+  observe(now, affected) increments + un-resolves; resolve
+  marks inactive; duration uses now-or-resolved)
+
+Workspace count now 465. Total this resume: 355 cockpit crates.
