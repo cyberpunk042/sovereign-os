@@ -1046,3 +1046,11 @@ Workspace count now 239. Total this resume: 129 cockpit crates.
   sequences supported (gg vs gG); distinct from keystroke-map)
 
 Workspace count now 240. Total this resume: 130 cockpit crates.
+
+### Sixty-third wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-column-pin` (Pinned{None, On{side: Left/Right,
+  order}}; pin/unpin/ordered_by_side; ties broken by id; distinct
+  from column-config which handles visibility/sizing)
+
+Workspace count now 241. Total this resume: 131 cockpit crates.
