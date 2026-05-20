@@ -1404,6 +1404,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-grid-cursor"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-grouped-list"
 version = "0.1.0"
 dependencies = [
