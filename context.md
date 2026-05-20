@@ -2969,3 +2969,13 @@ Workspace count now 457. Total this resume: 347 cockpit crates.
   Unvisited; prev does not unvisit)
 
 Workspace count now 458. Total this resume: 348 cockpit crates.
+
+### Two-hundred-and-eighty-first wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-flame-graph` (Frame{name, weight,
+  children}; layout(root, viewport_w) returns Vec<(name,
+  Box2D{x, depth, w})> in left-to-right depth-first order;
+  child x-offsets accumulate, width proportional to
+  weight/root_weight)
+
+Workspace count now 459. Total this resume: 349 cockpit crates.
