@@ -1062,3 +1062,11 @@ Workspace count now 241. Total this resume: 131 cockpit crates.
   approve / reject; is_dirty accessor; bad-transition errors)
 
 Workspace count now 242. Total this resume: 132 cockpit crates.
+
+### Sixty-fifth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-incremental-search` (find-in-page state;
+  set_query(q, total) resets, next/prev wraps; current_index
+  returns 1-based or None; close resets)
+
+Workspace count now 243. Total this resume: 133 cockpit crates.
