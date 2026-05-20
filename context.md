@@ -2090,3 +2090,12 @@ Workspace count now 358. Total this resume: 248 cockpit crates.
   minimap click to content-space center, clamped to bounds)
 
 Workspace count now 359. Total this resume: 249 cockpit crates.
+
+### Hundred-and-eighty-second wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-text-truncate` (Mode{Start/Middle/End};
+  char-aware (not byte) Unicode truncation with configurable
+  ellipsis; max_chars >= ellipsis chars + 1; short strings
+  pass through unchanged)
+
+Workspace count now 360. Total this resume: 250 cockpit crates.
