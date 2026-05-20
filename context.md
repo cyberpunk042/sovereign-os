@@ -2161,3 +2161,12 @@ Workspace count now 366. Total this resume: 256 cockpit crates.
   reset clears state)
 
 Workspace count now 367. Total this resume: 257 cockpit crates.
+
+### Hundred-and-ninetieth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-log-level-filter` (Level{Trace<Debug<Info<
+  Warn<Error}; min threshold + per-level u64 counts; observe
+  counts regardless of threshold; visible_count sums counts
+  at >= min; reset clears counts)
+
+Workspace count now 368. Total this resume: 258 cockpit crates.
