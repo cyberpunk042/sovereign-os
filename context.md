@@ -3038,3 +3038,12 @@ Workspace count now 464. Total this resume: 354 cockpit crates.
   marks inactive; duration uses now-or-resolved)
 
 Workspace count now 465. Total this resume: 355 cockpit crates.
+
+### Two-hundred-and-eighty-eighth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-json-viewer` (path-addressed expanded set
+  $.foo / $[0]; flatten(value) walks JSON producing Row{depth,
+  path, label, value_preview, expandable, expanded};
+  toggle/is_expanded manage state; surface owns JSON)
+
+Workspace count now 466. Total this resume: 356 cockpit crates.
