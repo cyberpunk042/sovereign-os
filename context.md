@@ -1942,3 +1942,11 @@ Workspace count now 340. Total this resume: 230 cockpit crates.
   reset to min)
 
 Workspace count now 341. Total this resume: 231 cockpit crates.
+
+### Hundred-and-sixty-fourth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-side-drawer` (Edge{Left/Right/Top/Bottom};
+  Mode{Push/Overlay}; open/close/toggle; set_width clamps; set_mode
+  switches)
+
+Workspace count now 342. Total this resume: 232 cockpit crates.
