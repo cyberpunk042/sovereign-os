@@ -2638,3 +2638,11 @@ Workspace count now 420. Total this resume: 310 cockpit crates.
   within bounds via i64 + clamp; home/end mutators)
 
 Workspace count now 421. Total this resume: 311 cockpit crates.
+
+### Two-hundred-and-forty-fourth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-context-help` (Tooltip{body, a11y_label};
+  register rejects duplicates; update modifies existing;
+  remove drops; resolve returns tooltip or None)
+
+Workspace count now 422. Total this resume: 312 cockpit crates.
