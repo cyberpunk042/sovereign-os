@@ -1,0 +1,12 @@
+[package]
+name = "sovereign-cockpit-request-list"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "In-flight cockpit requests with status + progress + cancel."
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

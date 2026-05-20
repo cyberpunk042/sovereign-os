@@ -2180,6 +2180,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-request-list"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-resize-handle"
 version = "0.1.0"
 dependencies = [
