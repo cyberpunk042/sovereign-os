@@ -2206,3 +2206,12 @@ Workspace count now 371. Total this resume: 261 cockpit crates.
   delta with epsilon; display formats with optional 2-decimal)
 
 Workspace count now 372. Total this resume: 262 cockpit crates.
+
+### Hundred-and-ninety-fifth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-tri-state-checkbox` (State{Unchecked/
+  Checked/Indeterminate}; click cycles Unchecked↔Checked,
+  Indeterminate→Checked; rollup(children) returns Checked iff
+  all checked, Unchecked iff all unchecked, else Indeterminate)
+
+Workspace count now 373. Total this resume: 263 cockpit crates.
