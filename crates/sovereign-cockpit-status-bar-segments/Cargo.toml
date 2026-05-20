@@ -1,0 +1,12 @@
+[package]
+name = "sovereign-cockpit-status-bar-segments"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "Status bar segments: left/center/right zones with priority-based overflow."
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

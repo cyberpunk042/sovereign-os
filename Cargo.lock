@@ -2125,6 +2125,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-status-bar-segments"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-status-light"
 version = "0.1.0"
 dependencies = [
