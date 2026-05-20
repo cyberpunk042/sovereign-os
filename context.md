@@ -2846,3 +2846,12 @@ Workspace count now 444. Total this resume: 334 cockpit crates.
   order: Revalidating > Failed > Expired > Stale > Fresh)
 
 Workspace count now 445. Total this resume: 335 cockpit crates.
+
+### Two-hundred-and-sixty-eighth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-row-hover-affordance` (three independent
+  inputs: hovered_row pointer, focused_row keyboard, pinned_row
+  sticky; visible(row) true if any equals row; keyboard parity
+  with pointer; pin persists across unhover)
+
+Workspace count now 446. Total this resume: 336 cockpit crates.
