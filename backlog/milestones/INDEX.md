@@ -92,6 +92,7 @@
 | M078 | HölderPO + GRPO post-training pipeline (Hölder-mean token aggregation + dynamic-p annealing) | post-training research arc |
 | M079 | Activation steering interpretability surface (white-box vs black-box intervention class) | interpretability research arc |
 | M080 | HRM (Hierarchical Reasoning Model) architectural class — recurrent two-timescale brain-inspired alternative to Transformers | HRM research arc |
+| M081 | Whitelabel Architecture — Debian surface audit + declarative rebrand mechanism (PRs 7 + 8 of macro-arc; Stage Gate 4) | macro-arc dump lines 174–199 + 202–227 |
 
 ## Decomposition that each milestone owes
 
