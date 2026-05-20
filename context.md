@@ -872,3 +872,11 @@ Workspace count now 219. Total this resume: 109 cockpit crates.
   pairs with widget-registry — preset gates the toggle UI)
 
 Workspace count now 220. Total this resume: 110 cockpit crates.
+
+### Forty-third wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-presence-mode` (Mode Focus/Standard/Glance/
+  Off/DoNotDisturb; classify_event(severity) Show/Summarize/
+  Suppress; cadence + animations per mode)
+
+Workspace count now 221. Total this resume: 111 cockpit crates.
