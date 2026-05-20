@@ -863,3 +863,12 @@ Workspace count now 218. Total this resume: 108 cockpit crates.
   enabled+allowed; pairs with dashboard-layout/toggle)
 
 Workspace count now 219. Total this resume: 109 cockpit crates.
+
+### Forty-second wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-dashboard-profile` (Preset{id, title,
+  widget_allowlist, default_layout_id}; canonical 4 personas
+  Operator/Engineer/Security/Trader; activate/widget_enabled;
+  pairs with widget-registry — preset gates the toggle UI)
+
+Workspace count now 220. Total this resume: 110 cockpit crates.
