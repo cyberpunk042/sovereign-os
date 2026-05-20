@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-paste-format-detector"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit heuristic detector for pasted clipboard text. detect(text) classifies it as Url / Json / CodeBlock / Markdown / Csv / PlainText, so the chrome can offer a context-appropriate 'Paste as …' menu. Pure heuristic; no parsing or validation."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
