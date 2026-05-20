@@ -1155,3 +1155,11 @@ Workspace count now 252. Total this resume: 142 cockpit crates.
   skeleton-list)
 
 Workspace count now 253. Total this resume: 143 cockpit crates.
+
+### Seventy-sixth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-watchlist` (NotifyMode{Off<InApp<InAppAndPush
+  <All}; WatchEntry{kind, item_id, notify_mode, added_ts};
+  items_for_notify(min_mode) filters; distinct kinds independent)
+
+Workspace count now 254. Total this resume: 144 cockpit crates.
