@@ -2340,3 +2340,12 @@ Workspace count now 386. Total this resume: 276 cockpit crates.
   pending != applied)
 
 Workspace count now 387. Total this resume: 277 cockpit crates.
+
+### Two-hundred-and-tenth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-hint-card` (Hint{title, body, dismissed,
+  last_dismissed_ms, accepted}; should_show false if accepted;
+  true if not dismissed or cooldown elapsed; dismiss/accept/
+  reset mutators)
+
+Workspace count now 388. Total this resume: 278 cockpit crates.
