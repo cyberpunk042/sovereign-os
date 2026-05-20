@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-quick-jump"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit quick-jump (Ctrl+G-style) registry. Registers JumpTarget{short_id, kind, full_path, label}; resolve(short_id) returns the matching target. short_id is the operator-typed shortcut (e.g. '@logs', '#1234'). Distinct from full text-search — this is the explicit-shortcut lane."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
