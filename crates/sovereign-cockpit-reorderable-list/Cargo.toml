@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-reorderable-list"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit drag-to-reorder list state. begin_drag(from)/hover(over)/drop() transitions; computes the resulting order after each commit. move_to(from, to) shorthand bypasses the gesture. Pure descriptor; the drag-handle/drag-drop crates supply the gesture events."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
