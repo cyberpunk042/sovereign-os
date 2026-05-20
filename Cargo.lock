@@ -811,6 +811,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-number-format"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-onboarding-flow"
 version = "0.1.0"
 dependencies = [
