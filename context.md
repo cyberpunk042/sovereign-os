@@ -1286,3 +1286,11 @@ Workspace count now 268. Total this resume: 158 cockpit crates.
   yield None for Min/Max; width-mismatch rejected)
 
 Workspace count now 269. Total this resume: 159 cockpit crates.
+
+### Ninety-second wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-print-options` (PrintOptions{orientation/
+  paper_size/scale_pct (50..=200)/color/copies (≥1)/page_range:
+  All|From{from,to}}; setters validate ranges)
+
+Workspace count now 270. Total this resume: 160 cockpit crates.
