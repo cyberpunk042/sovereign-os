@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-numeric-stepper"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit numeric stepper. Tracks i64 value with step/min/max, clamps and snaps to nearest valid step on set(). Optional wrap mode. inc/dec move by step, with shift-multiplier for large jumps. Distinct from sovereign-cockpit-stepper (multi-step wizard) — this is the +/- number input."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
