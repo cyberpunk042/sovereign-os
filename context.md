@@ -2741,3 +2741,11 @@ Workspace count now 432. Total this resume: 322 cockpit crates.
   undo/purge lifetime counters)
 
 Workspace count now 433. Total this resume: 323 cockpit crates.
+
+### Two-hundred-and-fifty-sixth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-tab-history` (ClosedTab{id, title, ts_closed};
+  close appends with capacity drop oldest; reopen_last pops
+  newest; find returns most recent with id; clear empties)
+
+Workspace count now 434. Total this resume: 324 cockpit crates.
