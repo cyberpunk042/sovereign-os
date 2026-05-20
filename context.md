@@ -2063,3 +2063,12 @@ Workspace count now 355. Total this resume: 245 cockpit crates.
   returns immediate-children indices)
 
 Workspace count now 356. Total this resume: 246 cockpit crates.
+
+### Hundred-and-seventy-ninth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-frame-budget` (begin_frame resets; record
+  accumulates work_us; should_yield true once work_us>=budget_us;
+  end_frame emits FrameStats{usage_bp, over_budget} and bumps
+  over_budget_frames counter)
+
+Workspace count now 357. Total this resume: 247 cockpit crates.
