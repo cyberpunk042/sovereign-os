@@ -2801,3 +2801,12 @@ Workspace count now 439. Total this resume: 329 cockpit crates.
   each keycap in <kbd>; surface-only)
 
 Workspace count now 440. Total this resume: 330 cockpit crates.
+
+### Two-hundred-and-sixty-third wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-ticker-tape` (Item{id, text, priority,
+  inserted_at_ms, expires_at_ms}; push adds; tick(now) drops
+  expired (ttl=0 = never); render(now) yields items in
+  priority-desc then insertion-asc order)
+
+Workspace count now 441. Total this resume: 331 cockpit crates.
