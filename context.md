@@ -2108,3 +2108,12 @@ Workspace count now 360. Total this resume: 250 cockpit crates.
   recent filters by time window; by_category filters)
 
 Workspace count now 361. Total this resume: 251 cockpit crates.
+
+### Hundred-and-eighty-fourth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-do-not-disturb` (Mode{Off/Manual/Scheduled};
+  Manual silences all; Scheduled silences when minute-of-day in
+  [start,end) with overnight wrap; exempt tag set bypasses;
+  suppress(now, tag) counts suppressed/passed)
+
+Workspace count now 362. Total this resume: 252 cockpit crates.
