@@ -2038,3 +2038,11 @@ Workspace count now 352. Total this resume: 242 cockpit crates.
   reset is operator override)
 
 Workspace count now 353. Total this resume: 243 cockpit crates.
+
+### Hundred-and-seventy-sixth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-byte-size-formatter` (Unit{Si/Iec};
+  SI=1000-base B/kB/.../EB; IEC=1024-base B/KiB/.../EiB;
+  precision 0..=3; picks largest unit where value>=1)
+
+Workspace count now 354. Total this resume: 244 cockpit crates.
