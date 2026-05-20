@@ -2560,3 +2560,12 @@ Workspace count now 411. Total this resume: 301 cockpit crates.
   (case-insensitive))
 
 Workspace count now 412. Total this resume: 302 cockpit crates.
+
+### Two-hundred-and-thirty-fifth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-column-visibility` (Column{id, label,
+  required, visible}; show/hide/toggle mutate; required cannot
+  be hidden (RequiredCannotHide error); visible_columns
+  preserves registration order)
+
+Workspace count now 413. Total this resume: 303 cockpit crates.
