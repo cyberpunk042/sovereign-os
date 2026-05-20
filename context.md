@@ -1294,3 +1294,12 @@ Workspace count now 269. Total this resume: 159 cockpit crates.
   All|From{from,to}}; setters validate ranges)
 
 Workspace count now 270. Total this resume: 160 cockpit crates.
+
+### Ninety-third wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-mention-suggester` (Operator{handle, display};
+  active_query(input, cursor) detects @-token at start or after
+  whitespace; suggest(query, operators, max) case-insensitive
+  starts-with)
+
+Workspace count now 271. Total this resume: 161 cockpit crates.
