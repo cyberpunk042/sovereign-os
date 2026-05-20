@@ -1508,3 +1508,12 @@ Workspace count now 292. Total this resume: 182 cockpit crates.
   reminder_at_ms reached)
 
 Workspace count now 293. Total this resume: 183 cockpit crates.
+
+### Hundred-and-sixteenth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-text-selection-range` (half-open Range[start,
+  end); add merges overlapping AND adjacent (chains collapse);
+  remove_overlap clips intersecting ranges (may split); contains
+  /total_selected helpers; empty/inverted ranges rejected)
+
+Workspace count now 294. Total this resume: 184 cockpit crates.
