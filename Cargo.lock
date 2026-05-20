@@ -334,6 +334,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-alpha-index"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-aria-live-router"
 version = "0.1.0"
 dependencies = [
