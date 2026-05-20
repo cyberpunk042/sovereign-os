@@ -927,6 +927,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-filter-builder"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-filter-chip-bar"
 version = "0.1.0"
 dependencies = [
