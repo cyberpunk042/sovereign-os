@@ -2117,3 +2117,12 @@ Workspace count now 361. Total this resume: 251 cockpit crates.
   suppress(now, tag) counts suppressed/passed)
 
 Workspace count now 362. Total this resume: 252 cockpit crates.
+
+### Hundred-and-eighty-fifth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-elevation-stack` (Kind{Dropdown=1000/Sticky=
+  1100/Banner=1200/Tooltip=1300/Modal=1400/Popover=1500/Toast=
+  1600}; push assigns z=base+per-kind seq; pop by id; on_top
+  picks highest-z layer; z_of looks up assigned z)
+
+Workspace count now 363. Total this resume: 253 cockpit crates.
