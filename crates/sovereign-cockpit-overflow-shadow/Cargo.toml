@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-overflow-shadow"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit scroll-overflow shadow indicators. Given a scrollable region's (scroll_top, viewport_h, content_h), returns which edge shadows should be visible (Top / Bottom / Both / None) with intensity 0..=255 ramping over the configured fade distance. Pure presentation crate."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
