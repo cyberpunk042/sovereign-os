@@ -2297,6 +2297,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-search-history"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-search-input"
 version = "0.1.0"
 dependencies = [
