@@ -2774,3 +2774,12 @@ Workspace count now 436. Total this resume: 326 cockpit crates.
   Degraded else Up; counts per-status; services_with filter)
 
 Workspace count now 437. Total this resume: 327 cockpit crates.
+
+### Two-hundred-and-sixtieth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-upload-progress` (Upload{Phase{Queued/
+  Uploading/Done/Failed(err)/Cancelled}, bytes_done,
+  bytes_total}; enqueue/start/progress/complete/fail/cancel;
+  total_progress_bp aggregates across uploads)
+
+Workspace count now 438. Total this resume: 328 cockpit crates.
