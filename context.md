@@ -1336,3 +1336,11 @@ Workspace count now 274. Total this resume: 164 cockpit crates.
   required-field count)
 
 Workspace count now 275. Total this resume: 165 cockpit crates.
+
+### Ninety-eighth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-comment-thread` (Comment{id, author, body,
+  posted_at, in_reply_to, resolved}; add validates parent +
+  rejects self-reply; outline depth-first by posted_at)
+
+Workspace count now 276. Total this resume: 166 cockpit crates.
