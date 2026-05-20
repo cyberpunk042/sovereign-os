@@ -1811,6 +1811,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-row-expansion"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-saved-search-set"
 version = "0.1.0"
 dependencies = [

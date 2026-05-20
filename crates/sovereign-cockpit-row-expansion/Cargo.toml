@@ -1,0 +1,12 @@
+[package]
+name = "sovereign-cockpit-row-expansion"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "Per-row expansion state with lazy-load flag for table rows."
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
