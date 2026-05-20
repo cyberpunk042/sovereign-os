@@ -2446,3 +2446,11 @@ Workspace count now 398. Total this resume: 288 cockpit crates.
   commits/cancels counters)
 
 Workspace count now 399. Total this resume: 289 cockpit crates.
+
+### Two-hundred-and-twenty-second wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-timezone-bar` (Zone{label, utc_offset_min
+  -720..=840}; local_hhmm(zone_idx, utc_minute_of_day) → (h, m)
+  with rem_euclid wrap; unique labels)
+
+Workspace count now 400. Total this resume: 290 cockpit crates.
