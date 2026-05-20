@@ -1179,6 +1179,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-focus-mode"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-focus-ring"
 version = "0.1.0"
 dependencies = [
