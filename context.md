@@ -2612,3 +2612,12 @@ Workspace count now 417. Total this resume: 307 cockpit crates.
   recomputes; reset reverts current to initial)
 
 Workspace count now 418. Total this resume: 308 cockpit crates.
+
+### Two-hundred-and-forty-first wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-alert-acknowledge` (Ack{acker, ts_ms,
+  note}; register inits unacked; acknowledge records ack;
+  unack clears (rejects unknown); is_acknowledged/unacked/
+  acked accessors)
+
+Workspace count now 419. Total this resume: 309 cockpit crates.
