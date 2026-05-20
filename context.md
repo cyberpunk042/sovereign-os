@@ -2081,3 +2081,12 @@ Workspace count now 357. Total this resume: 247 cockpit crates.
   orders breakpoints)
 
 Workspace count now 358. Total this resume: 248 cockpit crates.
+
+### Hundred-and-eighty-first wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-minimap-state` (content scaled to fit minimap
+  box preserving aspect ratio, letterboxed; viewport_rect maps
+  viewport to minimap-space rect; click_to_viewport converts
+  minimap click to content-space center, clamped to bounds)
+
+Workspace count now 359. Total this resume: 249 cockpit crates.
