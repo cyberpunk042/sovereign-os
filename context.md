@@ -2595,3 +2595,11 @@ Workspace count now 415. Total this resume: 305 cockpit crates.
   by_target filters; recent(n) returns newest-first)
 
 Workspace count now 416. Total this resume: 306 cockpit crates.
+
+### Two-hundred-and-thirty-ninth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-recipient-list` (Line{To/Cc/Bcc}; add
+  appends with cross-list dedup (AlreadyPresent); remove
+  drops from specific line; all_recipients union; total sums)
+
+Workspace count now 417. Total this resume: 307 cockpit crates.
