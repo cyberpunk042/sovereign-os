@@ -1228,3 +1228,12 @@ Workspace count now 261. Total this resume: 151 cockpit crates.
   hides + persists; restore_all)
 
 Workspace count now 262. Total this resume: 152 cockpit crates.
+
+### Eighty-fifth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-status-page-list` (StatusPage{id, label, url,
+  current_state: Operational/Degraded/PartialOutage/MajorOutage/
+  Maintenance/Unknown, last_check_ts}; register/update_state/
+  list_all/list_by_state)
+
+Workspace count now 263. Total this resume: 153 cockpit crates.
