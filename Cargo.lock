@@ -1827,6 +1827,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-lightbox-overlay"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cockpit-linkify"
 version = "0.1.0"
 dependencies = [
