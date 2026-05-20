@@ -2516,3 +2516,12 @@ Workspace count now 406. Total this resume: 296 cockpit crates.
   subsequent ones down)
 
 Workspace count now 407. Total this resume: 297 cockpit crates.
+
+### Two-hundred-and-thirtieth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-usage-meter` (Metric{label, unit, used,
+  limit>=1}; usage_bp=used*10000/limit may exceed; is_over iff
+  used>=limit; add/remove/set_used/charge mutators; over_limit
+  lists exhausted)
+
+Workspace count now 408. Total this resume: 298 cockpit crates.
