@@ -1564,3 +1564,13 @@ Workspace count now 298. Total this resume: 188 cockpit crates.
   channels return Off)
 
 Workspace count now 299. Total this resume: 189 cockpit crates.
+
+### Hundred-and-twenty-second wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-find-replace-bar` (FindReplaceBar{query,
+  replacement, case_sensitive, whole_word, match_offsets,
+  match_len, cursor_index}; next/prev wrap through matches;
+  set_matches resets cursor; replace_current/replace_all emit
+  EditOps for caller to apply)
+
+Workspace count now 300. Total this resume: 190 cockpit crates.
