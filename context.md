@@ -2419,3 +2419,12 @@ Workspace count now 395. Total this resume: 285 cockpit crates.
   failing fields; clear/clear_all mutators)
 
 Workspace count now 396. Total this resume: 286 cockpit crates.
+
+### Two-hundred-and-nineteenth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-external-link-policy` (Class{Internal/
+  Trusted/UnknownExternal} via exact internal_host + trusted
+  set; action_for_class returns Action{Open/OpenNewTab/Warn/
+  Block}; defaults Open/OpenNewTab/Warn)
+
+Workspace count now 397. Total this resume: 287 cockpit crates.
