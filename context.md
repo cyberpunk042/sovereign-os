@@ -2960,3 +2960,12 @@ Workspace count now 456. Total this resume: 346 cockpit crates.
   leading '-')
 
 Workspace count now 457. Total this resume: 347 cockpit crates.
+
+### Two-hundred-and-eightieth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-step-dots` (State{total, current, visited
+  Vec<bool>}; goto(i) jumps; next/prev shift by 1 with saturation;
+  render() yields Dot per index: Active current / Visited /
+  Unvisited; prev does not unvisit)
+
+Workspace count now 458. Total this resume: 348 cockpit crates.
