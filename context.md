@@ -2680,3 +2680,12 @@ Workspace count now 425. Total this resume: 315 cockpit crates.
   current normalized box)
 
 Workspace count now 426. Total this resume: 316 cockpit crates.
+
+### Two-hundred-and-forty-ninth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-drop-indicator` (Indicator{None/Above/Below/
+  Inside}; resolve maps cursor to relative bp 0..10000 within
+  row, picks Inside (middle band) / Above (<5000) / Below
+  (>5000); outside → None)
+
+Workspace count now 427. Total this resume: 317 cockpit crates.
