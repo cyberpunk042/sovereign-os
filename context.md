@@ -2126,3 +2126,12 @@ Workspace count now 362. Total this resume: 252 cockpit crates.
   picks highest-z layer; z_of looks up assigned z)
 
 Workspace count now 363. Total this resume: 253 cockpit crates.
+
+### Hundred-and-eighty-sixth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-avatar-stack` (Avatar{id, initials, color};
+  push derives 1..=2 uppercase ASCII letters from name; render
+  returns first max_visible + overflow count for "+N" indicator;
+  remove by id)
+
+Workspace count now 364. Total this resume: 254 cockpit crates.
