@@ -1,0 +1,12 @@
+[package]
+name = "sovereign-cockpit-recent-files"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "Bounded MRU list of recently-opened files."
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
