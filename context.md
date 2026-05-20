@@ -2314,3 +2314,11 @@ Workspace count now 383. Total this resume: 273 cockpit crates.
   click_to_ms maps bp → ms)
 
 Workspace count now 384. Total this resume: 274 cockpit crates.
+
+### Two-hundred-and-seventh wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-entity-chip-bar` (Chip{id, label, kind};
+  add appends (no duplicates); remove by id; visible returns
+  first max_visible chips + overflow count)
+
+Workspace count now 385. Total this resume: 275 cockpit crates.
