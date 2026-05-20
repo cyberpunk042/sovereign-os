@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-cockpit-celebration"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Cockpit milestone-celebration emitter. fire(scope_id, milestone_id, ts) records a brief celebration event; should_show(scope_id, milestone_id) returns Some when an unshowed celebration exists; mark_shown clears. Each (scope, milestone) tuple fires at most once per session. Pure descriptor."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
