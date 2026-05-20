@@ -2988,3 +2988,13 @@ Workspace count now 459. Total this resume: 349 cockpit crates.
   folds contiguous out-of-project runs into Collapsed{count})
 
 Workspace count now 460. Total this resume: 350 cockpit crates.
+
+### Two-hundred-and-eighty-third wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-workspace-state` (Pane{id, kind, scroll_y};
+  State{panes, active_pane, named_snapshots};
+  add_pane/set_active/set_scroll mutate live; save(name) clones
+  live into named_snapshots; restore(name) replaces live from
+  snapshot)
+
+Workspace count now 461. Total this resume: 351 cockpit crates.
