@@ -3085,3 +3085,21 @@ Workspace count now 469. Total this resume: 359 cockpit crates.
   Loaded; fail Loading → Failed; retry allowed from Failed)
 
 Workspace count now 470. Total this resume: 360 cockpit crates.
+
+### Two-hundred-and-ninety-third wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-color-contrast` (WCAG-2.1 §1.4.3 relative-
+  luminance + contrast-ratio. `Rgb{r,g,b}` with `from_hex(0xRRGGBB)`
+  constructor. `relative_luminance(rgb)` linearises each sRGB
+  channel (≤0.04045 → c/12.92, else ((c+0.055)/1.055)^2.4) then
+  blends 0.2126·R + 0.7152·G + 0.0722·B. `contrast_ratio(fg,bg)` =
+  (Llight+0.05)/(Ldark+0.05) — order-invariant. `WcagLevel::{AA,
+  AAA}.threshold(large_text)` returns the 4.5/3.0/7.0/4.5
+  thresholds; `.passes(ratio, large)` with 1e-9 tolerance for
+  at-threshold pairs. `Verdict{ratio, passes_aa, passes_aaa}` +
+  `verdict(fg, bg, large)` bundle. 17 unit tests including
+  black-on-white = 21:1 invariant, mid-gray-on-white = ~3.95 fails
+  AA-normal but passes AA-large, ordering invariance, boundary
+  ratio at threshold, lowercase serde for AA/AAA).
+
+Workspace count now 471. Total this resume: 361 cockpit crates.

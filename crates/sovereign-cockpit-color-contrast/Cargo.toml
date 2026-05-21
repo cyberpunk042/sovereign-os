@@ -1,21 +1,12 @@
 [package]
 name = "sovereign-cockpit-color-contrast"
-version.workspace = true
-edition.workspace = true
-rust-version.workspace = true
-license.workspace = true
-repository.workspace = true
-authors.workspace = true
-publish.workspace = true
-description = "Cockpit WCAG 2.1 contrast checker. Given sRGB (r,g,b) for foreground and background, computes relative luminance per WCAG and returns the contrast ratio rounded to 0.01, plus the AA/AAA pass flags for normal text (≥4.5/≥7) and large text (≥3/≥4.5)."
-
-[lints]
-workspace = true
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "WCAG-2.1 §1.4.3 relative-luminance + contrast-ratio computation for cockpit color pair validation."
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-
-[features]
-default = []
