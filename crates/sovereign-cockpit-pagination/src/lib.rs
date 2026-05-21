@@ -1,10 +1,18 @@
-//! `sovereign-cockpit-pagination` — pagination control state.
+//! `sovereign-cockpit-pagination` — page-state arithmetic.
 //!
-//! Holds (total_items, page_size, page). Computes total_pages +
-//! offset; bounds navigation; emits a windowed page-number list
-//! around the active page. Pure UX descriptor.
+//! A cockpit list pager carries 3 inputs:
+//!   - `total`     (items in the result set; 0 allowed)
+//!   - `per_page`  (items per page; ≥ 1)
+//!   - `page`      (1-indexed current page; clamped to [1, total_pages])
 //!
-//! Standing rule: We do not minimize anything.
+//! and emits derived state for the renderer:
+//!   - `total_pages`  = ceil(total / per_page); 0 → 0; else ≥ 1
+//!   - `can_prev`     = page > 1
+//!   - `can_next`     = page < total_pages
+//!   - `range`        = (start_index, end_index_inclusive) in [0, total-1]
+//!                      ranges OR None when total = 0
+//!
+//! Standing rule: we do not minimize anything.
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
@@ -15,177 +23,114 @@ use thiserror::Error;
 /// Schema version.
 pub const SCHEMA_VERSION: &str = "1.0.0";
 
-/// Rendered token in the page bar.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(tag = "kind", rename_all = "kebab-case")]
-pub enum PageToken {
-    /// Real page (1-based number, active flag).
-    Page {
-        /// 1-based number.
-        n: u32,
-        /// Is this the current page?
-        active: bool,
-    },
-    /// Ellipsis collapsed region.
-    Ellipsis,
-}
-
-/// Pagination state.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Pagination {
-    /// Schema version.
-    pub schema_version: String,
-    /// Total item count.
-    pub total_items: u64,
-    /// Page size (≥ 1).
-    pub page_size: u32,
-    /// Current page (1-based).
-    pub page: u32,
-    /// Window width on each side of active when rendering page list.
-    pub side_window: u32,
-}
-
 /// Errors.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq, Eq)]
 pub enum PaginationError {
+    /// `per_page` was 0.
+    #[error("per_page must be ≥ 1")]
+    InvalidPerPage,
     /// Schema drift.
     #[error("schema version mismatch")]
     SchemaMismatch,
-    /// page_size zero.
-    #[error("page_size is zero")]
-    PageSizeZero,
-    /// page out of range (1..=total_pages).
-    #[error("page {page} out of range (1..={max})")]
-    PageOutOfRange {
-        /// page.
-        page: u32,
-        /// max.
-        max: u32,
-    },
 }
 
-impl Pagination {
-    /// New pagination. page defaults to 1, side_window to 2.
-    pub fn new(total_items: u64, page_size: u32) -> Result<Self, PaginationError> {
-        if page_size == 0 {
-            return Err(PaginationError::PageSizeZero);
-        }
-        Ok(Self {
-            schema_version: SCHEMA_VERSION.into(),
-            total_items,
-            page_size,
-            page: 1,
-            side_window: 2,
-        })
-    }
+/// A pager + its derived state.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Pager {
+    /// 1-indexed current page (clamped on construction).
+    pub page: u64,
+    /// Items per page; ≥ 1.
+    pub per_page: u64,
+    /// Total items in the result set.
+    pub total: u64,
+}
 
-    /// Total pages (≥ 1 when total_items > 0, else 1).
-    pub fn total_pages(&self) -> u32 {
-        if self.total_items == 0 {
-            return 1;
-        }
-        let p = (self.total_items + self.page_size as u64 - 1) / self.page_size as u64;
-        p.min(u32::MAX as u64) as u32
-    }
+/// Derived state from a `Pager`.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PageInfo {
+    /// 1-indexed current page.
+    pub page: u64,
+    /// Items per page.
+    pub per_page: u64,
+    /// Total items.
+    pub total: u64,
+    /// Total pages — 0 when total = 0, else ceil(total/per_page).
+    pub total_pages: u64,
+    /// True iff page > 1.
+    pub can_prev: bool,
+    /// True iff page < total_pages.
+    pub can_next: bool,
+    /// (start, end_inclusive) item indices in [0, total-1] for the
+    /// current page, OR None when total = 0.
+    pub range: Option<(u64, u64)>,
+}
 
-    /// Zero-based offset for current page.
-    pub fn offset(&self) -> u64 {
-        (self.page.saturating_sub(1) as u64) * self.page_size as u64
+impl Pager {
+    /// Construct a pager. Returns err if `per_page == 0`. `page`
+    /// is clamped into [1, total_pages] (or set to 1 when total =
+    /// 0 / pages = 0).
+    pub fn new(page: u64, per_page: u64, total: u64) -> Result<Self, PaginationError> {
+        if per_page == 0 { return Err(PaginationError::InvalidPerPage); }
+        let total_pages = total_pages_for(total, per_page);
+        let clamped_page = if total_pages == 0 {
+            1
+        } else {
+            page.clamp(1, total_pages)
+        };
+        Ok(Self { page: clamped_page, per_page, total })
     }
-
-    /// Items on the current page.
-    pub fn current_page_count(&self) -> u32 {
-        let start = self.offset();
-        if start >= self.total_items {
-            return 0;
-        }
-        ((self.total_items - start).min(self.page_size as u64)) as u32
-    }
-
-    /// Go to a specific page (bounds-checked).
-    pub fn goto(&mut self, page: u32) -> Result<(), PaginationError> {
-        let max = self.total_pages();
-        if page == 0 || page > max {
-            return Err(PaginationError::PageOutOfRange { page, max });
-        }
-        self.page = page;
-        Ok(())
-    }
-
-    /// Next page (no-op at last).
-    pub fn next(&mut self) {
-        if self.page < self.total_pages() {
-            self.page += 1;
+    /// Compute the derived `PageInfo`.
+    pub fn info(self) -> PageInfo {
+        let total_pages = total_pages_for(self.total, self.per_page);
+        let can_prev = self.page > 1;
+        let can_next = total_pages > 0 && self.page < total_pages;
+        let range = if self.total == 0 {
+            None
+        } else {
+            let start = (self.page - 1) * self.per_page;
+            let end = (start + self.per_page - 1).min(self.total - 1);
+            Some((start, end))
+        };
+        PageInfo {
+            page: self.page,
+            per_page: self.per_page,
+            total: self.total,
+            total_pages,
+            can_prev,
+            can_next,
+            range,
         }
     }
-
-    /// Previous page (no-op at first).
-    pub fn prev(&mut self) {
-        if self.page > 1 {
-            self.page -= 1;
-        }
+    /// Step forward one page if `can_next`, else no-op.
+    pub fn next(mut self) -> Self {
+        let info = self.info();
+        if info.can_next { self.page += 1; }
+        self
     }
-
-    /// First page.
-    pub fn first(&mut self) {
-        self.page = 1;
+    /// Step back one page if `can_prev`, else no-op.
+    pub fn prev(mut self) -> Self {
+        let info = self.info();
+        if info.can_prev { self.page -= 1; }
+        self
     }
-
-    /// Last page.
-    pub fn last(&mut self) {
-        self.page = self.total_pages();
+    /// Jump to a specific page (clamped into the valid range).
+    pub fn goto(mut self, page: u64) -> Self {
+        let total_pages = total_pages_for(self.total, self.per_page);
+        self.page = if total_pages == 0 { 1 } else { page.clamp(1, total_pages) };
+        self
     }
+}
 
-    /// Render a windowed page bar.
-    ///
-    /// Always emits page 1 and the last page. Around the active page
-    /// emits `side_window` pages on each side. Gaps become an
-    /// Ellipsis token.
-    pub fn render(&self) -> Vec<PageToken> {
-        let max = self.total_pages();
-        let mut indices: Vec<u32> = Vec::new();
-        indices.push(1);
-        let lo = self.page.saturating_sub(self.side_window).max(1);
-        let hi = self.page.saturating_add(self.side_window).min(max);
-        for n in lo..=hi {
-            if !indices.contains(&n) {
-                indices.push(n);
-            }
-        }
-        if !indices.contains(&max) {
-            indices.push(max);
-        }
-        indices.sort_unstable();
-        indices.dedup();
+/// ceil(total / per_page) as u64, except 0 when total = 0.
+pub fn total_pages_for(total: u64, per_page: u64) -> u64 {
+    if total == 0 || per_page == 0 { return 0; }
+    total.div_ceil(per_page)
+}
 
-        let mut out: Vec<PageToken> = Vec::with_capacity(indices.len() * 2);
-        let mut last: Option<u32> = None;
-        for n in indices {
-            if let Some(prev) = last {
-                if n > prev + 1 {
-                    out.push(PageToken::Ellipsis);
-                }
-            }
-            out.push(PageToken::Page { n, active: n == self.page });
-            last = Some(n);
-        }
-        out
-    }
-
-    /// Validate.
-    pub fn validate(&self) -> Result<(), PaginationError> {
-        if self.schema_version != SCHEMA_VERSION {
-            return Err(PaginationError::SchemaMismatch);
-        }
-        if self.page_size == 0 {
-            return Err(PaginationError::PageSizeZero);
-        }
-        let max = self.total_pages();
-        if self.page == 0 || self.page > max {
-            return Err(PaginationError::PageOutOfRange { page: self.page, max });
-        }
-        Ok(())
-    }
+/// Validate.
+pub fn validate_schema_version(s: &str) -> Result<(), PaginationError> {
+    if s != SCHEMA_VERSION { return Err(PaginationError::SchemaMismatch); }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -193,118 +138,139 @@ mod tests {
     use super::*;
 
     #[test]
-    fn zero_page_size_rejected() {
-        assert!(matches!(Pagination::new(0, 0).unwrap_err(), PaginationError::PageSizeZero));
+    fn total_pages_exact_division() {
+        assert_eq!(total_pages_for(100, 10), 10);
     }
 
     #[test]
-    fn total_pages_for_zero_items() {
-        let p = Pagination::new(0, 10).unwrap();
-        assert_eq!(p.total_pages(), 1);
+    fn total_pages_rounding_up() {
+        assert_eq!(total_pages_for(101, 10), 11);
     }
 
     #[test]
-    fn total_pages_rounds_up() {
-        let p = Pagination::new(95, 10).unwrap();
-        assert_eq!(p.total_pages(), 10);
-        let p = Pagination::new(100, 10).unwrap();
-        assert_eq!(p.total_pages(), 10);
-        let p = Pagination::new(101, 10).unwrap();
-        assert_eq!(p.total_pages(), 11);
+    fn total_pages_zero_when_total_zero() {
+        assert_eq!(total_pages_for(0, 10), 0);
     }
 
     #[test]
-    fn offset_and_count() {
-        let mut p = Pagination::new(95, 10).unwrap();
-        p.goto(10).unwrap();
-        assert_eq!(p.offset(), 90);
-        assert_eq!(p.current_page_count(), 5);
+    fn total_pages_zero_per_page_returns_zero() {
+        assert_eq!(total_pages_for(100, 0), 0);
     }
 
     #[test]
-    fn next_caps_at_last() {
-        let mut p = Pagination::new(50, 10).unwrap();
-        for _ in 0..10 { p.next(); }
-        assert_eq!(p.page, 5);
+    fn new_rejects_zero_per_page() {
+        let r = Pager::new(1, 0, 100);
+        assert_eq!(r.unwrap_err(), PaginationError::InvalidPerPage);
     }
 
     #[test]
-    fn prev_caps_at_first() {
-        let mut p = Pagination::new(50, 10).unwrap();
-        for _ in 0..10 { p.prev(); }
+    fn new_clamps_overshoot_page() {
+        let p = Pager::new(999, 10, 100).unwrap();
+        assert_eq!(p.page, 10, "must clamp page to total_pages=10");
+    }
+
+    #[test]
+    fn new_clamps_zero_page_to_one() {
+        let p = Pager::new(0, 10, 100).unwrap();
         assert_eq!(p.page, 1);
     }
 
     #[test]
-    fn goto_out_of_range_rejected() {
-        let mut p = Pagination::new(50, 10).unwrap();
-        assert!(matches!(p.goto(0).unwrap_err(), PaginationError::PageOutOfRange { .. }));
-        assert!(matches!(p.goto(99).unwrap_err(), PaginationError::PageOutOfRange { .. }));
+    fn empty_total_yields_no_range_and_no_navigation() {
+        let p = Pager::new(1, 10, 0).unwrap();
+        let i = p.info();
+        assert_eq!(i.total_pages, 0);
+        assert_eq!(i.range, None);
+        assert!(!i.can_next);
+        assert!(!i.can_prev);
     }
 
     #[test]
-    fn first_last_jumps() {
-        let mut p = Pagination::new(50, 10).unwrap();
-        p.last();
-        assert_eq!(p.page, 5);
-        p.first();
-        assert_eq!(p.page, 1);
+    fn first_page_has_no_prev() {
+        let i = Pager::new(1, 10, 100).unwrap().info();
+        assert!(!i.can_prev);
+        assert!(i.can_next);
+        assert_eq!(i.range, Some((0, 9)));
     }
 
     #[test]
-    fn render_small_no_ellipsis() {
-        let p = Pagination::new(30, 10).unwrap();
-        let r = p.render();
-        // 1,2,3 with 1 active.
-        assert_eq!(r.len(), 3);
-        for t in &r {
-            assert!(!matches!(t, PageToken::Ellipsis));
-        }
+    fn middle_page_can_navigate_both() {
+        let i = Pager::new(5, 10, 100).unwrap().info();
+        assert!(i.can_prev);
+        assert!(i.can_next);
+        assert_eq!(i.range, Some((40, 49)));
     }
 
     #[test]
-    fn render_large_with_ellipsis() {
-        let mut p = Pagination::new(1000, 10).unwrap();
-        p.goto(50).unwrap();
-        let r = p.render();
-        // Should contain Ellipsis tokens on both sides.
-        assert!(r.iter().filter(|t| matches!(t, PageToken::Ellipsis)).count() == 2);
-        // First token should be page 1 (not active), last should be page 100.
-        assert!(matches!(r.first().unwrap(), PageToken::Page { n: 1, active: false }));
-        assert!(matches!(r.last().unwrap(), PageToken::Page { n: 100, active: false }));
-        assert!(r.iter().any(|t| matches!(t, PageToken::Page { n: 50, active: true })));
+    fn last_page_has_no_next() {
+        let i = Pager::new(10, 10, 100).unwrap().info();
+        assert!(i.can_prev);
+        assert!(!i.can_next);
+        assert_eq!(i.range, Some((90, 99)));
     }
 
     #[test]
-    fn render_active_at_start() {
-        let p = Pagination::new(1000, 10).unwrap();
-        let r = p.render();
-        assert!(matches!(r.first().unwrap(), PageToken::Page { n: 1, active: true }));
-        assert!(r.iter().any(|t| matches!(t, PageToken::Ellipsis)));
+    fn partial_last_page_caps_range_end() {
+        // 95 items / 10 per_page → 10 pages; page 10 has only 5 items.
+        let i = Pager::new(10, 10, 95).unwrap().info();
+        assert_eq!(i.total_pages, 10);
+        assert_eq!(i.range, Some((90, 94)));
     }
 
     #[test]
-    fn schema_drift_rejected() {
-        let mut p = Pagination::new(10, 10).unwrap();
-        p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), PaginationError::SchemaMismatch));
+    fn next_is_no_op_at_last_page() {
+        let p = Pager::new(10, 10, 100).unwrap();
+        let p2 = p.next();
+        assert_eq!(p2.page, 10);
     }
 
     #[test]
-    fn token_serde_kebab() {
-        let t = PageToken::Ellipsis;
-        assert_eq!(serde_json::to_string(&t).unwrap(), "{\"kind\":\"ellipsis\"}");
-        let t = PageToken::Page { n: 3, active: true };
-        let j = serde_json::to_string(&t).unwrap();
-        assert!(j.contains("\"kind\":\"page\""));
+    fn prev_is_no_op_at_first_page() {
+        let p = Pager::new(1, 10, 100).unwrap();
+        let p2 = p.prev();
+        assert_eq!(p2.page, 1);
     }
 
     #[test]
-    fn pagination_serde_roundtrip() {
-        let mut p = Pagination::new(100, 10).unwrap();
-        p.goto(5).unwrap();
-        let j = serde_json::to_string(&p).unwrap();
-        let back: Pagination = serde_json::from_str(&j).unwrap();
-        assert_eq!(p, back);
+    fn next_advances_one_page() {
+        let p = Pager::new(3, 10, 100).unwrap();
+        assert_eq!(p.next().page, 4);
+    }
+
+    #[test]
+    fn prev_steps_back_one_page() {
+        let p = Pager::new(3, 10, 100).unwrap();
+        assert_eq!(p.prev().page, 2);
+    }
+
+    #[test]
+    fn goto_clamps_into_range() {
+        let p = Pager::new(1, 10, 100).unwrap();
+        assert_eq!(p.goto(999).page, 10);
+        assert_eq!(p.goto(0).page,   1);
+        assert_eq!(p.goto(5).page,   5);
+    }
+
+    #[test]
+    fn goto_on_empty_total_stays_at_one() {
+        let p = Pager::new(1, 10, 0).unwrap();
+        assert_eq!(p.goto(7).page, 1);
+    }
+
+    #[test]
+    fn schema_check() {
+        assert!(validate_schema_version("1.0.0").is_ok());
+        assert!(matches!(
+            validate_schema_version("9.9.9").unwrap_err(),
+            PaginationError::SchemaMismatch
+        ));
+    }
+
+    #[test]
+    fn page_info_serde_roundtrip() {
+        let i = Pager::new(2, 10, 100).unwrap().info();
+        let j = serde_json::to_string(&i).unwrap();
+        let back: PageInfo = serde_json::from_str(&j).unwrap();
+        assert_eq!(i, back);
     }
 }

@@ -3103,3 +3103,20 @@ Workspace count now 470. Total this resume: 360 cockpit crates.
   ratio at threshold, lowercase serde for AA/AAA).
 
 Workspace count now 471. Total this resume: 361 cockpit crates.
+
+### Two-hundred-and-ninety-fourth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-pagination` (Pager{page, per_page, total} +
+  PageInfo{page, per_page, total, total_pages, can_prev, can_next,
+  range}. Pager::new(p,pp,t) clamps page into [1, total_pages] and
+  rejects per_page=0 with PaginationError::InvalidPerPage. info()
+  computes total_pages via ceil-div, range = Some((start, end_incl))
+  in [0, total-1] or None for empty total, with partial-last-page
+  capped to total-1. next()/prev() are no-ops at boundaries; goto()
+  clamps. total_pages_for(0,_) = total_pages_for(_,0) = 0. 20 unit
+  tests covering exact-division + rounding + zero-total + zero-per-
+  page + clamping overshoot/undershoot + empty-total navigation +
+  partial-last-page range cap + step/goto boundaries + serde
+  round-trip).
+
+Workspace count now 472. Total this resume: 362 cockpit crates.
