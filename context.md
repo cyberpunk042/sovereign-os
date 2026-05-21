@@ -3156,3 +3156,22 @@ Workspace count now 473. Total this resume: 363 cockpit crates.
   check, Strategy lowercase serde).
 
 Workspace count now 474. Total this resume: 364 cockpit crates.
+
+### Two-hundred-and-ninety-seventh wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-search-history` (recent-query ring buffer with
+  MRU semantics + dedup + bounded capacity. SearchHistory::new(
+  capacity, dedup) where DedupMode ∈ {CaseSensitive,
+  CaseInsensitive}. record(q) trims + ignores empty/whitespace; if
+  q matches existing entry MOVES it to head (preserves operator
+  intent "recent = last used"), else inserts at head + evicts
+  oldest when at capacity. Returns bool indicating whether the
+  buffer changed (move-to-head IS a change; duplicate-at-head is
+  not). 13 unit tests: zero-capacity rejection, empty/whitespace
+  no-op, trim-before-record, MRU ordering, duplicate moves to head
+  (existing keeps original case in CaseInsensitive mode),
+  duplicate-at-head no-op, capacity eviction, case-sensitive vs
+  case-insensitive dedup, clear, schema check, full serde
+  round-trip, DedupMode kebab-case serde).
+
+Workspace count now 475. Total this resume: 365 cockpit crates.

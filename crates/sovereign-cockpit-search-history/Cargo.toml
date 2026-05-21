@@ -3,7 +3,7 @@ name = "sovereign-cockpit-search-history"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.88"
-description = "Bounded search-query log with dedup-promote and pinning."
+description = "Recent-query ring buffer with MRU semantics + dedup + bounded capacity for cockpit search bars."
 license = "MIT OR Apache-2.0"
 
 [dependencies]
