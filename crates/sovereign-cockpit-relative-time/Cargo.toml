@@ -1,21 +1,12 @@
 [package]
 name = "sovereign-cockpit-relative-time"
-version.workspace = true
-edition.workspace = true
-rust-version.workspace = true
-license.workspace = true
-repository.workspace = true
-authors.workspace = true
-publish.workspace = true
-description = "Cockpit relative-time formatter. Renders a (now_ms, then_ms) pair as 'just now', 'Nm ago', 'Nh ago', 'Yesterday', 'Nd ago', 'Nw ago', 'Nmo ago', 'Ny ago', and the symmetric future forms. Pure presentation crate; no locale yet (returns canonical English buckets the locale layer can translate)."
-
-[lints]
-workspace = true
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "Human-readable relative-time formatting — 'just now' / 'N seconds ago' / 'N minutes ago' / 'N hours ago' / 'N days ago' / 'on YYYY-MM-DD'."
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-
-[features]
-default = []

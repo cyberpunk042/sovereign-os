@@ -3120,3 +3120,21 @@ Workspace count now 471. Total this resume: 361 cockpit crates.
   round-trip).
 
 Workspace count now 472. Total this resume: 362 cockpit crates.
+
+### Two-hundred-and-ninety-fifth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-relative-time` (human relative-time formatter
+  with Tense{Now,Past,Future}. classify(now_ms, item_ms) → (tense,
+  |delta|ms). format(now_ms, item_ms) returns "just now" if |Δ|<1s,
+  else N seconds/minutes/hours/days ago (or "in N …" for future)
+  with proper singular/plural pluralization; falls back to absolute
+  "on YYYY-MM-DD" past 7 days. epoch_day_to_yyyymmdd uses Howard
+  Hinnant's civil-from-days algorithm for the proleptic Gregorian
+  calendar (era + day-of-era + year-of-era → year/month/day). 16
+  unit tests covering: within-1s "just now", 5-second ago, 1-second
+  singular, 5-minute ago, 1-minute singular, 3-hour ago, 2-day ago,
+  6-day ago (still days), 8-day fall-back to date, future +5m,
+  future +3h, future +30d fall-back to date, classify tense + delta
+  table, epoch-day round-trip, schema check, Tense serde lowercase).
+
+Workspace count now 473. Total this resume: 363 cockpit crates.
