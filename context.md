@@ -3138,3 +3138,21 @@ Workspace count now 472. Total this resume: 362 cockpit crates.
   table, epoch-day round-trip, schema check, Tense serde lowercase).
 
 Workspace count now 473. Total this resume: 363 cockpit crates.
+
+### Two-hundred-and-ninety-sixth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-text-truncation` (char-aware text truncation
+  for narrow columns with three strategies: End preserves start,
+  Start preserves end, Middle preserves both ends with head-bias
+  on odd budgets. truncate(input, max_chars, strategy, ellipsis)
+  + truncate_default() with "…". Unicode-safe (operates on chars
+  not bytes — "héllo" counts as 5 not 6). Errors:
+  InvalidMaxChars (0), EllipsisTooLong (≥ max_chars). 14 unit
+  tests: pass-through under budget, exact-budget pass-through,
+  three strategies on "the quick brown fox" with measured outputs,
+  Unicode chars-not-bytes, custom 3-dot ellipsis, zero max_chars
+  rejection, ellipsis-too-long rejection at == and >, empty input
+  pass-through, middle odd-budget head-bias verification, schema
+  check, Strategy lowercase serde).
+
+Workspace count now 474. Total this resume: 364 cockpit crates.
