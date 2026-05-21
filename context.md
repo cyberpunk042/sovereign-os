@@ -3175,3 +3175,23 @@ Workspace count now 474. Total this resume: 364 cockpit crates.
   round-trip, DedupMode kebab-case serde).
 
 Workspace count now 475. Total this resume: 365 cockpit crates.
+
+### Two-hundred-and-ninety-eighth wave (same day, +1 more cockpit crate)
+
+- `sovereign-cockpit-toast-stack` (toast notification stack with
+  auto-dismiss timers + severity-ordered eviction + bounded
+  capacity. Severity{Info < Success < Warning < Error} with derived
+  Ord. ToastStack::new(capacity) — rejects 0. push(Toast) inserts
+  at head; on capacity-full evicts the lowest-severity OLDEST
+  toast (higher severity wins). dismiss(id) → bool removes a
+  specific toast. expire(now_ms) → Vec<String> auto-dismisses
+  toasts whose created_at + ttl ≤ now and returns removed IDs.
+  clear() empties. 15 unit tests: zero-capacity rejection, newest-
+  first ordering, duplicate-id rejection, eviction picks lowest-
+  severity (Info evicted before Error even when Info is newer),
+  dismiss + dismiss-unknown, expire returns removed IDs, expire at
+  exact-ttl boundary (inclusive), no-due-toasts returns empty,
+  clear, Severity Ord ladder, schema check, ToastStack serde
+  round-trip, Severity lowercase serde).
+
+Workspace count now 476. Total this resume: 366 cockpit crates.

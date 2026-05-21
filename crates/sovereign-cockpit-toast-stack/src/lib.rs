@@ -1,11 +1,16 @@
-//! `sovereign-cockpit-toast-stack` — stacked-toast queue.
+//! `sovereign-cockpit-toast-stack` — toast notification stack with
+//! auto-dismiss timers + severity-ordered eviction + bounded capacity.
 //!
-//! `post(toast)` appends; if the stack exceeds `max_visible`, the
-//! oldest (lowest `posted_at_ms`) is dropped. `dismiss(id)` removes
-//! the named entry. `visible(now)` returns the live entries after
-//! filtering out those past their TTL.
+//! Toasts are ephemeral operator-facing notifications (operation
+//! succeeded, network became available, error occurred). The
+//! cockpit needs the same state machine across every renderer:
+//!   1. `push(toast)` adds a toast at TIME t0 with a TTL.
+//!   2. `expire(now_ms)` returns the IDs of toasts whose TTL elapsed.
+//!   3. When `len() == capacity`, the lowest-severity OLDEST toast
+//!      is evicted to make room. Higher-severity toasts win.
+//!   4. Operator-dismiss removes a specific ID immediately.
 //!
-//! Standing rule: We do not minimize anything.
+//! Standing rule: we do not minimize anything.
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
@@ -16,209 +21,308 @@ use thiserror::Error;
 /// Schema version.
 pub const SCHEMA_VERSION: &str = "1.0.0";
 
-/// Severity.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+/// Severity tier — drives eviction order when the stack is full.
+/// Higher-numbered variants win.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(rename_all = "lowercase")]
 pub enum Severity {
-    /// Info.
+    /// Informational ("Saved.", "Connected.").
     Info,
-    /// Success.
+    /// Success ("Module applied: 0 changes.").
     Success,
-    /// Warn.
-    Warn,
-    /// Error.
+    /// Warning ("Approaching disk threshold.").
+    Warning,
+    /// Error ("Failed to apply: …").
     Error,
 }
 
 /// One toast.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Toast {
-    /// Stable id.
+    /// Stable identifier (assigned by the operator or the renderer).
     pub id: String,
-    /// Body text.
-    pub body: String,
-    /// Severity.
+    /// Severity tier.
     pub severity: Severity,
-    /// Posted-at ts.
-    pub posted_at_ms: u64,
-    /// TTL ms.
+    /// Operator-readable message body.
+    pub message: String,
+    /// Epoch ms when the toast was pushed.
+    pub created_at_ms: u64,
+    /// TTL in ms; auto-dismissed at `created_at_ms + ttl_ms`.
     pub ttl_ms: u64,
-    /// Can the operator dismiss?
-    pub dismissable: bool,
-}
-
-/// State.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ToastStack {
-    /// Schema version.
-    pub schema_version: String,
-    /// Max-visible.
-    pub max_visible: usize,
-    /// Stack (newest last).
-    pub toasts: Vec<Toast>,
 }
 
 /// Errors.
-#[derive(Debug, Error)]
-pub enum ToastError {
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum ToastStackError {
+    /// `capacity` was 0.
+    #[error("capacity must be ≥ 1")]
+    InvalidCapacity,
+    /// Duplicate ID push attempt.
+    #[error("toast id already present in stack")]
+    DuplicateId,
     /// Schema drift.
     #[error("schema version mismatch")]
     SchemaMismatch,
-    /// Empty id.
-    #[error("toast id empty")]
-    EmptyId,
-    /// Empty body.
-    #[error("body empty")]
-    EmptyBody,
-    /// Duplicate id.
-    #[error("duplicate toast id: {0}")]
-    DuplicateId(String),
-    /// max_visible zero.
-    #[error("max_visible must be > 0")]
-    MaxVisibleZero,
+}
+
+/// Bounded toast stack.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ToastStack {
+    capacity: usize,
+    /// Most-recently-pushed first.
+    toasts: Vec<Toast>,
 }
 
 impl ToastStack {
-    /// New.
-    pub fn new(max_visible: usize) -> Result<Self, ToastError> {
-        if max_visible == 0 { return Err(ToastError::MaxVisibleZero); }
-        Ok(Self {
-            schema_version: SCHEMA_VERSION.into(),
-            max_visible,
-            toasts: Vec::new(),
-        })
+    /// Construct an empty stack.
+    pub fn new(capacity: usize) -> Result<Self, ToastStackError> {
+        if capacity == 0 {
+            return Err(ToastStackError::InvalidCapacity);
+        }
+        Ok(Self { capacity, toasts: Vec::new() })
     }
 
-    /// Post.
-    pub fn post(&mut self, toast: Toast) -> Result<(), ToastError> {
-        if toast.id.is_empty() { return Err(ToastError::EmptyId); }
-        if toast.body.is_empty() { return Err(ToastError::EmptyBody); }
+    /// Capacity ceiling.
+    pub fn capacity(&self) -> usize { self.capacity }
+
+    /// Number of stored toasts.
+    pub fn len(&self) -> usize { self.toasts.len() }
+
+    /// True iff `len() == 0`.
+    pub fn is_empty(&self) -> bool { self.toasts.is_empty() }
+
+    /// Snapshot the toasts — newest first.
+    pub fn toasts(&self) -> &[Toast] { &self.toasts }
+
+    /// Push a toast onto the stack. If capacity is reached, evict
+    /// the lowest-severity OLDEST toast. Returns `DuplicateId`
+    /// if a toast with that id is already present (use `dismiss`
+    /// first or pick a fresh id).
+    pub fn push(&mut self, toast: Toast) -> Result<(), ToastStackError> {
         if self.toasts.iter().any(|t| t.id == toast.id) {
-            return Err(ToastError::DuplicateId(toast.id));
+            return Err(ToastStackError::DuplicateId);
         }
-        self.toasts.push(toast);
-        while self.toasts.len() > self.max_visible {
-            self.toasts.remove(0);
+        if self.toasts.len() == self.capacity {
+            // Eviction: find the lowest-severity, oldest toast.
+            let evict_idx = self
+                .toasts
+                .iter()
+                .enumerate()
+                .min_by(|(ai, a), (bi, b)| {
+                    a.severity
+                        .cmp(&b.severity)
+                        .then_with(|| {
+                            // Older = larger index (we insert at 0).
+                            bi.cmp(ai)
+                        })
+                })
+                .map(|(i, _)| i)
+                .expect("non-empty");
+            self.toasts.remove(evict_idx);
         }
+        self.toasts.insert(0, toast);
         Ok(())
     }
 
-    /// Dismiss by id.
+    /// Remove a specific toast by id. Returns true if found.
     pub fn dismiss(&mut self, id: &str) -> bool {
         if let Some(pos) = self.toasts.iter().position(|t| t.id == id) {
             self.toasts.remove(pos);
-            return true;
+            true
+        } else {
+            false
         }
-        false
     }
 
-    /// Visible at now (filters out past-TTL).
-    pub fn visible(&mut self, now_ms: u64) -> Vec<Toast> {
-        self.toasts.retain(|t| now_ms.saturating_sub(t.posted_at_ms) < t.ttl_ms);
-        self.toasts.clone()
-    }
-
-    /// Validate.
-    pub fn validate(&self) -> Result<(), ToastError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ToastError::SchemaMismatch); }
-        if self.max_visible == 0 { return Err(ToastError::MaxVisibleZero); }
-        use std::collections::HashSet;
-        let mut seen: HashSet<&str> = HashSet::new();
-        for t in &self.toasts {
-            if t.id.is_empty() { return Err(ToastError::EmptyId); }
-            if t.body.is_empty() { return Err(ToastError::EmptyBody); }
-            if !seen.insert(t.id.as_str()) {
-                return Err(ToastError::DuplicateId(t.id.clone()));
+    /// Remove every toast whose `created_at_ms + ttl_ms <= now_ms`.
+    /// Returns the IDs of removed toasts (the caller may want to
+    /// fire animation hooks per dismissal).
+    pub fn expire(&mut self, now_ms: u64) -> Vec<String> {
+        let mut removed: Vec<String> = Vec::new();
+        self.toasts.retain(|t| {
+            let expires = t.created_at_ms.saturating_add(t.ttl_ms);
+            if expires <= now_ms {
+                removed.push(t.id.clone());
+                false
+            } else {
+                true
             }
-        }
-        Ok(())
+        });
+        removed
     }
+
+    /// Remove all toasts.
+    pub fn clear(&mut self) {
+        self.toasts.clear();
+    }
+}
+
+/// Validate.
+pub fn validate_schema_version(s: &str) -> Result<(), ToastStackError> {
+    if s != SCHEMA_VERSION {
+        return Err(ToastStackError::SchemaMismatch);
+    }
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn toast(id: &str, ts: u64, ttl: u64) -> Toast {
+    fn t(id: &str, severity: Severity, created_at_ms: u64, ttl_ms: u64) -> Toast {
         Toast {
-            id: id.into(),
-            body: format!("Body {id}"),
-            severity: Severity::Info,
-            posted_at_ms: ts,
-            ttl_ms: ttl,
-            dismissable: true,
+            id: id.to_string(),
+            severity,
+            message: format!("test {id}"),
+            created_at_ms,
+            ttl_ms,
         }
     }
 
     #[test]
-    fn post_and_visible() {
-        let mut s = ToastStack::new(4).unwrap();
-        s.post(toast("a", 0, 5000)).unwrap();
-        assert_eq!(s.visible(1000).len(), 1);
+    fn zero_capacity_rejected() {
+        assert_eq!(
+            ToastStack::new(0).unwrap_err(),
+            ToastStackError::InvalidCapacity
+        );
     }
 
     #[test]
-    fn ttl_drops_after_window() {
-        let mut s = ToastStack::new(4).unwrap();
-        s.post(toast("a", 0, 1000)).unwrap();
-        assert!(s.visible(5000).is_empty());
+    fn push_orders_newest_first() {
+        let mut s = ToastStack::new(5).unwrap();
+        s.push(t("a", Severity::Info, 0, 1000)).unwrap();
+        s.push(t("b", Severity::Info, 100, 1000)).unwrap();
+        let ids: Vec<&str> = s.toasts().iter().map(|t| t.id.as_str()).collect();
+        assert_eq!(ids, vec!["b", "a"]);
     }
 
     #[test]
-    fn overflow_drops_oldest() {
+    fn duplicate_id_rejected() {
+        let mut s = ToastStack::new(5).unwrap();
+        s.push(t("a", Severity::Info, 0, 1000)).unwrap();
+        assert_eq!(
+            s.push(t("a", Severity::Error, 100, 1000)).unwrap_err(),
+            ToastStackError::DuplicateId
+        );
+    }
+
+    #[test]
+    fn capacity_eviction_picks_lowest_severity() {
+        let mut s = ToastStack::new(3).unwrap();
+        // Stack: Info, Info, Info → all three same severity. Push
+        // an Error — evicts the OLDEST Info (the one inserted first).
+        s.push(t("a", Severity::Info, 0, 1000)).unwrap();
+        s.push(t("b", Severity::Info, 100, 1000)).unwrap();
+        s.push(t("c", Severity::Info, 200, 1000)).unwrap();
+        s.push(t("d", Severity::Error, 300, 1000)).unwrap();
+        let ids: Vec<&str> = s.toasts().iter().map(|t| t.id.as_str()).collect();
+        assert_eq!(ids, vec!["d", "c", "b"], "evicted 'a' (oldest Info)");
+    }
+
+    #[test]
+    fn higher_severity_wins_over_lower() {
         let mut s = ToastStack::new(2).unwrap();
-        s.post(toast("a", 0, 10_000)).unwrap();
-        s.post(toast("b", 1, 10_000)).unwrap();
-        s.post(toast("c", 2, 10_000)).unwrap();
-        let v = s.visible(0);
-        let ids: Vec<_> = v.iter().map(|t| t.id.clone()).collect();
-        assert_eq!(ids, vec!["b", "c"]);
+        s.push(t("err", Severity::Error, 0, 1000)).unwrap();
+        s.push(t("info", Severity::Info, 100, 1000)).unwrap();
+        // Push another Info — should evict the existing Info, NOT
+        // the Error, because Info < Error.
+        s.push(t("info2", Severity::Info, 200, 1000)).unwrap();
+        let ids: Vec<&str> = s.toasts().iter().map(|t| t.id.as_str()).collect();
+        assert_eq!(ids, vec!["info2", "err"]);
     }
 
     #[test]
-    fn dismiss_returns_true() {
-        let mut s = ToastStack::new(4).unwrap();
-        s.post(toast("a", 0, 10_000)).unwrap();
+    fn dismiss_removes_specific_id() {
+        let mut s = ToastStack::new(5).unwrap();
+        s.push(t("a", Severity::Info, 0, 1000)).unwrap();
+        s.push(t("b", Severity::Info, 0, 1000)).unwrap();
         assert!(s.dismiss("a"));
-        assert!(!s.dismiss("a"));
+        let ids: Vec<&str> = s.toasts().iter().map(|t| t.id.as_str()).collect();
+        assert_eq!(ids, vec!["b"]);
     }
 
     #[test]
-    fn duplicate_rejected() {
-        let mut s = ToastStack::new(4).unwrap();
-        s.post(toast("a", 0, 10_000)).unwrap();
-        assert!(matches!(s.post(toast("a", 1, 10_000)).unwrap_err(), ToastError::DuplicateId(_)));
+    fn dismiss_unknown_id_returns_false() {
+        let mut s = ToastStack::new(5).unwrap();
+        s.push(t("a", Severity::Info, 0, 1000)).unwrap();
+        assert!(!s.dismiss("nope"));
+        assert_eq!(s.len(), 1);
     }
 
     #[test]
-    fn max_visible_zero_rejected() {
-        assert!(matches!(ToastStack::new(0).unwrap_err(), ToastError::MaxVisibleZero));
+    fn expire_removes_due_toasts_and_returns_ids() {
+        let mut s = ToastStack::new(5).unwrap();
+        s.push(t("a", Severity::Info, 0, 1000)).unwrap();   // expires at 1000
+        s.push(t("b", Severity::Info, 500, 1000)).unwrap(); // expires at 1500
+        s.push(t("c", Severity::Info, 1000, 1000)).unwrap();// expires at 2000
+
+        // At t=1200, "a" is expired (1000 <= 1200); "b" + "c" survive.
+        let removed = s.expire(1200);
+        assert_eq!(removed, vec!["a"]);
+        let ids: Vec<&str> = s.toasts().iter().map(|t| t.id.as_str()).collect();
+        assert_eq!(ids, vec!["c", "b"]);
     }
 
     #[test]
-    fn empty_fields_rejected() {
-        let mut s = ToastStack::new(4).unwrap();
-        let mut bad = toast("a", 0, 10_000);
-        bad.id = "".into();
-        assert!(matches!(s.post(bad).unwrap_err(), ToastError::EmptyId));
-        let mut bad2 = toast("a", 0, 10_000);
-        bad2.body = "".into();
-        assert!(matches!(s.post(bad2).unwrap_err(), ToastError::EmptyBody));
+    fn expire_at_exact_ttl_dismisses() {
+        // A toast with created_at=0, ttl=1000 expires AT t=1000
+        // (boundary is inclusive: created_at + ttl <= now).
+        let mut s = ToastStack::new(5).unwrap();
+        s.push(t("a", Severity::Info, 0, 1000)).unwrap();
+        let removed = s.expire(1000);
+        assert_eq!(removed, vec!["a"]);
+        assert!(s.is_empty());
     }
 
     #[test]
-    fn schema_drift_rejected() {
-        let mut s = ToastStack::new(4).unwrap();
-        s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), ToastError::SchemaMismatch));
+    fn expire_with_no_due_toasts_returns_empty() {
+        let mut s = ToastStack::new(5).unwrap();
+        s.push(t("a", Severity::Info, 0, 10_000)).unwrap();
+        let removed = s.expire(100);
+        assert!(removed.is_empty());
+        assert_eq!(s.len(), 1);
     }
 
     #[test]
-    fn stack_serde_roundtrip() {
-        let mut s = ToastStack::new(4).unwrap();
-        s.post(toast("a", 0, 10_000)).unwrap();
+    fn clear_empties_the_stack() {
+        let mut s = ToastStack::new(5).unwrap();
+        s.push(t("a", Severity::Info, 0, 1000)).unwrap();
+        s.push(t("b", Severity::Info, 0, 1000)).unwrap();
+        s.clear();
+        assert!(s.is_empty());
+    }
+
+    #[test]
+    fn severity_ord_info_lt_success_lt_warning_lt_error() {
+        assert!(Severity::Info < Severity::Success);
+        assert!(Severity::Success < Severity::Warning);
+        assert!(Severity::Warning < Severity::Error);
+    }
+
+    #[test]
+    fn schema_check() {
+        assert!(validate_schema_version("1.0.0").is_ok());
+        assert!(matches!(
+            validate_schema_version("9.9.9").unwrap_err(),
+            ToastStackError::SchemaMismatch
+        ));
+    }
+
+    #[test]
+    fn full_serde_round_trip() {
+        let mut s = ToastStack::new(3).unwrap();
+        s.push(t("a", Severity::Warning, 100, 5000)).unwrap();
+        s.push(t("b", Severity::Error, 200, 5000)).unwrap();
         let j = serde_json::to_string(&s).unwrap();
         let back: ToastStack = serde_json::from_str(&j).unwrap();
         assert_eq!(s, back);
+    }
+
+    #[test]
+    fn severity_serde_lowercase() {
+        assert_eq!(serde_json::to_string(&Severity::Info).unwrap(), "\"info\"");
+        assert_eq!(serde_json::to_string(&Severity::Success).unwrap(), "\"success\"");
+        assert_eq!(serde_json::to_string(&Severity::Warning).unwrap(), "\"warning\"");
+        assert_eq!(serde_json::to_string(&Severity::Error).unwrap(), "\"error\"");
     }
 }
