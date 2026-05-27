@@ -1,0 +1,49 @@
+[Unit]
+Description=Sovereign hardware-pressure read-only API + D-09 dashboard host (M060 R10102-R10105)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/hardware-pressure-api.py
+# Read-only observation surface: aggregates Linux PSI (/proc/pressure),
+# dual-CCD topology, GPU (nvidia-smi), ZFS (zpool/zfs) and scheduler
+# backpressure into the data model the D-09 cockpit dashboard renders.
+# There is NO mutation surface — hardware pressure is observed, not set.
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/hardware-pressure-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default — operator-§1g exposure decision is theirs. To expose
+# beyond loopback, drop /etc/systemd/system/sovereign-hardware-pressure-api.service.d/bind.conf:
+#   [Service]
+#   Environment=HARDWARE_PRESSURE_API_BIND=0.0.0.0
+Environment=HARDWARE_PRESSURE_API_BIND=127.0.0.1
+Environment=HARDWARE_PRESSURE_API_PORT=8097
+
+# R171 defense-in-depth (Layer-1 lint enforced). Read-only HTTP surface;
+# probes read /proc/pressure + /sys + exec nvidia-smi/zpool (read-only) and
+# append the metrics textfile. ProtectKernelTunables stays true: /proc/pressure
+# is NOT under /proc/sys, so PSI reads are unaffected.
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target

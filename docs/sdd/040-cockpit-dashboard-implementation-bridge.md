@@ -52,7 +52,7 @@ Meta requirements (every dashboard):
 | D-06 | pending approvals (operator queue + context + approve/deny/defer + batch-approve) | — | **MISSING** | M060 R10088-R10092 |
 | D-07 | memory changes (graph diff + promote/forget/pin + 7-dimension trust filters) | — | **MISSING** | M060 R10093-R10096 |
 | D-08 | rollback points (ZFS snapshot list + commit history + dry-run + apply) | — | **MISSING** | M060 R10097-R10101 |
-| D-09 | hardware pressure (PSI gauges + DCGM gauges + backpressure indicators) | — | **MISSING** | M060 R10102-R10105 |
+| D-09 | hardware pressure (PSI gauges + DCGM gauges + backpressure indicators) | `/webapp/d-09-hardware-pressure/` + `scripts/operator/hardware-pressure-api.py` (+ core `scripts/hardware/hardware-pressure.py`, CLI `sovereign-osctl hardware-pressure`, service `sovereign-hardware-pressure-api.service`) | **✓ shipped (full stack → prod)** | M060 R10102-R10105 |
 | D-10 | eval history (per-task pass/fail + per-model score + adapter-promotion candidates) | — | **MISSING** | M060 R10106-R10108 |
 | D-11 | adapter status (LoRA inventory + promotion gates + audit trail + rollback) | — | **MISSING** | M060 R10109-R10111 |
 | D-12 | networking (Ring 0-4 traffic via MS007 mirror) | `/webapp/network-edge/index.html` + `/webapp/edge-firewall/index.html` | **✓ shipped (split)** | M060 R10112-R10113 |

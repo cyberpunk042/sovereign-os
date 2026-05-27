@@ -153,6 +153,13 @@ DASHBOARD_ROUTES = {
         "label": "node_exporter (textfile collector)",
         "source_repo": "sovereign-os",
     },
+    "hardware-pressure": {
+        "port": 8097,
+        "healthz_path": "/healthz",
+        "subpath": "/hardware-pressure/",
+        "label": "D-09 Hardware Pressure (PSI/CCD/GPU/ZFS/backpressure)",
+        "source_repo": "sovereign-os",
+    },
 }
 
 KNOWN_SLUGS = list(DASHBOARD_ROUTES.keys())

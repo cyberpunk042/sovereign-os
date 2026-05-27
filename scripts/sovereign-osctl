@@ -7801,6 +7801,14 @@ case "${cmd}" in
     # tier registry + upgrade matrix + triple-gated set.
     "${__REPO_ROOT}/scripts/operator/auth-tier.py" "$@"
     ;;
+  hardware-pressure)
+    # M060 D-09 (R10102-R10105): unified hardware-pressure core — Linux PSI
+    # (/proc/pressure cpu/mem/io) + dual-CCD topology (M070) + GPU (nvidia-smi)
+    # + ZFS pool/dataset latency (M068) + scheduler backpressure (M058). Read
+    # -only; the sovereign-hardware-pressure-api daemon serves the D-09 cockpit
+    # dashboard from this same core. Verbs: status / psi / zfs (+ --json).
+    "${__REPO_ROOT}/scripts/hardware/hardware-pressure.py" "$@"
+    ;;
   compliance)
     # R458: §1g/§1h compliance dashboard aggregator. Consolidates the
     # 4-tool operator-§1g compliance instrument suite (R453 surface-map

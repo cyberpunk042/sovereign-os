@@ -12,6 +12,33 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — D-09 hardware-pressure cockpit dashboard driven to PRODUCTION (full 8-surface stack) (2026-05-27)
+
+The M060 D-09 dashboard existed only as an HTML shell fetching `/api/hardware/pressure`,
+`/api/hardware/zfs/datasets`, `/api/hardware/stream` — **dead endpoints, no backend** (the
+"reached the shell but not prod" gap). Built the full §1g 8-surface stack, sovereign-os-native
+(zero selfdef-boundary — pure runtime hardware signals), stdlib-only (sovereignty: zero deps):
+- **core** `scripts/hardware/hardware-pressure.py` — unified pressure aggregator: Linux PSI
+  (`/proc/pressure/{cpu,memory,io}` some/full × 10s/60s/300s, reusing the memory-pressure.py
+  parser), dual-CCD topology (M070, per-core busy% from `/proc/stat`), GPU via `nvidia-smi`
+  CSV, ZFS pool latency + per-dataset sync via `zpool`/`zfs`, scheduler backpressure (M058).
+  Every probe degrades gracefully to `null` when a kernel iface/tool/device is absent — NEVER
+  crashes (verified on this GPU-less/ZFS-less/PSI-less dev host). CLI: `status`/`psi`/`zfs --json`.
+- **cli** `sovereign-osctl hardware-pressure <verb>` dispatch.
+- **api** `scripts/operator/hardware-pressure-api.py` — read-only HTTP (stdlib http.server,
+  loopback-default) serving the exact dashboard contract + an SSE `/api/hardware/stream` +
+  hosting the webapp; mutation verbs → 405 (pressure is observed, not set).
+- **webapp** the D-09 dashboard, now served by + wired to its real API.
+- **service** `sovereign-hardware-pressure-api.service` (R171 defense-in-depth hardened).
+- registered in the master-dashboard aggregator route table (port 8097, `/hardware-pressure/`).
+- **tests** `tests/lint/test_hardware_pressure_api_contract.py` — 11 cases locking the full
+  stack live (daemon spawn + the 3 dashboard endpoints + webapp serve + read-only 405 + osctl
+  dispatch + R171 hardening), all green.
+
+Verified end-to-end via live curl. SDD-040's stale D-09 row updated MISSING → shipped. This is
+the first cockpit dashboard taken catalog→shell→**production** through every layer; the other
+d-01…d-20 shells follow the same template.
+
 ### Fixed — repo-wide `cargo clippy` green (rust CI job no longer blocked at the clippy step) (2026-05-27)
 
 `cargo clippy --workspace --all-targets -- -D warnings` (the rust CI job's step after
