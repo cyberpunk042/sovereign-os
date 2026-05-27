@@ -34,8 +34,10 @@ Full doctrine: `docs/standing-directives/two-ultimate-solutions.md`.
 >   hardening) → all fixed; **2820 lint + schema + 154 unit pass**.
 > - Added repo-wide YAML + JSON parse/dup-key lints (`tests/lint/`).
 > All changes behaviour-preserving; no real bugs surfaced (the catalog crates
-> were correct, just un-linted). NOT yet re-verified by hand: `cargo test`/`build`
-> (compile confirmed via clippy `--all-targets`; tests behaviour-preserved).
+> were correct, just un-linted). **CI verified green by hand**: `cargo test
+> --workspace` (0 failures), `cargo audit` (511 deps, 0 advisories), fmt, clippy,
+> `pytest tests/lint`+`tests/schema` (2820), `tests/unit` (154). `build` is
+> compile-confirmed. (sovereign-os CI has no `deny` job.)
 
 ### Catalog phase — COMPLETE
 
