@@ -216,6 +216,13 @@ DASHBOARD_ROUTES = {
         "label": "D-08 Rollback Points (ZFS snapshots + commit history + dry-run)",
         "source_repo": "sovereign-os",
     },
+    "memory-changes": {
+        "port": 8112,
+        "healthz_path": "/healthz",
+        "subpath": "/memory-changes/",
+        "label": "D-07 Memory Changes (M028 8-type graph diff + promote/forget/pin)",
+        "source_repo": "sovereign-os",
+    },
 }
 
 KNOWN_SLUGS = list(DASHBOARD_ROUTES.keys())

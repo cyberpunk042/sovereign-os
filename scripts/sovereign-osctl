@@ -7889,6 +7889,15 @@ case "${cmd}" in
     # this same core. Verbs: snapshot / preview --to <id> / commits (+ --json).
     "${__REPO_ROOT}/scripts/lifecycle/rollback-points.py" "$@"
     ;;
+  memory-changes)
+    # M060 D-07 (R10093-R10096): Memory OS graph-diff + admission core — reads
+    # the M028 Memory OS published state (per-type counts across the 8 memory
+    # types, 11-stage admission-lifecycle occupancy, graph diff, pending
+    # promote/pin/forget queue + MS039 7 trust dimensions). Read-only; the
+    # sovereign-memory-changes-api daemon serves the D-07 cockpit dashboard
+    # from this same core. Verbs: snapshot / types / lifecycle (+ --json).
+    "${__REPO_ROOT}/scripts/intelligence/memory-changes.py" "$@"
+    ;;
   compliance)
     # R458: §1g/§1h compliance dashboard aggregator. Consolidates the
     # 4-tool operator-§1g compliance instrument suite (R453 surface-map

@@ -1,0 +1,48 @@
+[Unit]
+Description=Sovereign memory-changes read-only API + D-07 dashboard host (M060 R10093-R10096)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/memory-changes-api.py
+# Read-only observation surface: reads the Memory OS (M028) published state —
+# per-type memory counts (8 types), 11-stage admission-lifecycle occupancy,
+# the graph diff, and the pending promote/pin/forget queue — for the D-07
+# cockpit dashboard. There is NO mutation surface — memory promote/pin/forget +
+# change approve/reject are MS003-signed CLI verbs (MS043 R10212).
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/memory-changes-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default — operator-§1g exposure decision is theirs. To expose
+# beyond loopback, drop /etc/systemd/system/sovereign-memory-changes-api.service.d/bind.conf:
+#   [Service]
+#   Environment=MEMORY_CHANGES_API_BIND=0.0.0.0
+Environment=MEMORY_CHANGES_API_BIND=127.0.0.1
+Environment=MEMORY_CHANGES_API_PORT=8112
+
+# R171 defense-in-depth (Layer-1 lint enforced). Read-only HTTP surface;
+# reads the Memory OS state json + appends the metrics textfile.
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target

@@ -149,81 +149,78 @@
 <div class="toast" id="toast">copied</div>
 
 <script>
-  // -------- mock seed data (publisher API at /api/d-07/snapshot when wired) -----
-  // No mutations from this surface — see MS043 R10212.
-  const seed = {
-    counts: { working: 23, episodic: 412, semantic: 6841, procedural: 87, temporal: 1209, value: 358, kv: 1280, reward: 942 },
-    profile: "private",
-    lifecycle: [
-      ["observe", 7], ["classify", 4], ["quarantine", 2], ["link", 11], ["score", 8],
-      ["store-raw", 14], ["extract", 9], ["verify", 6], ["promote", 3], ["decay", 21], ["archive", 5]
-    ],
-    diffBase: "memos.v1147",
-    diffHead: "memos.v1183",
-    diffs: [
-      { op: "added", text: "+ semantic 'NVFP4 uses 1x16 block + E4M3 scale + RHT + stochastic rounding' (trust=0.88, value=high)" },
-      { op: "added", text: "+ semantic 'Hölder mean with dynamic-p anneals 1→8 over training' (trust=0.91)" },
-      { op: "changed", text: "~ episodic 'A100 vs H100 perf comparison' refined with concrete benchmarks (trust 0.62→0.84)" },
-      { op: "removed", text: "- procedural 'old curl-based push workflow' (replaced by gh MCP)" },
-      { op: "added", text: "+ temporal-edge 'M077 NVFP4 → M075 SRP Logic Engine' (latency-shaped binding)" },
-      { op: "changed", text: "~ kv-entry 'oracle/blackwell warm-cache' window extended 256→512 tokens" },
-      { op: "added", text: "+ procedural 'MS043 R10212 web→CLI clipboard pattern' (codified)" },
-      { op: "removed", text: "- value 'speculation: maybe move to vLLM' (no evidence)" },
-      { op: "changed", text: "~ semantic 'MS039 L0..L6 authority levels' edge-count 4→7 (richer graph)" },
-      { op: "added", text: "+ reward 'successful D-03 dashboard ship → +1 procedural skill credit'" }
-    ],
-    pending: [
-      { id: "mc-2026-0517-001", op: "promote", mtype: "semantic", scope: "NVFP4 quant taxonomy", delta: "+0.12 trust", requester: "operator-fp" },
-      { id: "mc-2026-0517-002", op: "pin", mtype: "procedural", scope: "two-solutions doctrine commit", delta: "TTL 24h", requester: "operator-fp" },
-      { id: "mc-2026-0518-003", op: "forget", mtype: "episodic", scope: "stale handoff anchor 002", delta: "−full", requester: "operator-fp" }
-    ]
+  // Live data from the read-only publisher API (scripts/operator/memory-changes-api.py).
+  // No mutations from this surface — see MS043 R10212. Empty/offline-safe default.
+  let state = {
+    counts: {}, profile: "private", lifecycle: [],
+    diffBase: "—", diffHead: "—", diffs: [], pending: []
   };
 
-  let diffBase = seed.diffBase, diffHead = seed.diffHead;
-  document.getElementById('diff-base').textContent = diffBase;
-  document.getElementById('diff-head').textContent = diffHead;
-  document.getElementById('profile-shape').textContent = seed.profile;
-  for (const [k,v] of Object.entries(seed.counts)) {
-    const el = document.getElementById('t-' + (k === 'temporal' ? 'temporal' : k));
-    if (el) el.textContent = v.toLocaleString();
+  function escapeHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   }
 
-  // 11-stage lifecycle
-  const lc = document.getElementById('lifecycle');
-  for (const [label, count] of seed.lifecycle) {
-    const s = document.createElement('div');
-    s.className = 'stage';
-    s.innerHTML = `<span class="count">${count}</span><span class="lbl">${label}</span>`;
-    lc.appendChild(s);
+  function render() {
+    document.getElementById('diff-base').textContent = state.diffBase || "—";
+    document.getElementById('diff-head').textContent = state.diffHead || "—";
+    document.getElementById('profile-shape').textContent = state.profile || "private";
+    for (const [k, v] of Object.entries(state.counts || {})) {
+      const el = document.getElementById('t-' + k);
+      if (el) el.textContent = Number(v).toLocaleString();
+    }
+    // 11-stage lifecycle
+    const lc = document.getElementById('lifecycle');
+    lc.innerHTML = '';
+    for (const [label, count] of (state.lifecycle || [])) {
+      const s = document.createElement('div');
+      s.className = 'stage';
+      s.innerHTML = `<span class="count">${count}</span><span class="lbl">${escapeHtml(label)}</span>`;
+      lc.appendChild(s);
+    }
+    // diff stream
+    const ds = document.getElementById('diff-stream');
+    ds.innerHTML = '';
+    if (!(state.diffs || []).length) {
+      ds.innerHTML = '<div class="diff-line muted">no graph diff yet — memory changes appear here as the Memory OS admits/promotes/decays entries</div>';
+    }
+    for (const d of (state.diffs || [])) {
+      const line = document.createElement('div');
+      line.className = 'diff-line ' + d.op;
+      line.textContent = d.text;
+      ds.appendChild(line);
+    }
+    // pending changes
+    const pc = document.getElementById('pending-changes');
+    pc.innerHTML = '';
+    if (!(state.pending || []).length) {
+      pc.innerHTML = '<tr><td colspan="7" class="muted">no pending memory changes awaiting operator sign-off</td></tr>';
+    }
+    for (const p of (state.pending || [])) {
+      const tr = document.createElement('tr');
+      const opClass = p.op === 'forget' ? 'bad' : (p.op === 'promote' ? 'ok' : 'warn');
+      tr.innerHTML = `
+        <td><code>${escapeHtml(p.id)}</code></td>
+        <td><span class="pill ${opClass}">${escapeHtml(p.op)}</span></td>
+        <td>${escapeHtml(p.mtype)}</td>
+        <td>${escapeHtml(p.scope)}</td>
+        <td class="num">${escapeHtml(p.delta)}</td>
+        <td class="muted">${escapeHtml(p.requester)}</td>
+        <td>
+          <button onclick="emit('sovereignctl memory approve --change-id ${escapeHtml(p.id)}')">approve</button>
+          <button class="danger" onclick="emit('sovereignctl memory reject --change-id ${escapeHtml(p.id)}')">reject</button>
+        </td>
+      `;
+      pc.appendChild(tr);
+    }
   }
 
-  // diff stream
-  const ds = document.getElementById('diff-stream');
-  for (const d of seed.diffs) {
-    const line = document.createElement('div');
-    line.className = 'diff-line ' + d.op;
-    line.textContent = d.text;
-    ds.appendChild(line);
-  }
-
-  // pending changes
-  const pc = document.getElementById('pending-changes');
-  for (const p of seed.pending) {
-    const tr = document.createElement('tr');
-    const opClass = p.op === 'forget' ? 'bad' : (p.op === 'promote' ? 'ok' : 'warn');
-    tr.innerHTML = `
-      <td><code>${p.id}</code></td>
-      <td><span class="pill ${opClass}">${p.op}</span></td>
-      <td>${p.mtype}</td>
-      <td>${p.scope}</td>
-      <td class="num">${p.delta}</td>
-      <td class="muted">${p.requester}</td>
-      <td>
-        <button onclick="emit('sovereignctl memory approve --change-id ${p.id}')">approve</button>
-        <button class="danger" onclick="emit('sovereignctl memory reject --change-id ${p.id}')">reject</button>
-      </td>
-    `;
-    pc.appendChild(tr);
+  async function load() {
+    try {
+      const r = await fetch('/api/d-07/snapshot', { credentials: 'same-origin' });
+      if (r.ok) state = Object.assign(state, await r.json());
+    } catch (e) { /* offline — keep empty-safe defaults */ }
+    render();
   }
 
   // trust dim filters — toggle on/off, emit grep-style filter command on combine
@@ -279,9 +276,13 @@
   }
   function applySnapshot(s) {
     if (!s) return;
-    // wire when daemon ships D-07 publisher endpoint
+    state = Object.assign(state, s);
+    render();
   }
-  // startSSE();  // disabled until publisher exists; seed data renders alone
+
+  // initial load from the read-only publisher API, then live SSE
+  load();
+  startSSE();
 </script>
 
 </body>
