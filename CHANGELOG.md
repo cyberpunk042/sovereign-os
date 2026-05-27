@@ -12,6 +12,23 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — repo-wide JSON parse + duplicate-key lint (2026-05-27)
+
+The 19 Grafana cockpit dashboards under `docs/observability/dashboards/`
+(plus `.mcp.json` and the env template) are imported verbatim into
+Grafana, but nothing validated that the dashboard JSON parses, and
+nothing guarded duplicate object keys. `json.load` silently keeps only
+the LAST value for a repeated key — a duplicate panel `"id"` or a doubled
+`"targets"`/`"title"` silently drops a panel or query, so the dashboard
+imports fine but renders wrong with no syntax error. New
+`tests/lint/test_all_json_parses_and_no_dup_keys.py` discovers every JSON
+under the repo (skipping target/.git/build dirs) and asserts each parses
++ has no duplicate keys via an `object_pairs_hook` guard. Stdlib-only
+(`json`); runs in the existing `pytest tests/lint` layer. All 21 files
+pass; both checks negative-control-verified. Completes the
+sh/py/yaml/json parse-gate matrix alongside the YAML lint added the same
+day.
+
 ### Added — repo-wide YAML parse + duplicate-key lint (2026-05-27)
 
 sovereign-os ships ~30 YAML documents (build/runtime profiles + mixins,
