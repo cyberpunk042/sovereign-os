@@ -116,6 +116,27 @@ Per operator: *"little piece by little piece and progress in this massive endles
 
 ## What's ahead (forward queue, operator-priority)
 
+> **STALE-QUEUE CORRECTION (2026-05-27, verified):** most of the list below
+> has SHIPPED but was never removed from this queue (update-protocol drift).
+> Verified present + substantive this session:
+> - **Phase D selfdef-mirror dashboards (D-13..D-20): ALL BUILT** —
+>   `webapp/d-1{3,4,5,7,8}-*/index.html` (267–303 lines each) + d-19/d-20;
+>   `sovereign-dashboard-coverage` verifier passes (all 21 D-NN slots).
+> - **Stage 2 ISO build pipeline: BUILT** — `scripts/build/01-09-*.sh` +
+>   `orchestrate.sh` (1569 lines: bootstrap-forge → kernel fetch/config/
+>   compile → substrate-prepare → whitelabel-render → image build/sign/verify).
+> - **MS044 Guardian Daemon: BUILT (selfdef repo)** —
+>   `selfdef/scripts/guardian/guardian-core` (469 lines) + systemd unit
+>   `selfdef/config/systemd/guardian-core.service`.
+> - **MS045 UX coherence harness: shipped** (commit cdc9064, per provenance).
+>
+> So items 1–19 below are largely DONE. The genuine next frontier is NOT
+> re-listed here to avoid inventing it — determine it from `docs/sdd/INDEX.md`
+> (e.g. SDD-033 perpetual-intake is in `review`) and operator priority. Per
+> "never delete — layer on top", the original list is retained below as
+> historical record; treat its ✓-less items as needing a presence-check
+> before any (re)work.
+
 Per SDD-040 Phase A → E ordering + selfdef Guardian/UX-harness implementations.
 
 ### Immediate next pieces (Phase D — selfdef-mirror dashboards)
