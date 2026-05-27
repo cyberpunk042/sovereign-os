@@ -7848,6 +7848,17 @@ case "${cmd}" in
     # this same core. Verbs: inventory / list / history (+ --json).
     "${__REPO_ROOT}/scripts/inference/adapter-foundry.py" "$@"
     ;;
+  evals)
+    # M060 D-10 (R10106-R10108): eval-history aggregation — reads the
+    # Eval-Value fabric's eval-run log, aggregates per-task pass/fail +
+    # per-model trend + benchmark-suite progress (M078 HölderPO + M080 HRM
+    # targets) + adapter-promotion candidates (from the D-11 adapter core).
+    # Enforces the M079 WB/BB disaggregation invariant (white-box benchmarks
+    # NEVER averaged with black-box). Read-only; the sovereign-evals-api daemon
+    # serves the D-10 cockpit dashboard from this same core. Verbs: summary /
+    # suites / candidates (+ --json, --window).
+    "${__REPO_ROOT}/scripts/observability/eval-tracker.py" "$@"
+    ;;
   compliance)
     # R458: §1g/§1h compliance dashboard aggregator. Consolidates the
     # 4-tool operator-§1g compliance instrument suite (R453 surface-map

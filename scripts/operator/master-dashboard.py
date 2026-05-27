@@ -188,6 +188,13 @@ DASHBOARD_ROUTES = {
         "label": "D-11 Adapter Status (LoRA inventory/MS041 gates/rollback)",
         "source_repo": "sovereign-os",
     },
+    "evals": {
+        "port": 8108,
+        "healthz_path": "/healthz",
+        "subpath": "/evals/",
+        "label": "D-10 Eval History (per-task/model + WB/BB + promotion candidates)",
+        "source_repo": "sovereign-os",
+    },
 }
 
 KNOWN_SLUGS = list(DASHBOARD_ROUTES.keys())
