@@ -18,6 +18,25 @@ Full doctrine: `docs/standing-directives/two-ultimate-solutions.md`.
 
 ## Where we are right now (2026-05-19 snapshot)
 
+### CI-health recovery — DONE (2026-05-27)
+
+> Discovered main CI was silently RED on multiple pre-existing fronts and fixed
+> them all (commits land on `main`):
+> - **`cargo fmt` job** was red across the generated crate set (469 files) →
+>   `cargo fmt --all` (toolchain 1.88.0). GREEN.
+> - **`cargo clippy` job** was red with 424 findings across 124 crates (generated
+>   crates never linted) → `clippy --fix` passes + manual residual (incl. an
+>   `is_empty()`, `clamp()`, `contains_key`, `#[allow]`s for intentional
+>   `next()`/many-arg ctors, 10 rustdoc-list fixes, + caught a `clippy --fix`
+>   over-reach that dropped a `cfg(test)`-only import). clippy exits 0, fmt clean.
+> - **`pytest tests/lint`** had 8 pre-existing failures (SDD-040 never
+>   catalog-wired; 7 E11 rows missing a status keyword; hugepages systemd
+>   hardening) → all fixed; **2820 lint + schema + 154 unit pass**.
+> - Added repo-wide YAML + JSON parse/dup-key lints (`tests/lint/`).
+> All changes behaviour-preserving; no real bugs surfaced (the catalog crates
+> were correct, just un-linted). NOT yet re-verified by hand: `cargo test`/`build`
+> (compile confirmed via clippy `--all-targets`; tests behaviour-preserved).
+
 ### Catalog phase — COMPLETE
 
 Operator standing /goal: *"10000+ requirements in a clear timeline, multiple milestones and 400+ Epics and 1000+ modules and 5000+ features/tasks before starting working on them in order in SDD."*
