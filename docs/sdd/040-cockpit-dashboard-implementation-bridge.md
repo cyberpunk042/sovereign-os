@@ -135,7 +135,7 @@ Phase E (close-out + partial-completion):
 - D-040.2 — Each dashboard = single-file (`/webapp/<dashboard-id>/index.html`).
 - D-040.3 — Meta tags `x-sovereign-module` + `x-sovereign-shipped-in` + `x-sovereign-standing-rule` mandatory.
 - D-040.4 — Color palette + component vocabulary canonical (this SDD).
-- D-040.5 — Operator-disable-able per M060 R10129 — every dashboard checks `/etc/sovereign-os/dashboards.toml` for enabled bit at render time.
+- D-040.5 — Operator-disable-able per M060 R10129 — **✓ SHIPPED**: `scripts/manifest/dashboard-toggles.py` is the toggle core (catalog = real `webapp/*/` dirs; state in `/etc/sovereign-os/dashboards.toml` per R10130, default-enabled; `set_enabled` is the operator CLI path per R10131 and emits an M049 trace + OCSF 5001 Configuration Change into the D-05 span log per R10132). Surfaced via `sovereign-osctl dashboards {list,status,enable,disable}` + `master-dashboard.py toggles`. (Per-daemon render-time refusal is a thin follow-up — the toggle mechanism + state + trace + operator CLI are complete and operator-usable now.)
 - D-040.6 — D-12..D-18 dashboards READ-ONLY mirror of selfdef state per M060 R10112-R10123; mutation proxies via MS003-signed request per MS043 R10274.
 - D-040.7 — Implementation order Phase A → E as enumerated above; operator may reorder per /goal direction.
 - D-040.8 — Cross-repo binding: selfdef-mirror dashboards (D-12..D-18) consume MS007 typed mirror crates only.

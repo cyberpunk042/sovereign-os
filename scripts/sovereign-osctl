@@ -7971,6 +7971,16 @@ case "${cmd}" in
     # dashboard from this same core. Verbs: snapshot / properties (+ --json).
     "${__REPO_ROOT}/scripts/manifest/peace-machine.py" "$@"
     ;;
+  dashboards)
+    # M060 R10038 + R10129-R10132: operator dashboard on/off toggles —
+    # "everything can be turned on and off". Lists every cockpit dashboard +
+    # its enabled bit, toggles them on/off (persisted to /etc/sovereign-os/
+    # dashboards.toml, R10130), emitting an M049 trace + OCSF 5001 Configuration
+    # Change (R10132) into the D-05 span log on each change. enable/disable are
+    # the operator (MS003-signed) path (R10131); web surfaces never mutate.
+    # Verbs: list / status <slug> / enable <slug> / disable <slug> [--rationale].
+    "${__REPO_ROOT}/scripts/manifest/dashboard-toggles.py" "$@"
+    ;;
   compliance)
     # R458: §1g/§1h compliance dashboard aggregator. Consolidates the
     # 4-tool operator-§1g compliance instrument suite (R453 surface-map

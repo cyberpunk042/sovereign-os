@@ -507,6 +507,43 @@ def cmd_list(args) -> int:
     return 0
 
 
+# --- M060 R10129-R10132 dashboard on/off toggles ---
+
+def _load_toggle_core():
+    """Import the dashboard-toggles core (hyphenated filename → importlib)."""
+    import importlib.util
+    core_path = Path(__file__).resolve().parent.parent / "manifest" / "dashboard-toggles.py"
+    spec = importlib.util.spec_from_file_location("_dash_toggles", core_path)
+    if spec is None or spec.loader is None:
+        return None
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def cmd_toggles(args) -> int:
+    """Surface the operator dashboard on/off state (M060 R10129) — every
+    cockpit dashboard + its enabled bit, from /etc/sovereign-os/dashboards.toml.
+    Read-only; toggle via `sovereign-osctl dashboards {enable,disable}`."""
+    core = _load_toggle_core()
+    if core is None:
+        print("dashboard-toggles core unavailable", file=sys.stderr)
+        return 1
+    state = core.toggles()
+    if args.fmt == "json":
+        print(json.dumps(state, indent=2))
+    else:
+        print(f"── master-dashboard.toggles "
+              f"({state['enabled_count']}/{state['total']} enabled · "
+              f"toml={'present' if state['toml_present'] else 'absent (all on)'}) ──")
+        for r in state["dashboards"]:
+            mark = "on " if r["enabled"] else "OFF"
+            disk = "" if r["on_disk"] else "  (pre-staged, not on disk)"
+            print(f"  [{mark}] {r['slug']}{disk}")
+    _emit_metric("toggles", "any", "ok")
+    return 0
+
+
 # --- R460 selfdef cross-repo manifest discovery ---
 
 
@@ -889,6 +926,11 @@ def main(argv: list[str] | None = None) -> int:
                                help="probe upstream dashboard reachability")
     _add_fmt(sp_health)
 
+    sp_toggles = sub.add_parser(
+        "toggles",
+        help="M060 R10129 — show every dashboard's operator on/off state")
+    _add_fmt(sp_toggles)
+
     sp_disc = sub.add_parser(
         "discover",
         help=("scan SELFDEF_MANIFEST_DIR for selfdef-side dashboard "
@@ -919,6 +961,7 @@ def main(argv: list[str] | None = None) -> int:
         "health": cmd_health,
         "discover": cmd_discover,
         "watch": cmd_watch,
+        "toggles": cmd_toggles,
     }[args.cmd](args)
 
 
