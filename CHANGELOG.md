@@ -12,6 +12,23 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — repo-wide YAML parse + duplicate-key lint (2026-05-27)
+
+sovereign-os ships ~30 YAML documents (build/runtime profiles + mixins,
+schema mirrors, cloud-init seeds, bootstrap phase/verify tables, the
+whitelabel manifest, the model registry, GitHub workflows). A few had
+content-specific lints, but most had NO gate ensuring they even parse,
+and NONE guarded against duplicate mapping keys — which PyYAML accepts
+silently, keeping only the last value (two `kernel:`/`runtime:` keys
+quietly collapse to one). New `tests/lint/test_all_yaml_parses_and_no_dup_keys.py`
+discovers every YAML under the repo (skipping target/.git/build dirs)
+and asserts each parses + has no duplicate keys, via a strict PyYAML
+`SafeLoader` subclass that raises on dup keys. Uses only `pyyaml` (CI
+already installs it; runs in the existing `pytest tests/lint` layer). All
+30 files pass; both checks negative-control-verified (injected syntax
+error and duplicate key each land RED). Parallels the selfdef
+`L1-yaml-parse-scan.sh` gate added the same day.
+
 ### Added — Cockpit dashboards + Rust runtime crates (2026-05-19)
 
 Cross-repo cockpit-surface completion arc per M060 R10128 ("21 dashboards (D-00..D-20) satisfy operator '20+ dashboards and a main one' verbatim"):
