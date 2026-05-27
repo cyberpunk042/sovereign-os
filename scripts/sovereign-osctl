@@ -7859,6 +7859,16 @@ case "${cmd}" in
     # suites / candidates (+ --json, --window).
     "${__REPO_ROOT}/scripts/observability/eval-tracker.py" "$@"
     ;;
+  sessions)
+    # M060 D-01 (R10059-R10062): active-session registry — reads the M057
+    # lifecycle engine's published session registry (/run/sovereign-os/
+    # sessions.json) and projects each task session onto its M057 12-step
+    # lifecycle position + profile envelope + SRP agent (M075) + ETA +
+    # branch count. Read-only; the sovereign-sessions-api daemon serves the
+    # D-01 cockpit dashboard from this same core. Verbs: active / summary /
+    # steps (+ --json).
+    "${__REPO_ROOT}/scripts/lifecycle/session-registry.py" "$@"
+    ;;
   compliance)
     # R458: §1g/§1h compliance dashboard aggregator. Consolidates the
     # 4-tool operator-§1g compliance instrument suite (R453 surface-map

@@ -44,7 +44,7 @@ Meta requirements (every dashboard):
 | M060 catalog ID | M060 purpose | webapp implementation | status | implementation R-range |
 |---|---|---|---|---|
 | D-00 | main index + global health + active-session count + quick-action bar + Cmd-K palette | `/webapp/master-dashboard/index.html` | **✓ shipped** | M060 R10050-R10058 |
-| D-01 | active sessions (per-task M057 lifecycle step + profile + ETA + hibernate/resume/kill) | — | **MISSING** | M060 R10059-R10062 |
+| D-01 | active sessions (per-task M057 lifecycle step + profile + ETA + hibernate/resume/kill) | `/webapp/d-01-active-sessions/` + `scripts/operator/sessions-api.py` (+ core `scripts/lifecycle/session-registry.py`, CLI `sovereign-osctl sessions`, service `sovereign-sessions-api.service`) | **✓ shipped (full stack → prod)** | M060 R10059-R10062 |
 | D-02 | profile choices (six-profile selector + L0..L6 envelope + Ring 0..4 highlights + history + predeclared-gate editor) | — | **MISSING** (implementing now) | M060 R10063-R10068 |
 | D-03 | model health (Blackwell/3090/CPU + VRAM + KV cache + p50/p95/p99 latency + heatmap) | `/webapp/d-03-model-health/` + `scripts/operator/model-health-api.py` (+ core `scripts/inference/model-health.py`, CLI `sovereign-osctl model-health`, service `sovereign-model-health-api.service`) | **✓ shipped (full stack → prod)** | M060 R10069-R10074 |
 | D-04 | costs (daily budget + per-request + project/profile/model breakdowns + forecast + alert thresholds) | `/webapp/d-04-costs/` + `scripts/operator/costs-api.py` (+ core `scripts/observability/cost-tracker.py`, CLI `sovereign-osctl costs`, service `sovereign-costs-api.service`) | **✓ shipped (full stack → prod)** | M060 R10075-R10082 |
@@ -66,9 +66,9 @@ Meta requirements (every dashboard):
 | D-20 | peace machine health (5 properties live status) | `/webapp/compliance/index.html` | **✓ partial** (compliance covers some properties; full 5-property live view pending) | M060 R10126-R10127 |
 
 **Coverage summary** (refreshed 2026-05-27 — full-stack §1g 8-surface delivery):
-- **Shipped (full stack → prod)**: D-00, D-03, D-04, D-05, D-09, D-10, D-11, D-16 (8 dashboards)
+- **Shipped (full stack → prod)**: D-00, D-01, D-03, D-04, D-05, D-09, D-10, D-11, D-16 (9 dashboards)
 - **Shipped (split or partial)**: D-12, D-14, D-19, D-20 (4 dashboards)
-- **Webapp scaffold present, backend API pending**: D-01, D-02, D-06, D-07, D-08, D-13, D-15, D-17, D-18 (9 dashboards — single-file `/webapp/d-NN-*/index.html` built; each fetches its `/api/...` contract awaiting the operator-API + core + service surfaces, exactly as D-03/D-04/D-05/D-09/D-10/D-11 were before being driven to prod)
+- **Webapp scaffold present, backend API pending**: D-02, D-06, D-07, D-08, D-13, D-15, D-17, D-18 (8 dashboards — single-file `/webapp/d-NN-*/index.html` built; each fetches its `/api/...` contract awaiting the operator-API + core + service surfaces, exactly as D-01/D-03/D-04/D-05/D-09/D-10/D-11 were before being driven to prod)
 
 > Core-reuse clusters (one source-of-truth, multiple dashboards, zero schema drift):
 > - **observability** — `scripts/observability/trace-store.py` reads the M049 span log; `cost-tracker.py` (D-04) + `eval-tracker.py` (D-10) reuse its loaders / patterns.

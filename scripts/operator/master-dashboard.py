@@ -195,6 +195,13 @@ DASHBOARD_ROUTES = {
         "label": "D-10 Eval History (per-task/model + WB/BB + promotion candidates)",
         "source_repo": "sovereign-os",
     },
+    "sessions": {
+        "port": 8109,
+        "healthz_path": "/healthz",
+        "subpath": "/sessions/",
+        "label": "D-01 Active Sessions (M057 12-step lifecycle per task)",
+        "source_repo": "sovereign-os",
+    },
 }
 
 KNOWN_SLUGS = list(DASHBOARD_ROUTES.keys())
