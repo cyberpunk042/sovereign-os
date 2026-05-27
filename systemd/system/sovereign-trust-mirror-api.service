@@ -1,0 +1,47 @@
+[Unit]
+Description=Sovereign trust-mirror read-only API + D-18 dashboard host (M060 R10123)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/trust-mirror-api.py
+# CROSS-REPO MIRROR — renders selfdef's MS007 trust-score mirror READ-ONLY. The
+# authoritative per-tool trust scores live in selfdef (MS042 trust-score
+# tracker, SDD-064 /v1/trust-scores). There is NO mutation surface — score
+# reset is a selfdefctl + MS003 verb on the IPS side only (MS043 R10212).
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/trust-mirror-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default. To expose beyond loopback, drop
+# /etc/systemd/system/sovereign-trust-mirror-api.service.d/bind.conf:
+#   [Service]
+#   Environment=TRUST_MIRROR_API_BIND=0.0.0.0
+Environment=TRUST_MIRROR_API_BIND=127.0.0.1
+Environment=TRUST_MIRROR_API_PORT=8115
+
+# R171 defense-in-depth (Layer-1 lint enforced). Read-only HTTP surface; reads
+# the selfdef-published mirror artifact + appends the metrics textfile.
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target

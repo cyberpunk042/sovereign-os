@@ -237,6 +237,13 @@ DASHBOARD_ROUTES = {
         "label": "D-17 Quarantine (read-only selfdef MS042 mirror)",
         "source_repo": "selfdef-mirror",
     },
+    "trust-mirror": {
+        "port": 8115,
+        "healthz_path": "/healthz",
+        "subpath": "/trust-mirror/",
+        "label": "D-18 Trust Scores (read-only selfdef MS042 mirror)",
+        "source_repo": "selfdef-mirror",
+    },
 }
 
 KNOWN_SLUGS = list(DASHBOARD_ROUTES.keys())

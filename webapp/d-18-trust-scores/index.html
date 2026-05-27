@@ -154,40 +154,20 @@
 <div class="toast" id="toast">copied</div>
 
 <script>
-  // -------- seed (publisher /api/d-18/snapshot when wired) ----------
-  // Schema mirrors selfdef-trust-score-mirror::TrustScoreMirrorSnapshot 1.0.0
-  // No mutations from this surface — R10212.
-  function bandFor(score) {
-    if (score >= 800) return 'trusted';
-    if (score >= 500) return 'watched';
-    if (score >= 200) return 'suspect';
-    return 'untrusted';
+  // Live data from the read-only selfdef-trust-score-mirror publisher API
+  // (scripts/operator/trust-mirror-api.py). Schema mirrors
+  // selfdef-trust-score-mirror::TrustScoreMirrorSnapshot 1.0.0. No mutations
+  // from this surface — R10212 (score reset is selfdefctl + MS003 on the IPS).
+  let seed = { schema_version: "1.0.0", mirror_status: "offline", captured_at: null, summaries: [], tools: [] };
+
+  async function load() {
+    try {
+      const r = await fetch('/api/d-18/snapshot', { credentials: 'same-origin' });
+      if (r.ok) seed = Object.assign(seed, await r.json());
+    } catch (e) { /* mirror offline — keep empty-safe defaults */ }
+    renderTiles();
+    renderTools();
   }
-  function mkHistory(scores) {
-    return scores.map((s, i) => ({ applied_at: `2026-05-${(19 - scores.length + i).toString().padStart(2,'0')}T03:00Z`, reason: i === 0 ? "baseline" : (scores[i] > scores[i-1] ? "successful_execution" : "mismatch_minor"), delta: i === 0 ? scores[0] : (scores[i] - scores[i-1]), score_after: s, trace_id: `t-${i}`, signature: `sig-${i}` }));
-  }
-  function mkTool(name, score, scores, execs, miss) {
-    return { tool: name, declarer: "operator-fp", current_score: score, band: bandFor(score), first_admitted_at: "2026-05-01T00:00Z", last_delta_at: "2026-05-19T03:00Z", executions_total: execs, mismatches_total: miss, history: mkHistory(scores), last_trace_id: "t-last", signature: "sig" };
-  }
-  const seed = {
-    schema_version: "1.0.0",
-    captured_at: "2026-05-19T03:55Z",
-    summaries: [],
-    tools: [
-      mkTool("rg",             1000, [1000,1000,1000,1000,1000,1000,1000], 4827, 0),
-      mkTool("rustc",          985,  [1000,990,985,985,985,985,985], 1284, 2),
-      mkTool("cargo",          970,  [1000,990,980,970,975,970,970], 891, 3),
-      mkTool("formatter",      950,  [1000,980,960,950,950,950,950], 612, 4),
-      mkTool("parser",         990,  [1000,1000,995,990,990,990,990], 2104, 1),
-      mkTool("git",            930,  [1000,990,980,960,950,940,930], 304, 5),
-      mkTool("npm-install",    640,  [1000,920,850,780,720,680,640], 178, 18),
-      mkTool("build-image",    580,  [1000,900,800,720,680,620,580], 84, 14),
-      mkTool("linter",         720,  [1000,950,900,850,800,760,720], 412, 11),
-      mkTool("chrome-vfio",    420,  [1000,800,650,550,490,460,420], 27, 23),
-      mkTool("flaky-tool",     310,  [1000,700,550,440,380,340,310], 19, 31),
-      mkTool("untrusted-bin",  50,   [1000,500,250,150,100,80,50], 3, 47)
-    ]
-  };
 
   function reliability(t) { const total = t.executions_total + t.mismatches_total; return total === 0 ? 1.0 : t.executions_total / total; }
   function trend(t) {
@@ -196,21 +176,25 @@
     return tail[tail.length - 1].score_after - tail[0].score_after;
   }
 
-  // band tiles
-  const bands = { trusted: [], watched: [], suspect: [], untrusted: [] };
-  for (const t of seed.tools) bands[t.band].push(t);
-  for (const [name, list] of Object.entries(bands)) {
-    document.getElementById('b-' + name).textContent = list.length;
-    const mean = list.length === 0 ? 0 : Math.round(list.reduce((a, t) => a + t.current_score, 0) / list.length);
-    document.getElementById('m-' + name).textContent = mean || '—';
+  // band tiles + summary tiles (rendered from the live mirror snapshot)
+  function renderTiles() {
+    const tools = seed.tools || [];
+    const bands = { trusted: [], watched: [], suspect: [], untrusted: [] };
+    for (const t of tools) (bands[t.band] = bands[t.band] || []).push(t);
+    for (const [name, list] of Object.entries(bands)) {
+      const bEl = document.getElementById('b-' + name);
+      if (bEl) bEl.textContent = list.length;
+      const mean = list.length === 0 ? 0 : Math.round(list.reduce((a, t) => a + t.current_score, 0) / list.length);
+      const mEl = document.getElementById('m-' + name);
+      if (mEl) mEl.textContent = mean || '—';
+    }
+    document.getElementById('s-total').textContent = tools.length;
+    const totalMean = tools.length ? Math.round(tools.reduce((a, t) => a + t.current_score, 0) / tools.length) : '—';
+    document.getElementById('s-mean').textContent = totalMean;
+    document.getElementById('s-down').textContent = tools.filter(t => trend(t) < 0).length;
+    document.getElementById('s-exec').textContent = tools.reduce((a, t) => a + t.executions_total, 0);
+    document.getElementById('s-miss').textContent = tools.reduce((a, t) => a + t.mismatches_total, 0);
   }
-  // summary tiles
-  document.getElementById('s-total').textContent = seed.tools.length;
-  const totalMean = Math.round(seed.tools.reduce((a, t) => a + t.current_score, 0) / seed.tools.length);
-  document.getElementById('s-mean').textContent = totalMean;
-  document.getElementById('s-down').textContent = seed.tools.filter(t => trend(t) < 0).length;
-  document.getElementById('s-exec').textContent = seed.tools.reduce((a, t) => a + t.executions_total, 0);
-  document.getElementById('s-miss').textContent = seed.tools.reduce((a, t) => a + t.mismatches_total, 0);
 
   function drawSparkline(scores) {
     const w = 120, h = 24;
@@ -228,7 +212,7 @@
   function renderTools() {
     const activeBands = new Set([...document.querySelectorAll('#band-filters .filter.on[data-band]')].map(f => f.dataset.band));
     const sortFilter = [...document.querySelectorAll('#band-filters .filter.on[data-sort]')].map(f => f.dataset.sort)[0] || 'trend';
-    let tools = seed.tools.filter(t => activeBands.has(t.band));
+    let tools = (seed.tools || []).filter(t => activeBands.has(t.band));
     if (sortFilter === 'score-desc') tools.sort((a, b) => b.current_score - a.current_score);
     else if (sortFilter === 'trend') tools.sort((a, b) => trend(a) - trend(b));  // worst-trending first
     else tools.sort((a, b) => a.tool.localeCompare(b.tool));
@@ -263,8 +247,13 @@
       `;
       tb.appendChild(tr);
     }
+    if (!tb.children.length) {
+      tb.innerHTML = '<tr><td colspan="9" class="muted">' +
+        (seed.mirror_status === 'offline'
+          ? 'selfdef-trust-score-mirror offline — no per-tool trust scores published yet'
+          : 'no tools match the band filter') + '</td></tr>';
+    }
   }
-  renderTools();
 
   // filter behaviors
   document.querySelectorAll('#band-filters .filter[data-band]').forEach(f => f.addEventListener('click', () => { f.classList.toggle('on'); renderTools(); }));
@@ -287,6 +276,10 @@
   window.addEventListener('keydown', e => {
     if ((e.metaKey || e.ctrlKey) && e.key === '0') { e.preventDefault(); window.location.href = '../master-dashboard/'; }
   });
+
+  // initial load + 30s refresh from the read-only selfdef-trust-score-mirror
+  load();
+  setInterval(load, 30000);
 </script>
 
 </body>

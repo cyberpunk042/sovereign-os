@@ -61,14 +61,14 @@ Meta requirements (every dashboard):
 | D-15 | sandboxes (MS036 tier A/B/C/D allocation) | — | **MISSING** | M060 R10118-R10119 |
 | D-16 | audit cycles (MS009 results + replay validator) | `/webapp/auditor/index.html` | **✓ shipped** | M060 R10120 |
 | D-17 | quarantine (MS042 tool-quarantine archive) | `/webapp/d-17-quarantine/` (fetch-rewired) + `scripts/operator/quarantine-mirror-api.py` (+ READ-ONLY mirror core `scripts/mirror/selfdef-quarantine-mirror.py`, CLI `sovereign-osctl quarantine-mirror`, service `sovereign-quarantine-mirror-api.service`) | **✓ shipped (full stack → prod, read-only selfdef MS042 mirror)** | M060 R10121-R10122 |
-| D-18 | trust scores (per-tool trust score history) | — | **MISSING** | M060 R10123 |
+| D-18 | trust scores (per-tool trust score history) | `/webapp/d-18-trust-scores/` (fetch-rewired) + `scripts/operator/trust-mirror-api.py` (+ READ-ONLY mirror core `scripts/mirror/selfdef-trust-score-mirror.py`, CLI `sovereign-osctl trust-mirror`, service `sovereign-trust-mirror-api.service`) | **✓ shipped (full stack → prod, read-only selfdef MS042 mirror)** | M060 R10123 |
 | D-19 | super-model manifest (version + module-version table) | `/webapp/trinity/index.html` (lineage view) | **✓ partial** (Trinity = narrative; super-model manifest table pending) | M060 R10124-R10125 |
 | D-20 | peace machine health (5 properties live status) | `/webapp/compliance/index.html` | **✓ partial** (compliance covers some properties; full 5-property live view pending) | M060 R10126-R10127 |
 
 **Coverage summary** (refreshed 2026-05-27 — full-stack §1g 8-surface delivery):
-- **Shipped (full stack → prod)**: D-00, D-01, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-13, D-16, D-17 (14 dashboards)
+- **Shipped (full stack → prod)**: D-00, D-01, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-13, D-16, D-17, D-18 (15 dashboards)
 - **Shipped (split or partial)**: D-12, D-14, D-19, D-20 (4 dashboards)
-- **Webapp scaffold present, backend API pending**: D-02, D-15, D-18 (3 dashboards). The cross-repo READ-ONLY mirror pattern (`scripts/mirror/selfdef-*-mirror.py`) is proven across D-13 (grants) + D-17 (quarantine). Remaining mirrors replicate it directly: D-15←`/v1/sandbox-tiers` (MS032/MS036), D-18←`/v1/trust-scores` (MS042, source shipped this session). D-02 is the selfdef-authority profile mirror (six-profile MS040 matrix). The MS042 selfdef↔sovereign-os loop is now closed end-to-end (selfdef /v1/quarantine source + D-17 mirror).
+- **Webapp scaffold present, backend API pending**: D-02, D-15 (2 dashboards). The cross-repo READ-ONLY mirror pattern (`scripts/mirror/selfdef-*-mirror.py`) is proven across D-13 (grants) + D-17 (quarantine) + D-18 (trust scores). Both MS042 selfdef↔sovereign-os loops are now closed end-to-end (selfdef /v1/quarantine + /v1/trust-scores sources ← D-17 + D-18 mirrors). Remaining: D-15←`/v1/sandbox-tiers` (MS032/MS036, replicates the mirror pattern); D-02 is the selfdef-authority profile mirror (six-profile MS040 matrix).
 
 > Core-reuse clusters (one source-of-truth, multiple dashboards, zero schema drift):
 > - **observability** — `scripts/observability/trace-store.py` reads the M049 span log; `cost-tracker.py` (D-04) + `eval-tracker.py` (D-10) reuse its loaders / patterns.
