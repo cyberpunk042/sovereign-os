@@ -7925,6 +7925,15 @@ case "${cmd}" in
     # only. Verbs: snapshot / bands (+ --json).
     "${__REPO_ROOT}/scripts/mirror/selfdef-trust-score-mirror.py" "$@"
     ;;
+  sandbox-mirror)
+    # M060 D-15 (R10118-R10119): READ-ONLY consumer of the selfdef sandbox
+    # mirror (MS007 typed-mirror crate selfdef-sandbox-mirror). Projects selfdef
+    # MS032 sandbox-tiers + MS036 tool-sandboxes allocation state (4 tiers +
+    # 8-level isolation ladder + TTL + CRIU checkpoint) for the D-15 cockpit
+    # dashboard. sovereign-os NEVER mutates IPS state; checkpoint/release are
+    # selfdefctl + MS003 only. Verbs: snapshot / summaries (+ --json).
+    "${__REPO_ROOT}/scripts/mirror/selfdef-sandbox-mirror.py" "$@"
+    ;;
   compliance)
     # R458: §1g/§1h compliance dashboard aggregator. Consolidates the
     # 4-tool operator-§1g compliance instrument suite (R453 surface-map

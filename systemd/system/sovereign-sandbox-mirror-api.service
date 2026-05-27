@@ -1,0 +1,47 @@
+[Unit]
+Description=Sovereign sandbox-mirror read-only API + D-15 dashboard host (M060 R10118-R10119)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/sandbox-mirror-api.py
+# CROSS-REPO MIRROR — renders selfdef's MS007 sandbox mirror READ-ONLY. The
+# authoritative sandbox-allocation state lives in selfdef (MS032 sandbox-tiers +
+# MS036 tool-sandboxes). There is NO mutation surface — sandbox checkpoint/
+# release are selfdefctl + MS003 verbs on the IPS side only (R10119 + R10212).
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/sandbox-mirror-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default. To expose beyond loopback, drop
+# /etc/systemd/system/sovereign-sandbox-mirror-api.service.d/bind.conf:
+#   [Service]
+#   Environment=SANDBOX_MIRROR_API_BIND=0.0.0.0
+Environment=SANDBOX_MIRROR_API_BIND=127.0.0.1
+Environment=SANDBOX_MIRROR_API_PORT=8116
+
+# R171 defense-in-depth (Layer-1 lint enforced). Read-only HTTP surface; reads
+# the selfdef-published mirror artifact + appends the metrics textfile.
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target

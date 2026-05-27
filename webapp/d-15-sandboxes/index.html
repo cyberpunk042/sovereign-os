@@ -167,48 +167,42 @@
 <div class="toast" id="toast">copied</div>
 
 <script>
-  // -------- seed (publisher /api/d-15/snapshot when wired) ----------
-  // Schema mirrors selfdef-sandbox-mirror::SandboxMirrorSnapshot 1.0.0
-  // No mutations from this surface — R10119 + R10212.
-  const seed = {
-    schema_version: "1.0.0",
-    captured_at: "2026-05-19T03:45Z",
-    summaries: [
-      { tier: "tier-a", running: 4, pending: 0, checkpointed: 0, idle: 1, released_24h: 12, quarantined: 0 },
-      { tier: "tier-b", running: 3, pending: 1, checkpointed: 2, idle: 0, released_24h: 7,  quarantined: 0 },
-      { tier: "tier-c", running: 1, pending: 0, checkpointed: 0, idle: 0, released_24h: 3,  quarantined: 0 },
-      { tier: "tier-d", running: 0, pending: 0, checkpointed: 1, idle: 0, released_24h: 1,  quarantined: 1 }
-    ],
-    allocations: [
-      { allocation_id: "al-01", tier: "tier-a", ms032_tier: 1, isolation: "host_seccomp",       tool: "rg",          capability_token_id: "tok-r2-op-cli", profile: "private",      actor: "operator-fp", allocated_at: "2026-05-19T03:00Z", release_at: "2026-05-19T03:30Z", ttl_seconds: 1800, resident_mb: 28,  cpu_percent: 8,   state: "running",       trace_id: "t-1" },
-      { allocation_id: "al-02", tier: "tier-a", ms032_tier: 1, isolation: "host_seccomp",       tool: "rustc",       capability_token_id: "tok-r2-op-cli", profile: "private",      actor: "operator-fp", allocated_at: "2026-05-19T03:20Z", release_at: "2026-05-19T03:50Z", ttl_seconds: 1800, resident_mb: 142, cpu_percent: 24,  state: "running",       trace_id: "t-2" },
-      { allocation_id: "al-03", tier: "tier-b", ms032_tier: 3, isolation: "user_namespace",     tool: "cargo-test",  capability_token_id: "tok-r2-op-cli", profile: "private",      actor: "operator-fp", allocated_at: "2026-05-19T03:00Z", release_at: "2026-05-19T04:00Z", ttl_seconds: 3600, resident_mb: 412, cpu_percent: 92,  state: "running",       trace_id: "t-3" },
-      { allocation_id: "al-04", tier: "tier-b", ms032_tier: 5, isolation: "zfs_clone",          tool: "build-image", capability_token_id: "tok-r2-op-cli", profile: "private",      actor: "operator-fp", allocated_at: "2026-05-19T02:30Z", release_at: "2026-05-19T05:30Z", ttl_seconds: 10800, resident_mb: 980, cpu_percent: 145, state: "checkpointed",  trace_id: "t-4" },
-      { allocation_id: "al-05", tier: "tier-b", ms032_tier: 4, isolation: "networked_namespace",tool: "npm-install", capability_token_id: "tok-r3-agent",  profile: "fast",         actor: "agent-fp",    allocated_at: "2026-05-19T03:42Z", release_at: "2026-05-19T03:55Z", ttl_seconds: 780,  resident_mb: 0,   cpu_percent: 0,   state: "pending",       trace_id: "t-5" },
-      { allocation_id: "al-06", tier: "tier-c", ms032_tier: 6, isolation: "kvm_vfio",           tool: "chrome-vfio", capability_token_id: "tok-r3-agent",  profile: "experimental", actor: "agent-fp",    allocated_at: "2026-05-19T03:00Z", release_at: "2026-05-19T04:00Z", ttl_seconds: 3600, resident_mb: 4096, cpu_percent: 320, state: "running",       trace_id: "t-6" },
-      { allocation_id: "al-07", tier: "tier-d", ms032_tier: 8, isolation: "firecracker_microvm",tool: "untrusted-bin",capability_token_id: "tok-r4-untrusted", profile: "experimental", actor: "agent-untrusted", allocated_at: "2026-05-19T03:30Z", release_at: "2026-05-19T03:45Z", ttl_seconds: 900, resident_mb: 512, cpu_percent: 60, state: "checkpointed", trace_id: "t-7" },
-      { allocation_id: "al-08", tier: "tier-b", ms032_tier: 2, isolation: "user_namespace",     tool: "criu-paused", capability_token_id: "tok-r2-op-cli", profile: "private",      actor: "operator-fp", allocated_at: "2026-05-19T02:00Z", release_at: "2026-05-19T08:00Z", ttl_seconds: 21600, resident_mb: 256, cpu_percent: 0, state: "checkpointed", trace_id: "t-8" }
-    ]
-  };
-
-  // tier cards
+  // Live data from the read-only selfdef-sandbox-mirror publisher API
+  // (scripts/operator/sandbox-mirror-api.py). Schema mirrors
+  // selfdef-sandbox-mirror::SandboxMirrorSnapshot 1.0.0. No mutations from this
+  // surface — R10119 + R10212 (checkpoint/release are selfdefctl + MS003 IPS).
+  let seed = { schema_version: "1.0.0", mirror_status: "offline", captured_at: null, summaries: [], allocations: [] };
   const tierMap = { "tier-a": "A", "tier-b": "B", "tier-c": "C", "tier-d": "D" };
-  for (const s of seed.summaries) {
-    const id = tierMap[s.tier];
-    document.getElementById(id + '-running').textContent = s.running;
-    document.getElementById(id + '-breakdown').innerHTML =
-      `<span class="ok">${s.running} running</span> · <span class="warn">${s.pending} pending</span> · <span style="color:var(--accent)">${s.checkpointed} cp</span>` +
-      (s.quarantined > 0 ? ` · <span class="bad">${s.quarantined} quar</span>` : '');
+
+  function renderTiles() {
+    for (const s of (seed.summaries || [])) {
+      const id = tierMap[s.tier];
+      const rEl = document.getElementById(id + '-running');
+      if (rEl) rEl.textContent = s.running;
+      const bEl = document.getElementById(id + '-breakdown');
+      if (bEl) bEl.innerHTML =
+        `<span class="ok">${s.running} running</span> · <span class="warn">${s.pending} pending</span> · <span style="color:var(--accent)">${s.checkpointed} cp</span>` +
+        (s.quarantined > 0 ? ` · <span class="bad">${s.quarantined} quar</span>` : '');
+    }
+    const allocs = seed.allocations || [];
+    const active = allocs.filter(a => a.state === 'running' || a.state === 'checkpointed');
+    const totalMem = active.reduce((acc, a) => acc + a.resident_mb, 0);
+    const totalCpu = active.filter(a => a.state === 'running').reduce((acc, a) => acc + a.cpu_percent, 0);
+    document.getElementById('r-mem').textContent = totalMem.toLocaleString();
+    document.getElementById('r-cpu').textContent = totalCpu;
+    document.getElementById('r-running').textContent = allocs.filter(a => a.state === 'running').length;
+    document.getElementById('r-cp').textContent = allocs.filter(a => a.state === 'checkpointed').length;
+    document.getElementById('r-quar').textContent = (seed.summaries || []).reduce((acc, s) => acc + s.quarantined, 0);
   }
-  // pressure tiles
-  const active = seed.allocations.filter(a => a.state === 'running' || a.state === 'checkpointed');
-  const totalMem = active.reduce((acc, a) => acc + a.resident_mb, 0);
-  const totalCpu = active.filter(a => a.state === 'running').reduce((acc, a) => acc + a.cpu_percent, 0);
-  document.getElementById('r-mem').textContent = totalMem.toLocaleString();
-  document.getElementById('r-cpu').textContent = totalCpu;
-  document.getElementById('r-running').textContent = seed.allocations.filter(a => a.state === 'running').length;
-  document.getElementById('r-cp').textContent = seed.allocations.filter(a => a.state === 'checkpointed').length;
-  document.getElementById('r-quar').textContent = seed.summaries.reduce((acc, s) => acc + s.quarantined, 0);
+
+  async function load() {
+    try {
+      const r = await fetch('/api/d-15/snapshot', { credentials: 'same-origin' });
+      if (r.ok) seed = Object.assign(seed, await r.json());
+    } catch (e) { /* mirror offline — keep empty-safe defaults */ }
+    renderTiles();
+    renderAllocs();
+  }
 
   function ttlPctRemaining(a) {
     const expEpoch = new Date(a.release_at).getTime();
@@ -232,7 +226,7 @@
     const activeStates = new Set([...document.querySelectorAll('#tier-filters .filter.on[data-state]')].map(f => f.dataset.state));
     const tb = document.getElementById('alloc-tbody');
     tb.innerHTML = '';
-    for (const a of seed.allocations) {
+    for (const a of (seed.allocations || [])) {
       if (!activeTiers.has(a.tier) || !activeStates.has(a.state)) continue;
       const tierLetter = tierMap[a.tier];
       const statePill = a.state === 'running' ? 'ok' : (a.state === 'pending' ? 'warn' : (a.state === 'checkpointed' ? 'accent' : 'muted'));
@@ -260,8 +254,13 @@
       `;
       tb.appendChild(tr);
     }
+    if (!tb.children.length) {
+      tb.innerHTML = '<tr><td colspan="11" class="muted">' +
+        (seed.mirror_status === 'offline'
+          ? 'selfdef-sandbox-mirror offline — no sandbox allocations published yet'
+          : 'no allocations match the tier/state filter') + '</td></tr>';
+    }
   }
-  renderAllocs();
   document.querySelectorAll('#tier-filters .filter').forEach(f => f.addEventListener('click', () => { f.classList.toggle('on'); renderAllocs(); }));
 
   // clipboard helper — web NEVER mutates per R10119 + R10212
@@ -276,13 +275,17 @@
     showToast._h = setTimeout(() => t.classList.remove('show'), 1800);
   }
 
-  // live TTL countdown — re-render every 10s
+  // live TTL countdown — re-render every 10s; re-fetch the mirror every 30s
   setInterval(renderAllocs, 10000);
+  setInterval(load, 30000);
 
   // master shortcut Cmd-0
   window.addEventListener('keydown', e => {
     if ((e.metaKey || e.ctrlKey) && e.key === '0') { e.preventDefault(); window.location.href = '../master-dashboard/'; }
   });
+
+  // initial load from the read-only selfdef-sandbox-mirror publisher API
+  load();
 </script>
 
 </body>

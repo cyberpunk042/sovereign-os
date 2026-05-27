@@ -58,7 +58,7 @@ Meta requirements (every dashboard):
 | D-12 | networking (Ring 0-4 traffic via MS007 mirror) | `/webapp/network-edge/index.html` + `/webapp/edge-firewall/index.html` | **✓ shipped (split)** | M060 R10112-R10113 |
 | D-13 | filesystem grants (selfdef MS037 mirror) | `/webapp/d-13-filesystem-grants/` (fetch-rewired) + `scripts/operator/grants-mirror-api.py` (+ READ-ONLY mirror core `scripts/mirror/selfdef-grants-mirror.py`, CLI `sovereign-osctl grants-mirror`, service `sovereign-grants-mirror-api.service`) | **✓ shipped (full stack → prod, read-only selfdef mirror)** | M060 R10114-R10115 |
 | D-14 | capability tokens (active capability_word grants) | `/webapp/auth-tier/index.html` | **✓ partial** (auth-tier covers tier; capability_word grants pending) | M060 R10116-R10117 |
-| D-15 | sandboxes (MS036 tier A/B/C/D allocation) | — | **MISSING** | M060 R10118-R10119 |
+| D-15 | sandboxes (MS036 tier A/B/C/D allocation) | `/webapp/d-15-sandboxes/` (fetch-rewired) + `scripts/operator/sandbox-mirror-api.py` (+ READ-ONLY mirror core `scripts/mirror/selfdef-sandbox-mirror.py`, CLI `sovereign-osctl sandbox-mirror`, service `sovereign-sandbox-mirror-api.service`) | **✓ shipped (full stack → prod, read-only selfdef MS032/MS036 mirror)** | M060 R10118-R10119 |
 | D-16 | audit cycles (MS009 results + replay validator) | `/webapp/auditor/index.html` | **✓ shipped** | M060 R10120 |
 | D-17 | quarantine (MS042 tool-quarantine archive) | `/webapp/d-17-quarantine/` (fetch-rewired) + `scripts/operator/quarantine-mirror-api.py` (+ READ-ONLY mirror core `scripts/mirror/selfdef-quarantine-mirror.py`, CLI `sovereign-osctl quarantine-mirror`, service `sovereign-quarantine-mirror-api.service`) | **✓ shipped (full stack → prod, read-only selfdef MS042 mirror)** | M060 R10121-R10122 |
 | D-18 | trust scores (per-tool trust score history) | `/webapp/d-18-trust-scores/` (fetch-rewired) + `scripts/operator/trust-mirror-api.py` (+ READ-ONLY mirror core `scripts/mirror/selfdef-trust-score-mirror.py`, CLI `sovereign-osctl trust-mirror`, service `sovereign-trust-mirror-api.service`) | **✓ shipped (full stack → prod, read-only selfdef MS042 mirror)** | M060 R10123 |
@@ -66,9 +66,9 @@ Meta requirements (every dashboard):
 | D-20 | peace machine health (5 properties live status) | `/webapp/compliance/index.html` | **✓ partial** (compliance covers some properties; full 5-property live view pending) | M060 R10126-R10127 |
 
 **Coverage summary** (refreshed 2026-05-27 — full-stack §1g 8-surface delivery):
-- **Shipped (full stack → prod)**: D-00, D-01, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-13, D-16, D-17, D-18 (15 dashboards)
+- **Shipped (full stack → prod)**: D-00, D-01, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-13, D-15, D-16, D-17, D-18 (16 dashboards)
 - **Shipped (split or partial)**: D-12, D-14, D-19, D-20 (4 dashboards)
-- **Webapp scaffold present, backend API pending**: D-02, D-15 (2 dashboards). The cross-repo READ-ONLY mirror pattern (`scripts/mirror/selfdef-*-mirror.py`) is proven across D-13 (grants) + D-17 (quarantine) + D-18 (trust scores). Both MS042 selfdef↔sovereign-os loops are now closed end-to-end (selfdef /v1/quarantine + /v1/trust-scores sources ← D-17 + D-18 mirrors). Remaining: D-15←`/v1/sandbox-tiers` (MS032/MS036, replicates the mirror pattern); D-02 is the selfdef-authority profile mirror (six-profile MS040 matrix).
+- **Webapp scaffold present, backend API pending**: D-02 (1 dashboard — the selfdef-authority profile mirror, six-profile MS040 matrix). ALL FOUR selfdef-mirror cockpit dashboards now reach prod (D-13 grants / D-15 sandboxes / D-17 quarantine / D-18 trust scores) via the cross-repo READ-ONLY mirror pattern (`scripts/mirror/selfdef-*-mirror.py`). Only D-02 (a profile-state mirror) remains of the 21-dashboard catalog; D-14/D-19/D-20 are partial-completions of already-shipped surfaces.
 
 > Core-reuse clusters (one source-of-truth, multiple dashboards, zero schema drift):
 > - **observability** — `scripts/observability/trace-store.py` reads the M049 span log; `cost-tracker.py` (D-04) + `eval-tracker.py` (D-10) reuse its loaders / patterns.
