@@ -156,37 +156,54 @@
 <div class="toast" id="toast">copied</div>
 
 <script>
-  // -------- seed (publisher /api/d-20/snapshot + peace-check JSON output when wired) ----------
-  // Schema: {captured_at, properties: [{name, status, checks: [{name, status}]}], exit_code}
-  const seed = {
-    overall: "healthy",
-    captured_at: "2026-05-19T03:55:12Z",
-    exit_code: 0,
-    validator_log: [
-      { cls: "ok",    text: "[2026-05-19T03:55:12Z] sovereign-os-peace-check START (R09980)" },
-      { cls: "muted", text: "[2026-05-19T03:55:12Z] loading M059 5 properties (powerful/disciplined/reversible/flexible/sovereign)" },
-      { cls: "ok",    text: "[2026-05-19T03:55:12Z] property 1/5 powerful: PASS · Blackwell + 3090 + AVX online · R09967 cross-ref M058" },
-      { cls: "ok",    text: "[2026-05-19T03:55:12Z] property 2/5 disciplined: PASS · M049 + MS033 policy trace active · R09968" },
-      { cls: "ok",    text: "[2026-05-19T03:55:13Z] property 3/5 reversible: PASS · 142 ZFS snapshots + MS041 chain valid · R09969 cross-ref M047" },
-      { cls: "warn",  text: "[2026-05-19T03:55:13Z] property 4/5 flexible: PARTIAL · M046 LoRA Foundry promote pipeline eval harness deferred · still passing on R09970 minimum" },
-      { cls: "ok",    text: "[2026-05-19T03:55:13Z] property 5/5 sovereign: PASS · MS003 key chain + no mandatory cloud · operator-controlled · R09965" },
-      { cls: "ok",    text: "[2026-05-19T03:55:13Z] all 5 properties verified (R09981 — exit 0 only when all 5 pass)" },
-      { cls: "ok",    text: "[2026-05-19T03:55:13Z] sovereign-os-peace-check END · exit code 0" }
-    ]
-  };
+  // Live verdict from the read-only peace-machine publisher API
+  // (scripts/operator/peace-machine-api.py) — the 5 M059 properties + the
+  // sovereign-os-peace-check verdict. Read-only; the validator computes, the
+  // dashboard renders. Empty-safe: "unknown" until the validator publishes.
+  let seed = { validator_status: "offline", overall: "unknown", captured_at: null, exit_code: null, properties: [], validator_log: [] };
 
-  // verdict banner
-  const banner = document.getElementById('verdict');
-  banner.className = 'verdict-banner ' + seed.overall;
-  banner.textContent = 'peace machine: ' + seed.overall.toUpperCase();
+  function statusWord(s) {
+    return (s === 'healthy' ? 'HEALTHY' : s === 'degraded' ? 'DEGRADED'
+      : s === 'failing' ? 'FAILING' : 'UNKNOWN');
+  }
+  // map a property status → the card health class the CSS styles
+  function cardClass(s) { return s === 'healthy' ? 'healthy' : s === 'degraded' ? 'degraded' : s === 'failing' ? 'failing' : ''; }
 
-  document.getElementById('last-run').textContent = seed.captured_at;
-  document.getElementById('exit-code').textContent = seed.exit_code;
-  document.getElementById('exit-code').className = seed.exit_code === 0 ? 'ok' : 'bad';
+  function render() {
+    const banner = document.getElementById('verdict');
+    banner.className = 'verdict-banner ' + seed.overall;
+    banner.textContent = 'peace machine: ' + String(seed.overall).toUpperCase();
+    document.getElementById('last-run').textContent = seed.captured_at || '(not yet run)';
+    document.getElementById('exit-code').textContent = seed.exit_code != null ? seed.exit_code : '—';
+    document.getElementById('exit-code').className = seed.exit_code === 0 ? 'ok' : (seed.exit_code == null ? 'muted' : 'bad');
 
-  // validator log
-  const log = document.getElementById('validator-output');
-  log.innerHTML = seed.validator_log.map(l => `<div class="validator-line ${l.cls}">${l.text}</div>`).join('');
+    // per-property status spans (p1..p5) + card health class, in M059 order
+    (seed.properties || []).forEach((p, i) => {
+      const span = document.getElementById('p' + (i + 1) + '-status');
+      if (span) span.textContent = statusWord(p.status);
+      // the card is the span's closest .property-card ancestor
+      if (span) {
+        const card = span.closest('.property-card');
+        if (card) {
+          card.classList.remove('healthy', 'degraded', 'failing');
+          const c = cardClass(p.status);
+          if (c) card.classList.add(c);
+        }
+      }
+    });
+
+    const log = document.getElementById('validator-output');
+    log.innerHTML = (seed.validator_log || []).map(l => `<div class="validator-line ${l.cls}">${l.text}</div>`).join('')
+      || '<div class="validator-line muted">no validator output</div>';
+  }
+
+  async function load() {
+    try {
+      const r = await fetch('/api/d-20/snapshot', { credentials: 'same-origin' });
+      if (r.ok) seed = Object.assign(seed, await r.json());
+    } catch (e) { /* validator offline — keep unknown-safe defaults */ }
+    render();
+  }
 
   function emit(cmd) {
     navigator.clipboard.writeText(cmd).then(() => showToast('copied: ' + cmd.slice(0, 60) + (cmd.length > 60 ? '…' : '')));
@@ -201,6 +218,10 @@
   window.addEventListener('keydown', e => {
     if ((e.metaKey || e.ctrlKey) && e.key === '0') { e.preventDefault(); window.location.href = '../master-dashboard/'; }
   });
+
+  // initial load + 30s refresh from the read-only peace-machine API
+  load();
+  setInterval(load, 30000);
 </script>
 
 </body>

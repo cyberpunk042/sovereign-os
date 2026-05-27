@@ -63,11 +63,21 @@ Meta requirements (every dashboard):
 | D-17 | quarantine (MS042 tool-quarantine archive) | `/webapp/d-17-quarantine/` (fetch-rewired) + `scripts/operator/quarantine-mirror-api.py` (+ READ-ONLY mirror core `scripts/mirror/selfdef-quarantine-mirror.py`, CLI `sovereign-osctl quarantine-mirror`, service `sovereign-quarantine-mirror-api.service`) | **✓ shipped (full stack → prod, read-only selfdef MS042 mirror)** | M060 R10121-R10122 |
 | D-18 | trust scores (per-tool trust score history) | `/webapp/d-18-trust-scores/` (fetch-rewired) + `scripts/operator/trust-mirror-api.py` (+ READ-ONLY mirror core `scripts/mirror/selfdef-trust-score-mirror.py`, CLI `sovereign-osctl trust-mirror`, service `sovereign-trust-mirror-api.service`) | **✓ shipped (full stack → prod, read-only selfdef MS042 mirror)** | M060 R10123 |
 | D-19 | super-model manifest (version + module-version table) | `/webapp/d-19-super-model-manifest/` (fetch-rewired) + `scripts/operator/super-model-api.py` (+ native core `scripts/manifest/super-model-manifest.py` — live git version + M001..M080 catalog table, CLI `sovereign-osctl super-model`, service `sovereign-super-model-api.service`, editorial config `config/super-model-manifest.toml`); Trinity stays the orthogonal narrative/lineage view | **✓ shipped (full stack → prod)** | M060 R10124-R10125 |
-| D-20 | peace machine health (5 properties live status) | `/webapp/compliance/index.html` | **✓ partial** (compliance covers some properties; full 5-property live view pending) | M060 R10126-R10127 |
+| D-20 | peace machine health (5 properties live status) | `/webapp/d-20-peace-machine-health/` (fetch-rewired) + `scripts/operator/peace-machine-api.py` (+ native core `scripts/manifest/peace-machine.py` — 5 M059 properties + sovereign-os-peace-check verdict, CLI `sovereign-osctl peace-machine`, service `sovereign-peace-machine-api.service`); compliance stays the orthogonal §1g/§1h compliance view | **✓ shipped (full stack → prod)** | M060 R10126-R10128 |
 
 **Coverage summary** (refreshed 2026-05-27 — full-stack §1g 8-surface delivery):
-- **Shipped (full stack → prod)**: D-00, D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-13, D-14, D-15, D-16, D-17, D-18, D-19 (19 dashboards)
-- **Shipped (split or partial)**: D-12 (split across network-edge + edge-firewall), D-20 (compliance partial — Phase E 5-property completion pending) (2 dashboards)
+- **Shipped (full stack → prod)**: D-00, D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-13, D-14, D-15, D-16, D-17, D-18, D-19, D-20 (20 dashboards)
+- **Shipped (split)**: D-12 (network-edge + edge-firewall — networking surface split into two operator-validated dashboards by design) (1 dashboard)
+
+## 🎉 CATALOG COMPLETE — all 21 M060 cockpit dashboards reach production
+
+Every dashboard D-00..D-20 now ships its full §1g 8-surface stack (core + cli +
+api + webapp + service + contract test). The 6 selfdef-domain surfaces (D-02 /
+D-13 / D-14 / D-15 / D-17 / D-18) are cross-repo READ-ONLY mirrors that never
+mutate IPS state (`scripts/mirror/selfdef-*-mirror.py`); the 2 meta surfaces
+(D-19 super-model manifest, D-20 peace-machine health) compute live from the
+repo/validator; the rest are sovereign-os-native runtime/observability. D-12 is
+intentionally split across two dashboards. No backend remains stubbed or mocked.
 - **Backend API pending**: NONE. Every one of the 21 M060 cockpit dashboards now has a working backend + webapp. The 6 selfdef-domain surfaces (D-02 profiles + D-13/D-14/D-15/D-17/D-18) ship as cross-repo READ-ONLY mirrors (`scripts/mirror/selfdef-*-mirror.py`, never mutate IPS state), correctly placed per the operator project-boundary directive. Remaining work is the Phase E **partial-completions** of D-19 (super-model manifest table on trinity) + D-20 (5-property peace-machine live view on compliance) — extensions of surfaces that already ship — plus D-12 (already split across network-edge + edge-firewall).
 
 > Core-reuse clusters (one source-of-truth, multiple dashboards, zero schema drift):

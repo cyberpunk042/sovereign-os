@@ -7962,6 +7962,15 @@ case "${cmd}" in
     # milestones (+ --json).
     "${__REPO_ROOT}/scripts/manifest/super-model-manifest.py" "$@"
     ;;
+  peace-machine)
+    # M060 D-20 (R10126-R10128): peace-machine health — sovereign-os-native
+    # (M059 sovereign close). Surfaces the 5 peace-machine properties (powerful/
+    # disciplined/reversible/flexible/sovereign, dump 18338-18341) + the live
+    # verdict read from the sovereign-os-peace-check validator (R09980-R09982).
+    # Read-only; the sovereign-peace-machine-api daemon serves the D-20 cockpit
+    # dashboard from this same core. Verbs: snapshot / properties (+ --json).
+    "${__REPO_ROOT}/scripts/manifest/peace-machine.py" "$@"
+    ;;
   compliance)
     # R458: §1g/§1h compliance dashboard aggregator. Consolidates the
     # 4-tool operator-§1g compliance instrument suite (R453 surface-map

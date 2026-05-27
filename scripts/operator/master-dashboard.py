@@ -272,6 +272,13 @@ DASHBOARD_ROUTES = {
         "label": "D-19 Super-Model Manifest (live version + M001..M080 table)",
         "source_repo": "sovereign-os",
     },
+    "peace-machine": {
+        "port": 8120,
+        "healthz_path": "/healthz",
+        "subpath": "/peace-machine/",
+        "label": "D-20 Peace Machine Health (M059 5-property live verdict)",
+        "source_repo": "sovereign-os",
+    },
 }
 
 KNOWN_SLUGS = list(DASHBOARD_ROUTES.keys())

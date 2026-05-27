@@ -1,0 +1,48 @@
+[Unit]
+Description=Sovereign peace-machine-health read-only API + D-20 dashboard host (M060 R10126-R10128)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/peace-machine-api.py
+# Read-only observation surface (sovereign-os-native, M059 sovereign close):
+# surfaces the 5 peace-machine properties (powerful/disciplined/reversible/
+# flexible/sovereign, dump 18338-18341) + the live verdict read from the
+# sovereign-os-peace-check validator's published result. There is NO mutation
+# surface — the validator computes the verdict (a CLI verb); this only reads it.
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/peace-machine-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default. To expose beyond loopback, drop
+# /etc/systemd/system/sovereign-peace-machine-api.service.d/bind.conf:
+#   [Service]
+#   Environment=PEACE_MACHINE_API_BIND=0.0.0.0
+Environment=PEACE_MACHINE_API_BIND=127.0.0.1
+Environment=PEACE_MACHINE_API_PORT=8120
+
+# R171 defense-in-depth (Layer-1 lint enforced). Read-only HTTP surface; reads
+# the peace-check published result + appends the metrics textfile.
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target
