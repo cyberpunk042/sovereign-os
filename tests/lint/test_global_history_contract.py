@@ -268,6 +268,18 @@ def test_no_destructive_filesystem_ops():
         "open(.+, 'w')",
         ".write_text(",  # source readers should NEVER write
     ]
+    # Enforce the contract: every forbidden destructive op must be ABSENT.
+    # `.write_text(` is the single exception — the metric writer — bounded by
+    # the ≤1 check below; all others must be zero. (open(.+,'w') is a regex;
+    # the rest are literal substrings.)
+    for pat in forbidden:
+        if pat == ".write_text(":
+            continue
+        present = bool(re.search(pat, body)) if "(.+" in pat else (pat in body)
+        assert not present, (
+            f"global-history.py contains forbidden destructive op {pat!r} — "
+            "it must stay read-only (operator-discoverable safety violation)"
+        )
     # The metric writer uses .write_text + .replace — exempt it
     # via context inspection (only one write_text expected)
     write_count = body.count(".write_text(")
