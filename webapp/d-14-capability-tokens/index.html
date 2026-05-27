@@ -162,54 +162,52 @@
 <div class="toast" id="toast">copied</div>
 
 <script>
-  // -------- seed (publisher /api/d-14/snapshot when wired) ----------
-  // Schema mirrors selfdef-capability-mirror::CapabilityMirrorSnapshot 1.0.0
-  // No mutations from this surface — R10117 + R10212.
-  const seed = {
-    schema_version: "1.0.0",
-    captured_at: "2026-05-19T03:40Z",
-    summaries: [
-      { ring: "ring0", active: 2, pending: 0, expired_24h: 0, revoked_24h: 0, quarantined: 0 },
-      { ring: "ring1", active: 4, pending: 0, expired_24h: 1, revoked_24h: 0, quarantined: 0 },
-      { ring: "ring2", active: 9, pending: 1, expired_24h: 6, revoked_24h: 0, quarantined: 0 },
-      { ring: "ring3", active: 5, pending: 1, expired_24h: 3, revoked_24h: 1, quarantined: 1 },
-      { ring: "ring4", active: 1, pending: 0, expired_24h: 2, revoked_24h: 0, quarantined: 0 }
-    ],
-    tokens: [
-      { token_id: "tok-r0-daemon",   capability_word: "0xff00ffff00aa55c0", actor: "selfdef-daemon", profile: "private", trust_ring: "ring0", authority_level: "l6_persist", allowed_tools: ["audit.write","quarantine.escalate","grant.issue"], sandbox_tier: "A", issued_at: "2026-05-19T00:00Z", expires_at: "2026-06-19T00:00Z", ttl_seconds: 2592000, state: "active", trace_id: "t-0", parent_token_id: "" },
-      { token_id: "tok-r1-guardian", capability_word: "0x0f00ffff00aa55c1", actor: "guardian-core",  profile: "private", trust_ring: "ring1", authority_level: "l5_commit",  allowed_tools: ["podman.kill","zfs.snapshot","audit.write"], sandbox_tier: "A", issued_at: "2026-05-19T00:00Z", expires_at: "2026-05-26T00:00Z", ttl_seconds: 604800, state: "active", trace_id: "t-1", parent_token_id: "tok-r0-daemon" },
-      { token_id: "tok-r2-op-cli",   capability_word: "0x00f0ffff00aa55c2", actor: "operator-fp",    profile: "private", trust_ring: "ring2", authority_level: "l5_commit",  allowed_tools: ["git.commit","git.push","fs.write"], sandbox_tier: "A", issued_at: "2026-05-19T03:00Z", expires_at: "2026-05-19T04:00Z", ttl_seconds: 3600, state: "active", trace_id: "t-2", parent_token_id: "tok-r1-guardian" },
-      { token_id: "tok-r2-claude",   capability_word: "0x00f0ffff00aa55c3", actor: "operator-fp",    profile: "private", trust_ring: "ring2", authority_level: "l4_execute", allowed_tools: ["tool.invoke(claude)","fs.read","net.egress"], sandbox_tier: "B", issued_at: "2026-05-19T03:00Z", expires_at: "2026-05-19T04:00Z", ttl_seconds: 3600, state: "active", trace_id: "t-3", parent_token_id: "tok-r2-op-cli" },
-      { token_id: "tok-r3-agent",    capability_word: "0x000fffff00aa55c4", actor: "agent-fp-hf",    profile: "fast",    trust_ring: "ring3", authority_level: "l2_simulate",allowed_tools: ["hf.fetch","fs.read:/tmp"], sandbox_tier: "B", issued_at: "2026-05-19T03:30Z", expires_at: "2026-05-19T04:30Z", ttl_seconds: 3600, state: "active", trace_id: "t-4", parent_token_id: "tok-r2-claude" },
-      { token_id: "tok-r3-pending",  capability_word: "0x0000ffff00aa55c5", actor: "agent-fp-vfio",  profile: "experimental", trust_ring: "ring3", authority_level: "l4_execute", allowed_tools: ["browser.action"], sandbox_tier: "C", issued_at: "2026-05-19T03:40Z", expires_at: "2026-05-19T04:40Z", ttl_seconds: 3600, state: "pending", trace_id: "t-5", parent_token_id: "tok-r2-op-cli" },
-      { token_id: "tok-r3-quar",     capability_word: "0x00000fff00aa55c6", actor: "agent-untrusted",profile: "experimental", trust_ring: "ring3", authority_level: "l4_execute", allowed_tools: ["exec.shell"], sandbox_tier: "D", issued_at: "2026-05-19T02:00Z", expires_at: "2026-05-19T03:00Z", ttl_seconds: 3600, state: "quarantined", trace_id: "t-6", parent_token_id: "" }
-    ]
-  };
+  // Live data from the read-only selfdef-capability-mirror publisher API
+  // (scripts/operator/capability-mirror-api.py). Schema mirrors
+  // selfdef-capability-mirror::CapabilityMirrorSnapshot 1.0.0. No mutations
+  // from this surface — R10117 + R10212 (token issue/revoke are selfdefctl +
+  // MS003 on the IPS).
+  let seed = { schema_version: "1.0.0", mirror_status: "offline", captured_at: null, summaries: [], tokens: [] };
 
-  // ring tiles
-  for (const s of seed.summaries) {
-    const el = document.getElementById('r' + s.ring.slice(4) + '-active');
-    if (el) el.textContent = s.active + (s.pending > 0 ? ` (+${s.pending})` : '');
+  function renderTiles() {
+    for (const s of (seed.summaries || [])) {
+      const el = document.getElementById('r' + s.ring.slice(4) + '-active');
+      if (el) el.textContent = s.active + (s.pending > 0 ? ` (+${s.pending})` : '');
+    }
+    const totals = (seed.summaries || []).reduce((acc, s) => ({
+      active: acc.active + s.active,
+      pending: acc.pending + s.pending,
+      quarantined: acc.quarantined + s.quarantined
+    }), { active: 0, pending: 0, quarantined: 0 });
+    document.getElementById('s-active').textContent = totals.active;
+    document.getElementById('s-pending').textContent = totals.pending;
+    document.getElementById('s-quarantined').textContent = totals.quarantined;
+    document.getElementById('s-attention').textContent = totals.pending + totals.quarantined;
+    document.getElementById('s-roots').textContent = (seed.tokens || []).filter(t => !t.parent_token_id).length;
   }
-  // summary tiles
-  const totals = seed.summaries.reduce((acc, s) => ({
-    active: acc.active + s.active,
-    pending: acc.pending + s.pending,
-    quarantined: acc.quarantined + s.quarantined
-  }), { active: 0, pending: 0, quarantined: 0 });
-  document.getElementById('s-active').textContent = totals.active;
-  document.getElementById('s-pending').textContent = totals.pending;
-  document.getElementById('s-quarantined').textContent = totals.quarantined;
-  document.getElementById('s-attention').textContent = totals.pending + totals.quarantined;
-  const roots = seed.tokens.filter(t => !t.parent_token_id).length;
-  document.getElementById('s-roots').textContent = roots;
+
+  async function load() {
+    try {
+      const r = await fetch('/api/d-14/snapshot', { credentials: 'same-origin' });
+      if (r.ok) seed = Object.assign(seed, await r.json());
+    } catch (e) { /* mirror offline — keep empty-safe defaults */ }
+    renderTiles();
+    renderTokens();
+    if ((seed.tokens || []).length) {
+      decode(seed.tokens[0].token_id, seed.tokens[0].capability_word);
+    } else {
+      document.getElementById('bit-target').textContent = '(no tokens — selfdef-capability-mirror offline)';
+      document.getElementById('bit-grid').innerHTML = '';
+    }
+    renderInheritance();
+  }
 
   function renderTokens() {
     const activeRings = new Set([...document.querySelectorAll('#ring-filters .filter.on[data-ring]')].map(f => f.dataset.ring));
     const activeAuths = new Set([...document.querySelectorAll('#ring-filters .filter.on[data-auth]')].map(f => f.dataset.auth));
     const tb = document.getElementById('tokens-tbody');
     tb.innerHTML = '';
-    for (const t of seed.tokens) {
+    for (const t of (seed.tokens || [])) {
       if (!activeRings.has(t.trust_ring) || !activeAuths.has(t.authority_level)) continue;
       const statePill = t.state === 'active' ? 'ok' : (t.state === 'quarantined' ? 'bad' : 'warn');
       const Lshort = t.authority_level.replace(/^l(\d)_.*/, 'L$1');
@@ -231,8 +229,13 @@
       `;
       tb.appendChild(tr);
     }
+    if (!tb.children.length) {
+      tb.innerHTML = '<tr><td colspan="10" class="muted">' +
+        (seed.mirror_status === 'offline'
+          ? 'selfdef-capability-mirror offline — no capability tokens published yet'
+          : 'no tokens match the ring/authority filter') + '</td></tr>';
+    }
   }
-  renderTokens();
   document.querySelectorAll('#ring-filters .filter').forEach(f => f.addEventListener('click', () => { f.classList.toggle('on'); renderTokens(); }));
 
   // capability_word bit decoder
@@ -251,18 +254,15 @@
       grid.appendChild(cell);
     }
   }
-  // decode first token by default
-  decode(seed.tokens[0].token_id, seed.tokens[0].capability_word);
-
   // inheritance ascii graph
   function renderInheritance() {
     const childMap = {};
-    for (const t of seed.tokens) {
+    for (const t of (seed.tokens || [])) {
       if (t.parent_token_id) {
         (childMap[t.parent_token_id] = childMap[t.parent_token_id] || []).push(t);
       }
     }
-    const roots = seed.tokens.filter(t => !t.parent_token_id);
+    const roots = (seed.tokens || []).filter(t => !t.parent_token_id);
     const lines = [];
     function walk(token, prefix, isLast) {
       const connector = isLast ? '└─ ' : '├─ ';
@@ -277,9 +277,9 @@
       children.forEach((c, ci) => walk(c, '', ci === children.length - 1));
       if (idx < roots.length - 1) lines.push('');
     });
-    document.getElementById('inheritance-graph').textContent = lines.join('\n');
+    document.getElementById('inheritance-graph').textContent =
+      lines.length ? lines.join('\n') : '(no capability tokens — mirror offline)';
   }
-  renderInheritance();
 
   // clipboard helper — web NEVER mutates per R10117 + R10212
   function emit(cmd) {
@@ -297,6 +297,10 @@
   window.addEventListener('keydown', e => {
     if ((e.metaKey || e.ctrlKey) && e.key === '0') { e.preventDefault(); window.location.href = '../master-dashboard/'; }
   });
+
+  // initial load + 30s refresh from the read-only selfdef-capability-mirror
+  load();
+  setInterval(load, 30000);
 </script>
 
 </body>

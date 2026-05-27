@@ -7943,6 +7943,15 @@ case "${cmd}" in
     # only. Offline → MS040 R09535 default (Private). Verb: show (+ --json).
     "${__REPO_ROOT}/scripts/mirror/selfdef-profile-mirror.py" "$@"
     ;;
+  capability-mirror)
+    # M060 D-14 (R10116-R10117): READ-ONLY consumer of the selfdef capability-
+    # token mirror (MS007 typed-mirror crate selfdef-capability-mirror).
+    # Projects selfdef MS035 64-bit capability_word tokens + MS039 Ring 0..4 +
+    # L0..L6 authority + F04146 parent-child inheritance for the D-14 cockpit
+    # dashboard. sovereign-os NEVER mutates IPS state; token issue/revoke are
+    # selfdefctl + MS003 only. Verbs: snapshot / summaries (+ --json).
+    "${__REPO_ROOT}/scripts/mirror/selfdef-capability-mirror.py" "$@"
+    ;;
   compliance)
     # R458: §1g/§1h compliance dashboard aggregator. Consolidates the
     # 4-tool operator-§1g compliance instrument suite (R453 surface-map

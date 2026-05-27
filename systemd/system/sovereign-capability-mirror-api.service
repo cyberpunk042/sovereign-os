@@ -1,0 +1,48 @@
+[Unit]
+Description=Sovereign capability-mirror read-only API + D-14 dashboard host (M060 R10116-R10117)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/capability-mirror-api.py
+# CROSS-REPO MIRROR — renders selfdef's MS007 capability-token mirror READ-ONLY.
+# The authoritative capability-token state lives in selfdef (MS035 64-bit
+# capability_word + MS039 Ring 0..4 + L0..L6 + F04146 inheritance). There is NO
+# mutation surface — token issue/revoke are selfdefctl + MS003 verbs on the IPS
+# side only (R10117 + MS043 R10212).
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/capability-mirror-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default. To expose beyond loopback, drop
+# /etc/systemd/system/sovereign-capability-mirror-api.service.d/bind.conf:
+#   [Service]
+#   Environment=CAPABILITY_MIRROR_API_BIND=0.0.0.0
+Environment=CAPABILITY_MIRROR_API_BIND=127.0.0.1
+Environment=CAPABILITY_MIRROR_API_PORT=8118
+
+# R171 defense-in-depth (Layer-1 lint enforced). Read-only HTTP surface; reads
+# the selfdef-published mirror artifact + appends the metrics textfile.
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target
