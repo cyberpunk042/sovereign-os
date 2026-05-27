@@ -160,6 +160,13 @@ DASHBOARD_ROUTES = {
         "label": "D-09 Hardware Pressure (PSI/CCD/GPU/ZFS/backpressure)",
         "source_repo": "sovereign-os",
     },
+    "model-health": {
+        "port": 8104,
+        "healthz_path": "/healthz",
+        "subpath": "/model-health/",
+        "label": "D-03 Model Health (SRP roles/GPU/KV cache/latency)",
+        "source_repo": "sovereign-os",
+    },
 }
 
 KNOWN_SLUGS = list(DASHBOARD_ROUTES.keys())

@@ -1,0 +1,49 @@
+[Unit]
+Description=Sovereign model-health read-only API + D-03 dashboard host (M060 R10069-R10074)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/model-health-api.py
+# Read-only observation surface: joins the model catalog (models/catalog.yaml)
+# to the SRP hardware topology (M075 Conductor/Logic/Oracle), overlays live
+# GPU telemetry (nvidia-smi) + optional inference-fabric runtime state into
+# the data model the D-03 cockpit dashboard renders. There is NO mutation
+# surface — model load/unload are MS003-signed CLI verbs, never web mutations.
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/model-health-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default — operator-§1g exposure decision is theirs. To expose
+# beyond loopback, drop /etc/systemd/system/sovereign-model-health-api.service.d/bind.conf:
+#   [Service]
+#   Environment=MODEL_HEALTH_API_BIND=0.0.0.0
+Environment=MODEL_HEALTH_API_BIND=127.0.0.1
+Environment=MODEL_HEALTH_API_PORT=8104
+
+# R171 defense-in-depth (Layer-1 lint enforced). Read-only HTTP surface;
+# reads models/catalog.yaml + optional /run/sovereign-os/*.json + exec
+# nvidia-smi (read-only) and appends the metrics textfile.
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target

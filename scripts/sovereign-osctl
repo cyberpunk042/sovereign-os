@@ -7809,6 +7809,16 @@ case "${cmd}" in
     # dashboard from this same core. Verbs: status / psi / zfs (+ --json).
     "${__REPO_ROOT}/scripts/hardware/hardware-pressure.py" "$@"
     ;;
+  model-health)
+    # M060 D-03 (R10069-R10074): unified model-health core — joins the model
+    # catalog (models/catalog.yaml) to the SRP hardware topology (M075
+    # Conductor/Logic/Oracle), overlays live GPU telemetry (nvidia-smi) +
+    # optional inference-fabric runtime state (loaded models, KV cache,
+    # p50/p95/p99 latency). Read-only; the sovereign-model-health-api daemon
+    # serves the D-03 cockpit dashboard from this same core. Verbs:
+    # status / catalog / gpus (+ --json).
+    "${__REPO_ROOT}/scripts/inference/model-health.py" "$@"
+    ;;
   compliance)
     # R458: §1g/§1h compliance dashboard aggregator. Consolidates the
     # 4-tool operator-§1g compliance instrument suite (R453 surface-map
