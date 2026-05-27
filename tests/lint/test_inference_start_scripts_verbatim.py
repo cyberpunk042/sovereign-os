@@ -86,6 +86,16 @@ def test_ports_unique_across_trinity():
         "start-pulse.sh: 8082 appears too close to PULSE_PORT default "
         "(drift risk — Pulse silently bound to Logic Engine port)"
     )
+    assert "8082" in l_body and "8081" not in l_body.split("8082")[0][-30:], (
+        "start-logic-engine.sh: missing 8082, or 8081 appears too close to "
+        "LOGIC_PORT default (drift risk — Logic Engine silently bound to "
+        "Pulse port)"
+    )
+    assert "8083" in o_body and "8082" not in o_body.split("8083")[0][-30:], (
+        "start-oracle-core.sh: missing 8083, or 8082 appears too close to "
+        "ORACLE_PORT default (drift risk — Oracle Core silently bound to "
+        "Logic Engine port)"
+    )
 
 
 # --- Layer B metric tier= label invariants (SDD-016) ---
