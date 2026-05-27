@@ -265,6 +265,13 @@ DASHBOARD_ROUTES = {
         "label": "D-14 Capability Tokens (read-only selfdef MS035 mirror)",
         "source_repo": "selfdef-mirror",
     },
+    "super-model": {
+        "port": 8119,
+        "healthz_path": "/healthz",
+        "subpath": "/super-model/",
+        "label": "D-19 Super-Model Manifest (live version + M001..M080 table)",
+        "source_repo": "sovereign-os",
+    },
 }
 
 KNOWN_SLUGS = list(DASHBOARD_ROUTES.keys())

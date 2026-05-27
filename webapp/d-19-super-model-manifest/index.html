@@ -136,70 +136,53 @@
 </div>
 
 <script>
-  // -------- seed (publisher /api/d-19/snapshot when wired) ----------
-  const phases = [
-    { label: "M053-P1 substrate",   status: "done" },
-    { label: "M053-P2 boundary",    status: "done" },
-    { label: "M053-P3 policy+trace",status: "done" },
-    { label: "M053-P4 sandbox",     status: "done" },
-    { label: "M053-P5 memory",      status: "done" },
-    { label: "M053-P6 trinity",     status: "done" },
-    { label: "M053-P7 quant",       status: "done" },
-    { label: "M053-P8 cockpit",     status: "current" },
-    { label: "M053-P9 evals",       status: "future" },
-    { label: "M053-P10 LoRA foundry",status:"future" },
-    { label: "M053-P11 hand-off",   status: "future" }
-  ];
-  const pb = document.getElementById('phase-bar');
-  for (const p of phases) {
-    const c = document.createElement('div');
-    c.className = 'phase-cell ' + p.status;
-    c.textContent = p.label;
-    pb.appendChild(c);
+  // Live super-model manifest from the read-only publisher API
+  // (scripts/operator/super-model-api.py) — computed from git + the live
+  // milestone catalog + config/super-model-manifest.toml. Empty-safe default.
+  let snap = { version: {}, phases: [], milestones: [], cross_refs: [] };
+  let milestones = [];
+
+  function renderVersion() {
+    const v = snap.version || {};
+    const set = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.textContent = val; };
+    set('sm-version', v.super_model_id);
+    set('sm-modules', v.milestone_count);
+    set('sm-rrows', v.rrow_count != null ? '~' + Number(v.rrow_count).toLocaleString() : null);
+    set('sm-mirrors', v.mirror_count != null ? v.mirror_count + ' mirrors' : null);
+    set('sm-dashboards', v.shipped_count != null ? v.shipped_count + ' shipped' : null);
   }
 
-  const milestones = [
-    { ms:"M025", title:"Cognitive Compiler",          family:"runtime",   status:"shipped",  rrows:240, tag:"core" },
-    { ms:"M026", title:"SLM swarm + RLM engine",      family:"runtime",   status:"shipped",  rrows:240, tag:"core" },
-    { ms:"M027", title:"Value Plane",                 family:"runtime",   status:"shipped",  rrows:240, tag:"core" },
-    { ms:"M028", title:"Memory OS (8 types)",         family:"memory",    status:"shipped",  rrows:240, tag:"core" },
-    { ms:"M030", title:"World Model Plane",           family:"runtime",   status:"shipped",  rrows:240, tag:"core" },
-    { ms:"M031", title:"Symbolic Planning (PDDL/SMT)",family:"runtime",   status:"shipped",  rrows:240, tag:"core" },
-    { ms:"M032", title:"Cloud Expert Plane",          family:"runtime",   status:"shipped",  rrows:240, tag:"core" },
-    { ms:"M040", title:"Hyper-features (FP4 + VFIO)", family:"quant",     status:"shipped",  rrows:170, tag:"phase7" },
-    { ms:"M042", title:"Choice Architecture (9-axis)",family:"runtime",   status:"shipped",  rrows:170, tag:"phase6" },
-    { ms:"M046", title:"LoRA Foundry",                family:"runtime",   status:"partial",  rrows:240, tag:"phase10" },
-    { ms:"M047", title:"Continuity (CRIU+ZFS)",       family:"runtime",   status:"shipped",  rrows:240, tag:"phase4" },
-    { ms:"M048", title:"Modules base (10-15)",        family:"runtime",   status:"shipped",  rrows:240, tag:"core" },
-    { ms:"M049", title:"Policy Fabric + 13-field span",family:"runtime",  status:"shipped",  rrows:240, tag:"core" },
-    { ms:"M053", title:"11-build-phase blueprint",    family:"runtime",   status:"shipped",  rrows:240, tag:"meta" },
-    { ms:"M058", title:"Hardware-aware scheduler",    family:"hardware",  status:"shipped",  rrows:170, tag:"phase4" },
-    { ms:"M059", title:"Peace machine close",         family:"runtime",   status:"shipped",  rrows:170, tag:"phase8" },
-    { ms:"M060", title:"Cockpit + 21 dashboards",     family:"dashboard", status:"shipped",  rrows:240, tag:"phase8" },
-    { ms:"M061", title:"Backward-sweep canon updates",family:"runtime",   status:"shipped",  rrows:170, tag:"meta" },
-    { ms:"M062", title:"10-PR macro-arc (SG1-SG5)",   family:"runtime",   status:"shipped",  rrows:170, tag:"meta" },
-    { ms:"M066", title:"Trinity (Pulse/Weaver/Auditor)",family:"trinity", status:"shipped",  rrows:170, tag:"phase6" },
-    { ms:"M070", title:"Dual-CCD topology",           family:"hardware",  status:"shipped",  rrows:170, tag:"phase6" },
-    { ms:"M073", title:"1-bit ternary BitLinear",     family:"quant",     status:"shipped",  rrows:170, tag:"phase7" },
-    { ms:"M075", title:"SRP topology (3 GPUs)",       family:"hardware",  status:"shipped",  rrows:170, tag:"phase6" },
-    { ms:"M076", title:"3 load-balancing profiles",   family:"runtime",   status:"shipped",  rrows:170, tag:"phase6" },
-    { ms:"M077", title:"NVFP4 (5 recipe variants)",   family:"quant",     status:"shipped",  rrows:170, tag:"phase7" },
-    { ms:"M078", title:"HölderPO + GRPO",             family:"runtime",   status:"shipped",  rrows:170, tag:"phase7" },
-    { ms:"M079", title:"Activation steering (WB/BB)", family:"runtime",   status:"shipped",  rrows:170, tag:"phase7" },
-    { ms:"M080", title:"HRM (4th architectural class)",family:"runtime",  status:"shipped",  rrows:170, tag:"phase7" },
-    // selfdef cross-refs (shown as informational rows)
-    { ms:"MS007",title:"8/8 SATURATED typed-mirror",  family:"runtime",   status:"shipped",  rrows:240, tag:"selfdef" },
-    { ms:"MS043",title:"IPS operator surface (CLI/TUI/web)",family:"dashboard",status:"shipped",rrows:240,tag:"selfdef" },
-    { ms:"MS044",title:"Guardian Daemon",             family:"runtime",   status:"shipped",  rrows:240, tag:"selfdef" },
-    { ms:"MS045",title:"UX coherence test harness",   family:"dashboard", status:"shipped",  rrows:240, tag:"selfdef" }
-  ];
+  function renderPhases() {
+    const pb = document.getElementById('phase-bar');
+    pb.innerHTML = '';
+    for (const p of (snap.phases || [])) {
+      const c = document.createElement('div');
+      c.className = 'phase-cell ' + p.status;
+      c.textContent = p.label;
+      pb.appendChild(c);
+    }
+  }
+
+  async function load() {
+    try {
+      const r = await fetch('/api/d-19/snapshot', { credentials: 'same-origin' });
+      if (r.ok) snap = Object.assign(snap, await r.json());
+    } catch (e) { /* offline — keep empty-safe defaults */ }
+    // module-version table = live catalog milestones + informational selfdef cross-refs
+    milestones = (snap.milestones || []).concat(
+      (snap.cross_refs || []).map(c => ({ ms: c.ms, title: c.title, family: c.family || 'runtime', status: c.status || 'shipped', rrows: 0, tag: 'selfdef' }))
+    );
+    renderVersion();
+    renderPhases();
+    renderMs();
+  }
 
   function renderMs() {
     const okStatus = new Set([...document.querySelectorAll('#ms-filters .filter.on[data-status]')].map(f => f.dataset.status));
     const okFamily = new Set([...document.querySelectorAll('#ms-filters .filter.on[data-family]')].map(f => f.dataset.family));
     const tb = document.getElementById('ms-tbody');
     tb.innerHTML = '';
-    for (const m of milestones) {
+    for (const m of (milestones || [])) {
       if (!okStatus.has(m.status) || !okFamily.has(m.family)) continue;
       const sp = m.status === 'shipped' ? 'ok' : (m.status === 'partial' ? 'warn' : 'muted');
       const tr = document.createElement('tr');
@@ -213,13 +196,19 @@
       `;
       tb.appendChild(tr);
     }
+    if (!tb.children.length) {
+      tb.innerHTML = '<tr><td colspan="6" class="muted">no milestones match the filter (or manifest API offline)</td></tr>';
+    }
   }
-  renderMs();
   document.querySelectorAll('#ms-filters .filter').forEach(f => f.addEventListener('click', () => { f.classList.toggle('on'); renderMs(); }));
 
   window.addEventListener('keydown', e => {
     if ((e.metaKey || e.ctrlKey) && e.key === '0') { e.preventDefault(); window.location.href = '../master-dashboard/'; }
   });
+
+  // initial load + 60s refresh from the read-only super-model manifest API
+  load();
+  setInterval(load, 60000);
 </script>
 
 </body>

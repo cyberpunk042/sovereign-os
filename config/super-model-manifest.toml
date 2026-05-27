@@ -1,0 +1,232 @@
+# config/super-model-manifest.toml — D-19 super-model manifest editorial layer
+# (M060 R10124-R10125).
+#
+# The super-model manifest's LIVE data (milestone ids, titles, R-row counts,
+# git version, milestone/mirror/dashboard counts) is computed from the repo at
+# render time by scripts/manifest/super-model-manifest.py — never hardcoded.
+# THIS file holds only the operator-curated EDITORIAL overlay: the M053 11
+# build-phase status + per-milestone family/status/tag classification. Lifted
+# from the operator-authored webapp/d-19-super-model-manifest seed (committed
+# repo data), materialized here as a maintainable config (not JS-embedded).
+#
+# Milestones present in the live catalog but absent here default to
+# family="runtime", status="catalogued", tag="" — so the table stays complete
+# as the catalog grows without this file going stale.
+
+schema_version = "1.0.0"
+
+[identity]
+# Optional super-model id prefix; the version core appends the live git SHA.
+name = "sovereign-os"
+
+# M053 11-build-phase blueprint status (done / current / future).
+[[phases]]
+label = "M053-P1 substrate"
+status = "done"
+[[phases]]
+label = "M053-P2 boundary"
+status = "done"
+[[phases]]
+label = "M053-P3 policy+trace"
+status = "done"
+[[phases]]
+label = "M053-P4 sandbox"
+status = "done"
+[[phases]]
+label = "M053-P5 memory"
+status = "done"
+[[phases]]
+label = "M053-P6 trinity"
+status = "done"
+[[phases]]
+label = "M053-P7 quant"
+status = "done"
+[[phases]]
+label = "M053-P8 cockpit"
+status = "current"
+[[phases]]
+label = "M053-P9 evals"
+status = "future"
+[[phases]]
+label = "M053-P10 LoRA foundry"
+status = "future"
+[[phases]]
+label = "M053-P11 hand-off"
+status = "future"
+
+# Per-milestone editorial classification (operator-authored; lifted from the
+# committed D-19 webapp seed). family ∈ runtime/memory/hardware/quant/trinity/
+# dashboard ; status ∈ shipped/partial/future/catalogued.
+[milestones.M025]
+title = "Cognitive Compiler"
+family = "runtime"
+status = "shipped"
+tag = "core"
+[milestones.M026]
+title = "SLM swarm + RLM engine"
+family = "runtime"
+status = "shipped"
+tag = "core"
+[milestones.M027]
+title = "Value Plane"
+family = "runtime"
+status = "shipped"
+tag = "core"
+[milestones.M028]
+title = "Memory OS (8 types)"
+family = "memory"
+status = "shipped"
+tag = "core"
+[milestones.M030]
+title = "World Model Plane"
+family = "runtime"
+status = "shipped"
+tag = "core"
+[milestones.M031]
+title = "Symbolic Planning (PDDL/SMT)"
+family = "runtime"
+status = "shipped"
+tag = "core"
+[milestones.M032]
+title = "Cloud Expert Plane"
+family = "runtime"
+status = "shipped"
+tag = "core"
+[milestones.M040]
+title = "Hyper-features (FP4 + VFIO)"
+family = "quant"
+status = "shipped"
+tag = "phase7"
+[milestones.M042]
+title = "Choice Architecture (9-axis)"
+family = "runtime"
+status = "shipped"
+tag = "phase6"
+[milestones.M046]
+title = "LoRA Foundry"
+family = "runtime"
+status = "partial"
+tag = "phase10"
+[milestones.M047]
+title = "Continuity (CRIU+ZFS)"
+family = "runtime"
+status = "shipped"
+tag = "phase4"
+[milestones.M048]
+title = "Modules base (10-15)"
+family = "runtime"
+status = "shipped"
+tag = "core"
+[milestones.M049]
+title = "Policy Fabric + 13-field span"
+family = "runtime"
+status = "shipped"
+tag = "core"
+[milestones.M053]
+title = "11-build-phase blueprint"
+family = "runtime"
+status = "shipped"
+tag = "meta"
+[milestones.M057]
+title = "Data flow + 12-step lifecycle"
+family = "runtime"
+status = "shipped"
+tag = "core"
+[milestones.M058]
+title = "Hardware-aware scheduler"
+family = "hardware"
+status = "shipped"
+tag = "phase4"
+[milestones.M059]
+title = "Peace machine close"
+family = "runtime"
+status = "shipped"
+tag = "phase8"
+[milestones.M060]
+title = "Cockpit + 21 dashboards"
+family = "dashboard"
+status = "shipped"
+tag = "phase8"
+[milestones.M061]
+title = "Backward-sweep canon updates"
+family = "runtime"
+status = "shipped"
+tag = "meta"
+[milestones.M062]
+title = "10-PR macro-arc (SG1-SG5)"
+family = "runtime"
+status = "shipped"
+tag = "meta"
+[milestones.M065]
+title = "Five Stage Gates SG1-SG5"
+family = "runtime"
+status = "shipped"
+tag = "meta"
+[milestones.M066]
+title = "Trinity (Pulse/Weaver/Auditor)"
+family = "trinity"
+status = "shipped"
+tag = "phase6"
+[milestones.M070]
+title = "Dual-CCD topology"
+family = "hardware"
+status = "shipped"
+tag = "phase6"
+[milestones.M073]
+title = "1-bit ternary BitLinear"
+family = "quant"
+status = "shipped"
+tag = "phase7"
+[milestones.M075]
+title = "SRP topology (3 GPUs)"
+family = "hardware"
+status = "shipped"
+tag = "phase6"
+[milestones.M076]
+title = "3 load-balancing profiles"
+family = "runtime"
+status = "shipped"
+tag = "phase6"
+[milestones.M077]
+title = "NVFP4 (5 recipe variants)"
+family = "quant"
+status = "shipped"
+tag = "phase7"
+[milestones.M078]
+title = "HölderPO + GRPO"
+family = "runtime"
+status = "shipped"
+tag = "phase7"
+[milestones.M079]
+title = "Activation steering (WB/BB)"
+family = "runtime"
+status = "shipped"
+tag = "phase7"
+[milestones.M080]
+title = "HRM (4th architectural class)"
+family = "runtime"
+status = "shipped"
+tag = "phase7"
+
+# selfdef cross-references (informational — these are MS### IPS milestones, not
+# sovereign-os M### ; shown so the operator sees the cross-repo binding surface).
+[[cross_refs]]
+ms = "MS007"
+title = "8/8 SATURATED typed-mirror"
+family = "runtime"
+status = "shipped"
+[[cross_refs]]
+ms = "MS043"
+title = "IPS operator surface (CLI/TUI/web)"
+family = "dashboard"
+status = "shipped"
+[[cross_refs]]
+ms = "MS044"
+title = "Guardian Daemon"
+family = "runtime"
+status = "shipped"
+[[cross_refs]]
+ms = "MS045"
+title = "UX coherence test harness"
+family = "dashboard"
+status = "shipped"
