@@ -230,6 +230,13 @@ DASHBOARD_ROUTES = {
         "label": "D-13 Filesystem Grants (read-only selfdef MS007 mirror)",
         "source_repo": "selfdef-mirror",
     },
+    "quarantine-mirror": {
+        "port": 8114,
+        "healthz_path": "/healthz",
+        "subpath": "/quarantine-mirror/",
+        "label": "D-17 Quarantine (read-only selfdef MS042 mirror)",
+        "source_repo": "selfdef-mirror",
+    },
 }
 
 KNOWN_SLUGS = list(DASHBOARD_ROUTES.keys())

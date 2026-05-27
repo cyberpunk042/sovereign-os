@@ -136,94 +136,53 @@
 <div class="toast" id="toast">copied</div>
 
 <script>
-  // -------- seed (publisher /api/d-17/snapshot when wired) ----------
-  // Schema mirrors selfdef-quarantine-mirror::QuarantineMirrorSnapshot 1.0.0
-  // No mutations from this surface — R10122 + R10212.
-  const seed = {
-    schema_version: "1.0.0",
-    captured_at: "2026-05-19T03:50Z",
-    summaries: [
-      { severity: "critical",      quarantined: 1, released_24h: 0, forfeited_24h: 1 },
-      { severity: "major",         quarantined: 2, released_24h: 1, forfeited_24h: 0 },
-      { severity: "minor",         quarantined: 3, released_24h: 4, forfeited_24h: 0 },
-      { severity: "informational", quarantined: 0, released_24h: 8, forfeited_24h: 0 }
-    ],
-    entries: [
-      {
-        quarantine_id: "qr-001", tool: "untrusted-bin",      declarer: "ext-fp",      capability_token_id: "tok-r4-untrusted",
-        blocked_at: "2026-05-19T03:30Z", updated_at: "2026-05-19T03:30Z", state: "quarantined", max_severity: "critical",
-        mismatches: [
-          { field: "secret_access", declared: "none", observed: "keyring:user@github.com", first_observed_at: "2026-05-19T03:30Z", severity: "critical" },
-          { field: "network_domains", declared: "[]", observed: "[evil.example.com:443]", first_observed_at: "2026-05-19T03:30Z", severity: "critical" }
-        ],
-        trace_id: "trace-untrust"
-      },
-      {
-        quarantine_id: "qr-002", tool: "npm-install",        declarer: "agent-fp-hf",
-        blocked_at: "2026-05-19T02:45Z", updated_at: "2026-05-19T02:46Z", state: "quarantined", max_severity: "major",
-        mismatches: [
-          { field: "network_domains", declared: "[registry.npmjs.org]", observed: "[registry.npmjs.org, deadbeef.example.com]", first_observed_at: "2026-05-19T02:45Z", severity: "major" }
-        ],
-        trace_id: "trace-npm"
-      },
-      {
-        quarantine_id: "qr-003", tool: "build-image",        declarer: "operator-fp",
-        blocked_at: "2026-05-19T01:00Z", updated_at: "2026-05-19T01:10Z", state: "quarantined", max_severity: "major",
-        mismatches: [
-          { field: "write_paths", declared: "[/build/out/**]", observed: "[/build/out/**, /tmp/cache/**]", first_observed_at: "2026-05-19T01:00Z", severity: "major" }
-        ],
-        trace_id: "trace-build"
-      },
-      {
-        quarantine_id: "qr-004", tool: "linter",             declarer: "operator-fp",
-        blocked_at: "2026-05-19T00:30Z", updated_at: "2026-05-19T00:30Z", state: "quarantined", max_severity: "minor",
-        mismatches: [
-          { field: "read_paths", declared: "[src/**]", observed: "[src/**, tests/**]", first_observed_at: "2026-05-19T00:30Z", severity: "minor" }
-        ],
-        trace_id: "trace-lint"
-      },
-      {
-        quarantine_id: "qr-005", tool: "format-tool",        declarer: "operator-fp",
-        blocked_at: "2026-05-18T23:00Z", updated_at: "2026-05-18T23:05Z", state: "released", max_severity: "minor",
-        mismatches: [
-          { field: "side_effects", declared: "format-only", observed: "format + import-sort", first_observed_at: "2026-05-18T23:00Z", severity: "minor" }
-        ],
-        trace_id: "trace-fmt"
-      },
-      {
-        quarantine_id: "qr-006", tool: "shell-runner-evil",  declarer: "ext-fp",
-        blocked_at: "2026-05-18T18:00Z", updated_at: "2026-05-18T18:05Z", state: "forfeited", max_severity: "critical",
-        mismatches: [
-          { field: "side_effects", declared: "read-only", observed: "exec(shell), spawn(child)", first_observed_at: "2026-05-18T18:00Z", severity: "critical" },
-          { field: "secret_access", declared: "none", observed: "keyring:ssh-key", first_observed_at: "2026-05-18T18:01Z", severity: "critical" }
-        ],
-        trace_id: "trace-evil"
-      }
-    ]
-  };
+  // Live data from the read-only selfdef-quarantine-mirror publisher API
+  // (scripts/operator/quarantine-mirror-api.py). Schema mirrors
+  // selfdef-quarantine-mirror::QuarantineMirrorSnapshot 1.0.0. No mutations
+  // from this surface — R10122 + R10212 (trace/release/forfeit are selfdefctl
+  // + MS003 on the IPS).
+  let seed = { schema_version: "1.0.0", mirror_status: "offline", captured_at: null, summaries: [], entries: [], declaration_fields: [] };
+
+  async function load() {
+    try {
+      const r = await fetch('/api/d-17/snapshot', { credentials: 'same-origin' });
+      if (r.ok) seed = Object.assign(seed, await r.json());
+    } catch (e) { /* mirror offline — keep empty-safe defaults */ }
+    renderTiles();
+    renderFieldChart();
+    renderQuar();
+  }
 
   // severity tiles
-  const sMap = {};
-  for (const s of seed.summaries) sMap[s.severity] = s;
-  document.getElementById('s-critical').textContent = (sMap.critical?.quarantined || 0);
-  document.getElementById('s-major').textContent    = (sMap.major?.quarantined || 0);
-  document.getElementById('s-minor').textContent    = (sMap.minor?.quarantined || 0);
-  document.getElementById('s-info').textContent     = (sMap.informational?.quarantined || 0);
-  document.getElementById('s-released').textContent = seed.summaries.reduce((a, s) => a + s.released_24h, 0);
-  document.getElementById('s-forfeited').textContent= seed.summaries.reduce((a, s) => a + s.forfeited_24h, 0);
+  function renderTiles() {
+    const sMap = {};
+    for (const s of (seed.summaries || [])) sMap[s.severity] = s;
+    document.getElementById('s-critical').textContent = (sMap.critical?.quarantined || 0);
+    document.getElementById('s-major').textContent    = (sMap.major?.quarantined || 0);
+    document.getElementById('s-minor').textContent    = (sMap.minor?.quarantined || 0);
+    document.getElementById('s-info').textContent     = (sMap.informational?.quarantined || 0);
+    document.getElementById('s-released').textContent = (seed.summaries || []).reduce((a, s) => a + s.released_24h, 0);
+    document.getElementById('s-forfeited').textContent= (seed.summaries || []).reduce((a, s) => a + s.forfeited_24h, 0);
+  }
 
   // top mismatch fields chart
-  const fieldOrder = ['read_paths','write_paths','network_domains','env_vars','secret_access','side_effects','rollback'];
-  const counts = Object.fromEntries(fieldOrder.map(f => [f, 0]));
-  for (const e of seed.entries) for (const m of e.mismatches) counts[m.field] = (counts[m.field] || 0) + 1;
-  const maxCount = Math.max(1, ...Object.values(counts));
-  const chart = document.getElementById('field-chart');
-  for (const f of fieldOrder) {
-    const h = Math.round((counts[f] / maxCount) * 70);
-    const div = document.createElement('div');
-    div.className = 'field-bar';
-    div.innerHTML = `<div style="font-size:.7rem;color:var(--fg)">${counts[f]}</div><div class="bar" style="height:${h}px"></div><div class="lbl">${f}</div>`;
-    chart.appendChild(div);
+  const fieldOrder = (seed.declaration_fields && seed.declaration_fields.length)
+    ? seed.declaration_fields
+    : ['read_paths','write_paths','network_domains','env_vars','secret_access','side_effects','rollback'];
+  function renderFieldChart() {
+    const order = (seed.declaration_fields && seed.declaration_fields.length) ? seed.declaration_fields : fieldOrder;
+    const counts = Object.fromEntries(order.map(f => [f, 0]));
+    for (const e of (seed.entries || [])) for (const m of e.mismatches) counts[m.field] = (counts[m.field] || 0) + 1;
+    const maxCount = Math.max(1, ...Object.values(counts));
+    const chart = document.getElementById('field-chart');
+    chart.innerHTML = '';
+    for (const f of order) {
+      const h = Math.round((counts[f] / maxCount) * 70);
+      const div = document.createElement('div');
+      div.className = 'field-bar';
+      div.innerHTML = `<div style="font-size:.7rem;color:var(--fg)">${counts[f]}</div><div class="bar" style="height:${h}px"></div><div class="lbl">${f}</div>`;
+      chart.appendChild(div);
+    }
   }
 
   function severityClass(sev) {
@@ -271,8 +230,13 @@
       `;
       tb.appendChild(tr);
     }
+    if (!tb.children.length) {
+      tb.innerHTML = '<tr><td colspan="7" class="muted">' +
+        (seed.mirror_status === 'offline'
+          ? 'selfdef-quarantine-mirror offline — no quarantine archive published yet'
+          : 'no quarantine entries match the filter') + '</td></tr>';
+    }
   }
-  renderQuar();
   document.querySelectorAll('#state-filters .filter').forEach(f => f.addEventListener('click', () => { f.classList.toggle('on'); renderQuar(); }));
 
   // clipboard helper — web NEVER mutates per R10122 + R10212
@@ -291,6 +255,10 @@
   window.addEventListener('keydown', e => {
     if ((e.metaKey || e.ctrlKey) && e.key === '0') { e.preventDefault(); window.location.href = '../master-dashboard/'; }
   });
+
+  // initial load + 30s refresh from the read-only selfdef-quarantine-mirror
+  load();
+  setInterval(load, 30000);
 </script>
 
 </body>

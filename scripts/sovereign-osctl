@@ -7907,6 +7907,15 @@ case "${cmd}" in
     # on the IPS side only. Verbs: snapshot / summaries (+ --json).
     "${__REPO_ROOT}/scripts/mirror/selfdef-grants-mirror.py" "$@"
     ;;
+  quarantine-mirror)
+    # M060 D-17 (R10121-R10122): READ-ONLY consumer of the selfdef tool-
+    # quarantine mirror (MS007 typed-mirror crate selfdef-quarantine-mirror).
+    # Projects selfdef MS042 declaration-vs-observed quarantine archive (4
+    # severities + per-field mismatches + block/quarantine/trace) for the D-17
+    # cockpit dashboard. sovereign-os NEVER mutates IPS state; trace/release/
+    # forfeit are selfdefctl + MS003 only. Verbs: snapshot / summaries (+ --json).
+    "${__REPO_ROOT}/scripts/mirror/selfdef-quarantine-mirror.py" "$@"
+    ;;
   compliance)
     # R458: §1g/§1h compliance dashboard aggregator. Consolidates the
     # 4-tool operator-§1g compliance instrument suite (R453 surface-map
