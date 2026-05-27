@@ -3,7 +3,7 @@
 #
 # What this does (in order):
 #   1. Run setup.sh — installs git pre-commit hook + verifies python +
-#      shellcheck + runs L1 smoke
+#      runs shellcheck + L1 smoke
 #   2. Run `sovereign-osctl init` — interactive wizard for the 5
 #      decisions (profile · substrate · secure-boot · encrypt · whitelabel)
 #   3. Run `orchestrate.sh preflight` against the chosen profile to

@@ -1,4 +1,5 @@
 # scripts/build/lib/selfdef-tune.sh
+# shellcheck shell=bash
 #
 # Sourceable shell library — closes the cross-repo flag-derivation loop
 # with selfdef SD-R19 (`selfdefctl hardware tune --format env-file`).
