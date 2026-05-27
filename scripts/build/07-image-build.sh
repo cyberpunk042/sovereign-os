@@ -57,7 +57,7 @@ stage_kernel_debs() {
 case "${SOVEREIGN_OS_SUBSTRATE}" in
   mkosi)
     stage_kernel_debs "${SOVEREIGN_OS_BUILD_OUT}/mkosi.extra/var/cache/local-debs"
-    cd "${SOVEREIGN_OS_BUILD_OUT}"
+    cd "${SOVEREIGN_OS_BUILD_OUT}" || exit 1
     if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
       log_warn "SOVEREIGN_OS_DRY_RUN — skipping 'mkosi build'"
       emit_build_metric skip
@@ -79,7 +79,7 @@ case "${SOVEREIGN_OS_SUBSTRATE}" in
 
   live-build)
     stage_kernel_debs "${SOVEREIGN_OS_BUILD_OUT}/config/packages.chroot"
-    cd "${SOVEREIGN_OS_BUILD_OUT}"
+    cd "${SOVEREIGN_OS_BUILD_OUT}" || exit 1
     if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
       log_warn "SOVEREIGN_OS_DRY_RUN — skipping 'lb build'"
       emit_build_metric skip

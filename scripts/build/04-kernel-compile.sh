@@ -30,7 +30,8 @@ fi
 # state machine notices when the operator pins a new epoch.
 if [ -n "${SOURCE_DATE_EPOCH:-}" ]; then
   export SOURCE_DATE_EPOCH
-  export KBUILD_BUILD_TIMESTAMP="$(date -u -d "@${SOURCE_DATE_EPOCH}" '+%a %b %d %H:%M:%S UTC %Y' 2>/dev/null || date -u '+%a %b %d %H:%M:%S UTC %Y')"
+  KBUILD_BUILD_TIMESTAMP="$(date -u -d "@${SOURCE_DATE_EPOCH}" '+%a %b %d %H:%M:%S UTC %Y' 2>/dev/null || date -u '+%a %b %d %H:%M:%S UTC %Y')"
+  export KBUILD_BUILD_TIMESTAMP
   inputs_hash="$(state_inputs_hash "${BASH_SOURCE[0]}" "${SOVEREIGN_OS_PROFILE_FILE}" "${SOVEREIGN_OS_STATE_DIR}/kernel.config" "epoch=${SOURCE_DATE_EPOCH}")"
 else
   inputs_hash="$(state_inputs_hash "${BASH_SOURCE[0]}" "${SOVEREIGN_OS_PROFILE_FILE}" "${SOVEREIGN_OS_STATE_DIR}/kernel.config")"
@@ -54,7 +55,7 @@ require_file "${env_file}"
 # shellcheck disable=SC1090
 . "${env_file}"
 
-cd "${SOVEREIGN_OS_KERNEL_SRC}"
+cd "${SOVEREIGN_OS_KERNEL_SRC}" || exit 1
 
 # ---- packaging choice ----
 packaging="$(profile_field kernel.packaging)"

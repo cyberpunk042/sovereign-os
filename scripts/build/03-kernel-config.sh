@@ -47,7 +47,7 @@ fi
 require_dir "${SOVEREIGN_OS_KERNEL_SRC}"
 require_command make
 
-cd "${SOVEREIGN_OS_KERNEL_SRC}"
+cd "${SOVEREIGN_OS_KERNEL_SRC}" || exit 1
 
 # ---- starting config: prefer running distro's; fall back to defconfig ----
 if [ -r "/boot/config-$(uname -r)" ] && [ -z "${SOVEREIGN_OS_FORCE_DEFCONFIG:-}" ]; then
