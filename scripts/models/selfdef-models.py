@@ -209,6 +209,8 @@ def humanize_bytes(b: int) -> str:
         return f"{b / gib:.1f} GiB"
     if b >= mib:
         return f"{b / mib:.1f} MiB"
+    if b >= kib:
+        return f"{b / kib:.1f} KiB"
     return f"{b} B"
 
 
