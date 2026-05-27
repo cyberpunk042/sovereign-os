@@ -521,6 +521,50 @@ def _load_toggle_core():
     return mod
 
 
+# M060 R10129 / SDD-040 D-040.5 — map each aggregator route slug to its webapp
+# dashboard slug (the toggle catalog key). Routes ABSENT here are always-on
+# infrastructure (trinity engines, router, grafana, node_exporter) — not part
+# of the operator-toggleable cockpit catalog.
+_ROUTE_WEBAPP = {
+    "hardware-pressure": "d-09-hardware-pressure",
+    "model-health": "d-03-model-health",
+    "traces": "d-05-traces",
+    "costs": "d-04-costs",
+    "adapters": "d-11-adapter-status",
+    "evals": "d-10-eval-history",
+    "sessions": "d-01-active-sessions",
+    "approvals": "d-06-pending-approvals",
+    "rollback": "d-08-rollback-points",
+    "memory-changes": "d-07-memory-changes",
+    "grants-mirror": "d-13-filesystem-grants",
+    "quarantine-mirror": "d-17-quarantine",
+    "trust-mirror": "d-18-trust-scores",
+    "sandbox-mirror": "d-15-sandboxes",
+    "profile-mirror": "d-02-profile-choices",
+    "capability-mirror": "d-14-capability-tokens",
+    "super-model": "d-19-super-model-manifest",
+    "peace-machine": "d-20-peace-machine-health",
+}
+
+
+def _enabled_routes(routes: dict) -> tuple[dict, list[str]]:
+    """Filter routes to operator-enabled ones (M060 R10129). Returns
+    (enabled_routes, disabled_slugs). Infra routes (no webapp mapping) are
+    always kept. Toggle core unavailable → everything kept (fail-open: the
+    aggregator never hides a dashboard because the toggle file is missing)."""
+    core = _load_toggle_core()
+    if core is None:
+        return routes, []
+    enabled, disabled = {}, []
+    for slug, r in routes.items():
+        webapp = _ROUTE_WEBAPP.get(slug)
+        if webapp is not None and not core.is_enabled(webapp):
+            disabled.append(slug)
+            continue
+        enabled[slug] = r
+    return enabled, disabled
+
+
 def cmd_toggles(args) -> int:
     """Surface the operator dashboard on/off state (M060 R10129) — every
     cockpit dashboard + its enabled bit, from /etc/sovereign-os/dashboards.toml.
@@ -720,8 +764,12 @@ def cmd_render(args) -> int:
         _emit_metric("render", backend, "blocked-collisions")
         return 2
 
+    # M060 R10129 / D-040.5 — render ONLY operator-enabled dashboards; a
+    # disabled dashboard is omitted from the reverse-proxy config (the operator
+    # turned it off via `sovereign-osctl dashboards disable <slug>`).
+    enabled_routes, disabled_slugs = _enabled_routes(DASHBOARD_ROUTES)
     renderer = BACKEND_RENDERERS[backend]
-    config_text = renderer(DASHBOARD_ROUTES)
+    config_text = renderer(enabled_routes)
     extensions = {"nginx": "conf", "caddy": "Caddyfile", "traefik": "yaml"}
     out_path = OUTPUT_DIR / f"{backend}.{extensions[backend]}"
 
@@ -729,7 +777,8 @@ def cmd_render(args) -> int:
         "backend": backend,
         "out_path": str(out_path),
         "byte_count": len(config_text.encode("utf-8")),
-        "dashboards_aggregated": len(DASHBOARD_ROUTES),
+        "dashboards_aggregated": len(enabled_routes),
+        "dashboards_disabled": disabled_slugs,
         "aggregator_port": AGGREGATOR_PORT,
     }
 
@@ -746,7 +795,9 @@ def cmd_render(args) -> int:
         else:
             print(f"── master-dashboard.render PREVIEW ({backend}) ──")
             print(f"  out_path:           {out_path}")
-            print(f"  dashboards:         {len(DASHBOARD_ROUTES)}")
+            print(f"  dashboards:         {len(enabled_routes)} enabled"
+                  + (f" · {len(disabled_slugs)} disabled ({', '.join(disabled_slugs)})"
+                     if disabled_slugs else ""))
             print(f"  aggregator-port:    {AGGREGATOR_PORT}")
             print(f"  byte-count:         {len(config_text.encode('utf-8'))}")
             print(f"  next: --apply --confirm-render to commit")

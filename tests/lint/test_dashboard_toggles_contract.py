@@ -115,3 +115,38 @@ def test_master_dashboard_toggles_subcommand():
         d = json.loads(out.stdout)
         assert "dashboards" in d and d["total"] >= 20
         assert d["enabled_count"] == d["total"]  # nothing disabled in fresh toml
+
+
+def test_render_omits_disabled_dashboard():
+    """D-040.5 render-time ENFORCEMENT: a disabled dashboard is omitted from
+    the aggregator reverse-proxy config (driven through to the operator entry
+    point, not just viewable)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        toml = os.path.join(tmp, "dashboards.toml")
+        spans = os.path.join(tmp, "spans.jsonl")
+        # baseline render — /costs/ present
+        base = subprocess.run(
+            ["python3", str(MASTER), "render", "--backend", "nginx", "--json"],
+            capture_output=True, text=True, timeout=15, check=True,
+            env={**os.environ, "SOVEREIGN_OS_DASHBOARDS_TOML": toml},
+        )
+        bd = json.loads(base.stdout)
+        assert bd["config_preview"].count("/costs/") == 1
+        assert bd["dashboards_disabled"] == []
+        # disable costs, re-render — /costs/ omitted, others remain
+        subprocess.run(
+            ["python3", str(CORE), "disable", "d-04-costs"],
+            capture_output=True, text=True, timeout=15, check=True,
+            env={**os.environ, "SOVEREIGN_OS_DASHBOARDS_TOML": toml,
+                 "SOVEREIGN_OS_SPAN_STORE": spans},
+        )
+        after = subprocess.run(
+            ["python3", str(MASTER), "render", "--backend", "nginx", "--json"],
+            capture_output=True, text=True, timeout=15, check=True,
+            env={**os.environ, "SOVEREIGN_OS_DASHBOARDS_TOML": toml},
+        )
+        ad = json.loads(after.stdout)
+        assert ad["config_preview"].count("/costs/") == 0, "disabled dashboard must be omitted"
+        assert ad["config_preview"].count("/model-health/") == 1, "enabled dashboards must remain"
+        assert "costs" in ad["dashboards_disabled"]
+        assert ad["dashboards_aggregated"] == bd["dashboards_aggregated"] - 1
