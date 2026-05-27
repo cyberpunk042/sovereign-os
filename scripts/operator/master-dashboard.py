@@ -181,6 +181,13 @@ DASHBOARD_ROUTES = {
         "label": "D-04 Costs (budget/project/profile/model breakdown + forecast)",
         "source_repo": "sovereign-os",
     },
+    "adapters": {
+        "port": 8107,
+        "healthz_path": "/healthz",
+        "subpath": "/adapters/",
+        "label": "D-11 Adapter Status (LoRA inventory/MS041 gates/rollback)",
+        "source_repo": "sovereign-os",
+    },
 }
 
 KNOWN_SLUGS = list(DASHBOARD_ROUTES.keys())

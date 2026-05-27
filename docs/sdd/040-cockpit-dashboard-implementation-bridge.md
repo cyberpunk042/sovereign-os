@@ -54,7 +54,7 @@ Meta requirements (every dashboard):
 | D-08 | rollback points (ZFS snapshot list + commit history + dry-run + apply) | — | **MISSING** | M060 R10097-R10101 |
 | D-09 | hardware pressure (PSI gauges + DCGM gauges + backpressure indicators) | `/webapp/d-09-hardware-pressure/` + `scripts/operator/hardware-pressure-api.py` (+ core `scripts/hardware/hardware-pressure.py`, CLI `sovereign-osctl hardware-pressure`, service `sovereign-hardware-pressure-api.service`) | **✓ shipped (full stack → prod)** | M060 R10102-R10105 |
 | D-10 | eval history (per-task pass/fail + per-model score + adapter-promotion candidates) | — | **MISSING** | M060 R10106-R10108 |
-| D-11 | adapter status (LoRA inventory + promotion gates + audit trail + rollback) | — | **MISSING** | M060 R10109-R10111 |
+| D-11 | adapter status (LoRA inventory + promotion gates + audit trail + rollback) | `/webapp/d-11-adapter-status/` + `scripts/operator/adapters-api.py` (+ core `scripts/inference/adapter-foundry.py`, CLI `sovereign-osctl adapters`, service `sovereign-adapters-api.service`) | **✓ shipped (full stack → prod)** | M060 R10109-R10111 |
 | D-12 | networking (Ring 0-4 traffic via MS007 mirror) | `/webapp/network-edge/index.html` + `/webapp/edge-firewall/index.html` | **✓ shipped (split)** | M060 R10112-R10113 |
 | D-13 | filesystem grants (selfdef MS037 mirror) | — | **MISSING** | M060 R10114-R10115 |
 | D-14 | capability tokens (active capability_word grants) | `/webapp/auth-tier/index.html` | **✓ partial** (auth-tier covers tier; capability_word grants pending) | M060 R10116-R10117 |
@@ -66,9 +66,9 @@ Meta requirements (every dashboard):
 | D-20 | peace machine health (5 properties live status) | `/webapp/compliance/index.html` | **✓ partial** (compliance covers some properties; full 5-property live view pending) | M060 R10126-R10127 |
 
 **Coverage summary** (refreshed 2026-05-27 — full-stack §1g 8-surface delivery):
-- **Shipped (full stack → prod)**: D-00, D-03, D-04, D-05, D-09, D-16 (6 dashboards)
+- **Shipped (full stack → prod)**: D-00, D-03, D-04, D-05, D-09, D-11, D-16 (7 dashboards)
 - **Shipped (split or partial)**: D-12, D-14, D-19, D-20 (4 dashboards)
-- **Webapp scaffold present, backend API pending**: D-01, D-02, D-06, D-07, D-08, D-10, D-11, D-13, D-15, D-17, D-18 (11 dashboards — single-file `/webapp/d-NN-*/index.html` built; each fetches its `/api/...` contract awaiting the operator-API + core + service surfaces, exactly as D-03/D-04/D-05/D-09 were before being driven to prod)
+- **Webapp scaffold present, backend API pending**: D-01, D-02, D-06, D-07, D-08, D-10, D-13, D-15, D-17, D-18 (10 dashboards — single-file `/webapp/d-NN-*/index.html` built; each fetches its `/api/...` contract awaiting the operator-API + core + service surfaces, exactly as D-03/D-04/D-05/D-09/D-11 were before being driven to prod)
 
 > Observability cluster note: D-04 costs + D-05 traces share one `core` source-of-truth — `scripts/observability/trace-store.py` reads the M049 span log; `cost-tracker.py` reuses that loader and sums the per-span `cost` attribute. One span store, two dashboards, zero schema drift.
 

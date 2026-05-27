@@ -7839,6 +7839,15 @@ case "${cmd}" in
     # (+ --json).
     "${__REPO_ROOT}/scripts/observability/cost-tracker.py" "$@"
     ;;
+  adapters)
+    # M060 D-11 (R10109-R10111): LoRA adapter inventory + promotion status —
+    # joins the model catalog's class=lora-adapter entries (M046 LoRA Foundry)
+    # to the promotion registry (per-adapter status + MS041 triple-gate +
+    # eval gain + NVFP4 recipe (M077) + promotion/rollback history). Read-only;
+    # the sovereign-adapters-api daemon serves the D-11 cockpit dashboard from
+    # this same core. Verbs: inventory / list / history (+ --json).
+    "${__REPO_ROOT}/scripts/inference/adapter-foundry.py" "$@"
+    ;;
   compliance)
     # R458: §1g/§1h compliance dashboard aggregator. Consolidates the
     # 4-tool operator-§1g compliance instrument suite (R453 surface-map
