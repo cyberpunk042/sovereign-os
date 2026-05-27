@@ -103,7 +103,7 @@
 // Same-origin XHR only — the R498 API daemon serves both this webapp
 // and the JSON endpoints under the same host:port binding.
 
-const ENDPOINTS = ["/version", "/routes", "/collisions", "/health", "/discover"];
+const ENDPOINTS = ["/version", "/routes", "/collisions", "/health", "/discover", "/toggles"];
 
 async function fetchJSON(path) {
   const res = await fetch(path, {headers: {"Accept": "application/json"}});
@@ -131,25 +131,38 @@ function renderStats(version, routes, health, collisions, discover) {
   el("stat-version").textContent = version.version;
 }
 
-function renderRoutes(routes, health) {
+function renderRoutes(routes, health, toggles) {
   const reachableByPort = {};
   for (const p of health.probes) reachableByPort[p.port] = p.reachable;
+  // M060 R10129 — per-route operator on/off state from /toggles
+  const toggleBySlug = {};
+  for (const t of (toggles && toggles.dashboards) || []) toggleBySlug[t.slug] = t;
   const tbody = el("routes-tbody");
   tbody.innerHTML = "";
   for (const r of routes.routes) {
     const tr = document.createElement("tr");
     const reach = reachableByPort[r.port];
+    const tog = toggleBySlug[r.slug];
+    const disabled = tog && tog.toggleable && !tog.enabled;
+    // the "main one" is a hub — subpath is a live link to each dashboard
+    const link = "<a href=\"" + r.subpath + "\">" + r.subpath + "</a>";
     tr.innerHTML =
       "<td><code>" + r.slug + "</code></td>" +
       "<td>" + r.port + "</td>" +
       "<td><code>" + r.healthz_path + "</code></td>" +
-      "<td><code>" + r.subpath + "</code></td>" +
+      "<td><code>" + link + "</code></td>" +
       "<td>" + r.label + "</td>" +
       "<td class=muted>" + r.source_repo + "</td>" +
       "<td></td>";
-    tr.lastElementChild.appendChild(
+    const statusCell = tr.lastElementChild;
+    // operator on/off pill (only for toggleable cockpit dashboards)
+    if (tog && tog.toggleable) {
+      statusCell.appendChild(pill(tog.enabled ? "on" : "OFF", tog.enabled ? "ok" : "bad"));
+    }
+    statusCell.appendChild(
       pill(reach ? "tcp-open" : "tcp-closed", reach ? "ok" : "bad")
     );
+    if (disabled) tr.style.opacity = "0.55";
     tbody.appendChild(tr);
   }
 }
@@ -206,11 +219,15 @@ function renderDiscover(discover) {
 
 async function refresh() {
   try {
-    const [version, routes, collisions, health, discover] = await Promise.all(
+    const [version, routes, collisions, health, discover, toggles] = await Promise.all(
       ENDPOINTS.map(fetchJSON)
     );
     renderStats(version, routes, health, collisions, discover);
-    renderRoutes(routes, health);
+    renderRoutes(routes, health, toggles);
+    if (toggles) {
+      const c = el("stat-count");
+      if (c) c.textContent = routes.count + " (" + toggles.enabled_count + " on)";
+    }
     renderCollisions(collisions);
     renderDiscover(discover);
     el("last-refresh").textContent = new Date().toLocaleTimeString();

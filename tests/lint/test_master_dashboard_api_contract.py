@@ -148,6 +148,29 @@ def test_api_endpoint_routes():
         proc.wait(timeout=2.0)
 
 
+def test_api_endpoint_toggles():
+    """M060 R10129 — the D-00 main dashboard's directory + per-route operator
+    on/off state. Every route has an enabled bit; cockpit dashboards are
+    toggleable, infra routes (trinity/router) are always-on (not toggleable)."""
+    proc, port = _start_daemon()
+    try:
+        status, data = _get_json(port, "/toggles")
+        assert status == 200
+        assert "dashboards" in data and isinstance(data["dashboards"], list)
+        assert data["count"] == len(data["dashboards"])
+        assert data["enabled_count"] + data["disabled_count"] == data["count"]
+        by = {r["slug"]: r for r in data["dashboards"]}
+        # a cockpit dashboard is toggleable + has a webapp mapping
+        assert by["costs"]["toggleable"] is True and by["costs"]["webapp"] == "d-04-costs"
+        # infra is always-on (no webapp mapping → not toggleable, enabled)
+        assert by["router"]["toggleable"] is False and by["router"]["enabled"] is True
+        # default (no toml) → everything enabled
+        assert data["disabled_count"] == 0
+    finally:
+        proc.terminate()
+        proc.wait(timeout=2.0)
+
+
 def test_api_endpoint_collisions():
     proc, port = _start_daemon()
     try:

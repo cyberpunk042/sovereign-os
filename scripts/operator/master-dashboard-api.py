@@ -162,6 +162,35 @@ def _discover_payload() -> dict:
     }
 
 
+def _toggles_payload() -> dict:
+    """M060 R10129 — the dashboard directory + each route's operator on/off
+    state, so the D-00 "main dashboard" reflects 'everything can be turned on
+    and off'. Routes without a webapp mapping are always-on infrastructure."""
+    core = _md._load_toggle_core()
+    rows = []
+    for slug, r in _md.DASHBOARD_ROUTES.items():
+        webapp = _md._ROUTE_WEBAPP.get(slug)
+        enabled = True if (core is None or webapp is None) else core.is_enabled(webapp)
+        rows.append({
+            "slug": slug,
+            "subpath": r["subpath"],
+            "label": r["label"],
+            "port": r["port"],
+            "source_repo": r["source_repo"],
+            "webapp": webapp,
+            "toggleable": webapp is not None,
+            "enabled": enabled,
+        })
+    enabled_count = sum(1 for x in rows if x["enabled"])
+    return {
+        "aggregator_port": _md.AGGREGATOR_PORT,
+        "count": len(rows),
+        "enabled_count": enabled_count,
+        "disabled_count": len(rows) - enabled_count,
+        "dashboards": rows,
+    }
+
+
 def _version_payload() -> dict:
     return {
         "module": "master-dashboard-api",
@@ -181,6 +210,7 @@ _ENDPOINT_HANDLERS = {
     "/collisions": _collisions_payload,
     "/health":     _health_payload,
     "/discover":   _discover_payload,
+    "/toggles":    _toggles_payload,
 }
 
 
