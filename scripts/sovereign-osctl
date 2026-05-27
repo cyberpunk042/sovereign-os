@@ -7829,6 +7829,16 @@ case "${cmd}" in
     # summary (+ --json, --window, --q, --severity, --ocsf-class).
     "${__REPO_ROOT}/scripts/observability/trace-store.py" "$@"
     ;;
+  costs)
+    # M060 D-04 (R10075-R10082): cost aggregation core — joins the operator
+    # cost policy (/etc/sovereign-os/cost-policy.toml, dump 9885-9930) to the
+    # per-span `cost` attribute of the M049 span log, aggregating daily /
+    # project / MS040-profile / model spend + 30-day trend + end-of-day
+    # forecast. Read-only; the sovereign-costs-api daemon serves the D-04
+    # cockpit dashboard from this same core. Verbs: summary / policy / today
+    # (+ --json).
+    "${__REPO_ROOT}/scripts/observability/cost-tracker.py" "$@"
+    ;;
   compliance)
     # R458: §1g/§1h compliance dashboard aggregator. Consolidates the
     # 4-tool operator-§1g compliance instrument suite (R453 surface-map

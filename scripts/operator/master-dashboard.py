@@ -174,6 +174,13 @@ DASHBOARD_ROUTES = {
         "label": "D-05 Traces (M049 13-field span search/tree/OCSF detail)",
         "source_repo": "sovereign-os",
     },
+    "costs": {
+        "port": 8106,
+        "healthz_path": "/healthz",
+        "subpath": "/costs/",
+        "label": "D-04 Costs (budget/project/profile/model breakdown + forecast)",
+        "source_repo": "sovereign-os",
+    },
 }
 
 KNOWN_SLUGS = list(DASHBOARD_ROUTES.keys())

@@ -47,8 +47,8 @@ Meta requirements (every dashboard):
 | D-01 | active sessions (per-task M057 lifecycle step + profile + ETA + hibernate/resume/kill) | — | **MISSING** | M060 R10059-R10062 |
 | D-02 | profile choices (six-profile selector + L0..L6 envelope + Ring 0..4 highlights + history + predeclared-gate editor) | — | **MISSING** (implementing now) | M060 R10063-R10068 |
 | D-03 | model health (Blackwell/3090/CPU + VRAM + KV cache + p50/p95/p99 latency + heatmap) | `/webapp/d-03-model-health/` + `scripts/operator/model-health-api.py` (+ core `scripts/inference/model-health.py`, CLI `sovereign-osctl model-health`, service `sovereign-model-health-api.service`) | **✓ shipped (full stack → prod)** | M060 R10069-R10074 |
-| D-04 | costs (daily budget + per-request + project/profile/model breakdowns + forecast + alert thresholds) | — | **MISSING** | M060 R10075-R10082 |
-| D-05 | traces (M049 13-field span search/filter + span tree + replay + OCSF detail panel) | — | **MISSING** | M060 R10083-R10087 |
+| D-04 | costs (daily budget + per-request + project/profile/model breakdowns + forecast + alert thresholds) | `/webapp/d-04-costs/` + `scripts/operator/costs-api.py` (+ core `scripts/observability/cost-tracker.py`, CLI `sovereign-osctl costs`, service `sovereign-costs-api.service`) | **✓ shipped (full stack → prod)** | M060 R10075-R10082 |
+| D-05 | traces (M049 13-field span search/filter + span tree + replay + OCSF detail panel) | `/webapp/d-05-traces/` + `scripts/operator/traces-api.py` (+ core `scripts/observability/trace-store.py`, CLI `sovereign-osctl traces`, service `sovereign-traces-api.service`) | **✓ shipped (full stack → prod)** | M060 R10083-R10087 |
 | D-06 | pending approvals (operator queue + context + approve/deny/defer + batch-approve) | — | **MISSING** | M060 R10088-R10092 |
 | D-07 | memory changes (graph diff + promote/forget/pin + 7-dimension trust filters) | — | **MISSING** | M060 R10093-R10096 |
 | D-08 | rollback points (ZFS snapshot list + commit history + dry-run + apply) | — | **MISSING** | M060 R10097-R10101 |
@@ -66,9 +66,11 @@ Meta requirements (every dashboard):
 | D-20 | peace machine health (5 properties live status) | `/webapp/compliance/index.html` | **✓ partial** (compliance covers some properties; full 5-property live view pending) | M060 R10126-R10127 |
 
 **Coverage summary** (refreshed 2026-05-27 — full-stack §1g 8-surface delivery):
-- **Shipped (full stack → prod)**: D-00, D-03, D-09, D-16 (4 dashboards)
+- **Shipped (full stack → prod)**: D-00, D-03, D-04, D-05, D-09, D-16 (6 dashboards)
 - **Shipped (split or partial)**: D-12, D-14, D-19, D-20 (4 dashboards)
-- **Webapp scaffold present, backend API pending**: D-01, D-02, D-04, D-05, D-06, D-07, D-08, D-10, D-11, D-13, D-15, D-17, D-18 (13 dashboards — single-file `/webapp/d-NN-*/index.html` built; each fetches its `/api/...` contract awaiting the operator-API + core + service surfaces, exactly as D-03/D-09 were before being driven to prod)
+- **Webapp scaffold present, backend API pending**: D-01, D-02, D-06, D-07, D-08, D-10, D-11, D-13, D-15, D-17, D-18 (11 dashboards — single-file `/webapp/d-NN-*/index.html` built; each fetches its `/api/...` contract awaiting the operator-API + core + service surfaces, exactly as D-03/D-04/D-05/D-09 were before being driven to prod)
+
+> Observability cluster note: D-04 costs + D-05 traces share one `core` source-of-truth — `scripts/observability/trace-store.py` reads the M049 span log; `cost-tracker.py` reuses that loader and sums the per-span `cost` attribute. One span store, two dashboards, zero schema drift.
 
 > Delivery doctrine (D-03/D-09 proved): a dashboard "reaches prod" only when ALL of {core, cli, api, webapp, service} ship + a contract test locks the live fetch shape + the master-dashboard aggregator route is registered. A webapp HTML file alone is a scaffold, not prod. Status tracked here (the M060 bridge) + commit history; we do not maintain a competing status board.
 

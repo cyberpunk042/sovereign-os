@@ -1,0 +1,49 @@
+[Unit]
+Description=Sovereign costs read-only API + D-04 dashboard host (M060 R10075-R10082)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/costs-api.py
+# Read-only observation surface: joins the operator cost policy
+# (/etc/sovereign-os/cost-policy.toml, dump 9885-9930) to the per-span `cost`
+# attribute of the M049 span log, aggregating daily/project/profile/model
+# spend into the data model the D-04 cockpit dashboard renders. There is NO
+# mutation surface — cost-policy edits + cloud-halt are MS003-signed CLI verbs
+# (MS043 R10212), never web mutations.
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/costs-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default — operator-§1g exposure decision is theirs. To expose
+# beyond loopback, drop /etc/systemd/system/sovereign-costs-api.service.d/bind.conf:
+#   [Service]
+#   Environment=COSTS_API_BIND=0.0.0.0
+Environment=COSTS_API_BIND=127.0.0.1
+Environment=COSTS_API_PORT=8106
+
+# R171 defense-in-depth (Layer-1 lint enforced). Read-only HTTP surface;
+# reads the cost policy + JSONL span log + appends the metrics textfile.
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target
