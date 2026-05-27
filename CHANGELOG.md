@@ -12,6 +12,35 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Fixed — main CI green: 8 pre-existing lint failures resolved (2026-05-27)
+
+`pytest tests/lint` had 8 failures on main (they predate this session). Root-caused
+and fixed, all values determined from repo content (no fabrication):
+- **SDD-040** (cockpit-dashboard bridge, authored 2026-05-19) was never catalog-wired.
+  Added its `docs/sdd/INDEX.md` row (transcribed from its own header), a
+  `> Closes findings: none (...)` cross-link line (same pattern as SDD-038/039), and
+  a reference in the operator mandate (the dashboard-content surface note on E11.M2) —
+  clearing `test_sdd_index_consistency`, `test_sdd_cross_links`, and both
+  `test_sdd_reachability` tests.
+- **E11.M2/M5/M6/M7/M8/M9/M10/M12** rows in the mandate's §1g decomposition lacked a
+  status keyword. Appended an accurate `Status:` to each: `✓ shipped (R<n>)` for the
+  six whose operator/* module file was verified present (371–857-line scripts + contract
+  tests), `in-flight` for the never-ending-PR row (E11.M12). The §1g FLAGGED-UNDONE axis
+  is preserved alongside — clearing `test_epic_e11_cross_repo_coverage`.
+- **sovereign-hugepages-sizer.service** declared no `ProtectSystem=` and lacked
+  `ProtectKernelTunables` (the author documented the intent in comments but never encoded
+  the directives). Added `ProtectSystem=full` (safe: it locks /usr+/boot+/etc but not
+  /proc/sys, with /etc/sysctl.d re-opened via the existing `ReadWritePaths`) +
+  `ProtectKernelTunables=false` + a `# HARDENING-WAIVER:` documenting the one justified
+  opt-out (the sizer must write /proc/sys/vm/nr_hugepages) — clearing both
+  `test_systemd_*hardening*` tests.
+
+The 8th failure (`test_round_refs::test_recent_rounds_in_commit_history`) was a
+shallow-clone artifact, not a repo defect: R350–R475 are real commits below this clone's
+shallow horizon; the test self-skips in CI's depth-1 checkout (HEAD carries no R-number),
+and passes once the clone has full history. No repo change needed. Full suite:
+2820 lint+schema tests pass.
+
 ### Added — repo-wide JSON parse + duplicate-key lint (2026-05-27)
 
 The 19 Grafana cockpit dashboards under `docs/observability/dashboards/`

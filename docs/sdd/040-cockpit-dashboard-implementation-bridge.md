@@ -6,6 +6,8 @@
 **Source milestone**: `backlog/milestones/M060-cockpit-and-dashboards-ux-surface.md` (21 catalogued dashboards D-00..D-20)
 **Implementation surface**: `/webapp/` (single-file sovereignty-clean HTML+CSS+JS dashboards, no framework, no CDN)
 
+> Closes findings: none (bridges the M060 cockpit-dashboard catalog — 21 dashboards D-00..D-20 — to their `/webapp/` implementations; sister to the §1g Dashboard surface tracked at E11.M2 / E11.M3)
+
 ## Mission
 
 M060 catalogs **21 dashboards (D-00..D-20)** with 170 requirements. The webapp directory already ships **14 single-file dashboards** built under the established sovereignty-clean UX doctrine (monochrome palette, monospace font, no framework, no CDN, no external fonts). This SDD is the **bridge artifact**: maps each catalogued dashboard to its webapp implementation (where one exists), identifies coverage gaps, and orders the implementation backlog.

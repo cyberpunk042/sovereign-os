@@ -28,9 +28,18 @@ RestrictNamespaces=true
 LockPersonality=true
 NoNewPrivileges=true
 PrivateTmp=true
-# Cannot use ProtectSystem=strict — sysctl write to /proc/sys requires
-# proc to be writable. ProtectKernelTunables=false explicitly required
-# for the same reason.
+# HARDENING-WAIVER: this sizer must write /proc/sys/vm/nr_hugepages via
+# sysctl, so ProtectKernelTunables=true (the only R171 baseline directive
+# that would block the core function) is explicitly =false here. Every
+# OTHER R171 directive IS present above; the write surface is bounded by
+# ProtectSystem=full + ReadWritePaths below. The waiver documents the one
+# justified opt-out (per-key waivers are not yet honored by the R171 lint).
+# Cannot use ProtectSystem=strict — it remounts the whole hierarchy and
+# would fight the /proc/sys + /etc/sysctl.d writes; ProtectSystem=full
+# leaves /proc writable while locking /usr+/boot+/etc, and /etc/sysctl.d is
+# re-opened via ReadWritePaths.
+ProtectSystem=full
+ProtectKernelTunables=false
 ReadWritePaths=/etc/sysctl.d /proc/sys/vm
 
 [Install]
