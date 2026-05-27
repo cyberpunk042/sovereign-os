@@ -251,6 +251,13 @@ DASHBOARD_ROUTES = {
         "label": "D-15 Sandboxes (read-only selfdef MS032/MS036 mirror)",
         "source_repo": "selfdef-mirror",
     },
+    "profile-mirror": {
+        "port": 8117,
+        "healthz_path": "/healthz",
+        "subpath": "/profile-mirror/",
+        "label": "D-02 Profile Choices (read-only selfdef MS040 mirror)",
+        "source_repo": "selfdef-mirror",
+    },
 }
 
 KNOWN_SLUGS = list(DASHBOARD_ROUTES.keys())

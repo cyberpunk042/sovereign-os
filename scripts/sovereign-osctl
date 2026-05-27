@@ -7934,6 +7934,15 @@ case "${cmd}" in
     # selfdefctl + MS003 only. Verbs: snapshot / summaries (+ --json).
     "${__REPO_ROOT}/scripts/mirror/selfdef-sandbox-mirror.py" "$@"
     ;;
+  profile-mirror)
+    # M060 D-02 (R10063-R10068): READ-ONLY consumer of the selfdef active-
+    # profile mirror (MS007 typed-mirror crate selfdef-profile-mirror). Projects
+    # selfdef MS040 six-profile authority matrix active selection + MS039 L0..L6
+    # envelope + transition history for the D-02 cockpit dashboard. sovereign-os
+    # NEVER mutates IPS state; profile switch is `sovereign profile set` + MS003
+    # only. Offline → MS040 R09535 default (Private). Verb: show (+ --json).
+    "${__REPO_ROOT}/scripts/mirror/selfdef-profile-mirror.py" "$@"
+    ;;
   compliance)
     # R458: §1g/§1h compliance dashboard aggregator. Consolidates the
     # 4-tool operator-§1g compliance instrument suite (R453 surface-map
