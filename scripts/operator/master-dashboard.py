@@ -209,6 +209,13 @@ DASHBOARD_ROUTES = {
         "label": "D-06 Pending Approvals (operator queue + M065 stage gates)",
         "source_repo": "sovereign-os",
     },
+    "rollback": {
+        "port": 8111,
+        "healthz_path": "/healthz",
+        "subpath": "/rollback/",
+        "label": "D-08 Rollback Points (ZFS snapshots + commit history + dry-run)",
+        "source_repo": "sovereign-os",
+    },
 }
 
 KNOWN_SLUGS = list(DASHBOARD_ROUTES.keys())

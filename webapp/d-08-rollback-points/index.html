@@ -140,41 +140,34 @@
 <div class="toast" id="toast">copied</div>
 
 <script>
-  // -------- mock seed data (publisher API at /api/d-08/snapshot when wired) -----
-  // No mutations from this surface — see MS043 R10212.
-  const seed = {
-    snapshotTotal: 142,
-    commits24h: 17,
-    diskGib: 38.4,
-    oldestAge: "23d 4h",
-    lastRollback: "12d ago",
-    snapshots: [
-      { id: "rpool/sovereign-os@pre-M080-2026-05-19T03:12", dataset: "rpool/sovereign-os", taken: "2026-05-19T03:12Z", kind: "pre-commit", used: "412 MiB", refer: "8.2 GiB", tag: "MS041 c6147b5" },
-      { id: "rpool/sovereign-os@pre-M079-2026-05-19T02:48", dataset: "rpool/sovereign-os", taken: "2026-05-19T02:48Z", kind: "pre-commit", used: "186 MiB", refer: "8.1 GiB", tag: "MS041 4aeed37" },
-      { id: "rpool/selfdef@pre-MS007#4-2026-05-19T03:30", dataset: "rpool/selfdef", taken: "2026-05-19T03:30Z", kind: "pre-commit", used: "12 MiB", refer: "1.4 GiB", tag: "MS041 bfd7405" },
-      { id: "rpool/memory@daily-2026-05-19T00:00", dataset: "rpool/memory", taken: "2026-05-19T00:00Z", kind: "daily", used: "78 MiB", refer: "3.6 GiB", tag: "auto" },
-      { id: "rpool/adapters@pre-promote-lora-NVFP4-2026-05-18", dataset: "rpool/adapters", taken: "2026-05-18T22:14Z", kind: "pre-commit", used: "1.2 GiB", refer: "14.7 GiB", tag: "MS041 trip-gate" },
-      { id: "rpool/audit@daily-2026-05-19T00:00", dataset: "rpool/audit", taken: "2026-05-19T00:00Z", kind: "daily", used: "4 MiB", refer: "190 MiB", tag: "auto" },
-      { id: "rpool/sovereign-os@manual-pre-cockpit-2026-05-18", dataset: "rpool/sovereign-os", taken: "2026-05-18T19:00Z", kind: "manual", used: "640 MiB", refer: "7.9 GiB", tag: "operator" }
-    ],
-    timeline: [
-      { ts: "03:30", type: "snapshot", text: "rpool/selfdef@pre-MS007#4 — auto before MS041 commit bfd7405" },
-      { ts: "03:30", type: "commit", text: "MS041 bfd7405 — selfdef-sandbox-mirror 4 of 9 (4 files, +480 lines)" },
-      { ts: "03:12", type: "snapshot", text: "rpool/sovereign-os@pre-M080 — auto before MS041 commit c6147b5" },
-      { ts: "03:12", type: "commit", text: "MS041 c6147b5 — webapp/d-07-memory-changes (2 files, +291 lines)" },
-      { ts: "02:55", type: "snapshot", text: "rpool/selfdef@pre-MS007#3 — auto before MS041 commit a2d7c11" },
-      { ts: "02:55", type: "commit", text: "MS041 a2d7c11 — selfdef-capability-mirror 3 of 9 (4 files, +477 lines)" },
-      { ts: "02:48", type: "snapshot", text: "rpool/sovereign-os@pre-M079 — auto before MS041 commit 4aeed37" },
-      { ts: "02:48", type: "commit", text: "MS041 4aeed37 — webapp/d-03-model-health (2 files, +320 lines)" }
-    ]
+  // Live data from the read-only publisher API (scripts/operator/rollback-api.py).
+  // No mutations from this surface — see MS043 R10212. Empty/offline-safe default.
+  let seed = {
+    snapshotTotal: 0, commits24h: 0, diskGib: 0, oldestAge: "—",
+    lastRollback: "never", snapshots: [], timeline: []
   };
   let currentPreview = null;
 
-  document.getElementById('s-snapshots').textContent = seed.snapshotTotal;
-  document.getElementById('s-commits').textContent = seed.commits24h;
-  document.getElementById('s-disk').textContent = seed.diskGib.toFixed(1);
-  document.getElementById('s-oldest').textContent = seed.oldestAge;
-  document.getElementById('s-last-rollback').textContent = seed.lastRollback;
+  function renderSummary() {
+    document.getElementById('s-snapshots').textContent = seed.snapshotTotal ?? 0;
+    document.getElementById('s-commits').textContent = seed.commits24h ?? 0;
+    document.getElementById('s-disk').textContent = (seed.diskGib ?? 0).toFixed(1);
+    document.getElementById('s-oldest').textContent = seed.oldestAge || "—";
+    document.getElementById('s-last-rollback').textContent = seed.lastRollback || "never";
+  }
+
+  async function load() {
+    try {
+      const r = await fetch('/api/d-08/snapshot', { credentials: 'same-origin' });
+      if (r.ok) {
+        const d = await r.json();
+        seed = Object.assign(seed, d);
+      }
+    } catch (e) { /* offline — keep empty-safe defaults */ }
+    renderSummary();
+    renderSnapshots();
+    renderTimeline();
+  }
 
   function renderSnapshots() {
     const activeDs = new Set([...document.querySelectorAll('#dataset-filters .filter.on')].map(f => f.dataset.ds));
@@ -200,54 +193,54 @@
       tb.appendChild(tr);
     }
   }
-  renderSnapshots();
-
   document.querySelectorAll('#dataset-filters .filter').forEach(f => {
     f.addEventListener('click', () => { f.classList.toggle('on'); renderSnapshots(); });
   });
 
-  // timeline render
-  const tl = document.getElementById('timeline');
-  for (const e of seed.timeline) {
-    const row = document.createElement('div');
-    row.className = 'tl-row ' + e.type;
-    const pillClass = e.type === 'snapshot' ? 'accent' : (e.type === 'commit' ? 'ok' : 'warn');
-    row.innerHTML = `
-      <span class="ts">${e.ts}</span>
-      <span class="type"><span class="pill ${pillClass}">${e.type}</span></span>
-      <span class="body">${e.text}</span>
-    `;
-    tl.appendChild(row);
+  // timeline render (from live /api/d-08/snapshot)
+  function renderTimeline() {
+    const tl = document.getElementById('timeline');
+    tl.innerHTML = '';
+    if (!seed.timeline || !seed.timeline.length) {
+      tl.innerHTML = '<div class="muted" style="font-size:.78rem">no snapshot/commit activity yet — timeline populates from ZFS snapshots + the MS041 commit log</div>';
+      return;
+    }
+    for (const e of seed.timeline) {
+      const row = document.createElement('div');
+      row.className = 'tl-row ' + e.type;
+      const pillClass = e.type === 'snapshot' ? 'accent' : (e.type === 'commit' ? 'ok' : 'warn');
+      row.innerHTML = `
+        <span class="ts">${e.ts}</span>
+        <span class="type"><span class="pill ${pillClass}">${e.type}</span></span>
+        <span class="body">${e.text}</span>
+      `;
+      tl.appendChild(row);
+    }
   }
 
-  // rollback preview — dry-run R10099 (no side effects)
-  function preview(snapId) {
+  // rollback preview — dry-run R10099 (no side effects). Fetches the real plan
+  // from /api/d-08/preview?to=<id>; falls back to a local stub plan when offline.
+  async function preview(snapId) {
     currentPreview = snapId;
     document.getElementById('preview-target').textContent = snapId;
     const box = document.getElementById('preview-box');
     box.classList.add('show');
-    // mock dry-run output — in production this comes from /api/d-08/preview?to=<id>
+    box.innerHTML = '<div class="preview-line diff-ctx">computing dry-run plan…</div>';
+    let lines;
+    try {
+      const r = await fetch('/api/d-08/preview?to=' + encodeURIComponent(snapId), { credentials: 'same-origin' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      lines = (await r.json()).lines;
+    } catch (e) {
+      lines = [
+        { c: 'diff-ctx', t: '== rollback-preview --to ' + snapId + ' (DRY-RUN) ==' },
+        { c: 'diff-add', t: '  + zfs rollback -r ' + snapId },
+        { c: 'diff-ctx', t: '(preview API offline — run `sovereign-osctl rollback preview --to ' + snapId + '`)' },
+        { c: 'diff-ctx', t: 'Apply requires: --confirm + MS003 operator signature' }
+      ];
+    }
     box.innerHTML = '';
-    const lines = [
-      { c: 'diff-ctx', t: '== rollback-preview --to ' + snapId + ' (DRY-RUN, no mutations applied) ==' },
-      { c: 'diff-ctx', t: '' },
-      { c: 'diff-ctx', t: 'ZFS receive plan:' },
-      { c: 'diff-del', t: '  - revert dataset state to ' + snapId.split('@')[0] },
-      { c: 'diff-add', t: '  + zfs rollback -r ' + snapId },
-      { c: 'diff-ctx', t: '' },
-      { c: 'diff-ctx', t: 'MS041 commits between HEAD and snapshot (would be reverted):' },
-      { c: 'diff-del', t: '  bfd7405 crates/selfdef-sandbox-mirror: ship MS007 mirror crate #4' },
-      { c: 'diff-del', t: '  c6147b5 webapp/d-07-memory-changes: ship M060 D-07' },
-      { c: 'diff-del', t: '  a2d7c11 crates/selfdef-capability-mirror: ship MS007 mirror crate #3' },
-      { c: 'diff-ctx', t: '' },
-      { c: 'diff-ctx', t: 'Side effects (committed but reverted on apply):' },
-      { c: 'diff-del', t: '  - 9 files removed' },
-      { c: 'diff-del', t: '  - 1,288 lines removed' },
-      { c: 'diff-add', t: '  + 1,288 lines restored from snapshot' },
-      { c: 'diff-ctx', t: '' },
-      { c: 'diff-ctx', t: 'Apply requires: --confirm + MS003 operator signature' }
-    ];
-    for (const ln of lines) {
+    for (const ln of (lines || [])) {
       const div = document.createElement('div');
       div.className = 'preview-line ' + ln.c;
       div.textContent = ln.t;
@@ -277,9 +270,12 @@
 
   // Cmd-9 / Ctrl-9 keyboard shortcut per R10101
   window.addEventListener('keydown', e => {
-    if ((e.metaKey || e.ctrlKey) && e.key === '9') { e.preventDefault(); window.location.href = './'; }
+    if ((e.metaKey || e.ctrlKey) && e.key === '9') { e.preventDefault(); load(); }
     if ((e.metaKey || e.ctrlKey) && e.key === '0') { e.preventDefault(); window.location.href = '../master-dashboard/'; }
   });
+
+  // initial load from the read-only publisher API
+  load();
 </script>
 
 </body>

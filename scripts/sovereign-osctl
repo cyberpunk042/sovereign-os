@@ -7879,6 +7879,16 @@ case "${cmd}" in
     # key (+ --json).
     "${__REPO_ROOT}/scripts/lifecycle/approval-queue.py" "$@"
     ;;
+  rollback)
+    # M060 D-08 (R10097-R10101): ZFS-snapshot + commit-history rollback-points —
+    # joins the ZFS snapshot inventory (M068, `zfs list -t snapshot`) to the
+    # MS041 commit history (git log) + a dry-run rollback preview (R10099, the
+    # zfs rollback plan + git commits that would be reverted, READ-ONLY).
+    # rollback-apply (R10100) is gated behind --confirm + MS003 signature.
+    # The sovereign-rollback-api daemon serves the D-08 cockpit dashboard from
+    # this same core. Verbs: snapshot / preview --to <id> / commits (+ --json).
+    "${__REPO_ROOT}/scripts/lifecycle/rollback-points.py" "$@"
+    ;;
   compliance)
     # R458: §1g/§1h compliance dashboard aggregator. Consolidates the
     # 4-tool operator-§1g compliance instrument suite (R453 surface-map
