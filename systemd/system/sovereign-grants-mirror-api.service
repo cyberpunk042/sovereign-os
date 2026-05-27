@@ -1,0 +1,49 @@
+[Unit]
+Description=Sovereign grants-mirror read-only API + D-13 dashboard host (M060 R10114-R10115)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/grants-mirror-api.py
+# CROSS-REPO MIRROR — renders selfdef's MS007 typed-mirror grant snapshot
+# (MS037 filesystem / MS038 network / MS035 capability / MS034 communication /
+# MS032+MS036 sandbox grants) READ-ONLY for the D-13 cockpit dashboard. The
+# authoritative grant state lives in selfdef (the IPS). There is NO mutation
+# surface — grant sign/revoke/approve/deny are selfdefctl + MS003 verbs on the
+# IPS side only (R10115 + MS043 R10212).
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/grants-mirror-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default — operator-§1g exposure decision is theirs. To expose
+# beyond loopback, drop /etc/systemd/system/sovereign-grants-mirror-api.service.d/bind.conf:
+#   [Service]
+#   Environment=GRANTS_MIRROR_API_BIND=0.0.0.0
+Environment=GRANTS_MIRROR_API_BIND=127.0.0.1
+Environment=GRANTS_MIRROR_API_PORT=8113
+
+# R171 defense-in-depth (Layer-1 lint enforced). Read-only HTTP surface; reads
+# the selfdef-published mirror artifact + appends the metrics textfile.
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target

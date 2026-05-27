@@ -223,6 +223,13 @@ DASHBOARD_ROUTES = {
         "label": "D-07 Memory Changes (M028 8-type graph diff + promote/forget/pin)",
         "source_repo": "sovereign-os",
     },
+    "grants-mirror": {
+        "port": 8113,
+        "healthz_path": "/healthz",
+        "subpath": "/grants-mirror/",
+        "label": "D-13 Filesystem Grants (read-only selfdef MS007 mirror)",
+        "source_repo": "selfdef-mirror",
+    },
 }
 
 KNOWN_SLUGS = list(DASHBOARD_ROUTES.keys())

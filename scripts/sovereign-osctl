@@ -7898,6 +7898,15 @@ case "${cmd}" in
     # from this same core. Verbs: snapshot / types / lifecycle (+ --json).
     "${__REPO_ROOT}/scripts/intelligence/memory-changes.py" "$@"
     ;;
+  grants-mirror)
+    # M060 D-13 (R10114-R10115): READ-ONLY consumer of the selfdef grants
+    # mirror (MS007 typed-mirror crate selfdef-grants-mirror) — projects
+    # selfdef's MS037/MS038/MS035/MS034/MS032 grant state (filesystem/network/
+    # capability/communication/sandbox) for the D-13 cockpit dashboard.
+    # sovereign-os NEVER mutates IPS state; grant ops are selfdefctl + MS003
+    # on the IPS side only. Verbs: snapshot / summaries (+ --json).
+    "${__REPO_ROOT}/scripts/mirror/selfdef-grants-mirror.py" "$@"
+    ;;
   compliance)
     # R458: §1g/§1h compliance dashboard aggregator. Consolidates the
     # 4-tool operator-§1g compliance instrument suite (R453 surface-map

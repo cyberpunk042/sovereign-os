@@ -56,7 +56,7 @@ Meta requirements (every dashboard):
 | D-10 | eval history (per-task pass/fail + per-model score + adapter-promotion candidates) | `/webapp/d-10-eval-history/` + `scripts/operator/evals-api.py` (+ core `scripts/observability/eval-tracker.py`, CLI `sovereign-osctl evals`, service `sovereign-evals-api.service`) | **✓ shipped (full stack → prod)** | M060 R10106-R10108 |
 | D-11 | adapter status (LoRA inventory + promotion gates + audit trail + rollback) | `/webapp/d-11-adapter-status/` + `scripts/operator/adapters-api.py` (+ core `scripts/inference/adapter-foundry.py`, CLI `sovereign-osctl adapters`, service `sovereign-adapters-api.service`) | **✓ shipped (full stack → prod)** | M060 R10109-R10111 |
 | D-12 | networking (Ring 0-4 traffic via MS007 mirror) | `/webapp/network-edge/index.html` + `/webapp/edge-firewall/index.html` | **✓ shipped (split)** | M060 R10112-R10113 |
-| D-13 | filesystem grants (selfdef MS037 mirror) | — | **MISSING** | M060 R10114-R10115 |
+| D-13 | filesystem grants (selfdef MS037 mirror) | `/webapp/d-13-filesystem-grants/` (fetch-rewired) + `scripts/operator/grants-mirror-api.py` (+ READ-ONLY mirror core `scripts/mirror/selfdef-grants-mirror.py`, CLI `sovereign-osctl grants-mirror`, service `sovereign-grants-mirror-api.service`) | **✓ shipped (full stack → prod, read-only selfdef mirror)** | M060 R10114-R10115 |
 | D-14 | capability tokens (active capability_word grants) | `/webapp/auth-tier/index.html` | **✓ partial** (auth-tier covers tier; capability_word grants pending) | M060 R10116-R10117 |
 | D-15 | sandboxes (MS036 tier A/B/C/D allocation) | — | **MISSING** | M060 R10118-R10119 |
 | D-16 | audit cycles (MS009 results + replay validator) | `/webapp/auditor/index.html` | **✓ shipped** | M060 R10120 |
@@ -66,9 +66,9 @@ Meta requirements (every dashboard):
 | D-20 | peace machine health (5 properties live status) | `/webapp/compliance/index.html` | **✓ partial** (compliance covers some properties; full 5-property live view pending) | M060 R10126-R10127 |
 
 **Coverage summary** (refreshed 2026-05-27 — full-stack §1g 8-surface delivery):
-- **Shipped (full stack → prod)**: D-00, D-01, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-16 (12 dashboards)
+- **Shipped (full stack → prod)**: D-00, D-01, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-13, D-16 (13 dashboards)
 - **Shipped (split or partial)**: D-12, D-14, D-19, D-20 (4 dashboards)
-- **Webapp scaffold present, backend API pending**: D-02, D-13, D-15, D-17, D-18 (5 dashboards). ALL native-runtime cockpit dashboards now reach prod; the remaining 5 are cross-repo / selfdef-domain: D-02 is the selfdef-authority profile mirror (six-profile MS040 matrix); D-13/D-15/D-17/D-18 are selfdef-mirror dashboards (D-040.6/.8 — consume MS007 typed-mirror crates from selfdef). These warrant the cross-repo mirror plumbing (selfdef exposes the typed state, sovereign-os mirrors it read-only) rather than a sovereign-os-native backend.
+- **Webapp scaffold present, backend API pending**: D-02, D-15, D-17, D-18 (4 dashboards). D-13 established the cross-repo READ-ONLY mirror pattern (`scripts/mirror/selfdef-*-mirror.py` core reads the selfdef MS007 typed-mirror artifact, never mutates; grant ops stay selfdefctl + MS003 on the IPS). The selfdef source surfaces now exist for the remaining mirrors: D-15←`/v1/sandbox-tiers` (MS032/MS036), D-17←`/v1/quarantine` (MS042, shipped this session), D-18←`/v1/trust-scores` (MS042, shipped this session). D-02 is the selfdef-authority profile mirror (six-profile MS040 matrix). All replicate the D-13 mirror pattern.
 
 > Core-reuse clusters (one source-of-truth, multiple dashboards, zero schema drift):
 > - **observability** — `scripts/observability/trace-store.py` reads the M049 span log; `cost-tracker.py` (D-04) + `eval-tracker.py` (D-10) reuse its loaders / patterns.

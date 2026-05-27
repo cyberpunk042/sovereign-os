@@ -131,48 +131,37 @@
 <div class="toast" id="toast">copied</div>
 
 <script>
-  // -------- seed (publisher endpoint /api/d-13/snapshot when wired) ----------
-  // Schema mirrors selfdef-grants-mirror::GrantsMirrorSnapshot 1.0.0.
-  // No mutations from this surface — R10115 + R10212.
-  const seed = {
-    schema_version: "1.0.0",
-    captured_at: "2026-05-19T03:35Z",
-    summaries: [
-      { kind: "filesystem", active: 8, pending: 1, expired_24h: 4, revoked_24h: 1, quarantined: 0 },
-      { kind: "network",    active: 3, pending: 0, expired_24h: 2, revoked_24h: 0, quarantined: 0 },
-      { kind: "capability", active: 12, pending: 2, expired_24h: 6, revoked_24h: 0, quarantined: 1 },
-      { kind: "communication", active: 5, pending: 0, expired_24h: 1, revoked_24h: 0, quarantined: 0 },
-      { kind: "sandbox",    active: 4, pending: 1, expired_24h: 2, revoked_24h: 0, quarantined: 0 }
-    ],
-    grants: [
-      { grant_id: "gr-01", kind: "filesystem", scope: "/home/user/sovereign-os/webapp/**", reason: "D-07/D-08 dashboard authoring", issued_at: "2026-05-19T03:00Z", expires_at: "2026-05-19T04:00Z", ttl_seconds: 3600, profile: "private", actor: "operator-fp", state: "active", trace_id: "trace-01" },
-      { grant_id: "gr-02", kind: "filesystem", scope: "/home/user/selfdef/crates/**",      reason: "MS007 mirror crate authoring", issued_at: "2026-05-19T03:00Z", expires_at: "2026-05-19T04:00Z", ttl_seconds: 3600, profile: "private", actor: "operator-fp", state: "active", trace_id: "trace-02" },
-      { grant_id: "gr-03", kind: "network",    scope: "api.github.com:443",                 reason: "gh MCP for issue + PR ops",   issued_at: "2026-05-19T03:00Z", expires_at: "2026-05-19T05:00Z", ttl_seconds: 7200, profile: "private", actor: "operator-fp", state: "active", trace_id: "trace-03" },
-      { grant_id: "gr-04", kind: "capability", scope: "fs.write + git.commit + git.push",   reason: "MS041 commit authority",      issued_at: "2026-05-19T03:00Z", expires_at: "2026-05-19T04:00Z", ttl_seconds: 3600, profile: "private", actor: "operator-fp", state: "active", trace_id: "trace-04" },
-      { grant_id: "gr-05", kind: "sandbox",    scope: "tier-A:rg+parsers",                  reason: "deterministic host tooling",  issued_at: "2026-05-19T03:00Z", expires_at: "2026-05-19T09:00Z", ttl_seconds: 21600, profile: "private", actor: "operator-fp", state: "active", trace_id: "trace-05" },
-      { grant_id: "gr-06", kind: "capability", scope: "tool.invoke(claude-opus)",           reason: "Trinity Logic Engine session", issued_at: "2026-05-19T03:00Z", expires_at: "2026-05-19T03:50Z", ttl_seconds: 3000, profile: "private", actor: "operator-fp", state: "active", trace_id: "trace-06" },
-      { grant_id: "gr-07", kind: "communication", scope: "ipc:tetragon.events",             reason: "Guardian Daemon event loop",  issued_at: "2026-05-19T00:00Z", expires_at: "2026-05-20T00:00Z", ttl_seconds: 86400, profile: "private", actor: "operator-fp", state: "active", trace_id: "trace-07" }
-    ],
-    pending: [
-      { grant_id: "gr-px1", kind: "network",   scope: "huggingface.co:443",  requester: "agent-fp-hf-fetch" },
-      { grant_id: "gr-px2", kind: "capability", scope: "tool.invoke(blackwell-deep-synth)", requester: "operator-fp" },
-      { grant_id: "gr-px3", kind: "filesystem", scope: "/var/lib/sovereign-os/memory/**", requester: "memory-os" }
-    ]
-  };
+  // Live data from the read-only selfdef-grants-mirror publisher API
+  // (scripts/operator/grants-mirror-api.py). Schema mirrors
+  // selfdef-grants-mirror::GrantsMirrorSnapshot 1.0.0. No mutations from this
+  // surface — R10115 + R10212 (grant ops are selfdefctl + MS003 on the IPS).
+  let seed = { schema_version: "1.0.0", mirror_status: "offline", captured_at: null, summaries: [], grants: [], pending: [] };
 
-  // populate kind tiles
-  for (const s of seed.summaries) {
-    const t = document.getElementById('k-' + s.kind);
-    if (t) {
-      t.textContent = s.active + s.pending;
-      t.classList.toggle('warn', s.pending > 0);
-      t.classList.toggle('bad', s.quarantined > 0);
+  function renderSummaries() {
+    for (const s of seed.summaries) {
+      const t = document.getElementById('k-' + s.kind);
+      if (t) {
+        t.textContent = s.active + s.pending;
+        t.classList.toggle('warn', s.pending > 0);
+        t.classList.toggle('bad', s.quarantined > 0);
+      }
+      const a = document.getElementById('ka-' + s.kind);
+      if (a) a.textContent = `${s.active} active · ${s.pending} pending · ${s.quarantined} quarantined`;
     }
-    const a = document.getElementById('ka-' + s.kind);
-    if (a) a.textContent = `${s.active} active · ${s.pending} pending · ${s.quarantined} quarantined`;
+    const attention = (seed.summaries || []).reduce((acc, s) => acc + s.pending + s.quarantined, 0);
+    const att = document.getElementById('k-attention');
+    if (att) att.textContent = attention;
   }
-  const attention = seed.summaries.reduce((acc, s) => acc + s.pending + s.quarantined, 0);
-  document.getElementById('k-attention').textContent = attention;
+
+  async function load() {
+    try {
+      const r = await fetch('/api/d-13/snapshot', { credentials: 'same-origin' });
+      if (r.ok) seed = Object.assign(seed, await r.json());
+    } catch (e) { /* mirror offline — keep empty-safe defaults */ }
+    renderSummaries();
+    renderGrants();
+    renderPending();
+  }
 
   // helpers
   function ttlPctRemaining(g) {
@@ -221,25 +210,36 @@
       `;
       tb.appendChild(tr);
     }
+    if (!tb.children.length) {
+      tb.innerHTML = '<tr><td colspan="9" class="muted">' +
+        (seed.mirror_status === 'offline'
+          ? 'selfdef-grants-mirror offline — no grant state published yet'
+          : 'no active grants match the kind filter') + '</td></tr>';
+    }
   }
-  renderGrants();
   document.querySelectorAll('#kind-filters .filter').forEach(f => f.addEventListener('click', () => { f.classList.toggle('on'); renderGrants(); }));
 
   // pending
-  const pt = document.getElementById('pending-tbody');
-  for (const p of seed.pending) {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><code>${p.grant_id}</code></td>
-      <td><span class="pill warn">${p.kind}</span></td>
-      <td><code>${p.scope}</code></td>
-      <td class="muted">${p.requester}</td>
-      <td>
-        <button onclick="emit('selfdefctl grant approve --grant-id ${p.grant_id}')">approve</button>
-        <button class="danger" onclick="emit('selfdefctl grant deny --grant-id ${p.grant_id}')">deny</button>
-      </td>
-    `;
-    pt.appendChild(tr);
+  function renderPending() {
+    const pt = document.getElementById('pending-tbody');
+    pt.innerHTML = '';
+    for (const p of (seed.pending || [])) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><code>${p.grant_id}</code></td>
+        <td><span class="pill warn">${p.kind}</span></td>
+        <td><code>${p.scope}</code></td>
+        <td class="muted">${p.requester}</td>
+        <td>
+          <button onclick="emit('selfdefctl grant approve --grant-id ${p.grant_id}')">approve</button>
+          <button class="danger" onclick="emit('selfdefctl grant deny --grant-id ${p.grant_id}')">deny</button>
+        </td>
+      `;
+      pt.appendChild(tr);
+    }
+    if (!pt.children.length) {
+      pt.innerHTML = '<tr><td colspan="5" class="muted">no pending grant requests</td></tr>';
+    }
   }
 
   // clipboard helper — web NEVER mutates per R10115 + R10212
@@ -254,13 +254,18 @@
     showToast._h = setTimeout(() => t.classList.remove('show'), 1800);
   }
 
-  // live TTL countdown — re-render every 10s
+  // live TTL countdown — re-render every 10s (client-side); re-fetch the
+  // mirror snapshot every 30s so revoked/expired/new grants surface.
   setInterval(renderGrants, 10000);
+  setInterval(load, 30000);
 
   // master shortcut Cmd-0
   window.addEventListener('keydown', e => {
     if ((e.metaKey || e.ctrlKey) && e.key === '0') { e.preventDefault(); window.location.href = '../master-dashboard/'; }
   });
+
+  // initial load from the read-only selfdef-grants-mirror publisher API
+  load();
 </script>
 
 </body>
