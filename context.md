@@ -199,6 +199,22 @@ Verbatim operator rules, never relax these:
 9. **"never include model identifier in commit messages / PR bodies / pushed artifacts"** — chat replies only.
 10. **"the AI does NOT decide when it's complete"** — operator-controlled session-end via `/goal`. Continue endlessly.
 
+## Build/test hygiene (environment caveat — 2026-05-27)
+
+**DO NOT run `cargo test --workspace` / `cargo build --workspace` here.** This
+repo has **475 crates** and the sibling selfdef has **535**; a full-workspace
+build produces a `target/` of ~13 GB *per repo*. The container has ~16 GB
+free headroom, so a workspace build of both (or one on top of an existing
+selfdef `target/`) **fills the disk** (`No space left on device` — the shell
+itself stops being able to write). Observed + recovered 2026-05-27 (freed by
+`rm -rf sovereign-os/target`; pure rebuildable cache, safe).
+
+**Instead:** build/test **per-crate** — `cargo test -p sovereign-<crate>` —
+which is also the operator's established cadence (one small crate per logical
+unit, direct-to-main, L3-gated). If you must clear space:
+`rm -rf <repo>/target` is safe (rebuildable). Never run a whole-workspace
+compile as a "quick check".
+
 ## "Two solutions" rule — every new contribution
 
 Before any new code / SDD / milestone / dashboard / CLI / mirror / systemd unit lands, contributor MUST answer:
