@@ -72,6 +72,7 @@ impl Carousel {
     }
 
     /// Go next.
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> bool {
         if self.current + 1 < self.slide_count {
             self.current += 1;

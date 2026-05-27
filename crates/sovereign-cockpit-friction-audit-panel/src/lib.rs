@@ -222,7 +222,7 @@ impl Panel {
         for dirent in read {
             let dirent = dirent.map_err(|e| PanelError::Io(e.to_string()))?;
             let path = dirent.path();
-            if path.extension().map_or(true, |e| e != "json") {
+            if path.extension().is_none_or(|e| e != "json") {
                 continue;
             }
             let bytes = match fs::read(&path) {

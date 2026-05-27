@@ -97,6 +97,7 @@ pub enum RecordError {
 
 impl InvocationRecord {
     /// New.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         trace_id: &str,
         tool: ToolId,

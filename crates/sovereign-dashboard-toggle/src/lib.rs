@@ -148,10 +148,10 @@ impl ToggleConfig {
             }
         }
         // D-00 master dashboard must never be Disabled or Paused (anchor surface).
-        if let Some(state) = self.slots.get("D-00") {
-            if *state != SlotState::Enabled {
-                return Err(ToggleError::MasterDashboardLocked);
-            }
+        if let Some(state) = self.slots.get("D-00")
+            && *state != SlotState::Enabled
+        {
+            return Err(ToggleError::MasterDashboardLocked);
         }
         // LAN exposure refused when signature empty per R10198.
         if self.exposure == ExposureLevel::Lan && self.signature.is_empty() {

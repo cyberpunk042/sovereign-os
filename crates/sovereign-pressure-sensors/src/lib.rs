@@ -209,7 +209,7 @@ impl PressureSnapshot {
         for r in &self.readings {
             best = Some(match best {
                 None => (r.axis, r.value),
-                Some((a, v)) if r.value > v => (r.axis, r.value),
+                Some((_a, v)) if r.value > v => (r.axis, r.value),
                 Some(b) => b,
             });
         }

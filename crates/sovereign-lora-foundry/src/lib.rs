@@ -266,7 +266,7 @@ mod tests {
     fn pipeline_walk_reaches_signed_promotion_in_6_advances() {
         let mut p = promo(AdapterSlot::CodingStyle);
         let mut steps = 0;
-        while let Ok(_) = p.advance() {
+        while p.advance().is_ok() {
             steps += 1;
             if steps > 10 {
                 panic!("loop did not terminate");

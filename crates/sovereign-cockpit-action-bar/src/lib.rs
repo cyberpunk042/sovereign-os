@@ -109,10 +109,10 @@ impl ActionBar {
                 SlotKind::Secondary => &self.secondary,
                 SlotKind::Tertiary => &self.tertiary,
             };
-            if let Some(s) = s {
-                if s.id == id {
-                    return true;
-                }
+            if let Some(s) = s
+                && s.id == id
+            {
+                return true;
             }
         }
         false
@@ -154,18 +154,19 @@ impl ActionBar {
         if self.schema_version != SCHEMA_VERSION {
             return Err(ActionBarError::SchemaMismatch);
         }
-        for s in [&self.primary, &self.secondary, &self.tertiary] {
-            if let Some(s) = s {
-                check_slot(s)?;
-            }
+        for s in [&self.primary, &self.secondary, &self.tertiary]
+            .into_iter()
+            .flatten()
+        {
+            check_slot(s)?;
         }
         use std::collections::HashSet;
         let mut seen: HashSet<&str> = HashSet::new();
         for s in [&self.primary, &self.secondary, &self.tertiary] {
-            if let Some(s) = s {
-                if !seen.insert(s.id.as_str()) {
-                    return Err(ActionBarError::DuplicateAcrossSlots(s.id.clone()));
-                }
+            if let Some(s) = s
+                && !seen.insert(s.id.as_str())
+            {
+                return Err(ActionBarError::DuplicateAcrossSlots(s.id.clone()));
             }
         }
         Ok(())
@@ -269,7 +270,7 @@ mod tests {
         let mut b = ActionBar::new();
         b.set(SlotKind::Primary, slot("x", true, false)).unwrap();
         b.set(SlotKind::Primary, slot("x", false, true)).unwrap();
-        assert_eq!(b.primary.as_ref().unwrap().danger, true);
+        assert!(b.primary.as_ref().unwrap().danger);
     }
 
     #[test]

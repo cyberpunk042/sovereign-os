@@ -114,6 +114,7 @@ impl FindReplaceBar {
     }
 
     /// Next match (wraps).
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Result<u64, FindReplaceError> {
         if self.match_offsets.is_empty() {
             return Err(FindReplaceError::NoMatches);

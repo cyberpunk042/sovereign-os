@@ -114,11 +114,7 @@ impl IconSetRegistry {
         // Closest size, preferring colour match.
         let mut best: Option<(&Variant, u32, bool)> = None; // (variant, |delta|, color_matches)
         for v in &icon.variants {
-            let delta = if v.size_px >= size_px {
-                v.size_px - size_px
-            } else {
-                size_px - v.size_px
-            };
+            let delta = v.size_px.abs_diff(size_px);
             let cmatch = v.color_token == color_token;
             let is_better = match best {
                 None => true,

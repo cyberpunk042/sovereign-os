@@ -106,10 +106,10 @@ impl RowHoverAffordance {
             return Err(HoverError::SchemaMismatch);
         }
         for r in [&self.hovered_row, &self.focused_row, &self.pinned_row] {
-            if let Some(s) = r {
-                if s.is_empty() {
-                    return Err(HoverError::EmptyRow);
-                }
+            if let Some(s) = r
+                && s.is_empty()
+            {
+                return Err(HoverError::EmptyRow);
             }
         }
         Ok(())

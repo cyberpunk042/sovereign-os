@@ -112,17 +112,17 @@ impl EmojiShortcode {
         let bytes = text.as_bytes();
         let mut i = 0;
         while i < bytes.len() {
-            if bytes[i] == b':' {
-                if let Some(end) = bytes[i + 1..].iter().position(|&b| b == b':') {
-                    let name = &text[i + 1..i + 1 + end];
-                    if !name.is_empty()
-                        && !name.chars().any(|c| c.is_whitespace())
-                        && let Some(glyph) = self.lookup(name)
-                    {
-                        out.push_str(glyph);
-                        i += end + 2;
-                        continue;
-                    }
+            if bytes[i] == b':'
+                && let Some(end) = bytes[i + 1..].iter().position(|&b| b == b':')
+            {
+                let name = &text[i + 1..i + 1 + end];
+                if !name.is_empty()
+                    && !name.chars().any(|c| c.is_whitespace())
+                    && let Some(glyph) = self.lookup(name)
+                {
+                    out.push_str(glyph);
+                    i += end + 2;
+                    continue;
                 }
             }
             // Push UTF-8-safe one char at a time.

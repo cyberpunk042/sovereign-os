@@ -168,10 +168,10 @@ impl TitlebarConfig {
                 return Err(TitlebarError::EmptySegment);
             }
         }
-        if let Some(c) = &self.pinned_status {
-            if c.label.is_empty() {
-                return Err(TitlebarError::EmptyChipLabel);
-            }
+        if let Some(c) = &self.pinned_status
+            && c.label.is_empty()
+        {
+            return Err(TitlebarError::EmptyChipLabel);
         }
         Ok(())
     }

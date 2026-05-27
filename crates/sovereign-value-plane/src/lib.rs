@@ -16,10 +16,10 @@
 //! Doctrines preserved verbatim:
 //!
 //! > "PRM proposes value, CPU applies law, Oracle verifies high-stakes commitments"
-//!   (E0252 dump 7849)
+//! > (E0252 dump 7849)
 //!
 //! > "Intelligence is knowing which thoughts deserve more life"
-//!   (E0257 dump 8120 verbatim closing rule)
+//! > (E0257 dump 8120 verbatim closing rule)
 //!
 //! Standing rule: We do not minimize anything.
 
@@ -438,7 +438,7 @@ mod tests {
 
     #[test]
     fn zero_vector_aggregates_to_zero() {
-        let zero = RewardVector::default();
+        let _zero = RewardVector::default();
         // default() = all zeros → risk/latency/cost contribute 1.0 due to inversion
         // → not all zeros. Build explicit all-zero contributions.
         let mut v = RewardVector::default();

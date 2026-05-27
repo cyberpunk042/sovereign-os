@@ -208,14 +208,14 @@ impl TransitionLog {
                     reason: e.reason,
                 });
             }
-            if let Some(p) = prev_at {
-                if e.at.as_str() < p {
-                    return Err(TransitionError::TimestampRegress {
-                        idx,
-                        at: e.at.clone(),
-                        prev: p.into(),
-                    });
-                }
+            if let Some(p) = prev_at
+                && e.at.as_str() < p
+            {
+                return Err(TransitionError::TimestampRegress {
+                    idx,
+                    at: e.at.clone(),
+                    prev: p.into(),
+                });
             }
             prev_at = Some(&e.at);
         }

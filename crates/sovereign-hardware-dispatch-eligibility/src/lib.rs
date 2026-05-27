@@ -110,15 +110,15 @@ impl EligibilityTableau {
                 .ok_or(EligibilityError::LoadMissingTarget(target))?;
 
             // Role check
-            if let Some(req_role) = request.require_role {
-                if rec.role != req_role {
-                    results.push(TargetEligibility {
-                        target,
-                        eligible: false,
-                        reason: Some(ExclusionReason::RoleMismatch),
-                    });
-                    continue;
-                }
+            if let Some(req_role) = request.require_role
+                && rec.role != req_role
+            {
+                results.push(TargetEligibility {
+                    target,
+                    eligible: false,
+                    reason: Some(ExclusionReason::RoleMismatch),
+                });
+                continue;
             }
 
             // Latency check

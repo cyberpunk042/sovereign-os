@@ -86,7 +86,7 @@ impl RadialGauge {
     pub fn fill_bp(&self) -> u32 {
         let span = (self.max - self.min) as i128;
         let v = (self.value - self.min) as i128;
-        ((v * 10_000) / span).max(0).min(10_000) as u32
+        ((v * 10_000) / span).clamp(0, 10_000) as u32
     }
 
     /// Zone classification.

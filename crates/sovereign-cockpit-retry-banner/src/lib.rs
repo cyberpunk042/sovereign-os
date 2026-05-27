@@ -141,10 +141,10 @@ impl RetryBanner {
         if self.schema_version != SCHEMA_VERSION {
             return Err(BannerError::SchemaMismatch);
         }
-        if let Phase::Failed { error, .. } = &self.phase {
-            if error.is_empty() {
-                return Err(BannerError::EmptyError);
-            }
+        if let Phase::Failed { error, .. } = &self.phase
+            && error.is_empty()
+        {
+            return Err(BannerError::EmptyError);
         }
         Ok(())
     }

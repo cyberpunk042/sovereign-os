@@ -118,19 +118,18 @@ impl LanguagePack {
 
     /// Translate a key. Falls back to default_locale then to key.
     pub fn translate<'a>(&'a self, key: &'a str) -> &'a str {
-        if let Some(t) = self.tables.iter().find(|t| t.locale_tag == self.active) {
-            if let Some(s) = t.strings.get(key) {
-                return s.as_str();
-            }
+        if let Some(t) = self.tables.iter().find(|t| t.locale_tag == self.active)
+            && let Some(s) = t.strings.get(key)
+        {
+            return s.as_str();
         }
         if let Some(t) = self
             .tables
             .iter()
             .find(|t| t.locale_tag == self.default_locale)
+            && let Some(s) = t.strings.get(key)
         {
-            if let Some(s) = t.strings.get(key) {
-                return s.as_str();
-            }
+            return s.as_str();
         }
         key
     }

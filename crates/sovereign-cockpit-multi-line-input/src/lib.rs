@@ -88,7 +88,7 @@ impl MultiLineInput {
             if chars == 0 {
                 count = count.saturating_add(1);
             } else {
-                let wraps = (chars as u32 + self.soft_wrap_cols - 1) / self.soft_wrap_cols;
+                let wraps = (chars as u32).div_ceil(self.soft_wrap_cols);
                 count = count.saturating_add(wraps.max(1));
             }
         }

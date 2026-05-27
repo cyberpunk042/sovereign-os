@@ -158,7 +158,7 @@ impl ElevationStack {
         if self.schema_version != SCHEMA_VERSION {
             return Err(StackError::SchemaMismatch);
         }
-        for (id, _) in &self.layers {
+        for id in self.layers.keys() {
             if id.is_empty() {
                 return Err(StackError::EmptyId);
             }

@@ -166,13 +166,13 @@ impl MessageComposer {
         if !self.is_ready_to_send() {
             return Err(ComposerError::NothingToSend);
         }
-        if let Some(scheduled) = self.send_at_ms {
-            if now_ms < scheduled {
-                return Err(ComposerError::NotYetDue {
-                    send_at_ms: scheduled,
-                    now_ms,
-                });
-            }
+        if let Some(scheduled) = self.send_at_ms
+            && now_ms < scheduled
+        {
+            return Err(ComposerError::NotYetDue {
+                send_at_ms: scheduled,
+                now_ms,
+            });
         }
         self.phase = Phase::Sending;
         self.send_attempts = self.send_attempts.saturating_add(1);
@@ -217,10 +217,10 @@ impl MessageComposer {
                 return Err(ComposerError::EmptyAttachment);
             }
         }
-        if let Some(p) = &self.reply_to {
-            if p.is_empty() {
-                return Err(ComposerError::EmptyParent);
-            }
+        if let Some(p) = &self.reply_to
+            && p.is_empty()
+        {
+            return Err(ComposerError::EmptyParent);
         }
         Ok(())
     }

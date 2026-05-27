@@ -132,10 +132,10 @@ impl PrintOptions {
 
     /// Set page range.
     pub fn set_range(&mut self, range: PageRange) -> Result<(), PrintError> {
-        if let PageRange::From { from, to } = &range {
-            if from > to {
-                return Err(PrintError::BadRange(*from, *to));
-            }
+        if let PageRange::From { from, to } = &range
+            && from > to
+        {
+            return Err(PrintError::BadRange(*from, *to));
         }
         self.page_range = range;
         Ok(())
@@ -152,10 +152,10 @@ impl PrintOptions {
         if self.copies == 0 {
             return Err(PrintError::ZeroCopies);
         }
-        if let PageRange::From { from, to } = &self.page_range {
-            if from > to {
-                return Err(PrintError::BadRange(*from, *to));
-            }
+        if let PageRange::From { from, to } = &self.page_range
+            && from > to
+        {
+            return Err(PrintError::BadRange(*from, *to));
         }
         Ok(())
     }

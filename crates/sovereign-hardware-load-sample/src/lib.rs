@@ -129,14 +129,14 @@ impl LoadSnapshot {
                     pct: l.util_pct,
                 });
             }
-            if let Some(rec) = registry.get(l.target) {
-                if l.vram_used_gb > rec.vram_gb {
-                    return Err(LoadError::VramOverflow {
-                        target: l.target,
-                        used: l.vram_used_gb,
-                        cap: rec.vram_gb,
-                    });
-                }
+            if let Some(rec) = registry.get(l.target)
+                && l.vram_used_gb > rec.vram_gb
+            {
+                return Err(LoadError::VramOverflow {
+                    target: l.target,
+                    used: l.vram_used_gb,
+                    cap: rec.vram_gb,
+                });
             }
         }
         Ok(())

@@ -70,7 +70,7 @@ impl KeyboardPillbox {
             return Err(PillboxError::EmptyChord);
         }
         let parts: Vec<&str> = raw
-            .split(|c: char| c == '+' || c == '-')
+            .split(['+', '-'])
             .map(|s| s.trim())
             .filter(|s| !s.is_empty())
             .collect();

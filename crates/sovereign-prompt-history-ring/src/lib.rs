@@ -54,11 +54,11 @@ impl PromptHistoryRing {
         if prompt.is_empty() {
             return Err(HistoryError::EmptyEntry);
         }
-        if let Some(last) = self.entries.last() {
-            if last == prompt {
-                return Ok(());
-            } // dedupe consecutive
-        }
+        if let Some(last) = self.entries.last()
+            && last == prompt
+        {
+            return Ok(());
+        } // dedupe consecutive
         self.entries.push(prompt.into());
         while self.entries.len() > MAX_ENTRIES {
             self.entries.remove(0);
@@ -84,6 +84,7 @@ impl PromptHistoryRing {
 
     /// Move cursor to the next (newer) entry; returns the entry text or
     /// None when cursor walks off the end.
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Option<&str> {
         let cur = self.cursor?;
         if cur + 1 >= self.entries.len() {

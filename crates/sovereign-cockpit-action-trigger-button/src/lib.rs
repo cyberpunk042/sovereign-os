@@ -107,10 +107,10 @@ impl ActionTriggerButton {
 
     /// Tick — auto-reset Success/Failed after transient_ms.
     pub fn tick(&mut self, now_ms: u64) -> Phase {
-        if matches!(self.phase, Phase::Success | Phase::Failed) {
-            if now_ms.saturating_sub(self.last_change_ms) >= self.transient_ms {
-                self.phase = Phase::Idle;
-            }
+        if matches!(self.phase, Phase::Success | Phase::Failed)
+            && now_ms.saturating_sub(self.last_change_ms) >= self.transient_ms
+        {
+            self.phase = Phase::Idle;
         }
         self.phase
     }

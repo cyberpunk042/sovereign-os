@@ -207,7 +207,7 @@ impl PersonalizationConfig {
 
     /// Apply a profile transition by name. Returns the new effective prefs.
     pub fn switch_profile(&mut self, name: &str) -> Result<Preferences, PersonalizationError> {
-        if !PROFILE_NAMES.iter().any(|&n| n == name) {
+        if !PROFILE_NAMES.contains(&name) {
             return Err(PersonalizationError::UnknownProfile(name.into()));
         }
         self.active_profile = name.into();

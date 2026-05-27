@@ -130,13 +130,13 @@ impl AriaLiveRouter {
         if text.is_empty() {
             return Err(RouterError::EmptyText);
         }
-        if let Some(last) = self.recent.last() {
-            if now_ms < last.ts_ms {
-                return Err(RouterError::NonMonotonic {
-                    prev: last.ts_ms,
-                    new: now_ms,
-                });
-            }
+        if let Some(last) = self.recent.last()
+            && now_ms < last.ts_ms
+        {
+            return Err(RouterError::NonMonotonic {
+                prev: last.ts_ms,
+                new: now_ms,
+            });
         }
         let region = Self::region_for(sev);
         let cutoff = now_ms.saturating_sub(self.dedup_ms);

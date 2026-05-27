@@ -162,10 +162,10 @@ impl WorkspaceState {
                 return Err(WorkspaceError::EmptyKind);
             }
         }
-        if let Some(a) = &self.active_pane {
-            if !self.panes.iter().any(|p| &p.id == a) {
-                return Err(WorkspaceError::Unknown(a.clone()));
-            }
+        if let Some(a) = &self.active_pane
+            && !self.panes.iter().any(|p| &p.id == a)
+        {
+            return Err(WorkspaceError::Unknown(a.clone()));
         }
         Ok(())
     }

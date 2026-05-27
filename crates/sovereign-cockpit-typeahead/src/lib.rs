@@ -189,13 +189,13 @@ impl Typeahead {
             return Err(TypeaheadError::SchemaMismatch);
         }
         check_candidates(&self.candidates)?;
-        if let Some(a) = self.active {
-            if a >= self.candidates.len() {
-                return Err(TypeaheadError::ActiveOutOfRange {
-                    active: a,
-                    len: self.candidates.len(),
-                });
-            }
+        if let Some(a) = self.active
+            && a >= self.candidates.len()
+        {
+            return Err(TypeaheadError::ActiveOutOfRange {
+                active: a,
+                len: self.candidates.len(),
+            });
         }
         Ok(())
     }

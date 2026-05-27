@@ -173,10 +173,10 @@ impl TreeView {
             return Err(TreeError::SchemaMismatch);
         }
         check_nodes(&self.nodes)?;
-        if let Some(s) = &self.selected {
-            if !self.nodes.iter().any(|n| &n.id == s) {
-                return Err(TreeError::UnknownSelection(s.clone()));
-            }
+        if let Some(s) = &self.selected
+            && !self.nodes.iter().any(|n| &n.id == s)
+        {
+            return Err(TreeError::UnknownSelection(s.clone()));
         }
         Ok(())
     }
@@ -199,13 +199,13 @@ fn check_nodes(nodes: &[Node]) -> Result<(), TreeError> {
         parents.insert(n.id.as_str(), n.parent_id.as_deref());
     }
     for n in nodes {
-        if let Some(p) = &n.parent_id {
-            if !ids.contains(p.as_str()) {
-                return Err(TreeError::UnknownParent {
-                    child: n.id.clone(),
-                    parent: p.clone(),
-                });
-            }
+        if let Some(p) = &n.parent_id
+            && !ids.contains(p.as_str())
+        {
+            return Err(TreeError::UnknownParent {
+                child: n.id.clone(),
+                parent: p.clone(),
+            });
         }
     }
     // Cycle detection: walk parent chain from each node; bail on revisit.

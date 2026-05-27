@@ -77,13 +77,13 @@ impl LoadingEta {
         if progress_pct > 100 {
             return Err(EtaError::ProgressOver100(progress_pct));
         }
-        if let Some(last) = self.samples.last() {
-            if ts_ms < last.ts_ms {
-                return Err(EtaError::NonMonotonic {
-                    prev: last.ts_ms,
-                    new: ts_ms,
-                });
-            }
+        if let Some(last) = self.samples.last()
+            && ts_ms < last.ts_ms
+        {
+            return Err(EtaError::NonMonotonic {
+                prev: last.ts_ms,
+                new: ts_ms,
+            });
         }
         self.samples.push(Sample {
             ts_ms,

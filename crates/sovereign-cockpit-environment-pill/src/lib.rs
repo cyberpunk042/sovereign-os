@@ -94,10 +94,10 @@ pub enum PillError {
 impl EnvironmentPill {
     /// New.
     pub fn new(env: Env, confirm_threshold: Risk) -> Result<Self, PillError> {
-        if let Env::Custom { label, .. } = &env {
-            if label.is_empty() {
-                return Err(PillError::EmptyLabel);
-            }
+        if let Env::Custom { label, .. } = &env
+            && label.is_empty()
+        {
+            return Err(PillError::EmptyLabel);
         }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
@@ -116,10 +116,10 @@ impl EnvironmentPill {
         if self.schema_version != SCHEMA_VERSION {
             return Err(PillError::SchemaMismatch);
         }
-        if let Env::Custom { label, .. } = &self.env {
-            if label.is_empty() {
-                return Err(PillError::EmptyLabel);
-            }
+        if let Env::Custom { label, .. } = &self.env
+            && label.is_empty()
+        {
+            return Err(PillError::EmptyLabel);
         }
         Ok(())
     }

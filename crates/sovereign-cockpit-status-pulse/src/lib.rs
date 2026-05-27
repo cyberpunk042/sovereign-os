@@ -174,7 +174,7 @@ mod tests {
         let s = StatusPulse::new(1000, 30, 90, 50, true).unwrap();
         for t in 0..1000 {
             let b = s.brightness_pct(t);
-            assert!(b >= 30 && b <= 90, "t={t} b={b}");
+            assert!((30..=90).contains(&b), "t={t} b={b}");
         }
     }
 

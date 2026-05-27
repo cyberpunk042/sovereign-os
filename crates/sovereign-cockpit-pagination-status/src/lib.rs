@@ -142,7 +142,7 @@ fn group_thousands(n: u64) -> String {
     let len = bytes.len();
     for (i, b) in bytes.iter().enumerate() {
         let rem = len - i;
-        if i > 0 && rem % 3 == 0 {
+        if i > 0 && rem.is_multiple_of(3) {
             out.push(',');
         }
         out.push(*b as char);

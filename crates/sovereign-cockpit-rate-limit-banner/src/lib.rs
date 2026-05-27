@@ -84,7 +84,7 @@ impl RateLimitBanner {
             return BannerRender::Hidden;
         }
         let remaining_ms = self.throttled_until_ms - now_ms;
-        let remaining_seconds = ((remaining_ms + 999) / 1000) as u32; // ceil
+        let remaining_seconds = remaining_ms.div_ceil(1000) as u32; // ceil
         BannerRender::Countdown {
             message: format!("{} — try again in {}s", self.reason, remaining_seconds),
             remaining_seconds,

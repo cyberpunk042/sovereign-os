@@ -146,14 +146,12 @@ fn markdown_link(s: &str) -> bool {
     let bytes = s.as_bytes();
     let mut i = 0;
     while i + 4 < bytes.len() {
-        if bytes[i] == b'[' {
-            if let Some(close) = bytes[i + 1..].iter().position(|&b| b == b']') {
-                let next = i + 1 + close + 1;
-                if next < bytes.len() && bytes[next] == b'(' {
-                    if bytes[next + 1..].iter().any(|&b| b == b')') {
-                        return true;
-                    }
-                }
+        if bytes[i] == b'['
+            && let Some(close) = bytes[i + 1..].iter().position(|&b| b == b']')
+        {
+            let next = i + 1 + close + 1;
+            if next < bytes.len() && bytes[next] == b'(' && bytes[next + 1..].contains(&b')') {
+                return true;
             }
         }
         i += 1;

@@ -193,13 +193,13 @@ fn check_nodes(nodes: &[CheckNode]) -> Result<(), CheckTreeError> {
         }
     }
     for n in nodes {
-        if let Some(p) = &n.parent_id {
-            if !ids.contains(p.as_str()) {
-                return Err(CheckTreeError::UnknownParent {
-                    child: n.id.clone(),
-                    parent: p.clone(),
-                });
-            }
+        if let Some(p) = &n.parent_id
+            && !ids.contains(p.as_str())
+        {
+            return Err(CheckTreeError::UnknownParent {
+                child: n.id.clone(),
+                parent: p.clone(),
+            });
         }
     }
     Ok(())

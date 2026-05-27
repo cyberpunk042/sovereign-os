@@ -119,6 +119,7 @@ impl CoachmarkTour {
     }
 
     /// Advance.
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Result<(), TourError> {
         if self.status != Status::Running {
             return Err(TourError::NotRunning);

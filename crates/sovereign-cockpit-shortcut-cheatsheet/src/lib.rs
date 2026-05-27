@@ -10,7 +10,7 @@
 #![warn(missing_docs)]
 
 use serde::{Deserialize, Serialize};
-use sovereign_cockpit_keystroke_map::{KeyBinding, KeystrokeMap, Modifiers, Scope};
+use sovereign_cockpit_keystroke_map::{KeyBinding, KeystrokeMap, Scope};
 use std::collections::BTreeMap;
 use thiserror::Error;
 
@@ -73,7 +73,7 @@ pub fn render(map: &KeystrokeMap, fmt: Format) -> String {
     }
     // Sort each scope's vec by chord.
     for v in by_scope.values_mut() {
-        v.sort_by(|a, b| chord(a).cmp(&chord(b)));
+        v.sort_by_key(|a| chord(a));
     }
     match fmt {
         Format::Markdown => render_markdown(&by_scope),
@@ -138,6 +138,9 @@ fn render_plain(by_scope: &BTreeMap<&'static str, Vec<&KeyBinding>>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    // `Modifiers` is only referenced by these tests (the crate-level import
+    // was correctly dropped as unused for the lib target).
+    use sovereign_cockpit_keystroke_map::Modifiers;
 
     fn map_with_three() -> KeystrokeMap {
         let mut m = KeystrokeMap::new();

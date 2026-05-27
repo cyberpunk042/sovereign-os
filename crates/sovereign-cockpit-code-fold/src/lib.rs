@@ -123,8 +123,8 @@ impl CodeFold {
             let lo = (r.start_line + 1).min(total_lines + 1) as usize;
             let hi = r.end_line.min(total_lines) as usize;
             if lo <= hi {
-                for i in lo..=hi {
-                    hidden[i] = true;
+                for h in &mut hidden[lo..=hi] {
+                    *h = true;
                 }
             }
         }

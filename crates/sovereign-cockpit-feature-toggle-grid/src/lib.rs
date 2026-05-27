@@ -136,7 +136,7 @@ impl FeatureToggleGrid {
         if self.schema_version != SCHEMA_VERSION {
             return Err(GridError::SchemaMismatch);
         }
-        for (id, _) in &self.toggles {
+        for id in self.toggles.keys() {
             if id.is_empty() {
                 return Err(GridError::EmptyId);
             }

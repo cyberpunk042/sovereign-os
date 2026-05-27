@@ -23,7 +23,7 @@ use thiserror::Error;
 pub const SCHEMA_VERSION: &str = "1.0.0";
 
 /// Per-scroller state.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct Scroller {
     /// Opaque cursor for the next page (None at end).
     pub next_cursor: Option<String>,
@@ -39,20 +39,6 @@ pub struct Scroller {
     pub fetches_ok: u64,
     /// Failed fetch count.
     pub fetches_err: u64,
-}
-
-impl Default for Scroller {
-    fn default() -> Self {
-        Self {
-            next_cursor: None,
-            loaded: 0,
-            in_flight: false,
-            at_end: false,
-            last_error: None,
-            fetches_ok: 0,
-            fetches_err: 0,
-        }
-    }
 }
 
 /// State.

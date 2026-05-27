@@ -184,14 +184,14 @@ impl FeaturePromoBanner {
         if now_ms < p.valid_from_ms || now_ms >= p.valid_until_ms {
             return false;
         }
-        if let Some(per_promo) = self.user_state.get(promo_id) {
-            if let Some(s) = per_promo.get(user_id) {
-                if s.dismissed {
-                    return false;
-                }
-                if now_ms < s.snoozed_until_ms {
-                    return false;
-                }
+        if let Some(per_promo) = self.user_state.get(promo_id)
+            && let Some(s) = per_promo.get(user_id)
+        {
+            if s.dismissed {
+                return false;
+            }
+            if now_ms < s.snoozed_until_ms {
+                return false;
             }
         }
         true

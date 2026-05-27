@@ -138,10 +138,10 @@ impl AutocompleteList {
                 return Err(ListError::DuplicateId(s.id.clone()));
             }
         }
-        if let Some(i) = self.highlight {
-            if i >= self.suggestions.len() {
-                return Err(ListError::DuplicateId("highlight oob".into()));
-            }
+        if let Some(i) = self.highlight
+            && i >= self.suggestions.len()
+        {
+            return Err(ListError::DuplicateId("highlight oob".into()));
         }
         Ok(())
     }

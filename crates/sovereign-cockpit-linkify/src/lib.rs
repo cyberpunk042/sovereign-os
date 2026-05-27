@@ -5,6 +5,7 @@
 //!   whitespace or one of `<>()`.
 //! - Mention: `@` followed by [A-Za-z0-9_]+ (>=1 char).
 //! - Hashtag: `#` followed by [A-Za-z0-9_]+ (>=1 char).
+//!
 //! Non-matched ranges are emitted as Span::Text.
 //!
 //! Standing rule: We do not minimize anything.

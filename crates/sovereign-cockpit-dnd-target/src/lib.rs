@@ -127,7 +127,7 @@ impl DndTargets {
                 target_id: target_id.into(),
             };
         }
-        if !t.accepts.iter().any(|k| *k == source_kind) {
+        if !t.accepts.contains(&source_kind) {
             return DropOutcome::RejectedKind {
                 target_id: target_id.into(),
                 offered_kind: source_kind,

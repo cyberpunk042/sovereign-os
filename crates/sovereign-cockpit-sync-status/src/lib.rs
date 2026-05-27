@@ -2,7 +2,7 @@
 //!
 //! Status{Saved/Saving/Failed/Stale}. begin_save sets Saving;
 //! ok(now) sets Saved + last_saved_ms; fail(error) sets Failed
-//! + error_text. observe(now) flips Saved → Stale once
+//! and error_text. observe(now) flips Saved → Stale once
 //! stale_after_ms elapses.
 //!
 //! Standing rule: We do not minimize anything.

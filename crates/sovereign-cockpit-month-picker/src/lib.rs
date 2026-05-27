@@ -112,30 +112,30 @@ impl MonthPicker {
     }
 
     fn is_enabled(&self, ym: YearMonth) -> bool {
-        if let Some(m) = self.min {
-            if ym < m {
-                return false;
-            }
+        if let Some(m) = self.min
+            && ym < m
+        {
+            return false;
         }
-        if let Some(m) = self.max {
-            if ym > m {
-                return false;
-            }
+        if let Some(m) = self.max
+            && ym > m
+        {
+            return false;
         }
         !self.disabled.contains(&ym)
     }
 
     /// Select a year-month.
     pub fn select(&mut self, ym: YearMonth) -> Result<(), PickerError> {
-        if let Some(m) = self.min {
-            if ym < m {
-                return Err(PickerError::OutOfRange);
-            }
+        if let Some(m) = self.min
+            && ym < m
+        {
+            return Err(PickerError::OutOfRange);
         }
-        if let Some(m) = self.max {
-            if ym > m {
-                return Err(PickerError::OutOfRange);
-            }
+        if let Some(m) = self.max
+            && ym > m
+        {
+            return Err(PickerError::OutOfRange);
         }
         if self.disabled.contains(&ym) {
             return Err(PickerError::Disabled);

@@ -1,7 +1,7 @@
 //! `sovereign-cockpit-text-truncate` — string truncation.
 //!
-//! Mode{Start/Middle/End} + max_chars (>= ellipsis.chars().count()
-//! + 1). Operates on Unicode scalar chars (not bytes). Strings
+//! Mode{Start/Middle/End} + max_chars (>= ellipsis.chars().count() + 1).
+//! Operates on Unicode scalar chars (not bytes). Strings
 //! shorter than max_chars pass through unchanged.
 //!
 //! Standing rule: We do not minimize anything.

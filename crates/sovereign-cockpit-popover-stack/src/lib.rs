@@ -76,13 +76,13 @@ impl PopoverStack {
         if self.stack.iter().any(|x| x.id == p.id) {
             return Err(PopoverError::DuplicateId(p.id));
         }
-        if let Some(parent_id) = &p.parent_id {
-            if !self.stack.iter().any(|x| &x.id == parent_id) {
-                return Err(PopoverError::UnknownParent {
-                    id: p.id.clone(),
-                    parent: parent_id.clone(),
-                });
-            }
+        if let Some(parent_id) = &p.parent_id
+            && !self.stack.iter().any(|x| &x.id == parent_id)
+        {
+            return Err(PopoverError::UnknownParent {
+                id: p.id.clone(),
+                parent: parent_id.clone(),
+            });
         }
         self.stack.push(p);
         Ok(())
@@ -134,13 +134,13 @@ impl PopoverStack {
             if !seen.insert(p.id.as_str()) {
                 return Err(PopoverError::DuplicateId(p.id.clone()));
             }
-            if let Some(parent_id) = &p.parent_id {
-                if !self.stack.iter().any(|x| &x.id == parent_id) {
-                    return Err(PopoverError::UnknownParent {
-                        id: p.id.clone(),
-                        parent: parent_id.clone(),
-                    });
-                }
+            if let Some(parent_id) = &p.parent_id
+                && !self.stack.iter().any(|x| &x.id == parent_id)
+            {
+                return Err(PopoverError::UnknownParent {
+                    id: p.id.clone(),
+                    parent: parent_id.clone(),
+                });
             }
         }
         Ok(())

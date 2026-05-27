@@ -93,14 +93,14 @@ impl RoutingDecisionLog {
         if e.at.is_empty() {
             return Err(RoutingError::MissingTimestamp);
         }
-        if let Some(last) = self.entries.last() {
-            if e.at < last.at {
-                return Err(RoutingError::TimestampRegress {
-                    idx: self.entries.len(),
-                    at: e.at,
-                    prev: last.at.clone(),
-                });
-            }
+        if let Some(last) = self.entries.last()
+            && e.at < last.at
+        {
+            return Err(RoutingError::TimestampRegress {
+                idx: self.entries.len(),
+                at: e.at,
+                prev: last.at.clone(),
+            });
         }
         self.entries.push(e);
         Ok(())
@@ -135,14 +135,14 @@ impl RoutingDecisionLog {
             if e.at.is_empty() {
                 return Err(RoutingError::MissingTimestamp);
             }
-            if let Some(p) = prev_at {
-                if e.at.as_str() < p {
-                    return Err(RoutingError::TimestampRegress {
-                        idx,
-                        at: e.at.clone(),
-                        prev: p.into(),
-                    });
-                }
+            if let Some(p) = prev_at
+                && e.at.as_str() < p
+            {
+                return Err(RoutingError::TimestampRegress {
+                    idx,
+                    at: e.at.clone(),
+                    prev: p.into(),
+                });
             }
             prev_at = Some(&e.at);
         }

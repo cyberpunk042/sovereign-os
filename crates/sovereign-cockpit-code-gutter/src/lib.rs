@@ -84,14 +84,14 @@ impl CodeGutter {
 
     /// Remove a specific kind on `line`. Returns true if removed.
     pub fn remove(&mut self, line: u32, kind: AnnotationKind) -> bool {
-        if let Some(v) = self.annotations.get_mut(&line) {
-            if let Some(pos) = v.iter().position(|k| *k == kind) {
-                v.remove(pos);
-                if v.is_empty() {
-                    self.annotations.remove(&line);
-                }
-                return true;
+        if let Some(v) = self.annotations.get_mut(&line)
+            && let Some(pos) = v.iter().position(|k| *k == kind)
+        {
+            v.remove(pos);
+            if v.is_empty() {
+                self.annotations.remove(&line);
             }
+            return true;
         }
         false
     }
@@ -162,7 +162,7 @@ mod tests {
         let mut g = CodeGutter::new();
         g.add(2, AnnotationKind::Breakpoint).unwrap();
         assert!(g.remove(2, AnnotationKind::Breakpoint));
-        assert!(g.annotations.get(&2).is_none());
+        assert!(!g.annotations.contains_key(&2));
     }
 
     #[test]

@@ -106,13 +106,13 @@ impl Watchlist {
 
     /// Remove.
     pub fn remove(&mut self, kind: &str, item_id: &str) -> bool {
-        if let Some(m) = self.by_kind.get_mut(kind) {
-            if m.remove(item_id).is_some() {
-                if m.is_empty() {
-                    self.by_kind.remove(kind);
-                }
-                return true;
+        if let Some(m) = self.by_kind.get_mut(kind)
+            && m.remove(item_id).is_some()
+        {
+            if m.is_empty() {
+                self.by_kind.remove(kind);
             }
+            return true;
         }
         false
     }

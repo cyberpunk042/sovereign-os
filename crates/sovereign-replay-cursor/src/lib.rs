@@ -156,11 +156,12 @@ impl ReplayCursor {
         }
         let idx = self.next_index as usize;
         let next = &thread.turns[idx];
-        if let Some(bp) = self.breakpoint_role {
-            if next.role == bp && !self.skip_next_breakpoint {
-                self.state = PlaybackState::Paused;
-                return Err(CursorError::Paused);
-            }
+        if let Some(bp) = self.breakpoint_role
+            && next.role == bp
+            && !self.skip_next_breakpoint
+        {
+            self.state = PlaybackState::Paused;
+            return Err(CursorError::Paused);
         }
         // Advance.
         self.skip_next_breakpoint = false;

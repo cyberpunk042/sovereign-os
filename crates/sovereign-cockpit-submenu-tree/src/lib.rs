@@ -246,10 +246,10 @@ impl SubmenuTree {
             if n.label.is_empty() {
                 return Err(TreeError::EmptyLabel);
             }
-            if let Some(p) = &n.parent {
-                if !self.nodes.contains_key(p) {
-                    return Err(TreeError::UnknownParent(p.clone()));
-                }
+            if let Some(p) = &n.parent
+                && !self.nodes.contains_key(p)
+            {
+                return Err(TreeError::UnknownParent(p.clone()));
             }
         }
         Ok(())

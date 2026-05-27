@@ -4,8 +4,8 @@
 //! - `name` (unique within registry)
 //! - `body` (text with `{{var}}` slots)
 //! - `variables` (declared variable names; render fails if any slot is
-//!    missing from the substitution map or any declared variable isn't
-//!    used)
+//!   missing from the substitution map or any declared variable isn't
+//!   used)
 //! - `allowed_modes`, `allowed_bundles` — context gates
 //!
 //! Standing rule: We do not minimize anything.

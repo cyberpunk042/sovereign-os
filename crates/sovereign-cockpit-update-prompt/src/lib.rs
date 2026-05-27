@@ -113,10 +113,10 @@ impl UpdatePrompt {
         if self.current_version.is_empty() {
             return Err(UpdateError::EmptyVersion);
         }
-        if let Some(v) = &self.available_version {
-            if v.is_empty() {
-                return Err(UpdateError::EmptyVersion);
-            }
+        if let Some(v) = &self.available_version
+            && v.is_empty()
+        {
+            return Err(UpdateError::EmptyVersion);
         }
         Ok(())
     }

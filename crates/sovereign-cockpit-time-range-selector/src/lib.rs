@@ -64,10 +64,10 @@ pub enum SelectorError {
 impl TimeRangeSelector {
     /// New.
     pub fn new(range: Range) -> Result<Self, SelectorError> {
-        if let Range::Custom { from_ms, to_ms } = &range {
-            if from_ms >= to_ms {
-                return Err(SelectorError::BadCustom(*from_ms, *to_ms));
-            }
+        if let Range::Custom { from_ms, to_ms } = &range
+            && from_ms >= to_ms
+        {
+            return Err(SelectorError::BadCustom(*from_ms, *to_ms));
         }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
@@ -77,10 +77,10 @@ impl TimeRangeSelector {
 
     /// Set range.
     pub fn set(&mut self, range: Range) -> Result<(), SelectorError> {
-        if let Range::Custom { from_ms, to_ms } = &range {
-            if from_ms >= to_ms {
-                return Err(SelectorError::BadCustom(*from_ms, *to_ms));
-            }
+        if let Range::Custom { from_ms, to_ms } = &range
+            && from_ms >= to_ms
+        {
+            return Err(SelectorError::BadCustom(*from_ms, *to_ms));
         }
         self.range = range;
         Ok(())
@@ -104,10 +104,10 @@ impl TimeRangeSelector {
         if self.schema_version != SCHEMA_VERSION {
             return Err(SelectorError::SchemaMismatch);
         }
-        if let Range::Custom { from_ms, to_ms } = &self.range {
-            if from_ms >= to_ms {
-                return Err(SelectorError::BadCustom(*from_ms, *to_ms));
-            }
+        if let Range::Custom { from_ms, to_ms } = &self.range
+            && from_ms >= to_ms
+        {
+            return Err(SelectorError::BadCustom(*from_ms, *to_ms));
         }
         Ok(())
     }

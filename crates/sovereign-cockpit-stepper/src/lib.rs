@@ -136,6 +136,7 @@ impl Stepper {
     }
 
     /// Advance to next step. Requires current to be Done or Skipped.
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Result<(), StepperError> {
         let cur = &self.steps[self.active];
         match cur.status {

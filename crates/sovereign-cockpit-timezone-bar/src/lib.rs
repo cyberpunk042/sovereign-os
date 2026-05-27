@@ -67,7 +67,7 @@ impl TimezoneBar {
         if label.is_empty() {
             return Err(TzError::EmptyLabel);
         }
-        if utc_offset_minutes < -720 || utc_offset_minutes > 840 {
+        if !(-720..=840).contains(&utc_offset_minutes) {
             return Err(TzError::BadOffset);
         }
         if self.zones.iter().any(|z| z.label == label) {

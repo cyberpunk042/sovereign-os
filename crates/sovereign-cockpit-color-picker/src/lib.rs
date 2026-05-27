@@ -133,7 +133,7 @@ impl ColorPicker {
     /// Pin current to favorites (dedup).
     pub fn favorite_current(&mut self) {
         let cur = self.current;
-        if !self.favorites.iter().any(|c| *c == cur) {
+        if !self.favorites.contains(&cur) {
             self.favorites.push(cur);
         }
     }

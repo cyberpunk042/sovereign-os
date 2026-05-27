@@ -86,10 +86,10 @@ impl ColorSwatch {
             return Err(SwatchError::DuplicateName(s.name));
         }
         self.swatches.insert(idx, s);
-        if let Some(sel) = self.selected_index {
-            if sel >= idx {
-                self.selected_index = Some(sel + 1);
-            }
+        if let Some(sel) = self.selected_index
+            && sel >= idx
+        {
+            self.selected_index = Some(sel + 1);
         }
         Ok(())
     }
@@ -157,10 +157,10 @@ impl ColorSwatch {
                 return Err(SwatchError::DuplicateName(s.name.clone()));
             }
         }
-        if let Some(i) = self.selected_index {
-            if i >= self.swatches.len() {
-                return Err(SwatchError::OutOfBounds(i, self.swatches.len()));
-            }
+        if let Some(i) = self.selected_index
+            && i >= self.swatches.len()
+        {
+            return Err(SwatchError::OutOfBounds(i, self.swatches.len()));
         }
         Ok(())
     }

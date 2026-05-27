@@ -95,7 +95,7 @@ impl NumberFormat {
             // integer() already adds minus when negative; here major was unsigned, so prepend.
             out.push(self.minus);
         }
-        out.push_str(&major_str.trim_start_matches(self.minus));
+        out.push_str(major_str.trim_start_matches(self.minus));
         if minor_digits > 0 {
             out.push(self.decimal);
             let s = format!("{:0width$}", minor, width = minor_digits as usize);

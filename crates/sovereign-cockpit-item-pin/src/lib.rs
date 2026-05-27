@@ -111,6 +111,11 @@ impl ItemPin {
         self.pinned.len()
     }
 
+    /// Whether no items are pinned.
+    pub fn is_empty(&self) -> bool {
+        self.pinned.is_empty()
+    }
+
     /// Validate.
     pub fn validate(&self) -> Result<(), PinError> {
         if self.schema_version != SCHEMA_VERSION {

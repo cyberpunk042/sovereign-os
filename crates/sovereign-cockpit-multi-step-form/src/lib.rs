@@ -12,7 +12,7 @@
 #![warn(missing_docs)]
 
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use thiserror::Error;
 
 /// Schema version.

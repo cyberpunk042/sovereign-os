@@ -96,11 +96,11 @@ impl Celebration {
 
     /// Mark shown.
     pub fn mark_shown(&mut self, scope_id: &str, milestone_id: &str) -> bool {
-        if let Some(m) = self.by_scope.get_mut(scope_id) {
-            if let Some(p) = m.get_mut(milestone_id) {
-                p.shown = true;
-                return true;
-            }
+        if let Some(m) = self.by_scope.get_mut(scope_id)
+            && let Some(p) = m.get_mut(milestone_id)
+        {
+            p.shown = true;
+            return true;
         }
         false
     }

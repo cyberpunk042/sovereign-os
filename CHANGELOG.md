@@ -12,6 +12,24 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Fixed — repo-wide `cargo clippy` green (rust CI job no longer blocked at the clippy step) (2026-05-27)
+
+`cargo clippy --workspace --all-targets -- -D warnings` (the rust CI job's step after
+fmt) was RED with **424 findings across 124 crates** — the generated crate set was never
+run through clippy (same root as the fmt gap). Resolved with clippy 0.1.88 (exact CI
+toolchain): two `cargo clippy --fix` passes + one `--unsafe-fixes` pass auto-resolved the
+bulk (collapsible_if ×67, manual_*/unnecessary_*/doc_* …), then the residual was fixed by
+hand — 11 intentional inherent methods (`next()` widget-advance + a 10-arg / 8-arg
+constructor) got targeted `#[allow]`s, `ItemPin` gained the `is_empty()` clippy expects,
+three `.get(k).is_none()` → `contains_key`, an index loop → slice iterator, a
+`.max().min()` → `.clamp()`, two nested `format!` flattened, two `if`-with-identical-blocks
+collapsed (behaviour-preserving — verified non-bugs), and ten rustdoc list-formatting
+lints fixed. One `clippy --fix` over-reach was caught + corrected: it dropped a
+`cfg(test)`-only `Modifiers` import from `shortcut-cheatsheet` (correct for the lib target,
+but the test used it) — re-imported inside the test module. Final state: clippy exits 0,
+`cargo fmt --check` clean. 126 source files; all changes behaviour-preserving (no real
+bugs surfaced — the catalog crates were correct, just un-linted).
+
 ### Fixed — repo-wide `cargo fmt` unblocks the rust CI job (2026-05-27)
 
 `cargo fmt --all --check` (the rust job's first step in `test.yml`) was RED across

@@ -6,11 +6,11 @@
 //!   - `page`      (1-indexed current page; clamped to [1, total_pages])
 //!
 //! and emits derived state for the renderer:
-//!   - `total_pages`  = ceil(total / per_page); 0 → 0; else ≥ 1
-//!   - `can_prev`     = page > 1
-//!   - `can_next`     = page < total_pages
-//!   - `range`        = (start_index, end_index_inclusive) in [0, total-1]
-//!                      ranges OR None when total = 0
+//! - `total_pages`  = ceil(total / per_page); 0 → 0; else ≥ 1
+//! - `can_prev`     = page > 1
+//! - `can_next`     = page < total_pages
+//! - `range`        = (start_index, end_index_inclusive) in [0, total-1]
+//!   ranges OR None when total = 0
 //!
 //! Standing rule: we do not minimize anything.
 

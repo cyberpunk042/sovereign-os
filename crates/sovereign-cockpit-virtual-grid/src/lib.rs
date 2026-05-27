@@ -109,9 +109,9 @@ impl VirtualGrid {
         let raw_first_col = (self.scroll_x_px as u64) / self.cell_w_px as u64;
         let raw_first_row = (self.scroll_y_px as u64) / self.cell_h_px as u64;
         let visible_cols_no_overscan =
-            ((self.viewport_w_px as u64 + self.cell_w_px as u64 - 1) / self.cell_w_px as u64) + 1;
+            (self.viewport_w_px as u64).div_ceil(self.cell_w_px as u64) + 1;
         let visible_rows_no_overscan =
-            ((self.viewport_h_px as u64 + self.cell_h_px as u64 - 1) / self.cell_h_px as u64) + 1;
+            (self.viewport_h_px as u64).div_ceil(self.cell_h_px as u64) + 1;
         let overscan = self.overscan as u64;
         let first_col = raw_first_col.saturating_sub(overscan).min(self.total_cols);
         let first_row = raw_first_row.saturating_sub(overscan).min(self.total_rows);

@@ -124,7 +124,7 @@ impl RatingStars {
                 max,
             });
         }
-        if !self.half_stars && self.value_halves % 2 != 0 {
+        if !self.half_stars && !self.value_halves.is_multiple_of(2) {
             return Err(RatingError::OddValueWithoutHalves(self.value_halves));
         }
         Ok(())

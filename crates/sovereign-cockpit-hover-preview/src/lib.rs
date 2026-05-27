@@ -130,10 +130,10 @@ impl HoverPreview {
 
     /// Tick: drive Dwelling → Visible at dwell expiry.
     pub fn visible(&mut self, now_ms: u64) -> bool {
-        if let Phase::Dwelling { id, entered_at_ms } = &self.phase {
-            if now_ms.saturating_sub(*entered_at_ms) >= self.dwell_ms {
-                self.phase = Phase::Visible { id: id.clone() };
-            }
+        if let Phase::Dwelling { id, entered_at_ms } = &self.phase
+            && now_ms.saturating_sub(*entered_at_ms) >= self.dwell_ms
+        {
+            self.phase = Phase::Visible { id: id.clone() };
         }
         matches!(self.phase, Phase::Visible { .. } | Phase::Pinned { .. })
     }

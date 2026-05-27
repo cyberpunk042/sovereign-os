@@ -127,10 +127,10 @@ impl ErrorStateScreen {
         if self.body.is_empty() {
             return Err(ScreenError::EmptyBody);
         }
-        if let Some(h) = &self.retry_handler_id {
-            if h.is_empty() {
-                return Err(ScreenError::EmptyHandler);
-            }
+        if let Some(h) = &self.retry_handler_id
+            && h.is_empty()
+        {
+            return Err(ScreenError::EmptyHandler);
         }
         Ok(())
     }

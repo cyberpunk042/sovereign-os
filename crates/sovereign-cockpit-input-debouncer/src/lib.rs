@@ -70,10 +70,10 @@ impl InputDebouncer {
             Some(t) => t,
             None => return false,
         };
-        if let Some(c) = self.last_consumed_observed_ms {
-            if c == last {
-                return false;
-            }
+        if let Some(c) = self.last_consumed_observed_ms
+            && c == last
+        {
+            return false;
         }
         now_ms.saturating_sub(last) >= self.delay_ms
     }

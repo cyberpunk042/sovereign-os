@@ -52,7 +52,9 @@ impl IncrementalSearch {
     pub fn set_query(&mut self, query: &str, total_matches: u32) {
         self.query = query.into();
         self.total_matches = total_matches;
-        self.current_zero = if total_matches == 0 { 0 } else { 0 };
+        // New query resets the cursor to the first match (0-indexed); 0 is
+        // also the inert sentinel when there are no matches.
+        self.current_zero = 0;
     }
 
     /// Next.

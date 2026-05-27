@@ -181,10 +181,10 @@ impl ExportFormatPicker {
 
     /// User's default (or first-registered if none).
     pub fn pick_default(&self, user_id: &str) -> Option<&Format> {
-        if let Some(fid) = self.user_defaults.get(user_id) {
-            if let Some(f) = self.formats.get(fid) {
-                return Some(f);
-            }
+        if let Some(fid) = self.user_defaults.get(user_id)
+            && let Some(f) = self.formats.get(fid)
+        {
+            return Some(f);
         }
         // Fallback to first-by-order.
         let mut sorted: Vec<&Format> = self.formats.values().collect();

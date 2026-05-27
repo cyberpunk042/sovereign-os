@@ -120,10 +120,10 @@ impl MergeConflictUi {
 
     /// Set resolution.
     pub fn resolve(&mut self, id: &str, resolution: Resolution) -> Result<(), MergeError> {
-        if let Resolution::Manual { body } = &resolution {
-            if body.is_empty() {
-                return Err(MergeError::EmptyBody);
-            }
+        if let Resolution::Manual { body } = &resolution
+            && body.is_empty()
+        {
+            return Err(MergeError::EmptyBody);
         }
         let idx = self
             .by_id
@@ -186,10 +186,10 @@ impl MergeConflictUi {
             if h.id.is_empty() {
                 return Err(MergeError::EmptyId);
             }
-            if let Resolution::Manual { body } = &h.resolution {
-                if body.is_empty() {
-                    return Err(MergeError::EmptyBody);
-                }
+            if let Resolution::Manual { body } = &h.resolution
+                && body.is_empty()
+            {
+                return Err(MergeError::EmptyBody);
             }
         }
         Ok(())

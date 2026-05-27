@@ -1,7 +1,7 @@
 //! `sovereign-cockpit-bulk-selection` — multi-item selection.
 //!
 //! Holds an ordered universe of item ids + a set of selected ids
-//! + an anchor (last single click). click/ctrl_click/shift_click
+//! plus an anchor (last single click). click/ctrl_click/shift_click
 //! drive selection state.
 //!
 //! Standing rule: We do not minimize anything.

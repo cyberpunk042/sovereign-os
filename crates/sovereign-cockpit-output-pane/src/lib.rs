@@ -112,10 +112,10 @@ impl OutputPane {
         self.lines
             .iter()
             .filter(|l| {
-                if let Some(s) = f.stream {
-                    if l.stream != s {
-                        return false;
-                    }
+                if let Some(s) = f.stream
+                    && l.stream != s
+                {
+                    return false;
                 }
                 if !f.contains.is_empty() && !l.text.contains(&f.contains) {
                     return false;

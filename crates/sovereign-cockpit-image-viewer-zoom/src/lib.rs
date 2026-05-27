@@ -91,7 +91,7 @@ impl ImageViewerZoom {
         let max = max_x.min(max_y) as u16;
         let mut best = ZOOM_LEVELS[0];
         for &z in &ZOOM_LEVELS {
-            if z as u16 <= max {
+            if z <= max {
                 best = z;
             }
         }
@@ -112,24 +112,24 @@ impl ImageViewerZoom {
     /// Step zoom up one level (saturating at max).
     pub fn zoom_in(&mut self) {
         let cur = self.zoom_pct;
-        if let Some(pos) = ZOOM_LEVELS.iter().position(|&z| z == cur) {
-            if pos + 1 < ZOOM_LEVELS.len() {
-                self.zoom_pct = ZOOM_LEVELS[pos + 1];
-                let (x, y) = (self.pan_x_px, self.pan_y_px);
-                self.set_pan(x, y);
-            }
+        if let Some(pos) = ZOOM_LEVELS.iter().position(|&z| z == cur)
+            && pos + 1 < ZOOM_LEVELS.len()
+        {
+            self.zoom_pct = ZOOM_LEVELS[pos + 1];
+            let (x, y) = (self.pan_x_px, self.pan_y_px);
+            self.set_pan(x, y);
         }
     }
 
     /// Step zoom down one level (saturating at min).
     pub fn zoom_out(&mut self) {
         let cur = self.zoom_pct;
-        if let Some(pos) = ZOOM_LEVELS.iter().position(|&z| z == cur) {
-            if pos > 0 {
-                self.zoom_pct = ZOOM_LEVELS[pos - 1];
-                let (x, y) = (self.pan_x_px, self.pan_y_px);
-                self.set_pan(x, y);
-            }
+        if let Some(pos) = ZOOM_LEVELS.iter().position(|&z| z == cur)
+            && pos > 0
+        {
+            self.zoom_pct = ZOOM_LEVELS[pos - 1];
+            let (x, y) = (self.pan_x_px, self.pan_y_px);
+            self.set_pan(x, y);
         }
     }
 

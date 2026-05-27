@@ -104,7 +104,7 @@ impl PullToRefresh {
                 if distance_px >= self.trigger_px {
                     self.phase = Phase::Armed { distance_px };
                 } else {
-                    let progress = ((distance_px as u32) * 100 / self.trigger_px) as u8;
+                    let progress = (distance_px * 100 / self.trigger_px) as u8;
                     self.phase = Phase::Pulling {
                         distance_px,
                         progress_pct: progress,

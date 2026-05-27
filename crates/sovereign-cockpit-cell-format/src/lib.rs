@@ -82,10 +82,10 @@ impl CellFormatter {
             CellKind::Plain => plain.unwrap_or("").to_string(),
             CellKind::Number => self.fmt_int(value),
             CellKind::Pct => format!(
-                "{}{}{}%",
+                "{}{}{:02}%",
                 self.fmt_int(value / 100),
                 self.opts.decimal,
-                format!("{:02}", (value.unsigned_abs() % 100))
+                value.unsigned_abs() % 100
             ),
             CellKind::CurrencyMinor { code } => {
                 let neg = value < 0;
@@ -94,12 +94,12 @@ impl CellFormatter {
                 let minor = abs % 100;
                 let sign = if neg { "-" } else { "" };
                 format!(
-                    "{} {}{}{}{}",
+                    "{} {}{}{}{:02}",
                     code,
                     sign,
                     self.fmt_int(major as i64),
                     self.opts.decimal,
-                    format!("{:02}", minor)
+                    minor
                 )
             }
             CellKind::BytesIec => fmt_bytes_iec(value),
@@ -147,11 +147,7 @@ fn fmt_bytes_iec(n: i64) -> String {
         v /= 1024;
         i += 1;
     }
-    let s = if i == 0 {
-        format!("{} {}", v, units[i])
-    } else {
-        format!("{} {}", v, units[i])
-    };
+    let s = format!("{} {}", v, units[i]);
     if neg { format!("-{}", s) } else { s }
 }
 

@@ -157,10 +157,10 @@ impl NotificationPrefs {
                 return Err(PrefsError::EmptyChannel);
             }
         }
-        if let (Some(s), Some(e)) = (self.dnd_start_ms, self.dnd_end_ms) {
-            if s >= e {
-                return Err(PrefsError::InvertedDnd { s, e });
-            }
+        if let (Some(s), Some(e)) = (self.dnd_start_ms, self.dnd_end_ms)
+            && s >= e
+        {
+            return Err(PrefsError::InvertedDnd { s, e });
         }
         Ok(())
     }

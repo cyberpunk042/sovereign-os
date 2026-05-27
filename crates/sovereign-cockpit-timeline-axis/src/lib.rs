@@ -100,7 +100,7 @@ impl TimelineAxis {
     ) -> Result<Vec<u64>, AxisError> {
         let interval = self.pick_interval(from_ms, to_ms, target_count)?;
         // Snap first tick down to multiple of interval ≥ from_ms.
-        let first = if from_ms % interval == 0 {
+        let first = if from_ms.is_multiple_of(interval) {
             from_ms
         } else {
             from_ms + (interval - (from_ms % interval))

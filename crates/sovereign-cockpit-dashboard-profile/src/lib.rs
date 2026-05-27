@@ -186,15 +186,15 @@ impl DashboardProfile {
         if self.schema_version != SCHEMA_VERSION {
             return Err(ProfileError::SchemaMismatch);
         }
-        for (id, _) in &self.presets {
+        for id in self.presets.keys() {
             if id.is_empty() {
                 return Err(ProfileError::EmptyId);
             }
         }
-        if let Some(a) = &self.active {
-            if !self.presets.contains_key(a) {
-                return Err(ProfileError::UnknownPreset(a.clone()));
-            }
+        if let Some(a) = &self.active
+            && !self.presets.contains_key(a)
+        {
+            return Err(ProfileError::UnknownPreset(a.clone()));
         }
         Ok(())
     }

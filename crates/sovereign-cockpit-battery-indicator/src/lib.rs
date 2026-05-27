@@ -192,23 +192,23 @@ impl BatteryIndicator {
         if self.critical_pct > 100 {
             return Err(BatteryError::CriticalOver100(self.critical_pct));
         }
-        if let Some(s) = self.last {
-            if s.pct > 100 {
-                return Err(BatteryError::PctOver100(s.pct));
-            }
+        if let Some(s) = self.last
+            && s.pct > 100
+        {
+            return Err(BatteryError::PctOver100(s.pct));
         }
-        if let Some(s) = self.prev {
-            if s.pct > 100 {
-                return Err(BatteryError::PctOver100(s.pct));
-            }
+        if let Some(s) = self.prev
+            && s.pct > 100
+        {
+            return Err(BatteryError::PctOver100(s.pct));
         }
-        if let (Some(p), Some(l)) = (self.prev, self.last) {
-            if p.ts_ms >= l.ts_ms {
-                return Err(BatteryError::NonMonotonic {
-                    prev: p.ts_ms,
-                    new: l.ts_ms,
-                });
-            }
+        if let (Some(p), Some(l)) = (self.prev, self.last)
+            && p.ts_ms >= l.ts_ms
+        {
+            return Err(BatteryError::NonMonotonic {
+                prev: p.ts_ms,
+                new: l.ts_ms,
+            });
         }
         Ok(())
     }

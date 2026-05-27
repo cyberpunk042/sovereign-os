@@ -140,13 +140,13 @@ impl DropZoneSet {
                 accepted: z.accept_types.iter().cloned().collect(),
             };
         }
-        if let Some(m) = z.max_items {
-            if z.count >= m {
-                return DropVerdict::RejectFull {
-                    count: z.count,
-                    max: m,
-                };
-            }
+        if let Some(m) = z.max_items
+            && z.count >= m
+        {
+            return DropVerdict::RejectFull {
+                count: z.count,
+                max: m,
+            };
         }
         DropVerdict::Accept
     }
@@ -154,10 +154,10 @@ impl DropZoneSet {
     /// Accept (mutates count on success).
     pub fn accept(&mut self, zone: &str, item_type: &str) -> DropVerdict {
         let v = self.decide(zone, item_type);
-        if v == DropVerdict::Accept {
-            if let Some(z) = self.zones.get_mut(zone) {
-                z.count = z.count.saturating_add(1);
-            }
+        if v == DropVerdict::Accept
+            && let Some(z) = self.zones.get_mut(zone)
+        {
+            z.count = z.count.saturating_add(1);
         }
         v
     }

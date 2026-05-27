@@ -81,19 +81,20 @@ impl ResultPageCursor {
     pub fn update_total(&mut self, total_pages: Option<u64>) {
         self.total_pages = total_pages;
         // If current page exceeds total, snap back.
-        if let Some(t) = total_pages {
-            if self.page > t.max(1) {
-                self.page = t.max(1);
-            }
+        if let Some(t) = total_pages
+            && self.page > t.max(1)
+        {
+            self.page = t.max(1);
         }
     }
 
     /// Next page.
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> MoveVerdict {
-        if let Some(total) = self.total_pages {
-            if self.page >= total {
-                return MoveVerdict::AtEdge;
-            }
+        if let Some(total) = self.total_pages
+            && self.page >= total
+        {
+            return MoveVerdict::AtEdge;
         }
         let from = self.page;
         self.page = self.page.saturating_add(1);

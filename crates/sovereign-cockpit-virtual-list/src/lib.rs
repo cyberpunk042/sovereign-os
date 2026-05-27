@@ -83,11 +83,7 @@ impl VirtualListState {
         let first_with_overscan = first.saturating_sub(overscan);
         let last_with_overscan = first + viewport_rows + overscan;
         let last_index = last_with_overscan.min(self.total_items);
-        let count = if last_index > first_with_overscan {
-            last_index - first_with_overscan
-        } else {
-            0
-        };
+        let count = last_index.saturating_sub(first_with_overscan);
         Ok(VisibleRange {
             first_index: first_with_overscan,
             count,

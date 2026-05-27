@@ -75,6 +75,7 @@ impl PopoverAnchor {
     }
 
     /// Resolve placement.
+    #[allow(clippy::too_many_arguments)]
     pub fn resolve(
         &self,
         ax: i32,

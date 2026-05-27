@@ -101,6 +101,7 @@ impl SegmentedControl {
     }
 
     /// Next enabled segment (wraps).
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> &str {
         let enabled: Vec<usize> = self
             .segments

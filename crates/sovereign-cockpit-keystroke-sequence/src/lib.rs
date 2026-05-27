@@ -107,10 +107,10 @@ impl KeystrokeSequence {
             return SequenceVerdict::None;
         }
         // Timeout the buffer.
-        if let Some(last) = self.last_ms {
-            if now_ms.saturating_sub(last) > self.sequence_timeout_ms {
-                self.buffer.clear();
-            }
+        if let Some(last) = self.last_ms
+            && now_ms.saturating_sub(last) > self.sequence_timeout_ms
+        {
+            self.buffer.clear();
         }
         self.last_ms = Some(now_ms);
         self.buffer.push(key.into());

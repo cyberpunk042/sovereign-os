@@ -92,7 +92,7 @@ impl MarqueeLoop {
         let cycle_px = text_px.saturating_add(self.gap_px);
         // offset = (speed * t_ms / 1000) mod cycle_px
         let micro_px = (self.speed_px_per_s as u128) * (t_ms as u128);
-        let px = (micro_px / 1000u128) as u128;
+        let px = micro_px / 1000u128;
         let x_offset_px = (px % (cycle_px as u128)) as u32;
         Frame {
             state: State::Looping,

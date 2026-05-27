@@ -110,13 +110,13 @@ impl DraftAutosave {
         if field_id.is_empty() {
             return Err(AutosaveError::EmptyField);
         }
-        if let Some(existing) = self.fields.get(field_id) {
-            if ts_ms < existing.last_edit_ms {
-                return Err(AutosaveError::NonMonotonic {
-                    prev: existing.last_edit_ms,
-                    new: ts_ms,
-                });
-            }
+        if let Some(existing) = self.fields.get(field_id)
+            && ts_ms < existing.last_edit_ms
+        {
+            return Err(AutosaveError::NonMonotonic {
+                prev: existing.last_edit_ms,
+                new: ts_ms,
+            });
         }
         let entry = self.fields.entry(field_id.into()).or_insert(DraftField {
             text: String::new(),

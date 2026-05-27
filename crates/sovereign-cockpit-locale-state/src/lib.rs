@@ -92,7 +92,7 @@ fn locale_tag_ok(tag: &str) -> bool {
         return false;
     }
     let parts: Vec<&str> = tag.split('-').collect();
-    if parts.len() < 1 || parts.len() > 3 {
+    if parts.is_empty() || parts.len() > 3 {
         return false;
     }
     // First segment: lowercase ASCII letters.

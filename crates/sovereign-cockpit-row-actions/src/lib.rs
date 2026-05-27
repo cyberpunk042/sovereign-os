@@ -230,7 +230,7 @@ mod tests {
         r.add("row-1", Side::Right, a("x", Severity::Default, false))
             .unwrap();
         assert!(r.remove("row-1", Side::Right, "x"));
-        assert!(r.by_row.get("row-1").is_none());
+        assert!(!r.by_row.contains_key("row-1"));
     }
 
     #[test]

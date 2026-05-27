@@ -95,10 +95,10 @@ impl DragState {
 
     /// Set hovered zone.
     pub fn hover(&mut self, zone: Option<&str>) -> Result<(), DragError> {
-        if let Some(z) = zone {
-            if z.is_empty() {
-                return Err(DragError::EmptyZone);
-            }
+        if let Some(z) = zone
+            && z.is_empty()
+        {
+            return Err(DragError::EmptyZone);
         }
         match &mut self.phase {
             Phase::Dragging { hovered_zone, .. } => {

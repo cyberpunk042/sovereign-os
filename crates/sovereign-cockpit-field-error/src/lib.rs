@@ -99,14 +99,14 @@ impl FieldError {
 
     /// Remove a specific message; returns true if removed.
     pub fn remove(&mut self, field_id: &str, message: &str) -> bool {
-        if let Some(v) = self.entries.get_mut(field_id) {
-            if let Some(pos) = v.iter().position(|e| e.message == message) {
-                v.remove(pos);
-                if v.is_empty() {
-                    self.entries.remove(field_id);
-                }
-                return true;
+        if let Some(v) = self.entries.get_mut(field_id)
+            && let Some(pos) = v.iter().position(|e| e.message == message)
+        {
+            v.remove(pos);
+            if v.is_empty() {
+                self.entries.remove(field_id);
             }
+            return true;
         }
         false
     }
@@ -193,7 +193,7 @@ mod tests {
         let mut f = FieldError::new();
         f.insert("email", Severity::Warn, "x").unwrap();
         assert!(f.remove("email", "x"));
-        assert!(f.entries.get("email").is_none());
+        assert!(!f.entries.contains_key("email"));
     }
 
     #[test]

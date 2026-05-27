@@ -3,7 +3,7 @@
 //! Each tool declares:
 //! - `side_effect`: None / Read / Write / Network / Model / Subprocess / Replay / Control
 //! - `min_mode`:    minimum ExecutionMode required (e.g. fs-write requires
-//!                  Sandbox / Execute / Debug)
+//!   Sandbox / Execute / Debug)
 //! - `min_bundle`:  minimum BundleName required (Private/Careful/Fast/Sovereign)
 //!
 //! The cockpit reads this to decide which tools to surface in the

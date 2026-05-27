@@ -131,11 +131,11 @@ impl FooterBar {
 
     /// Invoke an action by id.
     pub fn invoke(&mut self, id: &str) -> Result<(), FooterError> {
-        if let Some(p) = self.primary.as_mut() {
-            if p.id == id {
-                p.invokes = p.invokes.saturating_add(1);
-                return Ok(());
-            }
+        if let Some(p) = self.primary.as_mut()
+            && p.id == id
+        {
+            p.invokes = p.invokes.saturating_add(1);
+            return Ok(());
         }
         if let Some(a) = self.secondary.iter_mut().find(|a| a.id == id) {
             a.invokes = a.invokes.saturating_add(1);

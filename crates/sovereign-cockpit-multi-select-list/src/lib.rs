@@ -4,6 +4,7 @@
 //! * Plain → replace selection.
 //! * Toggle (Ctrl/Cmd) → toggle one, anchor moves to clicked.
 //! * Range (Shift) → select inclusive range from anchor to clicked.
+//!
 //! Pure UX descriptor.
 //!
 //! Standing rule: We do not minimize anything.
@@ -155,10 +156,10 @@ impl MultiSelectList {
                 return Err(MultiSelectError::SelectionUnknown(s.clone()));
             }
         }
-        if let Some(a) = &self.anchor {
-            if !ids.contains(a.as_str()) {
-                return Err(MultiSelectError::AnchorUnknown(a.clone()));
-            }
+        if let Some(a) = &self.anchor
+            && !ids.contains(a.as_str())
+        {
+            return Err(MultiSelectError::AnchorUnknown(a.clone()));
         }
         Ok(())
     }

@@ -148,10 +148,10 @@ impl SidePanelState {
             return Err(SidePanelError::WidthZero);
         }
         check_tabs(&self.tabs)?;
-        if let Some(a) = &self.active {
-            if !self.tabs.iter().any(|t| &t.id == a) {
-                return Err(SidePanelError::Unknown(a.clone()));
-            }
+        if let Some(a) = &self.active
+            && !self.tabs.iter().any(|t| &t.id == a)
+        {
+            return Err(SidePanelError::Unknown(a.clone()));
         }
         Ok(())
     }

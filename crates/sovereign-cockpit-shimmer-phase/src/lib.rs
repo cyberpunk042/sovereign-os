@@ -77,7 +77,7 @@ impl ShimmerPhase {
         if self.reduced_motion {
             return 500;
         }
-        let stagger = (hash_fnv1a64(anchor_id) % self.period_ms) as u64;
+        let stagger = hash_fnv1a64(anchor_id) % self.period_ms;
         let shifted = now_ms.wrapping_add(stagger);
         self.phase(shifted)
     }

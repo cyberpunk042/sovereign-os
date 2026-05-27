@@ -105,11 +105,11 @@ impl SettingsForm {
     pub fn apply(&mut self) -> u32 {
         let mut n = 0;
         for f in self.fields.values_mut() {
-            if let Some(p) = f.pending.take() {
-                if p != f.committed {
-                    f.committed = p;
-                    n += 1;
-                }
+            if let Some(p) = f.pending.take()
+                && p != f.committed
+            {
+                f.committed = p;
+                n += 1;
             }
         }
         n

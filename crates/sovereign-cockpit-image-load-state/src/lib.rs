@@ -155,7 +155,7 @@ impl ImageLoadState {
         if self.schema_version != SCHEMA_VERSION {
             return Err(LoadError::SchemaMismatch);
         }
-        for (k, _) in &self.images {
+        for k in self.images.keys() {
             if k.is_empty() {
                 return Err(LoadError::EmptyUrl);
             }

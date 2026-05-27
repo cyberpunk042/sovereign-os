@@ -97,7 +97,7 @@ impl TabOverflow {
         // Start with active inline.
         let active_tab = tabs.iter().find(|t| t.id == active).unwrap();
         let mut used = active_tab.width_px.min(budget);
-        let mut inline_ids: Vec<&str> = vec![active.as_ref()];
+        let mut inline_ids: Vec<&str> = vec![active];
         // Walk display order; add each tab whose width still fits.
         for t in tabs {
             if t.id == active {

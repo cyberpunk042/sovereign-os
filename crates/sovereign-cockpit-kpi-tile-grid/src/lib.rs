@@ -157,28 +157,28 @@ impl KpiTileGrid {
         };
         match t.direction {
             Direction::HigherIsWorse => {
-                if let Some(c) = t.crit_at {
-                    if v >= c {
-                        return Status::Crit;
-                    }
+                if let Some(c) = t.crit_at
+                    && v >= c
+                {
+                    return Status::Crit;
                 }
-                if let Some(w) = t.warn_at {
-                    if v >= w {
-                        return Status::Warn;
-                    }
+                if let Some(w) = t.warn_at
+                    && v >= w
+                {
+                    return Status::Warn;
                 }
                 Status::Ok
             }
             Direction::LowerIsWorse => {
-                if let Some(c) = t.crit_at {
-                    if v <= c {
-                        return Status::Crit;
-                    }
+                if let Some(c) = t.crit_at
+                    && v <= c
+                {
+                    return Status::Crit;
                 }
-                if let Some(w) = t.warn_at {
-                    if v <= w {
-                        return Status::Warn;
-                    }
+                if let Some(w) = t.warn_at
+                    && v <= w
+                {
+                    return Status::Warn;
                 }
                 Status::Ok
             }
@@ -235,21 +235,18 @@ impl Default for KpiTileGrid {
 }
 
 fn check_thresholds(t: &Tile) -> Result<(), KpiError> {
-    match (t.warn_at, t.crit_at) {
-        (Some(w), Some(c)) => {
-            let ok = match t.direction {
-                Direction::HigherIsWorse => c >= w,
-                Direction::LowerIsWorse => c <= w,
-            };
-            if !ok {
-                return Err(KpiError::BadThresholds {
-                    warn: Some(w),
-                    crit: Some(c),
-                    direction: t.direction,
-                });
-            }
+    if let (Some(w), Some(c)) = (t.warn_at, t.crit_at) {
+        let ok = match t.direction {
+            Direction::HigherIsWorse => c >= w,
+            Direction::LowerIsWorse => c <= w,
+        };
+        if !ok {
+            return Err(KpiError::BadThresholds {
+                warn: Some(w),
+                crit: Some(c),
+                direction: t.direction,
+            });
         }
-        _ => {}
     }
     Ok(())
 }

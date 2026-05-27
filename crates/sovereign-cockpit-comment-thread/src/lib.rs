@@ -161,10 +161,10 @@ impl CommentThread {
             if c.body.is_empty() {
                 return Err(CommentError::EmptyBody);
             }
-            if let Some(p) = &c.in_reply_to {
-                if !self.comments.contains_key(p) {
-                    return Err(CommentError::ParentMissing(p.clone()));
-                }
+            if let Some(p) = &c.in_reply_to
+                && !self.comments.contains_key(p)
+            {
+                return Err(CommentError::ParentMissing(p.clone()));
             }
         }
         Ok(())

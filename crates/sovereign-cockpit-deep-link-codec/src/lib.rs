@@ -148,21 +148,21 @@ pub fn decode(s: &str) -> Result<DeepLink, LinkError> {
         return Err(LinkError::Malformed("route missing leading /".into()));
     };
     let mut params = BTreeMap::new();
-    if let Some(q) = query {
-        if !q.is_empty() {
-            for pair in q.split('&') {
-                let mut it = pair.splitn(2, '=');
-                let k = it
-                    .next()
-                    .ok_or_else(|| LinkError::Malformed("missing key".into()))?;
-                let v = it.next().unwrap_or("");
-                let dk = percent_decode(k)?;
-                let dv = percent_decode(v)?;
-                if dk.is_empty() {
-                    return Err(LinkError::EmptyKey);
-                }
-                params.insert(dk, dv);
+    if let Some(q) = query
+        && !q.is_empty()
+    {
+        for pair in q.split('&') {
+            let mut it = pair.splitn(2, '=');
+            let k = it
+                .next()
+                .ok_or_else(|| LinkError::Malformed("missing key".into()))?;
+            let v = it.next().unwrap_or("");
+            let dk = percent_decode(k)?;
+            let dv = percent_decode(v)?;
+            if dk.is_empty() {
+                return Err(LinkError::EmptyKey);
             }
+            params.insert(dk, dv);
         }
     }
     Ok(DeepLink {
@@ -203,6 +203,9 @@ impl Default for DeepLinkCodec {
 
 #[cfg(test)]
 mod tests {
+    // Test helpers build DeepLink via default()+field-set for readability;
+    // struct-literal pedantry adds no value in these fixtures.
+    #![allow(clippy::field_reassign_with_default)]
     use super::*;
 
     #[test]

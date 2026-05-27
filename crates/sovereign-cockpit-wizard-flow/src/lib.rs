@@ -159,10 +159,10 @@ impl WizardFlow {
 
     /// At an end (current has no next)?
     pub fn is_terminal(&self) -> bool {
-        if let Some(id) = &self.current {
-            if let Some(s) = self.steps.get(id) {
-                return s.next.is_empty();
-            }
+        if let Some(id) = &self.current
+            && let Some(s) = self.steps.get(id)
+        {
+            return s.next.is_empty();
         }
         false
     }

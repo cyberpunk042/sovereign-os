@@ -1,7 +1,7 @@
 //! `sovereign-cockpit-mode-profile-switch` — mode/profile switch.
 //!
 //! Registered profiles by id + label. switch(id, ts) sets active
-//! + appends to history (bounded). previous() returns most recent
+//! and appends to history (bounded). previous() returns most recent
 //! prior profile (for "go back" UX).
 //!
 //! Standing rule: We do not minimize anything.

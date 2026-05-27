@@ -6,6 +6,7 @@
 //!   else Degraded; reconnect_attempts resets.
 //! - ok=false: Offline if attempts >= max_attempts else
 //!   Reconnecting; attempts increment.
+//!
 //! force_online / force_offline override.
 //!
 //! Standing rule: We do not minimize anything.

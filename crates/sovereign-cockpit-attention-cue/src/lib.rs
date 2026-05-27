@@ -98,8 +98,8 @@ impl AttentionCue {
         }
         // Don't mutate intensity_bp here — keep ground truth at 10000 at last_event;
         // intensity is derived from elapsed each observe.
-        let cur = self.intensity_bp.saturating_sub(decay);
-        cur
+
+        self.intensity_bp.saturating_sub(decay)
     }
 
     /// Acknowledge (explicit dismiss).

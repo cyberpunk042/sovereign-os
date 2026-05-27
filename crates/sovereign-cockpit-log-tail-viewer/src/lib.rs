@@ -140,10 +140,10 @@ impl LogTailViewer {
         self.lines
             .iter()
             .filter(|l| {
-                if let Some(min) = filter.min_level {
-                    if l.level < min {
-                        return false;
-                    }
+                if let Some(min) = filter.min_level
+                    && l.level < min
+                {
+                    return false;
                 }
                 if !filter.sources.is_empty() && !filter.sources.iter().any(|s| s == &l.source) {
                     return false;

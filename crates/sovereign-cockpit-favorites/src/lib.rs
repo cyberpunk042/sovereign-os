@@ -89,14 +89,14 @@ impl Favorites {
 
     /// Unstar.
     pub fn unstar(&mut self, kind: &str, id: &str) -> bool {
-        if let Some(v) = self.by_kind.get_mut(kind) {
-            if let Some(pos) = v.iter().position(|f| f.id == id) {
-                v.remove(pos);
-                if v.is_empty() {
-                    self.by_kind.remove(kind);
-                }
-                return true;
+        if let Some(v) = self.by_kind.get_mut(kind)
+            && let Some(pos) = v.iter().position(|f| f.id == id)
+        {
+            v.remove(pos);
+            if v.is_empty() {
+                self.by_kind.remove(kind);
             }
+            return true;
         }
         false
     }

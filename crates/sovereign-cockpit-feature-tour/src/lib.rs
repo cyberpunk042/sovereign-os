@@ -126,6 +126,7 @@ impl FeatureTour {
     }
 
     /// Next step. If past the last step, marks completed and clears active.
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Result<(), TourError> {
         let (tour_id, idx) = self.active.clone().ok_or(TourError::NoActiveTour)?;
         let total = self.tours.get(&tour_id).map(|t| t.steps.len()).unwrap_or(0);

@@ -202,10 +202,10 @@ impl ComboboxState {
                 return Err(ComboboxError::EmptyLabel);
             }
         }
-        if let Some(v) = &self.value {
-            if !self.options.iter().any(|o| &o.id == v) {
-                return Err(ComboboxError::UnknownOption(v.clone()));
-            }
+        if let Some(v) = &self.value
+            && !self.options.iter().any(|o| &o.id == v)
+        {
+            return Err(ComboboxError::UnknownOption(v.clone()));
         }
         Ok(())
     }

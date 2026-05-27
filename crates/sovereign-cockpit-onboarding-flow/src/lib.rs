@@ -86,6 +86,7 @@ impl OnboardingFlow {
     }
 
     /// Advance to next step.
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Result<Step, FlowError> {
         if self.current == Step::Done {
             return Err(FlowError::AtLast);

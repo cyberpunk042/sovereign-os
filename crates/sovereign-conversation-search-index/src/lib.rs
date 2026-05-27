@@ -87,15 +87,15 @@ impl SearchIndex {
         let mut hits = Vec::new();
         for t in &self.threads {
             for turn in &t.turns {
-                if let Some(r) = q.role {
-                    if turn.role != r {
-                        continue;
-                    }
+                if let Some(r) = q.role
+                    && turn.role != r
+                {
+                    continue;
                 }
-                if let Some(b) = &q.branch_id {
-                    if &turn.branch_id != b {
-                        continue;
-                    }
+                if let Some(b) = &q.branch_id
+                    && &turn.branch_id != b
+                {
+                    continue;
                 }
                 if !needle.is_empty() && !turn.text.to_ascii_lowercase().contains(&needle) {
                     continue;

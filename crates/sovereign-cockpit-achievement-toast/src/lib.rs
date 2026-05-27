@@ -122,16 +122,16 @@ impl AchievementToast {
     /// Returns Some(&Achievement) if showing.
     pub fn show(&mut self, now_ms: u64) -> Option<&Achievement> {
         // Expire current if past show_until.
-        if let Some(a) = &self.showing {
-            if a.show_until_ms <= now_ms {
-                self.showing = None;
-            }
+        if let Some(a) = &self.showing
+            && a.show_until_ms <= now_ms
+        {
+            self.showing = None;
         }
-        if self.showing.is_none() {
-            if let Some(mut next) = self.queue.pop_front() {
-                next.show_until_ms = now_ms.saturating_add(self.duration_ms);
-                self.showing = Some(next);
-            }
+        if self.showing.is_none()
+            && let Some(mut next) = self.queue.pop_front()
+        {
+            next.show_until_ms = now_ms.saturating_add(self.duration_ms);
+            self.showing = Some(next);
         }
         self.showing.as_ref()
     }

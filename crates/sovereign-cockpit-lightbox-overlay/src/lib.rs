@@ -84,6 +84,7 @@ impl LightboxOverlay {
     }
 
     /// Next; wraps if cyclic, returns NotOpen if closed.
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Result<&str, LightboxError> {
         let i = self.open_at.ok_or(LightboxError::NotOpen)?;
         let last = self.items.len() - 1;
@@ -120,10 +121,10 @@ impl LightboxOverlay {
         if self.items.is_empty() {
             return Err(LightboxError::EmptyItems);
         }
-        if let Some(i) = self.open_at {
-            if i >= self.items.len() {
-                return Err(LightboxError::OutOfRange);
-            }
+        if let Some(i) = self.open_at
+            && i >= self.items.len()
+        {
+            return Err(LightboxError::OutOfRange);
         }
         Ok(())
     }

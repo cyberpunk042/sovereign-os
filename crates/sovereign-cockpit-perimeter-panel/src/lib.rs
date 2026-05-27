@@ -228,7 +228,7 @@ impl Panel {
             for dirent in read {
                 let dirent = dirent.map_err(|e| PanelError::Io(e.to_string()))?;
                 let path = dirent.path();
-                if path.extension().map_or(true, |e| e != "json") {
+                if path.extension().is_none_or(|e| e != "json") {
                     continue;
                 }
                 let bytes = match fs::read(&path) {
@@ -251,17 +251,17 @@ impl Panel {
             for dirent in read {
                 let dirent = dirent.map_err(|e| PanelError::Io(e.to_string()))?;
                 let path = dirent.path();
-                if path.extension().map_or(true, |e| e != "json") {
+                if path.extension().is_none_or(|e| e != "json") {
                     continue;
                 }
                 let bytes = match fs::read(&path) {
                     Ok(b) => b,
                     Err(_) => continue,
                 };
-                if let Ok(summary) = serde_json::from_slice::<ExtensionSummary>(&bytes) {
-                    if summary.expires_at_ms > now_ms {
-                        panel.active_extensions.push(summary);
-                    }
+                if let Ok(summary) = serde_json::from_slice::<ExtensionSummary>(&bytes)
+                    && summary.expires_at_ms > now_ms
+                {
+                    panel.active_extensions.push(summary);
                 }
             }
             panel

@@ -142,10 +142,10 @@ impl BannerBus {
         if self.schema_version != SCHEMA_VERSION {
             return Err(BusError::SchemaMismatch);
         }
-        if let Some(c) = &self.current {
-            if c.id.is_empty() {
-                return Err(BusError::EmptyId);
-            }
+        if let Some(c) = &self.current
+            && c.id.is_empty()
+        {
+            return Err(BusError::EmptyId);
         }
         for b in &self.queued {
             if b.id.is_empty() {

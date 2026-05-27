@@ -114,10 +114,10 @@ impl FetchState {
         if self.schema_version != SCHEMA_VERSION {
             return Err(FetchError::SchemaMismatch);
         }
-        if let State::Errored { error, .. } = &self.state {
-            if error.is_empty() {
-                return Err(FetchError::EmptyError);
-            }
+        if let State::Errored { error, .. } = &self.state
+            && error.is_empty()
+        {
+            return Err(FetchError::EmptyError);
         }
         Ok(())
     }
