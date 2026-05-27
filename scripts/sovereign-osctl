@@ -7819,6 +7819,16 @@ case "${cmd}" in
     # status / catalog / gpus (+ --json).
     "${__REPO_ROOT}/scripts/inference/model-health.py" "$@"
     ;;
+  traces)
+    # M060 D-05 (R10083-R10087): M049 13-field span store + query core —
+    # reads the observability fabric's append-only span log
+    # (/var/log/sovereign-os/spans.jsonl), filters by time window / text /
+    # severity / OCSF class (MS026 16-event taxonomy), assembles per-trace
+    # span trees. Read-only; the sovereign-traces-api daemon serves the D-05
+    # cockpit dashboard from this same core. Verbs: spans / trace <id> /
+    # summary (+ --json, --window, --q, --severity, --ocsf-class).
+    "${__REPO_ROOT}/scripts/observability/trace-store.py" "$@"
+    ;;
   compliance)
     # R458: §1g/§1h compliance dashboard aggregator. Consolidates the
     # 4-tool operator-§1g compliance instrument suite (R453 surface-map

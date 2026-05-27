@@ -167,6 +167,13 @@ DASHBOARD_ROUTES = {
         "label": "D-03 Model Health (SRP roles/GPU/KV cache/latency)",
         "source_repo": "sovereign-os",
     },
+    "traces": {
+        "port": 8105,
+        "healthz_path": "/healthz",
+        "subpath": "/traces/",
+        "label": "D-05 Traces (M049 13-field span search/tree/OCSF detail)",
+        "source_repo": "sovereign-os",
+    },
 }
 
 KNOWN_SLUGS = list(DASHBOARD_ROUTES.keys())

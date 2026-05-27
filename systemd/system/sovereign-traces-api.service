@@ -1,0 +1,48 @@
+[Unit]
+Description=Sovereign traces read-only API + D-05 dashboard host (M060 R10083-R10087)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/traces-api.py
+# Read-only observation surface: reads the observability fabric's append-only
+# M049 13-field span log (/var/log/sovereign-os/spans.jsonl) and serves the
+# search / per-trace / summary data model the D-05 cockpit dashboard renders.
+# There is NO mutation surface — spans are observed, not set; MS009
+# replay-verify is an MS003-signed CLI verb, never a web mutation.
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/traces-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default — operator-§1g exposure decision is theirs. To expose
+# beyond loopback, drop /etc/systemd/system/sovereign-traces-api.service.d/bind.conf:
+#   [Service]
+#   Environment=TRACES_API_BIND=0.0.0.0
+Environment=TRACES_API_BIND=127.0.0.1
+Environment=TRACES_API_PORT=8105
+
+# R171 defense-in-depth (Layer-1 lint enforced). Read-only HTTP surface;
+# reads the JSONL span log + appends the metrics textfile.
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target
