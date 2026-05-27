@@ -425,6 +425,35 @@ jobs:
         # Keeps the style-tier warnings visible in CI logs without blocking,
         # so the remaining `-S warning` cleanup stays on the radar.
 
+  ruff:
+    name: ruff (python real-bug lint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: install ruff
+        run: pip install ruff
+      - name: ruff (real-bug codes — undefined names / redefinitions / syntax)
+        run: |
+          find . -name '*.py' -not -path '*/__pycache__/*' -not -path './target/*' -print0 | \
+            xargs -0 ruff check --select=F821,F811,F706,F707,F501,F502,F522,F601,F602,F632,PLE
+        # Added 2026-05-27. Scoped to ALWAYS-real ruff codes (undefined name,
+        # redefinition, return-outside-fn, bad %-format, syntax-ish, pylint
+        # errors) — these can never be vestigial, so the gate passes clean
+        # WITHOUT the 360-file cosmetic (F541/F401/F841/E741) cleanup, while
+        # catching real Python bugs across the surface. Broaden the --select
+        # set once the cosmetic cleanup lands. (Parallels the selfdef ruff
+        # coherence layer.)
+      - name: ruff (style report, non-blocking)
+        run: |
+          find . -name '*.py' -not -path '*/__pycache__/*' -not -path './target/*' -print0 | \
+            xargs -0 ruff check || true
+        # Surfaces the full finding set (incl. the cosmetic backlog) in CI
+        # logs without blocking — keeps the cleanup on the radar.
+
   cargo-workspace:
     name: cargo workspace (runtime crates + dashboard-coverage + mirror-publisher)
     runs-on: ubuntu-latest
