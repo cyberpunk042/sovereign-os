@@ -202,6 +202,13 @@ DASHBOARD_ROUTES = {
         "label": "D-01 Active Sessions (M057 12-step lifecycle per task)",
         "source_repo": "sovereign-os",
     },
+    "approvals": {
+        "port": 8110,
+        "healthz_path": "/healthz",
+        "subpath": "/approvals/",
+        "label": "D-06 Pending Approvals (operator queue + M065 stage gates)",
+        "source_repo": "sovereign-os",
+    },
 }
 
 KNOWN_SLUGS = list(DASHBOARD_ROUTES.keys())

@@ -1,0 +1,48 @@
+[Unit]
+Description=Sovereign approvals read-only API + D-06 dashboard host (M060 R10088-R10092)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/approvals-api.py
+# Read-only observation surface: reads the lifecycle/authority engine's pending
+# approval queue + M065 Five Stage Gate state + reports MS003 operator-key
+# presence (never reads the key material) for the D-06 cockpit dashboard. There
+# is NO mutation surface — approve/deny/defer + gate sign-off are MS003-signed
+# CLI verbs (M065: "No PR opens past a gate without operator sign-off").
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/approvals-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default — operator-§1g exposure decision is theirs. To expose
+# beyond loopback, drop /etc/systemd/system/sovereign-approvals-api.service.d/bind.conf:
+#   [Service]
+#   Environment=APPROVALS_API_BIND=0.0.0.0
+Environment=APPROVALS_API_BIND=127.0.0.1
+Environment=APPROVALS_API_PORT=8110
+
+# R171 defense-in-depth (Layer-1 lint enforced). Read-only HTTP surface;
+# reads the approval queue + operator-key presence + appends the metrics textfile.
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target

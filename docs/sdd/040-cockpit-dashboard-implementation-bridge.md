@@ -49,7 +49,7 @@ Meta requirements (every dashboard):
 | D-03 | model health (Blackwell/3090/CPU + VRAM + KV cache + p50/p95/p99 latency + heatmap) | `/webapp/d-03-model-health/` + `scripts/operator/model-health-api.py` (+ core `scripts/inference/model-health.py`, CLI `sovereign-osctl model-health`, service `sovereign-model-health-api.service`) | **✓ shipped (full stack → prod)** | M060 R10069-R10074 |
 | D-04 | costs (daily budget + per-request + project/profile/model breakdowns + forecast + alert thresholds) | `/webapp/d-04-costs/` + `scripts/operator/costs-api.py` (+ core `scripts/observability/cost-tracker.py`, CLI `sovereign-osctl costs`, service `sovereign-costs-api.service`) | **✓ shipped (full stack → prod)** | M060 R10075-R10082 |
 | D-05 | traces (M049 13-field span search/filter + span tree + replay + OCSF detail panel) | `/webapp/d-05-traces/` + `scripts/operator/traces-api.py` (+ core `scripts/observability/trace-store.py`, CLI `sovereign-osctl traces`, service `sovereign-traces-api.service`) | **✓ shipped (full stack → prod)** | M060 R10083-R10087 |
-| D-06 | pending approvals (operator queue + context + approve/deny/defer + batch-approve) | — | **MISSING** | M060 R10088-R10092 |
+| D-06 | pending approvals (operator queue + context + approve/deny/defer + batch-approve) | `/webapp/d-06-pending-approvals/` + `scripts/operator/approvals-api.py` (+ core `scripts/lifecycle/approval-queue.py`, CLI `sovereign-osctl approvals`, service `sovereign-approvals-api.service`) | **✓ shipped (full stack → prod)** | M060 R10088-R10092 |
 | D-07 | memory changes (graph diff + promote/forget/pin + 7-dimension trust filters) | — | **MISSING** | M060 R10093-R10096 |
 | D-08 | rollback points (ZFS snapshot list + commit history + dry-run + apply) | — | **MISSING** | M060 R10097-R10101 |
 | D-09 | hardware pressure (PSI gauges + DCGM gauges + backpressure indicators) | `/webapp/d-09-hardware-pressure/` + `scripts/operator/hardware-pressure-api.py` (+ core `scripts/hardware/hardware-pressure.py`, CLI `sovereign-osctl hardware-pressure`, service `sovereign-hardware-pressure-api.service`) | **✓ shipped (full stack → prod)** | M060 R10102-R10105 |
@@ -66,9 +66,9 @@ Meta requirements (every dashboard):
 | D-20 | peace machine health (5 properties live status) | `/webapp/compliance/index.html` | **✓ partial** (compliance covers some properties; full 5-property live view pending) | M060 R10126-R10127 |
 
 **Coverage summary** (refreshed 2026-05-27 — full-stack §1g 8-surface delivery):
-- **Shipped (full stack → prod)**: D-00, D-01, D-03, D-04, D-05, D-09, D-10, D-11, D-16 (9 dashboards)
+- **Shipped (full stack → prod)**: D-00, D-01, D-03, D-04, D-05, D-06, D-09, D-10, D-11, D-16 (10 dashboards)
 - **Shipped (split or partial)**: D-12, D-14, D-19, D-20 (4 dashboards)
-- **Webapp scaffold present, backend API pending**: D-02, D-06, D-07, D-08, D-13, D-15, D-17, D-18 (8 dashboards — single-file `/webapp/d-NN-*/index.html` built; each fetches its `/api/...` contract awaiting the operator-API + core + service surfaces, exactly as D-01/D-03/D-04/D-05/D-09/D-10/D-11 were before being driven to prod)
+- **Webapp scaffold present, backend API pending**: D-02, D-07, D-08, D-13, D-15, D-17, D-18 (7 dashboards — single-file `/webapp/d-NN-*/index.html` built; each fetches its `/api/...` contract awaiting the operator-API + core + service surfaces, exactly as D-01/D-03/D-04/D-05/D-06/D-09/D-10/D-11 were before being driven to prod). NOTE: D-07/D-08 carry inline mock data + reference `/api/d-07|d-08/...` endpoints (need a frontend fetch-wiring pass too); D-13/D-15/D-17/D-18 are selfdef-mirror dashboards (D-040.6/.8 — consume MS007 typed-mirror crates, cross-repo).
 
 > Core-reuse clusters (one source-of-truth, multiple dashboards, zero schema drift):
 > - **observability** — `scripts/observability/trace-store.py` reads the M049 span log; `cost-tracker.py` (D-04) + `eval-tracker.py` (D-10) reuse its loaders / patterns.
