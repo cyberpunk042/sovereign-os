@@ -79,8 +79,12 @@ impl PresenceRoster {
 
     /// Set / replace.
     pub fn set(&mut self, entry: Entry) -> Result<(), RosterError> {
-        if entry.operator_id.is_empty() { return Err(RosterError::EmptyOperator); }
-        if entry.label.is_empty() { return Err(RosterError::EmptyLabel); }
+        if entry.operator_id.is_empty() {
+            return Err(RosterError::EmptyOperator);
+        }
+        if entry.label.is_empty() {
+            return Err(RosterError::EmptyLabel);
+        }
         self.roster.insert(entry.operator_id.clone(), entry);
         Ok(())
     }
@@ -89,7 +93,9 @@ impl PresenceRoster {
     pub fn observe(&mut self, operator_id: &str, now_ms: u64) -> bool {
         if let Some(e) = self.roster.get_mut(operator_id) {
             e.last_seen_ts_ms = now_ms;
-            if e.status == Status::Idle { e.status = Status::Online; }
+            if e.status == Status::Idle {
+                e.status = Status::Online;
+            }
             return true;
         }
         false
@@ -104,7 +110,8 @@ impl PresenceRoster {
     pub fn mark_idle_if_older(&mut self, now_ms: u64, threshold_ms: u64) -> usize {
         let mut flipped = 0;
         for e in self.roster.values_mut() {
-            if e.status == Status::Online && now_ms.saturating_sub(e.last_seen_ts_ms) > threshold_ms {
+            if e.status == Status::Online && now_ms.saturating_sub(e.last_seen_ts_ms) > threshold_ms
+            {
                 e.status = Status::Idle;
                 flipped += 1;
             }
@@ -119,17 +126,25 @@ impl PresenceRoster {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), RosterError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(RosterError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(RosterError::SchemaMismatch);
+        }
         for e in self.roster.values() {
-            if e.operator_id.is_empty() { return Err(RosterError::EmptyOperator); }
-            if e.label.is_empty() { return Err(RosterError::EmptyLabel); }
+            if e.operator_id.is_empty() {
+                return Err(RosterError::EmptyOperator);
+            }
+            if e.label.is_empty() {
+                return Err(RosterError::EmptyLabel);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for PresenceRoster {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -137,7 +152,12 @@ mod tests {
     use super::*;
 
     fn entry(id: &str, status: Status, ts: u64) -> Entry {
-        Entry { operator_id: id.into(), label: id.into(), status, last_seen_ts_ms: ts }
+        Entry {
+            operator_id: id.into(),
+            label: id.into(),
+            status,
+            last_seen_ts_ms: ts,
+        }
     }
 
     #[test]
@@ -191,7 +211,10 @@ mod tests {
     #[test]
     fn empty_inputs_rejected() {
         let mut r = PresenceRoster::new();
-        assert!(matches!(r.set(entry("", Status::Online, 0)).unwrap_err(), RosterError::EmptyOperator));
+        assert!(matches!(
+            r.set(entry("", Status::Online, 0)).unwrap_err(),
+            RosterError::EmptyOperator
+        ));
         let mut bad = entry("alice", Status::Online, 0);
         bad.label = "".into();
         assert!(matches!(r.set(bad).unwrap_err(), RosterError::EmptyLabel));
@@ -201,7 +224,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut r = PresenceRoster::new();
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate().unwrap_err(), RosterError::SchemaMismatch));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            RosterError::SchemaMismatch
+        ));
     }
 
     #[test]

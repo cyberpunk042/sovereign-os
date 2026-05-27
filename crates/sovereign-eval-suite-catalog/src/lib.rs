@@ -9,9 +9,9 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+use serde::{Deserialize, Serialize};
 use sovereign_eval_plane::EvalDimension;
 use sovereign_execution_mode_registry::ExecutionMode;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// Schema version.
@@ -85,8 +85,13 @@ pub enum SuiteError {
 }
 
 const REQUIRED: [SuiteId; 7] = [
-    SuiteId::Smoke, SuiteId::Regression, SuiteId::Safety, SuiteId::Drift,
-    SuiteId::GoldenPath, SuiteId::RedTeam, SuiteId::LatencyBudget,
+    SuiteId::Smoke,
+    SuiteId::Regression,
+    SuiteId::Safety,
+    SuiteId::Drift,
+    SuiteId::GoldenPath,
+    SuiteId::RedTeam,
+    SuiteId::LatencyBudget,
 ];
 
 impl EvalSuiteCatalog {
@@ -165,9 +170,15 @@ impl EvalSuiteCatalog {
             }
         }
         for r in &self.suites {
-            if r.dimensions.is_empty() { return Err(SuiteError::NoDimensions(r.id)); }
-            if r.allowed_modes.is_empty() { return Err(SuiteError::NoModes(r.id)); }
-            if r.expected_runtime_seconds == 0 { return Err(SuiteError::ZeroRuntime(r.id)); }
+            if r.dimensions.is_empty() {
+                return Err(SuiteError::NoDimensions(r.id));
+            }
+            if r.allowed_modes.is_empty() {
+                return Err(SuiteError::NoModes(r.id));
+            }
+            if r.expected_runtime_seconds == 0 {
+                return Err(SuiteError::ZeroRuntime(r.id));
+            }
         }
         Ok(())
     }
@@ -179,7 +190,10 @@ impl EvalSuiteCatalog {
 
     /// Eligible suites in given mode.
     pub fn eligible_in(&self, mode: ExecutionMode) -> Vec<&SuiteRecord> {
-        self.suites.iter().filter(|r| r.allowed_modes.contains(&mode)).collect()
+        self.suites
+            .iter()
+            .filter(|r| r.allowed_modes.contains(&mode))
+            .collect()
     }
 }
 
@@ -233,7 +247,10 @@ mod tests {
     fn no_dimensions_caught() {
         let mut c = EvalSuiteCatalog::canonical();
         c.suites[0].dimensions.clear();
-        assert!(matches!(c.validate().unwrap_err(), SuiteError::NoDimensions(_)));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            SuiteError::NoDimensions(_)
+        ));
     }
 
     #[test]
@@ -247,29 +264,47 @@ mod tests {
     fn zero_runtime_caught() {
         let mut c = EvalSuiteCatalog::canonical();
         c.suites[0].expected_runtime_seconds = 0;
-        assert!(matches!(c.validate().unwrap_err(), SuiteError::ZeroRuntime(_)));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            SuiteError::ZeroRuntime(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut c = EvalSuiteCatalog::canonical();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), SuiteError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            SuiteError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn count_invalid_caught() {
         let mut c = EvalSuiteCatalog::canonical();
         c.suites.pop();
-        assert!(matches!(c.validate().unwrap_err(), SuiteError::CountInvalid(6)));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            SuiteError::CountInvalid(6)
+        ));
     }
 
     #[test]
     fn suite_serde_kebab() {
         assert_eq!(serde_json::to_string(&SuiteId::Smoke).unwrap(), "\"smoke\"");
-        assert_eq!(serde_json::to_string(&SuiteId::GoldenPath).unwrap(), "\"golden-path\"");
-        assert_eq!(serde_json::to_string(&SuiteId::RedTeam).unwrap(), "\"red-team\"");
-        assert_eq!(serde_json::to_string(&SuiteId::LatencyBudget).unwrap(), "\"latency-budget\"");
+        assert_eq!(
+            serde_json::to_string(&SuiteId::GoldenPath).unwrap(),
+            "\"golden-path\""
+        );
+        assert_eq!(
+            serde_json::to_string(&SuiteId::RedTeam).unwrap(),
+            "\"red-team\""
+        );
+        assert_eq!(
+            serde_json::to_string(&SuiteId::LatencyBudget).unwrap(),
+            "\"latency-budget\""
+        );
     }
 
     #[test]

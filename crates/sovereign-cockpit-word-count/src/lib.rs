@@ -41,17 +41,26 @@ pub enum CountError {
 
 /// Count.
 pub fn count(text: &str, wpm: u32) -> Result<Stats, CountError> {
-    if wpm == 0 { return Err(CountError::ZeroWpm); }
+    if wpm == 0 {
+        return Err(CountError::ZeroWpm);
+    }
     let chars = text.chars().count() as u64;
     let chars_no_ws = text.chars().filter(|c| !c.is_whitespace()).count() as u64;
     let words = text.split_whitespace().filter(|w| !w.is_empty()).count() as u64;
     let reading_time_ms = words.saturating_mul(60_000) / (wpm as u64);
-    Ok(Stats { chars, chars_no_ws, words, reading_time_ms })
+    Ok(Stats {
+        chars,
+        chars_no_ws,
+        words,
+        reading_time_ms,
+    })
 }
 
 /// Validate.
 pub fn validate_schema_version(s: &str) -> Result<(), CountError> {
-    if s != SCHEMA_VERSION { return Err(CountError::SchemaMismatch); }
+    if s != SCHEMA_VERSION {
+        return Err(CountError::SchemaMismatch);
+    }
     Ok(())
 }
 
@@ -62,7 +71,15 @@ mod tests {
     #[test]
     fn empty_text() {
         let s = count("", 200).unwrap();
-        assert_eq!(s, Stats { chars: 0, chars_no_ws: 0, words: 0, reading_time_ms: 0 });
+        assert_eq!(
+            s,
+            Stats {
+                chars: 0,
+                chars_no_ws: 0,
+                words: 0,
+                reading_time_ms: 0
+            }
+        );
     }
 
     #[test]

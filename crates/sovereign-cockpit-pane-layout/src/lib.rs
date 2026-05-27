@@ -195,13 +195,19 @@ mod tests {
     #[test]
     fn set_pane_out_of_range_rejected() {
         let mut l = PaneLayout::single("tab-1");
-        assert!(matches!(l.set_pane(5, "x").unwrap_err(), LayoutError::CountMismatch { .. }));
+        assert!(matches!(
+            l.set_pane(5, "x").unwrap_err(),
+            LayoutError::CountMismatch { .. }
+        ));
     }
 
     #[test]
     fn set_empty_pane_rejected() {
         let mut l = PaneLayout::single("tab-1");
-        assert!(matches!(l.set_pane(0, "").unwrap_err(), LayoutError::EmptyPane(0)));
+        assert!(matches!(
+            l.set_pane(0, "").unwrap_err(),
+            LayoutError::EmptyPane(0)
+        ));
     }
 
     #[test]
@@ -211,7 +217,10 @@ mod tests {
             mode: SplitMode::QuadGrid,
             panes: vec!["a".into(), "b".into()],
         };
-        assert!(matches!(l.validate().unwrap_err(), LayoutError::CountMismatch { .. }));
+        assert!(matches!(
+            l.validate().unwrap_err(),
+            LayoutError::CountMismatch { .. }
+        ));
     }
 
     #[test]
@@ -221,22 +230,40 @@ mod tests {
             mode: SplitMode::SplitVertical,
             panes: vec!["a".into(), String::new()],
         };
-        assert!(matches!(l.validate().unwrap_err(), LayoutError::EmptyPane(1)));
+        assert!(matches!(
+            l.validate().unwrap_err(),
+            LayoutError::EmptyPane(1)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut l = PaneLayout::single("a");
         l.schema_version = "9.9.9".into();
-        assert!(matches!(l.validate().unwrap_err(), LayoutError::SchemaMismatch));
+        assert!(matches!(
+            l.validate().unwrap_err(),
+            LayoutError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn mode_serde_kebab() {
-        assert_eq!(serde_json::to_string(&SplitMode::Single).unwrap(), "\"single\"");
-        assert_eq!(serde_json::to_string(&SplitMode::SplitVertical).unwrap(), "\"split-vertical\"");
-        assert_eq!(serde_json::to_string(&SplitMode::SplitHorizontal).unwrap(), "\"split-horizontal\"");
-        assert_eq!(serde_json::to_string(&SplitMode::QuadGrid).unwrap(), "\"quad-grid\"");
+        assert_eq!(
+            serde_json::to_string(&SplitMode::Single).unwrap(),
+            "\"single\""
+        );
+        assert_eq!(
+            serde_json::to_string(&SplitMode::SplitVertical).unwrap(),
+            "\"split-vertical\""
+        );
+        assert_eq!(
+            serde_json::to_string(&SplitMode::SplitHorizontal).unwrap(),
+            "\"split-horizontal\""
+        );
+        assert_eq!(
+            serde_json::to_string(&SplitMode::QuadGrid).unwrap(),
+            "\"quad-grid\""
+        );
     }
 
     #[test]

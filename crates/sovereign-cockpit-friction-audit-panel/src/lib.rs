@@ -298,7 +298,10 @@ impl Panel {
                 Status::Skip => (
                     "SKIP",
                     Color::Green,
-                    format!("operator-extended skip · {}", freshness(self.now_ms, e.ts_ms)),
+                    format!(
+                        "operator-extended skip · {}",
+                        freshness(self.now_ms, e.ts_ms)
+                    ),
                 ),
                 Status::Override => ("OVRD", Color::Yellow, freshness(self.now_ms, e.ts_ms)),
             },
@@ -376,9 +379,8 @@ mod tests {
 
     fn write_entry(dir: &Path, ts: u64, gate: &str, status: &str, host: &str) {
         let path = dir.join(format!("{ts}-{gate}.json"));
-        let body = format!(
-            r#"{{"gate":"{gate}","status":"{status}","ts_ms":{ts},"hostname":"{host}"}}"#
-        );
+        let body =
+            format!(r#"{{"gate":"{gate}","status":"{status}","ts_ms":{ts},"hostname":"{host}"}}"#);
         let mut f = fs::File::create(&path).unwrap();
         f.write_all(body.as_bytes()).unwrap();
     }
@@ -466,9 +468,18 @@ mod tests {
         let rows = p.render();
         assert_eq!(rows[0].runbook_route, "/wiki/runbooks/friction-audit-pcie");
         assert_eq!(rows[1].runbook_route, "/wiki/runbooks/friction-audit-zfs");
-        assert_eq!(rows[2].runbook_route, "/wiki/runbooks/friction-audit-memory");
-        assert_eq!(rows[3].runbook_route, "/wiki/runbooks/friction-audit-immutability");
-        assert_eq!(rows[4].runbook_route, "/wiki/runbooks/friction-audit-signature");
+        assert_eq!(
+            rows[2].runbook_route,
+            "/wiki/runbooks/friction-audit-memory"
+        );
+        assert_eq!(
+            rows[3].runbook_route,
+            "/wiki/runbooks/friction-audit-immutability"
+        );
+        assert_eq!(
+            rows[4].runbook_route,
+            "/wiki/runbooks/friction-audit-signature"
+        );
     }
 
     #[test]

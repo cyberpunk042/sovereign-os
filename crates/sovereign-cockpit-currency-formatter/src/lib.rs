@@ -56,10 +56,26 @@ pub enum CurError {
 
 impl CurrencySpec {
     /// New.
-    pub fn new(symbol: &str, position: SymbolPosition, decimals: u8, group: char, sep: char) -> Result<Self, CurError> {
-        if symbol.is_empty() { return Err(CurError::EmptySymbol); }
-        if decimals > 8 { return Err(CurError::BadDecimals); }
-        Ok(Self { symbol: symbol.into(), position, decimals, group, sep })
+    pub fn new(
+        symbol: &str,
+        position: SymbolPosition,
+        decimals: u8,
+        group: char,
+        sep: char,
+    ) -> Result<Self, CurError> {
+        if symbol.is_empty() {
+            return Err(CurError::EmptySymbol);
+        }
+        if decimals > 8 {
+            return Err(CurError::BadDecimals);
+        }
+        Ok(Self {
+            symbol: symbol.into(),
+            position,
+            decimals,
+            group,
+            sep,
+        })
     }
 
     /// Format an amount in minor units.
@@ -67,7 +83,9 @@ impl CurrencySpec {
         let negative = amount_minor < 0;
         let mut abs = (amount_minor.unsigned_abs()).to_string();
         // Pad to at least decimals+1 length (so leading zeros for tiny amounts).
-        while abs.len() <= self.decimals as usize { abs.insert(0, '0'); }
+        while abs.len() <= self.decimals as usize {
+            abs.insert(0, '0');
+        }
         let split_at = abs.len() - self.decimals as usize;
         let int_part = &abs[..split_at];
         let frac_part = &abs[split_at..];
@@ -79,7 +97,9 @@ impl CurrencySpec {
             body.push_str(frac_part);
         }
         let mut out = String::new();
-        if negative { out.push('-'); }
+        if negative {
+            out.push('-');
+        }
         match self.position {
             SymbolPosition::Prefix => {
                 out.push_str(&self.symbol);
@@ -96,8 +116,12 @@ impl CurrencySpec {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), CurError> {
-        if self.symbol.is_empty() { return Err(CurError::EmptySymbol); }
-        if self.decimals > 8 { return Err(CurError::BadDecimals); }
+        if self.symbol.is_empty() {
+            return Err(CurError::EmptySymbol);
+        }
+        if self.decimals > 8 {
+            return Err(CurError::BadDecimals);
+        }
         Ok(())
     }
 }
@@ -119,7 +143,9 @@ fn group_thousands(int: &str, sep: char) -> String {
 
 /// Validate.
 pub fn validate_schema_version(s: &str) -> Result<(), CurError> {
-    if s != SCHEMA_VERSION { return Err(CurError::SchemaMismatch); }
+    if s != SCHEMA_VERSION {
+        return Err(CurError::SchemaMismatch);
+    }
     Ok(())
 }
 

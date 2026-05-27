@@ -87,10 +87,16 @@ impl ColumnConfig {
 
     /// Move a column to a new index.
     pub fn move_to(&mut self, id: &str, to: usize) -> Result<(), ColumnError> {
-        let from = self.columns.iter().position(|c| c.id == id)
+        let from = self
+            .columns
+            .iter()
+            .position(|c| c.id == id)
             .ok_or_else(|| ColumnError::Unknown(id.into()))?;
         if to >= self.columns.len() {
-            return Err(ColumnError::OutOfBounds { to, len: self.columns.len() });
+            return Err(ColumnError::OutOfBounds {
+                to,
+                len: self.columns.len(),
+            });
         }
         let col = self.columns.remove(from);
         self.columns.insert(to, col);
@@ -99,8 +105,13 @@ impl ColumnConfig {
 
     /// Resize.
     pub fn resize(&mut self, id: &str, width_px: u32) -> Result<(), ColumnError> {
-        if width_px == 0 { return Err(ColumnError::WidthZero(id.into())); }
-        let c = self.columns.iter_mut().find(|c| c.id == id)
+        if width_px == 0 {
+            return Err(ColumnError::WidthZero(id.into()));
+        }
+        let c = self
+            .columns
+            .iter_mut()
+            .find(|c| c.id == id)
             .ok_or_else(|| ColumnError::Unknown(id.into()))?;
         c.width_px = width_px;
         Ok(())
@@ -108,7 +119,10 @@ impl ColumnConfig {
 
     /// Toggle visible.
     pub fn toggle_visible(&mut self, id: &str) -> Result<(), ColumnError> {
-        let c = self.columns.iter_mut().find(|c| c.id == id)
+        let c = self
+            .columns
+            .iter_mut()
+            .find(|c| c.id == id)
             .ok_or_else(|| ColumnError::Unknown(id.into()))?;
         c.visible = !c.visible;
         Ok(())
@@ -120,10 +134,16 @@ impl ColumnConfig {
         let mut center: Vec<&Column> = Vec::new();
         let mut pinned_right: Vec<&Column> = Vec::new();
         for c in &self.columns {
-            if !c.visible { continue; }
-            if c.pinned_left { pinned_left.push(c); }
-            else if c.pinned_right { pinned_right.push(c); }
-            else { center.push(c); }
+            if !c.visible {
+                continue;
+            }
+            if c.pinned_left {
+                pinned_left.push(c);
+            } else if c.pinned_right {
+                pinned_right.push(c);
+            } else {
+                center.push(c);
+            }
         }
         pinned_left.extend(center);
         pinned_left.extend(pinned_right);
@@ -143,9 +163,15 @@ fn check_columns(c: &[Column]) -> Result<(), ColumnError> {
     use std::collections::HashSet;
     let mut seen: HashSet<&str> = HashSet::new();
     for col in c {
-        if col.id.is_empty() { return Err(ColumnError::EmptyId); }
-        if col.label.is_empty() { return Err(ColumnError::EmptyLabel(col.id.clone())); }
-        if col.width_px == 0 { return Err(ColumnError::WidthZero(col.id.clone())); }
+        if col.id.is_empty() {
+            return Err(ColumnError::EmptyId);
+        }
+        if col.label.is_empty() {
+            return Err(ColumnError::EmptyLabel(col.id.clone()));
+        }
+        if col.width_px == 0 {
+            return Err(ColumnError::WidthZero(col.id.clone()));
+        }
         if !seen.insert(col.id.as_str()) {
             return Err(ColumnError::DuplicateId(col.id.clone()));
         }
@@ -164,8 +190,10 @@ mod tests {
         Column {
             id: id.into(),
             label: format!("L-{id}"),
-            visible, width_px: 100,
-            pinned_left: pl, pinned_right: pr,
+            visible,
+            width_px: 100,
+            pinned_left: pl,
+            pinned_right: pr,
         }
     }
 
@@ -175,8 +203,13 @@ mod tests {
             c("c", true, false, false),
             c("a", true, true, false),
             c("b", true, false, false),
-        ]).unwrap();
-        let order: Vec<&str> = cc.visible_in_render_order().iter().map(|c| c.id.as_str()).collect();
+        ])
+        .unwrap();
+        let order: Vec<&str> = cc
+            .visible_in_render_order()
+            .iter()
+            .map(|c| c.id.as_str())
+            .collect();
         assert_eq!(order, vec!["a", "c", "b"]);
     }
 
@@ -186,8 +219,13 @@ mod tests {
             c("a", true, false, true),
             c("b", true, false, false),
             c("c", true, false, false),
-        ]).unwrap();
-        let order: Vec<&str> = cc.visible_in_render_order().iter().map(|c| c.id.as_str()).collect();
+        ])
+        .unwrap();
+        let order: Vec<&str> = cc
+            .visible_in_render_order()
+            .iter()
+            .map(|c| c.id.as_str())
+            .collect();
         assert_eq!(order, vec!["b", "c", "a"]);
     }
 
@@ -197,8 +235,13 @@ mod tests {
             c("a", true, false, false),
             c("b", false, false, false),
             c("c", true, false, false),
-        ]).unwrap();
-        let order: Vec<&str> = cc.visible_in_render_order().iter().map(|c| c.id.as_str()).collect();
+        ])
+        .unwrap();
+        let order: Vec<&str> = cc
+            .visible_in_render_order()
+            .iter()
+            .map(|c| c.id.as_str())
+            .collect();
         assert_eq!(order, vec!["a", "c"]);
     }
 
@@ -215,7 +258,8 @@ mod tests {
             c("a", true, false, false),
             c("b", true, false, false),
             c("c", true, false, false),
-        ]).unwrap();
+        ])
+        .unwrap();
         cc.move_to("a", 2).unwrap();
         let order: Vec<&str> = cc.columns.iter().map(|c| c.id.as_str()).collect();
         assert_eq!(order, vec!["b", "c", "a"]);
@@ -231,7 +275,10 @@ mod tests {
     #[test]
     fn resize_zero_rejected() {
         let mut cc = ColumnConfig::new(vec![c("a", true, false, false)]).unwrap();
-        assert!(matches!(cc.resize("a", 0).unwrap_err(), ColumnError::WidthZero(_)));
+        assert!(matches!(
+            cc.resize("a", 0).unwrap_err(),
+            ColumnError::WidthZero(_)
+        ));
     }
 
     #[test]
@@ -245,7 +292,8 @@ mod tests {
     #[test]
     fn duplicate_rejected() {
         assert!(matches!(
-            ColumnConfig::new(vec![c("a", true, false, false), c("a", true, false, false)]).unwrap_err(),
+            ColumnConfig::new(vec![c("a", true, false, false), c("a", true, false, false)])
+                .unwrap_err(),
             ColumnError::DuplicateId(_)
         ));
     }
@@ -254,28 +302,35 @@ mod tests {
     fn empty_id_rejected() {
         let mut x = c("a", true, false, false);
         x.id = String::new();
-        assert!(matches!(ColumnConfig::new(vec![x]).unwrap_err(), ColumnError::EmptyId));
+        assert!(matches!(
+            ColumnConfig::new(vec![x]).unwrap_err(),
+            ColumnError::EmptyId
+        ));
     }
 
     #[test]
     fn move_out_of_bounds_rejected() {
         let mut cc = ColumnConfig::new(vec![c("a", true, false, false)]).unwrap();
-        assert!(matches!(cc.move_to("a", 99).unwrap_err(), ColumnError::OutOfBounds { .. }));
+        assert!(matches!(
+            cc.move_to("a", 99).unwrap_err(),
+            ColumnError::OutOfBounds { .. }
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut cc = ColumnConfig::new(vec![c("a", true, false, false)]).unwrap();
         cc.schema_version = "9.9.9".into();
-        assert!(matches!(cc.validate().unwrap_err(), ColumnError::SchemaMismatch));
+        assert!(matches!(
+            cc.validate().unwrap_err(),
+            ColumnError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn config_serde_roundtrip() {
-        let cc = ColumnConfig::new(vec![
-            c("a", true, true, false),
-            c("b", true, false, false),
-        ]).unwrap();
+        let cc =
+            ColumnConfig::new(vec![c("a", true, true, false), c("b", true, false, false)]).unwrap();
         let j = serde_json::to_string(&cc).unwrap();
         let back: ColumnConfig = serde_json::from_str(&j).unwrap();
         assert_eq!(cc, back);

@@ -81,15 +81,26 @@ impl CellFormatter {
         match kind {
             CellKind::Plain => plain.unwrap_or("").to_string(),
             CellKind::Number => self.fmt_int(value),
-            CellKind::Pct => format!("{}{}{}%", self.fmt_int(value / 100), self.opts.decimal,
-                                     format!("{:02}", (value.unsigned_abs() % 100))),
+            CellKind::Pct => format!(
+                "{}{}{}%",
+                self.fmt_int(value / 100),
+                self.opts.decimal,
+                format!("{:02}", (value.unsigned_abs() % 100))
+            ),
             CellKind::CurrencyMinor { code } => {
                 let neg = value < 0;
                 let abs = value.unsigned_abs();
                 let major = abs / 100;
                 let minor = abs % 100;
                 let sign = if neg { "-" } else { "" };
-                format!("{} {}{}{}{}", code, sign, self.fmt_int(major as i64), self.opts.decimal, format!("{:02}", minor))
+                format!(
+                    "{} {}{}{}{}",
+                    code,
+                    sign,
+                    self.fmt_int(major as i64),
+                    self.opts.decimal,
+                    format!("{:02}", minor)
+                )
             }
             CellKind::BytesIec => fmt_bytes_iec(value),
             CellKind::DurationMs => fmt_duration_ms(value),
@@ -98,13 +109,21 @@ impl CellFormatter {
 
     fn fmt_int(&self, n: i64) -> String {
         let neg = n < 0;
-        let abs = if n == i64::MIN { (i64::MAX as u64) + 1 } else { n.unsigned_abs() };
+        let abs = if n == i64::MIN {
+            (i64::MAX as u64) + 1
+        } else {
+            n.unsigned_abs()
+        };
         let s = abs.to_string();
         let mut out = String::with_capacity(s.len() + s.len() / 3 + 1);
-        if neg { out.push('-'); }
+        if neg {
+            out.push('-');
+        }
         let len = s.len();
         for (i, ch) in s.chars().enumerate() {
-            if i > 0 && (len - i) % 3 == 0 { out.push(self.opts.thousands); }
+            if i > 0 && (len - i) % 3 == 0 {
+                out.push(self.opts.thousands);
+            }
             out.push(ch);
         }
         out
@@ -112,7 +131,9 @@ impl CellFormatter {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), FormatError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(FormatError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(FormatError::SchemaMismatch);
+        }
         Ok(())
     }
 }
@@ -126,16 +147,23 @@ fn fmt_bytes_iec(n: i64) -> String {
         v /= 1024;
         i += 1;
     }
-    let s = if i == 0 { format!("{} {}", v, units[i]) } else { format!("{} {}", v, units[i]) };
+    let s = if i == 0 {
+        format!("{} {}", v, units[i])
+    } else {
+        format!("{} {}", v, units[i])
+    };
     if neg { format!("-{}", s) } else { s }
 }
 
 fn fmt_duration_ms(n: i64) -> String {
     let neg = n < 0;
     let mut ms = n.unsigned_abs();
-    let h = ms / 3_600_000; ms %= 3_600_000;
-    let m = ms / 60_000;   ms %= 60_000;
-    let s = ms / 1000;     ms %= 1000;
+    let h = ms / 3_600_000;
+    ms %= 3_600_000;
+    let m = ms / 60_000;
+    ms %= 60_000;
+    let s = ms / 1000;
+    ms %= 1000;
     let body = if h > 0 {
         format!("{}h {:02}m {:02}s", h, m, s)
     } else if m > 0 {
@@ -153,7 +181,10 @@ mod tests {
     use super::*;
 
     fn en() -> CellFormatter {
-        CellFormatter::new(FormatOpts { thousands: ',', decimal: '.' })
+        CellFormatter::new(FormatOpts {
+            thousands: ',',
+            decimal: '.',
+        })
     }
 
     #[test]
@@ -181,7 +212,11 @@ mod tests {
 
     #[test]
     fn currency_minor_negative() {
-        let v = en().format(&CellKind::CurrencyMinor { code: "USD".into() }, -12345, None);
+        let v = en().format(
+            &CellKind::CurrencyMinor { code: "USD".into() },
+            -12345,
+            None,
+        );
         assert_eq!(v, "USD -123.45");
     }
 
@@ -197,14 +232,20 @@ mod tests {
         assert_eq!(en().format(&CellKind::DurationMs, 750, None), "750ms");
         assert_eq!(en().format(&CellKind::DurationMs, 45_000, None), "45s");
         assert_eq!(en().format(&CellKind::DurationMs, 90_000, None), "1m 30s");
-        assert_eq!(en().format(&CellKind::DurationMs, 3_660_000, None), "1h 01m 00s");
+        assert_eq!(
+            en().format(&CellKind::DurationMs, 3_660_000, None),
+            "1h 01m 00s"
+        );
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut f = en();
         f.schema_version = "9.9.9".into();
-        assert!(matches!(f.validate().unwrap_err(), FormatError::SchemaMismatch));
+        assert!(matches!(
+            f.validate().unwrap_err(),
+            FormatError::SchemaMismatch
+        ));
     }
 
     #[test]

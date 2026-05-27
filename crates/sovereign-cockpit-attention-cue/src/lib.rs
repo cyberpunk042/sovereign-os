@@ -60,7 +60,9 @@ pub enum CueError {
 impl AttentionCue {
     /// New.
     pub fn new(decay_bp_per_sec: u32) -> Result<Self, CueError> {
-        if decay_bp_per_sec == 0 { return Err(CueError::ZeroDecay); }
+        if decay_bp_per_sec == 0 {
+            return Err(CueError::ZeroDecay);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             phase: Phase::Off,
@@ -82,7 +84,9 @@ impl AttentionCue {
 
     /// Update phase + intensity per current time.
     pub fn observe(&mut self, now_ms: u64) -> u32 {
-        if self.phase == Phase::Off { return 0; }
+        if self.phase == Phase::Off {
+            return 0;
+        }
         let elapsed = now_ms.saturating_sub(self.last_event_ms);
         let decay = (self.decay_bp_per_sec as u64).saturating_mul(elapsed) / 1000;
         let decay = decay.min(10_000) as u32;
@@ -107,8 +111,12 @@ impl AttentionCue {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), CueError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(CueError::SchemaMismatch); }
-        if self.decay_bp_per_sec == 0 { return Err(CueError::ZeroDecay); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(CueError::SchemaMismatch);
+        }
+        if self.decay_bp_per_sec == 0 {
+            return Err(CueError::ZeroDecay);
+        }
         Ok(())
     }
 }
@@ -170,14 +178,20 @@ mod tests {
 
     #[test]
     fn zero_decay_rejected() {
-        assert!(matches!(AttentionCue::new(0).unwrap_err(), CueError::ZeroDecay));
+        assert!(matches!(
+            AttentionCue::new(0).unwrap_err(),
+            CueError::ZeroDecay
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut c = AttentionCue::new(1000).unwrap();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), CueError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            CueError::SchemaMismatch
+        ));
     }
 
     #[test]

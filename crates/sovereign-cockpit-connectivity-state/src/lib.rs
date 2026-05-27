@@ -67,8 +67,12 @@ pub enum ConnError {
 impl ConnectivityState {
     /// New (Online).
     pub fn new(degraded_threshold_ms: u32, max_attempts: u32) -> Result<Self, ConnError> {
-        if degraded_threshold_ms == 0 { return Err(ConnError::ZeroThreshold); }
-        if max_attempts == 0 { return Err(ConnError::ZeroMaxAttempts); }
+        if degraded_threshold_ms == 0 {
+            return Err(ConnError::ZeroThreshold);
+        }
+        if max_attempts == 0 {
+            return Err(ConnError::ZeroMaxAttempts);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             state: State::Online,
@@ -113,9 +117,15 @@ impl ConnectivityState {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ConnError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ConnError::SchemaMismatch); }
-        if self.degraded_threshold_ms == 0 { return Err(ConnError::ZeroThreshold); }
-        if self.max_attempts == 0 { return Err(ConnError::ZeroMaxAttempts); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ConnError::SchemaMismatch);
+        }
+        if self.degraded_threshold_ms == 0 {
+            return Err(ConnError::ZeroThreshold);
+        }
+        if self.max_attempts == 0 {
+            return Err(ConnError::ZeroMaxAttempts);
+        }
         Ok(())
     }
 }
@@ -174,15 +184,24 @@ mod tests {
 
     #[test]
     fn bad_inputs_rejected() {
-        assert!(matches!(ConnectivityState::new(0, 3).unwrap_err(), ConnError::ZeroThreshold));
-        assert!(matches!(ConnectivityState::new(100, 0).unwrap_err(), ConnError::ZeroMaxAttempts));
+        assert!(matches!(
+            ConnectivityState::new(0, 3).unwrap_err(),
+            ConnError::ZeroThreshold
+        ));
+        assert!(matches!(
+            ConnectivityState::new(100, 0).unwrap_err(),
+            ConnError::ZeroMaxAttempts
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut c = ConnectivityState::new(100, 3).unwrap();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), ConnError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            ConnError::SchemaMismatch
+        ));
     }
 
     #[test]

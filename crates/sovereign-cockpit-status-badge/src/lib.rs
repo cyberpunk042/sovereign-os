@@ -74,19 +74,30 @@ pub enum BadgeError {
 }
 
 const REQUIRED: [BadgeId; 8] = [
-    BadgeId::ActiveMode, BadgeId::ActiveProfile, BadgeId::ActiveBundle,
-    BadgeId::Replay, BadgeId::Recording, BadgeId::DryRun,
-    BadgeId::SandboxTier, BadgeId::OpenAlerts,
+    BadgeId::ActiveMode,
+    BadgeId::ActiveProfile,
+    BadgeId::ActiveBundle,
+    BadgeId::Replay,
+    BadgeId::Recording,
+    BadgeId::DryRun,
+    BadgeId::SandboxTier,
+    BadgeId::OpenAlerts,
 ];
 
 impl StatusBadgePreferences {
     /// Canonical defaults — mode/profile/alerts visible, rest hidden.
     pub fn canonical() -> Self {
-        let prefs = REQUIRED.iter().map(|b| BadgePref {
-            id: *b,
-            visible: matches!(b, BadgeId::ActiveMode | BadgeId::ActiveProfile | BadgeId::OpenAlerts),
-            label_override: String::new(),
-        }).collect();
+        let prefs = REQUIRED
+            .iter()
+            .map(|b| BadgePref {
+                id: *b,
+                visible: matches!(
+                    b,
+                    BadgeId::ActiveMode | BadgeId::ActiveProfile | BadgeId::OpenAlerts
+                ),
+                label_override: String::new(),
+            })
+            .collect();
         Self {
             schema_version: SCHEMA_VERSION.into(),
             prefs,
@@ -100,7 +111,11 @@ impl StatusBadgePreferences {
 
     /// Toggle visibility.
     pub fn set_visible(&mut self, id: BadgeId, visible: bool) -> Result<(), BadgeError> {
-        let p = self.prefs.iter_mut().find(|p| p.id == id).ok_or(BadgeError::Missing(id))?;
+        let p = self
+            .prefs
+            .iter_mut()
+            .find(|p| p.id == id)
+            .ok_or(BadgeError::Missing(id))?;
         p.visible = visible;
         Ok(())
     }
@@ -110,7 +125,11 @@ impl StatusBadgePreferences {
         if label.chars().count() > 20 {
             return Err(BadgeError::LabelTooLong(id, label.chars().count()));
         }
-        let p = self.prefs.iter_mut().find(|p| p.id == id).ok_or(BadgeError::Missing(id))?;
+        let p = self
+            .prefs
+            .iter_mut()
+            .find(|p| p.id == id)
+            .ok_or(BadgeError::Missing(id))?;
         p.label_override = label.into();
         Ok(())
     }
@@ -119,7 +138,12 @@ impl StatusBadgePreferences {
     pub fn visible(&self) -> Vec<&BadgePref> {
         let mut v: Vec<&BadgePref> = self.prefs.iter().filter(|p| p.visible).collect();
         // Stable order by canonical position.
-        v.sort_by_key(|p| REQUIRED.iter().position(|x| *x == p.id).unwrap_or(usize::MAX));
+        v.sort_by_key(|p| {
+            REQUIRED
+                .iter()
+                .position(|x| *x == p.id)
+                .unwrap_or(usize::MAX)
+        });
         v
     }
 
@@ -158,7 +182,9 @@ mod tests {
     #[test]
     fn eight_badges_present() {
         let p = StatusBadgePreferences::canonical();
-        for b in REQUIRED { assert!(p.get(b).is_some(), "missing {b:?}"); }
+        for b in REQUIRED {
+            assert!(p.get(b).is_some(), "missing {b:?}");
+        }
     }
 
     #[test]
@@ -189,7 +215,10 @@ mod tests {
     fn label_too_long_rejected() {
         let mut p = StatusBadgePreferences::canonical();
         let long = "x".repeat(21);
-        assert!(matches!(p.set_label(BadgeId::ActiveMode, &long).unwrap_err(), BadgeError::LabelTooLong(_, 21)));
+        assert!(matches!(
+            p.set_label(BadgeId::ActiveMode, &long).unwrap_err(),
+            BadgeError::LabelTooLong(_, 21)
+        ));
     }
 
     #[test]
@@ -203,21 +232,36 @@ mod tests {
     fn count_invalid_caught() {
         let mut p = StatusBadgePreferences::canonical();
         p.prefs.pop();
-        assert!(matches!(p.validate().unwrap_err(), BadgeError::CountInvalid(7)));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            BadgeError::CountInvalid(7)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut p = StatusBadgePreferences::canonical();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), BadgeError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            BadgeError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn badge_serde_kebab() {
-        assert_eq!(serde_json::to_string(&BadgeId::ActiveMode).unwrap(), "\"active-mode\"");
-        assert_eq!(serde_json::to_string(&BadgeId::OpenAlerts).unwrap(), "\"open-alerts\"");
-        assert_eq!(serde_json::to_string(&BadgeId::DryRun).unwrap(), "\"dry-run\"");
+        assert_eq!(
+            serde_json::to_string(&BadgeId::ActiveMode).unwrap(),
+            "\"active-mode\""
+        );
+        assert_eq!(
+            serde_json::to_string(&BadgeId::OpenAlerts).unwrap(),
+            "\"open-alerts\""
+        );
+        assert_eq!(
+            serde_json::to_string(&BadgeId::DryRun).unwrap(),
+            "\"dry-run\""
+        );
     }
 
     #[test]

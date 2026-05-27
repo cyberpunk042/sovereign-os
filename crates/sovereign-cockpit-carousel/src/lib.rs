@@ -51,8 +51,15 @@ pub enum CarouselError {
 
 impl Carousel {
     /// New.
-    pub fn new(slide_count: u32, wrap_around: bool, autoplay_ms: u64, enable_autoplay: bool) -> Result<Self, CarouselError> {
-        if slide_count == 0 { return Err(CarouselError::NoSlides); }
+    pub fn new(
+        slide_count: u32,
+        wrap_around: bool,
+        autoplay_ms: u64,
+        enable_autoplay: bool,
+    ) -> Result<Self, CarouselError> {
+        if slide_count == 0 {
+            return Err(CarouselError::NoSlides);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             slide_count,
@@ -101,18 +108,29 @@ impl Carousel {
 
     /// Tick — advance when interval elapsed.
     pub fn tick(&mut self, now_ms: u64) -> bool {
-        if !self.enable_autoplay { return false; }
-        if now_ms.saturating_sub(self.last_tick_ms) < self.autoplay_ms { return false; }
+        if !self.enable_autoplay {
+            return false;
+        }
+        if now_ms.saturating_sub(self.last_tick_ms) < self.autoplay_ms {
+            return false;
+        }
         self.last_tick_ms = now_ms;
         self.next()
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), CarouselError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(CarouselError::SchemaMismatch); }
-        if self.slide_count == 0 { return Err(CarouselError::NoSlides); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(CarouselError::SchemaMismatch);
+        }
+        if self.slide_count == 0 {
+            return Err(CarouselError::NoSlides);
+        }
         if self.current >= self.slide_count {
-            return Err(CarouselError::IndexOutOfRange(self.current, self.slide_count));
+            return Err(CarouselError::IndexOutOfRange(
+                self.current,
+                self.slide_count,
+            ));
         }
         Ok(())
     }
@@ -124,7 +142,10 @@ mod tests {
 
     #[test]
     fn no_slides_rejected() {
-        assert!(matches!(Carousel::new(0, false, 1000, false).unwrap_err(), CarouselError::NoSlides));
+        assert!(matches!(
+            Carousel::new(0, false, 1000, false).unwrap_err(),
+            CarouselError::NoSlides
+        ));
     }
 
     #[test]
@@ -169,7 +190,10 @@ mod tests {
         let mut c = Carousel::new(5, false, 1000, false).unwrap();
         c.jump_to(3).unwrap();
         assert_eq!(c.current, 3);
-        assert!(matches!(c.jump_to(10).unwrap_err(), CarouselError::IndexOutOfRange(_, _)));
+        assert!(matches!(
+            c.jump_to(10).unwrap_err(),
+            CarouselError::IndexOutOfRange(_, _)
+        ));
     }
 
     #[test]
@@ -193,7 +217,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut c = Carousel::new(2, false, 1000, false).unwrap();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), CarouselError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            CarouselError::SchemaMismatch
+        ));
     }
 
     #[test]

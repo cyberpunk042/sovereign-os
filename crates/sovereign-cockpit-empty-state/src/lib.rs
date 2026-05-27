@@ -78,24 +78,76 @@ pub enum EmptyStateError {
 }
 
 const REQUIRED: [EmptyStateSlot; 8] = [
-    EmptyStateSlot::NoConversations, EmptyStateSlot::NoDashboards,
-    EmptyStateSlot::NoReplay, EmptyStateSlot::NoBookmarks,
-    EmptyStateSlot::NoPins, EmptyStateSlot::NoSearchResults,
-    EmptyStateSlot::NoTasks, EmptyStateSlot::NoToasts,
+    EmptyStateSlot::NoConversations,
+    EmptyStateSlot::NoDashboards,
+    EmptyStateSlot::NoReplay,
+    EmptyStateSlot::NoBookmarks,
+    EmptyStateSlot::NoPins,
+    EmptyStateSlot::NoSearchResults,
+    EmptyStateSlot::NoTasks,
+    EmptyStateSlot::NoToasts,
 ];
 
 impl EmptyStateCatalog {
     /// Canonical defaults.
     pub fn canonical() -> Self {
         let entries = vec![
-            EmptyStateEntry { slot: EmptyStateSlot::NoConversations, illustration: "chat-bubble".into(),  headline: "No conversations yet".into(), body: "Open the palette and start a new thread.".into(), primary_cta_id: "conv.new".into() },
-            EmptyStateEntry { slot: EmptyStateSlot::NoDashboards,    illustration: "dashboard".into(),    headline: "No dashboards visible".into(), body: "Enable a dashboard from the toggle panel.".into(), primary_cta_id: "settings.toggles".into() },
-            EmptyStateEntry { slot: EmptyStateSlot::NoReplay,        illustration: "rewind".into(),       headline: "No replay session".into(),     body: "Open a captured trace to replay.".into(),     primary_cta_id: "mode.replay".into() },
-            EmptyStateEntry { slot: EmptyStateSlot::NoBookmarks,     illustration: "bookmark".into(),     headline: "No bookmarks yet".into(),      body: "Bookmark a turn in your replay session.".into(), primary_cta_id: String::new() },
-            EmptyStateEntry { slot: EmptyStateSlot::NoPins,          illustration: "pin".into(),          headline: "Pin board is empty".into(),    body: "Drop a card from the right rail.".into(),     primary_cta_id: String::new() },
-            EmptyStateEntry { slot: EmptyStateSlot::NoSearchResults, illustration: "search".into(),       headline: "No matches".into(),            body: "Try a different query.".into(),               primary_cta_id: String::new() },
-            EmptyStateEntry { slot: EmptyStateSlot::NoTasks,         illustration: "task".into(),         headline: "Nothing running".into(),       body: "Background tasks will appear here.".into(),  primary_cta_id: String::new() },
-            EmptyStateEntry { slot: EmptyStateSlot::NoToasts,        illustration: "bell".into(),         headline: "All clear".into(),             body: "No notifications waiting.".into(),            primary_cta_id: String::new() },
+            EmptyStateEntry {
+                slot: EmptyStateSlot::NoConversations,
+                illustration: "chat-bubble".into(),
+                headline: "No conversations yet".into(),
+                body: "Open the palette and start a new thread.".into(),
+                primary_cta_id: "conv.new".into(),
+            },
+            EmptyStateEntry {
+                slot: EmptyStateSlot::NoDashboards,
+                illustration: "dashboard".into(),
+                headline: "No dashboards visible".into(),
+                body: "Enable a dashboard from the toggle panel.".into(),
+                primary_cta_id: "settings.toggles".into(),
+            },
+            EmptyStateEntry {
+                slot: EmptyStateSlot::NoReplay,
+                illustration: "rewind".into(),
+                headline: "No replay session".into(),
+                body: "Open a captured trace to replay.".into(),
+                primary_cta_id: "mode.replay".into(),
+            },
+            EmptyStateEntry {
+                slot: EmptyStateSlot::NoBookmarks,
+                illustration: "bookmark".into(),
+                headline: "No bookmarks yet".into(),
+                body: "Bookmark a turn in your replay session.".into(),
+                primary_cta_id: String::new(),
+            },
+            EmptyStateEntry {
+                slot: EmptyStateSlot::NoPins,
+                illustration: "pin".into(),
+                headline: "Pin board is empty".into(),
+                body: "Drop a card from the right rail.".into(),
+                primary_cta_id: String::new(),
+            },
+            EmptyStateEntry {
+                slot: EmptyStateSlot::NoSearchResults,
+                illustration: "search".into(),
+                headline: "No matches".into(),
+                body: "Try a different query.".into(),
+                primary_cta_id: String::new(),
+            },
+            EmptyStateEntry {
+                slot: EmptyStateSlot::NoTasks,
+                illustration: "task".into(),
+                headline: "Nothing running".into(),
+                body: "Background tasks will appear here.".into(),
+                primary_cta_id: String::new(),
+            },
+            EmptyStateEntry {
+                slot: EmptyStateSlot::NoToasts,
+                illustration: "bell".into(),
+                headline: "All clear".into(),
+                body: "No notifications waiting.".into(),
+                primary_cta_id: String::new(),
+            },
         ];
         Self {
             schema_version: SCHEMA_VERSION.into(),
@@ -142,40 +194,62 @@ mod tests {
     #[test]
     fn eight_slots_present() {
         let c = EmptyStateCatalog::canonical();
-        for s in REQUIRED { assert!(c.get(s).is_some(), "missing {s:?}"); }
+        for s in REQUIRED {
+            assert!(c.get(s).is_some(), "missing {s:?}");
+        }
     }
 
     #[test]
     fn no_conversations_has_cta() {
         let c = EmptyStateCatalog::canonical();
-        assert!(!c.get(EmptyStateSlot::NoConversations).unwrap().primary_cta_id.is_empty());
+        assert!(
+            !c.get(EmptyStateSlot::NoConversations)
+                .unwrap()
+                .primary_cta_id
+                .is_empty()
+        );
     }
 
     #[test]
     fn count_invalid_caught() {
         let mut c = EmptyStateCatalog::canonical();
         c.entries.pop();
-        assert!(matches!(c.validate().unwrap_err(), EmptyStateError::CountInvalid(7)));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            EmptyStateError::CountInvalid(7)
+        ));
     }
 
     #[test]
     fn empty_headline_rejected() {
         let mut c = EmptyStateCatalog::canonical();
         c.entries[0].headline = String::new();
-        assert!(matches!(c.validate().unwrap_err(), EmptyStateError::EmptyHeadline(_)));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            EmptyStateError::EmptyHeadline(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut c = EmptyStateCatalog::canonical();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), EmptyStateError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            EmptyStateError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn slot_serde_kebab() {
-        assert_eq!(serde_json::to_string(&EmptyStateSlot::NoConversations).unwrap(), "\"no-conversations\"");
-        assert_eq!(serde_json::to_string(&EmptyStateSlot::NoSearchResults).unwrap(), "\"no-search-results\"");
+        assert_eq!(
+            serde_json::to_string(&EmptyStateSlot::NoConversations).unwrap(),
+            "\"no-conversations\""
+        );
+        assert_eq!(
+            serde_json::to_string(&EmptyStateSlot::NoSearchResults).unwrap(),
+            "\"no-search-results\""
+        );
     }
 
     #[test]

@@ -74,17 +74,25 @@ impl SettingsForm {
 
     /// Register a field with its initial committed value.
     pub fn register(&mut self, id: &str, committed: &str) -> Result<(), SettingsError> {
-        if id.is_empty() { return Err(SettingsError::EmptyId); }
-        self.fields.insert(id.into(), Field {
-            committed: committed.into(),
-            pending: None,
-        });
+        if id.is_empty() {
+            return Err(SettingsError::EmptyId);
+        }
+        self.fields.insert(
+            id.into(),
+            Field {
+                committed: committed.into(),
+                pending: None,
+            },
+        );
         Ok(())
     }
 
     /// Edit pending value (clears pending if equal to committed).
     pub fn edit(&mut self, id: &str, value: &str) -> Result<(), SettingsError> {
-        let f = self.fields.get_mut(id).ok_or_else(|| SettingsError::UnknownField(id.into()))?;
+        let f = self
+            .fields
+            .get_mut(id)
+            .ok_or_else(|| SettingsError::UnknownField(id.into()))?;
         if value == f.committed {
             f.pending = None;
         } else {
@@ -111,7 +119,9 @@ impl SettingsForm {
     pub fn discard(&mut self) -> u32 {
         let mut n = 0;
         for f in self.fields.values_mut() {
-            if f.pending.take().is_some() { n += 1; }
+            if f.pending.take().is_some() {
+                n += 1;
+            }
         }
         n
     }
@@ -128,16 +138,22 @@ impl SettingsForm {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), SettingsError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(SettingsError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(SettingsError::SchemaMismatch);
+        }
         for k in self.fields.keys() {
-            if k.is_empty() { return Err(SettingsError::EmptyId); }
+            if k.is_empty() {
+                return Err(SettingsError::EmptyId);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for SettingsForm {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -194,20 +210,29 @@ mod tests {
     #[test]
     fn unknown_field_rejected() {
         let mut s = SettingsForm::new();
-        assert!(matches!(s.edit("nope", "x").unwrap_err(), SettingsError::UnknownField(_)));
+        assert!(matches!(
+            s.edit("nope", "x").unwrap_err(),
+            SettingsError::UnknownField(_)
+        ));
     }
 
     #[test]
     fn empty_id_rejected() {
         let mut s = SettingsForm::new();
-        assert!(matches!(s.register("", "x").unwrap_err(), SettingsError::EmptyId));
+        assert!(matches!(
+            s.register("", "x").unwrap_err(),
+            SettingsError::EmptyId
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = SettingsForm::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), SettingsError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SettingsError::SchemaMismatch
+        ));
     }
 
     #[test]

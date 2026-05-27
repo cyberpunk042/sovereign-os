@@ -79,7 +79,9 @@ pub enum DockError {
 impl DockPosition {
     /// New, docked to Left.
     pub fn new(viewport_w: u32, viewport_h: u32) -> Result<Self, DockError> {
-        if viewport_w == 0 || viewport_h == 0 { return Err(DockError::ViewportZero); }
+        if viewport_w == 0 || viewport_h == 0 {
+            return Err(DockError::ViewportZero);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             placement: Placement::Edge { edge: Edge::Left },
@@ -90,7 +92,9 @@ impl DockPosition {
 
     /// Set viewport (e.g. window resize).
     pub fn set_viewport(&mut self, w: u32, h: u32) -> Result<(), DockError> {
-        if w == 0 || h == 0 { return Err(DockError::ViewportZero); }
+        if w == 0 || h == 0 {
+            return Err(DockError::ViewportZero);
+        }
         self.viewport_w = w;
         self.viewport_h = h;
         // Reclamp floating position.
@@ -103,7 +107,9 @@ impl DockPosition {
     }
 
     /// Snap to edge.
-    pub fn dock_to(&mut self, edge: Edge) { self.placement = Placement::Edge { edge }; }
+    pub fn dock_to(&mut self, edge: Edge) {
+        self.placement = Placement::Edge { edge };
+    }
 
     /// Float to position.
     pub fn float_to(&mut self, x: u32, y: u32) {
@@ -113,12 +119,18 @@ impl DockPosition {
     }
 
     /// Is floating?
-    pub fn is_floating(&self) -> bool { matches!(self.placement, Placement::Floating { .. }) }
+    pub fn is_floating(&self) -> bool {
+        matches!(self.placement, Placement::Floating { .. })
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), DockError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(DockError::SchemaMismatch); }
-        if self.viewport_w == 0 || self.viewport_h == 0 { return Err(DockError::ViewportZero); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(DockError::SchemaMismatch);
+        }
+        if self.viewport_w == 0 || self.viewport_h == 0 {
+            return Err(DockError::ViewportZero);
+        }
         Ok(())
     }
 }
@@ -129,7 +141,10 @@ mod tests {
 
     #[test]
     fn viewport_zero_rejected() {
-        assert!(matches!(DockPosition::new(0, 100).unwrap_err(), DockError::ViewportZero));
+        assert!(matches!(
+            DockPosition::new(0, 100).unwrap_err(),
+            DockError::ViewportZero
+        ));
     }
 
     #[test]
@@ -174,7 +189,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut d = DockPosition::new(800, 600).unwrap();
         d.schema_version = "9.9.9".into();
-        assert!(matches!(d.validate().unwrap_err(), DockError::SchemaMismatch));
+        assert!(matches!(
+            d.validate().unwrap_err(),
+            DockError::SchemaMismatch
+        ));
     }
 
     #[test]

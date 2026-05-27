@@ -73,14 +73,22 @@ pub enum FrozenError {
 
 impl FrozenColumns {
     /// New.
-    pub fn new(columns: Vec<Column>, freeze_lead: u32, freeze_trail: u32) -> Result<Self, FrozenError> {
+    pub fn new(
+        columns: Vec<Column>,
+        freeze_lead: u32,
+        freeze_trail: u32,
+    ) -> Result<Self, FrozenError> {
         let n = columns.len();
         if freeze_lead as usize + freeze_trail as usize > n {
             return Err(FrozenError::BadFreeze);
         }
         for c in &columns {
-            if c.id.is_empty() { return Err(FrozenError::EmptyId); }
-            if c.width == 0 { return Err(FrozenError::ZeroWidth); }
+            if c.id.is_empty() {
+                return Err(FrozenError::EmptyId);
+            }
+            if c.width == 0 {
+                return Err(FrozenError::ZeroWidth);
+            }
         }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
@@ -92,7 +100,9 @@ impl FrozenColumns {
 
     /// Position of column at index i.
     pub fn position(&self, i: usize) -> Result<Pos, FrozenError> {
-        if i >= self.columns.len() { return Err(FrozenError::OutOfRange); }
+        if i >= self.columns.len() {
+            return Err(FrozenError::OutOfRange);
+        }
         let lead = self.freeze_lead as usize;
         let trail = self.freeze_trail as usize;
         let n = self.columns.len();
@@ -103,7 +113,7 @@ impl FrozenColumns {
         }
         if i >= n - trail {
             // Pinned right — sum widths of trailing-frozen after i.
-            let off: u32 = self.columns[i+1..].iter().map(|c| c.width).sum();
+            let off: u32 = self.columns[i + 1..].iter().map(|c| c.width).sum();
             return Ok(Pos::PinnedRight(off));
         }
         // Scrolling — left edge in unscrolled coords.
@@ -116,20 +126,28 @@ impl FrozenColumns {
         let lead = self.freeze_lead as usize;
         let trail = self.freeze_trail as usize;
         let n = self.columns.len();
-        if lead + trail >= n { return 0; }
+        if lead + trail >= n {
+            return 0;
+        }
         self.columns[lead..n - trail].iter().map(|c| c.width).sum()
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), FrozenError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(FrozenError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(FrozenError::SchemaMismatch);
+        }
         let n = self.columns.len();
         if self.freeze_lead as usize + self.freeze_trail as usize > n {
             return Err(FrozenError::BadFreeze);
         }
         for c in &self.columns {
-            if c.id.is_empty() { return Err(FrozenError::EmptyId); }
-            if c.width == 0 { return Err(FrozenError::ZeroWidth); }
+            if c.id.is_empty() {
+                return Err(FrozenError::EmptyId);
+            }
+            if c.width == 0 {
+                return Err(FrozenError::ZeroWidth);
+            }
         }
         Ok(())
     }
@@ -141,18 +159,36 @@ mod tests {
 
     fn cols() -> Vec<Column> {
         vec![
-            Column { id: "a".into(), width: 80 },
-            Column { id: "b".into(), width: 100 },
-            Column { id: "c".into(), width: 120 },
-            Column { id: "d".into(), width: 60 },
-            Column { id: "e".into(), width: 40 },
+            Column {
+                id: "a".into(),
+                width: 80,
+            },
+            Column {
+                id: "b".into(),
+                width: 100,
+            },
+            Column {
+                id: "c".into(),
+                width: 120,
+            },
+            Column {
+                id: "d".into(),
+                width: 60,
+            },
+            Column {
+                id: "e".into(),
+                width: 40,
+            },
         ]
     }
 
     #[test]
     fn no_freeze_all_scrolling() {
         let f = FrozenColumns::new(cols(), 0, 0).unwrap();
-        let off = match f.position(2).unwrap() { Pos::Scrolling(x) => x, _ => panic!() };
+        let off = match f.position(2).unwrap() {
+            Pos::Scrolling(x) => x,
+            _ => panic!(),
+        };
         assert_eq!(off, 80 + 100);
     }
 
@@ -190,20 +226,29 @@ mod tests {
     fn zero_width_rejected() {
         let mut c = cols();
         c[0].width = 0;
-        assert!(matches!(FrozenColumns::new(c, 0, 0).unwrap_err(), FrozenError::ZeroWidth));
+        assert!(matches!(
+            FrozenColumns::new(c, 0, 0).unwrap_err(),
+            FrozenError::ZeroWidth
+        ));
     }
 
     #[test]
     fn out_of_range_rejected() {
         let f = FrozenColumns::new(cols(), 0, 0).unwrap();
-        assert!(matches!(f.position(99).unwrap_err(), FrozenError::OutOfRange));
+        assert!(matches!(
+            f.position(99).unwrap_err(),
+            FrozenError::OutOfRange
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut f = FrozenColumns::new(cols(), 0, 0).unwrap();
         f.schema_version = "9.9.9".into();
-        assert!(matches!(f.validate().unwrap_err(), FrozenError::SchemaMismatch));
+        assert!(matches!(
+            f.validate().unwrap_err(),
+            FrozenError::SchemaMismatch
+        ));
     }
 
     #[test]

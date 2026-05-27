@@ -626,9 +626,8 @@ mod tests {
     #[test]
     fn load_from_paths_missing_returns_empty() {
         let dir = tmp_dir();
-        let p =
-            Panel::load_from_paths(&dir.join("ring"), &dir.join("audit"), 1_700_000_000_000)
-                .unwrap();
+        let p = Panel::load_from_paths(&dir.join("ring"), &dir.join("audit"), 1_700_000_000_000)
+            .unwrap();
         assert!(p.recent_decisions.is_empty());
         assert!(!p.audit_log_present);
     }

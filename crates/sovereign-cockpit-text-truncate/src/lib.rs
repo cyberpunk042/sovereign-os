@@ -57,9 +57,13 @@ pub enum TruncateError {
 impl TextTruncate {
     /// New.
     pub fn new(mode: Mode, max_chars: u32, ellipsis: &str) -> Result<Self, TruncateError> {
-        if ellipsis.is_empty() { return Err(TruncateError::EmptyEllipsis); }
+        if ellipsis.is_empty() {
+            return Err(TruncateError::EmptyEllipsis);
+        }
         let ell_n = ellipsis.chars().count() as u32;
-        if max_chars < ell_n + 1 { return Err(TruncateError::BadMaxChars); }
+        if max_chars < ell_n + 1 {
+            return Err(TruncateError::BadMaxChars);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             mode,
@@ -73,7 +77,9 @@ impl TextTruncate {
         let chars: Vec<char> = input.chars().collect();
         let n = chars.len();
         let max = self.max_chars as usize;
-        if n <= max { return input.into(); }
+        if n <= max {
+            return input.into();
+        }
         let ell_n = self.ellipsis.chars().count();
         let keep = max - ell_n;
         match self.mode {
@@ -97,10 +103,16 @@ impl TextTruncate {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), TruncateError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(TruncateError::SchemaMismatch); }
-        if self.ellipsis.is_empty() { return Err(TruncateError::EmptyEllipsis); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(TruncateError::SchemaMismatch);
+        }
+        if self.ellipsis.is_empty() {
+            return Err(TruncateError::EmptyEllipsis);
+        }
         let ell_n = self.ellipsis.chars().count() as u32;
-        if self.max_chars < ell_n + 1 { return Err(TruncateError::BadMaxChars); }
+        if self.max_chars < ell_n + 1 {
+            return Err(TruncateError::BadMaxChars);
+        }
         Ok(())
     }
 }
@@ -169,7 +181,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut t = TextTruncate::new(Mode::End, 10, "…").unwrap();
         t.schema_version = "9.9.9".into();
-        assert!(matches!(t.validate().unwrap_err(), TruncateError::SchemaMismatch));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            TruncateError::SchemaMismatch
+        ));
     }
 
     #[test]

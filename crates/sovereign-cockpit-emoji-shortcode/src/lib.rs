@@ -47,29 +47,47 @@ pub enum EmojiError {
 impl EmojiShortcode {
     /// New.
     pub fn new() -> Self {
-        Self { schema_version: SCHEMA_VERSION.into(), map: BTreeMap::new() }
+        Self {
+            schema_version: SCHEMA_VERSION.into(),
+            map: BTreeMap::new(),
+        }
     }
 
     /// Seed with a small canonical set.
     pub fn canonical() -> Self {
         let mut e = Self::new();
         let pairs = [
-            ("smile", "🙂"), ("grin", "😀"), ("laugh", "😂"), ("wink", "😉"),
-            ("heart", "❤️"), ("thumbsup", "👍"), ("thumbsdown", "👎"),
-            ("eyes", "👀"), ("fire", "🔥"), ("rocket", "🚀"),
-            ("check", "✅"), ("cross", "❌"), ("warn", "⚠️"),
+            ("smile", "🙂"),
+            ("grin", "😀"),
+            ("laugh", "😂"),
+            ("wink", "😉"),
+            ("heart", "❤️"),
+            ("thumbsup", "👍"),
+            ("thumbsdown", "👎"),
+            ("eyes", "👀"),
+            ("fire", "🔥"),
+            ("rocket", "🚀"),
+            ("check", "✅"),
+            ("cross", "❌"),
+            ("warn", "⚠️"),
         ];
-        for (n, g) in pairs { e.register(n, g).unwrap(); }
+        for (n, g) in pairs {
+            e.register(n, g).unwrap();
+        }
         e
     }
 
     /// Register.
     pub fn register(&mut self, name: &str, glyph: &str) -> Result<(), EmojiError> {
-        if name.is_empty() { return Err(EmojiError::EmptyName); }
+        if name.is_empty() {
+            return Err(EmojiError::EmptyName);
+        }
         if name.chars().any(|c| c.is_whitespace() || c == ':') {
             return Err(EmojiError::BadName(name.into()));
         }
-        if glyph.is_empty() { return Err(EmojiError::EmptyGlyph); }
+        if glyph.is_empty() {
+            return Err(EmojiError::EmptyGlyph);
+        }
         self.map.insert(name.into(), glyph.into());
         Ok(())
     }
@@ -81,7 +99,8 @@ impl EmojiShortcode {
 
     /// Prefix lookup.
     pub fn prefix(&self, q: &str) -> Vec<(String, String)> {
-        self.map.iter()
+        self.map
+            .iter()
             .filter(|(k, _)| k.starts_with(q))
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect()
@@ -116,20 +135,28 @@ impl EmojiShortcode {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), EmojiError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(EmojiError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(EmojiError::SchemaMismatch);
+        }
         for (k, v) in &self.map {
-            if k.is_empty() { return Err(EmojiError::EmptyName); }
+            if k.is_empty() {
+                return Err(EmojiError::EmptyName);
+            }
             if k.chars().any(|c| c.is_whitespace() || c == ':') {
                 return Err(EmojiError::BadName(k.clone()));
             }
-            if v.is_empty() { return Err(EmojiError::EmptyGlyph); }
+            if v.is_empty() {
+                return Err(EmojiError::EmptyGlyph);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for EmojiShortcode {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -156,7 +183,10 @@ mod tests {
         e.register("smirk", "😏").unwrap();
         e.register("hello", "👋").unwrap();
         let r = e.prefix("sm");
-        assert_eq!(r.iter().map(|(k, _)| k.as_str()).collect::<Vec<_>>(), vec!["smile", "smirk"]);
+        assert_eq!(
+            r.iter().map(|(k, _)| k.as_str()).collect::<Vec<_>>(),
+            vec!["smile", "smirk"]
+        );
     }
 
     #[test]
@@ -183,26 +213,38 @@ mod tests {
     #[test]
     fn whitespace_in_name_rejected() {
         let mut e = EmojiShortcode::new();
-        assert!(matches!(e.register("a b", "x").unwrap_err(), EmojiError::BadName(_)));
+        assert!(matches!(
+            e.register("a b", "x").unwrap_err(),
+            EmojiError::BadName(_)
+        ));
     }
 
     #[test]
     fn colon_in_name_rejected() {
         let mut e = EmojiShortcode::new();
-        assert!(matches!(e.register("a:b", "x").unwrap_err(), EmojiError::BadName(_)));
+        assert!(matches!(
+            e.register("a:b", "x").unwrap_err(),
+            EmojiError::BadName(_)
+        ));
     }
 
     #[test]
     fn empty_glyph_rejected() {
         let mut e = EmojiShortcode::new();
-        assert!(matches!(e.register("a", "").unwrap_err(), EmojiError::EmptyGlyph));
+        assert!(matches!(
+            e.register("a", "").unwrap_err(),
+            EmojiError::EmptyGlyph
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut e = EmojiShortcode::new();
         e.schema_version = "9.9.9".into();
-        assert!(matches!(e.validate().unwrap_err(), EmojiError::SchemaMismatch));
+        assert!(matches!(
+            e.validate().unwrap_err(),
+            EmojiError::SchemaMismatch
+        ));
     }
 
     #[test]

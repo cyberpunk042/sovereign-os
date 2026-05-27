@@ -67,17 +67,40 @@ impl ColumnResize {
     }
 
     /// Register.
-    pub fn register(&mut self, id: &str, min_px: u32, max_px: u32, initial_px: u32) -> Result<(), ResizeError> {
-        if id.is_empty() { return Err(ResizeError::EmptyId); }
-        if min_px > max_px { return Err(ResizeError::BadBounds { min: min_px, max: max_px }); }
+    pub fn register(
+        &mut self,
+        id: &str,
+        min_px: u32,
+        max_px: u32,
+        initial_px: u32,
+    ) -> Result<(), ResizeError> {
+        if id.is_empty() {
+            return Err(ResizeError::EmptyId);
+        }
+        if min_px > max_px {
+            return Err(ResizeError::BadBounds {
+                min: min_px,
+                max: max_px,
+            });
+        }
         let clamped = initial_px.clamp(min_px, max_px);
-        self.columns.insert(id.into(), Column { min_px, max_px, width_px: clamped });
+        self.columns.insert(
+            id.into(),
+            Column {
+                min_px,
+                max_px,
+                width_px: clamped,
+            },
+        );
         Ok(())
     }
 
     /// Set width (clamped).
     pub fn set_width(&mut self, id: &str, width_px: u32) -> Result<u32, ResizeError> {
-        let c = self.columns.get_mut(id).ok_or_else(|| ResizeError::UnknownColumn(id.into()))?;
+        let c = self
+            .columns
+            .get_mut(id)
+            .ok_or_else(|| ResizeError::UnknownColumn(id.into()))?;
         let new = width_px.clamp(c.min_px, c.max_px);
         c.width_px = new;
         Ok(new)
@@ -85,7 +108,10 @@ impl ColumnResize {
 
     /// Drag delta (signed) — returns new width.
     pub fn drag_delta(&mut self, id: &str, delta_px: i32) -> Result<u32, ResizeError> {
-        let c = self.columns.get_mut(id).ok_or_else(|| ResizeError::UnknownColumn(id.into()))?;
+        let c = self
+            .columns
+            .get_mut(id)
+            .ok_or_else(|| ResizeError::UnknownColumn(id.into()))?;
         let new = if delta_px >= 0 {
             c.width_px.saturating_add(delta_px as u32)
         } else {
@@ -98,7 +124,10 @@ impl ColumnResize {
 
     /// Reset to min.
     pub fn reset(&mut self, id: &str) -> Result<u32, ResizeError> {
-        let c = self.columns.get_mut(id).ok_or_else(|| ResizeError::UnknownColumn(id.into()))?;
+        let c = self
+            .columns
+            .get_mut(id)
+            .ok_or_else(|| ResizeError::UnknownColumn(id.into()))?;
         c.width_px = c.min_px;
         Ok(c.width_px)
     }
@@ -110,17 +139,28 @@ impl ColumnResize {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ResizeError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ResizeError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ResizeError::SchemaMismatch);
+        }
         for (id, c) in &self.columns {
-            if id.is_empty() { return Err(ResizeError::EmptyId); }
-            if c.min_px > c.max_px { return Err(ResizeError::BadBounds { min: c.min_px, max: c.max_px }); }
+            if id.is_empty() {
+                return Err(ResizeError::EmptyId);
+            }
+            if c.min_px > c.max_px {
+                return Err(ResizeError::BadBounds {
+                    min: c.min_px,
+                    max: c.max_px,
+                });
+            }
         }
         Ok(())
     }
 }
 
 impl Default for ColumnResize {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -165,26 +205,38 @@ mod tests {
     #[test]
     fn bad_bounds_rejected() {
         let mut r = ColumnResize::new();
-        assert!(matches!(r.register("c", 200, 50, 100).unwrap_err(), ResizeError::BadBounds { .. }));
+        assert!(matches!(
+            r.register("c", 200, 50, 100).unwrap_err(),
+            ResizeError::BadBounds { .. }
+        ));
     }
 
     #[test]
     fn unknown_column_rejected() {
         let mut r = ColumnResize::new();
-        assert!(matches!(r.set_width("nope", 100).unwrap_err(), ResizeError::UnknownColumn(_)));
+        assert!(matches!(
+            r.set_width("nope", 100).unwrap_err(),
+            ResizeError::UnknownColumn(_)
+        ));
     }
 
     #[test]
     fn empty_id_rejected() {
         let mut r = ColumnResize::new();
-        assert!(matches!(r.register("", 50, 200, 100).unwrap_err(), ResizeError::EmptyId));
+        assert!(matches!(
+            r.register("", 50, 200, 100).unwrap_err(),
+            ResizeError::EmptyId
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut r = ColumnResize::new();
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate().unwrap_err(), ResizeError::SchemaMismatch));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            ResizeError::SchemaMismatch
+        ));
     }
 
     #[test]

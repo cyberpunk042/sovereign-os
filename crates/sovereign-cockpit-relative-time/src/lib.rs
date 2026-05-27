@@ -207,7 +207,7 @@ mod tests {
     #[test]
     fn future_beyond_week_falls_back_to_date() {
         let now = 100 * D;
-        let item = now + 30 * D;  // ~1 month future
+        let item = now + 30 * D; // ~1 month future
         assert_eq!(format(now, item), "on 1970-05-11");
     }
 

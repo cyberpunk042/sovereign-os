@@ -66,7 +66,9 @@ pub enum CursorError {
 impl ResultPageCursor {
     /// New.
     pub fn new(page_size: u64) -> Result<Self, CursorError> {
-        if page_size == 0 { return Err(CursorError::ZeroPageSize); }
+        if page_size == 0 {
+            return Err(CursorError::ZeroPageSize);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             page: 1,
@@ -95,7 +97,10 @@ impl ResultPageCursor {
         }
         let from = self.page;
         self.page = self.page.saturating_add(1);
-        MoveVerdict::Moved { from, to: self.page }
+        MoveVerdict::Moved {
+            from,
+            to: self.page,
+        }
     }
 
     /// Previous page.
@@ -105,12 +110,17 @@ impl ResultPageCursor {
         }
         let from = self.page;
         self.page -= 1;
-        MoveVerdict::Moved { from, to: self.page }
+        MoveVerdict::Moved {
+            from,
+            to: self.page,
+        }
     }
 
     /// Jump.
     pub fn jump_to(&mut self, page: u64) -> Result<MoveVerdict, CursorError> {
-        if page == 0 { return Err(CursorError::ZeroPage(page)); }
+        if page == 0 {
+            return Err(CursorError::ZeroPage(page));
+        }
         let bounded = match self.total_pages {
             Some(t) => page.min(t.max(1)),
             None => page,
@@ -135,9 +145,15 @@ impl ResultPageCursor {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), CursorError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(CursorError::SchemaMismatch); }
-        if self.page_size == 0 { return Err(CursorError::ZeroPageSize); }
-        if self.page == 0 { return Err(CursorError::ZeroPage(self.page)); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(CursorError::SchemaMismatch);
+        }
+        if self.page_size == 0 {
+            return Err(CursorError::ZeroPageSize);
+        }
+        if self.page == 0 {
+            return Err(CursorError::ZeroPage(self.page));
+        }
         Ok(())
     }
 }
@@ -160,7 +176,10 @@ mod tests {
         c.update_total(Some(3));
         c.next();
         c.next();
-        assert!(matches!(c.next(), MoveVerdict::Moved { from: 3, to: 3 }) || c.next() == MoveVerdict::AtEdge);
+        assert!(
+            matches!(c.next(), MoveVerdict::Moved { from: 3, to: 3 })
+                || c.next() == MoveVerdict::AtEdge
+        );
     }
 
     #[test]
@@ -192,7 +211,10 @@ mod tests {
     #[test]
     fn jump_to_zero_rejected() {
         let mut c = ResultPageCursor::new(10).unwrap();
-        assert!(matches!(c.jump_to(0).unwrap_err(), CursorError::ZeroPage(_)));
+        assert!(matches!(
+            c.jump_to(0).unwrap_err(),
+            CursorError::ZeroPage(_)
+        ));
     }
 
     #[test]
@@ -211,14 +233,20 @@ mod tests {
 
     #[test]
     fn zero_page_size_rejected() {
-        assert!(matches!(ResultPageCursor::new(0).unwrap_err(), CursorError::ZeroPageSize));
+        assert!(matches!(
+            ResultPageCursor::new(0).unwrap_err(),
+            CursorError::ZeroPageSize
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut c = ResultPageCursor::new(10).unwrap();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), CursorError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            CursorError::SchemaMismatch
+        ));
     }
 
     #[test]

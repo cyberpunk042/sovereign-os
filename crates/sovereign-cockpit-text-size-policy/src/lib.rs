@@ -77,15 +77,23 @@ impl TextSizePolicy {
 
     /// Apply preset by name.
     pub fn apply_preset(&mut self, name: &str) -> Result<(), TextSizeError> {
-        if name.is_empty() { return Err(TextSizeError::EmptyPreset); }
-        let scale = self.presets.get(name).copied().ok_or(TextSizeError::EmptyPreset)?;
+        if name.is_empty() {
+            return Err(TextSizeError::EmptyPreset);
+        }
+        let scale = self
+            .presets
+            .get(name)
+            .copied()
+            .ok_or(TextSizeError::EmptyPreset)?;
         self.scale_bp = scale;
         Ok(())
     }
 
     /// Per-element override.
     pub fn set_element_override(&mut self, id: &str, scale_bp: u32) -> Result<(), TextSizeError> {
-        if id.is_empty() { return Err(TextSizeError::EmptyElement); }
+        if id.is_empty() {
+            return Err(TextSizeError::EmptyElement);
+        }
         if !(MIN_BP..=MAX_BP).contains(&scale_bp) {
             return Err(TextSizeError::OutOfRange(scale_bp));
         }
@@ -112,12 +120,16 @@ impl TextSizePolicy {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), TextSizeError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(TextSizeError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(TextSizeError::SchemaMismatch);
+        }
         if !(MIN_BP..=MAX_BP).contains(&self.scale_bp) {
             return Err(TextSizeError::OutOfRange(self.scale_bp));
         }
         for (id, sc) in &self.overrides {
-            if id.is_empty() { return Err(TextSizeError::EmptyElement); }
+            if id.is_empty() {
+                return Err(TextSizeError::EmptyElement);
+            }
             if !(MIN_BP..=MAX_BP).contains(sc) {
                 return Err(TextSizeError::OutOfRange(*sc));
             }
@@ -127,7 +139,9 @@ impl TextSizePolicy {
 }
 
 impl Default for TextSizePolicy {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -165,8 +179,14 @@ mod tests {
     #[test]
     fn out_of_range_rejected() {
         let mut p = TextSizePolicy::new();
-        assert!(matches!(p.set_scale(500).unwrap_err(), TextSizeError::OutOfRange(_)));
-        assert!(matches!(p.set_scale(50000).unwrap_err(), TextSizeError::OutOfRange(_)));
+        assert!(matches!(
+            p.set_scale(500).unwrap_err(),
+            TextSizeError::OutOfRange(_)
+        ));
+        assert!(matches!(
+            p.set_scale(50000).unwrap_err(),
+            TextSizeError::OutOfRange(_)
+        ));
     }
 
     #[test]
@@ -180,21 +200,33 @@ mod tests {
     #[test]
     fn unknown_preset_rejected() {
         let mut p = TextSizePolicy::new();
-        assert!(matches!(p.apply_preset("nope").unwrap_err(), TextSizeError::EmptyPreset));
+        assert!(matches!(
+            p.apply_preset("nope").unwrap_err(),
+            TextSizeError::EmptyPreset
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut p = TextSizePolicy::new();
-        assert!(matches!(p.set_element_override("", 10000).unwrap_err(), TextSizeError::EmptyElement));
-        assert!(matches!(p.apply_preset("").unwrap_err(), TextSizeError::EmptyPreset));
+        assert!(matches!(
+            p.set_element_override("", 10000).unwrap_err(),
+            TextSizeError::EmptyElement
+        ));
+        assert!(matches!(
+            p.apply_preset("").unwrap_err(),
+            TextSizeError::EmptyPreset
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut p = TextSizePolicy::new();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), TextSizeError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            TextSizeError::SchemaMismatch
+        ));
     }
 
     #[test]

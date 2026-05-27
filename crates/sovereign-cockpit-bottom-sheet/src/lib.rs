@@ -62,7 +62,12 @@ pub enum SheetError {
 
 impl BottomSheet {
     /// New.
-    pub fn new(collapsed_px: u32, half_px: u32, full_px: u32, snap_threshold_px: u32) -> Result<Self, SheetError> {
+    pub fn new(
+        collapsed_px: u32,
+        half_px: u32,
+        full_px: u32,
+        snap_threshold_px: u32,
+    ) -> Result<Self, SheetError> {
         if !(collapsed_px < half_px && half_px < full_px) {
             return Err(SheetError::BadOrder(collapsed_px, half_px, full_px));
         }
@@ -80,9 +85,18 @@ impl BottomSheet {
     /// Snap to a named position.
     pub fn set_snap(&mut self, snap: Snap) {
         match snap {
-            Snap::Collapsed => { self.snap = Snap::Collapsed; self.current_px = self.collapsed_px; }
-            Snap::Half => { self.snap = Snap::Half; self.current_px = self.half_px; }
-            Snap::Full => { self.snap = Snap::Full; self.current_px = self.full_px; }
+            Snap::Collapsed => {
+                self.snap = Snap::Collapsed;
+                self.current_px = self.collapsed_px;
+            }
+            Snap::Half => {
+                self.snap = Snap::Half;
+                self.current_px = self.half_px;
+            }
+            Snap::Full => {
+                self.snap = Snap::Full;
+                self.current_px = self.full_px;
+            }
             Snap::Custom => { /* ignore explicit Custom */ }
         }
     }
@@ -95,7 +109,10 @@ impl BottomSheet {
             (Snap::Collapsed, self.collapsed_px),
             (Snap::Half, self.half_px),
             (Snap::Full, self.full_px),
-        ].into_iter().min_by_key(|(_, p)| p.abs_diff(clamped)).unwrap();
+        ]
+        .into_iter()
+        .min_by_key(|(_, p)| p.abs_diff(clamped))
+        .unwrap();
         if closest.1.abs_diff(clamped) <= self.snap_threshold_px {
             self.snap = closest.0;
             self.current_px = closest.1;
@@ -105,13 +122,21 @@ impl BottomSheet {
     }
 
     /// Current resolved height.
-    pub fn current_height(&self) -> u32 { self.current_px }
+    pub fn current_height(&self) -> u32 {
+        self.current_px
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), SheetError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(SheetError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(SheetError::SchemaMismatch);
+        }
         if !(self.collapsed_px < self.half_px && self.half_px < self.full_px) {
-            return Err(SheetError::BadOrder(self.collapsed_px, self.half_px, self.full_px));
+            return Err(SheetError::BadOrder(
+                self.collapsed_px,
+                self.half_px,
+                self.full_px,
+            ));
         }
         Ok(())
     }
@@ -123,7 +148,10 @@ mod tests {
 
     #[test]
     fn bad_order_rejected() {
-        assert!(matches!(BottomSheet::new(100, 50, 200, 10).unwrap_err(), SheetError::BadOrder(_, _, _)));
+        assert!(matches!(
+            BottomSheet::new(100, 50, 200, 10).unwrap_err(),
+            SheetError::BadOrder(_, _, _)
+        ));
     }
 
     #[test]
@@ -169,7 +197,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = BottomSheet::new(80, 400, 800, 10).unwrap();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), SheetError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SheetError::SchemaMismatch
+        ));
     }
 
     #[test]

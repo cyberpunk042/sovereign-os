@@ -72,10 +72,20 @@ pub enum TransitionError {
 
 impl PageTransition {
     /// New idle.
-    pub fn new(outgoing_ms: u32, entering_ms: u32, active_ms: u32) -> Result<Self, TransitionError> {
-        if outgoing_ms == 0 { return Err(TransitionError::DurationZero(Phase::Outgoing)); }
-        if entering_ms == 0 { return Err(TransitionError::DurationZero(Phase::Entering)); }
-        if active_ms == 0 { return Err(TransitionError::DurationZero(Phase::Active)); }
+    pub fn new(
+        outgoing_ms: u32,
+        entering_ms: u32,
+        active_ms: u32,
+    ) -> Result<Self, TransitionError> {
+        if outgoing_ms == 0 {
+            return Err(TransitionError::DurationZero(Phase::Outgoing));
+        }
+        if entering_ms == 0 {
+            return Err(TransitionError::DurationZero(Phase::Entering));
+        }
+        if active_ms == 0 {
+            return Err(TransitionError::DurationZero(Phase::Active));
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             outgoing_ms,
@@ -129,7 +139,9 @@ impl PageTransition {
     /// Progress through current phase (0.0..=1.0).
     pub fn progress(&self) -> f32 {
         let d = self.duration_for(self.phase);
-        if d == 0 { return 0.0; }
+        if d == 0 {
+            return 0.0;
+        }
         (self.elapsed_ms as f32 / d as f32).min(1.0)
     }
 
@@ -143,9 +155,15 @@ impl PageTransition {
         if self.schema_version != SCHEMA_VERSION {
             return Err(TransitionError::SchemaMismatch);
         }
-        if self.outgoing_ms == 0 { return Err(TransitionError::DurationZero(Phase::Outgoing)); }
-        if self.entering_ms == 0 { return Err(TransitionError::DurationZero(Phase::Entering)); }
-        if self.active_ms == 0 { return Err(TransitionError::DurationZero(Phase::Active)); }
+        if self.outgoing_ms == 0 {
+            return Err(TransitionError::DurationZero(Phase::Outgoing));
+        }
+        if self.entering_ms == 0 {
+            return Err(TransitionError::DurationZero(Phase::Entering));
+        }
+        if self.active_ms == 0 {
+            return Err(TransitionError::DurationZero(Phase::Active));
+        }
         Ok(())
     }
 }
@@ -160,9 +178,18 @@ mod tests {
 
     #[test]
     fn duration_zero_rejected() {
-        assert!(matches!(PageTransition::new(0, 1, 1).unwrap_err(), TransitionError::DurationZero(Phase::Outgoing)));
-        assert!(matches!(PageTransition::new(1, 0, 1).unwrap_err(), TransitionError::DurationZero(Phase::Entering)));
-        assert!(matches!(PageTransition::new(1, 1, 0).unwrap_err(), TransitionError::DurationZero(Phase::Active)));
+        assert!(matches!(
+            PageTransition::new(0, 1, 1).unwrap_err(),
+            TransitionError::DurationZero(Phase::Outgoing)
+        ));
+        assert!(matches!(
+            PageTransition::new(1, 0, 1).unwrap_err(),
+            TransitionError::DurationZero(Phase::Entering)
+        ));
+        assert!(matches!(
+            PageTransition::new(1, 1, 0).unwrap_err(),
+            TransitionError::DurationZero(Phase::Active)
+        ));
     }
 
     #[test]
@@ -218,7 +245,9 @@ mod tests {
         assert!(!x.is_animating());
         x.start(Direction::Forward);
         assert!(x.is_animating());
-        x.tick(1000); x.tick(1000); x.tick(1000);
+        x.tick(1000);
+        x.tick(1000);
+        x.tick(1000);
         assert!(!x.is_animating());
     }
 
@@ -234,13 +263,22 @@ mod tests {
     fn schema_drift_rejected() {
         let mut x = t();
         x.schema_version = "9.9.9".into();
-        assert!(matches!(x.validate().unwrap_err(), TransitionError::SchemaMismatch));
+        assert!(matches!(
+            x.validate().unwrap_err(),
+            TransitionError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn phase_serde_kebab() {
-        assert_eq!(serde_json::to_string(&Phase::Outgoing).unwrap(), "\"outgoing\"");
-        assert_eq!(serde_json::to_string(&Phase::Entering).unwrap(), "\"entering\"");
+        assert_eq!(
+            serde_json::to_string(&Phase::Outgoing).unwrap(),
+            "\"outgoing\""
+        );
+        assert_eq!(
+            serde_json::to_string(&Phase::Entering).unwrap(),
+            "\"entering\""
+        );
     }
 
     #[test]

@@ -55,16 +55,24 @@ pub enum FlameError {
 impl Frame {
     /// Validate.
     pub fn validate(&self) -> Result<(), FlameError> {
-        if self.name.is_empty() { return Err(FlameError::EmptyName); }
-        for c in &self.children { c.validate()?; }
+        if self.name.is_empty() {
+            return Err(FlameError::EmptyName);
+        }
+        for c in &self.children {
+            c.validate()?;
+        }
         Ok(())
     }
 }
 
 /// Layout.
 pub fn layout(root: &Frame, viewport_w: u32) -> Result<Vec<(String, Box2D)>, FlameError> {
-    if viewport_w == 0 { return Err(FlameError::ZeroViewport); }
-    if root.weight == 0 { return Ok(Vec::new()); }
+    if viewport_w == 0 {
+        return Err(FlameError::ZeroViewport);
+    }
+    if root.weight == 0 {
+        return Ok(Vec::new());
+    }
     let mut out = Vec::new();
     walk(root, 0, 0, viewport_w, root.weight, &mut out)?;
     Ok(out)
@@ -78,7 +86,9 @@ fn walk(
     root_weight: u64,
     out: &mut Vec<(String, Box2D)>,
 ) -> Result<(), FlameError> {
-    if frame.name.is_empty() { return Err(FlameError::EmptyName); }
+    if frame.name.is_empty() {
+        return Err(FlameError::EmptyName);
+    }
     let w = ((frame.weight as u128) * (viewport_w as u128) / (root_weight as u128)) as u32;
     out.push((frame.name.clone(), Box2D { x, depth, w }));
     // Children laid out left-to-right starting at x.
@@ -93,7 +103,9 @@ fn walk(
 
 /// Validate.
 pub fn validate_schema_version(s: &str) -> Result<(), FlameError> {
-    if s != SCHEMA_VERSION { return Err(FlameError::SchemaMismatch); }
+    if s != SCHEMA_VERSION {
+        return Err(FlameError::SchemaMismatch);
+    }
     Ok(())
 }
 
@@ -110,11 +122,23 @@ mod tests {
                     name: "a".into(),
                     weight: 60,
                     children: vec![
-                        Frame { name: "a1".into(), weight: 30, children: vec![] },
-                        Frame { name: "a2".into(), weight: 20, children: vec![] },
+                        Frame {
+                            name: "a1".into(),
+                            weight: 30,
+                            children: vec![],
+                        },
+                        Frame {
+                            name: "a2".into(),
+                            weight: 20,
+                            children: vec![],
+                        },
                     ],
                 },
-                Frame { name: "b".into(), weight: 40, children: vec![] },
+                Frame {
+                    name: "b".into(),
+                    weight: 40,
+                    children: vec![],
+                },
             ],
         }
     }
@@ -150,12 +174,19 @@ mod tests {
 
     #[test]
     fn zero_viewport_rejected() {
-        assert!(matches!(layout(&root(), 0).unwrap_err(), FlameError::ZeroViewport));
+        assert!(matches!(
+            layout(&root(), 0).unwrap_err(),
+            FlameError::ZeroViewport
+        ));
     }
 
     #[test]
     fn empty_name_rejected() {
-        let f = Frame { name: "".into(), weight: 1, children: vec![] };
+        let f = Frame {
+            name: "".into(),
+            weight: 1,
+            children: vec![],
+        };
         assert!(matches!(f.validate().unwrap_err(), FlameError::EmptyName));
     }
 

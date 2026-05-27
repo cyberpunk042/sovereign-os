@@ -42,7 +42,9 @@ pub enum PillError {
 impl PillInput {
     /// New.
     pub fn new(separator: char, max_pills: u32) -> Result<Self, PillError> {
-        if max_pills == 0 { return Err(PillError::ZeroMax); }
+        if max_pills == 0 {
+            return Err(PillError::ZeroMax);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             pills: Vec::new(),
@@ -56,9 +58,15 @@ impl PillInput {
         let mut added = 0u32;
         for part in buffer.split(self.separator) {
             let trimmed = part.trim();
-            if trimmed.is_empty() { continue; }
-            if (self.pills.len() as u32) >= self.max_pills { break; }
-            if self.pills.iter().any(|p| p == trimmed) { continue; }
+            if trimmed.is_empty() {
+                continue;
+            }
+            if (self.pills.len() as u32) >= self.max_pills {
+                break;
+            }
+            if self.pills.iter().any(|p| p == trimmed) {
+                continue;
+            }
             self.pills.push(trimmed.into());
             added = added.saturating_add(1);
         }
@@ -81,15 +89,23 @@ impl PillInput {
     }
 
     /// Count.
-    pub fn len(&self) -> usize { self.pills.len() }
+    pub fn len(&self) -> usize {
+        self.pills.len()
+    }
 
     /// Empty?
-    pub fn is_empty(&self) -> bool { self.pills.is_empty() }
+    pub fn is_empty(&self) -> bool {
+        self.pills.is_empty()
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), PillError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(PillError::SchemaMismatch); }
-        if self.max_pills == 0 { return Err(PillError::ZeroMax); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(PillError::SchemaMismatch);
+        }
+        if self.max_pills == 0 {
+            return Err(PillError::ZeroMax);
+        }
         Ok(())
     }
 }
@@ -149,14 +165,20 @@ mod tests {
 
     #[test]
     fn zero_max_rejected() {
-        assert!(matches!(PillInput::new(',', 0).unwrap_err(), PillError::ZeroMax));
+        assert!(matches!(
+            PillInput::new(',', 0).unwrap_err(),
+            PillError::ZeroMax
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut p = PillInput::new(',', 10).unwrap();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), PillError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            PillError::SchemaMismatch
+        ));
     }
 
     #[test]

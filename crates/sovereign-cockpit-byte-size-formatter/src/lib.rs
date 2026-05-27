@@ -54,7 +54,9 @@ const IEC_SUFFIXES: [&str; 7] = ["B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB"];
 impl ByteSizeFormatter {
     /// New.
     pub fn new(unit: Unit, precision: u8) -> Result<Self, FormatError> {
-        if precision > 3 { return Err(FormatError::BadPrecision); }
+        if precision > 3 {
+            return Err(FormatError::BadPrecision);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             unit,
@@ -83,8 +85,12 @@ impl ByteSizeFormatter {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), FormatError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(FormatError::SchemaMismatch); }
-        if self.precision > 3 { return Err(FormatError::BadPrecision); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(FormatError::SchemaMismatch);
+        }
+        if self.precision > 3 {
+            return Err(FormatError::BadPrecision);
+        }
         Ok(())
     }
 }
@@ -138,14 +144,20 @@ mod tests {
 
     #[test]
     fn bad_precision_rejected() {
-        assert!(matches!(ByteSizeFormatter::new(Unit::Si, 4).unwrap_err(), FormatError::BadPrecision));
+        assert!(matches!(
+            ByteSizeFormatter::new(Unit::Si, 4).unwrap_err(),
+            FormatError::BadPrecision
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut f = ByteSizeFormatter::new(Unit::Si, 2).unwrap();
         f.schema_version = "9.9.9".into();
-        assert!(matches!(f.validate().unwrap_err(), FormatError::SchemaMismatch));
+        assert!(matches!(
+            f.validate().unwrap_err(),
+            FormatError::SchemaMismatch
+        ));
     }
 
     #[test]

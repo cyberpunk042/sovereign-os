@@ -124,7 +124,10 @@ impl GroupedList {
 
     /// Toggle a group's collapsed flag.
     pub fn toggle_group(&mut self, key: &str) -> Result<(), GroupedListError> {
-        let g = self.groups.iter_mut().find(|g| g.key == key)
+        let g = self
+            .groups
+            .iter_mut()
+            .find(|g| g.key == key)
             .ok_or_else(|| GroupedListError::Unknown(key.into()))?;
         g.collapsed = !g.collapsed;
         Ok(())
@@ -141,7 +144,9 @@ impl GroupedList {
                 collapsed: g.collapsed,
                 item_count,
             });
-            if g.collapsed { continue; }
+            if g.collapsed {
+                continue;
+            }
             for it in self.items.iter().filter(|i| i.group_key == g.key) {
                 out.push(Row::Item {
                     id: it.id.clone(),
@@ -166,16 +171,24 @@ fn check_groups_items(groups: &[Group], items: &[Item]) -> Result<(), GroupedLis
     use std::collections::HashSet;
     let mut gkeys: HashSet<&str> = HashSet::new();
     for g in groups {
-        if g.key.is_empty() { return Err(GroupedListError::EmptyKey); }
-        if g.header.is_empty() { return Err(GroupedListError::EmptyHeader(g.key.clone())); }
+        if g.key.is_empty() {
+            return Err(GroupedListError::EmptyKey);
+        }
+        if g.header.is_empty() {
+            return Err(GroupedListError::EmptyHeader(g.key.clone()));
+        }
         if !gkeys.insert(g.key.as_str()) {
             return Err(GroupedListError::DuplicateGroupKey(g.key.clone()));
         }
     }
     let mut iids: HashSet<&str> = HashSet::new();
     for it in items {
-        if it.id.is_empty() { return Err(GroupedListError::EmptyId); }
-        if it.label.is_empty() { return Err(GroupedListError::EmptyLabel(it.id.clone())); }
+        if it.id.is_empty() {
+            return Err(GroupedListError::EmptyId);
+        }
+        if it.label.is_empty() {
+            return Err(GroupedListError::EmptyLabel(it.id.clone()));
+        }
         if !iids.insert(it.id.as_str()) {
             return Err(GroupedListError::DuplicateItemId(it.id.clone()));
         }
@@ -194,16 +207,27 @@ mod tests {
     use super::*;
 
     fn g(key: &str, collapsed: bool) -> Group {
-        Group { key: key.into(), header: format!("H-{key}"), collapsed }
+        Group {
+            key: key.into(),
+            header: format!("H-{key}"),
+            collapsed,
+        }
     }
 
     fn it(id: &str, group: &str) -> Item {
-        Item { id: id.into(), label: format!("L-{id}"), group_key: group.into() }
+        Item {
+            id: id.into(),
+            label: format!("L-{id}"),
+            group_key: group.into(),
+        }
     }
 
     #[test]
     fn empty_validates() {
-        GroupedList::new(vec![], vec![]).unwrap().validate().unwrap();
+        GroupedList::new(vec![], vec![])
+            .unwrap()
+            .validate()
+            .unwrap();
     }
 
     #[test]
@@ -211,7 +235,8 @@ mod tests {
         let gl = GroupedList::new(
             vec![g("g1", false), g("g2", false)],
             vec![it("a", "g1"), it("b", "g1"), it("c", "g2")],
-        ).unwrap();
+        )
+        .unwrap();
         let rows = gl.flat_render();
         assert_eq!(rows.len(), 5); // 2 headers + 3 items
     }
@@ -221,7 +246,8 @@ mod tests {
         let gl = GroupedList::new(
             vec![g("g1", true), g("g2", false)],
             vec![it("a", "g1"), it("b", "g1"), it("c", "g2")],
-        ).unwrap();
+        )
+        .unwrap();
         let rows = gl.flat_render();
         // 2 headers + 1 item (g2 only).
         assert_eq!(rows.len(), 3);
@@ -229,10 +255,8 @@ mod tests {
 
     #[test]
     fn item_count_reported() {
-        let gl = GroupedList::new(
-            vec![g("g1", false)],
-            vec![it("a", "g1"), it("b", "g1")],
-        ).unwrap();
+        let gl =
+            GroupedList::new(vec![g("g1", false)], vec![it("a", "g1"), it("b", "g1")]).unwrap();
         let rows = gl.flat_render();
         match &rows[0] {
             Row::GroupHeader { item_count, .. } => assert_eq!(*item_count, 2),
@@ -242,10 +266,7 @@ mod tests {
 
     #[test]
     fn toggle_group_flips() {
-        let mut gl = GroupedList::new(
-            vec![g("g1", false)],
-            vec![it("a", "g1")],
-        ).unwrap();
+        let mut gl = GroupedList::new(vec![g("g1", false)], vec![it("a", "g1")]).unwrap();
         gl.toggle_group("g1").unwrap();
         assert!(gl.groups[0].collapsed);
         gl.toggle_group("g1").unwrap();
@@ -290,34 +311,49 @@ mod tests {
     fn empty_header_rejected() {
         let mut x = g("g1", false);
         x.header = String::new();
-        assert!(matches!(GroupedList::new(vec![x], vec![]).unwrap_err(), GroupedListError::EmptyHeader(_)));
+        assert!(matches!(
+            GroupedList::new(vec![x], vec![]).unwrap_err(),
+            GroupedListError::EmptyHeader(_)
+        ));
     }
 
     #[test]
     fn toggle_unknown_rejected() {
         let mut gl = GroupedList::new(vec![g("g1", false)], vec![]).unwrap();
-        assert!(matches!(gl.toggle_group("ghost").unwrap_err(), GroupedListError::Unknown(_)));
+        assert!(matches!(
+            gl.toggle_group("ghost").unwrap_err(),
+            GroupedListError::Unknown(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut gl = GroupedList::new(vec![g("g1", false)], vec![]).unwrap();
         gl.schema_version = "9.9.9".into();
-        assert!(matches!(gl.validate().unwrap_err(), GroupedListError::SchemaMismatch));
+        assert!(matches!(
+            gl.validate().unwrap_err(),
+            GroupedListError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn row_serde_kebab() {
-        let r = Row::GroupHeader { key: "k".into(), label: "L".into(), collapsed: false, item_count: 0 };
-        assert!(serde_json::to_string(&r).unwrap().contains("\"kind\":\"group-header\""));
+        let r = Row::GroupHeader {
+            key: "k".into(),
+            label: "L".into(),
+            collapsed: false,
+            item_count: 0,
+        };
+        assert!(
+            serde_json::to_string(&r)
+                .unwrap()
+                .contains("\"kind\":\"group-header\"")
+        );
     }
 
     #[test]
     fn list_serde_roundtrip() {
-        let gl = GroupedList::new(
-            vec![g("g1", false)],
-            vec![it("a", "g1")],
-        ).unwrap();
+        let gl = GroupedList::new(vec![g("g1", false)], vec![it("a", "g1")]).unwrap();
         let j = serde_json::to_string(&gl).unwrap();
         let back: GroupedList = serde_json::from_str(&j).unwrap();
         assert_eq!(gl, back);

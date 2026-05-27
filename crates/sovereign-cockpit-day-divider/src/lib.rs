@@ -42,15 +42,23 @@ pub enum DividerError {
 }
 
 /// Epoch-day for ms timestamp.
-pub fn epoch_day(ts_ms: u64) -> u64 { ts_ms / DAY_MS }
+pub fn epoch_day(ts_ms: u64) -> u64 {
+    ts_ms / DAY_MS
+}
 
 /// Classify a timestamp against now.
 pub fn classify(now_ms: u64, item_ms: u64) -> Bucket {
     let now_day = epoch_day(now_ms);
     let item_day = epoch_day(item_ms);
-    if item_day == now_day { return Bucket::Today; }
-    if item_day + 1 == now_day { return Bucket::Yesterday; }
-    if item_day + 1 < now_day && item_day + 6 >= now_day { return Bucket::EarlierThisWeek; }
+    if item_day == now_day {
+        return Bucket::Today;
+    }
+    if item_day + 1 == now_day {
+        return Bucket::Yesterday;
+    }
+    if item_day + 1 < now_day && item_day + 6 >= now_day {
+        return Bucket::EarlierThisWeek;
+    }
     Bucket::Older
 }
 
@@ -69,7 +77,9 @@ pub fn group(now_ms: u64, items_ms: &[u64]) -> Vec<(Bucket, Vec<u64>)> {
 
 /// Validate.
 pub fn validate_schema_version(s: &str) -> Result<(), DividerError> {
-    if s != SCHEMA_VERSION { return Err(DividerError::SchemaMismatch); }
+    if s != SCHEMA_VERSION {
+        return Err(DividerError::SchemaMismatch);
+    }
     Ok(())
 }
 
@@ -110,12 +120,7 @@ mod tests {
     #[test]
     fn group_keeps_contiguous_buckets() {
         let now = 100 * D;
-        let items = vec![
-            100 * D + 1000,
-            100 * D + 500,
-            99 * D + 100,
-            95 * D,
-        ];
+        let items = vec![100 * D + 1000, 100 * D + 500, 99 * D + 100, 95 * D];
         let g = group(now, &items);
         assert_eq!(g.len(), 3);
         assert_eq!(g[0].0, Bucket::Today);

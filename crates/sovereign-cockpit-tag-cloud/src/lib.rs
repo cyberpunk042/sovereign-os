@@ -72,7 +72,10 @@ impl TagCloud {
     /// New.
     pub fn new(min_font_pct: u8, max_font_pct: u8) -> Result<Self, TagCloudError> {
         if min_font_pct >= max_font_pct {
-            return Err(TagCloudError::BadFontBounds { min: min_font_pct, max: max_font_pct });
+            return Err(TagCloudError::BadFontBounds {
+                min: min_font_pct,
+                max: max_font_pct,
+            });
         }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
@@ -84,7 +87,9 @@ impl TagCloud {
     /// Project tags to CloudEntries.
     pub fn project(&self, tags: &[Tag]) -> Result<Vec<CloudEntry>, TagCloudError> {
         check_tags(tags)?;
-        if tags.is_empty() { return Ok(Vec::new()); }
+        if tags.is_empty() {
+            return Ok(Vec::new());
+        }
         let min_w = tags.iter().map(|t| t.weight).min().unwrap();
         let max_w = tags.iter().map(|t| t.weight).max().unwrap();
         let range = max_w.saturating_sub(min_w);
@@ -98,7 +103,11 @@ impl TagCloud {
                 let offset = ((t.weight - min_w) * span) / range;
                 (self.min_font_pct as u64 + offset).min(self.max_font_pct as u64) as u8
             };
-            out.push(CloudEntry { label: t.label.clone(), weight: t.weight, font_size_pct });
+            out.push(CloudEntry {
+                label: t.label.clone(),
+                weight: t.weight,
+                font_size_pct,
+            });
         }
         Ok(out)
     }
@@ -109,7 +118,10 @@ impl TagCloud {
             return Err(TagCloudError::SchemaMismatch);
         }
         if self.min_font_pct >= self.max_font_pct {
-            return Err(TagCloudError::BadFontBounds { min: self.min_font_pct, max: self.max_font_pct });
+            return Err(TagCloudError::BadFontBounds {
+                min: self.min_font_pct,
+                max: self.max_font_pct,
+            });
         }
         Ok(())
     }
@@ -119,7 +131,9 @@ fn check_tags(tags: &[Tag]) -> Result<(), TagCloudError> {
     use std::collections::HashSet;
     let mut seen: HashSet<&str> = HashSet::new();
     for t in tags {
-        if t.label.is_empty() { return Err(TagCloudError::EmptyLabel); }
+        if t.label.is_empty() {
+            return Err(TagCloudError::EmptyLabel);
+        }
         if !seen.insert(t.label.as_str()) {
             return Err(TagCloudError::DuplicateLabel(t.label.clone()));
         }
@@ -132,12 +146,18 @@ mod tests {
     use super::*;
 
     fn t(label: &str, weight: u64) -> Tag {
-        Tag { label: label.into(), weight }
+        Tag {
+            label: label.into(),
+            weight,
+        }
     }
 
     #[test]
     fn bad_bounds_rejected() {
-        assert!(matches!(TagCloud::new(50, 50).unwrap_err(), TagCloudError::BadFontBounds { .. }));
+        assert!(matches!(
+            TagCloud::new(50, 50).unwrap_err(),
+            TagCloudError::BadFontBounds { .. }
+        ));
     }
 
     #[test]
@@ -177,14 +197,20 @@ mod tests {
     #[test]
     fn empty_label_rejected() {
         let c = TagCloud::new(80, 200).unwrap();
-        assert!(matches!(c.project(&[t("", 1)]).unwrap_err(), TagCloudError::EmptyLabel));
+        assert!(matches!(
+            c.project(&[t("", 1)]).unwrap_err(),
+            TagCloudError::EmptyLabel
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut c = TagCloud::new(80, 200).unwrap();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), TagCloudError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            TagCloudError::SchemaMismatch
+        ));
     }
 
     #[test]

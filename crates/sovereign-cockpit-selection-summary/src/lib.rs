@@ -75,12 +75,20 @@ impl SelectionSummary {
 
     /// Add item.
     pub fn add(&mut self, id: &str, value: i64, category: &str) -> Result<(), SummaryError> {
-        if id.is_empty() { return Err(SummaryError::EmptyId); }
-        if category.is_empty() { return Err(SummaryError::EmptyCategory); }
+        if id.is_empty() {
+            return Err(SummaryError::EmptyId);
+        }
+        if category.is_empty() {
+            return Err(SummaryError::EmptyCategory);
+        }
         if self.items.iter().any(|i| i.id == id) {
             return Err(SummaryError::DuplicateId(id.into()));
         }
-        self.items.push(Item { id: id.into(), value, category: category.into() });
+        self.items.push(Item {
+            id: id.into(),
+            value,
+            category: category.into(),
+        });
         Ok(())
     }
 
@@ -95,7 +103,9 @@ impl SelectionSummary {
     }
 
     /// Clear.
-    pub fn clear(&mut self) { self.items.clear(); }
+    pub fn clear(&mut self) {
+        self.items.clear();
+    }
 
     /// Summary.
     pub fn summary(&self) -> Summary {
@@ -110,17 +120,25 @@ impl SelectionSummary {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), SummaryError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(SummaryError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(SummaryError::SchemaMismatch);
+        }
         for i in &self.items {
-            if i.id.is_empty() { return Err(SummaryError::EmptyId); }
-            if i.category.is_empty() { return Err(SummaryError::EmptyCategory); }
+            if i.id.is_empty() {
+                return Err(SummaryError::EmptyId);
+            }
+            if i.category.is_empty() {
+                return Err(SummaryError::EmptyCategory);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for SelectionSummary {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -168,21 +186,33 @@ mod tests {
     fn duplicate_rejected() {
         let mut s = SelectionSummary::new();
         s.add("a", 1, "x").unwrap();
-        assert!(matches!(s.add("a", 2, "x").unwrap_err(), SummaryError::DuplicateId(_)));
+        assert!(matches!(
+            s.add("a", 2, "x").unwrap_err(),
+            SummaryError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut s = SelectionSummary::new();
-        assert!(matches!(s.add("", 1, "x").unwrap_err(), SummaryError::EmptyId));
-        assert!(matches!(s.add("i", 1, "").unwrap_err(), SummaryError::EmptyCategory));
+        assert!(matches!(
+            s.add("", 1, "x").unwrap_err(),
+            SummaryError::EmptyId
+        ));
+        assert!(matches!(
+            s.add("i", 1, "").unwrap_err(),
+            SummaryError::EmptyCategory
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = SelectionSummary::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), SummaryError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SummaryError::SchemaMismatch
+        ));
     }
 
     #[test]

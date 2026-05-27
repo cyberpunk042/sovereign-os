@@ -71,8 +71,12 @@ impl FilterChipBar {
 
     /// Add a chip.
     pub fn add(&mut self, chip: Chip) -> Result<(), ChipBarError> {
-        if chip.id.is_empty() { return Err(ChipBarError::EmptyId); }
-        if chip.label.is_empty() { return Err(ChipBarError::EmptyLabel(chip.id.clone())); }
+        if chip.id.is_empty() {
+            return Err(ChipBarError::EmptyId);
+        }
+        if chip.label.is_empty() {
+            return Err(ChipBarError::EmptyLabel(chip.id.clone()));
+        }
         if self.chips.iter().any(|c| c.id == chip.id) {
             return Err(ChipBarError::DuplicateId(chip.id));
         }
@@ -82,7 +86,10 @@ impl FilterChipBar {
 
     /// Remove by id; fails if chip not removable.
     pub fn remove(&mut self, id: &str) -> Result<(), ChipBarError> {
-        let pos = self.chips.iter().position(|c| c.id == id)
+        let pos = self
+            .chips
+            .iter()
+            .position(|c| c.id == id)
             .ok_or_else(|| ChipBarError::Unknown(id.into()))?;
         if !self.chips[pos].removable {
             return Err(ChipBarError::NotRemovable(id.into()));
@@ -104,8 +111,12 @@ impl FilterChipBar {
         use std::collections::HashSet;
         let mut seen: HashSet<&str> = HashSet::new();
         for c in &self.chips {
-            if c.id.is_empty() { return Err(ChipBarError::EmptyId); }
-            if c.label.is_empty() { return Err(ChipBarError::EmptyLabel(c.id.clone())); }
+            if c.id.is_empty() {
+                return Err(ChipBarError::EmptyId);
+            }
+            if c.label.is_empty() {
+                return Err(ChipBarError::EmptyLabel(c.id.clone()));
+            }
             if !seen.insert(c.id.as_str()) {
                 return Err(ChipBarError::DuplicateId(c.id.clone()));
             }
@@ -115,7 +126,9 @@ impl FilterChipBar {
 }
 
 impl Default for FilterChipBar {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -143,14 +156,20 @@ mod tests {
     #[test]
     fn remove_unknown_rejected() {
         let mut b = FilterChipBar::new();
-        assert!(matches!(b.remove("z").unwrap_err(), ChipBarError::Unknown(_)));
+        assert!(matches!(
+            b.remove("z").unwrap_err(),
+            ChipBarError::Unknown(_)
+        ));
     }
 
     #[test]
     fn remove_non_removable_rejected() {
         let mut b = FilterChipBar::new();
         b.add(chip("a", false)).unwrap();
-        assert!(matches!(b.remove("a").unwrap_err(), ChipBarError::NotRemovable(_)));
+        assert!(matches!(
+            b.remove("a").unwrap_err(),
+            ChipBarError::NotRemovable(_)
+        ));
     }
 
     #[test]
@@ -168,7 +187,10 @@ mod tests {
     fn duplicate_rejected() {
         let mut b = FilterChipBar::new();
         b.add(chip("a", true)).unwrap();
-        assert!(matches!(b.add(chip("a", true)).unwrap_err(), ChipBarError::DuplicateId(_)));
+        assert!(matches!(
+            b.add(chip("a", true)).unwrap_err(),
+            ChipBarError::DuplicateId(_)
+        ));
     }
 
     #[test]
@@ -191,7 +213,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut b = FilterChipBar::new();
         b.schema_version = "9.9.9".into();
-        assert!(matches!(b.validate().unwrap_err(), ChipBarError::SchemaMismatch));
+        assert!(matches!(
+            b.validate().unwrap_err(),
+            ChipBarError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -85,12 +85,20 @@ impl WorkspaceState {
 
     /// Add a pane.
     pub fn add_pane(&mut self, id: &str, kind: &str) -> Result<(), WorkspaceError> {
-        if id.is_empty() { return Err(WorkspaceError::EmptyId); }
-        if kind.is_empty() { return Err(WorkspaceError::EmptyKind); }
+        if id.is_empty() {
+            return Err(WorkspaceError::EmptyId);
+        }
+        if kind.is_empty() {
+            return Err(WorkspaceError::EmptyKind);
+        }
         if self.panes.iter().any(|p| p.id == id) {
             return Err(WorkspaceError::DuplicatePane(id.into()));
         }
-        self.panes.push(Pane { id: id.into(), kind: kind.into(), scroll_y: 0 });
+        self.panes.push(Pane {
+            id: id.into(),
+            kind: kind.into(),
+            scroll_y: 0,
+        });
         Ok(())
     }
 
@@ -105,7 +113,10 @@ impl WorkspaceState {
 
     /// Set scroll for a pane.
     pub fn set_scroll(&mut self, id: &str, scroll_y: u32) -> Result<(), WorkspaceError> {
-        let p = self.panes.iter_mut().find(|p| p.id == id)
+        let p = self
+            .panes
+            .iter_mut()
+            .find(|p| p.id == id)
             .ok_or_else(|| WorkspaceError::Unknown(id.into()))?;
         p.scroll_y = scroll_y;
         Ok(())
@@ -113,18 +124,26 @@ impl WorkspaceState {
 
     /// Save a named snapshot.
     pub fn save(&mut self, name: &str) -> Result<(), WorkspaceError> {
-        if name.is_empty() { return Err(WorkspaceError::EmptyId); }
-        self.named_snapshots.insert(name.into(), Snapshot {
-            panes: self.panes.clone(),
-            active_pane: self.active_pane.clone(),
-        });
+        if name.is_empty() {
+            return Err(WorkspaceError::EmptyId);
+        }
+        self.named_snapshots.insert(
+            name.into(),
+            Snapshot {
+                panes: self.panes.clone(),
+                active_pane: self.active_pane.clone(),
+            },
+        );
         Ok(())
     }
 
     /// Restore a named snapshot.
     pub fn restore(&mut self, name: &str) -> Result<(), WorkspaceError> {
-        let snap = self.named_snapshots.get(name)
-            .ok_or_else(|| WorkspaceError::SnapshotMissing(name.into()))?.clone();
+        let snap = self
+            .named_snapshots
+            .get(name)
+            .ok_or_else(|| WorkspaceError::SnapshotMissing(name.into()))?
+            .clone();
         self.panes = snap.panes;
         self.active_pane = snap.active_pane;
         Ok(())
@@ -132,10 +151,16 @@ impl WorkspaceState {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), WorkspaceError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(WorkspaceError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(WorkspaceError::SchemaMismatch);
+        }
         for p in &self.panes {
-            if p.id.is_empty() { return Err(WorkspaceError::EmptyId); }
-            if p.kind.is_empty() { return Err(WorkspaceError::EmptyKind); }
+            if p.id.is_empty() {
+                return Err(WorkspaceError::EmptyId);
+            }
+            if p.kind.is_empty() {
+                return Err(WorkspaceError::EmptyKind);
+            }
         }
         if let Some(a) = &self.active_pane {
             if !self.panes.iter().any(|p| &p.id == a) {
@@ -147,7 +172,9 @@ impl WorkspaceState {
 }
 
 impl Default for WorkspaceState {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -177,35 +204,56 @@ mod tests {
     #[test]
     fn restore_unknown_snapshot_rejected() {
         let mut w = WorkspaceState::new();
-        assert!(matches!(w.restore("nope").unwrap_err(), WorkspaceError::SnapshotMissing(_)));
+        assert!(matches!(
+            w.restore("nope").unwrap_err(),
+            WorkspaceError::SnapshotMissing(_)
+        ));
     }
 
     #[test]
     fn duplicate_pane_rejected() {
         let mut w = WorkspaceState::new();
         w.add_pane("p1", "log").unwrap();
-        assert!(matches!(w.add_pane("p1", "log").unwrap_err(), WorkspaceError::DuplicatePane(_)));
+        assert!(matches!(
+            w.add_pane("p1", "log").unwrap_err(),
+            WorkspaceError::DuplicatePane(_)
+        ));
     }
 
     #[test]
     fn unknown_pane_rejected() {
         let mut w = WorkspaceState::new();
-        assert!(matches!(w.set_active("nope").unwrap_err(), WorkspaceError::Unknown(_)));
-        assert!(matches!(w.set_scroll("nope", 0).unwrap_err(), WorkspaceError::Unknown(_)));
+        assert!(matches!(
+            w.set_active("nope").unwrap_err(),
+            WorkspaceError::Unknown(_)
+        ));
+        assert!(matches!(
+            w.set_scroll("nope", 0).unwrap_err(),
+            WorkspaceError::Unknown(_)
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut w = WorkspaceState::new();
-        assert!(matches!(w.add_pane("", "x").unwrap_err(), WorkspaceError::EmptyId));
-        assert!(matches!(w.add_pane("x", "").unwrap_err(), WorkspaceError::EmptyKind));
+        assert!(matches!(
+            w.add_pane("", "x").unwrap_err(),
+            WorkspaceError::EmptyId
+        ));
+        assert!(matches!(
+            w.add_pane("x", "").unwrap_err(),
+            WorkspaceError::EmptyKind
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut w = WorkspaceState::new();
         w.schema_version = "9.9.9".into();
-        assert!(matches!(w.validate().unwrap_err(), WorkspaceError::SchemaMismatch));
+        assert!(matches!(
+            w.validate().unwrap_err(),
+            WorkspaceError::SchemaMismatch
+        ));
     }
 
     #[test]

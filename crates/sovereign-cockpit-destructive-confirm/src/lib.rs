@@ -49,7 +49,9 @@ pub enum ConfirmError {
 impl DestructiveConfirm {
     /// New.
     pub fn new(required_phrase: &str, hold_ms: u64) -> Result<Self, ConfirmError> {
-        if required_phrase.is_empty() { return Err(ConfirmError::EmptyPhrase); }
+        if required_phrase.is_empty() {
+            return Err(ConfirmError::EmptyPhrase);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             required_phrase: required_phrase.into(),
@@ -77,13 +79,19 @@ impl DestructiveConfirm {
     }
 
     /// Is the gate open?
-    pub fn is_open(&self) -> bool { self.opened_at_ms.is_some() }
+    pub fn is_open(&self) -> bool {
+        self.opened_at_ms.is_some()
+    }
 
     /// Match progress 0..=100 (count of matching leading chars / total chars).
     pub fn progress_pct(&self) -> u8 {
         let total = self.required_phrase.chars().count();
-        if total == 0 { return 100; }
-        let matched = self.required_phrase.chars()
+        if total == 0 {
+            return 100;
+        }
+        let matched = self
+            .required_phrase
+            .chars()
             .zip(self.buffer.chars())
             .take_while(|(a, b)| a == b)
             .count();
@@ -92,15 +100,24 @@ impl DestructiveConfirm {
 
     /// May the operator proceed?
     pub fn can_proceed(&self, now_ms: u64) -> bool {
-        let opened = match self.opened_at_ms { Some(t) => t, None => return false };
-        if now_ms.saturating_sub(opened) < self.hold_ms { return false; }
+        let opened = match self.opened_at_ms {
+            Some(t) => t,
+            None => return false,
+        };
+        if now_ms.saturating_sub(opened) < self.hold_ms {
+            return false;
+        }
         self.buffer == self.required_phrase
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ConfirmError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ConfirmError::SchemaMismatch); }
-        if self.required_phrase.is_empty() { return Err(ConfirmError::EmptyPhrase); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ConfirmError::SchemaMismatch);
+        }
+        if self.required_phrase.is_empty() {
+            return Err(ConfirmError::EmptyPhrase);
+        }
         Ok(())
     }
 }
@@ -111,7 +128,10 @@ mod tests {
 
     #[test]
     fn empty_phrase_rejected() {
-        assert!(matches!(DestructiveConfirm::new("", 0).unwrap_err(), ConfirmError::EmptyPhrase));
+        assert!(matches!(
+            DestructiveConfirm::new("", 0).unwrap_err(),
+            ConfirmError::EmptyPhrase
+        ));
     }
 
     #[test]
@@ -167,7 +187,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut c = DestructiveConfirm::new("DELETE", 0).unwrap();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), ConfirmError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            ConfirmError::SchemaMismatch
+        ));
     }
 
     #[test]

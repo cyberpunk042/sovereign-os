@@ -81,8 +81,12 @@ impl QuickActionBar {
 
     /// Add slot.
     pub fn add(&mut self, q: QuickAction) -> Result<(), QuickActionError> {
-        if q.command_id.is_empty() { return Err(QuickActionError::EmptyCommandId); }
-        if q.label.is_empty() { return Err(QuickActionError::EmptyLabel(q.command_id)); }
+        if q.command_id.is_empty() {
+            return Err(QuickActionError::EmptyCommandId);
+        }
+        if q.label.is_empty() {
+            return Err(QuickActionError::EmptyLabel(q.command_id));
+        }
         if self.slots.iter().any(|s| s.command_id == q.command_id) {
             return Err(QuickActionError::Duplicate(q.command_id));
         }
@@ -95,7 +99,10 @@ impl QuickActionBar {
 
     /// Remove by command_id.
     pub fn remove(&mut self, command_id: &str) -> Result<(), QuickActionError> {
-        let pos = self.slots.iter().position(|s| s.command_id == command_id)
+        let pos = self
+            .slots
+            .iter()
+            .position(|s| s.command_id == command_id)
             .ok_or_else(|| QuickActionError::Unknown(command_id.into()))?;
         self.slots.remove(pos);
         Ok(())
@@ -113,11 +120,17 @@ impl QuickActionBar {
 
     /// Move a slot to a new index (with shift).
     pub fn move_to(&mut self, command_id: &str, target_idx: usize) -> Result<(), QuickActionError> {
-        let src = self.slots.iter().position(|s| s.command_id == command_id)
+        let src = self
+            .slots
+            .iter()
+            .position(|s| s.command_id == command_id)
             .ok_or_else(|| QuickActionError::Unknown(command_id.into()))?;
         let len = self.slots.len();
         if target_idx >= len {
-            return Err(QuickActionError::OutOfRange { idx: target_idx, len });
+            return Err(QuickActionError::OutOfRange {
+                idx: target_idx,
+                len,
+            });
         }
         let item = self.slots.remove(src);
         self.slots.insert(target_idx, item);
@@ -129,12 +142,18 @@ impl QuickActionBar {
         if self.schema_version != SCHEMA_VERSION {
             return Err(QuickActionError::SchemaMismatch);
         }
-        if self.slots.len() > MAX_SLOTS { return Err(QuickActionError::Full); }
+        if self.slots.len() > MAX_SLOTS {
+            return Err(QuickActionError::Full);
+        }
         use std::collections::HashSet;
         let mut seen: HashSet<&str> = HashSet::new();
         for s in &self.slots {
-            if s.command_id.is_empty() { return Err(QuickActionError::EmptyCommandId); }
-            if s.label.is_empty() { return Err(QuickActionError::EmptyLabel(s.command_id.clone())); }
+            if s.command_id.is_empty() {
+                return Err(QuickActionError::EmptyCommandId);
+            }
+            if s.label.is_empty() {
+                return Err(QuickActionError::EmptyLabel(s.command_id.clone()));
+            }
             if !seen.insert(s.command_id.as_str()) {
                 return Err(QuickActionError::Duplicate(s.command_id.clone()));
             }
@@ -144,7 +163,9 @@ impl QuickActionBar {
 }
 
 impl Default for QuickActionBar {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -178,7 +199,10 @@ mod tests {
     fn duplicate_rejected() {
         let mut b = QuickActionBar::new();
         b.add(q("a")).unwrap();
-        assert!(matches!(b.add(q("a")).unwrap_err(), QuickActionError::Duplicate(_)));
+        assert!(matches!(
+            b.add(q("a")).unwrap_err(),
+            QuickActionError::Duplicate(_)
+        ));
     }
 
     #[test]
@@ -187,7 +211,10 @@ mod tests {
         for i in 0..MAX_SLOTS {
             b.add(q(&format!("q{i}"))).unwrap();
         }
-        assert!(matches!(b.add(q("overflow")).unwrap_err(), QuickActionError::Full));
+        assert!(matches!(
+            b.add(q("overflow")).unwrap_err(),
+            QuickActionError::Full
+        ));
     }
 
     #[test]
@@ -213,14 +240,20 @@ mod tests {
     #[test]
     fn unknown_remove_rejected() {
         let mut b = QuickActionBar::new();
-        assert!(matches!(b.remove("none").unwrap_err(), QuickActionError::Unknown(_)));
+        assert!(matches!(
+            b.remove("none").unwrap_err(),
+            QuickActionError::Unknown(_)
+        ));
     }
 
     #[test]
     fn out_of_range_swap_rejected() {
         let mut b = QuickActionBar::new();
         b.add(q("a")).unwrap();
-        assert!(matches!(b.swap(0, 5).unwrap_err(), QuickActionError::OutOfRange { .. }));
+        assert!(matches!(
+            b.swap(0, 5).unwrap_err(),
+            QuickActionError::OutOfRange { .. }
+        ));
     }
 
     #[test]
@@ -228,7 +261,10 @@ mod tests {
         let mut b = QuickActionBar::new();
         let mut bad = q("a");
         bad.command_id = String::new();
-        assert!(matches!(b.add(bad).unwrap_err(), QuickActionError::EmptyCommandId));
+        assert!(matches!(
+            b.add(bad).unwrap_err(),
+            QuickActionError::EmptyCommandId
+        ));
     }
 
     #[test]
@@ -236,14 +272,20 @@ mod tests {
         let mut b = QuickActionBar::new();
         let mut bad = q("a");
         bad.label = String::new();
-        assert!(matches!(b.add(bad).unwrap_err(), QuickActionError::EmptyLabel(_)));
+        assert!(matches!(
+            b.add(bad).unwrap_err(),
+            QuickActionError::EmptyLabel(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut b = QuickActionBar::new();
         b.schema_version = "9.9.9".into();
-        assert!(matches!(b.validate().unwrap_err(), QuickActionError::SchemaMismatch));
+        assert!(matches!(
+            b.validate().unwrap_err(),
+            QuickActionError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -108,7 +108,9 @@ fn normalize(p: &str) -> String {
 fn is_under(child: &str, parent: &str) -> bool {
     let c = normalize(child);
     let p = normalize(parent);
-    if c == p { return true; }
+    if c == p {
+        return true;
+    }
     let p_with_sep = format!("{p}/");
     c.starts_with(&p_with_sep)
 }
@@ -124,10 +126,17 @@ impl WorkspaceFolderRegistry {
 
     /// Add a folder.
     pub fn add(&mut self, f: Folder) -> Result<(), FolderError> {
-        if f.label.is_empty() { return Err(FolderError::EmptyLabel); }
-        if f.root_path.is_empty() { return Err(FolderError::EmptyPath(f.label)); }
+        if f.label.is_empty() {
+            return Err(FolderError::EmptyLabel);
+        }
+        if f.root_path.is_empty() {
+            return Err(FolderError::EmptyPath(f.label));
+        }
         if !f.root_path.starts_with('/') {
-            return Err(FolderError::NotAbsolute { label: f.label, path: f.root_path });
+            return Err(FolderError::NotAbsolute {
+                label: f.label,
+                path: f.root_path,
+            });
         }
         let new_root = normalize(&f.root_path);
         for existing in &self.folders {
@@ -154,11 +163,15 @@ impl WorkspaceFolderRegistry {
         use std::collections::HashSet;
         let mut seen: HashSet<&str> = HashSet::new();
         for f in &self.folders {
-            if f.label.is_empty() { return Err(FolderError::EmptyLabel); }
+            if f.label.is_empty() {
+                return Err(FolderError::EmptyLabel);
+            }
             if !seen.insert(f.label.as_str()) {
                 return Err(FolderError::DuplicateLabel(f.label.clone()));
             }
-            if f.root_path.is_empty() { return Err(FolderError::EmptyPath(f.label.clone())); }
+            if f.root_path.is_empty() {
+                return Err(FolderError::EmptyPath(f.label.clone()));
+            }
             if !f.root_path.starts_with('/') {
                 return Err(FolderError::NotAbsolute {
                     label: f.label.clone(),
@@ -189,7 +202,9 @@ impl WorkspaceFolderRegistry {
 
     /// Refuse write if path is outside any folder or its folder is read-only.
     pub fn require_writable(&self, path: &str) -> Result<&Folder, FolderError> {
-        let f = self.resolve(path).ok_or_else(|| FolderError::PathOutsideWorkspace(path.into()))?;
+        let f = self
+            .resolve(path)
+            .ok_or_else(|| FolderError::PathOutsideWorkspace(path.into()))?;
         if f.read_only {
             return Err(FolderError::ReadOnlyBlock(f.label.clone()));
         }
@@ -198,7 +213,9 @@ impl WorkspaceFolderRegistry {
 }
 
 impl Default for WorkspaceFolderRegistry {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -223,9 +240,12 @@ mod tests {
     #[test]
     fn add_disjoint_folders() {
         let mut r = WorkspaceFolderRegistry::new();
-        r.add(f("repo", "/workspace/selfdef", FolderScope::Repo, false)).unwrap();
-        r.add(f("data", "/var/data", FolderScope::Data, false)).unwrap();
-        r.add(f("scratch", "/tmp/scratch", FolderScope::Scratch, false)).unwrap();
+        r.add(f("repo", "/workspace/selfdef", FolderScope::Repo, false))
+            .unwrap();
+        r.add(f("data", "/var/data", FolderScope::Data, false))
+            .unwrap();
+        r.add(f("scratch", "/tmp/scratch", FolderScope::Scratch, false))
+            .unwrap();
         r.validate().unwrap();
     }
 
@@ -233,29 +253,37 @@ mod tests {
     fn duplicate_label_rejected() {
         let mut r = WorkspaceFolderRegistry::new();
         r.add(f("repo", "/a", FolderScope::Repo, false)).unwrap();
-        let err = r.add(f("repo", "/b", FolderScope::Repo, false)).unwrap_err();
+        let err = r
+            .add(f("repo", "/b", FolderScope::Repo, false))
+            .unwrap_err();
         assert!(matches!(err, FolderError::DuplicateLabel(_)));
     }
 
     #[test]
     fn non_absolute_rejected() {
         let mut r = WorkspaceFolderRegistry::new();
-        let err = r.add(f("repo", "relative/path", FolderScope::Repo, false)).unwrap_err();
+        let err = r
+            .add(f("repo", "relative/path", FolderScope::Repo, false))
+            .unwrap_err();
         assert!(matches!(err, FolderError::NotAbsolute { .. }));
     }
 
     #[test]
     fn overlapping_roots_rejected() {
         let mut r = WorkspaceFolderRegistry::new();
-        r.add(f("a", "/workspace", FolderScope::Repo, false)).unwrap();
-        let err = r.add(f("b", "/workspace/sub", FolderScope::Repo, false)).unwrap_err();
+        r.add(f("a", "/workspace", FolderScope::Repo, false))
+            .unwrap();
+        let err = r
+            .add(f("b", "/workspace/sub", FolderScope::Repo, false))
+            .unwrap_err();
         assert!(matches!(err, FolderError::OverlappingRoots { .. }));
     }
 
     #[test]
     fn resolve_finds_containing_folder() {
         let mut r = WorkspaceFolderRegistry::new();
-        r.add(f("repo", "/workspace/selfdef", FolderScope::Repo, false)).unwrap();
+        r.add(f("repo", "/workspace/selfdef", FolderScope::Repo, false))
+            .unwrap();
         let found = r.resolve("/workspace/selfdef/crates/foo.rs").unwrap();
         assert_eq!(found.label, "repo");
     }
@@ -269,7 +297,8 @@ mod tests {
     #[test]
     fn require_writable_succeeds_when_writable() {
         let mut r = WorkspaceFolderRegistry::new();
-        r.add(f("repo", "/workspace", FolderScope::Repo, false)).unwrap();
+        r.add(f("repo", "/workspace", FolderScope::Repo, false))
+            .unwrap();
         r.require_writable("/workspace/foo.rs").unwrap();
     }
 
@@ -286,14 +315,17 @@ mod tests {
     #[test]
     fn require_writable_outside_workspace() {
         let r = WorkspaceFolderRegistry::new();
-        assert!(matches!(r.require_writable("/etc/passwd").unwrap_err(),
-            FolderError::PathOutsideWorkspace(_)));
+        assert!(matches!(
+            r.require_writable("/etc/passwd").unwrap_err(),
+            FolderError::PathOutsideWorkspace(_)
+        ));
     }
 
     #[test]
     fn root_exactly_at_folder_is_under() {
         let mut r = WorkspaceFolderRegistry::new();
-        r.add(f("repo", "/workspace", FolderScope::Repo, false)).unwrap();
+        r.add(f("repo", "/workspace", FolderScope::Repo, false))
+            .unwrap();
         assert!(r.resolve("/workspace").is_some());
     }
 
@@ -301,20 +333,31 @@ mod tests {
     fn schema_drift_rejected() {
         let mut r = WorkspaceFolderRegistry::new();
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate().unwrap_err(), FolderError::SchemaMismatch));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            FolderError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn scope_serde_kebab() {
-        assert_eq!(serde_json::to_string(&FolderScope::Repo).unwrap(), "\"repo\"");
-        assert_eq!(serde_json::to_string(&FolderScope::Scratch).unwrap(), "\"scratch\"");
+        assert_eq!(
+            serde_json::to_string(&FolderScope::Repo).unwrap(),
+            "\"repo\""
+        );
+        assert_eq!(
+            serde_json::to_string(&FolderScope::Scratch).unwrap(),
+            "\"scratch\""
+        );
     }
 
     #[test]
     fn registry_serde_roundtrip() {
         let mut r = WorkspaceFolderRegistry::new();
-        r.add(f("repo", "/workspace", FolderScope::Repo, false)).unwrap();
-        r.add(f("data", "/var/data", FolderScope::Data, true)).unwrap();
+        r.add(f("repo", "/workspace", FolderScope::Repo, false))
+            .unwrap();
+        r.add(f("data", "/var/data", FolderScope::Data, true))
+            .unwrap();
         let j = serde_json::to_string(&r).unwrap();
         let back: WorkspaceFolderRegistry = serde_json::from_str(&j).unwrap();
         assert_eq!(r, back);

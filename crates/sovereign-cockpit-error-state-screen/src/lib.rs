@@ -75,8 +75,12 @@ pub enum ScreenError {
 impl ErrorStateScreen {
     /// New.
     pub fn new(category: Category, headline: &str, body: &str) -> Result<Self, ScreenError> {
-        if headline.is_empty() { return Err(ScreenError::EmptyHeadline); }
-        if body.is_empty() { return Err(ScreenError::EmptyBody); }
+        if headline.is_empty() {
+            return Err(ScreenError::EmptyHeadline);
+        }
+        if body.is_empty() {
+            return Err(ScreenError::EmptyBody);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             category,
@@ -90,7 +94,9 @@ impl ErrorStateScreen {
 
     /// Wire up retry.
     pub fn with_retry(mut self, handler_id: &str) -> Result<Self, ScreenError> {
-        if handler_id.is_empty() { return Err(ScreenError::EmptyHandler); }
+        if handler_id.is_empty() {
+            return Err(ScreenError::EmptyHandler);
+        }
         self.retry_handler_id = Some(handler_id.into());
         Ok(self)
     }
@@ -112,11 +118,19 @@ impl ErrorStateScreen {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ScreenError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ScreenError::SchemaMismatch); }
-        if self.headline.is_empty() { return Err(ScreenError::EmptyHeadline); }
-        if self.body.is_empty() { return Err(ScreenError::EmptyBody); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ScreenError::SchemaMismatch);
+        }
+        if self.headline.is_empty() {
+            return Err(ScreenError::EmptyHeadline);
+        }
+        if self.body.is_empty() {
+            return Err(ScreenError::EmptyBody);
+        }
         if let Some(h) = &self.retry_handler_id {
-            if h.is_empty() { return Err(ScreenError::EmptyHandler); }
+            if h.is_empty() {
+                return Err(ScreenError::EmptyHandler);
+            }
         }
         Ok(())
     }
@@ -156,22 +170,37 @@ mod tests {
     #[test]
     fn retry_without_handler_rejected() {
         let mut s = ErrorStateScreen::new(Category::Network, "Offline", "x").unwrap();
-        assert!(matches!(s.attempt_retry(0).unwrap_err(), ScreenError::NoRetry));
+        assert!(matches!(
+            s.attempt_retry(0).unwrap_err(),
+            ScreenError::NoRetry
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
-        assert!(matches!(ErrorStateScreen::new(Category::Network, "", "x").unwrap_err(), ScreenError::EmptyHeadline));
-        assert!(matches!(ErrorStateScreen::new(Category::Network, "h", "").unwrap_err(), ScreenError::EmptyBody));
+        assert!(matches!(
+            ErrorStateScreen::new(Category::Network, "", "x").unwrap_err(),
+            ScreenError::EmptyHeadline
+        ));
+        assert!(matches!(
+            ErrorStateScreen::new(Category::Network, "h", "").unwrap_err(),
+            ScreenError::EmptyBody
+        ));
         let s = ErrorStateScreen::new(Category::Network, "h", "b").unwrap();
-        assert!(matches!(s.with_retry("").unwrap_err(), ScreenError::EmptyHandler));
+        assert!(matches!(
+            s.with_retry("").unwrap_err(),
+            ScreenError::EmptyHandler
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = ErrorStateScreen::new(Category::Network, "h", "b").unwrap();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), ScreenError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            ScreenError::SchemaMismatch
+        ));
     }
 
     #[test]
@@ -181,7 +210,12 @@ mod tests {
         let nf = ErrorStateScreen::new(Category::NotFound, "h", "b").unwrap();
         let s = ErrorStateScreen::new(Category::Server, "h", "b").unwrap();
         let u = ErrorStateScreen::new(Category::Unknown, "h", "b").unwrap();
-        assert!(n.category != p.category && p.category != nf.category && nf.category != s.category && s.category != u.category);
+        assert!(
+            n.category != p.category
+                && p.category != nf.category
+                && nf.category != s.category
+                && s.category != u.category
+        );
     }
 
     #[test]

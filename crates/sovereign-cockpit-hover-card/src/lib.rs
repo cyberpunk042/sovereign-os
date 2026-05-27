@@ -64,11 +64,16 @@ pub enum HoverError {
 impl HoverCard {
     /// New idle.
     pub fn new(dwell_ms: u32, fade_out_ms: u32) -> Result<Self, HoverError> {
-        if dwell_ms == 0 { return Err(HoverError::DwellZero); }
-        if fade_out_ms == 0 { return Err(HoverError::FadeZero); }
+        if dwell_ms == 0 {
+            return Err(HoverError::DwellZero);
+        }
+        if fade_out_ms == 0 {
+            return Err(HoverError::FadeZero);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
-            dwell_ms, fade_out_ms,
+            dwell_ms,
+            fade_out_ms,
             phase: Phase::Idle,
             target_id: String::new(),
             entered_at_ms: 0,
@@ -128,8 +133,12 @@ impl HoverCard {
         if self.schema_version != SCHEMA_VERSION {
             return Err(HoverError::SchemaMismatch);
         }
-        if self.dwell_ms == 0 { return Err(HoverError::DwellZero); }
-        if self.fade_out_ms == 0 { return Err(HoverError::FadeZero); }
+        if self.dwell_ms == 0 {
+            return Err(HoverError::DwellZero);
+        }
+        if self.fade_out_ms == 0 {
+            return Err(HoverError::FadeZero);
+        }
         Ok(())
     }
 }
@@ -144,12 +153,18 @@ mod tests {
 
     #[test]
     fn dwell_zero_rejected() {
-        assert!(matches!(HoverCard::new(0, 100).unwrap_err(), HoverError::DwellZero));
+        assert!(matches!(
+            HoverCard::new(0, 100).unwrap_err(),
+            HoverError::DwellZero
+        ));
     }
 
     #[test]
     fn fade_zero_rejected() {
-        assert!(matches!(HoverCard::new(100, 0).unwrap_err(), HoverError::FadeZero));
+        assert!(matches!(
+            HoverCard::new(100, 0).unwrap_err(),
+            HoverError::FadeZero
+        ));
     }
 
     #[test]
@@ -218,12 +233,18 @@ mod tests {
     fn schema_drift_rejected() {
         let mut h = h();
         h.schema_version = "9.9.9".into();
-        assert!(matches!(h.validate().unwrap_err(), HoverError::SchemaMismatch));
+        assert!(matches!(
+            h.validate().unwrap_err(),
+            HoverError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn phase_serde_kebab() {
-        assert_eq!(serde_json::to_string(&Phase::FadingOut).unwrap(), "\"fading-out\"");
+        assert_eq!(
+            serde_json::to_string(&Phase::FadingOut).unwrap(),
+            "\"fading-out\""
+        );
     }
 
     #[test]

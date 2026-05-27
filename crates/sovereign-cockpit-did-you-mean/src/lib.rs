@@ -44,47 +44,68 @@ fn char_overlap_bp(query: &str, candidate: &str) -> u32 {
     let q: Vec<char> = query.chars().collect();
     let c: Vec<char> = candidate.chars().collect();
     let max_len = q.len().max(c.len()) as u32;
-    if max_len == 0 { return 10_000; }
+    if max_len == 0 {
+        return 10_000;
+    }
     // Multiset overlap (count, capped by min occurrence).
     let mut q_counts: BTreeMap<char, u32> = BTreeMap::new();
-    for ch in &q { *q_counts.entry(*ch).or_insert(0) += 1; }
+    for ch in &q {
+        *q_counts.entry(*ch).or_insert(0) += 1;
+    }
     let mut c_counts: BTreeMap<char, u32> = BTreeMap::new();
-    for ch in &c { *c_counts.entry(*ch).or_insert(0) += 1; }
+    for ch in &c {
+        *c_counts.entry(*ch).or_insert(0) += 1;
+    }
     let mut shared: u32 = 0;
     for (k, &vq) in &q_counts {
-        if let Some(&vc) = c_counts.get(k) { shared += vq.min(vc); }
+        if let Some(&vc) = c_counts.get(k) {
+            shared += vq.min(vc);
+        }
     }
     ((shared as u64 * 10_000) / max_len as u64) as u32
 }
 
 /// Suggest.
 pub fn suggest(query: &str, candidates: &[String], n: usize) -> Vec<Suggestion> {
-    if query.is_empty() || candidates.is_empty() { return Vec::new(); }
-    let mut scored: Vec<Suggestion> = candidates.iter()
+    if query.is_empty() || candidates.is_empty() {
+        return Vec::new();
+    }
+    let mut scored: Vec<Suggestion> = candidates
+        .iter()
         .map(|c| Suggestion {
             candidate: c.clone(),
             score_bp: char_overlap_bp(query, c),
         })
         .collect();
-    scored.sort_by(|a, b| b.score_bp.cmp(&a.score_bp).then(a.candidate.cmp(&b.candidate)));
+    scored.sort_by(|a, b| {
+        b.score_bp
+            .cmp(&a.score_bp)
+            .then(a.candidate.cmp(&b.candidate))
+    });
     scored.into_iter().take(n).collect()
 }
 
 impl DidYouMean {
     /// New.
     pub fn new() -> Self {
-        Self { schema_version: SCHEMA_VERSION.into() }
+        Self {
+            schema_version: SCHEMA_VERSION.into(),
+        }
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), DymError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(DymError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(DymError::SchemaMismatch);
+        }
         Ok(())
     }
 }
 
 impl Default for DidYouMean {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -131,7 +152,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = DidYouMean::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), DymError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            DymError::SchemaMismatch
+        ));
     }
 
     #[test]

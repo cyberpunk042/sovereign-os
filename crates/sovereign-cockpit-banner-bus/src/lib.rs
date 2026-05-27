@@ -74,7 +74,9 @@ impl BannerBus {
 
     /// Post.
     pub fn post(&mut self, b: Banner) -> Result<(), BusError> {
-        if b.id.is_empty() { return Err(BusError::EmptyId); }
+        if b.id.is_empty() {
+            return Err(BusError::EmptyId);
+        }
         if self.current.as_ref().is_some_and(|c| c.id == b.id) {
             return Err(BusError::DuplicateId(b.id));
         }
@@ -111,7 +113,9 @@ impl BannerBus {
     }
 
     fn promote_next(&mut self) {
-        if self.queued.is_empty() { return; }
+        if self.queued.is_empty() {
+            return;
+        }
         // Pick highest priority; tie-break by FIFO (lowest index).
         let mut best = 0usize;
         for i in 1..self.queued.len() {
@@ -124,26 +128,38 @@ impl BannerBus {
     }
 
     /// Current banner.
-    pub fn current(&self) -> Option<&Banner> { self.current.as_ref() }
+    pub fn current(&self) -> Option<&Banner> {
+        self.current.as_ref()
+    }
 
     /// Queued banners (in arrival order).
-    pub fn queued(&self) -> &[Banner] { &self.queued }
+    pub fn queued(&self) -> &[Banner] {
+        &self.queued
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), BusError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(BusError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(BusError::SchemaMismatch);
+        }
         if let Some(c) = &self.current {
-            if c.id.is_empty() { return Err(BusError::EmptyId); }
+            if c.id.is_empty() {
+                return Err(BusError::EmptyId);
+            }
         }
         for b in &self.queued {
-            if b.id.is_empty() { return Err(BusError::EmptyId); }
+            if b.id.is_empty() {
+                return Err(BusError::EmptyId);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for BannerBus {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -151,7 +167,12 @@ mod tests {
     use super::*;
 
     fn b(id: &str, prio: u32) -> Banner {
-        Banner { id: id.into(), title: id.into(), body: "".into(), priority: prio }
+        Banner {
+            id: id.into(),
+            title: id.into(),
+            body: "".into(),
+            priority: prio,
+        }
     }
 
     #[test]
@@ -219,7 +240,10 @@ mod tests {
     fn duplicate_post_rejected() {
         let mut bus = BannerBus::new();
         bus.post(b("a", 1)).unwrap();
-        assert!(matches!(bus.post(b("a", 5)).unwrap_err(), BusError::DuplicateId(_)));
+        assert!(matches!(
+            bus.post(b("a", 5)).unwrap_err(),
+            BusError::DuplicateId(_)
+        ));
     }
 
     #[test]
@@ -232,7 +256,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut bus = BannerBus::new();
         bus.schema_version = "9.9.9".into();
-        assert!(matches!(bus.validate().unwrap_err(), BusError::SchemaMismatch));
+        assert!(matches!(
+            bus.validate().unwrap_err(),
+            BusError::SchemaMismatch
+        ));
     }
 
     #[test]

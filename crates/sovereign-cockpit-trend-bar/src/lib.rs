@@ -68,22 +68,32 @@ impl TrendBar {
 
     /// Add segment.
     pub fn add(&mut self, label: &str, value: u64) -> Result<(), TrendError> {
-        if label.is_empty() { return Err(TrendError::EmptyLabel); }
+        if label.is_empty() {
+            return Err(TrendError::EmptyLabel);
+        }
         if self.segments.iter().any(|s| s.label == label) {
             return Err(TrendError::DuplicateLabel(label.into()));
         }
-        self.segments.push(Segment { label: label.into(), value });
+        self.segments.push(Segment {
+            label: label.into(),
+            value,
+        });
         Ok(())
     }
 
     /// Set value on existing segment.
     pub fn set(&mut self, label: &str, value: u64) -> Result<(), TrendError> {
-        if label.is_empty() { return Err(TrendError::EmptyLabel); }
+        if label.is_empty() {
+            return Err(TrendError::EmptyLabel);
+        }
         if let Some(s) = self.segments.iter_mut().find(|s| s.label == label) {
             s.value = value;
             return Ok(());
         }
-        self.segments.push(Segment { label: label.into(), value });
+        self.segments.push(Segment {
+            label: label.into(),
+            value,
+        });
         Ok(())
     }
 
@@ -96,12 +106,19 @@ impl TrendBar {
     pub fn render(&self) -> Vec<RenderedSegment> {
         let total = self.total();
         if total == 0 {
-            return self.segments.iter()
-                .map(|s| RenderedSegment { label: s.label.clone(), width_bp: 0 })
+            return self
+                .segments
+                .iter()
+                .map(|s| RenderedSegment {
+                    label: s.label.clone(),
+                    width_bp: 0,
+                })
                 .collect();
         }
         // First-pass widths.
-        let mut widths: Vec<u32> = self.segments.iter()
+        let mut widths: Vec<u32> = self
+            .segments
+            .iter()
             .map(|s| ((s.value as u128 * 10_000) / total as u128) as u32)
             .collect();
         // Adjust last to make sum exactly 10000.
@@ -111,23 +128,34 @@ impl TrendBar {
             let last = widths.last_mut().unwrap();
             *last = (*last as i64 + diff).max(0) as u32;
         }
-        self.segments.iter().zip(widths)
-            .map(|(s, w)| RenderedSegment { label: s.label.clone(), width_bp: w })
+        self.segments
+            .iter()
+            .zip(widths)
+            .map(|(s, w)| RenderedSegment {
+                label: s.label.clone(),
+                width_bp: w,
+            })
             .collect()
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), TrendError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(TrendError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(TrendError::SchemaMismatch);
+        }
         for s in &self.segments {
-            if s.label.is_empty() { return Err(TrendError::EmptyLabel); }
+            if s.label.is_empty() {
+                return Err(TrendError::EmptyLabel);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for TrendBar {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -178,7 +206,10 @@ mod tests {
     fn duplicate_add_rejected() {
         let mut b = TrendBar::new();
         b.add("a", 1).unwrap();
-        assert!(matches!(b.add("a", 2).unwrap_err(), TrendError::DuplicateLabel(_)));
+        assert!(matches!(
+            b.add("a", 2).unwrap_err(),
+            TrendError::DuplicateLabel(_)
+        ));
     }
 
     #[test]
@@ -191,7 +222,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut b = TrendBar::new();
         b.schema_version = "9.9.9".into();
-        assert!(matches!(b.validate().unwrap_err(), TrendError::SchemaMismatch));
+        assert!(matches!(
+            b.validate().unwrap_err(),
+            TrendError::SchemaMismatch
+        ));
     }
 
     #[test]

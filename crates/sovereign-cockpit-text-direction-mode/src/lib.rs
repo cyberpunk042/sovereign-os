@@ -73,7 +73,9 @@ pub enum DirectionError {
 impl TextDirectionMode {
     /// New with default locale (use "en" if unsure).
     pub fn new(default_locale: &str) -> Result<Self, DirectionError> {
-        if default_locale.is_empty() { return Err(DirectionError::EmptyLocale); }
+        if default_locale.is_empty() {
+            return Err(DirectionError::EmptyLocale);
+        }
         let mut s = Self {
             schema_version: SCHEMA_VERSION.into(),
             mode: Mode::Auto,
@@ -90,8 +92,14 @@ impl TextDirectionMode {
     }
 
     /// Bind locale → direction.
-    pub fn bind_locale(&mut self, locale: &str, direction: Direction) -> Result<(), DirectionError> {
-        if locale.is_empty() { return Err(DirectionError::EmptyLocale); }
+    pub fn bind_locale(
+        &mut self,
+        locale: &str,
+        direction: Direction,
+    ) -> Result<(), DirectionError> {
+        if locale.is_empty() {
+            return Err(DirectionError::EmptyLocale);
+        }
         self.locale_bindings.insert(locale.into(), direction);
         Ok(())
     }
@@ -103,7 +111,9 @@ impl TextDirectionMode {
 
     /// Set default locale.
     pub fn set_default_locale(&mut self, locale: &str) -> Result<(), DirectionError> {
-        if locale.is_empty() { return Err(DirectionError::EmptyLocale); }
+        if locale.is_empty() {
+            return Err(DirectionError::EmptyLocale);
+        }
         self.default_locale = locale.into();
         Ok(())
     }
@@ -113,9 +123,11 @@ impl TextDirectionMode {
         match self.mode {
             Mode::Ltr => Direction::Ltr,
             Mode::Rtl => Direction::Rtl,
-            Mode::Auto => {
-                self.locale_bindings.get(locale).copied().unwrap_or(Direction::Ltr)
-            }
+            Mode::Auto => self
+                .locale_bindings
+                .get(locale)
+                .copied()
+                .unwrap_or(Direction::Ltr),
         }
     }
 
@@ -131,10 +143,16 @@ impl TextDirectionMode {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), DirectionError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(DirectionError::SchemaMismatch); }
-        if self.default_locale.is_empty() { return Err(DirectionError::EmptyLocale); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(DirectionError::SchemaMismatch);
+        }
+        if self.default_locale.is_empty() {
+            return Err(DirectionError::EmptyLocale);
+        }
         for k in self.locale_bindings.keys() {
-            if k.is_empty() { return Err(DirectionError::EmptyLocale); }
+            if k.is_empty() {
+                return Err(DirectionError::EmptyLocale);
+            }
         }
         Ok(())
     }
@@ -205,7 +223,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = TextDirectionMode::new("en").unwrap();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), DirectionError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            DirectionError::SchemaMismatch
+        ));
     }
 
     #[test]

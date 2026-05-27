@@ -81,7 +81,9 @@ impl SideNavState {
     }
 
     /// Pin (always-shown).
-    pub fn pin(&mut self) { self.state = NavState::Pinned; }
+    pub fn pin(&mut self) {
+        self.state = NavState::Pinned;
+    }
 
     /// Unpin (drop back to Expanded).
     pub fn unpin(&mut self) {
@@ -176,14 +178,20 @@ mod tests {
     fn width_out_of_range_caught_in_validate() {
         let mut s = SideNavState::default_state();
         s.width_px = 10;
-        assert!(matches!(s.validate().unwrap_err(), SideNavError::WidthOutOfRange(10)));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SideNavError::WidthOutOfRange(10)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = SideNavState::default_state();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), SideNavError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SideNavError::SchemaMismatch
+        ));
     }
 
     #[test]
@@ -194,8 +202,14 @@ mod tests {
 
     #[test]
     fn state_serde_kebab() {
-        assert_eq!(serde_json::to_string(&NavState::Collapsed).unwrap(), "\"collapsed\"");
-        assert_eq!(serde_json::to_string(&NavState::Pinned).unwrap(), "\"pinned\"");
+        assert_eq!(
+            serde_json::to_string(&NavState::Collapsed).unwrap(),
+            "\"collapsed\""
+        );
+        assert_eq!(
+            serde_json::to_string(&NavState::Pinned).unwrap(),
+            "\"pinned\""
+        );
     }
 
     #[test]

@@ -56,7 +56,9 @@ pub enum IndicatorError {
 impl DropIndicator {
     /// New.
     pub fn new(inside_band_bp: u32) -> Result<Self, IndicatorError> {
-        if inside_band_bp > 10_000 { return Err(IndicatorError::BadBand); }
+        if inside_band_bp > 10_000 {
+            return Err(IndicatorError::BadBand);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             inside_band_bp,
@@ -64,10 +66,19 @@ impl DropIndicator {
     }
 
     /// Resolve indicator.
-    pub fn resolve(&self, cursor_y: i32, row_y: i32, row_h: u32) -> Result<Indicator, IndicatorError> {
-        if row_h == 0 { return Err(IndicatorError::ZeroRow); }
+    pub fn resolve(
+        &self,
+        cursor_y: i32,
+        row_y: i32,
+        row_h: u32,
+    ) -> Result<Indicator, IndicatorError> {
+        if row_h == 0 {
+            return Err(IndicatorError::ZeroRow);
+        }
         let dy = cursor_y - row_y;
-        if dy < 0 || dy as u32 >= row_h { return Ok(Indicator::None); }
+        if dy < 0 || dy as u32 >= row_h {
+            return Ok(Indicator::None);
+        }
         let pos_bp = (dy as u64 * 10_000 / row_h as u64) as u32;
         let half_band = self.inside_band_bp / 2;
         let lo = 5_000u32.saturating_sub(half_band);
@@ -83,8 +94,12 @@ impl DropIndicator {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), IndicatorError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(IndicatorError::SchemaMismatch); }
-        if self.inside_band_bp > 10_000 { return Err(IndicatorError::BadBand); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(IndicatorError::SchemaMismatch);
+        }
+        if self.inside_band_bp > 10_000 {
+            return Err(IndicatorError::BadBand);
+        }
         Ok(())
     }
 }
@@ -131,16 +146,25 @@ mod tests {
 
     #[test]
     fn bad_inputs_rejected() {
-        assert!(matches!(DropIndicator::new(20_000).unwrap_err(), IndicatorError::BadBand));
+        assert!(matches!(
+            DropIndicator::new(20_000).unwrap_err(),
+            IndicatorError::BadBand
+        ));
         let d = DropIndicator::new(2000).unwrap();
-        assert!(matches!(d.resolve(0, 0, 0).unwrap_err(), IndicatorError::ZeroRow));
+        assert!(matches!(
+            d.resolve(0, 0, 0).unwrap_err(),
+            IndicatorError::ZeroRow
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut d = DropIndicator::new(2000).unwrap();
         d.schema_version = "9.9.9".into();
-        assert!(matches!(d.validate().unwrap_err(), IndicatorError::SchemaMismatch));
+        assert!(matches!(
+            d.validate().unwrap_err(),
+            IndicatorError::SchemaMismatch
+        ));
     }
 
     #[test]

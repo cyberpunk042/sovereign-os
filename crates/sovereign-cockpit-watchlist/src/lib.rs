@@ -79,15 +79,28 @@ impl Watchlist {
     }
 
     /// Add or update.
-    pub fn add(&mut self, kind: &str, item_id: &str, notify_mode: NotifyMode, ts_ms: u64) -> Result<(), WatchError> {
-        if kind.is_empty() { return Err(WatchError::EmptyKind); }
-        if item_id.is_empty() { return Err(WatchError::EmptyItem); }
-        self.by_kind.entry(kind.into()).or_default().insert(item_id.into(), WatchEntry {
-            kind: kind.into(),
-            item_id: item_id.into(),
-            notify_mode,
-            added_ts_ms: ts_ms,
-        });
+    pub fn add(
+        &mut self,
+        kind: &str,
+        item_id: &str,
+        notify_mode: NotifyMode,
+        ts_ms: u64,
+    ) -> Result<(), WatchError> {
+        if kind.is_empty() {
+            return Err(WatchError::EmptyKind);
+        }
+        if item_id.is_empty() {
+            return Err(WatchError::EmptyItem);
+        }
+        self.by_kind.entry(kind.into()).or_default().insert(
+            item_id.into(),
+            WatchEntry {
+                kind: kind.into(),
+                item_id: item_id.into(),
+                notify_mode,
+                added_ts_ms: ts_ms,
+            },
+        );
         Ok(())
     }
 
@@ -95,7 +108,9 @@ impl Watchlist {
     pub fn remove(&mut self, kind: &str, item_id: &str) -> bool {
         if let Some(m) = self.by_kind.get_mut(kind) {
             if m.remove(item_id).is_some() {
-                if m.is_empty() { self.by_kind.remove(kind); }
+                if m.is_empty() {
+                    self.by_kind.remove(kind);
+                }
                 return true;
             }
         }
@@ -109,7 +124,8 @@ impl Watchlist {
 
     /// All items at-or-above a threshold.
     pub fn items_for_notify(&self, min_mode: NotifyMode) -> Vec<WatchEntry> {
-        self.by_kind.values()
+        self.by_kind
+            .values()
             .flat_map(|m| m.values().cloned())
             .filter(|e| e.notify_mode >= min_mode)
             .collect()
@@ -117,11 +133,17 @@ impl Watchlist {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), WatchError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(WatchError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(WatchError::SchemaMismatch);
+        }
         for (k, m) in &self.by_kind {
-            if k.is_empty() { return Err(WatchError::EmptyKind); }
+            if k.is_empty() {
+                return Err(WatchError::EmptyKind);
+            }
             for id in m.keys() {
-                if id.is_empty() { return Err(WatchError::EmptyItem); }
+                if id.is_empty() {
+                    return Err(WatchError::EmptyItem);
+                }
             }
         }
         Ok(())
@@ -129,7 +151,9 @@ impl Watchlist {
 }
 
 impl Default for Watchlist {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -182,15 +206,24 @@ mod tests {
     #[test]
     fn empty_inputs_rejected() {
         let mut w = Watchlist::new();
-        assert!(matches!(w.add("", "a", NotifyMode::Off, 0).unwrap_err(), WatchError::EmptyKind));
-        assert!(matches!(w.add("k", "", NotifyMode::Off, 0).unwrap_err(), WatchError::EmptyItem));
+        assert!(matches!(
+            w.add("", "a", NotifyMode::Off, 0).unwrap_err(),
+            WatchError::EmptyKind
+        ));
+        assert!(matches!(
+            w.add("k", "", NotifyMode::Off, 0).unwrap_err(),
+            WatchError::EmptyItem
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut w = Watchlist::new();
         w.schema_version = "9.9.9".into();
-        assert!(matches!(w.validate().unwrap_err(), WatchError::SchemaMismatch));
+        assert!(matches!(
+            w.validate().unwrap_err(),
+            WatchError::SchemaMismatch
+        ));
     }
 
     #[test]

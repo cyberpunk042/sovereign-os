@@ -90,7 +90,10 @@ impl RewardAxis {
     }
     /// Whether the axis is inverted for aggregation (lower-is-better).
     pub fn inverted(self) -> bool {
-        matches!(self, RewardAxis::Risk | RewardAxis::Latency | RewardAxis::Cost)
+        matches!(
+            self,
+            RewardAxis::Risk | RewardAxis::Latency | RewardAxis::Cost
+        )
     }
 }
 
@@ -162,10 +165,18 @@ impl ProfileWeights {
     /// Returns weighted sum normalised by sum-of-weights.
     pub fn aggregate(&self, v: &RewardVector) -> f32 {
         let axes = [
-            RewardAxis::Correctness, RewardAxis::Evidence, RewardAxis::SchemaValidity,
-            RewardAxis::ToolSuccess, RewardAxis::TestSuccess, RewardAxis::Risk,
-            RewardAxis::Latency, RewardAxis::Cost, RewardAxis::Novelty,
-            RewardAxis::UserPreference, RewardAxis::CacheReuse, RewardAxis::ConfidenceCalibration,
+            RewardAxis::Correctness,
+            RewardAxis::Evidence,
+            RewardAxis::SchemaValidity,
+            RewardAxis::ToolSuccess,
+            RewardAxis::TestSuccess,
+            RewardAxis::Risk,
+            RewardAxis::Latency,
+            RewardAxis::Cost,
+            RewardAxis::Novelty,
+            RewardAxis::UserPreference,
+            RewardAxis::CacheReuse,
+            RewardAxis::ConfidenceCalibration,
         ];
         let total_w: f32 = self.weights.iter().sum();
         if total_w <= 0.0 {
@@ -188,21 +199,16 @@ impl ProfileWeights {
                 /* latency */ 1.0, /* cost */ 0.8, /* novelty */ 0.3,
                 /* user_pref */ 0.4, /* cache_reuse */ 0.9, /* conf_calib */ 0.5,
             ],
-            "careful" => [
-                1.0, 0.9, 1.0, 0.9, 1.0, 0.9, 0.4, 0.5, 0.4, 0.7, 0.5, 0.9,
-            ],
-            "autonomous" => [
-                0.9, 0.9, 1.0, 0.9, 0.9, 0.8, 0.6, 0.6, 0.5, 0.7, 0.7, 0.8,
-            ],
-            "creative" => [
-                0.6, 0.5, 0.6, 0.6, 0.5, 0.5, 0.6, 0.5, 1.0, 0.8, 0.4, 0.5,
-            ],
-            "private" => [
-                0.9, 0.9, 1.0, 0.9, 0.9, 1.0, 0.5, 0.7, 0.4, 0.8, 0.5, 0.8,
-            ],
+            "careful" => [1.0, 0.9, 1.0, 0.9, 1.0, 0.9, 0.4, 0.5, 0.4, 0.7, 0.5, 0.9],
+            "autonomous" => [0.9, 0.9, 1.0, 0.9, 0.9, 0.8, 0.6, 0.6, 0.5, 0.7, 0.7, 0.8],
+            "creative" => [0.6, 0.5, 0.6, 0.6, 0.5, 0.5, 0.6, 0.5, 1.0, 0.8, 0.4, 0.5],
+            "private" => [0.9, 0.9, 1.0, 0.9, 0.9, 1.0, 0.5, 0.7, 0.4, 0.8, 0.5, 0.8],
             _ => return None,
         };
-        Some(ProfileWeights { profile: profile.into(), weights })
+        Some(ProfileWeights {
+            profile: profile.into(),
+            weights,
+        })
     }
 }
 
@@ -292,10 +298,17 @@ mod tests {
 
     fn perfect() -> RewardVector {
         RewardVector {
-            correctness: 1.0, evidence: 1.0, schema_validity: 1.0,
-            tool_success: 1.0, test_success: 1.0,
-            risk: 0.0, latency: 0.0, cost: 0.0,
-            novelty: 1.0, user_preference: 1.0, cache_reuse: 1.0,
+            correctness: 1.0,
+            evidence: 1.0,
+            schema_validity: 1.0,
+            tool_success: 1.0,
+            test_success: 1.0,
+            risk: 0.0,
+            latency: 0.0,
+            cost: 0.0,
+            novelty: 1.0,
+            user_preference: 1.0,
+            cache_reuse: 1.0,
             confidence_calibration: 1.0,
         }
     }
@@ -305,12 +318,18 @@ mod tests {
     #[test]
     fn twelve_axes_positioned_correctly() {
         let order = [
-            (RewardAxis::Correctness, 1), (RewardAxis::Evidence, 2),
-            (RewardAxis::SchemaValidity, 3), (RewardAxis::ToolSuccess, 4),
-            (RewardAxis::TestSuccess, 5), (RewardAxis::Risk, 6),
-            (RewardAxis::Latency, 7), (RewardAxis::Cost, 8),
-            (RewardAxis::Novelty, 9), (RewardAxis::UserPreference, 10),
-            (RewardAxis::CacheReuse, 11), (RewardAxis::ConfidenceCalibration, 12),
+            (RewardAxis::Correctness, 1),
+            (RewardAxis::Evidence, 2),
+            (RewardAxis::SchemaValidity, 3),
+            (RewardAxis::ToolSuccess, 4),
+            (RewardAxis::TestSuccess, 5),
+            (RewardAxis::Risk, 6),
+            (RewardAxis::Latency, 7),
+            (RewardAxis::Cost, 8),
+            (RewardAxis::Novelty, 9),
+            (RewardAxis::UserPreference, 10),
+            (RewardAxis::CacheReuse, 11),
+            (RewardAxis::ConfidenceCalibration, 12),
         ];
         for (a, p) in order {
             assert_eq!(a.position(), p);
@@ -332,10 +351,18 @@ mod tests {
     fn perfect_vector_contribution_all_one() {
         let v = perfect();
         for axis in [
-            RewardAxis::Correctness, RewardAxis::Evidence, RewardAxis::SchemaValidity,
-            RewardAxis::ToolSuccess, RewardAxis::TestSuccess, RewardAxis::Risk,
-            RewardAxis::Latency, RewardAxis::Cost, RewardAxis::Novelty,
-            RewardAxis::UserPreference, RewardAxis::CacheReuse, RewardAxis::ConfidenceCalibration,
+            RewardAxis::Correctness,
+            RewardAxis::Evidence,
+            RewardAxis::SchemaValidity,
+            RewardAxis::ToolSuccess,
+            RewardAxis::TestSuccess,
+            RewardAxis::Risk,
+            RewardAxis::Latency,
+            RewardAxis::Cost,
+            RewardAxis::Novelty,
+            RewardAxis::UserPreference,
+            RewardAxis::CacheReuse,
+            RewardAxis::ConfidenceCalibration,
         ] {
             assert!((v.contribution(axis) - 1.0).abs() < 1e-6, "axis {axis:?}");
         }
@@ -366,17 +393,26 @@ mod tests {
     fn out_of_range_rejected() {
         let mut v = perfect();
         v.correctness = 1.5;
-        assert!(matches!(validate(&v).unwrap_err(), ValuePlaneError::AxisOutOfRange { .. }));
+        assert!(matches!(
+            validate(&v).unwrap_err(),
+            ValuePlaneError::AxisOutOfRange { .. }
+        ));
         let mut v2 = perfect();
         v2.evidence = -0.1;
-        assert!(matches!(validate(&v2).unwrap_err(), ValuePlaneError::AxisOutOfRange { .. }));
+        assert!(matches!(
+            validate(&v2).unwrap_err(),
+            ValuePlaneError::AxisOutOfRange { .. }
+        ));
     }
 
     #[test]
     fn nan_rejected() {
         let mut v = perfect();
         v.cost = f32::NAN;
-        assert!(matches!(validate(&v).unwrap_err(), ValuePlaneError::AxisOutOfRange { .. }));
+        assert!(matches!(
+            validate(&v).unwrap_err(),
+            ValuePlaneError::AxisOutOfRange { .. }
+        ));
     }
 
     // --- Profile-weighted aggregation ---
@@ -406,7 +442,9 @@ mod tests {
         // default() = all zeros → risk/latency/cost contribute 1.0 due to inversion
         // → not all zeros. Build explicit all-zero contributions.
         let mut v = RewardVector::default();
-        v.risk = 1.0; v.latency = 1.0; v.cost = 1.0;
+        v.risk = 1.0;
+        v.latency = 1.0;
+        v.cost = 1.0;
         let w = ProfileWeights::for_profile("fast").unwrap();
         let agg = w.aggregate(&v);
         assert!(agg.abs() < 1e-6, "got {agg}");
@@ -426,10 +464,15 @@ mod tests {
     #[test]
     fn dial_fanouts_strictly_increasing() {
         let fanouts: Vec<u32> = [
-            IntelligenceTier::Reflex, IntelligenceTier::Normal,
-            IntelligenceTier::Deliberate, IntelligenceTier::Exhaustive,
+            IntelligenceTier::Reflex,
+            IntelligenceTier::Normal,
+            IntelligenceTier::Deliberate,
+            IntelligenceTier::Exhaustive,
             IntelligenceTier::Experimental,
-        ].into_iter().map(|t| t.fanout()).collect();
+        ]
+        .into_iter()
+        .map(|t| t.fanout())
+        .collect();
         for w in fanouts.windows(2) {
             assert!(w[0] < w[1]);
         }
@@ -459,8 +502,14 @@ mod tests {
 
     #[test]
     fn reward_axis_serde_kebab() {
-        assert_eq!(serde_json::to_string(&RewardAxis::SchemaValidity).unwrap(), "\"schema-validity\"");
-        assert_eq!(serde_json::to_string(&RewardAxis::ConfidenceCalibration).unwrap(), "\"confidence-calibration\"");
+        assert_eq!(
+            serde_json::to_string(&RewardAxis::SchemaValidity).unwrap(),
+            "\"schema-validity\""
+        );
+        assert_eq!(
+            serde_json::to_string(&RewardAxis::ConfidenceCalibration).unwrap(),
+            "\"confidence-calibration\""
+        );
     }
 
     #[test]
@@ -473,6 +522,9 @@ mod tests {
 
     #[test]
     fn intelligence_tier_serde_kebab() {
-        assert_eq!(serde_json::to_string(&IntelligenceTier::Deliberate).unwrap(), "\"deliberate\"");
+        assert_eq!(
+            serde_json::to_string(&IntelligenceTier::Deliberate).unwrap(),
+            "\"deliberate\""
+        );
     }
 }

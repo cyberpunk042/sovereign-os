@@ -82,8 +82,15 @@ impl ResizeObserver {
     }
 
     /// Observe.
-    pub fn observe(&mut self, element_id: &str, w: u32, h: u32) -> Result<ResizeVerdict, ObserverError> {
-        if element_id.is_empty() { return Err(ObserverError::EmptyId); }
+    pub fn observe(
+        &mut self,
+        element_id: &str,
+        w: u32,
+        h: u32,
+    ) -> Result<ResizeVerdict, ObserverError> {
+        if element_id.is_empty() {
+            return Err(ObserverError::EmptyId);
+        }
         let new_size = Size { w, h };
         match self.sizes.get(element_id).copied() {
             None => {
@@ -95,7 +102,12 @@ impl ResizeObserver {
                 let dh = prev.h.abs_diff(h);
                 if dw >= self.noise_threshold_px || dh >= self.noise_threshold_px {
                     self.sizes.insert(element_id.into(), new_size);
-                    Ok(ResizeVerdict::Changed { prev_w: prev.w, prev_h: prev.h, new_w: w, new_h: h })
+                    Ok(ResizeVerdict::Changed {
+                        prev_w: prev.w,
+                        prev_h: prev.h,
+                        new_w: w,
+                        new_h: h,
+                    })
                 } else {
                     Ok(ResizeVerdict::SubThreshold)
                 }
@@ -110,9 +122,13 @@ impl ResizeObserver {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ObserverError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ObserverError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ObserverError::SchemaMismatch);
+        }
         for k in self.sizes.keys() {
-            if k.is_empty() { return Err(ObserverError::EmptyId); }
+            if k.is_empty() {
+                return Err(ObserverError::EmptyId);
+            }
         }
         Ok(())
     }
@@ -125,7 +141,10 @@ mod tests {
     #[test]
     fn first_seen() {
         let mut o = ResizeObserver::new(4);
-        assert_eq!(o.observe("box", 100, 100).unwrap(), ResizeVerdict::FirstSeen);
+        assert_eq!(
+            o.observe("box", 100, 100).unwrap(),
+            ResizeVerdict::FirstSeen
+        );
     }
 
     #[test]
@@ -168,20 +187,29 @@ mod tests {
         let mut o = ResizeObserver::new(4);
         o.observe("box", 100, 100).unwrap();
         assert!(o.forget("box"));
-        assert_eq!(o.observe("box", 100, 100).unwrap(), ResizeVerdict::FirstSeen);
+        assert_eq!(
+            o.observe("box", 100, 100).unwrap(),
+            ResizeVerdict::FirstSeen
+        );
     }
 
     #[test]
     fn empty_id_rejected() {
         let mut o = ResizeObserver::new(4);
-        assert!(matches!(o.observe("", 0, 0).unwrap_err(), ObserverError::EmptyId));
+        assert!(matches!(
+            o.observe("", 0, 0).unwrap_err(),
+            ObserverError::EmptyId
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut o = ResizeObserver::new(4);
         o.schema_version = "9.9.9".into();
-        assert!(matches!(o.validate().unwrap_err(), ObserverError::SchemaMismatch));
+        assert!(matches!(
+            o.validate().unwrap_err(),
+            ObserverError::SchemaMismatch
+        ));
     }
 
     #[test]

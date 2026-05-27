@@ -92,9 +92,13 @@ impl TooltipDelay {
     pub fn enter(&mut self, now_ms: u64) {
         // If within cool window → skip dwell, open immediately.
         if self.cool_active(now_ms) {
-            self.phase = Phase::Open { opened_at_ms: now_ms };
+            self.phase = Phase::Open {
+                opened_at_ms: now_ms,
+            };
         } else {
-            self.phase = Phase::Dwelling { entered_at_ms: now_ms };
+            self.phase = Phase::Dwelling {
+                entered_at_ms: now_ms,
+            };
         }
     }
 
@@ -123,7 +127,9 @@ impl TooltipDelay {
             Phase::Idle => false,
             Phase::Dwelling { entered_at_ms } => {
                 if now_ms.saturating_sub(entered_at_ms) >= self.open_delay_ms {
-                    self.phase = Phase::Open { opened_at_ms: now_ms };
+                    self.phase = Phase::Open {
+                        opened_at_ms: now_ms,
+                    };
                     true
                 } else {
                     false
@@ -144,7 +150,9 @@ impl TooltipDelay {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), DelayError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(DelayError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(DelayError::SchemaMismatch);
+        }
         Ok(())
     }
 }
@@ -224,7 +232,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut t = TooltipDelay::new(1, 1, 1);
         t.schema_version = "9.9.9".into();
-        assert!(matches!(t.validate().unwrap_err(), DelayError::SchemaMismatch));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            DelayError::SchemaMismatch
+        ));
     }
 
     #[test]

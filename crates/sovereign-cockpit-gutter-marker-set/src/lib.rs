@@ -93,10 +93,18 @@ impl GutterMarkerSet {
 
     /// Add.
     pub fn add(&mut self, pane: &str, line: u64, marker: Marker) -> Result<(), GutterError> {
-        if pane.is_empty() { return Err(GutterError::EmptyPane); }
-        if line == 0 { return Err(GutterError::ZeroLine); }
-        if marker.kind.is_empty() { return Err(GutterError::EmptyKind); }
-        if marker.label.is_empty() { return Err(GutterError::EmptyLabel); }
+        if pane.is_empty() {
+            return Err(GutterError::EmptyPane);
+        }
+        if line == 0 {
+            return Err(GutterError::ZeroLine);
+        }
+        if marker.kind.is_empty() {
+            return Err(GutterError::EmptyKind);
+        }
+        if marker.label.is_empty() {
+            return Err(GutterError::EmptyLabel);
+        }
         let p = self.panes.entry(pane.into()).or_default();
         let entry = p.lines.entry(line).or_default();
         entry.push(marker);
@@ -106,19 +114,28 @@ impl GutterMarkerSet {
 
     /// Remove all markers of a kind on a line (returns count removed).
     pub fn remove_kind(&mut self, pane: &str, line: u64, kind: &str) -> u32 {
-        let Some(p) = self.panes.get_mut(pane) else { return 0; };
-        let Some(entry) = p.lines.get_mut(&line) else { return 0; };
+        let Some(p) = self.panes.get_mut(pane) else {
+            return 0;
+        };
+        let Some(entry) = p.lines.get_mut(&line) else {
+            return 0;
+        };
         let before = entry.len();
         entry.retain(|m| m.kind != kind);
         let removed = (before - entry.len()) as u32;
-        if entry.is_empty() { p.lines.remove(&line); }
-        if p.lines.is_empty() { self.panes.remove(pane); }
+        if entry.is_empty() {
+            p.lines.remove(&line);
+        }
+        if p.lines.is_empty() {
+            self.panes.remove(pane);
+        }
         removed
     }
 
     /// Markers at line.
     pub fn at(&self, pane: &str, line: u64) -> Vec<Marker> {
-        self.panes.get(pane)
+        self.panes
+            .get(pane)
             .and_then(|p| p.lines.get(&line))
             .cloned()
             .unwrap_or_default()
@@ -133,7 +150,10 @@ impl GutterMarkerSet {
 
     /// All lines (sorted) in a pane with at least one marker.
     pub fn marked_lines(&self, pane: &str) -> Vec<u64> {
-        self.panes.get(pane).map(|p| p.lines.keys().copied().collect()).unwrap_or_default()
+        self.panes
+            .get(pane)
+            .map(|p| p.lines.keys().copied().collect())
+            .unwrap_or_default()
     }
 
     /// Clear all markers on a pane.
@@ -143,14 +163,24 @@ impl GutterMarkerSet {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), GutterError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(GutterError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(GutterError::SchemaMismatch);
+        }
         for (p, panes) in &self.panes {
-            if p.is_empty() { return Err(GutterError::EmptyPane); }
+            if p.is_empty() {
+                return Err(GutterError::EmptyPane);
+            }
             for (l, ms) in &panes.lines {
-                if *l == 0 { return Err(GutterError::ZeroLine); }
+                if *l == 0 {
+                    return Err(GutterError::ZeroLine);
+                }
                 for m in ms {
-                    if m.kind.is_empty() { return Err(GutterError::EmptyKind); }
-                    if m.label.is_empty() { return Err(GutterError::EmptyLabel); }
+                    if m.kind.is_empty() {
+                        return Err(GutterError::EmptyKind);
+                    }
+                    if m.label.is_empty() {
+                        return Err(GutterError::EmptyLabel);
+                    }
                 }
             }
         }
@@ -159,7 +189,9 @@ impl GutterMarkerSet {
 }
 
 impl Default for GutterMarkerSet {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -167,13 +199,18 @@ mod tests {
     use super::*;
 
     fn m(kind: &str, sev: Severity) -> Marker {
-        Marker { kind: kind.into(), label: format!("{kind} here"), severity: sev }
+        Marker {
+            kind: kind.into(),
+            label: format!("{kind} here"),
+            severity: sev,
+        }
     }
 
     #[test]
     fn add_and_query() {
         let mut g = GutterMarkerSet::new();
-        g.add("pane1", 10, m("breakpoint", Severity::Critical)).unwrap();
+        g.add("pane1", 10, m("breakpoint", Severity::Critical))
+            .unwrap();
         let v = g.at("pane1", 10);
         assert_eq!(v.len(), 1);
         assert_eq!(v[0].kind, "breakpoint");
@@ -237,22 +274,55 @@ mod tests {
     #[test]
     fn zero_line_rejected() {
         let mut g = GutterMarkerSet::new();
-        assert!(matches!(g.add("p", 0, m("a", Severity::Info)).unwrap_err(), GutterError::ZeroLine));
+        assert!(matches!(
+            g.add("p", 0, m("a", Severity::Info)).unwrap_err(),
+            GutterError::ZeroLine
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut g = GutterMarkerSet::new();
-        assert!(matches!(g.add("", 1, m("a", Severity::Info)).unwrap_err(), GutterError::EmptyPane));
-        assert!(matches!(g.add("p", 1, Marker { kind: "".into(), label: "x".into(), severity: Severity::Info }).unwrap_err(), GutterError::EmptyKind));
-        assert!(matches!(g.add("p", 1, Marker { kind: "k".into(), label: "".into(), severity: Severity::Info }).unwrap_err(), GutterError::EmptyLabel));
+        assert!(matches!(
+            g.add("", 1, m("a", Severity::Info)).unwrap_err(),
+            GutterError::EmptyPane
+        ));
+        assert!(matches!(
+            g.add(
+                "p",
+                1,
+                Marker {
+                    kind: "".into(),
+                    label: "x".into(),
+                    severity: Severity::Info
+                }
+            )
+            .unwrap_err(),
+            GutterError::EmptyKind
+        ));
+        assert!(matches!(
+            g.add(
+                "p",
+                1,
+                Marker {
+                    kind: "k".into(),
+                    label: "".into(),
+                    severity: Severity::Info
+                }
+            )
+            .unwrap_err(),
+            GutterError::EmptyLabel
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut g = GutterMarkerSet::new();
         g.schema_version = "9.9.9".into();
-        assert!(matches!(g.validate().unwrap_err(), GutterError::SchemaMismatch));
+        assert!(matches!(
+            g.validate().unwrap_err(),
+            GutterError::SchemaMismatch
+        ));
     }
 
     #[test]

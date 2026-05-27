@@ -9,8 +9,8 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-use sovereign_cockpit_banner_state::BannerSeverity;
 use serde::{Deserialize, Serialize};
+use sovereign_cockpit_banner_state::BannerSeverity;
 use thiserror::Error;
 
 /// Schema version.
@@ -116,7 +116,10 @@ impl NotificationCenter {
 
     /// Mark read.
     pub fn mark_read(&mut self, id: &str) -> Result<(), NotificationError> {
-        let n = self.notifications.iter_mut().find(|n| n.id == id)
+        let n = self
+            .notifications
+            .iter_mut()
+            .find(|n| n.id == id)
             .ok_or_else(|| NotificationError::Unknown(id.into()))?;
         n.read_state = ReadState::Read;
         Ok(())
@@ -124,7 +127,10 @@ impl NotificationCenter {
 
     /// Mark unread.
     pub fn mark_unread(&mut self, id: &str) -> Result<(), NotificationError> {
-        let n = self.notifications.iter_mut().find(|n| n.id == id)
+        let n = self
+            .notifications
+            .iter_mut()
+            .find(|n| n.id == id)
             .ok_or_else(|| NotificationError::Unknown(id.into()))?;
         n.read_state = ReadState::Unread;
         Ok(())
@@ -132,7 +138,10 @@ impl NotificationCenter {
 
     /// Archive.
     pub fn archive(&mut self, id: &str) -> Result<(), NotificationError> {
-        let n = self.notifications.iter_mut().find(|n| n.id == id)
+        let n = self
+            .notifications
+            .iter_mut()
+            .find(|n| n.id == id)
             .ok_or_else(|| NotificationError::Unknown(id.into()))?;
         n.archived = true;
         Ok(())
@@ -140,7 +149,8 @@ impl NotificationCenter {
 
     /// Unread count.
     pub fn unread_count(&self) -> usize {
-        self.notifications.iter()
+        self.notifications
+            .iter()
             .filter(|n| !n.archived && n.read_state == ReadState::Unread)
             .count()
     }
@@ -152,12 +162,18 @@ impl NotificationCenter {
 
     /// Filter by source.
     pub fn by_source(&self, source: &str) -> Vec<&Notification> {
-        self.notifications.iter().filter(|n| n.source == source).collect()
+        self.notifications
+            .iter()
+            .filter(|n| n.source == source)
+            .collect()
     }
 
     /// Filter by severity.
     pub fn by_severity(&self, sev: BannerSeverity) -> Vec<&Notification> {
-        self.notifications.iter().filter(|n| n.severity == sev).collect()
+        self.notifications
+            .iter()
+            .filter(|n| n.severity == sev)
+            .collect()
     }
 
     /// Validate.
@@ -178,17 +194,26 @@ impl NotificationCenter {
 }
 
 fn check_shape(n: &Notification) -> Result<(), NotificationError> {
-    if n.id.is_empty() { return Err(NotificationError::EmptyId); }
-    if n.title.is_empty() { return Err(NotificationError::EmptyTitle(n.id.clone())); }
+    if n.id.is_empty() {
+        return Err(NotificationError::EmptyId);
+    }
+    if n.title.is_empty() {
+        return Err(NotificationError::EmptyTitle(n.id.clone()));
+    }
     let len = n.title.chars().count();
     if len > 80 {
-        return Err(NotificationError::TitleTooLong { id: n.id.clone(), len });
+        return Err(NotificationError::TitleTooLong {
+            id: n.id.clone(),
+            len,
+        });
     }
     Ok(())
 }
 
 impl Default for NotificationCenter {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -245,7 +270,10 @@ mod tests {
     fn duplicate_rejected() {
         let mut c = NotificationCenter::new();
         c.post(n("a", BannerSeverity::Notice, "ips")).unwrap();
-        assert!(matches!(c.post(n("a", BannerSeverity::Warn, "ips")).unwrap_err(), NotificationError::Duplicate(_)));
+        assert!(matches!(
+            c.post(n("a", BannerSeverity::Warn, "ips")).unwrap_err(),
+            NotificationError::Duplicate(_)
+        ));
     }
 
     #[test]
@@ -271,20 +299,29 @@ mod tests {
         let mut c = NotificationCenter::new();
         let mut bad = n("a", BannerSeverity::Notice, "x");
         bad.title = "x".repeat(81);
-        assert!(matches!(c.post(bad).unwrap_err(), NotificationError::TitleTooLong { .. }));
+        assert!(matches!(
+            c.post(bad).unwrap_err(),
+            NotificationError::TitleTooLong { .. }
+        ));
     }
 
     #[test]
     fn unknown_mark_read_rejected() {
         let mut c = NotificationCenter::new();
-        assert!(matches!(c.mark_read("none").unwrap_err(), NotificationError::Unknown(_)));
+        assert!(matches!(
+            c.mark_read("none").unwrap_err(),
+            NotificationError::Unknown(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut c = NotificationCenter::new();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), NotificationError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            NotificationError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -107,7 +107,8 @@ impl EmptySearchClassifier {
                 schema_version: SCHEMA_VERSION.into(),
                 cause: EmptyCause::FilteredOut,
                 headline: "No matches under current filters".into(),
-                detail: "Active filters may be hiding matches; clearing them may surface results.".into(),
+                detail: "Active filters may be hiding matches; clearing them may surface results."
+                    .into(),
                 suggested_action: SuggestedAction::ClearFilters,
             };
         }
@@ -136,7 +137,11 @@ mod tests {
     use super::*;
 
     fn inp(blank: bool, filters: bool, idx: bool) -> EmptySearchInput {
-        EmptySearchInput { blank_query: blank, has_filters: filters, indexed: idx }
+        EmptySearchInput {
+            blank_query: blank,
+            has_filters: filters,
+            indexed: idx,
+        }
     }
 
     #[test]
@@ -171,7 +176,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = EmptySearchClassifier::classify(inp(true, false, true));
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), EmptyStateError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            EmptyStateError::SchemaMismatch
+        ));
     }
 
     #[test]
@@ -189,13 +197,22 @@ mod tests {
 
     #[test]
     fn cause_serde_kebab() {
-        assert_eq!(serde_json::to_string(&EmptyCause::NotIndexedYet).unwrap(), "\"not-indexed-yet\"");
-        assert_eq!(serde_json::to_string(&EmptyCause::FilteredOut).unwrap(), "\"filtered-out\"");
+        assert_eq!(
+            serde_json::to_string(&EmptyCause::NotIndexedYet).unwrap(),
+            "\"not-indexed-yet\""
+        );
+        assert_eq!(
+            serde_json::to_string(&EmptyCause::FilteredOut).unwrap(),
+            "\"filtered-out\""
+        );
     }
 
     #[test]
     fn action_serde_kebab() {
-        assert_eq!(serde_json::to_string(&SuggestedAction::RebuildIndex).unwrap(), "\"rebuild-index\"");
+        assert_eq!(
+            serde_json::to_string(&SuggestedAction::RebuildIndex).unwrap(),
+            "\"rebuild-index\""
+        );
     }
 
     #[test]

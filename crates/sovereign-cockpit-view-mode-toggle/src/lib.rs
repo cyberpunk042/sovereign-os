@@ -61,7 +61,9 @@ impl ViewModeToggle {
 
     /// Set mode for screen.
     pub fn set(&mut self, screen: &str, mode: Mode) -> Result<(), ToggleError> {
-        if screen.is_empty() { return Err(ToggleError::EmptyScreen); }
+        if screen.is_empty() {
+            return Err(ToggleError::EmptyScreen);
+        }
         self.by_screen.insert(screen.into(), mode);
         Ok(())
     }
@@ -73,14 +75,21 @@ impl ViewModeToggle {
 
     /// Get effective mode for screen.
     pub fn mode_of(&self, screen: &str) -> Mode {
-        self.by_screen.get(screen).copied().unwrap_or(self.default_mode)
+        self.by_screen
+            .get(screen)
+            .copied()
+            .unwrap_or(self.default_mode)
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ToggleError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ToggleError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ToggleError::SchemaMismatch);
+        }
         for k in self.by_screen.keys() {
-            if k.is_empty() { return Err(ToggleError::EmptyScreen); }
+            if k.is_empty() {
+                return Err(ToggleError::EmptyScreen);
+            }
         }
         Ok(())
     }
@@ -115,14 +124,20 @@ mod tests {
     #[test]
     fn empty_screen_rejected() {
         let mut t = ViewModeToggle::new(Mode::Grid);
-        assert!(matches!(t.set("", Mode::List).unwrap_err(), ToggleError::EmptyScreen));
+        assert!(matches!(
+            t.set("", Mode::List).unwrap_err(),
+            ToggleError::EmptyScreen
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut t = ViewModeToggle::new(Mode::Grid);
         t.schema_version = "9.9.9".into();
-        assert!(matches!(t.validate().unwrap_err(), ToggleError::SchemaMismatch));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            ToggleError::SchemaMismatch
+        ));
     }
 
     #[test]

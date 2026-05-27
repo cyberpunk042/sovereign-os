@@ -118,8 +118,7 @@ impl SnackbarQueue {
     }
 
     fn has_id(&self, id: &str) -> bool {
-        self.visible.iter().any(|x| x.id == id)
-            || self.pending.iter().any(|x| x.id == id)
+        self.visible.iter().any(|x| x.id == id) || self.pending.iter().any(|x| x.id == id)
     }
 
     /// Manually dismiss an id (from visible or pending).
@@ -154,7 +153,9 @@ impl SnackbarQueue {
 
     /// Auto-dismiss entries whose TTL has elapsed. Returns count dismissed.
     pub fn tick(&mut self, now: u64) -> u32 {
-        let to_dismiss: Vec<String> = self.visible.iter()
+        let to_dismiss: Vec<String> = self
+            .visible
+            .iter()
             .filter(|s| now.saturating_sub(s.posted_at) >= s.ttl_seconds as u64)
             .map(|s| s.id.clone())
             .collect();
@@ -186,9 +187,15 @@ impl SnackbarQueue {
 }
 
 fn check_snack(s: &Snackbar) -> Result<(), SnackbarError> {
-    if s.id.is_empty() { return Err(SnackbarError::EmptyId); }
-    if s.message.is_empty() { return Err(SnackbarError::EmptyMessage(s.id.clone())); }
-    if s.ttl_seconds == 0 { return Err(SnackbarError::TtlZero); }
+    if s.id.is_empty() {
+        return Err(SnackbarError::EmptyId);
+    }
+    if s.message.is_empty() {
+        return Err(SnackbarError::EmptyMessage(s.id.clone()));
+    }
+    if s.ttl_seconds == 0 {
+        return Err(SnackbarError::TtlZero);
+    }
     Ok(())
 }
 
@@ -208,7 +215,10 @@ mod tests {
 
     #[test]
     fn max_visible_zero_rejected() {
-        assert!(matches!(SnackbarQueue::new(0, 10).unwrap_err(), SnackbarError::MaxVisibleZero));
+        assert!(matches!(
+            SnackbarQueue::new(0, 10).unwrap_err(),
+            SnackbarError::MaxVisibleZero
+        ));
     }
 
     #[test]
@@ -254,7 +264,10 @@ mod tests {
     #[test]
     fn dismiss_unknown_rejected() {
         let mut q = SnackbarQueue::new(1, 10).unwrap();
-        assert!(matches!(q.dismiss("z").unwrap_err(), SnackbarError::Unknown(_)));
+        assert!(matches!(
+            q.dismiss("z").unwrap_err(),
+            SnackbarError::Unknown(_)
+        ));
     }
 
     #[test]
@@ -294,7 +307,10 @@ mod tests {
         let mut q = SnackbarQueue::new(2, 10).unwrap();
         let mut s = snack("a", 0, 5, Severity::Info);
         s.message = String::new();
-        assert!(matches!(q.post(s).unwrap_err(), SnackbarError::EmptyMessage(_)));
+        assert!(matches!(
+            q.post(s).unwrap_err(),
+            SnackbarError::EmptyMessage(_)
+        ));
     }
 
     #[test]
@@ -308,12 +324,18 @@ mod tests {
     fn schema_drift_rejected() {
         let mut q = SnackbarQueue::new(2, 10).unwrap();
         q.schema_version = "9.9.9".into();
-        assert!(matches!(q.validate().unwrap_err(), SnackbarError::SchemaMismatch));
+        assert!(matches!(
+            q.validate().unwrap_err(),
+            SnackbarError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn severity_serde_kebab() {
-        assert_eq!(serde_json::to_string(&Severity::Error).unwrap(), "\"error\"");
+        assert_eq!(
+            serde_json::to_string(&Severity::Error).unwrap(),
+            "\"error\""
+        );
     }
 
     #[test]

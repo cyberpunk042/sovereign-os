@@ -69,7 +69,9 @@ pub enum NoteError {
 impl QuickNotes {
     /// New.
     pub fn new(capacity: u32) -> Result<Self, NoteError> {
-        if capacity == 0 { return Err(NoteError::ZeroCapacity); }
+        if capacity == 0 {
+            return Err(NoteError::ZeroCapacity);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             capacity,
@@ -79,15 +81,18 @@ impl QuickNotes {
 
     /// Add.
     pub fn add(&mut self, id: &str, text: &str, ts_ms: u64) -> Result<(), NoteError> {
-        if id.is_empty() { return Err(NoteError::EmptyId); }
-        if text.is_empty() { return Err(NoteError::EmptyText); }
+        if id.is_empty() {
+            return Err(NoteError::EmptyId);
+        }
+        if text.is_empty() {
+            return Err(NoteError::EmptyText);
+        }
         if self.notes.iter().any(|n| n.id == id) {
             return Err(NoteError::DuplicateId(id.into()));
         }
         if (self.notes.len() as u32) >= self.capacity {
             // Drop oldest non-pinned, or oldest if all pinned.
-            let drop_idx = self.notes.iter().position(|n| !n.pinned)
-                .unwrap_or(0);
+            let drop_idx = self.notes.iter().position(|n| !n.pinned).unwrap_or(0);
             self.notes.remove(drop_idx);
         }
         self.notes.push(Note {
@@ -102,7 +107,10 @@ impl QuickNotes {
 
     /// Pin/unpin.
     pub fn pin(&mut self, id: &str, pinned: bool) -> Result<(), NoteError> {
-        let n = self.notes.iter_mut().find(|n| n.id == id)
+        let n = self
+            .notes
+            .iter_mut()
+            .find(|n| n.id == id)
             .ok_or_else(|| NoteError::UnknownId(id.into()))?;
         n.pinned = pinned;
         Ok(())
@@ -110,7 +118,10 @@ impl QuickNotes {
 
     /// Mark done.
     pub fn mark_done(&mut self, id: &str, done: bool) -> Result<(), NoteError> {
-        let n = self.notes.iter_mut().find(|n| n.id == id)
+        let n = self
+            .notes
+            .iter_mut()
+            .find(|n| n.id == id)
             .ok_or_else(|| NoteError::UnknownId(id.into()))?;
         n.done = done;
         Ok(())
@@ -119,8 +130,18 @@ impl QuickNotes {
     /// Visible: pinned first (insertion order within), then unpinned.
     pub fn visible(&self, include_done: bool) -> Vec<&Note> {
         let filter = |n: &&Note| include_done || !n.done;
-        let pinned: Vec<&Note> = self.notes.iter().filter(|n| n.pinned).filter(filter).collect();
-        let unpinned: Vec<&Note> = self.notes.iter().filter(|n| !n.pinned).filter(filter).collect();
+        let pinned: Vec<&Note> = self
+            .notes
+            .iter()
+            .filter(|n| n.pinned)
+            .filter(filter)
+            .collect();
+        let unpinned: Vec<&Note> = self
+            .notes
+            .iter()
+            .filter(|n| !n.pinned)
+            .filter(filter)
+            .collect();
         let mut out = pinned;
         out.extend(unpinned);
         out
@@ -128,11 +149,19 @@ impl QuickNotes {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), NoteError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(NoteError::SchemaMismatch); }
-        if self.capacity == 0 { return Err(NoteError::ZeroCapacity); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(NoteError::SchemaMismatch);
+        }
+        if self.capacity == 0 {
+            return Err(NoteError::ZeroCapacity);
+        }
         for n in &self.notes {
-            if n.id.is_empty() { return Err(NoteError::EmptyId); }
-            if n.text.is_empty() { return Err(NoteError::EmptyText); }
+            if n.id.is_empty() {
+                return Err(NoteError::EmptyId);
+            }
+            if n.text.is_empty() {
+                return Err(NoteError::EmptyText);
+            }
         }
         Ok(())
     }
@@ -190,28 +219,43 @@ mod tests {
     fn duplicate_id_rejected() {
         let mut q = QuickNotes::new(5).unwrap();
         q.add("a", "x", 0).unwrap();
-        assert!(matches!(q.add("a", "y", 1).unwrap_err(), NoteError::DuplicateId(_)));
+        assert!(matches!(
+            q.add("a", "y", 1).unwrap_err(),
+            NoteError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut q = QuickNotes::new(5).unwrap();
         assert!(matches!(q.add("", "x", 0).unwrap_err(), NoteError::EmptyId));
-        assert!(matches!(q.add("i", "", 0).unwrap_err(), NoteError::EmptyText));
-        assert!(matches!(QuickNotes::new(0).unwrap_err(), NoteError::ZeroCapacity));
+        assert!(matches!(
+            q.add("i", "", 0).unwrap_err(),
+            NoteError::EmptyText
+        ));
+        assert!(matches!(
+            QuickNotes::new(0).unwrap_err(),
+            NoteError::ZeroCapacity
+        ));
     }
 
     #[test]
     fn unknown_pin_rejected() {
         let mut q = QuickNotes::new(5).unwrap();
-        assert!(matches!(q.pin("nope", true).unwrap_err(), NoteError::UnknownId(_)));
+        assert!(matches!(
+            q.pin("nope", true).unwrap_err(),
+            NoteError::UnknownId(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut q = QuickNotes::new(5).unwrap();
         q.schema_version = "9.9.9".into();
-        assert!(matches!(q.validate().unwrap_err(), NoteError::SchemaMismatch));
+        assert!(matches!(
+            q.validate().unwrap_err(),
+            NoteError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -74,7 +74,9 @@ impl RecipientList {
 
     /// Add (cross-list dedup).
     pub fn add(&mut self, line: Line, recipient: &str) -> Result<(), RecipientError> {
-        if recipient.is_empty() { return Err(RecipientError::EmptyRecipient); }
+        if recipient.is_empty() {
+            return Err(RecipientError::EmptyRecipient);
+        }
         if self.contains_anywhere(recipient) {
             return Err(RecipientError::AlreadyPresent(recipient.into()));
         }
@@ -103,7 +105,8 @@ impl RecipientList {
 
     /// All recipients across all lines.
     pub fn all_recipients(&self) -> Vec<&str> {
-        self.to.iter()
+        self.to
+            .iter()
             .chain(self.cc.iter())
             .chain(self.bcc.iter())
             .map(|s| s.as_str())
@@ -117,16 +120,22 @@ impl RecipientList {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), RecipientError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(RecipientError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(RecipientError::SchemaMismatch);
+        }
         for r in self.to.iter().chain(self.cc.iter()).chain(self.bcc.iter()) {
-            if r.is_empty() { return Err(RecipientError::EmptyRecipient); }
+            if r.is_empty() {
+                return Err(RecipientError::EmptyRecipient);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for RecipientList {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -146,7 +155,10 @@ mod tests {
     fn cross_list_dedup_rejected() {
         let mut r = RecipientList::new();
         r.add(Line::To, "alice@x").unwrap();
-        assert!(matches!(r.add(Line::Cc, "alice@x").unwrap_err(), RecipientError::AlreadyPresent(_)));
+        assert!(matches!(
+            r.add(Line::Cc, "alice@x").unwrap_err(),
+            RecipientError::AlreadyPresent(_)
+        ));
     }
 
     #[test]
@@ -169,14 +181,20 @@ mod tests {
     #[test]
     fn empty_recipient_rejected() {
         let mut r = RecipientList::new();
-        assert!(matches!(r.add(Line::To, "").unwrap_err(), RecipientError::EmptyRecipient));
+        assert!(matches!(
+            r.add(Line::To, "").unwrap_err(),
+            RecipientError::EmptyRecipient
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut r = RecipientList::new();
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate().unwrap_err(), RecipientError::SchemaMismatch));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            RecipientError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -159,7 +159,11 @@ impl TrinityManifest {
         if self.roles.len() != 3 {
             return Err(TrinityError::RoleCountInvalid(self.roles.len()));
         }
-        for r in [TrinityRole::Pulse, TrinityRole::Weaver, TrinityRole::Auditor] {
+        for r in [
+            TrinityRole::Pulse,
+            TrinityRole::Weaver,
+            TrinityRole::Auditor,
+        ] {
             if !self.roles.iter().any(|rs| rs.role == r) {
                 return Err(TrinityError::RoleMissing(r));
             }
@@ -214,7 +218,10 @@ mod tests {
     #[test]
     fn substrate_mapping_per_doctrine() {
         assert_eq!(TrinityRole::Pulse.substrate(), "ryzen-9-9900x-avx512");
-        assert_eq!(TrinityRole::Weaver.substrate(), "podman-vfio-3090-blackwell");
+        assert_eq!(
+            TrinityRole::Weaver.substrate(),
+            "podman-vfio-3090-blackwell"
+        );
         assert_eq!(TrinityRole::Auditor.substrate(), "tetragon-ebpf");
     }
 
@@ -230,21 +237,30 @@ mod tests {
     fn schema_drift_rejected() {
         let mut m = TrinityManifest::empty_canonical();
         m.schema_version = "9.9.9".into();
-        assert!(matches!(m.validate().unwrap_err(), TrinityError::SchemaMismatch { .. }));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            TrinityError::SchemaMismatch { .. }
+        ));
     }
 
     #[test]
     fn genesis_tamper_caught() {
         let mut m = TrinityManifest::empty_canonical();
         m.genesis = "Two roles only".into();
-        assert!(matches!(m.validate().unwrap_err(), TrinityError::GenesisTampered));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            TrinityError::GenesisTampered
+        ));
     }
 
     #[test]
     fn role_count_invalid_caught() {
         let mut m = TrinityManifest::empty_canonical();
         m.roles.pop();
-        assert!(matches!(m.validate().unwrap_err(), TrinityError::RoleCountInvalid(2)));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            TrinityError::RoleCountInvalid(2)
+        ));
     }
 
     #[test]
@@ -259,7 +275,11 @@ mod tests {
             last_heartbeat_at: "2026-05-19T00:00:00Z".into(),
         };
         let err = m.validate().unwrap_err();
-        assert!(matches!(err, TrinityError::RoleMissing(TrinityRole::Pulse) | TrinityError::DuplicateRole(TrinityRole::Weaver)));
+        assert!(matches!(
+            err,
+            TrinityError::RoleMissing(TrinityRole::Pulse)
+                | TrinityError::DuplicateRole(TrinityRole::Weaver)
+        ));
     }
 
     #[test]
@@ -287,9 +307,18 @@ mod tests {
 
     #[test]
     fn role_serde_kebab() {
-        assert_eq!(serde_json::to_string(&TrinityRole::Pulse).unwrap(), "\"pulse\"");
-        assert_eq!(serde_json::to_string(&TrinityRole::Weaver).unwrap(), "\"weaver\"");
-        assert_eq!(serde_json::to_string(&TrinityRole::Auditor).unwrap(), "\"auditor\"");
+        assert_eq!(
+            serde_json::to_string(&TrinityRole::Pulse).unwrap(),
+            "\"pulse\""
+        );
+        assert_eq!(
+            serde_json::to_string(&TrinityRole::Weaver).unwrap(),
+            "\"weaver\""
+        );
+        assert_eq!(
+            serde_json::to_string(&TrinityRole::Auditor).unwrap(),
+            "\"auditor\""
+        );
     }
 
     #[test]

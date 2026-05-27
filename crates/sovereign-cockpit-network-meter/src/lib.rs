@@ -68,7 +68,9 @@ impl NetworkMeter {
             return Ok(());
         }
         let dt_ms = now_ms.saturating_sub(self.last_sample_ms);
-        if dt_ms == 0 { return Ok(()); }
+        if dt_ms == 0 {
+            return Ok(());
+        }
         if rx_bytes < self.last_rx_bytes || tx_bytes < self.last_tx_bytes {
             return Err(NetError::CounterReset);
         }
@@ -84,7 +86,11 @@ impl NetworkMeter {
 
     /// 'A KB/s ↓ / B KB/s ↑' display.
     pub fn render_display(&self) -> String {
-        format!("{} ↓ / {} ↑", format_bps(self.rx_bps), format_bps(self.tx_bps))
+        format!(
+            "{} ↓ / {} ↑",
+            format_bps(self.rx_bps),
+            format_bps(self.tx_bps)
+        )
     }
 
     /// Validate.
@@ -100,14 +106,21 @@ fn format_bps(b: u64) -> String {
     const KB: u64 = 1024;
     const MB: u64 = 1024 * KB;
     const GB: u64 = 1024 * MB;
-    if b >= GB { format!("{:.1} GB/s", b as f64 / GB as f64) }
-    else if b >= MB { format!("{:.1} MB/s", b as f64 / MB as f64) }
-    else if b >= KB { format!("{:.1} KB/s", b as f64 / KB as f64) }
-    else { format!("{b} B/s") }
+    if b >= GB {
+        format!("{:.1} GB/s", b as f64 / GB as f64)
+    } else if b >= MB {
+        format!("{:.1} MB/s", b as f64 / MB as f64)
+    } else if b >= KB {
+        format!("{:.1} KB/s", b as f64 / KB as f64)
+    } else {
+        format!("{b} B/s")
+    }
 }
 
 impl Default for NetworkMeter {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -137,7 +150,10 @@ mod tests {
     fn counter_reset_rejected() {
         let mut m = NetworkMeter::new();
         m.sample(1000, 500, 1000).unwrap();
-        assert!(matches!(m.sample(500, 500, 2000).unwrap_err(), NetError::CounterReset));
+        assert!(matches!(
+            m.sample(500, 500, 2000).unwrap_err(),
+            NetError::CounterReset
+        ));
     }
 
     #[test]
@@ -176,7 +192,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut m = NetworkMeter::new();
         m.schema_version = "9.9.9".into();
-        assert!(matches!(m.validate().unwrap_err(), NetError::SchemaMismatch));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            NetError::SchemaMismatch
+        ));
     }
 
     #[test]

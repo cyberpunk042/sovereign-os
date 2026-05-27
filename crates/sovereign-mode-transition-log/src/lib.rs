@@ -14,8 +14,8 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-use sovereign_execution_mode_registry::ExecutionMode;
 use serde::{Deserialize, Serialize};
+use sovereign_execution_mode_registry::ExecutionMode;
 use thiserror::Error;
 
 /// Schema version.
@@ -101,7 +101,9 @@ pub enum TransitionError {
         prev: String,
     },
     /// Dangerous direct Plan→Execute without DirectShift reason.
-    #[error("entry {idx} dangerous transition Plan→Execute without direct-shift reason ({reason:?})")]
+    #[error(
+        "entry {idx} dangerous transition Plan→Execute without direct-shift reason ({reason:?})"
+    )]
     DangerousTransition {
         /// idx.
         idx: usize,
@@ -130,7 +132,9 @@ impl TransitionLog {
         trace_id: &str,
     ) -> Result<(), TransitionError> {
         let entry = TransitionEntry {
-            from, to, reason,
+            from,
+            to,
+            reason,
             actor: actor.into(),
             at: at.into(),
             trace_id: trace_id.into(),
@@ -155,7 +159,8 @@ impl TransitionLog {
             self.entries.pop();
             return Err(TransitionError::NoOp { idx, mode: m });
         }
-        if from == ExecutionMode::Plan && to == ExecutionMode::Execute
+        if from == ExecutionMode::Plan
+            && to == ExecutionMode::Execute
             && reason != TransitionReason::DirectShift
         {
             self.entries.pop();
@@ -166,7 +171,11 @@ impl TransitionLog {
             let prev = self.entries[idx - 1].at.clone();
             let at_now = self.entries[idx].at.clone();
             self.entries.pop();
-            return Err(TransitionError::TimestampRegress { idx, at: at_now, prev });
+            return Err(TransitionError::TimestampRegress {
+                idx,
+                at: at_now,
+                prev,
+            });
         }
         Ok(())
     }
@@ -178,14 +187,26 @@ impl TransitionLog {
         }
         let mut prev_at: Option<&str> = None;
         for (idx, e) in self.entries.iter().enumerate() {
-            if e.actor.is_empty() { return Err(TransitionError::MissingActor(idx)); }
-            if e.trace_id.is_empty() { return Err(TransitionError::MissingTraceId(idx)); }
-            if e.at.is_empty() { return Err(TransitionError::MissingTimestamp(idx)); }
-            if e.from == e.to { return Err(TransitionError::NoOp { idx, mode: e.from }); }
-            if e.from == ExecutionMode::Plan && e.to == ExecutionMode::Execute
+            if e.actor.is_empty() {
+                return Err(TransitionError::MissingActor(idx));
+            }
+            if e.trace_id.is_empty() {
+                return Err(TransitionError::MissingTraceId(idx));
+            }
+            if e.at.is_empty() {
+                return Err(TransitionError::MissingTimestamp(idx));
+            }
+            if e.from == e.to {
+                return Err(TransitionError::NoOp { idx, mode: e.from });
+            }
+            if e.from == ExecutionMode::Plan
+                && e.to == ExecutionMode::Execute
                 && e.reason != TransitionReason::DirectShift
             {
-                return Err(TransitionError::DangerousTransition { idx, reason: e.reason });
+                return Err(TransitionError::DangerousTransition {
+                    idx,
+                    reason: e.reason,
+                });
             }
             if let Some(p) = prev_at {
                 if e.at.as_str() < p {
@@ -213,7 +234,9 @@ impl TransitionLog {
 }
 
 impl Default for TransitionLog {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -228,66 +251,151 @@ mod tests {
     #[test]
     fn record_legal_transition() {
         let mut l = TransitionLog::new();
-        l.record(ExecutionMode::Plan, ExecutionMode::DryRun, TransitionReason::OperatorChose,
-            "op", "2026-05-19T03:00:00Z", "tr-1").unwrap();
+        l.record(
+            ExecutionMode::Plan,
+            ExecutionMode::DryRun,
+            TransitionReason::OperatorChose,
+            "op",
+            "2026-05-19T03:00:00Z",
+            "tr-1",
+        )
+        .unwrap();
         assert_eq!(l.current_mode(), Some(ExecutionMode::DryRun));
     }
 
     #[test]
     fn no_op_rejected() {
         let mut l = TransitionLog::new();
-        let err = l.record(ExecutionMode::Plan, ExecutionMode::Plan, TransitionReason::OperatorChose,
-            "op", "t", "tr").unwrap_err();
+        let err = l
+            .record(
+                ExecutionMode::Plan,
+                ExecutionMode::Plan,
+                TransitionReason::OperatorChose,
+                "op",
+                "t",
+                "tr",
+            )
+            .unwrap_err();
         assert!(matches!(err, TransitionError::NoOp { .. }));
     }
 
     #[test]
     fn missing_actor_rejected() {
         let mut l = TransitionLog::new();
-        let err = l.record(ExecutionMode::Plan, ExecutionMode::DryRun, TransitionReason::OperatorChose,
-            "", "t", "tr").unwrap_err();
+        let err = l
+            .record(
+                ExecutionMode::Plan,
+                ExecutionMode::DryRun,
+                TransitionReason::OperatorChose,
+                "",
+                "t",
+                "tr",
+            )
+            .unwrap_err();
         assert!(matches!(err, TransitionError::MissingActor(_)));
     }
 
     #[test]
     fn missing_trace_rejected() {
         let mut l = TransitionLog::new();
-        let err = l.record(ExecutionMode::Plan, ExecutionMode::DryRun, TransitionReason::OperatorChose,
-            "op", "t", "").unwrap_err();
+        let err = l
+            .record(
+                ExecutionMode::Plan,
+                ExecutionMode::DryRun,
+                TransitionReason::OperatorChose,
+                "op",
+                "t",
+                "",
+            )
+            .unwrap_err();
         assert!(matches!(err, TransitionError::MissingTraceId(_)));
     }
 
     #[test]
     fn dangerous_plan_to_execute_rejected_without_direct_shift() {
         let mut l = TransitionLog::new();
-        let err = l.record(ExecutionMode::Plan, ExecutionMode::Execute, TransitionReason::OperatorChose,
-            "op", "t", "tr").unwrap_err();
+        let err = l
+            .record(
+                ExecutionMode::Plan,
+                ExecutionMode::Execute,
+                TransitionReason::OperatorChose,
+                "op",
+                "t",
+                "tr",
+            )
+            .unwrap_err();
         assert!(matches!(err, TransitionError::DangerousTransition { .. }));
     }
 
     #[test]
     fn plan_to_execute_with_direct_shift_allowed() {
         let mut l = TransitionLog::new();
-        l.record(ExecutionMode::Plan, ExecutionMode::Execute, TransitionReason::DirectShift,
-            "op", "t", "tr").unwrap();
+        l.record(
+            ExecutionMode::Plan,
+            ExecutionMode::Execute,
+            TransitionReason::DirectShift,
+            "op",
+            "t",
+            "tr",
+        )
+        .unwrap();
     }
 
     #[test]
     fn timestamp_regression_rejected() {
         let mut l = TransitionLog::new();
-        l.record(ExecutionMode::Plan, ExecutionMode::DryRun, TransitionReason::OperatorChose,
-            "op", "2026-05-19T03:00:00Z", "tr-1").unwrap();
-        let err = l.record(ExecutionMode::DryRun, ExecutionMode::Execute, TransitionReason::PromoteToLive,
-            "op", "2026-05-19T02:00:00Z", "tr-2").unwrap_err();
+        l.record(
+            ExecutionMode::Plan,
+            ExecutionMode::DryRun,
+            TransitionReason::OperatorChose,
+            "op",
+            "2026-05-19T03:00:00Z",
+            "tr-1",
+        )
+        .unwrap();
+        let err = l
+            .record(
+                ExecutionMode::DryRun,
+                ExecutionMode::Execute,
+                TransitionReason::PromoteToLive,
+                "op",
+                "2026-05-19T02:00:00Z",
+                "tr-2",
+            )
+            .unwrap_err();
         assert!(matches!(err, TransitionError::TimestampRegress { .. }));
     }
 
     #[test]
     fn count_entries_to() {
         let mut l = TransitionLog::new();
-        l.record(ExecutionMode::Plan, ExecutionMode::DryRun, TransitionReason::OperatorChose, "op", "t1", "tr").unwrap();
-        l.record(ExecutionMode::DryRun, ExecutionMode::Sandbox, TransitionReason::OperatorChose, "op", "t2", "tr").unwrap();
-        l.record(ExecutionMode::Sandbox, ExecutionMode::DryRun, TransitionReason::DemoteAfterIncident, "op", "t3", "tr").unwrap();
+        l.record(
+            ExecutionMode::Plan,
+            ExecutionMode::DryRun,
+            TransitionReason::OperatorChose,
+            "op",
+            "t1",
+            "tr",
+        )
+        .unwrap();
+        l.record(
+            ExecutionMode::DryRun,
+            ExecutionMode::Sandbox,
+            TransitionReason::OperatorChose,
+            "op",
+            "t2",
+            "tr",
+        )
+        .unwrap();
+        l.record(
+            ExecutionMode::Sandbox,
+            ExecutionMode::DryRun,
+            TransitionReason::DemoteAfterIncident,
+            "op",
+            "t3",
+            "tr",
+        )
+        .unwrap();
         assert_eq!(l.count_entries_to(ExecutionMode::DryRun), 2);
         assert_eq!(l.count_entries_to(ExecutionMode::Sandbox), 1);
         assert_eq!(l.count_entries_to(ExecutionMode::Plan), 0);
@@ -297,20 +405,40 @@ mod tests {
     fn schema_drift_rejected() {
         let mut l = TransitionLog::new();
         l.schema_version = "9.9.9".into();
-        assert!(matches!(l.validate().unwrap_err(), TransitionError::SchemaMismatch));
+        assert!(matches!(
+            l.validate().unwrap_err(),
+            TransitionError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn reason_serde_kebab() {
-        assert_eq!(serde_json::to_string(&TransitionReason::OperatorChose).unwrap(), "\"operator-chose\"");
-        assert_eq!(serde_json::to_string(&TransitionReason::PromoteToLive).unwrap(), "\"promote-to-live\"");
-        assert_eq!(serde_json::to_string(&TransitionReason::DirectShift).unwrap(), "\"direct-shift\"");
+        assert_eq!(
+            serde_json::to_string(&TransitionReason::OperatorChose).unwrap(),
+            "\"operator-chose\""
+        );
+        assert_eq!(
+            serde_json::to_string(&TransitionReason::PromoteToLive).unwrap(),
+            "\"promote-to-live\""
+        );
+        assert_eq!(
+            serde_json::to_string(&TransitionReason::DirectShift).unwrap(),
+            "\"direct-shift\""
+        );
     }
 
     #[test]
     fn log_serde_roundtrip() {
         let mut l = TransitionLog::new();
-        l.record(ExecutionMode::Plan, ExecutionMode::DryRun, TransitionReason::OperatorChose, "op", "t1", "tr").unwrap();
+        l.record(
+            ExecutionMode::Plan,
+            ExecutionMode::DryRun,
+            TransitionReason::OperatorChose,
+            "op",
+            "t1",
+            "tr",
+        )
+        .unwrap();
         let j = serde_json::to_string(&l).unwrap();
         let back: TransitionLog = serde_json::from_str(&j).unwrap();
         assert_eq!(l, back);

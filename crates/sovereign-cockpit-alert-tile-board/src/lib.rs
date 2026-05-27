@@ -98,9 +98,15 @@ impl AlertTileBoard {
 
     /// Add a tile.
     pub fn add(&mut self, tile: AlertTile) -> Result<(), TileError> {
-        if tile.id.is_empty() { return Err(TileError::EmptyId); }
-        if tile.title.is_empty() { return Err(TileError::EmptyTitle); }
-        if tile.summary.is_empty() { return Err(TileError::EmptySummary); }
+        if tile.id.is_empty() {
+            return Err(TileError::EmptyId);
+        }
+        if tile.title.is_empty() {
+            return Err(TileError::EmptyTitle);
+        }
+        if tile.summary.is_empty() {
+            return Err(TileError::EmptySummary);
+        }
         if self.tiles.contains_key(&tile.id) {
             return Err(TileError::DuplicateId(tile.id));
         }
@@ -110,7 +116,10 @@ impl AlertTileBoard {
 
     /// Ack.
     pub fn ack(&mut self, id: &str) -> Result<bool, TileError> {
-        let t = self.tiles.get_mut(id).ok_or_else(|| TileError::UnknownTile(id.into()))?;
+        let t = self
+            .tiles
+            .get_mut(id)
+            .ok_or_else(|| TileError::UnknownTile(id.into()))?;
         let was = t.acknowledged;
         t.acknowledged = true;
         Ok(!was)
@@ -118,7 +127,10 @@ impl AlertTileBoard {
 
     /// Pin.
     pub fn pin(&mut self, id: &str, pinned: bool) -> Result<(), TileError> {
-        let t = self.tiles.get_mut(id).ok_or_else(|| TileError::UnknownTile(id.into()))?;
+        let t = self
+            .tiles
+            .get_mut(id)
+            .ok_or_else(|| TileError::UnknownTile(id.into()))?;
         t.pinned = pinned;
         Ok(())
     }
@@ -127,7 +139,8 @@ impl AlertTileBoard {
     pub fn ordered(&self) -> Vec<AlertTile> {
         let mut v: Vec<AlertTile> = self.tiles.values().cloned().collect();
         v.sort_by(|a, b| {
-            b.pinned.cmp(&a.pinned)
+            b.pinned
+                .cmp(&a.pinned)
                 .then(a.acknowledged.cmp(&b.acknowledged))
                 .then(b.severity.cmp(&a.severity))
                 .then(b.ts_ms.cmp(&a.ts_ms))
@@ -143,18 +156,28 @@ impl AlertTileBoard {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), TileError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(TileError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(TileError::SchemaMismatch);
+        }
         for (id, t) in &self.tiles {
-            if id.is_empty() { return Err(TileError::EmptyId); }
-            if t.title.is_empty() { return Err(TileError::EmptyTitle); }
-            if t.summary.is_empty() { return Err(TileError::EmptySummary); }
+            if id.is_empty() {
+                return Err(TileError::EmptyId);
+            }
+            if t.title.is_empty() {
+                return Err(TileError::EmptyTitle);
+            }
+            if t.summary.is_empty() {
+                return Err(TileError::EmptySummary);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for AlertTileBoard {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -223,13 +246,19 @@ mod tests {
     fn duplicate_rejected() {
         let mut b = AlertTileBoard::new();
         b.add(t("a", Severity::Info, 0)).unwrap();
-        assert!(matches!(b.add(t("a", Severity::Info, 0)).unwrap_err(), TileError::DuplicateId(_)));
+        assert!(matches!(
+            b.add(t("a", Severity::Info, 0)).unwrap_err(),
+            TileError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn ack_unknown_rejected() {
         let mut b = AlertTileBoard::new();
-        assert!(matches!(b.ack("nope").unwrap_err(), TileError::UnknownTile(_)));
+        assert!(matches!(
+            b.ack("nope").unwrap_err(),
+            TileError::UnknownTile(_)
+        ));
     }
 
     #[test]
@@ -250,7 +279,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut b = AlertTileBoard::new();
         b.schema_version = "9.9.9".into();
-        assert!(matches!(b.validate().unwrap_err(), TileError::SchemaMismatch));
+        assert!(matches!(
+            b.validate().unwrap_err(),
+            TileError::SchemaMismatch
+        ));
     }
 
     #[test]

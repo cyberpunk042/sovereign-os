@@ -106,21 +106,38 @@ impl MacroRecorder {
 
     /// Start.
     pub fn start(&mut self, name: &str) -> Result<(), MacroError> {
-        if name.is_empty() { return Err(MacroError::EmptyName); }
-        if self.active.is_some() { return Err(MacroError::AlreadyRecording); }
-        self.active = Some(Recording { name: name.into(), events: Vec::new(), last_ts_ms: None });
+        if name.is_empty() {
+            return Err(MacroError::EmptyName);
+        }
+        if self.active.is_some() {
+            return Err(MacroError::AlreadyRecording);
+        }
+        self.active = Some(Recording {
+            name: name.into(),
+            events: Vec::new(),
+            last_ts_ms: None,
+        });
         Ok(())
     }
 
     /// Observe.
     pub fn observe(&mut self, action_id: &str, now_ms: u64) -> Result<(), MacroError> {
-        if action_id.is_empty() { return Err(MacroError::EmptyActionId); }
+        if action_id.is_empty() {
+            return Err(MacroError::EmptyActionId);
+        }
         let r = self.active.as_mut().ok_or(MacroError::NotRecording)?;
         let delay = if let Some(prev) = r.last_ts_ms {
-            if now_ms < prev { return Err(MacroError::NonMonotonic { prev, new: now_ms }); }
+            if now_ms < prev {
+                return Err(MacroError::NonMonotonic { prev, new: now_ms });
+            }
             now_ms - prev
-        } else { 0 };
-        r.events.push(Event { action_id: action_id.into(), delay_ms: delay });
+        } else {
+            0
+        };
+        r.events.push(Event {
+            action_id: action_id.into(),
+            delay_ms: delay,
+        });
         r.last_ts_ms = Some(now_ms);
         Ok(())
     }
@@ -136,7 +153,14 @@ impl MacroRecorder {
         let r = self.active.take().ok_or(MacroError::NotRecording)?;
         let id = self.next_id;
         self.next_id = self.next_id.wrapping_add(1);
-        self.saved.insert(id, SavedMacro { id, name: r.name, events: r.events });
+        self.saved.insert(
+            id,
+            SavedMacro {
+                id,
+                name: r.name,
+                events: r.events,
+            },
+        );
         Ok(id)
     }
 
@@ -154,13 +178,17 @@ impl MacroRecorder {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), MacroError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(MacroError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(MacroError::SchemaMismatch);
+        }
         Ok(())
     }
 }
 
 impl Default for MacroRecorder {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -194,13 +222,19 @@ mod tests {
     fn cannot_start_twice() {
         let mut r = MacroRecorder::new();
         r.start("x").unwrap();
-        assert!(matches!(r.start("y").unwrap_err(), MacroError::AlreadyRecording));
+        assert!(matches!(
+            r.start("y").unwrap_err(),
+            MacroError::AlreadyRecording
+        ));
     }
 
     #[test]
     fn observe_without_start() {
         let mut r = MacroRecorder::new();
-        assert!(matches!(r.observe("a", 0).unwrap_err(), MacroError::NotRecording));
+        assert!(matches!(
+            r.observe("a", 0).unwrap_err(),
+            MacroError::NotRecording
+        ));
     }
 
     #[test]
@@ -208,7 +242,10 @@ mod tests {
         let mut r = MacroRecorder::new();
         r.start("x").unwrap();
         r.observe("a", 200).unwrap();
-        assert!(matches!(r.observe("b", 100).unwrap_err(), MacroError::NonMonotonic { .. }));
+        assert!(matches!(
+            r.observe("b", 100).unwrap_err(),
+            MacroError::NonMonotonic { .. }
+        ));
     }
 
     #[test]
@@ -216,20 +253,29 @@ mod tests {
         let mut r = MacroRecorder::new();
         assert!(matches!(r.start("").unwrap_err(), MacroError::EmptyName));
         r.start("x").unwrap();
-        assert!(matches!(r.observe("", 0).unwrap_err(), MacroError::EmptyActionId));
+        assert!(matches!(
+            r.observe("", 0).unwrap_err(),
+            MacroError::EmptyActionId
+        ));
     }
 
     #[test]
     fn delete_unknown_rejected() {
         let mut r = MacroRecorder::new();
-        assert!(matches!(r.delete(999).unwrap_err(), MacroError::UnknownId(_)));
+        assert!(matches!(
+            r.delete(999).unwrap_err(),
+            MacroError::UnknownId(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut r = MacroRecorder::new();
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate().unwrap_err(), MacroError::SchemaMismatch));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            MacroError::SchemaMismatch
+        ));
     }
 
     #[test]

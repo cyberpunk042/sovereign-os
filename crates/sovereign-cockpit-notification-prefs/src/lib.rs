@@ -89,16 +89,32 @@ impl NotificationPrefs {
     }
 
     /// Set channel.
-    pub fn set_channel(&mut self, name: &str, enabled: bool, min_severity: Severity) -> Result<(), PrefsError> {
-        if name.is_empty() { return Err(PrefsError::EmptyChannel); }
-        self.channels.insert(name.into(), ChannelPrefs { enabled, min_severity });
+    pub fn set_channel(
+        &mut self,
+        name: &str,
+        enabled: bool,
+        min_severity: Severity,
+    ) -> Result<(), PrefsError> {
+        if name.is_empty() {
+            return Err(PrefsError::EmptyChannel);
+        }
+        self.channels.insert(
+            name.into(),
+            ChannelPrefs {
+                enabled,
+                min_severity,
+            },
+        );
         Ok(())
     }
 
     /// Set DND.
     pub fn set_dnd(&mut self, start_ms: u64, end_ms: u64) -> Result<(), PrefsError> {
         if start_ms >= end_ms {
-            return Err(PrefsError::InvertedDnd { s: start_ms, e: end_ms });
+            return Err(PrefsError::InvertedDnd {
+                s: start_ms,
+                e: end_ms,
+            });
         }
         self.dnd_start_ms = Some(start_ms);
         self.dnd_end_ms = Some(end_ms);
@@ -125,25 +141,35 @@ impl NotificationPrefs {
         if in_dnd && !(self.critical_bypasses_dnd && severity == Severity::Critical) {
             return false;
         }
-        let Some(c) = self.channels.get(channel) else { return false; };
+        let Some(c) = self.channels.get(channel) else {
+            return false;
+        };
         c.enabled && severity >= c.min_severity
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), PrefsError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(PrefsError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(PrefsError::SchemaMismatch);
+        }
         for k in self.channels.keys() {
-            if k.is_empty() { return Err(PrefsError::EmptyChannel); }
+            if k.is_empty() {
+                return Err(PrefsError::EmptyChannel);
+            }
         }
         if let (Some(s), Some(e)) = (self.dnd_start_ms, self.dnd_end_ms) {
-            if s >= e { return Err(PrefsError::InvertedDnd { s, e }); }
+            if s >= e {
+                return Err(PrefsError::InvertedDnd { s, e });
+            }
         }
         Ok(())
     }
 }
 
 impl Default for NotificationPrefs {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -210,20 +236,29 @@ mod tests {
     #[test]
     fn inverted_dnd_rejected() {
         let mut p = NotificationPrefs::new();
-        assert!(matches!(p.set_dnd(2000, 1000).unwrap_err(), PrefsError::InvertedDnd { .. }));
+        assert!(matches!(
+            p.set_dnd(2000, 1000).unwrap_err(),
+            PrefsError::InvertedDnd { .. }
+        ));
     }
 
     #[test]
     fn empty_channel_rejected() {
         let mut p = NotificationPrefs::new();
-        assert!(matches!(p.set_channel("", true, Severity::Info).unwrap_err(), PrefsError::EmptyChannel));
+        assert!(matches!(
+            p.set_channel("", true, Severity::Info).unwrap_err(),
+            PrefsError::EmptyChannel
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut p = NotificationPrefs::new();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), PrefsError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            PrefsError::SchemaMismatch
+        ));
     }
 
     #[test]

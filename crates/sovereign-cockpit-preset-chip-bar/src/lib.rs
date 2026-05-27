@@ -83,28 +83,40 @@ impl PresetChipBar {
 
     /// Add preset.
     pub fn add(&mut self, id: &str, label: &str, payload: &str) -> Result<(), PresetError> {
-        if id.is_empty() { return Err(PresetError::EmptyId); }
-        if label.is_empty() { return Err(PresetError::EmptyLabel); }
-        if payload.is_empty() { return Err(PresetError::EmptyPayload); }
+        if id.is_empty() {
+            return Err(PresetError::EmptyId);
+        }
+        if label.is_empty() {
+            return Err(PresetError::EmptyLabel);
+        }
+        if payload.is_empty() {
+            return Err(PresetError::EmptyPayload);
+        }
         if self.presets.contains_key(id) {
             return Err(PresetError::DuplicateId(id.into()));
         }
         let order = self.next_order;
         self.next_order = self.next_order.saturating_add(1);
-        self.presets.insert(id.into(), Preset {
-            id: id.into(),
-            label: label.into(),
-            payload: payload.into(),
-            order,
-            apply_count: 0,
-            last_applied_ms: 0,
-        });
+        self.presets.insert(
+            id.into(),
+            Preset {
+                id: id.into(),
+                label: label.into(),
+                payload: payload.into(),
+                order,
+                apply_count: 0,
+                last_applied_ms: 0,
+            },
+        );
         Ok(())
     }
 
     /// Apply.
     pub fn apply(&mut self, id: &str, ts_ms: u64) -> Result<String, PresetError> {
-        let p = self.presets.get_mut(id).ok_or_else(|| PresetError::UnknownPreset(id.into()))?;
+        let p = self
+            .presets
+            .get_mut(id)
+            .ok_or_else(|| PresetError::UnknownPreset(id.into()))?;
         p.apply_count = p.apply_count.saturating_add(1);
         p.last_applied_ms = ts_ms;
         self.active = Some(id.into());
@@ -119,7 +131,9 @@ impl PresetChipBar {
     /// Remove preset (clears active if matches).
     pub fn remove(&mut self, id: &str) -> bool {
         let removed = self.presets.remove(id).is_some();
-        if self.active.as_deref() == Some(id) { self.active = None; }
+        if self.active.as_deref() == Some(id) {
+            self.active = None;
+        }
         removed
     }
 
@@ -132,18 +146,28 @@ impl PresetChipBar {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), PresetError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(PresetError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(PresetError::SchemaMismatch);
+        }
         for (id, p) in &self.presets {
-            if id.is_empty() { return Err(PresetError::EmptyId); }
-            if p.label.is_empty() { return Err(PresetError::EmptyLabel); }
-            if p.payload.is_empty() { return Err(PresetError::EmptyPayload); }
+            if id.is_empty() {
+                return Err(PresetError::EmptyId);
+            }
+            if p.label.is_empty() {
+                return Err(PresetError::EmptyLabel);
+            }
+            if p.payload.is_empty() {
+                return Err(PresetError::EmptyPayload);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for PresetChipBar {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -183,28 +207,46 @@ mod tests {
     fn duplicate_rejected() {
         let mut b = PresetChipBar::new();
         b.add("a", "A", "p").unwrap();
-        assert!(matches!(b.add("a", "A", "p").unwrap_err(), PresetError::DuplicateId(_)));
+        assert!(matches!(
+            b.add("a", "A", "p").unwrap_err(),
+            PresetError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut b = PresetChipBar::new();
-        assert!(matches!(b.add("", "A", "p").unwrap_err(), PresetError::EmptyId));
-        assert!(matches!(b.add("a", "", "p").unwrap_err(), PresetError::EmptyLabel));
-        assert!(matches!(b.add("a", "A", "").unwrap_err(), PresetError::EmptyPayload));
+        assert!(matches!(
+            b.add("", "A", "p").unwrap_err(),
+            PresetError::EmptyId
+        ));
+        assert!(matches!(
+            b.add("a", "", "p").unwrap_err(),
+            PresetError::EmptyLabel
+        ));
+        assert!(matches!(
+            b.add("a", "A", "").unwrap_err(),
+            PresetError::EmptyPayload
+        ));
     }
 
     #[test]
     fn unknown_apply_rejected() {
         let mut b = PresetChipBar::new();
-        assert!(matches!(b.apply("nope", 0).unwrap_err(), PresetError::UnknownPreset(_)));
+        assert!(matches!(
+            b.apply("nope", 0).unwrap_err(),
+            PresetError::UnknownPreset(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut b = PresetChipBar::new();
         b.schema_version = "9.9.9".into();
-        assert!(matches!(b.validate().unwrap_err(), PresetError::SchemaMismatch));
+        assert!(matches!(
+            b.validate().unwrap_err(),
+            PresetError::SchemaMismatch
+        ));
     }
 
     #[test]

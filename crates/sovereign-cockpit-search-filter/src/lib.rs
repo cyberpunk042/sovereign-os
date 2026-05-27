@@ -74,8 +74,12 @@ impl SearchFilter {
 
     /// Apply a facet value (additive in the value list; dedup'd).
     pub fn apply_facet(&mut self, name: &str, value: &str) -> Result<(), FilterError> {
-        if name.is_empty() { return Err(FilterError::EmptyFacetName); }
-        if value.is_empty() { return Err(FilterError::EmptyFacetValue(name.into())); }
+        if name.is_empty() {
+            return Err(FilterError::EmptyFacetName);
+        }
+        if value.is_empty() {
+            return Err(FilterError::EmptyFacetValue(name.into()));
+        }
         let entry = self.facets.entry(name.into()).or_default();
         if !entry.iter().any(|v| v == value) {
             entry.push(value.into());
@@ -122,9 +126,13 @@ impl SearchFilter {
             return Err(FilterError::SchemaMismatch);
         }
         for (name, values) in &self.facets {
-            if name.is_empty() { return Err(FilterError::EmptyFacetName); }
+            if name.is_empty() {
+                return Err(FilterError::EmptyFacetName);
+            }
             for v in values {
-                if v.is_empty() { return Err(FilterError::EmptyFacetValue(name.clone())); }
+                if v.is_empty() {
+                    return Err(FilterError::EmptyFacetValue(name.clone()));
+                }
             }
         }
         Ok(())
@@ -132,7 +140,9 @@ impl SearchFilter {
 }
 
 impl Default for SearchFilter {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -213,20 +223,29 @@ mod tests {
     #[test]
     fn empty_facet_name_rejected() {
         let mut f = SearchFilter::new();
-        assert!(matches!(f.apply_facet("", "x").unwrap_err(), FilterError::EmptyFacetName));
+        assert!(matches!(
+            f.apply_facet("", "x").unwrap_err(),
+            FilterError::EmptyFacetName
+        ));
     }
 
     #[test]
     fn empty_facet_value_rejected() {
         let mut f = SearchFilter::new();
-        assert!(matches!(f.apply_facet("a", "").unwrap_err(), FilterError::EmptyFacetValue(_)));
+        assert!(matches!(
+            f.apply_facet("a", "").unwrap_err(),
+            FilterError::EmptyFacetValue(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut f = SearchFilter::new();
         f.schema_version = "9.9.9".into();
-        assert!(matches!(f.validate().unwrap_err(), FilterError::SchemaMismatch));
+        assert!(matches!(
+            f.validate().unwrap_err(),
+            FilterError::SchemaMismatch
+        ));
     }
 
     #[test]

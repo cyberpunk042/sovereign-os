@@ -63,9 +63,13 @@ impl CascadingSelect {
 
     /// Register children for a parent (replaces existing).
     pub fn set_children(&mut self, parent: &str, children: Vec<String>) -> Result<(), SelectError> {
-        if parent.is_empty() { return Err(SelectError::EmptyValue); }
+        if parent.is_empty() {
+            return Err(SelectError::EmptyValue);
+        }
         for c in &children {
-            if c.is_empty() { return Err(SelectError::EmptyValue); }
+            if c.is_empty() {
+                return Err(SelectError::EmptyValue);
+            }
         }
         self.children.insert(parent.into(), children);
         Ok(())
@@ -80,7 +84,9 @@ impl CascadingSelect {
         self.parent = Some(parent.into());
         if let Some(c) = prev_child {
             let still_valid = self.children.get(parent).unwrap().contains(&c);
-            if !still_valid { self.child = None; }
+            if !still_valid {
+                self.child = None;
+            }
         }
         Ok(())
     }
@@ -88,7 +94,10 @@ impl CascadingSelect {
     /// Select child (requires parent set + child in options).
     pub fn select_child(&mut self, child: &str) -> Result<(), SelectError> {
         let p = self.parent.as_deref().ok_or(SelectError::NoParent)?;
-        let opts = self.children.get(p).ok_or_else(|| SelectError::UnknownParent(p.into()))?;
+        let opts = self
+            .children
+            .get(p)
+            .ok_or_else(|| SelectError::UnknownParent(p.into()))?;
         if !opts.iter().any(|s| s == child) {
             return Err(SelectError::UnknownChild(child.into()));
         }
@@ -98,23 +107,38 @@ impl CascadingSelect {
 
     /// Options for the currently-selected parent.
     pub fn options_for_child(&self) -> Vec<&str> {
-        let Some(p) = self.parent.as_deref() else { return Vec::new(); };
-        self.children.get(p).map(|v| v.iter().map(|s| s.as_str()).collect()).unwrap_or_default()
+        let Some(p) = self.parent.as_deref() else {
+            return Vec::new();
+        };
+        self.children
+            .get(p)
+            .map(|v| v.iter().map(|s| s.as_str()).collect())
+            .unwrap_or_default()
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), SelectError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(SelectError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(SelectError::SchemaMismatch);
+        }
         for (k, vs) in &self.children {
-            if k.is_empty() { return Err(SelectError::EmptyValue); }
-            for v in vs { if v.is_empty() { return Err(SelectError::EmptyValue); } }
+            if k.is_empty() {
+                return Err(SelectError::EmptyValue);
+            }
+            for v in vs {
+                if v.is_empty() {
+                    return Err(SelectError::EmptyValue);
+                }
+            }
         }
         Ok(())
     }
 }
 
 impl Default for CascadingSelect {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -123,8 +147,10 @@ mod tests {
 
     fn setup() -> CascadingSelect {
         let mut s = CascadingSelect::new();
-        s.set_children("US", vec!["NY".into(), "CA".into()]).unwrap();
-        s.set_children("UK", vec!["London".into(), "Manchester".into()]).unwrap();
+        s.set_children("US", vec!["NY".into(), "CA".into()])
+            .unwrap();
+        s.set_children("UK", vec!["London".into(), "Manchester".into()])
+            .unwrap();
         s
     }
 
@@ -149,8 +175,10 @@ mod tests {
     #[test]
     fn switching_parent_keeps_valid_child() {
         let mut s = CascadingSelect::new();
-        s.set_children("a", vec!["common".into(), "x".into()]).unwrap();
-        s.set_children("b", vec!["common".into(), "y".into()]).unwrap();
+        s.set_children("a", vec!["common".into(), "x".into()])
+            .unwrap();
+        s.set_children("b", vec!["common".into(), "y".into()])
+            .unwrap();
         s.select_parent("a").unwrap();
         s.select_child("common").unwrap();
         s.select_parent("b").unwrap();
@@ -161,13 +189,19 @@ mod tests {
     fn invalid_child_rejected() {
         let mut s = setup();
         s.select_parent("US").unwrap();
-        assert!(matches!(s.select_child("London").unwrap_err(), SelectError::UnknownChild(_)));
+        assert!(matches!(
+            s.select_child("London").unwrap_err(),
+            SelectError::UnknownChild(_)
+        ));
     }
 
     #[test]
     fn child_without_parent_rejected() {
         let mut s = setup();
-        assert!(matches!(s.select_child("NY").unwrap_err(), SelectError::NoParent));
+        assert!(matches!(
+            s.select_child("NY").unwrap_err(),
+            SelectError::NoParent
+        ));
     }
 
     #[test]
@@ -181,15 +215,24 @@ mod tests {
     #[test]
     fn empty_inputs_rejected() {
         let mut s = setup();
-        assert!(matches!(s.set_children("", vec!["x".into()]).unwrap_err(), SelectError::EmptyValue));
-        assert!(matches!(s.set_children("p", vec!["".into()]).unwrap_err(), SelectError::EmptyValue));
+        assert!(matches!(
+            s.set_children("", vec!["x".into()]).unwrap_err(),
+            SelectError::EmptyValue
+        ));
+        assert!(matches!(
+            s.set_children("p", vec!["".into()]).unwrap_err(),
+            SelectError::EmptyValue
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = setup();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), SelectError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SelectError::SchemaMismatch
+        ));
     }
 
     #[test]

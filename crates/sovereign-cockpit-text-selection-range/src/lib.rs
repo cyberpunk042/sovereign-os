@@ -64,7 +64,9 @@ impl TextSelectionRange {
 
     /// Add (merging with overlapping/adjacent).
     pub fn add(&mut self, start: u64, end: u64) -> Result<(), SelectionError> {
-        if start >= end { return Err(SelectionError::EmptyRange { start, end }); }
+        if start >= end {
+            return Err(SelectionError::EmptyRange { start, end });
+        }
         let mut new = Range { start, end };
         // Merge with any overlapping or adjacent ranges (adjacent = touching).
         let mut kept = Vec::with_capacity(self.ranges.len() + 1);
@@ -84,17 +86,25 @@ impl TextSelectionRange {
 
     /// Remove portions of existing ranges that overlap [start, end).
     pub fn remove_overlap(&mut self, start: u64, end: u64) -> Result<(), SelectionError> {
-        if start >= end { return Err(SelectionError::EmptyRange { start, end }); }
+        if start >= end {
+            return Err(SelectionError::EmptyRange { start, end });
+        }
         let mut out = Vec::new();
         for r in self.ranges.drain(..) {
             if r.end <= start || r.start >= end {
                 out.push(r); // disjoint
             } else {
                 if r.start < start {
-                    out.push(Range { start: r.start, end: start });
+                    out.push(Range {
+                        start: r.start,
+                        end: start,
+                    });
                 }
                 if r.end > end {
-                    out.push(Range { start: end, end: r.end });
+                    out.push(Range {
+                        start: end,
+                        end: r.end,
+                    });
                 }
             }
         }
@@ -115,15 +125,22 @@ impl TextSelectionRange {
 
     /// Is the offset inside a selected range?
     pub fn contains(&self, offset: u64) -> bool {
-        self.ranges.iter().any(|r| offset >= r.start && offset < r.end)
+        self.ranges
+            .iter()
+            .any(|r| offset >= r.start && offset < r.end)
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), SelectionError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(SelectionError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(SelectionError::SchemaMismatch);
+        }
         for r in &self.ranges {
             if r.start >= r.end {
-                return Err(SelectionError::EmptyRange { start: r.start, end: r.end });
+                return Err(SelectionError::EmptyRange {
+                    start: r.start,
+                    end: r.end,
+                });
             }
         }
         Ok(())
@@ -131,7 +148,9 @@ impl TextSelectionRange {
 }
 
 impl Default for TextSelectionRange {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -184,10 +203,16 @@ mod tests {
         let mut s = TextSelectionRange::new();
         s.add(0, 100).unwrap();
         s.remove_overlap(40, 60).unwrap();
-        assert_eq!(s.ranges, vec![
-            Range { start: 0, end: 40 },
-            Range { start: 60, end: 100 },
-        ]);
+        assert_eq!(
+            s.ranges,
+            vec![
+                Range { start: 0, end: 40 },
+                Range {
+                    start: 60,
+                    end: 100
+                },
+            ]
+        );
     }
 
     #[test]
@@ -219,15 +244,24 @@ mod tests {
     #[test]
     fn empty_range_rejected() {
         let mut s = TextSelectionRange::new();
-        assert!(matches!(s.add(10, 10).unwrap_err(), SelectionError::EmptyRange { .. }));
-        assert!(matches!(s.add(20, 10).unwrap_err(), SelectionError::EmptyRange { .. }));
+        assert!(matches!(
+            s.add(10, 10).unwrap_err(),
+            SelectionError::EmptyRange { .. }
+        ));
+        assert!(matches!(
+            s.add(20, 10).unwrap_err(),
+            SelectionError::EmptyRange { .. }
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = TextSelectionRange::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), SelectionError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SelectionError::SchemaMismatch
+        ));
     }
 
     #[test]

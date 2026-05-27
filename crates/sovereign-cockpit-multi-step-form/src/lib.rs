@@ -68,9 +68,13 @@ impl MultiStepForm {
 
     /// Push step.
     pub fn push(&mut self, step: Step) -> Result<(), FormError> {
-        if step.id.is_empty() { return Err(FormError::EmptyStepId); }
+        if step.id.is_empty() {
+            return Err(FormError::EmptyStepId);
+        }
         for f in &step.required_fields {
-            if f.is_empty() { return Err(FormError::EmptyFieldId); }
+            if f.is_empty() {
+                return Err(FormError::EmptyFieldId);
+            }
         }
         self.steps.push(step);
         Ok(())
@@ -78,8 +82,13 @@ impl MultiStepForm {
 
     /// Mark a field completed.
     pub fn complete_field(&mut self, step_id: &str, field_id: &str) -> Result<(), FormError> {
-        if field_id.is_empty() { return Err(FormError::EmptyFieldId); }
-        let s = self.steps.iter_mut().find(|s| s.id == step_id)
+        if field_id.is_empty() {
+            return Err(FormError::EmptyFieldId);
+        }
+        let s = self
+            .steps
+            .iter_mut()
+            .find(|s| s.id == step_id)
             .ok_or_else(|| FormError::UnknownStep(step_id.into()))?;
         s.completed_fields.insert(field_id.into());
         Ok(())
@@ -87,7 +96,10 @@ impl MultiStepForm {
 
     /// Uncomplete (e.g. operator cleared the field).
     pub fn uncomplete_field(&mut self, step_id: &str, field_id: &str) -> Result<(), FormError> {
-        let s = self.steps.iter_mut().find(|s| s.id == step_id)
+        let s = self
+            .steps
+            .iter_mut()
+            .find(|s| s.id == step_id)
             .ok_or_else(|| FormError::UnknownStep(step_id.into()))?;
         s.completed_fields.remove(field_id);
         Ok(())
@@ -114,16 +126,26 @@ impl MultiStepForm {
             total += s.required_fields.len();
             done += s.required_fields.intersection(&s.completed_fields).count();
         }
-        if total == 0 { 0 } else { ((done * 100) / total) as u8 }
+        if total == 0 {
+            0
+        } else {
+            ((done * 100) / total) as u8
+        }
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), FormError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(FormError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(FormError::SchemaMismatch);
+        }
         for s in &self.steps {
-            if s.id.is_empty() { return Err(FormError::EmptyStepId); }
+            if s.id.is_empty() {
+                return Err(FormError::EmptyStepId);
+            }
             for f in s.required_fields.iter().chain(s.completed_fields.iter()) {
-                if f.is_empty() { return Err(FormError::EmptyFieldId); }
+                if f.is_empty() {
+                    return Err(FormError::EmptyFieldId);
+                }
             }
         }
         Ok(())
@@ -131,7 +153,9 @@ impl MultiStepForm {
 }
 
 impl Default for MultiStepForm {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -197,21 +221,30 @@ mod tests {
     #[test]
     fn unknown_step_rejected() {
         let mut f = MultiStepForm::new();
-        assert!(matches!(f.complete_field("nope", "x").unwrap_err(), FormError::UnknownStep(_)));
+        assert!(matches!(
+            f.complete_field("nope", "x").unwrap_err(),
+            FormError::UnknownStep(_)
+        ));
     }
 
     #[test]
     fn empty_fields_rejected() {
         let mut f = MultiStepForm::new();
         f.push(step("s1", &["x"])).unwrap();
-        assert!(matches!(f.complete_field("s1", "").unwrap_err(), FormError::EmptyFieldId));
+        assert!(matches!(
+            f.complete_field("s1", "").unwrap_err(),
+            FormError::EmptyFieldId
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut f = MultiStepForm::new();
         f.schema_version = "9.9.9".into();
-        assert!(matches!(f.validate().unwrap_err(), FormError::SchemaMismatch));
+        assert!(matches!(
+            f.validate().unwrap_err(),
+            FormError::SchemaMismatch
+        ));
     }
 
     #[test]

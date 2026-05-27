@@ -307,10 +307,14 @@ mod tests {
     #[test]
     fn eight_memory_types_indexed_1_through_8() {
         let order = [
-            (MemoryType::Working, 1), (MemoryType::Episodic, 2),
-            (MemoryType::Semantic, 3), (MemoryType::Procedural, 4),
-            (MemoryType::TemporalGraph, 5), (MemoryType::Value, 6),
-            (MemoryType::Kv, 7), (MemoryType::Reward, 8),
+            (MemoryType::Working, 1),
+            (MemoryType::Episodic, 2),
+            (MemoryType::Semantic, 3),
+            (MemoryType::Procedural, 4),
+            (MemoryType::TemporalGraph, 5),
+            (MemoryType::Value, 6),
+            (MemoryType::Kv, 7),
+            (MemoryType::Reward, 8),
         ];
         for (t, i) in order {
             assert_eq!(t.index(), i, "type {t:?}");
@@ -319,8 +323,14 @@ mod tests {
 
     #[test]
     fn memory_type_serde_kebab_case() {
-        assert_eq!(serde_json::to_string(&MemoryType::TemporalGraph).unwrap(), "\"temporal-graph\"");
-        assert_eq!(serde_json::to_string(&MemoryType::Reward).unwrap(), "\"reward\"");
+        assert_eq!(
+            serde_json::to_string(&MemoryType::TemporalGraph).unwrap(),
+            "\"temporal-graph\""
+        );
+        assert_eq!(
+            serde_json::to_string(&MemoryType::Reward).unwrap(),
+            "\"reward\""
+        );
         assert_eq!(serde_json::to_string(&MemoryType::Kv).unwrap(), "\"kv\"");
     }
 
@@ -329,11 +339,16 @@ mod tests {
     #[test]
     fn eleven_stages_positioned_1_through_11() {
         let order = [
-            (LifecycleStage::Observe, 1), (LifecycleStage::Classify, 2),
-            (LifecycleStage::Quarantine, 3), (LifecycleStage::Link, 4),
-            (LifecycleStage::Score, 5), (LifecycleStage::StoreRaw, 6),
-            (LifecycleStage::ExtractFacts, 7), (LifecycleStage::Verify, 8),
-            (LifecycleStage::Promote, 9), (LifecycleStage::Decay, 10),
+            (LifecycleStage::Observe, 1),
+            (LifecycleStage::Classify, 2),
+            (LifecycleStage::Quarantine, 3),
+            (LifecycleStage::Link, 4),
+            (LifecycleStage::Score, 5),
+            (LifecycleStage::StoreRaw, 6),
+            (LifecycleStage::ExtractFacts, 7),
+            (LifecycleStage::Verify, 8),
+            (LifecycleStage::Promote, 9),
+            (LifecycleStage::Decay, 10),
             (LifecycleStage::Archive, 11),
         ];
         for (s, p) in order {
@@ -361,8 +376,14 @@ mod tests {
 
     #[test]
     fn lifecycle_stage_serde_kebab_case() {
-        assert_eq!(serde_json::to_string(&LifecycleStage::StoreRaw).unwrap(), "\"store-raw\"");
-        assert_eq!(serde_json::to_string(&LifecycleStage::ExtractFacts).unwrap(), "\"extract-facts\"");
+        assert_eq!(
+            serde_json::to_string(&LifecycleStage::StoreRaw).unwrap(),
+            "\"store-raw\""
+        );
+        assert_eq!(
+            serde_json::to_string(&LifecycleStage::ExtractFacts).unwrap(),
+            "\"extract-facts\""
+        );
     }
 
     // --- Snapshot validation ---
@@ -376,20 +397,33 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = mk_snap(vec![]);
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), MemoryError::SchemaMismatch { .. }));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            MemoryError::SchemaMismatch { .. }
+        ));
     }
 
     #[test]
     fn doctrine_tamper_caught() {
         let mut s = mk_snap(vec![]);
         s.doctrine = "memory is just recall".into();
-        assert!(matches!(s.validate().unwrap_err(), MemoryError::DoctrineTampered { .. }));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            MemoryError::DoctrineTampered { .. }
+        ));
     }
 
     #[test]
     fn trust_score_over_1000_rejected() {
-        let snap = mk_snap(vec![mk_item(MemoryType::Semantic, LifecycleStage::Promote, 1500)]);
-        assert!(matches!(snap.validate().unwrap_err(), MemoryError::TrustScoreOutOfRange(1500)));
+        let snap = mk_snap(vec![mk_item(
+            MemoryType::Semantic,
+            LifecycleStage::Promote,
+            1500,
+        )]);
+        assert!(matches!(
+            snap.validate().unwrap_err(),
+            MemoryError::TrustScoreOutOfRange(1500)
+        ));
     }
 
     // --- recompute_summaries ---
@@ -405,11 +439,17 @@ mod tests {
         ]);
         let s = snap.recompute_summaries();
         assert_eq!(s.len(), 3);
-        let sem = s.iter().find(|x| x.memory_type == MemoryType::Semantic).unwrap();
+        let sem = s
+            .iter()
+            .find(|x| x.memory_type == MemoryType::Semantic)
+            .unwrap();
         assert_eq!(sem.total, 3);
         assert_eq!(sem.stage_counts[8], 2); // Promote = position 9 → index 8
         assert_eq!(sem.stage_counts[9], 1); // Decay = position 10 → index 9
-        let working = s.iter().find(|x| x.memory_type == MemoryType::Working).unwrap();
+        let working = s
+            .iter()
+            .find(|x| x.memory_type == MemoryType::Working)
+            .unwrap();
         assert_eq!(working.stage_counts[0], 1); // Observe = position 1 → index 0
     }
 
@@ -434,7 +474,10 @@ mod tests {
     #[test]
     fn advance_past_archive_refused() {
         let mut item = mk_item(MemoryType::Episodic, LifecycleStage::Archive, 100);
-        assert!(matches!(advance_stage(&mut item, LifecycleStage::Observe).unwrap_err(), MemoryError::LifecycleTerminal));
+        assert!(matches!(
+            advance_stage(&mut item, LifecycleStage::Observe).unwrap_err(),
+            MemoryError::LifecycleTerminal
+        ));
     }
 
     // --- Doctrine ---
@@ -462,7 +505,11 @@ mod tests {
 
     #[test]
     fn type_summary_stage_counts_array_size_11() {
-        let s = TypeSummary { memory_type: MemoryType::Kv, total: 0, stage_counts: [0; 11] };
+        let s = TypeSummary {
+            memory_type: MemoryType::Kv,
+            total: 0,
+            stage_counts: [0; 11],
+        };
         assert_eq!(s.stage_counts.len(), 11);
     }
 }

@@ -14,8 +14,8 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-use sovereign_profile_bundles::BundleName;
 use serde::{Deserialize, Serialize};
+use sovereign_profile_bundles::BundleName;
 use thiserror::Error;
 
 /// Schema version.
@@ -81,7 +81,12 @@ pub enum PreferenceError {
     AllZero(BundleName),
 }
 
-const REQUIRED: [BundleName; 4] = [BundleName::Private, BundleName::Careful, BundleName::Fast, BundleName::Sovereign];
+const REQUIRED: [BundleName; 4] = [
+    BundleName::Private,
+    BundleName::Careful,
+    BundleName::Fast,
+    BundleName::Sovereign,
+];
 
 impl RoutingPreferences {
     /// Canonical defaults — operator-tuned per-bundle weights.
@@ -89,19 +94,43 @@ impl RoutingPreferences {
         let rows = vec![
             BundlePreference {
                 bundle: BundleName::Private,
-                weights: Weights { prefer_local: 100, prefer_fast: 30, prefer_cheap: 50, prefer_quality: 20, prefer_privacy: 100 },
+                weights: Weights {
+                    prefer_local: 100,
+                    prefer_fast: 30,
+                    prefer_cheap: 50,
+                    prefer_quality: 20,
+                    prefer_privacy: 100,
+                },
             },
             BundlePreference {
                 bundle: BundleName::Careful,
-                weights: Weights { prefer_local: 60, prefer_fast: 40, prefer_cheap: 50, prefer_quality: 60, prefer_privacy: 40 },
+                weights: Weights {
+                    prefer_local: 60,
+                    prefer_fast: 40,
+                    prefer_cheap: 50,
+                    prefer_quality: 60,
+                    prefer_privacy: 40,
+                },
             },
             BundlePreference {
                 bundle: BundleName::Fast,
-                weights: Weights { prefer_local: 30, prefer_fast: 100, prefer_cheap: 40, prefer_quality: 50, prefer_privacy: 20 },
+                weights: Weights {
+                    prefer_local: 30,
+                    prefer_fast: 100,
+                    prefer_cheap: 40,
+                    prefer_quality: 50,
+                    prefer_privacy: 20,
+                },
             },
             BundlePreference {
                 bundle: BundleName::Sovereign,
-                weights: Weights { prefer_local: 70, prefer_fast: 50, prefer_cheap: 30, prefer_quality: 80, prefer_privacy: 60 },
+                weights: Weights {
+                    prefer_local: 70,
+                    prefer_fast: 50,
+                    prefer_cheap: 30,
+                    prefer_quality: 80,
+                    prefer_privacy: 60,
+                },
             },
         ];
         Self {
@@ -125,12 +154,46 @@ impl RoutingPreferences {
         }
         for r in &self.rows {
             let w = &r.weights;
-            if w.prefer_local > 100 { return Err(PreferenceError::OutOfRange { bundle: r.bundle, field: "prefer_local", value: w.prefer_local }); }
-            if w.prefer_fast > 100 { return Err(PreferenceError::OutOfRange { bundle: r.bundle, field: "prefer_fast", value: w.prefer_fast }); }
-            if w.prefer_cheap > 100 { return Err(PreferenceError::OutOfRange { bundle: r.bundle, field: "prefer_cheap", value: w.prefer_cheap }); }
-            if w.prefer_quality > 100 { return Err(PreferenceError::OutOfRange { bundle: r.bundle, field: "prefer_quality", value: w.prefer_quality }); }
-            if w.prefer_privacy > 100 { return Err(PreferenceError::OutOfRange { bundle: r.bundle, field: "prefer_privacy", value: w.prefer_privacy }); }
-            let total: u32 = w.prefer_local as u32 + w.prefer_fast as u32 + w.prefer_cheap as u32 + w.prefer_quality as u32 + w.prefer_privacy as u32;
+            if w.prefer_local > 100 {
+                return Err(PreferenceError::OutOfRange {
+                    bundle: r.bundle,
+                    field: "prefer_local",
+                    value: w.prefer_local,
+                });
+            }
+            if w.prefer_fast > 100 {
+                return Err(PreferenceError::OutOfRange {
+                    bundle: r.bundle,
+                    field: "prefer_fast",
+                    value: w.prefer_fast,
+                });
+            }
+            if w.prefer_cheap > 100 {
+                return Err(PreferenceError::OutOfRange {
+                    bundle: r.bundle,
+                    field: "prefer_cheap",
+                    value: w.prefer_cheap,
+                });
+            }
+            if w.prefer_quality > 100 {
+                return Err(PreferenceError::OutOfRange {
+                    bundle: r.bundle,
+                    field: "prefer_quality",
+                    value: w.prefer_quality,
+                });
+            }
+            if w.prefer_privacy > 100 {
+                return Err(PreferenceError::OutOfRange {
+                    bundle: r.bundle,
+                    field: "prefer_privacy",
+                    value: w.prefer_privacy,
+                });
+            }
+            let total: u32 = w.prefer_local as u32
+                + w.prefer_fast as u32
+                + w.prefer_cheap as u32
+                + w.prefer_quality as u32
+                + w.prefer_privacy as u32;
             if total == 0 {
                 return Err(PreferenceError::AllZero(r.bundle));
             }
@@ -140,13 +203,22 @@ impl RoutingPreferences {
 
     /// Lookup by bundle.
     pub fn get(&self, bundle: BundleName) -> Option<&Weights> {
-        self.rows.iter().find(|r| r.bundle == bundle).map(|r| &r.weights)
+        self.rows
+            .iter()
+            .find(|r| r.bundle == bundle)
+            .map(|r| &r.weights)
     }
 
     /// Sum of all weights for a bundle (used by router for normalization).
     pub fn weight_total(&self, bundle: BundleName) -> u32 {
         match self.get(bundle) {
-            Some(w) => w.prefer_local as u32 + w.prefer_fast as u32 + w.prefer_cheap as u32 + w.prefer_quality as u32 + w.prefer_privacy as u32,
+            Some(w) => {
+                w.prefer_local as u32
+                    + w.prefer_fast as u32
+                    + w.prefer_cheap as u32
+                    + w.prefer_quality as u32
+                    + w.prefer_privacy as u32
+            }
             None => 0,
         }
     }
@@ -196,13 +268,22 @@ mod tests {
     fn out_of_range_caught() {
         let mut p = RoutingPreferences::canonical();
         p.rows[0].weights.prefer_local = 200;
-        assert!(matches!(p.validate().unwrap_err(), PreferenceError::OutOfRange { .. }));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            PreferenceError::OutOfRange { .. }
+        ));
     }
 
     #[test]
     fn all_zero_caught() {
         let mut p = RoutingPreferences::canonical();
-        p.rows[0].weights = Weights { prefer_local: 0, prefer_fast: 0, prefer_cheap: 0, prefer_quality: 0, prefer_privacy: 0 };
+        p.rows[0].weights = Weights {
+            prefer_local: 0,
+            prefer_fast: 0,
+            prefer_cheap: 0,
+            prefer_quality: 0,
+            prefer_privacy: 0,
+        };
         match p.validate().unwrap_err() {
             PreferenceError::AllZero(b) => assert_eq!(b, p.rows[0].bundle),
             other => panic!("unexpected: {other:?}"),
@@ -213,14 +294,20 @@ mod tests {
     fn schema_drift_rejected() {
         let mut p = RoutingPreferences::canonical();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), PreferenceError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            PreferenceError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn count_invalid_caught() {
         let mut p = RoutingPreferences::canonical();
         p.rows.pop();
-        assert!(matches!(p.validate().unwrap_err(), PreferenceError::CountInvalid(3)));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            PreferenceError::CountInvalid(3)
+        ));
     }
 
     #[test]

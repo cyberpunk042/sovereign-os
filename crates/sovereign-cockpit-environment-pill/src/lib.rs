@@ -95,7 +95,9 @@ impl EnvironmentPill {
     /// New.
     pub fn new(env: Env, confirm_threshold: Risk) -> Result<Self, PillError> {
         if let Env::Custom { label, .. } = &env {
-            if label.is_empty() { return Err(PillError::EmptyLabel); }
+            if label.is_empty() {
+                return Err(PillError::EmptyLabel);
+            }
         }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
@@ -111,9 +113,13 @@ impl EnvironmentPill {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), PillError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(PillError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(PillError::SchemaMismatch);
+        }
         if let Env::Custom { label, .. } = &self.env {
-            if label.is_empty() { return Err(PillError::EmptyLabel); }
+            if label.is_empty() {
+                return Err(PillError::EmptyLabel);
+            }
         }
         Ok(())
     }
@@ -134,7 +140,10 @@ mod tests {
     fn labels() {
         assert_eq!(Env::Dev.label(), "Dev");
         assert_eq!(Env::Prod.label(), "Prod");
-        let c = Env::Custom { label: "Sandbox".into(), risk: Risk::Low };
+        let c = Env::Custom {
+            label: "Sandbox".into(),
+            risk: Risk::Low,
+        };
         assert_eq!(c.label(), "Sandbox");
     }
 
@@ -151,16 +160,23 @@ mod tests {
     #[test]
     fn custom_env_risk_used() {
         let p = EnvironmentPill::new(
-            Env::Custom { label: "Canary".into(), risk: Risk::Medium },
+            Env::Custom {
+                label: "Canary".into(),
+                risk: Risk::Medium,
+            },
             Risk::Medium,
-        ).unwrap();
+        )
+        .unwrap();
         assert!(p.requires_confirm());
     }
 
     #[test]
     fn empty_custom_label_rejected() {
         let r = EnvironmentPill::new(
-            Env::Custom { label: "".into(), risk: Risk::Low },
+            Env::Custom {
+                label: "".into(),
+                risk: Risk::Low,
+            },
             Risk::Medium,
         );
         assert!(matches!(r.unwrap_err(), PillError::EmptyLabel));
@@ -170,15 +186,22 @@ mod tests {
     fn schema_drift_rejected() {
         let mut p = EnvironmentPill::new(Env::Prod, Risk::High).unwrap();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), PillError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            PillError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn pill_serde_roundtrip() {
         let p = EnvironmentPill::new(
-            Env::Custom { label: "X".into(), risk: Risk::High },
+            Env::Custom {
+                label: "X".into(),
+                risk: Risk::High,
+            },
             Risk::Medium,
-        ).unwrap();
+        )
+        .unwrap();
         let j = serde_json::to_string(&p).unwrap();
         let back: EnvironmentPill = serde_json::from_str(&j).unwrap();
         assert_eq!(p, back);

@@ -99,7 +99,11 @@ impl ActionMenu {
             for n in nodes {
                 match n {
                     MenuNode::Item { visible: true, .. } => *acc += 1,
-                    MenuNode::SubMenu { visible: true, children, .. } => walk(children, acc),
+                    MenuNode::SubMenu {
+                        visible: true,
+                        children,
+                        ..
+                    } => walk(children, acc),
                     _ => {}
                 }
             }
@@ -126,12 +130,22 @@ impl ActionMenu {
 fn check_nodes(nodes: &[MenuNode]) -> Result<(), MenuError> {
     for n in nodes {
         match n {
-            MenuNode::Item { action_id, label, .. } => {
-                if action_id.is_empty() { return Err(MenuError::EmptyActionId); }
-                if label.is_empty() { return Err(MenuError::EmptyLabel); }
+            MenuNode::Item {
+                action_id, label, ..
+            } => {
+                if action_id.is_empty() {
+                    return Err(MenuError::EmptyActionId);
+                }
+                if label.is_empty() {
+                    return Err(MenuError::EmptyLabel);
+                }
             }
-            MenuNode::SubMenu { label, children, .. } => {
-                if label.is_empty() { return Err(MenuError::EmptyLabel); }
+            MenuNode::SubMenu {
+                label, children, ..
+            } => {
+                if label.is_empty() {
+                    return Err(MenuError::EmptyLabel);
+                }
                 check_nodes(children)?;
             }
             MenuNode::Separator => {}
@@ -159,14 +173,25 @@ fn check_dup(n: &MenuNode, seen: &mut std::collections::HashSet<String>) -> Resu
 
 fn filter_visible(n: &MenuNode) -> Option<MenuNode> {
     match n {
-        MenuNode::Item { visible: true, action_id, label, enabled, .. } => Some(MenuNode::Item {
+        MenuNode::Item {
+            visible: true,
+            action_id,
+            label,
+            enabled,
+            ..
+        } => Some(MenuNode::Item {
             action_id: action_id.clone(),
             label: label.clone(),
             enabled: *enabled,
             visible: true,
         }),
         MenuNode::Item { visible: false, .. } => None,
-        MenuNode::SubMenu { visible: true, label, children, .. } => {
+        MenuNode::SubMenu {
+            visible: true,
+            label,
+            children,
+            ..
+        } => {
             let kids: Vec<MenuNode> = children.iter().filter_map(filter_visible).collect();
             if kids.is_empty() {
                 None
@@ -216,7 +241,11 @@ mod tests {
     }
 
     fn sub(label: &str, visible: bool, children: Vec<MenuNode>) -> MenuNode {
-        MenuNode::SubMenu { label: label.into(), visible, children }
+        MenuNode::SubMenu {
+            label: label.into(),
+            visible,
+            children,
+        }
     }
 
     #[test]
@@ -225,25 +254,30 @@ mod tests {
             item("a", true, true),
             item("b", false, true),
             item("c", true, false),
-        ]).unwrap();
+        ])
+        .unwrap();
         let v = m.visible();
         assert_eq!(v.len(), 2);
     }
 
     #[test]
     fn submenu_with_no_visible_children_pruned() {
-        let m = ActionMenu::new(vec![
-            sub("Edit", true, vec![item("hidden", false, true)]),
-        ]).unwrap();
+        let m =
+            ActionMenu::new(vec![sub("Edit", true, vec![item("hidden", false, true)])]).unwrap();
         assert!(m.visible().is_empty());
     }
 
     #[test]
     fn nested_submenu_walks() {
         let m = ActionMenu::new(vec![
-            sub("Edit", true, vec![item("copy", true, true), item("paste", true, true)]),
+            sub(
+                "Edit",
+                true,
+                vec![item("copy", true, true), item("paste", true, true)],
+            ),
             item("save", true, true),
-        ]).unwrap();
+        ])
+        .unwrap();
         assert_eq!(m.count_visible_items(), 3);
     }
 
@@ -256,7 +290,8 @@ mod tests {
             MenuNode::Separator,
             item("b", true, true),
             MenuNode::Separator,
-        ]).unwrap();
+        ])
+        .unwrap();
         let v = m.visible();
         // Leading & trailing dropped, double separator collapsed.
         // Expect: a, sep, b
@@ -275,7 +310,8 @@ mod tests {
         let err = ActionMenu::new(vec![
             item("a", true, true),
             sub("X", true, vec![item("a", true, true)]),
-        ]).unwrap_err();
+        ])
+        .unwrap_err();
         assert!(matches!(err, MenuError::DuplicateActionId(_)));
     }
 
@@ -288,21 +324,32 @@ mod tests {
     #[test]
     fn empty_label_rejected() {
         let mut x = item("a", true, true);
-        if let MenuNode::Item { label, .. } = &mut x { *label = String::new(); }
-        assert!(matches!(ActionMenu::new(vec![x]).unwrap_err(), MenuError::EmptyLabel));
+        if let MenuNode::Item { label, .. } = &mut x {
+            *label = String::new();
+        }
+        assert!(matches!(
+            ActionMenu::new(vec![x]).unwrap_err(),
+            MenuError::EmptyLabel
+        ));
     }
 
     #[test]
     fn submenu_empty_label_rejected() {
         let s = sub("", true, vec![]);
-        assert!(matches!(ActionMenu::new(vec![s]).unwrap_err(), MenuError::EmptyLabel));
+        assert!(matches!(
+            ActionMenu::new(vec![s]).unwrap_err(),
+            MenuError::EmptyLabel
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut m = ActionMenu::new(vec![item("a", true, true)]).unwrap();
         m.schema_version = "9.9.9".into();
-        assert!(matches!(m.validate().unwrap_err(), MenuError::SchemaMismatch));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            MenuError::SchemaMismatch
+        ));
     }
 
     #[test]
@@ -317,7 +364,8 @@ mod tests {
         let m = ActionMenu::new(vec![
             item("a", true, true),
             sub("Edit", true, vec![item("b", true, true)]),
-        ]).unwrap();
+        ])
+        .unwrap();
         let j = serde_json::to_string(&m).unwrap();
         let back: ActionMenu = serde_json::from_str(&j).unwrap();
         assert_eq!(m, back);

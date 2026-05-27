@@ -67,22 +67,46 @@ impl ContextHelp {
     }
 
     /// Register (rejects duplicate).
-    pub fn register(&mut self, anchor: &str, body: &str, a11y_label: &str) -> Result<(), HelpError> {
-        if anchor.is_empty() { return Err(HelpError::EmptyAnchor); }
-        if body.is_empty() { return Err(HelpError::EmptyBody); }
-        if a11y_label.is_empty() { return Err(HelpError::EmptyLabel); }
+    pub fn register(
+        &mut self,
+        anchor: &str,
+        body: &str,
+        a11y_label: &str,
+    ) -> Result<(), HelpError> {
+        if anchor.is_empty() {
+            return Err(HelpError::EmptyAnchor);
+        }
+        if body.is_empty() {
+            return Err(HelpError::EmptyBody);
+        }
+        if a11y_label.is_empty() {
+            return Err(HelpError::EmptyLabel);
+        }
         if self.tooltips.contains_key(anchor) {
             return Err(HelpError::DuplicateAnchor(anchor.into()));
         }
-        self.tooltips.insert(anchor.into(), Tooltip { body: body.into(), a11y_label: a11y_label.into() });
+        self.tooltips.insert(
+            anchor.into(),
+            Tooltip {
+                body: body.into(),
+                a11y_label: a11y_label.into(),
+            },
+        );
         Ok(())
     }
 
     /// Update existing.
     pub fn update(&mut self, anchor: &str, body: &str, a11y_label: &str) -> Result<(), HelpError> {
-        if body.is_empty() { return Err(HelpError::EmptyBody); }
-        if a11y_label.is_empty() { return Err(HelpError::EmptyLabel); }
-        let t = self.tooltips.get_mut(anchor).ok_or_else(|| HelpError::UnknownAnchor(anchor.into()))?;
+        if body.is_empty() {
+            return Err(HelpError::EmptyBody);
+        }
+        if a11y_label.is_empty() {
+            return Err(HelpError::EmptyLabel);
+        }
+        let t = self
+            .tooltips
+            .get_mut(anchor)
+            .ok_or_else(|| HelpError::UnknownAnchor(anchor.into()))?;
         t.body = body.into();
         t.a11y_label = a11y_label.into();
         Ok(())
@@ -100,18 +124,28 @@ impl ContextHelp {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), HelpError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(HelpError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(HelpError::SchemaMismatch);
+        }
         for (k, t) in &self.tooltips {
-            if k.is_empty() { return Err(HelpError::EmptyAnchor); }
-            if t.body.is_empty() { return Err(HelpError::EmptyBody); }
-            if t.a11y_label.is_empty() { return Err(HelpError::EmptyLabel); }
+            if k.is_empty() {
+                return Err(HelpError::EmptyAnchor);
+            }
+            if t.body.is_empty() {
+                return Err(HelpError::EmptyBody);
+            }
+            if t.a11y_label.is_empty() {
+                return Err(HelpError::EmptyLabel);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for ContextHelp {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -121,7 +155,8 @@ mod tests {
     #[test]
     fn register_and_resolve() {
         let mut h = ContextHelp::new();
-        h.register("save-btn", "Save changes.", "Save button").unwrap();
+        h.register("save-btn", "Save changes.", "Save button")
+            .unwrap();
         let t = h.resolve("save-btn").unwrap();
         assert_eq!(t.body, "Save changes.");
         assert_eq!(t.a11y_label, "Save button");
@@ -154,22 +189,37 @@ mod tests {
     fn duplicate_rejected() {
         let mut h = ContextHelp::new();
         h.register("a", "x", "L").unwrap();
-        assert!(matches!(h.register("a", "y", "L").unwrap_err(), HelpError::DuplicateAnchor(_)));
+        assert!(matches!(
+            h.register("a", "y", "L").unwrap_err(),
+            HelpError::DuplicateAnchor(_)
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut h = ContextHelp::new();
-        assert!(matches!(h.register("", "x", "L").unwrap_err(), HelpError::EmptyAnchor));
-        assert!(matches!(h.register("a", "", "L").unwrap_err(), HelpError::EmptyBody));
-        assert!(matches!(h.register("a", "x", "").unwrap_err(), HelpError::EmptyLabel));
+        assert!(matches!(
+            h.register("", "x", "L").unwrap_err(),
+            HelpError::EmptyAnchor
+        ));
+        assert!(matches!(
+            h.register("a", "", "L").unwrap_err(),
+            HelpError::EmptyBody
+        ));
+        assert!(matches!(
+            h.register("a", "x", "").unwrap_err(),
+            HelpError::EmptyLabel
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut h = ContextHelp::new();
         h.schema_version = "9.9.9".into();
-        assert!(matches!(h.validate().unwrap_err(), HelpError::SchemaMismatch));
+        assert!(matches!(
+            h.validate().unwrap_err(),
+            HelpError::SchemaMismatch
+        ));
     }
 
     #[test]

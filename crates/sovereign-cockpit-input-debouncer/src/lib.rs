@@ -48,7 +48,9 @@ pub enum DebounceError {
 impl InputDebouncer {
     /// New.
     pub fn new(delay_ms: u64) -> Result<Self, DebounceError> {
-        if delay_ms == 0 { return Err(DebounceError::DelayZero); }
+        if delay_ms == 0 {
+            return Err(DebounceError::DelayZero);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             delay_ms,
@@ -69,7 +71,9 @@ impl InputDebouncer {
             None => return false,
         };
         if let Some(c) = self.last_consumed_observed_ms {
-            if c == last { return false; }
+            if c == last {
+                return false;
+            }
         }
         now_ms.saturating_sub(last) >= self.delay_ms
     }
@@ -94,8 +98,12 @@ impl InputDebouncer {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), DebounceError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(DebounceError::SchemaMismatch); }
-        if self.delay_ms == 0 { return Err(DebounceError::DelayZero); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(DebounceError::SchemaMismatch);
+        }
+        if self.delay_ms == 0 {
+            return Err(DebounceError::DelayZero);
+        }
         Ok(())
     }
 }
@@ -106,7 +114,10 @@ mod tests {
 
     #[test]
     fn delay_zero_rejected() {
-        assert!(matches!(InputDebouncer::new(0).unwrap_err(), DebounceError::DelayZero));
+        assert!(matches!(
+            InputDebouncer::new(0).unwrap_err(),
+            DebounceError::DelayZero
+        ));
     }
 
     #[test]
@@ -164,7 +175,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut d = InputDebouncer::new(200).unwrap();
         d.schema_version = "9.9.9".into();
-        assert!(matches!(d.validate().unwrap_err(), DebounceError::SchemaMismatch));
+        assert!(matches!(
+            d.validate().unwrap_err(),
+            DebounceError::SchemaMismatch
+        ));
     }
 
     #[test]

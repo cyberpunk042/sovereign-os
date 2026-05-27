@@ -11,8 +11,8 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-use sovereign_cockpit_banner_state::BannerSeverity;
 use serde::{Deserialize, Serialize};
+use sovereign_cockpit_banner_state::BannerSeverity;
 use thiserror::Error;
 
 /// Schema version.
@@ -83,7 +83,9 @@ impl ToastTray {
 
     /// Post a toast. Drops oldest if MAX_TOASTS exceeded.
     pub fn post(&mut self, t: Toast) -> Result<(), ToastError> {
-        if t.id.is_empty() { return Err(ToastError::EmptyId); }
+        if t.id.is_empty() {
+            return Err(ToastError::EmptyId);
+        }
         if self.toasts.iter().any(|x| x.id == t.id) {
             return Err(ToastError::DuplicateId(t.id));
         }
@@ -116,12 +118,18 @@ impl ToastTray {
 
     /// Count live (not-yet-dismissed) toasts.
     pub fn live_count(&self) -> usize {
-        self.toasts.iter().filter(|t| t.dismissed_at.is_empty()).count()
+        self.toasts
+            .iter()
+            .filter(|t| t.dismissed_at.is_empty())
+            .count()
     }
 
     /// Count toasts by severity (live only).
     pub fn live_count_by_severity(&self, sev: BannerSeverity) -> usize {
-        self.toasts.iter().filter(|t| t.dismissed_at.is_empty() && t.severity == sev).count()
+        self.toasts
+            .iter()
+            .filter(|t| t.dismissed_at.is_empty() && t.severity == sev)
+            .count()
     }
 
     /// Validate.
@@ -132,10 +140,24 @@ impl ToastTray {
         use std::collections::HashSet;
         let mut seen: HashSet<&str> = HashSet::new();
         for t in &self.toasts {
-            if t.id.is_empty() { return Err(ToastError::EmptyId); }
-            if t.posted_at.is_empty() { return Err(ToastError::MissingPostedAt(t.id.clone())); }
-            if t.title.chars().count() > 60 { return Err(ToastError::TitleTooLong(t.id.clone(), t.title.chars().count())); }
-            if t.body.chars().count() > 240 { return Err(ToastError::BodyTooLong(t.id.clone(), t.body.chars().count())); }
+            if t.id.is_empty() {
+                return Err(ToastError::EmptyId);
+            }
+            if t.posted_at.is_empty() {
+                return Err(ToastError::MissingPostedAt(t.id.clone()));
+            }
+            if t.title.chars().count() > 60 {
+                return Err(ToastError::TitleTooLong(
+                    t.id.clone(),
+                    t.title.chars().count(),
+                ));
+            }
+            if t.body.chars().count() > 240 {
+                return Err(ToastError::BodyTooLong(
+                    t.id.clone(),
+                    t.body.chars().count(),
+                ));
+            }
             if !seen.insert(t.id.as_str()) {
                 return Err(ToastError::DuplicateId(t.id.clone()));
             }
@@ -145,7 +167,9 @@ impl ToastTray {
 }
 
 impl Default for ToastTray {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 fn mk(id: &str, sev: BannerSeverity, title: &str, body: &str, ttl: u32, at: &str) -> Toast {
@@ -177,7 +201,15 @@ mod tests {
     #[test]
     fn post_then_dismiss() {
         let mut tr = ToastTray::new();
-        tr.post(mk("t1", BannerSeverity::Notice, "Build done", "lib finished", 5, "t")).unwrap();
+        tr.post(mk(
+            "t1",
+            BannerSeverity::Notice,
+            "Build done",
+            "lib finished",
+            5,
+            "t",
+        ))
+        .unwrap();
         assert_eq!(tr.live_count(), 1);
         assert!(tr.dismiss("t1", "t2"));
         assert_eq!(tr.live_count(), 0);
@@ -186,15 +218,20 @@ mod tests {
     #[test]
     fn duplicate_id_rejected() {
         let mut tr = ToastTray::new();
-        tr.post(mk("t1", BannerSeverity::Notice, "a", "b", 5, "t")).unwrap();
-        let err = tr.post(mk("t1", BannerSeverity::Warn, "x", "y", 5, "t")).unwrap_err();
+        tr.post(mk("t1", BannerSeverity::Notice, "a", "b", 5, "t"))
+            .unwrap();
+        let err = tr
+            .post(mk("t1", BannerSeverity::Warn, "x", "y", 5, "t"))
+            .unwrap_err();
         assert!(matches!(err, ToastError::DuplicateId(ref id) if id == "t1"));
     }
 
     #[test]
     fn empty_id_rejected() {
         let mut tr = ToastTray::new();
-        let err = tr.post(mk("", BannerSeverity::Notice, "a", "b", 5, "t")).unwrap_err();
+        let err = tr
+            .post(mk("", BannerSeverity::Notice, "a", "b", 5, "t"))
+            .unwrap_err();
         assert!(matches!(err, ToastError::EmptyId));
     }
 
@@ -202,7 +239,16 @@ mod tests {
     fn title_too_long_rejected() {
         let mut tr = ToastTray::new();
         let long_title = "x".repeat(61);
-        let err = tr.post(mk("t1", BannerSeverity::Notice, &long_title, "body", 5, "t")).unwrap_err();
+        let err = tr
+            .post(mk(
+                "t1",
+                BannerSeverity::Notice,
+                &long_title,
+                "body",
+                5,
+                "t",
+            ))
+            .unwrap_err();
         assert!(matches!(err, ToastError::TitleTooLong(_, 61)));
     }
 
@@ -210,14 +256,25 @@ mod tests {
     fn body_too_long_rejected() {
         let mut tr = ToastTray::new();
         let long_body = "x".repeat(241);
-        let err = tr.post(mk("t1", BannerSeverity::Notice, "title", &long_body, 5, "t")).unwrap_err();
+        let err = tr
+            .post(mk(
+                "t1",
+                BannerSeverity::Notice,
+                "title",
+                &long_body,
+                5,
+                "t",
+            ))
+            .unwrap_err();
         assert!(matches!(err, ToastError::BodyTooLong(_, 241)));
     }
 
     #[test]
     fn missing_posted_at_rejected() {
         let mut tr = ToastTray::new();
-        let err = tr.post(mk("t1", BannerSeverity::Notice, "t", "b", 5, "")).unwrap_err();
+        let err = tr
+            .post(mk("t1", BannerSeverity::Notice, "t", "b", 5, ""))
+            .unwrap_err();
         assert!(matches!(err, ToastError::MissingPostedAt(ref id) if id == "t1"));
     }
 
@@ -226,7 +283,8 @@ mod tests {
         let mut tr = ToastTray::new();
         for i in 0..(MAX_TOASTS + 5) {
             let id = format!("t{i}");
-            tr.post(mk(&id, BannerSeverity::Notice, "x", "y", 5, "t")).unwrap();
+            tr.post(mk(&id, BannerSeverity::Notice, "x", "y", 5, "t"))
+                .unwrap();
         }
         assert_eq!(tr.toasts.len(), MAX_TOASTS);
         // Oldest 5 dropped; first remaining is t5.
@@ -236,10 +294,14 @@ mod tests {
     #[test]
     fn live_count_by_severity() {
         let mut tr = ToastTray::new();
-        tr.post(mk("t1", BannerSeverity::Notice, "x", "y", 5, "t")).unwrap();
-        tr.post(mk("t2", BannerSeverity::Warn, "x", "y", 5, "t")).unwrap();
-        tr.post(mk("t3", BannerSeverity::Warn, "x", "y", 5, "t")).unwrap();
-        tr.post(mk("t4", BannerSeverity::Critical, "x", "y", 5, "t")).unwrap();
+        tr.post(mk("t1", BannerSeverity::Notice, "x", "y", 5, "t"))
+            .unwrap();
+        tr.post(mk("t2", BannerSeverity::Warn, "x", "y", 5, "t"))
+            .unwrap();
+        tr.post(mk("t3", BannerSeverity::Warn, "x", "y", 5, "t"))
+            .unwrap();
+        tr.post(mk("t4", BannerSeverity::Critical, "x", "y", 5, "t"))
+            .unwrap();
         assert_eq!(tr.live_count_by_severity(BannerSeverity::Notice), 1);
         assert_eq!(tr.live_count_by_severity(BannerSeverity::Warn), 2);
         assert_eq!(tr.live_count_by_severity(BannerSeverity::Critical), 1);
@@ -256,13 +318,17 @@ mod tests {
     fn schema_drift_rejected() {
         let mut tr = ToastTray::new();
         tr.schema_version = "9.9.9".into();
-        assert!(matches!(tr.validate().unwrap_err(), ToastError::SchemaMismatch));
+        assert!(matches!(
+            tr.validate().unwrap_err(),
+            ToastError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn tray_serde_roundtrip() {
         let mut tr = ToastTray::new();
-        tr.post(mk("t1", BannerSeverity::Warn, "Title", "Body", 10, "t")).unwrap();
+        tr.post(mk("t1", BannerSeverity::Warn, "Title", "Body", 10, "t"))
+            .unwrap();
         let j = serde_json::to_string(&tr).unwrap();
         let back: ToastTray = serde_json::from_str(&j).unwrap();
         assert_eq!(tr, back);

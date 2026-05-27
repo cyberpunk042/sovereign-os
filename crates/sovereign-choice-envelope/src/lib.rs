@@ -87,10 +87,14 @@ impl BoundaryAxis {
     /// All 9 axes in canonical order.
     pub fn all() -> [BoundaryAxis; 9] {
         [
-            BoundaryAxis::LocalOrCloud, BoundaryAxis::FastOrCareful,
-            BoundaryAxis::PrivateOrShared, BoundaryAxis::AutomaticOrGated,
-            BoundaryAxis::CheapOrBest, BoundaryAxis::SandboxOrHost,
-            BoundaryAxis::ScoutOrOracle, BoundaryAxis::SpecFirstOrExploratory,
+            BoundaryAxis::LocalOrCloud,
+            BoundaryAxis::FastOrCareful,
+            BoundaryAxis::PrivateOrShared,
+            BoundaryAxis::AutomaticOrGated,
+            BoundaryAxis::CheapOrBest,
+            BoundaryAxis::SandboxOrHost,
+            BoundaryAxis::ScoutOrOracle,
+            BoundaryAxis::SpecFirstOrExploratory,
             BoundaryAxis::TddStrictOrPrototype,
         ]
     }
@@ -153,11 +157,14 @@ pub enum ChoiceError {
 impl ChoiceEnvelope {
     /// Canonical empty envelope — all 9 axes set to Both (runtime decides).
     pub fn empty_canonical() -> Self {
-        let choices = BoundaryAxis::all().into_iter().map(|a| AxisChoice {
-            axis: a,
-            side: AxisSide::Both,
-            reason: String::new(),
-        }).collect();
+        let choices = BoundaryAxis::all()
+            .into_iter()
+            .map(|a| AxisChoice {
+                axis: a,
+                side: AxisSide::Both,
+                reason: String::new(),
+            })
+            .collect();
         Self {
             schema_version: SCHEMA_VERSION.into(),
             doctrine: DOCTRINE_THAT_IS_SOVEREIGNTY.into(),
@@ -212,10 +219,14 @@ mod tests {
     #[test]
     fn nine_axes_positioned_1_to_9() {
         for (a, p) in [
-            (BoundaryAxis::LocalOrCloud, 1), (BoundaryAxis::FastOrCareful, 2),
-            (BoundaryAxis::PrivateOrShared, 3), (BoundaryAxis::AutomaticOrGated, 4),
-            (BoundaryAxis::CheapOrBest, 5), (BoundaryAxis::SandboxOrHost, 6),
-            (BoundaryAxis::ScoutOrOracle, 7), (BoundaryAxis::SpecFirstOrExploratory, 8),
+            (BoundaryAxis::LocalOrCloud, 1),
+            (BoundaryAxis::FastOrCareful, 2),
+            (BoundaryAxis::PrivateOrShared, 3),
+            (BoundaryAxis::AutomaticOrGated, 4),
+            (BoundaryAxis::CheapOrBest, 5),
+            (BoundaryAxis::SandboxOrHost, 6),
+            (BoundaryAxis::ScoutOrOracle, 7),
+            (BoundaryAxis::SpecFirstOrExploratory, 8),
             (BoundaryAxis::TddStrictOrPrototype, 9),
         ] {
             assert_eq!(a.position(), p);
@@ -226,7 +237,10 @@ mod tests {
     fn nine_axes_text_verbatim() {
         assert_eq!(BoundaryAxis::LocalOrCloud.text(), "local or cloud");
         assert_eq!(BoundaryAxis::FastOrCareful.text(), "fast or careful");
-        assert_eq!(BoundaryAxis::TddStrictOrPrototype.text(), "TDD strict or prototype");
+        assert_eq!(
+            BoundaryAxis::TddStrictOrPrototype.text(),
+            "TDD strict or prototype"
+        );
     }
 
     #[test]
@@ -247,28 +261,44 @@ mod tests {
     fn schema_drift_rejected() {
         let mut e = ChoiceEnvelope::empty_canonical();
         e.schema_version = "9.9.9".into();
-        assert!(matches!(e.validate().unwrap_err(), ChoiceError::SchemaMismatch));
+        assert!(matches!(
+            e.validate().unwrap_err(),
+            ChoiceError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn doctrine_tamper_caught() {
         let mut e = ChoiceEnvelope::empty_canonical();
         e.doctrine = "wrong".into();
-        assert!(matches!(e.validate().unwrap_err(), ChoiceError::DoctrineTampered));
+        assert!(matches!(
+            e.validate().unwrap_err(),
+            ChoiceError::DoctrineTampered
+        ));
     }
 
     #[test]
     fn count_invalid_caught() {
         let mut e = ChoiceEnvelope::empty_canonical();
         e.choices.pop();
-        assert!(matches!(e.validate().unwrap_err(), ChoiceError::CountInvalid(8)));
+        assert!(matches!(
+            e.validate().unwrap_err(),
+            ChoiceError::CountInvalid(8)
+        ));
     }
 
     #[test]
     fn side_of_lookup() {
         let mut e = ChoiceEnvelope::empty_canonical();
-        e.set_side(BoundaryAxis::PrivateOrShared, AxisSide::Left, "operator data is private");
-        assert_eq!(e.side_of(BoundaryAxis::PrivateOrShared), Some(AxisSide::Left));
+        e.set_side(
+            BoundaryAxis::PrivateOrShared,
+            AxisSide::Left,
+            "operator data is private",
+        );
+        assert_eq!(
+            e.side_of(BoundaryAxis::PrivateOrShared),
+            Some(AxisSide::Left)
+        );
         assert_eq!(e.side_of(BoundaryAxis::CheapOrBest), Some(AxisSide::Both));
     }
 
@@ -279,9 +309,18 @@ mod tests {
 
     #[test]
     fn axis_serde_kebab() {
-        assert_eq!(serde_json::to_string(&BoundaryAxis::LocalOrCloud).unwrap(), "\"local-or-cloud\"");
-        assert_eq!(serde_json::to_string(&BoundaryAxis::SpecFirstOrExploratory).unwrap(), "\"spec-first-or-exploratory\"");
-        assert_eq!(serde_json::to_string(&BoundaryAxis::TddStrictOrPrototype).unwrap(), "\"tdd-strict-or-prototype\"");
+        assert_eq!(
+            serde_json::to_string(&BoundaryAxis::LocalOrCloud).unwrap(),
+            "\"local-or-cloud\""
+        );
+        assert_eq!(
+            serde_json::to_string(&BoundaryAxis::SpecFirstOrExploratory).unwrap(),
+            "\"spec-first-or-exploratory\""
+        );
+        assert_eq!(
+            serde_json::to_string(&BoundaryAxis::TddStrictOrPrototype).unwrap(),
+            "\"tdd-strict-or-prototype\""
+        );
     }
 
     #[test]
@@ -293,7 +332,11 @@ mod tests {
     #[test]
     fn envelope_serde_roundtrip() {
         let mut e = ChoiceEnvelope::empty_canonical();
-        e.set_side(BoundaryAxis::ScoutOrOracle, AxisSide::Right, "operator wants Blackwell");
+        e.set_side(
+            BoundaryAxis::ScoutOrOracle,
+            AxisSide::Right,
+            "operator wants Blackwell",
+        );
         let j = serde_json::to_string(&e).unwrap();
         let back: ChoiceEnvelope = serde_json::from_str(&j).unwrap();
         assert_eq!(e, back);

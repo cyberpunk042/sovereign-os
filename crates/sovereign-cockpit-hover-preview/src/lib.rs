@@ -79,14 +79,21 @@ impl HoverPreview {
 
     /// Enter anchor.
     pub fn enter(&mut self, id: &str, now_ms: u64) -> Result<(), PreviewError> {
-        if id.is_empty() { return Err(PreviewError::EmptyId); }
+        if id.is_empty() {
+            return Err(PreviewError::EmptyId);
+        }
         // Don't disturb pinned state.
         if matches!(&self.phase, Phase::Pinned { id: pid } if pid != id) {
             // pointer moved to a different anchor → keep pinned.
             return Ok(());
         }
-        if let Phase::Pinned { .. } = self.phase { return Ok(()); }
-        self.phase = Phase::Dwelling { id: id.into(), entered_at_ms: now_ms };
+        if let Phase::Pinned { .. } = self.phase {
+            return Ok(());
+        }
+        self.phase = Phase::Dwelling {
+            id: id.into(),
+            entered_at_ms: now_ms,
+        };
         Ok(())
     }
 
@@ -133,7 +140,9 @@ impl HoverPreview {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), PreviewError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(PreviewError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(PreviewError::SchemaMismatch);
+        }
         Ok(())
     }
 }
@@ -209,7 +218,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut p = HoverPreview::new(500);
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), PreviewError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            PreviewError::SchemaMismatch
+        ));
     }
 
     #[test]

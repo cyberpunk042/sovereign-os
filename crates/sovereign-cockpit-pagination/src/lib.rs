@@ -70,14 +70,20 @@ impl Pager {
     /// is clamped into [1, total_pages] (or set to 1 when total =
     /// 0 / pages = 0).
     pub fn new(page: u64, per_page: u64, total: u64) -> Result<Self, PaginationError> {
-        if per_page == 0 { return Err(PaginationError::InvalidPerPage); }
+        if per_page == 0 {
+            return Err(PaginationError::InvalidPerPage);
+        }
         let total_pages = total_pages_for(total, per_page);
         let clamped_page = if total_pages == 0 {
             1
         } else {
             page.clamp(1, total_pages)
         };
-        Ok(Self { page: clamped_page, per_page, total })
+        Ok(Self {
+            page: clamped_page,
+            per_page,
+            total,
+        })
     }
     /// Compute the derived `PageInfo`.
     pub fn info(self) -> PageInfo {
@@ -104,32 +110,44 @@ impl Pager {
     /// Step forward one page if `can_next`, else no-op.
     pub fn next(mut self) -> Self {
         let info = self.info();
-        if info.can_next { self.page += 1; }
+        if info.can_next {
+            self.page += 1;
+        }
         self
     }
     /// Step back one page if `can_prev`, else no-op.
     pub fn prev(mut self) -> Self {
         let info = self.info();
-        if info.can_prev { self.page -= 1; }
+        if info.can_prev {
+            self.page -= 1;
+        }
         self
     }
     /// Jump to a specific page (clamped into the valid range).
     pub fn goto(mut self, page: u64) -> Self {
         let total_pages = total_pages_for(self.total, self.per_page);
-        self.page = if total_pages == 0 { 1 } else { page.clamp(1, total_pages) };
+        self.page = if total_pages == 0 {
+            1
+        } else {
+            page.clamp(1, total_pages)
+        };
         self
     }
 }
 
 /// ceil(total / per_page) as u64, except 0 when total = 0.
 pub fn total_pages_for(total: u64, per_page: u64) -> u64 {
-    if total == 0 || per_page == 0 { return 0; }
+    if total == 0 || per_page == 0 {
+        return 0;
+    }
     total.div_ceil(per_page)
 }
 
 /// Validate.
 pub fn validate_schema_version(s: &str) -> Result<(), PaginationError> {
-    if s != SCHEMA_VERSION { return Err(PaginationError::SchemaMismatch); }
+    if s != SCHEMA_VERSION {
+        return Err(PaginationError::SchemaMismatch);
+    }
     Ok(())
 }
 
@@ -247,8 +265,8 @@ mod tests {
     fn goto_clamps_into_range() {
         let p = Pager::new(1, 10, 100).unwrap();
         assert_eq!(p.goto(999).page, 10);
-        assert_eq!(p.goto(0).page,   1);
-        assert_eq!(p.goto(5).page,   5);
+        assert_eq!(p.goto(0).page, 1);
+        assert_eq!(p.goto(5).page, 5);
     }
 
     #[test]

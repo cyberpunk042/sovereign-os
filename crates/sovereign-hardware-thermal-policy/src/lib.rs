@@ -16,9 +16,9 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-use sovereign_hardware_registry::HardwareTarget;
-use sovereign_hardware_load_sample::LoadSnapshot;
 use serde::{Deserialize, Serialize};
+use sovereign_hardware_load_sample::LoadSnapshot;
+use sovereign_hardware_registry::HardwareTarget;
 use thiserror::Error;
 
 /// Schema version.
@@ -73,7 +73,9 @@ pub enum ThermalError {
     #[error("missing thermal thresholds for: {0:?}")]
     Missing(HardwareTarget),
     /// Thresholds not monotonic warn < throttle < shutdown.
-    #[error("thresholds non-monotonic for {target:?}: warn={warn} throttle={throttle} shutdown={shutdown}")]
+    #[error(
+        "thresholds non-monotonic for {target:?}: warn={warn} throttle={throttle} shutdown={shutdown}"
+    )]
     NonMonotonic {
         /// Target.
         target: HardwareTarget,
@@ -107,11 +109,36 @@ impl ThermalPolicy {
     /// Cloud + NoHardware are always Cool (255/255/255 sentinels).
     pub fn canonical() -> Self {
         let thresholds = vec![
-            ThermalThresholds { target: HardwareTarget::CpuPulse,        warn_c: 75, throttle_c:  88, shutdown_c:  95 },
-            ThermalThresholds { target: HardwareTarget::Rocm3090,        warn_c: 78, throttle_c:  85, shutdown_c:  95 },
-            ThermalThresholds { target: HardwareTarget::BlackwellOracle, warn_c: 80, throttle_c:  90, shutdown_c: 105 },
-            ThermalThresholds { target: HardwareTarget::Cloud,           warn_c: 253, throttle_c: 254, shutdown_c: 255 },
-            ThermalThresholds { target: HardwareTarget::NoHardware,      warn_c: 253, throttle_c: 254, shutdown_c: 255 },
+            ThermalThresholds {
+                target: HardwareTarget::CpuPulse,
+                warn_c: 75,
+                throttle_c: 88,
+                shutdown_c: 95,
+            },
+            ThermalThresholds {
+                target: HardwareTarget::Rocm3090,
+                warn_c: 78,
+                throttle_c: 85,
+                shutdown_c: 95,
+            },
+            ThermalThresholds {
+                target: HardwareTarget::BlackwellOracle,
+                warn_c: 80,
+                throttle_c: 90,
+                shutdown_c: 105,
+            },
+            ThermalThresholds {
+                target: HardwareTarget::Cloud,
+                warn_c: 253,
+                throttle_c: 254,
+                shutdown_c: 255,
+            },
+            ThermalThresholds {
+                target: HardwareTarget::NoHardware,
+                warn_c: 253,
+                throttle_c: 254,
+                shutdown_c: 255,
+            },
         ];
         Self {
             schema_version: SCHEMA_VERSION.into(),
@@ -128,8 +155,10 @@ impl ThermalPolicy {
             return Err(ThermalError::CountInvalid(self.thresholds.len()));
         }
         let required = [
-            HardwareTarget::CpuPulse, HardwareTarget::Rocm3090,
-            HardwareTarget::BlackwellOracle, HardwareTarget::Cloud,
+            HardwareTarget::CpuPulse,
+            HardwareTarget::Rocm3090,
+            HardwareTarget::BlackwellOracle,
+            HardwareTarget::Cloud,
             HardwareTarget::NoHardware,
         ];
         for t in required {
@@ -165,14 +194,17 @@ impl ThermalPolicy {
 
     /// Evaluate the full load snapshot — returns 5-target verdict tuples.
     pub fn evaluate_snapshot(&self, load: &LoadSnapshot) -> Vec<(HardwareTarget, ThermalVerdict)> {
-        load.loads.iter()
+        load.loads
+            .iter()
             .map(|l| (l.target, self.evaluate(l.target, l.temp_c)))
             .collect()
     }
 
     /// True if any target is in Shutdown verdict.
     pub fn any_shutdown(&self, load: &LoadSnapshot) -> bool {
-        self.evaluate_snapshot(load).iter().any(|(_, v)| *v == ThermalVerdict::Shutdown)
+        self.evaluate_snapshot(load)
+            .iter()
+            .any(|(_, v)| *v == ThermalVerdict::Shutdown)
     }
 }
 
@@ -188,38 +220,65 @@ mod tests {
     #[test]
     fn cool_below_warn() {
         let p = ThermalPolicy::canonical();
-        assert_eq!(p.evaluate(HardwareTarget::CpuPulse, 60), ThermalVerdict::Cool);
+        assert_eq!(
+            p.evaluate(HardwareTarget::CpuPulse, 60),
+            ThermalVerdict::Cool
+        );
     }
 
     #[test]
     fn warm_band() {
         let p = ThermalPolicy::canonical();
         // CpuPulse: warn=75, throttle=88
-        assert_eq!(p.evaluate(HardwareTarget::CpuPulse, 75), ThermalVerdict::Warm);
-        assert_eq!(p.evaluate(HardwareTarget::CpuPulse, 80), ThermalVerdict::Warm);
-        assert_eq!(p.evaluate(HardwareTarget::CpuPulse, 87), ThermalVerdict::Warm);
+        assert_eq!(
+            p.evaluate(HardwareTarget::CpuPulse, 75),
+            ThermalVerdict::Warm
+        );
+        assert_eq!(
+            p.evaluate(HardwareTarget::CpuPulse, 80),
+            ThermalVerdict::Warm
+        );
+        assert_eq!(
+            p.evaluate(HardwareTarget::CpuPulse, 87),
+            ThermalVerdict::Warm
+        );
     }
 
     #[test]
     fn throttle_band() {
         let p = ThermalPolicy::canonical();
         // CpuPulse: throttle=88, shutdown=95
-        assert_eq!(p.evaluate(HardwareTarget::CpuPulse, 88), ThermalVerdict::Throttle);
-        assert_eq!(p.evaluate(HardwareTarget::CpuPulse, 90), ThermalVerdict::Throttle);
+        assert_eq!(
+            p.evaluate(HardwareTarget::CpuPulse, 88),
+            ThermalVerdict::Throttle
+        );
+        assert_eq!(
+            p.evaluate(HardwareTarget::CpuPulse, 90),
+            ThermalVerdict::Throttle
+        );
     }
 
     #[test]
     fn shutdown_at_or_above() {
         let p = ThermalPolicy::canonical();
-        assert_eq!(p.evaluate(HardwareTarget::CpuPulse, 95), ThermalVerdict::Shutdown);
-        assert_eq!(p.evaluate(HardwareTarget::CpuPulse, 110), ThermalVerdict::Shutdown);
+        assert_eq!(
+            p.evaluate(HardwareTarget::CpuPulse, 95),
+            ThermalVerdict::Shutdown
+        );
+        assert_eq!(
+            p.evaluate(HardwareTarget::CpuPulse, 110),
+            ThermalVerdict::Shutdown
+        );
     }
 
     #[test]
     fn cloud_and_none_always_cool() {
         let p = ThermalPolicy::canonical();
         assert_eq!(p.evaluate(HardwareTarget::Cloud, 0), ThermalVerdict::Cool);
-        assert_eq!(p.evaluate(HardwareTarget::NoHardware, 0), ThermalVerdict::Cool);
+        assert_eq!(
+            p.evaluate(HardwareTarget::NoHardware, 0),
+            ThermalVerdict::Cool
+        );
         // Even at 200°C (impossible but) they stay below sentinel warn=253.
         assert_eq!(p.evaluate(HardwareTarget::Cloud, 200), ThermalVerdict::Cool);
     }
@@ -238,7 +297,9 @@ mod tests {
         let p = ThermalPolicy::canonical();
         let mut load = LoadSnapshot::empty_canonical("t");
         for l in load.loads.iter_mut() {
-            if l.target == HardwareTarget::BlackwellOracle { l.temp_c = 110; }
+            if l.target == HardwareTarget::BlackwellOracle {
+                l.temp_c = 110;
+            }
         }
         assert!(p.any_shutdown(&load));
     }
@@ -260,21 +321,36 @@ mod tests {
     fn schema_drift_rejected() {
         let mut p = ThermalPolicy::canonical();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), ThermalError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            ThermalError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn count_invalid_caught() {
         let mut p = ThermalPolicy::canonical();
         p.thresholds.pop();
-        assert!(matches!(p.validate().unwrap_err(), ThermalError::CountInvalid(4)));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            ThermalError::CountInvalid(4)
+        ));
     }
 
     #[test]
     fn verdict_serde_kebab() {
-        assert_eq!(serde_json::to_string(&ThermalVerdict::Cool).unwrap(), "\"cool\"");
-        assert_eq!(serde_json::to_string(&ThermalVerdict::Throttle).unwrap(), "\"throttle\"");
-        assert_eq!(serde_json::to_string(&ThermalVerdict::Shutdown).unwrap(), "\"shutdown\"");
+        assert_eq!(
+            serde_json::to_string(&ThermalVerdict::Cool).unwrap(),
+            "\"cool\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ThermalVerdict::Throttle).unwrap(),
+            "\"throttle\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ThermalVerdict::Shutdown).unwrap(),
+            "\"shutdown\""
+        );
     }
 
     #[test]

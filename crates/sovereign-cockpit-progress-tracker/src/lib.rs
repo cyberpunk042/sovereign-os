@@ -98,11 +98,22 @@ impl ProgressTracker {
     }
 
     /// Update progress for a Determinate task.
-    pub fn update_progress(&mut self, id: &str, progress: u8, eta_seconds: u32) -> Result<(), ProgressError> {
+    pub fn update_progress(
+        &mut self,
+        id: &str,
+        progress: u8,
+        eta_seconds: u32,
+    ) -> Result<(), ProgressError> {
         if progress > 100 {
-            return Err(ProgressError::ProgressOutOfRange { id: id.into(), progress });
+            return Err(ProgressError::ProgressOutOfRange {
+                id: id.into(),
+                progress,
+            });
         }
-        let task = self.tasks.iter_mut().find(|t| t.id == id)
+        let task = self
+            .tasks
+            .iter_mut()
+            .find(|t| t.id == id)
             .ok_or_else(|| ProgressError::Unknown(id.into()))?;
         task.progress = progress;
         task.eta_seconds = eta_seconds;
@@ -111,7 +122,10 @@ impl ProgressTracker {
 
     /// Finish a task — removes from tray.
     pub fn finish(&mut self, id: &str) -> Result<(), ProgressError> {
-        let pos = self.tasks.iter().position(|t| t.id == id)
+        let pos = self
+            .tasks
+            .iter()
+            .position(|t| t.id == id)
             .ok_or_else(|| ProgressError::Unknown(id.into()))?;
         self.tasks.remove(pos);
         Ok(())
@@ -124,8 +138,14 @@ impl ProgressTracker {
 
     /// Average progress across Determinate tasks. 0 if none.
     pub fn average_progress(&self) -> u8 {
-        let v: Vec<&Task> = self.tasks.iter().filter(|t| t.kind == ProgressKind::Determinate).collect();
-        if v.is_empty() { return 0; }
+        let v: Vec<&Task> = self
+            .tasks
+            .iter()
+            .filter(|t| t.kind == ProgressKind::Determinate)
+            .collect();
+        if v.is_empty() {
+            return 0;
+        }
         let sum: u32 = v.iter().map(|t| t.progress as u32).sum();
         (sum / v.len() as u32) as u8
     }
@@ -148,16 +168,25 @@ impl ProgressTracker {
 }
 
 fn check_shape(t: &Task) -> Result<(), ProgressError> {
-    if t.id.is_empty() { return Err(ProgressError::EmptyId); }
-    if t.label.is_empty() { return Err(ProgressError::EmptyLabel(t.id.clone())); }
+    if t.id.is_empty() {
+        return Err(ProgressError::EmptyId);
+    }
+    if t.label.is_empty() {
+        return Err(ProgressError::EmptyLabel(t.id.clone()));
+    }
     if t.progress > 100 {
-        return Err(ProgressError::ProgressOutOfRange { id: t.id.clone(), progress: t.progress });
+        return Err(ProgressError::ProgressOutOfRange {
+            id: t.id.clone(),
+            progress: t.progress,
+        });
     }
     Ok(())
 }
 
 impl Default for ProgressTracker {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -194,23 +223,29 @@ mod tests {
     fn duplicate_start_rejected() {
         let mut t = ProgressTracker::new();
         t.start(task("a", ProgressKind::Determinate)).unwrap();
-        assert!(matches!(t.start(task("a", ProgressKind::Determinate)).unwrap_err(),
-            ProgressError::DuplicateId(_)));
+        assert!(matches!(
+            t.start(task("a", ProgressKind::Determinate)).unwrap_err(),
+            ProgressError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn unknown_update_rejected() {
         let mut t = ProgressTracker::new();
-        assert!(matches!(t.update_progress("none", 10, 0).unwrap_err(),
-            ProgressError::Unknown(_)));
+        assert!(matches!(
+            t.update_progress("none", 10, 0).unwrap_err(),
+            ProgressError::Unknown(_)
+        ));
     }
 
     #[test]
     fn progress_out_of_range_rejected() {
         let mut t = ProgressTracker::new();
         t.start(task("a", ProgressKind::Determinate)).unwrap();
-        assert!(matches!(t.update_progress("a", 150, 0).unwrap_err(),
-            ProgressError::ProgressOutOfRange { .. }));
+        assert!(matches!(
+            t.update_progress("a", 150, 0).unwrap_err(),
+            ProgressError::ProgressOutOfRange { .. }
+        ));
     }
 
     #[test]
@@ -226,7 +261,10 @@ mod tests {
         let mut t = ProgressTracker::new();
         let mut bad = task("a", ProgressKind::Determinate);
         bad.label = String::new();
-        assert!(matches!(t.start(bad).unwrap_err(), ProgressError::EmptyLabel(_)));
+        assert!(matches!(
+            t.start(bad).unwrap_err(),
+            ProgressError::EmptyLabel(_)
+        ));
     }
 
     #[test]
@@ -242,13 +280,22 @@ mod tests {
     fn schema_drift_rejected() {
         let mut t = ProgressTracker::new();
         t.schema_version = "9.9.9".into();
-        assert!(matches!(t.validate().unwrap_err(), ProgressError::SchemaMismatch));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            ProgressError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn kind_serde_kebab() {
-        assert_eq!(serde_json::to_string(&ProgressKind::Determinate).unwrap(), "\"determinate\"");
-        assert_eq!(serde_json::to_string(&ProgressKind::Indeterminate).unwrap(), "\"indeterminate\"");
+        assert_eq!(
+            serde_json::to_string(&ProgressKind::Determinate).unwrap(),
+            "\"determinate\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ProgressKind::Indeterminate).unwrap(),
+            "\"indeterminate\""
+        );
     }
 
     #[test]

@@ -72,9 +72,13 @@ impl CodeGutter {
 
     /// Add an annotation on `line` (1-based).
     pub fn add(&mut self, line: u32, kind: AnnotationKind) -> Result<(), GutterError> {
-        if line == 0 { return Err(GutterError::LineZero); }
+        if line == 0 {
+            return Err(GutterError::LineZero);
+        }
         let v = self.annotations.entry(line).or_default();
-        if !v.contains(&kind) { v.push(kind); }
+        if !v.contains(&kind) {
+            v.push(kind);
+        }
         Ok(())
     }
 
@@ -83,7 +87,9 @@ impl CodeGutter {
         if let Some(v) = self.annotations.get_mut(&line) {
             if let Some(pos) = v.iter().position(|k| *k == kind) {
                 v.remove(pos);
-                if v.is_empty() { self.annotations.remove(&line); }
+                if v.is_empty() {
+                    self.annotations.remove(&line);
+                }
                 return true;
             }
         }
@@ -92,15 +98,22 @@ impl CodeGutter {
 
     /// Highest-precedence annotation on `line`, if any.
     pub fn winner(&self, line: u32) -> Option<AnnotationKind> {
-        self.annotations.get(&line).and_then(|v| v.iter().copied().max())
+        self.annotations
+            .get(&line)
+            .and_then(|v| v.iter().copied().max())
     }
 
     /// Gutter width in chars: digit count of total_lines + 2.
     pub fn gutter_width_chars(&self, total_lines: u32) -> u32 {
-        let digits = if total_lines == 0 { 1 } else {
+        let digits = if total_lines == 0 {
+            1
+        } else {
             let mut n = total_lines;
             let mut d = 0u32;
-            while n > 0 { d += 1; n /= 10; }
+            while n > 0 {
+                d += 1;
+                n /= 10;
+            }
             d
         };
         digits + 2
@@ -108,14 +121,20 @@ impl CodeGutter {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), GutterError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(GutterError::SchemaMismatch); }
-        if self.annotations.keys().any(|k| *k == 0) { return Err(GutterError::LineZero); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(GutterError::SchemaMismatch);
+        }
+        if self.annotations.keys().any(|k| *k == 0) {
+            return Err(GutterError::LineZero);
+        }
         Ok(())
     }
 }
 
 impl Default for CodeGutter {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -155,7 +174,10 @@ mod tests {
     #[test]
     fn line_zero_rejected() {
         let mut g = CodeGutter::new();
-        assert!(matches!(g.add(0, AnnotationKind::Info).unwrap_err(), GutterError::LineZero));
+        assert!(matches!(
+            g.add(0, AnnotationKind::Info).unwrap_err(),
+            GutterError::LineZero
+        ));
     }
 
     #[test]
@@ -186,7 +208,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut g = CodeGutter::new();
         g.schema_version = "9.9.9".into();
-        assert!(matches!(g.validate().unwrap_err(), GutterError::SchemaMismatch));
+        assert!(matches!(
+            g.validate().unwrap_err(),
+            GutterError::SchemaMismatch
+        ));
     }
 
     #[test]

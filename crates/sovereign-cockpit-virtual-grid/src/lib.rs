@@ -69,14 +69,29 @@ pub enum GridError {
 
 impl VirtualGrid {
     /// New.
-    pub fn new(total_rows: u64, total_cols: u64, cell_w_px: u32, cell_h_px: u32, viewport_w_px: u32, viewport_h_px: u32, overscan: u32) -> Result<Self, GridError> {
-        if cell_w_px == 0 || cell_h_px == 0 { return Err(GridError::CellZero); }
-        if viewport_w_px == 0 || viewport_h_px == 0 { return Err(GridError::ViewportZero); }
+    pub fn new(
+        total_rows: u64,
+        total_cols: u64,
+        cell_w_px: u32,
+        cell_h_px: u32,
+        viewport_w_px: u32,
+        viewport_h_px: u32,
+        overscan: u32,
+    ) -> Result<Self, GridError> {
+        if cell_w_px == 0 || cell_h_px == 0 {
+            return Err(GridError::CellZero);
+        }
+        if viewport_w_px == 0 || viewport_h_px == 0 {
+            return Err(GridError::ViewportZero);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
-            total_rows, total_cols,
-            cell_w_px, cell_h_px,
-            viewport_w_px, viewport_h_px,
+            total_rows,
+            total_cols,
+            cell_w_px,
+            cell_h_px,
+            viewport_w_px,
+            viewport_h_px,
             scroll_x_px: 0,
             scroll_y_px: 0,
             overscan,
@@ -93,8 +108,10 @@ impl VirtualGrid {
     pub fn visible_range(&self) -> VisibleRange {
         let raw_first_col = (self.scroll_x_px as u64) / self.cell_w_px as u64;
         let raw_first_row = (self.scroll_y_px as u64) / self.cell_h_px as u64;
-        let visible_cols_no_overscan = ((self.viewport_w_px as u64 + self.cell_w_px as u64 - 1) / self.cell_w_px as u64) + 1;
-        let visible_rows_no_overscan = ((self.viewport_h_px as u64 + self.cell_h_px as u64 - 1) / self.cell_h_px as u64) + 1;
+        let visible_cols_no_overscan =
+            ((self.viewport_w_px as u64 + self.cell_w_px as u64 - 1) / self.cell_w_px as u64) + 1;
+        let visible_rows_no_overscan =
+            ((self.viewport_h_px as u64 + self.cell_h_px as u64 - 1) / self.cell_h_px as u64) + 1;
         let overscan = self.overscan as u64;
         let first_col = raw_first_col.saturating_sub(overscan).min(self.total_cols);
         let first_row = raw_first_row.saturating_sub(overscan).min(self.total_rows);
@@ -113,8 +130,12 @@ impl VirtualGrid {
         if self.schema_version != SCHEMA_VERSION {
             return Err(GridError::SchemaMismatch);
         }
-        if self.cell_w_px == 0 || self.cell_h_px == 0 { return Err(GridError::CellZero); }
-        if self.viewport_w_px == 0 || self.viewport_h_px == 0 { return Err(GridError::ViewportZero); }
+        if self.cell_w_px == 0 || self.cell_h_px == 0 {
+            return Err(GridError::CellZero);
+        }
+        if self.viewport_w_px == 0 || self.viewport_h_px == 0 {
+            return Err(GridError::ViewportZero);
+        }
         Ok(())
     }
 }
@@ -125,12 +146,18 @@ mod tests {
 
     #[test]
     fn cell_zero_rejected() {
-        assert!(matches!(VirtualGrid::new(100, 100, 0, 10, 100, 100, 0).unwrap_err(), GridError::CellZero));
+        assert!(matches!(
+            VirtualGrid::new(100, 100, 0, 10, 100, 100, 0).unwrap_err(),
+            GridError::CellZero
+        ));
     }
 
     #[test]
     fn viewport_zero_rejected() {
-        assert!(matches!(VirtualGrid::new(100, 100, 10, 10, 0, 100, 0).unwrap_err(), GridError::ViewportZero));
+        assert!(matches!(
+            VirtualGrid::new(100, 100, 10, 10, 0, 100, 0).unwrap_err(),
+            GridError::ViewportZero
+        ));
     }
 
     #[test]
@@ -176,7 +203,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut g = VirtualGrid::new(10, 10, 10, 10, 100, 100, 0).unwrap();
         g.schema_version = "9.9.9".into();
-        assert!(matches!(g.validate().unwrap_err(), GridError::SchemaMismatch));
+        assert!(matches!(
+            g.validate().unwrap_err(),
+            GridError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -19,7 +19,8 @@ use thiserror::Error;
 pub const SCHEMA_VERSION: &str = "1.0.0";
 
 /// Doctrine verbatim per E0406.
-pub const DOCTRINE_EXECUTABLE_MEMORY: &str = "this is how the conversation becomes executable memory";
+pub const DOCTRINE_EXECUTABLE_MEMORY: &str =
+    "this is how the conversation becomes executable memory";
 
 /// 8 inheritance artifact kinds per dump 12500-12513.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -151,15 +152,23 @@ impl ArtifactManifest {
     /// Empty canonical manifest with all 8 unsealed.
     pub fn empty_canonical() -> Self {
         let artifacts = [
-            ArtifactKind::Vision, ArtifactKind::Architecture, ArtifactKind::Methodology,
-            ArtifactKind::Profiles, ArtifactKind::Policy, ArtifactKind::ModelRegistry,
-            ArtifactKind::HardwareProfiles, ArtifactKind::Evals,
-        ].into_iter().map(|k| ArtifactPin {
+            ArtifactKind::Vision,
+            ArtifactKind::Architecture,
+            ArtifactKind::Methodology,
+            ArtifactKind::Profiles,
+            ArtifactKind::Policy,
+            ArtifactKind::ModelRegistry,
+            ArtifactKind::HardwareProfiles,
+            ArtifactKind::Evals,
+        ]
+        .into_iter()
+        .map(|k| ArtifactPin {
             kind: k,
             repo_path: format!("docs/{}", k.filename()),
             content_hash: String::new(),
             version: "unsealed".into(),
-        }).collect();
+        })
+        .collect();
         Self {
             schema_version: SCHEMA_VERSION.into(),
             doctrine: DOCTRINE_EXECUTABLE_MEMORY.into(),
@@ -179,9 +188,14 @@ impl ArtifactManifest {
             return Err(ArtifactError::CountInvalid(self.artifacts.len()));
         }
         let required = [
-            ArtifactKind::Vision, ArtifactKind::Architecture, ArtifactKind::Methodology,
-            ArtifactKind::Profiles, ArtifactKind::Policy, ArtifactKind::ModelRegistry,
-            ArtifactKind::HardwareProfiles, ArtifactKind::Evals,
+            ArtifactKind::Vision,
+            ArtifactKind::Architecture,
+            ArtifactKind::Methodology,
+            ArtifactKind::Profiles,
+            ArtifactKind::Policy,
+            ArtifactKind::ModelRegistry,
+            ArtifactKind::HardwareProfiles,
+            ArtifactKind::Evals,
         ];
         for k in required {
             if !self.artifacts.iter().any(|a| a.kind == k) {
@@ -225,7 +239,10 @@ impl ArtifactManifest {
 
     /// Sealed count (content_hash non-empty).
     pub fn sealed_count(&self) -> usize {
-        self.artifacts.iter().filter(|a| !a.content_hash.is_empty()).count()
+        self.artifacts
+            .iter()
+            .filter(|a| !a.content_hash.is_empty())
+            .count()
     }
 }
 
@@ -236,10 +253,14 @@ mod tests {
     #[test]
     fn eight_kinds_positioned() {
         for (k, p) in [
-            (ArtifactKind::Vision, 1), (ArtifactKind::Architecture, 2),
-            (ArtifactKind::Methodology, 3), (ArtifactKind::Profiles, 4),
-            (ArtifactKind::Policy, 5), (ArtifactKind::ModelRegistry, 6),
-            (ArtifactKind::HardwareProfiles, 7), (ArtifactKind::Evals, 8),
+            (ArtifactKind::Vision, 1),
+            (ArtifactKind::Architecture, 2),
+            (ArtifactKind::Methodology, 3),
+            (ArtifactKind::Profiles, 4),
+            (ArtifactKind::Policy, 5),
+            (ArtifactKind::ModelRegistry, 6),
+            (ArtifactKind::HardwareProfiles, 7),
+            (ArtifactKind::Evals, 8),
         ] {
             assert_eq!(k.position(), p);
         }
@@ -249,15 +270,30 @@ mod tests {
     fn filenames_canonical() {
         assert_eq!(ArtifactKind::Vision.filename(), "VISION.md");
         assert_eq!(ArtifactKind::Methodology.filename(), "METHODOLOGY.md");
-        assert_eq!(ArtifactKind::HardwareProfiles.filename(), "HARDWARE_PROFILES.yaml");
-        assert_eq!(ArtifactKind::ModelRegistry.filename(), "MODEL_REGISTRY.yaml");
+        assert_eq!(
+            ArtifactKind::HardwareProfiles.filename(),
+            "HARDWARE_PROFILES.yaml"
+        );
+        assert_eq!(
+            ArtifactKind::ModelRegistry.filename(),
+            "MODEL_REGISTRY.yaml"
+        );
     }
 
     #[test]
     fn descriptions_verbatim() {
-        assert_eq!(ArtifactKind::Vision.description(), "philosophy and system thesis");
-        assert_eq!(ArtifactKind::Architecture.description(), "planes services hardware mapping");
-        assert_eq!(ArtifactKind::Methodology.description(), "MAP→SPEC→TEST→ACT→EVAL→COMMIT→LEARN");
+        assert_eq!(
+            ArtifactKind::Vision.description(),
+            "philosophy and system thesis"
+        );
+        assert_eq!(
+            ArtifactKind::Architecture.description(),
+            "planes services hardware mapping"
+        );
+        assert_eq!(
+            ArtifactKind::Methodology.description(),
+            "MAP→SPEC→TEST→ACT→EVAL→COMMIT→LEARN"
+        );
     }
 
     #[test]
@@ -269,21 +305,30 @@ mod tests {
     fn schema_drift_rejected() {
         let mut m = ArtifactManifest::empty_canonical();
         m.schema_version = "9.9.9".into();
-        assert!(matches!(m.validate().unwrap_err(), ArtifactError::SchemaMismatch));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            ArtifactError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn doctrine_tamper_caught() {
         let mut m = ArtifactManifest::empty_canonical();
         m.doctrine = "wrong".into();
-        assert!(matches!(m.validate().unwrap_err(), ArtifactError::DoctrineTampered));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            ArtifactError::DoctrineTampered
+        ));
     }
 
     #[test]
     fn count_invalid_caught() {
         let mut m = ArtifactManifest::empty_canonical();
         m.artifacts.pop();
-        assert!(matches!(m.validate().unwrap_err(), ArtifactError::CountInvalid(7)));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            ArtifactError::CountInvalid(7)
+        ));
     }
 
     #[test]
@@ -291,7 +336,11 @@ mod tests {
         let mut m = ArtifactManifest::empty_canonical();
         m.artifacts[0].repo_path = "docs/wrong.txt".into();
         match m.validate().unwrap_err() {
-            ArtifactError::FilenameMismatch { kind, expected, actual } => {
+            ArtifactError::FilenameMismatch {
+                kind,
+                expected,
+                actual,
+            } => {
                 assert_eq!(kind, ArtifactKind::Vision);
                 assert_eq!(expected, "VISION.md");
                 assert_eq!(actual, "wrong.txt");
@@ -304,7 +353,10 @@ mod tests {
     fn verify_on_disk_catches_missing() {
         let tmp = std::env::temp_dir();
         let m = ArtifactManifest::empty_canonical();
-        assert!(matches!(m.verify_on_disk(&tmp).unwrap_err(), ArtifactError::PathMissing { .. }));
+        assert!(matches!(
+            m.verify_on_disk(&tmp).unwrap_err(),
+            ArtifactError::PathMissing { .. }
+        ));
     }
 
     #[test]
@@ -318,14 +370,26 @@ mod tests {
 
     #[test]
     fn doctrine_verbatim() {
-        assert_eq!(DOCTRINE_EXECUTABLE_MEMORY, "this is how the conversation becomes executable memory");
+        assert_eq!(
+            DOCTRINE_EXECUTABLE_MEMORY,
+            "this is how the conversation becomes executable memory"
+        );
     }
 
     #[test]
     fn artifact_kind_serde_kebab() {
-        assert_eq!(serde_json::to_string(&ArtifactKind::ModelRegistry).unwrap(), "\"model-registry\"");
-        assert_eq!(serde_json::to_string(&ArtifactKind::HardwareProfiles).unwrap(), "\"hardware-profiles\"");
-        assert_eq!(serde_json::to_string(&ArtifactKind::Methodology).unwrap(), "\"methodology\"");
+        assert_eq!(
+            serde_json::to_string(&ArtifactKind::ModelRegistry).unwrap(),
+            "\"model-registry\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ArtifactKind::HardwareProfiles).unwrap(),
+            "\"hardware-profiles\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ArtifactKind::Methodology).unwrap(),
+            "\"methodology\""
+        );
     }
 
     #[test]

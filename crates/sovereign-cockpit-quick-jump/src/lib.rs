@@ -73,10 +73,18 @@ impl QuickJump {
 
     /// Register.
     pub fn register(&mut self, target: JumpTarget) -> Result<(), JumpError> {
-        if target.short_id.is_empty() { return Err(JumpError::EmptyShortId); }
-        if target.kind.is_empty() { return Err(JumpError::EmptyKind); }
-        if target.full_path.is_empty() { return Err(JumpError::EmptyPath); }
-        if target.label.is_empty() { return Err(JumpError::EmptyLabel); }
+        if target.short_id.is_empty() {
+            return Err(JumpError::EmptyShortId);
+        }
+        if target.kind.is_empty() {
+            return Err(JumpError::EmptyKind);
+        }
+        if target.full_path.is_empty() {
+            return Err(JumpError::EmptyPath);
+        }
+        if target.label.is_empty() {
+            return Err(JumpError::EmptyLabel);
+        }
         if self.targets.contains_key(&target.short_id) {
             return Err(JumpError::DuplicateId(target.short_id));
         }
@@ -96,24 +104,40 @@ impl QuickJump {
 
     /// Targets matching a kind.
     pub fn by_kind(&self, kind: &str) -> Vec<JumpTarget> {
-        self.targets.values().filter(|t| t.kind == kind).cloned().collect()
+        self.targets
+            .values()
+            .filter(|t| t.kind == kind)
+            .cloned()
+            .collect()
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), JumpError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(JumpError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(JumpError::SchemaMismatch);
+        }
         for t in self.targets.values() {
-            if t.short_id.is_empty() { return Err(JumpError::EmptyShortId); }
-            if t.kind.is_empty() { return Err(JumpError::EmptyKind); }
-            if t.full_path.is_empty() { return Err(JumpError::EmptyPath); }
-            if t.label.is_empty() { return Err(JumpError::EmptyLabel); }
+            if t.short_id.is_empty() {
+                return Err(JumpError::EmptyShortId);
+            }
+            if t.kind.is_empty() {
+                return Err(JumpError::EmptyKind);
+            }
+            if t.full_path.is_empty() {
+                return Err(JumpError::EmptyPath);
+            }
+            if t.label.is_empty() {
+                return Err(JumpError::EmptyLabel);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for QuickJump {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -132,7 +156,8 @@ mod tests {
     #[test]
     fn register_and_resolve() {
         let mut q = QuickJump::new();
-        q.register(jt("@logs", "dashboard", "/dashboards/logs", "Logs")).unwrap();
+        q.register(jt("@logs", "dashboard", "/dashboards/logs", "Logs"))
+            .unwrap();
         let t = q.resolve("@logs").unwrap();
         assert_eq!(t.full_path, "/dashboards/logs");
     }
@@ -141,14 +166,18 @@ mod tests {
     fn duplicate_rejected() {
         let mut q = QuickJump::new();
         q.register(jt("@logs", "dashboard", "/x", "x")).unwrap();
-        assert!(matches!(q.register(jt("@logs", "dashboard", "/y", "y")).unwrap_err(), JumpError::DuplicateId(_)));
+        assert!(matches!(
+            q.register(jt("@logs", "dashboard", "/y", "y")).unwrap_err(),
+            JumpError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn by_kind() {
         let mut q = QuickJump::new();
         q.register(jt("@logs", "dashboard", "/x", "x")).unwrap();
-        q.register(jt("#1234", "task", "/t/1234", "Task 1234")).unwrap();
+        q.register(jt("#1234", "task", "/t/1234", "Task 1234"))
+            .unwrap();
         assert_eq!(q.by_kind("dashboard").len(), 1);
         assert_eq!(q.by_kind("task").len(), 1);
         assert_eq!(q.by_kind("other").len(), 0);
@@ -165,17 +194,32 @@ mod tests {
     #[test]
     fn empty_fields_rejected() {
         let mut q = QuickJump::new();
-        assert!(matches!(q.register(jt("", "k", "p", "l")).unwrap_err(), JumpError::EmptyShortId));
-        assert!(matches!(q.register(jt("s", "", "p", "l")).unwrap_err(), JumpError::EmptyKind));
-        assert!(matches!(q.register(jt("s", "k", "", "l")).unwrap_err(), JumpError::EmptyPath));
-        assert!(matches!(q.register(jt("s", "k", "p", "")).unwrap_err(), JumpError::EmptyLabel));
+        assert!(matches!(
+            q.register(jt("", "k", "p", "l")).unwrap_err(),
+            JumpError::EmptyShortId
+        ));
+        assert!(matches!(
+            q.register(jt("s", "", "p", "l")).unwrap_err(),
+            JumpError::EmptyKind
+        ));
+        assert!(matches!(
+            q.register(jt("s", "k", "", "l")).unwrap_err(),
+            JumpError::EmptyPath
+        ));
+        assert!(matches!(
+            q.register(jt("s", "k", "p", "")).unwrap_err(),
+            JumpError::EmptyLabel
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut q = QuickJump::new();
         q.schema_version = "9.9.9".into();
-        assert!(matches!(q.validate().unwrap_err(), JumpError::SchemaMismatch));
+        assert!(matches!(
+            q.validate().unwrap_err(),
+            JumpError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -157,7 +157,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut p = ClockPreferences::default_prefs();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), ClockError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            ClockError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -30,14 +30,30 @@ pub struct Modifiers {
 
 impl Modifiers {
     /// No modifiers.
-    pub const NONE: Self = Self { ctrl: false, shift: false, alt: false, meta: false };
+    pub const NONE: Self = Self {
+        ctrl: false,
+        shift: false,
+        alt: false,
+        meta: false,
+    };
 
     /// Builder: Ctrl.
-    pub fn ctrl() -> Self { Self { ctrl: true, ..Self::NONE } }
+    pub fn ctrl() -> Self {
+        Self {
+            ctrl: true,
+            ..Self::NONE
+        }
+    }
     /// Add Shift.
-    pub fn shift(mut self) -> Self { self.shift = true; self }
+    pub fn shift(mut self) -> Self {
+        self.shift = true;
+        self
+    }
     /// Add Alt.
-    pub fn alt(mut self) -> Self { self.alt = true; self }
+    pub fn alt(mut self) -> Self {
+        self.alt = true;
+        self
+    }
 }
 
 /// Scope a binding applies in.
@@ -108,10 +124,18 @@ pub enum KeystrokeError {
 
 fn chord_string(m: Modifiers, key: &str) -> String {
     let mut s = String::new();
-    if m.ctrl { s.push_str("Ctrl+"); }
-    if m.alt { s.push_str("Alt+"); }
-    if m.shift { s.push_str("Shift+"); }
-    if m.meta { s.push_str("Meta+"); }
+    if m.ctrl {
+        s.push_str("Ctrl+");
+    }
+    if m.alt {
+        s.push_str("Alt+");
+    }
+    if m.shift {
+        s.push_str("Shift+");
+    }
+    if m.meta {
+        s.push_str("Meta+");
+    }
     s.push_str(key);
     s
 }
@@ -127,8 +151,12 @@ impl KeystrokeMap {
 
     /// Add a binding; rejects conflicts.
     pub fn add(&mut self, b: KeyBinding) -> Result<(), KeystrokeError> {
-        if b.key.is_empty() { return Err(KeystrokeError::EmptyKey); }
-        if b.action_id.is_empty() { return Err(KeystrokeError::EmptyActionId); }
+        if b.key.is_empty() {
+            return Err(KeystrokeError::EmptyKey);
+        }
+        if b.action_id.is_empty() {
+            return Err(KeystrokeError::EmptyActionId);
+        }
         for existing in &self.bindings {
             if existing.scope == b.scope
                 && existing.modifiers == b.modifiers
@@ -154,8 +182,12 @@ impl KeystrokeMap {
         use std::collections::HashMap;
         let mut map: HashMap<(Scope, Modifiers, String), String> = HashMap::new();
         for b in &self.bindings {
-            if b.key.is_empty() { return Err(KeystrokeError::EmptyKey); }
-            if b.action_id.is_empty() { return Err(KeystrokeError::EmptyActionId); }
+            if b.key.is_empty() {
+                return Err(KeystrokeError::EmptyKey);
+            }
+            if b.action_id.is_empty() {
+                return Err(KeystrokeError::EmptyActionId);
+            }
             let kk = (b.scope, b.modifiers, b.key.clone());
             if let Some(existing) = map.get(&kk) {
                 return Err(KeystrokeError::Conflict {
@@ -188,7 +220,9 @@ impl KeystrokeMap {
 }
 
 impl Default for KeystrokeMap {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -197,8 +231,11 @@ mod tests {
 
     fn b(scope: Scope, modifiers: Modifiers, key: &str, action: &str) -> KeyBinding {
         KeyBinding {
-            modifiers, key: key.into(), action_id: action.into(),
-            scope, description: String::new(),
+            modifiers,
+            key: key.into(),
+            action_id: action.into(),
+            scope,
+            description: String::new(),
         }
     }
 
@@ -210,47 +247,71 @@ mod tests {
     #[test]
     fn add_two_distinct_chords() {
         let mut m = KeystrokeMap::new();
-        m.add(b(Scope::Global, Modifiers::ctrl(), "k", "open-palette")).unwrap();
-        m.add(b(Scope::Global, Modifiers::ctrl(), "s", "save")).unwrap();
+        m.add(b(Scope::Global, Modifiers::ctrl(), "k", "open-palette"))
+            .unwrap();
+        m.add(b(Scope::Global, Modifiers::ctrl(), "s", "save"))
+            .unwrap();
         m.validate().unwrap();
     }
 
     #[test]
     fn conflict_in_same_scope_rejected() {
         let mut m = KeystrokeMap::new();
-        m.add(b(Scope::Global, Modifiers::ctrl(), "k", "a")).unwrap();
-        let err = m.add(b(Scope::Global, Modifiers::ctrl(), "k", "b")).unwrap_err();
+        m.add(b(Scope::Global, Modifiers::ctrl(), "k", "a"))
+            .unwrap();
+        let err = m
+            .add(b(Scope::Global, Modifiers::ctrl(), "k", "b"))
+            .unwrap_err();
         assert!(matches!(err, KeystrokeError::Conflict { .. }));
     }
 
     #[test]
     fn same_chord_different_scope_ok() {
         let mut m = KeystrokeMap::new();
-        m.add(b(Scope::Conversation, Modifiers::ctrl(), "k", "a")).unwrap();
-        m.add(b(Scope::Dashboard, Modifiers::ctrl(), "k", "b")).unwrap();
+        m.add(b(Scope::Conversation, Modifiers::ctrl(), "k", "a"))
+            .unwrap();
+        m.add(b(Scope::Dashboard, Modifiers::ctrl(), "k", "b"))
+            .unwrap();
     }
 
     #[test]
     fn empty_key_rejected() {
         let mut m = KeystrokeMap::new();
-        let err = m.add(b(Scope::Global, Modifiers::ctrl(), "", "a")).unwrap_err();
+        let err = m
+            .add(b(Scope::Global, Modifiers::ctrl(), "", "a"))
+            .unwrap_err();
         assert!(matches!(err, KeystrokeError::EmptyKey));
     }
 
     #[test]
     fn empty_action_rejected() {
         let mut m = KeystrokeMap::new();
-        let err = m.add(b(Scope::Global, Modifiers::ctrl(), "k", "")).unwrap_err();
+        let err = m
+            .add(b(Scope::Global, Modifiers::ctrl(), "k", ""))
+            .unwrap_err();
         assert!(matches!(err, KeystrokeError::EmptyActionId));
     }
 
     #[test]
     fn resolve_scope_first_then_global() {
         let mut m = KeystrokeMap::new();
-        m.add(b(Scope::Global, Modifiers::ctrl(), "k", "global-action")).unwrap();
-        m.add(b(Scope::Conversation, Modifiers::ctrl(), "k", "conv-action")).unwrap();
-        assert_eq!(m.resolve(Scope::Conversation, Modifiers::ctrl(), "k"), Some("conv-action"));
-        assert_eq!(m.resolve(Scope::Dashboard, Modifiers::ctrl(), "k"), Some("global-action"));
+        m.add(b(Scope::Global, Modifiers::ctrl(), "k", "global-action"))
+            .unwrap();
+        m.add(b(
+            Scope::Conversation,
+            Modifiers::ctrl(),
+            "k",
+            "conv-action",
+        ))
+        .unwrap();
+        assert_eq!(
+            m.resolve(Scope::Conversation, Modifiers::ctrl(), "k"),
+            Some("conv-action")
+        );
+        assert_eq!(
+            m.resolve(Scope::Dashboard, Modifiers::ctrl(), "k"),
+            Some("global-action")
+        );
     }
 
     #[test]
@@ -272,21 +333,37 @@ mod tests {
     fn schema_drift_rejected() {
         let mut m = KeystrokeMap::new();
         m.schema_version = "9.9.9".into();
-        assert!(matches!(m.validate().unwrap_err(), KeystrokeError::SchemaMismatch));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            KeystrokeError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn scope_serde_kebab() {
-        assert_eq!(serde_json::to_string(&Scope::Conversation).unwrap(), "\"conversation\"");
+        assert_eq!(
+            serde_json::to_string(&Scope::Conversation).unwrap(),
+            "\"conversation\""
+        );
         assert_eq!(serde_json::to_string(&Scope::Replay).unwrap(), "\"replay\"");
-        assert_eq!(serde_json::to_string(&Scope::Palette).unwrap(), "\"palette\"");
+        assert_eq!(
+            serde_json::to_string(&Scope::Palette).unwrap(),
+            "\"palette\""
+        );
     }
 
     #[test]
     fn map_serde_roundtrip() {
         let mut m = KeystrokeMap::new();
-        m.add(b(Scope::Global, Modifiers::ctrl(), "k", "open-palette")).unwrap();
-        m.add(b(Scope::Conversation, Modifiers::ctrl().shift(), "enter", "submit-and-stay")).unwrap();
+        m.add(b(Scope::Global, Modifiers::ctrl(), "k", "open-palette"))
+            .unwrap();
+        m.add(b(
+            Scope::Conversation,
+            Modifiers::ctrl().shift(),
+            "enter",
+            "submit-and-stay",
+        ))
+        .unwrap();
         let j = serde_json::to_string(&m).unwrap();
         let back: KeystrokeMap = serde_json::from_str(&j).unwrap();
         assert_eq!(m, back);

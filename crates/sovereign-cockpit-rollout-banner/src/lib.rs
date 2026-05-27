@@ -78,20 +78,35 @@ impl RolloutBanner {
     }
 
     /// Register / replace banner.
-    pub fn register(&mut self, feature_id: &str, label: Label, cohort: &str) -> Result<(), BannerError> {
-        if feature_id.is_empty() { return Err(BannerError::EmptyFeature); }
-        if cohort.is_empty() { return Err(BannerError::EmptyCohort); }
-        self.banners.insert(feature_id.into(), Banner {
-            label,
-            cohort: cohort.into(),
-            dismissed: false,
-        });
+    pub fn register(
+        &mut self,
+        feature_id: &str,
+        label: Label,
+        cohort: &str,
+    ) -> Result<(), BannerError> {
+        if feature_id.is_empty() {
+            return Err(BannerError::EmptyFeature);
+        }
+        if cohort.is_empty() {
+            return Err(BannerError::EmptyCohort);
+        }
+        self.banners.insert(
+            feature_id.into(),
+            Banner {
+                label,
+                cohort: cohort.into(),
+                dismissed: false,
+            },
+        );
         Ok(())
     }
 
     /// Dismiss banner.
     pub fn dismiss(&mut self, feature_id: &str) -> Result<(), BannerError> {
-        let b = self.banners.get_mut(feature_id).ok_or_else(|| BannerError::UnknownFeature(feature_id.into()))?;
+        let b = self
+            .banners
+            .get_mut(feature_id)
+            .ok_or_else(|| BannerError::UnknownFeature(feature_id.into()))?;
         b.dismissed = true;
         Ok(())
     }
@@ -106,7 +121,8 @@ impl RolloutBanner {
 
     /// Active banners (should-show).
     pub fn active(&self) -> Vec<&str> {
-        self.banners.iter()
+        self.banners
+            .iter()
             .filter(|(id, _)| self.should_show(id))
             .map(|(k, _)| k.as_str())
             .collect()
@@ -114,17 +130,25 @@ impl RolloutBanner {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), BannerError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(BannerError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(BannerError::SchemaMismatch);
+        }
         for (k, b) in &self.banners {
-            if k.is_empty() { return Err(BannerError::EmptyFeature); }
-            if b.cohort.is_empty() { return Err(BannerError::EmptyCohort); }
+            if k.is_empty() {
+                return Err(BannerError::EmptyFeature);
+            }
+            if b.cohort.is_empty() {
+                return Err(BannerError::EmptyCohort);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for RolloutBanner {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -134,7 +158,8 @@ mod tests {
     #[test]
     fn register_and_show() {
         let mut r = RolloutBanner::new();
-        r.register("dark-mode", Label::Beta, "early-adopters").unwrap();
+        r.register("dark-mode", Label::Beta, "early-adopters")
+            .unwrap();
         assert!(r.should_show("dark-mode"));
     }
 
@@ -167,21 +192,33 @@ mod tests {
     #[test]
     fn unknown_dismiss_rejected() {
         let mut r = RolloutBanner::new();
-        assert!(matches!(r.dismiss("nope").unwrap_err(), BannerError::UnknownFeature(_)));
+        assert!(matches!(
+            r.dismiss("nope").unwrap_err(),
+            BannerError::UnknownFeature(_)
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut r = RolloutBanner::new();
-        assert!(matches!(r.register("", Label::Beta, "c").unwrap_err(), BannerError::EmptyFeature));
-        assert!(matches!(r.register("a", Label::Beta, "").unwrap_err(), BannerError::EmptyCohort));
+        assert!(matches!(
+            r.register("", Label::Beta, "c").unwrap_err(),
+            BannerError::EmptyFeature
+        ));
+        assert!(matches!(
+            r.register("a", Label::Beta, "").unwrap_err(),
+            BannerError::EmptyCohort
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut r = RolloutBanner::new();
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate().unwrap_err(), BannerError::SchemaMismatch));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            BannerError::SchemaMismatch
+        ));
     }
 
     #[test]

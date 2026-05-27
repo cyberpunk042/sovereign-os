@@ -88,36 +88,51 @@ impl SkipLinkSet {
 
     /// Register a skip-link.
     pub fn register(&mut self, id: &str, label: &str, target: &str) -> Result<(), SkipLinkError> {
-        if id.is_empty() { return Err(SkipLinkError::EmptyId); }
-        if label.is_empty() { return Err(SkipLinkError::EmptyLabel); }
-        if target.is_empty() { return Err(SkipLinkError::EmptyTarget); }
+        if id.is_empty() {
+            return Err(SkipLinkError::EmptyId);
+        }
+        if label.is_empty() {
+            return Err(SkipLinkError::EmptyLabel);
+        }
+        if target.is_empty() {
+            return Err(SkipLinkError::EmptyTarget);
+        }
         if self.links.contains_key(id) {
             return Err(SkipLinkError::DuplicateId(id.into()));
         }
         let order = self.next_order;
         self.next_order = self.next_order.wrapping_add(1);
-        self.links.insert(id.into(), SkipLink {
-            id: id.into(),
-            label: label.into(),
-            target: target.into(),
-            order,
-            enabled: true,
-            activations: 0,
-            last_activated_ms: 0,
-        });
+        self.links.insert(
+            id.into(),
+            SkipLink {
+                id: id.into(),
+                label: label.into(),
+                target: target.into(),
+                order,
+                enabled: true,
+                activations: 0,
+                last_activated_ms: 0,
+            },
+        );
         Ok(())
     }
 
     /// Enable / disable a link without losing its position.
     pub fn set_enabled(&mut self, id: &str, enabled: bool) -> Result<(), SkipLinkError> {
-        let l = self.links.get_mut(id).ok_or_else(|| SkipLinkError::UnknownLink(id.into()))?;
+        let l = self
+            .links
+            .get_mut(id)
+            .ok_or_else(|| SkipLinkError::UnknownLink(id.into()))?;
         l.enabled = enabled;
         Ok(())
     }
 
     /// Activate (focus the target).
     pub fn activate(&mut self, id: &str, ts_ms: u64) -> Result<(), SkipLinkError> {
-        let l = self.links.get_mut(id).ok_or_else(|| SkipLinkError::UnknownLink(id.into()))?;
+        let l = self
+            .links
+            .get_mut(id)
+            .ok_or_else(|| SkipLinkError::UnknownLink(id.into()))?;
         if !l.enabled {
             // Activating a disabled link is a no-op rather than error
             // (UI shouldn't be able to surface it, but be defensive).
@@ -154,18 +169,28 @@ impl SkipLinkSet {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), SkipLinkError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(SkipLinkError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(SkipLinkError::SchemaMismatch);
+        }
         for (id, l) in &self.links {
-            if id.is_empty() { return Err(SkipLinkError::EmptyId); }
-            if l.label.is_empty() { return Err(SkipLinkError::EmptyLabel); }
-            if l.target.is_empty() { return Err(SkipLinkError::EmptyTarget); }
+            if id.is_empty() {
+                return Err(SkipLinkError::EmptyId);
+            }
+            if l.label.is_empty() {
+                return Err(SkipLinkError::EmptyLabel);
+            }
+            if l.target.is_empty() {
+                return Err(SkipLinkError::EmptyTarget);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for SkipLinkSet {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -186,7 +211,10 @@ mod tests {
     fn duplicate_rejected() {
         let mut s = SkipLinkSet::new();
         s.register("main", "x", "y").unwrap();
-        assert!(matches!(s.register("main", "x", "y").unwrap_err(), SkipLinkError::DuplicateId(_)));
+        assert!(matches!(
+            s.register("main", "x", "y").unwrap_err(),
+            SkipLinkError::DuplicateId(_)
+        ));
     }
 
     #[test]
@@ -220,7 +248,10 @@ mod tests {
     #[test]
     fn unknown_activate_rejected() {
         let mut s = SkipLinkSet::new();
-        assert!(matches!(s.activate("nope", 0).unwrap_err(), SkipLinkError::UnknownLink(_)));
+        assert!(matches!(
+            s.activate("nope", 0).unwrap_err(),
+            SkipLinkError::UnknownLink(_)
+        ));
     }
 
     #[test]
@@ -234,16 +265,28 @@ mod tests {
     #[test]
     fn empty_inputs_rejected() {
         let mut s = SkipLinkSet::new();
-        assert!(matches!(s.register("", "x", "#m").unwrap_err(), SkipLinkError::EmptyId));
-        assert!(matches!(s.register("a", "", "#m").unwrap_err(), SkipLinkError::EmptyLabel));
-        assert!(matches!(s.register("a", "x", "").unwrap_err(), SkipLinkError::EmptyTarget));
+        assert!(matches!(
+            s.register("", "x", "#m").unwrap_err(),
+            SkipLinkError::EmptyId
+        ));
+        assert!(matches!(
+            s.register("a", "", "#m").unwrap_err(),
+            SkipLinkError::EmptyLabel
+        ));
+        assert!(matches!(
+            s.register("a", "x", "").unwrap_err(),
+            SkipLinkError::EmptyTarget
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = SkipLinkSet::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), SkipLinkError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SkipLinkError::SchemaMismatch
+        ));
     }
 
     #[test]

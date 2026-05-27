@@ -51,7 +51,9 @@ pub enum RouteError {
 impl RouteHistory {
     /// New with an initial route.
     pub fn new(initial: &str) -> Result<Self, RouteError> {
-        if initial.is_empty() { return Err(RouteError::EmptyRoute); }
+        if initial.is_empty() {
+            return Err(RouteError::EmptyRoute);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             current: initial.into(),
@@ -62,8 +64,12 @@ impl RouteHistory {
 
     /// Navigate to a new route (clears forward).
     pub fn navigate(&mut self, route: &str) -> Result<(), RouteError> {
-        if route.is_empty() { return Err(RouteError::EmptyRoute); }
-        if route == self.current { return Ok(()); }
+        if route.is_empty() {
+            return Err(RouteError::EmptyRoute);
+        }
+        if route == self.current {
+            return Ok(());
+        }
         let prev = std::mem::replace(&mut self.current, route.into());
         self.back.push(prev);
         while self.back.len() > MAX_DEPTH {
@@ -90,19 +96,27 @@ impl RouteHistory {
     }
 
     /// True if back is available.
-    pub fn can_go_back(&self) -> bool { !self.back.is_empty() }
+    pub fn can_go_back(&self) -> bool {
+        !self.back.is_empty()
+    }
 
     /// True if forward is available.
-    pub fn can_go_forward(&self) -> bool { !self.forward.is_empty() }
+    pub fn can_go_forward(&self) -> bool {
+        !self.forward.is_empty()
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), RouteError> {
         if self.schema_version != SCHEMA_VERSION {
             return Err(RouteError::SchemaMismatch);
         }
-        if self.current.is_empty() { return Err(RouteError::EmptyRoute); }
+        if self.current.is_empty() {
+            return Err(RouteError::EmptyRoute);
+        }
         for r in self.back.iter().chain(self.forward.iter()) {
-            if r.is_empty() { return Err(RouteError::EmptyRoute); }
+            if r.is_empty() {
+                return Err(RouteError::EmptyRoute);
+            }
         }
         Ok(())
     }
@@ -114,7 +128,10 @@ mod tests {
 
     #[test]
     fn empty_initial_rejected() {
-        assert!(matches!(RouteHistory::new("").unwrap_err(), RouteError::EmptyRoute));
+        assert!(matches!(
+            RouteHistory::new("").unwrap_err(),
+            RouteError::EmptyRoute
+        ));
     }
 
     #[test]
@@ -157,7 +174,10 @@ mod tests {
     #[test]
     fn forward_on_empty_rejected() {
         let mut h = RouteHistory::new("/a").unwrap();
-        assert!(matches!(h.forward().unwrap_err(), RouteError::NothingForward));
+        assert!(matches!(
+            h.forward().unwrap_err(),
+            RouteError::NothingForward
+        ));
     }
 
     #[test]
@@ -173,7 +193,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut h = RouteHistory::new("/a").unwrap();
         h.schema_version = "9.9.9".into();
-        assert!(matches!(h.validate().unwrap_err(), RouteError::SchemaMismatch));
+        assert!(matches!(
+            h.validate().unwrap_err(),
+            RouteError::SchemaMismatch
+        ));
     }
 
     #[test]

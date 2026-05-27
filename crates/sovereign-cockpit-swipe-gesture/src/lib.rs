@@ -133,9 +133,17 @@ impl SwipeGesture {
         }
         // Dominant axis with 2:1 ratio.
         if abs_x >= abs_y.saturating_mul(2) {
-            Outcome::Swipe(if dx > 0 { Direction::Right } else { Direction::Left })
+            Outcome::Swipe(if dx > 0 {
+                Direction::Right
+            } else {
+                Direction::Left
+            })
         } else if abs_y >= abs_x.saturating_mul(2) {
-            Outcome::Swipe(if dy > 0 { Direction::Down } else { Direction::Up })
+            Outcome::Swipe(if dy > 0 {
+                Direction::Down
+            } else {
+                Direction::Up
+            })
         } else {
             Outcome::Diagonal
         }
@@ -149,7 +157,9 @@ impl SwipeGesture {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), SwipeError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(SwipeError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(SwipeError::SchemaMismatch);
+        }
         if self.config.min_distance == 0 || self.config.min_velocity_pps == 0 {
             return Err(SwipeError::ZeroCfg);
         }
@@ -162,7 +172,11 @@ mod tests {
     use super::*;
 
     fn g() -> SwipeGesture {
-        SwipeGesture::new(SwipeConfig { min_distance: 50, min_velocity_pps: 200 }).unwrap()
+        SwipeGesture::new(SwipeConfig {
+            min_distance: 50,
+            min_velocity_pps: 200,
+        })
+        .unwrap()
     }
 
     #[test]
@@ -225,7 +239,11 @@ mod tests {
     #[test]
     fn zero_cfg_rejected() {
         assert!(matches!(
-            SwipeGesture::new(SwipeConfig { min_distance: 0, min_velocity_pps: 10 }).unwrap_err(),
+            SwipeGesture::new(SwipeConfig {
+                min_distance: 0,
+                min_velocity_pps: 10
+            })
+            .unwrap_err(),
             SwipeError::ZeroCfg
         ));
     }
@@ -234,7 +252,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = g();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), SwipeError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SwipeError::SchemaMismatch
+        ));
     }
 
     #[test]

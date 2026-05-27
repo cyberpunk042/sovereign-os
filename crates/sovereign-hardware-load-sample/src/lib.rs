@@ -11,8 +11,8 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-use sovereign_hardware_registry::{HardwareRegistry, HardwareTarget};
 use serde::{Deserialize, Serialize};
+use sovereign_hardware_registry::{HardwareRegistry, HardwareTarget};
 use thiserror::Error;
 
 /// Schema version.
@@ -85,13 +85,16 @@ impl LoadSnapshot {
             HardwareTarget::BlackwellOracle,
             HardwareTarget::Cloud,
             HardwareTarget::NoHardware,
-        ].into_iter().map(|t| TargetLoad {
+        ]
+        .into_iter()
+        .map(|t| TargetLoad {
             target: t,
             vram_used_gb: 0,
             util_pct: 0,
             temp_c: 0,
             captured_at: at.into(),
-        }).collect();
+        })
+        .collect();
         Self {
             schema_version: SCHEMA_VERSION.into(),
             captured_at: at.into(),
@@ -108,8 +111,10 @@ impl LoadSnapshot {
             return Err(LoadError::CountInvalid(self.loads.len()));
         }
         let required = [
-            HardwareTarget::CpuPulse, HardwareTarget::Rocm3090,
-            HardwareTarget::BlackwellOracle, HardwareTarget::Cloud,
+            HardwareTarget::CpuPulse,
+            HardwareTarget::Rocm3090,
+            HardwareTarget::BlackwellOracle,
+            HardwareTarget::Cloud,
             HardwareTarget::NoHardware,
         ];
         for t in required {
@@ -119,7 +124,10 @@ impl LoadSnapshot {
         }
         for l in &self.loads {
             if l.util_pct > 100 {
-                return Err(LoadError::UtilOutOfRange { target: l.target, pct: l.util_pct });
+                return Err(LoadError::UtilOutOfRange {
+                    target: l.target,
+                    pct: l.util_pct,
+                });
             }
             if let Some(rec) = registry.get(l.target) {
                 if l.vram_used_gb > rec.vram_gb {
@@ -136,9 +144,11 @@ impl LoadSnapshot {
 
     /// Sum of VRAM used across all local targets (excludes Cloud + None).
     pub fn total_local_vram_used_gb(&self) -> u32 {
-        self.loads.iter()
+        self.loads
+            .iter()
             .filter(|l| !matches!(l.target, HardwareTarget::Cloud | HardwareTarget::NoHardware))
-            .map(|l| l.vram_used_gb).sum()
+            .map(|l| l.vram_used_gb)
+            .sum()
     }
 
     /// Average compute utilization across all targets (0..=100).
@@ -160,7 +170,9 @@ impl LoadSnapshot {
 mod tests {
     use super::*;
 
-    fn reg() -> HardwareRegistry { HardwareRegistry::canonical() }
+    fn reg() -> HardwareRegistry {
+        HardwareRegistry::canonical()
+    }
 
     #[test]
     fn empty_canonical_validates() {
@@ -172,9 +184,13 @@ mod tests {
     fn five_loads_present() {
         let s = LoadSnapshot::empty_canonical("2026-05-19T03:00:00Z");
         assert_eq!(s.loads.len(), 5);
-        for t in [HardwareTarget::CpuPulse, HardwareTarget::Rocm3090,
-                  HardwareTarget::BlackwellOracle, HardwareTarget::Cloud,
-                  HardwareTarget::NoHardware] {
+        for t in [
+            HardwareTarget::CpuPulse,
+            HardwareTarget::Rocm3090,
+            HardwareTarget::BlackwellOracle,
+            HardwareTarget::Cloud,
+            HardwareTarget::NoHardware,
+        ] {
             assert!(s.get(t).is_some(), "missing {t:?}");
         }
     }
@@ -183,14 +199,20 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = LoadSnapshot::empty_canonical("t");
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate_against(&reg()).unwrap_err(), LoadError::SchemaMismatch));
+        assert!(matches!(
+            s.validate_against(&reg()).unwrap_err(),
+            LoadError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn count_invalid_caught() {
         let mut s = LoadSnapshot::empty_canonical("t");
         s.loads.pop();
-        assert!(matches!(s.validate_against(&reg()).unwrap_err(), LoadError::CountInvalid(4)));
+        assert!(matches!(
+            s.validate_against(&reg()).unwrap_err(),
+            LoadError::CountInvalid(4)
+        ));
     }
 
     #[test]
@@ -229,9 +251,15 @@ mod tests {
     fn local_vram_totalling() {
         let mut s = LoadSnapshot::empty_canonical("t");
         for l in s.loads.iter_mut() {
-            if l.target == HardwareTarget::Rocm3090 { l.vram_used_gb = 18; }
-            if l.target == HardwareTarget::BlackwellOracle { l.vram_used_gb = 60; }
-            if l.target == HardwareTarget::Cloud { l.vram_used_gb = 999; } // excluded
+            if l.target == HardwareTarget::Rocm3090 {
+                l.vram_used_gb = 18;
+            }
+            if l.target == HardwareTarget::BlackwellOracle {
+                l.vram_used_gb = 60;
+            }
+            if l.target == HardwareTarget::Cloud {
+                l.vram_used_gb = 999;
+            } // excluded
         }
         assert_eq!(s.total_local_vram_used_gb(), 78);
     }

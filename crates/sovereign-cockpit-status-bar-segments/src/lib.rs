@@ -79,8 +79,12 @@ impl StatusBarSegments {
 
     /// Register.
     pub fn register(&mut self, segment: Segment) -> Result<(), SegmentError> {
-        if segment.id.is_empty() { return Err(SegmentError::EmptyId); }
-        if segment.label.is_empty() { return Err(SegmentError::EmptyLabel); }
+        if segment.id.is_empty() {
+            return Err(SegmentError::EmptyId);
+        }
+        if segment.label.is_empty() {
+            return Err(SegmentError::EmptyLabel);
+        }
         if self.segments.contains_key(&segment.id) {
             return Err(SegmentError::DuplicateId(segment.id));
         }
@@ -90,8 +94,12 @@ impl StatusBarSegments {
 
     /// Update label.
     pub fn set_label(&mut self, id: &str, label: &str) -> Result<bool, SegmentError> {
-        if label.is_empty() { return Err(SegmentError::EmptyLabel); }
-        let Some(s) = self.segments.get_mut(id) else { return Ok(false); };
+        if label.is_empty() {
+            return Err(SegmentError::EmptyLabel);
+        }
+        let Some(s) = self.segments.get_mut(id) else {
+            return Ok(false);
+        };
         s.label = label.into();
         Ok(true)
     }
@@ -103,7 +111,9 @@ impl StatusBarSegments {
 
     /// Visible in zone (descending priority, alpha tie-break).
     pub fn visible_in_zone(&self, zone: Zone, max_items: usize) -> Vec<Segment> {
-        let mut v: Vec<Segment> = self.segments.values()
+        let mut v: Vec<Segment> = self
+            .segments
+            .values()
             .filter(|s| s.zone == zone)
             .cloned()
             .collect();
@@ -114,17 +124,25 @@ impl StatusBarSegments {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), SegmentError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(SegmentError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(SegmentError::SchemaMismatch);
+        }
         for (id, s) in &self.segments {
-            if id.is_empty() { return Err(SegmentError::EmptyId); }
-            if s.label.is_empty() { return Err(SegmentError::EmptyLabel); }
+            if id.is_empty() {
+                return Err(SegmentError::EmptyId);
+            }
+            if s.label.is_empty() {
+                return Err(SegmentError::EmptyLabel);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for StatusBarSegments {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -132,7 +150,12 @@ mod tests {
     use super::*;
 
     fn seg(id: &str, zone: Zone, priority: u32) -> Segment {
-        Segment { id: id.into(), label: id.into(), zone, priority }
+        Segment {
+            id: id.into(),
+            label: id.into(),
+            zone,
+            priority,
+        }
     }
 
     #[test]
@@ -190,23 +213,45 @@ mod tests {
     fn duplicate_rejected() {
         let mut s = StatusBarSegments::new();
         s.register(seg("a", Zone::Left, 1)).unwrap();
-        assert!(matches!(s.register(seg("a", Zone::Right, 1)).unwrap_err(), SegmentError::DuplicateId(_)));
+        assert!(matches!(
+            s.register(seg("a", Zone::Right, 1)).unwrap_err(),
+            SegmentError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut s = StatusBarSegments::new();
-        let bad = Segment { id: "".into(), label: "X".into(), zone: Zone::Left, priority: 1 };
-        assert!(matches!(s.register(bad).unwrap_err(), SegmentError::EmptyId));
-        let bad = Segment { id: "a".into(), label: "".into(), zone: Zone::Left, priority: 1 };
-        assert!(matches!(s.register(bad).unwrap_err(), SegmentError::EmptyLabel));
+        let bad = Segment {
+            id: "".into(),
+            label: "X".into(),
+            zone: Zone::Left,
+            priority: 1,
+        };
+        assert!(matches!(
+            s.register(bad).unwrap_err(),
+            SegmentError::EmptyId
+        ));
+        let bad = Segment {
+            id: "a".into(),
+            label: "".into(),
+            zone: Zone::Left,
+            priority: 1,
+        };
+        assert!(matches!(
+            s.register(bad).unwrap_err(),
+            SegmentError::EmptyLabel
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = StatusBarSegments::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), SegmentError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SegmentError::SchemaMismatch
+        ));
     }
 
     #[test]

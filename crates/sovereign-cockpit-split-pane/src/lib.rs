@@ -47,7 +47,13 @@ pub enum SplitError {
 
 impl SplitPane {
     /// New.
-    pub fn new(container_size: u32, split_px: u32, min_a_px: u32, min_b_px: u32, snap_threshold_px: u32) -> Result<Self, SplitError> {
+    pub fn new(
+        container_size: u32,
+        split_px: u32,
+        min_a_px: u32,
+        min_b_px: u32,
+        snap_threshold_px: u32,
+    ) -> Result<Self, SplitError> {
         let minima = min_a_px.saturating_add(min_b_px);
         if container_size < minima {
             return Err(SplitError::ContainerTooSmall(container_size, minima));
@@ -90,10 +96,14 @@ impl SplitPane {
     }
 
     /// Width of pane A.
-    pub fn a_size(&self) -> u32 { self.split_px }
+    pub fn a_size(&self) -> u32 {
+        self.split_px
+    }
 
     /// Width of pane B.
-    pub fn b_size(&self) -> u32 { self.container_size.saturating_sub(self.split_px) }
+    pub fn b_size(&self) -> u32 {
+        self.container_size.saturating_sub(self.split_px)
+    }
 
     /// Resize the container; reclamp the split.
     pub fn resize_container(&mut self, new_size: u32) -> Result<(), SplitError> {
@@ -108,7 +118,9 @@ impl SplitPane {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), SplitError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(SplitError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(SplitError::SchemaMismatch);
+        }
         let minima = self.min_a_px.saturating_add(self.min_b_px);
         if self.container_size < minima {
             return Err(SplitError::ContainerTooSmall(self.container_size, minima));
@@ -123,7 +135,10 @@ mod tests {
 
     #[test]
     fn container_too_small_rejected() {
-        assert!(matches!(SplitPane::new(50, 25, 40, 40, 4).unwrap_err(), SplitError::ContainerTooSmall(_, _)));
+        assert!(matches!(
+            SplitPane::new(50, 25, 40, 40, 4).unwrap_err(),
+            SplitError::ContainerTooSmall(_, _)
+        ));
     }
 
     #[test]
@@ -180,14 +195,20 @@ mod tests {
     #[test]
     fn resize_too_small_rejected() {
         let mut s = SplitPane::new(500, 200, 100, 100, 4).unwrap();
-        assert!(matches!(s.resize_container(50).unwrap_err(), SplitError::ContainerTooSmall(_, _)));
+        assert!(matches!(
+            s.resize_container(50).unwrap_err(),
+            SplitError::ContainerTooSmall(_, _)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = SplitPane::new(500, 200, 100, 100, 4).unwrap();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), SplitError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SplitError::SchemaMismatch
+        ));
     }
 
     #[test]

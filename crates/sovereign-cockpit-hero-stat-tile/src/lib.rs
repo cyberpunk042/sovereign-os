@@ -59,7 +59,9 @@ pub enum TileError {
 impl HeroStatTile {
     /// New.
     pub fn new(label: &str, unit: &str, flat_epsilon_bp: u32) -> Result<Self, TileError> {
-        if label.is_empty() { return Err(TileError::EmptyLabel); }
+        if label.is_empty() {
+            return Err(TileError::EmptyLabel);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             label: label.into(),
@@ -81,7 +83,13 @@ impl HeroStatTile {
         let prev = self.prev_x100;
         let diff = self.value_x100 - prev;
         if prev == 0 {
-            if diff == 0 { 0 } else if diff > 0 { 10_000 } else { -10_000 }
+            if diff == 0 {
+                0
+            } else if diff > 0 {
+                10_000
+            } else {
+                -10_000
+            }
         } else {
             (diff * 10_000) / prev.abs()
         }
@@ -91,9 +99,13 @@ impl HeroStatTile {
     pub fn trend(&self) -> Trend {
         let d = self.delta_bp();
         let eps = self.flat_epsilon_bp as i64;
-        if d.abs() <= eps { Trend::Flat }
-        else if d > 0 { Trend::Up }
-        else { Trend::Down }
+        if d.abs() <= eps {
+            Trend::Flat
+        } else if d > 0 {
+            Trend::Up
+        } else {
+            Trend::Down
+        }
     }
 
     /// Display value (integer-format value_x100 to "N" or "N.NN").
@@ -109,8 +121,12 @@ impl HeroStatTile {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), TileError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(TileError::SchemaMismatch); }
-        if self.label.is_empty() { return Err(TileError::EmptyLabel); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(TileError::SchemaMismatch);
+        }
+        if self.label.is_empty() {
+            return Err(TileError::EmptyLabel);
+        }
         Ok(())
     }
 }
@@ -171,14 +187,20 @@ mod tests {
 
     #[test]
     fn empty_label_rejected() {
-        assert!(matches!(HeroStatTile::new("", "", 0).unwrap_err(), TileError::EmptyLabel));
+        assert!(matches!(
+            HeroStatTile::new("", "", 0).unwrap_err(),
+            TileError::EmptyLabel
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut t = HeroStatTile::new("X", "", 0).unwrap();
         t.schema_version = "9.9.9".into();
-        assert!(matches!(t.validate().unwrap_err(), TileError::SchemaMismatch));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            TileError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -82,10 +82,18 @@ impl ToggleEventLog {
 
     /// Append a toggle event.
     pub fn record(&mut self, e: ToggleEvent) -> Result<(), ToggleError> {
-        if e.key.is_empty() { return Err(ToggleError::EmptyKey); }
-        if e.actor.is_empty() { return Err(ToggleError::EmptyActor(self.entries.len())); }
-        if e.trace_id.is_empty() { return Err(ToggleError::EmptyTraceId(self.entries.len())); }
-        if e.at.is_empty() { return Err(ToggleError::EmptyTimestamp(self.entries.len())); }
+        if e.key.is_empty() {
+            return Err(ToggleError::EmptyKey);
+        }
+        if e.actor.is_empty() {
+            return Err(ToggleError::EmptyActor(self.entries.len()));
+        }
+        if e.trace_id.is_empty() {
+            return Err(ToggleError::EmptyTraceId(self.entries.len()));
+        }
+        if e.at.is_empty() {
+            return Err(ToggleError::EmptyTimestamp(self.entries.len()));
+        }
         if e.from_value == e.to_value {
             return Err(ToggleError::NoOp {
                 idx: self.entries.len(),
@@ -99,7 +107,11 @@ impl ToggleEventLog {
 
     /// Latest value for a key (None if never toggled).
     pub fn latest(&self, key: &str) -> Option<bool> {
-        self.entries.iter().rev().find(|e| e.key == key).map(|e| e.to_value)
+        self.entries
+            .iter()
+            .rev()
+            .find(|e| e.key == key)
+            .map(|e| e.to_value)
     }
 
     /// Count flips for a key.
@@ -113,12 +125,24 @@ impl ToggleEventLog {
             return Err(ToggleError::SchemaMismatch);
         }
         for (idx, e) in self.entries.iter().enumerate() {
-            if e.key.is_empty() { return Err(ToggleError::EmptyKey); }
-            if e.actor.is_empty() { return Err(ToggleError::EmptyActor(idx)); }
-            if e.trace_id.is_empty() { return Err(ToggleError::EmptyTraceId(idx)); }
-            if e.at.is_empty() { return Err(ToggleError::EmptyTimestamp(idx)); }
+            if e.key.is_empty() {
+                return Err(ToggleError::EmptyKey);
+            }
+            if e.actor.is_empty() {
+                return Err(ToggleError::EmptyActor(idx));
+            }
+            if e.trace_id.is_empty() {
+                return Err(ToggleError::EmptyTraceId(idx));
+            }
+            if e.at.is_empty() {
+                return Err(ToggleError::EmptyTimestamp(idx));
+            }
             if e.from_value == e.to_value {
-                return Err(ToggleError::NoOp { idx, key: e.key.clone(), value: e.from_value });
+                return Err(ToggleError::NoOp {
+                    idx,
+                    key: e.key.clone(),
+                    value: e.from_value,
+                });
             }
         }
         Ok(())
@@ -126,7 +150,9 @@ impl ToggleEventLog {
 }
 
 impl Default for ToggleEventLog {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -172,13 +198,19 @@ mod tests {
     #[test]
     fn no_op_rejected() {
         let mut l = ToggleEventLog::new();
-        assert!(matches!(l.record(ev("a", true, true)).unwrap_err(), ToggleError::NoOp { .. }));
+        assert!(matches!(
+            l.record(ev("a", true, true)).unwrap_err(),
+            ToggleError::NoOp { .. }
+        ));
     }
 
     #[test]
     fn empty_key_rejected() {
         let mut l = ToggleEventLog::new();
-        assert!(matches!(l.record(ev("", false, true)).unwrap_err(), ToggleError::EmptyKey));
+        assert!(matches!(
+            l.record(ev("", false, true)).unwrap_err(),
+            ToggleError::EmptyKey
+        ));
     }
 
     #[test]
@@ -186,7 +218,10 @@ mod tests {
         let mut l = ToggleEventLog::new();
         let mut e = ev("a", false, true);
         e.actor = String::new();
-        assert!(matches!(l.record(e).unwrap_err(), ToggleError::EmptyActor(_)));
+        assert!(matches!(
+            l.record(e).unwrap_err(),
+            ToggleError::EmptyActor(_)
+        ));
     }
 
     #[test]
@@ -194,7 +229,10 @@ mod tests {
         let mut l = ToggleEventLog::new();
         let mut e = ev("a", false, true);
         e.trace_id = String::new();
-        assert!(matches!(l.record(e).unwrap_err(), ToggleError::EmptyTraceId(_)));
+        assert!(matches!(
+            l.record(e).unwrap_err(),
+            ToggleError::EmptyTraceId(_)
+        ));
     }
 
     #[test]
@@ -207,7 +245,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut l = ToggleEventLog::new();
         l.schema_version = "9.9.9".into();
-        assert!(matches!(l.validate().unwrap_err(), ToggleError::SchemaMismatch));
+        assert!(matches!(
+            l.validate().unwrap_err(),
+            ToggleError::SchemaMismatch
+        ));
     }
 
     #[test]

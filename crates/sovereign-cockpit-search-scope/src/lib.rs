@@ -64,7 +64,9 @@ pub enum ScopeError {
 impl SearchScope {
     /// New.
     pub fn new(default_id: &str) -> Result<Self, ScopeError> {
-        if default_id.is_empty() { return Err(ScopeError::EmptyId); }
+        if default_id.is_empty() {
+            return Err(ScopeError::EmptyId);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             scopes: Vec::new(),
@@ -75,7 +77,9 @@ impl SearchScope {
 
     /// Register.
     pub fn register(&mut self, scope: Scope) -> Result<(), ScopeError> {
-        if scope.id.is_empty() { return Err(ScopeError::EmptyId); }
+        if scope.id.is_empty() {
+            return Err(ScopeError::EmptyId);
+        }
         if self.scopes.iter().any(|s| s.id == scope.id) {
             return Err(ScopeError::DuplicateId(scope.id));
         }
@@ -94,7 +98,10 @@ impl SearchScope {
 
     /// Enable / disable.
     pub fn set_enabled(&mut self, id: &str, enabled: bool) -> Result<(), ScopeError> {
-        let s = self.scopes.iter_mut().find(|s| s.id == id)
+        let s = self
+            .scopes
+            .iter_mut()
+            .find(|s| s.id == id)
             .ok_or_else(|| ScopeError::UnknownId(id.into()))?;
         s.enabled = enabled;
         Ok(())
@@ -107,12 +114,19 @@ impl SearchScope {
 
     /// Effective active = active if enabled, else default if enabled, else None.
     pub fn effective_active(&self) -> Option<&Scope> {
-        let try_id = self.active_id.as_deref().unwrap_or(self.default_id.as_str());
+        let try_id = self
+            .active_id
+            .as_deref()
+            .unwrap_or(self.default_id.as_str());
         let s = self.scopes.iter().find(|s| s.id == try_id && s.enabled);
-        if s.is_some() { return s; }
+        if s.is_some() {
+            return s;
+        }
         // Active disabled — fall back to default if enabled.
         if try_id != self.default_id.as_str() {
-            self.scopes.iter().find(|s| s.id == self.default_id && s.enabled)
+            self.scopes
+                .iter()
+                .find(|s| s.id == self.default_id && s.enabled)
         } else {
             None
         }
@@ -120,12 +134,18 @@ impl SearchScope {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ScopeError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ScopeError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ScopeError::SchemaMismatch);
+        }
         use std::collections::HashSet;
         let mut seen: HashSet<&str> = HashSet::new();
         for s in &self.scopes {
-            if s.id.is_empty() { return Err(ScopeError::EmptyId); }
-            if !seen.insert(s.id.as_str()) { return Err(ScopeError::DuplicateId(s.id.clone())); }
+            if s.id.is_empty() {
+                return Err(ScopeError::EmptyId);
+            }
+            if !seen.insert(s.id.as_str()) {
+                return Err(ScopeError::DuplicateId(s.id.clone()));
+            }
         }
         if !self.scopes.iter().any(|s| s.id == self.default_id) {
             return Err(ScopeError::DefaultMissing(self.default_id.clone()));
@@ -138,7 +158,13 @@ impl SearchScope {
 mod tests {
     use super::*;
 
-    fn s(id: &str, en: bool) -> Scope { Scope { id: id.into(), label: id.into(), enabled: en } }
+    fn s(id: &str, en: bool) -> Scope {
+        Scope {
+            id: id.into(),
+            label: id.into(),
+            enabled: en,
+        }
+    }
 
     #[test]
     fn register_and_activate() {
@@ -153,7 +179,10 @@ mod tests {
     fn unknown_activate_rejected() {
         let mut sc = SearchScope::new("all").unwrap();
         sc.register(s("all", true)).unwrap();
-        assert!(matches!(sc.activate("nope").unwrap_err(), ScopeError::UnknownId(_)));
+        assert!(matches!(
+            sc.activate("nope").unwrap_err(),
+            ScopeError::UnknownId(_)
+        ));
     }
 
     #[test]
@@ -186,19 +215,28 @@ mod tests {
     fn duplicate_id_rejected() {
         let mut sc = SearchScope::new("all").unwrap();
         sc.register(s("all", true)).unwrap();
-        assert!(matches!(sc.register(s("all", true)).unwrap_err(), ScopeError::DuplicateId(_)));
+        assert!(matches!(
+            sc.register(s("all", true)).unwrap_err(),
+            ScopeError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn validate_requires_default_in_set() {
         let sc = SearchScope::new("all").unwrap();
-        assert!(matches!(sc.validate().unwrap_err(), ScopeError::DefaultMissing(_)));
+        assert!(matches!(
+            sc.validate().unwrap_err(),
+            ScopeError::DefaultMissing(_)
+        ));
     }
 
     #[test]
     fn empty_id_rejected() {
         let mut sc = SearchScope::new("all").unwrap();
-        assert!(matches!(sc.register(s("", true)).unwrap_err(), ScopeError::EmptyId));
+        assert!(matches!(
+            sc.register(s("", true)).unwrap_err(),
+            ScopeError::EmptyId
+        ));
     }
 
     #[test]
@@ -206,7 +244,10 @@ mod tests {
         let mut sc = SearchScope::new("all").unwrap();
         sc.register(s("all", true)).unwrap();
         sc.schema_version = "9.9.9".into();
-        assert!(matches!(sc.validate().unwrap_err(), ScopeError::SchemaMismatch));
+        assert!(matches!(
+            sc.validate().unwrap_err(),
+            ScopeError::SchemaMismatch
+        ));
     }
 
     #[test]

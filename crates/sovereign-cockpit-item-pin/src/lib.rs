@@ -47,7 +47,9 @@ pub enum PinError {
 impl ItemPin {
     /// New.
     pub fn new(max_pins: u32) -> Result<Self, PinError> {
-        if max_pins == 0 { return Err(PinError::ZeroMax); }
+        if max_pins == 0 {
+            return Err(PinError::ZeroMax);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             max_pins,
@@ -57,8 +59,12 @@ impl ItemPin {
 
     /// Pin.
     pub fn pin(&mut self, id: &str) -> Result<(), PinError> {
-        if id.is_empty() { return Err(PinError::EmptyId); }
-        if self.pinned.iter().any(|p| p == id) { return Ok(()); }
+        if id.is_empty() {
+            return Err(PinError::EmptyId);
+        }
+        if self.pinned.iter().any(|p| p == id) {
+            return Ok(());
+        }
         if (self.pinned.len() as u32) >= self.max_pins {
             return Err(PinError::AtCapacity(self.max_pins));
         }
@@ -87,24 +93,36 @@ impl ItemPin {
         let mut out: Vec<&str> = Vec::with_capacity(items.len());
         // Pinned first (in pin order), but only if still in `items`.
         for p in &self.pinned {
-            if items.iter().any(|i| i == p) { out.push(p.as_str()); }
+            if items.iter().any(|i| i == p) {
+                out.push(p.as_str());
+            }
         }
         // Remaining items.
         for i in items {
-            if !self.pinned.iter().any(|p| p == i) { out.push(i.as_str()); }
+            if !self.pinned.iter().any(|p| p == i) {
+                out.push(i.as_str());
+            }
         }
         out
     }
 
     /// Count.
-    pub fn len(&self) -> usize { self.pinned.len() }
+    pub fn len(&self) -> usize {
+        self.pinned.len()
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), PinError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(PinError::SchemaMismatch); }
-        if self.max_pins == 0 { return Err(PinError::ZeroMax); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(PinError::SchemaMismatch);
+        }
+        if self.max_pins == 0 {
+            return Err(PinError::ZeroMax);
+        }
         for p in &self.pinned {
-            if p.is_empty() { return Err(PinError::EmptyId); }
+            if p.is_empty() {
+                return Err(PinError::EmptyId);
+            }
         }
         Ok(())
     }
@@ -169,7 +187,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut p = ItemPin::new(2).unwrap();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), PinError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            PinError::SchemaMismatch
+        ));
     }
 
     #[test]

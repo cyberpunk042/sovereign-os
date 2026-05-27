@@ -74,9 +74,14 @@ impl Scale {
             Scale::Generous => [36, 28, 22, 18, 16, 14, 15, 11],
         };
         let idx = match element {
-            TypeElement::H1 => 0, TypeElement::H2 => 1, TypeElement::H3 => 2,
-            TypeElement::H4 => 3, TypeElement::H5 => 4, TypeElement::H6 => 5,
-            TypeElement::Body => 6, TypeElement::Caption => 7,
+            TypeElement::H1 => 0,
+            TypeElement::H2 => 1,
+            TypeElement::H3 => 2,
+            TypeElement::H4 => 3,
+            TypeElement::H5 => 4,
+            TypeElement::H6 => 5,
+            TypeElement::Body => 6,
+            TypeElement::Caption => 7,
         };
         base[idx]
     }
@@ -85,14 +90,21 @@ impl Scale {
 impl TypographyState {
     /// Default state — Default scale.
     pub fn default_state() -> Self {
-        Self { schema_version: SCHEMA_VERSION.into(), scale: Scale::Default }
+        Self {
+            schema_version: SCHEMA_VERSION.into(),
+            scale: Scale::Default,
+        }
     }
 
     /// Switch scale.
-    pub fn switch(&mut self, s: Scale) { self.scale = s; }
+    pub fn switch(&mut self, s: Scale) {
+        self.scale = s;
+    }
 
     /// pt for element.
-    pub fn pt(&self, e: TypeElement) -> u16 { self.scale.pt_for(e) }
+    pub fn pt(&self, e: TypeElement) -> u16 {
+        self.scale.pt_for(e)
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), TypographyError> {
@@ -147,20 +159,32 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = TypographyState::default_state();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), TypographyError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            TypographyError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn scale_serde_kebab() {
         assert_eq!(serde_json::to_string(&Scale::Tight).unwrap(), "\"tight\"");
-        assert_eq!(serde_json::to_string(&Scale::Generous).unwrap(), "\"generous\"");
+        assert_eq!(
+            serde_json::to_string(&Scale::Generous).unwrap(),
+            "\"generous\""
+        );
     }
 
     #[test]
     fn element_serde_kebab() {
         assert_eq!(serde_json::to_string(&TypeElement::H1).unwrap(), "\"h1\"");
-        assert_eq!(serde_json::to_string(&TypeElement::Body).unwrap(), "\"body\"");
-        assert_eq!(serde_json::to_string(&TypeElement::Caption).unwrap(), "\"caption\"");
+        assert_eq!(
+            serde_json::to_string(&TypeElement::Body).unwrap(),
+            "\"body\""
+        );
+        assert_eq!(
+            serde_json::to_string(&TypeElement::Caption).unwrap(),
+            "\"caption\""
+        );
     }
 
     #[test]

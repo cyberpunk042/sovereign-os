@@ -37,7 +37,11 @@ pub struct AutosaveConfig {
 
 impl Default for AutosaveConfig {
     fn default() -> Self {
-        Self { min_interval_ms: 1_000, idle_ms: 2_000, max_age_ms: 30_000 }
+        Self {
+            min_interval_ms: 1_000,
+            idle_ms: 2_000,
+            max_age_ms: 30_000,
+        }
     }
 }
 
@@ -103,10 +107,15 @@ impl DraftAutosave {
 
     /// Record an edit.
     pub fn update(&mut self, field_id: &str, text: &str, ts_ms: u64) -> Result<(), AutosaveError> {
-        if field_id.is_empty() { return Err(AutosaveError::EmptyField); }
+        if field_id.is_empty() {
+            return Err(AutosaveError::EmptyField);
+        }
         if let Some(existing) = self.fields.get(field_id) {
             if ts_ms < existing.last_edit_ms {
-                return Err(AutosaveError::NonMonotonic { prev: existing.last_edit_ms, new: ts_ms });
+                return Err(AutosaveError::NonMonotonic {
+                    prev: existing.last_edit_ms,
+                    new: ts_ms,
+                });
             }
         }
         let entry = self.fields.entry(field_id.into()).or_insert(DraftField {
@@ -121,7 +130,9 @@ impl DraftAutosave {
 
     /// Is a snapshot due for this field?
     pub fn snapshot_due(&self, field_id: &str, now_ms: u64) -> bool {
-        let Some(f) = self.fields.get(field_id) else { return false; };
+        let Some(f) = self.fields.get(field_id) else {
+            return false;
+        };
         let since_snap = now_ms.saturating_sub(f.last_snapshot_ms);
         if since_snap < self.config.min_interval_ms {
             return false;
@@ -138,14 +149,18 @@ impl DraftAutosave {
     /// Record that a snapshot was taken.
     pub fn mark_snapshotted(&mut self, field_id: &str, now_ms: u64) -> bool {
         match self.fields.get_mut(field_id) {
-            Some(f) => { f.last_snapshot_ms = now_ms; true }
+            Some(f) => {
+                f.last_snapshot_ms = now_ms;
+                true
+            }
             None => false,
         }
     }
 
     /// All fields currently due for snapshot.
     pub fn due_fields(&self, now_ms: u64) -> Vec<String> {
-        self.fields.keys()
+        self.fields
+            .keys()
             .filter(|id| self.snapshot_due(id, now_ms))
             .cloned()
             .collect()
@@ -163,16 +178,22 @@ impl DraftAutosave {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), AutosaveError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(AutosaveError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(AutosaveError::SchemaMismatch);
+        }
         for k in self.fields.keys() {
-            if k.is_empty() { return Err(AutosaveError::EmptyField); }
+            if k.is_empty() {
+                return Err(AutosaveError::EmptyField);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for DraftAutosave {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -180,7 +201,11 @@ mod tests {
     use super::*;
 
     fn cfg() -> AutosaveConfig {
-        AutosaveConfig { min_interval_ms: 1_000, idle_ms: 2_000, max_age_ms: 10_000 }
+        AutosaveConfig {
+            min_interval_ms: 1_000,
+            idle_ms: 2_000,
+            max_age_ms: 10_000,
+        }
     }
 
     #[test]
@@ -256,20 +281,29 @@ mod tests {
     fn nonmonotonic_rejected() {
         let mut d = DraftAutosave::new();
         d.update("a", "x", 200).unwrap();
-        assert!(matches!(d.update("a", "y", 100).unwrap_err(), AutosaveError::NonMonotonic { .. }));
+        assert!(matches!(
+            d.update("a", "y", 100).unwrap_err(),
+            AutosaveError::NonMonotonic { .. }
+        ));
     }
 
     #[test]
     fn empty_field_rejected() {
         let mut d = DraftAutosave::new();
-        assert!(matches!(d.update("", "x", 0).unwrap_err(), AutosaveError::EmptyField));
+        assert!(matches!(
+            d.update("", "x", 0).unwrap_err(),
+            AutosaveError::EmptyField
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut d = DraftAutosave::new();
         d.schema_version = "9.9.9".into();
-        assert!(matches!(d.validate().unwrap_err(), AutosaveError::SchemaMismatch));
+        assert!(matches!(
+            d.validate().unwrap_err(),
+            AutosaveError::SchemaMismatch
+        ));
     }
 
     #[test]

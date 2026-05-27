@@ -161,14 +161,18 @@ impl CellEditor {
 }
 
 impl Default for CellEditor {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn xy(row: u32, col: u32) -> Coord { Coord { row, col } }
+    fn xy(row: u32, col: u32) -> Coord {
+        Coord { row, col }
+    }
 
     #[test]
     fn idle_commit_is_noop() {
@@ -180,7 +184,10 @@ mod tests {
     fn begin_already_editing_rejected() {
         let mut e = CellEditor::new();
         e.begin(xy(0, 0), "x").unwrap();
-        assert!(matches!(e.begin(xy(1, 1), "y").unwrap_err(), CellEditorError::AlreadyEditing(_)));
+        assert!(matches!(
+            e.begin(xy(1, 1), "y").unwrap_err(),
+            CellEditorError::AlreadyEditing(_)
+        ));
     }
 
     #[test]
@@ -250,13 +257,22 @@ mod tests {
     fn schema_drift_rejected() {
         let mut e = CellEditor::new();
         e.schema_version = "9.9.9".into();
-        assert!(matches!(e.validate().unwrap_err(), CellEditorError::SchemaMismatch));
+        assert!(matches!(
+            e.validate().unwrap_err(),
+            CellEditorError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn outcome_serde_kebab() {
-        let o = TransactionOutcome::Reverted { original: "x".into() };
-        assert!(serde_json::to_string(&o).unwrap().contains("\"kind\":\"reverted\""));
+        let o = TransactionOutcome::Reverted {
+            original: "x".into(),
+        };
+        assert!(
+            serde_json::to_string(&o)
+                .unwrap()
+                .contains("\"kind\":\"reverted\"")
+        );
     }
 
     #[test]

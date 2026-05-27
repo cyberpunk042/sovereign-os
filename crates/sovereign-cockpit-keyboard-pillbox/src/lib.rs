@@ -66,8 +66,11 @@ impl KeyboardPillbox {
     /// Parse chord (case-insensitive, separator '+' or '-').
     pub fn parse(chord: &str, os: OsTarget) -> Result<Pillbox, PillboxError> {
         let raw = chord.trim();
-        if raw.is_empty() { return Err(PillboxError::EmptyChord); }
-        let parts: Vec<&str> = raw.split(|c: char| c == '+' || c == '-')
+        if raw.is_empty() {
+            return Err(PillboxError::EmptyChord);
+        }
+        let parts: Vec<&str> = raw
+            .split(|c: char| c == '+' || c == '-')
             .map(|s| s.trim())
             .filter(|s| !s.is_empty())
             .collect();
@@ -138,7 +141,10 @@ impl KeyboardPillbox {
             "delete" | "del" => "Del".to_string(),
             "up" | "down" | "left" | "right" => {
                 let arrows = match key_lc.as_str() {
-                    "up" => "↑", "down" => "↓", "left" => "←", "right" => "→",
+                    "up" => "↑",
+                    "down" => "↓",
+                    "left" => "←",
+                    "right" => "→",
                     _ => unreachable!(),
                 };
                 arrows.to_string()
@@ -155,7 +161,10 @@ impl KeyboardPillbox {
                 }
             }
         };
-        pills.push(Pill { label: key_display, is_key: true });
+        pills.push(Pill {
+            label: key_display,
+            is_key: true,
+        });
         Ok(Pillbox {
             schema_version: SCHEMA_VERSION.into(),
             pills,
@@ -179,12 +188,18 @@ mod tests {
 
     #[test]
     fn empty_chord_rejected() {
-        assert!(matches!(KeyboardPillbox::parse("", OsTarget::Linux).unwrap_err(), PillboxError::EmptyChord));
+        assert!(matches!(
+            KeyboardPillbox::parse("", OsTarget::Linux).unwrap_err(),
+            PillboxError::EmptyChord
+        ));
     }
 
     #[test]
     fn no_leaf_key_rejected() {
-        assert!(matches!(KeyboardPillbox::parse("Ctrl+Shift", OsTarget::Linux).unwrap_err(), PillboxError::NoKey(_)));
+        assert!(matches!(
+            KeyboardPillbox::parse("Ctrl+Shift", OsTarget::Linux).unwrap_err(),
+            PillboxError::NoKey(_)
+        ));
     }
 
     #[test]
@@ -239,7 +254,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut p = KeyboardPillbox::parse("K", OsTarget::Linux).unwrap();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), PillboxError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            PillboxError::SchemaMismatch
+        ));
     }
 
     #[test]

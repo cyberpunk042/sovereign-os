@@ -74,7 +74,9 @@ impl SegmentedControl {
     /// New. Initial active = first enabled segment.
     pub fn new(segments: Vec<Segment>) -> Result<Self, SegmentedError> {
         check_segments(&segments)?;
-        let first_enabled = segments.iter().find(|s| s.enabled)
+        let first_enabled = segments
+            .iter()
+            .find(|s| s.enabled)
             .ok_or(SegmentedError::NoEnabled)?;
         let active = first_enabled.id.clone();
         Ok(Self {
@@ -86,7 +88,10 @@ impl SegmentedControl {
 
     /// Select by id (must be enabled).
     pub fn select(&mut self, id: &str) -> Result<(), SegmentedError> {
-        let s = self.segments.iter().find(|s| s.id == id)
+        let s = self
+            .segments
+            .iter()
+            .find(|s| s.id == id)
             .ok_or_else(|| SegmentedError::UnknownActive(id.into()))?;
         if !s.enabled {
             return Err(SegmentedError::ActiveDisabled(id.into()));
@@ -97,13 +102,18 @@ impl SegmentedControl {
 
     /// Next enabled segment (wraps).
     pub fn next(&mut self) -> &str {
-        let enabled: Vec<usize> = self.segments.iter().enumerate()
+        let enabled: Vec<usize> = self
+            .segments
+            .iter()
+            .enumerate()
             .filter_map(|(i, s)| if s.enabled { Some(i) } else { None })
             .collect();
         if enabled.is_empty() {
             return &self.active;
         }
-        let cur = enabled.iter().position(|&i| self.segments[i].id == self.active);
+        let cur = enabled
+            .iter()
+            .position(|&i| self.segments[i].id == self.active);
         let next_idx = match cur {
             Some(p) => enabled[(p + 1) % enabled.len()],
             None => enabled[0],
@@ -114,13 +124,18 @@ impl SegmentedControl {
 
     /// Previous enabled segment (wraps).
     pub fn prev(&mut self) -> &str {
-        let enabled: Vec<usize> = self.segments.iter().enumerate()
+        let enabled: Vec<usize> = self
+            .segments
+            .iter()
+            .enumerate()
             .filter_map(|(i, s)| if s.enabled { Some(i) } else { None })
             .collect();
         if enabled.is_empty() {
             return &self.active;
         }
-        let cur = enabled.iter().position(|&i| self.segments[i].id == self.active);
+        let cur = enabled
+            .iter()
+            .position(|&i| self.segments[i].id == self.active);
         let prev_idx = match cur {
             Some(p) => enabled[(p + enabled.len() - 1) % enabled.len()],
             None => *enabled.last().unwrap(),
@@ -135,7 +150,10 @@ impl SegmentedControl {
             return Err(SegmentedError::SchemaMismatch);
         }
         check_segments(&self.segments)?;
-        let active = self.segments.iter().find(|s| s.id == self.active)
+        let active = self
+            .segments
+            .iter()
+            .find(|s| s.id == self.active)
             .ok_or_else(|| SegmentedError::UnknownActive(self.active.clone()))?;
         if !active.enabled {
             return Err(SegmentedError::ActiveDisabled(self.active.clone()));
@@ -151,8 +169,12 @@ fn check_segments(s: &[Segment]) -> Result<(), SegmentedError> {
     use std::collections::HashSet;
     let mut seen: HashSet<&str> = HashSet::new();
     for seg in s {
-        if seg.id.is_empty() { return Err(SegmentedError::EmptyId); }
-        if seg.label.is_empty() { return Err(SegmentedError::EmptyLabel(seg.id.clone())); }
+        if seg.id.is_empty() {
+            return Err(SegmentedError::EmptyId);
+        }
+        if seg.label.is_empty() {
+            return Err(SegmentedError::EmptyLabel(seg.id.clone()));
+        }
         if !seen.insert(seg.id.as_str()) {
             return Err(SegmentedError::DuplicateId(seg.id.clone()));
         }
@@ -165,18 +187,28 @@ mod tests {
     use super::*;
 
     fn s(id: &str, enabled: bool) -> Segment {
-        Segment { id: id.into(), label: format!("L-{id}"), enabled }
+        Segment {
+            id: id.into(),
+            label: format!("L-{id}"),
+            enabled,
+        }
     }
 
     #[test]
     fn too_few_rejected() {
-        assert!(matches!(SegmentedControl::new(vec![s("a", true)]).unwrap_err(), SegmentedError::BadCount(1)));
+        assert!(matches!(
+            SegmentedControl::new(vec![s("a", true)]).unwrap_err(),
+            SegmentedError::BadCount(1)
+        ));
     }
 
     #[test]
     fn too_many_rejected() {
         let segs: Vec<Segment> = (0..7).map(|i| s(&format!("s{i}"), true)).collect();
-        assert!(matches!(SegmentedControl::new(segs).unwrap_err(), SegmentedError::BadCount(7)));
+        assert!(matches!(
+            SegmentedControl::new(segs).unwrap_err(),
+            SegmentedError::BadCount(7)
+        ));
     }
 
     #[test]
@@ -203,7 +235,10 @@ mod tests {
     #[test]
     fn select_disabled_rejected() {
         let mut c = SegmentedControl::new(vec![s("a", true), s("b", false)]).unwrap();
-        assert!(matches!(c.select("b").unwrap_err(), SegmentedError::ActiveDisabled(_)));
+        assert!(matches!(
+            c.select("b").unwrap_err(),
+            SegmentedError::ActiveDisabled(_)
+        ));
     }
 
     #[test]
@@ -243,14 +278,20 @@ mod tests {
     fn empty_id_rejected() {
         let mut x = s("a", true);
         x.id = String::new();
-        assert!(matches!(SegmentedControl::new(vec![x, s("b", true)]).unwrap_err(), SegmentedError::EmptyId));
+        assert!(matches!(
+            SegmentedControl::new(vec![x, s("b", true)]).unwrap_err(),
+            SegmentedError::EmptyId
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut c = SegmentedControl::new(vec![s("a", true), s("b", true)]).unwrap();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), SegmentedError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            SegmentedError::SchemaMismatch
+        ));
     }
 
     #[test]

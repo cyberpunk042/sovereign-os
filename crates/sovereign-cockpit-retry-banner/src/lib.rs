@@ -67,12 +67,17 @@ pub enum BannerError {
 impl RetryBanner {
     /// New (Idle).
     pub fn new() -> Self {
-        Self { schema_version: SCHEMA_VERSION.into(), phase: Phase::Idle }
+        Self {
+            schema_version: SCHEMA_VERSION.into(),
+            phase: Phase::Idle,
+        }
     }
 
     /// Record a failure.
     pub fn fail(&mut self, now_ms: u64, retry_after_ms: u64, err: &str) -> Result<(), BannerError> {
-        if err.is_empty() { return Err(BannerError::EmptyError); }
+        if err.is_empty() {
+            return Err(BannerError::EmptyError);
+        }
         let attempt = match &self.phase {
             Phase::Failed { attempt, .. } => attempt + 1,
             Phase::Retrying { attempt } => *attempt,
@@ -105,8 +110,14 @@ impl RetryBanner {
     /// Begin retrying.
     pub fn retry(&mut self, now_ms: u64) -> Result<(), BannerError> {
         let attempt = match &self.phase {
-            Phase::Failed { attempt, retry_at_ms, .. } => {
-                if now_ms < *retry_at_ms { return Err(BannerError::InvalidPhase); }
+            Phase::Failed {
+                attempt,
+                retry_at_ms,
+                ..
+            } => {
+                if now_ms < *retry_at_ms {
+                    return Err(BannerError::InvalidPhase);
+                }
                 *attempt
             }
             _ => return Err(BannerError::InvalidPhase),
@@ -127,16 +138,22 @@ impl RetryBanner {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), BannerError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(BannerError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(BannerError::SchemaMismatch);
+        }
         if let Phase::Failed { error, .. } = &self.phase {
-            if error.is_empty() { return Err(BannerError::EmptyError); }
+            if error.is_empty() {
+                return Err(BannerError::EmptyError);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for RetryBanner {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -148,7 +165,11 @@ mod tests {
         let mut b = RetryBanner::new();
         b.fail(0, 1000, "timeout").unwrap();
         match &b.phase {
-            Phase::Failed { attempt, retry_at_ms, error } => {
+            Phase::Failed {
+                attempt,
+                retry_at_ms,
+                error,
+            } => {
                 assert_eq!(*attempt, 1);
                 assert_eq!(*retry_at_ms, 1000);
                 assert_eq!(error, "timeout");
@@ -180,7 +201,10 @@ mod tests {
     fn retry_before_window_rejected() {
         let mut b = RetryBanner::new();
         b.fail(0, 1000, "x").unwrap();
-        assert!(matches!(b.retry(500).unwrap_err(), BannerError::InvalidPhase));
+        assert!(matches!(
+            b.retry(500).unwrap_err(),
+            BannerError::InvalidPhase
+        ));
     }
 
     #[test]
@@ -204,14 +228,20 @@ mod tests {
     #[test]
     fn empty_error_rejected() {
         let mut b = RetryBanner::new();
-        assert!(matches!(b.fail(0, 100, "").unwrap_err(), BannerError::EmptyError));
+        assert!(matches!(
+            b.fail(0, 100, "").unwrap_err(),
+            BannerError::EmptyError
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut b = RetryBanner::new();
         b.schema_version = "9.9.9".into();
-        assert!(matches!(b.validate().unwrap_err(), BannerError::SchemaMismatch));
+        assert!(matches!(
+            b.validate().unwrap_err(),
+            BannerError::SchemaMismatch
+        ));
     }
 
     #[test]

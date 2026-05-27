@@ -93,31 +93,50 @@ impl RequestList {
 
     /// Start a request.
     pub fn start(&mut self, id: &str, label: &str, ts_started_ms: u64) -> Result<(), RequestError> {
-        if id.is_empty() { return Err(RequestError::EmptyId); }
-        if label.is_empty() { return Err(RequestError::EmptyLabel); }
-        if self.requests.contains_key(id) { return Err(RequestError::DuplicateId(id.into())); }
-        self.requests.insert(id.into(), Request {
-            id: id.into(),
-            label: label.into(),
-            status: Status::InFlight,
-            progress_bp: 0,
-            ts_started_ms,
-        });
+        if id.is_empty() {
+            return Err(RequestError::EmptyId);
+        }
+        if label.is_empty() {
+            return Err(RequestError::EmptyLabel);
+        }
+        if self.requests.contains_key(id) {
+            return Err(RequestError::DuplicateId(id.into()));
+        }
+        self.requests.insert(
+            id.into(),
+            Request {
+                id: id.into(),
+                label: label.into(),
+                status: Status::InFlight,
+                progress_bp: 0,
+                ts_started_ms,
+            },
+        );
         Ok(())
     }
 
     /// Update progress.
     pub fn update_progress(&mut self, id: &str, bp: u32) -> Result<(), RequestError> {
-        let r = self.requests.get_mut(id).ok_or_else(|| RequestError::UnknownId(id.into()))?;
-        if r.status != Status::InFlight { return Err(RequestError::NotInFlight); }
+        let r = self
+            .requests
+            .get_mut(id)
+            .ok_or_else(|| RequestError::UnknownId(id.into()))?;
+        if r.status != Status::InFlight {
+            return Err(RequestError::NotInFlight);
+        }
         r.progress_bp = bp.min(10_000);
         Ok(())
     }
 
     /// Complete.
     pub fn complete(&mut self, id: &str) -> Result<(), RequestError> {
-        let r = self.requests.get_mut(id).ok_or_else(|| RequestError::UnknownId(id.into()))?;
-        if r.status != Status::InFlight { return Err(RequestError::NotInFlight); }
+        let r = self
+            .requests
+            .get_mut(id)
+            .ok_or_else(|| RequestError::UnknownId(id.into()))?;
+        if r.status != Status::InFlight {
+            return Err(RequestError::NotInFlight);
+        }
         r.status = Status::Done;
         r.progress_bp = 10_000;
         Ok(())
@@ -125,39 +144,62 @@ impl RequestList {
 
     /// Fail with error.
     pub fn fail(&mut self, id: &str, err: &str) -> Result<(), RequestError> {
-        if err.is_empty() { return Err(RequestError::EmptyError); }
-        let r = self.requests.get_mut(id).ok_or_else(|| RequestError::UnknownId(id.into()))?;
-        if r.status != Status::InFlight { return Err(RequestError::NotInFlight); }
+        if err.is_empty() {
+            return Err(RequestError::EmptyError);
+        }
+        let r = self
+            .requests
+            .get_mut(id)
+            .ok_or_else(|| RequestError::UnknownId(id.into()))?;
+        if r.status != Status::InFlight {
+            return Err(RequestError::NotInFlight);
+        }
         r.status = Status::Failed(err.into());
         Ok(())
     }
 
     /// Cancel.
     pub fn cancel(&mut self, id: &str) -> Result<(), RequestError> {
-        let r = self.requests.get_mut(id).ok_or_else(|| RequestError::UnknownId(id.into()))?;
-        if r.status != Status::InFlight { return Err(RequestError::NotInFlight); }
+        let r = self
+            .requests
+            .get_mut(id)
+            .ok_or_else(|| RequestError::UnknownId(id.into()))?;
+        if r.status != Status::InFlight {
+            return Err(RequestError::NotInFlight);
+        }
         r.status = Status::Cancelled;
         Ok(())
     }
 
     /// Currently in-flight.
     pub fn inflight(&self) -> Vec<&Request> {
-        self.requests.values().filter(|r| r.status == Status::InFlight).collect()
+        self.requests
+            .values()
+            .filter(|r| r.status == Status::InFlight)
+            .collect()
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), RequestError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(RequestError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(RequestError::SchemaMismatch);
+        }
         for (id, r) in &self.requests {
-            if id.is_empty() { return Err(RequestError::EmptyId); }
-            if r.label.is_empty() { return Err(RequestError::EmptyLabel); }
+            if id.is_empty() {
+                return Err(RequestError::EmptyId);
+            }
+            if r.label.is_empty() {
+                return Err(RequestError::EmptyLabel);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for RequestList {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -208,30 +250,48 @@ mod tests {
         let mut l = RequestList::new();
         l.start("a", "x", 0).unwrap();
         l.complete("a").unwrap();
-        assert!(matches!(l.update_progress("a", 100).unwrap_err(), RequestError::NotInFlight));
+        assert!(matches!(
+            l.update_progress("a", 100).unwrap_err(),
+            RequestError::NotInFlight
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut l = RequestList::new();
-        assert!(matches!(l.start("", "x", 0).unwrap_err(), RequestError::EmptyId));
-        assert!(matches!(l.start("a", "", 0).unwrap_err(), RequestError::EmptyLabel));
+        assert!(matches!(
+            l.start("", "x", 0).unwrap_err(),
+            RequestError::EmptyId
+        ));
+        assert!(matches!(
+            l.start("a", "", 0).unwrap_err(),
+            RequestError::EmptyLabel
+        ));
         l.start("a", "x", 0).unwrap();
-        assert!(matches!(l.fail("a", "").unwrap_err(), RequestError::EmptyError));
+        assert!(matches!(
+            l.fail("a", "").unwrap_err(),
+            RequestError::EmptyError
+        ));
     }
 
     #[test]
     fn duplicate_id_rejected() {
         let mut l = RequestList::new();
         l.start("a", "x", 0).unwrap();
-        assert!(matches!(l.start("a", "y", 0).unwrap_err(), RequestError::DuplicateId(_)));
+        assert!(matches!(
+            l.start("a", "y", 0).unwrap_err(),
+            RequestError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut l = RequestList::new();
         l.schema_version = "9.9.9".into();
-        assert!(matches!(l.validate().unwrap_err(), RequestError::SchemaMismatch));
+        assert!(matches!(
+            l.validate().unwrap_err(),
+            RequestError::SchemaMismatch
+        ));
     }
 
     #[test]

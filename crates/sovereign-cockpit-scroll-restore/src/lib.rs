@@ -79,7 +79,13 @@ impl ScrollRestore {
 
     /// Record a scroll offset for a route. Updates timestamp + moves
     /// to MRU. Evicts LRU when over capacity.
-    pub fn record(&mut self, route: &str, x_px: u32, y_px: u32, at: &str) -> Result<(), ScrollRestoreError> {
+    pub fn record(
+        &mut self,
+        route: &str,
+        x_px: u32,
+        y_px: u32,
+        at: &str,
+    ) -> Result<(), ScrollRestoreError> {
         if route.is_empty() {
             return Err(ScrollRestoreError::EmptyRoute);
         }
@@ -151,7 +157,10 @@ mod tests {
 
     #[test]
     fn capacity_zero_rejected() {
-        assert!(matches!(ScrollRestore::new(0).unwrap_err(), ScrollRestoreError::CapacityZero));
+        assert!(matches!(
+            ScrollRestore::new(0).unwrap_err(),
+            ScrollRestoreError::CapacityZero
+        ));
     }
 
     #[test]
@@ -212,30 +221,62 @@ mod tests {
     #[test]
     fn empty_route_rejected() {
         let mut s = ScrollRestore::new(3).unwrap();
-        assert!(matches!(s.record("", 0, 0, "t").unwrap_err(), ScrollRestoreError::EmptyRoute));
+        assert!(matches!(
+            s.record("", 0, 0, "t").unwrap_err(),
+            ScrollRestoreError::EmptyRoute
+        ));
     }
 
     #[test]
     fn validate_over_capacity_rejected() {
         let mut s = ScrollRestore::new(1).unwrap();
-        s.entries.push(Entry { route: "/a".into(), x_px: 0, y_px: 0, touched_at: "t".into() });
-        s.entries.push(Entry { route: "/b".into(), x_px: 0, y_px: 0, touched_at: "t".into() });
-        assert!(matches!(s.validate().unwrap_err(), ScrollRestoreError::OverCapacity { .. }));
+        s.entries.push(Entry {
+            route: "/a".into(),
+            x_px: 0,
+            y_px: 0,
+            touched_at: "t".into(),
+        });
+        s.entries.push(Entry {
+            route: "/b".into(),
+            x_px: 0,
+            y_px: 0,
+            touched_at: "t".into(),
+        });
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            ScrollRestoreError::OverCapacity { .. }
+        ));
     }
 
     #[test]
     fn validate_duplicate_rejected() {
         let mut s = ScrollRestore::new(3).unwrap();
-        s.entries.push(Entry { route: "/a".into(), x_px: 0, y_px: 0, touched_at: "t".into() });
-        s.entries.push(Entry { route: "/a".into(), x_px: 0, y_px: 0, touched_at: "t".into() });
-        assert!(matches!(s.validate().unwrap_err(), ScrollRestoreError::DuplicateRoute(_)));
+        s.entries.push(Entry {
+            route: "/a".into(),
+            x_px: 0,
+            y_px: 0,
+            touched_at: "t".into(),
+        });
+        s.entries.push(Entry {
+            route: "/a".into(),
+            x_px: 0,
+            y_px: 0,
+            touched_at: "t".into(),
+        });
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            ScrollRestoreError::DuplicateRoute(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = ScrollRestore::new(3).unwrap();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), ScrollRestoreError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            ScrollRestoreError::SchemaMismatch
+        ));
     }
 
     #[test]

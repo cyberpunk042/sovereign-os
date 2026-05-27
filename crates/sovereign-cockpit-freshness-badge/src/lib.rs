@@ -67,8 +67,14 @@ pub enum FreshnessError {
 
 impl FreshnessBadge {
     /// New.
-    pub fn new(fetched_at_ms: u64, fresh_ttl_ms: u64, stale_ttl_ms: u64) -> Result<Self, FreshnessError> {
-        if stale_ttl_ms < fresh_ttl_ms { return Err(FreshnessError::InvalidTtls); }
+    pub fn new(
+        fetched_at_ms: u64,
+        fresh_ttl_ms: u64,
+        stale_ttl_ms: u64,
+    ) -> Result<Self, FreshnessError> {
+        if stale_ttl_ms < fresh_ttl_ms {
+            return Err(FreshnessError::InvalidTtls);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             fetched_at_ms,
@@ -80,7 +86,9 @@ impl FreshnessBadge {
     }
 
     /// Mark revalidation in progress.
-    pub fn start_revalidate(&mut self) { self.revalidating = true; }
+    pub fn start_revalidate(&mut self) {
+        self.revalidating = true;
+    }
 
     /// Commit a successful refetch.
     pub fn complete_revalidate(&mut self, now_ms: u64) {
@@ -97,18 +105,30 @@ impl FreshnessBadge {
 
     /// Classify.
     pub fn classify(&self, now_ms: u64) -> Freshness {
-        if self.revalidating { return Freshness::Revalidating; }
+        if self.revalidating {
+            return Freshness::Revalidating;
+        }
         let age = now_ms.saturating_sub(self.fetched_at_ms);
-        if self.last_error.is_some() && age > self.fresh_ttl_ms { return Freshness::Failed; }
-        if age <= self.fresh_ttl_ms { return Freshness::Fresh; }
-        if age <= self.stale_ttl_ms { return Freshness::Stale; }
+        if self.last_error.is_some() && age > self.fresh_ttl_ms {
+            return Freshness::Failed;
+        }
+        if age <= self.fresh_ttl_ms {
+            return Freshness::Fresh;
+        }
+        if age <= self.stale_ttl_ms {
+            return Freshness::Stale;
+        }
         Freshness::Expired
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), FreshnessError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(FreshnessError::SchemaMismatch); }
-        if self.stale_ttl_ms < self.fresh_ttl_ms { return Err(FreshnessError::InvalidTtls); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(FreshnessError::SchemaMismatch);
+        }
+        if self.stale_ttl_ms < self.fresh_ttl_ms {
+            return Err(FreshnessError::InvalidTtls);
+        }
         Ok(())
     }
 }
@@ -117,7 +137,9 @@ impl FreshnessBadge {
 mod tests {
     use super::*;
 
-    fn b() -> FreshnessBadge { FreshnessBadge::new(0, 1000, 5000).unwrap() }
+    fn b() -> FreshnessBadge {
+        FreshnessBadge::new(0, 1000, 5000).unwrap()
+    }
 
     #[test]
     fn fresh_within_ttl() {
@@ -178,7 +200,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = b();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), FreshnessError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            FreshnessError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -67,9 +67,18 @@ pub enum CardError {
 
 impl MetricCard {
     /// New.
-    pub fn new(title: &str, unit: &str, sparkline_cap: u32, flat_epsilon_bp: u32) -> Result<Self, CardError> {
-        if title.is_empty() { return Err(CardError::EmptyTitle); }
-        if sparkline_cap == 0 { return Err(CardError::ZeroCap); }
+    pub fn new(
+        title: &str,
+        unit: &str,
+        sparkline_cap: u32,
+        flat_epsilon_bp: u32,
+    ) -> Result<Self, CardError> {
+        if title.is_empty() {
+            return Err(CardError::EmptyTitle);
+        }
+        if sparkline_cap == 0 {
+            return Err(CardError::ZeroCap);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             title: title.into(),
@@ -98,9 +107,13 @@ impl MetricCard {
     pub fn delta_bp(&self) -> i64 {
         let prev = self.prev.unwrap_or(0);
         if prev == 0 {
-            if self.value == 0 { 0 }
-            else if self.value > 0 { 10_000 }
-            else { -10_000 }
+            if self.value == 0 {
+                0
+            } else if self.value > 0 {
+                10_000
+            } else {
+                -10_000
+            }
         } else {
             ((self.value as i128 - prev as i128) * 10_000 / prev.unsigned_abs() as i128) as i64
         }
@@ -110,16 +123,26 @@ impl MetricCard {
     pub fn trend(&self) -> Trend {
         let d = self.delta_bp();
         let eps = self.flat_epsilon_bp as i64;
-        if d.abs() <= eps { Trend::Flat }
-        else if d > 0 { Trend::Up }
-        else { Trend::Down }
+        if d.abs() <= eps {
+            Trend::Flat
+        } else if d > 0 {
+            Trend::Up
+        } else {
+            Trend::Down
+        }
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), CardError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(CardError::SchemaMismatch); }
-        if self.title.is_empty() { return Err(CardError::EmptyTitle); }
-        if self.sparkline_cap == 0 { return Err(CardError::ZeroCap); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(CardError::SchemaMismatch);
+        }
+        if self.title.is_empty() {
+            return Err(CardError::EmptyTitle);
+        }
+        if self.sparkline_cap == 0 {
+            return Err(CardError::ZeroCap);
+        }
         Ok(())
     }
 }
@@ -148,7 +171,9 @@ mod tests {
     #[test]
     fn sparkline_capped() {
         let mut c = MetricCard::new("X", "", 3, 100).unwrap();
-        for i in 1..=5 { c.set_value(i, 0); }
+        for i in 1..=5 {
+            c.set_value(i, 0);
+        }
         assert_eq!(c.samples, vec![3, 4, 5]);
     }
 
@@ -172,15 +197,24 @@ mod tests {
 
     #[test]
     fn empty_inputs_rejected() {
-        assert!(matches!(MetricCard::new("", "", 5, 0).unwrap_err(), CardError::EmptyTitle));
-        assert!(matches!(MetricCard::new("X", "", 0, 0).unwrap_err(), CardError::ZeroCap));
+        assert!(matches!(
+            MetricCard::new("", "", 5, 0).unwrap_err(),
+            CardError::EmptyTitle
+        ));
+        assert!(matches!(
+            MetricCard::new("X", "", 0, 0).unwrap_err(),
+            CardError::ZeroCap
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut c = MetricCard::new("X", "", 5, 0).unwrap();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), CardError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            CardError::SchemaMismatch
+        ));
     }
 
     #[test]

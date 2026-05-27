@@ -118,7 +118,9 @@ impl MessageComposer {
         if !matches!(self.phase, Phase::Editing | Phase::Failed) {
             return Err(ComposerError::WrongPhase(self.phase));
         }
-        if file_id.is_empty() { return Err(ComposerError::EmptyAttachment); }
+        if file_id.is_empty() {
+            return Err(ComposerError::EmptyAttachment);
+        }
         Ok(self.attachments.insert(file_id.into()))
     }
 
@@ -135,7 +137,9 @@ impl MessageComposer {
         if !matches!(self.phase, Phase::Editing | Phase::Failed) {
             return Err(ComposerError::WrongPhase(self.phase));
         }
-        if parent.is_empty() { return Err(ComposerError::EmptyParent); }
+        if parent.is_empty() {
+            return Err(ComposerError::EmptyParent);
+        }
         self.reply_to = Some(parent.into());
         Ok(())
     }
@@ -164,7 +168,10 @@ impl MessageComposer {
         }
         if let Some(scheduled) = self.send_at_ms {
             if now_ms < scheduled {
-                return Err(ComposerError::NotYetDue { send_at_ms: scheduled, now_ms });
+                return Err(ComposerError::NotYetDue {
+                    send_at_ms: scheduled,
+                    now_ms,
+                });
             }
         }
         self.phase = Phase::Sending;
@@ -187,7 +194,9 @@ impl MessageComposer {
         if self.phase != Phase::Sending {
             return Err(ComposerError::WrongPhase(self.phase));
         }
-        if error.is_empty() { return Err(ComposerError::EmptyError); }
+        if error.is_empty() {
+            return Err(ComposerError::EmptyError);
+        }
         self.phase = Phase::Failed;
         self.last_error = Some(error.into());
         Ok(())
@@ -200,19 +209,27 @@ impl MessageComposer {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ComposerError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ComposerError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ComposerError::SchemaMismatch);
+        }
         for a in &self.attachments {
-            if a.is_empty() { return Err(ComposerError::EmptyAttachment); }
+            if a.is_empty() {
+                return Err(ComposerError::EmptyAttachment);
+            }
         }
         if let Some(p) = &self.reply_to {
-            if p.is_empty() { return Err(ComposerError::EmptyParent); }
+            if p.is_empty() {
+                return Err(ComposerError::EmptyParent);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for MessageComposer {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -231,7 +248,10 @@ mod tests {
     #[test]
     fn nothing_to_send_rejected() {
         let mut c = MessageComposer::new();
-        assert!(matches!(c.try_send(0).unwrap_err(), ComposerError::NothingToSend));
+        assert!(matches!(
+            c.try_send(0).unwrap_err(),
+            ComposerError::NothingToSend
+        ));
     }
 
     #[test]
@@ -279,7 +299,10 @@ mod tests {
         let mut c = MessageComposer::new();
         c.set_body("hi").unwrap();
         c.try_send(0).unwrap();
-        assert!(matches!(c.set_body("oops").unwrap_err(), ComposerError::WrongPhase(_)));
+        assert!(matches!(
+            c.set_body("oops").unwrap_err(),
+            ComposerError::WrongPhase(_)
+        ));
     }
 
     #[test]
@@ -300,15 +323,24 @@ mod tests {
     #[test]
     fn empty_inputs_rejected() {
         let mut c = MessageComposer::new();
-        assert!(matches!(c.attach("").unwrap_err(), ComposerError::EmptyAttachment));
-        assert!(matches!(c.set_reply_to("").unwrap_err(), ComposerError::EmptyParent));
+        assert!(matches!(
+            c.attach("").unwrap_err(),
+            ComposerError::EmptyAttachment
+        ));
+        assert!(matches!(
+            c.set_reply_to("").unwrap_err(),
+            ComposerError::EmptyParent
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut c = MessageComposer::new();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), ComposerError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            ComposerError::SchemaMismatch
+        ));
     }
 
     #[test]

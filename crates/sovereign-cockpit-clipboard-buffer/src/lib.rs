@@ -86,8 +86,12 @@ pub enum ClipboardBufferError {
 impl ClipboardBuffer {
     /// New buffer.
     pub fn new(max_entries: u32, max_total_bytes: u32) -> Result<Self, ClipboardBufferError> {
-        if max_entries == 0 { return Err(ClipboardBufferError::MaxEntriesZero); }
-        if max_total_bytes == 0 { return Err(ClipboardBufferError::MaxTotalZero); }
+        if max_entries == 0 {
+            return Err(ClipboardBufferError::MaxEntriesZero);
+        }
+        if max_total_bytes == 0 {
+            return Err(ClipboardBufferError::MaxTotalZero);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             entries: Vec::new(),
@@ -100,9 +104,18 @@ impl ClipboardBuffer {
     pub fn copy(&mut self, payload: Payload, at: &str) -> Result<(), ClipboardBufferError> {
         let sz = payload.size();
         if sz > self.max_total_bytes as usize {
-            return Err(ClipboardBufferError::PayloadTooLarge(sz, self.max_total_bytes));
+            return Err(ClipboardBufferError::PayloadTooLarge(
+                sz,
+                self.max_total_bytes,
+            ));
         }
-        self.entries.insert(0, Entry { payload, copied_at: at.into() });
+        self.entries.insert(
+            0,
+            Entry {
+                payload,
+                copied_at: at.into(),
+            },
+        );
         // Trim count.
         while self.entries.len() > self.max_entries as usize {
             self.entries.pop();
@@ -122,7 +135,10 @@ impl ClipboardBuffer {
     /// Paste from index (0 = most recent).
     pub fn paste(&self, index: usize) -> Result<&Entry, ClipboardBufferError> {
         if index >= self.entries.len() {
-            return Err(ClipboardBufferError::IndexOutOfRange(index, self.entries.len()));
+            return Err(ClipboardBufferError::IndexOutOfRange(
+                index,
+                self.entries.len(),
+            ));
         }
         Ok(&self.entries[index])
     }
@@ -142,8 +158,12 @@ impl ClipboardBuffer {
         if self.schema_version != SCHEMA_VERSION {
             return Err(ClipboardBufferError::SchemaMismatch);
         }
-        if self.max_entries == 0 { return Err(ClipboardBufferError::MaxEntriesZero); }
-        if self.max_total_bytes == 0 { return Err(ClipboardBufferError::MaxTotalZero); }
+        if self.max_entries == 0 {
+            return Err(ClipboardBufferError::MaxEntriesZero);
+        }
+        if self.max_total_bytes == 0 {
+            return Err(ClipboardBufferError::MaxTotalZero);
+        }
         Ok(())
     }
 }
@@ -152,13 +172,25 @@ impl ClipboardBuffer {
 mod tests {
     use super::*;
 
-    fn text(s: &str) -> Payload { Payload::Text { content: s.into() } }
-    fn img(r: &str) -> Payload { Payload::Image { reference: r.into() } }
+    fn text(s: &str) -> Payload {
+        Payload::Text { content: s.into() }
+    }
+    fn img(r: &str) -> Payload {
+        Payload::Image {
+            reference: r.into(),
+        }
+    }
 
     #[test]
     fn zero_limits_rejected() {
-        assert!(matches!(ClipboardBuffer::new(0, 100).unwrap_err(), ClipboardBufferError::MaxEntriesZero));
-        assert!(matches!(ClipboardBuffer::new(1, 0).unwrap_err(), ClipboardBufferError::MaxTotalZero));
+        assert!(matches!(
+            ClipboardBuffer::new(0, 100).unwrap_err(),
+            ClipboardBufferError::MaxEntriesZero
+        ));
+        assert!(matches!(
+            ClipboardBuffer::new(1, 0).unwrap_err(),
+            ClipboardBufferError::MaxTotalZero
+        ));
     }
 
     #[test]
@@ -211,13 +243,19 @@ mod tests {
     #[test]
     fn single_payload_too_large_rejected() {
         let mut b = ClipboardBuffer::new(5, 5).unwrap();
-        assert!(matches!(b.copy(text("XXXXXXXXXX"), "t").unwrap_err(), ClipboardBufferError::PayloadTooLarge(10, 5)));
+        assert!(matches!(
+            b.copy(text("XXXXXXXXXX"), "t").unwrap_err(),
+            ClipboardBufferError::PayloadTooLarge(10, 5)
+        ));
     }
 
     #[test]
     fn paste_out_of_range_rejected() {
         let b = ClipboardBuffer::new(5, 1024).unwrap();
-        assert!(matches!(b.paste(0).unwrap_err(), ClipboardBufferError::IndexOutOfRange(0, 0)));
+        assert!(matches!(
+            b.paste(0).unwrap_err(),
+            ClipboardBufferError::IndexOutOfRange(0, 0)
+        ));
     }
 
     #[test]
@@ -238,7 +276,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut b = ClipboardBuffer::new(5, 1024).unwrap();
         b.schema_version = "9.9.9".into();
-        assert!(matches!(b.validate().unwrap_err(), ClipboardBufferError::SchemaMismatch));
+        assert!(matches!(
+            b.validate().unwrap_err(),
+            ClipboardBufferError::SchemaMismatch
+        ));
     }
 
     #[test]

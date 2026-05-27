@@ -69,7 +69,9 @@ impl ChartLegend {
 
     /// Add.
     pub fn add(&mut self, s: Series) -> Result<(), LegendError> {
-        if s.id.is_empty() { return Err(LegendError::EmptyId); }
+        if s.id.is_empty() {
+            return Err(LegendError::EmptyId);
+        }
         if self.series.iter().any(|x| x.id == s.id) {
             return Err(LegendError::DuplicateId(s.id));
         }
@@ -79,7 +81,10 @@ impl ChartLegend {
 
     /// Toggle visibility.
     pub fn toggle(&mut self, id: &str) -> Result<(), LegendError> {
-        let s = self.series.iter_mut().find(|x| x.id == id)
+        let s = self
+            .series
+            .iter_mut()
+            .find(|x| x.id == id)
             .ok_or_else(|| LegendError::UnknownId(id.into()))?;
         s.visible = !s.visible;
         Ok(())
@@ -98,7 +103,9 @@ impl ChartLegend {
 
     /// Show all.
     pub fn show_all(&mut self) {
-        for s in self.series.iter_mut() { s.visible = true; }
+        for s in self.series.iter_mut() {
+            s.visible = true;
+        }
     }
 
     /// Hover.
@@ -111,7 +118,9 @@ impl ChartLegend {
     }
 
     /// Unhover.
-    pub fn unhover(&mut self) { self.hovered = None; }
+    pub fn unhover(&mut self) {
+        self.hovered = None;
+    }
 
     /// Visible series.
     pub fn visible_series(&self) -> Vec<Series> {
@@ -120,11 +129,15 @@ impl ChartLegend {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), LegendError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(LegendError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(LegendError::SchemaMismatch);
+        }
         use std::collections::HashSet;
         let mut seen: HashSet<&str> = HashSet::new();
         for s in &self.series {
-            if s.id.is_empty() { return Err(LegendError::EmptyId); }
+            if s.id.is_empty() {
+                return Err(LegendError::EmptyId);
+            }
             if !seen.insert(s.id.as_str()) {
                 return Err(LegendError::DuplicateId(s.id.clone()));
             }
@@ -134,14 +147,23 @@ impl ChartLegend {
 }
 
 impl Default for ChartLegend {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn s(id: &str) -> Series { Series { id: id.into(), label: id.into(), color: "#000".into(), visible: true } }
+    fn s(id: &str) -> Series {
+        Series {
+            id: id.into(),
+            label: id.into(),
+            color: "#000".into(),
+            visible: true,
+        }
+    }
 
     #[test]
     fn add_and_visible() {
@@ -155,7 +177,10 @@ mod tests {
     fn duplicate_rejected() {
         let mut l = ChartLegend::new();
         l.add(s("a")).unwrap();
-        assert!(matches!(l.add(s("a")).unwrap_err(), LegendError::DuplicateId(_)));
+        assert!(matches!(
+            l.add(s("a")).unwrap_err(),
+            LegendError::DuplicateId(_)
+        ));
     }
 
     #[test]
@@ -203,16 +228,28 @@ mod tests {
     #[test]
     fn unknown_id_rejected() {
         let mut l = ChartLegend::new();
-        assert!(matches!(l.toggle("nope").unwrap_err(), LegendError::UnknownId(_)));
-        assert!(matches!(l.solo("nope").unwrap_err(), LegendError::UnknownId(_)));
-        assert!(matches!(l.hover("nope").unwrap_err(), LegendError::UnknownId(_)));
+        assert!(matches!(
+            l.toggle("nope").unwrap_err(),
+            LegendError::UnknownId(_)
+        ));
+        assert!(matches!(
+            l.solo("nope").unwrap_err(),
+            LegendError::UnknownId(_)
+        ));
+        assert!(matches!(
+            l.hover("nope").unwrap_err(),
+            LegendError::UnknownId(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut l = ChartLegend::new();
         l.schema_version = "9.9.9".into();
-        assert!(matches!(l.validate().unwrap_err(), LegendError::SchemaMismatch));
+        assert!(matches!(
+            l.validate().unwrap_err(),
+            LegendError::SchemaMismatch
+        ));
     }
 
     #[test]

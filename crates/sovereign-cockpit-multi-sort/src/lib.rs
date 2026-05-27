@@ -69,51 +69,71 @@ impl MultiSort {
     /// - extend=false: clear chain, install Asc on column (or rotate Asc→Desc→Off on repeat clicks).
     /// - extend=true: rotate at the column's position in the chain (or append Asc).
     pub fn click(&mut self, column: &str, extend: bool) -> Result<(), SortError> {
-        if column.is_empty() { return Err(SortError::EmptyColumn); }
+        if column.is_empty() {
+            return Err(SortError::EmptyColumn);
+        }
         if !extend {
             // Replace.
             let prev = self.chain.iter().find(|e| e.column == column).cloned();
             self.chain.clear();
             match prev {
-                None => self.chain.push(Entry { column: column.into(), direction: Direction::Asc }),
-                Some(e) if e.direction == Direction::Asc =>
-                    self.chain.push(Entry { column: column.into(), direction: Direction::Desc }),
-                Some(_) => {}, // off
+                None => self.chain.push(Entry {
+                    column: column.into(),
+                    direction: Direction::Asc,
+                }),
+                Some(e) if e.direction == Direction::Asc => self.chain.push(Entry {
+                    column: column.into(),
+                    direction: Direction::Desc,
+                }),
+                Some(_) => {} // off
             }
             return Ok(());
         }
         // Extend.
         let pos = self.chain.iter().position(|e| e.column == column);
         match pos {
-            None => self.chain.push(Entry { column: column.into(), direction: Direction::Asc }),
-            Some(i) => {
-                match self.chain[i].direction {
-                    Direction::Asc => self.chain[i].direction = Direction::Desc,
-                    Direction::Desc => { self.chain.remove(i); }
+            None => self.chain.push(Entry {
+                column: column.into(),
+                direction: Direction::Asc,
+            }),
+            Some(i) => match self.chain[i].direction {
+                Direction::Asc => self.chain[i].direction = Direction::Desc,
+                Direction::Desc => {
+                    self.chain.remove(i);
                 }
-            }
+            },
         }
         Ok(())
     }
 
     /// Chain.
-    pub fn chain(&self) -> &[Entry] { &self.chain }
+    pub fn chain(&self) -> &[Entry] {
+        &self.chain
+    }
 
     /// Clear.
-    pub fn clear(&mut self) { self.chain.clear(); }
+    pub fn clear(&mut self) {
+        self.chain.clear();
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), SortError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(SortError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(SortError::SchemaMismatch);
+        }
         for e in &self.chain {
-            if e.column.is_empty() { return Err(SortError::EmptyColumn); }
+            if e.column.is_empty() {
+                return Err(SortError::EmptyColumn);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for MultiSort {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -124,7 +144,13 @@ mod tests {
     fn click_no_extend_asc() {
         let mut s = MultiSort::new();
         s.click("a", false).unwrap();
-        assert_eq!(s.chain(), &[Entry { column: "a".into(), direction: Direction::Asc }]);
+        assert_eq!(
+            s.chain(),
+            &[Entry {
+                column: "a".into(),
+                direction: Direction::Asc
+            }]
+        );
     }
 
     #[test]
@@ -178,14 +204,20 @@ mod tests {
     #[test]
     fn empty_column_rejected() {
         let mut s = MultiSort::new();
-        assert!(matches!(s.click("", false).unwrap_err(), SortError::EmptyColumn));
+        assert!(matches!(
+            s.click("", false).unwrap_err(),
+            SortError::EmptyColumn
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = MultiSort::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), SortError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SortError::SchemaMismatch
+        ));
     }
 
     #[test]

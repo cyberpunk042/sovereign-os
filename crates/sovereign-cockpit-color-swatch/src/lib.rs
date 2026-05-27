@@ -87,7 +87,9 @@ impl ColorSwatch {
         }
         self.swatches.insert(idx, s);
         if let Some(sel) = self.selected_index {
-            if sel >= idx { self.selected_index = Some(sel + 1); }
+            if sel >= idx {
+                self.selected_index = Some(sel + 1);
+            }
         }
         Ok(())
     }
@@ -116,7 +118,9 @@ impl ColorSwatch {
     }
 
     /// Clear selection.
-    pub fn clear_selection(&mut self) { self.selected_index = None; }
+    pub fn clear_selection(&mut self) {
+        self.selected_index = None;
+    }
 
     /// Currently selected swatch.
     pub fn selected(&self) -> Option<&Swatch> {
@@ -124,8 +128,13 @@ impl ColorSwatch {
     }
 
     fn validate_swatch(s: &Swatch) -> Result<(), SwatchError> {
-        if s.name.is_empty() { return Err(SwatchError::EmptyName); }
-        let h = s.hex.strip_prefix('#').ok_or_else(|| SwatchError::BadHex(s.hex.clone()))?;
+        if s.name.is_empty() {
+            return Err(SwatchError::EmptyName);
+        }
+        let h = s
+            .hex
+            .strip_prefix('#')
+            .ok_or_else(|| SwatchError::BadHex(s.hex.clone()))?;
         if !(h.len() == 6 || h.len() == 8) {
             return Err(SwatchError::BadHex(s.hex.clone()));
         }
@@ -137,7 +146,9 @@ impl ColorSwatch {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), SwatchError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(SwatchError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(SwatchError::SchemaMismatch);
+        }
         use std::collections::HashSet;
         let mut seen: HashSet<&str> = HashSet::new();
         for s in &self.swatches {
@@ -156,14 +167,21 @@ impl ColorSwatch {
 }
 
 impl Default for ColorSwatch {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn sw(n: &str, h: &str) -> Swatch { Swatch { name: n.into(), hex: h.into() } }
+    fn sw(n: &str, h: &str) -> Swatch {
+        Swatch {
+            name: n.into(),
+            hex: h.into(),
+        }
+    }
 
     #[test]
     fn add_and_select() {
@@ -176,20 +194,29 @@ mod tests {
     #[test]
     fn add_short_hex_rejected() {
         let mut g = ColorSwatch::new();
-        assert!(matches!(g.add(sw("p", "#fff")).unwrap_err(), SwatchError::BadHex(_)));
+        assert!(matches!(
+            g.add(sw("p", "#fff")).unwrap_err(),
+            SwatchError::BadHex(_)
+        ));
     }
 
     #[test]
     fn missing_hash_rejected() {
         let mut g = ColorSwatch::new();
-        assert!(matches!(g.add(sw("p", "ff0000")).unwrap_err(), SwatchError::BadHex(_)));
+        assert!(matches!(
+            g.add(sw("p", "ff0000")).unwrap_err(),
+            SwatchError::BadHex(_)
+        ));
     }
 
     #[test]
     fn duplicate_rejected() {
         let mut g = ColorSwatch::new();
         g.add(sw("p", "#ff0000")).unwrap();
-        assert!(matches!(g.add(sw("p", "#00ff00")).unwrap_err(), SwatchError::DuplicateName(_)));
+        assert!(matches!(
+            g.add(sw("p", "#00ff00")).unwrap_err(),
+            SwatchError::DuplicateName(_)
+        ));
     }
 
     #[test]
@@ -232,7 +259,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut g = ColorSwatch::new();
         g.schema_version = "9.9.9".into();
-        assert!(matches!(g.validate().unwrap_err(), SwatchError::SchemaMismatch));
+        assert!(matches!(
+            g.validate().unwrap_err(),
+            SwatchError::SchemaMismatch
+        ));
     }
 
     #[test]

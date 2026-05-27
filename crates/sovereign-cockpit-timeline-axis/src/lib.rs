@@ -17,10 +17,21 @@ use thiserror::Error;
 pub const SCHEMA_VERSION: &str = "1.0.0";
 
 const INTERVALS_MS: &[u64] = &[
-    1_000, 5_000, 15_000, 30_000,
-    60_000, 5 * 60_000, 15 * 60_000, 30 * 60_000,
-    60 * 60_000, 2 * 60 * 60_000, 6 * 60 * 60_000, 12 * 60 * 60_000,
-    24 * 60 * 60_000, 2 * 24 * 60 * 60_000, 7 * 24 * 60 * 60_000,
+    1_000,
+    5_000,
+    15_000,
+    30_000,
+    60_000,
+    5 * 60_000,
+    15 * 60_000,
+    30 * 60_000,
+    60 * 60_000,
+    2 * 60 * 60_000,
+    6 * 60 * 60_000,
+    12 * 60 * 60_000,
+    24 * 60 * 60_000,
+    2 * 24 * 60 * 60_000,
+    7 * 24 * 60 * 60_000,
 ];
 
 /// State.
@@ -47,13 +58,24 @@ pub enum AxisError {
 impl TimelineAxis {
     /// New.
     pub fn new() -> Self {
-        Self { schema_version: SCHEMA_VERSION.into() }
+        Self {
+            schema_version: SCHEMA_VERSION.into(),
+        }
     }
 
     /// Pick the best interval (ms) for the given range + target count.
-    pub fn pick_interval(&self, from_ms: u64, to_ms: u64, target_count: u32) -> Result<u64, AxisError> {
-        if from_ms >= to_ms { return Err(AxisError::BadRange(from_ms, to_ms)); }
-        if target_count == 0 { return Err(AxisError::TargetZero); }
+    pub fn pick_interval(
+        &self,
+        from_ms: u64,
+        to_ms: u64,
+        target_count: u32,
+    ) -> Result<u64, AxisError> {
+        if from_ms >= to_ms {
+            return Err(AxisError::BadRange(from_ms, to_ms));
+        }
+        if target_count == 0 {
+            return Err(AxisError::TargetZero);
+        }
         let range = to_ms - from_ms;
         let want = range / target_count as u64;
         // Pick the interval whose distance to `want` is smallest.
@@ -70,7 +92,12 @@ impl TimelineAxis {
     }
 
     /// Emit ticks.
-    pub fn ticks(&self, from_ms: u64, to_ms: u64, target_count: u32) -> Result<Vec<u64>, AxisError> {
+    pub fn ticks(
+        &self,
+        from_ms: u64,
+        to_ms: u64,
+        target_count: u32,
+    ) -> Result<Vec<u64>, AxisError> {
         let interval = self.pick_interval(from_ms, to_ms, target_count)?;
         // Snap first tick down to multiple of interval ≥ from_ms.
         let first = if from_ms % interval == 0 {
@@ -83,20 +110,26 @@ impl TimelineAxis {
         while t <= to_ms {
             out.push(t);
             t = t.saturating_add(interval);
-            if t < first { break; } // overflow guard
+            if t < first {
+                break;
+            } // overflow guard
         }
         Ok(out)
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), AxisError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(AxisError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(AxisError::SchemaMismatch);
+        }
         Ok(())
     }
 }
 
 impl Default for TimelineAxis {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -106,13 +139,19 @@ mod tests {
     #[test]
     fn bad_range_rejected() {
         let a = TimelineAxis::new();
-        assert!(matches!(a.ticks(100, 100, 5).unwrap_err(), AxisError::BadRange(_, _)));
+        assert!(matches!(
+            a.ticks(100, 100, 5).unwrap_err(),
+            AxisError::BadRange(_, _)
+        ));
     }
 
     #[test]
     fn target_zero_rejected() {
         let a = TimelineAxis::new();
-        assert!(matches!(a.ticks(0, 1000, 0).unwrap_err(), AxisError::TargetZero));
+        assert!(matches!(
+            a.ticks(0, 1000, 0).unwrap_err(),
+            AxisError::TargetZero
+        ));
     }
 
     #[test]
@@ -163,7 +202,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut a = TimelineAxis::new();
         a.schema_version = "9.9.9".into();
-        assert!(matches!(a.validate().unwrap_err(), AxisError::SchemaMismatch));
+        assert!(matches!(
+            a.validate().unwrap_err(),
+            AxisError::SchemaMismatch
+        ));
     }
 
     #[test]

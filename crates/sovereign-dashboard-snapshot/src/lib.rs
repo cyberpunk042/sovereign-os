@@ -9,10 +9,10 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+use serde::{Deserialize, Serialize};
 use sovereign_cockpit_banner_state::BannerState;
 use sovereign_cockpit_context_panel::ContextPanel;
 use sovereign_cockpit_toast_tray::ToastTray;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// Schema version.
@@ -59,7 +59,9 @@ impl DashboardSnapshot {
         Self {
             schema_version: SCHEMA_VERSION.into(),
             captured_at: at.into(),
-            banner, context, toasts,
+            banner,
+            context,
+            toasts,
         }
     }
 
@@ -71,9 +73,15 @@ impl DashboardSnapshot {
         if self.captured_at.is_empty() {
             return Err(SnapshotError::MissingTimestamp);
         }
-        self.banner.validate().map_err(|e| SnapshotError::BannerInvalid(e.to_string()))?;
-        self.context.validate().map_err(|e| SnapshotError::ContextInvalid(e.to_string()))?;
-        self.toasts.validate().map_err(|e| SnapshotError::ToastsInvalid(e.to_string()))?;
+        self.banner
+            .validate()
+            .map_err(|e| SnapshotError::BannerInvalid(e.to_string()))?;
+        self.context
+            .validate()
+            .map_err(|e| SnapshotError::ContextInvalid(e.to_string()))?;
+        self.toasts
+            .validate()
+            .map_err(|e| SnapshotError::ToastsInvalid(e.to_string()))?;
         Ok(())
     }
 }
@@ -84,18 +92,32 @@ mod tests {
     use sovereign_cockpit_banner_state::BannerSeverity;
     use sovereign_cockpit_toast_tray::build;
     use sovereign_execution_mode_registry::ExecutionMode;
-    use sovereign_profile_bundles::BundleName;
     use sovereign_hardware_thermal_policy::ThermalVerdict;
+    use sovereign_profile_bundles::BundleName;
 
     fn banner() -> BannerState {
-        BannerState::build(ExecutionMode::Plan, BundleName::Careful, ThermalVerdict::Cool, 0, "t")
+        BannerState::build(
+            ExecutionMode::Plan,
+            BundleName::Careful,
+            ThermalVerdict::Cool,
+            0,
+            "t",
+        )
     }
     fn ctx() -> ContextPanel {
-        ContextPanel::new(BundleName::Careful, ExecutionMode::Plan, "repo", "main", "th-1", "t")
+        ContextPanel::new(
+            BundleName::Careful,
+            ExecutionMode::Plan,
+            "repo",
+            "main",
+            "th-1",
+            "t",
+        )
     }
     fn tray() -> ToastTray {
         let mut tr = ToastTray::new();
-        tr.post(build("t1", BannerSeverity::Notice, "Hi", "Body", 5, "t")).unwrap();
+        tr.post(build("t1", BannerSeverity::Notice, "Hi", "Body", 5, "t"))
+            .unwrap();
         tr
     }
 
@@ -108,21 +130,30 @@ mod tests {
     #[test]
     fn missing_captured_at_caught() {
         let s = DashboardSnapshot::build(banner(), ctx(), tray(), "");
-        assert!(matches!(s.validate().unwrap_err(), SnapshotError::MissingTimestamp));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SnapshotError::MissingTimestamp
+        ));
     }
 
     #[test]
     fn invalid_banner_caught() {
         let mut s = DashboardSnapshot::build(banner(), ctx(), tray(), "t");
         s.banner.severity = BannerSeverity::Critical; // mismatched
-        assert!(matches!(s.validate().unwrap_err(), SnapshotError::BannerInvalid(_)));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SnapshotError::BannerInvalid(_)
+        ));
     }
 
     #[test]
     fn invalid_context_caught() {
         let mut s = DashboardSnapshot::build(banner(), ctx(), tray(), "t");
         s.context.refreshed_at = String::new();
-        assert!(matches!(s.validate().unwrap_err(), SnapshotError::ContextInvalid(_)));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SnapshotError::ContextInvalid(_)
+        ));
     }
 
     #[test]
@@ -130,14 +161,20 @@ mod tests {
         let mut s = DashboardSnapshot::build(banner(), ctx(), tray(), "t");
         // Tamper toast.
         s.toasts.toasts[0].id = String::new();
-        assert!(matches!(s.validate().unwrap_err(), SnapshotError::ToastsInvalid(_)));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SnapshotError::ToastsInvalid(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = DashboardSnapshot::build(banner(), ctx(), tray(), "t");
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), SnapshotError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SnapshotError::SchemaMismatch
+        ));
     }
 
     #[test]

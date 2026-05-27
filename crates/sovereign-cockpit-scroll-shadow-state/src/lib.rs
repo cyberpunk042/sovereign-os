@@ -41,7 +41,9 @@ pub enum ShadowError {
 impl ScrollShadowState {
     /// New.
     pub fn new(viewport_h: u64, content_h: u64) -> Result<Self, ShadowError> {
-        if viewport_h == 0 { return Err(ShadowError::ZeroViewport); }
+        if viewport_h == 0 {
+            return Err(ShadowError::ZeroViewport);
+        }
         Ok(Self {
             schema_version_marker: 1,
             scroll_top: 0,
@@ -58,11 +60,15 @@ impl ScrollShadowState {
 
     /// Set heights (clamps scroll).
     pub fn set_heights(&mut self, viewport_h: u64, content_h: u64) -> Result<(), ShadowError> {
-        if viewport_h == 0 { return Err(ShadowError::ZeroViewport); }
+        if viewport_h == 0 {
+            return Err(ShadowError::ZeroViewport);
+        }
         self.viewport_h = viewport_h;
         self.content_h = content_h;
         let max = self.content_h.saturating_sub(self.viewport_h);
-        if self.scroll_top > max { self.scroll_top = max; }
+        if self.scroll_top > max {
+            self.scroll_top = max;
+        }
         Ok(())
     }
 
@@ -78,8 +84,12 @@ impl ScrollShadowState {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ShadowError> {
-        if self.schema_version_marker != 1 { return Err(ShadowError::SchemaMismatch); }
-        if self.viewport_h == 0 { return Err(ShadowError::ZeroViewport); }
+        if self.schema_version_marker != 1 {
+            return Err(ShadowError::SchemaMismatch);
+        }
+        if self.viewport_h == 0 {
+            return Err(ShadowError::ZeroViewport);
+        }
         Ok(())
     }
 }
@@ -135,14 +145,20 @@ mod tests {
 
     #[test]
     fn zero_viewport_rejected() {
-        assert!(matches!(ScrollShadowState::new(0, 100).unwrap_err(), ShadowError::ZeroViewport));
+        assert!(matches!(
+            ScrollShadowState::new(0, 100).unwrap_err(),
+            ShadowError::ZeroViewport
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = ScrollShadowState::new(500, 2000).unwrap();
         s.schema_version_marker = 99;
-        assert!(matches!(s.validate().unwrap_err(), ShadowError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            ShadowError::SchemaMismatch
+        ));
     }
 
     #[test]

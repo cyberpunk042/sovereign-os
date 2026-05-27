@@ -69,7 +69,10 @@ impl IdleLockScreen {
     /// New (active, last activity at 0).
     pub fn new(idle_warn_ms: u64, idle_lock_ms: u64) -> Result<Self, LockError> {
         if idle_warn_ms >= idle_lock_ms {
-            return Err(LockError::BadWindows { warn: idle_warn_ms, lock: idle_lock_ms });
+            return Err(LockError::BadWindows {
+                warn: idle_warn_ms,
+                lock: idle_lock_ms,
+            });
         }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
@@ -110,11 +113,17 @@ impl IdleLockScreen {
 
     /// Phase at now.
     pub fn phase_at(&self, now_ms: u64) -> Phase {
-        if self.locked { return Phase::Locked; }
+        if self.locked {
+            return Phase::Locked;
+        }
         let idle = now_ms.saturating_sub(self.last_activity_ms);
-        if idle >= self.idle_lock_ms { Phase::Locked }
-        else if idle >= self.idle_warn_ms { Phase::Warning }
-        else { Phase::Active }
+        if idle >= self.idle_lock_ms {
+            Phase::Locked
+        } else if idle >= self.idle_warn_ms {
+            Phase::Warning
+        } else {
+            Phase::Active
+        }
     }
 
     /// Idle duration at now (irrespective of phase).
@@ -124,7 +133,9 @@ impl IdleLockScreen {
 
     /// Auto-lock if past threshold (returns true if newly locked).
     pub fn tick(&mut self, now_ms: u64) -> bool {
-        if self.locked { return false; }
+        if self.locked {
+            return false;
+        }
         let idle = now_ms.saturating_sub(self.last_activity_ms);
         if idle >= self.idle_lock_ms {
             self.locked = true;
@@ -136,9 +147,14 @@ impl IdleLockScreen {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), LockError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(LockError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(LockError::SchemaMismatch);
+        }
         if self.idle_warn_ms >= self.idle_lock_ms {
-            return Err(LockError::BadWindows { warn: self.idle_warn_ms, lock: self.idle_lock_ms });
+            return Err(LockError::BadWindows {
+                warn: self.idle_warn_ms,
+                lock: self.idle_lock_ms,
+            });
         }
         Ok(())
     }
@@ -213,14 +229,20 @@ mod tests {
 
     #[test]
     fn bad_windows_rejected() {
-        assert!(matches!(IdleLockScreen::new(5000, 1000).unwrap_err(), LockError::BadWindows { .. }));
+        assert!(matches!(
+            IdleLockScreen::new(5000, 1000).unwrap_err(),
+            LockError::BadWindows { .. }
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = IdleLockScreen::new(1, 2).unwrap();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), LockError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            LockError::SchemaMismatch
+        ));
     }
 
     #[test]

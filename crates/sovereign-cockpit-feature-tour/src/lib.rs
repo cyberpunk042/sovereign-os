@@ -93,10 +93,16 @@ impl FeatureTour {
 
     /// Register a tour.
     pub fn register(&mut self, tour: Tour) -> Result<(), TourError> {
-        if tour.id.is_empty() { return Err(TourError::EmptyId); }
-        if tour.steps.is_empty() { return Err(TourError::NoSteps(tour.id.clone())); }
+        if tour.id.is_empty() {
+            return Err(TourError::EmptyId);
+        }
+        if tour.steps.is_empty() {
+            return Err(TourError::NoSteps(tour.id.clone()));
+        }
         for s in &tour.steps {
-            if s.id.is_empty() || s.anchor_id.is_empty() { return Err(TourError::EmptyId); }
+            if s.id.is_empty() || s.anchor_id.is_empty() {
+                return Err(TourError::EmptyId);
+            }
         }
         self.tours.insert(tour.id.clone(), tour);
         Ok(())
@@ -160,17 +166,25 @@ impl FeatureTour {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), TourError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(TourError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(TourError::SchemaMismatch);
+        }
         for (id, t) in &self.tours {
-            if id.is_empty() { return Err(TourError::EmptyId); }
-            if t.steps.is_empty() { return Err(TourError::NoSteps(id.clone())); }
+            if id.is_empty() {
+                return Err(TourError::EmptyId);
+            }
+            if t.steps.is_empty() {
+                return Err(TourError::NoSteps(id.clone()));
+            }
         }
         Ok(())
     }
 }
 
 impl Default for FeatureTour {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -181,13 +195,15 @@ mod tests {
         Tour {
             id: id.into(),
             title: id.into(),
-            steps: (0..steps).map(|i| Step {
-                id: format!("s{i}"),
-                anchor_id: format!("a{i}"),
-                title: format!("S{i}"),
-                body: "...".into(),
-                dismissable: true,
-            }).collect(),
+            steps: (0..steps)
+                .map(|i| Step {
+                    id: format!("s{i}"),
+                    anchor_id: format!("a{i}"),
+                    title: format!("S{i}"),
+                    body: "...".into(),
+                    dismissable: true,
+                })
+                .collect(),
         }
     }
 
@@ -254,27 +270,39 @@ mod tests {
     #[test]
     fn unknown_tour_rejected() {
         let mut f = FeatureTour::new();
-        assert!(matches!(f.start("nope").unwrap_err(), TourError::UnknownTour(_)));
+        assert!(matches!(
+            f.start("nope").unwrap_err(),
+            TourError::UnknownTour(_)
+        ));
     }
 
     #[test]
     fn empty_steps_rejected() {
         let mut f = FeatureTour::new();
-        assert!(matches!(f.register(t("demo", 0)).unwrap_err(), TourError::NoSteps(_)));
+        assert!(matches!(
+            f.register(t("demo", 0)).unwrap_err(),
+            TourError::NoSteps(_)
+        ));
     }
 
     #[test]
     fn no_active_tour_actions_rejected() {
         let mut f = FeatureTour::new();
         assert!(matches!(f.next().unwrap_err(), TourError::NoActiveTour));
-        assert!(matches!(f.dismiss("x").unwrap_err(), TourError::NoActiveTour));
+        assert!(matches!(
+            f.dismiss("x").unwrap_err(),
+            TourError::NoActiveTour
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut f = FeatureTour::new();
         f.schema_version = "9.9.9".into();
-        assert!(matches!(f.validate().unwrap_err(), TourError::SchemaMismatch));
+        assert!(matches!(
+            f.validate().unwrap_err(),
+            TourError::SchemaMismatch
+        ));
     }
 
     #[test]

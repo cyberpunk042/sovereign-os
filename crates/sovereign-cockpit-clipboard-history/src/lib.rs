@@ -100,7 +100,9 @@ impl ClipboardHistory {
     }
 
     /// Clear all.
-    pub fn clear(&mut self) { self.entries.clear(); }
+    pub fn clear(&mut self) {
+        self.entries.clear();
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ClipboardError> {
@@ -115,15 +117,23 @@ impl ClipboardHistory {
 }
 
 fn check_shape(e: &ClipboardEntry) -> Result<(), ClipboardError> {
-    if e.body.is_empty() { return Err(ClipboardError::EmptyBody); }
+    if e.body.is_empty() {
+        return Err(ClipboardError::EmptyBody);
+    }
     let n = e.body.chars().count();
-    if n > 8000 { return Err(ClipboardError::BodyTooLong(n)); }
-    if e.copied_at.is_empty() { return Err(ClipboardError::MissingTimestamp); }
+    if n > 8000 {
+        return Err(ClipboardError::BodyTooLong(n));
+    }
+    if e.copied_at.is_empty() {
+        return Err(ClipboardError::MissingTimestamp);
+    }
     Ok(())
 }
 
 impl Default for ClipboardHistory {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -149,7 +159,10 @@ mod tests {
         h.push(e(EntryKind::Text, "hello")).unwrap();
         h.push(e(EntryKind::Link, "https://example.org")).unwrap();
         assert_eq!(h.entries.len(), 2);
-        assert_eq!(h.latest_of_kind(EntryKind::Link).unwrap().body, "https://example.org");
+        assert_eq!(
+            h.latest_of_kind(EntryKind::Link).unwrap().body,
+            "https://example.org"
+        );
     }
 
     #[test]
@@ -176,14 +189,20 @@ mod tests {
     #[test]
     fn empty_body_rejected() {
         let mut h = ClipboardHistory::new();
-        assert!(matches!(h.push(e(EntryKind::Text, "")).unwrap_err(), ClipboardError::EmptyBody));
+        assert!(matches!(
+            h.push(e(EntryKind::Text, "")).unwrap_err(),
+            ClipboardError::EmptyBody
+        ));
     }
 
     #[test]
     fn body_too_long_rejected() {
         let mut h = ClipboardHistory::new();
         let long = "x".repeat(8001);
-        assert!(matches!(h.push(e(EntryKind::Text, &long)).unwrap_err(), ClipboardError::BodyTooLong(8001)));
+        assert!(matches!(
+            h.push(e(EntryKind::Text, &long)).unwrap_err(),
+            ClipboardError::BodyTooLong(8001)
+        ));
     }
 
     #[test]
@@ -198,14 +217,23 @@ mod tests {
     fn schema_drift_rejected() {
         let mut h = ClipboardHistory::new();
         h.schema_version = "9.9.9".into();
-        assert!(matches!(h.validate().unwrap_err(), ClipboardError::SchemaMismatch));
+        assert!(matches!(
+            h.validate().unwrap_err(),
+            ClipboardError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn kind_serde_kebab() {
         assert_eq!(serde_json::to_string(&EntryKind::Text).unwrap(), "\"text\"");
-        assert_eq!(serde_json::to_string(&EntryKind::TraceId).unwrap(), "\"trace-id\"");
-        assert_eq!(serde_json::to_string(&EntryKind::CommandOutput).unwrap(), "\"command-output\"");
+        assert_eq!(
+            serde_json::to_string(&EntryKind::TraceId).unwrap(),
+            "\"trace-id\""
+        );
+        assert_eq!(
+            serde_json::to_string(&EntryKind::CommandOutput).unwrap(),
+            "\"command-output\""
+        );
     }
 
     #[test]

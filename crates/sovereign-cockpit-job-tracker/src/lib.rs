@@ -71,24 +71,42 @@ impl JobTracker {
     }
 
     /// Start.
-    pub fn start(&mut self, id: &str, label: &str, total: u64, ts_ms: u64) -> Result<(), TrackerError> {
-        if id.is_empty() { return Err(TrackerError::EmptyId); }
-        if label.is_empty() { return Err(TrackerError::EmptyLabel); }
-        if self.jobs.contains_key(id) { return Err(TrackerError::DuplicateId(id.into())); }
-        self.jobs.insert(id.into(), Job {
-            id: id.into(),
-            label: label.into(),
-            total,
-            done: 0,
-            started_at_ms: ts_ms,
-            last_update_ms: ts_ms,
-        });
+    pub fn start(
+        &mut self,
+        id: &str,
+        label: &str,
+        total: u64,
+        ts_ms: u64,
+    ) -> Result<(), TrackerError> {
+        if id.is_empty() {
+            return Err(TrackerError::EmptyId);
+        }
+        if label.is_empty() {
+            return Err(TrackerError::EmptyLabel);
+        }
+        if self.jobs.contains_key(id) {
+            return Err(TrackerError::DuplicateId(id.into()));
+        }
+        self.jobs.insert(
+            id.into(),
+            Job {
+                id: id.into(),
+                label: label.into(),
+                total,
+                done: 0,
+                started_at_ms: ts_ms,
+                last_update_ms: ts_ms,
+            },
+        );
         Ok(())
     }
 
     /// Update done count.
     pub fn update(&mut self, id: &str, done: u64, ts_ms: u64) -> Result<(), TrackerError> {
-        let j = self.jobs.get_mut(id).ok_or_else(|| TrackerError::UnknownJob(id.into()))?;
+        let j = self
+            .jobs
+            .get_mut(id)
+            .ok_or_else(|| TrackerError::UnknownJob(id.into()))?;
         j.done = done.min(j.total);
         j.last_update_ms = ts_ms;
         Ok(())
@@ -96,7 +114,10 @@ impl JobTracker {
 
     /// Increment done.
     pub fn inc(&mut self, id: &str, delta: u64, ts_ms: u64) -> Result<(), TrackerError> {
-        let j = self.jobs.get_mut(id).ok_or_else(|| TrackerError::UnknownJob(id.into()))?;
+        let j = self
+            .jobs
+            .get_mut(id)
+            .ok_or_else(|| TrackerError::UnknownJob(id.into()))?;
         j.done = (j.done.saturating_add(delta)).min(j.total);
         j.last_update_ms = ts_ms;
         Ok(())
@@ -105,16 +126,22 @@ impl JobTracker {
     /// Progress in bp.
     pub fn progress_bp(&self, id: &str) -> Option<u32> {
         let j = self.jobs.get(id)?;
-        if j.total == 0 { return Some(10000); }
+        if j.total == 0 {
+            return Some(10000);
+        }
         Some(((j.done.saturating_mul(10_000)) / j.total) as u32)
     }
 
     /// ETA in ms, None if not enough data or done.
     pub fn eta_ms(&self, id: &str, now_ms: u64) -> Option<u64> {
         let j = self.jobs.get(id)?;
-        if j.done == 0 || j.done >= j.total { return None; }
+        if j.done == 0 || j.done >= j.total {
+            return None;
+        }
         let elapsed = now_ms.saturating_sub(j.started_at_ms);
-        if elapsed == 0 { return None; }
+        if elapsed == 0 {
+            return None;
+        }
         // throughput = done / elapsed → remaining / throughput.
         let remaining = j.total - j.done;
         Some((remaining.saturating_mul(elapsed)) / j.done)
@@ -132,17 +159,25 @@ impl JobTracker {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), TrackerError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(TrackerError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(TrackerError::SchemaMismatch);
+        }
         for (id, j) in &self.jobs {
-            if id.is_empty() { return Err(TrackerError::EmptyId); }
-            if j.label.is_empty() { return Err(TrackerError::EmptyLabel); }
+            if id.is_empty() {
+                return Err(TrackerError::EmptyId);
+            }
+            if j.label.is_empty() {
+                return Err(TrackerError::EmptyLabel);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for JobTracker {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -201,21 +236,33 @@ mod tests {
     fn duplicate_rejected() {
         let mut t = JobTracker::new();
         t.start("j", "J", 100, 0).unwrap();
-        assert!(matches!(t.start("j", "J", 100, 0).unwrap_err(), TrackerError::DuplicateId(_)));
+        assert!(matches!(
+            t.start("j", "J", 100, 0).unwrap_err(),
+            TrackerError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut t = JobTracker::new();
-        assert!(matches!(t.start("", "J", 1, 0).unwrap_err(), TrackerError::EmptyId));
-        assert!(matches!(t.start("j", "", 1, 0).unwrap_err(), TrackerError::EmptyLabel));
+        assert!(matches!(
+            t.start("", "J", 1, 0).unwrap_err(),
+            TrackerError::EmptyId
+        ));
+        assert!(matches!(
+            t.start("j", "", 1, 0).unwrap_err(),
+            TrackerError::EmptyLabel
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut t = JobTracker::new();
         t.schema_version = "9.9.9".into();
-        assert!(matches!(t.validate().unwrap_err(), TrackerError::SchemaMismatch));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            TrackerError::SchemaMismatch
+        ));
     }
 
     #[test]

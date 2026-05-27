@@ -95,7 +95,9 @@ impl Confirmation {
     }
 
     /// Update the operator's typed phrase.
-    pub fn type_phrase(&mut self, s: &str) { self.typed_phrase = s.into(); }
+    pub fn type_phrase(&mut self, s: &str) {
+        self.typed_phrase = s.into();
+    }
 
     /// Tick the countdown by one second (caller-driven).
     pub fn tick(&mut self) {
@@ -104,9 +106,15 @@ impl Confirmation {
 
     /// Validate fields.
     pub fn validate(&self) -> Result<(), ConfirmationError> {
-        if self.id.is_empty() { return Err(ConfirmationError::MissingField("id")); }
-        if self.title.is_empty() { return Err(ConfirmationError::MissingField("title")); }
-        if self.body.is_empty() { return Err(ConfirmationError::MissingField("body")); }
+        if self.id.is_empty() {
+            return Err(ConfirmationError::MissingField("id"));
+        }
+        if self.title.is_empty() {
+            return Err(ConfirmationError::MissingField("title"));
+        }
+        if self.body.is_empty() {
+            return Err(ConfirmationError::MissingField("body"));
+        }
         Ok(())
     }
 
@@ -114,7 +122,8 @@ impl Confirmation {
     pub fn can_confirm(&self) -> Result<(), ConfirmationError> {
         if self.elapsed_seconds < self.countdown_seconds {
             return Err(ConfirmationError::CountdownNotElapsed {
-                elapsed: self.elapsed_seconds, required: self.countdown_seconds,
+                elapsed: self.elapsed_seconds,
+                required: self.countdown_seconds,
             });
         }
         if !self.confirm_phrase.is_empty() && self.typed_phrase != self.confirm_phrase {
@@ -138,10 +147,18 @@ mod tests {
     fn destructive_requires_phrase_and_countdown() {
         let mut c = Confirmation::new("a", "Title", "Body", DangerLevel::Destructive);
         // Initially blocked by countdown.
-        assert!(matches!(c.can_confirm().unwrap_err(), ConfirmationError::CountdownNotElapsed { .. }));
-        for _ in 0..5 { c.tick(); }
+        assert!(matches!(
+            c.can_confirm().unwrap_err(),
+            ConfirmationError::CountdownNotElapsed { .. }
+        ));
+        for _ in 0..5 {
+            c.tick();
+        }
         // Now blocked by phrase.
-        assert!(matches!(c.can_confirm().unwrap_err(), ConfirmationError::PhraseMismatch));
+        assert!(matches!(
+            c.can_confirm().unwrap_err(),
+            ConfirmationError::PhraseMismatch
+        ));
         c.type_phrase("DESTROY");
         c.can_confirm().unwrap();
     }
@@ -156,8 +173,12 @@ mod tests {
     #[test]
     fn caution_no_phrase_but_short_countdown() {
         let mut c = Confirmation::new("a", "Title", "Body", DangerLevel::Caution);
-        assert!(matches!(c.can_confirm().unwrap_err(), ConfirmationError::CountdownNotElapsed { .. }));
-        c.tick(); c.tick();
+        assert!(matches!(
+            c.can_confirm().unwrap_err(),
+            ConfirmationError::CountdownNotElapsed { .. }
+        ));
+        c.tick();
+        c.tick();
         c.can_confirm().unwrap();
     }
 
@@ -165,14 +186,20 @@ mod tests {
     fn validate_empty_id_rejected() {
         let mut c = Confirmation::new("a", "T", "B", DangerLevel::Routine);
         c.id = String::new();
-        assert!(matches!(c.validate().unwrap_err(), ConfirmationError::MissingField("id")));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            ConfirmationError::MissingField("id")
+        ));
     }
 
     #[test]
     fn validate_empty_title_rejected() {
         let mut c = Confirmation::new("a", "T", "B", DangerLevel::Routine);
         c.title = String::new();
-        assert!(matches!(c.validate().unwrap_err(), ConfirmationError::MissingField("title")));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            ConfirmationError::MissingField("title")
+        ));
     }
 
     #[test]
@@ -185,15 +212,26 @@ mod tests {
     #[test]
     fn tick_saturates_at_u8_max() {
         let mut c = Confirmation::new("a", "T", "B", DangerLevel::Routine);
-        for _ in 0..300 { c.tick(); }
+        for _ in 0..300 {
+            c.tick();
+        }
         assert_eq!(c.elapsed_seconds, 255);
     }
 
     #[test]
     fn danger_serde_kebab() {
-        assert_eq!(serde_json::to_string(&DangerLevel::Routine).unwrap(), "\"routine\"");
-        assert_eq!(serde_json::to_string(&DangerLevel::Destructive).unwrap(), "\"destructive\"");
-        assert_eq!(serde_json::to_string(&DangerLevel::Irreversible).unwrap(), "\"irreversible\"");
+        assert_eq!(
+            serde_json::to_string(&DangerLevel::Routine).unwrap(),
+            "\"routine\""
+        );
+        assert_eq!(
+            serde_json::to_string(&DangerLevel::Destructive).unwrap(),
+            "\"destructive\""
+        );
+        assert_eq!(
+            serde_json::to_string(&DangerLevel::Irreversible).unwrap(),
+            "\"irreversible\""
+        );
     }
 
     #[test]

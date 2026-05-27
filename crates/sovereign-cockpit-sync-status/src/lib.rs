@@ -62,7 +62,9 @@ pub enum SyncError {
 impl SyncStatus {
     /// New.
     pub fn new(stale_after_ms: u64) -> Result<Self, SyncError> {
-        if stale_after_ms == 0 { return Err(SyncError::ZeroStale); }
+        if stale_after_ms == 0 {
+            return Err(SyncError::ZeroStale);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             status: Status::Saved,
@@ -87,7 +89,9 @@ impl SyncStatus {
 
     /// Save failed with text.
     pub fn fail(&mut self, error: &str) -> Result<(), SyncError> {
-        if error.is_empty() { return Err(SyncError::EmptyError); }
+        if error.is_empty() {
+            return Err(SyncError::EmptyError);
+        }
         self.status = Status::Failed;
         self.error = Some(error.into());
         Ok(())
@@ -105,8 +109,12 @@ impl SyncStatus {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), SyncError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(SyncError::SchemaMismatch); }
-        if self.stale_after_ms == 0 { return Err(SyncError::ZeroStale); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(SyncError::SchemaMismatch);
+        }
+        if self.stale_after_ms == 0 {
+            return Err(SyncError::ZeroStale);
+        }
         Ok(())
     }
 }
@@ -158,14 +166,20 @@ mod tests {
 
     #[test]
     fn zero_stale_rejected() {
-        assert!(matches!(SyncStatus::new(0).unwrap_err(), SyncError::ZeroStale));
+        assert!(matches!(
+            SyncStatus::new(0).unwrap_err(),
+            SyncError::ZeroStale
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = SyncStatus::new(10_000).unwrap();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), SyncError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SyncError::SchemaMismatch
+        ));
     }
 
     #[test]

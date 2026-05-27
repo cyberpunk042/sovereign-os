@@ -77,9 +77,15 @@ impl SnippetLibrary {
 
     /// Add.
     pub fn add(&mut self, snippet: Snippet) -> Result<(), SnippetError> {
-        if snippet.id.is_empty() { return Err(SnippetError::EmptyId); }
-        if snippet.name.is_empty() { return Err(SnippetError::EmptyName); }
-        if snippet.body.is_empty() { return Err(SnippetError::EmptyBody); }
+        if snippet.id.is_empty() {
+            return Err(SnippetError::EmptyId);
+        }
+        if snippet.name.is_empty() {
+            return Err(SnippetError::EmptyName);
+        }
+        if snippet.body.is_empty() {
+            return Err(SnippetError::EmptyBody);
+        }
         if self.snippets.contains_key(&snippet.id) {
             return Err(SnippetError::DuplicateId(snippet.id));
         }
@@ -100,20 +106,30 @@ impl SnippetLibrary {
     /// Search.
     pub fn search(&self, query: &str, tag_filter: &[&str]) -> Vec<Snippet> {
         let q = query.to_lowercase();
-        let mut scored: Vec<(u8, &Snippet)> = self.snippets.values()
+        let mut scored: Vec<(u8, &Snippet)> = self
+            .snippets
+            .values()
             .filter(|s| {
-                if tag_filter.is_empty() { return true; }
+                if tag_filter.is_empty() {
+                    return true;
+                }
                 tag_filter.iter().all(|t| s.tags.contains(*t))
             })
             .filter_map(|s| {
                 let n = s.name.to_lowercase();
                 let b = s.body.to_lowercase();
                 let trig = s.trigger.as_ref().map(|t| t.to_lowercase());
-                if n == q { Some((4, s)) }
-                else if trig.as_deref() == Some(q.as_str()) { Some((3, s)) }
-                else if n.starts_with(&q) { Some((2, s)) }
-                else if b.contains(&q) { Some((1, s)) }
-                else { None }
+                if n == q {
+                    Some((4, s))
+                } else if trig.as_deref() == Some(q.as_str()) {
+                    Some((3, s))
+                } else if n.starts_with(&q) {
+                    Some((2, s))
+                } else if b.contains(&q) {
+                    Some((1, s))
+                } else {
+                    None
+                }
             })
             .collect();
         scored.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.name.cmp(&b.1.name)));
@@ -122,18 +138,28 @@ impl SnippetLibrary {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), SnippetError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(SnippetError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(SnippetError::SchemaMismatch);
+        }
         for (id, s) in &self.snippets {
-            if id.is_empty() { return Err(SnippetError::EmptyId); }
-            if s.name.is_empty() { return Err(SnippetError::EmptyName); }
-            if s.body.is_empty() { return Err(SnippetError::EmptyBody); }
+            if id.is_empty() {
+                return Err(SnippetError::EmptyId);
+            }
+            if s.name.is_empty() {
+                return Err(SnippetError::EmptyName);
+            }
+            if s.body.is_empty() {
+                return Err(SnippetError::EmptyBody);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for SnippetLibrary {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -153,7 +179,8 @@ mod tests {
     #[test]
     fn add_and_get() {
         let mut l = SnippetLibrary::new();
-        l.add(snip("s1", "Greeting", "Hello!", Some("hi"), &["common"])).unwrap();
+        l.add(snip("s1", "Greeting", "Hello!", Some("hi"), &["common"]))
+            .unwrap();
         assert!(l.get("s1").is_some());
     }
 
@@ -161,13 +188,17 @@ mod tests {
     fn duplicate_rejected() {
         let mut l = SnippetLibrary::new();
         l.add(snip("s1", "X", "Y", None, &[])).unwrap();
-        assert!(matches!(l.add(snip("s1", "X", "Y", None, &[])).unwrap_err(), SnippetError::DuplicateId(_)));
+        assert!(matches!(
+            l.add(snip("s1", "X", "Y", None, &[])).unwrap_err(),
+            SnippetError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn search_ranks_exact_first() {
         let mut l = SnippetLibrary::new();
-        l.add(snip("s1", "Hello world", "Hi there", None, &[])).unwrap();
+        l.add(snip("s1", "Hello world", "Hi there", None, &[]))
+            .unwrap();
         l.add(snip("s2", "Hello", "Different", None, &[])).unwrap();
         let r = l.search("hello", &[]);
         assert_eq!(r[0].id, "s2"); // exact match first.
@@ -176,7 +207,8 @@ mod tests {
     #[test]
     fn search_by_trigger() {
         let mut l = SnippetLibrary::new();
-        l.add(snip("s1", "Long Name", "body", Some("ln"), &[])).unwrap();
+        l.add(snip("s1", "Long Name", "body", Some("ln"), &[]))
+            .unwrap();
         let r = l.search("ln", &[]);
         assert!(r.iter().any(|s| s.id == "s1"));
     }
@@ -202,16 +234,28 @@ mod tests {
     #[test]
     fn empty_inputs_rejected() {
         let mut l = SnippetLibrary::new();
-        assert!(matches!(l.add(snip("", "X", "Y", None, &[])).unwrap_err(), SnippetError::EmptyId));
-        assert!(matches!(l.add(snip("s", "", "Y", None, &[])).unwrap_err(), SnippetError::EmptyName));
-        assert!(matches!(l.add(snip("s", "X", "", None, &[])).unwrap_err(), SnippetError::EmptyBody));
+        assert!(matches!(
+            l.add(snip("", "X", "Y", None, &[])).unwrap_err(),
+            SnippetError::EmptyId
+        ));
+        assert!(matches!(
+            l.add(snip("s", "", "Y", None, &[])).unwrap_err(),
+            SnippetError::EmptyName
+        ));
+        assert!(matches!(
+            l.add(snip("s", "X", "", None, &[])).unwrap_err(),
+            SnippetError::EmptyBody
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut l = SnippetLibrary::new();
         l.schema_version = "9.9.9".into();
-        assert!(matches!(l.validate().unwrap_err(), SnippetError::SchemaMismatch));
+        assert!(matches!(
+            l.validate().unwrap_err(),
+            SnippetError::SchemaMismatch
+        ));
     }
 
     #[test]

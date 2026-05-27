@@ -91,16 +91,28 @@ impl CoachmarkTour {
 
     /// Append step.
     pub fn add_step(&mut self, anchor: &str, title: &str, body: &str) -> Result<(), TourError> {
-        if anchor.is_empty() { return Err(TourError::EmptyAnchor); }
-        if title.is_empty() { return Err(TourError::EmptyTitle); }
-        if body.is_empty() { return Err(TourError::EmptyBody); }
-        self.steps.push(Step { anchor: anchor.into(), title: title.into(), body: body.into() });
+        if anchor.is_empty() {
+            return Err(TourError::EmptyAnchor);
+        }
+        if title.is_empty() {
+            return Err(TourError::EmptyTitle);
+        }
+        if body.is_empty() {
+            return Err(TourError::EmptyBody);
+        }
+        self.steps.push(Step {
+            anchor: anchor.into(),
+            title: title.into(),
+            body: body.into(),
+        });
         Ok(())
     }
 
     /// Start tour.
     pub fn start(&mut self) -> Result<(), TourError> {
-        if self.steps.is_empty() { return Err(TourError::NoSteps); }
+        if self.steps.is_empty() {
+            return Err(TourError::NoSteps);
+        }
         self.current_index = 0;
         self.status = Status::Running;
         Ok(())
@@ -108,7 +120,9 @@ impl CoachmarkTour {
 
     /// Advance.
     pub fn next(&mut self) -> Result<(), TourError> {
-        if self.status != Status::Running { return Err(TourError::NotRunning); }
+        if self.status != Status::Running {
+            return Err(TourError::NotRunning);
+        }
         if self.current_index + 1 >= self.steps.len() {
             self.status = Status::Completed;
         } else {
@@ -119,7 +133,9 @@ impl CoachmarkTour {
 
     /// Go back.
     pub fn prev(&mut self) -> Result<(), TourError> {
-        if self.status != Status::Running { return Err(TourError::NotRunning); }
+        if self.status != Status::Running {
+            return Err(TourError::NotRunning);
+        }
         if self.current_index > 0 {
             self.current_index -= 1;
         }
@@ -128,30 +144,46 @@ impl CoachmarkTour {
 
     /// Dismiss.
     pub fn dismiss(&mut self) -> Result<(), TourError> {
-        if self.status != Status::Running { return Err(TourError::NotRunning); }
+        if self.status != Status::Running {
+            return Err(TourError::NotRunning);
+        }
         self.status = Status::Dismissed;
         Ok(())
     }
 
     /// Current step when Running.
     pub fn current(&self) -> Option<&Step> {
-        if self.status == Status::Running { self.steps.get(self.current_index) } else { None }
+        if self.status == Status::Running {
+            self.steps.get(self.current_index)
+        } else {
+            None
+        }
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), TourError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(TourError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(TourError::SchemaMismatch);
+        }
         for s in &self.steps {
-            if s.anchor.is_empty() { return Err(TourError::EmptyAnchor); }
-            if s.title.is_empty() { return Err(TourError::EmptyTitle); }
-            if s.body.is_empty() { return Err(TourError::EmptyBody); }
+            if s.anchor.is_empty() {
+                return Err(TourError::EmptyAnchor);
+            }
+            if s.title.is_empty() {
+                return Err(TourError::EmptyTitle);
+            }
+            if s.body.is_empty() {
+                return Err(TourError::EmptyBody);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for CoachmarkTour {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -233,16 +265,28 @@ mod tests {
     #[test]
     fn empty_inputs_rejected() {
         let mut t = CoachmarkTour::new();
-        assert!(matches!(t.add_step("", "t", "b").unwrap_err(), TourError::EmptyAnchor));
-        assert!(matches!(t.add_step("a", "", "b").unwrap_err(), TourError::EmptyTitle));
-        assert!(matches!(t.add_step("a", "t", "").unwrap_err(), TourError::EmptyBody));
+        assert!(matches!(
+            t.add_step("", "t", "b").unwrap_err(),
+            TourError::EmptyAnchor
+        ));
+        assert!(matches!(
+            t.add_step("a", "", "b").unwrap_err(),
+            TourError::EmptyTitle
+        ));
+        assert!(matches!(
+            t.add_step("a", "t", "").unwrap_err(),
+            TourError::EmptyBody
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut t = tour();
         t.schema_version = "9.9.9".into();
-        assert!(matches!(t.validate().unwrap_err(), TourError::SchemaMismatch));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            TourError::SchemaMismatch
+        ));
     }
 
     #[test]

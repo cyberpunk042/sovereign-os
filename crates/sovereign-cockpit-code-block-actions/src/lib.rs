@@ -106,8 +106,12 @@ impl CodeBlockActions {
 
     /// Register a block.
     pub fn register(&mut self, block: Block) -> Result<(), BlockError> {
-        if block.id.is_empty() { return Err(BlockError::EmptyId); }
-        if block.lang.is_empty() { return Err(BlockError::EmptyLang); }
+        if block.id.is_empty() {
+            return Err(BlockError::EmptyId);
+        }
+        if block.lang.is_empty() {
+            return Err(BlockError::EmptyLang);
+        }
         if self.blocks.contains_key(&block.id) {
             return Err(BlockError::DuplicateId(block.id));
         }
@@ -117,29 +121,64 @@ impl CodeBlockActions {
 
     /// Available actions for a block.
     pub fn actions_for(&self, id: &str) -> Vec<Action> {
-        let Some(b) = self.blocks.get(id) else { return Vec::new(); };
+        let Some(b) = self.blocks.get(id) else {
+            return Vec::new();
+        };
         let mut out = Vec::with_capacity(4);
-        if b.copyable { out.push(Action::Copy); }
-        out.push(if b.wrap_lines { Action::Unwrap } else { Action::Wrap });
-        out.push(if b.expanded { Action::Collapse } else { Action::Expand });
-        if b.runnable { out.push(Action::Run); }
+        if b.copyable {
+            out.push(Action::Copy);
+        }
+        out.push(if b.wrap_lines {
+            Action::Unwrap
+        } else {
+            Action::Wrap
+        });
+        out.push(if b.expanded {
+            Action::Collapse
+        } else {
+            Action::Expand
+        });
+        if b.runnable {
+            out.push(Action::Run);
+        }
         out
     }
 
     /// Apply.
     pub fn apply(&mut self, id: &str, action: Action) -> Result<(), BlockError> {
-        let b = self.blocks.get_mut(id).ok_or_else(|| BlockError::UnknownBlock(id.into()))?;
+        let b = self
+            .blocks
+            .get_mut(id)
+            .ok_or_else(|| BlockError::UnknownBlock(id.into()))?;
         match action {
             Action::Copy => {
-                if !b.copyable { return Err(BlockError::ActionNotAvailable { id: id.into(), action }); }
+                if !b.copyable {
+                    return Err(BlockError::ActionNotAvailable {
+                        id: id.into(),
+                        action,
+                    });
+                }
                 b.copies = b.copies.saturating_add(1);
             }
-            Action::Wrap => { b.wrap_lines = true; }
-            Action::Unwrap => { b.wrap_lines = false; }
-            Action::Expand => { b.expanded = true; }
-            Action::Collapse => { b.expanded = false; }
+            Action::Wrap => {
+                b.wrap_lines = true;
+            }
+            Action::Unwrap => {
+                b.wrap_lines = false;
+            }
+            Action::Expand => {
+                b.expanded = true;
+            }
+            Action::Collapse => {
+                b.expanded = false;
+            }
             Action::Run => {
-                if !b.runnable { return Err(BlockError::ActionNotAvailable { id: id.into(), action }); }
+                if !b.runnable {
+                    return Err(BlockError::ActionNotAvailable {
+                        id: id.into(),
+                        action,
+                    });
+                }
                 b.runs = b.runs.saturating_add(1);
             }
         }
@@ -153,17 +192,25 @@ impl CodeBlockActions {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), BlockError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(BlockError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(BlockError::SchemaMismatch);
+        }
         for (id, b) in &self.blocks {
-            if id.is_empty() { return Err(BlockError::EmptyId); }
-            if b.lang.is_empty() { return Err(BlockError::EmptyLang); }
+            if id.is_empty() {
+                return Err(BlockError::EmptyId);
+            }
+            if b.lang.is_empty() {
+                return Err(BlockError::EmptyLang);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for CodeBlockActions {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -188,7 +235,10 @@ mod tests {
         let mut s = CodeBlockActions::new();
         s.register(b("b1", true, true)).unwrap();
         let a = s.actions_for("b1");
-        assert_eq!(a, vec![Action::Copy, Action::Wrap, Action::Collapse, Action::Run]);
+        assert_eq!(
+            a,
+            vec![Action::Copy, Action::Wrap, Action::Collapse, Action::Run]
+        );
     }
 
     #[test]
@@ -215,14 +265,20 @@ mod tests {
     fn copy_unavailable_errors() {
         let mut s = CodeBlockActions::new();
         s.register(b("b1", false, true)).unwrap();
-        assert!(matches!(s.apply("b1", Action::Copy).unwrap_err(), BlockError::ActionNotAvailable { .. }));
+        assert!(matches!(
+            s.apply("b1", Action::Copy).unwrap_err(),
+            BlockError::ActionNotAvailable { .. }
+        ));
     }
 
     #[test]
     fn run_unavailable_errors() {
         let mut s = CodeBlockActions::new();
         s.register(b("b1", true, false)).unwrap();
-        assert!(matches!(s.apply("b1", Action::Run).unwrap_err(), BlockError::ActionNotAvailable { .. }));
+        assert!(matches!(
+            s.apply("b1", Action::Run).unwrap_err(),
+            BlockError::ActionNotAvailable { .. }
+        ));
     }
 
     #[test]
@@ -240,28 +296,51 @@ mod tests {
     fn duplicate_rejected() {
         let mut s = CodeBlockActions::new();
         s.register(b("b1", true, true)).unwrap();
-        assert!(matches!(s.register(b("b1", true, true)).unwrap_err(), BlockError::DuplicateId(_)));
+        assert!(matches!(
+            s.register(b("b1", true, true)).unwrap_err(),
+            BlockError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn unknown_block() {
         let mut s = CodeBlockActions::new();
-        assert!(matches!(s.apply("nope", Action::Wrap).unwrap_err(), BlockError::UnknownBlock(_)));
+        assert!(matches!(
+            s.apply("nope", Action::Wrap).unwrap_err(),
+            BlockError::UnknownBlock(_)
+        ));
         assert!(s.actions_for("nope").is_empty());
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut s = CodeBlockActions::new();
-        assert!(matches!(s.register(Block { id: "".into(), ..b("x", true, true) }).unwrap_err(), BlockError::EmptyId));
-        assert!(matches!(s.register(Block { lang: "".into(), ..b("y", true, true) }).unwrap_err(), BlockError::EmptyLang));
+        assert!(matches!(
+            s.register(Block {
+                id: "".into(),
+                ..b("x", true, true)
+            })
+            .unwrap_err(),
+            BlockError::EmptyId
+        ));
+        assert!(matches!(
+            s.register(Block {
+                lang: "".into(),
+                ..b("y", true, true)
+            })
+            .unwrap_err(),
+            BlockError::EmptyLang
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = CodeBlockActions::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), BlockError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            BlockError::SchemaMismatch
+        ));
     }
 
     #[test]

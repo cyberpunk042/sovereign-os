@@ -90,27 +90,47 @@ impl ThumbsVote {
 
     /// Cast.
     pub fn cast(&mut self, item: &str, user: &str, vote: Vote) -> Result<CastVerdict, VoteError> {
-        if item.is_empty() { return Err(VoteError::EmptyItem); }
-        if user.is_empty() { return Err(VoteError::EmptyUser); }
+        if item.is_empty() {
+            return Err(VoteError::EmptyItem);
+        }
+        if user.is_empty() {
+            return Err(VoteError::EmptyUser);
+        }
         let it = self.items.entry(item.into()).or_default();
         let prev = it.by_user.get(user).copied();
         let verdict = match prev {
-            None => { it.by_user.insert(user.into(), vote); CastVerdict::Added }
-            Some(p) if p == vote => { it.by_user.remove(user); CastVerdict::Cleared }
-            Some(_) => { it.by_user.insert(user.into(), vote); CastVerdict::Switched }
+            None => {
+                it.by_user.insert(user.into(), vote);
+                CastVerdict::Added
+            }
+            Some(p) if p == vote => {
+                it.by_user.remove(user);
+                CastVerdict::Cleared
+            }
+            Some(_) => {
+                it.by_user.insert(user.into(), vote);
+                CastVerdict::Switched
+            }
         };
-        if it.by_user.is_empty() { self.items.remove(item); }
+        if it.by_user.is_empty() {
+            self.items.remove(item);
+        }
         Ok(verdict)
     }
 
     /// Get a user's vote.
     pub fn user_vote(&self, item: &str, user: &str) -> Option<Vote> {
-        self.items.get(item).and_then(|it| it.by_user.get(user)).copied()
+        self.items
+            .get(item)
+            .and_then(|it| it.by_user.get(user))
+            .copied()
     }
 
     /// Tally.
     pub fn tally(&self, item: &str) -> Tally {
-        let Some(it) = self.items.get(item) else { return Tally::default(); };
+        let Some(it) = self.items.get(item) else {
+            return Tally::default();
+        };
         let mut up = 0u64;
         let mut down = 0u64;
         for v in it.by_user.values() {
@@ -119,16 +139,26 @@ impl ThumbsVote {
                 Vote::Down => down = down.saturating_add(1),
             }
         }
-        Tally { up, down, net: up as i64 - down as i64 }
+        Tally {
+            up,
+            down,
+            net: up as i64 - down as i64,
+        }
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), VoteError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(VoteError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(VoteError::SchemaMismatch);
+        }
         for (i, it) in &self.items {
-            if i.is_empty() { return Err(VoteError::EmptyItem); }
+            if i.is_empty() {
+                return Err(VoteError::EmptyItem);
+            }
             for u in it.by_user.keys() {
-                if u.is_empty() { return Err(VoteError::EmptyUser); }
+                if u.is_empty() {
+                    return Err(VoteError::EmptyUser);
+                }
             }
         }
         Ok(())
@@ -136,7 +166,9 @@ impl ThumbsVote {
 }
 
 impl Default for ThumbsVote {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -154,7 +186,10 @@ mod tests {
     fn same_vote_clears() {
         let mut v = ThumbsVote::new();
         v.cast("a", "alice", Vote::Up).unwrap();
-        assert_eq!(v.cast("a", "alice", Vote::Up).unwrap(), CastVerdict::Cleared);
+        assert_eq!(
+            v.cast("a", "alice", Vote::Up).unwrap(),
+            CastVerdict::Cleared
+        );
         assert_eq!(v.tally("a").up, 0);
     }
 
@@ -162,7 +197,10 @@ mod tests {
     fn different_vote_switches() {
         let mut v = ThumbsVote::new();
         v.cast("a", "alice", Vote::Up).unwrap();
-        assert_eq!(v.cast("a", "alice", Vote::Down).unwrap(), CastVerdict::Switched);
+        assert_eq!(
+            v.cast("a", "alice", Vote::Down).unwrap(),
+            CastVerdict::Switched
+        );
         assert_eq!(v.tally("a").up, 0);
         assert_eq!(v.tally("a").down, 1);
     }
@@ -198,15 +236,24 @@ mod tests {
     #[test]
     fn empty_inputs_rejected() {
         let mut v = ThumbsVote::new();
-        assert!(matches!(v.cast("", "u", Vote::Up).unwrap_err(), VoteError::EmptyItem));
-        assert!(matches!(v.cast("i", "", Vote::Up).unwrap_err(), VoteError::EmptyUser));
+        assert!(matches!(
+            v.cast("", "u", Vote::Up).unwrap_err(),
+            VoteError::EmptyItem
+        ));
+        assert!(matches!(
+            v.cast("i", "", Vote::Up).unwrap_err(),
+            VoteError::EmptyUser
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut v = ThumbsVote::new();
         v.schema_version = "9.9.9".into();
-        assert!(matches!(v.validate().unwrap_err(), VoteError::SchemaMismatch));
+        assert!(matches!(
+            v.validate().unwrap_err(),
+            VoteError::SchemaMismatch
+        ));
     }
 
     #[test]

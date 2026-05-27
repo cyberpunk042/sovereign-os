@@ -85,13 +85,24 @@ impl StatusLight {
     }
 
     /// Set.
-    pub fn set(&mut self, id: &str, tone: Tone, reason: &str, now_ms: u64) -> Result<(), LightError> {
-        if id.is_empty() { return Err(LightError::EmptyId); }
-        self.lights.insert(id.into(), Light {
-            tone,
-            reason: reason.into(),
-            last_update_ts_ms: now_ms,
-        });
+    pub fn set(
+        &mut self,
+        id: &str,
+        tone: Tone,
+        reason: &str,
+        now_ms: u64,
+    ) -> Result<(), LightError> {
+        if id.is_empty() {
+            return Err(LightError::EmptyId);
+        }
+        self.lights.insert(
+            id.into(),
+            Light {
+                tone,
+                reason: reason.into(),
+                last_update_ts_ms: now_ms,
+            },
+        );
         Ok(())
     }
 
@@ -102,7 +113,8 @@ impl StatusLight {
 
     /// Worst tone across all subjects (Healthy when empty).
     pub fn worst(&self) -> Tone {
-        self.lights.values()
+        self.lights
+            .values()
             .map(|l| l.tone)
             .max_by_key(|t| rank(*t))
             .unwrap_or(Tone::Healthy)
@@ -118,16 +130,22 @@ impl StatusLight {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), LightError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(LightError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(LightError::SchemaMismatch);
+        }
         for id in self.lights.keys() {
-            if id.is_empty() { return Err(LightError::EmptyId); }
+            if id.is_empty() {
+                return Err(LightError::EmptyId);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for StatusLight {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -179,14 +197,20 @@ mod tests {
     #[test]
     fn empty_id_rejected() {
         let mut l = StatusLight::new();
-        assert!(matches!(l.set("", Tone::Healthy, "x", 0).unwrap_err(), LightError::EmptyId));
+        assert!(matches!(
+            l.set("", Tone::Healthy, "x", 0).unwrap_err(),
+            LightError::EmptyId
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut l = StatusLight::new();
         l.schema_version = "9.9.9".into();
-        assert!(matches!(l.validate().unwrap_err(), LightError::SchemaMismatch));
+        assert!(matches!(
+            l.validate().unwrap_err(),
+            LightError::SchemaMismatch
+        ));
     }
 
     #[test]

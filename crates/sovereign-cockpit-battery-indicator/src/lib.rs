@@ -95,9 +95,15 @@ pub enum BatteryError {
 impl BatteryIndicator {
     /// New.
     pub fn new(low_pct: u8, critical_pct: u8) -> Result<Self, BatteryError> {
-        if low_pct <= critical_pct { return Err(BatteryError::BadThresholds(low_pct, critical_pct)); }
-        if low_pct > 100 { return Err(BatteryError::PctOver100(low_pct)); }
-        if critical_pct > 100 { return Err(BatteryError::CriticalOver100(critical_pct)); }
+        if low_pct <= critical_pct {
+            return Err(BatteryError::BadThresholds(low_pct, critical_pct));
+        }
+        if low_pct > 100 {
+            return Err(BatteryError::PctOver100(low_pct));
+        }
+        if critical_pct > 100 {
+            return Err(BatteryError::CriticalOver100(critical_pct));
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             low_pct,
@@ -109,10 +115,15 @@ impl BatteryIndicator {
 
     /// Push a fresh sample.
     pub fn push(&mut self, s: Sample) -> Result<(), BatteryError> {
-        if s.pct > 100 { return Err(BatteryError::PctOver100(s.pct)); }
+        if s.pct > 100 {
+            return Err(BatteryError::PctOver100(s.pct));
+        }
         if let Some(last) = self.last {
             if s.ts_ms <= last.ts_ms {
-                return Err(BatteryError::NonMonotonic { prev: last.ts_ms, new: s.ts_ms });
+                return Err(BatteryError::NonMonotonic {
+                    prev: last.ts_ms,
+                    new: s.ts_ms,
+                });
             }
             self.prev = Some(last);
         }
@@ -132,11 +143,17 @@ impl BatteryIndicator {
     /// Naive time-to-empty (ms). None if discharging unknown or state not discharging or no delta.
     pub fn time_to_empty_ms(&self) -> Option<u64> {
         let (last, prev) = (self.last?, self.prev?);
-        if last.state != ChargeState::Discharging { return None; }
-        if last.pct >= prev.pct { return None; }
+        if last.state != ChargeState::Discharging {
+            return None;
+        }
+        if last.pct >= prev.pct {
+            return None;
+        }
         let drop = (prev.pct - last.pct) as u64;
         let dt = last.ts_ms.checked_sub(prev.ts_ms)?;
-        if dt == 0 { return None; }
+        if dt == 0 {
+            return None;
+        }
         let pct_per_ms_num = drop;
         let pct_per_ms_den = dt;
         let remaining_pct = last.pct as u64;
@@ -146,25 +163,52 @@ impl BatteryIndicator {
     /// Naive time-to-full (ms).
     pub fn time_to_full_ms(&self) -> Option<u64> {
         let (last, prev) = (self.last?, self.prev?);
-        if last.state != ChargeState::Charging { return None; }
-        if last.pct <= prev.pct { return None; }
+        if last.state != ChargeState::Charging {
+            return None;
+        }
+        if last.pct <= prev.pct {
+            return None;
+        }
         let gain = (last.pct - prev.pct) as u64;
         let dt = last.ts_ms.checked_sub(prev.ts_ms)?;
-        if dt == 0 { return None; }
+        if dt == 0 {
+            return None;
+        }
         let remaining_pct = 100u64.saturating_sub(last.pct as u64);
         Some(remaining_pct.saturating_mul(dt) / gain)
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), BatteryError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(BatteryError::SchemaMismatch); }
-        if self.low_pct <= self.critical_pct { return Err(BatteryError::BadThresholds(self.low_pct, self.critical_pct)); }
-        if self.low_pct > 100 { return Err(BatteryError::PctOver100(self.low_pct)); }
-        if self.critical_pct > 100 { return Err(BatteryError::CriticalOver100(self.critical_pct)); }
-        if let Some(s) = self.last { if s.pct > 100 { return Err(BatteryError::PctOver100(s.pct)); } }
-        if let Some(s) = self.prev { if s.pct > 100 { return Err(BatteryError::PctOver100(s.pct)); } }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(BatteryError::SchemaMismatch);
+        }
+        if self.low_pct <= self.critical_pct {
+            return Err(BatteryError::BadThresholds(self.low_pct, self.critical_pct));
+        }
+        if self.low_pct > 100 {
+            return Err(BatteryError::PctOver100(self.low_pct));
+        }
+        if self.critical_pct > 100 {
+            return Err(BatteryError::CriticalOver100(self.critical_pct));
+        }
+        if let Some(s) = self.last {
+            if s.pct > 100 {
+                return Err(BatteryError::PctOver100(s.pct));
+            }
+        }
+        if let Some(s) = self.prev {
+            if s.pct > 100 {
+                return Err(BatteryError::PctOver100(s.pct));
+            }
+        }
         if let (Some(p), Some(l)) = (self.prev, self.last) {
-            if p.ts_ms >= l.ts_ms { return Err(BatteryError::NonMonotonic { prev: p.ts_ms, new: l.ts_ms }); }
+            if p.ts_ms >= l.ts_ms {
+                return Err(BatteryError::NonMonotonic {
+                    prev: p.ts_ms,
+                    new: l.ts_ms,
+                });
+            }
         }
         Ok(())
     }
@@ -174,11 +218,20 @@ impl BatteryIndicator {
 mod tests {
     use super::*;
 
-    fn s(ts: u64, pct: u8, st: ChargeState) -> Sample { Sample { ts_ms: ts, pct, state: st } }
+    fn s(ts: u64, pct: u8, st: ChargeState) -> Sample {
+        Sample {
+            ts_ms: ts,
+            pct,
+            state: st,
+        }
+    }
 
     #[test]
     fn bad_thresholds_rejected() {
-        assert!(matches!(BatteryIndicator::new(5, 20).unwrap_err(), BatteryError::BadThresholds(_, _)));
+        assert!(matches!(
+            BatteryIndicator::new(5, 20).unwrap_err(),
+            BatteryError::BadThresholds(_, _)
+        ));
     }
 
     #[test]
@@ -205,14 +258,20 @@ mod tests {
     #[test]
     fn pct_over_100_rejected() {
         let mut b = BatteryIndicator::new(20, 5).unwrap();
-        assert!(matches!(b.push(s(100, 200, ChargeState::Unknown)).unwrap_err(), BatteryError::PctOver100(_)));
+        assert!(matches!(
+            b.push(s(100, 200, ChargeState::Unknown)).unwrap_err(),
+            BatteryError::PctOver100(_)
+        ));
     }
 
     #[test]
     fn nonmonotonic_rejected() {
         let mut b = BatteryIndicator::new(20, 5).unwrap();
         b.push(s(100, 50, ChargeState::Discharging)).unwrap();
-        assert!(matches!(b.push(s(100, 49, ChargeState::Discharging)).unwrap_err(), BatteryError::NonMonotonic { .. }));
+        assert!(matches!(
+            b.push(s(100, 49, ChargeState::Discharging)).unwrap_err(),
+            BatteryError::NonMonotonic { .. }
+        ));
     }
 
     #[test]
@@ -246,7 +305,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut b = BatteryIndicator::new(20, 5).unwrap();
         b.schema_version = "9.9.9".into();
-        assert!(matches!(b.validate().unwrap_err(), BatteryError::SchemaMismatch));
+        assert!(matches!(
+            b.validate().unwrap_err(),
+            BatteryError::SchemaMismatch
+        ));
     }
 
     #[test]

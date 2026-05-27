@@ -113,14 +113,22 @@ impl DoctrineTag {
     /// All 16 tags.
     pub fn all() -> [DoctrineTag; 16] {
         [
-            DoctrineTag::NotEveryPrompt, DoctrineTag::BuildMapFirst,
-            DoctrineTag::WorkflowVersioned, DoctrineTag::KeyLine,
-            DoctrineTag::RuntimeFirst, DoctrineTag::PressureAsSensation,
-            DoctrineTag::PrmProposes, DoctrineTag::ThoughtsDeserveMoreLife,
-            DoctrineTag::MemoryAdaptiveState, DoctrineTag::TrinityGenesis,
-            DoctrineTag::SrpToHardware, DoctrineTag::AgentRequirement,
-            DoctrineTag::ThatIsSovereignty, DoctrineTag::ProviderInversion,
-            DoctrineTag::CompilerPipeline, DoctrineTag::NonSurjective,
+            DoctrineTag::NotEveryPrompt,
+            DoctrineTag::BuildMapFirst,
+            DoctrineTag::WorkflowVersioned,
+            DoctrineTag::KeyLine,
+            DoctrineTag::RuntimeFirst,
+            DoctrineTag::PressureAsSensation,
+            DoctrineTag::PrmProposes,
+            DoctrineTag::ThoughtsDeserveMoreLife,
+            DoctrineTag::MemoryAdaptiveState,
+            DoctrineTag::TrinityGenesis,
+            DoctrineTag::SrpToHardware,
+            DoctrineTag::AgentRequirement,
+            DoctrineTag::ThatIsSovereignty,
+            DoctrineTag::ProviderInversion,
+            DoctrineTag::CompilerPipeline,
+            DoctrineTag::NonSurjective,
         ]
     }
 }
@@ -170,11 +178,14 @@ pub enum DoctrineError {
 impl DoctrineRegistry {
     /// Build canonical registry.
     pub fn canonical() -> Self {
-        let records = DoctrineTag::all().into_iter().map(|t| DoctrineRecord {
-            tag: t,
-            text: t.verbatim().into(),
-            provenance: t.provenance().into(),
-        }).collect();
+        let records = DoctrineTag::all()
+            .into_iter()
+            .map(|t| DoctrineRecord {
+                tag: t,
+                text: t.verbatim().into(),
+                provenance: t.provenance().into(),
+            })
+            .collect();
         Self {
             schema_version: SCHEMA_VERSION.into(),
             captured_at: "2026-05-19T00:00:00Z".into(),
@@ -191,7 +202,10 @@ impl DoctrineRegistry {
             return Err(DoctrineError::CountInvalid(self.records.len()));
         }
         for tag in DoctrineTag::all() {
-            let rec = self.records.iter().find(|r| r.tag == tag)
+            let rec = self
+                .records
+                .iter()
+                .find(|r| r.tag == tag)
                 .ok_or(DoctrineError::TagMissing(tag))?;
             if rec.text != tag.verbatim() {
                 return Err(DoctrineError::TextTampered { tag });
@@ -219,21 +233,30 @@ mod tests {
     fn schema_drift_rejected() {
         let mut r = DoctrineRegistry::canonical();
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate().unwrap_err(), DoctrineError::SchemaMismatch));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            DoctrineError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn count_invalid_rejected() {
         let mut r = DoctrineRegistry::canonical();
         r.records.pop();
-        assert!(matches!(r.validate().unwrap_err(), DoctrineError::CountInvalid(15)));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            DoctrineError::CountInvalid(15)
+        ));
     }
 
     #[test]
     fn text_tamper_caught() {
         let mut r = DoctrineRegistry::canonical();
         r.records[0].text = "tampered".into();
-        assert!(matches!(r.validate().unwrap_err(), DoctrineError::TextTampered { .. }));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            DoctrineError::TextTampered { .. }
+        ));
     }
 
     #[test]

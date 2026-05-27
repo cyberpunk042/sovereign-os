@@ -48,7 +48,9 @@ pub enum LightboxError {
 impl LightboxOverlay {
     /// New (closed) — items must be non-empty.
     pub fn new(items: Vec<String>, cyclic: bool) -> Result<Self, LightboxError> {
-        if items.is_empty() { return Err(LightboxError::EmptyItems); }
+        if items.is_empty() {
+            return Err(LightboxError::EmptyItems);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             items,
@@ -59,16 +61,22 @@ impl LightboxOverlay {
 
     /// Open at index i.
     pub fn open(&mut self, i: usize) -> Result<(), LightboxError> {
-        if i >= self.items.len() { return Err(LightboxError::OutOfRange); }
+        if i >= self.items.len() {
+            return Err(LightboxError::OutOfRange);
+        }
         self.open_at = Some(i);
         Ok(())
     }
 
     /// Close.
-    pub fn close(&mut self) { self.open_at = None; }
+    pub fn close(&mut self) {
+        self.open_at = None;
+    }
 
     /// True iff open.
-    pub fn is_open(&self) -> bool { self.open_at.is_some() }
+    pub fn is_open(&self) -> bool {
+        self.open_at.is_some()
+    }
 
     /// Current item.
     pub fn current(&self) -> Option<&str> {
@@ -106,10 +114,16 @@ impl LightboxOverlay {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), LightboxError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(LightboxError::SchemaMismatch); }
-        if self.items.is_empty() { return Err(LightboxError::EmptyItems); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(LightboxError::SchemaMismatch);
+        }
+        if self.items.is_empty() {
+            return Err(LightboxError::EmptyItems);
+        }
         if let Some(i) = self.open_at {
-            if i >= self.items.len() { return Err(LightboxError::OutOfRange); }
+            if i >= self.items.len() {
+                return Err(LightboxError::OutOfRange);
+            }
         }
         Ok(())
     }
@@ -176,14 +190,20 @@ mod tests {
 
     #[test]
     fn empty_items_rejected() {
-        assert!(matches!(LightboxOverlay::new(vec![], false).unwrap_err(), LightboxError::EmptyItems));
+        assert!(matches!(
+            LightboxOverlay::new(vec![], false).unwrap_err(),
+            LightboxError::EmptyItems
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut l = lb(false);
         l.schema_version = "9.9.9".into();
-        assert!(matches!(l.validate().unwrap_err(), LightboxError::SchemaMismatch));
+        assert!(matches!(
+            l.validate().unwrap_err(),
+            LightboxError::SchemaMismatch
+        ));
     }
 
     #[test]

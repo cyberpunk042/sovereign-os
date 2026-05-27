@@ -94,12 +94,18 @@ impl CheckboxTree {
 
     /// Children of a node id.
     fn children(&self, id: &str) -> Vec<&CheckNode> {
-        self.nodes.iter().filter(|n| n.parent_id.as_deref() == Some(id)).collect()
+        self.nodes
+            .iter()
+            .filter(|n| n.parent_id.as_deref() == Some(id))
+            .collect()
     }
 
     /// Is `id` a leaf? (No children registered.)
     pub fn is_leaf(&self, id: &str) -> bool {
-        !self.nodes.iter().any(|n| n.parent_id.as_deref() == Some(id))
+        !self
+            .nodes
+            .iter()
+            .any(|n| n.parent_id.as_deref() == Some(id))
     }
 
     /// Compute the effective state.
@@ -131,7 +137,8 @@ impl CheckboxTree {
     /// Checked ↔ Unchecked (Indeterminate becomes Checked). For
     /// non-leaves, the target state propagates to all descendants.
     pub fn toggle(&mut self, id: &str) -> Result<CheckState, CheckTreeError> {
-        let cur = self.compute_state(id)
+        let cur = self
+            .compute_state(id)
             .ok_or_else(|| CheckTreeError::Unknown(id.into()))?;
         let target = match cur {
             CheckState::Checked => CheckState::Unchecked,
@@ -175,14 +182,23 @@ fn check_nodes(nodes: &[CheckNode]) -> Result<(), CheckTreeError> {
     use std::collections::HashSet;
     let mut ids: HashSet<&str> = HashSet::new();
     for n in nodes {
-        if n.id.is_empty() { return Err(CheckTreeError::EmptyId); }
-        if n.label.is_empty() { return Err(CheckTreeError::EmptyLabel(n.id.clone())); }
-        if !ids.insert(n.id.as_str()) { return Err(CheckTreeError::DuplicateId(n.id.clone())); }
+        if n.id.is_empty() {
+            return Err(CheckTreeError::EmptyId);
+        }
+        if n.label.is_empty() {
+            return Err(CheckTreeError::EmptyLabel(n.id.clone()));
+        }
+        if !ids.insert(n.id.as_str()) {
+            return Err(CheckTreeError::DuplicateId(n.id.clone()));
+        }
     }
     for n in nodes {
         if let Some(p) = &n.parent_id {
             if !ids.contains(p.as_str()) {
-                return Err(CheckTreeError::UnknownParent { child: n.id.clone(), parent: p.clone() });
+                return Err(CheckTreeError::UnknownParent {
+                    child: n.id.clone(),
+                    parent: p.clone(),
+                });
             }
         }
     }
@@ -209,7 +225,8 @@ mod tests {
             node("b", Some("root"), CheckState::Unchecked),
             node("a1", Some("a"), CheckState::Unchecked),
             node("a2", Some("a"), CheckState::Unchecked),
-        ]).unwrap()
+        ])
+        .unwrap()
     }
 
     #[test]
@@ -277,7 +294,8 @@ mod tests {
             CheckboxTree::new(vec![
                 node("a", None, CheckState::Unchecked),
                 node("a", None, CheckState::Unchecked),
-            ]).unwrap_err(),
+            ])
+            .unwrap_err(),
             CheckTreeError::DuplicateId(_)
         ));
     }
@@ -286,35 +304,51 @@ mod tests {
     fn empty_id_rejected() {
         let mut n = node("a", None, CheckState::Unchecked);
         n.id = String::new();
-        assert!(matches!(CheckboxTree::new(vec![n]).unwrap_err(), CheckTreeError::EmptyId));
+        assert!(matches!(
+            CheckboxTree::new(vec![n]).unwrap_err(),
+            CheckTreeError::EmptyId
+        ));
     }
 
     #[test]
     fn empty_label_rejected() {
         let mut n = node("a", None, CheckState::Unchecked);
         n.label = String::new();
-        assert!(matches!(CheckboxTree::new(vec![n]).unwrap_err(), CheckTreeError::EmptyLabel(_)));
+        assert!(matches!(
+            CheckboxTree::new(vec![n]).unwrap_err(),
+            CheckTreeError::EmptyLabel(_)
+        ));
     }
 
     #[test]
     fn leaf_indeterminate_rejected_on_validate() {
-        let t = CheckboxTree::new(vec![
-            node("leaf", None, CheckState::Indeterminate),
-        ]).unwrap();
-        assert!(matches!(t.validate().unwrap_err(), CheckTreeError::LeafIndeterminate(_)));
+        let t = CheckboxTree::new(vec![node("leaf", None, CheckState::Indeterminate)]).unwrap();
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            CheckTreeError::LeafIndeterminate(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut t = tree();
         t.schema_version = "9.9.9".into();
-        assert!(matches!(t.validate().unwrap_err(), CheckTreeError::SchemaMismatch));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            CheckTreeError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn state_serde_kebab() {
-        assert_eq!(serde_json::to_string(&CheckState::Indeterminate).unwrap(), "\"indeterminate\"");
-        assert_eq!(serde_json::to_string(&CheckState::Unchecked).unwrap(), "\"unchecked\"");
+        assert_eq!(
+            serde_json::to_string(&CheckState::Indeterminate).unwrap(),
+            "\"indeterminate\""
+        );
+        assert_eq!(
+            serde_json::to_string(&CheckState::Unchecked).unwrap(),
+            "\"unchecked\""
+        );
     }
 
     #[test]

@@ -90,7 +90,10 @@ pub enum SkeletonError {
 }
 
 const REQUIRED: [ViewType; 4] = [
-    ViewType::Conversation, ViewType::Dashboard, ViewType::Replay, ViewType::Table,
+    ViewType::Conversation,
+    ViewType::Dashboard,
+    ViewType::Replay,
+    ViewType::Table,
 ];
 
 impl SkeletonCatalog {
@@ -100,35 +103,91 @@ impl SkeletonCatalog {
             ViewSkeleton {
                 view: ViewType::Conversation,
                 placeholders: vec![
-                    Placeholder { shape: Shape::Circle, width: 40, height: 40 },
-                    Placeholder { shape: Shape::Line, width: 60, height: 12 },
-                    Placeholder { shape: Shape::Rect, width: 100, height: 80 },
-                    Placeholder { shape: Shape::Rect, width: 100, height: 60 },
+                    Placeholder {
+                        shape: Shape::Circle,
+                        width: 40,
+                        height: 40,
+                    },
+                    Placeholder {
+                        shape: Shape::Line,
+                        width: 60,
+                        height: 12,
+                    },
+                    Placeholder {
+                        shape: Shape::Rect,
+                        width: 100,
+                        height: 80,
+                    },
+                    Placeholder {
+                        shape: Shape::Rect,
+                        width: 100,
+                        height: 60,
+                    },
                 ],
             },
             ViewSkeleton {
                 view: ViewType::Dashboard,
                 placeholders: vec![
-                    Placeholder { shape: Shape::Rect, width: 50, height: 200 },
-                    Placeholder { shape: Shape::Rect, width: 50, height: 200 },
-                    Placeholder { shape: Shape::Rect, width: 100, height: 300 },
+                    Placeholder {
+                        shape: Shape::Rect,
+                        width: 50,
+                        height: 200,
+                    },
+                    Placeholder {
+                        shape: Shape::Rect,
+                        width: 50,
+                        height: 200,
+                    },
+                    Placeholder {
+                        shape: Shape::Rect,
+                        width: 100,
+                        height: 300,
+                    },
                 ],
             },
             ViewSkeleton {
                 view: ViewType::Replay,
                 placeholders: vec![
-                    Placeholder { shape: Shape::Line, width: 100, height: 8 },
-                    Placeholder { shape: Shape::Rect, width: 100, height: 400 },
+                    Placeholder {
+                        shape: Shape::Line,
+                        width: 100,
+                        height: 8,
+                    },
+                    Placeholder {
+                        shape: Shape::Rect,
+                        width: 100,
+                        height: 400,
+                    },
                 ],
             },
             ViewSkeleton {
                 view: ViewType::Table,
                 placeholders: vec![
-                    Placeholder { shape: Shape::Line, width: 100, height: 16 },
-                    Placeholder { shape: Shape::Line, width: 100, height: 16 },
-                    Placeholder { shape: Shape::Line, width: 100, height: 16 },
-                    Placeholder { shape: Shape::Line, width: 100, height: 16 },
-                    Placeholder { shape: Shape::Line, width: 100, height: 16 },
+                    Placeholder {
+                        shape: Shape::Line,
+                        width: 100,
+                        height: 16,
+                    },
+                    Placeholder {
+                        shape: Shape::Line,
+                        width: 100,
+                        height: 16,
+                    },
+                    Placeholder {
+                        shape: Shape::Line,
+                        width: 100,
+                        height: 16,
+                    },
+                    Placeholder {
+                        shape: Shape::Line,
+                        width: 100,
+                        height: 16,
+                    },
+                    Placeholder {
+                        shape: Shape::Line,
+                        width: 100,
+                        height: 16,
+                    },
                 ],
             },
         ];
@@ -182,7 +241,9 @@ mod tests {
     #[test]
     fn four_views_present() {
         let c = SkeletonCatalog::canonical();
-        for v in REQUIRED { assert!(c.get(v).is_some(), "missing {v:?}"); }
+        for v in REQUIRED {
+            assert!(c.get(v).is_some(), "missing {v:?}");
+        }
     }
 
     #[test]
@@ -205,28 +266,40 @@ mod tests {
     fn zero_dim_rejected() {
         let mut c = SkeletonCatalog::canonical();
         c.skeletons[0].placeholders[0].width = 0;
-        assert!(matches!(c.validate().unwrap_err(), SkeletonError::ZeroDim(_)));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            SkeletonError::ZeroDim(_)
+        ));
     }
 
     #[test]
     fn empty_placeholders_rejected() {
         let mut c = SkeletonCatalog::canonical();
         c.skeletons[0].placeholders.clear();
-        assert!(matches!(c.validate().unwrap_err(), SkeletonError::EmptyPlaceholders(_)));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            SkeletonError::EmptyPlaceholders(_)
+        ));
     }
 
     #[test]
     fn count_invalid_caught() {
         let mut c = SkeletonCatalog::canonical();
         c.skeletons.pop();
-        assert!(matches!(c.validate().unwrap_err(), SkeletonError::CountInvalid(3)));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            SkeletonError::CountInvalid(3)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut c = SkeletonCatalog::canonical();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), SkeletonError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            SkeletonError::SchemaMismatch
+        ));
     }
 
     #[test]

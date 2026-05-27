@@ -69,10 +69,23 @@ impl ResultCardList {
     }
 
     /// Add card.
-    pub fn add(&mut self, id: &str, title: &str, snippet: &str, source: &str, score: i64) -> Result<(), CardError> {
-        if id.is_empty() { return Err(CardError::EmptyId); }
-        if title.is_empty() { return Err(CardError::EmptyTitle); }
-        if source.is_empty() { return Err(CardError::EmptySource); }
+    pub fn add(
+        &mut self,
+        id: &str,
+        title: &str,
+        snippet: &str,
+        source: &str,
+        score: i64,
+    ) -> Result<(), CardError> {
+        if id.is_empty() {
+            return Err(CardError::EmptyId);
+        }
+        if title.is_empty() {
+            return Err(CardError::EmptyTitle);
+        }
+        if source.is_empty() {
+            return Err(CardError::EmptySource);
+        }
         if self.cards.iter().any(|c| c.id == id) {
             return Err(CardError::DuplicateId(id.into()));
         }
@@ -110,18 +123,28 @@ impl ResultCardList {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), CardError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(CardError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(CardError::SchemaMismatch);
+        }
         for c in &self.cards {
-            if c.id.is_empty() { return Err(CardError::EmptyId); }
-            if c.title.is_empty() { return Err(CardError::EmptyTitle); }
-            if c.source.is_empty() { return Err(CardError::EmptySource); }
+            if c.id.is_empty() {
+                return Err(CardError::EmptyId);
+            }
+            if c.title.is_empty() {
+                return Err(CardError::EmptyTitle);
+            }
+            if c.source.is_empty() {
+                return Err(CardError::EmptySource);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for ResultCardList {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -161,15 +184,27 @@ mod tests {
     fn duplicate_rejected() {
         let mut l = ResultCardList::new();
         l.add("a", "A", "s", "src", 1).unwrap();
-        assert!(matches!(l.add("a", "B", "s", "src", 2).unwrap_err(), CardError::DuplicateId(_)));
+        assert!(matches!(
+            l.add("a", "B", "s", "src", 2).unwrap_err(),
+            CardError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut l = ResultCardList::new();
-        assert!(matches!(l.add("", "T", "s", "src", 1).unwrap_err(), CardError::EmptyId));
-        assert!(matches!(l.add("i", "", "s", "src", 1).unwrap_err(), CardError::EmptyTitle));
-        assert!(matches!(l.add("i", "T", "s", "", 1).unwrap_err(), CardError::EmptySource));
+        assert!(matches!(
+            l.add("", "T", "s", "src", 1).unwrap_err(),
+            CardError::EmptyId
+        ));
+        assert!(matches!(
+            l.add("i", "", "s", "src", 1).unwrap_err(),
+            CardError::EmptyTitle
+        ));
+        assert!(matches!(
+            l.add("i", "T", "s", "", 1).unwrap_err(),
+            CardError::EmptySource
+        ));
     }
 
     #[test]
@@ -183,7 +218,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut l = ResultCardList::new();
         l.schema_version = "9.9.9".into();
-        assert!(matches!(l.validate().unwrap_err(), CardError::SchemaMismatch));
+        assert!(matches!(
+            l.validate().unwrap_err(),
+            CardError::SchemaMismatch
+        ));
     }
 
     #[test]

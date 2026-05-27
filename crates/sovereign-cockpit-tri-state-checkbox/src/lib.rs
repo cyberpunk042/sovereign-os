@@ -47,12 +47,18 @@ pub enum CheckboxError {
 
 /// Roll up children into parent state.
 pub fn rollup(children: &[State]) -> State {
-    if children.is_empty() { return State::Unchecked; }
+    if children.is_empty() {
+        return State::Unchecked;
+    }
     let all_checked = children.iter().all(|s| *s == State::Checked);
     let all_unchecked = children.iter().all(|s| *s == State::Unchecked);
-    if all_checked { State::Checked }
-    else if all_unchecked { State::Unchecked }
-    else { State::Indeterminate }
+    if all_checked {
+        State::Checked
+    } else if all_unchecked {
+        State::Unchecked
+    } else {
+        State::Indeterminate
+    }
 }
 
 impl TriStateCheckbox {
@@ -82,13 +88,17 @@ impl TriStateCheckbox {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), CheckboxError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(CheckboxError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(CheckboxError::SchemaMismatch);
+        }
         Ok(())
     }
 }
 
 impl Default for TriStateCheckbox {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -149,7 +159,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut c = TriStateCheckbox::new();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), CheckboxError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            CheckboxError::SchemaMismatch
+        ));
     }
 
     #[test]

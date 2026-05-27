@@ -122,23 +122,36 @@ impl ConsentPrompt {
 
     /// Register a pending prompt.
     pub fn prompt(&mut self, id: &str, scope: &str, ts_ms: u64) -> Result<(), ConsentError> {
-        if id.is_empty() { return Err(ConsentError::EmptyId); }
-        if scope.is_empty() { return Err(ConsentError::EmptyScope); }
+        if id.is_empty() {
+            return Err(ConsentError::EmptyId);
+        }
+        if scope.is_empty() {
+            return Err(ConsentError::EmptyScope);
+        }
         if self.prompts.contains_key(id) {
             return Err(ConsentError::DuplicateId(id.into()));
         }
-        self.prompts.insert(id.into(), Prompt {
-            scope: scope.into(),
-            created_at_ms: ts_ms,
-            state: PromptState::Pending,
-        });
+        self.prompts.insert(
+            id.into(),
+            Prompt {
+                scope: scope.into(),
+                created_at_ms: ts_ms,
+                state: PromptState::Pending,
+            },
+        );
         Ok(())
     }
 
     /// Grant.
     pub fn grant(&mut self, id: &str, ts_ms: u64) -> Result<(), ConsentError> {
-        let p = self.prompts.get_mut(id).ok_or_else(|| ConsentError::UnknownPrompt(id.into()))?;
-        if matches!(p.state, PromptState::Granted { .. } | PromptState::Denied { .. }) {
+        let p = self
+            .prompts
+            .get_mut(id)
+            .ok_or_else(|| ConsentError::UnknownPrompt(id.into()))?;
+        if matches!(
+            p.state,
+            PromptState::Granted { .. } | PromptState::Denied { .. }
+        ) {
             return Err(ConsentError::AlreadyTerminal(id.into()));
         }
         p.state = PromptState::Granted { at_ms: ts_ms };
@@ -147,8 +160,14 @@ impl ConsentPrompt {
 
     /// Deny.
     pub fn deny(&mut self, id: &str, ts_ms: u64) -> Result<(), ConsentError> {
-        let p = self.prompts.get_mut(id).ok_or_else(|| ConsentError::UnknownPrompt(id.into()))?;
-        if matches!(p.state, PromptState::Granted { .. } | PromptState::Denied { .. }) {
+        let p = self
+            .prompts
+            .get_mut(id)
+            .ok_or_else(|| ConsentError::UnknownPrompt(id.into()))?;
+        if matches!(
+            p.state,
+            PromptState::Granted { .. } | PromptState::Denied { .. }
+        ) {
             return Err(ConsentError::AlreadyTerminal(id.into()));
         }
         p.state = PromptState::Denied { at_ms: ts_ms };
@@ -156,42 +175,70 @@ impl ConsentPrompt {
     }
 
     /// Defer.
-    pub fn defer(&mut self, id: &str, ts_ms: u64, reminder_after_ms: u64) -> Result<(), ConsentError> {
-        let p = self.prompts.get_mut(id).ok_or_else(|| ConsentError::UnknownPrompt(id.into()))?;
-        if matches!(p.state, PromptState::Granted { .. } | PromptState::Denied { .. }) {
+    pub fn defer(
+        &mut self,
+        id: &str,
+        ts_ms: u64,
+        reminder_after_ms: u64,
+    ) -> Result<(), ConsentError> {
+        let p = self
+            .prompts
+            .get_mut(id)
+            .ok_or_else(|| ConsentError::UnknownPrompt(id.into()))?;
+        if matches!(
+            p.state,
+            PromptState::Granted { .. } | PromptState::Denied { .. }
+        ) {
             return Err(ConsentError::AlreadyTerminal(id.into()));
         }
-        p.state = PromptState::Deferred { reminder_at_ms: ts_ms.saturating_add(reminder_after_ms) };
+        p.state = PromptState::Deferred {
+            reminder_at_ms: ts_ms.saturating_add(reminder_after_ms),
+        };
         Ok(())
     }
 
     /// State at now.
     pub fn state(&self, id: &str, now_ms: u64) -> Verdict {
-        let Some(p) = self.prompts.get(id) else { return Verdict::Unknown; };
+        let Some(p) = self.prompts.get(id) else {
+            return Verdict::Unknown;
+        };
         match &p.state {
             PromptState::Pending => Verdict::Pending,
             PromptState::Granted { .. } => Verdict::Granted,
             PromptState::Denied { .. } => Verdict::Denied,
             PromptState::Deferred { reminder_at_ms } => {
-                if now_ms >= *reminder_at_ms { Verdict::Reminder }
-                else { Verdict::Deferred { reminder_at_ms: *reminder_at_ms } }
+                if now_ms >= *reminder_at_ms {
+                    Verdict::Reminder
+                } else {
+                    Verdict::Deferred {
+                        reminder_at_ms: *reminder_at_ms,
+                    }
+                }
             }
         }
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ConsentError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ConsentError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ConsentError::SchemaMismatch);
+        }
         for (id, p) in &self.prompts {
-            if id.is_empty() { return Err(ConsentError::EmptyId); }
-            if p.scope.is_empty() { return Err(ConsentError::EmptyScope); }
+            if id.is_empty() {
+                return Err(ConsentError::EmptyId);
+            }
+            if p.scope.is_empty() {
+                return Err(ConsentError::EmptyScope);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for ConsentPrompt {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -211,7 +258,10 @@ mod tests {
         c.prompt("p1", "mic", 0).unwrap();
         c.grant("p1", 100).unwrap();
         assert_eq!(c.state("p1", 200), Verdict::Granted);
-        assert!(matches!(c.deny("p1", 300).unwrap_err(), ConsentError::AlreadyTerminal(_)));
+        assert!(matches!(
+            c.deny("p1", 300).unwrap_err(),
+            ConsentError::AlreadyTerminal(_)
+        ));
     }
 
     #[test]
@@ -220,7 +270,10 @@ mod tests {
         c.prompt("p1", "mic", 0).unwrap();
         c.deny("p1", 100).unwrap();
         assert_eq!(c.state("p1", 200), Verdict::Denied);
-        assert!(matches!(c.grant("p1", 300).unwrap_err(), ConsentError::AlreadyTerminal(_)));
+        assert!(matches!(
+            c.grant("p1", 300).unwrap_err(),
+            ConsentError::AlreadyTerminal(_)
+        ));
     }
 
     #[test]
@@ -250,27 +303,42 @@ mod tests {
     fn duplicate_rejected() {
         let mut c = ConsentPrompt::new();
         c.prompt("p1", "mic", 0).unwrap();
-        assert!(matches!(c.prompt("p1", "mic", 0).unwrap_err(), ConsentError::DuplicateId(_)));
+        assert!(matches!(
+            c.prompt("p1", "mic", 0).unwrap_err(),
+            ConsentError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn unknown_rejected() {
         let mut c = ConsentPrompt::new();
-        assert!(matches!(c.grant("nope", 0).unwrap_err(), ConsentError::UnknownPrompt(_)));
+        assert!(matches!(
+            c.grant("nope", 0).unwrap_err(),
+            ConsentError::UnknownPrompt(_)
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut c = ConsentPrompt::new();
-        assert!(matches!(c.prompt("", "mic", 0).unwrap_err(), ConsentError::EmptyId));
-        assert!(matches!(c.prompt("p", "", 0).unwrap_err(), ConsentError::EmptyScope));
+        assert!(matches!(
+            c.prompt("", "mic", 0).unwrap_err(),
+            ConsentError::EmptyId
+        ));
+        assert!(matches!(
+            c.prompt("p", "", 0).unwrap_err(),
+            ConsentError::EmptyScope
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut c = ConsentPrompt::new();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), ConsentError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            ConsentError::SchemaMismatch
+        ));
     }
 
     #[test]

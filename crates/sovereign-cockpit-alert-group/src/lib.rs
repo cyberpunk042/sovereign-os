@@ -75,7 +75,9 @@ impl AlertGroup {
 
     /// Observe an alert.
     pub fn observe(&mut self, tag: &str, severity: Severity, ts_ms: u64) -> Result<(), AlertError> {
-        if tag.is_empty() { return Err(AlertError::EmptyTag); }
+        if tag.is_empty() {
+            return Err(AlertError::EmptyTag);
+        }
         let g = self.groups.entry(tag.into()).or_insert(Group {
             tag: tag.into(),
             count: 0,
@@ -83,8 +85,12 @@ impl AlertGroup {
             latest_ts_ms: ts_ms,
         });
         g.count = g.count.saturating_add(1);
-        if severity > g.max_severity { g.max_severity = severity; }
-        if ts_ms > g.latest_ts_ms { g.latest_ts_ms = ts_ms; }
+        if severity > g.max_severity {
+            g.max_severity = severity;
+        }
+        if ts_ms > g.latest_ts_ms {
+            g.latest_ts_ms = ts_ms;
+        }
         Ok(())
     }
 
@@ -97,7 +103,8 @@ impl AlertGroup {
     pub fn groups_by_severity(&self) -> Vec<&Group> {
         let mut out: Vec<&Group> = self.groups.values().collect();
         out.sort_by(|a, b| {
-            b.max_severity.cmp(&a.max_severity)
+            b.max_severity
+                .cmp(&a.max_severity)
                 .then(b.latest_ts_ms.cmp(&a.latest_ts_ms))
         });
         out
@@ -110,16 +117,22 @@ impl AlertGroup {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), AlertError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(AlertError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(AlertError::SchemaMismatch);
+        }
         for k in self.groups.keys() {
-            if k.is_empty() { return Err(AlertError::EmptyTag); }
+            if k.is_empty() {
+                return Err(AlertError::EmptyTag);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for AlertGroup {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -179,14 +192,20 @@ mod tests {
     #[test]
     fn empty_tag_rejected() {
         let mut g = AlertGroup::new();
-        assert!(matches!(g.observe("", Severity::Info, 0).unwrap_err(), AlertError::EmptyTag));
+        assert!(matches!(
+            g.observe("", Severity::Info, 0).unwrap_err(),
+            AlertError::EmptyTag
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut g = AlertGroup::new();
         g.schema_version = "9.9.9".into();
-        assert!(matches!(g.validate().unwrap_err(), AlertError::SchemaMismatch));
+        assert!(matches!(
+            g.validate().unwrap_err(),
+            AlertError::SchemaMismatch
+        ));
     }
 
     #[test]

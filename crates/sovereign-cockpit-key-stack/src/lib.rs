@@ -57,21 +57,32 @@ pub enum KeyStackError {
 impl KeyStack {
     /// New.
     pub fn new(max_len: u32, timeout_ms: u32) -> Result<Self, KeyStackError> {
-        if max_len == 0 { return Err(KeyStackError::MaxLenZero); }
-        if timeout_ms == 0 { return Err(KeyStackError::TimeoutZero); }
+        if max_len == 0 {
+            return Err(KeyStackError::MaxLenZero);
+        }
+        if timeout_ms == 0 {
+            return Err(KeyStackError::TimeoutZero);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             recent: Vec::new(),
-            max_len, timeout_ms,
+            max_len,
+            timeout_ms,
         })
     }
 
     /// Record + age out.
     pub fn record_at(&mut self, chord: &str, at_ms: u64) -> Result<(), KeyStackError> {
-        if chord.is_empty() { return Err(KeyStackError::EmptyChord); }
+        if chord.is_empty() {
+            return Err(KeyStackError::EmptyChord);
+        }
         // Age out.
-        self.recent.retain(|k| at_ms.saturating_sub(k.at_ms) < self.timeout_ms as u64);
-        self.recent.push(Keystroke { chord: chord.into(), at_ms });
+        self.recent
+            .retain(|k| at_ms.saturating_sub(k.at_ms) < self.timeout_ms as u64);
+        self.recent.push(Keystroke {
+            chord: chord.into(),
+            at_ms,
+        });
         while (self.recent.len() as u32) > self.max_len {
             self.recent.remove(0);
         }
@@ -80,10 +91,14 @@ impl KeyStack {
 
     /// Does the current tail equal prefix?
     pub fn matches(&self, prefix: &[&str]) -> bool {
-        if prefix.len() > self.recent.len() { return false; }
+        if prefix.len() > self.recent.len() {
+            return false;
+        }
         let tail = &self.recent[self.recent.len() - prefix.len()..];
         for (i, expected) in prefix.iter().enumerate() {
-            if tail[i].chord != *expected { return false; }
+            if tail[i].chord != *expected {
+                return false;
+            }
         }
         true
     }
@@ -98,10 +113,16 @@ impl KeyStack {
         if self.schema_version != SCHEMA_VERSION {
             return Err(KeyStackError::SchemaMismatch);
         }
-        if self.max_len == 0 { return Err(KeyStackError::MaxLenZero); }
-        if self.timeout_ms == 0 { return Err(KeyStackError::TimeoutZero); }
+        if self.max_len == 0 {
+            return Err(KeyStackError::MaxLenZero);
+        }
+        if self.timeout_ms == 0 {
+            return Err(KeyStackError::TimeoutZero);
+        }
         for k in &self.recent {
-            if k.chord.is_empty() { return Err(KeyStackError::EmptyChord); }
+            if k.chord.is_empty() {
+                return Err(KeyStackError::EmptyChord);
+            }
         }
         Ok(())
     }
@@ -113,12 +134,18 @@ mod tests {
 
     #[test]
     fn max_len_zero_rejected() {
-        assert!(matches!(KeyStack::new(0, 1000).unwrap_err(), KeyStackError::MaxLenZero));
+        assert!(matches!(
+            KeyStack::new(0, 1000).unwrap_err(),
+            KeyStackError::MaxLenZero
+        ));
     }
 
     #[test]
     fn timeout_zero_rejected() {
-        assert!(matches!(KeyStack::new(10, 0).unwrap_err(), KeyStackError::TimeoutZero));
+        assert!(matches!(
+            KeyStack::new(10, 0).unwrap_err(),
+            KeyStackError::TimeoutZero
+        ));
     }
 
     #[test]
@@ -176,7 +203,10 @@ mod tests {
     #[test]
     fn empty_chord_rejected() {
         let mut s = KeyStack::new(5, 1000).unwrap();
-        assert!(matches!(s.record_at("", 100).unwrap_err(), KeyStackError::EmptyChord));
+        assert!(matches!(
+            s.record_at("", 100).unwrap_err(),
+            KeyStackError::EmptyChord
+        ));
     }
 
     #[test]
@@ -191,7 +221,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = KeyStack::new(5, 1000).unwrap();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), KeyStackError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            KeyStackError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -64,8 +64,14 @@ pub enum MarqueeError {
 
 impl MarqueeLoop {
     /// New.
-    pub fn new(speed_px_per_s: u32, gap_px: u32, reduced_motion: bool) -> Result<Self, MarqueeError> {
-        if speed_px_per_s == 0 && !reduced_motion { return Err(MarqueeError::SpeedZero); }
+    pub fn new(
+        speed_px_per_s: u32,
+        gap_px: u32,
+        reduced_motion: bool,
+    ) -> Result<Self, MarqueeError> {
+        if speed_px_per_s == 0 && !reduced_motion {
+            return Err(MarqueeError::SpeedZero);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             speed_px_per_s,
@@ -77,20 +83,32 @@ impl MarqueeLoop {
     /// Compute frame at time `t_ms`.
     pub fn frame(&self, text_px: u32, container_px: u32, t_ms: u64) -> Frame {
         if self.reduced_motion || text_px <= container_px {
-            return Frame { state: State::Static, x_offset_px: 0, cycle_px: 0 };
+            return Frame {
+                state: State::Static,
+                x_offset_px: 0,
+                cycle_px: 0,
+            };
         }
         let cycle_px = text_px.saturating_add(self.gap_px);
         // offset = (speed * t_ms / 1000) mod cycle_px
         let micro_px = (self.speed_px_per_s as u128) * (t_ms as u128);
         let px = (micro_px / 1000u128) as u128;
         let x_offset_px = (px % (cycle_px as u128)) as u32;
-        Frame { state: State::Looping, x_offset_px, cycle_px }
+        Frame {
+            state: State::Looping,
+            x_offset_px,
+            cycle_px,
+        }
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), MarqueeError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(MarqueeError::SchemaMismatch); }
-        if self.speed_px_per_s == 0 && !self.reduced_motion { return Err(MarqueeError::SpeedZero); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(MarqueeError::SchemaMismatch);
+        }
+        if self.speed_px_per_s == 0 && !self.reduced_motion {
+            return Err(MarqueeError::SpeedZero);
+        }
         Ok(())
     }
 }
@@ -101,7 +119,10 @@ mod tests {
 
     #[test]
     fn speed_zero_rejected_unless_reduced() {
-        assert!(matches!(MarqueeLoop::new(0, 20, false).unwrap_err(), MarqueeError::SpeedZero));
+        assert!(matches!(
+            MarqueeLoop::new(0, 20, false).unwrap_err(),
+            MarqueeError::SpeedZero
+        ));
         MarqueeLoop::new(0, 20, true).unwrap();
     }
 
@@ -150,7 +171,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut m = MarqueeLoop::new(50, 10, false).unwrap();
         m.schema_version = "9.9.9".into();
-        assert!(matches!(m.validate().unwrap_err(), MarqueeError::SchemaMismatch));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            MarqueeError::SchemaMismatch
+        ));
     }
 
     #[test]

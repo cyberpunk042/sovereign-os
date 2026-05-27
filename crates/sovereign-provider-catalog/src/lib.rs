@@ -9,8 +9,8 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-use sovereign_profile_bundles::BundleName;
 use serde::{Deserialize, Serialize};
+use sovereign_profile_bundles::BundleName;
 use thiserror::Error;
 
 /// Schema version.
@@ -110,8 +110,11 @@ pub enum ProviderError {
 }
 
 const REQUIRED: [ProviderId; 6] = [
-    ProviderId::LocalOllama, ProviderId::LocalVllm,
-    ProviderId::CloudAnthropic, ProviderId::CloudOpenai, ProviderId::CloudGoogle,
+    ProviderId::LocalOllama,
+    ProviderId::LocalVllm,
+    ProviderId::CloudAnthropic,
+    ProviderId::CloudOpenai,
+    ProviderId::CloudGoogle,
     ProviderId::Mock,
 ];
 
@@ -195,8 +198,12 @@ impl ProviderCatalog {
             }
         }
         for e in &self.entries {
-            if e.endpoint.is_empty() { return Err(ProviderError::EmptyEndpoint(e.id)); }
-            if e.allowed_bundles.is_empty() { return Err(ProviderError::NoBundles(e.id)); }
+            if e.endpoint.is_empty() {
+                return Err(ProviderError::EmptyEndpoint(e.id));
+            }
+            if e.allowed_bundles.is_empty() {
+                return Err(ProviderError::NoBundles(e.id));
+            }
             if e.locality == Locality::Cloud && !e.requires_api_key {
                 return Err(ProviderError::CloudWithoutKey(e.id));
             }
@@ -212,14 +219,18 @@ impl ProviderCatalog {
     /// Set status by id.
     pub fn set_status(&mut self, id: ProviderId, status: Status) -> bool {
         for e in self.entries.iter_mut() {
-            if e.id == id { e.status = status; return true; }
+            if e.id == id {
+                e.status = status;
+                return true;
+            }
         }
         false
     }
 
     /// Providers eligible in (bundle) right now (Online + bundle-permitted).
     pub fn eligible(&self, bundle: BundleName) -> Vec<&ProviderEntry> {
-        self.entries.iter()
+        self.entries
+            .iter()
             .filter(|e| e.status == Status::Online && e.allowed_bundles.contains(&bundle))
             .collect()
     }
@@ -245,8 +256,15 @@ mod tests {
     #[test]
     fn cloud_providers_require_api_key() {
         let c = ProviderCatalog::canonical();
-        for id in [ProviderId::CloudAnthropic, ProviderId::CloudOpenai, ProviderId::CloudGoogle] {
-            assert!(c.get(id).unwrap().requires_api_key, "{id:?} should require api key");
+        for id in [
+            ProviderId::CloudAnthropic,
+            ProviderId::CloudOpenai,
+            ProviderId::CloudGoogle,
+        ] {
+            assert!(
+                c.get(id).unwrap().requires_api_key,
+                "{id:?} should require api key"
+            );
         }
     }
 
@@ -261,17 +279,32 @@ mod tests {
     #[test]
     fn private_bundle_excludes_cloud_providers() {
         let c = ProviderCatalog::canonical();
-        for id in [ProviderId::CloudAnthropic, ProviderId::CloudOpenai, ProviderId::CloudGoogle] {
-            assert!(!c.get(id).unwrap().allowed_bundles.contains(&BundleName::Private));
+        for id in [
+            ProviderId::CloudAnthropic,
+            ProviderId::CloudOpenai,
+            ProviderId::CloudGoogle,
+        ] {
+            assert!(
+                !c.get(id)
+                    .unwrap()
+                    .allowed_bundles
+                    .contains(&BundleName::Private)
+            );
         }
     }
 
     #[test]
     fn set_status_updates() {
         let mut c = ProviderCatalog::canonical();
-        assert_eq!(c.get(ProviderId::LocalOllama).unwrap().status, Status::Offline);
+        assert_eq!(
+            c.get(ProviderId::LocalOllama).unwrap().status,
+            Status::Offline
+        );
         assert!(c.set_status(ProviderId::LocalOllama, Status::Online));
-        assert_eq!(c.get(ProviderId::LocalOllama).unwrap().status, Status::Online);
+        assert_eq!(
+            c.get(ProviderId::LocalOllama).unwrap().status,
+            Status::Online
+        );
     }
 
     #[test]
@@ -295,30 +328,50 @@ mod tests {
     fn cloud_without_key_invalid() {
         let mut c = ProviderCatalog::canonical();
         for e in c.entries.iter_mut() {
-            if e.id == ProviderId::CloudAnthropic { e.requires_api_key = false; }
+            if e.id == ProviderId::CloudAnthropic {
+                e.requires_api_key = false;
+            }
         }
-        assert!(matches!(c.validate().unwrap_err(), ProviderError::CloudWithoutKey(ProviderId::CloudAnthropic)));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            ProviderError::CloudWithoutKey(ProviderId::CloudAnthropic)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut c = ProviderCatalog::canonical();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), ProviderError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            ProviderError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn count_invalid_caught() {
         let mut c = ProviderCatalog::canonical();
         c.entries.pop();
-        assert!(matches!(c.validate().unwrap_err(), ProviderError::CountInvalid(5)));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            ProviderError::CountInvalid(5)
+        ));
     }
 
     #[test]
     fn provider_serde_kebab() {
-        assert_eq!(serde_json::to_string(&ProviderId::LocalOllama).unwrap(), "\"local-ollama\"");
-        assert_eq!(serde_json::to_string(&ProviderId::CloudAnthropic).unwrap(), "\"cloud-anthropic\"");
-        assert_eq!(serde_json::to_string(&ProviderId::Mock).unwrap(), "\"mock\"");
+        assert_eq!(
+            serde_json::to_string(&ProviderId::LocalOllama).unwrap(),
+            "\"local-ollama\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ProviderId::CloudAnthropic).unwrap(),
+            "\"cloud-anthropic\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ProviderId::Mock).unwrap(),
+            "\"mock\""
+        );
     }
 
     #[test]

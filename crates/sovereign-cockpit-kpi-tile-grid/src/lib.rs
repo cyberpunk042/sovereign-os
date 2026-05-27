@@ -121,8 +121,12 @@ impl KpiTileGrid {
 
     /// Add a tile.
     pub fn add(&mut self, mut tile: Tile) -> Result<(), KpiError> {
-        if tile.id.is_empty() { return Err(KpiError::EmptyId); }
-        if tile.label.is_empty() { return Err(KpiError::EmptyLabel); }
+        if tile.id.is_empty() {
+            return Err(KpiError::EmptyId);
+        }
+        if tile.label.is_empty() {
+            return Err(KpiError::EmptyLabel);
+        }
         if self.tiles.contains_key(&tile.id) {
             return Err(KpiError::DuplicateId(tile.id));
         }
@@ -135,24 +139,47 @@ impl KpiTileGrid {
 
     /// Update value.
     pub fn set_value(&mut self, id: &str, value: Option<f64>) -> Result<(), KpiError> {
-        let t = self.tiles.get_mut(id).ok_or_else(|| KpiError::UnknownTile(id.into()))?;
+        let t = self
+            .tiles
+            .get_mut(id)
+            .ok_or_else(|| KpiError::UnknownTile(id.into()))?;
         t.value = value;
         Ok(())
     }
 
     /// Status for a tile.
     pub fn status_for(&self, id: &str) -> Status {
-        let Some(t) = self.tiles.get(id) else { return Status::Unknown; };
-        let Some(v) = t.value else { return Status::Unknown; };
+        let Some(t) = self.tiles.get(id) else {
+            return Status::Unknown;
+        };
+        let Some(v) = t.value else {
+            return Status::Unknown;
+        };
         match t.direction {
             Direction::HigherIsWorse => {
-                if let Some(c) = t.crit_at { if v >= c { return Status::Crit; } }
-                if let Some(w) = t.warn_at { if v >= w { return Status::Warn; } }
+                if let Some(c) = t.crit_at {
+                    if v >= c {
+                        return Status::Crit;
+                    }
+                }
+                if let Some(w) = t.warn_at {
+                    if v >= w {
+                        return Status::Warn;
+                    }
+                }
                 Status::Ok
             }
             Direction::LowerIsWorse => {
-                if let Some(c) = t.crit_at { if v <= c { return Status::Crit; } }
-                if let Some(w) = t.warn_at { if v <= w { return Status::Warn; } }
+                if let Some(c) = t.crit_at {
+                    if v <= c {
+                        return Status::Crit;
+                    }
+                }
+                if let Some(w) = t.warn_at {
+                    if v <= w {
+                        return Status::Warn;
+                    }
+                }
                 Status::Ok
             }
         }
@@ -185,10 +212,16 @@ impl KpiTileGrid {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), KpiError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(KpiError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(KpiError::SchemaMismatch);
+        }
         for (id, t) in &self.tiles {
-            if id.is_empty() { return Err(KpiError::EmptyId); }
-            if t.label.is_empty() { return Err(KpiError::EmptyLabel); }
+            if id.is_empty() {
+                return Err(KpiError::EmptyId);
+            }
+            if t.label.is_empty() {
+                return Err(KpiError::EmptyLabel);
+            }
             check_thresholds(t)?;
         }
         Ok(())
@@ -196,7 +229,9 @@ impl KpiTileGrid {
 }
 
 impl Default for KpiTileGrid {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 fn check_thresholds(t: &Tile) -> Result<(), KpiError> {
@@ -241,7 +276,13 @@ mod tests {
     #[test]
     fn higher_is_worse_thresholds() {
         let mut g = KpiTileGrid::new();
-        g.add(tile("lat", Direction::HigherIsWorse, Some(100.0), Some(500.0))).unwrap();
+        g.add(tile(
+            "lat",
+            Direction::HigherIsWorse,
+            Some(100.0),
+            Some(500.0),
+        ))
+        .unwrap();
         g.set_value("lat", Some(50.0)).unwrap();
         assert_eq!(g.status_for("lat"), Status::Ok);
         g.set_value("lat", Some(200.0)).unwrap();
@@ -253,7 +294,13 @@ mod tests {
     #[test]
     fn lower_is_worse_thresholds() {
         let mut g = KpiTileGrid::new();
-        g.add(tile("rps", Direction::LowerIsWorse, Some(100.0), Some(10.0))).unwrap();
+        g.add(tile(
+            "rps",
+            Direction::LowerIsWorse,
+            Some(100.0),
+            Some(10.0),
+        ))
+        .unwrap();
         g.set_value("rps", Some(200.0)).unwrap();
         assert_eq!(g.status_for("rps"), Status::Ok);
         g.set_value("rps", Some(50.0)).unwrap();
@@ -265,14 +312,16 @@ mod tests {
     #[test]
     fn unknown_when_no_value() {
         let mut g = KpiTileGrid::new();
-        g.add(tile("lat", Direction::HigherIsWorse, None, None)).unwrap();
+        g.add(tile("lat", Direction::HigherIsWorse, None, None))
+            .unwrap();
         assert_eq!(g.status_for("lat"), Status::Unknown);
     }
 
     #[test]
     fn format_with_unit_and_decimals() {
         let mut g = KpiTileGrid::new();
-        g.add(tile("lat", Direction::HigherIsWorse, None, None)).unwrap();
+        g.add(tile("lat", Direction::HigherIsWorse, None, None))
+            .unwrap();
         g.set_value("lat", Some(12.345)).unwrap();
         assert_eq!(g.format_value("lat"), Some("12.3ms".to_string()));
     }
@@ -280,22 +329,38 @@ mod tests {
     #[test]
     fn duplicate_rejected() {
         let mut g = KpiTileGrid::new();
-        g.add(tile("a", Direction::HigherIsWorse, None, None)).unwrap();
-        assert!(matches!(g.add(tile("a", Direction::HigherIsWorse, None, None)).unwrap_err(), KpiError::DuplicateId(_)));
+        g.add(tile("a", Direction::HigherIsWorse, None, None))
+            .unwrap();
+        assert!(matches!(
+            g.add(tile("a", Direction::HigherIsWorse, None, None))
+                .unwrap_err(),
+            KpiError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn bad_thresholds_rejected() {
         let mut g = KpiTileGrid::new();
         // Higher-is-worse but crit < warn — invalid.
-        assert!(matches!(g.add(tile("a", Direction::HigherIsWorse, Some(500.0), Some(100.0))).unwrap_err(), KpiError::BadThresholds { .. }));
+        assert!(matches!(
+            g.add(tile(
+                "a",
+                Direction::HigherIsWorse,
+                Some(500.0),
+                Some(100.0)
+            ))
+            .unwrap_err(),
+            KpiError::BadThresholds { .. }
+        ));
     }
 
     #[test]
     fn ordered_preserves_insertion() {
         let mut g = KpiTileGrid::new();
-        g.add(tile("a", Direction::HigherIsWorse, None, None)).unwrap();
-        g.add(tile("b", Direction::HigherIsWorse, None, None)).unwrap();
+        g.add(tile("a", Direction::HigherIsWorse, None, None))
+            .unwrap();
+        g.add(tile("b", Direction::HigherIsWorse, None, None))
+            .unwrap();
         let v = g.ordered();
         assert_eq!(v[0].id, "a");
         assert_eq!(v[1].id, "b");
@@ -304,21 +369,44 @@ mod tests {
     #[test]
     fn empty_inputs_rejected() {
         let mut g = KpiTileGrid::new();
-        assert!(matches!(g.add(Tile { id: "".into(), ..tile("x", Direction::HigherIsWorse, None, None) }).unwrap_err(), KpiError::EmptyId));
-        assert!(matches!(g.add(Tile { label: "".into(), ..tile("y", Direction::HigherIsWorse, None, None) }).unwrap_err(), KpiError::EmptyLabel));
+        assert!(matches!(
+            g.add(Tile {
+                id: "".into(),
+                ..tile("x", Direction::HigherIsWorse, None, None)
+            })
+            .unwrap_err(),
+            KpiError::EmptyId
+        ));
+        assert!(matches!(
+            g.add(Tile {
+                label: "".into(),
+                ..tile("y", Direction::HigherIsWorse, None, None)
+            })
+            .unwrap_err(),
+            KpiError::EmptyLabel
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut g = KpiTileGrid::new();
         g.schema_version = "9.9.9".into();
-        assert!(matches!(g.validate().unwrap_err(), KpiError::SchemaMismatch));
+        assert!(matches!(
+            g.validate().unwrap_err(),
+            KpiError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn kpi_serde_roundtrip() {
         let mut g = KpiTileGrid::new();
-        g.add(tile("lat", Direction::HigherIsWorse, Some(100.0), Some(500.0))).unwrap();
+        g.add(tile(
+            "lat",
+            Direction::HigherIsWorse,
+            Some(100.0),
+            Some(500.0),
+        ))
+        .unwrap();
         g.set_value("lat", Some(42.5)).unwrap();
         let j = serde_json::to_string(&g).unwrap();
         let back: KpiTileGrid = serde_json::from_str(&j).unwrap();

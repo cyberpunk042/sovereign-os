@@ -79,9 +79,15 @@ impl SavedViewRegistry {
 
     /// Create.
     pub fn create(&mut self, v: SavedView) -> Result<(), ViewError> {
-        if v.id.is_empty() { return Err(ViewError::EmptyId); }
-        if v.scope_id.is_empty() { return Err(ViewError::EmptyScope); }
-        if v.title.is_empty() { return Err(ViewError::EmptyTitle); }
+        if v.id.is_empty() {
+            return Err(ViewError::EmptyId);
+        }
+        if v.scope_id.is_empty() {
+            return Err(ViewError::EmptyScope);
+        }
+        if v.title.is_empty() {
+            return Err(ViewError::EmptyTitle);
+        }
         if self.views.contains_key(&v.id) {
             return Err(ViewError::DuplicateId(v.id));
         }
@@ -91,15 +97,22 @@ impl SavedViewRegistry {
 
     /// Rename.
     pub fn rename(&mut self, id: &str, new_title: &str) -> Result<(), ViewError> {
-        if new_title.is_empty() { return Err(ViewError::EmptyTitle); }
-        let v = self.views.get_mut(id).ok_or_else(|| ViewError::UnknownId(id.into()))?;
+        if new_title.is_empty() {
+            return Err(ViewError::EmptyTitle);
+        }
+        let v = self
+            .views
+            .get_mut(id)
+            .ok_or_else(|| ViewError::UnknownId(id.into()))?;
         v.title = new_title.into();
         Ok(())
     }
 
     /// Delete.
     pub fn delete(&mut self, id: &str) -> Result<(), ViewError> {
-        self.views.remove(id).ok_or_else(|| ViewError::UnknownId(id.into()))?;
+        self.views
+            .remove(id)
+            .ok_or_else(|| ViewError::UnknownId(id.into()))?;
         Ok(())
     }
 
@@ -110,23 +123,37 @@ impl SavedViewRegistry {
 
     /// Views for a scope.
     pub fn by_scope(&self, scope_id: &str) -> Vec<SavedView> {
-        self.views.values().filter(|v| v.scope_id == scope_id).cloned().collect()
+        self.views
+            .values()
+            .filter(|v| v.scope_id == scope_id)
+            .cloned()
+            .collect()
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ViewError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ViewError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ViewError::SchemaMismatch);
+        }
         for (id, v) in &self.views {
-            if id.is_empty() { return Err(ViewError::EmptyId); }
-            if v.scope_id.is_empty() { return Err(ViewError::EmptyScope); }
-            if v.title.is_empty() { return Err(ViewError::EmptyTitle); }
+            if id.is_empty() {
+                return Err(ViewError::EmptyId);
+            }
+            if v.scope_id.is_empty() {
+                return Err(ViewError::EmptyScope);
+            }
+            if v.title.is_empty() {
+                return Err(ViewError::EmptyTitle);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for SavedViewRegistry {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -156,7 +183,10 @@ mod tests {
     fn duplicate_rejected() {
         let mut r = SavedViewRegistry::new();
         r.create(v("v1", "logs", "X")).unwrap();
-        assert!(matches!(r.create(v("v1", "logs", "Y")).unwrap_err(), ViewError::DuplicateId(_)));
+        assert!(matches!(
+            r.create(v("v1", "logs", "Y")).unwrap_err(),
+            ViewError::DuplicateId(_)
+        ));
     }
 
     #[test]
@@ -181,7 +211,10 @@ mod tests {
     fn rename_empty_title_rejected() {
         let mut r = SavedViewRegistry::new();
         r.create(v("v1", "logs", "X")).unwrap();
-        assert!(matches!(r.rename("v1", "").unwrap_err(), ViewError::EmptyTitle));
+        assert!(matches!(
+            r.rename("v1", "").unwrap_err(),
+            ViewError::EmptyTitle
+        ));
     }
 
     #[test]
@@ -195,22 +228,37 @@ mod tests {
     #[test]
     fn delete_unknown_rejected() {
         let mut r = SavedViewRegistry::new();
-        assert!(matches!(r.delete("nope").unwrap_err(), ViewError::UnknownId(_)));
+        assert!(matches!(
+            r.delete("nope").unwrap_err(),
+            ViewError::UnknownId(_)
+        ));
     }
 
     #[test]
     fn empty_fields_rejected() {
         let mut r = SavedViewRegistry::new();
-        assert!(matches!(r.create(v("", "logs", "X")).unwrap_err(), ViewError::EmptyId));
-        assert!(matches!(r.create(v("v1", "", "X")).unwrap_err(), ViewError::EmptyScope));
-        assert!(matches!(r.create(v("v1", "logs", "")).unwrap_err(), ViewError::EmptyTitle));
+        assert!(matches!(
+            r.create(v("", "logs", "X")).unwrap_err(),
+            ViewError::EmptyId
+        ));
+        assert!(matches!(
+            r.create(v("v1", "", "X")).unwrap_err(),
+            ViewError::EmptyScope
+        ));
+        assert!(matches!(
+            r.create(v("v1", "logs", "")).unwrap_err(),
+            ViewError::EmptyTitle
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut r = SavedViewRegistry::new();
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate().unwrap_err(), ViewError::SchemaMismatch));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            ViewError::SchemaMismatch
+        ));
     }
 
     #[test]

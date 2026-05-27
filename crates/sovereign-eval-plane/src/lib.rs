@@ -59,9 +59,13 @@ impl EvalDimension {
     }
     /// Whether dimension is inverted (lower-is-better).
     pub fn inverted(self) -> bool {
-        matches!(self,
-            EvalDimension::Risk | EvalDimension::Cost
-            | EvalDimension::Latency | EvalDimension::HumanBurden)
+        matches!(
+            self,
+            EvalDimension::Risk
+                | EvalDimension::Cost
+                | EvalDimension::Latency
+                | EvalDimension::HumanBurden
+        )
     }
 }
 
@@ -144,13 +148,21 @@ impl ProfileWeights {
     /// Aggregate a score vector into a scalar 0..1.
     pub fn aggregate(&self, v: &ScoreVector) -> f32 {
         let dims = [
-            EvalDimension::Correctness, EvalDimension::Evidence, EvalDimension::TestPass,
-            EvalDimension::SchemaValidity, EvalDimension::Risk, EvalDimension::Cost,
-            EvalDimension::Latency, EvalDimension::HumanBurden, EvalDimension::Reversibility,
+            EvalDimension::Correctness,
+            EvalDimension::Evidence,
+            EvalDimension::TestPass,
+            EvalDimension::SchemaValidity,
+            EvalDimension::Risk,
+            EvalDimension::Cost,
+            EvalDimension::Latency,
+            EvalDimension::HumanBurden,
+            EvalDimension::Reversibility,
             EvalDimension::LearningValue,
         ];
         let total_w: f32 = self.weights.iter().sum();
-        if total_w <= 0.0 { return 0.0; }
+        if total_w <= 0.0 {
+            return 0.0;
+        }
         let mut acc = 0.0;
         for (i, dim) in dims.iter().enumerate() {
             acc += self.weights[i] * v.contribution(*dim);
@@ -200,20 +212,32 @@ mod tests {
 
     fn perfect() -> ScoreVector {
         ScoreVector {
-            correctness: 1.0, evidence: 1.0, test_pass: 1.0, schema_validity: 1.0,
-            risk: 0.0, cost: 0.0, latency: 0.0, human_burden: 0.0,
-            reversibility: 1.0, learning_value: 1.0,
+            correctness: 1.0,
+            evidence: 1.0,
+            test_pass: 1.0,
+            schema_validity: 1.0,
+            risk: 0.0,
+            cost: 0.0,
+            latency: 0.0,
+            human_burden: 0.0,
+            reversibility: 1.0,
+            learning_value: 1.0,
         }
     }
 
     #[test]
     fn ten_dimensions_positioned_1_to_10() {
         for (d, p) in [
-            (EvalDimension::Correctness, 1), (EvalDimension::Evidence, 2),
-            (EvalDimension::TestPass, 3), (EvalDimension::SchemaValidity, 4),
-            (EvalDimension::Risk, 5), (EvalDimension::Cost, 6),
-            (EvalDimension::Latency, 7), (EvalDimension::HumanBurden, 8),
-            (EvalDimension::Reversibility, 9), (EvalDimension::LearningValue, 10),
+            (EvalDimension::Correctness, 1),
+            (EvalDimension::Evidence, 2),
+            (EvalDimension::TestPass, 3),
+            (EvalDimension::SchemaValidity, 4),
+            (EvalDimension::Risk, 5),
+            (EvalDimension::Cost, 6),
+            (EvalDimension::Latency, 7),
+            (EvalDimension::HumanBurden, 8),
+            (EvalDimension::Reversibility, 9),
+            (EvalDimension::LearningValue, 10),
         ] {
             assert_eq!(d.position(), p);
         }
@@ -221,10 +245,22 @@ mod tests {
 
     #[test]
     fn risk_cost_latency_human_burden_inverted() {
-        for d in [EvalDimension::Risk, EvalDimension::Cost, EvalDimension::Latency, EvalDimension::HumanBurden] {
+        for d in [
+            EvalDimension::Risk,
+            EvalDimension::Cost,
+            EvalDimension::Latency,
+            EvalDimension::HumanBurden,
+        ] {
             assert!(d.inverted(), "{d:?} should be inverted");
         }
-        for d in [EvalDimension::Correctness, EvalDimension::Evidence, EvalDimension::TestPass, EvalDimension::SchemaValidity, EvalDimension::Reversibility, EvalDimension::LearningValue] {
+        for d in [
+            EvalDimension::Correctness,
+            EvalDimension::Evidence,
+            EvalDimension::TestPass,
+            EvalDimension::SchemaValidity,
+            EvalDimension::Reversibility,
+            EvalDimension::LearningValue,
+        ] {
             assert!(!d.inverted(), "{d:?} should not be inverted");
         }
     }
@@ -233,8 +269,11 @@ mod tests {
     fn perfect_contribution_all_one() {
         let v = perfect();
         for d in [
-            EvalDimension::Correctness, EvalDimension::Risk, EvalDimension::Cost,
-            EvalDimension::HumanBurden, EvalDimension::Reversibility,
+            EvalDimension::Correctness,
+            EvalDimension::Risk,
+            EvalDimension::Cost,
+            EvalDimension::HumanBurden,
+            EvalDimension::Reversibility,
         ] {
             assert!((v.contribution(d) - 1.0).abs() < 1e-6);
         }
@@ -249,7 +288,10 @@ mod tests {
     fn out_of_range_rejected() {
         let mut v = perfect();
         v.correctness = 1.5;
-        assert!(matches!(validate(&v).unwrap_err(), EvalError::ValueOutOfRange { .. }));
+        assert!(matches!(
+            validate(&v).unwrap_err(),
+            EvalError::ValueOutOfRange { .. }
+        ));
     }
 
     #[test]
@@ -273,24 +315,44 @@ mod tests {
     #[test]
     fn eight_profiles_enumerated() {
         let all = [
-            EvalProfile::Fast, EvalProfile::Careful, EvalProfile::Offline,
-            EvalProfile::Research, EvalProfile::Autonomous, EvalProfile::Production,
-            EvalProfile::Experimental, EvalProfile::CommunicationPeace,
+            EvalProfile::Fast,
+            EvalProfile::Careful,
+            EvalProfile::Offline,
+            EvalProfile::Research,
+            EvalProfile::Autonomous,
+            EvalProfile::Production,
+            EvalProfile::Experimental,
+            EvalProfile::CommunicationPeace,
         ];
         assert_eq!(all.len(), 8);
     }
 
     #[test]
     fn eval_dimension_serde_kebab() {
-        assert_eq!(serde_json::to_string(&EvalDimension::SchemaValidity).unwrap(), "\"schema-validity\"");
-        assert_eq!(serde_json::to_string(&EvalDimension::LearningValue).unwrap(), "\"learning-value\"");
-        assert_eq!(serde_json::to_string(&EvalDimension::HumanBurden).unwrap(), "\"human-burden\"");
+        assert_eq!(
+            serde_json::to_string(&EvalDimension::SchemaValidity).unwrap(),
+            "\"schema-validity\""
+        );
+        assert_eq!(
+            serde_json::to_string(&EvalDimension::LearningValue).unwrap(),
+            "\"learning-value\""
+        );
+        assert_eq!(
+            serde_json::to_string(&EvalDimension::HumanBurden).unwrap(),
+            "\"human-burden\""
+        );
     }
 
     #[test]
     fn eval_profile_serde_kebab() {
-        assert_eq!(serde_json::to_string(&EvalProfile::CommunicationPeace).unwrap(), "\"communication-peace\"");
-        assert_eq!(serde_json::to_string(&EvalProfile::Production).unwrap(), "\"production\"");
+        assert_eq!(
+            serde_json::to_string(&EvalProfile::CommunicationPeace).unwrap(),
+            "\"communication-peace\""
+        );
+        assert_eq!(
+            serde_json::to_string(&EvalProfile::Production).unwrap(),
+            "\"production\""
+        );
     }
 
     #[test]

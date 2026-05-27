@@ -121,7 +121,12 @@ pub enum PersonalizationError {
 
 /// Valid MS040 profile names (selfdef-side; we reference the names verbatim).
 pub const PROFILE_NAMES: [&str; 6] = [
-    "private", "fast", "careful", "autonomous", "experimental", "production",
+    "private",
+    "fast",
+    "careful",
+    "autonomous",
+    "experimental",
+    "production",
 ];
 
 fn validate_accent(hex: &str) -> Result<(), PersonalizationError> {
@@ -147,10 +152,14 @@ fn validate_typography(scale: f32) -> Result<(), PersonalizationError> {
     Ok(())
 }
 
-fn validate_preferences(p: &Preferences, catalog: &CoverageManifest) -> Result<(), PersonalizationError> {
+fn validate_preferences(
+    p: &Preferences,
+    catalog: &CoverageManifest,
+) -> Result<(), PersonalizationError> {
     validate_accent(&p.accent_hex)?;
     validate_typography(p.typography_scale)?;
-    let known: std::collections::HashSet<&str> = catalog.entries.iter().map(|e| e.slot.as_str()).collect();
+    let known: std::collections::HashSet<&str> =
+        catalog.entries.iter().map(|e| e.slot.as_str()).collect();
     for slot in p.widget_order.keys() {
         if !known.contains(slot.as_str()) {
             return Err(PersonalizationError::UnknownSlot(slot.clone()));
@@ -170,7 +179,9 @@ impl PersonalizationConfig {
         }
         // Profile name set
         if !PROFILE_NAMES.iter().any(|&n| n == self.active_profile) {
-            return Err(PersonalizationError::UnknownProfile(self.active_profile.clone()));
+            return Err(PersonalizationError::UnknownProfile(
+                self.active_profile.clone(),
+            ));
         }
         // Per-profile override keys must be in the canonical 6-profile set.
         for name in self.per_profile.keys() {
@@ -188,7 +199,8 @@ impl PersonalizationConfig {
 
     /// Effective preferences for the active profile — overrides win when present.
     pub fn effective(&self) -> Preferences {
-        self.per_profile.get(&self.active_profile)
+        self.per_profile
+            .get(&self.active_profile)
             .cloned()
             .unwrap_or_else(|| self.global.clone())
     }
@@ -203,9 +215,14 @@ impl PersonalizationConfig {
     }
 
     /// Update the widget order for a slot (validated against catalog).
-    pub fn set_widget_order(&mut self, slot: &str, order: Vec<String>) -> Result<(), PersonalizationError> {
+    pub fn set_widget_order(
+        &mut self,
+        slot: &str,
+        order: Vec<String>,
+    ) -> Result<(), PersonalizationError> {
         let catalog = CoverageManifest::canonical();
-        let known: std::collections::HashSet<&str> = catalog.entries.iter().map(|e| e.slot.as_str()).collect();
+        let known: std::collections::HashSet<&str> =
+            catalog.entries.iter().map(|e| e.slot.as_str()).collect();
         if !known.contains(slot) {
             return Err(PersonalizationError::UnknownSlot(slot.into()));
         }
@@ -226,7 +243,14 @@ mod tests {
     #[test]
     fn six_profile_names_match_ms040() {
         assert_eq!(PROFILE_NAMES.len(), 6);
-        for name in ["private", "fast", "careful", "autonomous", "experimental", "production"] {
+        for name in [
+            "private",
+            "fast",
+            "careful",
+            "autonomous",
+            "experimental",
+            "production",
+        ] {
             assert!(PROFILE_NAMES.contains(&name));
         }
     }
@@ -236,7 +260,13 @@ mod tests {
         for bad in ["9bd1ff", "#9b", "#xyzxyz", "#9bd1f", "ffffff#"] {
             let mut c = PersonalizationConfig::default();
             c.global.accent_hex = bad.into();
-            assert!(matches!(c.validate().unwrap_err(), PersonalizationError::AccentHexInvalid(_)), "bad: {bad}");
+            assert!(
+                matches!(
+                    c.validate().unwrap_err(),
+                    PersonalizationError::AccentHexInvalid(_)
+                ),
+                "bad: {bad}"
+            );
         }
     }
 
@@ -245,7 +275,8 @@ mod tests {
         for ok in ["#9bd1ff", "#000000", "#FFFFFF", "#7ad17a"] {
             let mut c = PersonalizationConfig::default();
             c.global.accent_hex = ok.into();
-            c.validate().unwrap_or_else(|e| panic!("{ok} rejected: {e}"));
+            c.validate()
+                .unwrap_or_else(|e| panic!("{ok} rejected: {e}"));
         }
     }
 
@@ -253,11 +284,20 @@ mod tests {
     fn typography_out_of_range_rejected() {
         let mut c = PersonalizationConfig::default();
         c.global.typography_scale = 0.50;
-        assert!(matches!(c.validate().unwrap_err(), PersonalizationError::TypographyOutOfRange(_)));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            PersonalizationError::TypographyOutOfRange(_)
+        ));
         c.global.typography_scale = 2.00;
-        assert!(matches!(c.validate().unwrap_err(), PersonalizationError::TypographyOutOfRange(_)));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            PersonalizationError::TypographyOutOfRange(_)
+        ));
         c.global.typography_scale = f32::NAN;
-        assert!(matches!(c.validate().unwrap_err(), PersonalizationError::TypographyOutOfRange(_)));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            PersonalizationError::TypographyOutOfRange(_)
+        ));
     }
 
     #[test]
@@ -273,27 +313,40 @@ mod tests {
     fn unknown_active_profile_rejected() {
         let mut c = PersonalizationConfig::default();
         c.active_profile = "ghost".into();
-        assert!(matches!(c.validate().unwrap_err(), PersonalizationError::UnknownProfile(_)));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            PersonalizationError::UnknownProfile(_)
+        ));
     }
 
     #[test]
     fn unknown_per_profile_override_rejected() {
         let mut c = PersonalizationConfig::default();
         c.per_profile.insert("ghost".into(), Preferences::default());
-        assert!(matches!(c.validate().unwrap_err(), PersonalizationError::UnknownProfile(_)));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            PersonalizationError::UnknownProfile(_)
+        ));
     }
 
     #[test]
     fn unknown_slot_in_widget_order_rejected() {
         let mut c = PersonalizationConfig::default();
-        c.global.widget_order.insert("D-99".into(), vec!["w1".into()]);
-        assert!(matches!(c.validate().unwrap_err(), PersonalizationError::UnknownSlot(_)));
+        c.global
+            .widget_order
+            .insert("D-99".into(), vec!["w1".into()]);
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            PersonalizationError::UnknownSlot(_)
+        ));
     }
 
     #[test]
     fn known_slot_in_widget_order_accepted() {
         let mut c = PersonalizationConfig::default();
-        c.global.widget_order.insert("D-03".into(), vec!["w-models".into(), "w-kv".into()]);
+        c.global
+            .widget_order
+            .insert("D-03".into(), vec!["w-models".into(), "w-kv".into()]);
         c.validate().unwrap();
     }
 
@@ -338,7 +391,8 @@ mod tests {
     #[test]
     fn set_widget_order_known_slot() {
         let mut c = PersonalizationConfig::default();
-        c.set_widget_order("D-12", vec!["w-rings".into(), "w-rules".into()]).unwrap();
+        c.set_widget_order("D-12", vec!["w-rings".into(), "w-rules".into()])
+            .unwrap();
         assert_eq!(c.global.widget_order["D-12"], vec!["w-rings", "w-rules"]);
     }
 
@@ -355,14 +409,20 @@ mod tests {
     fn schema_drift_rejected() {
         let mut c = PersonalizationConfig::default();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), PersonalizationError::SchemaMismatch { .. }));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            PersonalizationError::SchemaMismatch { .. }
+        ));
     }
 
     #[test]
     fn theme_serde_kebab_case() {
         assert_eq!(serde_json::to_string(&ThemeMode::Auto).unwrap(), "\"auto\"");
         assert_eq!(serde_json::to_string(&ThemeMode::Dark).unwrap(), "\"dark\"");
-        assert_eq!(serde_json::to_string(&ThemeMode::Light).unwrap(), "\"light\"");
+        assert_eq!(
+            serde_json::to_string(&ThemeMode::Light).unwrap(),
+            "\"light\""
+        );
     }
 
     #[test]
@@ -372,7 +432,8 @@ mod tests {
             let mut p = Preferences::default();
             p.theme = ThemeMode::Light;
             p.typography_scale = 1.15;
-            p.widget_order.insert("D-15".into(), vec!["tier-a".into(), "tier-d".into()]);
+            p.widget_order
+                .insert("D-15".into(), vec!["tier-a".into(), "tier-d".into()]);
             p
         });
         c.active_profile = "experimental".into();

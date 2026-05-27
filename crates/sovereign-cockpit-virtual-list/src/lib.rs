@@ -70,8 +70,12 @@ impl VirtualListState {
 
     /// Compute the visible range.
     pub fn visible(&self) -> Result<VisibleRange, VirtualListError> {
-        if self.row_height_px == 0 { return Err(VirtualListError::ZeroRowHeight); }
-        if self.viewport_height_px == 0 { return Err(VirtualListError::ZeroViewport); }
+        if self.row_height_px == 0 {
+            return Err(VirtualListError::ZeroRowHeight);
+        }
+        if self.viewport_height_px == 0 {
+            return Err(VirtualListError::ZeroViewport);
+        }
         let row_h = self.row_height_px as u32;
         let viewport_rows = (self.viewport_height_px as u32 / row_h).max(1);
         let first = (self.scroll_top_px / row_h).min(self.total_items);
@@ -81,8 +85,13 @@ impl VirtualListState {
         let last_index = last_with_overscan.min(self.total_items);
         let count = if last_index > first_with_overscan {
             last_index - first_with_overscan
-        } else { 0 };
-        Ok(VisibleRange { first_index: first_with_overscan, count })
+        } else {
+            0
+        };
+        Ok(VisibleRange {
+            first_index: first_with_overscan,
+            count,
+        })
     }
 
     /// Total height of the list (px).
@@ -95,8 +104,12 @@ impl VirtualListState {
         if self.schema_version != SCHEMA_VERSION {
             return Err(VirtualListError::SchemaMismatch);
         }
-        if self.row_height_px == 0 { return Err(VirtualListError::ZeroRowHeight); }
-        if self.viewport_height_px == 0 { return Err(VirtualListError::ZeroViewport); }
+        if self.row_height_px == 0 {
+            return Err(VirtualListError::ZeroRowHeight);
+        }
+        if self.viewport_height_px == 0 {
+            return Err(VirtualListError::ZeroViewport);
+        }
         Ok(())
     }
 }
@@ -159,22 +172,34 @@ mod tests {
     fn zero_row_height_rejected() {
         let mut s = VirtualListState::default_state();
         s.row_height_px = 0;
-        assert!(matches!(s.validate().unwrap_err(), VirtualListError::ZeroRowHeight));
-        assert!(matches!(s.visible().unwrap_err(), VirtualListError::ZeroRowHeight));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            VirtualListError::ZeroRowHeight
+        ));
+        assert!(matches!(
+            s.visible().unwrap_err(),
+            VirtualListError::ZeroRowHeight
+        ));
     }
 
     #[test]
     fn zero_viewport_rejected() {
         let mut s = VirtualListState::default_state();
         s.viewport_height_px = 0;
-        assert!(matches!(s.validate().unwrap_err(), VirtualListError::ZeroViewport));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            VirtualListError::ZeroViewport
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = VirtualListState::default_state();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), VirtualListError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            VirtualListError::SchemaMismatch
+        ));
     }
 
     #[test]

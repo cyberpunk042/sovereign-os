@@ -57,8 +57,12 @@ pub enum PlaybackError {
 impl PlaybackRate {
     /// All 6.
     pub const ALL: [PlaybackRate; 6] = [
-        PlaybackRate::Quarter, PlaybackRate::Half, PlaybackRate::Normal,
-        PlaybackRate::Double, PlaybackRate::Quadruple, PlaybackRate::Octuple,
+        PlaybackRate::Quarter,
+        PlaybackRate::Half,
+        PlaybackRate::Normal,
+        PlaybackRate::Double,
+        PlaybackRate::Quadruple,
+        PlaybackRate::Octuple,
     ];
 
     /// Float multiplier.
@@ -101,13 +105,19 @@ impl PlaybackRate {
 impl PlaybackRateState {
     /// Default 1x.
     pub fn default_state() -> Self {
-        Self { schema_version: SCHEMA_VERSION.into(), rate: PlaybackRate::Normal }
+        Self {
+            schema_version: SCHEMA_VERSION.into(),
+            rate: PlaybackRate::Normal,
+        }
     }
 
     /// Step faster.
     pub fn faster(&mut self) -> Result<(), PlaybackError> {
         match self.rate.faster() {
-            Some(r) => { self.rate = r; Ok(()) }
+            Some(r) => {
+                self.rate = r;
+                Ok(())
+            }
             None => Err(PlaybackError::AtBound(self.rate)),
         }
     }
@@ -115,13 +125,18 @@ impl PlaybackRateState {
     /// Step slower.
     pub fn slower(&mut self) -> Result<(), PlaybackError> {
         match self.rate.slower() {
-            Some(r) => { self.rate = r; Ok(()) }
+            Some(r) => {
+                self.rate = r;
+                Ok(())
+            }
             None => Err(PlaybackError::AtBound(self.rate)),
         }
     }
 
     /// Reset to 1x.
-    pub fn reset(&mut self) { self.rate = PlaybackRate::Normal; }
+    pub fn reset(&mut self) {
+        self.rate = PlaybackRate::Normal;
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), PlaybackError> {
@@ -138,7 +153,10 @@ mod tests {
 
     #[test]
     fn default_is_normal() {
-        assert_eq!(PlaybackRateState::default_state().rate, PlaybackRate::Normal);
+        assert_eq!(
+            PlaybackRateState::default_state().rate,
+            PlaybackRate::Normal
+        );
     }
 
     #[test]
@@ -180,13 +198,22 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = PlaybackRateState::default_state();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), PlaybackError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            PlaybackError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn rate_serde_kebab() {
-        assert_eq!(serde_json::to_string(&PlaybackRate::Normal).unwrap(), "\"normal\"");
-        assert_eq!(serde_json::to_string(&PlaybackRate::Quadruple).unwrap(), "\"quadruple\"");
+        assert_eq!(
+            serde_json::to_string(&PlaybackRate::Normal).unwrap(),
+            "\"normal\""
+        );
+        assert_eq!(
+            serde_json::to_string(&PlaybackRate::Quadruple).unwrap(),
+            "\"quadruple\""
+        );
     }
 
     #[test]

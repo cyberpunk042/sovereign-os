@@ -141,7 +141,10 @@ impl PinBoard {
 
     /// Remove a card.
     pub fn remove(&mut self, id: &str) -> Result<(), PinBoardError> {
-        let pos = self.cards.iter().position(|c| c.id == id)
+        let pos = self
+            .cards
+            .iter()
+            .position(|c| c.id == id)
             .ok_or_else(|| PinBoardError::Unknown(id.into()))?;
         self.cards.remove(pos);
         Ok(())
@@ -149,7 +152,10 @@ impl PinBoard {
 
     /// Move a card to a new position.
     pub fn move_to(&mut self, id: &str, position: Position) -> Result<(), PinBoardError> {
-        let c = self.cards.iter_mut().find(|c| c.id == id)
+        let c = self
+            .cards
+            .iter_mut()
+            .find(|c| c.id == id)
             .ok_or_else(|| PinBoardError::Unknown(id.into()))?;
         c.position = position;
         Ok(())
@@ -157,7 +163,10 @@ impl PinBoard {
 
     /// Bring a card to front (z-order top).
     pub fn bring_to_front(&mut self, id: &str) -> Result<(), PinBoardError> {
-        let pos = self.cards.iter().position(|c| c.id == id)
+        let pos = self
+            .cards
+            .iter()
+            .position(|c| c.id == id)
             .ok_or_else(|| PinBoardError::Unknown(id.into()))?;
         let c = self.cards.remove(pos);
         self.cards.push(c);
@@ -187,15 +196,26 @@ impl PinBoard {
 }
 
 fn check_shape(c: &PinCard) -> Result<(), PinBoardError> {
-    if c.id.is_empty() { return Err(PinBoardError::EmptyId); }
-    if c.title.is_empty() { return Err(PinBoardError::EmptyTitle(c.id.clone())); }
+    if c.id.is_empty() {
+        return Err(PinBoardError::EmptyId);
+    }
+    if c.title.is_empty() {
+        return Err(PinBoardError::EmptyTitle(c.id.clone()));
+    }
     let n = c.body.chars().count();
-    if n > 2000 { return Err(PinBoardError::BodyTooLong { id: c.id.clone(), len: n }); }
+    if n > 2000 {
+        return Err(PinBoardError::BodyTooLong {
+            id: c.id.clone(),
+            len: n,
+        });
+    }
     Ok(())
 }
 
 impl Default for PinBoard {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -229,16 +249,25 @@ mod tests {
     fn duplicate_rejected() {
         let mut b = PinBoard::new();
         b.add(card("a", CardKind::Note, CardColor::Yellow)).unwrap();
-        assert!(matches!(b.add(card("a", CardKind::Link, CardColor::Blue)).unwrap_err(), PinBoardError::DuplicateId(_)));
+        assert!(matches!(
+            b.add(card("a", CardKind::Link, CardColor::Blue))
+                .unwrap_err(),
+            PinBoardError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn max_cards_enforced() {
         let mut b = PinBoard::new();
         for i in 0..MAX_CARDS {
-            b.add(card(&format!("c{i}"), CardKind::Note, CardColor::Yellow)).unwrap();
+            b.add(card(&format!("c{i}"), CardKind::Note, CardColor::Yellow))
+                .unwrap();
         }
-        assert!(matches!(b.add(card("over", CardKind::Note, CardColor::Yellow)).unwrap_err(), PinBoardError::Full));
+        assert!(matches!(
+            b.add(card("over", CardKind::Note, CardColor::Yellow))
+                .unwrap_err(),
+            PinBoardError::Full
+        ));
     }
 
     #[test]
@@ -262,7 +291,10 @@ mod tests {
     #[test]
     fn remove_unknown_rejected() {
         let mut b = PinBoard::new();
-        assert!(matches!(b.remove("none").unwrap_err(), PinBoardError::Unknown(_)));
+        assert!(matches!(
+            b.remove("none").unwrap_err(),
+            PinBoardError::Unknown(_)
+        ));
     }
 
     #[test]
@@ -270,7 +302,10 @@ mod tests {
         let mut b = PinBoard::new();
         let mut c = card("a", CardKind::Note, CardColor::Yellow);
         c.title = String::new();
-        assert!(matches!(b.add(c).unwrap_err(), PinBoardError::EmptyTitle(_)));
+        assert!(matches!(
+            b.add(c).unwrap_err(),
+            PinBoardError::EmptyTitle(_)
+        ));
     }
 
     #[test]
@@ -278,7 +313,10 @@ mod tests {
         let mut b = PinBoard::new();
         let mut c = card("a", CardKind::Note, CardColor::Yellow);
         c.body = "x".repeat(2001);
-        assert!(matches!(b.add(c).unwrap_err(), PinBoardError::BodyTooLong { .. }));
+        assert!(matches!(
+            b.add(c).unwrap_err(),
+            PinBoardError::BodyTooLong { .. }
+        ));
     }
 
     #[test]
@@ -296,14 +334,23 @@ mod tests {
     fn schema_drift_rejected() {
         let mut b = PinBoard::new();
         b.schema_version = "9.9.9".into();
-        assert!(matches!(b.validate().unwrap_err(), PinBoardError::SchemaMismatch));
+        assert!(matches!(
+            b.validate().unwrap_err(),
+            PinBoardError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn kind_serde_kebab() {
         assert_eq!(serde_json::to_string(&CardKind::Note).unwrap(), "\"note\"");
-        assert_eq!(serde_json::to_string(&CardKind::ConvRef).unwrap(), "\"conv-ref\"");
-        assert_eq!(serde_json::to_string(&CardKind::Snippet).unwrap(), "\"snippet\"");
+        assert_eq!(
+            serde_json::to_string(&CardKind::ConvRef).unwrap(),
+            "\"conv-ref\""
+        );
+        assert_eq!(
+            serde_json::to_string(&CardKind::Snippet).unwrap(),
+            "\"snippet\""
+        );
     }
 
     #[test]

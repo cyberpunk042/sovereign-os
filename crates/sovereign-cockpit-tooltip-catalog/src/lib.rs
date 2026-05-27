@@ -100,9 +100,15 @@ impl TooltipCatalog {
     pub fn set_text(&mut self, id: &str, text: &str) -> Result<(), TooltipError> {
         let n = text.chars().count();
         if n > 200 {
-            return Err(TooltipError::TextTooLong { id: id.into(), len: n });
+            return Err(TooltipError::TextTooLong {
+                id: id.into(),
+                len: n,
+            });
         }
-        let t = self.tooltips.iter_mut().find(|t| t.element_id == id)
+        let t = self
+            .tooltips
+            .iter_mut()
+            .find(|t| t.element_id == id)
             .ok_or_else(|| TooltipError::Unknown(id.into()))?;
         t.text = text.into();
         Ok(())
@@ -110,7 +116,10 @@ impl TooltipCatalog {
 
     /// Set enabled flag.
     pub fn set_enabled(&mut self, id: &str, enabled: bool) -> Result<(), TooltipError> {
-        let t = self.tooltips.iter_mut().find(|t| t.element_id == id)
+        let t = self
+            .tooltips
+            .iter_mut()
+            .find(|t| t.element_id == id)
             .ok_or_else(|| TooltipError::Unknown(id.into()))?;
         t.enabled = enabled;
         Ok(())
@@ -139,16 +148,23 @@ impl TooltipCatalog {
 }
 
 fn check_shape(t: &Tooltip) -> Result<(), TooltipError> {
-    if t.element_id.is_empty() { return Err(TooltipError::EmptyElementId); }
+    if t.element_id.is_empty() {
+        return Err(TooltipError::EmptyElementId);
+    }
     let n = t.text.chars().count();
     if n > 200 {
-        return Err(TooltipError::TextTooLong { id: t.element_id.clone(), len: n });
+        return Err(TooltipError::TextTooLong {
+            id: t.element_id.clone(),
+            len: n,
+        });
     }
     Ok(())
 }
 
 impl Default for TooltipCatalog {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -173,7 +189,8 @@ mod tests {
     #[test]
     fn register_and_lookup() {
         let mut c = TooltipCatalog::new();
-        c.register(t("btn-save", "Save (Ctrl+S)", Placement::Top)).unwrap();
+        c.register(t("btn-save", "Save (Ctrl+S)", Placement::Top))
+            .unwrap();
         assert_eq!(c.get("btn-save").unwrap().text, "Save (Ctrl+S)");
     }
 
@@ -181,8 +198,10 @@ mod tests {
     fn duplicate_rejected() {
         let mut c = TooltipCatalog::new();
         c.register(t("a", "x", Placement::Top)).unwrap();
-        assert!(matches!(c.register(t("a", "y", Placement::Bottom)).unwrap_err(),
-            TooltipError::DuplicateId(_)));
+        assert!(matches!(
+            c.register(t("a", "y", Placement::Bottom)).unwrap_err(),
+            TooltipError::DuplicateId(_)
+        ));
     }
 
     #[test]
@@ -204,35 +223,48 @@ mod tests {
     #[test]
     fn unknown_set_rejected() {
         let mut c = TooltipCatalog::new();
-        assert!(matches!(c.set_text("none", "x").unwrap_err(), TooltipError::Unknown(_)));
+        assert!(matches!(
+            c.set_text("none", "x").unwrap_err(),
+            TooltipError::Unknown(_)
+        ));
     }
 
     #[test]
     fn empty_id_rejected() {
         let mut c = TooltipCatalog::new();
-        assert!(matches!(c.register(t("", "x", Placement::Top)).unwrap_err(),
-            TooltipError::EmptyElementId));
+        assert!(matches!(
+            c.register(t("", "x", Placement::Top)).unwrap_err(),
+            TooltipError::EmptyElementId
+        ));
     }
 
     #[test]
     fn text_too_long_rejected() {
         let mut c = TooltipCatalog::new();
         let long = "x".repeat(201);
-        assert!(matches!(c.register(t("a", &long, Placement::Top)).unwrap_err(),
-            TooltipError::TextTooLong { .. }));
+        assert!(matches!(
+            c.register(t("a", &long, Placement::Top)).unwrap_err(),
+            TooltipError::TextTooLong { .. }
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut c = TooltipCatalog::new();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), TooltipError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            TooltipError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn placement_serde_kebab() {
         assert_eq!(serde_json::to_string(&Placement::Top).unwrap(), "\"top\"");
-        assert_eq!(serde_json::to_string(&Placement::Bottom).unwrap(), "\"bottom\"");
+        assert_eq!(
+            serde_json::to_string(&Placement::Bottom).unwrap(),
+            "\"bottom\""
+        );
     }
 
     #[test]

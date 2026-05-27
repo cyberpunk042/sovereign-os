@@ -115,7 +115,12 @@ impl TagInput {
 
     /// New canonical (DEFAULT_MAX_*).
     pub fn canonical() -> Self {
-        Self::new(DEFAULT_MAX_TAG_LEN as u32, DEFAULT_MAX_TAGS as u32, CasingRule::Lower).unwrap()
+        Self::new(
+            DEFAULT_MAX_TAG_LEN as u32,
+            DEFAULT_MAX_TAGS as u32,
+            CasingRule::Lower,
+        )
+        .unwrap()
     }
 
     /// Append text to buffer.
@@ -206,8 +211,14 @@ mod tests {
 
     #[test]
     fn new_zero_limits_rejected() {
-        assert!(matches!(TagInput::new(0, 1, CasingRule::Lower).unwrap_err(), TagInputError::MaxLenZero));
-        assert!(matches!(TagInput::new(1, 0, CasingRule::Lower).unwrap_err(), TagInputError::MaxTagsZero));
+        assert!(matches!(
+            TagInput::new(0, 1, CasingRule::Lower).unwrap_err(),
+            TagInputError::MaxLenZero
+        ));
+        assert!(matches!(
+            TagInput::new(1, 0, CasingRule::Lower).unwrap_err(),
+            TagInputError::MaxTagsZero
+        ));
     }
 
     #[test]
@@ -270,8 +281,10 @@ mod tests {
     #[test]
     fn max_tags_rejected() {
         let mut t = TagInput::new(10, 2, CasingRule::Lower).unwrap();
-        t.type_text("a"); t.key(TagKey::Commit);
-        t.type_text("b"); t.key(TagKey::Commit);
+        t.type_text("a");
+        t.key(TagKey::Commit);
+        t.type_text("b");
+        t.key(TagKey::Commit);
         t.type_text("c");
         assert!(matches!(t.key(TagKey::Commit), TagOutcome::Rejected(_)));
         assert_eq!(t.tags.len(), 2);
@@ -280,8 +293,10 @@ mod tests {
     #[test]
     fn backspace_on_empty_pops_last_tag() {
         let mut t = TagInput::canonical();
-        t.type_text("a"); t.key(TagKey::Commit);
-        t.type_text("b"); t.key(TagKey::Commit);
+        t.type_text("a");
+        t.key(TagKey::Commit);
+        t.type_text("b");
+        t.key(TagKey::Commit);
         let out = t.key(TagKey::Backspace);
         assert!(matches!(out, TagOutcome::Removed(s) if s == "b"));
         assert_eq!(t.tags, vec!["a"]);
@@ -298,7 +313,8 @@ mod tests {
     #[test]
     fn remove_by_value() {
         let mut t = TagInput::canonical();
-        t.type_text("a"); t.key(TagKey::Commit);
+        t.type_text("a");
+        t.key(TagKey::Commit);
         assert!(t.remove("a"));
         assert!(t.tags.is_empty());
         assert!(!t.remove("a"));
@@ -308,20 +324,31 @@ mod tests {
     fn schema_drift_rejected() {
         let mut t = TagInput::canonical();
         t.schema_version = "9.9.9".into();
-        assert!(matches!(t.validate().unwrap_err(), TagInputError::SchemaMismatch));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            TagInputError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn casing_serde_kebab() {
-        assert_eq!(serde_json::to_string(&CasingRule::Lower).unwrap(), "\"lower\"");
-        assert_eq!(serde_json::to_string(&CasingRule::Preserve).unwrap(), "\"preserve\"");
+        assert_eq!(
+            serde_json::to_string(&CasingRule::Lower).unwrap(),
+            "\"lower\""
+        );
+        assert_eq!(
+            serde_json::to_string(&CasingRule::Preserve).unwrap(),
+            "\"preserve\""
+        );
     }
 
     #[test]
     fn input_serde_roundtrip() {
         let mut t = TagInput::canonical();
-        t.type_text("alpha"); t.key(TagKey::Commit);
-        t.type_text("beta"); t.key(TagKey::Commit);
+        t.type_text("alpha");
+        t.key(TagKey::Commit);
+        t.type_text("beta");
+        t.key(TagKey::Commit);
         let j = serde_json::to_string(&t).unwrap();
         let back: TagInput = serde_json::from_str(&j).unwrap();
         assert_eq!(t, back);

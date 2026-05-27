@@ -94,10 +94,14 @@ impl DetailPanel {
     }
 
     /// Collapse the panel.
-    pub fn collapse(&mut self) { self.collapsed = true; }
+    pub fn collapse(&mut self) {
+        self.collapsed = true;
+    }
 
     /// Expand the panel.
-    pub fn expand(&mut self) { self.collapsed = false; }
+    pub fn expand(&mut self) {
+        self.collapsed = false;
+    }
 
     /// Set width with clamp 280..=720.
     pub fn set_width(&mut self, w: u16) -> u16 {
@@ -172,7 +176,10 @@ mod tests {
     fn width_out_of_range_caught() {
         let mut p = DetailPanel::default_state();
         p.width_px = 100;
-        assert!(matches!(p.validate().unwrap_err(), DetailPanelError::WidthOutOfRange(100)));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            DetailPanelError::WidthOutOfRange(100)
+        ));
     }
 
     #[test]
@@ -180,7 +187,10 @@ mod tests {
         let mut p = DetailPanel::default_state();
         p.subject_kind = Some(SubjectKind::Turn);
         // subject_id still empty.
-        assert!(matches!(p.validate().unwrap_err(), DetailPanelError::OrphanSubjectKind));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            DetailPanelError::OrphanSubjectKind
+        ));
     }
 
     #[test]
@@ -188,20 +198,32 @@ mod tests {
         let mut p = DetailPanel::default_state();
         p.subject_id = "x".into();
         // subject_kind still None.
-        assert!(matches!(p.validate().unwrap_err(), DetailPanelError::OrphanSubjectId));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            DetailPanelError::OrphanSubjectId
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut p = DetailPanel::default_state();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), DetailPanelError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            DetailPanelError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn subject_kind_serde_kebab() {
-        assert_eq!(serde_json::to_string(&SubjectKind::DashboardWidget).unwrap(), "\"dashboard-widget\"");
-        assert_eq!(serde_json::to_string(&SubjectKind::ShareLink).unwrap(), "\"share-link\"");
+        assert_eq!(
+            serde_json::to_string(&SubjectKind::DashboardWidget).unwrap(),
+            "\"dashboard-widget\""
+        );
+        assert_eq!(
+            serde_json::to_string(&SubjectKind::ShareLink).unwrap(),
+            "\"share-link\""
+        );
     }
 
     #[test]

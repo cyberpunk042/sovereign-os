@@ -75,15 +75,28 @@ impl IconSetRegistry {
 
     /// Register a variant (replaces matching size+color if present).
     pub fn register(&mut self, id: &str, variant: Variant) -> Result<(), IconError> {
-        if id.is_empty() { return Err(IconError::EmptyId); }
-        if variant.size_px == 0 { return Err(IconError::ZeroSize); }
-        if variant.color_token.is_empty() { return Err(IconError::EmptyColor); }
-        if variant.url_or_data.is_empty() { return Err(IconError::EmptyUrl); }
+        if id.is_empty() {
+            return Err(IconError::EmptyId);
+        }
+        if variant.size_px == 0 {
+            return Err(IconError::ZeroSize);
+        }
+        if variant.color_token.is_empty() {
+            return Err(IconError::EmptyColor);
+        }
+        if variant.url_or_data.is_empty() {
+            return Err(IconError::EmptyUrl);
+        }
         let icon = self.icons.entry(id.into()).or_default();
         // Replace if same size + color exists.
-        icon.variants.retain(|v| !(v.size_px == variant.size_px && v.color_token == variant.color_token));
+        icon.variants
+            .retain(|v| !(v.size_px == variant.size_px && v.color_token == variant.color_token));
         icon.variants.push(variant);
-        icon.variants.sort_by(|a, b| a.size_px.cmp(&b.size_px).then(a.color_token.cmp(&b.color_token)));
+        icon.variants.sort_by(|a, b| {
+            a.size_px
+                .cmp(&b.size_px)
+                .then(a.color_token.cmp(&b.color_token))
+        });
         Ok(())
     }
 
@@ -91,21 +104,35 @@ impl IconSetRegistry {
     pub fn lookup(&self, id: &str, size_px: u32, color_token: &str) -> Option<&Variant> {
         let icon = self.icons.get(id)?;
         // Exact match first.
-        if let Some(exact) = icon.variants.iter().find(|v| v.size_px == size_px && v.color_token == color_token) {
+        if let Some(exact) = icon
+            .variants
+            .iter()
+            .find(|v| v.size_px == size_px && v.color_token == color_token)
+        {
             return Some(exact);
         }
         // Closest size, preferring colour match.
         let mut best: Option<(&Variant, u32, bool)> = None; // (variant, |delta|, color_matches)
         for v in &icon.variants {
-            let delta = if v.size_px >= size_px { v.size_px - size_px } else { size_px - v.size_px };
+            let delta = if v.size_px >= size_px {
+                v.size_px - size_px
+            } else {
+                size_px - v.size_px
+            };
             let cmatch = v.color_token == color_token;
             let is_better = match best {
                 None => true,
                 Some((_, bdelta, bc)) => {
-                    if cmatch != bc { cmatch } else { delta < bdelta }
+                    if cmatch != bc {
+                        cmatch
+                    } else {
+                        delta < bdelta
+                    }
                 }
             };
-            if is_better { best = Some((v, delta, cmatch)); }
+            if is_better {
+                best = Some((v, delta, cmatch));
+            }
         }
         best.map(|(v, _, _)| v)
     }
@@ -117,18 +144,31 @@ impl IconSetRegistry {
 
     /// Variants of an icon.
     pub fn variants_of(&self, id: &str) -> Vec<Variant> {
-        self.icons.get(id).map(|i| i.variants.clone()).unwrap_or_default()
+        self.icons
+            .get(id)
+            .map(|i| i.variants.clone())
+            .unwrap_or_default()
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), IconError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(IconError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(IconError::SchemaMismatch);
+        }
         for (id, icon) in &self.icons {
-            if id.is_empty() { return Err(IconError::EmptyId); }
+            if id.is_empty() {
+                return Err(IconError::EmptyId);
+            }
             for v in &icon.variants {
-                if v.size_px == 0 { return Err(IconError::ZeroSize); }
-                if v.color_token.is_empty() { return Err(IconError::EmptyColor); }
-                if v.url_or_data.is_empty() { return Err(IconError::EmptyUrl); }
+                if v.size_px == 0 {
+                    return Err(IconError::ZeroSize);
+                }
+                if v.color_token.is_empty() {
+                    return Err(IconError::EmptyColor);
+                }
+                if v.url_or_data.is_empty() {
+                    return Err(IconError::EmptyUrl);
+                }
             }
         }
         Ok(())
@@ -136,7 +176,9 @@ impl IconSetRegistry {
 }
 
 impl Default for IconSetRegistry {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -144,14 +186,20 @@ mod tests {
     use super::*;
 
     fn variant(size: u32, color: &str, url: &str) -> Variant {
-        Variant { size_px: size, color_token: color.into(), url_or_data: url.into() }
+        Variant {
+            size_px: size,
+            color_token: color.into(),
+            url_or_data: url.into(),
+        }
     }
 
     #[test]
     fn register_and_exact_lookup() {
         let mut r = IconSetRegistry::new();
-        r.register("save", variant(16, "fg", "save-16-fg.svg")).unwrap();
-        r.register("save", variant(32, "fg", "save-32-fg.svg")).unwrap();
+        r.register("save", variant(16, "fg", "save-16-fg.svg"))
+            .unwrap();
+        r.register("save", variant(32, "fg", "save-32-fg.svg"))
+            .unwrap();
         let v = r.lookup("save", 16, "fg").unwrap();
         assert_eq!(v.url_or_data, "save-16-fg.svg");
     }
@@ -170,7 +218,8 @@ mod tests {
     fn prefer_color_match_over_size() {
         let mut r = IconSetRegistry::new();
         r.register("save", variant(16, "fg", "fg.svg")).unwrap();
-        r.register("save", variant(64, "danger", "danger.svg")).unwrap();
+        r.register("save", variant(64, "danger", "danger.svg"))
+            .unwrap();
         // Want 16, "danger". No 16/danger exists; 64/danger has color
         // match, 16/fg doesn't. Prefer color match.
         let v = r.lookup("save", 16, "danger").unwrap();
@@ -214,17 +263,32 @@ mod tests {
     #[test]
     fn empty_inputs_rejected() {
         let mut r = IconSetRegistry::new();
-        assert!(matches!(r.register("", variant(16, "fg", "u")).unwrap_err(), IconError::EmptyId));
-        assert!(matches!(r.register("a", variant(0, "fg", "u")).unwrap_err(), IconError::ZeroSize));
-        assert!(matches!(r.register("a", variant(16, "", "u")).unwrap_err(), IconError::EmptyColor));
-        assert!(matches!(r.register("a", variant(16, "fg", "")).unwrap_err(), IconError::EmptyUrl));
+        assert!(matches!(
+            r.register("", variant(16, "fg", "u")).unwrap_err(),
+            IconError::EmptyId
+        ));
+        assert!(matches!(
+            r.register("a", variant(0, "fg", "u")).unwrap_err(),
+            IconError::ZeroSize
+        ));
+        assert!(matches!(
+            r.register("a", variant(16, "", "u")).unwrap_err(),
+            IconError::EmptyColor
+        ));
+        assert!(matches!(
+            r.register("a", variant(16, "fg", "")).unwrap_err(),
+            IconError::EmptyUrl
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut r = IconSetRegistry::new();
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate().unwrap_err(), IconError::SchemaMismatch));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            IconError::SchemaMismatch
+        ));
     }
 
     #[test]

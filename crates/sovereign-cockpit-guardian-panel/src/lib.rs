@@ -335,11 +335,7 @@ impl Panel {
     fn render_verdict(&self, v: &Entry) -> RenderRow {
         let all_ok = v.all_steps_ok();
         let (badge, color, runbook) = if all_ok {
-            (
-                "OK".to_string(),
-                Color::Green,
-                String::new(),
-            )
+            ("OK".to_string(), Color::Green, String::new())
         } else {
             (
                 "ALERT".to_string(),
@@ -404,9 +400,18 @@ mod tests {
 
     fn three_step_ok() -> Vec<StepResult> {
         vec![
-            StepResult { step: ResponseStep::Sigkill, outcome: StepOutcome::Ok },
-            StepResult { step: ResponseStep::AuditAppend, outcome: StepOutcome::Ok },
-            StepResult { step: ResponseStep::ConsoleAlert, outcome: StepOutcome::Ok },
+            StepResult {
+                step: ResponseStep::Sigkill,
+                outcome: StepOutcome::Ok,
+            },
+            StepResult {
+                step: ResponseStep::AuditAppend,
+                outcome: StepOutcome::Ok,
+            },
+            StepResult {
+                step: ResponseStep::ConsoleAlert,
+                outcome: StepOutcome::Ok,
+            },
         ]
     }
 
@@ -530,12 +535,8 @@ mod tests {
     #[test]
     fn load_from_paths_missing_dirs_returns_empty() {
         let dir = tmp_dir();
-        let p = Panel::load_from_paths(
-            &dir.join("ring"),
-            &dir.join("socket"),
-            1_700_000_000_000,
-        )
-        .unwrap();
+        let p = Panel::load_from_paths(&dir.join("ring"), &dir.join("socket"), 1_700_000_000_000)
+            .unwrap();
         assert!(p.recent_verdicts.is_empty());
         assert!(!p.socket_present);
     }
@@ -584,12 +585,7 @@ mod tests {
         let dir = tmp_dir();
         let sock = dir.join("socket");
         fs::write(&sock, b"placeholder").unwrap();
-        let p = Panel::load_from_paths(
-            &dir.join("ring"),
-            &sock,
-            1_700_000_000_000,
-        )
-        .unwrap();
+        let p = Panel::load_from_paths(&dir.join("ring"), &sock, 1_700_000_000_000).unwrap();
         assert!(p.socket_present);
     }
 }

@@ -64,7 +64,9 @@ impl RateLimitBanner {
 
     /// Apply throttle.
     pub fn throttle_until(&mut self, until_ms: u64, reason: &str) -> Result<(), BannerError> {
-        if reason.is_empty() { return Err(BannerError::EmptyReason); }
+        if reason.is_empty() {
+            return Err(BannerError::EmptyReason);
+        }
         self.throttled_until_ms = until_ms;
         self.reason = reason.into();
         Ok(())
@@ -102,7 +104,9 @@ impl RateLimitBanner {
 }
 
 impl Default for RateLimitBanner {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -120,7 +124,10 @@ mod tests {
         let mut b = RateLimitBanner::new();
         b.throttle_until(10_000, "too many requests").unwrap();
         match b.render(5_000) {
-            BannerRender::Countdown { remaining_seconds, message } => {
+            BannerRender::Countdown {
+                remaining_seconds,
+                message,
+            } => {
                 assert_eq!(remaining_seconds, 5);
                 assert!(message.contains("too many requests"));
                 assert!(message.contains("5s"));
@@ -154,14 +161,20 @@ mod tests {
     #[test]
     fn empty_reason_rejected() {
         let mut b = RateLimitBanner::new();
-        assert!(matches!(b.throttle_until(1000, "").unwrap_err(), BannerError::EmptyReason));
+        assert!(matches!(
+            b.throttle_until(1000, "").unwrap_err(),
+            BannerError::EmptyReason
+        ));
     }
 
     #[test]
     fn validate_throttled_no_reason_rejected() {
         let mut b = RateLimitBanner::new();
         b.throttled_until_ms = 1000;
-        assert!(matches!(b.validate().unwrap_err(), BannerError::EmptyReason));
+        assert!(matches!(
+            b.validate().unwrap_err(),
+            BannerError::EmptyReason
+        ));
     }
 
     #[test]
@@ -169,7 +182,9 @@ mod tests {
         let mut b = RateLimitBanner::new();
         b.throttle_until(1500, "x").unwrap();
         match b.render(0) {
-            BannerRender::Countdown { remaining_seconds, .. } => assert_eq!(remaining_seconds, 2),
+            BannerRender::Countdown {
+                remaining_seconds, ..
+            } => assert_eq!(remaining_seconds, 2),
             _ => panic!(),
         }
     }
@@ -178,13 +193,20 @@ mod tests {
     fn schema_drift_rejected() {
         let mut b = RateLimitBanner::new();
         b.schema_version = "9.9.9".into();
-        assert!(matches!(b.validate().unwrap_err(), BannerError::SchemaMismatch));
+        assert!(matches!(
+            b.validate().unwrap_err(),
+            BannerError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn render_serde_kebab() {
         let r = BannerRender::Hidden;
-        assert!(serde_json::to_string(&r).unwrap().contains("\"kind\":\"hidden\""));
+        assert!(
+            serde_json::to_string(&r)
+                .unwrap()
+                .contains("\"kind\":\"hidden\"")
+        );
     }
 
     #[test]

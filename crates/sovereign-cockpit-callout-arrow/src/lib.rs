@@ -69,14 +69,21 @@ pub enum CalloutError {
 /// `arrow_margin` is the minimum distance the arrow stays from each
 /// corner (e.g. arrow width). Target may be outside the balloon —
 /// the side closest to the target is chosen.
-pub fn place(balloon: Rect, target_x: i32, target_y: i32, arrow_margin: i32) -> Result<Placement, CalloutError> {
-    if balloon.w < 1 || balloon.h < 1 { return Err(CalloutError::BadRect); }
+pub fn place(
+    balloon: Rect,
+    target_x: i32,
+    target_y: i32,
+    arrow_margin: i32,
+) -> Result<Placement, CalloutError> {
+    if balloon.w < 1 || balloon.h < 1 {
+        return Err(CalloutError::BadRect);
+    }
 
     // Signed distances target→balloon edges (positive = target is
     // outside that side).
-    let dx_left   = balloon.x - target_x;
-    let dx_right  = target_x - (balloon.x + balloon.w);
-    let dy_top    = balloon.y - target_y;
+    let dx_left = balloon.x - target_x;
+    let dx_right = target_x - (balloon.x + balloon.w);
+    let dy_top = balloon.y - target_y;
     let dy_bottom = target_y - (balloon.y + balloon.h);
 
     // The side facing the target is the one with the largest
@@ -114,7 +121,9 @@ fn clamp(v: i32, lo: i32, hi: i32) -> i32 {
 
 /// Validate constants.
 pub fn validate_schema_version(s: &str) -> Result<(), CalloutError> {
-    if s != SCHEMA_VERSION { return Err(CalloutError::SchemaMismatch); }
+    if s != SCHEMA_VERSION {
+        return Err(CalloutError::SchemaMismatch);
+    }
     Ok(())
 }
 
@@ -122,7 +131,14 @@ pub fn validate_schema_version(s: &str) -> Result<(), CalloutError> {
 mod tests {
     use super::*;
 
-    fn b() -> Rect { Rect { x: 100, y: 100, w: 200, h: 80 } }
+    fn b() -> Rect {
+        Rect {
+            x: 100,
+            y: 100,
+            w: 200,
+            h: 80,
+        }
+    }
 
     #[test]
     fn target_above_picks_top() {
@@ -175,8 +191,16 @@ mod tests {
 
     #[test]
     fn bad_rect_rejected() {
-        let r = Rect { x: 0, y: 0, w: 0, h: 10 };
-        assert!(matches!(place(r, 0, 0, 1).unwrap_err(), CalloutError::BadRect));
+        let r = Rect {
+            x: 0,
+            y: 0,
+            w: 0,
+            h: 10,
+        };
+        assert!(matches!(
+            place(r, 0, 0, 1).unwrap_err(),
+            CalloutError::BadRect
+        ));
     }
 
     #[test]
@@ -190,7 +214,10 @@ mod tests {
 
     #[test]
     fn placement_serde_roundtrip() {
-        let p = Placement { side: Side::Left, offset: 42 };
+        let p = Placement {
+            side: Side::Left,
+            offset: 42,
+        };
         let j = serde_json::to_string(&p).unwrap();
         let back: Placement = serde_json::from_str(&j).unwrap();
         assert_eq!(p, back);

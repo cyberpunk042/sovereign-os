@@ -82,9 +82,15 @@ impl TableOfContents {
 
     /// Add heading.
     pub fn add(&mut self, id: &str, label: &str, level: u8, offset: u32) -> Result<(), TocError> {
-        if id.is_empty() { return Err(TocError::EmptyId); }
-        if label.is_empty() { return Err(TocError::EmptyLabel); }
-        if level == 0 || level > 6 { return Err(TocError::BadLevel); }
+        if id.is_empty() {
+            return Err(TocError::EmptyId);
+        }
+        if label.is_empty() {
+            return Err(TocError::EmptyLabel);
+        }
+        if level == 0 || level > 6 {
+            return Err(TocError::BadLevel);
+        }
         if self.headings.iter().any(|h| h.id == id) {
             return Err(TocError::DuplicateId(id.into()));
         }
@@ -104,7 +110,9 @@ impl TableOfContents {
 
     /// Active heading at current scroll_offset.
     pub fn active(&self) -> Option<Active> {
-        if self.headings.is_empty() { return None; }
+        if self.headings.is_empty() {
+            return None;
+        }
         let mut best: Option<(usize, &Heading)> = None;
         for (i, h) in self.headings.iter().enumerate() {
             if h.offset <= self.scroll_offset {
@@ -114,15 +122,22 @@ impl TableOfContents {
             }
         }
         let (index, h) = best.unwrap_or((0, &self.headings[0]));
-        Some(Active { id: h.id.clone(), index })
+        Some(Active {
+            id: h.id.clone(),
+            index,
+        })
     }
 
     /// Children of heading at index (next siblings until a level <= that level).
     pub fn children_of(&self, parent_index: usize) -> Vec<usize> {
-        let Some(parent) = self.headings.get(parent_index) else { return Vec::new(); };
+        let Some(parent) = self.headings.get(parent_index) else {
+            return Vec::new();
+        };
         let mut out = Vec::new();
         for (i, h) in self.headings.iter().enumerate().skip(parent_index + 1) {
-            if h.level <= parent.level { break; }
+            if h.level <= parent.level {
+                break;
+            }
             if h.level == parent.level + 1 {
                 out.push(i);
             }
@@ -132,18 +147,28 @@ impl TableOfContents {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), TocError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(TocError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(TocError::SchemaMismatch);
+        }
         for h in &self.headings {
-            if h.id.is_empty() { return Err(TocError::EmptyId); }
-            if h.label.is_empty() { return Err(TocError::EmptyLabel); }
-            if h.level == 0 || h.level > 6 { return Err(TocError::BadLevel); }
+            if h.id.is_empty() {
+                return Err(TocError::EmptyId);
+            }
+            if h.label.is_empty() {
+                return Err(TocError::EmptyLabel);
+            }
+            if h.level == 0 || h.level > 6 {
+                return Err(TocError::BadLevel);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for TableOfContents {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -210,23 +235,41 @@ mod tests {
     fn duplicate_id_rejected() {
         let mut t = TableOfContents::new();
         t.add("a", "A", 1, 0).unwrap();
-        assert!(matches!(t.add("a", "A2", 1, 100).unwrap_err(), TocError::DuplicateId(_)));
+        assert!(matches!(
+            t.add("a", "A2", 1, 100).unwrap_err(),
+            TocError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn bad_inputs_rejected() {
         let mut t = TableOfContents::new();
-        assert!(matches!(t.add("", "A", 1, 0).unwrap_err(), TocError::EmptyId));
-        assert!(matches!(t.add("a", "", 1, 0).unwrap_err(), TocError::EmptyLabel));
-        assert!(matches!(t.add("a", "A", 0, 0).unwrap_err(), TocError::BadLevel));
-        assert!(matches!(t.add("a", "A", 7, 0).unwrap_err(), TocError::BadLevel));
+        assert!(matches!(
+            t.add("", "A", 1, 0).unwrap_err(),
+            TocError::EmptyId
+        ));
+        assert!(matches!(
+            t.add("a", "", 1, 0).unwrap_err(),
+            TocError::EmptyLabel
+        ));
+        assert!(matches!(
+            t.add("a", "A", 0, 0).unwrap_err(),
+            TocError::BadLevel
+        ));
+        assert!(matches!(
+            t.add("a", "A", 7, 0).unwrap_err(),
+            TocError::BadLevel
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut t = TableOfContents::new();
         t.schema_version = "9.9.9".into();
-        assert!(matches!(t.validate().unwrap_err(), TocError::SchemaMismatch));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            TocError::SchemaMismatch
+        ));
     }
 
     #[test]

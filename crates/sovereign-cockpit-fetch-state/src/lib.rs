@@ -64,28 +64,42 @@ pub enum FetchError {
 impl FetchState {
     /// New.
     pub fn new() -> Self {
-        Self { schema_version: SCHEMA_VERSION.into(), state: State::Idle }
+        Self {
+            schema_version: SCHEMA_VERSION.into(),
+            state: State::Idle,
+        }
     }
 
     /// Start loading.
     pub fn start_loading(&mut self, now_ms: u64) {
-        self.state = State::Loading { started_at_ms: now_ms };
+        self.state = State::Loading {
+            started_at_ms: now_ms,
+        };
     }
 
     /// Loaded successfully.
     pub fn loaded(&mut self, now_ms: u64) {
-        self.state = State::Ready { loaded_at_ms: now_ms };
+        self.state = State::Ready {
+            loaded_at_ms: now_ms,
+        };
     }
 
     /// Errored.
     pub fn errored(&mut self, error: &str, now_ms: u64) -> Result<(), FetchError> {
-        if error.is_empty() { return Err(FetchError::EmptyError); }
-        self.state = State::Errored { error: error.into(), ts_ms: now_ms };
+        if error.is_empty() {
+            return Err(FetchError::EmptyError);
+        }
+        self.state = State::Errored {
+            error: error.into(),
+            ts_ms: now_ms,
+        };
         Ok(())
     }
 
     /// Reset to idle.
-    pub fn reset(&mut self) { self.state = State::Idle; }
+    pub fn reset(&mut self) {
+        self.state = State::Idle;
+    }
 
     /// Is Ready and past stale_after_ms.
     pub fn is_stale(&self, now_ms: u64, stale_after_ms: u64) -> bool {
@@ -97,16 +111,22 @@ impl FetchState {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), FetchError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(FetchError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(FetchError::SchemaMismatch);
+        }
         if let State::Errored { error, .. } = &self.state {
-            if error.is_empty() { return Err(FetchError::EmptyError); }
+            if error.is_empty() {
+                return Err(FetchError::EmptyError);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for FetchState {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -144,7 +164,10 @@ mod tests {
     #[test]
     fn empty_error_rejected() {
         let mut f = FetchState::new();
-        assert!(matches!(f.errored("", 0).unwrap_err(), FetchError::EmptyError));
+        assert!(matches!(
+            f.errored("", 0).unwrap_err(),
+            FetchError::EmptyError
+        ));
     }
 
     #[test]
@@ -173,7 +196,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut f = FetchState::new();
         f.schema_version = "9.9.9".into();
-        assert!(matches!(f.validate().unwrap_err(), FetchError::SchemaMismatch));
+        assert!(matches!(
+            f.validate().unwrap_err(),
+            FetchError::SchemaMismatch
+        ));
     }
 
     #[test]

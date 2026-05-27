@@ -79,8 +79,14 @@ pub enum DragDropError {
 
 impl DragSession {
     /// Begin a drag.
-    pub fn begin(source_id: &str, source_kind: ObjectKind, cursor: Cursor) -> Result<Self, DragDropError> {
-        if source_id.is_empty() { return Err(DragDropError::EmptySourceId); }
+    pub fn begin(
+        source_id: &str,
+        source_kind: ObjectKind,
+        cursor: Cursor,
+    ) -> Result<Self, DragDropError> {
+        if source_id.is_empty() {
+            return Err(DragDropError::EmptySourceId);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             source_id: source_id.into(),
@@ -93,7 +99,12 @@ impl DragSession {
     }
 
     /// Update hovered target.
-    pub fn hover(&mut self, target_id: &str, target_kind: ObjectKind, cursor: Cursor) -> Result<(), DragDropError> {
+    pub fn hover(
+        &mut self,
+        target_id: &str,
+        target_kind: ObjectKind,
+        cursor: Cursor,
+    ) -> Result<(), DragDropError> {
         self.target_id = target_id.into();
         self.target_kind = Some(target_kind);
         self.cursor = cursor;
@@ -120,7 +131,9 @@ impl DragSession {
         if self.schema_version != SCHEMA_VERSION {
             return Err(DragDropError::SchemaMismatch);
         }
-        if self.source_id.is_empty() { return Err(DragDropError::EmptySourceId); }
+        if self.source_id.is_empty() {
+            return Err(DragDropError::EmptySourceId);
+        }
         Ok(())
     }
 }
@@ -140,7 +153,8 @@ mod tests {
     #[test]
     fn same_kind_hover_valid() {
         let mut s = DragSession::begin("tab-1", ObjectKind::Tab, Cursor { x: 0, y: 0 }).unwrap();
-        s.hover("tab-2", ObjectKind::Tab, Cursor { x: 50, y: 50 }).unwrap();
+        s.hover("tab-2", ObjectKind::Tab, Cursor { x: 50, y: 50 })
+            .unwrap();
         assert!(s.valid_drop);
         assert_eq!(s.target_id, "tab-2");
     }
@@ -148,7 +162,9 @@ mod tests {
     #[test]
     fn cross_kind_hover_rejected() {
         let mut s = DragSession::begin("tab-1", ObjectKind::Tab, Cursor { x: 0, y: 0 }).unwrap();
-        let err = s.hover("p-1", ObjectKind::PinCard, Cursor { x: 0, y: 0 }).unwrap_err();
+        let err = s
+            .hover("p-1", ObjectKind::PinCard, Cursor { x: 0, y: 0 })
+            .unwrap_err();
         assert!(matches!(err, DragDropError::CrossKindDrop { .. }));
         assert!(!s.valid_drop);
     }
@@ -156,7 +172,8 @@ mod tests {
     #[test]
     fn unhover_clears() {
         let mut s = DragSession::begin("tab-1", ObjectKind::Tab, Cursor { x: 0, y: 0 }).unwrap();
-        s.hover("tab-2", ObjectKind::Tab, Cursor { x: 0, y: 0 }).unwrap();
+        s.hover("tab-2", ObjectKind::Tab, Cursor { x: 0, y: 0 })
+            .unwrap();
         s.unhover();
         assert!(s.target_id.is_empty());
         assert!(!s.valid_drop);
@@ -174,14 +191,26 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = DragSession::begin("a", ObjectKind::Tab, Cursor { x: 0, y: 0 }).unwrap();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), DragDropError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            DragDropError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn kind_serde_kebab() {
-        assert_eq!(serde_json::to_string(&ObjectKind::PinCard).unwrap(), "\"pin-card\"");
-        assert_eq!(serde_json::to_string(&ObjectKind::QuickActionSlot).unwrap(), "\"quick-action-slot\"");
-        assert_eq!(serde_json::to_string(&ObjectKind::DashboardWidget).unwrap(), "\"dashboard-widget\"");
+        assert_eq!(
+            serde_json::to_string(&ObjectKind::PinCard).unwrap(),
+            "\"pin-card\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ObjectKind::QuickActionSlot).unwrap(),
+            "\"quick-action-slot\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ObjectKind::DashboardWidget).unwrap(),
+            "\"dashboard-widget\""
+        );
     }
 
     #[test]

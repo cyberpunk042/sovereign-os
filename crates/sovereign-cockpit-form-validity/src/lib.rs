@@ -85,7 +85,10 @@ impl FormValidity {
 
     /// Mark a field touched.
     pub fn touch(&mut self, id: &str) -> Result<(), FormError_> {
-        let f = self.fields.iter_mut().find(|f| f.id == id)
+        let f = self
+            .fields
+            .iter_mut()
+            .find(|f| f.id == id)
             .ok_or_else(|| FormError_::Unknown(id.into()))?;
         f.touched = true;
         Ok(())
@@ -93,7 +96,10 @@ impl FormValidity {
 
     /// Update emptiness of a field (cheap call from the input event).
     pub fn set_empty(&mut self, id: &str, empty: bool) -> Result<(), FormError_> {
-        let f = self.fields.iter_mut().find(|f| f.id == id)
+        let f = self
+            .fields
+            .iter_mut()
+            .find(|f| f.id == id)
             .ok_or_else(|| FormError_::Unknown(id.into()))?;
         f.empty = empty;
         Ok(())
@@ -101,7 +107,10 @@ impl FormValidity {
 
     /// Set a custom error for a field (None to clear).
     pub fn set_custom_error(&mut self, id: &str, err: Option<String>) -> Result<(), FormError_> {
-        let f = self.fields.iter_mut().find(|f| f.id == id)
+        let f = self
+            .fields
+            .iter_mut()
+            .find(|f| f.id == id)
             .ok_or_else(|| FormError_::Unknown(id.into()))?;
         f.custom_error = err;
         Ok(())
@@ -110,8 +119,12 @@ impl FormValidity {
     /// Compute submit-valid: every required+empty rejected; every custom_error rejected.
     pub fn is_valid(&self) -> bool {
         for f in &self.fields {
-            if f.required && f.empty { return false; }
-            if f.custom_error.is_some() { return false; }
+            if f.required && f.empty {
+                return false;
+            }
+            if f.custom_error.is_some() {
+                return false;
+            }
         }
         true
     }
@@ -121,7 +134,9 @@ impl FormValidity {
     pub fn visible_errors(&self) -> Vec<FormError> {
         let mut out: Vec<FormError> = Vec::new();
         for f in &self.fields {
-            if !f.touched { continue; }
+            if !f.touched {
+                continue;
+            }
             if f.required && f.empty {
                 out.push(FormError {
                     id: f.id.clone(),
@@ -153,8 +168,12 @@ fn check_fields(fields: &[Field]) -> Result<(), FormError_> {
     use std::collections::HashSet;
     let mut seen: HashSet<&str> = HashSet::new();
     for f in fields {
-        if f.id.is_empty() { return Err(FormError_::EmptyId); }
-        if f.label.is_empty() { return Err(FormError_::EmptyLabel(f.id.clone())); }
+        if f.id.is_empty() {
+            return Err(FormError_::EmptyId);
+        }
+        if f.label.is_empty() {
+            return Err(FormError_::EmptyLabel(f.id.clone()));
+        }
         if !seen.insert(f.id.as_str()) {
             return Err(FormError_::DuplicateId(f.id.clone()));
         }
@@ -214,7 +233,8 @@ mod tests {
     #[test]
     fn custom_error_blocks_submit_regardless_of_touch() {
         let mut form = FormValidity::new(vec![f("a", false, false)]).unwrap();
-        form.set_custom_error("a", Some("invalid format".into())).unwrap();
+        form.set_custom_error("a", Some("invalid format".into()))
+            .unwrap();
         assert!(!form.is_valid());
         // Touched -> visible.
         form.touch("a").unwrap();
@@ -243,9 +263,18 @@ mod tests {
     #[test]
     fn unknown_field_rejected() {
         let mut form = FormValidity::new(vec![f("a", false, false)]).unwrap();
-        assert!(matches!(form.touch("z").unwrap_err(), FormError_::Unknown(_)));
-        assert!(matches!(form.set_empty("z", true).unwrap_err(), FormError_::Unknown(_)));
-        assert!(matches!(form.set_custom_error("z", None).unwrap_err(), FormError_::Unknown(_)));
+        assert!(matches!(
+            form.touch("z").unwrap_err(),
+            FormError_::Unknown(_)
+        ));
+        assert!(matches!(
+            form.set_empty("z", true).unwrap_err(),
+            FormError_::Unknown(_)
+        ));
+        assert!(matches!(
+            form.set_custom_error("z", None).unwrap_err(),
+            FormError_::Unknown(_)
+        ));
     }
 
     #[test]
@@ -260,21 +289,30 @@ mod tests {
     fn empty_id_rejected() {
         let mut x = f("a", false, false);
         x.id = String::new();
-        assert!(matches!(FormValidity::new(vec![x]).unwrap_err(), FormError_::EmptyId));
+        assert!(matches!(
+            FormValidity::new(vec![x]).unwrap_err(),
+            FormError_::EmptyId
+        ));
     }
 
     #[test]
     fn empty_label_rejected() {
         let mut x = f("a", false, false);
         x.label = String::new();
-        assert!(matches!(FormValidity::new(vec![x]).unwrap_err(), FormError_::EmptyLabel(_)));
+        assert!(matches!(
+            FormValidity::new(vec![x]).unwrap_err(),
+            FormError_::EmptyLabel(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut form = FormValidity::new(vec![f("a", false, false)]).unwrap();
         form.schema_version = "9.9.9".into();
-        assert!(matches!(form.validate().unwrap_err(), FormError_::SchemaMismatch));
+        assert!(matches!(
+            form.validate().unwrap_err(),
+            FormError_::SchemaMismatch
+        ));
     }
 
     #[test]

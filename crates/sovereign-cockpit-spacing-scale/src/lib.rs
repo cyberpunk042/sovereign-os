@@ -124,20 +124,33 @@ impl SpacingScale {
 
     /// Validate (non-decreasing).
     pub fn validate(&self) -> Result<(), ScaleError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ScaleError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ScaleError::SchemaMismatch);
+        }
         let seq = [
-            self.none_px, self.xxs_px, self.xs_px, self.sm_px, self.md_px,
-            self.lg_px, self.xl_px, self.xxl_px, self.xxxl_px,
+            self.none_px,
+            self.xxs_px,
+            self.xs_px,
+            self.sm_px,
+            self.md_px,
+            self.lg_px,
+            self.xl_px,
+            self.xxl_px,
+            self.xxxl_px,
         ];
         for w in seq.windows(2) {
-            if w[1] < w[0] { return Err(ScaleError::NotMonotone); }
+            if w[1] < w[0] {
+                return Err(ScaleError::NotMonotone);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for SpacingScale {
-    fn default() -> Self { Self::defaults() }
+    fn default() -> Self {
+        Self::defaults()
+    }
 }
 
 #[cfg(test)]
@@ -187,7 +200,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = SpacingScale::defaults();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), ScaleError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            ScaleError::SchemaMismatch
+        ));
     }
 
     #[test]

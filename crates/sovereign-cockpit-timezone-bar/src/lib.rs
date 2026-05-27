@@ -64,12 +64,19 @@ impl TimezoneBar {
 
     /// Add zone.
     pub fn add(&mut self, label: &str, utc_offset_minutes: i32) -> Result<(), TzError> {
-        if label.is_empty() { return Err(TzError::EmptyLabel); }
-        if utc_offset_minutes < -720 || utc_offset_minutes > 840 { return Err(TzError::BadOffset); }
+        if label.is_empty() {
+            return Err(TzError::EmptyLabel);
+        }
+        if utc_offset_minutes < -720 || utc_offset_minutes > 840 {
+            return Err(TzError::BadOffset);
+        }
         if self.zones.iter().any(|z| z.label == label) {
             return Err(TzError::DuplicateLabel(label.into()));
         }
-        self.zones.push(Zone { label: label.into(), utc_offset_minutes });
+        self.zones.push(Zone {
+            label: label.into(),
+            utc_offset_minutes,
+        });
         Ok(())
     }
 
@@ -84,8 +91,14 @@ impl TimezoneBar {
     }
 
     /// Compute (hour, minute) for a zone given UTC minute-of-day.
-    pub fn local_hhmm(&self, zone_idx: usize, utc_minute_of_day: u32) -> Result<(u32, u32), TzError> {
-        if utc_minute_of_day >= 1440 { return Err(TzError::BadMinute); }
+    pub fn local_hhmm(
+        &self,
+        zone_idx: usize,
+        utc_minute_of_day: u32,
+    ) -> Result<(u32, u32), TzError> {
+        if utc_minute_of_day >= 1440 {
+            return Err(TzError::BadMinute);
+        }
         let z = &self.zones[zone_idx];
         let total = (utc_minute_of_day as i32 + z.utc_offset_minutes).rem_euclid(1440);
         Ok(((total / 60) as u32, (total % 60) as u32))
@@ -93,17 +106,25 @@ impl TimezoneBar {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), TzError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(TzError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(TzError::SchemaMismatch);
+        }
         for z in &self.zones {
-            if z.label.is_empty() { return Err(TzError::EmptyLabel); }
-            if z.utc_offset_minutes < -720 || z.utc_offset_minutes > 840 { return Err(TzError::BadOffset); }
+            if z.label.is_empty() {
+                return Err(TzError::EmptyLabel);
+            }
+            if z.utc_offset_minutes < -720 || z.utc_offset_minutes > 840 {
+                return Err(TzError::BadOffset);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for TimezoneBar {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -153,8 +174,14 @@ mod tests {
         assert!(matches!(b.add("X", -721).unwrap_err(), TzError::BadOffset));
         assert!(matches!(b.add("X", 841).unwrap_err(), TzError::BadOffset));
         b.add("UTC", 0).unwrap();
-        assert!(matches!(b.add("UTC", 60).unwrap_err(), TzError::DuplicateLabel(_)));
-        assert!(matches!(b.local_hhmm(0, 1440).unwrap_err(), TzError::BadMinute));
+        assert!(matches!(
+            b.add("UTC", 60).unwrap_err(),
+            TzError::DuplicateLabel(_)
+        ));
+        assert!(matches!(
+            b.local_hhmm(0, 1440).unwrap_err(),
+            TzError::BadMinute
+        ));
     }
 
     #[test]

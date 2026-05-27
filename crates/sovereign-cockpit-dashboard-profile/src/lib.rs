@@ -75,41 +75,83 @@ impl DashboardProfile {
         p.register(Preset {
             id: "operator".into(),
             title: "Operator".into(),
-            widget_allowlist: ["cpu", "memory", "disk", "network", "alerts", "tasks"].into_iter().map(String::from).collect(),
+            widget_allowlist: ["cpu", "memory", "disk", "network", "alerts", "tasks"]
+                .into_iter()
+                .map(String::from)
+                .collect(),
             default_layout_id: "operator-default".into(),
-        }).unwrap();
+        })
+        .unwrap();
         p.register(Preset {
             id: "engineer".into(),
             title: "Engineer".into(),
-            widget_allowlist: ["cpu", "memory", "gpu", "logs", "build-status", "deploy-status", "tests-status"].into_iter().map(String::from).collect(),
+            widget_allowlist: [
+                "cpu",
+                "memory",
+                "gpu",
+                "logs",
+                "build-status",
+                "deploy-status",
+                "tests-status",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect(),
             default_layout_id: "engineer-default".into(),
-        }).unwrap();
+        })
+        .unwrap();
         p.register(Preset {
             id: "security".into(),
             title: "Security".into(),
-            widget_allowlist: ["alerts", "auth-events", "policy-violations", "audit-log", "actor-trust", "quarantine"].into_iter().map(String::from).collect(),
+            widget_allowlist: [
+                "alerts",
+                "auth-events",
+                "policy-violations",
+                "audit-log",
+                "actor-trust",
+                "quarantine",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect(),
             default_layout_id: "security-default".into(),
-        }).unwrap();
+        })
+        .unwrap();
         p.register(Preset {
             id: "trader".into(),
             title: "Trader".into(),
-            widget_allowlist: ["price-ticker", "depth-of-book", "positions", "p&l", "alerts", "watchlist"].into_iter().map(String::from).collect(),
+            widget_allowlist: [
+                "price-ticker",
+                "depth-of-book",
+                "positions",
+                "p&l",
+                "alerts",
+                "watchlist",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect(),
             default_layout_id: "trader-default".into(),
-        }).unwrap();
+        })
+        .unwrap();
         p.active = Some("operator".into());
         p
     }
 
     /// Register or replace.
     pub fn register(&mut self, preset: Preset) -> Result<(), ProfileError> {
-        if preset.id.is_empty() { return Err(ProfileError::EmptyId); }
+        if preset.id.is_empty() {
+            return Err(ProfileError::EmptyId);
+        }
         self.presets.insert(preset.id.clone(), preset);
         Ok(())
     }
 
     /// Register, rejecting duplicates explicitly.
     pub fn register_unique(&mut self, preset: Preset) -> Result<(), ProfileError> {
-        if preset.id.is_empty() { return Err(ProfileError::EmptyId); }
+        if preset.id.is_empty() {
+            return Err(ProfileError::EmptyId);
+        }
         if self.presets.contains_key(&preset.id) {
             return Err(ProfileError::DuplicateId(preset.id));
         }
@@ -141,9 +183,13 @@ impl DashboardProfile {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ProfileError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ProfileError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ProfileError::SchemaMismatch);
+        }
         for (id, _) in &self.presets {
-            if id.is_empty() { return Err(ProfileError::EmptyId); }
+            if id.is_empty() {
+                return Err(ProfileError::EmptyId);
+            }
         }
         if let Some(a) = &self.active {
             if !self.presets.contains_key(a) {
@@ -155,7 +201,9 @@ impl DashboardProfile {
 }
 
 impl Default for DashboardProfile {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -186,7 +234,10 @@ mod tests {
     #[test]
     fn unknown_preset_rejected() {
         let mut p = DashboardProfile::canonical();
-        assert!(matches!(p.activate("nope").unwrap_err(), ProfileError::UnknownPreset(_)));
+        assert!(matches!(
+            p.activate("nope").unwrap_err(),
+            ProfileError::UnknownPreset(_)
+        ));
     }
 
     #[test]
@@ -198,7 +249,10 @@ mod tests {
             widget_allowlist: BTreeSet::new(),
             default_layout_id: "x".into(),
         };
-        assert!(matches!(p.register_unique(dup).unwrap_err(), ProfileError::DuplicateId(_)));
+        assert!(matches!(
+            p.register_unique(dup).unwrap_err(),
+            ProfileError::DuplicateId(_)
+        ));
     }
 
     #[test]
@@ -224,7 +278,10 @@ mod tests {
             widget_allowlist: BTreeSet::new(),
             default_layout_id: "x".into(),
         };
-        assert!(matches!(p.register(bad).unwrap_err(), ProfileError::EmptyId));
+        assert!(matches!(
+            p.register(bad).unwrap_err(),
+            ProfileError::EmptyId
+        ));
     }
 
     #[test]
@@ -237,7 +294,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut p = DashboardProfile::canonical();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), ProfileError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            ProfileError::SchemaMismatch
+        ));
     }
 
     #[test]

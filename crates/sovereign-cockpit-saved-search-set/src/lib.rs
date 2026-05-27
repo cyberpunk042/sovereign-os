@@ -77,29 +77,57 @@ impl SavedSearchSet {
     }
 
     /// Add.
-    pub fn add(&mut self, id: &str, name: &str, query: &str, scope: Option<&str>) -> Result<(), SavedSearchError> {
-        if id.is_empty() { return Err(SavedSearchError::EmptyId); }
-        if name.is_empty() { return Err(SavedSearchError::EmptyName); }
-        if query.is_empty() { return Err(SavedSearchError::EmptyQuery); }
+    pub fn add(
+        &mut self,
+        id: &str,
+        name: &str,
+        query: &str,
+        scope: Option<&str>,
+    ) -> Result<(), SavedSearchError> {
+        if id.is_empty() {
+            return Err(SavedSearchError::EmptyId);
+        }
+        if name.is_empty() {
+            return Err(SavedSearchError::EmptyName);
+        }
+        if query.is_empty() {
+            return Err(SavedSearchError::EmptyQuery);
+        }
         if self.searches.contains_key(id) {
             return Err(SavedSearchError::DuplicateId(id.into()));
         }
-        self.searches.insert(id.into(), SavedSearch {
-            id: id.into(),
-            name: name.into(),
-            query: query.into(),
-            scope: scope.map(|s| s.into()),
-            run_count: 0,
-            last_run_ms: 0,
-        });
+        self.searches.insert(
+            id.into(),
+            SavedSearch {
+                id: id.into(),
+                name: name.into(),
+                query: query.into(),
+                scope: scope.map(|s| s.into()),
+                run_count: 0,
+                last_run_ms: 0,
+            },
+        );
         Ok(())
     }
 
     /// Update name/query/scope of an existing entry.
-    pub fn edit(&mut self, id: &str, name: &str, query: &str, scope: Option<&str>) -> Result<(), SavedSearchError> {
-        if name.is_empty() { return Err(SavedSearchError::EmptyName); }
-        if query.is_empty() { return Err(SavedSearchError::EmptyQuery); }
-        let s = self.searches.get_mut(id).ok_or_else(|| SavedSearchError::UnknownSearch(id.into()))?;
+    pub fn edit(
+        &mut self,
+        id: &str,
+        name: &str,
+        query: &str,
+        scope: Option<&str>,
+    ) -> Result<(), SavedSearchError> {
+        if name.is_empty() {
+            return Err(SavedSearchError::EmptyName);
+        }
+        if query.is_empty() {
+            return Err(SavedSearchError::EmptyQuery);
+        }
+        let s = self
+            .searches
+            .get_mut(id)
+            .ok_or_else(|| SavedSearchError::UnknownSearch(id.into()))?;
         s.name = name.into();
         s.query = query.into();
         s.scope = scope.map(|s| s.into());
@@ -108,7 +136,10 @@ impl SavedSearchSet {
 
     /// Record a run.
     pub fn record_run(&mut self, id: &str, ts_ms: u64) -> Result<(), SavedSearchError> {
-        let s = self.searches.get_mut(id).ok_or_else(|| SavedSearchError::UnknownSearch(id.into()))?;
+        let s = self
+            .searches
+            .get_mut(id)
+            .ok_or_else(|| SavedSearchError::UnknownSearch(id.into()))?;
         s.run_count = s.run_count.saturating_add(1);
         s.last_run_ms = ts_ms;
         Ok(())
@@ -142,9 +173,19 @@ impl SavedSearchSet {
 
     /// Recent-and-frequent blend (normalized 0..1 each, summed; n items).
     pub fn recent_and_frequent(&self, now_ms: u64, n: usize) -> Vec<SavedSearch> {
-        if self.searches.is_empty() { return Vec::new(); }
-        let max_count = self.searches.values().map(|s| s.run_count).max().unwrap_or(1).max(1);
-        let mut scored: Vec<(u64, SavedSearch)> = self.searches.values()
+        if self.searches.is_empty() {
+            return Vec::new();
+        }
+        let max_count = self
+            .searches
+            .values()
+            .map(|s| s.run_count)
+            .max()
+            .unwrap_or(1)
+            .max(1);
+        let mut scored: Vec<(u64, SavedSearch)> = self
+            .searches
+            .values()
             .map(|s| {
                 let recency_score = if s.last_run_ms == 0 {
                     0
@@ -163,18 +204,28 @@ impl SavedSearchSet {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), SavedSearchError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(SavedSearchError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(SavedSearchError::SchemaMismatch);
+        }
         for (id, s) in &self.searches {
-            if id.is_empty() { return Err(SavedSearchError::EmptyId); }
-            if s.name.is_empty() { return Err(SavedSearchError::EmptyName); }
-            if s.query.is_empty() { return Err(SavedSearchError::EmptyQuery); }
+            if id.is_empty() {
+                return Err(SavedSearchError::EmptyId);
+            }
+            if s.name.is_empty() {
+                return Err(SavedSearchError::EmptyName);
+            }
+            if s.query.is_empty() {
+                return Err(SavedSearchError::EmptyQuery);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for SavedSearchSet {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -192,7 +243,10 @@ mod tests {
     fn duplicate_rejected() {
         let mut s = SavedSearchSet::new();
         s.add("s1", "x", "y", None).unwrap();
-        assert!(matches!(s.add("s1", "x", "y", None).unwrap_err(), SavedSearchError::DuplicateId(_)));
+        assert!(matches!(
+            s.add("s1", "x", "y", None).unwrap_err(),
+            SavedSearchError::DuplicateId(_)
+        ));
     }
 
     #[test]
@@ -247,7 +301,9 @@ mod tests {
         s.add("old_freq", "old freq", "q", None).unwrap();
         s.add("new_rare", "new rare", "q", None).unwrap();
         // old_freq: 10 runs but stale
-        for i in 0..10 { s.record_run("old_freq", i).unwrap(); }
+        for i in 0..10 {
+            s.record_run("old_freq", i).unwrap();
+        }
         // new_rare: 1 run but recent
         s.record_run("new_rare", 1_000_000).unwrap();
         let r = s.recent_and_frequent(1_000_000, 2);
@@ -267,16 +323,28 @@ mod tests {
     #[test]
     fn empty_inputs_rejected() {
         let mut s = SavedSearchSet::new();
-        assert!(matches!(s.add("", "n", "q", None).unwrap_err(), SavedSearchError::EmptyId));
-        assert!(matches!(s.add("a", "", "q", None).unwrap_err(), SavedSearchError::EmptyName));
-        assert!(matches!(s.add("a", "n", "", None).unwrap_err(), SavedSearchError::EmptyQuery));
+        assert!(matches!(
+            s.add("", "n", "q", None).unwrap_err(),
+            SavedSearchError::EmptyId
+        ));
+        assert!(matches!(
+            s.add("a", "", "q", None).unwrap_err(),
+            SavedSearchError::EmptyName
+        ));
+        assert!(matches!(
+            s.add("a", "n", "", None).unwrap_err(),
+            SavedSearchError::EmptyQuery
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = SavedSearchSet::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), SavedSearchError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SavedSearchError::SchemaMismatch
+        ));
     }
 
     #[test]

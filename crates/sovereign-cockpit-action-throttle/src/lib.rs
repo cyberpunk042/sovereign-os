@@ -52,7 +52,9 @@ pub enum ThrottleError {
     #[error("duplicate rule for action_id {0}")]
     Duplicate(String),
     /// Throttled — too soon since last fire.
-    #[error("action {action_id} throttled: last fired at {last_ms}, requested at {now_ms}, min spacing {spacing_ms} ms")]
+    #[error(
+        "action {action_id} throttled: last fired at {last_ms}, requested at {now_ms}, min spacing {spacing_ms} ms"
+    )]
     Throttled {
         /// action.
         action_id: String,
@@ -80,8 +82,12 @@ impl ActionThrottle {
 
     /// Add a throttle rule.
     pub fn add(&mut self, rule: ThrottleRule) -> Result<(), ThrottleError> {
-        if rule.action_id.is_empty() { return Err(ThrottleError::EmptyActionId); }
-        if rule.min_spacing_ms == 0 { return Err(ThrottleError::ZeroSpacing(rule.action_id)); }
+        if rule.action_id.is_empty() {
+            return Err(ThrottleError::EmptyActionId);
+        }
+        if rule.min_spacing_ms == 0 {
+            return Err(ThrottleError::ZeroSpacing(rule.action_id));
+        }
         if self.rules.iter().any(|r| r.action_id == rule.action_id) {
             return Err(ThrottleError::Duplicate(rule.action_id));
         }
@@ -93,14 +99,19 @@ impl ActionThrottle {
     /// Returns Ok(()) on success and updates last_fired. Returns Throttled
     /// when min_spacing not elapsed. Returns Unknown if no rule exists.
     pub fn try_fire(&mut self, action_id: &str, now_ms: u64) -> Result<(), ThrottleError> {
-        let rule = self.rules.iter().find(|r| r.action_id == action_id)
+        let rule = self
+            .rules
+            .iter()
+            .find(|r| r.action_id == action_id)
             .ok_or_else(|| ThrottleError::Unknown(action_id.into()))?;
         let spacing = rule.min_spacing_ms;
         let last = self.last_fired.get(action_id).copied().unwrap_or(0);
         if last != 0 && now_ms < last + spacing as u64 {
             return Err(ThrottleError::Throttled {
                 action_id: action_id.into(),
-                last_ms: last, now_ms, spacing_ms: spacing,
+                last_ms: last,
+                now_ms,
+                spacing_ms: spacing,
             });
         }
         self.last_fired.insert(action_id.into(), now_ms);
@@ -115,8 +126,12 @@ impl ActionThrottle {
         use std::collections::HashSet;
         let mut seen: HashSet<&str> = HashSet::new();
         for r in &self.rules {
-            if r.action_id.is_empty() { return Err(ThrottleError::EmptyActionId); }
-            if r.min_spacing_ms == 0 { return Err(ThrottleError::ZeroSpacing(r.action_id.clone())); }
+            if r.action_id.is_empty() {
+                return Err(ThrottleError::EmptyActionId);
+            }
+            if r.min_spacing_ms == 0 {
+                return Err(ThrottleError::ZeroSpacing(r.action_id.clone()));
+            }
             if !seen.insert(r.action_id.as_str()) {
                 return Err(ThrottleError::Duplicate(r.action_id.clone()));
             }
@@ -126,7 +141,9 @@ impl ActionThrottle {
 }
 
 impl Default for ActionThrottle {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -134,7 +151,10 @@ mod tests {
     use super::*;
 
     fn r(id: &str, spacing: u32) -> ThrottleRule {
-        ThrottleRule { action_id: id.into(), min_spacing_ms: spacing }
+        ThrottleRule {
+            action_id: id.into(),
+            min_spacing_ms: spacing,
+        }
     }
 
     #[test]
@@ -214,7 +234,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut t = ActionThrottle::new();
         t.schema_version = "9.9.9".into();
-        assert!(matches!(t.validate().unwrap_err(), ThrottleError::SchemaMismatch));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            ThrottleError::SchemaMismatch
+        ));
     }
 
     #[test]

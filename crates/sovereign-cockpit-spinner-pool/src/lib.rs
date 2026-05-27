@@ -95,8 +95,12 @@ impl SpinnerPool {
 
     /// Start a spinner.
     pub fn start(&mut self, s: Spinner) -> Result<(), SpinnerError> {
-        if s.id.is_empty() { return Err(SpinnerError::EmptyId); }
-        if s.label.is_empty() { return Err(SpinnerError::EmptyLabel(s.id.clone())); }
+        if s.id.is_empty() {
+            return Err(SpinnerError::EmptyId);
+        }
+        if s.label.is_empty() {
+            return Err(SpinnerError::EmptyLabel(s.id.clone()));
+        }
         if self.spinners.iter().any(|x| x.id == s.id) {
             return Err(SpinnerError::DuplicateId(s.id));
         }
@@ -106,7 +110,10 @@ impl SpinnerPool {
 
     /// Stop.
     pub fn stop(&mut self, id: &str) -> Result<(), SpinnerError> {
-        let pos = self.spinners.iter().position(|s| s.id == id)
+        let pos = self
+            .spinners
+            .iter()
+            .position(|s| s.id == id)
             .ok_or_else(|| SpinnerError::Unknown(id.into()))?;
         self.spinners.remove(pos);
         Ok(())
@@ -115,7 +122,9 @@ impl SpinnerPool {
     /// Compute display status.
     pub fn show_status(&self, now_ms: u64) -> SpinnerStatus {
         // Filter to spinners visible for >= min_visible_ms.
-        let visible: Vec<&Spinner> = self.spinners.iter()
+        let visible: Vec<&Spinner> = self
+            .spinners
+            .iter()
             .filter(|s| now_ms.saturating_sub(s.started_at_ms) >= self.min_visible_ms as u64)
             .collect();
         match visible.len() {
@@ -143,8 +152,12 @@ impl SpinnerPool {
         use std::collections::HashSet;
         let mut seen: HashSet<&str> = HashSet::new();
         for s in &self.spinners {
-            if s.id.is_empty() { return Err(SpinnerError::EmptyId); }
-            if s.label.is_empty() { return Err(SpinnerError::EmptyLabel(s.id.clone())); }
+            if s.id.is_empty() {
+                return Err(SpinnerError::EmptyId);
+            }
+            if s.label.is_empty() {
+                return Err(SpinnerError::EmptyLabel(s.id.clone()));
+            }
             if !seen.insert(s.id.as_str()) {
                 return Err(SpinnerError::DuplicateId(s.id.clone()));
             }
@@ -154,7 +167,9 @@ impl SpinnerPool {
 }
 
 impl Default for SpinnerPool {
-    fn default() -> Self { Self::new(200) }
+    fn default() -> Self {
+        Self::new(200)
+    }
 }
 
 #[cfg(test)]
@@ -214,20 +229,29 @@ mod tests {
     #[test]
     fn stop_unknown_rejected() {
         let mut p = SpinnerPool::new(200);
-        assert!(matches!(p.stop("none").unwrap_err(), SpinnerError::Unknown(_)));
+        assert!(matches!(
+            p.stop("none").unwrap_err(),
+            SpinnerError::Unknown(_)
+        ));
     }
 
     #[test]
     fn duplicate_rejected() {
         let mut p = SpinnerPool::new(200);
         p.start(spin("a", 100)).unwrap();
-        assert!(matches!(p.start(spin("a", 100)).unwrap_err(), SpinnerError::DuplicateId(_)));
+        assert!(matches!(
+            p.start(spin("a", 100)).unwrap_err(),
+            SpinnerError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn empty_id_rejected() {
         let mut p = SpinnerPool::new(200);
-        assert!(matches!(p.start(spin("", 100)).unwrap_err(), SpinnerError::EmptyId));
+        assert!(matches!(
+            p.start(spin("", 100)).unwrap_err(),
+            SpinnerError::EmptyId
+        ));
     }
 
     #[test]
@@ -235,20 +259,30 @@ mod tests {
         let mut p = SpinnerPool::new(200);
         let mut s = spin("a", 100);
         s.label = String::new();
-        assert!(matches!(p.start(s).unwrap_err(), SpinnerError::EmptyLabel(_)));
+        assert!(matches!(
+            p.start(s).unwrap_err(),
+            SpinnerError::EmptyLabel(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut p = SpinnerPool::new(200);
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), SpinnerError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            SpinnerError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn status_serde_kebab() {
         let s = SpinnerStatus::Hidden;
-        assert!(serde_json::to_string(&s).unwrap().contains("\"kind\":\"hidden\""));
+        assert!(
+            serde_json::to_string(&s)
+                .unwrap()
+                .contains("\"kind\":\"hidden\"")
+        );
     }
 
     #[test]

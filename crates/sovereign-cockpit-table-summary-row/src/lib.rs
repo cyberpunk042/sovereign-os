@@ -92,25 +92,26 @@ impl TableSummaryRow {
                     value: rows.iter().map(|r| r[col]).fold(0i64, i64::saturating_add),
                 },
                 Aggregator::Avg => {
-                    if rows.is_empty() { SummaryCell::Value { value: 0 } }
-                    else {
+                    if rows.is_empty() {
+                        SummaryCell::Value { value: 0 }
+                    } else {
                         let sum: i64 = rows.iter().map(|r| r[col]).fold(0, i64::saturating_add);
-                        SummaryCell::Value { value: sum / rows.len() as i64 }
+                        SummaryCell::Value {
+                            value: sum / rows.len() as i64,
+                        }
                     }
                 }
-                Aggregator::Min => {
-                    match rows.iter().map(|r| r[col]).min() {
-                        Some(v) => SummaryCell::Value { value: v },
-                        None => SummaryCell::None,
-                    }
-                }
-                Aggregator::Max => {
-                    match rows.iter().map(|r| r[col]).max() {
-                        Some(v) => SummaryCell::Value { value: v },
-                        None => SummaryCell::None,
-                    }
-                }
-                Aggregator::Count => SummaryCell::Value { value: rows.len() as i64 },
+                Aggregator::Min => match rows.iter().map(|r| r[col]).min() {
+                    Some(v) => SummaryCell::Value { value: v },
+                    None => SummaryCell::None,
+                },
+                Aggregator::Max => match rows.iter().map(|r| r[col]).max() {
+                    Some(v) => SummaryCell::Value { value: v },
+                    None => SummaryCell::None,
+                },
+                Aggregator::Count => SummaryCell::Value {
+                    value: rows.len() as i64,
+                },
             };
             out.push(cell);
         }
@@ -119,7 +120,9 @@ impl TableSummaryRow {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), SummaryError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(SummaryError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(SummaryError::SchemaMismatch);
+        }
         Ok(())
     }
 }
@@ -131,7 +134,9 @@ mod tests {
     #[test]
     fn sum_avg_count() {
         let s = TableSummaryRow::new(vec![Aggregator::Sum, Aggregator::Avg, Aggregator::Count]);
-        let out = s.compute(&[vec![1, 10, 0], vec![2, 20, 0], vec![3, 30, 0]]).unwrap();
+        let out = s
+            .compute(&[vec![1, 10, 0], vec![2, 20, 0], vec![3, 30, 0]])
+            .unwrap();
         assert_eq!(out[0], SummaryCell::Value { value: 6 });
         assert_eq!(out[1], SummaryCell::Value { value: 20 });
         assert_eq!(out[2], SummaryCell::Value { value: 3 });
@@ -163,14 +168,20 @@ mod tests {
     #[test]
     fn width_mismatch_rejected() {
         let s = TableSummaryRow::new(vec![Aggregator::Sum, Aggregator::Sum]);
-        assert!(matches!(s.compute(&[vec![1]]).unwrap_err(), SummaryError::WidthMismatch(_, _)));
+        assert!(matches!(
+            s.compute(&[vec![1]]).unwrap_err(),
+            SummaryError::WidthMismatch(_, _)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = TableSummaryRow::new(vec![]);
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), SummaryError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SummaryError::SchemaMismatch
+        ));
     }
 
     #[test]

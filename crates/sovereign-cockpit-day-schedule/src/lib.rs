@@ -75,9 +75,19 @@ impl DaySchedule {
     }
 
     /// Add block.
-    pub fn add(&mut self, id: &str, start_min: u32, end_min: u32, label: &str) -> Result<(), ScheduleError> {
-        if id.is_empty() { return Err(ScheduleError::EmptyId); }
-        if label.is_empty() { return Err(ScheduleError::EmptyLabel); }
+    pub fn add(
+        &mut self,
+        id: &str,
+        start_min: u32,
+        end_min: u32,
+        label: &str,
+    ) -> Result<(), ScheduleError> {
+        if id.is_empty() {
+            return Err(ScheduleError::EmptyId);
+        }
+        if label.is_empty() {
+            return Err(ScheduleError::EmptyLabel);
+        }
         if start_min >= end_min || end_min > 1440 || start_min >= 1440 {
             return Err(ScheduleError::BadRange);
         }
@@ -89,12 +99,15 @@ impl DaySchedule {
                 return Err(ScheduleError::Conflict(other_id.clone()));
             }
         }
-        self.blocks.insert(id.into(), Block {
-            id: id.into(),
-            start_min,
-            end_min,
-            label: label.into(),
-        });
+        self.blocks.insert(
+            id.into(),
+            Block {
+                id: id.into(),
+                start_min,
+                end_min,
+                label: label.into(),
+            },
+        );
         Ok(())
     }
 
@@ -112,10 +125,16 @@ impl DaySchedule {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ScheduleError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ScheduleError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ScheduleError::SchemaMismatch);
+        }
         for (id, b) in &self.blocks {
-            if id.is_empty() { return Err(ScheduleError::EmptyId); }
-            if b.label.is_empty() { return Err(ScheduleError::EmptyLabel); }
+            if id.is_empty() {
+                return Err(ScheduleError::EmptyId);
+            }
+            if b.label.is_empty() {
+                return Err(ScheduleError::EmptyLabel);
+            }
             if b.start_min >= b.end_min || b.end_min > 1440 {
                 return Err(ScheduleError::BadRange);
             }
@@ -125,7 +144,9 @@ impl DaySchedule {
 }
 
 impl Default for DaySchedule {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -144,7 +165,10 @@ mod tests {
     fn add_overlap_rejected() {
         let mut s = DaySchedule::new();
         s.add("a", 60, 120, "x").unwrap();
-        assert!(matches!(s.add("b", 100, 150, "y").unwrap_err(), ScheduleError::Conflict(_)));
+        assert!(matches!(
+            s.add("b", 100, 150, "y").unwrap_err(),
+            ScheduleError::Conflict(_)
+        ));
     }
 
     #[test]
@@ -168,29 +192,47 @@ mod tests {
     #[test]
     fn bad_range_rejected() {
         let mut s = DaySchedule::new();
-        assert!(matches!(s.add("a", 100, 50, "x").unwrap_err(), ScheduleError::BadRange));
-        assert!(matches!(s.add("a", 100, 1500, "x").unwrap_err(), ScheduleError::BadRange));
+        assert!(matches!(
+            s.add("a", 100, 50, "x").unwrap_err(),
+            ScheduleError::BadRange
+        ));
+        assert!(matches!(
+            s.add("a", 100, 1500, "x").unwrap_err(),
+            ScheduleError::BadRange
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut s = DaySchedule::new();
-        assert!(matches!(s.add("", 60, 120, "x").unwrap_err(), ScheduleError::EmptyId));
-        assert!(matches!(s.add("i", 60, 120, "").unwrap_err(), ScheduleError::EmptyLabel));
+        assert!(matches!(
+            s.add("", 60, 120, "x").unwrap_err(),
+            ScheduleError::EmptyId
+        ));
+        assert!(matches!(
+            s.add("i", 60, 120, "").unwrap_err(),
+            ScheduleError::EmptyLabel
+        ));
     }
 
     #[test]
     fn duplicate_id_rejected() {
         let mut s = DaySchedule::new();
         s.add("a", 60, 120, "x").unwrap();
-        assert!(matches!(s.add("a", 200, 300, "y").unwrap_err(), ScheduleError::DuplicateId(_)));
+        assert!(matches!(
+            s.add("a", 200, 300, "y").unwrap_err(),
+            ScheduleError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = DaySchedule::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), ScheduleError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            ScheduleError::SchemaMismatch
+        ));
     }
 
     #[test]

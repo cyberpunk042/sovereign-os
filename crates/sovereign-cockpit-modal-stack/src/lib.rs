@@ -74,8 +74,12 @@ impl ModalStack {
 
     /// Push a modal.
     pub fn push(&mut self, m: ModalEntry) -> Result<(), ModalError> {
-        if m.id.is_empty() { return Err(ModalError::EmptyId); }
-        if m.kind.is_empty() { return Err(ModalError::EmptyKind(m.id)); }
+        if m.id.is_empty() {
+            return Err(ModalError::EmptyId);
+        }
+        if m.kind.is_empty() {
+            return Err(ModalError::EmptyKind(m.id));
+        }
         if self.stack.iter().any(|e| e.id == m.id) {
             return Err(ModalError::DuplicateId(m.id));
         }
@@ -93,17 +97,24 @@ impl ModalStack {
 
     /// Close a specific modal by id (collapses stack).
     pub fn close(&mut self, id: &str) -> Result<(), ModalError> {
-        let pos = self.stack.iter().position(|e| e.id == id)
+        let pos = self
+            .stack
+            .iter()
+            .position(|e| e.id == id)
             .ok_or_else(|| ModalError::Unknown(id.into()))?;
         self.stack.remove(pos);
         Ok(())
     }
 
     /// Currently-focused modal (top of stack).
-    pub fn focused(&self) -> Option<&ModalEntry> { self.stack.last() }
+    pub fn focused(&self) -> Option<&ModalEntry> {
+        self.stack.last()
+    }
 
     /// Depth.
-    pub fn depth(&self) -> usize { self.stack.len() }
+    pub fn depth(&self) -> usize {
+        self.stack.len()
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ModalError> {
@@ -113,8 +124,12 @@ impl ModalStack {
         use std::collections::HashSet;
         let mut seen: HashSet<&str> = HashSet::new();
         for e in &self.stack {
-            if e.id.is_empty() { return Err(ModalError::EmptyId); }
-            if e.kind.is_empty() { return Err(ModalError::EmptyKind(e.id.clone())); }
+            if e.id.is_empty() {
+                return Err(ModalError::EmptyId);
+            }
+            if e.kind.is_empty() {
+                return Err(ModalError::EmptyKind(e.id.clone()));
+            }
             if !seen.insert(e.id.as_str()) {
                 return Err(ModalError::DuplicateId(e.id.clone()));
             }
@@ -124,7 +139,9 @@ impl ModalStack {
 }
 
 impl Default for ModalStack {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -132,7 +149,11 @@ mod tests {
     use super::*;
 
     fn m(id: &str, kind: &str) -> ModalEntry {
-        ModalEntry { id: id.into(), kind: kind.into(), payload: "{}".into() }
+        ModalEntry {
+            id: id.into(),
+            kind: kind.into(),
+            payload: "{}".into(),
+        }
     }
 
     #[test]
@@ -173,19 +194,28 @@ mod tests {
     fn duplicate_rejected() {
         let mut s = ModalStack::new();
         s.push(m("a", "x")).unwrap();
-        assert!(matches!(s.push(m("a", "y")).unwrap_err(), ModalError::DuplicateId(_)));
+        assert!(matches!(
+            s.push(m("a", "y")).unwrap_err(),
+            ModalError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn empty_id_rejected() {
         let mut s = ModalStack::new();
-        assert!(matches!(s.push(m("", "x")).unwrap_err(), ModalError::EmptyId));
+        assert!(matches!(
+            s.push(m("", "x")).unwrap_err(),
+            ModalError::EmptyId
+        ));
     }
 
     #[test]
     fn empty_kind_rejected() {
         let mut s = ModalStack::new();
-        assert!(matches!(s.push(m("a", "")).unwrap_err(), ModalError::EmptyKind(_)));
+        assert!(matches!(
+            s.push(m("a", "")).unwrap_err(),
+            ModalError::EmptyKind(_)
+        ));
     }
 
     #[test]
@@ -194,7 +224,10 @@ mod tests {
         for i in 0..MAX_DEPTH {
             s.push(m(&format!("m{i}"), "x")).unwrap();
         }
-        assert!(matches!(s.push(m("over", "x")).unwrap_err(), ModalError::Full));
+        assert!(matches!(
+            s.push(m("over", "x")).unwrap_err(),
+            ModalError::Full
+        ));
     }
 
     #[test]
@@ -206,14 +239,20 @@ mod tests {
     #[test]
     fn close_unknown_rejected() {
         let mut s = ModalStack::new();
-        assert!(matches!(s.close("none").unwrap_err(), ModalError::Unknown(_)));
+        assert!(matches!(
+            s.close("none").unwrap_err(),
+            ModalError::Unknown(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = ModalStack::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), ModalError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            ModalError::SchemaMismatch
+        ));
     }
 
     #[test]

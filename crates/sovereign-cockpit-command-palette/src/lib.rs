@@ -9,8 +9,8 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-use sovereign_execution_mode_registry::ExecutionMode;
 use serde::{Deserialize, Serialize};
+use sovereign_execution_mode_registry::ExecutionMode;
 use thiserror::Error;
 
 /// Schema version.
@@ -87,27 +87,131 @@ impl CommandPalette {
     /// Canonical palette — 16 baked-in commands across all groups.
     pub fn canonical() -> Self {
         let all_modes = vec![
-            ExecutionMode::Plan, ExecutionMode::DryRun, ExecutionMode::Shadow,
-            ExecutionMode::Sandbox, ExecutionMode::Execute, ExecutionMode::Replay,
+            ExecutionMode::Plan,
+            ExecutionMode::DryRun,
+            ExecutionMode::Shadow,
+            ExecutionMode::Sandbox,
+            ExecutionMode::Execute,
+            ExecutionMode::Replay,
             ExecutionMode::Debug,
         ];
         let commands = vec![
-            Command { id: "mode.plan".into(), label: "Switch to Plan mode".into(), group: CommandGroup::Mode, allowed_modes: all_modes.clone(), action_id: "mode-switch:plan".into() },
-            Command { id: "mode.dry-run".into(), label: "Switch to Dry-Run mode".into(), group: CommandGroup::Mode, allowed_modes: all_modes.clone(), action_id: "mode-switch:dry-run".into() },
-            Command { id: "mode.sandbox".into(), label: "Switch to Sandbox mode".into(), group: CommandGroup::Mode, allowed_modes: all_modes.clone(), action_id: "mode-switch:sandbox".into() },
-            Command { id: "mode.execute".into(), label: "Switch to Execute mode".into(), group: CommandGroup::Mode, allowed_modes: all_modes.clone(), action_id: "mode-switch:execute".into() },
-            Command { id: "mode.replay".into(), label: "Open Replay session".into(), group: CommandGroup::Mode, allowed_modes: all_modes.clone(), action_id: "mode-switch:replay".into() },
-            Command { id: "conv.new".into(), label: "New conversation".into(), group: CommandGroup::Conversation, allowed_modes: all_modes.clone(), action_id: "conv:new".into() },
-            Command { id: "conv.search".into(), label: "Search conversations".into(), group: CommandGroup::Conversation, allowed_modes: all_modes.clone(), action_id: "conv:search".into() },
-            Command { id: "conv.fork".into(), label: "Fork conversation branch".into(), group: CommandGroup::Conversation, allowed_modes: all_modes.clone(), action_id: "conv:fork".into() },
-            Command { id: "replay.step".into(), label: "Step one turn".into(), group: CommandGroup::Replay, allowed_modes: vec![ExecutionMode::Replay, ExecutionMode::Debug], action_id: "replay:step".into() },
-            Command { id: "replay.pause".into(), label: "Pause replay".into(), group: CommandGroup::Replay, allowed_modes: vec![ExecutionMode::Replay, ExecutionMode::Debug], action_id: "replay:pause".into() },
-            Command { id: "tool.shell".into(), label: "Run shell command".into(), group: CommandGroup::Tool, allowed_modes: vec![ExecutionMode::Sandbox, ExecutionMode::Execute, ExecutionMode::Debug], action_id: "tool:shell".into() },
-            Command { id: "tool.fs-read".into(), label: "Read file".into(), group: CommandGroup::Tool, allowed_modes: all_modes.clone(), action_id: "tool:fs-read".into() },
-            Command { id: "dash.banner".into(), label: "Show banner state".into(), group: CommandGroup::Dashboard, allowed_modes: all_modes.clone(), action_id: "dash:banner".into() },
-            Command { id: "dash.alerts".into(), label: "Show alerts".into(), group: CommandGroup::Dashboard, allowed_modes: all_modes.clone(), action_id: "dash:alerts".into() },
-            Command { id: "workspace.add".into(), label: "Add workspace folder".into(), group: CommandGroup::Workspace, allowed_modes: all_modes.clone(), action_id: "workspace:add".into() },
-            Command { id: "settings.toggles".into(), label: "Open toggles".into(), group: CommandGroup::Settings, allowed_modes: all_modes, action_id: "settings:toggles".into() },
+            Command {
+                id: "mode.plan".into(),
+                label: "Switch to Plan mode".into(),
+                group: CommandGroup::Mode,
+                allowed_modes: all_modes.clone(),
+                action_id: "mode-switch:plan".into(),
+            },
+            Command {
+                id: "mode.dry-run".into(),
+                label: "Switch to Dry-Run mode".into(),
+                group: CommandGroup::Mode,
+                allowed_modes: all_modes.clone(),
+                action_id: "mode-switch:dry-run".into(),
+            },
+            Command {
+                id: "mode.sandbox".into(),
+                label: "Switch to Sandbox mode".into(),
+                group: CommandGroup::Mode,
+                allowed_modes: all_modes.clone(),
+                action_id: "mode-switch:sandbox".into(),
+            },
+            Command {
+                id: "mode.execute".into(),
+                label: "Switch to Execute mode".into(),
+                group: CommandGroup::Mode,
+                allowed_modes: all_modes.clone(),
+                action_id: "mode-switch:execute".into(),
+            },
+            Command {
+                id: "mode.replay".into(),
+                label: "Open Replay session".into(),
+                group: CommandGroup::Mode,
+                allowed_modes: all_modes.clone(),
+                action_id: "mode-switch:replay".into(),
+            },
+            Command {
+                id: "conv.new".into(),
+                label: "New conversation".into(),
+                group: CommandGroup::Conversation,
+                allowed_modes: all_modes.clone(),
+                action_id: "conv:new".into(),
+            },
+            Command {
+                id: "conv.search".into(),
+                label: "Search conversations".into(),
+                group: CommandGroup::Conversation,
+                allowed_modes: all_modes.clone(),
+                action_id: "conv:search".into(),
+            },
+            Command {
+                id: "conv.fork".into(),
+                label: "Fork conversation branch".into(),
+                group: CommandGroup::Conversation,
+                allowed_modes: all_modes.clone(),
+                action_id: "conv:fork".into(),
+            },
+            Command {
+                id: "replay.step".into(),
+                label: "Step one turn".into(),
+                group: CommandGroup::Replay,
+                allowed_modes: vec![ExecutionMode::Replay, ExecutionMode::Debug],
+                action_id: "replay:step".into(),
+            },
+            Command {
+                id: "replay.pause".into(),
+                label: "Pause replay".into(),
+                group: CommandGroup::Replay,
+                allowed_modes: vec![ExecutionMode::Replay, ExecutionMode::Debug],
+                action_id: "replay:pause".into(),
+            },
+            Command {
+                id: "tool.shell".into(),
+                label: "Run shell command".into(),
+                group: CommandGroup::Tool,
+                allowed_modes: vec![
+                    ExecutionMode::Sandbox,
+                    ExecutionMode::Execute,
+                    ExecutionMode::Debug,
+                ],
+                action_id: "tool:shell".into(),
+            },
+            Command {
+                id: "tool.fs-read".into(),
+                label: "Read file".into(),
+                group: CommandGroup::Tool,
+                allowed_modes: all_modes.clone(),
+                action_id: "tool:fs-read".into(),
+            },
+            Command {
+                id: "dash.banner".into(),
+                label: "Show banner state".into(),
+                group: CommandGroup::Dashboard,
+                allowed_modes: all_modes.clone(),
+                action_id: "dash:banner".into(),
+            },
+            Command {
+                id: "dash.alerts".into(),
+                label: "Show alerts".into(),
+                group: CommandGroup::Dashboard,
+                allowed_modes: all_modes.clone(),
+                action_id: "dash:alerts".into(),
+            },
+            Command {
+                id: "workspace.add".into(),
+                label: "Add workspace folder".into(),
+                group: CommandGroup::Workspace,
+                allowed_modes: all_modes.clone(),
+                action_id: "workspace:add".into(),
+            },
+            Command {
+                id: "settings.toggles".into(),
+                label: "Open toggles".into(),
+                group: CommandGroup::Settings,
+                allowed_modes: all_modes,
+                action_id: "settings:toggles".into(),
+            },
         ];
         Self {
             schema_version: SCHEMA_VERSION.into(),
@@ -125,10 +229,18 @@ impl CommandPalette {
 
     /// Add a command.
     pub fn add(&mut self, c: Command) -> Result<(), PaletteError> {
-        if c.id.is_empty() { return Err(PaletteError::EmptyId); }
-        if c.label.is_empty() { return Err(PaletteError::EmptyLabel(c.id)); }
-        if c.action_id.is_empty() { return Err(PaletteError::EmptyActionId(c.id)); }
-        if c.allowed_modes.is_empty() { return Err(PaletteError::NoModes(c.id)); }
+        if c.id.is_empty() {
+            return Err(PaletteError::EmptyId);
+        }
+        if c.label.is_empty() {
+            return Err(PaletteError::EmptyLabel(c.id));
+        }
+        if c.action_id.is_empty() {
+            return Err(PaletteError::EmptyActionId(c.id));
+        }
+        if c.allowed_modes.is_empty() {
+            return Err(PaletteError::NoModes(c.id));
+        }
         if self.commands.iter().any(|x| x.id == c.id) {
             return Err(PaletteError::DuplicateId(c.id));
         }
@@ -144,10 +256,18 @@ impl CommandPalette {
         use std::collections::HashSet;
         let mut seen: HashSet<&str> = HashSet::new();
         for c in &self.commands {
-            if c.id.is_empty() { return Err(PaletteError::EmptyId); }
-            if c.label.is_empty() { return Err(PaletteError::EmptyLabel(c.id.clone())); }
-            if c.action_id.is_empty() { return Err(PaletteError::EmptyActionId(c.id.clone())); }
-            if c.allowed_modes.is_empty() { return Err(PaletteError::NoModes(c.id.clone())); }
+            if c.id.is_empty() {
+                return Err(PaletteError::EmptyId);
+            }
+            if c.label.is_empty() {
+                return Err(PaletteError::EmptyLabel(c.id.clone()));
+            }
+            if c.action_id.is_empty() {
+                return Err(PaletteError::EmptyActionId(c.id.clone()));
+            }
+            if c.allowed_modes.is_empty() {
+                return Err(PaletteError::NoModes(c.id.clone()));
+            }
             if !seen.insert(c.id.as_str()) {
                 return Err(PaletteError::DuplicateId(c.id.clone()));
             }
@@ -158,7 +278,8 @@ impl CommandPalette {
     /// Filter by (mode, fuzzy substring on label, case-insensitive).
     pub fn fuzzy(&self, mode: ExecutionMode, needle: &str) -> Vec<&Command> {
         let n = needle.to_ascii_lowercase();
-        self.commands.iter()
+        self.commands
+            .iter()
             .filter(|c| c.allowed_modes.contains(&mode))
             .filter(|c| n.is_empty() || c.label.to_ascii_lowercase().contains(&n))
             .collect()
@@ -166,7 +287,10 @@ impl CommandPalette {
 
     /// Available commands in mode.
     pub fn available(&self, mode: ExecutionMode) -> Vec<&Command> {
-        self.commands.iter().filter(|c| c.allowed_modes.contains(&mode)).collect()
+        self.commands
+            .iter()
+            .filter(|c| c.allowed_modes.contains(&mode))
+            .collect()
     }
 
     /// Lookup by id.
@@ -176,7 +300,9 @@ impl CommandPalette {
 }
 
 impl Default for CommandPalette {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -219,27 +345,44 @@ mod tests {
     #[test]
     fn shell_visible_only_in_sandbox_execute_debug() {
         let p = CommandPalette::canonical();
-        assert!(p.available(ExecutionMode::Plan).iter().all(|c| c.id != "tool.shell"));
-        assert!(p.available(ExecutionMode::Sandbox).iter().any(|c| c.id == "tool.shell"));
+        assert!(
+            p.available(ExecutionMode::Plan)
+                .iter()
+                .all(|c| c.id != "tool.shell")
+        );
+        assert!(
+            p.available(ExecutionMode::Sandbox)
+                .iter()
+                .any(|c| c.id == "tool.shell")
+        );
     }
 
     #[test]
     fn duplicate_id_rejected() {
         let mut p = CommandPalette::new();
         let c = Command {
-            id: "x".into(), label: "X".into(), group: CommandGroup::Tool,
-            allowed_modes: vec![ExecutionMode::Plan], action_id: "x".into(),
+            id: "x".into(),
+            label: "X".into(),
+            group: CommandGroup::Tool,
+            allowed_modes: vec![ExecutionMode::Plan],
+            action_id: "x".into(),
         };
         p.add(c.clone()).unwrap();
-        assert!(matches!(p.add(c).unwrap_err(), PaletteError::DuplicateId(_)));
+        assert!(matches!(
+            p.add(c).unwrap_err(),
+            PaletteError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn empty_id_rejected() {
         let mut p = CommandPalette::new();
         let c = Command {
-            id: String::new(), label: "X".into(), group: CommandGroup::Tool,
-            allowed_modes: vec![ExecutionMode::Plan], action_id: "x".into(),
+            id: String::new(),
+            label: "X".into(),
+            group: CommandGroup::Tool,
+            allowed_modes: vec![ExecutionMode::Plan],
+            action_id: "x".into(),
         };
         assert!(matches!(p.add(c).unwrap_err(), PaletteError::EmptyId));
     }
@@ -248,8 +391,11 @@ mod tests {
     fn empty_label_rejected() {
         let mut p = CommandPalette::new();
         let c = Command {
-            id: "x".into(), label: String::new(), group: CommandGroup::Tool,
-            allowed_modes: vec![ExecutionMode::Plan], action_id: "x".into(),
+            id: "x".into(),
+            label: String::new(),
+            group: CommandGroup::Tool,
+            allowed_modes: vec![ExecutionMode::Plan],
+            action_id: "x".into(),
         };
         assert!(matches!(p.add(c).unwrap_err(), PaletteError::EmptyLabel(_)));
     }
@@ -258,14 +404,26 @@ mod tests {
     fn schema_drift_rejected() {
         let mut p = CommandPalette::canonical();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), PaletteError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            PaletteError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn group_serde_kebab() {
-        assert_eq!(serde_json::to_string(&CommandGroup::Conversation).unwrap(), "\"conversation\"");
-        assert_eq!(serde_json::to_string(&CommandGroup::Replay).unwrap(), "\"replay\"");
-        assert_eq!(serde_json::to_string(&CommandGroup::Workspace).unwrap(), "\"workspace\"");
+        assert_eq!(
+            serde_json::to_string(&CommandGroup::Conversation).unwrap(),
+            "\"conversation\""
+        );
+        assert_eq!(
+            serde_json::to_string(&CommandGroup::Replay).unwrap(),
+            "\"replay\""
+        );
+        assert_eq!(
+            serde_json::to_string(&CommandGroup::Workspace).unwrap(),
+            "\"workspace\""
+        );
     }
 
     #[test]

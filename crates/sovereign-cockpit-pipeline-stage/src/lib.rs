@@ -95,59 +95,97 @@ impl Pipeline {
 
     /// Add a stage.
     pub fn add_stage(&mut self, id: &str, label: &str, deps: Vec<String>) -> Result<(), PipeError> {
-        if id.is_empty() { return Err(PipeError::EmptyId); }
-        if label.is_empty() { return Err(PipeError::EmptyLabel); }
-        if self.stages.contains_key(id) { return Err(PipeError::DuplicateStage(id.into())); }
+        if id.is_empty() {
+            return Err(PipeError::EmptyId);
+        }
+        if label.is_empty() {
+            return Err(PipeError::EmptyLabel);
+        }
+        if self.stages.contains_key(id) {
+            return Err(PipeError::DuplicateStage(id.into()));
+        }
         for d in &deps {
             if !self.stages.contains_key(d) {
-                return Err(PipeError::UnknownDep { stage: id.into(), dep: d.clone() });
+                return Err(PipeError::UnknownDep {
+                    stage: id.into(),
+                    dep: d.clone(),
+                });
             }
         }
-        self.stages.insert(id.into(), Stage {
-            id: id.into(),
-            label: label.into(),
-            depends_on: deps.into_iter().collect(),
-            status: Status::Pending,
-        });
+        self.stages.insert(
+            id.into(),
+            Stage {
+                id: id.into(),
+                label: label.into(),
+                depends_on: deps.into_iter().collect(),
+                status: Status::Pending,
+            },
+        );
         Ok(())
     }
 
     /// Mark stage status.
     pub fn mark(&mut self, id: &str, status: Status) -> Result<(), PipeError> {
-        let s = self.stages.get_mut(id).ok_or_else(|| PipeError::UnknownStage(id.into()))?;
+        let s = self
+            .stages
+            .get_mut(id)
+            .ok_or_else(|| PipeError::UnknownStage(id.into()))?;
         s.status = status;
         Ok(())
     }
 
     /// Stages ready to run: Pending + all deps Success.
     pub fn ready_to_run(&self) -> Vec<&str> {
-        self.stages.iter()
-            .filter(|(_, s)| s.status == Status::Pending
-                && s.depends_on.iter().all(|d|
-                    self.stages.get(d).map(|x| x.status == Status::Success).unwrap_or(false)))
+        self.stages
+            .iter()
+            .filter(|(_, s)| {
+                s.status == Status::Pending
+                    && s.depends_on.iter().all(|d| {
+                        self.stages
+                            .get(d)
+                            .map(|x| x.status == Status::Success)
+                            .unwrap_or(false)
+                    })
+            })
             .map(|(k, _)| k.as_str())
             .collect()
     }
 
     /// Stages downstream of any Failed dep.
     pub fn failed_chain(&self) -> Vec<&str> {
-        self.stages.iter()
-            .filter(|(_, s)| s.status == Status::Pending
-                && s.depends_on.iter().any(|d|
-                    self.stages.get(d).map(|x| x.status == Status::Failed).unwrap_or(false)))
+        self.stages
+            .iter()
+            .filter(|(_, s)| {
+                s.status == Status::Pending
+                    && s.depends_on.iter().any(|d| {
+                        self.stages
+                            .get(d)
+                            .map(|x| x.status == Status::Failed)
+                            .unwrap_or(false)
+                    })
+            })
             .map(|(k, _)| k.as_str())
             .collect()
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), PipeError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(PipeError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(PipeError::SchemaMismatch);
+        }
         for (id, s) in &self.stages {
-            if id.is_empty() { return Err(PipeError::EmptyId); }
-            if s.label.is_empty() { return Err(PipeError::EmptyLabel); }
+            if id.is_empty() {
+                return Err(PipeError::EmptyId);
+            }
+            if s.label.is_empty() {
+                return Err(PipeError::EmptyLabel);
+            }
             for d in &s.depends_on {
                 if !self.stages.contains_key(d) {
-                    return Err(PipeError::UnknownDep { stage: id.clone(), dep: d.clone() });
+                    return Err(PipeError::UnknownDep {
+                        stage: id.clone(),
+                        dep: d.clone(),
+                    });
                 }
             }
         }
@@ -156,7 +194,9 @@ impl Pipeline {
 }
 
 impl Default for Pipeline {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -167,7 +207,8 @@ mod tests {
         let mut p = Pipeline::new();
         p.add_stage("build", "Build", vec![]).unwrap();
         p.add_stage("test", "Test", vec!["build".into()]).unwrap();
-        p.add_stage("deploy", "Deploy", vec!["test".into()]).unwrap();
+        p.add_stage("deploy", "Deploy", vec!["test".into()])
+            .unwrap();
         p
     }
 
@@ -195,7 +236,10 @@ mod tests {
     #[test]
     fn duplicate_rejected() {
         let mut p = pipeline();
-        assert!(matches!(p.add_stage("build", "X", vec![]).unwrap_err(), PipeError::DuplicateStage(_)));
+        assert!(matches!(
+            p.add_stage("build", "X", vec![]).unwrap_err(),
+            PipeError::DuplicateStage(_)
+        ));
     }
 
     #[test]
@@ -208,15 +252,24 @@ mod tests {
     #[test]
     fn empty_inputs_rejected() {
         let mut p = Pipeline::new();
-        assert!(matches!(p.add_stage("", "L", vec![]).unwrap_err(), PipeError::EmptyId));
-        assert!(matches!(p.add_stage("a", "", vec![]).unwrap_err(), PipeError::EmptyLabel));
+        assert!(matches!(
+            p.add_stage("", "L", vec![]).unwrap_err(),
+            PipeError::EmptyId
+        ));
+        assert!(matches!(
+            p.add_stage("a", "", vec![]).unwrap_err(),
+            PipeError::EmptyLabel
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut p = pipeline();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), PipeError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            PipeError::SchemaMismatch
+        ));
     }
 
     #[test]

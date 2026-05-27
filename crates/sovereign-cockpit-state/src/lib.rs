@@ -89,30 +89,42 @@ impl CockpitState {
         if self.envelope_signature.is_empty() {
             return Err(CockpitStateError::EnvelopeUnsigned);
         }
-        self.mirror_manifest.validate().map_err(|e| CockpitStateError::SubSchemaInvalid {
-            component: "mirror_manifest",
-            reason: e.to_string(),
-        })?;
-        self.coverage_manifest.validate().map_err(|e| CockpitStateError::SubSchemaInvalid {
-            component: "coverage_manifest",
-            reason: e.to_string(),
-        })?;
-        self.toggle_config.validate().map_err(|e| CockpitStateError::SubSchemaInvalid {
-            component: "toggle_config",
-            reason: e.to_string(),
-        })?;
-        self.personalization.validate().map_err(|e| CockpitStateError::SubSchemaInvalid {
-            component: "personalization",
-            reason: e.to_string(),
-        })?;
-        self.trinity_manifest.validate().map_err(|e| CockpitStateError::SubSchemaInvalid {
-            component: "trinity_manifest",
-            reason: e.to_string(),
-        })?;
-        self.module_manifest.validate().map_err(|e| CockpitStateError::SubSchemaInvalid {
-            component: "module_manifest",
-            reason: e.to_string(),
-        })?;
+        self.mirror_manifest
+            .validate()
+            .map_err(|e| CockpitStateError::SubSchemaInvalid {
+                component: "mirror_manifest",
+                reason: e.to_string(),
+            })?;
+        self.coverage_manifest
+            .validate()
+            .map_err(|e| CockpitStateError::SubSchemaInvalid {
+                component: "coverage_manifest",
+                reason: e.to_string(),
+            })?;
+        self.toggle_config
+            .validate()
+            .map_err(|e| CockpitStateError::SubSchemaInvalid {
+                component: "toggle_config",
+                reason: e.to_string(),
+            })?;
+        self.personalization
+            .validate()
+            .map_err(|e| CockpitStateError::SubSchemaInvalid {
+                component: "personalization",
+                reason: e.to_string(),
+            })?;
+        self.trinity_manifest
+            .validate()
+            .map_err(|e| CockpitStateError::SubSchemaInvalid {
+                component: "trinity_manifest",
+                reason: e.to_string(),
+            })?;
+        self.module_manifest
+            .validate()
+            .map_err(|e| CockpitStateError::SubSchemaInvalid {
+                component: "module_manifest",
+                reason: e.to_string(),
+            })?;
         Ok(())
     }
 
@@ -132,7 +144,9 @@ impl CockpitState {
     }
 
     /// Canonical path constant.
-    pub fn canonical_path() -> &'static str { COCKPIT_STATE_PATH }
+    pub fn canonical_path() -> &'static str {
+        COCKPIT_STATE_PATH
+    }
 }
 
 #[cfg(test)]
@@ -154,21 +168,30 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = ok_state();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), CockpitStateError::SchemaMismatch { .. }));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            CockpitStateError::SchemaMismatch { .. }
+        ));
     }
 
     #[test]
     fn captured_at_empty_rejected() {
         let mut s = ok_state();
         s.captured_at = String::new();
-        assert!(matches!(s.validate().unwrap_err(), CockpitStateError::CapturedAtMissing));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            CockpitStateError::CapturedAtMissing
+        ));
     }
 
     #[test]
     fn unsigned_rejected() {
         let mut s = ok_state();
         s.envelope_signature = String::new();
-        assert!(matches!(s.validate().unwrap_err(), CockpitStateError::EnvelopeUnsigned));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            CockpitStateError::EnvelopeUnsigned
+        ));
     }
 
     #[test]
@@ -199,7 +222,9 @@ mod tests {
     fn bad_toggle_config_caught() {
         let mut s = ok_state();
         use sovereign_dashboard_toggle::SlotState;
-        s.toggle_config.slots.insert("D-99".into(), SlotState::Disabled);
+        s.toggle_config
+            .slots
+            .insert("D-99".into(), SlotState::Disabled);
         match s.validate().unwrap_err() {
             CockpitStateError::SubSchemaInvalid { component, .. } => {
                 assert_eq!(component, "toggle_config");
@@ -246,7 +271,10 @@ mod tests {
 
     #[test]
     fn canonical_path_const() {
-        assert_eq!(CockpitState::canonical_path(), "/var/lib/sovereign-os/cockpit-state.json");
+        assert_eq!(
+            CockpitState::canonical_path(),
+            "/var/lib/sovereign-os/cockpit-state.json"
+        );
     }
 
     #[test]

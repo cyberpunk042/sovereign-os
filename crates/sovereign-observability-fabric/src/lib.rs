@@ -157,17 +157,24 @@ impl ObservabilityFabric {
     pub fn empty_canonical() -> Self {
         let now = "2026-05-19T00:00:00Z";
         let sources = [
-            ObservabilitySource::OtelTraces, ObservabilitySource::Journald,
-            ObservabilitySource::Dcgm, ObservabilitySource::Psi,
-            ObservabilitySource::Ebpf, ObservabilitySource::ZfsEvents,
-            ObservabilitySource::TestOutput, ObservabilitySource::GatewayLogs,
+            ObservabilitySource::OtelTraces,
+            ObservabilitySource::Journald,
+            ObservabilitySource::Dcgm,
+            ObservabilitySource::Psi,
+            ObservabilitySource::Ebpf,
+            ObservabilitySource::ZfsEvents,
+            ObservabilitySource::TestOutput,
+            ObservabilitySource::GatewayLogs,
             ObservabilitySource::CostLedger,
-        ].into_iter().map(|s| SourceRecord {
+        ]
+        .into_iter()
+        .map(|s| SourceRecord {
             source: s,
             state: SourceState::Disconnected,
             eps: 0,
             last_heartbeat_at: now.into(),
-        }).collect();
+        })
+        .collect();
         Self {
             schema_version: SCHEMA_VERSION.into(),
             sources,
@@ -183,10 +190,14 @@ impl ObservabilityFabric {
             return Err(FabricError::SourceCountInvalid(self.sources.len()));
         }
         let required = [
-            ObservabilitySource::OtelTraces, ObservabilitySource::Journald,
-            ObservabilitySource::Dcgm, ObservabilitySource::Psi,
-            ObservabilitySource::Ebpf, ObservabilitySource::ZfsEvents,
-            ObservabilitySource::TestOutput, ObservabilitySource::GatewayLogs,
+            ObservabilitySource::OtelTraces,
+            ObservabilitySource::Journald,
+            ObservabilitySource::Dcgm,
+            ObservabilitySource::Psi,
+            ObservabilitySource::Ebpf,
+            ObservabilitySource::ZfsEvents,
+            ObservabilitySource::TestOutput,
+            ObservabilitySource::GatewayLogs,
             ObservabilitySource::CostLedger,
         ];
         for s in required {
@@ -206,7 +217,8 @@ impl ObservabilityFabric {
 
     /// Total EPS across connected sources.
     pub fn total_eps(&self) -> u64 {
-        self.sources.iter()
+        self.sources
+            .iter()
             .filter(|r| r.state == SourceState::Connected)
             .map(|r| r.eps as u64)
             .sum()
@@ -214,7 +226,10 @@ impl ObservabilityFabric {
 
     /// Count of connected sources.
     pub fn connected_count(&self) -> usize {
-        self.sources.iter().filter(|r| r.state == SourceState::Connected).count()
+        self.sources
+            .iter()
+            .filter(|r| r.state == SourceState::Connected)
+            .count()
     }
 }
 
@@ -225,10 +240,14 @@ mod tests {
     #[test]
     fn nine_sources_positioned_1_to_9() {
         for (s, p) in [
-            (ObservabilitySource::OtelTraces, 1), (ObservabilitySource::Journald, 2),
-            (ObservabilitySource::Dcgm, 3), (ObservabilitySource::Psi, 4),
-            (ObservabilitySource::Ebpf, 5), (ObservabilitySource::ZfsEvents, 6),
-            (ObservabilitySource::TestOutput, 7), (ObservabilitySource::GatewayLogs, 8),
+            (ObservabilitySource::OtelTraces, 1),
+            (ObservabilitySource::Journald, 2),
+            (ObservabilitySource::Dcgm, 3),
+            (ObservabilitySource::Psi, 4),
+            (ObservabilitySource::Ebpf, 5),
+            (ObservabilitySource::ZfsEvents, 6),
+            (ObservabilitySource::TestOutput, 7),
+            (ObservabilitySource::GatewayLogs, 8),
             (ObservabilitySource::CostLedger, 9),
         ] {
             assert_eq!(s.position(), p);
@@ -253,10 +272,19 @@ mod tests {
     fn six_questions_text_verbatim() {
         assert_eq!(ObservabilityQuestion::WhatHappened.text(), "what happened?");
         assert_eq!(ObservabilityQuestion::WhatChanged.text(), "what changed?");
-        assert_eq!(ObservabilityQuestion::ModelDecided.text(), "which model decided?");
-        assert_eq!(ObservabilityQuestion::PolicyAllowed.text(), "which policy allowed it?");
+        assert_eq!(
+            ObservabilityQuestion::ModelDecided.text(),
+            "which model decided?"
+        );
+        assert_eq!(
+            ObservabilityQuestion::PolicyAllowed.text(),
+            "which policy allowed it?"
+        );
         assert_eq!(ObservabilityQuestion::Cost.text(), "what did it cost?");
-        assert_eq!(ObservabilityQuestion::HardwarePressure.text(), "what pressure did hardware experience?");
+        assert_eq!(
+            ObservabilityQuestion::HardwarePressure.text(),
+            "what pressure did hardware experience?"
+        );
     }
 
     #[test]
@@ -268,22 +296,26 @@ mod tests {
     fn source_count_invalid_rejected() {
         let mut f = ObservabilityFabric::empty_canonical();
         f.sources.pop();
-        assert!(matches!(f.validate().unwrap_err(), FabricError::SourceCountInvalid(8)));
+        assert!(matches!(
+            f.validate().unwrap_err(),
+            FabricError::SourceCountInvalid(8)
+        ));
     }
 
     #[test]
     fn missing_source_caught_when_replaced() {
         let mut f = ObservabilityFabric::empty_canonical();
         f.sources[0] = SourceRecord {
-            source: ObservabilitySource::Journald,  // duplicate
+            source: ObservabilitySource::Journald, // duplicate
             state: SourceState::Disconnected,
             eps: 0,
             last_heartbeat_at: "ts".into(),
         };
         let err = f.validate().unwrap_err();
-        assert!(matches!(err,
+        assert!(matches!(
+            err,
             FabricError::SourceMissing(ObservabilitySource::OtelTraces)
-            | FabricError::DuplicateSource(ObservabilitySource::Journald)
+                | FabricError::DuplicateSource(ObservabilitySource::Journald)
         ));
     }
 
@@ -310,16 +342,34 @@ mod tests {
 
     #[test]
     fn source_serde_kebab() {
-        assert_eq!(serde_json::to_string(&ObservabilitySource::OtelTraces).unwrap(), "\"otel-traces\"");
-        assert_eq!(serde_json::to_string(&ObservabilitySource::ZfsEvents).unwrap(), "\"zfs-events\"");
-        assert_eq!(serde_json::to_string(&ObservabilitySource::CostLedger).unwrap(), "\"cost-ledger\"");
+        assert_eq!(
+            serde_json::to_string(&ObservabilitySource::OtelTraces).unwrap(),
+            "\"otel-traces\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ObservabilitySource::ZfsEvents).unwrap(),
+            "\"zfs-events\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ObservabilitySource::CostLedger).unwrap(),
+            "\"cost-ledger\""
+        );
     }
 
     #[test]
     fn question_serde_kebab() {
-        assert_eq!(serde_json::to_string(&ObservabilityQuestion::WhatHappened).unwrap(), "\"what-happened\"");
-        assert_eq!(serde_json::to_string(&ObservabilityQuestion::HardwarePressure).unwrap(), "\"hardware-pressure\"");
-        assert_eq!(serde_json::to_string(&ObservabilityQuestion::PolicyAllowed).unwrap(), "\"policy-allowed\"");
+        assert_eq!(
+            serde_json::to_string(&ObservabilityQuestion::WhatHappened).unwrap(),
+            "\"what-happened\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ObservabilityQuestion::HardwarePressure).unwrap(),
+            "\"hardware-pressure\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ObservabilityQuestion::PolicyAllowed).unwrap(),
+            "\"policy-allowed\""
+        );
     }
 
     #[test]

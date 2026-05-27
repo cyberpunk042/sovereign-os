@@ -189,8 +189,10 @@ impl HardwareRegistry {
             return Err(HardwareError::CountInvalid(self.records.len()));
         }
         let required = [
-            HardwareTarget::CpuPulse, HardwareTarget::Rocm3090,
-            HardwareTarget::BlackwellOracle, HardwareTarget::Cloud,
+            HardwareTarget::CpuPulse,
+            HardwareTarget::Rocm3090,
+            HardwareTarget::BlackwellOracle,
+            HardwareTarget::Cloud,
             HardwareTarget::NoHardware,
         ];
         for t in required {
@@ -218,9 +220,11 @@ impl HardwareRegistry {
 
     /// Total local VRAM (excludes Cloud + NoHardware).
     pub fn total_local_vram_gb(&self) -> u32 {
-        self.records.iter()
+        self.records
+            .iter()
             .filter(|r| !matches!(r.target, HardwareTarget::Cloud | HardwareTarget::NoHardware))
-            .map(|r| r.vram_gb).sum()
+            .map(|r| r.vram_gb)
+            .sum()
     }
 
     /// Lookup by target.
@@ -242,18 +246,28 @@ mod tests {
     fn five_targets_present() {
         let r = HardwareRegistry::canonical();
         assert_eq!(r.records.len(), 5);
-        for t in [HardwareTarget::CpuPulse, HardwareTarget::Rocm3090,
-                  HardwareTarget::BlackwellOracle, HardwareTarget::Cloud,
-                  HardwareTarget::NoHardware] {
+        for t in [
+            HardwareTarget::CpuPulse,
+            HardwareTarget::Rocm3090,
+            HardwareTarget::BlackwellOracle,
+            HardwareTarget::Cloud,
+            HardwareTarget::NoHardware,
+        ] {
             assert!(r.get(t).is_some(), "missing {t:?}");
         }
     }
 
     #[test]
     fn canonical_roles_match() {
-        assert_eq!(HardwareTarget::CpuPulse.canonical_role(), SrpRole::Conductor);
+        assert_eq!(
+            HardwareTarget::CpuPulse.canonical_role(),
+            SrpRole::Conductor
+        );
         assert_eq!(HardwareTarget::Rocm3090.canonical_role(), SrpRole::Logic);
-        assert_eq!(HardwareTarget::BlackwellOracle.canonical_role(), SrpRole::Oracle);
+        assert_eq!(
+            HardwareTarget::BlackwellOracle.canonical_role(),
+            SrpRole::Oracle
+        );
         assert_eq!(HardwareTarget::Cloud.canonical_role(), SrpRole::External);
         assert_eq!(HardwareTarget::NoHardware.canonical_role(), SrpRole::Inert);
     }
@@ -268,14 +282,20 @@ mod tests {
     fn schema_drift_rejected() {
         let mut r = HardwareRegistry::canonical();
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate().unwrap_err(), HardwareError::SchemaMismatch));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            HardwareError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn count_invalid_caught() {
         let mut r = HardwareRegistry::canonical();
         r.records.pop();
-        assert!(matches!(r.validate().unwrap_err(), HardwareError::CountInvalid(4)));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            HardwareError::CountInvalid(4)
+        ));
     }
 
     #[test]
@@ -283,7 +303,11 @@ mod tests {
         let mut r = HardwareRegistry::canonical();
         r.records[0].role = SrpRole::Oracle;
         match r.validate().unwrap_err() {
-            HardwareError::RoleMismatch { target, declared, canonical } => {
+            HardwareError::RoleMismatch {
+                target,
+                declared,
+                canonical,
+            } => {
                 assert_eq!(target, HardwareTarget::CpuPulse);
                 assert_eq!(declared, SrpRole::Oracle);
                 assert_eq!(canonical, SrpRole::Conductor);
@@ -294,16 +318,34 @@ mod tests {
 
     #[test]
     fn target_serde_kebab_with_rename() {
-        assert_eq!(serde_json::to_string(&HardwareTarget::CpuPulse).unwrap(), "\"cpu-pulse\"");
-        assert_eq!(serde_json::to_string(&HardwareTarget::Rocm3090).unwrap(), "\"rocm-3090\"");
-        assert_eq!(serde_json::to_string(&HardwareTarget::BlackwellOracle).unwrap(), "\"blackwell-oracle\"");
-        assert_eq!(serde_json::to_string(&HardwareTarget::NoHardware).unwrap(), "\"no-hardware\"");
+        assert_eq!(
+            serde_json::to_string(&HardwareTarget::CpuPulse).unwrap(),
+            "\"cpu-pulse\""
+        );
+        assert_eq!(
+            serde_json::to_string(&HardwareTarget::Rocm3090).unwrap(),
+            "\"rocm-3090\""
+        );
+        assert_eq!(
+            serde_json::to_string(&HardwareTarget::BlackwellOracle).unwrap(),
+            "\"blackwell-oracle\""
+        );
+        assert_eq!(
+            serde_json::to_string(&HardwareTarget::NoHardware).unwrap(),
+            "\"no-hardware\""
+        );
     }
 
     #[test]
     fn role_serde_kebab() {
-        assert_eq!(serde_json::to_string(&SrpRole::Conductor).unwrap(), "\"conductor\"");
-        assert_eq!(serde_json::to_string(&SrpRole::Oracle).unwrap(), "\"oracle\"");
+        assert_eq!(
+            serde_json::to_string(&SrpRole::Conductor).unwrap(),
+            "\"conductor\""
+        );
+        assert_eq!(
+            serde_json::to_string(&SrpRole::Oracle).unwrap(),
+            "\"oracle\""
+        );
     }
 
     #[test]

@@ -114,14 +114,18 @@ impl PrintOptions {
 
     /// Set scale.
     pub fn set_scale(&mut self, pct: u16) -> Result<(), PrintError> {
-        if !(50..=200).contains(&pct) { return Err(PrintError::BadScale(pct)); }
+        if !(50..=200).contains(&pct) {
+            return Err(PrintError::BadScale(pct));
+        }
         self.scale_pct = pct;
         Ok(())
     }
 
     /// Set copies.
     pub fn set_copies(&mut self, n: u16) -> Result<(), PrintError> {
-        if n == 0 { return Err(PrintError::ZeroCopies); }
+        if n == 0 {
+            return Err(PrintError::ZeroCopies);
+        }
         self.copies = n;
         Ok(())
     }
@@ -129,7 +133,9 @@ impl PrintOptions {
     /// Set page range.
     pub fn set_range(&mut self, range: PageRange) -> Result<(), PrintError> {
         if let PageRange::From { from, to } = &range {
-            if from > to { return Err(PrintError::BadRange(*from, *to)); }
+            if from > to {
+                return Err(PrintError::BadRange(*from, *to));
+            }
         }
         self.page_range = range;
         Ok(())
@@ -137,18 +143,28 @@ impl PrintOptions {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), PrintError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(PrintError::SchemaMismatch); }
-        if !(50..=200).contains(&self.scale_pct) { return Err(PrintError::BadScale(self.scale_pct)); }
-        if self.copies == 0 { return Err(PrintError::ZeroCopies); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(PrintError::SchemaMismatch);
+        }
+        if !(50..=200).contains(&self.scale_pct) {
+            return Err(PrintError::BadScale(self.scale_pct));
+        }
+        if self.copies == 0 {
+            return Err(PrintError::ZeroCopies);
+        }
         if let PageRange::From { from, to } = &self.page_range {
-            if from > to { return Err(PrintError::BadRange(*from, *to)); }
+            if from > to {
+                return Err(PrintError::BadRange(*from, *to));
+            }
         }
         Ok(())
     }
 }
 
 impl Default for PrintOptions {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -170,20 +186,33 @@ mod tests {
     #[test]
     fn set_scale_oob_rejected() {
         let mut p = PrintOptions::new();
-        assert!(matches!(p.set_scale(20).unwrap_err(), PrintError::BadScale(_)));
-        assert!(matches!(p.set_scale(250).unwrap_err(), PrintError::BadScale(_)));
+        assert!(matches!(
+            p.set_scale(20).unwrap_err(),
+            PrintError::BadScale(_)
+        ));
+        assert!(matches!(
+            p.set_scale(250).unwrap_err(),
+            PrintError::BadScale(_)
+        ));
     }
 
     #[test]
     fn copies_zero_rejected() {
         let mut p = PrintOptions::new();
-        assert!(matches!(p.set_copies(0).unwrap_err(), PrintError::ZeroCopies));
+        assert!(matches!(
+            p.set_copies(0).unwrap_err(),
+            PrintError::ZeroCopies
+        ));
     }
 
     #[test]
     fn range_from_gt_to_rejected() {
         let mut p = PrintOptions::new();
-        assert!(matches!(p.set_range(PageRange::From { from: 10, to: 5 }).unwrap_err(), PrintError::BadRange(_, _)));
+        assert!(matches!(
+            p.set_range(PageRange::From { from: 10, to: 5 })
+                .unwrap_err(),
+            PrintError::BadRange(_, _)
+        ));
     }
 
     #[test]
@@ -197,7 +226,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut p = PrintOptions::new();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), PrintError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            PrintError::SchemaMismatch
+        ));
     }
 
     #[test]

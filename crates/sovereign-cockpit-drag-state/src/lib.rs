@@ -80,18 +80,25 @@ impl DragState {
 
     /// Start dragging.
     pub fn start(&mut self, item_id: &str) -> Result<(), DragError> {
-        if item_id.is_empty() { return Err(DragError::EmptyItem); }
+        if item_id.is_empty() {
+            return Err(DragError::EmptyItem);
+        }
         if !matches!(self.phase, Phase::Idle | Phase::Completed { .. }) {
             return Err(DragError::InvalidTransition);
         }
-        self.phase = Phase::Dragging { item_id: item_id.into(), hovered_zone: None };
+        self.phase = Phase::Dragging {
+            item_id: item_id.into(),
+            hovered_zone: None,
+        };
         Ok(())
     }
 
     /// Set hovered zone.
     pub fn hover(&mut self, zone: Option<&str>) -> Result<(), DragError> {
         if let Some(z) = zone {
-            if z.is_empty() { return Err(DragError::EmptyZone); }
+            if z.is_empty() {
+                return Err(DragError::EmptyZone);
+            }
         }
         match &mut self.phase {
             Phase::Dragging { hovered_zone, .. } => {
@@ -105,10 +112,16 @@ impl DragState {
     /// Drop onto hovered zone (or specified zone).
     pub fn drop(&mut self) -> Result<(String, String), DragError> {
         let (item, zone) = match &self.phase {
-            Phase::Dragging { item_id, hovered_zone: Some(z) } => (item_id.clone(), z.clone()),
+            Phase::Dragging {
+                item_id,
+                hovered_zone: Some(z),
+            } => (item_id.clone(), z.clone()),
             _ => return Err(DragError::InvalidTransition),
         };
-        self.phase = Phase::Completed { item_id: item.clone(), dropped_zone: zone.clone() };
+        self.phase = Phase::Completed {
+            item_id: item.clone(),
+            dropped_zone: zone.clone(),
+        };
         self.drops = self.drops.saturating_add(1);
         Ok((item, zone))
     }
@@ -130,13 +143,17 @@ impl DragState {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), DragError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(DragError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(DragError::SchemaMismatch);
+        }
         Ok(())
     }
 }
 
 impl Default for DragState {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -158,7 +175,10 @@ mod tests {
     fn drop_without_hover_rejected() {
         let mut d = DragState::new();
         d.start("item1").unwrap();
-        assert!(matches!(d.drop().unwrap_err(), DragError::InvalidTransition));
+        assert!(matches!(
+            d.drop().unwrap_err(),
+            DragError::InvalidTransition
+        ));
     }
 
     #[test]
@@ -173,7 +193,10 @@ mod tests {
     #[test]
     fn hover_outside_drag_rejected() {
         let mut d = DragState::new();
-        assert!(matches!(d.hover(Some("z")).unwrap_err(), DragError::InvalidTransition));
+        assert!(matches!(
+            d.hover(Some("z")).unwrap_err(),
+            DragError::InvalidTransition
+        ));
     }
 
     #[test]
@@ -191,14 +214,20 @@ mod tests {
         let mut d = DragState::new();
         assert!(matches!(d.start("").unwrap_err(), DragError::EmptyItem));
         d.start("a").unwrap();
-        assert!(matches!(d.hover(Some("")).unwrap_err(), DragError::EmptyZone));
+        assert!(matches!(
+            d.hover(Some("")).unwrap_err(),
+            DragError::EmptyZone
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut d = DragState::new();
         d.schema_version = "9.9.9".into();
-        assert!(matches!(d.validate().unwrap_err(), DragError::SchemaMismatch));
+        assert!(matches!(
+            d.validate().unwrap_err(),
+            DragError::SchemaMismatch
+        ));
     }
 
     #[test]

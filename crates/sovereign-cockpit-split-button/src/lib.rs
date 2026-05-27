@@ -71,26 +71,43 @@ impl SplitButton {
 
     /// Add action.
     pub fn add_action(&mut self, id: &str, label: &str) -> Result<(), ButtonError> {
-        if id.is_empty() { return Err(ButtonError::EmptyId); }
-        if label.is_empty() { return Err(ButtonError::EmptyLabel); }
+        if id.is_empty() {
+            return Err(ButtonError::EmptyId);
+        }
+        if label.is_empty() {
+            return Err(ButtonError::EmptyLabel);
+        }
         if self.actions.iter().any(|a| a.id == id) {
             return Err(ButtonError::DuplicateId(id.into()));
         }
-        self.actions.push(Action { id: id.into(), label: label.into(), invokes: 0 });
+        self.actions.push(Action {
+            id: id.into(),
+            label: label.into(),
+            invokes: 0,
+        });
         Ok(())
     }
 
     /// Primary action.
-    pub fn primary(&self) -> Option<&Action> { self.actions.first() }
+    pub fn primary(&self) -> Option<&Action> {
+        self.actions.first()
+    }
 
     /// Menu actions (non-primary).
     pub fn menu(&self) -> &[Action] {
-        if self.actions.is_empty() { &[] } else { &self.actions[1..] }
+        if self.actions.is_empty() {
+            &[]
+        } else {
+            &self.actions[1..]
+        }
     }
 
     /// Promote action to primary by id.
     pub fn swap_primary(&mut self, id: &str) -> Result<(), ButtonError> {
-        let pos = self.actions.iter().position(|a| a.id == id)
+        let pos = self
+            .actions
+            .iter()
+            .position(|a| a.id == id)
             .ok_or_else(|| ButtonError::UnknownId(id.into()))?;
         if pos != 0 {
             let item = self.actions.remove(pos);
@@ -101,7 +118,10 @@ impl SplitButton {
 
     /// Invoke an action by id; bumps counter; promotes if configured.
     pub fn invoke(&mut self, id: &str) -> Result<(), ButtonError> {
-        let pos = self.actions.iter().position(|a| a.id == id)
+        let pos = self
+            .actions
+            .iter()
+            .position(|a| a.id == id)
             .ok_or_else(|| ButtonError::UnknownId(id.into()))?;
         self.actions[pos].invokes = self.actions[pos].invokes.saturating_add(1);
         if self.last_used_first && pos != 0 {
@@ -113,10 +133,16 @@ impl SplitButton {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ButtonError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ButtonError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ButtonError::SchemaMismatch);
+        }
         for a in &self.actions {
-            if a.id.is_empty() { return Err(ButtonError::EmptyId); }
-            if a.label.is_empty() { return Err(ButtonError::EmptyLabel); }
+            if a.id.is_empty() {
+                return Err(ButtonError::EmptyId);
+            }
+            if a.label.is_empty() {
+                return Err(ButtonError::EmptyLabel);
+            }
         }
         Ok(())
     }
@@ -181,20 +207,29 @@ mod tests {
     fn duplicate_rejected() {
         let mut b = SplitButton::new(false);
         b.add_action("a", "A").unwrap();
-        assert!(matches!(b.add_action("a", "A2").unwrap_err(), ButtonError::DuplicateId(_)));
+        assert!(matches!(
+            b.add_action("a", "A2").unwrap_err(),
+            ButtonError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn unknown_invoke_rejected() {
         let mut b = SplitButton::new(false);
-        assert!(matches!(b.invoke("nope").unwrap_err(), ButtonError::UnknownId(_)));
+        assert!(matches!(
+            b.invoke("nope").unwrap_err(),
+            ButtonError::UnknownId(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut b = SplitButton::new(false);
         b.schema_version = "9.9.9".into();
-        assert!(matches!(b.validate().unwrap_err(), ButtonError::SchemaMismatch));
+        assert!(matches!(
+            b.validate().unwrap_err(),
+            ButtonError::SchemaMismatch
+        ));
     }
 
     #[test]

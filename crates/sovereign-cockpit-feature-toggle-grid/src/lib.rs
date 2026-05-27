@@ -76,7 +76,9 @@ impl FeatureToggleGrid {
 
     /// Register.
     pub fn register(&mut self, t: Toggle) -> Result<(), GridError> {
-        if t.id.is_empty() { return Err(GridError::EmptyId); }
+        if t.id.is_empty() {
+            return Err(GridError::EmptyId);
+        }
         if self.toggles.contains_key(&t.id) {
             return Err(GridError::DuplicateId(t.id));
         }
@@ -86,7 +88,10 @@ impl FeatureToggleGrid {
 
     /// Toggle.
     pub fn toggle(&mut self, id: &str) -> Result<bool, GridError> {
-        let t = self.toggles.get_mut(id).ok_or_else(|| GridError::UnknownId(id.into()))?;
+        let t = self
+            .toggles
+            .get_mut(id)
+            .ok_or_else(|| GridError::UnknownId(id.into()))?;
         if let Some(r) = &t.disabled_reason {
             return Err(GridError::Disabled(id.into(), r.clone()));
         }
@@ -96,14 +101,20 @@ impl FeatureToggleGrid {
 
     /// Disable with reason.
     pub fn disable(&mut self, id: &str, reason: &str) -> Result<(), GridError> {
-        let t = self.toggles.get_mut(id).ok_or_else(|| GridError::UnknownId(id.into()))?;
+        let t = self
+            .toggles
+            .get_mut(id)
+            .ok_or_else(|| GridError::UnknownId(id.into()))?;
         t.disabled_reason = Some(reason.into());
         Ok(())
     }
 
     /// Clear disable.
     pub fn clear_disable(&mut self, id: &str) -> Result<(), GridError> {
-        let t = self.toggles.get_mut(id).ok_or_else(|| GridError::UnknownId(id.into()))?;
+        let t = self
+            .toggles
+            .get_mut(id)
+            .ok_or_else(|| GridError::UnknownId(id.into()))?;
         t.disabled_reason = None;
         Ok(())
     }
@@ -122,16 +133,22 @@ impl FeatureToggleGrid {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), GridError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(GridError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(GridError::SchemaMismatch);
+        }
         for (id, _) in &self.toggles {
-            if id.is_empty() { return Err(GridError::EmptyId); }
+            if id.is_empty() {
+                return Err(GridError::EmptyId);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for FeatureToggleGrid {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -161,7 +178,10 @@ mod tests {
     fn duplicate_rejected() {
         let mut g = FeatureToggleGrid::new();
         g.register(t("dark", "x", false)).unwrap();
-        assert!(matches!(g.register(t("dark", "y", true)).unwrap_err(), GridError::DuplicateId(_)));
+        assert!(matches!(
+            g.register(t("dark", "y", true)).unwrap_err(),
+            GridError::DuplicateId(_)
+        ));
     }
 
     #[test]
@@ -169,7 +189,10 @@ mod tests {
         let mut g = FeatureToggleGrid::new();
         g.register(t("dark", "x", false)).unwrap();
         g.disable("dark", "policy: light only").unwrap();
-        assert!(matches!(g.toggle("dark").unwrap_err(), GridError::Disabled(_, _)));
+        assert!(matches!(
+            g.toggle("dark").unwrap_err(),
+            GridError::Disabled(_, _)
+        ));
     }
 
     #[test]
@@ -198,27 +221,39 @@ mod tests {
         g.register(t("z", "Appearance", false)).unwrap();
         g.register(t("a", "Appearance", false)).unwrap();
         let by_group = g.visible_by_group();
-        let labels: Vec<_> = by_group["Appearance"].iter().map(|t| t.label.clone()).collect();
+        let labels: Vec<_> = by_group["Appearance"]
+            .iter()
+            .map(|t| t.label.clone())
+            .collect();
         assert_eq!(labels, vec!["a", "z"]);
     }
 
     #[test]
     fn unknown_id() {
         let mut g = FeatureToggleGrid::new();
-        assert!(matches!(g.toggle("nope").unwrap_err(), GridError::UnknownId(_)));
+        assert!(matches!(
+            g.toggle("nope").unwrap_err(),
+            GridError::UnknownId(_)
+        ));
     }
 
     #[test]
     fn empty_id_rejected() {
         let mut g = FeatureToggleGrid::new();
-        assert!(matches!(g.register(t("", "x", false)).unwrap_err(), GridError::EmptyId));
+        assert!(matches!(
+            g.register(t("", "x", false)).unwrap_err(),
+            GridError::EmptyId
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut g = FeatureToggleGrid::new();
         g.schema_version = "9.9.9".into();
-        assert!(matches!(g.validate().unwrap_err(), GridError::SchemaMismatch));
+        assert!(matches!(
+            g.validate().unwrap_err(),
+            GridError::SchemaMismatch
+        ));
     }
 
     #[test]

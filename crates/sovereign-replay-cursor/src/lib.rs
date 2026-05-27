@@ -12,9 +12,9 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+use serde::{Deserialize, Serialize};
 use sovereign_conversation_thread::{ConversationThread, Turn, TurnRole};
 use sovereign_execution_mode_registry::ExecutionMode;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// Schema version.
@@ -123,7 +123,9 @@ impl ReplayCursor {
 
     /// Pause.
     pub fn pause(&mut self) {
-        if self.state == PlaybackState::Running { self.state = PlaybackState::Paused; }
+        if self.state == PlaybackState::Running {
+            self.state = PlaybackState::Paused;
+        }
     }
 
     /// Resume from Paused. The next `step()` will not re-arm the breakpoint
@@ -138,7 +140,10 @@ impl ReplayCursor {
     /// Step one turn forward.
     /// Returns the played `Turn` clone, or `None` if at end.
     /// Honors the breakpoint role (pauses before a matching role).
-    pub fn step<'a>(&mut self, thread: &'a ConversationThread) -> Result<Option<&'a Turn>, CursorError> {
+    pub fn step<'a>(
+        &mut self,
+        thread: &'a ConversationThread,
+    ) -> Result<Option<&'a Turn>, CursorError> {
         self.validate(thread)?;
         if self.mode != ExecutionMode::Replay {
             return Err(CursorError::NotReplayMode(self.mode));
@@ -170,10 +175,17 @@ impl ReplayCursor {
     /// Seek to an arbitrary index.
     pub fn jump_to(&mut self, idx: u32) -> Result<(), CursorError> {
         if idx > self.total_turns {
-            return Err(CursorError::JumpOutOfBounds { idx, total: self.total_turns });
+            return Err(CursorError::JumpOutOfBounds {
+                idx,
+                total: self.total_turns,
+            });
         }
         self.next_index = idx;
-        self.state = if idx == self.total_turns { PlaybackState::Finished } else { PlaybackState::Running };
+        self.state = if idx == self.total_turns {
+            PlaybackState::Finished
+        } else {
+            PlaybackState::Running
+        };
         Ok(())
     }
 
@@ -252,7 +264,9 @@ mod tests {
     #[test]
     fn breakpoint_pauses_before_role() {
         let th = thread_3();
-        let mut c = ReplayCursor::open(&th, ExecutionMode::Replay).unwrap().with_breakpoint(TurnRole::Tool);
+        let mut c = ReplayCursor::open(&th, ExecutionMode::Replay)
+            .unwrap()
+            .with_breakpoint(TurnRole::Tool);
         // Operator advances, Model advances, then Tool triggers breakpoint pause.
         assert!(c.step(&th).unwrap().is_some()); // Operator
         assert!(c.step(&th).unwrap().is_some()); // Model
@@ -265,7 +279,9 @@ mod tests {
     #[test]
     fn resume_after_breakpoint_advances() {
         let th = thread_3();
-        let mut c = ReplayCursor::open(&th, ExecutionMode::Replay).unwrap().with_breakpoint(TurnRole::Tool);
+        let mut c = ReplayCursor::open(&th, ExecutionMode::Replay)
+            .unwrap()
+            .with_breakpoint(TurnRole::Tool);
         c.step(&th).unwrap();
         c.step(&th).unwrap();
         c.step(&th).unwrap_err(); // breakpoint
@@ -288,7 +304,10 @@ mod tests {
     fn jump_out_of_bounds_rejected() {
         let th = thread_3();
         let mut c = ReplayCursor::open(&th, ExecutionMode::Replay).unwrap();
-        assert!(matches!(c.jump_to(10).unwrap_err(), CursorError::JumpOutOfBounds { .. }));
+        assert!(matches!(
+            c.jump_to(10).unwrap_err(),
+            CursorError::JumpOutOfBounds { .. }
+        ));
     }
 
     #[test]
@@ -305,7 +324,10 @@ mod tests {
         let th = thread_3();
         let mut c = ReplayCursor::open(&th, ExecutionMode::Replay).unwrap();
         c.thread_id = "wrong".into();
-        assert!(matches!(c.validate(&th).unwrap_err(), CursorError::ThreadMismatch { .. }));
+        assert!(matches!(
+            c.validate(&th).unwrap_err(),
+            CursorError::ThreadMismatch { .. }
+        ));
     }
 
     #[test]
@@ -313,7 +335,13 @@ mod tests {
         let th = thread_3();
         let mut c = ReplayCursor::open(&th, ExecutionMode::Replay).unwrap();
         c.total_turns = 99;
-        assert!(matches!(c.validate(&th).unwrap_err(), CursorError::CountMismatch { cursor: 99, thread: 3 }));
+        assert!(matches!(
+            c.validate(&th).unwrap_err(),
+            CursorError::CountMismatch {
+                cursor: 99,
+                thread: 3
+            }
+        ));
     }
 
     #[test]
@@ -327,7 +355,9 @@ mod tests {
     #[test]
     fn cursor_serde_roundtrip() {
         let th = thread_3();
-        let c = ReplayCursor::open(&th, ExecutionMode::Replay).unwrap().with_breakpoint(TurnRole::Operator);
+        let c = ReplayCursor::open(&th, ExecutionMode::Replay)
+            .unwrap()
+            .with_breakpoint(TurnRole::Operator);
         let j = serde_json::to_string(&c).unwrap();
         let back: ReplayCursor = serde_json::from_str(&j).unwrap();
         assert_eq!(c, back);

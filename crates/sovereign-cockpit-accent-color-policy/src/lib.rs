@@ -44,7 +44,9 @@ pub enum ColorError {
 fn parse_hex(hex: &str) -> Result<(u8, u8, u8), ColorError> {
     let s = hex.trim();
     let s = s.strip_prefix('#').unwrap_or(s);
-    if s.len() != 6 { return Err(ColorError::BadHex(hex.into())); }
+    if s.len() != 6 {
+        return Err(ColorError::BadHex(hex.into()));
+    }
     let r = u8::from_str_radix(&s[0..2], 16).map_err(|_| ColorError::BadHex(hex.into()))?;
     let g = u8::from_str_radix(&s[2..4], 16).map_err(|_| ColorError::BadHex(hex.into()))?;
     let b = u8::from_str_radix(&s[4..6], 16).map_err(|_| ColorError::BadHex(hex.into()))?;
@@ -58,7 +60,9 @@ impl AccentColorPolicy {
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             hex: format!("#{r:02x}{g:02x}{b:02x}"),
-            r, g, b,
+            r,
+            g,
+            b,
         })
     }
 
@@ -86,7 +90,9 @@ impl AccentColorPolicy {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ColorError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ColorError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ColorError::SchemaMismatch);
+        }
         Ok(())
     }
 }
@@ -111,9 +117,18 @@ mod tests {
 
     #[test]
     fn bad_hex_rejected() {
-        assert!(matches!(AccentColorPolicy::new("not-a-color").unwrap_err(), ColorError::BadHex(_)));
-        assert!(matches!(AccentColorPolicy::new("#gghhii").unwrap_err(), ColorError::BadHex(_)));
-        assert!(matches!(AccentColorPolicy::new("#333").unwrap_err(), ColorError::BadHex(_)));
+        assert!(matches!(
+            AccentColorPolicy::new("not-a-color").unwrap_err(),
+            ColorError::BadHex(_)
+        ));
+        assert!(matches!(
+            AccentColorPolicy::new("#gghhii").unwrap_err(),
+            ColorError::BadHex(_)
+        ));
+        assert!(matches!(
+            AccentColorPolicy::new("#333").unwrap_err(),
+            ColorError::BadHex(_)
+        ));
     }
 
     #[test]
@@ -143,7 +158,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut c = AccentColorPolicy::new("#000000").unwrap();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), ColorError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            ColorError::SchemaMismatch
+        ));
     }
 
     #[test]

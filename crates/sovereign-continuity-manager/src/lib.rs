@@ -72,8 +72,10 @@ impl ContinuityState {
     pub fn is_resumable(self) -> bool {
         matches!(
             self,
-            ContinuityState::Paused | ContinuityState::Hibernated
-            | ContinuityState::Checkpointed | ContinuityState::Archived
+            ContinuityState::Paused
+                | ContinuityState::Hibernated
+                | ContinuityState::Checkpointed
+                | ContinuityState::Archived
         )
     }
 }
@@ -116,14 +118,17 @@ pub enum ContinuityError {
 pub fn is_allowed_transition(from: ContinuityState, to: ContinuityState) -> bool {
     use ContinuityState::*;
     match (from, to) {
-        (Active, Paused | Hibernated | Checkpointed | Archived | Quarantined | Promoted | RolledBack) => true,
+        (
+            Active,
+            Paused | Hibernated | Checkpointed | Archived | Quarantined | Promoted | RolledBack,
+        ) => true,
         (Paused, Active | Hibernated | Quarantined | Archived) => true,
         (Hibernated, Active | Archived | Quarantined) => true,
         (Checkpointed, Active | Archived | Quarantined) => true,
-        (Archived, Active) => true,  // archive→re-activate
-        (Quarantined, Active | Archived) => true,  // operator-signed release
-        (Promoted, Active) => true,  // already promoted, back to active
-        (RolledBack, Active) => true, // post-rollback resume
+        (Archived, Active) => true,               // archive→re-activate
+        (Quarantined, Active | Archived) => true, // operator-signed release
+        (Promoted, Active) => true,               // already promoted, back to active
+        (RolledBack, Active) => true,             // post-rollback resume
         _ => false,
     }
 }
@@ -140,7 +145,10 @@ pub fn transition(
         return Err(ContinuityError::Unsigned);
     }
     if !is_allowed_transition(rec.state, to) {
-        return Err(ContinuityError::InvalidTransition { from: rec.state, to });
+        return Err(ContinuityError::InvalidTransition {
+            from: rec.state,
+            to,
+        });
     }
     rec.state = to;
     rec.last_primitive = primitive;
@@ -166,10 +174,14 @@ mod tests {
     #[test]
     fn eight_states_positioned_1_to_8() {
         for (s, p) in [
-            (ContinuityState::Active, 1), (ContinuityState::Paused, 2),
-            (ContinuityState::Hibernated, 3), (ContinuityState::Checkpointed, 4),
-            (ContinuityState::Archived, 5), (ContinuityState::Quarantined, 6),
-            (ContinuityState::Promoted, 7), (ContinuityState::RolledBack, 8),
+            (ContinuityState::Active, 1),
+            (ContinuityState::Paused, 2),
+            (ContinuityState::Hibernated, 3),
+            (ContinuityState::Checkpointed, 4),
+            (ContinuityState::Archived, 5),
+            (ContinuityState::Quarantined, 6),
+            (ContinuityState::Promoted, 7),
+            (ContinuityState::RolledBack, 8),
         ] {
             assert_eq!(s.position(), p);
         }
@@ -178,8 +190,10 @@ mod tests {
     #[test]
     fn resumable_states() {
         for s in [
-            ContinuityState::Paused, ContinuityState::Hibernated,
-            ContinuityState::Checkpointed, ContinuityState::Archived,
+            ContinuityState::Paused,
+            ContinuityState::Hibernated,
+            ContinuityState::Checkpointed,
+            ContinuityState::Archived,
         ] {
             assert!(s.is_resumable(), "{s:?} should be resumable");
         }
@@ -192,21 +206,33 @@ mod tests {
     #[test]
     fn allowed_transitions_from_active() {
         for to in [
-            ContinuityState::Paused, ContinuityState::Hibernated,
-            ContinuityState::Checkpointed, ContinuityState::Archived,
-            ContinuityState::Quarantined, ContinuityState::Promoted,
+            ContinuityState::Paused,
+            ContinuityState::Hibernated,
+            ContinuityState::Checkpointed,
+            ContinuityState::Archived,
+            ContinuityState::Quarantined,
+            ContinuityState::Promoted,
             ContinuityState::RolledBack,
         ] {
-            assert!(is_allowed_transition(ContinuityState::Active, to), "Active → {to:?}");
+            assert!(
+                is_allowed_transition(ContinuityState::Active, to),
+                "Active → {to:?}"
+            );
         }
     }
 
     #[test]
     fn disallowed_transitions_caught() {
         // Promoted → Quarantined would skip the active intermediate.
-        assert!(!is_allowed_transition(ContinuityState::Promoted, ContinuityState::Quarantined));
+        assert!(!is_allowed_transition(
+            ContinuityState::Promoted,
+            ContinuityState::Quarantined
+        ));
         // RolledBack → Hibernated must go through Active first.
-        assert!(!is_allowed_transition(ContinuityState::RolledBack, ContinuityState::Hibernated));
+        assert!(!is_allowed_transition(
+            ContinuityState::RolledBack,
+            ContinuityState::Hibernated
+        ));
     }
 
     #[test]
@@ -231,8 +257,14 @@ mod tests {
     #[test]
     fn transition_applies_primitive_and_signature() {
         let mut r = rec();
-        transition(&mut r, ContinuityState::Hibernated, Some(ContinuityPrimitive::PodmanCriu),
-                   "sig-xyz", "2026-05-19T03:00:00Z").unwrap();
+        transition(
+            &mut r,
+            ContinuityState::Hibernated,
+            Some(ContinuityPrimitive::PodmanCriu),
+            "sig-xyz",
+            "2026-05-19T03:00:00Z",
+        )
+        .unwrap();
         assert_eq!(r.state, ContinuityState::Hibernated);
         assert_eq!(r.last_primitive, Some(ContinuityPrimitive::PodmanCriu));
         assert_eq!(r.signature, "sig-xyz");
@@ -242,25 +274,46 @@ mod tests {
     #[test]
     fn six_primitives_enumerated() {
         let all = [
-            ContinuityPrimitive::ZfsSnapshots, ContinuityPrimitive::PodmanCriu,
-            ContinuityPrimitive::WorkflowHibernation, ContinuityPrimitive::ContextCompaction,
-            ContinuityPrimitive::WarmPools, ContinuityPrimitive::SessionResume,
+            ContinuityPrimitive::ZfsSnapshots,
+            ContinuityPrimitive::PodmanCriu,
+            ContinuityPrimitive::WorkflowHibernation,
+            ContinuityPrimitive::ContextCompaction,
+            ContinuityPrimitive::WarmPools,
+            ContinuityPrimitive::SessionResume,
         ];
         assert_eq!(all.len(), 6);
     }
 
     #[test]
     fn continuity_state_serde_kebab() {
-        assert_eq!(serde_json::to_string(&ContinuityState::Hibernated).unwrap(), "\"hibernated\"");
-        assert_eq!(serde_json::to_string(&ContinuityState::RolledBack).unwrap(), "\"rolled-back\"");
-        assert_eq!(serde_json::to_string(&ContinuityState::Quarantined).unwrap(), "\"quarantined\"");
+        assert_eq!(
+            serde_json::to_string(&ContinuityState::Hibernated).unwrap(),
+            "\"hibernated\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ContinuityState::RolledBack).unwrap(),
+            "\"rolled-back\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ContinuityState::Quarantined).unwrap(),
+            "\"quarantined\""
+        );
     }
 
     #[test]
     fn continuity_primitive_serde_kebab() {
-        assert_eq!(serde_json::to_string(&ContinuityPrimitive::PodmanCriu).unwrap(), "\"podman-criu\"");
-        assert_eq!(serde_json::to_string(&ContinuityPrimitive::WorkflowHibernation).unwrap(), "\"workflow-hibernation\"");
-        assert_eq!(serde_json::to_string(&ContinuityPrimitive::ZfsSnapshots).unwrap(), "\"zfs-snapshots\"");
+        assert_eq!(
+            serde_json::to_string(&ContinuityPrimitive::PodmanCriu).unwrap(),
+            "\"podman-criu\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ContinuityPrimitive::WorkflowHibernation).unwrap(),
+            "\"workflow-hibernation\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ContinuityPrimitive::ZfsSnapshots).unwrap(),
+            "\"zfs-snapshots\""
+        );
     }
 
     #[test]

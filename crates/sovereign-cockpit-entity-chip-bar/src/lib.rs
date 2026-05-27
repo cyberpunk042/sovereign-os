@@ -63,7 +63,9 @@ pub enum BarError {
 impl EntityChipBar {
     /// New.
     pub fn new(max_visible: u32) -> Result<Self, BarError> {
-        if max_visible == 0 { return Err(BarError::ZeroMax); }
+        if max_visible == 0 {
+            return Err(BarError::ZeroMax);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             max_visible,
@@ -73,13 +75,23 @@ impl EntityChipBar {
 
     /// Append.
     pub fn add(&mut self, id: &str, label: &str, kind: &str) -> Result<(), BarError> {
-        if id.is_empty() { return Err(BarError::EmptyId); }
-        if label.is_empty() { return Err(BarError::EmptyLabel); }
-        if kind.is_empty() { return Err(BarError::EmptyKind); }
+        if id.is_empty() {
+            return Err(BarError::EmptyId);
+        }
+        if label.is_empty() {
+            return Err(BarError::EmptyLabel);
+        }
+        if kind.is_empty() {
+            return Err(BarError::EmptyKind);
+        }
         if self.chips.iter().any(|c| c.id == id) {
             return Err(BarError::DuplicateId(id.into()));
         }
-        self.chips.push(Chip { id: id.into(), label: label.into(), kind: kind.into() });
+        self.chips.push(Chip {
+            id: id.into(),
+            label: label.into(),
+            kind: kind.into(),
+        });
         Ok(())
     }
 
@@ -99,24 +111,41 @@ impl EntityChipBar {
         if self.chips.len() <= max {
             (self.chips.iter().collect(), 0)
         } else {
-            (self.chips.iter().take(max).collect(), (self.chips.len() - max) as u32)
+            (
+                self.chips.iter().take(max).collect(),
+                (self.chips.len() - max) as u32,
+            )
         }
     }
 
     /// Count.
-    pub fn len(&self) -> usize { self.chips.len() }
+    pub fn len(&self) -> usize {
+        self.chips.len()
+    }
 
     /// Empty?
-    pub fn is_empty(&self) -> bool { self.chips.is_empty() }
+    pub fn is_empty(&self) -> bool {
+        self.chips.is_empty()
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), BarError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(BarError::SchemaMismatch); }
-        if self.max_visible == 0 { return Err(BarError::ZeroMax); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(BarError::SchemaMismatch);
+        }
+        if self.max_visible == 0 {
+            return Err(BarError::ZeroMax);
+        }
         for c in &self.chips {
-            if c.id.is_empty() { return Err(BarError::EmptyId); }
-            if c.label.is_empty() { return Err(BarError::EmptyLabel); }
-            if c.kind.is_empty() { return Err(BarError::EmptyKind); }
+            if c.id.is_empty() {
+                return Err(BarError::EmptyId);
+            }
+            if c.label.is_empty() {
+                return Err(BarError::EmptyLabel);
+            }
+            if c.kind.is_empty() {
+                return Err(BarError::EmptyKind);
+            }
         }
         Ok(())
     }
@@ -159,23 +188,41 @@ mod tests {
     fn duplicate_id_rejected() {
         let mut b = EntityChipBar::new(3).unwrap();
         b.add("u1", "X", "user").unwrap();
-        assert!(matches!(b.add("u1", "Y", "user").unwrap_err(), BarError::DuplicateId(_)));
+        assert!(matches!(
+            b.add("u1", "Y", "user").unwrap_err(),
+            BarError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut b = EntityChipBar::new(3).unwrap();
-        assert!(matches!(b.add("", "X", "user").unwrap_err(), BarError::EmptyId));
-        assert!(matches!(b.add("i", "", "user").unwrap_err(), BarError::EmptyLabel));
-        assert!(matches!(b.add("i", "X", "").unwrap_err(), BarError::EmptyKind));
-        assert!(matches!(EntityChipBar::new(0).unwrap_err(), BarError::ZeroMax));
+        assert!(matches!(
+            b.add("", "X", "user").unwrap_err(),
+            BarError::EmptyId
+        ));
+        assert!(matches!(
+            b.add("i", "", "user").unwrap_err(),
+            BarError::EmptyLabel
+        ));
+        assert!(matches!(
+            b.add("i", "X", "").unwrap_err(),
+            BarError::EmptyKind
+        ));
+        assert!(matches!(
+            EntityChipBar::new(0).unwrap_err(),
+            BarError::ZeroMax
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut b = EntityChipBar::new(3).unwrap();
         b.schema_version = "9.9.9".into();
-        assert!(matches!(b.validate().unwrap_err(), BarError::SchemaMismatch));
+        assert!(matches!(
+            b.validate().unwrap_err(),
+            BarError::SchemaMismatch
+        ));
     }
 
     #[test]

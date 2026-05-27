@@ -70,28 +70,43 @@ impl CodeFold {
 
     /// Add region (unfolded).
     pub fn add(&mut self, id: &str, start_line: u32, end_line: u32) -> Result<(), FoldError> {
-        if id.is_empty() { return Err(FoldError::EmptyId); }
-        if start_line == 0 || start_line > end_line { return Err(FoldError::BadRange); }
-        if self.regions.contains_key(id) { return Err(FoldError::DuplicateId(id.into())); }
-        self.regions.insert(id.into(), Region {
-            id: id.into(),
-            start_line,
-            end_line,
-            folded: false,
-        });
+        if id.is_empty() {
+            return Err(FoldError::EmptyId);
+        }
+        if start_line == 0 || start_line > end_line {
+            return Err(FoldError::BadRange);
+        }
+        if self.regions.contains_key(id) {
+            return Err(FoldError::DuplicateId(id.into()));
+        }
+        self.regions.insert(
+            id.into(),
+            Region {
+                id: id.into(),
+                start_line,
+                end_line,
+                folded: false,
+            },
+        );
         Ok(())
     }
 
     /// Toggle folded.
     pub fn toggle(&mut self, id: &str) -> Result<bool, FoldError> {
-        let r = self.regions.get_mut(id).ok_or_else(|| FoldError::UnknownId(id.into()))?;
+        let r = self
+            .regions
+            .get_mut(id)
+            .ok_or_else(|| FoldError::UnknownId(id.into()))?;
         r.folded = !r.folded;
         Ok(r.folded)
     }
 
     /// Set folded explicitly.
     pub fn set_folded(&mut self, id: &str, folded: bool) -> Result<(), FoldError> {
-        let r = self.regions.get_mut(id).ok_or_else(|| FoldError::UnknownId(id.into()))?;
+        let r = self
+            .regions
+            .get_mut(id)
+            .ok_or_else(|| FoldError::UnknownId(id.into()))?;
         r.folded = folded;
         Ok(())
     }
@@ -101,12 +116,16 @@ impl CodeFold {
         // Mark hidden lines.
         let mut hidden = vec![false; total_lines as usize + 1]; // 1-based.
         for r in self.regions.values() {
-            if !r.folded { continue; }
+            if !r.folded {
+                continue;
+            }
             // Hide start_line+1 .. end_line (start_line itself remains as fold-anchor).
             let lo = (r.start_line + 1).min(total_lines + 1) as usize;
             let hi = r.end_line.min(total_lines) as usize;
             if lo <= hi {
-                for i in lo..=hi { hidden[i] = true; }
+                for i in lo..=hi {
+                    hidden[i] = true;
+                }
             }
         }
         (1..=total_lines).filter(|&l| !hidden[l as usize]).collect()
@@ -114,17 +133,25 @@ impl CodeFold {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), FoldError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(FoldError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(FoldError::SchemaMismatch);
+        }
         for r in self.regions.values() {
-            if r.id.is_empty() { return Err(FoldError::EmptyId); }
-            if r.start_line == 0 || r.start_line > r.end_line { return Err(FoldError::BadRange); }
+            if r.id.is_empty() {
+                return Err(FoldError::EmptyId);
+            }
+            if r.start_line == 0 || r.start_line > r.end_line {
+                return Err(FoldError::BadRange);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for CodeFold {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -178,21 +205,30 @@ mod tests {
     #[test]
     fn unknown_toggle_rejected() {
         let mut f = CodeFold::new();
-        assert!(matches!(f.toggle("nope").unwrap_err(), FoldError::UnknownId(_)));
+        assert!(matches!(
+            f.toggle("nope").unwrap_err(),
+            FoldError::UnknownId(_)
+        ));
     }
 
     #[test]
     fn duplicate_rejected() {
         let mut f = CodeFold::new();
         f.add("a", 1, 5).unwrap();
-        assert!(matches!(f.add("a", 6, 10).unwrap_err(), FoldError::DuplicateId(_)));
+        assert!(matches!(
+            f.add("a", 6, 10).unwrap_err(),
+            FoldError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut f = CodeFold::new();
         f.schema_version = "9.9.9".into();
-        assert!(matches!(f.validate().unwrap_err(), FoldError::SchemaMismatch));
+        assert!(matches!(
+            f.validate().unwrap_err(),
+            FoldError::SchemaMismatch
+        ));
     }
 
     #[test]

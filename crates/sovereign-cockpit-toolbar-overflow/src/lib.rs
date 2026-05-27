@@ -73,7 +73,10 @@ pub struct ToolbarOverflow;
 
 impl ToolbarOverflow {
     /// Partition.
-    pub fn partition(items: &[ToolbarItem], container_width_px: u32) -> Result<Partition, ToolbarError> {
+    pub fn partition(
+        items: &[ToolbarItem],
+        container_width_px: u32,
+    ) -> Result<Partition, ToolbarError> {
         check_items(items)?;
         if container_width_px == 0 {
             return Err(ToolbarError::ContainerZero);
@@ -133,9 +136,15 @@ fn check_items(items: &[ToolbarItem]) -> Result<(), ToolbarError> {
     use std::collections::HashSet;
     let mut seen: HashSet<&str> = HashSet::new();
     for it in items {
-        if it.id.is_empty() { return Err(ToolbarError::EmptyId); }
-        if it.label.is_empty() { return Err(ToolbarError::EmptyLabel(it.id.clone())); }
-        if it.width_px == 0 { return Err(ToolbarError::WidthZero(it.id.clone())); }
+        if it.id.is_empty() {
+            return Err(ToolbarError::EmptyId);
+        }
+        if it.label.is_empty() {
+            return Err(ToolbarError::EmptyLabel(it.id.clone()));
+        }
+        if it.width_px == 0 {
+            return Err(ToolbarError::WidthZero(it.id.clone()));
+        }
         if !seen.insert(it.id.as_str()) {
             return Err(ToolbarError::DuplicateId(it.id.clone()));
         }
@@ -148,7 +157,12 @@ mod tests {
     use super::*;
 
     fn it(id: &str, w: u32, p: u32) -> ToolbarItem {
-        ToolbarItem { id: id.into(), label: format!("L-{id}"), width_px: w, priority: p }
+        ToolbarItem {
+            id: id.into(),
+            label: format!("L-{id}"),
+            width_px: w,
+            priority: p,
+        }
     }
 
     #[test]
@@ -161,11 +175,7 @@ mod tests {
 
     #[test]
     fn highest_priority_wins_visible() {
-        let items = vec![
-            it("a", 100, 5),
-            it("b", 100, 1),
-            it("c", 100, 9),
-        ];
+        let items = vec![it("a", 100, 5), it("b", 100, 1), it("c", 100, 9)];
         // Container 150 -> budget after overflow button (32) = 118.
         // Only one 100-wide item fits (the highest priority = "b").
         let p = ToolbarOverflow::partition(&items, 150).unwrap();
@@ -217,20 +227,29 @@ mod tests {
     fn empty_id_rejected() {
         let mut x = it("a", 10, 0);
         x.id = String::new();
-        assert!(matches!(ToolbarOverflow::partition(&[x], 100).unwrap_err(), ToolbarError::EmptyId));
+        assert!(matches!(
+            ToolbarOverflow::partition(&[x], 100).unwrap_err(),
+            ToolbarError::EmptyId
+        ));
     }
 
     #[test]
     fn empty_label_rejected() {
         let mut x = it("a", 10, 0);
         x.label = String::new();
-        assert!(matches!(ToolbarOverflow::partition(&[x], 100).unwrap_err(), ToolbarError::EmptyLabel(_)));
+        assert!(matches!(
+            ToolbarOverflow::partition(&[x], 100).unwrap_err(),
+            ToolbarError::EmptyLabel(_)
+        ));
     }
 
     #[test]
     fn width_zero_rejected() {
         let x = it("a", 0, 0);
-        assert!(matches!(ToolbarOverflow::partition(&[x], 100).unwrap_err(), ToolbarError::WidthZero(_)));
+        assert!(matches!(
+            ToolbarOverflow::partition(&[x], 100).unwrap_err(),
+            ToolbarError::WidthZero(_)
+        ));
     }
 
     #[test]
@@ -243,8 +262,15 @@ mod tests {
 
     #[test]
     fn schema_drift_rejected() {
-        let mut p = Partition { schema_version: "9.9.9".into(), visible: vec![], overflow: vec![] };
-        assert!(matches!(p.validate().unwrap_err(), ToolbarError::SchemaMismatch));
+        let mut p = Partition {
+            schema_version: "9.9.9".into(),
+            visible: vec![],
+            overflow: vec![],
+        };
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            ToolbarError::SchemaMismatch
+        ));
         p.schema_version = SCHEMA_VERSION.into();
         p.validate().unwrap();
     }

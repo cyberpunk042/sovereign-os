@@ -66,7 +66,9 @@ pub enum SkeletonError {
 impl SkeletonList {
     /// New (Loading state, default 6 rows).
     pub fn new(row_count: u32, seed: u64) -> Result<Self, SkeletonError> {
-        if row_count == 0 { return Err(SkeletonError::RowCountZero); }
+        if row_count == 0 {
+            return Err(SkeletonError::RowCountZero);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             row_count,
@@ -93,10 +95,16 @@ impl SkeletonList {
         let mut out: Vec<SkeletonRow> = Vec::with_capacity(self.row_count as usize);
         for i in 0..self.row_count {
             // Deterministic pseudo-random pattern: hash(seed, i) % 5 → 60/70/80/90/100.
-            let h = self.seed.wrapping_mul(0x9E3779B97F4A7C15).wrapping_add(i as u64);
+            let h = self
+                .seed
+                .wrapping_mul(0x9E3779B97F4A7C15)
+                .wrapping_add(i as u64);
             let bucket = (h >> 16) % 5;
             let width_pct = 60 + (bucket * 10) as u8;
-            out.push(SkeletonRow { index: i, width_pct });
+            out.push(SkeletonRow {
+                index: i,
+                width_pct,
+            });
         }
         out
     }
@@ -106,7 +114,9 @@ impl SkeletonList {
         if self.schema_version != SCHEMA_VERSION {
             return Err(SkeletonError::SchemaMismatch);
         }
-        if self.row_count == 0 { return Err(SkeletonError::RowCountZero); }
+        if self.row_count == 0 {
+            return Err(SkeletonError::RowCountZero);
+        }
         Ok(())
     }
 }
@@ -117,7 +127,10 @@ mod tests {
 
     #[test]
     fn row_count_zero_rejected() {
-        assert!(matches!(SkeletonList::new(0, 42).unwrap_err(), SkeletonError::RowCountZero));
+        assert!(matches!(
+            SkeletonList::new(0, 42).unwrap_err(),
+            SkeletonError::RowCountZero
+        ));
     }
 
     #[test]
@@ -168,8 +181,18 @@ mod tests {
 
     #[test]
     fn rows_differ_per_seed() {
-        let a: Vec<u8> = SkeletonList::new(20, 1).unwrap().rows().iter().map(|r| r.width_pct).collect();
-        let b: Vec<u8> = SkeletonList::new(20, 2).unwrap().rows().iter().map(|r| r.width_pct).collect();
+        let a: Vec<u8> = SkeletonList::new(20, 1)
+            .unwrap()
+            .rows()
+            .iter()
+            .map(|r| r.width_pct)
+            .collect();
+        let b: Vec<u8> = SkeletonList::new(20, 2)
+            .unwrap()
+            .rows()
+            .iter()
+            .map(|r| r.width_pct)
+            .collect();
         assert_ne!(a, b);
     }
 
@@ -177,12 +200,18 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = SkeletonList::new(6, 42).unwrap();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), SkeletonError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SkeletonError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn state_serde_kebab() {
-        assert_eq!(serde_json::to_string(&LoadState::Loading).unwrap(), "\"loading\"");
+        assert_eq!(
+            serde_json::to_string(&LoadState::Loading).unwrap(),
+            "\"loading\""
+        );
     }
 
     #[test]

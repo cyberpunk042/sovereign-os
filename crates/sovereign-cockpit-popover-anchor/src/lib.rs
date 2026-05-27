@@ -77,9 +77,14 @@ impl PopoverAnchor {
     /// Resolve placement.
     pub fn resolve(
         &self,
-        ax: i32, ay: i32, aw: u32, ah: u32,
-        pw: u32, ph: u32,
-        vw: u32, vh: u32,
+        ax: i32,
+        ay: i32,
+        aw: u32,
+        ah: u32,
+        pw: u32,
+        ph: u32,
+        vw: u32,
+        vh: u32,
         preferred: Placement,
     ) -> AnchorResult {
         let gap = self.gap_px as i32;
@@ -91,16 +96,32 @@ impl PopoverAnchor {
         // Decide whether the preferred side fits; if not, flip.
         let placement = match preferred {
             Placement::Top => {
-                if ay - gap - ph_i >= 0 { Placement::Top } else { Placement::Bottom }
+                if ay - gap - ph_i >= 0 {
+                    Placement::Top
+                } else {
+                    Placement::Bottom
+                }
             }
             Placement::Bottom => {
-                if ay + ah as i32 + gap + ph_i <= vh_i { Placement::Bottom } else { Placement::Top }
+                if ay + ah as i32 + gap + ph_i <= vh_i {
+                    Placement::Bottom
+                } else {
+                    Placement::Top
+                }
             }
             Placement::Left => {
-                if ax - gap - pw_i >= 0 { Placement::Left } else { Placement::Right }
+                if ax - gap - pw_i >= 0 {
+                    Placement::Left
+                } else {
+                    Placement::Right
+                }
             }
             Placement::Right => {
-                if ax + aw as i32 + gap + pw_i <= vw_i { Placement::Right } else { Placement::Left }
+                if ax + aw as i32 + gap + pw_i <= vw_i {
+                    Placement::Right
+                } else {
+                    Placement::Left
+                }
             }
         };
 
@@ -113,19 +134,33 @@ impl PopoverAnchor {
         };
 
         // Clamp inside viewport.
-        if x < 0 { x = 0; }
-        if x + pw_i > vw_i { x = vw_i - pw_i; }
-        if x < 0 { x = 0; }
-        if y < 0 { y = 0; }
-        if y + ph_i > vh_i { y = vh_i - ph_i; }
-        if y < 0 { y = 0; }
+        if x < 0 {
+            x = 0;
+        }
+        if x + pw_i > vw_i {
+            x = vw_i - pw_i;
+        }
+        if x < 0 {
+            x = 0;
+        }
+        if y < 0 {
+            y = 0;
+        }
+        if y + ph_i > vh_i {
+            y = vh_i - ph_i;
+        }
+        if y < 0 {
+            y = 0;
+        }
 
         AnchorResult { x, y, placement }
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), AnchorError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(AnchorError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(AnchorError::SchemaMismatch);
+        }
         Ok(())
     }
 }
@@ -194,7 +229,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut a = PopoverAnchor::new(4);
         a.schema_version = "9.9.9".into();
-        assert!(matches!(a.validate().unwrap_err(), AnchorError::SchemaMismatch));
+        assert!(matches!(
+            a.validate().unwrap_err(),
+            AnchorError::SchemaMismatch
+        ));
     }
 
     #[test]

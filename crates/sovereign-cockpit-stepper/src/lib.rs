@@ -166,7 +166,9 @@ impl Stepper {
 
     /// Has every step finished (Done or Skipped)?
     pub fn is_complete(&self) -> bool {
-        self.steps.iter().all(|s| matches!(s.status, StepStatus::Done | StepStatus::Skipped))
+        self.steps
+            .iter()
+            .all(|s| matches!(s.status, StepStatus::Done | StepStatus::Skipped))
     }
 
     /// Currently active step.
@@ -225,7 +227,10 @@ mod tests {
 
     #[test]
     fn empty_rejected() {
-        assert!(matches!(Stepper::new(vec![]).unwrap_err(), StepperError::Empty));
+        assert!(matches!(
+            Stepper::new(vec![]).unwrap_err(),
+            StepperError::Empty
+        ));
     }
 
     #[test]
@@ -239,7 +244,10 @@ mod tests {
     #[test]
     fn cannot_next_without_complete() {
         let mut s = Stepper::new(vec![step("a", false), step("b", false)]).unwrap();
-        assert!(matches!(s.next().unwrap_err(), StepperError::StepIncomplete(_)));
+        assert!(matches!(
+            s.next().unwrap_err(),
+            StepperError::StepIncomplete(_)
+        ));
     }
 
     #[test]
@@ -263,7 +271,10 @@ mod tests {
     #[test]
     fn skip_nonskippable_rejected() {
         let mut s = Stepper::new(vec![step("a", false), step("b", false)]).unwrap();
-        assert!(matches!(s.skip_current().unwrap_err(), StepperError::NotSkippable(_)));
+        assert!(matches!(
+            s.skip_current().unwrap_err(),
+            StepperError::NotSkippable(_)
+        ));
     }
 
     #[test]
@@ -319,27 +330,42 @@ mod tests {
     fn empty_id_rejected() {
         let mut x = step("a", false);
         x.id = String::new();
-        assert!(matches!(Stepper::new(vec![x]).unwrap_err(), StepperError::EmptyId));
+        assert!(matches!(
+            Stepper::new(vec![x]).unwrap_err(),
+            StepperError::EmptyId
+        ));
     }
 
     #[test]
     fn empty_label_rejected() {
         let mut x = step("a", false);
         x.label = String::new();
-        assert!(matches!(Stepper::new(vec![x]).unwrap_err(), StepperError::EmptyLabel(_)));
+        assert!(matches!(
+            Stepper::new(vec![x]).unwrap_err(),
+            StepperError::EmptyLabel(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = Stepper::new(vec![step("a", false)]).unwrap();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), StepperError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            StepperError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn status_serde_kebab() {
-        assert_eq!(serde_json::to_string(&StepStatus::NotStarted).unwrap(), "\"not-started\"");
-        assert_eq!(serde_json::to_string(&StepStatus::Skipped).unwrap(), "\"skipped\"");
+        assert_eq!(
+            serde_json::to_string(&StepStatus::NotStarted).unwrap(),
+            "\"not-started\""
+        );
+        assert_eq!(
+            serde_json::to_string(&StepStatus::Skipped).unwrap(),
+            "\"skipped\""
+        );
     }
 
     #[test]

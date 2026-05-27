@@ -89,39 +89,61 @@ impl UploadProgress {
 
     /// Enqueue.
     pub fn enqueue(&mut self, file_id: &str, bytes_total: u64) -> Result<(), UploadError> {
-        if file_id.is_empty() { return Err(UploadError::EmptyFile); }
-        if bytes_total == 0 { return Err(UploadError::ZeroTotal); }
+        if file_id.is_empty() {
+            return Err(UploadError::EmptyFile);
+        }
+        if bytes_total == 0 {
+            return Err(UploadError::ZeroTotal);
+        }
         if self.uploads.contains_key(file_id) {
             return Err(UploadError::DuplicateFile(file_id.into()));
         }
-        self.uploads.insert(file_id.into(), Upload {
-            phase: Phase::Queued,
-            bytes_done: 0,
-            bytes_total,
-        });
+        self.uploads.insert(
+            file_id.into(),
+            Upload {
+                phase: Phase::Queued,
+                bytes_done: 0,
+                bytes_total,
+            },
+        );
         Ok(())
     }
 
     /// Start (Queued → Uploading).
     pub fn start(&mut self, file_id: &str) -> Result<(), UploadError> {
-        let u = self.uploads.get_mut(file_id).ok_or_else(|| UploadError::UnknownFile(file_id.into()))?;
-        if u.phase != Phase::Queued { return Err(UploadError::InvalidPhase); }
+        let u = self
+            .uploads
+            .get_mut(file_id)
+            .ok_or_else(|| UploadError::UnknownFile(file_id.into()))?;
+        if u.phase != Phase::Queued {
+            return Err(UploadError::InvalidPhase);
+        }
         u.phase = Phase::Uploading;
         Ok(())
     }
 
     /// Progress.
     pub fn progress(&mut self, file_id: &str, bytes_done: u64) -> Result<(), UploadError> {
-        let u = self.uploads.get_mut(file_id).ok_or_else(|| UploadError::UnknownFile(file_id.into()))?;
-        if u.phase != Phase::Uploading { return Err(UploadError::InvalidPhase); }
+        let u = self
+            .uploads
+            .get_mut(file_id)
+            .ok_or_else(|| UploadError::UnknownFile(file_id.into()))?;
+        if u.phase != Phase::Uploading {
+            return Err(UploadError::InvalidPhase);
+        }
         u.bytes_done = bytes_done.min(u.bytes_total);
         Ok(())
     }
 
     /// Complete.
     pub fn complete(&mut self, file_id: &str) -> Result<(), UploadError> {
-        let u = self.uploads.get_mut(file_id).ok_or_else(|| UploadError::UnknownFile(file_id.into()))?;
-        if u.phase != Phase::Uploading { return Err(UploadError::InvalidPhase); }
+        let u = self
+            .uploads
+            .get_mut(file_id)
+            .ok_or_else(|| UploadError::UnknownFile(file_id.into()))?;
+        if u.phase != Phase::Uploading {
+            return Err(UploadError::InvalidPhase);
+        }
         u.phase = Phase::Done;
         u.bytes_done = u.bytes_total;
         Ok(())
@@ -129,8 +151,13 @@ impl UploadProgress {
 
     /// Fail.
     pub fn fail(&mut self, file_id: &str, err: &str) -> Result<(), UploadError> {
-        if err.is_empty() { return Err(UploadError::EmptyError); }
-        let u = self.uploads.get_mut(file_id).ok_or_else(|| UploadError::UnknownFile(file_id.into()))?;
+        if err.is_empty() {
+            return Err(UploadError::EmptyError);
+        }
+        let u = self
+            .uploads
+            .get_mut(file_id)
+            .ok_or_else(|| UploadError::UnknownFile(file_id.into()))?;
         if !matches!(u.phase, Phase::Queued | Phase::Uploading) {
             return Err(UploadError::InvalidPhase);
         }
@@ -140,7 +167,10 @@ impl UploadProgress {
 
     /// Cancel.
     pub fn cancel(&mut self, file_id: &str) -> Result<(), UploadError> {
-        let u = self.uploads.get_mut(file_id).ok_or_else(|| UploadError::UnknownFile(file_id.into()))?;
+        let u = self
+            .uploads
+            .get_mut(file_id)
+            .ok_or_else(|| UploadError::UnknownFile(file_id.into()))?;
         if !matches!(u.phase, Phase::Queued | Phase::Uploading) {
             return Err(UploadError::InvalidPhase);
         }
@@ -157,23 +187,33 @@ impl UploadProgress {
             sum_done += u.bytes_done as u128;
             sum_total += u.bytes_total as u128;
         }
-        if sum_total == 0 { return 0; }
+        if sum_total == 0 {
+            return 0;
+        }
         ((sum_done * 10_000) / sum_total) as u32
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), UploadError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(UploadError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(UploadError::SchemaMismatch);
+        }
         for (k, u) in &self.uploads {
-            if k.is_empty() { return Err(UploadError::EmptyFile); }
-            if u.bytes_total == 0 { return Err(UploadError::ZeroTotal); }
+            if k.is_empty() {
+                return Err(UploadError::EmptyFile);
+            }
+            if u.bytes_total == 0 {
+                return Err(UploadError::ZeroTotal);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for UploadProgress {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -227,7 +267,10 @@ mod tests {
     fn duplicate_rejected() {
         let mut p = UploadProgress::new();
         p.enqueue("a", 100).unwrap();
-        assert!(matches!(p.enqueue("a", 200).unwrap_err(), UploadError::DuplicateFile(_)));
+        assert!(matches!(
+            p.enqueue("a", 200).unwrap_err(),
+            UploadError::DuplicateFile(_)
+        ));
     }
 
     #[test]
@@ -242,8 +285,14 @@ mod tests {
     #[test]
     fn empty_inputs_rejected() {
         let mut p = UploadProgress::new();
-        assert!(matches!(p.enqueue("", 100).unwrap_err(), UploadError::EmptyFile));
-        assert!(matches!(p.enqueue("a", 0).unwrap_err(), UploadError::ZeroTotal));
+        assert!(matches!(
+            p.enqueue("", 100).unwrap_err(),
+            UploadError::EmptyFile
+        ));
+        assert!(matches!(
+            p.enqueue("a", 0).unwrap_err(),
+            UploadError::ZeroTotal
+        ));
     }
 
     #[test]
@@ -252,14 +301,20 @@ mod tests {
         p.enqueue("a", 100).unwrap();
         p.start("a").unwrap();
         p.complete("a").unwrap();
-        assert!(matches!(p.progress("a", 50).unwrap_err(), UploadError::InvalidPhase));
+        assert!(matches!(
+            p.progress("a", 50).unwrap_err(),
+            UploadError::InvalidPhase
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut p = UploadProgress::new();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), UploadError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            UploadError::SchemaMismatch
+        ));
     }
 
     #[test]

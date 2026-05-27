@@ -26,8 +26,7 @@ use thiserror::Error;
 pub const SCHEMA_VERSION: &str = "1.0.0";
 
 /// Doctrine verbatim per F03773 dump 13636 + dump 13658-13660.
-pub const DOCTRINE_PRESSURE_AS_SENSATION: &str =
-    "PSI gives system pressure. DCGM gives GPU pressure. The runtime gives cost and attention pressure.";
+pub const DOCTRINE_PRESSURE_AS_SENSATION: &str = "PSI gives system pressure. DCGM gives GPU pressure. The runtime gives cost and attention pressure.";
 
 /// 6 pressure axes per E0430.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -129,9 +128,19 @@ impl PressureSnapshot {
             schema_version: SCHEMA_VERSION.into(),
             captured_at: "2026-05-19T00:00:00Z".into(),
             readings: [
-                PressureAxis::Cpu, PressureAxis::Memory, PressureAxis::Io,
-                PressureAxis::Gpu, PressureAxis::HumanAttention, PressureAxis::Cost,
-            ].into_iter().map(|a| AxisReading { axis: a, value: 0.0 }).collect(),
+                PressureAxis::Cpu,
+                PressureAxis::Memory,
+                PressureAxis::Io,
+                PressureAxis::Gpu,
+                PressureAxis::HumanAttention,
+                PressureAxis::Cost,
+            ]
+            .into_iter()
+            .map(|a| AxisReading {
+                axis: a,
+                value: 0.0,
+            })
+            .collect(),
         }
     }
 
@@ -148,12 +157,19 @@ impl PressureSnapshot {
         }
         for r in &self.readings {
             if !r.value.is_finite() || !(0.0..=1.0).contains(&r.value) {
-                return Err(PressureError::ValueOutOfRange { axis: r.axis, value: r.value });
+                return Err(PressureError::ValueOutOfRange {
+                    axis: r.axis,
+                    value: r.value,
+                });
             }
         }
         let required = [
-            PressureAxis::Cpu, PressureAxis::Memory, PressureAxis::Io,
-            PressureAxis::Gpu, PressureAxis::HumanAttention, PressureAxis::Cost,
+            PressureAxis::Cpu,
+            PressureAxis::Memory,
+            PressureAxis::Io,
+            PressureAxis::Gpu,
+            PressureAxis::HumanAttention,
+            PressureAxis::Cost,
         ];
         for a in required {
             if !self.readings.iter().any(|r| r.axis == a) {
@@ -172,12 +188,17 @@ impl PressureSnapshot {
 
     /// Lookup reading by axis.
     pub fn reading_of(&self, axis: PressureAxis) -> Option<f32> {
-        self.readings.iter().find(|r| r.axis == axis).map(|r| r.value)
+        self.readings
+            .iter()
+            .find(|r| r.axis == axis)
+            .map(|r| r.value)
     }
 
     /// Mean pressure across all 6 axes.
     pub fn mean(&self) -> f32 {
-        if self.readings.is_empty() { return 0.0; }
+        if self.readings.is_empty() {
+            return 0.0;
+        }
         let total: f32 = self.readings.iter().map(|r| r.value).sum();
         total / self.readings.len() as f32
     }
@@ -221,9 +242,12 @@ mod tests {
     #[test]
     fn six_axes_positioned_correctly() {
         for (a, p) in [
-            (PressureAxis::Cpu, 1), (PressureAxis::Memory, 2),
-            (PressureAxis::Io, 3), (PressureAxis::Gpu, 4),
-            (PressureAxis::HumanAttention, 5), (PressureAxis::Cost, 6),
+            (PressureAxis::Cpu, 1),
+            (PressureAxis::Memory, 2),
+            (PressureAxis::Io, 3),
+            (PressureAxis::Gpu, 4),
+            (PressureAxis::HumanAttention, 5),
+            (PressureAxis::Cost, 6),
         ] {
             assert_eq!(a.position(), p);
         }
@@ -243,42 +267,62 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = PressureSnapshot::free_canonical();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), PressureError::SchemaMismatch { .. }));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            PressureError::SchemaMismatch { .. }
+        ));
     }
 
     #[test]
     fn out_of_range_value_rejected() {
         let mut s = PressureSnapshot::free_canonical();
         s.readings[0].value = 1.5;
-        assert!(matches!(s.validate().unwrap_err(), PressureError::ValueOutOfRange { .. }));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            PressureError::ValueOutOfRange { .. }
+        ));
         s.readings[0].value = -0.1;
-        assert!(matches!(s.validate().unwrap_err(), PressureError::ValueOutOfRange { .. }));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            PressureError::ValueOutOfRange { .. }
+        ));
         s.readings[0].value = f32::NAN;
-        assert!(matches!(s.validate().unwrap_err(), PressureError::ValueOutOfRange { .. }));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            PressureError::ValueOutOfRange { .. }
+        ));
     }
 
     #[test]
     fn reading_count_invalid_rejected() {
         let mut s = PressureSnapshot::free_canonical();
         s.readings.pop();
-        assert!(matches!(s.validate().unwrap_err(), PressureError::ReadingCountInvalid(5)));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            PressureError::ReadingCountInvalid(5)
+        ));
     }
 
     #[test]
     fn missing_axis_caught_when_replaced() {
         let mut s = PressureSnapshot::free_canonical();
         // Replace CPU with duplicate Memory — count stays 6 but Cpu missing.
-        s.readings[0] = AxisReading { axis: PressureAxis::Memory, value: 0.5 };
+        s.readings[0] = AxisReading {
+            axis: PressureAxis::Memory,
+            value: 0.5,
+        };
         let err = s.validate().unwrap_err();
-        assert!(matches!(err,
-            PressureError::AxisMissing(PressureAxis::Cpu) | PressureError::DuplicateAxis(PressureAxis::Memory)
+        assert!(matches!(
+            err,
+            PressureError::AxisMissing(PressureAxis::Cpu)
+                | PressureError::DuplicateAxis(PressureAxis::Memory)
         ));
     }
 
     #[test]
     fn reading_of_returns_value() {
         let mut s = PressureSnapshot::free_canonical();
-        s.readings[3].value = 0.85;  // GPU
+        s.readings[3].value = 0.85; // GPU
         assert_eq!(s.reading_of(PressureAxis::Gpu), Some(0.85));
         assert_eq!(s.reading_of(PressureAxis::Cpu), Some(0.0));
     }
@@ -298,7 +342,7 @@ mod tests {
     #[test]
     fn max_returns_worst_axis() {
         let mut s = PressureSnapshot::free_canonical();
-        s.readings[3].value = 0.95;  // GPU spike
+        s.readings[3].value = 0.95; // GPU spike
         s.readings[0].value = 0.5;
         let (axis, value) = s.max().unwrap();
         assert_eq!(axis, PressureAxis::Gpu);
@@ -317,12 +361,18 @@ mod tests {
     #[test]
     fn doctrine_verbatim() {
         assert_doctrine_intact(DOCTRINE_PRESSURE_AS_SENSATION).unwrap();
-        assert!(matches!(assert_doctrine_intact("WRONG").unwrap_err(), PressureError::DoctrineTampered));
+        assert!(matches!(
+            assert_doctrine_intact("WRONG").unwrap_err(),
+            PressureError::DoctrineTampered
+        ));
     }
 
     #[test]
     fn pressure_axis_serde_kebab() {
-        assert_eq!(serde_json::to_string(&PressureAxis::HumanAttention).unwrap(), "\"human-attention\"");
+        assert_eq!(
+            serde_json::to_string(&PressureAxis::HumanAttention).unwrap(),
+            "\"human-attention\""
+        );
         assert_eq!(serde_json::to_string(&PressureAxis::Io).unwrap(), "\"io\"");
     }
 

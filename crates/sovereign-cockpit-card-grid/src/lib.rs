@@ -68,14 +68,25 @@ pub enum CardGridError {
 
 impl CardGrid {
     /// New.
-    pub fn new() -> Self { Self { schema_version: SCHEMA_VERSION.into() } }
+    pub fn new() -> Self {
+        Self {
+            schema_version: SCHEMA_VERSION.into(),
+        }
+    }
 
     /// Compute layout.
     pub fn layout(inputs: CardGridInputs) -> Result<CardGridLayout, CardGridError> {
-        if inputs.container_w == 0 { return Err(CardGridError::ContainerZero); }
-        if inputs.min_card_w == 0 { return Err(CardGridError::MinZero); }
+        if inputs.container_w == 0 {
+            return Err(CardGridError::ContainerZero);
+        }
+        if inputs.min_card_w == 0 {
+            return Err(CardGridError::MinZero);
+        }
         if inputs.min_card_w >= inputs.max_card_w {
-            return Err(CardGridError::BadBounds { min: inputs.min_card_w, max: inputs.max_card_w });
+            return Err(CardGridError::BadBounds {
+                min: inputs.min_card_w,
+                max: inputs.max_card_w,
+            });
         }
         // Find largest N where N*min + (N+1)*gap <= container_w.
         // Equivalently N <= (container - gap) / (min + gap)
@@ -103,7 +114,9 @@ impl CardGrid {
 }
 
 impl Default for CardGrid {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -111,22 +124,36 @@ mod tests {
     use super::*;
 
     fn inp(c: u32, min: u32, max: u32, gap: u32) -> CardGridInputs {
-        CardGridInputs { container_w: c, min_card_w: min, max_card_w: max, gap_px: gap }
+        CardGridInputs {
+            container_w: c,
+            min_card_w: min,
+            max_card_w: max,
+            gap_px: gap,
+        }
     }
 
     #[test]
     fn container_zero_rejected() {
-        assert!(matches!(CardGrid::layout(inp(0, 100, 300, 10)).unwrap_err(), CardGridError::ContainerZero));
+        assert!(matches!(
+            CardGrid::layout(inp(0, 100, 300, 10)).unwrap_err(),
+            CardGridError::ContainerZero
+        ));
     }
 
     #[test]
     fn min_zero_rejected() {
-        assert!(matches!(CardGrid::layout(inp(800, 0, 300, 10)).unwrap_err(), CardGridError::MinZero));
+        assert!(matches!(
+            CardGrid::layout(inp(800, 0, 300, 10)).unwrap_err(),
+            CardGridError::MinZero
+        ));
     }
 
     #[test]
     fn bad_bounds_rejected() {
-        assert!(matches!(CardGrid::layout(inp(800, 300, 100, 10)).unwrap_err(), CardGridError::BadBounds { .. }));
+        assert!(matches!(
+            CardGrid::layout(inp(800, 300, 100, 10)).unwrap_err(),
+            CardGridError::BadBounds { .. }
+        ));
     }
 
     #[test]
@@ -167,7 +194,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut g = CardGrid::new();
         g.schema_version = "9.9.9".into();
-        assert!(matches!(g.validate().unwrap_err(), CardGridError::SchemaMismatch));
+        assert!(matches!(
+            g.validate().unwrap_err(),
+            CardGridError::SchemaMismatch
+        ));
     }
 
     #[test]

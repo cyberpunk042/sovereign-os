@@ -93,13 +93,18 @@ impl ChangelogPane {
 
     /// Add.
     pub fn add(&mut self, e: Entry) -> Result<(), ChangelogError> {
-        if e.version.is_empty() { return Err(ChangelogError::EmptyVersion); }
-        if e.title.is_empty() { return Err(ChangelogError::EmptyTitle); }
+        if e.version.is_empty() {
+            return Err(ChangelogError::EmptyVersion);
+        }
+        if e.title.is_empty() {
+            return Err(ChangelogError::EmptyTitle);
+        }
         if self.entries.iter().any(|x| x.version == e.version) {
             return Err(ChangelogError::Duplicate(e.version));
         }
         self.entries.push(e);
-        self.entries.sort_by(|a, b| a.published_at_ms.cmp(&b.published_at_ms));
+        self.entries
+            .sort_by(|a, b| a.published_at_ms.cmp(&b.published_at_ms));
         Ok(())
     }
 
@@ -114,27 +119,41 @@ impl ChangelogPane {
 
     /// Unread count.
     pub fn unread_count(&self) -> usize {
-        self.entries.iter().filter(|e| !self.read.contains(&e.version)).count()
+        self.entries
+            .iter()
+            .filter(|e| !self.read.contains(&e.version))
+            .count()
     }
 
     /// Unread entries (in display order).
     pub fn unread(&self) -> Vec<&Entry> {
-        self.entries.iter().filter(|e| !self.read.contains(&e.version)).collect()
+        self.entries
+            .iter()
+            .filter(|e| !self.read.contains(&e.version))
+            .collect()
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ChangelogError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ChangelogError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ChangelogError::SchemaMismatch);
+        }
         for e in &self.entries {
-            if e.version.is_empty() { return Err(ChangelogError::EmptyVersion); }
-            if e.title.is_empty() { return Err(ChangelogError::EmptyTitle); }
+            if e.version.is_empty() {
+                return Err(ChangelogError::EmptyVersion);
+            }
+            if e.title.is_empty() {
+                return Err(ChangelogError::EmptyTitle);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for ChangelogPane {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -142,7 +161,13 @@ mod tests {
     use super::*;
 
     fn e(v: &str, t: &str, k: Kind, ts: u64) -> Entry {
-        Entry { version: v.into(), title: t.into(), kind: k, body: "body".into(), published_at_ms: ts }
+        Entry {
+            version: v.into(),
+            title: t.into(),
+            kind: k,
+            body: "body".into(),
+            published_at_ms: ts,
+        }
     }
 
     #[test]
@@ -174,28 +199,43 @@ mod tests {
     #[test]
     fn mark_unknown_rejected() {
         let mut c = ChangelogPane::new();
-        assert!(matches!(c.mark_read("nope").unwrap_err(), ChangelogError::Unknown(_)));
+        assert!(matches!(
+            c.mark_read("nope").unwrap_err(),
+            ChangelogError::Unknown(_)
+        ));
     }
 
     #[test]
     fn duplicate_rejected() {
         let mut c = ChangelogPane::new();
         c.add(e("v1", "a", Kind::Added, 0)).unwrap();
-        assert!(matches!(c.add(e("v1", "a", Kind::Added, 0)).unwrap_err(), ChangelogError::Duplicate(_)));
+        assert!(matches!(
+            c.add(e("v1", "a", Kind::Added, 0)).unwrap_err(),
+            ChangelogError::Duplicate(_)
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut c = ChangelogPane::new();
-        assert!(matches!(c.add(e("", "t", Kind::Added, 0)).unwrap_err(), ChangelogError::EmptyVersion));
-        assert!(matches!(c.add(e("v", "", Kind::Added, 0)).unwrap_err(), ChangelogError::EmptyTitle));
+        assert!(matches!(
+            c.add(e("", "t", Kind::Added, 0)).unwrap_err(),
+            ChangelogError::EmptyVersion
+        ));
+        assert!(matches!(
+            c.add(e("v", "", Kind::Added, 0)).unwrap_err(),
+            ChangelogError::EmptyTitle
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut c = ChangelogPane::new();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), ChangelogError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            ChangelogError::SchemaMismatch
+        ));
     }
 
     #[test]

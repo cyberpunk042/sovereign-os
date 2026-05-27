@@ -91,7 +91,9 @@ pub enum GridError {
 impl DashboardGrid {
     /// New empty.
     pub fn new(cols: u32, rows: u32) -> Result<Self, GridError> {
-        if cols == 0 || rows == 0 { return Err(GridError::DimsZero); }
+        if cols == 0 || rows == 0 {
+            return Err(GridError::DimsZero);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             cols,
@@ -108,7 +110,10 @@ impl DashboardGrid {
         }
         for other in &self.placements {
             if rects_overlap(&p, other) {
-                return Err(GridError::Overlap { a: p.id.clone(), b: other.id.clone() });
+                return Err(GridError::Overlap {
+                    a: p.id.clone(),
+                    b: other.id.clone(),
+                });
             }
         }
         self.placements.push(p);
@@ -117,7 +122,10 @@ impl DashboardGrid {
 
     /// Remove.
     pub fn remove(&mut self, id: &str) -> Result<(), GridError> {
-        let pos = self.placements.iter().position(|p| p.id == id)
+        let pos = self
+            .placements
+            .iter()
+            .position(|p| p.id == id)
             .ok_or_else(|| GridError::Unknown(id.into()))?;
         self.placements.remove(pos);
         Ok(())
@@ -125,7 +133,10 @@ impl DashboardGrid {
 
     /// Move widget to new (x, y).
     pub fn move_to(&mut self, id: &str, x: u32, y: u32) -> Result<(), GridError> {
-        let pos = self.placements.iter().position(|p| p.id == id)
+        let pos = self
+            .placements
+            .iter()
+            .position(|p| p.id == id)
             .ok_or_else(|| GridError::Unknown(id.into()))?;
         let p_orig = self.placements[pos].clone();
         let mut p = p_orig.clone();
@@ -133,9 +144,14 @@ impl DashboardGrid {
         p.y = y;
         check_one(&p, self.cols, self.rows)?;
         for (i, other) in self.placements.iter().enumerate() {
-            if i == pos { continue; }
+            if i == pos {
+                continue;
+            }
             if rects_overlap(&p, other) {
-                return Err(GridError::Overlap { a: p.id.clone(), b: other.id.clone() });
+                return Err(GridError::Overlap {
+                    a: p.id.clone(),
+                    b: other.id.clone(),
+                });
             }
         }
         self.placements[pos] = p;
@@ -147,7 +163,9 @@ impl DashboardGrid {
         if self.schema_version != SCHEMA_VERSION {
             return Err(GridError::SchemaMismatch);
         }
-        if self.cols == 0 || self.rows == 0 { return Err(GridError::DimsZero); }
+        if self.cols == 0 || self.rows == 0 {
+            return Err(GridError::DimsZero);
+        }
         use std::collections::HashSet;
         let mut seen: HashSet<&str> = HashSet::new();
         for p in &self.placements {
@@ -171,12 +189,22 @@ impl DashboardGrid {
 }
 
 fn check_one(p: &Placement, cols: u32, rows: u32) -> Result<(), GridError> {
-    if p.id.is_empty() { return Err(GridError::EmptyId); }
-    if p.w == 0 || p.h == 0 { return Err(GridError::SizeZero(p.id.clone())); }
+    if p.id.is_empty() {
+        return Err(GridError::EmptyId);
+    }
+    if p.w == 0 || p.h == 0 {
+        return Err(GridError::SizeZero(p.id.clone()));
+    }
     let xw = p.x.saturating_add(p.w);
     let yh = p.y.saturating_add(p.h);
     if xw > cols || yh > rows {
-        return Err(GridError::OffGrid { id: p.id.clone(), xw, yh, cols, rows });
+        return Err(GridError::OffGrid {
+            id: p.id.clone(),
+            xw,
+            yh,
+            cols,
+            rows,
+        });
     }
     Ok(())
 }
@@ -194,12 +222,21 @@ mod tests {
     use super::*;
 
     fn p(id: &str, x: u32, y: u32, w: u32, h: u32) -> Placement {
-        Placement { id: id.into(), x, y, w, h }
+        Placement {
+            id: id.into(),
+            x,
+            y,
+            w,
+            h,
+        }
     }
 
     #[test]
     fn empty_dims_rejected() {
-        assert!(matches!(DashboardGrid::new(0, 5).unwrap_err(), GridError::DimsZero));
+        assert!(matches!(
+            DashboardGrid::new(0, 5).unwrap_err(),
+            GridError::DimsZero
+        ));
     }
 
     #[test]
@@ -213,26 +250,38 @@ mod tests {
     fn duplicate_id_rejected() {
         let mut g = DashboardGrid::new(10, 10).unwrap();
         g.place(p("a", 0, 0, 2, 2)).unwrap();
-        assert!(matches!(g.place(p("a", 5, 5, 1, 1)).unwrap_err(), GridError::DuplicateId(_)));
+        assert!(matches!(
+            g.place(p("a", 5, 5, 1, 1)).unwrap_err(),
+            GridError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn off_grid_rejected() {
         let mut g = DashboardGrid::new(10, 10).unwrap();
-        assert!(matches!(g.place(p("a", 8, 8, 5, 5)).unwrap_err(), GridError::OffGrid { .. }));
+        assert!(matches!(
+            g.place(p("a", 8, 8, 5, 5)).unwrap_err(),
+            GridError::OffGrid { .. }
+        ));
     }
 
     #[test]
     fn size_zero_rejected() {
         let mut g = DashboardGrid::new(10, 10).unwrap();
-        assert!(matches!(g.place(p("a", 0, 0, 0, 2)).unwrap_err(), GridError::SizeZero(_)));
+        assert!(matches!(
+            g.place(p("a", 0, 0, 0, 2)).unwrap_err(),
+            GridError::SizeZero(_)
+        ));
     }
 
     #[test]
     fn overlap_rejected() {
         let mut g = DashboardGrid::new(10, 10).unwrap();
         g.place(p("a", 0, 0, 3, 3)).unwrap();
-        assert!(matches!(g.place(p("b", 2, 2, 2, 2)).unwrap_err(), GridError::Overlap { .. }));
+        assert!(matches!(
+            g.place(p("b", 2, 2, 2, 2)).unwrap_err(),
+            GridError::Overlap { .. }
+        ));
     }
 
     #[test]
@@ -265,26 +314,38 @@ mod tests {
         let mut g = DashboardGrid::new(10, 10).unwrap();
         g.place(p("a", 0, 0, 2, 2)).unwrap();
         g.place(p("b", 5, 5, 2, 2)).unwrap();
-        assert!(matches!(g.move_to("a", 5, 5).unwrap_err(), GridError::Overlap { .. }));
+        assert!(matches!(
+            g.move_to("a", 5, 5).unwrap_err(),
+            GridError::Overlap { .. }
+        ));
     }
 
     #[test]
     fn move_unknown_rejected() {
         let mut g = DashboardGrid::new(10, 10).unwrap();
-        assert!(matches!(g.move_to("z", 0, 0).unwrap_err(), GridError::Unknown(_)));
+        assert!(matches!(
+            g.move_to("z", 0, 0).unwrap_err(),
+            GridError::Unknown(_)
+        ));
     }
 
     #[test]
     fn empty_id_rejected() {
         let mut g = DashboardGrid::new(10, 10).unwrap();
-        assert!(matches!(g.place(p("", 0, 0, 1, 1)).unwrap_err(), GridError::EmptyId));
+        assert!(matches!(
+            g.place(p("", 0, 0, 1, 1)).unwrap_err(),
+            GridError::EmptyId
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut g = DashboardGrid::new(10, 10).unwrap();
         g.schema_version = "9.9.9".into();
-        assert!(matches!(g.validate().unwrap_err(), GridError::SchemaMismatch));
+        assert!(matches!(
+            g.validate().unwrap_err(),
+            GridError::SchemaMismatch
+        ));
     }
 
     #[test]

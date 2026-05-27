@@ -74,8 +74,12 @@ impl ComboboxState {
     /// Set option list (clears highlight + filter).
     pub fn set_options(&mut self, options: Vec<Option_>) -> Result<(), ComboboxError> {
         for o in &options {
-            if o.id.is_empty() { return Err(ComboboxError::EmptyId); }
-            if o.label.is_empty() { return Err(ComboboxError::EmptyLabel); }
+            if o.id.is_empty() {
+                return Err(ComboboxError::EmptyId);
+            }
+            if o.label.is_empty() {
+                return Err(ComboboxError::EmptyLabel);
+            }
         }
         self.options = options;
         self.filter.clear();
@@ -110,7 +114,10 @@ impl ComboboxState {
     /// Move highlight down.
     pub fn move_down(&mut self) {
         let n = self.filtered_count();
-        if n == 0 { self.highlight = None; return; }
+        if n == 0 {
+            self.highlight = None;
+            return;
+        }
         let next = match self.highlight {
             None => 0,
             Some(i) => (i + 1) % n,
@@ -121,7 +128,10 @@ impl ComboboxState {
     /// Move highlight up.
     pub fn move_up(&mut self) {
         let n = self.filtered_count();
-        if n == 0 { self.highlight = None; return; }
+        if n == 0 {
+            self.highlight = None;
+            return;
+        }
         let next = match self.highlight {
             None => n - 1,
             Some(0) => n - 1,
@@ -160,7 +170,8 @@ impl ComboboxState {
             return self.options.clone();
         }
         let needle = self.filter.to_lowercase();
-        self.options.iter()
+        self.options
+            .iter()
             .filter(|o| o.label.to_lowercase().contains(&needle))
             .cloned()
             .collect()
@@ -172,15 +183,24 @@ impl ComboboxState {
             return self.options.len();
         }
         let needle = self.filter.to_lowercase();
-        self.options.iter().filter(|o| o.label.to_lowercase().contains(&needle)).count()
+        self.options
+            .iter()
+            .filter(|o| o.label.to_lowercase().contains(&needle))
+            .count()
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ComboboxError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ComboboxError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ComboboxError::SchemaMismatch);
+        }
         for o in &self.options {
-            if o.id.is_empty() { return Err(ComboboxError::EmptyId); }
-            if o.label.is_empty() { return Err(ComboboxError::EmptyLabel); }
+            if o.id.is_empty() {
+                return Err(ComboboxError::EmptyId);
+            }
+            if o.label.is_empty() {
+                return Err(ComboboxError::EmptyLabel);
+            }
         }
         if let Some(v) = &self.value {
             if !self.options.iter().any(|o| &o.id == v) {
@@ -192,7 +212,9 @@ impl ComboboxState {
 }
 
 impl Default for ComboboxState {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -201,9 +223,18 @@ mod tests {
 
     fn opts() -> Vec<Option_> {
         vec![
-            Option_ { id: "apple".into(), label: "Apple".into() },
-            Option_ { id: "banana".into(), label: "Banana".into() },
-            Option_ { id: "cherry".into(), label: "Cherry".into() },
+            Option_ {
+                id: "apple".into(),
+                label: "Apple".into(),
+            },
+            Option_ {
+                id: "banana".into(),
+                label: "Banana".into(),
+            },
+            Option_ {
+                id: "cherry".into(),
+                label: "Cherry".into(),
+            },
         ]
     }
 
@@ -267,14 +298,31 @@ mod tests {
     fn set_value_unknown_rejected() {
         let mut c = ComboboxState::new();
         c.set_options(opts()).unwrap();
-        assert!(matches!(c.set_value("nope").unwrap_err(), ComboboxError::UnknownOption(_)));
+        assert!(matches!(
+            c.set_value("nope").unwrap_err(),
+            ComboboxError::UnknownOption(_)
+        ));
     }
 
     #[test]
     fn empty_options_rejected() {
         let mut c = ComboboxState::new();
-        assert!(matches!(c.set_options(vec![Option_ { id: "".into(), label: "x".into() }]).unwrap_err(), ComboboxError::EmptyId));
-        assert!(matches!(c.set_options(vec![Option_ { id: "i".into(), label: "".into() }]).unwrap_err(), ComboboxError::EmptyLabel));
+        assert!(matches!(
+            c.set_options(vec![Option_ {
+                id: "".into(),
+                label: "x".into()
+            }])
+            .unwrap_err(),
+            ComboboxError::EmptyId
+        ));
+        assert!(matches!(
+            c.set_options(vec![Option_ {
+                id: "i".into(),
+                label: "".into()
+            }])
+            .unwrap_err(),
+            ComboboxError::EmptyLabel
+        ));
     }
 
     #[test]
@@ -298,7 +346,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut c = ComboboxState::new();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), ComboboxError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            ComboboxError::SchemaMismatch
+        ));
     }
 
     #[test]

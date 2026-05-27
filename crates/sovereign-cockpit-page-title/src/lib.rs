@@ -47,7 +47,9 @@ impl PageTitle {
 
     /// Push.
     pub fn push(&mut self, label: &str) -> Result<(), TitleError> {
-        if label.is_empty() { return Err(TitleError::EmptyLabel); }
+        if label.is_empty() {
+            return Err(TitleError::EmptyLabel);
+        }
         self.stack.push(label.into());
         Ok(())
     }
@@ -63,7 +65,9 @@ impl PageTitle {
     }
 
     /// Depth.
-    pub fn depth(&self) -> usize { self.stack.len() }
+    pub fn depth(&self) -> usize {
+        self.stack.len()
+    }
 
     /// Render title.
     pub fn current_title(&self, separator: &str, app_suffix: Option<&str>) -> String {
@@ -76,16 +80,22 @@ impl PageTitle {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), TitleError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(TitleError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(TitleError::SchemaMismatch);
+        }
         for s in &self.stack {
-            if s.is_empty() { return Err(TitleError::EmptyLabel); }
+            if s.is_empty() {
+                return Err(TitleError::EmptyLabel);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for PageTitle {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -104,7 +114,10 @@ mod tests {
         let mut t = PageTitle::new();
         t.push("Logs").unwrap();
         t.push("Errors").unwrap();
-        assert_eq!(t.current_title(" — ", Some("Sovereign")), "Logs — Errors — Sovereign");
+        assert_eq!(
+            t.current_title(" — ", Some("Sovereign")),
+            "Logs — Errors — Sovereign"
+        );
     }
 
     #[test]
@@ -136,7 +149,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut t = PageTitle::new();
         t.schema_version = "9.9.9".into();
-        assert!(matches!(t.validate().unwrap_err(), TitleError::SchemaMismatch));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            TitleError::SchemaMismatch
+        ));
     }
 
     #[test]

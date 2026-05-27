@@ -79,7 +79,12 @@ impl DateRangePicker {
 
     /// Set range directly.
     pub fn set_range(&mut self, from_ms: u64, to_ms: u64) -> Result<(), PickerError> {
-        if from_ms >= to_ms { return Err(PickerError::Inverted { from: from_ms, to: to_ms }); }
+        if from_ms >= to_ms {
+            return Err(PickerError::Inverted {
+                from: from_ms,
+                to: to_ms,
+            });
+        }
         self.from_ms = from_ms;
         self.to_ms = to_ms;
         Ok(())
@@ -87,14 +92,19 @@ impl DateRangePicker {
 
     /// Register a preset.
     pub fn register_preset(&mut self, name: &str, days_back: u32) -> Result<(), PickerError> {
-        if name.is_empty() { return Err(PickerError::EmptyName); }
+        if name.is_empty() {
+            return Err(PickerError::EmptyName);
+        }
         self.presets.insert(name.into(), Preset { days_back });
         Ok(())
     }
 
     /// Apply preset given `now_ms`.
     pub fn apply_preset(&mut self, name: &str, now_ms: u64) -> Result<(), PickerError> {
-        let p = self.presets.get(name).ok_or_else(|| PickerError::UnknownPreset(name.into()))?;
+        let p = self
+            .presets
+            .get(name)
+            .ok_or_else(|| PickerError::UnknownPreset(name.into()))?;
         let to = now_ms;
         let from = now_ms.saturating_sub((p.days_back as u64).saturating_mul(DAY_MS));
         self.from_ms = from;
@@ -114,19 +124,28 @@ impl DateRangePicker {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), PickerError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(PickerError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(PickerError::SchemaMismatch);
+        }
         if self.from_ms >= self.to_ms && (self.from_ms != 0 || self.to_ms != 0) {
-            return Err(PickerError::Inverted { from: self.from_ms, to: self.to_ms });
+            return Err(PickerError::Inverted {
+                from: self.from_ms,
+                to: self.to_ms,
+            });
         }
         for k in self.presets.keys() {
-            if k.is_empty() { return Err(PickerError::EmptyName); }
+            if k.is_empty() {
+                return Err(PickerError::EmptyName);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for DateRangePicker {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -163,14 +182,23 @@ mod tests {
     #[test]
     fn unknown_preset_rejected() {
         let mut p = DateRangePicker::new();
-        assert!(matches!(p.apply_preset("nope", 0).unwrap_err(), PickerError::UnknownPreset(_)));
+        assert!(matches!(
+            p.apply_preset("nope", 0).unwrap_err(),
+            PickerError::UnknownPreset(_)
+        ));
     }
 
     #[test]
     fn inverted_range_rejected() {
         let mut p = DateRangePicker::new();
-        assert!(matches!(p.set_range(200, 100).unwrap_err(), PickerError::Inverted { .. }));
-        assert!(matches!(p.set_range(100, 100).unwrap_err(), PickerError::Inverted { .. }));
+        assert!(matches!(
+            p.set_range(200, 100).unwrap_err(),
+            PickerError::Inverted { .. }
+        ));
+        assert!(matches!(
+            p.set_range(100, 100).unwrap_err(),
+            PickerError::Inverted { .. }
+        ));
     }
 
     #[test]
@@ -184,14 +212,20 @@ mod tests {
     #[test]
     fn empty_preset_name_rejected() {
         let mut p = DateRangePicker::new();
-        assert!(matches!(p.register_preset("", 7).unwrap_err(), PickerError::EmptyName));
+        assert!(matches!(
+            p.register_preset("", 7).unwrap_err(),
+            PickerError::EmptyName
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut p = DateRangePicker::new();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), PickerError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            PickerError::SchemaMismatch
+        ));
     }
 
     #[test]

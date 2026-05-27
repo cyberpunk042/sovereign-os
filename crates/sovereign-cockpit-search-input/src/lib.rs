@@ -88,7 +88,9 @@ impl SearchInput {
     /// Should the operator caller emit a search now? Returns true once
     /// per quiet window. set the `emit_done()` after consuming.
     pub fn should_emit(&self, now_ms: u64) -> bool {
-        if self.emitted { return false; }
+        if self.emitted {
+            return false;
+        }
         now_ms.saturating_sub(self.last_keystroke_ms) >= self.debounce_ms as u64
     }
 
@@ -123,7 +125,10 @@ mod tests {
 
     #[test]
     fn debounce_too_large_rejected() {
-        assert!(matches!(SearchInput::new(60_001).unwrap_err(), SearchInputError::DebounceTooLarge(_)));
+        assert!(matches!(
+            SearchInput::new(60_001).unwrap_err(),
+            SearchInputError::DebounceTooLarge(_)
+        ));
     }
 
     #[test]
@@ -193,7 +198,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = SearchInput::new(200).unwrap();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), SearchInputError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SearchInputError::SchemaMismatch
+        ));
     }
 
     #[test]

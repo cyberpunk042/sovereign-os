@@ -93,8 +93,16 @@ impl MergeConflictUi {
     }
 
     /// Add a hunk (defaults to Unresolved).
-    pub fn add(&mut self, id: &str, base: &str, ours: &str, theirs: &str) -> Result<(), MergeError> {
-        if id.is_empty() { return Err(MergeError::EmptyId); }
+    pub fn add(
+        &mut self,
+        id: &str,
+        base: &str,
+        ours: &str,
+        theirs: &str,
+    ) -> Result<(), MergeError> {
+        if id.is_empty() {
+            return Err(MergeError::EmptyId);
+        }
         if self.by_id.contains_key(id) {
             return Err(MergeError::DuplicateId(id.into()));
         }
@@ -113,16 +121,25 @@ impl MergeConflictUi {
     /// Set resolution.
     pub fn resolve(&mut self, id: &str, resolution: Resolution) -> Result<(), MergeError> {
         if let Resolution::Manual { body } = &resolution {
-            if body.is_empty() { return Err(MergeError::EmptyBody); }
+            if body.is_empty() {
+                return Err(MergeError::EmptyBody);
+            }
         }
-        let idx = self.by_id.get(id).copied().ok_or_else(|| MergeError::UnknownHunk(id.into()))?;
+        let idx = self
+            .by_id
+            .get(id)
+            .copied()
+            .ok_or_else(|| MergeError::UnknownHunk(id.into()))?;
         self.hunks[idx].resolution = resolution;
         Ok(())
     }
 
     /// Count of unresolved hunks.
     pub fn count_unresolved(&self) -> usize {
-        self.hunks.iter().filter(|h| matches!(h.resolution, Resolution::Unresolved)).count()
+        self.hunks
+            .iter()
+            .filter(|h| matches!(h.resolution, Resolution::Unresolved))
+            .count()
     }
 
     /// Are all resolved?
@@ -162,11 +179,17 @@ impl MergeConflictUi {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), MergeError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(MergeError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(MergeError::SchemaMismatch);
+        }
         for h in &self.hunks {
-            if h.id.is_empty() { return Err(MergeError::EmptyId); }
+            if h.id.is_empty() {
+                return Err(MergeError::EmptyId);
+            }
             if let Resolution::Manual { body } = &h.resolution {
-                if body.is_empty() { return Err(MergeError::EmptyBody); }
+                if body.is_empty() {
+                    return Err(MergeError::EmptyBody);
+                }
             }
         }
         Ok(())
@@ -174,7 +197,9 @@ impl MergeConflictUi {
 }
 
 impl Default for MergeConflictUi {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -218,7 +243,13 @@ mod tests {
     fn render_merged_manual() {
         let mut m = MergeConflictUi::new();
         m.add("h1", "b", "o", "t").unwrap();
-        m.resolve("h1", Resolution::Manual { body: "custom".into() }).unwrap();
+        m.resolve(
+            "h1",
+            Resolution::Manual {
+                body: "custom".into(),
+            },
+        )
+        .unwrap();
         assert_eq!(m.render_merged(), "custom");
     }
 
@@ -234,7 +265,8 @@ mod tests {
         let mut m = MergeConflictUi::new();
         m.add("h1", "b", "o", "t").unwrap();
         assert!(matches!(
-            m.resolve("h1", Resolution::Manual { body: "".into() }).unwrap_err(),
+            m.resolve("h1", Resolution::Manual { body: "".into() })
+                .unwrap_err(),
             MergeError::EmptyBody
         ));
     }
@@ -243,13 +275,19 @@ mod tests {
     fn duplicate_rejected() {
         let mut m = MergeConflictUi::new();
         m.add("h1", "b", "o", "t").unwrap();
-        assert!(matches!(m.add("h1", "b", "o", "t").unwrap_err(), MergeError::DuplicateId(_)));
+        assert!(matches!(
+            m.add("h1", "b", "o", "t").unwrap_err(),
+            MergeError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn unknown_resolve_rejected() {
         let mut m = MergeConflictUi::new();
-        assert!(matches!(m.resolve("nope", Resolution::AcceptOurs).unwrap_err(), MergeError::UnknownHunk(_)));
+        assert!(matches!(
+            m.resolve("nope", Resolution::AcceptOurs).unwrap_err(),
+            MergeError::UnknownHunk(_)
+        ));
     }
 
     #[test]
@@ -264,14 +302,20 @@ mod tests {
     #[test]
     fn empty_id_rejected() {
         let mut m = MergeConflictUi::new();
-        assert!(matches!(m.add("", "b", "o", "t").unwrap_err(), MergeError::EmptyId));
+        assert!(matches!(
+            m.add("", "b", "o", "t").unwrap_err(),
+            MergeError::EmptyId
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut m = MergeConflictUi::new();
         m.schema_version = "9.9.9".into();
-        assert!(matches!(m.validate().unwrap_err(), MergeError::SchemaMismatch));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            MergeError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -110,10 +110,21 @@ impl PermissionPrompt {
     /// Submit a request. If a remembered decision exists, transitions
     /// directly to that state and returns it. Otherwise transitions to
     /// Pending and stores the rationale.
-    pub fn request(&mut self, subject: &str, cap: &str, rationale: &str) -> Result<State, PromptError> {
-        if subject.is_empty() { return Err(PromptError::EmptySubject); }
-        if cap.is_empty() { return Err(PromptError::EmptyCapability); }
-        if rationale.is_empty() { return Err(PromptError::EmptyRationale); }
+    pub fn request(
+        &mut self,
+        subject: &str,
+        cap: &str,
+        rationale: &str,
+    ) -> Result<State, PromptError> {
+        if subject.is_empty() {
+            return Err(PromptError::EmptySubject);
+        }
+        if cap.is_empty() {
+            return Err(PromptError::EmptyCapability);
+        }
+        if rationale.is_empty() {
+            return Err(PromptError::EmptyRationale);
+        }
         let k = key(subject, cap);
         if let Some(r) = self.records.get(&k) {
             if r.remember && (r.state == State::Granted || r.state == State::Denied) {
@@ -123,19 +134,30 @@ impl PermissionPrompt {
                 return Err(PromptError::AlreadyPending);
             }
         }
-        self.records.insert(k, Record {
-            state: State::Pending,
-            rationale: Some(rationale.into()),
-            remember: false,
-        });
+        self.records.insert(
+            k,
+            Record {
+                state: State::Pending,
+                rationale: Some(rationale.into()),
+                remember: false,
+            },
+        );
         Ok(State::Pending)
     }
 
     /// Resolve a pending request.
-    pub fn resolve(&mut self, subject: &str, cap: &str, decision: Decision, remember: bool) -> Result<State, PromptError> {
+    pub fn resolve(
+        &mut self,
+        subject: &str,
+        cap: &str,
+        decision: Decision,
+        remember: bool,
+    ) -> Result<State, PromptError> {
         let k = key(subject, cap);
         let r = self.records.get_mut(&k).ok_or(PromptError::NotPending)?;
-        if r.state != State::Pending { return Err(PromptError::NotPending); }
+        if r.state != State::Pending {
+            return Err(PromptError::NotPending);
+        }
         r.state = match decision {
             Decision::Grant => State::Granted,
             Decision::Deny => State::Denied,
@@ -152,13 +174,17 @@ impl PermissionPrompt {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), PromptError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(PromptError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(PromptError::SchemaMismatch);
+        }
         Ok(())
     }
 }
 
 impl Default for PermissionPrompt {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -217,13 +243,19 @@ mod tests {
     fn double_request_pending_rejected() {
         let mut p = PermissionPrompt::new();
         p.request("u", "c", "r").unwrap();
-        assert!(matches!(p.request("u", "c", "r2").unwrap_err(), PromptError::AlreadyPending));
+        assert!(matches!(
+            p.request("u", "c", "r2").unwrap_err(),
+            PromptError::AlreadyPending
+        ));
     }
 
     #[test]
     fn resolve_without_pending_rejected() {
         let mut p = PermissionPrompt::new();
-        assert!(matches!(p.resolve("u", "c", Decision::Grant, false).unwrap_err(), PromptError::NotPending));
+        assert!(matches!(
+            p.resolve("u", "c", Decision::Grant, false).unwrap_err(),
+            PromptError::NotPending
+        ));
     }
 
     #[test]
@@ -238,16 +270,28 @@ mod tests {
     #[test]
     fn empty_inputs_rejected() {
         let mut p = PermissionPrompt::new();
-        assert!(matches!(p.request("", "c", "r").unwrap_err(), PromptError::EmptySubject));
-        assert!(matches!(p.request("u", "", "r").unwrap_err(), PromptError::EmptyCapability));
-        assert!(matches!(p.request("u", "c", "").unwrap_err(), PromptError::EmptyRationale));
+        assert!(matches!(
+            p.request("", "c", "r").unwrap_err(),
+            PromptError::EmptySubject
+        ));
+        assert!(matches!(
+            p.request("u", "", "r").unwrap_err(),
+            PromptError::EmptyCapability
+        ));
+        assert!(matches!(
+            p.request("u", "c", "").unwrap_err(),
+            PromptError::EmptyRationale
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut p = PermissionPrompt::new();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), PromptError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            PromptError::SchemaMismatch
+        ));
     }
 
     #[test]

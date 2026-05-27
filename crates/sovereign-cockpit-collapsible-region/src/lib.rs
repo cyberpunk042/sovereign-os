@@ -45,7 +45,9 @@ pub enum RegionError {
 impl CollapsibleRegion {
     /// New.
     pub fn new(id: &str, prefer_expanded_when_filled: bool) -> Result<Self, RegionError> {
-        if id.is_empty() { return Err(RegionError::EmptyId); }
+        if id.is_empty() {
+            return Err(RegionError::EmptyId);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             id: id.into(),
@@ -81,7 +83,9 @@ impl CollapsibleRegion {
         if self.schema_version != SCHEMA_VERSION {
             return Err(RegionError::SchemaMismatch);
         }
-        if self.id.is_empty() { return Err(RegionError::EmptyId); }
+        if self.id.is_empty() {
+            return Err(RegionError::EmptyId);
+        }
         Ok(())
     }
 }
@@ -92,7 +96,10 @@ mod tests {
 
     #[test]
     fn empty_id_rejected() {
-        assert!(matches!(CollapsibleRegion::new("", false).unwrap_err(), RegionError::EmptyId));
+        assert!(matches!(
+            CollapsibleRegion::new("", false).unwrap_err(),
+            RegionError::EmptyId
+        ));
     }
 
     #[test]
@@ -161,7 +168,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut r = CollapsibleRegion::new("a", false).unwrap();
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate().unwrap_err(), RegionError::SchemaMismatch));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            RegionError::SchemaMismatch
+        ));
     }
 
     #[test]

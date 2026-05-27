@@ -62,7 +62,9 @@ pub enum CostError {
 impl CostMeter {
     /// New.
     pub fn new(budget: u64, warning_bp: u32, critical_bp: u32) -> Result<Self, CostError> {
-        if budget == 0 { return Err(CostError::ZeroBudget); }
+        if budget == 0 {
+            return Err(CostError::ZeroBudget);
+        }
         if !(warning_bp < critical_bp && critical_bp <= 10_000) {
             return Err(CostError::BadThresholds);
         }
@@ -94,11 +96,17 @@ impl CostMeter {
 
     /// Level classification.
     pub fn level(&self) -> Level {
-        if self.used >= self.budget { return Level::Exceeded; }
+        if self.used >= self.budget {
+            return Level::Exceeded;
+        }
         let bp = self.usage_bp();
-        if bp >= self.critical_bp { Level::Critical }
-        else if bp >= self.warning_bp { Level::Warning }
-        else { Level::Normal }
+        if bp >= self.critical_bp {
+            Level::Critical
+        } else if bp >= self.warning_bp {
+            Level::Warning
+        } else {
+            Level::Normal
+        }
     }
 
     /// Remaining budget (saturating).
@@ -108,8 +116,12 @@ impl CostMeter {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), CostError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(CostError::SchemaMismatch); }
-        if self.budget == 0 { return Err(CostError::ZeroBudget); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(CostError::SchemaMismatch);
+        }
+        if self.budget == 0 {
+            return Err(CostError::ZeroBudget);
+        }
         if !(self.warning_bp < self.critical_bp && self.critical_bp <= 10_000) {
             return Err(CostError::BadThresholds);
         }
@@ -179,16 +191,28 @@ mod tests {
 
     #[test]
     fn bad_inputs_rejected() {
-        assert!(matches!(CostMeter::new(0, 5000, 9000).unwrap_err(), CostError::ZeroBudget));
-        assert!(matches!(CostMeter::new(1000, 9000, 5000).unwrap_err(), CostError::BadThresholds));
-        assert!(matches!(CostMeter::new(1000, 5000, 10001).unwrap_err(), CostError::BadThresholds));
+        assert!(matches!(
+            CostMeter::new(0, 5000, 9000).unwrap_err(),
+            CostError::ZeroBudget
+        ));
+        assert!(matches!(
+            CostMeter::new(1000, 9000, 5000).unwrap_err(),
+            CostError::BadThresholds
+        ));
+        assert!(matches!(
+            CostMeter::new(1000, 5000, 10001).unwrap_err(),
+            CostError::BadThresholds
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut m = meter();
         m.schema_version = "9.9.9".into();
-        assert!(matches!(m.validate().unwrap_err(), CostError::SchemaMismatch));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            CostError::SchemaMismatch
+        ));
     }
 
     #[test]

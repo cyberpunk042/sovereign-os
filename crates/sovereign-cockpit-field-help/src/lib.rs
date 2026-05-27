@@ -99,7 +99,10 @@ impl FieldHelp {
 
     /// Set error on a field.
     pub fn set_error(&mut self, id: &str, err: Option<String>) -> Result<(), FieldHelpError> {
-        let f = self.fields.iter_mut().find(|f| f.id == id)
+        let f = self
+            .fields
+            .iter_mut()
+            .find(|f| f.id == id)
             .ok_or_else(|| FieldHelpError::Unknown(id.into()))?;
         if let Some(e) = &err {
             let n = e.chars().count();
@@ -117,7 +120,10 @@ impl FieldHelp {
 
     /// Mark a field dismissed.
     pub fn dismiss(&mut self, id: &str) -> Result<(), FieldHelpError> {
-        let f = self.fields.iter_mut().find(|f| f.id == id)
+        let f = self
+            .fields
+            .iter_mut()
+            .find(|f| f.id == id)
             .ok_or_else(|| FieldHelpError::Unknown(id.into()))?;
         f.dismissed = true;
         Ok(())
@@ -132,9 +138,15 @@ impl FieldHelp {
         if let Some(err) = &f.error_text {
             return Render::Error { text: err.clone() };
         }
-        if f.dismissed { return Render::None; }
-        if f.help_text.is_empty() { return Render::None; }
-        Render::Help { text: f.help_text.clone() }
+        if f.dismissed {
+            return Render::None;
+        }
+        if f.help_text.is_empty() {
+            return Render::None;
+        }
+        Render::Help {
+            text: f.help_text.clone(),
+        }
     }
 
     /// Validate.
@@ -155,18 +167,26 @@ impl FieldHelp {
 }
 
 fn check_field(f: &Field) -> Result<(), FieldHelpError> {
-    if f.id.is_empty() { return Err(FieldHelpError::EmptyId); }
+    if f.id.is_empty() {
+        return Err(FieldHelpError::EmptyId);
+    }
     let n = f.help_text.chars().count();
-    if n > 200 { return Err(FieldHelpError::HelpTooLong(f.id.clone(), n)); }
+    if n > 200 {
+        return Err(FieldHelpError::HelpTooLong(f.id.clone(), n));
+    }
     if let Some(e) = &f.error_text {
         let n = e.chars().count();
-        if n > 200 { return Err(FieldHelpError::ErrorTooLong(f.id.clone(), n)); }
+        if n > 200 {
+            return Err(FieldHelpError::ErrorTooLong(f.id.clone(), n));
+        }
     }
     Ok(())
 }
 
 impl Default for FieldHelp {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -174,7 +194,12 @@ mod tests {
     use super::*;
 
     fn f(id: &str, help: &str) -> Field {
-        Field { id: id.into(), help_text: help.into(), error_text: None, dismissed: false }
+        Field {
+            id: id.into(),
+            help_text: help.into(),
+            error_text: None,
+            dismissed: false,
+        }
     }
 
     #[test]
@@ -234,7 +259,10 @@ mod tests {
     fn duplicate_rejected() {
         let mut h = FieldHelp::new();
         h.add(f("a", "x")).unwrap();
-        assert!(matches!(h.add(f("a", "y")).unwrap_err(), FieldHelpError::DuplicateId(_)));
+        assert!(matches!(
+            h.add(f("a", "y")).unwrap_err(),
+            FieldHelpError::DuplicateId(_)
+        ));
     }
 
     #[test]
@@ -242,7 +270,10 @@ mod tests {
         let mut h = FieldHelp::new();
         let mut field = f("a", "");
         field.help_text = "x".repeat(201);
-        assert!(matches!(h.add(field).unwrap_err(), FieldHelpError::HelpTooLong(_, 201)));
+        assert!(matches!(
+            h.add(field).unwrap_err(),
+            FieldHelpError::HelpTooLong(_, 201)
+        ));
     }
 
     #[test]
@@ -250,20 +281,30 @@ mod tests {
         let mut h = FieldHelp::new();
         h.add(f("a", "help")).unwrap();
         let e = "x".repeat(201);
-        assert!(matches!(h.set_error("a", Some(e)).unwrap_err(), FieldHelpError::ErrorTooLong(_, 201)));
+        assert!(matches!(
+            h.set_error("a", Some(e)).unwrap_err(),
+            FieldHelpError::ErrorTooLong(_, 201)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut h = FieldHelp::new();
         h.schema_version = "9.9.9".into();
-        assert!(matches!(h.validate().unwrap_err(), FieldHelpError::SchemaMismatch));
+        assert!(matches!(
+            h.validate().unwrap_err(),
+            FieldHelpError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn render_serde_kebab() {
         let r = Render::Help { text: "x".into() };
-        assert!(serde_json::to_string(&r).unwrap().contains("\"kind\":\"help\""));
+        assert!(
+            serde_json::to_string(&r)
+                .unwrap()
+                .contains("\"kind\":\"help\"")
+        );
     }
 
     #[test]

@@ -86,7 +86,10 @@ impl RadioGroup {
 
     /// Select an option (must be enabled).
     pub fn select(&mut self, id: &str) -> Result<(), RadioError> {
-        let opt = self.options.iter().find(|o| o.id == id)
+        let opt = self
+            .options
+            .iter()
+            .find(|o| o.id == id)
             .ok_or_else(|| RadioError::Unknown(id.into()))?;
         if !opt.enabled {
             return Err(RadioError::SelectedDisabled(id.into()));
@@ -102,21 +105,27 @@ impl RadioGroup {
 
     /// Arrow-key navigation through enabled options (wraps).
     pub fn arrow(&mut self, dir: Arrow) -> Option<&str> {
-        let enabled_indices: Vec<usize> = self.options.iter()
+        let enabled_indices: Vec<usize> = self
+            .options
+            .iter()
             .enumerate()
             .filter_map(|(i, o)| if o.enabled { Some(i) } else { None })
             .collect();
         if enabled_indices.is_empty() {
             return None;
         }
-        let pos_in_enabled = self.selected.as_ref().and_then(|sel|
-            enabled_indices.iter().position(|&i| &self.options[i].id == sel)
-        );
+        let pos_in_enabled = self.selected.as_ref().and_then(|sel| {
+            enabled_indices
+                .iter()
+                .position(|&i| &self.options[i].id == sel)
+        });
         let next = match (pos_in_enabled, dir) {
             (None, Arrow::Next) => enabled_indices[0],
             (None, Arrow::Prev) => *enabled_indices.last().unwrap(),
             (Some(p), Arrow::Next) => enabled_indices[(p + 1) % enabled_indices.len()],
-            (Some(p), Arrow::Prev) => enabled_indices[(p + enabled_indices.len() - 1) % enabled_indices.len()],
+            (Some(p), Arrow::Prev) => {
+                enabled_indices[(p + enabled_indices.len() - 1) % enabled_indices.len()]
+            }
         };
         self.selected = Some(self.options[next].id.clone());
         self.selected.as_deref()
@@ -137,7 +146,10 @@ impl RadioGroup {
         }
         check_options(&self.options)?;
         if let Some(s) = &self.selected {
-            let opt = self.options.iter().find(|o| &o.id == s)
+            let opt = self
+                .options
+                .iter()
+                .find(|o| &o.id == s)
                 .ok_or_else(|| RadioError::Unknown(s.clone()))?;
             if !opt.enabled {
                 return Err(RadioError::SelectedDisabled(s.clone()));
@@ -151,8 +163,12 @@ fn check_options(opts: &[RadioOption]) -> Result<(), RadioError> {
     use std::collections::HashSet;
     let mut seen: HashSet<&str> = HashSet::new();
     for o in opts {
-        if o.id.is_empty() { return Err(RadioError::EmptyId); }
-        if o.label.is_empty() { return Err(RadioError::EmptyLabel(o.id.clone())); }
+        if o.id.is_empty() {
+            return Err(RadioError::EmptyId);
+        }
+        if o.label.is_empty() {
+            return Err(RadioError::EmptyLabel(o.id.clone()));
+        }
         if !seen.insert(o.id.as_str()) {
             return Err(RadioError::DuplicateId(o.id.clone()));
         }
@@ -165,7 +181,11 @@ mod tests {
     use super::*;
 
     fn opt(id: &str, enabled: bool) -> RadioOption {
-        RadioOption { id: id.into(), label: format!("L-{id}"), enabled }
+        RadioOption {
+            id: id.into(),
+            label: format!("L-{id}"),
+            enabled,
+        }
     }
 
     #[test]
@@ -178,7 +198,10 @@ mod tests {
     #[test]
     fn select_disabled_rejected() {
         let mut g = RadioGroup::new(vec![opt("a", false), opt("b", true)], false).unwrap();
-        assert!(matches!(g.select("a").unwrap_err(), RadioError::SelectedDisabled(_)));
+        assert!(matches!(
+            g.select("a").unwrap_err(),
+            RadioError::SelectedDisabled(_)
+        ));
     }
 
     #[test]
@@ -201,14 +224,16 @@ mod tests {
 
     #[test]
     fn arrow_wraps() {
-        let mut g = RadioGroup::new(vec![opt("a", true), opt("b", true), opt("c", true)], false).unwrap();
+        let mut g =
+            RadioGroup::new(vec![opt("a", true), opt("b", true), opt("c", true)], false).unwrap();
         g.select("c").unwrap();
         assert_eq!(g.arrow(Arrow::Next), Some("a"));
     }
 
     #[test]
     fn arrow_skips_disabled() {
-        let mut g = RadioGroup::new(vec![opt("a", true), opt("b", false), opt("c", true)], false).unwrap();
+        let mut g =
+            RadioGroup::new(vec![opt("a", true), opt("b", false), opt("c", true)], false).unwrap();
         g.select("a").unwrap();
         assert_eq!(g.arrow(Arrow::Next), Some("c"));
     }
@@ -250,21 +275,30 @@ mod tests {
     fn empty_id_rejected() {
         let mut o = opt("a", true);
         o.id = String::new();
-        assert!(matches!(RadioGroup::new(vec![o], false).unwrap_err(), RadioError::EmptyId));
+        assert!(matches!(
+            RadioGroup::new(vec![o], false).unwrap_err(),
+            RadioError::EmptyId
+        ));
     }
 
     #[test]
     fn empty_label_rejected() {
         let mut o = opt("a", true);
         o.label = String::new();
-        assert!(matches!(RadioGroup::new(vec![o], false).unwrap_err(), RadioError::EmptyLabel(_)));
+        assert!(matches!(
+            RadioGroup::new(vec![o], false).unwrap_err(),
+            RadioError::EmptyLabel(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut g = RadioGroup::new(vec![opt("a", true)], false).unwrap();
         g.schema_version = "9.9.9".into();
-        assert!(matches!(g.validate().unwrap_err(), RadioError::SchemaMismatch));
+        assert!(matches!(
+            g.validate().unwrap_err(),
+            RadioError::SchemaMismatch
+        ));
     }
 
     #[test]

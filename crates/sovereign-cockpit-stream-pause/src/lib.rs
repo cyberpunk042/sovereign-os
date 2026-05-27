@@ -46,7 +46,9 @@ impl StreamPause {
     }
 
     /// Pause.
-    pub fn pause(&mut self) { self.paused = true; }
+    pub fn pause(&mut self) {
+        self.paused = true;
+    }
 
     /// Resume.
     pub fn resume(&mut self) {
@@ -62,17 +64,23 @@ impl StreamPause {
     }
 
     /// Drop queued.
-    pub fn drop_queued(&mut self) { self.queued_count = 0; }
+    pub fn drop_queued(&mut self) {
+        self.queued_count = 0;
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), PauseError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(PauseError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(PauseError::SchemaMismatch);
+        }
         Ok(())
     }
 }
 
 impl Default for StreamPause {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -121,7 +129,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut p = StreamPause::new();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), PauseError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            PauseError::SchemaMismatch
+        ));
     }
 
     #[test]

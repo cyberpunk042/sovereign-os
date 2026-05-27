@@ -81,26 +81,47 @@ impl HapticCuePolicy {
     }
 
     /// Register / update a channel.
-    pub fn set_channel(&mut self, name: &str, intensity: Intensity, muted: bool) -> Result<(), HapticError> {
-        if name.is_empty() { return Err(HapticError::EmptyChannel); }
-        self.channels.insert(name.into(), Channel { intensity, muted });
+    pub fn set_channel(
+        &mut self,
+        name: &str,
+        intensity: Intensity,
+        muted: bool,
+    ) -> Result<(), HapticError> {
+        if name.is_empty() {
+            return Err(HapticError::EmptyChannel);
+        }
+        self.channels
+            .insert(name.into(), Channel { intensity, muted });
         Ok(())
     }
 
     /// Toggle mute.
     pub fn set_muted(&mut self, name: &str, muted: bool) -> Result<(), HapticError> {
-        if name.is_empty() { return Err(HapticError::EmptyChannel); }
-        let c = self.channels.entry(name.into()).or_insert(Channel { intensity: Intensity::Light, muted });
+        if name.is_empty() {
+            return Err(HapticError::EmptyChannel);
+        }
+        let c = self.channels.entry(name.into()).or_insert(Channel {
+            intensity: Intensity::Light,
+            muted,
+        });
         c.muted = muted;
         Ok(())
     }
 
     /// Effective intensity for a channel.
     pub fn cue_for(&self, name: &str) -> Intensity {
-        let Some(c) = self.channels.get(name) else { return Intensity::Off; };
-        if c.muted { return Intensity::Off; }
+        let Some(c) = self.channels.get(name) else {
+            return Intensity::Off;
+        };
+        if c.muted {
+            return Intensity::Off;
+        }
         // min(master, channel).
-        if self.master_intensity < c.intensity { self.master_intensity } else { c.intensity }
+        if self.master_intensity < c.intensity {
+            self.master_intensity
+        } else {
+            c.intensity
+        }
     }
 
     /// All channels (sorted by name).
@@ -110,16 +131,22 @@ impl HapticCuePolicy {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), HapticError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(HapticError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(HapticError::SchemaMismatch);
+        }
         for k in self.channels.keys() {
-            if k.is_empty() { return Err(HapticError::EmptyChannel); }
+            if k.is_empty() {
+                return Err(HapticError::EmptyChannel);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for HapticCuePolicy {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -181,15 +208,24 @@ mod tests {
     #[test]
     fn empty_channel_rejected() {
         let mut p = HapticCuePolicy::new();
-        assert!(matches!(p.set_channel("", Intensity::Light, false).unwrap_err(), HapticError::EmptyChannel));
-        assert!(matches!(p.set_muted("", true).unwrap_err(), HapticError::EmptyChannel));
+        assert!(matches!(
+            p.set_channel("", Intensity::Light, false).unwrap_err(),
+            HapticError::EmptyChannel
+        ));
+        assert!(matches!(
+            p.set_muted("", true).unwrap_err(),
+            HapticError::EmptyChannel
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut p = HapticCuePolicy::new();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), HapticError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            HapticError::SchemaMismatch
+        ));
     }
 
     #[test]

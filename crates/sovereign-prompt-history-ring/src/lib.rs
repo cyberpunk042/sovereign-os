@@ -51,9 +51,13 @@ impl PromptHistoryRing {
 
     /// Add a prompt. Dedups against the most recent entry.
     pub fn push(&mut self, prompt: &str) -> Result<(), HistoryError> {
-        if prompt.is_empty() { return Err(HistoryError::EmptyEntry); }
+        if prompt.is_empty() {
+            return Err(HistoryError::EmptyEntry);
+        }
         if let Some(last) = self.entries.last() {
-            if last == prompt { return Ok(()); } // dedupe consecutive
+            if last == prompt {
+                return Ok(());
+            } // dedupe consecutive
         }
         self.entries.push(prompt.into());
         while self.entries.len() > MAX_ENTRIES {
@@ -66,7 +70,9 @@ impl PromptHistoryRing {
     /// Move cursor to the previous (older) entry; returns the entry text.
     /// Returns None when no older entry exists.
     pub fn prev(&mut self) -> Option<&str> {
-        if self.entries.is_empty() { return None; }
+        if self.entries.is_empty() {
+            return None;
+        }
         let new_cursor = match self.cursor {
             None => self.entries.len() - 1,
             Some(0) => return Some(self.entries[0].as_str()),
@@ -94,10 +100,14 @@ impl PromptHistoryRing {
     }
 
     /// Count entries.
-    pub fn len(&self) -> usize { self.entries.len() }
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
 
     /// Is empty.
-    pub fn is_empty(&self) -> bool { self.entries.is_empty() }
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), HistoryError> {
@@ -105,14 +115,18 @@ impl PromptHistoryRing {
             return Err(HistoryError::SchemaMismatch);
         }
         for e in &self.entries {
-            if e.is_empty() { return Err(HistoryError::EmptyEntry); }
+            if e.is_empty() {
+                return Err(HistoryError::EmptyEntry);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for PromptHistoryRing {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -215,7 +229,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut r = PromptHistoryRing::new();
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate().unwrap_err(), HistoryError::SchemaMismatch));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            HistoryError::SchemaMismatch
+        ));
     }
 
     #[test]

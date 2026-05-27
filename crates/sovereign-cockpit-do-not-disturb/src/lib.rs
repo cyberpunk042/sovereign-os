@@ -79,7 +79,9 @@ impl DoNotDisturb {
 
     /// Set mode + schedule window.
     pub fn set(&mut self, mode: Mode, start_min: u32, end_min: u32) -> Result<(), DndError> {
-        if start_min >= 1440 || end_min >= 1440 { return Err(DndError::BadMinute); }
+        if start_min >= 1440 || end_min >= 1440 {
+            return Err(DndError::BadMinute);
+        }
         self.mode = mode;
         self.start_min = start_min;
         self.end_min = end_min;
@@ -88,7 +90,9 @@ impl DoNotDisturb {
 
     /// Add exempt tag.
     pub fn exempt_add(&mut self, tag: &str) -> Result<(), DndError> {
-        if tag.is_empty() { return Err(DndError::EmptyTag); }
+        if tag.is_empty() {
+            return Err(DndError::EmptyTag);
+        }
         self.exempt.insert(tag.into());
         Ok(())
     }
@@ -133,17 +137,25 @@ impl DoNotDisturb {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), DndError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(DndError::SchemaMismatch); }
-        if self.start_min >= 1440 || self.end_min >= 1440 { return Err(DndError::BadMinute); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(DndError::SchemaMismatch);
+        }
+        if self.start_min >= 1440 || self.end_min >= 1440 {
+            return Err(DndError::BadMinute);
+        }
         for t in &self.exempt {
-            if t.is_empty() { return Err(DndError::EmptyTag); }
+            if t.is_empty() {
+                return Err(DndError::EmptyTag);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for DoNotDisturb {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -181,7 +193,7 @@ mod tests {
         // 22:00 → 23:00
         d.set(Mode::Scheduled, 22 * 60, 23 * 60).unwrap();
         let in_window = (22 * 60 + 30) as u64 * MIN; // 22:30
-        let out_window = (10 * 60) as u64 * MIN;      // 10:00
+        let out_window = (10 * 60) as u64 * MIN; // 10:00
         assert!(d.suppress(in_window, "x"));
         assert!(!d.suppress(out_window, "x"));
     }
@@ -216,14 +228,20 @@ mod tests {
     #[test]
     fn bad_minute_rejected() {
         let mut d = DoNotDisturb::new();
-        assert!(matches!(d.set(Mode::Scheduled, 1440, 0).unwrap_err(), DndError::BadMinute));
+        assert!(matches!(
+            d.set(Mode::Scheduled, 1440, 0).unwrap_err(),
+            DndError::BadMinute
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut d = DoNotDisturb::new();
         d.schema_version = "9.9.9".into();
-        assert!(matches!(d.validate().unwrap_err(), DndError::SchemaMismatch));
+        assert!(matches!(
+            d.validate().unwrap_err(),
+            DndError::SchemaMismatch
+        ));
     }
 
     #[test]

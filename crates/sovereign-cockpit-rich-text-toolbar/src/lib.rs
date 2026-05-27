@@ -121,7 +121,9 @@ impl RichTextToolbar {
 }
 
 impl Default for RichTextToolbar {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -172,24 +174,36 @@ mod tests {
     fn inline_code_in_code_block_rejected() {
         let mut t = RichTextToolbar::new();
         t.set_block(BlockKind::CodeBlock);
-        assert!(matches!(t.toggle_mark(InlineMark::Code).unwrap_err(), ToolbarError::InlineCodeInCodeBlock));
+        assert!(matches!(
+            t.toggle_mark(InlineMark::Code).unwrap_err(),
+            ToolbarError::InlineCodeInCodeBlock
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut t = RichTextToolbar::new();
         t.schema_version = "9.9.9".into();
-        assert!(matches!(t.validate().unwrap_err(), ToolbarError::SchemaMismatch));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            ToolbarError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn mark_serde_kebab() {
-        assert_eq!(serde_json::to_string(&InlineMark::Strike).unwrap(), "\"strike\"");
+        assert_eq!(
+            serde_json::to_string(&InlineMark::Strike).unwrap(),
+            "\"strike\""
+        );
     }
 
     #[test]
     fn block_serde_kebab() {
-        assert_eq!(serde_json::to_string(&BlockKind::CodeBlock).unwrap(), "\"code-block\"");
+        assert_eq!(
+            serde_json::to_string(&BlockKind::CodeBlock).unwrap(),
+            "\"code-block\""
+        );
     }
 
     #[test]

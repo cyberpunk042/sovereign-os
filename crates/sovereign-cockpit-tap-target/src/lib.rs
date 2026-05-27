@@ -72,7 +72,9 @@ pub enum TargetError {
 impl TapTargetRegistry {
     /// New.
     pub fn new(min_size_px: u32) -> Result<Self, TargetError> {
-        if min_size_px == 0 { return Err(TargetError::ZeroMin); }
+        if min_size_px == 0 {
+            return Err(TargetError::ZeroMin);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             min_size_px,
@@ -81,21 +83,38 @@ impl TapTargetRegistry {
     }
 
     /// Register a target.
-    pub fn register(&mut self, id: &str, width_px: u32, height_px: u32, aria_label: &str) -> Result<(), TargetError> {
-        if id.is_empty() { return Err(TargetError::EmptyId); }
-        if aria_label.is_empty() { return Err(TargetError::EmptyLabel); }
+    pub fn register(
+        &mut self,
+        id: &str,
+        width_px: u32,
+        height_px: u32,
+        aria_label: &str,
+    ) -> Result<(), TargetError> {
+        if id.is_empty() {
+            return Err(TargetError::EmptyId);
+        }
+        if aria_label.is_empty() {
+            return Err(TargetError::EmptyLabel);
+        }
         let smallest = width_px.min(height_px);
         if smallest < self.min_size_px {
-            return Err(TargetError::TooSmall { id: id.into(), dim: smallest, min: self.min_size_px });
+            return Err(TargetError::TooSmall {
+                id: id.into(),
+                dim: smallest,
+                min: self.min_size_px,
+            });
         }
         if self.targets.contains_key(id) {
             return Err(TargetError::DuplicateId(id.into()));
         }
-        self.targets.insert(id.into(), Target {
-            width_px,
-            height_px,
-            aria_label: aria_label.into(),
-        });
+        self.targets.insert(
+            id.into(),
+            Target {
+                width_px,
+                height_px,
+                aria_label: aria_label.into(),
+            },
+        );
         Ok(())
     }
 
@@ -110,18 +129,28 @@ impl TapTargetRegistry {
 
     /// Raise minimum size.
     pub fn set_min_size_px(&mut self, n: u32) -> Result<(), TargetError> {
-        if n == 0 { return Err(TargetError::ZeroMin); }
+        if n == 0 {
+            return Err(TargetError::ZeroMin);
+        }
         self.min_size_px = n;
         Ok(())
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), TargetError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(TargetError::SchemaMismatch); }
-        if self.min_size_px == 0 { return Err(TargetError::ZeroMin); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(TargetError::SchemaMismatch);
+        }
+        if self.min_size_px == 0 {
+            return Err(TargetError::ZeroMin);
+        }
         for (id, t) in &self.targets {
-            if id.is_empty() { return Err(TargetError::EmptyId); }
-            if t.aria_label.is_empty() { return Err(TargetError::EmptyLabel); }
+            if id.is_empty() {
+                return Err(TargetError::EmptyId);
+            }
+            if t.aria_label.is_empty() {
+                return Err(TargetError::EmptyLabel);
+            }
         }
         Ok(())
     }
@@ -143,23 +172,39 @@ mod tests {
         let mut r = TapTargetRegistry::new(44).unwrap();
         assert!(matches!(
             r.register("btn", 30, 40, "submit").unwrap_err(),
-            TargetError::TooSmall { dim: 30, min: 44, .. }
+            TargetError::TooSmall {
+                dim: 30,
+                min: 44,
+                ..
+            }
         ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut r = TapTargetRegistry::new(44).unwrap();
-        assert!(matches!(r.register("", 44, 44, "x").unwrap_err(), TargetError::EmptyId));
-        assert!(matches!(r.register("btn", 44, 44, "").unwrap_err(), TargetError::EmptyLabel));
-        assert!(matches!(TapTargetRegistry::new(0).unwrap_err(), TargetError::ZeroMin));
+        assert!(matches!(
+            r.register("", 44, 44, "x").unwrap_err(),
+            TargetError::EmptyId
+        ));
+        assert!(matches!(
+            r.register("btn", 44, 44, "").unwrap_err(),
+            TargetError::EmptyLabel
+        ));
+        assert!(matches!(
+            TapTargetRegistry::new(0).unwrap_err(),
+            TargetError::ZeroMin
+        ));
     }
 
     #[test]
     fn duplicate_rejected() {
         let mut r = TapTargetRegistry::new(44).unwrap();
         r.register("btn", 44, 44, "x").unwrap();
-        assert!(matches!(r.register("btn", 44, 44, "y").unwrap_err(), TargetError::DuplicateId(_)));
+        assert!(matches!(
+            r.register("btn", 44, 44, "y").unwrap_err(),
+            TargetError::DuplicateId(_)
+        ));
     }
 
     #[test]
@@ -176,7 +221,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut r = TapTargetRegistry::new(44).unwrap();
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate().unwrap_err(), TargetError::SchemaMismatch));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            TargetError::SchemaMismatch
+        ));
     }
 
     #[test]

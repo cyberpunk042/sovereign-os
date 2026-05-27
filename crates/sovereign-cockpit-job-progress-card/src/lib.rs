@@ -88,8 +88,12 @@ pub enum CardError {
 impl JobCard {
     /// New.
     pub fn new(job_id: &str, title: &str) -> Result<Self, CardError> {
-        if job_id.is_empty() { return Err(CardError::EmptyId); }
-        if title.is_empty() { return Err(CardError::EmptyLabel); }
+        if job_id.is_empty() {
+            return Err(CardError::EmptyId);
+        }
+        if title.is_empty() {
+            return Err(CardError::EmptyLabel);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             job_id: job_id.into(),
@@ -100,28 +104,38 @@ impl JobCard {
 
     /// Add a stage.
     pub fn add_stage(&mut self, id: &str, label: &str) -> Result<(), CardError> {
-        if id.is_empty() { return Err(CardError::EmptyId); }
-        if label.is_empty() { return Err(CardError::EmptyLabel); }
+        if id.is_empty() {
+            return Err(CardError::EmptyId);
+        }
+        if label.is_empty() {
+            return Err(CardError::EmptyLabel);
+        }
         if self.stages.iter().any(|s| s.id == id) {
             return Err(CardError::Duplicate(id.into()));
         }
         self.stages.push(Stage {
-            id: id.into(), label: label.into(),
+            id: id.into(),
+            label: label.into(),
             phase: Phase::Pending,
-            started_at_ms: 0, ended_at_ms: 0,
+            started_at_ms: 0,
+            ended_at_ms: 0,
         });
         Ok(())
     }
 
     fn stage_mut(&mut self, id: &str) -> Result<&mut Stage, CardError> {
-        self.stages.iter_mut().find(|s| s.id == id)
+        self.stages
+            .iter_mut()
+            .find(|s| s.id == id)
             .ok_or_else(|| CardError::Unknown(id.into()))
     }
 
     /// Pending → Running.
     pub fn start_stage(&mut self, id: &str, now_ms: u64) -> Result<(), CardError> {
         let s = self.stage_mut(id)?;
-        if s.phase != Phase::Pending { return Err(CardError::InvalidPhase); }
+        if s.phase != Phase::Pending {
+            return Err(CardError::InvalidPhase);
+        }
         s.phase = Phase::Running;
         s.started_at_ms = now_ms;
         Ok(())
@@ -130,7 +144,9 @@ impl JobCard {
     /// Running → Done.
     pub fn complete_stage(&mut self, id: &str, now_ms: u64) -> Result<(), CardError> {
         let s = self.stage_mut(id)?;
-        if s.phase != Phase::Running { return Err(CardError::InvalidPhase); }
+        if s.phase != Phase::Running {
+            return Err(CardError::InvalidPhase);
+        }
         s.phase = Phase::Done;
         s.ended_at_ms = now_ms;
         Ok(())
@@ -138,9 +154,13 @@ impl JobCard {
 
     /// Running → Failed.
     pub fn fail_stage(&mut self, id: &str, error: &str, now_ms: u64) -> Result<(), CardError> {
-        if error.is_empty() { return Err(CardError::EmptyError); }
+        if error.is_empty() {
+            return Err(CardError::EmptyError);
+        }
         let s = self.stage_mut(id)?;
-        if s.phase != Phase::Running { return Err(CardError::InvalidPhase); }
+        if s.phase != Phase::Running {
+            return Err(CardError::InvalidPhase);
+        }
         s.phase = Phase::Failed(error.into());
         s.ended_at_ms = now_ms;
         Ok(())
@@ -148,7 +168,9 @@ impl JobCard {
 
     /// Progress in basis points (Done full weight, Running half).
     pub fn progress_bp(&self) -> u32 {
-        if self.stages.is_empty() { return 0; }
+        if self.stages.is_empty() {
+            return 0;
+        }
         let n = self.stages.len() as u64;
         let mut points: u64 = 0;
         for s in &self.stages {
@@ -164,10 +186,16 @@ impl JobCard {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), CardError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(CardError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(CardError::SchemaMismatch);
+        }
         for s in &self.stages {
-            if s.id.is_empty() { return Err(CardError::EmptyId); }
-            if s.label.is_empty() { return Err(CardError::EmptyLabel); }
+            if s.id.is_empty() {
+                return Err(CardError::EmptyId);
+            }
+            if s.label.is_empty() {
+                return Err(CardError::EmptyLabel);
+            }
         }
         Ok(())
     }
@@ -221,14 +249,20 @@ mod tests {
         let mut c = JobCard::new("j1", "Job").unwrap();
         c.add_stage("s1", "A").unwrap();
         // Cannot complete a Pending stage.
-        assert!(matches!(c.complete_stage("s1", 0).unwrap_err(), CardError::InvalidPhase));
+        assert!(matches!(
+            c.complete_stage("s1", 0).unwrap_err(),
+            CardError::InvalidPhase
+        ));
     }
 
     #[test]
     fn duplicate_stage_rejected() {
         let mut c = JobCard::new("j1", "Job").unwrap();
         c.add_stage("s1", "A").unwrap();
-        assert!(matches!(c.add_stage("s1", "A").unwrap_err(), CardError::Duplicate(_)));
+        assert!(matches!(
+            c.add_stage("s1", "A").unwrap_err(),
+            CardError::Duplicate(_)
+        ));
     }
 
     #[test]
@@ -236,14 +270,20 @@ mod tests {
         let mut c = JobCard::new("j1", "Job").unwrap();
         c.add_stage("s1", "A").unwrap();
         c.start_stage("s1", 0).unwrap();
-        assert!(matches!(c.fail_stage("s1", "", 1).unwrap_err(), CardError::EmptyError));
+        assert!(matches!(
+            c.fail_stage("s1", "", 1).unwrap_err(),
+            CardError::EmptyError
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut c = JobCard::new("j1", "Job").unwrap();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), CardError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            CardError::SchemaMismatch
+        ));
     }
 
     #[test]

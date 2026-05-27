@@ -56,34 +56,59 @@ fn nearest(v: u32, step: u32) -> u32 {
 impl DragSnapGrid {
     /// New.
     pub fn new(step_x: u32, step_y: u32, threshold_px: u32) -> Result<Self, SnapError> {
-        if step_x == 0 || step_y == 0 { return Err(SnapError::ZeroStep); }
-        Ok(Self { step_x, step_y, threshold_px, enabled: true })
+        if step_x == 0 || step_y == 0 {
+            return Err(SnapError::ZeroStep);
+        }
+        Ok(Self {
+            step_x,
+            step_y,
+            threshold_px,
+            enabled: true,
+        })
     }
 
     /// Enable / disable.
-    pub fn set_enabled(&mut self, b: bool) { self.enabled = b; }
+    pub fn set_enabled(&mut self, b: bool) {
+        self.enabled = b;
+    }
 
     /// Snap a point.
     pub fn snap_point(&self, x: u32, y: u32) -> (u32, u32) {
-        if !self.enabled { return (x, y); }
-        (self.snap_axis(x, self.step_x), self.snap_axis(y, self.step_y))
+        if !self.enabled {
+            return (x, y);
+        }
+        (
+            self.snap_axis(x, self.step_x),
+            self.snap_axis(y, self.step_y),
+        )
     }
 
     /// Snap a size.
     pub fn snap_size(&self, w: u32, h: u32) -> (u32, u32) {
-        if !self.enabled { return (w, h); }
-        (self.snap_axis(w, self.step_x), self.snap_axis(h, self.step_y))
+        if !self.enabled {
+            return (w, h);
+        }
+        (
+            self.snap_axis(w, self.step_x),
+            self.snap_axis(h, self.step_y),
+        )
     }
 
     fn snap_axis(&self, v: u32, step: u32) -> u32 {
         let snapped = nearest(v, step);
         let delta = v.abs_diff(snapped);
-        if delta <= self.threshold_px { snapped } else { v }
+        if delta <= self.threshold_px {
+            snapped
+        } else {
+            v
+        }
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), SnapError> {
-        if self.step_x == 0 || self.step_y == 0 { return Err(SnapError::ZeroStep); }
+        if self.step_x == 0 || self.step_y == 0 {
+            return Err(SnapError::ZeroStep);
+        }
         Ok(())
     }
 }
@@ -108,7 +133,9 @@ impl DragSnapGridConfig {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), SnapError> {
-        if self.schema_version_marker != 1 { return Err(SnapError::SchemaMismatch); }
+        if self.schema_version_marker != 1 {
+            return Err(SnapError::SchemaMismatch);
+        }
         self.grid.validate()
     }
 }
@@ -161,8 +188,14 @@ mod tests {
 
     #[test]
     fn zero_step_rejected() {
-        assert!(matches!(DragSnapGrid::new(0, 10, 1).unwrap_err(), SnapError::ZeroStep));
-        assert!(matches!(DragSnapGrid::new(10, 0, 1).unwrap_err(), SnapError::ZeroStep));
+        assert!(matches!(
+            DragSnapGrid::new(0, 10, 1).unwrap_err(),
+            SnapError::ZeroStep
+        ));
+        assert!(matches!(
+            DragSnapGrid::new(10, 0, 1).unwrap_err(),
+            SnapError::ZeroStep
+        ));
     }
 
     #[test]
@@ -178,7 +211,10 @@ mod tests {
     fn config_schema_drift_rejected() {
         let mut c = DragSnapGridConfig::new(DragSnapGrid::new(10, 10, 3).unwrap());
         c.schema_version_marker = 99;
-        assert!(matches!(c.validate().unwrap_err(), SnapError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            SnapError::SchemaMismatch
+        ));
     }
 
     #[test]

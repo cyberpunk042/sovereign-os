@@ -71,17 +71,35 @@ impl LiveCollabCursors {
     }
 
     /// Register or update.
-    pub fn update(&mut self, peer_id: &str, label: &str, color_token: &str, x: u64, y: u64, ts_ms: u64) -> Result<(), CursorError> {
-        if peer_id.is_empty() { return Err(CursorError::EmptyPeer); }
-        if label.is_empty() { return Err(CursorError::EmptyLabel); }
-        if color_token.is_empty() { return Err(CursorError::EmptyColor); }
-        self.cursors.insert(peer_id.into(), PeerCursor {
-            peer_id: peer_id.into(),
-            label: label.into(),
-            color_token: color_token.into(),
-            x, y,
-            last_seen_ms: ts_ms,
-        });
+    pub fn update(
+        &mut self,
+        peer_id: &str,
+        label: &str,
+        color_token: &str,
+        x: u64,
+        y: u64,
+        ts_ms: u64,
+    ) -> Result<(), CursorError> {
+        if peer_id.is_empty() {
+            return Err(CursorError::EmptyPeer);
+        }
+        if label.is_empty() {
+            return Err(CursorError::EmptyLabel);
+        }
+        if color_token.is_empty() {
+            return Err(CursorError::EmptyColor);
+        }
+        self.cursors.insert(
+            peer_id.into(),
+            PeerCursor {
+                peer_id: peer_id.into(),
+                label: label.into(),
+                color_token: color_token.into(),
+                x,
+                y,
+                last_seen_ms: ts_ms,
+            },
+        );
         Ok(())
     }
 
@@ -92,18 +110,24 @@ impl LiveCollabCursors {
 
     /// Drop cursors older than max_age.
     pub fn prune(&mut self, now_ms: u64, max_age_ms: u64) -> usize {
-        let to_drop: Vec<String> = self.cursors.iter()
+        let to_drop: Vec<String> = self
+            .cursors
+            .iter()
             .filter(|(_, c)| now_ms.saturating_sub(c.last_seen_ms) > max_age_ms)
             .map(|(k, _)| k.clone())
             .collect();
         let n = to_drop.len();
-        for k in to_drop { self.cursors.remove(&k); }
+        for k in to_drop {
+            self.cursors.remove(&k);
+        }
         n
     }
 
     /// Active cursors at now (sorted by label).
     pub fn active(&self, now_ms: u64, max_age_ms: u64) -> Vec<PeerCursor> {
-        let mut v: Vec<PeerCursor> = self.cursors.values()
+        let mut v: Vec<PeerCursor> = self
+            .cursors
+            .values()
             .filter(|c| now_ms.saturating_sub(c.last_seen_ms) <= max_age_ms)
             .cloned()
             .collect();
@@ -113,18 +137,28 @@ impl LiveCollabCursors {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), CursorError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(CursorError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(CursorError::SchemaMismatch);
+        }
         for c in self.cursors.values() {
-            if c.peer_id.is_empty() { return Err(CursorError::EmptyPeer); }
-            if c.label.is_empty() { return Err(CursorError::EmptyLabel); }
-            if c.color_token.is_empty() { return Err(CursorError::EmptyColor); }
+            if c.peer_id.is_empty() {
+                return Err(CursorError::EmptyPeer);
+            }
+            if c.label.is_empty() {
+                return Err(CursorError::EmptyLabel);
+            }
+            if c.color_token.is_empty() {
+                return Err(CursorError::EmptyColor);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for LiveCollabCursors {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -192,16 +226,28 @@ mod tests {
     #[test]
     fn empty_inputs_rejected() {
         let mut c = LiveCollabCursors::new();
-        assert!(matches!(c.update("", "A", "x", 0, 0, 0).unwrap_err(), CursorError::EmptyPeer));
-        assert!(matches!(c.update("p", "", "x", 0, 0, 0).unwrap_err(), CursorError::EmptyLabel));
-        assert!(matches!(c.update("p", "A", "", 0, 0, 0).unwrap_err(), CursorError::EmptyColor));
+        assert!(matches!(
+            c.update("", "A", "x", 0, 0, 0).unwrap_err(),
+            CursorError::EmptyPeer
+        ));
+        assert!(matches!(
+            c.update("p", "", "x", 0, 0, 0).unwrap_err(),
+            CursorError::EmptyLabel
+        ));
+        assert!(matches!(
+            c.update("p", "A", "", 0, 0, 0).unwrap_err(),
+            CursorError::EmptyColor
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut c = LiveCollabCursors::new();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), CursorError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            CursorError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -140,14 +140,24 @@ impl ContextMenuRegistry {
 fn validate_items(items: &[MenuItem]) -> Result<(), ContextMenuError> {
     for it in items {
         match it {
-            MenuItem::Action { label, command_id, .. } => {
-                if label.is_empty() { return Err(ContextMenuError::EmptyLabel); }
-                if command_id.is_empty() { return Err(ContextMenuError::EmptyCommandId(label.clone())); }
+            MenuItem::Action {
+                label, command_id, ..
+            } => {
+                if label.is_empty() {
+                    return Err(ContextMenuError::EmptyLabel);
+                }
+                if command_id.is_empty() {
+                    return Err(ContextMenuError::EmptyCommandId(label.clone()));
+                }
             }
             MenuItem::Separator => {}
             MenuItem::Submenu { label, items } => {
-                if label.is_empty() { return Err(ContextMenuError::EmptySubmenuLabel); }
-                if items.is_empty() { return Err(ContextMenuError::EmptySubmenu(label.clone())); }
+                if label.is_empty() {
+                    return Err(ContextMenuError::EmptySubmenuLabel);
+                }
+                if items.is_empty() {
+                    return Err(ContextMenuError::EmptySubmenu(label.clone()));
+                }
                 validate_items(items)?;
             }
         }
@@ -156,7 +166,9 @@ fn validate_items(items: &[MenuItem]) -> Result<(), ContextMenuError> {
 }
 
 impl Default for ContextMenuRegistry {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -164,7 +176,11 @@ mod tests {
     use super::*;
 
     fn action(label: &str, cmd: &str) -> MenuItem {
-        MenuItem::Action { label: label.into(), command_id: cmd.into(), enabled: true }
+        MenuItem::Action {
+            label: label.into(),
+            command_id: cmd.into(),
+            enabled: true,
+        }
     }
 
     #[test]
@@ -177,8 +193,13 @@ mod tests {
         let mut r = ContextMenuRegistry::new();
         r.register(ContextMenu {
             target: TargetKind::Turn,
-            items: vec![action("Copy", "turn.copy"), MenuItem::Separator, action("Bookmark", "turn.bookmark")],
-        }).unwrap();
+            items: vec![
+                action("Copy", "turn.copy"),
+                MenuItem::Separator,
+                action("Bookmark", "turn.bookmark"),
+            ],
+        })
+        .unwrap();
         assert!(r.get(TargetKind::Turn).is_some());
     }
 
@@ -187,13 +208,15 @@ mod tests {
         let mut r = ContextMenuRegistry::new();
         r.register(ContextMenu {
             target: TargetKind::Tab,
-            items: vec![
-                MenuItem::Submenu {
-                    label: "Move to".into(),
-                    items: vec![action("New window", "tab.move-new"), action("Other window", "tab.move-other")],
-                },
-            ],
-        }).unwrap();
+            items: vec![MenuItem::Submenu {
+                label: "Move to".into(),
+                items: vec![
+                    action("New window", "tab.move-new"),
+                    action("Other window", "tab.move-other"),
+                ],
+            }],
+        })
+        .unwrap();
     }
 
     #[test]
@@ -202,41 +225,56 @@ mod tests {
         r.register(ContextMenu {
             target: TargetKind::Turn,
             items: vec![action("Copy", "x")],
-        }).unwrap();
-        let err = r.register(ContextMenu {
-            target: TargetKind::Turn,
-            items: vec![action("Paste", "y")],
-        }).unwrap_err();
-        assert!(matches!(err, ContextMenuError::DuplicateTarget(TargetKind::Turn)));
+        })
+        .unwrap();
+        let err = r
+            .register(ContextMenu {
+                target: TargetKind::Turn,
+                items: vec![action("Paste", "y")],
+            })
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            ContextMenuError::DuplicateTarget(TargetKind::Turn)
+        ));
     }
 
     #[test]
     fn empty_label_rejected() {
         let mut r = ContextMenuRegistry::new();
-        let err = r.register(ContextMenu {
-            target: TargetKind::Turn,
-            items: vec![action("", "x")],
-        }).unwrap_err();
+        let err = r
+            .register(ContextMenu {
+                target: TargetKind::Turn,
+                items: vec![action("", "x")],
+            })
+            .unwrap_err();
         assert!(matches!(err, ContextMenuError::EmptyLabel));
     }
 
     #[test]
     fn empty_command_rejected() {
         let mut r = ContextMenuRegistry::new();
-        let err = r.register(ContextMenu {
-            target: TargetKind::Turn,
-            items: vec![action("x", "")],
-        }).unwrap_err();
+        let err = r
+            .register(ContextMenu {
+                target: TargetKind::Turn,
+                items: vec![action("x", "")],
+            })
+            .unwrap_err();
         assert!(matches!(err, ContextMenuError::EmptyCommandId(_)));
     }
 
     #[test]
     fn empty_submenu_rejected() {
         let mut r = ContextMenuRegistry::new();
-        let err = r.register(ContextMenu {
-            target: TargetKind::Tab,
-            items: vec![MenuItem::Submenu { label: "Move".into(), items: vec![] }],
-        }).unwrap_err();
+        let err = r
+            .register(ContextMenu {
+                target: TargetKind::Tab,
+                items: vec![MenuItem::Submenu {
+                    label: "Move".into(),
+                    items: vec![],
+                }],
+            })
+            .unwrap_err();
         assert!(matches!(err, ContextMenuError::EmptySubmenu(_)));
     }
 
@@ -244,7 +282,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut r = ContextMenuRegistry::new();
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate().unwrap_err(), ContextMenuError::SchemaMismatch));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            ContextMenuError::SchemaMismatch
+        ));
     }
 
     #[test]
@@ -253,7 +294,8 @@ mod tests {
         r.register(ContextMenu {
             target: TargetKind::Turn,
             items: vec![action("Copy", "turn.copy")],
-        }).unwrap();
+        })
+        .unwrap();
         let j = serde_json::to_string(&r).unwrap();
         let back: ContextMenuRegistry = serde_json::from_str(&j).unwrap();
         assert_eq!(r, back);

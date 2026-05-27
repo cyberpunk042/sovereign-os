@@ -61,13 +61,18 @@ impl FocusRing {
     }
 
     /// Keyboard event.
-    pub fn key(&mut self) { self.last_source = InputSource::Keyboard; }
+    pub fn key(&mut self) {
+        self.last_source = InputSource::Keyboard;
+    }
 
     /// Pointer event.
-    pub fn pointer(&mut self) { self.last_source = InputSource::Pointer; }
+    pub fn pointer(&mut self) {
+        self.last_source = InputSource::Pointer;
+    }
 
     /// Focus transition — does NOT flip visibility.
-    pub fn focus_changed(&mut self) { /* no-op intentional */ }
+    pub fn focus_changed(&mut self) { /* no-op intentional */
+    }
 
     /// Should the focus ring render?
     pub fn visible(&self) -> bool {
@@ -76,13 +81,17 @@ impl FocusRing {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), RingError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(RingError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(RingError::SchemaMismatch);
+        }
         Ok(())
     }
 }
 
 impl Default for FocusRing {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -130,7 +139,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut r = FocusRing::new();
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate().unwrap_err(), RingError::SchemaMismatch));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            RingError::SchemaMismatch
+        ));
     }
 
     #[test]

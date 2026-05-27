@@ -73,19 +73,26 @@ impl FloatingPanelStack {
 
     /// Open a new panel (top of stack).
     pub fn open(&mut self, id: &str, title: &str) -> Result<u64, PanelError> {
-        if id.is_empty() { return Err(PanelError::EmptyId); }
-        if title.is_empty() { return Err(PanelError::EmptyTitle); }
+        if id.is_empty() {
+            return Err(PanelError::EmptyId);
+        }
+        if title.is_empty() {
+            return Err(PanelError::EmptyTitle);
+        }
         if self.panels.contains_key(id) {
             return Err(PanelError::DuplicateId(id.into()));
         }
         let z = self.next_z;
         self.next_z = self.next_z.saturating_add(1);
-        self.panels.insert(id.into(), Panel {
-            id: id.into(),
-            title: title.into(),
-            z,
-            minimized: false,
-        });
+        self.panels.insert(
+            id.into(),
+            Panel {
+                id: id.into(),
+                title: title.into(),
+                z,
+                minimized: false,
+            },
+        );
         Ok(z)
     }
 
@@ -102,7 +109,10 @@ impl FloatingPanelStack {
 
     /// Minimize / restore.
     pub fn set_minimized(&mut self, id: &str, minimized: bool) -> Result<(), PanelError> {
-        let p = self.panels.get_mut(id).ok_or_else(|| PanelError::UnknownPanel(id.into()))?;
+        let p = self
+            .panels
+            .get_mut(id)
+            .ok_or_else(|| PanelError::UnknownPanel(id.into()))?;
         p.minimized = minimized;
         Ok(())
     }
@@ -114,7 +124,8 @@ impl FloatingPanelStack {
 
     /// Focused (topmost non-minimized).
     pub fn focused(&self) -> Option<Panel> {
-        self.panels.values()
+        self.panels
+            .values()
             .filter(|p| !p.minimized)
             .max_by(|a, b| a.z.cmp(&b.z).then(a.id.cmp(&b.id)))
             .cloned()
@@ -129,17 +140,25 @@ impl FloatingPanelStack {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), PanelError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(PanelError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(PanelError::SchemaMismatch);
+        }
         for (id, p) in &self.panels {
-            if id.is_empty() { return Err(PanelError::EmptyId); }
-            if p.title.is_empty() { return Err(PanelError::EmptyTitle); }
+            if id.is_empty() {
+                return Err(PanelError::EmptyId);
+            }
+            if p.title.is_empty() {
+                return Err(PanelError::EmptyTitle);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for FloatingPanelStack {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -204,28 +223,43 @@ mod tests {
     fn duplicate_rejected() {
         let mut s = FloatingPanelStack::new();
         s.open("a", "A").unwrap();
-        assert!(matches!(s.open("a", "A").unwrap_err(), PanelError::DuplicateId(_)));
+        assert!(matches!(
+            s.open("a", "A").unwrap_err(),
+            PanelError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn unknown_actions_rejected() {
         let mut s = FloatingPanelStack::new();
-        assert!(matches!(s.bring_to_front("nope").unwrap_err(), PanelError::UnknownPanel(_)));
-        assert!(matches!(s.set_minimized("nope", true).unwrap_err(), PanelError::UnknownPanel(_)));
+        assert!(matches!(
+            s.bring_to_front("nope").unwrap_err(),
+            PanelError::UnknownPanel(_)
+        ));
+        assert!(matches!(
+            s.set_minimized("nope", true).unwrap_err(),
+            PanelError::UnknownPanel(_)
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut s = FloatingPanelStack::new();
         assert!(matches!(s.open("", "A").unwrap_err(), PanelError::EmptyId));
-        assert!(matches!(s.open("a", "").unwrap_err(), PanelError::EmptyTitle));
+        assert!(matches!(
+            s.open("a", "").unwrap_err(),
+            PanelError::EmptyTitle
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = FloatingPanelStack::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), PanelError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            PanelError::SchemaMismatch
+        ));
     }
 
     #[test]

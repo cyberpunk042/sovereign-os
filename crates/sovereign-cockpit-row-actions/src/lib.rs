@@ -99,7 +99,10 @@ impl RowActions {
             return Err(RowError::EmptyId);
         }
         let set = self.by_row.entry(row_id.into()).or_default();
-        let vec = match side { Side::Left => &mut set.left, Side::Right => &mut set.right };
+        let vec = match side {
+            Side::Left => &mut set.left,
+            Side::Right => &mut set.right,
+        };
         if vec.iter().any(|a| a.id == action.id) {
             return Err(RowError::DuplicateAction(action.id));
         }
@@ -110,7 +113,10 @@ impl RowActions {
     /// Remove an action by (side, id). Returns true if removed.
     pub fn remove(&mut self, row_id: &str, side: Side, action_id: &str) -> bool {
         if let Some(set) = self.by_row.get_mut(row_id) {
-            let vec = match side { Side::Left => &mut set.left, Side::Right => &mut set.right };
+            let vec = match side {
+                Side::Left => &mut set.left,
+                Side::Right => &mut set.right,
+            };
             if let Some(pos) = vec.iter().position(|a| a.id == action_id) {
                 vec.remove(pos);
                 if set.left.is_empty() && set.right.is_empty() {
@@ -135,14 +141,20 @@ impl RowActions {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), RowError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(RowError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(RowError::SchemaMismatch);
+        }
         for (id, set) in &self.by_row {
-            if id.is_empty() { return Err(RowError::EmptyId); }
+            if id.is_empty() {
+                return Err(RowError::EmptyId);
+            }
             use std::collections::HashSet;
             for v in [&set.left, &set.right] {
                 let mut seen: HashSet<&str> = HashSet::new();
                 for a in v {
-                    if a.id.is_empty() { return Err(RowError::EmptyId); }
+                    if a.id.is_empty() {
+                        return Err(RowError::EmptyId);
+                    }
                     if !seen.insert(a.id.as_str()) {
                         return Err(RowError::DuplicateAction(a.id.clone()));
                     }
@@ -154,7 +166,9 @@ impl RowActions {
 }
 
 impl Default for RowActions {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -162,14 +176,25 @@ mod tests {
     use super::*;
 
     fn a(id: &str, sev: Severity, confirm: bool) -> Action {
-        Action { id: id.into(), label: id.into(), severity: sev, requires_confirm: confirm }
+        Action {
+            id: id.into(),
+            label: id.into(),
+            severity: sev,
+            requires_confirm: confirm,
+        }
     }
 
     #[test]
     fn add_and_query() {
         let mut r = RowActions::new();
-        r.add("row-1", Side::Right, a("delete", Severity::Destructive, true)).unwrap();
-        r.add("row-1", Side::Left, a("archive", Severity::Default, false)).unwrap();
+        r.add(
+            "row-1",
+            Side::Right,
+            a("delete", Severity::Destructive, true),
+        )
+        .unwrap();
+        r.add("row-1", Side::Left, a("archive", Severity::Default, false))
+            .unwrap();
         assert_eq!(r.actions_on("row-1", Side::Right).len(), 1);
         assert_eq!(r.actions_on("row-1", Side::Left).len(), 1);
     }
@@ -177,21 +202,33 @@ mod tests {
     #[test]
     fn duplicate_rejected_per_side() {
         let mut r = RowActions::new();
-        r.add("row-1", Side::Right, a("delete", Severity::Destructive, true)).unwrap();
-        assert!(matches!(r.add("row-1", Side::Right, a("delete", Severity::Default, false)).unwrap_err(), RowError::DuplicateAction(_)));
+        r.add(
+            "row-1",
+            Side::Right,
+            a("delete", Severity::Destructive, true),
+        )
+        .unwrap();
+        assert!(matches!(
+            r.add("row-1", Side::Right, a("delete", Severity::Default, false))
+                .unwrap_err(),
+            RowError::DuplicateAction(_)
+        ));
     }
 
     #[test]
     fn same_id_allowed_on_different_sides() {
         let mut r = RowActions::new();
-        r.add("row-1", Side::Right, a("share", Severity::Default, false)).unwrap();
-        r.add("row-1", Side::Left, a("share", Severity::Default, false)).unwrap();
+        r.add("row-1", Side::Right, a("share", Severity::Default, false))
+            .unwrap();
+        r.add("row-1", Side::Left, a("share", Severity::Default, false))
+            .unwrap();
     }
 
     #[test]
     fn remove_clears_row_when_empty() {
         let mut r = RowActions::new();
-        r.add("row-1", Side::Right, a("x", Severity::Default, false)).unwrap();
+        r.add("row-1", Side::Right, a("x", Severity::Default, false))
+            .unwrap();
         assert!(r.remove("row-1", Side::Right, "x"));
         assert!(r.by_row.get("row-1").is_none());
     }
@@ -205,8 +242,16 @@ mod tests {
     #[test]
     fn empty_id_rejected() {
         let mut r = RowActions::new();
-        assert!(matches!(r.add("", Side::Right, a("x", Severity::Default, false)).unwrap_err(), RowError::EmptyId));
-        assert!(matches!(r.add("row-1", Side::Right, a("", Severity::Default, false)).unwrap_err(), RowError::EmptyId));
+        assert!(matches!(
+            r.add("", Side::Right, a("x", Severity::Default, false))
+                .unwrap_err(),
+            RowError::EmptyId
+        ));
+        assert!(matches!(
+            r.add("row-1", Side::Right, a("", Severity::Default, false))
+                .unwrap_err(),
+            RowError::EmptyId
+        ));
     }
 
     #[test]
@@ -219,13 +264,21 @@ mod tests {
     fn schema_drift_rejected() {
         let mut r = RowActions::new();
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate().unwrap_err(), RowError::SchemaMismatch));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            RowError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn actions_serde_roundtrip() {
         let mut r = RowActions::new();
-        r.add("row-1", Side::Right, a("delete", Severity::Destructive, true)).unwrap();
+        r.add(
+            "row-1",
+            Side::Right,
+            a("delete", Severity::Destructive, true),
+        )
+        .unwrap();
         let j = serde_json::to_string(&r).unwrap();
         let back: RowActions = serde_json::from_str(&j).unwrap();
         assert_eq!(r, back);

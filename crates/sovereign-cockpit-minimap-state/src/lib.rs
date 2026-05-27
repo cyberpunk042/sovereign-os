@@ -75,7 +75,12 @@ pub enum MinimapError {
 
 impl MinimapState {
     /// New.
-    pub fn new(content_w: u32, content_h: u32, minimap_w: u32, minimap_h: u32) -> Result<Self, MinimapError> {
+    pub fn new(
+        content_w: u32,
+        content_h: u32,
+        minimap_w: u32,
+        minimap_h: u32,
+    ) -> Result<Self, MinimapError> {
         if content_w == 0 || content_h == 0 || minimap_w == 0 || minimap_h == 0 {
             return Err(MinimapError::BadDimension);
         }
@@ -141,8 +146,11 @@ impl MinimapState {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), MinimapError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(MinimapError::SchemaMismatch); }
-        if self.content_w == 0 || self.content_h == 0 || self.minimap_w == 0 || self.minimap_h == 0 {
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(MinimapError::SchemaMismatch);
+        }
+        if self.content_w == 0 || self.content_h == 0 || self.minimap_w == 0 || self.minimap_h == 0
+        {
             return Err(MinimapError::BadDimension);
         }
         Ok(())
@@ -208,15 +216,24 @@ mod tests {
 
     #[test]
     fn bad_dimension_rejected() {
-        assert!(matches!(MinimapState::new(0, 100, 100, 100).unwrap_err(), MinimapError::BadDimension));
-        assert!(matches!(MinimapState::new(100, 100, 0, 100).unwrap_err(), MinimapError::BadDimension));
+        assert!(matches!(
+            MinimapState::new(0, 100, 100, 100).unwrap_err(),
+            MinimapError::BadDimension
+        ));
+        assert!(matches!(
+            MinimapState::new(100, 100, 0, 100).unwrap_err(),
+            MinimapError::BadDimension
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut m = MinimapState::new(100, 100, 50, 50).unwrap();
         m.schema_version = "9.9.9".into();
-        assert!(matches!(m.validate().unwrap_err(), MinimapError::SchemaMismatch));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            MinimapError::SchemaMismatch
+        ));
     }
 
     #[test]

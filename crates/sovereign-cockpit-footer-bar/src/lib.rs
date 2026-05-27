@@ -73,9 +73,17 @@ impl FooterBar {
 
     /// Set primary action.
     pub fn set_primary(&mut self, id: &str, label: &str) -> Result<(), FooterError> {
-        if id.is_empty() { return Err(FooterError::EmptyId); }
-        if label.is_empty() { return Err(FooterError::EmptyLabel); }
-        self.primary = Some(Action { id: id.into(), label: label.into(), invokes: 0 });
+        if id.is_empty() {
+            return Err(FooterError::EmptyId);
+        }
+        if label.is_empty() {
+            return Err(FooterError::EmptyLabel);
+        }
+        self.primary = Some(Action {
+            id: id.into(),
+            label: label.into(),
+            invokes: 0,
+        });
         Ok(())
     }
 
@@ -86,15 +94,23 @@ impl FooterBar {
 
     /// Add secondary action.
     pub fn add_secondary(&mut self, id: &str, label: &str) -> Result<(), FooterError> {
-        if id.is_empty() { return Err(FooterError::EmptyId); }
-        if label.is_empty() { return Err(FooterError::EmptyLabel); }
+        if id.is_empty() {
+            return Err(FooterError::EmptyId);
+        }
+        if label.is_empty() {
+            return Err(FooterError::EmptyLabel);
+        }
         if self.secondary.iter().any(|a| a.id == id) {
             return Err(FooterError::DuplicateId(id.into()));
         }
         if self.primary.as_ref().map(|p| p.id == id).unwrap_or(false) {
             return Err(FooterError::DuplicateId(id.into()));
         }
-        self.secondary.push(Action { id: id.into(), label: label.into(), invokes: 0 });
+        self.secondary.push(Action {
+            id: id.into(),
+            label: label.into(),
+            invokes: 0,
+        });
         Ok(())
     }
 
@@ -116,7 +132,10 @@ impl FooterBar {
     /// Invoke an action by id.
     pub fn invoke(&mut self, id: &str) -> Result<(), FooterError> {
         if let Some(p) = self.primary.as_mut() {
-            if p.id == id { p.invokes = p.invokes.saturating_add(1); return Ok(()); }
+            if p.id == id {
+                p.invokes = p.invokes.saturating_add(1);
+                return Ok(());
+            }
         }
         if let Some(a) = self.secondary.iter_mut().find(|a| a.id == id) {
             a.invokes = a.invokes.saturating_add(1);
@@ -127,17 +146,25 @@ impl FooterBar {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), FooterError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(FooterError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(FooterError::SchemaMismatch);
+        }
         for a in self.primary.iter().chain(self.secondary.iter()) {
-            if a.id.is_empty() { return Err(FooterError::EmptyId); }
-            if a.label.is_empty() { return Err(FooterError::EmptyLabel); }
+            if a.id.is_empty() {
+                return Err(FooterError::EmptyId);
+            }
+            if a.label.is_empty() {
+                return Err(FooterError::EmptyLabel);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for FooterBar {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -164,14 +191,20 @@ mod tests {
     fn duplicate_secondary_rejected() {
         let mut b = FooterBar::new();
         b.add_secondary("x", "X").unwrap();
-        assert!(matches!(b.add_secondary("x", "Y").unwrap_err(), FooterError::DuplicateId(_)));
+        assert!(matches!(
+            b.add_secondary("x", "Y").unwrap_err(),
+            FooterError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn secondary_cannot_clash_with_primary() {
         let mut b = FooterBar::new();
         b.set_primary("save", "Save").unwrap();
-        assert!(matches!(b.add_secondary("save", "Save2").unwrap_err(), FooterError::DuplicateId(_)));
+        assert!(matches!(
+            b.add_secondary("save", "Save2").unwrap_err(),
+            FooterError::DuplicateId(_)
+        ));
     }
 
     #[test]
@@ -185,7 +218,10 @@ mod tests {
     #[test]
     fn unknown_invoke_rejected() {
         let mut b = FooterBar::new();
-        assert!(matches!(b.invoke("nope").unwrap_err(), FooterError::UnknownId(_)));
+        assert!(matches!(
+            b.invoke("nope").unwrap_err(),
+            FooterError::UnknownId(_)
+        ));
     }
 
     #[test]
@@ -199,7 +235,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut b = FooterBar::new();
         b.schema_version = "9.9.9".into();
-        assert!(matches!(b.validate().unwrap_err(), FooterError::SchemaMismatch));
+        assert!(matches!(
+            b.validate().unwrap_err(),
+            FooterError::SchemaMismatch
+        ));
     }
 
     #[test]

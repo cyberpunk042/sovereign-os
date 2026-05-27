@@ -70,13 +70,18 @@ impl PopoverStack {
 
     /// Push a popover.
     pub fn push(&mut self, p: Popover) -> Result<(), PopoverError> {
-        if p.id.is_empty() { return Err(PopoverError::EmptyId); }
+        if p.id.is_empty() {
+            return Err(PopoverError::EmptyId);
+        }
         if self.stack.iter().any(|x| x.id == p.id) {
             return Err(PopoverError::DuplicateId(p.id));
         }
         if let Some(parent_id) = &p.parent_id {
             if !self.stack.iter().any(|x| &x.id == parent_id) {
-                return Err(PopoverError::UnknownParent { id: p.id.clone(), parent: parent_id.clone() });
+                return Err(PopoverError::UnknownParent {
+                    id: p.id.clone(),
+                    parent: parent_id.clone(),
+                });
             }
         }
         self.stack.push(p);
@@ -91,7 +96,9 @@ impl PopoverStack {
         while idx < to_remove.len() {
             let parent_id = to_remove[idx].clone();
             for p in &self.stack {
-                if p.parent_id.as_deref() == Some(parent_id.as_str()) && !to_remove.iter().any(|x| x == &p.id) {
+                if p.parent_id.as_deref() == Some(parent_id.as_str())
+                    && !to_remove.iter().any(|x| x == &p.id)
+                {
                     to_remove.push(p.id.clone());
                 }
             }
@@ -121,7 +128,9 @@ impl PopoverStack {
         use std::collections::HashSet;
         let mut seen: HashSet<&str> = HashSet::new();
         for p in &self.stack {
-            if p.id.is_empty() { return Err(PopoverError::EmptyId); }
+            if p.id.is_empty() {
+                return Err(PopoverError::EmptyId);
+            }
             if !seen.insert(p.id.as_str()) {
                 return Err(PopoverError::DuplicateId(p.id.clone()));
             }
@@ -139,7 +148,9 @@ impl PopoverStack {
 }
 
 impl Default for PopoverStack {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -204,7 +215,10 @@ mod tests {
     fn duplicate_rejected() {
         let mut s = PopoverStack::new();
         s.push(pop("a", None)).unwrap();
-        assert!(matches!(s.push(pop("a", None)).unwrap_err(), PopoverError::DuplicateId(_)));
+        assert!(matches!(
+            s.push(pop("a", None)).unwrap_err(),
+            PopoverError::DuplicateId(_)
+        ));
     }
 
     #[test]
@@ -219,7 +233,10 @@ mod tests {
     #[test]
     fn empty_id_rejected() {
         let mut s = PopoverStack::new();
-        assert!(matches!(s.push(pop("", None)).unwrap_err(), PopoverError::EmptyId));
+        assert!(matches!(
+            s.push(pop("", None)).unwrap_err(),
+            PopoverError::EmptyId
+        ));
     }
 
     #[test]
@@ -234,7 +251,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = PopoverStack::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), PopoverError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            PopoverError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -53,8 +53,12 @@ pub enum ReplyError {
 impl ReplyForm {
     /// New.
     pub fn new(parent_id: &str, autosave_every_ms: u64) -> Result<Self, ReplyError> {
-        if parent_id.is_empty() { return Err(ReplyError::EmptyParent); }
-        if autosave_every_ms == 0 { return Err(ReplyError::ZeroAutosave); }
+        if parent_id.is_empty() {
+            return Err(ReplyError::EmptyParent);
+        }
+        if autosave_every_ms == 0 {
+            return Err(ReplyError::ZeroAutosave);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             parent_id: parent_id.into(),
@@ -66,16 +70,24 @@ impl ReplyForm {
     }
 
     /// Type into draft.
-    pub fn r#type(&mut self, body: &str) { self.draft = body.into(); }
+    pub fn r#type(&mut self, body: &str) {
+        self.draft = body.into();
+    }
 
     /// Has the draft diverged from the last persisted snapshot?
-    pub fn dirty(&self) -> bool { self.draft != self.persisted_draft }
+    pub fn dirty(&self) -> bool {
+        self.draft != self.persisted_draft
+    }
 
     /// Tick — autosaves if interval elapsed and dirty.
     pub fn tick(&mut self, now_ms: u64) -> bool {
-        if !self.dirty() { return false; }
+        if !self.dirty() {
+            return false;
+        }
         let elapsed = now_ms.saturating_sub(self.saved_at_ms);
-        if elapsed < self.autosave_every_ms { return false; }
+        if elapsed < self.autosave_every_ms {
+            return false;
+        }
         self.persisted_draft = self.draft.clone();
         self.saved_at_ms = now_ms;
         true
@@ -83,7 +95,9 @@ impl ReplyForm {
 
     /// Submit — returns the body and resets the form.
     pub fn submit(&mut self) -> Result<String, ReplyError> {
-        if self.draft.trim().is_empty() { return Err(ReplyError::EmptyDraft); }
+        if self.draft.trim().is_empty() {
+            return Err(ReplyError::EmptyDraft);
+        }
         let body = std::mem::take(&mut self.draft);
         self.persisted_draft.clear();
         self.saved_at_ms = 0;
@@ -99,9 +113,15 @@ impl ReplyForm {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ReplyError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ReplyError::SchemaMismatch); }
-        if self.parent_id.is_empty() { return Err(ReplyError::EmptyParent); }
-        if self.autosave_every_ms == 0 { return Err(ReplyError::ZeroAutosave); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ReplyError::SchemaMismatch);
+        }
+        if self.parent_id.is_empty() {
+            return Err(ReplyError::EmptyParent);
+        }
+        if self.autosave_every_ms == 0 {
+            return Err(ReplyError::ZeroAutosave);
+        }
         Ok(())
     }
 }
@@ -162,19 +182,28 @@ mod tests {
 
     #[test]
     fn empty_parent_rejected() {
-        assert!(matches!(ReplyForm::new("", 1000).unwrap_err(), ReplyError::EmptyParent));
+        assert!(matches!(
+            ReplyForm::new("", 1000).unwrap_err(),
+            ReplyError::EmptyParent
+        ));
     }
 
     #[test]
     fn zero_autosave_rejected() {
-        assert!(matches!(ReplyForm::new("p", 0).unwrap_err(), ReplyError::ZeroAutosave));
+        assert!(matches!(
+            ReplyForm::new("p", 0).unwrap_err(),
+            ReplyError::ZeroAutosave
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut f = ReplyForm::new("p", 1000).unwrap();
         f.schema_version = "9.9.9".into();
-        assert!(matches!(f.validate().unwrap_err(), ReplyError::SchemaMismatch));
+        assert!(matches!(
+            f.validate().unwrap_err(),
+            ReplyError::SchemaMismatch
+        ));
     }
 
     #[test]

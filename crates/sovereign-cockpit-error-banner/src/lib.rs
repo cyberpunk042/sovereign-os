@@ -9,8 +9,8 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-use sovereign_cockpit_banner_state::BannerSeverity;
 use serde::{Deserialize, Serialize};
+use sovereign_cockpit_banner_state::BannerSeverity;
 use thiserror::Error;
 
 /// Schema version.
@@ -115,7 +115,10 @@ impl ErrorBannerStack {
 
     /// Dismiss by id.
     pub fn dismiss(&mut self, id: &str) -> Result<(), BannerError> {
-        let pos = self.banners.iter().position(|b| b.id == id)
+        let pos = self
+            .banners
+            .iter()
+            .position(|b| b.id == id)
             .ok_or_else(|| BannerError::Unknown(id.into()))?;
         if !self.banners[pos].dismissible {
             return Err(BannerError::NotDismissible(id.into()));
@@ -147,17 +150,33 @@ impl ErrorBannerStack {
 }
 
 fn check_shape(b: &ErrorBanner) -> Result<(), BannerError> {
-    if b.id.is_empty() { return Err(BannerError::EmptyId); }
-    if b.title.is_empty() { return Err(BannerError::EmptyTitle(b.id.clone())); }
+    if b.id.is_empty() {
+        return Err(BannerError::EmptyId);
+    }
+    if b.title.is_empty() {
+        return Err(BannerError::EmptyTitle(b.id.clone()));
+    }
     let n = b.title.chars().count();
-    if n > 80 { return Err(BannerError::TitleTooLong { id: b.id.clone(), len: n }); }
+    if n > 80 {
+        return Err(BannerError::TitleTooLong {
+            id: b.id.clone(),
+            len: n,
+        });
+    }
     let n = b.body.chars().count();
-    if n > 400 { return Err(BannerError::BodyTooLong { id: b.id.clone(), len: n }); }
+    if n > 400 {
+        return Err(BannerError::BodyTooLong {
+            id: b.id.clone(),
+            len: n,
+        });
+    }
     Ok(())
 }
 
 impl Default for ErrorBannerStack {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -193,15 +212,20 @@ mod tests {
     fn duplicate_rejected() {
         let mut s = ErrorBannerStack::new();
         s.push(b("a", BannerSeverity::Warn, true)).unwrap();
-        assert!(matches!(s.push(b("a", BannerSeverity::Critical, true)).unwrap_err(),
-            BannerError::Duplicate(_)));
+        assert!(matches!(
+            s.push(b("a", BannerSeverity::Critical, true)).unwrap_err(),
+            BannerError::Duplicate(_)
+        ));
     }
 
     #[test]
     fn non_dismissible_cannot_dismiss() {
         let mut s = ErrorBannerStack::new();
         s.push(b("a", BannerSeverity::Critical, false)).unwrap();
-        assert!(matches!(s.dismiss("a").unwrap_err(), BannerError::NotDismissible(_)));
+        assert!(matches!(
+            s.dismiss("a").unwrap_err(),
+            BannerError::NotDismissible(_)
+        ));
     }
 
     #[test]
@@ -211,7 +235,8 @@ mod tests {
         s.push(b("crit", BannerSeverity::Critical, false)).unwrap();
         // Fill with dismissibles.
         for i in 0..MAX_BANNERS {
-            s.push(b(&format!("d{i}"), BannerSeverity::Notice, true)).unwrap();
+            s.push(b(&format!("d{i}"), BannerSeverity::Notice, true))
+                .unwrap();
         }
         // The non-dismissible "crit" should still be in the stack.
         assert!(s.get("crit").is_some());
@@ -222,7 +247,10 @@ mod tests {
         let mut s = ErrorBannerStack::new();
         let mut bad = b("a", BannerSeverity::Notice, true);
         bad.title = String::new();
-        assert!(matches!(s.push(bad).unwrap_err(), BannerError::EmptyTitle(_)));
+        assert!(matches!(
+            s.push(bad).unwrap_err(),
+            BannerError::EmptyTitle(_)
+        ));
     }
 
     #[test]
@@ -230,7 +258,10 @@ mod tests {
         let mut s = ErrorBannerStack::new();
         let mut bad = b("a", BannerSeverity::Notice, true);
         bad.title = "x".repeat(81);
-        assert!(matches!(s.push(bad).unwrap_err(), BannerError::TitleTooLong { .. }));
+        assert!(matches!(
+            s.push(bad).unwrap_err(),
+            BannerError::TitleTooLong { .. }
+        ));
     }
 
     #[test]
@@ -238,14 +269,20 @@ mod tests {
         let mut s = ErrorBannerStack::new();
         let mut bad = b("a", BannerSeverity::Notice, true);
         bad.body = "x".repeat(401);
-        assert!(matches!(s.push(bad).unwrap_err(), BannerError::BodyTooLong { .. }));
+        assert!(matches!(
+            s.push(bad).unwrap_err(),
+            BannerError::BodyTooLong { .. }
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = ErrorBannerStack::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), BannerError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            BannerError::SchemaMismatch
+        ));
     }
 
     #[test]

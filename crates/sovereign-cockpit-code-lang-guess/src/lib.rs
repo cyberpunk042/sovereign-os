@@ -69,7 +69,11 @@ pub enum GuessError {
 
 impl CodeLangGuess {
     /// New.
-    pub fn new() -> Self { Self { schema_version: SCHEMA_VERSION.into() } }
+    pub fn new() -> Self {
+        Self {
+            schema_version: SCHEMA_VERSION.into(),
+        }
+    }
 
     /// Guess.
     pub fn guess(&self, filename: &str, first_line: &str) -> Language {
@@ -93,14 +97,22 @@ impl CodeLangGuess {
                 "md" | "markdown" => Some(Language::Markdown),
                 _ => None,
             };
-            if let Some(l) = by_ext { return l; }
+            if let Some(l) = by_ext {
+                return l;
+            }
         }
         // 2) shebang.
         if first_line.starts_with("#!") {
             let lower = first_line.to_lowercase();
-            if lower.contains("python") { return Language::Python; }
-            if lower.contains("ruby") { return Language::Ruby; }
-            if lower.contains("node") { return Language::JavaScript; }
+            if lower.contains("python") {
+                return Language::Python;
+            }
+            if lower.contains("ruby") {
+                return Language::Ruby;
+            }
+            if lower.contains("node") {
+                return Language::JavaScript;
+            }
             if lower.contains("bash") || lower.contains("/sh") || lower.contains("zsh") {
                 return Language::Shell;
             }
@@ -110,13 +122,17 @@ impl CodeLangGuess {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), GuessError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(GuessError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(GuessError::SchemaMismatch);
+        }
         Ok(())
     }
 }
 
 impl Default for CodeLangGuess {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -173,7 +189,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut g = CodeLangGuess::new();
         g.schema_version = "9.9.9".into();
-        assert!(matches!(g.validate().unwrap_err(), GuessError::SchemaMismatch));
+        assert!(matches!(
+            g.validate().unwrap_err(),
+            GuessError::SchemaMismatch
+        ));
     }
 
     #[test]

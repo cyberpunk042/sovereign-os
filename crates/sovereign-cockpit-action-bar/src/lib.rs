@@ -110,7 +110,9 @@ impl ActionBar {
                 SlotKind::Tertiary => &self.tertiary,
             };
             if let Some(s) = s {
-                if s.id == id { return true; }
+                if s.id == id {
+                    return true;
+                }
             }
         }
         false
@@ -135,9 +137,15 @@ impl ActionBar {
     /// Render order: secondary, tertiary, primary (right-aligned).
     pub fn render_order(&self) -> Vec<&ActionSlot> {
         let mut out: Vec<&ActionSlot> = Vec::new();
-        if let Some(s) = &self.secondary { out.push(s); }
-        if let Some(s) = &self.tertiary { out.push(s); }
-        if let Some(s) = &self.primary { out.push(s); }
+        if let Some(s) = &self.secondary {
+            out.push(s);
+        }
+        if let Some(s) = &self.tertiary {
+            out.push(s);
+        }
+        if let Some(s) = &self.primary {
+            out.push(s);
+        }
         out
     }
 
@@ -147,7 +155,9 @@ impl ActionBar {
             return Err(ActionBarError::SchemaMismatch);
         }
         for s in [&self.primary, &self.secondary, &self.tertiary] {
-            if let Some(s) = s { check_slot(s)?; }
+            if let Some(s) = s {
+                check_slot(s)?;
+            }
         }
         use std::collections::HashSet;
         let mut seen: HashSet<&str> = HashSet::new();
@@ -163,13 +173,19 @@ impl ActionBar {
 }
 
 fn check_slot(s: &ActionSlot) -> Result<(), ActionBarError> {
-    if s.id.is_empty() { return Err(ActionBarError::EmptyId); }
-    if s.label.is_empty() { return Err(ActionBarError::EmptyLabel(s.id.clone())); }
+    if s.id.is_empty() {
+        return Err(ActionBarError::EmptyId);
+    }
+    if s.label.is_empty() {
+        return Err(ActionBarError::EmptyLabel(s.id.clone()));
+    }
     Ok(())
 }
 
 impl Default for ActionBar {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -177,15 +193,22 @@ mod tests {
     use super::*;
 
     fn slot(id: &str, enabled: bool, danger: bool) -> ActionSlot {
-        ActionSlot { id: id.into(), label: format!("L-{id}"), enabled, danger }
+        ActionSlot {
+            id: id.into(),
+            label: format!("L-{id}"),
+            enabled,
+            danger,
+        }
     }
 
     #[test]
     fn set_and_render_order() {
         let mut b = ActionBar::new();
         b.set(SlotKind::Primary, slot("save", true, false)).unwrap();
-        b.set(SlotKind::Secondary, slot("cancel", true, false)).unwrap();
-        b.set(SlotKind::Tertiary, slot("help", true, false)).unwrap();
+        b.set(SlotKind::Secondary, slot("cancel", true, false))
+            .unwrap();
+        b.set(SlotKind::Tertiary, slot("help", true, false))
+            .unwrap();
         let r = b.render_order();
         // Order: secondary, tertiary, primary.
         let ids: Vec<&str> = r.iter().map(|s| s.id.as_str()).collect();
@@ -215,7 +238,8 @@ mod tests {
         let mut b = ActionBar::new();
         b.set(SlotKind::Primary, slot("x", true, false)).unwrap();
         assert!(matches!(
-            b.set(SlotKind::Secondary, slot("x", true, false)).unwrap_err(),
+            b.set(SlotKind::Secondary, slot("x", true, false))
+                .unwrap_err(),
             ActionBarError::DuplicateAcrossSlots(_)
         ));
     }
@@ -234,7 +258,10 @@ mod tests {
         let mut b = ActionBar::new();
         let mut s = slot("a", true, false);
         s.label = String::new();
-        assert!(matches!(b.set(SlotKind::Primary, s).unwrap_err(), ActionBarError::EmptyLabel(_)));
+        assert!(matches!(
+            b.set(SlotKind::Primary, s).unwrap_err(),
+            ActionBarError::EmptyLabel(_)
+        ));
     }
 
     #[test]
@@ -255,12 +282,18 @@ mod tests {
     fn schema_drift_rejected() {
         let mut b = ActionBar::new();
         b.schema_version = "9.9.9".into();
-        assert!(matches!(b.validate().unwrap_err(), ActionBarError::SchemaMismatch));
+        assert!(matches!(
+            b.validate().unwrap_err(),
+            ActionBarError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn slot_kind_serde_kebab() {
-        assert_eq!(serde_json::to_string(&SlotKind::Primary).unwrap(), "\"primary\"");
+        assert_eq!(
+            serde_json::to_string(&SlotKind::Primary).unwrap(),
+            "\"primary\""
+        );
     }
 
     #[test]

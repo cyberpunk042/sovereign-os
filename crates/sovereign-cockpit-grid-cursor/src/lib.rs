@@ -69,14 +69,22 @@ impl GridCursor {
     }
 
     /// Home (0, 0).
-    pub fn home(&mut self) { self.row = 0; self.col = 0; }
+    pub fn home(&mut self) {
+        self.row = 0;
+        self.col = 0;
+    }
 
     /// End (max_row, max_col).
-    pub fn end(&mut self) { self.row = self.max_row; self.col = self.max_col; }
+    pub fn end(&mut self) {
+        self.row = self.max_row;
+        self.col = self.max_col;
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), CursorError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(CursorError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(CursorError::SchemaMismatch);
+        }
         Ok(())
     }
 }
@@ -128,7 +136,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut c = GridCursor::new(9, 9).unwrap();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), CursorError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            CursorError::SchemaMismatch
+        ));
     }
 
     #[test]

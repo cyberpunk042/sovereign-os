@@ -61,33 +61,52 @@ pub enum ZoomPanError {
 
 impl ZoomPanCanvas {
     /// New.
-    pub fn new(min_scale: f32, max_scale: f32, viewport_w: u32, viewport_h: u32) -> Result<Self, ZoomPanError> {
-        if min_scale.is_nan() || max_scale.is_nan() { return Err(ZoomPanError::NanValue); }
-        if min_scale <= 0.0 || max_scale < min_scale {
-            return Err(ZoomPanError::BadScaleBounds { min: min_scale, max: max_scale });
+    pub fn new(
+        min_scale: f32,
+        max_scale: f32,
+        viewport_w: u32,
+        viewport_h: u32,
+    ) -> Result<Self, ZoomPanError> {
+        if min_scale.is_nan() || max_scale.is_nan() {
+            return Err(ZoomPanError::NanValue);
         }
-        if viewport_w == 0 || viewport_h == 0 { return Err(ZoomPanError::ViewportZero); }
+        if min_scale <= 0.0 || max_scale < min_scale {
+            return Err(ZoomPanError::BadScaleBounds {
+                min: min_scale,
+                max: max_scale,
+            });
+        }
+        if viewport_w == 0 || viewport_h == 0 {
+            return Err(ZoomPanError::ViewportZero);
+        }
         // Initial scale = midpoint geometric mean clamped.
         let init = (min_scale * max_scale).sqrt().clamp(min_scale, max_scale);
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
-            cx: 0.0, cy: 0.0,
+            cx: 0.0,
+            cy: 0.0,
             scale: init,
-            min_scale, max_scale,
-            viewport_w, viewport_h,
+            min_scale,
+            max_scale,
+            viewport_w,
+            viewport_h,
         })
     }
 
     /// Set scale clamped.
     pub fn set_scale(&mut self, scale: f32) -> Result<(), ZoomPanError> {
-        if scale.is_nan() { return Err(ZoomPanError::NanValue); }
+        if scale.is_nan() {
+            return Err(ZoomPanError::NanValue);
+        }
         self.scale = scale.clamp(self.min_scale, self.max_scale);
         Ok(())
     }
 
     /// Pan in screen-space px delta.
     pub fn pan_screen(&mut self, dx_px: f32, dy_px: f32) -> Result<(), ZoomPanError> {
-        if dx_px.is_nan() || dy_px.is_nan() { return Err(ZoomPanError::NanValue); }
+        if dx_px.is_nan() || dy_px.is_nan() {
+            return Err(ZoomPanError::NanValue);
+        }
         // Move camera in world coords opposite to pixel pan to give
         // operator the impression of dragging the canvas.
         self.cx -= dx_px / self.scale;
@@ -114,11 +133,18 @@ impl ZoomPanCanvas {
         if self.schema_version != SCHEMA_VERSION {
             return Err(ZoomPanError::SchemaMismatch);
         }
-        if self.scale.is_nan() || self.cx.is_nan() || self.cy.is_nan() { return Err(ZoomPanError::NanValue); }
-        if self.min_scale <= 0.0 || self.max_scale < self.min_scale {
-            return Err(ZoomPanError::BadScaleBounds { min: self.min_scale, max: self.max_scale });
+        if self.scale.is_nan() || self.cx.is_nan() || self.cy.is_nan() {
+            return Err(ZoomPanError::NanValue);
         }
-        if self.viewport_w == 0 || self.viewport_h == 0 { return Err(ZoomPanError::ViewportZero); }
+        if self.min_scale <= 0.0 || self.max_scale < self.min_scale {
+            return Err(ZoomPanError::BadScaleBounds {
+                min: self.min_scale,
+                max: self.max_scale,
+            });
+        }
+        if self.viewport_w == 0 || self.viewport_h == 0 {
+            return Err(ZoomPanError::ViewportZero);
+        }
         Ok(())
     }
 }
@@ -127,21 +153,32 @@ impl ZoomPanCanvas {
 mod tests {
     use super::*;
 
-    fn c() -> ZoomPanCanvas { ZoomPanCanvas::new(0.1, 10.0, 800, 600).unwrap() }
+    fn c() -> ZoomPanCanvas {
+        ZoomPanCanvas::new(0.1, 10.0, 800, 600).unwrap()
+    }
 
     #[test]
     fn bad_bounds_rejected() {
-        assert!(matches!(ZoomPanCanvas::new(2.0, 1.0, 800, 600).unwrap_err(), ZoomPanError::BadScaleBounds { .. }));
+        assert!(matches!(
+            ZoomPanCanvas::new(2.0, 1.0, 800, 600).unwrap_err(),
+            ZoomPanError::BadScaleBounds { .. }
+        ));
     }
 
     #[test]
     fn viewport_zero_rejected() {
-        assert!(matches!(ZoomPanCanvas::new(0.1, 10.0, 0, 600).unwrap_err(), ZoomPanError::ViewportZero));
+        assert!(matches!(
+            ZoomPanCanvas::new(0.1, 10.0, 0, 600).unwrap_err(),
+            ZoomPanError::ViewportZero
+        ));
     }
 
     #[test]
     fn nan_scale_rejected_on_construction() {
-        assert!(matches!(ZoomPanCanvas::new(f32::NAN, 10.0, 800, 600).unwrap_err(), ZoomPanError::NanValue));
+        assert!(matches!(
+            ZoomPanCanvas::new(f32::NAN, 10.0, 800, 600).unwrap_err(),
+            ZoomPanError::NanValue
+        ));
     }
 
     #[test]
@@ -174,14 +211,20 @@ mod tests {
     #[test]
     fn nan_pan_rejected() {
         let mut c = c();
-        assert!(matches!(c.pan_screen(f32::NAN, 0.0).unwrap_err(), ZoomPanError::NanValue));
+        assert!(matches!(
+            c.pan_screen(f32::NAN, 0.0).unwrap_err(),
+            ZoomPanError::NanValue
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut c = c();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), ZoomPanError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            ZoomPanError::SchemaMismatch
+        ));
     }
 
     #[test]

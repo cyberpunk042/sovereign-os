@@ -66,7 +66,12 @@ pub enum ResizeError {
 
 impl ResizeHandle {
     /// New handle.
-    pub fn new(orientation: Orientation, min_px: u32, max_px: u32, default_px: u32) -> Result<Self, ResizeError> {
+    pub fn new(
+        orientation: Orientation,
+        min_px: u32,
+        max_px: u32,
+        default_px: u32,
+    ) -> Result<Self, ResizeError> {
         if min_px == 0 {
             return Err(ResizeError::MinZero);
         }
@@ -129,10 +134,18 @@ impl ResizeHandle {
             return Err(ResizeError::BadBounds(self.max_px, self.min_px));
         }
         if self.default_px < self.min_px || self.default_px > self.max_px {
-            return Err(ResizeError::DefaultOutOfBounds(self.default_px, self.min_px, self.max_px));
+            return Err(ResizeError::DefaultOutOfBounds(
+                self.default_px,
+                self.min_px,
+                self.max_px,
+            ));
         }
         if self.current_px < self.min_px || self.current_px > self.max_px {
-            return Err(ResizeError::CurrentOutOfBounds(self.current_px, self.min_px, self.max_px));
+            return Err(ResizeError::CurrentOutOfBounds(
+                self.current_px,
+                self.min_px,
+                self.max_px,
+            ));
         }
         Ok(())
     }
@@ -234,20 +247,32 @@ mod tests {
     fn schema_drift_rejected() {
         let mut h = h();
         h.schema_version = "9.9.9".into();
-        assert!(matches!(h.validate().unwrap_err(), ResizeError::SchemaMismatch));
+        assert!(matches!(
+            h.validate().unwrap_err(),
+            ResizeError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn validate_current_out_of_range_rejected() {
         let mut h = h();
         h.current_px = 9999;
-        assert!(matches!(h.validate().unwrap_err(), ResizeError::CurrentOutOfBounds(_, _, _)));
+        assert!(matches!(
+            h.validate().unwrap_err(),
+            ResizeError::CurrentOutOfBounds(_, _, _)
+        ));
     }
 
     #[test]
     fn orientation_serde_kebab() {
-        assert_eq!(serde_json::to_string(&Orientation::Horizontal).unwrap(), "\"horizontal\"");
-        assert_eq!(serde_json::to_string(&Orientation::Vertical).unwrap(), "\"vertical\"");
+        assert_eq!(
+            serde_json::to_string(&Orientation::Horizontal).unwrap(),
+            "\"horizontal\""
+        );
+        assert_eq!(
+            serde_json::to_string(&Orientation::Vertical).unwrap(),
+            "\"vertical\""
+        );
     }
 
     #[test]

@@ -79,8 +79,12 @@ impl WidgetRegistry {
 
     /// Register.
     pub fn register(&mut self, w: Widget) -> Result<(), RegistryError> {
-        if w.id.is_empty() { return Err(RegistryError::EmptyId); }
-        if w.min_w == 0 || w.min_h == 0 { return Err(RegistryError::BadDims); }
+        if w.id.is_empty() {
+            return Err(RegistryError::EmptyId);
+        }
+        if w.min_w == 0 || w.min_h == 0 {
+            return Err(RegistryError::BadDims);
+        }
         if self.widgets.contains_key(&w.id) {
             return Err(RegistryError::DuplicateId(w.id));
         }
@@ -90,7 +94,9 @@ impl WidgetRegistry {
 
     /// Enable.
     pub fn enable(&mut self, id: &str) -> Result<(), RegistryError> {
-        let w = self.widgets.get_mut(id)
+        let w = self
+            .widgets
+            .get_mut(id)
             .ok_or_else(|| RegistryError::UnknownWidget(id.into()))?;
         w.enabled = true;
         Ok(())
@@ -98,7 +104,9 @@ impl WidgetRegistry {
 
     /// Disable.
     pub fn disable(&mut self, id: &str) -> Result<(), RegistryError> {
-        let w = self.widgets.get_mut(id)
+        let w = self
+            .widgets
+            .get_mut(id)
             .ok_or_else(|| RegistryError::UnknownWidget(id.into()))?;
         w.enabled = false;
         Ok(())
@@ -106,7 +114,9 @@ impl WidgetRegistry {
 
     /// Allow a widget in a dashboard.
     pub fn allow_in(&mut self, id: &str, dashboard_id: &str) -> Result<(), RegistryError> {
-        let w = self.widgets.get_mut(id)
+        let w = self
+            .widgets
+            .get_mut(id)
             .ok_or_else(|| RegistryError::UnknownWidget(id.into()))?;
         w.allowed_in.insert(dashboard_id.into());
         Ok(())
@@ -114,7 +124,8 @@ impl WidgetRegistry {
 
     /// Enabled ids.
     pub fn enabled_ids(&self) -> Vec<String> {
-        self.widgets.values()
+        self.widgets
+            .values()
             .filter(|w| w.enabled)
             .map(|w| w.id.clone())
             .collect()
@@ -122,7 +133,8 @@ impl WidgetRegistry {
 
     /// Visible in a particular dashboard (enabled AND allowed).
     pub fn visible_in(&self, dashboard_id: &str) -> Vec<Widget> {
-        self.widgets.values()
+        self.widgets
+            .values()
             .filter(|w| w.enabled && w.allowed_in.contains(dashboard_id))
             .cloned()
             .collect()
@@ -130,17 +142,25 @@ impl WidgetRegistry {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), RegistryError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(RegistryError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(RegistryError::SchemaMismatch);
+        }
         for (id, w) in &self.widgets {
-            if id.is_empty() { return Err(RegistryError::EmptyId); }
-            if w.min_w == 0 || w.min_h == 0 { return Err(RegistryError::BadDims); }
+            if id.is_empty() {
+                return Err(RegistryError::EmptyId);
+            }
+            if w.min_w == 0 || w.min_h == 0 {
+                return Err(RegistryError::BadDims);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for WidgetRegistry {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -170,7 +190,10 @@ mod tests {
     fn duplicate_rejected() {
         let mut r = WidgetRegistry::new();
         r.register(w("cpu", "meter")).unwrap();
-        assert!(matches!(r.register(w("cpu", "meter")).unwrap_err(), RegistryError::DuplicateId(_)));
+        assert!(matches!(
+            r.register(w("cpu", "meter")).unwrap_err(),
+            RegistryError::DuplicateId(_)
+        ));
     }
 
     #[test]
@@ -186,7 +209,10 @@ mod tests {
     #[test]
     fn unknown_widget_rejected() {
         let mut r = WidgetRegistry::new();
-        assert!(matches!(r.disable("nope").unwrap_err(), RegistryError::UnknownWidget(_)));
+        assert!(matches!(
+            r.disable("nope").unwrap_err(),
+            RegistryError::UnknownWidget(_)
+        ));
     }
 
     #[test]
@@ -212,7 +238,10 @@ mod tests {
         let mut r = WidgetRegistry::new();
         let mut bad = w("", "meter");
         bad.id = "".into();
-        assert!(matches!(r.register(bad).unwrap_err(), RegistryError::EmptyId));
+        assert!(matches!(
+            r.register(bad).unwrap_err(),
+            RegistryError::EmptyId
+        ));
     }
 
     #[test]
@@ -220,14 +249,20 @@ mod tests {
         let mut r = WidgetRegistry::new();
         let mut bad = w("cpu", "meter");
         bad.min_w = 0;
-        assert!(matches!(r.register(bad).unwrap_err(), RegistryError::BadDims));
+        assert!(matches!(
+            r.register(bad).unwrap_err(),
+            RegistryError::BadDims
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut r = WidgetRegistry::new();
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate().unwrap_err(), RegistryError::SchemaMismatch));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            RegistryError::SchemaMismatch
+        ));
     }
 
     #[test]

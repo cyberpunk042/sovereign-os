@@ -46,8 +46,12 @@ pub enum ProgressError {
 impl ReadingProgress {
     /// New.
     pub fn new(total_words: u32, wpm: u32) -> Result<Self, ProgressError> {
-        if total_words == 0 { return Err(ProgressError::ZeroTotal); }
-        if wpm == 0 { return Err(ProgressError::ZeroWpm); }
+        if total_words == 0 {
+            return Err(ProgressError::ZeroTotal);
+        }
+        if wpm == 0 {
+            return Err(ProgressError::ZeroWpm);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             total_words,
@@ -79,9 +83,15 @@ impl ReadingProgress {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ProgressError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ProgressError::SchemaMismatch); }
-        if self.total_words == 0 { return Err(ProgressError::ZeroTotal); }
-        if self.wpm == 0 { return Err(ProgressError::ZeroWpm); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ProgressError::SchemaMismatch);
+        }
+        if self.total_words == 0 {
+            return Err(ProgressError::ZeroTotal);
+        }
+        if self.wpm == 0 {
+            return Err(ProgressError::ZeroWpm);
+        }
         Ok(())
     }
 }
@@ -124,15 +134,24 @@ mod tests {
 
     #[test]
     fn bad_inputs_rejected() {
-        assert!(matches!(ReadingProgress::new(0, 200).unwrap_err(), ProgressError::ZeroTotal));
-        assert!(matches!(ReadingProgress::new(100, 0).unwrap_err(), ProgressError::ZeroWpm));
+        assert!(matches!(
+            ReadingProgress::new(0, 200).unwrap_err(),
+            ProgressError::ZeroTotal
+        ));
+        assert!(matches!(
+            ReadingProgress::new(100, 0).unwrap_err(),
+            ProgressError::ZeroWpm
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut p = ReadingProgress::new(100, 200).unwrap();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), ProgressError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            ProgressError::SchemaMismatch
+        ));
     }
 
     #[test]

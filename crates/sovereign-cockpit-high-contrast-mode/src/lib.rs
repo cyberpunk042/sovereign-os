@@ -77,9 +77,19 @@ impl HighContrastMode {
 
     /// Add or replace override.
     pub fn add_override(&mut self, class: &str, fg: &str, bg: &str) -> Result<(), ContrastError> {
-        if class.is_empty() { return Err(ContrastError::EmptyClass); }
-        if fg.is_empty() || bg.is_empty() { return Err(ContrastError::EmptyColor); }
-        self.overrides.insert(class.into(), Pair { fg: fg.into(), bg: bg.into() });
+        if class.is_empty() {
+            return Err(ContrastError::EmptyClass);
+        }
+        if fg.is_empty() || bg.is_empty() {
+            return Err(ContrastError::EmptyColor);
+        }
+        self.overrides.insert(
+            class.into(),
+            Pair {
+                fg: fg.into(),
+                bg: bg.into(),
+            },
+        );
         Ok(())
     }
 
@@ -90,23 +100,33 @@ impl HighContrastMode {
 
     /// Resolve color pair for a class (None when Off or class not overridden).
     pub fn resolve(&self, class: &str) -> Option<&Pair> {
-        if self.mode == Mode::Off { return None; }
+        if self.mode == Mode::Off {
+            return None;
+        }
         self.overrides.get(class)
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ContrastError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ContrastError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ContrastError::SchemaMismatch);
+        }
         for (k, p) in &self.overrides {
-            if k.is_empty() { return Err(ContrastError::EmptyClass); }
-            if p.fg.is_empty() || p.bg.is_empty() { return Err(ContrastError::EmptyColor); }
+            if k.is_empty() {
+                return Err(ContrastError::EmptyClass);
+            }
+            if p.fg.is_empty() || p.bg.is_empty() {
+                return Err(ContrastError::EmptyColor);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for HighContrastMode {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -148,16 +168,28 @@ mod tests {
     #[test]
     fn empty_inputs_rejected() {
         let mut h = HighContrastMode::new();
-        assert!(matches!(h.add_override("", "#fff", "#000").unwrap_err(), ContrastError::EmptyClass));
-        assert!(matches!(h.add_override("c", "", "#000").unwrap_err(), ContrastError::EmptyColor));
-        assert!(matches!(h.add_override("c", "#fff", "").unwrap_err(), ContrastError::EmptyColor));
+        assert!(matches!(
+            h.add_override("", "#fff", "#000").unwrap_err(),
+            ContrastError::EmptyClass
+        ));
+        assert!(matches!(
+            h.add_override("c", "", "#000").unwrap_err(),
+            ContrastError::EmptyColor
+        ));
+        assert!(matches!(
+            h.add_override("c", "#fff", "").unwrap_err(),
+            ContrastError::EmptyColor
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut h = HighContrastMode::new();
         h.schema_version = "9.9.9".into();
-        assert!(matches!(h.validate().unwrap_err(), ContrastError::SchemaMismatch));
+        assert!(matches!(
+            h.validate().unwrap_err(),
+            ContrastError::SchemaMismatch
+        ));
     }
 
     #[test]

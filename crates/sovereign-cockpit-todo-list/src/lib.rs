@@ -98,40 +98,56 @@ impl TodoList {
 
     /// Add.
     pub fn add(&mut self, id: &str, title: &str, ts_ms: u64) -> Result<(), TodoError> {
-        if id.is_empty() { return Err(TodoError::EmptyId); }
-        if title.is_empty() { return Err(TodoError::EmptyTitle); }
+        if id.is_empty() {
+            return Err(TodoError::EmptyId);
+        }
+        if title.is_empty() {
+            return Err(TodoError::EmptyTitle);
+        }
         if self.items.contains_key(id) {
             return Err(TodoError::DuplicateId(id.into()));
         }
         let order = self.next_order;
         self.next_order = self.next_order.saturating_add(1);
-        self.items.insert(id.into(), Item {
-            id: id.into(),
-            title: title.into(),
-            status: Status::Open,
-            order,
-            created_at_ms: ts_ms,
-        });
+        self.items.insert(
+            id.into(),
+            Item {
+                id: id.into(),
+                title: title.into(),
+                status: Status::Open,
+                order,
+                created_at_ms: ts_ms,
+            },
+        );
         Ok(())
     }
 
     /// Complete.
     pub fn complete(&mut self, id: &str) -> Result<(), TodoError> {
-        let i = self.items.get_mut(id).ok_or_else(|| TodoError::UnknownItem(id.into()))?;
+        let i = self
+            .items
+            .get_mut(id)
+            .ok_or_else(|| TodoError::UnknownItem(id.into()))?;
         i.status = Status::Done;
         Ok(())
     }
 
     /// Cancel.
     pub fn cancel(&mut self, id: &str) -> Result<(), TodoError> {
-        let i = self.items.get_mut(id).ok_or_else(|| TodoError::UnknownItem(id.into()))?;
+        let i = self
+            .items
+            .get_mut(id)
+            .ok_or_else(|| TodoError::UnknownItem(id.into()))?;
         i.status = Status::Cancelled;
         Ok(())
     }
 
     /// Reopen (from any state).
     pub fn reopen(&mut self, id: &str) -> Result<(), TodoError> {
-        let i = self.items.get_mut(id).ok_or_else(|| TodoError::UnknownItem(id.into()))?;
+        let i = self
+            .items
+            .get_mut(id)
+            .ok_or_else(|| TodoError::UnknownItem(id.into()))?;
         i.status = Status::Open;
         Ok(())
     }
@@ -150,7 +166,12 @@ impl TodoList {
 
     /// Items by status.
     pub fn by_status(&self, status: Status) -> Vec<Item> {
-        let mut v: Vec<Item> = self.items.values().filter(|i| i.status == status).cloned().collect();
+        let mut v: Vec<Item> = self
+            .items
+            .values()
+            .filter(|i| i.status == status)
+            .cloned()
+            .collect();
         v.sort_by_key(|i| i.order);
         v
     }
@@ -170,17 +191,25 @@ impl TodoList {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), TodoError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(TodoError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(TodoError::SchemaMismatch);
+        }
         for (id, i) in &self.items {
-            if id.is_empty() { return Err(TodoError::EmptyId); }
-            if i.title.is_empty() { return Err(TodoError::EmptyTitle); }
+            if id.is_empty() {
+                return Err(TodoError::EmptyId);
+            }
+            if i.title.is_empty() {
+                return Err(TodoError::EmptyTitle);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for TodoList {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -243,27 +272,39 @@ mod tests {
     fn duplicate_rejected() {
         let mut l = TodoList::new();
         l.add("a", "A", 0).unwrap();
-        assert!(matches!(l.add("a", "A", 0).unwrap_err(), TodoError::DuplicateId(_)));
+        assert!(matches!(
+            l.add("a", "A", 0).unwrap_err(),
+            TodoError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut l = TodoList::new();
         assert!(matches!(l.add("", "A", 0).unwrap_err(), TodoError::EmptyId));
-        assert!(matches!(l.add("a", "", 0).unwrap_err(), TodoError::EmptyTitle));
+        assert!(matches!(
+            l.add("a", "", 0).unwrap_err(),
+            TodoError::EmptyTitle
+        ));
     }
 
     #[test]
     fn unknown_action_rejected() {
         let mut l = TodoList::new();
-        assert!(matches!(l.complete("nope").unwrap_err(), TodoError::UnknownItem(_)));
+        assert!(matches!(
+            l.complete("nope").unwrap_err(),
+            TodoError::UnknownItem(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut l = TodoList::new();
         l.schema_version = "9.9.9".into();
-        assert!(matches!(l.validate().unwrap_err(), TodoError::SchemaMismatch));
+        assert!(matches!(
+            l.validate().unwrap_err(),
+            TodoError::SchemaMismatch
+        ));
     }
 
     #[test]

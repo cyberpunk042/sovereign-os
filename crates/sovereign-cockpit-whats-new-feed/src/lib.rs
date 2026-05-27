@@ -91,9 +91,15 @@ impl WhatsNewFeed {
 
     /// Publish an entry.
     pub fn publish(&mut self, entry: Entry) -> Result<(), FeedError> {
-        if entry.id.is_empty() { return Err(FeedError::EmptyId); }
-        if entry.title.is_empty() { return Err(FeedError::EmptyTitle); }
-        if entry.body.is_empty() { return Err(FeedError::EmptyBody); }
+        if entry.id.is_empty() {
+            return Err(FeedError::EmptyId);
+        }
+        if entry.title.is_empty() {
+            return Err(FeedError::EmptyTitle);
+        }
+        if entry.body.is_empty() {
+            return Err(FeedError::EmptyBody);
+        }
         if self.entries.contains_key(&entry.id) {
             return Err(FeedError::DuplicateId(entry.id));
         }
@@ -109,27 +115,41 @@ impl WhatsNewFeed {
     /// All entries newest first.
     pub fn all_newest_first(&self) -> Vec<Entry> {
         let mut v: Vec<Entry> = self.entries.values().cloned().collect();
-        v.sort_by(|a, b| b.published_at_ms.cmp(&a.published_at_ms).then(a.id.cmp(&b.id)));
+        v.sort_by(|a, b| {
+            b.published_at_ms
+                .cmp(&a.published_at_ms)
+                .then(a.id.cmp(&b.id))
+        });
         v
     }
 
     /// Unread entries for a user (newest first).
     pub fn unread(&self, user_id: &str) -> Vec<Entry> {
         let watermark = self.last_seen.get(user_id).copied().unwrap_or(0);
-        let mut v: Vec<Entry> = self.entries.values()
+        let mut v: Vec<Entry> = self
+            .entries
+            .values()
             .filter(|e| e.published_at_ms > watermark)
             .cloned()
             .collect();
-        v.sort_by(|a, b| b.published_at_ms.cmp(&a.published_at_ms).then(a.id.cmp(&b.id)));
+        v.sort_by(|a, b| {
+            b.published_at_ms
+                .cmp(&a.published_at_ms)
+                .then(a.id.cmp(&b.id))
+        });
         v
     }
 
     /// Mark all read up to now.
     pub fn mark_all_read(&mut self, user_id: &str, now_ms: u64) -> Result<(), FeedError> {
-        if user_id.is_empty() { return Err(FeedError::EmptyUser); }
+        if user_id.is_empty() {
+            return Err(FeedError::EmptyUser);
+        }
         // Only advance the watermark — never roll it back.
         let entry = self.last_seen.entry(user_id.into()).or_insert(0);
-        if now_ms > *entry { *entry = now_ms; }
+        if now_ms > *entry {
+            *entry = now_ms;
+        }
         Ok(())
     }
 
@@ -140,21 +160,33 @@ impl WhatsNewFeed {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), FeedError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(FeedError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(FeedError::SchemaMismatch);
+        }
         for (id, e) in &self.entries {
-            if id.is_empty() { return Err(FeedError::EmptyId); }
-            if e.title.is_empty() { return Err(FeedError::EmptyTitle); }
-            if e.body.is_empty() { return Err(FeedError::EmptyBody); }
+            if id.is_empty() {
+                return Err(FeedError::EmptyId);
+            }
+            if e.title.is_empty() {
+                return Err(FeedError::EmptyTitle);
+            }
+            if e.body.is_empty() {
+                return Err(FeedError::EmptyBody);
+            }
         }
         for u in self.last_seen.keys() {
-            if u.is_empty() { return Err(FeedError::EmptyUser); }
+            if u.is_empty() {
+                return Err(FeedError::EmptyUser);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for WhatsNewFeed {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -224,23 +256,53 @@ mod tests {
     fn duplicate_rejected() {
         let mut f = WhatsNewFeed::new();
         f.publish(e("a", 1)).unwrap();
-        assert!(matches!(f.publish(e("a", 2)).unwrap_err(), FeedError::DuplicateId(_)));
+        assert!(matches!(
+            f.publish(e("a", 2)).unwrap_err(),
+            FeedError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut f = WhatsNewFeed::new();
-        assert!(matches!(f.publish(Entry { id: "".into(), ..e("a", 1) }).unwrap_err(), FeedError::EmptyId));
-        assert!(matches!(f.publish(Entry { title: "".into(), ..e("b", 1) }).unwrap_err(), FeedError::EmptyTitle));
-        assert!(matches!(f.publish(Entry { body: "".into(), ..e("c", 1) }).unwrap_err(), FeedError::EmptyBody));
-        assert!(matches!(f.mark_all_read("", 0).unwrap_err(), FeedError::EmptyUser));
+        assert!(matches!(
+            f.publish(Entry {
+                id: "".into(),
+                ..e("a", 1)
+            })
+            .unwrap_err(),
+            FeedError::EmptyId
+        ));
+        assert!(matches!(
+            f.publish(Entry {
+                title: "".into(),
+                ..e("b", 1)
+            })
+            .unwrap_err(),
+            FeedError::EmptyTitle
+        ));
+        assert!(matches!(
+            f.publish(Entry {
+                body: "".into(),
+                ..e("c", 1)
+            })
+            .unwrap_err(),
+            FeedError::EmptyBody
+        ));
+        assert!(matches!(
+            f.mark_all_read("", 0).unwrap_err(),
+            FeedError::EmptyUser
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut f = WhatsNewFeed::new();
         f.schema_version = "9.9.9".into();
-        assert!(matches!(f.validate().unwrap_err(), FeedError::SchemaMismatch));
+        assert!(matches!(
+            f.validate().unwrap_err(),
+            FeedError::SchemaMismatch
+        ));
     }
 
     #[test]

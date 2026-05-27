@@ -103,8 +103,12 @@ impl DndTargets {
 
     /// Register.
     pub fn register(&mut self, t: Target) -> Result<(), DndError> {
-        if t.id.is_empty() { return Err(DndError::EmptyId); }
-        if t.accepts.is_empty() { return Err(DndError::EmptyAccepts(t.id)); }
+        if t.id.is_empty() {
+            return Err(DndError::EmptyId);
+        }
+        if t.accepts.is_empty() {
+            return Err(DndError::EmptyAccepts(t.id));
+        }
         if self.targets.iter().any(|x| x.id == t.id) {
             return Err(DndError::DuplicateId(t.id));
         }
@@ -119,7 +123,9 @@ impl DndTargets {
             None => return DropOutcome::Unknown,
         };
         if !t.active {
-            return DropOutcome::Inactive { target_id: target_id.into() };
+            return DropOutcome::Inactive {
+                target_id: target_id.into(),
+            };
         }
         if !t.accepts.iter().any(|k| *k == source_kind) {
             return DropOutcome::RejectedKind {
@@ -127,7 +133,9 @@ impl DndTargets {
                 offered_kind: source_kind,
             };
         }
-        DropOutcome::Accepted { target_id: target_id.into() }
+        DropOutcome::Accepted {
+            target_id: target_id.into(),
+        }
     }
 
     /// Validate.
@@ -138,8 +146,12 @@ impl DndTargets {
         use std::collections::HashSet;
         let mut seen: HashSet<&str> = HashSet::new();
         for t in &self.targets {
-            if t.id.is_empty() { return Err(DndError::EmptyId); }
-            if t.accepts.is_empty() { return Err(DndError::EmptyAccepts(t.id.clone())); }
+            if t.id.is_empty() {
+                return Err(DndError::EmptyId);
+            }
+            if t.accepts.is_empty() {
+                return Err(DndError::EmptyAccepts(t.id.clone()));
+            }
             if !seen.insert(t.id.as_str()) {
                 return Err(DndError::DuplicateId(t.id.clone()));
             }
@@ -149,7 +161,9 @@ impl DndTargets {
 }
 
 impl Default for DndTargets {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -157,19 +171,27 @@ mod tests {
     use super::*;
 
     fn tgt(id: &str, accepts: &[ObjectKind], active: bool) -> Target {
-        Target { id: id.into(), accepts: accepts.to_vec(), active }
+        Target {
+            id: id.into(),
+            accepts: accepts.to_vec(),
+            active,
+        }
     }
 
     #[test]
     fn unknown_target() {
         let d = DndTargets::new();
-        assert!(matches!(d.dispatch_drop(ObjectKind::Tab, "none"), DropOutcome::Unknown));
+        assert!(matches!(
+            d.dispatch_drop(ObjectKind::Tab, "none"),
+            DropOutcome::Unknown
+        ));
     }
 
     #[test]
     fn accepted_kind() {
         let mut d = DndTargets::new();
-        d.register(tgt("trash", &[ObjectKind::Tab, ObjectKind::Bookmark], true)).unwrap();
+        d.register(tgt("trash", &[ObjectKind::Tab, ObjectKind::Bookmark], true))
+            .unwrap();
         let v = d.dispatch_drop(ObjectKind::Tab, "trash");
         assert!(matches!(v, DropOutcome::Accepted { .. }));
     }
@@ -177,27 +199,40 @@ mod tests {
     #[test]
     fn rejected_kind() {
         let mut d = DndTargets::new();
-        d.register(tgt("tab-bar", &[ObjectKind::Tab], true)).unwrap();
-        assert!(matches!(d.dispatch_drop(ObjectKind::PinCard, "tab-bar"), DropOutcome::RejectedKind { .. }));
+        d.register(tgt("tab-bar", &[ObjectKind::Tab], true))
+            .unwrap();
+        assert!(matches!(
+            d.dispatch_drop(ObjectKind::PinCard, "tab-bar"),
+            DropOutcome::RejectedKind { .. }
+        ));
     }
 
     #[test]
     fn inactive_target() {
         let mut d = DndTargets::new();
         d.register(tgt("trash", &[ObjectKind::Tab], false)).unwrap();
-        assert!(matches!(d.dispatch_drop(ObjectKind::Tab, "trash"), DropOutcome::Inactive { .. }));
+        assert!(matches!(
+            d.dispatch_drop(ObjectKind::Tab, "trash"),
+            DropOutcome::Inactive { .. }
+        ));
     }
 
     #[test]
     fn empty_id_rejected() {
         let mut d = DndTargets::new();
-        assert!(matches!(d.register(tgt("", &[ObjectKind::Tab], true)).unwrap_err(), DndError::EmptyId));
+        assert!(matches!(
+            d.register(tgt("", &[ObjectKind::Tab], true)).unwrap_err(),
+            DndError::EmptyId
+        ));
     }
 
     #[test]
     fn empty_accepts_rejected() {
         let mut d = DndTargets::new();
-        assert!(matches!(d.register(tgt("a", &[], true)).unwrap_err(), DndError::EmptyAccepts(_)));
+        assert!(matches!(
+            d.register(tgt("a", &[], true)).unwrap_err(),
+            DndError::EmptyAccepts(_)
+        ));
     }
 
     #[test]
@@ -214,13 +249,20 @@ mod tests {
     fn schema_drift_rejected() {
         let mut d = DndTargets::new();
         d.schema_version = "9.9.9".into();
-        assert!(matches!(d.validate().unwrap_err(), DndError::SchemaMismatch));
+        assert!(matches!(
+            d.validate().unwrap_err(),
+            DndError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn outcome_serde_kebab() {
         let o = DropOutcome::Unknown;
-        assert!(serde_json::to_string(&o).unwrap().contains("\"kind\":\"unknown\""));
+        assert!(
+            serde_json::to_string(&o)
+                .unwrap()
+                .contains("\"kind\":\"unknown\"")
+        );
     }
 
     #[test]

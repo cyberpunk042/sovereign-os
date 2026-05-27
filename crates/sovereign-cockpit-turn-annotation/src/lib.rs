@@ -9,8 +9,8 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-use sovereign_conversation_thread::ConversationThread;
 use serde::{Deserialize, Serialize};
+use sovereign_conversation_thread::ConversationThread;
 use thiserror::Error;
 
 /// Schema version.
@@ -91,7 +91,11 @@ impl AnnotationSet {
     }
 
     /// Add an annotation. Validates against a thread.
-    pub fn add(&mut self, a: Annotation, thread: &ConversationThread) -> Result<(), AnnotationError> {
+    pub fn add(
+        &mut self,
+        a: Annotation,
+        thread: &ConversationThread,
+    ) -> Result<(), AnnotationError> {
         check_shape(&a)?;
         if a.thread_id == thread.thread_id && a.turn_index >= thread.turns.len() as u32 {
             return Err(AnnotationError::OutOfRange {
@@ -105,7 +109,8 @@ impl AnnotationSet {
 
     /// Annotations for one (thread_id, turn_index).
     pub fn for_turn(&self, thread_id: &str, turn_index: u32) -> Vec<&Annotation> {
-        self.annotations.iter()
+        self.annotations
+            .iter()
             .filter(|a| a.thread_id == thread_id && a.turn_index == turn_index)
             .collect()
     }
@@ -128,15 +133,23 @@ impl AnnotationSet {
 }
 
 fn check_shape(a: &Annotation) -> Result<(), AnnotationError> {
-    if a.thread_id.is_empty() { return Err(AnnotationError::MissingThreadId); }
-    if a.by.is_empty() { return Err(AnnotationError::EmptyBy); }
+    if a.thread_id.is_empty() {
+        return Err(AnnotationError::MissingThreadId);
+    }
+    if a.by.is_empty() {
+        return Err(AnnotationError::EmptyBy);
+    }
     let n = a.body.chars().count();
-    if n > 500 { return Err(AnnotationError::BodyTooLong(n)); }
+    if n > 500 {
+        return Err(AnnotationError::BodyTooLong(n));
+    }
     Ok(())
 }
 
 impl Default for AnnotationSet {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -148,10 +161,15 @@ mod tests {
         let mut t = ConversationThread::new("th-1", "ts");
         for _ in 0..3 {
             t.append(Turn {
-                index: 0, role: TurnRole::Operator,
-                tokens_in: 0, tokens_out: 0, provider: "p".into(),
-                started_at: "t".into(), completed_at: "t".into(),
-                branch_id: "main".into(), text: String::new(),
+                index: 0,
+                role: TurnRole::Operator,
+                tokens_in: 0,
+                tokens_out: 0,
+                provider: "p".into(),
+                started_at: "t".into(),
+                completed_at: "t".into(),
+                branch_id: "main".into(),
+                text: String::new(),
             });
         }
         t
@@ -230,9 +248,12 @@ mod tests {
         s.add(a(AnnotationKind::Note, "x", 0), &t).unwrap();
         // Push a foreign annotation (manually bypassing thread validation).
         s.annotations.push(Annotation {
-            thread_id: "th-other".into(), turn_index: 0,
-            kind: AnnotationKind::Note, body: "x".into(),
-            by: "op".into(), at: "t".into(),
+            thread_id: "th-other".into(),
+            turn_index: 0,
+            kind: AnnotationKind::Note,
+            body: "x".into(),
+            by: "op".into(),
+            at: "t".into(),
         });
         assert_eq!(s.for_turn("th-1", 0).len(), 1);
         assert_eq!(s.for_turn("th-other", 0).len(), 1);
@@ -242,15 +263,30 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = AnnotationSet::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), AnnotationError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            AnnotationError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn kind_serde_kebab() {
-        assert_eq!(serde_json::to_string(&AnnotationKind::Note).unwrap(), "\"note\"");
-        assert_eq!(serde_json::to_string(&AnnotationKind::Highlight).unwrap(), "\"highlight\"");
-        assert_eq!(serde_json::to_string(&AnnotationKind::Star).unwrap(), "\"star\"");
-        assert_eq!(serde_json::to_string(&AnnotationKind::Comment).unwrap(), "\"comment\"");
+        assert_eq!(
+            serde_json::to_string(&AnnotationKind::Note).unwrap(),
+            "\"note\""
+        );
+        assert_eq!(
+            serde_json::to_string(&AnnotationKind::Highlight).unwrap(),
+            "\"highlight\""
+        );
+        assert_eq!(
+            serde_json::to_string(&AnnotationKind::Star).unwrap(),
+            "\"star\""
+        );
+        assert_eq!(
+            serde_json::to_string(&AnnotationKind::Comment).unwrap(),
+            "\"comment\""
+        );
     }
 
     #[test]

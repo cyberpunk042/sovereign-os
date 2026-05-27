@@ -9,10 +9,10 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-use sovereign_conversation_thread::ConversationThread;
-use sovereign_replay_cursor::ReplayCursor;
-use sovereign_replay_bookmark_set::BookmarkSet;
 use serde::{Deserialize, Serialize};
+use sovereign_conversation_thread::ConversationThread;
+use sovereign_replay_bookmark_set::BookmarkSet;
+use sovereign_replay_cursor::ReplayCursor;
 use thiserror::Error;
 
 /// Schema version.
@@ -69,10 +69,18 @@ pub enum ExportError {
 
 impl ExportBundle {
     /// Build.
-    pub fn build(thread: ConversationThread, cursor: ReplayCursor, bookmarks: BookmarkSet, at: &str, by: &str) -> Self {
+    pub fn build(
+        thread: ConversationThread,
+        cursor: ReplayCursor,
+        bookmarks: BookmarkSet,
+        at: &str,
+        by: &str,
+    ) -> Self {
         Self {
             schema_version: SCHEMA_VERSION.into(),
-            thread, cursor, bookmarks,
+            thread,
+            cursor,
+            bookmarks,
             exported_at: at.into(),
             exported_by: by.into(),
         }
@@ -83,8 +91,12 @@ impl ExportBundle {
         if self.schema_version != SCHEMA_VERSION {
             return Err(ExportError::SchemaMismatch);
         }
-        if self.exported_at.is_empty() { return Err(ExportError::MissingTimestamp); }
-        if self.exported_by.is_empty() { return Err(ExportError::MissingExporter); }
+        if self.exported_at.is_empty() {
+            return Err(ExportError::MissingTimestamp);
+        }
+        if self.exported_by.is_empty() {
+            return Err(ExportError::MissingExporter);
+        }
         if self.cursor.thread_id != self.thread.thread_id {
             return Err(ExportError::CursorThreadMismatch {
                 cursor: self.cursor.thread_id.clone(),
@@ -108,16 +120,21 @@ impl ExportBundle {
 mod tests {
     use super::*;
     use sovereign_conversation_thread::{Turn, TurnRole};
-    use sovereign_replay_bookmark_set::{Bookmark, ColorTag};
     use sovereign_execution_mode_registry::ExecutionMode;
+    use sovereign_replay_bookmark_set::{Bookmark, ColorTag};
 
     fn thread() -> ConversationThread {
         let mut t = ConversationThread::new("th-1", "t");
         t.append(Turn {
-            index: 0, role: TurnRole::Operator,
-            tokens_in: 0, tokens_out: 0, provider: "p".into(),
-            started_at: "t".into(), completed_at: "t".into(),
-            branch_id: "main".into(), text: "hi".into(),
+            index: 0,
+            role: TurnRole::Operator,
+            tokens_in: 0,
+            tokens_out: 0,
+            provider: "p".into(),
+            started_at: "t".into(),
+            completed_at: "t".into(),
+            branch_id: "main".into(),
+            text: "hi".into(),
         });
         t
     }
@@ -125,10 +142,15 @@ mod tests {
     fn cursor(thread_id: &str) -> ReplayCursor {
         let mut t = ConversationThread::new(thread_id, "t");
         t.append(Turn {
-            index: 0, role: TurnRole::Operator,
-            tokens_in: 0, tokens_out: 0, provider: "p".into(),
-            started_at: "t".into(), completed_at: "t".into(),
-            branch_id: "main".into(), text: "hi".into(),
+            index: 0,
+            role: TurnRole::Operator,
+            tokens_in: 0,
+            tokens_out: 0,
+            provider: "p".into(),
+            started_at: "t".into(),
+            completed_at: "t".into(),
+            branch_id: "main".into(),
+            text: "hi".into(),
         });
         ReplayCursor::open(&t, ExecutionMode::Replay).unwrap()
     }
@@ -141,7 +163,8 @@ mod tests {
 
     #[test]
     fn cursor_thread_mismatch_caught() {
-        let bundle = ExportBundle::build(thread(), cursor("th-other"), BookmarkSet::new(), "t", "op");
+        let bundle =
+            ExportBundle::build(thread(), cursor("th-other"), BookmarkSet::new(), "t", "op");
         match bundle.validate().unwrap_err() {
             ExportError::CursorThreadMismatch { cursor, thread } => {
                 assert_eq!(cursor, "th-other");
@@ -162,31 +185,50 @@ mod tests {
             note: String::new(),
         });
         let bundle = ExportBundle::build(thread(), cursor("th-1"), bookmarks, "t", "op");
-        assert!(matches!(bundle.validate().unwrap_err(), ExportError::BookmarkThreadMismatch { .. }));
+        assert!(matches!(
+            bundle.validate().unwrap_err(),
+            ExportError::BookmarkThreadMismatch { .. }
+        ));
     }
 
     #[test]
     fn missing_timestamp_caught() {
         let bundle = ExportBundle::build(thread(), cursor("th-1"), BookmarkSet::new(), "", "op");
-        assert!(matches!(bundle.validate().unwrap_err(), ExportError::MissingTimestamp));
+        assert!(matches!(
+            bundle.validate().unwrap_err(),
+            ExportError::MissingTimestamp
+        ));
     }
 
     #[test]
     fn missing_exporter_caught() {
         let bundle = ExportBundle::build(thread(), cursor("th-1"), BookmarkSet::new(), "t", "");
-        assert!(matches!(bundle.validate().unwrap_err(), ExportError::MissingExporter));
+        assert!(matches!(
+            bundle.validate().unwrap_err(),
+            ExportError::MissingExporter
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
-        let mut bundle = ExportBundle::build(thread(), cursor("th-1"), BookmarkSet::new(), "t", "op");
+        let mut bundle =
+            ExportBundle::build(thread(), cursor("th-1"), BookmarkSet::new(), "t", "op");
         bundle.schema_version = "9.9.9".into();
-        assert!(matches!(bundle.validate().unwrap_err(), ExportError::SchemaMismatch));
+        assert!(matches!(
+            bundle.validate().unwrap_err(),
+            ExportError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn bundle_serde_roundtrip() {
-        let bundle = ExportBundle::build(thread(), cursor("th-1"), BookmarkSet::new(), "2026-05-19T03:00:00Z", "op-fp");
+        let bundle = ExportBundle::build(
+            thread(),
+            cursor("th-1"),
+            BookmarkSet::new(),
+            "2026-05-19T03:00:00Z",
+            "op-fp",
+        );
         let j = serde_json::to_string(&bundle).unwrap();
         let back: ExportBundle = serde_json::from_str(&j).unwrap();
         assert_eq!(bundle, back);

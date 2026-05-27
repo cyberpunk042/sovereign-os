@@ -104,7 +104,9 @@ pub enum HandleError {
 impl DragHandle {
     /// New.
     pub fn new(activation_px: u32) -> Result<Self, HandleError> {
-        if activation_px == 0 { return Err(HandleError::ActivationZero); }
+        if activation_px == 0 {
+            return Err(HandleError::ActivationZero);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             activation_px,
@@ -114,7 +116,9 @@ impl DragHandle {
 
     /// Press.
     pub fn press(&mut self, x: i32, y: i32) -> DragEvent {
-        self.phase = Phase::Pressed { origin: Pt { x, y } };
+        self.phase = Phase::Pressed {
+            origin: Pt { x, y },
+        };
         DragEvent::None
     }
 
@@ -151,8 +155,12 @@ impl DragHandle {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), HandleError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(HandleError::SchemaMismatch); }
-        if self.activation_px == 0 { return Err(HandleError::ActivationZero); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(HandleError::SchemaMismatch);
+        }
+        if self.activation_px == 0 {
+            return Err(HandleError::ActivationZero);
+        }
         Ok(())
     }
 }
@@ -169,7 +177,10 @@ mod tests {
 
     #[test]
     fn activation_zero_rejected() {
-        assert!(matches!(DragHandle::new(0).unwrap_err(), HandleError::ActivationZero));
+        assert!(matches!(
+            DragHandle::new(0).unwrap_err(),
+            HandleError::ActivationZero
+        ));
     }
 
     #[test]
@@ -185,7 +196,13 @@ mod tests {
         let mut h = DragHandle::new(10).unwrap();
         h.press(0, 0);
         let v = h.r#move(11, 0);
-        assert_eq!(v, DragEvent::DragStart { origin: Pt { x: 0, y: 0 }, at: Pt { x: 11, y: 0 } });
+        assert_eq!(
+            v,
+            DragEvent::DragStart {
+                origin: Pt { x: 0, y: 0 },
+                at: Pt { x: 11, y: 0 }
+            }
+        );
     }
 
     #[test]
@@ -194,7 +211,12 @@ mod tests {
         h.press(0, 0);
         h.r#move(20, 0);
         let v = h.r#move(30, 0);
-        assert_eq!(v, DragEvent::DragMove { at: Pt { x: 30, y: 0 } });
+        assert_eq!(
+            v,
+            DragEvent::DragMove {
+                at: Pt { x: 30, y: 0 }
+            }
+        );
     }
 
     #[test]
@@ -202,7 +224,12 @@ mod tests {
         let mut h = DragHandle::new(10).unwrap();
         h.press(5, 5);
         let v = h.release();
-        assert_eq!(v, DragEvent::Click { at: Pt { x: 5, y: 5 } });
+        assert_eq!(
+            v,
+            DragEvent::Click {
+                at: Pt { x: 5, y: 5 }
+            }
+        );
     }
 
     #[test]
@@ -211,7 +238,12 @@ mod tests {
         h.press(0, 0);
         h.r#move(20, 0);
         let v = h.release();
-        assert_eq!(v, DragEvent::DragEnd { at: Pt { x: 20, y: 0 } });
+        assert_eq!(
+            v,
+            DragEvent::DragEnd {
+                at: Pt { x: 20, y: 0 }
+            }
+        );
     }
 
     #[test]
@@ -225,7 +257,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut h = DragHandle::new(10).unwrap();
         h.schema_version = "9.9.9".into();
-        assert!(matches!(h.validate().unwrap_err(), HandleError::SchemaMismatch));
+        assert!(matches!(
+            h.validate().unwrap_err(),
+            HandleError::SchemaMismatch
+        ));
     }
 
     #[test]

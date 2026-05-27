@@ -41,7 +41,9 @@ pub enum SparkError {
 impl Sparkline {
     /// New.
     pub fn new(height_px: u32) -> Result<Self, SparkError> {
-        if height_px == 0 { return Err(SparkError::HeightZero); }
+        if height_px == 0 {
+            return Err(SparkError::HeightZero);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             values: Vec::new(),
@@ -56,19 +58,28 @@ impl Sparkline {
 
     /// Compute per-bar heights normalized.
     pub fn bar_heights(&self) -> Vec<u32> {
-        if self.values.is_empty() { return Vec::new(); }
-        let (min, max) = self.values.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| {
-            (lo.min(v), hi.max(v))
-        });
+        if self.values.is_empty() {
+            return Vec::new();
+        }
+        let (min, max) = self
+            .values
+            .iter()
+            .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| {
+                (lo.min(v), hi.max(v))
+            });
         let range = max - min;
         let h = self.height_px as f64;
-        self.values.iter().map(|&v| {
-            if range <= 0.0 { (h * 0.5) as u32 }
-            else {
-                let norm = ((v - min) / range).clamp(0.0, 1.0);
-                (norm * h) as u32
-            }
-        }).collect()
+        self.values
+            .iter()
+            .map(|&v| {
+                if range <= 0.0 {
+                    (h * 0.5) as u32
+                } else {
+                    let norm = ((v - min) / range).clamp(0.0, 1.0);
+                    (norm * h) as u32
+                }
+            })
+            .collect()
     }
 
     /// Validate.
@@ -76,7 +87,9 @@ impl Sparkline {
         if self.schema_version != SCHEMA_VERSION {
             return Err(SparkError::SchemaMismatch);
         }
-        if self.height_px == 0 { return Err(SparkError::HeightZero); }
+        if self.height_px == 0 {
+            return Err(SparkError::HeightZero);
+        }
         Ok(())
     }
 }
@@ -87,7 +100,10 @@ mod tests {
 
     #[test]
     fn height_zero_rejected() {
-        assert!(matches!(Sparkline::new(0).unwrap_err(), SparkError::HeightZero));
+        assert!(matches!(
+            Sparkline::new(0).unwrap_err(),
+            SparkError::HeightZero
+        ));
     }
 
     #[test]
@@ -99,15 +115,21 @@ mod tests {
     #[test]
     fn constant_returns_midline() {
         let mut s = Sparkline::new(20).unwrap();
-        for _ in 0..5 { s.push(7.0); }
+        for _ in 0..5 {
+            s.push(7.0);
+        }
         let h = s.bar_heights();
-        for v in &h { assert_eq!(*v, 10); }
+        for v in &h {
+            assert_eq!(*v, 10);
+        }
     }
 
     #[test]
     fn ascending_grows() {
         let mut s = Sparkline::new(100).unwrap();
-        for v in 0..10 { s.push(v as f64); }
+        for v in 0..10 {
+            s.push(v as f64);
+        }
         let h = s.bar_heights();
         assert_eq!(h[0], 0);
         assert_eq!(h[9], 100);
@@ -128,13 +150,17 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = Sparkline::new(10).unwrap();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), SparkError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SparkError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn spark_serde_roundtrip() {
         let mut s = Sparkline::new(20).unwrap();
-        s.push(1.0); s.push(2.0);
+        s.push(1.0);
+        s.push(2.0);
         let j = serde_json::to_string(&s).unwrap();
         let back: Sparkline = serde_json::from_str(&j).unwrap();
         assert_eq!(s, back);

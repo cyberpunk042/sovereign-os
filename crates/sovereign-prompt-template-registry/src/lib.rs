@@ -13,9 +13,9 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+use serde::{Deserialize, Serialize};
 use sovereign_execution_mode_registry::ExecutionMode;
 use sovereign_profile_bundles::BundleName;
-use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use thiserror::Error;
 
@@ -105,13 +105,22 @@ fn body_slots(body: &str) -> Vec<String> {
 impl PromptTemplate {
     /// Validate this template in isolation (slot vs declared-vars + non-empty fields).
     pub fn validate(&self) -> Result<(), TemplateError> {
-        if self.name.is_empty() { return Err(TemplateError::EmptyName); }
-        if self.allowed_modes.is_empty() { return Err(TemplateError::NoModes(self.name.clone())); }
-        if self.allowed_bundles.is_empty() { return Err(TemplateError::NoBundles(self.name.clone())); }
+        if self.name.is_empty() {
+            return Err(TemplateError::EmptyName);
+        }
+        if self.allowed_modes.is_empty() {
+            return Err(TemplateError::NoModes(self.name.clone()));
+        }
+        if self.allowed_bundles.is_empty() {
+            return Err(TemplateError::NoBundles(self.name.clone()));
+        }
         let slots = body_slots(&self.body);
         for s in &slots {
             if !self.variables.iter().any(|v| v == s) {
-                return Err(TemplateError::UndeclaredVariable(self.name.clone(), s.clone()));
+                return Err(TemplateError::UndeclaredVariable(
+                    self.name.clone(),
+                    s.clone(),
+                ));
             }
         }
         for v in &self.variables {
@@ -181,18 +190,27 @@ impl TemplateRegistry {
 
     /// Lookup by name.
     pub fn get(&self, name: &str) -> Result<&PromptTemplate, TemplateError> {
-        self.templates.iter().find(|t| t.name == name)
+        self.templates
+            .iter()
+            .find(|t| t.name == name)
             .ok_or_else(|| TemplateError::Unknown(name.into()))
     }
 
     /// Render a named template.
-    pub fn render(&self, name: &str, vars: &BTreeMap<String, String>) -> Result<String, TemplateError> {
+    pub fn render(
+        &self,
+        name: &str,
+        vars: &BTreeMap<String, String>,
+    ) -> Result<String, TemplateError> {
         self.get(name)?.render(vars)
     }
 
     /// Available templates in the given context.
     pub fn available_in(&self, mode: ExecutionMode, bundle: BundleName) -> Vec<&PromptTemplate> {
-        self.templates.iter().filter(|t| t.is_available(mode, bundle)).collect()
+        self.templates
+            .iter()
+            .filter(|t| t.is_available(mode, bundle))
+            .collect()
     }
 
     /// Validate.
@@ -213,7 +231,9 @@ impl TemplateRegistry {
 }
 
 impl Default for TemplateRegistry {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -250,46 +270,63 @@ mod tests {
         let mut r = r;
         r.add(tpl("greet", "hello {{name}}", &["name"])).unwrap();
         let vars = BTreeMap::new();
-        assert!(matches!(r.render("greet", &vars).unwrap_err(), TemplateError::RenderMissing(ref v) if v == "name"));
+        assert!(
+            matches!(r.render("greet", &vars).unwrap_err(), TemplateError::RenderMissing(ref v) if v == "name")
+        );
     }
 
     #[test]
     fn undeclared_variable_in_body_caught() {
         let t = tpl("x", "{{undeclared}}", &[]);
-        assert!(matches!(t.validate().unwrap_err(), TemplateError::UndeclaredVariable(_, ref v) if v == "undeclared"));
+        assert!(
+            matches!(t.validate().unwrap_err(), TemplateError::UndeclaredVariable(_, ref v) if v == "undeclared")
+        );
     }
 
     #[test]
     fn unused_declared_variable_caught() {
         let t = tpl("x", "plain text", &["unused"]);
-        assert!(matches!(t.validate().unwrap_err(), TemplateError::UnusedVariable(_, ref v) if v == "unused"));
+        assert!(
+            matches!(t.validate().unwrap_err(), TemplateError::UnusedVariable(_, ref v) if v == "unused")
+        );
     }
 
     #[test]
     fn duplicate_name_rejected() {
         let mut r = TemplateRegistry::new();
         r.add(tpl("a", "x {{v}}", &["v"])).unwrap();
-        assert!(matches!(r.add(tpl("a", "y {{v}}", &["v"])).unwrap_err(), TemplateError::DuplicateName(ref n) if n == "a"));
+        assert!(
+            matches!(r.add(tpl("a", "y {{v}}", &["v"])).unwrap_err(), TemplateError::DuplicateName(ref n) if n == "a")
+        );
     }
 
     #[test]
     fn empty_name_rejected() {
         let t = tpl("", "x {{v}}", &["v"]);
-        assert!(matches!(t.validate().unwrap_err(), TemplateError::EmptyName));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            TemplateError::EmptyName
+        ));
     }
 
     #[test]
     fn no_modes_rejected() {
         let mut t = tpl("x", "y {{v}}", &["v"]);
         t.allowed_modes.clear();
-        assert!(matches!(t.validate().unwrap_err(), TemplateError::NoModes(_)));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            TemplateError::NoModes(_)
+        ));
     }
 
     #[test]
     fn no_bundles_rejected() {
         let mut t = tpl("x", "y {{v}}", &["v"]);
         t.allowed_bundles.clear();
-        assert!(matches!(t.validate().unwrap_err(), TemplateError::NoBundles(_)));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            TemplateError::NoBundles(_)
+        ));
     }
 
     #[test]
@@ -312,25 +349,38 @@ mod tests {
     fn unknown_template_caught() {
         let r = TemplateRegistry::new();
         let vars = BTreeMap::new();
-        assert!(matches!(r.render("none", &vars).unwrap_err(), TemplateError::Unknown(ref n) if n == "none"));
+        assert!(
+            matches!(r.render("none", &vars).unwrap_err(), TemplateError::Unknown(ref n) if n == "none")
+        );
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut r = TemplateRegistry::new();
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate().unwrap_err(), TemplateError::SchemaMismatch));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            TemplateError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn multi_var_render_all_substituted() {
         let mut r = TemplateRegistry::new();
-        r.add(tpl("note", "User {{user}} performed {{action}} at {{time}}", &["user", "action", "time"])).unwrap();
+        r.add(tpl(
+            "note",
+            "User {{user}} performed {{action}} at {{time}}",
+            &["user", "action", "time"],
+        ))
+        .unwrap();
         let mut vars = BTreeMap::new();
         vars.insert("user".into(), "alice".into());
         vars.insert("action".into(), "commit".into());
         vars.insert("time".into(), "03:00".into());
-        assert_eq!(r.render("note", &vars).unwrap(), "User alice performed commit at 03:00");
+        assert_eq!(
+            r.render("note", &vars).unwrap(),
+            "User alice performed commit at 03:00"
+        );
     }
 
     #[test]

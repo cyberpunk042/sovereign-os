@@ -54,7 +54,11 @@ pub enum DiffError {
 
 impl TextDiff {
     /// New.
-    pub fn new() -> Self { Self { schema_version: SCHEMA_VERSION.into() } }
+    pub fn new() -> Self {
+        Self {
+            schema_version: SCHEMA_VERSION.into(),
+        }
+    }
 
     /// Diff before vs after at line granularity.
     pub fn diff(before: &[String], after: &[String]) -> Vec<DiffRow> {
@@ -67,7 +71,10 @@ impl TextDiff {
         }
         // Longest common suffix (not overlapping the prefix).
         let mut suffix = 0usize;
-        while suffix < n - prefix && suffix < m - prefix && before[n - 1 - suffix] == after[m - 1 - suffix] {
+        while suffix < n - prefix
+            && suffix < m - prefix
+            && before[n - 1 - suffix] == after[m - 1 - suffix]
+        {
             suffix += 1;
         }
         let mut out: Vec<DiffRow> = Vec::with_capacity(n + m);
@@ -96,7 +103,9 @@ impl TextDiff {
 }
 
 impl Default for TextDiff {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -149,7 +158,10 @@ mod tests {
         let b = lines(&["a", "c"]);
         let a = lines(&["a", "b", "c"]);
         let r = TextDiff::diff(&b, &a);
-        assert!(r.iter().any(|x| matches!(x, DiffRow::Added { line } if line == "b")));
+        assert!(
+            r.iter()
+                .any(|x| matches!(x, DiffRow::Added { line } if line == "b"))
+        );
     }
 
     #[test]
@@ -157,7 +169,10 @@ mod tests {
         let b = lines(&["a", "b", "c"]);
         let a = lines(&["a", "c"]);
         let r = TextDiff::diff(&b, &a);
-        assert!(r.iter().any(|x| matches!(x, DiffRow::Removed { line } if line == "b")));
+        assert!(
+            r.iter()
+                .any(|x| matches!(x, DiffRow::Removed { line } if line == "b"))
+        );
     }
 
     #[test]
@@ -170,13 +185,20 @@ mod tests {
     fn schema_drift_rejected() {
         let mut d = TextDiff::new();
         d.schema_version = "9.9.9".into();
-        assert!(matches!(d.validate().unwrap_err(), DiffError::SchemaMismatch));
+        assert!(matches!(
+            d.validate().unwrap_err(),
+            DiffError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn row_serde_kebab() {
         let r = DiffRow::Added { line: "x".into() };
-        assert!(serde_json::to_string(&r).unwrap().contains("\"kind\":\"added\""));
+        assert!(
+            serde_json::to_string(&r)
+                .unwrap()
+                .contains("\"kind\":\"added\"")
+        );
     }
 
     #[test]

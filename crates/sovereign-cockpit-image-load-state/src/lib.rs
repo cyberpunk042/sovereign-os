@@ -78,12 +78,17 @@ pub enum LoadError {
 impl ImageLoadState {
     /// New.
     pub fn new() -> Self {
-        Self { schema_version: SCHEMA_VERSION.into(), images: BTreeMap::new() }
+        Self {
+            schema_version: SCHEMA_VERSION.into(),
+            images: BTreeMap::new(),
+        }
     }
 
     /// Register with placeholder.
     pub fn register(&mut self, url: &str, placeholder: &str) -> Result<(), LoadError> {
-        if url.is_empty() { return Err(LoadError::EmptyUrl); }
+        if url.is_empty() {
+            return Err(LoadError::EmptyUrl);
+        }
         self.images.entry(url.into()).or_insert(Image {
             url: url.into(),
             placeholder: placeholder.into(),
@@ -96,7 +101,9 @@ impl ImageLoadState {
 
     /// Begin loading.
     pub fn begin(&mut self, url: &str, ts_ms: u64) -> Result<(), LoadError> {
-        if url.is_empty() { return Err(LoadError::EmptyUrl); }
+        if url.is_empty() {
+            return Err(LoadError::EmptyUrl);
+        }
         let img = self.images.entry(url.into()).or_insert(Image {
             url: url.into(),
             placeholder: String::new(),
@@ -114,8 +121,13 @@ impl ImageLoadState {
 
     /// Loaded.
     pub fn load(&mut self, url: &str, ts_ms: u64) -> Result<(), LoadError> {
-        let img = self.images.get_mut(url).ok_or_else(|| LoadError::Unknown(url.into()))?;
-        if img.phase != Phase::Loading { return Err(LoadError::InvalidPhase); }
+        let img = self
+            .images
+            .get_mut(url)
+            .ok_or_else(|| LoadError::Unknown(url.into()))?;
+        if img.phase != Phase::Loading {
+            return Err(LoadError::InvalidPhase);
+        }
         img.phase = Phase::Loaded;
         img.ended_at_ms = ts_ms;
         Ok(())
@@ -123,9 +135,16 @@ impl ImageLoadState {
 
     /// Failed.
     pub fn fail(&mut self, url: &str, err: &str, ts_ms: u64) -> Result<(), LoadError> {
-        if err.is_empty() { return Err(LoadError::EmptyError); }
-        let img = self.images.get_mut(url).ok_or_else(|| LoadError::Unknown(url.into()))?;
-        if img.phase != Phase::Loading { return Err(LoadError::InvalidPhase); }
+        if err.is_empty() {
+            return Err(LoadError::EmptyError);
+        }
+        let img = self
+            .images
+            .get_mut(url)
+            .ok_or_else(|| LoadError::Unknown(url.into()))?;
+        if img.phase != Phase::Loading {
+            return Err(LoadError::InvalidPhase);
+        }
         img.phase = Phase::Failed(err.into());
         img.ended_at_ms = ts_ms;
         Ok(())
@@ -133,16 +152,22 @@ impl ImageLoadState {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), LoadError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(LoadError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(LoadError::SchemaMismatch);
+        }
         for (k, _) in &self.images {
-            if k.is_empty() { return Err(LoadError::EmptyUrl); }
+            if k.is_empty() {
+                return Err(LoadError::EmptyUrl);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for ImageLoadState {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -163,7 +188,10 @@ mod tests {
         let mut s = ImageLoadState::new();
         s.begin("u1", 100).unwrap();
         s.fail("u1", "404", 200).unwrap();
-        assert!(matches!(s.images.get("u1").unwrap().phase, Phase::Failed(_)));
+        assert!(matches!(
+            s.images.get("u1").unwrap().phase,
+            Phase::Failed(_)
+        ));
     }
 
     #[test]
@@ -180,7 +208,10 @@ mod tests {
         let mut s = ImageLoadState::new();
         assert!(matches!(s.begin("", 0).unwrap_err(), LoadError::EmptyUrl));
         s.begin("u1", 0).unwrap();
-        assert!(matches!(s.fail("u1", "", 1).unwrap_err(), LoadError::EmptyError));
+        assert!(matches!(
+            s.fail("u1", "", 1).unwrap_err(),
+            LoadError::EmptyError
+        ));
     }
 
     #[test]
@@ -189,14 +220,20 @@ mod tests {
         s.begin("u1", 100).unwrap();
         s.load("u1", 200).unwrap();
         // Cannot load again from Loaded.
-        assert!(matches!(s.load("u1", 300).unwrap_err(), LoadError::InvalidPhase));
+        assert!(matches!(
+            s.load("u1", 300).unwrap_err(),
+            LoadError::InvalidPhase
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = ImageLoadState::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), LoadError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            LoadError::SchemaMismatch
+        ));
     }
 
     #[test]

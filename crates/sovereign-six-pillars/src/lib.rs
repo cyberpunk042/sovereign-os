@@ -64,8 +64,12 @@ impl Pillar {
     /// All 6 pillars in canonical order.
     pub fn all() -> [Pillar; 6] {
         [
-            Pillar::Map, Pillar::SpecWorkflow, Pillar::AgentHarness,
-            Pillar::Routing, Pillar::SandboxesSecrets, Pillar::ModelLab,
+            Pillar::Map,
+            Pillar::SpecWorkflow,
+            Pillar::AgentHarness,
+            Pillar::Routing,
+            Pillar::SandboxesSecrets,
+            Pillar::ModelLab,
         ]
     }
 }
@@ -150,12 +154,18 @@ pub enum PillarError {
 impl PillarsCatalog {
     /// Canonical catalog.
     pub fn canonical() -> Self {
-        let pillars = Pillar::all().into_iter().map(|p| PillarEntry {
-            pillar: p,
-            position: p.position(),
-            description: p.description().into(),
-        }).collect();
-        let breakthrough_statements = BREAKTHROUGH_STATEMENTS.iter().map(|s| s.to_string()).collect();
+        let pillars = Pillar::all()
+            .into_iter()
+            .map(|p| PillarEntry {
+                pillar: p,
+                position: p.position(),
+                description: p.description().into(),
+            })
+            .collect();
+        let breakthrough_statements = BREAKTHROUGH_STATEMENTS
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
         Self {
             schema_version: SCHEMA_VERSION.into(),
             doctrine: DOCTRINE_NOT_ONE_MODEL.into(),
@@ -198,7 +208,9 @@ impl PillarsCatalog {
             }
         }
         if self.breakthrough_statements.len() != 7 {
-            return Err(PillarError::BreakthroughCountInvalid(self.breakthrough_statements.len()));
+            return Err(PillarError::BreakthroughCountInvalid(
+                self.breakthrough_statements.len(),
+            ));
         }
         for (i, s) in self.breakthrough_statements.iter().enumerate() {
             if s != BREAKTHROUGH_STATEMENTS[i] {
@@ -216,9 +228,12 @@ mod tests {
     #[test]
     fn six_pillars_positioned_1_to_6() {
         for (p, n) in [
-            (Pillar::Map, 1), (Pillar::SpecWorkflow, 2),
-            (Pillar::AgentHarness, 3), (Pillar::Routing, 4),
-            (Pillar::SandboxesSecrets, 5), (Pillar::ModelLab, 6),
+            (Pillar::Map, 1),
+            (Pillar::SpecWorkflow, 2),
+            (Pillar::AgentHarness, 3),
+            (Pillar::Routing, 4),
+            (Pillar::SandboxesSecrets, 5),
+            (Pillar::ModelLab, 6),
         ] {
             assert_eq!(p.position(), n);
         }
@@ -227,15 +242,24 @@ mod tests {
     #[test]
     fn descriptions_verbatim() {
         assert_eq!(Pillar::Map.description(), "MAP / map-before-act");
-        assert_eq!(Pillar::SpecWorkflow.description(), "Spec + workflow orchestration");
-        assert_eq!(Pillar::ModelLab.description(), "Model compression + hardware-aware model lab");
+        assert_eq!(
+            Pillar::SpecWorkflow.description(),
+            "Spec + workflow orchestration"
+        );
+        assert_eq!(
+            Pillar::ModelLab.description(),
+            "Model compression + hardware-aware model lab"
+        );
     }
 
     #[test]
     fn seven_breakthrough_statements_verbatim() {
         assert_eq!(BREAKTHROUGH_STATEMENTS.len(), 7);
         assert_eq!(BREAKTHROUGH_STATEMENTS[0], "Breakthrough is the harness");
-        assert_eq!(BREAKTHROUGH_STATEMENTS[6], "Breakthrough is the hardware-aware execution substrate");
+        assert_eq!(
+            BREAKTHROUGH_STATEMENTS[6],
+            "Breakthrough is the hardware-aware execution substrate"
+        );
     }
 
     #[test]
@@ -247,14 +271,20 @@ mod tests {
     fn schema_drift_rejected() {
         let mut c = PillarsCatalog::canonical();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), PillarError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            PillarError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn doctrine_tamper_caught() {
         let mut c = PillarsCatalog::canonical();
         c.doctrine = "wrong".into();
-        assert!(matches!(c.validate().unwrap_err(), PillarError::DoctrineTampered));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            PillarError::DoctrineTampered
+        ));
     }
 
     #[test]
@@ -272,7 +302,11 @@ mod tests {
         let mut c = PillarsCatalog::canonical();
         c.pillars[0].position = 99;
         match c.validate().unwrap_err() {
-            PillarError::PositionMismatch { pillar, declared, canonical } => {
+            PillarError::PositionMismatch {
+                pillar,
+                declared,
+                canonical,
+            } => {
                 assert_eq!(pillar, Pillar::Map);
                 assert_eq!(declared, 99);
                 assert_eq!(canonical, 1);
@@ -293,9 +327,18 @@ mod tests {
 
     #[test]
     fn pillar_serde_kebab() {
-        assert_eq!(serde_json::to_string(&Pillar::SpecWorkflow).unwrap(), "\"spec-workflow\"");
-        assert_eq!(serde_json::to_string(&Pillar::SandboxesSecrets).unwrap(), "\"sandboxes-secrets\"");
-        assert_eq!(serde_json::to_string(&Pillar::ModelLab).unwrap(), "\"model-lab\"");
+        assert_eq!(
+            serde_json::to_string(&Pillar::SpecWorkflow).unwrap(),
+            "\"spec-workflow\""
+        );
+        assert_eq!(
+            serde_json::to_string(&Pillar::SandboxesSecrets).unwrap(),
+            "\"sandboxes-secrets\""
+        );
+        assert_eq!(
+            serde_json::to_string(&Pillar::ModelLab).unwrap(),
+            "\"model-lab\""
+        );
     }
 
     #[test]

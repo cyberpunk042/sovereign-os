@@ -61,7 +61,9 @@ pub enum MaskError {
 impl InputMask {
     /// New.
     pub fn new(mask: &str, placeholder_char: char) -> Result<Self, MaskError> {
-        if mask.is_empty() { return Err(MaskError::EmptyMask); }
+        if mask.is_empty() {
+            return Err(MaskError::EmptyMask);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             mask: mask.into(),
@@ -110,13 +112,21 @@ impl InputMask {
                 }
             }
         }
-        MaskResult { rendered, raw, complete: filled_slots == total_slots }
+        MaskResult {
+            rendered,
+            raw,
+            complete: filled_slots == total_slots,
+        }
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), MaskError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(MaskError::SchemaMismatch); }
-        if self.mask.is_empty() { return Err(MaskError::EmptyMask); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(MaskError::SchemaMismatch);
+        }
+        if self.mask.is_empty() {
+            return Err(MaskError::EmptyMask);
+        }
         Ok(())
     }
 }
@@ -127,7 +137,10 @@ mod tests {
 
     #[test]
     fn empty_mask_rejected() {
-        assert!(matches!(InputMask::new("", ' ').unwrap_err(), MaskError::EmptyMask));
+        assert!(matches!(
+            InputMask::new("", ' ').unwrap_err(),
+            MaskError::EmptyMask
+        ));
     }
 
     #[test]
@@ -182,7 +195,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut m = InputMask::new("##", ' ').unwrap();
         m.schema_version = "9.9.9".into();
-        assert!(matches!(m.validate().unwrap_err(), MaskError::SchemaMismatch));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            MaskError::SchemaMismatch
+        ));
     }
 
     #[test]

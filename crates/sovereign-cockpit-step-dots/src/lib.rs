@@ -61,18 +61,24 @@ pub enum DotsError {
 impl StepDots {
     /// New.
     pub fn new(total: u32) -> Result<Self, DotsError> {
-        if total == 0 { return Err(DotsError::ZeroTotal); }
+        if total == 0 {
+            return Err(DotsError::ZeroTotal);
+        }
         let mut visited = vec![false; total as usize];
         visited[0] = true;
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
-            total, current: 0, visited,
+            total,
+            current: 0,
+            visited,
         })
     }
 
     /// Goto.
     pub fn goto(&mut self, i: u32) -> Result<(), DotsError> {
-        if i >= self.total { return Err(DotsError::OutOfRange); }
+        if i >= self.total {
+            return Err(DotsError::OutOfRange);
+        }
         self.current = i;
         self.visited[i as usize] = true;
         Ok(())
@@ -88,24 +94,40 @@ impl StepDots {
 
     /// Prev (saturates at 0).
     pub fn prev(&mut self) {
-        if self.current > 0 { self.current -= 1; }
+        if self.current > 0 {
+            self.current -= 1;
+        }
     }
 
     /// Render.
     pub fn render(&self) -> Vec<Dot> {
-        (0..self.total as usize).map(|i| {
-            if i as u32 == self.current { Dot::Active }
-            else if self.visited[i] { Dot::Visited }
-            else { Dot::Unvisited }
-        }).collect()
+        (0..self.total as usize)
+            .map(|i| {
+                if i as u32 == self.current {
+                    Dot::Active
+                } else if self.visited[i] {
+                    Dot::Visited
+                } else {
+                    Dot::Unvisited
+                }
+            })
+            .collect()
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), DotsError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(DotsError::SchemaMismatch); }
-        if self.total == 0 { return Err(DotsError::ZeroTotal); }
-        if self.current >= self.total { return Err(DotsError::OutOfRange); }
-        if self.visited.len() != self.total as usize { return Err(DotsError::BadGeometry); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(DotsError::SchemaMismatch);
+        }
+        if self.total == 0 {
+            return Err(DotsError::ZeroTotal);
+        }
+        if self.current >= self.total {
+            return Err(DotsError::OutOfRange);
+        }
+        if self.visited.len() != self.total as usize {
+            return Err(DotsError::BadGeometry);
+        }
         Ok(())
     }
 }
@@ -119,7 +141,9 @@ mod tests {
         let d = StepDots::new(5).unwrap();
         let r = d.render();
         assert_eq!(r[0], Dot::Active);
-        for r in &r[1..] { assert_eq!(*r, Dot::Unvisited); }
+        for r in &r[1..] {
+            assert_eq!(*r, Dot::Unvisited);
+        }
     }
 
     #[test]
@@ -168,14 +192,20 @@ mod tests {
 
     #[test]
     fn zero_total_rejected() {
-        assert!(matches!(StepDots::new(0).unwrap_err(), DotsError::ZeroTotal));
+        assert!(matches!(
+            StepDots::new(0).unwrap_err(),
+            DotsError::ZeroTotal
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut d = StepDots::new(2).unwrap();
         d.schema_version = "9.9.9".into();
-        assert!(matches!(d.validate().unwrap_err(), DotsError::SchemaMismatch));
+        assert!(matches!(
+            d.validate().unwrap_err(),
+            DotsError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -97,14 +97,20 @@ impl DictationState {
                 self.session_count = self.session_count.saturating_add(1);
                 Ok(())
             }
-            other => Err(DictationError::InvalidTransition { from: other, via: "request" }),
+            other => Err(DictationError::InvalidTransition {
+                from: other,
+                via: "request",
+            }),
         }
     }
 
     /// Update interim transcript. Listening only.
     pub fn partial(&mut self, text: &str, mic_level_db: i32) -> Result<(), DictationError> {
         if self.phase != Phase::Listening {
-            return Err(DictationError::InvalidTransition { from: self.phase, via: "partial" });
+            return Err(DictationError::InvalidTransition {
+                from: self.phase,
+                via: "partial",
+            });
         }
         self.partial_transcript = text.into();
         self.mic_level_db = mic_level_db.clamp(-60, 0);
@@ -114,7 +120,10 @@ impl DictationState {
     /// Begin finalization. Listening → Finalizing.
     pub fn finalize(&mut self) -> Result<(), DictationError> {
         if self.phase != Phase::Listening {
-            return Err(DictationError::InvalidTransition { from: self.phase, via: "finalize" });
+            return Err(DictationError::InvalidTransition {
+                from: self.phase,
+                via: "finalize",
+            });
         }
         self.phase = Phase::Finalizing;
         Ok(())
@@ -123,7 +132,10 @@ impl DictationState {
     /// Complete with final text. Finalizing → Idle.
     pub fn complete(&mut self, final_text: &str) -> Result<(), DictationError> {
         if self.phase != Phase::Finalizing {
-            return Err(DictationError::InvalidTransition { from: self.phase, via: "complete" });
+            return Err(DictationError::InvalidTransition {
+                from: self.phase,
+                via: "complete",
+            });
         }
         self.committed_transcript = final_text.into();
         self.partial_transcript.clear();
@@ -134,7 +146,9 @@ impl DictationState {
 
     /// Error out from Listening or Finalizing.
     pub fn error(&mut self, message: &str) -> Result<(), DictationError> {
-        if message.is_empty() { return Err(DictationError::EmptyError); }
+        if message.is_empty() {
+            return Err(DictationError::EmptyError);
+        }
         match self.phase {
             Phase::Listening | Phase::Finalizing => {
                 self.phase = Phase::Errored;
@@ -142,14 +156,20 @@ impl DictationState {
                 self.mic_level_db = -60;
                 Ok(())
             }
-            other => Err(DictationError::InvalidTransition { from: other, via: "error" }),
+            other => Err(DictationError::InvalidTransition {
+                from: other,
+                via: "error",
+            }),
         }
     }
 
     /// Reset from Errored → Idle.
     pub fn reset(&mut self) -> Result<(), DictationError> {
         if self.phase != Phase::Errored {
-            return Err(DictationError::InvalidTransition { from: self.phase, via: "reset" });
+            return Err(DictationError::InvalidTransition {
+                from: self.phase,
+                via: "reset",
+            });
         }
         self.phase = Phase::Idle;
         self.partial_transcript.clear();
@@ -159,13 +179,17 @@ impl DictationState {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), DictationError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(DictationError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(DictationError::SchemaMismatch);
+        }
         Ok(())
     }
 }
 
 impl Default for DictationState {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -189,19 +213,28 @@ mod tests {
     fn double_request_rejected() {
         let mut d = DictationState::new();
         d.request().unwrap();
-        assert!(matches!(d.request().unwrap_err(), DictationError::InvalidTransition { .. }));
+        assert!(matches!(
+            d.request().unwrap_err(),
+            DictationError::InvalidTransition { .. }
+        ));
     }
 
     #[test]
     fn partial_from_idle_rejected() {
         let mut d = DictationState::new();
-        assert!(matches!(d.partial("x", 0).unwrap_err(), DictationError::InvalidTransition { .. }));
+        assert!(matches!(
+            d.partial("x", 0).unwrap_err(),
+            DictationError::InvalidTransition { .. }
+        ));
     }
 
     #[test]
     fn finalize_from_idle_rejected() {
         let mut d = DictationState::new();
-        assert!(matches!(d.finalize().unwrap_err(), DictationError::InvalidTransition { .. }));
+        assert!(matches!(
+            d.finalize().unwrap_err(),
+            DictationError::InvalidTransition { .. }
+        ));
     }
 
     #[test]
@@ -218,14 +251,20 @@ mod tests {
     #[test]
     fn error_from_idle_rejected() {
         let mut d = DictationState::new();
-        assert!(matches!(d.error("x").unwrap_err(), DictationError::InvalidTransition { .. }));
+        assert!(matches!(
+            d.error("x").unwrap_err(),
+            DictationError::InvalidTransition { .. }
+        ));
     }
 
     #[test]
     fn empty_error_rejected() {
         let mut d = DictationState::new();
         d.request().unwrap();
-        assert!(matches!(d.error("").unwrap_err(), DictationError::EmptyError));
+        assert!(matches!(
+            d.error("").unwrap_err(),
+            DictationError::EmptyError
+        ));
     }
 
     #[test]
@@ -252,7 +291,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut d = DictationState::new();
         d.schema_version = "9.9.9".into();
-        assert!(matches!(d.validate().unwrap_err(), DictationError::SchemaMismatch));
+        assert!(matches!(
+            d.validate().unwrap_err(),
+            DictationError::SchemaMismatch
+        ));
     }
 
     #[test]

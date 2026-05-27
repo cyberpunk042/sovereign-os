@@ -62,31 +62,41 @@ pub enum ColorBlindError {
 impl ColorBlindMode {
     /// All 4.
     pub const ALL: [ColorBlindMode; 4] = [
-        ColorBlindMode::None, ColorBlindMode::Protanopia,
-        ColorBlindMode::Deuteranopia, ColorBlindMode::Tritanopia,
+        ColorBlindMode::None,
+        ColorBlindMode::Protanopia,
+        ColorBlindMode::Deuteranopia,
+        ColorBlindMode::Tritanopia,
     ];
 
     /// Semantic palette for this mode.
     pub fn palette(self) -> SemanticPalette {
         match self {
             ColorBlindMode::None => SemanticPalette {
-                success: "16a34a".into(), warning: "f59e0b".into(),
-                danger: "dc2626".into(),  info: "2563eb".into(),
+                success: "16a34a".into(),
+                warning: "f59e0b".into(),
+                danger: "dc2626".into(),
+                info: "2563eb".into(),
             },
             ColorBlindMode::Protanopia => SemanticPalette {
                 // Avoid red-green pairs; use yellow + blue.
-                success: "60a5fa".into(), warning: "facc15".into(),
-                danger: "1e40af".into(),  info: "78716c".into(),
+                success: "60a5fa".into(),
+                warning: "facc15".into(),
+                danger: "1e40af".into(),
+                info: "78716c".into(),
             },
             ColorBlindMode::Deuteranopia => SemanticPalette {
                 // Similar to protanopia but slightly cooler.
-                success: "38bdf8".into(), warning: "fde047".into(),
-                danger: "1e3a8a".into(),  info: "525252".into(),
+                success: "38bdf8".into(),
+                warning: "fde047".into(),
+                danger: "1e3a8a".into(),
+                info: "525252".into(),
             },
             ColorBlindMode::Tritanopia => SemanticPalette {
                 // Avoid blue-yellow pairs; use red + green.
-                success: "16a34a".into(), warning: "ea580c".into(),
-                danger: "dc2626".into(),  info: "a3a3a3".into(),
+                success: "16a34a".into(),
+                warning: "ea580c".into(),
+                danger: "dc2626".into(),
+                info: "a3a3a3".into(),
             },
         }
     }
@@ -95,14 +105,21 @@ impl ColorBlindMode {
 impl ColorBlindState {
     /// Default (no remapping).
     pub fn default_state() -> Self {
-        Self { schema_version: SCHEMA_VERSION.into(), mode: ColorBlindMode::None }
+        Self {
+            schema_version: SCHEMA_VERSION.into(),
+            mode: ColorBlindMode::None,
+        }
     }
 
     /// Switch.
-    pub fn switch(&mut self, mode: ColorBlindMode) { self.mode = mode; }
+    pub fn switch(&mut self, mode: ColorBlindMode) {
+        self.mode = mode;
+    }
 
     /// Resolved palette.
-    pub fn palette(&self) -> SemanticPalette { self.mode.palette() }
+    pub fn palette(&self) -> SemanticPalette {
+        self.mode.palette()
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ColorBlindError> {
@@ -144,14 +161,26 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = ColorBlindState::default_state();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), ColorBlindError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            ColorBlindError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn mode_serde_kebab() {
-        assert_eq!(serde_json::to_string(&ColorBlindMode::Protanopia).unwrap(), "\"protanopia\"");
-        assert_eq!(serde_json::to_string(&ColorBlindMode::Deuteranopia).unwrap(), "\"deuteranopia\"");
-        assert_eq!(serde_json::to_string(&ColorBlindMode::Tritanopia).unwrap(), "\"tritanopia\"");
+        assert_eq!(
+            serde_json::to_string(&ColorBlindMode::Protanopia).unwrap(),
+            "\"protanopia\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ColorBlindMode::Deuteranopia).unwrap(),
+            "\"deuteranopia\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ColorBlindMode::Tritanopia).unwrap(),
+            "\"tritanopia\""
+        );
     }
 
     #[test]

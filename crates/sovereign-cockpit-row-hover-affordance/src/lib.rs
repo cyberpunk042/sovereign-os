@@ -53,33 +53,45 @@ impl RowHoverAffordance {
 
     /// Pointer entered a row.
     pub fn hover(&mut self, row: &str) -> Result<(), HoverError> {
-        if row.is_empty() { return Err(HoverError::EmptyRow); }
+        if row.is_empty() {
+            return Err(HoverError::EmptyRow);
+        }
         self.hovered_row = Some(row.into());
         Ok(())
     }
 
     /// Pointer left all rows.
-    pub fn unhover(&mut self) { self.hovered_row = None; }
+    pub fn unhover(&mut self) {
+        self.hovered_row = None;
+    }
 
     /// Focus moved into a row.
     pub fn focus(&mut self, row: &str) -> Result<(), HoverError> {
-        if row.is_empty() { return Err(HoverError::EmptyRow); }
+        if row.is_empty() {
+            return Err(HoverError::EmptyRow);
+        }
         self.focused_row = Some(row.into());
         Ok(())
     }
 
     /// Focus moved out.
-    pub fn blur(&mut self) { self.focused_row = None; }
+    pub fn blur(&mut self) {
+        self.focused_row = None;
+    }
 
     /// Pin a row's affordances visible (e.g. opened action menu).
     pub fn pin(&mut self, row: &str) -> Result<(), HoverError> {
-        if row.is_empty() { return Err(HoverError::EmptyRow); }
+        if row.is_empty() {
+            return Err(HoverError::EmptyRow);
+        }
         self.pinned_row = Some(row.into());
         Ok(())
     }
 
     /// Unpin.
-    pub fn unpin(&mut self) { self.pinned_row = None; }
+    pub fn unpin(&mut self) {
+        self.pinned_row = None;
+    }
 
     /// Should affordance be visible for this row?
     pub fn visible(&self, row: &str) -> bool {
@@ -90,16 +102,24 @@ impl RowHoverAffordance {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), HoverError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(HoverError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(HoverError::SchemaMismatch);
+        }
         for r in [&self.hovered_row, &self.focused_row, &self.pinned_row] {
-            if let Some(s) = r { if s.is_empty() { return Err(HoverError::EmptyRow); } }
+            if let Some(s) = r {
+                if s.is_empty() {
+                    return Err(HoverError::EmptyRow);
+                }
+            }
         }
         Ok(())
     }
 }
 
 impl Default for RowHoverAffordance {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -160,7 +180,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = RowHoverAffordance::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), HoverError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            HoverError::SchemaMismatch
+        ));
     }
 
     #[test]

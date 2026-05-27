@@ -51,7 +51,9 @@ pub enum UpdateError {
 impl UpdatePrompt {
     /// New.
     pub fn new(current_version: &str) -> Result<Self, UpdateError> {
-        if current_version.is_empty() { return Err(UpdateError::EmptyVersion); }
+        if current_version.is_empty() {
+            return Err(UpdateError::EmptyVersion);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             current_version: current_version.into(),
@@ -64,7 +66,9 @@ impl UpdatePrompt {
 
     /// Announce an available version.
     pub fn announce(&mut self, available: &str) -> Result<(), UpdateError> {
-        if available.is_empty() { return Err(UpdateError::EmptyVersion); }
+        if available.is_empty() {
+            return Err(UpdateError::EmptyVersion);
+        }
         if available != self.current_version {
             self.available_version = Some(available.into());
             self.snooze_until_ms = 0;
@@ -81,7 +85,9 @@ impl UpdatePrompt {
 
     /// Snooze for N ms.
     pub fn snooze(&mut self, now_ms: u64, snooze_ms: u64) -> Result<(), UpdateError> {
-        if self.available_version.is_none() { return Err(UpdateError::NoneAvailable); }
+        if self.available_version.is_none() {
+            return Err(UpdateError::NoneAvailable);
+        }
         self.snooze_until_ms = now_ms.saturating_add(snooze_ms);
         self.snoozes = self.snoozes.saturating_add(1);
         Ok(())
@@ -89,7 +95,10 @@ impl UpdatePrompt {
 
     /// Mark installed (current = available; clears available).
     pub fn install(&mut self) -> Result<(), UpdateError> {
-        let v = self.available_version.take().ok_or(UpdateError::NoneAvailable)?;
+        let v = self
+            .available_version
+            .take()
+            .ok_or(UpdateError::NoneAvailable)?;
         self.current_version = v;
         self.snooze_until_ms = 0;
         self.installs = self.installs.saturating_add(1);
@@ -98,10 +107,16 @@ impl UpdatePrompt {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), UpdateError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(UpdateError::SchemaMismatch); }
-        if self.current_version.is_empty() { return Err(UpdateError::EmptyVersion); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(UpdateError::SchemaMismatch);
+        }
+        if self.current_version.is_empty() {
+            return Err(UpdateError::EmptyVersion);
+        }
         if let Some(v) = &self.available_version {
-            if v.is_empty() { return Err(UpdateError::EmptyVersion); }
+            if v.is_empty() {
+                return Err(UpdateError::EmptyVersion);
+            }
         }
         Ok(())
     }
@@ -153,25 +168,37 @@ mod tests {
     #[test]
     fn snooze_without_announce_rejected() {
         let mut p = UpdatePrompt::new("1.0.0").unwrap();
-        assert!(matches!(p.snooze(0, 100).unwrap_err(), UpdateError::NoneAvailable));
+        assert!(matches!(
+            p.snooze(0, 100).unwrap_err(),
+            UpdateError::NoneAvailable
+        ));
     }
 
     #[test]
     fn install_without_announce_rejected() {
         let mut p = UpdatePrompt::new("1.0.0").unwrap();
-        assert!(matches!(p.install().unwrap_err(), UpdateError::NoneAvailable));
+        assert!(matches!(
+            p.install().unwrap_err(),
+            UpdateError::NoneAvailable
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
-        assert!(matches!(UpdatePrompt::new("").unwrap_err(), UpdateError::EmptyVersion));
+        assert!(matches!(
+            UpdatePrompt::new("").unwrap_err(),
+            UpdateError::EmptyVersion
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut p = UpdatePrompt::new("1.0.0").unwrap();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), UpdateError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            UpdateError::SchemaMismatch
+        ));
     }
 
     #[test]

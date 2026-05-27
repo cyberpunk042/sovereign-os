@@ -73,13 +73,22 @@ pub enum CounterError {
 impl TextInputCounter {
     /// New.
     pub fn new(min: u32, max: u32, warn_pct: u8, mode: Mode) -> Result<Self, CounterError> {
-        if max == 0 { return Err(CounterError::MaxZero); }
-        if warn_pct > 100 { return Err(CounterError::BadWarnPct(warn_pct)); }
-        if min > max { return Err(CounterError::BadMinMax(min, max)); }
+        if max == 0 {
+            return Err(CounterError::MaxZero);
+        }
+        if warn_pct > 100 {
+            return Err(CounterError::BadWarnPct(warn_pct));
+        }
+        if min > max {
+            return Err(CounterError::BadMinMax(min, max));
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             buffer: String::new(),
-            min, max, warn_pct, mode,
+            min,
+            max,
+            warn_pct,
+            mode,
         })
     }
 
@@ -117,9 +126,13 @@ impl TextInputCounter {
     pub fn color(&self) -> CounterColor {
         let used = self.used();
         let warn_threshold = (self.max as u64 * self.warn_pct as u64 / 100) as u32;
-        if used > self.max { CounterColor::Over }
-        else if used >= warn_threshold && self.max > 0 { CounterColor::Warn }
-        else { CounterColor::Normal }
+        if used > self.max {
+            CounterColor::Over
+        } else if used >= warn_threshold && self.max > 0 {
+            CounterColor::Warn
+        } else {
+            CounterColor::Normal
+        }
     }
 
     /// Valid (within min/max).
@@ -138,9 +151,15 @@ impl TextInputCounter {
         if self.schema_version != SCHEMA_VERSION {
             return Err(CounterError::SchemaMismatch);
         }
-        if self.max == 0 { return Err(CounterError::MaxZero); }
-        if self.warn_pct > 100 { return Err(CounterError::BadWarnPct(self.warn_pct)); }
-        if self.min > self.max { return Err(CounterError::BadMinMax(self.min, self.max)); }
+        if self.max == 0 {
+            return Err(CounterError::MaxZero);
+        }
+        if self.warn_pct > 100 {
+            return Err(CounterError::BadWarnPct(self.warn_pct));
+        }
+        if self.min > self.max {
+            return Err(CounterError::BadMinMax(self.min, self.max));
+        }
         Ok(())
     }
 }
@@ -151,12 +170,18 @@ mod tests {
 
     #[test]
     fn max_zero_rejected() {
-        assert!(matches!(TextInputCounter::new(0, 0, 80, Mode::Soft).unwrap_err(), CounterError::MaxZero));
+        assert!(matches!(
+            TextInputCounter::new(0, 0, 80, Mode::Soft).unwrap_err(),
+            CounterError::MaxZero
+        ));
     }
 
     #[test]
     fn min_over_max_rejected() {
-        assert!(matches!(TextInputCounter::new(20, 10, 80, Mode::Soft).unwrap_err(), CounterError::BadMinMax(20, 10)));
+        assert!(matches!(
+            TextInputCounter::new(20, 10, 80, Mode::Soft).unwrap_err(),
+            CounterError::BadMinMax(20, 10)
+        ));
     }
 
     #[test]
@@ -222,7 +247,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut c = TextInputCounter::new(0, 10, 80, Mode::Soft).unwrap();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), CounterError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            CounterError::SchemaMismatch
+        ));
     }
 
     #[test]

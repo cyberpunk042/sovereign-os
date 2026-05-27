@@ -36,8 +36,7 @@ use thiserror::Error;
 pub const SCHEMA_VERSION: &str = "1.0.0";
 
 /// KEY LINE verbatim per E0467 dump 14810.
-pub const KEY_LINE: &str =
-    "Every module is a controlled continuation of user intent across hardware, software, memory, and time";
+pub const KEY_LINE: &str = "Every module is a controlled continuation of user intent across hardware, software, memory, and time";
 
 /// The 10 canonical sovereign-os modules per M00800-M00812.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -227,9 +226,15 @@ impl ModuleManifest {
     pub fn empty_canonical() -> Self {
         let now = "1970-01-01T00:00:00Z";
         let modules = [
-            CoreModule::BaseOs, CoreModule::ComputeFabric, CoreModule::SandboxFabric,
-            CoreModule::Gateway, CoreModule::MemoryOs, CoreModule::WorkflowCompiler,
-            CoreModule::EvalValue, CoreModule::ContinuityManager, CoreModule::Observability,
+            CoreModule::BaseOs,
+            CoreModule::ComputeFabric,
+            CoreModule::SandboxFabric,
+            CoreModule::Gateway,
+            CoreModule::MemoryOs,
+            CoreModule::WorkflowCompiler,
+            CoreModule::EvalValue,
+            CoreModule::ContinuityManager,
+            CoreModule::Observability,
             CoreModule::LoraFoundry,
         ]
         .into_iter()
@@ -266,9 +271,15 @@ impl ModuleManifest {
             return Err(ModuleError::ModuleCountInvalid(self.modules.len()));
         }
         let required = [
-            CoreModule::BaseOs, CoreModule::ComputeFabric, CoreModule::SandboxFabric,
-            CoreModule::Gateway, CoreModule::MemoryOs, CoreModule::WorkflowCompiler,
-            CoreModule::EvalValue, CoreModule::ContinuityManager, CoreModule::Observability,
+            CoreModule::BaseOs,
+            CoreModule::ComputeFabric,
+            CoreModule::SandboxFabric,
+            CoreModule::Gateway,
+            CoreModule::MemoryOs,
+            CoreModule::WorkflowCompiler,
+            CoreModule::EvalValue,
+            CoreModule::ContinuityManager,
+            CoreModule::Observability,
             CoreModule::LoraFoundry,
         ];
         for m in required {
@@ -301,7 +312,10 @@ impl ModuleManifest {
 
     /// Count of modules in each state.
     pub fn state_counts(&self) -> (u32, u32, u32, u32) {
-        let mut h = 0; let mut d = 0; let mut o = 0; let mut q = 0;
+        let mut h = 0;
+        let mut d = 0;
+        let mut o = 0;
+        let mut q = 0;
         for e in &self.modules {
             match e.state {
                 ModuleState::Healthy => h += 1,
@@ -314,7 +328,13 @@ impl ModuleManifest {
     }
 
     /// Mark a module's state.
-    pub fn mark(&mut self, module: CoreModule, state: ModuleState, heartbeat_at: &str, notes: &str) {
+    pub fn mark(
+        &mut self,
+        module: CoreModule,
+        state: ModuleState,
+        heartbeat_at: &str,
+        notes: &str,
+    ) {
         if let Some(e) = self.modules.iter_mut().find(|e| e.module == module) {
             e.state = state;
             e.last_heartbeat_at = heartbeat_at.into();
@@ -336,11 +356,16 @@ mod tests {
     fn ten_modules_present_in_canonical_order() {
         let m = ModuleManifest::empty_canonical();
         for (expected, n) in [
-            (CoreModule::BaseOs, 1), (CoreModule::ComputeFabric, 2),
-            (CoreModule::SandboxFabric, 3), (CoreModule::Gateway, 4),
-            (CoreModule::MemoryOs, 5), (CoreModule::WorkflowCompiler, 6),
-            (CoreModule::EvalValue, 7), (CoreModule::ContinuityManager, 8),
-            (CoreModule::Observability, 9), (CoreModule::LoraFoundry, 10),
+            (CoreModule::BaseOs, 1),
+            (CoreModule::ComputeFabric, 2),
+            (CoreModule::SandboxFabric, 3),
+            (CoreModule::Gateway, 4),
+            (CoreModule::MemoryOs, 5),
+            (CoreModule::WorkflowCompiler, 6),
+            (CoreModule::EvalValue, 7),
+            (CoreModule::ContinuityManager, 8),
+            (CoreModule::Observability, 9),
+            (CoreModule::LoraFoundry, 10),
         ] {
             assert_eq!(m.modules[n - 1].module, expected, "position {n}");
             assert_eq!(expected.position(), n as u8);
@@ -365,21 +390,30 @@ mod tests {
     fn schema_drift_rejected() {
         let mut m = ModuleManifest::empty_canonical();
         m.schema_version = "9.9.9".into();
-        assert!(matches!(m.validate().unwrap_err(), ModuleError::SchemaMismatch { .. }));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            ModuleError::SchemaMismatch { .. }
+        ));
     }
 
     #[test]
     fn key_line_tamper_caught() {
         let mut m = ModuleManifest::empty_canonical();
         m.key_line = "Modules are containers".into();
-        assert!(matches!(m.validate().unwrap_err(), ModuleError::KeyLineTampered { .. }));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            ModuleError::KeyLineTampered { .. }
+        ));
     }
 
     #[test]
     fn module_count_invalid_caught() {
         let mut m = ModuleManifest::empty_canonical();
         m.modules.pop();
-        assert!(matches!(m.validate().unwrap_err(), ModuleError::ModuleCountInvalid(9)));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            ModuleError::ModuleCountInvalid(9)
+        ));
     }
 
     #[test]
@@ -393,7 +427,11 @@ mod tests {
             notes: String::new(),
         };
         let err = m.validate().unwrap_err();
-        assert!(matches!(err, ModuleError::ModuleMissing(CoreModule::BaseOs) | ModuleError::DuplicateModule(CoreModule::ComputeFabric)));
+        assert!(matches!(
+            err,
+            ModuleError::ModuleMissing(CoreModule::BaseOs)
+                | ModuleError::DuplicateModule(CoreModule::ComputeFabric)
+        ));
     }
 
     #[test]
@@ -402,7 +440,11 @@ mod tests {
         m.modules[0].module_id = "M99999".into();
         let err = m.validate().unwrap_err();
         match err {
-            ModuleError::ModuleIdMismatch { module, declared, canonical } => {
+            ModuleError::ModuleIdMismatch {
+                module,
+                declared,
+                canonical,
+            } => {
                 assert_eq!(module, CoreModule::BaseOs);
                 assert_eq!(declared, "M99999");
                 assert_eq!(canonical, "M00800");
@@ -414,7 +456,12 @@ mod tests {
     #[test]
     fn mark_updates_state() {
         let mut m = ModuleManifest::empty_canonical();
-        m.mark(CoreModule::Gateway, ModuleState::Healthy, "2026-05-19T03:00:00Z", "Anthropic-first online");
+        m.mark(
+            CoreModule::Gateway,
+            ModuleState::Healthy,
+            "2026-05-19T03:00:00Z",
+            "Anthropic-first online",
+        );
         let e = m.entry(CoreModule::Gateway).unwrap();
         assert_eq!(e.state, ModuleState::Healthy);
         assert!(e.notes.contains("Anthropic-first"));
@@ -436,17 +483,28 @@ mod tests {
     #[test]
     fn six_continuity_layers_positioned() {
         let order = [
-            (ContinuityLayer::Hardware, 1), (ContinuityLayer::Os, 2),
-            (ContinuityLayer::Agent, 3), (ContinuityLayer::Memory, 4),
-            (ContinuityLayer::Model, 5), (ContinuityLayer::Human, 6),
+            (ContinuityLayer::Hardware, 1),
+            (ContinuityLayer::Os, 2),
+            (ContinuityLayer::Agent, 3),
+            (ContinuityLayer::Memory, 4),
+            (ContinuityLayer::Model, 5),
+            (ContinuityLayer::Human, 6),
         ];
-        for (l, p) in order { assert_eq!(l.position(), p); }
+        for (l, p) in order {
+            assert_eq!(l.position(), p);
+        }
     }
 
     #[test]
     fn config_level_serde_kebab() {
-        assert_eq!(serde_json::to_string(&ConfigLevel::PowerUser).unwrap(), "\"power-user\"");
-        assert_eq!(serde_json::to_string(&ConfigLevel::System).unwrap(), "\"system\"");
+        assert_eq!(
+            serde_json::to_string(&ConfigLevel::PowerUser).unwrap(),
+            "\"power-user\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ConfigLevel::System).unwrap(),
+            "\"system\""
+        );
     }
 
     // --- Doctrine ---
@@ -463,15 +521,29 @@ mod tests {
 
     #[test]
     fn core_module_serde_kebab() {
-        assert_eq!(serde_json::to_string(&CoreModule::SandboxFabric).unwrap(), "\"sandbox-fabric\"");
-        assert_eq!(serde_json::to_string(&CoreModule::LoraFoundry).unwrap(), "\"lora-foundry\"");
-        assert_eq!(serde_json::to_string(&CoreModule::WorkflowCompiler).unwrap(), "\"workflow-compiler\"");
+        assert_eq!(
+            serde_json::to_string(&CoreModule::SandboxFabric).unwrap(),
+            "\"sandbox-fabric\""
+        );
+        assert_eq!(
+            serde_json::to_string(&CoreModule::LoraFoundry).unwrap(),
+            "\"lora-foundry\""
+        );
+        assert_eq!(
+            serde_json::to_string(&CoreModule::WorkflowCompiler).unwrap(),
+            "\"workflow-compiler\""
+        );
     }
 
     #[test]
     fn manifest_serde_roundtrip() {
         let mut m = ModuleManifest::empty_canonical();
-        m.mark(CoreModule::Gateway, ModuleState::Healthy, "2026-05-19T03:00:00Z", "ok");
+        m.mark(
+            CoreModule::Gateway,
+            ModuleState::Healthy,
+            "2026-05-19T03:00:00Z",
+            "ok",
+        );
         let j = serde_json::to_string(&m).unwrap();
         let back: ModuleManifest = serde_json::from_str(&j).unwrap();
         assert_eq!(m, back);

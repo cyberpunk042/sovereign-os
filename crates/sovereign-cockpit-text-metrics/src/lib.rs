@@ -53,7 +53,9 @@ pub enum MetricsError {
 impl CockpitTextMetrics {
     /// New.
     pub fn new() -> Self {
-        Self { schema_version: SCHEMA_VERSION.into() }
+        Self {
+            schema_version: SCHEMA_VERSION.into(),
+        }
     }
 
     /// Measure.
@@ -67,30 +69,44 @@ impl CockpitTextMetrics {
             }
         }
         let words = text.split_whitespace().count();
-        let lines = if text.is_empty() { 0 } else { text.split('\n').count() };
-        TextMetrics { bytes, chars, graphemes, words, lines }
+        let lines = if text.is_empty() {
+            0
+        } else {
+            text.split('\n').count()
+        };
+        TextMetrics {
+            bytes,
+            chars,
+            graphemes,
+            words,
+            lines,
+        }
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), MetricsError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(MetricsError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(MetricsError::SchemaMismatch);
+        }
         Ok(())
     }
 }
 
 impl Default for CockpitTextMetrics {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 fn is_combining_or_joiner(c: char) -> bool {
     match c as u32 {
-        0x0300..=0x036F => true,       // combining diacritical
-        0x1AB0..=0x1AFF => true,       // combining diacritical extended
-        0x1DC0..=0x1DFF => true,       // combining diacritical supplement
-        0x20D0..=0x20FF => true,       // combining for symbols
-        0xFE00..=0xFE0F => true,       // variation selectors
-        0xE0100..=0xE01EF => true,     // variation selectors supplement
-        0x200C | 0x200D => true,       // ZWNJ / ZWJ
+        0x0300..=0x036F => true,   // combining diacritical
+        0x1AB0..=0x1AFF => true,   // combining diacritical extended
+        0x1DC0..=0x1DFF => true,   // combining diacritical supplement
+        0x20D0..=0x20FF => true,   // combining for symbols
+        0xFE00..=0xFE0F => true,   // variation selectors
+        0xE0100..=0xE01EF => true, // variation selectors supplement
+        0x200C | 0x200D => true,   // ZWNJ / ZWJ
         _ => false,
     }
 }
@@ -102,7 +118,16 @@ mod tests {
     #[test]
     fn empty_text() {
         let m = CockpitTextMetrics::new().measure("");
-        assert_eq!(m, TextMetrics { bytes: 0, chars: 0, graphemes: 0, words: 0, lines: 0 });
+        assert_eq!(
+            m,
+            TextMetrics {
+                bytes: 0,
+                chars: 0,
+                graphemes: 0,
+                words: 0,
+                lines: 0
+            }
+        );
     }
 
     #[test]
@@ -157,7 +182,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut c = CockpitTextMetrics::new();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), MetricsError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            MetricsError::SchemaMismatch
+        ));
     }
 
     #[test]

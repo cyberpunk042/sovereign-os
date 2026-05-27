@@ -46,7 +46,9 @@ pub enum HistoryError {
 impl HistoryStack {
     /// New.
     pub fn new(capacity: u32) -> Result<Self, HistoryError> {
-        if capacity == 0 { return Err(HistoryError::ZeroCapacity); }
+        if capacity == 0 {
+            return Err(HistoryError::ZeroCapacity);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             capacity,
@@ -57,7 +59,9 @@ impl HistoryStack {
 
     /// Push a new entry; truncates forward stack from cursor.
     pub fn push(&mut self, entry: &str) -> Result<(), HistoryError> {
-        if entry.is_empty() { return Err(HistoryError::EmptyEntry); }
+        if entry.is_empty() {
+            return Err(HistoryError::EmptyEntry);
+        }
         if let Some(c) = self.cursor {
             self.entries.truncate((c as usize) + 1);
         }
@@ -72,13 +76,16 @@ impl HistoryStack {
 
     /// Current entry.
     pub fn current(&self) -> Option<&str> {
-        self.cursor.and_then(|c| self.entries.get(c as usize).map(|s| s.as_str()))
+        self.cursor
+            .and_then(|c| self.entries.get(c as usize).map(|s| s.as_str()))
     }
 
     /// Go back.
     pub fn back(&mut self) -> Option<&str> {
         let c = self.cursor?;
-        if c == 0 { return None; }
+        if c == 0 {
+            return None;
+        }
         self.cursor = Some(c - 1);
         self.current()
     }
@@ -86,7 +93,9 @@ impl HistoryStack {
     /// Go forward.
     pub fn forward(&mut self) -> Option<&str> {
         let c = self.cursor?;
-        if (c as usize + 1) >= self.entries.len() { return None; }
+        if (c as usize + 1) >= self.entries.len() {
+            return None;
+        }
         self.cursor = Some(c + 1);
         self.current()
     }
@@ -106,10 +115,16 @@ impl HistoryStack {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), HistoryError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(HistoryError::SchemaMismatch); }
-        if self.capacity == 0 { return Err(HistoryError::ZeroCapacity); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(HistoryError::SchemaMismatch);
+        }
+        if self.capacity == 0 {
+            return Err(HistoryError::ZeroCapacity);
+        }
         for e in &self.entries {
-            if e.is_empty() { return Err(HistoryError::EmptyEntry); }
+            if e.is_empty() {
+                return Err(HistoryError::EmptyEntry);
+            }
         }
         Ok(())
     }
@@ -177,14 +192,20 @@ mod tests {
     fn bad_inputs_rejected() {
         let mut h = HistoryStack::new(5).unwrap();
         assert!(matches!(h.push("").unwrap_err(), HistoryError::EmptyEntry));
-        assert!(matches!(HistoryStack::new(0).unwrap_err(), HistoryError::ZeroCapacity));
+        assert!(matches!(
+            HistoryStack::new(0).unwrap_err(),
+            HistoryError::ZeroCapacity
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut h = HistoryStack::new(5).unwrap();
         h.schema_version = "9.9.9".into();
-        assert!(matches!(h.validate().unwrap_err(), HistoryError::SchemaMismatch));
+        assert!(matches!(
+            h.validate().unwrap_err(),
+            HistoryError::SchemaMismatch
+        ));
     }
 
     #[test]

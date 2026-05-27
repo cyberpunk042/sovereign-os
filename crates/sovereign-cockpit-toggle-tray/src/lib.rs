@@ -108,7 +108,10 @@ impl ToggleTray {
 
     /// Flip the current value.
     pub fn flip(&mut self, key: &str) -> Result<bool, ToggleTrayError> {
-        let t = self.toggles.iter_mut().find(|x| x.key == key)
+        let t = self
+            .toggles
+            .iter_mut()
+            .find(|x| x.key == key)
             .ok_or_else(|| ToggleTrayError::Unknown(key.into()))?;
         t.current = !t.current;
         Ok(t.current)
@@ -116,7 +119,10 @@ impl ToggleTray {
 
     /// Set explicit value.
     pub fn set(&mut self, key: &str, value: bool) -> Result<(), ToggleTrayError> {
-        let t = self.toggles.iter_mut().find(|x| x.key == key)
+        let t = self
+            .toggles
+            .iter_mut()
+            .find(|x| x.key == key)
             .ok_or_else(|| ToggleTrayError::Unknown(key.into()))?;
         t.current = value;
         Ok(())
@@ -124,7 +130,10 @@ impl ToggleTray {
 
     /// Reset to default.
     pub fn reset(&mut self, key: &str) -> Result<bool, ToggleTrayError> {
-        let t = self.toggles.iter_mut().find(|x| x.key == key)
+        let t = self
+            .toggles
+            .iter_mut()
+            .find(|x| x.key == key)
             .ok_or_else(|| ToggleTrayError::Unknown(key.into()))?;
         t.current = t.default;
         Ok(t.current)
@@ -132,13 +141,19 @@ impl ToggleTray {
 
     /// Filter by category.
     pub fn by_category(&self, category: Category) -> Vec<&Toggle> {
-        self.toggles.iter().filter(|t| t.category == category).collect()
+        self.toggles
+            .iter()
+            .filter(|t| t.category == category)
+            .collect()
     }
 
     /// Substring search on label (case-insensitive).
     pub fn search(&self, needle: &str) -> Vec<&Toggle> {
         let n = needle.to_ascii_lowercase();
-        self.toggles.iter().filter(|t| t.label.to_ascii_lowercase().contains(&n)).collect()
+        self.toggles
+            .iter()
+            .filter(|t| t.label.to_ascii_lowercase().contains(&n))
+            .collect()
     }
 
     /// Validate.
@@ -159,17 +174,26 @@ impl ToggleTray {
 }
 
 fn check_shape(t: &Toggle) -> Result<(), ToggleTrayError> {
-    if t.key.is_empty() { return Err(ToggleTrayError::EmptyKey); }
-    if t.label.is_empty() { return Err(ToggleTrayError::EmptyLabel(t.key.clone())); }
+    if t.key.is_empty() {
+        return Err(ToggleTrayError::EmptyKey);
+    }
+    if t.label.is_empty() {
+        return Err(ToggleTrayError::EmptyLabel(t.key.clone()));
+    }
     let len = t.description.chars().count();
     if len > 200 {
-        return Err(ToggleTrayError::DescriptionTooLong { key: t.key.clone(), len });
+        return Err(ToggleTrayError::DescriptionTooLong {
+            key: t.key.clone(),
+            len,
+        });
     }
     Ok(())
 }
 
 impl Default for ToggleTray {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -244,14 +268,19 @@ mod tests {
     fn duplicate_rejected() {
         let mut tr = ToggleTray::new();
         tr.register(t("a", Category::Appearance, false)).unwrap();
-        assert!(matches!(tr.register(t("a", Category::Privacy, true)).unwrap_err(),
-            ToggleTrayError::Duplicate(_)));
+        assert!(matches!(
+            tr.register(t("a", Category::Privacy, true)).unwrap_err(),
+            ToggleTrayError::Duplicate(_)
+        ));
     }
 
     #[test]
     fn unknown_flip_rejected() {
         let mut tr = ToggleTray::new();
-        assert!(matches!(tr.flip("none").unwrap_err(), ToggleTrayError::Unknown(_)));
+        assert!(matches!(
+            tr.flip("none").unwrap_err(),
+            ToggleTrayError::Unknown(_)
+        ));
     }
 
     #[test]
@@ -259,21 +288,32 @@ mod tests {
         let mut tr = ToggleTray::new();
         let mut tog = t("a", Category::Appearance, false);
         tog.description = "x".repeat(201);
-        assert!(matches!(tr.register(tog).unwrap_err(),
-            ToggleTrayError::DescriptionTooLong { .. }));
+        assert!(matches!(
+            tr.register(tog).unwrap_err(),
+            ToggleTrayError::DescriptionTooLong { .. }
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut tr = ToggleTray::new();
         tr.schema_version = "9.9.9".into();
-        assert!(matches!(tr.validate().unwrap_err(), ToggleTrayError::SchemaMismatch));
+        assert!(matches!(
+            tr.validate().unwrap_err(),
+            ToggleTrayError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn category_serde_kebab() {
-        assert_eq!(serde_json::to_string(&Category::Notifications).unwrap(), "\"notifications\"");
-        assert_eq!(serde_json::to_string(&Category::Accessibility).unwrap(), "\"accessibility\"");
+        assert_eq!(
+            serde_json::to_string(&Category::Notifications).unwrap(),
+            "\"notifications\""
+        );
+        assert_eq!(
+            serde_json::to_string(&Category::Accessibility).unwrap(),
+            "\"accessibility\""
+        );
     }
 
     #[test]

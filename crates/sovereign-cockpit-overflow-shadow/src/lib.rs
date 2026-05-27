@@ -71,7 +71,9 @@ pub enum ShadowError {
 impl OverflowShadow {
     /// New.
     pub fn new(fade_px: u32) -> Result<Self, ShadowError> {
-        if fade_px == 0 { return Err(ShadowError::FadeZero); }
+        if fade_px == 0 {
+            return Err(ShadowError::FadeZero);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             fade_px,
@@ -82,7 +84,9 @@ impl OverflowShadow {
     /// Compute shadow state for a region.
     pub fn compute(&mut self, scroll_top: u32, viewport_h: u32, content_h: u32) -> ShadowState {
         let top_distance = scroll_top;
-        let bottom_distance = content_h.saturating_sub(viewport_h).saturating_sub(scroll_top);
+        let bottom_distance = content_h
+            .saturating_sub(viewport_h)
+            .saturating_sub(scroll_top);
 
         let top_intensity = ramp(top_distance, self.fade_px);
         let bottom_intensity = ramp(bottom_distance, self.fade_px);
@@ -93,22 +97,34 @@ impl OverflowShadow {
             (false, true) => Edge::Bottom,
             (false, false) => Edge::None,
         };
-        let s = ShadowState { edge, top_intensity, bottom_intensity };
+        let s = ShadowState {
+            edge,
+            top_intensity,
+            bottom_intensity,
+        };
         self.last = Some(s);
         s
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ShadowError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ShadowError::SchemaMismatch); }
-        if self.fade_px == 0 { return Err(ShadowError::FadeZero); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ShadowError::SchemaMismatch);
+        }
+        if self.fade_px == 0 {
+            return Err(ShadowError::FadeZero);
+        }
         Ok(())
     }
 }
 
 fn ramp(distance: u32, fade_px: u32) -> u8 {
-    if distance == 0 { return 0; }
-    if distance >= fade_px { return 255; }
+    if distance == 0 {
+        return 0;
+    }
+    if distance >= fade_px {
+        return 255;
+    }
     ((distance as u64) * 255 / (fade_px as u64)) as u8
 }
 
@@ -118,7 +134,10 @@ mod tests {
 
     #[test]
     fn fade_zero_rejected() {
-        assert!(matches!(OverflowShadow::new(0).unwrap_err(), ShadowError::FadeZero));
+        assert!(matches!(
+            OverflowShadow::new(0).unwrap_err(),
+            ShadowError::FadeZero
+        ));
     }
 
     #[test]
@@ -176,7 +195,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = OverflowShadow::new(16).unwrap();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), ShadowError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            ShadowError::SchemaMismatch
+        ));
     }
 
     #[test]

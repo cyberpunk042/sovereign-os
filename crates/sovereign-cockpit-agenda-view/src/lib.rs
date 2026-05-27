@@ -91,7 +91,9 @@ impl AgendaView {
 
     /// Configure.
     pub fn with_day(day_length_ms: u64, day_start_offset_ms: u64) -> Result<Self, AgendaError> {
-        if day_length_ms == 0 { return Err(AgendaError::ZeroDay); }
+        if day_length_ms == 0 {
+            return Err(AgendaError::ZeroDay);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             day_length_ms,
@@ -102,8 +104,12 @@ impl AgendaView {
 
     /// Add an item.
     pub fn add(&mut self, item: Item) -> Result<(), AgendaError> {
-        if item.id.is_empty() { return Err(AgendaError::EmptyId); }
-        if item.title.is_empty() { return Err(AgendaError::EmptyTitle); }
+        if item.id.is_empty() {
+            return Err(AgendaError::EmptyId);
+        }
+        if item.title.is_empty() {
+            return Err(AgendaError::EmptyTitle);
+        }
         if self.items.contains_key(&item.id) {
             return Err(AgendaError::DuplicateId(item.id));
         }
@@ -125,7 +131,10 @@ impl AgendaView {
     pub fn groups(&self) -> Vec<DayGroup> {
         let mut by_day: BTreeMap<u64, Vec<Item>> = BTreeMap::new();
         for item in self.items.values() {
-            by_day.entry(self.day_index_for(item.start_ms)).or_default().push(item.clone());
+            by_day
+                .entry(self.day_index_for(item.start_ms))
+                .or_default()
+                .push(item.clone());
         }
         let mut out = Vec::with_capacity(by_day.len());
         for (day_index, mut items) in by_day {
@@ -137,7 +146,9 @@ impl AgendaView {
 
     /// Items occurring in `[from_ms, to_ms)`.
     pub fn between(&self, from_ms: u64, to_ms: u64) -> Vec<Item> {
-        let mut v: Vec<Item> = self.items.values()
+        let mut v: Vec<Item> = self
+            .items
+            .values()
             .filter(|i| i.start_ms >= from_ms && i.start_ms < to_ms)
             .cloned()
             .collect();
@@ -147,18 +158,28 @@ impl AgendaView {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), AgendaError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(AgendaError::SchemaMismatch); }
-        if self.day_length_ms == 0 { return Err(AgendaError::ZeroDay); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(AgendaError::SchemaMismatch);
+        }
+        if self.day_length_ms == 0 {
+            return Err(AgendaError::ZeroDay);
+        }
         for (id, i) in &self.items {
-            if id.is_empty() { return Err(AgendaError::EmptyId); }
-            if i.title.is_empty() { return Err(AgendaError::EmptyTitle); }
+            if id.is_empty() {
+                return Err(AgendaError::EmptyId);
+            }
+            if i.title.is_empty() {
+                return Err(AgendaError::EmptyTitle);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for AgendaView {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -166,7 +187,11 @@ mod tests {
     use super::*;
 
     fn it(id: &str, t: u64) -> Item {
-        Item { id: id.into(), title: id.into(), start_ms: t }
+        Item {
+            id: id.into(),
+            title: id.into(),
+            start_ms: t,
+        }
     }
 
     #[test]
@@ -207,7 +232,10 @@ mod tests {
     fn duplicate_rejected() {
         let mut a = AgendaView::new();
         a.add(it("a", 0)).unwrap();
-        assert!(matches!(a.add(it("a", 1)).unwrap_err(), AgendaError::DuplicateId(_)));
+        assert!(matches!(
+            a.add(it("a", 1)).unwrap_err(),
+            AgendaError::DuplicateId(_)
+        ));
     }
 
     #[test]
@@ -226,13 +254,32 @@ mod tests {
     #[test]
     fn empty_inputs_rejected() {
         let mut a = AgendaView::new();
-        assert!(matches!(a.add(Item { id: "".into(), title: "x".into(), start_ms: 0 }).unwrap_err(), AgendaError::EmptyId));
-        assert!(matches!(a.add(Item { id: "a".into(), title: "".into(), start_ms: 0 }).unwrap_err(), AgendaError::EmptyTitle));
+        assert!(matches!(
+            a.add(Item {
+                id: "".into(),
+                title: "x".into(),
+                start_ms: 0
+            })
+            .unwrap_err(),
+            AgendaError::EmptyId
+        ));
+        assert!(matches!(
+            a.add(Item {
+                id: "a".into(),
+                title: "".into(),
+                start_ms: 0
+            })
+            .unwrap_err(),
+            AgendaError::EmptyTitle
+        ));
     }
 
     #[test]
     fn zero_day_rejected() {
-        assert!(matches!(AgendaView::with_day(0, 0).unwrap_err(), AgendaError::ZeroDay));
+        assert!(matches!(
+            AgendaView::with_day(0, 0).unwrap_err(),
+            AgendaError::ZeroDay
+        ));
     }
 
     #[test]
@@ -247,7 +294,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut a = AgendaView::new();
         a.schema_version = "9.9.9".into();
-        assert!(matches!(a.validate().unwrap_err(), AgendaError::SchemaMismatch));
+        assert!(matches!(
+            a.validate().unwrap_err(),
+            AgendaError::SchemaMismatch
+        ));
     }
 
     #[test]

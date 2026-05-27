@@ -67,7 +67,9 @@ impl FocusMode {
 
     /// Add widget to allow list.
     pub fn allow_add(&mut self, widget: &str) -> Result<(), FocusError> {
-        if widget.is_empty() { return Err(FocusError::EmptyWidget); }
+        if widget.is_empty() {
+            return Err(FocusError::EmptyWidget);
+        }
         self.allow.insert(widget.into());
         Ok(())
     }
@@ -84,7 +86,9 @@ impl FocusMode {
 
     /// Set presentation widget.
     pub fn set_presentation_widget(&mut self, widget: &str) -> Result<(), FocusError> {
-        if widget.is_empty() { return Err(FocusError::EmptyWidget); }
+        if widget.is_empty() {
+            return Err(FocusError::EmptyWidget);
+        }
         self.presentation_widget = Some(widget.into());
         Ok(())
     }
@@ -94,27 +98,34 @@ impl FocusMode {
         match self.mode {
             Mode::Off => true,
             Mode::Focus => {
-                if self.allow.is_empty() { true }
-                else { self.allow.contains(widget) }
+                if self.allow.is_empty() {
+                    true
+                } else {
+                    self.allow.contains(widget)
+                }
             }
-            Mode::Presentation => {
-                self.presentation_widget.as_deref() == Some(widget)
-            }
+            Mode::Presentation => self.presentation_widget.as_deref() == Some(widget),
         }
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), FocusError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(FocusError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(FocusError::SchemaMismatch);
+        }
         for w in &self.allow {
-            if w.is_empty() { return Err(FocusError::EmptyWidget); }
+            if w.is_empty() {
+                return Err(FocusError::EmptyWidget);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for FocusMode {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -164,15 +175,24 @@ mod tests {
     #[test]
     fn empty_widget_rejected() {
         let mut f = FocusMode::new();
-        assert!(matches!(f.allow_add("").unwrap_err(), FocusError::EmptyWidget));
-        assert!(matches!(f.set_presentation_widget("").unwrap_err(), FocusError::EmptyWidget));
+        assert!(matches!(
+            f.allow_add("").unwrap_err(),
+            FocusError::EmptyWidget
+        ));
+        assert!(matches!(
+            f.set_presentation_widget("").unwrap_err(),
+            FocusError::EmptyWidget
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut f = FocusMode::new();
         f.schema_version = "9.9.9".into();
-        assert!(matches!(f.validate().unwrap_err(), FocusError::SchemaMismatch));
+        assert!(matches!(
+            f.validate().unwrap_err(),
+            FocusError::SchemaMismatch
+        ));
     }
 
     #[test]

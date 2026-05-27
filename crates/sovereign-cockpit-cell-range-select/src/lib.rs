@@ -66,7 +66,9 @@ impl CellRangeSelect {
 
     /// Drag (or shift-click) — moves focus only.
     pub fn drag(&mut self, cell: Cell) -> Result<(), SelectError> {
-        if self.anchor.is_none() { return Err(SelectError::NoSelection); }
+        if self.anchor.is_none() {
+            return Err(SelectError::NoSelection);
+        }
         self.focus = Some(cell);
         Ok(())
     }
@@ -81,12 +83,19 @@ impl CellRangeSelect {
     pub fn rect(&self) -> Option<(u32, u32, u32, u32)> {
         let a = self.anchor?;
         let f = self.focus?;
-        Some((a.row.min(f.row), a.col.min(f.col), a.row.max(f.row), a.col.max(f.col)))
+        Some((
+            a.row.min(f.row),
+            a.col.min(f.col),
+            a.row.max(f.row),
+            a.col.max(f.col),
+        ))
     }
 
     /// All cells in row-major order.
     pub fn cells(&self) -> Vec<Cell> {
-        let Some((lo_r, lo_c, hi_r, hi_c)) = self.rect() else { return Vec::new(); };
+        let Some((lo_r, lo_c, hi_r, hi_c)) = self.rect() else {
+            return Vec::new();
+        };
         let mut out = Vec::with_capacity(((hi_r - lo_r + 1) * (hi_c - lo_c + 1)) as usize);
         for r in lo_r..=hi_r {
             for c in lo_c..=hi_c {
@@ -98,19 +107,25 @@ impl CellRangeSelect {
 
     /// Is cell inside the selection?
     pub fn contains(&self, cell: Cell) -> bool {
-        let Some((lo_r, lo_c, hi_r, hi_c)) = self.rect() else { return false; };
+        let Some((lo_r, lo_c, hi_r, hi_c)) = self.rect() else {
+            return false;
+        };
         cell.row >= lo_r && cell.row <= hi_r && cell.col >= lo_c && cell.col <= hi_c
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), SelectError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(SelectError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(SelectError::SchemaMismatch);
+        }
         Ok(())
     }
 }
 
 impl Default for CellRangeSelect {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -162,7 +177,10 @@ mod tests {
     #[test]
     fn drag_without_anchor_rejected() {
         let mut s = CellRangeSelect::new();
-        assert!(matches!(s.drag(Cell { row: 0, col: 0 }).unwrap_err(), SelectError::NoSelection));
+        assert!(matches!(
+            s.drag(Cell { row: 0, col: 0 }).unwrap_err(),
+            SelectError::NoSelection
+        ));
     }
 
     #[test]
@@ -177,7 +195,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = CellRangeSelect::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), SelectError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SelectError::SchemaMismatch
+        ));
     }
 
     #[test]

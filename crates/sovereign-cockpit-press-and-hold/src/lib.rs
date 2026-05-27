@@ -74,7 +74,9 @@ pub enum HoldError {
 impl PressAndHold {
     /// New.
     pub fn new(hold_ms: u64) -> Result<Self, HoldError> {
-        if hold_ms == 0 { return Err(HoldError::ZeroHold); }
+        if hold_ms == 0 {
+            return Err(HoldError::ZeroHold);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             hold_ms,
@@ -93,14 +95,18 @@ impl PressAndHold {
 
     /// Progress in basis points (0..=10000) at now_ms.
     pub fn progress_bp(&self, now_ms: u64) -> u32 {
-        if self.phase != Phase::Pressing { return 0; }
+        if self.phase != Phase::Pressing {
+            return 0;
+        }
         let elapsed = now_ms.saturating_sub(self.started_ms);
         ((elapsed.min(self.hold_ms) * 10_000) / self.hold_ms) as u32
     }
 
     /// Release; returns outcome.
     pub fn release(&mut self, now_ms: u64) -> Result<Outcome, HoldError> {
-        if self.phase != Phase::Pressing { return Err(HoldError::NotPressing); }
+        if self.phase != Phase::Pressing {
+            return Err(HoldError::NotPressing);
+        }
         let progress = self.progress_bp(now_ms);
         let outcome = if progress >= 10_000 {
             self.phase = Phase::Committed;
@@ -122,8 +128,12 @@ impl PressAndHold {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), HoldError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(HoldError::SchemaMismatch); }
-        if self.hold_ms == 0 { return Err(HoldError::ZeroHold); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(HoldError::SchemaMismatch);
+        }
+        if self.hold_ms == 0 {
+            return Err(HoldError::ZeroHold);
+        }
         Ok(())
     }
 }
@@ -179,14 +189,20 @@ mod tests {
 
     #[test]
     fn zero_hold_rejected() {
-        assert!(matches!(PressAndHold::new(0).unwrap_err(), HoldError::ZeroHold));
+        assert!(matches!(
+            PressAndHold::new(0).unwrap_err(),
+            HoldError::ZeroHold
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut h = PressAndHold::new(1000).unwrap();
         h.schema_version = "9.9.9".into();
-        assert!(matches!(h.validate().unwrap_err(), HoldError::SchemaMismatch));
+        assert!(matches!(
+            h.validate().unwrap_err(),
+            HoldError::SchemaMismatch
+        ));
     }
 
     #[test]

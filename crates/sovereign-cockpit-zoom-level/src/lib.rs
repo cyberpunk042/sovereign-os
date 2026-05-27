@@ -54,8 +54,11 @@ pub enum ZoomError {
 impl ZoomLevel {
     /// All 5.
     pub const ALL: [ZoomLevel; 5] = [
-        ZoomLevel::Pct75, ZoomLevel::Pct100, ZoomLevel::Pct125,
-        ZoomLevel::Pct150, ZoomLevel::Pct200,
+        ZoomLevel::Pct75,
+        ZoomLevel::Pct100,
+        ZoomLevel::Pct125,
+        ZoomLevel::Pct150,
+        ZoomLevel::Pct200,
     ];
 
     /// Percent integer.
@@ -100,13 +103,19 @@ impl ZoomLevel {
 impl ZoomState {
     /// Default 100%.
     pub fn default_state() -> Self {
-        Self { schema_version: SCHEMA_VERSION.into(), level: ZoomLevel::Pct100 }
+        Self {
+            schema_version: SCHEMA_VERSION.into(),
+            level: ZoomLevel::Pct100,
+        }
     }
 
     /// Zoom in one step.
     pub fn zoom_in(&mut self) -> Result<(), ZoomError> {
         match self.level.next_up() {
-            Some(l) => { self.level = l; Ok(()) }
+            Some(l) => {
+                self.level = l;
+                Ok(())
+            }
             None => Err(ZoomError::AtBound(self.level)),
         }
     }
@@ -114,13 +123,18 @@ impl ZoomState {
     /// Zoom out one step.
     pub fn zoom_out(&mut self) -> Result<(), ZoomError> {
         match self.level.next_down() {
-            Some(l) => { self.level = l; Ok(()) }
+            Some(l) => {
+                self.level = l;
+                Ok(())
+            }
             None => Err(ZoomError::AtBound(self.level)),
         }
     }
 
     /// Reset to 100%.
-    pub fn reset(&mut self) { self.level = ZoomLevel::Pct100; }
+    pub fn reset(&mut self) {
+        self.level = ZoomLevel::Pct100;
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ZoomError> {
@@ -186,13 +200,22 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = ZoomState::default_state();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), ZoomError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            ZoomError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn level_serde_kebab() {
-        assert_eq!(serde_json::to_string(&ZoomLevel::Pct75).unwrap(), "\"pct75\"");
-        assert_eq!(serde_json::to_string(&ZoomLevel::Pct200).unwrap(), "\"pct200\"");
+        assert_eq!(
+            serde_json::to_string(&ZoomLevel::Pct75).unwrap(),
+            "\"pct75\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ZoomLevel::Pct200).unwrap(),
+            "\"pct200\""
+        );
     }
 
     #[test]

@@ -61,18 +61,28 @@ pub fn is_leap_year(y: i32) -> bool {
 
 /// Days in month.
 pub fn days_in_month(year: i32, month: u8) -> Result<u8, GridError> {
-    if month == 0 || month > 12 { return Err(GridError::BadMonth); }
+    if month == 0 || month > 12 {
+        return Err(GridError::BadMonth);
+    }
     Ok(match month {
         1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
         4 | 6 | 9 | 11 => 30,
-        2 => if is_leap_year(year) { 29 } else { 28 },
+        2 => {
+            if is_leap_year(year) {
+                29
+            } else {
+                28
+            }
+        }
         _ => unreachable!(),
     })
 }
 
 /// Day of week (0=Sun) for (year, month, day=1) — Zeller's via reframing.
 pub fn weekday_of_first(year: i32, month: u8) -> Result<u8, GridError> {
-    if month == 0 || month > 12 { return Err(GridError::BadMonth); }
+    if month == 0 || month > 12 {
+        return Err(GridError::BadMonth);
+    }
     let q = 1i32; // day 1
     let mut m = month as i32;
     let mut y = year;
@@ -91,27 +101,42 @@ pub fn weekday_of_first(year: i32, month: u8) -> Result<u8, GridError> {
 impl CalendarGrid {
     /// Build the grid.
     pub fn build(year: i32, month: u8, first_day_of_week: u8) -> Result<Self, GridError> {
-        if first_day_of_week > 6 { return Err(GridError::BadFirstDay); }
+        if first_day_of_week > 6 {
+            return Err(GridError::BadFirstDay);
+        }
         let dim = days_in_month(year, month)?;
         let first_wd = weekday_of_first(year, month)?;
         // Leading offset.
         let lead = ((7 + first_wd as i32 - first_day_of_week as i32) % 7) as usize;
         let mut cells: Vec<Cell> = Vec::with_capacity(42);
         // Prev-month tail.
-        let (prev_year, prev_month) = if month == 1 { (year - 1, 12) } else { (year, month - 1) };
+        let (prev_year, prev_month) = if month == 1 {
+            (year - 1, 12)
+        } else {
+            (year, month - 1)
+        };
         let prev_dim = days_in_month(prev_year, prev_month)?;
         for i in 0..lead {
             let day = prev_dim - (lead as u8 - 1 - i as u8);
-            cells.push(Cell { day, is_current_month: false });
+            cells.push(Cell {
+                day,
+                is_current_month: false,
+            });
         }
         // Current month.
         for d in 1..=dim {
-            cells.push(Cell { day: d, is_current_month: true });
+            cells.push(Cell {
+                day: d,
+                is_current_month: true,
+            });
         }
         // Next-month head fill to 42.
         let mut next_day: u8 = 1;
         while cells.len() < 42 {
-            cells.push(Cell { day: next_day, is_current_month: false });
+            cells.push(Cell {
+                day: next_day,
+                is_current_month: false,
+            });
             next_day = next_day.saturating_add(1);
         }
         Ok(Self {
@@ -125,9 +150,15 @@ impl CalendarGrid {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), GridError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(GridError::SchemaMismatch); }
-        if self.month == 0 || self.month > 12 { return Err(GridError::BadMonth); }
-        if self.first_day_of_week > 6 { return Err(GridError::BadFirstDay); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(GridError::SchemaMismatch);
+        }
+        if self.month == 0 || self.month > 12 {
+            return Err(GridError::BadMonth);
+        }
+        if self.first_day_of_week > 6 {
+            return Err(GridError::BadFirstDay);
+        }
         Ok(())
     }
 }
@@ -178,21 +209,39 @@ mod tests {
         // Sun-start grid, first weekday Mon → 1 leading day (prev month).
         let g = CalendarGrid::build(2024, 1, 0).unwrap();
         assert!(!g.cells[0].is_current_month);
-        assert_eq!(g.cells[1], Cell { day: 1, is_current_month: true });
+        assert_eq!(
+            g.cells[1],
+            Cell {
+                day: 1,
+                is_current_month: true
+            }
+        );
     }
 
     #[test]
     fn bad_inputs_rejected() {
-        assert!(matches!(CalendarGrid::build(2024, 0, 0).unwrap_err(), GridError::BadMonth));
-        assert!(matches!(CalendarGrid::build(2024, 13, 0).unwrap_err(), GridError::BadMonth));
-        assert!(matches!(CalendarGrid::build(2024, 1, 7).unwrap_err(), GridError::BadFirstDay));
+        assert!(matches!(
+            CalendarGrid::build(2024, 0, 0).unwrap_err(),
+            GridError::BadMonth
+        ));
+        assert!(matches!(
+            CalendarGrid::build(2024, 13, 0).unwrap_err(),
+            GridError::BadMonth
+        ));
+        assert!(matches!(
+            CalendarGrid::build(2024, 1, 7).unwrap_err(),
+            GridError::BadFirstDay
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut g = CalendarGrid::build(2024, 1, 0).unwrap();
         g.schema_version = "9.9.9".into();
-        assert!(matches!(g.validate().unwrap_err(), GridError::SchemaMismatch));
+        assert!(matches!(
+            g.validate().unwrap_err(),
+            GridError::SchemaMismatch
+        ));
     }
 
     #[test]

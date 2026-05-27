@@ -114,8 +114,13 @@ impl EnvironmentMaps {
     pub fn empty_canonical() -> Self {
         let now = "2026-05-19T00:00:00Z";
         let kinds = [
-            MapKind::Repo, MapKind::Test, MapKind::Tool,
-            MapKind::Risk, MapKind::Memory, MapKind::GuiWorld, MapKind::Dependency,
+            MapKind::Repo,
+            MapKind::Test,
+            MapKind::Tool,
+            MapKind::Risk,
+            MapKind::Memory,
+            MapKind::GuiWorld,
+            MapKind::Dependency,
         ];
         let maps = kinds
             .into_iter()
@@ -152,8 +157,13 @@ impl EnvironmentMaps {
             return Err(MapsError::MapCountInvalid(self.maps.len()));
         }
         let required = [
-            MapKind::Repo, MapKind::Test, MapKind::Tool,
-            MapKind::Risk, MapKind::Memory, MapKind::GuiWorld, MapKind::Dependency,
+            MapKind::Repo,
+            MapKind::Test,
+            MapKind::Tool,
+            MapKind::Risk,
+            MapKind::Memory,
+            MapKind::GuiWorld,
+            MapKind::Dependency,
         ];
         for k in required {
             if !self.maps.iter().any(|m| m.kind == k) {
@@ -210,8 +220,13 @@ mod tests {
     fn all_7_kinds_present() {
         let m = EnvironmentMaps::empty_canonical();
         for k in [
-            MapKind::Repo, MapKind::Test, MapKind::Tool,
-            MapKind::Risk, MapKind::Memory, MapKind::GuiWorld, MapKind::Dependency,
+            MapKind::Repo,
+            MapKind::Test,
+            MapKind::Tool,
+            MapKind::Risk,
+            MapKind::Memory,
+            MapKind::GuiWorld,
+            MapKind::Dependency,
         ] {
             assert!(m.get(k).is_some(), "missing kind {k:?}");
         }
@@ -221,21 +236,30 @@ mod tests {
     fn schema_drift_rejected() {
         let mut m = EnvironmentMaps::empty_canonical();
         m.schema_version = "9.9.9".into();
-        assert!(matches!(m.validate().unwrap_err(), MapsError::SchemaMismatch { .. }));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            MapsError::SchemaMismatch { .. }
+        ));
     }
 
     #[test]
     fn doctrine_tamper_caught() {
         let mut m = EnvironmentMaps::empty_canonical();
         m.doctrine = "Let agents learn by failing".into();
-        assert!(matches!(m.validate().unwrap_err(), MapsError::DoctrineTampered { .. }));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            MapsError::DoctrineTampered { .. }
+        ));
     }
 
     #[test]
     fn map_count_invalid_rejected() {
         let mut m = EnvironmentMaps::empty_canonical();
         m.maps.pop();
-        assert!(matches!(m.validate().unwrap_err(), MapsError::MapCountInvalid(6)));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            MapsError::MapCountInvalid(6)
+        ));
     }
 
     #[test]
@@ -252,15 +276,22 @@ mod tests {
         };
         let err = m.validate().unwrap_err();
         // Either Repo missing OR Test duplicated — both are valid catches.
-        assert!(matches!(err, MapsError::KindMissing(MapKind::Repo) | MapsError::DuplicateKind(MapKind::Test)));
+        assert!(matches!(
+            err,
+            MapsError::KindMissing(MapKind::Repo) | MapsError::DuplicateKind(MapKind::Test)
+        ));
     }
 
     #[test]
     fn get_mut_allows_payload_population() {
         let mut m = EnvironmentMaps::empty_canonical();
         let entry = m.get_mut(MapKind::Repo).unwrap();
-        entry.payload.insert("crates/sovereign-nvfp4-runtime".into(), "M077".into());
-        entry.payload.insert("crates/sovereign-holderpo".into(), "M078".into());
+        entry
+            .payload
+            .insert("crates/sovereign-nvfp4-runtime".into(), "M077".into());
+        entry
+            .payload
+            .insert("crates/sovereign-holderpo".into(), "M078".into());
         entry.entry_count = entry.payload.len() as u32;
         assert_eq!(m.get(MapKind::Repo).unwrap().entry_count, 2);
         m.validate().unwrap();
@@ -292,20 +323,32 @@ mod tests {
 
     #[test]
     fn doctrine_constant_verbatim() {
-        assert_eq!(DOCTRINE_BUILD_MAP_FIRST, "Do not let agents learn the environment only by failing through it");
+        assert_eq!(
+            DOCTRINE_BUILD_MAP_FIRST,
+            "Do not let agents learn the environment only by failing through it"
+        );
     }
 
     #[test]
     fn map_kind_serde_kebab_case() {
-        assert_eq!(serde_json::to_string(&MapKind::GuiWorld).unwrap(), "\"gui-world\"");
+        assert_eq!(
+            serde_json::to_string(&MapKind::GuiWorld).unwrap(),
+            "\"gui-world\""
+        );
         assert_eq!(serde_json::to_string(&MapKind::Repo).unwrap(), "\"repo\"");
-        assert_eq!(serde_json::to_string(&MapKind::Dependency).unwrap(), "\"dependency\"");
+        assert_eq!(
+            serde_json::to_string(&MapKind::Dependency).unwrap(),
+            "\"dependency\""
+        );
     }
 
     #[test]
     fn envelope_serde_roundtrip() {
         let mut m = EnvironmentMaps::empty_canonical();
-        m.get_mut(MapKind::Risk).unwrap().payload.insert("/etc/passwd".into(), "high".into());
+        m.get_mut(MapKind::Risk)
+            .unwrap()
+            .payload
+            .insert("/etc/passwd".into(), "high".into());
         m.get_mut(MapKind::Risk).unwrap().entry_count = 1;
         let j = serde_json::to_string(&m).unwrap();
         let back: EnvironmentMaps = serde_json::from_str(&j).unwrap();

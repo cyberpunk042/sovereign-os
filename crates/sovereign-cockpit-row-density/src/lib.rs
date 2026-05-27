@@ -73,10 +73,26 @@ impl RowDensity {
     /// Stateless layout lookup.
     pub fn layout_of(d: Density) -> RowLayout {
         match d {
-            Density::Compact => RowLayout { row_height_px: 24, line_count: 1, show_secondary: false },
-            Density::Cozy => RowLayout { row_height_px: 32, line_count: 1, show_secondary: false },
-            Density::Comfortable => RowLayout { row_height_px: 44, line_count: 2, show_secondary: true },
-            Density::Spacious => RowLayout { row_height_px: 64, line_count: 3, show_secondary: true },
+            Density::Compact => RowLayout {
+                row_height_px: 24,
+                line_count: 1,
+                show_secondary: false,
+            },
+            Density::Cozy => RowLayout {
+                row_height_px: 32,
+                line_count: 1,
+                show_secondary: false,
+            },
+            Density::Comfortable => RowLayout {
+                row_height_px: 44,
+                line_count: 2,
+                show_secondary: true,
+            },
+            Density::Spacious => RowLayout {
+                row_height_px: 64,
+                line_count: 3,
+                show_secondary: true,
+            },
         }
     }
 
@@ -142,12 +158,18 @@ mod tests {
     fn schema_drift_rejected() {
         let mut d = RowDensity::new(Density::Cozy);
         d.schema_version = "9.9.9".into();
-        assert!(matches!(d.validate().unwrap_err(), DensityError::SchemaMismatch));
+        assert!(matches!(
+            d.validate().unwrap_err(),
+            DensityError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn density_serde_kebab() {
-        assert_eq!(serde_json::to_string(&Density::Comfortable).unwrap(), "\"comfortable\"");
+        assert_eq!(
+            serde_json::to_string(&Density::Comfortable).unwrap(),
+            "\"comfortable\""
+        );
     }
 
     #[test]

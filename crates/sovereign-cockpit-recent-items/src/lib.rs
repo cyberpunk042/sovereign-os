@@ -83,11 +83,18 @@ impl RecentItemsList {
 
     /// Visit an item. If same (kind, subject_id) exists, move to top + refresh visited_at.
     pub fn visit(&mut self, item: RecentItem) -> Result<(), RecentItemError> {
-        if item.subject_id.is_empty() { return Err(RecentItemError::EmptySubjectId); }
-        if item.label.is_empty() { return Err(RecentItemError::EmptyLabel(item.subject_id)); }
-        if item.visited_at.is_empty() { return Err(RecentItemError::EmptyVisitedAt(item.subject_id)); }
+        if item.subject_id.is_empty() {
+            return Err(RecentItemError::EmptySubjectId);
+        }
+        if item.label.is_empty() {
+            return Err(RecentItemError::EmptyLabel(item.subject_id));
+        }
+        if item.visited_at.is_empty() {
+            return Err(RecentItemError::EmptyVisitedAt(item.subject_id));
+        }
         // Remove existing same (kind, subject_id).
-        self.items.retain(|x| !(x.kind == item.kind && x.subject_id == item.subject_id));
+        self.items
+            .retain(|x| !(x.kind == item.kind && x.subject_id == item.subject_id));
         // Push to top.
         self.items.insert(0, item);
         // Cap.
@@ -103,7 +110,9 @@ impl RecentItemsList {
     }
 
     /// Clear all items.
-    pub fn clear(&mut self) { self.items.clear(); }
+    pub fn clear(&mut self) {
+        self.items.clear();
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), RecentItemError> {
@@ -111,16 +120,24 @@ impl RecentItemsList {
             return Err(RecentItemError::SchemaMismatch);
         }
         for it in &self.items {
-            if it.subject_id.is_empty() { return Err(RecentItemError::EmptySubjectId); }
-            if it.label.is_empty() { return Err(RecentItemError::EmptyLabel(it.subject_id.clone())); }
-            if it.visited_at.is_empty() { return Err(RecentItemError::EmptyVisitedAt(it.subject_id.clone())); }
+            if it.subject_id.is_empty() {
+                return Err(RecentItemError::EmptySubjectId);
+            }
+            if it.label.is_empty() {
+                return Err(RecentItemError::EmptyLabel(it.subject_id.clone()));
+            }
+            if it.visited_at.is_empty() {
+                return Err(RecentItemError::EmptyVisitedAt(it.subject_id.clone()));
+            }
         }
         Ok(())
     }
 }
 
 impl Default for RecentItemsList {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -129,7 +146,8 @@ mod tests {
 
     fn item(kind: ItemKind, id: &str) -> RecentItem {
         RecentItem {
-            kind, subject_id: id.into(),
+            kind,
+            subject_id: id.into(),
             label: format!("Label {id}"),
             visited_at: "2026-05-19T03:00:00Z".into(),
         }
@@ -163,7 +181,8 @@ mod tests {
     fn overflow_drops_oldest() {
         let mut l = RecentItemsList::new();
         for i in 0..(MAX_ITEMS + 5) {
-            l.visit(item(ItemKind::Conversation, &format!("c{i}"))).unwrap();
+            l.visit(item(ItemKind::Conversation, &format!("c{i}")))
+                .unwrap();
         }
         assert_eq!(l.items.len(), MAX_ITEMS);
         // Newest is c34, oldest retained is c5.
@@ -186,7 +205,10 @@ mod tests {
         let mut l = RecentItemsList::new();
         let mut bad = item(ItemKind::Conversation, "a");
         bad.subject_id = String::new();
-        assert!(matches!(l.visit(bad).unwrap_err(), RecentItemError::EmptySubjectId));
+        assert!(matches!(
+            l.visit(bad).unwrap_err(),
+            RecentItemError::EmptySubjectId
+        ));
     }
 
     #[test]
@@ -201,13 +223,22 @@ mod tests {
     fn schema_drift_rejected() {
         let mut l = RecentItemsList::new();
         l.schema_version = "9.9.9".into();
-        assert!(matches!(l.validate().unwrap_err(), RecentItemError::SchemaMismatch));
+        assert!(matches!(
+            l.validate().unwrap_err(),
+            RecentItemError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn kind_serde_kebab() {
-        assert_eq!(serde_json::to_string(&ItemKind::PinBoard).unwrap(), "\"pin-board\"");
-        assert_eq!(serde_json::to_string(&ItemKind::Settings).unwrap(), "\"settings\"");
+        assert_eq!(
+            serde_json::to_string(&ItemKind::PinBoard).unwrap(),
+            "\"pin-board\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ItemKind::Settings).unwrap(),
+            "\"settings\""
+        );
     }
 
     #[test]

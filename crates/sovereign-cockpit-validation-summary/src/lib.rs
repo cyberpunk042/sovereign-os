@@ -82,13 +82,22 @@ impl ValidationSummary {
     }
 
     /// Record an entry on a field.
-    pub fn record(&mut self, field: &str, level: ErrorLevel, message: &str) -> Result<(), ValidationError> {
-        if field.is_empty() { return Err(ValidationError::EmptyField); }
-        if message.is_empty() { return Err(ValidationError::EmptyMessage); }
-        self.by_field
-            .entry(field.into())
-            .or_default()
-            .push(Entry { level, message: message.into() });
+    pub fn record(
+        &mut self,
+        field: &str,
+        level: ErrorLevel,
+        message: &str,
+    ) -> Result<(), ValidationError> {
+        if field.is_empty() {
+            return Err(ValidationError::EmptyField);
+        }
+        if message.is_empty() {
+            return Err(ValidationError::EmptyMessage);
+        }
+        self.by_field.entry(field.into()).or_default().push(Entry {
+            level,
+            message: message.into(),
+        });
         Ok(())
     }
 
@@ -113,7 +122,11 @@ impl ValidationSummary {
 
     /// Overall status.
     pub fn status(&self) -> Status {
-        if self.error_fields().is_empty() { Status::Pass } else { Status::Failed }
+        if self.error_fields().is_empty() {
+            Status::Pass
+        } else {
+            Status::Failed
+        }
     }
 
     /// Entry count.
@@ -123,11 +136,17 @@ impl ValidationSummary {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ValidationError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ValidationError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ValidationError::SchemaMismatch);
+        }
         for (k, es) in &self.by_field {
-            if k.is_empty() { return Err(ValidationError::EmptyField); }
+            if k.is_empty() {
+                return Err(ValidationError::EmptyField);
+            }
             for e in es {
-                if e.message.is_empty() { return Err(ValidationError::EmptyMessage); }
+                if e.message.is_empty() {
+                    return Err(ValidationError::EmptyMessage);
+                }
             }
         }
         Ok(())
@@ -135,7 +154,9 @@ impl ValidationSummary {
 }
 
 impl Default for ValidationSummary {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -151,8 +172,10 @@ mod tests {
     #[test]
     fn info_only_is_pass() {
         let mut s = ValidationSummary::new();
-        s.record("email", ErrorLevel::Info, "consider verifying").unwrap();
-        s.record("email", ErrorLevel::Warning, "double-check").unwrap();
+        s.record("email", ErrorLevel::Info, "consider verifying")
+            .unwrap();
+        s.record("email", ErrorLevel::Warning, "double-check")
+            .unwrap();
         assert_eq!(s.status(), Status::Pass);
         assert_eq!(s.entry_count(), 2);
     }
@@ -160,7 +183,8 @@ mod tests {
     #[test]
     fn error_makes_failed() {
         let mut s = ValidationSummary::new();
-        s.record("email", ErrorLevel::Error, "invalid format").unwrap();
+        s.record("email", ErrorLevel::Error, "invalid format")
+            .unwrap();
         assert_eq!(s.status(), Status::Failed);
         assert_eq!(s.error_fields(), vec!["email"]);
     }
@@ -185,15 +209,24 @@ mod tests {
     #[test]
     fn empty_inputs_rejected() {
         let mut s = ValidationSummary::new();
-        assert!(matches!(s.record("", ErrorLevel::Error, "x").unwrap_err(), ValidationError::EmptyField));
-        assert!(matches!(s.record("f", ErrorLevel::Error, "").unwrap_err(), ValidationError::EmptyMessage));
+        assert!(matches!(
+            s.record("", ErrorLevel::Error, "x").unwrap_err(),
+            ValidationError::EmptyField
+        ));
+        assert!(matches!(
+            s.record("f", ErrorLevel::Error, "").unwrap_err(),
+            ValidationError::EmptyMessage
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = ValidationSummary::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), ValidationError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            ValidationError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -128,37 +128,65 @@ impl AttachmentTray {
 
     /// Add an attachment to a draft.
     pub fn add(&mut self, draft_id: &str, item: Attachment) -> Result<AddVerdict, TrayError> {
-        if draft_id.is_empty() { return Err(TrayError::EmptyDraft); }
-        if item.id.is_empty() { return Err(TrayError::EmptyId); }
-        if item.filename.is_empty() { return Err(TrayError::EmptyFilename); }
-        if item.mime.is_empty() { return Err(TrayError::EmptyMime); }
+        if draft_id.is_empty() {
+            return Err(TrayError::EmptyDraft);
+        }
+        if item.id.is_empty() {
+            return Err(TrayError::EmptyId);
+        }
+        if item.filename.is_empty() {
+            return Err(TrayError::EmptyFilename);
+        }
+        if item.mime.is_empty() {
+            return Err(TrayError::EmptyMime);
+        }
         let d = self.drafts.entry(draft_id.into()).or_default();
         if d.items.iter().any(|a| a.id == item.id) {
             return Ok(AddVerdict::Duplicate);
         }
         if d.items.len() as u32 >= self.max_count {
-            return Ok(AddVerdict::RejectedCount { count: d.items.len() as u32, limit: self.max_count });
+            return Ok(AddVerdict::RejectedCount {
+                count: d.items.len() as u32,
+                limit: self.max_count,
+            });
         }
         let current_total: u64 = d.items.iter().map(|a| a.size_bytes).sum();
         let proposed = current_total.saturating_add(item.size_bytes);
         if proposed > self.max_total_bytes {
-            return Ok(AddVerdict::RejectedSize { proposed_total: proposed, limit: self.max_total_bytes });
+            return Ok(AddVerdict::RejectedSize {
+                proposed_total: proposed,
+                limit: self.max_total_bytes,
+            });
         }
         d.items.push(item);
         Ok(AddVerdict::Accepted)
     }
 
     /// Update an attachment's status.
-    pub fn update_status(&mut self, draft_id: &str, id: &str, status: UploadStatus) -> Result<(), TrayError> {
-        let d = self.drafts.get_mut(draft_id).ok_or_else(|| TrayError::UnknownAttachment(format!("{draft_id}/{id}")))?;
-        let a = d.items.iter_mut().find(|a| a.id == id).ok_or_else(|| TrayError::UnknownAttachment(format!("{draft_id}/{id}")))?;
+    pub fn update_status(
+        &mut self,
+        draft_id: &str,
+        id: &str,
+        status: UploadStatus,
+    ) -> Result<(), TrayError> {
+        let d = self
+            .drafts
+            .get_mut(draft_id)
+            .ok_or_else(|| TrayError::UnknownAttachment(format!("{draft_id}/{id}")))?;
+        let a = d
+            .items
+            .iter_mut()
+            .find(|a| a.id == id)
+            .ok_or_else(|| TrayError::UnknownAttachment(format!("{draft_id}/{id}")))?;
         a.status = status;
         Ok(())
     }
 
     /// Remove an attachment. Returns true if removed.
     pub fn remove(&mut self, draft_id: &str, id: &str) -> bool {
-        let Some(d) = self.drafts.get_mut(draft_id) else { return false; };
+        let Some(d) = self.drafts.get_mut(draft_id) else {
+            return false;
+        };
         let before = d.items.len();
         d.items.retain(|a| a.id != id);
         d.items.len() != before
@@ -166,12 +194,18 @@ impl AttachmentTray {
 
     /// Total bytes for a draft.
     pub fn total_bytes(&self, draft_id: &str) -> u64 {
-        self.drafts.get(draft_id).map(|d| d.items.iter().map(|a| a.size_bytes).sum()).unwrap_or(0)
+        self.drafts
+            .get(draft_id)
+            .map(|d| d.items.iter().map(|a| a.size_bytes).sum())
+            .unwrap_or(0)
     }
 
     /// All attachments for a draft.
     pub fn items(&self, draft_id: &str) -> Vec<Attachment> {
-        self.drafts.get(draft_id).map(|d| d.items.clone()).unwrap_or_default()
+        self.drafts
+            .get(draft_id)
+            .map(|d| d.items.clone())
+            .unwrap_or_default()
     }
 
     /// Clear a draft.
@@ -181,13 +215,23 @@ impl AttachmentTray {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), TrayError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(TrayError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(TrayError::SchemaMismatch);
+        }
         for (id, d) in &self.drafts {
-            if id.is_empty() { return Err(TrayError::EmptyDraft); }
+            if id.is_empty() {
+                return Err(TrayError::EmptyDraft);
+            }
             for a in &d.items {
-                if a.id.is_empty() { return Err(TrayError::EmptyId); }
-                if a.filename.is_empty() { return Err(TrayError::EmptyFilename); }
-                if a.mime.is_empty() { return Err(TrayError::EmptyMime); }
+                if a.id.is_empty() {
+                    return Err(TrayError::EmptyId);
+                }
+                if a.filename.is_empty() {
+                    return Err(TrayError::EmptyFilename);
+                }
+                if a.mime.is_empty() {
+                    return Err(TrayError::EmptyMime);
+                }
             }
         }
         Ok(())
@@ -195,7 +239,9 @@ impl AttachmentTray {
 }
 
 impl Default for AttachmentTray {
-    fn default() -> Self { Self::new(10, 100 * 1024 * 1024) }
+    fn default() -> Self {
+        Self::new(10, 100 * 1024 * 1024)
+    }
 }
 
 #[cfg(test)]
@@ -238,7 +284,10 @@ mod tests {
         let mut t = AttachmentTray::new(10, 100);
         t.add("d", att("a", 80)).unwrap();
         match t.add("d", att("b", 50)).unwrap() {
-            AddVerdict::RejectedSize { proposed_total, limit } => {
+            AddVerdict::RejectedSize {
+                proposed_total,
+                limit,
+            } => {
                 assert_eq!(proposed_total, 130);
                 assert_eq!(limit, 100);
             }
@@ -264,7 +313,11 @@ mod tests {
     #[test]
     fn update_unknown_rejected() {
         let mut t = AttachmentTray::new(10, 10_000);
-        assert!(matches!(t.update_status("d", "a", UploadStatus::Uploaded).unwrap_err(), TrayError::UnknownAttachment(_)));
+        assert!(matches!(
+            t.update_status("d", "a", UploadStatus::Uploaded)
+                .unwrap_err(),
+            TrayError::UnknownAttachment(_)
+        ));
     }
 
     #[test]
@@ -294,15 +347,24 @@ mod tests {
     #[test]
     fn empty_inputs_rejected() {
         let mut t = AttachmentTray::new(10, 10_000);
-        assert!(matches!(t.add("", att("a", 1)).unwrap_err(), TrayError::EmptyDraft));
-        assert!(matches!(t.add("d", att("", 1)).unwrap_err(), TrayError::EmptyId));
+        assert!(matches!(
+            t.add("", att("a", 1)).unwrap_err(),
+            TrayError::EmptyDraft
+        ));
+        assert!(matches!(
+            t.add("d", att("", 1)).unwrap_err(),
+            TrayError::EmptyId
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut t = AttachmentTray::new(10, 10_000);
         t.schema_version = "9.9.9".into();
-        assert!(matches!(t.validate().unwrap_err(), TrayError::SchemaMismatch));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            TrayError::SchemaMismatch
+        ));
     }
 
     #[test]

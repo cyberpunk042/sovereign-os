@@ -81,7 +81,9 @@ pub enum SidePanelError {
 impl SidePanelState {
     /// New (initial mode Closed; first tab becomes active if any).
     pub fn new(tabs: Vec<Tab>, width_px: u32) -> Result<Self, SidePanelError> {
-        if width_px == 0 { return Err(SidePanelError::WidthZero); }
+        if width_px == 0 {
+            return Err(SidePanelError::WidthZero);
+        }
         check_tabs(&tabs)?;
         let active = tabs.first().map(|t| t.id.clone());
         let mru = tabs.iter().map(|t| t.id.clone()).collect();
@@ -130,7 +132,9 @@ impl SidePanelState {
 
     /// Resize.
     pub fn resize(&mut self, px: u32) -> Result<(), SidePanelError> {
-        if px == 0 { return Err(SidePanelError::WidthZero); }
+        if px == 0 {
+            return Err(SidePanelError::WidthZero);
+        }
         self.width_px = px;
         Ok(())
     }
@@ -140,7 +144,9 @@ impl SidePanelState {
         if self.schema_version != SCHEMA_VERSION {
             return Err(SidePanelError::SchemaMismatch);
         }
-        if self.width_px == 0 { return Err(SidePanelError::WidthZero); }
+        if self.width_px == 0 {
+            return Err(SidePanelError::WidthZero);
+        }
         check_tabs(&self.tabs)?;
         if let Some(a) = &self.active {
             if !self.tabs.iter().any(|t| &t.id == a) {
@@ -155,8 +161,12 @@ fn check_tabs(tabs: &[Tab]) -> Result<(), SidePanelError> {
     use std::collections::HashSet;
     let mut seen: HashSet<&str> = HashSet::new();
     for t in tabs {
-        if t.id.is_empty() { return Err(SidePanelError::EmptyId); }
-        if t.label.is_empty() { return Err(SidePanelError::EmptyLabel(t.id.clone())); }
+        if t.id.is_empty() {
+            return Err(SidePanelError::EmptyId);
+        }
+        if t.label.is_empty() {
+            return Err(SidePanelError::EmptyLabel(t.id.clone()));
+        }
         if !seen.insert(t.id.as_str()) {
             return Err(SidePanelError::DuplicateId(t.id.clone()));
         }
@@ -168,7 +178,12 @@ fn check_tabs(tabs: &[Tab]) -> Result<(), SidePanelError> {
 mod tests {
     use super::*;
 
-    fn t(id: &str) -> Tab { Tab { id: id.into(), label: format!("L-{id}") } }
+    fn t(id: &str) -> Tab {
+        Tab {
+            id: id.into(),
+            label: format!("L-{id}"),
+        }
+    }
 
     #[test]
     fn empty_tabs_active_none() {
@@ -193,7 +208,10 @@ mod tests {
     #[test]
     fn select_unknown_rejected() {
         let mut s = SidePanelState::new(vec![t("a")], 200).unwrap();
-        assert!(matches!(s.select("z").unwrap_err(), SidePanelError::Unknown(_)));
+        assert!(matches!(
+            s.select("z").unwrap_err(),
+            SidePanelError::Unknown(_)
+        ));
     }
 
     #[test]
@@ -232,7 +250,10 @@ mod tests {
     #[test]
     fn resize_zero_rejected() {
         let mut s = SidePanelState::new(vec![t("a")], 200).unwrap();
-        assert!(matches!(s.resize(0).unwrap_err(), SidePanelError::WidthZero));
+        assert!(matches!(
+            s.resize(0).unwrap_err(),
+            SidePanelError::WidthZero
+        ));
     }
 
     #[test]
@@ -257,12 +278,18 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = SidePanelState::new(vec![t("a")], 200).unwrap();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), SidePanelError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SidePanelError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn mode_serde_kebab() {
-        assert_eq!(serde_json::to_string(&PanelMode::Pinned).unwrap(), "\"pinned\"");
+        assert_eq!(
+            serde_json::to_string(&PanelMode::Pinned).unwrap(),
+            "\"pinned\""
+        );
         assert_eq!(serde_json::to_string(&PanelMode::Peek).unwrap(), "\"peek\"");
     }
 

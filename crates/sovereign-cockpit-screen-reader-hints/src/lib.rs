@@ -136,13 +136,19 @@ impl HintCatalog {
 }
 
 fn check_shape(h: &Hint) -> Result<(), HintError> {
-    if h.element_id.is_empty() { return Err(HintError::EmptyElementId); }
-    if h.label.is_empty() { return Err(HintError::EmptyLabel(h.element_id.clone())); }
+    if h.element_id.is_empty() {
+        return Err(HintError::EmptyElementId);
+    }
+    if h.label.is_empty() {
+        return Err(HintError::EmptyLabel(h.element_id.clone()));
+    }
     Ok(())
 }
 
 impl Default for HintCatalog {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -166,7 +172,8 @@ mod tests {
     #[test]
     fn register_and_lookup() {
         let mut c = HintCatalog::new();
-        c.register(h("btn-save", Role::Button, Politeness::Off)).unwrap();
+        c.register(h("btn-save", Role::Button, Politeness::Off))
+            .unwrap();
         assert!(c.get("btn-save").is_some());
     }
 
@@ -174,16 +181,21 @@ mod tests {
     fn duplicate_rejected() {
         let mut c = HintCatalog::new();
         c.register(h("a", Role::Button, Politeness::Off)).unwrap();
-        assert!(matches!(c.register(h("a", Role::Link, Politeness::Off)).unwrap_err(),
-            HintError::DuplicateId(_)));
+        assert!(matches!(
+            c.register(h("a", Role::Link, Politeness::Off)).unwrap_err(),
+            HintError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn by_politeness_filters() {
         let mut c = HintCatalog::new();
-        c.register(h("a", Role::Status, Politeness::Status)).unwrap();
-        c.register(h("b", Role::Alert, Politeness::Assertive)).unwrap();
-        c.register(h("c", Role::Status, Politeness::Status)).unwrap();
+        c.register(h("a", Role::Status, Politeness::Status))
+            .unwrap();
+        c.register(h("b", Role::Alert, Politeness::Assertive))
+            .unwrap();
+        c.register(h("c", Role::Status, Politeness::Status))
+            .unwrap();
         assert_eq!(c.by_politeness(Politeness::Status).len(), 2);
         assert_eq!(c.by_politeness(Politeness::Assertive).len(), 1);
     }
@@ -191,8 +203,11 @@ mod tests {
     #[test]
     fn empty_id_rejected() {
         let mut c = HintCatalog::new();
-        assert!(matches!(c.register(h("", Role::Button, Politeness::Off)).unwrap_err(),
-            HintError::EmptyElementId));
+        assert!(matches!(
+            c.register(h("", Role::Button, Politeness::Off))
+                .unwrap_err(),
+            HintError::EmptyElementId
+        ));
     }
 
     #[test]
@@ -200,26 +215,41 @@ mod tests {
         let mut c = HintCatalog::new();
         let mut bad = h("a", Role::Button, Politeness::Off);
         bad.label = String::new();
-        assert!(matches!(c.register(bad).unwrap_err(), HintError::EmptyLabel(_)));
+        assert!(matches!(
+            c.register(bad).unwrap_err(),
+            HintError::EmptyLabel(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut c = HintCatalog::new();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), HintError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            HintError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn role_serde_kebab() {
-        assert_eq!(serde_json::to_string(&Role::Listitem).unwrap(), "\"listitem\"");
+        assert_eq!(
+            serde_json::to_string(&Role::Listitem).unwrap(),
+            "\"listitem\""
+        );
         assert_eq!(serde_json::to_string(&Role::Status).unwrap(), "\"status\"");
     }
 
     #[test]
     fn politeness_serde_kebab() {
-        assert_eq!(serde_json::to_string(&Politeness::Polite).unwrap(), "\"polite\"");
-        assert_eq!(serde_json::to_string(&Politeness::Assertive).unwrap(), "\"assertive\"");
+        assert_eq!(
+            serde_json::to_string(&Politeness::Polite).unwrap(),
+            "\"polite\""
+        );
+        assert_eq!(
+            serde_json::to_string(&Politeness::Assertive).unwrap(),
+            "\"assertive\""
+        );
     }
 
     #[test]

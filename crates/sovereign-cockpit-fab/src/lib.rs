@@ -139,9 +139,15 @@ impl Fab {
 }
 
 fn check_action(a: &FabAction) -> Result<(), FabError> {
-    if a.id.is_empty() { return Err(FabError::EmptyId); }
-    if a.label.is_empty() { return Err(FabError::EmptyLabel(a.id.clone())); }
-    if a.icon.is_empty() { return Err(FabError::EmptyIcon(a.id.clone())); }
+    if a.id.is_empty() {
+        return Err(FabError::EmptyId);
+    }
+    if a.label.is_empty() {
+        return Err(FabError::EmptyLabel(a.id.clone()));
+    }
+    if a.icon.is_empty() {
+        return Err(FabError::EmptyIcon(a.id.clone()));
+    }
     Ok(())
 }
 
@@ -176,13 +182,19 @@ mod tests {
     fn duplicate_id_rejected_in_secondaries() {
         let mut f = Fab::new(act("create", false), Corner::BottomRight).unwrap();
         f.add_secondary(act("a", false)).unwrap();
-        assert!(matches!(f.add_secondary(act("a", false)).unwrap_err(), FabError::DuplicateId(_)));
+        assert!(matches!(
+            f.add_secondary(act("a", false)).unwrap_err(),
+            FabError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn duplicate_with_primary_rejected() {
         let mut f = Fab::new(act("create", false), Corner::BottomRight).unwrap();
-        assert!(matches!(f.add_secondary(act("create", false)).unwrap_err(), FabError::DuplicateId(_)));
+        assert!(matches!(
+            f.add_secondary(act("create", false)).unwrap_err(),
+            FabError::DuplicateId(_)
+        ));
     }
 
     #[test]
@@ -215,33 +227,48 @@ mod tests {
     fn empty_id_rejected() {
         let mut a = act("a", false);
         a.id = String::new();
-        assert!(matches!(Fab::new(a, Corner::TopLeft).unwrap_err(), FabError::EmptyId));
+        assert!(matches!(
+            Fab::new(a, Corner::TopLeft).unwrap_err(),
+            FabError::EmptyId
+        ));
     }
 
     #[test]
     fn empty_label_rejected() {
         let mut a = act("a", false);
         a.label = String::new();
-        assert!(matches!(Fab::new(a, Corner::TopLeft).unwrap_err(), FabError::EmptyLabel(_)));
+        assert!(matches!(
+            Fab::new(a, Corner::TopLeft).unwrap_err(),
+            FabError::EmptyLabel(_)
+        ));
     }
 
     #[test]
     fn empty_icon_rejected() {
         let mut a = act("a", false);
         a.icon = String::new();
-        assert!(matches!(Fab::new(a, Corner::TopLeft).unwrap_err(), FabError::EmptyIcon(_)));
+        assert!(matches!(
+            Fab::new(a, Corner::TopLeft).unwrap_err(),
+            FabError::EmptyIcon(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut f = Fab::new(act("create", false), Corner::BottomRight).unwrap();
         f.schema_version = "9.9.9".into();
-        assert!(matches!(f.validate().unwrap_err(), FabError::SchemaMismatch));
+        assert!(matches!(
+            f.validate().unwrap_err(),
+            FabError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn corner_serde_kebab() {
-        assert_eq!(serde_json::to_string(&Corner::BottomRight).unwrap(), "\"bottom-right\"");
+        assert_eq!(
+            serde_json::to_string(&Corner::BottomRight).unwrap(),
+            "\"bottom-right\""
+        );
     }
 
     #[test]

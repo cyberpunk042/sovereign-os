@@ -65,15 +65,20 @@ impl TipBar {
 
     /// Register.
     pub fn register(&mut self, tip: Tip) -> Result<(), TipError> {
-        if tip.scope_id.is_empty() { return Err(TipError::EmptyScope); }
-        if tip.message.is_empty() { return Err(TipError::EmptyMessage); }
+        if tip.scope_id.is_empty() {
+            return Err(TipError::EmptyScope);
+        }
+        if tip.message.is_empty() {
+            return Err(TipError::EmptyMessage);
+        }
         self.tips.push(tip);
         Ok(())
     }
 
     /// Tips for a scope (excludes dismissed).
     pub fn tips_for(&self, scope_id: &str) -> Vec<Tip> {
-        self.tips.iter()
+        self.tips
+            .iter()
             .filter(|t| t.scope_id == scope_id && !self.dismissed.contains(&t.message))
             .cloned()
             .collect()
@@ -91,17 +96,25 @@ impl TipBar {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), TipError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(TipError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(TipError::SchemaMismatch);
+        }
         for t in &self.tips {
-            if t.scope_id.is_empty() { return Err(TipError::EmptyScope); }
-            if t.message.is_empty() { return Err(TipError::EmptyMessage); }
+            if t.scope_id.is_empty() {
+                return Err(TipError::EmptyScope);
+            }
+            if t.message.is_empty() {
+                return Err(TipError::EmptyMessage);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for TipBar {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -109,13 +122,18 @@ mod tests {
     use super::*;
 
     fn tip(scope: &str, msg: &str, chord: Option<&str>) -> Tip {
-        Tip { scope_id: scope.into(), message: msg.into(), chord: chord.map(|s| s.into()) }
+        Tip {
+            scope_id: scope.into(),
+            message: msg.into(),
+            chord: chord.map(|s| s.into()),
+        }
     }
 
     #[test]
     fn register_and_query() {
         let mut t = TipBar::new();
-        t.register(tip("logs", "Press F to filter", Some("F"))).unwrap();
+        t.register(tip("logs", "Press F to filter", Some("F")))
+            .unwrap();
         assert_eq!(t.tips_for("logs").len(), 1);
         assert!(t.tips_for("other").is_empty());
     }
@@ -123,7 +141,8 @@ mod tests {
     #[test]
     fn dismiss_hides() {
         let mut t = TipBar::new();
-        t.register(tip("logs", "Press F to filter", Some("F"))).unwrap();
+        t.register(tip("logs", "Press F to filter", Some("F")))
+            .unwrap();
         t.dismiss("Press F to filter");
         assert!(t.tips_for("logs").is_empty());
     }
@@ -140,15 +159,24 @@ mod tests {
     #[test]
     fn empty_fields_rejected() {
         let mut t = TipBar::new();
-        assert!(matches!(t.register(tip("", "x", None)).unwrap_err(), TipError::EmptyScope));
-        assert!(matches!(t.register(tip("s", "", None)).unwrap_err(), TipError::EmptyMessage));
+        assert!(matches!(
+            t.register(tip("", "x", None)).unwrap_err(),
+            TipError::EmptyScope
+        ));
+        assert!(matches!(
+            t.register(tip("s", "", None)).unwrap_err(),
+            TipError::EmptyMessage
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut t = TipBar::new();
         t.schema_version = "9.9.9".into();
-        assert!(matches!(t.validate().unwrap_err(), TipError::SchemaMismatch));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            TipError::SchemaMismatch
+        ));
     }
 
     #[test]

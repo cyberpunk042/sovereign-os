@@ -60,9 +60,13 @@ fn fnv1a_64(bytes: &[u8]) -> u64 {
 impl TagColorPalette {
     /// New.
     pub fn new(palette: &[&str]) -> Result<Self, PaletteError> {
-        if palette.is_empty() { return Err(PaletteError::EmptyPalette); }
+        if palette.is_empty() {
+            return Err(PaletteError::EmptyPalette);
+        }
         for c in palette {
-            if c.is_empty() { return Err(PaletteError::EmptyColor); }
+            if c.is_empty() {
+                return Err(PaletteError::EmptyColor);
+            }
         }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
@@ -73,7 +77,9 @@ impl TagColorPalette {
 
     /// Assign explicit color.
     pub fn assign(&mut self, tag: &str, color: &str) -> Result<(), PaletteError> {
-        if tag.is_empty() { return Err(PaletteError::EmptyTag); }
+        if tag.is_empty() {
+            return Err(PaletteError::EmptyTag);
+        }
         if !self.palette.iter().any(|c| c == color) {
             return Err(PaletteError::UnknownColor(color.into()));
         }
@@ -88,7 +94,9 @@ impl TagColorPalette {
 
     /// Color for a tag.
     pub fn color_for(&self, tag: &str) -> Result<String, PaletteError> {
-        if tag.is_empty() { return Err(PaletteError::EmptyTag); }
+        if tag.is_empty() {
+            return Err(PaletteError::EmptyTag);
+        }
         if let Some(c) = self.assignments.get(tag) {
             return Ok(c.clone());
         }
@@ -98,32 +106,51 @@ impl TagColorPalette {
 
     /// Replace palette (drops assignments referring to removed colors).
     pub fn set_palette(&mut self, palette: &[&str]) -> Result<usize, PaletteError> {
-        if palette.is_empty() { return Err(PaletteError::EmptyPalette); }
-        for c in palette {
-            if c.is_empty() { return Err(PaletteError::EmptyColor); }
+        if palette.is_empty() {
+            return Err(PaletteError::EmptyPalette);
         }
-        let new_set: std::collections::BTreeSet<String> = palette.iter().map(|c| (*c).into()).collect();
-        let to_drop: Vec<String> = self.assignments.iter()
+        for c in palette {
+            if c.is_empty() {
+                return Err(PaletteError::EmptyColor);
+            }
+        }
+        let new_set: std::collections::BTreeSet<String> =
+            palette.iter().map(|c| (*c).into()).collect();
+        let to_drop: Vec<String> = self
+            .assignments
+            .iter()
             .filter(|(_, c)| !new_set.contains(c.as_str()))
             .map(|(k, _)| k.clone())
             .collect();
         let n = to_drop.len();
-        for k in to_drop { self.assignments.remove(&k); }
+        for k in to_drop {
+            self.assignments.remove(&k);
+        }
         self.palette = palette.iter().map(|c| (*c).into()).collect();
         Ok(n)
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), PaletteError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(PaletteError::SchemaMismatch); }
-        if self.palette.is_empty() { return Err(PaletteError::EmptyPalette); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(PaletteError::SchemaMismatch);
+        }
+        if self.palette.is_empty() {
+            return Err(PaletteError::EmptyPalette);
+        }
         for c in &self.palette {
-            if c.is_empty() { return Err(PaletteError::EmptyColor); }
+            if c.is_empty() {
+                return Err(PaletteError::EmptyColor);
+            }
         }
         let set: std::collections::BTreeSet<&String> = self.palette.iter().collect();
         for (t, c) in &self.assignments {
-            if t.is_empty() { return Err(PaletteError::EmptyTag); }
-            if !set.contains(c) { return Err(PaletteError::UnknownColor(c.clone())); }
+            if t.is_empty() {
+                return Err(PaletteError::EmptyTag);
+            }
+            if !set.contains(c) {
+                return Err(PaletteError::UnknownColor(c.clone()));
+            }
         }
         Ok(())
     }
@@ -160,7 +187,10 @@ mod tests {
     #[test]
     fn assign_unknown_color_rejected() {
         let mut p = TagColorPalette::new(&["red"]).unwrap();
-        assert!(matches!(p.assign("x", "purple").unwrap_err(), PaletteError::UnknownColor(_)));
+        assert!(matches!(
+            p.assign("x", "purple").unwrap_err(),
+            PaletteError::UnknownColor(_)
+        ));
     }
 
     #[test]
@@ -177,21 +207,33 @@ mod tests {
 
     #[test]
     fn empty_palette_rejected() {
-        assert!(matches!(TagColorPalette::new(&[]).unwrap_err(), PaletteError::EmptyPalette));
+        assert!(matches!(
+            TagColorPalette::new(&[]).unwrap_err(),
+            PaletteError::EmptyPalette
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
-        assert!(matches!(TagColorPalette::new(&[""]).unwrap_err(), PaletteError::EmptyColor));
+        assert!(matches!(
+            TagColorPalette::new(&[""]).unwrap_err(),
+            PaletteError::EmptyColor
+        ));
         let mut p = TagColorPalette::new(&["red"]).unwrap();
-        assert!(matches!(p.assign("", "red").unwrap_err(), PaletteError::EmptyTag));
+        assert!(matches!(
+            p.assign("", "red").unwrap_err(),
+            PaletteError::EmptyTag
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut p = TagColorPalette::new(&["red"]).unwrap();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), PaletteError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            PaletteError::SchemaMismatch
+        ));
     }
 
     #[test]

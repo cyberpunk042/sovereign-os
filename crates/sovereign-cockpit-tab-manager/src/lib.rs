@@ -75,19 +75,26 @@ impl TabManager {
 
     /// Open tab.
     pub fn open(&mut self, id: &str, title: &str) -> Result<(), TabError> {
-        if id.is_empty() { return Err(TabError::EmptyId); }
-        if title.is_empty() { return Err(TabError::EmptyTitle); }
+        if id.is_empty() {
+            return Err(TabError::EmptyId);
+        }
+        if title.is_empty() {
+            return Err(TabError::EmptyTitle);
+        }
         if self.tabs.contains_key(id) {
             return Err(TabError::DuplicateId(id.into()));
         }
         let order = self.next_order;
         self.next_order = self.next_order.saturating_add(1);
-        self.tabs.insert(id.into(), Tab {
-            id: id.into(),
-            title: title.into(),
-            pinned: false,
-            order,
-        });
+        self.tabs.insert(
+            id.into(),
+            Tab {
+                id: id.into(),
+                title: title.into(),
+                pinned: false,
+                order,
+            },
+        );
         if self.active.is_none() {
             self.active = Some(id.into());
         }
@@ -115,14 +122,20 @@ impl TabManager {
 
     /// Pin / unpin.
     pub fn set_pinned(&mut self, id: &str, pinned: bool) -> Result<(), TabError> {
-        let t = self.tabs.get_mut(id).ok_or_else(|| TabError::UnknownTab(id.into()))?;
+        let t = self
+            .tabs
+            .get_mut(id)
+            .ok_or_else(|| TabError::UnknownTab(id.into()))?;
         t.pinned = pinned;
         Ok(())
     }
 
     /// Reorder: assign new `order` to a tab.
     pub fn move_to(&mut self, id: &str, new_order: u32) -> Result<(), TabError> {
-        let t = self.tabs.get_mut(id).ok_or_else(|| TabError::UnknownTab(id.into()))?;
+        let t = self
+            .tabs
+            .get_mut(id)
+            .ok_or_else(|| TabError::UnknownTab(id.into()))?;
         t.order = new_order;
         if new_order >= self.next_order {
             self.next_order = new_order.saturating_add(1);
@@ -134,7 +147,8 @@ impl TabManager {
     pub fn ordered(&self) -> Vec<Tab> {
         let mut v: Vec<Tab> = self.tabs.values().cloned().collect();
         v.sort_by(|a, b| {
-            b.pinned.cmp(&a.pinned)
+            b.pinned
+                .cmp(&a.pinned)
                 .then(a.order.cmp(&b.order))
                 .then(a.title.cmp(&b.title))
         });
@@ -143,17 +157,25 @@ impl TabManager {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), TabError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(TabError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(TabError::SchemaMismatch);
+        }
         for (id, t) in &self.tabs {
-            if id.is_empty() { return Err(TabError::EmptyId); }
-            if t.title.is_empty() { return Err(TabError::EmptyTitle); }
+            if id.is_empty() {
+                return Err(TabError::EmptyId);
+            }
+            if t.title.is_empty() {
+                return Err(TabError::EmptyTitle);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for TabManager {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -216,13 +238,19 @@ mod tests {
     fn duplicate_rejected() {
         let mut m = TabManager::new();
         m.open("a", "A").unwrap();
-        assert!(matches!(m.open("a", "A").unwrap_err(), TabError::DuplicateId(_)));
+        assert!(matches!(
+            m.open("a", "A").unwrap_err(),
+            TabError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn switch_unknown_rejected() {
         let mut m = TabManager::new();
-        assert!(matches!(m.switch("nope").unwrap_err(), TabError::UnknownTab(_)));
+        assert!(matches!(
+            m.switch("nope").unwrap_err(),
+            TabError::UnknownTab(_)
+        ));
     }
 
     #[test]
@@ -236,7 +264,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut m = TabManager::new();
         m.schema_version = "9.9.9".into();
-        assert!(matches!(m.validate().unwrap_err(), TabError::SchemaMismatch));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            TabError::SchemaMismatch
+        ));
     }
 
     #[test]

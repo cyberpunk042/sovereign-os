@@ -71,7 +71,9 @@ pub enum OutputError {
 impl OutputPane {
     /// New.
     pub fn new(max_lines: u32) -> Result<Self, OutputError> {
-        if max_lines == 0 { return Err(OutputError::ZeroCap); }
+        if max_lines == 0 {
+            return Err(OutputError::ZeroCap);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             max_lines,
@@ -90,28 +92,47 @@ impl OutputPane {
     }
 
     fn push(&mut self, stream: Stream, ts_ms: u64, text: &str) {
-        self.lines.push_back(Line { stream, ts_ms, text: text.into() });
+        self.lines.push_back(Line {
+            stream,
+            ts_ms,
+            text: text.into(),
+        });
         while self.lines.len() > self.max_lines as usize {
             self.lines.pop_front();
         }
     }
 
     /// Clear.
-    pub fn clear(&mut self) { self.lines.clear(); }
+    pub fn clear(&mut self) {
+        self.lines.clear();
+    }
 
     /// Filtered view.
     pub fn filter(&self, f: &Filter) -> Vec<&Line> {
-        self.lines.iter().filter(|l| {
-            if let Some(s) = f.stream { if l.stream != s { return false; } }
-            if !f.contains.is_empty() && !l.text.contains(&f.contains) { return false; }
-            true
-        }).collect()
+        self.lines
+            .iter()
+            .filter(|l| {
+                if let Some(s) = f.stream {
+                    if l.stream != s {
+                        return false;
+                    }
+                }
+                if !f.contains.is_empty() && !l.text.contains(&f.contains) {
+                    return false;
+                }
+                true
+            })
+            .collect()
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), OutputError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(OutputError::SchemaMismatch); }
-        if self.max_lines == 0 { return Err(OutputError::ZeroCap); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(OutputError::SchemaMismatch);
+        }
+        if self.max_lines == 0 {
+            return Err(OutputError::ZeroCap);
+        }
         Ok(())
     }
 }
@@ -147,7 +168,10 @@ mod tests {
         p.push_stdout(0, "out1");
         p.push_stderr(1, "err1");
         p.push_stdout(2, "out2");
-        let f = Filter { stream: Some(Stream::Stdout), contains: String::new() };
+        let f = Filter {
+            stream: Some(Stream::Stdout),
+            contains: String::new(),
+        };
         let r = p.filter(&f);
         assert_eq!(r.len(), 2);
         assert!(r.iter().all(|l| l.stream == Stream::Stdout));
@@ -159,7 +183,10 @@ mod tests {
         p.push_stdout(0, "ERROR connection refused");
         p.push_stdout(1, "INFO connected");
         p.push_stderr(2, "ERROR auth failed");
-        let f = Filter { stream: None, contains: "ERROR".into() };
+        let f = Filter {
+            stream: None,
+            contains: "ERROR".into(),
+        };
         let r = p.filter(&f);
         assert_eq!(r.len(), 2);
     }
@@ -174,14 +201,20 @@ mod tests {
 
     #[test]
     fn zero_cap_rejected() {
-        assert!(matches!(OutputPane::new(0).unwrap_err(), OutputError::ZeroCap));
+        assert!(matches!(
+            OutputPane::new(0).unwrap_err(),
+            OutputError::ZeroCap
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut p = OutputPane::new(10).unwrap();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), OutputError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            OutputError::SchemaMismatch
+        ));
     }
 
     #[test]

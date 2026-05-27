@@ -95,7 +95,9 @@ pub enum LayoutError {
 impl TileGridLayout {
     /// New.
     pub fn new(grid_w: u32, grid_h: u32) -> Result<Self, LayoutError> {
-        if grid_w == 0 || grid_h == 0 { return Err(LayoutError::ZeroGrid); }
+        if grid_w == 0 || grid_h == 0 {
+            return Err(LayoutError::ZeroGrid);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             grid_w,
@@ -105,15 +107,25 @@ impl TileGridLayout {
     }
 
     fn check_placement(&self, id: &str, rect: &Rect) -> Result<(), LayoutError> {
-        if rect.w == 0 || rect.h == 0 { return Err(LayoutError::ZeroArea); }
-        if rect.x.saturating_add(rect.w) > self.grid_w || rect.y.saturating_add(rect.h) > self.grid_h {
+        if rect.w == 0 || rect.h == 0 {
+            return Err(LayoutError::ZeroArea);
+        }
+        if rect.x.saturating_add(rect.w) > self.grid_w
+            || rect.y.saturating_add(rect.h) > self.grid_h
+        {
             return Err(LayoutError::OutOfBounds {
-                x: rect.x, y: rect.y, w: rect.w, h: rect.h,
-                gw: self.grid_w, gh: self.grid_h,
+                x: rect.x,
+                y: rect.y,
+                w: rect.w,
+                h: rect.h,
+                gw: self.grid_w,
+                gh: self.grid_h,
             });
         }
         for (other_id, other) in &self.tiles {
-            if other_id == id { continue; }
+            if other_id == id {
+                continue;
+            }
             if rect.overlaps(other) {
                 return Err(LayoutError::Overlap(other_id.clone()));
             }
@@ -123,8 +135,12 @@ impl TileGridLayout {
 
     /// Place new tile.
     pub fn place(&mut self, id: &str, rect: Rect) -> Result<(), LayoutError> {
-        if id.is_empty() { return Err(LayoutError::EmptyId); }
-        if self.tiles.contains_key(id) { return Err(LayoutError::DuplicateId(id.into())); }
+        if id.is_empty() {
+            return Err(LayoutError::EmptyId);
+        }
+        if self.tiles.contains_key(id) {
+            return Err(LayoutError::DuplicateId(id.into()));
+        }
         self.check_placement(id, &rect)?;
         self.tiles.insert(id.into(), rect);
         Ok(())
@@ -157,13 +173,20 @@ impl TileGridLayout {
 
     /// Cells occupied.
     pub fn occupied_cells(&self) -> u64 {
-        self.tiles.values().map(|r| (r.w as u64) * (r.h as u64)).sum()
+        self.tiles
+            .values()
+            .map(|r| (r.w as u64) * (r.h as u64))
+            .sum()
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), LayoutError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(LayoutError::SchemaMismatch); }
-        if self.grid_w == 0 || self.grid_h == 0 { return Err(LayoutError::ZeroGrid); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(LayoutError::SchemaMismatch);
+        }
+        if self.grid_w == 0 || self.grid_h == 0 {
+            return Err(LayoutError::ZeroGrid);
+        }
         Ok(())
     }
 }
@@ -186,21 +209,30 @@ mod tests {
     #[test]
     fn out_of_bounds_rejected() {
         let mut l = TileGridLayout::new(10, 10).unwrap();
-        assert!(matches!(l.place("a", rect(8, 0, 5, 3)).unwrap_err(), LayoutError::OutOfBounds { .. }));
+        assert!(matches!(
+            l.place("a", rect(8, 0, 5, 3)).unwrap_err(),
+            LayoutError::OutOfBounds { .. }
+        ));
     }
 
     #[test]
     fn overlap_rejected() {
         let mut l = TileGridLayout::new(10, 10).unwrap();
         l.place("a", rect(0, 0, 3, 3)).unwrap();
-        assert!(matches!(l.place("b", rect(2, 2, 3, 3)).unwrap_err(), LayoutError::Overlap(_)));
+        assert!(matches!(
+            l.place("b", rect(2, 2, 3, 3)).unwrap_err(),
+            LayoutError::Overlap(_)
+        ));
     }
 
     #[test]
     fn duplicate_rejected() {
         let mut l = TileGridLayout::new(10, 10).unwrap();
         l.place("a", rect(0, 0, 1, 1)).unwrap();
-        assert!(matches!(l.place("a", rect(2, 2, 1, 1)).unwrap_err(), LayoutError::DuplicateId(_)));
+        assert!(matches!(
+            l.place("a", rect(2, 2, 1, 1)).unwrap_err(),
+            LayoutError::DuplicateId(_)
+        ));
     }
 
     #[test]
@@ -223,19 +255,28 @@ mod tests {
     #[test]
     fn zero_area_rejected() {
         let mut l = TileGridLayout::new(10, 10).unwrap();
-        assert!(matches!(l.place("a", rect(0, 0, 0, 3)).unwrap_err(), LayoutError::ZeroArea));
+        assert!(matches!(
+            l.place("a", rect(0, 0, 0, 3)).unwrap_err(),
+            LayoutError::ZeroArea
+        ));
     }
 
     #[test]
     fn zero_grid_rejected() {
-        assert!(matches!(TileGridLayout::new(0, 10).unwrap_err(), LayoutError::ZeroGrid));
+        assert!(matches!(
+            TileGridLayout::new(0, 10).unwrap_err(),
+            LayoutError::ZeroGrid
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut l = TileGridLayout::new(10, 10).unwrap();
         l.schema_version = "9.9.9".into();
-        assert!(matches!(l.validate().unwrap_err(), LayoutError::SchemaMismatch));
+        assert!(matches!(
+            l.validate().unwrap_err(),
+            LayoutError::SchemaMismatch
+        ));
     }
 
     #[test]

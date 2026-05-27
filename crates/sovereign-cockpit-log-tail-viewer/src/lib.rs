@@ -91,7 +91,9 @@ pub enum LogTailError {
 impl LogTailViewer {
     /// New with capacity.
     pub fn new(capacity: usize) -> Result<Self, LogTailError> {
-        if capacity == 0 { return Err(LogTailError::ZeroCapacity); }
+        if capacity == 0 {
+            return Err(LogTailError::ZeroCapacity);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             capacity,
@@ -101,9 +103,19 @@ impl LogTailViewer {
     }
 
     /// Push a line.
-    pub fn push(&mut self, level: LogLevel, ts_ms: u64, source: &str, message: &str) -> Result<(), LogTailError> {
-        if source.is_empty() { return Err(LogTailError::EmptySource); }
-        if message.is_empty() { return Err(LogTailError::EmptyMessage); }
+    pub fn push(
+        &mut self,
+        level: LogLevel,
+        ts_ms: u64,
+        source: &str,
+        message: &str,
+    ) -> Result<(), LogTailError> {
+        if source.is_empty() {
+            return Err(LogTailError::EmptySource);
+        }
+        if message.is_empty() {
+            return Err(LogTailError::EmptyMessage);
+        }
         if self.lines.len() == self.capacity {
             self.lines.pop_front();
             self.dropped = self.dropped.saturating_add(1);
@@ -125,10 +137,13 @@ impl LogTailViewer {
     /// Filtered view.
     pub fn view(&self, filter: &Filter) -> Vec<LogLine> {
         let q = filter.substring.to_lowercase();
-        self.lines.iter()
+        self.lines
+            .iter()
             .filter(|l| {
                 if let Some(min) = filter.min_level {
-                    if l.level < min { return false; }
+                    if l.level < min {
+                        return false;
+                    }
                 }
                 if !filter.sources.is_empty() && !filter.sources.iter().any(|s| s == &l.source) {
                     return false;
@@ -149,11 +164,19 @@ impl LogTailViewer {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), LogTailError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(LogTailError::SchemaMismatch); }
-        if self.capacity == 0 { return Err(LogTailError::ZeroCapacity); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(LogTailError::SchemaMismatch);
+        }
+        if self.capacity == 0 {
+            return Err(LogTailError::ZeroCapacity);
+        }
         for l in &self.lines {
-            if l.source.is_empty() { return Err(LogTailError::EmptySource); }
-            if l.message.is_empty() { return Err(LogTailError::EmptyMessage); }
+            if l.source.is_empty() {
+                return Err(LogTailError::EmptySource);
+            }
+            if l.message.is_empty() {
+                return Err(LogTailError::EmptyMessage);
+            }
         }
         Ok(())
     }
@@ -189,7 +212,10 @@ mod tests {
         let mut v = LogTailViewer::new(10).unwrap();
         v.push(LogLevel::Debug, 0, "core", "low").unwrap();
         v.push(LogLevel::Warn, 1, "core", "high").unwrap();
-        let f = Filter { min_level: Some(LogLevel::Warn), ..Filter::default() };
+        let f = Filter {
+            min_level: Some(LogLevel::Warn),
+            ..Filter::default()
+        };
         let r = v.view(&f);
         assert_eq!(r.len(), 1);
         assert_eq!(r[0].message, "high");
@@ -200,7 +226,10 @@ mod tests {
         let mut v = LogTailViewer::new(10).unwrap();
         v.push(LogLevel::Info, 0, "core", "a").unwrap();
         v.push(LogLevel::Info, 1, "net", "b").unwrap();
-        let f = Filter { sources: vec!["net".into()], ..Filter::default() };
+        let f = Filter {
+            sources: vec!["net".into()],
+            ..Filter::default()
+        };
         let r = v.view(&f);
         assert_eq!(r.len(), 1);
         assert_eq!(r[0].source, "net");
@@ -211,7 +240,10 @@ mod tests {
         let mut v = LogTailViewer::new(10).unwrap();
         v.push(LogLevel::Info, 0, "core", "Hello World").unwrap();
         v.push(LogLevel::Info, 1, "core", "Goodbye").unwrap();
-        let f = Filter { substring: "WORLD".into(), ..Filter::default() };
+        let f = Filter {
+            substring: "WORLD".into(),
+            ..Filter::default()
+        };
         let r = v.view(&f);
         assert_eq!(r.len(), 1);
         assert_eq!(r[0].message, "Hello World");
@@ -244,21 +276,33 @@ mod tests {
 
     #[test]
     fn zero_capacity_rejected() {
-        assert!(matches!(LogTailViewer::new(0).unwrap_err(), LogTailError::ZeroCapacity));
+        assert!(matches!(
+            LogTailViewer::new(0).unwrap_err(),
+            LogTailError::ZeroCapacity
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut v = LogTailViewer::new(5).unwrap();
-        assert!(matches!(v.push(LogLevel::Info, 0, "", "m").unwrap_err(), LogTailError::EmptySource));
-        assert!(matches!(v.push(LogLevel::Info, 0, "s", "").unwrap_err(), LogTailError::EmptyMessage));
+        assert!(matches!(
+            v.push(LogLevel::Info, 0, "", "m").unwrap_err(),
+            LogTailError::EmptySource
+        ));
+        assert!(matches!(
+            v.push(LogLevel::Info, 0, "s", "").unwrap_err(),
+            LogTailError::EmptyMessage
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut v = LogTailViewer::new(5).unwrap();
         v.schema_version = "9.9.9".into();
-        assert!(matches!(v.validate().unwrap_err(), LogTailError::SchemaMismatch));
+        assert!(matches!(
+            v.validate().unwrap_err(),
+            LogTailError::SchemaMismatch
+        ));
     }
 
     #[test]

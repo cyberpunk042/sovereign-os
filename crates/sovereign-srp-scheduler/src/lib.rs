@@ -68,11 +68,19 @@ pub struct RolePressure {
 impl RolePressure {
     /// Lowest-pressure (free).
     pub fn free() -> Self {
-        RolePressure { util_percent: 0, vram_percent: 0, queue_depth: 0 }
+        RolePressure {
+            util_percent: 0,
+            vram_percent: 0,
+            queue_depth: 0,
+        }
     }
     /// Overloaded.
     pub fn overloaded() -> Self {
-        RolePressure { util_percent: 95, vram_percent: 95, queue_depth: 100 }
+        RolePressure {
+            util_percent: 95,
+            vram_percent: 95,
+            queue_depth: 100,
+        }
     }
 }
 
@@ -104,8 +112,12 @@ pub enum ScheduleError {
 pub fn canonical_role(class: WorkloadClass) -> SrpRole {
     match class {
         WorkloadClass::IntentEval | WorkloadClass::StateUpdate => SrpRole::Conductor,
-        WorkloadClass::TokenStream | WorkloadClass::Vision | WorkloadClass::Translation => SrpRole::Logic,
-        WorkloadClass::DeepReason | WorkloadClass::LongPlan | WorkloadClass::CommitVerify => SrpRole::Oracle,
+        WorkloadClass::TokenStream | WorkloadClass::Vision | WorkloadClass::Translation => {
+            SrpRole::Logic
+        }
+        WorkloadClass::DeepReason | WorkloadClass::LongPlan | WorkloadClass::CommitVerify => {
+            SrpRole::Oracle
+        }
     }
 }
 
@@ -119,7 +131,9 @@ pub fn schedule(req: &ScheduleRequest) -> Result<SrpRole, ScheduleError> {
     // Fallback ordering by topology: Logic → Oracle → Conductor.
     // (Conductor never directly handles token generation, so it's last resort.)
     for fallback in [SrpRole::Logic, SrpRole::Oracle, SrpRole::Conductor] {
-        if fallback == canonical { continue; }
+        if fallback == canonical {
+            continue;
+        }
         if !is_overloaded(fallback, req) {
             return Ok(fallback);
         }
@@ -132,7 +146,7 @@ fn is_overloaded(role: SrpRole, req: &ScheduleRequest) -> bool {
         SrpRole::Conductor => &req.conductor,
         SrpRole::Logic => &req.logic,
         SrpRole::Oracle => &req.oracle,
-        SrpRole::Cloud => return false,  // never overloaded locally
+        SrpRole::Cloud => return false, // never overloaded locally
     };
     p.util_percent > 90 && p.queue_depth > 50
 }
@@ -160,12 +174,18 @@ mod tests {
 
     #[test]
     fn intent_eval_canonical_conductor() {
-        assert_eq!(canonical_role(WorkloadClass::IntentEval), SrpRole::Conductor);
+        assert_eq!(
+            canonical_role(WorkloadClass::IntentEval),
+            SrpRole::Conductor
+        );
     }
 
     #[test]
     fn state_update_canonical_conductor() {
-        assert_eq!(canonical_role(WorkloadClass::StateUpdate), SrpRole::Conductor);
+        assert_eq!(
+            canonical_role(WorkloadClass::StateUpdate),
+            SrpRole::Conductor
+        );
     }
 
     #[test]
@@ -196,7 +216,9 @@ mod tests {
     #[test]
     fn schedule_free_returns_canonical() {
         for class in [
-            WorkloadClass::IntentEval, WorkloadClass::TokenStream, WorkloadClass::DeepReason,
+            WorkloadClass::IntentEval,
+            WorkloadClass::TokenStream,
+            WorkloadClass::DeepReason,
         ] {
             let r = free_req(class);
             assert_eq!(schedule(&r).unwrap(), canonical_role(class));
@@ -206,7 +228,7 @@ mod tests {
     #[test]
     fn overloaded_canonical_falls_back() {
         let mut r = free_req(WorkloadClass::DeepReason);
-        r.oracle = RolePressure::overloaded();  // canonical role busy
+        r.oracle = RolePressure::overloaded(); // canonical role busy
         // Fallback should be Logic (3090) next in topology order.
         let role = schedule(&r).unwrap();
         assert_eq!(role, SrpRole::Logic);
@@ -220,28 +242,47 @@ mod tests {
             logic: RolePressure::overloaded(),
             oracle: RolePressure::overloaded(),
         };
-        assert!(matches!(schedule(&r).unwrap_err(), ScheduleError::AllOverloaded));
+        assert!(matches!(
+            schedule(&r).unwrap_err(),
+            ScheduleError::AllOverloaded
+        ));
     }
 
     #[test]
     fn high_util_low_queue_not_overloaded() {
         // util_percent > 90 but queue_depth <= 50 → not overloaded
         let mut r = free_req(WorkloadClass::DeepReason);
-        r.oracle = RolePressure { util_percent: 95, vram_percent: 50, queue_depth: 30 };
+        r.oracle = RolePressure {
+            util_percent: 95,
+            vram_percent: 50,
+            queue_depth: 30,
+        };
         assert_eq!(schedule(&r).unwrap(), SrpRole::Oracle);
     }
 
     #[test]
     fn doctrine_verbatim() {
         assert_doctrine_intact(DOCTRINE_SRP_TO_HARDWARE).unwrap();
-        assert!(matches!(assert_doctrine_intact("WRONG").unwrap_err(), ScheduleError::DoctrineTampered));
+        assert!(matches!(
+            assert_doctrine_intact("WRONG").unwrap_err(),
+            ScheduleError::DoctrineTampered
+        ));
     }
 
     #[test]
     fn workload_class_serde_kebab() {
-        assert_eq!(serde_json::to_string(&WorkloadClass::StateUpdate).unwrap(), "\"state-update\"");
-        assert_eq!(serde_json::to_string(&WorkloadClass::TokenStream).unwrap(), "\"token-stream\"");
-        assert_eq!(serde_json::to_string(&WorkloadClass::CommitVerify).unwrap(), "\"commit-verify\"");
+        assert_eq!(
+            serde_json::to_string(&WorkloadClass::StateUpdate).unwrap(),
+            "\"state-update\""
+        );
+        assert_eq!(
+            serde_json::to_string(&WorkloadClass::TokenStream).unwrap(),
+            "\"token-stream\""
+        );
+        assert_eq!(
+            serde_json::to_string(&WorkloadClass::CommitVerify).unwrap(),
+            "\"commit-verify\""
+        );
     }
 
     #[test]

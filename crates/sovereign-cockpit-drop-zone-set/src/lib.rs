@@ -91,33 +91,61 @@ impl DropZoneSet {
     }
 
     /// Register a zone.
-    pub fn register(&mut self, id: &str, accept_types: &[&str], max_items: Option<u32>) -> Result<(), DropZoneError> {
-        if id.is_empty() { return Err(DropZoneError::EmptyId); }
+    pub fn register(
+        &mut self,
+        id: &str,
+        accept_types: &[&str],
+        max_items: Option<u32>,
+    ) -> Result<(), DropZoneError> {
+        if id.is_empty() {
+            return Err(DropZoneError::EmptyId);
+        }
         let mut set = BTreeSet::new();
         for t in accept_types {
-            if t.is_empty() { return Err(DropZoneError::EmptyType); }
+            if t.is_empty() {
+                return Err(DropZoneError::EmptyType);
+            }
             set.insert((*t).into());
         }
-        self.zones.insert(id.into(), Zone { accept_types: set, max_items, count: 0 });
+        self.zones.insert(
+            id.into(),
+            Zone {
+                accept_types: set,
+                max_items,
+                count: 0,
+            },
+        );
         Ok(())
     }
 
     /// Add an accept-type to an existing zone.
     pub fn add_type(&mut self, zone: &str, item_type: &str) -> Result<bool, DropZoneError> {
-        if item_type.is_empty() { return Err(DropZoneError::EmptyType); }
-        let z = self.zones.get_mut(zone).ok_or_else(|| DropZoneError::UnknownZone(zone.into()))?;
+        if item_type.is_empty() {
+            return Err(DropZoneError::EmptyType);
+        }
+        let z = self
+            .zones
+            .get_mut(zone)
+            .ok_or_else(|| DropZoneError::UnknownZone(zone.into()))?;
         Ok(z.accept_types.insert(item_type.into()))
     }
 
     /// Pure decision.
     pub fn decide(&self, zone: &str, item_type: &str) -> DropVerdict {
-        let Some(z) = self.zones.get(zone) else { return DropVerdict::Unknown; };
+        let Some(z) = self.zones.get(zone) else {
+            return DropVerdict::Unknown;
+        };
         if !z.accept_types.contains(item_type) {
-            return DropVerdict::RejectType { accepted: z.accept_types.iter().cloned().collect() };
+            return DropVerdict::RejectType {
+                accepted: z.accept_types.iter().cloned().collect(),
+            };
         }
         if let Some(m) = z.max_items {
             if z.count >= m {
-                return DropVerdict::RejectFull { count: z.count, max: m };
+                return DropVerdict::RejectFull {
+                    count: z.count,
+                    max: m,
+                };
             }
         }
         DropVerdict::Accept
@@ -136,18 +164,27 @@ impl DropZoneSet {
 
     /// Decrement (when an item is removed from the zone).
     pub fn release(&mut self, zone: &str) -> Result<u32, DropZoneError> {
-        let z = self.zones.get_mut(zone).ok_or_else(|| DropZoneError::UnknownZone(zone.into()))?;
+        let z = self
+            .zones
+            .get_mut(zone)
+            .ok_or_else(|| DropZoneError::UnknownZone(zone.into()))?;
         z.count = z.count.saturating_sub(1);
         Ok(z.count)
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), DropZoneError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(DropZoneError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(DropZoneError::SchemaMismatch);
+        }
         for (id, z) in &self.zones {
-            if id.is_empty() { return Err(DropZoneError::EmptyId); }
+            if id.is_empty() {
+                return Err(DropZoneError::EmptyId);
+            }
             for t in &z.accept_types {
-                if t.is_empty() { return Err(DropZoneError::EmptyType); }
+                if t.is_empty() {
+                    return Err(DropZoneError::EmptyType);
+                }
             }
         }
         Ok(())
@@ -155,7 +192,9 @@ impl DropZoneSet {
 }
 
 impl Default for DropZoneSet {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -231,21 +270,33 @@ mod tests {
     #[test]
     fn release_unknown_rejected() {
         let mut s = DropZoneSet::new();
-        assert!(matches!(s.release("nope").unwrap_err(), DropZoneError::UnknownZone(_)));
+        assert!(matches!(
+            s.release("nope").unwrap_err(),
+            DropZoneError::UnknownZone(_)
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut s = DropZoneSet::new();
-        assert!(matches!(s.register("", &["x"], None).unwrap_err(), DropZoneError::EmptyId));
-        assert!(matches!(s.register("z", &[""], None).unwrap_err(), DropZoneError::EmptyType));
+        assert!(matches!(
+            s.register("", &["x"], None).unwrap_err(),
+            DropZoneError::EmptyId
+        ));
+        assert!(matches!(
+            s.register("z", &[""], None).unwrap_err(),
+            DropZoneError::EmptyType
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = DropZoneSet::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), DropZoneError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            DropZoneError::SchemaMismatch
+        ));
     }
 
     #[test]

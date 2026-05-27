@@ -12,8 +12,8 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-use sovereign_dashboard_coverage::CoverageManifest;
 use serde::{Deserialize, Serialize};
+use sovereign_dashboard_coverage::CoverageManifest;
 use thiserror::Error;
 
 /// Schema version.
@@ -151,24 +151,34 @@ impl DashboardLayout {
         for (idx, w) in self.widgets.iter().enumerate() {
             if w.w == 0 || w.h == 0 {
                 return Err(LayoutError::ZeroDim {
-                    slot: self.slot.clone(), idx, w: w.w, h: w.h,
+                    slot: self.slot.clone(),
+                    idx,
+                    w: w.w,
+                    h: w.h,
                 });
             }
             let x_plus_w = w.x.saturating_add(w.w);
             if x_plus_w > GRID_COLS {
                 return Err(LayoutError::OutOfBounds {
-                    slot: self.slot.clone(), idx, x_plus_w,
+                    slot: self.slot.clone(),
+                    idx,
+                    x_plus_w,
                 });
             }
             if w.binding.is_empty() {
-                return Err(LayoutError::EmptyBinding { slot: self.slot.clone(), idx });
+                return Err(LayoutError::EmptyBinding {
+                    slot: self.slot.clone(),
+                    idx,
+                });
             }
         }
         for i in 0..self.widgets.len() {
             for j in (i + 1)..self.widgets.len() {
                 if overlaps(&self.widgets[i], &self.widgets[j]) {
                     return Err(LayoutError::Overlap {
-                        slot: self.slot.clone(), a: i, b: j,
+                        slot: self.slot.clone(),
+                        a: i,
+                        b: j,
                     });
                 }
             }
@@ -192,7 +202,11 @@ impl LayoutManifest {
     }
 
     /// Add a dashboard layout.
-    pub fn add(&mut self, layout: DashboardLayout, coverage: &CoverageManifest) -> Result<(), LayoutError> {
+    pub fn add(
+        &mut self,
+        layout: DashboardLayout,
+        coverage: &CoverageManifest,
+    ) -> Result<(), LayoutError> {
         if !coverage.entries.iter().any(|e| e.slot == layout.slot) {
             return Err(LayoutError::UnknownSlot(layout.slot));
         }
@@ -225,7 +239,9 @@ impl LayoutManifest {
 }
 
 impl Default for LayoutManifest {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -233,10 +249,19 @@ mod tests {
     use super::*;
 
     fn widget(x: u8, y: u8, w: u8, h: u8, kind: WidgetKind) -> Widget {
-        Widget { x, y, w, h, kind, binding: "binding".into() }
+        Widget {
+            x,
+            y,
+            w,
+            h,
+            kind,
+            binding: "binding".into(),
+        }
     }
 
-    fn cov() -> CoverageManifest { CoverageManifest::canonical() }
+    fn cov() -> CoverageManifest {
+        CoverageManifest::canonical()
+    }
 
     fn dash_slot() -> String {
         // pick first known slot from coverage
@@ -265,7 +290,10 @@ mod tests {
             slot: dash_slot(),
             widgets: vec![widget(0, 0, 0, 4, WidgetKind::Text)],
         };
-        assert!(matches!(l.validate().unwrap_err(), LayoutError::ZeroDim { .. }));
+        assert!(matches!(
+            l.validate().unwrap_err(),
+            LayoutError::ZeroDim { .. }
+        ));
     }
 
     #[test]
@@ -274,7 +302,10 @@ mod tests {
             slot: dash_slot(),
             widgets: vec![widget(8, 0, 6, 4, WidgetKind::Table)], // 8+6=14 > 12
         };
-        assert!(matches!(l.validate().unwrap_err(), LayoutError::OutOfBounds { x_plus_w: 14, .. }));
+        assert!(matches!(
+            l.validate().unwrap_err(),
+            LayoutError::OutOfBounds { x_plus_w: 14, .. }
+        ));
     }
 
     #[test]
@@ -314,15 +345,33 @@ mod tests {
             slot: "D-99".into(),
             widgets: vec![widget(0, 0, 4, 4, WidgetKind::KpiTile)],
         };
-        assert!(matches!(m.add(l, &cov()).unwrap_err(), LayoutError::UnknownSlot(_)));
+        assert!(matches!(
+            m.add(l, &cov()).unwrap_err(),
+            LayoutError::UnknownSlot(_)
+        ));
     }
 
     #[test]
     fn duplicate_slot_rejected() {
         let mut m = LayoutManifest::new();
         let slot = dash_slot();
-        m.add(DashboardLayout { slot: slot.clone(), widgets: vec![widget(0, 0, 4, 4, WidgetKind::KpiTile)] }, &cov()).unwrap();
-        let err = m.add(DashboardLayout { slot, widgets: vec![widget(0, 0, 4, 4, WidgetKind::KpiTile)] }, &cov()).unwrap_err();
+        m.add(
+            DashboardLayout {
+                slot: slot.clone(),
+                widgets: vec![widget(0, 0, 4, 4, WidgetKind::KpiTile)],
+            },
+            &cov(),
+        )
+        .unwrap();
+        let err = m
+            .add(
+                DashboardLayout {
+                    slot,
+                    widgets: vec![widget(0, 0, 4, 4, WidgetKind::KpiTile)],
+                },
+                &cov(),
+            )
+            .unwrap_err();
         assert!(matches!(err, LayoutError::DuplicateSlot(_)));
     }
 
@@ -330,8 +379,14 @@ mod tests {
     fn empty_binding_rejected() {
         let mut bad = widget(0, 0, 4, 4, WidgetKind::KpiTile);
         bad.binding = String::new();
-        let l = DashboardLayout { slot: dash_slot(), widgets: vec![bad] };
-        assert!(matches!(l.validate().unwrap_err(), LayoutError::EmptyBinding { .. }));
+        let l = DashboardLayout {
+            slot: dash_slot(),
+            widgets: vec![bad],
+        };
+        assert!(matches!(
+            l.validate().unwrap_err(),
+            LayoutError::EmptyBinding { .. }
+        ));
     }
 
     #[test]
@@ -340,7 +395,7 @@ mod tests {
             slot: dash_slot(),
             widgets: vec![
                 widget(0, 0, 6, 4, WidgetKind::LineChart), // 24
-                widget(6, 0, 6, 4, WidgetKind::Heatmap),  // 24
+                widget(6, 0, 6, 4, WidgetKind::Heatmap),   // 24
             ],
         };
         assert_eq!(l.cells_used(), 48);
@@ -350,23 +405,39 @@ mod tests {
     fn schema_drift_rejected() {
         let mut m = LayoutManifest::new();
         m.schema_version = "9.9.9".into();
-        assert!(matches!(m.validate(&cov()).unwrap_err(), LayoutError::SchemaMismatch));
+        assert!(matches!(
+            m.validate(&cov()).unwrap_err(),
+            LayoutError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn kind_serde_kebab() {
-        assert_eq!(serde_json::to_string(&WidgetKind::LineChart).unwrap(), "\"line-chart\"");
-        assert_eq!(serde_json::to_string(&WidgetKind::LogFeed).unwrap(), "\"log-feed\"");
-        assert_eq!(serde_json::to_string(&WidgetKind::ActionRow).unwrap(), "\"action-row\"");
+        assert_eq!(
+            serde_json::to_string(&WidgetKind::LineChart).unwrap(),
+            "\"line-chart\""
+        );
+        assert_eq!(
+            serde_json::to_string(&WidgetKind::LogFeed).unwrap(),
+            "\"log-feed\""
+        );
+        assert_eq!(
+            serde_json::to_string(&WidgetKind::ActionRow).unwrap(),
+            "\"action-row\""
+        );
     }
 
     #[test]
     fn manifest_serde_roundtrip() {
         let mut m = LayoutManifest::new();
-        m.add(DashboardLayout {
-            slot: dash_slot(),
-            widgets: vec![widget(0, 0, 6, 4, WidgetKind::LineChart)],
-        }, &cov()).unwrap();
+        m.add(
+            DashboardLayout {
+                slot: dash_slot(),
+                widgets: vec![widget(0, 0, 6, 4, WidgetKind::LineChart)],
+            },
+            &cov(),
+        )
+        .unwrap();
         let j = serde_json::to_string(&m).unwrap();
         let back: LayoutManifest = serde_json::from_str(&j).unwrap();
         assert_eq!(m, back);

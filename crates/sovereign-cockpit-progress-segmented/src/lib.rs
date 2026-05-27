@@ -79,11 +79,17 @@ impl ProgressSegmented {
 
     /// Register a segment at the end.
     pub fn push(&mut self, id: &str, label: &str) -> Result<(), SegError> {
-        if id.is_empty() { return Err(SegError::EmptyId); }
+        if id.is_empty() {
+            return Err(SegError::EmptyId);
+        }
         if self.segments.iter().any(|s| s.id == id) {
             return Err(SegError::DuplicateId(id.into()));
         }
-        self.segments.push(Segment { id: id.into(), label: label.into(), state: State::Pending });
+        self.segments.push(Segment {
+            id: id.into(),
+            label: label.into(),
+            state: State::Pending,
+        });
         Ok(())
     }
 
@@ -93,10 +99,14 @@ impl ProgressSegmented {
 
     /// Advance to segment, marking earlier as Completed.
     pub fn advance_to(&mut self, id: &str) -> Result<(), SegError> {
-        let idx = self.index_of(id).ok_or_else(|| SegError::UnknownId(id.into()))?;
+        let idx = self
+            .index_of(id)
+            .ok_or_else(|| SegError::UnknownId(id.into()))?;
         for (i, s) in self.segments.iter_mut().enumerate() {
             if i < idx {
-                if s.state != State::Failed { s.state = State::Completed; }
+                if s.state != State::Failed {
+                    s.state = State::Completed;
+                }
             } else if i == idx {
                 s.state = State::Active;
             }
@@ -106,50 +116,72 @@ impl ProgressSegmented {
 
     /// Complete a segment without changing later ones.
     pub fn complete(&mut self, id: &str) -> Result<(), SegError> {
-        let idx = self.index_of(id).ok_or_else(|| SegError::UnknownId(id.into()))?;
+        let idx = self
+            .index_of(id)
+            .ok_or_else(|| SegError::UnknownId(id.into()))?;
         self.segments[idx].state = State::Completed;
         Ok(())
     }
 
     /// Fail a segment.
     pub fn fail(&mut self, id: &str) -> Result<(), SegError> {
-        let idx = self.index_of(id).ok_or_else(|| SegError::UnknownId(id.into()))?;
+        let idx = self
+            .index_of(id)
+            .ok_or_else(|| SegError::UnknownId(id.into()))?;
         self.segments[idx].state = State::Failed;
         Ok(())
     }
 
     /// Rewind to segment, resetting it + later ones to Pending.
     pub fn rewind(&mut self, id: &str) -> Result<(), SegError> {
-        let idx = self.index_of(id).ok_or_else(|| SegError::UnknownId(id.into()))?;
+        let idx = self
+            .index_of(id)
+            .ok_or_else(|| SegError::UnknownId(id.into()))?;
         for (i, s) in self.segments.iter_mut().enumerate() {
-            if i >= idx { s.state = State::Pending; }
+            if i >= idx {
+                s.state = State::Pending;
+            }
         }
         Ok(())
     }
 
     /// Percent complete = completed / total * 100.
     pub fn percent_complete(&self) -> u8 {
-        if self.segments.is_empty() { return 0; }
+        if self.segments.is_empty() {
+            return 0;
+        }
         let n = self.segments.len() as u32;
-        let done = self.segments.iter().filter(|s| s.state == State::Completed).count() as u32;
+        let done = self
+            .segments
+            .iter()
+            .filter(|s| s.state == State::Completed)
+            .count() as u32;
         ((done * 100) / n) as u8
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), SegError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(SegError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(SegError::SchemaMismatch);
+        }
         use std::collections::HashSet;
         let mut seen: HashSet<&str> = HashSet::new();
         for s in &self.segments {
-            if s.id.is_empty() { return Err(SegError::EmptyId); }
-            if !seen.insert(s.id.as_str()) { return Err(SegError::DuplicateId(s.id.clone())); }
+            if s.id.is_empty() {
+                return Err(SegError::EmptyId);
+            }
+            if !seen.insert(s.id.as_str()) {
+                return Err(SegError::DuplicateId(s.id.clone()));
+            }
         }
         Ok(())
     }
 }
 
 impl Default for ProgressSegmented {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -168,7 +200,10 @@ mod tests {
     fn push_dedups() {
         let mut p = ProgressSegmented::new();
         p.push("a", "A").unwrap();
-        assert!(matches!(p.push("a", "A").unwrap_err(), SegError::DuplicateId(_)));
+        assert!(matches!(
+            p.push("a", "A").unwrap_err(),
+            SegError::DuplicateId(_)
+        ));
     }
 
     #[test]
@@ -228,7 +263,10 @@ mod tests {
     #[test]
     fn unknown_id_rejected() {
         let mut p = three_step();
-        assert!(matches!(p.advance_to("nope").unwrap_err(), SegError::UnknownId(_)));
+        assert!(matches!(
+            p.advance_to("nope").unwrap_err(),
+            SegError::UnknownId(_)
+        ));
     }
 
     #[test]
@@ -241,7 +279,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut p = three_step();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), SegError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            SegError::SchemaMismatch
+        ));
     }
 
     #[test]

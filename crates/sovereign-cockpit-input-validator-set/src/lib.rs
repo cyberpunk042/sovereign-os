@@ -107,17 +107,29 @@ impl InputValidatorSet {
 
     /// Register field (replaces).
     pub fn register(&mut self, field_id: &str, rules: Vec<Rule>) -> Result<(), ValidatorError> {
-        if field_id.is_empty() { return Err(ValidatorError::EmptyId); }
+        if field_id.is_empty() {
+            return Err(ValidatorError::EmptyId);
+        }
         self.fields.insert(field_id.into(), Field { rules });
         Ok(())
     }
 
     /// Validate.
-    pub fn validate_value(&self, field_id: &str, value: &str) -> Result<Result<(), Failure>, ValidatorError> {
-        let f = self.fields.get(field_id).ok_or_else(|| ValidatorError::UnknownField(field_id.into()))?;
+    pub fn validate_value(
+        &self,
+        field_id: &str,
+        value: &str,
+    ) -> Result<Result<(), Failure>, ValidatorError> {
+        let f = self
+            .fields
+            .get(field_id)
+            .ok_or_else(|| ValidatorError::UnknownField(field_id.into()))?;
         for (i, r) in f.rules.iter().enumerate() {
             if let Err(msg) = check_rule(r, value) {
-                return Ok(Err(Failure { rule_index: i as u32, message: msg }));
+                return Ok(Err(Failure {
+                    rule_index: i as u32,
+                    message: msg,
+                }));
             }
         }
         Ok(Ok(()))
@@ -125,9 +137,13 @@ impl InputValidatorSet {
 
     /// Validate (state object).
     pub fn validate(&self) -> Result<(), ValidatorError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ValidatorError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ValidatorError::SchemaMismatch);
+        }
         for k in self.fields.keys() {
-            if k.is_empty() { return Err(ValidatorError::EmptyId); }
+            if k.is_empty() {
+                return Err(ValidatorError::EmptyId);
+            }
         }
         Ok(())
     }
@@ -136,7 +152,9 @@ impl InputValidatorSet {
 fn check_rule(r: &Rule, value: &str) -> Result<(), String> {
     match r {
         Rule::Required => {
-            if value.is_empty() { return Err("required".into()); }
+            if value.is_empty() {
+                return Err("required".into());
+            }
         }
         Rule::MinLength { n } => {
             if (value.chars().count() as u32) < *n {
@@ -173,7 +191,9 @@ fn check_rule(r: &Rule, value: &str) -> Result<(), String> {
 }
 
 impl Default for InputValidatorSet {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -191,7 +211,11 @@ mod tests {
     #[test]
     fn min_max_length() {
         let mut s = InputValidatorSet::new();
-        s.register("title", vec![Rule::MinLength { n: 3 }, Rule::MaxLength { n: 5 }]).unwrap();
+        s.register(
+            "title",
+            vec![Rule::MinLength { n: 3 }, Rule::MaxLength { n: 5 }],
+        )
+        .unwrap();
         assert!(s.validate_value("title", "ab").unwrap().is_err());
         assert!(s.validate_value("title", "abc").unwrap().is_ok());
         assert!(s.validate_value("title", "abcdef").unwrap().is_err());
@@ -200,15 +224,31 @@ mod tests {
     #[test]
     fn starts_with() {
         let mut s = InputValidatorSet::new();
-        s.register("url", vec![Rule::StartsWith { prefix: "https://".into() }]).unwrap();
-        assert!(s.validate_value("url", "https://example.com").unwrap().is_ok());
+        s.register(
+            "url",
+            vec![Rule::StartsWith {
+                prefix: "https://".into(),
+            }],
+        )
+        .unwrap();
+        assert!(
+            s.validate_value("url", "https://example.com")
+                .unwrap()
+                .is_ok()
+        );
         assert!(s.validate_value("url", "http://x").unwrap().is_err());
     }
 
     #[test]
     fn ends_with() {
         let mut s = InputValidatorSet::new();
-        s.register("file", vec![Rule::EndsWith { suffix: ".txt".into() }]).unwrap();
+        s.register(
+            "file",
+            vec![Rule::EndsWith {
+                suffix: ".txt".into(),
+            }],
+        )
+        .unwrap();
         assert!(s.validate_value("file", "a.txt").unwrap().is_ok());
         assert!(s.validate_value("file", "a.png").unwrap().is_err());
     }
@@ -216,7 +256,8 @@ mod tests {
     #[test]
     fn contains_rule() {
         let mut s = InputValidatorSet::new();
-        s.register("e", vec![Rule::Contains { needle: "@".into() }]).unwrap();
+        s.register("e", vec![Rule::Contains { needle: "@".into() }])
+            .unwrap();
         assert!(s.validate_value("e", "a@b").unwrap().is_ok());
         assert!(s.validate_value("e", "no").unwrap().is_err());
     }
@@ -232,7 +273,8 @@ mod tests {
     #[test]
     fn first_failing_rule_wins() {
         let mut s = InputValidatorSet::new();
-        s.register("f", vec![Rule::Required, Rule::MinLength { n: 5 }]).unwrap();
+        s.register("f", vec![Rule::Required, Rule::MinLength { n: 5 }])
+            .unwrap();
         // Empty string fails Required (idx 0), not MinLength.
         match s.validate_value("f", "").unwrap() {
             Err(Failure { rule_index, .. }) => assert_eq!(rule_index, 0),
@@ -244,33 +286,47 @@ mod tests {
     fn unicode_length() {
         let mut s = InputValidatorSet::new();
         // 3-char "héy" — count by Unicode chars (3), not bytes (4).
-        s.register("u", vec![Rule::MinLength { n: 3 }, Rule::MaxLength { n: 3 }]).unwrap();
+        s.register(
+            "u",
+            vec![Rule::MinLength { n: 3 }, Rule::MaxLength { n: 3 }],
+        )
+        .unwrap();
         assert!(s.validate_value("u", "héy").unwrap().is_ok());
     }
 
     #[test]
     fn unknown_field_rejected() {
         let s = InputValidatorSet::new();
-        assert!(matches!(s.validate_value("nope", "x").unwrap_err(), ValidatorError::UnknownField(_)));
+        assert!(matches!(
+            s.validate_value("nope", "x").unwrap_err(),
+            ValidatorError::UnknownField(_)
+        ));
     }
 
     #[test]
     fn empty_id_rejected() {
         let mut s = InputValidatorSet::new();
-        assert!(matches!(s.register("", vec![]).unwrap_err(), ValidatorError::EmptyId));
+        assert!(matches!(
+            s.register("", vec![]).unwrap_err(),
+            ValidatorError::EmptyId
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = InputValidatorSet::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), ValidatorError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            ValidatorError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn validator_serde_roundtrip() {
         let mut s = InputValidatorSet::new();
-        s.register("x", vec![Rule::Required, Rule::MaxLength { n: 10 }]).unwrap();
+        s.register("x", vec![Rule::Required, Rule::MaxLength { n: 10 }])
+            .unwrap();
         let j = serde_json::to_string(&s).unwrap();
         let back: InputValidatorSet = serde_json::from_str(&j).unwrap();
         assert_eq!(s, back);

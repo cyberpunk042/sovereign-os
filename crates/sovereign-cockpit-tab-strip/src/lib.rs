@@ -97,8 +97,12 @@ impl TabStrip {
 
     /// Open a new tab and activate it.
     pub fn open(&mut self, tab: Tab) -> Result<(), TabError> {
-        if tab.id.is_empty() { return Err(TabError::EmptyId); }
-        if tab.label.is_empty() { return Err(TabError::EmptyLabel(tab.id)); }
+        if tab.id.is_empty() {
+            return Err(TabError::EmptyId);
+        }
+        if tab.label.is_empty() {
+            return Err(TabError::EmptyLabel(tab.id));
+        }
         if self.tabs.iter().any(|t| t.id == tab.id) {
             return Err(TabError::DuplicateId(tab.id));
         }
@@ -112,7 +116,10 @@ impl TabStrip {
 
     /// Close a tab by id. Refuses if pinned.
     pub fn close(&mut self, id: &str) -> Result<(), TabError> {
-        let pos = self.tabs.iter().position(|t| t.id == id)
+        let pos = self
+            .tabs
+            .iter()
+            .position(|t| t.id == id)
             .ok_or_else(|| TabError::Unknown(id.into()))?;
         if self.tabs[pos].pinned {
             return Err(TabError::Pinned(id.into()));
@@ -121,7 +128,11 @@ impl TabStrip {
         // Adjust active.
         self.active = match self.active {
             Some(a) if a == pos => {
-                if self.tabs.is_empty() { None } else { Some(a.min(self.tabs.len() - 1)) }
+                if self.tabs.is_empty() {
+                    None
+                } else {
+                    Some(a.min(self.tabs.len() - 1))
+                }
             }
             Some(a) if a > pos => Some(a - 1),
             other => other,
@@ -131,7 +142,10 @@ impl TabStrip {
 
     /// Activate a tab by id.
     pub fn activate(&mut self, id: &str) -> Result<(), TabError> {
-        let pos = self.tabs.iter().position(|t| t.id == id)
+        let pos = self
+            .tabs
+            .iter()
+            .position(|t| t.id == id)
             .ok_or_else(|| TabError::Unknown(id.into()))?;
         self.active = Some(pos);
         Ok(())
@@ -150,8 +164,12 @@ impl TabStrip {
         use std::collections::HashSet;
         let mut seen: HashSet<&str> = HashSet::new();
         for t in &self.tabs {
-            if t.id.is_empty() { return Err(TabError::EmptyId); }
-            if t.label.is_empty() { return Err(TabError::EmptyLabel(t.id.clone())); }
+            if t.id.is_empty() {
+                return Err(TabError::EmptyId);
+            }
+            if t.label.is_empty() {
+                return Err(TabError::EmptyLabel(t.id.clone()));
+            }
             if !seen.insert(t.id.as_str()) {
                 return Err(TabError::DuplicateId(t.id.clone()));
             }
@@ -161,7 +179,9 @@ impl TabStrip {
 }
 
 impl Default for TabStrip {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -169,7 +189,13 @@ mod tests {
     use super::*;
 
     fn tab(id: &str, kind: TabKind, pinned: bool) -> Tab {
-        Tab { id: id.into(), kind, label: id.into(), payload_id: id.into(), pinned }
+        Tab {
+            id: id.into(),
+            kind,
+            label: id.into(),
+            payload_id: id.into(),
+            pinned,
+        }
     }
 
     #[test]
@@ -211,25 +237,33 @@ mod tests {
     fn duplicate_id_rejected() {
         let mut s = TabStrip::new();
         s.open(tab("a", TabKind::Conversation, false)).unwrap();
-        assert!(matches!(s.open(tab("a", TabKind::Dashboard, false)).unwrap_err(),
-            TabError::DuplicateId(_)));
+        assert!(matches!(
+            s.open(tab("a", TabKind::Dashboard, false)).unwrap_err(),
+            TabError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn empty_id_rejected() {
         let mut s = TabStrip::new();
-        assert!(matches!(s.open(tab("", TabKind::Conversation, false)).unwrap_err(),
-            TabError::EmptyId));
+        assert!(matches!(
+            s.open(tab("", TabKind::Conversation, false)).unwrap_err(),
+            TabError::EmptyId
+        ));
     }
 
     #[test]
     fn max_tabs_enforced() {
         let mut s = TabStrip::new();
         for i in 0..MAX_TABS {
-            s.open(tab(&format!("t{i}"), TabKind::Conversation, false)).unwrap();
+            s.open(tab(&format!("t{i}"), TabKind::Conversation, false))
+                .unwrap();
         }
-        assert!(matches!(s.open(tab("overflow", TabKind::Conversation, false)).unwrap_err(),
-            TabError::Full));
+        assert!(matches!(
+            s.open(tab("overflow", TabKind::Conversation, false))
+                .unwrap_err(),
+            TabError::Full
+        ));
     }
 
     #[test]
@@ -256,14 +290,26 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = TabStrip::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), TabError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            TabError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn kind_serde_kebab() {
-        assert_eq!(serde_json::to_string(&TabKind::Conversation).unwrap(), "\"conversation\"");
-        assert_eq!(serde_json::to_string(&TabKind::Replay).unwrap(), "\"replay\"");
-        assert_eq!(serde_json::to_string(&TabKind::Settings).unwrap(), "\"settings\"");
+        assert_eq!(
+            serde_json::to_string(&TabKind::Conversation).unwrap(),
+            "\"conversation\""
+        );
+        assert_eq!(
+            serde_json::to_string(&TabKind::Replay).unwrap(),
+            "\"replay\""
+        );
+        assert_eq!(
+            serde_json::to_string(&TabKind::Settings).unwrap(),
+            "\"settings\""
+        );
     }
 
     #[test]

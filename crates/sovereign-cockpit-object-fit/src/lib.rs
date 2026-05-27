@@ -65,22 +65,34 @@ pub struct ObjectFit {
 impl ObjectFit {
     /// New.
     pub fn new() -> Self {
-        Self { schema_version: SCHEMA_VERSION.into() }
+        Self {
+            schema_version: SCHEMA_VERSION.into(),
+        }
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), FitError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(FitError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(FitError::SchemaMismatch);
+        }
         Ok(())
     }
 }
 
 impl Default for ObjectFit {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// Compute.
-pub fn compute(container_w: u32, container_h: u32, intrinsic_w: u32, intrinsic_h: u32, mode: Mode) -> Result<Rendered, FitError> {
+pub fn compute(
+    container_w: u32,
+    container_h: u32,
+    intrinsic_w: u32,
+    intrinsic_h: u32,
+    mode: Mode,
+) -> Result<Rendered, FitError> {
     if container_w == 0 || container_h == 0 || intrinsic_w == 0 || intrinsic_h == 0 {
         return Err(FitError::BadDim);
     }
@@ -173,14 +185,20 @@ mod tests {
 
     #[test]
     fn bad_dim_rejected() {
-        assert!(matches!(compute(0, 50, 100, 100, Mode::Fill).unwrap_err(), FitError::BadDim));
+        assert!(matches!(
+            compute(0, 50, 100, 100, Mode::Fill).unwrap_err(),
+            FitError::BadDim
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut o = ObjectFit::new();
         o.schema_version = "9.9.9".into();
-        assert!(matches!(o.validate().unwrap_err(), FitError::SchemaMismatch));
+        assert!(matches!(
+            o.validate().unwrap_err(),
+            FitError::SchemaMismatch
+        ));
     }
 
     #[test]

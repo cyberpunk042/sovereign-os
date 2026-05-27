@@ -88,56 +88,86 @@ impl ShortcutRecorder {
     }
 
     /// Arm.
-    pub fn arm(&mut self) { self.armed = true; }
+    pub fn arm(&mut self) {
+        self.armed = true;
+    }
 
     /// Cancel.
-    pub fn cancel(&mut self) { self.armed = false; }
+    pub fn cancel(&mut self) {
+        self.armed = false;
+    }
 
     /// Record.
     pub fn record(&mut self, modifiers: Modifiers, key: &str) -> Result<Captured, RecorderError> {
-        if !self.armed { return Err(RecorderError::NotArmed); }
-        if key.is_empty() { return Err(RecorderError::EmptyKey); }
+        if !self.armed {
+            return Err(RecorderError::NotArmed);
+        }
+        if key.is_empty() {
+            return Err(RecorderError::EmptyKey);
+        }
         if key.eq_ignore_ascii_case("Escape") || key.eq_ignore_ascii_case("Esc") {
             return Err(RecorderError::EscapeReserved);
         }
         // Detect bare-modifier keys (caller sent the modifier name as the key).
         let lower = key.to_ascii_lowercase();
-        if matches!(lower.as_str(), "control" | "ctrl" | "alt" | "shift" | "meta" | "super" | "cmd" | "win") {
+        if matches!(
+            lower.as_str(),
+            "control" | "ctrl" | "alt" | "shift" | "meta" | "super" | "cmd" | "win"
+        ) {
             return Err(RecorderError::BareModifier(key.into()));
         }
-        let cap = Captured { modifiers, key: key.into() };
+        let cap = Captured {
+            modifiers,
+            key: key.into(),
+        };
         self.last = Some(cap.clone());
         self.armed = false;
         Ok(cap)
     }
 
     /// Last captured.
-    pub fn last_captured(&self) -> Option<&Captured> { self.last.as_ref() }
+    pub fn last_captured(&self) -> Option<&Captured> {
+        self.last.as_ref()
+    }
 
     /// Clear last.
-    pub fn clear(&mut self) { self.last = None; }
+    pub fn clear(&mut self) {
+        self.last = None;
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), RecorderError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(RecorderError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(RecorderError::SchemaMismatch);
+        }
         Ok(())
     }
 }
 
 impl Default for ShortcutRecorder {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn ctrl() -> Modifiers { Modifiers { ctrl: true, ..Default::default() } }
+    fn ctrl() -> Modifiers {
+        Modifiers {
+            ctrl: true,
+            ..Default::default()
+        }
+    }
 
     #[test]
     fn not_armed_rejects() {
         let mut r = ShortcutRecorder::new();
-        assert!(matches!(r.record(ctrl(), "P").unwrap_err(), RecorderError::NotArmed));
+        assert!(matches!(
+            r.record(ctrl(), "P").unwrap_err(),
+            RecorderError::NotArmed
+        ));
     }
 
     #[test]
@@ -155,21 +185,30 @@ mod tests {
     fn escape_reserved() {
         let mut r = ShortcutRecorder::new();
         r.arm();
-        assert!(matches!(r.record(Modifiers::default(), "Escape").unwrap_err(), RecorderError::EscapeReserved));
+        assert!(matches!(
+            r.record(Modifiers::default(), "Escape").unwrap_err(),
+            RecorderError::EscapeReserved
+        ));
     }
 
     #[test]
     fn bare_modifier_rejected() {
         let mut r = ShortcutRecorder::new();
         r.arm();
-        assert!(matches!(r.record(ctrl(), "Control").unwrap_err(), RecorderError::BareModifier(_)));
+        assert!(matches!(
+            r.record(ctrl(), "Control").unwrap_err(),
+            RecorderError::BareModifier(_)
+        ));
     }
 
     #[test]
     fn empty_key_rejected() {
         let mut r = ShortcutRecorder::new();
         r.arm();
-        assert!(matches!(r.record(ctrl(), "").unwrap_err(), RecorderError::EmptyKey));
+        assert!(matches!(
+            r.record(ctrl(), "").unwrap_err(),
+            RecorderError::EmptyKey
+        ));
     }
 
     #[test]
@@ -193,7 +232,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut r = ShortcutRecorder::new();
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate().unwrap_err(), RecorderError::SchemaMismatch));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            RecorderError::SchemaMismatch
+        ));
     }
 
     #[test]

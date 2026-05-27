@@ -88,16 +88,28 @@ pub enum LocaleError {
 }
 
 fn locale_tag_ok(tag: &str) -> bool {
-    if tag.is_empty() { return false; }
+    if tag.is_empty() {
+        return false;
+    }
     let parts: Vec<&str> = tag.split('-').collect();
-    if parts.len() < 1 || parts.len() > 3 { return false; }
+    if parts.len() < 1 || parts.len() > 3 {
+        return false;
+    }
     // First segment: lowercase ASCII letters.
-    if !parts[0].chars().all(|c| c.is_ascii_lowercase()) { return false; }
-    if parts[0].len() < 2 || parts[0].len() > 3 { return false; }
+    if !parts[0].chars().all(|c| c.is_ascii_lowercase()) {
+        return false;
+    }
+    if parts[0].len() < 2 || parts[0].len() > 3 {
+        return false;
+    }
     // Remaining segments: uppercase ASCII letters/digits.
     for p in &parts[1..] {
-        if p.is_empty() { return false; }
-        if !p.chars().all(|c| c.is_ascii_alphanumeric()) { return false; }
+        if p.is_empty() {
+            return false;
+        }
+        if !p.chars().all(|c| c.is_ascii_alphanumeric()) {
+            return false;
+        }
     }
     true
 }
@@ -153,41 +165,65 @@ mod tests {
     fn locale_tag_empty_rejected() {
         let mut s = LocaleState::default_state();
         s.locale_tag = String::new();
-        assert!(matches!(s.validate().unwrap_err(), LocaleError::BadLocaleTag(_)));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            LocaleError::BadLocaleTag(_)
+        ));
     }
 
     #[test]
     fn locale_tag_too_long_rejected() {
         let mut s = LocaleState::default_state();
         s.locale_tag = "abcdef".into();
-        assert!(matches!(s.validate().unwrap_err(), LocaleError::BadLocaleTag(_)));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            LocaleError::BadLocaleTag(_)
+        ));
     }
 
     #[test]
     fn locale_tag_uppercase_lang_rejected() {
         let mut s = LocaleState::default_state();
         s.locale_tag = "EN-US".into();
-        assert!(matches!(s.validate().unwrap_err(), LocaleError::BadLocaleTag(_)));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            LocaleError::BadLocaleTag(_)
+        ));
     }
 
     #[test]
     fn date_format_serde_kebab() {
-        assert_eq!(serde_json::to_string(&DateFormat::Iso8601).unwrap(), "\"iso8601\"");
+        assert_eq!(
+            serde_json::to_string(&DateFormat::Iso8601).unwrap(),
+            "\"iso8601\""
+        );
         assert_eq!(serde_json::to_string(&DateFormat::Us).unwrap(), "\"us\"");
-        assert_eq!(serde_json::to_string(&DateFormat::Dotted).unwrap(), "\"dotted\"");
+        assert_eq!(
+            serde_json::to_string(&DateFormat::Dotted).unwrap(),
+            "\"dotted\""
+        );
     }
 
     #[test]
     fn first_day_serde_kebab() {
-        assert_eq!(serde_json::to_string(&FirstDayOfWeek::Monday).unwrap(), "\"monday\"");
-        assert_eq!(serde_json::to_string(&FirstDayOfWeek::Sunday).unwrap(), "\"sunday\"");
+        assert_eq!(
+            serde_json::to_string(&FirstDayOfWeek::Monday).unwrap(),
+            "\"monday\""
+        );
+        assert_eq!(
+            serde_json::to_string(&FirstDayOfWeek::Sunday).unwrap(),
+            "\"sunday\""
+        );
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = LocaleState::default_state();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), LocaleError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            LocaleError::SchemaMismatch
+        ));
     }
 
     #[test]

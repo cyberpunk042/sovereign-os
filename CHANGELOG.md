@@ -12,6 +12,17 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Fixed — repo-wide `cargo fmt` unblocks the rust CI job (2026-05-27)
+
+`cargo fmt --all --check` (the rust job's first step in `test.yml`) was RED across
+the crate set (469 source files) — crates written/generated with non-canonical
+formatting that rustfmt reflows. Since `cargo fmt --check` is the first step of
+the rust job, its failure blocked clippy/test/build from even running. Ran
+`cargo fmt --all` (toolchain 1.88.0's rustfmt — identical to CI; no `rustfmt.toml`,
+defaults match), making `--check` exit 0. Purely formatting (rustfmt preserves all
+tokens/semantics; verified idempotent via the `--check` round-trip), as one
+standalone style commit. Parallels the same-day selfdef fmt fix.
+
 ### Fixed — main CI green: 8 pre-existing lint failures resolved (2026-05-27)
 
 `pytest tests/lint` had 8 failures on main (they predate this session). Root-caused

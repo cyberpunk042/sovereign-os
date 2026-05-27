@@ -70,10 +70,10 @@ pub fn scan(text: &str) -> Vec<Span> {
     let n = chars.len();
     while i < n {
         // Try URL.
-        if chars[i] == 'h' && (
-            chars[i..].iter().take(7).collect::<String>() == "http://" ||
-            chars[i..].iter().take(8).collect::<String>() == "https://"
-        ) {
+        if chars[i] == 'h'
+            && (chars[i..].iter().take(7).collect::<String>() == "http://"
+                || chars[i..].iter().take(8).collect::<String>() == "https://")
+        {
             if !text_buf.is_empty() {
                 spans.push(Span::Text(std::mem::take(&mut text_buf)));
             }
@@ -88,7 +88,9 @@ pub fn scan(text: &str) -> Vec<Span> {
         // Try @mention.
         if chars[i] == '@' && i + 1 < n && is_word_char(chars[i + 1]) {
             let mut j = i + 1;
-            while j < n && is_word_char(chars[j]) { j += 1; }
+            while j < n && is_word_char(chars[j]) {
+                j += 1;
+            }
             if !text_buf.is_empty() {
                 spans.push(Span::Text(std::mem::take(&mut text_buf)));
             }
@@ -99,7 +101,9 @@ pub fn scan(text: &str) -> Vec<Span> {
         // Try #hashtag.
         if chars[i] == '#' && i + 1 < n && is_word_char(chars[i + 1]) {
             let mut j = i + 1;
-            while j < n && is_word_char(chars[j]) { j += 1; }
+            while j < n && is_word_char(chars[j]) {
+                j += 1;
+            }
             if !text_buf.is_empty() {
                 spans.push(Span::Text(std::mem::take(&mut text_buf)));
             }
@@ -137,13 +141,17 @@ impl Linkify {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), LinkifyError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(LinkifyError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(LinkifyError::SchemaMismatch);
+        }
         Ok(())
     }
 }
 
 impl Default for Linkify {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -159,30 +167,36 @@ mod tests {
     #[test]
     fn detects_url() {
         let s = scan("see https://example.com/foo for info");
-        assert_eq!(s, vec![
-            Span::Text("see ".into()),
-            Span::Url("https://example.com/foo".into()),
-            Span::Text(" for info".into()),
-        ]);
+        assert_eq!(
+            s,
+            vec![
+                Span::Text("see ".into()),
+                Span::Url("https://example.com/foo".into()),
+                Span::Text(" for info".into()),
+            ]
+        );
     }
 
     #[test]
     fn detects_mention() {
         let s = scan("hi @alice!");
-        assert_eq!(s, vec![
-            Span::Text("hi ".into()),
-            Span::Mention("alice".into()),
-            Span::Text("!".into()),
-        ]);
+        assert_eq!(
+            s,
+            vec![
+                Span::Text("hi ".into()),
+                Span::Mention("alice".into()),
+                Span::Text("!".into()),
+            ]
+        );
     }
 
     #[test]
     fn detects_hashtag() {
         let s = scan("#rust is great");
-        assert_eq!(s, vec![
-            Span::Hashtag("rust".into()),
-            Span::Text(" is great".into()),
-        ]);
+        assert_eq!(
+            s,
+            vec![Span::Hashtag("rust".into()), Span::Text(" is great".into()),]
+        );
     }
 
     #[test]
@@ -200,18 +214,24 @@ mod tests {
     #[test]
     fn url_break_on_paren() {
         let s = scan("see (https://x.test) here");
-        assert_eq!(s, vec![
-            Span::Text("see (".into()),
-            Span::Url("https://x.test".into()),
-            Span::Text(") here".into()),
-        ]);
+        assert_eq!(
+            s,
+            vec![
+                Span::Text("see (".into()),
+                Span::Url("https://x.test".into()),
+                Span::Text(") here".into()),
+            ]
+        );
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut l = Linkify::new();
         l.schema_version = "9.9.9".into();
-        assert!(matches!(l.validate().unwrap_err(), LinkifyError::SchemaMismatch));
+        assert!(matches!(
+            l.validate().unwrap_err(),
+            LinkifyError::SchemaMismatch
+        ));
     }
 
     #[test]

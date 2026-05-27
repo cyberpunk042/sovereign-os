@@ -59,20 +59,37 @@ impl Celebration {
     }
 
     /// Fire.
-    pub fn fire(&mut self, scope_id: &str, milestone_id: &str, ts_ms: u64) -> Result<bool, CelebrationError> {
-        if scope_id.is_empty() { return Err(CelebrationError::EmptyScope); }
-        if milestone_id.is_empty() { return Err(CelebrationError::EmptyMilestone); }
+    pub fn fire(
+        &mut self,
+        scope_id: &str,
+        milestone_id: &str,
+        ts_ms: u64,
+    ) -> Result<bool, CelebrationError> {
+        if scope_id.is_empty() {
+            return Err(CelebrationError::EmptyScope);
+        }
+        if milestone_id.is_empty() {
+            return Err(CelebrationError::EmptyMilestone);
+        }
         let by_milestone = self.by_scope.entry(scope_id.into()).or_default();
         if by_milestone.contains_key(milestone_id) {
             return Ok(false);
         }
-        by_milestone.insert(milestone_id.into(), Pending { fired_at_ms: ts_ms, shown: false });
+        by_milestone.insert(
+            milestone_id.into(),
+            Pending {
+                fired_at_ms: ts_ms,
+                shown: false,
+            },
+        );
         Ok(true)
     }
 
     /// Should show?
     pub fn should_show(&self, scope_id: &str, milestone_id: &str) -> Option<u64> {
-        self.by_scope.get(scope_id)?.get(milestone_id)
+        self.by_scope
+            .get(scope_id)?
+            .get(milestone_id)
             .filter(|p| !p.shown)
             .map(|p| p.fired_at_ms)
     }
@@ -89,15 +106,23 @@ impl Celebration {
     }
 
     /// Reset (for testing / new session).
-    pub fn reset(&mut self) { self.by_scope.clear(); }
+    pub fn reset(&mut self) {
+        self.by_scope.clear();
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), CelebrationError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(CelebrationError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(CelebrationError::SchemaMismatch);
+        }
         for (s, m) in &self.by_scope {
-            if s.is_empty() { return Err(CelebrationError::EmptyScope); }
+            if s.is_empty() {
+                return Err(CelebrationError::EmptyScope);
+            }
             for id in m.keys() {
-                if id.is_empty() { return Err(CelebrationError::EmptyMilestone); }
+                if id.is_empty() {
+                    return Err(CelebrationError::EmptyMilestone);
+                }
             }
         }
         Ok(())
@@ -105,7 +130,9 @@ impl Celebration {
 }
 
 impl Default for Celebration {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -151,15 +178,24 @@ mod tests {
     #[test]
     fn empty_inputs_rejected() {
         let mut c = Celebration::new();
-        assert!(matches!(c.fire("", "x", 0).unwrap_err(), CelebrationError::EmptyScope));
-        assert!(matches!(c.fire("s", "", 0).unwrap_err(), CelebrationError::EmptyMilestone));
+        assert!(matches!(
+            c.fire("", "x", 0).unwrap_err(),
+            CelebrationError::EmptyScope
+        ));
+        assert!(matches!(
+            c.fire("s", "", 0).unwrap_err(),
+            CelebrationError::EmptyMilestone
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut c = Celebration::new();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), CelebrationError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            CelebrationError::SchemaMismatch
+        ));
     }
 
     #[test]

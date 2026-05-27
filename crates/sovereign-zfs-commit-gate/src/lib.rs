@@ -107,12 +107,18 @@ pub enum GateError {
 impl GateCycle {
     /// Validate envelope structural invariants.
     pub fn validate(&self) -> Result<(), GateError> {
-        if self.dataset.is_empty() { return Err(GateError::FieldEmpty("dataset")); }
-        if self.snapshot_id.is_empty() { return Err(GateError::FieldEmpty("snapshot_id")); }
+        if self.dataset.is_empty() {
+            return Err(GateError::FieldEmpty("dataset"));
+        }
+        if self.snapshot_id.is_empty() {
+            return Err(GateError::FieldEmpty("snapshot_id"));
+        }
         if !self.snapshot_id.contains('@') {
             return Err(GateError::SnapshotIdInvalid(self.snapshot_id.clone()));
         }
-        if self.signature.is_empty() { return Err(GateError::FieldEmpty("signature")); }
+        if self.signature.is_empty() {
+            return Err(GateError::FieldEmpty("signature"));
+        }
         Ok(())
     }
 
@@ -120,9 +126,15 @@ impl GateCycle {
     pub fn advance(&mut self, target: GateStage) -> Result<(), GateError> {
         let next = self.stage.next().ok_or(GateError::PastTerminal)?;
         if next != target {
-            return Err(GateError::StageSkip { from: self.stage, to: target });
+            return Err(GateError::StageSkip {
+                from: self.stage,
+                to: target,
+            });
         }
-        if target == GateStage::CommitOrRollback && self.test_score < 80 && self.disposition != Disposition::RolledBack {
+        if target == GateStage::CommitOrRollback
+            && self.test_score < 80
+            && self.disposition != Disposition::RolledBack
+        {
             return Err(GateError::TestGateFailed(self.test_score));
         }
         self.stage = target;
@@ -158,8 +170,10 @@ mod tests {
     #[test]
     fn four_stages_positioned_1_to_4() {
         for (s, p) in [
-            (GateStage::Snapshot, 1), (GateStage::Apply, 2),
-            (GateStage::Test, 3), (GateStage::CommitOrRollback, 4),
+            (GateStage::Snapshot, 1),
+            (GateStage::Apply, 2),
+            (GateStage::Test, 3),
+            (GateStage::CommitOrRollback, 4),
         ] {
             assert_eq!(s.position(), p);
         }
@@ -184,15 +198,22 @@ mod tests {
 
     #[test]
     fn empty_dataset_rejected() {
-        let mut c = cycle(); c.dataset = String::new();
-        assert!(matches!(c.validate().unwrap_err(), GateError::FieldEmpty("dataset")));
+        let mut c = cycle();
+        c.dataset = String::new();
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            GateError::FieldEmpty("dataset")
+        ));
     }
 
     #[test]
     fn snapshot_without_at_rejected() {
         let mut c = cycle();
         c.snapshot_id = "no-at-separator".into();
-        assert!(matches!(c.validate().unwrap_err(), GateError::SnapshotIdInvalid(_)));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            GateError::SnapshotIdInvalid(_)
+        ));
     }
 
     #[test]
@@ -216,7 +237,10 @@ mod tests {
     fn past_terminal_refused() {
         let mut c = cycle();
         c.stage = GateStage::CommitOrRollback;
-        assert!(matches!(c.advance(GateStage::Snapshot).unwrap_err(), GateError::PastTerminal));
+        assert!(matches!(
+            c.advance(GateStage::Snapshot).unwrap_err(),
+            GateError::PastTerminal
+        ));
     }
 
     #[test]
@@ -224,7 +248,10 @@ mod tests {
         let mut c = cycle();
         c.test_score = 70;
         c.stage = GateStage::Test;
-        assert!(matches!(c.advance(GateStage::CommitOrRollback).unwrap_err(), GateError::TestGateFailed(70)));
+        assert!(matches!(
+            c.advance(GateStage::CommitOrRollback).unwrap_err(),
+            GateError::TestGateFailed(70)
+        ));
     }
 
     #[test]
@@ -240,21 +267,36 @@ mod tests {
     fn finalize_commit_requires_80() {
         let mut c = cycle();
         c.test_score = 70;
-        assert!(matches!(c.finalize(Disposition::Committed).unwrap_err(), GateError::TestGateFailed(70)));
+        assert!(matches!(
+            c.finalize(Disposition::Committed).unwrap_err(),
+            GateError::TestGateFailed(70)
+        ));
         // Rollback is allowed regardless of score
         c.finalize(Disposition::RolledBack).unwrap();
     }
 
     #[test]
     fn stage_serde_kebab() {
-        assert_eq!(serde_json::to_string(&GateStage::CommitOrRollback).unwrap(), "\"commit-or-rollback\"");
-        assert_eq!(serde_json::to_string(&GateStage::Snapshot).unwrap(), "\"snapshot\"");
+        assert_eq!(
+            serde_json::to_string(&GateStage::CommitOrRollback).unwrap(),
+            "\"commit-or-rollback\""
+        );
+        assert_eq!(
+            serde_json::to_string(&GateStage::Snapshot).unwrap(),
+            "\"snapshot\""
+        );
     }
 
     #[test]
     fn disposition_serde_kebab() {
-        assert_eq!(serde_json::to_string(&Disposition::RolledBack).unwrap(), "\"rolled-back\"");
-        assert_eq!(serde_json::to_string(&Disposition::InFlight).unwrap(), "\"in-flight\"");
+        assert_eq!(
+            serde_json::to_string(&Disposition::RolledBack).unwrap(),
+            "\"rolled-back\""
+        );
+        assert_eq!(
+            serde_json::to_string(&Disposition::InFlight).unwrap(),
+            "\"in-flight\""
+        );
     }
 
     #[test]

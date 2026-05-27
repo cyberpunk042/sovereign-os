@@ -85,7 +85,11 @@ impl DataGridSort {
         match mode {
             ClickMode::Single => {
                 // Cycle: None → Asc → Desc → None; clear others.
-                let cur = self.spec.iter().find(|e| e.column_id == column_id).map(|e| e.direction);
+                let cur = self
+                    .spec
+                    .iter()
+                    .find(|e| e.column_id == column_id)
+                    .map(|e| e.direction);
                 self.spec.clear();
                 let next = match cur {
                     None => Some(SortDirection::Asc),
@@ -93,7 +97,10 @@ impl DataGridSort {
                     Some(SortDirection::Desc) => None,
                 };
                 if let Some(d) = next {
-                    self.spec.push(SortEntry { column_id: column_id.into(), direction: d });
+                    self.spec.push(SortEntry {
+                        column_id: column_id.into(),
+                        direction: d,
+                    });
                 }
             }
             ClickMode::Multi => {
@@ -102,10 +109,15 @@ impl DataGridSort {
                     let cur = self.spec[pos].direction;
                     match cur {
                         SortDirection::Asc => self.spec[pos].direction = SortDirection::Desc,
-                        SortDirection::Desc => { self.spec.remove(pos); }
+                        SortDirection::Desc => {
+                            self.spec.remove(pos);
+                        }
                     }
                 } else {
-                    self.spec.push(SortEntry { column_id: column_id.into(), direction: SortDirection::Asc });
+                    self.spec.push(SortEntry {
+                        column_id: column_id.into(),
+                        direction: SortDirection::Asc,
+                    });
                 }
             }
         }
@@ -114,7 +126,10 @@ impl DataGridSort {
 
     /// Direction of a column (None if not sorted).
     pub fn direction_of(&self, column_id: &str) -> Option<SortDirection> {
-        self.spec.iter().find(|e| e.column_id == column_id).map(|e| e.direction)
+        self.spec
+            .iter()
+            .find(|e| e.column_id == column_id)
+            .map(|e| e.direction)
     }
 
     /// Clear all sort.
@@ -142,7 +157,9 @@ impl DataGridSort {
 }
 
 impl Default for DataGridSort {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -210,26 +227,44 @@ mod tests {
     #[test]
     fn empty_column_rejected() {
         let mut s = DataGridSort::new();
-        assert!(matches!(s.click_column("", ClickMode::Single).unwrap_err(), SortError::EmptyColumnId));
+        assert!(matches!(
+            s.click_column("", ClickMode::Single).unwrap_err(),
+            SortError::EmptyColumnId
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = DataGridSort::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), SortError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SortError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn direction_serde_kebab() {
-        assert_eq!(serde_json::to_string(&SortDirection::Asc).unwrap(), "\"asc\"");
-        assert_eq!(serde_json::to_string(&SortDirection::Desc).unwrap(), "\"desc\"");
+        assert_eq!(
+            serde_json::to_string(&SortDirection::Asc).unwrap(),
+            "\"asc\""
+        );
+        assert_eq!(
+            serde_json::to_string(&SortDirection::Desc).unwrap(),
+            "\"desc\""
+        );
     }
 
     #[test]
     fn click_mode_serde_kebab() {
-        assert_eq!(serde_json::to_string(&ClickMode::Single).unwrap(), "\"single\"");
-        assert_eq!(serde_json::to_string(&ClickMode::Multi).unwrap(), "\"multi\"");
+        assert_eq!(
+            serde_json::to_string(&ClickMode::Single).unwrap(),
+            "\"single\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ClickMode::Multi).unwrap(),
+            "\"multi\""
+        );
     }
 
     #[test]

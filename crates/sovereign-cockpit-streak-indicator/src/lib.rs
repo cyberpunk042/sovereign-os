@@ -56,16 +56,22 @@ impl StreakIndicator {
 
     /// Register a success — increments current; updates best.
     pub fn hit(&mut self, key: &str) -> Result<u32, StreakError> {
-        if key.is_empty() { return Err(StreakError::EmptyKey); }
+        if key.is_empty() {
+            return Err(StreakError::EmptyKey);
+        }
         let s = self.streaks.entry(key.into()).or_default();
         s.current = s.current.saturating_add(1);
-        if s.current > s.best { s.best = s.current; }
+        if s.current > s.best {
+            s.best = s.current;
+        }
         Ok(s.current)
     }
 
     /// Register a miss — resets current to 0; best preserved.
     pub fn miss(&mut self, key: &str) -> Result<(), StreakError> {
-        if key.is_empty() { return Err(StreakError::EmptyKey); }
+        if key.is_empty() {
+            return Err(StreakError::EmptyKey);
+        }
         let s = self.streaks.entry(key.into()).or_default();
         s.current = 0;
         Ok(())
@@ -78,23 +84,31 @@ impl StreakIndicator {
 
     /// Reset current + best for a key.
     pub fn clear(&mut self, key: &str) -> Result<(), StreakError> {
-        if key.is_empty() { return Err(StreakError::EmptyKey); }
+        if key.is_empty() {
+            return Err(StreakError::EmptyKey);
+        }
         self.streaks.remove(key);
         Ok(())
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), StreakError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(StreakError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(StreakError::SchemaMismatch);
+        }
         for k in self.streaks.keys() {
-            if k.is_empty() { return Err(StreakError::EmptyKey); }
+            if k.is_empty() {
+                return Err(StreakError::EmptyKey);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for StreakIndicator {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -167,7 +181,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = StreakIndicator::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), StreakError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            StreakError::SchemaMismatch
+        ));
     }
 
     #[test]

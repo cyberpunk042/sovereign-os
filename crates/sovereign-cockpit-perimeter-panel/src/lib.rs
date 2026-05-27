@@ -54,8 +54,7 @@ pub const DEFAULT_RING_DIR: &str = "/var/cache/selfdef/perimeter/ring";
 pub const DEFAULT_EXTENSION_DIR: &str = "/etc/selfdef/perimeter-extensions";
 
 /// Default TracingPolicy YAML path.
-pub const DEFAULT_POLICY_PATH: &str =
-    "/etc/tetragon/tracing-policies/sovereign-perimeter.yaml";
+pub const DEFAULT_POLICY_PATH: &str = "/etc/tetragon/tracing-policies/sovereign-perimeter.yaml";
 
 /// Verbatim sain-01 §6 default allowlist (mirror — sovereign-os keeps
 /// its own copy of the spec-locked set for display + drift detection).
@@ -248,8 +247,7 @@ impl Panel {
 
         // Extension manifests — currently-active only.
         if extension_dir.exists() {
-            let read =
-                fs::read_dir(extension_dir).map_err(|e| PanelError::Io(e.to_string()))?;
+            let read = fs::read_dir(extension_dir).map_err(|e| PanelError::Io(e.to_string()))?;
             for dirent in read {
                 let dirent = dirent.map_err(|e| PanelError::Io(e.to_string()))?;
                 let path = dirent.path();
@@ -377,12 +375,10 @@ impl Panel {
                 Color::Red,
                 "/wiki/runbooks/perimeter-sigkill-investigation".to_string(),
             ),
-            Outcome::Allowlisted => (
-                "ALLOWED".to_string(),
-                Color::Green,
-                String::new(),
-            ),
-            Outcome::ExtensionAllowed { manifest_sha256, .. } => {
+            Outcome::Allowlisted => ("ALLOWED".to_string(), Color::Green, String::new()),
+            Outcome::ExtensionAllowed {
+                manifest_sha256, ..
+            } => {
                 let stub = manifest_sha256
                     .get(..8.min(manifest_sha256.len()))
                     .unwrap_or("");
@@ -529,7 +525,8 @@ mod tests {
     #[test]
     fn panel_clean_verdicts_aggregate_green() {
         let mut p = Panel::new(1_700_000_000_000);
-        p.recent_verdicts.push(sample_allowlisted(1_700_000_000_000));
+        p.recent_verdicts
+            .push(sample_allowlisted(1_700_000_000_000));
         assert_eq!(p.aggregate_color(), Color::Green);
         assert_eq!(p.aggregate_badge(), "OK");
     }
@@ -579,7 +576,8 @@ mod tests {
     #[test]
     fn render_allowlisted_row_has_no_runbook() {
         let mut p = Panel::new(1_700_000_000_000);
-        p.recent_verdicts.push(sample_allowlisted(1_700_000_000_000));
+        p.recent_verdicts
+            .push(sample_allowlisted(1_700_000_000_000));
         let rows = p.render();
         let verdict_row = rows.iter().find(|r| r.kind == RowKind::Verdict).unwrap();
         assert_eq!(verdict_row.runbook_route, "");
@@ -724,7 +722,10 @@ mod tests {
 
     #[test]
     fn freshness_until_format() {
-        assert_eq!(freshness_until(1_000_000_000 + 60_000, 1_000_000_000), "in 1m");
+        assert_eq!(
+            freshness_until(1_000_000_000 + 60_000, 1_000_000_000),
+            "in 1m"
+        );
         assert_eq!(
             freshness_until(1_000_000_000 + 3_600_000, 1_000_000_000),
             "in 1h"

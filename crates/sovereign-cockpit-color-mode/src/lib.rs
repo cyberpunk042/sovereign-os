@@ -92,7 +92,9 @@ impl ColorMode {
 
     /// Set context override.
     pub fn set_override(&mut self, context: &str, mode: Mode) -> Result<(), ModeError> {
-        if context.is_empty() { return Err(ModeError::EmptyContext); }
+        if context.is_empty() {
+            return Err(ModeError::EmptyContext);
+        }
         self.overrides.insert(context.into(), mode);
         Ok(())
     }
@@ -104,7 +106,9 @@ impl ColorMode {
 
     /// Effective mode for a context (use "" for the default context).
     pub fn effective(&self, context: &str) -> Mode {
-        if let Some(&m) = self.overrides.get(context) { return m; }
+        if let Some(&m) = self.overrides.get(context) {
+            return m;
+        }
         match self.user_preference {
             UserPreference::Light => Mode::Light,
             UserPreference::Dark => Mode::Dark,
@@ -118,9 +122,13 @@ impl ColorMode {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ModeError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ModeError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ModeError::SchemaMismatch);
+        }
         for k in self.overrides.keys() {
-            if k.is_empty() { return Err(ModeError::EmptyContext); }
+            if k.is_empty() {
+                return Err(ModeError::EmptyContext);
+            }
         }
         Ok(())
     }
@@ -179,14 +187,20 @@ mod tests {
     #[test]
     fn empty_context_rejected() {
         let mut m = ColorMode::new(UserPreference::Light, SystemSignal::LightSystem);
-        assert!(matches!(m.set_override("", Mode::Dark).unwrap_err(), ModeError::EmptyContext));
+        assert!(matches!(
+            m.set_override("", Mode::Dark).unwrap_err(),
+            ModeError::EmptyContext
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut m = ColorMode::new(UserPreference::Light, SystemSignal::LightSystem);
         m.schema_version = "9.9.9".into();
-        assert!(matches!(m.validate().unwrap_err(), ModeError::SchemaMismatch));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            ModeError::SchemaMismatch
+        ));
     }
 
     #[test]

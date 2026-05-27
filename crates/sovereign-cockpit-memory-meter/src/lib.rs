@@ -65,35 +65,51 @@ pub enum MeterError {
 impl MemoryMeter {
     /// New.
     pub fn new(total_bytes: u64, warn_pct: u8, critical_pct: u8) -> Result<Self, MeterError> {
-        if total_bytes == 0 { return Err(MeterError::TotalZero); }
-        if warn_pct >= critical_pct { return Err(MeterError::BadThresholds(warn_pct, critical_pct)); }
-        if critical_pct > 100 { return Err(MeterError::CriticalOver100(critical_pct)); }
+        if total_bytes == 0 {
+            return Err(MeterError::TotalZero);
+        }
+        if warn_pct >= critical_pct {
+            return Err(MeterError::BadThresholds(warn_pct, critical_pct));
+        }
+        if critical_pct > 100 {
+            return Err(MeterError::CriticalOver100(critical_pct));
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             used_bytes: 0,
-            total_bytes, warn_pct, critical_pct,
+            total_bytes,
+            warn_pct,
+            critical_pct,
         })
     }
 
     /// Set used.
     pub fn set_used(&mut self, used: u64) -> Result<(), MeterError> {
-        if used > self.total_bytes { return Err(MeterError::UsedOverTotal(used, self.total_bytes)); }
+        if used > self.total_bytes {
+            return Err(MeterError::UsedOverTotal(used, self.total_bytes));
+        }
         self.used_bytes = used;
         Ok(())
     }
 
     /// Used percent (0..=100).
     pub fn used_pct(&self) -> u8 {
-        if self.total_bytes == 0 { return 0; }
+        if self.total_bytes == 0 {
+            return 0;
+        }
         ((self.used_bytes * 100) / self.total_bytes) as u8
     }
 
     /// Zone.
     pub fn zone(&self) -> Zone {
         let pct = self.used_pct();
-        if pct >= self.critical_pct { Zone::Critical }
-        else if pct >= self.warn_pct { Zone::Warn }
-        else { Zone::Normal }
+        if pct >= self.critical_pct {
+            Zone::Critical
+        } else if pct >= self.warn_pct {
+            Zone::Warn
+        } else {
+            Zone::Normal
+        }
     }
 
     /// Render 'A.B GB / X.Y GB (PP%)'.
@@ -108,9 +124,15 @@ impl MemoryMeter {
         if self.schema_version != SCHEMA_VERSION {
             return Err(MeterError::SchemaMismatch);
         }
-        if self.total_bytes == 0 { return Err(MeterError::TotalZero); }
-        if self.warn_pct >= self.critical_pct { return Err(MeterError::BadThresholds(self.warn_pct, self.critical_pct)); }
-        if self.critical_pct > 100 { return Err(MeterError::CriticalOver100(self.critical_pct)); }
+        if self.total_bytes == 0 {
+            return Err(MeterError::TotalZero);
+        }
+        if self.warn_pct >= self.critical_pct {
+            return Err(MeterError::BadThresholds(self.warn_pct, self.critical_pct));
+        }
+        if self.critical_pct > 100 {
+            return Err(MeterError::CriticalOver100(self.critical_pct));
+        }
         if self.used_bytes > self.total_bytes {
             return Err(MeterError::UsedOverTotal(self.used_bytes, self.total_bytes));
         }
@@ -123,11 +145,17 @@ fn format_bytes(b: u64) -> String {
     const MB: u64 = 1024 * KB;
     const GB: u64 = 1024 * MB;
     const TB: u64 = 1024 * GB;
-    if b >= TB { format!("{:.1} TB", b as f64 / TB as f64) }
-    else if b >= GB { format!("{:.1} GB", b as f64 / GB as f64) }
-    else if b >= MB { format!("{:.1} MB", b as f64 / MB as f64) }
-    else if b >= KB { format!("{:.1} KB", b as f64 / KB as f64) }
-    else { format!("{b} B") }
+    if b >= TB {
+        format!("{:.1} TB", b as f64 / TB as f64)
+    } else if b >= GB {
+        format!("{:.1} GB", b as f64 / GB as f64)
+    } else if b >= MB {
+        format!("{:.1} MB", b as f64 / MB as f64)
+    } else if b >= KB {
+        format!("{:.1} KB", b as f64 / KB as f64)
+    } else {
+        format!("{b} B")
+    }
 }
 
 #[cfg(test)]
@@ -136,17 +164,26 @@ mod tests {
 
     #[test]
     fn total_zero_rejected() {
-        assert!(matches!(MemoryMeter::new(0, 70, 90).unwrap_err(), MeterError::TotalZero));
+        assert!(matches!(
+            MemoryMeter::new(0, 70, 90).unwrap_err(),
+            MeterError::TotalZero
+        ));
     }
 
     #[test]
     fn bad_thresholds_rejected() {
-        assert!(matches!(MemoryMeter::new(1024, 90, 70).unwrap_err(), MeterError::BadThresholds(_, _)));
+        assert!(matches!(
+            MemoryMeter::new(1024, 90, 70).unwrap_err(),
+            MeterError::BadThresholds(_, _)
+        ));
     }
 
     #[test]
     fn critical_over_100_rejected() {
-        assert!(matches!(MemoryMeter::new(1024, 70, 150).unwrap_err(), MeterError::CriticalOver100(150)));
+        assert!(matches!(
+            MemoryMeter::new(1024, 70, 150).unwrap_err(),
+            MeterError::CriticalOver100(150)
+        ));
     }
 
     #[test]
@@ -170,7 +207,10 @@ mod tests {
     #[test]
     fn used_over_total_rejected() {
         let mut m = MemoryMeter::new(1000, 70, 90).unwrap();
-        assert!(matches!(m.set_used(2000).unwrap_err(), MeterError::UsedOverTotal(_, _)));
+        assert!(matches!(
+            m.set_used(2000).unwrap_err(),
+            MeterError::UsedOverTotal(_, _)
+        ));
     }
 
     #[test]
@@ -201,7 +241,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut m = MemoryMeter::new(1000, 70, 90).unwrap();
         m.schema_version = "9.9.9".into();
-        assert!(matches!(m.validate().unwrap_err(), MeterError::SchemaMismatch));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            MeterError::SchemaMismatch
+        ));
     }
 
     #[test]

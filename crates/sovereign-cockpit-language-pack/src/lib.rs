@@ -64,29 +64,44 @@ pub enum LanguageError {
 impl LanguagePack {
     /// New with default-only.
     pub fn new(default_locale: &str) -> Result<Self, LanguageError> {
-        if default_locale.is_empty() { return Err(LanguageError::EmptyLocaleTag); }
+        if default_locale.is_empty() {
+            return Err(LanguageError::EmptyLocaleTag);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             active: default_locale.into(),
             default_locale: default_locale.into(),
-            tables: vec![LocaleTable { locale_tag: default_locale.into(), strings: BTreeMap::new() }],
+            tables: vec![LocaleTable {
+                locale_tag: default_locale.into(),
+                strings: BTreeMap::new(),
+            }],
         })
     }
 
     /// Add a locale table.
     pub fn add_locale(&mut self, locale_tag: &str) -> Result<(), LanguageError> {
-        if locale_tag.is_empty() { return Err(LanguageError::EmptyLocaleTag); }
+        if locale_tag.is_empty() {
+            return Err(LanguageError::EmptyLocaleTag);
+        }
         if self.tables.iter().any(|t| t.locale_tag == locale_tag) {
             return Err(LanguageError::DuplicateLocale(locale_tag.into()));
         }
-        self.tables.push(LocaleTable { locale_tag: locale_tag.into(), strings: BTreeMap::new() });
+        self.tables.push(LocaleTable {
+            locale_tag: locale_tag.into(),
+            strings: BTreeMap::new(),
+        });
         Ok(())
     }
 
     /// Set a translation.
     pub fn set(&mut self, locale_tag: &str, key: &str, text: &str) -> Result<(), LanguageError> {
-        if key.is_empty() { return Err(LanguageError::EmptyKey(locale_tag.into())); }
-        let t = self.tables.iter_mut().find(|t| t.locale_tag == locale_tag)
+        if key.is_empty() {
+            return Err(LanguageError::EmptyKey(locale_tag.into()));
+        }
+        let t = self
+            .tables
+            .iter_mut()
+            .find(|t| t.locale_tag == locale_tag)
             .ok_or_else(|| LanguageError::ActiveUnregistered(locale_tag.into()))?;
         t.strings.insert(key.into(), text.into());
         Ok(())
@@ -104,10 +119,18 @@ impl LanguagePack {
     /// Translate a key. Falls back to default_locale then to key.
     pub fn translate<'a>(&'a self, key: &'a str) -> &'a str {
         if let Some(t) = self.tables.iter().find(|t| t.locale_tag == self.active) {
-            if let Some(s) = t.strings.get(key) { return s.as_str(); }
+            if let Some(s) = t.strings.get(key) {
+                return s.as_str();
+            }
         }
-        if let Some(t) = self.tables.iter().find(|t| t.locale_tag == self.default_locale) {
-            if let Some(s) = t.strings.get(key) { return s.as_str(); }
+        if let Some(t) = self
+            .tables
+            .iter()
+            .find(|t| t.locale_tag == self.default_locale)
+        {
+            if let Some(s) = t.strings.get(key) {
+                return s.as_str();
+            }
         }
         key
     }
@@ -120,18 +143,28 @@ impl LanguagePack {
         if !self.tables.iter().any(|t| t.locale_tag == self.active) {
             return Err(LanguageError::ActiveUnregistered(self.active.clone()));
         }
-        if !self.tables.iter().any(|t| t.locale_tag == self.default_locale) {
-            return Err(LanguageError::DefaultUnregistered(self.default_locale.clone()));
+        if !self
+            .tables
+            .iter()
+            .any(|t| t.locale_tag == self.default_locale)
+        {
+            return Err(LanguageError::DefaultUnregistered(
+                self.default_locale.clone(),
+            ));
         }
         use std::collections::HashSet;
         let mut seen: HashSet<&str> = HashSet::new();
         for t in &self.tables {
-            if t.locale_tag.is_empty() { return Err(LanguageError::EmptyLocaleTag); }
+            if t.locale_tag.is_empty() {
+                return Err(LanguageError::EmptyLocaleTag);
+            }
             if !seen.insert(t.locale_tag.as_str()) {
                 return Err(LanguageError::DuplicateLocale(t.locale_tag.clone()));
             }
             for k in t.strings.keys() {
-                if k.is_empty() { return Err(LanguageError::EmptyKey(t.locale_tag.clone())); }
+                if k.is_empty() {
+                    return Err(LanguageError::EmptyKey(t.locale_tag.clone()));
+                }
             }
         }
         Ok(())
@@ -149,7 +182,10 @@ mod tests {
 
     #[test]
     fn empty_default_rejected() {
-        assert!(matches!(LanguagePack::new("").unwrap_err(), LanguageError::EmptyLocaleTag));
+        assert!(matches!(
+            LanguagePack::new("").unwrap_err(),
+            LanguageError::EmptyLocaleTag
+        ));
     }
 
     #[test]
@@ -177,20 +213,29 @@ mod tests {
     #[test]
     fn duplicate_locale_rejected() {
         let mut p = LanguagePack::new("en-US").unwrap();
-        assert!(matches!(p.add_locale("en-US").unwrap_err(), LanguageError::DuplicateLocale(_)));
+        assert!(matches!(
+            p.add_locale("en-US").unwrap_err(),
+            LanguageError::DuplicateLocale(_)
+        ));
     }
 
     #[test]
     fn activate_unregistered_rejected() {
         let mut p = LanguagePack::new("en-US").unwrap();
-        assert!(matches!(p.activate("ja-JP").unwrap_err(), LanguageError::ActiveUnregistered(_)));
+        assert!(matches!(
+            p.activate("ja-JP").unwrap_err(),
+            LanguageError::ActiveUnregistered(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut p = LanguagePack::new("en-US").unwrap();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), LanguageError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            LanguageError::SchemaMismatch
+        ));
     }
 
     #[test]

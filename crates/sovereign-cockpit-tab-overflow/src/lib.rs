@@ -72,7 +72,11 @@ pub struct TabOverflow;
 
 impl TabOverflow {
     /// Partition.
-    pub fn partition(tabs: &[Tab], active: &str, container_width_px: u32) -> Result<Partition, TabOverflowError> {
+    pub fn partition(
+        tabs: &[Tab],
+        active: &str,
+        container_width_px: u32,
+    ) -> Result<Partition, TabOverflowError> {
         check_tabs(tabs)?;
         if !tabs.iter().any(|t| t.id == active) {
             return Err(TabOverflowError::ActiveUnknown(active.into()));
@@ -96,7 +100,9 @@ impl TabOverflow {
         let mut inline_ids: Vec<&str> = vec![active.as_ref()];
         // Walk display order; add each tab whose width still fits.
         for t in tabs {
-            if t.id == active { continue; }
+            if t.id == active {
+                continue;
+            }
             if used.saturating_add(t.width_px) <= budget {
                 used += t.width_px;
                 inline_ids.push(t.id.as_str());
@@ -135,9 +141,15 @@ fn check_tabs(tabs: &[Tab]) -> Result<(), TabOverflowError> {
     use std::collections::HashSet;
     let mut seen: HashSet<&str> = HashSet::new();
     for t in tabs {
-        if t.id.is_empty() { return Err(TabOverflowError::EmptyId); }
-        if t.label.is_empty() { return Err(TabOverflowError::EmptyLabel(t.id.clone())); }
-        if t.width_px == 0 { return Err(TabOverflowError::WidthZero(t.id.clone())); }
+        if t.id.is_empty() {
+            return Err(TabOverflowError::EmptyId);
+        }
+        if t.label.is_empty() {
+            return Err(TabOverflowError::EmptyLabel(t.id.clone()));
+        }
+        if t.width_px == 0 {
+            return Err(TabOverflowError::WidthZero(t.id.clone()));
+        }
         if !seen.insert(t.id.as_str()) {
             return Err(TabOverflowError::DuplicateId(t.id.clone()));
         }
@@ -150,7 +162,11 @@ mod tests {
     use super::*;
 
     fn t(id: &str, w: u32) -> Tab {
-        Tab { id: id.into(), label: format!("L-{id}"), width_px: w }
+        Tab {
+            id: id.into(),
+            label: format!("L-{id}"),
+            width_px: w,
+        }
     }
 
     #[test]
@@ -179,7 +195,13 @@ mod tests {
 
     #[test]
     fn order_preserved_in_outputs() {
-        let tabs = vec![t("a", 100), t("b", 100), t("c", 100), t("d", 100), t("e", 100)];
+        let tabs = vec![
+            t("a", 100),
+            t("b", 100),
+            t("c", 100),
+            t("d", 100),
+            t("e", 100),
+        ];
         let p = TabOverflow::partition(&tabs, "c", 324).unwrap();
         // budget = 324 - 24 = 300; active c (100), then a fits (200), then b fits (300), d doesn't.
         let inline_str: Vec<&str> = p.inline.iter().map(|s| s.as_str()).collect();
@@ -226,8 +248,15 @@ mod tests {
 
     #[test]
     fn schema_drift_rejected() {
-        let p = Partition { schema_version: "9.9.9".into(), inline: vec![], overflow: vec![] };
-        assert!(matches!(p.validate().unwrap_err(), TabOverflowError::SchemaMismatch));
+        let p = Partition {
+            schema_version: "9.9.9".into(),
+            inline: vec![],
+            overflow: vec![],
+        };
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            TabOverflowError::SchemaMismatch
+        ));
     }
 
     #[test]

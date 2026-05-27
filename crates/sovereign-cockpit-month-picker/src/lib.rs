@@ -29,7 +29,9 @@ pub struct YearMonth {
 impl YearMonth {
     /// Build with validation.
     pub fn new(year: i32, month: u8) -> Result<Self, PickerError> {
-        if !(1..=12).contains(&month) { return Err(PickerError::BadMonth); }
+        if !(1..=12).contains(&month) {
+            return Err(PickerError::BadMonth);
+        }
         Ok(Self { year, month })
     }
 
@@ -105,19 +107,39 @@ impl MonthPicker {
     }
 
     /// Disable a year-month.
-    pub fn disable(&mut self, ym: YearMonth) { self.disabled.insert(ym); }
+    pub fn disable(&mut self, ym: YearMonth) {
+        self.disabled.insert(ym);
+    }
 
     fn is_enabled(&self, ym: YearMonth) -> bool {
-        if let Some(m) = self.min { if ym < m { return false; } }
-        if let Some(m) = self.max { if ym > m { return false; } }
+        if let Some(m) = self.min {
+            if ym < m {
+                return false;
+            }
+        }
+        if let Some(m) = self.max {
+            if ym > m {
+                return false;
+            }
+        }
         !self.disabled.contains(&ym)
     }
 
     /// Select a year-month.
     pub fn select(&mut self, ym: YearMonth) -> Result<(), PickerError> {
-        if let Some(m) = self.min { if ym < m { return Err(PickerError::OutOfRange); } }
-        if let Some(m) = self.max { if ym > m { return Err(PickerError::OutOfRange); } }
-        if self.disabled.contains(&ym) { return Err(PickerError::Disabled); }
+        if let Some(m) = self.min {
+            if ym < m {
+                return Err(PickerError::OutOfRange);
+            }
+        }
+        if let Some(m) = self.max {
+            if ym > m {
+                return Err(PickerError::OutOfRange);
+            }
+        }
+        if self.disabled.contains(&ym) {
+            return Err(PickerError::Disabled);
+        }
         self.selected = Some(ym);
         self.visible_year = ym.year;
         Ok(())
@@ -125,26 +147,39 @@ impl MonthPicker {
 
     /// Cells for the visible year.
     pub fn cells(&self) -> Vec<Cell> {
-        (1u8..=12).map(|m| {
-            let ym = YearMonth { year: self.visible_year, month: m };
-            Cell {
-                ym,
-                enabled: self.is_enabled(ym),
-                selected: self.selected == Some(ym),
-            }
-        }).collect()
+        (1u8..=12)
+            .map(|m| {
+                let ym = YearMonth {
+                    year: self.visible_year,
+                    month: m,
+                };
+                Cell {
+                    ym,
+                    enabled: self.is_enabled(ym),
+                    selected: self.selected == Some(ym),
+                }
+            })
+            .collect()
     }
 
     /// Prev year-page.
-    pub fn prev_year(&mut self) { self.visible_year -= 1; }
+    pub fn prev_year(&mut self) {
+        self.visible_year -= 1;
+    }
     /// Next year-page.
-    pub fn next_year(&mut self) { self.visible_year += 1; }
+    pub fn next_year(&mut self) {
+        self.visible_year += 1;
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), PickerError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(PickerError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(PickerError::SchemaMismatch);
+        }
         for ym in self.disabled.iter() {
-            if !(1..=12).contains(&ym.month) { return Err(PickerError::BadMonth); }
+            if !(1..=12).contains(&ym.month) {
+                return Err(PickerError::BadMonth);
+            }
         }
         Ok(())
     }
@@ -183,8 +218,8 @@ mod tests {
         let cells = p.cells();
         assert!(!cells[0].enabled); // Jan
         assert!(!cells[1].enabled); // Feb
-        assert!(cells[2].enabled);  // Mar
-        assert!(cells[8].enabled);  // Sep
+        assert!(cells[2].enabled); // Mar
+        assert!(cells[8].enabled); // Sep
         assert!(!cells[9].enabled); // Oct
     }
 
@@ -222,15 +257,24 @@ mod tests {
 
     #[test]
     fn bad_month_rejected() {
-        assert!(matches!(YearMonth::new(2026, 0).unwrap_err(), PickerError::BadMonth));
-        assert!(matches!(YearMonth::new(2026, 13).unwrap_err(), PickerError::BadMonth));
+        assert!(matches!(
+            YearMonth::new(2026, 0).unwrap_err(),
+            PickerError::BadMonth
+        ));
+        assert!(matches!(
+            YearMonth::new(2026, 13).unwrap_err(),
+            PickerError::BadMonth
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut p = MonthPicker::new(2026);
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), PickerError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            PickerError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -50,21 +50,39 @@ pub enum PulseError {
 
 impl StatusPulse {
     /// New.
-    pub fn new(period_ms: u32, min_pct: u8, max_pct: u8, static_pct: u8, active: bool) -> Result<Self, PulseError> {
-        if period_ms == 0 { return Err(PulseError::PeriodZero); }
-        if min_pct > max_pct { return Err(PulseError::BadRange(min_pct, max_pct)); }
+    pub fn new(
+        period_ms: u32,
+        min_pct: u8,
+        max_pct: u8,
+        static_pct: u8,
+        active: bool,
+    ) -> Result<Self, PulseError> {
+        if period_ms == 0 {
+            return Err(PulseError::PeriodZero);
+        }
+        if min_pct > max_pct {
+            return Err(PulseError::BadRange(min_pct, max_pct));
+        }
         for p in [min_pct, max_pct, static_pct] {
-            if p > 100 { return Err(PulseError::PctOver100(p)); }
+            if p > 100 {
+                return Err(PulseError::PctOver100(p));
+            }
         }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
-            period_ms, min_pct, max_pct, static_pct, active,
+            period_ms,
+            min_pct,
+            max_pct,
+            static_pct,
+            active,
         })
     }
 
     /// Brightness percent at now.
     pub fn brightness_pct(&self, now_ms: u64) -> u8 {
-        if !self.active { return self.static_pct; }
+        if !self.active {
+            return self.static_pct;
+        }
         let phase = (now_ms % self.period_ms as u64) as u32;
         let half = self.period_ms / 2;
         // Triangular wave: 0..half goes min->max, half..period goes max->min.
@@ -82,10 +100,16 @@ impl StatusPulse {
         if self.schema_version != SCHEMA_VERSION {
             return Err(PulseError::SchemaMismatch);
         }
-        if self.period_ms == 0 { return Err(PulseError::PeriodZero); }
-        if self.min_pct > self.max_pct { return Err(PulseError::BadRange(self.min_pct, self.max_pct)); }
+        if self.period_ms == 0 {
+            return Err(PulseError::PeriodZero);
+        }
+        if self.min_pct > self.max_pct {
+            return Err(PulseError::BadRange(self.min_pct, self.max_pct));
+        }
         for p in [self.min_pct, self.max_pct, self.static_pct] {
-            if p > 100 { return Err(PulseError::PctOver100(p)); }
+            if p > 100 {
+                return Err(PulseError::PctOver100(p));
+            }
         }
         Ok(())
     }
@@ -97,17 +121,26 @@ mod tests {
 
     #[test]
     fn period_zero_rejected() {
-        assert!(matches!(StatusPulse::new(0, 30, 100, 50, true).unwrap_err(), PulseError::PeriodZero));
+        assert!(matches!(
+            StatusPulse::new(0, 30, 100, 50, true).unwrap_err(),
+            PulseError::PeriodZero
+        ));
     }
 
     #[test]
     fn bad_range_rejected() {
-        assert!(matches!(StatusPulse::new(1000, 80, 30, 50, true).unwrap_err(), PulseError::BadRange(80, 30)));
+        assert!(matches!(
+            StatusPulse::new(1000, 80, 30, 50, true).unwrap_err(),
+            PulseError::BadRange(80, 30)
+        ));
     }
 
     #[test]
     fn pct_over_100_rejected() {
-        assert!(matches!(StatusPulse::new(1000, 30, 150, 50, true).unwrap_err(), PulseError::PctOver100(150)));
+        assert!(matches!(
+            StatusPulse::new(1000, 30, 150, 50, true).unwrap_err(),
+            PulseError::PctOver100(150)
+        ));
     }
 
     #[test]
@@ -149,7 +182,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = StatusPulse::new(1000, 30, 100, 50, true).unwrap();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), PulseError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            PulseError::SchemaMismatch
+        ));
     }
 
     #[test]

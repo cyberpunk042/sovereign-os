@@ -69,27 +69,46 @@ impl InlineAnnotations {
     }
 
     /// Add.
-    pub fn add(&mut self, id: &str, start: u32, end: u32, body: &str) -> Result<(), AnnotationError> {
-        if id.is_empty() { return Err(AnnotationError::EmptyId); }
-        if body.is_empty() { return Err(AnnotationError::EmptyBody); }
-        if start >= end { return Err(AnnotationError::BadRange); }
+    pub fn add(
+        &mut self,
+        id: &str,
+        start: u32,
+        end: u32,
+        body: &str,
+    ) -> Result<(), AnnotationError> {
+        if id.is_empty() {
+            return Err(AnnotationError::EmptyId);
+        }
+        if body.is_empty() {
+            return Err(AnnotationError::EmptyBody);
+        }
+        if start >= end {
+            return Err(AnnotationError::BadRange);
+        }
         if self.annotations.contains_key(id) {
             return Err(AnnotationError::DuplicateId(id.into()));
         }
-        self.annotations.insert(id.into(), Annotation {
-            id: id.into(),
-            start,
-            end,
-            body: body.into(),
-        });
+        self.annotations.insert(
+            id.into(),
+            Annotation {
+                id: id.into(),
+                start,
+                end,
+                body: body.into(),
+            },
+        );
         Ok(())
     }
 
     /// Apply text insertion of `len` chars at `pos`.
     pub fn apply_insert(&mut self, pos: u32, len: u32) {
         for a in self.annotations.values_mut() {
-            if a.start >= pos { a.start = a.start.saturating_add(len); }
-            if a.end >= pos { a.end = a.end.saturating_add(len); }
+            if a.start >= pos {
+                a.start = a.start.saturating_add(len);
+            }
+            if a.end >= pos {
+                a.end = a.end.saturating_add(len);
+            }
         }
     }
 
@@ -127,23 +146,35 @@ impl InlineAnnotations {
                 to_remove.push(id.clone());
             }
         }
-        for id in to_remove { self.annotations.remove(&id); }
+        for id in to_remove {
+            self.annotations.remove(&id);
+        }
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), AnnotationError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(AnnotationError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(AnnotationError::SchemaMismatch);
+        }
         for (id, a) in &self.annotations {
-            if id.is_empty() { return Err(AnnotationError::EmptyId); }
-            if a.body.is_empty() { return Err(AnnotationError::EmptyBody); }
-            if a.start >= a.end { return Err(AnnotationError::BadRange); }
+            if id.is_empty() {
+                return Err(AnnotationError::EmptyId);
+            }
+            if a.body.is_empty() {
+                return Err(AnnotationError::EmptyBody);
+            }
+            if a.start >= a.end {
+                return Err(AnnotationError::BadRange);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for InlineAnnotations {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -191,18 +222,33 @@ mod tests {
     #[test]
     fn bad_inputs_rejected() {
         let mut a = InlineAnnotations::new();
-        assert!(matches!(a.add("", 0, 5, "x").unwrap_err(), AnnotationError::EmptyId));
-        assert!(matches!(a.add("i", 0, 5, "").unwrap_err(), AnnotationError::EmptyBody));
-        assert!(matches!(a.add("i", 5, 5, "x").unwrap_err(), AnnotationError::BadRange));
+        assert!(matches!(
+            a.add("", 0, 5, "x").unwrap_err(),
+            AnnotationError::EmptyId
+        ));
+        assert!(matches!(
+            a.add("i", 0, 5, "").unwrap_err(),
+            AnnotationError::EmptyBody
+        ));
+        assert!(matches!(
+            a.add("i", 5, 5, "x").unwrap_err(),
+            AnnotationError::BadRange
+        ));
         a.add("i", 0, 5, "x").unwrap();
-        assert!(matches!(a.add("i", 0, 5, "x").unwrap_err(), AnnotationError::DuplicateId(_)));
+        assert!(matches!(
+            a.add("i", 0, 5, "x").unwrap_err(),
+            AnnotationError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut a = InlineAnnotations::new();
         a.schema_version = "9.9.9".into();
-        assert!(matches!(a.validate().unwrap_err(), AnnotationError::SchemaMismatch));
+        assert!(matches!(
+            a.validate().unwrap_err(),
+            AnnotationError::SchemaMismatch
+        ));
     }
 
     #[test]

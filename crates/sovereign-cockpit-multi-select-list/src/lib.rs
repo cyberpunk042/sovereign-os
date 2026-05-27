@@ -80,7 +80,10 @@ impl MultiSelectList {
 
     /// Click `id` with the given semantics.
     pub fn click(&mut self, id: &str, kind: ClickKind) -> Result<(), MultiSelectError> {
-        let pos = self.items.iter().position(|x| x == id)
+        let pos = self
+            .items
+            .iter()
+            .position(|x| x == id)
             .ok_or_else(|| MultiSelectError::Unknown(id.into()))?;
         match kind {
             ClickKind::Plain => {
@@ -97,10 +100,16 @@ impl MultiSelectList {
                 self.anchor = Some(id.into());
             }
             ClickKind::Range => {
-                let a_pos = self.anchor.as_ref()
+                let a_pos = self
+                    .anchor
+                    .as_ref()
                     .and_then(|a| self.items.iter().position(|x| x == a))
                     .unwrap_or(pos);
-                let (lo, hi) = if a_pos <= pos { (a_pos, pos) } else { (pos, a_pos) };
+                let (lo, hi) = if a_pos <= pos {
+                    (a_pos, pos)
+                } else {
+                    (pos, a_pos)
+                };
                 self.selected.clear();
                 for it in &self.items[lo..=hi] {
                     self.selected.insert(it.clone());
@@ -159,7 +168,9 @@ fn check_items(items: &[String]) -> Result<(), MultiSelectError> {
     use std::collections::HashSet;
     let mut seen: HashSet<&str> = HashSet::new();
     for i in items {
-        if i.is_empty() { return Err(MultiSelectError::EmptyId); }
+        if i.is_empty() {
+            return Err(MultiSelectError::EmptyId);
+        }
         if !seen.insert(i.as_str()) {
             return Err(MultiSelectError::DuplicateId(i.clone()));
         }
@@ -172,7 +183,14 @@ mod tests {
     use super::*;
 
     fn list() -> MultiSelectList {
-        MultiSelectList::new(vec!["a".into(), "b".into(), "c".into(), "d".into(), "e".into()]).unwrap()
+        MultiSelectList::new(vec![
+            "a".into(),
+            "b".into(),
+            "c".into(),
+            "d".into(),
+            "e".into(),
+        ])
+        .unwrap()
     }
 
     #[test]
@@ -238,7 +256,10 @@ mod tests {
     #[test]
     fn unknown_click_rejected() {
         let mut l = list();
-        assert!(matches!(l.click("z", ClickKind::Plain).unwrap_err(), MultiSelectError::Unknown(_)));
+        assert!(matches!(
+            l.click("z", ClickKind::Plain).unwrap_err(),
+            MultiSelectError::Unknown(_)
+        ));
     }
 
     #[test]
@@ -261,28 +282,46 @@ mod tests {
     fn validate_unknown_selection_rejected() {
         let mut l = list();
         l.selected.insert("ghost".into());
-        assert!(matches!(l.validate().unwrap_err(), MultiSelectError::SelectionUnknown(_)));
+        assert!(matches!(
+            l.validate().unwrap_err(),
+            MultiSelectError::SelectionUnknown(_)
+        ));
     }
 
     #[test]
     fn validate_unknown_anchor_rejected() {
         let mut l = list();
         l.anchor = Some("ghost".into());
-        assert!(matches!(l.validate().unwrap_err(), MultiSelectError::AnchorUnknown(_)));
+        assert!(matches!(
+            l.validate().unwrap_err(),
+            MultiSelectError::AnchorUnknown(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut l = list();
         l.schema_version = "9.9.9".into();
-        assert!(matches!(l.validate().unwrap_err(), MultiSelectError::SchemaMismatch));
+        assert!(matches!(
+            l.validate().unwrap_err(),
+            MultiSelectError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn click_serde_kebab() {
-        assert_eq!(serde_json::to_string(&ClickKind::Plain).unwrap(), "\"plain\"");
-        assert_eq!(serde_json::to_string(&ClickKind::Toggle).unwrap(), "\"toggle\"");
-        assert_eq!(serde_json::to_string(&ClickKind::Range).unwrap(), "\"range\"");
+        assert_eq!(
+            serde_json::to_string(&ClickKind::Plain).unwrap(),
+            "\"plain\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ClickKind::Toggle).unwrap(),
+            "\"toggle\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ClickKind::Range).unwrap(),
+            "\"range\""
+        );
     }
 
     #[test]

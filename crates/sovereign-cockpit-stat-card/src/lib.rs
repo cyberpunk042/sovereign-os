@@ -97,9 +97,15 @@ impl StatCardRegistry {
 
     /// Register.
     pub fn register(&mut self, card: StatCard) -> Result<(), CardError> {
-        if card.id.is_empty() { return Err(CardError::EmptyId); }
-        if card.label.is_empty() { return Err(CardError::EmptyLabel); }
-        if card.value_text.is_empty() { return Err(CardError::EmptyValue); }
+        if card.id.is_empty() {
+            return Err(CardError::EmptyId);
+        }
+        if card.label.is_empty() {
+            return Err(CardError::EmptyLabel);
+        }
+        if card.value_text.is_empty() {
+            return Err(CardError::EmptyValue);
+        }
         if self.cards.contains_key(&card.id) {
             return Err(CardError::DuplicateId(card.id));
         }
@@ -112,32 +118,50 @@ impl StatCardRegistry {
         if !self.cards.contains_key(&card.id) {
             return Err(CardError::UnknownId(card.id));
         }
-        if card.label.is_empty() { return Err(CardError::EmptyLabel); }
-        if card.value_text.is_empty() { return Err(CardError::EmptyValue); }
+        if card.label.is_empty() {
+            return Err(CardError::EmptyLabel);
+        }
+        if card.value_text.is_empty() {
+            return Err(CardError::EmptyValue);
+        }
         self.cards.insert(card.id.clone(), card);
         Ok(())
     }
 
     /// Get.
-    pub fn get(&self, id: &str) -> Option<&StatCard> { self.cards.get(id) }
+    pub fn get(&self, id: &str) -> Option<&StatCard> {
+        self.cards.get(id)
+    }
 
     /// List in id order.
-    pub fn list(&self) -> Vec<StatCard> { self.cards.values().cloned().collect() }
+    pub fn list(&self) -> Vec<StatCard> {
+        self.cards.values().cloned().collect()
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), CardError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(CardError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(CardError::SchemaMismatch);
+        }
         for (id, c) in &self.cards {
-            if id.is_empty() { return Err(CardError::EmptyId); }
-            if c.label.is_empty() { return Err(CardError::EmptyLabel); }
-            if c.value_text.is_empty() { return Err(CardError::EmptyValue); }
+            if id.is_empty() {
+                return Err(CardError::EmptyId);
+            }
+            if c.label.is_empty() {
+                return Err(CardError::EmptyLabel);
+            }
+            if c.value_text.is_empty() {
+                return Err(CardError::EmptyValue);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for StatCardRegistry {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -166,7 +190,10 @@ mod tests {
     fn duplicate_rejected() {
         let mut r = StatCardRegistry::new();
         r.register(card("a")).unwrap();
-        assert!(matches!(r.register(card("a")).unwrap_err(), CardError::DuplicateId(_)));
+        assert!(matches!(
+            r.register(card("a")).unwrap_err(),
+            CardError::DuplicateId(_)
+        ));
     }
 
     #[test]
@@ -182,7 +209,10 @@ mod tests {
     #[test]
     fn update_unknown_rejected() {
         let mut r = StatCardRegistry::new();
-        assert!(matches!(r.update(card("a")).unwrap_err(), CardError::UnknownId(_)));
+        assert!(matches!(
+            r.update(card("a")).unwrap_err(),
+            CardError::UnknownId(_)
+        ));
     }
 
     #[test]
@@ -193,24 +223,36 @@ mod tests {
         assert!(matches!(r.register(bad).unwrap_err(), CardError::EmptyId));
         let mut bad2 = card("a");
         bad2.label = "".into();
-        assert!(matches!(r.register(bad2).unwrap_err(), CardError::EmptyLabel));
+        assert!(matches!(
+            r.register(bad2).unwrap_err(),
+            CardError::EmptyLabel
+        ));
         let mut bad3 = card("a");
         bad3.value_text = "".into();
-        assert!(matches!(r.register(bad3).unwrap_err(), CardError::EmptyValue));
+        assert!(matches!(
+            r.register(bad3).unwrap_err(),
+            CardError::EmptyValue
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut r = StatCardRegistry::new();
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate().unwrap_err(), CardError::SchemaMismatch));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            CardError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn card_serde_roundtrip() {
         let mut r = StatCardRegistry::new();
         let mut c = card("a");
-        c.trend_chip = Some(TrendChip { direction: TrendDirection::Up, percent_x100: 1234 });
+        c.trend_chip = Some(TrendChip {
+            direction: TrendDirection::Up,
+            percent_x100: 1234,
+        });
         c.sparkline_source_id = Some("metric.foo".into());
         r.register(c).unwrap();
         let j = serde_json::to_string(&r).unwrap();

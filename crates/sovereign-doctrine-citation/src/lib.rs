@@ -10,9 +10,9 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+use serde::{Deserialize, Serialize};
 use sovereign_doctrinal_preservation::{DoctrineRegistry, DoctrineTag};
 use sovereign_execution_mode_registry::ExecutionMode;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// Schema version.
@@ -74,7 +74,10 @@ pub enum CitationError {
 
 /// Compute the canonical citation set for an action shape + mode.
 pub fn cite(trace_id: &str, shape: ActionShape, mode: ExecutionMode) -> CitationSet {
-    let mut tags = vec![DoctrineTag::AgentRequirement, DoctrineTag::ThatIsSovereignty];
+    let mut tags = vec![
+        DoctrineTag::AgentRequirement,
+        DoctrineTag::ThatIsSovereignty,
+    ];
 
     match shape {
         ActionShape::ModelDispatch => {
@@ -126,7 +129,9 @@ pub fn cite(trace_id: &str, shape: ActionShape, mode: ExecutionMode) -> Citation
     CitationSet {
         schema_version: SCHEMA_VERSION.into(),
         trace_id: trace_id.into(),
-        shape, mode, tags,
+        shape,
+        mode,
+        tags,
     }
 }
 
@@ -160,7 +165,9 @@ impl CitationSet {
 mod tests {
     use super::*;
 
-    fn reg() -> DoctrineRegistry { DoctrineRegistry::canonical() }
+    fn reg() -> DoctrineRegistry {
+        DoctrineRegistry::canonical()
+    }
 
     #[test]
     fn model_dispatch_cites_core_tags() {
@@ -214,7 +221,11 @@ mod tests {
     fn dedup_preserves_invariant() {
         let c = cite("tr-1", ActionShape::ReplaySession, ExecutionMode::Replay);
         // ThoughtsDeserveMoreLife is added twice (action shape + mode); dedup → 1
-        let n = c.tags.iter().filter(|t| **t == DoctrineTag::ThoughtsDeserveMoreLife).count();
+        let n = c
+            .tags
+            .iter()
+            .filter(|t| **t == DoctrineTag::ThoughtsDeserveMoreLife)
+            .count();
         assert_eq!(n, 1);
     }
 
@@ -236,28 +247,46 @@ mod tests {
     fn empty_citation_rejected() {
         let mut c = cite("tr-1", ActionShape::ToolInvocation, ExecutionMode::Plan);
         c.tags.clear();
-        assert!(matches!(c.validate(&reg()).unwrap_err(), CitationError::Empty(_)));
+        assert!(matches!(
+            c.validate(&reg()).unwrap_err(),
+            CitationError::Empty(_)
+        ));
     }
 
     #[test]
     fn missing_trace_id_rejected() {
         let mut c = cite("tr-1", ActionShape::ToolInvocation, ExecutionMode::Plan);
         c.trace_id = String::new();
-        assert!(matches!(c.validate(&reg()).unwrap_err(), CitationError::MissingTraceId));
+        assert!(matches!(
+            c.validate(&reg()).unwrap_err(),
+            CitationError::MissingTraceId
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut c = cite("tr-1", ActionShape::ToolInvocation, ExecutionMode::Plan);
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate(&reg()).unwrap_err(), CitationError::SchemaMismatch));
+        assert!(matches!(
+            c.validate(&reg()).unwrap_err(),
+            CitationError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn shape_serde_kebab() {
-        assert_eq!(serde_json::to_string(&ActionShape::ModelDispatch).unwrap(), "\"model-dispatch\"");
-        assert_eq!(serde_json::to_string(&ActionShape::ReplaySession).unwrap(), "\"replay-session\"");
-        assert_eq!(serde_json::to_string(&ActionShape::ProviderSwitch).unwrap(), "\"provider-switch\"");
+        assert_eq!(
+            serde_json::to_string(&ActionShape::ModelDispatch).unwrap(),
+            "\"model-dispatch\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ActionShape::ReplaySession).unwrap(),
+            "\"replay-session\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ActionShape::ProviderSwitch).unwrap(),
+            "\"provider-switch\""
+        );
     }
 
     #[test]

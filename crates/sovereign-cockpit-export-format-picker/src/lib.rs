@@ -112,30 +112,50 @@ impl ExportFormatPicker {
     }
 
     /// Register a new format.
-    pub fn register(&mut self, id: &str, label: &str, extension: &str, mime: &str, caps: Capabilities) -> Result<(), PickerError> {
-        if id.is_empty() { return Err(PickerError::EmptyId); }
-        if label.is_empty() { return Err(PickerError::EmptyLabel); }
-        if extension.is_empty() { return Err(PickerError::EmptyExtension); }
-        if mime.is_empty() { return Err(PickerError::EmptyMime); }
+    pub fn register(
+        &mut self,
+        id: &str,
+        label: &str,
+        extension: &str,
+        mime: &str,
+        caps: Capabilities,
+    ) -> Result<(), PickerError> {
+        if id.is_empty() {
+            return Err(PickerError::EmptyId);
+        }
+        if label.is_empty() {
+            return Err(PickerError::EmptyLabel);
+        }
+        if extension.is_empty() {
+            return Err(PickerError::EmptyExtension);
+        }
+        if mime.is_empty() {
+            return Err(PickerError::EmptyMime);
+        }
         if self.formats.contains_key(id) {
             return Err(PickerError::DuplicateId(id.into()));
         }
         let order = self.next_order;
         self.next_order = self.next_order.wrapping_add(1);
-        self.formats.insert(id.into(), Format {
-            id: id.into(),
-            label: label.into(),
-            extension: extension.into(),
-            mime: mime.into(),
-            caps,
-            order,
-        });
+        self.formats.insert(
+            id.into(),
+            Format {
+                id: id.into(),
+                label: label.into(),
+                extension: extension.into(),
+                mime: mime.into(),
+                caps,
+                order,
+            },
+        );
         Ok(())
     }
 
     /// Formats matching a capability filter, in registration order.
     pub fn available_for(&self, filter: &CapFilter) -> Vec<Format> {
-        let mut v: Vec<Format> = self.formats.values()
+        let mut v: Vec<Format> = self
+            .formats
+            .values()
             .filter(|f| {
                 (!filter.need_lossless || f.caps.lossless)
                     && (!filter.need_formatting || f.caps.preserves_formatting)
@@ -149,7 +169,9 @@ impl ExportFormatPicker {
 
     /// Record this user's pick.
     pub fn record_pick(&mut self, user_id: &str, format_id: &str) -> Result<(), PickerError> {
-        if user_id.is_empty() { return Err(PickerError::EmptyUser); }
+        if user_id.is_empty() {
+            return Err(PickerError::EmptyUser);
+        }
         if !self.formats.contains_key(format_id) {
             return Err(PickerError::UnknownFormat(format_id.into()));
         }
@@ -172,19 +194,31 @@ impl ExportFormatPicker {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), PickerError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(PickerError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(PickerError::SchemaMismatch);
+        }
         for (id, f) in &self.formats {
-            if id.is_empty() { return Err(PickerError::EmptyId); }
-            if f.label.is_empty() { return Err(PickerError::EmptyLabel); }
-            if f.extension.is_empty() { return Err(PickerError::EmptyExtension); }
-            if f.mime.is_empty() { return Err(PickerError::EmptyMime); }
+            if id.is_empty() {
+                return Err(PickerError::EmptyId);
+            }
+            if f.label.is_empty() {
+                return Err(PickerError::EmptyLabel);
+            }
+            if f.extension.is_empty() {
+                return Err(PickerError::EmptyExtension);
+            }
+            if f.mime.is_empty() {
+                return Err(PickerError::EmptyMime);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for ExportFormatPicker {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -193,9 +227,40 @@ mod tests {
 
     fn p() -> ExportFormatPicker {
         let mut p = ExportFormatPicker::new();
-        p.register("csv", "CSV", "csv", "text/csv", Capabilities { lossless: true, ..Capabilities::default() }).unwrap();
-        p.register("json", "JSON", "json", "application/json", Capabilities { lossless: true, ..Capabilities::default() }).unwrap();
-        p.register("pdf", "PDF", "pdf", "application/pdf", Capabilities { lossless: false, preserves_formatting: true, supports_charts: true }).unwrap();
+        p.register(
+            "csv",
+            "CSV",
+            "csv",
+            "text/csv",
+            Capabilities {
+                lossless: true,
+                ..Capabilities::default()
+            },
+        )
+        .unwrap();
+        p.register(
+            "json",
+            "JSON",
+            "json",
+            "application/json",
+            Capabilities {
+                lossless: true,
+                ..Capabilities::default()
+            },
+        )
+        .unwrap();
+        p.register(
+            "pdf",
+            "PDF",
+            "pdf",
+            "application/pdf",
+            Capabilities {
+                lossless: false,
+                preserves_formatting: true,
+                supports_charts: true,
+            },
+        )
+        .unwrap();
         p
     }
 
@@ -211,13 +276,20 @@ mod tests {
     #[test]
     fn duplicate_id_rejected() {
         let mut p = p();
-        assert!(matches!(p.register("csv", "x", "csv", "text/csv", Capabilities::default()).unwrap_err(), PickerError::DuplicateId(_)));
+        assert!(matches!(
+            p.register("csv", "x", "csv", "text/csv", Capabilities::default())
+                .unwrap_err(),
+            PickerError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn filter_by_lossless() {
         let p = p();
-        let v = p.available_for(&CapFilter { need_lossless: true, ..CapFilter::default() });
+        let v = p.available_for(&CapFilter {
+            need_lossless: true,
+            ..CapFilter::default()
+        });
         assert_eq!(v.len(), 2);
         assert!(v.iter().all(|f| f.id == "csv" || f.id == "json"));
     }
@@ -225,7 +297,10 @@ mod tests {
     #[test]
     fn filter_by_charts() {
         let p = p();
-        let v = p.available_for(&CapFilter { need_charts: true, ..CapFilter::default() });
+        let v = p.available_for(&CapFilter {
+            need_charts: true,
+            ..CapFilter::default()
+        });
         assert_eq!(v.len(), 1);
         assert_eq!(v[0].id, "pdf");
     }
@@ -246,29 +321,54 @@ mod tests {
     #[test]
     fn record_unknown_format_rejected() {
         let mut p = p();
-        assert!(matches!(p.record_pick("alice", "nope").unwrap_err(), PickerError::UnknownFormat(_)));
+        assert!(matches!(
+            p.record_pick("alice", "nope").unwrap_err(),
+            PickerError::UnknownFormat(_)
+        ));
     }
 
     #[test]
     fn empty_user_rejected() {
         let mut p = p();
-        assert!(matches!(p.record_pick("", "csv").unwrap_err(), PickerError::EmptyUser));
+        assert!(matches!(
+            p.record_pick("", "csv").unwrap_err(),
+            PickerError::EmptyUser
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut p = ExportFormatPicker::new();
-        assert!(matches!(p.register("", "x", "y", "z", Capabilities::default()).unwrap_err(), PickerError::EmptyId));
-        assert!(matches!(p.register("a", "", "y", "z", Capabilities::default()).unwrap_err(), PickerError::EmptyLabel));
-        assert!(matches!(p.register("a", "x", "", "z", Capabilities::default()).unwrap_err(), PickerError::EmptyExtension));
-        assert!(matches!(p.register("a", "x", "y", "", Capabilities::default()).unwrap_err(), PickerError::EmptyMime));
+        assert!(matches!(
+            p.register("", "x", "y", "z", Capabilities::default())
+                .unwrap_err(),
+            PickerError::EmptyId
+        ));
+        assert!(matches!(
+            p.register("a", "", "y", "z", Capabilities::default())
+                .unwrap_err(),
+            PickerError::EmptyLabel
+        ));
+        assert!(matches!(
+            p.register("a", "x", "", "z", Capabilities::default())
+                .unwrap_err(),
+            PickerError::EmptyExtension
+        ));
+        assert!(matches!(
+            p.register("a", "x", "y", "", Capabilities::default())
+                .unwrap_err(),
+            PickerError::EmptyMime
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut p = ExportFormatPicker::new();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), PickerError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            PickerError::SchemaMismatch
+        ));
     }
 
     #[test]

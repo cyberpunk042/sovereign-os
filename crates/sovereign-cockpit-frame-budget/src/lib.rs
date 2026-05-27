@@ -59,7 +59,9 @@ pub enum BudgetError {
 impl FrameBudget {
     /// New.
     pub fn new(budget_us: u64) -> Result<Self, BudgetError> {
-        if budget_us == 0 { return Err(BudgetError::ZeroBudget); }
+        if budget_us == 0 {
+            return Err(BudgetError::ZeroBudget);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             budget_us,
@@ -88,7 +90,11 @@ impl FrameBudget {
     /// Usage in basis points (10000 = budget; may exceed).
     pub fn usage_bp(&self) -> u32 {
         let ratio = (self.work_us.saturating_mul(10_000)) / self.budget_us;
-        if ratio > u32::MAX as u64 { u32::MAX } else { ratio as u32 }
+        if ratio > u32::MAX as u64 {
+            u32::MAX
+        } else {
+            ratio as u32
+        }
     }
 
     /// Close out the frame; returns stats.
@@ -108,8 +114,12 @@ impl FrameBudget {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), BudgetError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(BudgetError::SchemaMismatch); }
-        if self.budget_us == 0 { return Err(BudgetError::ZeroBudget); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(BudgetError::SchemaMismatch);
+        }
+        if self.budget_us == 0 {
+            return Err(BudgetError::ZeroBudget);
+        }
         Ok(())
     }
 }
@@ -175,14 +185,20 @@ mod tests {
 
     #[test]
     fn zero_budget_rejected() {
-        assert!(matches!(FrameBudget::new(0).unwrap_err(), BudgetError::ZeroBudget));
+        assert!(matches!(
+            FrameBudget::new(0).unwrap_err(),
+            BudgetError::ZeroBudget
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut b = FrameBudget::new(10_000).unwrap();
         b.schema_version = "9.9.9".into();
-        assert!(matches!(b.validate().unwrap_err(), BudgetError::SchemaMismatch));
+        assert!(matches!(
+            b.validate().unwrap_err(),
+            BudgetError::SchemaMismatch
+        ));
     }
 
     #[test]

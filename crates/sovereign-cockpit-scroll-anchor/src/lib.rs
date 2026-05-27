@@ -58,7 +58,9 @@ pub enum AnchorError {
 impl ScrollAnchor {
     /// New.
     pub fn new(viewport_h: u32, content_h: u32, mode: Mode) -> Result<Self, AnchorError> {
-        if viewport_h == 0 { return Err(AnchorError::ZeroViewport); }
+        if viewport_h == 0 {
+            return Err(AnchorError::ZeroViewport);
+        }
         let mut s = Self {
             schema_version: SCHEMA_VERSION.into(),
             mode,
@@ -116,8 +118,12 @@ impl ScrollAnchor {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), AnchorError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(AnchorError::SchemaMismatch); }
-        if self.viewport_h == 0 { return Err(AnchorError::ZeroViewport); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(AnchorError::SchemaMismatch);
+        }
+        if self.viewport_h == 0 {
+            return Err(AnchorError::ZeroViewport);
+        }
         Ok(())
     }
 }
@@ -169,14 +175,20 @@ mod tests {
 
     #[test]
     fn zero_viewport_rejected() {
-        assert!(matches!(ScrollAnchor::new(0, 100, Mode::Top).unwrap_err(), AnchorError::ZeroViewport));
+        assert!(matches!(
+            ScrollAnchor::new(0, 100, Mode::Top).unwrap_err(),
+            AnchorError::ZeroViewport
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut a = ScrollAnchor::new(100, 500, Mode::Top).unwrap();
         a.schema_version = "9.9.9".into();
-        assert!(matches!(a.validate().unwrap_err(), AnchorError::SchemaMismatch));
+        assert!(matches!(
+            a.validate().unwrap_err(),
+            AnchorError::SchemaMismatch
+        ));
     }
 
     #[test]

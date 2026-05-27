@@ -61,25 +61,47 @@ impl FacetCounts {
 
     /// Set a bucket count (creates facet if absent).
     pub fn set_count(&mut self, facet: &str, bucket: &str, n: u64) -> Result<(), FacetError> {
-        if facet.is_empty() { return Err(FacetError::EmptyFacet); }
-        if bucket.is_empty() { return Err(FacetError::EmptyBucket); }
-        self.facets.entry(facet.into()).or_default().counts.insert(bucket.into(), n);
+        if facet.is_empty() {
+            return Err(FacetError::EmptyFacet);
+        }
+        if bucket.is_empty() {
+            return Err(FacetError::EmptyBucket);
+        }
+        self.facets
+            .entry(facet.into())
+            .or_default()
+            .counts
+            .insert(bucket.into(), n);
         Ok(())
     }
 
     /// Increment a bucket by 1.
     pub fn increment(&mut self, facet: &str, bucket: &str) -> Result<u64, FacetError> {
-        if facet.is_empty() { return Err(FacetError::EmptyFacet); }
-        if bucket.is_empty() { return Err(FacetError::EmptyBucket); }
-        let entry = self.facets.entry(facet.into()).or_default().counts.entry(bucket.into()).or_insert(0);
+        if facet.is_empty() {
+            return Err(FacetError::EmptyFacet);
+        }
+        if bucket.is_empty() {
+            return Err(FacetError::EmptyBucket);
+        }
+        let entry = self
+            .facets
+            .entry(facet.into())
+            .or_default()
+            .counts
+            .entry(bucket.into())
+            .or_insert(0);
         *entry = entry.saturating_add(1);
         Ok(*entry)
     }
 
     /// Toggle a selection. Returns the new state (true=selected).
     pub fn toggle(&mut self, facet: &str, bucket: &str) -> Result<bool, FacetError> {
-        if facet.is_empty() { return Err(FacetError::EmptyFacet); }
-        if bucket.is_empty() { return Err(FacetError::EmptyBucket); }
+        if facet.is_empty() {
+            return Err(FacetError::EmptyFacet);
+        }
+        if bucket.is_empty() {
+            return Err(FacetError::EmptyBucket);
+        }
         let f = self.facets.entry(facet.into()).or_default();
         if f.selected.contains(bucket) {
             f.selected.remove(bucket);
@@ -92,14 +114,17 @@ impl FacetCounts {
 
     /// Selected buckets in this facet.
     pub fn selected(&self, facet: &str) -> Vec<String> {
-        self.facets.get(facet)
+        self.facets
+            .get(facet)
             .map(|f| f.selected.iter().cloned().collect())
             .unwrap_or_default()
     }
 
     /// Top n buckets by count, descending; ties broken alphabetically.
     pub fn top(&self, facet: &str, n: usize) -> Vec<(String, u64)> {
-        let Some(f) = self.facets.get(facet) else { return Vec::new(); };
+        let Some(f) = self.facets.get(facet) else {
+            return Vec::new();
+        };
         let mut v: Vec<(String, u64)> = f.counts.iter().map(|(k, v)| (k.clone(), *v)).collect();
         v.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
         v.truncate(n);
@@ -124,14 +149,22 @@ impl FacetCounts {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), FacetError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(FacetError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(FacetError::SchemaMismatch);
+        }
         for (name, f) in &self.facets {
-            if name.is_empty() { return Err(FacetError::EmptyFacet); }
+            if name.is_empty() {
+                return Err(FacetError::EmptyFacet);
+            }
             for b in f.counts.keys() {
-                if b.is_empty() { return Err(FacetError::EmptyBucket); }
+                if b.is_empty() {
+                    return Err(FacetError::EmptyBucket);
+                }
             }
             for b in &f.selected {
-                if b.is_empty() { return Err(FacetError::EmptyBucket); }
+                if b.is_empty() {
+                    return Err(FacetError::EmptyBucket);
+                }
             }
         }
         Ok(())
@@ -139,7 +172,9 @@ impl FacetCounts {
 }
 
 impl Default for FacetCounts {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -213,16 +248,28 @@ mod tests {
     #[test]
     fn empty_inputs_rejected() {
         let mut f = FacetCounts::new();
-        assert!(matches!(f.set_count("", "a", 1).unwrap_err(), FacetError::EmptyFacet));
-        assert!(matches!(f.set_count("kind", "", 1).unwrap_err(), FacetError::EmptyBucket));
-        assert!(matches!(f.toggle("", "a").unwrap_err(), FacetError::EmptyFacet));
+        assert!(matches!(
+            f.set_count("", "a", 1).unwrap_err(),
+            FacetError::EmptyFacet
+        ));
+        assert!(matches!(
+            f.set_count("kind", "", 1).unwrap_err(),
+            FacetError::EmptyBucket
+        ));
+        assert!(matches!(
+            f.toggle("", "a").unwrap_err(),
+            FacetError::EmptyFacet
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut f = FacetCounts::new();
         f.schema_version = "9.9.9".into();
-        assert!(matches!(f.validate().unwrap_err(), FacetError::SchemaMismatch));
+        assert!(matches!(
+            f.validate().unwrap_err(),
+            FacetError::SchemaMismatch
+        ));
     }
 
     #[test]

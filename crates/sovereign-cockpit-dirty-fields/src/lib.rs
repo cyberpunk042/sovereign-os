@@ -61,7 +61,9 @@ impl DirtyFields {
 
     /// Set current value (and refresh dirty-ness for that field).
     pub fn set_current(&mut self, field: &str, value: &str) -> Result<(), DirtyError> {
-        if field.is_empty() { return Err(DirtyError::EmptyField); }
+        if field.is_empty() {
+            return Err(DirtyError::EmptyField);
+        }
         self.current.insert(field.into(), value.into());
         self.refresh_field(field);
         Ok(())
@@ -108,16 +110,22 @@ impl DirtyFields {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), DirtyError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(DirtyError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(DirtyError::SchemaMismatch);
+        }
         for k in self.initial.keys().chain(self.current.keys()) {
-            if k.is_empty() { return Err(DirtyError::EmptyField); }
+            if k.is_empty() {
+                return Err(DirtyError::EmptyField);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for DirtyFields {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -125,7 +133,10 @@ mod tests {
     use super::*;
 
     fn map(items: &[(&str, &str)]) -> BTreeMap<String, String> {
-        items.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
+        items
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
     }
 
     #[test]
@@ -174,14 +185,20 @@ mod tests {
     #[test]
     fn empty_field_rejected() {
         let mut d = DirtyFields::new();
-        assert!(matches!(d.set_current("", "v").unwrap_err(), DirtyError::EmptyField));
+        assert!(matches!(
+            d.set_current("", "v").unwrap_err(),
+            DirtyError::EmptyField
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut d = DirtyFields::new();
         d.schema_version = "9.9.9".into();
-        assert!(matches!(d.validate().unwrap_err(), DirtyError::SchemaMismatch));
+        assert!(matches!(
+            d.validate().unwrap_err(),
+            DirtyError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -68,10 +68,13 @@ pub enum OnlineError {
 impl OnlineStatus {
     /// New initially Unknown.
     pub fn new(reconnect_after_ms: u32, offline_after_ms: u32) -> Result<Self, OnlineError> {
-        if reconnect_after_ms == 0 { return Err(OnlineError::ReconnectZero); }
+        if reconnect_after_ms == 0 {
+            return Err(OnlineError::ReconnectZero);
+        }
         if offline_after_ms <= reconnect_after_ms {
             return Err(OnlineError::BadOfflineThreshold {
-                off: offline_after_ms, rec: reconnect_after_ms,
+                off: offline_after_ms,
+                rec: reconnect_after_ms,
             });
         }
         Ok(Self {
@@ -93,7 +96,9 @@ impl OnlineStatus {
 
     /// Tick — degrades status based on time since last heartbeat.
     pub fn tick(&mut self, now_ms: u64) {
-        if self.last_heartbeat_ms == 0 { return; }
+        if self.last_heartbeat_ms == 0 {
+            return;
+        }
         let elapsed = now_ms.saturating_sub(self.last_heartbeat_ms);
         if elapsed >= self.offline_after_ms as u64 {
             self.status = Status::Offline;
@@ -118,7 +123,9 @@ impl OnlineStatus {
         if self.schema_version != SCHEMA_VERSION {
             return Err(OnlineError::SchemaMismatch);
         }
-        if self.reconnect_after_ms == 0 { return Err(OnlineError::ReconnectZero); }
+        if self.reconnect_after_ms == 0 {
+            return Err(OnlineError::ReconnectZero);
+        }
         if self.offline_after_ms <= self.reconnect_after_ms {
             return Err(OnlineError::BadOfflineThreshold {
                 off: self.offline_after_ms,
@@ -139,12 +146,18 @@ mod tests {
 
     #[test]
     fn zero_reconnect_rejected() {
-        assert!(matches!(OnlineStatus::new(0, 1).unwrap_err(), OnlineError::ReconnectZero));
+        assert!(matches!(
+            OnlineStatus::new(0, 1).unwrap_err(),
+            OnlineError::ReconnectZero
+        ));
     }
 
     #[test]
     fn offline_le_reconnect_rejected() {
-        assert!(matches!(OnlineStatus::new(2_000, 1_000).unwrap_err(), OnlineError::BadOfflineThreshold { .. }));
+        assert!(matches!(
+            OnlineStatus::new(2_000, 1_000).unwrap_err(),
+            OnlineError::BadOfflineThreshold { .. }
+        ));
     }
 
     #[test]
@@ -206,12 +219,18 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = s();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), OnlineError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            OnlineError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn status_serde_kebab() {
-        assert_eq!(serde_json::to_string(&Status::Reconnecting).unwrap(), "\"reconnecting\"");
+        assert_eq!(
+            serde_json::to_string(&Status::Reconnecting).unwrap(),
+            "\"reconnecting\""
+        );
     }
 
     #[test]

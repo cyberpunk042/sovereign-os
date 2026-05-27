@@ -38,7 +38,9 @@ impl Metric {
     }
 
     /// Over limit?
-    pub fn is_over(&self) -> bool { self.used >= self.limit }
+    pub fn is_over(&self) -> bool {
+        self.used >= self.limit
+    }
 }
 
 /// State.
@@ -84,16 +86,27 @@ impl UsageMeter {
 
     /// Add metric.
     pub fn add(&mut self, id: &str, label: &str, unit: &str, limit: u64) -> Result<(), UsageError> {
-        if id.is_empty() { return Err(UsageError::EmptyId); }
-        if label.is_empty() { return Err(UsageError::EmptyLabel); }
-        if limit == 0 { return Err(UsageError::ZeroLimit); }
-        if self.metrics.contains_key(id) { return Err(UsageError::DuplicateId(id.into())); }
-        self.metrics.insert(id.into(), Metric {
-            label: label.into(),
-            unit: unit.into(),
-            used: 0,
-            limit,
-        });
+        if id.is_empty() {
+            return Err(UsageError::EmptyId);
+        }
+        if label.is_empty() {
+            return Err(UsageError::EmptyLabel);
+        }
+        if limit == 0 {
+            return Err(UsageError::ZeroLimit);
+        }
+        if self.metrics.contains_key(id) {
+            return Err(UsageError::DuplicateId(id.into()));
+        }
+        self.metrics.insert(
+            id.into(),
+            Metric {
+                label: label.into(),
+                unit: unit.into(),
+                used: 0,
+                limit,
+            },
+        );
         Ok(())
     }
 
@@ -104,37 +117,57 @@ impl UsageMeter {
 
     /// Set used.
     pub fn set_used(&mut self, id: &str, used: u64) -> Result<(), UsageError> {
-        let m = self.metrics.get_mut(id).ok_or_else(|| UsageError::UnknownId(id.into()))?;
+        let m = self
+            .metrics
+            .get_mut(id)
+            .ok_or_else(|| UsageError::UnknownId(id.into()))?;
         m.used = used;
         Ok(())
     }
 
     /// Charge n.
     pub fn charge(&mut self, id: &str, n: u64) -> Result<(), UsageError> {
-        let m = self.metrics.get_mut(id).ok_or_else(|| UsageError::UnknownId(id.into()))?;
+        let m = self
+            .metrics
+            .get_mut(id)
+            .ok_or_else(|| UsageError::UnknownId(id.into()))?;
         m.used = m.used.saturating_add(n);
         Ok(())
     }
 
     /// Over-limit metric ids.
     pub fn over_limit(&self) -> Vec<&str> {
-        self.metrics.iter().filter(|(_, m)| m.is_over()).map(|(k, _)| k.as_str()).collect()
+        self.metrics
+            .iter()
+            .filter(|(_, m)| m.is_over())
+            .map(|(k, _)| k.as_str())
+            .collect()
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), UsageError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(UsageError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(UsageError::SchemaMismatch);
+        }
         for (id, m) in &self.metrics {
-            if id.is_empty() { return Err(UsageError::EmptyId); }
-            if m.label.is_empty() { return Err(UsageError::EmptyLabel); }
-            if m.limit == 0 { return Err(UsageError::ZeroLimit); }
+            if id.is_empty() {
+                return Err(UsageError::EmptyId);
+            }
+            if m.label.is_empty() {
+                return Err(UsageError::EmptyLabel);
+            }
+            if m.limit == 0 {
+                return Err(UsageError::ZeroLimit);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for UsageMeter {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -174,28 +207,46 @@ mod tests {
     fn duplicate_rejected() {
         let mut u = UsageMeter::new();
         u.add("a", "X", "", 100).unwrap();
-        assert!(matches!(u.add("a", "Y", "", 100).unwrap_err(), UsageError::DuplicateId(_)));
+        assert!(matches!(
+            u.add("a", "Y", "", 100).unwrap_err(),
+            UsageError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut u = UsageMeter::new();
-        assert!(matches!(u.add("", "X", "", 100).unwrap_err(), UsageError::EmptyId));
-        assert!(matches!(u.add("a", "", "", 100).unwrap_err(), UsageError::EmptyLabel));
-        assert!(matches!(u.add("a", "X", "", 0).unwrap_err(), UsageError::ZeroLimit));
+        assert!(matches!(
+            u.add("", "X", "", 100).unwrap_err(),
+            UsageError::EmptyId
+        ));
+        assert!(matches!(
+            u.add("a", "", "", 100).unwrap_err(),
+            UsageError::EmptyLabel
+        ));
+        assert!(matches!(
+            u.add("a", "X", "", 0).unwrap_err(),
+            UsageError::ZeroLimit
+        ));
     }
 
     #[test]
     fn unknown_id_rejected() {
         let mut u = UsageMeter::new();
-        assert!(matches!(u.set_used("nope", 0).unwrap_err(), UsageError::UnknownId(_)));
+        assert!(matches!(
+            u.set_used("nope", 0).unwrap_err(),
+            UsageError::UnknownId(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut u = UsageMeter::new();
         u.schema_version = "9.9.9".into();
-        assert!(matches!(u.validate().unwrap_err(), UsageError::SchemaMismatch));
+        assert!(matches!(
+            u.validate().unwrap_err(),
+            UsageError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -252,7 +252,10 @@ mod tests {
     #[test]
     fn default_exposure_is_loopback_only() {
         // Per R10198 — operator must sign to expose on LAN
-        assert_eq!(ToggleConfig::default().exposure, ExposureLevel::LoopbackOnly);
+        assert_eq!(
+            ToggleConfig::default().exposure,
+            ExposureLevel::LoopbackOnly
+        );
     }
 
     #[test]
@@ -260,7 +263,10 @@ mod tests {
         let mut c = ToggleConfig::default();
         c.exposure = ExposureLevel::Lan;
         // signature still empty → refused
-        assert!(matches!(c.validate().unwrap_err(), ToggleError::LanExposureUnsigned));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            ToggleError::LanExposureUnsigned
+        ));
     }
 
     #[test]
@@ -285,11 +291,21 @@ mod tests {
     fn d00_anchor_cannot_be_disabled() {
         let mut c = ToggleConfig::default();
         c.slots.insert("D-00".into(), SlotState::Disabled);
-        assert!(matches!(c.validate().unwrap_err(), ToggleError::MasterDashboardLocked));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            ToggleError::MasterDashboardLocked
+        ));
         // also blocks via apply_change
         let mut c2 = ToggleConfig::default();
         assert!(matches!(
-            c2.apply_change("D-00", SlotState::Disabled, "op", "t", "2026-05-19T00:00:00Z").unwrap_err(),
+            c2.apply_change(
+                "D-00",
+                SlotState::Disabled,
+                "op",
+                "t",
+                "2026-05-19T00:00:00Z"
+            )
+            .unwrap_err(),
             ToggleError::MasterDashboardLocked
         ));
     }
@@ -320,16 +336,21 @@ mod tests {
     #[test]
     fn apply_change_to_unknown_slot_refused() {
         let mut c = ToggleConfig::default();
-        let err = c.apply_change("D-99", SlotState::Disabled, "op", "t", "ts").unwrap_err();
+        let err = c
+            .apply_change("D-99", SlotState::Disabled, "op", "t", "ts")
+            .unwrap_err();
         assert!(matches!(err, ToggleError::SlotNotInCatalog(_)));
     }
 
     #[test]
     fn state_counts_track_transitions() {
         let mut c = ToggleConfig::default();
-        c.apply_change("D-12", SlotState::Disabled, "op", "t", "ts").unwrap();
-        c.apply_change("D-13", SlotState::Disabled, "op", "t", "ts").unwrap();
-        c.apply_change("D-14", SlotState::Paused, "op", "t", "ts").unwrap();
+        c.apply_change("D-12", SlotState::Disabled, "op", "t", "ts")
+            .unwrap();
+        c.apply_change("D-13", SlotState::Disabled, "op", "t", "ts")
+            .unwrap();
+        c.apply_change("D-14", SlotState::Paused, "op", "t", "ts")
+            .unwrap();
         let (e, d, p) = c.state_counts();
         assert_eq!(e, 18);
         assert_eq!(d, 2);
@@ -346,14 +367,23 @@ mod tests {
     fn schema_drift_rejected() {
         let mut c = ToggleConfig::default();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), ToggleError::SchemaMismatch { .. }));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            ToggleError::SchemaMismatch { .. }
+        ));
     }
 
     #[test]
     fn canonical_json_roundtrip_preserves_state() {
         let mut original = ToggleConfig::default();
         original
-            .apply_change("D-15", SlotState::Disabled, "op-x", "trace-1", "2026-05-19T04:00:00Z")
+            .apply_change(
+                "D-15",
+                SlotState::Disabled,
+                "op-x",
+                "trace-1",
+                "2026-05-19T04:00:00Z",
+            )
             .unwrap();
         let j = original.to_canonical_json().unwrap();
         let back: ToggleConfig = serde_json::from_str(&j).unwrap();
@@ -371,8 +401,14 @@ mod tests {
 
     #[test]
     fn slot_state_serde_uses_kebab_case() {
-        assert_eq!(serde_json::to_string(&SlotState::Paused).unwrap(), "\"paused\"");
-        assert_eq!(serde_json::to_string(&SlotState::Disabled).unwrap(), "\"disabled\"");
+        assert_eq!(
+            serde_json::to_string(&SlotState::Paused).unwrap(),
+            "\"paused\""
+        );
+        assert_eq!(
+            serde_json::to_string(&SlotState::Disabled).unwrap(),
+            "\"disabled\""
+        );
     }
 
     #[test]
@@ -381,6 +417,9 @@ mod tests {
             serde_json::to_string(&ExposureLevel::LoopbackOnly).unwrap(),
             "\"loopback-only\""
         );
-        assert_eq!(serde_json::to_string(&ExposureLevel::Lan).unwrap(), "\"lan\"");
+        assert_eq!(
+            serde_json::to_string(&ExposureLevel::Lan).unwrap(),
+            "\"lan\""
+        );
     }
 }

@@ -67,7 +67,9 @@ impl ScrollSpy {
 
     /// Register a section. Inserts in sorted order.
     pub fn register(&mut self, s: Section) -> Result<(), SpyError> {
-        if s.id.is_empty() { return Err(SpyError::EmptyId); }
+        if s.id.is_empty() {
+            return Err(SpyError::EmptyId);
+        }
         if self.sections.iter().any(|x| x.id == s.id) {
             return Err(SpyError::DuplicateId(s.id));
         }
@@ -90,7 +92,9 @@ impl ScrollSpy {
     /// it in `last_active`.
     pub fn active_at(&mut self, pos_px: u32) -> Option<String> {
         let thresh = pos_px.saturating_add(self.activation_offset_px);
-        let active = self.sections.iter()
+        let active = self
+            .sections
+            .iter()
             .rev()
             .find(|s| s.top_px <= thresh)
             .map(|s| s.id.clone());
@@ -100,13 +104,19 @@ impl ScrollSpy {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), SpyError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(SpyError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(SpyError::SchemaMismatch);
+        }
         use std::collections::HashSet;
         let mut seen: HashSet<&str> = HashSet::new();
         let mut prev = 0u32;
         for s in &self.sections {
-            if s.id.is_empty() { return Err(SpyError::EmptyId); }
-            if !seen.insert(s.id.as_str()) { return Err(SpyError::DuplicateId(s.id.clone())); }
+            if s.id.is_empty() {
+                return Err(SpyError::EmptyId);
+            }
+            if !seen.insert(s.id.as_str()) {
+                return Err(SpyError::DuplicateId(s.id.clone()));
+            }
             if s.top_px < prev {
                 // sections must be ascending — re-sort would silently mask; treat as invariant.
                 return Err(SpyError::DuplicateId(s.id.clone()));
@@ -121,7 +131,12 @@ impl ScrollSpy {
 mod tests {
     use super::*;
 
-    fn sect(id: &str, top: u32) -> Section { Section { id: id.into(), top_px: top } }
+    fn sect(id: &str, top: u32) -> Section {
+        Section {
+            id: id.into(),
+            top_px: top,
+        }
+    }
 
     #[test]
     fn register_keeps_sorted() {
@@ -164,13 +179,19 @@ mod tests {
     fn duplicate_id_rejected() {
         let mut s = ScrollSpy::new(0);
         s.register(sect("a", 100)).unwrap();
-        assert!(matches!(s.register(sect("a", 200)).unwrap_err(), SpyError::DuplicateId(_)));
+        assert!(matches!(
+            s.register(sect("a", 200)).unwrap_err(),
+            SpyError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn empty_id_rejected() {
         let mut s = ScrollSpy::new(0);
-        assert!(matches!(s.register(sect("", 100)).unwrap_err(), SpyError::EmptyId));
+        assert!(matches!(
+            s.register(sect("", 100)).unwrap_err(),
+            SpyError::EmptyId
+        ));
     }
 
     #[test]
@@ -195,7 +216,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = ScrollSpy::new(0);
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), SpyError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SpyError::SchemaMismatch
+        ));
     }
 
     #[test]

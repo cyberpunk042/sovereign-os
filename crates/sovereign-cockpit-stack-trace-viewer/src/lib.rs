@@ -85,12 +85,20 @@ impl StackTraceViewer {
 
     /// Add a frame; classifies in_project against project_prefixes.
     pub fn push(&mut self, file: &str, line: u32, fn_name: &str) -> Result<(), StackError> {
-        if file.is_empty() { return Err(StackError::EmptyFile); }
-        if fn_name.is_empty() { return Err(StackError::EmptyFn); }
+        if file.is_empty() {
+            return Err(StackError::EmptyFile);
+        }
+        if fn_name.is_empty() {
+            return Err(StackError::EmptyFn);
+        }
         let in_project = self.project_prefixes.iter().any(|p| file.starts_with(p));
         let idx = self.frames.len() as u32;
         self.frames.push(Frame {
-            idx, file: file.into(), line, fn_name: fn_name.into(), in_project,
+            idx,
+            file: file.into(),
+            line,
+            fn_name: fn_name.into(),
+            in_project,
         });
         Ok(())
     }
@@ -98,7 +106,11 @@ impl StackTraceViewer {
     /// Render with optional dep collapsing.
     pub fn render(&self, collapse_deps: bool) -> Vec<RenderRow> {
         if !collapse_deps {
-            return self.frames.iter().map(|f| RenderRow::Frame { frame: f.clone() }).collect();
+            return self
+                .frames
+                .iter()
+                .map(|f| RenderRow::Frame { frame: f.clone() })
+                .collect();
         }
         let mut out = Vec::new();
         let mut run = 0u32;
@@ -113,16 +125,24 @@ impl StackTraceViewer {
                 out.push(RenderRow::Frame { frame: f.clone() });
             }
         }
-        if run > 0 { out.push(RenderRow::Collapsed { count: run }); }
+        if run > 0 {
+            out.push(RenderRow::Collapsed { count: run });
+        }
         out
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), StackError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(StackError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(StackError::SchemaMismatch);
+        }
         for f in &self.frames {
-            if f.file.is_empty() { return Err(StackError::EmptyFile); }
-            if f.fn_name.is_empty() { return Err(StackError::EmptyFn); }
+            if f.file.is_empty() {
+                return Err(StackError::EmptyFile);
+            }
+            if f.fn_name.is_empty() {
+                return Err(StackError::EmptyFn);
+            }
         }
         Ok(())
     }
@@ -177,15 +197,24 @@ mod tests {
     #[test]
     fn empty_inputs_rejected() {
         let mut v = StackTraceViewer::new(vec![]);
-        assert!(matches!(v.push("", 0, "f").unwrap_err(), StackError::EmptyFile));
-        assert!(matches!(v.push("file", 0, "").unwrap_err(), StackError::EmptyFn));
+        assert!(matches!(
+            v.push("", 0, "f").unwrap_err(),
+            StackError::EmptyFile
+        ));
+        assert!(matches!(
+            v.push("file", 0, "").unwrap_err(),
+            StackError::EmptyFn
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut v = StackTraceViewer::new(vec![]);
         v.schema_version = "9.9.9".into();
-        assert!(matches!(v.validate().unwrap_err(), StackError::SchemaMismatch));
+        assert!(matches!(
+            v.validate().unwrap_err(),
+            StackError::SchemaMismatch
+        ));
     }
 
     #[test]

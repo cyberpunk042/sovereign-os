@@ -54,8 +54,12 @@ impl FilterState {
 
     /// Set a pending filter.
     pub fn set(&mut self, key: &str, value: &str) -> Result<(), FilterError> {
-        if key.is_empty() { return Err(FilterError::EmptyKey); }
-        if value.is_empty() { return Err(FilterError::EmptyValue); }
+        if key.is_empty() {
+            return Err(FilterError::EmptyKey);
+        }
+        if value.is_empty() {
+            return Err(FilterError::EmptyValue);
+        }
         self.pending.insert(key.into(), value.into());
         Ok(())
     }
@@ -86,24 +90,36 @@ impl FilterState {
     }
 
     /// Applied filter count.
-    pub fn applied_count(&self) -> usize { self.applied.len() }
+    pub fn applied_count(&self) -> usize {
+        self.applied.len()
+    }
 
     /// Pending filter count.
-    pub fn pending_count(&self) -> usize { self.pending.len() }
+    pub fn pending_count(&self) -> usize {
+        self.pending.len()
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), FilterError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(FilterError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(FilterError::SchemaMismatch);
+        }
         for (k, v) in self.pending.iter().chain(self.applied.iter()) {
-            if k.is_empty() { return Err(FilterError::EmptyKey); }
-            if v.is_empty() { return Err(FilterError::EmptyValue); }
+            if k.is_empty() {
+                return Err(FilterError::EmptyKey);
+            }
+            if v.is_empty() {
+                return Err(FilterError::EmptyValue);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for FilterState {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -165,14 +181,20 @@ mod tests {
     fn empty_inputs_rejected() {
         let mut f = FilterState::new();
         assert!(matches!(f.set("", "x").unwrap_err(), FilterError::EmptyKey));
-        assert!(matches!(f.set("k", "").unwrap_err(), FilterError::EmptyValue));
+        assert!(matches!(
+            f.set("k", "").unwrap_err(),
+            FilterError::EmptyValue
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut f = FilterState::new();
         f.schema_version = "9.9.9".into();
-        assert!(matches!(f.validate().unwrap_err(), FilterError::SchemaMismatch));
+        assert!(matches!(
+            f.validate().unwrap_err(),
+            FilterError::SchemaMismatch
+        ));
     }
 
     #[test]

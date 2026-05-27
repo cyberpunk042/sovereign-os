@@ -48,7 +48,12 @@ pub struct Thresholds {
 impl Thresholds {
     /// Default thresholds (Tailwind-ish).
     pub const fn defaults() -> Self {
-        Self { sm: 640, md: 768, lg: 1024, xl: 1280 }
+        Self {
+            sm: 640,
+            md: 768,
+            lg: 1024,
+            xl: 1280,
+        }
     }
 }
 
@@ -79,11 +84,17 @@ pub enum BreakpointError {
 }
 
 fn classify(width: u32, t: &Thresholds) -> Breakpoint {
-    if width >= t.xl { Breakpoint::Xl }
-    else if width >= t.lg { Breakpoint::Lg }
-    else if width >= t.md { Breakpoint::Md }
-    else if width >= t.sm { Breakpoint::Sm }
-    else { Breakpoint::Xs }
+    if width >= t.xl {
+        Breakpoint::Xl
+    } else if width >= t.lg {
+        Breakpoint::Lg
+    } else if width >= t.md {
+        Breakpoint::Md
+    } else if width >= t.sm {
+        Breakpoint::Sm
+    } else {
+        Breakpoint::Xs
+    }
 }
 
 fn check_thresholds(t: &Thresholds) -> Result<(), BreakpointError> {
@@ -138,7 +149,9 @@ impl BreakpointState {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), BreakpointError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(BreakpointError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(BreakpointError::SchemaMismatch);
+        }
         check_thresholds(&self.thresholds)?;
         Ok(())
     }
@@ -201,22 +214,38 @@ mod tests {
 
     #[test]
     fn custom_thresholds_ok() {
-        let t = Thresholds { sm: 500, md: 700, lg: 900, xl: 1100 };
+        let t = Thresholds {
+            sm: 500,
+            md: 700,
+            lg: 900,
+            xl: 1100,
+        };
         let s = BreakpointState::with_thresholds(t, 800).unwrap();
         assert_eq!(s.current, Breakpoint::Md);
     }
 
     #[test]
     fn bad_thresholds_rejected() {
-        let t = Thresholds { sm: 700, md: 500, lg: 900, xl: 1100 };
-        assert!(matches!(BreakpointState::with_thresholds(t, 800).unwrap_err(), BreakpointError::BadThresholds));
+        let t = Thresholds {
+            sm: 700,
+            md: 500,
+            lg: 900,
+            xl: 1100,
+        };
+        assert!(matches!(
+            BreakpointState::with_thresholds(t, 800).unwrap_err(),
+            BreakpointError::BadThresholds
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = BreakpointState::new(800);
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), BreakpointError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            BreakpointError::SchemaMismatch
+        ));
     }
 
     #[test]

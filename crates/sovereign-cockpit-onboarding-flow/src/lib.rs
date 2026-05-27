@@ -61,8 +61,14 @@ pub enum FlowError {
 }
 
 const ORDER: [Step; 8] = [
-    Step::Welcome, Step::Theme, Step::Locale, Step::Profile,
-    Step::FirstConversation, Step::DashboardTour, Step::ReplayTour, Step::Done,
+    Step::Welcome,
+    Step::Theme,
+    Step::Locale,
+    Step::Profile,
+    Step::FirstConversation,
+    Step::DashboardTour,
+    Step::ReplayTour,
+    Step::Done,
 ];
 
 fn step_index(s: Step) -> usize {
@@ -81,16 +87,22 @@ impl OnboardingFlow {
 
     /// Advance to next step.
     pub fn next(&mut self) -> Result<Step, FlowError> {
-        if self.current == Step::Done { return Err(FlowError::AtLast); }
+        if self.current == Step::Done {
+            return Err(FlowError::AtLast);
+        }
         let idx = step_index(self.current);
         self.current = ORDER[idx + 1];
-        if self.current == Step::Done { self.completed = true; }
+        if self.current == Step::Done {
+            self.completed = true;
+        }
         Ok(self.current)
     }
 
     /// Go back.
     pub fn back(&mut self) -> Result<Step, FlowError> {
-        if self.current == Step::Welcome { return Err(FlowError::AtFirst); }
+        if self.current == Step::Welcome {
+            return Err(FlowError::AtFirst);
+        }
         let idx = step_index(self.current);
         self.current = ORDER[idx - 1];
         // Going back un-completes.
@@ -126,7 +138,9 @@ impl OnboardingFlow {
 }
 
 impl Default for OnboardingFlow {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -152,7 +166,9 @@ mod tests {
     #[test]
     fn reach_done_marks_completed() {
         let mut f = OnboardingFlow::new();
-        for _ in 0..7 { f.next().unwrap(); }
+        for _ in 0..7 {
+            f.next().unwrap();
+        }
         assert_eq!(f.current, Step::Done);
         assert!(f.completed);
         assert_eq!(f.progress_pct(), 100);
@@ -209,13 +225,22 @@ mod tests {
     fn schema_drift_rejected() {
         let mut f = OnboardingFlow::new();
         f.schema_version = "9.9.9".into();
-        assert!(matches!(f.validate().unwrap_err(), FlowError::SchemaMismatch));
+        assert!(matches!(
+            f.validate().unwrap_err(),
+            FlowError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn step_serde_kebab() {
-        assert_eq!(serde_json::to_string(&Step::FirstConversation).unwrap(), "\"first-conversation\"");
-        assert_eq!(serde_json::to_string(&Step::DashboardTour).unwrap(), "\"dashboard-tour\"");
+        assert_eq!(
+            serde_json::to_string(&Step::FirstConversation).unwrap(),
+            "\"first-conversation\""
+        );
+        assert_eq!(
+            serde_json::to_string(&Step::DashboardTour).unwrap(),
+            "\"dashboard-tour\""
+        );
     }
 
     #[test]

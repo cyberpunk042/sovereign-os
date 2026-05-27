@@ -60,14 +60,22 @@ impl TypingIndicatorSet {
 
     /// Set / refresh an indicator. Same `who` updates elapsed back to 0.
     pub fn set(&mut self, who: &str, timeout_ms: u32) -> Result<(), IndicatorError> {
-        if who.is_empty() { return Err(IndicatorError::EmptyWho); }
-        if timeout_ms == 0 { return Err(IndicatorError::ZeroTimeout); }
+        if who.is_empty() {
+            return Err(IndicatorError::EmptyWho);
+        }
+        if timeout_ms == 0 {
+            return Err(IndicatorError::ZeroTimeout);
+        }
         if let Some(i) = self.indicators.iter_mut().find(|i| i.who == who) {
             i.timeout_ms = timeout_ms;
             i.elapsed_ms = 0;
             return Ok(());
         }
-        self.indicators.push(Indicator { who: who.into(), timeout_ms, elapsed_ms: 0 });
+        self.indicators.push(Indicator {
+            who: who.into(),
+            timeout_ms,
+            elapsed_ms: 0,
+        });
         Ok(())
     }
 
@@ -87,7 +95,9 @@ impl TypingIndicatorSet {
     }
 
     /// Live indicators.
-    pub fn active(&self) -> &[Indicator] { &self.indicators }
+    pub fn active(&self) -> &[Indicator] {
+        &self.indicators
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), IndicatorError> {
@@ -95,15 +105,21 @@ impl TypingIndicatorSet {
             return Err(IndicatorError::SchemaMismatch);
         }
         for i in &self.indicators {
-            if i.who.is_empty() { return Err(IndicatorError::EmptyWho); }
-            if i.timeout_ms == 0 { return Err(IndicatorError::ZeroTimeout); }
+            if i.who.is_empty() {
+                return Err(IndicatorError::EmptyWho);
+            }
+            if i.timeout_ms == 0 {
+                return Err(IndicatorError::ZeroTimeout);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for TypingIndicatorSet {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -154,13 +170,19 @@ mod tests {
     #[test]
     fn empty_who_rejected() {
         let mut s = TypingIndicatorSet::new();
-        assert!(matches!(s.set("", 1000).unwrap_err(), IndicatorError::EmptyWho));
+        assert!(matches!(
+            s.set("", 1000).unwrap_err(),
+            IndicatorError::EmptyWho
+        ));
     }
 
     #[test]
     fn zero_timeout_rejected() {
         let mut s = TypingIndicatorSet::new();
-        assert!(matches!(s.set("a", 0).unwrap_err(), IndicatorError::ZeroTimeout));
+        assert!(matches!(
+            s.set("a", 0).unwrap_err(),
+            IndicatorError::ZeroTimeout
+        ));
     }
 
     #[test]
@@ -178,7 +200,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = TypingIndicatorSet::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), IndicatorError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            IndicatorError::SchemaMismatch
+        ));
     }
 
     #[test]

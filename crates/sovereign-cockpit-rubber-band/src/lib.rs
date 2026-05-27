@@ -83,14 +83,18 @@ impl RubberBand {
 
     /// Update current point during drag.
     pub fn update(&mut self, x: i32, y: i32) -> Result<(), DragError> {
-        if self.state != DragState::Dragging { return Err(DragError::NotDragging); }
+        if self.state != DragState::Dragging {
+            return Err(DragError::NotDragging);
+        }
         self.current = (x, y);
         Ok(())
     }
 
     /// Finish drag; returns normalized rect (None if not dragging).
     pub fn finish(&mut self) -> Option<SelRect> {
-        if self.state != DragState::Dragging { return None; }
+        if self.state != DragState::Dragging {
+            return None;
+        }
         self.state = DragState::Idle;
         Some(self.rect())
     }
@@ -114,13 +118,17 @@ impl RubberBand {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), DragError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(DragError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(DragError::SchemaMismatch);
+        }
         Ok(())
     }
 }
 
 impl Default for RubberBand {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -133,7 +141,15 @@ mod tests {
         r.start(5, 10);
         r.update(20, 30).unwrap();
         let rect = r.finish().unwrap();
-        assert_eq!(rect, SelRect { lo_x: 5, lo_y: 10, hi_x: 20, hi_y: 30 });
+        assert_eq!(
+            rect,
+            SelRect {
+                lo_x: 5,
+                lo_y: 10,
+                hi_x: 20,
+                hi_y: 30
+            }
+        );
         assert_eq!(r.state, DragState::Idle);
     }
 
@@ -143,13 +159,24 @@ mod tests {
         r.start(20, 30);
         r.update(5, 10).unwrap();
         let rect = r.finish().unwrap();
-        assert_eq!(rect, SelRect { lo_x: 5, lo_y: 10, hi_x: 20, hi_y: 30 });
+        assert_eq!(
+            rect,
+            SelRect {
+                lo_x: 5,
+                lo_y: 10,
+                hi_x: 20,
+                hi_y: 30
+            }
+        );
     }
 
     #[test]
     fn update_without_start_rejected() {
         let mut r = RubberBand::new();
-        assert!(matches!(r.update(5, 5).unwrap_err(), DragError::NotDragging));
+        assert!(matches!(
+            r.update(5, 5).unwrap_err(),
+            DragError::NotDragging
+        ));
     }
 
     #[test]
@@ -171,7 +198,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut r = RubberBand::new();
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate().unwrap_err(), DragError::SchemaMismatch));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            DragError::SchemaMismatch
+        ));
     }
 
     #[test]

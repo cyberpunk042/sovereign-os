@@ -80,7 +80,9 @@ pub enum LoaderError {
 impl LazyLoader {
     /// New.
     pub fn new(max_attempts: u32) -> Result<Self, LoaderError> {
-        if max_attempts == 0 { return Err(LoaderError::ZeroMaxAttempts); }
+        if max_attempts == 0 {
+            return Err(LoaderError::ZeroMaxAttempts);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             max_attempts,
@@ -90,8 +92,13 @@ impl LazyLoader {
 
     /// Request a resource (Idle/Failed → Loading).
     pub fn request(&mut self, id: &str) -> Result<(), LoaderError> {
-        if id.is_empty() { return Err(LoaderError::EmptyId); }
-        let r = self.resources.entry(id.into()).or_insert(Resource { phase: Phase::Idle, attempts: 0 });
+        if id.is_empty() {
+            return Err(LoaderError::EmptyId);
+        }
+        let r = self.resources.entry(id.into()).or_insert(Resource {
+            phase: Phase::Idle,
+            attempts: 0,
+        });
         match &r.phase {
             Phase::Idle | Phase::Failed(_) => {
                 r.phase = Phase::Loading;
@@ -104,26 +111,45 @@ impl LazyLoader {
 
     /// Complete a load.
     pub fn complete(&mut self, id: &str) -> Result<(), LoaderError> {
-        let r = self.resources.get_mut(id).ok_or_else(|| LoaderError::UnknownResource(id.into()))?;
-        if !matches!(r.phase, Phase::Loading) { return Err(LoaderError::InvalidPhase); }
+        let r = self
+            .resources
+            .get_mut(id)
+            .ok_or_else(|| LoaderError::UnknownResource(id.into()))?;
+        if !matches!(r.phase, Phase::Loading) {
+            return Err(LoaderError::InvalidPhase);
+        }
         r.phase = Phase::Loaded;
         Ok(())
     }
 
     /// Fail with error.
     pub fn fail(&mut self, id: &str, err: &str) -> Result<(), LoaderError> {
-        if err.is_empty() { return Err(LoaderError::EmptyError); }
-        let r = self.resources.get_mut(id).ok_or_else(|| LoaderError::UnknownResource(id.into()))?;
-        if !matches!(r.phase, Phase::Loading) { return Err(LoaderError::InvalidPhase); }
+        if err.is_empty() {
+            return Err(LoaderError::EmptyError);
+        }
+        let r = self
+            .resources
+            .get_mut(id)
+            .ok_or_else(|| LoaderError::UnknownResource(id.into()))?;
+        if !matches!(r.phase, Phase::Loading) {
+            return Err(LoaderError::InvalidPhase);
+        }
         r.phase = Phase::Failed(err.into());
         Ok(())
     }
 
     /// Retry a failed resource (Failed → Loading iff attempts < max).
     pub fn retry(&mut self, id: &str) -> Result<(), LoaderError> {
-        let r = self.resources.get_mut(id).ok_or_else(|| LoaderError::UnknownResource(id.into()))?;
-        if !matches!(r.phase, Phase::Failed(_)) { return Err(LoaderError::InvalidPhase); }
-        if r.attempts >= self.max_attempts { return Err(LoaderError::OutOfAttempts); }
+        let r = self
+            .resources
+            .get_mut(id)
+            .ok_or_else(|| LoaderError::UnknownResource(id.into()))?;
+        if !matches!(r.phase, Phase::Failed(_)) {
+            return Err(LoaderError::InvalidPhase);
+        }
+        if r.attempts >= self.max_attempts {
+            return Err(LoaderError::OutOfAttempts);
+        }
         r.phase = Phase::Loading;
         r.attempts = r.attempts.saturating_add(1);
         Ok(())
@@ -131,7 +157,10 @@ impl LazyLoader {
 
     /// Reset to Idle (clears attempts).
     pub fn reset(&mut self, id: &str) -> Result<(), LoaderError> {
-        let r = self.resources.get_mut(id).ok_or_else(|| LoaderError::UnknownResource(id.into()))?;
+        let r = self
+            .resources
+            .get_mut(id)
+            .ok_or_else(|| LoaderError::UnknownResource(id.into()))?;
         r.phase = Phase::Idle;
         r.attempts = 0;
         Ok(())
@@ -139,10 +168,16 @@ impl LazyLoader {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), LoaderError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(LoaderError::SchemaMismatch); }
-        if self.max_attempts == 0 { return Err(LoaderError::ZeroMaxAttempts); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(LoaderError::SchemaMismatch);
+        }
+        if self.max_attempts == 0 {
+            return Err(LoaderError::ZeroMaxAttempts);
+        }
         for k in self.resources.keys() {
-            if k.is_empty() { return Err(LoaderError::EmptyId); }
+            if k.is_empty() {
+                return Err(LoaderError::EmptyId);
+            }
         }
         Ok(())
     }
@@ -166,7 +201,10 @@ mod tests {
         l.request("a").unwrap();
         l.fail("a", "timeout").unwrap();
         l.retry("a").unwrap();
-        assert!(matches!(l.resources.get("a").unwrap().phase, Phase::Loading));
+        assert!(matches!(
+            l.resources.get("a").unwrap().phase,
+            Phase::Loading
+        ));
         assert_eq!(l.resources.get("a").unwrap().attempts, 2);
     }
 
@@ -177,7 +215,10 @@ mod tests {
         l.fail("a", "e").unwrap();
         l.retry("a").unwrap();
         l.fail("a", "e2").unwrap();
-        assert!(matches!(l.retry("a").unwrap_err(), LoaderError::OutOfAttempts));
+        assert!(matches!(
+            l.retry("a").unwrap_err(),
+            LoaderError::OutOfAttempts
+        ));
     }
 
     #[test]
@@ -196,7 +237,10 @@ mod tests {
         let mut l = LazyLoader::new(2).unwrap();
         l.request("a").unwrap();
         l.complete("a").unwrap();
-        assert!(matches!(l.complete("a").unwrap_err(), LoaderError::InvalidPhase));
+        assert!(matches!(
+            l.complete("a").unwrap_err(),
+            LoaderError::InvalidPhase
+        ));
     }
 
     #[test]
@@ -204,21 +248,33 @@ mod tests {
         let mut l = LazyLoader::new(2).unwrap();
         assert!(matches!(l.request("").unwrap_err(), LoaderError::EmptyId));
         l.request("a").unwrap();
-        assert!(matches!(l.fail("a", "").unwrap_err(), LoaderError::EmptyError));
-        assert!(matches!(LazyLoader::new(0).unwrap_err(), LoaderError::ZeroMaxAttempts));
+        assert!(matches!(
+            l.fail("a", "").unwrap_err(),
+            LoaderError::EmptyError
+        ));
+        assert!(matches!(
+            LazyLoader::new(0).unwrap_err(),
+            LoaderError::ZeroMaxAttempts
+        ));
     }
 
     #[test]
     fn unknown_resource_rejected() {
         let mut l = LazyLoader::new(2).unwrap();
-        assert!(matches!(l.complete("nope").unwrap_err(), LoaderError::UnknownResource(_)));
+        assert!(matches!(
+            l.complete("nope").unwrap_err(),
+            LoaderError::UnknownResource(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut l = LazyLoader::new(2).unwrap();
         l.schema_version = "9.9.9".into();
-        assert!(matches!(l.validate().unwrap_err(), LoaderError::SchemaMismatch));
+        assert!(matches!(
+            l.validate().unwrap_err(),
+            LoaderError::SchemaMismatch
+        ));
     }
 
     #[test]

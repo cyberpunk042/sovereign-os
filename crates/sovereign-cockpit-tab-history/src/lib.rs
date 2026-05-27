@@ -57,7 +57,9 @@ pub enum HistoryError {
 impl TabHistory {
     /// New.
     pub fn new(capacity: u32) -> Result<Self, HistoryError> {
-        if capacity == 0 { return Err(HistoryError::ZeroCapacity); }
+        if capacity == 0 {
+            return Err(HistoryError::ZeroCapacity);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             capacity,
@@ -67,8 +69,12 @@ impl TabHistory {
 
     /// Close (record).
     pub fn close(&mut self, id: &str, title: &str, ts_closed: u64) -> Result<(), HistoryError> {
-        if id.is_empty() { return Err(HistoryError::EmptyId); }
-        if title.is_empty() { return Err(HistoryError::EmptyTitle); }
+        if id.is_empty() {
+            return Err(HistoryError::EmptyId);
+        }
+        if title.is_empty() {
+            return Err(HistoryError::EmptyTitle);
+        }
         if (self.closed.len() as u32) >= self.capacity {
             self.closed.remove(0);
         }
@@ -91,15 +97,25 @@ impl TabHistory {
     }
 
     /// Clear.
-    pub fn clear(&mut self) { self.closed.clear(); }
+    pub fn clear(&mut self) {
+        self.closed.clear();
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), HistoryError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(HistoryError::SchemaMismatch); }
-        if self.capacity == 0 { return Err(HistoryError::ZeroCapacity); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(HistoryError::SchemaMismatch);
+        }
+        if self.capacity == 0 {
+            return Err(HistoryError::ZeroCapacity);
+        }
         for t in &self.closed {
-            if t.id.is_empty() { return Err(HistoryError::EmptyId); }
-            if t.title.is_empty() { return Err(HistoryError::EmptyTitle); }
+            if t.id.is_empty() {
+                return Err(HistoryError::EmptyId);
+            }
+            if t.title.is_empty() {
+                return Err(HistoryError::EmptyTitle);
+            }
         }
         Ok(())
     }
@@ -143,16 +159,28 @@ mod tests {
     #[test]
     fn empty_inputs_rejected() {
         let mut h = TabHistory::new(5).unwrap();
-        assert!(matches!(h.close("", "T", 0).unwrap_err(), HistoryError::EmptyId));
-        assert!(matches!(h.close("i", "", 0).unwrap_err(), HistoryError::EmptyTitle));
-        assert!(matches!(TabHistory::new(0).unwrap_err(), HistoryError::ZeroCapacity));
+        assert!(matches!(
+            h.close("", "T", 0).unwrap_err(),
+            HistoryError::EmptyId
+        ));
+        assert!(matches!(
+            h.close("i", "", 0).unwrap_err(),
+            HistoryError::EmptyTitle
+        ));
+        assert!(matches!(
+            TabHistory::new(0).unwrap_err(),
+            HistoryError::ZeroCapacity
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut h = TabHistory::new(5).unwrap();
         h.schema_version = "9.9.9".into();
-        assert!(matches!(h.validate().unwrap_err(), HistoryError::SchemaMismatch));
+        assert!(matches!(
+            h.validate().unwrap_err(),
+            HistoryError::SchemaMismatch
+        ));
     }
 
     #[test]

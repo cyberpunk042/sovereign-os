@@ -68,9 +68,13 @@ pub enum DeltaError {
 /// Compute pill from current/prior i64.
 pub fn render(current: i64, prior: i64, flat_threshold: i64, invert_polarity: bool) -> Pill {
     let delta = current - prior;
-    let direction = if delta > flat_threshold { Direction::Up }
-        else if delta < -flat_threshold { Direction::Down }
-        else { Direction::Flat };
+    let direction = if delta > flat_threshold {
+        Direction::Up
+    } else if delta < -flat_threshold {
+        Direction::Down
+    } else {
+        Direction::Flat
+    };
     let sentiment = match (direction, invert_polarity) {
         (Direction::Up, false) => Sentiment::Positive,
         (Direction::Down, false) => Sentiment::Negative,
@@ -78,19 +82,30 @@ pub fn render(current: i64, prior: i64, flat_threshold: i64, invert_polarity: bo
         (Direction::Down, true) => Sentiment::Positive,
         (Direction::Flat, _) => Sentiment::Neutral,
     };
-    let magnitude_bp = if prior == 0 { 0 }
-        else {
-            let abs = (delta.unsigned_abs() as u128) * 10_000 / (prior.unsigned_abs() as u128);
-            abs.min(u32::MAX as u128) as u32
-        };
-    let label = if delta > 0 { format!("+{}", delta) }
-        else { format!("{}", delta) };
-    Pill { direction, sentiment, label, magnitude_bp }
+    let magnitude_bp = if prior == 0 {
+        0
+    } else {
+        let abs = (delta.unsigned_abs() as u128) * 10_000 / (prior.unsigned_abs() as u128);
+        abs.min(u32::MAX as u128) as u32
+    };
+    let label = if delta > 0 {
+        format!("+{}", delta)
+    } else {
+        format!("{}", delta)
+    };
+    Pill {
+        direction,
+        sentiment,
+        label,
+        magnitude_bp,
+    }
 }
 
 /// Validate.
 pub fn validate_schema_version(s: &str) -> Result<(), DeltaError> {
-    if s != SCHEMA_VERSION { return Err(DeltaError::SchemaMismatch); }
+    if s != SCHEMA_VERSION {
+        return Err(DeltaError::SchemaMismatch);
+    }
     Ok(())
 }
 

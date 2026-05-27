@@ -68,17 +68,34 @@ impl ActionSearchBar {
     }
 
     /// Register.
-    pub fn register(&mut self, id: &str, name: &str, category: &str, keywords: &[&str]) -> Result<(), SearchError> {
-        if id.is_empty() { return Err(SearchError::EmptyId); }
-        if name.is_empty() { return Err(SearchError::EmptyName); }
-        if category.is_empty() { return Err(SearchError::EmptyCategory); }
-        if self.actions.contains_key(id) { return Err(SearchError::DuplicateId(id.into())); }
-        self.actions.insert(id.into(), Action {
-            id: id.into(),
-            name: name.into(),
-            category: category.into(),
-            keywords: keywords.iter().map(|k| (*k).into()).collect(),
-        });
+    pub fn register(
+        &mut self,
+        id: &str,
+        name: &str,
+        category: &str,
+        keywords: &[&str],
+    ) -> Result<(), SearchError> {
+        if id.is_empty() {
+            return Err(SearchError::EmptyId);
+        }
+        if name.is_empty() {
+            return Err(SearchError::EmptyName);
+        }
+        if category.is_empty() {
+            return Err(SearchError::EmptyCategory);
+        }
+        if self.actions.contains_key(id) {
+            return Err(SearchError::DuplicateId(id.into()));
+        }
+        self.actions.insert(
+            id.into(),
+            Action {
+                id: id.into(),
+                name: name.into(),
+                category: category.into(),
+                keywords: keywords.iter().map(|k| (*k).into()).collect(),
+            },
+        );
         Ok(())
     }
 
@@ -90,15 +107,28 @@ impl ActionSearchBar {
             return v;
         }
         let needle = q.to_lowercase();
-        let mut scored: Vec<(u8, Action)> = self.actions.values()
+        let mut scored: Vec<(u8, Action)> = self
+            .actions
+            .values()
             .filter_map(|a| {
                 let name_l = a.name.to_lowercase();
-                if name_l == needle { Some((4, a.clone())) }
-                else if name_l.starts_with(&needle) { Some((3, a.clone())) }
-                else if a.category.to_lowercase().contains(&needle) { Some((2, a.clone())) }
-                else if a.keywords.iter().any(|k| k.to_lowercase().contains(&needle)) { Some((1, a.clone())) }
-                else if name_l.contains(&needle) { Some((0, a.clone())) }
-                else { None }
+                if name_l == needle {
+                    Some((4, a.clone()))
+                } else if name_l.starts_with(&needle) {
+                    Some((3, a.clone()))
+                } else if a.category.to_lowercase().contains(&needle) {
+                    Some((2, a.clone()))
+                } else if a
+                    .keywords
+                    .iter()
+                    .any(|k| k.to_lowercase().contains(&needle))
+                {
+                    Some((1, a.clone()))
+                } else if name_l.contains(&needle) {
+                    Some((0, a.clone()))
+                } else {
+                    None
+                }
             })
             .collect();
         scored.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.name.cmp(&b.1.name)));
@@ -107,18 +137,28 @@ impl ActionSearchBar {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), SearchError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(SearchError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(SearchError::SchemaMismatch);
+        }
         for (id, a) in &self.actions {
-            if id.is_empty() { return Err(SearchError::EmptyId); }
-            if a.name.is_empty() { return Err(SearchError::EmptyName); }
-            if a.category.is_empty() { return Err(SearchError::EmptyCategory); }
+            if id.is_empty() {
+                return Err(SearchError::EmptyId);
+            }
+            if a.name.is_empty() {
+                return Err(SearchError::EmptyName);
+            }
+            if a.category.is_empty() {
+                return Err(SearchError::EmptyCategory);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for ActionSearchBar {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -127,10 +167,13 @@ mod tests {
 
     fn loaded() -> ActionSearchBar {
         let mut s = ActionSearchBar::new();
-        s.register("s1", "Save All", "file", &["save", "all"]).unwrap();
-        s.register("s2", "Save As", "file", &["save", "as"]).unwrap();
+        s.register("s1", "Save All", "file", &["save", "all"])
+            .unwrap();
+        s.register("s2", "Save As", "file", &["save", "as"])
+            .unwrap();
         s.register("o1", "Open File", "file", &["open"]).unwrap();
-        s.register("p1", "Print", "print", &["print", "paper"]).unwrap();
+        s.register("p1", "Print", "print", &["print", "paper"])
+            .unwrap();
         s
     }
 
@@ -183,22 +226,37 @@ mod tests {
     fn duplicate_rejected() {
         let mut s = ActionSearchBar::new();
         s.register("a", "A", "c", &[]).unwrap();
-        assert!(matches!(s.register("a", "A", "c", &[]).unwrap_err(), SearchError::DuplicateId(_)));
+        assert!(matches!(
+            s.register("a", "A", "c", &[]).unwrap_err(),
+            SearchError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut s = ActionSearchBar::new();
-        assert!(matches!(s.register("", "A", "c", &[]).unwrap_err(), SearchError::EmptyId));
-        assert!(matches!(s.register("a", "", "c", &[]).unwrap_err(), SearchError::EmptyName));
-        assert!(matches!(s.register("a", "A", "", &[]).unwrap_err(), SearchError::EmptyCategory));
+        assert!(matches!(
+            s.register("", "A", "c", &[]).unwrap_err(),
+            SearchError::EmptyId
+        ));
+        assert!(matches!(
+            s.register("a", "", "c", &[]).unwrap_err(),
+            SearchError::EmptyName
+        ));
+        assert!(matches!(
+            s.register("a", "A", "", &[]).unwrap_err(),
+            SearchError::EmptyCategory
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = ActionSearchBar::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), SearchError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SearchError::SchemaMismatch
+        ));
     }
 
     #[test]

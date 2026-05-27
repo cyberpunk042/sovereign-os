@@ -75,7 +75,9 @@ pub enum SwitchError {
 impl ModeProfileSwitch {
     /// New.
     pub fn new(history_capacity: usize) -> Result<Self, SwitchError> {
-        if history_capacity == 0 { return Err(SwitchError::ZeroCapacity); }
+        if history_capacity == 0 {
+            return Err(SwitchError::ZeroCapacity);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             profiles: BTreeMap::new(),
@@ -87,12 +89,22 @@ impl ModeProfileSwitch {
 
     /// Register.
     pub fn register(&mut self, id: &str, label: &str) -> Result<(), SwitchError> {
-        if id.is_empty() { return Err(SwitchError::EmptyId); }
-        if label.is_empty() { return Err(SwitchError::EmptyLabel); }
+        if id.is_empty() {
+            return Err(SwitchError::EmptyId);
+        }
+        if label.is_empty() {
+            return Err(SwitchError::EmptyLabel);
+        }
         if self.profiles.contains_key(id) {
             return Err(SwitchError::DuplicateProfile(id.into()));
         }
-        self.profiles.insert(id.into(), Profile { id: id.into(), label: label.into() });
+        self.profiles.insert(
+            id.into(),
+            Profile {
+                id: id.into(),
+                label: label.into(),
+            },
+        );
         Ok(())
     }
 
@@ -105,7 +117,10 @@ impl ModeProfileSwitch {
         if self.history.len() == self.history_capacity {
             self.history.pop_front();
         }
-        self.history.push_back(Switch { to: id.into(), ts_ms });
+        self.history.push_back(Switch {
+            to: id.into(),
+            ts_ms,
+        });
         Ok(())
     }
 
@@ -113,17 +128,27 @@ impl ModeProfileSwitch {
     pub fn previous(&self) -> Option<String> {
         // Need the entry before the last (the active).
         let n = self.history.len();
-        if n < 2 { return None; }
+        if n < 2 {
+            return None;
+        }
         self.history.get(n - 2).map(|s| s.to.clone())
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), SwitchError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(SwitchError::SchemaMismatch); }
-        if self.history_capacity == 0 { return Err(SwitchError::ZeroCapacity); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(SwitchError::SchemaMismatch);
+        }
+        if self.history_capacity == 0 {
+            return Err(SwitchError::ZeroCapacity);
+        }
         for (id, p) in &self.profiles {
-            if id.is_empty() { return Err(SwitchError::EmptyId); }
-            if p.label.is_empty() { return Err(SwitchError::EmptyLabel); }
+            if id.is_empty() {
+                return Err(SwitchError::EmptyId);
+            }
+            if p.label.is_empty() {
+                return Err(SwitchError::EmptyLabel);
+            }
         }
         Ok(())
     }
@@ -174,33 +199,51 @@ mod tests {
     #[test]
     fn unknown_switch_rejected() {
         let mut m = ModeProfileSwitch::new(10).unwrap();
-        assert!(matches!(m.switch("nope", 0).unwrap_err(), SwitchError::UnknownProfile(_)));
+        assert!(matches!(
+            m.switch("nope", 0).unwrap_err(),
+            SwitchError::UnknownProfile(_)
+        ));
     }
 
     #[test]
     fn duplicate_register_rejected() {
         let mut m = ModeProfileSwitch::new(10).unwrap();
         m.register("a", "A").unwrap();
-        assert!(matches!(m.register("a", "A").unwrap_err(), SwitchError::DuplicateProfile(_)));
+        assert!(matches!(
+            m.register("a", "A").unwrap_err(),
+            SwitchError::DuplicateProfile(_)
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut m = ModeProfileSwitch::new(10).unwrap();
-        assert!(matches!(m.register("", "A").unwrap_err(), SwitchError::EmptyId));
-        assert!(matches!(m.register("a", "").unwrap_err(), SwitchError::EmptyLabel));
+        assert!(matches!(
+            m.register("", "A").unwrap_err(),
+            SwitchError::EmptyId
+        ));
+        assert!(matches!(
+            m.register("a", "").unwrap_err(),
+            SwitchError::EmptyLabel
+        ));
     }
 
     #[test]
     fn zero_capacity_rejected() {
-        assert!(matches!(ModeProfileSwitch::new(0).unwrap_err(), SwitchError::ZeroCapacity));
+        assert!(matches!(
+            ModeProfileSwitch::new(0).unwrap_err(),
+            SwitchError::ZeroCapacity
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut m = ModeProfileSwitch::new(10).unwrap();
         m.schema_version = "9.9.9".into();
-        assert!(matches!(m.validate().unwrap_err(), SwitchError::SchemaMismatch));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            SwitchError::SchemaMismatch
+        ));
     }
 
     #[test]

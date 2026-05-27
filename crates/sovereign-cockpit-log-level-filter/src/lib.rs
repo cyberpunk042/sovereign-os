@@ -105,7 +105,9 @@ impl LogLevelFilter {
             (Level::Error, self.error),
         ];
         for (lvl, n) in buckets {
-            if lvl >= self.min { total = total.saturating_add(n); }
+            if lvl >= self.min {
+                total = total.saturating_add(n);
+            }
         }
         total
     }
@@ -130,7 +132,9 @@ impl LogLevelFilter {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), FilterError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(FilterError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(FilterError::SchemaMismatch);
+        }
         Ok(())
     }
 }
@@ -203,7 +207,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut f = LogLevelFilter::new(Level::Info);
         f.schema_version = "9.9.9".into();
-        assert!(matches!(f.validate().unwrap_err(), FilterError::SchemaMismatch));
+        assert!(matches!(
+            f.validate().unwrap_err(),
+            FilterError::SchemaMismatch
+        ));
     }
 
     #[test]

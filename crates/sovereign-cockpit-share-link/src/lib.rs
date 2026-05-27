@@ -118,7 +118,10 @@ impl ShareLinkRegistry {
 
     /// Active links (not yet expired) at `now_iso`.
     pub fn active_at(&self, now_iso: &str) -> Vec<&ShareLink> {
-        self.links.iter().filter(|l| l.expires_at.as_str() > now_iso).collect()
+        self.links
+            .iter()
+            .filter(|l| l.expires_at.as_str() > now_iso)
+            .collect()
     }
 
     /// Prune expired entries at `now_iso`.
@@ -144,8 +147,12 @@ impl ShareLinkRegistry {
 }
 
 fn check_shape(l: &ShareLink) -> Result<(), ShareError> {
-    if l.id.is_empty() { return Err(ShareError::EmptyId); }
-    if l.target_id.is_empty() { return Err(ShareError::EmptyTargetId(l.id.clone())); }
+    if l.id.is_empty() {
+        return Err(ShareError::EmptyId);
+    }
+    if l.target_id.is_empty() {
+        return Err(ShareError::EmptyTargetId(l.id.clone()));
+    }
     if l.created_at.is_empty() || l.expires_at.is_empty() {
         return Err(ShareError::MissingTimestamp(l.id.clone()));
     }
@@ -160,7 +167,9 @@ fn check_shape(l: &ShareLink) -> Result<(), ShareError> {
 }
 
 impl Default for ShareLinkRegistry {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -186,22 +195,28 @@ mod tests {
     #[test]
     fn add_and_lookup() {
         let mut r = ShareLinkRegistry::new();
-        r.add(link("a", ShareKind::Conversation, "2026-05-20T00:00:00Z")).unwrap();
+        r.add(link("a", ShareKind::Conversation, "2026-05-20T00:00:00Z"))
+            .unwrap();
         assert!(r.get("a").is_some());
     }
 
     #[test]
     fn duplicate_rejected() {
         let mut r = ShareLinkRegistry::new();
-        r.add(link("a", ShareKind::Conversation, "2026-05-20T00:00:00Z")).unwrap();
-        assert!(matches!(r.add(link("a", ShareKind::Replay, "2026-05-21T00:00:00Z")).unwrap_err(),
-            ShareError::DuplicateId(_)));
+        r.add(link("a", ShareKind::Conversation, "2026-05-20T00:00:00Z"))
+            .unwrap();
+        assert!(matches!(
+            r.add(link("a", ShareKind::Replay, "2026-05-21T00:00:00Z"))
+                .unwrap_err(),
+            ShareError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn revoke_removes() {
         let mut r = ShareLinkRegistry::new();
-        r.add(link("a", ShareKind::Conversation, "2026-05-20T00:00:00Z")).unwrap();
+        r.add(link("a", ShareKind::Conversation, "2026-05-20T00:00:00Z"))
+            .unwrap();
         assert!(r.revoke("a"));
         assert!(r.links.is_empty());
         assert!(!r.revoke("a"));
@@ -210,8 +225,10 @@ mod tests {
     #[test]
     fn active_at_filters_by_expiry() {
         let mut r = ShareLinkRegistry::new();
-        r.add(link("a", ShareKind::Conversation, "2026-05-20T00:00:00Z")).unwrap();
-        r.add(link("b", ShareKind::Replay, "2026-05-25T00:00:00Z")).unwrap();
+        r.add(link("a", ShareKind::Conversation, "2026-05-20T00:00:00Z"))
+            .unwrap();
+        r.add(link("b", ShareKind::Replay, "2026-05-25T00:00:00Z"))
+            .unwrap();
         let v = r.active_at("2026-05-22T00:00:00Z");
         assert_eq!(v.len(), 1);
         assert_eq!(v[0].id, "b");
@@ -220,7 +237,8 @@ mod tests {
     #[test]
     fn prune_expired_drops() {
         let mut r = ShareLinkRegistry::new();
-        r.add(link("a", ShareKind::Conversation, "2026-05-20T00:00:00Z")).unwrap();
+        r.add(link("a", ShareKind::Conversation, "2026-05-20T00:00:00Z"))
+            .unwrap();
         r.prune_expired("2026-05-30T00:00:00Z");
         assert!(r.links.is_empty());
     }
@@ -229,7 +247,10 @@ mod tests {
     fn bad_window_rejected() {
         let mut r = ShareLinkRegistry::new();
         let l = link("a", ShareKind::Conversation, "2026-05-18T00:00:00Z"); // before created_at
-        assert!(matches!(r.add(l).unwrap_err(), ShareError::BadWindow { .. }));
+        assert!(matches!(
+            r.add(l).unwrap_err(),
+            ShareError::BadWindow { .. }
+        ));
     }
 
     #[test]
@@ -243,19 +264,29 @@ mod tests {
     fn schema_drift_rejected() {
         let mut r = ShareLinkRegistry::new();
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate().unwrap_err(), ShareError::SchemaMismatch));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            ShareError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn kind_serde_kebab() {
-        assert_eq!(serde_json::to_string(&ShareKind::Conversation).unwrap(), "\"conversation\"");
-        assert_eq!(serde_json::to_string(&ShareKind::DashboardSnapshot).unwrap(), "\"dashboard-snapshot\"");
+        assert_eq!(
+            serde_json::to_string(&ShareKind::Conversation).unwrap(),
+            "\"conversation\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ShareKind::DashboardSnapshot).unwrap(),
+            "\"dashboard-snapshot\""
+        );
     }
 
     #[test]
     fn registry_serde_roundtrip() {
         let mut r = ShareLinkRegistry::new();
-        r.add(link("a", ShareKind::Conversation, "2026-05-20T00:00:00Z")).unwrap();
+        r.add(link("a", ShareKind::Conversation, "2026-05-20T00:00:00Z"))
+            .unwrap();
         let j = serde_json::to_string(&r).unwrap();
         let back: ShareLinkRegistry = serde_json::from_str(&j).unwrap();
         assert_eq!(r, back);

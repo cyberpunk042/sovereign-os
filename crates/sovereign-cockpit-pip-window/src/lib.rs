@@ -60,7 +60,9 @@ pub enum PipError {
 impl PipWindow {
     /// New (hidden).
     pub fn new(default_corner: Corner, default_w: u32, default_h: u32) -> Result<Self, PipError> {
-        if default_w == 0 || default_h == 0 { return Err(PipError::ZeroDim); }
+        if default_w == 0 || default_h == 0 {
+            return Err(PipError::ZeroDim);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             visible: false,
@@ -89,7 +91,9 @@ impl PipWindow {
 
     /// Resize.
     pub fn resize(&mut self, w_px: u32, h_px: u32) -> Result<(), PipError> {
-        if w_px == 0 || h_px == 0 { return Err(PipError::ZeroDim); }
+        if w_px == 0 || h_px == 0 {
+            return Err(PipError::ZeroDim);
+        }
         self.w_px = w_px;
         self.h_px = h_px;
         Ok(())
@@ -102,8 +106,12 @@ impl PipWindow {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), PipError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(PipError::SchemaMismatch); }
-        if self.w_px == 0 || self.h_px == 0 { return Err(PipError::ZeroDim); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(PipError::SchemaMismatch);
+        }
+        if self.w_px == 0 || self.h_px == 0 {
+            return Err(PipError::ZeroDim);
+        }
         Ok(())
     }
 }
@@ -114,7 +122,10 @@ mod tests {
 
     #[test]
     fn zero_dims_rejected() {
-        assert!(matches!(PipWindow::new(Corner::TopRight, 0, 100).unwrap_err(), PipError::ZeroDim));
+        assert!(matches!(
+            PipWindow::new(Corner::TopRight, 0, 100).unwrap_err(),
+            PipError::ZeroDim
+        ));
     }
 
     #[test]
@@ -154,7 +165,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut p = PipWindow::new(Corner::BottomRight, 320, 180).unwrap();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), PipError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            PipError::SchemaMismatch
+        ));
     }
 
     #[test]

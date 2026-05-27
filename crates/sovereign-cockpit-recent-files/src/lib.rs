@@ -53,7 +53,9 @@ pub enum RecentError {
 impl RecentFiles {
     /// New.
     pub fn new(capacity: usize) -> Result<Self, RecentError> {
-        if capacity == 0 { return Err(RecentError::ZeroCapacity); }
+        if capacity == 0 {
+            return Err(RecentError::ZeroCapacity);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             capacity,
@@ -63,14 +65,27 @@ impl RecentFiles {
 
     /// Touch (upsert).
     pub fn touch(&mut self, path: &str, ts_ms: u64) -> Result<(), RecentError> {
-        if path.is_empty() { return Err(RecentError::EmptyPath); }
+        if path.is_empty() {
+            return Err(RecentError::EmptyPath);
+        }
         if !self.entries.contains_key(path) && self.entries.len() == self.capacity {
             // Drop oldest.
-            if let Some(oldest) = self.entries.iter().min_by_key(|(_, e)| e.last_touched_ms).map(|(k, _)| k.clone()) {
+            if let Some(oldest) = self
+                .entries
+                .iter()
+                .min_by_key(|(_, e)| e.last_touched_ms)
+                .map(|(k, _)| k.clone())
+            {
                 self.entries.remove(&oldest);
             }
         }
-        self.entries.insert(path.into(), Entry { path: path.into(), last_touched_ms: ts_ms });
+        self.entries.insert(
+            path.into(),
+            Entry {
+                path: path.into(),
+                last_touched_ms: ts_ms,
+            },
+        );
         Ok(())
     }
 
@@ -82,16 +97,26 @@ impl RecentFiles {
     /// Ordered most-recent-first.
     pub fn ordered(&self) -> Vec<Entry> {
         let mut v: Vec<Entry> = self.entries.values().cloned().collect();
-        v.sort_by(|a, b| b.last_touched_ms.cmp(&a.last_touched_ms).then(a.path.cmp(&b.path)));
+        v.sort_by(|a, b| {
+            b.last_touched_ms
+                .cmp(&a.last_touched_ms)
+                .then(a.path.cmp(&b.path))
+        });
         v
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), RecentError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(RecentError::SchemaMismatch); }
-        if self.capacity == 0 { return Err(RecentError::ZeroCapacity); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(RecentError::SchemaMismatch);
+        }
+        if self.capacity == 0 {
+            return Err(RecentError::ZeroCapacity);
+        }
         for p in self.entries.keys() {
-            if p.is_empty() { return Err(RecentError::EmptyPath); }
+            if p.is_empty() {
+                return Err(RecentError::EmptyPath);
+            }
         }
         Ok(())
     }
@@ -140,19 +165,28 @@ mod tests {
     #[test]
     fn empty_path_rejected() {
         let mut r = RecentFiles::new(10).unwrap();
-        assert!(matches!(r.touch("", 0).unwrap_err(), RecentError::EmptyPath));
+        assert!(matches!(
+            r.touch("", 0).unwrap_err(),
+            RecentError::EmptyPath
+        ));
     }
 
     #[test]
     fn zero_capacity_rejected() {
-        assert!(matches!(RecentFiles::new(0).unwrap_err(), RecentError::ZeroCapacity));
+        assert!(matches!(
+            RecentFiles::new(0).unwrap_err(),
+            RecentError::ZeroCapacity
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut r = RecentFiles::new(10).unwrap();
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate().unwrap_err(), RecentError::SchemaMismatch));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            RecentError::SchemaMismatch
+        ));
     }
 
     #[test]

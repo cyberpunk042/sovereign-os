@@ -78,7 +78,9 @@ pub enum TitlebarError {
 impl TitlebarConfig {
     /// New with default separator.
     pub fn new(prefix: &str) -> Result<Self, TitlebarError> {
-        if prefix.is_empty() { return Err(TitlebarError::EmptyPrefix); }
+        if prefix.is_empty() {
+            return Err(TitlebarError::EmptyPrefix);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             prefix: prefix.into(),
@@ -90,7 +92,9 @@ impl TitlebarConfig {
 
     /// Append a segment.
     pub fn push_segment(&mut self, seg: &str) -> Result<(), TitlebarError> {
-        if seg.is_empty() { return Err(TitlebarError::EmptySegment); }
+        if seg.is_empty() {
+            return Err(TitlebarError::EmptySegment);
+        }
         self.segments.push(seg.into());
         Ok(())
     }
@@ -103,7 +107,9 @@ impl TitlebarConfig {
     /// Replace segments.
     pub fn set_segments(&mut self, segs: &[&str]) -> Result<(), TitlebarError> {
         for s in segs {
-            if s.is_empty() { return Err(TitlebarError::EmptySegment); }
+            if s.is_empty() {
+                return Err(TitlebarError::EmptySegment);
+            }
         }
         self.segments = segs.iter().map(|s| (*s).into()).collect();
         Ok(())
@@ -111,14 +117,18 @@ impl TitlebarConfig {
 
     /// Set separator.
     pub fn set_separator(&mut self, sep: &str) -> Result<(), TitlebarError> {
-        if sep.is_empty() { return Err(TitlebarError::EmptySeparator); }
+        if sep.is_empty() {
+            return Err(TitlebarError::EmptySeparator);
+        }
         self.separator = sep.into();
         Ok(())
     }
 
     /// Pin a status chip.
     pub fn pin_status(&mut self, chip: StatusChip) -> Result<(), TitlebarError> {
-        if chip.label.is_empty() { return Err(TitlebarError::EmptyChipLabel); }
+        if chip.label.is_empty() {
+            return Err(TitlebarError::EmptyChipLabel);
+        }
         self.pinned_status = Some(chip);
         Ok(())
     }
@@ -144,14 +154,24 @@ impl TitlebarConfig {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), TitlebarError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(TitlebarError::SchemaMismatch); }
-        if self.prefix.is_empty() { return Err(TitlebarError::EmptyPrefix); }
-        if self.separator.is_empty() { return Err(TitlebarError::EmptySeparator); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(TitlebarError::SchemaMismatch);
+        }
+        if self.prefix.is_empty() {
+            return Err(TitlebarError::EmptyPrefix);
+        }
+        if self.separator.is_empty() {
+            return Err(TitlebarError::EmptySeparator);
+        }
         for s in &self.segments {
-            if s.is_empty() { return Err(TitlebarError::EmptySegment); }
+            if s.is_empty() {
+                return Err(TitlebarError::EmptySegment);
+            }
         }
         if let Some(c) = &self.pinned_status {
-            if c.label.is_empty() { return Err(TitlebarError::EmptyChipLabel); }
+            if c.label.is_empty() {
+                return Err(TitlebarError::EmptyChipLabel);
+            }
         }
         Ok(())
     }
@@ -204,7 +224,11 @@ mod tests {
     #[test]
     fn pin_status() {
         let mut t = TitlebarConfig::new("S").unwrap();
-        t.pin_status(StatusChip { label: "Recording".into(), severity: ChipSeverity::Warn }).unwrap();
+        t.pin_status(StatusChip {
+            label: "Recording".into(),
+            severity: ChipSeverity::Warn,
+        })
+        .unwrap();
         assert!(t.pinned_status.is_some());
         t.clear_status();
         assert!(t.pinned_status.is_none());
@@ -215,23 +239,43 @@ mod tests {
         let t = TitlebarConfig::new("");
         assert!(matches!(t.unwrap_err(), TitlebarError::EmptyPrefix));
         let mut t = TitlebarConfig::new("S").unwrap();
-        assert!(matches!(t.push_segment("").unwrap_err(), TitlebarError::EmptySegment));
-        assert!(matches!(t.set_separator("").unwrap_err(), TitlebarError::EmptySeparator));
-        assert!(matches!(t.pin_status(StatusChip { label: "".into(), severity: ChipSeverity::Info }).unwrap_err(), TitlebarError::EmptyChipLabel));
+        assert!(matches!(
+            t.push_segment("").unwrap_err(),
+            TitlebarError::EmptySegment
+        ));
+        assert!(matches!(
+            t.set_separator("").unwrap_err(),
+            TitlebarError::EmptySeparator
+        ));
+        assert!(matches!(
+            t.pin_status(StatusChip {
+                label: "".into(),
+                severity: ChipSeverity::Info
+            })
+            .unwrap_err(),
+            TitlebarError::EmptyChipLabel
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut t = TitlebarConfig::new("S").unwrap();
         t.schema_version = "9.9.9".into();
-        assert!(matches!(t.validate().unwrap_err(), TitlebarError::SchemaMismatch));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            TitlebarError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn titlebar_serde_roundtrip() {
         let mut t = TitlebarConfig::new("S").unwrap();
         t.push_segment("a").unwrap();
-        t.pin_status(StatusChip { label: "X".into(), severity: ChipSeverity::Notice }).unwrap();
+        t.pin_status(StatusChip {
+            label: "X".into(),
+            severity: ChipSeverity::Notice,
+        })
+        .unwrap();
         let j = serde_json::to_string(&t).unwrap();
         let back: TitlebarConfig = serde_json::from_str(&j).unwrap();
         assert_eq!(t, back);

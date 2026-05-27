@@ -295,14 +295,26 @@ mod tests {
     fn schema_drift_rejected() {
         let mut t = FocusTrap::new("m", vec![f("a", true)]).unwrap();
         t.schema_version = "9.9.9".into();
-        assert!(matches!(t.validate().unwrap_err(), FocusTrapError::SchemaMismatch));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            FocusTrapError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn action_serde_kebab() {
-        assert_eq!(serde_json::to_string(&FocusAction::Next).unwrap(), "\"next\"");
-        assert_eq!(serde_json::to_string(&FocusAction::Prev).unwrap(), "\"prev\"");
-        assert_eq!(serde_json::to_string(&FocusAction::Dismiss).unwrap(), "\"dismiss\"");
+        assert_eq!(
+            serde_json::to_string(&FocusAction::Next).unwrap(),
+            "\"next\""
+        );
+        assert_eq!(
+            serde_json::to_string(&FocusAction::Prev).unwrap(),
+            "\"prev\""
+        );
+        assert_eq!(
+            serde_json::to_string(&FocusAction::Dismiss).unwrap(),
+            "\"dismiss\""
+        );
     }
 
     #[test]

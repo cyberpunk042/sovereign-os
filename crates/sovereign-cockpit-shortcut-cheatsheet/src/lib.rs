@@ -9,8 +9,8 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-use sovereign_cockpit_keystroke_map::{KeyBinding, KeystrokeMap, Modifiers, Scope};
 use serde::{Deserialize, Serialize};
+use sovereign_cockpit_keystroke_map::{KeyBinding, KeystrokeMap, Modifiers, Scope};
 use std::collections::BTreeMap;
 use thiserror::Error;
 
@@ -38,10 +38,18 @@ pub enum CheatsheetError {
 fn chord(b: &KeyBinding) -> String {
     let mut s = String::new();
     let m = b.modifiers;
-    if m.ctrl { s.push_str("Ctrl+"); }
-    if m.alt { s.push_str("Alt+"); }
-    if m.shift { s.push_str("Shift+"); }
-    if m.meta { s.push_str("Meta+"); }
+    if m.ctrl {
+        s.push_str("Ctrl+");
+    }
+    if m.alt {
+        s.push_str("Alt+");
+    }
+    if m.shift {
+        s.push_str("Shift+");
+    }
+    if m.meta {
+        s.push_str("Meta+");
+    }
     s.push_str(&b.key);
     s
 }
@@ -81,7 +89,12 @@ fn render_markdown(by_scope: &BTreeMap<&'static str, Vec<&KeyBinding>>) -> Strin
         out.push_str("| Chord | Action | Description |\n");
         out.push_str("|---|---|---|\n");
         for b in bindings {
-            out.push_str(&format!("| `{}` | {} | {} |\n", chord(b), b.action_id, b.description));
+            out.push_str(&format!(
+                "| `{}` | {} | {} |\n",
+                chord(b),
+                b.action_id,
+                b.description
+            ));
         }
         out.push('\n');
     }
@@ -94,14 +107,28 @@ fn render_plain(by_scope: &BTreeMap<&'static str, Vec<&KeyBinding>>) -> String {
     for (scope, bindings) in by_scope {
         out.push_str(&format!("[{scope}]\n"));
         // Compute column widths.
-        let chord_w = bindings.iter().map(|b| chord(b).len()).max().unwrap_or(0).max(5);
-        let action_w = bindings.iter().map(|b| b.action_id.len()).max().unwrap_or(0).max(6);
+        let chord_w = bindings
+            .iter()
+            .map(|b| chord(b).len())
+            .max()
+            .unwrap_or(0)
+            .max(5);
+        let action_w = bindings
+            .iter()
+            .map(|b| b.action_id.len())
+            .max()
+            .unwrap_or(0)
+            .max(6);
         for b in bindings {
             let c = chord(b);
-            out.push_str(&format!("  {c:<chord_w$}  {action:<action_w$}  {desc}\n",
-                c = c, chord_w = chord_w,
-                action = b.action_id, action_w = action_w,
-                desc = b.description));
+            out.push_str(&format!(
+                "  {c:<chord_w$}  {action:<action_w$}  {desc}\n",
+                c = c,
+                chord_w = chord_w,
+                action = b.action_id,
+                action_w = action_w,
+                desc = b.description
+            ));
         }
         out.push('\n');
     }
@@ -178,7 +205,13 @@ mod tests {
 
     #[test]
     fn format_serde_kebab() {
-        assert_eq!(serde_json::to_string(&Format::Markdown).unwrap(), "\"markdown\"");
-        assert_eq!(serde_json::to_string(&Format::PlainText).unwrap(), "\"plain-text\"");
+        assert_eq!(
+            serde_json::to_string(&Format::Markdown).unwrap(),
+            "\"markdown\""
+        );
+        assert_eq!(
+            serde_json::to_string(&Format::PlainText).unwrap(),
+            "\"plain-text\""
+        );
     }
 }

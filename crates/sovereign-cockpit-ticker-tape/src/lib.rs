@@ -63,7 +63,10 @@ pub enum TickerError {
 impl TickerTape {
     /// New.
     pub fn new() -> Self {
-        Self { schema_version: SCHEMA_VERSION.into(), items: Vec::new() }
+        Self {
+            schema_version: SCHEMA_VERSION.into(),
+            items: Vec::new(),
+        }
     }
 
     /// Push an item.
@@ -75,12 +78,20 @@ impl TickerTape {
         now_ms: u64,
         ttl_ms: u64,
     ) -> Result<(), TickerError> {
-        if id.is_empty() { return Err(TickerError::EmptyId); }
-        if text.is_empty() { return Err(TickerError::EmptyText); }
+        if id.is_empty() {
+            return Err(TickerError::EmptyId);
+        }
+        if text.is_empty() {
+            return Err(TickerError::EmptyText);
+        }
         if self.items.iter().any(|x| x.id == id) {
             return Err(TickerError::DuplicateId(id.into()));
         }
-        let expires_at_ms = if ttl_ms == 0 { 0 } else { now_ms.saturating_add(ttl_ms) };
+        let expires_at_ms = if ttl_ms == 0 {
+            0
+        } else {
+            now_ms.saturating_add(ttl_ms)
+        };
         self.items.push(Item {
             id: id.into(),
             text: text.into(),
@@ -103,16 +114,20 @@ impl TickerTape {
 
     /// Drop expired items.
     pub fn tick(&mut self, now_ms: u64) {
-        self.items.retain(|x| x.expires_at_ms == 0 || x.expires_at_ms > now_ms);
+        self.items
+            .retain(|x| x.expires_at_ms == 0 || x.expires_at_ms > now_ms);
     }
 
     /// Render order: priority desc, then insertion asc.
     pub fn render(&self, now_ms: u64) -> Vec<&Item> {
-        let mut live: Vec<&Item> = self.items.iter()
+        let mut live: Vec<&Item> = self
+            .items
+            .iter()
             .filter(|x| x.expires_at_ms == 0 || x.expires_at_ms > now_ms)
             .collect();
         live.sort_by(|a, b| {
-            b.priority.cmp(&a.priority)
+            b.priority
+                .cmp(&a.priority)
                 .then(a.inserted_at_ms.cmp(&b.inserted_at_ms))
         });
         live
@@ -120,17 +135,25 @@ impl TickerTape {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), TickerError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(TickerError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(TickerError::SchemaMismatch);
+        }
         for x in &self.items {
-            if x.id.is_empty() { return Err(TickerError::EmptyId); }
-            if x.text.is_empty() { return Err(TickerError::EmptyText); }
+            if x.id.is_empty() {
+                return Err(TickerError::EmptyId);
+            }
+            if x.text.is_empty() {
+                return Err(TickerError::EmptyText);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for TickerTape {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -140,7 +163,7 @@ mod tests {
     #[test]
     fn render_priority_desc_then_insertion_asc() {
         let mut t = TickerTape::new();
-        t.push("a", "low",   1, 100, 0).unwrap();
+        t.push("a", "low", 1, 100, 0).unwrap();
         t.push("b", "high1", 5, 200, 0).unwrap();
         t.push("c", "high2", 5, 300, 0).unwrap();
         let order: Vec<_> = t.render(1_000).iter().map(|i| i.id.clone()).collect();
@@ -171,28 +194,43 @@ mod tests {
         t.push("a", "x", 1, 0, 0).unwrap();
         t.remove("a").unwrap();
         assert!(t.items.is_empty());
-        assert!(matches!(t.remove("a").unwrap_err(), TickerError::UnknownId(_)));
+        assert!(matches!(
+            t.remove("a").unwrap_err(),
+            TickerError::UnknownId(_)
+        ));
     }
 
     #[test]
     fn duplicate_id_rejected() {
         let mut t = TickerTape::new();
         t.push("a", "x", 1, 0, 0).unwrap();
-        assert!(matches!(t.push("a", "y", 1, 0, 0).unwrap_err(), TickerError::DuplicateId(_)));
+        assert!(matches!(
+            t.push("a", "y", 1, 0, 0).unwrap_err(),
+            TickerError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut t = TickerTape::new();
-        assert!(matches!(t.push("", "x", 1, 0, 0).unwrap_err(), TickerError::EmptyId));
-        assert!(matches!(t.push("a", "", 1, 0, 0).unwrap_err(), TickerError::EmptyText));
+        assert!(matches!(
+            t.push("", "x", 1, 0, 0).unwrap_err(),
+            TickerError::EmptyId
+        ));
+        assert!(matches!(
+            t.push("a", "", 1, 0, 0).unwrap_err(),
+            TickerError::EmptyText
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut t = TickerTape::new();
         t.schema_version = "9.9.9".into();
-        assert!(matches!(t.validate().unwrap_err(), TickerError::SchemaMismatch));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            TickerError::SchemaMismatch
+        ));
     }
 
     #[test]

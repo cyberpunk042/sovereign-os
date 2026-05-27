@@ -43,7 +43,9 @@ pub enum ConfirmError {
 impl TypeToConfirm {
     /// New.
     pub fn new(required: &str, case_insensitive: bool) -> Result<Self, ConfirmError> {
-        if required.is_empty() { return Err(ConfirmError::EmptyRequired); }
+        if required.is_empty() {
+            return Err(ConfirmError::EmptyRequired);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             required: required.into(),
@@ -53,10 +55,14 @@ impl TypeToConfirm {
     }
 
     /// Update current input.
-    pub fn update(&mut self, s: &str) { self.current_input = s.into(); }
+    pub fn update(&mut self, s: &str) {
+        self.current_input = s.into();
+    }
 
     /// Reset.
-    pub fn reset(&mut self) { self.current_input.clear(); }
+    pub fn reset(&mut self) {
+        self.current_input.clear();
+    }
 
     /// True iff input matches required.
     pub fn matches(&self) -> bool {
@@ -70,19 +76,35 @@ impl TypeToConfirm {
     /// Diff progress: how many leading bytes of input match the
     /// required prefix (capped at required.len()).
     pub fn prefix_len(&self) -> usize {
-        let req = if self.case_insensitive { self.required.to_ascii_lowercase() } else { self.required.clone() };
-        let inp = if self.case_insensitive { self.current_input.to_ascii_lowercase() } else { self.current_input.clone() };
+        let req = if self.case_insensitive {
+            self.required.to_ascii_lowercase()
+        } else {
+            self.required.clone()
+        };
+        let inp = if self.case_insensitive {
+            self.current_input.to_ascii_lowercase()
+        } else {
+            self.current_input.clone()
+        };
         let mut n = 0;
         for (a, b) in inp.bytes().zip(req.bytes()) {
-            if a == b { n += 1; } else { break; }
+            if a == b {
+                n += 1;
+            } else {
+                break;
+            }
         }
         n
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ConfirmError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ConfirmError::SchemaMismatch); }
-        if self.required.is_empty() { return Err(ConfirmError::EmptyRequired); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ConfirmError::SchemaMismatch);
+        }
+        if self.required.is_empty() {
+            return Err(ConfirmError::EmptyRequired);
+        }
         Ok(())
     }
 }
@@ -139,14 +161,20 @@ mod tests {
 
     #[test]
     fn empty_required_rejected() {
-        assert!(matches!(TypeToConfirm::new("", false).unwrap_err(), ConfirmError::EmptyRequired));
+        assert!(matches!(
+            TypeToConfirm::new("", false).unwrap_err(),
+            ConfirmError::EmptyRequired
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut c = TypeToConfirm::new("X", false).unwrap();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), ConfirmError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            ConfirmError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -59,7 +59,9 @@ impl RowExpansion {
 
     /// Expand.
     pub fn expand(&mut self, id: &str) -> Result<(), RowError> {
-        if id.is_empty() { return Err(RowError::EmptyId); }
+        if id.is_empty() {
+            return Err(RowError::EmptyId);
+        }
         let r = self.rows.entry(id.into()).or_default();
         r.expanded = true;
         Ok(())
@@ -67,7 +69,9 @@ impl RowExpansion {
 
     /// Collapse (keep loaded).
     pub fn collapse(&mut self, id: &str) -> Result<(), RowError> {
-        if id.is_empty() { return Err(RowError::EmptyId); }
+        if id.is_empty() {
+            return Err(RowError::EmptyId);
+        }
         let r = self.rows.entry(id.into()).or_default();
         r.expanded = false;
         Ok(())
@@ -75,7 +79,9 @@ impl RowExpansion {
 
     /// Toggle expanded.
     pub fn toggle(&mut self, id: &str) -> Result<bool, RowError> {
-        if id.is_empty() { return Err(RowError::EmptyId); }
+        if id.is_empty() {
+            return Err(RowError::EmptyId);
+        }
         let r = self.rows.entry(id.into()).or_default();
         r.expanded = !r.expanded;
         Ok(r.expanded)
@@ -83,7 +89,9 @@ impl RowExpansion {
 
     /// Mark loaded.
     pub fn mark_loaded(&mut self, id: &str) -> Result<(), RowError> {
-        if id.is_empty() { return Err(RowError::EmptyId); }
+        if id.is_empty() {
+            return Err(RowError::EmptyId);
+        }
         let r = self.rows.entry(id.into()).or_default();
         r.loaded = true;
         Ok(())
@@ -101,7 +109,8 @@ impl RowExpansion {
 
     /// Pending load: expanded but not loaded.
     pub fn pending_load(&self) -> Vec<String> {
-        self.rows.iter()
+        self.rows
+            .iter()
             .filter(|(_, r)| r.expanded && !r.loaded)
             .map(|(k, _)| k.clone())
             .collect()
@@ -114,16 +123,22 @@ impl RowExpansion {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), RowError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(RowError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(RowError::SchemaMismatch);
+        }
         for k in self.rows.keys() {
-            if k.is_empty() { return Err(RowError::EmptyId); }
+            if k.is_empty() {
+                return Err(RowError::EmptyId);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for RowExpansion {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -193,7 +208,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut r = RowExpansion::new();
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate().unwrap_err(), RowError::SchemaMismatch));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            RowError::SchemaMismatch
+        ));
     }
 
     #[test]

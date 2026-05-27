@@ -70,7 +70,9 @@ impl AutocompleteList {
         use std::collections::HashSet;
         let mut seen: HashSet<&str> = HashSet::new();
         for s in &suggestions {
-            if s.id.is_empty() { return Err(ListError::EmptyId); }
+            if s.id.is_empty() {
+                return Err(ListError::EmptyId);
+            }
             if !seen.insert(s.id.as_str()) {
                 return Err(ListError::DuplicateId(s.id.clone()));
             }
@@ -85,7 +87,10 @@ impl AutocompleteList {
     /// Move highlight down.
     pub fn arrow_down(&mut self) {
         let n = self.suggestions.len();
-        if n == 0 { self.highlight = None; return; }
+        if n == 0 {
+            self.highlight = None;
+            return;
+        }
         self.highlight = Some(match self.highlight {
             None => 0,
             Some(i) => (i + 1) % n,
@@ -95,7 +100,10 @@ impl AutocompleteList {
     /// Move highlight up.
     pub fn arrow_up(&mut self) {
         let n = self.suggestions.len();
-        if n == 0 { self.highlight = None; return; }
+        if n == 0 {
+            self.highlight = None;
+            return;
+        }
         self.highlight = Some(match self.highlight {
             None => n - 1,
             Some(0) => n - 1,
@@ -117,11 +125,15 @@ impl AutocompleteList {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ListError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ListError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ListError::SchemaMismatch);
+        }
         use std::collections::HashSet;
         let mut seen: HashSet<&str> = HashSet::new();
         for s in &self.suggestions {
-            if s.id.is_empty() { return Err(ListError::EmptyId); }
+            if s.id.is_empty() {
+                return Err(ListError::EmptyId);
+            }
             if !seen.insert(s.id.as_str()) {
                 return Err(ListError::DuplicateId(s.id.clone()));
             }
@@ -136,7 +148,9 @@ impl AutocompleteList {
 }
 
 impl Default for AutocompleteList {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -144,7 +158,11 @@ mod tests {
     use super::*;
 
     fn s(id: &str) -> Suggestion {
-        Suggestion { id: id.into(), label: id.into(), secondary: String::new() }
+        Suggestion {
+            id: id.into(),
+            label: id.into(),
+            secondary: String::new(),
+        }
     }
 
     #[test]
@@ -190,13 +208,19 @@ mod tests {
     #[test]
     fn empty_id_rejected() {
         let mut l = AutocompleteList::new();
-        assert!(matches!(l.update("q", vec![s("")]).unwrap_err(), ListError::EmptyId));
+        assert!(matches!(
+            l.update("q", vec![s("")]).unwrap_err(),
+            ListError::EmptyId
+        ));
     }
 
     #[test]
     fn duplicate_id_rejected() {
         let mut l = AutocompleteList::new();
-        assert!(matches!(l.update("q", vec![s("a"), s("a")]).unwrap_err(), ListError::DuplicateId(_)));
+        assert!(matches!(
+            l.update("q", vec![s("a"), s("a")]).unwrap_err(),
+            ListError::DuplicateId(_)
+        ));
     }
 
     #[test]
@@ -213,7 +237,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut l = AutocompleteList::new();
         l.schema_version = "9.9.9".into();
-        assert!(matches!(l.validate().unwrap_err(), ListError::SchemaMismatch));
+        assert!(matches!(
+            l.validate().unwrap_err(),
+            ListError::SchemaMismatch
+        ));
     }
 
     #[test]

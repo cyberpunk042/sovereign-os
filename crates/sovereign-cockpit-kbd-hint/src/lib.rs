@@ -59,24 +59,33 @@ pub enum HintError {
 impl Hint {
     /// Build from action + raw chord string.
     pub fn parse(action: &str, chord: &str) -> Result<Self, HintError> {
-        if action.is_empty() { return Err(HintError::EmptyAction); }
+        if action.is_empty() {
+            return Err(HintError::EmptyAction);
+        }
         let parts: Vec<&str> = chord.split('+').map(|s| s.trim()).collect();
         if parts.is_empty() || parts.iter().all(|s| s.is_empty()) {
             return Err(HintError::EmptyChord);
         }
         let mut keys = Vec::with_capacity(parts.len());
         for p in parts {
-            if p.is_empty() { return Err(HintError::EmptyKey); }
+            if p.is_empty() {
+                return Err(HintError::EmptyKey);
+            }
             keys.push(Key(canonical(p)));
         }
-        Ok(Hint { action: action.into(), chord: keys })
+        Ok(Hint {
+            action: action.into(),
+            chord: keys,
+        })
     }
 
     /// Render chord as Chunk sequence: keycap, plus, keycap, plus, …
     pub fn render(&self) -> Vec<Chunk> {
         let mut out = Vec::with_capacity(self.chord.len() * 2);
         for (i, k) in self.chord.iter().enumerate() {
-            if i > 0 { out.push(Chunk::Plus); }
+            if i > 0 {
+                out.push(Chunk::Plus);
+            }
             out.push(Chunk::KeyCap(k.0.clone()));
         }
         out
@@ -84,15 +93,25 @@ impl Hint {
 
     /// Display as plain "Ctrl+Shift+K" text.
     pub fn display(&self) -> String {
-        self.chord.iter().map(|k| k.0.clone()).collect::<Vec<_>>().join("+")
+        self.chord
+            .iter()
+            .map(|k| k.0.clone())
+            .collect::<Vec<_>>()
+            .join("+")
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), HintError> {
-        if self.action.is_empty() { return Err(HintError::EmptyAction); }
-        if self.chord.is_empty() { return Err(HintError::EmptyChord); }
+        if self.action.is_empty() {
+            return Err(HintError::EmptyAction);
+        }
+        if self.chord.is_empty() {
+            return Err(HintError::EmptyChord);
+        }
         for k in &self.chord {
-            if k.0.is_empty() { return Err(HintError::EmptyKey); }
+            if k.0.is_empty() {
+                return Err(HintError::EmptyKey);
+            }
         }
         Ok(())
     }
@@ -137,7 +156,10 @@ pub struct KbdHint {
 impl KbdHint {
     /// New.
     pub fn new() -> Self {
-        Self { schema_version: SCHEMA_VERSION.into(), hints: Vec::new() }
+        Self {
+            schema_version: SCHEMA_VERSION.into(),
+            hints: Vec::new(),
+        }
     }
 
     /// Add.
@@ -149,14 +171,20 @@ impl KbdHint {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), HintError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(HintError::SchemaMismatch); }
-        for h in &self.hints { h.validate()?; }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(HintError::SchemaMismatch);
+        }
+        for h in &self.hints {
+            h.validate()?;
+        }
         Ok(())
     }
 }
 
 impl Default for KbdHint {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -166,19 +194,23 @@ mod tests {
     #[test]
     fn parse_canonicalizes_modifiers() {
         let h = Hint::parse("Open palette", "ctrl+shift+k").unwrap();
-        assert_eq!(h.chord, vec![
-            Key("Ctrl".into()), Key("Shift".into()), Key("K".into())
-        ]);
+        assert_eq!(
+            h.chord,
+            vec![Key("Ctrl".into()), Key("Shift".into()), Key("K".into())]
+        );
     }
 
     #[test]
     fn render_alternates_keycap_plus() {
         let h = Hint::parse("Save", "Ctrl+S").unwrap();
-        assert_eq!(h.render(), vec![
-            Chunk::KeyCap("Ctrl".into()),
-            Chunk::Plus,
-            Chunk::KeyCap("S".into()),
-        ]);
+        assert_eq!(
+            h.render(),
+            vec![
+                Chunk::KeyCap("Ctrl".into()),
+                Chunk::Plus,
+                Chunk::KeyCap("S".into()),
+            ]
+        );
     }
 
     #[test]
@@ -196,26 +228,39 @@ mod tests {
 
     #[test]
     fn empty_chord_rejected() {
-        assert!(matches!(Hint::parse("x", "").unwrap_err(), HintError::EmptyChord));
-        assert!(matches!(Hint::parse("x", "Ctrl++K").unwrap_err(), HintError::EmptyKey));
+        assert!(matches!(
+            Hint::parse("x", "").unwrap_err(),
+            HintError::EmptyChord
+        ));
+        assert!(matches!(
+            Hint::parse("x", "Ctrl++K").unwrap_err(),
+            HintError::EmptyKey
+        ));
     }
 
     #[test]
     fn empty_action_rejected() {
-        assert!(matches!(Hint::parse("", "Ctrl+K").unwrap_err(), HintError::EmptyAction));
+        assert!(matches!(
+            Hint::parse("", "Ctrl+K").unwrap_err(),
+            HintError::EmptyAction
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = KbdHint::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), HintError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            HintError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn hint_serde_roundtrip() {
         let mut s = KbdHint::new();
-        s.push(Hint::parse("Open", "Ctrl+Shift+K").unwrap()).unwrap();
+        s.push(Hint::parse("Open", "Ctrl+Shift+K").unwrap())
+            .unwrap();
         let j = serde_json::to_string(&s).unwrap();
         let back: KbdHint = serde_json::from_str(&j).unwrap();
         assert_eq!(s, back);

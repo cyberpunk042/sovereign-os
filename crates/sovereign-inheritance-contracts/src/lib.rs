@@ -29,7 +29,8 @@ use thiserror::Error;
 pub const SCHEMA_VERSION: &str = "1.0.0";
 
 /// Doctrine surface verbatim per F03509 dump 12194.
-pub const DOCTRINE_WORKFLOW_VERSIONED: &str = "Workflow belongs in version-controlled repo artifacts";
+pub const DOCTRINE_WORKFLOW_VERSIONED: &str =
+    "Workflow belongs in version-controlled repo artifacts";
 
 /// One of the 6 canonical Symphony contracts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -146,15 +147,22 @@ impl ContractManifest {
     /// Construct a canonical empty manifest with all 6 pins unsealed.
     pub fn empty_canonical() -> Self {
         let kinds = [
-            ContractKind::Spec, ContractKind::Workflow, ContractKind::Profiles,
-            ContractKind::Evals, ContractKind::Policy, ContractKind::ModelRegistry,
+            ContractKind::Spec,
+            ContractKind::Workflow,
+            ContractKind::Profiles,
+            ContractKind::Evals,
+            ContractKind::Policy,
+            ContractKind::ModelRegistry,
         ];
-        let pins = kinds.into_iter().map(|k| ContractPin {
-            kind: k,
-            repo_path: format!("docs/{}", k.filename()),
-            version: "unsealed".into(),
-            content_hash: String::new(),
-        }).collect();
+        let pins = kinds
+            .into_iter()
+            .map(|k| ContractPin {
+                kind: k,
+                repo_path: format!("docs/{}", k.filename()),
+                version: "unsealed".into(),
+                content_hash: String::new(),
+            })
+            .collect();
         Self {
             schema_version: SCHEMA_VERSION.into(),
             doctrine: DOCTRINE_WORKFLOW_VERSIONED.into(),
@@ -180,8 +188,12 @@ impl ContractManifest {
             return Err(ContractError::ContractCountInvalid(self.pins.len()));
         }
         let required = [
-            ContractKind::Spec, ContractKind::Workflow, ContractKind::Profiles,
-            ContractKind::Evals, ContractKind::Policy, ContractKind::ModelRegistry,
+            ContractKind::Spec,
+            ContractKind::Workflow,
+            ContractKind::Profiles,
+            ContractKind::Evals,
+            ContractKind::Policy,
+            ContractKind::ModelRegistry,
         ];
         for k in required {
             if !self.pins.iter().any(|p| p.kind == k) {
@@ -226,7 +238,10 @@ impl ContractManifest {
 
     /// Count of sealed contracts (content_hash non-empty).
     pub fn sealed_count(&self) -> usize {
-        self.pins.iter().filter(|p| !p.content_hash.is_empty()).count()
+        self.pins
+            .iter()
+            .filter(|p| !p.content_hash.is_empty())
+            .count()
     }
 }
 
@@ -251,7 +266,10 @@ mod tests {
         assert_eq!(ContractKind::Profiles.filename(), "PROFILES.yaml");
         assert_eq!(ContractKind::Evals.filename(), "EVALS.yaml");
         assert_eq!(ContractKind::Policy.filename(), "POLICY.yaml");
-        assert_eq!(ContractKind::ModelRegistry.filename(), "MODEL_REGISTRY.yaml");
+        assert_eq!(
+            ContractKind::ModelRegistry.filename(),
+            "MODEL_REGISTRY.yaml"
+        );
     }
 
     #[test]
@@ -268,21 +286,30 @@ mod tests {
     fn schema_drift_rejected() {
         let mut m = ContractManifest::empty_canonical();
         m.schema_version = "9.9.9".into();
-        assert!(matches!(m.validate().unwrap_err(), ContractError::SchemaMismatch { .. }));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            ContractError::SchemaMismatch { .. }
+        ));
     }
 
     #[test]
     fn doctrine_tamper_caught() {
         let mut m = ContractManifest::empty_canonical();
         m.doctrine = "Workflow belongs in agent memory".into();
-        assert!(matches!(m.validate().unwrap_err(), ContractError::DoctrineTampered { .. }));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            ContractError::DoctrineTampered { .. }
+        ));
     }
 
     #[test]
     fn pin_count_invalid_rejected() {
         let mut m = ContractManifest::empty_canonical();
         m.pins.pop();
-        assert!(matches!(m.validate().unwrap_err(), ContractError::ContractCountInvalid(5)));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            ContractError::ContractCountInvalid(5)
+        ));
     }
 
     #[test]
@@ -296,7 +323,11 @@ mod tests {
             content_hash: String::new(),
         };
         let err = m.validate().unwrap_err();
-        assert!(matches!(err, ContractError::KindMissing(ContractKind::Evals) | ContractError::DuplicateKind(ContractKind::Policy)));
+        assert!(matches!(
+            err,
+            ContractError::KindMissing(ContractKind::Evals)
+                | ContractError::DuplicateKind(ContractKind::Policy)
+        ));
     }
 
     #[test]
@@ -304,7 +335,11 @@ mod tests {
         let mut m = ContractManifest::empty_canonical();
         m.pins[0].repo_path = "docs/wrong-name.txt".into();
         match m.validate().unwrap_err() {
-            ContractError::FilenameMismatch { kind, expected, actual } => {
+            ContractError::FilenameMismatch {
+                kind,
+                expected,
+                actual,
+            } => {
                 assert_eq!(kind, ContractKind::Spec);
                 assert_eq!(expected, "SPEC.md");
                 assert_eq!(actual, "wrong-name.txt");
@@ -340,8 +375,14 @@ mod tests {
 
     #[test]
     fn contract_kind_serde_kebab() {
-        assert_eq!(serde_json::to_string(&ContractKind::ModelRegistry).unwrap(), "\"model-registry\"");
-        assert_eq!(serde_json::to_string(&ContractKind::Workflow).unwrap(), "\"workflow\"");
+        assert_eq!(
+            serde_json::to_string(&ContractKind::ModelRegistry).unwrap(),
+            "\"model-registry\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ContractKind::Workflow).unwrap(),
+            "\"workflow\""
+        );
     }
 
     #[test]

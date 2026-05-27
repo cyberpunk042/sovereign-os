@@ -58,16 +58,23 @@ impl JsonViewer {
     pub fn new() -> Self {
         let mut s = BTreeSet::new();
         s.insert("$".into());
-        Self { schema_version: SCHEMA_VERSION.into(), expanded: s }
+        Self {
+            schema_version: SCHEMA_VERSION.into(),
+            expanded: s,
+        }
     }
 
     /// Toggle path.
     pub fn toggle(&mut self, path: &str) {
-        if !self.expanded.remove(path) { self.expanded.insert(path.into()); }
+        if !self.expanded.remove(path) {
+            self.expanded.insert(path.into());
+        }
     }
 
     /// Is path expanded?
-    pub fn is_expanded(&self, path: &str) -> bool { self.expanded.contains(path) }
+    pub fn is_expanded(&self, path: &str) -> bool {
+        self.expanded.contains(path)
+    }
 
     /// Flatten value into rows.
     pub fn flatten(&self, value: &Value) -> Vec<Row> {
@@ -78,13 +85,17 @@ impl JsonViewer {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ViewerError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ViewerError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ViewerError::SchemaMismatch);
+        }
         Ok(())
     }
 }
 
 impl Default for JsonViewer {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 fn walk(v: &Value, path: &str, label: &str, depth: u32, vw: &JsonViewer, out: &mut Vec<Row>) {
@@ -176,7 +187,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut v = JsonViewer::new();
         v.schema_version = "9.9.9".into();
-        assert!(matches!(v.validate().unwrap_err(), ViewerError::SchemaMismatch));
+        assert!(matches!(
+            v.validate().unwrap_err(),
+            ViewerError::SchemaMismatch
+        ));
     }
 
     #[test]

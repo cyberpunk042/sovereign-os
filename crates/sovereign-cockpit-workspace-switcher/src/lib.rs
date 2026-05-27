@@ -79,24 +79,33 @@ impl WorkspaceSwitcher {
 
     /// Add.
     pub fn add(&mut self, id: &str, label: &str) -> Result<(), SwitcherError> {
-        if id.is_empty() { return Err(SwitcherError::EmptyId); }
-        if label.is_empty() { return Err(SwitcherError::EmptyLabel); }
+        if id.is_empty() {
+            return Err(SwitcherError::EmptyId);
+        }
+        if label.is_empty() {
+            return Err(SwitcherError::EmptyLabel);
+        }
         if self.workspaces.contains_key(id) {
             return Err(SwitcherError::DuplicateId(id.into()));
         }
-        self.workspaces.insert(id.into(), Workspace {
-            id: id.into(),
-            label: label.into(),
-            last_used_ms: 0,
-            pin_order: None,
-        });
+        self.workspaces.insert(
+            id.into(),
+            Workspace {
+                id: id.into(),
+                label: label.into(),
+                last_used_ms: 0,
+                pin_order: None,
+            },
+        );
         Ok(())
     }
 
     /// Remove.
     pub fn remove(&mut self, id: &str) -> bool {
         if self.workspaces.remove(id).is_some() {
-            if self.active.as_deref() == Some(id) { self.active = None; }
+            if self.active.as_deref() == Some(id) {
+                self.active = None;
+            }
             true
         } else {
             false
@@ -105,7 +114,10 @@ impl WorkspaceSwitcher {
 
     /// Switch (records last_used + sets active).
     pub fn switch_to(&mut self, id: &str, ts_ms: u64) -> Result<(), SwitcherError> {
-        let w = self.workspaces.get_mut(id).ok_or_else(|| SwitcherError::UnknownWorkspace(id.into()))?;
+        let w = self
+            .workspaces
+            .get_mut(id)
+            .ok_or_else(|| SwitcherError::UnknownWorkspace(id.into()))?;
         w.last_used_ms = ts_ms;
         self.active = Some(id.into());
         Ok(())
@@ -113,41 +125,69 @@ impl WorkspaceSwitcher {
 
     /// Pin.
     pub fn pin(&mut self, id: &str, pin_order: u32) -> Result<(), SwitcherError> {
-        let w = self.workspaces.get_mut(id).ok_or_else(|| SwitcherError::UnknownWorkspace(id.into()))?;
+        let w = self
+            .workspaces
+            .get_mut(id)
+            .ok_or_else(|| SwitcherError::UnknownWorkspace(id.into()))?;
         w.pin_order = Some(pin_order);
         Ok(())
     }
 
     /// Unpin.
     pub fn unpin(&mut self, id: &str) -> Result<(), SwitcherError> {
-        let w = self.workspaces.get_mut(id).ok_or_else(|| SwitcherError::UnknownWorkspace(id.into()))?;
+        let w = self
+            .workspaces
+            .get_mut(id)
+            .ok_or_else(|| SwitcherError::UnknownWorkspace(id.into()))?;
         w.pin_order = None;
         Ok(())
     }
 
     /// Picker order: pinned (by pin_order asc), then recents (last_used desc), then alpha.
     pub fn ordered_for_picker(&self) -> Vec<Workspace> {
-        let mut pinned: Vec<Workspace> = self.workspaces.values().filter(|w| w.pin_order.is_some()).cloned().collect();
+        let mut pinned: Vec<Workspace> = self
+            .workspaces
+            .values()
+            .filter(|w| w.pin_order.is_some())
+            .cloned()
+            .collect();
         pinned.sort_by(|a, b| a.pin_order.cmp(&b.pin_order).then(a.label.cmp(&b.label)));
-        let mut others: Vec<Workspace> = self.workspaces.values().filter(|w| w.pin_order.is_none()).cloned().collect();
-        others.sort_by(|a, b| b.last_used_ms.cmp(&a.last_used_ms).then(a.label.cmp(&b.label)));
+        let mut others: Vec<Workspace> = self
+            .workspaces
+            .values()
+            .filter(|w| w.pin_order.is_none())
+            .cloned()
+            .collect();
+        others.sort_by(|a, b| {
+            b.last_used_ms
+                .cmp(&a.last_used_ms)
+                .then(a.label.cmp(&b.label))
+        });
         pinned.extend(others);
         pinned
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), SwitcherError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(SwitcherError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(SwitcherError::SchemaMismatch);
+        }
         for (id, w) in &self.workspaces {
-            if id.is_empty() { return Err(SwitcherError::EmptyId); }
-            if w.label.is_empty() { return Err(SwitcherError::EmptyLabel); }
+            if id.is_empty() {
+                return Err(SwitcherError::EmptyId);
+            }
+            if w.label.is_empty() {
+                return Err(SwitcherError::EmptyLabel);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for WorkspaceSwitcher {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -224,27 +264,42 @@ mod tests {
     fn duplicate_rejected() {
         let mut s = WorkspaceSwitcher::new();
         s.add("a", "A").unwrap();
-        assert!(matches!(s.add("a", "A").unwrap_err(), SwitcherError::DuplicateId(_)));
+        assert!(matches!(
+            s.add("a", "A").unwrap_err(),
+            SwitcherError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn switch_unknown_rejected() {
         let mut s = WorkspaceSwitcher::new();
-        assert!(matches!(s.switch_to("nope", 0).unwrap_err(), SwitcherError::UnknownWorkspace(_)));
+        assert!(matches!(
+            s.switch_to("nope", 0).unwrap_err(),
+            SwitcherError::UnknownWorkspace(_)
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut s = WorkspaceSwitcher::new();
-        assert!(matches!(s.add("", "X").unwrap_err(), SwitcherError::EmptyId));
-        assert!(matches!(s.add("a", "").unwrap_err(), SwitcherError::EmptyLabel));
+        assert!(matches!(
+            s.add("", "X").unwrap_err(),
+            SwitcherError::EmptyId
+        ));
+        assert!(matches!(
+            s.add("a", "").unwrap_err(),
+            SwitcherError::EmptyLabel
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = WorkspaceSwitcher::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), SwitcherError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SwitcherError::SchemaMismatch
+        ));
     }
 
     #[test]

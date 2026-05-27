@@ -15,9 +15,9 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+use serde::{Deserialize, Serialize};
 use sovereign_execution_mode_registry::ExecutionMode;
 use sovereign_profile_bundles::BundleName;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// Schema version.
@@ -122,8 +122,8 @@ pub enum ToolError {
 impl ToolCatalog {
     /// Canonical catalog.
     pub fn canonical() -> Self {
-        use ExecutionMode::*;
         use BundleName::*;
+        use ExecutionMode::*;
         let tools = vec![
             ToolRecord {
                 tool: ToolId::Shell,
@@ -188,16 +188,27 @@ impl ToolCatalog {
         if self.tools.len() != 8 {
             return Err(ToolError::CountInvalid(self.tools.len()));
         }
-        for t in [ToolId::Shell, ToolId::FsRead, ToolId::FsWrite, ToolId::WebFetch,
-                  ToolId::ModelInference, ToolId::McpBridge, ToolId::ReplayControl,
-                  ToolId::CliBridge] {
+        for t in [
+            ToolId::Shell,
+            ToolId::FsRead,
+            ToolId::FsWrite,
+            ToolId::WebFetch,
+            ToolId::ModelInference,
+            ToolId::McpBridge,
+            ToolId::ReplayControl,
+            ToolId::CliBridge,
+        ] {
             if !self.tools.iter().any(|r| r.tool == t) {
                 return Err(ToolError::Missing(t));
             }
         }
         for r in &self.tools {
-            if r.allowed_modes.is_empty() { return Err(ToolError::NoModes(r.tool)); }
-            if r.allowed_bundles.is_empty() { return Err(ToolError::NoBundles(r.tool)); }
+            if r.allowed_modes.is_empty() {
+                return Err(ToolError::NoModes(r.tool));
+            }
+            if r.allowed_bundles.is_empty() {
+                return Err(ToolError::NoBundles(r.tool));
+            }
         }
         Ok(())
     }
@@ -216,19 +227,30 @@ impl ToolCatalog {
     }
 
     /// Refuse tool with descriptive error if unavailable.
-    pub fn require_available(&self, t: ToolId, mode: ExecutionMode, bundle: BundleName) -> Result<(), ToolError> {
+    pub fn require_available(
+        &self,
+        t: ToolId,
+        mode: ExecutionMode,
+        bundle: BundleName,
+    ) -> Result<(), ToolError> {
         if self.is_available(t, mode, bundle) {
             Ok(())
         } else {
-            Err(ToolError::Unavailable { tool: t, mode, bundle })
+            Err(ToolError::Unavailable {
+                tool: t,
+                mode,
+                bundle,
+            })
         }
     }
 
     /// Names of tools available in the given (mode, bundle) context.
     pub fn available_tools(&self, mode: ExecutionMode, bundle: BundleName) -> Vec<ToolId> {
-        self.tools.iter()
+        self.tools
+            .iter()
             .filter(|r| r.allowed_modes.contains(&mode) && r.allowed_bundles.contains(&bundle))
-            .map(|r| r.tool).collect()
+            .map(|r| r.tool)
+            .collect()
     }
 }
 
@@ -244,9 +266,16 @@ mod tests {
     #[test]
     fn eight_tools_present() {
         let c = ToolCatalog::canonical();
-        for t in [ToolId::Shell, ToolId::FsRead, ToolId::FsWrite, ToolId::WebFetch,
-                  ToolId::ModelInference, ToolId::McpBridge, ToolId::ReplayControl,
-                  ToolId::CliBridge] {
+        for t in [
+            ToolId::Shell,
+            ToolId::FsRead,
+            ToolId::FsWrite,
+            ToolId::WebFetch,
+            ToolId::ModelInference,
+            ToolId::McpBridge,
+            ToolId::ReplayControl,
+            ToolId::CliBridge,
+        ] {
             assert!(c.get(t).is_some(), "missing {t:?}");
         }
     }
@@ -254,10 +283,21 @@ mod tests {
     #[test]
     fn fs_read_universally_available_in_curated_bundles() {
         let c = ToolCatalog::canonical();
-        for mode in [ExecutionMode::Plan, ExecutionMode::DryRun, ExecutionMode::Shadow,
-                     ExecutionMode::Sandbox, ExecutionMode::Execute, ExecutionMode::Replay,
-                     ExecutionMode::Debug] {
-            for bundle in [BundleName::Private, BundleName::Careful, BundleName::Fast, BundleName::Sovereign] {
+        for mode in [
+            ExecutionMode::Plan,
+            ExecutionMode::DryRun,
+            ExecutionMode::Shadow,
+            ExecutionMode::Sandbox,
+            ExecutionMode::Execute,
+            ExecutionMode::Replay,
+            ExecutionMode::Debug,
+        ] {
+            for bundle in [
+                BundleName::Private,
+                BundleName::Careful,
+                BundleName::Fast,
+                BundleName::Sovereign,
+            ] {
                 assert!(c.is_available(ToolId::FsRead, mode, bundle));
             }
         }
@@ -267,7 +307,11 @@ mod tests {
     fn fs_write_blocked_in_plan_mode() {
         let c = ToolCatalog::canonical();
         assert!(!c.is_available(ToolId::FsWrite, ExecutionMode::Plan, BundleName::Sovereign));
-        assert!(!c.is_available(ToolId::FsWrite, ExecutionMode::DryRun, BundleName::Sovereign));
+        assert!(!c.is_available(
+            ToolId::FsWrite,
+            ExecutionMode::DryRun,
+            BundleName::Sovereign
+        ));
         assert!(c.is_available(ToolId::FsWrite, ExecutionMode::Sandbox, BundleName::Careful));
         assert!(c.is_available(ToolId::FsWrite, ExecutionMode::Execute, BundleName::Careful));
     }
@@ -275,9 +319,21 @@ mod tests {
     #[test]
     fn replay_control_only_in_replay_or_debug() {
         let c = ToolCatalog::canonical();
-        assert!(c.is_available(ToolId::ReplayControl, ExecutionMode::Replay, BundleName::Careful));
-        assert!(c.is_available(ToolId::ReplayControl, ExecutionMode::Debug, BundleName::Careful));
-        assert!(!c.is_available(ToolId::ReplayControl, ExecutionMode::Execute, BundleName::Careful));
+        assert!(c.is_available(
+            ToolId::ReplayControl,
+            ExecutionMode::Replay,
+            BundleName::Careful
+        ));
+        assert!(c.is_available(
+            ToolId::ReplayControl,
+            ExecutionMode::Debug,
+            BundleName::Careful
+        ));
+        assert!(!c.is_available(
+            ToolId::ReplayControl,
+            ExecutionMode::Execute,
+            BundleName::Careful
+        ));
     }
 
     #[test]
@@ -290,13 +346,19 @@ mod tests {
     #[test]
     fn web_fetch_blocked_in_private() {
         let c = ToolCatalog::canonical();
-        assert!(!c.is_available(ToolId::WebFetch, ExecutionMode::Execute, BundleName::Private));
+        assert!(!c.is_available(
+            ToolId::WebFetch,
+            ExecutionMode::Execute,
+            BundleName::Private
+        ));
     }
 
     #[test]
     fn require_available_returns_error_on_block() {
         let c = ToolCatalog::canonical();
-        let err = c.require_available(ToolId::FsWrite, ExecutionMode::Plan, BundleName::Sovereign).unwrap_err();
+        let err = c
+            .require_available(ToolId::FsWrite, ExecutionMode::Plan, BundleName::Sovereign)
+            .unwrap_err();
         match err {
             ToolError::Unavailable { tool, mode, bundle } => {
                 assert_eq!(tool, ToolId::FsWrite);
@@ -322,14 +384,20 @@ mod tests {
     fn schema_drift_rejected() {
         let mut c = ToolCatalog::canonical();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), ToolError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            ToolError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn count_invalid_caught() {
         let mut c = ToolCatalog::canonical();
         c.tools.pop();
-        assert!(matches!(c.validate().unwrap_err(), ToolError::CountInvalid(7)));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            ToolError::CountInvalid(7)
+        ));
     }
 
     #[test]
@@ -344,9 +412,18 @@ mod tests {
 
     #[test]
     fn tool_serde_kebab() {
-        assert_eq!(serde_json::to_string(&ToolId::FsRead).unwrap(), "\"fs-read\"");
-        assert_eq!(serde_json::to_string(&ToolId::ModelInference).unwrap(), "\"model-inference\"");
-        assert_eq!(serde_json::to_string(&ToolId::CliBridge).unwrap(), "\"cli-bridge\"");
+        assert_eq!(
+            serde_json::to_string(&ToolId::FsRead).unwrap(),
+            "\"fs-read\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ToolId::ModelInference).unwrap(),
+            "\"model-inference\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ToolId::CliBridge).unwrap(),
+            "\"cli-bridge\""
+        );
     }
 
     #[test]

@@ -100,7 +100,10 @@ impl TreeView {
 
     /// Expand a node.
     pub fn expand(&mut self, id: &str) -> Result<(), TreeError> {
-        let n = self.nodes.iter_mut().find(|n| n.id == id)
+        let n = self
+            .nodes
+            .iter_mut()
+            .find(|n| n.id == id)
             .ok_or_else(|| TreeError::Unknown(id.into()))?;
         n.expanded = true;
         Ok(())
@@ -108,7 +111,10 @@ impl TreeView {
 
     /// Collapse a node.
     pub fn collapse(&mut self, id: &str) -> Result<(), TreeError> {
-        let n = self.nodes.iter_mut().find(|n| n.id == id)
+        let n = self
+            .nodes
+            .iter_mut()
+            .find(|n| n.id == id)
             .ok_or_else(|| TreeError::Unknown(id.into()))?;
         n.expanded = false;
         Ok(())
@@ -131,7 +137,11 @@ impl TreeView {
     /// Project to flat visible rows in DFS order.
     pub fn visible_rows(&self) -> Vec<VisibleRow> {
         let mut out: Vec<VisibleRow> = Vec::new();
-        let roots: Vec<&Node> = self.nodes.iter().filter(|n| n.parent_id.is_none()).collect();
+        let roots: Vec<&Node> = self
+            .nodes
+            .iter()
+            .filter(|n| n.parent_id.is_none())
+            .collect();
         for r in roots {
             self.dfs(r, 0, &mut out);
         }
@@ -139,7 +149,9 @@ impl TreeView {
     }
 
     fn dfs(&self, n: &Node, depth: u32, out: &mut Vec<VisibleRow>) {
-        let children: Vec<&Node> = self.nodes.iter()
+        let children: Vec<&Node> = self
+            .nodes
+            .iter()
             .filter(|x| x.parent_id.as_deref() == Some(n.id.as_str()))
             .collect();
         out.push(VisibleRow {
@@ -239,10 +251,7 @@ mod tests {
 
     #[test]
     fn collapsed_hides_children() {
-        let t = TreeView::new(vec![
-            node("a", None, false),
-            node("b", Some("a"), false),
-        ]).unwrap();
+        let t = TreeView::new(vec![node("a", None, false), node("b", Some("a"), false)]).unwrap();
         assert_eq!(t.visible_rows().len(), 1);
     }
 
@@ -252,7 +261,8 @@ mod tests {
             node("a", None, true),
             node("b", Some("a"), false),
             node("c", Some("a"), false),
-        ]).unwrap();
+        ])
+        .unwrap();
         let rows = t.visible_rows();
         assert_eq!(rows.len(), 3);
         assert_eq!(rows[0].depth, 0);
@@ -267,7 +277,8 @@ mod tests {
             node("b", Some("a"), true),
             node("c", Some("b"), false),
             node("d", Some("a"), false),
-        ]).unwrap();
+        ])
+        .unwrap();
         let rows = t.visible_rows();
         let ids: Vec<&str> = rows.iter().map(|r| r.id.as_str()).collect();
         assert_eq!(ids, vec!["a", "b", "c", "d"]);
@@ -275,10 +286,8 @@ mod tests {
 
     #[test]
     fn expand_collapse() {
-        let mut t = TreeView::new(vec![
-            node("a", None, false),
-            node("b", Some("a"), false),
-        ]).unwrap();
+        let mut t =
+            TreeView::new(vec![node("a", None, false), node("b", Some("a"), false)]).unwrap();
         t.expand("a").unwrap();
         assert_eq!(t.visible_rows().len(), 2);
         t.collapse("a").unwrap();
@@ -320,39 +329,45 @@ mod tests {
     fn empty_id_rejected() {
         let mut n = node("a", None, false);
         n.id = String::new();
-        assert!(matches!(TreeView::new(vec![n]).unwrap_err(), TreeError::EmptyId));
+        assert!(matches!(
+            TreeView::new(vec![n]).unwrap_err(),
+            TreeError::EmptyId
+        ));
     }
 
     #[test]
     fn empty_label_rejected() {
         let mut n = node("a", None, false);
         n.label = String::new();
-        assert!(matches!(TreeView::new(vec![n]).unwrap_err(), TreeError::EmptyLabel(_)));
+        assert!(matches!(
+            TreeView::new(vec![n]).unwrap_err(),
+            TreeError::EmptyLabel(_)
+        ));
     }
 
     #[test]
     fn cycle_detected() {
         // a -> b -> a
-        let nodes = vec![
-            node("a", Some("b"), false),
-            node("b", Some("a"), false),
-        ];
-        assert!(matches!(TreeView::new(nodes).unwrap_err(), TreeError::Cycle(_)));
+        let nodes = vec![node("a", Some("b"), false), node("b", Some("a"), false)];
+        assert!(matches!(
+            TreeView::new(nodes).unwrap_err(),
+            TreeError::Cycle(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut t = TreeView::new(vec![node("a", None, false)]).unwrap();
         t.schema_version = "9.9.9".into();
-        assert!(matches!(t.validate().unwrap_err(), TreeError::SchemaMismatch));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            TreeError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn tree_serde_roundtrip() {
-        let t = TreeView::new(vec![
-            node("a", None, true),
-            node("b", Some("a"), false),
-        ]).unwrap();
+        let t = TreeView::new(vec![node("a", None, true), node("b", Some("a"), false)]).unwrap();
         let j = serde_json::to_string(&t).unwrap();
         let back: TreeView = serde_json::from_str(&j).unwrap();
         assert_eq!(t, back);

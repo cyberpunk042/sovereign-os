@@ -67,7 +67,9 @@ pub enum CooldownError {
 impl CooldownMeter {
     /// New.
     pub fn new(cooldown_ms: u64) -> Result<Self, CooldownError> {
-        if cooldown_ms == 0 { return Err(CooldownError::ZeroCooldown); }
+        if cooldown_ms == 0 {
+            return Err(CooldownError::ZeroCooldown);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             cooldown_ms,
@@ -97,15 +99,27 @@ impl CooldownMeter {
     /// Observe status at now.
     pub fn observe(&self, now_ms: u64) -> Status {
         match self.last_fire_ms {
-            None => Status { state: State::Ready, remaining_ms: 0, progress_bp: 10000 },
+            None => Status {
+                state: State::Ready,
+                remaining_ms: 0,
+                progress_bp: 10000,
+            },
             Some(last) => {
                 let elapsed = now_ms.saturating_sub(last);
                 if elapsed >= self.cooldown_ms {
-                    Status { state: State::Ready, remaining_ms: 0, progress_bp: 10000 }
+                    Status {
+                        state: State::Ready,
+                        remaining_ms: 0,
+                        progress_bp: 10000,
+                    }
                 } else {
                     let remaining = self.cooldown_ms - elapsed;
                     let progress_bp = ((elapsed.saturating_mul(10_000)) / self.cooldown_ms) as u32;
-                    Status { state: State::Cooling, remaining_ms: remaining, progress_bp }
+                    Status {
+                        state: State::Cooling,
+                        remaining_ms: remaining,
+                        progress_bp,
+                    }
                 }
             }
         }
@@ -113,8 +127,12 @@ impl CooldownMeter {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), CooldownError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(CooldownError::SchemaMismatch); }
-        if self.cooldown_ms == 0 { return Err(CooldownError::ZeroCooldown); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(CooldownError::SchemaMismatch);
+        }
+        if self.cooldown_ms == 0 {
+            return Err(CooldownError::ZeroCooldown);
+        }
         Ok(())
     }
 }
@@ -151,7 +169,10 @@ mod tests {
     fn fire_while_cooling_rejected() {
         let mut m = CooldownMeter::new(1000).unwrap();
         m.fire(0).unwrap();
-        assert!(matches!(m.fire(500).unwrap_err(), CooldownError::StillCooling(_)));
+        assert!(matches!(
+            m.fire(500).unwrap_err(),
+            CooldownError::StillCooling(_)
+        ));
     }
 
     #[test]
@@ -172,14 +193,20 @@ mod tests {
 
     #[test]
     fn zero_cooldown_rejected() {
-        assert!(matches!(CooldownMeter::new(0).unwrap_err(), CooldownError::ZeroCooldown));
+        assert!(matches!(
+            CooldownMeter::new(0).unwrap_err(),
+            CooldownError::ZeroCooldown
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut m = CooldownMeter::new(1000).unwrap();
         m.schema_version = "9.9.9".into();
-        assert!(matches!(m.validate().unwrap_err(), CooldownError::SchemaMismatch));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            CooldownError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -63,8 +63,12 @@ impl TaskStack {
 
     /// Push.
     pub fn push(&mut self, task: Task) -> Result<(), StackError> {
-        if task.id.is_empty() { return Err(StackError::EmptyId); }
-        if task.label.is_empty() { return Err(StackError::EmptyLabel); }
+        if task.id.is_empty() {
+            return Err(StackError::EmptyId);
+        }
+        if task.label.is_empty() {
+            return Err(StackError::EmptyLabel);
+        }
         if self.stack.iter().any(|t| t.id == task.id) {
             return Err(StackError::DuplicateId(task.id));
         }
@@ -73,7 +77,9 @@ impl TaskStack {
     }
 
     /// Pop top.
-    pub fn pop(&mut self) -> Option<Task> { self.stack.pop() }
+    pub fn pop(&mut self) -> Option<Task> {
+        self.stack.pop()
+    }
 
     /// Pop a specific task by id.
     pub fn pop_id(&mut self, id: &str) -> Option<Task> {
@@ -84,25 +90,37 @@ impl TaskStack {
     }
 
     /// Current top.
-    pub fn current(&self) -> Option<&Task> { self.stack.last() }
+    pub fn current(&self) -> Option<&Task> {
+        self.stack.last()
+    }
 
     /// Peek the one below the top.
     pub fn peek_below(&self) -> Option<&Task> {
-        if self.stack.len() < 2 { return None; }
+        if self.stack.len() < 2 {
+            return None;
+        }
         self.stack.get(self.stack.len() - 2)
     }
 
     /// Depth.
-    pub fn depth(&self) -> usize { self.stack.len() }
+    pub fn depth(&self) -> usize {
+        self.stack.len()
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), StackError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(StackError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(StackError::SchemaMismatch);
+        }
         use std::collections::HashSet;
         let mut seen: HashSet<&str> = HashSet::new();
         for t in &self.stack {
-            if t.id.is_empty() { return Err(StackError::EmptyId); }
-            if t.label.is_empty() { return Err(StackError::EmptyLabel); }
+            if t.id.is_empty() {
+                return Err(StackError::EmptyId);
+            }
+            if t.label.is_empty() {
+                return Err(StackError::EmptyLabel);
+            }
             if !seen.insert(t.id.as_str()) {
                 return Err(StackError::DuplicateId(t.id.clone()));
             }
@@ -112,7 +130,9 @@ impl TaskStack {
 }
 
 impl Default for TaskStack {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -120,7 +140,11 @@ mod tests {
     use super::*;
 
     fn task(id: &str) -> Task {
-        Task { id: id.into(), label: format!("Task {id}"), started_at_ms: 0 }
+        Task {
+            id: id.into(),
+            label: format!("Task {id}"),
+            started_at_ms: 0,
+        }
     }
 
     #[test]
@@ -164,7 +188,10 @@ mod tests {
     fn duplicate_rejected() {
         let mut s = TaskStack::new();
         s.push(task("a")).unwrap();
-        assert!(matches!(s.push(task("a")).unwrap_err(), StackError::DuplicateId(_)));
+        assert!(matches!(
+            s.push(task("a")).unwrap_err(),
+            StackError::DuplicateId(_)
+        ));
     }
 
     #[test]
@@ -182,7 +209,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = TaskStack::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), StackError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            StackError::SchemaMismatch
+        ));
     }
 
     #[test]

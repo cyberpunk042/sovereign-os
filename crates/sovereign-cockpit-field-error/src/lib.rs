@@ -74,14 +74,26 @@ impl FieldError {
     }
 
     /// Insert. Dedups on (field_id, message).
-    pub fn insert(&mut self, field_id: &str, severity: Severity, message: &str) -> Result<bool, FieldErrorError> {
-        if field_id.is_empty() { return Err(FieldErrorError::EmptyId); }
-        if message.is_empty() { return Err(FieldErrorError::EmptyMessage); }
+    pub fn insert(
+        &mut self,
+        field_id: &str,
+        severity: Severity,
+        message: &str,
+    ) -> Result<bool, FieldErrorError> {
+        if field_id.is_empty() {
+            return Err(FieldErrorError::EmptyId);
+        }
+        if message.is_empty() {
+            return Err(FieldErrorError::EmptyMessage);
+        }
         let v = self.entries.entry(field_id.into()).or_default();
         if v.iter().any(|e| e.message == message) {
             return Ok(false);
         }
-        v.push(Entry { severity, message: message.into() });
+        v.push(Entry {
+            severity,
+            message: message.into(),
+        });
         Ok(true)
     }
 
@@ -90,7 +102,9 @@ impl FieldError {
         if let Some(v) = self.entries.get_mut(field_id) {
             if let Some(pos) = v.iter().position(|e| e.message == message) {
                 v.remove(pos);
-                if v.is_empty() { self.entries.remove(field_id); }
+                if v.is_empty() {
+                    self.entries.remove(field_id);
+                }
                 return true;
             }
         }
@@ -104,24 +118,37 @@ impl FieldError {
 
     /// Worst entry for a field.
     pub fn worst_for_field(&self, field_id: &str) -> Option<&Entry> {
-        self.entries.get(field_id)
+        self.entries
+            .get(field_id)
             .and_then(|v| v.iter().max_by_key(|e| e.severity))
     }
 
     /// All entries for a field at or above a threshold.
     pub fn visible_for_field(&self, field_id: &str, min_sev: Severity) -> Vec<Entry> {
-        self.entries.get(field_id)
-            .map(|v| v.iter().filter(|e| e.severity >= min_sev).cloned().collect())
+        self.entries
+            .get(field_id)
+            .map(|v| {
+                v.iter()
+                    .filter(|e| e.severity >= min_sev)
+                    .cloned()
+                    .collect()
+            })
             .unwrap_or_default()
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), FieldErrorError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(FieldErrorError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(FieldErrorError::SchemaMismatch);
+        }
         for (k, v) in &self.entries {
-            if k.is_empty() { return Err(FieldErrorError::EmptyId); }
+            if k.is_empty() {
+                return Err(FieldErrorError::EmptyId);
+            }
             for e in v {
-                if e.message.is_empty() { return Err(FieldErrorError::EmptyMessage); }
+                if e.message.is_empty() {
+                    return Err(FieldErrorError::EmptyMessage);
+                }
             }
         }
         Ok(())
@@ -129,7 +156,9 @@ impl FieldError {
 }
 
 impl Default for FieldError {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -189,20 +218,29 @@ mod tests {
     #[test]
     fn empty_id_rejected() {
         let mut f = FieldError::new();
-        assert!(matches!(f.insert("", Severity::Warn, "x").unwrap_err(), FieldErrorError::EmptyId));
+        assert!(matches!(
+            f.insert("", Severity::Warn, "x").unwrap_err(),
+            FieldErrorError::EmptyId
+        ));
     }
 
     #[test]
     fn empty_message_rejected() {
         let mut f = FieldError::new();
-        assert!(matches!(f.insert("a", Severity::Warn, "").unwrap_err(), FieldErrorError::EmptyMessage));
+        assert!(matches!(
+            f.insert("a", Severity::Warn, "").unwrap_err(),
+            FieldErrorError::EmptyMessage
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut f = FieldError::new();
         f.schema_version = "9.9.9".into();
-        assert!(matches!(f.validate().unwrap_err(), FieldErrorError::SchemaMismatch));
+        assert!(matches!(
+            f.validate().unwrap_err(),
+            FieldErrorError::SchemaMismatch
+        ));
     }
 
     #[test]

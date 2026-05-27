@@ -66,8 +66,12 @@ impl Checklist {
 
     /// Register.
     pub fn register(&mut self, item: Item) -> Result<(), ChecklistError> {
-        if item.id.is_empty() { return Err(ChecklistError::EmptyId); }
-        if item.label.is_empty() { return Err(ChecklistError::EmptyLabel); }
+        if item.id.is_empty() {
+            return Err(ChecklistError::EmptyId);
+        }
+        if item.label.is_empty() {
+            return Err(ChecklistError::EmptyLabel);
+        }
         if self.items.iter().any(|i| i.id == item.id) {
             return Err(ChecklistError::DuplicateId(item.id));
         }
@@ -77,7 +81,10 @@ impl Checklist {
 
     /// Complete.
     pub fn complete(&mut self, id: &str, ts_ms: u64) -> Result<(), ChecklistError> {
-        let it = self.items.iter_mut().find(|i| i.id == id)
+        let it = self
+            .items
+            .iter_mut()
+            .find(|i| i.id == id)
             .ok_or_else(|| ChecklistError::UnknownId(id.into()))?;
         it.completed_at_ms = Some(ts_ms);
         Ok(())
@@ -85,7 +92,10 @@ impl Checklist {
 
     /// Reopen.
     pub fn uncomplete(&mut self, id: &str) -> Result<(), ChecklistError> {
-        let it = self.items.iter_mut().find(|i| i.id == id)
+        let it = self
+            .items
+            .iter_mut()
+            .find(|i| i.id == id)
             .ok_or_else(|| ChecklistError::UnknownId(id.into()))?;
         it.completed_at_ms = None;
         Ok(())
@@ -94,24 +104,38 @@ impl Checklist {
     /// Progress (done, total).
     pub fn progress(&self) -> (usize, usize) {
         let total = self.items.len();
-        let done = self.items.iter().filter(|i| i.completed_at_ms.is_some()).count();
+        let done = self
+            .items
+            .iter()
+            .filter(|i| i.completed_at_ms.is_some())
+            .count();
         (done, total)
     }
 
     /// Percent complete (0..=100).
     pub fn percent(&self) -> u8 {
         let (done, total) = self.progress();
-        if total == 0 { 0 } else { ((done * 100) / total) as u8 }
+        if total == 0 {
+            0
+        } else {
+            ((done * 100) / total) as u8
+        }
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ChecklistError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ChecklistError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ChecklistError::SchemaMismatch);
+        }
         use std::collections::HashSet;
         let mut seen: HashSet<&str> = HashSet::new();
         for i in &self.items {
-            if i.id.is_empty() { return Err(ChecklistError::EmptyId); }
-            if i.label.is_empty() { return Err(ChecklistError::EmptyLabel); }
+            if i.id.is_empty() {
+                return Err(ChecklistError::EmptyId);
+            }
+            if i.label.is_empty() {
+                return Err(ChecklistError::EmptyLabel);
+            }
             if !seen.insert(i.id.as_str()) {
                 return Err(ChecklistError::DuplicateId(i.id.clone()));
             }
@@ -121,14 +145,22 @@ impl Checklist {
 }
 
 impl Default for Checklist {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn item(id: &str) -> Item { Item { id: id.into(), label: id.into(), completed_at_ms: None } }
+    fn item(id: &str) -> Item {
+        Item {
+            id: id.into(),
+            label: id.into(),
+            completed_at_ms: None,
+        }
+    }
 
     #[test]
     fn register_and_progress() {
@@ -151,7 +183,10 @@ mod tests {
     fn duplicate_rejected() {
         let mut c = Checklist::new();
         c.register(item("a")).unwrap();
-        assert!(matches!(c.register(item("a")).unwrap_err(), ChecklistError::DuplicateId(_)));
+        assert!(matches!(
+            c.register(item("a")).unwrap_err(),
+            ChecklistError::DuplicateId(_)
+        ));
     }
 
     #[test]
@@ -166,8 +201,14 @@ mod tests {
     #[test]
     fn unknown_id_rejected() {
         let mut c = Checklist::new();
-        assert!(matches!(c.complete("nope", 0).unwrap_err(), ChecklistError::UnknownId(_)));
-        assert!(matches!(c.uncomplete("nope").unwrap_err(), ChecklistError::UnknownId(_)));
+        assert!(matches!(
+            c.complete("nope", 0).unwrap_err(),
+            ChecklistError::UnknownId(_)
+        ));
+        assert!(matches!(
+            c.uncomplete("nope").unwrap_err(),
+            ChecklistError::UnknownId(_)
+        ));
     }
 
     #[test]
@@ -175,17 +216,26 @@ mod tests {
         let mut c = Checklist::new();
         let mut bad = item("a");
         bad.id = "".into();
-        assert!(matches!(c.register(bad).unwrap_err(), ChecklistError::EmptyId));
+        assert!(matches!(
+            c.register(bad).unwrap_err(),
+            ChecklistError::EmptyId
+        ));
         let mut bad2 = item("a");
         bad2.label = "".into();
-        assert!(matches!(c.register(bad2).unwrap_err(), ChecklistError::EmptyLabel));
+        assert!(matches!(
+            c.register(bad2).unwrap_err(),
+            ChecklistError::EmptyLabel
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut c = Checklist::new();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), ChecklistError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            ChecklistError::SchemaMismatch
+        ));
     }
 
     #[test]

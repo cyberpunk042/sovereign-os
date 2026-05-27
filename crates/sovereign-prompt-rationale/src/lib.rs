@@ -10,11 +10,11 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+use serde::{Deserialize, Serialize};
+use sovereign_doctrinal_preservation::DoctrineTag;
 use sovereign_execution_mode_registry::ExecutionMode;
 use sovereign_profile_bundles::BundleName;
 use sovereign_provider_catalog::ProviderId;
-use sovereign_doctrinal_preservation::DoctrineTag;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// Schema version.
@@ -76,7 +76,10 @@ impl Rationale {
         Self {
             schema_version: SCHEMA_VERSION.into(),
             trace_id: trace_id.into(),
-            provider, template_name: template_name.into(), bundle, mode,
+            provider,
+            template_name: template_name.into(),
+            bundle,
+            mode,
             primary_doctrine,
             reason: reason.into(),
             at: at.into(),
@@ -88,9 +91,15 @@ impl Rationale {
         if self.schema_version != SCHEMA_VERSION {
             return Err(RationaleError::SchemaMismatch);
         }
-        if self.trace_id.is_empty() { return Err(RationaleError::MissingTraceId); }
-        if self.reason.is_empty() { return Err(RationaleError::MissingReason); }
-        if self.at.is_empty() { return Err(RationaleError::MissingTimestamp); }
+        if self.trace_id.is_empty() {
+            return Err(RationaleError::MissingTraceId);
+        }
+        if self.reason.is_empty() {
+            return Err(RationaleError::MissingReason);
+        }
+        if self.at.is_empty() {
+            return Err(RationaleError::MissingTimestamp);
+        }
         Ok(())
     }
 
@@ -126,29 +135,46 @@ mod tests {
     fn missing_trace_id_caught() {
         let mut x = r();
         x.trace_id = String::new();
-        assert!(matches!(x.validate().unwrap_err(), RationaleError::MissingTraceId));
+        assert!(matches!(
+            x.validate().unwrap_err(),
+            RationaleError::MissingTraceId
+        ));
     }
 
     #[test]
     fn missing_reason_caught() {
         let mut x = r();
         x.reason = String::new();
-        assert!(matches!(x.validate().unwrap_err(), RationaleError::MissingReason));
+        assert!(matches!(
+            x.validate().unwrap_err(),
+            RationaleError::MissingReason
+        ));
     }
 
     #[test]
     fn missing_timestamp_caught() {
         let mut x = r();
         x.at = String::new();
-        assert!(matches!(x.validate().unwrap_err(), RationaleError::MissingTimestamp));
+        assert!(matches!(
+            x.validate().unwrap_err(),
+            RationaleError::MissingTimestamp
+        ));
     }
 
     #[test]
     fn used_template_flag() {
         let r1 = r();
         assert!(r1.used_template());
-        let r2 = Rationale::build("tr-2", ProviderId::Mock, "", BundleName::Private,
-            ExecutionMode::Plan, DoctrineTag::AgentRequirement, "ad-hoc", "t");
+        let r2 = Rationale::build(
+            "tr-2",
+            ProviderId::Mock,
+            "",
+            BundleName::Private,
+            ExecutionMode::Plan,
+            DoctrineTag::AgentRequirement,
+            "ad-hoc",
+            "t",
+        );
         assert!(!r2.used_template());
     }
 
@@ -156,7 +182,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut x = r();
         x.schema_version = "9.9.9".into();
-        assert!(matches!(x.validate().unwrap_err(), RationaleError::SchemaMismatch));
+        assert!(matches!(
+            x.validate().unwrap_err(),
+            RationaleError::SchemaMismatch
+        ));
     }
 
     #[test]

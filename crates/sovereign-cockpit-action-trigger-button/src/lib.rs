@@ -83,7 +83,9 @@ impl ActionTriggerButton {
 
     /// Complete (success).
     pub fn complete(&mut self, ts_ms: u64) -> Result<(), ButtonError> {
-        if self.phase != Phase::Pending { return Err(ButtonError::InvalidTransition); }
+        if self.phase != Phase::Pending {
+            return Err(ButtonError::InvalidTransition);
+        }
         self.phase = Phase::Success;
         self.last_change_ms = ts_ms;
         Ok(())
@@ -91,8 +93,12 @@ impl ActionTriggerButton {
 
     /// Fail.
     pub fn fail(&mut self, error: &str, ts_ms: u64) -> Result<(), ButtonError> {
-        if error.is_empty() { return Err(ButtonError::EmptyError); }
-        if self.phase != Phase::Pending { return Err(ButtonError::InvalidTransition); }
+        if error.is_empty() {
+            return Err(ButtonError::EmptyError);
+        }
+        if self.phase != Phase::Pending {
+            return Err(ButtonError::InvalidTransition);
+        }
         self.phase = Phase::Failed;
         self.last_error = Some(error.into());
         self.last_change_ms = ts_ms;
@@ -111,7 +117,9 @@ impl ActionTriggerButton {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ButtonError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ButtonError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ButtonError::SchemaMismatch);
+        }
         Ok(())
     }
 }
@@ -158,27 +166,39 @@ mod tests {
     fn double_trigger_rejected() {
         let mut b = ActionTriggerButton::new(1000);
         b.trigger(0).unwrap();
-        assert!(matches!(b.trigger(100).unwrap_err(), ButtonError::InvalidTransition));
+        assert!(matches!(
+            b.trigger(100).unwrap_err(),
+            ButtonError::InvalidTransition
+        ));
     }
 
     #[test]
     fn complete_without_trigger_rejected() {
         let mut b = ActionTriggerButton::new(1000);
-        assert!(matches!(b.complete(0).unwrap_err(), ButtonError::InvalidTransition));
+        assert!(matches!(
+            b.complete(0).unwrap_err(),
+            ButtonError::InvalidTransition
+        ));
     }
 
     #[test]
     fn empty_error_rejected() {
         let mut b = ActionTriggerButton::new(1000);
         b.trigger(0).unwrap();
-        assert!(matches!(b.fail("", 0).unwrap_err(), ButtonError::EmptyError));
+        assert!(matches!(
+            b.fail("", 0).unwrap_err(),
+            ButtonError::EmptyError
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut b = ActionTriggerButton::new(1000);
         b.schema_version = "9.9.9".into();
-        assert!(matches!(b.validate().unwrap_err(), ButtonError::SchemaMismatch));
+        assert!(matches!(
+            b.validate().unwrap_err(),
+            ButtonError::SchemaMismatch
+        ));
     }
 
     #[test]

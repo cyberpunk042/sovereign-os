@@ -81,7 +81,10 @@ impl VimModeIndicator {
     /// Switch mode (clears buffer + count).
     pub fn enter(&mut self, mode: VimMode) -> Result<(), VimError> {
         // Cannot go from Command mid-buffer to anything except Normal.
-        if self.mode == VimMode::Command && !self.command_buffer.is_empty() && mode != VimMode::Normal {
+        if self.mode == VimMode::Command
+            && !self.command_buffer.is_empty()
+            && mode != VimMode::Normal
+        {
             return Err(VimError::BadTransition(self.mode, mode));
         }
         self.mode = mode;
@@ -108,7 +111,9 @@ impl VimModeIndicator {
     pub fn display(&self) -> String {
         match self.mode {
             VimMode::Command => format!(":{}", self.command_buffer),
-            VimMode::Normal if self.operator_count > 0 => format!("NORMAL  {}", self.operator_count),
+            VimMode::Normal if self.operator_count > 0 => {
+                format!("NORMAL  {}", self.operator_count)
+            }
             _ => self.mode.label().to_string(),
         }
     }
@@ -123,7 +128,9 @@ impl VimModeIndicator {
 }
 
 impl Default for VimModeIndicator {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -177,7 +184,10 @@ mod tests {
         let mut v = VimModeIndicator::new();
         v.enter(VimMode::Command).unwrap();
         v.append_command("partial");
-        assert!(matches!(v.enter(VimMode::Insert).unwrap_err(), VimError::BadTransition(_, _)));
+        assert!(matches!(
+            v.enter(VimMode::Insert).unwrap_err(),
+            VimError::BadTransition(_, _)
+        ));
     }
 
     #[test]
@@ -200,12 +210,18 @@ mod tests {
     fn schema_drift_rejected() {
         let mut v = VimModeIndicator::new();
         v.schema_version = "9.9.9".into();
-        assert!(matches!(v.validate().unwrap_err(), VimError::SchemaMismatch));
+        assert!(matches!(
+            v.validate().unwrap_err(),
+            VimError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn mode_serde_kebab() {
-        assert_eq!(serde_json::to_string(&VimMode::Visual).unwrap(), "\"visual\"");
+        assert_eq!(
+            serde_json::to_string(&VimMode::Visual).unwrap(),
+            "\"visual\""
+        );
     }
 
     #[test]

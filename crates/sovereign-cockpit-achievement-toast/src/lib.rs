@@ -84,7 +84,9 @@ pub enum AchError {
 impl AchievementToast {
     /// New.
     pub fn new(duration_ms: u64) -> Result<Self, AchError> {
-        if duration_ms == 0 { return Err(AchError::ZeroDuration); }
+        if duration_ms == 0 {
+            return Err(AchError::ZeroDuration);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             duration_ms,
@@ -96,8 +98,12 @@ impl AchievementToast {
 
     /// Earn — enqueue unless already earned.
     pub fn earn(&mut self, id: &str, title: &str, tier: Tier, now_ms: u64) -> Result<(), AchError> {
-        if id.is_empty() { return Err(AchError::EmptyId); }
-        if title.is_empty() { return Err(AchError::EmptyTitle); }
+        if id.is_empty() {
+            return Err(AchError::EmptyId);
+        }
+        if title.is_empty() {
+            return Err(AchError::EmptyTitle);
+        }
         if self.earned_ids.contains(id) {
             return Err(AchError::AlreadyEarned(id.into()));
         }
@@ -131,12 +137,18 @@ impl AchievementToast {
     }
 
     /// Ack the current toast (dismiss explicitly).
-    pub fn ack(&mut self) { self.showing = None; }
+    pub fn ack(&mut self) {
+        self.showing = None;
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), AchError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(AchError::SchemaMismatch); }
-        if self.duration_ms == 0 { return Err(AchError::ZeroDuration); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(AchError::SchemaMismatch);
+        }
+        if self.duration_ms == 0 {
+            return Err(AchError::ZeroDuration);
+        }
         Ok(())
     }
 }
@@ -187,26 +199,41 @@ mod tests {
     fn already_earned_rejected() {
         let mut t = AchievementToast::new(1000).unwrap();
         t.earn("a", "x", Tier::Bronze, 0).unwrap();
-        assert!(matches!(t.earn("a", "x", Tier::Gold, 0).unwrap_err(), AchError::AlreadyEarned(_)));
+        assert!(matches!(
+            t.earn("a", "x", Tier::Gold, 0).unwrap_err(),
+            AchError::AlreadyEarned(_)
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut t = AchievementToast::new(1000).unwrap();
-        assert!(matches!(t.earn("", "x", Tier::Bronze, 0).unwrap_err(), AchError::EmptyId));
-        assert!(matches!(t.earn("a", "", Tier::Bronze, 0).unwrap_err(), AchError::EmptyTitle));
+        assert!(matches!(
+            t.earn("", "x", Tier::Bronze, 0).unwrap_err(),
+            AchError::EmptyId
+        ));
+        assert!(matches!(
+            t.earn("a", "", Tier::Bronze, 0).unwrap_err(),
+            AchError::EmptyTitle
+        ));
     }
 
     #[test]
     fn zero_duration_rejected() {
-        assert!(matches!(AchievementToast::new(0).unwrap_err(), AchError::ZeroDuration));
+        assert!(matches!(
+            AchievementToast::new(0).unwrap_err(),
+            AchError::ZeroDuration
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut t = AchievementToast::new(1000).unwrap();
         t.schema_version = "9.9.9".into();
-        assert!(matches!(t.validate().unwrap_err(), AchError::SchemaMismatch));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            AchError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -70,7 +70,9 @@ impl ServiceStatus {
 
     /// Set status.
     pub fn set(&mut self, service: &str, status: Status) -> Result<(), StatusError> {
-        if service.is_empty() { return Err(StatusError::EmptyService); }
+        if service.is_empty() {
+            return Err(StatusError::EmptyService);
+        }
         self.services.insert(service.into(), status);
         Ok(())
     }
@@ -82,7 +84,11 @@ impl ServiceStatus {
 
     /// Per-status counts.
     pub fn counts(&self) -> Counts {
-        let mut c = Counts { up: 0, degraded: 0, down: 0 };
+        let mut c = Counts {
+            up: 0,
+            degraded: 0,
+            down: 0,
+        };
         for s in self.services.values() {
             match s {
                 Status::Up => c.up += 1,
@@ -97,29 +103,47 @@ impl ServiceStatus {
     pub fn fleet_status(&self) -> Status {
         let mut has_degraded = false;
         for s in self.services.values() {
-            if *s == Status::Down { return Status::Down; }
-            if *s == Status::Degraded { has_degraded = true; }
+            if *s == Status::Down {
+                return Status::Down;
+            }
+            if *s == Status::Degraded {
+                has_degraded = true;
+            }
         }
-        if has_degraded { Status::Degraded } else { Status::Up }
+        if has_degraded {
+            Status::Degraded
+        } else {
+            Status::Up
+        }
     }
 
     /// Services by status.
     pub fn services_with(&self, status: Status) -> Vec<&str> {
-        self.services.iter().filter(|(_, s)| **s == status).map(|(k, _)| k.as_str()).collect()
+        self.services
+            .iter()
+            .filter(|(_, s)| **s == status)
+            .map(|(k, _)| k.as_str())
+            .collect()
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), StatusError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(StatusError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(StatusError::SchemaMismatch);
+        }
         for k in self.services.keys() {
-            if k.is_empty() { return Err(StatusError::EmptyService); }
+            if k.is_empty() {
+                return Err(StatusError::EmptyService);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for ServiceStatus {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -188,14 +212,20 @@ mod tests {
     #[test]
     fn empty_service_rejected() {
         let mut s = ServiceStatus::new();
-        assert!(matches!(s.set("", Status::Up).unwrap_err(), StatusError::EmptyService));
+        assert!(matches!(
+            s.set("", Status::Up).unwrap_err(),
+            StatusError::EmptyService
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = ServiceStatus::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), StatusError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            StatusError::SchemaMismatch
+        ));
     }
 
     #[test]

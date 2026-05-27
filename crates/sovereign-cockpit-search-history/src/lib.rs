@@ -67,16 +67,24 @@ impl SearchHistory {
     }
 
     /// Capacity ceiling.
-    pub fn capacity(&self) -> usize { self.capacity }
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
 
     /// Number of stored entries.
-    pub fn len(&self) -> usize { self.entries.len() }
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
 
     /// True iff `len() == 0`.
-    pub fn is_empty(&self) -> bool { self.entries.is_empty() }
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
 
     /// Snapshot the entries — most-recent first.
-    pub fn entries(&self) -> &[String] { &self.entries }
+    pub fn entries(&self) -> &[String] {
+        &self.entries
+    }
 
     /// Record an executed query. Returns true iff the buffer
     /// changed (new entry added OR existing entry moved to head).
@@ -89,7 +97,7 @@ impl SearchHistory {
         // Find existing match.
         let pos = self.entries.iter().position(|e| self.matches(e, trimmed));
         match pos {
-            Some(0) => false,             // already at head; no change
+            Some(0) => false, // already at head; no change
             Some(idx) => {
                 let existing = self.entries.remove(idx);
                 self.entries.insert(0, existing);

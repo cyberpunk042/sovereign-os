@@ -61,25 +61,33 @@ impl UnsavedGuard {
 
     /// Mark dirty.
     pub fn mark_dirty(&mut self, scope_id: &str) -> Result<(), GuardError> {
-        if scope_id.is_empty() { return Err(GuardError::EmptyScope); }
+        if scope_id.is_empty() {
+            return Err(GuardError::EmptyScope);
+        }
         self.dirty.insert(scope_id.into());
         Ok(())
     }
 
     /// Mark clean.
     pub fn mark_clean(&mut self, scope_id: &str) -> Result<(), GuardError> {
-        if scope_id.is_empty() { return Err(GuardError::EmptyScope); }
+        if scope_id.is_empty() {
+            return Err(GuardError::EmptyScope);
+        }
         self.dirty.remove(scope_id);
         Ok(())
     }
 
     /// Is the scope dirty?
-    pub fn is_dirty(&self, scope_id: &str) -> bool { self.dirty.contains(scope_id) }
+    pub fn is_dirty(&self, scope_id: &str) -> bool {
+        self.dirty.contains(scope_id)
+    }
 
     /// Navigate attempt.
     pub fn navigate(&self, scope_id: &str) -> NavVerdict {
         if self.dirty.contains(scope_id) {
-            NavVerdict::BlockConfirm { scope_id: scope_id.into() }
+            NavVerdict::BlockConfirm {
+                scope_id: scope_id.into(),
+            }
         } else {
             NavVerdict::Allow
         }
@@ -91,20 +99,28 @@ impl UnsavedGuard {
     }
 
     /// Are any scopes dirty?
-    pub fn any_dirty(&self) -> bool { !self.dirty.is_empty() }
+    pub fn any_dirty(&self) -> bool {
+        !self.dirty.is_empty()
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), GuardError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(GuardError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(GuardError::SchemaMismatch);
+        }
         for s in &self.dirty {
-            if s.is_empty() { return Err(GuardError::EmptyScope); }
+            if s.is_empty() {
+                return Err(GuardError::EmptyScope);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for UnsavedGuard {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -160,15 +176,24 @@ mod tests {
     #[test]
     fn empty_scope_rejected() {
         let mut g = UnsavedGuard::new();
-        assert!(matches!(g.mark_dirty("").unwrap_err(), GuardError::EmptyScope));
-        assert!(matches!(g.mark_clean("").unwrap_err(), GuardError::EmptyScope));
+        assert!(matches!(
+            g.mark_dirty("").unwrap_err(),
+            GuardError::EmptyScope
+        ));
+        assert!(matches!(
+            g.mark_clean("").unwrap_err(),
+            GuardError::EmptyScope
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut g = UnsavedGuard::new();
         g.schema_version = "9.9.9".into();
-        assert!(matches!(g.validate().unwrap_err(), GuardError::SchemaMismatch));
+        assert!(matches!(
+            g.validate().unwrap_err(),
+            GuardError::SchemaMismatch
+        ));
     }
 
     #[test]

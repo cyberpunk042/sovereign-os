@@ -86,7 +86,10 @@ impl QuickActions {
 
     /// Record usage.
     pub fn record_use(&mut self, id: &str) -> Result<(), QuickActionError> {
-        let a = self.actions.iter_mut().find(|a| a.id == id)
+        let a = self
+            .actions
+            .iter_mut()
+            .find(|a| a.id == id)
             .ok_or_else(|| QuickActionError::Unknown(id.into()))?;
         a.use_count = a.use_count.saturating_add(1);
         Ok(())
@@ -95,9 +98,7 @@ impl QuickActions {
     /// Sorted view by descending use_count (insertion order for ties).
     pub fn ordered_for_display(&self) -> Vec<&QuickAction> {
         let mut indexed: Vec<(usize, &QuickAction)> = self.actions.iter().enumerate().collect();
-        indexed.sort_by(|(ia, a), (ib, b)|
-            b.use_count.cmp(&a.use_count).then(ia.cmp(ib))
-        );
+        indexed.sort_by(|(ia, a), (ib, b)| b.use_count.cmp(&a.use_count).then(ia.cmp(ib)));
         indexed.into_iter().map(|(_, a)| a).collect()
     }
 
@@ -119,14 +120,22 @@ impl QuickActions {
 }
 
 fn check_action(a: &QuickAction) -> Result<(), QuickActionError> {
-    if a.id.is_empty() { return Err(QuickActionError::EmptyId); }
-    if a.label.is_empty() { return Err(QuickActionError::EmptyLabel(a.id.clone())); }
-    if a.icon.is_empty() { return Err(QuickActionError::EmptyIcon(a.id.clone())); }
+    if a.id.is_empty() {
+        return Err(QuickActionError::EmptyId);
+    }
+    if a.label.is_empty() {
+        return Err(QuickActionError::EmptyLabel(a.id.clone()));
+    }
+    if a.icon.is_empty() {
+        return Err(QuickActionError::EmptyIcon(a.id.clone()));
+    }
     Ok(())
 }
 
 impl Default for QuickActions {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -155,14 +164,20 @@ mod tests {
     #[test]
     fn record_unknown_rejected() {
         let mut q = QuickActions::new();
-        assert!(matches!(q.record_use("none").unwrap_err(), QuickActionError::Unknown(_)));
+        assert!(matches!(
+            q.record_use("none").unwrap_err(),
+            QuickActionError::Unknown(_)
+        ));
     }
 
     #[test]
     fn duplicate_rejected() {
         let mut q = QuickActions::new();
         q.register(act("a")).unwrap();
-        assert!(matches!(q.register(act("a")).unwrap_err(), QuickActionError::DuplicateId(_)));
+        assert!(matches!(
+            q.register(act("a")).unwrap_err(),
+            QuickActionError::DuplicateId(_)
+        ));
     }
 
     #[test]
@@ -174,7 +189,11 @@ mod tests {
         q.record_use("b").unwrap();
         q.record_use("b").unwrap();
         q.record_use("c").unwrap();
-        let order: Vec<&str> = q.ordered_for_display().iter().map(|a| a.id.as_str()).collect();
+        let order: Vec<&str> = q
+            .ordered_for_display()
+            .iter()
+            .map(|a| a.id.as_str())
+            .collect();
         assert_eq!(order, vec!["b", "c", "a"]);
     }
 
@@ -184,7 +203,11 @@ mod tests {
         q.register(act("a")).unwrap();
         q.register(act("b")).unwrap();
         q.register(act("c")).unwrap();
-        let order: Vec<&str> = q.ordered_for_display().iter().map(|a| a.id.as_str()).collect();
+        let order: Vec<&str> = q
+            .ordered_for_display()
+            .iter()
+            .map(|a| a.id.as_str())
+            .collect();
         assert_eq!(order, vec!["a", "b", "c"]);
     }
 
@@ -193,7 +216,10 @@ mod tests {
         let mut q = QuickActions::new();
         let mut a = act("a");
         a.id = String::new();
-        assert!(matches!(q.register(a).unwrap_err(), QuickActionError::EmptyId));
+        assert!(matches!(
+            q.register(a).unwrap_err(),
+            QuickActionError::EmptyId
+        ));
     }
 
     #[test]
@@ -201,7 +227,10 @@ mod tests {
         let mut q = QuickActions::new();
         let mut a = act("a");
         a.label = String::new();
-        assert!(matches!(q.register(a).unwrap_err(), QuickActionError::EmptyLabel(_)));
+        assert!(matches!(
+            q.register(a).unwrap_err(),
+            QuickActionError::EmptyLabel(_)
+        ));
     }
 
     #[test]
@@ -209,14 +238,20 @@ mod tests {
         let mut q = QuickActions::new();
         let mut a = act("a");
         a.icon = String::new();
-        assert!(matches!(q.register(a).unwrap_err(), QuickActionError::EmptyIcon(_)));
+        assert!(matches!(
+            q.register(a).unwrap_err(),
+            QuickActionError::EmptyIcon(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut q = QuickActions::new();
         q.schema_version = "9.9.9".into();
-        assert!(matches!(q.validate().unwrap_err(), QuickActionError::SchemaMismatch));
+        assert!(matches!(
+            q.validate().unwrap_err(),
+            QuickActionError::SchemaMismatch
+        ));
     }
 
     #[test]

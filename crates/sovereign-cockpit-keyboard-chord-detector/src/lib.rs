@@ -95,16 +95,25 @@ impl KeyboardChordDetector {
 
     /// Register a chord.
     pub fn register(&mut self, keys: &[&str], action_id: &str) -> Result<(), ChordError> {
-        if keys.is_empty() { return Err(ChordError::EmptyChord); }
-        for k in keys {
-            if k.is_empty() { return Err(ChordError::EmptyKey); }
+        if keys.is_empty() {
+            return Err(ChordError::EmptyChord);
         }
-        if action_id.is_empty() { return Err(ChordError::EmptyAction); }
+        for k in keys {
+            if k.is_empty() {
+                return Err(ChordError::EmptyKey);
+            }
+        }
+        if action_id.is_empty() {
+            return Err(ChordError::EmptyAction);
+        }
         let key_vec: Vec<String> = keys.iter().map(|k| (*k).into()).collect();
         if self.chords.iter().any(|c| c.keys == key_vec) {
             return Err(ChordError::DuplicateChord(key_vec));
         }
-        self.chords.push(Chord { keys: key_vec, action_id: action_id.into() });
+        self.chords.push(Chord {
+            keys: key_vec,
+            action_id: action_id.into(),
+        });
         Ok(())
     }
 
@@ -125,11 +134,14 @@ impl KeyboardChordDetector {
             }
         }
         // Prefix of any chord?
-        let any_prefix = self.chords.iter().any(|c|
-            c.keys.len() > self.buffer.len() && c.keys.starts_with(&self.buffer)
-        );
+        let any_prefix = self
+            .chords
+            .iter()
+            .any(|c| c.keys.len() > self.buffer.len() && c.keys.starts_with(&self.buffer));
         if any_prefix {
-            PressVerdict::Buffered { buffer: self.buffer.clone() }
+            PressVerdict::Buffered {
+                buffer: self.buffer.clone(),
+            }
         } else {
             self.buffer.clear();
             PressVerdict::NoMatch
@@ -143,20 +155,30 @@ impl KeyboardChordDetector {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ChordError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ChordError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ChordError::SchemaMismatch);
+        }
         for c in &self.chords {
-            if c.keys.is_empty() { return Err(ChordError::EmptyChord); }
-            for k in &c.keys {
-                if k.is_empty() { return Err(ChordError::EmptyKey); }
+            if c.keys.is_empty() {
+                return Err(ChordError::EmptyChord);
             }
-            if c.action_id.is_empty() { return Err(ChordError::EmptyAction); }
+            for k in &c.keys {
+                if k.is_empty() {
+                    return Err(ChordError::EmptyKey);
+                }
+            }
+            if c.action_id.is_empty() {
+                return Err(ChordError::EmptyAction);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for KeyboardChordDetector {
-    fn default() -> Self { Self::new(1000) }
+    fn default() -> Self {
+        Self::new(1000)
+    }
 }
 
 #[cfg(test)]
@@ -222,22 +244,37 @@ mod tests {
     fn duplicate_chord_rejected() {
         let mut d = KeyboardChordDetector::new(1000);
         d.register(&["a"], "x").unwrap();
-        assert!(matches!(d.register(&["a"], "y").unwrap_err(), ChordError::DuplicateChord(_)));
+        assert!(matches!(
+            d.register(&["a"], "y").unwrap_err(),
+            ChordError::DuplicateChord(_)
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut d = KeyboardChordDetector::new(1000);
-        assert!(matches!(d.register(&[], "x").unwrap_err(), ChordError::EmptyChord));
-        assert!(matches!(d.register(&[""], "x").unwrap_err(), ChordError::EmptyKey));
-        assert!(matches!(d.register(&["a"], "").unwrap_err(), ChordError::EmptyAction));
+        assert!(matches!(
+            d.register(&[], "x").unwrap_err(),
+            ChordError::EmptyChord
+        ));
+        assert!(matches!(
+            d.register(&[""], "x").unwrap_err(),
+            ChordError::EmptyKey
+        ));
+        assert!(matches!(
+            d.register(&["a"], "").unwrap_err(),
+            ChordError::EmptyAction
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut d = KeyboardChordDetector::new(1000);
         d.schema_version = "9.9.9".into();
-        assert!(matches!(d.validate().unwrap_err(), ChordError::SchemaMismatch));
+        assert!(matches!(
+            d.validate().unwrap_err(),
+            ChordError::SchemaMismatch
+        ));
     }
 
     #[test]

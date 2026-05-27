@@ -79,20 +79,31 @@ impl ToastStack {
         if capacity == 0 {
             return Err(ToastStackError::InvalidCapacity);
         }
-        Ok(Self { capacity, toasts: Vec::new() })
+        Ok(Self {
+            capacity,
+            toasts: Vec::new(),
+        })
     }
 
     /// Capacity ceiling.
-    pub fn capacity(&self) -> usize { self.capacity }
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
 
     /// Number of stored toasts.
-    pub fn len(&self) -> usize { self.toasts.len() }
+    pub fn len(&self) -> usize {
+        self.toasts.len()
+    }
 
     /// True iff `len() == 0`.
-    pub fn is_empty(&self) -> bool { self.toasts.is_empty() }
+    pub fn is_empty(&self) -> bool {
+        self.toasts.is_empty()
+    }
 
     /// Snapshot the toasts — newest first.
-    pub fn toasts(&self) -> &[Toast] { &self.toasts }
+    pub fn toasts(&self) -> &[Toast] {
+        &self.toasts
+    }
 
     /// Push a toast onto the stack. If capacity is reached, evict
     /// the lowest-severity OLDEST toast. Returns `DuplicateId`
@@ -109,12 +120,10 @@ impl ToastStack {
                 .iter()
                 .enumerate()
                 .min_by(|(ai, a), (bi, b)| {
-                    a.severity
-                        .cmp(&b.severity)
-                        .then_with(|| {
-                            // Older = larger index (we insert at 0).
-                            bi.cmp(ai)
-                        })
+                    a.severity.cmp(&b.severity).then_with(|| {
+                        // Older = larger index (we insert at 0).
+                        bi.cmp(ai)
+                    })
                 })
                 .map(|(i, _)| i)
                 .expect("non-empty");
@@ -252,9 +261,9 @@ mod tests {
     #[test]
     fn expire_removes_due_toasts_and_returns_ids() {
         let mut s = ToastStack::new(5).unwrap();
-        s.push(t("a", Severity::Info, 0, 1000)).unwrap();   // expires at 1000
+        s.push(t("a", Severity::Info, 0, 1000)).unwrap(); // expires at 1000
         s.push(t("b", Severity::Info, 500, 1000)).unwrap(); // expires at 1500
-        s.push(t("c", Severity::Info, 1000, 1000)).unwrap();// expires at 2000
+        s.push(t("c", Severity::Info, 1000, 1000)).unwrap(); // expires at 2000
 
         // At t=1200, "a" is expired (1000 <= 1200); "b" + "c" survive.
         let removed = s.expire(1200);
@@ -321,8 +330,17 @@ mod tests {
     #[test]
     fn severity_serde_lowercase() {
         assert_eq!(serde_json::to_string(&Severity::Info).unwrap(), "\"info\"");
-        assert_eq!(serde_json::to_string(&Severity::Success).unwrap(), "\"success\"");
-        assert_eq!(serde_json::to_string(&Severity::Warning).unwrap(), "\"warning\"");
-        assert_eq!(serde_json::to_string(&Severity::Error).unwrap(), "\"error\"");
+        assert_eq!(
+            serde_json::to_string(&Severity::Success).unwrap(),
+            "\"success\""
+        );
+        assert_eq!(
+            serde_json::to_string(&Severity::Warning).unwrap(),
+            "\"warning\""
+        );
+        assert_eq!(
+            serde_json::to_string(&Severity::Error).unwrap(),
+            "\"error\""
+        );
     }
 }

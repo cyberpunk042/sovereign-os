@@ -9,8 +9,8 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-use sovereign_cockpit_banner_state::BannerSeverity;
 use serde::{Deserialize, Serialize};
+use sovereign_cockpit_banner_state::BannerSeverity;
 use thiserror::Error;
 
 /// Schema version.
@@ -80,10 +80,22 @@ impl SoundPreferences {
     /// Canonical defaults.
     pub fn canonical() -> Self {
         let mappings = vec![
-            SeveritySound { severity: BannerSeverity::Calm,     sound: Sound::None },
-            SeveritySound { severity: BannerSeverity::Notice,   sound: Sound::Soft },
-            SeveritySound { severity: BannerSeverity::Warn,     sound: Sound::Standard },
-            SeveritySound { severity: BannerSeverity::Critical, sound: Sound::Sharp },
+            SeveritySound {
+                severity: BannerSeverity::Calm,
+                sound: Sound::None,
+            },
+            SeveritySound {
+                severity: BannerSeverity::Notice,
+                sound: Sound::Soft,
+            },
+            SeveritySound {
+                severity: BannerSeverity::Warn,
+                sound: Sound::Standard,
+            },
+            SeveritySound {
+                severity: BannerSeverity::Critical,
+                sound: Sound::Sharp,
+            },
         ];
         Self {
             schema_version: SCHEMA_VERSION.into(),
@@ -113,7 +125,9 @@ impl SoundPreferences {
 
     /// Sound for a severity.
     pub fn sound_for(&self, sev: BannerSeverity) -> Sound {
-        self.mappings.iter().find(|m| m.severity == sev)
+        self.mappings
+            .iter()
+            .find(|m| m.severity == sev)
             .map(|m| m.sound)
             .unwrap_or(Sound::None)
     }
@@ -158,21 +172,30 @@ mod tests {
     fn volume_out_of_range_caught_in_validate() {
         let mut p = SoundPreferences::canonical();
         p.master_volume = 200;
-        assert!(matches!(p.validate().unwrap_err(), SoundError::VolumeOutOfRange(200)));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            SoundError::VolumeOutOfRange(200)
+        ));
     }
 
     #[test]
     fn count_invalid_caught() {
         let mut p = SoundPreferences::canonical();
         p.mappings.pop();
-        assert!(matches!(p.validate().unwrap_err(), SoundError::CountInvalid(3)));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            SoundError::CountInvalid(3)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut p = SoundPreferences::canonical();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), SoundError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            SoundError::SchemaMismatch
+        ));
     }
 
     #[test]

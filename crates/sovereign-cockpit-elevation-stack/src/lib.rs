@@ -104,7 +104,9 @@ impl ElevationStack {
 
     /// Push a layer; returns assigned z.
     pub fn push(&mut self, id: &str, kind: Kind) -> Result<u32, StackError> {
-        if id.is_empty() { return Err(StackError::EmptyId); }
+        if id.is_empty() {
+            return Err(StackError::EmptyId);
+        }
         if self.layers.contains_key(id) {
             return Err(StackError::DuplicateId(id.into()));
         }
@@ -112,7 +114,14 @@ impl ElevationStack {
         let seq = self.next_seq.entry(base).or_insert(0);
         let z = base.saturating_add(*seq);
         *seq = seq.saturating_add(1);
-        self.layers.insert(id.into(), Layer { id: id.into(), kind, z });
+        self.layers.insert(
+            id.into(),
+            Layer {
+                id: id.into(),
+                kind,
+                z,
+            },
+        );
         Ok(z)
     }
 
@@ -135,23 +144,33 @@ impl ElevationStack {
     }
 
     /// Count.
-    pub fn len(&self) -> usize { self.layers.len() }
+    pub fn len(&self) -> usize {
+        self.layers.len()
+    }
 
     /// Empty.
-    pub fn is_empty(&self) -> bool { self.layers.is_empty() }
+    pub fn is_empty(&self) -> bool {
+        self.layers.is_empty()
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), StackError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(StackError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(StackError::SchemaMismatch);
+        }
         for (id, _) in &self.layers {
-            if id.is_empty() { return Err(StackError::EmptyId); }
+            if id.is_empty() {
+                return Err(StackError::EmptyId);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for ElevationStack {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -201,13 +220,19 @@ mod tests {
     fn duplicate_rejected() {
         let mut s = ElevationStack::new();
         s.push("a", Kind::Modal).unwrap();
-        assert!(matches!(s.push("a", Kind::Modal).unwrap_err(), StackError::DuplicateId(_)));
+        assert!(matches!(
+            s.push("a", Kind::Modal).unwrap_err(),
+            StackError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn unknown_pop_rejected() {
         let mut s = ElevationStack::new();
-        assert!(matches!(s.pop("nope").unwrap_err(), StackError::UnknownId(_)));
+        assert!(matches!(
+            s.pop("nope").unwrap_err(),
+            StackError::UnknownId(_)
+        ));
     }
 
     #[test]
@@ -222,7 +247,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = ElevationStack::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), StackError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            StackError::SchemaMismatch
+        ));
     }
 
     #[test]

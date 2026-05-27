@@ -62,19 +62,27 @@ pub enum DetectError {
 impl PasteFormatDetector {
     /// New.
     pub fn new() -> Self {
-        Self { schema_version: SCHEMA_VERSION.into() }
+        Self {
+            schema_version: SCHEMA_VERSION.into(),
+        }
     }
 
     /// Detect.
     pub fn detect(&self, text: &str) -> PasteFormat {
         let trimmed = text.trim();
-        if trimmed.is_empty() { return PasteFormat::PlainText; }
+        if trimmed.is_empty() {
+            return PasteFormat::PlainText;
+        }
 
         // URL.
         if !trimmed.contains(char::is_whitespace) {
             let lower = trimmed.to_ascii_lowercase();
-            for prefix in ["http://", "https://", "ftp://", "ftps://", "mailto:", "ssh://"] {
-                if lower.starts_with(prefix) { return PasteFormat::Url; }
+            for prefix in [
+                "http://", "https://", "ftp://", "ftps://", "mailto:", "ssh://",
+            ] {
+                if lower.starts_with(prefix) {
+                    return PasteFormat::Url;
+                }
             }
         }
 
@@ -92,16 +100,25 @@ impl PasteFormatDetector {
         // Markdown.
         let is_md = trimmed.lines().any(|l| {
             let t = l.trim_start();
-            t.starts_with("# ") || t.starts_with("## ") || t.starts_with("### ")
-                || t.starts_with("- ") || t.starts_with("* ")
+            t.starts_with("# ")
+                || t.starts_with("## ")
+                || t.starts_with("### ")
+                || t.starts_with("- ")
+                || t.starts_with("* ")
         }) || markdown_link(trimmed);
-        if is_md { return PasteFormat::Markdown; }
+        if is_md {
+            return PasteFormat::Markdown;
+        }
 
         // CSV.
         let non_empty: Vec<&str> = trimmed.lines().filter(|l| !l.trim().is_empty()).collect();
         if non_empty.len() >= 2 {
             let first_commas = non_empty[0].matches(',').count();
-            if first_commas >= 1 && non_empty.iter().all(|l| l.matches(',').count() == first_commas) {
+            if first_commas >= 1
+                && non_empty
+                    .iter()
+                    .all(|l| l.matches(',').count() == first_commas)
+            {
                 return PasteFormat::Csv;
             }
         }
@@ -111,13 +128,17 @@ impl PasteFormatDetector {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), DetectError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(DetectError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(DetectError::SchemaMismatch);
+        }
         Ok(())
     }
 }
 
 impl Default for PasteFormatDetector {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 fn markdown_link(s: &str) -> bool {
@@ -144,7 +165,9 @@ fn markdown_link(s: &str) -> bool {
 mod tests {
     use super::*;
 
-    fn d() -> PasteFormatDetector { PasteFormatDetector::new() }
+    fn d() -> PasteFormatDetector {
+        PasteFormatDetector::new()
+    }
 
     #[test]
     fn url_detected() {
@@ -181,7 +204,10 @@ mod tests {
 
     #[test]
     fn markdown_link_detected() {
-        assert_eq!(d().detect("see [docs](https://x.com)"), PasteFormat::Markdown);
+        assert_eq!(
+            d().detect("see [docs](https://x.com)"),
+            PasteFormat::Markdown
+        );
     }
 
     #[test]
@@ -210,7 +236,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut x = d();
         x.schema_version = "9.9.9".into();
-        assert!(matches!(x.validate().unwrap_err(), DetectError::SchemaMismatch));
+        assert!(matches!(
+            x.validate().unwrap_err(),
+            DetectError::SchemaMismatch
+        ));
     }
 
     #[test]

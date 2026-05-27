@@ -64,21 +64,30 @@ pub enum UnreadError {
 impl UnreadDot {
     /// New.
     pub fn new() -> Self {
-        Self { schema_version: SCHEMA_VERSION.into(), channels: BTreeMap::new() }
+        Self {
+            schema_version: SCHEMA_VERSION.into(),
+            channels: BTreeMap::new(),
+        }
     }
 
     /// Observe a new unread message.
     pub fn observe(&mut self, channel_id: &str, mention: bool) -> Result<(), UnreadError> {
-        if channel_id.is_empty() { return Err(UnreadError::EmptyId); }
+        if channel_id.is_empty() {
+            return Err(UnreadError::EmptyId);
+        }
         let c = self.channels.entry(channel_id.into()).or_default();
         c.count = c.count.saturating_add(1);
-        if mention { c.mention = true; }
+        if mention {
+            c.mention = true;
+        }
         Ok(())
     }
 
     /// Mark as seen up to ts.
     pub fn mark_seen(&mut self, channel_id: &str, ts_ms: u64) -> Result<(), UnreadError> {
-        if channel_id.is_empty() { return Err(UnreadError::EmptyId); }
+        if channel_id.is_empty() {
+            return Err(UnreadError::EmptyId);
+        }
         let c = self.channels.entry(channel_id.into()).or_default();
         c.count = 0;
         c.mention = false;
@@ -92,8 +101,12 @@ impl UnreadDot {
             Some(c) => c,
             None => return Dot::Hidden,
         };
-        if c.count == 0 { return Dot::Hidden; }
-        if c.mention { return Dot::Mention; }
+        if c.count == 0 {
+            return Dot::Hidden;
+        }
+        if c.mention {
+            return Dot::Mention;
+        }
         Dot::Numeric
     }
 
@@ -104,16 +117,22 @@ impl UnreadDot {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), UnreadError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(UnreadError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(UnreadError::SchemaMismatch);
+        }
         for k in self.channels.keys() {
-            if k.is_empty() { return Err(UnreadError::EmptyId); }
+            if k.is_empty() {
+                return Err(UnreadError::EmptyId);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for UnreadDot {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -164,14 +183,20 @@ mod tests {
     #[test]
     fn empty_id_rejected() {
         let mut u = UnreadDot::new();
-        assert!(matches!(u.observe("", false).unwrap_err(), UnreadError::EmptyId));
+        assert!(matches!(
+            u.observe("", false).unwrap_err(),
+            UnreadError::EmptyId
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut u = UnreadDot::new();
         u.schema_version = "9.9.9".into();
-        assert!(matches!(u.validate().unwrap_err(), UnreadError::SchemaMismatch));
+        assert!(matches!(
+            u.validate().unwrap_err(),
+            UnreadError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -85,14 +85,18 @@ impl SnapshotToolbar {
 
     /// Step forward.
     pub fn step_forward(&mut self) -> Result<(), ToolbarError> {
-        if self.current + 1 >= self.snapshots.len() { return Err(ToolbarError::AtEdge); }
+        if self.current + 1 >= self.snapshots.len() {
+            return Err(ToolbarError::AtEdge);
+        }
         self.current += 1;
         Ok(())
     }
 
     /// Step back.
     pub fn step_back(&mut self) -> Result<(), ToolbarError> {
-        if self.current == 0 { return Err(ToolbarError::AtEdge); }
+        if self.current == 0 {
+            return Err(ToolbarError::AtEdge);
+        }
         self.current -= 1;
         Ok(())
     }
@@ -107,10 +111,14 @@ impl SnapshotToolbar {
     }
 
     /// Play.
-    pub fn play(&mut self) { self.playback = PlaybackState::Playing; }
+    pub fn play(&mut self) {
+        self.playback = PlaybackState::Playing;
+    }
 
     /// Pause.
-    pub fn pause(&mut self) { self.playback = PlaybackState::Paused; }
+    pub fn pause(&mut self) {
+        self.playback = PlaybackState::Paused;
+    }
 
     /// Toggle play/pause.
     pub fn toggle(&mut self) {
@@ -127,7 +135,9 @@ impl SnapshotToolbar {
 
     /// Progress 0..=100.
     pub fn progress_pct(&self) -> u8 {
-        if self.snapshots.len() <= 1 { return 100; }
+        if self.snapshots.len() <= 1 {
+            return 100;
+        }
         ((self.current as u64 * 100) / (self.snapshots.len() - 1) as u64) as u8
     }
 
@@ -145,11 +155,15 @@ impl SnapshotToolbar {
 }
 
 fn check_snapshots(s: &[Snapshot]) -> Result<(), ToolbarError> {
-    if s.is_empty() { return Err(ToolbarError::EmptySnapshots); }
+    if s.is_empty() {
+        return Err(ToolbarError::EmptySnapshots);
+    }
     use std::collections::HashSet;
     let mut seen: HashSet<&str> = HashSet::new();
     for x in s {
-        if x.id.is_empty() { return Err(ToolbarError::EmptyId); }
+        if x.id.is_empty() {
+            return Err(ToolbarError::EmptyId);
+        }
         if !seen.insert(x.id.as_str()) {
             return Err(ToolbarError::DuplicateId(x.id.clone()));
         }
@@ -162,12 +176,19 @@ mod tests {
     use super::*;
 
     fn snap(id: &str, at: u64) -> Snapshot {
-        Snapshot { id: id.into(), label: format!("L-{id}"), at_unix: at }
+        Snapshot {
+            id: id.into(),
+            label: format!("L-{id}"),
+            at_unix: at,
+        }
     }
 
     #[test]
     fn empty_snapshots_rejected() {
-        assert!(matches!(SnapshotToolbar::new(vec![]).unwrap_err(), ToolbarError::EmptySnapshots));
+        assert!(matches!(
+            SnapshotToolbar::new(vec![]).unwrap_err(),
+            ToolbarError::EmptySnapshots
+        ));
     }
 
     #[test]
@@ -190,7 +211,10 @@ mod tests {
         let mut t = SnapshotToolbar::new(vec![snap("a", 1), snap("b", 2)]).unwrap();
         t.step_forward().unwrap();
         assert_eq!(t.current, 1);
-        assert!(matches!(t.step_forward().unwrap_err(), ToolbarError::AtEdge));
+        assert!(matches!(
+            t.step_forward().unwrap_err(),
+            ToolbarError::AtEdge
+        ));
     }
 
     #[test]
@@ -207,7 +231,10 @@ mod tests {
         let mut t = SnapshotToolbar::new(vec![snap("a", 1), snap("b", 2), snap("c", 3)]).unwrap();
         t.jump_to(2).unwrap();
         assert_eq!(t.current_snapshot().id, "c");
-        assert!(matches!(t.jump_to(99).unwrap_err(), ToolbarError::OutOfRange(_, _)));
+        assert!(matches!(
+            t.jump_to(99).unwrap_err(),
+            ToolbarError::OutOfRange(_, _)
+        ));
     }
 
     #[test]
@@ -233,12 +260,18 @@ mod tests {
     fn schema_drift_rejected() {
         let mut t = SnapshotToolbar::new(vec![snap("a", 1)]).unwrap();
         t.schema_version = "9.9.9".into();
-        assert!(matches!(t.validate().unwrap_err(), ToolbarError::SchemaMismatch));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            ToolbarError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn playback_serde_kebab() {
-        assert_eq!(serde_json::to_string(&PlaybackState::Playing).unwrap(), "\"playing\"");
+        assert_eq!(
+            serde_json::to_string(&PlaybackState::Playing).unwrap(),
+            "\"playing\""
+        );
     }
 
     #[test]

@@ -113,7 +113,10 @@ impl ShortcutMap {
         // Group by (chord, scope).
         let mut buckets: HashMap<(String, Scope), Vec<&Binding>> = HashMap::new();
         for b in &self.bindings {
-            buckets.entry((b.chord.clone(), b.scope)).or_default().push(b);
+            buckets
+                .entry((b.chord.clone(), b.scope))
+                .or_default()
+                .push(b);
         }
         let mut bucket_keys: Vec<(String, Scope)> = buckets.keys().cloned().collect();
         bucket_keys.sort();
@@ -131,9 +134,13 @@ impl ShortcutMap {
         }
         // Global shadow: for each Global binding, find any other binding with same chord in a stricter scope.
         for b in &self.bindings {
-            if b.scope != Scope::Global { continue; }
+            if b.scope != Scope::Global {
+                continue;
+            }
             for other in &self.bindings {
-                if other.id == b.id { continue; }
+                if other.id == b.id {
+                    continue;
+                }
                 if other.chord == b.chord && other.scope != Scope::Global {
                     out.push(Conflict::Shadow {
                         chord: b.chord.clone(),
@@ -160,9 +167,15 @@ fn check_bindings(bs: &[Binding]) -> Result<(), ShortcutError> {
     use std::collections::HashSet;
     let mut seen: HashSet<&str> = HashSet::new();
     for b in bs {
-        if b.id.is_empty() { return Err(ShortcutError::EmptyId); }
-        if b.chord.is_empty() { return Err(ShortcutError::EmptyChord(b.id.clone())); }
-        if b.command.is_empty() { return Err(ShortcutError::EmptyCommand(b.id.clone())); }
+        if b.id.is_empty() {
+            return Err(ShortcutError::EmptyId);
+        }
+        if b.chord.is_empty() {
+            return Err(ShortcutError::EmptyChord(b.id.clone()));
+        }
+        if b.command.is_empty() {
+            return Err(ShortcutError::EmptyCommand(b.id.clone()));
+        }
         if !seen.insert(b.id.as_str()) {
             return Err(ShortcutError::DuplicateId(b.id.clone()));
         }
@@ -188,7 +201,8 @@ mod tests {
         let m = ShortcutMap::new(vec![
             b("a", "ctrl+a", Scope::Global, "cmd-a"),
             b("b", "ctrl+b", Scope::Global, "cmd-b"),
-        ]).unwrap();
+        ])
+        .unwrap();
         assert!(m.detect_conflicts().is_empty());
     }
 
@@ -197,7 +211,8 @@ mod tests {
         let m = ShortcutMap::new(vec![
             b("a", "ctrl+k", Scope::Global, "cmd-a"),
             b("b", "ctrl+k", Scope::Global, "cmd-b"),
-        ]).unwrap();
+        ])
+        .unwrap();
         let c = m.detect_conflicts();
         assert_eq!(c.len(), 1);
         assert!(matches!(&c[0], Conflict::Duplicate { binding_ids, .. } if binding_ids.len() == 2));
@@ -208,7 +223,8 @@ mod tests {
         let m = ShortcutMap::new(vec![
             b("g", "ctrl+k", Scope::Global, "global-cmd"),
             b("p", "ctrl+k", Scope::PaneFocused, "pane-cmd"),
-        ]).unwrap();
+        ])
+        .unwrap();
         let c = m.detect_conflicts();
         assert!(c.iter().any(|x| matches!(x, Conflict::Shadow { .. })));
     }
@@ -218,7 +234,8 @@ mod tests {
         let m = ShortcutMap::new(vec![
             b("a", "ctrl+k", Scope::PaneFocused, "a"),
             b("b", "ctrl+k", Scope::InputFocused, "b"),
-        ]).unwrap();
+        ])
+        .unwrap();
         assert!(m.detect_conflicts().is_empty());
     }
 
@@ -228,9 +245,13 @@ mod tests {
             b("a", "ctrl+k", Scope::Global, "a"),
             b("b", "ctrl+k", Scope::Global, "b"),
             b("c", "ctrl+k", Scope::Global, "c"),
-        ]).unwrap();
+        ])
+        .unwrap();
         let c = m.detect_conflicts();
-        let dups: Vec<_> = c.iter().filter(|x| matches!(x, Conflict::Duplicate { .. })).collect();
+        let dups: Vec<_> = c
+            .iter()
+            .filter(|x| matches!(x, Conflict::Duplicate { .. }))
+            .collect();
         assert_eq!(dups.len(), 1);
         match dups[0] {
             Conflict::Duplicate { binding_ids, .. } => assert_eq!(binding_ids.len(), 3),
@@ -244,7 +265,8 @@ mod tests {
             ShortcutMap::new(vec![
                 b("a", "x", Scope::Global, "c"),
                 b("a", "y", Scope::Global, "c"),
-            ]).unwrap_err(),
+            ])
+            .unwrap_err(),
             ShortcutError::DuplicateId(_)
         ));
     }
@@ -253,40 +275,62 @@ mod tests {
     fn empty_id_rejected() {
         let mut bad = b("a", "x", Scope::Global, "c");
         bad.id = String::new();
-        assert!(matches!(ShortcutMap::new(vec![bad]).unwrap_err(), ShortcutError::EmptyId));
+        assert!(matches!(
+            ShortcutMap::new(vec![bad]).unwrap_err(),
+            ShortcutError::EmptyId
+        ));
     }
 
     #[test]
     fn empty_chord_rejected() {
         let mut bad = b("a", "x", Scope::Global, "c");
         bad.chord = String::new();
-        assert!(matches!(ShortcutMap::new(vec![bad]).unwrap_err(), ShortcutError::EmptyChord(_)));
+        assert!(matches!(
+            ShortcutMap::new(vec![bad]).unwrap_err(),
+            ShortcutError::EmptyChord(_)
+        ));
     }
 
     #[test]
     fn empty_command_rejected() {
         let mut bad = b("a", "x", Scope::Global, "c");
         bad.command = String::new();
-        assert!(matches!(ShortcutMap::new(vec![bad]).unwrap_err(), ShortcutError::EmptyCommand(_)));
+        assert!(matches!(
+            ShortcutMap::new(vec![bad]).unwrap_err(),
+            ShortcutError::EmptyCommand(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut m = ShortcutMap::new(vec![b("a", "x", Scope::Global, "c")]).unwrap();
         m.schema_version = "9.9.9".into();
-        assert!(matches!(m.validate().unwrap_err(), ShortcutError::SchemaMismatch));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            ShortcutError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn scope_serde_kebab() {
         assert_eq!(serde_json::to_string(&Scope::Global).unwrap(), "\"global\"");
-        assert_eq!(serde_json::to_string(&Scope::PaneFocused).unwrap(), "\"pane-focused\"");
-        assert_eq!(serde_json::to_string(&Scope::InputFocused).unwrap(), "\"input-focused\"");
+        assert_eq!(
+            serde_json::to_string(&Scope::PaneFocused).unwrap(),
+            "\"pane-focused\""
+        );
+        assert_eq!(
+            serde_json::to_string(&Scope::InputFocused).unwrap(),
+            "\"input-focused\""
+        );
     }
 
     #[test]
     fn conflict_serde_kebab() {
-        let c = Conflict::Duplicate { chord: "k".into(), scope: Scope::Global, binding_ids: vec!["a".into()] };
+        let c = Conflict::Duplicate {
+            chord: "k".into(),
+            scope: Scope::Global,
+            binding_ids: vec!["a".into()],
+        };
         let j = serde_json::to_string(&c).unwrap();
         assert!(j.contains("\"kind\":\"duplicate\""));
     }

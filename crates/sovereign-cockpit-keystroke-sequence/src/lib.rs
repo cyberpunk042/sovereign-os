@@ -83,18 +83,29 @@ impl KeystrokeSequence {
 
     /// Register.
     pub fn register(&mut self, action_id: &str, sequence: &[&str]) -> Result<(), SeqError> {
-        if action_id.is_empty() { return Err(SeqError::EmptyId); }
-        if sequence.is_empty() { return Err(SeqError::EmptySeq); }
-        for k in sequence {
-            if k.is_empty() { return Err(SeqError::EmptyKey); }
+        if action_id.is_empty() {
+            return Err(SeqError::EmptyId);
         }
-        self.sequences.insert(action_id.into(), sequence.iter().map(|s| (*s).to_string()).collect());
+        if sequence.is_empty() {
+            return Err(SeqError::EmptySeq);
+        }
+        for k in sequence {
+            if k.is_empty() {
+                return Err(SeqError::EmptyKey);
+            }
+        }
+        self.sequences.insert(
+            action_id.into(),
+            sequence.iter().map(|s| (*s).to_string()).collect(),
+        );
         Ok(())
     }
 
     /// Observe.
     pub fn observe(&mut self, key: &str, now_ms: u64) -> SequenceVerdict {
-        if key.is_empty() { return SequenceVerdict::None; }
+        if key.is_empty() {
+            return SequenceVerdict::None;
+        }
         // Timeout the buffer.
         if let Some(last) = self.last_ms {
             if now_ms.saturating_sub(last) > self.sequence_timeout_ms {
@@ -105,14 +116,19 @@ impl KeystrokeSequence {
         self.buffer.push(key.into());
 
         // Exact match?
-        if let Some((action_id, _)) = self.sequences.iter().find(|(_, seq)| seq.as_slice() == self.buffer.as_slice()) {
+        if let Some((action_id, _)) = self
+            .sequences
+            .iter()
+            .find(|(_, seq)| seq.as_slice() == self.buffer.as_slice())
+        {
             let id = action_id.clone();
             self.buffer.clear();
             return SequenceVerdict::Matched { action_id: id };
         }
         // Any prefix?
-        let any_prefix = self.sequences.values()
-            .any(|seq| seq.len() > self.buffer.len() && seq[..self.buffer.len()] == self.buffer[..]);
+        let any_prefix = self.sequences.values().any(|seq| {
+            seq.len() > self.buffer.len() && seq[..self.buffer.len()] == self.buffer[..]
+        });
         if any_prefix {
             SequenceVerdict::Partial
         } else {
@@ -129,12 +145,20 @@ impl KeystrokeSequence {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), SeqError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(SeqError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(SeqError::SchemaMismatch);
+        }
         for (id, seq) in &self.sequences {
-            if id.is_empty() { return Err(SeqError::EmptyId); }
-            if seq.is_empty() { return Err(SeqError::EmptySeq); }
+            if id.is_empty() {
+                return Err(SeqError::EmptyId);
+            }
+            if seq.is_empty() {
+                return Err(SeqError::EmptySeq);
+            }
             for k in seq {
-                if k.is_empty() { return Err(SeqError::EmptyKey); }
+                if k.is_empty() {
+                    return Err(SeqError::EmptyKey);
+                }
             }
         }
         Ok(())
@@ -151,7 +175,12 @@ mod tests {
         s.register("first-line", &["g", "g"]).unwrap();
         assert_eq!(s.observe("g", 0), SequenceVerdict::Partial);
         let v = s.observe("g", 100);
-        assert_eq!(v, SequenceVerdict::Matched { action_id: "first-line".into() });
+        assert_eq!(
+            v,
+            SequenceVerdict::Matched {
+                action_id: "first-line".into()
+            }
+        );
     }
 
     #[test]
@@ -179,7 +208,12 @@ mod tests {
         s.register("first-line", &["g", "g"]).unwrap();
         s.register("goto-end", &["g", "G"]).unwrap();
         assert_eq!(s.observe("g", 0), SequenceVerdict::Partial);
-        assert_eq!(s.observe("G", 100), SequenceVerdict::Matched { action_id: "goto-end".into() });
+        assert_eq!(
+            s.observe("G", 100),
+            SequenceVerdict::Matched {
+                action_id: "goto-end".into()
+            }
+        );
     }
 
     #[test]
@@ -194,9 +228,18 @@ mod tests {
     #[test]
     fn empty_action_or_seq_rejected() {
         let mut s = KeystrokeSequence::new(1000);
-        assert!(matches!(s.register("", &["a"]).unwrap_err(), SeqError::EmptyId));
-        assert!(matches!(s.register("act", &[]).unwrap_err(), SeqError::EmptySeq));
-        assert!(matches!(s.register("act", &[""]).unwrap_err(), SeqError::EmptyKey));
+        assert!(matches!(
+            s.register("", &["a"]).unwrap_err(),
+            SeqError::EmptyId
+        ));
+        assert!(matches!(
+            s.register("act", &[]).unwrap_err(),
+            SeqError::EmptySeq
+        ));
+        assert!(matches!(
+            s.register("act", &[""]).unwrap_err(),
+            SeqError::EmptyKey
+        ));
     }
 
     #[test]
@@ -209,7 +252,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = KeystrokeSequence::new(1000);
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), SeqError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SeqError::SchemaMismatch
+        ));
     }
 
     #[test]

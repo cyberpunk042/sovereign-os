@@ -106,9 +106,15 @@ impl PinnedBar {
 
     /// Add a pin.
     pub fn add(&mut self, pin: Pin) -> Result<(), PinError> {
-        if pin.id.is_empty() { return Err(PinError::EmptyId); }
-        if pin.label.is_empty() { return Err(PinError::EmptyLabel(pin.id)); }
-        if pin.command_id.is_empty() { return Err(PinError::EmptyCommandId(pin.id)); }
+        if pin.id.is_empty() {
+            return Err(PinError::EmptyId);
+        }
+        if pin.label.is_empty() {
+            return Err(PinError::EmptyLabel(pin.id));
+        }
+        if pin.command_id.is_empty() {
+            return Err(PinError::EmptyCommandId(pin.id));
+        }
         if self.pins.iter().any(|p| p.id == pin.id) {
             return Err(PinError::DuplicateId(pin.id));
         }
@@ -121,7 +127,10 @@ impl PinnedBar {
 
     /// Remove a pin by id.
     pub fn remove(&mut self, id: &str) -> Result<(), PinError> {
-        let pos = self.pins.iter().position(|p| p.id == id)
+        let pos = self
+            .pins
+            .iter()
+            .position(|p| p.id == id)
             .ok_or_else(|| PinError::Unknown(id.into()))?;
         self.pins.remove(pos);
         Ok(())
@@ -142,13 +151,21 @@ impl PinnedBar {
         if self.schema_version != SCHEMA_VERSION {
             return Err(PinError::SchemaMismatch);
         }
-        if self.pins.len() > MAX_PINS { return Err(PinError::Full); }
+        if self.pins.len() > MAX_PINS {
+            return Err(PinError::Full);
+        }
         use std::collections::HashSet;
         let mut seen: HashSet<&str> = HashSet::new();
         for p in &self.pins {
-            if p.id.is_empty() { return Err(PinError::EmptyId); }
-            if p.label.is_empty() { return Err(PinError::EmptyLabel(p.id.clone())); }
-            if p.command_id.is_empty() { return Err(PinError::EmptyCommandId(p.id.clone())); }
+            if p.id.is_empty() {
+                return Err(PinError::EmptyId);
+            }
+            if p.label.is_empty() {
+                return Err(PinError::EmptyLabel(p.id.clone()));
+            }
+            if p.command_id.is_empty() {
+                return Err(PinError::EmptyCommandId(p.id.clone()));
+            }
             if !seen.insert(p.id.as_str()) {
                 return Err(PinError::DuplicateId(p.id.clone()));
             }
@@ -158,7 +175,9 @@ impl PinnedBar {
 }
 
 impl Default for PinnedBar {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -192,7 +211,10 @@ mod tests {
     fn duplicate_rejected() {
         let mut b = PinnedBar::new();
         b.add(p("a", PinColor::Blue)).unwrap();
-        assert!(matches!(b.add(p("a", PinColor::Red)).unwrap_err(), PinError::DuplicateId(_)));
+        assert!(matches!(
+            b.add(p("a", PinColor::Red)).unwrap_err(),
+            PinError::DuplicateId(_)
+        ));
     }
 
     #[test]
@@ -201,7 +223,10 @@ mod tests {
         for i in 0..MAX_PINS {
             b.add(p(&format!("p{i}"), PinColor::Grey)).unwrap();
         }
-        assert!(matches!(b.add(p("overflow", PinColor::Red)).unwrap_err(), PinError::Full));
+        assert!(matches!(
+            b.add(p("overflow", PinColor::Red)).unwrap_err(),
+            PinError::Full
+        ));
     }
 
     #[test]
@@ -215,7 +240,10 @@ mod tests {
     #[test]
     fn remove_unknown_rejected() {
         let mut b = PinnedBar::new();
-        assert!(matches!(b.remove("none").unwrap_err(), PinError::Unknown(_)));
+        assert!(matches!(
+            b.remove("none").unwrap_err(),
+            PinError::Unknown(_)
+        ));
     }
 
     #[test]
@@ -232,7 +260,10 @@ mod tests {
     fn swap_out_of_range_rejected() {
         let mut b = PinnedBar::new();
         b.add(p("a", PinColor::Blue)).unwrap();
-        assert!(matches!(b.swap(0, 5).unwrap_err(), PinError::SwapOutOfRange { .. }));
+        assert!(matches!(
+            b.swap(0, 5).unwrap_err(),
+            PinError::SwapOutOfRange { .. }
+        ));
     }
 
     #[test]
@@ -256,20 +287,29 @@ mod tests {
         let mut b = PinnedBar::new();
         let mut bad = p("a", PinColor::Blue);
         bad.command_id = String::new();
-        assert!(matches!(b.add(bad).unwrap_err(), PinError::EmptyCommandId(_)));
+        assert!(matches!(
+            b.add(bad).unwrap_err(),
+            PinError::EmptyCommandId(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut b = PinnedBar::new();
         b.schema_version = "9.9.9".into();
-        assert!(matches!(b.validate().unwrap_err(), PinError::SchemaMismatch));
+        assert!(matches!(
+            b.validate().unwrap_err(),
+            PinError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn color_serde_kebab() {
         assert_eq!(serde_json::to_string(&PinColor::Grey).unwrap(), "\"grey\"");
-        assert_eq!(serde_json::to_string(&PinColor::Purple).unwrap(), "\"purple\"");
+        assert_eq!(
+            serde_json::to_string(&PinColor::Purple).unwrap(),
+            "\"purple\""
+        );
     }
 
     #[test]

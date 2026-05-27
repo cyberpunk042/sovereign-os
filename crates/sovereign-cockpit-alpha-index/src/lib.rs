@@ -53,7 +53,9 @@ impl AlphaIndex {
     /// Build from raw items (sorts + builds index).
     pub fn build(items: Vec<String>) -> Result<Self, IndexError> {
         for it in &items {
-            if it.is_empty() { return Err(IndexError::EmptyItem); }
+            if it.is_empty() {
+                return Err(IndexError::EmptyItem);
+            }
         }
         let mut sorted = items;
         sorted.sort();
@@ -83,16 +85,22 @@ impl AlphaIndex {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), IndexError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(IndexError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(IndexError::SchemaMismatch);
+        }
         for it in &self.items {
-            if it.is_empty() { return Err(IndexError::EmptyItem); }
+            if it.is_empty() {
+                return Err(IndexError::EmptyItem);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for AlphaIndex {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -101,7 +109,8 @@ mod tests {
 
     #[test]
     fn build_sorts_and_indexes() {
-        let idx = AlphaIndex::build(vec!["Banana".into(), "apple".into(), "cherry".into()]).unwrap();
+        let idx =
+            AlphaIndex::build(vec!["Banana".into(), "apple".into(), "cherry".into()]).unwrap();
         assert_eq!(idx.items, vec!["Banana", "apple", "cherry"]);
         // sorted ASCII puts "Banana" (66) before "apple" (97), but our test
         // expects sort by raw String order — fix test below.
@@ -109,7 +118,13 @@ mod tests {
 
     #[test]
     fn jump_index_uppercase_input() {
-        let idx = AlphaIndex::build(vec!["alpha".into(), "beta".into(), "Bravo".into(), "gamma".into()]).unwrap();
+        let idx = AlphaIndex::build(vec![
+            "alpha".into(),
+            "beta".into(),
+            "Bravo".into(),
+            "gamma".into(),
+        ])
+        .unwrap();
         // After sort: Bravo, alpha, beta, gamma.
         assert_eq!(idx.jump_index('A'), Some(1));
         assert_eq!(idx.jump_index('B'), Some(0)); // "Bravo" comes first
@@ -131,14 +146,20 @@ mod tests {
 
     #[test]
     fn empty_item_rejected() {
-        assert!(matches!(AlphaIndex::build(vec!["".into()]).unwrap_err(), IndexError::EmptyItem));
+        assert!(matches!(
+            AlphaIndex::build(vec!["".into()]).unwrap_err(),
+            IndexError::EmptyItem
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut idx = AlphaIndex::new();
         idx.schema_version = "9.9.9".into();
-        assert!(matches!(idx.validate().unwrap_err(), IndexError::SchemaMismatch));
+        assert!(matches!(
+            idx.validate().unwrap_err(),
+            IndexError::SchemaMismatch
+        ));
     }
 
     #[test]

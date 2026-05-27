@@ -36,8 +36,7 @@ use thiserror::Error;
 pub const SCHEMA_VERSION: &str = "1.0.0";
 
 /// Verbatim NadirClaw doctrine surface per dump 12219.
-pub const DOCTRINE_NOT_EVERY_PROMPT: &str =
-    "many prompts do not deserve the expensive model";
+pub const DOCTRINE_NOT_EVERY_PROMPT: &str = "many prompts do not deserve the expensive model";
 
 /// Axis 1 (R07039) — task complexity.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -251,7 +250,10 @@ mod tests {
 
     #[test]
     fn doctrine_verbatim_present() {
-        assert_eq!(DOCTRINE_NOT_EVERY_PROMPT, "many prompts do not deserve the expensive model");
+        assert_eq!(
+            DOCTRINE_NOT_EVERY_PROMPT,
+            "many prompts do not deserve the expensive model"
+        );
     }
 
     #[test]
@@ -259,7 +261,10 @@ mod tests {
         let mut a = t();
         a.privacy = Privacy::Private;
         a.locality = Locality::Cloud;
-        assert!(matches!(route(&a).unwrap_err(), RouterError::PrivacyLocalityContradiction));
+        assert!(matches!(
+            route(&a).unwrap_err(),
+            RouterError::PrivacyLocalityContradiction
+        ));
     }
 
     #[test]
@@ -274,7 +279,7 @@ mod tests {
 
     #[test]
     fn simple_cheap_fast_lands_on_conductor() {
-        let a = t();  // simple + cheap + fast
+        let a = t(); // simple + cheap + fast
         let d = route(&a).unwrap();
         assert_eq!(d.role, SrpRole::Conductor);
     }
@@ -352,9 +357,15 @@ mod tests {
 
     #[test]
     fn srp_role_serde_kebab_case() {
-        assert_eq!(serde_json::to_string(&SrpRole::Conductor).unwrap(), "\"conductor\"");
+        assert_eq!(
+            serde_json::to_string(&SrpRole::Conductor).unwrap(),
+            "\"conductor\""
+        );
         assert_eq!(serde_json::to_string(&SrpRole::Logic).unwrap(), "\"logic\"");
-        assert_eq!(serde_json::to_string(&SrpRole::Oracle).unwrap(), "\"oracle\"");
+        assert_eq!(
+            serde_json::to_string(&SrpRole::Oracle).unwrap(),
+            "\"oracle\""
+        );
         assert_eq!(serde_json::to_string(&SrpRole::Cloud).unwrap(), "\"cloud\"");
     }
 
@@ -368,12 +379,19 @@ mod tests {
                     for &dom in &[Domain::Coding, Domain::Research, Domain::Gui] {
                         for &l in &[Locality::Local, Locality::Cloud] {
                             // Skip the contradiction combo
-                            if p == Privacy::Private && l == Locality::Cloud { continue; }
+                            if p == Privacy::Private && l == Locality::Cloud {
+                                continue;
+                            }
                             for &lat in &[Latency::Fast, Latency::Careful] {
                                 for &q in &[Quality::Cheap, Quality::Oracle] {
                                     let a = TaskAxes {
-                                        complexity: c, privacy: p, safety: s, domain: dom,
-                                        locality: l, latency: lat, quality: q,
+                                        complexity: c,
+                                        privacy: p,
+                                        safety: s,
+                                        domain: dom,
+                                        locality: l,
+                                        latency: lat,
+                                        quality: q,
                                     };
                                     let _ = route(&a).unwrap();
                                 }

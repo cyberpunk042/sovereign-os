@@ -121,30 +121,45 @@ impl KanbanBoard {
 
     /// Append a column.
     pub fn add_column(&mut self, id: &str, label: &str, wip_limit: u32) -> Result<(), KanbanError> {
-        if id.is_empty() { return Err(KanbanError::EmptyId); }
-        if label.is_empty() { return Err(KanbanError::EmptyLabel); }
+        if id.is_empty() {
+            return Err(KanbanError::EmptyId);
+        }
+        if label.is_empty() {
+            return Err(KanbanError::EmptyLabel);
+        }
         if self.columns.iter().any(|c| c.id == id) {
             return Err(KanbanError::DuplicateColumn(id.into()));
         }
-        self.columns.push(Column { id: id.into(), label: label.into(), wip_limit });
+        self.columns.push(Column {
+            id: id.into(),
+            label: label.into(),
+            wip_limit,
+        });
         Ok(())
     }
 
     /// Add a card to the first column.
     pub fn add_card(&mut self, id: &str, title: &str, ts_ms: u64) -> Result<(), KanbanError> {
-        if id.is_empty() { return Err(KanbanError::EmptyId); }
-        if title.is_empty() { return Err(KanbanError::EmptyLabel); }
+        if id.is_empty() {
+            return Err(KanbanError::EmptyId);
+        }
+        if title.is_empty() {
+            return Err(KanbanError::EmptyLabel);
+        }
         if self.cards.contains_key(id) {
             return Err(KanbanError::DuplicateCard(id.into()));
         }
         let first = self.columns.first().ok_or(KanbanError::NoColumns)?;
-        self.cards.insert(id.into(), Card {
-            id: id.into(),
-            title: title.into(),
-            column: first.id.clone(),
-            moves: 0,
-            last_moved_ms: ts_ms,
-        });
+        self.cards.insert(
+            id.into(),
+            Card {
+                id: id.into(),
+                title: title.into(),
+                column: first.id.clone(),
+                moves: 0,
+                last_moved_ms: ts_ms,
+            },
+        );
         Ok(())
     }
 
@@ -160,12 +175,19 @@ impl KanbanBoard {
         };
         if from == target {
             // No-op: still record as a move? We say no — leave state untouched.
-            return MoveVerdict::Moved { from: target.into(), to: target.into() };
+            return MoveVerdict::Moved {
+                from: target.into(),
+                to: target.into(),
+            };
         }
         if col.wip_limit > 0 {
             let in_col = self.cards.values().filter(|c| c.column == target).count() as u32;
             if in_col >= col.wip_limit {
-                return MoveVerdict::RejectedAtWipLimit { column: target.into(), in_column: in_col, limit: col.wip_limit };
+                return MoveVerdict::RejectedAtWipLimit {
+                    column: target.into(),
+                    in_column: in_col,
+                    limit: col.wip_limit,
+                };
             }
         }
         // All checks passed — mutate.
@@ -173,12 +195,16 @@ impl KanbanBoard {
         card.column = target.into();
         card.moves = card.moves.saturating_add(1);
         card.last_moved_ms = ts_ms;
-        MoveVerdict::Moved { from, to: target.into() }
+        MoveVerdict::Moved {
+            from,
+            to: target.into(),
+        }
     }
 
     /// Cards in a column.
     pub fn cards_in(&self, column: &str) -> Vec<Card> {
-        self.cards.values()
+        self.cards
+            .values()
             .filter(|c| c.column == column)
             .cloned()
             .collect()
@@ -186,21 +212,33 @@ impl KanbanBoard {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), KanbanError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(KanbanError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(KanbanError::SchemaMismatch);
+        }
         for c in &self.columns {
-            if c.id.is_empty() { return Err(KanbanError::EmptyId); }
-            if c.label.is_empty() { return Err(KanbanError::EmptyLabel); }
+            if c.id.is_empty() {
+                return Err(KanbanError::EmptyId);
+            }
+            if c.label.is_empty() {
+                return Err(KanbanError::EmptyLabel);
+            }
         }
         for (id, card) in &self.cards {
-            if id.is_empty() { return Err(KanbanError::EmptyId); }
-            if card.title.is_empty() { return Err(KanbanError::EmptyLabel); }
+            if id.is_empty() {
+                return Err(KanbanError::EmptyId);
+            }
+            if card.title.is_empty() {
+                return Err(KanbanError::EmptyLabel);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for KanbanBoard {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -245,7 +283,11 @@ mod tests {
         b.move_card("a", "doing", 1).unwrap_move();
         b.move_card("b", "doing", 2).unwrap_move();
         match b.move_card("c", "doing", 3) {
-            MoveVerdict::RejectedAtWipLimit { column, in_column, limit } => {
+            MoveVerdict::RejectedAtWipLimit {
+                column,
+                in_column,
+                limit,
+            } => {
                 assert_eq!(column, "doing");
                 assert_eq!(in_column, 2);
                 assert_eq!(limit, 2);
@@ -263,7 +305,10 @@ mod tests {
         }
         // All sit in todo; move all to done.
         for i in 0..5 {
-            assert!(matches!(b.move_card(&format!("c{i}"), "done", 0), MoveVerdict::Moved { .. }));
+            assert!(matches!(
+                b.move_card(&format!("c{i}"), "done", 0),
+                MoveVerdict::Moved { .. }
+            ));
         }
         assert_eq!(b.cards_in("done").len(), 5);
     }
@@ -279,27 +324,39 @@ mod tests {
     #[test]
     fn add_card_without_columns_rejected() {
         let mut b = KanbanBoard::new();
-        assert!(matches!(b.add_card("c1", "x", 0).unwrap_err(), KanbanError::NoColumns));
+        assert!(matches!(
+            b.add_card("c1", "x", 0).unwrap_err(),
+            KanbanError::NoColumns
+        ));
     }
 
     #[test]
     fn duplicate_column_rejected() {
         let mut b = board();
-        assert!(matches!(b.add_column("todo", "X", 0).unwrap_err(), KanbanError::DuplicateColumn(_)));
+        assert!(matches!(
+            b.add_column("todo", "X", 0).unwrap_err(),
+            KanbanError::DuplicateColumn(_)
+        ));
     }
 
     #[test]
     fn duplicate_card_rejected() {
         let mut b = board();
         b.add_card("c1", "x", 0).unwrap();
-        assert!(matches!(b.add_card("c1", "x", 0).unwrap_err(), KanbanError::DuplicateCard(_)));
+        assert!(matches!(
+            b.add_card("c1", "x", 0).unwrap_err(),
+            KanbanError::DuplicateCard(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut b = board();
         b.schema_version = "9.9.9".into();
-        assert!(matches!(b.validate().unwrap_err(), KanbanError::SchemaMismatch));
+        assert!(matches!(
+            b.validate().unwrap_err(),
+            KanbanError::SchemaMismatch
+        ));
     }
 
     #[test]
@@ -313,7 +370,9 @@ mod tests {
     }
 
     // Helper trait used in tests.
-    trait UnwrapMove { fn unwrap_move(self); }
+    trait UnwrapMove {
+        fn unwrap_move(self);
+    }
     impl UnwrapMove for MoveVerdict {
         fn unwrap_move(self) {
             match self {

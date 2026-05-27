@@ -9,9 +9,9 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+use serde::{Deserialize, Serialize};
 use sovereign_execution_mode_registry::ExecutionMode;
 use sovereign_profile_bundles::BundleName;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// Schema version.
@@ -66,7 +66,8 @@ impl ContextPanel {
         Self {
             schema_version: SCHEMA_VERSION.into(),
             conversation_id: conversation_id.into(),
-            bundle, mode,
+            bundle,
+            mode,
             workspace_label: workspace_label.into(),
             branch_id: branch_id.into(),
             refreshed_at: refreshed_at.into(),
@@ -78,8 +79,12 @@ impl ContextPanel {
         if self.schema_version != SCHEMA_VERSION {
             return Err(ContextError::SchemaMismatch);
         }
-        if self.refreshed_at.is_empty() { return Err(ContextError::MissingTimestamp); }
-        if self.branch_id.is_empty() { return Err(ContextError::MissingBranchId); }
+        if self.refreshed_at.is_empty() {
+            return Err(ContextError::MissingTimestamp);
+        }
+        if self.branch_id.is_empty() {
+            return Err(ContextError::MissingBranchId);
+        }
         if self.mode == ExecutionMode::Replay && self.conversation_id.is_empty() {
             return Err(ContextError::ReplayWithoutConversation);
         }
@@ -104,76 +109,151 @@ mod tests {
     #[test]
     fn typical_panel_validates() {
         ContextPanel::new(
-            BundleName::Careful, ExecutionMode::DryRun,
-            "repo", "main", "th-1", "2026-05-19T03:00:00Z",
-        ).validate().unwrap();
+            BundleName::Careful,
+            ExecutionMode::DryRun,
+            "repo",
+            "main",
+            "th-1",
+            "2026-05-19T03:00:00Z",
+        )
+        .validate()
+        .unwrap();
     }
 
     #[test]
     fn missing_timestamp_caught() {
         let mut p = ContextPanel::new(
-            BundleName::Careful, ExecutionMode::Plan,
-            "repo", "main", "", "",
+            BundleName::Careful,
+            ExecutionMode::Plan,
+            "repo",
+            "main",
+            "",
+            "",
         );
         let _ = p.conversation_id;
         p.refreshed_at = String::new();
-        assert!(matches!(p.validate().unwrap_err(), ContextError::MissingTimestamp));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            ContextError::MissingTimestamp
+        ));
     }
 
     #[test]
     fn missing_branch_caught() {
         let p = ContextPanel::new(
-            BundleName::Careful, ExecutionMode::Plan,
-            "repo", "", "", "t",
+            BundleName::Careful,
+            ExecutionMode::Plan,
+            "repo",
+            "",
+            "",
+            "t",
         );
-        assert!(matches!(p.validate().unwrap_err(), ContextError::MissingBranchId));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            ContextError::MissingBranchId
+        ));
     }
 
     #[test]
     fn replay_without_conversation_caught() {
         let p = ContextPanel::new(
-            BundleName::Careful, ExecutionMode::Replay,
-            "repo", "main", "", "t",
+            BundleName::Careful,
+            ExecutionMode::Replay,
+            "repo",
+            "main",
+            "",
+            "t",
         );
-        assert!(matches!(p.validate().unwrap_err(), ContextError::ReplayWithoutConversation));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            ContextError::ReplayWithoutConversation
+        ));
     }
 
     #[test]
     fn replay_with_conversation_ok() {
         ContextPanel::new(
-            BundleName::Careful, ExecutionMode::Replay,
-            "repo", "main", "th-1", "t",
-        ).validate().unwrap();
+            BundleName::Careful,
+            ExecutionMode::Replay,
+            "repo",
+            "main",
+            "th-1",
+            "t",
+        )
+        .validate()
+        .unwrap();
     }
 
     #[test]
     fn has_conversation_flag() {
-        let p_empty = ContextPanel::new(BundleName::Careful, ExecutionMode::Plan, "repo", "main", "", "t");
+        let p_empty = ContextPanel::new(
+            BundleName::Careful,
+            ExecutionMode::Plan,
+            "repo",
+            "main",
+            "",
+            "t",
+        );
         assert!(!p_empty.has_conversation());
-        let p_full = ContextPanel::new(BundleName::Careful, ExecutionMode::Plan, "repo", "main", "th-1", "t");
+        let p_full = ContextPanel::new(
+            BundleName::Careful,
+            ExecutionMode::Plan,
+            "repo",
+            "main",
+            "th-1",
+            "t",
+        );
         assert!(p_full.has_conversation());
     }
 
     #[test]
     fn has_workspace_flag() {
-        let p_empty = ContextPanel::new(BundleName::Careful, ExecutionMode::Plan, "", "main", "", "t");
+        let p_empty = ContextPanel::new(
+            BundleName::Careful,
+            ExecutionMode::Plan,
+            "",
+            "main",
+            "",
+            "t",
+        );
         assert!(!p_empty.has_workspace());
-        let p_full = ContextPanel::new(BundleName::Careful, ExecutionMode::Plan, "repo", "main", "", "t");
+        let p_full = ContextPanel::new(
+            BundleName::Careful,
+            ExecutionMode::Plan,
+            "repo",
+            "main",
+            "",
+            "t",
+        );
         assert!(p_full.has_workspace());
     }
 
     #[test]
     fn schema_drift_rejected() {
-        let mut p = ContextPanel::new(BundleName::Careful, ExecutionMode::Plan, "", "main", "", "t");
+        let mut p = ContextPanel::new(
+            BundleName::Careful,
+            ExecutionMode::Plan,
+            "",
+            "main",
+            "",
+            "t",
+        );
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), ContextError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            ContextError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn panel_serde_roundtrip() {
         let p = ContextPanel::new(
-            BundleName::Sovereign, ExecutionMode::Execute,
-            "repo", "main", "th-1", "2026-05-19T03:00:00Z",
+            BundleName::Sovereign,
+            ExecutionMode::Execute,
+            "repo",
+            "main",
+            "th-1",
+            "2026-05-19T03:00:00Z",
         );
         let j = serde_json::to_string(&p).unwrap();
         let back: ContextPanel = serde_json::from_str(&j).unwrap();

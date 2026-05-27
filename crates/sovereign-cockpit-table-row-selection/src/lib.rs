@@ -73,10 +73,18 @@ impl TableRowSelection {
     /// Compute header state.
     pub fn header_state(&self) -> HeaderState {
         let n_visible = self.row_ids.len();
-        let n_selected = self.row_ids.iter().filter(|id| self.selected.contains(*id)).count();
-        if n_selected == 0 { HeaderState::None }
-        else if n_selected == n_visible { HeaderState::All }
-        else { HeaderState::Some }
+        let n_selected = self
+            .row_ids
+            .iter()
+            .filter(|id| self.selected.contains(*id))
+            .count();
+        if n_selected == 0 {
+            HeaderState::None
+        } else if n_selected == n_visible {
+            HeaderState::All
+        } else {
+            HeaderState::Some
+        }
     }
 
     /// Toggle a row.
@@ -111,7 +119,10 @@ impl TableRowSelection {
 
     /// Count selected.
     pub fn count(&self) -> usize {
-        self.row_ids.iter().filter(|id| self.selected.contains(*id)).count()
+        self.row_ids
+            .iter()
+            .filter(|id| self.selected.contains(*id))
+            .count()
     }
 
     /// Clear all.
@@ -140,7 +151,9 @@ fn check_rows(rows: &[String]) -> Result<(), SelectionError> {
     use std::collections::HashSet;
     let mut seen: HashSet<&str> = HashSet::new();
     for r in rows {
-        if r.is_empty() { return Err(SelectionError::EmptyId); }
+        if r.is_empty() {
+            return Err(SelectionError::EmptyId);
+        }
         if !seen.insert(r.as_str()) {
             return Err(SelectionError::DuplicateId(r.clone()));
         }
@@ -204,7 +217,10 @@ mod tests {
     #[test]
     fn toggle_unknown_rejected() {
         let mut t = TableRowSelection::new(rows(&["a"])).unwrap();
-        assert!(matches!(t.toggle_row("z").unwrap_err(), SelectionError::Unknown(_)));
+        assert!(matches!(
+            t.toggle_row("z").unwrap_err(),
+            SelectionError::Unknown(_)
+        ));
     }
 
     #[test]
@@ -235,19 +251,28 @@ mod tests {
     fn validate_selected_unknown_rejected() {
         let mut t = TableRowSelection::new(rows(&["a"])).unwrap();
         t.selected.insert("ghost".into());
-        assert!(matches!(t.validate().unwrap_err(), SelectionError::SelectionUnknown(_)));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            SelectionError::SelectionUnknown(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut t = TableRowSelection::new(rows(&["a"])).unwrap();
         t.schema_version = "9.9.9".into();
-        assert!(matches!(t.validate().unwrap_err(), SelectionError::SchemaMismatch));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            SelectionError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn state_serde_kebab() {
-        assert_eq!(serde_json::to_string(&HeaderState::Some).unwrap(), "\"some\"");
+        assert_eq!(
+            serde_json::to_string(&HeaderState::Some).unwrap(),
+            "\"some\""
+        );
     }
 
     #[test]

@@ -34,8 +34,7 @@ use thiserror::Error;
 pub const SCHEMA_VERSION: &str = "1.0.0";
 
 /// Compiler pipeline doctrine verbatim per E0230 dump 7026-7030.
-pub const DOCTRINE_PIPELINE: &str =
-    "AI intent → compiler → executable cognitive DAG → scheduler → experts/tools → observations → adaptive recompile";
+pub const DOCTRINE_PIPELINE: &str = "AI intent → compiler → executable cognitive DAG → scheduler → experts/tools → observations → adaptive recompile";
 
 /// 7-input compile context (M00410).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -135,14 +134,30 @@ impl ReadyAxes {
     /// Names of failing axes (operator-readable).
     pub fn failing(&self) -> Vec<&'static str> {
         let mut v = vec![];
-        if !self.dependency_satisfied { v.push("dependency_satisfied"); }
-        if !self.capability_allowed { v.push("capability_allowed"); }
-        if !self.budget_ok { v.push("budget_ok"); }
-        if !self.risk_ok { v.push("risk_ok"); }
-        if !self.sandbox_available { v.push("sandbox_available"); }
-        if !self.model_available { v.push("model_available"); }
-        if !self.cache_affinity { v.push("cache_affinity"); }
-        if !self.priority { v.push("priority"); }
+        if !self.dependency_satisfied {
+            v.push("dependency_satisfied");
+        }
+        if !self.capability_allowed {
+            v.push("capability_allowed");
+        }
+        if !self.budget_ok {
+            v.push("budget_ok");
+        }
+        if !self.risk_ok {
+            v.push("risk_ok");
+        }
+        if !self.sandbox_available {
+            v.push("sandbox_available");
+        }
+        if !self.model_available {
+            v.push("model_available");
+        }
+        if !self.cache_affinity {
+            v.push("cache_affinity");
+        }
+        if !self.priority {
+            v.push("priority");
+        }
         v
     }
 }
@@ -217,8 +232,13 @@ impl WorkflowDag {
         // Cycle detection via DFS with white/gray/black coloring.
         use std::collections::HashMap;
         #[derive(PartialEq, Eq, Clone, Copy)]
-        enum Color { White, Gray, Black }
-        let mut color: HashMap<&String, Color> = self.nodes.keys().map(|k| (k, Color::White)).collect();
+        enum Color {
+            White,
+            Gray,
+            Black,
+        }
+        let mut color: HashMap<&String, Color> =
+            self.nodes.keys().map(|k| (k, Color::White)).collect();
         fn dfs<'a>(
             id: &'a String,
             nodes: &'a BTreeMap<String, DagNode>,
@@ -252,7 +272,8 @@ impl WorkflowDag {
     /// Return all nodes whose dependencies are all satisfied
     /// given a set of completed-node ids.
     pub fn ready_nodes(&self, completed: &std::collections::HashSet<String>) -> Vec<&DagNode> {
-        self.nodes.values()
+        self.nodes
+            .values()
             .filter(|n| !completed.contains(&n.id))
             .filter(|n| n.depends_on.iter().all(|p| completed.contains(p)))
             .collect()
@@ -261,12 +282,24 @@ impl WorkflowDag {
 
 /// Validate the 7 input fields are non-empty (except policies which may be empty list).
 pub fn validate_inputs(c: &CompileInputs) -> Result<(), CompilerError> {
-    if c.user_goal.is_empty() { return Err(CompilerError::InputEmpty("user_goal")); }
-    if c.memory_state.is_empty() { return Err(CompilerError::InputEmpty("memory_state")); }
-    if c.hardware_telemetry.is_empty() { return Err(CompilerError::InputEmpty("hardware_telemetry")); }
-    if c.risk_profile.is_empty() { return Err(CompilerError::InputEmpty("risk_profile")); }
-    if c.available_tools.is_empty() { return Err(CompilerError::InputEmpty("available_tools")); }
-    if c.model_registry.is_empty() { return Err(CompilerError::InputEmpty("model_registry")); }
+    if c.user_goal.is_empty() {
+        return Err(CompilerError::InputEmpty("user_goal"));
+    }
+    if c.memory_state.is_empty() {
+        return Err(CompilerError::InputEmpty("memory_state"));
+    }
+    if c.hardware_telemetry.is_empty() {
+        return Err(CompilerError::InputEmpty("hardware_telemetry"));
+    }
+    if c.risk_profile.is_empty() {
+        return Err(CompilerError::InputEmpty("risk_profile"));
+    }
+    if c.available_tools.is_empty() {
+        return Err(CompilerError::InputEmpty("available_tools"));
+    }
+    if c.model_registry.is_empty() {
+        return Err(CompilerError::InputEmpty("model_registry"));
+    }
     Ok(())
 }
 
@@ -315,20 +348,32 @@ mod tests {
 
     #[test]
     fn empty_user_goal_rejected() {
-        let mut c = ok_inputs(); c.user_goal = String::new();
-        assert!(matches!(validate_inputs(&c).unwrap_err(), CompilerError::InputEmpty("user_goal")));
+        let mut c = ok_inputs();
+        c.user_goal = String::new();
+        assert!(matches!(
+            validate_inputs(&c).unwrap_err(),
+            CompilerError::InputEmpty("user_goal")
+        ));
     }
 
     #[test]
     fn empty_memory_state_rejected() {
-        let mut c = ok_inputs(); c.memory_state = String::new();
-        assert!(matches!(validate_inputs(&c).unwrap_err(), CompilerError::InputEmpty("memory_state")));
+        let mut c = ok_inputs();
+        c.memory_state = String::new();
+        assert!(matches!(
+            validate_inputs(&c).unwrap_err(),
+            CompilerError::InputEmpty("memory_state")
+        ));
     }
 
     #[test]
     fn empty_available_tools_rejected() {
-        let mut c = ok_inputs(); c.available_tools.clear();
-        assert!(matches!(validate_inputs(&c).unwrap_err(), CompilerError::InputEmpty("available_tools")));
+        let mut c = ok_inputs();
+        c.available_tools.clear();
+        assert!(matches!(
+            validate_inputs(&c).unwrap_err(),
+            CompilerError::InputEmpty("available_tools")
+        ));
     }
 
     // --- WorkflowDag ---
@@ -402,7 +447,11 @@ mod tests {
         d.add_node(node("b", &[])).unwrap();
         d.add_node(node("c", &["a"])).unwrap();
         let completed = HashSet::new();
-        let ready: Vec<String> = d.ready_nodes(&completed).iter().map(|n| n.id.clone()).collect();
+        let ready: Vec<String> = d
+            .ready_nodes(&completed)
+            .iter()
+            .map(|n| n.id.clone())
+            .collect();
         assert!(ready.contains(&"a".to_string()));
         assert!(ready.contains(&"b".to_string()));
         assert!(!ready.contains(&"c".to_string()));
@@ -415,7 +464,11 @@ mod tests {
         d.add_node(node("b", &["a"])).unwrap();
         let mut completed = HashSet::new();
         completed.insert("a".to_string());
-        let ready: Vec<String> = d.ready_nodes(&completed).iter().map(|n| n.id.clone()).collect();
+        let ready: Vec<String> = d
+            .ready_nodes(&completed)
+            .iter()
+            .map(|n| n.id.clone())
+            .collect();
         assert_eq!(ready, vec!["b".to_string()]);
     }
 
@@ -424,10 +477,14 @@ mod tests {
     #[test]
     fn all_ready_returns_true_when_all_set() {
         let a = ReadyAxes {
-            dependency_satisfied: true, capability_allowed: true,
-            budget_ok: true, risk_ok: true,
-            sandbox_available: true, model_available: true,
-            cache_affinity: true, priority: true,
+            dependency_satisfied: true,
+            capability_allowed: true,
+            budget_ok: true,
+            risk_ok: true,
+            sandbox_available: true,
+            model_available: true,
+            cache_affinity: true,
+            priority: true,
         };
         assert!(a.all_ready());
         assert!(a.failing().is_empty());
@@ -436,10 +493,14 @@ mod tests {
     #[test]
     fn ready_axes_failing_names_listed() {
         let a = ReadyAxes {
-            dependency_satisfied: true, capability_allowed: false,
-            budget_ok: true, risk_ok: false,
-            sandbox_available: true, model_available: true,
-            cache_affinity: true, priority: false,
+            dependency_satisfied: true,
+            capability_allowed: false,
+            budget_ok: true,
+            risk_ok: false,
+            sandbox_available: true,
+            model_available: true,
+            cache_affinity: true,
+            priority: false,
         };
         assert!(!a.all_ready());
         let f = a.failing();
@@ -453,7 +514,10 @@ mod tests {
     #[test]
     fn doctrine_verbatim() {
         assert_doctrine_intact(DOCTRINE_PIPELINE).unwrap();
-        assert!(matches!(assert_doctrine_intact("WRONG").unwrap_err(), CompilerError::DoctrineTampered));
+        assert!(matches!(
+            assert_doctrine_intact("WRONG").unwrap_err(),
+            CompilerError::DoctrineTampered
+        ));
     }
 
     #[test]

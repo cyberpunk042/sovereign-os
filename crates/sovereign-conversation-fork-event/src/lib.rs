@@ -11,8 +11,8 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-use sovereign_conversation_thread::ConversationThread;
 use serde::{Deserialize, Serialize};
+use sovereign_conversation_thread::ConversationThread;
 use thiserror::Error;
 
 /// Schema version.
@@ -104,7 +104,10 @@ impl ForkLog {
 
     /// Forks for a specific branch.
     pub fn descendants_of(&self, parent: &str) -> Vec<&ForkEvent> {
-        self.entries.iter().filter(|e| e.parent_branch_id == parent).collect()
+        self.entries
+            .iter()
+            .filter(|e| e.parent_branch_id == parent)
+            .collect()
     }
 
     /// Validate.
@@ -120,17 +123,31 @@ impl ForkLog {
 }
 
 fn check_shape(e: &ForkEvent) -> Result<(), ForkError> {
-    if e.thread_id.is_empty() { return Err(ForkError::MissingThreadId); }
-    if e.parent_branch_id.is_empty() || e.new_branch_id.is_empty() { return Err(ForkError::EmptyBranch); }
-    if e.parent_branch_id == e.new_branch_id { return Err(ForkError::SelfFork(e.parent_branch_id.clone())); }
-    if e.actor.is_empty() { return Err(ForkError::MissingActor); }
-    if e.trace_id.is_empty() { return Err(ForkError::MissingTraceId); }
-    if e.at.is_empty() { return Err(ForkError::MissingTimestamp); }
+    if e.thread_id.is_empty() {
+        return Err(ForkError::MissingThreadId);
+    }
+    if e.parent_branch_id.is_empty() || e.new_branch_id.is_empty() {
+        return Err(ForkError::EmptyBranch);
+    }
+    if e.parent_branch_id == e.new_branch_id {
+        return Err(ForkError::SelfFork(e.parent_branch_id.clone()));
+    }
+    if e.actor.is_empty() {
+        return Err(ForkError::MissingActor);
+    }
+    if e.trace_id.is_empty() {
+        return Err(ForkError::MissingTraceId);
+    }
+    if e.at.is_empty() {
+        return Err(ForkError::MissingTimestamp);
+    }
     Ok(())
 }
 
 impl Default for ForkLog {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -142,10 +159,15 @@ mod tests {
         let mut t = ConversationThread::new("th-1", "t");
         for _ in 0..3 {
             t.append(Turn {
-                index: 0, role: TurnRole::Operator,
-                tokens_in: 0, tokens_out: 0, provider: "p".into(),
-                started_at: "t".into(), completed_at: "t".into(),
-                branch_id: "main".into(), text: String::new(),
+                index: 0,
+                role: TurnRole::Operator,
+                tokens_in: 0,
+                tokens_out: 0,
+                provider: "p".into(),
+                started_at: "t".into(),
+                completed_at: "t".into(),
+                branch_id: "main".into(),
+                text: String::new(),
             });
         }
         t
@@ -236,7 +258,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut l = ForkLog::new();
         l.schema_version = "9.9.9".into();
-        assert!(matches!(l.validate().unwrap_err(), ForkError::SchemaMismatch));
+        assert!(matches!(
+            l.validate().unwrap_err(),
+            ForkError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -83,12 +83,19 @@ impl ToastPosition {
     pub fn new(corner: Corner, inset_px: u32, gap_px: u32) -> Self {
         Self {
             schema_version: SCHEMA_VERSION.into(),
-            inset_px, gap_px, corner,
+            inset_px,
+            gap_px,
+            corner,
         }
     }
 
     /// Layout.
-    pub fn layout(&self, toasts: &[ToastInput], container_w: u32, container_h: u32) -> Result<Vec<PositionedToast>, ToastPosError> {
+    pub fn layout(
+        &self,
+        toasts: &[ToastInput],
+        container_w: u32,
+        container_h: u32,
+    ) -> Result<Vec<PositionedToast>, ToastPosError> {
         check_toasts(toasts)?;
         let mut out: Vec<PositionedToast> = Vec::with_capacity(toasts.len());
         match self.corner {
@@ -100,7 +107,11 @@ impl ToastPosition {
                     } else {
                         container_w.saturating_sub(self.inset_px + t.width_px)
                     };
-                    out.push(PositionedToast { id: t.id.clone(), x, y });
+                    out.push(PositionedToast {
+                        id: t.id.clone(),
+                        x,
+                        y,
+                    });
                     y = y.saturating_add(t.height_px + self.gap_px);
                 }
             }
@@ -113,7 +124,11 @@ impl ToastPosition {
                     } else {
                         container_w.saturating_sub(self.inset_px + t.width_px)
                     };
-                    out.push(PositionedToast { id: t.id.clone(), x, y });
+                    out.push(PositionedToast {
+                        id: t.id.clone(),
+                        x,
+                        y,
+                    });
                     y_bottom = y.saturating_sub(self.gap_px);
                 }
             }
@@ -134,7 +149,9 @@ fn check_toasts(t: &[ToastInput]) -> Result<(), ToastPosError> {
     use std::collections::HashSet;
     let mut seen: HashSet<&str> = HashSet::new();
     for x in t {
-        if x.id.is_empty() { return Err(ToastPosError::EmptyId); }
+        if x.id.is_empty() {
+            return Err(ToastPosError::EmptyId);
+        }
         if !seen.insert(x.id.as_str()) {
             return Err(ToastPosError::DuplicateId(x.id.clone()));
         }
@@ -143,7 +160,9 @@ fn check_toasts(t: &[ToastInput]) -> Result<(), ToastPosError> {
 }
 
 impl Default for ToastPosition {
-    fn default() -> Self { Self::new(Corner::BottomRight, 16, 8) }
+    fn default() -> Self {
+        Self::new(Corner::BottomRight, 16, 8)
+    }
 }
 
 #[cfg(test)]
@@ -151,13 +170,19 @@ mod tests {
     use super::*;
 
     fn t(id: &str, h: u32, w: u32) -> ToastInput {
-        ToastInput { id: id.into(), height_px: h, width_px: w }
+        ToastInput {
+            id: id.into(),
+            height_px: h,
+            width_px: w,
+        }
     }
 
     #[test]
     fn top_right_stacks_down() {
         let p = ToastPosition::new(Corner::TopRight, 10, 5);
-        let out = p.layout(&[t("a", 40, 200), t("b", 40, 200)], 800, 600).unwrap();
+        let out = p
+            .layout(&[t("a", 40, 200), t("b", 40, 200)], 800, 600)
+            .unwrap();
         assert_eq!(out[0].y, 10);
         assert_eq!(out[1].y, 10 + 40 + 5);
         // x = 800 - 10 - 200 = 590
@@ -167,7 +192,9 @@ mod tests {
     #[test]
     fn bottom_right_stacks_up() {
         let p = ToastPosition::new(Corner::BottomRight, 10, 5);
-        let out = p.layout(&[t("a", 40, 200), t("b", 40, 200)], 800, 600).unwrap();
+        let out = p
+            .layout(&[t("a", 40, 200), t("b", 40, 200)], 800, 600)
+            .unwrap();
         // first toast y = 600 - 10 - 40 = 550.
         assert_eq!(out[0].y, 550);
         // second toast y = 550 - 5 - 40 = 505.
@@ -200,7 +227,8 @@ mod tests {
     fn duplicate_id_rejected() {
         let p = ToastPosition::default();
         assert!(matches!(
-            p.layout(&[t("a", 10, 10), t("a", 10, 10)], 800, 600).unwrap_err(),
+            p.layout(&[t("a", 10, 10), t("a", 10, 10)], 800, 600)
+                .unwrap_err(),
             ToastPosError::DuplicateId(_)
         ));
     }
@@ -208,19 +236,28 @@ mod tests {
     #[test]
     fn empty_id_rejected() {
         let p = ToastPosition::default();
-        assert!(matches!(p.layout(&[t("", 10, 10)], 800, 600).unwrap_err(), ToastPosError::EmptyId));
+        assert!(matches!(
+            p.layout(&[t("", 10, 10)], 800, 600).unwrap_err(),
+            ToastPosError::EmptyId
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut p = ToastPosition::default();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), ToastPosError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            ToastPosError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn corner_serde_kebab() {
-        assert_eq!(serde_json::to_string(&Corner::BottomRight).unwrap(), "\"bottom-right\"");
+        assert_eq!(
+            serde_json::to_string(&Corner::BottomRight).unwrap(),
+            "\"bottom-right\""
+        );
     }
 
     #[test]

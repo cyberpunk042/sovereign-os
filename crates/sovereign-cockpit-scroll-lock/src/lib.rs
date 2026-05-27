@@ -72,16 +72,24 @@ impl ScrollLock {
 
     /// Acquire a lock. Returns the id to pass into release().
     pub fn acquire(&mut self, reason: &str) -> Result<u64, LockError> {
-        if reason.is_empty() { return Err(LockError::EmptyReason); }
+        if reason.is_empty() {
+            return Err(LockError::EmptyReason);
+        }
         let id = self.next_id;
         self.next_id = self.next_id.wrapping_add(1);
-        self.holders.push(Holder { id, reason: reason.into() });
+        self.holders.push(Holder {
+            id,
+            reason: reason.into(),
+        });
         Ok(id)
     }
 
     /// Release.
     pub fn release(&mut self, id: u64) -> Result<(), LockError> {
-        let pos = self.holders.iter().position(|h| h.id == id)
+        let pos = self
+            .holders
+            .iter()
+            .position(|h| h.id == id)
             .ok_or(LockError::UnknownId(id))?;
         self.holders.remove(pos);
         Ok(())
@@ -89,16 +97,22 @@ impl ScrollLock {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), LockError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(LockError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(LockError::SchemaMismatch);
+        }
         for h in &self.holders {
-            if h.reason.is_empty() { return Err(LockError::EmptyReason); }
+            if h.reason.is_empty() {
+                return Err(LockError::EmptyReason);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for ScrollLock {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -147,7 +161,10 @@ mod tests {
     #[test]
     fn unknown_id_rejected() {
         let mut l = ScrollLock::new();
-        assert!(matches!(l.release(999).unwrap_err(), LockError::UnknownId(_)));
+        assert!(matches!(
+            l.release(999).unwrap_err(),
+            LockError::UnknownId(_)
+        ));
     }
 
     #[test]
@@ -162,7 +179,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut l = ScrollLock::new();
         l.schema_version = "9.9.9".into();
-        assert!(matches!(l.validate().unwrap_err(), LockError::SchemaMismatch));
+        assert!(matches!(
+            l.validate().unwrap_err(),
+            LockError::SchemaMismatch
+        ));
     }
 
     #[test]

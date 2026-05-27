@@ -49,13 +49,26 @@ pub enum StepperError {
 
 impl NumericStepper {
     /// New.
-    pub fn new(value: i64, step: i64, min: i64, max: i64, wrap: bool) -> Result<Self, StepperError> {
-        if step <= 0 { return Err(StepperError::StepNotPositive(step)); }
-        if min > max { return Err(StepperError::BadRange(min, max)); }
+    pub fn new(
+        value: i64,
+        step: i64,
+        min: i64,
+        max: i64,
+        wrap: bool,
+    ) -> Result<Self, StepperError> {
+        if step <= 0 {
+            return Err(StepperError::StepNotPositive(step));
+        }
+        if min > max {
+            return Err(StepperError::BadRange(min, max));
+        }
         let mut s = Self {
             schema_version: SCHEMA_VERSION.into(),
             value: min,
-            step, min, max, wrap,
+            step,
+            min,
+            max,
+            wrap,
         };
         s.set(value);
         Ok(s)
@@ -70,7 +83,9 @@ impl NumericStepper {
         let rem = offset % self.step;
         let snapped = if rem >= self.step / 2 + (self.step & 1) {
             snapped + self.step
-        } else { snapped };
+        } else {
+            snapped
+        };
         self.value = snapped.max(self.min).min(self.max);
     }
 
@@ -78,7 +93,11 @@ impl NumericStepper {
     pub fn inc(&mut self) {
         let next = self.value.saturating_add(self.step);
         if next > self.max {
-            if self.wrap { self.value = self.min; } else { self.value = self.max; }
+            if self.wrap {
+                self.value = self.min;
+            } else {
+                self.value = self.max;
+            }
         } else {
             self.value = next;
         }
@@ -88,7 +107,11 @@ impl NumericStepper {
     pub fn dec(&mut self) {
         let prev = self.value.saturating_sub(self.step);
         if prev < self.min {
-            if self.wrap { self.value = self.max - ((self.max - self.min) % self.step); } else { self.value = self.min; }
+            if self.wrap {
+                self.value = self.max - ((self.max - self.min) % self.step);
+            } else {
+                self.value = self.min;
+            }
         } else {
             self.value = prev;
         }
@@ -108,9 +131,15 @@ impl NumericStepper {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), StepperError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(StepperError::SchemaMismatch); }
-        if self.step <= 0 { return Err(StepperError::StepNotPositive(self.step)); }
-        if self.min > self.max { return Err(StepperError::BadRange(self.min, self.max)); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(StepperError::SchemaMismatch);
+        }
+        if self.step <= 0 {
+            return Err(StepperError::StepNotPositive(self.step));
+        }
+        if self.min > self.max {
+            return Err(StepperError::BadRange(self.min, self.max));
+        }
         Ok(())
     }
 }
@@ -121,12 +150,18 @@ mod tests {
 
     #[test]
     fn step_zero_rejected() {
-        assert!(matches!(NumericStepper::new(0, 0, 0, 10, false).unwrap_err(), StepperError::StepNotPositive(_)));
+        assert!(matches!(
+            NumericStepper::new(0, 0, 0, 10, false).unwrap_err(),
+            StepperError::StepNotPositive(_)
+        ));
     }
 
     #[test]
     fn min_greater_than_max_rejected() {
-        assert!(matches!(NumericStepper::new(0, 1, 10, 5, false).unwrap_err(), StepperError::BadRange(_, _)));
+        assert!(matches!(
+            NumericStepper::new(0, 1, 10, 5, false).unwrap_err(),
+            StepperError::BadRange(_, _)
+        ));
     }
 
     #[test]
@@ -185,7 +220,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = NumericStepper::new(0, 1, 0, 10, false).unwrap();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), StepperError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            StepperError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -103,7 +103,10 @@ impl BreadcrumbTrail {
 
     /// Truncate path back to a known id (inclusive — that crumb remains tail).
     pub fn truncate_to(&mut self, id: &str) -> Result<(), BreadcrumbError> {
-        let pos = self.crumbs.iter().position(|c| c.id == id)
+        let pos = self
+            .crumbs
+            .iter()
+            .position(|c| c.id == id)
             .ok_or_else(|| BreadcrumbError::Unknown(id.into()))?;
         self.crumbs.truncate(pos + 1);
         Ok(())
@@ -115,20 +118,30 @@ impl BreadcrumbTrail {
         let n = self.crumbs.len();
         let max = self.max_visible as usize;
         if n <= max {
-            return self.crumbs.iter().map(|c| RenderedCrumb::Real {
-                id: c.id.clone(),
-                label: c.label.clone(),
-            }).collect();
+            return self
+                .crumbs
+                .iter()
+                .map(|c| RenderedCrumb::Real {
+                    id: c.id.clone(),
+                    label: c.label.clone(),
+                })
+                .collect();
         }
         let mut out: Vec<RenderedCrumb> = Vec::with_capacity(max);
         // Always show root.
         let root = &self.crumbs[0];
-        out.push(RenderedCrumb::Real { id: root.id.clone(), label: root.label.clone() });
+        out.push(RenderedCrumb::Real {
+            id: root.id.clone(),
+            label: root.label.clone(),
+        });
         out.push(RenderedCrumb::Ellipsis);
         let tail_count = max - 2;
         let tail_start = n - tail_count;
         for c in &self.crumbs[tail_start..] {
-            out.push(RenderedCrumb::Real { id: c.id.clone(), label: c.label.clone() });
+            out.push(RenderedCrumb::Real {
+                id: c.id.clone(),
+                label: c.label.clone(),
+            });
         }
         out
     }
@@ -168,12 +181,18 @@ mod tests {
     use super::*;
 
     fn crumb(id: &str) -> Crumb {
-        Crumb { id: id.into(), label: format!("L-{id}") }
+        Crumb {
+            id: id.into(),
+            label: format!("L-{id}"),
+        }
     }
 
     #[test]
     fn max_visible_too_small_rejected() {
-        assert!(matches!(BreadcrumbTrail::new(2).unwrap_err(), BreadcrumbError::MaxVisibleTooSmall(2)));
+        assert!(matches!(
+            BreadcrumbTrail::new(2).unwrap_err(),
+            BreadcrumbError::MaxVisibleTooSmall(2)
+        ));
     }
 
     #[test]
@@ -193,7 +212,10 @@ mod tests {
     fn duplicate_id_rejected() {
         let mut t = BreadcrumbTrail::new(5).unwrap();
         t.push(crumb("a")).unwrap();
-        assert!(matches!(t.push(crumb("a")).unwrap_err(), BreadcrumbError::DuplicateId(_)));
+        assert!(matches!(
+            t.push(crumb("a")).unwrap_err(),
+            BreadcrumbError::DuplicateId(_)
+        ));
     }
 
     #[test]
@@ -209,7 +231,10 @@ mod tests {
         let mut t = BreadcrumbTrail::new(5).unwrap();
         let mut c = crumb("a");
         c.label = String::new();
-        assert!(matches!(t.push(c).unwrap_err(), BreadcrumbError::EmptyLabel(_)));
+        assert!(matches!(
+            t.push(c).unwrap_err(),
+            BreadcrumbError::EmptyLabel(_)
+        ));
     }
 
     #[test]
@@ -227,7 +252,10 @@ mod tests {
     fn truncate_to_unknown_rejected() {
         let mut t = BreadcrumbTrail::new(5).unwrap();
         t.push(crumb("a")).unwrap();
-        assert!(matches!(t.truncate_to("z").unwrap_err(), BreadcrumbError::Unknown(_)));
+        assert!(matches!(
+            t.truncate_to("z").unwrap_err(),
+            BreadcrumbError::Unknown(_)
+        ));
     }
 
     #[test]
@@ -267,13 +295,19 @@ mod tests {
     fn schema_drift_rejected() {
         let mut t = BreadcrumbTrail::new(5).unwrap();
         t.schema_version = "9.9.9".into();
-        assert!(matches!(t.validate().unwrap_err(), BreadcrumbError::SchemaMismatch));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            BreadcrumbError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn rendered_serde_kebab() {
         let r = RenderedCrumb::Ellipsis;
-        assert_eq!(serde_json::to_string(&r).unwrap(), "{\"kind\":\"ellipsis\"}");
+        assert_eq!(
+            serde_json::to_string(&r).unwrap(),
+            "{\"kind\":\"ellipsis\"}"
+        );
     }
 
     #[test]

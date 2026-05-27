@@ -86,21 +86,34 @@ pub enum DiskError {
 impl DiskMeter {
     /// New.
     pub fn new(warn_pct: u8, critical_pct: u8) -> Result<Self, DiskError> {
-        if warn_pct >= critical_pct { return Err(DiskError::BadThresholds(warn_pct, critical_pct)); }
-        if critical_pct > 100 { return Err(DiskError::CriticalOver100(critical_pct)); }
+        if warn_pct >= critical_pct {
+            return Err(DiskError::BadThresholds(warn_pct, critical_pct));
+        }
+        if critical_pct > 100 {
+            return Err(DiskError::CriticalOver100(critical_pct));
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             mounts: Vec::new(),
-            warn_pct, critical_pct,
+            warn_pct,
+            critical_pct,
         })
     }
 
     /// Register a mount.
     pub fn register(&mut self, m: Mount) -> Result<(), DiskError> {
-        if m.mount.is_empty() { return Err(DiskError::EmptyMount); }
-        if m.total_bytes == 0 { return Err(DiskError::TotalZero(m.mount)); }
+        if m.mount.is_empty() {
+            return Err(DiskError::EmptyMount);
+        }
+        if m.total_bytes == 0 {
+            return Err(DiskError::TotalZero(m.mount));
+        }
         if m.used_bytes > m.total_bytes {
-            return Err(DiskError::UsedOverTotal { mount: m.mount, used: m.used_bytes, total: m.total_bytes });
+            return Err(DiskError::UsedOverTotal {
+                mount: m.mount,
+                used: m.used_bytes,
+                total: m.total_bytes,
+            });
         }
         if self.mounts.iter().any(|x| x.mount == m.mount) {
             return Err(DiskError::DuplicateMount(m.mount));
@@ -111,10 +124,17 @@ impl DiskMeter {
 
     /// Update existing.
     pub fn update(&mut self, mount: &str, used_bytes: u64) -> Result<(), DiskError> {
-        let m = self.mounts.iter_mut().find(|x| x.mount == mount)
+        let m = self
+            .mounts
+            .iter_mut()
+            .find(|x| x.mount == mount)
             .ok_or_else(|| DiskError::DuplicateMount(mount.into()))?;
         if used_bytes > m.total_bytes {
-            return Err(DiskError::UsedOverTotal { mount: mount.into(), used: used_bytes, total: m.total_bytes });
+            return Err(DiskError::UsedOverTotal {
+                mount: mount.into(),
+                used: used_bytes,
+                total: m.total_bytes,
+            });
         }
         m.used_bytes = used_bytes;
         Ok(())
@@ -123,22 +143,31 @@ impl DiskMeter {
     /// Per-mount used pct.
     pub fn used_pct(&self, mount: &str) -> Option<u8> {
         self.mounts.iter().find(|x| x.mount == mount).map(|m| {
-            if m.total_bytes == 0 { 0 } else { ((m.used_bytes * 100) / m.total_bytes) as u8 }
+            if m.total_bytes == 0 {
+                0
+            } else {
+                ((m.used_bytes * 100) / m.total_bytes) as u8
+            }
         })
     }
 
     /// Per-mount zone.
     pub fn zone_of(&self, mount: &str) -> Option<Zone> {
         self.used_pct(mount).map(|pct| {
-            if pct >= self.critical_pct { Zone::Critical }
-            else if pct >= self.warn_pct { Zone::Warn }
-            else { Zone::Normal }
+            if pct >= self.critical_pct {
+                Zone::Critical
+            } else if pct >= self.warn_pct {
+                Zone::Warn
+            } else {
+                Zone::Normal
+            }
         })
     }
 
     /// Worst zone across all mounts.
     pub fn worst_zone(&self) -> Zone {
-        self.mounts.iter()
+        self.mounts
+            .iter()
             .filter_map(|m| self.zone_of(&m.mount))
             .max()
             .unwrap_or(Zone::Normal)
@@ -152,12 +181,18 @@ impl DiskMeter {
         if self.warn_pct >= self.critical_pct {
             return Err(DiskError::BadThresholds(self.warn_pct, self.critical_pct));
         }
-        if self.critical_pct > 100 { return Err(DiskError::CriticalOver100(self.critical_pct)); }
+        if self.critical_pct > 100 {
+            return Err(DiskError::CriticalOver100(self.critical_pct));
+        }
         use std::collections::HashSet;
         let mut seen: HashSet<&str> = HashSet::new();
         for m in &self.mounts {
-            if m.mount.is_empty() { return Err(DiskError::EmptyMount); }
-            if m.total_bytes == 0 { return Err(DiskError::TotalZero(m.mount.clone())); }
+            if m.mount.is_empty() {
+                return Err(DiskError::EmptyMount);
+            }
+            if m.total_bytes == 0 {
+                return Err(DiskError::TotalZero(m.mount.clone()));
+            }
             if m.used_bytes > m.total_bytes {
                 return Err(DiskError::UsedOverTotal {
                     mount: m.mount.clone(),
@@ -178,12 +213,19 @@ mod tests {
     use super::*;
 
     fn mount(name: &str, used: u64, total: u64) -> Mount {
-        Mount { mount: name.into(), used_bytes: used, total_bytes: total }
+        Mount {
+            mount: name.into(),
+            used_bytes: used,
+            total_bytes: total,
+        }
     }
 
     #[test]
     fn bad_thresholds_rejected() {
-        assert!(matches!(DiskMeter::new(90, 70).unwrap_err(), DiskError::BadThresholds(_, _)));
+        assert!(matches!(
+            DiskMeter::new(90, 70).unwrap_err(),
+            DiskError::BadThresholds(_, _)
+        ));
     }
 
     #[test]
@@ -197,13 +239,19 @@ mod tests {
     fn duplicate_rejected() {
         let mut d = DiskMeter::new(70, 90).unwrap();
         d.register(mount("/", 50, 100)).unwrap();
-        assert!(matches!(d.register(mount("/", 60, 100)).unwrap_err(), DiskError::DuplicateMount(_)));
+        assert!(matches!(
+            d.register(mount("/", 60, 100)).unwrap_err(),
+            DiskError::DuplicateMount(_)
+        ));
     }
 
     #[test]
     fn used_over_total_rejected() {
         let mut d = DiskMeter::new(70, 90).unwrap();
-        assert!(matches!(d.register(mount("/", 200, 100)).unwrap_err(), DiskError::UsedOverTotal { .. }));
+        assert!(matches!(
+            d.register(mount("/", 200, 100)).unwrap_err(),
+            DiskError::UsedOverTotal { .. }
+        ));
     }
 
     #[test]
@@ -226,20 +274,29 @@ mod tests {
     #[test]
     fn empty_mount_rejected() {
         let mut d = DiskMeter::new(70, 90).unwrap();
-        assert!(matches!(d.register(mount("", 0, 100)).unwrap_err(), DiskError::EmptyMount));
+        assert!(matches!(
+            d.register(mount("", 0, 100)).unwrap_err(),
+            DiskError::EmptyMount
+        ));
     }
 
     #[test]
     fn total_zero_rejected() {
         let mut d = DiskMeter::new(70, 90).unwrap();
-        assert!(matches!(d.register(mount("/", 0, 0)).unwrap_err(), DiskError::TotalZero(_)));
+        assert!(matches!(
+            d.register(mount("/", 0, 0)).unwrap_err(),
+            DiskError::TotalZero(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut d = DiskMeter::new(70, 90).unwrap();
         d.schema_version = "9.9.9".into();
-        assert!(matches!(d.validate().unwrap_err(), DiskError::SchemaMismatch));
+        assert!(matches!(
+            d.validate().unwrap_err(),
+            DiskError::SchemaMismatch
+        ));
     }
 
     #[test]

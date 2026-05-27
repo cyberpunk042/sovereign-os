@@ -89,7 +89,7 @@ pub fn truncate(
             format!("{ellipsis}{kept}")
         }
         Strategy::Middle => {
-            let head_len = budget / 2 + (budget % 2);  // bias to head
+            let head_len = budget / 2 + (budget % 2); // bias to head
             let tail_len = budget - head_len;
             let head: String = input_chars.iter().take(head_len).collect();
             let tail: String = input_chars

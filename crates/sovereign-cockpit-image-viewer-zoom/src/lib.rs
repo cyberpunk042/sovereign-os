@@ -58,9 +58,18 @@ pub enum ZoomError {
 
 impl ImageViewerZoom {
     /// New (pan zero, fit-to-viewport zoom by default).
-    pub fn new(image_w: u32, image_h: u32, viewport_w: u32, viewport_h: u32) -> Result<Self, ZoomError> {
-        if image_w == 0 || image_h == 0 { return Err(ZoomError::ImageZero); }
-        if viewport_w == 0 || viewport_h == 0 { return Err(ZoomError::ViewportZero); }
+    pub fn new(
+        image_w: u32,
+        image_h: u32,
+        viewport_w: u32,
+        viewport_h: u32,
+    ) -> Result<Self, ZoomError> {
+        if image_w == 0 || image_h == 0 {
+            return Err(ZoomError::ImageZero);
+        }
+        if viewport_w == 0 || viewport_h == 0 {
+            return Err(ZoomError::ViewportZero);
+        }
         let mut v = Self {
             schema_version: SCHEMA_VERSION.into(),
             image_w,
@@ -158,9 +167,15 @@ impl ImageViewerZoom {
         if self.schema_version != SCHEMA_VERSION {
             return Err(ZoomError::SchemaMismatch);
         }
-        if self.image_w == 0 || self.image_h == 0 { return Err(ZoomError::ImageZero); }
-        if self.viewport_w == 0 || self.viewport_h == 0 { return Err(ZoomError::ViewportZero); }
-        if !ZOOM_LEVELS.contains(&self.zoom_pct) { return Err(ZoomError::BadZoom(self.zoom_pct)); }
+        if self.image_w == 0 || self.image_h == 0 {
+            return Err(ZoomError::ImageZero);
+        }
+        if self.viewport_w == 0 || self.viewport_h == 0 {
+            return Err(ZoomError::ViewportZero);
+        }
+        if !ZOOM_LEVELS.contains(&self.zoom_pct) {
+            return Err(ZoomError::BadZoom(self.zoom_pct));
+        }
         Ok(())
     }
 }
@@ -171,12 +186,18 @@ mod tests {
 
     #[test]
     fn image_zero_rejected() {
-        assert!(matches!(ImageViewerZoom::new(0, 100, 100, 100).unwrap_err(), ZoomError::ImageZero));
+        assert!(matches!(
+            ImageViewerZoom::new(0, 100, 100, 100).unwrap_err(),
+            ZoomError::ImageZero
+        ));
     }
 
     #[test]
     fn viewport_zero_rejected() {
-        assert!(matches!(ImageViewerZoom::new(100, 100, 0, 100).unwrap_err(), ZoomError::ViewportZero));
+        assert!(matches!(
+            ImageViewerZoom::new(100, 100, 0, 100).unwrap_err(),
+            ZoomError::ViewportZero
+        ));
     }
 
     #[test]
@@ -219,7 +240,10 @@ mod tests {
     #[test]
     fn bad_zoom_rejected() {
         let mut v = ImageViewerZoom::new(100, 100, 200, 200).unwrap();
-        assert!(matches!(v.set_zoom(33).unwrap_err(), ZoomError::BadZoom(33)));
+        assert!(matches!(
+            v.set_zoom(33).unwrap_err(),
+            ZoomError::BadZoom(33)
+        ));
     }
 
     #[test]
@@ -245,7 +269,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut v = ImageViewerZoom::new(100, 100, 200, 200).unwrap();
         v.schema_version = "9.9.9".into();
-        assert!(matches!(v.validate().unwrap_err(), ZoomError::SchemaMismatch));
+        assert!(matches!(
+            v.validate().unwrap_err(),
+            ZoomError::SchemaMismatch
+        ));
     }
 
     #[test]

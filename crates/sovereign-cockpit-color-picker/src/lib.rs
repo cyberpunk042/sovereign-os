@@ -99,24 +99,30 @@ impl ColorPicker {
         let (r, g, b, a) = match raw.len() {
             3 => {
                 let p = |i: usize| u8::from_str_radix(&raw[i..=i].repeat(2), 16);
-                (p(0).map_err(|_| ColorError::BadHex(hex.into()))?,
-                 p(1).map_err(|_| ColorError::BadHex(hex.into()))?,
-                 p(2).map_err(|_| ColorError::BadHex(hex.into()))?,
-                 0xff)
+                (
+                    p(0).map_err(|_| ColorError::BadHex(hex.into()))?,
+                    p(1).map_err(|_| ColorError::BadHex(hex.into()))?,
+                    p(2).map_err(|_| ColorError::BadHex(hex.into()))?,
+                    0xff,
+                )
             }
             6 => {
                 let p = |i: usize| u8::from_str_radix(&raw[i..i + 2], 16);
-                (p(0).map_err(|_| ColorError::BadHex(hex.into()))?,
-                 p(2).map_err(|_| ColorError::BadHex(hex.into()))?,
-                 p(4).map_err(|_| ColorError::BadHex(hex.into()))?,
-                 0xff)
+                (
+                    p(0).map_err(|_| ColorError::BadHex(hex.into()))?,
+                    p(2).map_err(|_| ColorError::BadHex(hex.into()))?,
+                    p(4).map_err(|_| ColorError::BadHex(hex.into()))?,
+                    0xff,
+                )
             }
             8 => {
                 let p = |i: usize| u8::from_str_radix(&raw[i..i + 2], 16);
-                (p(0).map_err(|_| ColorError::BadHex(hex.into()))?,
-                 p(2).map_err(|_| ColorError::BadHex(hex.into()))?,
-                 p(4).map_err(|_| ColorError::BadHex(hex.into()))?,
-                 p(6).map_err(|_| ColorError::BadHex(hex.into()))?)
+                (
+                    p(0).map_err(|_| ColorError::BadHex(hex.into()))?,
+                    p(2).map_err(|_| ColorError::BadHex(hex.into()))?,
+                    p(4).map_err(|_| ColorError::BadHex(hex.into()))?,
+                    p(6).map_err(|_| ColorError::BadHex(hex.into()))?,
+                )
             }
             _ => return Err(ColorError::BadHex(hex.into())),
         };
@@ -155,12 +161,19 @@ impl ColorPicker {
 mod tests {
     use super::*;
 
-    fn red() -> Rgba { Rgba::rgb(255, 0, 0) }
-    fn green() -> Rgba { Rgba::rgb(0, 255, 0) }
+    fn red() -> Rgba {
+        Rgba::rgb(255, 0, 0)
+    }
+    fn green() -> Rgba {
+        Rgba::rgb(0, 255, 0)
+    }
 
     #[test]
     fn max_recent_zero_rejected() {
-        assert!(matches!(ColorPicker::new(red(), 0).unwrap_err(), ColorError::MaxRecentZero));
+        assert!(matches!(
+            ColorPicker::new(red(), 0).unwrap_err(),
+            ColorError::MaxRecentZero
+        ));
     }
 
     #[test]
@@ -187,34 +200,72 @@ mod tests {
     fn set_hex_short_form() {
         let mut p = ColorPicker::new(red(), 3).unwrap();
         p.set_hex("#0f0").unwrap();
-        assert_eq!(p.current, Rgba { r: 0, g: 0xff, b: 0, a: 0xff });
+        assert_eq!(
+            p.current,
+            Rgba {
+                r: 0,
+                g: 0xff,
+                b: 0,
+                a: 0xff
+            }
+        );
     }
 
     #[test]
     fn set_hex_long_rgb() {
         let mut p = ColorPicker::new(red(), 3).unwrap();
         p.set_hex("#112233").unwrap();
-        assert_eq!(p.current, Rgba { r: 0x11, g: 0x22, b: 0x33, a: 0xff });
+        assert_eq!(
+            p.current,
+            Rgba {
+                r: 0x11,
+                g: 0x22,
+                b: 0x33,
+                a: 0xff
+            }
+        );
     }
 
     #[test]
     fn set_hex_with_alpha() {
         let mut p = ColorPicker::new(red(), 3).unwrap();
         p.set_hex("#11223380").unwrap();
-        assert_eq!(p.current, Rgba { r: 0x11, g: 0x22, b: 0x33, a: 0x80 });
+        assert_eq!(
+            p.current,
+            Rgba {
+                r: 0x11,
+                g: 0x22,
+                b: 0x33,
+                a: 0x80
+            }
+        );
     }
 
     #[test]
     fn bad_hex_rejected() {
         let mut p = ColorPicker::new(red(), 3).unwrap();
-        assert!(matches!(p.set_hex("not-hex").unwrap_err(), ColorError::BadHex(_)));
-        assert!(matches!(p.set_hex("#xyz").unwrap_err(), ColorError::BadHex(_)));
-        assert!(matches!(p.set_hex("#12345").unwrap_err(), ColorError::BadHex(_)));
+        assert!(matches!(
+            p.set_hex("not-hex").unwrap_err(),
+            ColorError::BadHex(_)
+        ));
+        assert!(matches!(
+            p.set_hex("#xyz").unwrap_err(),
+            ColorError::BadHex(_)
+        ));
+        assert!(matches!(
+            p.set_hex("#12345").unwrap_err(),
+            ColorError::BadHex(_)
+        ));
     }
 
     #[test]
     fn to_hex_roundtrip() {
-        let r = Rgba { r: 0x11, g: 0x22, b: 0x33, a: 0xab };
+        let r = Rgba {
+            r: 0x11,
+            g: 0x22,
+            b: 0x33,
+            a: 0xab,
+        };
         assert_eq!(r.to_hex(), "#112233AB");
     }
 
@@ -235,7 +286,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut p = ColorPicker::new(red(), 3).unwrap();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), ColorError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            ColorError::SchemaMismatch
+        ));
     }
 
     #[test]

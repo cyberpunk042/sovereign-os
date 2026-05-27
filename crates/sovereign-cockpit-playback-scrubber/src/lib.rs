@@ -49,7 +49,9 @@ pub enum ScrubberError {
 impl PlaybackScrubber {
     /// New.
     pub fn new(total_ms: u64) -> Result<Self, ScrubberError> {
-        if total_ms == 0 { return Err(ScrubberError::ZeroTotal); }
+        if total_ms == 0 {
+            return Err(ScrubberError::ZeroTotal);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             total_ms,
@@ -61,8 +63,13 @@ impl PlaybackScrubber {
 
     /// Advance playhead (no-op while dragging).
     pub fn advance(&mut self, elapsed_ms: u64) {
-        if self.dragging { return; }
-        self.current_ms = self.current_ms.saturating_add(elapsed_ms).min(self.total_ms);
+        if self.dragging {
+            return;
+        }
+        self.current_ms = self
+            .current_ms
+            .saturating_add(elapsed_ms)
+            .min(self.total_ms);
     }
 
     /// Seek absolute (clamped).
@@ -97,7 +104,11 @@ impl PlaybackScrubber {
 
     /// Visible playhead: current OR preview when dragging.
     pub fn visible_ms(&self) -> u64 {
-        if self.dragging { self.drag_preview_ms } else { self.current_ms }
+        if self.dragging {
+            self.drag_preview_ms
+        } else {
+            self.current_ms
+        }
     }
 
     /// Progress in basis points.
@@ -113,8 +124,12 @@ impl PlaybackScrubber {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ScrubberError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ScrubberError::SchemaMismatch); }
-        if self.total_ms == 0 { return Err(ScrubberError::ZeroTotal); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ScrubberError::SchemaMismatch);
+        }
+        if self.total_ms == 0 {
+            return Err(ScrubberError::ZeroTotal);
+        }
         Ok(())
     }
 }
@@ -187,14 +202,20 @@ mod tests {
 
     #[test]
     fn zero_total_rejected() {
-        assert!(matches!(PlaybackScrubber::new(0).unwrap_err(), ScrubberError::ZeroTotal));
+        assert!(matches!(
+            PlaybackScrubber::new(0).unwrap_err(),
+            ScrubberError::ZeroTotal
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = PlaybackScrubber::new(1000).unwrap();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), ScrubberError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            ScrubberError::SchemaMismatch
+        ));
     }
 
     #[test]

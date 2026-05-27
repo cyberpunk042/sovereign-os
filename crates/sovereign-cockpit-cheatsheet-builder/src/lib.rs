@@ -110,10 +110,18 @@ fn check_entries(entries: &[Entry]) -> Result<(), CheatsheetError> {
     use std::collections::HashSet;
     let mut seen: HashSet<&str> = HashSet::new();
     for e in entries {
-        if e.action_id.is_empty() { return Err(CheatsheetError::EmptyActionId); }
-        if e.label.is_empty() { return Err(CheatsheetError::EmptyLabel(e.action_id.clone())); }
-        if e.chord.is_empty() { return Err(CheatsheetError::EmptyChord(e.action_id.clone())); }
-        if e.group.is_empty() { return Err(CheatsheetError::EmptyGroup(e.action_id.clone())); }
+        if e.action_id.is_empty() {
+            return Err(CheatsheetError::EmptyActionId);
+        }
+        if e.label.is_empty() {
+            return Err(CheatsheetError::EmptyLabel(e.action_id.clone()));
+        }
+        if e.chord.is_empty() {
+            return Err(CheatsheetError::EmptyChord(e.action_id.clone()));
+        }
+        if e.group.is_empty() {
+            return Err(CheatsheetError::EmptyGroup(e.action_id.clone()));
+        }
         if !seen.insert(e.action_id.as_str()) {
             return Err(CheatsheetError::DuplicateActionId(e.action_id.clone()));
         }
@@ -177,11 +185,11 @@ mod tests {
 
     #[test]
     fn duplicate_action_id_rejected() {
-        let entries = vec![
-            e("a", "L1", "c1", "g"),
-            e("a", "L2", "c2", "g"),
-        ];
-        assert!(matches!(CheatsheetBuilder::build(&entries).unwrap_err(), CheatsheetError::DuplicateActionId(_)));
+        let entries = vec![e("a", "L1", "c1", "g"), e("a", "L2", "c2", "g")];
+        assert!(matches!(
+            CheatsheetBuilder::build(&entries).unwrap_err(),
+            CheatsheetError::DuplicateActionId(_)
+        ));
     }
 
     #[test]
@@ -220,7 +228,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut c = CheatsheetBuilder::build(&[]).unwrap();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), CheatsheetError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            CheatsheetError::SchemaMismatch
+        ));
     }
 
     #[test]

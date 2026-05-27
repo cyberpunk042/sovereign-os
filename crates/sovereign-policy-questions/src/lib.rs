@@ -85,9 +85,12 @@ impl PolicyQuestion {
     /// Iterate all 7 questions in canonical order.
     pub fn all() -> [PolicyQuestion; 7] {
         [
-            PolicyQuestion::ModelSeesContext, PolicyQuestion::AgentUsesTool,
-            PolicyQuestion::WorkflowCallsCloud, PolicyQuestion::SandboxAccessesNetwork,
-            PolicyQuestion::MemoryWriteAllowed, PolicyQuestion::ActionMutatesFiles,
+            PolicyQuestion::ModelSeesContext,
+            PolicyQuestion::AgentUsesTool,
+            PolicyQuestion::WorkflowCallsCloud,
+            PolicyQuestion::SandboxAccessesNetwork,
+            PolicyQuestion::MemoryWriteAllowed,
+            PolicyQuestion::ActionMutatesFiles,
             PolicyQuestion::ResultCommitted,
         ]
     }
@@ -199,7 +202,8 @@ impl PolicyAnswerSet {
 
     /// List the questions that returned No (or all if any_no=false returns empty).
     pub fn refused_questions(&self) -> Vec<PolicyQuestion> {
-        self.answers.iter()
+        self.answers
+            .iter()
             .filter(|a| a.answer == AnswerOutcome::No)
             .map(|a| a.question)
             .collect()
@@ -207,12 +211,19 @@ impl PolicyAnswerSet {
 }
 
 /// Validate the two doctrine constants.
-pub fn assert_doctrines_intact(agent_req: &str, sovereignty: &str) -> Result<(), PolicyQuestionError> {
+pub fn assert_doctrines_intact(
+    agent_req: &str,
+    sovereignty: &str,
+) -> Result<(), PolicyQuestionError> {
     if agent_req != DOCTRINE_AGENT_REQUIREMENT {
-        return Err(PolicyQuestionError::DoctrineTampered { expected: DOCTRINE_AGENT_REQUIREMENT.into() });
+        return Err(PolicyQuestionError::DoctrineTampered {
+            expected: DOCTRINE_AGENT_REQUIREMENT.into(),
+        });
     }
     if sovereignty != DOCTRINE_THAT_IS_SOVEREIGNTY {
-        return Err(PolicyQuestionError::DoctrineTampered { expected: DOCTRINE_THAT_IS_SOVEREIGNTY.into() });
+        return Err(PolicyQuestionError::DoctrineTampered {
+            expected: DOCTRINE_THAT_IS_SOVEREIGNTY.into(),
+        });
     }
     Ok(())
 }
@@ -232,7 +243,10 @@ mod tests {
     fn all_yes_set() -> PolicyAnswerSet {
         PolicyAnswerSet {
             schema_version: SCHEMA_VERSION.into(),
-            answers: PolicyQuestion::all().into_iter().map(|q| answer(q, AnswerOutcome::Yes)).collect(),
+            answers: PolicyQuestion::all()
+                .into_iter()
+                .map(|q| answer(q, AnswerOutcome::Yes))
+                .collect(),
         }
     }
 
@@ -241,9 +255,12 @@ mod tests {
     #[test]
     fn seven_questions_positioned_1_to_7() {
         for (q, p) in [
-            (PolicyQuestion::ModelSeesContext, 1), (PolicyQuestion::AgentUsesTool, 2),
-            (PolicyQuestion::WorkflowCallsCloud, 3), (PolicyQuestion::SandboxAccessesNetwork, 4),
-            (PolicyQuestion::MemoryWriteAllowed, 5), (PolicyQuestion::ActionMutatesFiles, 6),
+            (PolicyQuestion::ModelSeesContext, 1),
+            (PolicyQuestion::AgentUsesTool, 2),
+            (PolicyQuestion::WorkflowCallsCloud, 3),
+            (PolicyQuestion::SandboxAccessesNetwork, 4),
+            (PolicyQuestion::MemoryWriteAllowed, 5),
+            (PolicyQuestion::ActionMutatesFiles, 6),
             (PolicyQuestion::ResultCommitted, 7),
         ] {
             assert_eq!(q.position(), p);
@@ -252,13 +269,34 @@ mod tests {
 
     #[test]
     fn seven_questions_text_verbatim() {
-        assert_eq!(PolicyQuestion::ModelSeesContext.text(), "Can this model see this context?");
-        assert_eq!(PolicyQuestion::AgentUsesTool.text(), "Can this agent use this tool?");
-        assert_eq!(PolicyQuestion::WorkflowCallsCloud.text(), "Can this workflow call cloud?");
-        assert_eq!(PolicyQuestion::SandboxAccessesNetwork.text(), "Can this sandbox access network?");
-        assert_eq!(PolicyQuestion::MemoryWriteAllowed.text(), "Can this memory be written?");
-        assert_eq!(PolicyQuestion::ActionMutatesFiles.text(), "Can this action mutate files?");
-        assert_eq!(PolicyQuestion::ResultCommitted.text(), "Can this result be committed?");
+        assert_eq!(
+            PolicyQuestion::ModelSeesContext.text(),
+            "Can this model see this context?"
+        );
+        assert_eq!(
+            PolicyQuestion::AgentUsesTool.text(),
+            "Can this agent use this tool?"
+        );
+        assert_eq!(
+            PolicyQuestion::WorkflowCallsCloud.text(),
+            "Can this workflow call cloud?"
+        );
+        assert_eq!(
+            PolicyQuestion::SandboxAccessesNetwork.text(),
+            "Can this sandbox access network?"
+        );
+        assert_eq!(
+            PolicyQuestion::MemoryWriteAllowed.text(),
+            "Can this memory be written?"
+        );
+        assert_eq!(
+            PolicyQuestion::ActionMutatesFiles.text(),
+            "Can this action mutate files?"
+        );
+        assert_eq!(
+            PolicyQuestion::ResultCommitted.text(),
+            "Can this result be committed?"
+        );
     }
 
     #[test]
@@ -281,24 +319,31 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = all_yes_set();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), PolicyQuestionError::SchemaMismatch { .. }));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            PolicyQuestionError::SchemaMismatch { .. }
+        ));
     }
 
     #[test]
     fn answer_count_invalid_rejected() {
         let mut s = all_yes_set();
         s.answers.pop();
-        assert!(matches!(s.validate().unwrap_err(), PolicyQuestionError::AnswerCountInvalid(6)));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            PolicyQuestionError::AnswerCountInvalid(6)
+        ));
     }
 
     #[test]
     fn missing_question_caught_when_replaced() {
         let mut s = all_yes_set();
-        s.answers[0] = answer(PolicyQuestion::AgentUsesTool, AnswerOutcome::Yes);  // replace Q1 with Q2 dup
+        s.answers[0] = answer(PolicyQuestion::AgentUsesTool, AnswerOutcome::Yes); // replace Q1 with Q2 dup
         let err = s.validate().unwrap_err();
-        assert!(matches!(err,
+        assert!(matches!(
+            err,
             PolicyQuestionError::QuestionMissing(PolicyQuestion::ModelSeesContext)
-            | PolicyQuestionError::DuplicateQuestion(PolicyQuestion::AgentUsesTool)
+                | PolicyQuestionError::DuplicateQuestion(PolicyQuestion::AgentUsesTool)
         ));
     }
 
@@ -335,7 +380,10 @@ mod tests {
 
     #[test]
     fn doctrines_verbatim() {
-        assert_eq!(DOCTRINE_AGENT_REQUIREMENT, "Can subject do action on object for this intent under this profile?");
+        assert_eq!(
+            DOCTRINE_AGENT_REQUIREMENT,
+            "Can subject do action on object for this intent under this profile?"
+        );
         assert_eq!(DOCTRINE_THAT_IS_SOVEREIGNTY, "That is sovereignty");
         assert_doctrines_intact(DOCTRINE_AGENT_REQUIREMENT, DOCTRINE_THAT_IS_SOVEREIGNTY).unwrap();
     }
@@ -352,15 +400,30 @@ mod tests {
 
     #[test]
     fn policy_question_serde_kebab() {
-        assert_eq!(serde_json::to_string(&PolicyQuestion::WorkflowCallsCloud).unwrap(), "\"workflow-calls-cloud\"");
-        assert_eq!(serde_json::to_string(&PolicyQuestion::SandboxAccessesNetwork).unwrap(), "\"sandbox-accesses-network\"");
-        assert_eq!(serde_json::to_string(&PolicyQuestion::ResultCommitted).unwrap(), "\"result-committed\"");
+        assert_eq!(
+            serde_json::to_string(&PolicyQuestion::WorkflowCallsCloud).unwrap(),
+            "\"workflow-calls-cloud\""
+        );
+        assert_eq!(
+            serde_json::to_string(&PolicyQuestion::SandboxAccessesNetwork).unwrap(),
+            "\"sandbox-accesses-network\""
+        );
+        assert_eq!(
+            serde_json::to_string(&PolicyQuestion::ResultCommitted).unwrap(),
+            "\"result-committed\""
+        );
     }
 
     #[test]
     fn answer_outcome_serde_kebab() {
-        assert_eq!(serde_json::to_string(&AnswerOutcome::Ask).unwrap(), "\"ask\"");
-        assert_eq!(serde_json::to_string(&AnswerOutcome::Yes).unwrap(), "\"yes\"");
+        assert_eq!(
+            serde_json::to_string(&AnswerOutcome::Ask).unwrap(),
+            "\"ask\""
+        );
+        assert_eq!(
+            serde_json::to_string(&AnswerOutcome::Yes).unwrap(),
+            "\"yes\""
+        );
         assert_eq!(serde_json::to_string(&AnswerOutcome::No).unwrap(), "\"no\"");
     }
 

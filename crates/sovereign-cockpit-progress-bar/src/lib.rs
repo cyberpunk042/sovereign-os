@@ -93,7 +93,9 @@ pub enum ProgressError {
 impl ProgressBar {
     /// Determinate constructor.
     pub fn determinate(progress: u8) -> Result<Self, ProgressError> {
-        if progress > 100 { return Err(ProgressError::ProgressOutOfRange(progress)); }
+        if progress > 100 {
+            return Err(ProgressError::ProgressOutOfRange(progress));
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             mode: Mode::Determinate,
@@ -120,16 +122,22 @@ impl ProgressBar {
 
     /// Set progress (clamped 0..=100). Indeterminate becomes Determinate.
     pub fn set_progress(&mut self, p: u8) -> Result<(), ProgressError> {
-        if p > 100 { return Err(ProgressError::ProgressOutOfRange(p)); }
+        if p > 100 {
+            return Err(ProgressError::ProgressOutOfRange(p));
+        }
         self.mode = Mode::Determinate;
         self.progress = p;
-        if self.buffered < p { self.buffered = p; }
+        if self.buffered < p {
+            self.buffered = p;
+        }
         Ok(())
     }
 
     /// Set buffered head.
     pub fn set_buffered(&mut self, b: u8) -> Result<(), ProgressError> {
-        if b > 100 { return Err(ProgressError::BufferedOutOfRange(b)); }
+        if b > 100 {
+            return Err(ProgressError::BufferedOutOfRange(b));
+        }
         if b < self.progress {
             return Err(ProgressError::BufferedBehindProgress {
                 buffered: b,
@@ -146,13 +154,21 @@ impl ProgressBar {
             return Zone::Normal;
         }
         if self.critical_above {
-            if self.progress >= self.critical_pct { Zone::Critical }
-            else if self.progress >= self.warn_pct { Zone::Warn }
-            else { Zone::Normal }
+            if self.progress >= self.critical_pct {
+                Zone::Critical
+            } else if self.progress >= self.warn_pct {
+                Zone::Warn
+            } else {
+                Zone::Normal
+            }
         } else {
-            if self.progress <= self.critical_pct { Zone::Critical }
-            else if self.progress <= self.warn_pct { Zone::Warn }
-            else { Zone::Normal }
+            if self.progress <= self.critical_pct {
+                Zone::Critical
+            } else if self.progress <= self.warn_pct {
+                Zone::Warn
+            } else {
+                Zone::Normal
+            }
         }
     }
 
@@ -161,8 +177,12 @@ impl ProgressBar {
         if self.schema_version != SCHEMA_VERSION {
             return Err(ProgressError::SchemaMismatch);
         }
-        if self.progress > 100 { return Err(ProgressError::ProgressOutOfRange(self.progress)); }
-        if self.buffered > 100 { return Err(ProgressError::BufferedOutOfRange(self.buffered)); }
+        if self.progress > 100 {
+            return Err(ProgressError::ProgressOutOfRange(self.progress));
+        }
+        if self.buffered > 100 {
+            return Err(ProgressError::BufferedOutOfRange(self.buffered));
+        }
         if self.buffered < self.progress {
             return Err(ProgressError::BufferedBehindProgress {
                 buffered: self.buffered,
@@ -210,7 +230,10 @@ mod tests {
 
     #[test]
     fn determinate_over_range_rejected() {
-        assert!(matches!(ProgressBar::determinate(150).unwrap_err(), ProgressError::ProgressOutOfRange(150)));
+        assert!(matches!(
+            ProgressBar::determinate(150).unwrap_err(),
+            ProgressError::ProgressOutOfRange(150)
+        ));
     }
 
     #[test]
@@ -255,7 +278,10 @@ mod tests {
     #[test]
     fn buffered_behind_progress_rejected() {
         let mut p = ProgressBar::determinate(50).unwrap();
-        assert!(matches!(p.set_buffered(30).unwrap_err(), ProgressError::BufferedBehindProgress { .. }));
+        assert!(matches!(
+            p.set_buffered(30).unwrap_err(),
+            ProgressError::BufferedBehindProgress { .. }
+        ));
     }
 
     #[test]
@@ -271,7 +297,10 @@ mod tests {
         p.warn_pct = 95;
         p.critical_pct = 80;
         p.critical_above = true;
-        assert!(matches!(p.validate().unwrap_err(), ProgressError::BadThresholds { .. }));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            ProgressError::BadThresholds { .. }
+        ));
     }
 
     #[test]
@@ -280,20 +309,32 @@ mod tests {
         p.warn_pct = 10;
         p.critical_pct = 25;
         p.critical_above = false;
-        assert!(matches!(p.validate().unwrap_err(), ProgressError::BadThresholds { .. }));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            ProgressError::BadThresholds { .. }
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut p = ProgressBar::determinate(50).unwrap();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), ProgressError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            ProgressError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn mode_serde_kebab() {
-        assert_eq!(serde_json::to_string(&Mode::Indeterminate).unwrap(), "\"indeterminate\"");
-        assert_eq!(serde_json::to_string(&Zone::Critical).unwrap(), "\"critical\"");
+        assert_eq!(
+            serde_json::to_string(&Mode::Indeterminate).unwrap(),
+            "\"indeterminate\""
+        );
+        assert_eq!(
+            serde_json::to_string(&Zone::Critical).unwrap(),
+            "\"critical\""
+        );
     }
 
     #[test]

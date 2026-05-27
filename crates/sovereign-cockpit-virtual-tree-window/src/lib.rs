@@ -44,7 +44,9 @@ pub enum WindowError {
 impl VirtualTreeWindow {
     /// New.
     pub fn new(window: u64) -> Result<Self, WindowError> {
-        if window == 0 { return Err(WindowError::ZeroWindow); }
+        if window == 0 {
+            return Err(WindowError::ZeroWindow);
+        }
         Ok(Self {
             schema_version_marker: 1,
             total_rows: 0,
@@ -58,7 +60,11 @@ impl VirtualTreeWindow {
         self.total_rows = n;
         // Snap if window would extend past end (but keep first ≥ 0).
         if self.first_visible >= n.max(1) {
-            self.first_visible = if n == 0 { 0 } else { n.saturating_sub(self.window) };
+            self.first_visible = if n == 0 {
+                0
+            } else {
+                n.saturating_sub(self.window)
+            };
         }
     }
 
@@ -84,7 +90,9 @@ impl VirtualTreeWindow {
 
     /// Last visible row (exclusive).
     pub fn end_visible(&self) -> u64 {
-        self.first_visible.saturating_add(self.window).min(self.total_rows)
+        self.first_visible
+            .saturating_add(self.window)
+            .min(self.total_rows)
     }
 
     /// Is row in window?
@@ -113,8 +121,12 @@ impl VirtualTreeWindow {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), WindowError> {
-        if self.schema_version_marker != 1 { return Err(WindowError::SchemaMismatch); }
-        if self.window == 0 { return Err(WindowError::ZeroWindow); }
+        if self.schema_version_marker != 1 {
+            return Err(WindowError::SchemaMismatch);
+        }
+        if self.window == 0 {
+            return Err(WindowError::ZeroWindow);
+        }
         Ok(())
     }
 }
@@ -186,14 +198,20 @@ mod tests {
 
     #[test]
     fn zero_window_rejected() {
-        assert!(matches!(VirtualTreeWindow::new(0).unwrap_err(), WindowError::ZeroWindow));
+        assert!(matches!(
+            VirtualTreeWindow::new(0).unwrap_err(),
+            WindowError::ZeroWindow
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut w = VirtualTreeWindow::new(10).unwrap();
         w.schema_version_marker = 99;
-        assert!(matches!(w.validate().unwrap_err(), WindowError::SchemaMismatch));
+        assert!(matches!(
+            w.validate().unwrap_err(),
+            WindowError::SchemaMismatch
+        ));
     }
 
     #[test]

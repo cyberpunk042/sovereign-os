@@ -83,14 +83,22 @@ impl CommentThread {
 
     /// Add a comment.
     pub fn add(&mut self, c: Comment) -> Result<(), CommentError> {
-        if c.id.is_empty() { return Err(CommentError::EmptyId); }
-        if c.author.is_empty() { return Err(CommentError::EmptyAuthor); }
-        if c.body.is_empty() { return Err(CommentError::EmptyBody); }
+        if c.id.is_empty() {
+            return Err(CommentError::EmptyId);
+        }
+        if c.author.is_empty() {
+            return Err(CommentError::EmptyAuthor);
+        }
+        if c.body.is_empty() {
+            return Err(CommentError::EmptyBody);
+        }
         if self.comments.contains_key(&c.id) {
             return Err(CommentError::Duplicate(c.id));
         }
         if let Some(parent) = &c.in_reply_to {
-            if *parent == c.id { return Err(CommentError::SelfReply); }
+            if *parent == c.id {
+                return Err(CommentError::SelfReply);
+            }
             if !self.comments.contains_key(parent) {
                 return Err(CommentError::ParentMissing(parent.clone()));
             }
@@ -101,7 +109,10 @@ impl CommentThread {
 
     /// Resolve.
     pub fn resolve(&mut self, id: &str) -> Result<(), CommentError> {
-        let c = self.comments.get_mut(id).ok_or_else(|| CommentError::Unknown(id.into()))?;
+        let c = self
+            .comments
+            .get_mut(id)
+            .ok_or_else(|| CommentError::Unknown(id.into()))?;
         c.resolved = true;
         Ok(())
     }
@@ -109,33 +120,51 @@ impl CommentThread {
     /// Tree-ordered outline (depth-first by posted_at).
     pub fn outline(&self) -> Vec<Comment> {
         // Top-level (no parent), sorted by posted_at.
-        let mut top: Vec<&Comment> = self.comments.values()
+        let mut top: Vec<&Comment> = self
+            .comments
+            .values()
             .filter(|c| c.in_reply_to.is_none())
             .collect();
         top.sort_by_key(|c| c.posted_at_ms);
         let mut out = Vec::with_capacity(self.comments.len());
-        for c in top { self.walk_subtree(c, &mut out); }
+        for c in top {
+            self.walk_subtree(c, &mut out);
+        }
         out
     }
 
     fn walk_subtree(&self, c: &Comment, out: &mut Vec<Comment>) {
         out.push(c.clone());
-        let mut children: Vec<&Comment> = self.comments.values()
+        let mut children: Vec<&Comment> = self
+            .comments
+            .values()
             .filter(|x| x.in_reply_to.as_deref() == Some(c.id.as_str()))
             .collect();
         children.sort_by_key(|x| x.posted_at_ms);
-        for child in children { self.walk_subtree(child, out); }
+        for child in children {
+            self.walk_subtree(child, out);
+        }
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), CommentError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(CommentError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(CommentError::SchemaMismatch);
+        }
         for c in self.comments.values() {
-            if c.id.is_empty() { return Err(CommentError::EmptyId); }
-            if c.author.is_empty() { return Err(CommentError::EmptyAuthor); }
-            if c.body.is_empty() { return Err(CommentError::EmptyBody); }
+            if c.id.is_empty() {
+                return Err(CommentError::EmptyId);
+            }
+            if c.author.is_empty() {
+                return Err(CommentError::EmptyAuthor);
+            }
+            if c.body.is_empty() {
+                return Err(CommentError::EmptyBody);
+            }
             if let Some(p) = &c.in_reply_to {
-                if !self.comments.contains_key(p) { return Err(CommentError::ParentMissing(p.clone())); }
+                if !self.comments.contains_key(p) {
+                    return Err(CommentError::ParentMissing(p.clone()));
+                }
             }
         }
         Ok(())
@@ -143,7 +172,9 @@ impl CommentThread {
 }
 
 impl Default for CommentThread {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -171,7 +202,10 @@ mod tests {
     #[test]
     fn parent_must_exist() {
         let mut t = CommentThread::new();
-        assert!(matches!(t.add(comment("c2", Some("missing"), 0)).unwrap_err(), CommentError::ParentMissing(_)));
+        assert!(matches!(
+            t.add(comment("c2", Some("missing"), 0)).unwrap_err(),
+            CommentError::ParentMissing(_)
+        ));
     }
 
     #[test]
@@ -188,7 +222,10 @@ mod tests {
     #[test]
     fn self_reply_rejected() {
         let mut t = CommentThread::new();
-        assert!(matches!(t.add(comment("c1", Some("c1"), 0)).unwrap_err(), CommentError::SelfReply));
+        assert!(matches!(
+            t.add(comment("c1", Some("c1"), 0)).unwrap_err(),
+            CommentError::SelfReply
+        ));
     }
 
     #[test]
@@ -203,7 +240,10 @@ mod tests {
     fn duplicate_rejected() {
         let mut t = CommentThread::new();
         t.add(comment("c1", None, 0)).unwrap();
-        assert!(matches!(t.add(comment("c1", None, 1)).unwrap_err(), CommentError::Duplicate(_)));
+        assert!(matches!(
+            t.add(comment("c1", None, 1)).unwrap_err(),
+            CommentError::Duplicate(_)
+        ));
     }
 
     #[test]
@@ -221,7 +261,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut t = CommentThread::new();
         t.schema_version = "9.9.9".into();
-        assert!(matches!(t.validate().unwrap_err(), CommentError::SchemaMismatch));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            CommentError::SchemaMismatch
+        ));
     }
 
     #[test]

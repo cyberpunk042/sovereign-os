@@ -71,7 +71,9 @@ impl FuzzyRanker {
     /// Rank candidates by query.
     pub fn rank(query: &str, candidates: &[Candidate]) -> Result<Ranking, FuzzyError> {
         check_candidates(candidates)?;
-        let mut scores: Vec<(usize, Score)> = candidates.iter().enumerate()
+        let mut scores: Vec<(usize, Score)> = candidates
+            .iter()
+            .enumerate()
             .map(|(i, c)| (i, score_one(query, &c.id, &c.text)))
             .collect();
         scores.sort_by(|(ia, a), (ib, b)| b.score.cmp(&a.score).then(ia.cmp(ib)));
@@ -99,7 +101,9 @@ fn score_one(query: &str, id: &str, text: &str) -> Score {
     let mut score: i32 = 0;
     let mut last_match: Option<usize> = None;
     for (i, &b) in h_bytes.iter().enumerate() {
-        if qi >= q_bytes.len() { break; }
+        if qi >= q_bytes.len() {
+            break;
+        }
         if b.to_ascii_lowercase() == q_bytes[qi] {
             score += 10;
             // Consecutive bonus.
@@ -129,14 +133,21 @@ fn score_one(query: &str, id: &str, text: &str) -> Score {
         score = 0;
         positions.clear();
     }
-    Score { id: id.into(), score, matched_all, positions }
+    Score {
+        id: id.into(),
+        score,
+        matched_all,
+        positions,
+    }
 }
 
 fn check_candidates(c: &[Candidate]) -> Result<(), FuzzyError> {
     use std::collections::HashSet;
     let mut seen: HashSet<&str> = HashSet::new();
     for x in c {
-        if x.id.is_empty() { return Err(FuzzyError::EmptyId); }
+        if x.id.is_empty() {
+            return Err(FuzzyError::EmptyId);
+        }
         if !seen.insert(x.id.as_str()) {
             return Err(FuzzyError::DuplicateId(x.id.clone()));
         }
@@ -159,7 +170,10 @@ mod tests {
     use super::*;
 
     fn c(id: &str, text: &str) -> Candidate {
-        Candidate { id: id.into(), text: text.into() }
+        Candidate {
+            id: id.into(),
+            text: text.into(),
+        }
     }
 
     #[test]
@@ -235,7 +249,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut r = FuzzyRanker::rank("x", &[c("a", "x")]).unwrap();
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate().unwrap_err(), FuzzyError::SchemaMismatch));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            FuzzyError::SchemaMismatch
+        ));
     }
 
     #[test]

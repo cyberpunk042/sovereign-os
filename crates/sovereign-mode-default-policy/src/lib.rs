@@ -9,9 +9,9 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+use serde::{Deserialize, Serialize};
 use sovereign_execution_mode_registry::ExecutionMode;
 use sovereign_profile_bundles::BundleName;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// Schema version.
@@ -55,16 +55,33 @@ pub enum DefaultError {
     },
 }
 
-const REQUIRED: [BundleName; 4] = [BundleName::Private, BundleName::Careful, BundleName::Fast, BundleName::Sovereign];
+const REQUIRED: [BundleName; 4] = [
+    BundleName::Private,
+    BundleName::Careful,
+    BundleName::Fast,
+    BundleName::Sovereign,
+];
 
 impl ModeDefaultPolicy {
     /// Canonical mapping.
     pub fn canonical() -> Self {
         let mappings = vec![
-            BundleDefault { bundle: BundleName::Private,   mode: ExecutionMode::Plan },
-            BundleDefault { bundle: BundleName::Careful,   mode: ExecutionMode::DryRun },
-            BundleDefault { bundle: BundleName::Fast,      mode: ExecutionMode::Execute },
-            BundleDefault { bundle: BundleName::Sovereign, mode: ExecutionMode::Execute },
+            BundleDefault {
+                bundle: BundleName::Private,
+                mode: ExecutionMode::Plan,
+            },
+            BundleDefault {
+                bundle: BundleName::Careful,
+                mode: ExecutionMode::DryRun,
+            },
+            BundleDefault {
+                bundle: BundleName::Fast,
+                mode: ExecutionMode::Execute,
+            },
+            BundleDefault {
+                bundle: BundleName::Sovereign,
+                mode: ExecutionMode::Execute,
+            },
         ];
         Self {
             schema_version: SCHEMA_VERSION.into(),
@@ -95,7 +112,10 @@ impl ModeDefaultPolicy {
 
     /// Lookup landing mode for a bundle.
     pub fn landing_mode(&self, bundle: BundleName) -> Option<ExecutionMode> {
-        self.mappings.iter().find(|m| m.bundle == bundle).map(|m| m.mode)
+        self.mappings
+            .iter()
+            .find(|m| m.bundle == bundle)
+            .map(|m| m.mode)
     }
 }
 
@@ -111,25 +131,37 @@ mod tests {
     #[test]
     fn private_lands_in_plan() {
         let p = ModeDefaultPolicy::canonical();
-        assert_eq!(p.landing_mode(BundleName::Private), Some(ExecutionMode::Plan));
+        assert_eq!(
+            p.landing_mode(BundleName::Private),
+            Some(ExecutionMode::Plan)
+        );
     }
 
     #[test]
     fn careful_lands_in_dry_run() {
         let p = ModeDefaultPolicy::canonical();
-        assert_eq!(p.landing_mode(BundleName::Careful), Some(ExecutionMode::DryRun));
+        assert_eq!(
+            p.landing_mode(BundleName::Careful),
+            Some(ExecutionMode::DryRun)
+        );
     }
 
     #[test]
     fn fast_lands_in_execute() {
         let p = ModeDefaultPolicy::canonical();
-        assert_eq!(p.landing_mode(BundleName::Fast), Some(ExecutionMode::Execute));
+        assert_eq!(
+            p.landing_mode(BundleName::Fast),
+            Some(ExecutionMode::Execute)
+        );
     }
 
     #[test]
     fn sovereign_lands_in_execute() {
         let p = ModeDefaultPolicy::canonical();
-        assert_eq!(p.landing_mode(BundleName::Sovereign), Some(ExecutionMode::Execute));
+        assert_eq!(
+            p.landing_mode(BundleName::Sovereign),
+            Some(ExecutionMode::Execute)
+        );
     }
 
     #[test]
@@ -148,14 +180,20 @@ mod tests {
     fn schema_drift_rejected() {
         let mut p = ModeDefaultPolicy::canonical();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), DefaultError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            DefaultError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn count_invalid_caught() {
         let mut p = ModeDefaultPolicy::canonical();
         p.mappings.pop();
-        assert!(matches!(p.validate().unwrap_err(), DefaultError::CountInvalid(3)));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            DefaultError::CountInvalid(3)
+        ));
     }
 
     #[test]
@@ -163,9 +201,14 @@ mod tests {
         let mut p = ModeDefaultPolicy::canonical();
         // Replace Careful with duplicate Private.
         for m in p.mappings.iter_mut() {
-            if m.bundle == BundleName::Careful { m.bundle = BundleName::Private; }
+            if m.bundle == BundleName::Careful {
+                m.bundle = BundleName::Private;
+            }
         }
-        assert!(matches!(p.validate().unwrap_err(), DefaultError::Missing(BundleName::Careful)));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            DefaultError::Missing(BundleName::Careful)
+        ));
     }
 
     #[test]

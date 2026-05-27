@@ -62,7 +62,9 @@ pub enum EtaError {
 impl LoadingEta {
     /// New.
     pub fn new(capacity: u32) -> Result<Self, EtaError> {
-        if capacity == 0 { return Err(EtaError::CapacityZero); }
+        if capacity == 0 {
+            return Err(EtaError::CapacityZero);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             capacity,
@@ -72,13 +74,21 @@ impl LoadingEta {
 
     /// Observe.
     pub fn observe(&mut self, progress_pct: u8, ts_ms: u64) -> Result<(), EtaError> {
-        if progress_pct > 100 { return Err(EtaError::ProgressOver100(progress_pct)); }
+        if progress_pct > 100 {
+            return Err(EtaError::ProgressOver100(progress_pct));
+        }
         if let Some(last) = self.samples.last() {
             if ts_ms < last.ts_ms {
-                return Err(EtaError::NonMonotonic { prev: last.ts_ms, new: ts_ms });
+                return Err(EtaError::NonMonotonic {
+                    prev: last.ts_ms,
+                    new: ts_ms,
+                });
             }
         }
-        self.samples.push(Sample { ts_ms, progress_pct });
+        self.samples.push(Sample {
+            ts_ms,
+            progress_pct,
+        });
         if self.samples.len() as u32 > self.capacity {
             let drop = self.samples.len() - self.capacity as usize;
             self.samples.drain(0..drop);
@@ -88,15 +98,28 @@ impl LoadingEta {
 
     /// ETA.
     pub fn eta_ms(&self, _now_ms: u64) -> Option<u64> {
-        if self.samples.len() < 2 { return None; }
+        if self.samples.len() < 2 {
+            return None;
+        }
         let last = *self.samples.last()?;
-        if last.progress_pct >= 100 { return None; }
+        if last.progress_pct >= 100 {
+            return None;
+        }
         // Find the most recent prior sample with different progress.
-        let prior = self.samples.iter().rev().skip(1).find(|s| s.progress_pct < last.progress_pct)?;
+        let prior = self
+            .samples
+            .iter()
+            .rev()
+            .skip(1)
+            .find(|s| s.progress_pct < last.progress_pct)?;
         let dt = last.ts_ms.checked_sub(prior.ts_ms)?;
-        if dt == 0 { return None; }
+        if dt == 0 {
+            return None;
+        }
         let dpct = (last.progress_pct - prior.progress_pct) as u64;
-        if dpct == 0 { return None; }
+        if dpct == 0 {
+            return None;
+        }
         let remaining_pct = (100 - last.progress_pct) as u64;
         // remaining_ms = dt * remaining_pct / dpct
         Some(dt.saturating_mul(remaining_pct) / dpct)
@@ -104,12 +127,20 @@ impl LoadingEta {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), EtaError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(EtaError::SchemaMismatch); }
-        if self.capacity == 0 { return Err(EtaError::CapacityZero); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(EtaError::SchemaMismatch);
+        }
+        if self.capacity == 0 {
+            return Err(EtaError::CapacityZero);
+        }
         let mut prev = 0u64;
         for s in &self.samples {
-            if s.progress_pct > 100 { return Err(EtaError::ProgressOver100(s.progress_pct)); }
-            if s.ts_ms < prev { return Err(EtaError::NonMonotonic { prev, new: s.ts_ms }); }
+            if s.progress_pct > 100 {
+                return Err(EtaError::ProgressOver100(s.progress_pct));
+            }
+            if s.ts_ms < prev {
+                return Err(EtaError::NonMonotonic { prev, new: s.ts_ms });
+            }
             prev = s.ts_ms;
         }
         Ok(())
@@ -122,7 +153,10 @@ mod tests {
 
     #[test]
     fn capacity_zero_rejected() {
-        assert!(matches!(LoadingEta::new(0).unwrap_err(), EtaError::CapacityZero));
+        assert!(matches!(
+            LoadingEta::new(0).unwrap_err(),
+            EtaError::CapacityZero
+        ));
     }
 
     #[test]
@@ -166,14 +200,20 @@ mod tests {
     #[test]
     fn progress_over_100_rejected() {
         let mut e = LoadingEta::new(8).unwrap();
-        assert!(matches!(e.observe(150, 0).unwrap_err(), EtaError::ProgressOver100(_)));
+        assert!(matches!(
+            e.observe(150, 0).unwrap_err(),
+            EtaError::ProgressOver100(_)
+        ));
     }
 
     #[test]
     fn nonmonotonic_rejected() {
         let mut e = LoadingEta::new(8).unwrap();
         e.observe(20, 1000).unwrap();
-        assert!(matches!(e.observe(30, 500).unwrap_err(), EtaError::NonMonotonic { .. }));
+        assert!(matches!(
+            e.observe(30, 500).unwrap_err(),
+            EtaError::NonMonotonic { .. }
+        ));
     }
 
     #[test]
@@ -190,7 +230,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut e = LoadingEta::new(8).unwrap();
         e.schema_version = "9.9.9".into();
-        assert!(matches!(e.validate().unwrap_err(), EtaError::SchemaMismatch));
+        assert!(matches!(
+            e.validate().unwrap_err(),
+            EtaError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -70,9 +70,19 @@ pub enum CardError {
 
 impl IncidentCard {
     /// New (active card with one observation).
-    pub fn new(id: &str, title: &str, severity: Severity, now_ms: u64, affected: u64) -> Result<Self, CardError> {
-        if id.is_empty() { return Err(CardError::EmptyId); }
-        if title.is_empty() { return Err(CardError::EmptyTitle); }
+    pub fn new(
+        id: &str,
+        title: &str,
+        severity: Severity,
+        now_ms: u64,
+        affected: u64,
+    ) -> Result<Self, CardError> {
+        if id.is_empty() {
+            return Err(CardError::EmptyId);
+        }
+        if title.is_empty() {
+            return Err(CardError::EmptyTitle);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             id: id.into(),
@@ -89,8 +99,12 @@ impl IncidentCard {
     /// Record another occurrence.
     pub fn observe(&mut self, now_ms: u64, affected: u64) {
         self.occurrence_count = self.occurrence_count.saturating_add(1);
-        if now_ms > self.last_seen_ts_ms { self.last_seen_ts_ms = now_ms; }
-        if affected > self.affected_count { self.affected_count = affected; }
+        if now_ms > self.last_seen_ts_ms {
+            self.last_seen_ts_ms = now_ms;
+        }
+        if affected > self.affected_count {
+            self.affected_count = affected;
+        }
         self.resolved_at_ms = 0;
     }
 
@@ -100,19 +114,31 @@ impl IncidentCard {
     }
 
     /// Active?
-    pub fn active(&self) -> bool { self.resolved_at_ms == 0 }
+    pub fn active(&self) -> bool {
+        self.resolved_at_ms == 0
+    }
 
     /// Duration so far in ms (until resolved_at or now passed in).
     pub fn duration_ms(&self, now_ms: u64) -> u64 {
-        let end = if self.resolved_at_ms == 0 { now_ms } else { self.resolved_at_ms };
+        let end = if self.resolved_at_ms == 0 {
+            now_ms
+        } else {
+            self.resolved_at_ms
+        };
         end.saturating_sub(self.first_seen_ts_ms)
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), CardError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(CardError::SchemaMismatch); }
-        if self.id.is_empty() { return Err(CardError::EmptyId); }
-        if self.title.is_empty() { return Err(CardError::EmptyTitle); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(CardError::SchemaMismatch);
+        }
+        if self.id.is_empty() {
+            return Err(CardError::EmptyId);
+        }
+        if self.title.is_empty() {
+            return Err(CardError::EmptyTitle);
+        }
         Ok(())
     }
 }
@@ -169,7 +195,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut c = IncidentCard::new("i", "t", Severity::Info, 0, 0).unwrap();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), CardError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            CardError::SchemaMismatch
+        ));
     }
 
     #[test]

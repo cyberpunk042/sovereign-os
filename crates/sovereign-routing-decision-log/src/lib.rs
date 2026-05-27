@@ -9,10 +9,10 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+use serde::{Deserialize, Serialize};
 use sovereign_execution_mode_registry::ExecutionMode;
 use sovereign_profile_bundles::BundleName;
 use sovereign_provider_catalog::ProviderId;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// Schema version.
@@ -84,9 +84,15 @@ impl RoutingDecisionLog {
 
     /// Append a routing entry.
     pub fn record(&mut self, e: RoutingEntry) -> Result<(), RoutingError> {
-        if e.trace_id.is_empty() { return Err(RoutingError::MissingTraceId); }
-        if e.reason.is_empty() { return Err(RoutingError::MissingReason); }
-        if e.at.is_empty() { return Err(RoutingError::MissingTimestamp); }
+        if e.trace_id.is_empty() {
+            return Err(RoutingError::MissingTraceId);
+        }
+        if e.reason.is_empty() {
+            return Err(RoutingError::MissingReason);
+        }
+        if e.at.is_empty() {
+            return Err(RoutingError::MissingTimestamp);
+        }
         if let Some(last) = self.entries.last() {
             if e.at < last.at {
                 return Err(RoutingError::TimestampRegress {
@@ -102,7 +108,10 @@ impl RoutingDecisionLog {
 
     /// Count entries per provider.
     pub fn count_by_provider(&self, provider: ProviderId) -> usize {
-        self.entries.iter().filter(|e| e.selected_provider == provider).count()
+        self.entries
+            .iter()
+            .filter(|e| e.selected_provider == provider)
+            .count()
     }
 
     /// Most-recent provider.
@@ -117,12 +126,22 @@ impl RoutingDecisionLog {
         }
         let mut prev_at: Option<&str> = None;
         for (idx, e) in self.entries.iter().enumerate() {
-            if e.trace_id.is_empty() { return Err(RoutingError::MissingTraceId); }
-            if e.reason.is_empty() { return Err(RoutingError::MissingReason); }
-            if e.at.is_empty() { return Err(RoutingError::MissingTimestamp); }
+            if e.trace_id.is_empty() {
+                return Err(RoutingError::MissingTraceId);
+            }
+            if e.reason.is_empty() {
+                return Err(RoutingError::MissingReason);
+            }
+            if e.at.is_empty() {
+                return Err(RoutingError::MissingTimestamp);
+            }
             if let Some(p) = prev_at {
                 if e.at.as_str() < p {
-                    return Err(RoutingError::TimestampRegress { idx, at: e.at.clone(), prev: p.into() });
+                    return Err(RoutingError::TimestampRegress {
+                        idx,
+                        at: e.at.clone(),
+                        prev: p.into(),
+                    });
                 }
             }
             prev_at = Some(&e.at);
@@ -132,7 +151,9 @@ impl RoutingDecisionLog {
 }
 
 impl Default for RoutingDecisionLog {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -189,7 +210,10 @@ mod tests {
         let mut l = RoutingDecisionLog::new();
         let mut e = entry(ProviderId::Mock, "t");
         e.trace_id = String::new();
-        assert!(matches!(l.record(e).unwrap_err(), RoutingError::MissingTraceId));
+        assert!(matches!(
+            l.record(e).unwrap_err(),
+            RoutingError::MissingTraceId
+        ));
     }
 
     #[test]
@@ -197,14 +221,20 @@ mod tests {
         let mut l = RoutingDecisionLog::new();
         let mut e = entry(ProviderId::Mock, "t");
         e.reason = String::new();
-        assert!(matches!(l.record(e).unwrap_err(), RoutingError::MissingReason));
+        assert!(matches!(
+            l.record(e).unwrap_err(),
+            RoutingError::MissingReason
+        ));
     }
 
     #[test]
     fn timestamp_regression_rejected() {
         let mut l = RoutingDecisionLog::new();
-        l.record(entry(ProviderId::Mock, "2026-05-19T03:00:05Z")).unwrap();
-        let err = l.record(entry(ProviderId::Mock, "2026-05-19T03:00:00Z")).unwrap_err();
+        l.record(entry(ProviderId::Mock, "2026-05-19T03:00:05Z"))
+            .unwrap();
+        let err = l
+            .record(entry(ProviderId::Mock, "2026-05-19T03:00:00Z"))
+            .unwrap_err();
         assert!(matches!(err, RoutingError::TimestampRegress { .. }));
     }
 
@@ -212,7 +242,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut l = RoutingDecisionLog::new();
         l.schema_version = "9.9.9".into();
-        assert!(matches!(l.validate().unwrap_err(), RoutingError::SchemaMismatch));
+        assert!(matches!(
+            l.validate().unwrap_err(),
+            RoutingError::SchemaMismatch
+        ));
     }
 
     #[test]

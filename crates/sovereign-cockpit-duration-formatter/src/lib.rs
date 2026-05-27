@@ -56,7 +56,9 @@ const MS_PER_D: u64 = 86_400_000;
 impl DurationFormatter {
     /// New.
     pub fn new(style: Style, max_units: u8) -> Result<Self, FormatError> {
-        if max_units == 0 || max_units > 5 { return Err(FormatError::BadMaxUnits); }
+        if max_units == 0 || max_units > 5 {
+            return Err(FormatError::BadMaxUnits);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             style,
@@ -88,8 +90,12 @@ impl DurationFormatter {
         let mut out_long: Vec<String> = Vec::new();
         let mut emitted = 0u8;
         for (val, short, sing, plur) in parts.iter() {
-            if *val == 0 { continue; }
-            if emitted >= self.max_units { break; }
+            if *val == 0 {
+                continue;
+            }
+            if emitted >= self.max_units {
+                break;
+            }
             match self.style {
                 Style::Compact => {
                     out_compact.push_str(&format!("{}{}", val, short));
@@ -109,8 +115,12 @@ impl DurationFormatter {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), FormatError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(FormatError::SchemaMismatch); }
-        if self.max_units == 0 || self.max_units > 5 { return Err(FormatError::BadMaxUnits); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(FormatError::SchemaMismatch);
+        }
+        if self.max_units == 0 || self.max_units > 5 {
+            return Err(FormatError::BadMaxUnits);
+        }
         Ok(())
     }
 }
@@ -171,15 +181,24 @@ mod tests {
 
     #[test]
     fn bad_max_units_rejected() {
-        assert!(matches!(DurationFormatter::new(Style::Compact, 0).unwrap_err(), FormatError::BadMaxUnits));
-        assert!(matches!(DurationFormatter::new(Style::Compact, 6).unwrap_err(), FormatError::BadMaxUnits));
+        assert!(matches!(
+            DurationFormatter::new(Style::Compact, 0).unwrap_err(),
+            FormatError::BadMaxUnits
+        ));
+        assert!(matches!(
+            DurationFormatter::new(Style::Compact, 6).unwrap_err(),
+            FormatError::BadMaxUnits
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut f = DurationFormatter::new(Style::Compact, 3).unwrap();
         f.schema_version = "9.9.9".into();
-        assert!(matches!(f.validate().unwrap_err(), FormatError::SchemaMismatch));
+        assert!(matches!(
+            f.validate().unwrap_err(),
+            FormatError::SchemaMismatch
+        ));
     }
 
     #[test]

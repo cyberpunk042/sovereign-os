@@ -65,7 +65,9 @@ pub enum StaleError {
 impl StaleBanner {
     /// New (last_refresh = 0 means never refreshed; status returns VeryStale).
     pub fn new(max_fresh_ms: u64) -> Result<Self, StaleError> {
-        if max_fresh_ms == 0 { return Err(StaleError::MaxFreshZero); }
+        if max_fresh_ms == 0 {
+            return Err(StaleError::MaxFreshZero);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             last_refresh_ms: 0,
@@ -109,18 +111,26 @@ impl StaleBanner {
         if self.schema_version != SCHEMA_VERSION {
             return Err(StaleError::SchemaMismatch);
         }
-        if self.max_fresh_ms == 0 { return Err(StaleError::MaxFreshZero); }
+        if self.max_fresh_ms == 0 {
+            return Err(StaleError::MaxFreshZero);
+        }
         Ok(())
     }
 }
 
 fn format_age(ms: u64) -> String {
     let s = ms / 1000;
-    if s < 60 { return format!("{s}s"); }
+    if s < 60 {
+        return format!("{s}s");
+    }
     let m = s / 60;
-    if m < 60 { return format!("{m}m"); }
+    if m < 60 {
+        return format!("{m}m");
+    }
     let h = m / 60;
-    if h < 24 { return format!("{h}h"); }
+    if h < 24 {
+        return format!("{h}h");
+    }
     let d = h / 24;
     format!("{d}d")
 }
@@ -131,7 +141,10 @@ mod tests {
 
     #[test]
     fn max_fresh_zero_rejected() {
-        assert!(matches!(StaleBanner::new(0).unwrap_err(), StaleError::MaxFreshZero));
+        assert!(matches!(
+            StaleBanner::new(0).unwrap_err(),
+            StaleError::MaxFreshZero
+        ));
     }
 
     #[test]
@@ -199,7 +212,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut b = StaleBanner::new(1_000).unwrap();
         b.schema_version = "9.9.9".into();
-        assert!(matches!(b.validate().unwrap_err(), StaleError::SchemaMismatch));
+        assert!(matches!(
+            b.validate().unwrap_err(),
+            StaleError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -46,28 +46,28 @@ impl BundleName {
     pub fn features(self) -> [&'static str; 4] {
         match self {
             BundleName::Private => [
-                "local models",        // R07118
-                "no network",          // R07119
-                "no cloud",            // R07120
-                "sandbox tools",       // R07121
+                "local models",  // R07118
+                "no network",    // R07119
+                "no cloud",      // R07120
+                "sandbox tools", // R07121
             ],
             BundleName::Careful => [
-                "map first",           // R07122
-                "spec required",       // R07123
-                "tests required",      // R07124
-                "oracle review",       // R07125
+                "map first",      // R07122
+                "spec required",  // R07123
+                "tests required", // R07124
+                "oracle review",  // R07125
             ],
             BundleName::Fast => [
-                "scout first",         // R07126
-                "shallow map",         // R07127
-                "minimal verification",// R07128
-                "",                    // (only 3 listed; 4th slot reserved)
+                "scout first",          // R07126
+                "shallow map",          // R07127
+                "minimal verification", // R07128
+                "",                     // (only 3 listed; 4th slot reserved)
             ],
             BundleName::Sovereign => [
-                "user-visible gates",  // R07129
-                "local memory ownership", // R07130
+                "user-visible gates",      // R07129
+                "local memory ownership",  // R07130
                 "explicit external calls", // R07131
-                "replay always on",    // R07132
+                "replay always on",        // R07132
             ],
         }
     }
@@ -125,13 +125,18 @@ impl BundleCatalog {
     /// Construct canonical empty catalog — all 4 selectable, active=Private.
     pub fn empty_canonical() -> Self {
         let bundles = [
-            BundleName::Private, BundleName::Careful,
-            BundleName::Fast, BundleName::Sovereign,
-        ].into_iter().map(|b| BundleEntry {
+            BundleName::Private,
+            BundleName::Careful,
+            BundleName::Fast,
+            BundleName::Sovereign,
+        ]
+        .into_iter()
+        .map(|b| BundleEntry {
             bundle: b,
             selectable: true,
             features: b.features().iter().map(|s| s.to_string()).collect(),
-        }).collect();
+        })
+        .collect();
         Self {
             schema_version: SCHEMA_VERSION.into(),
             bundles,
@@ -147,7 +152,12 @@ impl BundleCatalog {
         if self.bundles.len() != 4 {
             return Err(BundleError::CountInvalid(self.bundles.len()));
         }
-        let required = [BundleName::Private, BundleName::Careful, BundleName::Fast, BundleName::Sovereign];
+        let required = [
+            BundleName::Private,
+            BundleName::Careful,
+            BundleName::Fast,
+            BundleName::Sovereign,
+        ];
         for b in required {
             if !self.bundles.iter().any(|e| e.bundle == b) {
                 return Err(BundleError::BundleMissing(b));
@@ -160,13 +170,18 @@ impl BundleCatalog {
                 return Err(BundleError::DuplicateBundle(e.bundle));
             }
             // Feature list must match canonical.
-            let canonical: Vec<String> = e.bundle.features().iter().map(|s| s.to_string()).collect();
+            let canonical: Vec<String> =
+                e.bundle.features().iter().map(|s| s.to_string()).collect();
             if e.features != canonical {
                 return Err(BundleError::FeatureMismatch { bundle: e.bundle });
             }
         }
         // Active must be selectable.
-        let active_entry = self.bundles.iter().find(|e| e.bundle == self.active).unwrap();
+        let active_entry = self
+            .bundles
+            .iter()
+            .find(|e| e.bundle == self.active)
+            .unwrap();
         if !active_entry.selectable {
             return Err(BundleError::ActiveNotSelectable(self.active));
         }
@@ -175,7 +190,10 @@ impl BundleCatalog {
 
     /// Switch active bundle.
     pub fn switch_active(&mut self, target: BundleName) -> Result<(), BundleError> {
-        let target_entry = self.bundles.iter().find(|e| e.bundle == target)
+        let target_entry = self
+            .bundles
+            .iter()
+            .find(|e| e.bundle == target)
             .ok_or(BundleError::BundleMissing(target))?;
         if !target_entry.selectable {
             return Err(BundleError::ActiveNotSelectable(target));
@@ -192,8 +210,10 @@ mod tests {
     #[test]
     fn four_bundles_positioned_1_to_4() {
         for (b, p) in [
-            (BundleName::Private, 1), (BundleName::Careful, 2),
-            (BundleName::Fast, 3), (BundleName::Sovereign, 4),
+            (BundleName::Private, 1),
+            (BundleName::Careful, 2),
+            (BundleName::Fast, 3),
+            (BundleName::Sovereign, 4),
         ] {
             assert_eq!(b.position(), p);
         }
@@ -243,14 +263,20 @@ mod tests {
     fn schema_drift_rejected() {
         let mut c = BundleCatalog::empty_canonical();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), BundleError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            BundleError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn count_invalid_caught() {
         let mut c = BundleCatalog::empty_canonical();
         c.bundles.pop();
-        assert!(matches!(c.validate().unwrap_err(), BundleError::CountInvalid(3)));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            BundleError::CountInvalid(3)
+        ));
     }
 
     #[test]
@@ -266,13 +292,20 @@ mod tests {
         if let Some(e) = c.bundles.iter_mut().find(|e| e.bundle == BundleName::Fast) {
             e.selectable = false;
         }
-        assert!(matches!(c.switch_active(BundleName::Fast).unwrap_err(), BundleError::ActiveNotSelectable(_)));
+        assert!(matches!(
+            c.switch_active(BundleName::Fast).unwrap_err(),
+            BundleError::ActiveNotSelectable(_)
+        ));
     }
 
     #[test]
     fn feature_mismatch_caught() {
         let mut c = BundleCatalog::empty_canonical();
-        if let Some(e) = c.bundles.iter_mut().find(|e| e.bundle == BundleName::Private) {
+        if let Some(e) = c
+            .bundles
+            .iter_mut()
+            .find(|e| e.bundle == BundleName::Private)
+        {
             e.features[0] = "tampered".into();
         }
         match c.validate().unwrap_err() {
@@ -283,8 +316,14 @@ mod tests {
 
     #[test]
     fn bundle_serde_kebab() {
-        assert_eq!(serde_json::to_string(&BundleName::Sovereign).unwrap(), "\"sovereign\"");
-        assert_eq!(serde_json::to_string(&BundleName::Private).unwrap(), "\"private\"");
+        assert_eq!(
+            serde_json::to_string(&BundleName::Sovereign).unwrap(),
+            "\"sovereign\""
+        );
+        assert_eq!(
+            serde_json::to_string(&BundleName::Private).unwrap(),
+            "\"private\""
+        );
     }
 
     #[test]

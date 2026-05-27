@@ -68,9 +68,15 @@ impl EditMode {
 
     /// Read → Edit{dirty:false}.
     pub fn request_edit(&mut self, doc_id: &str) -> Result<(), EditError> {
-        if doc_id.is_empty() { return Err(EditError::EmptyId); }
+        if doc_id.is_empty() {
+            return Err(EditError::EmptyId);
+        }
         match self.current(doc_id) {
-            Mode::Read => { self.modes.insert(doc_id.into(), Mode::Edit { dirty: false }); Ok(()) }
+            Mode::Read => {
+                self.modes
+                    .insert(doc_id.into(), Mode::Edit { dirty: false });
+                Ok(())
+            }
             other => Err(EditError::BadTransition(other)),
         }
     }
@@ -78,7 +84,10 @@ impl EditMode {
     /// Edit → Edit{dirty:true} (caller hit any key).
     pub fn dirty(&mut self, doc_id: &str) -> Result<(), EditError> {
         match self.current(doc_id) {
-            Mode::Edit { .. } => { self.modes.insert(doc_id.into(), Mode::Edit { dirty: true }); Ok(()) }
+            Mode::Edit { .. } => {
+                self.modes.insert(doc_id.into(), Mode::Edit { dirty: true });
+                Ok(())
+            }
             other => Err(EditError::BadTransition(other)),
         }
     }
@@ -86,7 +95,11 @@ impl EditMode {
     /// Save draft: Edit{dirty} → Edit{dirty:false} (no submission).
     pub fn save_draft(&mut self, doc_id: &str) -> Result<(), EditError> {
         match self.current(doc_id) {
-            Mode::Edit { .. } => { self.modes.insert(doc_id.into(), Mode::Edit { dirty: false }); Ok(()) }
+            Mode::Edit { .. } => {
+                self.modes
+                    .insert(doc_id.into(), Mode::Edit { dirty: false });
+                Ok(())
+            }
             other => Err(EditError::BadTransition(other)),
         }
     }
@@ -94,7 +107,10 @@ impl EditMode {
     /// Submit: Edit → ReviewPending.
     pub fn submit_for_review(&mut self, doc_id: &str) -> Result<(), EditError> {
         match self.current(doc_id) {
-            Mode::Edit { .. } => { self.modes.insert(doc_id.into(), Mode::ReviewPending); Ok(()) }
+            Mode::Edit { .. } => {
+                self.modes.insert(doc_id.into(), Mode::ReviewPending);
+                Ok(())
+            }
             other => Err(EditError::BadTransition(other)),
         }
     }
@@ -102,7 +118,10 @@ impl EditMode {
     /// Approve: ReviewPending → Read.
     pub fn approve(&mut self, doc_id: &str) -> Result<(), EditError> {
         match self.current(doc_id) {
-            Mode::ReviewPending => { self.modes.insert(doc_id.into(), Mode::Read); Ok(()) }
+            Mode::ReviewPending => {
+                self.modes.insert(doc_id.into(), Mode::Read);
+                Ok(())
+            }
             other => Err(EditError::BadTransition(other)),
         }
     }
@@ -110,13 +129,19 @@ impl EditMode {
     /// Reject: ReviewPending → Edit{dirty:false}.
     pub fn reject(&mut self, doc_id: &str) -> Result<(), EditError> {
         match self.current(doc_id) {
-            Mode::ReviewPending => { self.modes.insert(doc_id.into(), Mode::Edit { dirty: false }); Ok(()) }
+            Mode::ReviewPending => {
+                self.modes
+                    .insert(doc_id.into(), Mode::Edit { dirty: false });
+                Ok(())
+            }
             other => Err(EditError::BadTransition(other)),
         }
     }
 
     /// Mode for a doc.
-    pub fn mode_of(&self, doc_id: &str) -> Mode { self.current(doc_id) }
+    pub fn mode_of(&self, doc_id: &str) -> Mode {
+        self.current(doc_id)
+    }
 
     /// Dirty?
     pub fn is_dirty(&self, doc_id: &str) -> bool {
@@ -125,16 +150,22 @@ impl EditMode {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), EditError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(EditError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(EditError::SchemaMismatch);
+        }
         for k in self.modes.keys() {
-            if k.is_empty() { return Err(EditError::EmptyId); }
+            if k.is_empty() {
+                return Err(EditError::EmptyId);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for EditMode {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -188,23 +219,35 @@ mod tests {
     fn bad_transitions_rejected() {
         let mut m = EditMode::new();
         // approve from Read.
-        assert!(matches!(m.approve("d").unwrap_err(), EditError::BadTransition(_)));
+        assert!(matches!(
+            m.approve("d").unwrap_err(),
+            EditError::BadTransition(_)
+        ));
         // request_edit twice.
         m.request_edit("d").unwrap();
-        assert!(matches!(m.request_edit("d").unwrap_err(), EditError::BadTransition(_)));
+        assert!(matches!(
+            m.request_edit("d").unwrap_err(),
+            EditError::BadTransition(_)
+        ));
     }
 
     #[test]
     fn empty_id_rejected() {
         let mut m = EditMode::new();
-        assert!(matches!(m.request_edit("").unwrap_err(), EditError::EmptyId));
+        assert!(matches!(
+            m.request_edit("").unwrap_err(),
+            EditError::EmptyId
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut m = EditMode::new();
         m.schema_version = "9.9.9".into();
-        assert!(matches!(m.validate().unwrap_err(), EditError::SchemaMismatch));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            EditError::SchemaMismatch
+        ));
     }
 
     #[test]

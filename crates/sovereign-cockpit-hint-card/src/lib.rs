@@ -74,7 +74,9 @@ pub enum HintError {
 impl HintCard {
     /// New.
     pub fn new(cooldown_ms: u64) -> Result<Self, HintError> {
-        if cooldown_ms == 0 { return Err(HintError::ZeroCooldown); }
+        if cooldown_ms == 0 {
+            return Err(HintError::ZeroCooldown);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             hints: BTreeMap::new(),
@@ -84,34 +86,52 @@ impl HintCard {
 
     /// Add a hint.
     pub fn add(&mut self, id: &str, title: &str, body: &str) -> Result<(), HintError> {
-        if id.is_empty() { return Err(HintError::EmptyId); }
-        if title.is_empty() { return Err(HintError::EmptyTitle); }
-        if body.is_empty() { return Err(HintError::EmptyBody); }
+        if id.is_empty() {
+            return Err(HintError::EmptyId);
+        }
+        if title.is_empty() {
+            return Err(HintError::EmptyTitle);
+        }
+        if body.is_empty() {
+            return Err(HintError::EmptyBody);
+        }
         if self.hints.contains_key(id) {
             return Err(HintError::DuplicateId(id.into()));
         }
-        self.hints.insert(id.into(), Hint {
-            title: title.into(),
-            body: body.into(),
-            dismissed: false,
-            last_dismissed_ms: 0,
-            accepted: false,
-            dismisses: 0,
-        });
+        self.hints.insert(
+            id.into(),
+            Hint {
+                title: title.into(),
+                body: body.into(),
+                dismissed: false,
+                last_dismissed_ms: 0,
+                accepted: false,
+                dismisses: 0,
+            },
+        );
         Ok(())
     }
 
     /// Should this hint be shown now?
     pub fn should_show(&self, id: &str, now_ms: u64) -> bool {
-        let Some(h) = self.hints.get(id) else { return false; };
-        if h.accepted { return false; }
-        if !h.dismissed { return true; }
+        let Some(h) = self.hints.get(id) else {
+            return false;
+        };
+        if h.accepted {
+            return false;
+        }
+        if !h.dismissed {
+            return true;
+        }
         now_ms.saturating_sub(h.last_dismissed_ms) >= self.cooldown_ms
     }
 
     /// Dismiss.
     pub fn dismiss(&mut self, id: &str, now_ms: u64) -> Result<(), HintError> {
-        let h = self.hints.get_mut(id).ok_or_else(|| HintError::UnknownHint(id.into()))?;
+        let h = self
+            .hints
+            .get_mut(id)
+            .ok_or_else(|| HintError::UnknownHint(id.into()))?;
         h.dismissed = true;
         h.last_dismissed_ms = now_ms;
         h.dismisses = h.dismisses.saturating_add(1);
@@ -120,14 +140,20 @@ impl HintCard {
 
     /// Accept (one-way).
     pub fn accept(&mut self, id: &str) -> Result<(), HintError> {
-        let h = self.hints.get_mut(id).ok_or_else(|| HintError::UnknownHint(id.into()))?;
+        let h = self
+            .hints
+            .get_mut(id)
+            .ok_or_else(|| HintError::UnknownHint(id.into()))?;
         h.accepted = true;
         Ok(())
     }
 
     /// Reset a hint (clear dismissed/accepted).
     pub fn reset(&mut self, id: &str) -> Result<(), HintError> {
-        let h = self.hints.get_mut(id).ok_or_else(|| HintError::UnknownHint(id.into()))?;
+        let h = self
+            .hints
+            .get_mut(id)
+            .ok_or_else(|| HintError::UnknownHint(id.into()))?;
         h.dismissed = false;
         h.accepted = false;
         h.last_dismissed_ms = 0;
@@ -136,12 +162,22 @@ impl HintCard {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), HintError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(HintError::SchemaMismatch); }
-        if self.cooldown_ms == 0 { return Err(HintError::ZeroCooldown); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(HintError::SchemaMismatch);
+        }
+        if self.cooldown_ms == 0 {
+            return Err(HintError::ZeroCooldown);
+        }
         for (id, h) in &self.hints {
-            if id.is_empty() { return Err(HintError::EmptyId); }
-            if h.title.is_empty() { return Err(HintError::EmptyTitle); }
-            if h.body.is_empty() { return Err(HintError::EmptyBody); }
+            if id.is_empty() {
+                return Err(HintError::EmptyId);
+            }
+            if h.title.is_empty() {
+                return Err(HintError::EmptyTitle);
+            }
+            if h.body.is_empty() {
+                return Err(HintError::EmptyBody);
+            }
         }
         Ok(())
     }
@@ -201,21 +237,33 @@ mod tests {
     fn duplicate_rejected() {
         let mut h = HintCard::new(60_000).unwrap();
         h.add("a", "t", "b").unwrap();
-        assert!(matches!(h.add("a", "t", "b").unwrap_err(), HintError::DuplicateId(_)));
+        assert!(matches!(
+            h.add("a", "t", "b").unwrap_err(),
+            HintError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut h = HintCard::new(60_000).unwrap();
-        assert!(matches!(h.add("", "t", "b").unwrap_err(), HintError::EmptyId));
-        assert!(matches!(HintCard::new(0).unwrap_err(), HintError::ZeroCooldown));
+        assert!(matches!(
+            h.add("", "t", "b").unwrap_err(),
+            HintError::EmptyId
+        ));
+        assert!(matches!(
+            HintCard::new(0).unwrap_err(),
+            HintError::ZeroCooldown
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut h = HintCard::new(60_000).unwrap();
         h.schema_version = "9.9.9".into();
-        assert!(matches!(h.validate().unwrap_err(), HintError::SchemaMismatch));
+        assert!(matches!(
+            h.validate().unwrap_err(),
+            HintError::SchemaMismatch
+        ));
     }
 
     #[test]

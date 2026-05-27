@@ -44,35 +44,54 @@ pub enum MentionError {
 impl MentionSuggester {
     /// New.
     pub fn new() -> Self {
-        Self { schema_version: SCHEMA_VERSION.into() }
+        Self {
+            schema_version: SCHEMA_VERSION.into(),
+        }
     }
 
     /// Active @-query at cursor.
     pub fn active_query(&self, input: &str, cursor: usize) -> Option<String> {
-        if cursor > input.len() { return None; }
+        if cursor > input.len() {
+            return None;
+        }
         let prefix = &input[..cursor];
         // Walk backwards from cursor to find '@'.
         let mut at_pos: Option<usize> = None;
         for (i, ch) in prefix.char_indices().rev() {
-            if ch == '@' { at_pos = Some(i); break; }
-            if ch.is_whitespace() { return None; }
+            if ch == '@' {
+                at_pos = Some(i);
+                break;
+            }
+            if ch.is_whitespace() {
+                return None;
+            }
         }
         let at = at_pos?;
         // '@' must be at start or preceded by whitespace.
         if at > 0 {
             let prev = prefix[..at].chars().next_back()?;
-            if !prev.is_whitespace() { return None; }
+            if !prev.is_whitespace() {
+                return None;
+            }
         }
         let q = &prefix[at + 1..];
-        if q.is_empty() { return Some(String::new()); }
+        if q.is_empty() {
+            return Some(String::new());
+        }
         // Must contain no whitespace (we already checked back-to-@).
         Some(q.to_string())
     }
 
     /// Suggest matches.
-    pub fn suggest<'a>(&self, query: &str, operators: &'a [Operator], max: usize) -> Vec<&'a Operator> {
+    pub fn suggest<'a>(
+        &self,
+        query: &str,
+        operators: &'a [Operator],
+        max: usize,
+    ) -> Vec<&'a Operator> {
         let q = query.to_lowercase();
-        operators.iter()
+        operators
+            .iter()
             .filter(|o| o.handle.to_lowercase().starts_with(&q))
             .take(max)
             .collect()
@@ -80,13 +99,17 @@ impl MentionSuggester {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), MentionError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(MentionError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(MentionError::SchemaMismatch);
+        }
         Ok(())
     }
 }
 
 impl Default for MentionSuggester {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -94,7 +117,10 @@ mod tests {
     use super::*;
 
     fn op(handle: &str) -> Operator {
-        Operator { handle: handle.into(), display: handle.into() }
+        Operator {
+            handle: handle.into(),
+            display: handle.into(),
+        }
     }
 
     #[test]
@@ -147,7 +173,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut m = MentionSuggester::new();
         m.schema_version = "9.9.9".into();
-        assert!(matches!(m.validate().unwrap_err(), MentionError::SchemaMismatch));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            MentionError::SchemaMismatch
+        ));
     }
 
     #[test]

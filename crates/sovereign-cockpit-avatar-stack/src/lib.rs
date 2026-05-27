@@ -81,7 +81,9 @@ fn initials_from(name: &str) -> String {
 impl AvatarStack {
     /// New.
     pub fn new(max_visible: u32) -> Result<Self, StackError> {
-        if max_visible == 0 { return Err(StackError::ZeroMax); }
+        if max_visible == 0 {
+            return Err(StackError::ZeroMax);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             max_visible,
@@ -91,14 +93,24 @@ impl AvatarStack {
 
     /// Push avatar (name → initials).
     pub fn push(&mut self, id: &str, name: &str, color: &str) -> Result<(), StackError> {
-        if id.is_empty() { return Err(StackError::EmptyId); }
-        if name.is_empty() { return Err(StackError::EmptyName); }
-        if color.is_empty() { return Err(StackError::EmptyColor); }
+        if id.is_empty() {
+            return Err(StackError::EmptyId);
+        }
+        if name.is_empty() {
+            return Err(StackError::EmptyName);
+        }
+        if color.is_empty() {
+            return Err(StackError::EmptyColor);
+        }
         if self.avatars.iter().any(|a| a.id == id) {
             return Err(StackError::DuplicateId(id.into()));
         }
         let initials = initials_from(name);
-        let initials = if initials.is_empty() { "?".to_string() } else { initials };
+        let initials = if initials.is_empty() {
+            "?".to_string()
+        } else {
+            initials
+        };
         self.avatars.push(Avatar {
             id: id.into(),
             initials,
@@ -122,7 +134,10 @@ impl AvatarStack {
         let n = self.avatars.len();
         let max = self.max_visible as usize;
         if n <= max {
-            Render { visible: self.avatars.iter().collect(), overflow: 0 }
+            Render {
+                visible: self.avatars.iter().collect(),
+                overflow: 0,
+            }
         } else {
             Render {
                 visible: self.avatars.iter().take(max).collect(),
@@ -133,12 +148,22 @@ impl AvatarStack {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), StackError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(StackError::SchemaMismatch); }
-        if self.max_visible == 0 { return Err(StackError::ZeroMax); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(StackError::SchemaMismatch);
+        }
+        if self.max_visible == 0 {
+            return Err(StackError::ZeroMax);
+        }
         for a in &self.avatars {
-            if a.id.is_empty() { return Err(StackError::EmptyId); }
-            if a.initials.is_empty() { return Err(StackError::EmptyName); }
-            if a.color.is_empty() { return Err(StackError::EmptyColor); }
+            if a.id.is_empty() {
+                return Err(StackError::EmptyId);
+            }
+            if a.initials.is_empty() {
+                return Err(StackError::EmptyName);
+            }
+            if a.color.is_empty() {
+                return Err(StackError::EmptyColor);
+            }
         }
         Ok(())
     }
@@ -170,7 +195,7 @@ mod tests {
     #[test]
     fn render_overflows_above_max() {
         let mut s = AvatarStack::new(2).unwrap();
-        for c in &["a","b","c","d","e"] {
+        for c in &["a", "b", "c", "d", "e"] {
             s.push(c, "name", "#fff").unwrap();
         }
         let r = s.render();
@@ -197,23 +222,41 @@ mod tests {
     fn duplicate_rejected() {
         let mut s = AvatarStack::new(3).unwrap();
         s.push("a", "X", "#fff").unwrap();
-        assert!(matches!(s.push("a", "Y", "#000").unwrap_err(), StackError::DuplicateId(_)));
+        assert!(matches!(
+            s.push("a", "Y", "#000").unwrap_err(),
+            StackError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut s = AvatarStack::new(3).unwrap();
-        assert!(matches!(s.push("", "X", "#fff").unwrap_err(), StackError::EmptyId));
-        assert!(matches!(s.push("a", "", "#fff").unwrap_err(), StackError::EmptyName));
-        assert!(matches!(s.push("a", "X", "").unwrap_err(), StackError::EmptyColor));
-        assert!(matches!(AvatarStack::new(0).unwrap_err(), StackError::ZeroMax));
+        assert!(matches!(
+            s.push("", "X", "#fff").unwrap_err(),
+            StackError::EmptyId
+        ));
+        assert!(matches!(
+            s.push("a", "", "#fff").unwrap_err(),
+            StackError::EmptyName
+        ));
+        assert!(matches!(
+            s.push("a", "X", "").unwrap_err(),
+            StackError::EmptyColor
+        ));
+        assert!(matches!(
+            AvatarStack::new(0).unwrap_err(),
+            StackError::ZeroMax
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = AvatarStack::new(3).unwrap();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), StackError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            StackError::SchemaMismatch
+        ));
     }
 
     #[test]

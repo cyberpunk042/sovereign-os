@@ -73,7 +73,9 @@ pub enum ReceiptError {
 impl OperationReceiptList {
     /// New.
     pub fn new(capacity: u32) -> Result<Self, ReceiptError> {
-        if capacity == 0 { return Err(ReceiptError::ZeroCapacity); }
+        if capacity == 0 {
+            return Err(ReceiptError::ZeroCapacity);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             capacity,
@@ -89,19 +91,50 @@ impl OperationReceiptList {
     }
 
     /// Record success.
-    pub fn record_success(&mut self, id: &str, action: &str, ts_ms: u64) -> Result<(), ReceiptError> {
-        if id.is_empty() { return Err(ReceiptError::EmptyId); }
-        if action.is_empty() { return Err(ReceiptError::EmptyAction); }
-        self.push(Receipt { id: id.into(), action: action.into(), outcome: Outcome::Success, ts_ms });
+    pub fn record_success(
+        &mut self,
+        id: &str,
+        action: &str,
+        ts_ms: u64,
+    ) -> Result<(), ReceiptError> {
+        if id.is_empty() {
+            return Err(ReceiptError::EmptyId);
+        }
+        if action.is_empty() {
+            return Err(ReceiptError::EmptyAction);
+        }
+        self.push(Receipt {
+            id: id.into(),
+            action: action.into(),
+            outcome: Outcome::Success,
+            ts_ms,
+        });
         Ok(())
     }
 
     /// Record failure.
-    pub fn record_failure(&mut self, id: &str, action: &str, error: &str, ts_ms: u64) -> Result<(), ReceiptError> {
-        if id.is_empty() { return Err(ReceiptError::EmptyId); }
-        if action.is_empty() { return Err(ReceiptError::EmptyAction); }
-        if error.is_empty() { return Err(ReceiptError::EmptyError); }
-        self.push(Receipt { id: id.into(), action: action.into(), outcome: Outcome::Failure(error.into()), ts_ms });
+    pub fn record_failure(
+        &mut self,
+        id: &str,
+        action: &str,
+        error: &str,
+        ts_ms: u64,
+    ) -> Result<(), ReceiptError> {
+        if id.is_empty() {
+            return Err(ReceiptError::EmptyId);
+        }
+        if action.is_empty() {
+            return Err(ReceiptError::EmptyAction);
+        }
+        if error.is_empty() {
+            return Err(ReceiptError::EmptyError);
+        }
+        self.push(Receipt {
+            id: id.into(),
+            action: action.into(),
+            outcome: Outcome::Failure(error.into()),
+            ts_ms,
+        });
         Ok(())
     }
 
@@ -112,7 +145,10 @@ impl OperationReceiptList {
 
     /// Failures only.
     pub fn failures(&self) -> Vec<&Receipt> {
-        self.receipts.iter().filter(|r| matches!(r.outcome, Outcome::Failure(_))).collect()
+        self.receipts
+            .iter()
+            .filter(|r| matches!(r.outcome, Outcome::Failure(_)))
+            .collect()
     }
 
     /// Clear.
@@ -122,11 +158,19 @@ impl OperationReceiptList {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ReceiptError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ReceiptError::SchemaMismatch); }
-        if self.capacity == 0 { return Err(ReceiptError::ZeroCapacity); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ReceiptError::SchemaMismatch);
+        }
+        if self.capacity == 0 {
+            return Err(ReceiptError::ZeroCapacity);
+        }
         for r in &self.receipts {
-            if r.id.is_empty() { return Err(ReceiptError::EmptyId); }
-            if r.action.is_empty() { return Err(ReceiptError::EmptyAction); }
+            if r.id.is_empty() {
+                return Err(ReceiptError::EmptyId);
+            }
+            if r.action.is_empty() {
+                return Err(ReceiptError::EmptyAction);
+            }
         }
         Ok(())
     }
@@ -167,10 +211,22 @@ mod tests {
     #[test]
     fn empty_inputs_rejected() {
         let mut l = OperationReceiptList::new(5).unwrap();
-        assert!(matches!(l.record_success("", "x", 0).unwrap_err(), ReceiptError::EmptyId));
-        assert!(matches!(l.record_success("a", "", 0).unwrap_err(), ReceiptError::EmptyAction));
-        assert!(matches!(l.record_failure("a", "x", "", 0).unwrap_err(), ReceiptError::EmptyError));
-        assert!(matches!(OperationReceiptList::new(0).unwrap_err(), ReceiptError::ZeroCapacity));
+        assert!(matches!(
+            l.record_success("", "x", 0).unwrap_err(),
+            ReceiptError::EmptyId
+        ));
+        assert!(matches!(
+            l.record_success("a", "", 0).unwrap_err(),
+            ReceiptError::EmptyAction
+        ));
+        assert!(matches!(
+            l.record_failure("a", "x", "", 0).unwrap_err(),
+            ReceiptError::EmptyError
+        ));
+        assert!(matches!(
+            OperationReceiptList::new(0).unwrap_err(),
+            ReceiptError::ZeroCapacity
+        ));
     }
 
     #[test]
@@ -185,7 +241,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut l = OperationReceiptList::new(5).unwrap();
         l.schema_version = "9.9.9".into();
-        assert!(matches!(l.validate().unwrap_err(), ReceiptError::SchemaMismatch));
+        assert!(matches!(
+            l.validate().unwrap_err(),
+            ReceiptError::SchemaMismatch
+        ));
     }
 
     #[test]

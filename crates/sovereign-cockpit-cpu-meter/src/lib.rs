@@ -66,20 +66,36 @@ pub enum MeterError {
 
 impl CpuMeter {
     /// New.
-    pub fn new(window: u32, smoothing_window: u32, yellow_pct: u8, red_pct: u8) -> Result<Self, MeterError> {
-        if window == 0 { return Err(MeterError::WindowZero); }
-        if smoothing_window > window { return Err(MeterError::SmoothingExceedsWindow(smoothing_window, window)); }
-        if yellow_pct >= red_pct { return Err(MeterError::BadThresholds(yellow_pct, red_pct)); }
+    pub fn new(
+        window: u32,
+        smoothing_window: u32,
+        yellow_pct: u8,
+        red_pct: u8,
+    ) -> Result<Self, MeterError> {
+        if window == 0 {
+            return Err(MeterError::WindowZero);
+        }
+        if smoothing_window > window {
+            return Err(MeterError::SmoothingExceedsWindow(smoothing_window, window));
+        }
+        if yellow_pct >= red_pct {
+            return Err(MeterError::BadThresholds(yellow_pct, red_pct));
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             samples: Vec::new(),
-            window, smoothing_window, yellow_pct, red_pct,
+            window,
+            smoothing_window,
+            yellow_pct,
+            red_pct,
         })
     }
 
     /// Record a sample.
     pub fn record(&mut self, pct: u8) -> Result<(), MeterError> {
-        if pct > 100 { return Err(MeterError::SampleOverflow(pct)); }
+        if pct > 100 {
+            return Err(MeterError::SampleOverflow(pct));
+        }
         self.samples.push(pct);
         while (self.samples.len() as u32) > self.window {
             self.samples.remove(0);
@@ -94,7 +110,9 @@ impl CpuMeter {
 
     /// Smoothed average over last smoothing_window samples (or all if fewer).
     pub fn smoothed(&self) -> u8 {
-        if self.samples.is_empty() { return 0; }
+        if self.samples.is_empty() {
+            return 0;
+        }
         let n = self.smoothing_window as usize;
         let tail = if self.samples.len() > n {
             &self.samples[self.samples.len() - n..]
@@ -108,9 +126,13 @@ impl CpuMeter {
     /// Color tier from smoothed.
     pub fn tier(&self) -> Tier {
         let s = self.smoothed();
-        if s >= self.red_pct { Tier::Red }
-        else if s >= self.yellow_pct { Tier::Yellow }
-        else { Tier::Green }
+        if s >= self.red_pct {
+            Tier::Red
+        } else if s >= self.yellow_pct {
+            Tier::Yellow
+        } else {
+            Tier::Green
+        }
     }
 
     /// Validate.
@@ -118,15 +140,22 @@ impl CpuMeter {
         if self.schema_version != SCHEMA_VERSION {
             return Err(MeterError::SchemaMismatch);
         }
-        if self.window == 0 { return Err(MeterError::WindowZero); }
+        if self.window == 0 {
+            return Err(MeterError::WindowZero);
+        }
         if self.smoothing_window > self.window {
-            return Err(MeterError::SmoothingExceedsWindow(self.smoothing_window, self.window));
+            return Err(MeterError::SmoothingExceedsWindow(
+                self.smoothing_window,
+                self.window,
+            ));
         }
         if self.yellow_pct >= self.red_pct {
             return Err(MeterError::BadThresholds(self.yellow_pct, self.red_pct));
         }
         for s in &self.samples {
-            if *s > 100 { return Err(MeterError::SampleOverflow(*s)); }
+            if *s > 100 {
+                return Err(MeterError::SampleOverflow(*s));
+            }
         }
         Ok(())
     }
@@ -138,29 +167,43 @@ mod tests {
 
     #[test]
     fn window_zero_rejected() {
-        assert!(matches!(CpuMeter::new(0, 0, 70, 90).unwrap_err(), MeterError::WindowZero));
+        assert!(matches!(
+            CpuMeter::new(0, 0, 70, 90).unwrap_err(),
+            MeterError::WindowZero
+        ));
     }
 
     #[test]
     fn smoothing_over_window_rejected() {
-        assert!(matches!(CpuMeter::new(5, 10, 70, 90).unwrap_err(), MeterError::SmoothingExceedsWindow(_, _)));
+        assert!(matches!(
+            CpuMeter::new(5, 10, 70, 90).unwrap_err(),
+            MeterError::SmoothingExceedsWindow(_, _)
+        ));
     }
 
     #[test]
     fn bad_thresholds_rejected() {
-        assert!(matches!(CpuMeter::new(5, 3, 90, 70).unwrap_err(), MeterError::BadThresholds(_, _)));
+        assert!(matches!(
+            CpuMeter::new(5, 3, 90, 70).unwrap_err(),
+            MeterError::BadThresholds(_, _)
+        ));
     }
 
     #[test]
     fn record_sample_over_100_rejected() {
         let mut m = CpuMeter::new(5, 3, 70, 90).unwrap();
-        assert!(matches!(m.record(150).unwrap_err(), MeterError::SampleOverflow(_)));
+        assert!(matches!(
+            m.record(150).unwrap_err(),
+            MeterError::SampleOverflow(_)
+        ));
     }
 
     #[test]
     fn current_and_smoothed() {
         let mut m = CpuMeter::new(5, 3, 70, 90).unwrap();
-        for v in [10u8, 20, 30, 40, 50] { m.record(v).unwrap(); }
+        for v in [10u8, 20, 30, 40, 50] {
+            m.record(v).unwrap();
+        }
         assert_eq!(m.current(), 50);
         // Smoothed over last 3 = (30+40+50)/3 = 40
         assert_eq!(m.smoothed(), 40);
@@ -169,28 +212,36 @@ mod tests {
     #[test]
     fn tier_green() {
         let mut m = CpuMeter::new(5, 3, 70, 90).unwrap();
-        for _ in 0..3 { m.record(20).unwrap(); }
+        for _ in 0..3 {
+            m.record(20).unwrap();
+        }
         assert_eq!(m.tier(), Tier::Green);
     }
 
     #[test]
     fn tier_yellow() {
         let mut m = CpuMeter::new(5, 3, 70, 90).unwrap();
-        for _ in 0..3 { m.record(80).unwrap(); }
+        for _ in 0..3 {
+            m.record(80).unwrap();
+        }
         assert_eq!(m.tier(), Tier::Yellow);
     }
 
     #[test]
     fn tier_red() {
         let mut m = CpuMeter::new(5, 3, 70, 90).unwrap();
-        for _ in 0..3 { m.record(95).unwrap(); }
+        for _ in 0..3 {
+            m.record(95).unwrap();
+        }
         assert_eq!(m.tier(), Tier::Red);
     }
 
     #[test]
     fn window_evicts() {
         let mut m = CpuMeter::new(3, 2, 70, 90).unwrap();
-        for v in [10u8, 20, 30, 40] { m.record(v).unwrap(); }
+        for v in [10u8, 20, 30, 40] {
+            m.record(v).unwrap();
+        }
         assert_eq!(m.samples.len(), 3);
     }
 
@@ -198,7 +249,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut m = CpuMeter::new(5, 3, 70, 90).unwrap();
         m.schema_version = "9.9.9".into();
-        assert!(matches!(m.validate().unwrap_err(), MeterError::SchemaMismatch));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            MeterError::SchemaMismatch
+        ));
     }
 
     #[test]

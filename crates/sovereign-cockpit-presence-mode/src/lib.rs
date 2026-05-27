@@ -101,7 +101,9 @@ impl PresenceMode {
     }
 
     /// Set.
-    pub fn set(&mut self, mode: Mode) { self.mode = mode; }
+    pub fn set(&mut self, mode: Mode) {
+        self.mode = mode;
+    }
 
     /// Cadence for current mode.
     pub fn cadence(&self) -> Cadence {
@@ -137,13 +139,17 @@ impl PresenceMode {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), PresenceError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(PresenceError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(PresenceError::SchemaMismatch);
+        }
         Ok(())
     }
 }
 
 impl Default for PresenceMode {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -210,7 +216,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut p = PresenceMode::new();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), PresenceError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            PresenceError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -39,8 +39,16 @@ pub enum SuggestError {
 
 /// Suggest a unique name based on (base, ext, existing).
 pub fn suggest(base: &str, ext: &str, existing: &BTreeSet<String>) -> Result<String, SuggestError> {
-    if base.is_empty() { return Err(SuggestError::EmptyBase); }
-    let make = |suffix: &str| if ext.is_empty() { format!("{}{}", base, suffix) } else { format!("{}{}.{}", base, suffix, ext) };
+    if base.is_empty() {
+        return Err(SuggestError::EmptyBase);
+    }
+    let make = |suffix: &str| {
+        if ext.is_empty() {
+            format!("{}{}", base, suffix)
+        } else {
+            format!("{}{}.{}", base, suffix, ext)
+        }
+    };
     let primary = make("");
     if !existing.contains(&primary) {
         return Ok(primary);
@@ -48,10 +56,14 @@ pub fn suggest(base: &str, ext: &str, existing: &BTreeSet<String>) -> Result<Str
     let mut n: u32 = 2;
     loop {
         let cand = make(&format!("-{}", n));
-        if !existing.contains(&cand) { return Ok(cand); }
+        if !existing.contains(&cand) {
+            return Ok(cand);
+        }
         n = n.saturating_add(1);
         // Safety cap.
-        if n > 100_000 { return Ok(cand); }
+        if n > 100_000 {
+            return Ok(cand);
+        }
     }
 }
 
@@ -65,7 +77,12 @@ impl SaveAsState {
     }
 
     /// Suggest + store.
-    pub fn suggest_and_store(&mut self, base: &str, ext: &str, existing: &BTreeSet<String>) -> Result<String, SuggestError> {
+    pub fn suggest_and_store(
+        &mut self,
+        base: &str,
+        ext: &str,
+        existing: &BTreeSet<String>,
+    ) -> Result<String, SuggestError> {
         let name = suggest(base, ext, existing)?;
         self.last = Some(name.clone());
         Ok(name)
@@ -73,13 +90,17 @@ impl SaveAsState {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), SuggestError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(SuggestError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(SuggestError::SchemaMismatch);
+        }
         Ok(())
     }
 }
 
 impl Default for SaveAsState {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -116,14 +137,20 @@ mod tests {
 
     #[test]
     fn empty_base_rejected() {
-        assert!(matches!(suggest("", "md", &set(&[])).unwrap_err(), SuggestError::EmptyBase));
+        assert!(matches!(
+            suggest("", "md", &set(&[])).unwrap_err(),
+            SuggestError::EmptyBase
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = SaveAsState::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), SuggestError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SuggestError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -73,7 +73,9 @@ impl ColumnPin {
 
     /// Pin.
     pub fn pin(&mut self, id: &str, side: Side, order: u32) -> Result<(), PinError> {
-        if id.is_empty() { return Err(PinError::EmptyId); }
+        if id.is_empty() {
+            return Err(PinError::EmptyId);
+        }
         self.columns.insert(id.into(), Pinned::On { side, order });
         Ok(())
     }
@@ -92,7 +94,9 @@ impl ColumnPin {
 
     /// Ordered ids on a side.
     pub fn ordered_by_side(&self, side: Side) -> Vec<String> {
-        let mut v: Vec<(u32, &str)> = self.columns.iter()
+        let mut v: Vec<(u32, &str)> = self
+            .columns
+            .iter()
             .filter_map(|(id, p)| match p {
                 Pinned::On { side: s, order } if *s == side => Some((*order, id.as_str())),
                 _ => None,
@@ -104,16 +108,22 @@ impl ColumnPin {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), PinError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(PinError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(PinError::SchemaMismatch);
+        }
         for k in self.columns.keys() {
-            if k.is_empty() { return Err(PinError::EmptyId); }
+            if k.is_empty() {
+                return Err(PinError::EmptyId);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for ColumnPin {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -156,7 +166,10 @@ mod tests {
     #[test]
     fn empty_id_rejected() {
         let mut c = ColumnPin::new();
-        assert!(matches!(c.pin("", Side::Left, 0).unwrap_err(), PinError::EmptyId));
+        assert!(matches!(
+            c.pin("", Side::Left, 0).unwrap_err(),
+            PinError::EmptyId
+        ));
     }
 
     #[test]
@@ -164,14 +177,23 @@ mod tests {
         let mut c = ColumnPin::new();
         c.pin("a", Side::Left, 0).unwrap();
         c.pin("a", Side::Right, 5).unwrap();
-        assert_eq!(c.pinning("a"), Pinned::On { side: Side::Right, order: 5 });
+        assert_eq!(
+            c.pinning("a"),
+            Pinned::On {
+                side: Side::Right,
+                order: 5
+            }
+        );
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut c = ColumnPin::new();
         c.schema_version = "9.9.9".into();
-        assert!(matches!(c.validate().unwrap_err(), PinError::SchemaMismatch));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            PinError::SchemaMismatch
+        ));
     }
 
     #[test]

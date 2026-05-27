@@ -60,11 +60,16 @@ impl InputMode {
 impl InputModeState {
     /// Default — Mouse.
     pub fn default_state() -> Self {
-        Self { schema_version: SCHEMA_VERSION.into(), mode: InputMode::Mouse }
+        Self {
+            schema_version: SCHEMA_VERSION.into(),
+            mode: InputMode::Mouse,
+        }
     }
 
     /// Switch mode.
-    pub fn switch(&mut self, m: InputMode) { self.mode = m; }
+    pub fn switch(&mut self, m: InputMode) {
+        self.mode = m;
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), InputModeError> {
@@ -110,13 +115,22 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = InputModeState::default_state();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), InputModeError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            InputModeError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn mode_serde_kebab() {
-        assert_eq!(serde_json::to_string(&InputMode::KeyboardOnly).unwrap(), "\"keyboard-only\"");
-        assert_eq!(serde_json::to_string(&InputMode::VimLike).unwrap(), "\"vim-like\"");
+        assert_eq!(
+            serde_json::to_string(&InputMode::KeyboardOnly).unwrap(),
+            "\"keyboard-only\""
+        );
+        assert_eq!(
+            serde_json::to_string(&InputMode::VimLike).unwrap(),
+            "\"vim-like\""
+        );
     }
 
     #[test]

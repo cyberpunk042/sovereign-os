@@ -152,11 +152,14 @@ impl GatewayManifest {
             (GatewaySurface::ClaudeCode, "/claude-code"),
             (GatewaySurface::OpenCodeCline, "/opencode-cline"),
             (GatewaySurface::CostRouteLedger, "/admin/ledger"),
-        ].into_iter().map(|(s, p)| SurfaceRecord {
+        ]
+        .into_iter()
+        .map(|(s, p)| SurfaceRecord {
             surface: s,
             state: SurfaceState::Disabled,
             bind_path: p.into(),
-        }).collect();
+        })
+        .collect();
         Self {
             schema_version: SCHEMA_VERSION.into(),
             doctrine: DOCTRINE_PROVIDER_INVERSION.into(),
@@ -176,9 +179,12 @@ impl GatewayManifest {
             return Err(GatewayError::SurfaceCountInvalid(self.surfaces.len()));
         }
         let required = [
-            GatewaySurface::AnthropicMessages, GatewaySurface::OpenAiShim,
-            GatewaySurface::McpBridge, GatewaySurface::ClaudeCode,
-            GatewaySurface::OpenCodeCline, GatewaySurface::CostRouteLedger,
+            GatewaySurface::AnthropicMessages,
+            GatewaySurface::OpenAiShim,
+            GatewaySurface::McpBridge,
+            GatewaySurface::ClaudeCode,
+            GatewaySurface::OpenCodeCline,
+            GatewaySurface::CostRouteLedger,
         ];
         for s in required {
             if !self.surfaces.iter().any(|r| r.surface == s) {
@@ -197,16 +203,22 @@ impl GatewayManifest {
 
     /// Count of live surfaces.
     pub fn live_count(&self) -> usize {
-        self.surfaces.iter().filter(|r| r.state == SurfaceState::Live).count()
+        self.surfaces
+            .iter()
+            .filter(|r| r.state == SurfaceState::Live)
+            .count()
     }
 }
 
 /// All 7 responsibilities the gateway is required to own.
 pub fn all_responsibilities() -> [GatewayResponsibility; 7] {
     [
-        GatewayResponsibility::Cost, GatewayResponsibility::Privacy,
-        GatewayResponsibility::Redaction, GatewayResponsibility::Routing,
-        GatewayResponsibility::Profiles, GatewayResponsibility::Approval,
+        GatewayResponsibility::Cost,
+        GatewayResponsibility::Privacy,
+        GatewayResponsibility::Redaction,
+        GatewayResponsibility::Routing,
+        GatewayResponsibility::Profiles,
+        GatewayResponsibility::Approval,
         GatewayResponsibility::Tracing,
     ]
 }
@@ -218,9 +230,12 @@ mod tests {
     #[test]
     fn six_surfaces_positioned_1_to_6() {
         for (s, p) in [
-            (GatewaySurface::AnthropicMessages, 1), (GatewaySurface::OpenAiShim, 2),
-            (GatewaySurface::McpBridge, 3), (GatewaySurface::ClaudeCode, 4),
-            (GatewaySurface::OpenCodeCline, 5), (GatewaySurface::CostRouteLedger, 6),
+            (GatewaySurface::AnthropicMessages, 1),
+            (GatewaySurface::OpenAiShim, 2),
+            (GatewaySurface::McpBridge, 3),
+            (GatewaySurface::ClaudeCode, 4),
+            (GatewaySurface::OpenCodeCline, 5),
+            (GatewaySurface::CostRouteLedger, 6),
         ] {
             assert_eq!(s.position(), p);
         }
@@ -229,9 +244,12 @@ mod tests {
     #[test]
     fn seven_responsibilities_positioned_1_to_7() {
         for (r, p) in [
-            (GatewayResponsibility::Cost, 1), (GatewayResponsibility::Privacy, 2),
-            (GatewayResponsibility::Redaction, 3), (GatewayResponsibility::Routing, 4),
-            (GatewayResponsibility::Profiles, 5), (GatewayResponsibility::Approval, 6),
+            (GatewayResponsibility::Cost, 1),
+            (GatewayResponsibility::Privacy, 2),
+            (GatewayResponsibility::Redaction, 3),
+            (GatewayResponsibility::Routing, 4),
+            (GatewayResponsibility::Profiles, 5),
+            (GatewayResponsibility::Approval, 6),
             (GatewayResponsibility::Tracing, 7),
         ] {
             assert_eq!(r.position(), p);
@@ -248,21 +266,30 @@ mod tests {
     fn schema_drift_rejected() {
         let mut m = GatewayManifest::empty_canonical();
         m.schema_version = "9.9.9".into();
-        assert!(matches!(m.validate().unwrap_err(), GatewayError::SchemaMismatch));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            GatewayError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn doctrine_tamper_caught() {
         let mut m = GatewayManifest::empty_canonical();
         m.doctrine = "Tools own provider keys".into();
-        assert!(matches!(m.validate().unwrap_err(), GatewayError::DoctrineTampered));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            GatewayError::DoctrineTampered
+        ));
     }
 
     #[test]
     fn surface_count_invalid_rejected() {
         let mut m = GatewayManifest::empty_canonical();
         m.surfaces.pop();
-        assert!(matches!(m.validate().unwrap_err(), GatewayError::SurfaceCountInvalid(5)));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            GatewayError::SurfaceCountInvalid(5)
+        ));
     }
 
     #[test]
@@ -274,9 +301,10 @@ mod tests {
             bind_path: "/dup".into(),
         };
         let err = m.validate().unwrap_err();
-        assert!(matches!(err,
+        assert!(matches!(
+            err,
             GatewayError::SurfaceMissing(GatewaySurface::AnthropicMessages)
-            | GatewayError::DuplicateSurface(GatewaySurface::OpenAiShim)
+                | GatewayError::DuplicateSurface(GatewaySurface::OpenAiShim)
         ));
     }
 
@@ -299,16 +327,34 @@ mod tests {
 
     #[test]
     fn surface_serde_kebab() {
-        assert_eq!(serde_json::to_string(&GatewaySurface::AnthropicMessages).unwrap(), "\"anthropic-messages\"");
-        assert_eq!(serde_json::to_string(&GatewaySurface::McpBridge).unwrap(), "\"mcp-bridge\"");
-        assert_eq!(serde_json::to_string(&GatewaySurface::CostRouteLedger).unwrap(), "\"cost-route-ledger\"");
-        assert_eq!(serde_json::to_string(&GatewaySurface::OpenCodeCline).unwrap(), "\"open-code-cline\"");
+        assert_eq!(
+            serde_json::to_string(&GatewaySurface::AnthropicMessages).unwrap(),
+            "\"anthropic-messages\""
+        );
+        assert_eq!(
+            serde_json::to_string(&GatewaySurface::McpBridge).unwrap(),
+            "\"mcp-bridge\""
+        );
+        assert_eq!(
+            serde_json::to_string(&GatewaySurface::CostRouteLedger).unwrap(),
+            "\"cost-route-ledger\""
+        );
+        assert_eq!(
+            serde_json::to_string(&GatewaySurface::OpenCodeCline).unwrap(),
+            "\"open-code-cline\""
+        );
     }
 
     #[test]
     fn responsibility_serde_kebab() {
-        assert_eq!(serde_json::to_string(&GatewayResponsibility::Approval).unwrap(), "\"approval\"");
-        assert_eq!(serde_json::to_string(&GatewayResponsibility::Redaction).unwrap(), "\"redaction\"");
+        assert_eq!(
+            serde_json::to_string(&GatewayResponsibility::Approval).unwrap(),
+            "\"approval\""
+        );
+        assert_eq!(
+            serde_json::to_string(&GatewayResponsibility::Redaction).unwrap(),
+            "\"redaction\""
+        );
     }
 
     #[test]

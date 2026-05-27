@@ -99,22 +99,30 @@ impl StepIndicator {
     /// Render.
     pub fn render(&self) -> Vec<StepVisual> {
         let n = self.steps.len();
-        self.steps.iter().enumerate().map(|(i, s)| StepVisual {
-            number: (i + 1) as u32,
-            label: s.label.clone(),
-            status: s.status,
-            connector_filled: matches!(s.status, StepStatus::Done | StepStatus::Skipped),
-            is_last: i + 1 == n,
-        }).collect()
+        self.steps
+            .iter()
+            .enumerate()
+            .map(|(i, s)| StepVisual {
+                number: (i + 1) as u32,
+                label: s.label.clone(),
+                status: s.status,
+                connector_filled: matches!(s.status, StepStatus::Done | StepStatus::Skipped),
+                is_last: i + 1 == n,
+            })
+            .collect()
     }
 
     /// Percent completion (Done + Skipped count / total).
     pub fn percent_complete(&self) -> u8 {
         let n = self.steps.len();
-        if n == 0 { return 0; }
-        let done = self.steps.iter().filter(|s|
-            matches!(s.status, StepStatus::Done | StepStatus::Skipped)
-        ).count();
+        if n == 0 {
+            return 0;
+        }
+        let done = self
+            .steps
+            .iter()
+            .filter(|s| matches!(s.status, StepStatus::Done | StepStatus::Skipped))
+            .count();
         ((done * 100) / n) as u8
     }
 
@@ -128,12 +136,18 @@ impl StepIndicator {
 }
 
 fn check_steps(s: &[Step]) -> Result<(), IndicatorError> {
-    if s.is_empty() { return Err(IndicatorError::EmptySteps); }
+    if s.is_empty() {
+        return Err(IndicatorError::EmptySteps);
+    }
     use std::collections::HashSet;
     let mut seen: HashSet<&str> = HashSet::new();
     for step in s {
-        if step.id.is_empty() { return Err(IndicatorError::EmptyId); }
-        if step.label.is_empty() { return Err(IndicatorError::EmptyLabel(step.id.clone())); }
+        if step.id.is_empty() {
+            return Err(IndicatorError::EmptyId);
+        }
+        if step.label.is_empty() {
+            return Err(IndicatorError::EmptyLabel(step.id.clone()));
+        }
         if !seen.insert(step.id.as_str()) {
             return Err(IndicatorError::DuplicateId(step.id.clone()));
         }
@@ -146,12 +160,19 @@ mod tests {
     use super::*;
 
     fn step(id: &str, status: StepStatus) -> Step {
-        Step { id: id.into(), label: format!("L-{id}"), status }
+        Step {
+            id: id.into(),
+            label: format!("L-{id}"),
+            status,
+        }
     }
 
     #[test]
     fn empty_steps_rejected() {
-        assert!(matches!(StepIndicator::new(vec![]).unwrap_err(), IndicatorError::EmptySteps));
+        assert!(matches!(
+            StepIndicator::new(vec![]).unwrap_err(),
+            IndicatorError::EmptySteps
+        ));
     }
 
     #[test]
@@ -160,7 +181,8 @@ mod tests {
             step("a", StepStatus::Done),
             step("b", StepStatus::Active),
             step("c", StepStatus::NotStarted),
-        ]).unwrap();
+        ])
+        .unwrap();
         let r = i.render();
         assert_eq!(r[0].number, 1);
         assert_eq!(r[2].number, 3);
@@ -171,7 +193,8 @@ mod tests {
         let i = StepIndicator::new(vec![
             step("a", StepStatus::Done),
             step("b", StepStatus::NotStarted),
-        ]).unwrap();
+        ])
+        .unwrap();
         let r = i.render();
         assert!(r[0].connector_filled);
         // last step's connector_filled is meaningless but we still report.
@@ -183,7 +206,8 @@ mod tests {
         let i = StepIndicator::new(vec![
             step("a", StepStatus::Skipped),
             step("b", StepStatus::NotStarted),
-        ]).unwrap();
+        ])
+        .unwrap();
         let r = i.render();
         assert!(r[0].connector_filled);
     }
@@ -193,7 +217,8 @@ mod tests {
         let i = StepIndicator::new(vec![
             step("a", StepStatus::Active),
             step("b", StepStatus::NotStarted),
-        ]).unwrap();
+        ])
+        .unwrap();
         let r = i.render();
         assert!(!r[0].connector_filled);
     }
@@ -205,7 +230,8 @@ mod tests {
             step("b", StepStatus::Done),
             step("c", StepStatus::Active),
             step("d", StepStatus::NotStarted),
-        ]).unwrap();
+        ])
+        .unwrap();
         assert_eq!(i.percent_complete(), 50);
     }
 
@@ -218,7 +244,11 @@ mod tests {
     #[test]
     fn duplicate_rejected() {
         assert!(matches!(
-            StepIndicator::new(vec![step("a", StepStatus::Done), step("a", StepStatus::Done)]).unwrap_err(),
+            StepIndicator::new(vec![
+                step("a", StepStatus::Done),
+                step("a", StepStatus::Done)
+            ])
+            .unwrap_err(),
             IndicatorError::DuplicateId(_)
         ));
     }
@@ -227,24 +257,37 @@ mod tests {
     fn empty_id_rejected() {
         let mut s = step("a", StepStatus::Done);
         s.id = String::new();
-        assert!(matches!(StepIndicator::new(vec![s]).unwrap_err(), IndicatorError::EmptyId));
+        assert!(matches!(
+            StepIndicator::new(vec![s]).unwrap_err(),
+            IndicatorError::EmptyId
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut i = StepIndicator::new(vec![step("a", StepStatus::Done)]).unwrap();
         i.schema_version = "9.9.9".into();
-        assert!(matches!(i.validate().unwrap_err(), IndicatorError::SchemaMismatch));
+        assert!(matches!(
+            i.validate().unwrap_err(),
+            IndicatorError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn status_serde_kebab() {
-        assert_eq!(serde_json::to_string(&StepStatus::NotStarted).unwrap(), "\"not-started\"");
+        assert_eq!(
+            serde_json::to_string(&StepStatus::NotStarted).unwrap(),
+            "\"not-started\""
+        );
     }
 
     #[test]
     fn indicator_serde_roundtrip() {
-        let i = StepIndicator::new(vec![step("a", StepStatus::Done), step("b", StepStatus::Active)]).unwrap();
+        let i = StepIndicator::new(vec![
+            step("a", StepStatus::Done),
+            step("b", StepStatus::Active),
+        ])
+        .unwrap();
         let j = serde_json::to_string(&i).unwrap();
         let back: StepIndicator = serde_json::from_str(&j).unwrap();
         assert_eq!(i, back);

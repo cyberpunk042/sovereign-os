@@ -81,7 +81,10 @@ impl RatingStars {
     /// and `allow_clear`, clears.
     pub fn click(&mut self, star: u8, half_click: bool) -> Result<u8, RatingError> {
         if star == 0 || star > self.star_count {
-            return Err(RatingError::BadClickStar { clicked: star, max: self.star_count });
+            return Err(RatingError::BadClickStar {
+                clicked: star,
+                max: self.star_count,
+            });
         }
         let target_halves: u8 = if half_click && self.half_stars {
             star * 2 - 1
@@ -116,7 +119,10 @@ impl RatingStars {
         }
         let max = self.star_count * 2;
         if self.value_halves > max {
-            return Err(RatingError::ValueOutOfRange { value: self.value_halves, max });
+            return Err(RatingError::ValueOutOfRange {
+                value: self.value_halves,
+                max,
+            });
         }
         if !self.half_stars && self.value_halves % 2 != 0 {
             return Err(RatingError::OddValueWithoutHalves(self.value_halves));
@@ -131,8 +137,14 @@ mod tests {
 
     #[test]
     fn bad_star_count_rejected() {
-        assert!(matches!(RatingStars::new(4, false, false).unwrap_err(), RatingError::BadStarCount(4)));
-        assert!(matches!(RatingStars::new(6, false, false).unwrap_err(), RatingError::BadStarCount(6)));
+        assert!(matches!(
+            RatingStars::new(4, false, false).unwrap_err(),
+            RatingError::BadStarCount(4)
+        ));
+        assert!(matches!(
+            RatingStars::new(6, false, false).unwrap_err(),
+            RatingError::BadStarCount(6)
+        ));
     }
 
     #[test]
@@ -178,29 +190,44 @@ mod tests {
     #[test]
     fn bad_click_star_rejected() {
         let mut r = RatingStars::new(5, false, false).unwrap();
-        assert!(matches!(r.click(0, false).unwrap_err(), RatingError::BadClickStar { .. }));
-        assert!(matches!(r.click(6, false).unwrap_err(), RatingError::BadClickStar { .. }));
+        assert!(matches!(
+            r.click(0, false).unwrap_err(),
+            RatingError::BadClickStar { .. }
+        ));
+        assert!(matches!(
+            r.click(6, false).unwrap_err(),
+            RatingError::BadClickStar { .. }
+        ));
     }
 
     #[test]
     fn validate_value_out_of_range_rejected() {
         let mut r = RatingStars::new(5, true, false).unwrap();
         r.value_halves = 11;
-        assert!(matches!(r.validate().unwrap_err(), RatingError::ValueOutOfRange { .. }));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            RatingError::ValueOutOfRange { .. }
+        ));
     }
 
     #[test]
     fn validate_odd_value_without_halves_rejected() {
         let mut r = RatingStars::new(5, false, false).unwrap();
         r.value_halves = 3;
-        assert!(matches!(r.validate().unwrap_err(), RatingError::OddValueWithoutHalves(3)));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            RatingError::OddValueWithoutHalves(3)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut r = RatingStars::new(5, false, false).unwrap();
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate().unwrap_err(), RatingError::SchemaMismatch));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            RatingError::SchemaMismatch
+        ));
     }
 
     #[test]

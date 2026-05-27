@@ -28,7 +28,9 @@ pub struct FileStat {
 
 impl FileStat {
     /// Churn (added + removed).
-    pub fn churn(&self) -> u64 { self.added.saturating_add(self.removed) }
+    pub fn churn(&self) -> u64 {
+        self.added.saturating_add(self.removed)
+    }
 }
 
 /// Grand total.
@@ -75,8 +77,11 @@ impl DiffStats {
 
     /// Record (replaces).
     pub fn record(&mut self, path: &str, added: u64, removed: u64) -> Result<(), DiffError> {
-        if path.is_empty() { return Err(DiffError::EmptyPath); }
-        self.by_path.insert(path.into(), FileStat { added, removed });
+        if path.is_empty() {
+            return Err(DiffError::EmptyPath);
+        }
+        self.by_path
+            .insert(path.into(), FileStat { added, removed });
         Ok(())
     }
 
@@ -103,7 +108,9 @@ impl DiffStats {
 
     /// Files sorted by churn descending, tie-break by path asc.
     pub fn files_by_churn(&self) -> Vec<&str> {
-        let mut all: Vec<(&str, u64)> = self.by_path.iter()
+        let mut all: Vec<(&str, u64)> = self
+            .by_path
+            .iter()
             .map(|(k, v)| (k.as_str(), v.churn()))
             .collect();
         all.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
@@ -112,16 +119,22 @@ impl DiffStats {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), DiffError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(DiffError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(DiffError::SchemaMismatch);
+        }
         for k in self.by_path.keys() {
-            if k.is_empty() { return Err(DiffError::EmptyPath); }
+            if k.is_empty() {
+                return Err(DiffError::EmptyPath);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for DiffStats {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -170,14 +183,20 @@ mod tests {
     #[test]
     fn empty_path_rejected() {
         let mut s = DiffStats::new();
-        assert!(matches!(s.record("", 0, 0).unwrap_err(), DiffError::EmptyPath));
+        assert!(matches!(
+            s.record("", 0, 0).unwrap_err(),
+            DiffError::EmptyPath
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = DiffStats::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), DiffError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            DiffError::SchemaMismatch
+        ));
     }
 
     #[test]

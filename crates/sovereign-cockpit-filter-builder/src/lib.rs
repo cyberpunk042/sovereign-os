@@ -115,22 +115,36 @@ impl FilterBuilder {
 
     /// Append a clause.
     pub fn push(&mut self, field: &str, op: Op, value: &str) -> Result<(), FilterError> {
-        if field.is_empty() { return Err(FilterError::EmptyField); }
-        if value.is_empty() { return Err(FilterError::EmptyValue); }
-        self.clauses.push(Clause { field: field.into(), op, value: value.into() });
+        if field.is_empty() {
+            return Err(FilterError::EmptyField);
+        }
+        if value.is_empty() {
+            return Err(FilterError::EmptyValue);
+        }
+        self.clauses.push(Clause {
+            field: field.into(),
+            op,
+            value: value.into(),
+        });
         Ok(())
     }
 
     /// Remove by index.
     pub fn remove(&mut self, idx: usize) -> Result<Clause, FilterError> {
-        if idx >= self.clauses.len() { return Err(FilterError::OutOfRange(idx)); }
+        if idx >= self.clauses.len() {
+            return Err(FilterError::OutOfRange(idx));
+        }
         Ok(self.clauses.remove(idx))
     }
 
     /// Move clause at `from` to `to`.
     pub fn move_clause(&mut self, from: usize, to: usize) -> Result<(), FilterError> {
-        if from >= self.clauses.len() { return Err(FilterError::OutOfRange(from)); }
-        if to > self.clauses.len() { return Err(FilterError::OutOfRange(to)); }
+        if from >= self.clauses.len() {
+            return Err(FilterError::OutOfRange(from));
+        }
+        if to > self.clauses.len() {
+            return Err(FilterError::OutOfRange(to));
+        }
         let c = self.clauses.remove(from);
         let to_adj = if to > from { to - 1 } else { to };
         self.clauses.insert(to_adj, c);
@@ -138,38 +152,63 @@ impl FilterBuilder {
     }
 
     /// Set combinator.
-    pub fn set_combinator(&mut self, c: Combinator) { self.combinator = c; }
+    pub fn set_combinator(&mut self, c: Combinator) {
+        self.combinator = c;
+    }
 
     /// Set negated.
-    pub fn set_negated(&mut self, n: bool) { self.negated = n; }
+    pub fn set_negated(&mut self, n: bool) {
+        self.negated = n;
+    }
 
     /// Render text form.
     pub fn render_query(&self) -> String {
         if self.clauses.is_empty() {
-            return if self.negated { "NOT ()".into() } else { "()".into() };
+            return if self.negated {
+                "NOT ()".into()
+            } else {
+                "()".into()
+            };
         }
-        let joiner = match self.combinator { Combinator::And => " AND ", Combinator::Or => " OR " };
-        let body: String = self.clauses.iter()
+        let joiner = match self.combinator {
+            Combinator::And => " AND ",
+            Combinator::Or => " OR ",
+        };
+        let body: String = self
+            .clauses
+            .iter()
             .map(|c| format!("{}{}{}", c.field, c.op.symbol(), c.value))
             .collect::<Vec<_>>()
             .join(joiner);
         let wrapped = format!("({body})");
-        if self.negated { format!("NOT {wrapped}") } else { wrapped }
+        if self.negated {
+            format!("NOT {wrapped}")
+        } else {
+            wrapped
+        }
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), FilterError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(FilterError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(FilterError::SchemaMismatch);
+        }
         for c in &self.clauses {
-            if c.field.is_empty() { return Err(FilterError::EmptyField); }
-            if c.value.is_empty() { return Err(FilterError::EmptyValue); }
+            if c.field.is_empty() {
+                return Err(FilterError::EmptyField);
+            }
+            if c.value.is_empty() {
+                return Err(FilterError::EmptyValue);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for FilterBuilder {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -226,7 +265,10 @@ mod tests {
         // Move 0 → end.
         f.move_clause(0, 3).unwrap();
         let fields: Vec<&String> = f.clauses.iter().map(|c| &c.field).collect();
-        assert_eq!(fields, vec![&"b".to_string(), &"c".to_string(), &"a".to_string()]);
+        assert_eq!(
+            fields,
+            vec![&"b".to_string(), &"c".to_string(), &"a".to_string()]
+        );
     }
 
     #[test]
@@ -241,7 +283,10 @@ mod tests {
     #[test]
     fn out_of_range_rejected() {
         let mut f = FilterBuilder::new();
-        assert!(matches!(f.remove(0).unwrap_err(), FilterError::OutOfRange(_)));
+        assert!(matches!(
+            f.remove(0).unwrap_err(),
+            FilterError::OutOfRange(_)
+        ));
     }
 
     #[test]
@@ -254,15 +299,24 @@ mod tests {
     #[test]
     fn empty_inputs_rejected() {
         let mut f = FilterBuilder::new();
-        assert!(matches!(f.push("", Op::Eq, "x").unwrap_err(), FilterError::EmptyField));
-        assert!(matches!(f.push("f", Op::Eq, "").unwrap_err(), FilterError::EmptyValue));
+        assert!(matches!(
+            f.push("", Op::Eq, "x").unwrap_err(),
+            FilterError::EmptyField
+        ));
+        assert!(matches!(
+            f.push("f", Op::Eq, "").unwrap_err(),
+            FilterError::EmptyValue
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut f = FilterBuilder::new();
         f.schema_version = "9.9.9".into();
-        assert!(matches!(f.validate().unwrap_err(), FilterError::SchemaMismatch));
+        assert!(matches!(
+            f.validate().unwrap_err(),
+            FilterError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -39,7 +39,9 @@ pub struct Rgb {
 
 impl Rgb {
     /// Construct from 0..=255 channels.
-    pub const fn new(r: u8, g: u8, b: u8) -> Self { Self { r, g, b } }
+    pub const fn new(r: u8, g: u8, b: u8) -> Self {
+        Self { r, g, b }
+    }
     /// Construct from a 24-bit packed integer `0xRRGGBB`.
     pub const fn from_hex(rgb: u32) -> Self {
         Self {
@@ -69,9 +71,9 @@ impl WcagLevel {
     /// Required contrast ratio threshold for this level + text size.
     pub const fn threshold(self, large_text: bool) -> f64 {
         match (self, large_text) {
-            (WcagLevel::AA,  true)  => 3.0,
-            (WcagLevel::AA,  false) => 4.5,
-            (WcagLevel::AAA, true)  => 4.5,
+            (WcagLevel::AA, true) => 3.0,
+            (WcagLevel::AA, false) => 4.5,
+            (WcagLevel::AAA, true) => 4.5,
             (WcagLevel::AAA, false) => 7.0,
         }
     }
@@ -143,7 +145,9 @@ pub fn verdict(fg: Rgb, bg: Rgb, large_text: bool) -> Verdict {
 
 /// Validate.
 pub fn validate_schema_version(s: &str) -> Result<(), ContrastError> {
-    if s != SCHEMA_VERSION { return Err(ContrastError::SchemaMismatch); }
+    if s != SCHEMA_VERSION {
+        return Err(ContrastError::SchemaMismatch);
+    }
     Ok(())
 }
 
@@ -151,7 +155,9 @@ pub fn validate_schema_version(s: &str) -> Result<(), ContrastError> {
 mod tests {
     use super::*;
 
-    fn approx(a: f64, b: f64, eps: f64) -> bool { (a - b).abs() < eps }
+    fn approx(a: f64, b: f64, eps: f64) -> bool {
+        (a - b).abs() < eps
+    }
 
     #[test]
     fn black_on_white_is_21_to_1() {
@@ -270,7 +276,11 @@ mod tests {
 
     #[test]
     fn verdict_serde_roundtrip() {
-        let v = Verdict { ratio: 4.5, passes_aa: true, passes_aaa: false };
+        let v = Verdict {
+            ratio: 4.5,
+            passes_aa: true,
+            passes_aaa: false,
+        };
         let j = serde_json::to_string(&v).unwrap();
         let back: Verdict = serde_json::from_str(&j).unwrap();
         assert_eq!(v, back);

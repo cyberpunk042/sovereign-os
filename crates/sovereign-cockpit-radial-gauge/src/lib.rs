@@ -61,8 +61,12 @@ pub enum GaugeError {
 impl RadialGauge {
     /// New.
     pub fn new(min: i64, max: i64, warm_bp: u32, hot_bp: u32) -> Result<Self, GaugeError> {
-        if min >= max { return Err(GaugeError::BadRange); }
-        if !(warm_bp < hot_bp && hot_bp <= 10_000) { return Err(GaugeError::BadThresholds); }
+        if min >= max {
+            return Err(GaugeError::BadRange);
+        }
+        if !(warm_bp < hot_bp && hot_bp <= 10_000) {
+            return Err(GaugeError::BadThresholds);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             min,
@@ -88,16 +92,26 @@ impl RadialGauge {
     /// Zone classification.
     pub fn zone(&self) -> Zone {
         let bp = self.fill_bp();
-        if bp < self.warm_bp { Zone::Cold }
-        else if bp < self.hot_bp { Zone::Warm }
-        else { Zone::Hot }
+        if bp < self.warm_bp {
+            Zone::Cold
+        } else if bp < self.hot_bp {
+            Zone::Warm
+        } else {
+            Zone::Hot
+        }
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), GaugeError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(GaugeError::SchemaMismatch); }
-        if self.min >= self.max { return Err(GaugeError::BadRange); }
-        if !(self.warm_bp < self.hot_bp && self.hot_bp <= 10_000) { return Err(GaugeError::BadThresholds); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(GaugeError::SchemaMismatch);
+        }
+        if self.min >= self.max {
+            return Err(GaugeError::BadRange);
+        }
+        if !(self.warm_bp < self.hot_bp && self.hot_bp <= 10_000) {
+            return Err(GaugeError::BadThresholds);
+        }
         Ok(())
     }
 }
@@ -155,16 +169,28 @@ mod tests {
 
     #[test]
     fn bad_inputs_rejected() {
-        assert!(matches!(RadialGauge::new(100, 0, 5000, 8000).unwrap_err(), GaugeError::BadRange));
-        assert!(matches!(RadialGauge::new(0, 100, 8000, 5000).unwrap_err(), GaugeError::BadThresholds));
-        assert!(matches!(RadialGauge::new(0, 100, 5000, 10_001).unwrap_err(), GaugeError::BadThresholds));
+        assert!(matches!(
+            RadialGauge::new(100, 0, 5000, 8000).unwrap_err(),
+            GaugeError::BadRange
+        ));
+        assert!(matches!(
+            RadialGauge::new(0, 100, 8000, 5000).unwrap_err(),
+            GaugeError::BadThresholds
+        ));
+        assert!(matches!(
+            RadialGauge::new(0, 100, 5000, 10_001).unwrap_err(),
+            GaugeError::BadThresholds
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut g = gauge();
         g.schema_version = "9.9.9".into();
-        assert!(matches!(g.validate().unwrap_err(), GaugeError::SchemaMismatch));
+        assert!(matches!(
+            g.validate().unwrap_err(),
+            GaugeError::SchemaMismatch
+        ));
     }
 
     #[test]

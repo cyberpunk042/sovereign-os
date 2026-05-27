@@ -32,8 +32,7 @@ use thiserror::Error;
 pub const SCHEMA_VERSION: &str = "1.0.0";
 
 /// Doctrine surface verbatim per E0438.
-pub const DOCTRINE_RUNTIME_FIRST: &str =
-    "Fine-tuning changes weights. Runtime adaptation changes behavior. Runtime adaptation comes first.";
+pub const DOCTRINE_RUNTIME_FIRST: &str = "Fine-tuning changes weights. Runtime adaptation changes behavior. Runtime adaptation comes first.";
 
 /// 8 canonical adapter slots per M00774.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -219,10 +218,14 @@ mod tests {
     #[test]
     fn eight_adapter_slots_positioned_1_to_8() {
         for (s, p) in [
-            (AdapterSlot::SelfdefSecurity, 1), (AdapterSlot::SovereignAdmin, 2),
-            (AdapterSlot::CodingStyle, 3), (AdapterSlot::SpecDriven, 4),
-            (AdapterSlot::TddReview, 5), (AdapterSlot::CommunicationMediation, 6),
-            (AdapterSlot::DomainSpecific, 7), (AdapterSlot::UserPreference, 8),
+            (AdapterSlot::SelfdefSecurity, 1),
+            (AdapterSlot::SovereignAdmin, 2),
+            (AdapterSlot::CodingStyle, 3),
+            (AdapterSlot::SpecDriven, 4),
+            (AdapterSlot::TddReview, 5),
+            (AdapterSlot::CommunicationMediation, 6),
+            (AdapterSlot::DomainSpecific, 7),
+            (AdapterSlot::UserPreference, 8),
         ] {
             assert_eq!(s.position(), p);
         }
@@ -232,9 +235,13 @@ mod tests {
     fn selfdef_security_is_only_selfdef_owned() {
         assert_eq!(AdapterSlot::SelfdefSecurity.source_repo(), "selfdef");
         for s in [
-            AdapterSlot::SovereignAdmin, AdapterSlot::CodingStyle, AdapterSlot::SpecDriven,
-            AdapterSlot::TddReview, AdapterSlot::CommunicationMediation,
-            AdapterSlot::DomainSpecific, AdapterSlot::UserPreference,
+            AdapterSlot::SovereignAdmin,
+            AdapterSlot::CodingStyle,
+            AdapterSlot::SpecDriven,
+            AdapterSlot::TddReview,
+            AdapterSlot::CommunicationMediation,
+            AdapterSlot::DomainSpecific,
+            AdapterSlot::UserPreference,
         ] {
             assert_eq!(s.source_repo(), "sovereign-os");
         }
@@ -243,9 +250,12 @@ mod tests {
     #[test]
     fn seven_pipeline_steps_positioned_1_to_7() {
         for (s, p) in [
-            (PipelineStep::TraceCuration, 1), (PipelineStep::DatasetCreation, 2),
-            (PipelineStep::LoraTraining, 3), (PipelineStep::AdapterServing, 4),
-            (PipelineStep::EvalGating, 5), (PipelineStep::ProfileAssignment, 6),
+            (PipelineStep::TraceCuration, 1),
+            (PipelineStep::DatasetCreation, 2),
+            (PipelineStep::LoraTraining, 3),
+            (PipelineStep::AdapterServing, 4),
+            (PipelineStep::EvalGating, 5),
+            (PipelineStep::ProfileAssignment, 6),
             (PipelineStep::SignedPromotion, 7),
         ] {
             assert_eq!(s.position(), p);
@@ -258,11 +268,16 @@ mod tests {
         let mut steps = 0;
         while let Ok(_) = p.advance() {
             steps += 1;
-            if steps > 10 { panic!("loop did not terminate"); }
+            if steps > 10 {
+                panic!("loop did not terminate");
+            }
         }
         assert_eq!(p.step, PipelineStep::SignedPromotion);
         // Advance past terminal returns Err PipelineTerminal
-        assert!(matches!(p.advance().unwrap_err(), FoundryError::PipelineTerminal));
+        assert!(matches!(
+            p.advance().unwrap_err(),
+            FoundryError::PipelineTerminal
+        ));
     }
 
     #[test]
@@ -275,15 +290,23 @@ mod tests {
         }
         assert_eq!(p.step, PipelineStep::ProfileAssignment);
         // Advance to SignedPromotion should fail
-        assert!(matches!(p.advance().unwrap_err(), FoundryError::EvalGateFailed(70)));
+        assert!(matches!(
+            p.advance().unwrap_err(),
+            FoundryError::EvalGateFailed(70)
+        ));
     }
 
     #[test]
     fn unsigned_blocks_signed_promotion() {
         let mut p = promo(AdapterSlot::SpecDriven);
         p.signature = String::new();
-        for _ in 0..5 { p.advance().unwrap(); }
-        assert!(matches!(p.advance().unwrap_err(), FoundryError::PromotionUnsigned));
+        for _ in 0..5 {
+            p.advance().unwrap();
+        }
+        assert!(matches!(
+            p.advance().unwrap_err(),
+            FoundryError::PromotionUnsigned
+        ));
     }
 
     #[test]
@@ -296,23 +319,50 @@ mod tests {
 
     #[test]
     fn runtime_decision_serde_kebab() {
-        assert_eq!(serde_json::to_string(&RuntimeDecision::UseAdapter).unwrap(), "\"use-adapter\"");
-        assert_eq!(serde_json::to_string(&RuntimeDecision::StackMerge).unwrap(), "\"stack-merge\"");
-        assert_eq!(serde_json::to_string(&RuntimeDecision::RouteSpecialist).unwrap(), "\"route-specialist\"");
-        assert_eq!(serde_json::to_string(&RuntimeDecision::AskOracle).unwrap(), "\"ask-oracle\"");
+        assert_eq!(
+            serde_json::to_string(&RuntimeDecision::UseAdapter).unwrap(),
+            "\"use-adapter\""
+        );
+        assert_eq!(
+            serde_json::to_string(&RuntimeDecision::StackMerge).unwrap(),
+            "\"stack-merge\""
+        );
+        assert_eq!(
+            serde_json::to_string(&RuntimeDecision::RouteSpecialist).unwrap(),
+            "\"route-specialist\""
+        );
+        assert_eq!(
+            serde_json::to_string(&RuntimeDecision::AskOracle).unwrap(),
+            "\"ask-oracle\""
+        );
     }
 
     #[test]
     fn adapter_slot_serde_kebab() {
-        assert_eq!(serde_json::to_string(&AdapterSlot::SelfdefSecurity).unwrap(), "\"selfdef-security\"");
-        assert_eq!(serde_json::to_string(&AdapterSlot::UserPreference).unwrap(), "\"user-preference\"");
-        assert_eq!(serde_json::to_string(&AdapterSlot::CommunicationMediation).unwrap(), "\"communication-mediation\"");
+        assert_eq!(
+            serde_json::to_string(&AdapterSlot::SelfdefSecurity).unwrap(),
+            "\"selfdef-security\""
+        );
+        assert_eq!(
+            serde_json::to_string(&AdapterSlot::UserPreference).unwrap(),
+            "\"user-preference\""
+        );
+        assert_eq!(
+            serde_json::to_string(&AdapterSlot::CommunicationMediation).unwrap(),
+            "\"communication-mediation\""
+        );
     }
 
     #[test]
     fn pipeline_step_serde_kebab() {
-        assert_eq!(serde_json::to_string(&PipelineStep::LoraTraining).unwrap(), "\"lora-training\"");
-        assert_eq!(serde_json::to_string(&PipelineStep::SignedPromotion).unwrap(), "\"signed-promotion\"");
+        assert_eq!(
+            serde_json::to_string(&PipelineStep::LoraTraining).unwrap(),
+            "\"lora-training\""
+        );
+        assert_eq!(
+            serde_json::to_string(&PipelineStep::SignedPromotion).unwrap(),
+            "\"signed-promotion\""
+        );
     }
 
     #[test]

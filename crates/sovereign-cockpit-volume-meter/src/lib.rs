@@ -76,7 +76,9 @@ impl VolumeMeter {
 
     /// Observe sample (bp).
     pub fn observe(&mut self, sample_bp: u32, now_ms: u64) -> Result<(), MeterError> {
-        if sample_bp > 10000 { return Err(MeterError::BadBp); }
+        if sample_bp > 10000 {
+            return Err(MeterError::BadBp);
+        }
         // First decay before lifting peak.
         self.decay_peak(now_ms);
         self.level_bp = sample_bp;
@@ -96,8 +98,12 @@ impl VolumeMeter {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), MeterError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(MeterError::SchemaMismatch); }
-        if self.level_bp > 10000 || self.peak_bp > 10000 { return Err(MeterError::BadBp); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(MeterError::SchemaMismatch);
+        }
+        if self.level_bp > 10000 || self.peak_bp > 10000 {
+            return Err(MeterError::BadBp);
+        }
         Ok(())
     }
 }
@@ -159,14 +165,20 @@ mod tests {
     #[test]
     fn out_of_range_rejected() {
         let mut m = VolumeMeter::new(500, 1000);
-        assert!(matches!(m.observe(10001, 0).unwrap_err(), MeterError::BadBp));
+        assert!(matches!(
+            m.observe(10001, 0).unwrap_err(),
+            MeterError::BadBp
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut m = VolumeMeter::new(500, 1000);
         m.schema_version = "9.9.9".into();
-        assert!(matches!(m.validate().unwrap_err(), MeterError::SchemaMismatch));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            MeterError::SchemaMismatch
+        ));
     }
 
     #[test]

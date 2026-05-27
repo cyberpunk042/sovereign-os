@@ -61,8 +61,12 @@ pub enum RevealError {
 impl SecretReveal {
     /// New.
     pub fn new(reveal_ms: u64, tail: u8) -> Result<Self, RevealError> {
-        if reveal_ms == 0 { return Err(RevealError::ZeroReveal); }
-        if tail > 8 { return Err(RevealError::BadTail); }
+        if reveal_ms == 0 {
+            return Err(RevealError::ZeroReveal);
+        }
+        if tail > 8 {
+            return Err(RevealError::BadTail);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             state: State::Masked,
@@ -117,9 +121,15 @@ impl SecretReveal {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), RevealError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(RevealError::SchemaMismatch); }
-        if self.reveal_ms == 0 { return Err(RevealError::ZeroReveal); }
-        if self.tail > 8 { return Err(RevealError::BadTail); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(RevealError::SchemaMismatch);
+        }
+        if self.reveal_ms == 0 {
+            return Err(RevealError::ZeroReveal);
+        }
+        if self.tail > 8 {
+            return Err(RevealError::BadTail);
+        }
         Ok(())
     }
 }
@@ -154,7 +164,10 @@ mod tests {
     #[test]
     fn masked_shows_tail() {
         let s = SecretReveal::new(5000, 4).unwrap();
-        assert_eq!(s.masked_display("sk-secret-abcdef1234"), "••••••••••••••••1234");
+        assert_eq!(
+            s.masked_display("sk-secret-abcdef1234"),
+            "••••••••••••••••1234"
+        );
     }
 
     #[test]
@@ -185,15 +198,24 @@ mod tests {
 
     #[test]
     fn bad_inputs_rejected() {
-        assert!(matches!(SecretReveal::new(0, 4).unwrap_err(), RevealError::ZeroReveal));
-        assert!(matches!(SecretReveal::new(1000, 9).unwrap_err(), RevealError::BadTail));
+        assert!(matches!(
+            SecretReveal::new(0, 4).unwrap_err(),
+            RevealError::ZeroReveal
+        ));
+        assert!(matches!(
+            SecretReveal::new(1000, 9).unwrap_err(),
+            RevealError::BadTail
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = SecretReveal::new(1000, 4).unwrap();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), RevealError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            RevealError::SchemaMismatch
+        ));
     }
 
     #[test]

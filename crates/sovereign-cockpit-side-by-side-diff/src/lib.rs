@@ -101,40 +101,51 @@ pub enum DiffError {
 impl SideBySideDiff {
     /// New.
     pub fn new() -> Self {
-        Self { schema_version: SCHEMA_VERSION.into() }
+        Self {
+            schema_version: SCHEMA_VERSION.into(),
+        }
     }
 
     /// Align.
     pub fn align(&self, hunks: &[HunkKind]) -> Vec<AlignedPair> {
-        hunks.iter().map(|h| match h {
-            HunkKind::Context { text } => AlignedPair {
-                left: Cell::Context { text: text.clone() },
-                right: Cell::Context { text: text.clone() },
-            },
-            HunkKind::Add { text } => AlignedPair {
-                left: Cell::Spacer,
-                right: Cell::Added { text: text.clone() },
-            },
-            HunkKind::Remove { text } => AlignedPair {
-                left: Cell::Removed { text: text.clone() },
-                right: Cell::Spacer,
-            },
-            HunkKind::Change { left, right } => AlignedPair {
-                left: Cell::Modified { text: left.clone() },
-                right: Cell::Modified { text: right.clone() },
-            },
-        }).collect()
+        hunks
+            .iter()
+            .map(|h| match h {
+                HunkKind::Context { text } => AlignedPair {
+                    left: Cell::Context { text: text.clone() },
+                    right: Cell::Context { text: text.clone() },
+                },
+                HunkKind::Add { text } => AlignedPair {
+                    left: Cell::Spacer,
+                    right: Cell::Added { text: text.clone() },
+                },
+                HunkKind::Remove { text } => AlignedPair {
+                    left: Cell::Removed { text: text.clone() },
+                    right: Cell::Spacer,
+                },
+                HunkKind::Change { left, right } => AlignedPair {
+                    left: Cell::Modified { text: left.clone() },
+                    right: Cell::Modified {
+                        text: right.clone(),
+                    },
+                },
+            })
+            .collect()
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), DiffError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(DiffError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(DiffError::SchemaMismatch);
+        }
         Ok(())
     }
 }
 
 impl Default for SideBySideDiff {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -144,11 +155,20 @@ mod tests {
     #[test]
     fn context_paired() {
         let d = SideBySideDiff::new();
-        let out = d.align(&[HunkKind::Context { text: "unchanged".into() }]);
-        assert_eq!(out, vec![AlignedPair {
-            left: Cell::Context { text: "unchanged".into() },
-            right: Cell::Context { text: "unchanged".into() },
+        let out = d.align(&[HunkKind::Context {
+            text: "unchanged".into(),
         }]);
+        assert_eq!(
+            out,
+            vec![AlignedPair {
+                left: Cell::Context {
+                    text: "unchanged".into()
+                },
+                right: Cell::Context {
+                    text: "unchanged".into()
+                },
+            }]
+        );
     }
 
     #[test]
@@ -170,7 +190,10 @@ mod tests {
     #[test]
     fn change_paired_modified() {
         let d = SideBySideDiff::new();
-        let out = d.align(&[HunkKind::Change { left: "a".into(), right: "b".into() }]);
+        let out = d.align(&[HunkKind::Change {
+            left: "a".into(),
+            right: "b".into(),
+        }]);
         assert_eq!(out[0].left, Cell::Modified { text: "a".into() });
         assert_eq!(out[0].right, Cell::Modified { text: "b".into() });
     }
@@ -182,7 +205,10 @@ mod tests {
             HunkKind::Context { text: "x".into() },
             HunkKind::Add { text: "y".into() },
             HunkKind::Remove { text: "z".into() },
-            HunkKind::Change { left: "a".into(), right: "b".into() },
+            HunkKind::Change {
+                left: "a".into(),
+                right: "b".into(),
+            },
         ]);
         assert_eq!(out.len(), 4);
     }
@@ -191,7 +217,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut d = SideBySideDiff::new();
         d.schema_version = "9.9.9".into();
-        assert!(matches!(d.validate().unwrap_err(), DiffError::SchemaMismatch));
+        assert!(matches!(
+            d.validate().unwrap_err(),
+            DiffError::SchemaMismatch
+        ));
     }
 
     #[test]

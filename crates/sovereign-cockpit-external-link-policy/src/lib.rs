@@ -75,7 +75,9 @@ impl ExternalLinkPolicy {
     /// New with default actions: Internal=Open, Trusted=OpenNewTab,
     /// Unknown=Warn.
     pub fn new(internal_host: &str) -> Result<Self, PolicyError> {
-        if internal_host.is_empty() { return Err(PolicyError::EmptyHost); }
+        if internal_host.is_empty() {
+            return Err(PolicyError::EmptyHost);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             internal_host: internal_host.into(),
@@ -88,7 +90,9 @@ impl ExternalLinkPolicy {
 
     /// Add trusted host.
     pub fn trust(&mut self, host: &str) -> Result<(), PolicyError> {
-        if host.is_empty() { return Err(PolicyError::EmptyHost); }
+        if host.is_empty() {
+            return Err(PolicyError::EmptyHost);
+        }
         self.trusted_hosts.insert(host.into());
         Ok(())
     }
@@ -100,9 +104,13 @@ impl ExternalLinkPolicy {
 
     /// Classify host.
     pub fn classify(&self, host: &str) -> Class {
-        if host == self.internal_host { Class::Internal }
-        else if self.trusted_hosts.contains(host) { Class::Trusted }
-        else { Class::UnknownExternal }
+        if host == self.internal_host {
+            Class::Internal
+        } else if self.trusted_hosts.contains(host) {
+            Class::Trusted
+        } else {
+            Class::UnknownExternal
+        }
     }
 
     /// Action for class.
@@ -116,10 +124,16 @@ impl ExternalLinkPolicy {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), PolicyError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(PolicyError::SchemaMismatch); }
-        if self.internal_host.is_empty() { return Err(PolicyError::EmptyHost); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(PolicyError::SchemaMismatch);
+        }
+        if self.internal_host.is_empty() {
+            return Err(PolicyError::EmptyHost);
+        }
         for h in &self.trusted_hosts {
-            if h.is_empty() { return Err(PolicyError::EmptyHost); }
+            if h.is_empty() {
+                return Err(PolicyError::EmptyHost);
+            }
         }
         Ok(())
     }
@@ -161,7 +175,10 @@ mod tests {
 
     #[test]
     fn empty_inputs_rejected() {
-        assert!(matches!(ExternalLinkPolicy::new("").unwrap_err(), PolicyError::EmptyHost));
+        assert!(matches!(
+            ExternalLinkPolicy::new("").unwrap_err(),
+            PolicyError::EmptyHost
+        ));
         let mut p = ExternalLinkPolicy::new("h").unwrap();
         assert!(matches!(p.trust("").unwrap_err(), PolicyError::EmptyHost));
     }
@@ -170,7 +187,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut p = ExternalLinkPolicy::new("h").unwrap();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), PolicyError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            PolicyError::SchemaMismatch
+        ));
     }
 
     #[test]

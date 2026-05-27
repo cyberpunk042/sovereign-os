@@ -115,7 +115,9 @@ impl FindReplaceBar {
 
     /// Next match (wraps).
     pub fn next(&mut self) -> Result<u64, FindReplaceError> {
-        if self.match_offsets.is_empty() { return Err(FindReplaceError::NoMatches); }
+        if self.match_offsets.is_empty() {
+            return Err(FindReplaceError::NoMatches);
+        }
         let idx = match self.cursor_index {
             None => 0,
             Some(i) => (i + 1) % self.match_offsets.len(),
@@ -126,7 +128,9 @@ impl FindReplaceBar {
 
     /// Previous match (wraps).
     pub fn prev(&mut self) -> Result<u64, FindReplaceError> {
-        if self.match_offsets.is_empty() { return Err(FindReplaceError::NoMatches); }
+        if self.match_offsets.is_empty() {
+            return Err(FindReplaceError::NoMatches);
+        }
         let len = self.match_offsets.len();
         let idx = match self.cursor_index {
             None => len - 1,
@@ -144,8 +148,12 @@ impl FindReplaceBar {
 
     /// Replace current match.
     pub fn replace_current(&self) -> Result<EditOp, FindReplaceError> {
-        let Some(i) = self.cursor_index else { return Err(FindReplaceError::NoMatches); };
-        if self.match_offsets.is_empty() { return Err(FindReplaceError::NoMatches); }
+        let Some(i) = self.cursor_index else {
+            return Err(FindReplaceError::NoMatches);
+        };
+        if self.match_offsets.is_empty() {
+            return Err(FindReplaceError::NoMatches);
+        }
         let start = self.match_offsets[i];
         Ok(EditOp {
             start,
@@ -156,22 +164,29 @@ impl FindReplaceBar {
 
     /// Replace all (offset order — caller applies in reverse to keep offsets stable).
     pub fn replace_all(&self) -> Vec<EditOp> {
-        self.match_offsets.iter().map(|&o| EditOp {
-            start: o,
-            end: o + self.match_len,
-            replacement: self.replacement.clone(),
-        }).collect()
+        self.match_offsets
+            .iter()
+            .map(|&o| EditOp {
+                start: o,
+                end: o + self.match_len,
+                replacement: self.replacement.clone(),
+            })
+            .collect()
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), FindReplaceError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(FindReplaceError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(FindReplaceError::SchemaMismatch);
+        }
         Ok(())
     }
 }
 
 impl Default for FindReplaceBar {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -250,7 +265,10 @@ mod tests {
     #[test]
     fn replace_current_without_matches_rejected() {
         let b = FindReplaceBar::new();
-        assert!(matches!(b.replace_current().unwrap_err(), FindReplaceError::NoMatches));
+        assert!(matches!(
+            b.replace_current().unwrap_err(),
+            FindReplaceError::NoMatches
+        ));
     }
 
     #[test]
@@ -266,7 +284,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut b = FindReplaceBar::new();
         b.schema_version = "9.9.9".into();
-        assert!(matches!(b.validate().unwrap_err(), FindReplaceError::SchemaMismatch));
+        assert!(matches!(
+            b.validate().unwrap_err(),
+            FindReplaceError::SchemaMismatch
+        ));
     }
 
     #[test]

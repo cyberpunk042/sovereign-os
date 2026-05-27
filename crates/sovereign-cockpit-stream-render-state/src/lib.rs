@@ -118,7 +118,9 @@ impl StreamRenderState {
 
     /// Error.
     pub fn error(&mut self, message: &str, ts_ms: u64) -> Result<(), StreamError> {
-        if message.is_empty() { return Err(StreamError::EmptyError); }
+        if message.is_empty() {
+            return Err(StreamError::EmptyError);
+        }
         if !matches!(self.phase, Phase::Streaming) {
             return Err(StreamError::InvalidTransition(self.phase));
         }
@@ -154,13 +156,17 @@ impl StreamRenderState {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), StreamError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(StreamError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(StreamError::SchemaMismatch);
+        }
         Ok(())
     }
 }
 
 impl Default for StreamRenderState {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -190,7 +196,10 @@ mod tests {
     #[test]
     fn append_in_wrong_phase_rejected() {
         let mut s = StreamRenderState::new();
-        assert!(matches!(s.append_chunk("x", 0).unwrap_err(), StreamError::InvalidTransition(_)));
+        assert!(matches!(
+            s.append_chunk("x", 0).unwrap_err(),
+            StreamError::InvalidTransition(_)
+        ));
     }
 
     #[test]
@@ -225,14 +234,20 @@ mod tests {
     fn empty_error_rejected() {
         let mut s = StreamRenderState::new();
         s.start(0).unwrap();
-        assert!(matches!(s.error("", 0).unwrap_err(), StreamError::EmptyError));
+        assert!(matches!(
+            s.error("", 0).unwrap_err(),
+            StreamError::EmptyError
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = StreamRenderState::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), StreamError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            StreamError::SchemaMismatch
+        ));
     }
 
     #[test]

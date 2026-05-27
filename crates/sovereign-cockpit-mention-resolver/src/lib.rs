@@ -78,17 +78,27 @@ fn is_valid_handle(h: &str) -> bool {
 impl MentionResolver {
     /// New.
     pub fn new() -> Self {
-        Self { schema_version: SCHEMA_VERSION.into(), users: BTreeMap::new() }
+        Self {
+            schema_version: SCHEMA_VERSION.into(),
+            users: BTreeMap::new(),
+        }
     }
 
     /// Register a user.
     pub fn add_user(&mut self, handle: &str, display_name: &str) -> Result<(), ResolverError> {
-        if handle.is_empty() { return Err(ResolverError::EmptyHandle); }
-        if !is_valid_handle(handle) { return Err(ResolverError::BadHandle); }
-        self.users.insert(handle.into(), User {
-            handle: handle.into(),
-            display_name: display_name.into(),
-        });
+        if handle.is_empty() {
+            return Err(ResolverError::EmptyHandle);
+        }
+        if !is_valid_handle(handle) {
+            return Err(ResolverError::BadHandle);
+        }
+        self.users.insert(
+            handle.into(),
+            User {
+                handle: handle.into(),
+                display_name: display_name.into(),
+            },
+        );
         Ok(())
     }
 
@@ -103,11 +113,15 @@ impl MentionResolver {
                 // Walk handle chars.
                 let start = i + 1;
                 let mut j = start;
-                while j < chars.len() && is_handle_char(chars[j]) { j += 1; }
+                while j < chars.len() && is_handle_char(chars[j]) {
+                    j += 1;
+                }
                 let handle: String = chars[start..j].iter().collect();
                 if !handle.is_empty() && self.users.contains_key(&handle) {
                     if !buf.is_empty() {
-                        out.push(Token::Plain { text: std::mem::take(&mut buf) });
+                        out.push(Token::Plain {
+                            text: std::mem::take(&mut buf),
+                        });
                     }
                     let u = self.users.get(&handle).unwrap();
                     out.push(Token::Mention {
@@ -126,22 +140,30 @@ impl MentionResolver {
                 i += 1;
             }
         }
-        if !buf.is_empty() { out.push(Token::Plain { text: buf }); }
+        if !buf.is_empty() {
+            out.push(Token::Plain { text: buf });
+        }
         out
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ResolverError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ResolverError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ResolverError::SchemaMismatch);
+        }
         for h in self.users.keys() {
-            if !is_valid_handle(h) { return Err(ResolverError::BadHandle); }
+            if !is_valid_handle(h) {
+                return Err(ResolverError::BadHandle);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for MentionResolver {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -158,17 +180,28 @@ mod tests {
     #[test]
     fn resolves_known_handle() {
         let toks = r().resolve("hi @alice!");
-        assert_eq!(toks, vec![
-            Token::Plain { text: "hi ".into() },
-            Token::Mention { handle: "alice".into(), display_name: "Alice A.".into() },
-            Token::Plain { text: "!".into() },
-        ]);
+        assert_eq!(
+            toks,
+            vec![
+                Token::Plain { text: "hi ".into() },
+                Token::Mention {
+                    handle: "alice".into(),
+                    display_name: "Alice A.".into()
+                },
+                Token::Plain { text: "!".into() },
+            ]
+        );
     }
 
     #[test]
     fn unknown_stays_plain() {
         let toks = r().resolve("hi @unknown!");
-        assert_eq!(toks, vec![ Token::Plain { text: "hi @unknown!".into() } ]);
+        assert_eq!(
+            toks,
+            vec![Token::Plain {
+                text: "hi @unknown!".into()
+            }]
+        );
     }
 
     #[test]
@@ -182,27 +215,46 @@ mod tests {
     #[test]
     fn only_plain_no_at() {
         let toks = r().resolve("hello world");
-        assert_eq!(toks, vec![ Token::Plain { text: "hello world".into() } ]);
+        assert_eq!(
+            toks,
+            vec![Token::Plain {
+                text: "hello world".into()
+            }]
+        );
     }
 
     #[test]
     fn at_with_no_handle() {
         let toks = r().resolve("price @ $5");
-        assert_eq!(toks, vec![ Token::Plain { text: "price @ $5".into() } ]);
+        assert_eq!(
+            toks,
+            vec![Token::Plain {
+                text: "price @ $5".into()
+            }]
+        );
     }
 
     #[test]
     fn bad_handle_rejected() {
         let mut r = MentionResolver::new();
-        assert!(matches!(r.add_user("", "x").unwrap_err(), ResolverError::EmptyHandle));
-        assert!(matches!(r.add_user("bad handle", "x").unwrap_err(), ResolverError::BadHandle));
+        assert!(matches!(
+            r.add_user("", "x").unwrap_err(),
+            ResolverError::EmptyHandle
+        ));
+        assert!(matches!(
+            r.add_user("bad handle", "x").unwrap_err(),
+            ResolverError::BadHandle
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut r = MentionResolver::new();
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate().unwrap_err(), ResolverError::SchemaMismatch));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            ResolverError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -106,32 +106,46 @@ impl ExecutionMode {
     pub fn canonical_caps(self) -> ModeCapabilities {
         match self {
             ExecutionMode::Plan => ModeCapabilities {
-                writes_allowed: false, network_allowed: false,
-                snapshot_required: false, replay_source_required: false,
+                writes_allowed: false,
+                network_allowed: false,
+                snapshot_required: false,
+                replay_source_required: false,
             },
             ExecutionMode::DryRun => ModeCapabilities {
-                writes_allowed: false, network_allowed: true,
-                snapshot_required: false, replay_source_required: false,
+                writes_allowed: false,
+                network_allowed: true,
+                snapshot_required: false,
+                replay_source_required: false,
             },
             ExecutionMode::Shadow => ModeCapabilities {
-                writes_allowed: false, network_allowed: true,
-                snapshot_required: false, replay_source_required: false,
+                writes_allowed: false,
+                network_allowed: true,
+                snapshot_required: false,
+                replay_source_required: false,
             },
             ExecutionMode::Sandbox => ModeCapabilities {
-                writes_allowed: true, network_allowed: false,
-                snapshot_required: false, replay_source_required: false,
+                writes_allowed: true,
+                network_allowed: false,
+                snapshot_required: false,
+                replay_source_required: false,
             },
             ExecutionMode::Execute => ModeCapabilities {
-                writes_allowed: true, network_allowed: true,
-                snapshot_required: true, replay_source_required: false,
+                writes_allowed: true,
+                network_allowed: true,
+                snapshot_required: true,
+                replay_source_required: false,
             },
             ExecutionMode::Replay => ModeCapabilities {
-                writes_allowed: false, network_allowed: false,
-                snapshot_required: false, replay_source_required: true,
+                writes_allowed: false,
+                network_allowed: false,
+                snapshot_required: false,
+                replay_source_required: true,
             },
             ExecutionMode::Debug => ModeCapabilities {
-                writes_allowed: true, network_allowed: true,
-                snapshot_required: false, replay_source_required: false,
+                writes_allowed: true,
+                network_allowed: true,
+                snapshot_required: false,
+                replay_source_required: false,
             },
         }
     }
@@ -141,13 +155,20 @@ impl ExecutionModeRegistry {
     /// Canonical registry — all 7 modes with declared capability tuples.
     pub fn canonical() -> Self {
         let records = [
-            ExecutionMode::Plan, ExecutionMode::DryRun, ExecutionMode::Shadow,
-            ExecutionMode::Sandbox, ExecutionMode::Execute, ExecutionMode::Replay,
+            ExecutionMode::Plan,
+            ExecutionMode::DryRun,
+            ExecutionMode::Shadow,
+            ExecutionMode::Sandbox,
+            ExecutionMode::Execute,
+            ExecutionMode::Replay,
             ExecutionMode::Debug,
-        ].into_iter().map(|m| ModeRecord {
+        ]
+        .into_iter()
+        .map(|m| ModeRecord {
             mode: m,
             caps: m.canonical_caps(),
-        }).collect();
+        })
+        .collect();
         Self {
             schema_version: SCHEMA_VERSION.into(),
             records,
@@ -163,8 +184,12 @@ impl ExecutionModeRegistry {
             return Err(ModeError::CountInvalid(self.records.len()));
         }
         for m in [
-            ExecutionMode::Plan, ExecutionMode::DryRun, ExecutionMode::Shadow,
-            ExecutionMode::Sandbox, ExecutionMode::Execute, ExecutionMode::Replay,
+            ExecutionMode::Plan,
+            ExecutionMode::DryRun,
+            ExecutionMode::Shadow,
+            ExecutionMode::Sandbox,
+            ExecutionMode::Execute,
+            ExecutionMode::Replay,
             ExecutionMode::Debug,
         ] {
             if !self.records.iter().any(|r| r.mode == m) {
@@ -190,7 +215,10 @@ impl ExecutionModeRegistry {
     pub fn check_write(&self, mode: ExecutionMode) -> Result<(), ModeError> {
         let r = self.get(mode).ok_or(ModeError::Missing(mode))?;
         if !r.caps.writes_allowed {
-            return Err(ModeError::OperationForbidden { mode, op: "write".into() });
+            return Err(ModeError::OperationForbidden {
+                mode,
+                op: "write".into(),
+            });
         }
         Ok(())
     }
@@ -199,7 +227,10 @@ impl ExecutionModeRegistry {
     pub fn check_network(&self, mode: ExecutionMode) -> Result<(), ModeError> {
         let r = self.get(mode).ok_or(ModeError::Missing(mode))?;
         if !r.caps.network_allowed {
-            return Err(ModeError::OperationForbidden { mode, op: "network".into() });
+            return Err(ModeError::OperationForbidden {
+                mode,
+                op: "network".into(),
+            });
         }
         Ok(())
     }
@@ -218,9 +249,15 @@ mod tests {
     fn seven_modes_present() {
         let r = ExecutionModeRegistry::canonical();
         assert_eq!(r.records.len(), 7);
-        for m in [ExecutionMode::Plan, ExecutionMode::DryRun, ExecutionMode::Shadow,
-                  ExecutionMode::Sandbox, ExecutionMode::Execute, ExecutionMode::Replay,
-                  ExecutionMode::Debug] {
+        for m in [
+            ExecutionMode::Plan,
+            ExecutionMode::DryRun,
+            ExecutionMode::Shadow,
+            ExecutionMode::Sandbox,
+            ExecutionMode::Execute,
+            ExecutionMode::Replay,
+            ExecutionMode::Debug,
+        ] {
             assert!(r.get(m).is_some(), "missing {m:?}");
         }
     }
@@ -249,17 +286,36 @@ mod tests {
     #[test]
     fn replay_requires_source_only_for_replay() {
         let r = ExecutionModeRegistry::canonical();
-        assert!(r.get(ExecutionMode::Replay).unwrap().caps.replay_source_required);
-        for m in [ExecutionMode::Plan, ExecutionMode::DryRun, ExecutionMode::Shadow,
-                  ExecutionMode::Sandbox, ExecutionMode::Execute, ExecutionMode::Debug] {
-            assert!(!r.get(m).unwrap().caps.replay_source_required, "{m:?} should not require replay src");
+        assert!(
+            r.get(ExecutionMode::Replay)
+                .unwrap()
+                .caps
+                .replay_source_required
+        );
+        for m in [
+            ExecutionMode::Plan,
+            ExecutionMode::DryRun,
+            ExecutionMode::Shadow,
+            ExecutionMode::Sandbox,
+            ExecutionMode::Execute,
+            ExecutionMode::Debug,
+        ] {
+            assert!(
+                !r.get(m).unwrap().caps.replay_source_required,
+                "{m:?} should not require replay src"
+            );
         }
     }
 
     #[test]
     fn execute_requires_snapshot() {
         let r = ExecutionModeRegistry::canonical();
-        assert!(r.get(ExecutionMode::Execute).unwrap().caps.snapshot_required);
+        assert!(
+            r.get(ExecutionMode::Execute)
+                .unwrap()
+                .caps
+                .snapshot_required
+        );
     }
 
     #[test]
@@ -270,28 +326,46 @@ mod tests {
                 rec.caps.replay_source_required = false;
             }
         }
-        assert!(matches!(r.validate().unwrap_err(), ModeError::ReplayFlagMismatch(ExecutionMode::Replay)));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            ModeError::ReplayFlagMismatch(ExecutionMode::Replay)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut r = ExecutionModeRegistry::canonical();
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate().unwrap_err(), ModeError::SchemaMismatch));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            ModeError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn count_invalid_caught() {
         let mut r = ExecutionModeRegistry::canonical();
         r.records.pop();
-        assert!(matches!(r.validate().unwrap_err(), ModeError::CountInvalid(6)));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            ModeError::CountInvalid(6)
+        ));
     }
 
     #[test]
     fn mode_serde_kebab() {
-        assert_eq!(serde_json::to_string(&ExecutionMode::Plan).unwrap(), "\"plan\"");
-        assert_eq!(serde_json::to_string(&ExecutionMode::DryRun).unwrap(), "\"dry-run\"");
-        assert_eq!(serde_json::to_string(&ExecutionMode::Sandbox).unwrap(), "\"sandbox\"");
+        assert_eq!(
+            serde_json::to_string(&ExecutionMode::Plan).unwrap(),
+            "\"plan\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ExecutionMode::DryRun).unwrap(),
+            "\"dry-run\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ExecutionMode::Sandbox).unwrap(),
+            "\"sandbox\""
+        );
     }
 
     #[test]

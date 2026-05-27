@@ -73,7 +73,9 @@ pub enum PullError {
 impl PullToRefresh {
     /// New.
     pub fn new(trigger_px: u32) -> Result<Self, PullError> {
-        if trigger_px == 0 { return Err(PullError::TriggerZero); }
+        if trigger_px == 0 {
+            return Err(PullError::TriggerZero);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             trigger_px,
@@ -85,7 +87,10 @@ impl PullToRefresh {
     pub fn start(&mut self) -> Result<Phase, PullError> {
         match self.phase {
             Phase::Idle => {
-                self.phase = Phase::Pulling { distance_px: 0, progress_pct: 0 };
+                self.phase = Phase::Pulling {
+                    distance_px: 0,
+                    progress_pct: 0,
+                };
                 Ok(self.phase)
             }
             _ => Err(PullError::InvalidTransition),
@@ -100,7 +105,10 @@ impl PullToRefresh {
                     self.phase = Phase::Armed { distance_px };
                 } else {
                     let progress = ((distance_px as u32) * 100 / self.trigger_px) as u8;
-                    self.phase = Phase::Pulling { distance_px, progress_pct: progress };
+                    self.phase = Phase::Pulling {
+                        distance_px,
+                        progress_pct: progress,
+                    };
                 }
                 Ok(self.phase)
             }
@@ -136,8 +144,12 @@ impl PullToRefresh {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), PullError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(PullError::SchemaMismatch); }
-        if self.trigger_px == 0 { return Err(PullError::TriggerZero); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(PullError::SchemaMismatch);
+        }
+        if self.trigger_px == 0 {
+            return Err(PullError::TriggerZero);
+        }
         Ok(())
     }
 }
@@ -148,14 +160,23 @@ mod tests {
 
     #[test]
     fn trigger_zero_rejected() {
-        assert!(matches!(PullToRefresh::new(0).unwrap_err(), PullError::TriggerZero));
+        assert!(matches!(
+            PullToRefresh::new(0).unwrap_err(),
+            PullError::TriggerZero
+        ));
     }
 
     #[test]
     fn start_enters_pulling() {
         let mut p = PullToRefresh::new(60).unwrap();
         let s = p.start().unwrap();
-        assert_eq!(s, Phase::Pulling { distance_px: 0, progress_pct: 0 });
+        assert_eq!(
+            s,
+            Phase::Pulling {
+                distance_px: 0,
+                progress_pct: 0
+            }
+        );
     }
 
     #[test]
@@ -163,7 +184,13 @@ mod tests {
         let mut p = PullToRefresh::new(100).unwrap();
         p.start().unwrap();
         let s = p.r#move(50).unwrap();
-        assert_eq!(s, Phase::Pulling { distance_px: 50, progress_pct: 50 });
+        assert_eq!(
+            s,
+            Phase::Pulling {
+                distance_px: 50,
+                progress_pct: 50
+            }
+        );
     }
 
     #[test]
@@ -215,18 +242,30 @@ mod tests {
     fn invalid_transitions_rejected() {
         let mut p = PullToRefresh::new(60).unwrap();
         // move() while Idle.
-        assert!(matches!(p.r#move(10).unwrap_err(), PullError::InvalidTransition));
+        assert!(matches!(
+            p.r#move(10).unwrap_err(),
+            PullError::InvalidTransition
+        ));
         // release() while Idle.
-        assert!(matches!(p.release().unwrap_err(), PullError::InvalidTransition));
+        assert!(matches!(
+            p.release().unwrap_err(),
+            PullError::InvalidTransition
+        ));
         // finish() while Idle.
-        assert!(matches!(p.finish().unwrap_err(), PullError::InvalidTransition));
+        assert!(matches!(
+            p.finish().unwrap_err(),
+            PullError::InvalidTransition
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut p = PullToRefresh::new(60).unwrap();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), PullError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            PullError::SchemaMismatch
+        ));
     }
 
     #[test]

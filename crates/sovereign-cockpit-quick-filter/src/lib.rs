@@ -72,9 +72,16 @@ impl QuickFilter {
 
     /// Add a chip.
     pub fn add(&mut self, facet: &str, value: &str) -> Result<(), FilterError> {
-        if facet.is_empty() { return Err(FilterError::EmptyFacet); }
-        if value.is_empty() { return Err(FilterError::EmptyValue); }
-        self.chips.push(Chip { facet: facet.into(), value: value.into() });
+        if facet.is_empty() {
+            return Err(FilterError::EmptyFacet);
+        }
+        if value.is_empty() {
+            return Err(FilterError::EmptyValue);
+        }
+        self.chips.push(Chip {
+            facet: facet.into(),
+            value: value.into(),
+        });
         Ok(())
     }
 
@@ -84,27 +91,39 @@ impl QuickFilter {
     }
 
     /// Clear all chips.
-    pub fn clear(&mut self) { self.chips.clear(); }
+    pub fn clear(&mut self) {
+        self.chips.clear();
+    }
 
     /// Set combine mode.
-    pub fn set_mode(&mut self, mode: CombineMode) { self.mode = mode; }
+    pub fn set_mode(&mut self, mode: CombineMode) {
+        self.mode = mode;
+    }
 
     /// Evaluate against a row. Empty chips → always true.
     pub fn matches(&self, row: &BTreeMap<String, String>) -> bool {
-        if self.chips.is_empty() { return true; }
+        if self.chips.is_empty() {
+            return true;
+        }
         match self.mode {
-            CombineMode::AndAll => {
-                self.chips.iter().all(|c| row.get(&c.facet).map(|v| v == &c.value).unwrap_or(false))
-            }
+            CombineMode::AndAll => self
+                .chips
+                .iter()
+                .all(|c| row.get(&c.facet).map(|v| v == &c.value).unwrap_or(false)),
             CombineMode::AndAnyOfPerFacet => {
                 // Group chips by facet.
                 let mut by_facet: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
                 for c in &self.chips {
-                    by_facet.entry(c.facet.as_str()).or_default().push(c.value.as_str());
+                    by_facet
+                        .entry(c.facet.as_str())
+                        .or_default()
+                        .push(c.value.as_str());
                 }
                 // Each facet must match ANY of its values.
                 by_facet.iter().all(|(facet, values)| {
-                    row.get(*facet).map(|v| values.iter().any(|x| *x == v)).unwrap_or(false)
+                    row.get(*facet)
+                        .map(|v| values.iter().any(|x| *x == v))
+                        .unwrap_or(false)
                 })
             }
         }
@@ -116,15 +135,21 @@ impl QuickFilter {
             return Err(FilterError::SchemaMismatch);
         }
         for c in &self.chips {
-            if c.facet.is_empty() { return Err(FilterError::EmptyFacet); }
-            if c.value.is_empty() { return Err(FilterError::EmptyValue); }
+            if c.facet.is_empty() {
+                return Err(FilterError::EmptyFacet);
+            }
+            if c.value.is_empty() {
+                return Err(FilterError::EmptyValue);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for QuickFilter {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -132,7 +157,10 @@ mod tests {
     use super::*;
 
     fn row(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
-        pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
     }
 
     #[test]
@@ -191,26 +219,41 @@ mod tests {
     #[test]
     fn empty_facet_rejected() {
         let mut f = QuickFilter::new();
-        assert!(matches!(f.add("", "x").unwrap_err(), FilterError::EmptyFacet));
+        assert!(matches!(
+            f.add("", "x").unwrap_err(),
+            FilterError::EmptyFacet
+        ));
     }
 
     #[test]
     fn empty_value_rejected() {
         let mut f = QuickFilter::new();
-        assert!(matches!(f.add("a", "").unwrap_err(), FilterError::EmptyValue));
+        assert!(matches!(
+            f.add("a", "").unwrap_err(),
+            FilterError::EmptyValue
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut f = QuickFilter::new();
         f.schema_version = "9.9.9".into();
-        assert!(matches!(f.validate().unwrap_err(), FilterError::SchemaMismatch));
+        assert!(matches!(
+            f.validate().unwrap_err(),
+            FilterError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn mode_serde_kebab() {
-        assert_eq!(serde_json::to_string(&CombineMode::AndAll).unwrap(), "\"and-all\"");
-        assert_eq!(serde_json::to_string(&CombineMode::AndAnyOfPerFacet).unwrap(), "\"and-any-of-per-facet\"");
+        assert_eq!(
+            serde_json::to_string(&CombineMode::AndAll).unwrap(),
+            "\"and-all\""
+        );
+        assert_eq!(
+            serde_json::to_string(&CombineMode::AndAnyOfPerFacet).unwrap(),
+            "\"and-any-of-per-facet\""
+        );
     }
 
     #[test]

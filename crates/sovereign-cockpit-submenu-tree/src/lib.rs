@@ -87,37 +87,55 @@ impl SubmenuTree {
 
     /// Add root.
     pub fn add_root(&mut self, id: &str, label: &str) -> Result<(), TreeError> {
-        if id.is_empty() { return Err(TreeError::EmptyId); }
-        if label.is_empty() { return Err(TreeError::EmptyLabel); }
-        if self.nodes.contains_key(id) { return Err(TreeError::DuplicateId(id.into())); }
-        self.nodes.insert(id.into(), Node {
-            id: id.into(),
-            label: label.into(),
-            parent: None,
-            children: Vec::new(),
-            enabled: true,
-            expanded: false,
-        });
+        if id.is_empty() {
+            return Err(TreeError::EmptyId);
+        }
+        if label.is_empty() {
+            return Err(TreeError::EmptyLabel);
+        }
+        if self.nodes.contains_key(id) {
+            return Err(TreeError::DuplicateId(id.into()));
+        }
+        self.nodes.insert(
+            id.into(),
+            Node {
+                id: id.into(),
+                label: label.into(),
+                parent: None,
+                children: Vec::new(),
+                enabled: true,
+                expanded: false,
+            },
+        );
         self.roots.push(id.into());
         Ok(())
     }
 
     /// Add child.
     pub fn add_child(&mut self, parent_id: &str, id: &str, label: &str) -> Result<(), TreeError> {
-        if id.is_empty() { return Err(TreeError::EmptyId); }
-        if label.is_empty() { return Err(TreeError::EmptyLabel); }
+        if id.is_empty() {
+            return Err(TreeError::EmptyId);
+        }
+        if label.is_empty() {
+            return Err(TreeError::EmptyLabel);
+        }
         if !self.nodes.contains_key(parent_id) {
             return Err(TreeError::UnknownParent(parent_id.into()));
         }
-        if self.nodes.contains_key(id) { return Err(TreeError::DuplicateId(id.into())); }
-        self.nodes.insert(id.into(), Node {
-            id: id.into(),
-            label: label.into(),
-            parent: Some(parent_id.into()),
-            children: Vec::new(),
-            enabled: true,
-            expanded: false,
-        });
+        if self.nodes.contains_key(id) {
+            return Err(TreeError::DuplicateId(id.into()));
+        }
+        self.nodes.insert(
+            id.into(),
+            Node {
+                id: id.into(),
+                label: label.into(),
+                parent: Some(parent_id.into()),
+                children: Vec::new(),
+                enabled: true,
+                expanded: false,
+            },
+        );
         // Push into parent's children.
         if let Some(p) = self.nodes.get_mut(parent_id) {
             p.children.push(id.into());
@@ -127,14 +145,20 @@ impl SubmenuTree {
 
     /// Set expanded.
     pub fn set_expanded(&mut self, id: &str, expanded: bool) -> Result<(), TreeError> {
-        let n = self.nodes.get_mut(id).ok_or_else(|| TreeError::UnknownNode(id.into()))?;
+        let n = self
+            .nodes
+            .get_mut(id)
+            .ok_or_else(|| TreeError::UnknownNode(id.into()))?;
         n.expanded = expanded;
         Ok(())
     }
 
     /// Toggle expanded.
     pub fn toggle(&mut self, id: &str) -> Result<bool, TreeError> {
-        let n = self.nodes.get_mut(id).ok_or_else(|| TreeError::UnknownNode(id.into()))?;
+        let n = self
+            .nodes
+            .get_mut(id)
+            .ok_or_else(|| TreeError::UnknownNode(id.into()))?;
         n.expanded = !n.expanded;
         Ok(n.expanded)
     }
@@ -152,7 +176,9 @@ impl SubmenuTree {
             cur = self.nodes.get(&pid).and_then(|n| n.parent.clone());
         }
         for a in &ancestors {
-            if let Some(n) = self.nodes.get_mut(a) { n.expanded = true; }
+            if let Some(n) = self.nodes.get_mut(a) {
+                n.expanded = true;
+            }
         }
         self.active = Some(id.into());
         Ok(())
@@ -160,7 +186,10 @@ impl SubmenuTree {
 
     /// Set enabled.
     pub fn set_enabled(&mut self, id: &str, enabled: bool) -> Result<(), TreeError> {
-        let n = self.nodes.get_mut(id).ok_or_else(|| TreeError::UnknownNode(id.into()))?;
+        let n = self
+            .nodes
+            .get_mut(id)
+            .ok_or_else(|| TreeError::UnknownNode(id.into()))?;
         n.enabled = enabled;
         Ok(())
     }
@@ -175,7 +204,9 @@ impl SubmenuTree {
     }
 
     fn dfs_visible(&self, id: &str, out: &mut Vec<String>) {
-        let Some(n) = self.nodes.get(id) else { return; };
+        let Some(n) = self.nodes.get(id) else {
+            return;
+        };
         out.push(id.into());
         if n.expanded {
             for c in &n.children {
@@ -190,8 +221,12 @@ impl SubmenuTree {
         let mut cur: Option<String> = Some(id.into());
         let mut seen: BTreeSet<String> = BTreeSet::new();
         while let Some(c) = cur {
-            if !seen.insert(c.clone()) { break; }
-            let Some(n) = self.nodes.get(&c) else { break; };
+            if !seen.insert(c.clone()) {
+                break;
+            }
+            let Some(n) = self.nodes.get(&c) else {
+                break;
+            };
             out.push(c.clone());
             cur = n.parent.clone();
         }
@@ -201,10 +236,16 @@ impl SubmenuTree {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), TreeError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(TreeError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(TreeError::SchemaMismatch);
+        }
         for (id, n) in &self.nodes {
-            if id.is_empty() { return Err(TreeError::EmptyId); }
-            if n.label.is_empty() { return Err(TreeError::EmptyLabel); }
+            if id.is_empty() {
+                return Err(TreeError::EmptyId);
+            }
+            if n.label.is_empty() {
+                return Err(TreeError::EmptyLabel);
+            }
             if let Some(p) = &n.parent {
                 if !self.nodes.contains_key(p) {
                     return Err(TreeError::UnknownParent(p.clone()));
@@ -216,7 +257,9 @@ impl SubmenuTree {
 }
 
 impl Default for SubmenuTree {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -276,28 +319,46 @@ mod tests {
     fn duplicate_rejected() {
         let mut t = SubmenuTree::new();
         t.add_root("a", "A").unwrap();
-        assert!(matches!(t.add_root("a", "A").unwrap_err(), TreeError::DuplicateId(_)));
-        assert!(matches!(t.add_child("a", "a", "A").unwrap_err(), TreeError::DuplicateId(_)));
+        assert!(matches!(
+            t.add_root("a", "A").unwrap_err(),
+            TreeError::DuplicateId(_)
+        ));
+        assert!(matches!(
+            t.add_child("a", "a", "A").unwrap_err(),
+            TreeError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn unknown_parent_rejected() {
         let mut t = SubmenuTree::new();
-        assert!(matches!(t.add_child("nope", "x", "X").unwrap_err(), TreeError::UnknownParent(_)));
+        assert!(matches!(
+            t.add_child("nope", "x", "X").unwrap_err(),
+            TreeError::UnknownParent(_)
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut t = SubmenuTree::new();
-        assert!(matches!(t.add_root("", "X").unwrap_err(), TreeError::EmptyId));
-        assert!(matches!(t.add_root("x", "").unwrap_err(), TreeError::EmptyLabel));
+        assert!(matches!(
+            t.add_root("", "X").unwrap_err(),
+            TreeError::EmptyId
+        ));
+        assert!(matches!(
+            t.add_root("x", "").unwrap_err(),
+            TreeError::EmptyLabel
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut t = SubmenuTree::new();
         t.schema_version = "9.9.9".into();
-        assert!(matches!(t.validate().unwrap_err(), TreeError::SchemaMismatch));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            TreeError::SchemaMismatch
+        ));
     }
 
     #[test]

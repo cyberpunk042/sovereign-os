@@ -75,8 +75,19 @@ pub enum DrawerError {
 
 impl SideDrawer {
     /// New.
-    pub fn new(edge: Edge, mode: Mode, min_px: u32, max_px: u32, initial_px: u32) -> Result<Self, DrawerError> {
-        if min_px > max_px { return Err(DrawerError::BadBounds { min: min_px, max: max_px }); }
+    pub fn new(
+        edge: Edge,
+        mode: Mode,
+        min_px: u32,
+        max_px: u32,
+        initial_px: u32,
+    ) -> Result<Self, DrawerError> {
+        if min_px > max_px {
+            return Err(DrawerError::BadBounds {
+                min: min_px,
+                max: max_px,
+            });
+        }
         Ok(Self {
             schema_version_marker: 1,
             edge,
@@ -116,8 +127,15 @@ impl SideDrawer {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), DrawerError> {
-        if self.schema_version_marker != 1 { return Err(DrawerError::SchemaMismatch); }
-        if self.min_px > self.max_px { return Err(DrawerError::BadBounds { min: self.min_px, max: self.max_px }); }
+        if self.schema_version_marker != 1 {
+            return Err(DrawerError::SchemaMismatch);
+        }
+        if self.min_px > self.max_px {
+            return Err(DrawerError::BadBounds {
+                min: self.min_px,
+                max: self.max_px,
+            });
+        }
         Ok(())
     }
 }
@@ -162,14 +180,20 @@ mod tests {
 
     #[test]
     fn bad_bounds_rejected() {
-        assert!(matches!(SideDrawer::new(Edge::Left, Mode::Push, 500, 100, 200).unwrap_err(), DrawerError::BadBounds { .. }));
+        assert!(matches!(
+            SideDrawer::new(Edge::Left, Mode::Push, 500, 100, 200).unwrap_err(),
+            DrawerError::BadBounds { .. }
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut d = SideDrawer::new(Edge::Left, Mode::Push, 100, 300, 200).unwrap();
         d.schema_version_marker = 99;
-        assert!(matches!(d.validate().unwrap_err(), DrawerError::SchemaMismatch));
+        assert!(matches!(
+            d.validate().unwrap_err(),
+            DrawerError::SchemaMismatch
+        ));
     }
 
     #[test]

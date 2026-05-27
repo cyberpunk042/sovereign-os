@@ -66,7 +66,9 @@ pub enum StopError {
 impl EmergencyStop {
     /// New (Locked).
     pub fn new(arm_window_ms: u64) -> Result<Self, StopError> {
-        if arm_window_ms == 0 { return Err(StopError::ZeroWindow); }
+        if arm_window_ms == 0 {
+            return Err(StopError::ZeroWindow);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             phase: Phase::Locked,
@@ -78,7 +80,9 @@ impl EmergencyStop {
 
     /// Arm.
     pub fn arm(&mut self, now_ms: u64) {
-        if self.phase == Phase::Triggered { return; }
+        if self.phase == Phase::Triggered {
+            return;
+        }
         self.phase = Phase::Armed;
         self.armed_at_ms = now_ms;
     }
@@ -92,8 +96,12 @@ impl EmergencyStop {
 
     /// Trigger.
     pub fn trigger(&mut self, now_ms: u64, reason: &str) -> Result<(), StopError> {
-        if self.phase != Phase::Armed { return Err(StopError::NotArmed); }
-        if reason.is_empty() { return Err(StopError::EmptyReason); }
+        if self.phase != Phase::Armed {
+            return Err(StopError::NotArmed);
+        }
+        if reason.is_empty() {
+            return Err(StopError::EmptyReason);
+        }
         if now_ms.saturating_sub(self.armed_at_ms) > self.arm_window_ms {
             self.phase = Phase::Locked;
             return Err(StopError::WindowExpired);
@@ -105,8 +113,12 @@ impl EmergencyStop {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), StopError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(StopError::SchemaMismatch); }
-        if self.arm_window_ms == 0 { return Err(StopError::ZeroWindow); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(StopError::SchemaMismatch);
+        }
+        if self.arm_window_ms == 0 {
+            return Err(StopError::ZeroWindow);
+        }
         Ok(())
     }
 }
@@ -134,14 +146,20 @@ mod tests {
     fn trigger_outside_window_returns_to_locked() {
         let mut s = EmergencyStop::new(1000).unwrap();
         s.arm(0);
-        assert!(matches!(s.trigger(5000, "operator").unwrap_err(), StopError::WindowExpired));
+        assert!(matches!(
+            s.trigger(5000, "operator").unwrap_err(),
+            StopError::WindowExpired
+        ));
         assert_eq!(s.phase, Phase::Locked);
     }
 
     #[test]
     fn trigger_without_arm_rejected() {
         let mut s = EmergencyStop::new(1000).unwrap();
-        assert!(matches!(s.trigger(0, "operator").unwrap_err(), StopError::NotArmed));
+        assert!(matches!(
+            s.trigger(0, "operator").unwrap_err(),
+            StopError::NotArmed
+        ));
     }
 
     #[test]
@@ -156,19 +174,28 @@ mod tests {
     fn empty_reason_rejected() {
         let mut s = EmergencyStop::new(1000).unwrap();
         s.arm(0);
-        assert!(matches!(s.trigger(0, "").unwrap_err(), StopError::EmptyReason));
+        assert!(matches!(
+            s.trigger(0, "").unwrap_err(),
+            StopError::EmptyReason
+        ));
     }
 
     #[test]
     fn zero_window_rejected() {
-        assert!(matches!(EmergencyStop::new(0).unwrap_err(), StopError::ZeroWindow));
+        assert!(matches!(
+            EmergencyStop::new(0).unwrap_err(),
+            StopError::ZeroWindow
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = EmergencyStop::new(1000).unwrap();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), StopError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            StopError::SchemaMismatch
+        ));
     }
 
     #[test]

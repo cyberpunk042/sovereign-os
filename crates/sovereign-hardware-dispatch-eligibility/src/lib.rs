@@ -12,9 +12,9 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-use sovereign_hardware_registry::{HardwareRegistry, HardwareTarget, LatencyTier, SrpRole};
-use sovereign_hardware_load_sample::LoadSnapshot;
 use serde::{Deserialize, Serialize};
+use sovereign_hardware_load_sample::LoadSnapshot;
+use sovereign_hardware_registry::{HardwareRegistry, HardwareTarget, LatencyTier, SrpRole};
 use thiserror::Error;
 
 /// Schema version.
@@ -96,12 +96,18 @@ impl EligibilityTableau {
     ) -> Result<Self, EligibilityError> {
         let mut results = Vec::with_capacity(5);
         for target in [
-            HardwareTarget::CpuPulse, HardwareTarget::Rocm3090,
-            HardwareTarget::BlackwellOracle, HardwareTarget::Cloud,
+            HardwareTarget::CpuPulse,
+            HardwareTarget::Rocm3090,
+            HardwareTarget::BlackwellOracle,
+            HardwareTarget::Cloud,
             HardwareTarget::NoHardware,
         ] {
-            let rec = registry.get(target).ok_or(EligibilityError::RegistryMissingTarget(target))?;
-            let l = load.get(target).ok_or(EligibilityError::LoadMissingTarget(target))?;
+            let rec = registry
+                .get(target)
+                .ok_or(EligibilityError::RegistryMissingTarget(target))?;
+            let l = load
+                .get(target)
+                .ok_or(EligibilityError::LoadMissingTarget(target))?;
 
             // Role check
             if let Some(req_role) = request.require_role {
@@ -156,7 +162,11 @@ impl EligibilityTableau {
                 continue;
             }
 
-            results.push(TargetEligibility { target, eligible: true, reason: None });
+            results.push(TargetEligibility {
+                target,
+                eligible: true,
+                reason: None,
+            });
         }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
@@ -166,7 +176,11 @@ impl EligibilityTableau {
 
     /// Targets currently eligible.
     pub fn eligible_targets(&self) -> Vec<HardwareTarget> {
-        self.results.iter().filter(|r| r.eligible).map(|r| r.target).collect()
+        self.results
+            .iter()
+            .filter(|r| r.eligible)
+            .map(|r| r.target)
+            .collect()
     }
 
     /// Count eligible targets.
@@ -184,8 +198,12 @@ impl EligibilityTableau {
 mod tests {
     use super::*;
 
-    fn reg() -> HardwareRegistry { HardwareRegistry::canonical() }
-    fn empty_load() -> LoadSnapshot { LoadSnapshot::empty_canonical("2026-05-19T03:00:00Z") }
+    fn reg() -> HardwareRegistry {
+        HardwareRegistry::canonical()
+    }
+    fn empty_load() -> LoadSnapshot {
+        LoadSnapshot::empty_canonical("2026-05-19T03:00:00Z")
+    }
 
     fn request_default() -> WorkloadRequest {
         WorkloadRequest {
@@ -208,9 +226,18 @@ mod tests {
         req.vram_needed_gb = 8;
         let t = EligibilityTableau::compute(&req, &reg(), &empty_load()).unwrap();
         // CpuPulse, Cloud, NoHardware have vram_gb=0 → InsufficientVram
-        assert_eq!(t.get(HardwareTarget::CpuPulse).unwrap().reason, Some(ExclusionReason::InsufficientVram));
-        assert_eq!(t.get(HardwareTarget::Cloud).unwrap().reason, Some(ExclusionReason::InsufficientVram));
-        assert_eq!(t.get(HardwareTarget::NoHardware).unwrap().reason, Some(ExclusionReason::InsufficientVram));
+        assert_eq!(
+            t.get(HardwareTarget::CpuPulse).unwrap().reason,
+            Some(ExclusionReason::InsufficientVram)
+        );
+        assert_eq!(
+            t.get(HardwareTarget::Cloud).unwrap().reason,
+            Some(ExclusionReason::InsufficientVram)
+        );
+        assert_eq!(
+            t.get(HardwareTarget::NoHardware).unwrap().reason,
+            Some(ExclusionReason::InsufficientVram)
+        );
         // 3090 (24GB) and Blackwell (96GB) eligible
         assert!(t.get(HardwareTarget::Rocm3090).unwrap().eligible);
         assert!(t.get(HardwareTarget::BlackwellOracle).unwrap().eligible);
@@ -225,9 +252,18 @@ mod tests {
         assert!(t.get(HardwareTarget::CpuPulse).unwrap().eligible);
         assert!(t.get(HardwareTarget::NoHardware).unwrap().eligible);
         // Rocm3090 Brisk, Blackwell Steady, Cloud Heavy → excluded
-        assert_eq!(t.get(HardwareTarget::Rocm3090).unwrap().reason, Some(ExclusionReason::LatencyTooHigh));
-        assert_eq!(t.get(HardwareTarget::BlackwellOracle).unwrap().reason, Some(ExclusionReason::LatencyTooHigh));
-        assert_eq!(t.get(HardwareTarget::Cloud).unwrap().reason, Some(ExclusionReason::LatencyTooHigh));
+        assert_eq!(
+            t.get(HardwareTarget::Rocm3090).unwrap().reason,
+            Some(ExclusionReason::LatencyTooHigh)
+        );
+        assert_eq!(
+            t.get(HardwareTarget::BlackwellOracle).unwrap().reason,
+            Some(ExclusionReason::LatencyTooHigh)
+        );
+        assert_eq!(
+            t.get(HardwareTarget::Cloud).unwrap().reason,
+            Some(ExclusionReason::LatencyTooHigh)
+        );
     }
 
     #[test]
@@ -243,12 +279,17 @@ mod tests {
     fn util_cap_excludes_saturated() {
         let mut load = empty_load();
         for l in load.loads.iter_mut() {
-            if l.target == HardwareTarget::Rocm3090 { l.util_pct = 95; }
+            if l.target == HardwareTarget::Rocm3090 {
+                l.util_pct = 95;
+            }
         }
         let mut req = request_default();
         req.max_util_pct = 80;
         let t = EligibilityTableau::compute(&req, &reg(), &load).unwrap();
-        assert_eq!(t.get(HardwareTarget::Rocm3090).unwrap().reason, Some(ExclusionReason::UtilizationSaturated));
+        assert_eq!(
+            t.get(HardwareTarget::Rocm3090).unwrap().reason,
+            Some(ExclusionReason::UtilizationSaturated)
+        );
         assert!(t.get(HardwareTarget::BlackwellOracle).unwrap().eligible);
     }
 
@@ -256,12 +297,17 @@ mod tests {
     fn vram_used_subtracts_from_capacity() {
         let mut load = empty_load();
         for l in load.loads.iter_mut() {
-            if l.target == HardwareTarget::Rocm3090 { l.vram_used_gb = 20; }
+            if l.target == HardwareTarget::Rocm3090 {
+                l.vram_used_gb = 20;
+            }
         }
         let mut req = request_default();
         req.vram_needed_gb = 8; // need 8GB, 3090 has 4GB free (24-20) → excluded
         let t = EligibilityTableau::compute(&req, &reg(), &load).unwrap();
-        assert_eq!(t.get(HardwareTarget::Rocm3090).unwrap().reason, Some(ExclusionReason::InsufficientVram));
+        assert_eq!(
+            t.get(HardwareTarget::Rocm3090).unwrap().reason,
+            Some(ExclusionReason::InsufficientVram)
+        );
         // Blackwell has 96GB free → eligible
         assert!(t.get(HardwareTarget::BlackwellOracle).unwrap().eligible);
     }
@@ -273,7 +319,10 @@ mod tests {
         req.require_role = Some(SrpRole::Conductor);
         req.max_latency = LatencyTier::Snap;
         let t = EligibilityTableau::compute(&req, &reg(), &empty_load()).unwrap();
-        assert_eq!(t.get(HardwareTarget::Cloud).unwrap().reason, Some(ExclusionReason::RoleMismatch));
+        assert_eq!(
+            t.get(HardwareTarget::Cloud).unwrap().reason,
+            Some(ExclusionReason::RoleMismatch)
+        );
     }
 
     #[test]
@@ -284,10 +333,22 @@ mod tests {
 
     #[test]
     fn exclusion_serde_kebab() {
-        assert_eq!(serde_json::to_string(&ExclusionReason::InsufficientVram).unwrap(), "\"insufficient-vram\"");
-        assert_eq!(serde_json::to_string(&ExclusionReason::LatencyTooHigh).unwrap(), "\"latency-too-high\"");
-        assert_eq!(serde_json::to_string(&ExclusionReason::RoleMismatch).unwrap(), "\"role-mismatch\"");
-        assert_eq!(serde_json::to_string(&ExclusionReason::UtilizationSaturated).unwrap(), "\"utilization-saturated\"");
+        assert_eq!(
+            serde_json::to_string(&ExclusionReason::InsufficientVram).unwrap(),
+            "\"insufficient-vram\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ExclusionReason::LatencyTooHigh).unwrap(),
+            "\"latency-too-high\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ExclusionReason::RoleMismatch).unwrap(),
+            "\"role-mismatch\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ExclusionReason::UtilizationSaturated).unwrap(),
+            "\"utilization-saturated\""
+        );
     }
 
     #[test]

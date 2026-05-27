@@ -65,7 +65,9 @@ pub enum SplitError {
 impl SplitViewState {
     /// New.
     pub fn new(orientation: Orientation, ratio_bp: u32) -> Result<Self, SplitError> {
-        if ratio_bp > 10000 { return Err(SplitError::BadRatio); }
+        if ratio_bp > 10000 {
+            return Err(SplitError::BadRatio);
+        }
         Ok(Self {
             schema_version_marker: 1,
             orientation,
@@ -78,7 +80,9 @@ impl SplitViewState {
 
     /// Set ratio, clamped to [min_primary, 10000 - min_secondary].
     pub fn set_ratio(&mut self, ratio_bp: u32) -> Result<(), SplitError> {
-        if ratio_bp > 10000 { return Err(SplitError::BadRatio); }
+        if ratio_bp > 10000 {
+            return Err(SplitError::BadRatio);
+        }
         let lo = self.min_primary_bp;
         let hi = 10000u32.saturating_sub(self.min_secondary_bp);
         self.ratio_bp = ratio_bp.clamp(lo, hi);
@@ -88,7 +92,10 @@ impl SplitViewState {
     /// Set mins. Each is bp; sum must be ≤ 10000.
     pub fn set_mins(&mut self, primary_bp: u32, secondary_bp: u32) -> Result<(), SplitError> {
         if primary_bp.saturating_add(secondary_bp) > 10000 {
-            return Err(SplitError::BadMins { p: primary_bp, s: secondary_bp });
+            return Err(SplitError::BadMins {
+                p: primary_bp,
+                s: secondary_bp,
+            });
         }
         self.min_primary_bp = primary_bp;
         self.min_secondary_bp = secondary_bp;
@@ -121,10 +128,17 @@ impl SplitViewState {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), SplitError> {
-        if self.schema_version_marker != 1 { return Err(SplitError::SchemaMismatch); }
-        if self.ratio_bp > 10000 { return Err(SplitError::BadRatio); }
+        if self.schema_version_marker != 1 {
+            return Err(SplitError::SchemaMismatch);
+        }
+        if self.ratio_bp > 10000 {
+            return Err(SplitError::BadRatio);
+        }
         if self.min_primary_bp.saturating_add(self.min_secondary_bp) > 10000 {
-            return Err(SplitError::BadMins { p: self.min_primary_bp, s: self.min_secondary_bp });
+            return Err(SplitError::BadMins {
+                p: self.min_primary_bp,
+                s: self.min_secondary_bp,
+            });
         }
         Ok(())
     }
@@ -180,7 +194,10 @@ mod tests {
     #[test]
     fn bad_mins_rejected() {
         let mut s = SplitViewState::new(Orientation::Vertical, 5000).unwrap();
-        assert!(matches!(s.set_mins(6000, 5000).unwrap_err(), SplitError::BadMins { .. }));
+        assert!(matches!(
+            s.set_mins(6000, 5000).unwrap_err(),
+            SplitError::BadMins { .. }
+        ));
     }
 
     #[test]
@@ -195,7 +212,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = SplitViewState::new(Orientation::Vertical, 5000).unwrap();
         s.schema_version_marker = 99;
-        assert!(matches!(s.validate().unwrap_err(), SplitError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SplitError::SchemaMismatch
+        ));
     }
 
     #[test]

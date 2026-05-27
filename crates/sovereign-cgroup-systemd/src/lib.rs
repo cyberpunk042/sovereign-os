@@ -15,7 +15,8 @@ use thiserror::Error;
 pub const SCHEMA_VERSION: &str = "1.0.0";
 
 /// Doctrine verbatim per E0428 dump 13594.
-pub const DOCTRINE_PEACE_MACHINE_SUBSTRATE: &str = "This is not incidental. This is the peace-machine substrate";
+pub const DOCTRINE_PEACE_MACHINE_SUBSTRATE: &str =
+    "This is not incidental. This is the peace-machine substrate";
 
 /// 8 OS primitives per E0428 dump 13568-13586.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -132,14 +133,22 @@ impl PrimitiveSnapshot {
     /// Canonical empty snapshot.
     pub fn empty_canonical() -> Self {
         let primitives = [
-            OsPrimitive::Cgroupv2, OsPrimitive::Systemd, OsPrimitive::Psi,
-            OsPrimitive::Ebpf, OsPrimitive::AppArmor, OsPrimitive::Namespaces,
-            OsPrimitive::Zfs, OsPrimitive::LuksTpmFido2,
-        ].into_iter().map(|p| PrimitiveRecord {
+            OsPrimitive::Cgroupv2,
+            OsPrimitive::Systemd,
+            OsPrimitive::Psi,
+            OsPrimitive::Ebpf,
+            OsPrimitive::AppArmor,
+            OsPrimitive::Namespaces,
+            OsPrimitive::Zfs,
+            OsPrimitive::LuksTpmFido2,
+        ]
+        .into_iter()
+        .map(|p| PrimitiveRecord {
             primitive: p,
             state: PrimitiveState::Missing,
             domain: p.domain().into(),
-        }).collect();
+        })
+        .collect();
         Self {
             schema_version: SCHEMA_VERSION.into(),
             doctrine: DOCTRINE_PEACE_MACHINE_SUBSTRATE.into(),
@@ -159,9 +168,14 @@ impl PrimitiveSnapshot {
             return Err(PrimitiveError::CountInvalid(self.primitives.len()));
         }
         let required = [
-            OsPrimitive::Cgroupv2, OsPrimitive::Systemd, OsPrimitive::Psi,
-            OsPrimitive::Ebpf, OsPrimitive::AppArmor, OsPrimitive::Namespaces,
-            OsPrimitive::Zfs, OsPrimitive::LuksTpmFido2,
+            OsPrimitive::Cgroupv2,
+            OsPrimitive::Systemd,
+            OsPrimitive::Psi,
+            OsPrimitive::Ebpf,
+            OsPrimitive::AppArmor,
+            OsPrimitive::Namespaces,
+            OsPrimitive::Zfs,
+            OsPrimitive::LuksTpmFido2,
         ];
         for p in required {
             if !self.primitives.iter().any(|r| r.primitive == p) {
@@ -188,7 +202,10 @@ impl PrimitiveSnapshot {
 
     /// Count available primitives.
     pub fn available_count(&self) -> usize {
-        self.primitives.iter().filter(|r| r.state == PrimitiveState::Available).count()
+        self.primitives
+            .iter()
+            .filter(|r| r.state == PrimitiveState::Available)
+            .count()
     }
 }
 
@@ -199,10 +216,14 @@ mod tests {
     #[test]
     fn eight_primitives_positioned_1_to_8() {
         for (p, n) in [
-            (OsPrimitive::Cgroupv2, 1), (OsPrimitive::Systemd, 2),
-            (OsPrimitive::Psi, 3), (OsPrimitive::Ebpf, 4),
-            (OsPrimitive::AppArmor, 5), (OsPrimitive::Namespaces, 6),
-            (OsPrimitive::Zfs, 7), (OsPrimitive::LuksTpmFido2, 8),
+            (OsPrimitive::Cgroupv2, 1),
+            (OsPrimitive::Systemd, 2),
+            (OsPrimitive::Psi, 3),
+            (OsPrimitive::Ebpf, 4),
+            (OsPrimitive::AppArmor, 5),
+            (OsPrimitive::Namespaces, 6),
+            (OsPrimitive::Zfs, 7),
+            (OsPrimitive::LuksTpmFido2, 8),
         ] {
             assert_eq!(p.position(), n);
         }
@@ -229,21 +250,30 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = PrimitiveSnapshot::empty_canonical();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), PrimitiveError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            PrimitiveError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn doctrine_tamper_caught() {
         let mut s = PrimitiveSnapshot::empty_canonical();
         s.doctrine = "wrong".into();
-        assert!(matches!(s.validate().unwrap_err(), PrimitiveError::DoctrineTampered));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            PrimitiveError::DoctrineTampered
+        ));
     }
 
     #[test]
     fn count_invalid_rejected() {
         let mut s = PrimitiveSnapshot::empty_canonical();
         s.primitives.pop();
-        assert!(matches!(s.validate().unwrap_err(), PrimitiveError::CountInvalid(7)));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            PrimitiveError::CountInvalid(7)
+        ));
     }
 
     #[test]
@@ -251,7 +281,11 @@ mod tests {
         let mut s = PrimitiveSnapshot::empty_canonical();
         s.primitives[0].domain = "wrong".into();
         match s.validate().unwrap_err() {
-            PrimitiveError::DomainMismatch { primitive, declared, canonical } => {
+            PrimitiveError::DomainMismatch {
+                primitive,
+                declared,
+                canonical,
+            } => {
                 assert_eq!(primitive, OsPrimitive::Cgroupv2);
                 assert_eq!(declared, "wrong");
                 assert_eq!(canonical, "governance");
@@ -271,14 +305,26 @@ mod tests {
 
     #[test]
     fn doctrine_verbatim() {
-        assert_eq!(DOCTRINE_PEACE_MACHINE_SUBSTRATE, "This is not incidental. This is the peace-machine substrate");
+        assert_eq!(
+            DOCTRINE_PEACE_MACHINE_SUBSTRATE,
+            "This is not incidental. This is the peace-machine substrate"
+        );
     }
 
     #[test]
     fn os_primitive_serde_kebab() {
-        assert_eq!(serde_json::to_string(&OsPrimitive::Cgroupv2).unwrap(), "\"cgroupv2\"");
-        assert_eq!(serde_json::to_string(&OsPrimitive::AppArmor).unwrap(), "\"app-armor\"");
-        assert_eq!(serde_json::to_string(&OsPrimitive::LuksTpmFido2).unwrap(), "\"luks-tpm-fido2\"");
+        assert_eq!(
+            serde_json::to_string(&OsPrimitive::Cgroupv2).unwrap(),
+            "\"cgroupv2\""
+        );
+        assert_eq!(
+            serde_json::to_string(&OsPrimitive::AppArmor).unwrap(),
+            "\"app-armor\""
+        );
+        assert_eq!(
+            serde_json::to_string(&OsPrimitive::LuksTpmFido2).unwrap(),
+            "\"luks-tpm-fido2\""
+        );
     }
 
     #[test]

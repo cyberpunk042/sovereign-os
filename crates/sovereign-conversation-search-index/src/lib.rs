@@ -9,8 +9,8 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-use sovereign_conversation_thread::{ConversationThread, TurnRole};
 use serde::{Deserialize, Serialize};
+use sovereign_conversation_thread::{ConversationThread, TurnRole};
 use thiserror::Error;
 
 /// Schema version.
@@ -80,16 +80,22 @@ impl SearchIndex {
 
     /// Run a search query.
     pub fn search(&self, q: &SearchQuery) -> Result<Vec<SearchHit>, SearchError> {
-        if q.max_hits == 0 { return Err(SearchError::ZeroMaxHits); }
+        if q.max_hits == 0 {
+            return Err(SearchError::ZeroMaxHits);
+        }
         let needle = q.needle.to_ascii_lowercase();
         let mut hits = Vec::new();
         for t in &self.threads {
             for turn in &t.turns {
                 if let Some(r) = q.role {
-                    if turn.role != r { continue; }
+                    if turn.role != r {
+                        continue;
+                    }
                 }
                 if let Some(b) = &q.branch_id {
-                    if &turn.branch_id != b { continue; }
+                    if &turn.branch_id != b {
+                        continue;
+                    }
                 }
                 if !needle.is_empty() && !turn.text.to_ascii_lowercase().contains(&needle) {
                     continue;
@@ -102,7 +108,9 @@ impl SearchIndex {
                     branch_id: turn.branch_id.clone(),
                     excerpt,
                 });
-                if hits.len() as u32 >= q.max_hits { return Ok(hits); }
+                if hits.len() as u32 >= q.max_hits {
+                    return Ok(hits);
+                }
             }
         }
         Ok(hits)
@@ -118,7 +126,9 @@ impl SearchIndex {
 }
 
 impl Default for SearchIndex {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -128,8 +138,10 @@ mod tests {
 
     fn turn(role: TurnRole, branch: &str, text: &str) -> Turn {
         Turn {
-            index: 0, role,
-            tokens_in: 0, tokens_out: 0,
+            index: 0,
+            role,
+            tokens_in: 0,
+            tokens_out: 0,
             provider: "p".into(),
             started_at: "t".into(),
             completed_at: "t".into(),
@@ -153,64 +165,131 @@ mod tests {
 
     #[test]
     fn empty_needle_matches_all() {
-        let r = ix().search(&SearchQuery { needle: String::new(), role: None, branch_id: None, max_hits: 100 }).unwrap();
+        let r = ix()
+            .search(&SearchQuery {
+                needle: String::new(),
+                role: None,
+                branch_id: None,
+                max_hits: 100,
+            })
+            .unwrap();
         assert_eq!(r.len(), 4);
     }
 
     #[test]
     fn substring_filter() {
-        let r = ix().search(&SearchQuery { needle: "test".into(), role: None, branch_id: None, max_hits: 100 }).unwrap();
+        let r = ix()
+            .search(&SearchQuery {
+                needle: "test".into(),
+                role: None,
+                branch_id: None,
+                max_hits: 100,
+            })
+            .unwrap();
         assert_eq!(r.len(), 2);
     }
 
     #[test]
     fn case_insensitive_match() {
-        let r = ix().search(&SearchQuery { needle: "FOO".into(), role: None, branch_id: None, max_hits: 100 }).unwrap();
+        let r = ix()
+            .search(&SearchQuery {
+                needle: "FOO".into(),
+                role: None,
+                branch_id: None,
+                max_hits: 100,
+            })
+            .unwrap();
         assert_eq!(r.len(), 1);
-        let r2 = ix().search(&SearchQuery { needle: "foo".into(), role: None, branch_id: None, max_hits: 100 }).unwrap();
+        let r2 = ix()
+            .search(&SearchQuery {
+                needle: "foo".into(),
+                role: None,
+                branch_id: None,
+                max_hits: 100,
+            })
+            .unwrap();
         assert_eq!(r2.len(), 1);
     }
 
     #[test]
     fn role_filter() {
-        let r = ix().search(&SearchQuery { needle: String::new(), role: Some(TurnRole::Model), branch_id: None, max_hits: 100 }).unwrap();
+        let r = ix()
+            .search(&SearchQuery {
+                needle: String::new(),
+                role: Some(TurnRole::Model),
+                branch_id: None,
+                max_hits: 100,
+            })
+            .unwrap();
         assert_eq!(r.len(), 1);
         assert_eq!(r[0].role, TurnRole::Model);
     }
 
     #[test]
     fn branch_filter() {
-        let r = ix().search(&SearchQuery { needle: String::new(), role: None, branch_id: Some("experiment".into()), max_hits: 100 }).unwrap();
+        let r = ix()
+            .search(&SearchQuery {
+                needle: String::new(),
+                role: None,
+                branch_id: Some("experiment".into()),
+                max_hits: 100,
+            })
+            .unwrap();
         assert_eq!(r.len(), 2);
-        for h in &r { assert_eq!(h.branch_id, "experiment"); }
+        for h in &r {
+            assert_eq!(h.branch_id, "experiment");
+        }
     }
 
     #[test]
     fn combined_filters() {
-        let r = ix().search(&SearchQuery {
-            needle: "fork".into(),
-            role: Some(TurnRole::Tool),
-            branch_id: Some("experiment".into()),
-            max_hits: 100,
-        }).unwrap();
+        let r = ix()
+            .search(&SearchQuery {
+                needle: "fork".into(),
+                role: Some(TurnRole::Tool),
+                branch_id: Some("experiment".into()),
+                max_hits: 100,
+            })
+            .unwrap();
         assert_eq!(r.len(), 1);
     }
 
     #[test]
     fn max_hits_caps() {
-        let r = ix().search(&SearchQuery { needle: String::new(), role: None, branch_id: None, max_hits: 2 }).unwrap();
+        let r = ix()
+            .search(&SearchQuery {
+                needle: String::new(),
+                role: None,
+                branch_id: None,
+                max_hits: 2,
+            })
+            .unwrap();
         assert_eq!(r.len(), 2);
     }
 
     #[test]
     fn max_hits_zero_rejected() {
-        let err = ix().search(&SearchQuery { needle: String::new(), role: None, branch_id: None, max_hits: 0 }).unwrap_err();
+        let err = ix()
+            .search(&SearchQuery {
+                needle: String::new(),
+                role: None,
+                branch_id: None,
+                max_hits: 0,
+            })
+            .unwrap_err();
         assert!(matches!(err, SearchError::ZeroMaxHits));
     }
 
     #[test]
     fn no_match_returns_empty() {
-        let r = ix().search(&SearchQuery { needle: "nothingmatches".into(), role: None, branch_id: None, max_hits: 10 }).unwrap();
+        let r = ix()
+            .search(&SearchQuery {
+                needle: "nothingmatches".into(),
+                role: None,
+                branch_id: None,
+                max_hits: 10,
+            })
+            .unwrap();
         assert!(r.is_empty());
     }
 
@@ -221,7 +300,14 @@ mod tests {
         let mut th = ConversationThread::new("th", "t");
         th.append(turn(TurnRole::Operator, "main", &long));
         idx.add(th);
-        let r = idx.search(&SearchQuery { needle: String::new(), role: None, branch_id: None, max_hits: 1 }).unwrap();
+        let r = idx
+            .search(&SearchQuery {
+                needle: String::new(),
+                role: None,
+                branch_id: None,
+                max_hits: 1,
+            })
+            .unwrap();
         assert_eq!(r[0].excerpt.chars().count(), 120);
     }
 
@@ -229,7 +315,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut idx = SearchIndex::new();
         idx.schema_version = "9.9.9".into();
-        assert!(matches!(idx.validate().unwrap_err(), SearchError::SchemaMismatch));
+        assert!(matches!(
+            idx.validate().unwrap_err(),
+            SearchError::SchemaMismatch
+        ));
     }
 
     #[test]

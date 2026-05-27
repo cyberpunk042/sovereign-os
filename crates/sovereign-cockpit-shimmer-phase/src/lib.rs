@@ -53,7 +53,9 @@ fn hash_fnv1a64(s: &str) -> u64 {
 impl ShimmerPhase {
     /// New.
     pub fn new(period_ms: u64, reduced_motion: bool) -> Result<Self, ShimmerError> {
-        if period_ms == 0 { return Err(ShimmerError::PeriodZero); }
+        if period_ms == 0 {
+            return Err(ShimmerError::PeriodZero);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             period_ms,
@@ -63,14 +65,18 @@ impl ShimmerPhase {
 
     /// Phase 0..1000 (per-mille).
     pub fn phase(&self, now_ms: u64) -> u16 {
-        if self.reduced_motion { return 500; }
+        if self.reduced_motion {
+            return 500;
+        }
         let pos = now_ms % self.period_ms;
         ((pos as u128 * 1000) / self.period_ms as u128) as u16
     }
 
     /// Phase for a specific anchor (staggered by FNV-1a of anchor_id).
     pub fn phase_for_anchor(&self, anchor_id: &str, now_ms: u64) -> u16 {
-        if self.reduced_motion { return 500; }
+        if self.reduced_motion {
+            return 500;
+        }
         let stagger = (hash_fnv1a64(anchor_id) % self.period_ms) as u64;
         let shifted = now_ms.wrapping_add(stagger);
         self.phase(shifted)
@@ -78,8 +84,12 @@ impl ShimmerPhase {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), ShimmerError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(ShimmerError::SchemaMismatch); }
-        if self.period_ms == 0 { return Err(ShimmerError::PeriodZero); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(ShimmerError::SchemaMismatch);
+        }
+        if self.period_ms == 0 {
+            return Err(ShimmerError::PeriodZero);
+        }
         Ok(())
     }
 }
@@ -90,7 +100,10 @@ mod tests {
 
     #[test]
     fn period_zero_rejected() {
-        assert!(matches!(ShimmerPhase::new(0, false).unwrap_err(), ShimmerError::PeriodZero));
+        assert!(matches!(
+            ShimmerPhase::new(0, false).unwrap_err(),
+            ShimmerError::PeriodZero
+        ));
     }
 
     #[test]
@@ -133,7 +146,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = ShimmerPhase::new(2000, false).unwrap();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), ShimmerError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            ShimmerError::SchemaMismatch
+        ));
     }
 
     #[test]

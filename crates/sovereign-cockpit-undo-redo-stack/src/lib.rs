@@ -72,7 +72,9 @@ pub enum StackError {
 impl UndoRedoStack {
     /// New.
     pub fn new(capacity: usize) -> Result<Self, StackError> {
-        if capacity == 0 { return Err(StackError::ZeroCapacity); }
+        if capacity == 0 {
+            return Err(StackError::ZeroCapacity);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             capacity,
@@ -84,8 +86,12 @@ impl UndoRedoStack {
 
     /// Push a new command (clears redo).
     pub fn push(&mut self, command: Command) -> Result<(), StackError> {
-        if command.kind.is_empty() { return Err(StackError::EmptyKind); }
-        if command.label.is_empty() { return Err(StackError::EmptyLabel); }
+        if command.kind.is_empty() {
+            return Err(StackError::EmptyKind);
+        }
+        if command.label.is_empty() {
+            return Err(StackError::EmptyLabel);
+        }
         // New work invalidates any redo branch.
         self.redo.clear();
         if self.undo.len() == self.capacity {
@@ -116,10 +122,14 @@ impl UndoRedoStack {
     }
 
     /// Can undo?
-    pub fn can_undo(&self) -> bool { !self.undo.is_empty() }
+    pub fn can_undo(&self) -> bool {
+        !self.undo.is_empty()
+    }
 
     /// Can redo?
-    pub fn can_redo(&self) -> bool { !self.redo.is_empty() }
+    pub fn can_redo(&self) -> bool {
+        !self.redo.is_empty()
+    }
 
     /// Clear all.
     pub fn clear(&mut self) {
@@ -129,11 +139,19 @@ impl UndoRedoStack {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), StackError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(StackError::SchemaMismatch); }
-        if self.capacity == 0 { return Err(StackError::ZeroCapacity); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(StackError::SchemaMismatch);
+        }
+        if self.capacity == 0 {
+            return Err(StackError::ZeroCapacity);
+        }
         for c in self.undo.iter().chain(self.redo.iter()) {
-            if c.kind.is_empty() { return Err(StackError::EmptyKind); }
-            if c.label.is_empty() { return Err(StackError::EmptyLabel); }
+            if c.kind.is_empty() {
+                return Err(StackError::EmptyKind);
+            }
+            if c.label.is_empty() {
+                return Err(StackError::EmptyLabel);
+            }
         }
         Ok(())
     }
@@ -218,21 +236,45 @@ mod tests {
 
     #[test]
     fn zero_capacity_rejected() {
-        assert!(matches!(UndoRedoStack::new(0).unwrap_err(), StackError::ZeroCapacity));
+        assert!(matches!(
+            UndoRedoStack::new(0).unwrap_err(),
+            StackError::ZeroCapacity
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut s = UndoRedoStack::new(10).unwrap();
-        assert!(matches!(s.push(Command { kind: "".into(), label: "x".into(), forward_payload: "".into(), inverse_payload: "".into() }).unwrap_err(), StackError::EmptyKind));
-        assert!(matches!(s.push(Command { kind: "k".into(), label: "".into(), forward_payload: "".into(), inverse_payload: "".into() }).unwrap_err(), StackError::EmptyLabel));
+        assert!(matches!(
+            s.push(Command {
+                kind: "".into(),
+                label: "x".into(),
+                forward_payload: "".into(),
+                inverse_payload: "".into()
+            })
+            .unwrap_err(),
+            StackError::EmptyKind
+        ));
+        assert!(matches!(
+            s.push(Command {
+                kind: "k".into(),
+                label: "".into(),
+                forward_payload: "".into(),
+                inverse_payload: "".into()
+            })
+            .unwrap_err(),
+            StackError::EmptyLabel
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = UndoRedoStack::new(10).unwrap();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), StackError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            StackError::SchemaMismatch
+        ));
     }
 
     #[test]

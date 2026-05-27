@@ -84,24 +84,39 @@ impl GlobalSearch {
     }
 
     /// Register source.
-    pub fn register_source(&mut self, id: &str, label: &str, weight: u32) -> Result<(), SearchError> {
-        if id.is_empty() { return Err(SearchError::EmptyId); }
-        if label.is_empty() { return Err(SearchError::EmptyLabel); }
+    pub fn register_source(
+        &mut self,
+        id: &str,
+        label: &str,
+        weight: u32,
+    ) -> Result<(), SearchError> {
+        if id.is_empty() {
+            return Err(SearchError::EmptyId);
+        }
+        if label.is_empty() {
+            return Err(SearchError::EmptyLabel);
+        }
         if self.sources.contains_key(id) {
             return Err(SearchError::DuplicateSource(id.into()));
         }
-        self.sources.insert(id.into(), Source {
-            id: id.into(),
-            label: label.into(),
-            weight,
-            enabled: true,
-        });
+        self.sources.insert(
+            id.into(),
+            Source {
+                id: id.into(),
+                label: label.into(),
+                weight,
+                enabled: true,
+            },
+        );
         Ok(())
     }
 
     /// Enable / disable.
     pub fn set_enabled(&mut self, source: &str, enabled: bool) -> Result<(), SearchError> {
-        let s = self.sources.get_mut(source).ok_or_else(|| SearchError::UnknownSource(source.into()))?;
+        let s = self
+            .sources
+            .get_mut(source)
+            .ok_or_else(|| SearchError::UnknownSource(source.into()))?;
         s.enabled = enabled;
         Ok(())
     }
@@ -109,8 +124,14 @@ impl GlobalSearch {
     /// Merge caller-provided per-source results into a unified ranking.
     /// Drops results from disabled sources.
     pub fn merge_results(&self, results: &[Result_], limit: usize) -> Vec<Result_> {
-        let mut v: Vec<Result_> = results.iter()
-            .filter(|r| self.sources.get(&r.source).map(|s| s.enabled).unwrap_or(false))
+        let mut v: Vec<Result_> = results
+            .iter()
+            .filter(|r| {
+                self.sources
+                    .get(&r.source)
+                    .map(|s| s.enabled)
+                    .unwrap_or(false)
+            })
             .cloned()
             .collect();
         // Composite score: result.score × source.weight.
@@ -119,7 +140,8 @@ impl GlobalSearch {
             let wb = self.sources.get(&b.source).map(|s| s.weight).unwrap_or(1);
             let composite_a = (a.score as u64).saturating_mul(wa as u64);
             let composite_b = (b.score as u64).saturating_mul(wb as u64);
-            composite_b.cmp(&composite_a)
+            composite_b
+                .cmp(&composite_a)
                 .then(b.ts_ms.cmp(&a.ts_ms))
                 .then(a.title.cmp(&b.title))
         });
@@ -129,24 +151,37 @@ impl GlobalSearch {
 
     /// Enabled sources in label order.
     pub fn enabled_sources(&self) -> Vec<Source> {
-        let mut v: Vec<Source> = self.sources.values().filter(|s| s.enabled).cloned().collect();
+        let mut v: Vec<Source> = self
+            .sources
+            .values()
+            .filter(|s| s.enabled)
+            .cloned()
+            .collect();
         v.sort_by(|a, b| a.label.cmp(&b.label));
         v
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), SearchError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(SearchError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(SearchError::SchemaMismatch);
+        }
         for (id, s) in &self.sources {
-            if id.is_empty() { return Err(SearchError::EmptyId); }
-            if s.label.is_empty() { return Err(SearchError::EmptyLabel); }
+            if id.is_empty() {
+                return Err(SearchError::EmptyId);
+            }
+            if s.label.is_empty() {
+                return Err(SearchError::EmptyLabel);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for GlobalSearch {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -199,20 +234,32 @@ mod tests {
     fn duplicate_source_rejected() {
         let mut g = GlobalSearch::new();
         g.register_source("a", "A", 1).unwrap();
-        assert!(matches!(g.register_source("a", "A", 1).unwrap_err(), SearchError::DuplicateSource(_)));
+        assert!(matches!(
+            g.register_source("a", "A", 1).unwrap_err(),
+            SearchError::DuplicateSource(_)
+        ));
     }
 
     #[test]
     fn unknown_source_set_enabled_rejected() {
         let mut g = GlobalSearch::new();
-        assert!(matches!(g.set_enabled("nope", false).unwrap_err(), SearchError::UnknownSource(_)));
+        assert!(matches!(
+            g.set_enabled("nope", false).unwrap_err(),
+            SearchError::UnknownSource(_)
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut g = GlobalSearch::new();
-        assert!(matches!(g.register_source("", "A", 1).unwrap_err(), SearchError::EmptyId));
-        assert!(matches!(g.register_source("a", "", 1).unwrap_err(), SearchError::EmptyLabel));
+        assert!(matches!(
+            g.register_source("", "A", 1).unwrap_err(),
+            SearchError::EmptyId
+        ));
+        assert!(matches!(
+            g.register_source("a", "", 1).unwrap_err(),
+            SearchError::EmptyLabel
+        ));
     }
 
     #[test]
@@ -228,7 +275,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut g = GlobalSearch::new();
         g.schema_version = "9.9.9".into();
-        assert!(matches!(g.validate().unwrap_err(), SearchError::SchemaMismatch));
+        assert!(matches!(
+            g.validate().unwrap_err(),
+            SearchError::SchemaMismatch
+        ));
     }
 
     #[test]

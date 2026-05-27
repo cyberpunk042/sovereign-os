@@ -86,37 +86,69 @@ impl HelpOverlay {
 
     /// Add a section (append).
     pub fn add_section(&mut self, title: &str) -> Result<(), HelpError> {
-        if title.is_empty() { return Err(HelpError::EmptyTitle); }
+        if title.is_empty() {
+            return Err(HelpError::EmptyTitle);
+        }
         if self.sections.iter().any(|s| s.title == title) {
             return Err(HelpError::DuplicateSection(title.into()));
         }
-        self.sections.push(Section { title: title.into(), entries: Vec::new() });
+        self.sections.push(Section {
+            title: title.into(),
+            entries: Vec::new(),
+        });
         Ok(())
     }
 
     /// Add entry to existing section.
-    pub fn add_entry(&mut self, section: &str, keys: &str, description: &str) -> Result<(), HelpError> {
-        if keys.is_empty() { return Err(HelpError::EmptyKeys); }
-        if description.is_empty() { return Err(HelpError::EmptyDescription); }
-        let s = self.sections.iter_mut().find(|s| s.title == section)
+    pub fn add_entry(
+        &mut self,
+        section: &str,
+        keys: &str,
+        description: &str,
+    ) -> Result<(), HelpError> {
+        if keys.is_empty() {
+            return Err(HelpError::EmptyKeys);
+        }
+        if description.is_empty() {
+            return Err(HelpError::EmptyDescription);
+        }
+        let s = self
+            .sections
+            .iter_mut()
+            .find(|s| s.title == section)
             .ok_or_else(|| HelpError::UnknownSection(section.into()))?;
-        s.entries.push(Entry { keys: keys.into(), description: description.into() });
+        s.entries.push(Entry {
+            keys: keys.into(),
+            description: description.into(),
+        });
         Ok(())
     }
 
     /// Search across entries.
     pub fn search(&self, q: &str) -> Vec<SearchHit> {
         if q.is_empty() {
-            return self.sections.iter()
-                .flat_map(|s| s.entries.iter().map(move |e| SearchHit { section: s.title.clone(), entry: e.clone() }))
+            return self
+                .sections
+                .iter()
+                .flat_map(|s| {
+                    s.entries.iter().map(move |e| SearchHit {
+                        section: s.title.clone(),
+                        entry: e.clone(),
+                    })
+                })
                 .collect();
         }
         let needle = q.to_lowercase();
         let mut out = Vec::new();
         for s in &self.sections {
             for e in &s.entries {
-                if e.description.to_lowercase().contains(&needle) || e.keys.to_lowercase().contains(&needle) {
-                    out.push(SearchHit { section: s.title.clone(), entry: e.clone() });
+                if e.description.to_lowercase().contains(&needle)
+                    || e.keys.to_lowercase().contains(&needle)
+                {
+                    out.push(SearchHit {
+                        section: s.title.clone(),
+                        entry: e.clone(),
+                    });
                 }
             }
         }
@@ -130,12 +162,20 @@ impl HelpOverlay {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), HelpError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(HelpError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(HelpError::SchemaMismatch);
+        }
         for s in &self.sections {
-            if s.title.is_empty() { return Err(HelpError::EmptyTitle); }
+            if s.title.is_empty() {
+                return Err(HelpError::EmptyTitle);
+            }
             for e in &s.entries {
-                if e.keys.is_empty() { return Err(HelpError::EmptyKeys); }
-                if e.description.is_empty() { return Err(HelpError::EmptyDescription); }
+                if e.keys.is_empty() {
+                    return Err(HelpError::EmptyKeys);
+                }
+                if e.description.is_empty() {
+                    return Err(HelpError::EmptyDescription);
+                }
             }
         }
         Ok(())
@@ -143,7 +183,9 @@ impl HelpOverlay {
 }
 
 impl Default for HelpOverlay {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -154,7 +196,8 @@ mod tests {
         let mut h = HelpOverlay::new();
         h.add_section("Navigation").unwrap();
         h.add_entry("Navigation", "Cmd+P", "Quick open").unwrap();
-        h.add_entry("Navigation", "Cmd+K", "Command palette").unwrap();
+        h.add_entry("Navigation", "Cmd+K", "Command palette")
+            .unwrap();
         h.add_section("Editing").unwrap();
         h.add_entry("Editing", "Cmd+Z", "Undo").unwrap();
         h
@@ -198,29 +241,47 @@ mod tests {
     fn duplicate_section_rejected() {
         let mut h = HelpOverlay::new();
         h.add_section("X").unwrap();
-        assert!(matches!(h.add_section("X").unwrap_err(), HelpError::DuplicateSection(_)));
+        assert!(matches!(
+            h.add_section("X").unwrap_err(),
+            HelpError::DuplicateSection(_)
+        ));
     }
 
     #[test]
     fn unknown_section_rejected() {
         let mut h = HelpOverlay::new();
-        assert!(matches!(h.add_entry("nope", "k", "d").unwrap_err(), HelpError::UnknownSection(_)));
+        assert!(matches!(
+            h.add_entry("nope", "k", "d").unwrap_err(),
+            HelpError::UnknownSection(_)
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut h = HelpOverlay::new();
-        assert!(matches!(h.add_section("").unwrap_err(), HelpError::EmptyTitle));
+        assert!(matches!(
+            h.add_section("").unwrap_err(),
+            HelpError::EmptyTitle
+        ));
         h.add_section("X").unwrap();
-        assert!(matches!(h.add_entry("X", "", "d").unwrap_err(), HelpError::EmptyKeys));
-        assert!(matches!(h.add_entry("X", "k", "").unwrap_err(), HelpError::EmptyDescription));
+        assert!(matches!(
+            h.add_entry("X", "", "d").unwrap_err(),
+            HelpError::EmptyKeys
+        ));
+        assert!(matches!(
+            h.add_entry("X", "k", "").unwrap_err(),
+            HelpError::EmptyDescription
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut h = HelpOverlay::new();
         h.schema_version = "9.9.9".into();
-        assert!(matches!(h.validate().unwrap_err(), HelpError::SchemaMismatch));
+        assert!(matches!(
+            h.validate().unwrap_err(),
+            HelpError::SchemaMismatch
+        ));
     }
 
     #[test]

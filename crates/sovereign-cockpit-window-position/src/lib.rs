@@ -65,10 +65,13 @@ impl WindowPosition {
     pub fn default_state() -> Self {
         Self {
             schema_version: SCHEMA_VERSION.into(),
-            x: 100, y: 100,
-            width: 1280, height: 800,
+            x: 100,
+            y: 100,
+            width: 1280,
+            height: 800,
             monitor_id: "primary".into(),
-            maximized: false, fullscreen: false,
+            maximized: false,
+            fullscreen: false,
         }
     }
 
@@ -95,9 +98,15 @@ impl WindowPosition {
         if self.schema_version != SCHEMA_VERSION {
             return Err(WindowPositionError::SchemaMismatch);
         }
-        if self.width < MIN_W { return Err(WindowPositionError::WidthTooSmall(self.width)); }
-        if self.height < MIN_H { return Err(WindowPositionError::HeightTooSmall(self.height)); }
-        if self.monitor_id.is_empty() { return Err(WindowPositionError::EmptyMonitor); }
+        if self.width < MIN_W {
+            return Err(WindowPositionError::WidthTooSmall(self.width));
+        }
+        if self.height < MIN_H {
+            return Err(WindowPositionError::HeightTooSmall(self.height));
+        }
+        if self.monitor_id.is_empty() {
+            return Err(WindowPositionError::EmptyMonitor);
+        }
         if self.maximized && self.fullscreen {
             return Err(WindowPositionError::ConflictingFlags);
         }
@@ -118,21 +127,30 @@ mod tests {
     fn width_too_small_rejected() {
         let mut p = WindowPosition::default_state();
         p.width = 100;
-        assert!(matches!(p.validate().unwrap_err(), WindowPositionError::WidthTooSmall(100)));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            WindowPositionError::WidthTooSmall(100)
+        ));
     }
 
     #[test]
     fn height_too_small_rejected() {
         let mut p = WindowPosition::default_state();
         p.height = 100;
-        assert!(matches!(p.validate().unwrap_err(), WindowPositionError::HeightTooSmall(100)));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            WindowPositionError::HeightTooSmall(100)
+        ));
     }
 
     #[test]
     fn empty_monitor_rejected() {
         let mut p = WindowPosition::default_state();
         p.monitor_id = String::new();
-        assert!(matches!(p.validate().unwrap_err(), WindowPositionError::EmptyMonitor));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            WindowPositionError::EmptyMonitor
+        ));
     }
 
     #[test]
@@ -166,14 +184,20 @@ mod tests {
         let mut p = WindowPosition::default_state();
         p.maximized = true;
         p.fullscreen = true;
-        assert!(matches!(p.validate().unwrap_err(), WindowPositionError::ConflictingFlags));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            WindowPositionError::ConflictingFlags
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut p = WindowPosition::default_state();
         p.schema_version = "9.9.9".into();
-        assert!(matches!(p.validate().unwrap_err(), WindowPositionError::SchemaMismatch));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            WindowPositionError::SchemaMismatch
+        ));
     }
 
     #[test]

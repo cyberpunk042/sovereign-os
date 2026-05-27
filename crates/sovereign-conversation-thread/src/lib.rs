@@ -133,15 +133,27 @@ impl ConversationThread {
         if self.schema_version != SCHEMA_VERSION {
             return Err(ThreadError::SchemaMismatch);
         }
-        if self.thread_id.is_empty() { return Err(ThreadError::MissingThreadId); }
-        if self.opened_at.is_empty() { return Err(ThreadError::MissingOpenedAt); }
+        if self.thread_id.is_empty() {
+            return Err(ThreadError::MissingThreadId);
+        }
+        if self.opened_at.is_empty() {
+            return Err(ThreadError::MissingOpenedAt);
+        }
         for (idx, t) in self.turns.iter().enumerate() {
             let want = idx as u32;
             if t.index != want {
-                return Err(ThreadError::NonMonotonic { idx, got: t.index, want });
+                return Err(ThreadError::NonMonotonic {
+                    idx,
+                    got: t.index,
+                    want,
+                });
             }
-            if t.provider.is_empty() { return Err(ThreadError::EmptyProvider(t.index)); }
-            if t.started_at.is_empty() { return Err(ThreadError::EmptyStartedAt(t.index)); }
+            if t.provider.is_empty() {
+                return Err(ThreadError::EmptyProvider(t.index));
+            }
+            if t.started_at.is_empty() {
+                return Err(ThreadError::EmptyStartedAt(t.index));
+            }
             if !t.completed_at.is_empty() && t.completed_at < t.started_at {
                 return Err(ThreadError::CompletedBeforeStarted {
                     idx: t.index,
@@ -198,7 +210,9 @@ mod tests {
 
     #[test]
     fn empty_thread_validates() {
-        ConversationThread::new("th-1", "2026-05-19T03:00:00Z").validate().unwrap();
+        ConversationThread::new("th-1", "2026-05-19T03:00:00Z")
+            .validate()
+            .unwrap();
     }
 
     #[test]
@@ -229,7 +243,12 @@ mod tests {
         t.append(turn(TurnRole::Model, 0, 1, "main", ""));
         t.append(turn(TurnRole::Tool, 0, 0, "main", ""));
         t.append(turn(TurnRole::System, 0, 0, "main", ""));
-        for r in [TurnRole::Operator, TurnRole::Model, TurnRole::Tool, TurnRole::System] {
+        for r in [
+            TurnRole::Operator,
+            TurnRole::Model,
+            TurnRole::Tool,
+            TurnRole::System,
+        ] {
             assert_eq!(t.count_by_role(r), 1);
         }
     }
@@ -266,7 +285,10 @@ mod tests {
         let mut tu = turn(TurnRole::Operator, 1, 0, "main", "");
         tu.provider = String::new();
         t.append(tu);
-        assert!(matches!(t.validate().unwrap_err(), ThreadError::EmptyProvider(0)));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            ThreadError::EmptyProvider(0)
+        ));
     }
 
     #[test]
@@ -286,24 +308,42 @@ mod tests {
     fn schema_drift_rejected() {
         let mut t = ConversationThread::new("th-1", "t");
         t.schema_version = "9.9.9".into();
-        assert!(matches!(t.validate().unwrap_err(), ThreadError::SchemaMismatch));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            ThreadError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn empty_thread_id_caught() {
         let mut t = ConversationThread::new("", "t");
-        assert!(matches!(t.validate().unwrap_err(), ThreadError::MissingThreadId));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            ThreadError::MissingThreadId
+        ));
         t.thread_id = "th-1".into();
         t.opened_at = String::new();
-        assert!(matches!(t.validate().unwrap_err(), ThreadError::MissingOpenedAt));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            ThreadError::MissingOpenedAt
+        ));
     }
 
     #[test]
     fn role_serde_kebab() {
-        assert_eq!(serde_json::to_string(&TurnRole::Operator).unwrap(), "\"operator\"");
-        assert_eq!(serde_json::to_string(&TurnRole::Model).unwrap(), "\"model\"");
+        assert_eq!(
+            serde_json::to_string(&TurnRole::Operator).unwrap(),
+            "\"operator\""
+        );
+        assert_eq!(
+            serde_json::to_string(&TurnRole::Model).unwrap(),
+            "\"model\""
+        );
         assert_eq!(serde_json::to_string(&TurnRole::Tool).unwrap(), "\"tool\"");
-        assert_eq!(serde_json::to_string(&TurnRole::System).unwrap(), "\"system\"");
+        assert_eq!(
+            serde_json::to_string(&TurnRole::System).unwrap(),
+            "\"system\""
+        );
     }
 
     #[test]

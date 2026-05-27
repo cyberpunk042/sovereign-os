@@ -88,7 +88,9 @@ impl KeymapEditor {
 
     /// Begin capture.
     pub fn start_capture(&mut self, action_id: &str) -> Result<(), EditorError> {
-        if action_id.is_empty() { return Err(EditorError::EmptyActionId); }
+        if action_id.is_empty() {
+            return Err(EditorError::EmptyActionId);
+        }
         self.phase = Phase::Capturing;
         self.capture_action = action_id.into();
         Ok(())
@@ -102,7 +104,9 @@ impl KeymapEditor {
 
     /// Finalize capture.
     pub fn finalize_capture(&mut self, chord: &str) -> Result<CaptureOutcome, EditorError> {
-        if chord.is_empty() { return Err(EditorError::EmptyChord); }
+        if chord.is_empty() {
+            return Err(EditorError::EmptyChord);
+        }
         if self.phase != Phase::Capturing {
             return Ok(CaptureOutcome::NotCapturing);
         }
@@ -135,15 +139,21 @@ impl KeymapEditor {
             return Err(EditorError::SchemaMismatch);
         }
         for (action_id, chord) in &self.bindings {
-            if action_id.is_empty() { return Err(EditorError::EmptyActionId); }
-            if chord.is_empty() { return Err(EditorError::EmptyChord); }
+            if action_id.is_empty() {
+                return Err(EditorError::EmptyActionId);
+            }
+            if chord.is_empty() {
+                return Err(EditorError::EmptyChord);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for KeymapEditor {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -160,7 +170,10 @@ mod tests {
     #[test]
     fn empty_action_rejected() {
         let mut e = KeymapEditor::new();
-        assert!(matches!(e.start_capture("").unwrap_err(), EditorError::EmptyActionId));
+        assert!(matches!(
+            e.start_capture("").unwrap_err(),
+            EditorError::EmptyActionId
+        ));
     }
 
     #[test]
@@ -194,7 +207,9 @@ mod tests {
         e.start_capture("snapshot").unwrap();
         let outcome = e.finalize_capture("ctrl+s").unwrap();
         match outcome {
-            CaptureOutcome::Conflict { existing_action, .. } => {
+            CaptureOutcome::Conflict {
+                existing_action, ..
+            } => {
                 assert_eq!(existing_action, "save");
             }
             _ => panic!(),
@@ -222,7 +237,10 @@ mod tests {
     fn empty_chord_rejected() {
         let mut e = KeymapEditor::new();
         e.start_capture("save").unwrap();
-        assert!(matches!(e.finalize_capture("").unwrap_err(), EditorError::EmptyChord));
+        assert!(matches!(
+            e.finalize_capture("").unwrap_err(),
+            EditorError::EmptyChord
+        ));
     }
 
     #[test]
@@ -238,7 +256,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut e = KeymapEditor::new();
         e.schema_version = "9.9.9".into();
-        assert!(matches!(e.validate().unwrap_err(), EditorError::SchemaMismatch));
+        assert!(matches!(
+            e.validate().unwrap_err(),
+            EditorError::SchemaMismatch
+        ));
     }
 
     #[test]

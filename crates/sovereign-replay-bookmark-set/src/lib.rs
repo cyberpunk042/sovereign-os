@@ -9,8 +9,8 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-use sovereign_conversation_thread::ConversationThread;
 use serde::{Deserialize, Serialize};
+use sovereign_conversation_thread::ConversationThread;
 use thiserror::Error;
 
 /// Schema version.
@@ -96,8 +96,12 @@ impl BookmarkSet {
 
     /// Add a bookmark validated against the matching thread.
     pub fn add(&mut self, b: Bookmark, thread: &ConversationThread) -> Result<(), BookmarkError> {
-        if b.label.is_empty() { return Err(BookmarkError::EmptyLabel); }
-        if b.thread_id.is_empty() { return Err(BookmarkError::EmptyThreadId(b.label)); }
+        if b.label.is_empty() {
+            return Err(BookmarkError::EmptyLabel);
+        }
+        if b.thread_id.is_empty() {
+            return Err(BookmarkError::EmptyThreadId(b.label));
+        }
         if self.bookmarks.iter().any(|x| x.label == b.label) {
             return Err(BookmarkError::DuplicateLabel(b.label));
         }
@@ -119,7 +123,11 @@ impl BookmarkSet {
 
     /// All bookmarks for a thread, ordered by turn_index.
     pub fn for_thread(&self, thread_id: &str) -> Vec<&Bookmark> {
-        let mut v: Vec<&Bookmark> = self.bookmarks.iter().filter(|b| b.thread_id == thread_id).collect();
+        let mut v: Vec<&Bookmark> = self
+            .bookmarks
+            .iter()
+            .filter(|b| b.thread_id == thread_id)
+            .collect();
         v.sort_by_key(|b| b.turn_index);
         v
     }
@@ -132,8 +140,12 @@ impl BookmarkSet {
         use std::collections::HashSet;
         let mut seen: HashSet<&str> = HashSet::new();
         for b in &self.bookmarks {
-            if b.label.is_empty() { return Err(BookmarkError::EmptyLabel); }
-            if b.thread_id.is_empty() { return Err(BookmarkError::EmptyThreadId(b.label.clone())); }
+            if b.label.is_empty() {
+                return Err(BookmarkError::EmptyLabel);
+            }
+            if b.thread_id.is_empty() {
+                return Err(BookmarkError::EmptyThreadId(b.label.clone()));
+            }
             if !seen.insert(b.label.as_str()) {
                 return Err(BookmarkError::DuplicateLabel(b.label.clone()));
             }
@@ -143,7 +155,9 @@ impl BookmarkSet {
 }
 
 impl Default for BookmarkSet {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -153,8 +167,10 @@ mod tests {
 
     fn turn(role: TurnRole) -> Turn {
         Turn {
-            index: 0, role,
-            tokens_in: 0, tokens_out: 0,
+            index: 0,
+            role,
+            tokens_in: 0,
+            tokens_out: 0,
             provider: "p".into(),
             started_at: "t".into(),
             completed_at: "t".into(),
@@ -254,13 +270,19 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = BookmarkSet::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), BookmarkError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            BookmarkError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn color_serde_kebab() {
         assert_eq!(serde_json::to_string(&ColorTag::Red).unwrap(), "\"red\"");
-        assert_eq!(serde_json::to_string(&ColorTag::Purple).unwrap(), "\"purple\"");
+        assert_eq!(
+            serde_json::to_string(&ColorTag::Purple).unwrap(),
+            "\"purple\""
+        );
     }
 
     #[test]

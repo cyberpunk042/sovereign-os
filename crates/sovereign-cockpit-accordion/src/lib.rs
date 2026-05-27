@@ -79,7 +79,10 @@ impl Accordion {
 
     /// Expand a section. Under single_open, collapses all others.
     pub fn expand(&mut self, id: &str) -> Result<(), AccordionError> {
-        let pos = self.sections.iter().position(|s| s.id == id)
+        let pos = self
+            .sections
+            .iter()
+            .position(|s| s.id == id)
             .ok_or_else(|| AccordionError::Unknown(id.into()))?;
         if self.single_open {
             for (i, s) in self.sections.iter_mut().enumerate() {
@@ -93,7 +96,10 @@ impl Accordion {
 
     /// Collapse a section.
     pub fn collapse(&mut self, id: &str) -> Result<(), AccordionError> {
-        let s = self.sections.iter_mut().find(|s| s.id == id)
+        let s = self
+            .sections
+            .iter_mut()
+            .find(|s| s.id == id)
             .ok_or_else(|| AccordionError::Unknown(id.into()))?;
         s.expanded = false;
         Ok(())
@@ -101,7 +107,10 @@ impl Accordion {
 
     /// Toggle (expand if collapsed, collapse if expanded).
     pub fn toggle(&mut self, id: &str) -> Result<(), AccordionError> {
-        let pos = self.sections.iter().position(|s| s.id == id)
+        let pos = self
+            .sections
+            .iter()
+            .position(|s| s.id == id)
             .ok_or_else(|| AccordionError::Unknown(id.into()))?;
         if self.sections[pos].expanded {
             self.sections[pos].expanded = false;
@@ -117,7 +126,11 @@ impl Accordion {
 
     /// Currently-expanded section ids.
     pub fn expanded(&self) -> Vec<&str> {
-        self.sections.iter().filter(|s| s.expanded).map(|s| s.id.as_str()).collect()
+        self.sections
+            .iter()
+            .filter(|s| s.expanded)
+            .map(|s| s.id.as_str())
+            .collect()
     }
 
     /// Validate.
@@ -158,7 +171,11 @@ mod tests {
     use super::*;
 
     fn sec(id: &str, expanded: bool) -> Section {
-        Section { id: id.into(), title: format!("T-{id}"), expanded }
+        Section {
+            id: id.into(),
+            title: format!("T-{id}"),
+            expanded,
+        }
     }
 
     #[test]
@@ -175,14 +192,19 @@ mod tests {
 
     #[test]
     fn single_open_collapses_others() {
-        let mut a = Accordion::new(vec![sec("a", true), sec("b", false), sec("c", false)], true).unwrap();
+        let mut a =
+            Accordion::new(vec![sec("a", true), sec("b", false), sec("c", false)], true).unwrap();
         a.expand("b").unwrap();
         assert_eq!(a.expanded(), vec!["b"]);
     }
 
     #[test]
     fn multi_open_keeps_others() {
-        let mut a = Accordion::new(vec![sec("a", true), sec("b", false), sec("c", false)], false).unwrap();
+        let mut a = Accordion::new(
+            vec![sec("a", true), sec("b", false), sec("c", false)],
+            false,
+        )
+        .unwrap();
         a.expand("b").unwrap();
         let e = a.expanded();
         assert!(e.contains(&"a"));
@@ -215,8 +237,14 @@ mod tests {
     #[test]
     fn unknown_id_rejected() {
         let mut a = Accordion::new(vec![sec("a", false)], false).unwrap();
-        assert!(matches!(a.expand("z").unwrap_err(), AccordionError::Unknown(_)));
-        assert!(matches!(a.collapse("z").unwrap_err(), AccordionError::Unknown(_)));
+        assert!(matches!(
+            a.expand("z").unwrap_err(),
+            AccordionError::Unknown(_)
+        ));
+        assert!(matches!(
+            a.collapse("z").unwrap_err(),
+            AccordionError::Unknown(_)
+        ));
     }
 
     #[test]
@@ -231,14 +259,20 @@ mod tests {
     fn empty_id_rejected() {
         let mut s = sec("a", false);
         s.id = String::new();
-        assert!(matches!(Accordion::new(vec![s], false).unwrap_err(), AccordionError::EmptyId));
+        assert!(matches!(
+            Accordion::new(vec![s], false).unwrap_err(),
+            AccordionError::EmptyId
+        ));
     }
 
     #[test]
     fn empty_title_rejected() {
         let mut s = sec("a", false);
         s.title = String::new();
-        assert!(matches!(Accordion::new(vec![s], false).unwrap_err(), AccordionError::EmptyTitle(_)));
+        assert!(matches!(
+            Accordion::new(vec![s], false).unwrap_err(),
+            AccordionError::EmptyTitle(_)
+        ));
     }
 
     #[test]
@@ -253,7 +287,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut a = Accordion::new(vec![sec("a", false)], false).unwrap();
         a.schema_version = "9.9.9".into();
-        assert!(matches!(a.validate().unwrap_err(), AccordionError::SchemaMismatch));
+        assert!(matches!(
+            a.validate().unwrap_err(),
+            AccordionError::SchemaMismatch
+        ));
     }
 
     #[test]

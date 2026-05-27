@@ -55,10 +55,16 @@ impl NumberFormat {
     /// Render plain integer with thousands separator.
     pub fn integer(&self, n: i64) -> String {
         let neg = n < 0;
-        let abs = if n == i64::MIN { i64::MAX as u64 + 1 } else { n.unsigned_abs() };
+        let abs = if n == i64::MIN {
+            i64::MAX as u64 + 1
+        } else {
+            n.unsigned_abs()
+        };
         let digits = abs.to_string();
         let mut out = String::with_capacity(digits.len() + digits.len() / 3 + 1);
-        if neg { out.push(self.minus); }
+        if neg {
+            out.push(self.minus);
+        }
         let len = digits.len();
         for (i, ch) in digits.chars().enumerate() {
             if i > 0 && (len - i) % 3 == 0 {
@@ -71,10 +77,16 @@ impl NumberFormat {
 
     /// Render fixed-point.
     pub fn minor_unit(&self, n: i64, minor_digits: u8) -> Result<String, FormatError> {
-        if minor_digits > 9 { return Err(FormatError::MinorTooLarge(minor_digits)); }
+        if minor_digits > 9 {
+            return Err(FormatError::MinorTooLarge(minor_digits));
+        }
         let scale = 10i64.pow(minor_digits as u32);
         let neg = n < 0;
-        let abs = if n == i64::MIN { (i64::MAX as i128 + 1) as u128 } else { n.unsigned_abs() as u128 };
+        let abs = if n == i64::MIN {
+            (i64::MAX as i128 + 1) as u128
+        } else {
+            n.unsigned_abs() as u128
+        };
         let major = abs / scale as u128;
         let minor = abs % scale as u128;
         let major_str = self.integer(major as i64);
@@ -95,7 +107,11 @@ impl NumberFormat {
     /// Compact format (k/M/B/T).
     pub fn compact(&self, n: i64) -> String {
         let neg = n < 0;
-        let abs = if n == i64::MIN { i64::MAX as u128 + 1 } else { n.unsigned_abs() as u128 };
+        let abs = if n == i64::MIN {
+            i64::MAX as u128 + 1
+        } else {
+            n.unsigned_abs() as u128
+        };
         let (suffix, divisor): (&str, u128) = if abs >= 1_000_000_000_000 {
             ("T", 1_000_000_000_000)
         } else if abs >= 1_000_000_000 {
@@ -109,7 +125,11 @@ impl NumberFormat {
         };
         let major = abs / divisor;
         let tenths = (abs % divisor) * 10 / divisor;
-        let sign = if neg { self.minus.to_string() } else { String::new() };
+        let sign = if neg {
+            self.minus.to_string()
+        } else {
+            String::new()
+        };
         if tenths == 0 {
             format!("{}{}{}", sign, major, suffix)
         } else {
@@ -119,7 +139,9 @@ impl NumberFormat {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), FormatError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(FormatError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(FormatError::SchemaMismatch);
+        }
         Ok(())
     }
 }
@@ -128,8 +150,12 @@ impl NumberFormat {
 mod tests {
     use super::*;
 
-    fn en() -> NumberFormat { NumberFormat::new(',', '.', '-') }
-    fn fr() -> NumberFormat { NumberFormat::new(' ', ',', '−') }
+    fn en() -> NumberFormat {
+        NumberFormat::new(',', '.', '-')
+    }
+    fn fr() -> NumberFormat {
+        NumberFormat::new(' ', ',', '−')
+    }
 
     #[test]
     fn integer_basic_en() {
@@ -158,7 +184,10 @@ mod tests {
 
     #[test]
     fn minor_unit_too_large_rejected() {
-        assert!(matches!(en().minor_unit(1, 10).unwrap_err(), FormatError::MinorTooLarge(_)));
+        assert!(matches!(
+            en().minor_unit(1, 10).unwrap_err(),
+            FormatError::MinorTooLarge(_)
+        ));
     }
 
     #[test]
@@ -183,7 +212,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut f = en();
         f.schema_version = "9.9.9".into();
-        assert!(matches!(f.validate().unwrap_err(), FormatError::SchemaMismatch));
+        assert!(matches!(
+            f.validate().unwrap_err(),
+            FormatError::SchemaMismatch
+        ));
     }
 
     #[test]

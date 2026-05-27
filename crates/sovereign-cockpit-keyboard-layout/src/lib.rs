@@ -59,10 +59,14 @@ impl KeyboardLayout {
     }
 
     /// Set.
-    pub fn set(&mut self, layout: Layout) { self.layout = layout; }
+    pub fn set(&mut self, layout: Layout) {
+        self.layout = layout;
+    }
 
     /// Current.
-    pub fn current(&self) -> Layout { self.layout }
+    pub fn current(&self) -> Layout {
+        self.layout
+    }
 
     /// Operator-facing label.
     pub fn description(layout: Layout) -> &'static str {
@@ -77,7 +81,9 @@ impl KeyboardLayout {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), LayoutError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(LayoutError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(LayoutError::SchemaMismatch);
+        }
         Ok(())
     }
 }
@@ -96,7 +102,13 @@ mod tests {
 
     #[test]
     fn description_covers_all() {
-        for &l in &[Layout::Qwerty, Layout::QwertyUk, Layout::Dvorak, Layout::Colemak, Layout::Azerty] {
+        for &l in &[
+            Layout::Qwerty,
+            Layout::QwertyUk,
+            Layout::Dvorak,
+            Layout::Colemak,
+            Layout::Azerty,
+        ] {
             assert!(!KeyboardLayout::description(l).is_empty());
         }
     }
@@ -105,7 +117,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut k = KeyboardLayout::new(Layout::Qwerty);
         k.schema_version = "9.9.9".into();
-        assert!(matches!(k.validate().unwrap_err(), LayoutError::SchemaMismatch));
+        assert!(matches!(
+            k.validate().unwrap_err(),
+            LayoutError::SchemaMismatch
+        ));
     }
 
     #[test]

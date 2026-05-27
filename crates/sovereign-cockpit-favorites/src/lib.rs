@@ -70,9 +70,15 @@ impl Favorites {
 
     /// Star.
     pub fn star(&mut self, kind: &str, fav: Favorite) -> Result<(), FavError> {
-        if kind.is_empty() { return Err(FavError::EmptyKind); }
-        if fav.id.is_empty() { return Err(FavError::EmptyId); }
-        if fav.label.is_empty() { return Err(FavError::EmptyLabel); }
+        if kind.is_empty() {
+            return Err(FavError::EmptyKind);
+        }
+        if fav.id.is_empty() {
+            return Err(FavError::EmptyId);
+        }
+        if fav.label.is_empty() {
+            return Err(FavError::EmptyLabel);
+        }
         let v = self.by_kind.entry(kind.into()).or_default();
         if v.iter().any(|f| f.id == fav.id) {
             return Err(FavError::Duplicate(fav.id, kind.into()));
@@ -86,7 +92,9 @@ impl Favorites {
         if let Some(v) = self.by_kind.get_mut(kind) {
             if let Some(pos) = v.iter().position(|f| f.id == id) {
                 v.remove(pos);
-                if v.is_empty() { self.by_kind.remove(kind); }
+                if v.is_empty() {
+                    self.by_kind.remove(kind);
+                }
                 return true;
             }
         }
@@ -96,7 +104,9 @@ impl Favorites {
     /// Reorder.
     pub fn reorder(&mut self, kind: &str, from: usize, to: usize) -> Result<(), FavError> {
         let v = self.by_kind.get_mut(kind).ok_or(FavError::EmptyKind)?;
-        if from >= v.len() { return Err(FavError::OutOfBounds(from, v.len())); }
+        if from >= v.len() {
+            return Err(FavError::OutOfBounds(from, v.len()));
+        }
         let item = v.remove(from);
         let pos = to.min(v.len());
         v.insert(pos, item);
@@ -110,19 +120,29 @@ impl Favorites {
 
     /// Is starred?
     pub fn is_starred(&self, kind: &str, id: &str) -> bool {
-        self.by_kind.get(kind).is_some_and(|v| v.iter().any(|f| f.id == id))
+        self.by_kind
+            .get(kind)
+            .is_some_and(|v| v.iter().any(|f| f.id == id))
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), FavError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(FavError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(FavError::SchemaMismatch);
+        }
         for (k, v) in &self.by_kind {
-            if k.is_empty() { return Err(FavError::EmptyKind); }
+            if k.is_empty() {
+                return Err(FavError::EmptyKind);
+            }
             use std::collections::HashSet;
             let mut seen: HashSet<&str> = HashSet::new();
             for f in v {
-                if f.id.is_empty() { return Err(FavError::EmptyId); }
-                if f.label.is_empty() { return Err(FavError::EmptyLabel); }
+                if f.id.is_empty() {
+                    return Err(FavError::EmptyId);
+                }
+                if f.label.is_empty() {
+                    return Err(FavError::EmptyLabel);
+                }
                 if !seen.insert(f.id.as_str()) {
                     return Err(FavError::Duplicate(f.id.clone(), k.clone()));
                 }
@@ -133,14 +153,22 @@ impl Favorites {
 }
 
 impl Default for Favorites {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn fav(id: &str) -> Favorite { Favorite { id: id.into(), label: id.into(), pinned_at_ms: 0 } }
+    fn fav(id: &str) -> Favorite {
+        Favorite {
+            id: id.into(),
+            label: id.into(),
+            pinned_at_ms: 0,
+        }
+    }
 
     #[test]
     fn star_and_list() {
@@ -162,7 +190,10 @@ mod tests {
     fn duplicate_rejected() {
         let mut f = Favorites::new();
         f.star("dashboard", fav("a")).unwrap();
-        assert!(matches!(f.star("dashboard", fav("a")).unwrap_err(), FavError::Duplicate(_, _)));
+        assert!(matches!(
+            f.star("dashboard", fav("a")).unwrap_err(),
+            FavError::Duplicate(_, _)
+        ));
     }
 
     #[test]
@@ -190,7 +221,10 @@ mod tests {
     fn reorder_oob_rejected() {
         let mut f = Favorites::new();
         f.star("dashboard", fav("a")).unwrap();
-        assert!(matches!(f.reorder("dashboard", 9, 0).unwrap_err(), FavError::OutOfBounds(_, _)));
+        assert!(matches!(
+            f.reorder("dashboard", 9, 0).unwrap_err(),
+            FavError::OutOfBounds(_, _)
+        ));
     }
 
     #[test]
@@ -204,20 +238,32 @@ mod tests {
     #[test]
     fn empty_inputs_rejected() {
         let mut f = Favorites::new();
-        assert!(matches!(f.star("", fav("a")).unwrap_err(), FavError::EmptyKind));
+        assert!(matches!(
+            f.star("", fav("a")).unwrap_err(),
+            FavError::EmptyKind
+        ));
         let mut bad = fav("a");
         bad.id = "".into();
-        assert!(matches!(f.star("dashboard", bad).unwrap_err(), FavError::EmptyId));
+        assert!(matches!(
+            f.star("dashboard", bad).unwrap_err(),
+            FavError::EmptyId
+        ));
         let mut bad2 = fav("a");
         bad2.label = "".into();
-        assert!(matches!(f.star("dashboard", bad2).unwrap_err(), FavError::EmptyLabel));
+        assert!(matches!(
+            f.star("dashboard", bad2).unwrap_err(),
+            FavError::EmptyLabel
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut f = Favorites::new();
         f.schema_version = "9.9.9".into();
-        assert!(matches!(f.validate().unwrap_err(), FavError::SchemaMismatch));
+        assert!(matches!(
+            f.validate().unwrap_err(),
+            FavError::SchemaMismatch
+        ));
     }
 
     #[test]

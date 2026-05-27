@@ -116,7 +116,12 @@ impl StatusAggregator {
     pub fn percentages(&self) -> Percentages {
         let n = self.subsystems.len() as u32;
         if n == 0 {
-            return Percentages { ok: 0, degraded: 0, unknown: 0, down: 0 };
+            return Percentages {
+                ok: 0,
+                degraded: 0,
+                unknown: 0,
+                down: 0,
+            };
         }
         let mut counts = [0u32; 4];
         for s in &self.subsystems {
@@ -144,8 +149,12 @@ fn check_subs(s: &[Subsystem]) -> Result<(), AggregatorError> {
     use std::collections::HashSet;
     let mut seen: HashSet<&str> = HashSet::new();
     for x in s {
-        if x.id.is_empty() { return Err(AggregatorError::EmptyId); }
-        if x.name.is_empty() { return Err(AggregatorError::EmptyName(x.id.clone())); }
+        if x.id.is_empty() {
+            return Err(AggregatorError::EmptyId);
+        }
+        if x.name.is_empty() {
+            return Err(AggregatorError::EmptyName(x.id.clone()));
+        }
         if !seen.insert(x.id.as_str()) {
             return Err(AggregatorError::DuplicateId(x.id.clone()));
         }
@@ -158,7 +167,11 @@ mod tests {
     use super::*;
 
     fn s(id: &str, st: SubsystemStatus) -> Subsystem {
-        Subsystem { id: id.into(), name: format!("N-{id}"), status: st }
+        Subsystem {
+            id: id.into(),
+            name: format!("N-{id}"),
+            status: st,
+        }
     }
 
     #[test]
@@ -173,7 +186,8 @@ mod tests {
             s("a", SubsystemStatus::Ok),
             s("b", SubsystemStatus::Degraded),
             s("c", SubsystemStatus::Down),
-        ]).unwrap();
+        ])
+        .unwrap();
         assert_eq!(a.headline(), SubsystemStatus::Down);
     }
 
@@ -182,7 +196,8 @@ mod tests {
         let a = StatusAggregator::new(vec![
             s("a", SubsystemStatus::Unknown),
             s("b", SubsystemStatus::Degraded),
-        ]).unwrap();
+        ])
+        .unwrap();
         assert_eq!(a.headline(), SubsystemStatus::Degraded);
     }
 
@@ -191,7 +206,8 @@ mod tests {
         let a = StatusAggregator::new(vec![
             s("a", SubsystemStatus::Ok),
             s("b", SubsystemStatus::Unknown),
-        ]).unwrap();
+        ])
+        .unwrap();
         assert_eq!(a.headline(), SubsystemStatus::Unknown);
     }
 
@@ -202,7 +218,8 @@ mod tests {
             s("b", SubsystemStatus::Ok),
             s("c", SubsystemStatus::Degraded),
             s("d", SubsystemStatus::Down),
-        ]).unwrap();
+        ])
+        .unwrap();
         let p = a.percentages();
         assert_eq!(p.ok, 50);
         assert_eq!(p.degraded, 25);
@@ -221,7 +238,11 @@ mod tests {
     #[test]
     fn duplicate_id_rejected() {
         assert!(matches!(
-            StatusAggregator::new(vec![s("a", SubsystemStatus::Ok), s("a", SubsystemStatus::Ok)]).unwrap_err(),
+            StatusAggregator::new(vec![
+                s("a", SubsystemStatus::Ok),
+                s("a", SubsystemStatus::Ok)
+            ])
+            .unwrap_err(),
             AggregatorError::DuplicateId(_)
         ));
     }
@@ -230,32 +251,51 @@ mod tests {
     fn empty_id_rejected() {
         let mut x = s("a", SubsystemStatus::Ok);
         x.id = String::new();
-        assert!(matches!(StatusAggregator::new(vec![x]).unwrap_err(), AggregatorError::EmptyId));
+        assert!(matches!(
+            StatusAggregator::new(vec![x]).unwrap_err(),
+            AggregatorError::EmptyId
+        ));
     }
 
     #[test]
     fn empty_name_rejected() {
         let mut x = s("a", SubsystemStatus::Ok);
         x.name = String::new();
-        assert!(matches!(StatusAggregator::new(vec![x]).unwrap_err(), AggregatorError::EmptyName(_)));
+        assert!(matches!(
+            StatusAggregator::new(vec![x]).unwrap_err(),
+            AggregatorError::EmptyName(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut a = StatusAggregator::new(vec![s("a", SubsystemStatus::Ok)]).unwrap();
         a.schema_version = "9.9.9".into();
-        assert!(matches!(a.validate().unwrap_err(), AggregatorError::SchemaMismatch));
+        assert!(matches!(
+            a.validate().unwrap_err(),
+            AggregatorError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn status_serde_kebab() {
-        assert_eq!(serde_json::to_string(&SubsystemStatus::Ok).unwrap(), "\"ok\"");
-        assert_eq!(serde_json::to_string(&SubsystemStatus::Degraded).unwrap(), "\"degraded\"");
+        assert_eq!(
+            serde_json::to_string(&SubsystemStatus::Ok).unwrap(),
+            "\"ok\""
+        );
+        assert_eq!(
+            serde_json::to_string(&SubsystemStatus::Degraded).unwrap(),
+            "\"degraded\""
+        );
     }
 
     #[test]
     fn agg_serde_roundtrip() {
-        let a = StatusAggregator::new(vec![s("a", SubsystemStatus::Ok), s("b", SubsystemStatus::Down)]).unwrap();
+        let a = StatusAggregator::new(vec![
+            s("a", SubsystemStatus::Ok),
+            s("b", SubsystemStatus::Down),
+        ])
+        .unwrap();
         let j = serde_json::to_string(&a).unwrap();
         let back: StatusAggregator = serde_json::from_str(&j).unwrap();
         assert_eq!(a, back);

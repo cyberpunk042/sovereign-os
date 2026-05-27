@@ -57,7 +57,9 @@ impl BulkSelection {
     /// Set universe (clears selection + anchor).
     pub fn set_items(&mut self, items: &[&str]) -> Result<(), SelectionError> {
         for i in items {
-            if i.is_empty() { return Err(SelectionError::EmptyId); }
+            if i.is_empty() {
+                return Err(SelectionError::EmptyId);
+            }
         }
         self.items = items.iter().map(|s| (*s).into()).collect();
         self.selected.clear();
@@ -124,16 +126,22 @@ impl BulkSelection {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), SelectionError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(SelectionError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(SelectionError::SchemaMismatch);
+        }
         for i in &self.items {
-            if i.is_empty() { return Err(SelectionError::EmptyId); }
+            if i.is_empty() {
+                return Err(SelectionError::EmptyId);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for BulkSelection {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -202,20 +210,29 @@ mod tests {
     #[test]
     fn unknown_item_rejected() {
         let mut s = loaded();
-        assert!(matches!(s.click("nope").unwrap_err(), SelectionError::UnknownItem(_)));
+        assert!(matches!(
+            s.click("nope").unwrap_err(),
+            SelectionError::UnknownItem(_)
+        ));
     }
 
     #[test]
     fn empty_id_rejected() {
         let mut s = BulkSelection::new();
-        assert!(matches!(s.set_items(&[""]).unwrap_err(), SelectionError::EmptyId));
+        assert!(matches!(
+            s.set_items(&[""]).unwrap_err(),
+            SelectionError::EmptyId
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = loaded();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), SelectionError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SelectionError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -65,7 +65,9 @@ impl TimeRangeSelector {
     /// New.
     pub fn new(range: Range) -> Result<Self, SelectorError> {
         if let Range::Custom { from_ms, to_ms } = &range {
-            if from_ms >= to_ms { return Err(SelectorError::BadCustom(*from_ms, *to_ms)); }
+            if from_ms >= to_ms {
+                return Err(SelectorError::BadCustom(*from_ms, *to_ms));
+            }
         }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
@@ -76,7 +78,9 @@ impl TimeRangeSelector {
     /// Set range.
     pub fn set(&mut self, range: Range) -> Result<(), SelectorError> {
         if let Range::Custom { from_ms, to_ms } = &range {
-            if from_ms >= to_ms { return Err(SelectorError::BadCustom(*from_ms, *to_ms)); }
+            if from_ms >= to_ms {
+                return Err(SelectorError::BadCustom(*from_ms, *to_ms));
+            }
         }
         self.range = range;
         Ok(())
@@ -97,9 +101,13 @@ impl TimeRangeSelector {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), SelectorError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(SelectorError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(SelectorError::SchemaMismatch);
+        }
         if let Range::Custom { from_ms, to_ms } = &self.range {
-            if from_ms >= to_ms { return Err(SelectorError::BadCustom(*from_ms, *to_ms)); }
+            if from_ms >= to_ms {
+                return Err(SelectorError::BadCustom(*from_ms, *to_ms));
+            }
         }
         Ok(())
     }
@@ -133,13 +141,24 @@ mod tests {
 
     #[test]
     fn custom_round_trips() {
-        let s = TimeRangeSelector::new(Range::Custom { from_ms: 100, to_ms: 1000 }).unwrap();
+        let s = TimeRangeSelector::new(Range::Custom {
+            from_ms: 100,
+            to_ms: 1000,
+        })
+        .unwrap();
         assert_eq!(s.resolve(99_999), (100, 1000));
     }
 
     #[test]
     fn bad_custom_rejected() {
-        assert!(matches!(TimeRangeSelector::new(Range::Custom { from_ms: 1000, to_ms: 100 }).unwrap_err(), SelectorError::BadCustom(_, _)));
+        assert!(matches!(
+            TimeRangeSelector::new(Range::Custom {
+                from_ms: 1000,
+                to_ms: 100
+            })
+            .unwrap_err(),
+            SelectorError::BadCustom(_, _)
+        ));
     }
 
     #[test]
@@ -153,12 +172,19 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = TimeRangeSelector::new(Range::Last5m).unwrap();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), SelectorError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SelectorError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn selector_serde_roundtrip() {
-        let s = TimeRangeSelector::new(Range::Custom { from_ms: 1, to_ms: 10 }).unwrap();
+        let s = TimeRangeSelector::new(Range::Custom {
+            from_ms: 1,
+            to_ms: 10,
+        })
+        .unwrap();
         let j = serde_json::to_string(&s).unwrap();
         let back: TimeRangeSelector = serde_json::from_str(&j).unwrap();
         assert_eq!(s, back);

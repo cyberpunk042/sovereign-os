@@ -97,7 +97,10 @@ impl SearchHighlight {
                         if let Some(r) = current.take() {
                             ranges.push(r);
                         }
-                        current = Some(Range { start: hi, end: hi + 1 });
+                        current = Some(Range {
+                            start: hi,
+                            end: hi + 1,
+                        });
                     }
                 }
             }
@@ -211,7 +214,10 @@ mod tests {
     fn validate_out_of_bounds_rejected() {
         let mut r = SearchHighlight::highlight("hel", "hello");
         r.ranges[0].end = 99;
-        assert!(matches!(r.validate(5).unwrap_err(), HighlightError::RangeOutOfBounds { .. }));
+        assert!(matches!(
+            r.validate(5).unwrap_err(),
+            HighlightError::RangeOutOfBounds { .. }
+        ));
     }
 
     #[test]
@@ -221,14 +227,20 @@ mod tests {
             ranges: vec![Range { start: 0, end: 3 }, Range { start: 2, end: 5 }],
             matched_all: true,
         };
-        assert!(matches!(r.validate(10).unwrap_err(), HighlightError::RangeOverlap { .. }));
+        assert!(matches!(
+            r.validate(10).unwrap_err(),
+            HighlightError::RangeOverlap { .. }
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut r = SearchHighlight::highlight("hel", "hello");
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate(5).unwrap_err(), HighlightError::SchemaMismatch));
+        assert!(matches!(
+            r.validate(5).unwrap_err(),
+            HighlightError::SchemaMismatch
+        ));
     }
 
     #[test]

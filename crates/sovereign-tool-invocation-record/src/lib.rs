@@ -13,10 +13,10 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+use serde::{Deserialize, Serialize};
 use sovereign_execution_mode_registry::ExecutionMode;
 use sovereign_profile_bundles::BundleName;
 use sovereign_tool_catalog::{ToolCatalog, ToolId};
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// Schema version.
@@ -98,16 +98,25 @@ pub enum RecordError {
 impl InvocationRecord {
     /// New.
     pub fn new(
-        trace_id: &str, tool: ToolId, mode: ExecutionMode, bundle: BundleName,
-        started_at: &str, completed_at: &str, exit_kind: ExitKind, bytes_out: u64,
+        trace_id: &str,
+        tool: ToolId,
+        mode: ExecutionMode,
+        bundle: BundleName,
+        started_at: &str,
+        completed_at: &str,
+        exit_kind: ExitKind,
+        bytes_out: u64,
     ) -> Self {
         Self {
             schema_version: SCHEMA_VERSION.into(),
             trace_id: trace_id.into(),
-            tool, mode, bundle,
+            tool,
+            mode,
+            bundle,
             started_at: started_at.into(),
             completed_at: completed_at.into(),
-            exit_kind, bytes_out,
+            exit_kind,
+            bytes_out,
         }
     }
 
@@ -120,8 +129,12 @@ impl InvocationRecord {
         if self.schema_version != SCHEMA_VERSION {
             return Err(RecordError::SchemaMismatch);
         }
-        if self.trace_id.is_empty() { return Err(RecordError::MissingTraceId); }
-        if self.started_at.is_empty() { return Err(RecordError::MissingStartedAt); }
+        if self.trace_id.is_empty() {
+            return Err(RecordError::MissingTraceId);
+        }
+        if self.started_at.is_empty() {
+            return Err(RecordError::MissingStartedAt);
+        }
         if !self.completed_at.is_empty() && self.completed_at < self.started_at {
             return Err(RecordError::CompletedBeforeStarted {
                 started: self.started_at.clone(),
@@ -132,7 +145,10 @@ impl InvocationRecord {
             let available = cat.is_available(self.tool, self.mode, self.bundle);
             if !available && self.exit_kind != ExitKind::Refused {
                 return Err(RecordError::GateMismatch {
-                    tool: self.tool, mode: self.mode, bundle: self.bundle, exit: self.exit_kind,
+                    tool: self.tool,
+                    mode: self.mode,
+                    bundle: self.bundle,
+                    exit: self.exit_kind,
                 });
             }
         }
@@ -149,13 +165,21 @@ impl InvocationRecord {
 mod tests {
     use super::*;
 
-    fn cat() -> ToolCatalog { ToolCatalog::canonical() }
+    fn cat() -> ToolCatalog {
+        ToolCatalog::canonical()
+    }
 
     #[test]
     fn ok_record_validates() {
         let r = InvocationRecord::new(
-            "tr-1", ToolId::FsRead, ExecutionMode::Plan, BundleName::Private,
-            "2026-05-19T03:00:00Z", "2026-05-19T03:00:01Z", ExitKind::Success, 1024,
+            "tr-1",
+            ToolId::FsRead,
+            ExecutionMode::Plan,
+            BundleName::Private,
+            "2026-05-19T03:00:00Z",
+            "2026-05-19T03:00:01Z",
+            ExitKind::Success,
+            1024,
         );
         r.validate(Some(&cat())).unwrap();
     }
@@ -163,27 +187,51 @@ mod tests {
     #[test]
     fn missing_trace_id_caught() {
         let r = InvocationRecord::new(
-            "", ToolId::FsRead, ExecutionMode::Plan, BundleName::Private,
-            "t", "t", ExitKind::Success, 0,
+            "",
+            ToolId::FsRead,
+            ExecutionMode::Plan,
+            BundleName::Private,
+            "t",
+            "t",
+            ExitKind::Success,
+            0,
         );
-        assert!(matches!(r.validate(None).unwrap_err(), RecordError::MissingTraceId));
+        assert!(matches!(
+            r.validate(None).unwrap_err(),
+            RecordError::MissingTraceId
+        ));
     }
 
     #[test]
     fn completed_before_started_caught() {
         let r = InvocationRecord::new(
-            "tr-1", ToolId::FsRead, ExecutionMode::Plan, BundleName::Private,
-            "2026-05-19T03:00:05Z", "2026-05-19T03:00:00Z", ExitKind::Success, 0,
+            "tr-1",
+            ToolId::FsRead,
+            ExecutionMode::Plan,
+            BundleName::Private,
+            "2026-05-19T03:00:05Z",
+            "2026-05-19T03:00:00Z",
+            ExitKind::Success,
+            0,
         );
-        assert!(matches!(r.validate(None).unwrap_err(), RecordError::CompletedBeforeStarted { .. }));
+        assert!(matches!(
+            r.validate(None).unwrap_err(),
+            RecordError::CompletedBeforeStarted { .. }
+        ));
     }
 
     #[test]
     fn gate_mismatch_caught_when_tool_not_available() {
         // FsWrite is not available in Plan mode → if exit_kind is Success, mismatch.
         let r = InvocationRecord::new(
-            "tr-1", ToolId::FsWrite, ExecutionMode::Plan, BundleName::Careful,
-            "2026-05-19T03:00:00Z", "2026-05-19T03:00:01Z", ExitKind::Success, 0,
+            "tr-1",
+            ToolId::FsWrite,
+            ExecutionMode::Plan,
+            BundleName::Careful,
+            "2026-05-19T03:00:00Z",
+            "2026-05-19T03:00:01Z",
+            ExitKind::Success,
+            0,
         );
         match r.validate(Some(&cat())).unwrap_err() {
             RecordError::GateMismatch { tool, mode, .. } => {
@@ -197,8 +245,14 @@ mod tests {
     #[test]
     fn refused_in_blocked_context_validates() {
         let r = InvocationRecord::new(
-            "tr-1", ToolId::FsWrite, ExecutionMode::Plan, BundleName::Careful,
-            "2026-05-19T03:00:00Z", "2026-05-19T03:00:00Z", ExitKind::Refused, 0,
+            "tr-1",
+            ToolId::FsWrite,
+            ExecutionMode::Plan,
+            BundleName::Careful,
+            "2026-05-19T03:00:00Z",
+            "2026-05-19T03:00:00Z",
+            ExitKind::Refused,
+            0,
         );
         r.validate(Some(&cat())).unwrap();
     }
@@ -206,11 +260,20 @@ mod tests {
     #[test]
     fn schema_drift_rejected() {
         let mut r = InvocationRecord::new(
-            "tr-1", ToolId::FsRead, ExecutionMode::Plan, BundleName::Private,
-            "t", "t", ExitKind::Success, 0,
+            "tr-1",
+            ToolId::FsRead,
+            ExecutionMode::Plan,
+            BundleName::Private,
+            "t",
+            "t",
+            ExitKind::Success,
+            0,
         );
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate(None).unwrap_err(), RecordError::SchemaMismatch));
+        assert!(matches!(
+            r.validate(None).unwrap_err(),
+            RecordError::SchemaMismatch
+        ));
     }
 
     #[test]
@@ -222,34 +285,69 @@ mod tests {
             (ExitKind::Refused, false),
             (ExitKind::Aborted, false),
         ] {
-            let r = InvocationRecord::new("tr-1", ToolId::FsRead, ExecutionMode::Plan,
-                BundleName::Private, "t", "t", ek, 0);
+            let r = InvocationRecord::new(
+                "tr-1",
+                ToolId::FsRead,
+                ExecutionMode::Plan,
+                BundleName::Private,
+                "t",
+                "t",
+                ek,
+                0,
+            );
             assert_eq!(r.rendered(), expected, "{ek:?}");
         }
     }
 
     #[test]
     fn exit_kind_serde_kebab() {
-        assert_eq!(serde_json::to_string(&ExitKind::Success).unwrap(), "\"success\"");
-        assert_eq!(serde_json::to_string(&ExitKind::Timeout).unwrap(), "\"timeout\"");
-        assert_eq!(serde_json::to_string(&ExitKind::Refused).unwrap(), "\"refused\"");
-        assert_eq!(serde_json::to_string(&ExitKind::Aborted).unwrap(), "\"aborted\"");
+        assert_eq!(
+            serde_json::to_string(&ExitKind::Success).unwrap(),
+            "\"success\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ExitKind::Timeout).unwrap(),
+            "\"timeout\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ExitKind::Refused).unwrap(),
+            "\"refused\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ExitKind::Aborted).unwrap(),
+            "\"aborted\""
+        );
     }
 
     #[test]
     fn missing_started_at_caught() {
         let r = InvocationRecord::new(
-            "tr-1", ToolId::FsRead, ExecutionMode::Plan, BundleName::Private,
-            "", "", ExitKind::Success, 0,
+            "tr-1",
+            ToolId::FsRead,
+            ExecutionMode::Plan,
+            BundleName::Private,
+            "",
+            "",
+            ExitKind::Success,
+            0,
         );
-        assert!(matches!(r.validate(None).unwrap_err(), RecordError::MissingStartedAt));
+        assert!(matches!(
+            r.validate(None).unwrap_err(),
+            RecordError::MissingStartedAt
+        ));
     }
 
     #[test]
     fn record_serde_roundtrip() {
         let r = InvocationRecord::new(
-            "tr-1", ToolId::ModelInference, ExecutionMode::Execute, BundleName::Sovereign,
-            "2026-05-19T03:00:00Z", "2026-05-19T03:00:05Z", ExitKind::Success, 4096,
+            "tr-1",
+            ToolId::ModelInference,
+            ExecutionMode::Execute,
+            BundleName::Sovereign,
+            "2026-05-19T03:00:00Z",
+            "2026-05-19T03:00:05Z",
+            ExitKind::Success,
+            4096,
         );
         let j = serde_json::to_string(&r).unwrap();
         let back: InvocationRecord = serde_json::from_str(&j).unwrap();

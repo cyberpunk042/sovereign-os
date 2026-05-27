@@ -57,13 +57,19 @@ impl IncrementalSearch {
 
     /// Next.
     pub fn next(&mut self) {
-        if self.total_matches == 0 { self.current_zero = 0; return; }
+        if self.total_matches == 0 {
+            self.current_zero = 0;
+            return;
+        }
         self.current_zero = (self.current_zero + 1) % self.total_matches;
     }
 
     /// Prev.
     pub fn prev(&mut self) {
-        if self.total_matches == 0 { self.current_zero = 0; return; }
+        if self.total_matches == 0 {
+            self.current_zero = 0;
+            return;
+        }
         self.current_zero = if self.current_zero == 0 {
             self.total_matches - 1
         } else {
@@ -73,7 +79,11 @@ impl IncrementalSearch {
 
     /// 1-based current index (None when no matches).
     pub fn current_index(&self) -> Option<u32> {
-        if self.total_matches == 0 { None } else { Some(self.current_zero + 1) }
+        if self.total_matches == 0 {
+            None
+        } else {
+            Some(self.current_zero + 1)
+        }
     }
 
     /// Close.
@@ -85,13 +95,17 @@ impl IncrementalSearch {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), SearchError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(SearchError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(SearchError::SchemaMismatch);
+        }
         Ok(())
     }
 }
 
 impl Default for IncrementalSearch {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -158,7 +172,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = IncrementalSearch::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), SearchError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            SearchError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -70,7 +70,9 @@ pub enum FeedError {
 impl ActivityFeed {
     /// New.
     pub fn new(capacity: u32) -> Result<Self, FeedError> {
-        if capacity == 0 { return Err(FeedError::ZeroCapacity); }
+        if capacity == 0 {
+            return Err(FeedError::ZeroCapacity);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             capacity,
@@ -80,10 +82,22 @@ impl ActivityFeed {
     }
 
     /// Push entry; drops oldest at capacity.
-    pub fn push(&mut self, id: &str, category: &str, ts_ms: u64, label: &str) -> Result<(), FeedError> {
-        if id.is_empty() { return Err(FeedError::EmptyId); }
-        if category.is_empty() { return Err(FeedError::EmptyCategory); }
-        if label.is_empty() { return Err(FeedError::EmptyLabel); }
+    pub fn push(
+        &mut self,
+        id: &str,
+        category: &str,
+        ts_ms: u64,
+        label: &str,
+    ) -> Result<(), FeedError> {
+        if id.is_empty() {
+            return Err(FeedError::EmptyId);
+        }
+        if category.is_empty() {
+            return Err(FeedError::EmptyCategory);
+        }
+        if label.is_empty() {
+            return Err(FeedError::EmptyLabel);
+        }
         if self.entries.iter().any(|e| e.id == id) {
             return Err(FeedError::DuplicateId(id.into()));
         }
@@ -112,7 +126,9 @@ impl ActivityFeed {
     }
 
     /// Unread count.
-    pub fn unread_count(&self) -> usize { self.unread.len() }
+    pub fn unread_count(&self) -> usize {
+        self.unread.len()
+    }
 
     /// Recent entries since (now - since_ms).
     pub fn recent(&self, now_ms: u64, since_ms: u64) -> Vec<&Entry> {
@@ -122,17 +138,30 @@ impl ActivityFeed {
 
     /// Filter by category.
     pub fn by_category(&self, category: &str) -> Vec<&Entry> {
-        self.entries.iter().filter(|e| e.category == category).collect()
+        self.entries
+            .iter()
+            .filter(|e| e.category == category)
+            .collect()
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), FeedError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(FeedError::SchemaMismatch); }
-        if self.capacity == 0 { return Err(FeedError::ZeroCapacity); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(FeedError::SchemaMismatch);
+        }
+        if self.capacity == 0 {
+            return Err(FeedError::ZeroCapacity);
+        }
         for e in &self.entries {
-            if e.id.is_empty() { return Err(FeedError::EmptyId); }
-            if e.category.is_empty() { return Err(FeedError::EmptyCategory); }
-            if e.label.is_empty() { return Err(FeedError::EmptyLabel); }
+            if e.id.is_empty() {
+                return Err(FeedError::EmptyId);
+            }
+            if e.category.is_empty() {
+                return Err(FeedError::EmptyCategory);
+            }
+            if e.label.is_empty() {
+                return Err(FeedError::EmptyLabel);
+            }
         }
         Ok(())
     }
@@ -205,23 +234,41 @@ mod tests {
     fn duplicate_id_rejected() {
         let mut f = ActivityFeed::new(3).unwrap();
         f.push("a", "info", 100, "x").unwrap();
-        assert!(matches!(f.push("a", "info", 200, "y").unwrap_err(), FeedError::DuplicateId(_)));
+        assert!(matches!(
+            f.push("a", "info", 200, "y").unwrap_err(),
+            FeedError::DuplicateId(_)
+        ));
     }
 
     #[test]
     fn empty_inputs_rejected() {
         let mut f = ActivityFeed::new(3).unwrap();
-        assert!(matches!(f.push("", "c", 0, "l").unwrap_err(), FeedError::EmptyId));
-        assert!(matches!(f.push("i", "", 0, "l").unwrap_err(), FeedError::EmptyCategory));
-        assert!(matches!(f.push("i", "c", 0, "").unwrap_err(), FeedError::EmptyLabel));
-        assert!(matches!(ActivityFeed::new(0).unwrap_err(), FeedError::ZeroCapacity));
+        assert!(matches!(
+            f.push("", "c", 0, "l").unwrap_err(),
+            FeedError::EmptyId
+        ));
+        assert!(matches!(
+            f.push("i", "", 0, "l").unwrap_err(),
+            FeedError::EmptyCategory
+        ));
+        assert!(matches!(
+            f.push("i", "c", 0, "").unwrap_err(),
+            FeedError::EmptyLabel
+        ));
+        assert!(matches!(
+            ActivityFeed::new(0).unwrap_err(),
+            FeedError::ZeroCapacity
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut f = ActivityFeed::new(3).unwrap();
         f.schema_version = "9.9.9".into();
-        assert!(matches!(f.validate().unwrap_err(), FeedError::SchemaMismatch));
+        assert!(matches!(
+            f.validate().unwrap_err(),
+            FeedError::SchemaMismatch
+        ));
     }
 
     #[test]

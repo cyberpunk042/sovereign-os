@@ -86,9 +86,15 @@ impl BulkActionRegistry {
         let unlocked_count = selected.iter().filter(|s| !locked.contains(*s)).count();
         let mut out: Vec<String> = Vec::new();
         for a in &self.actions {
-            if n < a.min_count { continue; }
-            if a.max_count > 0 && n > a.max_count { continue; }
-            if a.requires_unlocked && unlocked_count == 0 { continue; }
+            if n < a.min_count {
+                continue;
+            }
+            if a.max_count > 0 && n > a.max_count {
+                continue;
+            }
+            if a.requires_unlocked && unlocked_count == 0 {
+                continue;
+            }
             out.push(a.id.clone());
         }
         out
@@ -107,11 +113,21 @@ fn check_actions(a: &[Action]) -> Result<(), BulkActionError> {
     use std::collections::HashSet;
     let mut seen: HashSet<&str> = HashSet::new();
     for x in a {
-        if x.id.is_empty() { return Err(BulkActionError::EmptyId); }
-        if x.label.is_empty() { return Err(BulkActionError::EmptyLabel(x.id.clone())); }
-        if x.min_count == 0 { return Err(BulkActionError::MinZero(x.id.clone())); }
+        if x.id.is_empty() {
+            return Err(BulkActionError::EmptyId);
+        }
+        if x.label.is_empty() {
+            return Err(BulkActionError::EmptyLabel(x.id.clone()));
+        }
+        if x.min_count == 0 {
+            return Err(BulkActionError::MinZero(x.id.clone()));
+        }
         if x.max_count > 0 && x.max_count < x.min_count {
-            return Err(BulkActionError::BadRange { id: x.id.clone(), min: x.min_count, max: x.max_count });
+            return Err(BulkActionError::BadRange {
+                id: x.id.clone(),
+                min: x.min_count,
+                max: x.max_count,
+            });
         }
         if !seen.insert(x.id.as_str()) {
             return Err(BulkActionError::DuplicateId(x.id.clone()));
@@ -155,7 +171,10 @@ mod tests {
     #[test]
     fn unbounded_max_zero() {
         let r = BulkActionRegistry::new(vec![a("delete", 1, 0, false)]).unwrap();
-        assert_eq!(r.enabled(&sel(&["a", "b", "c", "d", "e"]), &sel(&[])), vec!["delete"]);
+        assert_eq!(
+            r.enabled(&sel(&["a", "b", "c", "d", "e"]), &sel(&[])),
+            vec!["delete"]
+        );
     }
 
     #[test]
@@ -167,10 +186,8 @@ mod tests {
 
     #[test]
     fn multiple_actions_filtered_independently() {
-        let r = BulkActionRegistry::new(vec![
-            a("rename", 1, 1, false),
-            a("delete", 1, 0, true),
-        ]).unwrap();
+        let r = BulkActionRegistry::new(vec![a("rename", 1, 1, false), a("delete", 1, 0, true)])
+            .unwrap();
         let e = r.enabled(&sel(&["a", "b"]), &sel(&[]));
         assert!(!e.contains(&"rename".to_string()));
         assert!(e.contains(&"delete".to_string()));
@@ -188,14 +205,20 @@ mod tests {
     fn empty_id_rejected() {
         let mut x = a("a", 1, 0, false);
         x.id = String::new();
-        assert!(matches!(BulkActionRegistry::new(vec![x]).unwrap_err(), BulkActionError::EmptyId));
+        assert!(matches!(
+            BulkActionRegistry::new(vec![x]).unwrap_err(),
+            BulkActionError::EmptyId
+        ));
     }
 
     #[test]
     fn empty_label_rejected() {
         let mut x = a("a", 1, 0, false);
         x.label = String::new();
-        assert!(matches!(BulkActionRegistry::new(vec![x]).unwrap_err(), BulkActionError::EmptyLabel(_)));
+        assert!(matches!(
+            BulkActionRegistry::new(vec![x]).unwrap_err(),
+            BulkActionError::EmptyLabel(_)
+        ));
     }
 
     #[test]
@@ -218,12 +241,16 @@ mod tests {
     fn schema_drift_rejected() {
         let mut r = BulkActionRegistry::new(vec![a("a", 1, 0, false)]).unwrap();
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate().unwrap_err(), BulkActionError::SchemaMismatch));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            BulkActionError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn registry_serde_roundtrip() {
-        let r = BulkActionRegistry::new(vec![a("rename", 1, 1, false), a("delete", 1, 0, true)]).unwrap();
+        let r = BulkActionRegistry::new(vec![a("rename", 1, 1, false), a("delete", 1, 0, true)])
+            .unwrap();
         let j = serde_json::to_string(&r).unwrap();
         let back: BulkActionRegistry = serde_json::from_str(&j).unwrap();
         assert_eq!(r, back);

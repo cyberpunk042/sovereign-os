@@ -71,9 +71,20 @@ impl Leaderboard {
 
     /// Submit / replace.
     pub fn submit(&mut self, id: &str, label: &str, score: i64) -> Result<(), LeaderError> {
-        if id.is_empty() { return Err(LeaderError::EmptyId); }
-        if label.is_empty() { return Err(LeaderError::EmptyLabel); }
-        self.rows.insert(id.into(), Row { id: id.into(), label: label.into(), score });
+        if id.is_empty() {
+            return Err(LeaderError::EmptyId);
+        }
+        if label.is_empty() {
+            return Err(LeaderError::EmptyLabel);
+        }
+        self.rows.insert(
+            id.into(),
+            Row {
+                id: id.into(),
+                label: label.into(),
+                score,
+            },
+        );
         Ok(())
     }
 
@@ -88,7 +99,10 @@ impl Leaderboard {
             let pos = (i as u32) + 1;
             let rank = match last_score {
                 Some(s) if s == row.score => last_rank,
-                _ => { last_rank = pos; pos }
+                _ => {
+                    last_rank = pos;
+                    pos
+                }
             };
             last_score = Some(row.score);
             out.push(RankedRow { rank, row });
@@ -103,17 +117,25 @@ impl Leaderboard {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), LeaderError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(LeaderError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(LeaderError::SchemaMismatch);
+        }
         for (id, r) in &self.rows {
-            if id.is_empty() { return Err(LeaderError::EmptyId); }
-            if r.label.is_empty() { return Err(LeaderError::EmptyLabel); }
+            if id.is_empty() {
+                return Err(LeaderError::EmptyId);
+            }
+            if r.label.is_empty() {
+                return Err(LeaderError::EmptyLabel);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for Leaderboard {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -169,15 +191,24 @@ mod tests {
     #[test]
     fn empty_fields_rejected() {
         let mut l = Leaderboard::new();
-        assert!(matches!(l.submit("", "A", 0).unwrap_err(), LeaderError::EmptyId));
-        assert!(matches!(l.submit("a", "", 0).unwrap_err(), LeaderError::EmptyLabel));
+        assert!(matches!(
+            l.submit("", "A", 0).unwrap_err(),
+            LeaderError::EmptyId
+        ));
+        assert!(matches!(
+            l.submit("a", "", 0).unwrap_err(),
+            LeaderError::EmptyLabel
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut l = Leaderboard::new();
         l.schema_version = "9.9.9".into();
-        assert!(matches!(l.validate().unwrap_err(), LeaderError::SchemaMismatch));
+        assert!(matches!(
+            l.validate().unwrap_err(),
+            LeaderError::SchemaMismatch
+        ));
     }
 
     #[test]

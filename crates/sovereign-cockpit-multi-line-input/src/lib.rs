@@ -47,12 +47,18 @@ pub enum InputError {
 impl MultiLineInput {
     /// New.
     pub fn new(soft_wrap_cols: u32, min_rows: u32, max_rows: u32) -> Result<Self, InputError> {
-        if soft_wrap_cols == 0 { return Err(InputError::WrapZero); }
-        if min_rows > max_rows { return Err(InputError::BadRows(min_rows, max_rows)); }
+        if soft_wrap_cols == 0 {
+            return Err(InputError::WrapZero);
+        }
+        if min_rows > max_rows {
+            return Err(InputError::BadRows(min_rows, max_rows));
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             buffer: String::new(),
-            soft_wrap_cols, min_rows, max_rows,
+            soft_wrap_cols,
+            min_rows,
+            max_rows,
         })
     }
 
@@ -73,7 +79,9 @@ impl MultiLineInput {
 
     /// Logical line count (including wraps).
     pub fn line_count(&self) -> u32 {
-        if self.buffer.is_empty() { return 1; }
+        if self.buffer.is_empty() {
+            return 1;
+        }
         let mut count: u32 = 0;
         for line in self.buffer.split('\n') {
             let chars = line.chars().count();
@@ -98,8 +106,12 @@ impl MultiLineInput {
         if self.schema_version != SCHEMA_VERSION {
             return Err(InputError::SchemaMismatch);
         }
-        if self.soft_wrap_cols == 0 { return Err(InputError::WrapZero); }
-        if self.min_rows > self.max_rows { return Err(InputError::BadRows(self.min_rows, self.max_rows)); }
+        if self.soft_wrap_cols == 0 {
+            return Err(InputError::WrapZero);
+        }
+        if self.min_rows > self.max_rows {
+            return Err(InputError::BadRows(self.min_rows, self.max_rows));
+        }
         Ok(())
     }
 }
@@ -110,12 +122,18 @@ mod tests {
 
     #[test]
     fn wrap_zero_rejected() {
-        assert!(matches!(MultiLineInput::new(0, 1, 5).unwrap_err(), InputError::WrapZero));
+        assert!(matches!(
+            MultiLineInput::new(0, 1, 5).unwrap_err(),
+            InputError::WrapZero
+        ));
     }
 
     #[test]
     fn min_over_max_rejected() {
-        assert!(matches!(MultiLineInput::new(80, 10, 5).unwrap_err(), InputError::BadRows(10, 5)));
+        assert!(matches!(
+            MultiLineInput::new(80, 10, 5).unwrap_err(),
+            InputError::BadRows(10, 5)
+        ));
     }
 
     #[test]
@@ -173,7 +191,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut m = MultiLineInput::new(80, 1, 10).unwrap();
         m.schema_version = "9.9.9".into();
-        assert!(matches!(m.validate().unwrap_err(), InputError::SchemaMismatch));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            InputError::SchemaMismatch
+        ));
     }
 
     #[test]

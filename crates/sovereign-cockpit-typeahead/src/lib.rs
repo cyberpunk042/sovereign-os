@@ -114,11 +114,19 @@ impl Typeahead {
     /// Update query + candidates from upstream search. Highlight resets
     /// to first candidate when non-empty, else None. Panel opens iff
     /// there is at least one candidate.
-    pub fn update(&mut self, query: &str, candidates: Vec<Candidate>) -> Result<(), TypeaheadError> {
+    pub fn update(
+        &mut self,
+        query: &str,
+        candidates: Vec<Candidate>,
+    ) -> Result<(), TypeaheadError> {
         check_candidates(&candidates)?;
         self.query = query.into();
         self.candidates = candidates;
-        self.active = if self.candidates.is_empty() { None } else { Some(0) };
+        self.active = if self.candidates.is_empty() {
+            None
+        } else {
+            Some(0)
+        };
         self.open = !self.candidates.is_empty();
         Ok(())
     }
@@ -214,7 +222,9 @@ fn check_candidates(cs: &[Candidate]) -> Result<(), TypeaheadError> {
 }
 
 impl Default for Typeahead {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -222,7 +232,11 @@ mod tests {
     use super::*;
 
     fn cand(id: &str, score: f32) -> Candidate {
-        Candidate { id: id.into(), label: format!("L-{id}"), score }
+        Candidate {
+            id: id.into(),
+            label: format!("L-{id}"),
+            score,
+        }
     }
 
     #[test]
@@ -235,7 +249,8 @@ mod tests {
     #[test]
     fn update_opens_panel_when_candidates() {
         let mut t = Typeahead::new();
-        t.update("ab", vec![cand("a", 1.0), cand("b", 0.5)]).unwrap();
+        t.update("ab", vec![cand("a", 1.0), cand("b", 0.5)])
+            .unwrap();
         assert!(t.open);
         assert_eq!(t.active, Some(0));
     }
@@ -251,7 +266,8 @@ mod tests {
     #[test]
     fn down_wraps() {
         let mut t = Typeahead::new();
-        t.update("x", vec![cand("a", 1.0), cand("b", 0.5), cand("c", 0.1)]).unwrap();
+        t.update("x", vec![cand("a", 1.0), cand("b", 0.5), cand("c", 0.1)])
+            .unwrap();
         t.key(TypeaheadKey::Down);
         assert_eq!(t.active, Some(1));
         t.key(TypeaheadKey::Down);
@@ -284,7 +300,10 @@ mod tests {
     #[test]
     fn enter_empty_returns_empty() {
         let mut t = Typeahead::new();
-        assert!(matches!(t.key(TypeaheadKey::Enter), Some(CommitOutcome::Empty)));
+        assert!(matches!(
+            t.key(TypeaheadKey::Enter),
+            Some(CommitOutcome::Empty)
+        ));
     }
 
     #[test]
@@ -300,7 +319,8 @@ mod tests {
     fn duplicate_id_rejected() {
         let mut t = Typeahead::new();
         assert!(matches!(
-            t.update("x", vec![cand("a", 1.0), cand("a", 0.5)]).unwrap_err(),
+            t.update("x", vec![cand("a", 1.0), cand("a", 0.5)])
+                .unwrap_err(),
             TypeaheadError::DuplicateId(_)
         ));
     }
@@ -310,7 +330,10 @@ mod tests {
         let mut t = Typeahead::new();
         let mut c = cand("a", 1.0);
         c.id = String::new();
-        assert!(matches!(t.update("x", vec![c]).unwrap_err(), TypeaheadError::EmptyId));
+        assert!(matches!(
+            t.update("x", vec![c]).unwrap_err(),
+            TypeaheadError::EmptyId
+        ));
     }
 
     #[test]
@@ -318,32 +341,50 @@ mod tests {
         let mut t = Typeahead::new();
         let mut c = cand("a", 1.0);
         c.label = String::new();
-        assert!(matches!(t.update("x", vec![c]).unwrap_err(), TypeaheadError::EmptyLabel(_)));
+        assert!(matches!(
+            t.update("x", vec![c]).unwrap_err(),
+            TypeaheadError::EmptyLabel(_)
+        ));
     }
 
     #[test]
     fn nan_score_rejected() {
         let mut t = Typeahead::new();
         let c = cand("a", f32::NAN);
-        assert!(matches!(t.update("x", vec![c]).unwrap_err(), TypeaheadError::NanScore(_)));
+        assert!(matches!(
+            t.update("x", vec![c]).unwrap_err(),
+            TypeaheadError::NanScore(_)
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut t = Typeahead::new();
         t.schema_version = "9.9.9".into();
-        assert!(matches!(t.validate().unwrap_err(), TypeaheadError::SchemaMismatch));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            TypeaheadError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn key_serde_kebab() {
-        assert_eq!(serde_json::to_string(&TypeaheadKey::Down).unwrap(), "\"down\"");
-        assert_eq!(serde_json::to_string(&TypeaheadKey::Escape).unwrap(), "\"escape\"");
+        assert_eq!(
+            serde_json::to_string(&TypeaheadKey::Down).unwrap(),
+            "\"down\""
+        );
+        assert_eq!(
+            serde_json::to_string(&TypeaheadKey::Escape).unwrap(),
+            "\"escape\""
+        );
     }
 
     #[test]
     fn outcome_serde_kebab() {
-        let c = CommitOutcome::Committed { id: "a".into(), label: "A".into() };
+        let c = CommitOutcome::Committed {
+            id: "a".into(),
+            label: "A".into(),
+        };
         let j = serde_json::to_string(&c).unwrap();
         assert!(j.contains("\"kind\":\"committed\""));
         let e = CommitOutcome::Empty;
@@ -353,7 +394,8 @@ mod tests {
     #[test]
     fn typeahead_serde_roundtrip() {
         let mut t = Typeahead::new();
-        t.update("ab", vec![cand("a", 1.0), cand("b", 0.5)]).unwrap();
+        t.update("ab", vec![cand("a", 1.0), cand("b", 0.5)])
+            .unwrap();
         let j = serde_json::to_string(&t).unwrap();
         let back: Typeahead = serde_json::from_str(&j).unwrap();
         assert_eq!(t, back);

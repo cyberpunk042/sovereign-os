@@ -95,19 +95,31 @@ impl StatTrend {
     pub fn trend(&self, previous: f64, current: f64, polarity: Polarity) -> Trend {
         // Percent change × 100.
         let pct_x100 = if previous == 0.0 {
-            if current == 0.0 { 0 }
-            else if current > 0.0 { i32::MAX }
-            else { i32::MIN }
+            if current == 0.0 {
+                0
+            } else if current > 0.0 {
+                i32::MAX
+            } else {
+                i32::MIN
+            }
         } else {
             let raw = ((current - previous) / previous) * 100.0 * 100.0;
-            if raw > i32::MAX as f64 { i32::MAX }
-            else if raw < i32::MIN as f64 { i32::MIN }
-            else { raw as i32 }
+            if raw > i32::MAX as f64 {
+                i32::MAX
+            } else if raw < i32::MIN as f64 {
+                i32::MIN
+            } else {
+                raw as i32
+            }
         };
         let abs = pct_x100.unsigned_abs();
         let direction = if abs <= self.flat_threshold_x100 {
             Direction::Flat
-        } else if pct_x100 > 0 { Direction::Up } else { Direction::Down };
+        } else if pct_x100 > 0 {
+            Direction::Up
+        } else {
+            Direction::Down
+        };
         let color_hint = match (direction, polarity) {
             (Direction::Flat, _) => ColorHint::Neutral,
             (_, Polarity::Neutral) => ColorHint::Neutral,
@@ -116,12 +128,18 @@ impl StatTrend {
             (Direction::Up, Polarity::LowerBetter) => ColorHint::Negative,
             (Direction::Down, Polarity::LowerBetter) => ColorHint::Positive,
         };
-        Trend { direction, percent_change_x100: pct_x100, color_hint }
+        Trend {
+            direction,
+            percent_change_x100: pct_x100,
+            color_hint,
+        }
     }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), TrendError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(TrendError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(TrendError::SchemaMismatch);
+        }
         Ok(())
     }
 }
@@ -130,7 +148,9 @@ impl StatTrend {
 mod tests {
     use super::*;
 
-    fn t() -> StatTrend { StatTrend::new(50) /* 0.50% */ }
+    fn t() -> StatTrend {
+        StatTrend::new(50) /* 0.50% */
+    }
 
     #[test]
     fn flat_when_inside_threshold() {
@@ -185,7 +205,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = t();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), TrendError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            TrendError::SchemaMismatch
+        ));
     }
 
     #[test]

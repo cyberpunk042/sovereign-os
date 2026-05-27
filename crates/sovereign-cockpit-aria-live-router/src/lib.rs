@@ -121,16 +121,28 @@ impl AriaLiveRouter {
     }
 
     /// Route a message.
-    pub fn announce(&mut self, sev: Severity, text: &str, now_ms: u64) -> Result<RouteResult, RouterError> {
-        if text.is_empty() { return Err(RouterError::EmptyText); }
+    pub fn announce(
+        &mut self,
+        sev: Severity,
+        text: &str,
+        now_ms: u64,
+    ) -> Result<RouteResult, RouterError> {
+        if text.is_empty() {
+            return Err(RouterError::EmptyText);
+        }
         if let Some(last) = self.recent.last() {
             if now_ms < last.ts_ms {
-                return Err(RouterError::NonMonotonic { prev: last.ts_ms, new: now_ms });
+                return Err(RouterError::NonMonotonic {
+                    prev: last.ts_ms,
+                    new: now_ms,
+                });
             }
         }
         let region = Self::region_for(sev);
         let cutoff = now_ms.saturating_sub(self.dedup_ms);
-        if let Some(prev) = self.recent.iter()
+        if let Some(prev) = self
+            .recent
+            .iter()
             .rev()
             .find(|a| a.region == region && a.text == text && a.ts_ms >= cutoff)
         {
@@ -139,7 +151,11 @@ impl AriaLiveRouter {
                 last_age_ms: now_ms.saturating_sub(prev.ts_ms),
             });
         }
-        self.recent.push(Announcement { ts_ms: now_ms, region, text: text.into() });
+        self.recent.push(Announcement {
+            ts_ms: now_ms,
+            region,
+            text: text.into(),
+        });
         // Cap recent buffer to last 256 to bound memory; older auto-expire via dedup anyway.
         if self.recent.len() > 256 {
             let drop = self.recent.len() - 256;
@@ -156,11 +172,20 @@ impl AriaLiveRouter {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), RouterError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(RouterError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(RouterError::SchemaMismatch);
+        }
         let mut last = 0u64;
         for a in &self.recent {
-            if a.text.is_empty() { return Err(RouterError::EmptyText); }
-            if a.ts_ms < last { return Err(RouterError::NonMonotonic { prev: last, new: a.ts_ms }); }
+            if a.text.is_empty() {
+                return Err(RouterError::EmptyText);
+            }
+            if a.ts_ms < last {
+                return Err(RouterError::NonMonotonic {
+                    prev: last,
+                    new: a.ts_ms,
+                });
+            }
             last = a.ts_ms;
         }
         Ok(())
@@ -173,21 +198,38 @@ mod tests {
 
     #[test]
     fn severity_maps_polite() {
-        assert_eq!(AriaLiveRouter::region_for(Severity::Info), LiveRegion::Polite);
-        assert_eq!(AriaLiveRouter::region_for(Severity::Success), LiveRegion::Polite);
+        assert_eq!(
+            AriaLiveRouter::region_for(Severity::Info),
+            LiveRegion::Polite
+        );
+        assert_eq!(
+            AriaLiveRouter::region_for(Severity::Success),
+            LiveRegion::Polite
+        );
     }
 
     #[test]
     fn severity_maps_assertive() {
-        assert_eq!(AriaLiveRouter::region_for(Severity::Warn), LiveRegion::Assertive);
-        assert_eq!(AriaLiveRouter::region_for(Severity::Error), LiveRegion::Assertive);
+        assert_eq!(
+            AriaLiveRouter::region_for(Severity::Warn),
+            LiveRegion::Assertive
+        );
+        assert_eq!(
+            AriaLiveRouter::region_for(Severity::Error),
+            LiveRegion::Assertive
+        );
     }
 
     #[test]
     fn announce_polite() {
         let mut r = AriaLiveRouter::new(2000);
         let v = r.announce(Severity::Info, "Saved.", 0).unwrap();
-        assert_eq!(v, RouteResult::Announced { region: LiveRegion::Polite });
+        assert_eq!(
+            v,
+            RouteResult::Announced {
+                region: LiveRegion::Polite
+            }
+        );
     }
 
     #[test]
@@ -195,7 +237,13 @@ mod tests {
         let mut r = AriaLiveRouter::new(2000);
         r.announce(Severity::Info, "Saved.", 0).unwrap();
         let v = r.announce(Severity::Info, "Saved.", 500).unwrap();
-        assert!(matches!(v, RouteResult::Suppressed { region: LiveRegion::Polite, .. }));
+        assert!(matches!(
+            v,
+            RouteResult::Suppressed {
+                region: LiveRegion::Polite,
+                ..
+            }
+        ));
     }
 
     #[test]
@@ -203,7 +251,12 @@ mod tests {
         let mut r = AriaLiveRouter::new(2000);
         r.announce(Severity::Info, "Saved.", 0).unwrap();
         let v = r.announce(Severity::Info, "Saved.", 2500).unwrap();
-        assert_eq!(v, RouteResult::Announced { region: LiveRegion::Polite });
+        assert_eq!(
+            v,
+            RouteResult::Announced {
+                region: LiveRegion::Polite
+            }
+        );
     }
 
     #[test]
@@ -212,20 +265,31 @@ mod tests {
         r.announce(Severity::Info, "Saved.", 0).unwrap();
         // Same text but warn → assertive region; should still announce.
         let v = r.announce(Severity::Warn, "Saved.", 500).unwrap();
-        assert_eq!(v, RouteResult::Announced { region: LiveRegion::Assertive });
+        assert_eq!(
+            v,
+            RouteResult::Announced {
+                region: LiveRegion::Assertive
+            }
+        );
     }
 
     #[test]
     fn empty_text_rejected() {
         let mut r = AriaLiveRouter::new(2000);
-        assert!(matches!(r.announce(Severity::Info, "", 0).unwrap_err(), RouterError::EmptyText));
+        assert!(matches!(
+            r.announce(Severity::Info, "", 0).unwrap_err(),
+            RouterError::EmptyText
+        ));
     }
 
     #[test]
     fn nonmonotonic_rejected() {
         let mut r = AriaLiveRouter::new(2000);
         r.announce(Severity::Info, "x", 100).unwrap();
-        assert!(matches!(r.announce(Severity::Info, "y", 50).unwrap_err(), RouterError::NonMonotonic { .. }));
+        assert!(matches!(
+            r.announce(Severity::Info, "y", 50).unwrap_err(),
+            RouterError::NonMonotonic { .. }
+        ));
     }
 
     #[test]
@@ -240,7 +304,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut r = AriaLiveRouter::new(2000);
         r.schema_version = "9.9.9".into();
-        assert!(matches!(r.validate().unwrap_err(), RouterError::SchemaMismatch));
+        assert!(matches!(
+            r.validate().unwrap_err(),
+            RouterError::SchemaMismatch
+        ));
     }
 
     #[test]

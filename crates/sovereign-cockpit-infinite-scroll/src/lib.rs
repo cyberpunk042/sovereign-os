@@ -98,14 +98,18 @@ impl InfiniteScroll {
 
     /// Register a scroller (or reset it).
     pub fn register(&mut self, id: &str) -> Result<(), InfiniteScrollError> {
-        if id.is_empty() { return Err(InfiniteScrollError::EmptyId); }
+        if id.is_empty() {
+            return Err(InfiniteScrollError::EmptyId);
+        }
         self.scrollers.entry(id.into()).or_default();
         Ok(())
     }
 
     /// Begin a fetch.
     pub fn start_fetch(&mut self, id: &str) -> Result<(), InfiniteScrollError> {
-        let s = self.scrollers.get_mut(id)
+        let s = self
+            .scrollers
+            .get_mut(id)
             .ok_or_else(|| InfiniteScrollError::UnknownScroller(id.into()))?;
         if s.in_flight {
             return Err(InfiniteScrollError::AlreadyInFlight(id.into()));
@@ -118,8 +122,15 @@ impl InfiniteScroll {
     }
 
     /// Complete a fetch with new items and optional next cursor.
-    pub fn complete_fetch(&mut self, id: &str, new_items: u64, next_cursor: Option<String>) -> Result<(), InfiniteScrollError> {
-        let s = self.scrollers.get_mut(id)
+    pub fn complete_fetch(
+        &mut self,
+        id: &str,
+        new_items: u64,
+        next_cursor: Option<String>,
+    ) -> Result<(), InfiniteScrollError> {
+        let s = self
+            .scrollers
+            .get_mut(id)
             .ok_or_else(|| InfiniteScrollError::UnknownScroller(id.into()))?;
         if !s.in_flight {
             return Err(InfiniteScrollError::NotInFlight(id.into()));
@@ -135,7 +146,9 @@ impl InfiniteScroll {
 
     /// Fail a fetch.
     pub fn fail_fetch(&mut self, id: &str, error: &str) -> Result<(), InfiniteScrollError> {
-        let s = self.scrollers.get_mut(id)
+        let s = self
+            .scrollers
+            .get_mut(id)
             .ok_or_else(|| InfiniteScrollError::UnknownScroller(id.into()))?;
         if !s.in_flight {
             return Err(InfiniteScrollError::NotInFlight(id.into()));
@@ -148,8 +161,12 @@ impl InfiniteScroll {
 
     /// Should a fetch be initiated?
     pub fn should_fetch_at(&self, id: &str, distance_from_end: u64, threshold: u64) -> bool {
-        let Some(s) = self.scrollers.get(id) else { return false; };
-        if s.in_flight || s.at_end { return false; }
+        let Some(s) = self.scrollers.get(id) else {
+            return false;
+        };
+        if s.in_flight || s.at_end {
+            return false;
+        }
         distance_from_end <= threshold
     }
 
@@ -170,16 +187,22 @@ impl InfiniteScroll {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), InfiniteScrollError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(InfiniteScrollError::SchemaMismatch); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(InfiniteScrollError::SchemaMismatch);
+        }
         for k in self.scrollers.keys() {
-            if k.is_empty() { return Err(InfiniteScrollError::EmptyId); }
+            if k.is_empty() {
+                return Err(InfiniteScrollError::EmptyId);
+            }
         }
         Ok(())
     }
 }
 
 impl Default for InfiniteScroll {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -191,7 +214,8 @@ mod tests {
         let mut i = InfiniteScroll::new();
         i.register("feed").unwrap();
         i.start_fetch("feed").unwrap();
-        i.complete_fetch("feed", 20, Some("cursor-a".into())).unwrap();
+        i.complete_fetch("feed", 20, Some("cursor-a".into()))
+            .unwrap();
         let s = i.get("feed").unwrap();
         assert_eq!(s.loaded, 20);
         assert_eq!(s.next_cursor.as_deref(), Some("cursor-a"));
@@ -212,7 +236,10 @@ mod tests {
         let mut i = InfiniteScroll::new();
         i.register("feed").unwrap();
         i.start_fetch("feed").unwrap();
-        assert!(matches!(i.start_fetch("feed").unwrap_err(), InfiniteScrollError::AlreadyInFlight(_)));
+        assert!(matches!(
+            i.start_fetch("feed").unwrap_err(),
+            InfiniteScrollError::AlreadyInFlight(_)
+        ));
     }
 
     #[test]
@@ -221,7 +248,10 @@ mod tests {
         i.register("feed").unwrap();
         i.start_fetch("feed").unwrap();
         i.complete_fetch("feed", 0, None).unwrap();
-        assert!(matches!(i.start_fetch("feed").unwrap_err(), InfiniteScrollError::AtEnd(_)));
+        assert!(matches!(
+            i.start_fetch("feed").unwrap_err(),
+            InfiniteScrollError::AtEnd(_)
+        ));
     }
 
     #[test]
@@ -240,7 +270,10 @@ mod tests {
     fn complete_without_in_flight_rejected() {
         let mut i = InfiniteScroll::new();
         i.register("feed").unwrap();
-        assert!(matches!(i.complete_fetch("feed", 1, None).unwrap_err(), InfiniteScrollError::NotInFlight(_)));
+        assert!(matches!(
+            i.complete_fetch("feed", 1, None).unwrap_err(),
+            InfiniteScrollError::NotInFlight(_)
+        ));
     }
 
     #[test]
@@ -275,14 +308,20 @@ mod tests {
     #[test]
     fn empty_id_rejected() {
         let mut i = InfiniteScroll::new();
-        assert!(matches!(i.register("").unwrap_err(), InfiniteScrollError::EmptyId));
+        assert!(matches!(
+            i.register("").unwrap_err(),
+            InfiniteScrollError::EmptyId
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut i = InfiniteScroll::new();
         i.schema_version = "9.9.9".into();
-        assert!(matches!(i.validate().unwrap_err(), InfiniteScrollError::SchemaMismatch));
+        assert!(matches!(
+            i.validate().unwrap_err(),
+            InfiniteScrollError::SchemaMismatch
+        ));
     }
 
     #[test]

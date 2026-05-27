@@ -51,9 +51,14 @@ fn trim_trailing_punct(s: &str) -> &str {
     let mut end = s.len();
     while end > 0 {
         let c = bytes[end - 1];
-        if matches!(c, b'.' | b',' | b';' | b':' | b'!' | b'?' | b')' | b']' | b'>' | b'"' | b'\'') {
+        if matches!(
+            c,
+            b'.' | b',' | b';' | b':' | b'!' | b'?' | b')' | b']' | b'>' | b'"' | b'\''
+        ) {
             end -= 1;
-        } else { break; }
+        } else {
+            break;
+        }
     }
     &s[..end]
 }
@@ -72,7 +77,9 @@ pub fn tokenize(text: &str) -> Vec<Segment> {
             let mut j = 0usize;
             let mut consumed_bytes = 0usize;
             for c in &chars {
-                if !is_url_char(*c) { break; }
+                if !is_url_char(*c) {
+                    break;
+                }
                 j += 1;
                 consumed_bytes += c.len_utf8();
             }
@@ -81,7 +88,9 @@ pub fn tokenize(text: &str) -> Vec<Segment> {
             let url = trim_trailing_punct(raw);
             if url.len() > "https://".len() {
                 if !buf.is_empty() {
-                    out.push(Segment::Plain { text: std::mem::take(&mut buf) });
+                    out.push(Segment::Plain {
+                        text: std::mem::take(&mut buf),
+                    });
                 }
                 out.push(Segment::Link { url: url.into() });
                 // Carry over trailing trimmed punct into buf.
@@ -106,7 +115,9 @@ pub fn tokenize(text: &str) -> Vec<Segment> {
 
 /// Validate.
 pub fn validate_schema_version(s: &str) -> Result<(), LinkError> {
-    if s != SCHEMA_VERSION { return Err(LinkError::SchemaMismatch); }
+    if s != SCHEMA_VERSION {
+        return Err(LinkError::SchemaMismatch);
+    }
     Ok(())
 }
 
@@ -117,46 +128,82 @@ mod tests {
     #[test]
     fn detects_https_link() {
         let toks = tokenize("see https://example.com today");
-        assert_eq!(toks, vec![
-            Segment::Plain { text: "see ".into() },
-            Segment::Link { url: "https://example.com".into() },
-            Segment::Plain { text: " today".into() },
-        ]);
+        assert_eq!(
+            toks,
+            vec![
+                Segment::Plain {
+                    text: "see ".into()
+                },
+                Segment::Link {
+                    url: "https://example.com".into()
+                },
+                Segment::Plain {
+                    text: " today".into()
+                },
+            ]
+        );
     }
 
     #[test]
     fn trailing_punct_excluded() {
         let toks = tokenize("visit https://example.com.");
-        assert_eq!(toks, vec![
-            Segment::Plain { text: "visit ".into() },
-            Segment::Link { url: "https://example.com".into() },
-            Segment::Plain { text: ".".into() },
-        ]);
+        assert_eq!(
+            toks,
+            vec![
+                Segment::Plain {
+                    text: "visit ".into()
+                },
+                Segment::Link {
+                    url: "https://example.com".into()
+                },
+                Segment::Plain { text: ".".into() },
+            ]
+        );
     }
 
     #[test]
     fn multiple_links() {
         let toks = tokenize("a https://x.com b http://y.com c");
-        assert_eq!(toks.iter().filter(|s| matches!(s, Segment::Link { .. })).count(), 2);
+        assert_eq!(
+            toks.iter()
+                .filter(|s| matches!(s, Segment::Link { .. }))
+                .count(),
+            2
+        );
     }
 
     #[test]
     fn no_links_all_plain() {
         let toks = tokenize("just some words");
-        assert_eq!(toks, vec![ Segment::Plain { text: "just some words".into() } ]);
+        assert_eq!(
+            toks,
+            vec![Segment::Plain {
+                text: "just some words".into()
+            }]
+        );
     }
 
     #[test]
     fn naked_scheme_no_url() {
         // "https://" alone is too short (== prefix only).
         let toks = tokenize("https:// hello");
-        assert_eq!(toks, vec![ Segment::Plain { text: "https:// hello".into() } ]);
+        assert_eq!(
+            toks,
+            vec![Segment::Plain {
+                text: "https:// hello".into()
+            }]
+        );
     }
 
     #[test]
     fn link_at_start_and_end() {
         let toks = tokenize("https://x.com");
-        assert_eq!(toks, vec![ Segment::Link { url: "https://x.com".into() } ]);
+        assert_eq!(
+            toks,
+            vec![Segment::Link {
+                url: "https://x.com".into()
+            }]
+        );
     }
 
     #[test]
@@ -172,7 +219,9 @@ mod tests {
     fn segment_serde_roundtrip() {
         let segs = vec![
             Segment::Plain { text: "p".into() },
-            Segment::Link { url: "https://x".into() },
+            Segment::Link {
+                url: "https://x".into(),
+            },
         ];
         let j = serde_json::to_string(&segs).unwrap();
         let back: Vec<Segment> = serde_json::from_str(&j).unwrap();

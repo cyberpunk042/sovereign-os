@@ -101,9 +101,15 @@ impl UndoStack {
 
     /// Record an action (clears redo stack).
     pub fn record(&mut self, entry: UndoEntry) -> Result<(), UndoError> {
-        if entry.label.is_empty() { return Err(UndoError::EmptyLabel); }
-        if entry.performed_at.is_empty() { return Err(UndoError::MissingTimestamp(entry.label)); }
-        if entry.performed_by.is_empty() { return Err(UndoError::MissingActor(entry.label)); }
+        if entry.label.is_empty() {
+            return Err(UndoError::EmptyLabel);
+        }
+        if entry.performed_at.is_empty() {
+            return Err(UndoError::MissingTimestamp(entry.label));
+        }
+        if entry.performed_by.is_empty() {
+            return Err(UndoError::MissingActor(entry.label));
+        }
         self.undo.push(entry);
         while self.undo.len() > MAX_DEPTH {
             self.undo.remove(0);
@@ -127,10 +133,14 @@ impl UndoStack {
     }
 
     /// Depth of the undo stack.
-    pub fn depth(&self) -> usize { self.undo.len() }
+    pub fn depth(&self) -> usize {
+        self.undo.len()
+    }
 
     /// Depth of the redo stack.
-    pub fn redo_depth(&self) -> usize { self.redo.len() }
+    pub fn redo_depth(&self) -> usize {
+        self.redo.len()
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), UndoError> {
@@ -138,16 +148,24 @@ impl UndoStack {
             return Err(UndoError::SchemaMismatch);
         }
         for e in self.undo.iter().chain(self.redo.iter()) {
-            if e.label.is_empty() { return Err(UndoError::EmptyLabel); }
-            if e.performed_at.is_empty() { return Err(UndoError::MissingTimestamp(e.label.clone())); }
-            if e.performed_by.is_empty() { return Err(UndoError::MissingActor(e.label.clone())); }
+            if e.label.is_empty() {
+                return Err(UndoError::EmptyLabel);
+            }
+            if e.performed_at.is_empty() {
+                return Err(UndoError::MissingTimestamp(e.label.clone()));
+            }
+            if e.performed_by.is_empty() {
+                return Err(UndoError::MissingActor(e.label.clone()));
+            }
         }
         Ok(())
     }
 }
 
 impl Default for UndoStack {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -173,7 +191,8 @@ mod tests {
     fn record_undo_redo_cycle() {
         let mut s = UndoStack::new();
         s.record(e("toggle X", ActionKind::ToggleFlip)).unwrap();
-        s.record(e("mode->Execute", ActionKind::ModeSwitch)).unwrap();
+        s.record(e("mode->Execute", ActionKind::ModeSwitch))
+            .unwrap();
         assert_eq!(s.depth(), 2);
         let popped = s.undo().unwrap();
         assert_eq!(popped.label, "mode->Execute");
@@ -227,7 +246,8 @@ mod tests {
     fn overflow_drops_oldest() {
         let mut s = UndoStack::new();
         for i in 0..(MAX_DEPTH + 5) {
-            s.record(e(&format!("a{i}"), ActionKind::ToggleFlip)).unwrap();
+            s.record(e(&format!("a{i}"), ActionKind::ToggleFlip))
+                .unwrap();
         }
         assert_eq!(s.depth(), MAX_DEPTH);
         // Oldest 5 dropped → first remaining is "a5"
@@ -238,14 +258,26 @@ mod tests {
     fn schema_drift_rejected() {
         let mut s = UndoStack::new();
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), UndoError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            UndoError::SchemaMismatch
+        ));
     }
 
     #[test]
     fn kind_serde_kebab() {
-        assert_eq!(serde_json::to_string(&ActionKind::ToggleFlip).unwrap(), "\"toggle-flip\"");
-        assert_eq!(serde_json::to_string(&ActionKind::ModeSwitch).unwrap(), "\"mode-switch\"");
-        assert_eq!(serde_json::to_string(&ActionKind::BookmarkAdd).unwrap(), "\"bookmark-add\"");
+        assert_eq!(
+            serde_json::to_string(&ActionKind::ToggleFlip).unwrap(),
+            "\"toggle-flip\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ActionKind::ModeSwitch).unwrap(),
+            "\"mode-switch\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ActionKind::BookmarkAdd).unwrap(),
+            "\"bookmark-add\""
+        );
     }
 
     #[test]

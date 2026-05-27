@@ -79,15 +79,29 @@ pub enum MiniMapError {
 
 impl MiniMap {
     /// New.
-    pub fn new(content_w: u32, content_h: u32, viewport: (u32, u32, u32, u32), minimap_max_w: u32, minimap_max_h: u32) -> Result<Self, MiniMapError> {
-        if content_w == 0 || content_h == 0 { return Err(MiniMapError::ContentZero); }
-        if minimap_max_w == 0 || minimap_max_h == 0 { return Err(MiniMapError::MinimapZero); }
+    pub fn new(
+        content_w: u32,
+        content_h: u32,
+        viewport: (u32, u32, u32, u32),
+        minimap_max_w: u32,
+        minimap_max_h: u32,
+    ) -> Result<Self, MiniMapError> {
+        if content_w == 0 || content_h == 0 {
+            return Err(MiniMapError::ContentZero);
+        }
+        if minimap_max_w == 0 || minimap_max_h == 0 {
+            return Err(MiniMapError::MinimapZero);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
-            content_w, content_h,
-            viewport_x: viewport.0, viewport_y: viewport.1,
-            viewport_w: viewport.2, viewport_h: viewport.3,
-            minimap_max_w, minimap_max_h,
+            content_w,
+            content_h,
+            viewport_x: viewport.0,
+            viewport_y: viewport.1,
+            viewport_w: viewport.2,
+            viewport_h: viewport.3,
+            minimap_max_w,
+            minimap_max_h,
         })
     }
 
@@ -111,7 +125,12 @@ impl MiniMap {
         Layout {
             minimap_w: mw,
             minimap_h: mh,
-            viewport_rect: Rect { x: vx_c, y: vy_c, w: vw_c, h: vh_c },
+            viewport_rect: Rect {
+                x: vx_c,
+                y: vy_c,
+                w: vw_c,
+                h: vh_c,
+            },
         }
     }
 
@@ -120,8 +139,12 @@ impl MiniMap {
         if self.schema_version != SCHEMA_VERSION {
             return Err(MiniMapError::SchemaMismatch);
         }
-        if self.content_w == 0 || self.content_h == 0 { return Err(MiniMapError::ContentZero); }
-        if self.minimap_max_w == 0 || self.minimap_max_h == 0 { return Err(MiniMapError::MinimapZero); }
+        if self.content_w == 0 || self.content_h == 0 {
+            return Err(MiniMapError::ContentZero);
+        }
+        if self.minimap_max_w == 0 || self.minimap_max_h == 0 {
+            return Err(MiniMapError::MinimapZero);
+        }
         Ok(())
     }
 }
@@ -132,12 +155,18 @@ mod tests {
 
     #[test]
     fn content_zero_rejected() {
-        assert!(matches!(MiniMap::new(0, 100, (0, 0, 10, 10), 100, 100).unwrap_err(), MiniMapError::ContentZero));
+        assert!(matches!(
+            MiniMap::new(0, 100, (0, 0, 10, 10), 100, 100).unwrap_err(),
+            MiniMapError::ContentZero
+        ));
     }
 
     #[test]
     fn minimap_zero_rejected() {
-        assert!(matches!(MiniMap::new(100, 100, (0, 0, 10, 10), 0, 100).unwrap_err(), MiniMapError::MinimapZero));
+        assert!(matches!(
+            MiniMap::new(100, 100, (0, 0, 10, 10), 0, 100).unwrap_err(),
+            MiniMapError::MinimapZero
+        ));
     }
 
     #[test]
@@ -188,7 +217,10 @@ mod tests {
     fn schema_drift_rejected() {
         let mut m = MiniMap::new(100, 100, (0, 0, 10, 10), 100, 100).unwrap();
         m.schema_version = "9.9.9".into();
-        assert!(matches!(m.validate().unwrap_err(), MiniMapError::SchemaMismatch));
+        assert!(matches!(
+            m.validate().unwrap_err(),
+            MiniMapError::SchemaMismatch
+        ));
     }
 
     #[test]

@@ -62,7 +62,9 @@ pub enum AuditError {
 impl AuditTrail {
     /// New.
     pub fn new(capacity: u32) -> Result<Self, AuditError> {
-        if capacity == 0 { return Err(AuditError::ZeroCapacity); }
+        if capacity == 0 {
+            return Err(AuditError::ZeroCapacity);
+        }
         Ok(Self {
             schema_version: SCHEMA_VERSION.into(),
             capacity,
@@ -71,10 +73,22 @@ impl AuditTrail {
     }
 
     /// Record.
-    pub fn record(&mut self, actor: &str, action: &str, target: &str, ts_ms: u64) -> Result<(), AuditError> {
-        if actor.is_empty() { return Err(AuditError::EmptyActor); }
-        if action.is_empty() { return Err(AuditError::EmptyAction); }
-        if target.is_empty() { return Err(AuditError::EmptyTarget); }
+    pub fn record(
+        &mut self,
+        actor: &str,
+        action: &str,
+        target: &str,
+        ts_ms: u64,
+    ) -> Result<(), AuditError> {
+        if actor.is_empty() {
+            return Err(AuditError::EmptyActor);
+        }
+        if action.is_empty() {
+            return Err(AuditError::EmptyAction);
+        }
+        if target.is_empty() {
+            return Err(AuditError::EmptyTarget);
+        }
         if (self.records.len() as u32) >= self.capacity {
             self.records.remove(0);
         }
@@ -104,12 +118,22 @@ impl AuditTrail {
 
     /// Validate.
     pub fn validate(&self) -> Result<(), AuditError> {
-        if self.schema_version != SCHEMA_VERSION { return Err(AuditError::SchemaMismatch); }
-        if self.capacity == 0 { return Err(AuditError::ZeroCapacity); }
+        if self.schema_version != SCHEMA_VERSION {
+            return Err(AuditError::SchemaMismatch);
+        }
+        if self.capacity == 0 {
+            return Err(AuditError::ZeroCapacity);
+        }
         for r in &self.records {
-            if r.actor.is_empty() { return Err(AuditError::EmptyActor); }
-            if r.action.is_empty() { return Err(AuditError::EmptyAction); }
-            if r.target.is_empty() { return Err(AuditError::EmptyTarget); }
+            if r.actor.is_empty() {
+                return Err(AuditError::EmptyActor);
+            }
+            if r.action.is_empty() {
+                return Err(AuditError::EmptyAction);
+            }
+            if r.target.is_empty() {
+                return Err(AuditError::EmptyTarget);
+            }
         }
         Ok(())
     }
@@ -159,17 +183,32 @@ mod tests {
     #[test]
     fn empty_inputs_rejected() {
         let mut t = AuditTrail::new(5).unwrap();
-        assert!(matches!(t.record("", "a", "b", 0).unwrap_err(), AuditError::EmptyActor));
-        assert!(matches!(t.record("a", "", "b", 0).unwrap_err(), AuditError::EmptyAction));
-        assert!(matches!(t.record("a", "b", "", 0).unwrap_err(), AuditError::EmptyTarget));
-        assert!(matches!(AuditTrail::new(0).unwrap_err(), AuditError::ZeroCapacity));
+        assert!(matches!(
+            t.record("", "a", "b", 0).unwrap_err(),
+            AuditError::EmptyActor
+        ));
+        assert!(matches!(
+            t.record("a", "", "b", 0).unwrap_err(),
+            AuditError::EmptyAction
+        ));
+        assert!(matches!(
+            t.record("a", "b", "", 0).unwrap_err(),
+            AuditError::EmptyTarget
+        ));
+        assert!(matches!(
+            AuditTrail::new(0).unwrap_err(),
+            AuditError::ZeroCapacity
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut t = AuditTrail::new(5).unwrap();
         t.schema_version = "9.9.9".into();
-        assert!(matches!(t.validate().unwrap_err(), AuditError::SchemaMismatch));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            AuditError::SchemaMismatch
+        ));
     }
 
     #[test]

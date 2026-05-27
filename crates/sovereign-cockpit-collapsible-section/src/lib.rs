@@ -50,14 +50,18 @@ impl CollapsibleState {
 
     /// Set state.
     pub fn set(&mut self, section_id: &str, collapsed: bool) -> Result<(), CollapsibleError> {
-        if section_id.is_empty() { return Err(CollapsibleError::EmptySectionId); }
+        if section_id.is_empty() {
+            return Err(CollapsibleError::EmptySectionId);
+        }
         self.states.insert(section_id.into(), collapsed);
         Ok(())
     }
 
     /// Toggle state.
     pub fn toggle(&mut self, section_id: &str) -> Result<bool, CollapsibleError> {
-        if section_id.is_empty() { return Err(CollapsibleError::EmptySectionId); }
+        if section_id.is_empty() {
+            return Err(CollapsibleError::EmptySectionId);
+        }
         let current = self.is_collapsed(section_id);
         self.states.insert(section_id.into(), !current);
         Ok(!current)
@@ -65,11 +69,16 @@ impl CollapsibleState {
 
     /// Get state. Returns `default_collapsed` if section_id unknown.
     pub fn is_collapsed(&self, section_id: &str) -> bool {
-        self.states.get(section_id).copied().unwrap_or(self.default_collapsed)
+        self.states
+            .get(section_id)
+            .copied()
+            .unwrap_or(self.default_collapsed)
     }
 
     /// Reset all sections to default.
-    pub fn reset_all(&mut self) { self.states.clear(); }
+    pub fn reset_all(&mut self) {
+        self.states.clear();
+    }
 
     /// Validate.
     pub fn validate(&self) -> Result<(), CollapsibleError> {
@@ -77,7 +86,9 @@ impl CollapsibleState {
             return Err(CollapsibleError::SchemaMismatch);
         }
         for k in self.states.keys() {
-            if k.is_empty() { return Err(CollapsibleError::EmptySectionId); }
+            if k.is_empty() {
+                return Err(CollapsibleError::EmptySectionId);
+            }
         }
         Ok(())
     }
@@ -124,15 +135,24 @@ mod tests {
     #[test]
     fn empty_section_id_rejected() {
         let mut s = CollapsibleState::new(false);
-        assert!(matches!(s.set("", true).unwrap_err(), CollapsibleError::EmptySectionId));
-        assert!(matches!(s.toggle("").unwrap_err(), CollapsibleError::EmptySectionId));
+        assert!(matches!(
+            s.set("", true).unwrap_err(),
+            CollapsibleError::EmptySectionId
+        ));
+        assert!(matches!(
+            s.toggle("").unwrap_err(),
+            CollapsibleError::EmptySectionId
+        ));
     }
 
     #[test]
     fn schema_drift_rejected() {
         let mut s = CollapsibleState::new(false);
         s.schema_version = "9.9.9".into();
-        assert!(matches!(s.validate().unwrap_err(), CollapsibleError::SchemaMismatch));
+        assert!(matches!(
+            s.validate().unwrap_err(),
+            CollapsibleError::SchemaMismatch
+        ));
     }
 
     #[test]
