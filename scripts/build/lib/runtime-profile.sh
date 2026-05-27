@@ -75,6 +75,10 @@ runtime_profile_override() {
   local v; v="$(runtime_profile_get_tier_field "${tier}" "${field}")"
   if [ -n "${v}" ]; then
     eval "${env_var}=\"${v}\""
+    # Dynamic export by NAME: env_var holds the target variable's name (set
+    # via the eval above), so `export "${env_var}"` exporting that name is
+    # intentional, not the SC2163 "export $var exports the value" mistake.
+    # shellcheck disable=SC2163
     export "${env_var}"
   fi
 }

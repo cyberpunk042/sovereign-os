@@ -9,7 +9,10 @@ __SOVEREIGN_OS_COMMON_LIB_LOADED=1
 
 # Discover repo root (relative to this lib file)
 __LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export SOVEREIGN_OS_ROOT="$(cd "${__LIB_DIR}/../../.." && pwd)"
+# Split declare+export so a failed `cd ... && pwd` is caught by `set -e`
+# (an `export X=$(cmd)` masks the subshell's non-zero exit — SC2155).
+SOVEREIGN_OS_ROOT="$(cd "${__LIB_DIR}/../../.." && pwd)"
+export SOVEREIGN_OS_ROOT
 
 # Standard layout
 export SOVEREIGN_OS_PROFILES_DIR="${SOVEREIGN_OS_ROOT}/profiles"
