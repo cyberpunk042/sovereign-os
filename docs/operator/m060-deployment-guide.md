@@ -28,6 +28,29 @@ selfdef-daemon mirror-export loop                │
 /run/sovereign-os/selfdef-mirror/<domain>.json───┘
 ```
 
+## Companion guide — selfdef-side producer wiring
+
+This document covers the **sovereign-os consumer side** of the M060
+cross-repo chain. The **selfdef producer side** — what files selfdefd
+publishes, how the cli-mirror systemd one-shot
+(`selfdef-cli-mirror-emit.service`) feeds the daemon's prefer-resident
+path, per-artifact onboarding verbs, and the daemon-side failure-mode
+crib sheet — is documented at:
+
+[`cyberpunk042/selfdef` → `docs/operator/m060-cockpit-mirror-producers.md`](https://github.com/cyberpunk042/selfdef/blob/main/docs/operator/m060-cockpit-mirror-producers.md)
+
+Operators running BOTH halves of the system on the same host read both
+guides — selfdef-side covers what gets written to
+`/run/sovereign-os/selfdef-mirror/*.json` (the wire); sovereign-os-side
+(this guide) covers what the cockpit does with those files (the
+render). The two halves are bound by wire-shape contract tests on
+**both sides**:
+
+- selfdef: `crates/selfdef-daemon/tests/m060_cli_mirror_emit_unit_contract.rs` (and the per-domain tests in `mirror_export_loop`)
+- sovereign-os: `tests/lint/test_m060_cross_repo_chain_contract.py` (per-domain producer→consumer fixtures × 11)
+
+Drift on either side fails tests on **both** sides.
+
 ## Prerequisites
 
 1. `selfdefd` built + installed (`cargo build --release -p selfdef-daemon`
