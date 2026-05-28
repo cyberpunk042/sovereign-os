@@ -35,8 +35,13 @@ SYSTEMD_UNIT = REPO_ROOT / "systemd" / "system" / "sovereign-grants-mirror-api.s
 OSCTL = REPO_ROOT / "scripts" / "sovereign-osctl"
 WEBAPP = REPO_ROOT / "webapp" / "d-13-filesystem-grants" / "index.html"
 
+# Mirrors the REAL selfdef-grants-mirror::GrantsMirrorSnapshot 1.0.0 (verified
+# against crates/selfdef-grants-mirror/src/lib.rs): {schema_version, captured_at,
+# summaries, grants, signature} — NO top-level `pending` (pending grants are
+# grants[state==pending]) + an MS003 signature.
 _MIRROR = {
     "schema_version": "1.0.0", "captured_at": "2026-05-27T20:00Z",
+    "signature": "MS003:deadbeefcafe",
     "summaries": [
         {"kind": "filesystem", "active": 8, "pending": 1, "expired_24h": 4,
          "revoked_24h": 1, "quarantined": 0},
@@ -47,10 +52,13 @@ _MIRROR = {
          "reason": "authoring", "issued_at": "2026-05-27T19:00Z",
          "expires_at": "2026-05-27T20:00Z", "ttl_seconds": 3600, "profile": "private",
          "actor": "operator-fp", "state": "active", "trace_id": "t1"},
+        # a pending-state grant — the D-13 "pending requests" view derives from this
+        {"grant_id": "gr-px1", "kind": "network", "scope": "hf.co:443",
+         "reason": "hf fetch", "issued_at": "2026-05-27T19:30Z",
+         "expires_at": "2026-05-27T20:30Z", "ttl_seconds": 3600, "profile": "fast",
+         "actor": "agent-fp", "state": "pending", "trace_id": "t2"},
         {"grant_id": "gr-bad", "kind": "bogus"},  # invalid kind → dropped
     ],
-    "pending": [{"grant_id": "gr-px1", "kind": "network", "scope": "hf.co:443",
-                 "requester": "agent"}],
 }
 
 
@@ -112,9 +120,14 @@ def test_core_present_and_projects_mirror():
         # 5 grant kinds, zero-filled + canonical order
         assert [s["kind"] for s in d["summaries"]] == [
             "filesystem", "network", "capability", "communication", "sandbox"]
-        # invalid-kind grant dropped
-        assert [g["grant_id"] for g in d["grants"]] == ["gr-01"]
-        assert d["pending"][0]["grant_id"] == "gr-px1"
+        # invalid-kind grant dropped; valid grants kept (gr-01 active, gr-px1 pending)
+        assert [g["grant_id"] for g in d["grants"]] == ["gr-01", "gr-px1"]
+        # pending is DERIVED from grants[state==pending] (no top-level pending in
+        # the real selfdef snapshot); requester maps from the grant's actor
+        assert [p["grant_id"] for p in d["pending"]] == ["gr-px1"]
+        assert d["pending"][0]["requester"] == "agent-fp"
+        # MS003 signature carried through from the real snapshot
+        assert d["signature"] == "MS003:deadbeefcafe"
     finally:
         os.unlink(mirror)
 

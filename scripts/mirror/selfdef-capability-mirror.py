@@ -115,6 +115,7 @@ def snapshot() -> dict[str, Any]:
         "captured_at": mirror.get("captured_at"),
         "summaries": _summaries(mirror),
         "tokens": _tokens(mirror),
+        "signature": mirror.get("signature"),  # MS003 sig over canonical JSON
     }
 
 

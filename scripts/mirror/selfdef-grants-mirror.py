@@ -108,38 +108,37 @@ def _grants(mirror: dict[str, Any]) -> list[dict[str, Any]]:
     return out
 
 
-def _pending(mirror: dict[str, Any]) -> list[dict[str, Any]]:
-    raw = mirror.get("pending")
-    if not isinstance(raw, list):
-        return []
-    out = []
-    for p in raw:
-        if not isinstance(p, dict) or not p.get("grant_id"):
-            continue
-        kind = p.get("kind")
-        if kind not in GRANT_KINDS:
-            continue
-        out.append({
-            "grant_id": str(p["grant_id"]),
-            "kind": kind,
-            "scope": p.get("scope", ""),
-            "requester": p.get("requester", "unknown"),
-        })
-    return out
+def _pending(grants: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Pending grants for the D-13 pending-requests view. The real selfdef
+    GrantsMirrorSnapshot has NO top-level `pending` array (verified against
+    crates/selfdef-grants-mirror/src/lib.rs) — pending grants are simply the
+    grant entries in GrantState::Pending. We derive that view here, mapping the
+    grant's `actor` to the dashboard's `requester` field."""
+    return [{
+        "grant_id": g["grant_id"],
+        "kind": g["kind"],
+        "scope": g["scope"],
+        "requester": g.get("actor", "unknown"),
+    } for g in grants if g.get("state") == "pending"]
 
 
 def snapshot() -> dict[str, Any]:
-    """The full D-13 dashboard model, projected from the selfdef mirror."""
+    """The full D-13 dashboard model, projected from the selfdef mirror.
+    Schema matches selfdef-grants-mirror::GrantsMirrorSnapshot 1.0.0:
+    {schema_version, captured_at, summaries, grants, signature} — `pending` is
+    DERIVED from grants[state==pending], not a top-level field."""
     mirror = _read_mirror(GRANTS_MIRROR)
     online = bool(mirror)
+    grants = _grants(mirror)
     return {
         "schema_version": SCHEMA_VERSION,
         "mirror_status": "online" if online else "offline",
         "mirror_source": "selfdef-grants-mirror (MS007 typed mirror, read-only)",
         "captured_at": mirror.get("captured_at"),
         "summaries": _summaries(mirror),
-        "grants": _grants(mirror),
-        "pending": _pending(mirror),
+        "grants": grants,
+        "pending": _pending(grants),
+        "signature": mirror.get("signature"),  # MS003 sig over canonical JSON
     }
 
 
