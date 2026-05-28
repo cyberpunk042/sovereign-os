@@ -16,6 +16,60 @@
 
 Full doctrine: `docs/standing-directives/two-ultimate-solutions.md`.
 
+## Current arc (2026-05-28): M060 cross-repo mirror producers — COMPLETE
+
+The 5 sovereign-os mirror dashboards (D-13 grants, D-14 capability-tokens,
+D-15 sandboxes, D-17 quarantine, D-18 trust-scores) plus D-02 active-profile
+are no longer flagship-only shells with offline-default state — they now
+consume **live** selfdef-side producers. Cross-repo wire contract verified
+end-to-end at every seam.
+
+**Selfdef side (PR `cyberpunk042/selfdef#200`, branch
+`claude/recover-projects-b0oT6`, 13 commits, ~7500 LOC, all gates green
+except pre-existing m3_pipeline + info-hub coherence drift accepted as
+land-as-is):**
+
+| Domain | New resident-registry crate | Persisted store | Mutation model |
+|---|---|---|---|
+| D-02 active-profile | (uses existing flex-profile)        | `/var/lib/selfdef/flex-profile.json` | always-published; R09535 Private default |
+| D-13 grants         | `selfdef-grant-registry`            | `/var/lib/selfdef/grants.json`            | operator-issued (issue/revoke) |
+| D-14 capability-tokens | `selfdef-capability-registry`    | `/var/lib/selfdef/capability-tokens.json` | operator-issued (capability_word composed) |
+| D-15 sandboxes      | `selfdef-sandbox-registry`          | `/var/lib/selfdef/sandboxes.json`         | operator-issued (MS036×MS032 validation) |
+| D-17 quarantine     | `selfdef-quarantine-registry`       | `/var/lib/selfdef/quarantine.json`        | daemon-populated (MS042 detection); operator override release/forfeit |
+| D-18 trust-scores   | `selfdef-trust-score-registry`      | `/var/lib/selfdef/trust-scores.json`      | daemon-populated (canonical_delta); operator admit + manual-delta override |
+
+Plus the missing MS007 typed-mirror crate `selfdef-profile-mirror` (D-02
+schema, which the consumer expected but had no producer crate). The
+`selfdef-daemon` mirror-export loop publishes each domain READ-ONLY to
+`/run/sovereign-os/selfdef-mirror/<file>.json` when its resident store
+exists (honest offline otherwise — no fabricated empty-online state).
+Selfdef API + selfdefctl have parity verbs for every domain (sister to
+the existing schema-discovery surfaces; the SDD-055 commit-authority
+gating remains the open cross-cutting work for all mutation surfaces).
+
+**Sovereign-os side (consumer wire verified):** the existing
+`scripts/mirror/selfdef-*-mirror.py` readers and `scripts/operator/
+*-api.py` daemons consume the daemon-shaped artifacts unchanged — no
+sovereign-os code change required for D-02/D-13/D-14/D-15. Hand-crafted
+artifacts in the exact serde shape the selfdef producer writes flip
+each dashboard from `mirror_status=offline` → `online` with the right
+fields populated.
+
+**What this unblocks for sovereign-os:** the 5 mirror dashboards can
+now demonstrably go live by running `selfdefd` on the host with
+`[deployment].selfdef_mirror_dir = "/run/sovereign-os/selfdef-mirror"`
+(plus the per-domain `SELFDEF_<DOMAIN>_PATH` env if relocated) and
+issuing/observing real grants/tokens/etc. via `selfdefctl`. No more
+"published mirror at X when wired" placeholder comments — they're
+wired.
+
+**What still belongs to sovereign-os explicitly:** the cockpit dashboard
+UX itself (HTML/JS/CSS in `webapp/d-*/`) and the master-dashboard
+aggregation. Those existed before this arc and are unchanged; the
+contract they consume is now live.
+
+---
+
 ## Where we are right now (2026-05-19 snapshot)
 
 ### CI-health recovery — DONE (2026-05-27)
