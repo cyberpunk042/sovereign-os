@@ -239,6 +239,37 @@ curl -s http://127.0.0.1:9090/api/v1/rules \
 cat /var/lib/node_exporter/textfile_collector/sovereign-os-m060-health-api.prom
 ```
 
+## Incident-response surface ladder
+
+When a chain alert fires or the master-dashboard shows a degraded state,
+walk these surfaces in order of "blast radius" — each works under a
+different failure mode of the stack above it:
+
+| Surface | Question it answers | Works when this is DOWN |
+|---|---|---|
+| master-dashboard chain-health banner | "what's the chain rollup state?" | — (operator's first glance) |
+| master-dashboard mirror grid (per-tile) | "which mirror is in what state?" | — |
+| `sovereign-osctl m060-health probe` | "what does the chain-health proxy see?" | master-dashboard, browser |
+| `selfdefctl m060-doctor` | "is the filesystem-state OK on the host?" | **selfdefd daemon** (filesystem only) |
+| `selfdefctl m060-metrics` | "what do the daemon's per-artifact counters say?" | **Prometheus**, sovereign-os api proxy |
+| `selfdefctl m060-metrics --artifact <name>` | "is THIS specific publisher healthy?" | as above; focuses one row |
+| Grafana M060 row | "what's the trend over the last N hours?" | — (needs Prometheus + Grafana up) |
+| 8 Prometheus alerts (3 selfdef + 5 sovereign-os) | "page me when..." | — (3 AM unattended) |
+
+The two CLI verbs (`m060-doctor` + `m060-metrics`) are the load-bearing
+ones during incident response: they query selfdefd directly (no
+Prometheus dependency, no sovereign-os daemon dependency) so they work
+even when the rest of the observability stack is the unhealthy
+component. Run them BEFORE chasing the alert if you're unsure whether
+the alert source itself is healthy.
+
+```bash
+# Quick triage flow:
+selfdefctl m060-doctor --json | jq .                       # filesystem state
+selfdefctl m060-metrics                                    # daemon counters
+selfdefctl m060-metrics --artifact <suspect>               # drill on one
+```
+
 ## Troubleshooting
 
 | symptom | cause | fix |
