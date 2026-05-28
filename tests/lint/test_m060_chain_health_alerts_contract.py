@@ -1,0 +1,181 @@
+"""M060 chain-health Prometheus alert rules contract.
+
+Locks the alerting surface for the m060-health-api textfile metric
+(sovereign_os_operator_m060_health_api_request_total). The rules
+fire on the failure modes operators care about — drift between the
+rules and the underlying state enumeration would silently mask
+real outages.
+
+The textfile metric is emitted by scripts/operator/m060-health-api.py
+with labels:
+  endpoint = "health" | "state" | "version" | "healthz" | ...
+  result   = "online" | "degraded" | "stale" | "offline" | "unreachable" |
+             "404" | "405" | "500" | "ok"
+
+Alerts MUST cover all 4 failure states (offline / unreachable /
+stale / degraded) + the api-silent case (daemon down or unpolled).
+"""
+from __future__ import annotations
+
+from pathlib import Path
+
+import yaml
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+RULES_PATH = REPO_ROOT / "config" / "prometheus" / "alerts" / "m060-chain-health.rules.yml"
+
+# The 4 failure states the underlying metric reports + the api-silent case.
+REQUIRED_ALERT_NAMES = {
+    "M060ChainOffline",
+    "M060ChainUnreachable",
+    "M060ChainStale",
+    "M060ChainDegradedSustained",
+    "M060HealthApiSilent",
+}
+
+
+def _load_rules() -> dict:
+    return yaml.safe_load(RULES_PATH.read_text())
+
+
+def _all_rules() -> list[dict]:
+    doc = _load_rules()
+    return [r for g in doc["groups"] for r in g["rules"]]
+
+
+def test_rules_file_present_and_valid_yaml():
+    assert RULES_PATH.is_file()
+    doc = _load_rules()
+    assert "groups" in doc
+    assert isinstance(doc["groups"], list)
+    assert len(doc["groups"]) >= 1
+
+
+def test_rules_file_covers_every_failure_state():
+    """The metric labels include 4 failure-state values; missing any
+    alert would silently mask that failure mode."""
+    rules = _all_rules()
+    names = {r["alert"] for r in rules}
+    missing = REQUIRED_ALERT_NAMES - names
+    assert not missing, f"missing required alerts: {sorted(missing)}"
+
+
+def test_every_alert_has_required_fields():
+    for rule in _all_rules():
+        for field in ("alert", "expr", "labels", "annotations"):
+            assert field in rule, f"alert {rule.get('alert')!r} missing {field!r}"
+        labels = rule["labels"]
+        ann = rule["annotations"]
+        assert labels.get("severity") in ("warning", "critical"), (
+            f"alert {rule['alert']!r} severity must be warning|critical"
+        )
+        assert labels.get("subsystem") == "m060-mirror-chain"
+        assert "summary" in ann and ann["summary"]
+        assert "description" in ann and ann["description"]
+
+
+def test_offline_and_unreachable_are_critical():
+    """Offline + unreachable mean the chain is producing no data —
+    must be critical severity."""
+    by_name = {r["alert"]: r for r in _all_rules()}
+    assert by_name["M060ChainOffline"]["labels"]["severity"] == "critical"
+    assert by_name["M060ChainUnreachable"]["labels"]["severity"] == "critical"
+    assert by_name["M060HealthApiSilent"]["labels"]["severity"] == "critical"
+
+
+def test_degraded_and_stale_are_warning():
+    """Degraded is a legitimate operator-onboarding state; sustained
+    degraded becomes a warning. Stale is a stuck loop but artifacts
+    still exist (last-known-good rendering) — warning, not critical."""
+    by_name = {r["alert"]: r for r in _all_rules()}
+    assert by_name["M060ChainDegradedSustained"]["labels"]["severity"] == "warning"
+    assert by_name["M060ChainStale"]["labels"]["severity"] == "warning"
+
+
+def test_chain_state_label_matches_alert_name_intent():
+    """Each alert sets chain_state label that must match the
+    underlying probe state it triggers on (so consumers can
+    group/filter by failure mode)."""
+    expected = {
+        "M060ChainOffline":           "offline",
+        "M060ChainUnreachable":       "unreachable",
+        "M060ChainStale":             "stale",
+        "M060ChainDegradedSustained": "degraded",
+        "M060HealthApiSilent":        "api_silent",
+    }
+    by_name = {r["alert"]: r for r in _all_rules()}
+    for alert, want_state in expected.items():
+        got = by_name[alert]["labels"].get("chain_state")
+        assert got == want_state, (
+            f"alert {alert!r} chain_state label {got!r} != {want_state!r}"
+        )
+
+
+def test_each_alert_expression_references_the_textfile_metric():
+    """All exprs must query sovereign_os_operator_m060_health_api_request_total
+    — drift here means the alert silently never fires."""
+    for rule in _all_rules():
+        assert "sovereign_os_operator_m060_health_api_request_total" in rule["expr"], (
+            f"alert {rule['alert']!r} expr does not reference the canonical metric"
+        )
+
+
+def test_critical_alerts_carry_runbook_url():
+    """Operators waking up to a 3 AM page need a direct link to the
+    runbook in the alert annotation."""
+    for rule in _all_rules():
+        if rule["labels"].get("severity") == "critical":
+            ann = rule["annotations"]
+            # Either explicit runbook_url field OR a markdown link in the
+            # description pointing at the operator deployment guide.
+            has_url = (
+                "runbook_url" in ann and ann["runbook_url"].startswith("https://")
+            )
+            has_md_link = "deployment-guide" in ann.get("description", "")
+            assert has_url or has_md_link, (
+                f"critical alert {rule['alert']!r} missing runbook_url + "
+                f"no deployment-guide link in description"
+            )
+
+
+def test_expressions_reference_endpoint_health_label():
+    """All chain-state alerts query the 'health' endpoint specifically
+    (not /healthz or /state). The labeling discipline keeps alert noise
+    out of liveness probes."""
+    by_name = {r["alert"]: r for r in _all_rules()}
+    for name in (
+        "M060ChainOffline",
+        "M060ChainUnreachable",
+        "M060ChainStale",
+        "M060ChainDegradedSustained",
+        "M060HealthApiSilent",
+    ):
+        assert 'endpoint="health"' in by_name[name]["expr"], (
+            f"alert {name!r} expr must filter on endpoint=\"health\""
+        )
+
+
+def test_for_clauses_are_set_to_avoid_single_scrape_blips():
+    """Every chain-state alert has a `for` clause to suppress
+    single-scrape transients (mid-publish-tick state changes etc.)."""
+    by_name = {r["alert"]: r for r in _all_rules()}
+    for name in REQUIRED_ALERT_NAMES:
+        assert "for" in by_name[name], (
+            f"alert {name!r} missing `for:` clause — single-scrape "
+            f"blip would page the operator"
+        )
+
+
+def test_rules_file_is_loadable_by_prometheus_promtool_conceptually():
+    """Promtool isn't available in this test env, but we can assert
+    the structural invariants promtool would check: top-level groups,
+    each group has name+rules, each rule has alert+expr OR
+    record+expr."""
+    doc = _load_rules()
+    for group in doc["groups"]:
+        assert "name" in group, "every group must have a name"
+        assert "rules" in group and isinstance(group["rules"], list)
+        for rule in group["rules"]:
+            assert ("alert" in rule and "expr" in rule) or (
+                "record" in rule and "expr" in rule
+            ), f"rule must have alert+expr or record+expr: {rule}"

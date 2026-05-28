@@ -1,0 +1,171 @@
+# M060 cross-repo mirror chain — Prometheus alerting rules.
+#
+# These alerts fire on the textfile metrics the sovereign-os
+# m060-health-api daemon writes to
+# /var/lib/node_exporter/textfile_collector/sovereign-os-m060-health-api.prom
+# on every request. The metric is labeled with the chain-state
+# verdict returned by the underlying selfdef-api /v1/m060/health
+# probe; alerts catch the failure modes operators care about:
+#
+#   - online       all 10 mirrors fresh + parseable → no alert
+#   - degraded     partial population OR parse-fail → warning
+#   - stale        loop stuck (newest > 5min)       → warning
+#   - offline      daemon down / mirror_dir unset   → critical
+#   - unreachable  m060-health-api cannot reach selfdefd → critical
+#
+# Drop into the Prometheus rule_files config (e.g.,
+#   rule_files:
+#     - /etc/prometheus/alerts/m060-chain-health.rules.yml
+# ) and reload.
+#
+# Catalog source: M060 cockpit mirror chain — selfdef /v1/m060/health
+# (selfdef-api::m060_health). Operator boundary: pure observability;
+# no mutation surface (R10212). Standing rule: We do not minimize
+# anything.
+
+groups:
+  - name: m060-chain-health
+    interval: 30s
+    rules:
+
+      # Critical: the M060 chain is reporting offline. Daemon is
+      # not running OR `[deployment].selfdef_mirror_dir` is unset.
+      # Fires after 2 consecutive scrapes (~1 minute) of the
+      # offline state — guards against transient single-scrape blips.
+      - alert: M060ChainOffline
+        expr: |
+          increase(
+            sovereign_os_operator_m060_health_api_request_total{
+              endpoint="health", result="offline"
+            }[2m]
+          ) > 0
+        for: 1m
+        labels:
+          severity: critical
+          subsystem: m060-mirror-chain
+          chain_state: offline
+        annotations:
+          summary: "M060 mirror chain is OFFLINE on {{ $labels.instance }}"
+          description: >
+            The selfdef daemon reports zero mirror artifacts present in
+            its publish directory. Either selfdefd is not running, or
+            `[deployment].selfdef_mirror_dir` is not set in
+            /etc/selfdef/selfdef.toml. The cockpit dashboards depend on
+            this chain — D-02 / D-12 / D-13 / D-14 / D-15 / D-16 / D-17 /
+            D-18 + TUI + CLI mirrors all stay empty until the daemon
+            publishes again.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#troubleshooting"
+
+      # Critical: m060-health-api can't even reach the selfdef daemon.
+      # Distinct from "offline": the proxy itself is up + the daemon
+      # is down (or the UNIX socket/TCP transport between them is
+      # misconfigured). Same severity, different root cause.
+      - alert: M060ChainUnreachable
+        expr: |
+          increase(
+            sovereign_os_operator_m060_health_api_request_total{
+              endpoint="health", result="unreachable"
+            }[2m]
+          ) > 0
+        for: 1m
+        labels:
+          severity: critical
+          subsystem: m060-mirror-chain
+          chain_state: unreachable
+        annotations:
+          summary: "M060 chain-health proxy cannot reach selfdefd on {{ $labels.instance }}"
+          description: >
+            sovereign-os m060-health-api.py cannot reach the selfdef
+            daemon's GET /v1/m060/health endpoint. Check: (1) selfdefd
+            is running (`systemctl status selfdefd`), (2) the UNIX
+            socket /run/selfdef.sock exists (or SELFDEF_API_URL +
+            SELFDEF_API_TOKEN are set for TCP fallback), (3) selfdefd
+            actually published the route (check journalctl -u selfdefd
+            for the "M060: mirror-export loop running 10/10" line).
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#troubleshooting"
+
+      # Warning: the mirror-export loop is stuck. Some/all artifacts
+      # are present but newest_age_seconds > 5min. Operator should
+      # check journalctl for repeated "mirror export: X write failed"
+      # warnings indicating a publisher loop is wedged.
+      - alert: M060ChainStale
+        expr: |
+          increase(
+            sovereign_os_operator_m060_health_api_request_total{
+              endpoint="health", result="stale"
+            }[5m]
+          ) > 0
+        for: 5m
+        labels:
+          severity: warning
+          subsystem: m060-mirror-chain
+          chain_state: stale
+        annotations:
+          summary: "M060 mirror chain is STALE on {{ $labels.instance }}"
+          description: >
+            The newest mirror artifact in
+            /run/sovereign-os/selfdef-mirror/ is older than 5 minutes
+            (~10 ticks of the 30s mirror-export loop). The selfdef
+            daemon is running but its publish loop appears stuck.
+            Check `journalctl -u selfdefd | grep "mirror export"` for
+            repeated write-failure warnings or a tokio-spawn that died
+            silently. The cockpit dashboards will render last-known-good
+            data until the loop recovers.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#troubleshooting"
+
+      # Warning: chain is in degraded state — some artifacts present,
+      # some absent OR any present artifact fails JSON parse. Legitimate
+      # operator-onboarding state, but if it persists > 30min, it
+      # indicates an artifact write is silently corrupting JSON.
+      - alert: M060ChainDegradedSustained
+        expr: |
+          increase(
+            sovereign_os_operator_m060_health_api_request_total{
+              endpoint="health", result="degraded"
+            }[10m]
+          ) > 0
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: m060-mirror-chain
+          chain_state: degraded
+        annotations:
+          summary: "M060 mirror chain has been DEGRADED for >30min on {{ $labels.instance }}"
+          description: >
+            The chain has been in 'degraded' state continuously for
+            more than 30 minutes. Degraded means either: (a) only some
+            of the 10 mirror artifacts are present (legitimate during
+            operator-issued-domain onboarding — D-13 grants / D-14
+            capability-tokens / D-15 sandboxes need the operator to
+            issue at least one item) OR (b) at least one present
+            artifact fails JSON-parse (which means a publisher is
+            writing corrupt JSON — investigate immediately). Query
+            /api/m060/health for the per-artifact `parses_as_json`
+            field to discriminate.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#troubleshooting"
+
+      # Critical: m060-health-api daemon itself is silent. No requests
+      # in 5 minutes means either nothing is polling it (master-dashboard
+      # closed) OR the daemon is down. Master-dashboard polls every 30s,
+      # so a 5-minute silence is a real failure signal.
+      - alert: M060HealthApiSilent
+        expr: |
+          rate(
+            sovereign_os_operator_m060_health_api_request_total{endpoint="health"}[5m]
+          ) == 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: m060-mirror-chain
+          chain_state: api_silent
+        annotations:
+          summary: "M060 health-api daemon is silent on {{ $labels.instance }}"
+          description: >
+            No /api/m060/health requests have been served in 5 minutes.
+            Either the master-dashboard is not running (operator closed
+            the browser; not necessarily a failure) OR the
+            sovereign-m060-health-api.service unit is down
+            (`systemctl status sovereign-m060-health-api`). If
+            multiple dashboards/agents normally poll this in your
+            deployment, this is a true failure signal.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#troubleshooting"
