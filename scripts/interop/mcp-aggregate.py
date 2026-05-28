@@ -762,6 +762,71 @@ LOCAL_TOOLS = [
         "categories": ["auditor", "operator-§17", "audit-log",
                        "security"],
     },
+    # M060 cross-repo MIRROR MCP surface — READ-ONLY consumers of the
+    # 7 selfdef-published mirrors (D-02 active-profile, D-13 grants,
+    # D-14 capability-tokens, D-15 sandboxes, D-16 audit-chain, D-17
+    # quarantine, D-18 trust-scores). Each mirror's snapshot verb is
+    # exposed so an AI client (Claude, local model with MCP) can
+    # query current IPS state without touching the selfdef daemon
+    # directly. Mutation verbs stay selfdef-side + MS003-signed
+    # (MS043 R10212). Per "Respect the projects" — sovereign-os
+    # NEVER mutates selfdef state; even via MCP.
+    {
+        "name": "selfdef-profile-mirror-show",
+        "summary": "M060 D-02 active-profile mirror (selfdef MS040 six-profile authority matrix + MS039 L0..L6 envelope + transition history). Returns the currently-selected profile + actor + since + envelope, projected READ-ONLY from selfdef's /var/lib/selfdef/flex-profile.json. Offline → MS040 R09535 Private default.",
+        "argv": ["sovereign-osctl", "profile-mirror", "show", "--json"],
+        "categories": ["m060", "d-02", "profile-mirror", "selfdef-mirror",
+                       "operator-§1g"],
+    },
+    {
+        "name": "selfdef-grants-mirror-snapshot",
+        "summary": "M060 D-13 grants mirror (selfdef MS037 filesystem/capability/communication/sandbox grants). Returns active grants + pending grants + summaries-by-kind, projected READ-ONLY from selfdef's grant registry. Operator issues/revokes via selfdefctl + MS003 only.",
+        "argv": ["sovereign-osctl", "grants-mirror", "snapshot", "--json"],
+        "categories": ["m060", "d-13", "grants-mirror", "selfdef-mirror",
+                       "operator-§1g"],
+    },
+    {
+        "name": "selfdef-capability-mirror-snapshot",
+        "summary": "M060 D-14 capability-tokens mirror (selfdef MS035 64-bit capability_word + MS039 Ring 0..4 + L0..L6 authority + F04146 parent-child inheritance). Returns active tokens + summaries-by-ring, projected READ-ONLY from selfdef's capability-token registry. Issue/revoke is selfdefctl + MS003 only.",
+        "argv": ["sovereign-osctl", "capability-mirror", "snapshot", "--json"],
+        "categories": ["m060", "d-14", "capability-mirror", "selfdef-mirror",
+                       "operator-§1g"],
+    },
+    {
+        "name": "selfdef-sandbox-mirror-snapshot",
+        "summary": "M060 D-15 sandboxes mirror (selfdef MS032 sandbox-tiers + MS036 tool-sandboxes — 4 tiers + 8-level isolation ladder + TTL + CRIU checkpoint). Returns active allocations + summaries-by-tier, projected READ-ONLY from selfdef's sandbox registry. Allocate/checkpoint/release is selfdefctl + MS003 only.",
+        "argv": ["sovereign-osctl", "sandbox-mirror", "snapshot", "--json"],
+        "categories": ["m060", "d-15", "sandbox-mirror", "selfdef-mirror",
+                       "operator-§1g"],
+    },
+    {
+        "name": "selfdef-audit-mirror-snapshot",
+        "summary": "M060 D-16 audit-chain mirror (selfdef MS016 SHA-256-chained, MS049 13-field-spanned, MS026 OCSF-categorized, MS003 verify-only audit chain). Returns bounded tail of recent spans + per-OCSF-category summaries + integrity report (head_hash + continuity + total_entries), projected READ-ONLY. Chain is APPEND-ONLY by MS016 R03567 doctrine — NO mutation surface.",
+        "argv": ["sovereign-osctl", "audit-mirror", "snapshot", "--json"],
+        "categories": ["m060", "d-16", "audit-mirror", "selfdef-mirror",
+                       "operator-§1g"],
+    },
+    {
+        "name": "selfdef-audit-mirror-integrity",
+        "summary": "M060 D-16 selfdef MS016 audit-chain integrity report ONLY (head_hash + total_entries + continuous + first_gap_at + verified_at). Bare integrity object — no spans or summaries; for cheap polling of chain health by MCP clients. Read-only mirror of selfdef-audit-registry verify_tail() output.",
+        "argv": ["sovereign-osctl", "audit-mirror", "integrity", "--json"],
+        "categories": ["m060", "d-16", "audit-mirror", "selfdef-mirror",
+                       "integrity", "operator-§1g"],
+    },
+    {
+        "name": "selfdef-quarantine-mirror-snapshot",
+        "summary": "M060 D-17 tool-quarantine mirror (selfdef MS042 declaration-vs-observed mismatch archive — 4 severities + per-field mismatches + block/quarantine/trace protocol). Returns active quarantine entries + summaries-by-severity, projected READ-ONLY. Operator override (release/forfeit) is selfdefctl + MS003 only.",
+        "argv": ["sovereign-osctl", "quarantine-mirror", "snapshot", "--json"],
+        "categories": ["m060", "d-17", "quarantine-mirror", "selfdef-mirror",
+                       "operator-§1g"],
+    },
+    {
+        "name": "selfdef-trust-mirror-snapshot",
+        "summary": "M060 D-18 tool trust-scores mirror (selfdef MS042 per-tool trust scores — 0-1000 declaration-fidelity scale, 4 bands, bounded history). Returns scored tools + summaries-by-band, projected READ-ONLY. Score reset is selfdefctl + MS003 only.",
+        "argv": ["sovereign-osctl", "trust-mirror", "snapshot", "--json"],
+        "categories": ["m060", "d-18", "trust-mirror", "selfdef-mirror",
+                       "operator-§1g"],
+    },
 ]
 
 
