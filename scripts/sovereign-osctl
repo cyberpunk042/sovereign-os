@@ -7972,6 +7972,18 @@ case "${cmd}" in
     # (+ --json).
     "${__REPO_ROOT}/scripts/mirror/selfdef-rules-mirror.py" "$@"
     ;;
+  tui-mirror)
+    # MS043 R10141 + F05081 + R10298: READ-ONLY consumer of the selfdef
+    # TUI layout mirror (MS007 typed-mirror crate selfdef-tui-mirror).
+    # Projects the canonical 4-panel layout (rules / grants / quarantine /
+    # authority across TL/TR/BL/BR quadrants) the selfdefd mirror-export
+    # loop publishes every 30s. Used by sovereign-os minimal-web mirroring
+    # (R10170 "same 4-panel layout as TUI"). Doctrine surface "A dashboard
+    # should not show vanity graphs" preserved verbatim per R10298. No
+    # panel keybinding is mutating (R10212) — all panel verbs copy
+    # selfdefctl commands to clipboard. Verbs: snapshot / panels (+ --json).
+    "${__REPO_ROOT}/scripts/mirror/selfdef-tui-mirror.py" "$@"
+    ;;
   super-model)
     # M060 D-19 (R10124-R10125): super-model manifest — sovereign-os-native
     # version + module-version table computed LIVE from git HEAD + the milestone

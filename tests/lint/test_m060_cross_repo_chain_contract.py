@@ -1,9 +1,9 @@
 """M060 cross-repo chain contract — locks the full selfdef→sovereign-os wire.
 
-This test guards the entire 8-domain producer→consumer wire in one fixture.
+This test guards the entire 9-mirror producer→consumer wire in one fixture.
 For each M060 mirror (D-02 active-profile, D-12 rules, D-13 grants, D-14
 capability-tokens, D-15 sandboxes, D-16 audit-chain, D-17 quarantine,
-D-18 trust-scores), it:
+D-18 trust-scores) plus the MS007 TUI-layout schema mirror, it:
 
   1. Writes a daemon-shaped JSON artifact in the EXACT serde shape the
      `selfdef-daemon` mirror-export writes (via `selfdef-{profile,grant,
@@ -28,6 +28,7 @@ the daemon-side producer crates' wire schemas are:
 - selfdef-audit-mirror::AuditMirrorSnapshot 1.0.0
 - selfdef-quarantine-mirror::QuarantineMirrorSnapshot 1.0.0
 - selfdef-trust-score-mirror::TrustScoreMirrorSnapshot 1.0.0
+- selfdef-tui-mirror::TuiMirrorSnapshot 1.0.0 (canonical 4-panel layout)
 """
 from __future__ import annotations
 
@@ -365,11 +366,112 @@ def test_m060_d12_rules_producer_consumer_contract():
     assert out["summaries"][0]["rule_count"] == 1
 
 
-# ------------------------------------------------------------------ all 8 in one
+# ------------------------------------------------------------------ TUI layout
 
-def test_m060_all_eight_mirrors_online_when_artifacts_present():
-    """Sanity: all 8 reader scripts (D-02/12/13/14/15/16/17/18) ship in
-    `scripts/mirror/` and form the complete cross-repo consumer set."""
+def test_m060_tui_layout_producer_consumer_contract():
+    """selfdef-tui-mirror's canonical_snapshot() output is consumed
+    cleanly by sovereign-os selfdef-tui-mirror.py (MS007 typed-mirror
+    crate, R10141 4-panel layout, R10298 doctrine verbatim)."""
+    artifact = {
+        "schema_version": "1.0.0",
+        "tui_build_version": "0.1.0",
+        "doctrine": "A dashboard should not show vanity graphs",
+        "captured_at": "2027-01-15T08:00:00Z",
+        "panels": [
+            {
+                "kind": "rules", "quadrant": "top_left",
+                "title": "Rules · Ring 0..4 · selfdef-rules-mirror",
+                "source_mirror": "selfdef-rules-mirror",
+                "columns": [
+                    {"header": "ring", "field": "ring", "width": 12, "right_align": False},
+                ],
+                "key_bindings": [
+                    {"key": "j/k", "action": "cursor down/up", "mutating": False},
+                ],
+                "min_authority": "l0_observe",
+                "refresh_ms": 30000,
+                "signature": "",
+            },
+            {
+                "kind": "grants", "quadrant": "top_right",
+                "title": "Grants · selfdef-grants-mirror",
+                "source_mirror": "selfdef-grants-mirror",
+                "columns": [
+                    {"header": "grant_id", "field": "grant_id", "width": 14, "right_align": False},
+                ],
+                "key_bindings": [
+                    {"key": "i", "action": "copy issue cmd", "mutating": False},
+                ],
+                "min_authority": "l0_observe",
+                "refresh_ms": 5000,
+                "signature": "",
+            },
+            {
+                "kind": "quarantine", "quadrant": "bottom_left",
+                "title": "Quarantine · selfdef-quarantine-mirror",
+                "source_mirror": "selfdef-quarantine-mirror",
+                "columns": [
+                    {"header": "quarantine_id", "field": "quarantine_id", "width": 16, "right_align": False},
+                ],
+                "key_bindings": [
+                    {"key": "R", "action": "copy release cmd", "mutating": False},
+                ],
+                "min_authority": "l0_observe",
+                "refresh_ms": 5000,
+                "signature": "",
+            },
+            {
+                "kind": "authority", "quadrant": "bottom_right",
+                "title": "Authority · selfdef-profile-mirror",
+                "source_mirror": "selfdef-profile-mirror",
+                "columns": [
+                    {"header": "field", "field": "field", "width": 20, "right_align": False},
+                ],
+                "key_bindings": [
+                    {"key": "p", "action": "copy profile switch", "mutating": False},
+                ],
+                "min_authority": "l0_observe",
+                "refresh_ms": 30000,
+                "signature": "",
+            },
+        ],
+        "global_keys": [
+            {"key": "Tab", "action": "focus next panel", "mutating": False},
+            {"key": "?", "action": "help overlay", "mutating": False},
+            {"key": "q", "action": "quit", "mutating": False},
+        ],
+        "signature": "",
+    }
+    with tempfile.TemporaryDirectory() as d:
+        p = os.path.join(d, "tui.json")
+        with open(p, "w") as f:
+            json.dump(artifact, f)
+        out = _run_reader(
+            "selfdef-tui-mirror.py",
+            "SOVEREIGN_OS_SELFDEF_TUI_MIRROR",
+            p,
+        )
+    assert out["mirror_status"] == "online"
+    assert out["doctrine"] == "A dashboard should not show vanity graphs"
+    assert [p["kind"] for p in out["panels"]] == ["rules", "grants", "quarantine", "authority"]
+    # R10212: no panel keybinding may be mutating.
+    for panel in out["panels"]:
+        for kb in panel["key_bindings"]:
+            assert kb["mutating"] is False, (
+                f"panel {panel['kind']} kb {kb['key']} must not be mutating"
+            )
+    # Global keys ship help + quit at minimum.
+    global_keys = {kb["key"] for kb in out["global_keys"]}
+    assert "?" in global_keys
+    assert "q" in global_keys
+
+
+# ------------------------------------------------------------------ all 9 in one
+
+def test_m060_all_nine_mirrors_online_when_artifacts_present():
+    """Sanity: all 9 reader scripts (D-02/12/13/14/15/16/17/18 plus
+    the MS007 TUI layout) ship in `scripts/mirror/` and form the
+    complete cross-repo consumer set."""
     assert (READER_DIR / "selfdef-profile-mirror.py").is_file()
     assert (READER_DIR / "selfdef-rules-mirror.py").is_file()
     assert (READER_DIR / "selfdef-grants-mirror.py").is_file()
@@ -378,3 +480,4 @@ def test_m060_all_eight_mirrors_online_when_artifacts_present():
     assert (READER_DIR / "selfdef-audit-mirror.py").is_file()
     assert (READER_DIR / "selfdef-quarantine-mirror.py").is_file()
     assert (READER_DIR / "selfdef-trust-score-mirror.py").is_file()
+    assert (READER_DIR / "selfdef-tui-mirror.py").is_file()

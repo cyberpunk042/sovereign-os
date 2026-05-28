@@ -841,6 +841,20 @@ LOCAL_TOOLS = [
         "categories": ["m060", "d-12", "rules-mirror", "selfdef-mirror",
                        "summaries", "operator-§1g"],
     },
+    {
+        "name": "selfdef-tui-mirror-snapshot",
+        "summary": "MS007 typed-mirror crate selfdef-tui-mirror — canonical 4-panel TUI layout (MS043 R10141 / F05081 / R10298 verbatim 'A dashboard should not show vanity graphs'). Returns the fixed rules/grants/quarantine/authority panels in TL/TR/BL/BR quadrants with their columns + keybindings + refresh cadences, READ-ONLY. No panel keybinding is mutating (R10212) — all panel verbs are clipboard-copy of selfdefctl + MS003. Adding panels is forbidden by doctrine.",
+        "argv": ["sovereign-osctl", "tui-mirror", "snapshot", "--json"],
+        "categories": ["m060", "ms007", "tui-mirror", "selfdef-mirror",
+                       "tui-layout", "operator-§1g"],
+    },
+    {
+        "name": "selfdef-tui-mirror-panels",
+        "summary": "MS007 selfdef TUI panel descriptors ONLY (no global keys, no doctrine wrap). Bare list of the 4 canonical panels each with its source_mirror + columns + key_bindings + min_authority + refresh_ms. For MCP clients building completion / quick-help / panel-inspector UIs without the full snapshot envelope. Read-only mirror of selfdef-tui-mirror::canonical_snapshot().panels.",
+        "argv": ["sovereign-osctl", "tui-mirror", "panels", "--json"],
+        "categories": ["m060", "ms007", "tui-mirror", "selfdef-mirror",
+                       "tui-layout", "panels", "operator-§1g"],
+    },
 ]
 
 

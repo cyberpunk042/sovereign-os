@@ -48,7 +48,7 @@ def _tools_by_name(manifest: dict) -> dict:
 
 
 # 8 mirror domains (one tool per snapshot verb) + 1 D-16 integrity tool
-# + 1 D-12 summaries tool.
+# + 1 D-12 summaries tool + 2 MS007 TUI-mirror tools (snapshot + panels).
 REQUIRED_TOOLS = {
     "selfdef-profile-mirror-show",
     "selfdef-rules-mirror-snapshot",
@@ -60,6 +60,8 @@ REQUIRED_TOOLS = {
     "selfdef-audit-mirror-integrity",
     "selfdef-quarantine-mirror-snapshot",
     "selfdef-trust-mirror-snapshot",
+    "selfdef-tui-mirror-snapshot",
+    "selfdef-tui-mirror-panels",
 }
 
 # Each tool delegates to a specific sovereign-osctl mirror-slug + verb.
@@ -84,6 +86,10 @@ EXPECTED_ARGV = {
         ["sovereign-osctl", "quarantine-mirror", "snapshot", "--json"],
     "selfdef-trust-mirror-snapshot":
         ["sovereign-osctl", "trust-mirror", "snapshot", "--json"],
+    "selfdef-tui-mirror-snapshot":
+        ["sovereign-osctl", "tui-mirror", "snapshot", "--json"],
+    "selfdef-tui-mirror-panels":
+        ["sovereign-osctl", "tui-mirror", "panels", "--json"],
 }
 
 
@@ -100,8 +106,9 @@ def test_mcp_surface_lists_all_eight_m060_mirror_tools():
 
 def test_mcp_m060_mirror_tools_have_required_categories():
     """Each M060 mirror MCP tool MUST carry the 'operator-§1g' + 'm060' +
-    'selfdef-mirror' + per-dashboard 'd-NN' category tags so MCP clients
-    can filter on the M060 cross-repo cockpit surfaces."""
+    'selfdef-mirror' tags. The 8 D-NN-tied mirrors additionally carry a
+    'd-NN' per-dashboard tag; cross-cutting MS007 mirrors (tui-layout,
+    cli-mirror) carry an 'ms007' tag instead."""
     tools = _tools_by_name(_manifest())
     for name in REQUIRED_TOOLS:
         cats = tools[name].get("categories", [])
@@ -114,10 +121,12 @@ def test_mcp_m060_mirror_tools_have_required_categories():
         assert "selfdef-mirror" in cats, (
             f"MCP tool {name!r} missing 'selfdef-mirror' category"
         )
-        # per-dashboard d-NN tag
         d_tags = [c for c in cats if c.startswith("d-")]
-        assert d_tags, (
-            f"MCP tool {name!r} missing 'd-NN' dashboard tag: {cats}"
+        if d_tags:
+            continue  # D-NN-tied mirror (D-02/12/13/14/15/16/17/18)
+        # Cross-cutting MS007 mirrors must carry the 'ms007' tag.
+        assert "ms007" in cats, (
+            f"MCP tool {name!r} missing both 'd-NN' and 'ms007' tag: {cats}"
         )
 
 
@@ -193,11 +202,20 @@ def test_mcp_m060_mirror_tools_have_descriptive_summaries():
             f"MCP tool {name!r} summary too short ({len(summary)} "
             f"chars); operator-§1g rule: descriptive, not minimized"
         )
-        # Every M060 mirror tool should reference its D-NN id
-        assert "D-" in summary, (
-            f"MCP tool {name!r} summary must reference its D-NN id: "
-            f"{summary!r}"
-        )
+        # Every D-NN-tied M060 mirror tool should reference its D-NN id;
+        # cross-cutting MS007 mirrors are exempt (the tui-layout schema
+        # spans all 4 panels and isn't tied to a single dashboard slot).
+        cats = tools[name].get("categories", [])
+        if not any(c.startswith("d-") for c in cats):
+            assert "ms007" in cats, (
+                f"MCP tool {name!r} lacks D-NN reference but also "
+                f"missing 'ms007' tag: {cats}"
+            )
+        else:
+            assert "D-" in summary, (
+                f"MCP tool {name!r} summary must reference its D-NN id: "
+                f"{summary!r}"
+            )
         # Every tool should reference the selfdef MS-rooted milestone
         # that backs it (MS016 / MS032 / MS035 / MS036 / MS037 / MS039 /
         # MS040 / MS042 / MS049 / etc.)
