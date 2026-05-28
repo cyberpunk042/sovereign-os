@@ -232,6 +232,91 @@
     else init();
   })();
 </script>
+<!-- M060 F05100 + WCAG 2.1 AA accessibility snippet — see webapp/_shared/a11y-snippet.html for full doc -->
+<style>
+  /* WCAG 2.1 AA — focus-visible ring on every interactive element. */
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  details:focus-visible,
+  summary:focus-visible,
+  [role="button"]:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid var(--accent, #9bd1ff);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+
+  /* The palette input had `outline: none` for design reasons; the
+     visible focus ring above resupplies the a11y requirement. */
+  .so-palette-input:focus-visible {
+    outline: 2px solid var(--accent, #9bd1ff);
+    outline-offset: -2px;
+  }
+
+  /* Skip-to-content — visually hidden until keyboard-focused,
+     then becomes a high-contrast badge in the top-left corner. */
+  .so-skip-link {
+    position: absolute;
+    left: -10000px;
+    top: auto;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    z-index: 10000;
+  }
+  .so-skip-link:focus {
+    left: 0.5rem;
+    top: 0.5rem;
+    width: auto;
+    height: auto;
+    padding: 0.5rem 1rem;
+    background: var(--accent, #9bd1ff);
+    color: var(--bg, #0e0e0e);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-weight: 600;
+    text-decoration: none;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Respect operator's prefers-reduced-motion preference. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+</style>
+<script>
+  (function(){
+    // Inject the skip-to-content link as the first child of <body>
+    // so screen readers + tabbing users land on it first. Targets
+    // <main> if present, else falls back to <h1>.
+    function init() {
+      if (document.querySelector('.so-skip-link')) return;
+      var a = document.createElement('a');
+      a.className = 'so-skip-link';
+      a.href = '#so-skip-target';
+      a.textContent = 'skip to content';
+      document.body.insertBefore(a, document.body.firstChild);
+      // Add an id to the first <main>/<h1> so the anchor resolves.
+      var tgt = document.querySelector('main') || document.querySelector('h1');
+      if (tgt && !tgt.id) tgt.id = 'so-skip-target';
+      else if (tgt && tgt.id !== 'so-skip-target') {
+        // Existing id — point the link to it instead.
+        a.href = '#' + tgt.id;
+      }
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+    else init();
+  })();
+</script>
+
 <style>
   :root {
     --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
