@@ -183,6 +183,20 @@ ADOPTED_DASHBOARDS = [
     # serve the D-12 networking cockpit per M060 R10112-R10113):
     "network-edge",
     "edge-firewall",
+    # Orthogonal cockpit webapps (not part of D-NN catalog but
+    # operator-facing — completes the 100% rollout):
+    "auditor",
+    "ux-design-audit",
+    "anti-minimization-audit",
+    "compliance",
+    "global-history",
+    "surface-map",
+    "router",
+    "doc-coverage",
+    "weaver",
+    "trinity",
+    "auth-tier",
+    "d-12-networking",
 ]
 
 

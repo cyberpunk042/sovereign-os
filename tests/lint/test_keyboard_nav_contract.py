@@ -56,6 +56,19 @@ ADOPTED_NAV_DASHBOARDS = [
     "network-edge",
     "edge-firewall",
     "personalization",
+    # Orthogonal cockpit webapps (completes 100% rollout):
+    "auditor",
+    "ux-design-audit",
+    "anti-minimization-audit",
+    "compliance",
+    "global-history",
+    "surface-map",
+    "router",
+    "doc-coverage",
+    "weaver",
+    "trinity",
+    "auth-tier",
+    "d-12-networking",
 ]
 
 # Catalog-mandated Cmd-N → D-NN mapping.
