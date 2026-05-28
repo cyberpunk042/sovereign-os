@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """M060 cross-repo mirror chain smoke check — operator-runnable, read-only.
 
-Pings each of the 8 M060 mirror domains' /api/d-NN/snapshot endpoints
+Pings each of the 10 M060 mirror domains' snapshot endpoints (the 8 D-NN
+dashboards + the 2 cross-cutting MS007 mirrors TUI-layout / CLI-schema)
 through the sovereign-os api proxy and reports per-domain status:
 
     domain                 status   detail
@@ -16,13 +17,13 @@ through the sovereign-os api proxy and reports per-domain status:
     D-18 trust-scores      OFFLINE  no resident store — daemon-populated by scoring
 
 Exit code:
-    0  if all 8 endpoints reachable (any/all may legitimately be offline)
+    0  if all 10 endpoints reachable (any/all may legitimately be offline)
     1  if ≥1 endpoint is unreachable (proxy down / api daemon not running)
 
-Use --strict to require all 8 mirror_status == "online" (exit 1 otherwise).
+Use --strict to require all 10 mirror_status == "online" (exit 1 otherwise).
 
   --base-url  base URL (default http://localhost; honors $SOVEREIGN_OS_BASE_URL)
-  --strict    require online for all 8 (else any online/offline ok if reachable)
+  --strict    require online for all 10 (else any online/offline ok if reachable)
   --json      machine-readable JSON output instead of the table
 
 Sovereignty: stdlib-only (no requests/httpx dep). Read-only — never mutates
@@ -47,7 +48,14 @@ DOMAINS = [
     ("D-16", "audit-chain",       "/api/d-16/snapshot"),
     ("D-17", "quarantine",        "/api/d-17/snapshot"),
     ("D-18", "trust-scores",      "/api/d-18/snapshot"),
+    # MS007 cross-cutting mirrors (not tied to a single D-NN slot).
+    ("TUI",  "tui-layout",        "/api/tui/snapshot"),
+    ("CLI",  "cli-schema",        "/api/cli/snapshot"),
 ]
+
+# Chain-health endpoint covers the whole 10-mirror set; probed
+# separately so a partial-population state surfaces in the smoke output.
+HEALTH_ENDPOINT = "/api/m060/health"
 
 # Per-domain offline-hint pointing at the selfdef knob/verb that populates it.
 OFFLINE_HINT = {
@@ -59,6 +67,8 @@ OFFLINE_HINT = {
     "D-16": "chain empty — daemon-built append-only by MS016 (no operator append surface)",
     "D-17": "no resident store — daemon-populated by MS042 detection",
     "D-18": "no resident store — daemon-populated by scoring (or admit via selfdefctl trust-scores admit)",
+    "TUI":  "always-online once selfdefd is running (canonical static layout, R10141)",
+    "CLI":  "selfdefctl not on PATH on the daemon host (shell-out fails); install selfdefctl alongside selfdefd",
 }
 
 
@@ -121,6 +131,12 @@ def summarize(dom_id: str, label: str, probe_result: dict) -> str:
     if dom_id == "D-18":
         n = len(raw.get("tools", []))
         return f"ONLINE       {n} scored tools · captured {captured}"
+    if dom_id == "TUI":
+        n = len(raw.get("panels", []))
+        return f"ONLINE       {n} panels (canonical 4 expected) · captured {captured}"
+    if dom_id == "CLI":
+        n = len(raw.get("subcommands", []))
+        return f"ONLINE       {n} subcommands · captured {captured}"
     return f"ONLINE       captured {captured}"
 
 
@@ -133,7 +149,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument(
         "--strict", action="store_true",
-        help="require mirror_status=online for all 8 (exit 1 otherwise)",
+        help="require mirror_status=online for all 10 (exit 1 otherwise)",
     )
     p.add_argument("--json", action="store_true", help="machine-readable JSON output")
     args = p.parse_args(argv)
@@ -148,6 +164,23 @@ def main(argv: list[str] | None = None) -> int:
             "summary": summarize(dom_id, label, pr),
         })
 
+    # Daemon-side chain-health probe (separate from per-domain mirrors;
+    # exposes the publish-freshness state which the per-domain probes
+    # cannot detect — e.g. all artifacts present but all > 5 min stale).
+    health_pr = probe(args.base_url, HEALTH_ENDPOINT)
+    chain_state = "unreachable"
+    chain_summary = None
+    if health_pr["reachable"]:
+        raw = health_pr["raw"]
+        chain_state = str(raw.get("state") or "unknown")
+        present = raw.get("artifacts_present", 0)
+        expected = raw.get("artifacts_expected", 10)
+        age = raw.get("newest_age_seconds")
+        chain_summary = (
+            f"{chain_state.upper()}  {present}/{expected} mirrors · "
+            f"newest age {age if age is not None else '—'}s"
+        )
+
     unreachable = [r for r in results if not r["reachable"]]
     offline = [r for r in results if r["reachable"] and r["mirror_status"] != "online"]
     online = [r for r in results if r["mirror_status"] == "online"]
@@ -156,6 +189,12 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({
             "base_url": args.base_url,
             "results": results,
+            "chain_health": {
+                "endpoint":     HEALTH_ENDPOINT,
+                "reachable":    health_pr["reachable"],
+                "state":        chain_state,
+                "raw":          health_pr.get("raw") if health_pr["reachable"] else None,
+            },
             "totals": {
                 "online": len(online),
                 "offline": len(offline),
@@ -171,16 +210,25 @@ def main(argv: list[str] | None = None) -> int:
             label = f"{r['id']} {r['label']}"
             print(f"{label:<22} {r['summary']}")
         print(f"{'─' * 22} {'─' * 60}")
+        if chain_summary is not None:
+            print(f"{'chain health':<22} {chain_summary}")
+        else:
+            print(f"{'chain health':<22} UNREACHABLE  {HEALTH_ENDPOINT} not served (m060-health-api daemon down?)")
+        print(f"{'─' * 22} {'─' * 60}")
         print(
             f"summary: {len(online)} online · {len(offline)} offline · "
-            f"{len(unreachable)} unreachable / {len(results)} total"
+            f"{len(unreachable)} unreachable / {len(results)} total · "
+            f"chain={chain_state}"
         )
 
     # Exit logic:
     # - unreachable (any) → 1 (the proxy / api daemon is down)
-    # - --strict + any offline → 1
+    # - chain state == unreachable/offline/stale under --strict → 1
+    # - --strict + any per-domain offline → 1
     # - else → 0 (every endpoint at least responded)
     if unreachable:
+        return 1
+    if args.strict and chain_state in ("unreachable", "offline", "stale"):
         return 1
     if args.strict and offline:
         return 1
