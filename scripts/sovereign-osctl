@@ -952,6 +952,30 @@ ENV VARS (override defaults):
   SOVEREIGN_OS_LOG_LEVEL       debug|info|warn|error
   SOVEREIGN_OS_NONINTERACTIVE  set to skip all prompts (CI mode)
 
+  M060 cross-repo mirror chain (selfdef → sovereign-os bridge, read-only):
+    m060-doctor [--strict] [--json]     Smoke-check the chain (10 mirror
+                                        endpoints + chain-health). Strict
+                                        mode requires every mirror online.
+    m060-health probe|state [--json]    Daemon-side per-artifact health.
+                                        `state` returns just the verdict.
+    profile-mirror show [--json]        D-02 active-profile mirror
+    rules-mirror snapshot|summaries [--json]
+                                        D-12 nftables rules mirror
+    grants-mirror snapshot [--json]     D-13 filesystem grants mirror
+    capability-mirror snapshot [--json] D-14 capability-tokens mirror
+    sandbox-mirror snapshot [--json]    D-15 sandbox-allocations mirror
+    audit-mirror snapshot|integrity|trace <id> [--json]
+                                        D-16 audit-chain mirror; `trace`
+                                        looks up ONE span by trace_id with
+                                        chain walkers (M013 E0112).
+    quarantine-mirror snapshot [--json] D-17 quarantine mirror
+    trust-mirror snapshot [--json]      D-18 trust-scores mirror
+    tui-mirror snapshot|panels [--json] MS007 canonical TUI layout
+    cli-mirror snapshot|summaries|mutating [--json]
+                                        MS007 selfdefctl clap-tree
+                                        projection; `mutating` lists
+                                        signature-required verbs.
+
 EXAMPLES:
   sudo sovereign-osctl status
   sudo sovereign-osctl assistant
@@ -961,6 +985,9 @@ EXAMPLES:
   sudo sovereign-osctl architecture-qa concepts --human
   sudo sovereign-osctl coverage audit --human
   sudo sovereign-osctl quarterly-review snapshot --human
+  sudo sovereign-osctl m060-doctor --json | jq .summary
+  sudo sovereign-osctl audit-mirror trace abc123              # M013 E0112
+  sudo sovereign-osctl m060-health state                      # chain verdict
 EOF
 }
 
