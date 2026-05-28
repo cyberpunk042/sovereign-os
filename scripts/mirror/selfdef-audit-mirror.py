@@ -160,6 +160,55 @@ def snapshot() -> dict[str, Any]:
     }
 
 
+def trace(trace_id: str) -> dict[str, Any]:
+    """Return a single audit span by trace_id, or a not-found envelope.
+
+    M013 E0112 — "tracing is crucial. trace_id / span_id / branch_id /
+    commit_id". During incident response operators need to inspect ONE
+    trace without grepping through the full snapshot — this is the
+    surface that delivers it.
+
+    The returned envelope carries the span if found, plus the
+    `prev_chain_hash` of the previous span and the `chain_hash` of the
+    next span — so an operator inspecting one trace can walk the chain
+    backward + forward without re-reading the snapshot.
+    """
+    snap = snapshot()
+    spans = snap.get("spans") or []
+    idx = None
+    for i, s in enumerate(spans):
+        if s.get("trace_id") == trace_id:
+            idx = i
+            break
+    if idx is None:
+        return {
+            "schema_version": SCHEMA_VERSION,
+            "trace_id": trace_id,
+            "found": False,
+            "mirror_status": snap.get("mirror_status"),
+            "_hint": (
+                f"trace_id `{trace_id}` not in the bounded tail (most recent "
+                f"{len(spans)} spans). The full historic chain lives in the "
+                f"daemon's append-only audit log; query with "
+                f"`selfdefctl audit show --trace-id {trace_id}` on the IPS host."
+            ),
+        }
+    span = spans[idx]
+    prev = spans[idx - 1] if idx > 0 else None
+    nxt = spans[idx + 1] if idx + 1 < len(spans) else None
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "trace_id": trace_id,
+        "found": True,
+        "mirror_status": snap.get("mirror_status"),
+        "span": span,
+        # Chain walkers — operator can `... trace <prev_trace_id>` /
+        # `... trace <next_trace_id>` to walk the audit chain.
+        "prev_trace_id": prev.get("trace_id") if prev else None,
+        "next_trace_id": nxt.get("trace_id") if nxt else None,
+    }
+
+
 def _print(obj: Any) -> None:
     print(json.dumps(obj, indent=2))
 
@@ -170,10 +219,22 @@ def main(argv: list[str] | None = None) -> int:
     for name in ("snapshot", "integrity"):
         sp = sub.add_parser(name)
         sp.add_argument("--json", action="store_true")
+    # M013 E0112: trace-id lookup. Distinct subparser because it takes
+    # a positional argument the others don't.
+    sp_trace = sub.add_parser("trace", help="lookup ONE span by trace_id (M013 E0112)")
+    sp_trace.add_argument("trace_id", help="trace_id to lookup (matches against MS049 span.trace_id field)")
+    sp_trace.add_argument("--json", action="store_true")
     args = p.parse_args(argv)
     cmd = args.cmd or "snapshot"
     if cmd == "integrity":
         _print(snapshot()["integrity"])
+    elif cmd == "trace":
+        result = trace(args.trace_id)
+        _print(result)
+        # Exit 1 if not found so scripts (e.g., m060-doctor follow-up
+        # tooling) can branch on "is this trace_id in the published
+        # tail?" without parsing JSON.
+        return 0 if result["found"] else 1
     else:
         _print(snapshot())
     return 0
