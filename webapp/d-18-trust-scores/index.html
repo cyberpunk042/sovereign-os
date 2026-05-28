@@ -73,6 +73,32 @@
 <h1>D-18 — trust scores <span class="badge-mirror" style="font-size:.7rem">read-only via selfdef-trust-score-mirror</span></h1>
 <div class="sub">per-tool trust score history · 0..1000 fixed-point · 4-band classification · MS042 telemetry input · MS040 profile evaluation — <a href="../master-dashboard/">D-00 main</a></div>
 
+<!-- M060 mirror-status banner -->
+<div id="mirror-status-banner" class="mirror-banner offline" role="status" aria-live="polite">
+  <span class="dot"></span>
+  <strong id="mirror-state-label">mirror: offline</strong>
+  <span id="mirror-state-detail" class="muted">
+    no <code>trust-scores.json</code> published yet — enable
+    <code>[deployment].selfdef_mirror_dir</code> in <code>selfdef.toml</code>
+    (deltas daemon-populated by scoring; operator admit/adjust via
+    <code>selfdefctl trust-scores admit|operator-delta</code>)
+  </span>
+  <span class="spacer"></span>
+  <span class="muted" id="mirror-last-update">last update: —</span>
+  <span class="muted">· schema <code id="mirror-schema-version">1.0.0</code></span>
+</div>
+<style>
+  .mirror-banner { display:flex; align-items:center; gap:.6rem; padding:.55rem .85rem;
+    border:1px solid var(--border, #2a2a2a); border-radius:.4rem; margin:.55rem 0 1rem;
+    font-size:.85rem; background:rgba(255,255,255,.02); }
+  .mirror-banner.online  { border-color:#1f7a3a; background:rgba(31,122,58,.10); }
+  .mirror-banner.offline { border-color:#7a3a1f; background:rgba(122,58,31,.10); }
+  .mirror-banner .dot { width:.55rem; height:.55rem; border-radius:50%;
+    background:#7a3a1f; box-shadow:0 0 .35rem rgba(122,58,31,.5); }
+  .mirror-banner.online .dot { background:#1f7a3a; box-shadow:0 0 .35rem rgba(31,122,58,.7); }
+  .mirror-banner .spacer { flex:1; }
+</style>
+
 <h2>4-band classification</h2>
 <div class="row">
   <div class="band-card trusted">
@@ -160,11 +186,33 @@
   // from this surface — R10212 (score reset is selfdefctl + MS003 on the IPS).
   let seed = { schema_version: "1.0.0", mirror_status: "offline", captured_at: null, summaries: [], tools: [] };
 
+  function renderMirrorBanner() {
+    const b = document.getElementById('mirror-status-banner'); if (!b) return;
+    const label = document.getElementById('mirror-state-label');
+    const detail = document.getElementById('mirror-state-detail');
+    const last = document.getElementById('mirror-last-update');
+    const sch = document.getElementById('mirror-schema-version');
+    const online = seed.mirror_status === 'online';
+    b.classList.toggle('online', online); b.classList.toggle('offline', !online);
+    if (online) { label.textContent = 'mirror: online';
+      detail.innerHTML = 'consuming <code>selfdef-trust-score-mirror</code> via <code>selfdefd</code> export'; }
+    else { label.textContent = 'mirror: offline';
+      detail.innerHTML = 'no <code>trust-scores.json</code> published yet — enable ' +
+        '<code>[deployment].selfdef_mirror_dir</code> in <code>selfdef.toml</code> ' +
+        '(deltas daemon-populated by scoring; operator admit/adjust via ' +
+        '<code>selfdefctl trust-scores admit|operator-delta</code>)'; }
+    last.textContent = seed.captured_at
+      ? 'last update: ' + new Date(seed.captured_at).toLocaleString()
+      : 'last update: never';
+    if (seed.schema_version) sch.textContent = seed.schema_version;
+  }
+
   async function load() {
     try {
       const r = await fetch('/api/d-18/snapshot', { credentials: 'same-origin' });
       if (r.ok) seed = Object.assign(seed, await r.json());
     } catch (e) { /* mirror offline — keep empty-safe defaults */ }
+    renderMirrorBanner();
     renderTiles();
     renderTools();
   }
