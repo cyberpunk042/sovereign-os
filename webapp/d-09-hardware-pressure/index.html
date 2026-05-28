@@ -67,6 +67,27 @@
 <h1>D-09 — hardware pressure</h1>
 <div class="sub">Linux PSI + NVIDIA DCGM + ZFS IOPS + Dual-CCD utilization — <span class="kbd">Cmd-0</span> · <a href="../master-dashboard/">D-00 main</a></div>
 
+<!-- Data-source status banner — visible operator signal that the dashboard's API daemon is reachable. -->
+<div id="datasource-banner" class="ds-banner unknown" role="status" aria-live="polite">
+  <span class="dot"></span>
+  <strong id="ds-state-label">data source: ?</strong>
+  <span id="ds-state-detail" class="muted">checking <code>/api/hardware/pressure</code>…</span>
+  <span class="spacer"></span>
+  <span class="muted" id="ds-last-update">last fetch: —</span>
+</div>
+<style>
+  .ds-banner { display:flex; align-items:center; gap:.6rem; padding:.55rem .85rem;
+    border:1px solid var(--border, #2a2a2a); border-radius:.4rem; margin:.55rem 0 1rem;
+    font-size:.85rem; background:rgba(255,255,255,.02); }
+  .ds-banner.online    { border-color:#1f7a3a; background:rgba(31,122,58,.10); }
+  .ds-banner.offline   { border-color:#7a3a1f; background:rgba(122,58,31,.10); }
+  .ds-banner.unknown   { border-color:#7a701f; background:rgba(122,112,31,.10); }
+  .ds-banner .dot { width:.55rem; height:.55rem; border-radius:50%; background:#7a701f; }
+  .ds-banner.online  .dot { background:#1f7a3a; box-shadow:0 0 .35rem rgba(31,122,58,.7); }
+  .ds-banner.offline .dot { background:#7a3a1f; }
+  .ds-banner .spacer { flex:1; }
+</style>
+
 <h2>Linux PSI (M045 cgroup v2)</h2>
 <div class="panel">
   <div class="grid-3">
@@ -260,12 +281,30 @@ function setRule(id, state) {
   if (row) row.classList.toggle('active', state !== 'idle');
 }
 
+function renderDataSourceBanner(ok, errMsg) {
+  const b = document.getElementById('datasource-banner'); if (!b) return;
+  const label = document.getElementById('ds-state-label');
+  const detail = document.getElementById('ds-state-detail');
+  const last = document.getElementById('ds-last-update');
+  b.classList.remove('online','offline','unknown');
+  b.classList.add(ok ? 'online' : 'offline');
+  label.textContent = ok ? 'data source: online' : 'data source: unreachable';
+  detail.innerHTML = ok
+    ? 'consuming <code>/api/hardware/pressure</code> from the hardware-pressure API daemon'
+    : 'cannot reach <code>/api/hardware/pressure</code> — is the hardware-pressure API daemon running? ' +
+      (errMsg ? '<span class="muted">(' + errMsg + ')</span>' : '');
+  last.textContent = 'last fetch: ' + new Date().toLocaleTimeString();
+}
+
 async function fetchPressure() {
   try {
     const res = await fetch('/api/hardware/pressure', {credentials:'same-origin'});
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
+    const data = await res.json();
+    renderDataSourceBanner(true);
+    return data;
   } catch (e) {
+    renderDataSourceBanner(false, e.message);
     return {psi:{}, ccd:{0:{cores:{},l3_miss:null},1:{cores:{},l3_miss:null,infinity_fabric_ns:null}}, gpu:{}, zfs:{datasets:[]}, backpressure:{}, error:e.message};
   }
 }
