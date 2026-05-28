@@ -62,6 +62,33 @@
 <h1>D-13 — filesystem grants <span class="badge-mirror" style="font-size:.7rem">read-only via selfdef-grants-mirror</span></h1>
 <div class="sub">selfdef MS037 fanotify grants · MS038 network grants · MS035 capability grants · MS007 typed-mirror (R10115 never mutates) — <a href="../master-dashboard/">D-00 main</a></div>
 
+<!-- M060 mirror-status banner: visible operator signal that the producer chain is alive.
+     OFFLINE = no /run/sovereign-os/selfdef-mirror/grants.json yet; operator must enable
+     [deployment].selfdef_mirror_dir in selfdef.toml + populate via selfdefctl grants issue. -->
+<div id="mirror-status-banner" class="mirror-banner offline" role="status" aria-live="polite">
+  <span class="dot"></span>
+  <strong id="mirror-state-label">mirror: offline</strong>
+  <span id="mirror-state-detail" class="muted">
+    no <code>grants.json</code> published yet —
+    enable <code>[deployment].selfdef_mirror_dir</code> in <code>selfdef.toml</code>
+    and populate via <code>selfdefctl grants issue</code>
+  </span>
+  <span class="spacer"></span>
+  <span class="muted" id="mirror-last-update" title="ISO captured_at from the producer's snapshot">last update: —</span>
+  <span class="muted">· schema <code id="mirror-schema-version">1.0.0</code></span>
+</div>
+<style>
+  .mirror-banner { display:flex; align-items:center; gap:.6rem; padding:.55rem .85rem;
+    border:1px solid var(--border, #2a2a2a); border-radius:.4rem; margin:.55rem 0 1rem;
+    font-size:.85rem; background:rgba(255,255,255,.02); }
+  .mirror-banner.online  { border-color:#1f7a3a; background:rgba(31,122,58,.10); }
+  .mirror-banner.offline { border-color:#7a3a1f; background:rgba(122,58,31,.10); }
+  .mirror-banner .dot { width:.55rem; height:.55rem; border-radius:50%;
+    background:#7a3a1f; box-shadow:0 0 .35rem rgba(122,58,31,.5); }
+  .mirror-banner.online .dot { background:#1f7a3a; box-shadow:0 0 .35rem rgba(31,122,58,.7); }
+  .mirror-banner .spacer { flex:1; }
+</style>
+
 <h2>kind summary (MS007 mirror snapshot)</h2>
 <div class="row">
   <div class="stat"><div class="k">filesystem grants</div><div class="v ok" id="k-filesystem">0</div><div class="u" id="ka-filesystem">— active</div></div>
@@ -158,9 +185,40 @@
       const r = await fetch('/api/d-13/snapshot', { credentials: 'same-origin' });
       if (r.ok) seed = Object.assign(seed, await r.json());
     } catch (e) { /* mirror offline — keep empty-safe defaults */ }
+    renderMirrorBanner();
     renderSummaries();
     renderGrants();
     renderPending();
+  }
+
+  // Visible operator signal: green when the selfdef producer is publishing,
+  // red with actionable hint when no resident store / publisher yet.
+  function renderMirrorBanner() {
+    const banner = document.getElementById('mirror-status-banner');
+    const label = document.getElementById('mirror-state-label');
+    const detail = document.getElementById('mirror-state-detail');
+    const lastUpd = document.getElementById('mirror-last-update');
+    const schemaEl = document.getElementById('mirror-schema-version');
+    if (!banner) return;
+    const online = seed.mirror_status === 'online';
+    banner.classList.toggle('online', online);
+    banner.classList.toggle('offline', !online);
+    if (online) {
+      label.textContent = 'mirror: online';
+      detail.innerHTML = 'consuming <code>selfdef-grants-mirror</code> via <code>selfdefd</code> export';
+    } else {
+      label.textContent = 'mirror: offline';
+      detail.innerHTML = 'no <code>grants.json</code> published yet — enable ' +
+        '<code>[deployment].selfdef_mirror_dir</code> in <code>selfdef.toml</code> ' +
+        'and populate via <code>selfdefctl grants issue</code>';
+    }
+    if (seed.captured_at) {
+      lastUpd.textContent = 'last update: ' + new Date(seed.captured_at).toLocaleString();
+      lastUpd.title = seed.captured_at;
+    } else {
+      lastUpd.textContent = 'last update: never';
+    }
+    if (seed.schema_version) schemaEl.textContent = seed.schema_version;
   }
 
   // helpers
