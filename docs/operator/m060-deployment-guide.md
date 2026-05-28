@@ -203,16 +203,174 @@ for each toggleable dashboard, with per-row `copy: disable` / `copy:
 enable` buttons that copy the right `sovereign-osctl dashboards
 {enable|disable} <slug>` command to your clipboard.
 
+## Step 6 — enable chain-health observability
+
+Once the chain is publishing, deploy the chain-health proxy + alert
+rules so a paged operator sees outages in real time rather than
+discovering them next time they open the dashboard.
+
+```bash
+# 1. Install the chain-health api daemon unit
+sudo cp systemd/system/sovereign-m060-health-api.service \
+    /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now sovereign-m060-health-api
+
+# 2. Deploy the Prometheus alert rules
+sudo install -m 0644 \
+    config/prometheus/alerts/m060-chain-health.rules.yml \
+    /etc/prometheus/alerts/
+# Add to /etc/prometheus/prometheus.yml under rule_files:
+#   - /etc/prometheus/alerts/m060-chain-health.rules.yml
+sudo systemctl reload prometheus
+```
+
+Once both are up:
+
+```bash
+# Verify the chain-health proxy is serving
+curl -s http://127.0.0.1:8160/api/m060/health | jq .state
+
+# Verify Prometheus picked up the rules
+curl -s http://127.0.0.1:9090/api/v1/rules \
+  | jq '.data.groups[] | select(.name == "m060-chain-health")'
+
+# Verify the textfile metric is exporting
+cat /var/lib/node_exporter/textfile_collector/sovereign-os-m060-health-api.prom
+```
+
 ## Troubleshooting
 
 | symptom | cause | fix |
 |---|---|---|
-| All 8 mirrors stay red | `selfdef_mirror_dir` not set or daemon not running | check `journalctl -u selfdefd` for the "M060: mirror export enabled" line |
+| All 10 mirrors stay red | `selfdef_mirror_dir` not set or daemon not running | check `journalctl -u selfdefd` for the "M060: mirror export enabled" line |
 | D-16 stays red while D-13/14/15 are green | audit chain has zero entries (no decisions/events yet) — honest offline | run `selfdefctl audit verify --tail 256`; the chain populates as the daemon decides/observes |
 | D-02 only stays red | flex-profile path mismatch | check `selfdef_flex_profile::DEFAULT_STATE_PATH` (`/var/lib/selfdef/flex-profile.json`) |
 | D-13/D-14/D-15 stay red after `selfdefctl issue` | API daemon not running, or `SELFDEF_<DOMAIN>_PATH` mismatch between writer (API) + reader (export) | check both honor the same path |
 | Mirror flips green then back to red | export loop crashed | check `journalctl -u selfdefd` for "mirror export: ... write failed" |
 | Dashboard shows `mirror_status=online` but old data | snapshot stale | the export refreshes every 30s; check `captured_at` timestamp in the banner |
+| TUI mirror always red on a host where 8/10 others are green | unreachable means the daemon is up but `selfdef-tui-mirror::canonical_snapshot` failed at startup — extremely unlikely; check `journalctl -u selfdefd | grep tui` | restart selfdefd, then file an issue with the journal output |
+| CLI mirror red but others green | `selfdefctl` not on the daemon's PATH (the daemon shells out to it once at startup to introspect the clap tree) | install selfdefctl on the same host as selfdefd, then `systemctl restart selfdefd` to reprime the cache |
+| chain-health banner says `unreachable` | sovereign-m060-health-api can't reach selfdefd | check `systemctl status sovereign-m060-health-api` and `journalctl -u sovereign-m060-health-api`; if the UNIX socket is set but missing, verify selfdefd is running |
+
+### Alert runbook
+
+The 5 Prometheus alerts in `config/prometheus/alerts/m060-chain-health.rules.yml`
+each correspond to one chain-state failure mode. When a page fires, walk these
+in order.
+
+#### M060ChainOffline (critical)
+
+**Meaning:** `/v1/m060/health` reported `state=offline` — zero mirror
+artifacts present in `/run/sovereign-os/selfdef-mirror/`.
+
+**Diagnosis:**
+
+```bash
+# 1. Is selfdefd running?
+systemctl status selfdefd
+# 2. Is the export configured?
+grep '^selfdef_mirror_dir' /etc/selfdef/selfdef.toml
+# 3. Did the export loop announce itself?
+journalctl -u selfdefd --since "10 min ago" | grep "M060: mirror export"
+# 4. Does the publish dir even exist + is it writable by selfdefd's uid?
+sudo -u selfdef ls -la /run/sovereign-os/selfdef-mirror/
+```
+
+**Fix:** set `selfdef_mirror_dir` in `/etc/selfdef/selfdef.toml`,
+`systemctl restart selfdefd`, wait 30s.
+
+#### M060ChainUnreachable (critical)
+
+**Meaning:** sovereign-m060-health-api could not reach selfdefd at
+all — UNIX socket missing AND TCP fallback unset/failed.
+
+**Diagnosis:**
+
+```bash
+# 1. Is selfdefd up?
+systemctl status selfdefd
+# 2. Does the UNIX socket exist + is it accessible from this user?
+ls -la "${SELFDEF_SOCKET:-/run/selfdef.sock}"
+# 3. If using TCP transport instead, are the env vars set in the
+#    health-api unit drop-in?
+systemctl cat sovereign-m060-health-api | grep -i 'SELFDEF_API_'
+# 4. Try the endpoint by hand
+curl -s --unix-socket /run/selfdef.sock http://localhost/v1/m060/health
+```
+
+**Fix:** restart selfdefd OR fix the SELFDEF_API_URL+SELFDEF_API_TOKEN
+drop-in OR fix socket permissions so the health-api uid can read it.
+
+#### M060ChainStale (warning)
+
+**Meaning:** every artifact is present but the newest is older than 5
+minutes. The export loop is stuck.
+
+**Diagnosis:**
+
+```bash
+# 1. Check for repeated write failures (likely cause)
+journalctl -u selfdefd --since "20 min ago" | grep "mirror export"
+# 2. Confirm the mtime drift directly
+ls -la --time=mtime /run/sovereign-os/selfdef-mirror/
+# 3. Check if the daemon itself is wedged on something else
+systemctl status selfdefd | head -8
+journalctl -u selfdefd --since "20 min ago" | grep -iE "error|panic|deadlock"
+```
+
+**Fix:** `systemctl restart selfdefd`. If it recurs, investigate the
+specific publisher reported in the journal warnings — likely a
+permission or disk-space issue on the resident-store path.
+
+#### M060ChainDegradedSustained (warning)
+
+**Meaning:** the chain has been in `degraded` for > 30 minutes —
+either some mirrors are persistently absent (operator hasn't
+onboarded them) OR at least one published artifact fails JSON-parse.
+
+**Diagnosis:**
+
+```bash
+# 1. Identify WHICH artifacts are problematic
+curl -s http://127.0.0.1:8160/api/m060/health | jq '.artifacts[] | {artifact, present, parses_as_json}'
+# 2. If any parses_as_json:false, inspect the file
+cat /run/sovereign-os/selfdef-mirror/<artifact>.json | head -20
+```
+
+**Fix paths:**
+- Missing operator-issued artifacts (grants/capability/sandboxes):
+  the operator must `selfdefctl <verb> issue` at least one item.
+- `parses_as_json: false` on a present artifact: this is a real bug.
+  `systemctl restart selfdefd` to retry the publisher; if the corrupt
+  JSON persists, file an issue against selfdef with the file contents
+  + the journal output:
+
+```bash
+journalctl -u selfdefd --since "20 min ago" | grep -i "mirror export"
+```
+
+#### M060HealthApiSilent (critical)
+
+**Meaning:** no `/api/m060/health` requests have been served in 5
+minutes. Either the chain-health-api daemon is down OR nothing is
+polling it.
+
+**Diagnosis:**
+
+```bash
+# 1. Is the daemon running?
+systemctl status sovereign-m060-health-api
+# 2. Is something polling it (master-dashboard normally hits it every 30s)?
+journalctl -u sovereign-m060-health-api --since "10 min ago" | head -10
+# 3. Try the endpoint by hand
+curl -sv http://127.0.0.1:8160/api/m060/health | head -20
+```
+
+**Fix:** `systemctl restart sovereign-m060-health-api`. If the daemon
+is healthy but no consumer is polling, that's an operator-deployment
+gap — either no dashboard is up, or the master-dashboard isn't
+configured to poll this host.
 
 ## Project-boundary discipline (MS043 R10212)
 
