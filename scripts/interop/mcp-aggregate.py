@@ -877,6 +877,20 @@ LOCAL_TOOLS = [
                        "cli-schema", "mutating-list", "operator-§1g",
                        "operator-§17"],
     },
+    {
+        "name": "selfdef-m060-health",
+        "summary": "M060 cross-repo mirror-chain health: full per-artifact probe of all 10 mirror files (active-profile + audit + capability-tokens + cli + grants + quarantine + rules + sandboxes + trust-scores + tui). For each: present + bytes + last_publish_at + age_seconds + parses_as_json. Chain-level state: online (all 10 fresh+valid) / degraded (partial OR parse-fails) / stale (newest > 5min) / offline (none present) / unreachable (daemon down). READ-ONLY observability; proxies selfdef daemon GET /v1/m060/health.",
+        "argv": ["sovereign-osctl", "m060-health", "probe", "--json"],
+        "categories": ["m060", "health", "chain-health", "selfdef-mirror",
+                       "observability", "operator-§1g"],
+    },
+    {
+        "name": "selfdef-m060-state",
+        "summary": "M060 chain-health BARE state only (online / degraded / stale / offline / unreachable) — for cheap polling by MCP clients that just need the verdict, not the per-artifact detail. Useful in agent decision loops: 'is the IPS chain healthy enough to proceed?' Read-only proxy of selfdef /v1/m060/health.state.",
+        "argv": ["sovereign-osctl", "m060-health", "state", "--json"],
+        "categories": ["m060", "health", "chain-health", "selfdef-mirror",
+                       "observability", "state", "operator-§1g"],
+    },
 ]
 
 

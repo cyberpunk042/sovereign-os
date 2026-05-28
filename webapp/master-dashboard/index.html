@@ -438,6 +438,36 @@ a11y; contract test catches drift.
 </div>
 
 <h2>M060 mirror producers (selfdef → sovereign-os bridge)</h2>
+<div id="m060-health-banner" class="m060-health-banner unknown" role="status" aria-live="polite">
+  <span class="dot"></span>
+  <strong id="m060-health-label">chain health: unknown</strong>
+  <span id="m060-health-detail" class="muted">
+    polling <code>GET /v1/m060/health</code> via the selfdef daemon…
+  </span>
+  <span class="spacer"></span>
+  <span class="muted" id="m060-health-count">— / 10 mirrors</span>
+  <span class="muted">· age <span id="m060-health-age">—</span></span>
+</div>
+<style>
+  .m060-health-banner { display:flex; align-items:center; gap:.6rem;
+    padding:.5rem .8rem; border:1px solid var(--border, #2a2a2a);
+    border-radius:.4rem; margin:.4rem 0 .8rem; font-size:.85rem;
+    background:rgba(255,255,255,.02); }
+  .m060-health-banner.online      { border-color:#1f7a3a; background:rgba(31,122,58,.10); }
+  .m060-health-banner.degraded    { border-color:#7a701f; background:rgba(122,112,31,.10); }
+  .m060-health-banner.stale       { border-color:#7a701f; background:rgba(122,112,31,.10); }
+  .m060-health-banner.offline     { border-color:#7a3a1f; background:rgba(122,58,31,.10); }
+  .m060-health-banner.unreachable { border-color:#7a3a1f; background:rgba(122,58,31,.10); }
+  .m060-health-banner.unknown     { border-color:#444; background:rgba(255,255,255,.04); }
+  .m060-health-banner .dot { width:.55rem; height:.55rem; border-radius:50%;
+    background:#888; box-shadow:0 0 .35rem rgba(255,255,255,.2); }
+  .m060-health-banner.online .dot      { background:#1f7a3a; box-shadow:0 0 .35rem rgba(31,122,58,.7); }
+  .m060-health-banner.degraded .dot    { background:#7a701f; box-shadow:0 0 .35rem rgba(122,112,31,.7); }
+  .m060-health-banner.stale .dot       { background:#7a701f; box-shadow:0 0 .35rem rgba(122,112,31,.7); }
+  .m060-health-banner.offline .dot     { background:#7a3a1f; box-shadow:0 0 .35rem rgba(122,58,31,.7); }
+  .m060-health-banner.unreachable .dot { background:#7a3a1f; box-shadow:0 0 .35rem rgba(122,58,31,.7); }
+  .m060-health-banner .spacer { flex:1; }
+</style>
 <div class="panel" id="m060-mirror-panel">
   <div class="muted" style="margin-bottom:.4rem;font-size:.85rem">
     Live producer health across the 8 cross-repo mirror dashboards.
@@ -677,9 +707,50 @@ async function fetchMirrorStatus(m) {
   }
 }
 
+// M060 chain-health banner: polls /api/m060/health proxied from
+// the selfdef daemon /v1/m060/health and renders state badge +
+// fresh-mirror count + newest-age. Refreshes alongside the M060
+// grid below.
+async function renderM060HealthBanner() {
+  const banner = el("m060-health-banner");
+  if (!banner) return;
+  let payload;
+  try {
+    const r = await fetch("/api/m060/health", {headers: {"Accept": "application/json"}});
+    payload = r.ok ? await r.json() : null;
+  } catch (e) { payload = null; }
+  if (!payload) {
+    payload = {state: "unreachable", artifacts_present: 0, artifacts_expected: 10};
+  }
+  const state = String(payload.state || "unknown");
+  const knownStates = ["online", "degraded", "stale", "offline", "unreachable", "unknown"];
+  banner.classList.remove(...knownStates);
+  banner.classList.add(knownStates.indexOf(state) >= 0 ? state : "unknown");
+  const labelEl = el("m060-health-label");
+  const detailEl = el("m060-health-detail");
+  const countEl = el("m060-health-count");
+  const ageEl = el("m060-health-age");
+  if (labelEl) labelEl.textContent = "chain health: " + state;
+  const present = Number(payload.artifacts_present || 0);
+  const expected = Number(payload.artifacts_expected || 10);
+  if (countEl) countEl.textContent = present + " / " + expected + " mirrors";
+  const age = payload.newest_age_seconds;
+  if (ageEl) ageEl.textContent = (age == null) ? "—" : (age + "s");
+  if (detailEl) {
+    if (state === "online")          detailEl.innerHTML = 'all 10 mirrors fresh + parseable';
+    else if (state === "degraded")   detailEl.innerHTML = 'partial population OR some artifacts fail JSON-parse';
+    else if (state === "stale")      detailEl.innerHTML = 'newest artifact age > 5 min (mirror-export loop stuck?)';
+    else if (state === "offline")    detailEl.innerHTML = 'no artifacts present — daemon not running OR <code>selfdef_mirror_dir</code> unset';
+    else if (state === "unreachable")detailEl.innerHTML = '<code>selfdefd</code> not reachable (UNIX socket + TCP both failed)';
+    else                             detailEl.innerHTML = 'polling <code>GET /v1/m060/health</code> via the selfdef daemon…';
+  }
+}
+
 async function renderM060Grid() {
   const grid = el("m060-mirror-grid");
   if (!grid) return;
+  // Render the chain-health banner alongside the per-mirror grid.
+  renderM060HealthBanner();
   const states = await Promise.all(M060_MIRRORS.map(fetchMirrorStatus));
   grid.innerHTML = "";
   for (const s of states) {

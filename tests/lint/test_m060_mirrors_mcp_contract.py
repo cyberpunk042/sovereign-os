@@ -65,6 +65,8 @@ REQUIRED_TOOLS = {
     "selfdef-cli-mirror-snapshot",
     "selfdef-cli-mirror-summaries",
     "selfdef-cli-mirror-mutating",
+    "selfdef-m060-health",
+    "selfdef-m060-state",
 }
 
 # Each tool delegates to a specific sovereign-osctl mirror-slug + verb.
@@ -99,6 +101,10 @@ EXPECTED_ARGV = {
         ["sovereign-osctl", "cli-mirror", "summaries", "--json"],
     "selfdef-cli-mirror-mutating":
         ["sovereign-osctl", "cli-mirror", "mutating", "--json"],
+    "selfdef-m060-health":
+        ["sovereign-osctl", "m060-health", "probe", "--json"],
+    "selfdef-m060-state":
+        ["sovereign-osctl", "m060-health", "state", "--json"],
 }
 
 
@@ -133,9 +139,11 @@ def test_mcp_m060_mirror_tools_have_required_categories():
         d_tags = [c for c in cats if c.startswith("d-")]
         if d_tags:
             continue  # D-NN-tied mirror (D-02/12/13/14/15/16/17/18)
-        # Cross-cutting MS007 mirrors must carry the 'ms007' tag.
-        assert "ms007" in cats, (
-            f"MCP tool {name!r} missing both 'd-NN' and 'ms007' tag: {cats}"
+        # Cross-cutting MS007 mirrors must carry 'ms007'; chain-health
+        # observability tools must carry 'chain-health'.
+        assert "ms007" in cats or "chain-health" in cats, (
+            f"MCP tool {name!r} missing 'd-NN' AND 'ms007' AND "
+            f"'chain-health' tag: {cats}"
         )
 
 
@@ -216,9 +224,9 @@ def test_mcp_m060_mirror_tools_have_descriptive_summaries():
         # spans all 4 panels and isn't tied to a single dashboard slot).
         cats = tools[name].get("categories", [])
         if not any(c.startswith("d-") for c in cats):
-            assert "ms007" in cats, (
+            assert "ms007" in cats or "chain-health" in cats, (
                 f"MCP tool {name!r} lacks D-NN reference but also "
-                f"missing 'ms007' tag: {cats}"
+                f"missing 'ms007' AND 'chain-health' tag: {cats}"
             )
         else:
             assert "D-" in summary, (

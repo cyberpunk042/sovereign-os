@@ -7998,6 +7998,16 @@ case "${cmd}" in
     # — operator clipboard-copy only; sovereign-os never invokes them.
     "${__REPO_ROOT}/scripts/mirror/selfdef-cli-mirror.py" "$@"
     ;;
+  m060-health)
+    # M060 chain health observability — proxies the selfdef daemon's
+    # GET /v1/m060/health endpoint reporting publish-freshness of all 10
+    # mirror artifacts (offline/degraded/stale/online plus this script's
+    # own "unreachable" when the daemon is down). Used by the D-00
+    # master-dashboard's chain-health banner, the MCP tool
+    # selfdef-m060-health, and ops/smoke scripts. Read-only.
+    # Verbs: probe / state (+ --json).
+    "${__REPO_ROOT}/scripts/operator/m060-health.py" "$@"
+    ;;
   super-model)
     # M060 D-19 (R10124-R10125): super-model manifest — sovereign-os-native
     # version + module-version table computed LIVE from git HEAD + the milestone
