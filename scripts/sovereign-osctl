@@ -7952,6 +7952,16 @@ case "${cmd}" in
     # selfdefctl + MS003 only. Verbs: snapshot / summaries (+ --json).
     "${__REPO_ROOT}/scripts/mirror/selfdef-capability-mirror.py" "$@"
     ;;
+  audit-mirror)
+    # M060 D-16 (R10120): READ-ONLY consumer of the selfdef audit-chain mirror
+    # (MS007 typed-mirror crate selfdef-audit-mirror). Projects selfdef MS016
+    # SHA-256-chained, MS049 13-field-spanned, MS026 OCSF-categorized, MS003
+    # verify-only audit chain for the D-16 cockpit dashboard. Chain is APPEND-
+    # ONLY by MS016 R03567 doctrine — the operator has NO mutation surface;
+    # verify / show / export are selfdefctl + MS003 only. Verbs: snapshot /
+    # integrity (+ --json).
+    "${__REPO_ROOT}/scripts/mirror/selfdef-audit-mirror.py" "$@"
+    ;;
   super-model)
     # M060 D-19 (R10124-R10125): super-model manifest — sovereign-os-native
     # version + module-version table computed LIVE from git HEAD + the milestone
