@@ -150,3 +150,62 @@ def test_personalization_page_metadata_cites_catalog():
         "personalization page must cite all 3 catalog R-rows"
     )
     assert "M060" in html, "personalization page must cite M060 milestone"
+
+
+# Rollout tracker — every D-NN dashboard that has adopted the
+# apply-snippet shows here. The list grows as the rollout proceeds;
+# the contract guarantees adopters carry the snippet with the same
+# canonical key + schema (so prefs are coherent across surfaces).
+ADOPTED_DASHBOARDS = [
+    "master-dashboard",
+    "d-02-profile-choices",
+]
+
+
+def test_adopted_dashboards_embed_canonical_apply_snippet():
+    """Every dashboard listed in ADOPTED_DASHBOARDS MUST embed the
+    apply-snippet with the canonical localStorage key + schema-v1
+    check + the 4 documentElement applications (data-theme + --accent
+    + --so-accent + --font-scale)."""
+    for slug in ADOPTED_DASHBOARDS:
+        path = REPO_ROOT / "webapp" / slug / "index.html"
+        assert path.is_file(), f"adopted dashboard missing: {path}"
+        html = path.read_text(encoding="utf-8")
+        head = html.split("</head>", 1)[0]
+        assert EXPECTED_KEY in head, (
+            f"{slug}: apply-snippet missing canonical localStorage key"
+        )
+        assert "SCHEMA_V = 1" in head or "SCHEMA_V=1" in head, (
+            f"{slug}: apply-snippet must declare schema v1"
+        )
+        # The 4 documentElement applications
+        assert "setAttribute('data-theme'" in head or 'setAttribute("data-theme"' in head, (
+            f"{slug}: apply-snippet must set data-theme"
+        )
+        assert "--accent" in head, f"{slug}: apply-snippet must set --accent"
+        assert "--so-accent" in head, f"{slug}: apply-snippet must set --so-accent"
+        assert "--font-scale" in head, f"{slug}: apply-snippet must set --font-scale"
+
+
+def test_adopted_dashboards_honor_font_scale():
+    """Every adopted dashboard's base html/body font-size MUST honor
+    --font-scale so R10141 actually takes effect there."""
+    for slug in ADOPTED_DASHBOARDS:
+        path = REPO_ROOT / "webapp" / slug / "index.html"
+        html = path.read_text(encoding="utf-8")
+        assert "calc(14px * var(--font-scale" in html or \
+               "calc(14px*var(--font-scale" in html, (
+            f"{slug}: must honor --font-scale in base font-size for R10141"
+        )
+
+
+def test_adopted_dashboards_honor_light_theme():
+    """Every adopted dashboard MUST declare a html[data-theme=\"light\"]
+    override so R10137 light mode actually renders there."""
+    for slug in ADOPTED_DASHBOARDS:
+        path = REPO_ROOT / "webapp" / slug / "index.html"
+        html = path.read_text(encoding="utf-8")
+        assert 'html[data-theme="light"]' in html or \
+               "html[data-theme='light']" in html, (
+            f"{slug}: must declare html[data-theme=\"light\"] for R10137"
+        )
