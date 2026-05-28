@@ -2,10 +2,11 @@
 
 End-to-end recipe to bring the M060 cross-repo mirror chain up on a
 co-located host running both `selfdefd` (the IPS) and the sovereign-os
-cockpit. Each dashboard (D-02 active-profile, D-13 grants, D-14
-capability-tokens, D-15 sandboxes, D-16 audit-chain, D-17 quarantine,
-D-18 trust-scores) flips from `mirror: offline` (red banner) to
-`mirror: online` (green banner) once you complete this guide.
+cockpit. Each dashboard (D-02 active-profile, D-12 rules, D-13 grants,
+D-14 capability-tokens, D-15 sandboxes, D-16 audit-chain, D-17
+quarantine, D-18 trust-scores) flips from `mirror: offline` (red
+banner) to `mirror: online` (green banner) once you complete this
+guide.
 
 The complete chain (per direction of data flow):
 
@@ -45,10 +46,11 @@ selfdef_mirror_dir = "/run/sovereign-os/selfdef-mirror"
 ```
 
 That's the only required knob. The daemon creates the directory at
-startup if missing. The 7 published files
-(`active-profile.json`, `grants.json`, `capability-tokens.json`,
-`sandboxes.json`, `audit.json`, `quarantine.json`, `trust-scores.json`)
-appear as the corresponding resident registries get populated.
+startup if missing. The 8 published files
+(`active-profile.json`, `rules.json`, `grants.json`,
+`capability-tokens.json`, `sandboxes.json`, `audit.json`,
+`quarantine.json`, `trust-scores.json`) appear as the corresponding
+resident registries get populated.
 
 Optional per-domain overrides (only if you've relocated the daemon's
 persistent state — both the daemon writer and the API reader honor
@@ -59,6 +61,7 @@ export SELFDEF_GRANTS_PATH=/srv/selfdef/grants.json
 export SELFDEF_CAPABILITY_TOKENS_PATH=/srv/selfdef/capability-tokens.json
 export SELFDEF_SANDBOXES_PATH=/srv/selfdef/sandboxes.json
 export SELFDEF_AUDIT_PATH=/srv/selfdef/audit.json
+export SELFDEF_RULES_PATH=/srv/selfdef/rules.json
 export SELFDEF_QUARANTINE_PATH=/srv/selfdef/quarantine.json
 export SELFDEF_TRUST_SCORES_PATH=/srv/selfdef/trust-scores.json
 ```
@@ -67,8 +70,8 @@ Restart `selfdefd` (`systemctl restart selfdefd`). The journal should
 show:
 
 ```
-INFO M060: mirror export enabled — 7/7 mirror domains
-     (active-profile + grants + capability-tokens + sandboxes
+INFO M060: mirror export enabled — 8/8 mirror domains
+     (active-profile + rules + grants + capability-tokens + sandboxes
       + audit + quarantine + trust-scores, read-only)
 ```
 
@@ -144,12 +147,19 @@ Each command writes through the daemon API
 export loop publishes the snapshot within 30s. The corresponding
 dashboard banner flips green.
 
-## Step 4 — daemon-populated domains (D-16, D-17, D-18)
+## Step 4 — daemon-populated domains (D-12, D-16, D-17, D-18)
 
-D-16 audit-chain + D-17 quarantine + D-18 trust-scores are populated
-by the daemon's own append / detection / scoring loops (not operator
-verbs). Their dashboards stay honestly red until:
+D-12 rules + D-16 audit-chain + D-17 quarantine + D-18 trust-scores
+are populated by the daemon's own collector / append / detection /
+scoring loops (not operator verbs). Their dashboards stay honestly
+red until:
 
+- **D-12**: the daemon's nft collector loop reads
+  `nft list ruleset --json`, projects each rule into the
+  `selfdef-rules-registry` 13-field RuleEntry shape, and the export
+  loop publishes `rules.json`. The operator never appends through
+  this surface — rules are installed via `selfdefctl + nft` at the
+  IPS layer; the registry only CONSUMES the live nft state.
 - **D-16**: a daemon-side authority decision, file/process/network
   event, or host snapshot closes a span and `selfdef-audit-registry`
   appends it to the SHA-256 chain (MS016 R03567 — append-only; the
@@ -184,7 +194,7 @@ selfdefctl trust-scores operator-delta \
 ## Step 5 — verify from the cockpit hub
 
 Open `http://<host>:<master-dashboard-port>/webapp/` (the D-00 master).
-The **M060 mirror producers** panel shows 7 tiles, one per dashboard,
+The **M060 mirror producers** panel shows 8 tiles, one per dashboard,
 with green/red status dots. Click any tile to drill into that
 dashboard.
 
@@ -197,7 +207,7 @@ enable` buttons that copy the right `sovereign-osctl dashboards
 
 | symptom | cause | fix |
 |---|---|---|
-| All 7 mirrors stay red | `selfdef_mirror_dir` not set or daemon not running | check `journalctl -u selfdefd` for the "M060: mirror export enabled" line |
+| All 8 mirrors stay red | `selfdef_mirror_dir` not set or daemon not running | check `journalctl -u selfdefd` for the "M060: mirror export enabled" line |
 | D-16 stays red while D-13/14/15 are green | audit chain has zero entries (no decisions/events yet) — honest offline | run `selfdefctl audit verify --tail 256`; the chain populates as the daemon decides/observes |
 | D-02 only stays red | flex-profile path mismatch | check `selfdef_flex_profile::DEFAULT_STATE_PATH` (`/var/lib/selfdef/flex-profile.json`) |
 | D-13/D-14/D-15 stay red after `selfdefctl issue` | API daemon not running, or `SELFDEF_<DOMAIN>_PATH` mismatch between writer (API) + reader (export) | check both honor the same path |

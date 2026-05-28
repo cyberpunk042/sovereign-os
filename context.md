@@ -18,11 +18,12 @@ Full doctrine: `docs/standing-directives/two-ultimate-solutions.md`.
 
 ## Current arc (2026-05-28): M060 cross-repo mirror producers — COMPLETE
 
-The 6 sovereign-os mirror dashboards (D-13 grants, D-14 capability-tokens,
-D-15 sandboxes, D-16 audit-chain, D-17 quarantine, D-18 trust-scores)
-plus D-02 active-profile are no longer flagship-only shells with
-offline-default state — they now consume **live** selfdef-side
-producers. Cross-repo wire contract verified end-to-end at every seam.
+The 7 sovereign-os mirror dashboards (D-12 rules, D-13 grants, D-14
+capability-tokens, D-15 sandboxes, D-16 audit-chain, D-17 quarantine,
+D-18 trust-scores) plus D-02 active-profile are no longer flagship-only
+shells with offline-default state — they now consume **live** selfdef-
+side producers. Cross-repo wire contract verified end-to-end at every
+seam.
 
 **Selfdef side (PR `cyberpunk042/selfdef#200`, branch
 `claude/recover-projects-b0oT6`, 13 commits, ~7500 LOC, all gates green
@@ -32,6 +33,7 @@ land-as-is):**
 | Domain | New resident-registry crate | Persisted store | Mutation model |
 |---|---|---|---|
 | D-02 active-profile | (uses existing flex-profile)        | `/var/lib/selfdef/flex-profile.json` | always-published; R09535 Private default |
+| D-12 rules          | `selfdef-rules-registry`            | `/var/lib/selfdef/rules.json`             | daemon-populated (nft collector projects `nft list ruleset --json` into 13-field RuleEntry across Ring 0..4); operator never appends — rules installed via selfdefctl + nft at the IPS layer |
 | D-13 grants         | `selfdef-grant-registry`            | `/var/lib/selfdef/grants.json`            | operator-issued (issue/revoke) |
 | D-14 capability-tokens | `selfdef-capability-registry`    | `/var/lib/selfdef/capability-tokens.json` | operator-issued (capability_word composed) |
 | D-15 sandboxes      | `selfdef-sandbox-registry`          | `/var/lib/selfdef/sandboxes.json`         | operator-issued (MS036×MS032 validation) |

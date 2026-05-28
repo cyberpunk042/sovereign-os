@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """M060 cross-repo mirror chain smoke check — operator-runnable, read-only.
 
-Pings each of the 7 M060 mirror domains' /api/d-NN/snapshot endpoints
+Pings each of the 8 M060 mirror domains' /api/d-NN/snapshot endpoints
 through the sovereign-os api proxy and reports per-domain status:
 
     domain                 status   detail
     ──────────────────     ──────   ──────
     D-02 active-profile    ONLINE   active=autonomous · captured 2027-01-15T08:00:00Z
+    D-12 rules             OFFLINE  no resident store — daemon-populated by nft collector
     D-13 grants            ONLINE   2 grants · 1 pending · captured 2027-01-15T08:00:00Z
     D-14 capability-tokens OFFLINE  no resident store — selfdefctl capability-tokens issue
     D-15 sandboxes         OFFLINE  no resident store — selfdefctl sandboxes allocate
@@ -15,13 +16,13 @@ through the sovereign-os api proxy and reports per-domain status:
     D-18 trust-scores      OFFLINE  no resident store — daemon-populated by scoring
 
 Exit code:
-    0  if all 7 endpoints reachable (any/all may legitimately be offline)
+    0  if all 8 endpoints reachable (any/all may legitimately be offline)
     1  if ≥1 endpoint is unreachable (proxy down / api daemon not running)
 
-Use --strict to require all 7 mirror_status == "online" (exit 1 otherwise).
+Use --strict to require all 8 mirror_status == "online" (exit 1 otherwise).
 
   --base-url  base URL (default http://localhost; honors $SOVEREIGN_OS_BASE_URL)
-  --strict    require online for all 7 (else any online/offline ok if reachable)
+  --strict    require online for all 8 (else any online/offline ok if reachable)
   --json      machine-readable JSON output instead of the table
 
 Sovereignty: stdlib-only (no requests/httpx dep). Read-only — never mutates
@@ -39,6 +40,7 @@ import urllib.request
 # (id, label, endpoint, fields the table summarizer mines from the JSON)
 DOMAINS = [
     ("D-02", "active-profile",    "/api/profile/show"),
+    ("D-12", "rules",             "/api/d-12/snapshot"),
     ("D-13", "grants",            "/api/d-13/snapshot"),
     ("D-14", "capability-tokens", "/api/d-14/snapshot"),
     ("D-15", "sandboxes",         "/api/d-15/snapshot"),
@@ -50,6 +52,7 @@ DOMAINS = [
 # Per-domain offline-hint pointing at the selfdef knob/verb that populates it.
 OFFLINE_HINT = {
     "D-02": "always-online once selfdefd runs with selfdef_mirror_dir set",
+    "D-12": "no resident store — daemon-populated by nft collector (rules installed via selfdefctl + nft at the IPS layer)",
     "D-13": "no resident store — selfdefctl grants issue ...",
     "D-14": "no resident store — selfdefctl capability-tokens issue ...",
     "D-15": "no resident store — selfdefctl sandboxes allocate ...",
@@ -99,6 +102,10 @@ def summarize(dom_id: str, label: str, probe_result: dict) -> str:
     if dom_id == "D-14":
         n = len(raw.get("tokens", []))
         return f"ONLINE       {n} tokens · captured {captured}"
+    if dom_id == "D-12":
+        n = len(raw.get("rules", []))
+        rings = len(raw.get("summaries", []))
+        return f"ONLINE       {n} rules · {rings} rings populated · captured {captured}"
     if dom_id == "D-15":
         n = len(raw.get("allocations", []))
         return f"ONLINE       {n} allocations · captured {captured}"
@@ -126,7 +133,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument(
         "--strict", action="store_true",
-        help="require mirror_status=online for all 7 (exit 1 otherwise)",
+        help="require mirror_status=online for all 8 (exit 1 otherwise)",
     )
     p.add_argument("--json", action="store_true", help="machine-readable JSON output")
     args = p.parse_args(argv)

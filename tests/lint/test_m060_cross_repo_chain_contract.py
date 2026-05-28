@@ -1,8 +1,9 @@
 """M060 cross-repo chain contract — locks the full selfdef→sovereign-os wire.
 
-This test guards the entire 7-domain producer→consumer wire in one fixture.
-For each M060 mirror (D-02 active-profile, D-13 grants, D-14 capability-tokens,
-D-15 sandboxes, D-16 audit-chain, D-17 quarantine, D-18 trust-scores), it:
+This test guards the entire 8-domain producer→consumer wire in one fixture.
+For each M060 mirror (D-02 active-profile, D-12 rules, D-13 grants, D-14
+capability-tokens, D-15 sandboxes, D-16 audit-chain, D-17 quarantine,
+D-18 trust-scores), it:
 
   1. Writes a daemon-shaped JSON artifact in the EXACT serde shape the
      `selfdef-daemon` mirror-export writes (via `selfdef-{profile,grant,
@@ -20,6 +21,7 @@ Per the M060 cross-repo doctrine (selfdef PR #200 / context.md
 "Current arc 2026-05-28: M060 cross-repo mirror producers — COMPLETE"),
 the daemon-side producer crates' wire schemas are:
 - selfdef-profile-mirror::ProfileMirrorSnapshot 1.0.0
+- selfdef-rules-mirror::RulesMirrorSnapshot 1.0.0
 - selfdef-grants-mirror::GrantsMirrorSnapshot 1.0.0
 - selfdef-capability-mirror::CapabilityMirrorSnapshot 1.0.0
 - selfdef-sandbox-mirror::SandboxMirrorSnapshot 1.0.0
@@ -322,12 +324,54 @@ def test_m060_d16_audit_producer_consumer_contract():
     assert out["integrity"]["total_entries"] == 1
 
 
-# ------------------------------------------------------------------ all 7 in one
+# ------------------------------------------------------------------ D-12
 
-def test_m060_all_seven_mirrors_online_when_artifacts_present():
-    """Sanity: all 7 reader scripts (D-02/13/14/15/16/17/18) ship in
+def test_m060_d12_rules_producer_consumer_contract():
+    """selfdef-rules-registry's save() output is consumed cleanly by
+    sovereign-os selfdef-rules-mirror.py (D-12)."""
+    artifact = {
+        "schema_version": "1.0.0",
+        "captured_at": "2027-01-15T08:00:00Z",
+        "summaries": [
+            {"ring": "sovereign_kernel", "rule_count": 1,
+             "total_bytes": 640, "total_packets": 10, "pending_l3": 0},
+        ],
+        "rules": [
+            {"handle": 1, "rule_id": "rule-001",
+             "ring": "sovereign_kernel", "table": "inet",
+             "chain": "selfdef-ring0",
+             "match_expr": "ip protocol tcp",
+             "disposition": "accept", "priority": 100,
+             "packets": 10, "bytes": 640,
+             "installed_at": "2027-01-15T08:00:00Z",
+             "installed_by": "operator-fp",
+             "signature": "sig"},
+        ],
+        "signature": "",
+    }
+    with tempfile.TemporaryDirectory() as d:
+        p = os.path.join(d, "rules.json")
+        with open(p, "w") as f:
+            json.dump(artifact, f)
+        out = _run_reader(
+            "selfdef-rules-mirror.py",
+            "SOVEREIGN_OS_SELFDEF_RULES_MIRROR",
+            p,
+        )
+    assert out["mirror_status"] == "online"
+    assert [r["rule_id"] for r in out["rules"]] == ["rule-001"]
+    assert out["rules"][0]["ring"] == "sovereign_kernel"
+    assert out["rules"][0]["disposition"] == "accept"
+    assert out["summaries"][0]["rule_count"] == 1
+
+
+# ------------------------------------------------------------------ all 8 in one
+
+def test_m060_all_eight_mirrors_online_when_artifacts_present():
+    """Sanity: all 8 reader scripts (D-02/12/13/14/15/16/17/18) ship in
     `scripts/mirror/` and form the complete cross-repo consumer set."""
     assert (READER_DIR / "selfdef-profile-mirror.py").is_file()
+    assert (READER_DIR / "selfdef-rules-mirror.py").is_file()
     assert (READER_DIR / "selfdef-grants-mirror.py").is_file()
     assert (READER_DIR / "selfdef-capability-mirror.py").is_file()
     assert (READER_DIR / "selfdef-sandbox-mirror.py").is_file()
