@@ -10,6 +10,39 @@
 <meta name="x-sovereign-catalog-source" content="M060 R10123 D-18 trust scores + selfdef MS042 trust-score-tracker (M01095 + R09999 + R10039) + MS040 profile evaluation input + MS007 typed-mirror selfdef-trust-score-mirror (7 of 9)">
 <meta name="x-sovereign-doctrine" content="MS043 R10212 web NEVER mutates IPS state — READ-ONLY mirror consumer; score adjust/decay via selfdefctl + operator MS003 only">
 <meta name="x-sovereign-mirror-source" content="selfdef-trust-score-mirror @ schema 1.0.0">
+<!-- M060 R10137/R10140/R10141 personalization apply-snippet — same
+     ~20 lines that ship in master-dashboard's <head>; reads prefs
+     from localStorage and applies them pre-paint so the operator's
+     theme/accent/typography choices render with no FOUC. The
+     canonical control surface is /webapp/personalization/. -->
+<script>
+  (function(){
+    var KEY = 'sovereign-os.personalization', SCHEMA_V = 1;
+    var DEF = { schema: SCHEMA_V, theme: 'auto', accent: '#9bd1ff', font_scale: 1 };
+    var p;
+    try {
+      var raw = localStorage.getItem(KEY);
+      p = raw ? JSON.parse(raw) : null;
+      if (!p || p.schema !== SCHEMA_V) p = null;
+    } catch(e) { p = null; }
+    if (!p) p = DEF;
+    var resolved = (p.theme === 'dark' || p.theme === 'light') ? p.theme
+      : ((window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark');
+    document.documentElement.setAttribute('data-theme', resolved);
+    document.documentElement.style.setProperty('--so-accent', p.accent || DEF.accent);
+    document.documentElement.style.setProperty('--accent', p.accent || DEF.accent);
+    document.documentElement.style.setProperty('--font-scale', String(p.font_scale || 1));
+  })();
+</script>
+<style>
+  /* M060 R10137 light-theme overrides (the apply-snippet above sets
+     data-theme; the dark-theme :root in the main stylesheet below is
+     the default). */
+  html[data-theme="light"] {
+    --bg:#f6f6f6; --fg:#0e0e0e; --muted:#555;
+    --panel:#ffffff; --border:#d8d8d8;
+  }
+</style>
 <style>
   :root {
     --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
@@ -19,7 +52,7 @@
     --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   }
   *{box-sizing:border-box}
-  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:calc(14px * var(--font-scale, 1));line-height:1.5}
   body{padding:1.2rem;max-width:1200px;margin:0 auto}
   h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
   h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
