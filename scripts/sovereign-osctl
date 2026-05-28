@@ -7984,6 +7984,20 @@ case "${cmd}" in
     # selfdefctl commands to clipboard. Verbs: snapshot / panels (+ --json).
     "${__REPO_ROOT}/scripts/mirror/selfdef-tui-mirror.py" "$@"
     ;;
+  cli-mirror)
+    # MS043 R10281 + R10297: READ-ONLY consumer of the selfdef CLI schema
+    # mirror (MS007 typed-mirror crate selfdef-cli-mirror). Projects the
+    # selfdefctl clap App tree (140+ subcommands classified into 8 effect
+    # classes per MS039 authority ladder) the selfdef daemon publishes
+    # by shelling out + caching `selfdefctl cli-mirror snapshot`. Used
+    # by sovereign-os for IPS-operator-surface introspection, completion
+    # generation, "how do I do X" cross-links, MCP-client tool-pickers.
+    # Doctrine surface "Fullstack at the edges" preserved verbatim per
+    # R10297. Verbs: snapshot / summaries / mutating (+ --json). The
+    # `mutating` verb filters to subcommands that require MS003 signature
+    # — operator clipboard-copy only; sovereign-os never invokes them.
+    "${__REPO_ROOT}/scripts/mirror/selfdef-cli-mirror.py" "$@"
+    ;;
   super-model)
     # M060 D-19 (R10124-R10125): super-model manifest — sovereign-os-native
     # version + module-version table computed LIVE from git HEAD + the milestone

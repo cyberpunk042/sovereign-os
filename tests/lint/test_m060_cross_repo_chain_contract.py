@@ -29,6 +29,7 @@ the daemon-side producer crates' wire schemas are:
 - selfdef-quarantine-mirror::QuarantineMirrorSnapshot 1.0.0
 - selfdef-trust-score-mirror::TrustScoreMirrorSnapshot 1.0.0
 - selfdef-tui-mirror::TuiMirrorSnapshot 1.0.0 (canonical 4-panel layout)
+- selfdef-cli-mirror::CliMirrorSnapshot 1.0.0 (selfdefctl clap-tree projection)
 """
 from __future__ import annotations
 
@@ -466,12 +467,111 @@ def test_m060_tui_layout_producer_consumer_contract():
     assert "q" in global_keys
 
 
-# ------------------------------------------------------------------ all 9 in one
+# ------------------------------------------------------------------ CLI schema
 
-def test_m060_all_nine_mirrors_online_when_artifacts_present():
-    """Sanity: all 9 reader scripts (D-02/12/13/14/15/16/17/18 plus
-    the MS007 TUI layout) ship in `scripts/mirror/` and form the
-    complete cross-repo consumer set."""
+def test_m060_cli_schema_producer_consumer_contract():
+    """selfdef-cli-mirror's CliMirrorSnapshot is consumed cleanly by
+    sovereign-os selfdef-cli-mirror.py (MS007 typed-mirror crate,
+    R10281 + R10297 doctrine verbatim 'Fullstack at the edges')."""
+    artifact = {
+        "schema_version": "1.0.0",
+        "cli_build_version": "0.1.0",
+        "doctrine": "Fullstack at the edges",
+        "captured_at": "2027-01-15T08:00:00Z",
+        "summaries": [
+            {"effect": "read_only", "count": 120},
+            {"effect": "diagnostic", "count": 6},
+            {"effect": "commit", "count": 11},
+            {"effect": "destructive", "count": 2},
+        ],
+        "subcommands": [
+            {
+                "path": "grants.show",
+                "help_summary": "Show active grants",
+                "help_long": "Show active grants (read-only).",
+                "effect_class": "read_only",
+                "min_authority": "l0_observe",
+                "args": [
+                    {"name": "json", "kind": "flag", "required": False,
+                     "help": "", "default": None, "allowed_values": []},
+                ],
+                "mirror": "selfdef-grants-mirror",
+                "requires_signature": False,
+                "p95_target_ms": 250,
+                "signature": "",
+            },
+            {
+                "path": "grants.issue",
+                "help_summary": "Issue a grant (MS003 signed)",
+                "help_long": "Issue a grant. Requires MS003 signature.",
+                "effect_class": "commit",
+                "min_authority": "l5_commit",
+                "args": [
+                    {"name": "scope", "kind": "option", "required": True,
+                     "help": "", "default": None, "allowed_values": []},
+                ],
+                "mirror": "selfdef-grants-mirror",
+                "requires_signature": True,
+                "p95_target_ms": 1500,
+                "signature": "",
+            },
+            {
+                "path": "quarantine.forfeit",
+                "help_summary": "Forfeit a quarantined item (DESTRUCTIVE)",
+                "help_long": "Forfeit + purge. Irreversible.",
+                "effect_class": "destructive",
+                "min_authority": "l5_commit",
+                "args": [],
+                "mirror": "selfdef-quarantine-mirror",
+                "requires_signature": True,
+                "p95_target_ms": 5000,
+                "signature": "",
+            },
+        ],
+        "signature": "",
+    }
+    with tempfile.TemporaryDirectory() as d:
+        p = os.path.join(d, "cli.json")
+        with open(p, "w") as f:
+            json.dump(artifact, f)
+        out = _run_reader(
+            "selfdef-cli-mirror.py",
+            "SOVEREIGN_OS_SELFDEF_CLI_MIRROR",
+            p,
+        )
+        # `mutating` filter verb returns only the signature-required.
+        # MUST run inside the with-block — the tempdir is gone after it.
+        out_mut = _run_reader(
+            "selfdef-cli-mirror.py",
+            "SOVEREIGN_OS_SELFDEF_CLI_MIRROR",
+            p,
+            cmd="mutating",
+        )
+    assert out["mirror_status"] == "online"
+    assert out["doctrine"] == "Fullstack at the edges"
+    paths = {s["path"] for s in out["subcommands"]}
+    assert paths == {"grants.show", "grants.issue", "quarantine.forfeit"}
+    # Effect-class wire-fidelity: each verb projected with its
+    # canonical effect_class.
+    by_path = {s["path"]: s for s in out["subcommands"]}
+    assert by_path["grants.show"]["effect_class"] == "read_only"
+    assert by_path["grants.issue"]["effect_class"] == "commit"
+    assert by_path["quarantine.forfeit"]["effect_class"] == "destructive"
+    # requires_signature lock — the 2 mutation verbs must carry it.
+    assert by_path["grants.show"]["requires_signature"] is False
+    assert by_path["grants.issue"]["requires_signature"] is True
+    assert by_path["quarantine.forfeit"]["requires_signature"] is True
+    # `mutating` filter verb returned only the signature-required.
+    mut_paths = {s["path"] for s in out_mut}
+    assert mut_paths == {"grants.issue", "quarantine.forfeit"}
+
+
+# ------------------------------------------------------------------ all 10 in one
+
+def test_m060_all_ten_mirrors_online_when_artifacts_present():
+    """Sanity: all 10 reader scripts (D-02/12/13/14/15/16/17/18 plus the
+    MS007 TUI-layout + CLI-schema) ship in `scripts/mirror/` and form
+    the complete cross-repo consumer set."""
     assert (READER_DIR / "selfdef-profile-mirror.py").is_file()
     assert (READER_DIR / "selfdef-rules-mirror.py").is_file()
     assert (READER_DIR / "selfdef-grants-mirror.py").is_file()
@@ -481,3 +581,4 @@ def test_m060_all_nine_mirrors_online_when_artifacts_present():
     assert (READER_DIR / "selfdef-quarantine-mirror.py").is_file()
     assert (READER_DIR / "selfdef-trust-score-mirror.py").is_file()
     assert (READER_DIR / "selfdef-tui-mirror.py").is_file()
+    assert (READER_DIR / "selfdef-cli-mirror.py").is_file()

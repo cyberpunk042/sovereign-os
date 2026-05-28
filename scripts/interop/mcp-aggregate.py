@@ -855,6 +855,28 @@ LOCAL_TOOLS = [
         "categories": ["m060", "ms007", "tui-mirror", "selfdef-mirror",
                        "tui-layout", "panels", "operator-§1g"],
     },
+    {
+        "name": "selfdef-cli-mirror-snapshot",
+        "summary": "MS007 typed-mirror crate selfdef-cli-mirror — full selfdefctl clap-tree projection (140+ subcommands classified into 8 effect classes per MS039 authority ladder: read_only / diagnostic / simulate / prepare / execute / commit / persist / destructive). Each subcommand carries its arg specs + min_authority + requires_signature + p95_target_ms + associated mirror. Doctrine 'Fullstack at the edges' preserved verbatim per R10297. READ-ONLY introspection surface — MCP clients use this for completion + tool-picker UIs.",
+        "argv": ["sovereign-osctl", "cli-mirror", "snapshot", "--json"],
+        "categories": ["m060", "ms007", "cli-mirror", "selfdef-mirror",
+                       "cli-schema", "operator-§1g"],
+    },
+    {
+        "name": "selfdef-cli-mirror-summaries",
+        "summary": "MS007 selfdef-cli-mirror per-effect-class summary tiles ONLY (count per read_only / diagnostic / simulate / prepare / execute / commit / persist / destructive). Bare summary list — no full subcommand entries; for cheap polling of the MS039 effect-class ladder distribution. Read-only mirror of selfdef-cli-mirror::recompute_effect_summaries() output.",
+        "argv": ["sovereign-osctl", "cli-mirror", "summaries", "--json"],
+        "categories": ["m060", "ms007", "cli-mirror", "selfdef-mirror",
+                       "cli-schema", "summaries", "operator-§1g"],
+    },
+    {
+        "name": "selfdef-cli-mirror-mutating",
+        "summary": "MS007 selfdef-cli-mirror MUTATION verbs ONLY — the subcommands that require MS003 operator signature (Commit / Destructive / Execute / Prepare effect classes). Returned for MCP-client SAFETY: clients filter on this list to know which selfdefctl verbs they must NEVER invoke directly (R10212 + §17 sovereignty boundary — clipboard-copy only). Read-only filter of cli-mirror.subcommands where requires_signature == true.",
+        "argv": ["sovereign-osctl", "cli-mirror", "mutating", "--json"],
+        "categories": ["m060", "ms007", "cli-mirror", "selfdef-mirror",
+                       "cli-schema", "mutating-list", "operator-§1g",
+                       "operator-§17"],
+    },
 ]
 
 

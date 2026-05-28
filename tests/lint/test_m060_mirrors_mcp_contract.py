@@ -62,6 +62,9 @@ REQUIRED_TOOLS = {
     "selfdef-trust-mirror-snapshot",
     "selfdef-tui-mirror-snapshot",
     "selfdef-tui-mirror-panels",
+    "selfdef-cli-mirror-snapshot",
+    "selfdef-cli-mirror-summaries",
+    "selfdef-cli-mirror-mutating",
 }
 
 # Each tool delegates to a specific sovereign-osctl mirror-slug + verb.
@@ -90,6 +93,12 @@ EXPECTED_ARGV = {
         ["sovereign-osctl", "tui-mirror", "snapshot", "--json"],
     "selfdef-tui-mirror-panels":
         ["sovereign-osctl", "tui-mirror", "panels", "--json"],
+    "selfdef-cli-mirror-snapshot":
+        ["sovereign-osctl", "cli-mirror", "snapshot", "--json"],
+    "selfdef-cli-mirror-summaries":
+        ["sovereign-osctl", "cli-mirror", "summaries", "--json"],
+    "selfdef-cli-mirror-mutating":
+        ["sovereign-osctl", "cli-mirror", "mutating", "--json"],
 }
 
 
