@@ -84,6 +84,34 @@
   <div id="discover-body" class="muted">loading…</div>
 </div>
 
+<h2>M060 mirror producers (selfdef → sovereign-os bridge)</h2>
+<div class="panel" id="m060-mirror-panel">
+  <div class="muted" style="margin-bottom:.4rem;font-size:.85rem">
+    Live producer health across the 6 cross-repo mirror dashboards.
+    Green = <code>selfdefd</code> is publishing this domain to
+    <code>/run/sovereign-os/selfdef-mirror/</code>; red = no resident
+    store yet (enable <code>[deployment].selfdef_mirror_dir</code> in
+    <code>selfdef.toml</code>). Click a tile to drill into its dashboard.
+  </div>
+  <div id="m060-mirror-grid" class="m060-grid"></div>
+</div>
+<style>
+  .m060-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:.5rem; }
+  .m060-tile { display:flex; align-items:center; gap:.5rem; padding:.5rem .65rem;
+    border:1px solid var(--border, #2a2a2a); border-radius:.35rem; text-decoration:none; color:inherit;
+    font-size:.82rem; background:rgba(255,255,255,.02); transition:transform .1s ease,border-color .1s ease; }
+  .m060-tile:hover { transform:translateY(-1px); border-color:#888; }
+  .m060-tile.online  { border-color:#1f7a3a; background:rgba(31,122,58,.10); }
+  .m060-tile.offline { border-color:#7a3a1f; background:rgba(122,58,31,.10); }
+  .m060-tile.unknown { border-color:#7a701f; background:rgba(122,112,31,.10); }
+  .m060-tile .dot { width:.5rem; height:.5rem; border-radius:50%; flex-shrink:0; }
+  .m060-tile.online .dot  { background:#1f7a3a; box-shadow:0 0 .3rem rgba(31,122,58,.7); }
+  .m060-tile.offline .dot { background:#7a3a1f; }
+  .m060-tile.unknown .dot { background:#7a701f; }
+  .m060-tile .id { font-weight:600; }
+  .m060-tile .label { color:var(--muted, #888); }
+</style>
+
 <h2>refresh</h2>
 <div class="panel">
   <div class="row">
@@ -217,6 +245,48 @@ function renderDiscover(discover) {
   }
 }
 
+// M060 cross-repo mirror producers — the 6 selfdef → sovereign-os bridges.
+// Each polls its own snapshot endpoint and reports mirror_status (online/
+// offline). Per-domain endpoint + dashboard subpath:
+const M060_MIRRORS = [
+  {id: "D-02", label: "active-profile",    snapshot: "/api/profile/show", subpath: "../d-02-profile-choices/"},
+  {id: "D-13", label: "grants",            snapshot: "/api/d-13/snapshot", subpath: "../d-13-filesystem-grants/"},
+  {id: "D-14", label: "capability-tokens", snapshot: "/api/d-14/snapshot", subpath: "../d-14-capability-tokens/"},
+  {id: "D-15", label: "sandboxes",         snapshot: "/api/d-15/snapshot", subpath: "../d-15-sandboxes/"},
+  {id: "D-17", label: "quarantine",        snapshot: "/api/d-17/snapshot", subpath: "../d-17-quarantine/"},
+  {id: "D-18", label: "trust-scores",      snapshot: "/api/d-18/snapshot", subpath: "../d-18-trust-scores/"},
+];
+
+async function fetchMirrorStatus(m) {
+  try {
+    const r = await fetch(m.snapshot, {headers: {"Accept": "application/json"}});
+    if (!r.ok) return {id: m.id, label: m.label, subpath: m.subpath, state: "unknown", err: "HTTP " + r.status};
+    const j = await r.json();
+    return {id: m.id, label: m.label, subpath: m.subpath,
+            state: j.mirror_status === "online" ? "online" : "offline",
+            captured_at: j.captured_at || null};
+  } catch (e) {
+    return {id: m.id, label: m.label, subpath: m.subpath, state: "unknown", err: String(e)};
+  }
+}
+
+async function renderM060Grid() {
+  const grid = el("m060-mirror-grid");
+  if (!grid) return;
+  const states = await Promise.all(M060_MIRRORS.map(fetchMirrorStatus));
+  grid.innerHTML = "";
+  for (const s of states) {
+    const a = document.createElement("a");
+    a.className = "m060-tile " + s.state;
+    a.href = s.subpath;
+    a.title = s.captured_at ? "last update: " + s.captured_at : (s.err || "");
+    a.innerHTML = '<span class="dot"></span>' +
+      '<span class="id">' + s.id + '</span>' +
+      '<span class="label">' + s.label + '</span>';
+    grid.appendChild(a);
+  }
+}
+
 async function refresh() {
   try {
     const [version, routes, collisions, health, discover, toggles] = await Promise.all(
@@ -230,6 +300,7 @@ async function refresh() {
     }
     renderCollisions(collisions);
     renderDiscover(discover);
+    renderM060Grid(); // fires its own per-mirror fetches; not on the gather path
     el("last-refresh").textContent = new Date().toLocaleTimeString();
   } catch (e) {
     el("last-refresh").innerHTML = "<span class=bad>error: " + e.message + "</span>";
