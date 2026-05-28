@@ -487,9 +487,18 @@ a11y; contract test catches drift.
   .m060-tile.online  { border-color:#1f7a3a; background:rgba(31,122,58,.10); }
   .m060-tile.offline { border-color:#7a3a1f; background:rgba(122,58,31,.10); }
   .m060-tile.unknown { border-color:#7a701f; background:rgba(122,112,31,.10); }
+  /* M060 chain-health corrupt state — artifact is present on disk but
+     fails JSON parse (degraded chain). Distinct from offline (no file)
+     and online (file present + parseable). Red border + crit color so
+     the operator sees it during a degraded-chain incident response. */
+  .m060-tile.corrupt { border-color:#ff3a3a; background:rgba(255,58,58,.10);
+    box-shadow:0 0 .4rem rgba(255,58,58,.45) inset; }
+  .m060-tile.stale   { border-color:#e6c062; background:rgba(230,192,98,.10); }
   .m060-tile .dot { width:.5rem; height:.5rem; border-radius:50%; flex-shrink:0; }
   .m060-tile.online .dot  { background:#1f7a3a; box-shadow:0 0 .3rem rgba(31,122,58,.7); }
   .m060-tile.offline .dot { background:#7a3a1f; }
+  .m060-tile.corrupt .dot { background:#ff3a3a; box-shadow:0 0 .3rem rgba(255,58,58,.8); }
+  .m060-tile.stale .dot   { background:#e6c062; }
   .m060-tile.unknown .dot { background:#7a701f; }
   .m060-tile .id { font-weight:600; }
   .m060-tile .label { color:var(--muted, #888); }
@@ -682,16 +691,18 @@ function renderDiscover(discover) {
 
 // M060 cross-repo mirror producers — the 8 selfdef → sovereign-os bridges.
 // Each polls its own snapshot endpoint and reports mirror_status (online/
-// offline). Per-domain endpoint + dashboard subpath:
+// offline). Per-domain endpoint + dashboard subpath. The `artifact`
+// field maps the tile to its publish filename so the per-artifact health
+// merge can identify corrupt/stale state without an extra round-trip.
 const M060_MIRRORS = [
-  {id: "D-02", label: "active-profile",    snapshot: "/api/profile/show", subpath: "../d-02-profile-choices/"},
-  {id: "D-12", label: "rules",             snapshot: "/api/d-12/snapshot", subpath: "../edge-firewall/"},
-  {id: "D-13", label: "grants",            snapshot: "/api/d-13/snapshot", subpath: "../d-13-filesystem-grants/"},
-  {id: "D-14", label: "capability-tokens", snapshot: "/api/d-14/snapshot", subpath: "../d-14-capability-tokens/"},
-  {id: "D-15", label: "sandboxes",         snapshot: "/api/d-15/snapshot", subpath: "../d-15-sandboxes/"},
-  {id: "D-16", label: "audit-chain",       snapshot: "/api/d-16/snapshot", subpath: "../d-16-audit/"},
-  {id: "D-17", label: "quarantine",        snapshot: "/api/d-17/snapshot", subpath: "../d-17-quarantine/"},
-  {id: "D-18", label: "trust-scores",      snapshot: "/api/d-18/snapshot", subpath: "../d-18-trust-scores/"},
+  {id: "D-02", label: "active-profile",    artifact: "active-profile.json",   snapshot: "/api/profile/show",  subpath: "../d-02-profile-choices/"},
+  {id: "D-12", label: "rules",             artifact: "rules.json",            snapshot: "/api/d-12/snapshot", subpath: "../edge-firewall/"},
+  {id: "D-13", label: "grants",            artifact: "grants.json",           snapshot: "/api/d-13/snapshot", subpath: "../d-13-filesystem-grants/"},
+  {id: "D-14", label: "capability-tokens", artifact: "capability-tokens.json",snapshot: "/api/d-14/snapshot", subpath: "../d-14-capability-tokens/"},
+  {id: "D-15", label: "sandboxes",         artifact: "sandboxes.json",        snapshot: "/api/d-15/snapshot", subpath: "../d-15-sandboxes/"},
+  {id: "D-16", label: "audit-chain",       artifact: "audit.json",            snapshot: "/api/d-16/snapshot", subpath: "../d-16-audit/"},
+  {id: "D-17", label: "quarantine",        artifact: "quarantine.json",       snapshot: "/api/d-17/snapshot", subpath: "../d-17-quarantine/"},
+  {id: "D-18", label: "trust-scores",      artifact: "trust-scores.json",     snapshot: "/api/d-18/snapshot", subpath: "../d-18-trust-scores/"},
 ];
 
 async function fetchMirrorStatus(m) {
@@ -746,18 +757,86 @@ async function renderM060HealthBanner() {
   }
 }
 
+// Build a {artifact -> health object} lookup from /api/m060/health
+// so the grid renderer can drill from per-artifact state (corrupt /
+// stale / fresh) into the right tile. Single fetch, then merge.
+async function fetchM060ArtifactHealthMap() {
+  try {
+    const r = await fetch("/api/m060/health", {headers: {"Accept": "application/json"}});
+    if (!r.ok) return null;
+    const j = await r.json();
+    const map = {};
+    for (const a of (j.artifacts || [])) {
+      map[a.artifact] = a;
+    }
+    return map;
+  } catch (e) { return null; }
+}
+
+// STALE_AGE_SECS matches selfdef-api::m060_health::STALE_AGE_SECS (5 min).
+const M060_TILE_STALE_AGE_SECS = 5 * 60;
+
+// Classify a tile's state by merging the per-mirror snapshot probe
+// with the per-artifact health probe from /api/m060/health:
+//   - corrupt : artifact present but parses_as_json=false (DEGRADED)
+//   - stale   : artifact present + parseable but age > 5 min
+//   - online  : artifact present + parseable + fresh
+//   - offline : artifact absent (honest-offline; no resident store)
+//   - unknown : snapshot fetch failed AND no chain-health data
+// The chain-health data is authoritative when present; the snapshot
+// probe is the fallback when /api/m060/health is itself unreachable.
+function classifyTileState(snapState, artifactHealth) {
+  if (artifactHealth) {
+    if (!artifactHealth.present) return "offline";
+    if (artifactHealth.parses_as_json === false) return "corrupt";
+    if (typeof artifactHealth.age_seconds === "number"
+        && artifactHealth.age_seconds > M060_TILE_STALE_AGE_SECS) return "stale";
+    return "online";
+  }
+  // /api/m060/health unreachable — fall back to the per-mirror snapshot
+  // probe which only carries online/offline (no corrupt detection).
+  return snapState;
+}
+
 async function renderM060Grid() {
   const grid = el("m060-mirror-grid");
   if (!grid) return;
   // Render the chain-health banner alongside the per-mirror grid.
   renderM060HealthBanner();
-  const states = await Promise.all(M060_MIRRORS.map(fetchMirrorStatus));
+  // Fetch chain-health once for the WHOLE grid (the response carries
+  // every artifact), then fetch each per-mirror snapshot in parallel.
+  const [artifactMap, ...states] = await Promise.all([
+    fetchM060ArtifactHealthMap(),
+    ...M060_MIRRORS.map(fetchMirrorStatus),
+  ]);
   grid.innerHTML = "";
-  for (const s of states) {
+  for (let i = 0; i < states.length; i++) {
+    const s = states[i];
+    const mirror = M060_MIRRORS[i];
+    const ah = artifactMap ? artifactMap[mirror.artifact] : null;
+    const finalState = classifyTileState(s.state, ah);
     const a = document.createElement("a");
-    a.className = "m060-tile " + s.state;
+    a.className = "m060-tile " + finalState;
     a.href = s.subpath;
-    a.title = s.captured_at ? "last update: " + s.captured_at : (s.err || "");
+    // Operator hover-help: surface the underlying reason in the title
+    // attribute (browser tooltip) so the operator can hover any tile
+    // to understand WHY it's in the state it is, without opening the
+    // full per-dashboard view.
+    let title;
+    if (ah && !ah.present) {
+      title = "OFFLINE: artifact " + mirror.artifact + " not present in mirror dir";
+    } else if (ah && ah.parses_as_json === false) {
+      title = "CORRUPT: " + mirror.artifact + " present but fails JSON-parse (degraded chain)";
+    } else if (ah && typeof ah.age_seconds === "number" && ah.age_seconds > M060_TILE_STALE_AGE_SECS) {
+      title = "STALE: " + mirror.artifact + " last published " + ah.age_seconds + "s ago";
+    } else if (ah && ah.last_publish_at) {
+      title = "last update: " + ah.last_publish_at;
+    } else if (s.captured_at) {
+      title = "last update: " + s.captured_at;
+    } else {
+      title = s.err || "";
+    }
+    a.title = title;
     a.innerHTML = '<span class="dot"></span>' +
       '<span class="id">' + s.id + '</span>' +
       '<span class="label">' + s.label + '</span>';
