@@ -1,0 +1,118 @@
+{
+  "_comment": "sovereign-os M060 D-CLI mirror chain dashboard. Visualizes the selfdef-side cli-mirror doctor textfile series shipped via the selfdef-cli-mirror-doctor.timer systemd unit (60s cadence) into node_exporter's textfile_collector. Pairs with the 3 alert rules (M060CliMirrorChainDegraded/Broken/ObserverSilent) in config/prometheus/alerts/m060-chain-health.rules.yml and the runbook sections in docs/operator/m060-deployment-guide.md. Operator imports into Grafana via Settings → JSON Model. Project boundary R10212: pure observability — no mutation surface.",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "operator runbook (sovereign-os)", "url": "/d/sovereign-os-m060-cli-mirror#runbook", "type": "link", "icon": "doc"},
+    {"title": "producer guide (selfdef)", "url": "https://github.com/cyberpunk042/selfdef/blob/main/docs/operator/m060-cockpit-mirror-producers.md", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "worst severity (0=ok 1=warn 2=fail)",
+      "description": "Single rollup: the worst severity across all 4 cli-mirror chain checks (schema-version / resident-store / systemd-unit / published-mirror). Drives the M060CliMirrorChain{Degraded,Broken} alerts.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_cli_mirror_doctor_worst_severity", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 2, "mappings": [{"type": "value", "options": {"0": {"text": "OK"}, "1": {"text": "WARN"}, "2": {"text": "FAIL"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "yellow", "value": 1}, {"color": "red", "value": 2}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "doctor observer age (s)",
+      "description": "Seconds since the selfdef-cli-mirror-doctor.timer last fired. Red >5min (the timer is wedged — M060CliMirrorObserverSilent alert).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "time() - selfdef_cli_mirror_doctor_last_run_unix", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "s", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 120}, {"color": "red", "value": 300}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "checks failing (severity ≥1)",
+      "description": "How many of the 4 chain checks are in WARN or FAIL right now. 0 = chain green.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "count(selfdef_cli_mirror_doctor_severity >= 1)", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 1}, {"color": "red", "value": 3}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "hosts reporting",
+      "description": "Distinct hosts exposing selfdef_cli_mirror_doctor_* via node_exporter. Sudden drops mean the doctor timer stopped or node_exporter stopped scraping textfiles on those hosts.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "count(count by (instance) (selfdef_cli_mirror_doctor_worst_severity))", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "green", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "per-check severity over time",
+      "description": "One series per check (schema-version, resident-store, systemd-unit, published-mirror). 0 = pass, 1 = warn, 2 = fail. Lets operators see when a degradation started + which link broke.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_cli_mirror_doctor_severity", "refId": "A", "legendFormat": "{{check}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 2, "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 30}}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "worst-severity rollup over time",
+      "description": "Single rollup line tracking the worst case across all checks. The M060CliMirrorChainDegraded alert fires when this == 1 for 5m; M060CliMirrorChainBroken fires when this == 2 for 2m.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_cli_mirror_doctor_worst_severity", "refId": "A", "legendFormat": "{{instance}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 2, "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 30}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "yellow", "value": 1}, {"color": "red", "value": 2}]}}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+    },
+    {
+      "type": "table",
+      "title": "current check state (with fix line)",
+      "description": "Live triage table. The detail + fix labels carry the same operator-actionable text the standalone selfdefctl cli-mirror doctor verb prints. Hover-render the fix column to get the exact remediation command.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_cli_mirror_doctor_check_info", "refId": "A", "format": "table", "instant": true}
+      ],
+      "transformations": [
+        {"id": "organize", "options": {"excludeByName": {"Time": true, "Value": true, "__name__": true, "job": true}, "renameByName": {"check": "check", "detail": "detail", "fix": "fix", "instance": "host"}, "indexByName": {"host": 0, "check": 1, "detail": 2, "fix": 3}}}
+      ],
+      "fieldConfig": {"defaults": {"custom": {"align": "left"}}, "overrides": [{"matcher": {"id": "byName", "options": "fix"}, "properties": [{"id": "custom.width", "value": 400}]}]},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 12}
+    },
+    {
+      "type": "timeseries",
+      "title": "doctor observer age (s) over time",
+      "description": "Wall-clock seconds since the doctor timer last fired. Steady saw-tooth ramping 0 -> 60 -> 0 indicates a healthy 60s timer. A flat-line ramp without resets means the timer is wedged.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "time() - selfdef_cli_mirror_doctor_last_run_unix", "refId": "A", "legendFormat": "{{instance}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "s", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 120}, {"color": "red", "value": 300}]}, "custom": {"drawStyle": "line", "lineWidth": 1, "fillOpacity": 10, "thresholdsStyle": {"mode": "line"}}}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20}
+    },
+    {
+      "type": "timeseries",
+      "title": "chain-wide alert firing (M060Chain* via m060-health-api)",
+      "description": "Companion view of the existing chain-wide alerts (offline/degraded/stale/unreachable) so operators see both signals in one place. Per-result rate on the m060-health-api request counter.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(sovereign_os_operator_m060_health_api_request_total{endpoint=\"health\"}[5m])", "refId": "A", "legendFormat": "{{result}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "ops", "custom": {"drawStyle": "line", "lineWidth": 1, "fillOpacity": 20, "stacking": {"mode": "normal"}}}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "tags": ["sovereign-os", "m060", "cli-mirror", "observability"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "",
+  "title": "sovereign-os — M060 D-CLI mirror chain",
+  "uid": "sovereign-os-m060-cli-mirror",
+  "version": 1,
+  "weekStart": ""
+}
