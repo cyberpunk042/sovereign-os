@@ -76,6 +76,27 @@
 <h1>D-06 — pending approvals</h1>
 <div class="sub">operator-controlled axiom — <span class="kbd">Cmd-7</span> · <a href="../master-dashboard/">D-00 main</a> · <a href="../d-02-profile-choices/">D-02 profiles</a></div>
 
+<!-- Data-source status banner -->
+<div id="datasource-banner" class="ds-banner unknown" role="status" aria-live="polite">
+  <span class="dot"></span>
+  <strong id="ds-state-label">data source: ?</strong>
+  <span id="ds-state-detail" class="muted">checking <code>/api/approvals/pending</code>…</span>
+  <span class="spacer"></span>
+  <span class="muted" id="ds-last-update">last fetch: —</span>
+</div>
+<style>
+  .ds-banner { display:flex; align-items:center; gap:.6rem; padding:.55rem .85rem;
+    border:1px solid var(--border, #2a2a2a); border-radius:.4rem; margin:.55rem 0 1rem;
+    font-size:.85rem; background:rgba(255,255,255,.02); }
+  .ds-banner.online    { border-color:#1f7a3a; background:rgba(31,122,58,.10); }
+  .ds-banner.offline   { border-color:#7a3a1f; background:rgba(122,58,31,.10); }
+  .ds-banner.unknown   { border-color:#7a701f; background:rgba(122,112,31,.10); }
+  .ds-banner .dot { width:.55rem; height:.55rem; border-radius:50%; background:#7a701f; }
+  .ds-banner.online  .dot { background:#1f7a3a; box-shadow:0 0 .35rem rgba(31,122,58,.7); }
+  .ds-banner.offline .dot { background:#7a3a1f; }
+  .ds-banner .spacer { flex:1; }
+</style>
+
 <h2>queue summary</h2>
 <div class="row">
   <div class="stat">
@@ -197,12 +218,30 @@ function renderGates(state) {
   });
 }
 
+function renderDataSourceBanner(ok, errMsg) {
+  const b = document.getElementById('datasource-banner'); if (!b) return;
+  const label = document.getElementById('ds-state-label');
+  const detail = document.getElementById('ds-state-detail');
+  const last = document.getElementById('ds-last-update');
+  b.classList.remove('online','offline','unknown');
+  b.classList.add(ok ? 'online' : 'offline');
+  label.textContent = ok ? 'data source: online' : 'data source: unreachable';
+  detail.innerHTML = ok
+    ? 'consuming <code>/api/approvals/pending</code> from the approvals API daemon'
+    : 'cannot reach <code>/api/approvals/pending</code> — is the approvals API daemon running? ' +
+      (errMsg ? '<span class="muted">(' + errMsg + ')</span>' : '');
+  last.textContent = 'last fetch: ' + new Date().toLocaleTimeString();
+}
+
 async function fetchPending() {
   try {
     const res = await fetch('/api/approvals/pending', { credentials: 'same-origin' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
+    const data = await res.json();
+    renderDataSourceBanner(true);
+    return data;
   } catch (e) {
+    renderDataSourceBanner(false, e.message);
     return {
       approvals: [],
       gates: { SG1: 'signed', SG2: 'signed', SG3: 'pending', SG4: 'pending', SG5: 'pending' },
