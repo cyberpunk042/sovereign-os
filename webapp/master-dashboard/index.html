@@ -68,9 +68,9 @@
 <div class="panel" id="routes-panel">
   <table>
     <thead>
-      <tr><th>slug</th><th>port</th><th>healthz</th><th>subpath</th><th>label</th><th>source</th><th>reachable</th></tr>
+      <tr><th>slug</th><th>port</th><th>healthz</th><th>subpath</th><th>label</th><th>source</th><th>reachable</th><th>actions</th></tr>
     </thead>
-    <tbody id="routes-tbody"><tr><td colspan="7" class="muted">loading…</td></tr></tbody>
+    <tbody id="routes-tbody"><tr><td colspan="8" class="muted">loading…</td></tr></tbody>
   </table>
 </div>
 
@@ -181,8 +181,10 @@ function renderRoutes(routes, health, toggles) {
       "<td><code>" + link + "</code></td>" +
       "<td>" + r.label + "</td>" +
       "<td class=muted>" + r.source_repo + "</td>" +
+      "<td></td>" +
       "<td></td>";
-    const statusCell = tr.lastElementChild;
+    const actionsCell = tr.lastElementChild;
+    const statusCell = actionsCell.previousElementSibling;
     // operator on/off pill (only for toggleable cockpit dashboards)
     if (tog && tog.toggleable) {
       statusCell.appendChild(pill(tog.enabled ? "on" : "OFF", tog.enabled ? "ok" : "bad"));
@@ -190,9 +192,57 @@ function renderRoutes(routes, health, toggles) {
     statusCell.appendChild(
       pill(reach ? "tcp-open" : "tcp-closed", reach ? "ok" : "bad")
     );
+    // M060 R10129 — operator toggle actions. Webapp is READ-ONLY (web NEVER
+    // mutates per the cross-repo doctrine); the button copies the right
+    // sovereign-osctl command to the clipboard for the operator to paste.
+    if (tog && tog.toggleable) {
+      if (tog.enabled) {
+        actionsCell.appendChild(copyBtn(
+          "copy: disable",
+          "sovereign-osctl dashboards disable " + r.slug,
+          "danger"
+        ));
+      } else {
+        actionsCell.appendChild(copyBtn(
+          "copy: enable",
+          "sovereign-osctl dashboards enable " + r.slug
+        ));
+      }
+    }
     if (disabled) tr.style.opacity = "0.55";
     tbody.appendChild(tr);
   }
+}
+
+// Web-is-read-only clipboard helper — operator pastes the command in shell.
+function copyBtn(label, cmd, klass) {
+  const b = document.createElement("button");
+  b.textContent = label;
+  if (klass) b.className = klass;
+  b.title = cmd;
+  b.style.marginLeft = ".25rem";
+  b.addEventListener("click", function () {
+    navigator.clipboard.writeText(cmd).then(function () {
+      showCopyToast("copied: " + cmd);
+    });
+  });
+  return b;
+}
+
+function showCopyToast(msg) {
+  let t = document.getElementById("copy-toast");
+  if (!t) {
+    t = document.createElement("div");
+    t.id = "copy-toast";
+    t.style.cssText = "position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);" +
+      "background:#1f7a3a;color:#fff;padding:.6rem 1rem;border-radius:.4rem;" +
+      "font-size:.85rem;opacity:0;transition:opacity .2s ease;pointer-events:none;z-index:9999";
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = "1";
+  clearTimeout(showCopyToast._h);
+  showCopyToast._h = setTimeout(function () { t.style.opacity = "0"; }, 1800);
 }
 
 function renderCollisions(collisions) {
