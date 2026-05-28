@@ -179,6 +179,10 @@ ADOPTED_DASHBOARDS = [
     "d-11-adapter-status",
     "d-19-super-model-manifest",
     "d-20-peace-machine-health",
+    # D-12 split-pattern (network-edge + edge-firewall together
+    # serve the D-12 networking cockpit per M060 R10112-R10113):
+    "network-edge",
+    "edge-firewall",
 ]
 
 
