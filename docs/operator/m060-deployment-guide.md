@@ -426,6 +426,112 @@ is healthy but no consumer is polling, that's an operator-deployment
 gap — either no dashboard is up, or the master-dashboard isn't
 configured to poll this host.
 
+#### M060CliMirrorChainDegraded (warning)
+
+**Meaning:** the selfdef-side `selfdefctl cli-mirror doctor`
+reports at least one of its 4 D-CLI sub-chain checks
+(schema-version / resident-store / systemd-unit / published-mirror)
+in WARN state. `selfdef_cli_mirror_doctor_worst_severity == 1`.
+
+**Diagnosis:**
+
+```bash
+# 1. Get the per-check breakdown from the textfile metric.
+curl -s http://localhost:9100/metrics 2>/dev/null \
+  | grep selfdef_cli_mirror_doctor_severity
+# 2. Operator-actionable fix line per failing check.
+curl -s http://localhost:9100/metrics 2>/dev/null \
+  | grep selfdef_cli_mirror_doctor_check_info
+# 3. Or run the doctor live on the selfdef host:
+ssh <selfdef-host> sudo selfdefctl cli-mirror doctor
+```
+
+**Fix:** the most common D-CLI warn is "resident-store absent"
+because the operator hasn't started the producer one-shot. Kick it:
+
+```bash
+ssh <selfdef-host> sudo systemctl start \
+  selfdef-cli-mirror-emit.service
+```
+
+See the selfdef-side
+[`m060-cockpit-mirror-producers.md`](https://github.com/cyberpunk042/selfdef/blob/main/docs/operator/m060-cockpit-mirror-producers.md)
+for the full producer-side runbook.
+
+#### M060CliMirrorChainBroken (critical)
+
+**Meaning:** the selfdef-side `selfdefctl cli-mirror doctor`
+reports at least one of its 4 D-CLI checks in FAIL state.
+`selfdef_cli_mirror_doctor_worst_severity == 2`. Structural break
+— operator action required.
+
+**Diagnosis:**
+
+```bash
+# Per-check fix line carries the right remediation.
+curl -s http://localhost:9100/metrics 2>/dev/null \
+  | grep selfdef_cli_mirror_doctor_check_info \
+  | grep -v 'severity="0"'
+```
+
+**Fix:** depends on which check failed. Common causes:
+
+* resident-store malformed JSON:
+  ```bash
+  ssh <selfdef-host> sudo rm /var/lib/selfdef/cli-mirror.json
+  ssh <selfdef-host> sudo systemctl start \
+    selfdef-cli-mirror-emit.service
+  ```
+* schema-version drift (operator running mismatched selfdefctl
+  + selfdef-daemon versions): co-upgrade.
+* systemd unit non-zero exit:
+  ```bash
+  ssh <selfdef-host> sudo journalctl -u \
+    selfdef-cli-mirror-emit.service -n 50
+  ```
+
+See the selfdef-side producer guide for deeper context:
+[`m060-cockpit-mirror-producers.md`](https://github.com/cyberpunk042/selfdef/blob/main/docs/operator/m060-cockpit-mirror-producers.md)
+
+#### M060CliMirrorObserverSilent (critical)
+
+**Meaning:** `selfdef_cli_mirror_doctor_last_run_unix` is more than
+5 minutes old (~5 missed ticks of the 60s timer cadence). Either
+the `selfdef-cli-mirror-doctor.timer` is wedged / disabled, OR
+node_exporter stopped exposing the textfile_collector. **The
+D-CLI chain may be healthy — but we've lost the observability
+signal**. Other D-CLI alerts (degraded / broken) cannot fire.
+
+**Diagnosis:**
+
+```bash
+# 1. Is the timer running?
+ssh <selfdef-host> sudo systemctl status \
+  selfdef-cli-mirror-doctor.timer
+# 2. Last fire + next-fire timestamps.
+ssh <selfdef-host> sudo systemctl list-timers \
+  | grep cli-mirror-doctor
+# 3. Did node_exporter pick up the textfile?
+ssh <selfdef-host> ls -l \
+  /var/lib/node_exporter/textfile_collector/selfdef-cli-mirror.prom
+# 4. Service log if the timer fired but the doctor failed.
+ssh <selfdef-host> sudo journalctl -u \
+  selfdef-cli-mirror-doctor.service -n 30
+```
+
+**Fix:**
+
+```bash
+ssh <selfdef-host> sudo systemctl restart \
+  selfdef-cli-mirror-doctor.timer
+ssh <selfdef-host> sudo systemctl start \
+  selfdef-cli-mirror-doctor.service
+```
+
+If node_exporter is the gap (file missing from
+textfile_collector), check `systemctl status prometheus-node-exporter`
+and the `--collector.textfile.directory=` flag.
+
 ## Project-boundary discipline (MS043 R10212)
 
 - IPS state mutation lives in **selfdef only** (selfdefd + selfdefctl +

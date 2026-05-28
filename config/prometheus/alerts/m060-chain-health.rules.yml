@@ -144,6 +144,114 @@ groups:
             field to discriminate.
           runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#troubleshooting"
 
+      # M060 D-CLI mirror sub-chain — driven by the textfile that
+      # selfdef ships at
+      # /var/lib/node_exporter/textfile_collector/selfdef-cli-mirror.prom
+      # via the `selfdef-cli-mirror-doctor.timer` systemd unit. The
+      # selfdefctl cli-mirror doctor verb walks 4 checks on each fire
+      # (60s cadence) and writes:
+      #
+      #   selfdef_cli_mirror_doctor_severity{check}  (0/1/2 per check)
+      #   selfdef_cli_mirror_doctor_check_info{check, detail, fix}
+      #   selfdef_cli_mirror_doctor_worst_severity   (0/1/2 summary)
+      #   selfdef_cli_mirror_doctor_last_run_unix    (freshness)
+      #
+      # These alerts surface the M060 D-CLI link of the chain so
+      # operators get one-line triage even before they open the
+      # dashboard. Distinct from the chain-wide alerts above (which
+      # measure publisher state in aggregate); these measure the
+      # specific D-CLI producer pipeline (systemd one-shot → resident
+      # store → daemon publisher → published mirror).
+
+      # Warning: at least one D-CLI chain check is degraded (warn).
+      # Common causes: resident store absent (operator hasn't onboarded
+      # the producer one-shot) or systemd unit not installed.
+      - alert: M060CliMirrorChainDegraded
+        expr: selfdef_cli_mirror_doctor_worst_severity == 1
+        for: 5m
+        labels:
+          severity: warning
+          subsystem: m060-mirror-chain
+          chain_link: cli-mirror
+          chain_state: warn
+        annotations:
+          summary: "M060 D-CLI chain degraded on {{ $labels.instance }}"
+          description: >
+            The selfdefctl cli-mirror doctor reports at least one of
+            its 4 chain checks (schema-version / resident-store /
+            systemd-unit / published-mirror) in WARN state. Query the
+            companion series for the per-check breakdown:
+
+              selfdef_cli_mirror_doctor_severity{check}
+
+            and the operator-actionable fix line:
+
+              selfdef_cli_mirror_doctor_check_info{check,detail,fix}
+
+            Most common: resident store absent (operator hasn't run
+            `systemctl start selfdef-cli-mirror-emit.service`).
+          runbook_url: "https://github.com/cyberpunk042/selfdef/blob/main/docs/operator/m060-cockpit-mirror-producers.md"
+
+      # Critical: a D-CLI chain check is hard-failed (fail = structural
+      # break). Schema-version drift, malformed JSON in the resident
+      # store, or systemd unit exited non-zero.
+      - alert: M060CliMirrorChainBroken
+        expr: selfdef_cli_mirror_doctor_worst_severity == 2
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: m060-mirror-chain
+          chain_link: cli-mirror
+          chain_state: fail
+        annotations:
+          summary: "M060 D-CLI chain BROKEN on {{ $labels.instance }}"
+          description: >
+            The selfdefctl cli-mirror doctor reports at least one of
+            its 4 chain checks (schema-version / resident-store /
+            systemd-unit / published-mirror) in FAIL state. Structural
+            break — operator action required. Query
+
+              selfdef_cli_mirror_doctor_check_info{check, fix}
+
+            for the per-check fix line. Common causes:
+
+            * resident-store malformed JSON → `rm
+              /var/lib/selfdef/cli-mirror.json` + `systemctl start
+              selfdef-cli-mirror-emit.service`
+            * schema-version drift → operator running mismatched
+              selfdefctl + selfdef-daemon versions
+            * systemd unit non-zero exit → `journalctl -u
+              selfdef-cli-mirror-emit.service -n 50`
+          runbook_url: "https://github.com/cyberpunk042/selfdef/blob/main/docs/operator/m060-cockpit-mirror-producers.md"
+
+      # Critical: the doctor timer has stopped firing. last_run_unix
+      # going stale (>5min = ~5 missed timer ticks) means the
+      # selfdef-cli-mirror-doctor.timer is wedged / disabled /
+      # node_exporter stopped exposing the textfile. The chain may
+      # actually be healthy — but we've lost the signal.
+      - alert: M060CliMirrorObserverSilent
+        expr: |
+          time() - selfdef_cli_mirror_doctor_last_run_unix > 300
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: m060-mirror-chain
+          chain_link: cli-mirror
+          chain_state: observer_silent
+        annotations:
+          summary: "M060 D-CLI doctor observer silent (>5min) on {{ $labels.instance }}"
+          description: >
+            selfdef_cli_mirror_doctor_last_run_unix is more than 5
+            minutes old (~5 missed timer ticks at the 60s cadence).
+            Either the selfdef-cli-mirror-doctor.timer unit is not
+            running (`systemctl status
+            selfdef-cli-mirror-doctor.timer`), the doctor service is
+            failing to write the textfile, OR node_exporter stopped
+            exposing the textfile_collector. The chain itself may be
+            healthy, but the observability signal is lost — fix
+            before relying on the D-CLI alerts to fire.
+          runbook_url: "https://github.com/cyberpunk042/selfdef/blob/main/docs/operator/m060-cockpit-mirror-producers.md"
+
       # Critical: m060-health-api daemon itself is silent. No requests
       # in 5 minutes means either nothing is polling it (master-dashboard
       # closed) OR the daemon is down. Master-dashboard polls every 30s,

@@ -25,12 +25,24 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 RULES_PATH = REPO_ROOT / "config" / "prometheus" / "alerts" / "m060-chain-health.rules.yml"
 
 # The 4 failure states the underlying metric reports + the api-silent case.
+# These five alerts query the sovereign_os_operator_m060_health_api_request_total
+# textfile metric and represent the CHAIN-WIDE rollup.
 REQUIRED_ALERT_NAMES = {
     "M060ChainOffline",
     "M060ChainUnreachable",
     "M060ChainStale",
     "M060ChainDegradedSustained",
     "M060HealthApiSilent",
+}
+
+# Per-link alerts for the M060 D-CLI sub-chain (selfdef_cli_mirror_doctor_*
+# textfile series shipped by the selfdef-cli-mirror-doctor.timer systemd
+# unit). Distinct metric, distinct failure surface — measured separately
+# from the chain-wide rollup so operators see which specific link broke.
+CLI_MIRROR_ALERT_NAMES = {
+    "M060CliMirrorChainDegraded",
+    "M060CliMirrorChainBroken",
+    "M060CliMirrorObserverSilent",
 }
 
 
@@ -111,12 +123,18 @@ def test_chain_state_label_matches_alert_name_intent():
         )
 
 
-def test_each_alert_expression_references_the_textfile_metric():
-    """All exprs must query sovereign_os_operator_m060_health_api_request_total
-    — drift here means the alert silently never fires."""
-    for rule in _all_rules():
-        assert "sovereign_os_operator_m060_health_api_request_total" in rule["expr"], (
-            f"alert {rule['alert']!r} expr does not reference the canonical metric"
+def test_each_chain_alert_expression_references_the_textfile_metric():
+    """The 5 chain-wide alerts must query
+    sovereign_os_operator_m060_health_api_request_total — drift here
+    means the alert silently never fires. The per-link sub-chain
+    alerts (cli-mirror, etc.) reference their own textfile metrics
+    and are exempt — those are checked separately below."""
+    by_name = {r["alert"]: r for r in _all_rules()}
+    for name in REQUIRED_ALERT_NAMES:
+        assert "sovereign_os_operator_m060_health_api_request_total" in by_name[name][
+            "expr"
+        ], (
+            f"alert {name!r} expr does not reference the canonical chain-wide metric"
         )
 
 
@@ -179,3 +197,100 @@ def test_rules_file_is_loadable_by_prometheus_promtool_conceptually():
             assert ("alert" in rule and "expr" in rule) or (
                 "record" in rule and "expr" in rule
             ), f"rule must have alert+expr or record+expr: {rule}"
+
+
+# ---------------------------------------------------------------------------
+# M060 D-CLI sub-chain alerts (driven by selfdef_cli_mirror_doctor_* textfile
+# series shipped from selfdef via the selfdef-cli-mirror-doctor.timer)
+# ---------------------------------------------------------------------------
+
+
+def test_cli_mirror_sub_chain_alerts_present():
+    """Drift-protection: the M060 D-CLI sub-chain alerts ship in the
+    same rules file so a single Prometheus reload covers both
+    surfaces. Missing any of these would silently mask the D-CLI
+    link's failure modes."""
+    rules = _all_rules()
+    names = {r["alert"] for r in rules}
+    missing = CLI_MIRROR_ALERT_NAMES - names
+    assert not missing, f"missing cli-mirror sub-chain alerts: {sorted(missing)}"
+
+
+def test_cli_mirror_alerts_reference_doctor_textfile_metric():
+    """The 3 cli-mirror alerts MUST query the selfdef_cli_mirror_doctor_*
+    series the selfdef-cli-mirror-doctor.timer unit emits. Drift here
+    means the alert silently never fires even when the chain breaks."""
+    by_name = {r["alert"]: r for r in _all_rules()}
+    expected_metric = {
+        "M060CliMirrorChainDegraded":    "selfdef_cli_mirror_doctor_worst_severity",
+        "M060CliMirrorChainBroken":      "selfdef_cli_mirror_doctor_worst_severity",
+        "M060CliMirrorObserverSilent":   "selfdef_cli_mirror_doctor_last_run_unix",
+    }
+    for alert, metric in expected_metric.items():
+        assert metric in by_name[alert]["expr"], (
+            f"alert {alert!r} expr must reference {metric!r}; got: "
+            f"{by_name[alert]['expr']!r}"
+        )
+
+
+def test_cli_mirror_alerts_severity_classification():
+    """Degraded = warn (operator action needed but chain still
+    serves last-known data); Broken = critical (structural break);
+    ObserverSilent = critical (we've lost the signal — can't trust
+    the other alerts to fire)."""
+    by_name = {r["alert"]: r for r in _all_rules()}
+    assert by_name["M060CliMirrorChainDegraded"]["labels"]["severity"] == "warning"
+    assert by_name["M060CliMirrorChainBroken"]["labels"]["severity"] == "critical"
+    assert by_name["M060CliMirrorObserverSilent"]["labels"]["severity"] == "critical"
+
+
+def test_cli_mirror_alerts_carry_chain_link_label():
+    """The chain_link label lets operators filter the D-CLI sub-chain
+    alerts as a group (e.g. "show me all cli-mirror page-worthy
+    issues"). All 3 must carry chain_link=cli-mirror."""
+    by_name = {r["alert"]: r for r in _all_rules()}
+    for name in CLI_MIRROR_ALERT_NAMES:
+        link = by_name[name]["labels"].get("chain_link")
+        assert link == "cli-mirror", (
+            f"alert {name!r} chain_link label {link!r} != 'cli-mirror'"
+        )
+
+
+def test_cli_mirror_alerts_carry_runbook_url_to_producer_guide():
+    """The cli-mirror sub-chain runbook lives in the SELFDEF repo
+    (producer side) — drift to the sovereign-os deployment-guide
+    would point operators at the wrong document."""
+    by_name = {r["alert"]: r for r in _all_rules()}
+    for name in CLI_MIRROR_ALERT_NAMES:
+        url = by_name[name]["annotations"].get("runbook_url", "")
+        assert "cyberpunk042/selfdef" in url, (
+            f"alert {name!r} runbook_url must point at the selfdef-side "
+            f"producer guide; got: {url!r}"
+        )
+        assert "m060-cockpit-mirror-producers" in url, (
+            f"alert {name!r} runbook_url must reference the producer guide; "
+            f"got: {url!r}"
+        )
+
+
+def test_cli_mirror_alerts_have_for_clause():
+    """Same single-scrape-blip protection: every alert has `for:` so
+    a single 60s timer miss doesn't page the operator."""
+    by_name = {r["alert"]: r for r in _all_rules()}
+    for name in CLI_MIRROR_ALERT_NAMES:
+        assert "for" in by_name[name], (
+            f"alert {name!r} missing `for:` clause — single-scrape "
+            f"blip would page the operator"
+        )
+
+
+def test_cli_mirror_observer_silent_threshold_is_300_seconds():
+    """Lock the observer-silent threshold at 5min so the on-call
+    contract is explicit: a wedged timer triggers within ~5 missed
+    ticks of the 60s cadence. Tighter would noise-alert on transient
+    slow scrapes; looser would mask a long-dead observer."""
+    by_name = {r["alert"]: r for r in _all_rules()}
+    expr = by_name["M060CliMirrorObserverSilent"]["expr"]
+    assert "> 300" in expr, (
+        f"observer-silent threshold must be exactly 300s (5min); expr: {expr!r}"
+    )
