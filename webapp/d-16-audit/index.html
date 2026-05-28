@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os D-16 audit-chain</title>
+<meta name="x-sovereign-module" content="d-16-audit-webapp">
+<meta name="x-sovereign-shipped-in" content="M060 D-16 / MS016 audit-chain integrity cockpit">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<meta name="x-sovereign-catalog-source" content="M060 D-16 audit-chain + selfdef MS016 R03567 append-only audit log + MS049 13-field span entries + MS026 OCSF taxonomy + MS003 verify-only signatures + selfdef-audit-mirror typed-mirror crate (7 of 9)">
+<meta name="x-sovereign-doctrine" content="MS043 R10212 — audit chain IS the IPS truth; web NEVER mutates (no release, no replay, no edit); append-only by MS016 R03567">
+<meta name="x-sovereign-mirror-source" content="selfdef-audit-mirror @ schema 1.0.0">
+<style>
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062; --crit:#ff3a3a;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  tr:hover{background:rgba(155,209,255,0.03)}
+  .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
+  .crit{color:var(--crit)}
+  .num{font-variant-numeric:tabular-nums;text-align:right}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:stretch}
+  .stat{flex:1 1 200px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
+  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .stat .v{font-size:1.4rem;font-weight:600;margin-top:.2rem;font-variant-numeric:tabular-nums}
+  .stat .u{color:var(--muted);font-size:.78rem}
+  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border);font-weight:500}
+  .pill.ok{background:#143d14;color:var(--good)} .pill.bad{background:#3d1414;color:var(--bad)} .pill.warn{background:#3d2f14;color:var(--warn)}
+  .pill.accent{background:#143d3d;color:var(--accent)} .pill.muted{background:#1c1c1c;color:var(--muted)}
+  .pill.crit{background:#5a1010;color:var(--crit);border:1px solid var(--crit)}
+  button{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.35rem .8rem;font-family:inherit;font-size:.85rem;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  .filters{display:flex;gap:.4rem;flex-wrap:wrap;margin:.5rem 0;align-items:center}
+  .filter{padding:.25rem .6rem;border-radius:3px;font-size:.78rem;background:var(--panel);border:1px solid var(--border);cursor:pointer;user-select:none}
+  .filter.on{background:#143d3d;color:var(--accent);border-color:var(--accent)}
+  .badge-mirror{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.7rem;background:#1c1c1c;color:var(--muted);border:1px dashed var(--border)}
+  .hash{font-family:var(--mono);font-size:.72rem;color:var(--accent);word-break:break-all}
+  .hash-prev{color:var(--muted)}
+  .chain-link{display:inline-block;color:var(--muted);font-size:.7rem;margin:0 .2rem}
+  .integrity-panel{padding:1rem 1.1rem;border-left:4px solid var(--good)}
+  .integrity-panel.broken{border-left-color:var(--crit);background:#1a0a0a}
+  .integrity-panel .k{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  details summary{cursor:pointer;font-size:.78rem;color:var(--accent);padding:.2rem 0}
+  details summary:hover{text-decoration:underline}
+  .footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--muted);font-size:.78rem}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  code{color:var(--accent);background:#0a0a0a;padding:0 3px;border-radius:2px;font-size:.82rem}
+  .toast{position:fixed;bottom:1rem;right:1rem;background:var(--panel);border:1px solid var(--accent);color:var(--fg);padding:.5rem .9rem;border-radius:4px;font-size:.78rem;opacity:0;transition:opacity .2s ease;pointer-events:none}
+  .toast.show{opacity:1}
+  .span-meta{font-size:.7rem;color:var(--muted);margin-top:.2rem}
+  .ocsf-badge{font-size:.68rem;padding:1px 5px;border-radius:2px;background:#1c1c1c;color:var(--muted);border:1px solid var(--border)}
+  .ocsf-badge.process{color:#9bd1ff;border-color:#143d3d}
+  .ocsf-badge.file{color:#e6c062;border-color:#3d2f14}
+  .ocsf-badge.network{color:#c1a0ff;border-color:#2f143d}
+  .ocsf-badge.host{color:#7ad17a;border-color:#143d14}
+  .ocsf-badge.authority{color:#ff7676;border-color:#3d1414}
+</style>
+</head>
+<body>
+
+<h1>D-16 — audit-chain <span class="badge-mirror" style="font-size:.7rem">read-only via selfdef-audit-mirror</span></h1>
+<div class="sub">MS016 append-only audit log · MS049 13-field span entries · MS026 OCSF taxonomy · MS003 verify-only signatures — <a href="../master-dashboard/">D-00 main</a></div>
+
+<!-- M060 mirror-status banner -->
+<div id="mirror-status-banner" class="mirror-banner offline" role="status" aria-live="polite">
+  <span class="dot"></span>
+  <strong id="mirror-state-label">mirror: offline</strong>
+  <span id="mirror-state-detail" class="muted">
+    no <code>audit.json</code> published yet — enable
+    <code>[deployment].selfdef_mirror_dir</code> in <code>selfdef.toml</code>
+    (chain is append-only, daemon-built by MS016; operator has NO mutation surface)
+  </span>
+  <span class="spacer"></span>
+  <span class="muted" id="mirror-last-update">last update: —</span>
+  <span class="muted">· schema <code id="mirror-schema-version">1.0.0</code></span>
+</div>
+<style>
+  .mirror-banner { display:flex; align-items:center; gap:.6rem; padding:.55rem .85rem;
+    border:1px solid var(--border, #2a2a2a); border-radius:.4rem; margin:.55rem 0 1rem;
+    font-size:.85rem; background:rgba(255,255,255,.02); }
+  .mirror-banner.online  { border-color:#1f7a3a; background:rgba(31,122,58,.10); }
+  .mirror-banner.offline { border-color:#7a3a1f; background:rgba(122,58,31,.10); }
+  .mirror-banner .dot { width:.55rem; height:.55rem; border-radius:50%;
+    background:#7a3a1f; box-shadow:0 0 .35rem rgba(122,58,31,.5); }
+  .mirror-banner.online .dot { background:#1f7a3a; box-shadow:0 0 .35rem rgba(31,122,58,.7); }
+  .mirror-banner .spacer { flex:1; }
+</style>
+
+<h2>chain integrity (SHA-256 hash chain · MS016 R03567 append-only)</h2>
+<div class="panel integrity-panel" id="integrity-panel">
+  <div class="row">
+    <div style="flex:1 1 240px">
+      <div class="k">continuity</div>
+      <div style="font-size:1.2rem;font-weight:600;margin-top:.2rem"><span id="i-continuous" class="ok">verified</span></div>
+      <div class="muted" style="font-size:.72rem;margin-top:.15rem">no gap in <code>prev_chain_hash → chain_hash</code></div>
+    </div>
+    <div style="flex:1 1 180px">
+      <div class="k">total entries</div>
+      <div style="font-size:1.2rem;font-weight:600;margin-top:.2rem;font-variant-numeric:tabular-nums" id="i-total">0</div>
+      <div class="muted" style="font-size:.72rem;margin-top:.15rem">full chain · daemon-side audit log</div>
+    </div>
+    <div style="flex:1 1 180px">
+      <div class="k">verified at</div>
+      <div style="font-size:.95rem;margin-top:.2rem" id="i-verified">—</div>
+      <div class="muted" style="font-size:.72rem;margin-top:.15rem">daemon <code>verify_tail()</code></div>
+    </div>
+  </div>
+  <div style="margin-top:.7rem">
+    <div class="k">head hash</div>
+    <div class="hash" id="i-head">—</div>
+  </div>
+  <div id="i-gap-row" style="display:none;margin-top:.7rem">
+    <div class="k crit">first gap at</div>
+    <div class="hash crit" id="i-gap">—</div>
+  </div>
+</div>
+
+<h2>OCSF category summary (MS026 taxonomy)</h2>
+<div class="row">
+  <div class="stat" style="border-left:3px solid #9bd1ff"><div class="k">process activity</div><div class="v" id="o-process">0</div><div class="u">exec · spawn · signal</div></div>
+  <div class="stat" style="border-left:3px solid #e6c062"><div class="k">file activity</div><div class="v" id="o-file">0</div><div class="u">read · write · attr</div></div>
+  <div class="stat" style="border-left:3px solid #c1a0ff"><div class="k">network activity</div><div class="v" id="o-network">0</div><div class="u">dial · listen · packet</div></div>
+  <div class="stat" style="border-left:3px solid #7ad17a"><div class="k">host inventory</div><div class="v" id="o-host">0</div><div class="u">snapshot · drift</div></div>
+  <div class="stat" style="border-left:3px solid #ff7676"><div class="k">authority decision</div><div class="v" id="o-authority">0</div><div class="u">grant · capability · sandbox</div></div>
+</div>
+
+<h2>policy outcomes (MS033 4-state · per R07731-R07734)</h2>
+<div class="panel">
+  <div class="row">
+    <div class="stat" style="border-left:3px solid var(--good)"><div class="k">allow</div><div class="v ok" id="p-allow">0</div></div>
+    <div class="stat" style="border-left:3px solid var(--bad)"><div class="k">deny</div><div class="v bad" id="p-deny">0</div></div>
+    <div class="stat" style="border-left:3px solid var(--warn)"><div class="k">ask</div><div class="v warn" id="p-ask">0</div></div>
+    <div class="stat" style="border-left:3px solid var(--accent)"><div class="k">sandbox</div><div class="v" style="color:var(--accent)" id="p-sandbox">0</div></div>
+  </div>
+</div>
+
+<h2>recent spans (bounded tail · 13-field MS049 entries)</h2>
+<div class="panel">
+  <div class="filters" id="cat-filters">
+    <span style="font-size:.72rem;color:var(--muted)">category:</span>
+    <div class="filter on" data-cat="process_activity">process</div>
+    <div class="filter on" data-cat="file_system_activity">file</div>
+    <div class="filter on" data-cat="network_activity">network</div>
+    <div class="filter on" data-cat="host_inventory">host</div>
+    <div class="filter on" data-cat="authority_decision">authority</div>
+    <div class="filter" data-cat="other">other</div>
+    <span style="font-size:.72rem;color:var(--muted);margin-left:1rem">outcome:</span>
+    <div class="filter on" data-pol="allow">allow</div>
+    <div class="filter on" data-pol="deny">deny</div>
+    <div class="filter on" data-pol="ask">ask</div>
+    <div class="filter on" data-pol="sandbox">sandbox</div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>trace_id</th>
+        <th>profile · model</th>
+        <th>category</th>
+        <th>outcome</th>
+        <th class="num">tokens</th>
+        <th class="num">latency</th>
+        <th class="num">risk</th>
+        <th>chain hash</th>
+      </tr>
+    </thead>
+    <tbody id="span-tbody"></tbody>
+  </table>
+  <div class="muted" style="font-size:.7rem;margin-top:.6rem">tail bounded to most recent 256 spans · full historic chain lives in the daemon's append-only audit log</div>
+</div>
+
+<h2>actions <span class="muted" style="font-size:.75rem;font-weight:400">— chain is APPEND-ONLY (MS016 R03567); web has NO mutation surface; verify/export via selfdefctl + operator MS003 only</span></h2>
+<div class="row">
+  <button onclick="emit('selfdefctl audit verify --tail 256')">copy: verify chain tail</button>
+  <button onclick="emit('selfdefctl audit verify --full')">copy: verify FULL chain (long)</button>
+  <button onclick="emit('selfdefctl audit show --trace-id &lt;id&gt;')">copy: show span by trace_id</button>
+  <button onclick="emit('selfdefctl audit export --since 24h --out /var/log/selfdef/audit-export.jsonl')">copy: export tail (JSONL)</button>
+  <button onclick="emit('minisign -V -p &lt;operator.pub&gt; -m &lt;audit-export.jsonl&gt;')">copy: verify export signature (MS003)</button>
+</div>
+
+<div class="footer">
+  D-16 · <a href="../master-dashboard/">D-00 main</a> · <a href="../d-17-quarantine/">D-17 quarantine</a> · <a href="../d-18-trust-scores/">D-18 trust</a><br>
+  mirror source: <code>selfdef-audit-mirror @ 1.0.0</code> · MS016 append-only · MS049 13-field spans · MS026 OCSF · MS003 verify-only · MS007 typed-mirror crate #7 of 9
+</div>
+
+<div class="toast" id="toast">copied</div>
+
+<script>
+  // Live data from the read-only selfdef-audit-mirror publisher API
+  // (selfdef-api /api/d-16/snapshot). Schema mirrors
+  // selfdef-audit-mirror::AuditMirrorSnapshot 1.0.0. The chain is
+  // APPEND-ONLY by MS016 R03567 — no mutation surface from this dashboard.
+  let seed = {
+    schema_version: "1.0.0", mirror_status: "offline", captured_at: null,
+    summaries: [], integrity: { head_hash: "", total_entries: 0, continuous: true, first_gap_at: null, verified_at: "" },
+    spans: [],
+  };
+
+  async function load() {
+    try {
+      const r = await fetch('/api/d-16/snapshot', { credentials: 'same-origin' });
+      if (r.ok) seed = Object.assign(seed, await r.json());
+    } catch (e) { /* mirror offline — keep empty-safe defaults */ }
+    renderMirrorBanner();
+    renderIntegrity();
+    renderOcsfTiles();
+    renderPolicyTiles();
+    renderSpans();
+  }
+
+  function renderMirrorBanner() {
+    const b = document.getElementById('mirror-status-banner'); if (!b) return;
+    const label = document.getElementById('mirror-state-label');
+    const detail = document.getElementById('mirror-state-detail');
+    const last = document.getElementById('mirror-last-update');
+    const sch = document.getElementById('mirror-schema-version');
+    const online = seed.mirror_status === 'online';
+    b.classList.toggle('online', online); b.classList.toggle('offline', !online);
+    if (online) {
+      label.textContent = 'mirror: online';
+      detail.innerHTML = 'consuming <code>selfdef-audit-mirror</code> via <code>selfdefd</code> export · chain is append-only (MS016 R03567)';
+    } else {
+      label.textContent = 'mirror: offline';
+      detail.innerHTML = 'no <code>audit.json</code> published yet — enable ' +
+        '<code>[deployment].selfdef_mirror_dir</code> in <code>selfdef.toml</code> ' +
+        '(chain is append-only, daemon-built by MS016; operator has NO mutation surface)';
+    }
+    last.textContent = seed.captured_at
+      ? 'last update: ' + new Date(seed.captured_at).toLocaleString()
+      : 'last update: never';
+    if (seed.schema_version) sch.textContent = seed.schema_version;
+  }
+
+  function renderIntegrity() {
+    const i = seed.integrity || {};
+    const panel = document.getElementById('integrity-panel');
+    const cont = document.getElementById('i-continuous');
+    const total = document.getElementById('i-total');
+    const ver = document.getElementById('i-verified');
+    const head = document.getElementById('i-head');
+    const gapRow = document.getElementById('i-gap-row');
+    const gap = document.getElementById('i-gap');
+    const continuous = i.continuous !== false;
+    panel.classList.toggle('broken', !continuous);
+    cont.textContent = continuous ? 'verified' : 'BROKEN';
+    cont.className = continuous ? 'ok' : 'crit';
+    total.textContent = (i.total_entries || 0).toLocaleString();
+    ver.textContent = i.verified_at
+      ? new Date(i.verified_at).toLocaleString()
+      : (seed.mirror_status === 'online' ? '—' : 'never');
+    head.textContent = i.head_hash || '— (no entries yet)';
+    if (!continuous && i.first_gap_at) {
+      gapRow.style.display = '';
+      gap.textContent = i.first_gap_at;
+    } else {
+      gapRow.style.display = 'none';
+    }
+  }
+
+  function renderOcsfTiles() {
+    const m = {};
+    for (const s of (seed.summaries || [])) m[s.category] = s;
+    document.getElementById('o-process').textContent   = (m.process_activity?.total       || 0).toLocaleString();
+    document.getElementById('o-file').textContent      = (m.file_system_activity?.total   || 0).toLocaleString();
+    document.getElementById('o-network').textContent   = (m.network_activity?.total       || 0).toLocaleString();
+    document.getElementById('o-host').textContent      = (m.host_inventory?.total         || 0).toLocaleString();
+    document.getElementById('o-authority').textContent = (m.authority_decision?.total     || 0).toLocaleString();
+  }
+
+  function renderPolicyTiles() {
+    const sum = (k) => (seed.summaries || []).reduce((a, s) => a + (s[k] || 0), 0);
+    document.getElementById('p-allow').textContent   = sum('allow').toLocaleString();
+    document.getElementById('p-deny').textContent    = sum('deny').toLocaleString();
+    document.getElementById('p-ask').textContent     = sum('ask').toLocaleString();
+    document.getElementById('p-sandbox').textContent = sum('sandbox').toLocaleString();
+  }
+
+  function ocsfBadge(cat) {
+    const map = {
+      process_activity: ['process', 'process'],
+      file_system_activity: ['file', 'file'],
+      network_activity: ['network', 'network'],
+      host_inventory: ['host', 'host'],
+      authority_decision: ['authority', 'authority'],
+      other: ['', 'other'],
+    };
+    const [cls, lbl] = map[cat] || ['', cat];
+    return `<span class="ocsf-badge ${cls}">${lbl}</span>`;
+  }
+
+  function policyPill(p) {
+    if (p === 'allow') return 'ok';
+    if (p === 'deny') return 'bad';
+    if (p === 'ask') return 'warn';
+    if (p === 'sandbox') return 'accent';
+    return 'muted';
+  }
+
+  function shortHash(h) {
+    if (!h) return '—';
+    return h.length > 12 ? h.slice(0, 8) + '…' + h.slice(-4) : h;
+  }
+
+  function renderSpans() {
+    const cats = new Set([...document.querySelectorAll('#cat-filters .filter.on[data-cat]')].map(f => f.dataset.cat));
+    const pols = new Set([...document.querySelectorAll('#cat-filters .filter.on[data-pol]')].map(f => f.dataset.pol));
+    const tb = document.getElementById('span-tbody');
+    tb.innerHTML = '';
+    // Render newest first (audit chain is append, tail is most-recent)
+    const spans = [...(seed.spans || [])].reverse();
+    let shown = 0;
+    for (const s of spans) {
+      if (!cats.has(s.ocsf_category) || !pols.has(s.policy_result)) continue;
+      const tokens = (s.tokens_prompt || 0) + (s.tokens_completion || 0);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>
+          <code>${s.trace_id}</code>
+          <div class="span-meta">closed ${(s.closed_at || '—').replace('T',' ').replace('Z','')}</div>
+        </td>
+        <td>
+          <code>${s.profile || '—'}</code> · <code>${s.model || '—'}</code>
+          <div class="span-meta">${s.provider || ''} · ${s.hardware || ''}</div>
+        </td>
+        <td>${ocsfBadge(s.ocsf_category)}</td>
+        <td><span class="pill ${policyPill(s.policy_result)}">${s.policy_result}</span></td>
+        <td class="num">${tokens.toLocaleString()}</td>
+        <td class="num">${(s.latency_ms || 0).toLocaleString()} <span class="muted">ms</span></td>
+        <td class="num">${(s.risk_score || 0)}</td>
+        <td>
+          <details>
+            <summary><span class="hash">${shortHash(s.chain_hash)}</span></summary>
+            <div class="span-meta">prev: <span class="hash hash-prev">${s.prev_chain_hash || '— (genesis)'}</span></div>
+            <div class="span-meta">curr: <span class="hash">${s.chain_hash || '—'}</span></div>
+            <div class="span-meta">sig: <span class="hash">${s.signature ? shortHash(s.signature) : '— (unsigned)'}</span></div>
+            <div class="span-meta">branch: <code>${s.branch_id || '—'}</code> · cost: ${s.cost_millicents || 0} mc</div>
+          </details>
+        </td>
+      `;
+      tb.appendChild(tr);
+      shown++;
+    }
+    if (!shown) {
+      tb.innerHTML = '<tr><td colspan="8" class="muted">' +
+        (seed.mirror_status === 'offline'
+          ? 'selfdef-audit-mirror offline — no audit-chain archive published yet'
+          : 'no spans match the filter') + '</td></tr>';
+    }
+  }
+  document.querySelectorAll('#cat-filters .filter').forEach(f => f.addEventListener('click', () => { f.classList.toggle('on'); renderSpans(); }));
+
+  // clipboard helper — chain is APPEND-ONLY; web NEVER mutates per MS016 R03567 + R10212
+  function emit(cmd) {
+    navigator.clipboard.writeText(cmd).then(() => showToast('copied: ' + cmd.slice(0, 60) + (cmd.length > 60 ? '…' : '')));
+  }
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(showToast._h);
+    showToast._h = setTimeout(() => t.classList.remove('show'), 1800);
+  }
+
+  // master shortcut Cmd-0
+  window.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key === '0') { e.preventDefault(); window.location.href = '../master-dashboard/'; }
+  });
+
+  // initial load + 30s refresh from the read-only selfdef-audit-mirror
+  load();
+  setInterval(load, 30000);
+</script>
+
+</body>
+</html>

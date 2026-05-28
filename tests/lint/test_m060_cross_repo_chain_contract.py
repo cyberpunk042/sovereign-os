@@ -1,19 +1,19 @@
 """M060 cross-repo chain contract — locks the full selfdef→sovereign-os wire.
 
-This test guards the entire 6-domain producer→consumer wire in one fixture.
+This test guards the entire 7-domain producer→consumer wire in one fixture.
 For each M060 mirror (D-02 active-profile, D-13 grants, D-14 capability-tokens,
-D-15 sandboxes, D-17 quarantine, D-18 trust-scores), it:
+D-15 sandboxes, D-16 audit-chain, D-17 quarantine, D-18 trust-scores), it:
 
   1. Writes a daemon-shaped JSON artifact in the EXACT serde shape the
      `selfdef-daemon` mirror-export writes (via `selfdef-{profile,grant,
-     capability,sandbox,quarantine,trust-score}-registry::save()`).
+     capability,sandbox,audit,quarantine,trust-score}-registry::save()`).
   2. Points the sovereign-os reader (`scripts/mirror/selfdef-*-mirror.py
      snapshot --json`) at the artifact via its `SOVEREIGN_OS_SELFDEF_<DOMAIN>_
      MIRROR` env var.
   3. Asserts the reader returns `mirror_status="online"` + the key fields
      populated from the artifact (token ids, allocation ids, etc.).
 
-Single-test cross-repo guard — catches drift in any of the 6 wires the
+Single-test cross-repo guard — catches drift in any of the 7 wires the
 moment a producer's serde shape diverges from the consumer's expectations.
 
 Per the M060 cross-repo doctrine (selfdef PR #200 / context.md
@@ -23,6 +23,7 @@ the daemon-side producer crates' wire schemas are:
 - selfdef-grants-mirror::GrantsMirrorSnapshot 1.0.0
 - selfdef-capability-mirror::CapabilityMirrorSnapshot 1.0.0
 - selfdef-sandbox-mirror::SandboxMirrorSnapshot 1.0.0
+- selfdef-audit-mirror::AuditMirrorSnapshot 1.0.0
 - selfdef-quarantine-mirror::QuarantineMirrorSnapshot 1.0.0
 - selfdef-trust-score-mirror::TrustScoreMirrorSnapshot 1.0.0
 """
@@ -272,18 +273,64 @@ def test_m060_d18_trust_scores_producer_consumer_contract():
     assert out["tools"][0]["current_score"] == 750
 
 
-# ------------------------------------------------------------------ all 6 in one
+# ------------------------------------------------------------------ D-16
 
-def test_m060_all_six_mirrors_online_when_artifacts_present():
-    """Sanity: when all 6 daemon-shaped artifacts are present, all 6 readers
-    flip from offline to online together — single-test cross-repo guard."""
-    # Reuse each per-domain test's artifact + reader via the shared helper.
-    # The per-domain tests above already cover each individually; this
-    # synthesis test asserts they pass *concurrently* (no shared-state
-    # leakage between readers).
+def test_m060_d16_audit_producer_consumer_contract():
+    """selfdef-audit-registry's save() output is consumed cleanly by
+    sovereign-os selfdef-audit-mirror.py (D-16)."""
+    artifact = {
+        "schema_version": "1.0.0",
+        "captured_at": "2027-01-15T08:00:00Z",
+        "summaries": [
+            {"category": "authority_decision", "total": 1,
+             "allow": 1, "deny": 0, "ask": 0, "sandbox": 0},
+        ],
+        "integrity": {
+            "head_hash": "a" * 64,
+            "total_entries": 1,
+            "continuous": True,
+            "first_gap_at": None,
+            "verified_at": "2027-01-15T08:00:00Z",
+        },
+        "spans": [
+            {"trace_id": "t1", "profile": "careful",
+             "model": "qwen3-coder-32b", "provider": "local-cuda",
+             "hardware": "3090_logic", "tokens_prompt": 100,
+             "tokens_completion": 50, "latency_ms": 1500,
+             "cost_millicents": 5, "risk_score": 12,
+             "memory_refs": [], "tool_refs": ["read-only-host"],
+             "policy_result": "allow", "branch_id": "b1",
+             "ocsf_category": "authority_decision",
+             "closed_at": "2027-01-15T08:00:00Z",
+             "prev_chain_hash": "", "chain_hash": "a" * 64,
+             "signature": "sig"},
+        ],
+        "signature": "",
+    }
+    with tempfile.TemporaryDirectory() as d:
+        p = os.path.join(d, "audit.json")
+        with open(p, "w") as f:
+            json.dump(artifact, f)
+        out = _run_reader(
+            "selfdef-audit-mirror.py",
+            "SOVEREIGN_OS_SELFDEF_AUDIT_MIRROR",
+            p,
+        )
+    assert out["mirror_status"] == "online"
+    assert [s["trace_id"] for s in out["spans"]] == ["t1"]
+    assert out["integrity"]["continuous"] is True
+    assert out["integrity"]["total_entries"] == 1
+
+
+# ------------------------------------------------------------------ all 7 in one
+
+def test_m060_all_seven_mirrors_online_when_artifacts_present():
+    """Sanity: all 7 reader scripts (D-02/13/14/15/16/17/18) ship in
+    `scripts/mirror/` and form the complete cross-repo consumer set."""
     assert (READER_DIR / "selfdef-profile-mirror.py").is_file()
     assert (READER_DIR / "selfdef-grants-mirror.py").is_file()
     assert (READER_DIR / "selfdef-capability-mirror.py").is_file()
     assert (READER_DIR / "selfdef-sandbox-mirror.py").is_file()
+    assert (READER_DIR / "selfdef-audit-mirror.py").is_file()
     assert (READER_DIR / "selfdef-quarantine-mirror.py").is_file()
     assert (READER_DIR / "selfdef-trust-score-mirror.py").is_file()

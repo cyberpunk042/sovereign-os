@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """M060 cross-repo mirror chain smoke check — operator-runnable, read-only.
 
-Pings each of the 6 M060 mirror domains' /api/d-NN/snapshot endpoints
+Pings each of the 7 M060 mirror domains' /api/d-NN/snapshot endpoints
 through the sovereign-os api proxy and reports per-domain status:
 
     domain                 status   detail
@@ -10,17 +10,18 @@ through the sovereign-os api proxy and reports per-domain status:
     D-13 grants            ONLINE   2 grants · 1 pending · captured 2027-01-15T08:00:00Z
     D-14 capability-tokens OFFLINE  no resident store — selfdefctl capability-tokens issue
     D-15 sandboxes         OFFLINE  no resident store — selfdefctl sandboxes allocate
+    D-16 audit-chain       OFFLINE  chain empty — daemon-built append-only by MS016
     D-17 quarantine        OFFLINE  no resident store — daemon-populated by MS042 detection
     D-18 trust-scores      OFFLINE  no resident store — daemon-populated by scoring
 
 Exit code:
-    0  if all 6 endpoints reachable (any/all may legitimately be offline)
+    0  if all 7 endpoints reachable (any/all may legitimately be offline)
     1  if ≥1 endpoint is unreachable (proxy down / api daemon not running)
 
-Use --strict to require all 6 mirror_status == "online" (exit 1 otherwise).
+Use --strict to require all 7 mirror_status == "online" (exit 1 otherwise).
 
   --base-url  base URL (default http://localhost; honors $SOVEREIGN_OS_BASE_URL)
-  --strict    require online for all 6 (else any online/offline ok if reachable)
+  --strict    require online for all 7 (else any online/offline ok if reachable)
   --json      machine-readable JSON output instead of the table
 
 Sovereignty: stdlib-only (no requests/httpx dep). Read-only — never mutates
@@ -41,6 +42,7 @@ DOMAINS = [
     ("D-13", "grants",            "/api/d-13/snapshot"),
     ("D-14", "capability-tokens", "/api/d-14/snapshot"),
     ("D-15", "sandboxes",         "/api/d-15/snapshot"),
+    ("D-16", "audit-chain",       "/api/d-16/snapshot"),
     ("D-17", "quarantine",        "/api/d-17/snapshot"),
     ("D-18", "trust-scores",      "/api/d-18/snapshot"),
 ]
@@ -51,6 +53,7 @@ OFFLINE_HINT = {
     "D-13": "no resident store — selfdefctl grants issue ...",
     "D-14": "no resident store — selfdefctl capability-tokens issue ...",
     "D-15": "no resident store — selfdefctl sandboxes allocate ...",
+    "D-16": "chain empty — daemon-built append-only by MS016 (no operator append surface)",
     "D-17": "no resident store — daemon-populated by MS042 detection",
     "D-18": "no resident store — daemon-populated by scoring (or admit via selfdefctl trust-scores admit)",
 }
@@ -99,6 +102,12 @@ def summarize(dom_id: str, label: str, probe_result: dict) -> str:
     if dom_id == "D-15":
         n = len(raw.get("allocations", []))
         return f"ONLINE       {n} allocations · captured {captured}"
+    if dom_id == "D-16":
+        n = len(raw.get("spans", []))
+        integ = raw.get("integrity", {}) or {}
+        total = integ.get("total_entries", 0)
+        cont = "continuous" if integ.get("continuous", True) else "BROKEN"
+        return f"ONLINE       {n} tail spans · {total} chain entries · {cont} · captured {captured}"
     if dom_id == "D-17":
         n = len(raw.get("entries", []))
         return f"ONLINE       {n} quarantine entries · captured {captured}"
@@ -117,7 +126,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument(
         "--strict", action="store_true",
-        help="require mirror_status=online for all 6 (exit 1 otherwise)",
+        help="require mirror_status=online for all 7 (exit 1 otherwise)",
     )
     p.add_argument("--json", action="store_true", help="machine-readable JSON output")
     args = p.parse_args(argv)

@@ -87,7 +87,7 @@
 <h2>M060 mirror producers (selfdef → sovereign-os bridge)</h2>
 <div class="panel" id="m060-mirror-panel">
   <div class="muted" style="margin-bottom:.4rem;font-size:.85rem">
-    Live producer health across the 6 cross-repo mirror dashboards.
+    Live producer health across the 7 cross-repo mirror dashboards.
     Green = <code>selfdefd</code> is publishing this domain to
     <code>/run/sovereign-os/selfdef-mirror/</code>; red = no resident
     store yet (enable <code>[deployment].selfdef_mirror_dir</code> in
@@ -295,7 +295,7 @@ function renderDiscover(discover) {
   }
 }
 
-// M060 cross-repo mirror producers — the 6 selfdef → sovereign-os bridges.
+// M060 cross-repo mirror producers — the 7 selfdef → sovereign-os bridges.
 // Each polls its own snapshot endpoint and reports mirror_status (online/
 // offline). Per-domain endpoint + dashboard subpath:
 const M060_MIRRORS = [
@@ -303,6 +303,7 @@ const M060_MIRRORS = [
   {id: "D-13", label: "grants",            snapshot: "/api/d-13/snapshot", subpath: "../d-13-filesystem-grants/"},
   {id: "D-14", label: "capability-tokens", snapshot: "/api/d-14/snapshot", subpath: "../d-14-capability-tokens/"},
   {id: "D-15", label: "sandboxes",         snapshot: "/api/d-15/snapshot", subpath: "../d-15-sandboxes/"},
+  {id: "D-16", label: "audit-chain",       snapshot: "/api/d-16/snapshot", subpath: "../d-16-audit/"},
   {id: "D-17", label: "quarantine",        snapshot: "/api/d-17/snapshot", subpath: "../d-17-quarantine/"},
   {id: "D-18", label: "trust-scores",      snapshot: "/api/d-18/snapshot", subpath: "../d-18-trust-scores/"},
 ];
