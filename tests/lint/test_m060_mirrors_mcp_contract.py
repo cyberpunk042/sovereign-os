@@ -1,5 +1,5 @@
 """M060 cross-repo mirror MCP surface contract — closes the mcp:FUTURE
-waiver for the 7 selfdef→sovereign-os mirror domains.
+waiver for the 8 selfdef→sovereign-os mirror domains.
 
 Closes the M060 cross-repo mirror MCP gap. Raises each mirror's surface
 count by adding the mcp surface (already had core / cli / api / webapp /
@@ -47,9 +47,12 @@ def _tools_by_name(manifest: dict) -> dict:
     return {t["name"]: t for t in manifest.get("tools", [])}
 
 
-# 7 mirror domains (one tool per snapshot verb) + 1 D-16 integrity tool.
+# 8 mirror domains (one tool per snapshot verb) + 1 D-16 integrity tool
+# + 1 D-12 summaries tool.
 REQUIRED_TOOLS = {
     "selfdef-profile-mirror-show",
+    "selfdef-rules-mirror-snapshot",
+    "selfdef-rules-mirror-summaries",
     "selfdef-grants-mirror-snapshot",
     "selfdef-capability-mirror-snapshot",
     "selfdef-sandbox-mirror-snapshot",
@@ -63,6 +66,10 @@ REQUIRED_TOOLS = {
 EXPECTED_ARGV = {
     "selfdef-profile-mirror-show":
         ["sovereign-osctl", "profile-mirror", "show", "--json"],
+    "selfdef-rules-mirror-snapshot":
+        ["sovereign-osctl", "rules-mirror", "snapshot", "--json"],
+    "selfdef-rules-mirror-summaries":
+        ["sovereign-osctl", "rules-mirror", "summaries", "--json"],
     "selfdef-grants-mirror-snapshot":
         ["sovereign-osctl", "grants-mirror", "snapshot", "--json"],
     "selfdef-capability-mirror-snapshot":
@@ -80,9 +87,10 @@ EXPECTED_ARGV = {
 }
 
 
-def test_mcp_surface_lists_all_seven_m060_mirror_tools():
-    """All 7 M060 mirror snapshot tools + the D-16 integrity tool MUST
-    appear in the MCP manifest — operator §1g rule: full ladder visible."""
+def test_mcp_surface_lists_all_eight_m060_mirror_tools():
+    """All 8 M060 mirror snapshot tools + D-16 integrity + D-12 summaries
+    MUST appear in the MCP manifest — operator §1g rule: full ladder
+    visible."""
     tools = _tools_by_name(_manifest())
     missing = REQUIRED_TOOLS - set(tools.keys())
     assert not missing, (
@@ -158,6 +166,11 @@ def test_mcp_m060_mirror_tools_are_read_only():
         # profile lifecycle
         "selfdef-profile-mirror-set",
         "selfdef-profile-mirror-switch",
+        # nft rule lifecycle (rules are installed via selfdefctl + nft
+        # at the IPS layer — never via the read-only mirror)
+        "selfdef-rules-mirror-add",
+        "selfdef-rules-mirror-delete",
+        "selfdef-rules-mirror-flush",
     }
     leaked = forbidden & set(tools.keys())
     assert not leaked, (
@@ -211,3 +224,22 @@ def test_mcp_m060_mirror_tools_carry_d16_integrity_pair():
     # different verbs must land at different osctl sub-verbs
     assert snap["argv"][-2] == "snapshot"
     assert integ["argv"][-2] == "integrity"
+
+
+def test_mcp_m060_mirror_tools_carry_d12_summaries_pair():
+    """D-12 rules-mirror also ships TWO MCP tools (snapshot + summaries),
+    since per-ring summary tiles are a first-class cheap-poll surface
+    for the Ring 0..4 trust-topology view — consumers may want the
+    summary tiles without paginating the full rule list."""
+    tools = _tools_by_name(_manifest())
+    snap = tools["selfdef-rules-mirror-snapshot"]
+    summ = tools["selfdef-rules-mirror-summaries"]
+    # snapshot must reference the per-ring trust topology
+    assert "Ring 0..4" in snap["summary"] or "ring 0..4" in snap["summary"].lower()
+    assert "MS024" in snap["summary"] or "MS038" in snap["summary"] or "MS039" in snap["summary"]
+    # summaries must spell out the bare-summary shape
+    assert "summary" in summ["summary"].lower() or "summaries" in summ["summary"].lower()
+    assert "ring" in summ["summary"].lower()
+    # different verbs must land at different osctl sub-verbs
+    assert snap["argv"][-2] == "snapshot"
+    assert summ["argv"][-2] == "summaries"

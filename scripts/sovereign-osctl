@@ -7962,6 +7962,16 @@ case "${cmd}" in
     # integrity (+ --json).
     "${__REPO_ROOT}/scripts/mirror/selfdef-audit-mirror.py" "$@"
     ;;
+  rules-mirror)
+    # M060 D-12 (MS024 + MS038 + MS039): READ-ONLY consumer of the selfdef
+    # nftables rules mirror (MS007 typed-mirror crate selfdef-rules-mirror).
+    # Projects the daemon's Ring 0..4 nftables rule projection for the D-12
+    # networking dashboards (edge-firewall + network-edge). Rule installation
+    # lives in selfdefctl + nft at the IPS layer (operator MS003 only) — this
+    # dispatch only OBSERVES the live state. Verbs: snapshot / summaries
+    # (+ --json).
+    "${__REPO_ROOT}/scripts/mirror/selfdef-rules-mirror.py" "$@"
+    ;;
   super-model)
     # M060 D-19 (R10124-R10125): super-model manifest — sovereign-os-native
     # version + module-version table computed LIVE from git HEAD + the milestone

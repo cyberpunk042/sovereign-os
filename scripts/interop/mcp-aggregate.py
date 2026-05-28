@@ -763,14 +763,14 @@ LOCAL_TOOLS = [
                        "security"],
     },
     # M060 cross-repo MIRROR MCP surface — READ-ONLY consumers of the
-    # 7 selfdef-published mirrors (D-02 active-profile, D-13 grants,
-    # D-14 capability-tokens, D-15 sandboxes, D-16 audit-chain, D-17
-    # quarantine, D-18 trust-scores). Each mirror's snapshot verb is
-    # exposed so an AI client (Claude, local model with MCP) can
-    # query current IPS state without touching the selfdef daemon
-    # directly. Mutation verbs stay selfdef-side + MS003-signed
-    # (MS043 R10212). Per "Respect the projects" — sovereign-os
-    # NEVER mutates selfdef state; even via MCP.
+    # 8 selfdef-published mirrors (D-02 active-profile, D-12 rules,
+    # D-13 grants, D-14 capability-tokens, D-15 sandboxes, D-16 audit-
+    # chain, D-17 quarantine, D-18 trust-scores). Each mirror's
+    # snapshot verb is exposed so an AI client (Claude, local model
+    # with MCP) can query current IPS state without touching the
+    # selfdef daemon directly. Mutation verbs stay selfdef-side +
+    # MS003-signed (MS043 R10212). Per "Respect the projects" —
+    # sovereign-os NEVER mutates selfdef state; even via MCP.
     {
         "name": "selfdef-profile-mirror-show",
         "summary": "M060 D-02 active-profile mirror (selfdef MS040 six-profile authority matrix + MS039 L0..L6 envelope + transition history). Returns the currently-selected profile + actor + since + envelope, projected READ-ONLY from selfdef's /var/lib/selfdef/flex-profile.json. Offline → MS040 R09535 Private default.",
@@ -826,6 +826,20 @@ LOCAL_TOOLS = [
         "argv": ["sovereign-osctl", "trust-mirror", "snapshot", "--json"],
         "categories": ["m060", "d-18", "trust-mirror", "selfdef-mirror",
                        "operator-§1g"],
+    },
+    {
+        "name": "selfdef-rules-mirror-snapshot",
+        "summary": "M060 D-12 nftables rules mirror (selfdef MS024 nft boundary + MS038 network boundary + MS039 Ring 0..4 trust topology). Returns the daemon-resident projection of `nft -j list ruleset`: 13-field RuleEntry list + per-ring summaries (rule_count + total_packets + total_bytes + pending_l3 per Ring 0..4), READ-ONLY. Rule installation lives in selfdefctl + nft at the IPS layer (operator MS003 only).",
+        "argv": ["sovereign-osctl", "rules-mirror", "snapshot", "--json"],
+        "categories": ["m060", "d-12", "rules-mirror", "selfdef-mirror",
+                       "operator-§1g"],
+    },
+    {
+        "name": "selfdef-rules-mirror-summaries",
+        "summary": "M060 D-12 selfdef nftables rules per-ring summary tiles ONLY (5 Ring 0..4 rows: rule_count + total_packets + total_bytes + pending_l3). Bare summary list — no full rule entries; for cheap polling of ring distribution by MCP clients. Read-only mirror of selfdef-rules-registry.recompute_summaries() output.",
+        "argv": ["sovereign-osctl", "rules-mirror", "summaries", "--json"],
+        "categories": ["m060", "d-12", "rules-mirror", "selfdef-mirror",
+                       "summaries", "operator-§1g"],
     },
 ]
 
