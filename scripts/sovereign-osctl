@@ -8348,6 +8348,16 @@ AUDITOR_HELP
     # Idempotent + reversible (sentinel-bounded block).
     "${__REPO_ROOT}/scripts/operator/bashrc-install.sh" "$@"
     ;;
+  m060-doctor)
+    # M060 cross-repo mirror chain smoke check — pings each /api/d-NN/snapshot
+    # endpoint through the sovereign-os master-dashboard proxy and reports
+    # per-domain online/offline/unreachable state with per-domain offline-
+    # hints pointing at the right selfdef knob/verb. Read-only (web-is-read-
+    # only doctrine MS043 R10212 + R10115). Stdlib-only Python; no deps.
+    # See scripts/diagnostics/m060-smoke.py --help for flags
+    # (--base-url, --strict, --json).
+    "${__REPO_ROOT}/scripts/diagnostics/m060-smoke.py" "$@"
+    ;;
   version|--version|-V) cmd_version "$@" ;;
   help|--help|-h|"") cmd_help ;;
   *)
