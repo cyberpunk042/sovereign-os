@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os Personalization</title>
+<meta name="x-sovereign-module" content="personalization-webapp">
+<meta name="x-sovereign-shipped-in" content="M060 R10137 (dark/light mode) + R10140 (accent color) + R10141 (typography scale)">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<meta name="x-sovereign-catalog-source" content="M060 R10137-R10141 — operator-configurable cockpit UX (dark/light/auto + accent palette + typography scale); applies across all 21 D-NN dashboards via the SOVEREIGN_OS_PERSONALIZATION_VERSION localStorage key.">
+<meta name="x-sovereign-doctrine" content="Personalization is a CLIENT-SIDE preference layer: stored in localStorage on the operator's browser, NEVER server-mutated. Apply-snippet (~20 lines) is embedded in each dashboard's <head> so prefs apply pre-paint with no FOUC.">
+<style>
+  /* The apply-snippet sets data-theme/--accent/--font-scale before paint.
+     The CSS below honors those via custom-property fallbacks. */
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888;
+    --accent: var(--so-accent, #9bd1ff);
+    --font-scale: 1;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  html[data-theme="light"] {
+    --bg:#f6f6f6; --fg:#0e0e0e; --muted:#555;
+    --panel:#ffffff; --border:#d8d8d8;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:calc(14px * var(--font-scale));line-height:1.5}
+  body{padding:1.2rem;max-width:900px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:1rem 1.1rem;margin:.6rem 0}
+  .field{display:flex;align-items:center;gap:.8rem;margin:.5rem 0}
+  .field label{flex:0 0 12rem;color:var(--muted);font-size:.85rem}
+  .field .control{flex:1 1 auto;display:flex;gap:.4rem;flex-wrap:wrap;align-items:center}
+  button,select,input[type="text"]{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.4rem .7rem;font-family:inherit;font-size:.85rem;cursor:pointer}
+  button:hover,select:hover{border-color:var(--accent)}
+  button.on{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+  .swatches{display:flex;gap:.4rem;flex-wrap:wrap}
+  .swatch{width:1.8rem;height:1.8rem;border-radius:50%;border:2px solid var(--border);cursor:pointer;transition:transform .12s ease}
+  .swatch:hover{transform:scale(1.15)}
+  .swatch.on{border-color:var(--fg);box-shadow:0 0 0 2px var(--accent)}
+  .preview{padding:1rem;border:1px dashed var(--border);border-radius:4px;background:var(--panel);margin-top:.6rem}
+  .preview .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+  .preview .pill{display:inline-block;padding:2px 8px;border-radius:3px;font-size:.78rem;background:#143d3d;color:var(--accent)}
+  .footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--muted);font-size:.78rem}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  code{color:var(--accent);background:var(--bg);padding:0 3px;border-radius:2px;font-size:.82rem}
+  .toast{position:fixed;bottom:1rem;right:1rem;background:var(--panel);border:1px solid var(--accent);color:var(--fg);padding:.5rem .9rem;border-radius:4px;font-size:.78rem;opacity:0;transition:opacity .2s ease;pointer-events:none}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<h1>Personalization</h1>
+<div class="sub">M060 R10137 (theme) + R10140 (accent) + R10141 (typography) — operator-configurable cockpit UX. <a href="../master-dashboard/">D-00 main</a></div>
+
+<h2>theme (R10137)</h2>
+<div class="panel">
+  <div class="field">
+    <label for="theme-control">dark / light / auto</label>
+    <div class="control" id="theme-control">
+      <button data-theme="auto"  class="theme-btn on">auto (system)</button>
+      <button data-theme="dark"  class="theme-btn">dark</button>
+      <button data-theme="light" class="theme-btn">light</button>
+    </div>
+  </div>
+</div>
+
+<h2>accent color (R10140)</h2>
+<div class="panel">
+  <div class="field">
+    <label for="accent-control">palette</label>
+    <div class="control swatches" id="accent-control">
+      <!-- swatches populated by JS so background is dynamic -->
+    </div>
+  </div>
+  <div class="field">
+    <label for="accent-custom">custom (hex)</label>
+    <div class="control">
+      <input type="text" id="accent-custom" maxlength="7" placeholder="#9bd1ff" pattern="^#[0-9a-fA-F]{6}$">
+      <button id="accent-apply">apply</button>
+    </div>
+  </div>
+</div>
+
+<h2>typography scale (R10141)</h2>
+<div class="panel">
+  <div class="field">
+    <label for="scale-control">font size</label>
+    <div class="control" id="scale-control">
+      <button data-scale="0.85" class="scale-btn">compact (0.85)</button>
+      <button data-scale="1"    class="scale-btn on">default (1.0)</button>
+      <button data-scale="1.15" class="scale-btn">large (1.15)</button>
+      <button data-scale="1.3"  class="scale-btn">extra-large (1.3)</button>
+    </div>
+  </div>
+</div>
+
+<h2>live preview</h2>
+<div class="preview">
+  <div class="row">
+    <span class="pill">pill</span>
+    <code>code-token</code>
+    <button>button</button>
+    <a href="#">link</a>
+    <span class="muted">muted text</span>
+  </div>
+  <div style="margin-top:.6rem;font-size:1rem">Heading-size preview · paragraph text continues at the chosen typography scale to show how operator copy renders.</div>
+</div>
+
+<h2>actions</h2>
+<div class="panel">
+  <button id="reset-btn">reset to defaults</button>
+  <button id="export-btn">copy: export as JSON</button>
+  <span class="muted" style="margin-left:.7rem;font-size:.78rem">prefs live in <code>localStorage</code> on this browser only (per-device); never sent to the server (read-only doctrine).</span>
+</div>
+
+<div class="footer">
+  Personalization · stored in <code>localStorage</code> under the
+  <code>sovereign-os.personalization</code> key (schema v1).
+  Apply-snippet rolls out across all 21 D-NN dashboards via M060
+  R10137-R10141; this page is the canonical control surface.
+  <a href="../master-dashboard/">D-00 main</a> · <a href="../d-02-profile-choices/">D-02 profile</a>
+</div>
+
+<div class="toast" id="toast">applied</div>
+
+<script>
+  // ──────────────────────────────────────────────────────────────────
+  // SHARED apply-snippet (this is the same code that each dashboard
+  // embeds in its own <head> to apply prefs pre-paint). Inlined here
+  // so the personalization page itself uses it; future per-dashboard
+  // rollout copies this same logic verbatim.
+  // ──────────────────────────────────────────────────────────────────
+  const KEY = 'sovereign-os.personalization';
+  const SCHEMA_V = 1;
+  const DEFAULTS = { schema: SCHEMA_V, theme: 'auto', accent: '#9bd1ff', font_scale: 1 };
+
+  const PALETTE = [
+    {hex: '#9bd1ff', name: 'sky'},
+    {hex: '#7ad17a', name: 'leaf'},
+    {hex: '#e6c062', name: 'gold'},
+    {hex: '#ff7676', name: 'coral'},
+    {hex: '#c1a0ff', name: 'lilac'},
+    {hex: '#ff9b6a', name: 'amber'},
+    {hex: '#6ad1c0', name: 'mint'},
+    {hex: '#d36ad1', name: 'rose'},
+  ];
+
+  function loadPrefs() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (!raw) return { ...DEFAULTS };
+      const p = JSON.parse(raw);
+      if (p.schema !== SCHEMA_V) return { ...DEFAULTS };
+      return { ...DEFAULTS, ...p };
+    } catch (e) { return { ...DEFAULTS }; }
+  }
+
+  function savePrefs(p) {
+    try { localStorage.setItem(KEY, JSON.stringify(p)); } catch (e) {}
+  }
+
+  function resolvedTheme(p) {
+    if (p.theme === 'dark' || p.theme === 'light') return p.theme;
+    const mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)');
+    return (mq && mq.matches) ? 'light' : 'dark';
+  }
+
+  function applyPrefs(p) {
+    document.documentElement.setAttribute('data-theme', resolvedTheme(p));
+    document.documentElement.style.setProperty('--so-accent', p.accent);
+    document.documentElement.style.setProperty('--accent', p.accent);
+    document.documentElement.style.setProperty('--font-scale', String(p.font_scale));
+  }
+
+  let prefs = loadPrefs();
+  applyPrefs(prefs);
+
+  // React to system theme change when in 'auto' mode
+  const mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)');
+  if (mq) mq.addEventListener('change', () => { if (prefs.theme === 'auto') applyPrefs(prefs); });
+
+  // ──────────────────────────────────────────────────────────────────
+  // CONTROL PANEL UI (only the personalization page renders these)
+  // ──────────────────────────────────────────────────────────────────
+
+  function renderAll() {
+    document.querySelectorAll('.theme-btn').forEach(b => b.classList.toggle('on', b.dataset.theme === prefs.theme));
+    document.querySelectorAll('.scale-btn').forEach(b => b.classList.toggle('on', Number(b.dataset.scale) === Number(prefs.font_scale)));
+    document.querySelectorAll('.swatch').forEach(s => s.classList.toggle('on', s.dataset.accent.toLowerCase() === prefs.accent.toLowerCase()));
+    const ci = document.getElementById('accent-custom');
+    if (ci && !PALETTE.find(p => p.hex.toLowerCase() === prefs.accent.toLowerCase())) ci.value = prefs.accent;
+  }
+
+  function renderSwatches() {
+    const c = document.getElementById('accent-control'); c.innerHTML = '';
+    for (const p of PALETTE) {
+      const s = document.createElement('div');
+      s.className = 'swatch'; s.dataset.accent = p.hex; s.title = `${p.name} (${p.hex})`;
+      s.style.background = p.hex;
+      s.addEventListener('click', () => { prefs.accent = p.hex; savePrefs(prefs); applyPrefs(prefs); renderAll(); toast(`accent: ${p.name}`); });
+      c.appendChild(s);
+    }
+  }
+
+  document.querySelectorAll('.theme-btn').forEach(b => b.addEventListener('click', () => {
+    prefs.theme = b.dataset.theme; savePrefs(prefs); applyPrefs(prefs); renderAll(); toast(`theme: ${prefs.theme}`);
+  }));
+  document.querySelectorAll('.scale-btn').forEach(b => b.addEventListener('click', () => {
+    prefs.font_scale = Number(b.dataset.scale); savePrefs(prefs); applyPrefs(prefs); renderAll(); toast(`scale: ${prefs.font_scale}`);
+  }));
+
+  document.getElementById('accent-apply').addEventListener('click', () => {
+    const v = document.getElementById('accent-custom').value.trim();
+    if (/^#[0-9a-fA-F]{6}$/.test(v)) { prefs.accent = v; savePrefs(prefs); applyPrefs(prefs); renderAll(); toast(`accent: ${v}`); }
+    else toast('invalid hex — use #RRGGBB');
+  });
+
+  document.getElementById('reset-btn').addEventListener('click', () => {
+    prefs = { ...DEFAULTS }; savePrefs(prefs); applyPrefs(prefs); renderAll(); toast('reset to defaults');
+  });
+
+  document.getElementById('export-btn').addEventListener('click', () => {
+    const blob = JSON.stringify(prefs, null, 2);
+    navigator.clipboard.writeText(blob).then(() => toast('copied JSON to clipboard'));
+  });
+
+  function toast(msg) {
+    const t = document.getElementById('toast'); t.textContent = msg;
+    t.classList.add('show'); clearTimeout(toast._h);
+    toast._h = setTimeout(() => t.classList.remove('show'), 1500);
+  }
+
+  // master shortcut Cmd-0
+  window.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key === '0') { e.preventDefault(); window.location.href = '../master-dashboard/'; }
+  });
+
+  renderSwatches();
+  renderAll();
+</script>
+
+</body>
+</html>
