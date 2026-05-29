@@ -618,6 +618,40 @@ def probe_package_state(metrics_url: str) -> dict[str, Any]:
     }
 
 
+def probe_journal_disk(metrics_url: str) -> dict[str, Any]:
+    metrics = _fetch_metrics(metrics_url)
+    if metrics is None:
+        return {"status": "unreachable", "summary": "node_exporter down"}
+    out = probe_textfile_observer(metrics, "selfdef_journal_disk", "journal-disk")
+    if out["status"] != "OK":
+        return out
+    available = _gauge(metrics, "selfdef_journal_available")
+    bytes_total = _gauge(metrics, "selfdef_journal_bytes_total")
+    persistent = _gauge(metrics, "selfdef_journal_persistent")
+    if available == 0:
+        return {
+            "status": "OK",
+            "summary": "journalctl not installed (honest-offline)",
+        }
+    if bytes_total is not None and bytes_total > 5368709120:
+        return {
+            "status": "FAIL",
+            "summary": f"journal {int(bytes_total) // (1024**3)} GiB > 5 GiB (runaway)",
+        }
+    if persistent == 0:
+        return {
+            "status": "FAIL",
+            "summary": "no persistent journal (forensic gap)",
+        }
+    if bytes_total is not None and bytes_total > 1073741824:
+        return {
+            "status": "WARN",
+            "summary": f"journal {int(bytes_total) // (1024**3)} GiB > 1 GiB (retention pressure)",
+        }
+    mib = (int(bytes_total) // (1024 * 1024)) if bytes_total is not None else 0
+    return {"status": "OK", "summary": f"{mib} MiB · persistent"}
+
+
 # ── Aggregation + rendering ──────────────────────────────────────────
 
 VERTICALS = (
@@ -626,6 +660,7 @@ VERTICALS = (
     "auth_events", "systemd_units", "listening_sockets",
     "disk_usage", "time_sync", "kernel_modules", "fail2ban",
     "nftables", "cron", "sshd_config", "package_state",
+    "journal_disk",
 )
 
 
@@ -648,11 +683,12 @@ def collect(args: argparse.Namespace) -> dict[str, dict[str, Any]]:
         "cron":          probe_cron(args.node_exporter_url),
         "sshd_config":   probe_sshd_config(args.node_exporter_url),
         "package_state": probe_package_state(args.node_exporter_url),
+        "journal_disk":  probe_journal_disk(args.node_exporter_url),
     }
 
 
 def render_table(results: dict[str, dict[str, Any]]) -> str:
-    lines = ["sovereign-os observability status — 17 verticals",
+    lines = ["sovereign-os observability status — 18 verticals",
              f"{'─' * 22} {'─' * 60}"]
     for v in VERTICALS:
         r = results[v]
@@ -677,6 +713,7 @@ def render_table(results: dict[str, dict[str, Any]]) -> str:
             "cron":              "cron+timers",
             "sshd_config":       "sshd-hardening",
             "package_state":     "package-state",
+            "journal_disk":      "journal-disk",
         }[v]
         lines.append(f"{label:<22} {marker}  {r['summary']}")
     lines.append(f"{'─' * 22} {'─' * 60}")

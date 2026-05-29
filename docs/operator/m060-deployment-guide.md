@@ -2012,6 +2012,106 @@ backlog still matters (bug fixes, dependency rot).
 
 **Remediation:** schedule a maintenance window for `apt upgrade`.
 
+#### SelfdefJournalDiskTextfileEmitFailed (critical)
+
+```bash
+systemctl status selfdef-journal-disk-textfile.service
+journalctl -u selfdef-journal-disk-textfile.service --since '30 minutes ago'
+```
+
+#### SelfdefJournalDiskObserverSilent (critical)
+
+```bash
+systemctl status selfdef-journal-disk-textfile.timer
+```
+
+#### SelfdefJournalDiskRunaway (critical)
+
+**Diagnosis:**
+
+```bash
+# Total + per-file breakdown:
+journalctl --disk-usage
+journalctl --header | grep -E '^File|Sealed|Vacuumed'
+
+# Top emitter — top services by message count:
+journalctl --since '1 hour ago' --output cat \
+  | head -100000 \
+  | awk '{print $1}' \
+  | sort | uniq -c | sort -rn | head
+
+# Per-service journal byte count (one_liner):
+journalctl --since '1 hour ago' -o json --no-pager 2>/dev/null \
+  | jq -r '.SYSLOG_IDENTIFIER // "unknown"' \
+  | sort | uniq -c | sort -rn | head
+```
+
+**Cause:** journal > 5 GiB. A single service is generating
+excessive logs (debug logging left on, crash loop, log injection
+attack).
+
+**Remediation (short-term):**
+
+```bash
+# Force vacuum to a cap:
+journalctl --vacuum-size=1G
+```
+
+**Remediation (root cause):**
+
+```bash
+# Find the offender (see commands above), then either fix the
+# service or muzzle it:
+systemctl edit <noisy-service>
+# Add: [Service]
+#      LogLevelMax=warning
+systemctl restart <noisy-service>
+```
+
+#### SelfdefJournalNoPersistentStorage (critical)
+
+**Diagnosis:**
+
+```bash
+ls -la /var/log/journal/    # should be non-empty
+ls -la /run/log/journal/    # volatile fallback
+grep -E '^Storage' /etc/systemd/journald.conf
+```
+
+**Cause:** `/var/log/journal/` is empty so systemd is writing only
+to `/run/log/journal/` (volatile). **A reboot loses the entire
+forensic trail** — a serious IPS gap for incident response.
+
+**Remediation:**
+
+```bash
+mkdir -p /var/log/journal
+systemd-tmpfiles --create --prefix /var/log/journal
+# Optionally lock in:
+sed -i 's/^#*Storage=.*/Storage=persistent/' \
+  /etc/systemd/journald.conf
+systemctl restart systemd-journald
+# Verify:
+journalctl --header | grep 'File path'
+```
+
+#### SelfdefJournalDiskHigh (warning)
+
+**Diagnosis:** same commands as `SelfdefJournalDiskRunaway`.
+Sustained > 1 GiB but under 5 GiB ceiling. Retention pressure;
+older entries may be rotating out.
+
+**Remediation:**
+
+```bash
+# Raise the cap if you have disk to spare:
+sed -i 's/^#*SystemMaxUse=.*/SystemMaxUse=8G/' \
+  /etc/systemd/journald.conf
+systemctl restart systemd-journald
+
+# Or chase the cause (see Runaway runbook above).
+```
+
 ## Project-boundary discipline (MS043 R10212)
 
 - IPS state mutation lives in **selfdef only** (selfdefd + selfdefctl +

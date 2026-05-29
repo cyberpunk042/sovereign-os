@@ -20,7 +20,7 @@ CANONICAL_VERTICALS = ("m060", "ms022", "four_watchdog",
                        "auth_events", "systemd_units",
                        "listening_sockets", "disk_usage", "time_sync",
                        "kernel_modules", "fail2ban", "nftables", "cron",
-                       "sshd_config", "package_state")
+                       "sshd_config", "package_state", "journal_disk")
 
 
 def _load_module():
@@ -70,7 +70,7 @@ def test_probe_functions_exist():
         "probe_auth_events", "probe_systemd_units", "probe_listening_sockets",
         "probe_disk_usage", "probe_time_sync", "probe_kernel_modules",
         "probe_fail2ban", "probe_nftables", "probe_cron",
-        "probe_sshd_config", "probe_package_state",
+        "probe_sshd_config", "probe_package_state", "probe_journal_disk",
     ):
         assert hasattr(mod, fn), f"missing probe function {fn}"
 
@@ -605,6 +605,74 @@ def test_package_state_probe_honest_offline_when_apt_absent():
     )
     with patch.object(mod, "_fetch_metrics", return_value=fake):
         out = mod.probe_package_state("http://localhost:9100/metrics")
+    assert out["status"] == "OK"
+    assert "not installed" in out["summary"] or "honest-offline" in out["summary"]
+
+
+def test_journal_disk_probe_detects_runaway():
+    """> 5 GiB = FAIL (log-spam runaway)."""
+    mod = _load_module()
+    import time as _t
+    now = int(_t.time())
+    fake = (
+        "selfdef_journal_disk_textfile_emit_failed 0\n"
+        f"selfdef_journal_disk_last_run_unix {now}\n"
+        "selfdef_journal_available 1\n"
+        "selfdef_journal_bytes_total 6442450944\n"  # 6 GiB
+        "selfdef_journal_persistent 1\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_journal_disk("http://localhost:9100/metrics")
+    assert out["status"] == "FAIL"
+    assert "runaway" in out["summary"].lower() or "6" in out["summary"]
+
+
+def test_journal_disk_probe_detects_no_persistent_storage():
+    """persistent=0 with journalctl available = FAIL (forensic gap)."""
+    mod = _load_module()
+    import time as _t
+    now = int(_t.time())
+    fake = (
+        "selfdef_journal_disk_textfile_emit_failed 0\n"
+        f"selfdef_journal_disk_last_run_unix {now}\n"
+        "selfdef_journal_available 1\n"
+        "selfdef_journal_bytes_total 1048576\n"
+        "selfdef_journal_persistent 0\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_journal_disk("http://localhost:9100/metrics")
+    assert out["status"] == "FAIL"
+    assert "persistent" in out["summary"] or "forensic" in out["summary"]
+
+
+def test_journal_disk_probe_detects_high_pressure():
+    """> 1 GiB but < 5 GiB = WARN."""
+    mod = _load_module()
+    import time as _t
+    now = int(_t.time())
+    fake = (
+        "selfdef_journal_disk_textfile_emit_failed 0\n"
+        f"selfdef_journal_disk_last_run_unix {now}\n"
+        "selfdef_journal_available 1\n"
+        "selfdef_journal_bytes_total 2147483648\n"  # 2 GiB
+        "selfdef_journal_persistent 1\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_journal_disk("http://localhost:9100/metrics")
+    assert out["status"] == "WARN"
+
+
+def test_journal_disk_probe_honest_offline_when_journalctl_absent():
+    mod = _load_module()
+    import time as _t
+    now = int(_t.time())
+    fake = (
+        "selfdef_journal_disk_textfile_emit_failed 0\n"
+        f"selfdef_journal_disk_last_run_unix {now}\n"
+        "selfdef_journal_available 0\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_journal_disk("http://localhost:9100/metrics")
     assert out["status"] == "OK"
     assert "not installed" in out["summary"] or "honest-offline" in out["summary"]
 

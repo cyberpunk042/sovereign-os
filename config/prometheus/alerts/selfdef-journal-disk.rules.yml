@@ -1,0 +1,100 @@
+# Selfdef systemd-journal disk-usage Prometheus alerting rules.
+#
+# Fires on the textfile metrics shipped by selfdef-journal-disk-
+# textfile.{service,timer} (selfdef commit `ec6a822`).
+#
+# Operational-disk observability — pairs with disk-usage. Journal
+# is a leading cause of /var fill (log-spam runaway from a single
+# misbehaving service can blow the disk in hours).
+
+groups:
+  - name: selfdef-journal-disk
+    interval: 30s
+    rules:
+
+      - alert: SelfdefJournalDiskTextfileEmitFailed
+        expr: selfdef_journal_disk_textfile_emit_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-journal-disk
+          journal_link: observer-fault
+        annotations:
+          summary: "Selfdef journal-disk observer fault on {{ $labels.instance }}"
+          description: >
+            Wrapper failure for 5+ minutes. Journal disk-usage gauges
+            UNRELIABLE.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefjournaldisktextfileemitfailed-critical"
+
+      - alert: SelfdefJournalDiskObserverSilent
+        expr: time() - selfdef_journal_disk_last_run_unix > 300
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-journal-disk
+          journal_link: observer-silent
+        annotations:
+          summary: "Selfdef journal-disk observer silent on {{ $labels.instance }}"
+          description: >
+            Timer hasn't fired in 5+ minutes. Journal usage state stale.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefjournaldiskobserversilent-critical"
+
+      # Critical: journal disk > 5 GiB. Log-spam runaway. Almost
+      # certainly a single service is generating spam — operator
+      # must identify the source before /var fills.
+      - alert: SelfdefJournalDiskRunaway
+        expr: selfdef_journal_bytes_total > 5368709120
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-journal-disk
+          journal_link: log-spam-runaway
+        annotations:
+          summary: "Journal > 5 GiB on {{ $labels.instance }} — log-spam runaway"
+          description: >
+            systemd journal is using over 5 GiB of disk. This indicates
+            a misbehaving service generating excessive logs. Operator
+            action: `journalctl --header | grep -E 'File|Sealed'` to
+            find largest files, then `journalctl --since '1 hour ago'
+            | head -100 | sort | uniq -c | sort -rn | head` to spot
+            the top emitter.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefjournaldiskrunaway-critical"
+
+      # Critical: only volatile journal (no persistent). Restart
+      # loses forensic trail — known IPS gap (post-incident
+      # investigation needs persistent journal).
+      - alert: SelfdefJournalNoPersistentStorage
+        expr: selfdef_journal_available == 1 and selfdef_journal_persistent == 0
+        for: 15m
+        labels:
+          severity: critical
+          subsystem: selfdef-journal-disk
+          journal_link: no-persistent
+        annotations:
+          summary: "No persistent journal on {{ $labels.instance }} — forensic gap"
+          description: >
+            /var/log/journal/ is empty for 15+ minutes. systemd is
+            using volatile-only journal (/run/log/journal/). On
+            restart the entire forensic trail is lost. Critical
+            IPS-side gap. Operator action:
+            `mkdir -p /var/log/journal && systemd-tmpfiles --create
+            --prefix /var/log/journal && systemctl restart
+            systemd-journald`.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefjournalnopersistentstorage-critical"
+
+      # Warning: journal disk > 1 GiB. Retention pressure approaching;
+      # older entries rotating out.
+      - alert: SelfdefJournalDiskHigh
+        expr: selfdef_journal_bytes_total > 1073741824
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: selfdef-journal-disk
+          journal_link: disk-high
+        annotations:
+          summary: "Journal > 1 GiB on {{ $labels.instance }} — retention pressure"
+          description: >
+            Journal is using over 1 GiB sustained 30m. Old entries
+            rotating out. Either raise SystemMaxUse= in
+            /etc/systemd/journald.conf or investigate the cause.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefjournaldiskhigh-warning"
