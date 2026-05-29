@@ -340,6 +340,19 @@ def card_process_tree_freezes_queue() -> dict[str, Any]:
     }
 
 
+def card_socket_fd_revocations_queue() -> dict[str, Any]:
+    """SDD-073 MS5b — pending operator-restore queue for the selfdef
+    socket-fd revocation action layer. Ninth in the IPS-nonet
+    paired-decision queue family (per-connection severance axis)."""
+    cockpit_script = REPO_ROOT / "scripts" / "cockpit" / "socket-fd-revocations-queue.py"
+    data = _run_json_at(cockpit_script, []) or {"queue": [], "count": 0}
+    return {
+        "id": "socket-fd-revocations-queue",
+        "title": "SDD-073 — pending socket-fd-revocation restore decisions",
+        "data": data,
+    }
+
+
 def card_flex() -> dict[str, Any]:
     """R224 Z-3 — profile-flex show JSON."""
     data = _run_json("profile-flex.py", ["show"]) or {"deltas": []}
@@ -1467,6 +1480,7 @@ CARDS = [
     card_netns_isolations_queue,
     card_mount_bindings_queue,
     card_process_tree_freezes_queue,
+    card_socket_fd_revocations_queue,
     card_gpu,
     card_network,
     card_cpu,
