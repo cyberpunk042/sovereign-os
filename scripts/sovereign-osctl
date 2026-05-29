@@ -963,6 +963,16 @@ ENV VARS (override defaults):
                                         host; --node-exporter-url to
                                         override the default
                                         http://localhost:9100/metrics.
+    ms022-doctor [--strict] [--json]    Triage the MS022 SSE subscriber-
+                                        quota chain (proxy daemon /healthz
+                                        + state classifier + envelope shape
+                                        + systemd unit + master-dashboard
+                                        proxy path). Exit 0/1/2 = GREEN/
+                                        YELLOW/RED. R10212 read-only —
+                                        every fix is an ssh-to-selfdef
+                                        command, never a sovereign-os
+                                        mutation. Use --strict for CI to
+                                        require state=ok everywhere.
     m060-health probe|state [--json]    Daemon-side per-artifact health.
                                         `state` returns just the verdict.
     profile-mirror show [--json]        D-02 active-profile mirror
@@ -8437,6 +8447,17 @@ AUDITOR_HELP
     # our autocompletes and aliases and manual / helps and menus".
     # Idempotent + reversible (sentinel-bounded block).
     "${__REPO_ROOT}/scripts/operator/bashrc-install.sh" "$@"
+    ;;
+  ms022-doctor)
+    # MS022 SSE subscriber-quota chain triage — probes the 4 consumer-
+    # side surfaces (proxy daemon, master-dashboard banner, systemd unit)
+    # against the selfdef-side producer state (selfdef commit 77b4499
+    # 6 gauges). Read-only (R10212 + R10115). Stdlib-only Python; no deps.
+    # Exit codes: 0=GREEN / 1=YELLOW / 2=RED. Flags: --strict requires
+    # state=ok everywhere; --json for machine-readable triage.
+    # See scripts/diagnostics/ms022-doctor.py --help for the full
+    # flag surface.
+    "${__REPO_ROOT}/scripts/diagnostics/ms022-doctor.py" "$@"
     ;;
   m060-doctor)
     # M060 cross-repo mirror chain smoke check — pings each /api/d-NN/snapshot
