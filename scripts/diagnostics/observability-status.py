@@ -677,6 +677,45 @@ def probe_blockset(metrics_url: str) -> dict[str, Any]:
     }
 
 
+def probe_env_scrubs(metrics_url: str) -> dict[str, Any]:
+    metrics = _fetch_metrics(metrics_url)
+    if metrics is None:
+        return {"status": "unreachable", "summary": "node_exporter down"}
+    out = probe_textfile_observer(
+        metrics, "selfdef_env_scrubs", "env-scrubs",
+    )
+    if out["status"] != "OK":
+        return out
+    present = _gauge(metrics, "selfdef_env_scrubs_state_dir_present")
+    active = _gauge(metrics, "selfdef_env_scrubs_active_count")
+    no_match = _gauge(metrics, "selfdef_env_scrubs_no_match_count")
+    vars_scrubbed = _gauge(metrics, "selfdef_env_scrubs_vars_scrubbed_total")
+    pending = _gauge(metrics, "selfdef_env_scrubs_pending_restores")
+    if present == 0:
+        return {"status": "FAIL",
+                "summary": "state-dir absent (SDD-074 enforcement OFFLINE)"}
+    if pending is not None and pending > 5:
+        return {"status": "WARN",
+                "summary": f"{int(pending)} pending env-scrub restore decisions"}
+    if no_match is not None and no_match > 3:
+        return {"status": "WARN",
+                "summary": f"{int(no_match)} NoMatch handles — rule misconfig review"}
+    if vars_scrubbed is not None and vars_scrubbed > 50:
+        return {"status": "WARN",
+                "summary": f"{int(vars_scrubbed)} vars scrubbed — large-scale rotation"}
+    if active is not None and active > 10:
+        return {"status": "WARN",
+                "summary": f"{int(active)} active env-scrubs > 10"}
+    return {
+        "status": "OK",
+        "summary": f"{int(active) if active is not None else 0} handles · "
+                   f"{int(vars_scrubbed) if vars_scrubbed is not None else 0} vars · "
+                   f"{int(no_match) if no_match is not None else 0} no-match · "
+                   f"{int(pending) if pending is not None else 0} pending · "
+                   "enforcement online",
+    }
+
+
 def probe_socket_fd_revocations(metrics_url: str) -> dict[str, Any]:
     metrics = _fetch_metrics(metrics_url)
     if metrics is None:
@@ -938,6 +977,7 @@ VERTICALS = (
     "token_revocations", "mfa_grant_revocations",
     "netns_isolations", "mount_bindings",
     "process_tree_freezes", "socket_fd_revocations",
+    "env_scrubs",
 )
 
 
@@ -970,11 +1010,12 @@ def collect(args: argparse.Namespace) -> dict[str, dict[str, Any]]:
         "mount_bindings": probe_mount_bindings(args.node_exporter_url),
         "process_tree_freezes": probe_process_tree_freezes(args.node_exporter_url),
         "socket_fd_revocations": probe_socket_fd_revocations(args.node_exporter_url),
+        "env_scrubs": probe_env_scrubs(args.node_exporter_url),
     }
 
 
 def render_table(results: dict[str, dict[str, Any]]) -> str:
-    lines = ["sovereign-os observability status — 27 verticals",
+    lines = ["sovereign-os observability status — 28 verticals",
              f"{'─' * 22} {'─' * 60}"]
     for v in VERTICALS:
         r = results[v]
@@ -1009,6 +1050,7 @@ def render_table(results: dict[str, dict[str, Any]]) -> str:
             "mount_bindings":    "mount-bindings (SDD-071)",
             "process_tree_freezes": "process-tree-freezes (SDD-072)",
             "socket_fd_revocations": "socket-fd-revocations (SDD-073)",
+            "env_scrubs":          "env-scrubs (SDD-074)",
         }[v]
         lines.append(f"{label:<22} {marker}  {r['summary']}")
     lines.append(f"{'─' * 22} {'─' * 60}")

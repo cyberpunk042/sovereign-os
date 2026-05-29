@@ -353,6 +353,19 @@ def card_socket_fd_revocations_queue() -> dict[str, Any]:
     }
 
 
+def card_env_scrubs_queue() -> dict[str, Any]:
+    """SDD-074 MS5b — pending operator-restore queue for the selfdef
+    process-env scrub action layer. Tenth in the IPS-dectet
+    paired-decision queue family (in-memory secret-residency axis)."""
+    cockpit_script = REPO_ROOT / "scripts" / "cockpit" / "env-scrubs-queue.py"
+    data = _run_json_at(cockpit_script, []) or {"queue": [], "count": 0}
+    return {
+        "id": "env-scrubs-queue",
+        "title": "SDD-074 — pending env-scrub restore decisions",
+        "data": data,
+    }
+
+
 def card_flex() -> dict[str, Any]:
     """R224 Z-3 — profile-flex show JSON."""
     data = _run_json("profile-flex.py", ["show"]) or {"deltas": []}
@@ -1481,6 +1494,7 @@ CARDS = [
     card_mount_bindings_queue,
     card_process_tree_freezes_queue,
     card_socket_fd_revocations_queue,
+    card_env_scrubs_queue,
     card_gpu,
     card_network,
     card_cpu,
