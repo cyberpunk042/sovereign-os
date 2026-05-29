@@ -1707,6 +1707,102 @@ DDoS, or undersized default for the workload.
 Conntrack at > 75% sustained — pre-emptive expansion recommended
 before reaching the kernel-drop ceiling.
 
+#### SelfdefCronObserverFault (critical)
+
+**Diagnosis:**
+
+```bash
+systemctl status selfdef-cron-textfile.service
+journalctl -u selfdef-cron-textfile.service --since '30 minutes ago'
+```
+
+**Cause:** wrapper failure (often a cron-surface directory was made
+unreadable by an operator hardening change). Persistence drift
+detection lost.
+
+#### SelfdefCronObserverSilent (critical)
+
+**Diagnosis:**
+
+```bash
+systemctl status selfdef-cron-textfile.timer
+systemctl list-timers selfdef-cron-textfile.timer
+```
+
+#### SelfdefCronEntryDriftHigh (warning)
+
+**Diagnosis:**
+
+```bash
+# Enumerate all cron surfaces:
+ls -la /etc/cron.d/ /etc/cron.{hourly,daily,weekly,monthly}/
+cat /etc/crontab
+ls -la /var/spool/cron/crontabs/ /var/spool/cron/
+
+# Find files modified in last 24h:
+find /etc/cron.d /etc/cron.* /etc/crontab /var/spool/cron \
+  -type f -mtime -1 2>/dev/null
+```
+
+**Cause:** total actionable cron-entry count changed > 2 times in
+1 hour. Either legitimate operator activity (deployment, package
+upgrade) OR an attacker dropped a persistence rule.
+
+**Diagnostic correlation:** check auth-events for recent shell
+sessions; check kernel-modules for unsigned-module loads (rootkit
+on top of cron persistence).
+
+#### SelfdefCronDFileCountDrift (warning)
+
+**Diagnosis:**
+
+```bash
+ls -la /etc/cron.d/
+cat /etc/cron.d/*
+find /etc/cron.d -type f -newer /tmp/cron-baseline 2>/dev/null
+```
+
+**Cause:** a file was added/removed from `/etc/cron.d/` (the
+highest-risk persistence surface — root-level scheduled execution).
+For an attacker: dropping a file here gives recurring root.
+
+**Remediation if hostile:**
+
+```bash
+# Identify the new file:
+ls -la /etc/cron.d/ --time=mtime | head
+# Disable (rename to .disabled):
+mv /etc/cron.d/<suspect> /etc/cron.d/<suspect>.disabled
+# Capture for forensics:
+cp /etc/cron.d/<suspect>.disabled /var/log/forensics/
+```
+
+#### SelfdefSystemdTimerDrift (warning)
+
+**Diagnosis:**
+
+```bash
+systemctl list-timers --all
+systemctl list-unit-files --type=timer
+# Find recently-modified .timer files:
+find /etc/systemd/system /usr/lib/systemd/system -name '*.timer' \
+  -mtime -1 2>/dev/null
+```
+
+**Cause:** systemd .timer unit count changed. Modern persistence
+technique — attacker drops a `.timer` + `.service` pair.
+
+**Remediation if hostile:**
+
+```bash
+systemctl stop <suspect>.timer
+systemctl disable <suspect>.timer
+# Capture before removal:
+cp /etc/systemd/system/<suspect>.{timer,service} /var/log/forensics/
+rm /etc/systemd/system/<suspect>.{timer,service}
+systemctl daemon-reload
+```
+
 ## Project-boundary discipline (MS043 R10212)
 
 - IPS state mutation lives in **selfdef only** (selfdefd + selfdefctl +

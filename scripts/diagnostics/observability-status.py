@@ -521,6 +521,24 @@ def probe_nftables(metrics_url: str) -> dict[str, Any]:
     }
 
 
+def probe_cron(metrics_url: str) -> dict[str, Any]:
+    metrics = _fetch_metrics(metrics_url)
+    if metrics is None:
+        return {"status": "unreachable", "summary": "node_exporter down"}
+    out = probe_textfile_observer(metrics, "selfdef_cron", "cron")
+    if out["status"] != "OK":
+        return out
+    cron_d = _gauge(metrics, "selfdef_cron_d_files")
+    total = _gauge(metrics, "selfdef_cron_total_entries")
+    timers = _gauge(metrics, "selfdef_systemd_timers_total")
+    return {
+        "status": "OK",
+        "summary": f"{int(cron_d) if cron_d is not None else 0} cron.d · "
+                   f"{int(total) if total is not None else 0} entries · "
+                   f"{int(timers) if timers is not None else 0} timers",
+    }
+
+
 # ── Aggregation + rendering ──────────────────────────────────────────
 
 VERTICALS = (
@@ -528,7 +546,7 @@ VERTICALS = (
     "modules", "daemon_process", "apparmor",
     "auth_events", "systemd_units", "listening_sockets",
     "disk_usage", "time_sync", "kernel_modules", "fail2ban",
-    "nftables",
+    "nftables", "cron",
 )
 
 
@@ -548,11 +566,12 @@ def collect(args: argparse.Namespace) -> dict[str, dict[str, Any]]:
         "kernel_modules": probe_kernel_modules(args.node_exporter_url),
         "fail2ban":      probe_fail2ban(args.node_exporter_url),
         "nftables":      probe_nftables(args.node_exporter_url),
+        "cron":          probe_cron(args.node_exporter_url),
     }
 
 
 def render_table(results: dict[str, dict[str, Any]]) -> str:
-    lines = ["sovereign-os observability status — 14 verticals",
+    lines = ["sovereign-os observability status — 15 verticals",
              f"{'─' * 22} {'─' * 60}"]
     for v in VERTICALS:
         r = results[v]
@@ -574,6 +593,7 @@ def render_table(results: dict[str, dict[str, Any]]) -> str:
             "kernel_modules":    "kernel-modules",
             "fail2ban":          "fail2ban",
             "nftables":          "nftables+conntrack",
+            "cron":              "cron+timers",
         }[v]
         lines.append(f"{label:<22} {marker}  {r['summary']}")
     lines.append(f"{'─' * 22} {'─' * 60}")

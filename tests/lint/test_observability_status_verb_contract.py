@@ -19,7 +19,7 @@ CANONICAL_VERTICALS = ("m060", "ms022", "four_watchdog",
                        "modules", "daemon_process", "apparmor",
                        "auth_events", "systemd_units",
                        "listening_sockets", "disk_usage", "time_sync",
-                       "kernel_modules", "fail2ban", "nftables")
+                       "kernel_modules", "fail2ban", "nftables", "cron")
 
 
 def _load_module():
@@ -68,7 +68,7 @@ def test_probe_functions_exist():
         "probe_modules_catalog", "probe_daemon_process", "probe_apparmor",
         "probe_auth_events", "probe_systemd_units", "probe_listening_sockets",
         "probe_disk_usage", "probe_time_sync", "probe_kernel_modules",
-        "probe_fail2ban", "probe_nftables",
+        "probe_fail2ban", "probe_nftables", "probe_cron",
     ):
         assert hasattr(mod, fn), f"missing probe function {fn}"
 
@@ -442,6 +442,40 @@ def test_nftables_probe_honest_offline_when_nft_absent():
         out = mod.probe_nftables("http://localhost:9100/metrics")
     assert out["status"] == "OK"
     assert "not installed" in out["summary"] or "honest-offline" in out["summary"]
+
+
+def test_cron_probe_summarizes_inventory():
+    """Cron probe is observational — OK when wrapper is fresh.
+    Summary must include the three key counts."""
+    mod = _load_module()
+    import time as _t
+    now = int(_t.time())
+    fake = (
+        "selfdef_cron_textfile_emit_failed 0\n"
+        f"selfdef_cron_last_run_unix {now}\n"
+        "selfdef_cron_d_files 3\n"
+        "selfdef_cron_total_entries 12\n"
+        "selfdef_systemd_timers_total 7\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_cron("http://localhost:9100/metrics")
+    assert out["status"] == "OK"
+    assert "3 cron.d" in out["summary"]
+    assert "12 entries" in out["summary"]
+    assert "7 timers" in out["summary"]
+
+
+def test_cron_probe_detects_silent_observer():
+    """When last_run_unix is ancient, probe must FAIL."""
+    mod = _load_module()
+    fake = (
+        "selfdef_cron_textfile_emit_failed 0\n"
+        "selfdef_cron_last_run_unix 100\n"  # ancient
+        "selfdef_cron_d_files 0\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_cron("http://localhost:9100/metrics")
+    assert out["status"] == "FAIL"
 
 
 def test_modules_catalog_probe_detects_count_low():

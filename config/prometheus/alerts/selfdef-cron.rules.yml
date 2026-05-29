@@ -1,0 +1,99 @@
+# Selfdef cron + systemd-timer persistence Prometheus alerting rules.
+#
+# Fires on the textfile metrics shipped by selfdef-cron-textfile.
+# {service,timer} (selfdef commit `b80b389`).
+#
+# Userspace persistence-vector observability — pairs with
+# kernel-modules. Kernel-modules catches in-kernel rootkits; this
+# catches userspace persistence (cron-based backdoors, malicious
+# .timer files dropped by attackers).
+#
+# Note: thresholds are "drift from baseline" alerts using
+# changes() — they fire when the count moves rapidly, indicating
+# someone added/removed scheduled entries.
+
+groups:
+  - name: selfdef-cron
+    interval: 30s
+    rules:
+
+      - alert: SelfdefCronTextfileEmitFailed
+        expr: selfdef_cron_textfile_emit_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-cron
+          cron_link: observer-fault
+        annotations:
+          summary: "Selfdef cron observer fault on {{ $labels.instance }}"
+          description: >
+            Wrapper failure for 5+ minutes. Cron persistence gauges
+            UNRELIABLE — operator cannot detect persistence drift.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefcronobserverfault-critical"
+
+      - alert: SelfdefCronObserverSilent
+        expr: time() - selfdef_cron_last_run_unix > 300
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-cron
+          cron_link: observer-silent
+        annotations:
+          summary: "Selfdef cron observer silent on {{ $labels.instance }}"
+          description: >
+            Timer hasn't fired in 5+ minutes. Cron persistence gauges
+            stale; persistence drift undetected.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefcronobserversilent-critical"
+
+      # Warning: rapid cron entry count drift = someone added/removed
+      # actionable cron rules. Could be legitimate operator change or
+      # an attacker dropping a persistence rule.
+      - alert: SelfdefCronEntryDriftHigh
+        expr: changes(selfdef_cron_total_entries[1h]) > 2
+        for: 1m
+        labels:
+          severity: warning
+          subsystem: selfdef-cron
+          cron_link: entry-drift
+        annotations:
+          summary: "Cron entries drifted on {{ $labels.instance }} — possible persistence drop"
+          description: >
+            Total cron entry count changed > 2 times in the last hour.
+            Inspect for unauthorized persistence:
+            `find /etc/cron.* /var/spool/cron -type f -newer /tmp/cron-baseline`
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefcronentrydrifthigh-warning"
+
+      # Warning: /etc/cron.d/ file count drift (the highest-risk
+      # surface — root-level scheduled execution).
+      - alert: SelfdefCronDFileCountDrift
+        expr: changes(selfdef_cron_d_files[1h]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          subsystem: selfdef-cron
+          cron_link: cron-d-drift
+        annotations:
+          summary: "/etc/cron.d/ file count drifted on {{ $labels.instance }}"
+          description: >
+            A file was added/removed from /etc/cron.d/ in the last hour.
+            This is the highest-risk persistence surface — root-level
+            scheduled execution. Inspect:
+            `ls -la /etc/cron.d/` and `cat /etc/cron.d/*`.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefcrondfilecountdrift-warning"
+
+      # Warning: systemd timer count drift = malicious .timer +
+      # .service pair dropped (modern persistence technique).
+      - alert: SelfdefSystemdTimerDrift
+        expr: changes(selfdef_systemd_timers_total[1h]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          subsystem: selfdef-cron
+          cron_link: systemd-timer-drift
+        annotations:
+          summary: "Systemd timer count drifted on {{ $labels.instance }}"
+          description: >
+            A systemd .timer unit was added/removed in the last hour.
+            Modern persistence technique — inspect:
+            `systemctl list-timers --all` and `systemctl list-unit-files --type=timer`.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefsystemdtimerdrift-warning"
