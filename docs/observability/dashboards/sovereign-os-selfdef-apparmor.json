@@ -1,0 +1,98 @@
+{
+  "_comment": "sovereign-os selfdef AppArmor profile-enforcement dashboard. Visualizes the selfdef-side selfdef_apparmor_* gauges shipped via the selfdef-apparmor-textfile.{service,timer} pair (selfdef commit 4680ed8). Pairs with the 4 alert rules in config/prometheus/alerts/selfdef-apparmor.rules.yml. Project boundary R10212: pure observability.",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "operator runbook (sovereign-os)", "url": "/d/sovereign-os-selfdef-apparmor#runbook", "type": "link", "icon": "doc"},
+    {"title": "producer source (selfdef apparmor observer)", "url": "https://github.com/cyberpunk042/selfdef/blob/main/packaging/scripts/selfdef-apparmor-textfile.sh", "type": "link", "icon": "external link"},
+    {"title": "deployment guide — AppArmor runbooks", "url": "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefapparmortextfileemitfailed-critical", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "profile loaded",
+      "description": "Is the selfdefd AppArmor profile loaded in the kernel? Red = not loaded (matches SelfdefApparmorProfileNotLoaded alert).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_apparmor_profile_loaded{profile=\"/usr/bin/selfdefd\"}", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "mappings": [{"type": "value", "options": {"0": {"text": "NOT LOADED"}, "1": {"text": "LOADED"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "green", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "enforce mode",
+      "description": "Is the profile in enforce mode (the secure default)? Red = NOT enforcing (silent IPS posture degradation).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_apparmor_profile_enforce{profile=\"/usr/bin/selfdefd\"}", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "mappings": [{"type": "value", "options": {"0": {"text": "NOT ENFORCING"}, "1": {"text": "ENFORCING"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "green", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "complain mode",
+      "description": "Is the profile in complain mode? Red = YES, profile only LOGS violations (matches SelfdefApparmorProfileInComplainMode alert — the signature IPS-drift hazard).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_apparmor_profile_complain{profile=\"/usr/bin/selfdefd\"}", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "mappings": [{"type": "value", "options": {"0": {"text": "no"}, "1": {"text": "COMPLAIN MODE"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "observer emit-failed",
+      "description": "Honest-offline sentinel. When FAILED, do NOT trust the other AppArmor gauges.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_apparmor_textfile_emit_failed", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "mappings": [{"type": "value", "options": {"0": {"text": "OK"}, "1": {"text": "FAILED"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "profile state over time (loaded / enforce / complain)",
+      "description": "All 3 selfdefd profile gauges over time. The signature operator-drift signal: a green enforce line dropping while complain rises = aa-complain forgot-to-restore.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_apparmor_profile_loaded{profile=\"/usr/bin/selfdefd\"}", "refId": "A", "legendFormat": "loaded"},
+        {"expr": "selfdef_apparmor_profile_enforce{profile=\"/usr/bin/selfdefd\"}", "refId": "B", "legendFormat": "enforce"},
+        {"expr": "selfdef_apparmor_profile_complain{profile=\"/usr/bin/selfdefd\"}", "refId": "C", "legendFormat": "complain"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 30}}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "total kernel profiles over time",
+      "description": "System-wide AppArmor profile count. Sudden drops detect operator profile-removal (e.g., a profile unloaded as a side-effect of an apparmor-parser reload gone wrong).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_apparmor_profiles_loaded_total", "refId": "A", "legendFormat": "{{instance}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 20}}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "observer-freshness — emit-failed sentinel over time",
+      "description": "Red bands mark wedged-wrapper windows. Pairs with SelfdefApparmorTextfileEmitFailed alert.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_apparmor_textfile_emit_failed", "refId": "A", "legendFormat": "{{instance}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 50}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 7, "w": 24, "x": 0, "y": 12}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["sovereign-os", "selfdef", "apparmor", "IPS-spine", "observability"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {},
+  "timezone": "",
+  "title": "sovereign-os — selfdef AppArmor enforcement",
+  "uid": "sovereign-os-selfdef-apparmor",
+  "version": 1,
+  "weekStart": ""
+}

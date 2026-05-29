@@ -1020,6 +1020,101 @@ systemctl show -p StartLimitBurst,StartLimitIntervalSec selfdefd
 journal, fix the root cause, then `systemctl reset-failed selfdefd`
 followed by `systemctl start selfdefd` to re-arm the unit.
 
+#### SelfdefApparmorTextfileEmitFailed (critical)
+
+**Meaning:** `selfdef-apparmor-textfile.service` is reporting wrapper
+failure for 5+ minutes. Kernel AppArmor absent, `/sys/kernel/security/
+apparmor/profiles` unreadable, or wrapper preconditions broken.
+
+**Honest-offline precedence:** when this fires, do NOT trust the
+other AppArmor gauges.
+
+**Diagnosis:**
+
+```bash
+systemctl status selfdef-apparmor-textfile.service
+journalctl -u selfdef-apparmor-textfile.service --since '10 min ago'
+ls -la /sys/kernel/security/apparmor/profiles
+zgrep CONFIG_SECURITY_APPARMOR /proc/config.gz 2>/dev/null \
+  || zcat /boot/config-"$(uname -r)" | grep CONFIG_SECURITY_APPARMOR
+```
+
+**Fix:** kernel AppArmor must be `=y` AND `apparmor=1 security=apparmor`
+on the boot cmdline. If kernel lacks AppArmor, this alert reflects
+reality — operators MUST switch to selinux OR an AppArmor-enabled
+kernel.
+
+#### SelfdefApparmorObserverSilent (critical)
+
+**Meaning:** observer timer hasn't fired in 5+ minutes. AppArmor
+state gauges are stale.
+
+**Diagnosis:**
+
+```bash
+systemctl status selfdef-apparmor-textfile.timer
+ls -la /var/lib/node_exporter/textfile_collector/selfdef-apparmor.prom
+```
+
+**Fix:**
+
+```bash
+sudo systemctl enable --now selfdef-apparmor-textfile.timer
+sudo chown selfdef:selfdef /var/lib/node_exporter/textfile_collector
+```
+
+#### SelfdefApparmorProfileNotLoaded (critical)
+
+**Meaning:** `selfdef_apparmor_profile_loaded == 0` for the
+selfdefd profile for 10+ minutes. selfdefd is running WITHOUT
+AppArmor confinement — IPS defensive posture compromised.
+
+**Diagnosis:**
+
+```bash
+aa-status 2>/dev/null | grep -i selfdef \
+  || sudo cat /sys/kernel/security/apparmor/profiles | grep selfdef
+ls /etc/apparmor.d/usr.bin.selfdefd
+```
+
+**Fix:**
+
+```bash
+# Reinstall + load the profile.
+sudo cp /etc/apparmor.d/usr.bin.selfdefd /etc/apparmor.d/usr.bin.selfdefd
+sudo apparmor_parser -r /etc/apparmor.d/usr.bin.selfdefd
+sudo systemctl restart selfdefd
+# Verify.
+aa-status | grep selfdefd
+```
+
+#### SelfdefApparmorProfileInComplainMode (critical)
+
+**Meaning:** `selfdef_apparmor_profile_complain == 1` for the
+selfdefd profile for 5+ minutes. Profile is loaded but only LOGS
+violations — does NOT enforce. Operator likely flipped with
+`aa-complain` for debugging and forgot to restore.
+
+**Diagnosis:**
+
+```bash
+aa-status | head -20
+sudo cat /sys/kernel/security/apparmor/profiles | grep selfdefd
+```
+
+**Fix:**
+
+```bash
+sudo aa-enforce /etc/apparmor.d/usr.bin.selfdefd
+# Verify.
+sudo cat /sys/kernel/security/apparmor/profiles | grep selfdefd
+# Should print: /usr/bin/selfdefd (enforce)
+```
+
+This is the signature operator-drift hazard the AppArmor observer
+was built to catch — silent posture degradation that no other
+alarm fires on.
+
 ## Project-boundary discipline (MS043 R10212)
 
 - IPS state mutation lives in **selfdef only** (selfdefd + selfdefctl +

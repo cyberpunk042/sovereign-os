@@ -110,3 +110,26 @@ def test_complain_mode_alert_documents_restore_command():
 
 def test_rules_cite_selfdef_producer_commit():
     assert "4680ed8" in RULES_PATH.read_text()
+
+
+def test_runbook_sections_present_for_every_alert():
+    guide_path = REPO_ROOT / "docs" / "operator" / "m060-deployment-guide.md"
+    body = guide_path.read_text()
+    for name in REQUIRED_ALERTS:
+        anchor = f"#### {name}"
+        assert anchor in body, f"missing runbook section {anchor!r}"
+
+
+def test_runbook_sections_include_diagnosis_and_fix():
+    guide_path = REPO_ROOT / "docs" / "operator" / "m060-deployment-guide.md"
+    body = guide_path.read_text()
+    for name in REQUIRED_ALERTS:
+        start = body.find(f"#### {name}")
+        next_h = body.find("\n#### ", start + 1)
+        next_h2 = body.find("\n## ", start + 1)
+        candidates = [x for x in (next_h, next_h2) if x > 0]
+        end = min(candidates) if candidates else len(body)
+        section = body[start:end]
+        assert "**Diagnosis:**" in section, f"{name} missing **Diagnosis:**"
+        assert "**Fix:**" in section, f"{name} missing **Fix:**"
+        assert "```" in section
