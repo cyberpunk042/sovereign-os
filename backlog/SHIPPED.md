@@ -284,6 +284,20 @@ The codebase carries substantial production state from prior development. This s
 |---|---|
 | ZFS commit gate | `crates/sovereign-zfs-commit-gate/` — sync=always commit gate per the M068 (tank/context + ashift=12 + lz4 + recordsize) architecture |
 
+### M073 — 1-bit (ternary) logic + BitLinear Core
+
+| Surface | Shipped artifact |
+|---|---|
+| External-research ingestion catalogue | `backlog/notes/external-research-ingestion-2026-05-19.md` (cross-ref M077, M078) — anchors the ternary-BitLinear research arc in the same external-ingestion sweep as NVFP4 + HölderPO |
+| Inference-backend-stack SDD | `docs/sdd/011-inference-backend-stack.md` (cross-ref M009) — anchors the inference-runtime stack within which BitLinear cores could land |
+
+### M074 — AVX-512 VNNI hardware fusion (512-bit ZMM / 64× INT8 / VPDPBUSD)
+
+| Surface | Shipped artifact |
+|---|---|
+| Hardware-stack consolidation SDD | `docs/sdd/029-hardware-stack-consolidation.md` (cross-ref M007, M008, M039, M070) — anchors the AVX-512 VNNI hardware-fusion path in the consolidated hardware-stack architecture |
+| AVX-512 advisor | `scripts/hardware/avx512-advisor.py` (cross-ref M007, M008, M039) — the operator-side surface for the VNNI hardware-fusion decisions |
+
 ### M075 — SRP hardware topology mapping
 
 | Surface | Shipped artifact |
@@ -412,6 +426,236 @@ The codebase carries substantial production state from prior development. This s
 | Surface | Shipped artifact |
 |---|---|
 | HRM runtime crate | `crates/sovereign-hrm-runtime/` — recurrent two-timescale brain-inspired architectural class as a parallel to the Transformer/Mamba/BitNet runtime family |
+
+### M004 — Oracle / Scout / Vector Arbiter role split
+
+| Surface | Shipped artifact |
+|---|---|
+| Hardware-stack consolidation SDD | `docs/sdd/029-hardware-stack-consolidation.md` — anchors the Oracle/Scout/Vector-Arbiter role-split decision in the consolidated hardware stack |
+| Trinity composition (cross-ref M066) | `crates/sovereign-trinity/` — the Pulse/Weaver/Auditor trinity is the runtime carrier of the Oracle/Scout/Vector-Arbiter role discipline |
+
+### M005 — Agent runtime (four planes: Inference / Control / Memory / Tool)
+
+| Surface | Shipped artifact |
+|---|---|
+| Inference plane | `crates/sovereign-nvfp4-runtime/`, `crates/sovereign-hrm-runtime/`, `crates/sovereign-holderpo/` — the 3 model-runtime families |
+| Control plane | `crates/sovereign-gateway/`, `crates/sovereign-router-7axis/` — operator-facing control surface |
+| Memory plane | `crates/sovereign-memory-os/` + sister crates (cross-ref M014, M028) |
+| Tool plane | `crates/sovereign-tool-catalog/`, `crates/sovereign-tool-invocation-record/` (cross-ref M037, M048) |
+
+### M006 — Deterministic AI control substrate
+
+| Surface | Shipped artifact |
+|---|---|
+| Workload-mode adoption doctrine SDD | `docs/sdd/035-workload-mode-adoption-doctrine.md` — the determinism discipline anchored in mode adoption |
+| Inference-service hardening doctrine SDD | `docs/sdd/036-inference-service-hardening-doctrine.md` — the determinism enforcement on the inference service tier |
+| Mode-transition log | `crates/sovereign-mode-transition-log/` — append-only log enforcing deterministic mode transitions |
+
+### M007 — Execution model (branch primitive + AVX-512 scheduler)
+
+| Surface | Shipped artifact |
+|---|---|
+| Hardware-stack consolidation SDD | `docs/sdd/029-hardware-stack-consolidation.md` — anchors the AVX-512 scheduler decisions |
+| Choice envelope (cross-ref M002, M042) | `crates/sovereign-choice-envelope/` — typed branch-primitive envelope |
+| AVX-512 advisor | `scripts/hardware/avx512-advisor.py` — operator advisor for the AVX-512 scheduler placement |
+
+### M008 — Bit-level cheats (AVX-512 features as AI infrastructure)
+
+| Surface | Shipped artifact |
+|---|---|
+| Hardware-stack consolidation SDD | `docs/sdd/029-hardware-stack-consolidation.md` (cross-ref M007) |
+| AVX-512 advisor + BIOS directives | `scripts/hardware/avx512-advisor.py`, `scripts/hardware/bios-directives.py`, `scripts/hardware/bios-info.py` — operator-side surface for the bit-level-AVX-512 infrastructure choice |
+
+### M009 — Deterministic Cortex Runtime v0
+
+| Surface | Shipped artifact |
+|---|---|
+| Inference-backend-stack SDD | `docs/sdd/011-inference-backend-stack.md` — the v0 Cortex Runtime spec |
+| dflash speculative-decoding SDD | `docs/sdd/026-dflash-speculative-decoding.md` — the dflash variant for the v0 runtime |
+| Pulse algorithmic foundation SDD | `docs/sdd/027-pulse-algorithmic-foundation.md` — the algorithmic foundation backing the v0 Cortex |
+| Trinity composition | `crates/sovereign-trinity/` (cross-ref M066) |
+
+### M010 — Deterministic data plane (simdjson / Hyperscan / CRoaring)
+
+| Surface | Shipped artifact |
+|---|---|
+| Inference-backend-stack SDD | `docs/sdd/011-inference-backend-stack.md` (cross-ref M009) — anchors the data-plane stack choice |
+| Conversation search index | `crates/sovereign-conversation-search-index/` — Hyperscan-backed search surface for the conversation substrate |
+
+### M011 — KV cache as memory hierarchy
+
+| Surface | Shipped artifact |
+|---|---|
+| Inference-backend-stack SDD | `docs/sdd/011-inference-backend-stack.md` (cross-ref M009, M010) — the KV-cache placement is part of the inference-stack spec |
+| Memory OS | `crates/sovereign-memory-os/` + `crates/sovereign-pressure-sensors/` (cross-ref M014, M028) — the memory-hierarchy substrate that hosts the KV cache |
+
+### M015 — Agent programming model
+
+| Surface | Shipped artifact |
+|---|---|
+| Test-harness SDD | `docs/sdd/008-test-harness.md` (cross-ref M065, M082) — anchors the TDD-driven agent programming discipline |
+| Prompt template registry | `crates/sovereign-prompt-template-registry/` — typed surface for agent-program templates |
+| Cognitive compiler | `crates/sovereign-cognitive-compiler/` (cross-ref M025) — the intent-to-DAG surface enabling the agent-programming model |
+
+### M016 — Learning without retraining
+
+| Surface | Shipped artifact |
+|---|---|
+| dflash speculative-decoding SDD | `docs/sdd/026-dflash-speculative-decoding.md` (cross-ref M009) — the on-line variant adaptation pattern |
+| LoRA foundry | `crates/sovereign-lora-foundry/` (cross-ref M046) — on-device adapter learning, no retraining of base weights |
+
+### M018 — Serving topology (local inference fabric)
+
+| Surface | Shipped artifact |
+|---|---|
+| Inference backend stack SDD | `docs/sdd/011-inference-backend-stack.md` (cross-ref M009-M011) |
+| Inference-service hardening SDD | `docs/sdd/036-inference-service-hardening-doctrine.md` (cross-ref M006) — the production-hardened serving topology |
+| Inference scripts | `scripts/inference/` — operator-runtime surface for the local inference fabric |
+
+### M019 — Intelligence creation (composable cognitive operators)
+
+| Surface | Shipped artifact |
+|---|---|
+| Cognitive compiler | `crates/sovereign-cognitive-compiler/` (cross-ref M025) — operator composition into DAGs |
+| Six pillars | `crates/sovereign-six-pillars/` (cross-ref M048) — the 6-pillar typed surface composes the cognitive operators |
+
+### M020 — Orchestration without captivity (semantic ISA)
+
+| Surface | Shipped artifact |
+|---|---|
+| Cognitive compiler (cross-ref M025) | `crates/sovereign-cognitive-compiler/` — the semantic ISA materialised as a typed compiler surface |
+| Tool catalog (cross-ref M048) | `crates/sovereign-tool-catalog/` — the orchestrable tool surface the ISA enumerates |
+
+### M021 — REPL / CoT / MoE / workflow / logic / intelligence weave
+
+| Surface | Shipped artifact |
+|---|---|
+| Conversation substrate | `crates/sovereign-conversation-thread/`, `crates/sovereign-conversation-fork-event/`, `crates/sovereign-conversation-search-index/` (cross-ref M012) — REPL + CoT carrier |
+| Prompt history ring | `crates/sovereign-prompt-history-ring/` — CoT-style prompt-rationale ring (cross-ref M033) |
+
+### M022 — Cognitive Frame (system-level MoE)
+
+| Surface | Shipped artifact |
+|---|---|
+| Router with 7-axis decision (cross-ref M057) | `crates/sovereign-router-7axis/` — the MoE-style expert routing substrate |
+| Routing-decision log | `crates/sovereign-routing-decision-log/`, `crates/sovereign-routing-preference/` — typed surface for the cognitive-frame routing decisions |
+
+### M023 — Execution substrate (WASM / Deno / Python / VM tiers)
+
+| Surface | Shipped artifact |
+|---|---|
+| Inference-service hardening SDD | `docs/sdd/036-inference-service-hardening-doctrine.md` (cross-ref M006, M018) — anchors the tier-isolation discipline across the WASM/Deno/Python/VM substrate |
+| Tool catalog (cross-ref M048) | `crates/sovereign-tool-catalog/` — the tier-aware tool registry that resolves into the right execution substrate |
+
+### M024 — Adaptive programming (profiles as reward weights)
+
+| Surface | Shipped artifact |
+|---|---|
+| Profile schemas (cross-ref M041) | `schemas/profile.schema.yaml`, `schemas/runtime-profile.schema.yaml` — typed contracts for profile-as-reward-weight composition |
+| Profile bundles | `crates/sovereign-profile-bundles/` (cross-ref M041) |
+| Operator profiles | `profiles/developer.yaml`, `profiles/headless.yaml`, `profiles/minimal.yaml`, `profiles/old-workstation.yaml`, `profiles/sain-01.yaml` |
+
+### M029 — Computer-Use plane (perception / planning / execution)
+
+| Surface | Shipped artifact |
+|---|---|
+| Pulse algorithmic foundation SDD | `docs/sdd/027-pulse-algorithmic-foundation.md` (cross-ref M009) — anchors the perception/planning/execution discipline within the Pulse runtime |
+| Trinity composition | `crates/sovereign-trinity/` (cross-ref M066) — Pulse + Weaver + Auditor maps to perception + planning + execution |
+
+### M030 — World Model plane (state / action / transition)
+
+| Surface | Shipped artifact |
+|---|---|
+| Environment maps | `crates/sovereign-environment-maps/` (cross-ref M028) — the typed state-space surface |
+| Mode-transition log | `crates/sovereign-mode-transition-log/` (cross-ref M042, M055) — append-only transition log for the world-model state |
+
+### M031 — Symbolic Planning plane (PDDL / SAT-SMT / LTL)
+
+| Surface | Shipped artifact |
+|---|---|
+| Cognitive compiler (cross-ref M025) | `crates/sovereign-cognitive-compiler/` — the symbolic-planning DAG compiler surface |
+
+### M032 — Cloud Expert plane (OpenAI + Anthropic as remote experts)
+
+| Surface | Shipped artifact |
+|---|---|
+| Provider catalog (cross-ref M017) | `crates/sovereign-provider-catalog/` — registry of remote-expert providers |
+| Gateway (cross-ref M033, M034) | `crates/sovereign-gateway/` — the surface where remote experts are addressable |
+
+### M034 — Anthropic-first gateway + MCP + Claude Code integration
+
+| Surface | Shipped artifact |
+|---|---|
+| Gateway (cross-ref M033) | `crates/sovereign-gateway/` |
+| MCP-aggregate SDD | `docs/sdd/031-mcp-aggregate.md` — anchors the MCP aggregation pattern for the Anthropic-first gateway |
+| Claude-code-env scripts | `scripts/claude-code-env/` — the operator-side integration with Claude Code (templates + apply + validate) |
+
+### M035 — Frontier (inference-time intelligence)
+
+| Surface | Shipped artifact |
+|---|---|
+| Inference-backend-stack SDD | `docs/sdd/011-inference-backend-stack.md` (cross-ref M009) |
+| dflash speculative-decoding SDD | `docs/sdd/026-dflash-speculative-decoding.md` (cross-ref M009) — the inference-time intelligence acceleration |
+| HölderPO + GRPO (cross-ref M078) | `crates/sovereign-holderpo/` — inference-time aggregation pattern |
+
+### M036 — MAP (map-then-act paradigm)
+
+| Surface | Shipped artifact |
+|---|---|
+| Trinity composition (cross-ref M066) | `crates/sovereign-trinity/` — the Pulse-maps-then-Weaver-acts discipline |
+| Mode-transition log | `crates/sovereign-mode-transition-log/` (cross-ref M030, M042) — append-only log of the map→act state transitions |
+
+### M039 — AVX-512 cortex hot path
+
+| Surface | Shipped artifact |
+|---|---|
+| Hardware-stack consolidation SDD | `docs/sdd/029-hardware-stack-consolidation.md` (cross-ref M007, M008, M070) |
+| AVX-512 advisor | `scripts/hardware/avx512-advisor.py` (cross-ref M007, M008) |
+| SRP scheduler (cross-ref M075) | `crates/sovereign-srp-scheduler/` — the CPU/GPU placement scheduler that the AVX-512 hot path runs on |
+
+### M043 — Bridge layer (hardware-aware intelligence scheduling)
+
+| Surface | Shipped artifact |
+|---|---|
+| Hardware-dispatch eligibility (cross-ref M038) | `crates/sovereign-hardware-dispatch-eligibility/` — typed eligibility surface for the bridge layer |
+| Hardware registry (cross-ref M038) | `crates/sovereign-hardware-registry/` — registry the bridge layer routes against |
+| SRP scheduler (cross-ref M075) | `crates/sovereign-srp-scheduler/` — the scheduling discipline that materialises the bridge |
+
+### M050 — Architect + Engineer seat (heterogeneous intelligence system)
+
+| Surface | Shipped artifact |
+|---|---|
+| Architecture-QA script | `scripts/intelligence/architecture-qa.py` — operator-side surface for the Architect seat |
+| Cockpit personalization (cross-ref M026) | `crates/sovereign-cockpit-personalization/` — the seat-specific personalization substrate |
+
+### M051 — DevOps + Fullstack + AI expert layer
+
+| Surface | Shipped artifact |
+|---|---|
+| Intelligence scripts | `scripts/intelligence/` — `architecture-qa.py`, `cot-registry.py`, `coverage-map.py`, `doctrine-status.py`, `guide.py`, `layers.py`, `memory-changes.py`, `module-state.py`, `morning-brief.py` — the operator-facing expert-layer surface |
+| Continuity manager (cross-ref M047) | `crates/sovereign-continuity-manager/` — the cross-discipline state-preservation substrate |
+
+### M052 — Vision recap (Ultimate AI Workstation)
+
+| Surface | Shipped artifact |
+|---|---|
+| Charter SDD | `docs/sdd/000-charter.md` — the foundational charter recapping the Ultimate AI Workstation vision |
+| Six pillars | `crates/sovereign-six-pillars/` (cross-ref M048) — the 6-pillar tracker materialising the vision recap |
+
+### M059 — Sovereign close (the peace machine)
+
+| Surface | Shipped artifact |
+|---|---|
+| Charter SDD | `docs/sdd/000-charter.md` — the Sovereign-Close framing of the peace-machine vision |
+| Doctrinal preservation (cross-ref M061) | `crates/sovereign-doctrinal-preservation/`, `crates/sovereign-doctrine-citation/` — the canon-preservation substrate enabling Sovereign Close to retain doctrinal integrity through OS-level mutations |
+
+### M063 — SFIF discipline (Scaffold → Foundation → Infrastructure → Features)
+
+| Surface | Shipped artifact |
+|---|---|
+| Cockpit-dashboard implementation-bridge SDD | `docs/sdd/040-cockpit-dashboard-implementation-bridge.md` — anchors the SFIF discipline at the cockpit-dashboard layer |
+| 8-surface delivery contract SDD | `docs/sdd/039-eight-surface-delivery-contract.md` (cross-ref M056) — the discipline enforcing SFIF progression to all 8 surfaces |
+| Test-harness SDD | `docs/sdd/008-test-harness.md` (cross-ref M065, M082) — the gated discipline that prevents Feature-without-Foundation drift |
 
 ### Cross-cutting cockpit crates (M060 + adjacent milestones)
 
