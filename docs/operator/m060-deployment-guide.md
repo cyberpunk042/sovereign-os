@@ -720,6 +720,117 @@ max_sse_subscribers_per_token = 16  # default 8
 
 Then `sudo systemctl restart selfdefd`.
 
+#### FourWatchdogWorstSeverityCritical (critical)
+
+**Meaning:** the selfdef daemon's four-watchdog rollup gauge
+(`selfdef_four_watchdog_worst_severity >= 2`) reports CRITICAL for
+2+ minutes. At least one of the 4 IPS-spine watchdogs (MS046
+process / MS047 perimeter / MS044 tamper / MS048 config) has fired
+its CRITICAL classification — an enforcement subsystem has degraded
+to a state that requires immediate operator attention.
+
+**Diagnosis:**
+
+```bash
+# Identify which watchdog fired (alert/ms/series labels).
+curl -s http://localhost:9100/metrics 2>/dev/null \
+  | grep 'selfdef_four_watchdog_severity{' \
+  | awk '$NF == 2 {print}'
+# Confirm against the daemon-side authoritative classifier.
+selfdefctl alerts --json | jq '.alerts[] | select(.state=="critical")'
+```
+
+**Fix:** route by milestone family:
+- `ms="MS046"` → process-watchdog runbook; check `selfdef-guardian.service`
+  and the process-tree integrity
+- `ms="MS047"` → perimeter engine; check Tetragon policies and
+  the sovereign-perimeter contract
+- `ms="MS044"` → tamper detection; check filesystem-integrity baselines
+- `ms="MS048"` → config watchdog; check `/etc/selfdef/selfdef.toml`
+  drift and the config-baseline manifest
+
+After the underlying watchdog returns to OK, the textfile observer
+flips the rollup gauge back to 0 within 60s on the next timer fire.
+
+#### FourWatchdogAnyWarn (warning)
+
+**Meaning:** the four-watchdog rollup gauge equals WARN
+(`selfdef_four_watchdog_worst_severity == 1`) for 5+ minutes — a
+non-CRITICAL degradation in progress.
+
+**Diagnosis:** same as the critical alert above but filter for
+`state="warn"` in the JSON output:
+
+```bash
+selfdefctl alerts --json | jq '.alerts[] | select(.state=="warn")'
+```
+
+**Fix:** investigate before WARN escalates to CRITICAL. The 5-minute
+window gives operators time to plan a graceful intervention.
+
+#### FourWatchdogTextfileEmitFailed (critical)
+
+**Meaning:** `selfdef-four-watchdog-doctor.service` is reporting
+wrapper failure (`selfdef_four_watchdog_textfile_emit_failed > 0`)
+for 5+ minutes. The wrapper at `/usr/share/selfdef/
+four-watchdog-textfile.sh` could not produce the 4 gauges because
+`selfdefctl` was absent, `jq` was absent, the daemon was unreachable,
+OR the `/v1/alerts` JSON envelope was malformed.
+
+**Honest-offline contract:** when this alert is firing, the operator
+CANNOT trust the other `selfdef_four_watchdog_*` gauges to reflect
+current state — they may be stale or fabricated. This alert ALWAYS
+takes precedence over the rollup-severity alerts above.
+
+**Diagnosis:**
+
+```bash
+# Check the doctor service's last run state.
+systemctl status selfdef-four-watchdog-doctor.service
+journalctl -u selfdef-four-watchdog-doctor.service --since '10 min ago'
+# Sanity-check the wrapper's preconditions directly.
+which selfdefctl jq
+selfdefctl alerts --json   # must succeed and return {worst,alerts}
+```
+
+**Fix:** restore the wrapper's preconditions:
+- Missing `selfdefctl` → reinstall the `selfdef` deb
+- Missing `jq` → `sudo apt install jq`
+- Daemon unreachable → `systemctl status selfdefd`,
+  `journalctl -u selfdefd --since '10 min ago'`
+
+#### FourWatchdogObserverSilent (critical)
+
+**Meaning:** `selfdef-four-watchdog-doctor.timer` hasn't fired in
+5+ minutes (`time() - selfdef_four_watchdog_last_run_unix > 300`).
+The IPS-spine observability surface is silently degraded — the 4
+watchdog severities cannot be trusted to reflect current state.
+
+**Diagnosis:**
+
+```bash
+systemctl status selfdef-four-watchdog-doctor.timer
+ls -la /var/lib/node_exporter/textfile_collector/selfdef-four-watchdog.prom
+# Confirm node_exporter's textfile_collector dir is writable by selfdef.
+sudo -u selfdef test -w /var/lib/node_exporter/textfile_collector \
+  && echo OK || echo "selfdef cannot write — chown/chmod the dir"
+```
+
+**Fix:**
+
+```bash
+sudo systemctl enable --now selfdef-four-watchdog-doctor.timer
+# If the unit is failing — check logs and the textfile_collector
+# dir ownership.
+sudo chown selfdef:selfdef /var/lib/node_exporter/textfile_collector
+sudo chmod 0755            /var/lib/node_exporter/textfile_collector
+```
+
+The threshold of 300s mirrors the M060 chain-stale and observer-silent
+threshold — locked in the cross-surface threshold-lockstep contract
+test for the four-watchdog producer pair (selfdef commits `7869a45` +
+`a009b39`).
+
 ## Project-boundary discipline (MS043 R10212)
 
 - IPS state mutation lives in **selfdef only** (selfdefd + selfdefctl +
