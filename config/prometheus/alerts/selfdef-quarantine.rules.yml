@@ -1,0 +1,81 @@
+# Selfdef SDD-066 process-quarantine Prometheus alerting rules.
+#
+# Fires on the textfile metrics shipped by selfdef-quarantine-
+# textfile.{service,timer} (selfdef commit `55a3c33`,
+# SDD-066 architectural spec at selfdef commit `0e388b3`).
+#
+# SDD-066 enforcement-layer observability — pairs with blockset
+# observer (19th sibling, SDD-065). blockset surfaces network-
+# perimeter blocks; this surfaces process-level freezes.
+
+groups:
+  - name: selfdef-quarantine
+    interval: 30s
+    rules:
+
+      - alert: SelfdefQuarantineTextfileEmitFailed
+        expr: selfdef_quarantine_textfile_emit_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-quarantine
+          quarantine_link: observer-fault
+        annotations:
+          summary: "Selfdef quarantine observer fault on {{ $labels.instance }}"
+          description: >
+            Wrapper failure for 5+ minutes. SDD-066 enforcement-
+            layer visibility lost.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefquarantinetextfileemitfailed-critical"
+
+      - alert: SelfdefQuarantineObserverSilent
+        expr: time() - selfdef_quarantine_last_run_unix > 300
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-quarantine
+          quarantine_link: observer-silent
+        annotations:
+          summary: "Selfdef quarantine observer silent on {{ $labels.instance }}"
+          description: >
+            Timer hasn't fired in 5+ minutes. SDD-066 state stale.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefquarantineobserversilent-critical"
+
+      # Critical: selfdefd should have bootstrapped the slice at
+      # startup. Absence for 10+ minutes ⇒ SDD-066 enforcement
+      # is fully offline — quarantine-pid calls cannot land.
+      - alert: SelfdefQuarantineSliceMissing
+        expr: selfdef_quarantine_slice_present == 0
+        for: 10m
+        labels:
+          severity: critical
+          subsystem: selfdef-quarantine
+          quarantine_link: slice-missing
+        annotations:
+          summary: "selfdef.slice absent on {{ $labels.instance }} — quarantine enforcement OFFLINE"
+          description: >
+            /sys/fs/cgroup/selfdef.slice not present for 10+ minutes.
+            SDD-066 process-quarantine enforcement cannot operate.
+            Either selfdefd hasn't started or its slice was deleted.
+            Operator action: `systemctl status selfdefd`, then
+            `systemctl restart selfdefd`.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefquarantineslicemissing-critical"
+
+      # Warning: large number of quarantined processes sustained.
+      # Could be operator-decision-debt OR a sustained attack
+      # response from the correlator.
+      - alert: SelfdefQuarantineActiveHigh
+        expr: selfdef_quarantine_active_count > 10
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: selfdef-quarantine
+          quarantine_link: active-high
+        annotations:
+          summary: "{{ $value }} quarantined processes on {{ $labels.instance }} for 30m"
+          description: >
+            More than 10 quarantine-*.scope entries sustained
+            30+ minutes. Operator decision queue probably
+            backlogged. Inspect via the cockpit
+            quarantine-queue card and `selfdefctl release-pid`
+            or `selfdefctl kill-quarantined` per entry.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefquarantineactivehigh-warning"
