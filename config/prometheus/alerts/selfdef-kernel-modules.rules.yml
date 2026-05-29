@@ -1,0 +1,101 @@
+# Selfdef kernel-modules Prometheus alerting rules.
+#
+# Fires on the textfile metrics shipped by selfdef-kernel-modules-
+# textfile.{service,timer} (selfdef commit `78a9e29`).
+#
+# Rootkit detection — unexpected kernel module loads + tainted-kernel
+# monitoring. selfdefd cannot enforce module-load policy without
+# CAP_SYS_MODULE; sovereign-os alerts on the published gauges.
+
+groups:
+  - name: selfdef-kernel-modules
+    interval: 30s
+    rules:
+
+      - alert: SelfdefKernelModulesTextfileEmitFailed
+        expr: selfdef_kernel_modules_textfile_emit_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-kernel-modules
+          kernel_link: observer-fault
+        annotations:
+          summary: "Selfdef kernel-modules observer fault on {{ $labels.instance }}"
+          description: >
+            Wrapper failure for 5+ minutes — /proc unreadable.
+            Operator MUST NOT trust the other kernel gauges.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefkernelmodulesextfileemitfailed-critical"
+
+      - alert: SelfdefKernelModulesObserverSilent
+        expr: time() - selfdef_kernel_modules_last_run_unix > 300
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-kernel-modules
+          kernel_link: observer-silent
+        annotations:
+          summary: "Selfdef kernel-modules observer silent on {{ $labels.instance }}"
+          description: >
+            Timer hasn't fired in 5+ minutes. Kernel gauges stale.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefkernelmodulesobserversilent-critical"
+
+      # Critical: unsigned module loaded. This is the rootkit
+      # signature — page-worthy. Operator must investigate
+      # IMMEDIATELY.
+      - alert: SelfdefKernelTaintedUnsigned
+        expr: selfdef_kernel_tainted_unsigned == 1
+        for: 1m
+        labels:
+          severity: critical
+          subsystem: selfdef-kernel-modules
+          kernel_link: rollup
+        annotations:
+          summary: "Selfdef kernel UNSIGNED module loaded on {{ $labels.instance }}"
+          description: >
+            An unsigned kernel module is loaded (taint bit 12 set).
+            This is the rootkit signature — page-worthy. Investigate
+            via:
+              cat /proc/sys/kernel/tainted
+              dmesg | grep -iE 'taint|unsigned|module'
+              lsmod
+            Identify the offending module + isolate the host from
+            the network. See SECURITY.md incident-response section.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefkerneltaintedunsigned-critical"
+
+      # Warning: any non-zero tainted state. Operational drift
+      # from the secure baseline.
+      - alert: SelfdefKernelTaintedAny
+        expr: selfdef_kernel_tainted > 0
+        for: 10m
+        labels:
+          severity: warning
+          subsystem: selfdef-kernel-modules
+          kernel_link: rollup
+        annotations:
+          summary: "Selfdef kernel tainted (bitmask={{ $value }}) on {{ $labels.instance }}"
+          description: >
+            /proc/sys/kernel/tainted > 0 for 10+ minutes. Kernel is
+            no longer purely upstream. Decode via
+            https://www.kernel.org/doc/html/latest/admin-guide/tainted-kernels.html
+            Common causes: proprietary driver (bit 0), out-of-tree
+            module (bit 14), forced module load (bit 1).
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefkerneltaintedany-warning"
+
+      # Warning: module count high. A baseline drift — likely
+      # legitimate (DKMS module load) but operator should know.
+      # Default threshold 200 is generous; adjust per deployment.
+      - alert: SelfdefKernelModulesCountHigh
+        expr: selfdef_kernel_modules_total > 200
+        for: 15m
+        labels:
+          severity: warning
+          subsystem: selfdef-kernel-modules
+          kernel_link: rollup
+        annotations:
+          summary: "Selfdef kernel modules count {{ $value }} > 200 on {{ $labels.instance }}"
+          description: >
+            Loaded kernel module count > 200 for 15+ minutes.
+            Typical Linux hosts have 60-150 modules; > 200 suggests
+            DKMS install OR module-load explosion. Cross-reference
+            `lsmod | wc -l` and review recent modprobe activity.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefkernelmodulescounthigh-warning"
