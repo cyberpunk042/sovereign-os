@@ -20,7 +20,7 @@ CANONICAL_VERTICALS = ("m060", "ms022", "four_watchdog",
                        "auth_events", "systemd_units",
                        "listening_sockets", "disk_usage", "time_sync",
                        "kernel_modules", "fail2ban", "nftables", "cron",
-                       "sshd_config")
+                       "sshd_config", "package_state")
 
 
 def _load_module():
@@ -70,7 +70,7 @@ def test_probe_functions_exist():
         "probe_auth_events", "probe_systemd_units", "probe_listening_sockets",
         "probe_disk_usage", "probe_time_sync", "probe_kernel_modules",
         "probe_fail2ban", "probe_nftables", "probe_cron",
-        "probe_sshd_config",
+        "probe_sshd_config", "probe_package_state",
     ):
         assert hasattr(mod, fn), f"missing probe function {fn}"
 
@@ -551,6 +551,62 @@ def test_sshd_config_probe_clean_when_hardened():
         out = mod.probe_sshd_config("http://localhost:9100/metrics")
     assert out["status"] == "OK"
     assert "hardened" in out["summary"]
+
+
+def test_package_state_probe_detects_security_updates_pending():
+    """selfdef_apt_pending_security > 0 = FAIL."""
+    mod = _load_module()
+    import time as _t
+    now = int(_t.time())
+    fake = (
+        "selfdef_package_state_textfile_emit_failed 0\n"
+        f"selfdef_package_state_last_run_unix {now}\n"
+        "selfdef_package_manager_apt 1\n"
+        "selfdef_apt_pending_security 3\n"
+        "selfdef_apt_pending_total 5\n"
+        "selfdef_dpkg_broken_packages 0\n"
+        "selfdef_apt_update_age_days 1\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_package_state("http://localhost:9100/metrics")
+    assert out["status"] == "FAIL"
+    assert "3 security" in out["summary"]
+
+
+def test_package_state_probe_detects_apt_stale():
+    """age > 7 days = WARN."""
+    mod = _load_module()
+    import time as _t
+    now = int(_t.time())
+    fake = (
+        "selfdef_package_state_textfile_emit_failed 0\n"
+        f"selfdef_package_state_last_run_unix {now}\n"
+        "selfdef_package_manager_apt 1\n"
+        "selfdef_apt_pending_security 0\n"
+        "selfdef_apt_pending_total 0\n"
+        "selfdef_dpkg_broken_packages 0\n"
+        "selfdef_apt_update_age_days 14\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_package_state("http://localhost:9100/metrics")
+    assert out["status"] == "WARN"
+    assert "14d stale" in out["summary"]
+
+
+def test_package_state_probe_honest_offline_when_apt_absent():
+    """apt_available=0 = OK (rpm host)."""
+    mod = _load_module()
+    import time as _t
+    now = int(_t.time())
+    fake = (
+        "selfdef_package_state_textfile_emit_failed 0\n"
+        f"selfdef_package_state_last_run_unix {now}\n"
+        "selfdef_package_manager_apt 0\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_package_state("http://localhost:9100/metrics")
+    assert out["status"] == "OK"
+    assert "not installed" in out["summary"] or "honest-offline" in out["summary"]
 
 
 def test_modules_catalog_probe_detects_count_low():

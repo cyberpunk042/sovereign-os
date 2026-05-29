@@ -1,0 +1,93 @@
+{
+  "_comment": "sovereign-os selfdef apt/dpkg package-state dashboard. Visualizes selfdef_apt_* + selfdef_dpkg_* gauges (selfdef commit 0d05972). Pairs with 6 alerts. Patch-freshness + supply-chain hygiene — pairs with sshd-config at the security-baseline axis.",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "operator runbook", "url": "/d/sovereign-os-selfdef-package-state#runbook", "type": "link", "icon": "doc"},
+    {"title": "producer source", "url": "https://github.com/cyberpunk042/selfdef/blob/main/packaging/scripts/selfdef-package-state-textfile.sh", "type": "link", "icon": "external link"},
+    {"title": "deployment guide", "url": "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefaptsecurityupdatespending-critical", "type": "link", "icon": "external link"},
+    {"title": "sshd-config (paired hardening)", "url": "/d/sovereign-os-selfdef-sshd-config", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "security updates pending",
+      "description": "Red at 1 = known-vulnerable packages. Matches SelfdefAptSecurityUpdatesPending.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_apt_pending_security", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "dpkg broken packages",
+      "description": "Red at 1 = supply-chain interrupted, apt may be wedged.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_dpkg_broken_packages", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "apt-update age (days)",
+      "description": "Yellow at 7d matches SelfdefAptUpdateStale.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_apt_update_age_days", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "d", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 7}, {"color": "red", "value": 30}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "observer sentinel",
+      "description": "selfdef_package_state_textfile_emit_failed.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_package_state_textfile_emit_failed", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "pending upgrades — total vs security",
+      "description": "Security pending climbs ahead of total = CVE-side urgency.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_apt_pending_total", "legendFormat": "pending (all)", "refId": "A"},
+        {"expr": "selfdef_apt_pending_security", "legendFormat": "pending (security)", "refId": "B"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none"}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "installed package count",
+      "description": "Total binary packages. Sudden jumps = bulk install/remove (legitimate or hostile).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_dpkg_packages_total", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none"}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "apt-update freshness (days since last)",
+      "description": "Should reset to 0 daily under unattended-upgrades. Sustained climb = automation broken.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_apt_update_age_days", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "d"}},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 12}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["sovereign-os", "selfdef", "package-state", "apt", "dpkg", "IPS-spine", "security", "patch-freshness"],
+  "templating": {"list": []},
+  "time": {"from": "now-7d", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "sovereign-os — selfdef apt/dpkg package state (patch freshness)",
+  "uid": "sovereign-os-selfdef-package-state",
+  "version": 1,
+  "weekStart": ""
+}

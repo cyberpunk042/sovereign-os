@@ -1908,6 +1908,110 @@ diff /var/backups/sshd_effective.last-good /tmp/effective.now
 **Cause:** sshd_config content changed. Could be legitimate
 operator change OR an attacker weakening server hardening.
 
+#### SelfdefPackageStateTextfileEmitFailed (critical)
+
+**Diagnosis:**
+
+```bash
+systemctl status selfdef-package-state-textfile.service
+journalctl -u selfdef-package-state-textfile.service --since '30 minutes ago'
+```
+
+**Cause:** wrapper failure (often /var/lib/apt or /var/lib/dpkg
+made unreadable, or `apt-get -s upgrade` timed out > 60s on a busy
+host).
+
+#### SelfdefPackageStateObserverSilent (critical)
+
+```bash
+systemctl status selfdef-package-state-textfile.timer
+```
+
+#### SelfdefAptSecurityUpdatesPending (critical)
+
+**Diagnosis:**
+
+```bash
+apt list --upgradable 2>/dev/null | grep -i security
+# Or full breakdown:
+apt-get -s upgrade | grep '^Inst ' | grep -- '-security'
+# Operator-readable CVE mapping:
+apt changelog <pkg> | head -50
+```
+
+**Cause:** packages from `-security` repos are pending. The host
+runs known-vulnerable code.
+
+**Remediation:**
+
+```bash
+# Refresh visibility:
+apt update
+
+# Apply ONLY security updates (most operators prefer this in
+# unattended-upgrades mode):
+apt -y -o "Dpkg::Options::=--force-confold" \
+    -o "Dpkg::Options::=--force-confdef" \
+    install $(apt list --upgradable 2>/dev/null \
+              | grep -i security \
+              | awk -F/ '{print $1}')
+
+# Reboot if kernel was updated:
+[ -f /var/run/reboot-required ] && systemctl reboot
+```
+
+#### SelfdefDpkgBrokenPackages (critical)
+
+**Diagnosis:**
+
+```bash
+dpkg --audit                  # full list of broken pkgs
+dpkg -l | grep -vE '^(ii|rc|un) '
+```
+
+**Remediation (try in this order):**
+
+```bash
+dpkg --configure -a           # finalize half-configured pkgs
+apt --fix-broken install      # let apt resolve deps
+# Last resort — re-install:
+apt install --reinstall <broken-pkg>
+```
+
+#### SelfdefAptUpdateStale (warning)
+
+**Diagnosis:**
+
+```bash
+ls -lh /var/lib/apt/lists/   # mtime of the most recent file
+stat /var/cache/apt/pkgcache.bin
+```
+
+**Cause:** `apt update` hasn't run for > 7 days. New CVE-patched
+packages are invisible.
+
+**Remediation:**
+
+```bash
+apt update
+# If unattended-upgrades is installed, verify it's running:
+systemctl status apt-daily.timer apt-daily-upgrade.timer
+```
+
+#### SelfdefAptPendingBacklog (warning)
+
+**Diagnosis:**
+
+```bash
+apt list --upgradable 2>/dev/null | wc -l
+apt-get -s upgrade | grep '^Inst ' | head -20
+```
+
+**Cause:** > 50 packages pending upgrade for > 1 hour. Non-security
+backlog still matters (bug fixes, dependency rot).
+
+**Remediation:** schedule a maintenance window for `apt upgrade`.
+
 ## Project-boundary discipline (MS043 R10212)
 
 - IPS state mutation lives in **selfdef only** (selfdefd + selfdefctl +

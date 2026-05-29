@@ -1,0 +1,110 @@
+# Selfdef apt/dpkg package-state Prometheus alerting rules.
+#
+# Fires on the textfile metrics shipped by selfdef-package-state-
+# textfile.{service,timer} (selfdef commit `0d05972`).
+#
+# Patch-freshness + supply-chain hygiene — pairs with sshd-config
+# (hardening posture). Hardened config + unpatched binaries = still
+# vulnerable. Operator needs both.
+
+groups:
+  - name: selfdef-package-state
+    interval: 30s
+    rules:
+
+      - alert: SelfdefPackageStateTextfileEmitFailed
+        expr: selfdef_package_state_textfile_emit_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-package-state
+          package_link: observer-fault
+        annotations:
+          summary: "Selfdef package-state observer fault on {{ $labels.instance }}"
+          description: >
+            Wrapper failure for 5+ minutes. Patch-freshness gauges
+            UNRELIABLE.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefpackagestatetextfileemitfailed-critical"
+
+      - alert: SelfdefPackageStateObserverSilent
+        expr: time() - selfdef_package_state_last_run_unix > 300
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-package-state
+          package_link: observer-silent
+        annotations:
+          summary: "Selfdef package-state observer silent on {{ $labels.instance }}"
+          description: >
+            Timer hasn't fired in 5+ minutes. Patch state stale.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefpackagestateobserversilent-critical"
+
+      # Critical: CVE patches pending. Operator-actionable security
+      # debt. fires within 1h to discourage indefinite procrastination.
+      - alert: SelfdefAptSecurityUpdatesPending
+        expr: selfdef_apt_pending_security > 0
+        for: 1h
+        labels:
+          severity: critical
+          subsystem: selfdef-package-state
+          package_link: cve-pending
+        annotations:
+          summary: "{{ $value }} security update(s) pending on {{ $labels.instance }}"
+          description: >
+            {{ $value }} package(s) from -security repos are awaiting
+            installation. Operator action:
+            `apt list --upgradable | grep -i security` to enumerate,
+            then `apt upgrade` after change-window review.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefaptsecurityupdatespending-critical"
+
+      # Critical: dpkg in broken state. apt is wedged; further
+      # upgrades blocked.
+      - alert: SelfdefDpkgBrokenPackages
+        expr: selfdef_dpkg_broken_packages > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-package-state
+          package_link: dpkg-broken
+        annotations:
+          summary: "dpkg has {{ $value }} broken package(s) on {{ $labels.instance }}"
+          description: >
+            dpkg-query reports packages in non-clean state. Apt
+            operations may be blocked. Operator action:
+            `dpkg --audit` to enumerate, then `apt --fix-broken install`
+            or `dpkg --configure -a`.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefdpkgbrokenpackages-critical"
+
+      # Warning: apt-update stale > 7 days. CVE visibility lapsed.
+      - alert: SelfdefAptUpdateStale
+        expr: selfdef_apt_update_age_days > 7
+        for: 10m
+        labels:
+          severity: warning
+          subsystem: selfdef-package-state
+          package_link: apt-stale
+        annotations:
+          summary: "apt-update age {{ $value }}d on {{ $labels.instance }} — CVE visibility lapsed"
+          description: >
+            /var/lib/apt/lists/ is more than 7 days old. The system
+            cannot see new CVE-patched packages until apt-update runs.
+            Operator action: `apt update` (cron, unattended-upgrades,
+            or manual).
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefaptupdatestale-warning"
+
+      # Warning: large pending-upgrade backlog. Even non-security
+      # backlog matters — accumulated bug fixes, indirect security
+      # value, dependency rot.
+      - alert: SelfdefAptPendingBacklog
+        expr: selfdef_apt_pending_total > 50
+        for: 1h
+        labels:
+          severity: warning
+          subsystem: selfdef-package-state
+          package_link: pending-backlog
+        annotations:
+          summary: "apt pending-upgrade backlog > 50 on {{ $labels.instance }}"
+          description: >
+            {{ $value }} packages pending upgrade for over 1 hour. Bug
+            fixes accumulating. Schedule maintenance window.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefaptpendingbacklog-warning"

@@ -573,6 +573,51 @@ def probe_sshd_config(metrics_url: str) -> dict[str, Any]:
     return {"status": "OK", "summary": "hardened (no hazards)"}
 
 
+def probe_package_state(metrics_url: str) -> dict[str, Any]:
+    metrics = _fetch_metrics(metrics_url)
+    if metrics is None:
+        return {"status": "unreachable", "summary": "node_exporter down"}
+    out = probe_textfile_observer(metrics, "selfdef_package_state",
+                                   "package-state")
+    if out["status"] != "OK":
+        return out
+    apt_available = _gauge(metrics, "selfdef_package_manager_apt")
+    sec = _gauge(metrics, "selfdef_apt_pending_security")
+    broken = _gauge(metrics, "selfdef_dpkg_broken_packages")
+    age = _gauge(metrics, "selfdef_apt_update_age_days")
+    total = _gauge(metrics, "selfdef_apt_pending_total")
+    if apt_available == 0:
+        return {
+            "status": "OK",
+            "summary": "apt/dpkg not installed (honest-offline)",
+        }
+    if sec is not None and sec > 0:
+        return {
+            "status": "FAIL",
+            "summary": f"{int(sec)} security update(s) pending (CVE patches)",
+        }
+    if broken is not None and broken > 0:
+        return {
+            "status": "FAIL",
+            "summary": f"{int(broken)} dpkg broken package(s)",
+        }
+    if age is not None and age > 7:
+        return {
+            "status": "WARN",
+            "summary": f"apt-update {int(age)}d stale (CVE visibility lapsed)",
+        }
+    if total is not None and total > 50:
+        return {
+            "status": "WARN",
+            "summary": f"{int(total)} pending upgrades > 50 (backlog)",
+        }
+    return {
+        "status": "OK",
+        "summary": f"{int(total) if total is not None else 0} pending · "
+                   f"apt-update {int(age) if age is not None else 0}d ago",
+    }
+
+
 # ── Aggregation + rendering ──────────────────────────────────────────
 
 VERTICALS = (
@@ -580,7 +625,7 @@ VERTICALS = (
     "modules", "daemon_process", "apparmor",
     "auth_events", "systemd_units", "listening_sockets",
     "disk_usage", "time_sync", "kernel_modules", "fail2ban",
-    "nftables", "cron", "sshd_config",
+    "nftables", "cron", "sshd_config", "package_state",
 )
 
 
@@ -602,11 +647,12 @@ def collect(args: argparse.Namespace) -> dict[str, dict[str, Any]]:
         "nftables":      probe_nftables(args.node_exporter_url),
         "cron":          probe_cron(args.node_exporter_url),
         "sshd_config":   probe_sshd_config(args.node_exporter_url),
+        "package_state": probe_package_state(args.node_exporter_url),
     }
 
 
 def render_table(results: dict[str, dict[str, Any]]) -> str:
-    lines = ["sovereign-os observability status — 16 verticals",
+    lines = ["sovereign-os observability status — 17 verticals",
              f"{'─' * 22} {'─' * 60}"]
     for v in VERTICALS:
         r = results[v]
@@ -630,6 +676,7 @@ def render_table(results: dict[str, dict[str, Any]]) -> str:
             "nftables":          "nftables+conntrack",
             "cron":              "cron+timers",
             "sshd_config":       "sshd-hardening",
+            "package_state":     "package-state",
         }[v]
         lines.append(f"{label:<22} {marker}  {r['summary']}")
     lines.append(f"{'─' * 22} {'─' * 60}")
