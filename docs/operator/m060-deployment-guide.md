@@ -1481,6 +1481,58 @@ sudo hwclock --hctosys   # Sync system to RTC (if RTC canonical)
 sudo timedatectl set-local-rtc 0   # UTC = secure default
 ```
 
+#### SelfdefKernelModulesTextfileEmitFailed (critical)
+
+**Diagnosis:**
+
+```bash
+systemctl status selfdef-kernel-modules-textfile.service
+ls -la /proc/modules /proc/sys/kernel/tainted
+```
+
+**Fix:** /proc is kernel-served; if unreadable, the host is in a
+broken namespace state.
+
+#### SelfdefKernelModulesObserverSilent (critical)
+
+Same shape as the other observer-silent runbooks.
+
+#### SelfdefKernelTaintedUnsigned (critical)
+
+**Meaning:** unsigned kernel module loaded — rootkit signature.
+PAGE-WORTHY. 1m for-window because rootkits are time-sensitive.
+
+**Diagnosis:**
+
+```bash
+cat /proc/sys/kernel/tainted
+dmesg | grep -iE 'taint|unsigned|module' | tail -30
+lsmod
+# Identify unsigned module via /sys/module/*/sig_id.
+```
+
+**Fix:** ISOLATE THE HOST IMMEDIATELY. See SECURITY.md
+incident-response section. Snapshot memory (lime/avml), rotate
+credentials, reimage from known-good baseline.
+
+#### SelfdefKernelTaintedAny (warning)
+
+**Diagnosis:**
+
+```bash
+cat /proc/sys/kernel/tainted
+# Decode via https://www.kernel.org/doc/html/latest/admin-guide/tainted-kernels.html
+```
+
+#### SelfdefKernelModulesCountHigh (warning)
+
+**Diagnosis:**
+
+```bash
+lsmod | wc -l
+journalctl --since '24 hours ago' | grep -E 'modprobe|insmod' | head -10
+```
+
 ## Project-boundary discipline (MS043 R10212)
 
 - IPS state mutation lives in **selfdef only** (selfdefd + selfdefctl +

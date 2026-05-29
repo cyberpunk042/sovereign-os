@@ -413,13 +413,46 @@ def probe_time_sync(metrics_url: str) -> dict[str, Any]:
     }
 
 
+def probe_kernel_modules(metrics_url: str) -> dict[str, Any]:
+    metrics = _fetch_metrics(metrics_url)
+    if metrics is None:
+        return {"status": "unreachable", "summary": "node_exporter down"}
+    out = probe_textfile_observer(
+        metrics, "selfdef_kernel_modules", "kernel-modules",
+    )
+    if out["status"] != "OK":
+        return out
+    unsigned = _gauge(metrics, "selfdef_kernel_tainted_unsigned")
+    tainted = _gauge(metrics, "selfdef_kernel_tainted")
+    total = _gauge(metrics, "selfdef_kernel_modules_total")
+    if unsigned == 1:
+        return {
+            "status": "FAIL",
+            "summary": "UNSIGNED module loaded (ROOTKIT SIGNATURE)",
+        }
+    if tainted is not None and tainted > 0:
+        return {
+            "status": "WARN",
+            "summary": f"tainted (bitmask={int(tainted)})",
+        }
+    if total is not None and total > 200:
+        return {
+            "status": "WARN",
+            "summary": f"{int(total)} modules > 200",
+        }
+    return {
+        "status": "OK",
+        "summary": f"{int(total) if total is not None else '?'} modules · untainted",
+    }
+
+
 # ── Aggregation + rendering ──────────────────────────────────────────
 
 VERTICALS = (
     "m060", "ms022", "four_watchdog",
     "modules", "daemon_process", "apparmor",
     "auth_events", "systemd_units", "listening_sockets",
-    "disk_usage", "time_sync",
+    "disk_usage", "time_sync", "kernel_modules",
 )
 
 
@@ -436,11 +469,12 @@ def collect(args: argparse.Namespace) -> dict[str, dict[str, Any]]:
         "listening_sockets": probe_listening_sockets(args.node_exporter_url),
         "disk_usage":    probe_disk_usage(args.node_exporter_url),
         "time_sync":     probe_time_sync(args.node_exporter_url),
+        "kernel_modules": probe_kernel_modules(args.node_exporter_url),
     }
 
 
 def render_table(results: dict[str, dict[str, Any]]) -> str:
-    lines = ["sovereign-os observability status — 11 verticals",
+    lines = ["sovereign-os observability status — 12 verticals",
              f"{'─' * 22} {'─' * 60}"]
     for v in VERTICALS:
         r = results[v]
@@ -459,6 +493,7 @@ def render_table(results: dict[str, dict[str, Any]]) -> str:
             "listening_sockets": "listening-sockets",
             "disk_usage":        "disk-usage",
             "time_sync":         "time-sync",
+            "kernel_modules":    "kernel-modules",
         }[v]
         lines.append(f"{label:<22} {marker}  {r['summary']}")
     lines.append(f"{'─' * 22} {'─' * 60}")

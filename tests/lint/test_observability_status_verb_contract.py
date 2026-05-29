@@ -18,7 +18,8 @@ SOVEREIGN_OSCTL = REPO_ROOT / "scripts" / "sovereign-osctl"
 CANONICAL_VERTICALS = ("m060", "ms022", "four_watchdog",
                        "modules", "daemon_process", "apparmor",
                        "auth_events", "systemd_units",
-                       "listening_sockets", "disk_usage", "time_sync")
+                       "listening_sockets", "disk_usage", "time_sync",
+                       "kernel_modules")
 
 
 def _load_module():
@@ -66,7 +67,7 @@ def test_probe_functions_exist():
         "probe_m060", "probe_ms022", "probe_four_watchdog",
         "probe_modules_catalog", "probe_daemon_process", "probe_apparmor",
         "probe_auth_events", "probe_systemd_units", "probe_listening_sockets",
-        "probe_disk_usage", "probe_time_sync",
+        "probe_disk_usage", "probe_time_sync", "probe_kernel_modules",
     ):
         assert hasattr(mod, fn), f"missing probe function {fn}"
 
@@ -279,6 +280,42 @@ def test_daemon_process_probe_detects_fd_exhaustion():
     with patch.object(mod, "_fetch_metrics", return_value=fake_metrics):
         out = mod.probe_daemon_process("http://localhost:9100/metrics")
     assert out["status"] == "FAIL"
+
+
+def test_kernel_modules_probe_detects_unsigned():
+    """Unsigned kernel module loaded = rootkit signature, must FAIL."""
+    mod = _load_module()
+    import time as _t
+    now = int(_t.time())
+    fake = (
+        "selfdef_kernel_modules_textfile_emit_failed 0\n"
+        f"selfdef_kernel_modules_last_run_unix {now}\n"
+        "selfdef_kernel_modules_total 150\n"
+        "selfdef_kernel_tainted 4096\n"
+        "selfdef_kernel_tainted_unsigned 1\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_kernel_modules("http://localhost:9100/metrics")
+    assert out["status"] == "FAIL"
+    assert "UNSIGNED" in out["summary"] or "ROOTKIT" in out["summary"]
+
+
+def test_kernel_modules_probe_detects_tainted():
+    """Tainted (non-unsigned) bits = WARN."""
+    mod = _load_module()
+    import time as _t
+    now = int(_t.time())
+    fake = (
+        "selfdef_kernel_modules_textfile_emit_failed 0\n"
+        f"selfdef_kernel_modules_last_run_unix {now}\n"
+        "selfdef_kernel_modules_total 150\n"
+        "selfdef_kernel_tainted 1\n"
+        "selfdef_kernel_tainted_unsigned 0\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_kernel_modules("http://localhost:9100/metrics")
+    assert out["status"] == "WARN"
+    assert "tainted" in out["summary"].lower()
 
 
 def test_modules_catalog_probe_detects_count_low():
