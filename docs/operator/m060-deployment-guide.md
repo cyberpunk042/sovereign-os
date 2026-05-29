@@ -1115,6 +1115,100 @@ This is the signature operator-drift hazard the AppArmor observer
 was built to catch — silent posture degradation that no other
 alarm fires on.
 
+#### SelfdefAuthEventsTextfileEmitFailed (critical)
+
+**Meaning:** auth-events wrapper failure for 5+ minutes.
+
+**Diagnosis:**
+
+```bash
+systemctl status selfdef-auth-events-textfile.service
+journalctl -u selfdef-auth-events-textfile.service --since '10 min ago'
+# Check the selfdef user can read journal.
+sudo -u selfdef journalctl -n 1 --facility=auth 2>&1 | head -3
+```
+
+**Fix:** add `SupplementaryGroups=systemd-journal` drop-in:
+
+```bash
+sudo systemctl edit selfdef-auth-events-textfile.service
+# Add under [Service]:
+#   SupplementaryGroups=systemd-journal
+sudo systemctl daemon-reload
+sudo systemctl restart selfdef-auth-events-textfile.service
+```
+
+#### SelfdefAuthEventsObserverSilent (critical)
+
+Same shape as the other observer-silent runbooks; check the timer.
+
+#### SelfdefAuthEventsBruteForceDetected (critical)
+
+**Meaning:** > 20 login failures in the 5m rolling window for 2+
+minutes. Brute-force attack in progress.
+
+**Diagnosis:**
+
+```bash
+# Identify the attacking source IPs (sshd logs).
+journalctl --since '10 min ago' --facility=auth | grep 'Failed password\|Invalid user' \
+  | awk '{for(i=1;i<=NF;i++) if($i=="from") print $(i+1)}' | sort | uniq -c | sort -rn
+# Check per-target user counts.
+journalctl --since '10 min ago' --facility=auth | grep 'Failed password' \
+  | sed 's/.*Failed password for //' | awk '{print $1}' | sort | uniq -c | sort -rn
+```
+
+**Fix:** block the source IPs:
+
+```bash
+# Option A: fail2ban.
+sudo systemctl status fail2ban
+sudo fail2ban-client status sshd
+
+# Option B: direct nftables drop.
+sudo nft add rule inet filter input ip saddr <IP> drop
+# Persist via /etc/nftables.conf.
+
+# Option C: sshd_config hardening — disable password auth entirely.
+sudo sed -i 's/^PasswordAuthentication yes/PasswordAuthentication no/' \
+  /etc/ssh/sshd_config
+sudo systemctl reload sshd
+```
+
+#### SelfdefAuthEventsSshInvalidUserAttempts (warning)
+
+**Meaning:** > 5 ssh invalid-user attempts in 5m for 5+ minutes —
+credential-guessing reconnaissance.
+
+**Diagnosis:**
+
+```bash
+journalctl --since '15 min ago' --facility=auth | grep 'Invalid user'
+```
+
+**Fix:** PubkeyAuthentication-only is the strongest mitigation:
+
+```bash
+sudo sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+sudo sed -i 's/^PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+sudo systemctl reload sshd
+```
+
+#### SelfdefAuthEventsSudoSpike (warning)
+
+**Meaning:** > 10 sudo invocations in 5m for 5+ minutes.
+
+**Diagnosis:**
+
+```bash
+journalctl --since '15 min ago' _COMM=sudo | grep -E 'COMMAND|PWD'
+last -F | head -5      # recent operator sessions
+```
+
+**Fix:** investigate. Legitimate admin work, scripted deployment,
+OR a compromised user — operator judgment call. If unexpected,
+rotate the affected user's credentials.
+
 ## Project-boundary discipline (MS043 R10212)
 
 - IPS state mutation lives in **selfdef only** (selfdefd + selfdefctl +

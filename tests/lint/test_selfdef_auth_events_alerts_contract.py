@@ -117,3 +117,21 @@ def test_rule_group_interval_30s():
 
 def test_rules_cite_selfdef_producer_commit():
     assert "e73dc61" in RULES_PATH.read_text()
+
+
+def test_runbook_sections_present_for_every_alert():
+    guide = REPO_ROOT / "docs" / "operator" / "m060-deployment-guide.md"
+    body = guide.read_text()
+    for name in REQUIRED_ALERTS:
+        assert f"#### {name}" in body, f"missing #### {name}"
+
+
+def test_brute_force_runbook_includes_block_commands():
+    """Brute-force runbook MUST include fail2ban OR nftables block
+    commands — operator copy-pasteable Fix."""
+    guide = REPO_ROOT / "docs" / "operator" / "m060-deployment-guide.md"
+    body = guide.read_text()
+    start = body.find("#### SelfdefAuthEventsBruteForceDetected")
+    next_h = body.find("\n#### ", start + 1)
+    section = body[start:next_h if next_h > 0 else len(body)]
+    assert "fail2ban" in section or "nft add rule" in section
