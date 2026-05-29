@@ -21,7 +21,7 @@ CANONICAL_VERTICALS = ("m060", "ms022", "four_watchdog",
                        "listening_sockets", "disk_usage", "time_sync",
                        "kernel_modules", "fail2ban", "nftables", "cron",
                        "sshd_config", "package_state", "journal_disk",
-                       "blockset", "quarantine")
+                       "blockset", "quarantine", "revocations")
 
 
 def _load_module():
@@ -72,7 +72,7 @@ def test_probe_functions_exist():
         "probe_disk_usage", "probe_time_sync", "probe_kernel_modules",
         "probe_fail2ban", "probe_nftables", "probe_cron",
         "probe_sshd_config", "probe_package_state", "probe_journal_disk",
-        "probe_blockset", "probe_quarantine",
+        "probe_blockset", "probe_quarantine", "probe_revocations",
     ):
         assert hasattr(mod, fn), f"missing probe function {fn}"
 
@@ -781,6 +781,60 @@ def test_quarantine_probe_ok_when_under_threshold():
     assert out["status"] == "OK"
     assert "3 active" in out["summary"]
     assert "2 frozen" in out["summary"]
+
+
+def test_revocations_probe_detects_state_dir_missing():
+    """state-dir absent = FAIL (SDD-067 enforcement OFFLINE)."""
+    mod = _load_module()
+    import time as _t
+    now = int(_t.time())
+    fake = (
+        "selfdef_revocations_textfile_emit_failed 0\n"
+        f"selfdef_revocations_last_run_unix {now}\n"
+        "selfdef_revocations_state_dir_present 0\n"
+        "selfdef_revocations_active_count 0\n"
+        "selfdef_revocations_pending_restores 0\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_revocations("http://localhost:9100/metrics")
+    assert out["status"] == "FAIL"
+    assert "OFFLINE" in out["summary"] or "absent" in out["summary"]
+
+
+def test_revocations_probe_detects_pending_backlog():
+    """> 5 pending = WARN (operator decision backlog)."""
+    mod = _load_module()
+    import time as _t
+    now = int(_t.time())
+    fake = (
+        "selfdef_revocations_textfile_emit_failed 0\n"
+        f"selfdef_revocations_last_run_unix {now}\n"
+        "selfdef_revocations_state_dir_present 1\n"
+        "selfdef_revocations_active_count 3\n"
+        "selfdef_revocations_pending_restores 8\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_revocations("http://localhost:9100/metrics")
+    assert out["status"] == "WARN"
+    assert "8 pending" in out["summary"]
+
+
+def test_revocations_probe_ok_when_normal():
+    mod = _load_module()
+    import time as _t
+    now = int(_t.time())
+    fake = (
+        "selfdef_revocations_textfile_emit_failed 0\n"
+        f"selfdef_revocations_last_run_unix {now}\n"
+        "selfdef_revocations_state_dir_present 1\n"
+        "selfdef_revocations_active_count 2\n"
+        "selfdef_revocations_pending_restores 1\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_revocations("http://localhost:9100/metrics")
+    assert out["status"] == "OK"
+    assert "2 active" in out["summary"]
+    assert "1 pending" in out["summary"]
 
 
 def test_modules_catalog_probe_detects_count_low():
