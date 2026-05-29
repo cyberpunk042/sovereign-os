@@ -1,0 +1,65 @@
+[Unit]
+Description=Sovereign MS022 SSE subscriber-quota read-only API host (selfdef /metrics proxy)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/ms022-sse-quota-api.py
+# CROSS-REPO METRIC PROXY — parses the selfdef daemon's /metrics
+# Prometheus exposition for the 6 selfdef_sse_subscribers_* gauges
+# shipped at selfdef commit 77b4499 + emits a compact JSON envelope
+# the master-dashboard's MS022 banner consumes. READ-ONLY observability
+# (R10212): classifies SSE quota state into ok / approaching /
+# saturated / unreachable using the same 0.85 + 1.0 thresholds the
+# 3 sovereign-os alert rules use (ms022-sse-quota.rules.yml). No
+# mutation surface — POST / PUT / DELETE all return 405.
+#
+# After= ordering matches sovereign-m060-health-api.service so
+# operators see both proxies surface their unreachable state during
+# boot (network coming up) rather than crashing with no useful log.
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/ms022-sse-quota-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default — same posture as the m060-health-api sibling.
+# Operators exposing beyond loopback drop:
+#   /etc/systemd/system/sovereign-ms022-sse-quota-api.service.d/bind.conf
+# with [Service] Environment=MS022_SSE_QUOTA_API_BIND=0.0.0.0
+Environment=MS022_SSE_QUOTA_API_BIND=127.0.0.1
+# Port 7711 chosen as the next sovereign-os api port above the 8160
+# m060-health-api band so the two don't collide. Operator overrides
+# via Environment=MS022_SSE_QUOTA_API_PORT in a drop-in.
+Environment=MS022_SSE_QUOTA_API_PORT=7711
+
+# Selfdef transport — UNIX socket first; TCP fallback via
+# SELFDEF_API_URL + SELFDEF_API_TOKEN. Operators co-located with
+# selfdefd leave SELFDEF_SOCKET at its default; operators routing
+# through TCP must drop a tcp.conf with both vars set (matches the
+# m060-health-api convention).
+Environment=SELFDEF_SOCKET=/run/selfdef.sock
+
+# R171 defense-in-depth (same posture as sovereign-m060-health-api).
+# Read-only HTTP surface; no filesystem mutation surface so no
+# ReadWritePaths needed (the proxy parses + serves; it never writes).
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target
