@@ -20,7 +20,8 @@ CANONICAL_VERTICALS = ("m060", "ms022", "four_watchdog",
                        "auth_events", "systemd_units",
                        "listening_sockets", "disk_usage", "time_sync",
                        "kernel_modules", "fail2ban", "nftables", "cron",
-                       "sshd_config", "package_state", "journal_disk")
+                       "sshd_config", "package_state", "journal_disk",
+                       "blockset")
 
 
 def _load_module():
@@ -71,6 +72,7 @@ def test_probe_functions_exist():
         "probe_disk_usage", "probe_time_sync", "probe_kernel_modules",
         "probe_fail2ban", "probe_nftables", "probe_cron",
         "probe_sshd_config", "probe_package_state", "probe_journal_disk",
+        "probe_blockset",
     ):
         assert hasattr(mod, fn), f"missing probe function {fn}"
 
@@ -675,6 +677,57 @@ def test_journal_disk_probe_honest_offline_when_journalctl_absent():
         out = mod.probe_journal_disk("http://localhost:9100/metrics")
     assert out["status"] == "OK"
     assert "not installed" in out["summary"] or "honest-offline" in out["summary"]
+
+
+def test_blockset_probe_detects_table_missing():
+    """selfdef_blockset_present=0 = FAIL (enforcement OFFLINE)."""
+    mod = _load_module()
+    import time as _t
+    now = int(_t.time())
+    fake = (
+        "selfdef_blockset_textfile_emit_failed 0\n"
+        f"selfdef_blockset_last_run_unix {now}\n"
+        "selfdef_blockset_present 0\n"
+        "selfdef_blockset_total_count 0\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_blockset("http://localhost:9100/metrics")
+    assert out["status"] == "FAIL"
+    assert "OFFLINE" in out["summary"] or "absent" in out["summary"]
+
+
+def test_blockset_probe_detects_total_high():
+    """> 1000 entries = WARN."""
+    mod = _load_module()
+    import time as _t
+    now = int(_t.time())
+    fake = (
+        "selfdef_blockset_textfile_emit_failed 0\n"
+        f"selfdef_blockset_last_run_unix {now}\n"
+        "selfdef_blockset_present 1\n"
+        "selfdef_blockset_total_count 1500\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_blockset("http://localhost:9100/metrics")
+    assert out["status"] == "WARN"
+    assert "1500" in out["summary"]
+
+
+def test_blockset_probe_ok_when_present_and_under_threshold():
+    mod = _load_module()
+    import time as _t
+    now = int(_t.time())
+    fake = (
+        "selfdef_blockset_textfile_emit_failed 0\n"
+        f"selfdef_blockset_last_run_unix {now}\n"
+        "selfdef_blockset_present 1\n"
+        "selfdef_blockset_total_count 42\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_blockset("http://localhost:9100/metrics")
+    assert out["status"] == "OK"
+    assert "42" in out["summary"]
+    assert "enforcement online" in out["summary"]
 
 
 def test_modules_catalog_probe_detects_count_low():
