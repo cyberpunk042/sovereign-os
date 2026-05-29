@@ -239,13 +239,27 @@ def test_milestone_audit_coverage_above_threshold():
 
 def test_no_dangling_milestone_headings():
     """No milestone-heading duplicates that would suggest copy-paste
-    audit drift."""
+    audit drift. We separately track single-milestone sections (### M0NN
+    — title) and family-range sections (### M0NN-M0NN — title) so a
+    single milestone can legitimately appear in BOTH a per-milestone
+    deep-dive AND a family-level rollup."""
     text = _shipped_text()
-    heading_re = re.compile(r"^### (M\d{3})\b", re.MULTILINE)
-    headings = [m.group(1) for m in heading_re.finditer(text)]
-    duplicates = sorted(
-        m for m in set(headings) if headings.count(m) > 1
+    # Single-milestone heading: "### M0NN —" (note: en-dash or hyphen
+    # separator, but not followed by another M0NN-).
+    single_re = re.compile(r"^### (M\d{3}) [—-]", re.MULTILINE)
+    # Family-range heading: "### M0NN-M0NN —".
+    family_re = re.compile(r"^### (M\d{3}-M\d{3}) [—-]", re.MULTILINE)
+    single_headings = [m.group(1) for m in single_re.finditer(text)]
+    family_headings = [m.group(1) for m in family_re.finditer(text)]
+    single_dups = sorted(
+        m for m in set(single_headings) if single_headings.count(m) > 1
     )
-    assert not duplicates, (
-        f"SHIPPED.md has duplicate milestone-audit sections: {duplicates}"
+    family_dups = sorted(
+        m for m in set(family_headings) if family_headings.count(m) > 1
+    )
+    assert not single_dups, (
+        f"SHIPPED.md has duplicate per-milestone audit sections: {single_dups}"
+    )
+    assert not family_dups, (
+        f"SHIPPED.md has duplicate milestone-family rollup sections: {family_dups}"
     )

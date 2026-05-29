@@ -66,15 +66,84 @@ The codebase carries substantial production state from prior development. This s
 | Daemon `/v1/m060/health` endpoint | sovereign-os consumes via `scripts/operator/m060-health-api.py` |
 | `selfdefctl m060-doctor` (selfdef SHIPPED MS043 cross-rollup) | sovereign-os textfile metrics surface in the existing M060 chain-health alert rules |
 
-### M002-M025 — Deterministic AI control substrate + agent runtime (cortex foundation)
+### M002 — 32/64-bit control-word injected logic per branch
 
-| Milestone | Shipped surface (sample from 475-crate workspace) |
+| Surface | Shipped artifact |
 |---|---|
-| M002 — 32/64-bit control-word injected logic | `crates/sovereign-choice-envelope/`, `crates/sovereign-control-word/` (sample) |
-| M003 — Hardware topology + PCIe lane discipline | `scripts/hardware/`, `crates/sovereign-cgroup-systemd/` |
-| M004 — Oracle/Scout/Vector Arbiter roles | `crates/sovereign-*-role-*/` (sample) |
-| M005 — Agent runtime four planes | `crates/sovereign-cockpit-*/` (417 cockpit-runtime crates) |
-| M013 — Observability as control input | `docs/observability/dashboards/` (20 Grafana dashboards) + Prometheus alert rules |
+| Choice envelope | `crates/sovereign-choice-envelope/` |
+
+### M003 — Hardware topology + PCIe lane discipline
+
+| Surface | Shipped artifact |
+|---|---|
+| Hardware scripts | `scripts/hardware/avx512-advisor.py`, `scripts/hardware/bios-directives.py`, `scripts/hardware/bios-info.py`, `scripts/hardware/apc-default-profile.py` |
+| cgroup-systemd | `crates/sovereign-cgroup-systemd/` |
+
+### M013 — Observability as control input
+
+| Surface | Shipped artifact |
+|---|---|
+| Observability fabric | `crates/sovereign-observability-fabric/` |
+| Grafana dashboards | `docs/observability/dashboards/` (20 dashboards including sovereign-os-router, sovereign-os-inference, sovereign-os-auditor, sovereign-os-trinity, sovereign-os-doc-coverage, the 2 new M060 sub-chain dashboards shipped this session) |
+| Prometheus alerts | `config/prometheus/alerts/m060-chain-health.rules.yml` |
+
+### M014 — Memory OS
+
+| Surface | Shipped artifact |
+|---|---|
+| Memory OS crate | `crates/sovereign-memory-os/` |
+
+### M026 — Cockpit personalization
+
+| Surface | Shipped artifact |
+|---|---|
+| Personalization crate | `crates/sovereign-cockpit-personalization/` |
+| Theme palette | `crates/sovereign-cockpit-theme-palette/` |
+| Accent color policy | `crates/sovereign-cockpit-accent-color-policy/` |
+| Webapp control surface | `webapp/personalization/` |
+
+### M027 — Sovereign dashboard toggle (per-dashboard visibility)
+
+| Surface | Shipped artifact |
+|---|---|
+| Dashboard coverage tracker | `crates/sovereign-dashboard-coverage/` |
+| Per-dashboard webapps with toggleable status banners | 20 dashboards under `webapp/d-*/` |
+
+### M057 — Routing + 7-axis decision
+
+| Surface | Shipped artifact |
+|---|---|
+| Router crate | `crates/sovereign-router-7axis/` |
+| Trinity stack composition | `crates/sovereign-trinity/` |
+| Grafana panel | `docs/observability/dashboards/sovereign-os-router.json` |
+
+### M058 — Audit trail
+
+| Surface | Shipped artifact |
+|---|---|
+| Cockpit audit-trail | `crates/sovereign-cockpit-audit-trail/` |
+| Webapp | `webapp/auditor/` |
+| Grafana | `docs/observability/dashboards/sovereign-os-auditor.json` |
+
+### M077 — NVFP4 pretraining + inference pipeline
+
+| Surface | Shipped artifact |
+|---|---|
+| Runtime crate | `crates/sovereign-nvfp4-runtime/` — 5 recipes (NVFP4-S/M/L/XL/XXL) + E2M1 + E4M3 + 1×16 block quantize/dequantize + stochastic rounding (unbiased ±2% verified, 13 passing tests, per `context.md` 2026-05-19) |
+| Catalogue | `backlog/milestones/M077-nvfp4-pretraining-and-inference-pipeline.md` (170 R-rows) |
+
+### M078 — HölderPO + GRPO post-training
+
+| Surface | Shipped artifact |
+|---|---|
+| Runtime crate | `crates/sovereign-holderpo/` — Hölder-mean aggregator (p ∈ ℝ with geom/arith/quad/max/min limits verified) + 4 anneal schedules (Constant/Linear/Cosine/Step) + GRPO group-relative advantages with optional std normalisation (17 passing tests, per `context.md` 2026-05-19) |
+| Catalogue | per `backlog/notes/external-research-ingestion-2026-05-19.md` |
+
+### Cross-cutting cockpit crates (M060 + adjacent milestones)
+
+| Family | Shipped surface |
+|---|---|
+| Cockpit runtime crates | `crates/sovereign-cockpit-*/` — 417 crates covering accent-color-policy, accordion, achievement-toast, action-bar/menu/discoverability, activity-feed, agenda-view, alert-{acknowledge,group,tile-board}, attachment-tray, audit-trail, avatar-stack, banner-{bus,state}, breadcrumb-trail, etc. The bulk of the cockpit-as-UX-substrate surface |
 
 ### M026-M059 — Operator-§1g surfaces + cockpit + intelligence layer
 
