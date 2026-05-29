@@ -831,6 +831,84 @@ threshold — locked in the cross-surface threshold-lockstep contract
 test for the four-watchdog producer pair (selfdef commits `7869a45` +
 `a009b39`).
 
+#### SelfdefModulesTextfileEmitFailed (critical)
+
+**Meaning:** `selfdef-modules-textfile.service` is reporting wrapper
+failure (`selfdef_modules_textfile_emit_failed > 0`) for 5+ minutes.
+The wrapper at `/usr/share/selfdef/selfdef-modules-textfile.sh` could
+not produce the `selfdef_modules_*` gauges because `selfdefctl` was
+absent, `jq` was absent, the daemon was unreachable, OR the
+`modules list --json` envelope was malformed.
+
+**Honest-offline precedence:** when this alert is firing, the operator
+CANNOT trust the other `selfdef_modules_*` gauges to reflect current
+state. This alert ALWAYS takes precedence over the rollup alerts below.
+
+**Diagnosis:**
+
+```bash
+systemctl status selfdef-modules-textfile.service
+journalctl -u selfdef-modules-textfile.service --since '10 min ago'
+which selfdefctl jq
+selfdefctl modules list --json | jq 'length'   # must succeed
+```
+
+**Fix:** restore the wrapper's preconditions:
+- Missing `selfdefctl` → reinstall the `selfdef` deb
+- Missing `jq` → `sudo apt install jq`
+- Daemon unreachable → `systemctl status selfdefd`,
+  `journalctl -u selfdefd --since '10 min ago'`
+
+#### SelfdefModulesObserverSilent (critical)
+
+**Meaning:** `selfdef-modules-textfile.timer` hasn't fired in 5+
+minutes (`time() - selfdef_modules_last_run_unix > 300`). The
+module-catalog observability surface is silently degraded — the
+per-category counts cannot be trusted to reflect current state.
+
+**Diagnosis:**
+
+```bash
+systemctl status selfdef-modules-textfile.timer
+ls -la /var/lib/node_exporter/textfile_collector/selfdef-modules.prom
+sudo -u selfdef test -w /var/lib/node_exporter/textfile_collector \
+  && echo OK || echo "selfdef cannot write — chown/chmod the dir"
+```
+
+**Fix:**
+
+```bash
+sudo systemctl enable --now selfdef-modules-textfile.timer
+sudo chown selfdef:selfdef /var/lib/node_exporter/textfile_collector
+sudo chmod 0755            /var/lib/node_exporter/textfile_collector
+```
+
+The threshold of 300s mirrors the M060 + four-watchdog observer-silent
+thresholds — locked across all 3 observability verticals.
+
+#### SelfdefModulesCountLow (warning)
+
+**Meaning:** `selfdef_modules_total < 100` for 10+ minutes. selfdef
+ships 188+ modules at install time; a drop below this generous floor
+suggests an incomplete deb install OR a corrupted
+`/usr/share/selfdef/modules/` directory.
+
+**Diagnosis:**
+
+```bash
+selfdefctl modules list --json | jq 'length'
+ls /usr/share/selfdef/modules/ | wc -l
+dpkg -l | grep selfdef
+# Cross-check the per-category breakdown:
+curl -s http://localhost:9100/metrics | grep selfdef_modules_by_category
+```
+
+**Fix:** depending on root cause:
+- Incomplete install → `sudo apt install --reinstall selfdef`
+- Corrupted dir → restore from backup OR reinstall the deb
+- Intentional pruning (operator removed modules deliberately) →
+  raise the threshold in `selfdef-modules-catalog.rules.yml`
+
 ## Project-boundary discipline (MS043 R10212)
 
 - IPS state mutation lives in **selfdef only** (selfdefd + selfdefctl +
