@@ -238,6 +238,22 @@ def card_blockset_queue() -> dict[str, Any]:
     }
 
 
+def card_quarantine_queue() -> dict[str, Any]:
+    """SDD-066 MS5b — pending operator-release queue for the
+    selfdef process-quarantine action layer. Reads scripts/cockpit/
+    quarantine-queue.py --json. Each entry shows pid / time-left /
+    scope / reason / pre-rendered release + kill-TERM + kill-KILL
+    commands. Pairs with card_blockset_queue when the correlator
+    fires both BlockIp + QuarantineProcess on the same incident."""
+    cockpit_script = REPO_ROOT / "scripts" / "cockpit" / "quarantine-queue.py"
+    data = _run_json_at(cockpit_script, []) or {"queue": [], "count": 0}
+    return {
+        "id": "quarantine-queue",
+        "title": "SDD-066 — pending process-quarantine release decisions",
+        "data": data,
+    }
+
+
 def card_flex() -> dict[str, Any]:
     """R224 Z-3 — profile-flex show JSON."""
     data = _run_json("profile-flex.py", ["show"]) or {"deltas": []}
@@ -1358,6 +1374,7 @@ CARDS = [
     card_morning_brief,
     card_operator_posture,
     card_blockset_queue,
+    card_quarantine_queue,
     card_gpu,
     card_network,
     card_cpu,
