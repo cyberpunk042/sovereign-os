@@ -677,6 +677,39 @@ def probe_blockset(metrics_url: str) -> dict[str, Any]:
     }
 
 
+def probe_revocations(metrics_url: str) -> dict[str, Any]:
+    metrics = _fetch_metrics(metrics_url)
+    if metrics is None:
+        return {"status": "unreachable", "summary": "node_exporter down"}
+    out = probe_textfile_observer(metrics, "selfdef_revocations", "revocations")
+    if out["status"] != "OK":
+        return out
+    present = _gauge(metrics, "selfdef_revocations_state_dir_present")
+    active = _gauge(metrics, "selfdef_revocations_active_count")
+    pending = _gauge(metrics, "selfdef_revocations_pending_restores")
+    if present == 0:
+        return {
+            "status": "FAIL",
+            "summary": "state-dir absent (SDD-067 enforcement OFFLINE)",
+        }
+    if pending is not None and pending > 5:
+        return {
+            "status": "WARN",
+            "summary": f"{int(pending)} pending restore decisions (operator backlog)",
+        }
+    if active is not None and active > 10:
+        return {
+            "status": "WARN",
+            "summary": f"{int(active)} active revocations > 10 (incident-response scenario)",
+        }
+    return {
+        "status": "OK",
+        "summary": f"{int(active) if active is not None else 0} active · "
+                   f"{int(pending) if pending is not None else 0} pending · "
+                   "enforcement online",
+    }
+
+
 def probe_quarantine(metrics_url: str) -> dict[str, Any]:
     metrics = _fetch_metrics(metrics_url)
     if metrics is None:
@@ -713,7 +746,7 @@ VERTICALS = (
     "auth_events", "systemd_units", "listening_sockets",
     "disk_usage", "time_sync", "kernel_modules", "fail2ban",
     "nftables", "cron", "sshd_config", "package_state",
-    "journal_disk", "blockset", "quarantine",
+    "journal_disk", "blockset", "quarantine", "revocations",
 )
 
 
@@ -739,11 +772,12 @@ def collect(args: argparse.Namespace) -> dict[str, dict[str, Any]]:
         "journal_disk":  probe_journal_disk(args.node_exporter_url),
         "blockset":      probe_blockset(args.node_exporter_url),
         "quarantine":    probe_quarantine(args.node_exporter_url),
+        "revocations":   probe_revocations(args.node_exporter_url),
     }
 
 
 def render_table(results: dict[str, dict[str, Any]]) -> str:
-    lines = ["sovereign-os observability status — 20 verticals",
+    lines = ["sovereign-os observability status — 21 verticals",
              f"{'─' * 22} {'─' * 60}"]
     for v in VERTICALS:
         r = results[v]
@@ -771,6 +805,7 @@ def render_table(results: dict[str, dict[str, Any]]) -> str:
             "journal_disk":      "journal-disk",
             "blockset":          "blockset (SDD-065)",
             "quarantine":        "quarantine (SDD-066)",
+            "revocations":       "revocations (SDD-067)",
         }[v]
         lines.append(f"{label:<22} {marker}  {r['summary']}")
     lines.append(f"{'─' * 22} {'─' * 60}")

@@ -1,0 +1,85 @@
+{
+  "_comment": "sovereign-os selfdef SDD-067 revocations dashboard. Visualizes selfdef_revocations_* gauges (selfdef commit 6f3f19d, merged at 39562e54 via #201; SDD-067 spec at c3f2eb0). Pairs with 5 alerts. SDD-067 enforcement-layer observability — completes the trio with blockset (SDD-065) + quarantine (SDD-066) at the enforcement-axis.",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "operator runbook", "url": "/d/sovereign-os-selfdef-revocations#runbook", "type": "link", "icon": "doc"},
+    {"title": "SDD-067 spec", "url": "https://github.com/cyberpunk042/selfdef/blob/main/docs/sdd/067-session-revocation-action-surface.md", "type": "link", "icon": "external link"},
+    {"title": "producer source", "url": "https://github.com/cyberpunk042/selfdef/blob/main/packaging/scripts/selfdef-revocations-textfile.sh", "type": "link", "icon": "external link"},
+    {"title": "blockset (paired SDD-065)", "url": "/d/sovereign-os-selfdef-blockset", "type": "link", "icon": "external link"},
+    {"title": "quarantine (paired SDD-066)", "url": "/d/sovereign-os-selfdef-quarantine", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "revocations state-dir present",
+      "description": "Red at 0 = selfdefd didn't bootstrap; SDD-067 enforcement OFFLINE. Matches SelfdefRevocationsStateDirMissing.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_revocations_state_dir_present", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "mappings": [{"type": "value", "options": {"0": {"text": "OFFLINE"}, "1": {"text": "OK"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "green", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "active revocations",
+      "description": "Currently-active revocation handles. Yellow at 10 matches SelfdefRevocationsActiveHigh.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_revocations_active_count", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 10}, {"color": "red", "value": 50}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "pending restore decisions",
+      "description": "Operator decision queue depth. Yellow at 5 matches SelfdefRevocationsPendingRestoreBacklog.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_revocations_pending_restores", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 5}, {"color": "red", "value": 20}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "observer sentinel",
+      "description": "selfdef_revocations_textfile_emit_failed.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_revocations_textfile_emit_failed", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "revocations state — active vs pending-restores",
+      "description": "active_count = total handles in state-dir; pending_restores = subset awaiting operator decision. Gap between curves = handles already decided by operator but still ticking down their TTL.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_revocations_active_count", "legendFormat": "active", "refId": "A"},
+        {"expr": "selfdef_revocations_pending_restores", "legendFormat": "pending", "refId": "B"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none"}},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "state-dir presence over time",
+      "description": "Should be 1 sustained — any drop is selfdefd state-dir outage.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_revocations_state_dir_present", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1}},
+      "gridPos": {"h": 6, "w": 24, "x": 0, "y": 12}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["sovereign-os", "selfdef", "revocations", "sdd-067", "IPS-spine", "security", "enforcement-layer", "ips-trio"],
+  "templating": {"list": []},
+  "time": {"from": "now-24h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "sovereign-os — selfdef SDD-067 revocations (enforcement layer)",
+  "uid": "sovereign-os-selfdef-revocations",
+  "version": 1,
+  "weekStart": ""
+}

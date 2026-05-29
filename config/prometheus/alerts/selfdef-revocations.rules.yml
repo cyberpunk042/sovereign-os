@@ -1,0 +1,98 @@
+# Selfdef SDD-067 session-revocation Prometheus alerting rules.
+#
+# Fires on the textfile metrics shipped by selfdef-revocations-
+# textfile.{service,timer} (selfdef commit `6f3f19d`, merged at
+# `39562e54` via selfdef#201). SDD-067 architectural spec at
+# selfdef commit `c3f2eb0`.
+#
+# SDD-067 enforcement-layer observability — pairs with blockset
+# (SDD-065 / 19th sibling) + quarantine (SDD-066 / 20th sibling)
+# to complete the IPS enforcement-primitive trio.
+
+groups:
+  - name: selfdef-revocations
+    interval: 30s
+    rules:
+
+      - alert: SelfdefRevocationsTextfileEmitFailed
+        expr: selfdef_revocations_textfile_emit_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-revocations
+          revocations_link: observer-fault
+        annotations:
+          summary: "Selfdef revocations observer fault on {{ $labels.instance }}"
+          description: >
+            Wrapper failure for 5+ minutes. SDD-067 enforcement-
+            layer visibility lost.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefrevocationstextfileemitfailed-critical"
+
+      - alert: SelfdefRevocationsObserverSilent
+        expr: time() - selfdef_revocations_last_run_unix > 300
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-revocations
+          revocations_link: observer-silent
+        annotations:
+          summary: "Selfdef revocations observer silent on {{ $labels.instance }}"
+          description: >
+            Timer hasn't fired in 5+ minutes. SDD-067 state stale.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefrevocationsobserversilent-critical"
+
+      # Critical: state dir absent — selfdefd hasn't bootstrapped
+      # the revocations directory. Authentication-tier enforcement
+      # cannot operate.
+      - alert: SelfdefRevocationsStateDirMissing
+        expr: selfdef_revocations_state_dir_present == 0
+        for: 10m
+        labels:
+          severity: critical
+          subsystem: selfdef-revocations
+          revocations_link: state-dir-missing
+        annotations:
+          summary: "selfdef revocations state-dir absent on {{ $labels.instance }} — SDD-067 enforcement OFFLINE"
+          description: >
+            /var/lib/selfdef/revocations not present for 10+ minutes.
+            SDD-067 session-revocation enforcement cannot operate;
+            revoke-sessions calls cannot persist state. Operator
+            action: `systemctl status selfdefd`, then `systemctl
+            restart selfdefd`.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefrevocationsstatedirmissing-critical"
+
+      # Warning: sustained operator-decision backlog. > 5 pending
+      # restores for 30+ minutes means the operator hasn't engaged
+      # the cockpit queue in a while.
+      - alert: SelfdefRevocationsPendingRestoreBacklog
+        expr: selfdef_revocations_pending_restores > 5
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: selfdef-revocations
+          revocations_link: pending-backlog
+        annotations:
+          summary: "{{ $value }} pending revocation-restore decisions on {{ $labels.instance }} for 30m"
+          description: >
+            More than 5 pending operator-restore decisions
+            sustained 30+ minutes. Operator engagement with the
+            cockpit revocations-queue card needed. Inspect via
+            `python3 scripts/cockpit/revocations-queue.py`.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefrevocationspendingrestorebacklog-warning"
+
+      # Warning: sustained high active-revocation count signals a
+      # broader incident — multiple users locked out concurrently.
+      - alert: SelfdefRevocationsActiveHigh
+        expr: selfdef_revocations_active_count > 10
+        for: 1h
+        labels:
+          severity: warning
+          subsystem: selfdef-revocations
+          revocations_link: active-high
+        annotations:
+          summary: "{{ $value }} active revocations on {{ $labels.instance }} for 1h"
+          description: >
+            More than 10 active session-revocations sustained 1+ hour.
+            Likely incident-response scenario or operator-misconfigured
+            correlator rule. Investigate.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefrevocationsactivehigh-warning"
