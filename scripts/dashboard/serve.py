@@ -254,6 +254,24 @@ def card_quarantine_queue() -> dict[str, Any]:
     }
 
 
+def card_revocations_queue() -> dict[str, Any]:
+    """SDD-067 MS5b — pending operator-restore queue for the
+    selfdef session-revocation action layer. Reads scripts/cockpit/
+    revocations-queue.py --json. Each entry shows user / time-left /
+    scope (Local or SourceIp(addr)) / reason / pre-rendered
+    `selfdefctl restore-sessions` command. Completes the IPS-trio
+    paired-decision queue family: blockset + quarantine + revocations
+    appear together at the top of the dashboard so the operator
+    sees correlator-paired-handle incidents in a coherent row."""
+    cockpit_script = REPO_ROOT / "scripts" / "cockpit" / "revocations-queue.py"
+    data = _run_json_at(cockpit_script, []) or {"queue": [], "count": 0}
+    return {
+        "id": "revocations-queue",
+        "title": "SDD-067 — pending session-revocation restore decisions",
+        "data": data,
+    }
+
+
 def card_flex() -> dict[str, Any]:
     """R224 Z-3 — profile-flex show JSON."""
     data = _run_json("profile-flex.py", ["show"]) or {"deltas": []}
@@ -1375,6 +1393,7 @@ CARDS = [
     card_operator_posture,
     card_blockset_queue,
     card_quarantine_queue,
+    card_revocations_queue,
     card_gpu,
     card_network,
     card_cpu,
