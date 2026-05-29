@@ -29,7 +29,9 @@
     {"title": "SDD-075 capability-drops (per-process privilege)", "url": "/d/sovereign-os-selfdef-capability-drops", "type": "link", "icon": "external link"},
     {"title": "SDD-076 kernel-keyring-evictions (kernel-keyring)", "url": "/d/sovereign-os-selfdef-kernel-keyring-evictions", "type": "link", "icon": "external link"},
     {"title": "SDD-077 apparmor-profile-pivots (MAC policy)", "url": "/d/sovereign-os-selfdef-apparmor-profile-pivots", "type": "link", "icon": "external link"},
-    {"title": "SDD-078 bpf-map-element-clears (eBPF map state)", "url": "/d/sovereign-os-selfdef-bpf-map-element-clears", "type": "link", "icon": "external link"}
+    {"title": "SDD-078 bpf-map-element-clears (eBPF map state)", "url": "/d/sovereign-os-selfdef-bpf-map-element-clears", "type": "link", "icon": "external link"},
+    {"title": "── MS048 RUNTIME-ROUTING LAYER ──", "url": "/d/sovereign-os-overview", "type": "link", "icon": "external link"},
+    {"title": "MS048 Goldilocks Scheduler", "url": "/d/sovereign-os-selfdef-scheduler", "type": "link", "icon": "external link"}
   ],
   "panels": [
     {
@@ -235,6 +237,48 @@
       ],
       "fieldConfig": {"defaults": {"unit": "none", "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10}}},
       "gridPos": {"h": 10, "w": 24, "x": 0, "y": 25}
+    },
+    {
+      "type": "row",
+      "title": "MS048 Goldilocks Scheduler — runtime routing layer (peer of the IPS enforcement layer above)",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 35},
+      "collapsed": false
+    },
+    {
+      "type": "stat",
+      "title": "scheduler observer healthy",
+      "description": "1 = selfdef-scheduler-textfile observer fresh + write-succeeded. 0 = wedged. Architectural peer of the per-IPS textfile_emit_failed sentinels.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "1 - selfdef_scheduler_textfile_emit_failed", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "mappings": [{"type": "value", "options": {"0": {"text": "WEDGED"}, "1": {"text": "OK"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "green", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 36}
+    },
+    {
+      "type": "stat",
+      "title": "scheduler substrates healthy (of 3)",
+      "description": "PSI + DCGM + human-gate. 3 = all healthy (substrate-trio fully feeds the scheduler); 0 = all blind (scheduler operating without ground-truth signal). Red at 0, yellow 1-2, green 3.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "3 - selfdef_scheduler_substrate_degraded_count", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 3, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "yellow", "value": 1}, {"color": "green", "value": 3}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 36}
+    },
+    {
+      "type": "stat",
+      "title": "scheduler backpressure surfaces firing (of 6)",
+      "description": "cpu + ram + io + Blackwell VRAM + 3090 busy + human-gate-high. The scheduler is throttling autonomous routing while ≥1 surface fires.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_scheduler_cpu_pressure + selfdef_scheduler_ram_pressure + selfdef_scheduler_io_pressure + selfdef_scheduler_blackwell_vram_high + selfdef_scheduler_gpu3090_busy + selfdef_scheduler_human_gate_queue_high", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 6, "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 1}, {"color": "red", "value": 3}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 36}
+    },
+    {
+      "type": "stat",
+      "title": "human-gate queue depth (across 14 IPS queues)",
+      "description": "Sum of pending operator-decision queue entries across the 14 IPS primitives. Same datum as the per-IPS pending_restores rollup above, surfaced via the scheduler's human-gate source for routing-decision context.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_scheduler_human_gate_queue_depth", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 5}, {"color": "red", "value": 10}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 36}
     }
   ],
   "refresh": "30s",
