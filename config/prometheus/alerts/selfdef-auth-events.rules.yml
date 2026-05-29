@@ -1,0 +1,121 @@
+# Selfdef auth-events Prometheus alerting rules.
+#
+# Fires on the textfile metrics shipped by selfdef-auth-events-
+# textfile.{service,timer} (selfdef commit `e73dc61`):
+#
+#   selfdef_auth_events_login_failures{window=…}    gauge
+#   selfdef_auth_events_login_successes{window=…}   gauge
+#   selfdef_auth_events_sudo_invocations{window=…}  gauge
+#   selfdef_auth_events_ssh_invalid_users{window=…} gauge
+#   selfdef_auth_events_ssh_refused_keys{window=…}  gauge
+#   selfdef_auth_events_total{window=…}             gauge
+#   selfdef_auth_events_last_run_unix               gauge
+#   selfdef_auth_events_textfile_emit_failed        gauge
+#
+# Auth-event observation is load-bearing IPS surface — brute-force
+# detection lives here. The alerts page operators on rate spikes
+# before an attacker succeeds.
+#
+# Project boundary R10212: pure observability — selfdefd doesn't
+# enforce ssh/sudo policy; the host's pam/sshd config does.
+# sovereign-os alerts on the published activity counts only.
+
+groups:
+  - name: selfdef-auth-events
+    interval: 30s
+    rules:
+
+      # Critical: emit-failed sentinel — honest-offline.
+      - alert: SelfdefAuthEventsTextfileEmitFailed
+        expr: selfdef_auth_events_textfile_emit_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-auth-events
+          auth_link: observer-fault
+        annotations:
+          summary: "Selfdef auth-events observer fault on {{ $labels.instance }}"
+          description: >
+            selfdef-auth-events-textfile.service is reporting wrapper
+            failure for 5+ minutes — journalctl absent OR auth-
+            facility unreadable. Operator MUST NOT trust the other
+            auth gauges as current.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefautheventstextfileemitfailed-critical"
+
+      # Critical: observer silent (300s threshold).
+      - alert: SelfdefAuthEventsObserverSilent
+        expr: time() - selfdef_auth_events_last_run_unix > 300
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-auth-events
+          auth_link: observer-silent
+        annotations:
+          summary: "Selfdef auth-events observer silent on {{ $labels.instance }}"
+          description: >
+            selfdef-auth-events-textfile.timer hasn't fired in 5+
+            minutes. Auth-event gauges cannot be trusted as current.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefautheventsobserversilent-critical"
+
+      # Critical: brute-force detection. > 20 login failures in the
+      # 5m rolling window = sustained brute-force attempt. The
+      # threshold is intentionally generous (avoid false positives
+      # on a single user's typo flurry) but low enough to catch
+      # genuine attacks before they succeed.
+      - alert: SelfdefAuthEventsBruteForceDetected
+        expr: max(selfdef_auth_events_login_failures) > 20
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-auth-events
+          auth_link: brute-force
+        annotations:
+          summary: "Selfdef auth-events: brute-force in progress on {{ $labels.instance }}"
+          description: >
+            > 20 login failures in the 5m rolling window for 2+
+            minutes. Likely brute-force attack against ssh OR
+            password auth. Cross-reference selfdef_auth_events_
+            ssh_invalid_users + ssh_refused_keys to identify the
+            attack vector. Block the source IP via fail2ban OR
+            nftables rule.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefauteventsbruteforcedetected-critical"
+
+      # Warning: ssh invalid-user attempts > 5 in the 5m window.
+      # Distinct from failed-password (which can be a typo); invalid-
+      # user implies the attacker is guessing usernames OR using
+      # a credential list.
+      - alert: SelfdefAuthEventsSshInvalidUserAttempts
+        expr: max(selfdef_auth_events_ssh_invalid_users) > 5
+        for: 5m
+        labels:
+          severity: warning
+          subsystem: selfdef-auth-events
+          auth_link: ssh-recon
+        annotations:
+          summary: "Selfdef auth-events: ssh invalid-user attempts on {{ $labels.instance }}"
+          description: >
+            > 5 ssh invalid-user attempts in the 5m rolling window
+            for 5+ minutes. Credential-guessing reconnaissance in
+            progress. Strongly consider PubkeyAuthentication-only
+            configuration via sshd_config.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefautheventssshinvaliduserattempts-warning"
+
+      # Warning: sudo spike. > 10 sudo invocations in the 5m window
+      # = unusual operator activity OR scripted privilege use.
+      # Honest threshold — legitimate admin sessions hit this.
+      - alert: SelfdefAuthEventsSudoSpike
+        expr: max(selfdef_auth_events_sudo_invocations) > 10
+        for: 5m
+        labels:
+          severity: warning
+          subsystem: selfdef-auth-events
+          auth_link: sudo-spike
+        annotations:
+          summary: "Selfdef auth-events: sudo spike on {{ $labels.instance }}"
+          description: >
+            > 10 sudo invocations in the 5m rolling window for 5+
+            minutes. Could be legitimate admin work, scripted
+            deployment, OR privilege-escalation attempt by a
+            compromised user. Operator should cross-reference
+            recent shell history.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefautheventssudospike-warning"
