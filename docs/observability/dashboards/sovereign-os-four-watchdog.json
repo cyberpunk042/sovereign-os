@@ -1,0 +1,121 @@
+{
+  "_comment": "sovereign-os four-watchdog (IPS spine) dashboard. Visualizes the selfdef-side selfdef_four_watchdog_* gauges shipped via the selfdef-four-watchdog-doctor.{service,timer} pair (selfdef commits 7869a45 + a009b39) into node_exporter's textfile_collector. Pairs with the 4 alert rules (FourWatchdogWorstSeverityCritical/AnyWarn/TextfileEmitFailed/ObserverSilent) in config/prometheus/alerts/four-watchdog.rules.yml and the runbook sections in docs/operator/m060-deployment-guide.md. The four-watchdog set is the IPS spine per SECURITY.md and SDD-004 (MS046 process / MS047 perimeter / MS044 tamper / MS048 config). Operator imports into Grafana via Settings → JSON Model. Project boundary R10212: pure observability — no mutation surface.",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "operator runbook (sovereign-os)", "url": "/d/sovereign-os-four-watchdog#runbook", "type": "link", "icon": "doc"},
+    {"title": "producer source (selfdef four-watchdog observer)", "url": "https://github.com/cyberpunk042/selfdef/blob/main/packaging/scripts/four-watchdog-textfile.sh", "type": "link", "icon": "external link"},
+    {"title": "deployment guide — four-watchdog runbooks", "url": "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#fourwatchdogworstseveritycritical-critical", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "worst severity (0=ok 1=warn 2=critical)",
+      "description": "Single rollup: the worst severity across the 9 four-watchdog alert classifications (MS046 process / MS047 perimeter / MS044 tamper / MS048 config). Drives the FourWatchdogWorstSeverityCritical (>= 2) and FourWatchdogAnyWarn (== 1) alerts.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_four_watchdog_worst_severity", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": -1, "max": 2, "mappings": [{"type": "value", "options": {"-1": {"text": "UNKNOWN"}, "0": {"text": "OK"}, "1": {"text": "WARN"}, "2": {"text": "CRITICAL"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "purple", "value": -1}, {"color": "green", "value": 0}, {"color": "yellow", "value": 1}, {"color": "red", "value": 2}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "observer age (s)",
+      "description": "Seconds since the selfdef-four-watchdog-doctor.timer last fired. Red at 300s (matches the FourWatchdogObserverSilent alert threshold + the M060 chain-stale threshold — locked by cross-surface threshold-lockstep contract).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "time() - selfdef_four_watchdog_last_run_unix", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "s", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 120}, {"color": "red", "value": 300}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "alerts at WARN+ (severity ≥1)",
+      "description": "How many of the 9 four-watchdog alert classifications are in WARN or CRITICAL right now. 0 = IPS spine green.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "count(selfdef_four_watchdog_severity >= 1)", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 1}, {"color": "red", "value": 4}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "observer emit-failed",
+      "description": "Honest-offline sentinel. 1 = the wrapper failed to emit fresh gauges (selfdefctl absent / jq absent / daemon unreachable / malformed JSON). When this is 1, do NOT trust the other 3 gauge series — they are STALE. Drives the FourWatchdogTextfileEmitFailed alert.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_four_watchdog_textfile_emit_failed", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "mappings": [{"type": "value", "options": {"0": {"text": "OK"}, "1": {"text": "FAILED"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "per-alert severity over time",
+      "description": "One series per alert classification — labelled by MS-family (alert/ms/series). 0 = OK, 1 = WARN, 2 = CRITICAL. Lets operators see when a degradation started + which IPS subsystem broke. Group by `ms` label in Grafana legend for the milestone-family breakdown (MS046/MS047/MS044/MS048).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_four_watchdog_severity", "refId": "A", "legendFormat": "{{ms}} · {{alert}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 2, "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 30}}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "worst-severity rollup over time",
+      "description": "Single rollup line tracking the worst case across all 9 alert classifications. The FourWatchdogWorstSeverityCritical alert fires when this >= 2 for 2m; FourWatchdogAnyWarn fires when this == 1 for 5m. The red threshold step at 2 matches the alert rule + the operator-readable severity ladder (0/1/2/-1).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_four_watchdog_worst_severity", "refId": "A", "legendFormat": "{{instance}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "min": -1, "max": 2, "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 30}, "thresholds": {"mode": "absolute", "steps": [{"color": "purple", "value": -1}, {"color": "green", "value": 0}, {"color": "yellow", "value": 1}, {"color": "red", "value": 2}]}}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+    },
+    {
+      "type": "table",
+      "title": "current per-alert state (drill-down)",
+      "description": "Live triage table. One row per alert classification with the milestone-family (ms) + per-series labels. State column maps severity numeric → operator-readable label (OK/WARN/CRITICAL/UNKNOWN). Sort by severity descending to surface the firing alerts at the top during incident response.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_four_watchdog_severity", "refId": "A", "format": "table", "instant": true}
+      ],
+      "transformations": [
+        {"id": "organize", "options": {"excludeByName": {"Time": true, "__name__": true, "job": true}, "renameByName": {"alert": "alert", "ms": "ms", "series": "series", "instance": "host", "Value": "severity"}, "indexByName": {"host": 0, "ms": 1, "alert": 2, "series": 3, "severity": 4}}}
+      ],
+      "fieldConfig": {"defaults": {"mappings": [{"type": "value", "options": {"-1": {"text": "UNKNOWN", "color": "purple"}, "0": {"text": "OK", "color": "green"}, "1": {"text": "WARN", "color": "yellow"}, "2": {"text": "CRITICAL", "color": "red"}}}]}, "overrides": [{"matcher": {"id": "byName", "options": "severity"}, "properties": [{"id": "custom.cellOptions", "value": {"type": "color-background"}}]}]},
+      "gridPos": {"h": 9, "w": 24, "x": 0, "y": 12}
+    },
+    {
+      "type": "timeseries",
+      "title": "observer-freshness — emit-failed sentinel over time",
+      "description": "The honest-offline sentinel gauge. Red bands mark wedged-wrapper windows when the operator MUST NOT trust the other 3 gauge series. Pairs with the FourWatchdogTextfileEmitFailed alert (5m for-window).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_four_watchdog_textfile_emit_failed", "refId": "A", "legendFormat": "{{instance}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 50}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 7, "w": 12, "x": 0, "y": 21}
+    },
+    {
+      "type": "timeseries",
+      "title": "observer-age timeseries (alert threshold at 300s)",
+      "description": "Seconds since the doctor timer last fired, plotted over time. Red threshold at 300s matches the FourWatchdogObserverSilent alert + the M060 chain-stale threshold — locked by cross-surface threshold-lockstep contract test.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "time() - selfdef_four_watchdog_last_run_unix", "refId": "A", "legendFormat": "{{instance}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "s", "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 20}, "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 120}, {"color": "red", "value": 300}]}}},
+      "gridPos": {"h": 7, "w": 12, "x": 12, "y": 21}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["sovereign-os", "selfdef", "four-watchdog", "IPS-spine", "observability"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {},
+  "timezone": "",
+  "title": "sovereign-os — four-watchdog (IPS spine)",
+  "uid": "sovereign-os-four-watchdog",
+  "version": 1,
+  "weekStart": ""
+}
