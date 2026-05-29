@@ -76,6 +76,35 @@ def test_help_lists_m060_health_and_doctor_verbs():
     )
 
 
+def test_help_m060_doctor_surfaces_doctor_observer_flags():
+    """The m060-doctor verb wraps m060-smoke.py which (per sovereign-os
+    commit 42c5e6c) now probes the selfdef-side doctor textfile
+    observers via node_exporter. The help text MUST surface the
+    --skip-doctor-observers and --node-exporter-url flags so
+    operators discover them without reading the script source."""
+    body = _help_text()
+    # Find the m060-doctor block (next ~10 lines after the verb mention).
+    idx = body.find("m060-doctor")
+    assert idx >= 0, "m060-doctor not in --help"
+    section = body[idx : idx + 600]
+    assert "skip-doctor-observers" in section, (
+        f"m060-doctor help missing --skip-doctor-observers flag "
+        f"(load-bearing for hosts where node_exporter is unreachable):\n{section}"
+    )
+    assert "node-exporter-url" in section, (
+        f"m060-doctor help missing --node-exporter-url flag (load-bearing "
+        f"when node_exporter runs on a non-default URL):\n{section}"
+    )
+    # The help text also needs to surface WHY operators care: doctor
+    # observers ARE part of the chain verification.
+    assert "doctor" in section.lower() and (
+        "observer" in section.lower() or "textfile" in section.lower()
+    ), (
+        f"m060-doctor help must mention doctor observers / textfile probe "
+        f"so operators understand what the new flags do:\n{section}"
+    )
+
+
 def test_help_documents_audit_mirror_trace_verb():
     """The new `trace <id>` verb (shipped in 5e79218) MUST appear in
     the audit-mirror documentation line — without this operators

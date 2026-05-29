@@ -954,8 +954,15 @@ ENV VARS (override defaults):
 
   M060 cross-repo mirror chain (selfdef → sovereign-os bridge, read-only):
     m060-doctor [--strict] [--json]     Smoke-check the chain (10 mirror
-                                        endpoints + chain-health). Strict
+                                        endpoints + chain-health +
+                                        2 selfdef-side doctor textfile
+                                        observers via node_exporter). Strict
                                         mode requires every mirror online.
+                                        Use --skip-doctor-observers when
+                                        node_exporter is on a different
+                                        host; --node-exporter-url to
+                                        override the default
+                                        http://localhost:9100/metrics.
     m060-health probe|state [--json]    Daemon-side per-artifact health.
                                         `state` returns just the verdict.
     profile-mirror show [--json]        D-02 active-profile mirror
@@ -8433,12 +8440,15 @@ AUDITOR_HELP
     ;;
   m060-doctor)
     # M060 cross-repo mirror chain smoke check — pings each /api/d-NN/snapshot
-    # endpoint through the sovereign-os master-dashboard proxy and reports
-    # per-domain online/offline/unreachable state with per-domain offline-
-    # hints pointing at the right selfdef knob/verb. Read-only (web-is-read-
+    # endpoint through the sovereign-os master-dashboard proxy AND probes the
+    # selfdef-side doctor textfile observers (selfdef-cli-mirror-doctor.timer
+    # + selfdef-m060-doctor.timer, selfdef commits e9ab056 + ce58154) via
+    # node_exporter's /metrics so one operator command verifies the full
+    # producer→consumer→observer chain end-to-end. Read-only (web-is-read-
     # only doctrine MS043 R10212 + R10115). Stdlib-only Python; no deps.
     # See scripts/diagnostics/m060-smoke.py --help for flags
-    # (--base-url, --strict, --json).
+    # (--base-url, --node-exporter-url, --strict, --skip-doctor-observers,
+    #  --json).
     "${__REPO_ROOT}/scripts/diagnostics/m060-smoke.py" "$@"
     ;;
   version|--version|-V) cmd_version "$@" ;;
