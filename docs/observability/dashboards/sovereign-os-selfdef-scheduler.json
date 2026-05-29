@@ -1,0 +1,143 @@
+{
+  "_comment": "sovereign-os selfdef MS048 Goldilocks Scheduler dashboard. Consumes selfdef-scheduler-textfile gauges (selfdef MS048 M01168 + M01174). Architectural peer of the 14 IPS observer dashboards (#39..#52) already on IPS-host-overview. Tracks the 7-axis objective function, 5 backpressure surfaces, and substrate-trio health.",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "MS048 catalog", "url": "https://github.com/cyberpunk042/selfdef/blob/main/backlog/milestones/MS048-goldilocks-scheduler-hardware-aware-resource-routing.md", "type": "link", "icon": "external link"},
+    {"title": "Peace Machine + Core Law doctrine", "url": "https://github.com/cyberpunk042/devops-solutions-information-hub/blob/main/wiki/spine/doctrine/peace-machine-and-core-law.md", "type": "link", "icon": "external link"},
+    {"title": "IPS-host-overview", "url": "/d/sovereign-os-ips-host-overview", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "scheduler observer healthy",
+      "description": "Red at 0 = scheduler observer wedged.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "1 - selfdef_scheduler_textfile_emit_failed", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "mappings": [{"type": "value", "options": {"0": {"text": "WEDGED"}, "1": {"text": "OK"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "green", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "substrates healthy (of 3)",
+      "description": "PSI + DCGM + human-gate. Red at 0 (scheduler blind), yellow at 1-2, green at 3.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "3 - selfdef_scheduler_substrate_degraded_count", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 3, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "yellow", "value": 1}, {"color": "green", "value": 3}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "backpressure surfaces firing (of 6)",
+      "description": "cpu + ram + io + Blackwell VRAM + 3090 busy + human-gate-high.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_scheduler_cpu_pressure + selfdef_scheduler_ram_pressure + selfdef_scheduler_io_pressure + selfdef_scheduler_blackwell_vram_high + selfdef_scheduler_gpu3090_busy + selfdef_scheduler_human_gate_queue_high", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 6, "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 1}, {"color": "red", "value": 3}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "human-gate queue depth",
+      "description": "Sum of pending operator-decision queue entries across the 14 IPS primitives.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_scheduler_human_gate_queue_depth", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 5}, {"color": "red", "value": 10}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "PSI substrate over time (cpu / mem / io)",
+      "description": "Linux PSI some/avg10 fractions. Threshold lines: cpu 0.50 / ram 0.30 / io 0.40 (R11340-R11346).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_scheduler_cpu_psi", "legendFormat": "cpu", "refId": "A"},
+        {"expr": "selfdef_scheduler_mem_psi", "legendFormat": "mem", "refId": "B"},
+        {"expr": "selfdef_scheduler_io_psi", "legendFormat": "io", "refId": "C"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "GPU substrate over time (Blackwell VRAM / 3090 util)",
+      "description": "Blackwell VRAM util threshold 0.90 (R11333); 3090 busy threshold 0.80 (R11337).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_scheduler_blackwell_vram_util", "legendFormat": "Blackwell VRAM", "refId": "A"},
+        {"expr": "selfdef_scheduler_gpu3090_util", "legendFormat": "3090 compute", "refId": "B"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "backpressure surface state over time (0/1 per surface)",
+      "description": "Each surface plotted separately so operator can identify which axis is firing.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_scheduler_cpu_pressure", "legendFormat": "cpu_pressure", "refId": "A"},
+        {"expr": "selfdef_scheduler_ram_pressure", "legendFormat": "ram_pressure", "refId": "B"},
+        {"expr": "selfdef_scheduler_io_pressure", "legendFormat": "io_pressure", "refId": "C"},
+        {"expr": "selfdef_scheduler_blackwell_vram_high", "legendFormat": "blackwell_vram_high", "refId": "D"},
+        {"expr": "selfdef_scheduler_gpu3090_busy", "legendFormat": "gpu3090_busy", "refId": "E"},
+        {"expr": "selfdef_scheduler_human_gate_queue_high", "legendFormat": "human_gate_queue_high", "refId": "F"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 30}}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+    },
+    {
+      "type": "timeseries",
+      "title": "per-substrate health over time (3 sources)",
+      "description": "1=Healthy, 0=Unavailable (honest-offline) OR Errored. Use the table panel below for reason text.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_scheduler_substrate_healthy", "legendFormat": "{{source}}", "refId": "A"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter"}}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+    },
+    {
+      "type": "table",
+      "title": "substrate degradation reasons (per source, when degraded)",
+      "description": "Label-encoded reason text from selfdef_scheduler_substrate_status. Only rows for currently-degraded substrates are present.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_scheduler_substrate_status", "format": "table", "instant": true, "refId": "A"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none"}},
+      "gridPos": {"h": 6, "w": 24, "x": 0, "y": 20}
+    },
+    {
+      "type": "stat",
+      "title": "scheduler observer freshness",
+      "description": "Seconds since the last selfdef-scheduler-textfile poll. Red if > 300s (observer-silent alert).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "time() - selfdef_scheduler_last_run_unix", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "s", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 120}, {"color": "red", "value": 300}]}}},
+      "gridPos": {"h": 4, "w": 12, "x": 0, "y": 26}
+    },
+    {
+      "type": "stat",
+      "title": "humanity-gate-blocked routing severity",
+      "description": "Composite: human-gate threshold + substrate-degraded count. High = operator must clear queue OR fix substrate before scheduler resumes autonomous routing.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_scheduler_human_gate_queue_high + selfdef_scheduler_substrate_degraded_count", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 1}, {"color": "red", "value": 3}]}}},
+      "gridPos": {"h": 4, "w": 12, "x": 12, "y": 26}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["sovereign-os", "selfdef", "scheduler", "ms048", "goldilocks", "MS048-spine", "backpressure", "psi", "dcgm", "human-gate"],
+  "templating": {"list": []},
+  "time": {"from": "now-24h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "sovereign-os — selfdef MS048 Goldilocks Scheduler",
+  "uid": "sovereign-os-selfdef-scheduler",
+  "version": 1,
+  "weekStart": ""
+}
