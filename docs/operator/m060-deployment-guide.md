@@ -909,6 +909,117 @@ curl -s http://localhost:9100/metrics | grep selfdef_modules_by_category
 - Intentional pruning (operator removed modules deliberately) →
   raise the threshold in `selfdef-modules-catalog.rules.yml`
 
+#### SelfdefDaemonProcessTextfileEmitFailed (critical)
+
+**Meaning:** `selfdef-daemon-process-textfile.service` is reporting
+wrapper failure (`selfdef_daemon_process_textfile_emit_failed > 0`)
+for 5+ minutes. Either selfdefd is not running, systemctl failed, or
+`/proc/<pid>/` is inaccessible.
+
+**Honest-offline precedence:** when this fires, do NOT trust the
+other 7 process-state gauges. Always investigate this alert first.
+
+**Diagnosis:**
+
+```bash
+systemctl status selfdef-daemon-process-textfile.service
+journalctl -u selfdef-daemon-process-textfile.service --since '10 min ago'
+systemctl status selfdefd
+systemctl show -p MainPID --value selfdefd
+```
+
+**Fix:** restore preconditions:
+- selfdefd down → `systemctl status selfdefd` + `journalctl -u selfdefd`
+- systemctl failed → check D-Bus connectivity
+- /proc/ inaccessible → check kernel hardening / namespace restrictions
+
+#### SelfdefDaemonProcessObserverSilent (critical)
+
+**Meaning:** `selfdef-daemon-process-textfile.timer` hasn't fired in
+5+ minutes. Process-state gauges are stale.
+
+**Diagnosis:**
+
+```bash
+systemctl status selfdef-daemon-process-textfile.timer
+ls -la /var/lib/node_exporter/textfile_collector/selfdef-daemon-process.prom
+sudo -u selfdef test -w /var/lib/node_exporter/textfile_collector \
+  && echo OK || echo "selfdef cannot write the textfile collector dir"
+```
+
+**Fix:**
+
+```bash
+sudo systemctl enable --now selfdef-daemon-process-textfile.timer
+sudo chown selfdef:selfdef /var/lib/node_exporter/textfile_collector
+sudo chmod 0755            /var/lib/node_exporter/textfile_collector
+```
+
+#### SelfdefDaemonProcessMemoryHigh (warning)
+
+**Meaning:** `selfdef_daemon_process_memory_rss_bytes > 1 GiB` for
+30+ minutes. selfdefd's defensive-daemon baseline is small; sustained
+growth above 1 GiB suggests a leak or unbounded queue.
+
+**Diagnosis:**
+
+```bash
+# Live RSS check.
+ps -o pid,rss,vsize,comm -p "$(systemctl show -p MainPID --value selfdefd)"
+# Per-thread memory if available.
+cat /proc/"$(systemctl show -p MainPID --value selfdefd)"/status | grep ^Vm
+# Look for repeated allocation log lines.
+journalctl -u selfdefd --since '1 hour ago' | grep -i 'queue\|alloc\|leak'
+```
+
+**Fix:** depending on root cause:
+- Genuine queue backlog → check upstream pressure
+- Leak → `sudo systemctl restart selfdefd` (mitigation) + file an
+  issue with the RSS curve from Grafana
+- Legitimate load → raise the threshold in
+  `selfdef-daemon-process.rules.yml`
+
+#### SelfdefDaemonProcessFdExhaustionApproaching (critical)
+
+**Meaning:** open FD count > 819 (80% of default 1024 ulimit) for
+10+ minutes. FD exhaustion blocks new socket accepts and file opens.
+
+**Diagnosis:**
+
+```bash
+# Current FD count.
+ls /proc/"$(systemctl show -p MainPID --value selfdefd)"/fd | wc -l
+# Current ulimit.
+cat /proc/"$(systemctl show -p MainPID --value selfdefd)"/limits | grep 'Max open files'
+# What kind of FDs?
+ls -l /proc/"$(systemctl show -p MainPID --value selfdefd)"/fd | head -20
+```
+
+**Fix:**
+- Raise ulimit: add `LimitNOFILE=4096` to a drop-in
+  `/etc/systemd/system/selfdefd.service.d/limits.conf` then
+  `systemctl daemon-reload && systemctl restart selfdefd`
+- Investigate FD leak: which FDs dominate? Sockets / files / pipes?
+
+#### SelfdefDaemonProcessRestartLoop (critical)
+
+**Meaning:** `increase(selfdef_daemon_process_restart_count[10m]) >= 3`
+for 1+ minute. selfdefd has restarted 3+ times in the last 10 minutes
+— crashloop in progress.
+
+**Diagnosis:**
+
+```bash
+journalctl -u selfdefd --since '15 min ago' | grep -E 'panic|exit|signal'
+systemctl status selfdefd
+# Check systemd's StartLimit*  — when it gives up, restarts stop.
+systemctl show -p StartLimitBurst,StartLimitIntervalSec selfdefd
+```
+
+**Fix:** investigate the panic / OOM / config-load failure in the
+journal, fix the root cause, then `systemctl reset-failed selfdefd`
+followed by `systemctl start selfdefd` to re-arm the unit.
+
 ## Project-boundary discipline (MS043 R10212)
 
 - IPS state mutation lives in **selfdef only** (selfdefd + selfdefctl +
