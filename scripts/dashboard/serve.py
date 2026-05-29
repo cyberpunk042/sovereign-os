@@ -382,6 +382,23 @@ def card_capability_drops_queue() -> dict[str, Any]:
     }
 
 
+def card_kernel_keyring_evictions_queue() -> dict[str, Any]:
+    """SDD-076 MS5b — pending operator-restore queue for the selfdef
+    kernel-keyring eviction action layer. Twelfth in the
+    IPS-duodectet paired-decision queue family (kernel-keyring axis).
+    Restore is queue-clear + audit only — kernel-keyring entries that
+    were invalidated/unlinked are gone; operator must re-provision
+    the key material (re-fetch TGT, re-register session key, etc.)
+    to recover."""
+    cockpit_script = REPO_ROOT / "scripts" / "cockpit" / "kernel-keyring-evictions-queue.py"
+    data = _run_json_at(cockpit_script, []) or {"queue": [], "count": 0}
+    return {
+        "id": "kernel-keyring-evictions-queue",
+        "title": "SDD-076 — pending kernel-keyring-eviction restore decisions",
+        "data": data,
+    }
+
+
 def card_flex() -> dict[str, Any]:
     """R224 Z-3 — profile-flex show JSON."""
     data = _run_json("profile-flex.py", ["show"]) or {"deltas": []}
@@ -1512,6 +1529,7 @@ CARDS = [
     card_socket_fd_revocations_queue,
     card_env_scrubs_queue,
     card_capability_drops_queue,
+    card_kernel_keyring_evictions_queue,
     card_gpu,
     card_network,
     card_cpu,

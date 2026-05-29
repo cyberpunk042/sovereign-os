@@ -1,0 +1,81 @@
+# Selfdef SDD-076 kernel-keyring-eviction Prometheus alerting rules.
+# Fires on textfile metrics from selfdef-kernel-keyring-evictions-textfile
+# (selfdef MS4a commit). Extends the IPS-undectet observability set
+# to the duodectet — 30th sibling — at the kernel-keyring axis.
+
+groups:
+  - name: selfdef-kernel-keyring-evictions
+    interval: 30s
+    rules:
+
+      - alert: SelfdefKernelKeyringEvictionsTextfileEmitFailed
+        expr: selfdef_kernel_keyring_evictions_textfile_emit_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-kernel-keyring-evictions
+          cd_link: observer-fault
+        annotations:
+          summary: "Selfdef kernel-keyring-evictions observer fault on {{ $labels.instance }}"
+          description: "Wrapper failure for 5+ minutes. SDD-076 enforcement visibility lost at the kernel-keyring axis."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefkernelkeyringevictionstextfileemitfailed-critical"
+
+      - alert: SelfdefKernelKeyringEvictionsObserverSilent
+        expr: time() - selfdef_kernel_keyring_evictions_last_run_unix > 300
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-kernel-keyring-evictions
+          cd_link: observer-silent
+        annotations:
+          summary: "Selfdef kernel-keyring-evictions observer silent on {{ $labels.instance }}"
+          description: "Timer hasn't fired in 5+ minutes."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefkernelkeyringevictionsobserversilent-critical"
+
+      - alert: SelfdefKernelKeyringEvictionsStateDirMissing
+        expr: selfdef_kernel_keyring_evictions_state_dir_present == 0
+        for: 10m
+        labels:
+          severity: critical
+          subsystem: selfdef-kernel-keyring-evictions
+          cd_link: state-dir-missing
+        annotations:
+          summary: "kernel-keyring-evictions state-dir absent on {{ $labels.instance }} — SDD-076 enforcement OFFLINE"
+          description: "/var/lib/selfdef/kernel-keyring-evictions not present for 10+ minutes. SDD-076 kernel-keyring-axis IPS primitive cannot persist state. Operator action: systemctl status selfdefd && systemctl restart selfdefd."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefkernelkeyringevictionsstatedirmissing-critical"
+
+      - alert: SelfdefKernelKeyringEvictionsPendingRestoreBacklog
+        expr: selfdef_kernel_keyring_evictions_pending_restores > 5
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: selfdef-kernel-keyring-evictions
+          cd_link: pending-backlog
+        annotations:
+          summary: "{{ $value }} pending kernel-keyring-eviction restore decisions on {{ $labels.instance }} for 30m"
+          description: "Operator engagement with the cockpit kernel-keyring-evictions-queue card needed. NOTE: kernel keyring entries that have been invalidated/unlinked are gone — restore is queue-clear + audit only; operator must re-provision the key material to recover."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefkernelkeyringevictionspendingrestorebacklog-warning"
+
+      - alert: SelfdefKernelKeyringEvictionsNotFoundHigh
+        expr: selfdef_kernel_keyring_evictions_not_found_count > 3
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: selfdef-kernel-keyring-evictions
+          cd_link: not-found-high
+        annotations:
+          summary: "{{ $value }} NotFound kernel-keyring-eviction handles on {{ $labels.instance }} for 30m"
+          description: "Multiple eviction requests targeted keys that didn't exist in the named keyring — likely rule misconfiguration, stale spec, or attacker pre-clearing keys. Operator review."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefkernelkeyringevictionsnotfoundhigh-warning"
+
+      - alert: SelfdefKernelKeyringEvictionsUserKeyHigh
+        expr: selfdef_kernel_keyring_evictions_by_type{type="user"} > 5
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: selfdef-kernel-keyring-evictions
+          cd_link: user-key-high
+        annotations:
+          summary: "{{ $value }} user-type kernel-keyring evictions on {{ $labels.instance }} for 30m — credential-rotation attack pattern?"
+          description: "Per-type breakdown shows multiple user-type kernel keys evicted simultaneously. User keys typically hold per-session credentials (Kerberos TGT, etc.); coordinated eviction could indicate credential-rotation suppression. Investigate correlator events."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefkernelkeyringevictionsuserkeyhigh-warning"

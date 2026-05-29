@@ -716,6 +716,45 @@ def probe_capability_drops(metrics_url: str) -> dict[str, Any]:
     }
 
 
+def probe_kernel_keyring_evictions(metrics_url: str) -> dict[str, Any]:
+    metrics = _fetch_metrics(metrics_url)
+    if metrics is None:
+        return {"status": "unreachable", "summary": "node_exporter down"}
+    out = probe_textfile_observer(
+        metrics, "selfdef_kernel_keyring_evictions", "kernel-keyring-evictions",
+    )
+    if out["status"] != "OK":
+        return out
+    present = _gauge(metrics, "selfdef_kernel_keyring_evictions_state_dir_present")
+    active = _gauge(metrics, "selfdef_kernel_keyring_evictions_active_count")
+    not_found = _gauge(metrics, "selfdef_kernel_keyring_evictions_not_found_count")
+    keys_evicted = _gauge(metrics, "selfdef_kernel_keyring_evictions_keys_evicted_total")
+    pending = _gauge(metrics, "selfdef_kernel_keyring_evictions_pending_restores")
+    if present == 0:
+        return {"status": "FAIL",
+                "summary": "state-dir absent (SDD-076 enforcement OFFLINE)"}
+    if pending is not None and pending > 5:
+        return {"status": "WARN",
+                "summary": f"{int(pending)} pending kernel-keyring-eviction restore decisions"}
+    if not_found is not None and not_found > 3:
+        return {"status": "WARN",
+                "summary": f"{int(not_found)} NotFound handles — rule misconfig or stale-spec review"}
+    if keys_evicted is not None and keys_evicted > 30:
+        return {"status": "WARN",
+                "summary": f"{int(keys_evicted)} keys evicted — large-scale credential rotation"}
+    if active is not None and active > 10:
+        return {"status": "WARN",
+                "summary": f"{int(active)} active kernel-keyring-evictions > 10"}
+    return {
+        "status": "OK",
+        "summary": f"{int(active) if active is not None else 0} handles · "
+                   f"{int(keys_evicted) if keys_evicted is not None else 0} keys · "
+                   f"{int(not_found) if not_found is not None else 0} not-found · "
+                   f"{int(pending) if pending is not None else 0} pending · "
+                   "enforcement online",
+    }
+
+
 def probe_env_scrubs(metrics_url: str) -> dict[str, Any]:
     metrics = _fetch_metrics(metrics_url)
     if metrics is None:
@@ -1017,6 +1056,7 @@ VERTICALS = (
     "netns_isolations", "mount_bindings",
     "process_tree_freezes", "socket_fd_revocations",
     "env_scrubs", "capability_drops",
+    "kernel_keyring_evictions",
 )
 
 
@@ -1051,11 +1091,12 @@ def collect(args: argparse.Namespace) -> dict[str, dict[str, Any]]:
         "socket_fd_revocations": probe_socket_fd_revocations(args.node_exporter_url),
         "env_scrubs": probe_env_scrubs(args.node_exporter_url),
         "capability_drops": probe_capability_drops(args.node_exporter_url),
+        "kernel_keyring_evictions": probe_kernel_keyring_evictions(args.node_exporter_url),
     }
 
 
 def render_table(results: dict[str, dict[str, Any]]) -> str:
-    lines = ["sovereign-os observability status — 29 verticals",
+    lines = ["sovereign-os observability status — 30 verticals",
              f"{'─' * 22} {'─' * 60}"]
     for v in VERTICALS:
         r = results[v]
@@ -1092,6 +1133,7 @@ def render_table(results: dict[str, dict[str, Any]]) -> str:
             "socket_fd_revocations": "socket-fd-revocations (SDD-073)",
             "env_scrubs":          "env-scrubs (SDD-074)",
             "capability_drops":    "capability-drops (SDD-075)",
+            "kernel_keyring_evictions": "kernel-keyring-evictions (SDD-076)",
         }[v]
         lines.append(f"{label:<22} {marker}  {r['summary']}")
     lines.append(f"{'─' * 22} {'─' * 60}")
