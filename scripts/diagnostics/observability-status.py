@@ -346,12 +346,43 @@ def probe_listening_sockets(metrics_url: str) -> dict[str, Any]:
     }
 
 
+def probe_disk_usage(metrics_url: str) -> dict[str, Any]:
+    metrics = _fetch_metrics(metrics_url)
+    if metrics is None:
+        return {"status": "unreachable", "summary": "node_exporter down"}
+    out = probe_textfile_observer(metrics, "selfdef_disk_usage", "disk-usage")
+    if out["status"] != "OK":
+        return out
+    used_pct = _gauge(metrics, "selfdef_disk_usage_var_used_percent")
+    selfdef_log = _gauge(metrics, "selfdef_disk_usage_log_bytes")
+    if used_pct is not None and used_pct > 90:
+        return {
+            "status": "FAIL",
+            "summary": f"/var at {used_pct:.0f}% > 90 (IPS spine wedge risk)",
+        }
+    if used_pct is not None and used_pct > 75:
+        return {
+            "status": "WARN",
+            "summary": f"/var at {used_pct:.0f}% > 75 (approaching)",
+        }
+    if selfdef_log is not None and selfdef_log > 5368709120:
+        return {
+            "status": "WARN",
+            "summary": f"/var/log/selfdef {selfdef_log / 1073741824:.1f} GiB > 5",
+        }
+    return {
+        "status": "OK",
+        "summary": f"/var at {used_pct:.0f}%" if used_pct is not None else "OK",
+    }
+
+
 # ── Aggregation + rendering ──────────────────────────────────────────
 
 VERTICALS = (
     "m060", "ms022", "four_watchdog",
     "modules", "daemon_process", "apparmor",
     "auth_events", "systemd_units", "listening_sockets",
+    "disk_usage",
 )
 
 
@@ -366,11 +397,12 @@ def collect(args: argparse.Namespace) -> dict[str, dict[str, Any]]:
         "auth_events":   probe_auth_events(args.node_exporter_url),
         "systemd_units": probe_systemd_units(args.node_exporter_url),
         "listening_sockets": probe_listening_sockets(args.node_exporter_url),
+        "disk_usage":    probe_disk_usage(args.node_exporter_url),
     }
 
 
 def render_table(results: dict[str, dict[str, Any]]) -> str:
-    lines = ["sovereign-os observability status — 9 verticals",
+    lines = ["sovereign-os observability status — 10 verticals",
              f"{'─' * 22} {'─' * 60}"]
     for v in VERTICALS:
         r = results[v]
@@ -387,6 +419,7 @@ def render_table(results: dict[str, dict[str, Any]]) -> str:
             "auth_events":       "auth-events",
             "systemd_units":     "systemd-units",
             "listening_sockets": "listening-sockets",
+            "disk_usage":        "disk-usage",
         }[v]
         lines.append(f"{label:<22} {marker}  {r['summary']}")
     lines.append(f"{'─' * 22} {'─' * 60}")
