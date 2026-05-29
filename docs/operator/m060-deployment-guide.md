@@ -1533,6 +1533,99 @@ lsmod | wc -l
 journalctl --since '24 hours ago' | grep -E 'modprobe|insmod' | head -10
 ```
 
+#### SelfdefFail2banTextfileEmitFailed (critical)
+
+**Diagnosis:**
+
+```bash
+systemctl status selfdef-fail2ban-textfile.service
+journalctl -u selfdef-fail2ban-textfile.service --since '30 minutes ago'
+```
+
+**Cause:** wrapper failed (fail2ban-client invocation error or
+runtime-socket race). Defensive-response gauges UNRELIABLE.
+
+#### SelfdefFail2banObserverSilent (critical)
+
+**Diagnosis:**
+
+```bash
+systemctl status selfdef-fail2ban-textfile.timer
+systemctl list-timers selfdef-fail2ban-textfile.timer
+```
+
+**Cause:** 13th sibling observer timer not firing. Fail2ban
+defensive-response state is stale — fail2ban could be silently
+mitigating (or failing to mitigate) attacks without visibility.
+
+#### SelfdefFail2banServerDown (critical)
+
+**Diagnosis:**
+
+```bash
+systemctl status fail2ban
+fail2ban-client ping
+journalctl -u fail2ban --since '30 minutes ago' | tail -50
+```
+
+**Cause:** fail2ban-server is installed but not responding to ping
+for 2+ minutes. **This is a defensive-tier outage** — failed login
+attempts (recorded by SelfdefAuthEvents*) will NOT be auto-blocked.
+
+**Pairs with auth-events.** Cross-check
+`selfdef_auth_events_login_failures` — if BOTH alerts fire, the
+operator is under attack AND defenseless.
+
+**Remediation:**
+
+```bash
+systemctl restart fail2ban
+fail2ban-client status     # confirm jails reload
+```
+
+#### SelfdefFail2banZeroJails (warning)
+
+**Diagnosis:**
+
+```bash
+fail2ban-client status
+ls /etc/fail2ban/jail.d/
+```
+
+**Cause:** fail2ban-server is up but no jails configured/enabled.
+No defensive response can trigger. Legitimate during bring-up;
+otherwise drift hazard.
+
+**Remediation (sshd jail bring-up):**
+
+```bash
+cat > /etc/fail2ban/jail.d/sshd.local <<'EOF'
+[sshd]
+enabled = true
+bantime = 1h
+findtime = 10m
+maxretry = 5
+EOF
+fail2ban-client reload
+```
+
+#### SelfdefFail2banActiveBanSpike (warning)
+
+**Diagnosis:**
+
+```bash
+fail2ban-client status sshd     # source-IP geography
+fail2ban-client banned          # full ban list
+journalctl -u fail2ban --since '1 hour ago' | grep -E 'NOTICE|WARNING'
+```
+
+**Cause:** > 50 currently-banned IPs across all jails for 10+ minutes.
+Sustained distributed brute-force wave. Consider:
+
+- Raising `bantime` from 1h to 24h in the affected jail
+- Pushing IP-block rules upstream (router/firewall)
+- Investigating whether a single ASN is dominating the source IPs
+
 ## Project-boundary discipline (MS043 R10212)
 
 - IPS state mutation lives in **selfdef only** (selfdefd + selfdefctl +

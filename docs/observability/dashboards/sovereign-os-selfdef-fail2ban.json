@@ -1,0 +1,102 @@
+{
+  "_comment": "sovereign-os selfdef fail2ban dashboard. Visualizes selfdef_fail2ban_* gauges (selfdef commit 098a45a). Pairs with 5 alerts. Defensive-response observability — pairs with auth-events dashboard.",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "operator runbook", "url": "/d/sovereign-os-selfdef-fail2ban#runbook", "type": "link", "icon": "doc"},
+    {"title": "producer source", "url": "https://github.com/cyberpunk042/selfdef/blob/main/packaging/scripts/selfdef-fail2ban-textfile.sh", "type": "link", "icon": "external link"},
+    {"title": "deployment guide", "url": "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdeffail2banserverdown-critical", "type": "link", "icon": "external link"},
+    {"title": "auth-events (paired)", "url": "/d/sovereign-os-selfdef-auth-events", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "fail2ban server",
+      "description": "1=alive, 0=DOWN (defensive-tier outage), -1=honest-offline (fail2ban-client uninstalled). Matches SelfdefFail2banServerDown alert.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_fail2ban_server_alive", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": -1, "max": 1, "mappings": [{"type": "value", "options": {"-1": {"text": "n/a"}, "0": {"text": "DOWN"}, "1": {"text": "OK"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "green", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "active jails",
+      "description": "Number of fail2ban jails currently enabled. Zero = SelfdefFail2banZeroJails alert.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_fail2ban_jails_active", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "green", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "currently banned",
+      "description": "Sum of currently-banned IPs across all jails. Yellow at 50 matches ActiveBanSpike alert (sustained brute-force wave).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_fail2ban_current_bans_sum", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 50}, {"color": "red", "value": 200}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "observer sentinel",
+      "description": "selfdef_fail2ban_textfile_emit_failed. Red at 1 = wrapper failure.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_fail2ban_textfile_emit_failed", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "currently-banned IPs (per jail)",
+      "description": "Per-jail current ban count over time. Spikes indicate active attack mitigation.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_fail2ban_jail_current_bans", "legendFormat": "{{jail}}", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none"}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "total-ever-banned IPs (per jail)",
+      "description": "Monotonic counter — total IPs banned since fail2ban-server start. Slope = mitigation rate.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_fail2ban_jail_total_bans", "legendFormat": "{{jail}}", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none"}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "cross-jail aggregates",
+      "description": "Sum-of-bans rollup. Current vs total — current decays as bantime expires, total only grows.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_fail2ban_current_bans_sum", "legendFormat": "current bans (sum)", "refId": "A"},
+        {"expr": "selfdef_fail2ban_total_bans_sum", "legendFormat": "total bans (sum)", "refId": "B"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none"}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+    },
+    {
+      "type": "timeseries",
+      "title": "observer freshness — emit_failed sentinel",
+      "description": "Wrapper-fault sentinel over time. 1 = wrapper exit-zero failed.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_fail2ban_textfile_emit_failed", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["sovereign-os", "selfdef", "fail2ban", "IPS-spine", "security", "defensive-response"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "sovereign-os — selfdef fail2ban (defensive-response)",
+  "uid": "sovereign-os-selfdef-fail2ban",
+  "version": 1,
+  "weekStart": ""
+}

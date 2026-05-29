@@ -19,7 +19,7 @@ CANONICAL_VERTICALS = ("m060", "ms022", "four_watchdog",
                        "modules", "daemon_process", "apparmor",
                        "auth_events", "systemd_units",
                        "listening_sockets", "disk_usage", "time_sync",
-                       "kernel_modules")
+                       "kernel_modules", "fail2ban")
 
 
 def _load_module():
@@ -68,6 +68,7 @@ def test_probe_functions_exist():
         "probe_modules_catalog", "probe_daemon_process", "probe_apparmor",
         "probe_auth_events", "probe_systemd_units", "probe_listening_sockets",
         "probe_disk_usage", "probe_time_sync", "probe_kernel_modules",
+        "probe_fail2ban",
     ):
         assert hasattr(mod, fn), f"missing probe function {fn}"
 
@@ -316,6 +317,59 @@ def test_kernel_modules_probe_detects_tainted():
         out = mod.probe_kernel_modules("http://localhost:9100/metrics")
     assert out["status"] == "WARN"
     assert "tainted" in out["summary"].lower()
+
+
+def test_fail2ban_probe_detects_server_down():
+    """fail2ban-server alive=0 = defensive-tier outage, must FAIL."""
+    mod = _load_module()
+    import time as _t
+    now = int(_t.time())
+    fake = (
+        "selfdef_fail2ban_textfile_emit_failed 0\n"
+        f"selfdef_fail2ban_last_run_unix {now}\n"
+        "selfdef_fail2ban_server_alive 0\n"
+        "selfdef_fail2ban_jails_active 0\n"
+        "selfdef_fail2ban_current_bans_sum 0\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_fail2ban("http://localhost:9100/metrics")
+    assert out["status"] == "FAIL"
+    assert "DOWN" in out["summary"] or "defensive" in out["summary"].lower()
+
+
+def test_fail2ban_probe_honest_offline_on_minus_one():
+    """alive=-1 (fail2ban-client not installed) = honest-offline, OK."""
+    mod = _load_module()
+    import time as _t
+    now = int(_t.time())
+    fake = (
+        "selfdef_fail2ban_textfile_emit_failed 0\n"
+        f"selfdef_fail2ban_last_run_unix {now}\n"
+        "selfdef_fail2ban_server_alive -1\n"
+        "selfdef_fail2ban_jails_active 0\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_fail2ban("http://localhost:9100/metrics")
+    assert out["status"] == "OK"
+    assert "honest-offline" in out["summary"] or "not installed" in out["summary"]
+
+
+def test_fail2ban_probe_detects_active_ban_spike():
+    """> 50 currently-banned IPs = WARN (sustained brute-force wave)."""
+    mod = _load_module()
+    import time as _t
+    now = int(_t.time())
+    fake = (
+        "selfdef_fail2ban_textfile_emit_failed 0\n"
+        f"selfdef_fail2ban_last_run_unix {now}\n"
+        "selfdef_fail2ban_server_alive 1\n"
+        "selfdef_fail2ban_jails_active 2\n"
+        "selfdef_fail2ban_current_bans_sum 75\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_fail2ban("http://localhost:9100/metrics")
+    assert out["status"] == "WARN"
+    assert "75" in out["summary"]
 
 
 def test_modules_catalog_probe_detects_count_low():

@@ -446,13 +446,50 @@ def probe_kernel_modules(metrics_url: str) -> dict[str, Any]:
     }
 
 
+def probe_fail2ban(metrics_url: str) -> dict[str, Any]:
+    metrics = _fetch_metrics(metrics_url)
+    if metrics is None:
+        return {"status": "unreachable", "summary": "node_exporter down"}
+    out = probe_textfile_observer(metrics, "selfdef_fail2ban", "fail2ban")
+    if out["status"] != "OK":
+        return out
+    alive = _gauge(metrics, "selfdef_fail2ban_server_alive")
+    jails = _gauge(metrics, "selfdef_fail2ban_jails_active")
+    cur = _gauge(metrics, "selfdef_fail2ban_current_bans_sum")
+    if alive == -1:
+        return {
+            "status": "OK",
+            "summary": "fail2ban-client not installed (honest-offline)",
+        }
+    if alive == 0:
+        return {
+            "status": "FAIL",
+            "summary": "fail2ban-server DOWN (defensive-tier outage)",
+        }
+    if jails == 0:
+        return {
+            "status": "WARN",
+            "summary": "0 active jails (no defensive response configured)",
+        }
+    if cur is not None and cur > 50:
+        return {
+            "status": "WARN",
+            "summary": f"{int(cur)} currently-banned IPs > 50 (brute-force wave)",
+        }
+    return {
+        "status": "OK",
+        "summary": f"{int(jails) if jails is not None else '?'} jails · "
+                   f"{int(cur) if cur is not None else 0} bans",
+    }
+
+
 # ── Aggregation + rendering ──────────────────────────────────────────
 
 VERTICALS = (
     "m060", "ms022", "four_watchdog",
     "modules", "daemon_process", "apparmor",
     "auth_events", "systemd_units", "listening_sockets",
-    "disk_usage", "time_sync", "kernel_modules",
+    "disk_usage", "time_sync", "kernel_modules", "fail2ban",
 )
 
 
@@ -470,11 +507,12 @@ def collect(args: argparse.Namespace) -> dict[str, dict[str, Any]]:
         "disk_usage":    probe_disk_usage(args.node_exporter_url),
         "time_sync":     probe_time_sync(args.node_exporter_url),
         "kernel_modules": probe_kernel_modules(args.node_exporter_url),
+        "fail2ban":      probe_fail2ban(args.node_exporter_url),
     }
 
 
 def render_table(results: dict[str, dict[str, Any]]) -> str:
-    lines = ["sovereign-os observability status — 12 verticals",
+    lines = ["sovereign-os observability status — 13 verticals",
              f"{'─' * 22} {'─' * 60}"]
     for v in VERTICALS:
         r = results[v]
@@ -494,6 +532,7 @@ def render_table(results: dict[str, dict[str, Any]]) -> str:
             "disk_usage":        "disk-usage",
             "time_sync":         "time-sync",
             "kernel_modules":    "kernel-modules",
+            "fail2ban":          "fail2ban",
         }[v]
         lines.append(f"{label:<22} {marker}  {r['summary']}")
     lines.append(f"{'─' * 22} {'─' * 60}")
