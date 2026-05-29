@@ -1,0 +1,99 @@
+{
+  "_comment": "sovereign-os selfdef sshd-config hardening dashboard. Visualizes selfdef_sshd_* gauges (selfdef commit c86e4e4). Pairs with 6 alerts. SSH hardening baseline observability — pairs with auth-events at attack-surface axis.",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "operator runbook", "url": "/d/sovereign-os-selfdef-sshd-config#runbook", "type": "link", "icon": "doc"},
+    {"title": "producer source", "url": "https://github.com/cyberpunk042/selfdef/blob/main/packaging/scripts/selfdef-sshd-config-textfile.sh", "type": "link", "icon": "external link"},
+    {"title": "deployment guide", "url": "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefsshdpermitrootloginenabled-critical", "type": "link", "icon": "external link"},
+    {"title": "auth-events (paired)", "url": "/d/sovereign-os-selfdef-auth-events", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "PermitRootLogin",
+      "description": "Red at 1 = remote root surface OPEN. Matches SelfdefSshdPermitRootLoginEnabled.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_sshd_permit_root_login", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "mappings": [{"type": "value", "options": {"0": {"text": "safe"}, "1": {"text": "OPEN"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "PermitEmptyPasswords",
+      "description": "Red at 1 = credential giveaway.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_sshd_permit_empty_passwords", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "PasswordAuthentication",
+      "description": "Yellow at 1 = brute-force vector (fail2ban can mitigate).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_sshd_password_authentication", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "yellow", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "observer sentinel",
+      "description": "selfdef_sshd_config_textfile_emit_failed.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_sshd_config_textfile_emit_failed", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "hazard toggles over time",
+      "description": "All hazard-side toggles plotted together. Any climb from 0→1 is a hardening regression.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_sshd_permit_root_login", "legendFormat": "PermitRootLogin", "refId": "A"},
+        {"expr": "selfdef_sshd_permit_empty_passwords", "legendFormat": "PermitEmptyPasswords", "refId": "B"},
+        {"expr": "selfdef_sshd_password_authentication", "legendFormat": "PasswordAuthentication", "refId": "C"},
+        {"expr": "selfdef_sshd_challenge_response", "legendFormat": "ChallengeResponse", "refId": "D"},
+        {"expr": "selfdef_sshd_x11_forwarding", "legendFormat": "X11Forwarding", "refId": "E"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "safe-default toggles over time",
+      "description": "Toggles where 1=safe. Drop from 1→0 = hardening regression.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_sshd_use_pam", "legendFormat": "UsePAM (1=safe)", "refId": "A"},
+        {"expr": "selfdef_sshd_protocol_v2_only", "legendFormat": "Protocol-v2-only (1=safe)", "refId": "B"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "config hash drift",
+      "description": "32-bit prefix of SHA-256(sshd_config). Any value change = unauthorized or unverified modification.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_sshd_config_hash", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none"}},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 12}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["sovereign-os", "selfdef", "sshd-config", "IPS-spine", "security", "attack-surface"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "sovereign-os — selfdef sshd-config (SSH hardening baseline)",
+  "uid": "sovereign-os-selfdef-sshd-config",
+  "version": 1,
+  "weekStart": ""
+}

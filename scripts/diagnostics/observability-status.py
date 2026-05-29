@@ -539,6 +539,40 @@ def probe_cron(metrics_url: str) -> dict[str, Any]:
     }
 
 
+def probe_sshd_config(metrics_url: str) -> dict[str, Any]:
+    metrics = _fetch_metrics(metrics_url)
+    if metrics is None:
+        return {"status": "unreachable", "summary": "node_exporter down"}
+    out = probe_textfile_observer(metrics, "selfdef_sshd_config", "sshd-config")
+    if out["status"] != "OK":
+        return out
+    present = _gauge(metrics, "selfdef_sshd_config_present")
+    permit_root = _gauge(metrics, "selfdef_sshd_permit_root_login")
+    empty_pw = _gauge(metrics, "selfdef_sshd_permit_empty_passwords")
+    password_auth = _gauge(metrics, "selfdef_sshd_password_authentication")
+    if present == 0:
+        return {
+            "status": "OK",
+            "summary": "sshd_config absent (honest-offline)",
+        }
+    hazards = []
+    if permit_root == 1:
+        hazards.append("PermitRootLogin")
+    if empty_pw == 1:
+        hazards.append("PermitEmptyPasswords")
+    if hazards:
+        return {
+            "status": "FAIL",
+            "summary": "HAZARD: " + " + ".join(hazards),
+        }
+    if password_auth == 1:
+        return {
+            "status": "WARN",
+            "summary": "PasswordAuthentication enabled (brute-force vector)",
+        }
+    return {"status": "OK", "summary": "hardened (no hazards)"}
+
+
 # ── Aggregation + rendering ──────────────────────────────────────────
 
 VERTICALS = (
@@ -546,7 +580,7 @@ VERTICALS = (
     "modules", "daemon_process", "apparmor",
     "auth_events", "systemd_units", "listening_sockets",
     "disk_usage", "time_sync", "kernel_modules", "fail2ban",
-    "nftables", "cron",
+    "nftables", "cron", "sshd_config",
 )
 
 
@@ -567,11 +601,12 @@ def collect(args: argparse.Namespace) -> dict[str, dict[str, Any]]:
         "fail2ban":      probe_fail2ban(args.node_exporter_url),
         "nftables":      probe_nftables(args.node_exporter_url),
         "cron":          probe_cron(args.node_exporter_url),
+        "sshd_config":   probe_sshd_config(args.node_exporter_url),
     }
 
 
 def render_table(results: dict[str, dict[str, Any]]) -> str:
-    lines = ["sovereign-os observability status — 15 verticals",
+    lines = ["sovereign-os observability status — 16 verticals",
              f"{'─' * 22} {'─' * 60}"]
     for v in VERTICALS:
         r = results[v]
@@ -594,6 +629,7 @@ def render_table(results: dict[str, dict[str, Any]]) -> str:
             "fail2ban":          "fail2ban",
             "nftables":          "nftables+conntrack",
             "cron":              "cron+timers",
+            "sshd_config":       "sshd-hardening",
         }[v]
         lines.append(f"{label:<22} {marker}  {r['summary']}")
     lines.append(f"{'─' * 22} {'─' * 60}")

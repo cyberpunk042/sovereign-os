@@ -19,7 +19,8 @@ CANONICAL_VERTICALS = ("m060", "ms022", "four_watchdog",
                        "modules", "daemon_process", "apparmor",
                        "auth_events", "systemd_units",
                        "listening_sockets", "disk_usage", "time_sync",
-                       "kernel_modules", "fail2ban", "nftables", "cron")
+                       "kernel_modules", "fail2ban", "nftables", "cron",
+                       "sshd_config")
 
 
 def _load_module():
@@ -69,6 +70,7 @@ def test_probe_functions_exist():
         "probe_auth_events", "probe_systemd_units", "probe_listening_sockets",
         "probe_disk_usage", "probe_time_sync", "probe_kernel_modules",
         "probe_fail2ban", "probe_nftables", "probe_cron",
+        "probe_sshd_config",
     ):
         assert hasattr(mod, fn), f"missing probe function {fn}"
 
@@ -476,6 +478,79 @@ def test_cron_probe_detects_silent_observer():
     with patch.object(mod, "_fetch_metrics", return_value=fake):
         out = mod.probe_cron("http://localhost:9100/metrics")
     assert out["status"] == "FAIL"
+
+
+def test_sshd_config_probe_detects_permit_root_login():
+    """PermitRootLogin=1 = FAIL (HAZARD)."""
+    mod = _load_module()
+    import time as _t
+    now = int(_t.time())
+    fake = (
+        "selfdef_sshd_config_textfile_emit_failed 0\n"
+        f"selfdef_sshd_config_last_run_unix {now}\n"
+        "selfdef_sshd_config_present 1\n"
+        "selfdef_sshd_permit_root_login 1\n"
+        "selfdef_sshd_permit_empty_passwords 0\n"
+        "selfdef_sshd_password_authentication 0\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_sshd_config("http://localhost:9100/metrics")
+    assert out["status"] == "FAIL"
+    assert "PermitRootLogin" in out["summary"]
+
+
+def test_sshd_config_probe_detects_password_auth_warning():
+    """PasswordAuthentication=1 = WARN."""
+    mod = _load_module()
+    import time as _t
+    now = int(_t.time())
+    fake = (
+        "selfdef_sshd_config_textfile_emit_failed 0\n"
+        f"selfdef_sshd_config_last_run_unix {now}\n"
+        "selfdef_sshd_config_present 1\n"
+        "selfdef_sshd_permit_root_login 0\n"
+        "selfdef_sshd_permit_empty_passwords 0\n"
+        "selfdef_sshd_password_authentication 1\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_sshd_config("http://localhost:9100/metrics")
+    assert out["status"] == "WARN"
+    assert "brute-force" in out["summary"].lower() or "Password" in out["summary"]
+
+
+def test_sshd_config_probe_honest_offline_on_absent():
+    """present=0 = OK (honest-offline)."""
+    mod = _load_module()
+    import time as _t
+    now = int(_t.time())
+    fake = (
+        "selfdef_sshd_config_textfile_emit_failed 0\n"
+        f"selfdef_sshd_config_last_run_unix {now}\n"
+        "selfdef_sshd_config_present 0\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_sshd_config("http://localhost:9100/metrics")
+    assert out["status"] == "OK"
+    assert "honest-offline" in out["summary"] or "absent" in out["summary"]
+
+
+def test_sshd_config_probe_clean_when_hardened():
+    """No hazards + key-only auth = OK (hardened)."""
+    mod = _load_module()
+    import time as _t
+    now = int(_t.time())
+    fake = (
+        "selfdef_sshd_config_textfile_emit_failed 0\n"
+        f"selfdef_sshd_config_last_run_unix {now}\n"
+        "selfdef_sshd_config_present 1\n"
+        "selfdef_sshd_permit_root_login 0\n"
+        "selfdef_sshd_permit_empty_passwords 0\n"
+        "selfdef_sshd_password_authentication 0\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_sshd_config("http://localhost:9100/metrics")
+    assert out["status"] == "OK"
+    assert "hardened" in out["summary"]
 
 
 def test_modules_catalog_probe_detects_count_low():

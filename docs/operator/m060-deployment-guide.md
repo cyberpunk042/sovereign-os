@@ -1803,6 +1803,111 @@ rm /etc/systemd/system/<suspect>.{timer,service}
 systemctl daemon-reload
 ```
 
+#### SelfdefSshdConfigTextfileEmitFailed (critical)
+
+**Diagnosis:**
+
+```bash
+systemctl status selfdef-sshd-config-textfile.service
+journalctl -u selfdef-sshd-config-textfile.service --since '30 minutes ago'
+```
+
+**Cause:** wrapper failure (often /etc/ssh permissions or
+sshd_config moved). Hardening drift detection lost.
+
+#### SelfdefSshdConfigObserverSilent (critical)
+
+```bash
+systemctl status selfdef-sshd-config-textfile.timer
+```
+
+#### SelfdefSshdPermitRootLoginEnabled (critical)
+
+**Diagnosis:**
+
+```bash
+grep -E '^[[:space:]]*PermitRootLogin' /etc/ssh/sshd_config
+sshd -T | grep -i permitrootlogin   # effective value
+```
+
+**Cause:** sshd_config has `PermitRootLogin yes`. Remote root SSH
+login is permitted. **Pairs with auth-events**: any successful
+root login bypasses the entire fail2ban-mitigated user-attack
+defense.
+
+**Remediation:**
+
+```bash
+sed -i 's/^[[:space:]]*PermitRootLogin.*/PermitRootLogin prohibit-password/' \
+  /etc/ssh/sshd_config
+sshd -t                              # syntax check FIRST
+systemctl reload sshd
+```
+
+#### SelfdefSshdPermitEmptyPasswords (critical)
+
+**Diagnosis:**
+
+```bash
+grep -E '^[[:space:]]*PermitEmptyPasswords' /etc/ssh/sshd_config
+sshd -T | grep -i permitemptypasswords
+```
+
+**Remediation:**
+
+```bash
+sed -i 's/^[[:space:]]*PermitEmptyPasswords.*/PermitEmptyPasswords no/' \
+  /etc/ssh/sshd_config
+sshd -t && systemctl reload sshd
+```
+
+#### SelfdefSshdPasswordAuthEnabled (warning)
+
+**Diagnosis:**
+
+```bash
+grep -E '^[[:space:]]*PasswordAuthentication' /etc/ssh/sshd_config
+sshd -T | grep -i passwordauthentication
+```
+
+**Cause:** password authentication is permitted (default).
+fail2ban mitigates brute force; key-only is stronger.
+
+**Remediation (BEFORE you do this, verify you have working SSH
+keys on the host):**
+
+```bash
+# Verify key auth works first:
+ssh -o PreferredAuthentications=publickey -o PasswordAuthentication=no \
+  user@<this-host> echo OK
+
+# Then flip:
+sed -i 's/^[[:space:]]*PasswordAuthentication.*/PasswordAuthentication no/' \
+  /etc/ssh/sshd_config
+sshd -t && systemctl reload sshd
+```
+
+#### SelfdefSshdConfigHashDrift (warning)
+
+**Diagnosis:**
+
+```bash
+# If etckeeper is installed:
+cd /etc && git log --since '1 hour ago' -- ssh/sshd_config
+
+# Otherwise, find the change:
+stat /etc/ssh/sshd_config
+# Compare to last-known-good:
+diff /var/backups/sshd_config.last-good /etc/ssh/sshd_config
+
+# Verify effective sshd config:
+sshd -T | sort > /tmp/effective.now
+diff /var/backups/sshd_effective.last-good /tmp/effective.now
+```
+
+**Cause:** sshd_config content changed. Could be legitimate
+operator change OR an attacker weakening server hardening.
+
 ## Project-boundary discipline (MS043 R10212)
 
 - IPS state mutation lives in **selfdef only** (selfdefd + selfdefctl +
