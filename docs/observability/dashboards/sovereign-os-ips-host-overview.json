@@ -1,0 +1,174 @@
+{
+  "_comment": "sovereign-os IPS host overview — operator-at-a-glance cockpit consolidating ALL 8 observability verticals shipped to date (M060 + MS022 + four-watchdog + modules + daemon-process + AppArmor + auth-events + systemd-units). Consumes the cross-vertical recording rules from config/prometheus/rules/sovereign-os-observability-rollup.yml (commit 594fd02) plus per-vertical headline gauges from the 8 selfdef-side textfile observers. Single-pane-of-glass — operators see the IPS host's entire defensive posture without drilling into per-vertical dashboards. Project boundary R10212: pure read-only observability composition.",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "M060 cli-mirror", "url": "/d/sovereign-os-m060-cli-mirror", "type": "link", "icon": "external link"},
+    {"title": "M060 mirror-domains", "url": "/d/sovereign-os-m060-mirror-domains", "type": "link", "icon": "external link"},
+    {"title": "MS022 SSE quota", "url": "/d/sovereign-os-ms022-sse-quota", "type": "link", "icon": "external link"},
+    {"title": "four-watchdog (IPS spine)", "url": "/d/sovereign-os-four-watchdog", "type": "link", "icon": "external link"},
+    {"title": "modules-catalog", "url": "/d/sovereign-os-selfdef-modules", "type": "link", "icon": "external link"},
+    {"title": "daemon-process", "url": "/d/sovereign-os-selfdef-daemon-process", "type": "link", "icon": "external link"},
+    {"title": "AppArmor", "url": "/d/sovereign-os-selfdef-apparmor", "type": "link", "icon": "external link"},
+    {"title": "auth-events", "url": "/d/sovereign-os-selfdef-auth-events", "type": "link", "icon": "external link"},
+    {"title": "systemd-units", "url": "/d/sovereign-os-selfdef-systemd-units", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "ANY vertical critical?",
+      "description": "Cross-vertical critical rollup (sovereign_os:critical_state_any). Red = at least ONE vertical reports CRITICAL. Drill into per-vertical panels below to identify which.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sovereign_os:critical_state_any", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "mappings": [{"type": "value", "options": {"0": {"text": "ALL GREEN"}, "1": {"text": "CRITICAL"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 8, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "observer healthy count",
+      "description": "How many of the 3 textfile-observer verticals (four-watchdog + modules + daemon-process) are emitting fresh data. Healthy baseline is 3/3. Drift below = at least one observer wedged.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sovereign_os:textfile_observers_healthy_count", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 3, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "yellow", "value": 2}, {"color": "green", "value": 3}]}}},
+      "gridPos": {"h": 4, "w": 8, "x": 8, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "ANY observer wedged?",
+      "description": "Cross-vertical observer-fault rollup. Red = at least ONE observer reports emit_failed OR observer-silent.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sovereign_os:observer_fault_any", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "mappings": [{"type": "value", "options": {"0": {"text": "all observers OK"}, "1": {"text": "OBSERVER WEDGED"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 8, "x": 16, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "M060 chain",
+      "description": "M060 chain-health worst-severity rollup.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_four_watchdog_worst_severity", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": -1, "max": 2, "mappings": [{"type": "value", "options": {"-1": {"text": "?"}, "0": {"text": "OK"}, "1": {"text": "WARN"}, "2": {"text": "CRIT"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "purple", "value": -1}, {"color": "green", "value": 0}, {"color": "yellow", "value": 1}, {"color": "red", "value": 2}]}}},
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 4}
+    },
+    {
+      "type": "stat",
+      "title": "MS022 SSE",
+      "description": "MS022 SSE subscriber-quota global saturation as %.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_sse_subscribers_global_saturation * 100", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "max": 100, "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 85}, {"color": "red", "value": 100}]}}},
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 4}
+    },
+    {
+      "type": "stat",
+      "title": "four-watchdog",
+      "description": "IPS-spine worst-severity (MS046+MS047+MS044+MS048).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_four_watchdog_worst_severity", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": -1, "max": 2, "mappings": [{"type": "value", "options": {"-1": {"text": "?"}, "0": {"text": "OK"}, "1": {"text": "WARN"}, "2": {"text": "CRIT"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "purple", "value": -1}, {"color": "green", "value": 0}, {"color": "yellow", "value": 1}, {"color": "red", "value": 2}]}}},
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 4}
+    },
+    {
+      "type": "stat",
+      "title": "modules total",
+      "description": "selfdef module-catalog count.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_modules_total", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "red"}, {"color": "yellow", "value": 100}, {"color": "green", "value": 150}]}}},
+      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 4}
+    },
+    {
+      "type": "stat",
+      "title": "selfdefd RSS",
+      "description": "selfdef daemon memory.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_daemon_process_memory_rss_bytes", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "bytes", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 536870912}, {"color": "red", "value": 1073741824}]}}},
+      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 4}
+    },
+    {
+      "type": "stat",
+      "title": "selfdefd FDs",
+      "description": "selfdef daemon open file descriptors.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_daemon_process_open_fds", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 512}, {"color": "red", "value": 819}]}}},
+      "gridPos": {"h": 4, "w": 4, "x": 20, "y": 4}
+    },
+    {
+      "type": "stat",
+      "title": "AppArmor enforce?",
+      "description": "selfdefd profile enforce state.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_apparmor_profile_enforce{profile=\"/usr/bin/selfdefd\"}", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "mappings": [{"type": "value", "options": {"0": {"text": "NOT ENFORCING"}, "1": {"text": "ENFORCING"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "green", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 8}
+    },
+    {
+      "type": "stat",
+      "title": "auth failures (5m)",
+      "description": "Login failures in 5m rolling window. Red at 20 = brute-force.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_auth_events_login_failures", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 5}, {"color": "red", "value": 20}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 8}
+    },
+    {
+      "type": "stat",
+      "title": "selfdef units failed",
+      "description": "selfdef-prefixed systemd units in failed state. Red at 1 = page-worthy.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_systemd_units_failed", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 8}
+    },
+    {
+      "type": "stat",
+      "title": "selfdef units active",
+      "description": "selfdef-prefixed systemd units currently active.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_systemd_units_active", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "green", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 8}
+    },
+    {
+      "type": "timeseries",
+      "title": "cross-vertical rollups over time",
+      "description": "All 3 cross-vertical rollup metrics (critical / observer-fault / observer-count) over time. Spike in critical OR fault correlated to drop in observer-count = compound incident.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sovereign_os:critical_state_any", "refId": "A", "legendFormat": "any-critical"},
+        {"expr": "sovereign_os:observer_fault_any", "refId": "B", "legendFormat": "any-observer-fault"},
+        {"expr": "sovereign_os:warn_state_any", "refId": "C", "legendFormat": "any-warn"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 30}}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+    },
+    {
+      "type": "timeseries",
+      "title": "observer-healthy-count over time (baseline 3/3)",
+      "description": "Healthy textfile-observer count over time. 3/3 = green baseline.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sovereign_os:textfile_observers_healthy_count", "refId": "A", "legendFormat": "{{instance}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 3, "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 30}, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "yellow", "value": 2}, {"color": "green", "value": 3}]}}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["sovereign-os", "selfdef", "ips-host", "overview", "single-pane", "observability"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {},
+  "timezone": "",
+  "title": "sovereign-os — IPS host overview (single-pane-of-glass)",
+  "uid": "sovereign-os-ips-host-overview",
+  "version": 1,
+  "weekStart": ""
+}
