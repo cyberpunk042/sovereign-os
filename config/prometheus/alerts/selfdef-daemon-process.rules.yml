@@ -1,0 +1,123 @@
+# Selfdefd daemon process-state Prometheus alerting rules.
+#
+# These alerts fire on the textfile metrics the selfdef daemon emits
+# via the new selfdef-daemon-process-textfile.{service,timer} pair
+# (selfdef commit `09822c1`). The wrapper at
+# packaging/scripts/selfdef-daemon-process-textfile.sh atomically
+# writes 8 gauges every 60s via node_exporter's textfile_collector:
+#
+#   selfdef_daemon_process_memory_rss_bytes        VmRSS
+#   selfdef_daemon_process_memory_vsize_bytes      VmSize
+#   selfdef_daemon_process_open_fds                /proc/<pid>/fd count
+#   selfdef_daemon_process_threads                 Threads
+#   selfdef_daemon_process_uptime_seconds          clock-tick derived
+#   selfdef_daemon_process_restart_count           systemd NRestarts
+#   selfdef_daemon_process_last_run_unix           observer freshness
+#   selfdef_daemon_process_textfile_emit_failed    honest-offline sentinel
+#
+# Process-state observability is a load-bearing IPS surface: memory
+# leak + FD exhaustion + restart loop detection lives here.
+#
+# Project boundary R10212: pure observability — selfdefd enforces;
+# sovereign-os alerts on the published gauges only.
+
+groups:
+  - name: selfdef-daemon-process
+    interval: 30s
+    rules:
+
+      # Critical: emit-failed sentinel. Honest-offline — ALWAYS takes
+      # precedence over rollup alerts because when set, the other
+      # gauges cannot be trusted as current.
+      - alert: SelfdefDaemonProcessTextfileEmitFailed
+        expr: selfdef_daemon_process_textfile_emit_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-daemon-process
+          process_link: observer-fault
+        annotations:
+          summary: "Selfdef daemon process-state observer fault on {{ $labels.instance }}"
+          description: >
+            selfdef-daemon-process-textfile.service is reporting
+            wrapper failure (emit_failed=1) for 5+ minutes. Could be
+            selfdefd not running, systemctl failure, or /proc/<pid>/
+            inaccessible. Operator MUST NOT trust the other 7
+            gauges to be current.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefdaemonprocesstextfileemitfailed-critical"
+
+      # Critical: observer silent. Textfile stale > 5 minutes. Locked
+      # at the chain-wide 300s threshold (matches M060 + four-watchdog
+      # + modules-catalog observer-silent thresholds).
+      - alert: SelfdefDaemonProcessObserverSilent
+        expr: time() - selfdef_daemon_process_last_run_unix > 300
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-daemon-process
+          process_link: observer-silent
+        annotations:
+          summary: "Selfdef daemon process-state observer silent on {{ $labels.instance }}"
+          description: >
+            selfdef-daemon-process-textfile.timer hasn't fired in
+            5+ minutes. Process-state observability surface is
+            silently degraded — memory + FD + uptime gauges cannot
+            be trusted.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefdaemonprocessobserversilent-critical"
+
+      # Warning: memory growth. RSS exceeds 1 GiB for 30+ minutes.
+      # selfdefd is a defensive daemon — its baseline memory footprint
+      # is small. Sustained growth above 1 GiB suggests a leak or an
+      # unbounded queue. Generous threshold avoids false positives
+      # during legitimate bursts.
+      - alert: SelfdefDaemonProcessMemoryHigh
+        expr: selfdef_daemon_process_memory_rss_bytes > 1073741824
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: selfdef-daemon-process
+          process_link: rollup
+        annotations:
+          summary: "Selfdef daemon memory RSS > 1 GiB on {{ $labels.instance }}"
+          description: >
+            selfdefd resident memory exceeds 1 GiB for 30+ minutes.
+            Selfdefd's baseline is small; sustained growth suggests
+            a leak or unbounded queue. Investigate before OOM.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefdaemonprocessmemoryhigh-warning"
+
+      # Critical: FD exhaustion approaching. Default ulimit on Linux is
+      # 1024; we alert at 80% = 819. Operators may have raised the
+      # limit — they can override this threshold in a drop-in.
+      - alert: SelfdefDaemonProcessFdExhaustionApproaching
+        expr: selfdef_daemon_process_open_fds > 819
+        for: 10m
+        labels:
+          severity: critical
+          subsystem: selfdef-daemon-process
+          process_link: rollup
+        annotations:
+          summary: "Selfdef daemon FD exhaustion approaching on {{ $labels.instance }}"
+          description: >
+            selfdefd open FD count > 819 (80% of default 1024 ulimit)
+            for 10+ minutes. FD exhaustion blocks new socket accepts +
+            file opens. Raise ulimit OR investigate FD leak.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefdaemonprocessfdexhaustionapproaching-critical"
+
+      # Critical: restart loop. NRestarts increased by 3+ in the last
+      # 10 minutes — selfdefd is crashlooping. systemd will give up
+      # after a few restarts depending on StartLimit* config; this
+      # alert fires before that to give operators time to intervene.
+      - alert: SelfdefDaemonProcessRestartLoop
+        expr: increase(selfdef_daemon_process_restart_count[10m]) >= 3
+        for: 1m
+        labels:
+          severity: critical
+          subsystem: selfdef-daemon-process
+          process_link: rollup
+        annotations:
+          summary: "Selfdef daemon restart loop on {{ $labels.instance }}"
+          description: >
+            selfdefd has restarted 3+ times in the last 10 minutes.
+            Likely a crashloop — check journalctl -u selfdefd for
+            the crash reason. systemd will eventually give up.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefdaemonprocessrestartloop-critical"
