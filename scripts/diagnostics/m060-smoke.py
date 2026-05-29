@@ -71,6 +71,14 @@ DEFAULT_NODE_EXPORTER_URL = os.environ.get(
     "SOVEREIGN_OS_NODE_EXPORTER_URL", "http://localhost:9100/metrics",
 )
 
+# MS022 SSE quota proxy daemon (sovereign-ms022-sse-quota-api.service)
+# bound default :7711 — locked by the systemd-unit contract test. Same
+# probe shape as the m060-health-api: hit /api/ms022/state, classify.
+DEFAULT_MS022_PROXY_URL = os.environ.get(
+    "SOVEREIGN_OS_MS022_PROXY_URL", "http://localhost:7711",
+)
+MS022_STATE_ENDPOINT = "/api/ms022/state"
+
 # Per-domain offline-hint pointing at the selfdef knob/verb that populates it.
 OFFLINE_HINT = {
     "D-02": "always-online once selfdefd runs with selfdef_mirror_dir set",
@@ -132,6 +140,48 @@ def probe_node_exporter_textfile(
         elif metric_name == last_run_key and out["age_seconds"] is None:
             out["age_seconds"] = max(0, now - int(value))
     return out
+
+
+def probe_ms022_state(proxy_url: str, timeout: float = 3.0) -> dict:
+    """Hit the MS022 SSE quota proxy daemon's /api/ms022/state. Returns
+    {reachable, state, error} matching the probe convention. State is
+    one of ok/approaching/saturated/unreachable per the proxy classifier
+    (which uses the same 0.85+1.0 thresholds as the alert rules, locked
+    by the threshold-lockstep contract test)."""
+    url = proxy_url.rstrip("/") + MS022_STATE_ENDPOINT
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as r:
+            body = r.read().decode("utf-8")
+            raw = json.loads(body)
+            return {
+                "reachable": True,
+                "state": str(raw.get("state", "unknown")),
+                "error": None,
+            }
+    except urllib.error.HTTPError as e:
+        return {"reachable": False, "state": None, "error": f"HTTP {e.code}"}
+    except (urllib.error.URLError, ConnectionError, OSError) as e:
+        return {"reachable": False, "state": None, "error": str(e)}
+    except json.JSONDecodeError as e:
+        return {"reachable": False, "state": None, "error": "non-JSON: " + str(e)}
+
+
+def summarize_ms022(result: dict) -> str:
+    """One-line MS022 state summary for the operator triage row."""
+    if not result["reachable"]:
+        return (
+            f"UNREACHABLE  proxy daemon down · {result.get('error', '?')[:50]}"
+        )
+    state = result["state"]
+    if state == "ok":
+        return "OK           quota healthy (saturation ≤ 85%)"
+    if state == "approaching":
+        return "WARN         quota approaching (sat > 85% OR ≥1 token at cap)"
+    if state == "saturated":
+        return "FAIL         quota SATURATED — clients getting 429"
+    if state == "unreachable":
+        return "WARN         proxy reachable but selfdefd /metrics unreachable"
+    return f"UNKNOWN      proxy reports state={state!r}"
 
 
 def summarize_doctor(label: str, result: dict) -> str:
@@ -242,6 +292,22 @@ def main(argv: list[str] | None = None) -> int:
             "not reachable from the smoke host)"
         ),
     )
+    p.add_argument(
+        "--ms022-proxy-url",
+        default=DEFAULT_MS022_PROXY_URL,
+        help=(
+            "MS022 SSE-quota proxy daemon URL (default http://localhost:7711; "
+            "honors $SOVEREIGN_OS_MS022_PROXY_URL). The smoke also verifies "
+            "the MS022 chain alongside the M060 chain"
+        ),
+    )
+    p.add_argument(
+        "--skip-ms022", action="store_true",
+        help=(
+            "skip probing the MS022 SSE-quota proxy daemon (use when MS022 "
+            "is not deployed on this host)"
+        ),
+    )
     p.add_argument("--json", action="store_true", help="machine-readable JSON output")
     args = p.parse_args(argv)
 
@@ -289,6 +355,18 @@ def main(argv: list[str] | None = None) -> int:
                 "summary":     summarize_doctor(label, pr),
             })
 
+    # MS022 SSE-quota chain probe. Skipped when the operator passes
+    # --skip-ms022 (e.g. on hosts without the MS022 proxy deployed).
+    ms022_result: dict | None = None
+    if not args.skip_ms022:
+        ms022_pr = probe_ms022_state(args.ms022_proxy_url)
+        ms022_result = {
+            "proxy_url": args.ms022_proxy_url,
+            "reachable": ms022_pr["reachable"],
+            "state":     ms022_pr["state"],
+            "summary":   summarize_ms022(ms022_pr),
+        }
+
     unreachable = [r for r in results if not r["reachable"]]
     offline = [r for r in results if r["reachable"] and r["mirror_status"] != "online"]
     online = [r for r in results if r["mirror_status"] == "online"]
@@ -296,6 +374,14 @@ def main(argv: list[str] | None = None) -> int:
         r for r in doctor_results
         if r["worst"] is not None and r["worst"] >= 2
     ]
+    # MS022 saturated is a chain-fail signal — mirrors the doctor-fail
+    # exit-code contract so CI scripts can rely on a single exit code
+    # for "any observability vertical reports critical state".
+    ms022_failed = bool(
+        ms022_result is not None
+        and ms022_result["reachable"]
+        and ms022_result["state"] == "saturated"
+    )
 
     if args.json:
         print(json.dumps({
@@ -312,11 +398,17 @@ def main(argv: list[str] | None = None) -> int:
                 "skipped":           args.skip_doctor_observers,
                 "results":           doctor_results,
             },
+            "ms022_sse_quota": {
+                "skipped": args.skip_ms022,
+                "result":  ms022_result,
+                "failed":  ms022_failed,
+            },
             "totals": {
                 "online": len(online),
                 "offline": len(offline),
                 "unreachable": len(unreachable),
                 "doctor_failed": len(doctor_failed),
+                "ms022_failed": int(ms022_failed),
                 "total": len(results),
             },
         }, indent=2))
@@ -340,21 +432,33 @@ def main(argv: list[str] | None = None) -> int:
         elif args.skip_doctor_observers:
             print(f"{'─' * 22} {'─' * 60}")
             print(f"{'doctor observers':<22} SKIPPED (--skip-doctor-observers)")
+        # MS022 row — same cross-bar visual style as the M060 rows.
+        print(f"{'─' * 22} {'─' * 60}")
+        if ms022_result is not None:
+            print(f"{'MS022 SSE quota':<22} {ms022_result['summary']}")
+        else:
+            print(f"{'MS022 SSE quota':<22} SKIPPED (--skip-ms022)")
         print(f"{'─' * 22} {'─' * 60}")
         print(
             f"summary: {len(online)} online · {len(offline)} offline · "
             f"{len(unreachable)} unreachable / {len(results)} total · "
-            f"chain={chain_state} · doctor_failed={len(doctor_failed)}"
+            f"chain={chain_state} · doctor_failed={len(doctor_failed)} · "
+            f"ms022_failed={int(ms022_failed)}"
         )
 
     # Exit logic:
     # - unreachable (any) → 1 (the proxy / api daemon is down)
+    # - any doctor textfile reports worst=2 (FAIL) → 1
+    # - MS022 reports state=saturated → 1 (mirrors the doctor-fail exit
+    #   contract for the second observability vertical)
     # - chain state == unreachable/offline/stale under --strict → 1
     # - --strict + any per-domain offline → 1
     # - else → 0 (every endpoint at least responded)
     if unreachable:
         return 1
     if doctor_failed:
+        return 1
+    if ms022_failed:
         return 1
     if args.strict and chain_state in ("unreachable", "offline", "stale"):
         return 1
