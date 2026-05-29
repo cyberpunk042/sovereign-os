@@ -19,7 +19,7 @@ CANONICAL_VERTICALS = ("m060", "ms022", "four_watchdog",
                        "modules", "daemon_process", "apparmor",
                        "auth_events", "systemd_units",
                        "listening_sockets", "disk_usage", "time_sync",
-                       "kernel_modules", "fail2ban")
+                       "kernel_modules", "fail2ban", "nftables")
 
 
 def _load_module():
@@ -68,7 +68,7 @@ def test_probe_functions_exist():
         "probe_modules_catalog", "probe_daemon_process", "probe_apparmor",
         "probe_auth_events", "probe_systemd_units", "probe_listening_sockets",
         "probe_disk_usage", "probe_time_sync", "probe_kernel_modules",
-        "probe_fail2ban",
+        "probe_fail2ban", "probe_nftables",
     ):
         assert hasattr(mod, fn), f"missing probe function {fn}"
 
@@ -370,6 +370,78 @@ def test_fail2ban_probe_detects_active_ban_spike():
         out = mod.probe_fail2ban("http://localhost:9100/metrics")
     assert out["status"] == "WARN"
     assert "75" in out["summary"]
+
+
+def test_nftables_probe_detects_empty_ruleset():
+    """nft installed + ruleset empty = FAIL (perimeter outage)."""
+    mod = _load_module()
+    import time as _t
+    now = int(_t.time())
+    fake = (
+        "selfdef_nftables_textfile_emit_failed 0\n"
+        f"selfdef_nftables_last_run_unix {now}\n"
+        "selfdef_nftables_present 1\n"
+        "selfdef_nftables_rules_total 0\n"
+        "selfdef_conntrack_used_percent 30\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_nftables("http://localhost:9100/metrics")
+    assert out["status"] == "FAIL"
+    assert "EMPTY" in out["summary"] or "perimeter" in out["summary"].lower()
+
+
+def test_nftables_probe_detects_conntrack_near_full():
+    """conntrack > 90% = FAIL (kernel drops new connections)."""
+    mod = _load_module()
+    import time as _t
+    now = int(_t.time())
+    fake = (
+        "selfdef_nftables_textfile_emit_failed 0\n"
+        f"selfdef_nftables_last_run_unix {now}\n"
+        "selfdef_nftables_present 1\n"
+        "selfdef_nftables_rules_total 42\n"
+        "selfdef_conntrack_used_percent 95\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_nftables("http://localhost:9100/metrics")
+    assert out["status"] == "FAIL"
+    assert "DROPPING" in out["summary"] or "95" in out["summary"]
+
+
+def test_nftables_probe_detects_conntrack_high():
+    """conntrack > 75% = WARN."""
+    mod = _load_module()
+    import time as _t
+    now = int(_t.time())
+    fake = (
+        "selfdef_nftables_textfile_emit_failed 0\n"
+        f"selfdef_nftables_last_run_unix {now}\n"
+        "selfdef_nftables_present 1\n"
+        "selfdef_nftables_rules_total 42\n"
+        "selfdef_conntrack_used_percent 80\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_nftables("http://localhost:9100/metrics")
+    assert out["status"] == "WARN"
+    assert "80" in out["summary"]
+
+
+def test_nftables_probe_honest_offline_when_nft_absent():
+    """present=0 = OK (honest-offline)."""
+    mod = _load_module()
+    import time as _t
+    now = int(_t.time())
+    fake = (
+        "selfdef_nftables_textfile_emit_failed 0\n"
+        f"selfdef_nftables_last_run_unix {now}\n"
+        "selfdef_nftables_present 0\n"
+        "selfdef_nftables_rules_total 0\n"
+        "selfdef_conntrack_used_percent 10\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_nftables("http://localhost:9100/metrics")
+    assert out["status"] == "OK"
+    assert "not installed" in out["summary"] or "honest-offline" in out["summary"]
 
 
 def test_modules_catalog_probe_detects_count_low():

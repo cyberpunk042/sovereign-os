@@ -483,6 +483,44 @@ def probe_fail2ban(metrics_url: str) -> dict[str, Any]:
     }
 
 
+def probe_nftables(metrics_url: str) -> dict[str, Any]:
+    metrics = _fetch_metrics(metrics_url)
+    if metrics is None:
+        return {"status": "unreachable", "summary": "node_exporter down"}
+    out = probe_textfile_observer(metrics, "selfdef_nftables", "nftables")
+    if out["status"] != "OK":
+        return out
+    present = _gauge(metrics, "selfdef_nftables_present")
+    rules = _gauge(metrics, "selfdef_nftables_rules_total")
+    used_pct = _gauge(metrics, "selfdef_conntrack_used_percent")
+    if used_pct is not None and used_pct > 90:
+        return {
+            "status": "FAIL",
+            "summary": f"conntrack {int(used_pct)}% full (kernel DROPPING)",
+        }
+    if present == 1 and rules == 0:
+        return {
+            "status": "FAIL",
+            "summary": "ruleset EMPTY (perimeter outage)",
+        }
+    if used_pct is not None and used_pct > 75:
+        return {
+            "status": "WARN",
+            "summary": f"conntrack {int(used_pct)}% (approaching ceiling)",
+        }
+    if present == 0:
+        return {
+            "status": "OK",
+            "summary": "nft not installed (honest-offline) · "
+                       f"conntrack {int(used_pct) if used_pct is not None else 0}%",
+        }
+    return {
+        "status": "OK",
+        "summary": f"{int(rules) if rules is not None else 0} rules · "
+                   f"conntrack {int(used_pct) if used_pct is not None else 0}%",
+    }
+
+
 # ── Aggregation + rendering ──────────────────────────────────────────
 
 VERTICALS = (
@@ -490,6 +528,7 @@ VERTICALS = (
     "modules", "daemon_process", "apparmor",
     "auth_events", "systemd_units", "listening_sockets",
     "disk_usage", "time_sync", "kernel_modules", "fail2ban",
+    "nftables",
 )
 
 
@@ -508,11 +547,12 @@ def collect(args: argparse.Namespace) -> dict[str, dict[str, Any]]:
         "time_sync":     probe_time_sync(args.node_exporter_url),
         "kernel_modules": probe_kernel_modules(args.node_exporter_url),
         "fail2ban":      probe_fail2ban(args.node_exporter_url),
+        "nftables":      probe_nftables(args.node_exporter_url),
     }
 
 
 def render_table(results: dict[str, dict[str, Any]]) -> str:
-    lines = ["sovereign-os observability status — 13 verticals",
+    lines = ["sovereign-os observability status — 14 verticals",
              f"{'─' * 22} {'─' * 60}"]
     for v in VERTICALS:
         r = results[v]
@@ -533,6 +573,7 @@ def render_table(results: dict[str, dict[str, Any]]) -> str:
             "time_sync":         "time-sync",
             "kernel_modules":    "kernel-modules",
             "fail2ban":          "fail2ban",
+            "nftables":          "nftables+conntrack",
         }[v]
         lines.append(f"{label:<22} {marker}  {r['summary']}")
     lines.append(f"{'─' * 22} {'─' * 60}")

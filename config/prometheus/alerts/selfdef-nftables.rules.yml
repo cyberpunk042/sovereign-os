@@ -1,0 +1,95 @@
+# Selfdef nftables + conntrack Prometheus alerting rules.
+#
+# Fires on the textfile metrics shipped by selfdef-nftables-
+# textfile.{service,timer} (selfdef commit `2c303c4`).
+#
+# Kernel packet-filter observability — pairs with fail2ban. Fail2ban
+# acts in-process to TRIGGER bans; nftables is the kernel-level
+# enforcement layer. If nftables ruleset is empty or conntrack table
+# is full, fail2ban bans don't take effect.
+
+groups:
+  - name: selfdef-nftables
+    interval: 30s
+    rules:
+
+      - alert: SelfdefNftablesTextfileEmitFailed
+        expr: selfdef_nftables_textfile_emit_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-nftables
+          nftables_link: observer-fault
+        annotations:
+          summary: "Selfdef nftables observer fault on {{ $labels.instance }}"
+          description: >
+            Wrapper failure for 5+ minutes. Firewall + conntrack
+            visibility lost. Operator MUST NOT trust the gauges.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefnftablesobserverfault-critical"
+
+      - alert: SelfdefNftablesObserverSilent
+        expr: time() - selfdef_nftables_last_run_unix > 300
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-nftables
+          nftables_link: observer-silent
+        annotations:
+          summary: "Selfdef nftables observer silent on {{ $labels.instance }}"
+          description: >
+            Timer hasn't fired in 5+ minutes. Firewall gauges stale.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefnftablesobserversilent-critical"
+
+      # Critical: nftables ruleset EMPTY. The kernel packet-filter
+      # is silently disabled — fail2ban bans CANNOT take effect.
+      # This is a perimeter outage equivalent to fail2ban being down.
+      - alert: SelfdefNftablesRulesetEmpty
+        expr: selfdef_nftables_present == 1 and selfdef_nftables_rules_total == 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-nftables
+          nftables_link: ruleset-empty
+        annotations:
+          summary: "nftables ruleset EMPTY on {{ $labels.instance }} — perimeter outage"
+          description: >
+            nft is installed but the ruleset has 0 rules for 5+ minutes.
+            The kernel packet-filter is not enforcing anything; fail2ban
+            bans cannot take effect. This is a perimeter outage. Operator
+            action: `nft list ruleset`, then restore from
+            `/etc/nftables.conf` via `nft -f /etc/nftables.conf`.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefnftablesrulesetempty-critical"
+
+      # Critical: conntrack table > 90% full. New connections drop
+      # at kernel level — DoS-equivalent symptom.
+      - alert: SelfdefConntrackTableNearFull
+        expr: selfdef_conntrack_used_percent > 90
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-nftables
+          nftables_link: conntrack-full
+        annotations:
+          summary: "Conntrack table > 90% full on {{ $labels.instance }} — new connections DROPPING"
+          description: >
+            Conntrack table is at {{ $value }}% capacity. The kernel
+            will drop new connection attempts. Operator action:
+            `sysctl -w net.netfilter.nf_conntrack_max=$((current*2))`
+            then investigate the source of the connection burst.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefconntracktablenearfull-critical"
+
+      # Warning: conntrack approaching 75% — early-warning indicator.
+      - alert: SelfdefConntrackTableHigh
+        expr: selfdef_conntrack_used_percent > 75
+        for: 10m
+        labels:
+          severity: warning
+          subsystem: selfdef-nftables
+          nftables_link: conntrack-high
+        annotations:
+          summary: "Conntrack table > 75% on {{ $labels.instance }}"
+          description: >
+            Conntrack table sustained at {{ $value }}% for 10+ minutes.
+            Pre-emptive expansion or investigation of long-lived TCP
+            sessions recommended before reaching the kernel-drop ceiling.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefconntracktablehigh-warning"

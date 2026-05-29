@@ -1626,6 +1626,87 @@ Sustained distributed brute-force wave. Consider:
 - Pushing IP-block rules upstream (router/firewall)
 - Investigating whether a single ASN is dominating the source IPs
 
+#### SelfdefNftablesObserverFault (critical)
+
+**Diagnosis:**
+
+```bash
+systemctl status selfdef-nftables-textfile.service
+journalctl -u selfdef-nftables-textfile.service --since '30 minutes ago'
+```
+
+**Cause:** wrapper failure (often CAP_NET_ADMIN was stripped by an
+operator hardening sweep). Firewall + conntrack gauges UNRELIABLE.
+
+#### SelfdefNftablesObserverSilent (critical)
+
+**Diagnosis:**
+
+```bash
+systemctl status selfdef-nftables-textfile.timer
+systemctl list-timers selfdef-nftables-textfile.timer
+```
+
+#### SelfdefNftablesRulesetEmpty (critical)
+
+**Diagnosis:**
+
+```bash
+nft list ruleset
+```
+
+**Cause:** the kernel packet-filter has 0 rules. **This is a perimeter
+outage** — fail2ban bans cannot take effect; the host is open.
+
+**Pairs with fail2ban.** Cross-check
+`selfdef_fail2ban_current_bans_sum` — if fail2ban thinks IPs are
+banned but nftables has no rules, the bans are theoretical only.
+
+**Remediation:**
+
+```bash
+# Restore from baseline:
+nft -f /etc/nftables.conf
+systemctl restart nftables    # if systemd unit exists
+nft list ruleset              # confirm rules present
+```
+
+#### SelfdefConntrackTableNearFull (critical)
+
+**Diagnosis:**
+
+```bash
+cat /proc/sys/net/netfilter/nf_conntrack_count
+cat /proc/sys/net/netfilter/nf_conntrack_max
+conntrack -L | head -20        # if conntrack-tools installed
+ss -s                          # TCP/UDP socket summary
+```
+
+**Cause:** conntrack table > 90% full. New connection attempts are
+being silently dropped at kernel level — DoS-equivalent symptom for
+legitimate clients.
+
+**Remediation (immediate):**
+
+```bash
+# Double the max (immediate relief):
+current=$(cat /proc/sys/net/netfilter/nf_conntrack_max)
+sysctl -w net.netfilter.nf_conntrack_max=$((current*2))
+
+# Persist:
+echo "net.netfilter.nf_conntrack_max=$((current*2))" \
+  > /etc/sysctl.d/99-conntrack.conf
+```
+
+Then investigate WHY conntrack filled — long-lived connection burst,
+DDoS, or undersized default for the workload.
+
+#### SelfdefConntrackTableHigh (warning)
+
+**Diagnosis:** same commands as `SelfdefConntrackTableNearFull`.
+Conntrack at > 75% sustained — pre-emptive expansion recommended
+before reaching the kernel-drop ceiling.
+
 ## Project-boundary discipline (MS043 R10212)
 
 - IPS state mutation lives in **selfdef only** (selfdefd + selfdefctl +
