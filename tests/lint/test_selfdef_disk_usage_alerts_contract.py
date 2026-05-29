@@ -115,3 +115,19 @@ def test_rule_group_interval_30s():
 
 def test_rules_cite_selfdef_producer_commit():
     assert "694b611" in RULES_PATH.read_text()
+
+
+def test_runbook_sections_present_for_every_alert():
+    guide = REPO_ROOT / "docs" / "operator" / "m060-deployment-guide.md"
+    body = guide.read_text()
+    for name in REQUIRED_ALERTS:
+        assert f"#### {name}" in body, f"missing #### {name}"
+
+
+def test_var_high_runbook_includes_diagnostic_pipeline():
+    guide = REPO_ROOT / "docs" / "operator" / "m060-deployment-guide.md"
+    body = guide.read_text()
+    start = body.find("#### SelfdefDiskUsageVarHigh")
+    next_h = body.find("\n#### ", start + 1)
+    section = body[start:next_h if next_h > 0 else len(body)]
+    assert "du -sh" in section

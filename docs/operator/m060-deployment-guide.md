@@ -1337,6 +1337,71 @@ sudo systemctl restart selfdefd
 sudo journalctl -u selfdefd --since '15 min ago' | grep -iE 'panic|exit'
 ```
 
+#### SelfdefDiskUsageTextfileEmitFailed (critical)
+
+**Diagnosis:**
+
+```bash
+systemctl status selfdef-disk-usage-textfile.service
+journalctl -u selfdef-disk-usage-textfile.service --since '10 min ago'
+which du
+```
+
+**Fix:** du is part of coreutils; if absent, the host install is
+broken. Reinstall via `apt install --reinstall coreutils`.
+
+#### SelfdefDiskUsageObserverSilent (critical)
+
+Same shape as the other observer-silent runbooks.
+
+#### SelfdefDiskUsageVarHigh (critical)
+
+**Meaning:** `selfdef_disk_usage_var_used_percent > 90` for 5+
+minutes. IPS spine has < 10% headroom — observer wrappers + audit
+chain will wedge soon.
+
+**Diagnosis:**
+
+```bash
+df -h /var
+du -sh /var/log/* /var/lib/* 2>/dev/null | sort -rh | head -10
+# Per-systemd-journal size.
+journalctl --disk-usage
+```
+
+**Fix:** depending on root cause:
+- Journal growth → `sudo journalctl --vacuum-time=7d`
+- /var/log/selfdef growth → see SelfdefLogHigh runbook below
+- ZFS-no-quota loop → set per-dataset quota
+- Genuine workload → expand /var filesystem OR mount
+  /var/lib/selfdef on a larger volume
+
+#### SelfdefDiskUsageVarApproaching (warning)
+
+Early-warning. Same diagnosis pattern as VarHigh — just earlier.
+
+#### SelfdefDiskUsageSelfdefLogHigh (warning)
+
+**Meaning:** `selfdef_disk_usage_log_bytes > 5 GiB`. logrotate
+failure or misconfigured retention.
+
+**Diagnosis:**
+
+```bash
+ls -la /var/log/selfdef/ | head
+cat /etc/logrotate.d/selfdef
+journalctl -u logrotate.timer --since '24 hours ago' | grep -E 'error|fail'
+```
+
+**Fix:**
+
+```bash
+# Force logrotate to run now.
+sudo /usr/sbin/logrotate -fv /etc/logrotate.d/selfdef
+# Tighten retention if needed.
+sudo sed -i 's/rotate [0-9]\+/rotate 7/' /etc/logrotate.d/selfdef
+```
+
 ## Project-boundary discipline (MS043 R10212)
 
 - IPS state mutation lives in **selfdef only** (selfdefd + selfdefctl +
