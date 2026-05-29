@@ -493,6 +493,100 @@ curl -s http://localhost:9100/metrics 2>/dev/null \
 See the selfdef-side producer guide for deeper context:
 [`m060-cockpit-mirror-producers.md`](https://github.com/cyberpunk042/selfdef/blob/main/docs/operator/m060-cockpit-mirror-producers.md)
 
+#### M060MirrorDomainChainDegraded (warning)
+
+**Meaning:** the selfdef-side `selfdefctl m060-doctor` reports at
+least one of the 6 mirror domains (D-02/D-13/D-14/D-15/D-17/D-18) in
+WARN state. `selfdef_m060_doctor_worst_severity == 1`.
+
+**Diagnosis:**
+
+```bash
+# Per-domain breakdown.
+curl -s http://localhost:9100/metrics 2>/dev/null \
+  | grep selfdef_m060_doctor_severity
+# Operator-readable per-domain note.
+curl -s http://localhost:9100/metrics 2>/dev/null \
+  | grep selfdef_m060_doctor_domain_info
+# Or live on the selfdef host:
+ssh <selfdef-host> sudo selfdefctl m060-doctor
+```
+
+**Fix:** typical D-13/D-14/D-15 warn = operator hasn't issued any
+grant/token/sandbox yet. Issue one to flip the domain online:
+
+```bash
+ssh <selfdef-host> sudo selfdefctl grants issue ...
+ssh <selfdef-host> sudo selfdefctl capability-tokens issue ...
+ssh <selfdef-host> sudo selfdefctl sandboxes allocate ...
+# Confirm the m060-doctor timer is actually firing.
+ssh <selfdef-host> sudo systemctl status selfdef-m060-doctor.timer
+```
+
+See [`m060-cockpit-mirror-producers.md`](https://github.com/cyberpunk042/selfdef/blob/main/docs/operator/m060-cockpit-mirror-producers.md)
+for the full producer-side onboarding recipe per domain.
+
+#### M060MirrorDomainChainBroken (critical)
+
+**Meaning:** at least one mirror domain in FAIL state — resident
+store exists but the daemon's mirror_export_loop hasn't published it
+to `<mirror_dir>/<domain>.json`. The export loop is wedged for that
+specific domain.
+
+**Diagnosis:**
+
+```bash
+# Which domain is published_present=0?
+curl -s http://localhost:9100/metrics 2>/dev/null \
+  | grep selfdef_m060_doctor_published_present \
+  | grep ' 0$'
+# Daemon journal for the wedge.
+ssh <selfdef-host> sudo journalctl -u selfdefd \
+  | grep "mirror export"
+```
+
+**Fix:**
+
+```bash
+# Restart the daemon to clear the wedge.
+ssh <selfdef-host> sudo systemctl restart selfdefd
+# Verify the export loop announces all domains on restart.
+ssh <selfdef-host> sudo journalctl -u selfdefd --since "1 min ago" \
+  | grep "M060: mirror-export loop running"
+```
+
+See [`m060-cockpit-mirror-producers.md`](https://github.com/cyberpunk042/selfdef/blob/main/docs/operator/m060-cockpit-mirror-producers.md)
+for the per-domain mirror_export_loop architecture.
+
+#### M060MirrorDomainObserverSilent (critical)
+
+**Meaning:** `selfdef_m060_doctor_last_run_unix` is more than 5
+minutes old. The `selfdef-m060-doctor.timer` has stopped firing.
+**Per-domain observability signal is lost** — the chain may be
+healthy, but other M060MirrorDomain alerts cannot fire to confirm.
+
+**Diagnosis:**
+
+```bash
+ssh <selfdef-host> sudo systemctl status \
+  selfdef-m060-doctor.timer
+ssh <selfdef-host> sudo systemctl list-timers \
+  | grep m060-doctor
+ssh <selfdef-host> ls -l \
+  /var/lib/node_exporter/textfile_collector/selfdef-m060-doctor.prom
+ssh <selfdef-host> sudo journalctl -u \
+  selfdef-m060-doctor.service -n 30
+```
+
+**Fix:**
+
+```bash
+ssh <selfdef-host> sudo systemctl restart \
+  selfdef-m060-doctor.timer
+ssh <selfdef-host> sudo systemctl start \
+  selfdef-m060-doctor.service
+```
+
 #### M060CliMirrorObserverSilent (critical)
 
 **Meaning:** `selfdef_cli_mirror_doctor_last_run_unix` is more than

@@ -252,6 +252,109 @@ groups:
             before relying on the D-CLI alerts to fire.
           runbook_url: "https://github.com/cyberpunk042/selfdef/blob/main/docs/operator/m060-cockpit-mirror-producers.md"
 
+      # M060 chain-wide doctor — driven by the textfile that selfdef
+      # ships at
+      # /var/lib/node_exporter/textfile_collector/selfdef-m060-doctor.prom
+      # via the `selfdef-m060-doctor.timer` systemd unit (60s cadence,
+      # selfdef commit ce58154). The selfdefctl m060-doctor verb walks
+      # all 6 mirror domains (D-02/D-13/D-14/D-15/D-17/D-18) on each
+      # fire and writes:
+      #
+      #   selfdef_m060_doctor_severity{domain, label}            0/1/2
+      #   selfdef_m060_doctor_resident_present{domain, label}    0/1
+      #   selfdef_m060_doctor_published_present{domain, label}   0/1
+      #   selfdef_m060_doctor_domain_info{domain, label, note}   1
+      #   selfdef_m060_doctor_worst_severity                     0/1/2
+      #   selfdef_m060_doctor_last_run_unix                      <ts>
+      #
+      # These alerts give per-domain triage one-line: "M060 grants
+      # mirror broken" tells the operator exactly which domain is
+      # wedged. Complementary to the chain-wide rollup alerts above
+      # (which measure the m060-health-api endpoint state in
+      # aggregate).
+
+      # Warning: at least one mirror-domain chain check is degraded
+      # (warn). Common: resident store absent (operator hasn't
+      # onboarded the domain yet — D-13 grants / D-14 capability-
+      # tokens / D-15 sandboxes need at least one issue verb).
+      - alert: M060MirrorDomainChainDegraded
+        expr: selfdef_m060_doctor_worst_severity == 1
+        for: 5m
+        labels:
+          severity: warning
+          subsystem: m060-mirror-chain
+          chain_link: mirror-domain
+          chain_state: warn
+        annotations:
+          summary: "M060 mirror chain degraded on {{ $labels.instance }}"
+          description: >
+            The selfdefctl m060-doctor reports at least one of the 6
+            mirror domains in WARN state. Query the per-domain series
+            for the breakdown:
+
+              selfdef_m060_doctor_severity{domain, label}
+
+            and the operator-readable note:
+
+              selfdef_m060_doctor_domain_info{domain, label, note}
+
+            Most common: resident store absent (operator hasn't
+            onboarded that domain).
+          runbook_url: "https://github.com/cyberpunk042/selfdef/blob/main/docs/operator/m060-cockpit-mirror-producers.md"
+
+      # Critical: at least one mirror-domain check is FAIL — resident
+      # store exists but the daemon hasn't published it. The daemon
+      # mirror-export loop is wedged for that specific domain.
+      - alert: M060MirrorDomainChainBroken
+        expr: selfdef_m060_doctor_worst_severity == 2
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: m060-mirror-chain
+          chain_link: mirror-domain
+          chain_state: fail
+        annotations:
+          summary: "M060 mirror chain BROKEN on {{ $labels.instance }}"
+          description: >
+            The selfdefctl m060-doctor reports at least one mirror
+            domain in FAIL state: the resident store exists but the
+            daemon's mirror_export_loop hasn't published the
+            artifact. The export loop is wedged for that domain.
+            Query
+
+              selfdef_m060_doctor_published_present{domain, label}
+
+            to identify which domain(s) failed. Check selfdefd:
+
+              journalctl -u selfdefd | grep "mirror export"
+          runbook_url: "https://github.com/cyberpunk042/selfdef/blob/main/docs/operator/m060-cockpit-mirror-producers.md"
+
+      # Critical: the chain-wide doctor timer has stopped firing.
+      # `last_run_unix` going stale (>5min) means observability is
+      # lost on the per-domain signal; chain may be healthy but we
+      # cannot tell.
+      - alert: M060MirrorDomainObserverSilent
+        expr: |
+          time() - selfdef_m060_doctor_last_run_unix > 300
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: m060-mirror-chain
+          chain_link: mirror-domain
+          chain_state: observer_silent
+        annotations:
+          summary: "M060 chain-wide doctor observer silent (>5min) on {{ $labels.instance }}"
+          description: >
+            selfdef_m060_doctor_last_run_unix is more than 5 minutes
+            old (~5 missed timer ticks at the 60s cadence). Either
+            the selfdef-m060-doctor.timer unit is not running
+            (`systemctl status selfdef-m060-doctor.timer`), the
+            doctor service is failing to write the textfile, OR
+            node_exporter stopped exposing the textfile_collector.
+            The mirror chain itself may be healthy, but the
+            per-domain observability signal is lost.
+          runbook_url: "https://github.com/cyberpunk042/selfdef/blob/main/docs/operator/m060-cockpit-mirror-producers.md"
+
       # Critical: m060-health-api daemon itself is silent. No requests
       # in 5 minutes means either nothing is polling it (master-dashboard
       # closed) OR the daemon is down. Master-dashboard polls every 30s,

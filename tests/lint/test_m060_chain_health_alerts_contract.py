@@ -45,6 +45,15 @@ CLI_MIRROR_ALERT_NAMES = {
     "M060CliMirrorObserverSilent",
 }
 
+# Per-domain alerts for the M060 chain-wide doctor textfile
+# (selfdef_m060_doctor_* series shipped by selfdef-m060-doctor.timer
+# in selfdef commit ce58154). Cover all 6 mirror domains in aggregate.
+MIRROR_DOMAIN_ALERT_NAMES = {
+    "M060MirrorDomainChainDegraded",
+    "M060MirrorDomainChainBroken",
+    "M060MirrorDomainObserverSilent",
+}
+
 
 def _load_rules() -> dict:
     return yaml.safe_load(RULES_PATH.read_text())
@@ -282,6 +291,74 @@ def test_cli_mirror_alerts_have_for_clause():
             f"alert {name!r} missing `for:` clause — single-scrape "
             f"blip would page the operator"
         )
+
+
+def test_mirror_domain_sub_chain_alerts_present():
+    """The 3 mirror-domain alerts ship in the same rules file so a
+    single Prometheus reload covers both observer textfiles."""
+    rules = _all_rules()
+    names = {r["alert"] for r in rules}
+    missing = MIRROR_DOMAIN_ALERT_NAMES - names
+    assert not missing, f"missing mirror-domain sub-chain alerts: {sorted(missing)}"
+
+
+def test_mirror_domain_alerts_reference_doctor_textfile_metric():
+    """The 3 mirror-domain alerts MUST query the selfdef_m060_doctor_*
+    series the selfdef-m060-doctor.timer unit emits."""
+    by_name = {r["alert"]: r for r in _all_rules()}
+    expected_metric = {
+        "M060MirrorDomainChainDegraded":  "selfdef_m060_doctor_worst_severity",
+        "M060MirrorDomainChainBroken":    "selfdef_m060_doctor_worst_severity",
+        "M060MirrorDomainObserverSilent": "selfdef_m060_doctor_last_run_unix",
+    }
+    for alert, metric in expected_metric.items():
+        assert metric in by_name[alert]["expr"], (
+            f"alert {alert!r} expr must reference {metric!r}; got: "
+            f"{by_name[alert]['expr']!r}"
+        )
+
+
+def test_mirror_domain_alerts_severity_classification():
+    """Degraded = warn (operator can clear by onboarding the domain),
+    Broken = critical (mirror_export_loop wedge), ObserverSilent =
+    critical (signal lost — other alerts cannot fire)."""
+    by_name = {r["alert"]: r for r in _all_rules()}
+    assert by_name["M060MirrorDomainChainDegraded"]["labels"]["severity"] == "warning"
+    assert by_name["M060MirrorDomainChainBroken"]["labels"]["severity"] == "critical"
+    assert by_name["M060MirrorDomainObserverSilent"]["labels"]["severity"] == "critical"
+
+
+def test_mirror_domain_alerts_carry_chain_link_label():
+    """chain_link=mirror-domain distinguishes these from the
+    cli-mirror sub-chain alerts (chain_link=cli-mirror) so operators
+    can filter by chain link."""
+    by_name = {r["alert"]: r for r in _all_rules()}
+    for name in MIRROR_DOMAIN_ALERT_NAMES:
+        link = by_name[name]["labels"].get("chain_link")
+        assert link == "mirror-domain", (
+            f"alert {name!r} chain_link label {link!r} != 'mirror-domain'"
+        )
+
+
+def test_mirror_domain_alerts_carry_runbook_url_to_producer_guide():
+    """Same R10212 boundary: the producer-side runbook lives in
+    selfdef; the consumer-side dashboard surfaces it via runbook_url."""
+    by_name = {r["alert"]: r for r in _all_rules()}
+    for name in MIRROR_DOMAIN_ALERT_NAMES:
+        url = by_name[name]["annotations"].get("runbook_url", "")
+        assert "cyberpunk042/selfdef" in url, (
+            f"alert {name!r} runbook_url must point at selfdef-side guide"
+        )
+
+
+def test_mirror_domain_observer_silent_threshold_is_300_seconds():
+    """Same threshold as cli-mirror observer-silent. Sub-chain
+    observer cadences are locked at 60s; 5min = 5 missed ticks."""
+    by_name = {r["alert"]: r for r in _all_rules()}
+    expr = by_name["M060MirrorDomainObserverSilent"]["expr"]
+    assert "> 300" in expr, (
+        f"observer-silent threshold must be exactly 300s; expr: {expr!r}"
+    )
 
 
 def test_cli_mirror_observer_silent_threshold_is_300_seconds():

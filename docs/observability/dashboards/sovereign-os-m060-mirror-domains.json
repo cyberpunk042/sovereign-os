@@ -1,0 +1,134 @@
+{
+  "_comment": "sovereign-os M060 mirror-domains dashboard. Visualizes the selfdef-side m060-doctor textfile series (selfdef_m060_doctor_*) shipped via selfdef-m060-doctor.timer systemd unit (60s cadence, selfdef commit ce58154). Pairs with the 3 alert rules (M060MirrorDomain{ChainDegraded,ChainBroken,ObserverSilent}) + the per-domain runbook sections in docs/operator/m060-deployment-guide.md. Companion to sovereign-os-m060-cli-mirror.json (which covers the D-CLI sub-chain). Operator imports into Grafana via Settings → JSON Model.",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "operator runbook (sovereign-os)", "url": "/d/sovereign-os-m060-mirror-domains#runbook", "type": "link", "icon": "doc"},
+    {"title": "producer guide (selfdef)", "url": "https://github.com/cyberpunk042/selfdef/blob/main/docs/operator/m060-cockpit-mirror-producers.md", "type": "link", "icon": "external link"},
+    {"title": "D-CLI sub-chain dashboard", "url": "/d/sovereign-os-m060-cli-mirror", "type": "link", "icon": "dashboard"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "worst severity across 6 domains (0=ok 1=warn 2=fail)",
+      "description": "Single rollup: the worst severity across all 6 M060 mirror domains (D-02/D-13/D-14/D-15/D-17/D-18). Drives M060MirrorDomain{ChainDegraded,ChainBroken}.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_m060_doctor_worst_severity", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 2, "mappings": [{"type": "value", "options": {"0": {"text": "OK"}, "1": {"text": "WARN"}, "2": {"text": "FAIL"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "yellow", "value": 1}, {"color": "red", "value": 2}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "doctor observer age (s)",
+      "description": "Seconds since the selfdef-m060-doctor.timer last fired. Red >5min (M060MirrorDomainObserverSilent alert).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "time() - selfdef_m060_doctor_last_run_unix", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "s", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 120}, {"color": "red", "value": 300}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "domains in WARN or FAIL",
+      "description": "Count of mirror domains with severity ≥1. 0 = chain green.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "count(selfdef_m060_doctor_severity >= 1)", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 1}, {"color": "red", "value": 4}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "domains published (of 6)",
+      "description": "How many of the 6 domains have published_present=1. Operator-onboarded domains. Target = 6 once the full chain is in production use.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "count(selfdef_m060_doctor_published_present == 1)", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 6, "thresholds": {"mode": "absolute", "steps": [{"color": "red"}, {"color": "yellow", "value": 1}, {"color": "green", "value": 6}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "per-domain severity over time",
+      "description": "One series per domain (D-02 active-profile, D-13 grants, D-14 capability-tokens, D-15 sandboxes, D-17 quarantine, D-18 trust-scores). 0=pass / 1=warn / 2=fail. Operator sees which domain degraded when.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_m060_doctor_severity", "refId": "A", "legendFormat": "{{domain}} {{label}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 2, "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 30}}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "worst-severity rollup over time",
+      "description": "Single rollup line. M060MirrorDomain{ChainDegraded,ChainBroken} trigger on this metric.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_m060_doctor_worst_severity", "refId": "A", "legendFormat": "{{instance}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 2, "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 30}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "yellow", "value": 1}, {"color": "red", "value": 2}]}}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+    },
+    {
+      "type": "table",
+      "title": "current per-domain state (with operator note)",
+      "description": "Live triage table — domain × label × note. The selfdef_m060_doctor_domain_info series carries the operator-readable note straight from m060-doctor's note column. Hover-render gives operators the same triage text the CLI prints.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_m060_doctor_domain_info", "refId": "A", "format": "table", "instant": true}
+      ],
+      "transformations": [
+        {"id": "organize", "options": {"excludeByName": {"Time": true, "Value": true, "__name__": true, "job": true}, "renameByName": {"domain": "domain", "label": "label", "note": "note", "instance": "host"}, "indexByName": {"host": 0, "domain": 1, "label": 2, "note": 3}}}
+      ],
+      "fieldConfig": {"defaults": {"custom": {"align": "left"}}, "overrides": [{"matcher": {"id": "byName", "options": "note"}, "properties": [{"id": "custom.width", "value": 500}]}]},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 12}
+    },
+    {
+      "type": "table",
+      "title": "resident vs published matrix",
+      "description": "Per-domain resident_present + published_present in one place. A row with resident=1 + published=0 is the wedge case (M060MirrorDomainChainBroken).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_m060_doctor_resident_present", "refId": "A", "format": "table", "instant": true, "legendFormat": "resident"},
+        {"expr": "selfdef_m060_doctor_published_present", "refId": "B", "format": "table", "instant": true, "legendFormat": "published"}
+      ],
+      "transformations": [
+        {"id": "merge"},
+        {"id": "organize", "options": {"excludeByName": {"Time": true, "__name__": true, "job": true}, "renameByName": {"domain": "domain", "label": "label", "Value #A": "resident", "Value #B": "published", "instance": "host"}, "indexByName": {"host": 0, "domain": 1, "label": 2, "resident": 3, "published": 4}}}
+      ],
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 20}
+    },
+    {
+      "type": "timeseries",
+      "title": "doctor observer age (s) over time",
+      "description": "Saw-tooth 0→60→0 = healthy 60s timer; flat ramp = wedged timer (M060MirrorDomainObserverSilent).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "time() - selfdef_m060_doctor_last_run_unix", "refId": "A", "legendFormat": "{{instance}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "s", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 120}, {"color": "red", "value": 300}]}, "custom": {"drawStyle": "line", "lineWidth": 1, "fillOpacity": 10, "thresholdsStyle": {"mode": "line"}}}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 28}
+    },
+    {
+      "type": "timeseries",
+      "title": "chain-wide alert firing (sovereign_os m060-health-api companion view)",
+      "description": "Companion view of the existing chain-wide alerts (offline/degraded/stale/unreachable) from the sovereign-os m060-health-api textfile, so operators see BOTH signals (selfdef-side per-domain doctor + sovereign-os-side chain-wide health-api) in one place.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(sovereign_os_operator_m060_health_api_request_total{endpoint=\"health\"}[5m])", "refId": "A", "legendFormat": "{{result}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "ops", "custom": {"drawStyle": "line", "lineWidth": 1, "fillOpacity": 20, "stacking": {"mode": "normal"}}}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 28}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "tags": ["sovereign-os", "m060", "mirror-domains", "observability"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "",
+  "title": "sovereign-os — M060 mirror domains (chain-wide)",
+  "uid": "sovereign-os-m060-mirror-domains",
+  "version": 1,
+  "weekStart": ""
+}
