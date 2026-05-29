@@ -507,6 +507,54 @@ a11y; contract test catches drift.
   .ms022-banner .spacer { flex:1; }
 </style>
 
+<!-- Four-watchdog (IPS spine) banner. Pairs with selfdef commits
+     7869a45 + a009b39 (textfile producer + 2 systemd units) +
+     sovereign-os commits 795cd12 (alerts + runbook) + 985c565
+     (Grafana dashboard) + bde651c (threshold-lockstep contract).
+     Polls /api/four-watchdog/state which is the contract endpoint
+     served by scripts/operator/four-watchdog-api.py (proxies
+     node_exporter's /metrics for the 4 canonical gauges). The
+     observer-fault state takes precedence over rollup-severity per
+     the wrapper's honest-offline contract — when emit_failed=1 OR
+     the observer is silent, the other gauges cannot be trusted. -->
+<div id="four-watchdog-banner" class="four-watchdog-banner unknown" role="status" aria-live="polite">
+  <span class="dot"></span>
+  <strong id="four-watchdog-label">IPS spine: unknown</strong>
+  <span id="four-watchdog-detail" class="muted">
+    polling four-watchdog observer via <code>/api/four-watchdog/state</code>…
+  </span>
+  <span class="spacer"></span>
+  <span class="muted" id="four-watchdog-rollup">— / —</span>
+  <span class="muted">·
+    <a href="/d/sovereign-os-four-watchdog" target="_blank"
+       style="color:inherit;text-decoration:underline">Grafana</a>
+  </span>
+</div>
+<style>
+  /* Four-watchdog banner — reuses the m060-health-banner palette
+     for consistency. State classes match the proxy daemon's
+     classify_state output (ok/warn/critical/observer-fault/
+     unreachable/unknown). */
+  .four-watchdog-banner { display:flex; align-items:center; gap:.6rem;
+    padding:.5rem .8rem; border:1px solid var(--border, #2a2a2a);
+    border-radius:.4rem; margin:.4rem 0 .8rem; font-size:.85rem;
+    background:rgba(255,255,255,.02); }
+  .four-watchdog-banner.ok             { border-color:#1f7a3a; background:rgba(31,122,58,.10); }
+  .four-watchdog-banner.warn           { border-color:#7a701f; background:rgba(122,112,31,.10); }
+  .four-watchdog-banner.critical       { border-color:#7a3a1f; background:rgba(122,58,31,.10); }
+  .four-watchdog-banner.observer-fault { border-color:#7a3a1f; background:rgba(122,58,31,.10); }
+  .four-watchdog-banner.unreachable    { border-color:#7a3a1f; background:rgba(122,58,31,.10); }
+  .four-watchdog-banner.unknown        { border-color:#444; background:rgba(255,255,255,.04); }
+  .four-watchdog-banner .dot { width:.55rem; height:.55rem; border-radius:50%;
+    background:#888; box-shadow:0 0 .35rem rgba(255,255,255,.2); }
+  .four-watchdog-banner.ok .dot             { background:#1f7a3a; box-shadow:0 0 .35rem rgba(31,122,58,.7); }
+  .four-watchdog-banner.warn .dot           { background:#7a701f; box-shadow:0 0 .35rem rgba(122,112,31,.7); }
+  .four-watchdog-banner.critical .dot       { background:#7a3a1f; box-shadow:0 0 .35rem rgba(122,58,31,.7); }
+  .four-watchdog-banner.observer-fault .dot { background:#7a3a1f; box-shadow:0 0 .35rem rgba(122,58,31,.7); }
+  .four-watchdog-banner.unreachable .dot    { background:#7a3a1f; box-shadow:0 0 .35rem rgba(122,58,31,.7); }
+  .four-watchdog-banner .spacer { flex:1; }
+</style>
+
 <div class="panel" id="m060-mirror-panel">
   <div class="muted" style="margin-bottom:.4rem;font-size:.85rem">
     Live producer health across the 8 cross-repo mirror dashboards.
@@ -844,6 +892,52 @@ async function renderMS022SseQuotaBanner() {
   }
 }
 
+// Four-watchdog (IPS spine) banner: polls /api/four-watchdog/state
+// proxied from node_exporter's /metrics endpoint (selfdef commits
+// 7869a45 + a009b39). Classifies into ok / warn / critical /
+// observer-fault / unreachable matching the 4 sovereign-os alert
+// rules in four-watchdog.rules.yml. The observer-fault state takes
+// precedence over rollup-severity per the wrapper's honest-offline
+// contract.
+async function renderFourWatchdogBanner() {
+  const banner = el("four-watchdog-banner");
+  if (!banner) return;
+  let payload;
+  try {
+    const r = await fetch("/api/four-watchdog/state", {headers: {"Accept": "application/json"}});
+    payload = r.ok ? await r.json() : null;
+  } catch (e) { payload = null; }
+  if (!payload) payload = {state: "unreachable", metrics: null};
+  const state = String(payload.state || "unknown");
+  const knownStates = ["ok", "warn", "critical", "observer-fault", "unreachable", "unknown"];
+  banner.classList.remove(...knownStates);
+  banner.classList.add(knownStates.indexOf(state) >= 0 ? state : "unknown");
+  const labelEl = el("four-watchdog-label");
+  const detailEl = el("four-watchdog-detail");
+  const rollupEl = el("four-watchdog-rollup");
+  if (labelEl) labelEl.textContent = "IPS spine: " + state;
+  const m = payload.metrics || {};
+  const worst = (typeof m.worst_severity === "number") ? m.worst_severity : "—";
+  const sevLabel = {0: "OK", 1: "WARN", 2: "CRITICAL"}[worst] || "—";
+  if (rollupEl) rollupEl.textContent = "rollup " + sevLabel;
+  if (detailEl) {
+    if (state === "ok") {
+      detailEl.innerHTML = "all 4 watchdogs healthy (MS046 process · MS047 perimeter · MS044 tamper · MS048 config)";
+    } else if (state === "warn") {
+      detailEl.innerHTML = "a watchdog reports WARN — see <code>FourWatchdogAnyWarn</code> alert";
+    } else if (state === "critical") {
+      detailEl.innerHTML = '<strong>a watchdog reports CRITICAL</strong> — IPS-spine subsystem degraded. '
+        + "See <code>FourWatchdogWorstSeverityCritical</code> alert";
+    } else if (state === "observer-fault") {
+      const age = (typeof m.observer_age_seconds === "number") ? m.observer_age_seconds + "s" : "—";
+      detailEl.innerHTML = '<strong>observer wedged</strong> — gauges stale (age ' + age + '). '
+        + "See <code>FourWatchdogTextfileEmitFailed</code> or <code>FourWatchdogObserverSilent</code> alert";
+    } else {
+      detailEl.innerHTML = "polling four-watchdog observer via <code>/api/four-watchdog/state</code>…";
+    }
+  }
+}
+
 // Build a {artifact -> health object} lookup from /api/m060/health
 // so the grid renderer can drill from per-artifact state (corrupt /
 // stale / fresh) into the right tile. Single fetch, then merge.
@@ -893,6 +987,10 @@ async function renderM060Grid() {
   // MS022 SSE quota banner — same refresh cadence; the quota state
   // is checked on the same tick the chain-wide health is.
   renderMS022SseQuotaBanner();
+  // Four-watchdog (IPS spine) banner — same refresh cadence; the
+  // IPS-spine state is checked on the same tick as the chain-wide
+  // health is.
+  renderFourWatchdogBanner();
   // Fetch chain-health once for the WHOLE grid (the response carries
   // every artifact), then fetch each per-mirror snapshot in parallel.
   const [artifactMap, ...states] = await Promise.all([

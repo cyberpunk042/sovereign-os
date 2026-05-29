@@ -1,0 +1,73 @@
+[Unit]
+Description=Sovereign four-watchdog (IPS spine) read-only API host (node_exporter /metrics proxy)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/four-watchdog-api.py
+# CROSS-REPO METRIC PROXY — parses node_exporter's /metrics
+# Prometheus exposition for the 4 selfdef_four_watchdog_* gauges
+# shipped at selfdef commits 7869a45 + a009b39 (textfile producer
+# wrapper at packaging/scripts/four-watchdog-textfile.sh + the
+# selfdef-four-watchdog-doctor.{service,timer} pair) and emits a
+# compact JSON envelope the master-dashboard's four-watchdog banner
+# consumes.
+#
+# READ-ONLY observability (R10212): classifies four-watchdog state
+# into ok / warn / critical / observer-fault / unreachable using the
+# same 300s observer-silent threshold the 4 sovereign-os alert rules
+# use (four-watchdog.rules.yml). The observer-fault state takes
+# precedence over rollup-severity per the wrapper's honest-offline
+# contract.
+#
+# After= ordering matches sovereign-m060-health-api.service +
+# sovereign-ms022-sse-quota-api.service so operators see all 3
+# proxies surface their unreachable state during boot (network
+# coming up) rather than crashing with no useful log.
+
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/four-watchdog-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default — same posture as the m060-health-api +
+# ms022-sse-quota-api siblings. Operators exposing beyond loopback
+# drop:
+#   /etc/systemd/system/sovereign-four-watchdog-api.service.d/bind.conf
+# with [Service] Environment=FOUR_WATCHDOG_API_BIND=0.0.0.0
+Environment=FOUR_WATCHDOG_API_BIND=127.0.0.1
+# Port 7712 chosen as the next sovereign-os api port above 7711
+# (ms022-sse-quota-api) so the three proxies don't collide. Operator
+# overrides via Environment=FOUR_WATCHDOG_API_PORT in a drop-in.
+Environment=FOUR_WATCHDOG_API_PORT=7712
+
+# node_exporter transport — HTTP at default localhost:9100/metrics
+# (the canonical node_exporter address). Operators using a non-
+# default node_exporter port or relocating it must drop a
+# nodeexporter.conf with Environment=NODE_EXPORTER_URL set.
+Environment=NODE_EXPORTER_URL=http://localhost:9100/metrics
+
+# R171 defense-in-depth (same posture as sovereign-m060-health-api).
+# Read-only HTTP surface; no filesystem mutation surface so no
+# ReadWritePaths needed (the proxy parses + serves; it never writes).
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target
