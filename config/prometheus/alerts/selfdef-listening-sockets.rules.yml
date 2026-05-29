@@ -1,0 +1,97 @@
+# Selfdef listening-sockets Prometheus alerting rules.
+#
+# Fires on the textfile metrics shipped by selfdef-listening-sockets-
+# textfile.{service,timer} (selfdef commit `ca3cad1`):
+#
+#   selfdef_listening_sockets_tcp                gauge
+#   selfdef_listening_sockets_tcp6               gauge
+#   selfdef_listening_sockets_udp                gauge
+#   selfdef_listening_sockets_udp6               gauge
+#   selfdef_listening_sockets_total              gauge
+#   selfdef_listening_sockets_last_run_unix      gauge
+#   selfdef_listening_sockets_textfile_emit_failed  gauge
+#
+# Unexpected-listener detection is load-bearing IPS surface — a
+# post-exploitation backdoor opens a new listener. Operators set
+# a baseline (e.g. expected_total=12) and these alerts page on
+# deviation.
+#
+# Project boundary R10212: pure observability — selfdef cannot
+# enforce listener policy without the host's nftables config;
+# sovereign-os alerts on the published counts only.
+
+groups:
+  - name: selfdef-listening-sockets
+    interval: 30s
+    rules:
+
+      - alert: SelfdefListeningSocketsTextfileEmitFailed
+        expr: selfdef_listening_sockets_textfile_emit_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-listening-sockets
+          sockets_link: observer-fault
+        annotations:
+          summary: "Selfdef listening-sockets observer fault on {{ $labels.instance }}"
+          description: >
+            selfdef-listening-sockets-textfile.service is reporting
+            wrapper failure — ss absent AND /proc/net/tcp unreadable.
+            Operator MUST NOT trust the listener counts as current.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdeflisteningsocketstextfileemitfailed-critical"
+
+      - alert: SelfdefListeningSocketsObserverSilent
+        expr: time() - selfdef_listening_sockets_last_run_unix > 300
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-listening-sockets
+          sockets_link: observer-silent
+        annotations:
+          summary: "Selfdef listening-sockets observer silent on {{ $labels.instance }}"
+          description: >
+            Timer hasn't fired in 5+ minutes. Listener counts stale.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdeflisteningsocketsobserversilent-critical"
+
+      # Warning: TCP listener count > 20. Generous threshold —
+      # legitimate fleet workstations have ~5-15 listeners. Above
+      # 20 = unexpected exposure (operator-error or backdoor).
+      # Adjust the threshold in this rules file based on the
+      # operator's baseline.
+      - alert: SelfdefListeningSocketsTcpCountHigh
+        expr: max(selfdef_listening_sockets_tcp + selfdef_listening_sockets_tcp6) > 20
+        for: 10m
+        labels:
+          severity: warning
+          subsystem: selfdef-listening-sockets
+          sockets_link: rollup
+        annotations:
+          summary: "Selfdef listening-sockets TCP count {{ $value }} > 20 on {{ $labels.instance }}"
+          description: >
+            More than 20 TCP listeners (v4+v6) for 10+ minutes.
+            Legitimate fleet workstations have ~5-15. Above 20
+            suggests an unexpected listener — operator error OR
+            post-exploitation backdoor. Operator should run
+            `ss -ltn` and cross-check against the host's
+            expected-listener baseline. Adjust the threshold in
+            this rules file based on the operator's deployment.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdeflisteningsocketstcpcounthigh-warning"
+
+      # Critical: zero TCP listeners. selfdefd itself should ALWAYS
+      # be listening on the API socket — zero TCP/TCP6 listeners
+      # means selfdefd is wedged OR uninstalled.
+      - alert: SelfdefListeningSocketsZeroTcp
+        expr: max(selfdef_listening_sockets_tcp + selfdef_listening_sockets_tcp6) < 1
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-listening-sockets
+          sockets_link: rollup
+        annotations:
+          summary: "Selfdef listening-sockets: zero TCP listeners on {{ $labels.instance }}"
+          description: >
+            Zero TCP listeners (v4+v6) for 5+ minutes. selfdefd's
+            API socket is always-on — zero listeners means
+            selfdefd is wedged OR the wrapper read state during
+            a transient socket teardown.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdeflisteningsocketszerotcp-critical"
