@@ -291,6 +291,116 @@ The codebase carries substantial production state from prior development. This s
 | SRP scheduler | `crates/sovereign-srp-scheduler/` — Conductor on CPU / Logic on GPU 0 / Oracle on GPU 1 scheduling discipline |
 | Hardware registry (cross-referenced from M038) | `crates/sovereign-hardware-registry/` |
 
+### M040 — Hyper features (MIG / FP4 / VFIO / ZFS commit gate)
+
+| Surface | Shipped artifact |
+|---|---|
+| ZFS commit gate (cross-referenced from M047, M068) | `crates/sovereign-zfs-commit-gate/` |
+| NVFP4 runtime (cross-referenced from M077) | `crates/sovereign-nvfp4-runtime/` — FP4 hyper-feature production code |
+
+### M041 — Schema contracts (WORKFLOW / PROFILES / EVALS / POLICY / MODEL_REGISTRY / HARDWARE_PROFILES)
+
+| Surface | Shipped artifact |
+|---|---|
+| Schema directory | `schemas/` — `mixin.schema.yaml`, `model-catalog.schema.yaml`, `profile.schema.yaml`, `runtime-profile.schema.yaml`, `whitelabel.schema.yaml` — the 5-schema typed contract substrate covering the 7 contract surfaces M041 enumerates |
+| Profile validation | `scripts/validate-profiles.sh` — the runtime gate that enforces the contracts at install / boot time |
+| Profile bundles | `crates/sovereign-profile-bundles/` — the typed bundle of profile-schema instances |
+
+### M053 — Implementation language (11 build phases Phase 0..10)
+
+| Surface | Shipped artifact |
+|---|---|
+| Bootstrap scripts | `scripts/bootstrap/` — Phase-0 bootstrap entry point |
+| Build scripts | `scripts/build/` — Phase 1..10 build sequencing |
+| Install scripts | `scripts/install/` — final-phase install discipline (`install-mode-advisor.py`, `operator-deps.py`, `paths.py`) |
+| Setup entry | `scripts/setup.sh`, `scripts/onboard.sh` — operator-facing single-command bootstraps |
+
+### M055 — Failure modes (10 taxonomies)
+
+| Surface | Shipped artifact |
+|---|---|
+| Mode transition log | `crates/sovereign-mode-transition-log/` — append-only log of mode transitions enabling per-taxonomy failure-mode forensics |
+| Policy questions | `crates/sovereign-policy-questions/` — the typed surface where each failure-taxonomy decision routes through |
+| Choice envelope | `crates/sovereign-choice-envelope/` — the typed envelope around each control choice (drives the detect/contain/explain/recover/learn discipline) |
+
+### M056 — Trust boundaries (7 authority levels / 5 trust rings)
+
+| Surface | Shipped artifact |
+|---|---|
+| Cross-repo binding doctrine SDD | `docs/sdd/038-cross-repo-binding-doctrine.md` — anchors the typed cross-repo trust boundary (selfdef is the mutation authority; sovereign-os is read-only consumer per MS043 R10212) |
+| Eight-surface delivery contract SDD | `docs/sdd/039-eight-surface-delivery-contract.md` — enumerates the 8 surfaces each milestone must reach; trust boundary integrated into the delivery contract |
+| Inheritance contracts | `crates/sovereign-inheritance-contracts/` (cross-ref M044) — typed contract for the inherited-vs-original trust ring |
+
+### M064 — "Debian as Ark" framing
+
+| Surface | Shipped artifact |
+|---|---|
+| Distro-base SDD | `docs/sdd/021-distro-base.md` — Q-016 distro-base reconsideration documented here |
+| Debian surface audit SDD | `docs/sdd/006-debian-surface-audit.md` — the foundational audit that M064 references for "what's inherited from Debian vs what we own" |
+| Inheritance artifacts | `crates/sovereign-inheritance-artifacts/`, `crates/sovereign-inheritance-contracts/` — typed surface for the inherited-Debian layer |
+
+### M065 — Five Stage Gates (SG1-SG5 + ExitPlanMode checkpoint ritual)
+
+| Surface | Shipped artifact |
+|---|---|
+| Test-harness SDD | `docs/sdd/008-test-harness.md` + `docs/sdd/009-test-harness-bootstrap.md` — the test-harness scaffolding that the 5 SGs gate-keep |
+| Stage-2 stub SDD | `docs/sdd/010-stage-2-stub.md` — the explicit gate from SG1 to SG2 |
+
+### M067 — Custom kernel build pipeline
+
+| Surface | Shipped artifact |
+|---|---|
+| Kernel-choice SDD | `docs/sdd/018-kernel-choice.md` — documents the -march=znver5 / GCC 14 / Linux 6.12 / bindeb-pkg pipeline choice |
+| Kernel scripts | `scripts/kernel/` — the kernel-build automation directory |
+| Hardware-stack consolidation SDD | `docs/sdd/029-hardware-stack-consolidation.md` — the architecture pass that informed the kernel-build decisions |
+
+### M070 — Dual-CCD cache topology + core pinning
+
+| Surface | Shipped artifact |
+|---|---|
+| Hardware-stack consolidation SDD | `docs/sdd/029-hardware-stack-consolidation.md` — pins the CCD-0=Pulse / CCD-1=Weaver+Auditor+Host topology |
+| Trinity scripts | `scripts/pulse/`, `scripts/weaver/`, `scripts/auditor/`, `scripts/trinity/` — the operator-side runtime infrastructure for the 3 trinity roles (M066) pinned to their respective CCDs |
+
+### M071 — Atomic State Transition Protocol (Weaver Execution)
+
+| Surface | Shipped artifact |
+|---|---|
+| ZFS root layout SDD | `docs/sdd/017-zfs-root-layout.md` — the substrate for the O_DIRECT + POSIX AIO + lockless ZFS atomic-state discipline |
+| ZFS commit gate (cross-ref M047, M068) | `crates/sovereign-zfs-commit-gate/` — the runtime that enforces sync=always atomic commits per the Weaver Execution model |
+
+### M072 — Master Bootstrap Verification Checklist (6-phase operational grid)
+
+| Surface | Shipped artifact |
+|---|---|
+| Bootstrap scripts | `scripts/bootstrap/` — the 6-phase bootstrap sequence |
+| Validation entry | `scripts/validate-profiles.sh` — the verification-checklist entry point |
+| Diagnostics scripts | `scripts/diagnostics/` — `autohealth.py`, `doctor.py`, the operator-facing post-bootstrap verification runners |
+
+### M076 — Three load-balancing profiles
+
+| Surface | Shipped artifact |
+|---|---|
+| Runtime profiles | `profiles/runtime/ultra-sovereign-efficiency.yaml`, `profiles/runtime/high-concurrency-burst.yaml`, `profiles/runtime/deep-context-synthesis.yaml` — the 3 runtime profiles that M076 enumerates (operator-tunable mode selection) |
+| Runtime-profile schema | `schemas/runtime-profile.schema.yaml` — the typed contract the 3 profiles conform to |
+
+### M081 — Whitelabel Architecture
+
+| Surface | Shipped artifact |
+|---|---|
+| Whitelabel mechanism SDD | `docs/sdd/007-whitelabel-mechanism.md` — declarative rebrand mechanism design |
+| Debian surface audit SDD | `docs/sdd/006-debian-surface-audit.md` — the audit input the whitelabel mechanism consumes |
+| Whitelabel schema | `schemas/whitelabel.schema.yaml` — typed contract for whitelabel overrides |
+| Whitelabel scripts | `scripts/whitelabel/` — the runtime rebrand applicator |
+| Brand-identity placeholder SDD | `docs/sdd/012-brand-identity-placeholder.md` — documents the deferred brand-identity slot the whitelabel mechanism fills |
+
+### M082 — TDD Harness Architecture (hardware-free validation)
+
+| Surface | Shipped artifact |
+|---|---|
+| Test-harness SDD | `docs/sdd/008-test-harness.md` + `docs/sdd/009-test-harness-bootstrap.md` — the architectural foundations (cross-ref M065) |
+| Test harness (selfdef-side cross-ref) | the selfdef-side test/coherence.sh 13-layer hardware-free validation harness is the canonical TDD-harness implementation; sovereign-os consumes the harness pattern from the partner repo |
+| Hardware-free dispatch eligibility | `crates/sovereign-hardware-dispatch-eligibility/` — typed surface enabling hardware-free unit tests to enumerate which dispatch paths the test should exercise without the hardware actually being present |
+
 ### M079 — Activation steering interpretability surface
 
 | Surface | Shipped artifact |
