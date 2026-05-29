@@ -1,0 +1,93 @@
+# Selfdef SDD-078 BPF map element clear Prometheus alerting rules.
+# Fires on textfile metrics from selfdef-bpf-map-element-clears-textfile
+# (selfdef MS4a commit). Extends the IPS-tridectet observability set
+# to the quattuordectet — 32nd sibling — at the eBPF map state axis.
+
+groups:
+  - name: selfdef-bpf-map-element-clears
+    interval: 30s
+    rules:
+
+      - alert: SelfdefBpfMapElementClearsTextfileEmitFailed
+        expr: selfdef_bpf_map_element_clears_textfile_emit_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-bpf-map-element-clears
+          cd_link: observer-fault
+        annotations:
+          summary: "Selfdef bpf-map-element-clears observer fault on {{ $labels.instance }}"
+          description: "Wrapper failure for 5+ minutes. SDD-078 enforcement visibility lost at the eBPF map state axis."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefbpfmapelementclearstextfileemitfailed-critical"
+
+      - alert: SelfdefBpfMapElementClearsObserverSilent
+        expr: time() - selfdef_bpf_map_element_clears_last_run_unix > 300
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-bpf-map-element-clears
+          cd_link: observer-silent
+        annotations:
+          summary: "Selfdef bpf-map-element-clears observer silent on {{ $labels.instance }}"
+          description: "Timer hasn't fired in 5+ minutes."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefbpfmapelementclearsobserversilent-critical"
+
+      - alert: SelfdefBpfMapElementClearsStateDirMissing
+        expr: selfdef_bpf_map_element_clears_state_dir_present == 0
+        for: 10m
+        labels:
+          severity: critical
+          subsystem: selfdef-bpf-map-element-clears
+          cd_link: state-dir-missing
+        annotations:
+          summary: "bpf-map-element-clears state-dir absent on {{ $labels.instance }} — SDD-078 enforcement OFFLINE"
+          description: "/var/lib/selfdef/bpf-map-element-clears not present for 10+ minutes. SDD-078 eBPF-map-state-axis IPS primitive cannot persist state. Operator action: systemctl status selfdefd && systemctl restart selfdefd."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefbpfmapelementclearsstatedirmissing-critical"
+
+      - alert: SelfdefBpfMapElementClearsPendingRestoreBacklog
+        expr: selfdef_bpf_map_element_clears_pending_restores > 5
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: selfdef-bpf-map-element-clears
+          cd_link: pending-backlog
+        annotations:
+          summary: "{{ $value }} pending bpf-map-element-clear restore decisions on {{ $labels.instance }} for 30m"
+          description: "Operator engagement with the cockpit bpf-map-element-clears-queue card needed. NOTE: BPF map element clears are one-way at the kernel level — selfdef did not snapshot prior values; restore is queue-clear + audit only. The owning BPF program's control plane must re-add elements."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefbpfmapelementclearspendingrestorebacklog-warning"
+
+      - alert: SelfdefBpfMapElementClearsAccessDeniedHigh
+        expr: selfdef_bpf_map_element_clears_access_denied_count > 3
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: selfdef-bpf-map-element-clears
+          cd_link: access-denied-high
+        annotations:
+          summary: "{{ $value }} BpfMapAccessDenied bpf-map-element-clear handles on {{ $labels.instance }} for 30m"
+          description: "Multiple clear requests denied by the kernel (EPERM/EACCES). Either the target maps set BPF_F_RDONLY or selfdef lacks CAP_BPF/CAP_SYS_ADMIN. Operator action: check map_flags via `bpftool map show id <N>` and verify selfdefd's capabilities."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefbpfmapelementclearsaccessdeniedhigh-warning"
+
+      - alert: SelfdefBpfMapElementClearsElementsClearedHigh
+        expr: selfdef_bpf_map_element_clears_elements_cleared_total > 1000
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: selfdef-bpf-map-element-clears
+          cd_link: elements-cleared-high
+        annotations:
+          summary: "{{ $value }} BPF map elements cleared on {{ $labels.instance }} for 30m — mass-wipe event?"
+          description: "Large element-cleared count suggests one or more All-scope clears against large maps. Verify the operator intent matches the wipe scope; consider whether the owning BPF program's defaults will safely re-populate."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefbpfmapelementclearselementsclearedhigh-warning"
+
+      - alert: SelfdefBpfMapElementClearsAmbiguousNameAny
+        expr: selfdef_bpf_map_element_clears_ambiguous_name_count > 0
+        for: 5m
+        labels:
+          severity: warning
+          subsystem: selfdef-bpf-map-element-clears
+          cd_link: ambiguous-name-any
+        annotations:
+          summary: "{{ $value }} AmbiguousName bpf-map-element-clear handle(s) on {{ $labels.instance }} — rule-config error"
+          description: "name:<x> resolved to >1 BPF map. Operator action: update the rule to use the pinned path (/sys/fs/bpf/<name>) or id:<u32> for the intended map. AmbiguousName fires on any occurrence because it indicates a rule-config error, not an attack signal."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefbpfmapelementclearsambiguousnameany-warning"

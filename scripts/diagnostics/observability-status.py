@@ -716,6 +716,53 @@ def probe_capability_drops(metrics_url: str) -> dict[str, Any]:
     }
 
 
+def probe_bpf_map_element_clears(metrics_url: str) -> dict[str, Any]:
+    metrics = _fetch_metrics(metrics_url)
+    if metrics is None:
+        return {"status": "unreachable", "summary": "node_exporter down"}
+    out = probe_textfile_observer(
+        metrics, "selfdef_bpf_map_element_clears", "bpf-map-element-clears",
+    )
+    if out["status"] != "OK":
+        return out
+    present = _gauge(metrics, "selfdef_bpf_map_element_clears_state_dir_present")
+    active = _gauge(metrics, "selfdef_bpf_map_element_clears_active_count")
+    map_not_found = _gauge(metrics, "selfdef_bpf_map_element_clears_map_not_found_count")
+    ambiguous = _gauge(metrics, "selfdef_bpf_map_element_clears_ambiguous_name_count")
+    denied = _gauge(metrics, "selfdef_bpf_map_element_clears_access_denied_count")
+    elements = _gauge(metrics, "selfdef_bpf_map_element_clears_elements_cleared_total")
+    pending = _gauge(metrics, "selfdef_bpf_map_element_clears_pending_restores")
+    if present == 0:
+        return {"status": "FAIL",
+                "summary": "state-dir absent (SDD-078 enforcement OFFLINE)"}
+    if ambiguous is not None and ambiguous > 0:
+        return {"status": "WARN",
+                "summary": f"{int(ambiguous)} AmbiguousName handles — rule-config error (use path: or id: to disambiguate)"}
+    if pending is not None and pending > 5:
+        return {"status": "WARN",
+                "summary": f"{int(pending)} pending bpf-map-element-clear restore decisions"}
+    if denied is not None and denied > 3:
+        return {"status": "WARN",
+                "summary": f"{int(denied)} BpfMapAccessDenied handles — CAP_BPF or map_flags review"}
+    if map_not_found is not None and map_not_found > 3:
+        return {"status": "WARN",
+                "summary": f"{int(map_not_found)} MapNotFound handles — stale rule config or unloaded maps"}
+    if elements is not None and elements > 1000:
+        return {"status": "WARN",
+                "summary": f"{int(elements)} BPF map elements cleared — mass-wipe scope review"}
+    if active is not None and active > 10:
+        return {"status": "WARN",
+                "summary": f"{int(active)} active bpf-map-element-clears > 10"}
+    return {
+        "status": "OK",
+        "summary": f"{int(active) if active is not None else 0} handles · "
+                   f"{int(elements) if elements is not None else 0} elements · "
+                   f"{int(denied) if denied is not None else 0} denied · "
+                   f"{int(pending) if pending is not None else 0} pending · "
+                   "enforcement online",
+    }
+
+
 def probe_apparmor_profile_pivots(metrics_url: str) -> dict[str, Any]:
     metrics = _fetch_metrics(metrics_url)
     if metrics is None:
@@ -1101,6 +1148,7 @@ VERTICALS = (
     "env_scrubs", "capability_drops",
     "kernel_keyring_evictions",
     "apparmor_profile_pivots",
+    "bpf_map_element_clears",
 )
 
 
@@ -1137,11 +1185,12 @@ def collect(args: argparse.Namespace) -> dict[str, dict[str, Any]]:
         "capability_drops": probe_capability_drops(args.node_exporter_url),
         "kernel_keyring_evictions": probe_kernel_keyring_evictions(args.node_exporter_url),
         "apparmor_profile_pivots": probe_apparmor_profile_pivots(args.node_exporter_url),
+        "bpf_map_element_clears": probe_bpf_map_element_clears(args.node_exporter_url),
     }
 
 
 def render_table(results: dict[str, dict[str, Any]]) -> str:
-    lines = ["sovereign-os observability status — 31 verticals",
+    lines = ["sovereign-os observability status — 32 verticals",
              f"{'─' * 22} {'─' * 60}"]
     for v in VERTICALS:
         r = results[v]
@@ -1180,6 +1229,7 @@ def render_table(results: dict[str, dict[str, Any]]) -> str:
             "capability_drops":    "capability-drops (SDD-075)",
             "kernel_keyring_evictions": "kernel-keyring-evictions (SDD-076)",
             "apparmor_profile_pivots": "apparmor-profile-pivots (SDD-077)",
+            "bpf_map_element_clears": "bpf-map-element-clears (SDD-078)",
         }[v]
         lines.append(f"{label:<22} {marker}  {r['summary']}")
     lines.append(f"{'─' * 22} {'─' * 60}")

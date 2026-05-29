@@ -15,7 +15,7 @@
     {"title": "AppArmor", "url": "/d/sovereign-os-selfdef-apparmor", "type": "link", "icon": "external link"},
     {"title": "auth-events", "url": "/d/sovereign-os-selfdef-auth-events", "type": "link", "icon": "external link"},
     {"title": "systemd-units", "url": "/d/sovereign-os-selfdef-systemd-units", "type": "link", "icon": "external link"},
-    {"title": "── IPS TRIDECTET (SDD-065..077) ──", "url": "/d/sovereign-os-overview", "type": "link", "icon": "external link"},
+    {"title": "── IPS QUATTUORDECTET (SDD-065..078) ──", "url": "/d/sovereign-os-overview", "type": "link", "icon": "external link"},
     {"title": "SDD-065 blockset (network)", "url": "/d/sovereign-os-selfdef-blockset", "type": "link", "icon": "external link"},
     {"title": "SDD-066 quarantine (process)", "url": "/d/sovereign-os-selfdef-quarantine", "type": "link", "icon": "external link"},
     {"title": "SDD-067 revocations (shell-session)", "url": "/d/sovereign-os-selfdef-revocations", "type": "link", "icon": "external link"},
@@ -28,7 +28,8 @@
     {"title": "SDD-074 env-scrubs (in-memory secrets)", "url": "/d/sovereign-os-selfdef-env-scrubs", "type": "link", "icon": "external link"},
     {"title": "SDD-075 capability-drops (per-process privilege)", "url": "/d/sovereign-os-selfdef-capability-drops", "type": "link", "icon": "external link"},
     {"title": "SDD-076 kernel-keyring-evictions (kernel-keyring)", "url": "/d/sovereign-os-selfdef-kernel-keyring-evictions", "type": "link", "icon": "external link"},
-    {"title": "SDD-077 apparmor-profile-pivots (MAC policy)", "url": "/d/sovereign-os-selfdef-apparmor-profile-pivots", "type": "link", "icon": "external link"}
+    {"title": "SDD-077 apparmor-profile-pivots (MAC policy)", "url": "/d/sovereign-os-selfdef-apparmor-profile-pivots", "type": "link", "icon": "external link"},
+    {"title": "SDD-078 bpf-map-element-clears (eBPF map state)", "url": "/d/sovereign-os-selfdef-bpf-map-element-clears", "type": "link", "icon": "external link"}
   ],
   "panels": [
     {
@@ -174,17 +175,17 @@
     },
     {
       "type": "row",
-      "title": "IPS tridectet (SDD-065..077) — enforcement layer rollup",
+      "title": "IPS quattuordectet (SDD-065..078) — enforcement layer rollup",
       "gridPos": {"h": 1, "w": 24, "x": 0, "y": 20},
       "collapsed": false
     },
     {
       "type": "stat",
-      "title": "active enforcements (sum across 13 IPS primitives)",
-      "description": "Total active handles across blockset + quarantine + revocations + token-revocations + mfa-grant-revocations + netns-isolations + mount-bindings + process-tree-freezes + socket-fd-revocations + env-scrubs + capability-drops + kernel-keyring-evictions + apparmor-profile-pivots. Spike = active incident response.",
+      "title": "active enforcements (sum across 14 IPS primitives)",
+      "description": "Total active handles across blockset + quarantine + revocations + token-revocations + mfa-grant-revocations + netns-isolations + mount-bindings + process-tree-freezes + socket-fd-revocations + env-scrubs + capability-drops + kernel-keyring-evictions + apparmor-profile-pivots + bpf-map-element-clears. Spike = active incident response.",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "targets": [
-        {"expr": "(selfdef_blockset_v4_count or vector(0)) + (selfdef_blockset_v6_count or vector(0)) + (selfdef_quarantine_active_count or vector(0)) + (selfdef_revocations_active_count or vector(0)) + (selfdef_token_revocations_active_count or vector(0)) + (selfdef_mfa_grant_revocations_active_count or vector(0)) + (selfdef_netns_isolations_active_count or vector(0)) + (selfdef_mount_bindings_active_count or vector(0)) + (selfdef_process_tree_freezes_active_count or vector(0)) + (selfdef_socket_fd_revocations_active_count or vector(0)) + (selfdef_env_scrubs_active_count or vector(0)) + (selfdef_capability_drops_active_count or vector(0)) + (selfdef_kernel_keyring_evictions_active_count or vector(0)) + (selfdef_apparmor_profile_pivots_active_count or vector(0))", "refId": "A"}
+        {"expr": "(selfdef_blockset_v4_count or vector(0)) + (selfdef_blockset_v6_count or vector(0)) + (selfdef_quarantine_active_count or vector(0)) + (selfdef_revocations_active_count or vector(0)) + (selfdef_token_revocations_active_count or vector(0)) + (selfdef_mfa_grant_revocations_active_count or vector(0)) + (selfdef_netns_isolations_active_count or vector(0)) + (selfdef_mount_bindings_active_count or vector(0)) + (selfdef_process_tree_freezes_active_count or vector(0)) + (selfdef_socket_fd_revocations_active_count or vector(0)) + (selfdef_env_scrubs_active_count or vector(0)) + (selfdef_capability_drops_active_count or vector(0)) + (selfdef_kernel_keyring_evictions_active_count or vector(0)) + (selfdef_apparmor_profile_pivots_active_count or vector(0)) + (selfdef_bpf_map_element_clears_active_count or vector(0))", "refId": "A"}
       ],
       "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 20}, {"color": "red", "value": 100}]}}},
       "gridPos": {"h": 4, "w": 8, "x": 0, "y": 21}
@@ -192,23 +193,23 @@
     {
       "type": "stat",
       "title": "pending operator decisions (sum across queues)",
-      "description": "Total pending operator decisions across all 13 IPS-tridectet cockpit queues. Drives operator attention to the cockpit cards.",
+      "description": "Total pending operator decisions across all 14 IPS-quattuordectet cockpit queues. Drives operator attention to the cockpit cards.",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "targets": [
-        {"expr": "(selfdef_quarantine_pending_decisions or vector(0)) + (selfdef_revocations_pending_restores or vector(0)) + (selfdef_token_revocations_pending_restores or vector(0)) + (selfdef_mfa_grant_revocations_pending_restores or vector(0)) + (selfdef_netns_isolations_pending_releases or vector(0)) + (selfdef_mount_bindings_pending_rebinds or vector(0)) + (selfdef_process_tree_freezes_pending_thaws or vector(0)) + (selfdef_socket_fd_revocations_pending_restores or vector(0)) + (selfdef_env_scrubs_pending_restores or vector(0)) + (selfdef_capability_drops_pending_restores or vector(0)) + (selfdef_kernel_keyring_evictions_pending_restores or vector(0)) + (selfdef_apparmor_profile_pivots_pending_restores or vector(0))", "refId": "A"}
+        {"expr": "(selfdef_quarantine_pending_decisions or vector(0)) + (selfdef_revocations_pending_restores or vector(0)) + (selfdef_token_revocations_pending_restores or vector(0)) + (selfdef_mfa_grant_revocations_pending_restores or vector(0)) + (selfdef_netns_isolations_pending_releases or vector(0)) + (selfdef_mount_bindings_pending_rebinds or vector(0)) + (selfdef_process_tree_freezes_pending_thaws or vector(0)) + (selfdef_socket_fd_revocations_pending_restores or vector(0)) + (selfdef_env_scrubs_pending_restores or vector(0)) + (selfdef_capability_drops_pending_restores or vector(0)) + (selfdef_kernel_keyring_evictions_pending_restores or vector(0)) + (selfdef_apparmor_profile_pivots_pending_restores or vector(0)) + (selfdef_bpf_map_element_clears_pending_restores or vector(0))", "refId": "A"}
       ],
       "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 5}, {"color": "red", "value": 30}]}}},
       "gridPos": {"h": 4, "w": 8, "x": 8, "y": 21}
     },
     {
       "type": "stat",
-      "title": "enforcement-layer observers wedged (out of 13)",
-      "description": "Count of IPS-tridectet textfile observers reporting *_textfile_emit_failed > 0. Baseline is 0; any > 0 means the enforcement-layer observability is partially blind.",
+      "title": "enforcement-layer observers wedged (out of 14)",
+      "description": "Count of IPS-quattuordectet textfile observers reporting *_textfile_emit_failed > 0. Baseline is 0; any > 0 means the enforcement-layer observability is partially blind.",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "targets": [
-        {"expr": "(selfdef_quarantine_textfile_emit_failed or vector(0)) + (selfdef_revocations_textfile_emit_failed or vector(0)) + (selfdef_token_revocations_textfile_emit_failed or vector(0)) + (selfdef_mfa_grant_revocations_textfile_emit_failed or vector(0)) + (selfdef_netns_isolations_textfile_emit_failed or vector(0)) + (selfdef_mount_bindings_textfile_emit_failed or vector(0)) + (selfdef_process_tree_freezes_textfile_emit_failed or vector(0)) + (selfdef_socket_fd_revocations_textfile_emit_failed or vector(0)) + (selfdef_env_scrubs_textfile_emit_failed or vector(0)) + (selfdef_capability_drops_textfile_emit_failed or vector(0)) + (selfdef_kernel_keyring_evictions_textfile_emit_failed or vector(0)) + (selfdef_apparmor_profile_pivots_textfile_emit_failed or vector(0))", "refId": "A"}
+        {"expr": "(selfdef_quarantine_textfile_emit_failed or vector(0)) + (selfdef_revocations_textfile_emit_failed or vector(0)) + (selfdef_token_revocations_textfile_emit_failed or vector(0)) + (selfdef_mfa_grant_revocations_textfile_emit_failed or vector(0)) + (selfdef_netns_isolations_textfile_emit_failed or vector(0)) + (selfdef_mount_bindings_textfile_emit_failed or vector(0)) + (selfdef_process_tree_freezes_textfile_emit_failed or vector(0)) + (selfdef_socket_fd_revocations_textfile_emit_failed or vector(0)) + (selfdef_env_scrubs_textfile_emit_failed or vector(0)) + (selfdef_capability_drops_textfile_emit_failed or vector(0)) + (selfdef_kernel_keyring_evictions_textfile_emit_failed or vector(0)) + (selfdef_apparmor_profile_pivots_textfile_emit_failed or vector(0)) + (selfdef_bpf_map_element_clears_textfile_emit_failed or vector(0))", "refId": "A"}
       ],
-      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 13, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "yellow", "value": 1}, {"color": "red", "value": 3}]}}},
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 14, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "yellow", "value": 1}, {"color": "red", "value": 3}]}}},
       "gridPos": {"h": 4, "w": 8, "x": 16, "y": 21}
     },
     {
@@ -229,7 +230,8 @@
         {"expr": "selfdef_env_scrubs_active_count", "legendFormat": "env-scrubs (SDD-074)", "refId": "J"},
         {"expr": "selfdef_capability_drops_active_count", "legendFormat": "capability-drops (SDD-075)", "refId": "K"},
         {"expr": "selfdef_kernel_keyring_evictions_active_count", "legendFormat": "kernel-keyring-evictions (SDD-076)", "refId": "L"},
-        {"expr": "selfdef_apparmor_profile_pivots_active_count", "legendFormat": "apparmor-profile-pivots (SDD-077)", "refId": "M"}
+        {"expr": "selfdef_apparmor_profile_pivots_active_count", "legendFormat": "apparmor-profile-pivots (SDD-077)", "refId": "M"},
+        {"expr": "selfdef_bpf_map_element_clears_active_count", "legendFormat": "bpf-map-element-clears (SDD-078)", "refId": "N"}
       ],
       "fieldConfig": {"defaults": {"unit": "none", "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10}}},
       "gridPos": {"h": 10, "w": 24, "x": 0, "y": 25}

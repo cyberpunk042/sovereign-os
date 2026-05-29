@@ -1,0 +1,112 @@
+{
+  "_comment": "sovereign-os selfdef SDD-078 bpf-map-element-clears dashboard. Extends the IPS-tridectet observability set to quattuordectet (#39..#51 prior siblings + #52 this dashboard) at the eBPF map state axis.",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "SDD-078 spec", "url": "https://github.com/cyberpunk042/selfdef/blob/main/docs/sdd/078-bpf-map-element-clear-action-surface.md", "type": "link", "icon": "external link"},
+    {"title": "blockset (SDD-065)", "url": "/d/sovereign-os-selfdef-blockset", "type": "link", "icon": "external link"},
+    {"title": "quarantine (SDD-066)", "url": "/d/sovereign-os-selfdef-quarantine", "type": "link", "icon": "external link"},
+    {"title": "revocations (SDD-067)", "url": "/d/sovereign-os-selfdef-revocations", "type": "link", "icon": "external link"},
+    {"title": "token-revocations (SDD-068)", "url": "/d/sovereign-os-selfdef-token-revocations", "type": "link", "icon": "external link"},
+    {"title": "mfa-grant-revocations (SDD-069)", "url": "/d/sovereign-os-selfdef-mfa-grant-revocations", "type": "link", "icon": "external link"},
+    {"title": "netns-isolations (SDD-070)", "url": "/d/sovereign-os-selfdef-netns-isolations", "type": "link", "icon": "external link"},
+    {"title": "mount-bindings (SDD-071)", "url": "/d/sovereign-os-selfdef-mount-bindings", "type": "link", "icon": "external link"},
+    {"title": "process-tree-freezes (SDD-072)", "url": "/d/sovereign-os-selfdef-process-tree-freezes", "type": "link", "icon": "external link"},
+    {"title": "socket-fd-revocations (SDD-073)", "url": "/d/sovereign-os-selfdef-socket-fd-revocations", "type": "link", "icon": "external link"},
+    {"title": "env-scrubs (SDD-074)", "url": "/d/sovereign-os-selfdef-env-scrubs", "type": "link", "icon": "external link"},
+    {"title": "capability-drops (SDD-075)", "url": "/d/sovereign-os-selfdef-capability-drops", "type": "link", "icon": "external link"},
+    {"title": "kernel-keyring-evictions (SDD-076)", "url": "/d/sovereign-os-selfdef-kernel-keyring-evictions", "type": "link", "icon": "external link"},
+    {"title": "apparmor-profile-pivots (SDD-077)", "url": "/d/sovereign-os-selfdef-apparmor-profile-pivots", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "bpf-map-element-clears state-dir present",
+      "description": "Red at 0 = SDD-078 enforcement OFFLINE.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_bpf_map_element_clears_state_dir_present", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "mappings": [{"type": "value", "options": {"0": {"text": "OFFLINE"}, "1": {"text": "OK"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "green", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "active bpf-map clears (handles)",
+      "description": "Yellow at 10. eBPF map state eviction — kernel-side policy/counter state cleared.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_bpf_map_element_clears_active_count", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 10}, {"color": "red", "value": 50}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "elements cleared (sum)",
+      "description": "Yellow at 100, red at 1000. Sum of BPF map elements actually deleted across all active handles (All-scope clears can push this very high).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_bpf_map_element_clears_elements_cleared_total", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 100}, {"color": "red", "value": 1000}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "observer sentinel",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_bpf_map_element_clears_textfile_emit_failed", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "barchart",
+      "title": "clears breakdown by map name",
+      "description": "Per-map count across active handles — incident-pattern detection across the host's BPF map inventory.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_bpf_map_element_clears_by_map_name", "legendFormat": "{{map}}", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none"}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "state over time — active vs not-found vs ambiguous vs denied vs pending",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_bpf_map_element_clears_active_count", "legendFormat": "active", "refId": "A"},
+        {"expr": "selfdef_bpf_map_element_clears_map_not_found_count", "legendFormat": "MapNotFound (spec unresolved)", "refId": "B"},
+        {"expr": "selfdef_bpf_map_element_clears_ambiguous_name_count", "legendFormat": "AmbiguousName (config error)", "refId": "C"},
+        {"expr": "selfdef_bpf_map_element_clears_access_denied_count", "legendFormat": "BpfMapAccessDenied (EPERM/EACCES)", "refId": "D"},
+        {"expr": "selfdef_bpf_map_element_clears_pending_restores", "legendFormat": "pending restores", "refId": "E"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none"}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+    },
+    {
+      "type": "barchart",
+      "title": "clears breakdown by scope (element vs all)",
+      "description": "Element = single-key DELETE_ELEM; All = full iterator wipe (Operator+ tier only per D-10).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_bpf_map_element_clears_by_scope", "legendFormat": "{{scope}}", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none"}},
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 12}
+    },
+    {
+      "type": "timeseries",
+      "title": "per-map counts over time",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_bpf_map_element_clears_by_map_name", "legendFormat": "{{map}}", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none"}},
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 12}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["sovereign-os", "selfdef", "bpf-map-element-clears", "sdd-078", "IPS-spine", "security", "enforcement-layer", "ips-quattuordectet", "ebpf-map-state"],
+  "templating": {"list": []},
+  "time": {"from": "now-24h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "sovereign-os — selfdef SDD-078 bpf-map-element-clears (eBPF map state axis)",
+  "uid": "sovereign-os-selfdef-bpf-map-element-clears",
+  "version": 1,
+  "weekStart": ""
+}

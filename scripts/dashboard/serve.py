@@ -382,6 +382,23 @@ def card_capability_drops_queue() -> dict[str, Any]:
     }
 
 
+def card_bpf_map_element_clears_queue() -> dict[str, Any]:
+    """SDD-078 MS5b — pending operator-restore queue for the selfdef
+    eBPF map element clear action layer. Fourteenth in the
+    IPS-quattuordectet paired-decision queue family (eBPF map state
+    axis). Restore is queue-clear + audit only — BPF map element
+    clears are one-way at the kernel level; selfdef did not snapshot
+    prior values; the owning BPF program's control plane must re-add
+    elements through its normal data path."""
+    cockpit_script = REPO_ROOT / "scripts" / "cockpit" / "bpf-map-element-clears-queue.py"
+    data = _run_json_at(cockpit_script, []) or {"queue": [], "count": 0}
+    return {
+        "id": "bpf-map-element-clears-queue",
+        "title": "SDD-078 — pending bpf-map-element-clear restore decisions",
+        "data": data,
+    }
+
+
 def card_apparmor_profile_pivots_queue() -> dict[str, Any]:
     """SDD-077 MS5b — pending operator-restore queue for the selfdef
     AppArmor live profile-pivot action layer. Thirteenth in the
@@ -1548,6 +1565,7 @@ CARDS = [
     card_capability_drops_queue,
     card_kernel_keyring_evictions_queue,
     card_apparmor_profile_pivots_queue,
+    card_bpf_map_element_clears_queue,
     card_gpu,
     card_network,
     card_cpu,
