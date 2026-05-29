@@ -626,6 +626,100 @@ If node_exporter is the gap (file missing from
 textfile_collector), check `systemctl status prometheus-node-exporter`
 and the `--collector.textfile.directory=` flag.
 
+#### MS022SseGlobalQuotaApproaching (warning)
+
+**Meaning:** the selfdef daemon's SSE subscriber count is more than
+85% of the configured global cap (`selfdef_sse_subscribers_global_saturation > 0.85`)
+for 5+ minutes. Operators reaching 100% saturation will see per-request
+HTTP 429s on `/events/stream`.
+
+**Diagnosis:**
+
+```bash
+# Current saturation + cap.
+curl -s http://localhost:9100/metrics 2>/dev/null \
+  | grep -E "selfdef_sse_subscribers_global_(active|cap|saturation)"
+# Which tokens are holding the most subscriber slots?
+curl -s http://localhost:9100/metrics 2>/dev/null \
+  | grep "selfdef_sse_subscribers_per_token{" | sort -t' ' -k2 -nr | head -10
+```
+
+**Fix:** rotate stale subscribers (browser refreshes leak slots until
+the per-token map purge fires) OR raise
+`[api].max_sse_subscribers` in `/etc/selfdef/selfdef.toml`:
+
+```toml
+[api]
+max_sse_subscribers = 128  # default 64
+```
+
+Then `sudo systemctl restart selfdefd` to pick up the new cap.
+
+#### MS022SseGlobalQuotaSaturated (critical)
+
+**Meaning:** the global SSE cap is fully saturated; new subscribers
+across ALL tokens are being refused with HTTP 429 for 2+ minutes.
+
+**Diagnosis:**
+
+```bash
+# Active count at or above cap.
+curl -s http://localhost:9100/metrics 2>/dev/null \
+  | grep -E "selfdef_sse_subscribers_global_(active|cap)"
+# Recent 429s in the daemon journal.
+ssh <selfdef-host> sudo journalctl -u selfdefd --since "5 min ago" \
+  | grep -i "sse.*cap\|429\|GlobalCap"
+```
+
+**Fix:** likely a subscriber leak (clients not properly closing
+connections). Restart the daemon to clear the leaked subscribers:
+
+```bash
+ssh <selfdef-host> sudo systemctl restart selfdefd
+```
+
+Then identify the leak source via the per-token saturated count
+(the `MS022SsePerTokenQuotaSaturated` alert below covers the
+per-token diagnostic path).
+
+#### MS022SsePerTokenQuotaSaturated (warning)
+
+**Meaning:** at least one token has reached the per-token SSE
+subscriber cap (`selfdef_sse_subscribers_per_token_saturated > 0`)
+for 5+ minutes. Subsequent `/events/stream` connections under those
+tokens get HTTP 429.
+
+**Diagnosis:**
+
+```bash
+# Identify which token fingerprint(s) are saturated.
+curl -s http://localhost:9100/metrics 2>/dev/null \
+  | grep "selfdef_sse_subscribers_per_token{" \
+  | awk '$2 >= 8 {print}'    # 8 = compiled default per-token cap
+# Cap value (may be operator-overridden).
+curl -s http://localhost:9100/metrics 2>/dev/null \
+  | grep selfdef_sse_subscribers_per_token_cap
+```
+
+The `token_fp` label is the privacy-preserving 8-hex-char prefix of
+the SHA-256 of the bearer token (matches the daemon's `tracing`
+output). Cross-reference with daemon logs to identify the operator
+or service holding the saturated slots.
+
+**Fix:** common causes:
+- orphaned browser tabs holding SSE connections open → close them
+- a runaway test loop → kill the loop and verify the per-token
+  count drops within 30s
+- legitimate operator demand → raise the cap in
+  `/etc/selfdef/selfdef.toml`:
+
+```toml
+[api]
+max_sse_subscribers_per_token = 16  # default 8
+```
+
+Then `sudo systemctl restart selfdefd`.
+
 ## Project-boundary discipline (MS043 R10212)
 
 - IPS state mutation lives in **selfdef only** (selfdefd + selfdefctl +

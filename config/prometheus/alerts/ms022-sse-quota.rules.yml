@@ -1,0 +1,107 @@
+# MS022 — SSE subscriber quota Prometheus alerting rules.
+#
+# These alerts fire on the textfile metrics the selfdef daemon emits
+# at /metrics via crates/selfdef-api/src/sse_quota_metrics.rs
+# (shipped selfdef commit 77b4499). The metrics surface the live
+# state of the SSE subscriber caps enforced by SubscriberGuard in
+# crates/selfdef-api/src/handlers.rs:
+#
+#   selfdef_sse_subscribers_global_active     live count (all tokens)
+#   selfdef_sse_subscribers_global_cap        effective global cap
+#   selfdef_sse_subscribers_global_saturation active / cap ratio
+#   selfdef_sse_subscribers_per_token_cap     effective per-token cap
+#   selfdef_sse_subscribers_per_token         per-token live count
+#   selfdef_sse_subscribers_per_token_saturated  count at-or-above cap
+#
+# Without these alerts the operator only learns the quota is being
+# hit when SSE clients start getting per-request HTTP 429s — too
+# late for graceful capacity planning. The alerts surface the same
+# state proactively.
+#
+# Drop into the Prometheus rule_files config (e.g.,
+#   rule_files:
+#     - /etc/prometheus/alerts/ms022-sse-quota.rules.yml
+# ) and reload.
+#
+# Project boundary R10212: pure observability. The enforcement
+# (subscriber cap rejection) lives in selfdefd; sovereign-os
+# alerts on the published gauges only.
+
+groups:
+  - name: ms022-sse-quota
+    interval: 30s
+    rules:
+
+      # Warning: SSE quota is approaching saturation. The
+      # _global_saturation gauge is (active / cap) — alert at 0.85
+      # so operators have headroom to add capacity or rotate
+      # workloads before saturation actually hits.
+      - alert: MS022SseGlobalQuotaApproaching
+        expr: selfdef_sse_subscribers_global_saturation > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          subsystem: ms022-sse-quota
+          quota_link: global
+        annotations:
+          summary: "MS022 SSE global quota >85% saturation on {{ $labels.instance }}"
+          description: >
+            The selfdef daemon's SSE subscriber count is more than
+            85% of the configured global cap
+            (selfdef_sse_subscribers_global_active /
+            selfdef_sse_subscribers_global_cap > 0.85) for 5+
+            minutes. Operators reaching 100% saturation will see
+            per-request HTTP 429s on /events/stream. Plan: rotate
+            stale subscribers (browser refreshes leak slots until
+            the per-token map purge fires) OR raise
+            [api].max_sse_subscribers in /etc/selfdef/selfdef.toml.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#ms022sseglobalquotaapproaching-warning"
+
+      # Critical: SSE global quota is fully saturated. New
+      # subscribers across ALL tokens are now being refused.
+      - alert: MS022SseGlobalQuotaSaturated
+        expr: selfdef_sse_subscribers_global_saturation >= 1.0
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: ms022-sse-quota
+          quota_link: global
+        annotations:
+          summary: "MS022 SSE global quota SATURATED on {{ $labels.instance }}"
+          description: >
+            The selfdef daemon's SSE subscriber count equals or
+            exceeds the configured global cap — new subscribers
+            on /events/stream are being refused with HTTP 429
+            for 2+ minutes. Either a subscriber leak (clients
+            not properly closing connections) or genuine demand
+            spike. Immediate action: identify offending tokens
+            via selfdef_sse_subscribers_per_token and rotate.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#ms022sseglobalquotasaturated-critical"
+
+      # Warning: at least one token is at-or-above its per-token cap
+      # right now. Sustained means that token's clients are being
+      # throttled. _per_token_saturated counts saturated tokens — fast
+      # rollup signal without enumerating the label-set.
+      - alert: MS022SsePerTokenQuotaSaturated
+        expr: selfdef_sse_subscribers_per_token_saturated > 0
+        for: 5m
+        labels:
+          severity: warning
+          subsystem: ms022-sse-quota
+          quota_link: per-token
+        annotations:
+          summary: "MS022 SSE per-token quota saturated on {{ $labels.instance }}"
+          description: >
+            At least one token has reached the per-token SSE
+            subscriber cap continuously for 5+ minutes. Subsequent
+            /events/stream connections under those tokens get HTTP
+            429. Drill into
+
+              selfdef_sse_subscribers_per_token{token_fp=...}
+
+            to identify the offending token fingerprint. Common
+            causes: orphaned browser tabs holding SSE connections
+            open, a runaway test loop, OR an operator who legitimately
+            needs the per-token cap raised — adjust
+            [api].max_sse_subscribers_per_token if so.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#ms022sspertoken-quota-saturated-warning"
