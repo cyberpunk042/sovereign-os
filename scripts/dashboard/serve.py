@@ -382,6 +382,23 @@ def card_capability_drops_queue() -> dict[str, Any]:
     }
 
 
+def card_apparmor_profile_pivots_queue() -> dict[str, Any]:
+    """SDD-077 MS5b — pending operator-restore queue for the selfdef
+    AppArmor live profile-pivot action layer. Thirteenth in the
+    IPS-tridectet paired-decision queue family (MAC policy axis).
+    Restore is queue-clear + audit only — AppArmor profile pivots
+    are one-way at the kernel level; operator must restart the
+    process under its original profile via the init system to
+    recover."""
+    cockpit_script = REPO_ROOT / "scripts" / "cockpit" / "apparmor-profile-pivots-queue.py"
+    data = _run_json_at(cockpit_script, []) or {"queue": [], "count": 0}
+    return {
+        "id": "apparmor-profile-pivots-queue",
+        "title": "SDD-077 — pending apparmor-profile-pivot restore decisions",
+        "data": data,
+    }
+
+
 def card_kernel_keyring_evictions_queue() -> dict[str, Any]:
     """SDD-076 MS5b — pending operator-restore queue for the selfdef
     kernel-keyring eviction action layer. Twelfth in the
@@ -1530,6 +1547,7 @@ CARDS = [
     card_env_scrubs_queue,
     card_capability_drops_queue,
     card_kernel_keyring_evictions_queue,
+    card_apparmor_profile_pivots_queue,
     card_gpu,
     card_network,
     card_cpu,

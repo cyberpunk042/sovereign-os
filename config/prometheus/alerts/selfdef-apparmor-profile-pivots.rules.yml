@@ -1,0 +1,94 @@
+# Selfdef SDD-077 AppArmor live profile-pivot Prometheus alerting rules.
+# Fires on textfile metrics from selfdef-apparmor-profile-pivots-textfile
+# (selfdef MS4a commit). Extends the IPS-duodectet observability set
+# to the tridectet — 31st sibling — at the MAC (Mandatory Access
+# Control) policy axis.
+
+groups:
+  - name: selfdef-apparmor-profile-pivots
+    interval: 30s
+    rules:
+
+      - alert: SelfdefApparmorProfilePivotsTextfileEmitFailed
+        expr: selfdef_apparmor_profile_pivots_textfile_emit_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-apparmor-profile-pivots
+          cd_link: observer-fault
+        annotations:
+          summary: "Selfdef apparmor-profile-pivots observer fault on {{ $labels.instance }}"
+          description: "Wrapper failure for 5+ minutes. SDD-077 enforcement visibility lost at the MAC policy axis."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefapparmorprofilepivotstextfileemitfailed-critical"
+
+      - alert: SelfdefApparmorProfilePivotsObserverSilent
+        expr: time() - selfdef_apparmor_profile_pivots_last_run_unix > 300
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-apparmor-profile-pivots
+          cd_link: observer-silent
+        annotations:
+          summary: "Selfdef apparmor-profile-pivots observer silent on {{ $labels.instance }}"
+          description: "Timer hasn't fired in 5+ minutes."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefapparmorprofilepivotsobserversilent-critical"
+
+      - alert: SelfdefApparmorProfilePivotsStateDirMissing
+        expr: selfdef_apparmor_profile_pivots_state_dir_present == 0
+        for: 10m
+        labels:
+          severity: critical
+          subsystem: selfdef-apparmor-profile-pivots
+          cd_link: state-dir-missing
+        annotations:
+          summary: "apparmor-profile-pivots state-dir absent on {{ $labels.instance }} — SDD-077 enforcement OFFLINE"
+          description: "/var/lib/selfdef/apparmor-profile-pivots not present for 10+ minutes. SDD-077 MAC-policy-axis IPS primitive cannot persist state. Operator action: systemctl status selfdefd && systemctl restart selfdefd."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefapparmorprofilepivotsstatedirmissing-critical"
+
+      - alert: SelfdefApparmorProfilePivotsPendingRestoreBacklog
+        expr: selfdef_apparmor_profile_pivots_pending_restores > 5
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: selfdef-apparmor-profile-pivots
+          cd_link: pending-backlog
+        annotations:
+          summary: "{{ $value }} pending apparmor-profile-pivot restore decisions on {{ $labels.instance }} for 30m"
+          description: "Operator engagement with the cockpit apparmor-profile-pivots-queue card needed. NOTE: AppArmor profile pivots are one-way at the kernel level — restore is queue-clear + audit only; operator must restart the process under its original profile via the init system to recover."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefapparmorprofilepivotspendingrestorebacklog-warning"
+
+      - alert: SelfdefApparmorProfilePivotsDeniedHigh
+        expr: selfdef_apparmor_profile_pivots_denied_count > 3
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: selfdef-apparmor-profile-pivots
+          cd_link: denied-high
+        annotations:
+          summary: "{{ $value }} Denied apparmor-profile-pivot handles on {{ $labels.instance }} for 30m"
+          description: "Multiple pivot requests targeted processes whose current profile forbids change_profile to the requested target. Likely rule misconfiguration or attempt to pivot already-strict processes. Operator review."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefapparmorprofilepivotsdeniedhigh-warning"
+
+      - alert: SelfdefApparmorProfilePivotsQuarantineStrictHigh
+        expr: selfdef_apparmor_profile_pivots_by_target_profile{profile="selfdef-quarantine-strict"} > 10
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: selfdef-apparmor-profile-pivots
+          cd_link: quarantine-strict-high
+        annotations:
+          summary: "{{ $value }} processes pivoted into selfdef-quarantine-strict on {{ $labels.instance }} for 30m — mass-containment event?"
+          description: "Per-target-profile breakdown shows many processes pivoted into selfdef-quarantine-strict simultaneously. Could indicate a wide-scope incident response or rule misfire. Investigate correlator events."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefapparmorprofilepivotsquarantinestricthigh-warning"
+
+      - alert: SelfdefApparmorProfilePivotsNoTargetHigh
+        expr: selfdef_apparmor_profile_pivots_no_target_count > 1
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: selfdef-apparmor-profile-pivots
+          cd_link: no-target-high
+        annotations:
+          summary: "{{ $value }} NoTarget apparmor-profile-pivot handles on {{ $labels.instance }} for 30m"
+          description: "Pivot requests reference profiles not loaded in the kernel. Operator should run `apparmor_status` to inventory loaded profiles and either load the missing profiles via `apparmor_parser` or update the rule configuration."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefapparmorprofilepivotsnotargethigh-warning"

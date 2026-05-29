@@ -716,6 +716,49 @@ def probe_capability_drops(metrics_url: str) -> dict[str, Any]:
     }
 
 
+def probe_apparmor_profile_pivots(metrics_url: str) -> dict[str, Any]:
+    metrics = _fetch_metrics(metrics_url)
+    if metrics is None:
+        return {"status": "unreachable", "summary": "node_exporter down"}
+    out = probe_textfile_observer(
+        metrics, "selfdef_apparmor_profile_pivots", "apparmor-profile-pivots",
+    )
+    if out["status"] != "OK":
+        return out
+    present = _gauge(metrics, "selfdef_apparmor_profile_pivots_state_dir_present")
+    active = _gauge(metrics, "selfdef_apparmor_profile_pivots_active_count")
+    denied = _gauge(metrics, "selfdef_apparmor_profile_pivots_denied_count")
+    no_target = _gauge(metrics, "selfdef_apparmor_profile_pivots_no_target_count")
+    stale = _gauge(metrics, "selfdef_apparmor_profile_pivots_stale_count")
+    pending = _gauge(metrics, "selfdef_apparmor_profile_pivots_pending_restores")
+    if present == 0:
+        return {"status": "FAIL",
+                "summary": "state-dir absent (SDD-077 enforcement OFFLINE)"}
+    if pending is not None and pending > 5:
+        return {"status": "WARN",
+                "summary": f"{int(pending)} pending apparmor-profile-pivot restore decisions"}
+    if denied is not None and denied > 3:
+        return {"status": "WARN",
+                "summary": f"{int(denied)} Denied handles — rule misconfig or stricter-profile review"}
+    if no_target is not None and no_target > 1:
+        return {"status": "WARN",
+                "summary": f"{int(no_target)} NoTarget handles — profile not loaded in kernel"}
+    if stale is not None and stale > 3:
+        return {"status": "WARN",
+                "summary": f"{int(stale)} Stale handles — pid-dies-before-write race"}
+    if active is not None and active > 10:
+        return {"status": "WARN",
+                "summary": f"{int(active)} active apparmor-profile-pivots > 10"}
+    return {
+        "status": "OK",
+        "summary": f"{int(active) if active is not None else 0} handles · "
+                   f"{int(denied) if denied is not None else 0} denied · "
+                   f"{int(no_target) if no_target is not None else 0} no-target · "
+                   f"{int(pending) if pending is not None else 0} pending · "
+                   "enforcement online",
+    }
+
+
 def probe_kernel_keyring_evictions(metrics_url: str) -> dict[str, Any]:
     metrics = _fetch_metrics(metrics_url)
     if metrics is None:
@@ -1057,6 +1100,7 @@ VERTICALS = (
     "process_tree_freezes", "socket_fd_revocations",
     "env_scrubs", "capability_drops",
     "kernel_keyring_evictions",
+    "apparmor_profile_pivots",
 )
 
 
@@ -1092,11 +1136,12 @@ def collect(args: argparse.Namespace) -> dict[str, dict[str, Any]]:
         "env_scrubs": probe_env_scrubs(args.node_exporter_url),
         "capability_drops": probe_capability_drops(args.node_exporter_url),
         "kernel_keyring_evictions": probe_kernel_keyring_evictions(args.node_exporter_url),
+        "apparmor_profile_pivots": probe_apparmor_profile_pivots(args.node_exporter_url),
     }
 
 
 def render_table(results: dict[str, dict[str, Any]]) -> str:
-    lines = ["sovereign-os observability status — 30 verticals",
+    lines = ["sovereign-os observability status — 31 verticals",
              f"{'─' * 22} {'─' * 60}"]
     for v in VERTICALS:
         r = results[v]
@@ -1134,6 +1179,7 @@ def render_table(results: dict[str, dict[str, Any]]) -> str:
             "env_scrubs":          "env-scrubs (SDD-074)",
             "capability_drops":    "capability-drops (SDD-075)",
             "kernel_keyring_evictions": "kernel-keyring-evictions (SDD-076)",
+            "apparmor_profile_pivots": "apparmor-profile-pivots (SDD-077)",
         }[v]
         lines.append(f"{label:<22} {marker}  {r['summary']}")
     lines.append(f"{'─' * 22} {'─' * 60}")
