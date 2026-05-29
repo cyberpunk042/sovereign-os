@@ -149,3 +149,42 @@ def test_partner_repo_cross_reference_present():
         "SHIPPED.md must reference its selfdef partner so operators "
         "reading one know the other exists"
     )
+
+
+def test_referenced_webapp_dirs_exist():
+    """Every `webapp/<name>` referenced in SHIPPED.md must correspond
+    to a real dir. Drift here would mean SHIPPED.md is claiming
+    production state that doesn't exist."""
+    text = _shipped_text()
+    webapp_pattern = re.compile(r"`webapp/([a-z0-9_-]+)`")
+    dirs = {m.group(1) for m in webapp_pattern.finditer(text)}
+    webapp_root = REPO_ROOT / "webapp"
+    if not webapp_root.is_dir():
+        return
+    available = {p.name for p in webapp_root.iterdir() if p.is_dir()}
+    missing = sorted(dirs - available)
+    assert not missing, (
+        f"SHIPPED.md references webapp dirs that don't exist: {missing}"
+    )
+
+
+def test_referenced_scripts_paths_exist():
+    """Every `scripts/<path>` referenced must exist on disk."""
+    text = _shipped_text()
+    scripts_pattern = re.compile(r"`(scripts/[\w/\-.]+)`")
+    paths = {m.group(1) for m in scripts_pattern.finditer(text)}
+    missing = sorted(p for p in paths if not (REPO_ROOT / p).exists())
+    assert not missing, (
+        f"SHIPPED.md references scripts paths that don't exist: {missing}"
+    )
+
+
+def test_referenced_config_paths_exist():
+    """Every `config/<path>` referenced must exist on disk."""
+    text = _shipped_text()
+    config_pattern = re.compile(r"`(config/[\w/\-.]+)`")
+    paths = {m.group(1) for m in config_pattern.finditer(text)}
+    missing = sorted(p for p in paths if not (REPO_ROOT / p).exists())
+    assert not missing, (
+        f"SHIPPED.md references config paths that don't exist: {missing}"
+    )
