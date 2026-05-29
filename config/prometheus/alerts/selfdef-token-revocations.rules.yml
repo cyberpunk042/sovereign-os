@@ -1,0 +1,88 @@
+# Selfdef SDD-068 API/web-token revocation Prometheus alerting rules.
+#
+# Fires on textfile metrics shipped by selfdef-token-revocations-
+# textfile.{service,timer} (selfdef commit `24ebd58`, merged at
+# `251b10f6` via selfdef#205). SDD-068 spec at selfdef commit
+# `d2c3f74` (merged via #202 `a21dc931`).
+#
+# Completes the IPS-quartet observability set:
+#   SDD-065 blockset + SDD-066 quarantine + SDD-067 revocations +
+#   SDD-068 token-revocations.
+
+groups:
+  - name: selfdef-token-revocations
+    interval: 30s
+    rules:
+
+      - alert: SelfdefTokenRevocationsTextfileEmitFailed
+        expr: selfdef_token_revocations_textfile_emit_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-token-revocations
+          token_revocations_link: observer-fault
+        annotations:
+          summary: "Selfdef token-revocations observer fault on {{ $labels.instance }}"
+          description: >
+            Wrapper failure for 5+ minutes. SDD-068 enforcement
+            visibility lost.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdeftokenrevocationstextfileemitfailed-critical"
+
+      - alert: SelfdefTokenRevocationsObserverSilent
+        expr: time() - selfdef_token_revocations_last_run_unix > 300
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-token-revocations
+          token_revocations_link: observer-silent
+        annotations:
+          summary: "Selfdef token-revocations observer silent on {{ $labels.instance }}"
+          description: >
+            Timer hasn't fired in 5+ minutes. SDD-068 state stale.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdeftokenrevocationsobserversilent-critical"
+
+      - alert: SelfdefTokenRevocationsStateDirMissing
+        expr: selfdef_token_revocations_state_dir_present == 0
+        for: 10m
+        labels:
+          severity: critical
+          subsystem: selfdef-token-revocations
+          token_revocations_link: state-dir-missing
+        annotations:
+          summary: "selfdef token-revocations state-dir absent on {{ $labels.instance }} — SDD-068 enforcement OFFLINE"
+          description: >
+            /var/lib/selfdef/token-revocations not present for 10+
+            minutes. SDD-068 API/web-token revocation cannot persist
+            state; revoke-tokens calls cannot land. Operator action:
+            systemctl status selfdefd && systemctl restart selfdefd.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdeftokenrevocationsstatedirmissing-critical"
+
+      - alert: SelfdefTokenRevocationsPendingRestoreBacklog
+        expr: selfdef_token_revocations_pending_restores > 5
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: selfdef-token-revocations
+          token_revocations_link: pending-backlog
+        annotations:
+          summary: "{{ $value }} pending token-restore decisions on {{ $labels.instance }} for 30m"
+          description: >
+            More than 5 pending operator-restore decisions sustained
+            30+ minutes. Operator engagement with the cockpit
+            token-revocations-queue card needed.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdeftokenrevocationspendingrestorebacklog-warning"
+
+      - alert: SelfdefTokenRevocationsActiveHigh
+        expr: selfdef_token_revocations_active_count > 10
+        for: 1h
+        labels:
+          severity: warning
+          subsystem: selfdef-token-revocations
+          token_revocations_link: active-high
+        annotations:
+          summary: "{{ $value }} active token revocations on {{ $labels.instance }} for 1h"
+          description: >
+            More than 10 active token-revocations sustained 1+ hour.
+            Likely incident-response scenario or correlator
+            misconfig. Investigate.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdeftokenrevocationsactivehigh-warning"
