@@ -1,0 +1,97 @@
+{
+  "_comment": "sovereign-os selfdef time-sync dashboard. Visualizes selfdef_time_sync_* gauges (selfdef commit 36d1c8f). Pairs with 6 alerts. Clock-drift detection — audit-trail timestamp integrity surveillance.",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "operator runbook", "url": "/d/sovereign-os-selfdef-time-sync#runbook", "type": "link", "icon": "doc"},
+    {"title": "producer source", "url": "https://github.com/cyberpunk042/selfdef/blob/main/packaging/scripts/selfdef-time-sync-textfile.sh", "type": "link", "icon": "external link"},
+    {"title": "deployment guide", "url": "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdeftimesyncnotsynced-critical", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "clock synced",
+      "description": "Is system clock synchronized? Red at 0 = NOT synced (audit-trail timestamps unreliable).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_time_sync_synced", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "mappings": [{"type": "value", "options": {"0": {"text": "NOT SYNCED"}, "1": {"text": "SYNCED"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "green", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "NTP active",
+      "description": "Is NTP service active? Red at 0 = sync will drift.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_time_sync_ntp_active", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "mappings": [{"type": "value", "options": {"0": {"text": "INACTIVE"}, "1": {"text": "ACTIVE"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "green", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "RTC drift (s)",
+      "description": "Absolute RTC vs system drift in seconds. Yellow at 60s = correlation degraded.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_time_sync_drift_seconds", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "s", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 60}, {"color": "red", "value": 600}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "observer emit-failed",
+      "description": "Honest-offline sentinel.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_time_sync_textfile_emit_failed", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "mappings": [{"type": "value", "options": {"0": {"text": "OK"}, "1": {"text": "FAILED"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "sync + NTP + RTC TZ state over time",
+      "description": "All 3 binary state gauges over time. Drops to 0 on any line = operator action required.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_time_sync_synced", "refId": "A", "legendFormat": "synced"},
+        {"expr": "selfdef_time_sync_ntp_active", "refId": "B", "legendFormat": "NTP active"},
+        {"expr": "selfdef_time_sync_rtc_local_tz", "refId": "C", "legendFormat": "RTC local TZ (hazard)"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 30}}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "RTC drift over time (with 60s threshold)",
+      "description": "Absolute drift trajectory. Yellow at 60s matches DriftHigh alert.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_time_sync_drift_seconds", "refId": "A", "legendFormat": "{{instance}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "s", "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 30}, "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 60}, {"color": "red", "value": 600}]}}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "observer-freshness — emit-failed sentinel",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_time_sync_textfile_emit_failed", "refId": "A", "legendFormat": "{{instance}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 50}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 7, "w": 24, "x": 0, "y": 12}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["sovereign-os", "selfdef", "time-sync", "IPS-spine", "observability"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {},
+  "timezone": "",
+  "title": "sovereign-os — selfdef time sync (clock-drift detection)",
+  "uid": "sovereign-os-selfdef-time-sync",
+  "version": 1,
+  "weekStart": ""
+}

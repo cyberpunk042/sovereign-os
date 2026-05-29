@@ -18,7 +18,7 @@ SOVEREIGN_OSCTL = REPO_ROOT / "scripts" / "sovereign-osctl"
 CANONICAL_VERTICALS = ("m060", "ms022", "four_watchdog",
                        "modules", "daemon_process", "apparmor",
                        "auth_events", "systemd_units",
-                       "listening_sockets", "disk_usage")
+                       "listening_sockets", "disk_usage", "time_sync")
 
 
 def _load_module():
@@ -66,9 +66,42 @@ def test_probe_functions_exist():
         "probe_m060", "probe_ms022", "probe_four_watchdog",
         "probe_modules_catalog", "probe_daemon_process", "probe_apparmor",
         "probe_auth_events", "probe_systemd_units", "probe_listening_sockets",
-        "probe_disk_usage",
+        "probe_disk_usage", "probe_time_sync",
     ):
         assert hasattr(mod, fn), f"missing probe function {fn}"
+
+
+def test_time_sync_probe_detects_not_synced():
+    mod = _load_module()
+    import time as _t
+    now = int(_t.time())
+    fake = (
+        "selfdef_time_sync_textfile_emit_failed 0\n"
+        f"selfdef_time_sync_last_run_unix {now}\n"
+        "selfdef_time_sync_synced 0\n"
+        "selfdef_time_sync_ntp_active 1\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_time_sync("http://localhost:9100/metrics")
+    assert out["status"] == "FAIL"
+    assert "synced" in out["summary"].lower()
+
+
+def test_time_sync_probe_detects_drift_high():
+    mod = _load_module()
+    import time as _t
+    now = int(_t.time())
+    fake = (
+        "selfdef_time_sync_textfile_emit_failed 0\n"
+        f"selfdef_time_sync_last_run_unix {now}\n"
+        "selfdef_time_sync_synced 1\n"
+        "selfdef_time_sync_ntp_active 1\n"
+        "selfdef_time_sync_drift_seconds 120\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_time_sync("http://localhost:9100/metrics")
+    assert out["status"] == "WARN"
+    assert "drift" in out["summary"].lower()
 
 
 def test_disk_usage_probe_detects_var_high():

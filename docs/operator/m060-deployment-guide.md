@@ -1402,6 +1402,85 @@ sudo /usr/sbin/logrotate -fv /etc/logrotate.d/selfdef
 sudo sed -i 's/rotate [0-9]\+/rotate 7/' /etc/logrotate.d/selfdef
 ```
 
+#### SelfdefTimeSyncTextfileEmitFailed (critical)
+
+**Diagnosis:**
+
+```bash
+systemctl status selfdef-time-sync-textfile.service
+which timedatectl
+timedatectl status
+```
+
+**Fix:** if timedatectl is missing, install systemd via the host's
+package manager.
+
+#### SelfdefTimeSyncObserverSilent (critical)
+
+Same shape as the other observer-silent runbooks.
+
+#### SelfdefTimeSyncNotSynced (critical)
+
+**Meaning:** `selfdef_time_sync_synced == 0` for 10+ minutes —
+audit-trail timestamps silently unreliable.
+
+**Diagnosis:**
+
+```bash
+timedatectl status
+journalctl -u systemd-timesyncd --since '1 hour ago' | tail
+journalctl -u chronyd --since '1 hour ago' | tail
+```
+
+**Fix:**
+
+```bash
+sudo timedatectl set-ntp true
+sudo systemctl enable --now systemd-timesyncd
+# OR if using chronyd:
+sudo systemctl enable --now chronyd
+sudo chronyc makestep
+```
+
+#### SelfdefTimeSyncNtpInactive (critical)
+
+**Fix:**
+
+```bash
+sudo systemctl enable --now systemd-timesyncd
+# OR
+sudo systemctl enable --now chronyd
+```
+
+#### SelfdefTimeSyncDriftHigh (warning)
+
+**Meaning:** RTC vs system drift > 60 seconds.
+
+**Diagnosis:**
+
+```bash
+sudo hwclock --show
+date
+timedatectl status
+```
+
+**Fix:**
+
+```bash
+sudo hwclock --systohc   # Sync RTC to system (if system canonical)
+sudo hwclock --hctosys   # Sync system to RTC (if RTC canonical)
+```
+
+#### SelfdefTimeSyncRtcLocalTz (warning)
+
+**Meaning:** RTC in local TZ — DST transitions break correlation.
+
+**Fix:**
+
+```bash
+sudo timedatectl set-local-rtc 0   # UTC = secure default
+```
+
 ## Project-boundary discipline (MS043 R10212)
 
 - IPS state mutation lives in **selfdef only** (selfdefd + selfdefctl +

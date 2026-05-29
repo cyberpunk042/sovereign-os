@@ -376,13 +376,50 @@ def probe_disk_usage(metrics_url: str) -> dict[str, Any]:
     }
 
 
+def probe_time_sync(metrics_url: str) -> dict[str, Any]:
+    metrics = _fetch_metrics(metrics_url)
+    if metrics is None:
+        return {"status": "unreachable", "summary": "node_exporter down"}
+    out = probe_textfile_observer(metrics, "selfdef_time_sync", "time-sync")
+    if out["status"] != "OK":
+        return out
+    synced = _gauge(metrics, "selfdef_time_sync_synced")
+    ntp_active = _gauge(metrics, "selfdef_time_sync_ntp_active")
+    drift = _gauge(metrics, "selfdef_time_sync_drift_seconds")
+    rtc_local = _gauge(metrics, "selfdef_time_sync_rtc_local_tz")
+    if synced == 0:
+        return {
+            "status": "FAIL",
+            "summary": "NOT synced (audit timestamps unreliable)",
+        }
+    if ntp_active == 0:
+        return {
+            "status": "FAIL",
+            "summary": "NTP service inactive (sync will drift)",
+        }
+    if drift is not None and drift > 60:
+        return {
+            "status": "WARN",
+            "summary": f"drift {int(drift)}s > 60",
+        }
+    if rtc_local == 1:
+        return {
+            "status": "WARN",
+            "summary": "RTC in local TZ (DST hazard)",
+        }
+    return {
+        "status": "OK",
+        "summary": f"synced · drift {int(drift) if drift is not None else '?'}s",
+    }
+
+
 # ── Aggregation + rendering ──────────────────────────────────────────
 
 VERTICALS = (
     "m060", "ms022", "four_watchdog",
     "modules", "daemon_process", "apparmor",
     "auth_events", "systemd_units", "listening_sockets",
-    "disk_usage",
+    "disk_usage", "time_sync",
 )
 
 
@@ -398,11 +435,12 @@ def collect(args: argparse.Namespace) -> dict[str, dict[str, Any]]:
         "systemd_units": probe_systemd_units(args.node_exporter_url),
         "listening_sockets": probe_listening_sockets(args.node_exporter_url),
         "disk_usage":    probe_disk_usage(args.node_exporter_url),
+        "time_sync":     probe_time_sync(args.node_exporter_url),
     }
 
 
 def render_table(results: dict[str, dict[str, Any]]) -> str:
-    lines = ["sovereign-os observability status — 10 verticals",
+    lines = ["sovereign-os observability status — 11 verticals",
              f"{'─' * 22} {'─' * 60}"]
     for v in VERTICALS:
         r = results[v]
@@ -420,6 +458,7 @@ def render_table(results: dict[str, dict[str, Any]]) -> str:
             "systemd_units":     "systemd-units",
             "listening_sockets": "listening-sockets",
             "disk_usage":        "disk-usage",
+            "time_sync":         "time-sync",
         }[v]
         lines.append(f"{label:<22} {marker}  {r['summary']}")
     lines.append(f"{'─' * 22} {'─' * 60}")

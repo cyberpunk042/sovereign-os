@@ -129,3 +129,10 @@ def test_rule_group_interval_30s():
 
 def test_rules_cite_selfdef_producer_commit():
     assert "36d1c8f" in RULES_PATH.read_text()
+
+
+def test_runbook_sections_present_for_every_alert():
+    guide = REPO_ROOT / "docs" / "operator" / "m060-deployment-guide.md"
+    body = guide.read_text()
+    for name in REQUIRED_ALERTS:
+        assert f"#### {name}" in body, f"missing #### {name}"
