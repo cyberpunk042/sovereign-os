@@ -1,0 +1,122 @@
+{
+  "_comment": "sovereign-os selfdef module-catalog dashboard. Visualizes the selfdef-side selfdef_modules_* gauges shipped via the selfdef-modules-textfile.{service,timer} pair (selfdef commits 1ce88c7 + b2f2e20) into node_exporter's textfile_collector. Pairs with the 3 alert rules (SelfdefModulesTextfileEmitFailed/ObserverSilent/CountLow) in config/prometheus/alerts/selfdef-modules-catalog.rules.yml and the runbook sections in docs/operator/m060-deployment-guide.md. The selfdef module catalog is a load-bearing IPS surface (188+ modules at install time covering hardening/observability/etc categories). Operator imports into Grafana via Settings → JSON Model. Project boundary R10212: pure observability — no mutation surface.",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "operator runbook (sovereign-os)", "url": "/d/sovereign-os-selfdef-modules#runbook", "type": "link", "icon": "doc"},
+    {"title": "producer source (selfdef modules observer)", "url": "https://github.com/cyberpunk042/selfdef/blob/main/packaging/scripts/selfdef-modules-textfile.sh", "type": "link", "icon": "external link"},
+    {"title": "deployment guide — module-catalog runbooks", "url": "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefmodulestextfileemitfailed-critical", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "total modules in catalog",
+      "description": "Rollup count of all selfdef modules currently catalogued under /usr/share/selfdef/modules/. selfdef ships 188+ modules at install time; a count below 100 triggers the SelfdefModulesCountLow alert.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_modules_total", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "yellow", "value": 100}, {"color": "green", "value": 150}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "observer age (s)",
+      "description": "Seconds since the selfdef-modules-textfile.timer last fired. Red at 300s (matches the SelfdefModulesObserverSilent alert threshold + the M060 chain + four-watchdog observer-silent thresholds — locked across all 3 observability verticals via cross-surface contract).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "time() - selfdef_modules_last_run_unix", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "s", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 120}, {"color": "red", "value": 300}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "categories tracked",
+      "description": "Distinct module categories the observer has emitted in this scrape window. Healthy installs surface multiple categories (hardening / observability / etc); a sudden drop to 0 means the observer is wedged.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "count(group by (category) (selfdef_modules_by_category))", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "yellow", "value": 1}, {"color": "green", "value": 3}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "observer emit-failed",
+      "description": "Honest-offline sentinel. 1 = the wrapper failed to emit fresh gauges (selfdefctl absent / jq absent / daemon unreachable / malformed JSON). When this is 1, do NOT trust the other gauges — they are STALE. Drives the SelfdefModulesTextfileEmitFailed alert and takes precedence over rollup alerts.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_modules_textfile_emit_failed", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "mappings": [{"type": "value", "options": {"0": {"text": "OK"}, "1": {"text": "FAILED"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "modules by category over time",
+      "description": "One series per module category (hardening / observability / etc). Operators see drift in real-time — a hardening category dropping silently weakens the IPS spine and is page-worthy. Legend formats with the category label for direct identification.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_modules_by_category", "refId": "A", "legendFormat": "{{category}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 30, "stacking": {"mode": "normal", "group": "A"}}}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "total modules over time (with low-floor threshold)",
+      "description": "Rollup count of total modules over time. Red threshold step at value=100 matches the SelfdefModulesCountLow alert floor. A drop below this line indicates an installation problem (incomplete deb / corrupted modules dir).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_modules_total", "refId": "A", "legendFormat": "{{instance}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 30}, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "yellow", "value": 100}, {"color": "green", "value": 150}]}}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+    },
+    {
+      "type": "table",
+      "title": "current per-category breakdown",
+      "description": "Live triage table. One row per module category with the current count. Sort by count descending to surface the largest categories first. Drift on the hardening / observability rows is operator-actionable.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_modules_by_category", "refId": "A", "format": "table", "instant": true}
+      ],
+      "transformations": [
+        {"id": "organize", "options": {"excludeByName": {"Time": true, "__name__": true, "job": true}, "renameByName": {"category": "category", "instance": "host", "Value": "count"}, "indexByName": {"host": 0, "category": 1, "count": 2}}}
+      ],
+      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 12}
+    },
+    {
+      "type": "table",
+      "title": "current per-phase breakdown",
+      "description": "Live triage table by install phase (pre / main / post). The 3 install phases govern boot-order dependencies — a `pre` phase module dropping silently breaks downstream `main` and `post` phase modules.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_modules_by_phase", "refId": "A", "format": "table", "instant": true}
+      ],
+      "transformations": [
+        {"id": "organize", "options": {"excludeByName": {"Time": true, "__name__": true, "job": true}, "renameByName": {"phase": "phase", "instance": "host", "Value": "count"}, "indexByName": {"host": 0, "phase": 1, "count": 2}}}
+      ],
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 12}
+    },
+    {
+      "type": "timeseries",
+      "title": "observer-freshness — emit-failed sentinel over time",
+      "description": "The honest-offline sentinel gauge. Red bands mark wedged-wrapper windows when the operator MUST NOT trust the other gauges. Pairs with the SelfdefModulesTextfileEmitFailed alert (5m for-window).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_modules_textfile_emit_failed", "refId": "A", "legendFormat": "{{instance}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 50}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 7, "w": 24, "x": 0, "y": 21}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["sovereign-os", "selfdef", "modules-catalog", "observability"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {},
+  "timezone": "",
+  "title": "sovereign-os — selfdef module-catalog",
+  "uid": "sovereign-os-selfdef-modules",
+  "version": 1,
+  "weekStart": ""
+}
