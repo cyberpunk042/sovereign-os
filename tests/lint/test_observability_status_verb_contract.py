@@ -17,7 +17,8 @@ SOVEREIGN_OSCTL = REPO_ROOT / "scripts" / "sovereign-osctl"
 
 CANONICAL_VERTICALS = ("m060", "ms022", "four_watchdog",
                        "modules", "daemon_process", "apparmor",
-                       "auth_events", "systemd_units")
+                       "auth_events", "systemd_units",
+                       "listening_sockets")
 
 
 def _load_module():
@@ -64,9 +65,43 @@ def test_probe_functions_exist():
     for fn in (
         "probe_m060", "probe_ms022", "probe_four_watchdog",
         "probe_modules_catalog", "probe_daemon_process", "probe_apparmor",
-        "probe_auth_events", "probe_systemd_units",
+        "probe_auth_events", "probe_systemd_units", "probe_listening_sockets",
     ):
         assert hasattr(mod, fn), f"missing probe function {fn}"
+
+
+def test_listening_sockets_probe_detects_zero_tcp():
+    mod = _load_module()
+    import time as _t
+    now = int(_t.time())
+    fake = (
+        "selfdef_listening_sockets_textfile_emit_failed 0\n"
+        f"selfdef_listening_sockets_last_run_unix {now}\n"
+        "selfdef_listening_sockets_tcp 0\n"
+        "selfdef_listening_sockets_tcp6 0\n"
+        "selfdef_listening_sockets_total 0\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_listening_sockets("http://localhost:9100/metrics")
+    assert out["status"] == "FAIL"
+    assert "wedged" in out["summary"]
+
+
+def test_listening_sockets_probe_detects_tcp_high():
+    mod = _load_module()
+    import time as _t
+    now = int(_t.time())
+    fake = (
+        "selfdef_listening_sockets_textfile_emit_failed 0\n"
+        f"selfdef_listening_sockets_last_run_unix {now}\n"
+        "selfdef_listening_sockets_tcp 25\n"
+        "selfdef_listening_sockets_tcp6 0\n"
+        "selfdef_listening_sockets_total 25\n"
+    )
+    with patch.object(mod, "_fetch_metrics", return_value=fake):
+        out = mod.probe_listening_sockets("http://localhost:9100/metrics")
+    assert out["status"] == "WARN"
+    assert "ss -ltn" in out["summary"]
 
 
 def test_auth_events_probe_detects_brute_force():

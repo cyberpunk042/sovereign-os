@@ -317,12 +317,41 @@ def probe_systemd_units(metrics_url: str) -> dict[str, Any]:
     }
 
 
+def probe_listening_sockets(metrics_url: str) -> dict[str, Any]:
+    metrics = _fetch_metrics(metrics_url)
+    if metrics is None:
+        return {"status": "unreachable", "summary": "node_exporter down"}
+    out = probe_textfile_observer(
+        metrics, "selfdef_listening_sockets", "listening-sockets",
+    )
+    if out["status"] != "OK":
+        return out
+    tcp = _gauge(metrics, "selfdef_listening_sockets_tcp")
+    tcp6 = _gauge(metrics, "selfdef_listening_sockets_tcp6")
+    total = _gauge(metrics, "selfdef_listening_sockets_total")
+    tcp_combined = (tcp or 0) + (tcp6 or 0)
+    if tcp_combined < 1:
+        return {
+            "status": "FAIL",
+            "summary": "0 TCP listeners (selfdefd wedged?)",
+        }
+    if tcp_combined > 20:
+        return {
+            "status": "WARN",
+            "summary": f"{int(tcp_combined)} TCP listeners > 20 (run ss -ltn)",
+        }
+    return {
+        "status": "OK",
+        "summary": f"{int(tcp_combined)} TCP listeners · {int(total) if total is not None else '?'} total",
+    }
+
+
 # ── Aggregation + rendering ──────────────────────────────────────────
 
 VERTICALS = (
     "m060", "ms022", "four_watchdog",
     "modules", "daemon_process", "apparmor",
-    "auth_events", "systemd_units",
+    "auth_events", "systemd_units", "listening_sockets",
 )
 
 
@@ -336,11 +365,12 @@ def collect(args: argparse.Namespace) -> dict[str, dict[str, Any]]:
         "apparmor":      probe_apparmor(args.node_exporter_url),
         "auth_events":   probe_auth_events(args.node_exporter_url),
         "systemd_units": probe_systemd_units(args.node_exporter_url),
+        "listening_sockets": probe_listening_sockets(args.node_exporter_url),
     }
 
 
 def render_table(results: dict[str, dict[str, Any]]) -> str:
-    lines = ["sovereign-os observability status — 8 verticals",
+    lines = ["sovereign-os observability status — 9 verticals",
              f"{'─' * 22} {'─' * 60}"]
     for v in VERTICALS:
         r = results[v]
@@ -348,14 +378,15 @@ def render_table(results: dict[str, dict[str, Any]]) -> str:
         marker = {"OK": "OK    ", "WARN": "WARN  ", "FAIL": "FAIL  ",
                   "unreachable": "UNREACH"}.get(status, "?     ")
         label = {
-            "m060":           "M060 chain-health",
-            "ms022":          "MS022 SSE quota",
-            "four_watchdog":  "four-watchdog (IPS)",
-            "modules":        "modules-catalog",
-            "daemon_process": "daemon-process",
-            "apparmor":       "AppArmor",
-            "auth_events":    "auth-events",
-            "systemd_units":  "systemd-units",
+            "m060":              "M060 chain-health",
+            "ms022":             "MS022 SSE quota",
+            "four_watchdog":     "four-watchdog (IPS)",
+            "modules":           "modules-catalog",
+            "daemon_process":    "daemon-process",
+            "apparmor":          "AppArmor",
+            "auth_events":       "auth-events",
+            "systemd_units":     "systemd-units",
+            "listening_sockets": "listening-sockets",
         }[v]
         lines.append(f"{label:<22} {marker}  {r['summary']}")
     lines.append(f"{'─' * 22} {'─' * 60}")
