@@ -301,6 +301,18 @@ def card_mfa_grant_revocations_queue() -> dict[str, Any]:
     }
 
 
+def card_netns_isolations_queue() -> dict[str, Any]:
+    """SDD-070 MS5b — pending operator-release queue for the
+    selfdef netns-isolation action layer. Sixth in the IPS-hexet
+    paired-decision queue family (kernel-containment axis)."""
+    cockpit_script = REPO_ROOT / "scripts" / "cockpit" / "netns-isolations-queue.py"
+    data = _run_json_at(cockpit_script, []) or {"queue": [], "count": 0}
+    return {
+        "id": "netns-isolations-queue",
+        "title": "SDD-070 — pending netns-isolation release decisions",
+        "data": data,
+    }
+
 
 def card_flex() -> dict[str, Any]:
     """R224 Z-3 — profile-flex show JSON."""
@@ -1426,6 +1438,7 @@ CARDS = [
     card_revocations_queue,
     card_token_revocations_queue,
     card_mfa_grant_revocations_queue,
+    card_netns_isolations_queue,
     card_gpu,
     card_network,
     card_cpu,
