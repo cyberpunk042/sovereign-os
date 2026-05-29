@@ -288,6 +288,19 @@ def card_token_revocations_queue() -> dict[str, Any]:
     }
 
 
+def card_mfa_grant_revocations_queue() -> dict[str, Any]:
+    """SDD-069 MS5b — pending operator-restore queue for the
+    selfdef MFA-grant revocation action layer. Fifth and final in
+    the IPS-pentet paired-decision queue family."""
+    cockpit_script = REPO_ROOT / "scripts" / "cockpit" / "mfa-grant-revocations-queue.py"
+    data = _run_json_at(cockpit_script, []) or {"queue": [], "count": 0}
+    return {
+        "id": "mfa-grant-revocations-queue",
+        "title": "SDD-069 — pending MFA-grant revocation restore decisions",
+        "data": data,
+    }
+
+
 
 def card_flex() -> dict[str, Any]:
     """R224 Z-3 — profile-flex show JSON."""
@@ -1412,6 +1425,7 @@ CARDS = [
     card_quarantine_queue,
     card_revocations_queue,
     card_token_revocations_queue,
+    card_mfa_grant_revocations_queue,
     card_gpu,
     card_network,
     card_cpu,

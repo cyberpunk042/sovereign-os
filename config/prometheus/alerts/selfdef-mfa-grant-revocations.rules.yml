@@ -1,0 +1,69 @@
+# Selfdef SDD-069 MFA-grant revocation Prometheus alerting rules.
+# Fires on textfile metrics from selfdef-mfa-grant-revocations-
+# textfile (selfdef ~MS4a commit). Completes the IPS-pentet
+# observability set with the prior 19th/20th/21st/22nd siblings.
+
+groups:
+  - name: selfdef-mfa-grant-revocations
+    interval: 30s
+    rules:
+
+      - alert: SelfdefMfaGrantRevocationsTextfileEmitFailed
+        expr: selfdef_mfa_grant_revocations_textfile_emit_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-mfa-grant-revocations
+          mfa_link: observer-fault
+        annotations:
+          summary: "Selfdef MFA-grant revocations observer fault on {{ $labels.instance }}"
+          description: "Wrapper failure for 5+ minutes. SDD-069 enforcement visibility lost."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefmfagrantrevocationstextfileemitfailed-critical"
+
+      - alert: SelfdefMfaGrantRevocationsObserverSilent
+        expr: time() - selfdef_mfa_grant_revocations_last_run_unix > 300
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-mfa-grant-revocations
+          mfa_link: observer-silent
+        annotations:
+          summary: "Selfdef MFA-grant revocations observer silent on {{ $labels.instance }}"
+          description: "Timer hasn't fired in 5+ minutes."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefmfagrantrevocationsobserversilent-critical"
+
+      - alert: SelfdefMfaGrantRevocationsStateDirMissing
+        expr: selfdef_mfa_grant_revocations_state_dir_present == 0
+        for: 10m
+        labels:
+          severity: critical
+          subsystem: selfdef-mfa-grant-revocations
+          mfa_link: state-dir-missing
+        annotations:
+          summary: "MFA-grant revocations state-dir absent on {{ $labels.instance }} — SDD-069 enforcement OFFLINE"
+          description: "/var/lib/selfdef/mfa-grant-revocations not present for 10+ minutes. SDD-069 MFA-grant revocation cannot persist state. Operator action: systemctl status selfdefd && systemctl restart selfdefd."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefmfagrantrevocationsstatedirmissing-critical"
+
+      - alert: SelfdefMfaGrantRevocationsPendingRestoreBacklog
+        expr: selfdef_mfa_grant_revocations_pending_restores > 5
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: selfdef-mfa-grant-revocations
+          mfa_link: pending-backlog
+        annotations:
+          summary: "{{ $value }} pending MFA-grant restore decisions on {{ $labels.instance }} for 30m"
+          description: "Operator engagement with the cockpit mfa-grant-revocations-queue card needed."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefmfagrantrevocationspendingrestorebacklog-warning"
+
+      - alert: SelfdefMfaGrantRevocationsActiveHigh
+        expr: selfdef_mfa_grant_revocations_active_count > 10
+        for: 1h
+        labels:
+          severity: warning
+          subsystem: selfdef-mfa-grant-revocations
+          mfa_link: active-high
+        annotations:
+          summary: "{{ $value }} active MFA-grant revocations on {{ $labels.instance }} for 1h"
+          description: "Likely incident-response scenario."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefmfagrantrevocationsactivehigh-warning"
