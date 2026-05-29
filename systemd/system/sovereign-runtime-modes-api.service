@@ -1,0 +1,65 @@
+[Unit]
+Description=Sovereign runtime-modes read-only API host (M076 three-profile cockpit)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/runtime-modes-api.py
+# OPERATOR COCKPIT BACKEND — serves the 3 M076 runtime profile
+# manifests (profiles/runtime/{ultra-sovereign-efficiency,
+# high-concurrency-burst,deep-context-synthesis}.yaml — catalogued in
+# backlog/SHIPPED.md M076 section, commit 999c133) as JSON for the
+# /runtime-modes/ webapp dashboard.
+#
+# READ-ONLY (R10212): this proxy NEVER mutates the on-disk YAMLs or
+# the runtime state. The operator selects a mode via the existing
+# `selfdefctl modules apply` path on the IPS host.
+#
+# After= ordering matches sibling proxy units (sovereign-m060-health-api,
+# sovereign-ms022-sse-quota-api, sovereign-four-watchdog-api).
+
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/runtime-modes-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default. Operators exposing beyond loopback drop:
+#   /etc/systemd/system/sovereign-runtime-modes-api.service.d/bind.conf
+# with [Service] Environment=RUNTIME_MODES_API_BIND=0.0.0.0
+Environment=RUNTIME_MODES_API_BIND=127.0.0.1
+# Port 7713 — the next sovereign-os api port above 7712
+# (four-watchdog-api). Operator overrides via Environment=
+# RUNTIME_MODES_API_PORT in a drop-in.
+Environment=RUNTIME_MODES_API_PORT=7713
+
+# Profile manifest directory — defaults to the dpkg install path.
+# Operator override via a drop-in if profiles live elsewhere.
+Environment=SOVEREIGN_OS_PROFILES_RUNTIME_DIR=/usr/share/sovereign-os/profiles/runtime
+# Active-mode marker file — written by `selfdefctl modules apply`
+# on the IPS host (mutation path lives there per R10212).
+Environment=SOVEREIGN_OS_ACTIVE_RUNTIME_MODE_MARKER=/run/sovereign-os/active-runtime-mode
+
+# R171 defense-in-depth (same posture as sibling proxy units).
+# Read-only HTTP surface; no filesystem mutation surface so no
+# ReadWritePaths needed.
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target
