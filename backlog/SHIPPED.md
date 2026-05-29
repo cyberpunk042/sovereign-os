@@ -159,11 +159,156 @@ The codebase carries substantial production state from prior development. This s
 | Runtime crate | `crates/sovereign-holderpo/` — Hölder-mean aggregator (p ∈ ℝ with geom/arith/quad/max/min limits verified) + 4 anneal schedules (Constant/Linear/Cosine/Step) + GRPO group-relative advantages with optional std normalisation (17 passing tests, per `context.md` 2026-05-19) |
 | Catalogue | per `backlog/notes/external-research-ingestion-2026-05-19.md` |
 
+### M012 — Storage and replay plane
+
+| Surface | Shipped artifact |
+|---|---|
+| Replay runtime crates | `crates/sovereign-replay-bookmark-set/`, `crates/sovereign-replay-cursor/`, `crates/sovereign-replay-export-bundle/`, `crates/sovereign-replay-playback-rate/` — the 4-crate replay-plane family covering bookmark management, playback cursor, export-bundle assembly, and replay-rate control |
+| Conversation thread + fork | `crates/sovereign-conversation-thread/`, `crates/sovereign-conversation-fork-event/`, `crates/sovereign-conversation-search-index/` — replay's upstream substrate (the conversation history thread + branching events + search index) |
+
+### M017 — Model portfolio strategy
+
+| Surface | Shipped artifact |
+|---|---|
+| Provider catalog | `crates/sovereign-provider-catalog/` — catalogue of model providers (selfdef-local + Anthropic + OpenAI remote) the gateway routes across |
+
+### M025 — Cognitive Compiler — intent to DAG
+
+| Surface | Shipped artifact |
+|---|---|
+| Cognitive compiler crate | `crates/sovereign-cognitive-compiler/` — intent-to-DAG compilation surface |
+
+### M028 — Memory OS — 8 memory types
+
+| Surface | Shipped artifact |
+|---|---|
+| Memory OS crate (cross-referenced from M014) | `crates/sovereign-memory-os/` — 8 memory type variants per the M028 catalogue (M014 shipped the substrate; M028 catalogues the 8-type structure on top of it) |
+| Pressure sensors | `crates/sovereign-pressure-sensors/` — memory pressure observability feeding back into routing decisions |
+| Environment maps | `crates/sovereign-environment-maps/` — environment-aware memory layout |
+
+### M033 — Compatibility Gateway
+
+| Surface | Shipped artifact |
+|---|---|
+| Gateway crate | `crates/sovereign-gateway/` — the surface that exposes sovereign-os to external clients (Anthropic / OpenAI compatibility shim) |
+| Prompt template registry | `crates/sovereign-prompt-template-registry/`, `crates/sovereign-prompt-history-ring/`, `crates/sovereign-prompt-rationale/` — prompt substrate the gateway routes |
+
+### M037 — Spec / TDD / agent evals
+
+| Surface | Shipped artifact |
+|---|---|
+| Eval plane | `crates/sovereign-eval-plane/`, `crates/sovereign-eval-result-summary/`, `crates/sovereign-eval-suite-catalog/` — the 3-crate eval-driven autonomy substrate per M037's evidence-driven authority discipline |
+| Value plane | `crates/sovereign-value-plane/` — the values-projection surface the evals score against |
+| Tool invocation record | `crates/sovereign-tool-invocation-record/` — per-invocation evaluation record for the agent-eval pipeline |
+
+### M038 — Hardware-aware AIDLC
+
+| Surface | Shipped artifact |
+|---|---|
+| Hardware registry + dispatch | `crates/sovereign-hardware-registry/`, `crates/sovereign-hardware-dispatch-eligibility/`, `crates/sovereign-hardware-load-sample/`, `crates/sovereign-hardware-thermal-policy/` — 4-crate hardware-aware AIDLC substrate (registry of resources, dispatch eligibility classifier, load samplers, thermal policy) |
+| Hardware scripts (cross-referenced from M003) | `scripts/hardware/` family |
+
+### M042 — Choice architecture — sovereignty as policy-composable
+
+| Surface | Shipped artifact |
+|---|---|
+| Choice envelope (cross-referenced from M002) | `crates/sovereign-choice-envelope/` |
+| Execution mode registry | `crates/sovereign-execution-mode-registry/`, `crates/sovereign-mode-default-policy/`, `crates/sovereign-mode-transition-log/` — the 3-crate execution-mode discipline ensuring mode transitions are policy-checked + audit-logged |
+| Policy questions | `crates/sovereign-policy-questions/` — the operator-facing policy-choice surface |
+
+### M044 — Sovereign-OS substrate (Debian 13 / Ubuntu 24)
+
+| Surface | Shipped artifact |
+|---|---|
+| Inheritance contracts | `crates/sovereign-inheritance-artifacts/`, `crates/sovereign-inheritance-contracts/` — the contract surface that sovereign-os inherits from the upstream Debian base (so deviations from Debian doctrine are typed and detectable) |
+| Doctrinal preservation | `crates/sovereign-doctrinal-preservation/`, `crates/sovereign-doctrine-citation/` — preserves the operator-written doctrinal layer through OS-level mutations |
+
+### M045 — Linux as intelligence governor (cgroup v2 / systemd / PSI / eBPF)
+
+| Surface | Shipped artifact |
+|---|---|
+| cgroup-systemd binding (cross-referenced from M003) | `crates/sovereign-cgroup-systemd/` |
+| Pressure sensors (PSI bridge) | `crates/sovereign-pressure-sensors/` — exposes Linux PSI signals into the intelligence-governor decision surface |
+
+### M046 — Beat the cloud — runtime adaptation + LoRA foundry
+
+| Surface | Shipped artifact |
+|---|---|
+| LoRA foundry crate | `crates/sovereign-lora-foundry/` — the LoRA-foundry surface (on-device adapter training/swap mechanics) |
+
+### M047 — Continuity — CRIU + ZFS + warm sandboxes + hibernated thought
+
+| Surface | Shipped artifact |
+|---|---|
+| Continuity manager | `crates/sovereign-continuity-manager/` — orchestrates CRIU checkpoints, warm-sandbox preservation, hibernated-thought state |
+| ZFS commit gate | `crates/sovereign-zfs-commit-gate/` — gates ZFS sync=always commits per the M068 storage architecture |
+
+### M048 — Modules family
+
+| Surface | Shipped artifact |
+|---|---|
+| Module catalog | `crates/sovereign-module-catalog/` — the registry that enumerates the 13 module families M048 lists (Base OS / Compute Fabric / Sandbox Fabric / Gateway / Memory OS / Workflow Compiler / Eval-Value / Continuity / Observability / Policy / Config Resolver / LoRA Foundry / Hardware Profiler) |
+| Tool catalog | `crates/sovereign-tool-catalog/` — tool-family roll-up matching the module-family inventory |
+| Six pillars | `crates/sovereign-six-pillars/` — the 6-pillar cross-cutting tracker matching the doctrine layer above the 13 modules |
+
+### M049 — Continuity through observability and policy
+
+| Surface | Shipped artifact |
+|---|---|
+| Observability fabric (cross-referenced from M013) | `crates/sovereign-observability-fabric/` |
+| Continuity manager (cross-referenced from M047) | `crates/sovereign-continuity-manager/` — observability feeds back into the continuity decision (when to CRIU, which sandboxes to warm) |
+
+### M054 — 11 typed interfaces
+
+| Surface | Shipped artifact |
+|---|---|
+| Gateway interface | `crates/sovereign-gateway/` |
+| Router interface | `crates/sovereign-router-7axis/`, `crates/sovereign-routing-decision-log/`, `crates/sovereign-routing-preference/` |
+| Eval interface | `crates/sovereign-eval-plane/` + sister crates |
+| Observability interface | `crates/sovereign-observability-fabric/` + Prometheus alert YAML + Grafana dashboards |
+| Policy interface | `crates/sovereign-policy-questions/`, `crates/sovereign-mode-default-policy/` |
+| Memory interface | `crates/sovereign-memory-os/` + sister crates |
+| Workflow interface | (via prompt-template-registry + cognitive-compiler) |
+| Hardware interface | `crates/sovereign-hardware-registry/` + sister crates |
+
+### M066 — Trinity Framework Genesis (Pulse / Weaver / Auditor)
+
+| Surface | Shipped artifact |
+|---|---|
+| Trinity composition crate | `crates/sovereign-trinity/` — Pulse + Weaver + Auditor stack composition |
+| Pulse status surface | `crates/sovereign-cockpit-status-pulse/` — the operator-cockpit-facing surface of the Pulse role |
+
+### M068 — ZFS storage architecture
+
+| Surface | Shipped artifact |
+|---|---|
+| ZFS commit gate | `crates/sovereign-zfs-commit-gate/` — sync=always commit gate per the M068 (tank/context + ashift=12 + lz4 + recordsize) architecture |
+
+### M075 — SRP hardware topology mapping
+
+| Surface | Shipped artifact |
+|---|---|
+| SRP scheduler | `crates/sovereign-srp-scheduler/` — Conductor on CPU / Logic on GPU 0 / Oracle on GPU 1 scheduling discipline |
+| Hardware registry (cross-referenced from M038) | `crates/sovereign-hardware-registry/` |
+
+### M079 — Activation steering interpretability surface
+
+| Surface | Shipped artifact |
+|---|---|
+| Intervention class typed-mirror | `crates/sovereign-intervention-class-mirror/` — typed wire schema for the activation-steering intervention-class surface (white-box vs black-box intervention) — same MS007-style typed-mirror pattern, applied to interpretability surface |
+
+### M080 — HRM (Hierarchical Reasoning Model) architectural class
+
+| Surface | Shipped artifact |
+|---|---|
+| HRM runtime crate | `crates/sovereign-hrm-runtime/` — recurrent two-timescale brain-inspired architectural class as a parallel to the Transformer/Mamba/BitNet runtime family |
+
 ### Cross-cutting cockpit crates (M060 + adjacent milestones)
 
 | Family | Shipped surface |
 |---|---|
 | Cockpit runtime crates | `crates/sovereign-cockpit-*/` — 417 crates covering accent-color-policy, accordion, achievement-toast, action-bar/menu/discoverability, activity-feed, agenda-view, alert-{acknowledge,group,tile-board}, attachment-tray, audit-trail, avatar-stack, banner-{bus,state}, breadcrumb-trail, etc. The bulk of the cockpit-as-UX-substrate surface |
+| Conversation substrate (M021 / M060) | `crates/sovereign-conversation-thread/`, `crates/sovereign-conversation-fork-event/`, `crates/sovereign-conversation-search-index/`, `crates/sovereign-prompt-history-ring/`, `crates/sovereign-prompt-rationale/`, `crates/sovereign-prompt-template-registry/`, `crates/sovereign-workspace-folder-registry/`, `crates/sovereign-dashboard-layout/`, `crates/sovereign-dashboard-snapshot/`, `crates/sovereign-dashboard-toggle/`, `crates/sovereign-dashboard-coverage/` — the conversation/dashboard substrate underlying the operator-cockpit experience |
 
 ### M026-M059 — Operator-§1g surfaces + cockpit + intelligence layer
 
@@ -183,6 +328,7 @@ The codebase carries substantial production state from prior development. This s
 |---|---|
 | Catalogue milestone | `backlog/milestones/M061-avx-plus-plus-canon-update-backward-sweep-2026-05-19.md` (170 R-rows mapping the 6 redefinitions) |
 | Patch-Pass A annotations | applied to 11 affected milestones across selfdef + sovereign-os per `context.md` § Backward-sweep |
+| Doctrinal preservation surface | `crates/sovereign-doctrinal-preservation/`, `crates/sovereign-doctrine-citation/` — the typed surface for tracking doctrinal-canon redefinitions per the operator's backward-sweep instruction (when later passages REDEFINE earlier ones, the citation chain captures the supersedence rather than discarding history) |
 
 ### M062-M076 — Substrate + SFIF + kernel + ZFS + atomic state + bootstrap
 

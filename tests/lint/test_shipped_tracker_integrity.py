@@ -227,10 +227,11 @@ def test_milestone_audit_coverage_above_threshold():
     explicit_headings = set(
         re.findall(r"(?:^##+ |\| )(M\d{3})\b", text, re.MULTILINE)
     )
-    # Threshold: 7 explicit milestone references (M060 primary + 6 family
-    # audits: M002, M061, M077 cited explicitly via inline tables +
-    # cross-cutting infrastructure cited generically).
-    assert len(explicit_headings) >= 4, (
+    # Threshold: 32 explicit milestone references. This session's audit
+    # expansion brought the per-milestone roll-up coverage from 13 to 33
+    # unique MNNN audit rows (commits `00b447c` selfdef + this commit
+    # sovereign-os). Threshold set at 32 gives a 1-row drift margin.
+    assert len(explicit_headings) >= 32, (
         f"SHIPPED.md milestone-audit coverage regressed: "
         f"{len(explicit_headings)} explicit milestone refs. "
         f"Saw: {sorted(explicit_headings)}"
