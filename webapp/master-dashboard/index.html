@@ -468,6 +468,45 @@ a11y; contract test catches drift.
   .m060-health-banner.unreachable .dot { background:#7a3a1f; box-shadow:0 0 .35rem rgba(122,58,31,.7); }
   .m060-health-banner .spacer { flex:1; }
 </style>
+
+<!-- MS022 SSE subscriber-quota banner. Pairs with selfdef commit 77b4499
+     (sse_quota_metrics.rs 6 gauges) + sovereign-os commit 69f8dba (3
+     Prometheus alerts + Grafana dashboard). Polls the same /api/m060/health
+     endpoint shape — the m060-health-api daemon proxies node_exporter's
+     selfdef_sse_subscribers_global_saturation gauge into the response
+     body's `ms022.saturation` field when present. Honest-offline when
+     node_exporter or the producer haven't published yet. -->
+<div id="ms022-sse-quota-banner" class="ms022-banner unknown" role="status" aria-live="polite">
+  <span class="dot"></span>
+  <strong id="ms022-sse-label">SSE quota: unknown</strong>
+  <span id="ms022-sse-detail" class="muted">
+    polling selfdef <code>/metrics</code> via node_exporter…
+  </span>
+  <span class="spacer"></span>
+  <span class="muted" id="ms022-sse-active">— / — subscribers</span>
+  <span class="muted">·
+    <a href="/d/sovereign-os-ms022-sse-quota" target="_blank"
+       style="color:inherit;text-decoration:underline">Grafana</a>
+  </span>
+</div>
+<style>
+  /* Reuse the m060-health-banner palette for consistency. */
+  .ms022-banner { display:flex; align-items:center; gap:.6rem;
+    padding:.5rem .8rem; border:1px solid var(--border, #2a2a2a);
+    border-radius:.4rem; margin:.4rem 0 .8rem; font-size:.85rem;
+    background:rgba(255,255,255,.02); }
+  .ms022-banner.ok        { border-color:#1f7a3a; background:rgba(31,122,58,.10); }
+  .ms022-banner.approaching { border-color:#7a701f; background:rgba(122,112,31,.10); }
+  .ms022-banner.saturated { border-color:#7a3a1f; background:rgba(122,58,31,.10); }
+  .ms022-banner.unknown   { border-color:#444; background:rgba(255,255,255,.04); }
+  .ms022-banner .dot { width:.55rem; height:.55rem; border-radius:50%;
+    background:#888; box-shadow:0 0 .35rem rgba(255,255,255,.2); }
+  .ms022-banner.ok .dot          { background:#1f7a3a; box-shadow:0 0 .35rem rgba(31,122,58,.7); }
+  .ms022-banner.approaching .dot { background:#7a701f; box-shadow:0 0 .35rem rgba(122,112,31,.7); }
+  .ms022-banner.saturated .dot   { background:#7a3a1f; box-shadow:0 0 .35rem rgba(122,58,31,.7); }
+  .ms022-banner .spacer { flex:1; }
+</style>
+
 <div class="panel" id="m060-mirror-panel">
   <div class="muted" style="margin-bottom:.4rem;font-size:.85rem">
     Live producer health across the 8 cross-repo mirror dashboards.
@@ -757,6 +796,54 @@ async function renderM060HealthBanner() {
   }
 }
 
+// MS022 SSE subscriber-quota banner: polls /api/ms022/sse-quota proxied
+// from the selfdef daemon's /metrics endpoint (selfdef commit 77b4499).
+// Classifies into ok / approaching / saturated / unreachable matching
+// the 3 sovereign-os alert rules in ms022-sse-quota.rules.yml.
+async function renderMS022SseQuotaBanner() {
+  const banner = el("ms022-sse-quota-banner");
+  if (!banner) return;
+  let payload;
+  try {
+    const r = await fetch("/api/ms022/sse-quota", {headers: {"Accept": "application/json"}});
+    payload = r.ok ? await r.json() : null;
+  } catch (e) { payload = null; }
+  if (!payload) payload = {state: "unreachable", metrics: null};
+  const state = String(payload.state || "unknown");
+  const knownStates = ["ok", "approaching", "saturated", "unknown"];
+  banner.classList.remove(...knownStates);
+  banner.classList.add(knownStates.indexOf(state) >= 0 ? state : "unknown");
+  const labelEl = el("ms022-sse-label");
+  const detailEl = el("ms022-sse-detail");
+  const activeEl = el("ms022-sse-active");
+  if (labelEl) labelEl.textContent = "SSE quota: " + state;
+  const m = payload.metrics || {};
+  const active = (typeof m.global_active === "number") ? m.global_active : "—";
+  const cap = (typeof m.global_cap === "number") ? m.global_cap : "—";
+  if (activeEl) activeEl.textContent = active + " / " + cap + " subscribers";
+  if (detailEl) {
+    if (state === "ok") {
+      const sat = (typeof m.global_saturation === "number")
+        ? (m.global_saturation * 100).toFixed(1) + "%"
+        : "—";
+      detailEl.innerHTML = "saturation " + sat + " · no tokens at cap";
+    } else if (state === "approaching") {
+      const sat = (typeof m.global_saturation === "number")
+        ? (m.global_saturation * 100).toFixed(1) + "%"
+        : "—";
+      const ptSat = m.per_token_saturated || 0;
+      detailEl.innerHTML = "saturation " + sat
+        + (ptSat > 0 ? (" · " + ptSat + " tokens at cap") : "")
+        + ' — see <code>MS022SseGlobalQuotaApproaching</code> alert';
+    } else if (state === "saturated") {
+      detailEl.innerHTML = '<strong>quota saturated</strong> — new subscribers refused (HTTP 429). '
+        + 'See <code>MS022SseGlobalQuotaSaturated</code> alert';
+    } else {
+      detailEl.innerHTML = 'polling selfdef <code>/metrics</code> via node_exporter…';
+    }
+  }
+}
+
 // Build a {artifact -> health object} lookup from /api/m060/health
 // so the grid renderer can drill from per-artifact state (corrupt /
 // stale / fresh) into the right tile. Single fetch, then merge.
@@ -803,6 +890,9 @@ async function renderM060Grid() {
   if (!grid) return;
   // Render the chain-health banner alongside the per-mirror grid.
   renderM060HealthBanner();
+  // MS022 SSE quota banner — same refresh cadence; the quota state
+  // is checked on the same tick the chain-wide health is.
+  renderMS022SseQuotaBanner();
   // Fetch chain-health once for the WHOLE grid (the response carries
   // every artifact), then fetch each per-mirror snapshot in parallel.
   const [artifactMap, ...states] = await Promise.all([
