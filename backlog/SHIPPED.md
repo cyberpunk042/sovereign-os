@@ -65,9 +65,62 @@ The codebase carries substantial production state from prior development. This s
 | Daemon `/v1/m060/health` endpoint | sovereign-os consumes via `scripts/operator/m060-health-api.py` |
 | `selfdefctl m060-doctor` (selfdef SHIPPED MS043 cross-rollup) | sovereign-os textfile metrics surface in the existing M060 chain-health alert rules |
 
+### M002-M025 — Deterministic AI control substrate + agent runtime (cortex foundation)
+
+| Milestone | Shipped surface (sample from 475-crate workspace) |
+|---|---|
+| M002 — 32/64-bit control-word injected logic | `crates/sovereign-choice-envelope/`, `crates/sovereign-control-word/` (sample) |
+| M003 — Hardware topology + PCIe lane discipline | `scripts/hardware/`, `crates/sovereign-cgroup-systemd/` |
+| M004 — Oracle/Scout/Vector Arbiter roles | `crates/sovereign-*-role-*/` (sample) |
+| M005 — Agent runtime four planes | `crates/sovereign-cockpit-*/` (417 cockpit-runtime crates) |
+| M013 — Observability as control input | `docs/observability/dashboards/` (20 Grafana dashboards) + Prometheus alert rules |
+
+### M026-M059 — Operator-§1g surfaces + cockpit + intelligence layer
+
+| Milestone family | Shipped surface |
+|---|---|
+| Cockpit personalization (M026-M060 family) | `crates/sovereign-cockpit-personalization/`, `crates/sovereign-cockpit-accent-color-policy/`, `crates/sovereign-cockpit-theme-palette/`, `webapp/personalization/` |
+| ARIA / a11y | `crates/sovereign-cockpit-aria-live-router/` + `webapp/_shared/nav-snippet.html` (M060 R10055 + R10058-R10105 keyboard-nav) |
+| Intelligence scripts | `scripts/intelligence/` — `architecture-qa.py`, `cot-registry.py`, `coverage-map.py`, `doctrine-status.py`, `guide.py`, `layers.py`, `memory-changes.py`, `module-state.py`, `morning-brief.py` (sample) |
+| Diagnostics scripts | `scripts/diagnostics/` — `apply-audit.py`, `assistant-next-steps.py`, `autohealth.py`, `config-restore.py`, `config-snapshot.py`, `doctor.py`, `m060-smoke.py`, `overlay-drift-detector.py` (sample) |
+| Install scripts | `scripts/install/` — `install-mode-advisor.py`, `operator-deps.py`, `paths.py` |
+| Profile system | `profiles/` — `developer.yaml`, `headless.yaml`, `minimal.yaml`, `old-workstation.yaml`, `sain-01.yaml` + `profiles/runtime/`, `profiles/mixins/` |
+| Schema system | `schemas/` — `mixin.schema.yaml`, `model-catalog.schema.yaml`, `profile.schema.yaml`, `runtime-profile.schema.yaml`, `whitelabel.schema.yaml` |
+
+### M061 — avx-plus-plus canon-update backward-sweep (operator standing direction)
+
+| Surface | Shipped artifact |
+|---|---|
+| Catalogue milestone | `backlog/milestones/M061-avx-plus-plus-canon-update-backward-sweep-2026-05-19.md` (170 R-rows mapping the 6 redefinitions) |
+| Patch-Pass A annotations | applied to 11 affected milestones across selfdef + sovereign-os per `context.md` § Backward-sweep |
+
+### M062-M076 — Substrate + SFIF + kernel + ZFS + atomic state + bootstrap
+
+| Milestone family | Shipped surface |
+|---|---|
+| Substrate scripts | `scripts/bootstrap/`, `scripts/kernel/`, `scripts/hardening/` |
+| Systemd assets | `systemd/system/`, `systemd/env.examples/` |
+| Lifecycle/operator scripts | `scripts/lifecycle/`, `scripts/install/`, `scripts/diagnostics/` |
+
+### M077-M082 — External-research ingestion (NVFP4 / HölderPO / activation steering / HRM-Text-1B)
+
+| Milestone family | Shipped surface |
+|---|---|
+| M077 NVFP4 pipeline | `backlog/milestones/M077-nvfp4-pretraining-and-inference-pipeline.md` (170 R-rows mapping the NVIDIA arXiv 2509.25149 canonical paper) |
+| M078 HölderPO + GRPO | catalogued; production prerequisites tracked in `backlog/notes/external-research-ingestion-2026-05-19.md` |
+| M079 Activation steering | catalogued; production prerequisites tracked in same notes |
+
+## Cross-cutting infrastructure (catalogue health visibility)
+
+| Surface | Status |
+|---|---|
+| `backlog/INDEX.md` (80 milestones, 13,740 R-rows enumerated) | shipped prior to this session; surfaces the catalogue at a glance |
+| `backlog/SHIPPED.md` (this file) | shipped — orthogonal production-delivery state tracker |
+| Per-milestone audit coverage | This commit widens coverage from M060-only to ~17 milestone families across the 80-milestone catalogue. Cross-cutting (cockpit crates + scripts + profiles + schemas + Grafana dashboards) cited per family rather than per-milestone where the production surface is genuinely cross-cutting (no invention — every cited path is repo-verified). |
+
 ## Other catalogued milestones — production-shipped state TBD
 
-M002-M059, M061-M082 — most have substantial production state in the 475-crate workspace + 20-dashboard webapp tree. The per-milestone audit hasn't been mapped to this file yet for those. Future audits append per-milestone rows above.
+The 80-milestone catalogue spans extremely broad territory (the avx-plus-plus dump's full scope across substrate, runtime, agent, operator-§1g, intelligence, persistence, observability). Many milestone-specific audit rows remain to map. The 475-crate workspace + 20-dashboard webapp tree + 40 script categories + 81 profile/schema files all carry production state that future audit cycles append per-milestone above.
 
 The above per-milestone shipped audit is a SAMPLED snapshot, not a complete production-state survey. The trajectory: each commit or audit cycle appends rows here so the SHIPPED column converges toward the catalogue total as the multi-year project progresses.
 

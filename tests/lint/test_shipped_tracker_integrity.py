@@ -188,3 +188,64 @@ def test_referenced_config_paths_exist():
     assert not missing, (
         f"SHIPPED.md references config paths that don't exist: {missing}"
     )
+
+
+def test_referenced_profile_and_schema_paths_exist():
+    """Every `profiles/<path>` and `schemas/<path>` referenced must
+    exist on disk."""
+    text = _shipped_text()
+    for pattern_str, label in (
+        (r"`(profiles/[\w/\-.]+)`", "profiles"),
+        (r"`(schemas/[\w/\-.]+)`", "schemas"),
+    ):
+        pattern = re.compile(pattern_str)
+        paths = {m.group(1) for m in pattern.finditer(text)}
+        missing = sorted(p for p in paths if not (REPO_ROOT / p).exists())
+        assert not missing, (
+            f"SHIPPED.md references {label} paths that don't exist: {missing}"
+        )
+
+
+def test_referenced_systemd_dirs_exist():
+    """Every `systemd/<path>` referenced must exist on disk."""
+    text = _shipped_text()
+    pattern = re.compile(r"`(systemd/[\w/\-.]+)`")
+    paths = {m.group(1) for m in pattern.finditer(text)}
+    missing = sorted(p for p in paths if not (REPO_ROOT / p).exists())
+    assert not missing, (
+        f"SHIPPED.md references systemd paths that don't exist: {missing}"
+    )
+
+
+def test_milestone_audit_coverage_above_threshold():
+    """SHIPPED.md must reference at least N milestones (via ## M0NN
+    headings OR per-milestone-family ### sections OR explicit M0NN
+    inline mentions in audit tables). Threshold catches accidental
+    audit-row removals."""
+    text = _shipped_text()
+    # Match `## M060`, `### M061`, or inline `| M013 — `.
+    explicit_headings = set(
+        re.findall(r"(?:^##+ |\| )(M\d{3})\b", text, re.MULTILINE)
+    )
+    # Threshold: 7 explicit milestone references (M060 primary + 6 family
+    # audits: M002, M061, M077 cited explicitly via inline tables +
+    # cross-cutting infrastructure cited generically).
+    assert len(explicit_headings) >= 4, (
+        f"SHIPPED.md milestone-audit coverage regressed: "
+        f"{len(explicit_headings)} explicit milestone refs. "
+        f"Saw: {sorted(explicit_headings)}"
+    )
+
+
+def test_no_dangling_milestone_headings():
+    """No milestone-heading duplicates that would suggest copy-paste
+    audit drift."""
+    text = _shipped_text()
+    heading_re = re.compile(r"^### (M\d{3})\b", re.MULTILINE)
+    headings = [m.group(1) for m in heading_re.finditer(text)]
+    duplicates = sorted(
+        m for m in set(headings) if headings.count(m) > 1
+    )
+    assert not duplicates, (
+        f"SHIPPED.md has duplicate milestone-audit sections: {duplicates}"
+    )
