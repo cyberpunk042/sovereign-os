@@ -250,11 +250,79 @@ def probe_apparmor(metrics_url: str) -> dict[str, Any]:
     return {"status": "WARN", "summary": "indeterminate"}
 
 
+def probe_auth_events(metrics_url: str) -> dict[str, Any]:
+    metrics = _fetch_metrics(metrics_url)
+    if metrics is None:
+        return {"status": "unreachable", "summary": "node_exporter down"}
+    out = probe_textfile_observer(metrics, "selfdef_auth_events", "auth-events")
+    if out["status"] != "OK":
+        return out
+    failures = _gauge(
+        metrics, "selfdef_auth_events_login_failures",
+        label_match='window="5m"',
+    )
+    invalid = _gauge(
+        metrics, "selfdef_auth_events_ssh_invalid_users",
+        label_match='window="5m"',
+    )
+    bits = []
+    cls = "OK"
+    if failures is not None and failures > 20:
+        bits.append(f"login_failures={int(failures)} > 20 (BRUTE-FORCE)")
+        cls = "FAIL"
+    elif failures is not None and failures > 0:
+        bits.append(f"login_failures={int(failures)}")
+    if invalid is not None and invalid > 5:
+        bits.append(f"ssh_invalid={int(invalid)} > 5 (RECON)")
+        if cls == "OK":
+            cls = "WARN"
+    return {
+        "status": cls,
+        "summary": (" · ".join(bits) if bits else "no auth events") + f" · {out['summary']}",
+    }
+
+
+def probe_systemd_units(metrics_url: str) -> dict[str, Any]:
+    metrics = _fetch_metrics(metrics_url)
+    if metrics is None:
+        return {"status": "unreachable", "summary": "node_exporter down"}
+    out = probe_textfile_observer(metrics, "selfdef_systemd_units", "systemd-units")
+    if out["status"] != "OK":
+        return out
+    total = _gauge(
+        metrics, "selfdef_systemd_units_total",
+        label_match='prefix="selfdef-"',
+    )
+    failed = _gauge(
+        metrics, "selfdef_systemd_units_failed",
+        label_match='prefix="selfdef-"',
+    )
+    active = _gauge(
+        metrics, "selfdef_systemd_units_active",
+        label_match='prefix="selfdef-"',
+    )
+    if failed is not None and failed > 0:
+        return {
+            "status": "FAIL",
+            "summary": f"{int(failed)} unit(s) failed (run systemctl --failed)",
+        }
+    if total is not None and total < 8:
+        return {
+            "status": "WARN",
+            "summary": f"only {int(total)} units (expected 10+)",
+        }
+    return {
+        "status": "OK",
+        "summary": f"{int(total) if total is not None else '?'} units · {int(active) if active is not None else '?'} active",
+    }
+
+
 # ── Aggregation + rendering ──────────────────────────────────────────
 
 VERTICALS = (
     "m060", "ms022", "four_watchdog",
     "modules", "daemon_process", "apparmor",
+    "auth_events", "systemd_units",
 )
 
 
@@ -266,11 +334,13 @@ def collect(args: argparse.Namespace) -> dict[str, dict[str, Any]]:
         "modules":       probe_modules_catalog(args.node_exporter_url),
         "daemon_process": probe_daemon_process(args.node_exporter_url),
         "apparmor":      probe_apparmor(args.node_exporter_url),
+        "auth_events":   probe_auth_events(args.node_exporter_url),
+        "systemd_units": probe_systemd_units(args.node_exporter_url),
     }
 
 
 def render_table(results: dict[str, dict[str, Any]]) -> str:
-    lines = ["sovereign-os observability status — 6 verticals",
+    lines = ["sovereign-os observability status — 8 verticals",
              f"{'─' * 22} {'─' * 60}"]
     for v in VERTICALS:
         r = results[v]
@@ -284,6 +354,8 @@ def render_table(results: dict[str, dict[str, Any]]) -> str:
             "modules":        "modules-catalog",
             "daemon_process": "daemon-process",
             "apparmor":       "AppArmor",
+            "auth_events":    "auth-events",
+            "systemd_units":  "systemd-units",
         }[v]
         lines.append(f"{label:<22} {marker}  {r['summary']}")
     lines.append(f"{'─' * 22} {'─' * 60}")
