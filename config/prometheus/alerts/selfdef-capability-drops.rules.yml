@@ -1,0 +1,81 @@
+# Selfdef SDD-075 per-process capability-drop Prometheus alerting rules.
+# Fires on textfile metrics from selfdef-capability-drops-textfile
+# (selfdef MS4a commit). Extends the IPS-dectet observability set
+# to the undectet with the prior 19th..28th siblings.
+
+groups:
+  - name: selfdef-capability-drops
+    interval: 30s
+    rules:
+
+      - alert: SelfdefCapabilityDropsTextfileEmitFailed
+        expr: selfdef_capability_drops_textfile_emit_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-capability-drops
+          cd_link: observer-fault
+        annotations:
+          summary: "Selfdef capability-drops observer fault on {{ $labels.instance }}"
+          description: "Wrapper failure for 5+ minutes. SDD-075 enforcement visibility lost."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefcapabilitydropstextfileemitfailed-critical"
+
+      - alert: SelfdefCapabilityDropsObserverSilent
+        expr: time() - selfdef_capability_drops_last_run_unix > 300
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-capability-drops
+          cd_link: observer-silent
+        annotations:
+          summary: "Selfdef capability-drops observer silent on {{ $labels.instance }}"
+          description: "Timer hasn't fired in 5+ minutes."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefcapabilitydropsobserversilent-critical"
+
+      - alert: SelfdefCapabilityDropsStateDirMissing
+        expr: selfdef_capability_drops_state_dir_present == 0
+        for: 10m
+        labels:
+          severity: critical
+          subsystem: selfdef-capability-drops
+          cd_link: state-dir-missing
+        annotations:
+          summary: "capability-drops state-dir absent on {{ $labels.instance }} — SDD-075 enforcement OFFLINE"
+          description: "/var/lib/selfdef/capability-drops not present for 10+ minutes. SDD-075 per-process-privilege-set-axis IPS primitive cannot persist state. Operator action: systemctl status selfdefd && systemctl restart selfdefd."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefcapabilitydropsstatedirmissing-critical"
+
+      - alert: SelfdefCapabilityDropsPendingRestoreBacklog
+        expr: selfdef_capability_drops_pending_restores > 5
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: selfdef-capability-drops
+          cd_link: pending-backlog
+        annotations:
+          summary: "{{ $value }} pending capability-drop restore decisions on {{ $labels.instance }} for 30m"
+          description: "Operator engagement with the cockpit capability-drops-queue card needed. NOTE: capability drops are irreversible at kernel level — restore is queue-clear + audit only; operator must restart the process to recover the cap."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefcapabilitydropspendingrestorebacklog-warning"
+
+      - alert: SelfdefCapabilityDropsRedundantHigh
+        expr: selfdef_capability_drops_redundant_count > 3
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: selfdef-capability-drops
+          cd_link: redundant-high
+        annotations:
+          summary: "{{ $value }} Redundant capability-drop handles on {{ $labels.instance }} for 30m"
+          description: "Multiple drop requests targeted processes that didn't hold the named caps — likely rule misconfiguration or stale process model. Operator review."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefcapabilitydropsredundanthigh-warning"
+
+      - alert: SelfdefCapabilityDropsNetAdminHigh
+        expr: selfdef_capability_drops_by_cap{cap="CAP_NET_ADMIN"} > 5
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: selfdef-capability-drops
+          cd_link: net-admin-high
+        annotations:
+          summary: "{{ $value }} CAP_NET_ADMIN drops on {{ $labels.instance }} for 30m — network-cap-attack pattern?"
+          description: "Per-cap breakdown shows multiple processes losing CAP_NET_ADMIN simultaneously. Could indicate a coordinated attack on network-config caps; investigate correlator events."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefcapabilitydropsnetadminhigh-warning"

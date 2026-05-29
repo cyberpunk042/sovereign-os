@@ -366,6 +366,22 @@ def card_env_scrubs_queue() -> dict[str, Any]:
     }
 
 
+def card_capability_drops_queue() -> dict[str, Any]:
+    """SDD-075 MS5b — pending operator-restore queue for the selfdef
+    per-process capability-drop action layer. Eleventh in the
+    IPS-undectet paired-decision queue family (per-process privilege-
+    set axis). Restore is queue-clear + audit only — capability
+    drops are irreversible at the kernel level; operator must
+    restart the process to recover the dropped capability."""
+    cockpit_script = REPO_ROOT / "scripts" / "cockpit" / "capability-drops-queue.py"
+    data = _run_json_at(cockpit_script, []) or {"queue": [], "count": 0}
+    return {
+        "id": "capability-drops-queue",
+        "title": "SDD-075 — pending capability-drop restore decisions",
+        "data": data,
+    }
+
+
 def card_flex() -> dict[str, Any]:
     """R224 Z-3 — profile-flex show JSON."""
     data = _run_json("profile-flex.py", ["show"]) or {"deltas": []}
@@ -1495,6 +1511,7 @@ CARDS = [
     card_process_tree_freezes_queue,
     card_socket_fd_revocations_queue,
     card_env_scrubs_queue,
+    card_capability_drops_queue,
     card_gpu,
     card_network,
     card_cpu,

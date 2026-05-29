@@ -677,6 +677,45 @@ def probe_blockset(metrics_url: str) -> dict[str, Any]:
     }
 
 
+def probe_capability_drops(metrics_url: str) -> dict[str, Any]:
+    metrics = _fetch_metrics(metrics_url)
+    if metrics is None:
+        return {"status": "unreachable", "summary": "node_exporter down"}
+    out = probe_textfile_observer(
+        metrics, "selfdef_capability_drops", "capability-drops",
+    )
+    if out["status"] != "OK":
+        return out
+    present = _gauge(metrics, "selfdef_capability_drops_state_dir_present")
+    active = _gauge(metrics, "selfdef_capability_drops_active_count")
+    redundant = _gauge(metrics, "selfdef_capability_drops_redundant_count")
+    caps_dropped = _gauge(metrics, "selfdef_capability_drops_caps_dropped_total")
+    pending = _gauge(metrics, "selfdef_capability_drops_pending_restores")
+    if present == 0:
+        return {"status": "FAIL",
+                "summary": "state-dir absent (SDD-075 enforcement OFFLINE)"}
+    if pending is not None and pending > 5:
+        return {"status": "WARN",
+                "summary": f"{int(pending)} pending capability-drop restore decisions"}
+    if redundant is not None and redundant > 3:
+        return {"status": "WARN",
+                "summary": f"{int(redundant)} Redundant handles — rule misconfig review"}
+    if caps_dropped is not None and caps_dropped > 30:
+        return {"status": "WARN",
+                "summary": f"{int(caps_dropped)} caps dropped — large-scale enforcement"}
+    if active is not None and active > 10:
+        return {"status": "WARN",
+                "summary": f"{int(active)} active capability-drops > 10"}
+    return {
+        "status": "OK",
+        "summary": f"{int(active) if active is not None else 0} handles · "
+                   f"{int(caps_dropped) if caps_dropped is not None else 0} caps · "
+                   f"{int(redundant) if redundant is not None else 0} redundant · "
+                   f"{int(pending) if pending is not None else 0} pending · "
+                   "enforcement online",
+    }
+
+
 def probe_env_scrubs(metrics_url: str) -> dict[str, Any]:
     metrics = _fetch_metrics(metrics_url)
     if metrics is None:
@@ -977,7 +1016,7 @@ VERTICALS = (
     "token_revocations", "mfa_grant_revocations",
     "netns_isolations", "mount_bindings",
     "process_tree_freezes", "socket_fd_revocations",
-    "env_scrubs",
+    "env_scrubs", "capability_drops",
 )
 
 
@@ -1011,11 +1050,12 @@ def collect(args: argparse.Namespace) -> dict[str, dict[str, Any]]:
         "process_tree_freezes": probe_process_tree_freezes(args.node_exporter_url),
         "socket_fd_revocations": probe_socket_fd_revocations(args.node_exporter_url),
         "env_scrubs": probe_env_scrubs(args.node_exporter_url),
+        "capability_drops": probe_capability_drops(args.node_exporter_url),
     }
 
 
 def render_table(results: dict[str, dict[str, Any]]) -> str:
-    lines = ["sovereign-os observability status — 28 verticals",
+    lines = ["sovereign-os observability status — 29 verticals",
              f"{'─' * 22} {'─' * 60}"]
     for v in VERTICALS:
         r = results[v]
@@ -1051,6 +1091,7 @@ def render_table(results: dict[str, dict[str, Any]]) -> str:
             "process_tree_freezes": "process-tree-freezes (SDD-072)",
             "socket_fd_revocations": "socket-fd-revocations (SDD-073)",
             "env_scrubs":          "env-scrubs (SDD-074)",
+            "capability_drops":    "capability-drops (SDD-075)",
         }[v]
         lines.append(f"{label:<22} {marker}  {r['summary']}")
     lines.append(f"{'─' * 22} {'─' * 60}")
