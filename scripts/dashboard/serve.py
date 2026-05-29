@@ -272,6 +272,23 @@ def card_revocations_queue() -> dict[str, Any]:
     }
 
 
+def card_token_revocations_queue() -> dict[str, Any]:
+    """SDD-068 MS5b — pending operator-restore queue for the
+    selfdef API/web-token revocation action layer. Reads
+    scripts/cockpit/token-revocations-queue.py --json. Fourth in
+    the IPS-quartet paired-decision queue family — completes the
+    quartet-paired-handle row across blockset + quarantine +
+    revocations + token-revocations."""
+    cockpit_script = REPO_ROOT / "scripts" / "cockpit" / "token-revocations-queue.py"
+    data = _run_json_at(cockpit_script, []) or {"queue": [], "count": 0}
+    return {
+        "id": "token-revocations-queue",
+        "title": "SDD-068 — pending token-revocation restore decisions",
+        "data": data,
+    }
+
+
+
 def card_flex() -> dict[str, Any]:
     """R224 Z-3 — profile-flex show JSON."""
     data = _run_json("profile-flex.py", ["show"]) or {"deltas": []}
@@ -1394,6 +1411,7 @@ CARDS = [
     card_blockset_queue,
     card_quarantine_queue,
     card_revocations_queue,
+    card_token_revocations_queue,
     card_gpu,
     card_network,
     card_cpu,
