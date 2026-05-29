@@ -327,6 +327,19 @@ def card_mount_bindings_queue() -> dict[str, Any]:
     }
 
 
+def card_process_tree_freezes_queue() -> dict[str, Any]:
+    """SDD-072 MS5b — pending operator-thaw queue for the selfdef
+    process-tree freeze action layer. Eighth in the IPS-octet
+    paired-decision queue family (process-graph containment axis)."""
+    cockpit_script = REPO_ROOT / "scripts" / "cockpit" / "process-tree-freezes-queue.py"
+    data = _run_json_at(cockpit_script, []) or {"queue": [], "count": 0}
+    return {
+        "id": "process-tree-freezes-queue",
+        "title": "SDD-072 — pending process-tree thaw decisions",
+        "data": data,
+    }
+
+
 def card_flex() -> dict[str, Any]:
     """R224 Z-3 — profile-flex show JSON."""
     data = _run_json("profile-flex.py", ["show"]) or {"deltas": []}
@@ -1453,6 +1466,7 @@ CARDS = [
     card_mfa_grant_revocations_queue,
     card_netns_isolations_queue,
     card_mount_bindings_queue,
+    card_process_tree_freezes_queue,
     card_gpu,
     card_network,
     card_cpu,

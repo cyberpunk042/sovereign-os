@@ -677,6 +677,40 @@ def probe_blockset(metrics_url: str) -> dict[str, Any]:
     }
 
 
+def probe_process_tree_freezes(metrics_url: str) -> dict[str, Any]:
+    metrics = _fetch_metrics(metrics_url)
+    if metrics is None:
+        return {"status": "unreachable", "summary": "node_exporter down"}
+    out = probe_textfile_observer(
+        metrics, "selfdef_process_tree_freezes", "process-tree-freezes",
+    )
+    if out["status"] != "OK":
+        return out
+    present = _gauge(metrics, "selfdef_process_tree_freezes_state_dir_present")
+    active = _gauge(metrics, "selfdef_process_tree_freezes_active_count")
+    pending = _gauge(metrics, "selfdef_process_tree_freezes_pending_thaws")
+    frozen_pids = _gauge(metrics, "selfdef_process_tree_freezes_frozen_pid_count")
+    if present == 0:
+        return {"status": "FAIL",
+                "summary": "state-dir absent (SDD-072 enforcement OFFLINE)"}
+    if pending is not None and pending > 5:
+        return {"status": "WARN",
+                "summary": f"{int(pending)} pending process-tree-thaw decisions"}
+    if frozen_pids is not None and frozen_pids > 100:
+        return {"status": "WARN",
+                "summary": f"{int(frozen_pids)} frozen pids (fork-bomb-scale)"}
+    if active is not None and active > 10:
+        return {"status": "WARN",
+                "summary": f"{int(active)} active process-tree freezes > 10"}
+    return {
+        "status": "OK",
+        "summary": f"{int(active) if active is not None else 0} handles · "
+                   f"{int(frozen_pids) if frozen_pids is not None else 0} frozen pids · "
+                   f"{int(pending) if pending is not None else 0} pending · "
+                   "enforcement online",
+    }
+
+
 def probe_mount_bindings(metrics_url: str) -> dict[str, Any]:
     metrics = _fetch_metrics(metrics_url)
     if metrics is None:
@@ -869,6 +903,7 @@ VERTICALS = (
     "journal_disk", "blockset", "quarantine", "revocations",
     "token_revocations", "mfa_grant_revocations",
     "netns_isolations", "mount_bindings",
+    "process_tree_freezes",
 )
 
 
@@ -899,11 +934,12 @@ def collect(args: argparse.Namespace) -> dict[str, dict[str, Any]]:
         "mfa_grant_revocations": probe_mfa_grant_revocations(args.node_exporter_url),
         "netns_isolations": probe_netns_isolations(args.node_exporter_url),
         "mount_bindings": probe_mount_bindings(args.node_exporter_url),
+        "process_tree_freezes": probe_process_tree_freezes(args.node_exporter_url),
     }
 
 
 def render_table(results: dict[str, dict[str, Any]]) -> str:
-    lines = ["sovereign-os observability status — 25 verticals",
+    lines = ["sovereign-os observability status — 26 verticals",
              f"{'─' * 22} {'─' * 60}"]
     for v in VERTICALS:
         r = results[v]
@@ -936,6 +972,7 @@ def render_table(results: dict[str, dict[str, Any]]) -> str:
             "mfa_grant_revocations": "mfa-grant-revocations (SDD-069)",
             "netns_isolations":  "netns-isolations (SDD-070)",
             "mount_bindings":    "mount-bindings (SDD-071)",
+            "process_tree_freezes": "process-tree-freezes (SDD-072)",
         }[v]
         lines.append(f"{label:<22} {marker}  {r['summary']}")
     lines.append(f"{'─' * 22} {'─' * 60}")
