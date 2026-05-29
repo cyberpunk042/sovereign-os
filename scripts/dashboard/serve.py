@@ -416,6 +416,41 @@ def card_apparmor_profile_pivots_queue() -> dict[str, Any]:
     }
 
 
+def card_scheduler_status() -> dict[str, Any]:
+    """MS048 M01166 — Goldilocks Scheduler status card. Reads the
+    selfdef MS048 textfile (M01174 binary writes it every 60s) and
+    surfaces the substrate trio + backpressure state + per-source
+    health in the cockpit.
+
+    Peer (not part) of the IPS-quattuordectet queue cards: the
+    scheduler is the runtime-routing layer; the 14 IPS axes are the
+    enforcement layer. Both contribute to the workstation at
+    different architectural altitudes per Peace Machine + Core Law.
+
+    Returns a single composite card with status badge
+    (OK | DEGRADED | PRESSURED | BLIND | SILENT | WEDGED), the
+    per-substrate health rows, the measurement values, and the
+    backpressure-firing list. When the textfile is missing/stale,
+    the card honestly reports WEDGED / SILENT rather than fabricating
+    zeros (per the honest-offline doctrine the 14 IPS observers
+    already follow)."""
+    cockpit_script = REPO_ROOT / "scripts" / "cockpit" / "scheduler-status.py"
+    data = _run_json_at(cockpit_script, []) or {
+        "status": "WEDGED",
+        "measurements": {},
+        "state": {},
+        "substrate_health": {},
+        "substrate_degraded_count": 3,
+        "last_run_unix": 0,
+        "textfile_emit_failed": True,
+    }
+    return {
+        "id": "scheduler-status",
+        "title": "MS048 — Goldilocks Scheduler status (runtime routing layer)",
+        "data": data,
+    }
+
+
 def card_kernel_keyring_evictions_queue() -> dict[str, Any]:
     """SDD-076 MS5b — pending operator-restore queue for the selfdef
     kernel-keyring eviction action layer. Twelfth in the
@@ -1566,6 +1601,7 @@ CARDS = [
     card_kernel_keyring_evictions_queue,
     card_apparmor_profile_pivots_queue,
     card_bpf_map_element_clears_queue,
+    card_scheduler_status,
     card_gpu,
     card_network,
     card_cpu,
