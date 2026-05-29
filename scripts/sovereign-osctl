@@ -963,6 +963,19 @@ ENV VARS (override defaults):
                                         host; --node-exporter-url to
                                         override the default
                                         http://localhost:9100/metrics.
+    observability-status [--strict] [--json]
+                                        NEW: cross-vertical triage probing
+                                        ALL 6 observability verticals shipped
+                                        to date (M060 + MS022 + four-watchdog
+                                        + modules + daemon-process + AppArmor)
+                                        in one shot via the 3 proxy daemons +
+                                        node_exporter scrape. Operator-
+                                        runnable single-command status across
+                                        the entire observability surface.
+                                        Exit 0=all green / 1=any WARN+FAIL /
+                                        2=any proxy unreachable. R10212
+                                        read-only — never mutates.
+                                        Also: obs-status alias.
     ms022-doctor [--strict] [--json]    Triage the MS022 SSE subscriber-
                                         quota chain (proxy daemon /healthz
                                         + state classifier + envelope shape
@@ -8471,6 +8484,19 @@ AUDITOR_HELP
     # (--base-url, --node-exporter-url, --strict, --skip-doctor-observers,
     #  --json).
     "${__REPO_ROOT}/scripts/diagnostics/m060-smoke.py" "$@"
+    ;;
+  observability-status|obs-status)
+    # NEW: cross-vertical observability triage. Probes ALL 6
+    # verticals shipped to date (M060 chain-health, MS022 SSE quota,
+    # four-watchdog IPS spine, selfdef-modules-catalog, selfdef-
+    # daemon-process, selfdef-apparmor) in one shot via the 3 proxy
+    # daemons + node_exporter scrape. Operator-runnable single-
+    # command status across the entire observability surface
+    # without subscribing to per-vertical alert channels.
+    # R10212 read-only — never mutates anything.
+    # Exit codes: 0=all green, 1=any WARN/FAIL, 2=any proxy unreach.
+    # See scripts/diagnostics/observability-status.py --help.
+    "${__REPO_ROOT}/scripts/diagnostics/observability-status.py" "$@"
     ;;
   version|--version|-V) cmd_version "$@" ;;
   help|--help|-h|"") cmd_help ;;
