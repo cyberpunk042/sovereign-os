@@ -555,6 +555,48 @@ a11y; contract test catches drift.
   .four-watchdog-banner .spacer { flex:1; }
 </style>
 
+<!-- AppArmor profile-enforcement banner. Pairs with selfdef commit
+     4680ed8 (apparmor-textfile producer + 2 systemd units) +
+     sovereign-os commits acd6d27 (4 alerts) + 190e18d (runbook +
+     dashboard #25). State classes match the proxy daemon's
+     classify_state output (ok / not-loaded / complain / observer-fault /
+     unreachable / unknown). The complain-mode state is the signature
+     IPS-drift hazard the observer was built to catch — operator
+     aa-complain'd for debugging and forgot to restore. -->
+<div id="apparmor-banner" class="apparmor-banner unknown" role="status" aria-live="polite">
+  <span class="dot"></span>
+  <strong id="apparmor-label">AppArmor: unknown</strong>
+  <span id="apparmor-detail" class="muted">
+    polling <code>selfdef_apparmor_profile_*</code> via node_exporter…
+  </span>
+  <span class="spacer" style="flex:1"></span>
+  <span class="muted" id="apparmor-mode">mode: —</span>
+  <span class="muted">·
+    <a href="/d/sovereign-os-selfdef-apparmor" target="_blank"
+       style="color:inherit;text-decoration:underline">Grafana</a>
+  </span>
+</div>
+<style>
+  .apparmor-banner { display:flex; align-items:center; gap:.6rem;
+    padding:.5rem .8rem; border:1px solid var(--border, #2a2a2a);
+    border-radius:.4rem; margin:.4rem 0 .8rem; font-size:.85rem;
+    background:rgba(255,255,255,.02); }
+  .apparmor-banner.ok             { border-color:#1f7a3a; background:rgba(31,122,58,.10); }
+  .apparmor-banner.complain       { border-color:#7a3a1f; background:rgba(122,58,31,.10); }
+  .apparmor-banner.not-loaded     { border-color:#7a3a1f; background:rgba(122,58,31,.10); }
+  .apparmor-banner.observer-fault { border-color:#7a3a1f; background:rgba(122,58,31,.10); }
+  .apparmor-banner.unreachable    { border-color:#7a3a1f; background:rgba(122,58,31,.10); }
+  .apparmor-banner.unknown        { border-color:#444; background:rgba(255,255,255,.04); }
+  .apparmor-banner .dot { width:.55rem; height:.55rem; border-radius:50%;
+    background:#888; box-shadow:0 0 .35rem rgba(255,255,255,.2); }
+  .apparmor-banner.ok .dot             { background:#1f7a3a; box-shadow:0 0 .35rem rgba(31,122,58,.7); }
+  .apparmor-banner.complain .dot       { background:#7a3a1f; box-shadow:0 0 .35rem rgba(122,58,31,.7); }
+  .apparmor-banner.not-loaded .dot     { background:#7a3a1f; box-shadow:0 0 .35rem rgba(122,58,31,.7); }
+  .apparmor-banner.observer-fault .dot { background:#7a3a1f; box-shadow:0 0 .35rem rgba(122,58,31,.7); }
+  .apparmor-banner.unreachable .dot    { background:#7a3a1f; box-shadow:0 0 .35rem rgba(122,58,31,.7); }
+  .apparmor-banner .spacer { flex:1; }
+</style>
+
 <div class="panel" id="m060-mirror-panel">
   <div class="muted" style="margin-bottom:.4rem;font-size:.85rem">
     Live producer health across the 8 cross-repo mirror dashboards.
@@ -938,6 +980,80 @@ async function renderFourWatchdogBanner() {
   }
 }
 
+// AppArmor profile-enforcement banner. Polls node_exporter's /metrics
+// for the selfdef_apparmor_profile_* gauges shipped by the selfdef-
+// apparmor-textfile.{service,timer} pair (selfdef commit 4680ed8) and
+// classifies into ok / complain / not-loaded / observer-fault /
+// unreachable matching the 4 sovereign-os alert rules. The
+// observer-fault and complain states are the signature IPS-drift
+// hazards the observer was built to catch.
+async function renderApparmorBanner() {
+  const banner = el("apparmor-banner");
+  if (!banner) return;
+  // Fetch the node_exporter /metrics endpoint and grep for the
+  // 4 canonical AppArmor gauges. Honest-offline when unreachable.
+  let metrics_text = null;
+  try {
+    const r = await fetch("/api/node-exporter/metrics", {headers: {"Accept": "text/plain"}});
+    if (r.ok) metrics_text = await r.text();
+  } catch (e) { metrics_text = null; }
+  // Fall back to direct node_exporter probe (operator drop-in proxy).
+  if (!metrics_text) {
+    try {
+      const r = await fetch("/metrics", {headers: {"Accept": "text/plain"}});
+      if (r.ok) metrics_text = await r.text();
+    } catch (e) { metrics_text = null; }
+  }
+
+  let state = "unreachable";
+  let mode = "—";
+  let detail = "polling <code>selfdef_apparmor_profile_*</code> via node_exporter…";
+
+  if (metrics_text) {
+    // Parse the 4 canonical gauges. Look for the exact metric+label combos.
+    const m = metrics_text;
+    const emit_failed = /^selfdef_apparmor_textfile_emit_failed (\d)/m.exec(m);
+    const loaded = /^selfdef_apparmor_profile_loaded\{profile="\/usr\/bin\/selfdefd"\} (\d)/m.exec(m);
+    const enforce = /^selfdef_apparmor_profile_enforce\{profile="\/usr\/bin\/selfdefd"\} (\d)/m.exec(m);
+    const complain = /^selfdef_apparmor_profile_complain\{profile="\/usr\/bin\/selfdefd"\} (\d)/m.exec(m);
+
+    if (emit_failed && emit_failed[1] === "1") {
+      state = "observer-fault";
+      mode = "—";
+      detail = '<strong>observer wedged</strong> — kernel AppArmor missing OR wrapper broken. '
+        + 'See <code>SelfdefApparmorTextfileEmitFailed</code> alert';
+    } else if (loaded && loaded[1] === "0") {
+      state = "not-loaded";
+      mode = "absent";
+      detail = '<strong>profile NOT loaded</strong> — selfdefd running without AppArmor confinement. '
+        + 'See <code>SelfdefApparmorProfileNotLoaded</code> alert';
+    } else if (complain && complain[1] === "1") {
+      state = "complain";
+      mode = "complain";
+      detail = '<strong>COMPLAIN mode</strong> — profile only LOGS violations, does NOT enforce. '
+        + 'Run <code>aa-enforce /etc/apparmor.d/usr.bin.selfdefd</code> to restore';
+    } else if (enforce && enforce[1] === "1") {
+      state = "ok";
+      mode = "enforce";
+      detail = "AppArmor enforcing the selfdefd profile";
+    } else {
+      state = "unknown";
+      mode = "—";
+      detail = "gauges present but state indeterminate";
+    }
+  }
+
+  const knownStates = ["ok", "complain", "not-loaded", "observer-fault", "unreachable", "unknown"];
+  banner.classList.remove(...knownStates);
+  banner.classList.add(state);
+  const labelEl = el("apparmor-label");
+  const detailEl = el("apparmor-detail");
+  const modeEl = el("apparmor-mode");
+  if (labelEl) labelEl.textContent = "AppArmor: " + state;
+  if (detailEl) detailEl.innerHTML = detail;
+  if (modeEl) modeEl.textContent = "mode: " + mode;
+}
+
 // Build a {artifact -> health object} lookup from /api/m060/health
 // so the grid renderer can drill from per-artifact state (corrupt /
 // stale / fresh) into the right tile. Single fetch, then merge.
@@ -991,6 +1107,8 @@ async function renderM060Grid() {
   // IPS-spine state is checked on the same tick as the chain-wide
   // health is.
   renderFourWatchdogBanner();
+  // AppArmor profile-enforcement banner — same cadence.
+  renderApparmorBanner();
   // Fetch chain-health once for the WHOLE grid (the response carries
   // every artifact), then fetch each per-mirror snapshot in parallel.
   const [artifactMap, ...states] = await Promise.all([
