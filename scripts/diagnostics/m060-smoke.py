@@ -79,6 +79,15 @@ DEFAULT_MS022_PROXY_URL = os.environ.get(
 )
 MS022_STATE_ENDPOINT = "/api/ms022/state"
 
+# Four-watchdog (IPS spine) proxy daemon
+# (sovereign-four-watchdog-api.service) bound default :7712 — locked
+# by the systemd-unit contract test. Same probe shape as the m060-
+# health-api: hit /api/four-watchdog/state, classify.
+DEFAULT_FOUR_WATCHDOG_PROXY_URL = os.environ.get(
+    "SOVEREIGN_OS_FOUR_WATCHDOG_PROXY_URL", "http://localhost:7712",
+)
+FOUR_WATCHDOG_STATE_ENDPOINT = "/api/four-watchdog/state"
+
 # Per-domain offline-hint pointing at the selfdef knob/verb that populates it.
 OFFLINE_HINT = {
     "D-02": "always-online once selfdefd runs with selfdef_mirror_dir set",
@@ -164,6 +173,52 @@ def probe_ms022_state(proxy_url: str, timeout: float = 3.0) -> dict:
         return {"reachable": False, "state": None, "error": str(e)}
     except json.JSONDecodeError as e:
         return {"reachable": False, "state": None, "error": "non-JSON: " + str(e)}
+
+
+def probe_four_watchdog_state(proxy_url: str, timeout: float = 3.0) -> dict:
+    """Hit the four-watchdog IPS-spine proxy daemon's
+    /api/four-watchdog/state. Returns {reachable, state, error}
+    matching the probe convention. State is one of ok / warn /
+    critical / observer-fault / unreachable per the proxy classifier
+    (which uses the same 300s observer-silent threshold + 0/1/2/-1
+    severity ladder as the alert rules + dashboard, locked by the
+    cross-surface threshold-lockstep contract test)."""
+    url = proxy_url.rstrip("/") + FOUR_WATCHDOG_STATE_ENDPOINT
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as r:
+            body = r.read().decode("utf-8")
+            raw = json.loads(body)
+            return {
+                "reachable": True,
+                "state": str(raw.get("state", "unknown")),
+                "error": None,
+            }
+    except urllib.error.HTTPError as e:
+        return {"reachable": False, "state": None, "error": f"HTTP {e.code}"}
+    except (urllib.error.URLError, ConnectionError, OSError) as e:
+        return {"reachable": False, "state": None, "error": str(e)}
+    except json.JSONDecodeError as e:
+        return {"reachable": False, "state": None, "error": "non-JSON: " + str(e)}
+
+
+def summarize_four_watchdog(result: dict) -> str:
+    """One-line four-watchdog state summary for the operator triage row."""
+    if not result["reachable"]:
+        return (
+            f"UNREACHABLE  proxy daemon down · {result.get('error', '?')[:50]}"
+        )
+    state = result["state"]
+    if state == "ok":
+        return "OK           IPS spine healthy (MS046+MS047+MS044+MS048)"
+    if state == "warn":
+        return "WARN         a watchdog reports WARN (FourWatchdogAnyWarn alert)"
+    if state == "critical":
+        return "FAIL         a watchdog reports CRITICAL (FourWatchdogWorstSeverityCritical alert)"
+    if state == "observer-fault":
+        return "FAIL         observer wedged — gauges stale (TextfileEmitFailed or ObserverSilent alert)"
+    if state == "unreachable":
+        return "WARN         proxy reachable but node_exporter unreachable"
+    return f"UNKNOWN      proxy reports state={state!r}"
 
 
 def summarize_ms022(result: dict) -> str:
@@ -308,6 +363,24 @@ def main(argv: list[str] | None = None) -> int:
             "is not deployed on this host)"
         ),
     )
+    p.add_argument(
+        "--four-watchdog-proxy-url",
+        default=DEFAULT_FOUR_WATCHDOG_PROXY_URL,
+        help=(
+            "four-watchdog (IPS spine) proxy daemon URL "
+            "(default http://localhost:7712; honors "
+            "$SOVEREIGN_OS_FOUR_WATCHDOG_PROXY_URL). The smoke also "
+            "verifies the four-watchdog observability chain alongside "
+            "the M060 + MS022 chains"
+        ),
+    )
+    p.add_argument(
+        "--skip-four-watchdog", action="store_true",
+        help=(
+            "skip probing the four-watchdog (IPS spine) proxy daemon "
+            "(use when four-watchdog is not deployed on this host)"
+        ),
+    )
     p.add_argument("--json", action="store_true", help="machine-readable JSON output")
     args = p.parse_args(argv)
 
@@ -367,6 +440,18 @@ def main(argv: list[str] | None = None) -> int:
             "summary":   summarize_ms022(ms022_pr),
         }
 
+    # Four-watchdog (IPS spine) chain probe. Skipped when the
+    # operator passes --skip-four-watchdog.
+    four_watchdog_result: dict | None = None
+    if not args.skip_four_watchdog:
+        fw_pr = probe_four_watchdog_state(args.four_watchdog_proxy_url)
+        four_watchdog_result = {
+            "proxy_url": args.four_watchdog_proxy_url,
+            "reachable": fw_pr["reachable"],
+            "state":     fw_pr["state"],
+            "summary":   summarize_four_watchdog(fw_pr),
+        }
+
     unreachable = [r for r in results if not r["reachable"]]
     offline = [r for r in results if r["reachable"] and r["mirror_status"] != "online"]
     online = [r for r in results if r["mirror_status"] == "online"]
@@ -381,6 +466,15 @@ def main(argv: list[str] | None = None) -> int:
         ms022_result is not None
         and ms022_result["reachable"]
         and ms022_result["state"] == "saturated"
+    )
+    # Four-watchdog critical OR observer-fault → exit 1. Mirrors the
+    # M060 doctor-fail + MS022 saturated exit-code contract so CI can
+    # rely on a single exit code across ALL THREE observability
+    # verticals shipped to date.
+    four_watchdog_failed = bool(
+        four_watchdog_result is not None
+        and four_watchdog_result["reachable"]
+        and four_watchdog_result["state"] in ("critical", "observer-fault")
     )
 
     if args.json:
@@ -403,12 +497,18 @@ def main(argv: list[str] | None = None) -> int:
                 "result":  ms022_result,
                 "failed":  ms022_failed,
             },
+            "four_watchdog": {
+                "skipped": args.skip_four_watchdog,
+                "result":  four_watchdog_result,
+                "failed":  four_watchdog_failed,
+            },
             "totals": {
                 "online": len(online),
                 "offline": len(offline),
                 "unreachable": len(unreachable),
                 "doctor_failed": len(doctor_failed),
                 "ms022_failed": int(ms022_failed),
+                "four_watchdog_failed": int(four_watchdog_failed),
                 "total": len(results),
             },
         }, indent=2))
@@ -438,12 +538,23 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{'MS022 SSE quota':<22} {ms022_result['summary']}")
         else:
             print(f"{'MS022 SSE quota':<22} SKIPPED (--skip-ms022)")
+        # Four-watchdog (IPS spine) row.
+        print(f"{'─' * 22} {'─' * 60}")
+        if four_watchdog_result is not None:
+            print(
+                f"{'four-watchdog':<22} {four_watchdog_result['summary']}"
+            )
+        else:
+            print(
+                f"{'four-watchdog':<22} SKIPPED (--skip-four-watchdog)"
+            )
         print(f"{'─' * 22} {'─' * 60}")
         print(
             f"summary: {len(online)} online · {len(offline)} offline · "
             f"{len(unreachable)} unreachable / {len(results)} total · "
             f"chain={chain_state} · doctor_failed={len(doctor_failed)} · "
-            f"ms022_failed={int(ms022_failed)}"
+            f"ms022_failed={int(ms022_failed)} · "
+            f"four_watchdog_failed={int(four_watchdog_failed)}"
         )
 
     # Exit logic:
@@ -459,6 +570,8 @@ def main(argv: list[str] | None = None) -> int:
     if doctor_failed:
         return 1
     if ms022_failed:
+        return 1
+    if four_watchdog_failed:
         return 1
     if args.strict and chain_state in ("unreachable", "offline", "stale"):
         return 1
