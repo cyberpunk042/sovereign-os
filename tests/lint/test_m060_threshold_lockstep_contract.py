@@ -1,0 +1,239 @@
+"""M060 cross-surface threshold-lockstep lint (sovereign-os side).
+
+The M060 observability chain shares 3 invariants across surfaces:
+
+  1. STALE_AGE_SECS = 300 (5 minutes)
+     Appears as the `> 300` Prometheus alert expression for both
+     observer-silent alerts, the daemon-side Rust const in
+     selfdef-api::m060_health, the JS const in the master-
+     dashboard banner classifier, and (implicitly) the doctor
+     scripts that flag stale artifacts.
+
+  2. 4 chain-state enum strings: online / degraded / stale /
+     offline / unreachable (5 states actually — the m060-health-
+     api emits all 5). Renaming one without the others breaks
+     the multi-surface classifier.
+
+  3. CHAIN_LINK label set: cli-mirror + mirror-domain.
+     Each sub-chain alert carries chain_link=<label>; renaming
+     one breaks Grafana filters AND the runbook deep-links.
+
+Drift is the silent operator-misdirection hazard. Per-surface
+contract tests catch drift WITHIN their surface; this test
+catches drift BETWEEN them.
+
+Optional partner-repo cross-reference via $SELFDEF_REPO_ROOT
+verifies the selfdef-side Rust const lives at the canonical
+value — closes the cross-repo loop matching the bidirectional
+MS022 pattern shipped at sovereign-os commit `ac6b0ab` +
+selfdef commit `625f3d9`.
+"""
+from __future__ import annotations
+
+import json
+import os
+import re
+from pathlib import Path
+
+import yaml
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+# Canonical M060 invariants.
+STALE_AGE_SECS = 300  # 5 minutes
+CHAIN_STATES = {"online", "degraded", "stale", "offline", "unreachable"}
+CHAIN_LINK_LABELS = {"cli-mirror", "mirror-domain"}
+
+ALERTS_PATH = (
+    REPO_ROOT / "config" / "prometheus" / "alerts" / "m060-chain-health.rules.yml"
+)
+MASTER_DASHBOARD = REPO_ROOT / "webapp" / "master-dashboard" / "index.html"
+HEALTH_API = REPO_ROOT / "scripts" / "operator" / "m060-health-api.py"
+
+
+def _read(path: Path) -> str:
+    return path.read_text()
+
+
+def _alert_rules() -> list[dict]:
+    doc = yaml.safe_load(_read(ALERTS_PATH))
+    return [r for g in doc["groups"] for r in g["rules"]]
+
+
+def test_observer_silent_alerts_share_300_threshold():
+    """Both observer-silent alerts (CliMirror + MirrorDomain) MUST
+    use `> 300` — drift would silently misalign the page-trigger
+    against the doctor's `last_run_unix` accounting."""
+    by_name = {r["alert"]: r for r in _alert_rules()}
+    for name in ("M060CliMirrorObserverSilent", "M060MirrorDomainObserverSilent"):
+        expr = by_name[name]["expr"]
+        assert "> 300" in expr, (
+            f"alert {name!r} drift: expected '> 300' threshold; got: "
+            f"{expr!r}"
+        )
+
+
+def test_master_dashboard_stale_age_matches_canonical_300s():
+    """The master-dashboard tile-state classifier reads
+    `M060_TILE_STALE_AGE_SECS = 5 * 60` (= 300). Drift = the tile
+    turns yellow at a different age than the alert fires."""
+    body = _read(MASTER_DASHBOARD)
+    m = re.search(
+        r"const M060_TILE_STALE_AGE_SECS\s*=\s*([0-9*\s]+);", body,
+    )
+    assert m is not None, (
+        "master-dashboard missing M060_TILE_STALE_AGE_SECS const"
+    )
+    # Evaluate the literal (handles `5 * 60` or just `300`).
+    value_expr = m.group(1).strip()
+    value = eval(value_expr, {"__builtins__": {}}, {})
+    assert value == STALE_AGE_SECS, (
+        f"master-dashboard STALE_AGE_SECS drift: expected {STALE_AGE_SECS}, "
+        f"got {value} (from literal {value_expr!r})"
+    )
+
+
+def test_health_api_advertises_canonical_state_set():
+    """The m060-health-api's /version states list MUST match the
+    canonical 5-state set. Drift = consumer code expecting one of
+    the documented states gets a state it can't handle."""
+    body = _read(HEALTH_API)
+    # The version_payload literal carries the states list.
+    states_match = re.search(
+        r'"states":\s*\[([^\]]+)\]', body,
+    )
+    assert states_match is not None
+    states_block = states_match.group(1)
+    # Extract every quoted string in the block.
+    found_states = set(re.findall(r'"([^"]+)"', states_block))
+    assert found_states == CHAIN_STATES, (
+        f"m060-health-api states drift: expected {CHAIN_STATES!r}, "
+        f"got {found_states!r}"
+    )
+
+
+def test_chain_link_labels_align_across_sub_chain_alerts():
+    """The 6 sub-chain alerts (3 cli-mirror + 3 mirror-domain) MUST
+    carry the canonical chain_link label values. Drift = Grafana
+    filters silently exclude one sub-chain."""
+    by_name = {r["alert"]: r for r in _alert_rules()}
+    cli_mirror_alerts = {
+        "M060CliMirrorChainDegraded",
+        "M060CliMirrorChainBroken",
+        "M060CliMirrorObserverSilent",
+    }
+    mirror_domain_alerts = {
+        "M060MirrorDomainChainDegraded",
+        "M060MirrorDomainChainBroken",
+        "M060MirrorDomainObserverSilent",
+    }
+    for name in cli_mirror_alerts:
+        assert by_name[name]["labels"].get("chain_link") == "cli-mirror", (
+            f"alert {name!r} chain_link label drift"
+        )
+    for name in mirror_domain_alerts:
+        assert by_name[name]["labels"].get("chain_link") == "mirror-domain", (
+            f"alert {name!r} chain_link label drift"
+        )
+
+
+def test_grafana_dashboards_carry_300_red_threshold():
+    """Both M060 sub-chain Grafana dashboards render the observer-
+    age red threshold at 300s — same as the alert. Drift here =
+    the operator sees the dashboard turn red at a different age
+    than the alert pages."""
+    dashboard_paths = [
+        REPO_ROOT / "docs" / "observability" / "dashboards" / "sovereign-os-m060-cli-mirror.json",
+        REPO_ROOT / "docs" / "observability" / "dashboards" / "sovereign-os-m060-mirror-domains.json",
+    ]
+    for path in dashboard_paths:
+        data = json.loads(_read(path))
+        red_300_found = False
+        for panel in data["panels"]:
+            if "observer age" not in panel.get("title", "").lower():
+                continue
+            steps = (
+                panel.get("fieldConfig", {})
+                .get("defaults", {})
+                .get("thresholds", {})
+                .get("steps", [])
+            )
+            for s in steps:
+                if s.get("color") == "red" and s.get("value") == STALE_AGE_SECS:
+                    red_300_found = True
+                    break
+            if red_300_found:
+                break
+        assert red_300_found, (
+            f"Grafana dashboard {path.name} missing 300s red threshold "
+            f"on observer-age panel"
+        )
+
+
+def test_runbook_sections_reference_observer_silent_alerts():
+    """The deployment-guide MUST have runbook sections for both
+    observer-silent alerts. Locked here as a cross-surface
+    integrity check (per-alert runbook coverage is locked
+    separately, but THIS test catches the gap where one is
+    documented + the other isn't)."""
+    guide = _read(
+        REPO_ROOT / "docs" / "operator" / "m060-deployment-guide.md"
+    )
+    for alert in ("M060CliMirrorObserverSilent", "M060MirrorDomainObserverSilent"):
+        assert f"#### {alert}" in guide, (
+            f"deployment guide missing #### runbook section for {alert!r}"
+        )
+
+
+def test_partner_repo_selfdef_stale_age_const_matches():
+    """Cross-repo opt-in: when $SELFDEF_REPO_ROOT points at a
+    selfdef checkout, verify selfdef-api's STALE_AGE_SECS const
+    equals our canonical value. Skipped silently when the env
+    var is unset."""
+    partner_env = os.environ.get("SELFDEF_REPO_ROOT")
+    if not partner_env:
+        return
+    partner = Path(partner_env)
+    health_rs = (
+        partner / "crates" / "selfdef-api" / "src" / "m060_health.rs"
+    )
+    if not health_rs.is_file():
+        return
+    body = health_rs.read_text()
+    # The const is declared like `const STALE_AGE_SECS: u64 = 5 * 60;`
+    # or `const STALE_AGE_SECS: u64 = 300;`. Capture the expression.
+    m = re.search(
+        r"const STALE_AGE_SECS:\s*u64\s*=\s*([^;]+);", body,
+    )
+    assert m is not None, (
+        "selfdef m060_health.rs missing STALE_AGE_SECS const"
+    )
+    # Eval the Rust-numeric-literal expression (5 * 60 or 300 work as
+    # Python expressions too).
+    value_expr = m.group(1).strip()
+    value = eval(value_expr, {"__builtins__": {}}, {})
+    assert value == STALE_AGE_SECS, (
+        f"selfdef m060_health.rs STALE_AGE_SECS drift: "
+        f"expected {STALE_AGE_SECS}, got {value} (from {value_expr!r})"
+    )
+
+
+def test_master_dashboard_state_class_set_matches_canonical():
+    """The master-dashboard banner's `knownStates` list MUST equal
+    the canonical 5-state set. JavaScript drift here = the banner
+    fails to apply the right CSS class when the api returns a
+    legitimately documented state."""
+    body = _read(MASTER_DASHBOARD)
+    m = re.search(
+        r"const knownStates\s*=\s*\[([^\]]+)\];", body,
+    )
+    assert m is not None, "master-dashboard missing knownStates const"
+    states = set(re.findall(r'"([^"]+)"', m.group(1)))
+    # The banner's knownStates includes 'unknown' as the unclassified
+    # fallback class; the canonical state set does NOT carry it
+    # (since the api never emits 'unknown'). Verify the api-emitted
+    # states all appear; unknown is a permitted UI-only addition.
+    missing = CHAIN_STATES - states
+    assert not missing, (
+        f"master-dashboard knownStates drift: missing {sorted(missing)!r}"
+    )

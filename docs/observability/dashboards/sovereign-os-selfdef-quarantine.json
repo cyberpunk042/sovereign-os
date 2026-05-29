@@ -1,0 +1,84 @@
+{
+  "_comment": "sovereign-os selfdef SDD-066 quarantine dashboard. Visualizes selfdef_quarantine_* gauges (selfdef commit 55a3c33; SDD-066 spec at 0e388b3). Pairs with 4 alerts. SDD-066 enforcement-layer observability — pairs with blockset dashboard at SDD-065/066 enforcement-axis.",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "operator runbook", "url": "/d/sovereign-os-selfdef-quarantine#runbook", "type": "link", "icon": "doc"},
+    {"title": "SDD-066 spec", "url": "https://github.com/cyberpunk042/selfdef/blob/main/docs/sdd/066-process-quarantine-action-surface.md", "type": "link", "icon": "external link"},
+    {"title": "producer source", "url": "https://github.com/cyberpunk042/selfdef/blob/main/packaging/scripts/selfdef-quarantine-textfile.sh", "type": "link", "icon": "external link"},
+    {"title": "blockset (paired SDD-065)", "url": "/d/sovereign-os-selfdef-blockset", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "selfdef.slice present",
+      "description": "Red at 0 = selfdefd didn't bootstrap the slice; SDD-066 enforcement OFFLINE. Matches SelfdefQuarantineSliceMissing.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_quarantine_slice_present", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "mappings": [{"type": "value", "options": {"0": {"text": "OFFLINE"}, "1": {"text": "OK"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "green", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "active quarantines",
+      "description": "Total quarantine-*.scope entries. Yellow at 10 matches SelfdefQuarantineActiveHigh.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_quarantine_active_count", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 10}, {"color": "red", "value": 50}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "next auto-release",
+      "description": "Unix timestamp of soonest SDD-066 §3a auto-release timer. 0 = none scheduled.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_quarantine_oldest_expiry_unix", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "dateTimeAsIso"}},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "observer sentinel",
+      "description": "selfdef_quarantine_textfile_emit_failed.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_quarantine_textfile_emit_failed", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "quarantine state — active vs frozen",
+      "description": "active_count = total scope entries; frozen_count = subset with cgroup.freeze==1. Gap between curves = scopes still running (mid-freeze transition or backend bug).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_quarantine_active_count", "legendFormat": "active", "refId": "A"},
+        {"expr": "selfdef_quarantine_frozen_count", "legendFormat": "frozen", "refId": "B"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none"}},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "slice presence over time",
+      "description": "Should be 1 sustained — any drop is selfdefd outage.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_quarantine_slice_present", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1}},
+      "gridPos": {"h": 6, "w": 24, "x": 0, "y": 12}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["sovereign-os", "selfdef", "quarantine", "sdd-066", "IPS-spine", "security", "enforcement-layer"],
+  "templating": {"list": []},
+  "time": {"from": "now-24h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "sovereign-os — selfdef SDD-066 quarantine (enforcement layer)",
+  "uid": "sovereign-os-selfdef-quarantine",
+  "version": 1,
+  "weekStart": ""
+}

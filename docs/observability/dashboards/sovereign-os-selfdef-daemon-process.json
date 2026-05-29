@@ -1,0 +1,121 @@
+{
+  "_comment": "sovereign-os selfdefd daemon process-state dashboard. Visualizes the selfdef-side selfdef_daemon_process_* gauges shipped via the selfdef-daemon-process-textfile.{service,timer} pair (selfdef commit 09822c1) into node_exporter's textfile_collector. Pairs with the 5 alert rules (TextfileEmitFailed/ObserverSilent/MemoryHigh/FdExhaustionApproaching/RestartLoop) in config/prometheus/alerts/selfdef-daemon-process.rules.yml and runbook sections in docs/operator/m060-deployment-guide.md. Operator imports into Grafana via Settings → JSON Model. Project boundary R10212: pure observability.",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "operator runbook (sovereign-os)", "url": "/d/sovereign-os-selfdef-daemon-process#runbook", "type": "link", "icon": "doc"},
+    {"title": "producer source (selfdef daemon-process observer)", "url": "https://github.com/cyberpunk042/selfdef/blob/main/packaging/scripts/selfdef-daemon-process-textfile.sh", "type": "link", "icon": "external link"},
+    {"title": "deployment guide — daemon-process runbooks", "url": "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefdaemonprocesstextfileemitfailed-critical", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "memory RSS",
+      "description": "selfdefd resident memory. Yellow at 512 MiB, red at 1 GiB matching SelfdefDaemonProcessMemoryHigh alert threshold (1073741824 bytes).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_daemon_process_memory_rss_bytes", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "bytes", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 536870912}, {"color": "red", "value": 1073741824}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "open FDs",
+      "description": "Open file descriptor count. Red at 819 (80% of default 1024 ulimit) matching SelfdefDaemonProcessFdExhaustionApproaching alert.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_daemon_process_open_fds", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 512}, {"color": "red", "value": 819}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "process uptime",
+      "description": "Seconds since selfdefd started. Recent restarts visible as a drop.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_daemon_process_uptime_seconds", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "s", "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "yellow", "value": 60}, {"color": "green", "value": 600}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "observer emit-failed",
+      "description": "Honest-offline sentinel. 1 = wrapper failed (daemon down / systemctl failed / /proc inaccessible). When FAILED, do NOT trust the other gauges.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_daemon_process_textfile_emit_failed", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "mappings": [{"type": "value", "options": {"0": {"text": "OK"}, "1": {"text": "FAILED"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "memory RSS + VSize over time",
+      "description": "Resident vs virtual memory. Stacked area lets operators see the gap (mapped-but-not-resident pages).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_daemon_process_memory_rss_bytes", "refId": "A", "legendFormat": "RSS"},
+        {"expr": "selfdef_daemon_process_memory_vsize_bytes", "refId": "B", "legendFormat": "VSize"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "bytes", "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 20}, "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 536870912}, {"color": "red", "value": 1073741824}]}}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "open FDs + threads over time",
+      "description": "FD count and thread count trends. Right axis is threads.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_daemon_process_open_fds", "refId": "A", "legendFormat": "open FDs"},
+        {"expr": "selfdef_daemon_process_threads", "refId": "B", "legendFormat": "threads"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 20}, "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 512}, {"color": "red", "value": 819}]}}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "process uptime over time (saw-tooth pattern = restart loop)",
+      "description": "Uptime monotonically increases between restarts. A saw-tooth pattern (repeated drops to 0) means crashloop — see SelfdefDaemonProcessRestartLoop alert.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_daemon_process_uptime_seconds", "refId": "A", "legendFormat": "{{instance}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "s", "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 20}}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+    },
+    {
+      "type": "timeseries",
+      "title": "restart count (counter; rate(10m) > 3 = loop)",
+      "description": "systemd NRestarts counter. The SelfdefDaemonProcessRestartLoop alert fires on increase()[10m] >= 3.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_daemon_process_restart_count", "refId": "A", "legendFormat": "cumulative"},
+        {"expr": "increase(selfdef_daemon_process_restart_count[10m])", "refId": "B", "legendFormat": "increase(10m)"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2}}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+    },
+    {
+      "type": "timeseries",
+      "title": "observer-freshness — emit-failed sentinel over time",
+      "description": "Red bands mark wedged-wrapper windows when other gauges are stale. Pairs with SelfdefDaemonProcessTextfileEmitFailed alert.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_daemon_process_textfile_emit_failed", "refId": "A", "legendFormat": "{{instance}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 50}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 7, "w": 24, "x": 0, "y": 20}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["sovereign-os", "selfdef", "daemon-process", "observability"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {},
+  "timezone": "",
+  "title": "sovereign-os — selfdefd daemon process-state",
+  "uid": "sovereign-os-selfdef-daemon-process",
+  "version": 1,
+  "weekStart": ""
+}

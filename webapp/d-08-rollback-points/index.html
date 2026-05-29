@@ -9,6 +9,361 @@
 <meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
 <meta name="x-sovereign-catalog-source" content="M060 R10097-R10101 (ZFS snapshot list + commit history + rollback-preview + rollback-apply + Cmd-9) + M068 ZFS storage architecture + M047 continuity (CRIU+ZFS warm sandboxes) + MS041 commit authority + MS003 signature requirement">
 <meta name="x-sovereign-doctrine" content="MS043 R10212 web NEVER mutates; rollback-apply emits clipboard CLI for operator-signed selfdefctl invocation">
+<!-- M060 R10137/R10140/R10141 personalization apply-snippet — same
+     ~20 lines that ship in master-dashboard's <head>; reads prefs
+     from localStorage and applies them pre-paint so the operator's
+     theme/accent/typography choices render with no FOUC. The
+     canonical control surface is /webapp/personalization/. -->
+<script>
+  (function(){
+    var KEY = 'sovereign-os.personalization', SCHEMA_V = 1;
+    var DEF = { schema: SCHEMA_V, theme: 'auto', accent: '#9bd1ff', font_scale: 1 };
+    var p;
+    try {
+      var raw = localStorage.getItem(KEY);
+      p = raw ? JSON.parse(raw) : null;
+      if (!p || p.schema !== SCHEMA_V) p = null;
+    } catch(e) { p = null; }
+    if (!p) p = DEF;
+    var resolved = (p.theme === 'dark' || p.theme === 'light') ? p.theme
+      : ((window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark');
+    document.documentElement.setAttribute('data-theme', resolved);
+    document.documentElement.style.setProperty('--so-accent', p.accent || DEF.accent);
+    document.documentElement.style.setProperty('--accent', p.accent || DEF.accent);
+    document.documentElement.style.setProperty('--font-scale', String(p.font_scale || 1));
+  })();
+</script>
+<style>
+  /* M060 R10137 light-theme overrides (the apply-snippet above sets
+     data-theme; the dark-theme :root in the main stylesheet below is
+     the default). */
+  html[data-theme="light"] {
+    --bg:#f6f6f6; --fg:#0e0e0e; --muted:#555;
+    --panel:#ffffff; --border:#d8d8d8;
+  }
+</style>
+
+<!-- M060 R10055 + R10058-R10105 keyboard-nav snippet — see webapp/_shared/nav-snippet.html for full doc -->
+<style>
+  .so-palette-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,.55);
+    z-index: 9000; display: none; align-items: flex-start;
+    justify-content: center; padding-top: 12vh;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .so-palette-backdrop.open { display: flex; }
+  .so-palette-box {
+    width: min(560px, 90vw); background: var(--panel, #171717);
+    border: 1px solid var(--accent, #9bd1ff); border-radius: 6px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.6); overflow: hidden;
+  }
+  .so-palette-input {
+    width: 100%; padding: .75rem 1rem; background: transparent;
+    border: 0; border-bottom: 1px solid var(--border, #262626);
+    color: var(--fg, #e6e6e6); font-size: 1rem;
+    font-family: inherit; outline: none;
+  }
+  .so-palette-results { max-height: 50vh; overflow-y: auto; }
+  .so-palette-row {
+    display: flex; align-items: center; gap: .6rem;
+    padding: .5rem .9rem; cursor: pointer; color: var(--fg, #e6e6e6);
+    font-size: .9rem;
+  }
+  .so-palette-row:hover, .so-palette-row.active {
+    background: rgba(155,209,255,.10);
+  }
+  .so-palette-row .id {
+    font-weight: 600; color: var(--accent, #9bd1ff);
+    min-width: 3.5rem; font-size: .82rem;
+  }
+  .so-palette-row .lbl { flex: 1; }
+  .so-palette-row .hint {
+    font-size: .72rem; color: var(--muted, #888);
+  }
+  .so-palette-footer {
+    padding: .4rem .9rem; font-size: .72rem; color: var(--muted, #888);
+    border-top: 1px solid var(--border, #262626);
+    display: flex; gap: 1rem; flex-wrap: wrap;
+  }
+  .so-palette-footer kbd {
+    background: var(--bg, #0e0e0e); border: 1px solid var(--border, #262626);
+    border-radius: 3px; padding: 0 .35rem; font-size: .7rem;
+    color: var(--fg, #e6e6e6);
+  }
+</style>
+<script>
+  (function(){
+    var ROOT = (function(){
+      var p = window.location.pathname.replace(/\/$/, '');
+      var i = p.lastIndexOf('/');
+      return i > 0 ? p.slice(0, i + 1) : '/';
+    })();
+    var DASHBOARDS = [
+      { id: 'D-00', dir: 'master-dashboard',          label: 'master dashboard',         shortcut: '1' },
+      { id: 'D-01', dir: 'd-01-active-sessions',      label: 'active sessions',          shortcut: '2' },
+      { id: 'D-02', dir: 'd-02-profile-choices',      label: 'profile choices',          shortcut: '3' },
+      { id: 'D-03', dir: 'd-03-model-health',         label: 'model health',             shortcut: '4' },
+      { id: 'D-04', dir: 'd-04-costs',                label: 'costs',                    shortcut: '5' },
+      { id: 'D-05', dir: 'd-05-traces',               label: 'traces',                   shortcut: '6' },
+      { id: 'D-06', dir: 'd-06-pending-approvals',    label: 'pending approvals',        shortcut: '7' },
+      { id: 'D-07', dir: 'd-07-memory-changes',       label: 'memory changes',           shortcut: '8' },
+      { id: 'D-08', dir: 'd-08-rollback-points',      label: 'rollback points',          shortcut: '9' },
+      { id: 'D-09', dir: 'd-09-hardware-pressure',    label: 'hardware pressure',        shortcut: '0' },
+      { id: 'D-10', dir: 'd-10-eval-history',         label: 'eval history',             shortcut: null },
+      { id: 'D-11', dir: 'd-11-adapter-status',       label: 'adapter status',           shortcut: null },
+      { id: 'D-12a', dir: 'network-edge',             label: 'network edge (D-12 split)', shortcut: null },
+      { id: 'D-12b', dir: 'edge-firewall',            label: 'edge firewall (D-12 split)', shortcut: null },
+      { id: 'D-13', dir: 'd-13-filesystem-grants',    label: 'filesystem grants',        shortcut: null },
+      { id: 'D-14', dir: 'd-14-capability-tokens',    label: 'capability tokens',        shortcut: null },
+      { id: 'D-15', dir: 'd-15-sandboxes',            label: 'sandboxes',                shortcut: null },
+      { id: 'D-16', dir: 'd-16-audit',                label: 'audit chain',              shortcut: null },
+      { id: 'D-17', dir: 'd-17-quarantine',           label: 'quarantine',               shortcut: null },
+      { id: 'D-18', dir: 'd-18-trust-scores',         label: 'trust scores',             shortcut: null },
+      { id: 'D-19', dir: 'd-19-super-model-manifest', label: 'super-model manifest',     shortcut: null },
+      { id: 'D-20', dir: 'd-20-peace-machine-health', label: 'peace-machine health',     shortcut: null },
+      { id: 'cfg',  dir: 'personalization',            label: 'personalization',          shortcut: null },
+    ];
+    function jump(d) { window.location.href = ROOT + d.dir + '/'; }
+    var SHORTCUT = {};
+    DASHBOARDS.forEach(function(d) { if (d.shortcut) SHORTCUT[d.shortcut] = d; });
+
+    var backdrop, input, results, activeIdx = 0, filtered = [];
+    function openPalette() {
+      if (!backdrop) return;
+      backdrop.classList.add('open');
+      input.value = ''; activeIdx = 0;
+      filtered = DASHBOARDS.slice();
+      renderResults();
+      setTimeout(function(){ input.focus(); }, 0);
+    }
+    function closePalette() { if (backdrop) backdrop.classList.remove('open'); }
+    function renderResults() {
+      var html = '';
+      filtered.forEach(function(d, i) {
+        html += '<div class="so-palette-row' + (i === activeIdx ? ' active' : '') +
+                '" data-idx="' + i + '"><span class="id">' + d.id + '</span>' +
+                '<span class="lbl">' + d.label + '</span>' +
+                (d.shortcut ? '<span class="hint">⌘' + d.shortcut + '</span>' : '') +
+                '</div>';
+      });
+      results.innerHTML = html;
+      Array.prototype.forEach.call(results.querySelectorAll('.so-palette-row'), function(el) {
+        el.addEventListener('click', function() { jump(filtered[Number(el.dataset.idx)]); });
+      });
+      var active = results.querySelector('.so-palette-row.active');
+      if (active && active.scrollIntoView) active.scrollIntoView({ block: 'nearest' });
+    }
+    function filterPalette() {
+      var q = (input.value || '').trim().toLowerCase();
+      filtered = q ? DASHBOARDS.filter(function(d) {
+        return d.id.toLowerCase().indexOf(q) >= 0 ||
+               d.label.toLowerCase().indexOf(q) >= 0 ||
+               d.dir.toLowerCase().indexOf(q) >= 0;
+      }) : DASHBOARDS.slice();
+      activeIdx = 0;
+      renderResults();
+    }
+
+    // Skip the snippet's Cmd-N jump when the operator is already on
+    // the target dashboard — that way each dashboard's own Cmd-N
+    // handler (e.g. d-05 Cmd-6 focuses search) keeps working without
+    // being clobbered by a no-op page-reload. Detection: the current
+    // pathname contains the target dir as a segment.
+    function isOnDashboard(d) {
+      var p = window.location.pathname;
+      return p.indexOf('/' + d.dir + '/') >= 0 || p.indexOf('/' + d.dir) >= 0 && p.endsWith(d.dir);
+    }
+
+    function onKeydown(e) {
+      var open = backdrop && backdrop.classList.contains('open');
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault(); e.stopImmediatePropagation();
+        open ? closePalette() : openPalette(); return;
+      }
+      if (open) {
+        if (e.key === 'Escape')    { e.preventDefault(); e.stopImmediatePropagation(); closePalette(); return; }
+        if (e.key === 'ArrowDown') { e.preventDefault(); e.stopImmediatePropagation(); activeIdx = Math.min(activeIdx + 1, filtered.length - 1); renderResults(); return; }
+        if (e.key === 'ArrowUp')   { e.preventDefault(); e.stopImmediatePropagation(); activeIdx = Math.max(activeIdx - 1, 0); renderResults(); return; }
+        if (e.key === 'Enter')     { e.preventDefault(); e.stopImmediatePropagation(); if (filtered[activeIdx]) jump(filtered[activeIdx]); return; }
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && SHORTCUT[e.key]) {
+        var tgt = e.target;
+        if (tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA' || tgt.isContentEditable)) return;
+        // If already on target, let local handlers run (focus search, refresh, etc.)
+        if (isOnDashboard(SHORTCUT[e.key])) return;
+        e.preventDefault(); e.stopImmediatePropagation();
+        jump(SHORTCUT[e.key]);
+      }
+    }
+
+    function init() {
+      // Inject backdrop into <body> on DOMContentLoaded
+      if (!document.getElementById('so-palette-backdrop')) {
+        var d = document.createElement('div');
+        d.className = 'so-palette-backdrop';
+        d.id = 'so-palette-backdrop';
+        d.setAttribute('role', 'dialog');
+        d.setAttribute('aria-modal', 'true');
+        d.setAttribute('aria-label', 'dashboard navigator');
+        d.innerHTML =
+          '<div class="so-palette-box">' +
+            '<input type="text" class="so-palette-input" id="so-palette-input" ' +
+            'placeholder="jump to dashboard… (try: audit / costs / 17)" autocomplete="off">' +
+            '<div class="so-palette-results" id="so-palette-results"></div>' +
+            '<div class="so-palette-footer">' +
+              '<span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>' +
+              '<span><kbd>Enter</kbd> open</span>' +
+              '<span><kbd>Esc</kbd> close</span>' +
+              '<span style="flex:1"></span><span>M060 R10055</span>' +
+            '</div>' +
+          '</div>';
+        document.body.appendChild(d);
+      }
+      backdrop = document.getElementById('so-palette-backdrop');
+      input    = document.getElementById('so-palette-input');
+      results  = document.getElementById('so-palette-results');
+      if (!backdrop || !input || !results) return;
+      input.addEventListener('input', filterPalette);
+      backdrop.addEventListener('click', function(e) { if (e.target === backdrop) closePalette(); });
+    }
+    // Always bind keydown immediately (init may run later)
+    window.addEventListener('keydown', onKeydown);
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+    else init();
+  })();
+</script>
+<!-- M060 F05100 + WCAG 2.1 AA accessibility snippet — see webapp/_shared/a11y-snippet.html for full doc -->
+<style>
+  /* WCAG 2.1 AA — focus-visible ring on every interactive element. */
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  details:focus-visible,
+  summary:focus-visible,
+  [role="button"]:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid var(--accent, #9bd1ff);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+
+  /* The palette input had `outline: none` for design reasons; the
+     visible focus ring above resupplies the a11y requirement. */
+  .so-palette-input:focus-visible {
+    outline: 2px solid var(--accent, #9bd1ff);
+    outline-offset: -2px;
+  }
+
+  /* Skip-to-content — visually hidden until keyboard-focused,
+     then becomes a high-contrast badge in the top-left corner. */
+  .so-skip-link {
+    position: absolute;
+    left: -10000px;
+    top: auto;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    z-index: 10000;
+  }
+  .so-skip-link:focus {
+    left: 0.5rem;
+    top: 0.5rem;
+    width: auto;
+    height: auto;
+    padding: 0.5rem 1rem;
+    background: var(--accent, #9bd1ff);
+    color: var(--bg, #0e0e0e);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-weight: 600;
+    text-decoration: none;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Respect operator's prefers-reduced-motion preference. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+</style>
+<script>
+  (function(){
+    // Inject the skip-to-content link as the first child of <body>
+    // so screen readers + tabbing users land on it first. Targets
+    // <main> if present, else falls back to <h1>.
+    function init() {
+      if (document.querySelector('.so-skip-link')) return;
+      var a = document.createElement('a');
+      a.className = 'so-skip-link';
+      a.href = '#so-skip-target';
+      a.textContent = 'skip to content';
+      document.body.insertBefore(a, document.body.firstChild);
+      // Add an id to the first <main>/<h1> so the anchor resolves.
+      var tgt = document.querySelector('main') || document.querySelector('h1');
+      if (tgt && !tgt.id) tgt.id = 'so-skip-target';
+      else if (tgt && tgt.id !== 'so-skip-target') {
+        // Existing id — point the link to it instead.
+        a.href = '#' + tgt.id;
+      }
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+    else init();
+  })();
+</script>
+<!-- M060 F05099 + R10142 responsive-layout snippet — see webapp/_shared/responsive-snippet.html for full doc -->
+<style>
+  4K      ≥2400px  — body max-width raises to 1600px (otherwise the
+                     content looks lost on a huge display)
+
+Per "Respect the projects": pure CSS, no fetch/XHR/server-mutation.
+Drops in via the canonical-snippet adoption pattern next to nav +
+a11y; contract test catches drift.
+-->
+<style>
+  /* phone: ≤600px — single-column friendly */
+  @media (max-width: 600px) {
+    body { padding: 0.6rem !important; }
+    h1 { font-size: 1.2rem !important; }
+    h2 { font-size: 0.95rem !important; }
+    /* tables shrink rather than scroll horizontally; .num column
+       loses its tabular-nums alignment to save space */
+    table { font-size: 0.78rem !important; }
+    th, td { padding: 0.25rem 0.35rem !important; }
+    /* flex rows always wrap on phone — no horizontal scroll bait */
+    .row { flex-wrap: wrap !important; gap: 0.4rem !important; }
+    /* stats stack 1-up on phone */
+    .stat { flex-basis: 100% !important; }
+    /* panel padding shrinks */
+    .panel { padding: 0.7rem 0.8rem !important; }
+    /* the M060 palette overlay needs to fit narrow viewports */
+    .so-palette-box { width: 96vw !important; }
+    /* mirror banners stack their bits vertically */
+    .mirror-banner { flex-wrap: wrap !important; }
+    .mirror-banner .spacer { flex-basis: 100% !important; height: 0; }
+  }
+
+  /* tablet: 601-1024px — 2-up stat tiles, body stays roomy */
+  @media (min-width: 601px) and (max-width: 1024px) {
+    .stat { flex-basis: calc(50% - 0.3rem) !important; }
+    body { padding: 0.9rem !important; }
+  }
+
+  /* 4K / ultra-wide: ≥2400px — raise body width so content uses the
+     real estate (otherwise it looks marooned in the center) */
+  @media (min-width: 2400px) {
+    body { max-width: 1600px !important; }
+    html { font-size: calc(15px * var(--font-scale, 1)) !important; }
+  }
+</style>
+
+
 <style>
   :root {
     --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
@@ -17,7 +372,7 @@
     --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   }
   *{box-sizing:border-box}
-  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:calc(14px * var(--font-scale, 1));line-height:1.5}
   body{padding:1.2rem;max-width:1200px;margin:0 auto}
   h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
   h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
@@ -70,6 +425,26 @@
 
 <h1>D-08 — rollback points</h1>
 <div class="sub">ZFS snapshots · MS041 commit receipts · rollback preview (dry-run) · rollback apply (signed) — <span class="kbd">Cmd-9</span> · <a href="../master-dashboard/">D-00 main</a></div>
+
+<div id="datasource-banner" class="ds-banner unknown" role="status" aria-live="polite">
+  <span class="dot"></span>
+  <strong id="ds-state-label">data source: ?</strong>
+  <span id="ds-state-detail" class="muted">checking <code>/api/d-08/snapshot</code>…</span>
+  <span class="spacer"></span>
+  <span class="muted" id="ds-last-update">last fetch: —</span>
+</div>
+<style>
+  .ds-banner { display:flex; align-items:center; gap:.6rem; padding:.55rem .85rem;
+    border:1px solid var(--border, #2a2a2a); border-radius:.4rem; margin:.55rem 0 1rem;
+    font-size:.85rem; background:rgba(255,255,255,.02); }
+  .ds-banner.online    { border-color:#1f7a3a; background:rgba(31,122,58,.10); }
+  .ds-banner.offline   { border-color:#7a3a1f; background:rgba(122,58,31,.10); }
+  .ds-banner.unknown   { border-color:#7a701f; background:rgba(122,112,31,.10); }
+  .ds-banner .dot { width:.55rem; height:.55rem; border-radius:50%; background:#7a701f; }
+  .ds-banner.online  .dot { background:#1f7a3a; box-shadow:0 0 .35rem rgba(31,122,58,.7); }
+  .ds-banner.offline .dot { background:#7a3a1f; }
+  .ds-banner .spacer { flex:1; }
+</style>
 
 <h2>summary</h2>
 <div class="row">
@@ -156,14 +531,31 @@
     document.getElementById('s-last-rollback').textContent = seed.lastRollback || "never";
   }
 
+  function renderDataSourceBanner(ok, errMsg) {
+    const b = document.getElementById('datasource-banner'); if (!b) return;
+    const label = document.getElementById('ds-state-label');
+    const detail = document.getElementById('ds-state-detail');
+    const last = document.getElementById('ds-last-update');
+    b.classList.remove('online','offline','unknown');
+    b.classList.add(ok ? 'online' : 'offline');
+    label.textContent = ok ? 'data source: online' : 'data source: unreachable';
+    detail.innerHTML = ok
+      ? 'consuming <code>/api/d-08/snapshot</code> from the rollback-points API daemon'
+      : 'cannot reach <code>/api/d-08/snapshot</code> — is the rollback-points API daemon running? ' +
+        (errMsg ? '<span class="muted">(' + errMsg + ')</span>' : '');
+    last.textContent = 'last fetch: ' + new Date().toLocaleTimeString();
+  }
+
   async function load() {
+    let ok = false, errMsg = '';
     try {
       const r = await fetch('/api/d-08/snapshot', { credentials: 'same-origin' });
-      if (r.ok) {
-        const d = await r.json();
-        seed = Object.assign(seed, d);
-      }
-    } catch (e) { /* offline — keep empty-safe defaults */ }
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const d = await r.json();
+      seed = Object.assign(seed, d);
+      ok = true;
+    } catch (e) { errMsg = e.message; /* offline — keep empty-safe defaults */ }
+    renderDataSourceBanner(ok, errMsg);
     renderSummary();
     renderSnapshots();
     renderTimeline();

@@ -1,0 +1,121 @@
+{
+  "_comment": "sovereign-os MS022 SSE subscriber quota dashboard. Visualizes the selfdef-side selfdef_sse_subscribers_* gauges shipped via crates/selfdef-api/src/sse_quota_metrics.rs (selfdef commit 77b4499). Pairs with the 3 alert rules in config/prometheus/alerts/ms022-sse-quota.rules.yml and the runbook sections in docs/operator/m060-deployment-guide.md (#### MS022Sse{GlobalQuotaApproaching,GlobalQuotaSaturated,PerTokenQuotaSaturated}). Operator imports into Grafana via Settings → JSON Model. Project boundary R10212: pure observability — no mutation surface.",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "operator runbook (sovereign-os)", "url": "/d/sovereign-os-ms022-sse-quota#runbook", "type": "link", "icon": "doc"},
+    {"title": "producer surface (selfdef)", "url": "https://github.com/cyberpunk042/selfdef/blob/main/crates/selfdef-api/src/sse_quota_metrics.rs", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "global saturation (0..1)",
+      "description": "Live ratio active/cap. Yellow >0.5, red >0.85 (matches MS022SseGlobalQuotaApproaching alert threshold).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_sse_subscribers_global_saturation", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 0.5}, {"color": "red", "value": 0.85}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "global active",
+      "description": "Current live SSE subscribers across all tokens.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_sse_subscribers_global_active", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none"}},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "global cap",
+      "description": "Effective global cap (operator override or compiled default 64). The threshold MS022SseGlobalQuotaSaturated fires against.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_sse_subscribers_global_cap", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none"}},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "tokens saturated",
+      "description": "Tokens currently at-or-above the per-token cap. The MS022SsePerTokenQuotaSaturated alert fires when this > 0 for 5m.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_sse_subscribers_per_token_saturated", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 1}, {"color": "red", "value": 3}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "global saturation over time",
+      "description": "Saturation trend. Alert rules fire on the 0.85 (warning) and 1.0 (critical) horizontal lines.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_sse_subscribers_global_saturation", "refId": "A", "legendFormat": "{{instance}}"}],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1, "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 30, "thresholdsStyle": {"mode": "line+area"}}, "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 0.85}, {"color": "red", "value": 1.0}]}}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "global active vs cap",
+      "description": "Raw subscriber count alongside the cap line. The gap is the available headroom.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_sse_subscribers_global_active", "refId": "A", "legendFormat": "active"},
+        {"expr": "selfdef_sse_subscribers_global_cap", "refId": "B", "legendFormat": "cap"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "custom": {"drawStyle": "line", "lineWidth": 1, "fillOpacity": 20}}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+    },
+    {
+      "type": "table",
+      "title": "per-token subscriber counts (top 20)",
+      "description": "Live per-token state. Sorted by subscriber count desc so the operator immediately sees which token_fp is dominant. The 8-hex token_fp matches the privacy-preserving prefix selfdefd emits in its tracing output.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "topk(20, selfdef_sse_subscribers_per_token)", "refId": "A", "format": "table", "instant": true}
+      ],
+      "transformations": [
+        {"id": "organize", "options": {"excludeByName": {"Time": true, "__name__": true, "job": true}, "renameByName": {"token_fp": "token_fp", "Value": "subscribers", "instance": "host"}, "indexByName": {"host": 0, "token_fp": 1, "subscribers": 2}}}
+      ],
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 12}
+    },
+    {
+      "type": "timeseries",
+      "title": "per-token saturated count over time",
+      "description": "How many distinct tokens are at-or-above the per-token cap. A sustained > 0 line fires MS022SsePerTokenQuotaSaturated.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_sse_subscribers_per_token_saturated", "refId": "A", "legendFormat": "{{instance}}"}],
+      "fieldConfig": {"defaults": {"unit": "none", "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 30}, "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 1}]}}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20}
+    },
+    {
+      "type": "timeseries",
+      "title": "per-token cap over time",
+      "description": "Operator-tunable [api].max_sse_subscribers_per_token. Step changes here track config edits + daemon restarts.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_sse_subscribers_per_token_cap", "refId": "A", "legendFormat": "cap"}],
+      "fieldConfig": {"defaults": {"unit": "none", "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2}}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20}
+    },
+    {
+      "type": "timeseries",
+      "title": "companion: M060 chain-health rate (cross-context)",
+      "description": "Companion view of the existing chain-wide M060 alert metric so operators see if SSE quota events correlate with chain-wide events.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "rate(sovereign_os_operator_m060_health_api_request_total{endpoint=\"health\"}[5m])", "refId": "A", "legendFormat": "{{result}}"}],
+      "fieldConfig": {"defaults": {"unit": "ops", "custom": {"drawStyle": "line", "lineWidth": 1, "fillOpacity": 20, "stacking": {"mode": "normal"}}}},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 28}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "tags": ["sovereign-os", "ms022", "sse-quota", "observability"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "",
+  "title": "sovereign-os — MS022 SSE subscriber quota",
+  "uid": "sovereign-os-ms022-sse-quota",
+  "version": 1,
+  "weekStart": ""
+}

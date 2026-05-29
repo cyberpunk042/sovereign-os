@@ -1,0 +1,101 @@
+# Selfdef AppArmor profile-enforcement Prometheus alerting rules.
+#
+# Fires on the textfile metrics shipped by selfdef-apparmor-textfile.
+# {service,timer} (selfdef commit `4680ed8`):
+#
+#   selfdef_apparmor_profile_loaded{profile=…}      gauge
+#   selfdef_apparmor_profile_enforce{profile=…}     gauge
+#   selfdef_apparmor_profile_complain{profile=…}    gauge
+#   selfdef_apparmor_profiles_loaded_total          gauge
+#   selfdef_apparmor_last_run_unix                  gauge
+#   selfdef_apparmor_textfile_emit_failed           gauge
+#
+# AppArmor enforcement is load-bearing IPS surface. An operator
+# switching the selfdefd profile to complain mode silently weakens
+# the IPS spine — this alert family catches that drift.
+#
+# Project boundary R10212: pure observability — selfdefd enforces;
+# sovereign-os alerts on the published gauges only.
+
+groups:
+  - name: selfdef-apparmor
+    interval: 30s
+    rules:
+
+      # Critical: emit-failed sentinel — honest-offline takes
+      # precedence over all other AppArmor alerts.
+      - alert: SelfdefApparmorTextfileEmitFailed
+        expr: selfdef_apparmor_textfile_emit_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-apparmor
+          apparmor_link: observer-fault
+        annotations:
+          summary: "Selfdef AppArmor observer fault on {{ $labels.instance }}"
+          description: >
+            selfdef-apparmor-textfile.service is reporting wrapper
+            failure (emit_failed=1) for 5+ minutes — kernel AppArmor
+            absent, /sys/.../profiles unreadable, OR wrapper
+            preconditions broken. Operator MUST NOT trust the other
+            AppArmor gauges as current.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefapparmortextfileemitfailed-critical"
+
+      # Critical: observer silent — same 300s threshold as the
+      # 4 sibling observer-silent alerts (M060 + four-watchdog +
+      # modules + daemon-process). Cross-surface lockstep.
+      - alert: SelfdefApparmorObserverSilent
+        expr: time() - selfdef_apparmor_last_run_unix > 300
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-apparmor
+          apparmor_link: observer-silent
+        annotations:
+          summary: "Selfdef AppArmor observer silent on {{ $labels.instance }}"
+          description: >
+            selfdef-apparmor-textfile.timer hasn't fired in 5+
+            minutes. Profile-enforcement state cannot be trusted to
+            reflect current kernel state.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefapparmorobserversilent-critical"
+
+      # Critical: profile not loaded. selfdefd is running without
+      # any AppArmor confinement — defensive posture compromised.
+      - alert: SelfdefApparmorProfileNotLoaded
+        expr: selfdef_apparmor_profile_loaded{profile="/usr/bin/selfdefd"} == 0
+        for: 10m
+        labels:
+          severity: critical
+          subsystem: selfdef-apparmor
+          apparmor_link: rollup
+        annotations:
+          summary: "Selfdefd AppArmor profile NOT loaded on {{ $labels.instance }}"
+          description: >
+            selfdef_apparmor_profile_loaded == 0 for the selfdefd
+            profile for 10+ minutes. selfdefd is running without
+            AppArmor confinement — defensive posture compromised.
+            Either: profile never installed, kernel AppArmor
+            disabled, OR operator manually unloaded the profile.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefapparmorprofilenotloaded-critical"
+
+      # Critical: profile in complain mode. Loaded but only logging
+      # violations — IPS enforcement bypassed silently. The
+      # signature operator-drift hazard this observer was built to
+      # catch.
+      - alert: SelfdefApparmorProfileInComplainMode
+        expr: selfdef_apparmor_profile_complain{profile="/usr/bin/selfdefd"} == 1
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-apparmor
+          apparmor_link: rollup
+        annotations:
+          summary: "Selfdefd AppArmor profile in COMPLAIN mode on {{ $labels.instance }}"
+          description: >
+            selfdef_apparmor_profile_complain == 1 for the selfdefd
+            profile for 5+ minutes. Profile is loaded but only LOGS
+            violations — does NOT enforce. Operator likely flipped
+            with `aa-complain` for debugging and forgot to restore.
+            Run `aa-enforce /etc/apparmor.d/usr.bin.selfdefd` to
+            restore the secure default.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefapparmorprofileincomplainmode-critical"

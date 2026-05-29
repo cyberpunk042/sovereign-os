@@ -1,0 +1,87 @@
+# Selfdef SDD-065 blockset Prometheus alerting rules.
+#
+# Fires on the textfile metrics shipped by selfdef-blockset-
+# textfile.{service,timer} (selfdef commit `39e091f`,
+# SDD-065 architectural spec at selfdef commit `8967319`,
+# MS1/MS1b/MS2/MS3 implementation `320cff2..d928feb`).
+#
+# SDD-065 enforcement-layer observability — pairs with nftables
+# observer (14th sibling) at the kernel-packet-filter axis.
+# nftables surfaces the OPERATOR's full ruleset; this surfaces
+# selfdef's own SDD-065 action layer.
+
+groups:
+  - name: selfdef-blockset
+    interval: 30s
+    rules:
+
+      - alert: SelfdefBlocksetTextfileEmitFailed
+        expr: selfdef_blockset_textfile_emit_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-blockset
+          blockset_link: observer-fault
+        annotations:
+          summary: "Selfdef blockset observer fault on {{ $labels.instance }}"
+          description: >
+            Wrapper failure for 5+ minutes. SDD-065 enforcement-
+            layer visibility lost.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefblocksettextfileemitfailed-critical"
+
+      - alert: SelfdefBlocksetObserverSilent
+        expr: time() - selfdef_blockset_last_run_unix > 300
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-blockset
+          blockset_link: observer-silent
+        annotations:
+          summary: "Selfdef blockset observer silent on {{ $labels.instance }}"
+          description: >
+            Timer hasn't fired in 5+ minutes. Enforcement-layer
+            state stale.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefblocksetobserversilent-critical"
+
+      # Critical: selfdefd should have bootstrapped the
+      # selfdef-blocks table at startup. Absence for 10+ minutes
+      # means SDD-065 enforcement is fully offline — block_ip
+      # calls cannot land.
+      - alert: SelfdefBlocksetTableMissing
+        expr: selfdef_blockset_present == 0
+        for: 10m
+        labels:
+          severity: critical
+          subsystem: selfdef-blockset
+          blockset_link: table-missing
+        annotations:
+          summary: "selfdef-blocks nft table absent on {{ $labels.instance }} — enforcement OFFLINE"
+          description: >
+            selfdef-blocks nftables table is not present for 10+
+            minutes. SDD-065 IP-block enforcement cannot operate.
+            Either selfdefd hasn't started, or its bootstrap was
+            denied by CAP_NET_ADMIN policy. Operator action:
+            `systemctl status selfdefd`, check `journalctl -u
+            selfdefd | grep blockset`, then re-bootstrap via
+            `selfdefctl init` (MS3+) or manual
+            `nft -f /usr/share/selfdef/blockset-bootstrap.nft`.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefblocksettablemissing-critical"
+
+      # Warning: very large blockset (> 1000 entries) sustained
+      # 1h. Either a sustained attack OR rule churn — operator
+      # should investigate causes.
+      - alert: SelfdefBlocksetTotalHigh
+        expr: selfdef_blockset_total_count > 1000
+        for: 1h
+        labels:
+          severity: warning
+          subsystem: selfdef-blockset
+          blockset_link: total-high
+        annotations:
+          summary: "Blockset > 1000 entries on {{ $labels.instance }}"
+          description: >
+            {{ $value }} blocked IPs sustained 1+ hour. Investigate
+            via `selfdefctl block-ip --list` (MS3+) and the
+            paired auth-events / fail2ban dashboards for source
+            ASN concentration.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefblocksettotalhigh-warning"

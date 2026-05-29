@@ -279,6 +279,13 @@ DASHBOARD_ROUTES = {
         "label": "D-20 Peace Machine Health (M059 5-property live verdict)",
         "source_repo": "sovereign-os",
     },
+    "audit-mirror": {
+        "port": 8121,
+        "healthz_path": "/healthz",
+        "subpath": "/audit-mirror/",
+        "label": "D-16 Audit Chain (read-only selfdef MS016 append-only mirror)",
+        "source_repo": "selfdef-mirror",
+    },
 }
 
 KNOWN_SLUGS = list(DASHBOARD_ROUTES.keys())
@@ -544,6 +551,7 @@ _ROUTE_WEBAPP = {
     "capability-mirror": "d-14-capability-tokens",
     "super-model": "d-19-super-model-manifest",
     "peace-machine": "d-20-peace-machine-health",
+    "audit-mirror": "d-16-audit",
 }
 
 

@@ -1,0 +1,112 @@
+# Selfdef disk-usage Prometheus alerting rules.
+#
+# Fires on the textfile metrics shipped by selfdef-disk-usage-
+# textfile.{service,timer} (selfdef commit `694b611`):
+#
+#   selfdef_disk_usage_lib_bytes                gauge
+#   selfdef_disk_usage_log_bytes                gauge
+#   selfdef_disk_usage_var_log_bytes            gauge
+#   selfdef_disk_usage_textfile_collector_bytes gauge
+#   selfdef_disk_usage_var_free_bytes           gauge
+#   selfdef_disk_usage_var_used_percent         gauge
+#   selfdef_disk_usage_last_run_unix            gauge
+#   selfdef_disk_usage_textfile_emit_failed     gauge
+#
+# Disk-fill is load-bearing IPS hazard — when /var is full, the
+# IPS spine silently wedges. These alerts page operators on the
+# precursor (rising usage) before the chain breaks.
+
+groups:
+  - name: selfdef-disk-usage
+    interval: 30s
+    rules:
+
+      - alert: SelfdefDiskUsageTextfileEmitFailed
+        expr: selfdef_disk_usage_textfile_emit_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-disk-usage
+          disk_link: observer-fault
+        annotations:
+          summary: "Selfdef disk-usage observer fault on {{ $labels.instance }}"
+          description: >
+            selfdef-disk-usage-textfile.service is reporting wrapper
+            failure for 5+ minutes — du absent OR target paths
+            inaccessible. Operator MUST NOT trust the other
+            disk-usage gauges as current.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefdiskusagetextfileemitfailed-critical"
+
+      - alert: SelfdefDiskUsageObserverSilent
+        expr: time() - selfdef_disk_usage_last_run_unix > 300
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-disk-usage
+          disk_link: observer-silent
+        annotations:
+          summary: "Selfdef disk-usage observer silent on {{ $labels.instance }}"
+          description: >
+            selfdef-disk-usage-textfile.timer hasn't fired in 5+
+            minutes. Disk-usage gauges cannot be trusted as current.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefdiskusageobserversilent-critical"
+
+      # Critical: /var filesystem usage > 90%. Disk-fill precursor
+      # — IPS spine has < 10% headroom; observer wrappers + audit
+      # chain will wedge soon if not addressed.
+      - alert: SelfdefDiskUsageVarHigh
+        expr: selfdef_disk_usage_var_used_percent > 90
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-disk-usage
+          disk_link: rollup
+        annotations:
+          summary: "Selfdef disk-usage: /var > 90% on {{ $labels.instance }}"
+          description: >
+            /var filesystem usage > 90% for 5+ minutes. IPS spine
+            has less than 10% disk headroom — observer wrappers
+            and audit chain WILL wedge soon. Investigate via
+            `du -sh /var/log/* /var/lib/*` for the largest
+            subtrees. Common causes: log spam, ZFS-no-quota loops,
+            logrotate misconfiguration. Free space immediately.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefdiskusagevarhigh-critical"
+
+      # Warning: /var filesystem usage > 75%. Early-warning before
+      # the 90% critical fires.
+      - alert: SelfdefDiskUsageVarApproaching
+        expr: selfdef_disk_usage_var_used_percent > 75
+        for: 15m
+        labels:
+          severity: warning
+          subsystem: selfdef-disk-usage
+          disk_link: rollup
+        annotations:
+          summary: "Selfdef disk-usage: /var approaching ({{ $value }}%) on {{ $labels.instance }}"
+          description: >
+            /var filesystem usage > 75% for 15+ minutes. Operator
+            should investigate growth trajectory before the
+            critical threshold fires. `du -sh /var/log /var/lib`
+            for the per-subtree breakdown.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefdiskusagevarapproaching-warning"
+
+      # Warning: selfdef-specific /var/log/selfdef subtree growing
+      # beyond 5 GiB. selfdef's logs are bounded by logrotate +
+      # /etc/selfdef/selfdef.toml log-retention config; exceeding
+      # 5 GiB suggests logrotate failure OR misconfiguration.
+      - alert: SelfdefDiskUsageSelfdefLogHigh
+        expr: max(selfdef_disk_usage_log_bytes) > 5368709120
+        for: 10m
+        labels:
+          severity: warning
+          subsystem: selfdef-disk-usage
+          disk_link: rollup
+        annotations:
+          summary: "Selfdef /var/log/selfdef > 5 GiB on {{ $labels.instance }}"
+          description: >
+            /var/log/selfdef > 5 GiB for 10+ minutes. selfdef's logs
+            should be bounded by logrotate; exceeding 5 GiB
+            suggests logrotate failure OR misconfigured retention.
+            Check `/etc/logrotate.d/selfdef` + `journalctl -u
+            logrotate.timer` for errors.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefdiskusageselfdeflightigh-warning"

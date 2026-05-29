@@ -1,0 +1,169 @@
+# Cross-vertical observability rollup recording rules.
+#
+# Pre-computes aggregate health metrics across all 5 observability
+# verticals shipped this milestone:
+#
+#   1. M060 chain-health           (selfdef cli-mirror + m060 doctors)
+#   2. MS022 SSE quota             (selfdef-api gauges)
+#   3. four-watchdog IPS spine     (selfdef textfile)
+#   4. selfdef module-catalog      (selfdef textfile)
+#   5. selfdef daemon process-state (selfdef textfile)
+#
+# Recording rules let operators:
+#   - Alert on a single "any vertical critical" rollup
+#   - Build a single-pane dashboard panel from one metric
+#   - Avoid re-doing OR / AND aggregations at query time
+#
+# Drop into Prometheus rule_files config:
+#   rule_files:
+#     - /etc/prometheus/rules/sovereign-os-observability-rollup.yml
+#
+# Project boundary R10212: pure observability composition. The
+# enforcement (the 5 producers) lives in selfdefd; sovereign-os
+# composes the published gauges into rollup signals only.
+
+groups:
+  - name: sovereign-os-observability-rollup
+    interval: 30s
+    rules:
+
+      # ─── Per-vertical observer-fault rollup ──────────────────────
+      #
+      # Any one of the 5 observer wrappers reporting emit_failed=1
+      # OR being silent past the 300s threshold. Operators alert on
+      # this single metric instead of OR-ing 10+ conditions.
+      - record: sovereign_os:observer_fault_any
+        expr: |
+          max(
+              max(selfdef_four_watchdog_textfile_emit_failed > 0
+                  or (time() - selfdef_four_watchdog_last_run_unix > 300)) or vector(0)
+            )
+            or
+          max(
+              max(selfdef_modules_textfile_emit_failed > 0
+                  or (time() - selfdef_modules_last_run_unix > 300)) or vector(0)
+            )
+            or
+          max(
+              max(selfdef_daemon_process_textfile_emit_failed > 0
+                  or (time() - selfdef_daemon_process_last_run_unix > 300)) or vector(0)
+            )
+
+      # ─── Per-vertical critical-state rollup ──────────────────────
+      #
+      # Any one of the 5 verticals reporting CRITICAL (or equivalent
+      # red state):
+      #   - four-watchdog worst_severity >= 2
+      #   - modules total < 100 (rollup low-floor)
+      #   - daemon_process memory > 1 GiB OR fds > 819
+      #   - sse_quota saturation == 1.0
+      #
+      # M060 chain-health critical state is handled by the existing
+      # M060ChainOffline alert and isn't included here because the
+      # /api/m060/health proxy daemon has its own classification path.
+      - record: sovereign_os:critical_state_any
+        expr: |
+          max(selfdef_four_watchdog_worst_severity >= 2) or vector(0)
+            or
+          max(selfdef_modules_total < 100) or vector(0)
+            or
+          max(selfdef_daemon_process_memory_rss_bytes > 1073741824) or vector(0)
+            or
+          max(selfdef_daemon_process_open_fds > 819) or vector(0)
+            or
+          max(selfdef_sse_subscribers_global_saturation >= 1.0) or vector(0)
+
+      # ─── Per-vertical warn-state rollup ──────────────────────────
+      - record: sovereign_os:warn_state_any
+        expr: |
+          max(selfdef_four_watchdog_worst_severity == 1) or vector(0)
+            or
+          max(selfdef_sse_subscribers_global_saturation > 0.85) or vector(0)
+            or
+          max(selfdef_sse_subscribers_per_token_saturated > 0) or vector(0)
+
+      # ─── Observer count rollup ──────────────────────────────────
+      #
+      # How many of the 3 selfdef-side textfile observers are currently
+      # emitting fresh data. Operators see "3/3" when all are healthy,
+      # which drops as observers wedge.
+      - record: sovereign_os:textfile_observers_healthy_count
+        expr: |
+          (count(selfdef_four_watchdog_textfile_emit_failed == 0
+                 and time() - selfdef_four_watchdog_last_run_unix <= 300) or vector(0))
+            +
+          (count(selfdef_modules_textfile_emit_failed == 0
+                 and time() - selfdef_modules_last_run_unix <= 300) or vector(0))
+            +
+          (count(selfdef_daemon_process_textfile_emit_failed == 0
+                 and time() - selfdef_daemon_process_last_run_unix <= 300) or vector(0))
+
+  # Cross-vertical alerts on the recording rules. Drop into the same
+  # rule_files config — Prometheus evaluates record + alert rules
+  # together.
+  - name: sovereign-os-observability-rollup-alerts
+    interval: 30s
+    rules:
+
+      # Critical: any observability vertical reports observer-fault
+      # state. The honest-offline contract — when this fires, the
+      # operator CANNOT trust the data from at least one vertical.
+      - alert: SovereignObservabilityAnyObserverFault
+        expr: sovereign_os:observer_fault_any > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: observability-rollup
+          rollup_link: observer-fault-any
+        annotations:
+          summary: "Sovereign observability — at least one observer wedged on {{ $labels.instance }}"
+          description: >
+            sovereign_os:observer_fault_any > 0 for 5+ minutes — at
+            least one of the 3 selfdef-side textfile observers
+            (four-watchdog / modules-catalog / daemon-process) is
+            reporting emit_failed=1 OR observer-silent. Operator
+            should investigate which vertical via the per-vertical
+            alerts.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#fourwatchdogtextfileemitfailed-critical"
+
+      # Warning: ALL observers healthy is the green-baseline. This
+      # records when the count drops (which it always does during
+      # observer rotation / restart) but as a warn-not-fire alert.
+      - alert: SovereignObservabilityObserverCountBelowMax
+        expr: sovereign_os:textfile_observers_healthy_count < 3
+        for: 5m
+        labels:
+          severity: warning
+          subsystem: observability-rollup
+          rollup_link: observer-count
+        annotations:
+          summary: "Sovereign observability — observer count {{ $value }}/3 on {{ $labels.instance }}"
+          description: >
+            sovereign_os:textfile_observers_healthy_count = {{ $value }}
+            (< 3) for 5+ minutes. Healthy baseline is 3/3 (all of
+            four-watchdog + modules-catalog + daemon-process observers
+            emitting fresh data). Drift to <3 means at least one
+            observer's textfile is stale OR sentinel-flagged. Cross-
+            reference per-vertical observer alerts for details.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignobservabilityobservercountbelowmax-warning"
+
+      # Critical: any vertical reports CRITICAL rollup state. Single
+      # alert operators page on instead of subscribing to 6+
+      # per-vertical critical alerts individually.
+      - alert: SovereignObservabilityAnyCritical
+        expr: sovereign_os:critical_state_any > 0
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: observability-rollup
+          rollup_link: critical-any
+        annotations:
+          summary: "Sovereign observability — any vertical CRITICAL on {{ $labels.instance }}"
+          description: >
+            sovereign_os:critical_state_any > 0 for 2+ minutes — at
+            least one observability vertical is reporting CRITICAL
+            state. Cross-reference per-vertical alerts to identify
+            which (four-watchdog WorstSeverityCritical / modules
+            CountLow / daemon-process MemoryHigh + FdExhaustion /
+            MS022 SseGlobalQuotaSaturated).
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md"

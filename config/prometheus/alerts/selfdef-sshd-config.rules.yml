@@ -1,0 +1,112 @@
+# Selfdef SSH hardening baseline Prometheus alerting rules.
+#
+# Fires on the textfile metrics shipped by selfdef-sshd-config-
+# textfile.{service,timer} (selfdef commit `c86e4e4`).
+#
+# SSH server hardening observability — pairs with auth-events.
+# Auth-events records login attempts; this records whether the
+# server is hardened against those attempts. Drift in either
+# direction is page-worthy.
+
+groups:
+  - name: selfdef-sshd-config
+    interval: 30s
+    rules:
+
+      - alert: SelfdefSshdConfigTextfileEmitFailed
+        expr: selfdef_sshd_config_textfile_emit_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-sshd-config
+          sshd_link: observer-fault
+        annotations:
+          summary: "Selfdef sshd-config observer fault on {{ $labels.instance }}"
+          description: >
+            Wrapper failure for 5+ minutes — SSH hardening drift
+            detection lost.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefsshdconfigtextfileemitfailed-critical"
+
+      - alert: SelfdefSshdConfigObserverSilent
+        expr: time() - selfdef_sshd_config_last_run_unix > 300
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-sshd-config
+          sshd_link: observer-silent
+        annotations:
+          summary: "Selfdef sshd-config observer silent on {{ $labels.instance }}"
+          description: >
+            Timer hasn't fired in 5+ minutes. SSH hardening gauges stale.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefsshdconfigobserversilent-critical"
+
+      # Critical: PermitRootLogin=yes is the biggest single risk —
+      # remote root attack-surface wide open.
+      - alert: SelfdefSshdPermitRootLoginEnabled
+        expr: selfdef_sshd_permit_root_login == 1
+        for: 1m
+        labels:
+          severity: critical
+          subsystem: selfdef-sshd-config
+          sshd_link: permit-root
+        annotations:
+          summary: "PermitRootLogin=yes on {{ $labels.instance }} — remote root surface OPEN"
+          description: >
+            sshd_config has PermitRootLogin yes. Remote root SSH login
+            is permitted. Pairs with auth-events brute-force: any
+            successful root login bypasses fail2ban-mitigated user attacks.
+            Operator action: edit /etc/ssh/sshd_config →
+            `PermitRootLogin prohibit-password` (or `no`), then
+            `systemctl reload sshd`.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefsshdpermitrootloginenabled-critical"
+
+      # Critical: PermitEmptyPasswords=yes — passwordless ssh login is
+      # not configuration; it's a credential give-away.
+      - alert: SelfdefSshdPermitEmptyPasswords
+        expr: selfdef_sshd_permit_empty_passwords == 1
+        for: 1m
+        labels:
+          severity: critical
+          subsystem: selfdef-sshd-config
+          sshd_link: empty-passwords
+        annotations:
+          summary: "PermitEmptyPasswords=yes on {{ $labels.instance }} — credential giveaway"
+          description: >
+            sshd_config has PermitEmptyPasswords yes. Any user with an
+            empty password can log in.
+            Operator action: set PermitEmptyPasswords no and reload sshd.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefsshdpermitemptypasswords-critical"
+
+      # Warning: PasswordAuthentication=yes — brute-force vector.
+      # fail2ban can mitigate, but key-only auth is safer.
+      - alert: SelfdefSshdPasswordAuthEnabled
+        expr: selfdef_sshd_password_authentication == 1
+        for: 15m
+        labels:
+          severity: warning
+          subsystem: selfdef-sshd-config
+          sshd_link: password-auth
+        annotations:
+          summary: "PasswordAuthentication=yes on {{ $labels.instance }} — brute-force vector"
+          description: >
+            sshd_config permits password authentication. Brute-force
+            attacks remain effective (fail2ban delays but does not
+            prevent). Consider key-only authentication.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefsshdpasswordauthenabled-warning"
+
+      # Warning: config hash drift = sshd_config changed.
+      - alert: SelfdefSshdConfigHashDrift
+        expr: changes(selfdef_sshd_config_hash[1h]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          subsystem: selfdef-sshd-config
+          sshd_link: hash-drift
+        annotations:
+          summary: "sshd_config hash drifted on {{ $labels.instance }} — config modified"
+          description: >
+            SHA-256 of /etc/ssh/sshd_config changed in the last hour.
+            Verify the change was authorized:
+            `git diff /etc/ssh/sshd_config` (if etckeeper),
+            or compare against the operator baseline.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefsshdconfighashdrift-warning"

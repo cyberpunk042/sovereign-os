@@ -1,0 +1,85 @@
+{
+  "_comment": "sovereign-os selfdef SDD-065 blockset dashboard. Visualizes selfdef_blockset_* gauges (selfdef commit 39e091f; SDD-065 spec at 8967319; MS1/MS1b/MS2/MS3 at 320cff2..d928feb). Pairs with 4 alerts. SDD-065 enforcement-layer observability — pairs with nftables dashboard at kernel-packet-filter axis.",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "operator runbook", "url": "/d/sovereign-os-selfdef-blockset#runbook", "type": "link", "icon": "doc"},
+    {"title": "SDD-065 spec", "url": "https://github.com/cyberpunk042/selfdef/blob/main/docs/sdd/065-ip-block-action-surface.md", "type": "link", "icon": "external link"},
+    {"title": "producer source", "url": "https://github.com/cyberpunk042/selfdef/blob/main/packaging/scripts/selfdef-blockset-textfile.sh", "type": "link", "icon": "external link"},
+    {"title": "nftables (paired)", "url": "/d/sovereign-os-selfdef-nftables", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "selfdef-blocks table present",
+      "description": "Red at 0 = selfdefd didn't bootstrap; enforcement OFFLINE. Matches SelfdefBlocksetTableMissing.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_blockset_present", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "mappings": [{"type": "value", "options": {"0": {"text": "OFFLINE"}, "1": {"text": "OK"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "green", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "total blocks (v4+v6)",
+      "description": "Sum of currently-blocked IPs. Yellow at 1000 matches SelfdefBlocksetTotalHigh.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_blockset_total_count", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 1000}, {"color": "red", "value": 10000}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "next auto-release",
+      "description": "Unix timestamp of the soonest kernel TTL expiry. 0 if no timed entries.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_blockset_oldest_expiry_unix", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "dateTimeAsIso"}},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "observer sentinel",
+      "description": "selfdef_blockset_textfile_emit_failed.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_blockset_textfile_emit_failed", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "blockset entries — v4 / v6 / total",
+      "description": "Per-family + rollup. Sustained climb = ongoing attack OR rule churn.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_blockset_v4_count", "legendFormat": "v4", "refId": "A"},
+        {"expr": "selfdef_blockset_v6_count", "legendFormat": "v6", "refId": "B"},
+        {"expr": "selfdef_blockset_total_count", "legendFormat": "total", "refId": "C"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none"}},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "table presence over time",
+      "description": "Should be 1 sustained — any drop is selfdefd outage.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_blockset_present", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1}},
+      "gridPos": {"h": 6, "w": 24, "x": 0, "y": 12}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["sovereign-os", "selfdef", "blockset", "sdd-065", "IPS-spine", "security", "enforcement-layer"],
+  "templating": {"list": []},
+  "time": {"from": "now-24h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "sovereign-os — selfdef SDD-065 blockset (enforcement layer)",
+  "uid": "sovereign-os-selfdef-blockset",
+  "version": 1,
+  "weekStart": ""
+}

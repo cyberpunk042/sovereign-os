@@ -1,0 +1,49 @@
+[Unit]
+Description=Sovereign audit-mirror read-only API + D-16 dashboard host (M060 R10120)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/audit-mirror-api.py
+# CROSS-REPO MIRROR — renders selfdef's MS007 audit-chain mirror READ-ONLY. The
+# authoritative MS016 SHA-256-chained, MS049 13-field-spanned, MS026 OCSF-
+# categorized, MS003 verify-only audit chain lives in selfdef. The chain is
+# APPEND-ONLY by MS016 R03567 doctrine — there is NO mutation surface
+# (no release, no replay, no edit); verify / show / export are selfdefctl +
+# MS003 verbs on the IPS side only (MS043 R10212).
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/audit-mirror-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default. To expose beyond loopback, drop
+# /etc/systemd/system/sovereign-audit-mirror-api.service.d/bind.conf:
+#   [Service]
+#   Environment=AUDIT_MIRROR_API_BIND=0.0.0.0
+Environment=AUDIT_MIRROR_API_BIND=127.0.0.1
+Environment=AUDIT_MIRROR_API_PORT=8121
+
+# R171 defense-in-depth (Layer-1 lint enforced). Read-only HTTP surface; reads
+# the selfdef-published mirror artifact + appends the metrics textfile.
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target

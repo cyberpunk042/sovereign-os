@@ -226,6 +226,68 @@ MODULE_COVERAGE = {
         "surfaces": ["core", "cli", "tui", "api", "service", "dashboard", "mcp", "webapp"],
         "waivers": {},
     },
+    # M060 cross-repo READ-ONLY mirror modules — each consumes the
+    # selfdef-side MS007 typed-mirror crate of its name and projects
+    # it through 6 §1g surfaces. tui + dashboard waived: operators
+    # primarily reach mirror state via CLI / webapp / MCP; Grafana
+    # dashboard panels for each mirror remain future work but are
+    # not the cockpit's primary path.
+    "profile-mirror": {
+        "shipped_in": "M060 R10063-R10068 (D-02 active profile) + selfdef MS040 + MS007 profile-mirror crate · §1g 6/8 surfaces (core/cli/api/webapp/service/mcp); web NEVER mutates per R10212",
+        "surfaces": ["core", "cli", "api", "webapp", "service", "mcp"],
+        "waivers": {
+            "tui": "not applicable — the operator-facing TUI for this IPS state lives in selfdef (selfdef tui on the daemon side); per 'Respect the projects', sovereign-os mirror modules are READ-ONLY cross-repo consumers without their own TUI surface",
+            "dashboard": "not applicable — the webapp surface IS the dashboard for M060 cross-repo mirrors (the master-dashboard aggregator is the §1g 'dashboard' surface for sovereign-os-native modules; per-mirror Grafana panels duplicate the webapp's read-only render of the same selfdef-published JSON)",
+        },
+    },
+    "grants-mirror": {
+        "shipped_in": "M060 R10114-R10115 (D-13 filesystem grants) + selfdef MS037 + MS007 grants-mirror crate · §1g 6/8 surfaces (core/cli/api/webapp/service/mcp); web NEVER mutates — grant issue/revoke is selfdefctl + MS003 per R10212",
+        "surfaces": ["core", "cli", "api", "webapp", "service", "mcp"],
+        "waivers": {
+            "tui": "not applicable — the operator-facing TUI for this IPS state lives in selfdef (selfdef tui on the daemon side); per 'Respect the projects', sovereign-os mirror modules are READ-ONLY cross-repo consumers without their own TUI surface",
+            "dashboard": "not applicable — the webapp surface IS the dashboard for M060 cross-repo mirrors (the master-dashboard aggregator is the §1g 'dashboard' surface for sovereign-os-native modules; per-mirror Grafana panels duplicate the webapp's read-only render of the same selfdef-published JSON)",
+        },
+    },
+    "capability-mirror": {
+        "shipped_in": "M060 R10116-R10117 (D-14 capability tokens) + selfdef MS035 + MS007 capability-mirror crate · §1g 6/8 surfaces (core/cli/api/webapp/service/mcp); web NEVER mutates — token issue/revoke is selfdefctl + MS003 per R10212",
+        "surfaces": ["core", "cli", "api", "webapp", "service", "mcp"],
+        "waivers": {
+            "tui": "not applicable — the operator-facing TUI for this IPS state lives in selfdef (selfdef tui on the daemon side); per 'Respect the projects', sovereign-os mirror modules are READ-ONLY cross-repo consumers without their own TUI surface",
+            "dashboard": "not applicable — the webapp surface IS the dashboard for M060 cross-repo mirrors (the master-dashboard aggregator is the §1g 'dashboard' surface for sovereign-os-native modules; per-mirror Grafana panels duplicate the webapp's read-only render of the same selfdef-published JSON)",
+        },
+    },
+    "sandbox-mirror": {
+        "shipped_in": "M060 R10118-R10119 (D-15 sandboxes) + selfdef MS032 + MS036 + MS007 sandbox-mirror crate · §1g 6/8 surfaces (core/cli/api/webapp/service/mcp); web NEVER mutates — allocate/checkpoint/release is selfdefctl + MS003 per R10212",
+        "surfaces": ["core", "cli", "api", "webapp", "service", "mcp"],
+        "waivers": {
+            "tui": "not applicable — the operator-facing TUI for this IPS state lives in selfdef (selfdef tui on the daemon side); per 'Respect the projects', sovereign-os mirror modules are READ-ONLY cross-repo consumers without their own TUI surface",
+            "dashboard": "not applicable — the webapp surface IS the dashboard for M060 cross-repo mirrors (the master-dashboard aggregator is the §1g 'dashboard' surface for sovereign-os-native modules; per-mirror Grafana panels duplicate the webapp's read-only render of the same selfdef-published JSON)",
+        },
+    },
+    "audit-mirror": {
+        "shipped_in": "M060 R10120 (D-16 audit chain; backward-sweep redefinition from MS009 cycles to MS016 chain) + selfdef MS016 SHA-256 chain + MS049 13-field spans + MS026 OCSF + MS003 verify-only + MS007 audit-mirror crate · §1g 6/8 surfaces (core/cli/api/webapp/service/mcp); chain is APPEND-ONLY by MS016 R03567 — NO mutation surface; verify/show/export is selfdefctl + MS003 per R10212",
+        "surfaces": ["core", "cli", "api", "webapp", "service", "mcp"],
+        "waivers": {
+            "tui": "not applicable — the operator-facing TUI for this IPS state lives in selfdef (selfdef tui on the daemon side); per 'Respect the projects', sovereign-os mirror modules are READ-ONLY cross-repo consumers without their own TUI surface",
+            "dashboard": "not applicable — the webapp surface IS the dashboard for M060 cross-repo mirrors (the master-dashboard aggregator is the §1g 'dashboard' surface for sovereign-os-native modules; per-mirror Grafana panels duplicate the webapp's read-only render of the same selfdef-published JSON)",
+        },
+    },
+    "quarantine-mirror": {
+        "shipped_in": "M060 R10121-R10122 (D-17 quarantine) + selfdef MS042 declaration-vs-observed + MS007 quarantine-mirror crate · §1g 6/8 surfaces (core/cli/api/webapp/service/mcp); web NEVER mutates — release/forfeit is selfdefctl + MS003 per R10212",
+        "surfaces": ["core", "cli", "api", "webapp", "service", "mcp"],
+        "waivers": {
+            "tui": "not applicable — the operator-facing TUI for this IPS state lives in selfdef (selfdef tui on the daemon side); per 'Respect the projects', sovereign-os mirror modules are READ-ONLY cross-repo consumers without their own TUI surface",
+            "dashboard": "not applicable — the webapp surface IS the dashboard for M060 cross-repo mirrors (the master-dashboard aggregator is the §1g 'dashboard' surface for sovereign-os-native modules; per-mirror Grafana panels duplicate the webapp's read-only render of the same selfdef-published JSON)",
+        },
+    },
+    "trust-mirror": {
+        "shipped_in": "M060 R10123 (D-18 trust scores) + selfdef MS042 per-tool trust + MS007 trust-score-mirror crate · §1g 6/8 surfaces (core/cli/api/webapp/service/mcp); web NEVER mutates — score reset is selfdefctl + MS003 per R10212",
+        "surfaces": ["core", "cli", "api", "webapp", "service", "mcp"],
+        "waivers": {
+            "tui": "not applicable — the operator-facing TUI for this IPS state lives in selfdef (selfdef tui on the daemon side); per 'Respect the projects', sovereign-os mirror modules are READ-ONLY cross-repo consumers without their own TUI surface",
+            "dashboard": "not applicable — the webapp surface IS the dashboard for M060 cross-repo mirrors (the master-dashboard aggregator is the §1g 'dashboard' surface for sovereign-os-native modules; per-mirror Grafana panels duplicate the webapp's read-only render of the same selfdef-published JSON)",
+        },
+    },
 }
 
 KNOWN_MODULES = list(MODULE_COVERAGE.keys())

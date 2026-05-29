@@ -1,0 +1,106 @@
+# Selfdef fail2ban Prometheus alerting rules.
+#
+# Fires on the textfile metrics shipped by selfdef-fail2ban-
+# textfile.{service,timer} (selfdef commit `098a45a`).
+#
+# Defensive-response observability — pairs with auth-events. The
+# 11th sibling (auth-events) detects attack attempts; this 13th
+# sibling measures the defensive response. Operators page when
+# fail2ban is silent under attack OR when ban counts spike.
+#
+# server_alive sentinel encoding:
+#   1  = fail2ban-server responds to ping (healthy)
+#   0  = fail2ban-server uninstalled or daemon down (FAIL)
+#   -1 = fail2ban-client missing (honest-offline, no alert)
+
+groups:
+  - name: selfdef-fail2ban
+    interval: 30s
+    rules:
+
+      - alert: SelfdefFail2banTextfileEmitFailed
+        expr: selfdef_fail2ban_textfile_emit_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-fail2ban
+          fail2ban_link: observer-fault
+        annotations:
+          summary: "Selfdef fail2ban observer fault on {{ $labels.instance }}"
+          description: >
+            Wrapper failure for 5+ minutes — defensive-response gauges
+            unreliable. Operator MUST NOT trust the other fail2ban
+            metrics.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdeffail2bantextfileemitfailed-critical"
+
+      - alert: SelfdefFail2banObserverSilent
+        expr: time() - selfdef_fail2ban_last_run_unix > 300
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-fail2ban
+          fail2ban_link: observer-silent
+        annotations:
+          summary: "Selfdef fail2ban observer silent on {{ $labels.instance }}"
+          description: >
+            Timer hasn't fired in 5+ minutes. Fail2ban defensive-response
+            gauges stale — operator cannot detect attack mitigation.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdeffail2banobserversilent-critical"
+
+      # Critical: fail2ban-server installed but daemon DOWN. This is the
+      # defensive-tier outage — auth-events failures can stream in with
+      # no automated mitigation. Operator MUST restart fail2ban
+      # immediately or face brute-force exposure.
+      - alert: SelfdefFail2banServerDown
+        expr: selfdef_fail2ban_server_alive == 0
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-fail2ban
+          fail2ban_link: daemon-down
+        annotations:
+          summary: "Fail2ban server DOWN on {{ $labels.instance }} — defensive tier breached"
+          description: >
+            fail2ban-server not responding to ping for 2+ minutes.
+            Active jails cannot ban attacking IPs. Brute-force attempts
+            recorded by auth-events will NOT be auto-blocked. Operator
+            action: `systemctl status fail2ban && systemctl restart fail2ban`.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdeffail2banserverdown-critical"
+
+      # Warning: no active jails configured. Either operator hasn't
+      # set up fail2ban jails yet (legitimate during bring-up) or
+      # all jails were disabled (drift hazard).
+      - alert: SelfdefFail2banZeroJails
+        expr: selfdef_fail2ban_server_alive == 1 and selfdef_fail2ban_jails_active == 0
+        for: 15m
+        labels:
+          severity: warning
+          subsystem: selfdef-fail2ban
+          fail2ban_link: zero-jails
+        annotations:
+          summary: "Fail2ban running with ZERO active jails on {{ $labels.instance }}"
+          description: >
+            fail2ban-server is up but no jails are active. No
+            defensive response will trigger. Operator action:
+            `fail2ban-client status` to enumerate, then enable the
+            sshd jail at minimum.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdeffail2banzerojails-warning"
+
+      # Warning: active-ban spike. A burst of currently-banned IPs
+      # indicates an ongoing brute-force wave — operator may want to
+      # escalate (raise bantime, add IP-block rules upstream).
+      - alert: SelfdefFail2banActiveBanSpike
+        expr: selfdef_fail2ban_current_bans_sum > 50
+        for: 10m
+        labels:
+          severity: warning
+          subsystem: selfdef-fail2ban
+          fail2ban_link: active-ban-spike
+        annotations:
+          summary: "Active bans > 50 on {{ $labels.instance }} — sustained brute-force wave"
+          description: >
+            Currently-banned IP count above 50 across all jails for
+            10+ minutes. Indicates an ongoing distributed brute-force
+            attack. Operator action: inspect `fail2ban-client status sshd`
+            for source-IP geography; consider upstream IP-block rules.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdeffail2banactivebanspike-warning"

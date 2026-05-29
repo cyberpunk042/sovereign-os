@@ -1,0 +1,57 @@
+[Unit]
+Description=Sovereign M060 chain-health read-only API host (selfdef /v1/m060/health proxy)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/m060-health-api.py
+# CROSS-REPO HEALTH PROXY — proxies the selfdef daemon's authoritative
+# GET /v1/m060/health endpoint into the sovereign-os webapp + MCP layers.
+# READ-ONLY observability (R10212): reports publish-freshness of all 10
+# typed-mirror artifacts (active-profile + audit + capability-tokens +
+# cli + grants + quarantine + rules + sandboxes + trust-scores + tui).
+# State enumeration: online / degraded / stale / offline / unreachable.
+# No mutation surface — POST / PUT / DELETE all return 405.
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/m060-health-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default. To expose beyond loopback, drop
+# /etc/systemd/system/sovereign-m060-health-api.service.d/bind.conf:
+#   [Service]
+#   Environment=M060_HEALTH_API_BIND=0.0.0.0
+Environment=M060_HEALTH_API_BIND=127.0.0.1
+Environment=M060_HEALTH_API_PORT=8160
+
+# selfdef transport — the proxy tries the UNIX socket first; if absent,
+# falls back to TCP via SELFDEF_API_URL + SELFDEF_API_TOKEN. Operators
+# running selfdefd on the same host should leave SELFDEF_SOCKET at its
+# default (/run/selfdef.sock); operators routing through TCP must drop
+# a tcp.conf with both vars set.
+Environment=SELFDEF_SOCKET=/run/selfdef.sock
+
+# R171 defense-in-depth (Layer-1 lint enforced). Read-only HTTP surface;
+# only writes the Prometheus textfile metric.
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target

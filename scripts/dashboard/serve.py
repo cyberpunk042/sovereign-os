@@ -113,6 +113,30 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 # --------------------------------------------------------- card adapters
 
 
+def _run_json_at(path: Path, args: list[str]) -> dict[str, Any] | None:
+    """Variant of _run_json that takes an arbitrary script path
+    instead of assuming scripts/hardware/. Used by the SDD-065
+    cockpit card (lives under scripts/cockpit/)."""
+    if not path.exists():
+        return None
+    try:
+        r = subprocess.run(
+            [sys.executable, str(path), *args, "--json"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return None
+    if not r.stdout.strip():
+        return None
+    try:
+        return json.loads(r.stdout)
+    except json.JSONDecodeError:
+        return None
+
+
 def _run_json(script: str, args: list[str]) -> dict[str, Any] | None:
     """Invoke a sibling script with --json and return parsed payload."""
     bin_path = REPO_ROOT / "scripts" / "hardware" / script
@@ -197,6 +221,37 @@ def card_raid() -> dict[str, Any]:
     """R223 Z-9 — raid-status status JSON."""
     data = _run_json("raid-status.py", ["status"]) or {"arrays": [], "count": 0}
     return {"id": "raid", "title": "Software RAID (R223 / Z-9)", "data": data}
+
+
+def card_blockset_queue() -> dict[str, Any]:
+    """SDD-065 MS5b — pending operator-extension queue for the
+    selfdef IP-block action layer. Reads scripts/cockpit/
+    blockset-queue.py --json (which in turn reads the selfdef-
+    side pending-extensions.json snapshot). Each entry displays
+    addr / time-left / reason / pre-rendered extend command."""
+    cockpit_script = REPO_ROOT / "scripts" / "cockpit" / "blockset-queue.py"
+    data = _run_json_at(cockpit_script, []) or {"queue": [], "count": 0}
+    return {
+        "id": "blockset-queue",
+        "title": "SDD-065 — pending IP-block extension decisions",
+        "data": data,
+    }
+
+
+def card_quarantine_queue() -> dict[str, Any]:
+    """SDD-066 MS5b — pending operator-release queue for the
+    selfdef process-quarantine action layer. Reads scripts/cockpit/
+    quarantine-queue.py --json. Each entry shows pid / time-left /
+    scope / reason / pre-rendered release + kill-TERM + kill-KILL
+    commands. Pairs with card_blockset_queue when the correlator
+    fires both BlockIp + QuarantineProcess on the same incident."""
+    cockpit_script = REPO_ROOT / "scripts" / "cockpit" / "quarantine-queue.py"
+    data = _run_json_at(cockpit_script, []) or {"queue": [], "count": 0}
+    return {
+        "id": "quarantine-queue",
+        "title": "SDD-066 — pending process-quarantine release decisions",
+        "data": data,
+    }
 
 
 def card_flex() -> dict[str, Any]:
@@ -1318,6 +1373,8 @@ CARDS = [
     # morning_brief leads — operator's daily entry-point.
     card_morning_brief,
     card_operator_posture,
+    card_blockset_queue,
+    card_quarantine_queue,
     card_gpu,
     card_network,
     card_cpu,

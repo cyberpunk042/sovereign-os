@@ -1,0 +1,99 @@
+{
+  "_comment": "sovereign-os selfdef cron + systemd-timer dashboard. Visualizes selfdef_cron_* + selfdef_systemd_timers_total gauges (selfdef commit b80b389). Pairs with 5 alerts. Userspace persistence-vector observability — pairs with kernel-modules at rootkit-detection axis.",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "operator runbook", "url": "/d/sovereign-os-selfdef-cron#runbook", "type": "link", "icon": "doc"},
+    {"title": "producer source", "url": "https://github.com/cyberpunk042/selfdef/blob/main/packaging/scripts/selfdef-cron-textfile.sh", "type": "link", "icon": "external link"},
+    {"title": "deployment guide", "url": "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefcrondfilecountdrift-warning", "type": "link", "icon": "external link"},
+    {"title": "kernel-modules (paired rootkit detection)", "url": "/d/sovereign-os-selfdef-kernel-modules", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "/etc/cron.d/ files",
+      "description": "Root-level scheduled entries. Drift fires SelfdefCronDFileCountDrift.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_cron_d_files", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none"}},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "user crontabs",
+      "description": "Per-user crontab files in /var/spool/cron/.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_cron_user_crontabs", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none"}},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "systemd timers",
+      "description": "Total systemd .timer units. Drift fires SelfdefSystemdTimerDrift.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_systemd_timers_total", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none"}},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "observer sentinel",
+      "description": "selfdef_cron_textfile_emit_failed. Red at 1 = wrapper failure.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_cron_textfile_emit_failed", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "cron surface inventory over time",
+      "description": "All 4 cron surfaces tracked. Sudden jumps in any series = persistence drift.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_cron_d_files", "legendFormat": "/etc/cron.d/", "refId": "A"},
+        {"expr": "selfdef_cron_periodic_files", "legendFormat": "periodic (hrly/daily/wkly/mthly)", "refId": "B"},
+        {"expr": "selfdef_cron_user_crontabs", "legendFormat": "user crontabs", "refId": "C"},
+        {"expr": "selfdef_systemd_timers_total", "legendFormat": "systemd timers", "refId": "D"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none"}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "total actionable cron entries",
+      "description": "Sum of non-comment, non-blank lines across all cron surfaces. Sharp moves = SelfdefCronEntryDriftHigh.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_cron_total_entries", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none"}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "drift detector — changes() over 1h windows",
+      "description": "Matches the alert exprs. Anything non-zero is a drift event.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "changes(selfdef_cron_total_entries[1h])", "legendFormat": "total entries", "refId": "A"},
+        {"expr": "changes(selfdef_cron_d_files[1h])", "legendFormat": "/etc/cron.d/", "refId": "B"},
+        {"expr": "changes(selfdef_systemd_timers_total[1h])", "legendFormat": "systemd timers", "refId": "C"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none"}},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 12}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["sovereign-os", "selfdef", "cron", "systemd-timers", "IPS-spine", "security", "persistence-detection"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "sovereign-os — selfdef cron + systemd timers (persistence detection)",
+  "uid": "sovereign-os-selfdef-cron",
+  "version": 1,
+  "weekStart": ""
+}

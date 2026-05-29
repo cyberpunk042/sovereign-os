@@ -1,0 +1,382 @@
+# M060 cross-repo mirror chain — Prometheus alerting rules.
+#
+# These alerts fire on the textfile metrics the sovereign-os
+# m060-health-api daemon writes to
+# /var/lib/node_exporter/textfile_collector/sovereign-os-m060-health-api.prom
+# on every request. The metric is labeled with the chain-state
+# verdict returned by the underlying selfdef-api /v1/m060/health
+# probe; alerts catch the failure modes operators care about:
+#
+#   - online       all 10 mirrors fresh + parseable → no alert
+#   - degraded     partial population OR parse-fail → warning
+#   - stale        loop stuck (newest > 5min)       → warning
+#   - offline      daemon down / mirror_dir unset   → critical
+#   - unreachable  m060-health-api cannot reach selfdefd → critical
+#
+# Drop into the Prometheus rule_files config (e.g.,
+#   rule_files:
+#     - /etc/prometheus/alerts/m060-chain-health.rules.yml
+# ) and reload.
+#
+# Catalog source: M060 cockpit mirror chain — selfdef /v1/m060/health
+# (selfdef-api::m060_health). Operator boundary: pure observability;
+# no mutation surface (R10212). Standing rule: We do not minimize
+# anything.
+
+groups:
+  - name: m060-chain-health
+    interval: 30s
+    rules:
+
+      # Critical: the M060 chain is reporting offline. Daemon is
+      # not running OR `[deployment].selfdef_mirror_dir` is unset.
+      # Fires after 2 consecutive scrapes (~1 minute) of the
+      # offline state — guards against transient single-scrape blips.
+      - alert: M060ChainOffline
+        expr: |
+          increase(
+            sovereign_os_operator_m060_health_api_request_total{
+              endpoint="health", result="offline"
+            }[2m]
+          ) > 0
+        for: 1m
+        labels:
+          severity: critical
+          subsystem: m060-mirror-chain
+          chain_state: offline
+        annotations:
+          summary: "M060 mirror chain is OFFLINE on {{ $labels.instance }}"
+          description: >
+            The selfdef daemon reports zero mirror artifacts present in
+            its publish directory. Either selfdefd is not running, or
+            `[deployment].selfdef_mirror_dir` is not set in
+            /etc/selfdef/selfdef.toml. The cockpit dashboards depend on
+            this chain — D-02 / D-12 / D-13 / D-14 / D-15 / D-16 / D-17 /
+            D-18 + TUI + CLI mirrors all stay empty until the daemon
+            publishes again.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#troubleshooting"
+
+      # Critical: m060-health-api can't even reach the selfdef daemon.
+      # Distinct from "offline": the proxy itself is up + the daemon
+      # is down (or the UNIX socket/TCP transport between them is
+      # misconfigured). Same severity, different root cause.
+      - alert: M060ChainUnreachable
+        expr: |
+          increase(
+            sovereign_os_operator_m060_health_api_request_total{
+              endpoint="health", result="unreachable"
+            }[2m]
+          ) > 0
+        for: 1m
+        labels:
+          severity: critical
+          subsystem: m060-mirror-chain
+          chain_state: unreachable
+        annotations:
+          summary: "M060 chain-health proxy cannot reach selfdefd on {{ $labels.instance }}"
+          description: >
+            sovereign-os m060-health-api.py cannot reach the selfdef
+            daemon's GET /v1/m060/health endpoint. Check: (1) selfdefd
+            is running (`systemctl status selfdefd`), (2) the UNIX
+            socket /run/selfdef.sock exists (or SELFDEF_API_URL +
+            SELFDEF_API_TOKEN are set for TCP fallback), (3) selfdefd
+            actually published the route (check journalctl -u selfdefd
+            for the "M060: mirror-export loop running 10/10" line).
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#troubleshooting"
+
+      # Warning: the mirror-export loop is stuck. Some/all artifacts
+      # are present but newest_age_seconds > 5min. Operator should
+      # check journalctl for repeated "mirror export: X write failed"
+      # warnings indicating a publisher loop is wedged.
+      - alert: M060ChainStale
+        expr: |
+          increase(
+            sovereign_os_operator_m060_health_api_request_total{
+              endpoint="health", result="stale"
+            }[5m]
+          ) > 0
+        for: 5m
+        labels:
+          severity: warning
+          subsystem: m060-mirror-chain
+          chain_state: stale
+        annotations:
+          summary: "M060 mirror chain is STALE on {{ $labels.instance }}"
+          description: >
+            The newest mirror artifact in
+            /run/sovereign-os/selfdef-mirror/ is older than 5 minutes
+            (~10 ticks of the 30s mirror-export loop). The selfdef
+            daemon is running but its publish loop appears stuck.
+            Check `journalctl -u selfdefd | grep "mirror export"` for
+            repeated write-failure warnings or a tokio-spawn that died
+            silently. The cockpit dashboards will render last-known-good
+            data until the loop recovers.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#troubleshooting"
+
+      # Warning: chain is in degraded state — some artifacts present,
+      # some absent OR any present artifact fails JSON parse. Legitimate
+      # operator-onboarding state, but if it persists > 30min, it
+      # indicates an artifact write is silently corrupting JSON.
+      - alert: M060ChainDegradedSustained
+        expr: |
+          increase(
+            sovereign_os_operator_m060_health_api_request_total{
+              endpoint="health", result="degraded"
+            }[10m]
+          ) > 0
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: m060-mirror-chain
+          chain_state: degraded
+        annotations:
+          summary: "M060 mirror chain has been DEGRADED for >30min on {{ $labels.instance }}"
+          description: >
+            The chain has been in 'degraded' state continuously for
+            more than 30 minutes. Degraded means either: (a) only some
+            of the 10 mirror artifacts are present (legitimate during
+            operator-issued-domain onboarding — D-13 grants / D-14
+            capability-tokens / D-15 sandboxes need the operator to
+            issue at least one item) OR (b) at least one present
+            artifact fails JSON-parse (which means a publisher is
+            writing corrupt JSON — investigate immediately). Query
+            /api/m060/health for the per-artifact `parses_as_json`
+            field to discriminate.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#troubleshooting"
+
+      # M060 D-CLI mirror sub-chain — driven by the textfile that
+      # selfdef ships at
+      # /var/lib/node_exporter/textfile_collector/selfdef-cli-mirror.prom
+      # via the `selfdef-cli-mirror-doctor.timer` systemd unit. The
+      # selfdefctl cli-mirror doctor verb walks 4 checks on each fire
+      # (60s cadence) and writes:
+      #
+      #   selfdef_cli_mirror_doctor_severity{check}  (0/1/2 per check)
+      #   selfdef_cli_mirror_doctor_check_info{check, detail, fix}
+      #   selfdef_cli_mirror_doctor_worst_severity   (0/1/2 summary)
+      #   selfdef_cli_mirror_doctor_last_run_unix    (freshness)
+      #
+      # These alerts surface the M060 D-CLI link of the chain so
+      # operators get one-line triage even before they open the
+      # dashboard. Distinct from the chain-wide alerts above (which
+      # measure publisher state in aggregate); these measure the
+      # specific D-CLI producer pipeline (systemd one-shot → resident
+      # store → daemon publisher → published mirror).
+
+      # Warning: at least one D-CLI chain check is degraded (warn).
+      # Common causes: resident store absent (operator hasn't onboarded
+      # the producer one-shot) or systemd unit not installed.
+      - alert: M060CliMirrorChainDegraded
+        expr: selfdef_cli_mirror_doctor_worst_severity == 1
+        for: 5m
+        labels:
+          severity: warning
+          subsystem: m060-mirror-chain
+          chain_link: cli-mirror
+          chain_state: warn
+        annotations:
+          summary: "M060 D-CLI chain degraded on {{ $labels.instance }}"
+          description: >
+            The selfdefctl cli-mirror doctor reports at least one of
+            its 4 chain checks (schema-version / resident-store /
+            systemd-unit / published-mirror) in WARN state. Query the
+            companion series for the per-check breakdown:
+
+              selfdef_cli_mirror_doctor_severity{check}
+
+            and the operator-actionable fix line:
+
+              selfdef_cli_mirror_doctor_check_info{check,detail,fix}
+
+            Most common: resident store absent (operator hasn't run
+            `systemctl start selfdef-cli-mirror-emit.service`).
+          runbook_url: "https://github.com/cyberpunk042/selfdef/blob/main/docs/operator/m060-cockpit-mirror-producers.md"
+
+      # Critical: a D-CLI chain check is hard-failed (fail = structural
+      # break). Schema-version drift, malformed JSON in the resident
+      # store, or systemd unit exited non-zero.
+      - alert: M060CliMirrorChainBroken
+        expr: selfdef_cli_mirror_doctor_worst_severity == 2
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: m060-mirror-chain
+          chain_link: cli-mirror
+          chain_state: fail
+        annotations:
+          summary: "M060 D-CLI chain BROKEN on {{ $labels.instance }}"
+          description: >
+            The selfdefctl cli-mirror doctor reports at least one of
+            its 4 chain checks (schema-version / resident-store /
+            systemd-unit / published-mirror) in FAIL state. Structural
+            break — operator action required. Query
+
+              selfdef_cli_mirror_doctor_check_info{check, fix}
+
+            for the per-check fix line. Common causes:
+
+            * resident-store malformed JSON → `rm
+              /var/lib/selfdef/cli-mirror.json` + `systemctl start
+              selfdef-cli-mirror-emit.service`
+            * schema-version drift → operator running mismatched
+              selfdefctl + selfdef-daemon versions
+            * systemd unit non-zero exit → `journalctl -u
+              selfdef-cli-mirror-emit.service -n 50`
+          runbook_url: "https://github.com/cyberpunk042/selfdef/blob/main/docs/operator/m060-cockpit-mirror-producers.md"
+
+      # Critical: the doctor timer has stopped firing. last_run_unix
+      # going stale (>5min = ~5 missed timer ticks) means the
+      # selfdef-cli-mirror-doctor.timer is wedged / disabled /
+      # node_exporter stopped exposing the textfile. The chain may
+      # actually be healthy — but we've lost the signal.
+      - alert: M060CliMirrorObserverSilent
+        expr: |
+          time() - selfdef_cli_mirror_doctor_last_run_unix > 300
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: m060-mirror-chain
+          chain_link: cli-mirror
+          chain_state: observer_silent
+        annotations:
+          summary: "M060 D-CLI doctor observer silent (>5min) on {{ $labels.instance }}"
+          description: >
+            selfdef_cli_mirror_doctor_last_run_unix is more than 5
+            minutes old (~5 missed timer ticks at the 60s cadence).
+            Either the selfdef-cli-mirror-doctor.timer unit is not
+            running (`systemctl status
+            selfdef-cli-mirror-doctor.timer`), the doctor service is
+            failing to write the textfile, OR node_exporter stopped
+            exposing the textfile_collector. The chain itself may be
+            healthy, but the observability signal is lost — fix
+            before relying on the D-CLI alerts to fire.
+          runbook_url: "https://github.com/cyberpunk042/selfdef/blob/main/docs/operator/m060-cockpit-mirror-producers.md"
+
+      # M060 chain-wide doctor — driven by the textfile that selfdef
+      # ships at
+      # /var/lib/node_exporter/textfile_collector/selfdef-m060-doctor.prom
+      # via the `selfdef-m060-doctor.timer` systemd unit (60s cadence,
+      # selfdef commit ce58154). The selfdefctl m060-doctor verb walks
+      # all 6 mirror domains (D-02/D-13/D-14/D-15/D-17/D-18) on each
+      # fire and writes:
+      #
+      #   selfdef_m060_doctor_severity{domain, label}            0/1/2
+      #   selfdef_m060_doctor_resident_present{domain, label}    0/1
+      #   selfdef_m060_doctor_published_present{domain, label}   0/1
+      #   selfdef_m060_doctor_domain_info{domain, label, note}   1
+      #   selfdef_m060_doctor_worst_severity                     0/1/2
+      #   selfdef_m060_doctor_last_run_unix                      <ts>
+      #
+      # These alerts give per-domain triage one-line: "M060 grants
+      # mirror broken" tells the operator exactly which domain is
+      # wedged. Complementary to the chain-wide rollup alerts above
+      # (which measure the m060-health-api endpoint state in
+      # aggregate).
+
+      # Warning: at least one mirror-domain chain check is degraded
+      # (warn). Common: resident store absent (operator hasn't
+      # onboarded the domain yet — D-13 grants / D-14 capability-
+      # tokens / D-15 sandboxes need at least one issue verb).
+      - alert: M060MirrorDomainChainDegraded
+        expr: selfdef_m060_doctor_worst_severity == 1
+        for: 5m
+        labels:
+          severity: warning
+          subsystem: m060-mirror-chain
+          chain_link: mirror-domain
+          chain_state: warn
+        annotations:
+          summary: "M060 mirror chain degraded on {{ $labels.instance }}"
+          description: >
+            The selfdefctl m060-doctor reports at least one of the 6
+            mirror domains in WARN state. Query the per-domain series
+            for the breakdown:
+
+              selfdef_m060_doctor_severity{domain, label}
+
+            and the operator-readable note:
+
+              selfdef_m060_doctor_domain_info{domain, label, note}
+
+            Most common: resident store absent (operator hasn't
+            onboarded that domain).
+          runbook_url: "https://github.com/cyberpunk042/selfdef/blob/main/docs/operator/m060-cockpit-mirror-producers.md"
+
+      # Critical: at least one mirror-domain check is FAIL — resident
+      # store exists but the daemon hasn't published it. The daemon
+      # mirror-export loop is wedged for that specific domain.
+      - alert: M060MirrorDomainChainBroken
+        expr: selfdef_m060_doctor_worst_severity == 2
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: m060-mirror-chain
+          chain_link: mirror-domain
+          chain_state: fail
+        annotations:
+          summary: "M060 mirror chain BROKEN on {{ $labels.instance }}"
+          description: >
+            The selfdefctl m060-doctor reports at least one mirror
+            domain in FAIL state: the resident store exists but the
+            daemon's mirror_export_loop hasn't published the
+            artifact. The export loop is wedged for that domain.
+            Query
+
+              selfdef_m060_doctor_published_present{domain, label}
+
+            to identify which domain(s) failed. Check selfdefd:
+
+              journalctl -u selfdefd | grep "mirror export"
+          runbook_url: "https://github.com/cyberpunk042/selfdef/blob/main/docs/operator/m060-cockpit-mirror-producers.md"
+
+      # Critical: the chain-wide doctor timer has stopped firing.
+      # `last_run_unix` going stale (>5min) means observability is
+      # lost on the per-domain signal; chain may be healthy but we
+      # cannot tell.
+      - alert: M060MirrorDomainObserverSilent
+        expr: |
+          time() - selfdef_m060_doctor_last_run_unix > 300
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: m060-mirror-chain
+          chain_link: mirror-domain
+          chain_state: observer_silent
+        annotations:
+          summary: "M060 chain-wide doctor observer silent (>5min) on {{ $labels.instance }}"
+          description: >
+            selfdef_m060_doctor_last_run_unix is more than 5 minutes
+            old (~5 missed timer ticks at the 60s cadence). Either
+            the selfdef-m060-doctor.timer unit is not running
+            (`systemctl status selfdef-m060-doctor.timer`), the
+            doctor service is failing to write the textfile, OR
+            node_exporter stopped exposing the textfile_collector.
+            The mirror chain itself may be healthy, but the
+            per-domain observability signal is lost.
+          runbook_url: "https://github.com/cyberpunk042/selfdef/blob/main/docs/operator/m060-cockpit-mirror-producers.md"
+
+      # Critical: m060-health-api daemon itself is silent. No requests
+      # in 5 minutes means either nothing is polling it (master-dashboard
+      # closed) OR the daemon is down. Master-dashboard polls every 30s,
+      # so a 5-minute silence is a real failure signal.
+      - alert: M060HealthApiSilent
+        expr: |
+          rate(
+            sovereign_os_operator_m060_health_api_request_total{endpoint="health"}[5m]
+          ) == 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: m060-mirror-chain
+          chain_state: api_silent
+        annotations:
+          summary: "M060 health-api daemon is silent on {{ $labels.instance }}"
+          description: >
+            No /api/m060/health requests have been served in 5 minutes.
+            Either the master-dashboard is not running (operator closed
+            the browser; not necessarily a failure) OR the
+            sovereign-m060-health-api.service unit is down
+            (`systemctl status sovereign-m060-health-api`). If
+            multiple dashboards/agents normally poll this in your
+            deployment, this is a true failure signal.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#troubleshooting"

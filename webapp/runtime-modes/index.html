@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>sovereign-os — runtime modes (M076)</title>
+<meta name="description" content="Operator-facing read-only cockpit for the M076 three load-balancing profiles (Ultra-Sovereign Efficiency / High-Concurrency Burst / Deep Context Synthesis).">
+<style>
+  :root {
+    --bg: #0e0e10;
+    --fg: #e8e8e8;
+    --muted: #888;
+    --border: #2a2a2a;
+    --accent: #1f7a3a;
+    --warn: #7a701f;
+    --inactive-bg: rgba(255,255,255,.02);
+    --active-bg: rgba(31,122,58,.10);
+  }
+  body { margin:0; padding:1rem 1.5rem; background:var(--bg); color:var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  h1 { margin: 0 0 .25rem; font-size: 1.4rem; }
+  .subtitle { color:var(--muted); font-size:.9rem; margin: 0 0 1.25rem; }
+  .active-banner { display:flex; align-items:center; gap:.6rem;
+    padding:.5rem .8rem; border:1px solid var(--border);
+    border-radius:.4rem; margin:.4rem 0 1.2rem; font-size:.9rem;
+    background:rgba(255,255,255,.02); }
+  .active-banner.has-active { border-color:var(--accent); background:var(--active-bg); }
+  .active-banner.unknown { border-color:#444; background:rgba(255,255,255,.04); }
+  .active-banner .dot { width:.6rem; height:.6rem; border-radius:50%;
+    background:#888; }
+  .active-banner.has-active .dot { background:var(--accent); box-shadow:0 0 .35rem rgba(31,122,58,.7); }
+  .modes-grid { display: grid; gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    margin-bottom: 1.5rem; }
+  .mode-card { border:1px solid var(--border); border-radius:.4rem;
+    padding:1rem; background:var(--inactive-bg);
+    display:flex; flex-direction:column; gap:.5rem;
+    transition: border-color .15s, background .15s; }
+  .mode-card.active { border-color:var(--accent); background:var(--active-bg); }
+  .mode-card h3 { margin:0; font-size:1.05rem; }
+  .mode-card .mode-id { color:var(--muted); font-size:.75rem;
+    font-family: ui-monospace, SFMono-Regular, monospace; }
+  .mode-card .mode-desc { font-size:.85rem; line-height:1.4; }
+  .mode-card .mode-actions { margin-top:auto; display:flex; gap:.5rem;
+    padding-top:.5rem; border-top:1px solid var(--border); }
+  .mode-card .mode-actions a { color:var(--fg); text-decoration:none;
+    font-size:.8rem; padding:.25rem .6rem; border:1px solid var(--border);
+    border-radius:.3rem; background:rgba(255,255,255,.04); }
+  .mode-card .mode-actions a:hover { background:rgba(255,255,255,.08); }
+  .mode-card.absent { opacity:.5; }
+  .mode-card.absent .mode-desc::before { content:"⚠ "; color:var(--warn); }
+  details { margin-top:1.25rem; }
+  details summary { cursor:pointer; color:var(--muted); font-size:.85rem;
+    padding:.4rem; user-select:none; }
+  details pre { background:#181818; padding:1rem; border-radius:.4rem;
+    overflow:auto; font-size:.75rem; font-family: ui-monospace, SFMono-Regular, monospace;
+    border:1px solid var(--border); }
+  .footer { margin-top:1.5rem; color:var(--muted); font-size:.75rem;
+    border-top:1px solid var(--border); padding-top:.8rem; }
+  .footer a { color:var(--muted); }
+  code { background:rgba(255,255,255,.06); padding:.1rem .3rem;
+    border-radius:.2rem; font-size:.85em; }
+</style>
+</head>
+<body>
+
+<h1>Runtime modes <span class="muted" style="font-size:.85rem; color:var(--muted);">M076</span></h1>
+<p class="subtitle">
+  Three load-balancing profiles — operator-facing read-only cockpit.
+  Mode selection happens via <code>selfdefctl modules apply</code> on the IPS host;
+  this dashboard renders the catalogued profile manifests in
+  <code>profiles/runtime/</code>.
+</p>
+
+<!-- Active-mode banner. Polled from /api/runtime-modes/active. -->
+<div id="active-mode-banner" class="active-banner unknown" role="status" aria-live="polite">
+  <span class="dot"></span>
+  <strong id="active-mode-label">active mode: unknown</strong>
+  <span class="spacer" style="flex:1"></span>
+  <span class="muted" id="active-mode-marker-hint">no marker at <code id="active-mode-marker-path">/run/sovereign-os/active-runtime-mode</code></span>
+</div>
+
+<!-- 3 mode cards rendered from /api/runtime-modes/list. -->
+<div id="modes-grid" class="modes-grid">
+  <!-- placeholder until the API returns -->
+  <div class="mode-card"><h3 class="muted">loading runtime modes…</h3></div>
+</div>
+
+<details>
+  <summary>Operator workflow — selecting a runtime mode (read-only here; the IPS host owns mutation)</summary>
+  <pre>
+# Inspect the catalogued profiles (this dashboard's source of truth):
+ls /usr/share/sovereign-os/profiles/runtime/
+
+# Validate the profile schema (sovereign-os side):
+scripts/validate-profiles.sh
+
+# Apply a mode via the IPS host (mutation lives in selfdefd per R10212):
+selfdefctl modules apply --runtime-profile ultra-sovereign-efficiency
+# OR
+selfdefctl modules apply --runtime-profile high-concurrency-burst
+# OR
+selfdefctl modules apply --runtime-profile deep-context-synthesis
+
+# After apply, the active-mode marker at /run/sovereign-os/active-runtime-mode
+# updates and the banner above flips to the new mode.
+  </pre>
+</details>
+
+<div class="footer">
+  R10212 read-only — mutation lives in selfdefd. Operator runbook:
+  <a href="https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/runtime-modes-cockpit.md">docs/operator/runtime-modes-cockpit.md</a>
+  · M076 catalogue source: <code>backlog/milestones/M076-three-load-balancing-profiles-ultra-sovereign-burst-deep-context.md</code>
+</div>
+
+<script>
+function el(id) { return document.getElementById(id); }
+
+async function renderActiveModeBanner() {
+  const banner = el("active-mode-banner");
+  if (!banner) return;
+  let payload;
+  try {
+    const r = await fetch("/api/runtime-modes/active", {headers: {"Accept": "application/json"}});
+    payload = r.ok ? await r.json() : null;
+  } catch (e) { payload = null; }
+  if (!payload) payload = {active: null, marker_path: "/run/sovereign-os/active-runtime-mode"};
+  const active = payload.active;
+  banner.classList.remove("has-active", "unknown");
+  banner.classList.add(active ? "has-active" : "unknown");
+  const labelEl = el("active-mode-label");
+  const markerHintEl = el("active-mode-marker-hint");
+  const markerPathEl = el("active-mode-marker-path");
+  if (markerPathEl) markerPathEl.textContent = payload.marker_path || "/run/sovereign-os/active-runtime-mode";
+  if (active) {
+    if (labelEl) labelEl.textContent = "active mode: " + active;
+    if (markerHintEl) markerHintEl.innerHTML = 'marker at <code>' + (payload.marker_path || "") + '</code>';
+  } else {
+    if (labelEl) labelEl.textContent = "active mode: unknown";
+    if (markerHintEl) markerHintEl.innerHTML = 'no marker at <code>' + (payload.marker_path || "") + '</code>';
+  }
+}
+
+async function renderModesGrid() {
+  const grid = el("modes-grid");
+  if (!grid) return;
+  let payload;
+  try {
+    const r = await fetch("/api/runtime-modes/list", {headers: {"Accept": "application/json"}});
+    payload = r.ok ? await r.json() : null;
+  } catch (e) { payload = null; }
+  if (!payload || !Array.isArray(payload.modes)) {
+    grid.innerHTML = '<div class="mode-card"><h3>runtime-modes API unreachable</h3>'
+      + '<p class="mode-desc muted">Start <code>sovereign-runtime-modes-api.service</code> '
+      + 'on this host to populate the cockpit.</p></div>';
+    return;
+  }
+  // Resolve the active mode for visual emphasis.
+  let activePayload;
+  try {
+    const r = await fetch("/api/runtime-modes/active", {headers: {"Accept": "application/json"}});
+    activePayload = r.ok ? await r.json() : null;
+  } catch (e) { activePayload = null; }
+  const activeId = activePayload ? activePayload.active : null;
+
+  grid.innerHTML = "";
+  for (const mode of payload.modes) {
+    const card = document.createElement("div");
+    const classes = ["mode-card"];
+    if (mode.id === activeId) classes.push("active");
+    if (mode.absent) classes.push("absent");
+    card.className = classes.join(" ");
+    const h = document.createElement("h3");
+    h.textContent = mode.name || mode.id;
+    card.appendChild(h);
+    const idEl = document.createElement("div");
+    idEl.className = "mode-id";
+    idEl.textContent = mode.id;
+    card.appendChild(idEl);
+    const desc = document.createElement("div");
+    desc.className = "mode-desc";
+    desc.textContent = mode.absent
+      ? "Profile YAML absent on this host. Reinstall the sovereign-os deb or set $SOVEREIGN_OS_PROFILES_RUNTIME_DIR."
+      : (mode.description_oneline || "(no description in YAML)");
+    card.appendChild(desc);
+    const actions = document.createElement("div");
+    actions.className = "mode-actions";
+    const detailLink = document.createElement("a");
+    detailLink.href = "/api/runtime-modes/" + encodeURIComponent(mode.id);
+    detailLink.textContent = "raw YAML";
+    detailLink.target = "_blank";
+    actions.appendChild(detailLink);
+    card.appendChild(actions);
+    grid.appendChild(card);
+  }
+}
+
+// Render on load + every 30s (matches the M060 + MS022 + four-watchdog
+// banner refresh cadence — operator-cockpit consistency).
+function tick() {
+  renderActiveModeBanner();
+  renderModesGrid();
+}
+tick();
+setInterval(tick, 30000);
+</script>
+</body>
+</html>

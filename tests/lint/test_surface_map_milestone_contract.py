@@ -61,11 +61,22 @@ EXPECTED_G1G_FULL_8 = {
 }
 
 # Structural-ceiling-but-below-8 modules (carry "not applicable"
-# structural waivers, NOT FUTURE work):
+# structural waivers, NOT FUTURE work). M060 cross-repo mirror
+# modules join the original 3: per "Respect the projects", each
+# mirror is a READ-ONLY cross-repo consumer where TUI for the
+# underlying IPS state lives in selfdef (not sovereign-os) and
+# the webapp surface IS the dashboard (no separate Grafana panel).
 EXPECTED_STRUCTURAL_BELOW_8 = {
     "bashrc",            # 2/8 — config installer, 6 structural waivers
     "auth-tier",         # 7/8 — tui n/a (config surface)
     "master-dashboard",  # 7/8 — dashboard self-referential
+    "profile-mirror",    # 6/8 — tui n/a (selfdef-side) + dashboard self-referential (webapp IS the dashboard)
+    "grants-mirror",     # 6/8 — same M060 cross-repo mirror pattern
+    "capability-mirror", # 6/8 — same M060 cross-repo mirror pattern
+    "sandbox-mirror",    # 6/8 — same M060 cross-repo mirror pattern
+    "audit-mirror",      # 6/8 — same M060 cross-repo mirror pattern
+    "quarantine-mirror", # 6/8 — same M060 cross-repo mirror pattern
+    "trust-mirror",      # 6/8 — same M060 cross-repo mirror pattern
 }
 
 
@@ -299,7 +310,7 @@ def test_milestone_count_self_consistency():
         capture_output=True, text=True, timeout=10,
     )
     data = json.loads(result.stdout)
-    assert data["total_modules"] == 15
+    assert data["total_modules"] == 22
     assert (
         data["at_structural_ceiling_count"]
         == len(data["at_full_8_surfaces"])

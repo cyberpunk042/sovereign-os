@@ -952,6 +952,60 @@ ENV VARS (override defaults):
   SOVEREIGN_OS_LOG_LEVEL       debug|info|warn|error
   SOVEREIGN_OS_NONINTERACTIVE  set to skip all prompts (CI mode)
 
+  M060 cross-repo mirror chain (selfdef → sovereign-os bridge, read-only):
+    m060-doctor [--strict] [--json]     Smoke-check the chain (10 mirror
+                                        endpoints + chain-health +
+                                        2 selfdef-side doctor textfile
+                                        observers via node_exporter). Strict
+                                        mode requires every mirror online.
+                                        Use --skip-doctor-observers when
+                                        node_exporter is on a different
+                                        host; --node-exporter-url to
+                                        override the default
+                                        http://localhost:9100/metrics.
+    observability-status [--strict] [--json]
+                                        NEW: cross-vertical triage probing
+                                        ALL 6 observability verticals shipped
+                                        to date (M060 + MS022 + four-watchdog
+                                        + modules + daemon-process + AppArmor)
+                                        in one shot via the 3 proxy daemons +
+                                        node_exporter scrape. Operator-
+                                        runnable single-command status across
+                                        the entire observability surface.
+                                        Exit 0=all green / 1=any WARN+FAIL /
+                                        2=any proxy unreachable. R10212
+                                        read-only — never mutates.
+                                        Also: obs-status alias.
+    ms022-doctor [--strict] [--json]    Triage the MS022 SSE subscriber-
+                                        quota chain (proxy daemon /healthz
+                                        + state classifier + envelope shape
+                                        + systemd unit + master-dashboard
+                                        proxy path). Exit 0/1/2 = GREEN/
+                                        YELLOW/RED. R10212 read-only —
+                                        every fix is an ssh-to-selfdef
+                                        command, never a sovereign-os
+                                        mutation. Use --strict for CI to
+                                        require state=ok everywhere.
+    m060-health probe|state [--json]    Daemon-side per-artifact health.
+                                        `state` returns just the verdict.
+    profile-mirror show [--json]        D-02 active-profile mirror
+    rules-mirror snapshot|summaries [--json]
+                                        D-12 nftables rules mirror
+    grants-mirror snapshot [--json]     D-13 filesystem grants mirror
+    capability-mirror snapshot [--json] D-14 capability-tokens mirror
+    sandbox-mirror snapshot [--json]    D-15 sandbox-allocations mirror
+    audit-mirror snapshot|integrity|trace <id> [--json]
+                                        D-16 audit-chain mirror; `trace`
+                                        looks up ONE span by trace_id with
+                                        chain walkers (M013 E0112).
+    quarantine-mirror snapshot [--json] D-17 quarantine mirror
+    trust-mirror snapshot [--json]      D-18 trust-scores mirror
+    tui-mirror snapshot|panels [--json] MS007 canonical TUI layout
+    cli-mirror snapshot|summaries|mutating [--json]
+                                        MS007 selfdefctl clap-tree
+                                        projection; `mutating` lists
+                                        signature-required verbs.
+
 EXAMPLES:
   sudo sovereign-osctl status
   sudo sovereign-osctl assistant
@@ -961,6 +1015,9 @@ EXAMPLES:
   sudo sovereign-osctl architecture-qa concepts --human
   sudo sovereign-osctl coverage audit --human
   sudo sovereign-osctl quarterly-review snapshot --human
+  sudo sovereign-osctl m060-doctor --json | jq .summary
+  sudo sovereign-osctl audit-mirror trace abc123              # M013 E0112
+  sudo sovereign-osctl m060-health state                      # chain verdict
 EOF
 }
 
@@ -7952,6 +8009,62 @@ case "${cmd}" in
     # selfdefctl + MS003 only. Verbs: snapshot / summaries (+ --json).
     "${__REPO_ROOT}/scripts/mirror/selfdef-capability-mirror.py" "$@"
     ;;
+  audit-mirror)
+    # M060 D-16 (R10120): READ-ONLY consumer of the selfdef audit-chain mirror
+    # (MS007 typed-mirror crate selfdef-audit-mirror). Projects selfdef MS016
+    # SHA-256-chained, MS049 13-field-spanned, MS026 OCSF-categorized, MS003
+    # verify-only audit chain for the D-16 cockpit dashboard. Chain is APPEND-
+    # ONLY by MS016 R03567 doctrine — the operator has NO mutation surface;
+    # verify / show / export are selfdefctl + MS003 only. Verbs: snapshot /
+    # integrity (+ --json).
+    "${__REPO_ROOT}/scripts/mirror/selfdef-audit-mirror.py" "$@"
+    ;;
+  rules-mirror)
+    # M060 D-12 (MS024 + MS038 + MS039): READ-ONLY consumer of the selfdef
+    # nftables rules mirror (MS007 typed-mirror crate selfdef-rules-mirror).
+    # Projects the daemon's Ring 0..4 nftables rule projection for the D-12
+    # networking dashboards (edge-firewall + network-edge). Rule installation
+    # lives in selfdefctl + nft at the IPS layer (operator MS003 only) — this
+    # dispatch only OBSERVES the live state. Verbs: snapshot / summaries
+    # (+ --json).
+    "${__REPO_ROOT}/scripts/mirror/selfdef-rules-mirror.py" "$@"
+    ;;
+  tui-mirror)
+    # MS043 R10141 + F05081 + R10298: READ-ONLY consumer of the selfdef
+    # TUI layout mirror (MS007 typed-mirror crate selfdef-tui-mirror).
+    # Projects the canonical 4-panel layout (rules / grants / quarantine /
+    # authority across TL/TR/BL/BR quadrants) the selfdefd mirror-export
+    # loop publishes every 30s. Used by sovereign-os minimal-web mirroring
+    # (R10170 "same 4-panel layout as TUI"). Doctrine surface "A dashboard
+    # should not show vanity graphs" preserved verbatim per R10298. No
+    # panel keybinding is mutating (R10212) — all panel verbs copy
+    # selfdefctl commands to clipboard. Verbs: snapshot / panels (+ --json).
+    "${__REPO_ROOT}/scripts/mirror/selfdef-tui-mirror.py" "$@"
+    ;;
+  cli-mirror)
+    # MS043 R10281 + R10297: READ-ONLY consumer of the selfdef CLI schema
+    # mirror (MS007 typed-mirror crate selfdef-cli-mirror). Projects the
+    # selfdefctl clap App tree (140+ subcommands classified into 8 effect
+    # classes per MS039 authority ladder) the selfdef daemon publishes
+    # by shelling out + caching `selfdefctl cli-mirror snapshot`. Used
+    # by sovereign-os for IPS-operator-surface introspection, completion
+    # generation, "how do I do X" cross-links, MCP-client tool-pickers.
+    # Doctrine surface "Fullstack at the edges" preserved verbatim per
+    # R10297. Verbs: snapshot / summaries / mutating (+ --json). The
+    # `mutating` verb filters to subcommands that require MS003 signature
+    # — operator clipboard-copy only; sovereign-os never invokes them.
+    "${__REPO_ROOT}/scripts/mirror/selfdef-cli-mirror.py" "$@"
+    ;;
+  m060-health)
+    # M060 chain health observability — proxies the selfdef daemon's
+    # GET /v1/m060/health endpoint reporting publish-freshness of all 10
+    # mirror artifacts (offline/degraded/stale/online plus this script's
+    # own "unreachable" when the daemon is down). Used by the D-00
+    # master-dashboard's chain-health banner, the MCP tool
+    # selfdef-m060-health, and ops/smoke scripts. Read-only.
+    # Verbs: probe / state (+ --json).
+    "${__REPO_ROOT}/scripts/operator/m060-health.py" "$@"
+    ;;
   super-model)
     # M060 D-19 (R10124-R10125): super-model manifest — sovereign-os-native
     # version + module-version table computed LIVE from git HEAD + the milestone
@@ -8347,6 +8460,43 @@ AUDITOR_HELP
     # our autocompletes and aliases and manual / helps and menus".
     # Idempotent + reversible (sentinel-bounded block).
     "${__REPO_ROOT}/scripts/operator/bashrc-install.sh" "$@"
+    ;;
+  ms022-doctor)
+    # MS022 SSE subscriber-quota chain triage — probes the 4 consumer-
+    # side surfaces (proxy daemon, master-dashboard banner, systemd unit)
+    # against the selfdef-side producer state (selfdef commit 77b4499
+    # 6 gauges). Read-only (R10212 + R10115). Stdlib-only Python; no deps.
+    # Exit codes: 0=GREEN / 1=YELLOW / 2=RED. Flags: --strict requires
+    # state=ok everywhere; --json for machine-readable triage.
+    # See scripts/diagnostics/ms022-doctor.py --help for the full
+    # flag surface.
+    "${__REPO_ROOT}/scripts/diagnostics/ms022-doctor.py" "$@"
+    ;;
+  m060-doctor)
+    # M060 cross-repo mirror chain smoke check — pings each /api/d-NN/snapshot
+    # endpoint through the sovereign-os master-dashboard proxy AND probes the
+    # selfdef-side doctor textfile observers (selfdef-cli-mirror-doctor.timer
+    # + selfdef-m060-doctor.timer, selfdef commits e9ab056 + ce58154) via
+    # node_exporter's /metrics so one operator command verifies the full
+    # producer→consumer→observer chain end-to-end. Read-only (web-is-read-
+    # only doctrine MS043 R10212 + R10115). Stdlib-only Python; no deps.
+    # See scripts/diagnostics/m060-smoke.py --help for flags
+    # (--base-url, --node-exporter-url, --strict, --skip-doctor-observers,
+    #  --json).
+    "${__REPO_ROOT}/scripts/diagnostics/m060-smoke.py" "$@"
+    ;;
+  observability-status|obs-status)
+    # NEW: cross-vertical observability triage. Probes ALL 6
+    # verticals shipped to date (M060 chain-health, MS022 SSE quota,
+    # four-watchdog IPS spine, selfdef-modules-catalog, selfdef-
+    # daemon-process, selfdef-apparmor) in one shot via the 3 proxy
+    # daemons + node_exporter scrape. Operator-runnable single-
+    # command status across the entire observability surface
+    # without subscribing to per-vertical alert channels.
+    # R10212 read-only — never mutates anything.
+    # Exit codes: 0=all green, 1=any WARN/FAIL, 2=any proxy unreach.
+    # See scripts/diagnostics/observability-status.py --help.
+    "${__REPO_ROOT}/scripts/diagnostics/observability-status.py" "$@"
     ;;
   version|--version|-V) cmd_version "$@" ;;
   help|--help|-h|"") cmd_help ;;

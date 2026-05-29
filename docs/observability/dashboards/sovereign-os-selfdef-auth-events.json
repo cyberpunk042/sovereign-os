@@ -1,0 +1,110 @@
+{
+  "_comment": "sovereign-os selfdef auth-events dashboard. Visualizes the selfdef-side selfdef_auth_events_* gauges shipped via the selfdef-auth-events-textfile.{service,timer} pair (selfdef commit e73dc61). Pairs with the 5 alert rules in config/prometheus/alerts/selfdef-auth-events.rules.yml. Brute-force detection + privilege-escalation surveillance. Project boundary R10212.",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "operator runbook (sovereign-os)", "url": "/d/sovereign-os-selfdef-auth-events#runbook", "type": "link", "icon": "doc"},
+    {"title": "producer source (selfdef auth-events observer)", "url": "https://github.com/cyberpunk042/selfdef/blob/main/packaging/scripts/selfdef-auth-events-textfile.sh", "type": "link", "icon": "external link"},
+    {"title": "deployment guide — auth-events runbooks", "url": "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefautheventstextfileemitfailed-critical", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "login failures (5m)",
+      "description": "Auth failures in the rolling window. Red at 20 matches SelfdefAuthEventsBruteForceDetected.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_auth_events_login_failures", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 5}, {"color": "red", "value": 20}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "ssh invalid users (5m)",
+      "description": "Invalid-user attempts. Red at 5 matches SelfdefAuthEventsSshInvalidUserAttempts (credential recon).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_auth_events_ssh_invalid_users", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 1}, {"color": "red", "value": 5}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "sudo invocations (5m)",
+      "description": "sudo uses. Red at 10 matches SelfdefAuthEventsSudoSpike.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_auth_events_sudo_invocations", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 3}, {"color": "red", "value": 10}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "observer emit-failed",
+      "description": "Honest-offline sentinel.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_auth_events_textfile_emit_failed", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "mappings": [{"type": "value", "options": {"0": {"text": "OK"}, "1": {"text": "FAILED"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "auth events over time (failures vs successes)",
+      "description": "Failed vs successful auth events side-by-side. A failures-spike with flat successes = brute-force attempt.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_auth_events_login_failures", "refId": "A", "legendFormat": "failures"},
+        {"expr": "selfdef_auth_events_login_successes", "refId": "B", "legendFormat": "successes"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 30}, "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 5}, {"color": "red", "value": 20}]}}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "recon + privilege escalation signals",
+      "description": "ssh invalid-user + ssh refused-key + sudo invocations over time. Sustained recon followed by sudo spike = compromise pattern.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_auth_events_ssh_invalid_users", "refId": "A", "legendFormat": "ssh invalid users"},
+        {"expr": "selfdef_auth_events_ssh_refused_keys", "refId": "B", "legendFormat": "ssh refused keys"},
+        {"expr": "selfdef_auth_events_sudo_invocations", "refId": "C", "legendFormat": "sudo"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 20}}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "total auth-facility events over time",
+      "description": "All auth-facility events combined. A sudden volume spike (any direction) is operator-actionable signal.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_auth_events_total", "refId": "A", "legendFormat": "{{instance}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 30}}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+    },
+    {
+      "type": "timeseries",
+      "title": "observer-freshness — emit-failed sentinel",
+      "description": "Red bands = wedged-wrapper windows when gauges cannot be trusted.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_auth_events_textfile_emit_failed", "refId": "A", "legendFormat": "{{instance}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 50}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 7, "w": 12, "x": 12, "y": 12}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["sovereign-os", "selfdef", "auth-events", "IPS-spine", "security", "observability"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {},
+  "timezone": "",
+  "title": "sovereign-os — selfdef auth events (brute-force detection)",
+  "uid": "sovereign-os-selfdef-auth-events",
+  "version": 1,
+  "weekStart": ""
+}

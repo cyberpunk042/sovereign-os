@@ -16,6 +16,73 @@
 
 Full doctrine: `docs/standing-directives/two-ultimate-solutions.md`.
 
+## Current arc (2026-05-28): M060 cross-repo mirror producers — COMPLETE
+
+The 7 sovereign-os mirror dashboards (D-12 rules, D-13 grants, D-14
+capability-tokens, D-15 sandboxes, D-16 audit-chain, D-17 quarantine,
+D-18 trust-scores) plus D-02 active-profile are no longer flagship-only
+shells with offline-default state — they now consume **live** selfdef-
+side producers. Cross-repo wire contract verified end-to-end at every
+seam.
+
+**Selfdef side (PR `cyberpunk042/selfdef#200`, branch
+`claude/recover-projects-b0oT6`, 13 commits, ~7500 LOC, all gates green
+except pre-existing m3_pipeline + info-hub coherence drift accepted as
+land-as-is):**
+
+| Domain | New resident-registry crate | Persisted store | Mutation model |
+|---|---|---|---|
+| D-02 active-profile | (uses existing flex-profile)        | `/var/lib/selfdef/flex-profile.json` | always-published; R09535 Private default |
+| D-12 rules          | `selfdef-rules-registry`            | `/var/lib/selfdef/rules.json`             | daemon-populated (nft collector projects `nft list ruleset --json` into 13-field RuleEntry across Ring 0..4); operator never appends — rules installed via selfdefctl + nft at the IPS layer |
+| D-13 grants         | `selfdef-grant-registry`            | `/var/lib/selfdef/grants.json`            | operator-issued (issue/revoke) |
+| D-14 capability-tokens | `selfdef-capability-registry`    | `/var/lib/selfdef/capability-tokens.json` | operator-issued (capability_word composed) |
+| D-15 sandboxes      | `selfdef-sandbox-registry`          | `/var/lib/selfdef/sandboxes.json`         | operator-issued (MS036×MS032 validation) |
+| D-16 audit-chain    | `selfdef-audit-registry`            | `/var/lib/selfdef/audit.json`             | daemon-populated (MS016 SHA-256 append-only chain · MS049 13-field spans · MS026 OCSF · MS003 verify-only); operator has NO mutation surface |
+| D-17 quarantine     | `selfdef-quarantine-registry`       | `/var/lib/selfdef/quarantine.json`        | daemon-populated (MS042 detection); operator override release/forfeit |
+| D-18 trust-scores   | `selfdef-trust-score-registry`      | `/var/lib/selfdef/trust-scores.json`      | daemon-populated (canonical_delta); operator admit + manual-delta override |
+
+Plus the missing MS007 typed-mirror crate `selfdef-profile-mirror` (D-02
+schema, which the consumer expected but had no producer crate). The
+`selfdef-daemon` mirror-export loop publishes each domain READ-ONLY to
+`/run/sovereign-os/selfdef-mirror/<file>.json` when its resident store
+exists (honest offline otherwise — no fabricated empty-online state).
+Selfdef API + selfdefctl have parity verbs for every domain (sister to
+the existing schema-discovery surfaces; the SDD-055 commit-authority
+gating remains the open cross-cutting work for all mutation surfaces).
+
+**Sovereign-os side (consumer wire verified):** the existing
+`scripts/mirror/selfdef-*-mirror.py` readers (plus the new
+`selfdef-audit-mirror.py` reader for D-16, modeled after the same
+stdlib-only pattern) and `scripts/operator/*-api.py` daemons consume
+the daemon-shaped artifacts unchanged — no sovereign-os code change
+required for D-02/D-13/D-14/D-15/D-17/D-18. Hand-crafted artifacts in
+the exact serde shape the selfdef producer writes flip each dashboard
+from `mirror_status=offline` → `online` with the right fields populated.
+The cross-repo chain contract test (`tests/lint/test_m060_cross_repo_
+chain_contract.py`) locks all 7 wires with daemon-shaped fixtures.
+
+The new `webapp/d-16-audit/` dashboard renders the audit-chain mirror
+READ-ONLY (chain integrity tile · OCSF category summary · MS033 4-state
+policy outcomes · bounded tail of 256 spans with prev_chain_hash /
+chain_hash / signature drill-down). The chain is APPEND-ONLY by MS016
+R03567 doctrine — the dashboard's "actions" panel exposes only
+verify/show/export verbs (no release, no replay, no edit).
+
+**What this unblocks for sovereign-os:** the 6 mirror dashboards can
+now demonstrably go live by running `selfdefd` on the host with
+`[deployment].selfdef_mirror_dir = "/run/sovereign-os/selfdef-mirror"`
+(plus the per-domain `SELFDEF_<DOMAIN>_PATH` env if relocated) and
+issuing/observing real grants/tokens/etc. via `selfdefctl`. No more
+"published mirror at X when wired" placeholder comments — they're
+wired.
+
+**What still belongs to sovereign-os explicitly:** the cockpit dashboard
+UX itself (HTML/JS/CSS in `webapp/d-*/`) and the master-dashboard
+aggregation. Those existed before this arc and are unchanged; the
+contract they consume is now live.
+
+---
+
 ## Where we are right now (2026-05-19 snapshot)
 
 ### CI-health recovery — DONE (2026-05-27)

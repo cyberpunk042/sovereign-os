@@ -1,0 +1,97 @@
+{
+  "_comment": "sovereign-os selfdef nftables + conntrack dashboard. Visualizes selfdef_nftables_* + selfdef_conntrack_* gauges (selfdef commit 2c303c4). Pairs with 5 alerts. Kernel packet-filter + conntrack observability — pairs with fail2ban dashboard.",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "operator runbook", "url": "/d/sovereign-os-selfdef-nftables#runbook", "type": "link", "icon": "doc"},
+    {"title": "producer source", "url": "https://github.com/cyberpunk042/selfdef/blob/main/packaging/scripts/selfdef-nftables-textfile.sh", "type": "link", "icon": "external link"},
+    {"title": "deployment guide", "url": "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefnftablesrulesetempty-critical", "type": "link", "icon": "external link"},
+    {"title": "fail2ban (paired)", "url": "/d/sovereign-os-selfdef-fail2ban", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "nftables installed?",
+      "description": "1 = nft binary present (honest-offline = 0).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_nftables_present", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "mappings": [{"type": "value", "options": {"0": {"text": "n/a"}, "1": {"text": "yes"}}}]}},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "rules in ruleset",
+      "description": "Total nftables rules. Red at 0 = SelfdefNftablesRulesetEmpty (perimeter outage).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_nftables_rules_total", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "green", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "conntrack used %",
+      "description": "Conntrack table fill. Yellow at 75% matches CT-High alert; red at 90% = CT-NearFull (kernel drops new connections).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_conntrack_used_percent", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "max": 100, "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 75}, {"color": "red", "value": 90}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "observer sentinel",
+      "description": "selfdef_nftables_textfile_emit_failed. Red at 1 = wrapper failure.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_nftables_textfile_emit_failed", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "ruleset shape — tables/chains/rules",
+      "description": "Nftables structural counts. Sudden drops indicate ruleset flush or partial corruption.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_nftables_tables_total", "legendFormat": "tables", "refId": "A"},
+        {"expr": "selfdef_nftables_chains_total", "legendFormat": "chains", "refId": "B"},
+        {"expr": "selfdef_nftables_rules_total", "legendFormat": "rules", "refId": "C"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none"}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "conntrack — current / max",
+      "description": "Absolute conntrack table size and ceiling. Curve approaching max means kernel will drop new connections.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_conntrack_count", "legendFormat": "current", "refId": "A"},
+        {"expr": "selfdef_conntrack_max", "legendFormat": "max", "refId": "B"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none"}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "conntrack used % over time",
+      "description": "Fill-rate trajectory. Spikes correlate with traffic bursts; sustained climbs = leak / undersized table.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_conntrack_used_percent", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "max": 100}},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 12}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["sovereign-os", "selfdef", "nftables", "conntrack", "IPS-spine", "security", "kernel-perimeter"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "sovereign-os — selfdef nftables + conntrack (kernel perimeter)",
+  "uid": "sovereign-os-selfdef-nftables",
+  "version": 1,
+  "weekStart": ""
+}

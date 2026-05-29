@@ -1,0 +1,76 @@
+{
+  "_comment": "sovereign-os selfdef systemd-journal disk-usage dashboard. Visualizes selfdef_journal_* gauges (selfdef commit ec6a822). Pairs with 5 alerts. Operational-disk observability — pairs with disk-usage dashboard at the journal-subsystem axis.",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "operator runbook", "url": "/d/sovereign-os-selfdef-journal-disk#runbook", "type": "link", "icon": "doc"},
+    {"title": "producer source", "url": "https://github.com/cyberpunk042/selfdef/blob/main/packaging/scripts/selfdef-journal-disk-textfile.sh", "type": "link", "icon": "external link"},
+    {"title": "deployment guide", "url": "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefjournaldiskrunaway-critical", "type": "link", "icon": "external link"},
+    {"title": "disk-usage (paired)", "url": "/d/sovereign-os-selfdef-disk-usage", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "journal disk usage",
+      "description": "Yellow at 1 GiB matches DiskHigh; red at 5 GiB matches DiskRunaway alert.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_journal_bytes_total", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "bytes", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 1073741824}, {"color": "red", "value": 5368709120}]}}},
+      "gridPos": {"h": 4, "w": 8, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "persistent journal?",
+      "description": "Red at 0 = volatile-only mode (restart loses forensic trail). Matches SelfdefJournalNoPersistentStorage.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_journal_persistent", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "mappings": [{"type": "value", "options": {"0": {"text": "volatile only"}, "1": {"text": "persistent"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "green", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 8, "x": 8, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "observer sentinel",
+      "description": "selfdef_journal_disk_textfile_emit_failed.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_journal_disk_textfile_emit_failed", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 8, "x": 16, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "journal disk usage over time",
+      "description": "Trajectory matters: sudden growth = log-spam runaway. Steady-state plateau = healthy rotation.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_journal_bytes_total", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "bytes"}},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "journal mode toggles",
+      "description": "persistent (1=safe) and volatile (1 in addition is fine; volatile + persistent==0 is the forensic gap).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_journal_persistent", "legendFormat": "persistent (1=safe)", "refId": "A"},
+        {"expr": "selfdef_journal_volatile", "legendFormat": "volatile present", "refId": "B"},
+        {"expr": "selfdef_journal_available", "legendFormat": "journalctl available", "refId": "C"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1}},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 12}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["sovereign-os", "selfdef", "journal", "systemd", "IPS-spine", "operational-disk", "forensic-trail"],
+  "templating": {"list": []},
+  "time": {"from": "now-24h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "sovereign-os — selfdef systemd-journal disk usage",
+  "uid": "sovereign-os-selfdef-journal-disk",
+  "version": 1,
+  "weekStart": ""
+}

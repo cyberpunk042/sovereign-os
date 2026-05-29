@@ -1,0 +1,120 @@
+# Selfdef time-sync Prometheus alerting rules.
+#
+# Fires on textfile metrics shipped by selfdef-time-sync-textfile.
+# {service,timer} (selfdef commit `36d1c8f`):
+#
+#   selfdef_time_sync_synced              gauge (0/1)
+#   selfdef_time_sync_ntp_active          gauge (0/1)
+#   selfdef_time_sync_rtc_local_tz        gauge (0/1)
+#   selfdef_time_sync_drift_seconds       gauge
+#   selfdef_time_sync_last_run_unix       gauge
+#   selfdef_time_sync_textfile_emit_failed gauge
+#
+# Clock-drift detection — IPS hazard since drifted clocks invalidate
+# audit-trail timestamps + break forensic correlation.
+
+groups:
+  - name: selfdef-time-sync
+    interval: 30s
+    rules:
+
+      - alert: SelfdefTimeSyncTextfileEmitFailed
+        expr: selfdef_time_sync_textfile_emit_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-time-sync
+          time_link: observer-fault
+        annotations:
+          summary: "Selfdef time-sync observer fault on {{ $labels.instance }}"
+          description: >
+            selfdef-time-sync-textfile.service is reporting wrapper
+            failure for 5+ minutes — timedatectl absent OR
+            unparseable. Operator MUST NOT trust the other time-sync
+            gauges as current.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdeftimesynctextfileemitfailed-critical"
+
+      - alert: SelfdefTimeSyncObserverSilent
+        expr: time() - selfdef_time_sync_last_run_unix > 300
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-time-sync
+          time_link: observer-silent
+        annotations:
+          summary: "Selfdef time-sync observer silent on {{ $labels.instance }}"
+          description: >
+            Timer hasn't fired in 5+ minutes. Time-sync gauges stale.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdeftimesyncobserversilent-critical"
+
+      # Critical: clock not synchronized. Audit-trail timestamps
+      # are silently unreliable.
+      - alert: SelfdefTimeSyncNotSynced
+        expr: selfdef_time_sync_synced == 0
+        for: 10m
+        labels:
+          severity: critical
+          subsystem: selfdef-time-sync
+          time_link: rollup
+        annotations:
+          summary: "Selfdef time-sync NOT synced on {{ $labels.instance }}"
+          description: >
+            System clock not synchronized to a time source for 10+
+            minutes. Audit-trail timestamps from MS016's append-only
+            chain are silently unreliable. Forensic correlation
+            against external IDS may fail. Restore sync via
+            `timedatectl set-ntp true` OR configure chronyd/NTP
+            sources in /etc/systemd/timesyncd.conf.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdeftimesyncnotsynced-critical"
+
+      # Critical: NTP service inactive. Sync may be lost soon.
+      - alert: SelfdefTimeSyncNtpInactive
+        expr: selfdef_time_sync_ntp_active == 0
+        for: 10m
+        labels:
+          severity: critical
+          subsystem: selfdef-time-sync
+          time_link: rollup
+        annotations:
+          summary: "Selfdef time-sync NTP service inactive on {{ $labels.instance }}"
+          description: >
+            NTP service (systemd-timesyncd OR chronyd OR ntpd) is
+            inactive for 10+ minutes. Sync will eventually drift.
+            Restore via `systemctl enable --now systemd-timesyncd`
+            OR `systemctl enable --now chronyd`.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdeftimesyncntpinactive-critical"
+
+      # Warning: drift > 60 seconds. Audit-trail correlation degraded
+      # but not yet broken.
+      - alert: SelfdefTimeSyncDriftHigh
+        expr: selfdef_time_sync_drift_seconds > 60
+        for: 5m
+        labels:
+          severity: warning
+          subsystem: selfdef-time-sync
+          time_link: rollup
+        annotations:
+          summary: "Selfdef time-sync drift {{ $value }}s > 60 on {{ $labels.instance }}"
+          description: >
+            RTC vs system clock drift > 60 seconds. Audit-trail
+            correlation degraded. Run `hwclock --systohc` to sync
+            RTC to system OR `hwclock --hctosys` to sync system
+            to RTC depending on which is canonical.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdeftimesyncdrifthigh-warning"
+
+      # Warning: RTC in local TZ. Operational hazard — DST
+      # transitions break correlation.
+      - alert: SelfdefTimeSyncRtcLocalTz
+        expr: selfdef_time_sync_rtc_local_tz == 1
+        for: 30m
+        labels:
+          severity: warning
+          subsystem: selfdef-time-sync
+          time_link: rollup
+        annotations:
+          summary: "Selfdef time-sync RTC in local TZ on {{ $labels.instance }}"
+          description: >
+            RTC is set to local timezone (not UTC). DST transitions
+            break audit-trail correlation. Run `timedatectl
+            set-local-rtc 0` to switch to UTC (the secure default).
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdeftimesyncrtclocaltz-warning"

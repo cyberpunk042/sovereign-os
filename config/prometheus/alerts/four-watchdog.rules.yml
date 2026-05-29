@@ -1,0 +1,132 @@
+# Four-watchdog (IPS spine) Prometheus alerting rules.
+#
+# These alerts fire on the textfile metrics the selfdef daemon emits
+# via the new selfdef-four-watchdog-doctor.{service,timer} pair
+# (selfdef commit `7869a45` / `a009b39`). The wrapper at
+# packaging/scripts/four-watchdog-textfile.sh atomically writes the
+# textfile every 60s via node_exporter's textfile_collector:
+#
+#   selfdef_four_watchdog_worst_severity         rollup gauge (0/1/2/-1)
+#   selfdef_four_watchdog_severity{alert,ms,…}   per-alert gauge
+#   selfdef_four_watchdog_last_run_unix          observer-freshness gauge
+#   selfdef_four_watchdog_textfile_emit_failed   honest-offline sentinel
+#
+# The four-watchdog set IS the IPS spine per SECURITY.md and SDD-004:
+#   MS046 process watchdog
+#   MS047 perimeter engine
+#   MS044 tamper-detection watchdog
+#   MS048 config watchdog
+#
+# A watchdog reporting CRITICAL means an IPS-spine subsystem has
+# stopped enforcing — page-worthy.
+#
+# Drop into the Prometheus rule_files config:
+#   rule_files:
+#     - /etc/prometheus/alerts/four-watchdog.rules.yml
+#
+# Project boundary R10212: pure observability. The enforcement (the
+# 4 watchdogs themselves + their alert classifier) lives in selfdefd;
+# sovereign-os alerts on the published gauges only.
+
+groups:
+  - name: four-watchdog
+    interval: 30s
+    rules:
+
+      # Critical: an IPS-spine watchdog reports CRITICAL severity.
+      # The worst-severity gauge is the fastest rollup signal — drills
+      # down via the per-alert gauge to find which one fired.
+      - alert: FourWatchdogWorstSeverityCritical
+        expr: selfdef_four_watchdog_worst_severity >= 2
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: four-watchdog
+          spine_link: rollup
+        annotations:
+          summary: "Four-watchdog IPS spine: a watchdog reports CRITICAL on {{ $labels.instance }}"
+          description: >
+            The selfdef daemon's four-watchdog rollup gauge
+            (selfdef_four_watchdog_worst_severity) reports CRITICAL
+            (value=2) for 2+ minutes. The IPS spine has at least one
+            watchdog (MS046 process / MS047 perimeter / MS044 tamper
+            / MS048 config) reporting an alert classification of
+            CRITICAL. Drill into
+              selfdef_four_watchdog_severity{alert="...",ms="...",series="..."}
+            to find which watchdog fired, then consult the matching
+            section of the operator-side IPS-spine runbook.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#fourwatchdogworstseveritycritical-critical"
+
+      # Warning: at least one watchdog reports WARN severity.
+      # Lower-urgency than CRITICAL but still operator-visible — a
+      # watchdog WARN typically means a degradation is in progress.
+      - alert: FourWatchdogAnyWarn
+        expr: selfdef_four_watchdog_worst_severity == 1
+        for: 5m
+        labels:
+          severity: warning
+          subsystem: four-watchdog
+          spine_link: rollup
+        annotations:
+          summary: "Four-watchdog IPS spine: a watchdog reports WARN on {{ $labels.instance }}"
+          description: >
+            The selfdef daemon's four-watchdog rollup gauge
+            (selfdef_four_watchdog_worst_severity) reports WARN
+            (value=1) for 5+ minutes. The IPS-spine subsystem has a
+            non-CRITICAL degradation in progress — investigate before
+            it escalates. Drill into
+              selfdef_four_watchdog_severity{alert="...",ms="...",series="..."}
+            for the specific watchdog.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#fourwatchdoganywarn-warning"
+
+      # Critical: the textfile emit wrapper reported failure. This is
+      # the honest-offline sentinel — when set to 1, the operator
+      # CANNOT trust the other selfdef_four_watchdog_* gauges to be
+      # current (selfdefctl was unreachable / daemon down / wrapper
+      # missing dep). Distinct from "all watchdogs healthy" — never
+      # silently mask a wedged daemon.
+      - alert: FourWatchdogTextfileEmitFailed
+        expr: selfdef_four_watchdog_textfile_emit_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: four-watchdog
+          spine_link: observer-fault
+        annotations:
+          summary: "Four-watchdog observer fault on {{ $labels.instance }}"
+          description: >
+            selfdef-four-watchdog-doctor.service is reporting wrapper
+            failure (textfile_emit_failed=1) for 5+ minutes. The
+            wrapper could not produce the 4 selfdef_four_watchdog_*
+            gauges because selfdefctl was absent, jq was absent, the
+            daemon was unreachable, OR the /v1/alerts JSON envelope
+            was malformed. Operator must restore the wrapper's
+            preconditions before the rest of the four-watchdog
+            observability surface can be trusted as fresh.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#fourwatchdogtextfileemitfailed-critical"
+
+      # Critical: the observer is silent (textfile not being refreshed).
+      # Matches the M060 observer-silent threshold of 300s (5x the 60s
+      # cadence) — locked in the cross-surface threshold-lockstep
+      # contract test alongside the rest of the chain.
+      - alert: FourWatchdogObserverSilent
+        expr: time() - selfdef_four_watchdog_last_run_unix > 300
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: four-watchdog
+          spine_link: observer-silent
+        annotations:
+          summary: "Four-watchdog observer silent on {{ $labels.instance }}"
+          description: >
+            The selfdef-four-watchdog-doctor.timer hasn't fired in
+            5+ minutes (selfdef_four_watchdog_last_run_unix is stale
+            for >300 seconds). The IPS-spine observability surface
+            is silently degraded — the 4 watchdog severities cannot
+            be trusted to reflect current state. Likely causes:
+            timer disabled, systemd unit failed, OR
+            /var/lib/node_exporter/textfile_collector/ unwritable.
+            Check `systemctl status selfdef-four-watchdog-doctor.timer`
+            and ensure the textfile_collector dir is writable by the
+            selfdef user.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#fourwatchdogobserversilent-critical"

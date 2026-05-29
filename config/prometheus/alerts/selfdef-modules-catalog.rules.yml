@@ -1,0 +1,103 @@
+# Selfdef module-catalog Prometheus alerting rules.
+#
+# These alerts fire on the textfile metrics the selfdef daemon emits
+# via the new selfdef-modules-textfile.{service,timer} pair
+# (selfdef commit `1ce88c7`). The wrapper at
+# packaging/scripts/selfdef-modules-textfile.sh atomically writes
+# the textfile every 60s via node_exporter's textfile_collector:
+#
+#   selfdef_modules_total                       catalog count rollup
+#   selfdef_modules_by_category{category=…}     per-category roll-up
+#   selfdef_modules_by_phase{phase=…}           per-phase roll-up
+#   selfdef_modules_last_run_unix               observer freshness
+#   selfdef_modules_textfile_emit_failed        honest-offline sentinel
+#
+# The selfdef module catalog is a load-bearing IPS surface
+# (188+ modules at the time of this commit covering hardening /
+# observability / etc categories). Drift detection here protects
+# against a hardening module silently dropping below the expected
+# count.
+#
+# Drop into the Prometheus rule_files config:
+#   rule_files:
+#     - /etc/prometheus/alerts/selfdef-modules-catalog.rules.yml
+#
+# Project boundary R10212: pure observability. The enforcement
+# (the modules themselves + the catalog) lives in selfdefd;
+# sovereign-os alerts on the published gauges only.
+
+groups:
+  - name: selfdef-modules-catalog
+    interval: 30s
+    rules:
+
+      # Critical: the textfile emit wrapper reported failure.
+      # Honest-offline sentinel — when set to 1, the operator
+      # CANNOT trust the other selfdef_modules_* gauges to be
+      # current (selfdefctl was unreachable / wrapper missing dep).
+      # ALWAYS takes precedence over the rollup-count alerts.
+      - alert: SelfdefModulesTextfileEmitFailed
+        expr: selfdef_modules_textfile_emit_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-modules-catalog
+          catalog_link: observer-fault
+        annotations:
+          summary: "Selfdef modules observer wrapper failure on {{ $labels.instance }}"
+          description: >
+            selfdef-modules-textfile.service is reporting wrapper
+            failure (textfile_emit_failed=1) for 5+ minutes. The
+            wrapper could not produce the selfdef_modules_*
+            gauges because selfdefctl was absent, jq was absent,
+            the daemon was unreachable, OR the `modules list
+            --json` envelope was malformed. Operator must restore
+            the wrapper's preconditions before the rest of the
+            module-catalog observability surface can be trusted
+            as fresh.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefmodulestextfileemitfailed-critical"
+
+      # Critical: observer silent. The textfile is stale > 5 minutes.
+      # Matches the chain-wide 300s threshold (locked across all 3
+      # observability verticals — M060, four-watchdog, modules).
+      - alert: SelfdefModulesObserverSilent
+        expr: time() - selfdef_modules_last_run_unix > 300
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-modules-catalog
+          catalog_link: observer-silent
+        annotations:
+          summary: "Selfdef modules observer silent on {{ $labels.instance }}"
+          description: >
+            The selfdef-modules-textfile.timer hasn't fired in
+            5+ minutes (selfdef_modules_last_run_unix is stale
+            for >300 seconds). The module-catalog observability
+            surface is silently degraded — the per-category
+            counts cannot be trusted to reflect current state.
+            Check `systemctl status selfdef-modules-textfile.timer`
+            and ensure the textfile_collector dir is writable by
+            the selfdef user.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefmodulesobserversilent-critical"
+
+      # Warning: total module catalog dropped below the minimum
+      # expected count. selfdef ships with 188+ modules; a count
+      # below 100 indicates an installation problem (incomplete
+      # deb install / corrupted /usr/share/selfdef/modules/).
+      - alert: SelfdefModulesCountLow
+        expr: selfdef_modules_total < 100
+        for: 10m
+        labels:
+          severity: warning
+          subsystem: selfdef-modules-catalog
+          catalog_link: rollup
+        annotations:
+          summary: "Selfdef module catalog count low on {{ $labels.instance }}"
+          description: >
+            selfdef_modules_total reports <100 modules for 10+
+            minutes. selfdef ships 188+ modules at install time;
+            a drop below this threshold suggests an incomplete deb
+            install OR a corrupted /usr/share/selfdef/modules/
+            directory. The threshold of 100 is intentionally
+            generous — a healthy install has more like 188+.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefmodulescountlow-warning"

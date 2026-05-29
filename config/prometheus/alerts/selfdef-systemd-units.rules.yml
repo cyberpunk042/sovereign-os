@@ -1,0 +1,98 @@
+# Selfdef systemd-unit-health Prometheus alerting rules.
+#
+# Fires on the textfile metrics shipped by selfdef-systemd-units-
+# textfile.{service,timer} (selfdef commit `7121c72`):
+#
+#   selfdef_systemd_units_total{prefix=…}        gauge
+#   selfdef_systemd_units_active{prefix=…}       gauge
+#   selfdef_systemd_units_inactive{prefix=…}     gauge
+#   selfdef_systemd_units_failed{prefix=…}       gauge
+#   selfdef_systemd_units_activating{prefix=…}   gauge
+#   selfdef_systemd_units_other{prefix=…}        gauge
+#   selfdef_systemd_units_last_run_unix          gauge
+#   selfdef_systemd_units_textfile_emit_failed   gauge
+#
+# Silent-unit-failure detection is load-bearing IPS surface — when
+# a selfdef-* timer or service silently fails, no other alarm fires
+# until the downstream gauge goes stale. These alerts catch the
+# failure directly.
+
+groups:
+  - name: selfdef-systemd-units
+    interval: 30s
+    rules:
+
+      - alert: SelfdefSystemdUnitsTextfileEmitFailed
+        expr: selfdef_systemd_units_textfile_emit_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-systemd-units
+          systemd_link: observer-fault
+        annotations:
+          summary: "Selfdef systemd-units observer fault on {{ $labels.instance }}"
+          description: >
+            selfdef-systemd-units-textfile.service is reporting
+            wrapper failure for 5+ minutes — systemctl absent OR
+            D-Bus unavailable. Operator MUST NOT trust the other
+            unit-state gauges as current.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefsystemdunitstextfileemitfailed-critical"
+
+      - alert: SelfdefSystemdUnitsObserverSilent
+        expr: time() - selfdef_systemd_units_last_run_unix > 300
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: selfdef-systemd-units
+          systemd_link: observer-silent
+        annotations:
+          summary: "Selfdef systemd-units observer silent on {{ $labels.instance }}"
+          description: >
+            selfdef-systemd-units-textfile.timer hasn't fired in 5+
+            minutes. Unit-state gauges cannot be trusted as current.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefsystemdunitsobserversilent-critical"
+
+      # Critical: any selfdef-* unit in failed state. Drift-catching
+      # signal: a silently-failed timer or service is page-worthy
+      # because downstream observability degrades.
+      - alert: SelfdefSystemdUnitFailed
+        expr: max(selfdef_systemd_units_failed) > 0
+        for: 5m
+        labels:
+          severity: critical
+          subsystem: selfdef-systemd-units
+          systemd_link: rollup
+        annotations:
+          summary: "Selfdef systemd unit(s) failed on {{ $labels.instance }}"
+          description: >
+            At least one selfdef-* systemd unit is in failed state
+            for 5+ minutes. Operator must investigate via
+            `systemctl --failed --all 'selfdef-*'` and check
+            `journalctl -u <failed-unit> --since '15 min ago'`.
+            Silent failure means the unit's downstream observability
+            is degraded — see the per-vertical observer-silent
+            alerts for cascading effects.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefsystemdunitfailed-critical"
+
+      # Warning: selfdef unit count low. Selfdef ships 10+ units
+      # (selfdefd + selfdef-doctor + 8 sibling observer pairs +
+      # cli-mirror-emit). If the count drops below 8, the deb is
+      # likely incompletely installed.
+      - alert: SelfdefSystemdUnitsCountLow
+        expr: max(selfdef_systemd_units_total) < 8
+        for: 10m
+        labels:
+          severity: warning
+          subsystem: selfdef-systemd-units
+          systemd_link: rollup
+        annotations:
+          summary: "Selfdef systemd-units count {{ $value }} < 8 on {{ $labels.instance }}"
+          description: >
+            selfdef_systemd_units_total < 8 for 10+ minutes —
+            selfdef ships 10+ units (selfdefd + selfdef-doctor +
+            8 sibling observer pairs + cli-mirror-emit), so this
+            threshold is a generous floor. Drop below indicates
+            an incomplete deb install OR explicit operator drop-in
+            disabling units. Investigate via
+            `systemctl list-units --all 'selfdef-*'`.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefsystemdunitscountlow-warning"
