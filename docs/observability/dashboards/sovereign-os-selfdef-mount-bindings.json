@@ -1,0 +1,84 @@
+{
+  "_comment": "sovereign-os selfdef SDD-071 mount-bindings dashboard. Extends the IPS-hexet observability set to septet (#39 blockset + #40 quarantine + #41 revocations + #42 token-revocations + #43 mfa-grant-revocations + #44 netns-isolations + #45 this dashboard) at the filesystem-binding axis.",
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {"title": "SDD-071 spec", "url": "https://github.com/cyberpunk042/selfdef/blob/main/docs/sdd/071-mount-binding-unbind-action-surface.md", "type": "link", "icon": "external link"},
+    {"title": "blockset (SDD-065)", "url": "/d/sovereign-os-selfdef-blockset", "type": "link", "icon": "external link"},
+    {"title": "quarantine (SDD-066)", "url": "/d/sovereign-os-selfdef-quarantine", "type": "link", "icon": "external link"},
+    {"title": "revocations (SDD-067)", "url": "/d/sovereign-os-selfdef-revocations", "type": "link", "icon": "external link"},
+    {"title": "token-revocations (SDD-068)", "url": "/d/sovereign-os-selfdef-token-revocations", "type": "link", "icon": "external link"},
+    {"title": "mfa-grant-revocations (SDD-069)", "url": "/d/sovereign-os-selfdef-mfa-grant-revocations", "type": "link", "icon": "external link"},
+    {"title": "netns-isolations (SDD-070)", "url": "/d/sovereign-os-selfdef-netns-isolations", "type": "link", "icon": "external link"}
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "mount-bindings state-dir present",
+      "description": "Red at 0 = SDD-071 enforcement OFFLINE.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_mount_bindings_state_dir_present", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "mappings": [{"type": "value", "options": {"0": {"text": "OFFLINE"}, "1": {"text": "OK"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": 0}, {"color": "green", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "active mount-binding unbinds",
+      "description": "Yellow at 10. Filesystem-binding axis: shortest-duration IPS primitive (max 6h).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_mount_bindings_active_count", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 10}, {"color": "red", "value": 50}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "pending rebind decisions",
+      "description": "Yellow at 5.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_mount_bindings_pending_rebinds", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 5}, {"color": "red", "value": 20}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "observer sentinel",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_mount_bindings_textfile_emit_failed", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "red", "value": 1}]}}},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "mount-binding state — active vs pending",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "selfdef_mount_bindings_active_count", "legendFormat": "active", "refId": "A"},
+        {"expr": "selfdef_mount_bindings_pending_rebinds", "legendFormat": "pending", "refId": "B"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "none"}},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "state-dir presence over time",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "selfdef_mount_bindings_state_dir_present", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1}},
+      "gridPos": {"h": 6, "w": 24, "x": 0, "y": 12}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["sovereign-os", "selfdef", "mount-bindings", "sdd-071", "IPS-spine", "security", "enforcement-layer", "ips-septet", "filesystem-binding"],
+  "templating": {"list": []},
+  "time": {"from": "now-24h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "sovereign-os — selfdef SDD-071 mount-bindings (filesystem-binding layer)",
+  "uid": "sovereign-os-selfdef-mount-bindings",
+  "version": 1,
+  "weekStart": ""
+}

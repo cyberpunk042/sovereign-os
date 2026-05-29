@@ -314,6 +314,19 @@ def card_netns_isolations_queue() -> dict[str, Any]:
     }
 
 
+def card_mount_bindings_queue() -> dict[str, Any]:
+    """SDD-071 MS5b — pending operator-rebind queue for the selfdef
+    mount-binding unbind action layer. Seventh in the IPS-septet
+    paired-decision queue family (filesystem-binding axis)."""
+    cockpit_script = REPO_ROOT / "scripts" / "cockpit" / "mount-bindings-queue.py"
+    data = _run_json_at(cockpit_script, []) or {"queue": [], "count": 0}
+    return {
+        "id": "mount-bindings-queue",
+        "title": "SDD-071 — pending mount-binding rebind decisions",
+        "data": data,
+    }
+
+
 def card_flex() -> dict[str, Any]:
     """R224 Z-3 — profile-flex show JSON."""
     data = _run_json("profile-flex.py", ["show"]) or {"deltas": []}
@@ -1439,6 +1452,7 @@ CARDS = [
     card_token_revocations_queue,
     card_mfa_grant_revocations_queue,
     card_netns_isolations_queue,
+    card_mount_bindings_queue,
     card_gpu,
     card_network,
     card_cpu,
