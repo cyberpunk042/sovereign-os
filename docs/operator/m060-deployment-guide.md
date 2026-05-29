@@ -1209,6 +1209,71 @@ last -F | head -5      # recent operator sessions
 OR a compromised user — operator judgment call. If unexpected,
 rotate the affected user's credentials.
 
+#### SelfdefSystemdUnitsTextfileEmitFailed (critical)
+
+**Diagnosis:**
+
+```bash
+systemctl status selfdef-systemd-units-textfile.service
+journalctl -u selfdef-systemd-units-textfile.service --since '10 min ago'
+which systemctl
+```
+
+**Fix:** systemctl/D-Bus availability are baseline requirements; if
+they're broken, the host itself is in trouble.
+
+#### SelfdefSystemdUnitsObserverSilent (critical)
+
+Same shape as the other observer-silent runbooks.
+
+#### SelfdefSystemdUnitFailed (critical)
+
+**Meaning:** at least one selfdef-* systemd unit is in failed state
+for 5+ minutes. Silent unit failure = downstream observability is
+degraded.
+
+**Diagnosis:**
+
+```bash
+# Identify failed units.
+systemctl --failed --all 'selfdef-*'
+
+# Per-unit forensics.
+for u in $(systemctl --failed --no-legend 'selfdef-*' | awk '{print $1}'); do
+  echo "=== $u ==="
+  systemctl status "$u" --no-pager | head -20
+  journalctl -u "$u" --since '15 min ago' | tail -20
+done
+```
+
+**Fix:** depends on root cause. Common patterns:
+- Operator drop-in misconfiguration → fix drop-in + reload
+- Permission drift after manual chown → restore selfdef:selfdef
+- Disk-full on textfile_collector → free space + retry
+- Selfdefd binary missing/corrupt → reinstall the deb
+
+```bash
+sudo systemctl reset-failed 'selfdef-*'
+sudo systemctl daemon-reload
+sudo systemctl restart <failed-unit>
+```
+
+#### SelfdefSystemdUnitsCountLow (warning)
+
+**Meaning:** `selfdef_systemd_units_total < 8` for 10+ minutes.
+Incomplete deb install OR operator-disabled units.
+
+**Diagnosis:**
+
+```bash
+systemctl list-units --all 'selfdef-*' | head -30
+dpkg -l | grep selfdef
+```
+
+**Fix:** depending on root cause:
+- Incomplete install → `sudo apt install --reinstall selfdef-daemon`
+- Intentional disable → raise the threshold in the rules YAML
+
 ## Project-boundary discipline (MS043 R10212)
 
 - IPS state mutation lives in **selfdef only** (selfdefd + selfdefctl +

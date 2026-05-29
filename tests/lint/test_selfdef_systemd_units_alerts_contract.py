@@ -115,3 +115,19 @@ def test_rule_group_interval_30s():
 
 def test_rules_cite_selfdef_producer_commit():
     assert "7121c72" in RULES_PATH.read_text()
+
+
+def test_runbook_sections_present_for_every_alert():
+    guide = REPO_ROOT / "docs" / "operator" / "m060-deployment-guide.md"
+    body = guide.read_text()
+    for name in REQUIRED_ALERTS:
+        assert f"#### {name}" in body
+
+
+def test_unit_failed_runbook_includes_systemctl_failed_command():
+    guide = REPO_ROOT / "docs" / "operator" / "m060-deployment-guide.md"
+    body = guide.read_text()
+    start = body.find("#### SelfdefSystemdUnitFailed")
+    next_h = body.find("\n#### ", start + 1)
+    section = body[start:next_h if next_h > 0 else len(body)]
+    assert "systemctl --failed" in section
