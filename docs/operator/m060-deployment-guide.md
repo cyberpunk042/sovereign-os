@@ -1274,6 +1274,69 @@ dpkg -l | grep selfdef
 - Incomplete install → `sudo apt install --reinstall selfdef-daemon`
 - Intentional disable → raise the threshold in the rules YAML
 
+#### SelfdefListeningSocketsTextfileEmitFailed (critical)
+
+**Diagnosis:**
+
+```bash
+systemctl status selfdef-listening-sockets-textfile.service
+journalctl -u selfdef-listening-sockets-textfile.service --since '10 min ago'
+which ss
+ls -la /proc/net/tcp /proc/net/tcp6
+```
+
+**Fix:** ss is the modern default but optional; the wrapper falls back
+to /proc/net parsing. If both are unavailable, kernel /proc is
+restricted — investigate kernel hardening or namespace state.
+
+#### SelfdefListeningSocketsObserverSilent (critical)
+
+Same shape as the other observer-silent runbooks.
+
+#### SelfdefListeningSocketsTcpCountHigh (warning)
+
+**Meaning:** > 20 TCP listeners for 10+ minutes. Operator baseline
+exceeded.
+
+**Diagnosis:**
+
+```bash
+ss -ltn       # IPv4 TCP listeners
+ss -ltn6      # IPv6 TCP listeners
+# Per-process attribution.
+sudo ss -ltnp
+# Compare against the host's expected-listener baseline.
+```
+
+**Fix:** depending on root cause:
+- Legitimate new service → adjust threshold in
+  `selfdef-listening-sockets.rules.yml`
+- Forgotten dev server → stop it (`systemctl stop <unit>` or kill PID)
+- Post-exploitation backdoor → see SECURITY.md incident-response
+  section. Block via nftables, rotate credentials, audit auth logs
+  (selfdef_auth_events_* gauges)
+
+#### SelfdefListeningSocketsZeroTcp (critical)
+
+**Meaning:** zero TCP listeners for 5+ minutes. selfdefd's API
+socket is always-on — zero = selfdefd wedged OR uninstalled.
+
+**Diagnosis:**
+
+```bash
+systemctl status selfdefd
+ss -ltn  # confirm zero listeners directly
+selfdefctl status   # if works, the observer is wrong; if fails,
+                    # selfdefd really is down
+```
+
+**Fix:**
+
+```bash
+sudo systemctl restart selfdefd
+sudo journalctl -u selfdefd --since '15 min ago' | grep -iE 'panic|exit'
+```
+
 ## Project-boundary discipline (MS043 R10212)
 
 - IPS state mutation lives in **selfdef only** (selfdefd + selfdefctl +
