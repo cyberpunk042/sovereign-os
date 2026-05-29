@@ -57,6 +57,20 @@ DOMAINS = [
 # separately so a partial-population state surfaces in the smoke output.
 HEALTH_ENDPOINT = "/api/m060/health"
 
+# Selfdef-side doctor textfile metric prefixes. The
+# selfdef-cli-mirror-doctor.timer + selfdef-m060-doctor.timer one-shots
+# (selfdef commits e9ab056 + ce58154) write these to the host's
+# node_exporter textfile_collector dir. Probed via the
+# node_exporter /metrics endpoint so the smoke can verify the
+# observers' freshness end-to-end.
+DOCTOR_TEXTFILE_PREFIXES = [
+    ("cli-mirror", "selfdef_cli_mirror_doctor"),
+    ("m060-chain", "selfdef_m060_doctor"),
+]
+DEFAULT_NODE_EXPORTER_URL = os.environ.get(
+    "SOVEREIGN_OS_NODE_EXPORTER_URL", "http://localhost:9100/metrics",
+)
+
 # Per-domain offline-hint pointing at the selfdef knob/verb that populates it.
 OFFLINE_HINT = {
     "D-02": "always-online once selfdefd runs with selfdef_mirror_dir set",
@@ -70,6 +84,66 @@ OFFLINE_HINT = {
     "TUI":  "always-online once selfdefd is running (canonical static layout, R10141)",
     "CLI":  "selfdefctl not on PATH on the daemon host (shell-out fails); install selfdefctl alongside selfdefd",
 }
+
+
+def probe_node_exporter_textfile(
+    node_exporter_url: str,
+    metric_prefix: str,
+    timeout: float = 3.0,
+) -> dict:
+    """Probe one doctor textfile via node_exporter's /metrics. Returns
+    a dict carrying the worst-severity gauge value + observer age
+    (from last_run_unix) + 'reachable' indicator. Honest-offline
+    when the textfile is absent (operator hasn't deployed the
+    doctor systemd timer); never crashes."""
+    out = {
+        "reachable":   False,
+        "worst":       None,
+        "age_seconds": None,
+        "error":       None,
+    }
+    try:
+        with urllib.request.urlopen(node_exporter_url, timeout=timeout) as r:
+            body = r.read().decode("utf-8")
+    except (urllib.error.HTTPError, urllib.error.URLError,
+            ConnectionError, OSError) as e:
+        out["error"] = str(e)
+        return out
+
+    out["reachable"] = True
+    import time as _time
+    now = int(_time.time())
+
+    worst_key = f"{metric_prefix}_worst_severity"
+    last_run_key = f"{metric_prefix}_last_run_unix"
+    for line in body.splitlines():
+        if line.startswith("#") or not line.strip():
+            continue
+        # Lines have the shape `metric{labels} value` or `metric value`.
+        # Strip labels for the simple gauge case.
+        head, _, value_str = line.partition(" ")
+        metric_name = head.split("{", 1)[0]
+        try:
+            value = float(value_str.split()[0])
+        except (ValueError, IndexError):
+            continue
+        if metric_name == worst_key and out["worst"] is None:
+            out["worst"] = int(value)
+        elif metric_name == last_run_key and out["age_seconds"] is None:
+            out["age_seconds"] = max(0, now - int(value))
+    return out
+
+
+def summarize_doctor(label: str, result: dict) -> str:
+    """One-line summary for the doctor observer table row."""
+    if not result["reachable"]:
+        return f"UNREACHABLE  node_exporter /metrics not served · {result.get('error', '?')[:40]}"
+    if result["worst"] is None:
+        return "ABSENT       textfile not emitted (doctor timer not deployed?)"
+    sev_label = {0: "OK     ", 1: "WARN   ", 2: "FAIL   "}.get(result["worst"], "UNK    ")
+    age = result["age_seconds"]
+    age_str = f"{age}s old" if age is not None else "age=?"
+    return f"{sev_label}    severity={result['worst']} · last fire {age_str}"
 
 
 def probe(base_url: str, endpoint: str, timeout: float = 3.0) -> dict:
@@ -148,8 +222,25 @@ def main(argv: list[str] | None = None) -> int:
         help="base URL of the sovereign-os master-dashboard api (default http://localhost)",
     )
     p.add_argument(
+        "--node-exporter-url",
+        default=DEFAULT_NODE_EXPORTER_URL,
+        help=(
+            "node_exporter /metrics URL for probing the selfdef-side "
+            "doctor textfile observers (default http://localhost:9100/metrics; "
+            "honors $SOVEREIGN_OS_NODE_EXPORTER_URL)"
+        ),
+    )
+    p.add_argument(
         "--strict", action="store_true",
         help="require mirror_status=online for all 10 (exit 1 otherwise)",
+    )
+    p.add_argument(
+        "--skip-doctor-observers", action="store_true",
+        help=(
+            "skip probing the selfdef-cli-mirror-doctor + selfdef-m060-doctor "
+            "textfile observers via node_exporter (use when node_exporter is "
+            "not reachable from the smoke host)"
+        ),
     )
     p.add_argument("--json", action="store_true", help="machine-readable JSON output")
     args = p.parse_args(argv)
@@ -181,9 +272,30 @@ def main(argv: list[str] | None = None) -> int:
             f"newest age {age if age is not None else '—'}s"
         )
 
+    # Selfdef-side doctor textfile probes (one for each shipped
+    # observer: cli-mirror-doctor + m060-chain doctor). Skipped if the
+    # operator passed --skip-doctor-observers or node_exporter is on
+    # an unreachable host.
+    doctor_results: list[dict] = []
+    if not args.skip_doctor_observers:
+        for label, prefix in DOCTOR_TEXTFILE_PREFIXES:
+            pr = probe_node_exporter_textfile(args.node_exporter_url, prefix)
+            doctor_results.append({
+                "id":          label,
+                "prefix":      prefix,
+                "reachable":   pr["reachable"],
+                "worst":       pr["worst"],
+                "age_seconds": pr["age_seconds"],
+                "summary":     summarize_doctor(label, pr),
+            })
+
     unreachable = [r for r in results if not r["reachable"]]
     offline = [r for r in results if r["reachable"] and r["mirror_status"] != "online"]
     online = [r for r in results if r["mirror_status"] == "online"]
+    doctor_failed = [
+        r for r in doctor_results
+        if r["worst"] is not None and r["worst"] >= 2
+    ]
 
     if args.json:
         print(json.dumps({
@@ -195,10 +307,16 @@ def main(argv: list[str] | None = None) -> int:
                 "state":        chain_state,
                 "raw":          health_pr.get("raw") if health_pr["reachable"] else None,
             },
+            "doctor_observers": {
+                "node_exporter_url": args.node_exporter_url,
+                "skipped":           args.skip_doctor_observers,
+                "results":           doctor_results,
+            },
             "totals": {
                 "online": len(online),
                 "offline": len(offline),
                 "unreachable": len(unreachable),
+                "doctor_failed": len(doctor_failed),
                 "total": len(results),
             },
         }, indent=2))
@@ -214,11 +332,19 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{'chain health':<22} {chain_summary}")
         else:
             print(f"{'chain health':<22} UNREACHABLE  {HEALTH_ENDPOINT} not served (m060-health-api daemon down?)")
+        if doctor_results:
+            print(f"{'─' * 22} {'─' * 60}")
+            for r in doctor_results:
+                label = f"doctor {r['id']}"
+                print(f"{label:<22} {r['summary']}")
+        elif args.skip_doctor_observers:
+            print(f"{'─' * 22} {'─' * 60}")
+            print(f"{'doctor observers':<22} SKIPPED (--skip-doctor-observers)")
         print(f"{'─' * 22} {'─' * 60}")
         print(
             f"summary: {len(online)} online · {len(offline)} offline · "
             f"{len(unreachable)} unreachable / {len(results)} total · "
-            f"chain={chain_state}"
+            f"chain={chain_state} · doctor_failed={len(doctor_failed)}"
         )
 
     # Exit logic:
@@ -227,6 +353,8 @@ def main(argv: list[str] | None = None) -> int:
     # - --strict + any per-domain offline → 1
     # - else → 0 (every endpoint at least responded)
     if unreachable:
+        return 1
+    if doctor_failed:
         return 1
     if args.strict and chain_state in ("unreachable", "offline", "stale"):
         return 1
