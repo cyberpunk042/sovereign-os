@@ -69,6 +69,60 @@ _METRICS_DIR = pathlib.Path(
 _METRICS_FILE = _METRICS_DIR / "sovereign-os-inference-router.prom"
 _METRICS_DISABLED = os.environ.get("SOVEREIGN_OS_METRICS_DISABLE") == "1"
 
+# MS048 cross-repo: OPT-IN, ADVISORY-ONLY consultation of the selfdef
+# Goldilocks Scheduler. Default OFF — when off, routing is unchanged (the
+# runtime's own shape-based classify() is authoritative). When
+# SOVEREIGN_OS_CONSULT_SCHEDULER=1, the router additionally asks the scheduler
+# what hardware tier the box would prefer right now and surfaces it as an
+# ADVISORY (log line + X-Sovereign-Scheduler-Advisory header) WITHOUT changing
+# the route. This is the conservative half of the integration: capability +
+# observability now; deferring the actual route to the scheduler stays a
+# separate, explicit operator step. Fail-safe: any error → empty advisory,
+# routing untouched.
+_CONSULT_SCHEDULER = os.environ.get("SOVEREIGN_OS_CONSULT_SCHEDULER") == "1"
+_SCHEDULER_PROFILE = os.environ.get("SOVEREIGN_OS_SCHEDULER_PROFILE", "production")
+_bridge_mod = None  # lazily loaded scheduler-bridge module (hyphenated filename)
+
+
+def _scheduler_bridge():
+    """Lazily load scripts/inference/scheduler-bridge.py (hyphenated → importlib)."""
+    global _bridge_mod
+    if _bridge_mod is None:
+        import importlib.util
+
+        path = pathlib.Path(__file__).resolve().parent / "scheduler-bridge.py"
+        spec = importlib.util.spec_from_file_location("scheduler_bridge", path)
+        if spec and spec.loader:
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            _bridge_mod = mod
+    return _bridge_mod
+
+
+def _scheduler_advisory(body: dict[str, Any]) -> str:
+    """Return the scheduler's advised runtime service for the current substrate
+    (e.g. "Oracle Core" / "Logic Engine" / "Pulse" / "defer"), or "" when the
+    feature is off or the scheduler is unavailable. NEVER raises — advisory
+    only, routing is never affected."""
+    if not _CONSULT_SCHEDULER:
+        return ""
+    try:
+        bridge = _scheduler_bridge()
+        if bridge is None:
+            return ""
+        # neutral model axes — the advisory reflects the live hardware
+        # substrate + active profile, which is what the tier hint is about.
+        task = bridge.build_task(_SCHEDULER_PROFILE)
+        verdict = bridge.consult(task)
+        if not verdict.get("scheduler_available"):
+            return ""
+        if verdict.get("defer"):
+            return "defer"
+        return verdict.get("runtime_service") or verdict.get("backend_tier") or ""
+    except Exception as e:  # noqa: BLE001 — advisory must never break routing
+        log.debug("scheduler advisory failed (non-fatal): %s", e)
+        return ""
+
 
 def _record_route(tier: str, task_type: str = "", model_class: str = "") -> None:
     """Increment the per-tier counter + flush the .prom file atomically.
@@ -315,6 +369,11 @@ class RouterHandler(http.server.BaseHTTPRequestHandler):
         # metrics and as an X-Sovereign-Model-Class response header.
         model_class = classify_model_class(body)
 
+        # MS048: OPT-IN advisory — the scheduler's preferred hardware tier for
+        # the current substrate. Does NOT change `tier` (routing stays the
+        # runtime's decision); surfaced as a header for observability.
+        scheduler_advisory = _scheduler_advisory(body)
+
         target = TIER_ENDPOINTS.get(tier)
         if target is None:
             self.send_error(503, f"tier {tier} not configured")
@@ -349,6 +408,11 @@ class RouterHandler(http.server.BaseHTTPRequestHandler):
                 # R215: model-class header (R212 taxonomy). Empty when
                 # the router couldn't infer + operator didn't assert.
                 self.send_header("X-Sovereign-Model-Class", model_class or "")
+                # MS048: scheduler's hardware-tier advisory (empty unless
+                # SOVEREIGN_OS_CONSULT_SCHEDULER=1 + scheduler reachable).
+                # Advisory only — the routed tier above is authoritative.
+                if scheduler_advisory:
+                    self.send_header("X-Sovereign-Scheduler-Advisory", scheduler_advisory)
                 for k, v in resp.headers.items():
                     if k.lower() in {"content-length", "transfer-encoding", "connection"}:
                         continue
