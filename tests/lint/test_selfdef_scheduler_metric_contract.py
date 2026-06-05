@@ -139,3 +139,77 @@ def test_consumer_status_ladder_intact():
     text = CONSUMER.read_text()
     for state in ("WEDGED", "SILENT", "BLIND", "DEGRADED", "PRESSURED", "OK"):
         assert f'"{state}"' in text, f"status ladder missing state: {state}"
+
+
+TASK_INPUT_RS = (
+    SELFDEF_REPO
+    / "crates"
+    / "selfdef-scheduler"
+    / "src"
+    / "bin"
+    / "selfdef-scheduler-decide.rs"
+)
+
+
+@pytest.mark.skipif(
+    not TASK_INPUT_RS.is_file(),
+    reason=f"selfdef-scheduler-decide.rs not adjacent at {TASK_INPUT_RS}",
+)
+def test_selfdef_task_input_carries_six_expected_fields():
+    """The sovereign-os scheduler-bridge (scripts/inference/scheduler-
+    bridge.py:build_task) builds a JSON task descriptor with 5 fields
+    (profile + 4 axes + optional request_id) the selfdef
+    selfdef-scheduler-decide binary deserializes via its `TaskInput`
+    struct. A silent rename or addition of a required field on the
+    selfdef-side struct breaks the bridge with no detection until a
+    real routing request fires.
+
+    Pin the selfdef-side struct shape: TaskInput must declare exactly
+    the fields the bridge sends (profile + latency + cost + risk +
+    energy + optional request_id), no required field the bridge
+    doesn't populate."""
+    rust = TASK_INPUT_RS.read_text()
+    # Required fields
+    for field in ("profile", "latency", "cost", "risk", "energy"):
+        assert f"{field}:" in rust, (
+            f"selfdef TaskInput missing required field {field!r} "
+            f"— bridge sends it; producer would reject"
+        )
+    # request_id is optional both sides
+    assert "request_id:" in rust, (
+        "selfdef TaskInput missing optional request_id field"
+    )
+    # The 4 axis fields must have #[serde(default = "half")] (so the
+    # bridge's defaults of 0.5 round-trip even if the field is absent)
+    for axis in ("latency", "cost", "risk", "energy"):
+        # Look for the default near the field declaration
+        block_start = rust.find(f"{axis}:")
+        prefix = rust[max(0, block_start - 80) : block_start]
+        assert 'serde(default' in prefix, (
+            f"selfdef TaskInput field {axis!r} missing serde(default = ...) — "
+            f"bridge relies on defaults round-tripping"
+        )
+
+
+@pytest.mark.skipif(
+    not TASK_INPUT_RS.is_file(),
+    reason=f"selfdef-scheduler-decide.rs not adjacent at {TASK_INPUT_RS}",
+)
+def test_selfdef_profile_enum_matches_bridge_options():
+    """The bridge's profile vocabulary (fast/careful/private/autonomous/
+    experimental/production) must be the same set selfdef's
+    parse_profile() accepts. A silent rename or addition on either side
+    breaks routing for that profile."""
+    rust = TASK_INPUT_RS.read_text()
+    for variant in (
+        '"fast"',
+        '"careful"',
+        '"private"',
+        '"autonomous"',
+        '"experimental"',
+        '"production"',
+    ):
+        assert variant in rust, (
+            f"selfdef parse_profile missing {variant} arm — bridge would "
+            f"emit it but producer would reject as unknown profile"
+        )
