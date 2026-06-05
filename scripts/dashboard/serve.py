@@ -443,6 +443,10 @@ def card_scheduler_status() -> dict[str, Any]:
         "substrate_degraded_count": 3,
         "last_run_unix": 0,
         "textfile_emit_failed": True,
+        # MS048 decision metrics — empty when the cockpit script is
+        # unreachable, matching scheduler-status.py's own WEDGED fallback so
+        # the card data shape is identical whether the script succeeds or fails.
+        "decisions": {"in_ring": 0, "hibernate": 0, "by_route": {}},
     }
     return {
         "id": "scheduler-status",
