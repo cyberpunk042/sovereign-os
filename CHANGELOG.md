@@ -12,6 +12,29 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — MS048 scheduler observability + cross-repo consumer (Solution 1 ← Solution 2) (2026-06-05)
+
+The runtime side of the selfdef MS048 Goldilocks Scheduler — sovereign-os
+renders the scheduler READ-ONLY (boundary discipline: the decision lives in
+selfdef) and now also CONSUMES it:
+
+- **Decision observability**: 3 Grafana panels (route distribution + hibernate
+  + ring-window size) + the `SelfdefSchedulerHighHibernateRate` alert (>50%
+  deferral 15m) on the new `selfdef_scheduler_decisions_*` metrics; the cockpit
+  `scheduler-status.py` card (40) parses + surfaces decision metrics; the 8
+  scheduler alert `runbook_url`s repointed to the real selfdef runbook (were
+  dangling).
+- **Cross-repo consumer bridge** (`scripts/inference/scheduler-bridge.py`):
+  the runtime gateway consults `selfdef-scheduler-decide` (read-only subprocess)
+  per the integration contract — builds a task descriptor, parses the Decision,
+  maps route → backend tier (blackwell→oracle / rtx3090→scout / cpu→cortex /
+  hibernate→defer), honoring **honor-Hibernate · map-route→tier · read-only**.
+  Graceful-offline: binary absent/errored → `scheduler_available=False` so the
+  gateway falls back to its own SDD-011 routing (never crashes, never fabricates
+  a route). Locked by `tests/unit/test_scheduler_bridge.py` (8 cases, fake
+  binary). Registered in the inference INDEX. Wiring it into `router.py`'s live
+  decision is a future operator architecture call.
+
 ### Added — D-09 hardware-pressure cockpit dashboard driven to PRODUCTION (full 8-surface stack) (2026-05-27)
 
 The M060 D-09 dashboard existed only as an HTML shell fetching `/api/hardware/pressure`,
