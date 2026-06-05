@@ -26,24 +26,27 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-OPERATOR_DOCS_DIR = REPO_ROOT / "docs" / "operator"
+DOCS_ROOT = REPO_ROOT / "docs"
 
 SELFDEF_REPO_DEFAULT = REPO_ROOT.parent / "selfdef"
 SELFDEF_REPO = Path(os.environ.get("SOVEREIGN_OS_SELFDEF_REPO", str(SELFDEF_REPO_DEFAULT)))
 
 # GitHub blob URLs to selfdef like
-# cyberpunk042/selfdef/blob/<branch>/<repo-relative-path>
+# cyberpunk042/selfdef/blob/<branch>/<repo-relative-path>[#optional-anchor]
 URL_RE = re.compile(
-    r"cyberpunk042/selfdef/blob/[a-z][a-z0-9_-]*/([^\s)\\]+)",
+    r"cyberpunk042/selfdef/blob/[a-z][a-z0-9_-]*/([^\s)\\#]+)",
 )
 
 
 def _extract_selfdef_paths() -> set[str]:
-    """Walk docs/operator/*.md and pull every selfdef-blob path out."""
+    """Walk every .md under docs/ and pull every selfdef-blob path out
+    (URL fragment anchors stripped; file-path existence is what we
+    check). Covers docs/operator/*.md + docs/src/**/*.md.
+    """
     paths: set[str] = set()
-    if not OPERATOR_DOCS_DIR.is_dir():
+    if not DOCS_ROOT.is_dir():
         return paths
-    for md in sorted(OPERATOR_DOCS_DIR.glob("*.md")):
+    for md in sorted(DOCS_ROOT.rglob("*.md")):
         text = md.read_text(encoding="utf-8", errors="replace")
         paths.update(URL_RE.findall(text))
     return paths
