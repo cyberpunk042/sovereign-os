@@ -55,6 +55,20 @@ ROUTE_TO_TIER = {
 }
 HIBERNATE_ROUTE = "hibernate"
 
+# Abstract tier role → the runtime's actual inference service (per
+# scripts/inference/INDEX.md + router.py: Pulse=bitnet.cpp on CPU, Logic
+# Engine=vLLM on RTX 3090, Oracle Core=vLLM+DFlash on Blackwell). This makes
+# the scheduler's hardware-tier decision directly actionable by the gateway —
+# it names which of the three running services to dispatch to. `hybrid` leaves
+# the split to the runtime; `defer` is the Hibernate signal (no service).
+TIER_TO_SERVICE = {
+    "oracle": "Oracle Core",
+    "scout": "Logic Engine",
+    "cortex": "Pulse",
+    "hybrid": None,  # runtime decides the split
+    "defer": None,  # deferred — no service
+}
+
 VALID_PROFILES = {
     "fast",
     "careful",
@@ -120,6 +134,9 @@ def consult(task: dict[str, Any], binary: str = DEFAULT_BIN, timeout: float = 5.
         "scheduler_available": True,
         "route": route,
         "backend_tier": tier,
+        # the actual runtime service the gateway dispatches to (None for
+        # hybrid/defer — runtime decides / request is deferred)
+        "runtime_service": TIER_TO_SERVICE.get(tier),
         # obligation #1 — the gateway must defer, not force a tier
         "defer": route == HIBERNATE_ROUTE,
         "compound": decision.get("axis_scores", {}).get("compound"),
@@ -159,6 +176,8 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(verdict, indent=2))
     elif verdict["scheduler_available"]:
         line = f"route={verdict['route']} tier={verdict['backend_tier']}"
+        if verdict.get("runtime_service"):
+            line += f" service={verdict['runtime_service']!r}"
         if verdict["defer"]:
             line += " (DEFER — gateway must not force a tier)"
         print(line)

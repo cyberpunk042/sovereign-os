@@ -93,8 +93,28 @@ def test_consult_maps_blackwell_to_oracle(tmp_path):
     assert v["scheduler_available"] is True
     assert v["route"] == "blackwell"
     assert v["backend_tier"] == "oracle"
+    assert v["runtime_service"] == "Oracle Core"
     assert v["defer"] is False
     assert v["compound"] == 0.7
+
+
+def test_route_to_service_via_tier(tmp_path):
+    # the three compute routes map to the three running services
+    for route, service in [
+        ("blackwell", "Oracle Core"),
+        ("rtx3090", "Logic Engine"),
+        ("cpu", "Pulse"),
+    ]:
+        b = _fake_decide_binary(tmp_path, route)
+        v = bridge.consult(bridge.build_task("production"), binary=b)
+        assert v["runtime_service"] == service, route
+
+
+def test_hybrid_and_defer_have_no_single_service(tmp_path):
+    for route in ("hybrid", "hibernate"):
+        b = _fake_decide_binary(tmp_path, route)
+        v = bridge.consult(bridge.build_task("production"), binary=b)
+        assert v["runtime_service"] is None, route
 
 
 def test_consult_hibernate_sets_defer(tmp_path):
