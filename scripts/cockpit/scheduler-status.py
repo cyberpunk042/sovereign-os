@@ -58,6 +58,9 @@ def parse_textfile(text: str) -> dict[str, Any]:
     last_run_unix = 0
     textfile_emit_failed = False
     degraded_count = 0
+    # MS048 decision metrics (selfdef_scheduler_decisions_*) — the route/
+    # profile/hibernate gauges the M01174 binary now appends to the textfile.
+    decisions: dict[str, Any] = {"in_ring": 0, "hibernate": 0, "by_route": {}}
 
     for line in text.splitlines():
         stripped = line.strip()
@@ -119,6 +122,14 @@ def parse_textfile(text: str) -> dict[str, Any]:
             last_run_unix = int(float(value_raw))
         elif name == "selfdef_scheduler_textfile_emit_failed":
             textfile_emit_failed = value_raw == "1"
+        elif name == "selfdef_scheduler_decisions_in_ring":
+            decisions["in_ring"] = int(float(value_raw))
+        elif name == "selfdef_scheduler_decisions_hibernate":
+            decisions["hibernate"] = int(float(value_raw))
+        elif name == "selfdef_scheduler_decisions_by_route":
+            route = labels.get("route")
+            if route:
+                decisions["by_route"][route] = int(float(value_raw))
 
     return {
         "measurements": measurements,
@@ -127,6 +138,7 @@ def parse_textfile(text: str) -> dict[str, Any]:
         "substrate_degraded_count": degraded_count,
         "last_run_unix": last_run_unix,
         "textfile_emit_failed": textfile_emit_failed,
+        "decisions": decisions,
     }
 
 
@@ -200,6 +212,22 @@ def render_human(parsed: dict[str, Any], status: str) -> str:
         lines.append(f"  backpressure firing: {', '.join(fired)}")
     else:
         lines.append("  backpressure firing: (none)")
+    # MS048 decision metrics (routing outcomes from the ring window).
+    dec = parsed.get("decisions") or {}
+    in_ring = dec.get("in_ring", 0)
+    if in_ring:
+        by_route = dec.get("by_route", {})
+        route_str = " ".join(
+            f"{r}={by_route.get(r, 0)}"
+            for r in ("blackwell", "rtx3090", "cpu", "hybrid", "hibernate")
+        )
+        lines.append(f"  decisions (ring={in_ring}): {route_str}")
+        hib = dec.get("hibernate", 0)
+        if hib:
+            pct = 100.0 * hib / in_ring if in_ring else 0.0
+            lines.append(f"  deferred (hibernate): {hib} ({pct:.0f}% of window)")
+    else:
+        lines.append("  decisions: (ring empty — no routing decisions recorded yet)")
     return "\n".join(lines) + "\n"
 
 
@@ -244,6 +272,7 @@ def main(argv: list[str] | None = None) -> int:
             "substrate_degraded_count": 3,
             "last_run_unix": 0,
             "textfile_emit_failed": True,
+            "decisions": {"in_ring": 0, "hibernate": 0, "by_route": {}},
         }
         status = "WEDGED"
     else:
