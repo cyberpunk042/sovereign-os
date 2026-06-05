@@ -127,6 +127,125 @@
       "targets": [{"expr": "selfdef_scheduler_human_gate_queue_high + selfdef_scheduler_substrate_degraded_count", "refId": "A"}],
       "fieldConfig": {"defaults": {"unit": "none", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 1}, {"color": "red", "value": 3}]}}},
       "gridPos": {"h": 4, "w": 12, "x": 12, "y": 26}
+    },
+    {
+      "type": "timeseries",
+      "title": "routing decisions by tier (ring window)",
+      "description": "Count of recent scheduler decisions per route, from the ring buffer (selfdef_scheduler_decisions_by_route). Shows where the Goldilocks scheduler is sending work; a rising hibernate line = deferral.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "selfdef_scheduler_decisions_by_route{route=\"blackwell\"}",
+          "legendFormat": "blackwell (oracle)",
+          "refId": "A"
+        },
+        {
+          "expr": "selfdef_scheduler_decisions_by_route{route=\"rtx3090\"}",
+          "legendFormat": "rtx3090 (scout)",
+          "refId": "B"
+        },
+        {
+          "expr": "selfdef_scheduler_decisions_by_route{route=\"cpu\"}",
+          "legendFormat": "cpu (cortex)",
+          "refId": "C"
+        },
+        {
+          "expr": "selfdef_scheduler_decisions_by_route{route=\"hybrid\"}",
+          "legendFormat": "hybrid",
+          "refId": "D"
+        },
+        {
+          "expr": "selfdef_scheduler_decisions_by_route{route=\"hibernate\"}",
+          "legendFormat": "hibernate (deferred)",
+          "refId": "E"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "min": 0
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 30
+      }
+    },
+    {
+      "type": "stat",
+      "title": "decisions deferred (Hibernate) in window",
+      "description": "selfdef_scheduler_decisions_hibernate \u2014 the Key Scheduling Law's safety-refusal count. Amber/red as the scheduler defers more work.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "selfdef_scheduler_decisions_hibernate",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          }
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 30
+      }
+    },
+    {
+      "type": "stat",
+      "title": "decisions in ring window",
+      "description": "selfdef_scheduler_decisions_in_ring \u2014 size of the bounded decision window the route/profile/hibernate gauges aggregate over.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "selfdef_scheduler_decisions_in_ring",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "min": 0
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 30
+      }
     }
   ],
   "refresh": "30s",

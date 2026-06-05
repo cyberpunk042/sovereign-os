@@ -81,6 +81,18 @@ groups:
           description: "Sum of pending operator-restore decisions across all 14 IPS primitives is high. Operator engagement with the cockpit pending-queue cards needed — the scheduler will defer autonomous routing per peace-machine clause 'sovereign enough that intelligence remains in the user's hands'."
           runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefschedulerhumangatequeuehigh-warning"
 
+      - alert: SelfdefSchedulerHighHibernateRate
+        expr: selfdef_scheduler_decisions_in_ring > 0 and (selfdef_scheduler_decisions_hibernate / selfdef_scheduler_decisions_in_ring) > 0.5
+        for: 15m
+        labels:
+          severity: warning
+          subsystem: selfdef-scheduler
+          cd_link: scheduler-deferring
+        annotations:
+          summary: "Over half of recent selfdef-scheduler decisions deferred (Hibernate) on {{ $labels.instance }}"
+          description: "More than 50% of the decisions in the ring window routed to Hibernate for 15+ minutes — the Key Scheduling Law is refusing to commit (high risk under a verifying profile with the oracle tier unavailable, or all compute tiers under backpressure). The scheduler is correctly deferring per the peace-machine clause 'sovereign enough that intelligence remains in the user's hands', but sustained deferral means real work is not being routed. Operator action: clear backpressure (free Blackwell VRAM / reduce host pressure) OR resolve the human-gate queue OR relax the active MS040 profile so verification-gated work can proceed."
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefschedulerhighhibernaterate-warning"
+
       - alert: SelfdefSchedulerMultipleBackpressureFiring
         expr: (selfdef_scheduler_cpu_pressure + selfdef_scheduler_ram_pressure + selfdef_scheduler_io_pressure + selfdef_scheduler_blackwell_vram_high + selfdef_scheduler_gpu3090_busy + selfdef_scheduler_human_gate_queue_high) >= 3
         for: 15m
