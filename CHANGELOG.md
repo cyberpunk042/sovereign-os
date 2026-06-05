@@ -31,9 +31,16 @@ selfdef) and now also CONSUMES it:
   hibernate→defer), honoring **honor-Hibernate · map-route→tier · read-only**.
   Graceful-offline: binary absent/errored → `scheduler_available=False` so the
   gateway falls back to its own SDD-011 routing (never crashes, never fabricates
-  a route). Locked by `tests/unit/test_scheduler_bridge.py` (8 cases, fake
-  binary). Registered in the inference INDEX. Wiring it into `router.py`'s live
-  decision is a future operator architecture call.
+  a route). Maps route → runtime service (blackwell→Oracle Core / rtx3090→Logic
+  Engine / cpu→Pulse). Locked by `tests/unit/test_scheduler_bridge.py` (10
+  cases, fake binary). Registered in the inference INDEX.
+- **Router opt-in advisory** (`router.py`): when `SOVEREIGN_OS_CONSULT_SCHEDULER=1`
+  (default OFF — routing then unchanged), the router surfaces the scheduler's
+  hardware-tier advisory as the `X-Sovereign-Scheduler-Advisory` response header
+  **without changing the routed tier** (the runtime's `classify()` stays
+  authoritative). Fail-safe — a missing/broken scheduler never affects routing.
+  Locked by `tests/unit/test_router_scheduler_advisory.py` (5 cases). Making the
+  advisory authoritative remains a separate explicit operator step.
 
 ### Added — D-09 hardware-pressure cockpit dashboard driven to PRODUCTION (full 8-surface stack) (2026-05-27)
 
