@@ -59,13 +59,22 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          # tests/nspawn/test_makefile_execution.sh's make-lint subtest
+          # invokes `make lint` which runs pytest layer 1. That layer
+          # (test_shipped_tracker_integrity) asserts SHIPPED.md SHAs
+          # resolve in git log, requiring full history.
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - name: install deps
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install pyyaml jsonschema
+          # pytest is required because tests/nspawn/test_makefile_execution.sh's
+          # `make lint` subtest invokes `python3 -m pytest tests/schema tests/lint`.
+          # Without pytest, make lint fails immediately, taking down layer-3.
+          python3 -m pip install pytest pyyaml jsonschema
       - name: profile schema-validation (raw + resolved)
         run: |
           scripts/validate-profiles.sh
