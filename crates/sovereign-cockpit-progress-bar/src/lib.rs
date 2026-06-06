@@ -161,14 +161,12 @@ impl ProgressBar {
             } else {
                 Zone::Normal
             }
+        } else if self.progress <= self.critical_pct {
+            Zone::Critical
+        } else if self.progress <= self.warn_pct {
+            Zone::Warn
         } else {
-            if self.progress <= self.critical_pct {
-                Zone::Critical
-            } else if self.progress <= self.warn_pct {
-                Zone::Warn
-            } else {
-                Zone::Normal
-            }
+            Zone::Normal
         }
     }
 
@@ -204,14 +202,12 @@ impl ProgressBar {
                     above: true,
                 });
             }
-        } else {
-            if self.warn_pct < self.critical_pct {
-                return Err(ProgressError::BadThresholds {
-                    warn: self.warn_pct,
-                    critical: self.critical_pct,
-                    above: false,
-                });
-            }
+        } else if self.warn_pct < self.critical_pct {
+            return Err(ProgressError::BadThresholds {
+                warn: self.warn_pct,
+                critical: self.critical_pct,
+                above: false,
+            });
         }
         Ok(())
     }
