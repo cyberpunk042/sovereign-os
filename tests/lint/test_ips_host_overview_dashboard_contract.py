@@ -163,16 +163,26 @@ def test_refresh_30s():
 
 def test_panel_count_locked():
     """Single-pane-of-glass dashboard MUST stay tight — locked at
-    exactly 15 panels (3 cross-vertical rollups + 9 per-vertical
-    headlines + 1 timeseries + 1 healthy-count timeseries + 1
-    spare slot for room)."""
-    assert len(_load()["panels"]) == 15
+    exactly 25 panels:
+      - 3 cross-vertical rollups + 9 per-vertical headlines + 1
+        timeseries + 1 healthy-count timeseries + 1 spare slot
+        (original 15)
+      - + 10 IPS-dectet (SDD-065..074) enforcement-primitive
+        rollup panels added when the dashboard was extended with
+        the IPS-dectet observability layer.
+    Total: 25."""
+    assert len(_load()["panels"]) == 25
 
 
 def test_dashboard_links_count_matches_per_vertical_count():
-    """9 dashboard-link slots matching the 9 per-vertical drill-down
-    targets."""
-    assert len(_load().get("links", [])) == 9
+    """26 dashboard-link slots:
+      - 9 original per-vertical drill-down targets (M060 cli-mirror,
+        M060 mirror-domains, MS022 SSE quota, four-watchdog, modules,
+        daemon-process, AppArmor, auth-events, systemd-units).
+      - 17 IPS-dectet drill-down targets (per-primitive enforcement
+        dashboards + cross-primitive rollups).
+    Total: 26."""
+    assert len(_load().get("links", [])) == 26
 
 
 def test_anchors_to_recording_rules_commit():

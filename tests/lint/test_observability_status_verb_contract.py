@@ -21,7 +21,18 @@ CANONICAL_VERTICALS = ("m060", "ms022", "four_watchdog",
                        "listening_sockets", "disk_usage", "time_sync",
                        "kernel_modules", "fail2ban", "nftables", "cron",
                        "sshd_config", "package_state", "journal_disk",
-                       "blockset", "quarantine", "revocations")
+                       "blockset", "quarantine", "revocations",
+                       # IPS-quattuordectet (SDD-065..078) — 11 enforcement
+                       # primitives added since the original 21-vertical
+                       # lock. Order matches scripts/diagnostics/
+                       # observability-status.py:VERTICALS verbatim.
+                       "token_revocations", "mfa_grant_revocations",
+                       "netns_isolations", "mount_bindings",
+                       "process_tree_freezes", "socket_fd_revocations",
+                       "env_scrubs", "capability_drops",
+                       "kernel_keyring_evictions",
+                       "apparmor_profile_pivots",
+                       "bpf_map_element_clears")
 
 
 def _load_module():
