@@ -145,10 +145,25 @@ else
 fi
 
 # ---------- verify.sh on fully-resident dir → rc=0 ----------
+# Compute the resident-dir set + expected count from models/catalog.yaml
+# directly — the verified-real model count has grown from 5 (Round 156
+# initial) to 15+ as the master-spec § 17 model catalog expanded. The
+# "5/5" lock was a 1:1 snapshot of the initial 5; per Hard Rule 4a
+# (Adding ≠ discarding) we now derive the count dynamically so future
+# catalog growth doesn't require a test edit.
 TMP_FULL="$(mktemp -d)"
-for d in BitNet-b1.58-2B-4T DeepSeek-R1-Distill-Llama-70B-FP16 DeepSeek-V3-Quant Ling-2.6-flash Nemotron-3-Nano-Omni-30B-Reasoning-BF16; do
+mapfile -t VERIFIED_REAL_IDS < <(python3 -c "
+import yaml
+with open('${__REPO_ROOT}/models/catalog.yaml') as f:
+    doc = yaml.safe_load(f)
+for m in doc['catalog']['models']:
+    if m['status'] == 'verified-real':
+        print(m['id'])
+")
+for d in "${VERIFIED_REAL_IDS[@]}"; do
   mkdir -p "${TMP_FULL}/${d}"
 done
+EXPECTED_N=${#VERIFIED_REAL_IDS[@]}
 set +e
 out="$(SOVEREIGN_OS_MODELS_DIR="${TMP_FULL}" bash "${VERIFY}" 2>&1)"
 rc=$?
@@ -159,8 +174,8 @@ if [ "${rc}" -eq 0 ]; then
 else
   ko "verify.sh rc wrong on resident dir: ${rc}"
 fi
-if grep -q "RESIDENT (verified-real):     5/5" <<< "${out}"; then
-  ok "verify.sh reports 5/5 verified-real resident"
+if grep -qE "RESIDENT \(verified-real\):     ${EXPECTED_N}/${EXPECTED_N}" <<< "${out}"; then
+  ok "verify.sh reports ${EXPECTED_N}/${EXPECTED_N} verified-real resident"
 else
   ko "verify.sh count wrong"
 fi
