@@ -66,4 +66,17 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # See load-verify-grid.py for the rationale: SIGPIPE handler reset
+    # above is insufficient because Python's buffered-stdout writes
+    # don't trigger SIGPIPE until interpreter shutdown's final flush.
+    # Wrap the entry-point to swallow BrokenPipeError silently.
+    try:
+        rc = main()
+        sys.stdout.flush()
+        sys.exit(rc)
+    except BrokenPipeError:
+        try:
+            sys.stdout.close()
+        except Exception:
+            pass
+        sys.exit(0)
