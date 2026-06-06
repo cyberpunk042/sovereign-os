@@ -131,7 +131,7 @@ impl NumberFormat {
             String::new()
         };
         if tenths == 0 {
-            format!("{}{}{}", sign, major, suffix)
+            format!("{sign}{major}{suffix}")
         } else {
             format!("{}{}{}{}{}", sign, major, self.decimal, tenths, suffix)
         }

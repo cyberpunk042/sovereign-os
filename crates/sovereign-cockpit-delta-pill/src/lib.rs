@@ -89,9 +89,9 @@ pub fn render(current: i64, prior: i64, flat_threshold: i64, invert_polarity: bo
         abs.min(u32::MAX as u128) as u32
     };
     let label = if delta > 0 {
-        format!("+{}", delta)
+        format!("+{delta}")
     } else {
-        format!("{}", delta)
+        format!("{delta}")
     };
     Pill {
         direction,

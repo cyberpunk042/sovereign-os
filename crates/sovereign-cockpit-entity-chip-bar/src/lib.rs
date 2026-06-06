@@ -169,7 +169,7 @@ mod tests {
     fn overflow_truncates() {
         let mut b = EntityChipBar::new(2).unwrap();
         for i in 0..5 {
-            b.add(&format!("u{}", i), "X", "user").unwrap();
+            b.add(&format!("u{i}"), "X", "user").unwrap();
         }
         let (vis, over) = b.visible();
         assert_eq!(vis.len(), 2);

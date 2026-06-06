@@ -139,7 +139,7 @@ mod tests {
     fn very_large_caps_at_eb() {
         let f = ByteSizeFormatter::new(Unit::Si, 1).unwrap();
         let s = f.format(u64::MAX);
-        assert!(s.ends_with("EB"), "got: {}", s);
+        assert!(s.ends_with("EB"), "got: {s}");
     }
 
     #[test]

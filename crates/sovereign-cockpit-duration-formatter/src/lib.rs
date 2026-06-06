@@ -98,11 +98,11 @@ impl DurationFormatter {
             }
             match self.style {
                 Style::Compact => {
-                    out_compact.push_str(&format!("{}{}", val, short));
+                    out_compact.push_str(&format!("{val}{short}"));
                 }
                 Style::Long => {
                     let unit = if *val == 1 { *sing } else { *plur };
-                    out_long.push(format!("{} {}", val, unit));
+                    out_long.push(format!("{val} {unit}"));
                 }
             }
             emitted += 1;
