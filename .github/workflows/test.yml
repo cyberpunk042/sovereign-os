@@ -20,6 +20,11 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          # tests/lint/test_shipped_tracker_integrity.py asserts SHIPPED.md's
+          # commit SHAs resolve in git log; needs full history (default
+          # fetch-depth: 1 is a shallow clone with only HEAD).
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
