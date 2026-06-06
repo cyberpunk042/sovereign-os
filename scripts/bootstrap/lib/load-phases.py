@@ -18,7 +18,15 @@ Exit codes:
 """
 from __future__ import annotations
 
+import signal
 import sys
+
+# Reset SIGPIPE handler so `loader | head -N` exits cleanly instead of
+# raising BrokenPipeError on the next print. Same fix as load-verify-
+# grid.py (CI Ubuntu Python 3.12 raises by default; conditional hasattr
+# guard preserves Windows compatibility).
+if hasattr(signal, "SIGPIPE"):
+    signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 from pathlib import Path
 
 try:
