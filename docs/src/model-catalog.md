@@ -2,7 +2,7 @@
 
 # Model catalog — Genesis Trinity (master spec § 17)
 
-Canonical declaration of the 17 models this system intends to host across Pulse / Logic / Oracle / Router tiers, spanning the full R212 taxonomy (class × quantization × size_class × purpose).
+Canonical declaration of the 19 models this system intends to host across Pulse / Logic / Oracle / Router tiers, spanning the full R212 taxonomy (class × quantization × size_class × purpose).
 
 This doc is regenerated from `models/catalog.yaml` on every invocation of `scripts/models/render-catalog-md.py`. The same YAML drives `scripts/models/pull.sh` (operator-driven pull) and `scripts/models/verify.sh` (resident integrity check), so the doc, the puller, and the verifier can never drift.
 
@@ -12,7 +12,7 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 |------|-------|---------------|--------------|
 | pulse | 5 | 3 | 2 |
 | logic | 4 | 2 | 1 |
-| oracle | 5 | 5 | 0 |
+| oracle | 7 | 7 | 0 |
 | router | 3 | 3 | 0 |
 
 ## Catalog by class (R212 taxonomy)
@@ -24,7 +24,7 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 | `llm` — LLM (general) | 1 |
 | `lora-adapter` — LoRA adapter | 1 |
 | `mixture` — Mixture-of-Experts | 1 |
-| `multimodal` — Multimodal | 1 |
+| `multimodal` — Multimodal | 3 |
 | `reranker` — Reranker (cross-encoder) | 1 |
 | `rlm` — RLM (reasoning) | 2 |
 | `slm` — SLM (small) | 2 |
@@ -37,17 +37,18 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 | Purpose | Count |
 |---------|-------|
 | `agent` | 4 |
+| `audio` | 3 |
 | `chat` | 9 |
 | `code` | 5 |
 | `distillation-base` | 1 |
 | `embedding` | 1 |
 | `function-calling` | 4 |
-| `multimodal` | 2 |
+| `multimodal` | 4 |
 | `rag` | 2 |
-| `reasoning` | 6 |
+| `reasoning` | 8 |
 | `reranking` | 1 |
 | `speculation` | 1 |
-| `vision` | 2 |
+| `vision` | 4 |
 
 ## Pulse tier (master spec § 17)
 
@@ -338,19 +339,97 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 - **Class:** `multimodal` — Multimodal
 - **Quantization:** `bf16`
 - **Size class:** `l`
-- **Purpose:** `multimodal`, `reasoning`, `vision`
+- **Purpose:** `multimodal`, `reasoning`, `vision`, `audio`
 - **Engine:** `transformers`
 - **License:** other
 - **HF repo id:** `nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16`
 - **Parameters:** 33015.6 M
 - **VRAM minimum (GiB):** 60
 - **Context window (tokens):** 32,768
-- **Master spec:** Block 7 (operator addition — multimodal RTX PRO 6000 candidate)
+- **Master spec:** Block 7 (operator addition — multimodal RTX PRO 6000 candidate) + §1g operator paste 2026-05-18
 
 **Operator note:**
 
-> Operator-flagged. Multimodal any-to-any
+> Operator-flagged §1g (2026-05-18): "Nvidia Nemotron 3, Nano
+> Omni..." Multimodal any-to-any
 > (NemotronH_Nano_Omni_Reasoning_V3 architecture).
+> Released 2026-04-28. 30B total params / 3B active per token
+> (MoE — Mixture-of-Experts; A3B suffix on repo id).
+> Hybrid Mamba-Transformer MoE backbone + C-RADIOv4-H vision
+> encoder + Parakeet-TDT-0.6B-v2 audio encoder.
+> Modalities: text + image + video + audio (any-to-any).
+> Use cases: document analysis, multi-image reasoning, ASR,
+> long-audio/video understanding, agentic computer use,
+> general reasoning. Benchmark wins: MMlongbench-Doc,
+> OCRBenchV2 (docs), WorldSense + DailyOmni (video/audio).
+> Performance: ~9× higher throughput vs other open omni
+> models on video/document workloads; ~2.9× single-stream
+> reasoning speed on multimodal tasks.
+
+### Nemotron-3-Nano-Omni-30B-Reasoning-FP8
+
+- **Status:** ✓ verified-real
+- **Class:** `multimodal` — Multimodal
+- **Quantization:** `fp8`
+- **Size class:** `l`
+- **Purpose:** `multimodal`, `reasoning`, `vision`, `audio`
+- **Engine:** `vllm`
+- **License:** other
+- **HF repo id:** `nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-FP8`
+- **Parameters:** 33015.6 M
+- **VRAM minimum (GiB):** 32
+- **Context window (tokens):** 32,768
+- **Master spec:** §1g operator paste 2026-05-18 (FP8 quantization variant — operator named multi-quantization catalog)
+
+**Operator note:**
+
+> Operator-flagged §1g (2026-05-18) quantization variant.
+> Same Nemotron 3 Nano Omni 30B-A3B multimodal model as the
+> BF16 entry above; this is the NVIDIA-published FP8 checkpoint
+> for native Blackwell FP8 tensor-core paths (RTX PRO 6000)
+> and FP8-capable Hopper/Ada hardware.
+> Per HF model card: 30B total / 3B active per token (MoE).
+> Modalities: text + image + video + audio.
+> Trade-off: slight accuracy drop vs BF16; ~2× the VRAM
+> headroom for batch + KV cache.
+> Suggested fit: sain-01 Oracle Core on RTX PRO 6000 (96GB
+> VRAM) when operator wants large concurrent batches OR
+> wants to also load adapters / draft models.
+
+### Nemotron-3-Nano-Omni-30B-Reasoning-NVFP4
+
+- **Status:** ✓ verified-real
+- **Class:** `multimodal` — Multimodal
+- **Quantization:** `nvfp4`
+- **Size class:** `l`
+- **Purpose:** `multimodal`, `reasoning`, `vision`, `audio`
+- **Engine:** `vllm`
+- **License:** other
+- **HF repo id:** `nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-NVFP4`
+- **Parameters:** 33015.6 M
+- **VRAM minimum (GiB):** 24
+- **Context window (tokens):** 32,768
+- **Master spec:** §1g operator paste 2026-05-18 (NVFP4 quantization variant — Blackwell native)
+
+**Operator note:**
+
+> Operator-flagged §1g (2026-05-18) quantization variant —
+> NVIDIA's NVFP4 4-bit floating-point format, native on
+> Blackwell-architecture tensor cores (RTX PRO 6000, B100,
+> B200, etc.). Checkpoint size: 22.4 GiB on HF.
+> Same Nemotron 3 Nano Omni 30B-A3B multimodal model as the
+> BF16 + FP8 entries above; this is the operator's
+> smallest-footprint variant — fits the secondary RTX 3090
+> (24GB VRAM) with thin margin (offload + careful KV
+> management) AND leaves substantial headroom on the
+> RTX PRO 6000 for parallel workloads.
+> Caveat: Blackwell-native FP4 path; older Ada/Hopper
+> deployment requires fallback dequant which loses the
+> NVFP4 performance advantage.
+> Suggested fit: operator-discoverable smallest-precision
+> catalog candidate for the §1g 'all the best selection of
+> models adapted for various size and at various
+> quantization' directive.
 
 ## Router tier (master spec § 17)
 
