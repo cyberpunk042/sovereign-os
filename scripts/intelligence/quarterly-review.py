@@ -104,11 +104,20 @@ def _mandate_stats() -> dict[str, Any]:
 
 
 def _git_recent_rounds(since_round: int) -> list[dict[str, Any]]:
-    """Parse git log for commits since R<N>. NEVER-raises."""
+    """Parse git log for commits since R<N>. NEVER-raises.
+
+    The cap was raised 200 → 2000 on 2026-06-06: R-numbered feature
+    commits in the verbatim-preservation arc (R350..R555+) are mixed
+    in with bootstrap-fix / clippy-fix / CI-fix commits that don't
+    carry R-numbers, so a 200-commit horizon misses most of the
+    R-numbered subset. 2000 captures the full repo history (1736
+    commits as of 2026-06-06) without exceeding the 10s timeout —
+    parsing 2000 git-log lines is sub-second on commodity hardware.
+    """
     try:
         cp = subprocess.run(
             ["git", "log", "--all", "--pretty=format:%h|%s",
-              "--max-count=200"],
+              "--max-count=2000"],
             capture_output=True, text=True, timeout=10, cwd=REPO_ROOT,
         )
     except Exception:
