@@ -16,17 +16,15 @@ Exit codes:
 """
 from __future__ import annotations
 
-import signal
 import sys
 from pathlib import Path
 
-# Reset SIGPIPE handler so a closed-stdout (e.g. `python3 loader | head -1`)
-# exits cleanly instead of raising BrokenPipeError on the next `print(...)`.
-# Without this, CI test_bootstrap_verify_grid_docs.sh's `loader | head -1`
-# subtest fails with an unhandled BrokenPipeError when head closes the pipe
-# after consuming the first line.
-if hasattr(signal, "SIGPIPE"):
-    signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+# NOTE: do NOT reset SIGPIPE handler to SIG_DFL here. Python's default
+# SIGPIPE behavior is "raise BrokenPipeError on the next I/O" — which is
+# exactly what the try/except below catches. Resetting to SIG_DFL would
+# instead kill the process with exit code 141 (SIGPIPE = signal 13 + 128),
+# which under `set -euo pipefail` (the nspawn test invocation mode) fails
+# the pipeline. The earlier b9a3bf4 attempted SIG_DFL — wrong direction.
 
 try:
     import yaml  # type: ignore
