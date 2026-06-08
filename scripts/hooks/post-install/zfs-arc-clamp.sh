@@ -55,6 +55,18 @@ fi
 
 arc_max_bytes=$((SOVEREIGN_OS_ARC_MAX_GB * 1024 * 1024 * 1024))
 
+# SDD-017 § "ZFS root layout": the operator may override the clamp
+# byte-precisely (matching zfs_arc_max's native unit) via
+# SOVEREIGN_OS_ZFS_ARC_MAX_BYTES. This is the override the SDD documents;
+# it takes precedence over the SOVEREIGN_OS_ARC_MAX_GB convenience form.
+# (Previously the SDD-named var was read by nothing — a silent no-op for
+# any operator who followed the doc.)
+if [ -n "${SOVEREIGN_OS_ZFS_ARC_MAX_BYTES:-}" ]; then
+  arc_max_bytes="${SOVEREIGN_OS_ZFS_ARC_MAX_BYTES}"
+  SOVEREIGN_OS_ARC_MAX_GB=$((arc_max_bytes / 1024 / 1024 / 1024))
+  log_info "ARC clamp overridden via SOVEREIGN_OS_ZFS_ARC_MAX_BYTES=${arc_max_bytes} (~${SOVEREIGN_OS_ARC_MAX_GB}GB)"
+fi
+
 # Persistent: /etc/modprobe.d/zfs.conf
 modprobe_file="/etc/modprobe.d/zfs.conf"
 log_info "writing ${modprobe_file} with zfs_arc_max=${arc_max_bytes} (${SOVEREIGN_OS_ARC_MAX_GB}GB)"
