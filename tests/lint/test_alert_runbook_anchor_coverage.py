@@ -20,6 +20,7 @@ Run: ``pytest -xq tests/lint/test_alert_runbook_anchor_coverage.py``
 """
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
@@ -28,6 +29,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ALERTS_DIR = REPO_ROOT / "config" / "prometheus" / "alerts"
 REPO_BLOB_PREFIX = "github.com/cyberpunk042/sovereign-os/blob/main/"
+SELFDEF_BLOB_PREFIX = "github.com/cyberpunk042/selfdef/blob/main/"
 
 _doc_anchor_cache: dict[str, set[str] | None] = {}
 
@@ -35,7 +37,7 @@ _doc_anchor_cache: dict[str, set[str] | None] = {}
 def _github_anchor(heading: str) -> str:
     a = heading.strip().lower()
     a = re.sub(r"[^\w\s-]", "", a)
-    a = re.sub(r"\s+", "-", a)
+    a = re.sub(r"\s", "-", a)  # GitHub replaces each space; does NOT collapse
     return a
 
 
@@ -98,6 +100,57 @@ def test_every_in_repo_runbook_anchor_resolves():
     assert not broken, (
         f"{len(broken)}/{checked} in-repo alert runbook anchors do not resolve "
         f"(broken incident links):\n" + "\n".join(broken)
+    )
+
+
+def test_cross_repo_selfdef_runbook_anchors_resolve():
+    """Cross-repo (opt-in via $SELFDEF_REPO_ROOT): alerts whose runbook_url
+    points into a selfdef operator doc (e.g. the MS048 scheduler +
+    m060-cockpit-mirror-producers runbooks) must resolve to a real heading
+    there. A broken cross-repo anchor is a dead incident link just like an
+    in-repo one — it's just owned by the partner repo. Skipped when the
+    selfdef checkout isn't present (sovereign-os CI runs without it)."""
+    env = os.environ.get("SELFDEF_REPO_ROOT")
+    if not env:
+        return  # opt-in only
+    selfdef_root = Path(env)
+    if not (selfdef_root / "docs").is_dir():
+        return  # bad path → skip rather than false-positive
+
+    cache: dict[str, set[str] | None] = {}
+
+    def selfdef_anchors(rel_path: str) -> set[str] | None:
+        if rel_path not in cache:
+            p = selfdef_root / rel_path
+            cache[rel_path] = (
+                {
+                    _github_anchor(m.group(1))
+                    for m in re.finditer(r"(?m)^#{1,6}\s+(.*)$", p.read_text())
+                }
+                if p.is_file()
+                else None
+            )
+        return cache[rel_path]
+
+    broken: list[str] = []
+    checked = 0
+    for fn, r in _all_alerts():
+        url = r.get("annotations", {}).get("runbook_url", "")
+        if SELFDEF_BLOB_PREFIX not in url:
+            continue
+        m = re.search(r"/blob/main/([^#]+)(?:#(.*))?$", url)
+        assert m, f"{fn}:{r['alert']} unparseable selfdef runbook_url: {url}"
+        rel_path, frag = m.group(1), m.group(2) or ""
+        checked += 1
+        anchors = selfdef_anchors(rel_path)
+        if anchors is None:
+            broken.append(f"{fn}:{r['alert']} -> MISSING selfdef doc {rel_path}")
+        elif frag and frag not in anchors:
+            broken.append(f"{fn}:{r['alert']} -> #{frag} not in selfdef:{Path(rel_path).name}")
+    assert checked > 0, "no cross-repo selfdef runbook links found — prefix drift?"
+    assert not broken, (
+        f"{len(broken)}/{checked} cross-repo selfdef runbook anchors do not "
+        f"resolve (dead incident links):\n" + "\n".join(broken)
     )
 
 

@@ -52,7 +52,7 @@ def _github_anchor(heading: str) -> str:
     """Reproduce GitHub's heading→anchor slugging."""
     a = heading.strip().lower()
     a = re.sub(r"[^\w\s-]", "", a)
-    a = re.sub(r"\s+", "-", a)
+    a = re.sub(r"\s", "-", a)  # GitHub replaces each space; does NOT collapse
     return a
 
 
