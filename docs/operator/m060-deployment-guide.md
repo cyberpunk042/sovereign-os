@@ -3393,6 +3393,39 @@ journalctl -u selfdefd --since '1 hour ago' | grep -iE 'revocations'
 **Fix:** if this matches a known incident response, no action — the surface is doing its job; acknowledge the page. If unexpected, investigate the driving events in the cockpit and the selfdef journal before relaxing the threshold.
 
 
+### selfdef hot-store retention runbook (SDD-081)
+
+#### SelfdefStoreRetentionStalled (warning)
+
+**Meaning:** `selfdef_store_retention_enabled == 1` (the operator set
+`hot_retention_days > 0`) but `selfdef_store_retention_sweeps_total` has
+not advanced in over 13 hours — more than two of the daemon's 6-hour
+sweep ticks. The retention loop that prunes events past the horizon is
+not running, so the hot SQLite store (`selfdef_store_events`) will grow
+unbounded and eventually pressure the disk — the exact F-2026-016
+outcome retention exists to prevent. A host that deliberately keeps
+events forever (`hot_retention_days = 0`) sets the gauge to 0 and never
+fires this alert.
+
+**Diagnosis:**
+
+```bash
+# 1. Is selfdefd up and exposing the retention series?
+curl -s --unix-socket /run/selfdef.sock http://localhost/metrics \
+  | grep selfdef_store_retention
+# 2. Is retention actually enabled in config?
+grep -E '^hot_retention_days' /etc/selfdef/selfdef.toml
+# 3. Did the retention loop announce itself / log a sweep?
+journalctl -u selfdefd --since '13 hours ago' | grep -i 'SD-R retention'
+```
+
+**Fix:** if `selfdef_store_retention_enabled` is 1 but no sweep line
+appears in the journal, the daemon's retention task is wedged or the
+daemon is unhealthy — `systemctl restart selfdefd` and confirm a
+`SD-R retention: sweep loop running` line plus the sweep counter
+advancing within a tick. If retention should be OFF for this host, set
+`hot_retention_days = 0` (the alert then stops firing by design).
+
 ## Project-boundary discipline (MS043 R10212)
 
 - IPS state mutation lives in **selfdef only** (selfdefd + selfdefctl +
