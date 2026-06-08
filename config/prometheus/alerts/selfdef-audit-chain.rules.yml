@@ -1,0 +1,67 @@
+# Selfdef audit-chain integrity (tamper-detection) alerting rules.
+#
+# The guardian (MS044), perimeter (MS047) and scheduler (MS048) subsystems
+# each maintain a SHA-256 hash-chained audit log. The daemon exposes
+# selfdef_<sub>_audit_chain_events at /metrics: the chain length when
+# healthy, or -1 when integrity verification FAILS — storage corruption,
+# log tampering, or a concurrent writer. A broken chain means the audit
+# trail (the tamper evidence for IPS responses) can no longer be trusted.
+#
+# This is the COCKPIT-side tamper alert: sovereign-os's Prometheus scrapes
+# the selfdef hosts, so the operator pages from the cockpit (complements
+# the host-local Selfdef<Sub>ChainBroken rules the observability module
+# ships). Pairs with sovereign-os-selfdef-audit-chain.json.
+
+groups:
+  - name: selfdef-audit-chain
+    interval: 30s
+    rules:
+
+      - alert: SelfdefGuardianAuditChainBroken
+        expr: selfdef_guardian_audit_chain_events == -1
+        for: 1m
+        labels:
+          severity: critical
+          subsystem: selfdef-audit-chain
+          audit_chain_link: guardian
+        annotations:
+          summary: "selfdef guardian audit chain BROKEN on {{ $labels.instance }} (tamper / corruption)"
+          description: >
+            selfdef_guardian_audit_chain_events == -1: the MS044 guardian
+            SHA-256 audit chain failed integrity verification. The
+            supervisor's audit trail is no longer trustworthy (storage
+            corruption, log tampering, or a concurrent writer). Investigate
+            immediately.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefguardianauditchainbroken-critical"
+
+      - alert: SelfdefPerimeterAuditChainBroken
+        expr: selfdef_perimeter_audit_chain_events == -1
+        for: 1m
+        labels:
+          severity: critical
+          subsystem: selfdef-audit-chain
+          audit_chain_link: perimeter
+        annotations:
+          summary: "selfdef perimeter audit chain BROKEN on {{ $labels.instance }} (tamper / corruption)"
+          description: >
+            selfdef_perimeter_audit_chain_events == -1: the MS047 kernel-fence
+            SHA-256 audit chain failed integrity verification. The
+            perimeter's OCSF audit trail can't be trusted. Investigate
+            immediately.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefperimeterauditchainbroken-critical"
+
+      - alert: SelfdefSchedulerAuditChainBroken
+        expr: selfdef_scheduler_audit_chain_events == -1
+        for: 1m
+        labels:
+          severity: critical
+          subsystem: selfdef-audit-chain
+          audit_chain_link: scheduler
+        annotations:
+          summary: "selfdef scheduler audit chain BROKEN on {{ $labels.instance }} (tamper / corruption)"
+          description: >
+            selfdef_scheduler_audit_chain_events == -1: the MS048 Goldilocks
+            scheduler SHA-256 audit chain failed integrity verification.
+            Counterfactual replay is no longer trustworthy. Investigate
+            immediately.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefschedulerauditchainbroken-critical"

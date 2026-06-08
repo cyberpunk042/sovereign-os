@@ -3426,6 +3426,83 @@ daemon is unhealthy — `systemctl restart selfdefd` and confirm a
 advancing within a tick. If retention should be OFF for this host, set
 `hot_retention_days = 0` (the alert then stops firing by design).
 
+### selfdef audit-chain integrity runbook (tamper detection)
+
+#### SelfdefGuardianAuditChainBroken (critical)
+
+**Meaning:** `selfdef_guardian_audit_chain_events == -1` — the MS044 guardian
+SHA-256 audit chain failed integrity verification. The supervisor's response audit trail is affected. The audit trail
+(tamper evidence for IPS responses) can no longer be trusted: storage
+corruption, log tampering, or a concurrent writer.
+
+**Diagnosis:**
+
+```bash
+# 1. Confirm from the live metric.
+curl -s --unix-socket /run/selfdef.sock http://localhost/metrics | grep selfdef_guardian_audit_chain_events
+# 2. Look for the integrity-check failure + any storage error in the journal.
+journalctl -u selfdefd --since '30 min ago' | grep -iE 'audit.chain|integrity|guardian'
+# 3. Inspect the guardian audit log's storage (disk full / permissions / concurrent writer).
+sudo ls -la /var/lib/selfdef/ | grep -i guardian
+```
+
+**Fix:** treat as a security incident. Preserve the current audit log for
+forensics BEFORE restarting. If the cause is storage (disk full / perms),
+remediate then `systemctl restart selfdefd` to re-seed the chain; the new
+chain starts clean but the gap is recorded. If tampering is suspected,
+follow the guardian audit-log-corruption runbook in the info-hub wiki and
+escalate. Do not silently clear the chain.
+
+#### SelfdefPerimeterAuditChainBroken (critical)
+
+**Meaning:** `selfdef_perimeter_audit_chain_events == -1` — the MS047 perimeter
+SHA-256 audit chain failed integrity verification. The kernel-fence OCSF audit trail is affected. The audit trail
+(tamper evidence for IPS responses) can no longer be trusted: storage
+corruption, log tampering, or a concurrent writer.
+
+**Diagnosis:**
+
+```bash
+# 1. Confirm from the live metric.
+curl -s --unix-socket /run/selfdef.sock http://localhost/metrics | grep selfdef_perimeter_audit_chain_events
+# 2. Look for the integrity-check failure + any storage error in the journal.
+journalctl -u selfdefd --since '30 min ago' | grep -iE 'audit.chain|integrity|perimeter'
+# 3. Inspect the perimeter audit log's storage (disk full / permissions / concurrent writer).
+sudo ls -la /var/lib/selfdef/ | grep -i perimeter
+```
+
+**Fix:** treat as a security incident. Preserve the current audit log for
+forensics BEFORE restarting. If the cause is storage (disk full / perms),
+remediate then `systemctl restart selfdefd` to re-seed the chain; the new
+chain starts clean but the gap is recorded. If tampering is suspected,
+follow the perimeter audit-log-corruption runbook in the info-hub wiki and
+escalate. Do not silently clear the chain.
+
+#### SelfdefSchedulerAuditChainBroken (critical)
+
+**Meaning:** `selfdef_scheduler_audit_chain_events == -1` — the MS048 scheduler
+SHA-256 audit chain failed integrity verification. Counterfactual replay is no longer trustworthy. The audit trail
+(tamper evidence for IPS responses) can no longer be trusted: storage
+corruption, log tampering, or a concurrent writer.
+
+**Diagnosis:**
+
+```bash
+# 1. Confirm from the live metric.
+curl -s --unix-socket /run/selfdef.sock http://localhost/metrics | grep selfdef_scheduler_audit_chain_events
+# 2. Look for the integrity-check failure + any storage error in the journal.
+journalctl -u selfdefd --since '30 min ago' | grep -iE 'audit.chain|integrity|scheduler'
+# 3. Inspect the scheduler audit log's storage (disk full / permissions / concurrent writer).
+sudo ls -la /var/lib/selfdef/ | grep -i scheduler
+```
+
+**Fix:** treat as a security incident. Preserve the current audit log for
+forensics BEFORE restarting. If the cause is storage (disk full / perms),
+remediate then `systemctl restart selfdefd` to re-seed the chain; the new
+chain starts clean but the gap is recorded. If tampering is suspected,
+follow the scheduler audit-log-corruption runbook in the info-hub wiki and
+escalate. Do not silently clear the chain.
+
 ## Project-boundary discipline (MS043 R10212)
 
 - IPS state mutation lives in **selfdef only** (selfdefd + selfdefctl +
