@@ -152,6 +152,32 @@ def test_every_timer_references_existing_service():
         )
 
 
+# --- Operator-doc completeness: the ongoing-maintenance doc must mirror
+#     the canonical timer set ---
+
+ONGOING_DOC = REPO_ROOT / "docs" / "src" / "lifecycle" / "ongoing.md"
+
+
+def test_ongoing_doc_lists_every_recurrent_timer():
+    """The operator-facing "Recurrent hooks (systemd timers)" table in
+    docs/src/lifecycle/ongoing.md MUST list every canonical timer. The doc
+    had silently drifted to 3 of 13 — an operator reading it to learn what
+    runs on their host saw a quarter of the maintenance/telemetry cadence,
+    the exact minimization §1g forbids. Lock the operator-doc ⇄ canonical
+    timer-set coverage so it can't under-represent the cadence again."""
+    if not ONGOING_DOC.is_file():
+        return  # doc layout changed; structural lints cover that elsewhere
+    body = ONGOING_DOC.read_text(encoding="utf-8")
+    listed = set(re.findall(r"sovereign-[a-z-]+\.timer", body))
+    canonical = {f"{slug}.timer" for slug in HOOK_TO_TIMER_SLUG.values()}
+    missing = sorted(canonical - listed)
+    assert not missing, (
+        f"docs/src/lifecycle/ongoing.md does not list recurrent timer(s) "
+        f"{missing} — the operator-facing maintenance table must mirror the "
+        f"canonical {len(canonical)}-timer cadence (HOOK_TO_TIMER_SLUG)"
+    )
+
+
 def test_every_service_invokes_existing_hook():
     """Every recurrent .service unit MUST invoke an actual hook script
     via ExecStart=. Drift = service starts but does nothing."""
