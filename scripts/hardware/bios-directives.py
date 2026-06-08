@@ -168,6 +168,31 @@ DEFAULT_DIRECTIVES: list[dict[str, Any]] = [
                            "default. Verify after every BIOS flash.",
     },
     {
+        "name": "Q-Fan Control (fan curves)",
+        "menu_path": "Monitor > Q-Fan Configuration > "
+                     "CPU/Chassis Fan Q-Fan Control > [Manual/Turbo]",
+        "recommended": "Manual (early-ramp curve) or Turbo",
+        "default": "Standard",
+        "rationale": "An AI host runs sustained GPU + AVX-512 CPU load, so "
+                     "the chassis/CPU fans must ramp BEFORE thermals climb, "
+                     "not after. The default Standard curve is tuned for "
+                     "bursty desktop loads and lets temps drift up under "
+                     "sustained inference — the exact condition R296 "
+                     "thermal-oc-budget + R316 wattage-heat-trend warn about. "
+                     "A Manual early-ramp curve (or Turbo) keeps thermal "
+                     "headroom so the GPUs don't hit their own throttle "
+                     "point first.",
+        "workload_axis": ["thermal", "ai-inference", "sustained-load"],
+        "can_probe": False,
+        "probe_command": None,
+        "probe_match": None,
+        "operator_caveat": "BIOS Q-Fan curves aren't OS-visible to set, but "
+                           "fan RPMs ARE readable — cross-check actual "
+                           "ramp behaviour with `sovereign-osctl thermal "
+                           "status` (R172 thermal-watch reads hwmon fan "
+                           "tachometers) under a sustained load.",
+    },
+    {
         "name": "Fast Boot",
         "menu_path": "Boot > Fast Boot > [Disabled]",
         "recommended": "Disabled",
