@@ -119,3 +119,34 @@ def test_sdd_033_documents_acceptance_criteria_checklist():
         "Mandate row flipped",
     ):
         assert required in body, f"acceptance criteria missing: {required}"
+
+
+# Five numbered subsections under "## The doctrine — five-step round template".
+# Pinning these in declaration order guarantees a future edit that drops or
+# reorders a step fails L1 lint (the doctrine names exactly five steps —
+# dropping one silently is a regression).
+REQUIRED_FIVE_STEPS = [
+    "### 1. Locate the §1b verbatim phrase",
+    "### 2. File a TODO mandate row",
+    "### 3. Ship an operator-runnable verb",
+    "### 4. Author an L3 test",
+    "### 5. Flip the mandate row + commit",
+]
+
+
+def test_sdd_033_has_five_step_subsections():
+    """All 5 numbered step subheaders must appear (in order)."""
+    body = SDD_PATH.read_text(encoding="utf-8")
+    missing = [s for s in REQUIRED_FIVE_STEPS if s not in body]
+    assert not missing, (
+        f"SDD-033 missing five-step subheaders: {missing}.\n"
+        "The doctrine is by name a FIVE-step round template — silently "
+        "dropping or renaming a step is a regression. If renaming "
+        "deliberately, update REQUIRED_FIVE_STEPS in the same commit."
+    )
+    # Order check.
+    positions = [(s, body.index(s)) for s in REQUIRED_FIVE_STEPS]
+    assert positions == sorted(positions, key=lambda x: x[1]), (
+        f"five-step subheaders out of order: "
+        f"{[s for s, _ in sorted(positions, key=lambda x: x[1])]}"
+    )
