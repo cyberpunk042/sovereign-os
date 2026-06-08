@@ -36,6 +36,52 @@ jobs:
         run: |
           python3 -m pytest tests/schema tests/lint -v
 
+  cross-repo-lint:
+    name: layer 1b — cross-repo lint (selfdef contract gates)
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # Attempt to fetch the partner selfdef repo so the cross-repo contract
+      # gates (selfdef_* dashboard/alert metric lockstep, threshold lockstep,
+      # alert-runbook anchors) actually RUN. Without this, every gate that
+      # keys off $SELFDEF_REPO_ROOT silently SKIPS — providing false
+      # confidence that a selfdef rename can't flat-line a cockpit panel.
+      # Tolerant: if the checkout fails (token scope / repo visibility), the
+      # gates skip exactly as they did before — no regression, no CI breakage.
+      - name: checkout selfdef (sibling)
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          repository: cyberpunk042/selfdef
+          path: .selfdef-partner
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: install deps
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install pytest pyyaml jsonschema
+      - name: cross-repo contract gates
+        run: |
+          # Every cross-repo gate is exactly a tests/lint file that reads
+          # $SELFDEF_REPO_ROOT — select them dynamically so new gates are
+          # auto-included.
+          mapfile -t gates < <(grep -rl SELFDEF_REPO_ROOT tests/lint --include='*.py' | sort)
+          if [ "${#gates[@]}" -eq 0 ]; then
+            echo "no cross-repo gates found — nothing to enforce"; exit 0
+          fi
+          if [ -d "${GITHUB_WORKSPACE}/.selfdef-partner/crates" ]; then
+            export SELFDEF_REPO_ROOT="${GITHUB_WORKSPACE}/.selfdef-partner"
+            echo "selfdef partner present → ${#gates[@]} cross-repo gate file(s) ENFORCED against ${SELFDEF_REPO_ROOT}"
+          else
+            echo "selfdef partner unavailable → cross-repo gates will SKIP (no regression vs prior behaviour)"
+          fi
+          python3 -m pytest "${gates[@]}" -v
+
   unit:
     name: layer 2 — unit tests
     runs-on: ubuntu-latest
