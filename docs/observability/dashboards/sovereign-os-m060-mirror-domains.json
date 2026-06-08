@@ -13,8 +13,8 @@
   "panels": [
     {
       "type": "stat",
-      "title": "worst severity across 6 domains (0=ok 1=warn 2=fail)",
-      "description": "Single rollup: the worst severity across all 6 M060 mirror domains (D-02/D-13/D-14/D-15/D-17/D-18). Drives M060MirrorDomain{ChainDegraded,ChainBroken}.",
+      "title": "worst severity across 8 domains (0=ok 1=warn 2=fail)",
+      "description": "Single rollup: the worst severity across all 8 M060 mirror domains (D-02/D-12/D-13/D-14/D-15/D-16/D-17/D-18). Drives M060MirrorDomain{ChainDegraded,ChainBroken}.",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "targets": [{"expr": "selfdef_m060_doctor_worst_severity", "refId": "A"}],
       "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 2, "mappings": [{"type": "value", "options": {"0": {"text": "OK"}, "1": {"text": "WARN"}, "2": {"text": "FAIL"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": 0}, {"color": "yellow", "value": 1}, {"color": "red", "value": 2}]}}},
@@ -40,17 +40,17 @@
     },
     {
       "type": "stat",
-      "title": "domains published (of 6)",
-      "description": "How many of the 6 domains have published_present=1. Operator-onboarded domains. Target = 6 once the full chain is in production use.",
+      "title": "domains published (of 8)",
+      "description": "How many of the 8 domains have published_present=1. Operator-onboarded domains. Target = 8 once the full chain is in production use.",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "targets": [{"expr": "count(selfdef_m060_doctor_published_present == 1)", "refId": "A"}],
-      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 6, "thresholds": {"mode": "absolute", "steps": [{"color": "red"}, {"color": "yellow", "value": 1}, {"color": "green", "value": 6}]}}},
+      "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 8, "thresholds": {"mode": "absolute", "steps": [{"color": "red"}, {"color": "yellow", "value": 1}, {"color": "green", "value": 8}]}}},
       "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
     },
     {
       "type": "timeseries",
       "title": "per-domain severity over time",
-      "description": "One series per domain (D-02 active-profile, D-13 grants, D-14 capability-tokens, D-15 sandboxes, D-17 quarantine, D-18 trust-scores). 0=pass / 1=warn / 2=fail. Operator sees which domain degraded when.",
+      "description": "One series per domain (D-02 active-profile, D-12 rules, D-13 grants, D-14 capability-tokens, D-15 sandboxes, D-16 audit-chain, D-17 quarantine, D-18 trust-scores). 0=pass / 1=warn / 2=fail. Operator sees which domain degraded when.",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "targets": [
         {"expr": "selfdef_m060_doctor_severity", "refId": "A", "legendFormat": "{{domain}} {{label}}"}
