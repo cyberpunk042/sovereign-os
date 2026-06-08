@@ -217,26 +217,37 @@ def test_referenced_systemd_dirs_exist():
     )
 
 
+# Threshold: the full 80-milestone sovereign-os catalogue
+# (M001..M080). Every catalogued milestone must carry a per-milestone
+# `### MNNN —` heading OR a family-range `### MNNN-MNNN —` heading OR
+# an inline `| MNNN —` audit-table row in SHIPPED.md. Locks the
+# operator's "you cannot mark something done if it hasn't reached
+# Prod" constraint at push-time across the full 13,740 R-row
+# catalogue surface. A regression below this floor — silent removal
+# of an audit row — fails CI immediately. Was 79 (1-row drift margin);
+# now full lock because SHIPPED.md was audited end-to-end across
+# M001..M080 in the session that produced this commit.
+MILESTONE_AUDIT_FLOOR = 80
+
+
 def test_milestone_audit_coverage_above_threshold():
-    """SHIPPED.md must reference at least N milestones (via ## M0NN
-    headings OR per-milestone-family ### sections OR explicit M0NN
-    inline mentions in audit tables). Threshold catches accidental
-    audit-row removals."""
+    """SHIPPED.md must reference at least MILESTONE_AUDIT_FLOOR
+    milestones (via ## M0NN headings OR per-milestone-family ###
+    sections OR explicit M0NN inline mentions in audit tables).
+    Threshold catches accidental audit-row removals across the full
+    sovereign-os catalogue."""
     text = _shipped_text()
     # Match `## M060`, `### M061`, or inline `| M013 — `.
     explicit_headings = set(
         re.findall(r"(?:^##+ |\| )(M\d{3})\b", text, re.MULTILINE)
     )
-    # Threshold: 79 explicit milestone references. The audit-expansion
-    # arc completed in this session brought per-milestone roll-up
-    # coverage from 13 → 33 → 47 → 80 unique MNNN audit rows, achieving
-    # full 80/80 coverage of the sovereign-os catalogue. Threshold set
-    # at 79 gives a 1-row drift margin protecting against accidental
-    # audit-row removal.
-    assert len(explicit_headings) >= 79, (
+    assert len(explicit_headings) >= MILESTONE_AUDIT_FLOOR, (
         f"SHIPPED.md milestone-audit coverage regressed: "
-        f"{len(explicit_headings)} explicit milestone refs. "
-        f"Saw: {sorted(explicit_headings)}"
+        f"{len(explicit_headings)} explicit milestone refs "
+        f"(threshold {MILESTONE_AUDIT_FLOOR}). "
+        f"Catalogue total: 80 milestones (M001..M080). "
+        f"Saw: {sorted(explicit_headings)}. "
+        f"An audit row was silently removed or renamed."
     )
 
 
