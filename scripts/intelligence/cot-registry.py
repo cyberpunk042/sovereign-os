@@ -113,7 +113,7 @@ DEFAULT_CATALOG: list[dict[str, Any]] = [
         "axes_probes": [
             ["scripts/hardware/power-status.py", ["--json"]],
             ["scripts/hardware/psu-oc.py", ["status", "--json"]],
-            ["scripts/hardware/gpu-wattage.py", ["budget", "--json"]],
+            ["scripts/hardware/gpu-wattage-catalog.py", ["budget", "--json"]],
         ],
         "go_when_all_verdicts_in": ["safe", "budget-safe", "headroom-safe"],
         "operator_caveat": "Verdict accounts for budget headroom but NOT "
@@ -127,7 +127,7 @@ DEFAULT_CATALOG: list[dict[str, Any]] = [
                        "cleanup steps the operator runs.",
         "axes_probes": [
             ["scripts/hardware/storage-health-rollup.py", ["status", "--json"]],
-            ["scripts/storage/insights.py", ["--json"]],
+            ["scripts/hardware/fs-insights.py", ["usage", "--json"]],
         ],
         "go_when_all_verdicts_in": ["safe", "ok", "healthy"],
         "operator_caveat": "Cleanup steps are non-destructive list-only; "
@@ -140,9 +140,9 @@ DEFAULT_CATALOG: list[dict[str, Any]] = [
                        "orderly shutdown plan (which services to drain in "
                        "which order before poweroff).",
         "axes_probes": [
-            ["scripts/hardware/power-profiles.py", ["status", "--json"]],
-            ["scripts/hardware/battery-ladder.py", ["status", "--json"]],
-            ["scripts/lifecycle/drain.py", ["plan", "--json"]],
+            ["scripts/power/profiles.py", ["active", "--json"]],
+            ["scripts/power/battery-escalation-ladder.py", ["simulate", "--json"]],
+            ["scripts/services/dependency-graph.py", ["drain", "--json"]],
         ],
         "go_when_all_verdicts_in": ["on-ac", "headroom-ok", "drainable"],
         "operator_caveat": "Drain ordering is operator-pull; this CoT "
