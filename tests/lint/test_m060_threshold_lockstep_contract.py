@@ -27,6 +27,14 @@ verifies the selfdef-side Rust const lives at the canonical
 value — closes the cross-repo loop matching the bidirectional
 MS022 pattern shipped at sovereign-os commit `ac6b0ab` +
 selfdef commit `625f3d9`.
+
+Extension (this commit): the 8-domain M060 wire contract is now
+locked across both repos. The selfdef-cli m060_doctor DOMAINS
+array + selfdef-api m060_health ARTIFACT_NAMES list +
+sovereign-os m060-smoke DOMAINS tuple + sovereign-os
+mirror-domains dashboard panel description MUST reference the
+SAME 8 D-NN IDs. Sister to selfdef commit a233057 which adds the
+same 4 assertions on the selfdef side; bidirectional contract.
 """
 from __future__ import annotations
 
@@ -44,11 +52,49 @@ STALE_AGE_SECS = 300  # 5 minutes
 CHAIN_STATES = {"online", "degraded", "stale", "offline", "unreachable"}
 CHAIN_LINK_LABELS = {"cli-mirror", "mirror-domain"}
 
+# The canonical 8-domain M060 wire contract. Order matters because
+# both the producer (selfdef m060_doctor DOMAINS) and the consumer
+# (sovereign-os m060-smoke DOMAINS) iterate in this exact order;
+# operators see textfile gauges + smoke-test output rows in this
+# order. Reordering would silently break Grafana legend ordering
+# + the per-domain timeseries panel.
+CANONICAL_DOMAIN_IDS = (
+    "D-02",  # active-profile
+    "D-12",  # rules
+    "D-13",  # grants
+    "D-14",  # capability-tokens
+    "D-15",  # sandboxes
+    "D-16",  # audit-chain
+    "D-17",  # quarantine
+    "D-18",  # trust-scores
+)
+
+# The 8 D-NN-tied published-filenames in the selfdef-api/m060_health
+# ARTIFACT_NAMES list. Plus the 2 MS007 cross-cutting artifacts
+# (tui + cli) for a total of 10. The api endpoint reports all 10.
+CANONICAL_D_NN_FILES = (
+    "active-profile.json",
+    "rules.json",
+    "grants.json",
+    "capability-tokens.json",
+    "sandboxes.json",
+    "audit.json",
+    "quarantine.json",
+    "trust-scores.json",
+)
+MS007_CROSS_CUTTING_FILES = ("tui.json", "cli.json")
+CANONICAL_API_ARTIFACTS = set(CANONICAL_D_NN_FILES) | set(MS007_CROSS_CUTTING_FILES)
+
 ALERTS_PATH = (
     REPO_ROOT / "config" / "prometheus" / "alerts" / "m060-chain-health.rules.yml"
 )
 MASTER_DASHBOARD = REPO_ROOT / "webapp" / "master-dashboard" / "index.html"
 HEALTH_API = REPO_ROOT / "scripts" / "operator" / "m060-health-api.py"
+SMOKE_SCRIPT = REPO_ROOT / "scripts" / "diagnostics" / "m060-smoke.py"
+MIRROR_DOMAINS_DASHBOARD = (
+    REPO_ROOT / "docs" / "observability" / "dashboards"
+    / "sovereign-os-m060-mirror-domains.json"
+)
 
 
 def _read(path: Path) -> str:
@@ -236,4 +282,128 @@ def test_master_dashboard_state_class_set_matches_canonical():
     missing = CHAIN_STATES - states
     assert not missing, (
         f"master-dashboard knownStates drift: missing {sorted(missing)!r}"
+    )
+
+
+# --------------------------------------------------------------------
+# 8-domain wire-contract lockstep — closes the silent-coverage-drift
+# bug class that the D-12 rules + D-16 audit-chain coverage close
+# (selfdef 82014d6 + sovereign-os 234a1e0) was driven by. Sister to
+# selfdef commit a233057.
+# --------------------------------------------------------------------
+
+
+def test_smoke_domains_match_canonical_set():
+    """The sovereign-os m060-smoke.py DOMAINS tuple MUST contain
+    all 8 canonical D-NN IDs from the M060 wire contract. Drift
+    means the smoke diagnostic skips a domain the selfdef producer
+    publishes — exactly the bug class that hid D-12 rules + D-16
+    audit-chain coverage gap for several releases."""
+    body = _read(SMOKE_SCRIPT)
+    # Extract DOMAINS list opening + body.
+    m = re.search(r"DOMAINS\s*=\s*\[(.+?)\]\s*\n", body, re.DOTALL)
+    assert m is not None, (
+        "m060-smoke.py missing DOMAINS tuple"
+    )
+    found_ids = set(re.findall(r'"(D-\d{2})"', m.group(1)))
+    missing = set(CANONICAL_DOMAIN_IDS) - found_ids
+    assert not missing, (
+        f"m060-smoke.py DOMAINS missing canonical D-NN IDs: "
+        f"{sorted(missing)}. The 8-domain M060 wire contract requires "
+        f"all of {sorted(CANONICAL_DOMAIN_IDS)} — drift here means "
+        f"the smoke diagnostic skips a domain the producer publishes."
+    )
+
+
+def test_dashboard_per_domain_description_lists_8_domains():
+    """The mirror-domains dashboard's per-domain-severity panel
+    description MUST enumerate all 8 canonical D-NN IDs. Drift
+    means operators reading the hover-text won't know which
+    domain a per-series line refers to — exactly the visibility
+    gap that D-12 + D-16 fell into."""
+    data = json.loads(_read(MIRROR_DOMAINS_DASHBOARD))
+    panels = data.get("panels", [])
+    target = None
+    for panel in panels:
+        title = panel.get("title", "").lower()
+        if "per-domain severity" in title:
+            target = panel
+            break
+    assert target is not None, (
+        "mirror-domains dashboard missing per-domain-severity panel"
+    )
+    desc = target.get("description", "")
+    for d_nn in CANONICAL_DOMAIN_IDS:
+        assert d_nn in desc, (
+            f"per-domain-severity panel description missing canonical "
+            f"D-NN ID {d_nn!r}. Operator hovering the panel won't see "
+            f"the domain's existence. Description: {desc!r}"
+        )
+
+
+def test_partner_repo_doctor_domains_match():
+    """Cross-repo opt-in: when $SELFDEF_REPO_ROOT points at a
+    selfdef checkout, verify the selfdef-cli m060_doctor DOMAINS
+    array contains all 8 canonical D-NN IDs in canonical order.
+    Symmetric with the selfdef-side assertion (in
+    selfdef/tests/observability/test_m060_partner_repo_lockstep.py
+    `test_selfdef_doctor_domains_match_canonical_set`)."""
+    partner_env = os.environ.get("SELFDEF_REPO_ROOT")
+    if not partner_env:
+        return
+    partner = Path(partner_env)
+    doctor_rs = (
+        partner / "crates" / "selfdef-cli" / "src" / "m060_doctor.rs"
+    )
+    if not doctor_rs.is_file():
+        return
+    body = doctor_rs.read_text()
+    id_pattern = re.compile(r'Domain\s*\{\s*\n\s*id:\s*"(D-\d{2})"')
+    found_ids = tuple(id_pattern.findall(body))
+    assert found_ids == CANONICAL_DOMAIN_IDS, (
+        f"partner-repo selfdef-cli m060_doctor DOMAINS drift: "
+        f"expected {CANONICAL_DOMAIN_IDS} (canonical order), got "
+        f"{found_ids}. The doctor verb is the producer-side triage "
+        f"surface; reordering or removing a domain silently breaks "
+        f"the consumer-side cockpit dashboards."
+    )
+
+
+def test_partner_repo_api_artifact_names_cover_8_d_nn():
+    """Cross-repo opt-in: verify the selfdef-api m060_health
+    ARTIFACT_NAMES list covers all 8 D-NN + 2 MS007 = 10
+    canonical filenames."""
+    partner_env = os.environ.get("SELFDEF_REPO_ROOT")
+    if not partner_env:
+        return
+    partner = Path(partner_env)
+    health_rs = (
+        partner / "crates" / "selfdef-api" / "src" / "m060_health.rs"
+    )
+    if not health_rs.is_file():
+        return
+    body = health_rs.read_text()
+    m = re.search(
+        r"const ARTIFACT_NAMES:\s*&\[&str\]\s*=\s*&\[([^\]]+)\]",
+        body, re.DOTALL,
+    )
+    if m is None:
+        return
+    found = set(re.findall(r'"([^"]+\.json)"', m.group(1)))
+    missing = CANONICAL_API_ARTIFACTS - found
+    extra = found - CANONICAL_API_ARTIFACTS
+    assert not missing, (
+        f"partner-repo selfdef-api ARTIFACT_NAMES missing canonical "
+        f"entries: {sorted(missing)}. The 10-artifact wire contract "
+        f"requires 8 D-NN-tied files + 2 MS007 cross-cutting."
+    )
+    assert not extra, (
+        f"partner-repo selfdef-api ARTIFACT_NAMES has unknown entries: "
+        f"{sorted(extra)}. If a new mirror artifact was added, this "
+        f"test's CANONICAL_API_ARTIFACTS must be bumped in the same "
+        f"commit (cross-repo coordinated change)."
+    )
+    assert len(found) == 10, (
+        f"partner-repo selfdef-api ARTIFACT_NAMES must have exactly 10 "
+        f"entries (8 D-NN + 2 MS007); got {len(found)}"
     )
