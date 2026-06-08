@@ -71,7 +71,7 @@ DEFAULT_PROBES: list[dict[str, Any]] = [
     {"name": "board-advisor",    "axis": "hardware",
      "script": "scripts/hardware/board-advisor-x870e-creator.py", "args": ["status", "--json"]},
     {"name": "gpu-wattage",      "axis": "hardware",
-     "script": "scripts/hardware/gpu-wattage.py", "args": ["budget", "--json"]},
+     "script": "scripts/hardware/gpu-wattage-catalog.py", "args": ["budget", "--json"]},
     {"name": "cpu-hotswap",      "axis": "hardware",
      "script": "scripts/hardware/cpu-hotswap.py", "args": ["status", "--json"]},
     {"name": "xmp-oc-room",      "axis": "hardware",
@@ -97,7 +97,7 @@ DEFAULT_PROBES: list[dict[str, Any]] = [
     {"name": "apc-profile",      "axis": "lifecycle",
      "script": "scripts/hardware/apc-default-profile.py", "args": ["list", "--json"]},
     {"name": "battery-ladder",   "axis": "lifecycle",
-     "script": "scripts/hardware/battery-ladder.py", "args": ["status", "--json"]},
+     "script": "scripts/power/battery-escalation-ladder.py", "args": ["simulate", "--json"]},
 
     # ── kernel + hardening ───────────────────────────────
     {"name": "kernel-cmdline",   "axis": "kernel",

@@ -99,18 +99,29 @@ def sample_signals() -> dict[str, float | None]:
         if isinstance(w, (int, float)):
             out["wattage_w"] = float(w)
 
-    # Heat probe via R265 heat-integration.
-    heat = _run_json("scripts/hardware/heat-integration.py",
+    # Heat probe via R296 thermal-oc-budget (E2.M10): `thermal.hottest_*_c`
+    # is the canonical hottest-sensor reading, present (possibly null) even
+    # with no sensors wired. (Was a dangling ref to a never-created
+    # heat-integration.py — the trend watcher never captured temps.)
+    heat = _run_json("scripts/hardware/thermal-oc-budget.py",
                       ["status", "--json"])
     if isinstance(heat, dict):
-        # CPU temp: try summary or top-level
-        for key in ("cpu_temp_max_c", "cpu_temp_c", "cpu_max_c"):
-            v = (heat.get("summary") or {}).get(key) or heat.get(key)
+        thermal = heat.get("thermal") if isinstance(
+            heat.get("thermal"), dict) else {}
+        summary = heat.get("summary") if isinstance(
+            heat.get("summary"), dict) else {}
+        # CPU temp: thermal.hottest_cpu_c (canonical), then legacy fallbacks.
+        for src, key in ((thermal, "hottest_cpu_c"),
+                         (summary, "cpu_temp_max_c"), (heat, "cpu_temp_c"),
+                         (heat, "cpu_max_c")):
+            v = src.get(key)
             if isinstance(v, (int, float)):
                 out["cpu_temp_c"] = float(v)
                 break
-        for key in ("gpu_temp_max_c", "gpu_temp_c", "gpu_max_c"):
-            v = (heat.get("summary") or {}).get(key) or heat.get(key)
+        for src, key in ((thermal, "hottest_gpu_c"),
+                         (summary, "gpu_temp_max_c"), (heat, "gpu_temp_c"),
+                         (heat, "gpu_max_c")):
+            v = src.get(key)
             if isinstance(v, (int, float)):
                 out["gpu_temp_c"] = float(v)
                 break
