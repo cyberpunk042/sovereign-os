@@ -127,7 +127,7 @@ def test_sdd_033_documents_acceptance_criteria_checklist():
 # dropping one silently is a regression).
 REQUIRED_FIVE_STEPS = [
     "### 1. Locate the §1b verbatim phrase",
-    "### 2. File a TODO mandate row",
+    "### 2. File a TODO mandate row",  # anti-min-waiver: R491 doctrine-step-NAME pinned verbatim, not a real TODO
     "### 3. Ship an operator-runnable verb",
     "### 4. Author an L3 test",
     "### 5. Flip the mandate row + commit",
