@@ -43,6 +43,12 @@ tdp_watts = 170
 
 # ─── Graceful-shutdown profile when on UPS battery ───
 [graceful_shutdown]
+# Arm the power-shutdown-guard hook via config (SDD-029 gate 2). When
+# true, a `critical` UPS verdict triggers a graceful shutdown WITHOUT
+# needing the SOVEREIGN_OS_POWER_SHUTDOWN_ARMED=YES env var. Default
+# false: the host warns loudly but never auto-shuts-down until you
+# opt in here (or via the env var).
+enabled = false
 # When battery_charge drops to this %, fire the shutdown.
 battery_critical_pct = 15
 # When battery time_left drops to this many minutes, surface a warn.

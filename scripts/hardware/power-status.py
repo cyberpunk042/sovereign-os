@@ -448,6 +448,12 @@ def cmd_advisories(args: argparse.Namespace) -> int:
         "round": "R252",
         "vector": "SDD-026 Z-18 (graceful shutdown advisories)",
         "thresholds": {
+            # SDD-029 gate 2: `[graceful_shutdown] enabled = true` is a
+            # contracted config-arm path for the power-shutdown-guard hook.
+            # The guard reads thresholds.enabled; surface it from the config
+            # profile (was omitted — config-based arming silently never
+            # worked, only the env-var path did).
+            "enabled": bool(profile.get("enabled", False)),
             "battery_critical_pct": critical_pct,
             "runtime_warn_minutes": runtime_min_warn_min,
             "shutdown_minutes": shutdown_min_min,
