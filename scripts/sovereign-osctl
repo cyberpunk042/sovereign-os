@@ -3197,10 +3197,10 @@ EOF
     exit $?
   fi
 
-  # Cached-.prom path: read the latest sovereign-thermal.prom written
-  # by the timer.
+  # Cached-.prom path: read the latest sovereign-os-thermal-watch.prom
+  # written by the timer.
   : "${SOVEREIGN_OS_METRICS_DIR:=/var/lib/node_exporter/textfile_collector}"
-  local prom="${SOVEREIGN_OS_METRICS_DIR}/sovereign-thermal.prom"
+  local prom="${SOVEREIGN_OS_METRICS_DIR}/sovereign-os-thermal-watch.prom"
   if [ ! -f "${prom}" ]; then
     echo "no cached thermal readings yet at ${prom}"
     echo "  run 'sovereign-osctl thermals --probe' for a live read,"

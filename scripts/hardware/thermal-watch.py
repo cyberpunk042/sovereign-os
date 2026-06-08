@@ -61,7 +61,7 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 
 DEFAULT_HWMON_DIR = Path("/sys/class/hwmon")
-DEFAULT_METRICS_PATH = Path("/var/lib/node_exporter/textfile_collector/sovereign-thermal.prom")
+DEFAULT_METRICS_PATH = Path("/var/lib/node_exporter/textfile_collector/sovereign-os-thermal-watch.prom")
 DEFAULT_EVENTS_JSONL = Path("/var/lib/sovereign-os/events/thermal.jsonl")
 
 # Per-profile defaults: (warn_celsius, critical_celsius).
