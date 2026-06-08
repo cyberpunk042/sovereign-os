@@ -140,6 +140,23 @@ DEFAULT_CATALOG: list[dict[str, Any]] = [
         "operator_caveat": "Debugging tools like gdb/strace from non-root "
                            "require =0 or =1.",
     },
+    {
+        "name": "kernel.randomize_va_space",
+        "axis": "sysctl",
+        "scope": "sysctl",
+        "recommended": "2",
+        "rationale": "Full address-space layout randomization (=2 "
+                     "randomizes stack, mmap, brk, and the executable "
+                     "base) — the baseline defence that makes memory-"
+                     "corruption exploits non-deterministic. Its absence "
+                     "from a hardening catalog is itself a minimization.",
+        "can_probe": True,
+        "probe_command": "sysctl -n kernel.randomize_va_space",
+        "probe_match": "2",
+        "operator_caveat": "A handful of legacy/JIT workloads pin =0 for "
+                           "reproducible addresses; on an AI-inference host "
+                           "that's almost never needed.",
+    },
 
     # ── LSM / mandatory access control ────────────────────
     {
