@@ -34,6 +34,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WATCHER = REPO_ROOT / "scripts" / "hardware" / "wattage-heat-trend-watcher.py"
 THERMAL = REPO_ROOT / "scripts" / "hardware" / "thermal-oc-budget.py"
+POWER = REPO_ROOT / "scripts" / "hardware" / "power-status.py"
 
 
 def _load_watcher():
@@ -70,26 +71,60 @@ def test_producer_emits_hottest_temp_fields():
         )
 
 
-def test_watcher_extracts_temps_from_producer_shape(monkeypatch):
-    """Fed a realistic thermal-oc-budget shape, sample_signals() must
-    populate cpu_temp_c / gpu_temp_c (not leave them None)."""
+def test_producer_emits_estimated_load_watts():
+    """power-status.py budget --json must carry estimated_load_watts — the
+    field the watcher's wattage probe binds to. (The watcher used to call
+    power-status.py with NO verb, which exits rc=2; this locks both the
+    verb and the field.)"""
+    cp = subprocess.run(
+        [sys.executable, str(POWER), "budget", "--json"],
+        capture_output=True, text=True, timeout=30, cwd=REPO_ROOT,
+    )
+    assert cp.returncode == 0, (
+        f"power-status.py budget --json exited {cp.returncode} "
+        f"(watcher's wattage probe depends on the `budget` verb): "
+        f"{cp.stderr[:300]}"
+    )
+    import json
+    doc = json.loads(cp.stdout)
+    assert "estimated_load_watts" in doc, (
+        "power-status.py budget --json no longer emits estimated_load_watts; "
+        "the trend watcher binds to it and will silently capture no wattage. "
+        "Update the watcher's sample_signals extraction to the new field."
+    )
+
+
+def test_watcher_extracts_signals_from_producer_shapes(monkeypatch):
+    """Fed realistic power-status `budget` + thermal-oc-budget shapes,
+    sample_signals() must populate ALL THREE signals (not leave them
+    None). The watcher previously captured nothing — wattage (no verb),
+    cpu/gpu (dangling heat-integration.py)."""
     w = _load_watcher()
 
     canned = {
         "scripts/hardware/power-status.py": {
-            "summary": {"estimated_load_w": 240.0}},
+            "estimated_load_watts": 245.0, "headroom_watts": 1115.0,
+            "utilization_pct": 18.0},
         "scripts/hardware/thermal-oc-budget.py": {
             "thermal": {"verdict": "no-breach",
                         "hottest_cpu_c": 72.0, "hottest_gpu_c": 65.0}},
     }
 
+    calls: dict[str, list] = {}
+
     def fake_run_json(rel, args):
+        calls[rel] = args
         return canned.get(rel)
 
     monkeypatch.setattr(w, "_run_json", fake_run_json)
     out = w.sample_signals()
-    assert out["wattage_w"] == 240.0, (
-        f"watcher failed to extract wattage from power-status: {out}")
+    assert "budget" in calls.get("scripts/hardware/power-status.py", []), (
+        "watcher must call power-status.py with the `budget` verb — calling "
+        "it bare exits rc=2 and captures no wattage. Got args: "
+        f"{calls.get('scripts/hardware/power-status.py')}")
+    assert out["wattage_w"] == 245.0, (
+        f"watcher failed to extract wattage from "
+        f"power-status budget.estimated_load_watts: {out}")
     assert out["cpu_temp_c"] == 72.0, (
         f"watcher failed to extract cpu temp from thermal.hottest_cpu_c — "
         f"producer→consumer binding broken: {out}")

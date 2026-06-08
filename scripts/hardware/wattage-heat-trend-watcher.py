@@ -89,15 +89,23 @@ def sample_signals() -> dict[str, float | None]:
         "cpu_temp_c": None,
         "gpu_temp_c": None,
     }
-    # Wattage estimate via R252 power-status (best-effort).
-    ps = _run_json("scripts/hardware/power-status.py", ["--json"])
+    # Wattage estimate via R252 power-status `budget` (best-effort). NOTE:
+    # power-status.py REQUIRES a verb {psu,ups,budget,advisories} — calling
+    # it bare (`--json`, no verb) exits rc=2 with empty stdout, so the old
+    # probe captured no wattage at all. `budget` is the load/headroom view;
+    # its canonical field is `estimated_load_watts` (legacy *_w kept as
+    # fallback for robustness).
+    ps = _run_json("scripts/hardware/power-status.py", ["budget", "--json"])
     if isinstance(ps, dict):
-        # Various R252 schemas; try multiple paths.
-        w = (ps.get("summary", {}) or {}).get("estimated_load_w")
-        if w is None:
-            w = ps.get("estimated_load_w")
-        if isinstance(w, (int, float)):
-            out["wattage_w"] = float(w)
+        summary = ps.get("summary") if isinstance(
+            ps.get("summary"), dict) else {}
+        for src, key in ((ps, "estimated_load_watts"),
+                         (summary, "estimated_load_w"),
+                         (ps, "estimated_load_w")):
+            w = src.get(key)
+            if isinstance(w, (int, float)):
+                out["wattage_w"] = float(w)
+                break
 
     # Heat probe via R296 thermal-oc-budget (E2.M10): `thermal.hottest_*_c`
     # is the canonical hottest-sensor reading, present (possibly null) even
