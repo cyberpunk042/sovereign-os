@@ -78,7 +78,7 @@ groups:
             ssh_invalid_users + ssh_refused_keys to identify the
             attack vector. Block the source IP via fail2ban OR
             nftables rule.
-          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefauteventsbruteforcedetected-critical"
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefautheventsbruteforcedetected-critical"
 
       # Warning: ssh invalid-user attempts > 5 in the 5m window.
       # Distinct from failed-password (which can be a typo); invalid-

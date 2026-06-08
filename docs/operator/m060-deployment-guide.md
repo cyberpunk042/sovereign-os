@@ -3171,6 +3171,228 @@ journalctl -u selfdefd --since '1 hour ago' | grep -iE 'token.revocations'
 **Fix:** if this matches a known incident response, no action — the surface is doing its job; acknowledge the page. If unexpected, investigate the driving events in the cockpit and the selfdef journal before relaxing the threshold.
 
 
+### IPS-quartet action-surface runbook (SDD-065 blockset / SDD-066 quarantine / SDD-067 revocations)
+
+Sibling to the SDD-068+ action-surface runbook above — these three earlier IPS responder families (`selfdef-{blockset,quarantine,revocations}.rules.yml`) had per-family structural contract tests but their `runbook_url` anchors pointed at missing sections. Each alert below now resolves; the generic `test_alert_runbook_anchor_coverage` lint keeps every alert family's anchors honest.
+
+#### SelfdefBlocksetTextfileEmitFailed (critical)
+
+**Meaning:** Wrapper failure for 5+ minutes. SDD-065 enforcement- layer visibility lost.
+
+**Diagnosis:**
+
+```bash
+# The textfile wrapper that writes selfdef_blockset gauges is failing.
+systemctl status selfdef-blockset-textfile.service
+journalctl -u selfdef-blockset-textfile.service --since '15 min ago' | tail -40
+# Confirm the node_exporter textfile dir is writable by the selfdef uid:
+sudo -u selfdef ls -ld /var/lib/node_exporter/textfile_collector
+```
+
+**Fix:** clear the underlying wrapper error (most often a permissions or disk-space fault on the textfile dir), then `systemctl restart selfdef-blockset-textfile.timer`. The sentinel clears on the next successful emit.
+
+
+#### SelfdefBlocksetObserverSilent (critical)
+
+**Meaning:** Timer hasn't fired in 5+ minutes. Enforcement-layer state stale.
+
+**Diagnosis:**
+
+```bash
+# The selfdef-blockset observer timer has not run recently (state is going stale).
+systemctl list-timers 'selfdef-blockset-textfile.timer' --all
+systemctl status selfdef-blockset-textfile.timer
+ls -la /var/lib/node_exporter/textfile_collector/selfdef-blockset.prom
+```
+
+**Fix:** `systemctl enable --now selfdef-blockset-textfile.timer`. If the timer is active but not firing, check for a wedged prior run with `systemctl status selfdef-blockset-textfile.service` and reset it.
+
+
+#### SelfdefBlocksetTableMissing (critical)
+
+**Meaning:** selfdef-blocks nftables table is not present for 10+ minutes. SDD-065 IP-block enforcement cannot operate. Either selfdefd hasn't started, or its bootstrap was denied by CAP_NET_ADMIN policy. Operator action: `systemctl status selfdefd`, check `journalctl -u selfdefd | grep blockset`, then re-bootstrap via `selfdefctl init` (MS3+) or manual `nft -f /usr/share/selfdef/blockset-bootstrap.nft`.
+
+**Diagnosis:**
+
+```bash
+# The kernel resource this action surface depends on (nftables set/table or
+# cgroup slice) is absent — enforcement cannot land. Honest-offline sentinel.
+# Confirm via the published gauge:
+grep -E '^selfdef_blockset_present' /var/lib/node_exporter/textfile_collector/selfdef-blockset.prom
+systemctl status selfdefd
+journalctl -u selfdefd --since '15 min ago' | grep -iE 'error|panic|nft|cgroup|slice'
+```
+
+**Fix:** `systemctl restart selfdefd` — the daemon re-creates its nftables set/table (or cgroup slice) at start. If it stays absent, the daemon is failing earlier in boot or the kernel lacks the required subsystem; read the selfdefd journal for the prior fault.
+
+
+#### SelfdefBlocksetTotalHigh (warning)
+
+**Meaning:** {{ $value }} blocked IPs sustained 1+ hour. Investigate via `selfdefctl block-ip --list` (MS3+) and the paired auth-events / fail2ban dashboards for source ASN concentration.
+
+**Diagnosis:**
+
+```bash
+# Sustained high reading on selfdef_blockset_total_count. Confirm whether this is an active
+# incident-response scenario or a correlator/config drift.
+grep -E '^selfdef_blockset_total_count' /var/lib/node_exporter/textfile_collector/selfdef-blockset.prom
+# ...or query selfdef_blockset_total_count in Prometheus/Grafana over the alert window.
+journalctl -u selfdefd --since '1 hour ago' | grep -iE 'blockset'
+```
+
+**Fix:** if this matches a known incident response, no action — the surface is doing its job; acknowledge the page. If unexpected, investigate the driving events in the cockpit and the selfdef journal before relaxing the threshold.
+
+
+#### SelfdefQuarantineTextfileEmitFailed (critical)
+
+**Meaning:** Wrapper failure for 5+ minutes. SDD-066 enforcement- layer visibility lost.
+
+**Diagnosis:**
+
+```bash
+# The textfile wrapper that writes selfdef_quarantine gauges is failing.
+systemctl status selfdef-quarantine-textfile.service
+journalctl -u selfdef-quarantine-textfile.service --since '15 min ago' | tail -40
+# Confirm the node_exporter textfile dir is writable by the selfdef uid:
+sudo -u selfdef ls -ld /var/lib/node_exporter/textfile_collector
+```
+
+**Fix:** clear the underlying wrapper error (most often a permissions or disk-space fault on the textfile dir), then `systemctl restart selfdef-quarantine-textfile.timer`. The sentinel clears on the next successful emit.
+
+
+#### SelfdefQuarantineObserverSilent (critical)
+
+**Meaning:** Timer hasn't fired in 5+ minutes. SDD-066 state stale.
+
+**Diagnosis:**
+
+```bash
+# The selfdef-quarantine observer timer has not run recently (state is going stale).
+systemctl list-timers 'selfdef-quarantine-textfile.timer' --all
+systemctl status selfdef-quarantine-textfile.timer
+ls -la /var/lib/node_exporter/textfile_collector/selfdef-quarantine.prom
+```
+
+**Fix:** `systemctl enable --now selfdef-quarantine-textfile.timer`. If the timer is active but not firing, check for a wedged prior run with `systemctl status selfdef-quarantine-textfile.service` and reset it.
+
+
+#### SelfdefQuarantineSliceMissing (critical)
+
+**Meaning:** /sys/fs/cgroup/selfdef.slice not present for 10+ minutes. SDD-066 process-quarantine enforcement cannot operate. Either selfdefd hasn't started or its slice was deleted. Operator action: `systemctl status selfdefd`, then `systemctl restart selfdefd`.
+
+**Diagnosis:**
+
+```bash
+# The kernel resource this action surface depends on (nftables set/table or
+# cgroup slice) is absent — enforcement cannot land. Honest-offline sentinel.
+# Confirm via the published gauge:
+grep -E '^selfdef_quarantine_slice_present' /var/lib/node_exporter/textfile_collector/selfdef-quarantine.prom
+systemctl status selfdefd
+journalctl -u selfdefd --since '15 min ago' | grep -iE 'error|panic|nft|cgroup|slice'
+```
+
+**Fix:** `systemctl restart selfdefd` — the daemon re-creates its nftables set/table (or cgroup slice) at start. If it stays absent, the daemon is failing earlier in boot or the kernel lacks the required subsystem; read the selfdefd journal for the prior fault.
+
+
+#### SelfdefQuarantineActiveHigh (warning)
+
+**Meaning:** More than 10 quarantine-*.scope entries sustained 30+ minutes. Operator decision queue probably backlogged. Inspect via the cockpit quarantine-queue card and `selfdefctl release-pid` or `selfdefctl kill-quarantined` per entry.
+
+**Diagnosis:**
+
+```bash
+# Sustained high reading on selfdef_quarantine_active_count. Confirm whether this is an active
+# incident-response scenario or a correlator/config drift.
+grep -E '^selfdef_quarantine_active_count' /var/lib/node_exporter/textfile_collector/selfdef-quarantine.prom
+# ...or query selfdef_quarantine_active_count in Prometheus/Grafana over the alert window.
+journalctl -u selfdefd --since '1 hour ago' | grep -iE 'quarantine'
+```
+
+**Fix:** if this matches a known incident response, no action — the surface is doing its job; acknowledge the page. If unexpected, investigate the driving events in the cockpit and the selfdef journal before relaxing the threshold.
+
+
+#### SelfdefRevocationsTextfileEmitFailed (critical)
+
+**Meaning:** Wrapper failure for 5+ minutes. SDD-067 enforcement- layer visibility lost.
+
+**Diagnosis:**
+
+```bash
+# The textfile wrapper that writes selfdef_revocations gauges is failing.
+systemctl status selfdef-revocations-textfile.service
+journalctl -u selfdef-revocations-textfile.service --since '15 min ago' | tail -40
+# Confirm the node_exporter textfile dir is writable by the selfdef uid:
+sudo -u selfdef ls -ld /var/lib/node_exporter/textfile_collector
+```
+
+**Fix:** clear the underlying wrapper error (most often a permissions or disk-space fault on the textfile dir), then `systemctl restart selfdef-revocations-textfile.timer`. The sentinel clears on the next successful emit.
+
+
+#### SelfdefRevocationsObserverSilent (critical)
+
+**Meaning:** Timer hasn't fired in 5+ minutes. SDD-067 state stale.
+
+**Diagnosis:**
+
+```bash
+# The selfdef-revocations observer timer has not run recently (state is going stale).
+systemctl list-timers 'selfdef-revocations-textfile.timer' --all
+systemctl status selfdef-revocations-textfile.timer
+ls -la /var/lib/node_exporter/textfile_collector/selfdef-revocations.prom
+```
+
+**Fix:** `systemctl enable --now selfdef-revocations-textfile.timer`. If the timer is active but not firing, check for a wedged prior run with `systemctl status selfdef-revocations-textfile.service` and reset it.
+
+
+#### SelfdefRevocationsStateDirMissing (critical)
+
+**Meaning:** /var/lib/selfdef/revocations not present for 10+ minutes. SDD-067 session-revocation enforcement cannot operate; revoke-sessions calls cannot persist state. Operator action: `systemctl status selfdefd`, then `systemctl restart selfdefd`.
+
+**Diagnosis:**
+
+```bash
+# The enforcement state directory is absent — the action surface cannot persist state.
+ls -ld /var/lib/selfdef/revocations
+systemctl status selfdefd
+journalctl -u selfdefd --since '15 min ago' | grep -iE 'error|panic|state'
+```
+
+**Fix:** `systemctl restart selfdefd` — the daemon recreates its state dirs at start. If `/var/lib/selfdef/revocations` stays absent after restart, the daemon is failing earlier in boot; read its journal for the prior fault.
+
+
+#### SelfdefRevocationsPendingRestoreBacklog (warning)
+
+**Meaning:** More than 5 pending operator-restore decisions sustained 30+ minutes. Operator engagement with the cockpit revocations-queue card needed. Inspect via `python3 scripts/cockpit/revocations-queue.py`.
+
+**Diagnosis:**
+
+```bash
+# Operator-restore decisions are queuing on the selfdef-revocations surface.
+# Read the pending count straight from the published gauge:
+grep '^selfdef_revocations_pending_restores ' /var/lib/node_exporter/textfile_collector/selfdef-revocations.prom
+# ...or query selfdef_revocations_pending_restores in Prometheus/Grafana, or open the cockpit card for this surface.
+```
+
+**Fix:** engage the cockpit queue for this surface and resolve (restore or confirm) the pending decisions. The backlog is operator-action-required, not a daemon fault.
+
+
+#### SelfdefRevocationsActiveHigh (warning)
+
+**Meaning:** More than 10 active session-revocations sustained 1+ hour. Likely incident-response scenario or operator-misconfigured correlator rule. Investigate.
+
+**Diagnosis:**
+
+```bash
+# Sustained high reading on selfdef_revocations_active_count. Confirm whether this is an active
+# incident-response scenario or a correlator/config drift.
+grep -E '^selfdef_revocations_active_count' /var/lib/node_exporter/textfile_collector/selfdef-revocations.prom
+# ...or query selfdef_revocations_active_count in Prometheus/Grafana over the alert window.
+journalctl -u selfdefd --since '1 hour ago' | grep -iE 'revocations'
+```
+
+**Fix:** if this matches a known incident response, no action — the surface is doing its job; acknowledge the page. If unexpected, investigate the driving events in the cockpit and the selfdef journal before relaxing the threshold.
+
+
 ## Project-boundary discipline (MS043 R10212)
 
 - IPS state mutation lives in **selfdef only** (selfdefd + selfdefctl +

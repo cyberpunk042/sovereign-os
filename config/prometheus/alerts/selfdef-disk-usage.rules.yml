@@ -109,4 +109,4 @@ groups:
             suggests logrotate failure OR misconfigured retention.
             Check `/etc/logrotate.d/selfdef` + `journalctl -u
             logrotate.timer` for errors.
-          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefdiskusageselfdeflightigh-warning"
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefdiskusageselfdefloghigh-warning"

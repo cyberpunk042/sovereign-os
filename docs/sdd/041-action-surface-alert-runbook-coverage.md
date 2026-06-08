@@ -51,6 +51,23 @@ families had no equivalent gate, so the runbook drift went unnoticed.
    heading alone is not a runbook). Drift on either the rules files or
    the guide now fails CI.
 
+3. **The generic gate + the rest of the broken links.** Auditing *all*
+   33 alert families (not just the action-surface 11) surfaced 17 more
+   broken incident links: 13 missing sections across the SDD-065
+   blockset / SDD-066 quarantine / SDD-067 revocations IPS-quartet
+   families (now authored, same grounded generator), and 4 typo'd
+   `runbook_url` anchors whose target headings existed but were
+   misspelled (`selfdefautevents` missing an `h`,
+   `selfdefdiskusageselfdeflightigh` for `…loghigh`,
+   `kernelmodulesextfile` missing a `t`, `ms022sspertoken` for
+   `…ssepertoken…`) — now corrected in the rules files. The generic
+   `tests/lint/test_alert_runbook_anchor_coverage.py` then locks **every**
+   alert family at once: every in-repo `runbook_url` anchor must resolve,
+   every alert must carry a `runbook_url`, and the severity vocabulary
+   stays bounded to `{warning, critical}`. This single gate supersedes
+   the per-family anchor-drift risk going forward. Net: **81 broken
+   incident links closed (64 + 17), 0 remaining.**
+
 ## Responsibility boundary
 
 Proper producer↔consumer split preserved: **selfdef** emits the textfile
