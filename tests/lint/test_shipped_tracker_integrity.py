@@ -28,9 +28,28 @@ import re
 import subprocess
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SHIPPED = REPO_ROOT / "backlog" / "SHIPPED.md"
 MILESTONES_DIR = REPO_ROOT / "backlog" / "milestones"
+
+
+def _is_shallow_clone() -> bool:
+    """True when this checkout is a shallow clone. Under a shallow clone
+    only the most-recent commits resolve, so the ABSENCE of an older
+    referenced commit is an artifact of `fetch-depth`, NOT evidence of
+    fabrication. CI's schema-lint job pins `fetch-depth: 0`, so the
+    integrity guarantee runs full-strength there; this guard only spares
+    local/shallow sandboxes a misleading false-failure."""
+    try:
+        cp = subprocess.run(
+            ["git", "rev-parse", "--is-shallow-repository"],
+            capture_output=True, text=True, timeout=10, cwd=REPO_ROOT,
+        )
+    except Exception:
+        return False
+    return cp.returncode == 0 and cp.stdout.strip() == "true"
 
 
 def _shipped_text() -> str:
@@ -78,6 +97,12 @@ def test_referenced_local_commits_exist():
     shas = {m.group(1) for m in sha_pattern.finditer(text)}
 
     verified = [sha for sha in shas if _commit_exists(sha)]
+    if not verified and _is_shallow_clone():
+        pytest.skip(
+            "shallow clone — older SHIPPED.md commits are outside the "
+            "fetch window; integrity check runs full-strength in CI "
+            "(schema-lint pins fetch-depth: 0)"
+        )
     assert verified, (
         f"no SHAs in SHIPPED.md resolved locally — SHIPPED.md "
         f"appears to reference nonexistent commits. Saw: {shas}"
