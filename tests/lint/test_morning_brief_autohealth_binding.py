@@ -100,3 +100,42 @@ def test_probe_autohealth_graceful_when_unavailable(monkeypatch):
     )
     out = mb.probe_autohealth(5)
     assert out["available"] is False and out["severity"] is None
+
+
+def test_critical_findings_verdict_escalates_to_critical_signals(monkeypatch):
+    """autohealth's verdict vocabulary is critical-findings /
+    attention-findings / all-clear — NOT critical/high. build_brief must
+    escalate a `critical-findings` verdict (or any critical in
+    severity_counts) into critical_signals; attention-findings must NOT.
+    Locks the vocabulary so a regression to `in ("critical","high")` —
+    which silently never matches — fails here."""
+    mb = _load_brief()
+    monkeypatch.setattr(mb, "probe_next_action",
+                        lambda limit, timeout: {"available": True, "items": []})
+    monkeypatch.setattr(mb, "probe_module_state",
+                        lambda limit, timeout: {"available": True, "items": [],
+                                                "attention_count": 0})
+
+    def crit(_timeout):
+        return {"available": True, "rc": 1, "severity": "critical-findings",
+                "severity_counts": {"critical": 1, "attention": 0,
+                                    "informational": 0}, "tick": 9}
+
+    monkeypatch.setattr(mb, "probe_autohealth", crit)
+    cfg = {"include_autohealth": True, "include_guide_suggestion": False}
+    brief = mb.build_brief(cfg)
+    assert any("autohealth" in s for s in brief["critical_signals"]), (
+        f"critical-findings did not escalate to critical_signals: "
+        f"{brief['critical_signals']}")
+    assert brief["critical_signals_count"] >= 1
+
+    # attention-findings must NOT escalate.
+    def attn(_timeout):
+        return {"available": True, "rc": 1, "severity": "attention-findings",
+                "severity_counts": {"critical": 0, "attention": 2,
+                                    "informational": 1}, "tick": 9}
+
+    monkeypatch.setattr(mb, "probe_autohealth", attn)
+    brief2 = mb.build_brief(cfg)
+    assert not any("autohealth" in s for s in brief2["critical_signals"]), (
+        f"attention-findings wrongly escalated: {brief2['critical_signals']}")
