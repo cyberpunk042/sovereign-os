@@ -256,9 +256,10 @@ groups:
       # ships at
       # /var/lib/node_exporter/textfile_collector/selfdef-m060-doctor.prom
       # via the `selfdef-m060-doctor.timer` systemd unit (60s cadence,
-      # selfdef commit ce58154). The selfdefctl m060-doctor verb walks
-      # all 6 mirror domains (D-02/D-13/D-14/D-15/D-17/D-18) on each
-      # fire and writes:
+      # selfdef commit ce58154 + follow-up D-12/D-16 coverage close).
+      # The selfdefctl m060-doctor verb walks all 8 mirror domains
+      # (D-02/D-12/D-13/D-14/D-15/D-16/D-17/D-18) on each fire and
+      # writes:
       #
       #   selfdef_m060_doctor_severity{domain, label}            0/1/2
       #   selfdef_m060_doctor_resident_present{domain, label}    0/1
@@ -288,7 +289,7 @@ groups:
         annotations:
           summary: "M060 mirror chain degraded on {{ $labels.instance }}"
           description: >
-            The selfdefctl m060-doctor reports at least one of the 6
+            The selfdefctl m060-doctor reports at least one of the 8
             mirror domains in WARN state. Query the per-domain series
             for the breakdown:
 
