@@ -1,0 +1,102 @@
+"""morning-brief ⇄ autohealth status schema binding (R352/R308).
+
+morning-brief's `probe_autohealth` surfaces the host health verdict in the
+operator's daily brief. The R308 `autohealth status --json` verb returns
+the cached latest tick under a NESTED `last_tick` object — the `verdict` +
+`severity_counts` live there, NOT at the top level. The probe used to read
+top-level `severity`/`verdict`/`worst_severity`, which `status` never
+emits, so the brief silently showed `severity=None` even when the host had
+real findings. The L3 test couldn't catch it because it explicitly
+tolerates `severity is None` ("may be None if probe unavailable").
+
+This gate locks the producer→consumer binding both ways:
+  1. autohealth status --json really nests verdict + severity_counts under
+     last_tick (the producer schema the probe depends on).
+  2. probe_autohealth, fed that exact shape, populates severity from
+     last_tick.verdict (the consumer extraction works).
+A rename on either side fails loudly instead of silently blanking the
+brief's health signal.
+"""
+from __future__ import annotations
+
+import importlib.util
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+BRIEF = REPO_ROOT / "scripts" / "intelligence" / "morning-brief.py"
+AUTOHEALTH = REPO_ROOT / "scripts" / "diagnostics" / "autohealth.py"
+
+
+def _load_brief():
+    spec = importlib.util.spec_from_file_location("morning_brief_bind", BRIEF)
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_autohealth_status_nests_verdict_under_last_tick():
+    """The producer schema the probe binds to."""
+    cp = subprocess.run(
+        [sys.executable, str(AUTOHEALTH), "status", "--json"],
+        capture_output=True, text=True, timeout=30, cwd=REPO_ROOT,
+    )
+    assert cp.returncode in (0, 1), (
+        f"autohealth status --json exited {cp.returncode}: {cp.stderr[:300]}"
+    )
+    doc = json.loads(cp.stdout)
+    last = doc.get("last_tick")
+    assert isinstance(last, dict), (
+        "autohealth status --json no longer nests `last_tick` — the "
+        "morning-brief probe reads the verdict from there."
+    )
+    assert "verdict" in last, (
+        "autohealth status last_tick no longer carries `verdict`; the brief "
+        "binds to last_tick.verdict for its health signal. Update the probe."
+    )
+
+
+def test_probe_autohealth_extracts_verdict_from_last_tick(monkeypatch):
+    """The consumer extraction: fed a realistic status shape, the probe
+    must populate severity from last_tick.verdict (not leave it None)."""
+    mb = _load_brief()
+
+    canned = {
+        "ok": True,
+        "rc": 1,
+        "stdout_text": "",
+        "stderr_text": "",
+        "json": {
+            "tick_count": 7,
+            "last_tick": {
+                "verdict": "attention-findings",
+                "severity_counts": {
+                    "critical": 0, "attention": 2, "informational": 3},
+                "tick_at": "2026-06-08T21:00:00Z",
+            },
+        },
+    }
+    monkeypatch.setattr(mb, "_probe", lambda args, timeout: canned)
+    out = mb.probe_autohealth(5)
+    assert out["available"] is True
+    assert out["severity"] == "attention-findings", (
+        f"probe_autohealth failed to extract verdict from last_tick — "
+        f"producer→consumer binding broken: {out}")
+    assert out["severity_counts"] == {
+        "critical": 0, "attention": 2, "informational": 3}, out
+    assert out["tick"] == 7, f"tick should come from tick_count: {out}"
+
+
+def test_probe_autohealth_graceful_when_unavailable(monkeypatch):
+    """Defence: an unavailable probe leaves severity None, never raises."""
+    mb = _load_brief()
+    monkeypatch.setattr(
+        mb, "_probe",
+        lambda args, timeout: {"ok": False, "rc": -1, "stdout_text": "",
+                               "stderr_text": "boom", "json": None},
+    )
+    out = mb.probe_autohealth(5)
+    assert out["available"] is False and out["severity"] is None
