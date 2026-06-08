@@ -230,7 +230,10 @@ def run_cot(routine: dict) -> dict[str, Any]:
             })
             verdicts.append(None)
             continue
-        v = doc.get("verdict") or doc.get("status") or doc.get("posture")
+        # autohealth `status` nests verdict under last_tick (cached latest
+        # tick); fall back to it so health-triage flows see a real verdict.
+        v = (doc.get("verdict") or doc.get("status") or doc.get("posture")
+             or (doc.get("last_tick") or {}).get("verdict"))
         probe_results.append({
             "probe": rel,
             "verdict": v,

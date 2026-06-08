@@ -213,7 +213,10 @@ def render_snapshot_human(doc: dict) -> str:
             verdict = ""
             out = p.get("output") or {}
             if isinstance(out, dict):
-                verdict = out.get("verdict") or ""
+                # autohealth `status` nests verdict under last_tick.
+                verdict = (out.get("verdict")
+                           or (out.get("last_tick") or {}).get("verdict")
+                           or "")
             lines.append(f"    [{mark}] {p['name']:24s}  "
                           f"rc={p.get('rc')}  {p['duration_ms']:>4d}ms  "
                           f"verdict={verdict}")
