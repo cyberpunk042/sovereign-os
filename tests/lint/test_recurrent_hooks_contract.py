@@ -2,8 +2,8 @@
 consistency (7th bidirectional-consistency lint).
 
 Extends R387-R411 operational-artifact pinning to:
-  scripts/hooks/recurrent/      (11 timer-driven hooks)
-  systemd/system/sovereign-*.timer  (11 timer units)
+  scripts/hooks/recurrent/      (13 timer-driven hooks)
+  systemd/system/sovereign-*.timer  (13 timer units)
 
 Each recurrent hook runs on a systemd timer cadence and emits a Layer B
 metric snapshot. They form the operator-named operational telemetry +
@@ -18,6 +18,8 @@ maintenance + alerting cadence:
   security-update-check  — daily 02:30 (security patch posture)
   tetragon-policy-verify — hourly      (security perimeter check)
   thermal-watch          — 5min        (chassis/CPU/GPU thermal sample)
+  memory-pressure-sample — 1min        (PSI / OOM Layer B sample, E1.M15)
+  wattage-heat-trend-tick— 1min        (wattage+heat trend verdict, E1.M36)
   wattage-sample         — daily 04:15 (RAPL/IPMI wattage sample)
   zfs-scrub              — weekly Sun  (ZFS pool scrub kick)
 
@@ -54,6 +56,7 @@ EXPECTED_RECURRENT_HOOKS = [
     "security-update-check.sh",
     "tetragon-policy-verify.sh",
     "thermal-watch.sh",
+    "wattage-heat-trend-tick.sh",
     "wattage-sample.sh",
     "zfs-scrub.sh",
 ]
@@ -72,6 +75,7 @@ HOOK_TO_TIMER_SLUG = {
     "security-update-check.sh": "sovereign-security-update-check",
     "tetragon-policy-verify.sh": "sovereign-tetragon-verify",
     "thermal-watch.sh": "sovereign-thermal-watch",
+    "wattage-heat-trend-tick.sh": "sovereign-wattage-heat-trend",
     "wattage-sample.sh": "sovereign-wattage-sample",
     "zfs-scrub.sh": "sovereign-zfs-scrub",
 }
@@ -87,18 +91,18 @@ def test_all_recurrent_hooks_exist():
         p = RECURRENT_DIR / name
         assert p.is_file(), (
             f"recurrent hook missing: {p} (operator-named cadence "
-            f"contract — 11-hook telemetry/maintenance set)"
+            f"contract — 13-hook telemetry/maintenance set)"
         )
 
 
 def test_hook_count_matches_expected():
-    """Exactly 11 recurrent hooks. Drift adding ungated hooks or
+    """Exactly 13 recurrent hooks. Drift adding ungated hooks or
     removing operator-named cadence breaks the contract."""
     actual = sorted(p.name for p in RECURRENT_DIR.glob("*.sh"))
     expected = sorted(EXPECTED_RECURRENT_HOOKS)
     assert actual == expected, (
         f"recurrent hook set drift: actual={actual} vs "
-        f"expected={expected} (operator-named 11-hook cadence)"
+        f"expected={expected} (operator-named 13-hook cadence)"
     )
 
 

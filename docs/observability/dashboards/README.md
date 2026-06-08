@@ -140,6 +140,11 @@ panel queries lock to them.
 - `sovereign_os_memory_oom_kill_count` — E1.M15: OOM kills observed (cgroup v2 `memory.events` oom_kill + journal scan). Any increase is operator-attention.
 - `sovereign_os_memory_pressure_verdict` — E1.M15: 0=ok 1=attention 2=critical -1=unavailable (matches `memory-pressure.py status` verdict). Operators alert when this transitions to 2.
 - `sovereign_os_memory_sample_last_run_timestamp` — E1.M15: timestamp of the most recent memory-pressure sample (operators alert on staleness vs the per-minute timer).
+- `sovereign_os_wattage_heat_trend_verdict` — E1.M36: overall wattage+heat trend, 0=stable 1=climbing 2=climbing-fast -1=insufficient/unknown, ticked every minute by `sovereign-wattage-heat-trend.timer`. Operators alert when this reaches 2.
+- `sovereign_os_wattage_heat_trend_wattage` — E1.M36: PSU wattage trend code (same 0/1/2/-1 scale). Wattage climbing-fast while gpu_temp lags = power rising faster than heat dissipates (pre-throttle warning).
+- `sovereign_os_wattage_heat_trend_cpu_temp` — E1.M36: CPU temperature trend code (same scale).
+- `sovereign_os_wattage_heat_trend_gpu_temp` — E1.M36: GPU temperature trend code (same scale).
+- `sovereign_os_wattage_heat_trend_last_run_timestamp` — E1.M36: timestamp of the most recent trend tick (operators alert on staleness vs the per-minute timer).
 
 ### GPU power policy (R219 / SDD-026 Z-5 — scripts/hardware/gpu-watch.py)
 

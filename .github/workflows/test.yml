@@ -217,6 +217,9 @@ jobs:
       - name: "nspawn — memory-pressure sampler (E1.M15: Layer B metrics emit + PSI-unavailable sentinels)"
         run: |
           tests/nspawn/test_memory_pressure_sample.sh
+      - name: "nspawn — wattage+heat trend tick (E1.M36: periodic driver + trend-verdict Layer B metrics)"
+        run: |
+          tests/nspawn/test_wattage_heat_trend_tick.sh
       - name: "nspawn — image-sign gates (Round 39: SDD-015 posture none/shim/signed + PK preference)"
         run: |
           tests/nspawn/test_image_sign_gates.sh
