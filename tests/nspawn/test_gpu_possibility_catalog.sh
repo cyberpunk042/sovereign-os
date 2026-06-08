@@ -26,15 +26,19 @@ assert d['total_count'] >= 10
 " || fail "list envelope"
 pass "1. list --json envelope"
 
-# ── 2. Both operator cards present ──────────────────────────
+# ── 2. ALL operator-named subjects present ──────────────────
+# §1b verbatim names four: "RTX 3090 ... the RTX Pro 6000 and the CPU
+# and AVX512". Anchoring only the two GPUs would itself minimize the
+# operator's named set — lock all four (the CPU/AVX-512 card covers the
+# 'CPU and AVX512' subjects).
 echo "${out}" | python3 -c "
 import json, sys
 d = json.loads(sys.stdin.read())
 cards = set(d['cards'])
-for card in ('RTX 3090', 'RTX PRO 6000'):
+for card in ('RTX 3090', 'RTX PRO 6000', 'CPU (AVX-512)'):
     assert card in cards, (card, cards)
-" || fail "operator cards missing"
-pass "2. RTX 3090 + RTX PRO 6000 both present"
+" || fail "operator-named subjects missing"
+pass "2. RTX 3090 + RTX PRO 6000 + CPU (AVX-512) all present (4 operator-named subjects)"
 
 # ── 3. Entries partitioned by status (established + non-established) ──
 echo "${out}" | python3 -c "
