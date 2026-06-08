@@ -14,7 +14,7 @@ selfdef backend's non-test source. It is skipped when the selfdef checkout
 isn't adjacent (sovereign-os CI without it), so it lights up only where
 both repos are present.
 
-KNOWN GAP (F-2026-084): blockset's production NftablesBackend.
+KNOWN GAP (F-2026-087): blockset's production NftablesBackend.
 pending_extensions() returns the trait default Vec::new() and nothing
 serializes pending-extensions.json, so card_blockset_queue is dead in
 production while all ~12 sibling primitives persist + work. Tracked as a
@@ -35,7 +35,7 @@ COCKPIT = REPO_ROOT / "scripts" / "cockpit"
 # pending-*.json filenames in a cockpit queue script's default read path.
 _PENDING_FILE = re.compile(r"(pending-[a-z]+\.json)")
 
-# F-2026-084: known-dead channel pending MS5 production-path completion.
+# F-2026-087: known-dead channel pending MS5 production-path completion.
 KNOWN_UNWRITTEN = {"pending-extensions.json"}
 
 
@@ -103,7 +103,7 @@ def test_every_cockpit_queue_filename_is_written_by_selfdef():
 def test_known_gap_blockset_is_actually_still_unwritten():
     """Defence: if blockset's pending-extensions.json STARTS being written
     (the MS5 fix lands), this test fails so the KNOWN_UNWRITTEN waiver +
-    F-2026-084 get retired instead of silently masking a now-working
+    F-2026-087 get retired instead of silently masking a now-working
     channel. Opt-in via $SELFDEF_REPO_ROOT."""
     root = _selfdef_root()
     if root is None:
@@ -114,6 +114,6 @@ def test_known_gap_blockset_is_actually_still_unwritten():
     }
     assert still_unwritten == KNOWN_UNWRITTEN, (
         "a KNOWN_UNWRITTEN cockpit channel is now written by selfdef — "
-        f"retire it from KNOWN_UNWRITTEN + close F-2026-084: "
+        f"retire it from KNOWN_UNWRITTEN + close F-2026-087: "
         f"{KNOWN_UNWRITTEN - still_unwritten}"
     )
