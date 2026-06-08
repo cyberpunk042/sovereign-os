@@ -183,3 +183,36 @@ def test_companion_view_includes_chain_wide_signal():
     assert "sovereign_os_operator_m060_health_api_request_total" in exprs, (
         "dashboard must reference the sovereign-os chain-wide metric"
     )
+
+
+def test_dashboard_published_domain_count_matches_full_wire_contract():
+    """The 'domains published (of N)' stat panel must claim the full
+    8-domain M060 wire-contract count. Drift here (e.g., N=6 because
+    the selfdef-side doctor used to silently skip D-12 + D-16) means
+    operators see a green "6/6 published" panel even when the chain
+    is partially online. Pinning N=8 fails the lint if the doctor
+    + dashboard drift apart."""
+    panels = _load()["panels"]
+    published = next(
+        (
+            p
+            for p in panels
+            if "published" in p.get("title", "").lower()
+            and "domain" in p.get("title", "").lower()
+        ),
+        None,
+    )
+    assert published is not None, (
+        "dashboard must include a 'domains published' stat panel"
+    )
+    title = published.get("title", "")
+    assert "(of 8)" in title, (
+        f"'domains published' panel title must say '(of 8)' to match "
+        f"the 8-domain M060 wire contract (D-02/D-12/D-13/D-14/D-15/"
+        f"D-16/D-17/D-18); got: {title!r}"
+    )
+    defaults = published.get("fieldConfig", {}).get("defaults", {})
+    assert defaults.get("max") == 8, (
+        f"'domains published' max-gauge must be 8 to match the full "
+        f"M060 wire contract; got: max={defaults.get('max')!r}"
+    )
