@@ -207,8 +207,16 @@ def build_brief(cfg: dict) -> dict[str, Any]:
             critical_signals.append(
                 f"next-action: {r.get('verb') or r.get('title') or 'unnamed'}"
             )
-    if ah.get("severity", "") in ("critical", "high"):
-        critical_signals.append(f"autohealth severity={ah['severity']}")
+    # autohealth's verdict vocabulary is "critical-findings" /
+    # "attention-findings" / "all-clear" (NOT "critical"/"high"); escalate
+    # on the critical verdict OR any critical in severity_counts. (Was
+    # matching "critical"/"high" — vocabulary mismatch meant a
+    # critical-findings host never reached the critical-signals list.)
+    ah_counts = ah.get("severity_counts") or {}
+    if (ah.get("severity") in ("critical-findings", "critical", "high")
+            or (isinstance(ah_counts, dict)
+                and int(ah_counts.get("critical") or 0) > 0)):
+        critical_signals.append(f"autohealth: {ah.get('severity')}")
     if ms["attention_count"] > 0:
         # module attention is informational; only count it critical when
         # the module is 'running-without-overlay' (operator running stock)
