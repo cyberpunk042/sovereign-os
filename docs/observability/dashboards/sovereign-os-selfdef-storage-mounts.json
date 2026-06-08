@@ -1,0 +1,142 @@
+{
+  "_comment": "Consumer-side cockpit view of selfdef per-mount storage usage (MS011 Z-10). Renders selfdef_storage_mount_{used_pct,used_bytes,size_bytes} (labeled by mountpoint) the daemon exposes at /metrics. Disk pressure is a top operational concern; the selfdef-side SelfdefStorageMount{Yellow,Red} alerts page on it \u2014 this is the cockpit at-a-glance view.",
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {
+      "title": "operator runbook",
+      "url": "/d/sovereign-os-selfdef-disk-usage#runbook",
+      "type": "link",
+      "icon": "doc"
+    },
+    {
+      "title": "producer source",
+      "url": "https://github.com/cyberpunk042/selfdef/blob/main/packaging/scripts/selfdef-disk-usage-textfile.sh",
+      "type": "link",
+      "icon": "external link"
+    },
+    {
+      "title": "deployment guide",
+      "url": "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefdiskusagevarhigh-critical",
+      "type": "link",
+      "icon": "external link"
+    }
+  ],
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "mount used %",
+      "description": "Per-mount filesystem usage percent (yellow \u226575, red \u226590 on the selfdef side).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "selfdef_storage_mount_used_pct",
+          "refId": "A",
+          "legendFormat": "{{mountpoint}}"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "mount used (bytes)",
+      "description": "Per-mount bytes in use.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "selfdef_storage_mount_used_bytes",
+          "refId": "A",
+          "legendFormat": "{{mountpoint}}"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 2,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "mount size (bytes)",
+      "description": "Per-mount total capacity.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "selfdef_storage_mount_size_bytes",
+          "refId": "A",
+          "legendFormat": "{{mountpoint}}"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 3,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "sovereign-os",
+    "selfdef",
+    "storage",
+    "disk",
+    "observability"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "selfdef \u2014 storage mounts (per-mount usage)",
+  "uid": "selfdef-storage-mounts",
+  "version": 1,
+  "weekStart": ""
+}
