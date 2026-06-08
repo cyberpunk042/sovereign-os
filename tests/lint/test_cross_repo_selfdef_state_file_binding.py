@@ -11,13 +11,19 @@ break.
 
 This gate (opt-in via $SELFDEF_REPO_ROOT) is the general form: EVERY
 `/var/lib/selfdef/<path>.json` literal read by any sovereign-os script must
-be written by some non-test selfdef source. Skipped when the selfdef
-checkout isn't adjacent.
+have a counterpart in some non-test selfdef source that names it. For the
+always-on producers (hardware-capabilities.json ← hardware.rs, flex-
+profile.json ← flex_profile.rs) that source IS the live writer; for the
+enforcement pending-*.json queues it is the MS1b FS backend that pins the
+filename (defined but unwired until MS1b — see F-2026-087, the enforcement
+layer is at MS1 in-memory by design). Either way a read-path with NO
+selfdef counterpart is a fabricated/renamed filename — a guaranteed dead
+read. Skipped when the selfdef checkout isn't adjacent.
 
-KNOWN GAP (F-2026-087): blockset's `pending-extensions.json` is never
-written in production (NftablesBackend.pending_extensions() returns the
-trait default); tracked + waived here so the gate protects the rest and a
-defence test fires when blockset starts being written.
+KNOWN GAP (F-2026-087): blockset's `pending-extensions.json` has no selfdef
+counterpart at all (no FsBackend scaffold, unlike its ~12 siblings);
+waived here so the gate protects the rest + the defence test fires when
+blockset gains a writer.
 """
 from __future__ import annotations
 

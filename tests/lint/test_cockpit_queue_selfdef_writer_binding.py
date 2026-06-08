@@ -1,27 +1,31 @@
-"""Cockpit queue read-path ⇄ selfdef writer binding (cross-repo).
+"""Cockpit queue read-path ⇄ selfdef writer-filename binding (cross-repo).
 
-Each `scripts/cockpit/*queue*.py` reads a pending-decision snapshot that
-the SELFDEF side writes to `/var/lib/selfdef/<primitive>/pending-*.json`.
-If the cockpit reads a filename no selfdef backend ever writes, the
-dashboard card renders the empty honest-offline fallback forever — an
-operator-invisible queue (the §1g minimization). This is exactly the
-thermal-`.prom` / mirror-filename class: consumer reads X, producer writes
-Y (or nothing).
+Each `scripts/cockpit/*queue*.py` reads a pending-decision snapshot named
+`/var/lib/selfdef/<primitive>/pending-*.json`. The selfdef side's FS
+backend (the MS1b production adapter for that primitive) is the component
+that will write it — and its source already pins that exact filename
+(e.g. mount-binding's `FsBackend` writes `pending-rebinds.json`). If a
+cockpit script reads a filename that has NO counterpart anywhere in the
+selfdef source tree, the read path is fabricated/renamed — a guaranteed
+dead card once the producer lands. This is the consumer-reads-X /
+producer-names-Y filename class (cf. thermal-`.prom`, mirror artifacts).
 
-This gate (opt-in via $SELFDEF_REPO_ROOT, like the alert-runbook cross-repo
-lints) asserts every cockpit queue read-path FILENAME is written by some
-selfdef backend's non-test source. It is skipped when the selfdef checkout
-isn't adjacent (sovereign-os CI without it), so it lights up only where
-both repos are present.
+NOTE ON SCOPE (don't overclaim — see F-2026-087): this gate verifies the
+filename has a selfdef-source *counterpart*, NOT that production currently
+WRITES it. The enforcement layer is at MS1 (in-memory substrate, per the
+in-memory-backend-as-ms1-substrate decision); the FS backends are defined
+but unwired (`FsBackend::open` is test-only), so ALL these queues are
+empty-by-design until MS1b. ~12 primitives already pin their pending-*.json
+in an (unwired) FsBackend; blockset does not even have that scaffold.
 
-KNOWN GAP (F-2026-087): blockset's production NftablesBackend.
-pending_extensions() returns the trait default Vec::new() and nothing
-serializes pending-extensions.json, so card_blockset_queue is dead in
-production while all ~12 sibling primitives persist + work. Tracked as a
-design-tier finding; listed here as an explicit exception so the gate
-protects the 13 working channels (a NEW dead queue card fails) and
-surfaces blockset until the MS5 production-path is completed (or the card
-is gated off).
+Opt-in via $SELFDEF_REPO_ROOT (like the alert-runbook cross-repo lints);
+skipped when the selfdef checkout isn't adjacent.
+
+KNOWN GAP (F-2026-087): blockset's read-path `pending-extensions.json` has
+no selfdef-source counterpart at all (no FsBackend scaffold), so MS1b must
+author it to sibling parity. Listed as the explicit exception so the gate
+protects the other channels' filename binding + the defence test fires
+when blockset gains a writer.
 """
 from __future__ import annotations
 
@@ -35,7 +39,8 @@ COCKPIT = REPO_ROOT / "scripts" / "cockpit"
 # pending-*.json filenames in a cockpit queue script's default read path.
 _PENDING_FILE = re.compile(r"(pending-[a-z]+\.json)")
 
-# F-2026-087: known-dead channel pending MS5 production-path completion.
+# F-2026-087: blockset read-path has no selfdef FsBackend scaffold (the
+# filename pins nowhere in selfdef source); MS1b must author it to parity.
 KNOWN_UNWRITTEN = {"pending-extensions.json"}
 
 
