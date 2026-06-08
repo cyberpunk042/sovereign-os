@@ -122,6 +122,7 @@ The codebase carries substantial production state from prior development. This s
 | Observability fabric | `crates/sovereign-observability-fabric/` |
 | Grafana dashboards | `docs/observability/dashboards/` (20 dashboards including sovereign-os-router, sovereign-os-inference, sovereign-os-auditor, sovereign-os-trinity, sovereign-os-doc-coverage, the 2 new M060 sub-chain dashboards shipped this session) |
 | Prometheus alerts | `config/prometheus/alerts/m060-chain-health.rules.yml` |
+| Action-surface alert runbook coverage (SDD-041) | Closed 64 dead `runbook_url` anchors across the 11 selfdef responder action-surface alert families (`config/prometheus/alerts/selfdef-{apparmor-profile-pivots,bpf-map-element-clears,capability-drops,env-scrubs,kernel-keyring-evictions,mfa-grant-revocations,mount-bindings,netns-isolations,process-tree-freezes,socket-fd-revocations,token-revocations}.rules.yml`). Authored 64 grounded runbook sections (Meaning/Diagnosis/Fix, real gauge metrics + `selfdef-<surface>-textfile` units + `.prom` paths) into `docs/operator/m060-deployment-guide.md` (+1059 lines), gated by `tests/lint/test_action_surface_alert_runbook_coverage.py` (3 tests: anchors resolve + Meaning/Fix scaffold present). `docs/sdd/041-action-surface-alert-runbook-coverage.md` |
 
 ### M014 — Memory OS
 
