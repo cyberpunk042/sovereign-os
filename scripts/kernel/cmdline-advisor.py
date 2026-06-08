@@ -126,6 +126,31 @@ DEFAULT_RECOMMENDED: list[dict[str, Any]] = [
                            "operator pins inference workloads.",
     },
     {
+        "name": "isolcpus",
+        "value": "2-N",  # operator-pinned; reserve a housekeeping CPU set
+        "axis": "cpu",
+        "rationale": "Isolate a CPU set from the general scheduler so the "
+                     "inference loop owns those cores without timeslice "
+                     "competition — the other half of the rcu_nocbs/nohz_full "
+                     "CPU-isolation triad for deterministic latency.",
+        "operator_caveat": "Leave CPU 0-1 for housekeeping; isolated CPUs "
+                           "won't run normal tasks, so size the set to the "
+                           "actual inference thread count. Pair with "
+                           "rcu_nocbs + nohz_full over the SAME range.",
+    },
+    {
+        "name": "nohz_full",
+        "value": "2-N",  # operator-pinned; match the isolcpus range
+        "axis": "cpu",
+        "rationale": "Full dynticks (tickless) on the isolated CPUs — removes "
+                     "the periodic scheduler-tick interrupt from cores running "
+                     "the inference loop, cutting jitter to near-zero.",
+        "operator_caveat": "Only effective on CPUs also in isolcpus + "
+                           "rcu_nocbs; one housekeeping CPU must stay "
+                           "ticked. Verify with `cat /sys/devices/system/cpu/"
+                           "nohz_full`.",
+    },
+    {
         "name": "preempt",
         "value": "voluntary",
         "axis": "cpu",
