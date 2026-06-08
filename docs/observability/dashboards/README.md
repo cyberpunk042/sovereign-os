@@ -133,6 +133,13 @@ panel queries lock to them.
 - `sovereign_os_thermal_severity{sensor,level}` — 1 if `<sensor>` is currently at `<level>` ∈ {ok, warn, critical}, 0 otherwise. Thresholds are profile-aware (sain-01: warn≥85 crit≥95; headless: warn≥75 crit≥85; GPU sensors: warn≥85 crit≥95 regardless of profile).
 - `sovereign_os_thermal_breach_total` — count of sensors at WARN+CRITICAL on the last tick. Operator-facing "is anything overheating right now?" gauge.
 - `sovereign_os_thermal_last_run_unix` — timestamp of the most recent thermal-watch tick (operators alert on staleness).
+- `sovereign_os_memory_available_pct` — E1.M15: RAM available as percent of total (MemAvailable/MemTotal), sampled every minute by `sovereign-memory-pressure-sample.timer`. Operators alert when this drops below ~15%.
+- `sovereign_os_memory_swap_used_pct` — E1.M15: swap used as percent of total swap (0 when no swap). Sustained high swap on an inference host signals memory exhaustion.
+- `sovereign_os_memory_psi_some_avg60_pct` — E1.M15: PSI some-stall avg60 for memory (`/proc/pressure/memory`); `-1` when PSI is unavailable (pre-4.20 kernel). Operators alert at >20% sustained.
+- `sovereign_os_memory_psi_full_avg10_pct` — E1.M15: PSI full-stall avg10 for memory; `-1` when unavailable. `full>0` means EVERY task stalled on memory — alert immediately.
+- `sovereign_os_memory_oom_kill_count` — E1.M15: OOM kills observed (cgroup v2 `memory.events` oom_kill + journal scan). Any increase is operator-attention.
+- `sovereign_os_memory_pressure_verdict` — E1.M15: 0=ok 1=attention 2=critical -1=unavailable (matches `memory-pressure.py status` verdict). Operators alert when this transitions to 2.
+- `sovereign_os_memory_sample_last_run_timestamp` — E1.M15: timestamp of the most recent memory-pressure sample (operators alert on staleness vs the per-minute timer).
 
 ### GPU power policy (R219 / SDD-026 Z-5 — scripts/hardware/gpu-watch.py)
 
