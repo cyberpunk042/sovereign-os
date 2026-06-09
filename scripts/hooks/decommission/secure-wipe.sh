@@ -32,10 +32,10 @@ if ! confirm "Wipe devices: ${SOVEREIGN_OS_WIPE_DEVICES}? ALL DATA UNRECOVERABLE
   exit 1
 fi
 
-# Run a wipe command, indent its output, and return the command's OWN exit
-# status (not the trailing `sed`'s — `cmd | sed` would otherwise always look
-# successful and mask a failed wipe). Uses PIPESTATUS so a failed erase is
-# detected instead of silently reported as success.
+# Run a wipe command and indent its output, returning the command's OWN exit
+# status via PIPESTATUS[0]. (common.sh sets `pipefail`, so a bare `cmd | sed`
+# already yields the command's status; this just makes the per-device success
+# tracking explicit and robust regardless of shell options.)
 run_wipe() {
   "$@" 2>&1 | sed 's/^/    /'
   return "${PIPESTATUS[0]}"
