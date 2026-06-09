@@ -3864,6 +3864,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-views"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-cockpit-vim-mode-indicator"
 version = "0.1.0"
 dependencies = [
