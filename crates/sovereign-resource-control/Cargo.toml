@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-resource-control"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "E0429 / M00756 — systemd resource-control profiles (CPUWeight / MemoryMax / IOWeight / TasksMax / slices+scopes) for the 5 operator-named service boundaries (oracle / scout / sandbox / eval / gateway). Emits deployable systemd drop-in directives: how 'profiles become real OS behavior'."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
