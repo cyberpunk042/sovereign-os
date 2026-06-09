@@ -5103,6 +5103,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-prompt-compress"
+version = "0.1.0"
+
+[[package]]
 name = "sovereign-prompt-history-ring"
 version = "0.1.0"
 dependencies = [
