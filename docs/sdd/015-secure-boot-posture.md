@@ -118,7 +118,7 @@ no orchestrator-side conditional logic.
    `08-image-sign.sh` is the only step that signs; both refuse rather
    than fall through silently.
 4. **TPM2 reachability checked pre-install** — preflight-tpm refuses
-   when secure_boot=true but no TPM device node or no UEFI vars.
+   when secure_boot is `signed`/`shim` but no TPM device node or no UEFI vars.
 5. **API-key-safe logging** — env-var values never logged.
 
 ## Non-goals (this SDD)

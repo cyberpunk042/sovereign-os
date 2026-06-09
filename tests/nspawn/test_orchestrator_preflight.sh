@@ -10,7 +10,7 @@
 #   - each hook reports PASS or SKIP under dry-run
 #   - preflight exit code is 0 on clean dry-run
 #   - preflight does not mutate state (no state.yaml written)
-#   - preflight-tpm SKIPs on profiles where secure_boot != true
+#   - preflight-tpm runs for secure_boot signed/shim (SDD-015), SKIPs for none/unset
 #   - --profile flag overrides env profile
 
 set -euo pipefail
