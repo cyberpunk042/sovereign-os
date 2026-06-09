@@ -30,6 +30,25 @@ fn demo_keeps_history_bounded() {
 }
 
 #[test]
+fn runs_operator_messages_keeping_history_bounded() {
+    let out = Command::new(env!("CARGO_BIN_EXE_sovereign-chat"))
+        .args(["one", "two", "three", "four", "five"])
+        .output()
+        .expect("run sovereign-chat MESSAGE…");
+    assert!(out.status.success());
+    let s = String::from_utf8_lossy(&out.stdout);
+    // The operator's turns run, and the history stays bounded (≤ 4).
+    assert!(
+        s.contains("non-system, ≤ 4"),
+        "no bounded-history report:\n{s}"
+    );
+    assert!(
+        s.matches("4 non-system, ≤ 4").count() >= 2,
+        "history did not stay bounded:\n{s}"
+    );
+}
+
+#[test]
 fn help_exits_zero() {
     let out = Command::new(env!("CARGO_BIN_EXE_sovereign-chat"))
         .arg("--help")

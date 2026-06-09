@@ -203,6 +203,24 @@ fn ndjson_tcp_malformed_line_yields_error_not_drop() {
 }
 
 // ---------------------------------------------------------------------------
+// selftest mode
+// ---------------------------------------------------------------------------
+
+#[test]
+fn selftest_runs_the_demo_session() {
+    let out = Command::new(env!("CARGO_BIN_EXE_sovereign-gatewayd"))
+        .arg("--selftest")
+        .output()
+        .expect("run --selftest");
+    // Exit 0 only if the never-cloud-spill invariant held through the session.
+    assert!(out.status.success(), "exit: {:?}", out.status);
+    let s = String::from_utf8_lossy(&out.stdout);
+    assert!(s.contains("\"kind\":\"decision\""), "no decisions:\n{s}");
+    assert!(s.contains("\"kind\":\"ledger\""), "no ledger:\n{s}");
+    assert!(s.contains("\"kind\":\"health\""), "no health:\n{s}");
+}
+
+// ---------------------------------------------------------------------------
 // stdio transport (MCP / claude-code shape)
 // ---------------------------------------------------------------------------
 

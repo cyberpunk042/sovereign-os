@@ -17,6 +17,21 @@ fn demo_shows_cache_hit_and_budget_refusal() {
 }
 
 #[test]
+fn serves_operator_prompts_with_a_cache_hit_on_repeat() {
+    let out = Command::new(env!("CARGO_BIN_EXE_sovereign-serve"))
+        .args(["what is sovereignty", "what is sovereignty"])
+        .output()
+        .expect("run sovereign-serve PROMPT PROMPT");
+    assert!(out.status.success());
+    let s = String::from_utf8_lossy(&out.stdout);
+    // The repeated prompt resolves as a $0 cache hit.
+    assert!(
+        s.contains("cache_hit=true"),
+        "repeat should hit cache:\n{s}"
+    );
+}
+
+#[test]
 fn help_exits_zero() {
     let out = Command::new(env!("CARGO_BIN_EXE_sovereign-serve"))
         .arg("--help")
