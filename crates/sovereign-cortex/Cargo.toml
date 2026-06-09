@@ -28,6 +28,7 @@ sovereign-bitlinear-core = { path = "../sovereign-bitlinear-core" }
 sovereign-nvfp4-runtime = { path = "../sovereign-nvfp4-runtime" }
 sovereign-trinity = { path = "../sovereign-trinity" }
 sovereign-lora-foundry = { path = "../sovereign-lora-foundry" }
+sovereign-hrm-runtime = { path = "../sovereign-hrm-runtime" }
 
 [dev-dependencies]
 serde_json = { workspace = true }

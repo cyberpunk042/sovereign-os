@@ -37,6 +37,7 @@ pub use compute::ComputeProfile;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use sovereign_hrm_runtime::{HrmConfig, HrmRun, HrmStepper, RecurrentState};
 use sovereign_lora_foundry::{AdapterSlot, RuntimeDecision, ServeRequest, decide_serving};
 use sovereign_memory_os::{
     FLAG_READABLE, GroundTruth, Hit, HotMeta, MemoryStore, MemoryType, Query,
@@ -114,6 +115,9 @@ pub struct CortexDecision {
     pub assessment: BranchAssessment,
     /// LoRA serving decision — which adapter path to take (M046).
     pub serving: RuntimeDecision,
+    /// Deeper-reasoning engagement (M080): `Some` recurrent run when the
+    /// verdict needed more compute, `None` when the branch was decisive.
+    pub reasoning: Option<HrmRun>,
     /// Per-device compute profile for the placement (footprint + precision).
     pub compute: ComputeProfile,
     /// One-line human-readable trace of the whole path.
@@ -247,12 +251,20 @@ impl Cortex {
         };
         let serving = decide_serving(&serve_req);
 
+        // Engage deeper reasoning (M080) only when the verdict is uncertain:
+        // an uncertain branch runs a bounded HRM recurrent pass.
+        let reasoning = if assessment.suggested_next_action == NextAction::NeedMoreCompute {
+            Some(engage_reasoning())
+        } else {
+            None
+        };
+
         // Compute profile — what the placed precision actually costs,
         // computed by the bitlinear / nvfp4 engines themselves.
         let compute = ComputeProfile::for_role(placement.role, req.model_params);
 
         let summary = format!(
-            "route={:?} → device='{}'{} | recalled={} | action={:?} (score={:.3}, uncertainty={:.3}) | serve={:?} | compute={} ({:.1} bits/param, {} MB)",
+            "route={:?} → device='{}'{} | recalled={} | action={:?} (score={:.3}, uncertainty={:.3}) | serve={:?} | reasoning={} | compute={} ({:.1} bits/param, {} MB)",
             route.role,
             placement.device,
             placement_tag(&placement),
@@ -261,6 +273,7 @@ impl Cortex {
             assessment.step_score,
             assessment.uncertainty,
             serving,
+            reasoning.map(|r| r.steps).unwrap_or(0),
             compute.path,
             compute.bits_per_param,
             compute.est_model_bytes / 1_000_000,
@@ -272,6 +285,7 @@ impl Cortex {
             recalled,
             assessment,
             serving,
+            reasoning,
             compute,
             summary,
         })
@@ -510,6 +524,17 @@ fn boost_reward(mut reward: RewardVector, boost: f32) -> RewardVector {
     reward.evidence = (reward.evidence + boost).min(1.0);
     reward.confidence_calibration = (reward.confidence_calibration + boost * 0.5).min(1.0);
     reward
+}
+
+/// Engage a bounded HRM recurrent pass (M080) representing "think deeper".
+/// Halts after the first two outer steps so it is fast + bounded regardless
+/// of config; the per-step math is the model's job (the crate's design).
+fn engage_reasoning() -> HrmRun {
+    let cfg = HrmConfig::canonical();
+    // canonical() is a valid config, so the stepper construction succeeds.
+    let stepper = HrmStepper::new(&cfg).expect("canonical HRM config is valid");
+    let mut state = RecurrentState::zeros(&cfg);
+    stepper.run_with_halt(&mut state, |s| s.outer_step >= 2)
 }
 
 /// Short placement annotation for summary lines.
@@ -811,6 +836,29 @@ mod tests {
         r.available_adapters.clear();
         let d = Cortex::new().tick(&r).unwrap();
         assert_eq!(d.serving, RuntimeDecision::UseBase);
+    }
+
+    // --- HRM deeper-reasoning engagement ---
+
+    #[test]
+    fn uncertain_verdict_engages_recurrent_reasoning() {
+        let mut r = req();
+        r.reward.confidence_calibration = 0.2; // high uncertainty → NeedMoreCompute
+        let d = Cortex::new().tick(&r).unwrap();
+        assert_eq!(
+            d.assessment.suggested_next_action,
+            NextAction::NeedMoreCompute
+        );
+        let run = d.reasoning.expect("uncertain verdict should engage HRM");
+        assert!(run.steps > 0);
+    }
+
+    #[test]
+    fn decisive_verdict_skips_recurrent_reasoning() {
+        // strong local request → Commit → no deeper reasoning needed
+        let d = Cortex::with_memory(seed_memory()).tick(&req()).unwrap();
+        assert_eq!(d.assessment.suggested_next_action, NextAction::Commit);
+        assert!(d.reasoning.is_none());
     }
 
     // --- best-of-N deliberation ---

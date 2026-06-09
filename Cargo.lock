@@ -4061,6 +4061,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sovereign-bitlinear-core",
+ "sovereign-hrm-runtime",
  "sovereign-lora-foundry",
  "sovereign-memory-os",
  "sovereign-nvfp4-runtime",
