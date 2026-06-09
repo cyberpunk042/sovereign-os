@@ -101,31 +101,18 @@ impl SovereignLlm {
     }
 
     /// Complete `prompt`, returning **only** the newly generated text.
-    /// Reproducible for a given `seed`.
-    pub fn complete(
-        &mut self,
-        prompt: &str,
-        max_new: usize,
-        seed: u64,
-    ) -> Result<String, LlmError> {
-        let ids: Vec<usize> = self
-            .tokenizer
-            .encode(prompt)
-            .into_iter()
-            .map(|t| t as usize)
-            .collect();
-        if ids.is_empty() {
-            return Err(LlmError::EmptyPrompt);
-        }
-        let generated = self.model.generate(&ids, max_new, seed)?;
-        let generated_u32: Vec<u32> = generated.iter().map(|&t| t as u32).collect();
+    /// Reproducible for a given `seed`. Stateless: each call decodes from a
+    /// fresh clone of the model, so repeated calls never contaminate each
+    /// other (which is what lets a chat/agent loop reuse one runtime).
+    pub fn complete(&self, prompt: &str, max_new: usize, seed: u64) -> Result<String, LlmError> {
+        let generated = self.generate_ids(prompt, max_new, seed)?;
         // ids come straight from the model's own vocab, so decode never fails.
-        Ok(self.tokenizer.decode(&generated_u32).unwrap_or_default())
+        Ok(self.tokenizer.decode(&generated).unwrap_or_default())
     }
 
     /// Complete `prompt`, returning the prompt followed by the generated text.
     pub fn complete_with_prompt(
-        &mut self,
+        &self,
         prompt: &str,
         max_new: usize,
         seed: u64,
@@ -136,7 +123,7 @@ impl SovereignLlm {
 
     /// The token ids generated for `prompt` (without decoding to text).
     pub fn generate_ids(
-        &mut self,
+        &self,
         prompt: &str,
         max_new: usize,
         seed: u64,
@@ -147,7 +134,7 @@ impl SovereignLlm {
     /// Like [`generate_ids`](Self::generate_ids) but applies a [`LogitMask`]
     /// at every step — constrained decoding (allow-list / bans / bias).
     pub fn generate_ids_constrained(
-        &mut self,
+        &self,
         prompt: &str,
         max_new: usize,
         seed: u64,
@@ -162,14 +149,16 @@ impl SovereignLlm {
         if ids.is_empty() {
             return Err(LlmError::EmptyPrompt);
         }
-        let generated = self.model.generate_masked(&ids, max_new, seed, mask)?;
+        // clone the model so generation starts from a pristine cache every call
+        let mut model = self.model.clone();
+        let generated = model.generate_masked(&ids, max_new, seed, mask)?;
         Ok(generated.iter().map(|&t| t as u32).collect())
     }
 
     /// Complete `prompt` under a [`LogitMask`], returning only the newly
     /// generated text. Confines generation to the mask's permitted tokens.
     pub fn complete_constrained(
-        &mut self,
+        &self,
         prompt: &str,
         max_new: usize,
         seed: u64,
@@ -257,7 +246,7 @@ mod tests {
 
     #[test]
     fn complete_produces_decodable_text() {
-        let mut llm = runtime(Sampler::new(SamplerConfig::default()));
+        let llm = runtime(Sampler::new(SamplerConfig::default()));
         let out = llm.complete("hello", 8, 42).unwrap();
         // generated text decodes (possibly lossy) — just assert it ran & is a String
         assert!(out.is_empty() || out.is_char_boundary(0));
@@ -267,8 +256,8 @@ mod tests {
 
     #[test]
     fn completion_is_reproducible_per_seed() {
-        let mut a = runtime(Sampler::new(SamplerConfig::default()));
-        let mut b = runtime(Sampler::new(SamplerConfig::default()));
+        let a = runtime(Sampler::new(SamplerConfig::default()));
+        let b = runtime(Sampler::new(SamplerConfig::default()));
         assert_eq!(
             a.generate_ids("the quick brown fox", 10, 7).unwrap(),
             b.generate_ids("the quick brown fox", 10, 7).unwrap()
@@ -277,14 +266,14 @@ mod tests {
 
     #[test]
     fn complete_with_prompt_prefixes_the_input() {
-        let mut llm = runtime(Sampler::greedy());
+        let llm = runtime(Sampler::greedy());
         let full = llm.complete_with_prompt("abc", 4, 1).unwrap();
         assert!(full.starts_with("abc"), "{full:?}");
     }
 
     #[test]
     fn generated_ids_are_in_vocab() {
-        let mut llm = runtime(Sampler::new(SamplerConfig::default()));
+        let llm = runtime(Sampler::new(SamplerConfig::default()));
         let ids = llm.generate_ids("xyz", 12, 99).unwrap();
         let v = llm.vocab_size() as u32;
         assert!(ids.iter().all(|&t| t < v));
@@ -292,14 +281,28 @@ mod tests {
 
     #[test]
     fn empty_prompt_is_an_error() {
-        let mut llm = runtime(Sampler::greedy());
+        let llm = runtime(Sampler::greedy());
         assert_eq!(llm.complete("", 4, 1).unwrap_err(), LlmError::EmptyPrompt);
+    }
+
+    #[test]
+    fn generation_is_stateless_across_calls() {
+        // Two calls on the SAME runtime with the same args must match (the
+        // model is cloned per call, so call 1 never contaminates call 2).
+        let llm = runtime(Sampler::new(SamplerConfig::default()));
+        let a = llm.generate_ids("hello world", 10, 5).unwrap();
+        let b = llm.generate_ids("hello world", 10, 5).unwrap();
+        assert_eq!(a, b);
+        // and a different prompt in between doesn't perturb it
+        let _ = llm.generate_ids("other prompt entirely", 7, 9).unwrap();
+        let c = llm.generate_ids("hello world", 10, 5).unwrap();
+        assert_eq!(a, c);
     }
 
     #[test]
     fn constrained_completion_confines_to_allowed_tokens() {
         use sovereign_logit_mask::LogitMask;
-        let mut llm = runtime(Sampler::new(SamplerConfig::default()));
+        let llm = runtime(Sampler::new(SamplerConfig::default()));
         // only bytes for 'A' (65) and 'B' (66) are allowed to be generated
         let mask = LogitMask::new().allow_only([65usize, 66]);
         let ids = llm.generate_ids_constrained("hello", 16, 3, &mask).unwrap();

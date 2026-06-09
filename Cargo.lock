@@ -218,6 +218,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-agent-runtime"
+version = "0.1.0"
+dependencies = [
+ "sovereign-agent-loop",
+ "sovereign-decoder-stack",
+ "sovereign-ffn",
+ "sovereign-llm",
+ "sovereign-rmsnorm",
+ "sovereign-sampler",
+ "sovereign-stop-sequence",
+ "sovereign-tokenizer",
+ "sovereign-tool-dispatch",
+ "sovereign-transformer-block",
+]
+
+[[package]]
 name = "sovereign-attention"
 version = "0.1.0"
 dependencies = [
