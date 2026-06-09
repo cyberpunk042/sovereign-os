@@ -9,7 +9,15 @@
 # doctrine.
 set -euo pipefail
 
-BIN="${SOVEREIGN_TELEMETRY_BIN:-/opt/sovereign-os/bin/sovereign-telemetry}"
+# Binary discovery: explicit override → on PATH (Makefile installs to
+# $(PREFIX)/bin, normally on PATH) → the /opt layout default.
+if [[ -n "${SOVEREIGN_TELEMETRY_BIN:-}" ]]; then
+    BIN="$SOVEREIGN_TELEMETRY_BIN"
+elif BIN="$(command -v sovereign-telemetry 2>/dev/null)"; then
+    :
+else
+    BIN="/opt/sovereign-os/bin/sovereign-telemetry"
+fi
 OUT_DIR="${TEXTFILE_DIR:-/var/lib/node_exporter/textfile_collector}"
 OUT="${OUT_DIR}/sovereign-telemetry.prom"
 

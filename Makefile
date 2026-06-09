@@ -6,7 +6,7 @@ SHELL := /bin/bash
 PROFILE ?= sain-01
 
 .PHONY: help setup validate lint unit l3 l3-fast test smoke dry-run \
-        preflight ci all clean dashboards-lint install uninstall
+        preflight ci all clean dashboards-lint install uninstall bins
 
 .DEFAULT_GOAL := help
 
@@ -102,6 +102,16 @@ install:  ## Install sovereign-osctl + manpage to PREFIX (default: /usr/local)
 	@echo "  $(DESTDIR)$(PREFIX)/bin/sovereign-osctl"
 	@echo "  $(DESTDIR)$(SOVEREIGN_OS_LIB)/  (lib + hooks + profiles + inference + whitelabel)"
 	@echo "  $(DESTDIR)$(PREFIX)/share/man/man1/sovereign-osctl.1  (if pandoc)"
+
+bins:  ## Build + install the Rust binaries (sovereign-telemetry, sovereign-resource-control) to PREFIX/bin
+	@echo "Building Rust binaries (release)"
+	cargo build --release -p sovereign-telemetry -p sovereign-resource-control
+	@install -d "$(DESTDIR)$(PREFIX)/bin"
+	@install -m 755 target/release/sovereign-telemetry "$(DESTDIR)$(PREFIX)/bin/sovereign-telemetry"
+	@install -m 755 target/release/sovereign-resource-control "$(DESTDIR)$(PREFIX)/bin/sovereign-resource-control"
+	@echo "Installed (on PATH for the sovereign-telemetry-textfile.timer):"
+	@echo "  $(DESTDIR)$(PREFIX)/bin/sovereign-telemetry"
+	@echo "  $(DESTDIR)$(PREFIX)/bin/sovereign-resource-control"
 
 uninstall:  ## Remove sovereign-osctl + manpage from PREFIX
 	@rm -f  "$(DESTDIR)$(PREFIX)/bin/sovereign-osctl"
