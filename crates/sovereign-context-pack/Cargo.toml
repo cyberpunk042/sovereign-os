@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-context-pack"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Optimal context assembly under a token budget: pick the subset of candidate chunks that maximizes total relevance while their token counts fit the budget, via 0/1 knapsack dynamic programming. Beats greedy truncation when chunks vary in length and value — the right way to pack a retrieval context window."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

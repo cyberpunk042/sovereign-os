@@ -4233,6 +4233,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-context-pack"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-continuity-manager"
 version = "0.1.0"
 dependencies = [
