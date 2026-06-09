@@ -4842,6 +4842,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-ngram-lm"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-no-repeat-ngram"
 version = "0.1.0"
 dependencies = [

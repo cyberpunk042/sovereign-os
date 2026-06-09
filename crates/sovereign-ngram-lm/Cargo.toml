@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-ngram-lm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "A trained statistical n-gram language model with add-k (Lidstone) smoothing and backoff to shorter contexts: counts token n-grams, gives a proper next-token probability distribution, and scores sequence perplexity. A cheap, deterministic LM for draft proposals, perplexity baselines, and detecting out-of-distribution text — distinct from neural-logit scoring."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
