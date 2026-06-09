@@ -4374,6 +4374,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cusum"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-dashboard-coverage"
 version = "0.1.0"
 dependencies = [
