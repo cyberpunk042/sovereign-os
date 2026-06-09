@@ -5050,6 +5050,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-serve"
+version = "0.1.0"
+dependencies = [
+ "sovereign-completion-cache",
+ "sovereign-complexity",
+ "sovereign-token-meter",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-six-pillars"
 version = "0.1.0"
 dependencies = [
