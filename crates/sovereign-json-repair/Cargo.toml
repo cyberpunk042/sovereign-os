@@ -1,0 +1,16 @@
+[package]
+name = "sovereign-json-repair"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Repair the malformed JSON that language models emit: strip markdown code fences and surrounding prose, drop trailing commas, and close unclosed strings, objects, and arrays — turning best-effort model output into parseable JSON. A tolerant pre-parse pass for structured generation."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde_json = { workspace = true }
