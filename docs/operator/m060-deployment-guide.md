@@ -3631,6 +3631,45 @@ zpool list "${SOVEREIGN_OS_POOL_NAME:-tank}"   # a full pool blocks snapshots
 space (a held snapshot or full pool makes `zfs snapshot` fail). Take one by hand
 to close the gap; the alert clears on the next successful snapshot.
 
+#### SovereignOsSecurityUpdatesPending (warning)
+
+**Meaning:** `sovereign_os_security_updates_available > 0` for >6h — security-only
+upgrades (Debian-Security origin) have been pending; the host is running packages
+with published vulnerabilities. (`> 0` excludes the `-1` "could not determine"
+sentinel.)
+
+**Diagnosis:**
+
+```bash
+# What's pending from the security suite
+apt-get -s -o Dir::Etc::SourceParts=- upgrade 2>/dev/null | grep -iE '^Inst.*security' || \
+  grep security_updates /var/lib/node_exporter/textfile_collector/sovereign-os*.prom
+```
+
+**Fix:** apply the security set (the operator's patch workflow, or
+`apt-get update && apt-get -y upgrade` scoped to the security suite) and reboot
+if a kernel/libc/microcode update landed. The gauge clears on the next daily
+check once 0 remain. A persistent value despite patching points at a pinned /
+held package — inspect `apt-mark showhold`.
+
+#### SovereignOsSecurityUpdateCheckStale (warning)
+
+**Meaning:** `time() - sovereign_os_security_update_check_last_run_timestamp > 2d`
+— the daily security-update check has not run, so the pending-updates gauge is
+stale and the patch posture is unknown.
+
+**Diagnosis:**
+
+```bash
+systemctl status sovereign-security-update-check.timer
+# A -1 gauge means the check ran but couldn't reach/parse the security suite
+grep security_updates_available /var/lib/node_exporter/textfile_collector/sovereign-os*.prom
+```
+
+**Fix:** re-enable the timer; confirm apt can reach the Debian-Security suite
+(network / mirror / sources.list). Run the check by hand to refresh the gauge.
+The alert clears once the timestamp updates within the window.
+
 ## Project-boundary discipline (MS043 R10212)
 
 - IPS state mutation lives in **selfdef only** (selfdefd + selfdefctl +

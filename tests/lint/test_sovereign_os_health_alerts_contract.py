@@ -37,6 +37,8 @@ EMITTED_METRICS = {
     "sovereign_os_zfs_pool_health",
     "sovereign_os_zfs_scrub_last_run_timestamp",
     "sovereign_os_snapshot_last_created_timestamp",
+    "sovereign_os_security_updates_available",
+    "sovereign_os_security_update_check_last_run_timestamp",
 }
 
 EXPECTED_ALERTS = {
@@ -46,6 +48,8 @@ EXPECTED_ALERTS = {
     "SovereignOsZfsPoolDegraded",
     "SovereignOsZfsScrubOverdue",
     "SovereignOsBackupSnapshotStale",
+    "SovereignOsSecurityUpdatesPending",
+    "SovereignOsSecurityUpdateCheckStale",
 }
 
 
@@ -77,7 +81,7 @@ def test_every_expr_references_only_emitted_metrics():
 def test_every_alert_has_severity_for_and_runbook():
     for r in _rules():
         assert r["labels"]["severity"] in {"warning", "critical"}, r["alert"]
-        assert r["labels"].get("subsystem") in {"hardware", "perimeter", "storage"}, r["alert"]
+        assert r["labels"].get("subsystem") in {"hardware", "perimeter", "storage", "security"}, r["alert"]
         assert "for" in r, r["alert"]
         url = r["annotations"]["runbook_url"]
         assert url.startswith("https://"), r["alert"]
@@ -107,6 +111,7 @@ def test_staleness_alerts_use_last_run_or_created_timestamp():
         "SovereignOsPerimeterVerifierSilent",
         "SovereignOsZfsScrubOverdue",
         "SovereignOsBackupSnapshotStale",
+        "SovereignOsSecurityUpdateCheckStale",
     ):
         expr = by_name[name]["expr"]
         assert "time()" in expr and "timestamp" in expr, (name, expr)

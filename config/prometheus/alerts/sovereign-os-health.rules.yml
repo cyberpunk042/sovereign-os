@@ -145,3 +145,43 @@ groups:
             the sovereign-backup-snapshot.timer and that the dataset still
             exists; a failing `zfs snapshot` (pool full / held) also stalls it.
           runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignosbackupsnapshotstale-warning"
+
+      # Pending security-only upgrades have been available for a sustained
+      # window — the host is running known-vulnerable packages. The `> 0`
+      # comparison excludes the -1 "check could not determine" sentinel.
+      - alert: SovereignOsSecurityUpdatesPending
+        expr: sovereign_os_security_updates_available > 0
+        for: 6h
+        labels:
+          severity: warning
+          subsystem: security
+        annotations:
+          summary: "sovereign-os has {{ $value }} pending security update(s) on {{ $labels.instance }}"
+          description: >
+            sovereign_os_security_updates_available is {{ $value }} — security-only
+            upgrades (Debian-Security origin) have been pending for over 6h. The
+            host is running packages with published vulnerabilities. Apply them
+            (`apt-get -y --only-upgrade install` the security set, or the
+            operator's patch workflow) and reboot if a kernel/libc update
+            landed. The gauge clears on the next daily check once 0 remain.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignossecurityupdatespending-warning"
+
+      # The daily security-update check hasn't reported in over two days — the
+      # patch posture is unknown (the gauge you see may be stale, or a -1
+      # sentinel from a check that can't reach the security suite).
+      - alert: SovereignOsSecurityUpdateCheckStale
+        expr: time() - sovereign_os_security_update_check_last_run_timestamp > 172800
+        for: 10m
+        labels:
+          severity: warning
+          subsystem: security
+        annotations:
+          summary: "sovereign-os security-update check silent on {{ $labels.instance }} (no run in >2d)"
+          description: >
+            sovereign_os_security_update_check_last_run_timestamp is more than
+            two days old — the daily security-update-check has not run, so the
+            pending-updates gauge is stale and the patch posture is unknown.
+            Check the sovereign-security-update-check.timer and that apt can
+            reach the security suite (a -1 sovereign_os_security_updates_available
+            means the check ran but couldn't determine the count).
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignossecurityupdatecheckstale-warning"
