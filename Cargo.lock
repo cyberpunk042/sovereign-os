@@ -219,11 +219,6 @@ dependencies = [
 [[package]]
 name = "sovereign-bitops"
 version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "thiserror",
-]
 
 [[package]]
 name = "sovereign-branch-tree"
