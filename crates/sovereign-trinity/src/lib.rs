@@ -18,6 +18,10 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod cycle;
+
+pub use cycle::{CycleError, CycleStage, StageReport, TrinityCycle};
+
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
