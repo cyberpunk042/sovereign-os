@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-suffix-array"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Suffix array over a byte string with prefix-doubling construction and Kasai LCP: index every suffix once, then count or locate any substring by binary search in O(m log n), and find the longest repeated substring from the LCP array. For detecting degenerate verbatim repetition in generations and fast substring queries over a fixed text."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
