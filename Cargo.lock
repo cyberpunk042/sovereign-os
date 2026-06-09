@@ -234,6 +234,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-aho-corasick"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-answer-extract"
 version = "0.1.0"
 
