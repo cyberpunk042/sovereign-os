@@ -4633,6 +4633,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-typed-state"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-trace-context",
+]
+
+[[package]]
 name = "sovereign-value-plane"
 version = "0.1.0"
 dependencies = [
