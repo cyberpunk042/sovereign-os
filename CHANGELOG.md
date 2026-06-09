@@ -25,10 +25,12 @@ task `axes` + an explicit `expected_quality` dial (+ optional `query_topic` /
   `{axes, quality}` → a real conductor/commit decision).
 
 > **⚠ Operator review needed on the fill-in defaults.** The gateway invents no
-> *hidden* quality policy — the client supplies the quality dial — but the
-> convenience does choose conservative defaults for under-specified fields, and
-> in a sovereign system those are a policy you should own. They are deliberately
-> transparent and tunable in `SimpleRequest::into_cortex`:
+> *hidden* quality policy — `expected_quality` is a **required** field, so the
+> client always supplies the quality dial — but the convenience does choose
+> conservative defaults for the remaining under-specified (mostly mechanical or
+> non-decision-affecting) fields, and in a sovereign system those are a policy
+> you should own. They are deliberately transparent and tunable in
+> `SimpleRequest::into_cortex`:
 > runtime pressures → **idle** (no live telemetry → assume capacity);
 > `allow_cloud` → **false** (sovereign default); workload class + precision →
 > derived from `axes.complexity` (simple → CPU/ternary, complex → GPU/fp16);

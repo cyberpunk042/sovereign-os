@@ -64,17 +64,17 @@ pub struct SimpleRequest {
     /// Value-plane critic profile (`fast`/`careful`/…); defaults to `careful`.
     #[serde(default)]
     pub profile: Option<String>,
-    /// Expected/desired answer quality, 0.0..=1.0 (default 0.7). The client's
-    /// quality dial — mapped transparently onto the reward vector.
-    #[serde(default)]
-    pub expected_quality: Option<f32>,
+    /// Expected/desired answer quality, 0.0..=1.0. **Required** — the client
+    /// always supplies the quality dial, so the gateway makes no hidden quality
+    /// decision; it is mapped transparently onto the reward vector.
+    pub expected_quality: f32,
 }
 
 impl SimpleRequest {
     /// Map to a full [`CortexRequest`], filling runtime-state defaults (idle,
     /// local-only) and deriving the workload + reward from the task + quality.
     pub fn into_cortex(self) -> CortexRequest {
-        let quality = self.expected_quality.unwrap_or(0.7).clamp(0.0, 1.0);
+        let quality = self.expected_quality.clamp(0.0, 1.0);
         // Workload class + precision follow the task's complexity (the same
         // split the 7-axis router uses): simple → CPU-side, complex → GPU-side.
         let (class, precision) = match self.axes.complexity {
@@ -635,7 +635,7 @@ mod tests {
             axes: demo.axes,
             query_topic: 0,
             profile: None,
-            expected_quality: None,
+            expected_quality: 0.7,
         }
         .into_cortex();
         assert!(!req.allow_cloud, "sovereign default: cloud disallowed");
@@ -654,7 +654,7 @@ mod tests {
             axes,
             query_topic: 0,
             profile: None,
-            expected_quality: Some(0.9),
+            expected_quality: 0.9,
         }
         .into_cortex();
         assert!(matches!(simple.workload.class, WorkloadClass::IntentEval));
@@ -667,7 +667,7 @@ mod tests {
             axes,
             query_topic: 0,
             profile: None,
-            expected_quality: Some(0.9),
+            expected_quality: 0.9,
         }
         .into_cortex();
         assert!(matches!(complex.workload.class, WorkloadClass::DeepReason));
