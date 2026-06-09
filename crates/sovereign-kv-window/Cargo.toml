@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-kv-window"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "A sliding-window KV cache with attention sinks: retains the first N 'sink' tokens plus the most recent W tokens, evicting the middle, so attention memory stays bounded no matter how long generation runs. The bounded-memory attention policy for endless operation (distinct from the tiered VRAM/RAM/NVMe kv-cache, which is about placement). Feeds the attention kernel."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+sovereign-attention = { path = "../sovereign-attention" }

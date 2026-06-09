@@ -4418,6 +4418,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-kv-window"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-attention",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-linear"
 version = "0.1.0"
 dependencies = [
