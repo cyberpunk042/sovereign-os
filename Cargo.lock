@@ -4885,6 +4885,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-interval-schedule"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-interval-tree"
 version = "0.1.0"
 dependencies = [
