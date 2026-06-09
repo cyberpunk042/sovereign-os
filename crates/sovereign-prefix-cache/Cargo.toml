@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-prefix-cache"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Token-prefix cache (RadixAttention-style): index cached token sequences in a trie so a new request can reuse the longest already-computed prefix instead of recomputing shared prompt tokens. Reports the matched length and the cached value to resume from — the data structure behind prefix KV-cache sharing in batched serving."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

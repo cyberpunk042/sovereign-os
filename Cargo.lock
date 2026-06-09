@@ -5094,6 +5094,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-prefix-cache"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-pressure-sensors"
 version = "0.1.0"
 dependencies = [
