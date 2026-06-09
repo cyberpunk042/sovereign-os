@@ -248,6 +248,15 @@ impl Cortex {
         Self { memory }
     }
 
+    /// A cortex whose learned memory is bounded to `capacity` items — past
+    /// the bound, the lowest-value memory is evicted, so an endlessly-running
+    /// learning cortex keeps its best memories without unbounded growth.
+    pub fn bounded(capacity: usize) -> Self {
+        Self {
+            memory: MemoryStore::with_capacity(capacity),
+        }
+    }
+
     /// Run one request through the full pipeline.
     ///
     /// Order matters: the router decides *who* should handle it, the
@@ -1042,6 +1051,21 @@ mod tests {
         assert_eq!(report.refused, 1);
         assert_eq!(decisions.len(), 1); // the good one still decided
         assert_eq!(report.committed, 1);
+    }
+
+    #[test]
+    fn bounded_cortex_caps_learned_memory() {
+        let mut cortex = Cortex::bounded(2);
+        let reqs: Vec<CortexRequest> = std::iter::repeat_with(req).take(5).collect();
+        let (_decisions, report) = cortex.run_session(&reqs);
+        assert_eq!(report.committed, 5);
+        assert_eq!(report.learned, 5);
+        // despite learning 5, the bound holds
+        assert!(
+            cortex.memory.len() <= 2,
+            "bounded to 2, got {}",
+            cortex.memory.len()
+        );
     }
 
     // --- best-of-N deliberation ---
