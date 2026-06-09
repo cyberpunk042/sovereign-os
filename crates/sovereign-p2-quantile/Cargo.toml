@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-p2-quantile"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Online quantile estimation with the P-squared algorithm: track a quantile (p50, p95, p99, …) over an unbounded stream in constant memory (five markers, parabolic interpolation), without storing the samples. For latency and throughput percentiles in the inference engine — a streaming alternative to a bucketed histogram."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

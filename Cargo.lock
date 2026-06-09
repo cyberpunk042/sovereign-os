@@ -5014,6 +5014,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-p2-quantile"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-perplexity"
 version = "0.1.0"
 dependencies = [
