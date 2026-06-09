@@ -86,7 +86,10 @@ fi
 
 # Rebuild initramfs so the option applies at boot
 if command -v update-initramfs >/dev/null 2>&1; then
-  update-initramfs -u 2>&1 | sed 's/^/  /' || log_warn "update-initramfs failed; manual run may be needed"
+  update-initramfs -u 2>&1 | sed 's/^/  /'
+  # PIPESTATUS, not the piped sed's status, or the warning never fires on a real
+  # failure (and the ARC clamp won't apply at the next boot, unannounced).
+  [ "${PIPESTATUS[0]}" -eq 0 ] || log_warn "update-initramfs failed; manual run may be needed (ARC clamp will not apply at boot)"
 fi
 
 emit_metric sovereign_os_post_install_arc_clamp_total 1 \

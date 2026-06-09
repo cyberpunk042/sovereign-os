@@ -106,7 +106,10 @@ for idx, nic in enumerate(nics):
 # Restart networkd
 if command -v systemctl >/dev/null 2>&1; then
   systemctl enable systemd-networkd 2>&1 | sed 's/^/  /' || true
-  systemctl restart systemd-networkd 2>&1 | sed 's/^/  /' || log_warn "systemd-networkd restart failed; manual intervention may be needed"
+  systemctl restart systemd-networkd 2>&1 | sed 's/^/  /'
+  # PIPESTATUS, not the piped sed's status — else a failed networkd restart
+  # (VLAN/Zero-Trust segregation not applied) is masked and never warned.
+  [ "${PIPESTATUS[0]}" -eq 0 ] || log_warn "systemd-networkd restart failed; manual intervention may be needed (VLAN segregation not applied)"
 fi
 
 emit_metric sovereign_os_post_install_network_vlan_total 1 \

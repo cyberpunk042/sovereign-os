@@ -86,7 +86,11 @@ log_info "  wrote ${modprobe_dir}/vfio.conf"
 
 # Update initramfs so vfio-pci loads early enough
 if command -v update-initramfs >/dev/null 2>&1; then
-  update-initramfs -u 2>&1 | sed 's/^/  /' || log_warn "update-initramfs failed; manual rebuild may be needed"
+  update-initramfs -u 2>&1 | sed 's/^/  /'
+  # PIPESTATUS, not the trailing sed's status: `cmd | sed || warn` checks sed
+  # (always 0), so the warning never fired on a real initramfs failure — and the
+  # vfio binding would silently not apply at boot with no operator notice.
+  [ "${PIPESTATUS[0]}" -eq 0 ] || log_warn "update-initramfs failed; manual rebuild may be needed (vfio binding will NOT apply at boot)"
 fi
 
 log_info "VFIO binding configured; reboot to apply"
