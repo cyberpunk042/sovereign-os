@@ -33,6 +33,30 @@ pub struct TargetLoad {
     pub captured_at: String,
 }
 
+impl TargetLoad {
+    /// Construct one per-target load sample from a live reading.
+    ///
+    /// `util_pct` range and `vram_used_gb`-vs-registry-capacity are enforced
+    /// at the boundary by [`LoadSnapshot::validate_against`] /
+    /// [`LoadSnapshot::update_target`] rather than here, so a bad sample
+    /// surfaces as a typed [`LoadError`] instead of being silently accepted.
+    pub fn new(
+        target: HardwareTarget,
+        vram_used_gb: u32,
+        util_pct: u8,
+        temp_c: u8,
+        captured_at: impl Into<String>,
+    ) -> Self {
+        Self {
+            target,
+            vram_used_gb,
+            util_pct,
+            temp_c,
+            captured_at: captured_at.into(),
+        }
+    }
+}
+
 /// 5-target load snapshot bundle.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LoadSnapshot {
@@ -139,6 +163,63 @@ impl LoadSnapshot {
                 });
             }
         }
+        Ok(())
+    }
+
+    /// Assemble a snapshot from live per-target samples, validating it
+    /// against the registry before returning.
+    ///
+    /// The live counterpart to [`Self::empty_canonical`]: callers pass the
+    /// bundle capture time plus the five real [`TargetLoad`]s sampled from the
+    /// running system, and the registry whose declared VRAM capacities the
+    /// samples must fit within. Construction fails (rather than yielding a
+    /// snapshot the scheduler would trust) unless the loads form exactly the
+    /// five canonical targets, each in range and within capacity.
+    pub fn from_loads(
+        captured_at: impl Into<String>,
+        loads: Vec<TargetLoad>,
+        registry: &HardwareRegistry,
+    ) -> Result<Self, LoadError> {
+        let snap = Self {
+            schema_version: SCHEMA_VERSION.into(),
+            captured_at: captured_at.into(),
+            loads,
+        };
+        snap.validate_against(registry)?;
+        Ok(snap)
+    }
+
+    /// Update one target's live sample in place, validating `util_pct` first.
+    ///
+    /// Returns [`LoadError::UtilOutOfRange`] for `util_pct > 100`, or
+    /// [`LoadError::Missing`] if the target is absent (impossible on a
+    /// snapshot that has passed `validate_against`). The `vram_used_gb`
+    /// -vs-capacity check needs the registry, so it stays in
+    /// `validate_against`; this in-place update never adds or removes a load,
+    /// so the five-target invariant holds across an unbounded sample stream.
+    pub fn update_target(
+        &mut self,
+        target: HardwareTarget,
+        vram_used_gb: u32,
+        util_pct: u8,
+        temp_c: u8,
+        captured_at: impl Into<String>,
+    ) -> Result<(), LoadError> {
+        if util_pct > 100 {
+            return Err(LoadError::UtilOutOfRange {
+                target,
+                pct: util_pct,
+            });
+        }
+        let rec = self
+            .loads
+            .iter_mut()
+            .find(|l| l.target == target)
+            .ok_or(LoadError::Missing(target))?;
+        rec.vram_used_gb = vram_used_gb;
+        rec.util_pct = util_pct;
+        rec.temp_c = temp_c;
+        rec.captured_at = captured_at.into();
         Ok(())
     }
 
@@ -282,5 +363,75 @@ mod tests {
         let j = serde_json::to_string(&s).unwrap();
         let back: LoadSnapshot = serde_json::from_str(&j).unwrap();
         assert_eq!(s, back);
+    }
+
+    // ---- live build / update API ----
+
+    fn five_loads() -> Vec<TargetLoad> {
+        [
+            HardwareTarget::CpuPulse,
+            HardwareTarget::Rocm3090,
+            HardwareTarget::BlackwellOracle,
+            HardwareTarget::Cloud,
+            HardwareTarget::NoHardware,
+        ]
+        .into_iter()
+        .map(|t| TargetLoad::new(t, 0, 10, 40, "2026-06-09T12:00:00Z"))
+        .collect()
+    }
+
+    #[test]
+    fn from_loads_builds_validated_snapshot() {
+        let s = LoadSnapshot::from_loads("2026-06-09T12:00:00Z", five_loads(), &reg()).unwrap();
+        assert_eq!(s.avg_util_pct(), 10);
+        s.validate_against(&reg()).unwrap();
+    }
+
+    #[test]
+    fn from_loads_rejects_vram_over_capacity() {
+        let mut loads = five_loads();
+        // rocm-3090 capacity is 24GB in the canonical registry.
+        for l in loads.iter_mut() {
+            if l.target == HardwareTarget::Rocm3090 {
+                l.vram_used_gb = 30;
+            }
+        }
+        assert!(matches!(
+            LoadSnapshot::from_loads("t", loads, &reg()).unwrap_err(),
+            LoadError::VramOverflow {
+                target: HardwareTarget::Rocm3090,
+                used: 30,
+                cap: 24
+            }
+        ));
+    }
+
+    #[test]
+    fn from_loads_rejects_wrong_count() {
+        let mut loads = five_loads();
+        loads.pop();
+        assert!(matches!(
+            LoadSnapshot::from_loads("t", loads, &reg()).unwrap_err(),
+            LoadError::CountInvalid(4)
+        ));
+    }
+
+    #[test]
+    fn update_target_validates_and_preserves_invariant() {
+        let mut s = LoadSnapshot::empty_canonical("t");
+        // A live DCGM sample lands on the rocm-3090 target.
+        s.update_target(HardwareTarget::Rocm3090, 18, 87, 71, "2026-06-09T12:34:56Z")
+            .unwrap();
+        s.validate_against(&reg()).unwrap();
+        assert_eq!(s.total_local_vram_used_gb(), 18);
+        // util > 100 rejected, prior state untouched.
+        assert!(matches!(
+            s.update_target(HardwareTarget::CpuPulse, 0, 130, 0, "t"),
+            Err(LoadError::UtilOutOfRange {
+                target: HardwareTarget::CpuPulse,
+                pct: 130
+            })
+        ));
+        assert_eq!(s.avg_util_pct(), 87 / 5);
     }
 }
