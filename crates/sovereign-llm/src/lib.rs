@@ -25,6 +25,7 @@
 
 use serde::{Deserialize, Serialize};
 use sovereign_decoder_stack::{DecoderStack, StackConfig, StackError};
+use sovereign_logit_mask::LogitMask;
 use sovereign_tokenizer::Tokenizer;
 use thiserror::Error;
 
@@ -140,6 +141,18 @@ impl SovereignLlm {
         max_new: usize,
         seed: u64,
     ) -> Result<Vec<u32>, LlmError> {
+        self.generate_ids_constrained(prompt, max_new, seed, &LogitMask::new())
+    }
+
+    /// Like [`generate_ids`](Self::generate_ids) but applies a [`LogitMask`]
+    /// at every step — constrained decoding (allow-list / bans / bias).
+    pub fn generate_ids_constrained(
+        &mut self,
+        prompt: &str,
+        max_new: usize,
+        seed: u64,
+        mask: &LogitMask,
+    ) -> Result<Vec<u32>, LlmError> {
         let ids: Vec<usize> = self
             .tokenizer
             .encode(prompt)
@@ -149,8 +162,21 @@ impl SovereignLlm {
         if ids.is_empty() {
             return Err(LlmError::EmptyPrompt);
         }
-        let generated = self.model.generate(&ids, max_new, seed)?;
+        let generated = self.model.generate_masked(&ids, max_new, seed, mask)?;
         Ok(generated.iter().map(|&t| t as u32).collect())
+    }
+
+    /// Complete `prompt` under a [`LogitMask`], returning only the newly
+    /// generated text. Confines generation to the mask's permitted tokens.
+    pub fn complete_constrained(
+        &mut self,
+        prompt: &str,
+        max_new: usize,
+        seed: u64,
+        mask: &LogitMask,
+    ) -> Result<String, LlmError> {
+        let generated = self.generate_ids_constrained(prompt, max_new, seed, mask)?;
+        Ok(self.tokenizer.decode(&generated).unwrap_or_default())
     }
 }
 
@@ -268,6 +294,19 @@ mod tests {
     fn empty_prompt_is_an_error() {
         let mut llm = runtime(Sampler::greedy());
         assert_eq!(llm.complete("", 4, 1).unwrap_err(), LlmError::EmptyPrompt);
+    }
+
+    #[test]
+    fn constrained_completion_confines_to_allowed_tokens() {
+        use sovereign_logit_mask::LogitMask;
+        let mut llm = runtime(Sampler::new(SamplerConfig::default()));
+        // only bytes for 'A' (65) and 'B' (66) are allowed to be generated
+        let mask = LogitMask::new().allow_only([65usize, 66]);
+        let ids = llm.generate_ids_constrained("hello", 16, 3, &mask).unwrap();
+        assert!(ids.iter().all(|&t| t == 65 || t == 66), "got {ids:?}");
+        // and the decoded text is only As and Bs
+        let text = llm.complete_constrained("hello", 16, 3, &mask).unwrap();
+        assert!(text.chars().all(|c| c == 'A' || c == 'B'), "text {text:?}");
     }
 
     #[test]

@@ -27,6 +27,7 @@
 #![warn(missing_docs)]
 
 use serde::{Deserialize, Serialize};
+use sovereign_logit_mask::LogitMask;
 use sovereign_rmsnorm::RmsNorm;
 use sovereign_sampler::{Sampler, SamplerError};
 use sovereign_transformer_block::{BlockError, BlockWeights, DecoderBlock};
@@ -212,6 +213,19 @@ impl DecoderStack {
         max_new: usize,
         seed: u64,
     ) -> Result<Vec<usize>, StackError> {
+        self.generate_masked(prompt, max_new, seed, &LogitMask::new())
+    }
+
+    /// Like [`generate`](Self::generate) but applies `mask` to every step's
+    /// logits before sampling — constrained decoding (allow-list / bans /
+    /// bias). With an empty mask this is identical to `generate`.
+    pub fn generate_masked(
+        &mut self,
+        prompt: &[usize],
+        max_new: usize,
+        seed: u64,
+        mask: &LogitMask,
+    ) -> Result<Vec<usize>, StackError> {
         if prompt.is_empty() {
             return Err(StackError::EmptyPrompt);
         }
@@ -224,6 +238,7 @@ impl DecoderStack {
 
         let mut generated = Vec::with_capacity(max_new);
         for _ in 0..max_new {
+            mask.apply(&mut logits);
             let pos = self.position() as u64;
             let recent_start = self.recent.len().saturating_sub(self.config.recent_window);
             let token = self.config.sampler.sample_seeded(
@@ -346,6 +361,26 @@ mod tests {
     fn empty_prompt_is_an_error() {
         let mut m = DecoderStack::new(config(6, 4, 1, Sampler::greedy())).unwrap();
         assert_eq!(m.generate(&[], 3, 1).unwrap_err(), StackError::EmptyPrompt);
+    }
+
+    #[test]
+    fn masked_generation_stays_in_the_allow_list() {
+        let mut m =
+            DecoderStack::new(config(8, 4, 2, Sampler::new(SamplerConfig::default()))).unwrap();
+        let mask = LogitMask::new().allow_only([2usize, 5]);
+        let out = m.generate_masked(&[1, 3], 12, 7, &mask).unwrap();
+        assert!(out.iter().all(|&t| t == 2 || t == 5), "got {out:?}");
+    }
+
+    #[test]
+    fn empty_mask_matches_plain_generate() {
+        let cfg = config(8, 4, 2, Sampler::new(SamplerConfig::default()));
+        let mut a = DecoderStack::new(cfg.clone()).unwrap();
+        let mut b = DecoderStack::new(cfg).unwrap();
+        assert_eq!(
+            a.generate(&[1, 2], 6, 5).unwrap(),
+            b.generate_masked(&[1, 2], 6, 5, &LogitMask::new()).unwrap()
+        );
     }
 
     #[test]
