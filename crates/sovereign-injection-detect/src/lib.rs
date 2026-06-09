@@ -20,9 +20,19 @@
 #![warn(missing_docs)]
 
 use serde::{Deserialize, Serialize};
+use sovereign_aho_corasick::AhoCorasick;
+use std::sync::OnceLock;
 
 /// Schema version of the injection-detect surface.
 pub const SCHEMA_VERSION: &str = "1.0.0";
+
+/// The Aho-Corasick automaton over [`PATTERNS`], built once on first use. All
+/// patterns are scanned in a single `O(text)` pass instead of one substring
+/// search per pattern.
+fn automaton() -> &'static AhoCorasick {
+    static AC: OnceLock<AhoCorasick> = OnceLock::new();
+    AC.get_or_init(|| AhoCorasick::new(PATTERNS))
+}
 
 /// Known prompt-injection / jailbreak substrings (lowercased).
 pub const PATTERNS: &[&str] = &[
@@ -68,15 +78,16 @@ impl Detection {
     }
 }
 
-/// Scan `text` for injection patterns.
+/// Scan `text` for injection patterns in a single Aho-Corasick pass.
 pub fn scan(text: &str) -> Detection {
     let lower = text.to_lowercase();
-    let mut matches: Vec<String> = PATTERNS
-        .iter()
-        .filter(|p| lower.contains(*p))
-        .map(|p| p.to_string())
+    // matched_patterns returns distinct pattern indices, sorted — which (because
+    // the automaton is built from PATTERNS in order) preserves PATTERNS order.
+    let matches: Vec<String> = automaton()
+        .matched_patterns(lower.as_bytes())
+        .into_iter()
+        .map(|i| PATTERNS[i].to_string())
         .collect();
-    matches.dedup();
     // each distinct match adds 0.5; two or more saturates the risk
     let risk = (matches.len() as f64 / 2.0).min(1.0);
     Detection { risk, matches }
