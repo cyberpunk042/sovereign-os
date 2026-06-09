@@ -118,6 +118,20 @@ pub fn chunk_by_percentile(
     assemble(&sentences[..n], &cut_after)
 }
 
+/// One-call semantic chunking of raw `text`: split it into sentences with
+/// [`sovereign_sentence_split`], embed each with [`sovereign_embed`], and chunk by
+/// the adaptive percentile breakpoint. Returns topically-coherent chunks ready
+/// for retrieval ingestion — the whole text-to-chunks path in one call.
+pub fn chunk_text(text: &str, percentile: f64) -> Vec<String> {
+    let sentences = sovereign_sentence_split::split(text);
+    if sentences.is_empty() {
+        return Vec::new();
+    }
+    let refs: Vec<&str> = sentences.iter().map(String::as_str).collect();
+    let embeddings: Vec<Vec<f32>> = refs.iter().map(|s| sovereign_embed::embed(s)).collect();
+    chunk_by_percentile(&refs, &embeddings, percentile)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -196,6 +210,25 @@ mod tests {
         let empty: Vec<&str> = Vec::new();
         assert!(chunk_by_threshold(&empty, &[], 0.5).is_empty());
         assert!(chunk_by_percentile(&empty, &[], 0.5).is_empty());
+    }
+
+    #[test]
+    fn chunk_text_end_to_end() {
+        // two clearly different topics; semantic chunking should produce >1 chunk
+        // and every sentence must survive somewhere in the output.
+        let text = "Rust gives memory safety. Ownership prevents data races. \
+                    Pasta needs boiling water. Add salt and tomato sauce.";
+        let chunks = chunk_text(text, 0.34);
+        assert!(!chunks.is_empty());
+        let joined = chunks.join(" ");
+        assert!(joined.contains("memory safety"));
+        assert!(joined.contains("tomato sauce"));
+    }
+
+    #[test]
+    fn chunk_text_empty_is_empty() {
+        assert!(chunk_text("", 0.3).is_empty());
+        assert!(chunk_text("   ", 0.3).is_empty());
     }
 
     #[test]

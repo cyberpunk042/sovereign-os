@@ -5376,6 +5376,10 @@ dependencies = [
 [[package]]
 name = "sovereign-semantic-chunk"
 version = "0.1.0"
+dependencies = [
+ "sovereign-embed",
+ "sovereign-sentence-split",
+]
 
 [[package]]
 name = "sovereign-semver"

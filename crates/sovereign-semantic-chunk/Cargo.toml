@@ -13,3 +13,5 @@ description = "Semantic chunking: group consecutive sentences into chunks, cutti
 workspace = true
 
 [dependencies]
+sovereign-sentence-split = { path = "../sovereign-sentence-split" }
+sovereign-embed = { path = "../sovereign-embed" }
