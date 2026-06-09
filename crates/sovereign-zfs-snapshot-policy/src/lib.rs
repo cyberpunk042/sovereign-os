@@ -255,29 +255,56 @@ mod tests {
         let now = 1_000_000_000;
         let snaps = vec![
             // daily, 40 days old → prune (window 30)
-            SnapshotMeta { name: "tank/context@zfs-auto-snap_daily-x".into(), created_epoch: now - days(40) },
+            SnapshotMeta {
+                name: "tank/context@zfs-auto-snap_daily-x".into(),
+                created_epoch: now - days(40),
+            },
             // daily, 10 days old → keep
-            SnapshotMeta { name: "tank/context@zfs-auto-snap_daily-y".into(), created_epoch: now - days(10) },
+            SnapshotMeta {
+                name: "tank/context@zfs-auto-snap_daily-y".into(),
+                created_epoch: now - days(10),
+            },
             // pre-commit, 400 days old → prune (window 365)
-            SnapshotMeta { name: "tank/context@selfdef-pre-commit-old".into(), created_epoch: now - days(400) },
+            SnapshotMeta {
+                name: "tank/context@selfdef-pre-commit-old".into(),
+                created_epoch: now - days(400),
+            },
             // pre-commit, 100 days old → keep
-            SnapshotMeta { name: "tank/context@selfdef-pre-commit-new".into(), created_epoch: now - days(100) },
+            SnapshotMeta {
+                name: "tank/context@selfdef-pre-commit-new".into(),
+                created_epoch: now - days(100),
+            },
             // unknown, ancient → keep (never pruned)
-            SnapshotMeta { name: "tank/models@adhoc".into(), created_epoch: now - days(9999) },
+            SnapshotMeta {
+                name: "tank/models@adhoc".into(),
+                created_epoch: now - days(9999),
+            },
         ];
         let plan = plan_pruning(&snaps, now);
         assert_eq!(plan.prune_count(), 2);
         assert_eq!(
             plan.to_prune(),
-            vec!["tank/context@zfs-auto-snap_daily-x", "tank/context@selfdef-pre-commit-old"]
+            vec![
+                "tank/context@zfs-auto-snap_daily-x",
+                "tank/context@selfdef-pre-commit-old"
+            ]
         );
         assert!(plan.to_keep().contains(&"tank/models@adhoc"));
-        assert!(plan.to_keep().contains(&"tank/context@selfdef-pre-commit-new"));
+        assert!(
+            plan.to_keep()
+                .contains(&"tank/context@selfdef-pre-commit-new")
+        );
     }
 
     #[test]
     fn serde_kebab_class() {
-        assert_eq!(serde_json::to_string(&SnapshotClass::PreCommit).unwrap(), "\"pre-commit\"");
-        assert_eq!(serde_json::to_string(&SnapshotClass::Unknown).unwrap(), "\"unknown\"");
+        assert_eq!(
+            serde_json::to_string(&SnapshotClass::PreCommit).unwrap(),
+            "\"pre-commit\""
+        );
+        assert_eq!(
+            serde_json::to_string(&SnapshotClass::Unknown).unwrap(),
+            "\"unknown\""
+        );
     }
 }

@@ -73,8 +73,11 @@ pub enum TelemetrySink {
 
 impl TelemetrySink {
     /// All three sinks, in canonical order.
-    pub const ALL: [TelemetrySink; 3] =
-        [TelemetrySink::PrometheusLocal, TelemetrySink::Otel, TelemetrySink::None];
+    pub const ALL: [TelemetrySink; 3] = [
+        TelemetrySink::PrometheusLocal,
+        TelemetrySink::Otel,
+        TelemetrySink::None,
+    ];
 
     /// The canonical token, exactly as written in `telemetry_sink`.
     #[must_use]
@@ -163,7 +166,9 @@ pub struct Resolution {
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum TelemetrySinkError {
     /// A supplied override token was not a recognized sink.
-    #[error("{rung} value {token:?} is not a telemetry sink (expected one of: prometheus-local, otel, none)")]
+    #[error(
+        "{rung} value {token:?} is not a telemetry sink (expected one of: prometheus-local, otel, none)"
+    )]
     BadToken {
         /// Which rung carried the bad token.
         rung: ResolvedFrom,
@@ -214,7 +219,10 @@ pub fn resolve(
         })?;
         return Ok(Resolution { sink, source: rung });
     }
-    Ok(Resolution { sink: TelemetrySink::default(), source: ResolvedFrom::Default })
+    Ok(Resolution {
+        sink: TelemetrySink::default(),
+        source: ResolvedFrom::Default,
+    })
 }
 
 #[cfg(test)]
@@ -232,18 +240,31 @@ mod tests {
     #[test]
     fn profile_vocabulary_parses() {
         // The exact tokens every profiles/*.yaml uses + the SDD-004 set.
-        assert_eq!(TelemetrySink::from_token("prometheus-local"), Some(TelemetrySink::PrometheusLocal));
+        assert_eq!(
+            TelemetrySink::from_token("prometheus-local"),
+            Some(TelemetrySink::PrometheusLocal)
+        );
         assert_eq!(TelemetrySink::from_token("otel"), Some(TelemetrySink::Otel));
         assert_eq!(TelemetrySink::from_token("none"), Some(TelemetrySink::None));
     }
 
     #[test]
     fn aliases_and_case_insensitivity() {
-        assert_eq!(TelemetrySink::from_token("PROM"), Some(TelemetrySink::PrometheusLocal));
-        assert_eq!(TelemetrySink::from_token("  prometheus "), Some(TelemetrySink::PrometheusLocal));
+        assert_eq!(
+            TelemetrySink::from_token("PROM"),
+            Some(TelemetrySink::PrometheusLocal)
+        );
+        assert_eq!(
+            TelemetrySink::from_token("  prometheus "),
+            Some(TelemetrySink::PrometheusLocal)
+        );
         assert_eq!(TelemetrySink::from_token("OTLP"), Some(TelemetrySink::Otel));
         assert_eq!(TelemetrySink::from_token("off"), Some(TelemetrySink::None));
-        assert_eq!(TelemetrySink::from_token("dual"), None, "no dual sink operationally");
+        assert_eq!(
+            TelemetrySink::from_token("dual"),
+            None,
+            "no dual sink operationally"
+        );
         assert_eq!(TelemetrySink::from_token(""), None);
     }
 
@@ -267,19 +288,31 @@ mod tests {
     fn cli_beats_env_beats_profile_beats_default() {
         assert_eq!(
             resolve(Some("otel"), Some("none"), Some("prometheus-local")).unwrap(),
-            Resolution { sink: TelemetrySink::Otel, source: ResolvedFrom::Cli }
+            Resolution {
+                sink: TelemetrySink::Otel,
+                source: ResolvedFrom::Cli
+            }
         );
         assert_eq!(
             resolve(None, Some("none"), Some("prometheus-local")).unwrap(),
-            Resolution { sink: TelemetrySink::None, source: ResolvedFrom::Env }
+            Resolution {
+                sink: TelemetrySink::None,
+                source: ResolvedFrom::Env
+            }
         );
         assert_eq!(
             resolve(None, None, Some("otel")).unwrap(),
-            Resolution { sink: TelemetrySink::Otel, source: ResolvedFrom::Profile }
+            Resolution {
+                sink: TelemetrySink::Otel,
+                source: ResolvedFrom::Profile
+            }
         );
         assert_eq!(
             resolve(None, None, None).unwrap(),
-            Resolution { sink: TelemetrySink::PrometheusLocal, source: ResolvedFrom::Default }
+            Resolution {
+                sink: TelemetrySink::PrometheusLocal,
+                source: ResolvedFrom::Default
+            }
         );
     }
 
@@ -287,7 +320,10 @@ mod tests {
     fn blank_rungs_fall_through() {
         assert_eq!(
             resolve(None, Some("   "), Some("otel")).unwrap(),
-            Resolution { sink: TelemetrySink::Otel, source: ResolvedFrom::Profile }
+            Resolution {
+                sink: TelemetrySink::Otel,
+                source: ResolvedFrom::Profile
+            }
         );
         assert_eq!(
             resolve(Some(""), Some(" "), Some("")).unwrap().source,
@@ -300,7 +336,10 @@ mod tests {
         let err = resolve(Some("dual"), Some("otel"), None).unwrap_err();
         assert_eq!(
             err,
-            TelemetrySinkError::BadToken { rung: ResolvedFrom::Cli, token: "dual".to_string() }
+            TelemetrySinkError::BadToken {
+                rung: ResolvedFrom::Cli,
+                token: "dual".to_string()
+            }
         );
         assert!(err.to_string().contains("--telemetry-sink"));
     }
@@ -308,9 +347,21 @@ mod tests {
     #[test]
     fn serde_matches_profile_field_form() {
         // Serde wire form must equal the token written in profiles/*.yaml.
-        assert_eq!(serde_json::to_string(&TelemetrySink::PrometheusLocal).unwrap(), "\"prometheus-local\"");
-        assert_eq!(serde_json::to_string(&TelemetrySink::Otel).unwrap(), "\"otel\"");
-        assert_eq!(serde_json::to_string(&TelemetrySink::None).unwrap(), "\"none\"");
-        assert_eq!(serde_json::to_string(&ResolvedFrom::Cli).unwrap(), "\"cli\"");
+        assert_eq!(
+            serde_json::to_string(&TelemetrySink::PrometheusLocal).unwrap(),
+            "\"prometheus-local\""
+        );
+        assert_eq!(
+            serde_json::to_string(&TelemetrySink::Otel).unwrap(),
+            "\"otel\""
+        );
+        assert_eq!(
+            serde_json::to_string(&TelemetrySink::None).unwrap(),
+            "\"none\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ResolvedFrom::Cli).unwrap(),
+            "\"cli\""
+        );
     }
 }

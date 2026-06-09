@@ -280,7 +280,11 @@ pub struct PoolSpec {
 /// The canonical pool spec: `ashift=12`, `compression=lz4`, `atime=off`.
 #[must_use]
 pub fn canonical_pool() -> PoolSpec {
-    PoolSpec { ashift: 12, compression: Compression::Lz4, atime_off: true }
+    PoolSpec {
+        ashift: 12,
+        compression: Compression::Lz4,
+        atime_off: true,
+    }
 }
 
 /// The canonical per-dataset specs, verbatim from `profiles/sain-01.yaml` §4.1.
@@ -448,11 +452,26 @@ mod tests {
 
     #[test]
     fn recordsize_rejects_illegal_values() {
-        assert!(matches!(parse_recordsize("100K"), Err(RecordSizeError::NotPowerOfTwo(_))));
-        assert!(matches!(parse_recordsize("256"), Err(RecordSizeError::OutOfRange(_))));
-        assert!(matches!(parse_recordsize("32M"), Err(RecordSizeError::OutOfRange(_))));
-        assert!(matches!(parse_recordsize("abc"), Err(RecordSizeError::Unparseable(_))));
-        assert!(matches!(parse_recordsize(""), Err(RecordSizeError::Unparseable(_))));
+        assert!(matches!(
+            parse_recordsize("100K"),
+            Err(RecordSizeError::NotPowerOfTwo(_))
+        ));
+        assert!(matches!(
+            parse_recordsize("256"),
+            Err(RecordSizeError::OutOfRange(_))
+        ));
+        assert!(matches!(
+            parse_recordsize("32M"),
+            Err(RecordSizeError::OutOfRange(_))
+        ));
+        assert!(matches!(
+            parse_recordsize("abc"),
+            Err(RecordSizeError::Unparseable(_))
+        ));
+        assert!(matches!(
+            parse_recordsize(""),
+            Err(RecordSizeError::Unparseable(_))
+        ));
     }
 
     #[test]
@@ -486,7 +505,11 @@ mod tests {
     #[test]
     fn canon_validates_clean() {
         for spec in canonical_layout() {
-            assert!(validate_dataset(&spec).is_empty(), "{:?} should match canon", spec.dataset);
+            assert!(
+                validate_dataset(&spec).is_empty(),
+                "{:?} should match canon",
+                spec.dataset
+            );
         }
         assert!(audit_layout(&canonical_layout()).is_empty());
     }
@@ -550,10 +573,22 @@ mod tests {
 
     #[test]
     fn serde_kebab_tokens() {
-        assert_eq!(serde_json::to_string(&Dataset::Context).unwrap(), "\"context\"");
-        assert_eq!(serde_json::to_string(&Compression::Zstd9).unwrap(), "\"zstd-9\"");
-        assert_eq!(serde_json::to_string(&RedundantMetadata::Most).unwrap(), "\"most\"");
+        assert_eq!(
+            serde_json::to_string(&Dataset::Context).unwrap(),
+            "\"context\""
+        );
+        assert_eq!(
+            serde_json::to_string(&Compression::Zstd9).unwrap(),
+            "\"zstd-9\""
+        );
+        assert_eq!(
+            serde_json::to_string(&RedundantMetadata::Most).unwrap(),
+            "\"most\""
+        );
         assert_eq!(serde_json::to_string(&Sync::Always).unwrap(), "\"always\"");
-        assert_eq!(serde_json::to_string(&DriftSeverity::Integrity).unwrap(), "\"integrity\"");
+        assert_eq!(
+            serde_json::to_string(&DriftSeverity::Integrity).unwrap(),
+            "\"integrity\""
+        );
     }
 }

@@ -127,7 +127,10 @@ pub fn provisioning_plan(device: &str) -> Result<Vec<ProvisioningCommand>, Devic
     }
     create_argv.push("tank".into());
     create_argv.push(device.to_string());
-    plan.push(ProvisioningCommand { purpose: "create pool".into(), argv: create_argv });
+    plan.push(ProvisioningCommand {
+        purpose: "create pool".into(),
+        argv: create_argv,
+    });
 
     for spec in canonical_layout() {
         let path = spec.dataset.path();
@@ -151,7 +154,10 @@ pub fn provisioning_plan(device: &str) -> Result<Vec<ProvisioningCommand>, Devic
             props.push(format!("copies={}", spec.copies));
         }
         if spec.redundant_metadata != RedundantMetadata::All {
-            props.push(format!("redundant_metadata={}", spec.redundant_metadata.token()));
+            props.push(format!(
+                "redundant_metadata={}",
+                spec.redundant_metadata.token()
+            ));
         }
         if !props.is_empty() {
             let mut set_argv = vec!["zfs".into(), "set".into()];
@@ -182,7 +188,10 @@ mod tests {
     #[test]
     fn rejects_unsafe_devices() {
         assert_eq!(validate_device(""), Err(DeviceError::Empty));
-        assert!(matches!(validate_device("nvme0n1"), Err(DeviceError::NotDevPath(_))));
+        assert!(matches!(
+            validate_device("nvme0n1"),
+            Err(DeviceError::NotDevPath(_))
+        ));
         assert!(matches!(
             validate_device("/dev/nvme0n1; rm -rf /"),
             Err(DeviceError::UnsafeChar(_))
@@ -212,7 +221,12 @@ mod tests {
         let pool = &plan[0];
         assert_eq!(pool.purpose, "create pool");
         let line = pool.command_line();
-        assert!(line.starts_with("zpool create -f -o ashift=12 -O compression=lz4 -O atime=off tank /dev/nvme0n1"), "{line}");
+        assert!(
+            line.starts_with(
+                "zpool create -f -o ashift=12 -O compression=lz4 -O atime=off tank /dev/nvme0n1"
+            ),
+            "{line}"
+        );
     }
 
     #[test]
@@ -228,17 +242,31 @@ mod tests {
         );
         // context: recordsize=16k + compression=zstd-9 + sync=always + copies=2.
         assert!(
-            joined.contains("zfs set recordsize=16K compression=zstd-9 sync=always copies=2 tank/context"),
+            joined.contains(
+                "zfs set recordsize=16K compression=zstd-9 sync=always copies=2 tank/context"
+            ),
             "{joined}"
         );
         // agents: only compression=zstd-3 (recordsize 128k = default, copies 1,
         // redundant_metadata all, sync standard — all inherited).
-        assert!(joined.contains("zfs set compression=zstd-3 tank/agents"), "{joined}");
+        assert!(
+            joined.contains("zfs set compression=zstd-3 tank/agents"),
+            "{joined}"
+        );
         // agents must NOT carry a recordsize set (it's the 128k default).
-        let agents_set: Vec<&String> =
-            script.iter().filter(|l| l.starts_with("zfs set") && l.ends_with("tank/agents")).collect();
-        assert_eq!(agents_set.len(), 1, "agents has exactly one set line: {agents_set:?}");
-        assert!(!agents_set[0].contains("recordsize"), "agents 128k is default: {agents_set:?}");
+        let agents_set: Vec<&String> = script
+            .iter()
+            .filter(|l| l.starts_with("zfs set") && l.ends_with("tank/agents"))
+            .collect();
+        assert_eq!(
+            agents_set.len(),
+            1,
+            "agents has exactly one set line: {agents_set:?}"
+        );
+        assert!(
+            !agents_set[0].contains("recordsize"),
+            "agents 128k is default: {agents_set:?}"
+        );
     }
 
     #[test]

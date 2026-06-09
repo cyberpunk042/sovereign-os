@@ -61,12 +61,42 @@ pub struct SlotSpec {
 #[must_use]
 pub fn slot_map() -> [SlotSpec; 6] {
     [
-        SlotSpec { slot: PcieSlot::X16_1, max_lanes: 16, pcie_gen: 5, shares_with: None },
-        SlotSpec { slot: PcieSlot::X16_2, max_lanes: 8, pcie_gen: 5, shares_with: Some(PcieSlot::M2_2) },
-        SlotSpec { slot: PcieSlot::M2_1, max_lanes: 4, pcie_gen: 5, shares_with: None },
-        SlotSpec { slot: PcieSlot::M2_2, max_lanes: 4, pcie_gen: 5, shares_with: Some(PcieSlot::X16_2) },
-        SlotSpec { slot: PcieSlot::M2_3, max_lanes: 4, pcie_gen: 4, shares_with: None },
-        SlotSpec { slot: PcieSlot::M2_4, max_lanes: 4, pcie_gen: 4, shares_with: None },
+        SlotSpec {
+            slot: PcieSlot::X16_1,
+            max_lanes: 16,
+            pcie_gen: 5,
+            shares_with: None,
+        },
+        SlotSpec {
+            slot: PcieSlot::X16_2,
+            max_lanes: 8,
+            pcie_gen: 5,
+            shares_with: Some(PcieSlot::M2_2),
+        },
+        SlotSpec {
+            slot: PcieSlot::M2_1,
+            max_lanes: 4,
+            pcie_gen: 5,
+            shares_with: None,
+        },
+        SlotSpec {
+            slot: PcieSlot::M2_2,
+            max_lanes: 4,
+            pcie_gen: 5,
+            shares_with: Some(PcieSlot::X16_2),
+        },
+        SlotSpec {
+            slot: PcieSlot::M2_3,
+            max_lanes: 4,
+            pcie_gen: 4,
+            shares_with: None,
+        },
+        SlotSpec {
+            slot: PcieSlot::M2_4,
+            max_lanes: 4,
+            pcie_gen: 4,
+            shares_with: None,
+        },
     ]
 }
 
@@ -84,10 +114,22 @@ pub struct Placement {
 #[must_use]
 pub fn recommended_layout() -> Vec<Placement> {
     vec![
-        Placement { slot: PcieSlot::X16_1, device: "blackwell-oracle".into() },
-        Placement { slot: PcieSlot::X16_2, device: "rocm-3090".into() },
-        Placement { slot: PcieSlot::M2_1, device: "nvme-zfs-0".into() },
-        Placement { slot: PcieSlot::M2_3, device: "nvme-chipset".into() },
+        Placement {
+            slot: PcieSlot::X16_1,
+            device: "blackwell-oracle".into(),
+        },
+        Placement {
+            slot: PcieSlot::X16_2,
+            device: "rocm-3090".into(),
+        },
+        Placement {
+            slot: PcieSlot::M2_1,
+            device: "nvme-zfs-0".into(),
+        },
+        Placement {
+            slot: PcieSlot::M2_3,
+            device: "nvme-chipset".into(),
+        },
     ]
 }
 
@@ -104,7 +146,10 @@ impl std::fmt::Display for PcieError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             PcieError::LaneSharingConflict(a, b) => {
-                write!(f, "{a:?} and {b:?} share lanes; populating both starves one (E0027)")
+                write!(
+                    f,
+                    "{a:?} and {b:?} share lanes; populating both starves one (E0027)"
+                )
             }
             PcieError::DuplicateSlot(s) => write!(f, "slot {s:?} populated more than once"),
         }
@@ -139,7 +184,10 @@ mod tests {
     use super::*;
 
     fn place(slot: PcieSlot, device: &str) -> Placement {
-        Placement { slot, device: device.into() }
+        Placement {
+            slot,
+            device: device.into(),
+        }
     }
 
     #[test]
@@ -156,7 +204,9 @@ mod tests {
         // It deliberately leaves M.2_2 empty so the secondary GPU keeps x8.
         validate(&recommended_layout()).unwrap();
         assert!(
-            !recommended_layout().iter().any(|p| p.slot == PcieSlot::M2_2),
+            !recommended_layout()
+                .iter()
+                .any(|p| p.slot == PcieSlot::M2_2),
             "M.2_2 left empty to protect PCIEX16_2"
         );
     }
@@ -170,7 +220,10 @@ mod tests {
         // X16_2 is iterated first, so it's the one whose share-conflict trips.
         assert_eq!(
             validate(&bad),
-            Err(PcieError::LaneSharingConflict(PcieSlot::X16_2, PcieSlot::M2_2))
+            Err(PcieError::LaneSharingConflict(
+                PcieSlot::X16_2,
+                PcieSlot::M2_2
+            ))
         );
     }
 
@@ -183,12 +236,18 @@ mod tests {
     #[test]
     fn duplicate_slot_is_rejected() {
         let dup = vec![place(PcieSlot::M2_1, "a"), place(PcieSlot::M2_1, "b")];
-        assert_eq!(validate(&dup), Err(PcieError::DuplicateSlot(PcieSlot::M2_1)));
+        assert_eq!(
+            validate(&dup),
+            Err(PcieError::DuplicateSlot(PcieSlot::M2_1))
+        );
     }
 
     #[test]
     fn slot_serializes_kebab() {
-        assert_eq!(serde_json::to_string(&PcieSlot::X16_1).unwrap(), "\"x16-1\"");
+        assert_eq!(
+            serde_json::to_string(&PcieSlot::X16_1).unwrap(),
+            "\"x16-1\""
+        );
         assert_eq!(serde_json::to_string(&PcieSlot::M2_2).unwrap(), "\"m2-2\"");
     }
 }

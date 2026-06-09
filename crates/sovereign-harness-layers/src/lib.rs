@@ -122,9 +122,7 @@ impl TestLayer {
     pub fn virtualization(self) -> &'static [Virtualization] {
         match self {
             TestLayer::SchemaLint | TestLayer::Unit => &[Virtualization::None],
-            TestLayer::StageAcceptance => {
-                &[Virtualization::Chroot, Virtualization::SystemdNspawn]
-            }
+            TestLayer::StageAcceptance => &[Virtualization::Chroot, Virtualization::SystemdNspawn],
             TestLayer::Integration => &[Virtualization::QemuSystem, Virtualization::QemuUser],
             TestLayer::HardwareConformance => &[Virtualization::Hardware],
         }
@@ -187,7 +185,10 @@ pub fn layer_runs_on(layer: TestLayer, event: CiEvent) -> bool {
         // A labeled PR additionally opts into the merge-or-label (virtualized)
         // layers; still no hardware.
         CiEvent::LabeledPullRequest | CiEvent::MergeToMain => {
-            matches!(layer.trigger(), CiTrigger::EveryPr | CiTrigger::MergeOrLabel)
+            matches!(
+                layer.trigger(),
+                CiTrigger::EveryPr | CiTrigger::MergeOrLabel
+            )
         }
         // The operator running locally on real hardware runs the full pyramid.
         CiEvent::OperatorLocal => true,
@@ -218,17 +219,16 @@ mod tests {
     #[test]
     fn only_l5_is_excluded_from_ci() {
         for l in TestLayer::ALL {
-            assert_eq!(
-                l.runs_in_ci(),
-                l != TestLayer::HardwareConformance,
-                "{l:?}"
-            );
+            assert_eq!(l.runs_in_ci(), l != TestLayer::HardwareConformance, "{l:?}");
         }
     }
 
     #[test]
     fn pure_ci_layers_have_no_virtualization() {
-        assert_eq!(TestLayer::SchemaLint.virtualization(), &[Virtualization::None]);
+        assert_eq!(
+            TestLayer::SchemaLint.virtualization(),
+            &[Virtualization::None]
+        );
         assert_eq!(TestLayer::Unit.virtualization(), &[Virtualization::None]);
         assert_eq!(
             TestLayer::StageAcceptance.virtualization(),
@@ -238,7 +238,10 @@ mod tests {
             TestLayer::Integration.virtualization(),
             &[Virtualization::QemuSystem, Virtualization::QemuUser]
         );
-        assert_eq!(TestLayer::HardwareConformance.virtualization(), &[Virtualization::Hardware]);
+        assert_eq!(
+            TestLayer::HardwareConformance.virtualization(),
+            &[Virtualization::Hardware]
+        );
     }
 
     #[test]
@@ -271,23 +274,44 @@ mod tests {
                 TestLayer::Integration
             ]
         );
-        assert!(!merge.contains(&TestLayer::HardwareConformance), "hardware never in CI");
+        assert!(
+            !merge.contains(&TestLayer::HardwareConformance),
+            "hardware never in CI"
+        );
     }
 
     #[test]
     fn operator_local_runs_the_full_pyramid() {
-        assert_eq!(layers_for_event(CiEvent::OperatorLocal), TestLayer::ALL.to_vec());
+        assert_eq!(
+            layers_for_event(CiEvent::OperatorLocal),
+            TestLayer::ALL.to_vec()
+        );
     }
 
     #[test]
     fn classify_dir_maps_the_test_tree() {
-        assert_eq!(TestLayer::classify_dir("schema"), Some(TestLayer::SchemaLint));
+        assert_eq!(
+            TestLayer::classify_dir("schema"),
+            Some(TestLayer::SchemaLint)
+        );
         assert_eq!(TestLayer::classify_dir("lint"), Some(TestLayer::SchemaLint));
         assert_eq!(TestLayer::classify_dir("unit"), Some(TestLayer::Unit));
-        assert_eq!(TestLayer::classify_dir("chroot"), Some(TestLayer::StageAcceptance));
-        assert_eq!(TestLayer::classify_dir("nspawn"), Some(TestLayer::StageAcceptance));
-        assert_eq!(TestLayer::classify_dir("qemu"), Some(TestLayer::Integration));
-        assert_eq!(TestLayer::classify_dir("/hardware/"), Some(TestLayer::HardwareConformance));
+        assert_eq!(
+            TestLayer::classify_dir("chroot"),
+            Some(TestLayer::StageAcceptance)
+        );
+        assert_eq!(
+            TestLayer::classify_dir("nspawn"),
+            Some(TestLayer::StageAcceptance)
+        );
+        assert_eq!(
+            TestLayer::classify_dir("qemu"),
+            Some(TestLayer::Integration)
+        );
+        assert_eq!(
+            TestLayer::classify_dir("/hardware/"),
+            Some(TestLayer::HardwareConformance)
+        );
         assert_eq!(TestLayer::classify_dir("docs"), None);
     }
 
@@ -298,8 +322,17 @@ mod tests {
 
     #[test]
     fn serde_kebab() {
-        assert_eq!(serde_json::to_string(&TestLayer::SchemaLint).unwrap(), "\"schema-lint\"");
-        assert_eq!(serde_json::to_string(&CiTrigger::EveryPr).unwrap(), "\"every-pr\"");
-        assert_eq!(serde_json::to_string(&Virtualization::SystemdNspawn).unwrap(), "\"systemd-nspawn\"");
+        assert_eq!(
+            serde_json::to_string(&TestLayer::SchemaLint).unwrap(),
+            "\"schema-lint\""
+        );
+        assert_eq!(
+            serde_json::to_string(&CiTrigger::EveryPr).unwrap(),
+            "\"every-pr\""
+        );
+        assert_eq!(
+            serde_json::to_string(&Virtualization::SystemdNspawn).unwrap(),
+            "\"systemd-nspawn\""
+        );
     }
 }
