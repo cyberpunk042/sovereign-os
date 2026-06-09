@@ -43,4 +43,11 @@ fn emits_contract_honouring_telemetry_json() {
         .expect("cpu-pulse target present");
     let util = cpu["util_pct"].as_u64().expect("util_pct is a number");
     assert!(util <= 100, "cpu util in range");
+
+    // Observability: exactly the 9 canonical sources, and the fabric validated.
+    let sources = doc["observability"]["sources"]
+        .as_array()
+        .expect("sources array");
+    assert_eq!(sources.len(), 9, "nine observability sources");
+    assert_eq!(doc["observability_valid"], true, "fabric validates");
 }

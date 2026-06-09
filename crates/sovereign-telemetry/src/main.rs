@@ -21,6 +21,7 @@ use sovereign_hardware_load_sample::{
     GpuTelemetry, LoadSnapshot, cpu_util_pct, parse_gpu_csv, parse_proc_stat_cpu,
 };
 use sovereign_hardware_registry::{HardwareRegistry, HardwareTarget};
+use sovereign_observability_fabric::{ObservabilityFabric, ObservabilitySource, SourceState};
 use sovereign_pressure_sensors::{PressureSnapshot, parse_psi_some_avg10};
 
 /// Unix epoch seconds as a string. The probe carries no calendar formatter, so
@@ -68,6 +69,40 @@ fn nvidia_gpu() -> Option<GpuTelemetry> {
     parse_gpu_csv(text.lines().next()?).ok()
 }
 
+/// Honest source-*presence* fabric: mark the sources this probe can detect on
+/// disk as `Idle` (connected, throughput not measured here), leaving the rest
+/// `Disconnected`. A richer collector measures real eps later; this binary
+/// reports only what it can verify, so the cockpit never shows a source as
+/// live that this probe didn't actually find.
+fn observability(at: &str, gpu_present: bool) -> ObservabilityFabric {
+    let mut fab = ObservabilityFabric::empty_canonical();
+    let mut mark = |src, present: bool| {
+        let state = if present {
+            SourceState::Idle
+        } else {
+            SourceState::Disconnected
+        };
+        // update_source only fails on an absent source, impossible on the
+        // canonical fabric — ignore the typed result deliberately.
+        let _ = fab.update_source(src, state, 0, at);
+    };
+    mark(
+        ObservabilitySource::Psi,
+        std::path::Path::new("/proc/pressure/cpu").exists(),
+    );
+    mark(ObservabilitySource::Dcgm, gpu_present);
+    mark(
+        ObservabilitySource::Journald,
+        std::path::Path::new("/run/systemd/journal").exists()
+            || std::path::Path::new("/var/log/journal").exists(),
+    );
+    mark(
+        ObservabilitySource::ZfsEvents,
+        std::path::Path::new("/proc/spl/kstat/zfs").exists(),
+    );
+    fab
+}
+
 fn main() {
     let at = captured_at();
 
@@ -81,12 +116,17 @@ fn main() {
         // Sample is already range-valid; ignore the typed result deliberately.
         let _ = load.update_target(HardwareTarget::CpuPulse, 0, u, 0, &at);
     }
-    if let Some(g) = nvidia_gpu() {
+    let gpu = nvidia_gpu();
+    if let Some(g) = gpu {
         let _ = load.update_gpu(HardwareTarget::BlackwellOracle, g, &at);
     }
     let load_valid = load
         .validate_against(&HardwareRegistry::canonical())
         .is_ok();
+
+    // Observability — honest source-presence fabric.
+    let fabric = observability(&at, gpu.is_some());
+    let fabric_valid = fabric.validate().is_ok();
 
     let doc = serde_json::json!({
         "schema": "sovereign-telemetry/1",
@@ -94,6 +134,8 @@ fn main() {
         "pressure": pressure,
         "load": load,
         "load_valid": load_valid,
+        "observability": fabric,
+        "observability_valid": fabric_valid,
     });
     match serde_json::to_string_pretty(&doc) {
         Ok(s) => println!("{s}"),
