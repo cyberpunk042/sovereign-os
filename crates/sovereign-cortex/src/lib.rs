@@ -95,6 +95,14 @@ pub const MAX_SEARCH_ROUNDS: u32 = 64;
 /// any externally-seeded ids).
 pub const LEARNED_ID_BASE: u64 = 1_000_000;
 
+/// Minimum World-Model prior confidence for a disagreement to count as a
+/// "surprise" worth extra scrutiny (M030 → deeper reasoning).
+pub const WORLD_MODEL_SURPRISE_CONFIDENCE: f32 = 0.75;
+
+/// Minimum past observations behind the prior before a disagreement is trusted
+/// enough to act on (don't engage compute on one-off history).
+pub const WORLD_MODEL_SURPRISE_MIN_OBS: u64 = 3;
+
 /// One end-to-end request to the cortex. Every field is a real input to
 /// one of the composed engines.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -451,13 +459,23 @@ impl Cortex {
         };
         let serving = decide_serving(&serve_req);
 
-        // Engage deeper reasoning (M080) only when the verdict is uncertain:
-        // an uncertain branch runs a bounded HRM recurrent pass.
-        let reasoning = if assessment.suggested_next_action == NextAction::NeedMoreCompute {
-            Some(engage_reasoning())
-        } else {
-            None
-        };
+        // Engage deeper reasoning (M080) when the verdict is uncertain OR when
+        // the World-Model prior (M030) strongly disagrees with it. A confident,
+        // well-observed prior that contradicts the verdict is a "surprise" — the
+        // task is resolving against history — and warrants extra scrutiny before
+        // the Auditor sees it. This never changes the verdict (so it can't cause
+        // a wrong commit); it only adds a bounded recurrent pass.
+        let surprising = prediction.as_ref().is_some_and(|p| {
+            !p.agrees_with_verdict
+                && p.confidence >= WORLD_MODEL_SURPRISE_CONFIDENCE
+                && p.observations >= WORLD_MODEL_SURPRISE_MIN_OBS
+        });
+        let reasoning =
+            if assessment.suggested_next_action == NextAction::NeedMoreCompute || surprising {
+                Some(engage_reasoning())
+            } else {
+                None
+            };
 
         // Compute profile — what the placed precision actually costs,
         // computed by the bitlinear / nvfp4 engines themselves.
@@ -1346,6 +1364,45 @@ mod tests {
             !p.agrees_with_verdict,
             "a Prune prior must disagree with a non-Prune verdict"
         );
+    }
+
+    #[test]
+    fn a_surprising_prior_engages_reasoning_without_changing_the_verdict() {
+        // A confident, well-observed prior that contradicts the verdict is a
+        // surprise: it must engage deeper reasoning (extra scrutiny) but leave
+        // the verdict itself untouched — it can never cause a wrong commit.
+        let mut cortex = Cortex::new();
+        let r = req();
+
+        let cold = cortex.tick(&r).unwrap();
+        let role = cold.route.role;
+        assert_eq!(cold.assessment.suggested_next_action, NextAction::Commit);
+        assert!(
+            cold.reasoning.is_none(),
+            "a committing request engages no extra compute by default"
+        );
+
+        // Build a confident Prune history for this (topic, role).
+        for _ in 0..=WORLD_MODEL_SURPRISE_MIN_OBS {
+            cortex.world_model.observe(
+                r.query_topic,
+                role_action_id(role),
+                outcome_state_id(NextAction::Prune),
+            );
+        }
+
+        let warm = cortex.tick(&r).unwrap();
+        let p = warm.prediction.expect("the pair is now known");
+        assert!(!p.agrees_with_verdict);
+        assert!(p.confidence >= WORLD_MODEL_SURPRISE_CONFIDENCE);
+        assert!(p.observations >= WORLD_MODEL_SURPRISE_MIN_OBS);
+        // The surprise engaged deeper reasoning …
+        assert!(
+            warm.reasoning.is_some(),
+            "a confident contradicting prior should engage reasoning"
+        );
+        // … but the verdict is unchanged — still a commit.
+        assert_eq!(warm.assessment.suggested_next_action, NextAction::Commit);
     }
 
     #[test]

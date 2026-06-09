@@ -12,6 +12,23 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — the World-Model prior now acts: a surprise engages deeper reasoning (2026-06-09)
+
+The M030 prior was observe-only; now it influences compute — conservatively.
+When a **confident, well-observed** prior contradicts the live verdict
+(`confidence ≥ 0.75`, `observations ≥ 3`), the decision is a "surprise" (the
+task is resolving against history) and the cortex engages a bounded HRM
+recurrent pass (M080) — the same deeper-reasoning mechanism an uncertain verdict
+already triggers.
+
+Crucially, this **never changes the verdict** — it only adds a recurrent pass
+(and the speculative control-word flag) for extra scrutiny before the Auditor
+sees the branch, so it can never cause a wrong commit. Thresholds are named
+constants (`WORLD_MODEL_SURPRISE_CONFIDENCE` / `_MIN_OBS`). Locked by a test:
+seed a confident Prune history, then a committing request engages reasoning
+while keeping its Commit verdict. Cortex suite now 56 tests; `fmt` +
+`clippy -D warnings` clean on pinned 1.88.0.
+
 ### Added — cortex composes the World-Model plane (M030): learned routing-outcome priors (2026-06-09)
 
 The cortex assembly gains a ninth real engine. `sovereign-cortex` now owns a
