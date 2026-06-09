@@ -4364,6 +4364,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-inference-demo"
+version = "0.1.0"
+dependencies = [
+ "sovereign-decoder-layer",
+ "sovereign-ffn",
+ "sovereign-linear",
+ "sovereign-logit-mask",
+ "sovereign-mha-block",
+ "sovereign-quant-block",
+ "sovereign-quant-llm",
+ "sovereign-quant-model",
+ "sovereign-rmsnorm",
+ "sovereign-sampler",
+ "sovereign-tokenizer",
+ "sovereign-transformer-block",
+]
+
+[[package]]
 name = "sovereign-inheritance-artifacts"
 version = "0.1.0"
 dependencies = [

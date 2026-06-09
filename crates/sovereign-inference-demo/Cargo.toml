@@ -1,0 +1,31 @@
+[package]
+name = "sovereign-inference-demo"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "A runnable end-to-end demonstration of the sovereign quantized inference stack: assembles a byte-level BPE tokenizer and a mixed-precision (f32 + ternary + NVFP4 multi-head) decoder model, then runs unconstrained and constrained text generation, printing the whole pipeline. The `sovereign-inference-demo` binary that proves the engine runs."
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "sovereign-inference-demo"
+path = "src/main.rs"
+
+[dependencies]
+sovereign-tokenizer = { path = "../sovereign-tokenizer" }
+sovereign-quant-llm = { path = "../sovereign-quant-llm" }
+sovereign-quant-model = { path = "../sovereign-quant-model" }
+sovereign-decoder-layer = { path = "../sovereign-decoder-layer" }
+sovereign-transformer-block = { path = "../sovereign-transformer-block" }
+sovereign-quant-block = { path = "../sovereign-quant-block" }
+sovereign-mha-block = { path = "../sovereign-mha-block" }
+sovereign-rmsnorm = { path = "../sovereign-rmsnorm" }
+sovereign-ffn = { path = "../sovereign-ffn" }
+sovereign-linear = { path = "../sovereign-linear" }
+sovereign-sampler = { path = "../sovereign-sampler" }
+sovereign-logit-mask = { path = "../sovereign-logit-mask" }
