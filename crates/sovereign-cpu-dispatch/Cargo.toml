@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-cpu-dispatch"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "E0490 — CPU Feature Dispatch: the 4 build dispatch paths (scalar baseline / AVX2 / AVX-512 generic / Zen5 AVX-512) and runtime-CPUID selection of the best path the host supports. 'Do not compile one binary and hope.'"
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
