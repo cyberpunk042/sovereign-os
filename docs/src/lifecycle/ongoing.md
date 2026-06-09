@@ -35,6 +35,7 @@ Ordered most-frequent first:
 | `sovereign-wattage-sample.timer` | Every minute | PSU wattage Layer-B sampler (R258, Z-18) |
 | `sovereign-memory-pressure-sample.timer` | Every minute | Memory-pressure / OOM Layer-B sampler (E1.M15) |
 | `sovereign-wattage-heat-trend.timer` | Every minute | Wattage + heat trend-verdict tick (E1.M36) |
+| `sovereign-telemetry-textfile.timer` | Every minute | sovereign-telemetry probe → node_exporter textfile (M045 E0430 / M013) |
 | `sovereign-thermal-watch.timer` | Every 5 min | Chassis / CPU / GPU thermal sample (R172) |
 | `sovereign-alerts-check.timer` | Hourly | Alert derivation snapshot |
 | `sovereign-notify-dispatch.timer` | Hourly | Health-scan + notification fan-out (R229, Z-6) |

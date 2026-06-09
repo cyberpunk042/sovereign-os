@@ -54,6 +54,7 @@ EXPECTED_RECURRENT_HOOKS = [
     "notify-dispatch.sh",
     "power-shutdown-guard.sh",
     "security-update-check.sh",
+    "sovereign-telemetry-textfile.sh",
     "tetragon-policy-verify.sh",
     "thermal-watch.sh",
     "wattage-heat-trend-tick.sh",
@@ -73,12 +74,22 @@ HOOK_TO_TIMER_SLUG = {
     "notify-dispatch.sh": "sovereign-notify-dispatch",
     "power-shutdown-guard.sh": "sovereign-power-shutdown-guard",
     "security-update-check.sh": "sovereign-security-update-check",
+    "sovereign-telemetry-textfile.sh": "sovereign-telemetry-textfile",
     "tetragon-policy-verify.sh": "sovereign-tetragon-verify",
     "thermal-watch.sh": "sovereign-thermal-watch",
     "wattage-heat-trend-tick.sh": "sovereign-wattage-heat-trend",
     "wattage-sample.sh": "sovereign-wattage-sample",
     "zfs-scrub.sh": "sovereign-zfs-scrub",
 }
+
+# Hooks that legitimately do NOT follow the shell-lib convention (source
+# common.sh + observability.sh + emit_metric_set via bash). `sovereign-telemetry
+# -textfile.sh` is a BINARY wrapper: it runs the `sovereign-telemetry` Rust
+# binary in --prometheus mode, which emits the metrics AND atomically writes the
+# textfile itself — so the shell wrapper neither needs the shell libs nor an
+# emit_metric_set call. It is still a real recurrent hook (counted + timer/service
+# + cadence checked above), just not a shell-convention one.
+SHELL_CONVENTION_EXEMPT = {"sovereign-telemetry-textfile.sh"}
 
 
 def _read(p: Path) -> str:
@@ -96,7 +107,8 @@ def test_all_recurrent_hooks_exist():
 
 
 def test_hook_count_matches_expected():
-    """Exactly 13 recurrent hooks. Drift adding ungated hooks or
+    """Exactly 14 recurrent hooks (13 shell-convention + 1 binary wrapper,
+    sovereign-telemetry-textfile). Drift adding ungated hooks or
     removing operator-named cadence breaks the contract."""
     actual = sorted(p.name for p in RECURRENT_DIR.glob("*.sh"))
     expected = sorted(EXPECTED_RECURRENT_HOOKS)
@@ -236,6 +248,8 @@ def test_every_service_invokes_existing_hook():
 
 def test_every_hook_sources_common_lib():
     for name in EXPECTED_RECURRENT_HOOKS:
+        if name in SHELL_CONVENTION_EXEMPT:
+            continue
         body = _read(RECURRENT_DIR / name)
         assert "build/lib/common.sh" in body, (
             f"recurrent hook {name} missing build/lib/common.sh source "
@@ -247,6 +261,8 @@ def test_every_hook_sources_observability_lib():
     """All recurrent hooks emit metrics, so all MUST source the
     observability lib (provides emit_metric / emit_metric_set)."""
     for name in EXPECTED_RECURRENT_HOOKS:
+        if name in SHELL_CONVENTION_EXEMPT:
+            continue
         body = _read(RECURRENT_DIR / name)
         assert "build/lib/observability.sh" in body, (
             f"recurrent hook {name} missing observability.sh source "
@@ -261,6 +277,8 @@ def test_every_hook_emits_metric_set():
     that accepts --emit-metrics flag (operator pattern for hooks whose
     sampler lives in scripts/hardware/)."""
     for name in EXPECTED_RECURRENT_HOOKS:
+        if name in SHELL_CONVENTION_EXEMPT:
+            continue  # binary wrapper: the sovereign-telemetry binary emits
         body = _read(RECURRENT_DIR / name)
         has_metric = (
             "emit_metric_set" in body
