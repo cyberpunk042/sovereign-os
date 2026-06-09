@@ -4177,6 +4177,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-decoder-stack"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-ffn",
+ "sovereign-rmsnorm",
+ "sovereign-sampler",
+ "sovereign-transformer-block",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-doctrinal-preservation"
 version = "0.1.0"
 dependencies = [
