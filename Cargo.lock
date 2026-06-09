@@ -5061,6 +5061,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-paged-kv"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-perplexity"
 version = "0.1.0"
 dependencies = [
