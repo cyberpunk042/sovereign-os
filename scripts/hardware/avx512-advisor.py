@@ -80,6 +80,14 @@ FLAG_LOWERCASE.update({
     "VBMI2": "avx512_vbmi2",
     "BITALG": "avx512_bitalg",
     "VPOPCNTDQ": "avx512_vpopcntdq",
+    # VAES / VPCLMULQDQ / GFNI are AVX-512-capable but are SEPARATE CPUID bits:
+    # the kernel exposes them in /proc/cpuinfo WITHOUT the `avx512` prefix. The
+    # computed default above ("avx512vaes" etc.) never matches, so without these
+    # explicit entries the advisor reported them missing on a CPU (e.g. Zen5)
+    # that actually has them.
+    "VAES": "vaes",
+    "VPCLMULQDQ": "vpclmulqdq",
+    "GFNI": "gfni",
 })
 
 

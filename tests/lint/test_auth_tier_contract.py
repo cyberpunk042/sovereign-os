@@ -226,6 +226,54 @@ def test_default_config_path():
     )
 
 
+def test_set_writes_config_atomically():
+    """The tier-set write MUST be atomic (temp + os.replace), not a
+    truncate-then-write. A write that fails mid-way (crash / full disk) would
+    leave auth-tier.toml truncated, and load_registry falls back to
+    DEFAULT_REGISTRY (mostly "no-auth") on a parse failure — so a corrupted
+    write would silently drop every operator tier elevation back to no-auth
+    (fail-open). Guard the atomic pattern against a regression to write_text."""
+    body = _read(AT_PY)
+    assert "os.replace(" in body, (
+        "tier-set write must use os.replace (atomic); a bare write_text can "
+        "truncate auth-tier.toml on a failed write -> tiers reset to no-auth"
+    )
+    # The CONFIG_PATH write must NOT be a direct truncating write_text.
+    assert not re.search(r"CONFIG_PATH\.write_text\(", body), (
+        "CONFIG_PATH.write_text is non-atomic; write to a temp file + os.replace"
+    )
+
+
+def test_set_apply_persists_and_round_trips(tmp_path):
+    """A real `set --apply --confirm-tier-set` persists the tier and a second
+    set preserves the first (the atomic write round-trips, never clobbers)."""
+    cfg = tmp_path / "auth-tier.toml"
+    env = {
+        **os.environ,
+        "SOVEREIGN_OS_AUTH_TIER_CONFIG": str(cfg),
+        "SOVEREIGN_OS_METRICS_DIR": str(tmp_path),
+    }
+
+    def _set(service, tier):
+        return subprocess.run(
+            ["python3", str(AT_PY), "set", service, tier,
+             "--apply", "--confirm-tier-set"],
+            capture_output=True, text=True, timeout=15, env=env,
+        )
+
+    r1 = _set("grafana-dashboard", "basic")
+    assert r1.returncode == 0, r1.stderr
+    assert cfg.is_file() and 'current_tier = "basic"' in cfg.read_text()
+    # No temp turd left behind by the atomic write.
+    assert not list(tmp_path.glob("*.tmp"))
+    # A second set preserves the first block (append + atomic replace).
+    r2 = _set("router", "basic")
+    assert r2.returncode == 0, r2.stderr
+    body = cfg.read_text()
+    assert "[dashboards.grafana-dashboard]" in body
+    assert "[dashboards.router]" in body
+
+
 def test_config_env_overridable():
     body = _read(AT_PY)
     assert "SOVEREIGN_OS_AUTH_TIER_CONFIG" in body, (

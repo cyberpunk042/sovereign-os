@@ -91,8 +91,8 @@ install time:
 
 ## Preflight integration
 
-`preflight-tpm.sh` (existing) already gates TPM2 readiness when
-`secure_boot != true`. SDD-022 adds a follow-up requirement: when
+`preflight-tpm.sh` (existing) already gates TPM2 readiness on the
+`secure_boot` posture (runs for `signed`/`shim`, SDD-015 enum). SDD-022 adds a follow-up requirement: when
 `SOVEREIGN_OS_ENCRYPT_TPM_BIND=1`, preflight-tpm SHOULD verify:
 - /dev/tpm0 + tpm2_pcrread sha256 banks accessible
 - /sys/firmware/efi/efivars present (EFI vars writable for binding)
@@ -125,7 +125,7 @@ sudo sovereign-osctl encryption reseal-tpm
 ## Layer 3 coverage (current + planned)
 
 Current: `preflight-tpm.sh` is gated by `test_orchestrator_preflight.sh`
-(profile-conditioned SKIP for secure_boot != true).
+(profile-conditioned: runs for secure_boot `signed`/`shim`, SKIPs for `none`/unset).
 
 Planned (Stage 2+ follow-up commits):
 - `tests/nspawn/test_encryption_gates.sh` — encryption-setup.sh gates

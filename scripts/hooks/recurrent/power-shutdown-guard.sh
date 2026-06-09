@@ -57,24 +57,49 @@ try:
 except Exception:
     print("error")
 ')"
-emit_metric_set power-shutdown-guard \
-  "sovereign_os_power_shutdown_guard_last_run_timestamp $(date +%s)" \
-  "sovereign_os_power_shutdown_guard_advisory_rc ${adv_rc}" \
-  "# HELP sovereign_os_power_shutdown_guard_verdict 0=ok 1=attention 2=critical 3=no-ups 9=error" \
-  "sovereign_os_power_shutdown_guard_verdict $(case "${verdict}" in
+verdict_code=$(case "${verdict}" in
     ok) echo 0;;
     attention) echo 1;;
     critical) echo 2;;
     no-ups) echo 3;;
     *) echo 9;;
-  esac)"
+  esac)
 
-if [ "${adv_rc}" -eq 0 ]; then
-  log_info "verdict=${verdict} — no shutdown action"
+# Emit the guard metrics. `fired` is 0 here and re-emitted as 1 only after
+# an actual `shutdown(8)` so operators can alert on a real auto-poweroff
+# (verdict=critical alone can't distinguish fired from critical-but-not-
+# armed). Re-uses the SAME metric set so the textfile write stays atomic.
+emit_guard_metrics() {
+  local fired="$1"
+  emit_metric_set power-shutdown-guard \
+    "sovereign_os_power_shutdown_guard_last_run_timestamp $(date +%s)" \
+    "sovereign_os_power_shutdown_guard_advisory_rc ${adv_rc}" \
+    "# HELP sovereign_os_power_shutdown_guard_verdict 0=ok 1=attention 2=critical 3=no-ups 9=error" \
+    "sovereign_os_power_shutdown_guard_verdict ${verdict_code}" \
+    "# HELP sovereign_os_power_shutdown_guard_fired 1 iff this run fired shutdown(8) (critical + armed + not dry-run)" \
+    "# TYPE sovereign_os_power_shutdown_guard_fired gauge" \
+    "sovereign_os_power_shutdown_guard_fired ${fired}"
+}
+emit_guard_metrics 0
+
+# Fire ONLY on a CONFIRMED critical state: the probe's documented critical code
+# (rc=1) AND verdict=critical agreeing. The probe contract is rc=0 (OK/no-UPS),
+# rc=1 (critical), rc=2 (usage error). The old gate exited only on rc==0 and
+# treated EVERY other rc as critical — so a probe usage-error (rc=2), a crash, or
+# python being absent (any non-zero rc) was misread as 'critical battery' and
+# could fire an ERRONEOUS `systemctl poweroff` on an armed host. Refuse to act on
+# an indeterminate state instead.
+if [ "${adv_rc}" -eq 1 ] && [ "${verdict}" = "critical" ]; then
+  : # confirmed critical — fall through to the arm gate below
+elif [ "${adv_rc}" -ge 2 ] || [ "${verdict}" = "error" ] || [ "${verdict}" = "unknown" ]; then
+  log_error "power probe error (rc=${adv_rc}, verdict=${verdict}) — NOT firing shutdown on an indeterminate state (fix the probe)"
+  exit 0
+else
+  log_info "verdict=${verdict} (rc=${adv_rc}) — no shutdown action"
   exit 0
 fi
 
-# Verdict is critical (adv_rc=1). Check the arm gate.
+# Confirmed critical (rc=1 + verdict=critical). Check the arm gate.
 armed_env="${SOVEREIGN_OS_POWER_SHUTDOWN_ARMED:-NO}"
 armed_cfg="$(echo "${adv_json}" | python3 -c '
 import json, sys
@@ -109,5 +134,9 @@ grace_min=$(( (grace_sec + 59) / 60 ))
 log_warn "firing: shutdown -h +${grace_min} 'sovereign-os: UPS battery critical, gracefully powering off'"
 shutdown -h "+${grace_min}" "sovereign-os: UPS battery critical, gracefully powering off" \
   || { log_error "shutdown(8) failed"; exit 1; }
+
+# Shutdown is scheduled (shutdown -h returns immediately). Re-emit with
+# fired=1 so an operator's Prometheus sees the auto-poweroff was triggered.
+emit_guard_metrics 1
 
 exit 0

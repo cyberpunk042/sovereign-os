@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-vm-workload"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "E0119 / M00220-M00221 — 3090-as-isolation-boundary workload suitability: the workloads appropriate for the quarantined VM (draft gen / untrusted experiments / browsing / tool planning / vision-OCR / code-exec / dep-installs / speculative patches) vs the tight-GPU-coupling workloads it must NOT run (tensor sharing / KV cooperation / layer-split / ultra-low-latency sync)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

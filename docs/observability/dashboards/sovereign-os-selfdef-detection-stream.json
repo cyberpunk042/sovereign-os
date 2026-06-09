@@ -1,0 +1,215 @@
+{
+  "_comment": "Consumer-side cockpit view of the selfdef IPS CORE DETECTION STREAM \u2014 the daemon's central output (events seen on the bus, findings promoted by the correlator). Renders the selfdef-api /metrics counters: events/sec, findings/sec by severity, events/sec by class, and cumulative finding totals. The operator's at-a-glance 'is the IPS detecting + correlating?' view.",
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {
+      "title": "operator runbook",
+      "url": "/d/sovereign-os-selfdef-disk-usage#runbook",
+      "type": "link",
+      "icon": "doc"
+    },
+    {
+      "title": "producer source",
+      "url": "https://github.com/cyberpunk042/selfdef/blob/main/packaging/scripts/selfdef-disk-usage-textfile.sh",
+      "type": "link",
+      "icon": "external link"
+    },
+    {
+      "title": "deployment guide",
+      "url": "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefdiskusagevarhigh-critical",
+      "type": "link",
+      "icon": "external link"
+    }
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "events (total)",
+      "description": "Cumulative events seen on the bus.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "selfdef_events_total",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "findings (total)",
+      "description": "Cumulative findings (category-2 Detection events).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "selfdef_findings_total",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 8,
+        "y": 0
+      },
+      "id": 2,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "ingest lag (total)",
+      "description": "Events the metrics ingest subscriber missed (bus over-subscribed); >0 means under-counting.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "selfdef_ingest_lag_events_total",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
+      "id": 3,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "events / sec",
+      "description": "Bus event rate.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "rate(selfdef_events_total[5m])",
+          "refId": "A",
+          "legendFormat": "events/s"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
+      "id": 4,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "findings / sec by severity",
+      "description": "Promoted findings rate, broken down by OCSF severity_id.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "sum by (severity_id) (rate(selfdef_findings_by_severity_total[5m]))",
+          "refId": "A",
+          "legendFormat": "sev {{severity_id}}"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
+      "id": 5,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "events / sec by class",
+      "description": "Bus event rate by OCSF class_uid.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "sum by (class_uid) (rate(selfdef_events_by_class_total[5m]))",
+          "refId": "A",
+          "legendFormat": "class {{class_uid}}"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
+      "id": 6,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "sovereign-os",
+    "selfdef",
+    "detection",
+    "findings",
+    "IPS-spine",
+    "observability"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "selfdef \u2014 IPS detection stream (events + findings)",
+  "uid": "selfdef-detection-stream",
+  "version": 1,
+  "weekStart": ""
+}

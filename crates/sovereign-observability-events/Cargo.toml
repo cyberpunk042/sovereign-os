@@ -1,0 +1,20 @@
+[package]
+name = "sovereign-observability-events"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "E0470 / M00818 + M00819 — the runtime observability event taxonomy (model_call … cost_event) + the 13-field span schema (profile/model/provider/hardware/tokens/latency/cost/risk/memory_refs/tool_refs/policy_result/branch_id/trace_id). OTel-aligned; branch_id/trace_id are the sovereign-trace-context types."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+sovereign-trace-context = { path = "../sovereign-trace-context" }
+
+[dev-dependencies]
+serde_json = { workspace = true }

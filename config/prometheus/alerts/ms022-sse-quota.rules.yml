@@ -104,4 +104,4 @@ groups:
             open, a runaway test loop, OR an operator who legitimately
             needs the per-token cap raised — adjust
             [api].max_sse_subscribers_per_token if so.
-          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#ms022sspertoken-quota-saturated-warning"
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#ms022ssepertokenquotasaturated-warning"

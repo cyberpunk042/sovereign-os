@@ -2,10 +2,13 @@
 
 > Status: **review**
 > Owner: cyberpunk042
-> Last updated: 2026-05-16
+> Last updated: 2026-06-09
 > Derived from: SDD-016 (observability bindings), Rounds 89-90 code,
 > operator verbatim "Reach our ultimate sovereignty" + "observable
 > and operable, at all stages of lifecycle".
+> Amended 2026-06-09: added § "Complementary Prometheus rule path" +
+> § "Every-metric-has-a-home coverage gate" — the with-Prometheus
+> alerting surface and its enforcement, sister to the in-tree engine.
 
 ## Problem
 
@@ -140,6 +143,71 @@ rules to the same inputs:
 | L1 | `tests/lint/test_metric_inventory_lockstep.py` | meta_alert_count + meta_alerts_check_last_run_timestamp documented in README |
 | L1 | `tests/lint/test_systemd_unit_hardening.py` | sovereign-alerts-check.service is ProtectSystem/NoNewPrivileges/PrivateTmp hardened |
 
+## Complementary Prometheus rule path (Amendment, 2026-06-09)
+
+The in-tree engine above (`sovereign-osctl alerts`, rules R1-R6) is the
+**no-Prometheus** surface — it derives alerts directly from the `.prom`
+files so the sovereignty posture holds without standing up
+Prometheus+Alertmanager. Operators who **do** run Prometheus get a
+**richer, native** surface: the Prometheus alert-rule file
+`config/prometheus/alerts/sovereign-os-health.rules.yml` (sister to the
+already-shipped four-watchdog / M060 / MS022 / sovereign-telemetry rule
+files). Both surfaces read the same Layer-B metrics; they are
+complementary, not redundant — the in-tree engine is the floor (always
+available), the Prometheus rules are the ceiling (when Prometheus is
+deployed).
+
+### Why a second surface
+
+R2-R5 already cover friction-audit / perimeter / ZFS-pool / security in
+the in-tree engine, but ONLY those four axes, and only as the two flat
+ALERT/WARN levels with no `for:` debounce, no time-since-timestamp
+staleness, and no native Alertmanager routing/inhibition. The OS's own
+health metrics were otherwise **scraped but never alerted in Prometheus**:
+a failing audit / downed Tetragon fence / degraded pool / stalled backup /
+unpatched vuln / overheating sensor / fired UPS-shutdown / OOM kill
+produced no Prometheus page. `sovereign-os-health.rules.yml` closes that —
+13 alerts across 8 axes:
+
+| Axis | Alerts (severity) | Key metric |
+|---|---|---|
+| hardware integrity | SovereignOsFrictionAuditFailing (crit) | `sovereign_os_friction_audit_failures` |
+| security perimeter | SovereignOsPerimeterDown (crit), SovereignOsPerimeterVerifierSilent (warn) | `sovereign_os_perimeter_status`, `…verify_last_run_timestamp` |
+| data integrity | SovereignOsZfsPoolDegraded (crit), SovereignOsZfsScrubOverdue (warn) | `sovereign_os_zfs_pool_health`, `…scrub_last_run_timestamp` |
+| backups | SovereignOsBackupSnapshotStale (warn) | `sovereign_os_snapshot_last_created_timestamp` |
+| security patching | SovereignOsSecurityUpdatesPending (warn), SovereignOsSecurityUpdateCheckStale (warn) | `sovereign_os_security_updates_available`, `…check_last_run_timestamp` |
+| thermal | SovereignOsThermalCritical (crit), SovereignOsThermalWatchSilent (warn) | `sovereign_os_thermal_severity`, `…last_run_unix` |
+| power | SovereignOsPowerShutdownGuardFired (crit), SovereignOsPowerUpsCritical (crit) | `sovereign_os_power_shutdown_guard_{fired,verdict}` |
+| memory | SovereignOsMemoryOomKills (crit) | `sovereign_os_memory_oom_kill_count` |
+
+Severity vocabulary stays the bounded two-tier (`warning`/`critical`,
+mapping to the in-tree WARN/ALERT) per the §"Levels" contract. Every alert
+carries a `runbook_url` into `docs/operator/m060-deployment-guide.md`
+(per-alert Diagnosis/Fix sections); the generic
+`tests/lint/test_alert_runbook_anchor_coverage.py` gate proves each anchor
+resolves. Deployment snippet lives in the same m060 guide.
+
+### Every-metric-has-a-home coverage gate
+
+`tests/lint/test_metric_observability_coverage.py` is the P4 enforcement
+that prevents this gap from recurring: every emitted `sovereign_os_*`
+metric (counted comprehensively — `emit_metric` call sites AND `# HELP`
+lines, in lockstep with `test_metric_inventory_lockstep.py`) must have an
+observability **home** — a Prometheus alert, a Grafana panel, a recording
+rule, or a justified info-tier exemption (build/lifecycle/sampling/notify
+telemetry). A new metric that pages/charts nowhere fails the gate, forcing
+a deliberate alert-vs-dashboard-vs-info decision. Sister direction to
+`test_metric_inventory_lockstep.py` (code→inventory) and
+`test_dashboard_metrics_lockstep.py` (dashboard→emitter).
+
+### Test gates (Prometheus path)
+
+| Layer | Gate | Asserts |
+|---|---|---|
+| L1 | `tests/lint/test_sovereign_os_health_alerts_contract.py` | the 13 alerts present; each expr references an emitted metric; severity/for/runbook-anchor shape; criticals are critical; staleness alerts are time()-since-timestamp |
+| L1 | `tests/lint/test_alert_runbook_anchor_coverage.py` | every alert's runbook anchor resolves in the m060 guide |
+| L1 | `tests/lint/test_metric_observability_coverage.py` | every emitted metric has a home or justified exemption (+ no stale/contradictory exemption) |
+
 ## Open sub-questions (Q23-X tracked)
 
 - **Q23-A** — Should `--json` output sort alerts by severity (ALERT
@@ -173,5 +241,12 @@ rules to the same inputs:
   documented `sovereign_os_meta_alert_count` + `sovereign_os_meta_alerts_check_last_run_timestamp`
 - `docs/src/install-runbook.md` § 5b — operator walkthrough
 - SDD-016 — Layer A/B/C foundation
+- `config/prometheus/alerts/sovereign-os-health.rules.yml` — the 13-alert
+  Prometheus operational-health rule file (complementary surface)
+- `docs/operator/m060-deployment-guide.md` § sovereign-os operational-health
+  alerts — per-alert Diagnosis/Fix runbooks + deploy snippet
+- `tests/lint/test_sovereign_os_health_alerts_contract.py` /
+  `tests/lint/test_metric_observability_coverage.py` — the contract +
+  every-metric-has-a-home enforcement
 - Operator verbatim (sacrosanct): "Reach our ultimate sovereignty",
   "observable and operable, at all stages of lifecycle"

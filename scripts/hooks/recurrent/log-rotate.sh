@@ -29,6 +29,11 @@ __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../../.." && pwd)"
 : "${SOVEREIGN_OS_LOG_DIR:=${HOME}/.sovereign-os/log}"
 : "${SOVEREIGN_OS_LOG_RETENTION_DAYS:=14}"
 : "${SOVEREIGN_OS_LOG_ARCHIVE_DAYS:=90}"
+# Size cap for ACTIVELY-APPENDED logs. The mtime-based rotation below never
+# fires on a continuously-written file (e.g. notify.jsonl — its mtime is
+# always current), so without a size trigger it would grow unbounded and
+# fill the disk. Default 50 MiB; set 0 to disable size-based rotation.
+: "${SOVEREIGN_OS_LOG_MAX_BYTES:=52428800}"
 
 # Optionally read retention from the active profile (operator wins via env)
 if [ -z "${SOVEREIGN_OS_LOG_RETENTION_DAYS_USER_SET:-}" ] && [ -n "${SOVEREIGN_OS_PROFILE:-}" ]; then
@@ -49,8 +54,32 @@ fi
 archive_dir="${SOVEREIGN_OS_LOG_DIR}/archive"
 mkdir -p "${archive_dir}"
 
-# ---- gzip + move old *.jsonl into archive/ ----
 rotated=0
+
+# ---- size-based rotation for active (continuously-appended) logs ----
+# A continuously-written *.jsonl never ages past RETENTION_DAYS by mtime, so
+# rotate by SIZE too. Atomic `mv` to a timestamped name first: an appender
+# holding the file open ("a") keeps writing to the renamed inode (archived
+# intact), and its NEXT invocation (sovereign-os appenders open per-call)
+# recreates a fresh file — no lost lines.
+if [ "${SOVEREIGN_OS_LOG_MAX_BYTES}" -gt 0 ] 2>/dev/null; then
+  while IFS= read -r f; do
+    if [ -z "${f}" ]; then continue; fi
+    ts="$(date -u +%Y%m%dT%H%M%S)"
+    rotated_name="${f}.${ts}"
+    if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
+      log_info "  would size-rotate: $(basename "${f}") (>$((SOVEREIGN_OS_LOG_MAX_BYTES / 1048576)) MiB) → archive/$(basename "${rotated_name}").gz"
+    else
+      mv "${f}" "${rotated_name}" \
+        && gzip "${rotated_name}" \
+        && mv "${rotated_name}.gz" "${archive_dir}/"
+      log_info "  size-rotated: $(basename "${f}") → archive/$(basename "${rotated_name}").gz"
+    fi
+    rotated=$((rotated + 1))
+  done < <(find "${SOVEREIGN_OS_LOG_DIR}" -maxdepth 1 -name '*.jsonl' -type f -size "+${SOVEREIGN_OS_LOG_MAX_BYTES}c" 2>/dev/null)
+fi
+
+# ---- gzip + move old *.jsonl into archive/ ----
 while IFS= read -r f; do
   if [ -z "${f}" ]; then continue; fi
   gz="${f}.gz"

@@ -30,6 +30,19 @@ __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../../.." && pwd)"
 : "${SOVEREIGN_OS_SNAPSHOT_PREFIX:=sovereign}"
 : "${SOVEREIGN_OS_SNAPSHOT_KEEP:=30}"
 
+# Guard the retention count before it drives any `zfs destroy`. A NEGATIVE
+# value would make `excess = total - KEEP` exceed `total` and destroy EVERY
+# snapshot — including the one just created — plus spurious empty destroys,
+# and emit a negative count. A NON-NUMERIC value (env typo) would break the
+# `[ total -gt KEEP ]` arithmetic test. These snapshots are the
+# irreplaceable state-fabric (SDD-017); refuse to risk destroying them on a
+# bad retention value — clamp to the default instead. (0 is left as a literal
+# explicit "retain none"; only clearly-invalid values are clamped.)
+if ! [[ "${SOVEREIGN_OS_SNAPSHOT_KEEP}" =~ ^[0-9]+$ ]]; then
+  log_warn "SOVEREIGN_OS_SNAPSHOT_KEEP=${SOVEREIGN_OS_SNAPSHOT_KEEP} is not a non-negative integer; using default 30 (refusing to risk destroying snapshots on an invalid retention)"
+  SOVEREIGN_OS_SNAPSHOT_KEEP=30
+fi
+
 log_step_header "backup-snapshot" "snapshot ${SOVEREIGN_OS_SNAPSHOT_DATASET} (keep latest ${SOVEREIGN_OS_SNAPSHOT_KEEP})"
 
 if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
@@ -88,12 +101,25 @@ if [ "${total}" -gt "${SOVEREIGN_OS_SNAPSHOT_KEEP}" ]; then
   log_info "pruning ${excess} snapshot(s) beyond keep=${SOVEREIGN_OS_SNAPSHOT_KEEP}"
   for ((i = 0; i < excess; i++)); do
     log_info "  destroying: ${all_snaps[$i]}"
-    zfs destroy "${all_snaps[$i]}" || log_warn "    failed to destroy ${all_snaps[$i]}"
-    pruned=$((pruned + 1))
+    # Only count a prune that actually happened. A failed `zfs destroy` (snapshot
+    # held, busy, or permission) leaves the snapshot on disk, so incrementing
+    # `pruned` regardless would over-report sovereign_os_snapshot_pruned_total
+    # AND under-report final_count (= total - pruned) — the snapshot is still there.
+    if zfs destroy "${all_snaps[$i]}"; then
+      pruned=$((pruned + 1))
+    else
+      log_warn "    failed to destroy ${all_snaps[$i]} (still present; not counted as pruned)"
+    fi
   done
 fi
 
-final_count=$((total + 1 - pruned))
+# `total` already counts the snapshot just created: the `zfs list`
+# above runs AFTER `zfs snapshot` and the new snapshot carries the
+# prefix, so it's in `all_snaps`. Remaining = total - pruned. The old
+# `total + 1` double-counted the new snapshot, so sovereign_os_snapshot_count
+# read one too high on every real ZFS run (the test only exercised the
+# non-ZFS count=0 path, so it never surfaced).
+final_count=$((total - pruned))
 log_info "snapshot complete: created 1, pruned ${pruned}, total ${final_count}"
 emit_metrics 1 "${pruned}" "${final_count}"
 exit 0

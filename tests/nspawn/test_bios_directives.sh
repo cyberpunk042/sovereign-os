@@ -35,10 +35,11 @@ d = json.loads(sys.stdin.read())
 names = {x['name'] for x in d['directives']}
 for must in ('AMD EXPO', 'SVM Mode', 'IOMMU',
              'Above 4G Decoding', 'Re-Size BAR Support',
-             'AVX-512 Support'):
+             'AVX-512 Support', 'PCIe Gen Speed (PCIEX16_1)',
+             'Q-Fan Control (fan curves)'):
     assert must in names, (must, names)
 " || fail "anchor names"
-pass "2. EXPO + SVM + IOMMU + Above 4G + ReBAR + AVX-512 all anchored"
+pass "2. all 8 operator-named BIOS settings anchored (EXPO/SVM/IOMMU/Above4G/ReBAR/AVX-512/PCIe/fan-curves)"
 
 # ── 3. Each directive carries the operator-required shape ────
 echo "${out}" | python3 -c "

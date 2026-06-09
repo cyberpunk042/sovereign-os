@@ -49,19 +49,26 @@ fi
 # the JSONL event are the report channels. The hook log line below
 # only fires when the script can't run AT ALL (missing python, broken
 # fs, etc).
-if ! python3 "${__REPO_ROOT}/scripts/hardware/thermal-watch.py" \
+#
+# Capture the exit code with `|| rc=$?`, NOT `if ! python3 ...; then rc=$?`:
+# the `!` negation makes `$?` inside the then-branch read 0 (the status of the
+# negated expression), so the real exit code is lost and the 1|2 breach branch
+# becomes dead code — every breach would be mislabeled "failed with rc=0".
+rc=0
+python3 "${__REPO_ROOT}/scripts/hardware/thermal-watch.py" \
     --profile "${SOVEREIGN_OS_PROFILE_ID}" \
-    --emit-metrics >/dev/null; then
-  rc=$?
-  case "${rc}" in
-    1|2)
-      # Thresholds breached — normal operational output, not a hook failure.
-      ;;
-    *)
-      log_warn "thermal-watch.py failed with rc=${rc}"
-      exit "${rc}"
-      ;;
-  esac
-fi
+    --emit-metrics >/dev/null || rc=$?
+case "${rc}" in
+  0)
+    # Ran clean, no breach.
+    ;;
+  1|2)
+    # Thresholds breached — normal operational output, not a hook failure.
+    ;;
+  *)
+    log_warn "thermal-watch.py failed with rc=${rc}"
+    exit "${rc}"
+    ;;
+esac
 
 exit 0

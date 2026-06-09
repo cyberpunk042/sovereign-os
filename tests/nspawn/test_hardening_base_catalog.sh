@@ -154,4 +154,18 @@ out2="$(python3 "${SCRIPT}" list --json)"
 [[ "${out}" == "${out2}" ]] || fail "list output changed between calls"
 pass "10. sovereign-osctl hardening-base dispatch + read-only invariant"
 
+# ── 11. ASLR (kernel.randomize_va_space) is catalogued ──────────────
+#        Anti-minimization: a base hardening catalog without full ASLR
+#        would be incomplete; lock it so it can't silently drop out.
+echo "${out}" | python3 -c "
+import json, sys
+d = json.loads(sys.stdin.read())
+aslr = next((x for x in d['items']
+             if x['name'] == 'kernel.randomize_va_space'), None)
+assert aslr is not None, 'ASLR (kernel.randomize_va_space) missing from catalog'
+assert aslr['recommended'] == '2', aslr
+assert aslr['can_probe'] and aslr['probe_match'] == '2', aslr
+" || fail "ASLR catalogued"
+pass "11. ASLR (kernel.randomize_va_space=2) catalogued + runtime-probable"
+
 echo "ALL OK"

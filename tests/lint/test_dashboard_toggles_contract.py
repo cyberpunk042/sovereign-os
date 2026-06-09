@@ -85,6 +85,46 @@ def test_disable_persists_and_emits_ocsf_5001():
         assert json.loads(out2.stdout)["now"] is True
 
 
+def _load_core():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("_dash_toggles", CORE)
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    return m
+
+
+def test_write_is_atomic_failed_write_preserves_prior_toggles():
+    """_write_toggles must be atomic (temp + os.replace). A truncate-then-write
+    would, on a crash or full disk mid-write, leave a truncated dashboards.toml
+    — which reads as {} (everything ENABLED), silently discarding every
+    operator `disable`. A failed write must preserve the prior complete file
+    and leave no temp turd behind."""
+    m = _load_core()
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "dashboards.toml"
+        m._write_toggles({"d-05-traces": False, "d-04-costs": True}, path)
+        assert m._read_toggles_raw(path) == {
+            "d-05-traces": False, "d-04-costs": True
+        }
+        assert not [f for f in os.listdir(tmp) if f.endswith(".tmp")]
+        prior = path.read_text()
+        # Force a failure mid-write; the prior file must survive intact.
+        real_fsync = os.fsync
+        os.fsync = lambda *a, **k: (_ for _ in ()).throw(OSError("simulated ENOSPC"))
+        try:
+            raised = False
+            try:
+                m._write_toggles({"d-99": False}, path)
+            except OSError:
+                raised = True
+            assert raised, "a failing write must propagate, not silently truncate"
+        finally:
+            os.fsync = real_fsync
+        assert path.read_text() == prior, "prior toggles corrupted by a failed write"
+        assert not [f for f in os.listdir(tmp) if f.endswith(".tmp")], "temp turd left"
+
+
 def test_unknown_slug_rejected():
     with tempfile.TemporaryDirectory() as tmp:
         toml = os.path.join(tmp, "dashboards.toml")

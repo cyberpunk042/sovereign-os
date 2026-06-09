@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-cockpit-views"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "E0496 §10 — the 7 things the cockpit MUST show (what is running / what it costs / what it can touch / what it changed / what is waiting for approval / what can be resumed / what can be rolled back). 'Fullstack here is not marketing UI. It is cockpit design.'"
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

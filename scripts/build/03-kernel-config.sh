@@ -81,14 +81,53 @@ PY
 log_info "running 'make olddefconfig' to resolve deps"
 if ! make olddefconfig; then
   log_error "make olddefconfig failed — kernel symbol resolution broken"
+  emit_metric sovereign_os_build_step_kernel_config_total 1 \
+    "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"fail\""
   state_step_fail "${STEP_ID}" "olddefconfig-failed"
   exit 1
 fi
+
+# ---- verify profile-required symbols survived olddefconfig ----
+# `scripts/config --enable` sets a symbol, but `make olddefconfig` silently
+# DROPS any symbol whose dependencies are unmet (or whose name is wrong / has
+# been removed upstream). A silently-missing VFIO_PCI / *_IOMMU / BPF_LSM / ZFS
+# means a kernel that can't do GPU passthrough, run selfdef's eBPF security, or
+# mount the root pool — discovered only at runtime. Surface any dropped symbols
+# loudly (a warning + a metric, not a hard fail: an obsolete symbol such as
+# AMD_IOMMU_V2 on a 6.12+ kernel is a benign drop that shouldn't break the
+# build, but the operator must still see what's missing).
+missing_syms=""
+while IFS= read -r sym; do
+  [ -z "${sym}" ] && continue
+  if ! grep -qE "^CONFIG_${sym}=(y|m)$" .config; then
+    missing_syms="${missing_syms} ${sym}"
+  fi
+done < <(python3 -c "
+import os, yaml
+with open(os.environ['SOVEREIGN_OS_PROFILE_FILE']) as f:
+    d = yaml.safe_load(f)
+for s in ((d.get('kernel') or {}).get('config') or {}).get('enable') or []:
+    print(s)
+")
+if [ -n "${missing_syms}" ]; then
+  log_warn "profile-required kernel symbols NOT enabled after olddefconfig:${missing_syms}"
+  log_warn "  (unmet dependencies, wrong name, or removed upstream — the built kernel"
+  log_warn "   would LACK these capabilities; reconcile the profile kernel.config.enable"
+  log_warn "   list or the symbols' Kconfig dependencies)"
+else
+  log_info "verified: all profile-required kernel symbols are enabled in .config"
+fi
+# Count of dropped required symbols — 0 is the healthy state; alert on > 0.
+missing_count="$(printf '%s' "${missing_syms}" | wc -w | tr -d ' ')"
+emit_metric sovereign_os_build_step_kernel_config_missing_symbols "${missing_count}" \
+  "profile=\"${SOVEREIGN_OS_PROFILE}\"" 2>/dev/null || true
 
 # ---- record produced .config ----
 config_out="${SOVEREIGN_OS_STATE_DIR}/kernel.config"
 if ! cp .config "${config_out}"; then
   log_error "failed to record kernel .config to state dir"
+  emit_metric sovereign_os_build_step_kernel_config_total 1 \
+    "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"fail\""
   state_step_fail "${STEP_ID}" "config-record-failed"
   exit 1
 fi

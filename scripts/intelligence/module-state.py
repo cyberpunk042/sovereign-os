@@ -252,6 +252,34 @@ def needs_attention(state: dict) -> bool:
 
 
 # ── Loading ────────────────────────────────────────────────────────
+def discover_uncatalogued(modules: list[dict]) -> list[dict]:
+    """Every `config/<name>.toml.example` shipped in the repo that is NOT
+    already in `modules`. The hand-maintained catalog carries rich metadata
+    (axis, systemd_unit), but a module that ships an example without being
+    added to the catalog would otherwise be INVISIBLE to a tool whose whole
+    job is "what have I installed but not configured?" — the exact
+    minimization the §1g rule forbids. Auto-discovery makes the answer
+    complete by construction: a new example surfaces immediately (verdict
+    derives from the same signals), tagged so a maintainer can fold it into
+    the rich catalog. Augment-only — never removes a cataloged entry."""
+    known = {m.get("module") for m in modules if isinstance(m, dict)}
+    extra: list[dict] = []
+    cfg_dir = REPO_ROOT / "config"
+    for ex in sorted(cfg_dir.glob("*.toml.example")):
+        name = ex.name[: -len(".toml.example")]
+        if name in known:
+            continue
+        extra.append({
+            "module": name,
+            "axis": "uncatalogued",
+            "configure_verb":
+                f"cp config/{name}.toml.example /etc/sovereign-os/{name}.toml",
+            "systemd_unit": None,
+            "_autodiscovered": True,
+        })
+    return extra
+
+
 def load_modules(overlay_path: Path | None) -> tuple[list[dict], dict]:
     meta = {"_source": "(defaults)", "_overlay_keys": []}
     modules = list(DEFAULT_MODULES)
@@ -265,6 +293,13 @@ def load_modules(overlay_path: Path | None) -> tuple[list[dict], dict]:
             meta["_parse_error"] = loaded["_parse_error"]
         if loaded.get("modules"):
             modules = list(loaded["modules"])
+    # Completeness backstop: fold in any shipped config example the catalog
+    # (or operator overlay) didn't list, so the "not configured" answer can
+    # never silently omit a module.
+    extra = discover_uncatalogued(modules)
+    if extra:
+        meta["_autodiscovered"] = [m["module"] for m in extra]
+        modules = modules + extra
     return modules, meta
 
 

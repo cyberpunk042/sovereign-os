@@ -137,13 +137,25 @@ def derive_target(cfg: dict) -> dict[str, Any]:
     sources: list[dict[str, Any]] = []
 
     if thermal is not None:
-        # thermal-oc-budget may suggest gpu_oc_multiplier in its
-        # `recommended` block.
-        v = (thermal.get("recommended") or {}).get("gpu_oc_multiplier")
-        if isinstance(v, (int, float)):
-            candidates.append(float(v))
+        # R296 thermal-oc-budget emits a VERDICT, not a numeric `recommended`
+        # block — so map its verdict to a target ceiling exactly as the
+        # R315 xmp-oc-room block below maps over-budget/tight. (The prior
+        # `thermal.get("recommended").get("gpu_oc_multiplier")` read a field
+        # thermal-oc-budget never emits, so this "heat-tied" throttle silently
+        # ignored its namesake thermal input — only memory + room contributed.)
+        # Real R296 vocabulary: critical / pull-oc-now / both-tight /
+        # thermal-watch / psu-watch / safe / *-unavailable. Aggregation is
+        # max(floor, min(candidates)) with a never-raise guard, so a thermal
+        # candidate can only throttle FURTHER — the safe direction for heat.
+        tv = thermal.get("verdict")
+        if tv in ("critical", "pull-oc-now"):
+            candidates.append(1.0)
             sources.append({"probe": "R296 thermal-oc-budget",
-                             "recommendation": float(v)})
+                             "recommendation": 1.0, "reason": tv})
+        elif tv in ("both-tight", "thermal-watch", "psu-watch"):
+            candidates.append(min(current, 1.05))
+            sources.append({"probe": "R296 thermal-oc-budget",
+                             "recommendation": min(current, 1.05), "reason": tv})
 
     if mem is not None:
         v = mem.get("recommended_oc_multiplier")

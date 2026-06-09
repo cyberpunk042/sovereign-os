@@ -24,7 +24,7 @@ groups:
           description: >
             Wrapper failure for 5+ minutes — /proc unreadable.
             Operator MUST NOT trust the other kernel gauges.
-          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefkernelmodulesextfileemitfailed-critical"
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefkernelmodulestextfileemitfailed-critical"
 
       - alert: SelfdefKernelModulesObserverSilent
         expr: time() - selfdef_kernel_modules_last_run_unix > 300

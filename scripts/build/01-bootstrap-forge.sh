@@ -81,8 +81,25 @@ if [ "${#missing[@]}" -gt 0 ]; then
     state_step_fail "${STEP_ID}" "needs-root-for-apt"
     exit 1
   fi
-  DEBIAN_FRONTEND=noninteractive apt-get update
-  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${missing[@]}"
+  # Guard apt explicitly (per the 03/05 convention): a bare apt-get under
+  # `set -e` would abort the step on a repo blip / held package / disk-full
+  # WITHOUT a result="fail" sample or state_step_fail — leaving the build in
+  # `started` limbo, indistinguishable from a hang. Record the failure like
+  # the non-debian / needs-root paths above do.
+  if ! DEBIAN_FRONTEND=noninteractive apt-get update; then
+    log_error "apt-get update failed — package metadata unavailable (repo/network)"
+    emit_metric sovereign_os_build_step_bootstrap_forge_total 1 \
+      "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"fail\""
+    state_step_fail "${STEP_ID}" "apt-update-failed"
+    exit 1
+  fi
+  if ! DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${missing[@]}"; then
+    log_error "apt-get install failed for: ${missing[*]} (held package, unmet dep, or disk-full)"
+    emit_metric sovereign_os_build_step_bootstrap_forge_total 1 \
+      "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"fail\""
+    state_step_fail "${STEP_ID}" "apt-install-failed"
+    exit 1
+  fi
 else
   log_info "all required packages already installed"
 fi
@@ -98,7 +115,13 @@ else
     exit 1
   fi
   mkdir -p "${SOVEREIGN_OS_FORGE_DIR}"
-  mount -t tmpfs -o "size=${SOVEREIGN_OS_FORGE_SIZE},mode=0755" tmpfs "${SOVEREIGN_OS_FORGE_DIR}"
+  if ! mount -t tmpfs -o "size=${SOVEREIGN_OS_FORGE_SIZE},mode=0755" tmpfs "${SOVEREIGN_OS_FORGE_DIR}"; then
+    log_error "tmpfs mount failed at ${SOVEREIGN_OS_FORGE_DIR} (size=${SOVEREIGN_OS_FORGE_SIZE} — insufficient RAM, or mount blocked)"
+    emit_metric sovereign_os_build_step_bootstrap_forge_total 1 \
+      "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"fail\""
+    state_step_fail "${STEP_ID}" "tmpfs-mount-failed"
+    exit 1
+  fi
 fi
 
 # ---- verify gcc-14 reachable ----

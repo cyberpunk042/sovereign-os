@@ -163,6 +163,52 @@ def test_recommend_requires_target_gb():
     assert "Traceback" not in r.stderr, r.stderr
 
 
+def test_recommend_negative_target_rejected_exit_2():
+    """A negative --target-gb is a typo (e.g. in the operator-set
+    /etc/sovereign-os/hugepages.target-gb), never an intent. It must be
+    rejected with the documented exit code 2 ("invalid recommendation
+    inputs") BEFORE any nr_pages computation — never silently produce a
+    negative reservation that would be written to /proc or GRUB."""
+    for verb in ("recommend", "apply"):
+        r = subprocess.run(
+            ["python3", str(SIZER_PY), verb, "--target-gb", "-5"],
+            capture_output=True, text=True, check=False, timeout=10,
+        )
+        assert r.returncode == 2, (
+            f"{verb} --target-gb -5 rc={r.returncode} (want 2); "
+            f"stderr={r.stderr!r}"
+        )
+        assert "Traceback" not in r.stderr, r.stderr
+        assert "invalid" in r.stderr.lower(), r.stderr
+
+
+def test_recommend_pure_fn_clamps_negative_to_zero():
+    """Defense-in-depth: even a programmatic caller that bypasses the CLI
+    guard must never get a negative nr_pages out of recommend(). Negative
+    target clamps to 0 with a surfaced warning."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("_hp_sizer", SIZER_PY)
+    hp = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(hp)
+    rec = hp.recommend(-5, 256 * 1024 * 1024, 2048)
+    assert rec["nr_pages"] == 0, rec
+    assert rec["reserved_kb"] == 0, rec
+    assert any("negative" in w for w in rec["warnings"]), rec["warnings"]
+
+
+def test_recommend_zero_target_allowed_frees_reservations():
+    """--target-gb 0 is legitimate: it frees all reservations. It must
+    NOT be rejected (only negatives are invalid)."""
+    r = subprocess.run(
+        ["python3", str(SIZER_PY), "recommend", "--target-gb", "0", "--json"],
+        capture_output=True, text=True, check=False, timeout=10,
+    )
+    assert r.returncode == 0, r.stderr
+    data = json.loads(r.stdout)
+    assert data["nr_pages"] == 0, data
+
+
 # ── Systemd hardening ──
 
 REQUIRED_UNIT_KEYS = (

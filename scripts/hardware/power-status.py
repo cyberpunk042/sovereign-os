@@ -286,15 +286,27 @@ def cmd_budget(args: argparse.Namespace) -> int:
     psu = cfg.get("psu") or {}
     rated_w = float(psu.get("rated_watts", 0))
     derating = float(cfg.get("derating", 0.85))
-    # R259 (SDD-029 R259): PSU overclock mode lifts the rated-W
-    # ceiling for transient spikes. When operator has flipped the
-    # physical switch AND declared overclock_mode_enabled=true in
-    # power.toml, the sustained budget gets the OC bonus (operator-
-    # configurable, defaults to 1.10× — be Quiet! Dark Power Pro 13
-    # advertises a transient bump but treats sustained as ~10% over).
+    # R259 (SDD-029 R259): PSU overclock-mode handling.
+    #
+    # IMPORTANT (operator mandate E1.M33, verbatim): the reference PSU's
+    # OC switch "combines multiple +12V rails into one stronger rail" and
+    # "raises max safe gpu_oc_multiplier ceiling" — i.e. it lets ONE rail
+    # (e.g. GPU PCIe) draw closer to the EXISTING total, and it lifts the
+    # PEAK/transient envelope via the ATX 3.1 power-excursion spec. It does
+    # NOT raise the SUSTAINED total budget. The dedicated psu-oc.py spec
+    # agrees: rated_oc_mode_watts == rated_standard_watts for the be Quiet!
+    # Dark Power Pro 13 (multi-rail→single-rail toggle, no sustained shift).
+    #
+    # So `overclock_multiplier` DEFAULTS TO 1.0 (no sustained lift). It used
+    # to default to 1.10, which over-stated the sustained budget by ~10%
+    # (1600→1760 W) — the UNSAFE direction, and contradicting both the
+    # operator mandate and psu-oc.py. An operator whose PSU genuinely lifts
+    # SUSTAINED output in OC mode can still set overclock_multiplier > 1.0
+    # explicitly; per-rail / GPU-OC headroom is psu-oc.py / oc-headroom.py's
+    # job, not a total-budget multiplier here.
     oc_supported = bool(psu.get("overclock_mode_supported"))
     oc_enabled = bool(psu.get("overclock_mode_enabled"))
-    oc_multiplier = float(psu.get("overclock_multiplier", 1.10))
+    oc_multiplier = float(psu.get("overclock_multiplier", 1.0))
     if oc_supported and oc_enabled:
         effective_rated_w = rated_w * oc_multiplier
         budget_w = effective_rated_w * derating
@@ -345,11 +357,26 @@ def cmd_budget(args: argparse.Namespace) -> int:
         "warnings": [],
     }
     if oc_supported and not oc_enabled and utilization_pct is not None and utilization_pct >= 70:
-        out["warnings"].append(
-            f"PSU supports overclock mode but it is DISABLED. Flip the "
-            f"physical switch + set [psu] overclock_mode_enabled=true in "
-            f"power.toml to lift the sustained budget by ~{round((oc_multiplier - 1) * 100)}%."
-        )
+        lift_pct = round((oc_multiplier - 1) * 100)
+        if lift_pct > 0:
+            # PSU genuinely lifts SUSTAINED output in OC mode (operator set
+            # overclock_multiplier > 1.0 for a PSU whose datasheet supports it).
+            msg = (
+                f"PSU supports overclock mode but it is DISABLED. Flip the "
+                f"physical switch + set [psu] overclock_mode_enabled=true in "
+                f"power.toml to lift the sustained budget by ~{lift_pct}%."
+            )
+        else:
+            # Reference-PSU semantics (E1.M33 / psu-oc.py): OC mode is rail
+            # consolidation — it does NOT raise the sustained total, so it
+            # won't relieve a near-100% SUSTAINED utilization. Be honest.
+            msg = (
+                "Sustained utilization ≥70%. Note: this PSU's overclock mode "
+                "consolidates rails (more per-rail / GPU-OC headroom — see "
+                "`psu-oc`) but does NOT raise the sustained total budget. To "
+                "relieve sustained pressure, reduce load or size up the PSU."
+            )
+        out["warnings"].append(msg)
     if budget_w > 0 and utilization_pct is not None:
         if utilization_pct >= 100:
             out["warnings"].append(
@@ -438,6 +465,33 @@ def cmd_advisories(args: argparse.Namespace) -> int:
     critical_pct = float(profile.get("battery_critical_pct", 15))
     runtime_min_warn_min = float(profile.get("runtime_warn_minutes", 5))
     shutdown_min_min = float(profile.get("shutdown_minutes", 2))
+
+    # Validate the SAFETY-critical UPS thresholds. An out-of-range value
+    # silently breaks the graceful-shutdown logic in a DANGEROUS direction:
+    # battery_critical_pct > 100 → `bat_pct <= critical` is always true →
+    # shuts down at ANY battery level; ≤ 0 → never true → host hard-powers-
+    # off on depletion. A negative time threshold is equally nonsensical.
+    # Neutralize a typo by falling back to the safe default + surfacing it.
+    config_warnings: list[str] = []
+    if not (0 < critical_pct <= 100):
+        config_warnings.append(
+            f"[graceful_shutdown] battery_critical_pct={critical_pct} is out "
+            f"of range (0,100] — IGNORED, using safe default 15. (>100 shuts "
+            f"down at any level; ≤0 never shuts down.)"
+        )
+        critical_pct = 15.0
+    if shutdown_min_min < 0:
+        config_warnings.append(
+            f"[graceful_shutdown] shutdown_minutes={shutdown_min_min} is "
+            f"negative — IGNORED, using safe default 2."
+        )
+        shutdown_min_min = 2.0
+    if runtime_min_warn_min < 0:
+        config_warnings.append(
+            f"[graceful_shutdown] runtime_warn_minutes={runtime_min_warn_min} "
+            f"is negative — IGNORED, using safe default 5."
+        )
+        runtime_min_warn_min = 5.0
     ups = detect_ups()
     bat_pct = (ups or {}).get("battery_charge_pct")
     runtime = (ups or {}).get("time_left_minutes")
@@ -448,6 +502,12 @@ def cmd_advisories(args: argparse.Namespace) -> int:
         "round": "R252",
         "vector": "SDD-026 Z-18 (graceful shutdown advisories)",
         "thresholds": {
+            # SDD-029 gate 2: `[graceful_shutdown] enabled = true` is a
+            # contracted config-arm path for the power-shutdown-guard hook.
+            # The guard reads thresholds.enabled; surface it from the config
+            # profile (was omitted — config-based arming silently never
+            # worked, only the env-var path did).
+            "enabled": bool(profile.get("enabled", False)),
             "battery_critical_pct": critical_pct,
             "runtime_warn_minutes": runtime_min_warn_min,
             "shutdown_minutes": shutdown_min_min,
@@ -458,7 +518,9 @@ def cmd_advisories(args: argparse.Namespace) -> int:
             "time_left_minutes": runtime,
         },
         "verdict": "no-ups",
-        "advisories": [],
+        # Config-validation warnings first so a dangerous threshold typo is
+        # the most visible advisory (it overrides the operator's value).
+        "advisories": list(config_warnings),
         # R265 (E1.M11): thermal dimension surfaces alongside the UPS
         # dimension. Operator sees BOTH "battery is critical" AND "GPU
         # is overheating" in one advisory verdict.

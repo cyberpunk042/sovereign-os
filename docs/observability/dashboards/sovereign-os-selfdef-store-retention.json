@@ -1,0 +1,211 @@
+{
+  "_comment": "Consumer-side cockpit view of selfdef SDD-081 hot-store retention. Renders the daemon's /metrics retention series: enabled gauge, pruned-rate, cumulative sweeps + pruned, and live hot-store size. Pairs with the SelfdefStoreRetentionStalled alert (config/prometheus/alerts/selfdef-store-retention.rules.yml).",
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {
+      "title": "operator runbook",
+      "url": "/d/sovereign-os-selfdef-disk-usage#runbook",
+      "type": "link",
+      "icon": "doc"
+    },
+    {
+      "title": "producer source",
+      "url": "https://github.com/cyberpunk042/selfdef/blob/main/packaging/scripts/selfdef-disk-usage-textfile.sh",
+      "type": "link",
+      "icon": "external link"
+    },
+    {
+      "title": "deployment guide",
+      "url": "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefdiskusagevarhigh-critical",
+      "type": "link",
+      "icon": "external link"
+    }
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "retention enabled",
+      "description": "1 when hot_retention_days>0 (retention on); 0 = operator opted out (events kept forever).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "selfdef_store_retention_enabled",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "hot-store size",
+      "description": "Live event count in the hot SQLite store; retention keeps this bounded.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "selfdef_store_events",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "id": 2,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "sweeps (total)",
+      "description": "Cumulative retention sweeps run (one every ~6h while enabled).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "selfdef_store_retention_sweeps_total",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "id": 3,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "pruned (total)",
+      "description": "Cumulative events deleted past the hot_retention_days horizon.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "selfdef_store_retention_pruned_total",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "id": 4,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "events pruned / sec",
+      "description": "Pruning rate \u2014 retention actively bounding the store.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "rate(selfdef_store_retention_pruned_total[1h])",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
+      "id": 5,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "hot-store size over time",
+      "description": "Hot-store size trend; should stay bounded under retention.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "selfdef_store_events",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
+      "id": 6,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "sovereign-os",
+    "selfdef",
+    "store-retention",
+    "SDD-081",
+    "observability"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "selfdef \u2014 hot-store retention (SDD-081)",
+  "uid": "selfdef-store-retention",
+  "version": 1,
+  "weekStart": ""
+}

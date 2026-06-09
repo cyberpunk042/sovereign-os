@@ -2,10 +2,19 @@
 # scripts/hooks/post-install/network-vlan-config.sh
 #
 # Configure dual-NIC VLAN split per the profile's hardware.network
-# list. Generates systemd-networkd .network units; default behavior:
-# - role=mgmt → VLAN 100, default gateway via this NIC
-# - role=data → VLAN 200, MTU 9000, no default gateway
-# Reads NIC names from /sys/class/net by matching vendor:device IDs.
+# list. Generates systemd-networkd .network / .netdev units honoring
+# each NIC's profile fields:
+#   - iface_hint → [Match] Name=  (so a dual-NIC host actually splits
+#     roles; without it the units fall back to Type=ether, which is
+#     ambiguous — systemd applies the lowest-numbered .network to EVERY
+#     ethernet NIC — and the operator must pin [Match] manually)
+#   - address    → static Address= (else DHCP=yes)
+#   - gateway    → Gateway= (only on the default-gateway NIC)
+#   - dns_nameservers → DNS=
+#   - vlan / mtu / default_gateway → VLAN netdev, MTU, Zero-Trust routing
+# Zero-Trust (§8): a non-gateway NIC carries NO default route —
+# DefaultRouteOnDevice=no, and on DHCP it also refuses the offered
+# gateway/routes so the invariant holds on the host, not the network.
 
 __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../../.." && pwd)"
@@ -26,69 +35,120 @@ require_root
 network_dir="/etc/systemd/network"
 mkdir -p "${network_dir}"
 
-# Read network NIC config from profile + emit one .network per NIC
-python3 -c "
+# Render one .network (+ optional .netdev/.network for the VLAN) per NIC.
+# Quoted heredoc → no bash interpolation inside the Python; paths via env.
+# Capture the generator's rc: a failure (unwritable /etc/systemd/network,
+# malformed profile YAML) would otherwise abort via set -e before the
+# result="configured" emit, leaving a host with NO network config and no
+# fail signal — every other terminal here reports a metric.
+network_rc=0
+NETWORK_DIR="${network_dir}" python3 <<'PYEOF' || network_rc=$?
 import os, yaml, pathlib, textwrap
+
 with open(os.environ['SOVEREIGN_OS_PROFILE_FILE']) as f:
     d = yaml.safe_load(f)
 nics = (d.get('hardware') or {}).get('network') or []
-out_dir = pathlib.Path('${network_dir}')
+out_dir = pathlib.Path(os.environ['NETWORK_DIR'])
+
+
+def match_block(vendor, model, speed, name_hint):
+    lines = []
+    if vendor or model:
+        lines.append('# %s %s (%s Gbps)' % (vendor, model, speed))
+    lines.append('[Match]')
+    if name_hint:
+        # Pin the physical NIC by its profile name hint (e.g. enp6s0) so the
+        # role split is deterministic on a multi-NIC host.
+        lines.append('Name=%s' % name_hint)
+    else:
+        lines.append('Type=ether')
+        lines.append('# WARNING: no iface_hint in profile — Type=ether matches EVERY')
+        lines.append('# ethernet NIC, so systemd applies the lowest-numbered .network to')
+        lines.append('# all of them. Pin [Match] Name=/MACAddress= for the role split.')
+    return '\n'.join(lines)
+
+
+def network_body(static_addr, gateway, dns, want_gw):
+    # Static when the profile declares an address; else DHCP. Honor the declared
+    # gateway + DNS. Enforce Zero-Trust "no default route" on non-gateway NICs.
+    b = '[Network]\n'
+    if static_addr:
+        b += 'Address=%s\n' % static_addr
+        if want_gw and gateway:
+            b += 'Gateway=%s\n' % gateway
+        for ns in dns:
+            b += 'DNS=%s\n' % ns
+        if not want_gw:
+            b += 'DefaultRouteOnDevice=no\n'
+    else:
+        b += 'DHCP=yes\n'
+        for ns in dns:
+            b += 'DNS=%s\n' % ns
+        if not want_gw:
+            # DefaultRouteOnDevice=no alone won't stop a DHCP-offered gateway
+            # from becoming the default route; refuse the gateway + routes DHCP
+            # hands out so the Zero-Trust invariant holds on the host.
+            b += 'DefaultRouteOnDevice=no\n[DHCPv4]\nUseGateway=no\nUseRoutes=no\n'
+    return b
+
 
 for idx, nic in enumerate(nics):
-    role = nic.get('role', f'nic{idx}')
+    role = nic.get('role', 'nic%d' % idx)
     vendor = nic.get('vendor', '')
     model = nic.get('model', '')
+    speed = nic.get('speed_gbps', '?')
     vlan = nic.get('vlan')
     mtu = nic.get('mtu')
     default_gw = nic.get('default_gateway', False)
-    speed = nic.get('speed_gbps', '?')
+    address = nic.get('address')
+    gateway = nic.get('gateway')
+    dns = nic.get('dns_nameservers') or []
+    iface_hint = nic.get('iface_hint')
+    addr_label = address or 'dhcp'
 
-    name = f'{10+idx:02d}-{role}.network'
-    # Match by vendor model (heuristic; operator can pin MAC at install time)
-    match_lines = []
-    if vendor or model:
-        match_lines.append(f'# {vendor} {model} ({speed} Gbps)')
-    # Use type=ether as fallback; operator overrides with [Match] MACAddress= via local override
-    match_lines.append('[Match]')
-    match_lines.append('Type=ether')
-
-    cfg = '\n'.join(match_lines) + '\n\n[Network]\n'
-    cfg += 'DHCP=yes\n' if not vlan else f'VLAN={role}-vlan\n'
-    if not default_gw:
-        cfg += 'DefaultRouteOnDevice=no\n'
-
-    out = out_dir / name
-    out.write_text(cfg)
-    print(f'  wrote {out}')
-
-    # If a VLAN was declared, also write the .netdev + .network for the VLAN
+    base_name = out_dir / ('%02d-%s.network' % (10 + idx, role))
     if vlan:
-        vlan_netdev = out_dir / f'{20+idx:02d}-{role}-vlan.netdev'
-        vlan_netdev.write_text(textwrap.dedent(f'''\
+        # Base NIC: match the physical NIC + attach the VLAN. No IP on the base
+        # — the VLAN interface below carries the address.
+        base_name.write_text(
+            match_block(vendor, model, speed, iface_hint)
+            + '\n\n[Network]\nVLAN=%s-vlan\n' % role
+        )
+        print('  wrote %s (base, VLAN trunk)' % base_name)
+
+        vlan_netdev = out_dir / ('%02d-%s-vlan.netdev' % (20 + idx, role))
+        vlan_netdev.write_text(textwrap.dedent('''\
             [NetDev]
-            Name={role}-vlan
+            Name=%s-vlan
             Kind=vlan
 
             [VLAN]
-            Id={vlan}
-            '''))
-        print(f'  wrote {vlan_netdev}')
+            Id=%s
+            ''' % (role, vlan)))
+        print('  wrote %s' % vlan_netdev)
 
-        vlan_network = out_dir / f'{30+idx:02d}-{role}-vlan.network'
-        vlan_cfg = textwrap.dedent(f'''\
-            [Match]
-            Name={role}-vlan
-
-            [Network]
-            DHCP=yes
-            ''')
+        vlan_network = out_dir / ('%02d-%s-vlan.network' % (30 + idx, role))
+        vcfg = '[Match]\nName=%s-vlan\n\n' % role
+        vcfg += network_body(address, gateway, dns, default_gw)
         if mtu:
-            vlan_cfg += f'\n[Link]\nMTUBytes={mtu}\n'
-        if not default_gw:
-            vlan_cfg += 'DefaultRouteOnDevice=no\n'
-        vlan_network.write_text(vlan_cfg)
-        print(f'  wrote {vlan_network}')
-"
+            vcfg += '[Link]\nMTUBytes=%s\n' % mtu
+        vlan_network.write_text(vcfg)
+        print('  wrote %s (addr=%s)' % (vlan_network, addr_label))
+    else:
+        # Non-VLAN NIC: the IP sits directly on the physical interface.
+        cfg = match_block(vendor, model, speed, iface_hint) + '\n\n'
+        cfg += network_body(address, gateway, dns, default_gw)
+        if mtu:
+            cfg += '[Link]\nMTUBytes=%s\n' % mtu
+        base_name.write_text(cfg)
+        print('  wrote %s (addr=%s)' % (base_name, addr_label))
+PYEOF
+if [ "${network_rc}" -ne 0 ]; then
+  log_error "networkd unit generation failed (rc=${network_rc}); host may have NO network config — check ${network_dir} writability + profile hardware.network"
+  emit_metric sovereign_os_post_install_network_vlan_total 1 \
+    "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"fail\""
+  exit 1
+fi
 
 # Restart networkd
 if command -v systemctl >/dev/null 2>&1; then

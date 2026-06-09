@@ -1,0 +1,20 @@
+[package]
+name = "sovereign-intake"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "E0549 — Step 1 Intake of the task lifecycle: the 10 task sources (Claude Code / Cline / OpenCode / dashboard / CLI / MCP / API / scheduled / file-watcher / voice) and the 6 fields the gateway creates per request (request_id / trace_id / client_id / profile_hint / privacy_context / budget_hint). trace_id is the sovereign-trace-context id."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+sovereign-trace-context = { path = "../sovereign-trace-context" }
+
+[dev-dependencies]
+serde_json = { workspace = true }

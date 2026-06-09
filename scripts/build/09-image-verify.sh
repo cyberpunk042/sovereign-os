@@ -44,6 +44,8 @@ require_command qemu-system-x86_64
 
 if [ -z "${SOVEREIGN_OS_IMAGE_DIR:-}" ] || [ ! -d "${SOVEREIGN_OS_IMAGE_DIR}" ]; then
   log_error "image dir not found (set SOVEREIGN_OS_IMAGE_DIR or rerun step 07)"
+  emit_metric sovereign_os_build_step_image_verify_total 1 \
+    "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"fail\""
   state_step_fail "${STEP_ID}" "no-image"
   exit 1
 fi
@@ -53,6 +55,8 @@ image_file="$(find "${SOVEREIGN_OS_IMAGE_DIR}" -maxdepth 1 \( -name '*.img' -o -
 
 if [ -z "${image_file}" ]; then
   log_error "no image artifact found in ${SOVEREIGN_OS_IMAGE_DIR}"
+  emit_metric sovereign_os_build_step_image_verify_total 1 \
+    "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"fail\""
   state_step_fail "${STEP_ID}" "no-image-artifact"
   exit 1
 fi
@@ -85,6 +89,8 @@ else
         log_warn "QEMU boot reached timeout (${SOVEREIGN_OS_QEMU_TIMEOUT}s); reviewing log…"
       else
         log_error "QEMU exited with status ${rc}"
+        emit_metric sovereign_os_build_step_image_verify_total 1 \
+          "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"fail\""
         state_step_fail "${STEP_ID}" "qemu-failed-${rc}"
         exit 1
       fi

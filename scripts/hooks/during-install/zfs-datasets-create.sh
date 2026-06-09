@@ -42,7 +42,13 @@ if ! zpool list "${SOVEREIGN_OS_POOL_NAME}" >/dev/null 2>&1; then
   exit 1
 fi
 
-# Iterate over datasets from profile
+# Iterate over datasets from profile. Guard the create pipeline: a failed
+# `zfs create` (bad recordsize/compression value, pool full, dataset-name
+# collision) raises in the inner python (check=True) and, under set -e, aborts
+# the hook WITHOUT emit_datasets_metric fail — unlike every other exit path
+# here (skip-dry-run / missing-pool / success). Capture it so a half-created
+# dataset layout is VISIBLE in during_install_datasets_create_total.
+datasets_rc=0
 python3 -c "
 import os, yaml, json
 with open(os.environ['SOVEREIGN_OS_PROFILE_FILE']) as f:
@@ -82,7 +88,12 @@ for ds in datasets:
     print(f'  [CREATE] {\" \".join(args)}')
     subprocess.run(args, check=True)
     print(f'           purpose: {ds.get(\"purpose\", \"-\")}')
-"
+" || datasets_rc=$?
+if [ "${datasets_rc}" -ne 0 ]; then
+  log_error "dataset creation failed (rc=${datasets_rc}) — bad property value, pool full, or name collision; layout may be partial"
+  emit_datasets_metric fail
+  exit 1
+fi
 
 # Final state
 log_info "datasets after create:"

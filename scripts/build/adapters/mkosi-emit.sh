@@ -104,16 +104,34 @@ cmdline = " ".join(cmdline_base + cmdline_vfio)
 if cmdline:
     cfg += f"\nKernelCommandLine={cmdline}\n"
 
-# Deny list — mkosi has its own deny mechanism via 'RemoveFiles=' or
-# we just don't include them in Packages=. For phone-home daemons,
-# explicit deny via package mask:
+# Deny list — sovereignty-required (no phone-home / telemetry: snapd, apport,
+# whoopsie, popularity-contest, ubuntu-advantage, …). Emit mkosi's real
+# RemovePackages= directive so these are PURGED from the image after install,
+# which also catches a denied daemon pulled in as a transitive dependency.
+# (Previously this block emitted only '# explicitly NOT installed: …' comments,
+# which enforced nothing — the packages were never actually removed.)
 deny = (p.get("packages") or {}).get("deny") or []
 if deny:
-    cfg += "\n# deny-list (sovereignty-required; never installed)\n"
+    cfg += "\n# deny-list (sovereignty-required: no phone-home / telemetry)\n"
+    cfg += "RemovePackages=\n"
     for pkg in deny:
-        cfg += f"# explicitly NOT installed: {pkg}\n"
+        cfg += f"    {pkg}\n"
 
 (out_dir / "mkosi.conf.d" / f"{profile_id}.conf").write_text(cfg)
+
+# ---- kernel.modules.load_at_boot → /etc/modules-load.d/ (mkosi.extra overlay) ----
+# The profile declares which modules must load at boot (zfs / nvidia / vfio_pci),
+# but nothing wrote them to systemd's modules-load.d, so it relied entirely on
+# implicit load paths (initramfs / udev / softdep). Emit the canonical config so
+# the declared policy is actually enforced.
+load_at_boot = ((p.get("kernel") or {}).get("modules") or {}).get("load_at_boot") or []
+if load_at_boot:
+    mld = out_dir / "mkosi.extra" / "etc" / "modules-load.d"
+    mld.mkdir(parents=True, exist_ok=True)
+    (mld / "sovereign-os.conf").write_text(
+        f"# kernel.modules.load_at_boot (profile {profile_id})\n"
+        + "\n".join(load_at_boot) + "\n"
+    )
 
 # ---- mkosi.repart for ZFS-tiered storage ----
 # mkosi handles partitioning declaratively via mkosi.repart/*.conf files.

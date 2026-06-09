@@ -194,7 +194,11 @@ def derive_recommendations(snapshot: dict | None,
         verb_spec = PROBE_TO_VERB.get(name, {})
         # Pull verdict + message from probe's own output.
         out = p.get("output") or {}
-        verdict = (out.get("verdict") or out.get("status") or "(no-verdict)") \
+        # autohealth `status` nests its verdict under last_tick (the cached
+        # latest tick); top-level verdict is absent there — fall back to it.
+        verdict = (out.get("verdict") or out.get("status")
+                   or (out.get("last_tick") or {}).get("verdict")
+                   or "(no-verdict)") \
             if isinstance(out, dict) else "(no-output)"
         message = ""
         if isinstance(out, dict):

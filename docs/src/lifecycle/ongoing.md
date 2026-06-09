@@ -24,11 +24,31 @@ This stage covers **everything that happens after first-boot, for the life of th
 
 ## Recurrent hooks (systemd timers)
 
+The full operator-named maintenance + telemetry cadence (13 timers; each
+fires a hook under `scripts/hooks/recurrent/` that emits a Layer B metric
+snapshot — see `docs/observability/dashboards/README.md` for the metrics).
+Ordered most-frequent first:
+
 | Timer | Schedule | What |
 |---|---|---|
-| `sovereign-zfs-scrub.timer` | Sun 02:00 + ±30min jitter | Weekly ZFS scrub |
-| `sovereign-tetragon-verify.timer` | Daily 04:00 + ±15min | Perimeter policy integrity check |
-| `sovereign-models-sync.timer` | Daily 03:30 + ±30min | Resident model catalog verification |
+| `sovereign-power-shutdown-guard.timer` | Every minute | UPS / battery monitor + graceful-shutdown guard (R253, Z-18) |
+| `sovereign-wattage-sample.timer` | Every minute | PSU wattage Layer-B sampler (R258, Z-18) |
+| `sovereign-memory-pressure-sample.timer` | Every minute | Memory-pressure / OOM Layer-B sampler (E1.M15) |
+| `sovereign-wattage-heat-trend.timer` | Every minute | Wattage + heat trend-verdict tick (E1.M36) |
+| `sovereign-telemetry-textfile.timer` | Every minute | sovereign-telemetry probe → node_exporter textfile (M045 E0430 / M013) |
+| `sovereign-thermal-watch.timer` | Every 5 min | Chassis / CPU / GPU thermal sample (R172) |
+| `sovereign-alerts-check.timer` | Hourly | Alert derivation snapshot |
+| `sovereign-notify-dispatch.timer` | Hourly | Health-scan + notification fan-out (R229, Z-6) |
+| `sovereign-backup-snapshot.timer` | Daily 02:30 | State-fabric ZFS snapshot |
+| `sovereign-models-sync.timer` | Daily 03:30 | Resident model catalog verification |
+| `sovereign-log-rotate.timer` | Daily 03:30 | Log rotation trigger |
+| `sovereign-tetragon-verify.timer` | Daily 04:00 | Perimeter TracingPolicy integrity check |
+| `sovereign-security-update-check.timer` | Daily 04:15 | Security-update availability check |
+| `sovereign-zfs-scrub.timer` | Weekly (Sun 02:00) | ZFS pool scrub |
+
+This table is the operator-facing mirror of the canonical 13-hook cadence
+locked by `tests/lint/test_recurrent_hooks_contract.py`; adding or removing
+a recurrent hook means updating both.
 
 ## Adding a new tool / service
 

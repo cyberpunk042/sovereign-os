@@ -1,0 +1,26 @@
+[Unit]
+Description=sovereign-os per-minute memory-pressure / OOM sampler (E1.M15)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/recurrent/memory-pressure-sample.sh
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/sovereign-os/scripts/hooks/recurrent/memory-pressure-sample.sh
+TimeoutStartSec=30s
+StandardOutput=journal
+StandardError=journal
+# R171 defense-in-depth (Layer 1 lint enforced)
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+ReadWritePaths=/var/lib/sovereign-os /var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true

@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-base-os"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "E0459 / M00800 — Base OS module: the 10 responsibilities (kernel / firmware / NVIDIA drivers / AppArmor / cgroup-v2 / systemd / ZFS / LUKS / networking / VFIO-IOMMU) and the 5 config modes (stable / ai-driver-latest / secure / developer / offline)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

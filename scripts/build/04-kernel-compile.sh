@@ -93,7 +93,24 @@ else
   # bindeb-pkg generates .deb packages in the parent directory of the
   # kernel source tree. KCFLAGS / KCPPFLAGS / KBUILD_BUILD_USER /
   # KBUILD_BUILD_HOST already exported from env handoff.
-  time make -j"${SOVEREIGN_OS_PARALLEL}" bindeb-pkg 2>&1 | tee "${SOVEREIGN_OS_LOG_DIR}/kernel-compile-${SOVEREIGN_OS_BUILD_ID}.log"
+  #
+  # Capture make's status (PIPESTATUS[0], past the tee) instead of letting a
+  # `set -e` abort end the step silently: a kernel compile failure (a config
+  # that won't build, OOM on a memory-tight forge, a fetch-corrupted tree)
+  # then records result="fail" + state_step_fail like the rpm/nix/no-deb paths,
+  # so a broken build is VISIBLE in build_step_kernel_compile_total instead of
+  # showing up only as the absence of a success sample.
+  compile_rc=0
+  time make -j"${SOVEREIGN_OS_PARALLEL}" bindeb-pkg 2>&1 \
+    | tee "${SOVEREIGN_OS_LOG_DIR}/kernel-compile-${SOVEREIGN_OS_BUILD_ID}.log" \
+    || compile_rc="${PIPESTATUS[0]}"
+  if [ "${compile_rc}" -ne 0 ]; then
+    log_error "kernel compile failed (rc=${compile_rc}); see ${SOVEREIGN_OS_LOG_DIR}/kernel-compile-${SOVEREIGN_OS_BUILD_ID}.log"
+    emit_metric sovereign_os_build_step_kernel_compile_total 1 \
+      "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"fail\""
+    state_step_fail "${STEP_ID}" "compile-failed-${compile_rc}"
+    exit 1
+  fi
 fi
 
 # ---- collect output ----

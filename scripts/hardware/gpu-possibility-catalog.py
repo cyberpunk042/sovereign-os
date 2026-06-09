@@ -205,6 +205,60 @@ DEFAULT_CATALOG: list[dict[str, Any]] = [
         "related_mandate_module": None,
         "related_sdd": None,
     },
+
+    # ── CPU / AVX-512 (operator §1b: "...and the CPU and AVX512") ──
+    # The operator's board is the X870E Creator (AM5; Ryzen 7000/8000/9000
+    # = Zen 4 / Zen 5), which implements AVX-512 — AMD's first desktop
+    # AVX-512 generation, including the BF16 + VNNI sub-extensions.
+    {
+        "card": "CPU (AVX-512)",
+        "capability": "AVX-512 base ISA present (Zen 4 / Zen 5)",
+        "status": "established",
+        "evidence": "Operator's X870E Creator board (board-advisor-x870e-"
+                    "creator.py) takes Ryzen 7000/8000/9000 = Zen 4/5, the "
+                    "first AMD desktop cores with AVX-512; selfdef SDD-017 "
+                    "hardware probe reports avx512_present.",
+        "related_round": "R272",
+        "related_mandate_module": "E1.M23",
+        "related_sdd": "scripts/hardware/board-advisor-x870e-creator.py",
+    },
+    {
+        "card": "CPU (AVX-512)",
+        "capability": "AVX-512 BF16 + VNNI sub-extensions",
+        "status": "established",
+        "evidence": "Zen 4/5 ship AVX512_BF16 + AVX512_VNNI; the selfdef "
+                    "SDD-017 hardware probe detects avx512_bf16 / "
+                    "avx512_vnni and sovereign-os consumes them via "
+                    "scripts/models/selfdef-models.py for CPU-offload "
+                    "model parametrization.",
+        "related_round": "R272",
+        "related_mandate_module": "E1.M23",
+        "related_sdd": "scripts/models/selfdef-models.py",
+    },
+    {
+        "card": "CPU (AVX-512)",
+        "capability": "AVX-512 sustained-load power model (+~25 W)",
+        "status": "established",
+        "evidence": "R272 quantified AVX-512 sustained execution as ~25 W "
+                    "extra on the PSU budget; used live by "
+                    "scripts/hardware/xmp-oc-room-advisor.py "
+                    "(avx512_load_extra_w).",
+        "related_round": "R272",
+        "related_mandate_module": "E1.M23",
+        "related_sdd": "scripts/hardware/xmp-oc-room-advisor.py",
+    },
+    {
+        "card": "CPU (AVX-512)",
+        "capability": "Intel AMX (Advanced Matrix Extensions)",
+        "status": "non-established",
+        "evidence": "AMX is an Intel-only ISA (Sapphire Rapids+ Xeon); it is "
+                    "structurally absent on the operator's AMD Zen rig. "
+                    "Listed explicitly so operator doesn't plan a CPU-AMX "
+                    "inference path on this hardware.",
+        "related_round": None,
+        "related_mandate_module": None,
+        "related_sdd": None,
+    },
 ]
 
 

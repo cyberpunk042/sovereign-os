@@ -1,0 +1,14 @@
+[Unit]
+Description=sovereign-os telemetry probe textfile tick, every minute (M045 E0430 / M013)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/recurrent/sovereign-telemetry-textfile.sh
+
+[Timer]
+# Per-minute cadence so the Prometheus textfile stays fresh well inside the
+# SovereignTelemetry* alert for-windows and node_exporter's scrape interval.
+OnBootSec=2min
+OnUnitActiveSec=1min
+Persistent=true
+Unit=sovereign-telemetry-textfile.service
+
+[Install]
+WantedBy=timers.target
