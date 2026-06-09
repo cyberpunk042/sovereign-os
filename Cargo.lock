@@ -4838,6 +4838,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-ivf"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-kmeans",
+]
+
+[[package]]
 name = "sovereign-jaro-winkler"
 version = "0.1.0"
 
