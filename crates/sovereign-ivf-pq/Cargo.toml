@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-ivf-pq"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "IVF-PQ (IVFADC) billion-scale approximate nearest-neighbour index: a k-means coarse quantizer partitions vectors into cells, the residual of each vector from its cell centroid is product-quantized to a few bytes, and queries scan the n_probe nearest cells using asymmetric distance computation over precomputed lookup tables. Stores compressed codes instead of full vectors — the FAISS-style method for vector search at memory scales brute force and HNSW cannot reach. Composes sovereign-kmeans and sovereign-product-quantization."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+sovereign-kmeans = { path = "../sovereign-kmeans" }
+sovereign-product-quantization = { path = "../sovereign-product-quantization" }
