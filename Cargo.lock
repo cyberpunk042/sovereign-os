@@ -5459,6 +5459,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-viterbi"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-vnni"
 version = "0.1.0"
 dependencies = [

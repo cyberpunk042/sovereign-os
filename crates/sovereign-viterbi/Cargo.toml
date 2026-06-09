@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-viterbi"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Viterbi decoding for hidden Markov models: the log-space dynamic program that finds the single most likely hidden-state sequence behind a series of observations in O(T·S^2), with backpointer reconstruction. For sequence labeling, segmentation, and Unigram-LM-style most-probable tokenization."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
