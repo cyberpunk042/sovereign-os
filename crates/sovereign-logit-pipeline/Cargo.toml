@@ -1,0 +1,20 @@
+[package]
+name = "sovereign-logit-pipeline"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "A composable logits-processor pipeline: chains decode-time logit transforms (static allow/ban mask, no-repeat n-gram blocking, custom processors) into one ordered step applied to each position's logits before sampling. The unifying abstraction over the individual generation controls. Composes sovereign-logit-mask and sovereign-no-repeat-ngram."
+
+[lints]
+workspace = true
+
+[dependencies]
+sovereign-logit-mask = { path = "../sovereign-logit-mask" }
+sovereign-no-repeat-ngram = { path = "../sovereign-no-repeat-ngram" }
+
+[dev-dependencies]
+sovereign-sampler = { path = "../sovereign-sampler" }

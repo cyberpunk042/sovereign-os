@@ -4603,6 +4603,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-logit-pipeline"
+version = "0.1.0"
+dependencies = [
+ "sovereign-logit-mask",
+ "sovereign-no-repeat-ngram",
+ "sovereign-sampler",
+]
+
+[[package]]
 name = "sovereign-lora-foundry"
 version = "0.1.0"
 dependencies = [
