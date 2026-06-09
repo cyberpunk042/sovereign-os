@@ -4474,6 +4474,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-edit-align"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-edit-distance"
 version = "0.1.0"
 
