@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-mha"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Multi-head attention with grouped-query (GQA) and multi-query (MQA) support: splits the query into heads, maps each query head onto a shared key/value head group, runs the per-head scaled-dot-product attention, and concatenates. GQA is the KV-cache-saving attention real decoders use; this generalizes the single-head kernel to the head layout a production model runs. Composes sovereign-attention."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sovereign-attention = { path = "../sovereign-attention" }

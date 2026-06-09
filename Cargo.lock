@@ -4404,6 +4404,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-mha"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-attention",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-mirror-publisher"
 version = "0.1.0"
 dependencies = [
