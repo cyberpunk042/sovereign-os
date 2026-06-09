@@ -4720,6 +4720,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-lsh"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-minhash",
+]
+
+[[package]]
 name = "sovereign-markdown-strip"
 version = "0.1.0"
 
@@ -4755,6 +4764,14 @@ dependencies = [
  "sovereign-rmsnorm",
  "sovereign-rope",
  "thiserror",
+]
+
+[[package]]
+name = "sovereign-minhash"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -5079,6 +5096,8 @@ dependencies = [
  "sovereign-agent-loop",
  "sovereign-chunker",
  "sovereign-embed",
+ "sovereign-lsh",
+ "sovereign-minhash",
 ]
 
 [[package]]
@@ -5173,6 +5192,15 @@ dependencies = [
  "serde",
  "serde_json",
  "sovereign-embed",
+]
+
+[[package]]
+name = "sovereign-semver"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]
