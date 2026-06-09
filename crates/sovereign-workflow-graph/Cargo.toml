@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-workflow-graph"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "E0552 — Plan/Compile (lifecycle step 5): the workflow graph. The 8 node types (model-call / tool-call / memory-read / test-run / policy-gate / human-gate / eval / commit) and a DAG of dependency edges, with cycle detection + topological execution order."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
