@@ -285,6 +285,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-best-of-n"
+version = "0.1.0"
+
+[[package]]
 name = "sovereign-bitlinear-core"
 version = "0.1.0"
 dependencies = [

@@ -1,0 +1,15 @@
+[package]
+name = "sovereign-best-of-n"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Inference-time scaling by sampling N candidates and picking a winner: best-of-N by a score (logprob or reward), top-k selection, and weighted self-consistency that sums each distinct answer's candidate scores and takes the highest. The aggregation layer for spending more compute at decode time to get a better answer."
+
+[lints]
+workspace = true
+
+[dependencies]
