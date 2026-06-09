@@ -4993,6 +4993,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-retry"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-rmsnorm"
 version = "0.1.0"
 dependencies = [
