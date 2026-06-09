@@ -1,0 +1,147 @@
+# sovereign-os operational-health Prometheus alerting rules.
+#
+# These alerts fire on the Layer-B textfile metrics the sovereign-os
+# RECURRENT HOOKS emit into node_exporter's textfile_collector. Until now
+# the only sovereign_os_* alerts shipped were the four-watchdog (selfdef
+# mirror), M060 chain-health, MS022 SSE-quota, and sovereign-telemetry
+# surfaces — the OS's OWN core health metrics (hardware-integrity gate,
+# security perimeter, ZFS pool, state-fabric backups) were SCRAPED but
+# NEVER ALERTED. A failing friction audit, a downed Tetragon fence, a
+# degraded pool, or stalled backups produced no page — the operator only
+# found out by eyeballing a dashboard. This file closes that gap.
+#
+# Each expr references a metric a recurrent hook actually emits (kept in
+# lockstep with the emitters by tests/lint/test_sovereign_os_health_alerts_contract.py):
+#   sovereign_os_friction_audit_failures{profile}            friction-audit-runtime.sh
+#   sovereign_os_perimeter_status                            tetragon-policy-verify.sh
+#   sovereign_os_perimeter_verify_last_run_timestamp         tetragon-policy-verify.sh
+#   sovereign_os_zfs_pool_health{pool}                       zfs-scrub.sh
+#   sovereign_os_zfs_scrub_last_run_timestamp{pool}          zfs-scrub.sh
+#   sovereign_os_snapshot_last_created_timestamp{dataset}    backup-snapshot.sh
+#
+# Drop into the Prometheus rule_files config:
+#   rule_files:
+#     - /etc/prometheus/alerts/sovereign-os-health.rules.yml
+groups:
+  - name: sovereign-os-health
+    rules:
+      # The runtime hardware-integrity gate found one or more FAILING checks
+      # (GPU lane width < x8, GPUs sharing an IOMMU group, RAM below the
+      # profile minimum, or a degraded ZFS pool). Per master spec §5.1 a
+      # friction failure is "CRITICAL ARCHITECTURAL FRICTION" — the box is
+      # not running the hardware the profile was validated against.
+      - alert: SovereignOsFrictionAuditFailing
+        expr: sovereign_os_friction_audit_failures > 0
+        for: 0m
+        labels:
+          severity: critical
+          subsystem: hardware
+        annotations:
+          summary: "sovereign-os friction audit FAILING on {{ $labels.instance }} ({{ $value }} failing check(s), profile {{ $labels.profile }})"
+          description: >
+            sovereign_os_friction_audit_failures is {{ $value }} for profile
+            {{ $labels.profile }} — the runtime hardware-integrity gate
+            (friction-audit-runtime) detected at least one hard failure: a GPU
+            below its expected x8 link width, the primary + VFIO GPUs sharing
+            an IOMMU group, installed RAM under the profile minimum, or a
+            degraded ZFS pool. The host is not running the validated hardware
+            shape; VFIO passthrough / bifurcation may be silently broken.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignosfrictionauditfailing-critical"
+
+      # The Tetragon kernel-fence policy is not loaded (drift / down / missing).
+      # While this holds the security perimeter (sovereign-kernel-fence) is OFF
+      # and kernel-level execution is unconstrained.
+      - alert: SovereignOsPerimeterDown
+        expr: sovereign_os_perimeter_status < 1
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: perimeter
+        annotations:
+          summary: "sovereign-os security perimeter DOWN on {{ $labels.instance }}"
+          description: >
+            sovereign_os_perimeter_status is 0 — the tetragon-policy-verify hook
+            could not confirm the sovereign-kernel-fence TracingPolicy is loaded
+            (tetragon inactive, the policy file is missing, or no load record in
+            this boot's journal). The kernel-level execution fence is OFF;
+            treat as a security-availability incident. Cross-check the
+            PERIMETER_* entries in the security audit log.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignosperimeterdown-critical"
+
+      # The daily perimeter verifier hasn't reported in over two days — the
+      # fence might be down with nobody checking. Distinct from PerimeterDown:
+      # that needs a fresh status=0; this catches the verifier itself going
+      # silent (timer dead / host wedged).
+      - alert: SovereignOsPerimeterVerifierSilent
+        expr: time() - sovereign_os_perimeter_verify_last_run_timestamp > 172800
+        for: 10m
+        labels:
+          severity: warning
+          subsystem: perimeter
+        annotations:
+          summary: "sovereign-os perimeter verifier silent on {{ $labels.instance }} (no run in >2d)"
+          description: >
+            sovereign_os_perimeter_verify_last_run_timestamp is more than two
+            days old — the daily tetragon-policy-verify timer has not run. The
+            perimeter status you see may be stale; the fence could be down
+            without SovereignOsPerimeterDown firing on fresh data. Check the
+            sovereign-os-tetragon-policy-verify.timer and the host's clock.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignosperimeterverifiersilent-warning"
+
+      # A ZFS pool is not ONLINE (DEGRADED / FAULTED / UNAVAIL). The
+      # snapshot-replicate sovereignty strategy assumes a healthy pool; a
+      # degraded pool is a live data-integrity risk for the state-fabric.
+      - alert: SovereignOsZfsPoolDegraded
+        expr: sovereign_os_zfs_pool_health < 1
+        for: 1m
+        labels:
+          severity: critical
+          subsystem: storage
+        annotations:
+          summary: "sovereign-os ZFS pool {{ $labels.pool }} not ONLINE on {{ $labels.instance }}"
+          description: >
+            sovereign_os_zfs_pool_health{pool="{{ $labels.pool }}"} is 0 — the
+            pool is DEGRADED / FAULTED / UNAVAIL or absent. On the default
+            RAID-0 sain-01 layout there is no redundancy, so a degraded vdev is
+            a data-loss risk: the irreplaceable state-fabric (tank/context)
+            lives here. Run `zpool status -x`, identify the affected vdev, and
+            follow the storage friction runbook before writing more state.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignoszfspooldegraded-critical"
+
+      # The weekly scrub hasn't completed in over two weeks — latent on-disk
+      # corruption (bit-rot) goes undetected without periodic scrubs.
+      - alert: SovereignOsZfsScrubOverdue
+        expr: time() - sovereign_os_zfs_scrub_last_run_timestamp > 1209600
+        for: 10m
+        labels:
+          severity: warning
+          subsystem: storage
+        annotations:
+          summary: "sovereign-os ZFS scrub overdue for pool {{ $labels.pool }} on {{ $labels.instance }} (>2 weeks)"
+          description: >
+            sovereign_os_zfs_scrub_last_run_timestamp{pool="{{ $labels.pool }}"}
+            is more than two weeks old — the weekly zfs-scrub has not run, so
+            latent checksum errors (bit-rot) on the NVMe are not being detected
+            or repaired. Check the sovereign-os-zfs-scrub.timer; kick a manual
+            `zpool scrub {{ $labels.pool }}` if the host was off through the
+            scheduled window.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignoszfsscruboverdue-warning"
+
+      # The daily state-fabric snapshot hasn't been taken in over two days —
+      # the SDD-017 point-in-time recovery window is going stale.
+      - alert: SovereignOsBackupSnapshotStale
+        expr: time() - sovereign_os_snapshot_last_created_timestamp > 172800
+        for: 10m
+        labels:
+          severity: warning
+          subsystem: storage
+        annotations:
+          summary: "sovereign-os state-fabric snapshot stale for {{ $labels.dataset }} on {{ $labels.instance }} (>2d)"
+          description: >
+            sovereign_os_snapshot_last_created_timestamp{dataset="{{ $labels.dataset }}"}
+            is more than two days old — the daily backup-snapshot of the
+            irreplaceable state-fabric (SDD-017) has not run. Each missed day
+            widens the gap between now and the latest recoverable point. Check
+            the sovereign-os-backup-snapshot.timer and that the dataset still
+            exists; a failing `zfs snapshot` (pool full / held) also stalls it.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignosbackupsnapshotstale-warning"

@@ -3490,6 +3490,129 @@ probe couldn't read the hardware at all — check the host. A persistent
 `valid=0` with a working probe points to a version/contract skew; reinstall the
 matching `sovereign-telemetry` build.
 
+### sovereign-os operational-health alerts
+
+These fire on the Layer-B textfile metrics the sovereign-os **recurrent hooks**
+emit (`sovereign-os-health.rules.yml`) — the OS's own hardware-integrity gate,
+security perimeter, ZFS pool, and state-fabric backups. They were scraped but
+unalerted until this rule set; a failing audit / downed fence / degraded pool /
+stalled backup now pages instead of waiting to be noticed on a dashboard.
+
+#### SovereignOsFrictionAuditFailing (critical)
+
+**Meaning:** `sovereign_os_friction_audit_failures > 0` — the runtime
+hardware-integrity gate (`friction-audit-runtime`) found a hard failure: a GPU
+below x8 link width, primary + VFIO GPUs sharing an IOMMU group, RAM under the
+profile minimum, or a degraded ZFS pool. Master spec §5.1 calls this CRITICAL
+ARCHITECTURAL FRICTION — the host is not the validated hardware shape.
+
+**Diagnosis:**
+
+```bash
+# Re-run the audit to see WHICH checks failed (FAIL lines)
+SOVEREIGN_OS_PROFILE=sain-01 bash scripts/hooks/post-install/friction-audit-runtime.sh
+# Or read the last emitted gauges
+grep -E 'sovereign_os_friction_audit_(failures|warnings)' \
+  /var/lib/node_exporter/textfile_collector/sovereign-os*.prom
+```
+
+**Fix:** address the specific FAIL — reseat the GPU / fix bifurcation for a lane
+shortfall, move the VFIO GPU to a separate IOMMU group, add RAM, or treat a
+degraded pool per `SovereignOsZfsPoolDegraded` below. The gauge clears on the
+next audit run once `failures` returns to 0.
+
+#### SovereignOsPerimeterDown (critical)
+
+**Meaning:** `sovereign_os_perimeter_status < 1` — `tetragon-policy-verify` could
+not confirm the `sovereign-kernel-fence` TracingPolicy is loaded (tetragon
+inactive, policy file missing, or no load record this boot). The kernel-level
+execution fence is OFF: a security-availability incident.
+
+**Diagnosis:**
+
+```bash
+systemctl is-active tetragon
+ls -l /etc/tetragon/tracing-policies/sovereign-kernel-fence.yaml
+journalctl -u tetragon -b | grep -i sovereign-kernel-fence | tail
+tail -n 20 /mnt/vault/context/security_audit.log   # PERIMETER_* entries
+```
+
+**Fix:** start tetragon (`systemctl start tetragon`), restore the policy file
+(re-run `tetragon-policy-load`), and confirm the load record appears in the
+journal. The gauge returns to 1 on the next verifier run once the fence is back.
+
+#### SovereignOsPerimeterVerifierSilent (warning)
+
+**Meaning:** `time() - sovereign_os_perimeter_verify_last_run_timestamp > 2d` —
+the daily `tetragon-policy-verify` timer has not run, so the perimeter status
+you see may be stale (the fence could be down without `SovereignOsPerimeterDown`
+firing on fresh data).
+
+**Diagnosis:**
+
+```bash
+systemctl status sovereign-os-tetragon-policy-verify.timer
+systemctl list-timers | grep tetragon-policy-verify
+timedatectl   # confirm the clock isn't skewed
+```
+
+**Fix:** re-enable / start the timer; if the host was powered off through the
+window, run the verifier once by hand. The alert clears on the next run.
+
+#### SovereignOsZfsPoolDegraded (critical)
+
+**Meaning:** `sovereign_os_zfs_pool_health < 1` — the pool is DEGRADED / FAULTED
+/ UNAVAIL (or absent). On the default RAID-0 sain-01 layout there is no
+redundancy, so a degraded vdev is a data-loss risk — the irreplaceable
+state-fabric (`tank/context`) lives here.
+
+**Diagnosis:**
+
+```bash
+zpool status -x
+zpool status -v "${SOVEREIGN_OS_POOL_NAME:-tank}"   # per-vdev errors
+```
+
+**Fix:** identify the failing device, stop writing new state, and — because
+RAID-0 has no self-heal — recover from the most recent `tank/context` snapshot /
+replica per SDD-017 before replacing the device. Do NOT scrub-and-hope a FAULTED
+RAID-0 vdev back into service.
+
+#### SovereignOsZfsScrubOverdue (warning)
+
+**Meaning:** `time() - sovereign_os_zfs_scrub_last_run_timestamp > 2 weeks` — the
+weekly `zfs-scrub` has not completed, so latent checksum errors (bit-rot) on the
+NVMe are going undetected.
+
+**Diagnosis:**
+
+```bash
+systemctl status sovereign-os-zfs-scrub.timer
+zpool status "${SOVEREIGN_OS_POOL_NAME:-tank}" | grep -i scrub
+```
+
+**Fix:** re-enable the timer; kick a manual `zpool scrub
+${SOVEREIGN_OS_POOL_NAME:-tank}` if the host missed its scheduled window. The
+alert clears when a scrub completes and the timestamp refreshes.
+
+#### SovereignOsBackupSnapshotStale (warning)
+
+**Meaning:** `time() - sovereign_os_snapshot_last_created_timestamp > 2d` — the
+daily `backup-snapshot` of the state-fabric (SDD-017) has not run; each missed
+day widens the gap to the latest recoverable point.
+
+**Diagnosis:**
+
+```bash
+systemctl status sovereign-os-backup-snapshot.timer
+zfs list -t snapshot -o name,creation "${SOVEREIGN_OS_SNAPSHOT_DATASET:-tank/context}" | tail
+zpool list "${SOVEREIGN_OS_POOL_NAME:-tank}"   # a full pool blocks snapshots
+```
+
+**Fix:** re-enable the timer; confirm the dataset exists and the pool has free
+space (a held snapshot or full pool makes `zfs snapshot` fail). Take one by hand
+to close the gap; the alert clears on the next successful snapshot.
+
 ## Project-boundary discipline (MS043 R10212)
 
 - IPS state mutation lives in **selfdef only** (selfdefd + selfdefctl +
