@@ -4591,6 +4591,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-quant-block"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-attention",
+ "sovereign-ffn",
+ "sovereign-linear",
+ "sovereign-rmsnorm",
+ "sovereign-rope",
+ "sovereign-transformer-block",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-quant-calibration"
 version = "0.1.0"
 dependencies = [
