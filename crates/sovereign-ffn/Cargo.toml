@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-ffn"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "SwiGLU feed-forward network: the gated MLP that follows attention in every modern transformer block — two parallel up-projections, one passed through SiLU and used to gate the other, then a down-projection back to model width. The position-wise non-linearity half of a transformer block."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

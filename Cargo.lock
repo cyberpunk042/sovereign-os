@@ -4260,6 +4260,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-ffn"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-gateway"
 version = "0.1.0"
 dependencies = [
@@ -4565,6 +4574,15 @@ dependencies = [
 
 [[package]]
 name = "sovereign-replay-playback-rate"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-rmsnorm"
 version = "0.1.0"
 dependencies = [
  "serde",

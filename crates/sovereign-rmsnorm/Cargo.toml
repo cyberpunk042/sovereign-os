@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-rmsnorm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "RMS normalization: rescales an activation vector by the reciprocal of its root-mean-square and a learned per-channel gain, the pre-norm every Llama-style transformer block applies before attention and the FFN. Cheaper than LayerNorm (no mean subtraction) and scale-invariant by construction."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
