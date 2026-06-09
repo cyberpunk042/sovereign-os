@@ -4089,6 +4089,7 @@ dependencies = [
  "sovereign-lora-foundry",
  "sovereign-memory-os",
  "sovereign-nvfp4-runtime",
+ "sovereign-replay-ledger",
  "sovereign-router-7axis",
  "sovereign-spec-decode",
  "sovereign-srp-scheduler",

@@ -60,6 +60,7 @@ use sovereign_lora_foundry::{AdapterSlot, RuntimeDecision, ServeRequest, decide_
 use sovereign_memory_os::{
     FLAG_READABLE, GroundTruth, Hit, HotMeta, MemoryStore, MemoryType, Query,
 };
+use sovereign_replay_ledger::ReplayLedger;
 use sovereign_router_7axis::{RouteDecision, RouterError, Safety, SrpRole, TaskAxes, route};
 use sovereign_srp_scheduler::{
     Placement, PlacementError, RolePressure, ScheduleRequest, Workload, place,
@@ -318,6 +319,8 @@ pub struct SearchOutcome {
 pub struct Cortex {
     /// The live memory the recall stage queries.
     pub memory: MemoryStore,
+    /// Tamper-evident audit trail of decisions (M012 replay plane).
+    pub ledger: ReplayLedger,
 }
 
 impl Cortex {
@@ -328,7 +331,10 @@ impl Cortex {
 
     /// A cortex wrapping a pre-populated memory store.
     pub fn with_memory(memory: MemoryStore) -> Self {
-        Self { memory }
+        Self {
+            memory,
+            ..Self::default()
+        }
     }
 
     /// A cortex whose learned memory is bounded to `capacity` items — past
@@ -337,7 +343,15 @@ impl Cortex {
     pub fn bounded(capacity: usize) -> Self {
         Self {
             memory: MemoryStore::with_capacity(capacity),
+            ..Self::default()
         }
+    }
+
+    /// Append a decision to the tamper-evident audit ledger; returns its
+    /// sequence number. Every decision is recorded so the trail is replayable
+    /// and verifiable (the Trinity Auditor's record).
+    pub fn audit(&mut self, decision: &CortexDecision) -> u64 {
+        self.ledger.append(decision.summary.clone())
     }
 
     /// Run one request through the full pipeline.
@@ -548,6 +562,7 @@ impl Cortex {
                     if self.learn(req, &decision) {
                         report.learned += 1;
                     }
+                    self.audit(&decision); // tamper-evident decision trail
                     decisions.push(decision);
                 }
                 Err(_) => report.refused += 1,
@@ -1215,6 +1230,17 @@ mod tests {
         assert_eq!(report.learned, 2);
         assert_eq!(report.refused, 0);
         assert_eq!(cortex.memory.len(), 2);
+    }
+
+    #[test]
+    fn session_records_a_verifiable_audit_trail() {
+        let mut cortex = Cortex::with_memory(seed_memory());
+        let (decisions, _) = cortex.run_session(&demo_requests());
+        // one ledger entry per decided request, and the chain verifies
+        assert_eq!(cortex.ledger.len(), decisions.len());
+        assert!(cortex.ledger.verify().is_ok());
+        // the trail records the decision summaries in order
+        assert_eq!(cortex.ledger.get(0).unwrap().payload, decisions[0].summary);
     }
 
     #[test]
