@@ -33,9 +33,19 @@ ALERTS_DIR = REPO_ROOT / "config" / "prometheus" / "alerts"
 RULES_DIR = REPO_ROOT / "config" / "prometheus" / "rules"
 DASH_DIR = REPO_ROOT / "docs" / "observability" / "dashboards"
 
-# A metric family is a `# HELP`/`# TYPE sovereign_os_<name>` exposition line.
-_HELP_TYPE = re.compile(r"#\s*(?:HELP|TYPE)\s+(sovereign_os_[a-z0-9_]+)")
-_METRIC = re.compile(r"\bsovereign_os_[a-z0-9_]+\b")
+# Emitter patterns — kept in lockstep with
+# test_metric_inventory_lockstep.py::_emitted_metric_names so the two gates
+# agree on the emitted-metric set. A metric is "emitted" if it appears as an
+# emit_metric call site, an emit_metric_set arg line, a # HELP/# TYPE line, or
+# a Python _emit_metric("...") call — NOT as an arbitrary substring (label
+# values would inflate the set).
+_EMIT_PATTERNS = [
+    re.compile(r"emit_metric\s+(sovereign_os_[a-z][a-z0-9_]*)\b"),
+    re.compile(r"\"(sovereign_os_[a-z][a-z0-9_]*)\s+\$?\{?"),
+    re.compile(r"'(sovereign_os_[a-z][a-z0-9_]*)\s"),
+    re.compile(r"#\s+(?:HELP|TYPE)\s+(sovereign_os_[a-z][a-z0-9_]*)\b"),
+    re.compile(r"_?emit_metric\(\s*[\"'](sovereign_os_[a-z][a-z0-9_]*)[\"']"),
+]
 
 # Tokens that look like metric names but are not (bash trap names, etc.).
 KNOWN_NON_METRICS = {
@@ -84,16 +94,57 @@ EXEMPT_PATTERNS: list[tuple[str, str]] = [
     (r"^sovereign_os_snapshot_created_total$",
      "per-run snapshot-created counter; backup HEALTH pages via "
      "SovereignOsBackupSnapshotStale (the staleness signal)."),
+    # --- lifecycle / build / maintenance telemetry (emitted by build, install,
+    # and maintenance hooks as step-completion counters + last-run markers;
+    # NOT runtime-scraped health gauges) ---
+    (r"^sovereign_os_build_step_[a-z0-9_]+$",
+     "build-pipeline step telemetry (completion/result + missing-symbol count); "
+     "emitted DURING image build, not runtime-scraped health."),
+    (r"^sovereign_os_bootstrap_[a-z0-9_]+$",
+     "bootstrap step telemetry; build/install-time, not runtime health."),
+    (r"^sovereign_os_pre_install_[a-z0-9_]+$",
+     "preflight gate telemetry; build/install-time (the gate hard-fails the "
+     "install on failure), not a runtime-scraped signal."),
+    (r"^sovereign_os_post_install_[a-z0-9_]+$",
+     "post-install hook lifecycle telemetry (applied/result counters); "
+     "install-time one-shot, not a runtime health gauge."),
+    (r"^sovereign_os_pulse_[a-z0-9_]+$",
+     "pulse build telemetry (bitnet / wasm-aot build counters + timestamps); "
+     "build-time, not runtime health."),
+    (r"^sovereign_os_models_pull_[a-z0-9_]+$",
+     "model-pull maintenance telemetry; operator-triggered lifecycle, not a "
+     "runtime health signal."),
+    (r"^sovereign_os_network_asymmetric_render_[a-z0-9_]+$",
+     "network-render telemetry; config/build-time render counter + timestamp."),
+    (r"^sovereign_os_operator_bashrc_install_total$",
+     "operator shell-setup counter; one-shot install telemetry."),
+    (r"^sovereign_os_dflash_[a-z0-9_]+$",
+     "dflash decision/invocation telemetry; operator-tool usage, not health."),
+    (r"^sovereign_os_notify_[a-z0-9_]+$",
+     "notify-dispatch out-of-band echo telemetry (delivery ok/fail/events + "
+     "last-run); the PRIMARY alerting path IS Prometheus (these rules) — notify "
+     "is a best-effort push echo, surfaced on the meta-observability panel."),
+    (r"^sovereign_os_(memory|power)_sample_last_run_timestamp$",
+     "sampling-hook freshness marker; the CRITICAL memory/power signals page "
+     "via SovereignOsMemoryOomKills / SovereignOsPowerShutdownGuardFired / "
+     "SovereignOsPowerUpsCritical."),
+    (r"^sovereign_os_power_shutdown_guard_(advisory_rc|last_run_timestamp)$",
+     "power-guard diagnostic telemetry (probe rc + last-run); the paging "
+     "signals are SovereignOsPowerShutdownGuardFired / SovereignOsPowerUpsCritical."),
 ]
 
 
 def _emitted() -> set[str]:
     out: set[str] = set()
     for base in EMIT_ROOTS:
+        if not base.is_dir():
+            continue
         for p in base.rglob("*"):
             if p.is_file() and p.suffix in (".sh", ".py"):
-                for m in _HELP_TYPE.finditer(p.read_text(errors="ignore")):
-                    out.add(m.group(1))
+                text = p.read_text(errors="ignore")
+                for pat in _EMIT_PATTERNS:
+                    for name in pat.findall(text):
+                        out.add(name)
     return out - KNOWN_NON_METRICS
 
 
