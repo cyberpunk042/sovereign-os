@@ -102,13 +102,26 @@ pub fn detect(n: usize, edges: &[(usize, usize)], cfg: Config) -> Vec<usize> {
                 *counts.entry(label[nbr]).or_insert(0) += 1;
             }
             let max = counts.values().copied().max().unwrap();
-            // among the most-frequent labels, pick one at random.
-            let top: Vec<usize> = counts
-                .iter()
-                .filter(|&(_, &c)| c == max)
-                .map(|(&l, _)| l)
-                .collect();
-            let chosen = top[(rng.next() as usize) % top.len()];
+            // tie-break, Raghavan-style: if the node's *current* label is already
+            // among the most-frequent neighbour labels, retain it. This stabilizes
+            // the partition and is what stops two well-separated groups from
+            // collapsing into one community during the noisy early sweeps.
+            let cur = label[node];
+            let cur_is_max = counts.get(&cur).copied().unwrap_or(0) == max;
+            let chosen = if cur_is_max {
+                cur
+            } else {
+                // otherwise pick uniformly among the maxima. The candidate list is
+                // sorted first because `HashMap` iteration order is randomized per
+                // process — without it the seeded pick would not be reproducible.
+                let mut top: Vec<usize> = counts
+                    .iter()
+                    .filter(|&(_, &c)| c == max)
+                    .map(|(&l, _)| l)
+                    .collect();
+                top.sort_unstable();
+                top[(rng.next() as usize) % top.len()]
+            };
             if chosen != label[node] {
                 label[node] = chosen;
                 changed = true;
