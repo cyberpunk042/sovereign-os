@@ -133,6 +133,36 @@ pub enum PressureError {
     /// Doctrine tampered.
     #[error("doctrine tampered")]
     DoctrineTampered,
+    /// A Linux PSI file could not be parsed into a `some avg10=` value.
+    #[error("could not parse PSI `some avg10=` from supplied content")]
+    PsiParse,
+}
+
+/// Parse the `some avg10=` value from a Linux PSI file's content
+/// (`/proc/pressure/{cpu,memory,io}`), returning it normalised to
+/// `0.0..=1.0`.
+///
+/// PSI reports `avg10` as a percentage (0.00..=100.00) of the last 10s during
+/// which at least one task stalled on the resource; 100% stall is fully
+/// overloaded, which maps to `1.0` on the [`PressureAxis`] scale. This is the
+/// IO-free counterpart of the host `memory-pressure.py` PSI parser, so the
+/// Rust substrate reads the exact same kernel telemetry: a caller (the future
+/// telemetry binary) reads the file and hands the contents here.
+pub fn parse_psi_some_avg10(content: &str) -> Result<f32, PressureError> {
+    for line in content.lines() {
+        if let Some(rest) = line.trim().strip_prefix("some ") {
+            for tok in rest.split_whitespace() {
+                if let Some(v) = tok.strip_prefix("avg10=") {
+                    let pct: f32 = v.parse().map_err(|_| PressureError::PsiParse)?;
+                    if !pct.is_finite() || !(0.0..=100.0).contains(&pct) {
+                        return Err(PressureError::PsiParse);
+                    }
+                    return Ok(pct / 100.0);
+                }
+            }
+        }
+    }
+    Err(PressureError::PsiParse)
 }
 
 impl PressureSnapshot {
@@ -255,6 +285,35 @@ impl PressureSnapshot {
         };
         snap.validate()?;
         Ok(snap)
+    }
+
+    /// Build a snapshot from live Linux PSI pressure on the cpu/memory/io
+    /// axes.
+    ///
+    /// `cpu`, `memory`, and `io` are normalised `0.0..=1.0` stall fractions —
+    /// typically produced by [`parse_psi_some_avg10`] over
+    /// `/proc/pressure/{cpu,memory,io}`. The gpu/human-attention/cost axes are
+    /// not PSI-derived, so they default to `0.0` here (a GPU sampler / human /
+    /// cost feed updates them later via [`Self::update_axis`]). The result is
+    /// validated, so an out-of-range PSI reading is rejected at the boundary
+    /// rather than entering the snapshot.
+    pub fn from_psi(
+        captured_at: impl Into<String>,
+        cpu: f32,
+        memory: f32,
+        io: f32,
+    ) -> Result<Self, PressureError> {
+        Self::from_readings(
+            captured_at,
+            vec![
+                AxisReading::new(PressureAxis::Cpu, cpu),
+                AxisReading::new(PressureAxis::Memory, memory),
+                AxisReading::new(PressureAxis::Io, io),
+                AxisReading::new(PressureAxis::Gpu, 0.0),
+                AxisReading::new(PressureAxis::HumanAttention, 0.0),
+                AxisReading::new(PressureAxis::Cost, 0.0),
+            ],
+        )
     }
 
     /// Update one axis's live value in place, validating it first.
@@ -501,5 +560,76 @@ mod tests {
         assert!(s.update_axis(PressureAxis::Cpu, 2.0).is_err());
         assert!(s.update_axis(PressureAxis::Cpu, f32::NAN).is_err());
         assert_eq!(s.reading_of(PressureAxis::Cpu), Some(0.0));
+    }
+
+    // ---- real Linux PSI ingestion ----
+
+    /// A real `/proc/pressure/memory` body (both `some` and `full` lines).
+    const PSI_MEMORY: &str = "some avg10=12.34 avg60=4.56 avg300=1.23 total=987654\n\
+                              full avg10=6.00 avg60=2.00 avg300=0.50 total=123456";
+
+    #[test]
+    fn parse_psi_reads_some_avg10_normalised() {
+        // 12.34% stall → 0.1234 on the 0..=1 axis scale.
+        let v = parse_psi_some_avg10(PSI_MEMORY).unwrap();
+        assert!((v - 0.1234).abs() < 1e-5, "got {v}");
+    }
+
+    #[test]
+    fn parse_psi_zero_and_saturated() {
+        assert_eq!(
+            parse_psi_some_avg10("some avg10=0.00 avg60=0.00 avg300=0.00 total=0").unwrap(),
+            0.0
+        );
+        assert_eq!(
+            parse_psi_some_avg10("some avg10=100.00 avg60=99.00 avg300=80.0 total=9").unwrap(),
+            1.0
+        );
+    }
+
+    #[test]
+    fn parse_psi_rejects_malformed_and_out_of_range() {
+        assert!(matches!(
+            parse_psi_some_avg10("full avg10=1.0 total=1"), // no `some` line
+            Err(PressureError::PsiParse)
+        ));
+        assert!(matches!(
+            parse_psi_some_avg10("some avg10=NaN total=1"),
+            Err(PressureError::PsiParse)
+        ));
+        assert!(matches!(
+            parse_psi_some_avg10("some avg10=150.0 total=1"), // > 100%
+            Err(PressureError::PsiParse)
+        ));
+        assert!(matches!(parse_psi_some_avg10(""), Err(PressureError::PsiParse)));
+    }
+
+    #[test]
+    fn from_psi_builds_validated_live_snapshot() {
+        // cpu/memory/io fed from real PSI; gpu/human/cost not PSI-derived → 0.
+        let cpu = parse_psi_some_avg10("some avg10=5.00 avg60=1.0 avg300=0.1 total=1").unwrap();
+        let mem = parse_psi_some_avg10(PSI_MEMORY).unwrap();
+        let io = parse_psi_some_avg10("some avg10=90.00 avg60=80.0 avg300=70.0 total=1").unwrap();
+        let s = PressureSnapshot::from_psi("2026-06-09T12:00:00Z", cpu, mem, io).unwrap();
+        assert_eq!(s.reading_of(PressureAxis::Cpu), Some(0.05));
+        assert!((s.reading_of(PressureAxis::Memory).unwrap() - 0.1234).abs() < 1e-5);
+        assert_eq!(s.reading_of(PressureAxis::Io), Some(0.90));
+        assert_eq!(s.reading_of(PressureAxis::Gpu), Some(0.0));
+        // io axis at 0.90 is the worst signal but below the 0.9 overload bar's
+        // strict check — any_overloaded uses >= 0.9 so 0.90 counts.
+        assert_eq!(s.max(), Some((PressureAxis::Io, 0.90)));
+        assert!(s.any_overloaded());
+        s.validate().unwrap();
+    }
+
+    #[test]
+    fn from_psi_rejects_out_of_range_axis() {
+        assert!(matches!(
+            PressureSnapshot::from_psi("t", 1.5, 0.0, 0.0).unwrap_err(),
+            PressureError::ValueOutOfRange {
+                axis: PressureAxis::Cpu,
+                ..
+            }
+        ));
     }
 }
