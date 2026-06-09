@@ -4215,6 +4215,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-fs-boundary"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-gateway"
 version = "0.1.0"
 dependencies = [
