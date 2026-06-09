@@ -15,9 +15,13 @@ workspace = true
 [dependencies]
 thiserror = { workspace = true }
 sovereign-decoder-stack = { path = "../sovereign-decoder-stack" }
+sovereign-quant-model = { path = "../sovereign-quant-model" }
 
 [dev-dependencies]
 sovereign-transformer-block = { path = "../sovereign-transformer-block" }
+sovereign-quant-block = { path = "../sovereign-quant-block" }
+sovereign-decoder-layer = { path = "../sovereign-decoder-layer" }
+sovereign-linear = { path = "../sovereign-linear" }
 sovereign-rmsnorm = { path = "../sovereign-rmsnorm" }
 sovereign-ffn = { path = "../sovereign-ffn" }
 sovereign-sampler = { path = "../sovereign-sampler" }

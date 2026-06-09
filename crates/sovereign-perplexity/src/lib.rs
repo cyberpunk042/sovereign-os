@@ -22,6 +22,7 @@
 #![warn(missing_docs)]
 
 use sovereign_decoder_stack::{DecoderStack, StackError};
+use sovereign_quant_model::QuantModel;
 use thiserror::Error;
 
 /// Schema version of the perplexity surface.
@@ -39,6 +40,17 @@ pub enum PerplexityError {
     /// A model forward error.
     #[error("model: {0}")]
     Model(#[from] StackError),
+    /// A quantized-model error (it has no Clone, so it is scored in place and
+    /// must be fresh).
+    #[error("quant model: {0}")]
+    QuantModel(String),
+    /// A quantized model was not fresh (already had cached positions), so an
+    /// in-place teacher-forced evaluation would be contaminated.
+    #[error("quant model must be fresh (position 0), had {position}")]
+    NotFresh {
+        /// The model's current decode position.
+        position: usize,
+    },
 }
 
 /// The result of a perplexity evaluation.
@@ -71,6 +83,43 @@ pub fn evaluate(model: &DecoderStack, tokens: &[usize]) -> Result<Eval, Perplexi
         logits = m.forward(next)?;
     }
 
+    let predicted = tokens.len() - 1;
+    let cross_entropy = -total_logprob / predicted as f64;
+    Ok(Eval {
+        predicted,
+        total_logprob,
+        cross_entropy,
+        perplexity: cross_entropy.exp(),
+    })
+}
+
+/// Score a mixed-precision [`QuantModel`]'s perplexity on `tokens`. The model
+/// has no `Clone`, so it is scored *in place* and must be **fresh** (decode
+/// position 0); it is left advanced afterward. Build a new model to re-score.
+///
+/// This is what lets a runtime measure the predictive cost of quantization:
+/// score an f32 model and its ternary/NVFP4 counterpart on the same text and
+/// compare perplexities.
+pub fn evaluate_quant(model: &mut QuantModel, tokens: &[usize]) -> Result<Eval, PerplexityError> {
+    if tokens.len() < 2 {
+        return Err(PerplexityError::TooShort { got: tokens.len() });
+    }
+    if model.position() != 0 {
+        return Err(PerplexityError::NotFresh {
+            position: model.position(),
+        });
+    }
+    let mut total_logprob = 0.0f64;
+    let mut logits = model
+        .forward(tokens[0])
+        .map_err(|e| PerplexityError::QuantModel(e.to_string()))?;
+    for &next in &tokens[1..] {
+        let lp = log_softmax(&logits);
+        total_logprob += lp[next] as f64;
+        logits = model
+            .forward(next)
+            .map_err(|e| PerplexityError::QuantModel(e.to_string()))?;
+    }
     let predicted = tokens.len() - 1;
     let cross_entropy = -total_logprob / predicted as f64;
     Ok(Eval {
@@ -203,5 +252,75 @@ mod tests {
             evaluate(&m, &[1]).unwrap_err(),
             PerplexityError::TooShort { got: 1 }
         );
+    }
+
+    // --- quantized-model evaluation ---
+
+    fn quant_model(vocab: usize, precision: sovereign_linear::Precision) -> QuantModel {
+        use sovereign_decoder_layer::{DecoderLayer, LayerStack};
+        use sovereign_quant_block::{QuantBlockWeights, QuantDecoderBlock};
+        let qb = QuantDecoderBlock::from_weights(
+            &QuantBlockWeights {
+                model_dim: MD,
+                head_dim: MD,
+                hidden_dim: MD,
+                attn_norm: RmsNorm::new(MD),
+                ffn_norm: RmsNorm::new(MD),
+                w_q: mat(1.0, MD * MD),
+                w_k: mat(2.0, MD * MD),
+                w_v: mat(3.0, MD * MD),
+                w_o: mat(4.0, MD * MD),
+                w_gate: mat(5.0, MD * MD),
+                w_up: mat(6.0, MD * MD),
+                w_down: mat(7.0, MD * MD),
+            },
+            precision,
+        )
+        .unwrap();
+        let stack = LayerStack::new(vec![Box::new(qb) as Box<dyn DecoderLayer>]).unwrap();
+        QuantModel::new(
+            vocab,
+            MD,
+            mat(0.5, vocab * MD),
+            stack,
+            RmsNorm::new(MD),
+            mat(0.9, vocab * MD),
+            Sampler::greedy(),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn quant_model_perplexity_is_finite_and_at_least_one() {
+        use sovereign_linear::Precision;
+        let mut m = quant_model(8, Precision::Ternary);
+        let ev = evaluate_quant(&mut m, &[1, 2, 3, 4, 5]).unwrap();
+        assert!(ev.perplexity.is_finite() && ev.perplexity >= 1.0 - 1e-9);
+        assert_eq!(ev.predicted, 4);
+    }
+
+    #[test]
+    fn quant_eval_requires_a_fresh_model() {
+        use sovereign_linear::Precision;
+        let mut m = quant_model(8, Precision::F32);
+        m.forward(0).unwrap(); // advance it
+        assert_eq!(
+            evaluate_quant(&mut m, &[1, 2, 3]).unwrap_err(),
+            PerplexityError::NotFresh { position: 1 }
+        );
+    }
+
+    #[test]
+    fn measures_quantization_cost_f32_vs_ternary() {
+        use sovereign_linear::Precision;
+        // Same weights, two precisions → both score finite perplexities that a
+        // runtime can compare to decide whether ternary is acceptable here.
+        let seq = [1usize, 3, 5, 2, 4, 6, 1];
+        let mut f = quant_model(8, Precision::F32);
+        let mut t = quant_model(8, Precision::Ternary);
+        let ef = evaluate_quant(&mut f, &seq).unwrap();
+        let et = evaluate_quant(&mut t, &seq).unwrap();
+        assert!(ef.perplexity >= 1.0 && et.perplexity >= 1.0);
+        assert!(ef.perplexity.is_finite() && et.perplexity.is_finite());
     }
 }

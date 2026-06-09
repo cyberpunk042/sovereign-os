@@ -4615,8 +4615,12 @@ dependencies = [
 name = "sovereign-perplexity"
 version = "0.1.0"
 dependencies = [
+ "sovereign-decoder-layer",
  "sovereign-decoder-stack",
  "sovereign-ffn",
+ "sovereign-linear",
+ "sovereign-quant-block",
+ "sovereign-quant-model",
  "sovereign-rmsnorm",
  "sovereign-sampler",
  "sovereign-transformer-block",
