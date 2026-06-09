@@ -141,6 +141,19 @@ while IFS= read -r f; do
   signed_count=$((signed_count + 1))
 done < <(find "${SOVEREIGN_OS_IMAGE_DIR}" \( -name 'vmlinuz*' -o -name '*.efi' -o -name 'bootx64.efi' \) 2>/dev/null)
 
+# We only reach here for the shim/signed postures (none/unknown exited earlier).
+# Signing ZERO binaries means the image will fail Secure Boot — but the loop
+# above would otherwise report success. Fail loudly: either the image layout
+# doesn't match the find patterns (vmlinuz* / *.efi) or step 07 produced no
+# bootable artifacts.
+if [ "${signed_count}" -eq 0 ]; then
+  log_error "secure_boot=${secure_boot} but NO signable binaries found under ${SOVEREIGN_OS_IMAGE_DIR}"
+  log_error "  (expected vmlinuz* / *.efi) — nothing was signed; the image would FAIL Secure Boot"
+  emit_sign_metric fail
+  state_step_fail "${STEP_ID}" "nothing-signed"
+  exit 1
+fi
+
 log_info "signed ${signed_count} binaries with ${secure_boot}-path key"
 emit_sign_metric success
 
