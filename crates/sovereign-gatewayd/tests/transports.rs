@@ -211,6 +211,39 @@ fn http_unknown_route_is_404_and_bad_body_is_400() {
 }
 
 #[test]
+fn http_oversized_header_line_is_431() {
+    // A header line over the 8 KiB cap with no newline must be refused with 431,
+    // not buffered, and the daemon must stay responsive. The daemon refuses
+    // before draining the input, so closing with unread bytes can surface as a
+    // reset — read defensively (the 431 line still arrives first).
+    let d = spawn("--http");
+    let mut stream = connect_retry(&d.addr);
+    let mut req = b"GET /health HTTP/1.1\r\nX-Big: ".to_vec();
+    req.extend(std::iter::repeat_n(b'a', 9_000));
+    stream.write_all(&req).unwrap();
+    stream.shutdown(std::net::Shutdown::Write).unwrap();
+
+    let mut raw = Vec::new();
+    let mut buf = [0u8; 1024];
+    loop {
+        match stream.read(&mut buf) {
+            Ok(0) => break,
+            Ok(n) => raw.extend_from_slice(&buf[..n]),
+            Err(_) => break, // a trailing reset after the response is fine
+        }
+    }
+    let raw = String::from_utf8_lossy(&raw);
+    assert!(
+        raw.starts_with("HTTP/1.1 431"),
+        "expected 431, got: {:?}",
+        raw.lines().next()
+    );
+
+    let (status, _) = http_request(&d.addr, "GET", "/health", "");
+    assert!(status.starts_with("HTTP/1.1 200"), "status: {status}");
+}
+
+#[test]
 fn http_oversized_content_length_is_413_without_allocating() {
     // Claim a 4 GiB body but send no payload: the daemon must refuse with 413
     // before reading/allocating, then still be responsive afterwards.

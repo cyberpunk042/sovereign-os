@@ -210,25 +210,72 @@ fn run_http(server: &Arc<GatewayServer>, addr: &str) -> std::io::Result<()> {
     Ok(())
 }
 
+/// Per request-line / header-line byte cap, and the maximum header count. An
+/// unterminated line or a header flood is refused with `431` so neither can be
+/// buffered without bound (the request-line/header analogue of the body cap).
+const MAX_HEADER_LINE: usize = 8 * 1024;
+const MAX_HEADERS: usize = 100;
+
+/// Read one line capped at [`MAX_HEADER_LINE`]. Returns the byte count and
+/// whether the line overran the cap without a terminating newline.
+fn read_capped_line(
+    reader: &mut BufReader<TcpStream>,
+    buf: &mut String,
+) -> std::io::Result<(usize, bool)> {
+    let n = reader.take(MAX_HEADER_LINE as u64 + 1).read_line(buf)?;
+    let overran = buf.len() > MAX_HEADER_LINE && !buf.ends_with('\n');
+    Ok((n, overran))
+}
+
+/// Write one HTTP reply (status line + JSON/text body) and flush.
+fn write_http(writer: &mut TcpStream, reply: &http::HttpReply) -> std::io::Result<()> {
+    let bytes = reply.body.as_bytes();
+    let head = format!(
+        "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        reply.status,
+        http::reason(reply.status),
+        reply.content_type,
+        bytes.len()
+    );
+    writer.write_all(head.as_bytes())?;
+    writer.write_all(bytes)?;
+    writer.flush()
+}
+
 fn handle_http_conn(server: &GatewayServer, stream: TcpStream) -> std::io::Result<()> {
     let mut reader = BufReader::new(stream.try_clone()?);
     let mut writer = stream;
 
-    // Request line: `METHOD PATH HTTP/1.1`.
+    // Request line: `METHOD PATH HTTP/1.1` — capped so an endless line can't
+    // be buffered without bound.
     let mut request_line = String::new();
-    if reader.read_line(&mut request_line)? == 0 {
+    let (n, overran) = read_capped_line(&mut reader, &mut request_line)?;
+    if n == 0 {
         return Ok(()); // client closed before sending anything
+    }
+    if overran {
+        return write_http(&mut writer, &http::headers_too_large());
     }
     let mut parts = request_line.split_whitespace();
     let method = parts.next().unwrap_or("").to_string();
     let path = parts.next().unwrap_or("/").to_string();
 
     // Headers until the blank line; the only one we act on is Content-Length.
+    // Each line is capped and the count is bounded (no unbounded header flood).
     let mut content_length = 0usize;
+    let mut header_count = 0usize;
     loop {
+        header_count += 1;
+        if header_count > MAX_HEADERS {
+            return write_http(&mut writer, &http::headers_too_large());
+        }
         let mut line = String::new();
-        if reader.read_line(&mut line)? == 0 {
+        let (n, overran) = read_capped_line(&mut reader, &mut line)?;
+        if n == 0 {
             break;
+        }
+        if overran {
+            return write_http(&mut writer, &http::headers_too_large());
         }
         let trimmed = line.trim_end();
         if trimmed.is_empty() {
@@ -254,16 +301,5 @@ fn handle_http_conn(server: &GatewayServer, stream: TcpStream) -> std::io::Resul
         let body = String::from_utf8_lossy(&body);
         http::respond(server, &method, &path, &body)
     };
-    let bytes = reply.body.as_bytes();
-    let head = format!(
-        "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-        reply.status,
-        http::reason(reply.status),
-        reply.content_type,
-        bytes.len()
-    );
-    writer.write_all(head.as_bytes())?;
-    writer.write_all(bytes)?;
-    writer.flush()?;
-    Ok(())
+    write_http(&mut writer, &reply)
 }

@@ -96,10 +96,12 @@ bridge / the cockpit can hit the engine directly:
   `…_prediction_total` / `…_prediction_agreements_total`) so the existing
   node_exporter→Grafana cockpit can chart the daemon with no new pipeline —
   the operator-visible surface the SHIPPED bar requires. Verified live via curl.
-- **Body-size cap (DoS hardening).** A `Content-Length` over 1 MiB is refused
-  with `413 Payload Too Large` *before* any buffer is allocated, so a client
-  cannot exhaust the daemon's memory by claiming a huge body. Cortex requests
-  are a few KB. Verified live (4 GiB claim → 413, daemon stays responsive).
+- **Request-size caps (DoS hardening).** A `Content-Length` over 1 MiB → `413`
+  *before* any buffer is allocated; an over-8 KiB request line or header line,
+  or more than 100 headers → `431`; an over-1 MiB NDJSON line → error + close.
+  Each is read through a fresh `take`, so a client can't exhaust the daemon's
+  memory with a huge or unterminated request on either transport. Cortex
+  requests are a few KB. Verified live (4 GiB body → 413; 9 KB header → 431).
 - The HTTP routing (`http::respond`) is pure and routes through the same
   `GatewayServer::handle` as the line protocol, so the two transports can never
   diverge. Verified live (curl + raw-socket): `GET /health` 200,

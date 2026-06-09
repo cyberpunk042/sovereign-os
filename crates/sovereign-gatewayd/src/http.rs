@@ -56,6 +56,7 @@ pub fn reason(status: u16) -> &'static str {
         405 => "Method Not Allowed",
         413 => "Payload Too Large",
         422 => "Unprocessable Entity",
+        431 => "Request Header Fields Too Large",
         _ => "Internal Server Error",
     }
 }
@@ -67,6 +68,12 @@ pub fn payload_too_large() -> HttpReply {
         413,
         format!("request body exceeds the {MAX_BODY_BYTES}-byte limit"),
     )
+}
+
+/// The `431` reply for an over-long request line / header, or too many headers —
+/// emitted by the transport so an unterminated header can't be buffered forever.
+pub fn headers_too_large() -> HttpReply {
+    err(431, "request line or headers too large".to_string())
 }
 
 /// Route one parsed HTTP request (method + path + body) to a reply. Pure: no
@@ -253,7 +260,7 @@ mod tests {
 
     #[test]
     fn reason_phrases_cover_emitted_codes() {
-        for code in [200, 400, 404, 405, 413, 422] {
+        for code in [200, 400, 404, 405, 413, 422, 431] {
             assert_ne!(reason(code), "Internal Server Error");
         }
     }
@@ -266,5 +273,13 @@ mod tests {
         let v = body_of(&r);
         assert_eq!(v["kind"], "error");
         assert!(v["message"].as_str().unwrap().contains("limit"));
+    }
+
+    #[test]
+    fn headers_too_large_is_431_error() {
+        let r = headers_too_large();
+        assert_eq!(r.status, 431);
+        assert_eq!(reason(431), "Request Header Fields Too Large");
+        assert_eq!(body_of(&r)["kind"], "error");
     }
 }
