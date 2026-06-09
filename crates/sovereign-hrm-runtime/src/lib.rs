@@ -202,6 +202,20 @@ impl RecurrentState {
     }
 }
 
+/// Hard safety cap on driver iterations, independent of config cadence.
+pub const MAX_HRM_STEPS: u64 = 1 << 24;
+
+/// Outcome of driving the recurrent loop to completion.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HrmRun {
+    /// Total inner-step ticks executed.
+    pub steps: u64,
+    /// Outer step the state reached.
+    pub outer_reached: u32,
+    /// True if an ACT halt predicate stopped the loop before the cadence end.
+    pub halted_early: bool,
+}
+
 /// Stepper for the HRM two-timescale loop. CPU reference impl.
 /// Reference math omitted — this struct exposes the iteration cadence
 /// so downstream impls (CUDA kernel, ROCm kernel) can mirror it.
@@ -229,6 +243,44 @@ impl<'c> HrmStepper<'c> {
         if state.inner_step >= self.config.inner_steps_per_outer {
             state.inner_step = 0;
             state.outer_step += 1;
+        }
+    }
+
+    /// Drive the fixed two-timescale cadence to completion — the HRM
+    /// "single forward pass". Returns the run summary; the number of steps
+    /// equals [`HrmConfig::total_recurrent_steps`].
+    pub fn run(&self, state: &mut RecurrentState) -> HrmRun {
+        self.run_with_halt(state, |_| false)
+    }
+
+    /// Drive the loop with an ACT-style early-halt predicate (adaptive
+    /// computation depth): stop as soon as `halt(state)` is true, otherwise
+    /// run the full cadence. The predicate is the caller's convergence test
+    /// — consistent with `advance` leaving the per-step math to the caller.
+    pub fn run_with_halt(
+        &self,
+        state: &mut RecurrentState,
+        mut halt: impl FnMut(&RecurrentState) -> bool,
+    ) -> HrmRun {
+        let mut steps = 0u64;
+        while self.should_continue(state) {
+            if halt(state) {
+                return HrmRun {
+                    steps,
+                    outer_reached: state.outer_step,
+                    halted_early: true,
+                };
+            }
+            self.advance(state);
+            steps += 1;
+            if steps >= MAX_HRM_STEPS {
+                break;
+            }
+        }
+        HrmRun {
+            steps,
+            outer_reached: state.outer_step,
+            halted_early: false,
         }
     }
 }
@@ -369,5 +421,54 @@ mod tests {
         let mut c = HrmConfig::canonical();
         c.outer_steps = 0;
         assert!(HrmStepper::new(&c).is_err());
+    }
+
+    // --- driver loop (single forward pass + adaptive halt) ---
+
+    #[test]
+    fn run_executes_the_full_cadence() {
+        let cfg = HrmConfig::canonical();
+        let stepper = HrmStepper::new(&cfg).unwrap();
+        let mut state = RecurrentState::zeros(&cfg);
+        let run = stepper.run(&mut state);
+        assert_eq!(run.steps, cfg.total_recurrent_steps());
+        assert!(!run.halted_early);
+        assert_eq!(run.outer_reached, cfg.outer_steps);
+        // loop is exhausted
+        assert!(!stepper.should_continue(&state));
+    }
+
+    #[test]
+    fn run_with_halt_stops_adaptively() {
+        let cfg = HrmConfig::canonical();
+        let stepper = HrmStepper::new(&cfg).unwrap();
+        let mut state = RecurrentState::zeros(&cfg);
+        // ACT: halt as soon as the first outer step completes.
+        let run = stepper.run_with_halt(&mut state, |s| s.outer_step >= 1);
+        assert!(run.halted_early);
+        assert_eq!(run.outer_reached, 1);
+        assert!(run.steps > 0);
+        assert!(run.steps < cfg.total_recurrent_steps());
+    }
+
+    #[test]
+    fn run_with_never_halt_matches_run() {
+        let cfg = HrmConfig::canonical();
+        let stepper = HrmStepper::new(&cfg).unwrap();
+        let mut a = RecurrentState::zeros(&cfg);
+        let mut b = RecurrentState::zeros(&cfg);
+        let ra = stepper.run(&mut a);
+        let rb = stepper.run_with_halt(&mut b, |_| false);
+        assert_eq!(ra, rb);
+    }
+
+    #[test]
+    fn immediate_halt_runs_zero_steps() {
+        let cfg = HrmConfig::canonical();
+        let stepper = HrmStepper::new(&cfg).unwrap();
+        let mut state = RecurrentState::zeros(&cfg);
+        let run = stepper.run_with_halt(&mut state, |_| true);
+        assert_eq!(run.steps, 0);
+        assert!(run.halted_early);
     }
 }
