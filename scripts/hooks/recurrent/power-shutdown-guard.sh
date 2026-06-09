@@ -57,17 +57,30 @@ try:
 except Exception:
     print("error")
 ')"
-emit_metric_set power-shutdown-guard \
-  "sovereign_os_power_shutdown_guard_last_run_timestamp $(date +%s)" \
-  "sovereign_os_power_shutdown_guard_advisory_rc ${adv_rc}" \
-  "# HELP sovereign_os_power_shutdown_guard_verdict 0=ok 1=attention 2=critical 3=no-ups 9=error" \
-  "sovereign_os_power_shutdown_guard_verdict $(case "${verdict}" in
+verdict_code=$(case "${verdict}" in
     ok) echo 0;;
     attention) echo 1;;
     critical) echo 2;;
     no-ups) echo 3;;
     *) echo 9;;
-  esac)"
+  esac)
+
+# Emit the guard metrics. `fired` is 0 here and re-emitted as 1 only after
+# an actual `shutdown(8)` so operators can alert on a real auto-poweroff
+# (verdict=critical alone can't distinguish fired from critical-but-not-
+# armed). Re-uses the SAME metric set so the textfile write stays atomic.
+emit_guard_metrics() {
+  local fired="$1"
+  emit_metric_set power-shutdown-guard \
+    "sovereign_os_power_shutdown_guard_last_run_timestamp $(date +%s)" \
+    "sovereign_os_power_shutdown_guard_advisory_rc ${adv_rc}" \
+    "# HELP sovereign_os_power_shutdown_guard_verdict 0=ok 1=attention 2=critical 3=no-ups 9=error" \
+    "sovereign_os_power_shutdown_guard_verdict ${verdict_code}" \
+    "# HELP sovereign_os_power_shutdown_guard_fired 1 iff this run fired shutdown(8) (critical + armed + not dry-run)" \
+    "# TYPE sovereign_os_power_shutdown_guard_fired gauge" \
+    "sovereign_os_power_shutdown_guard_fired ${fired}"
+}
+emit_guard_metrics 0
 
 if [ "${adv_rc}" -eq 0 ]; then
   log_info "verdict=${verdict} — no shutdown action"
@@ -109,5 +122,9 @@ grace_min=$(( (grace_sec + 59) / 60 ))
 log_warn "firing: shutdown -h +${grace_min} 'sovereign-os: UPS battery critical, gracefully powering off'"
 shutdown -h "+${grace_min}" "sovereign-os: UPS battery critical, gracefully powering off" \
   || { log_error "shutdown(8) failed"; exit 1; }
+
+# Shutdown is scheduled (shutdown -h returns immediately). Re-emit with
+# fired=1 so an operator's Prometheus sees the auto-poweroff was triggered.
+emit_guard_metrics 1
 
 exit 0
