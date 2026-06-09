@@ -158,6 +158,11 @@ impl DecoderStack {
         self.blocks.len()
     }
 
+    /// Vocabulary size.
+    pub fn vocab(&self) -> usize {
+        self.config.vocab
+    }
+
     /// Current decode position (KV cache depth of every layer).
     pub fn position(&self) -> usize {
         self.blocks.first().map(|b| b.len()).unwrap_or(0)
