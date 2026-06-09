@@ -4571,6 +4571,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-task-lifecycle"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-telemetry"
 version = "0.1.0"
 dependencies = [
