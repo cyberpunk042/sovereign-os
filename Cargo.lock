@@ -4566,6 +4566,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-skill-library"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-spec-decode"
 version = "0.1.0"
 dependencies = [
