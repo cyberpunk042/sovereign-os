@@ -101,8 +101,15 @@ if [ "${total}" -gt "${SOVEREIGN_OS_SNAPSHOT_KEEP}" ]; then
   log_info "pruning ${excess} snapshot(s) beyond keep=${SOVEREIGN_OS_SNAPSHOT_KEEP}"
   for ((i = 0; i < excess; i++)); do
     log_info "  destroying: ${all_snaps[$i]}"
-    zfs destroy "${all_snaps[$i]}" || log_warn "    failed to destroy ${all_snaps[$i]}"
-    pruned=$((pruned + 1))
+    # Only count a prune that actually happened. A failed `zfs destroy` (snapshot
+    # held, busy, or permission) leaves the snapshot on disk, so incrementing
+    # `pruned` regardless would over-report sovereign_os_snapshot_pruned_total
+    # AND under-report final_count (= total - pruned) — the snapshot is still there.
+    if zfs destroy "${all_snaps[$i]}"; then
+      pruned=$((pruned + 1))
+    else
+      log_warn "    failed to destroy ${all_snaps[$i]} (still present; not counted as pruned)"
+    fi
   done
 fi
 
