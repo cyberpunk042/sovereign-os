@@ -41,6 +41,9 @@ EMITTED_METRICS = {
     "sovereign_os_security_update_check_last_run_timestamp",
     "sovereign_os_thermal_severity",
     "sovereign_os_thermal_last_run_unix",
+    "sovereign_os_power_shutdown_guard_fired",
+    "sovereign_os_power_shutdown_guard_verdict",
+    "sovereign_os_memory_oom_kill_count",
 }
 
 EXPECTED_ALERTS = {
@@ -54,6 +57,9 @@ EXPECTED_ALERTS = {
     "SovereignOsSecurityUpdateCheckStale",
     "SovereignOsThermalCritical",
     "SovereignOsThermalWatchSilent",
+    "SovereignOsPowerShutdownGuardFired",
+    "SovereignOsPowerUpsCritical",
+    "SovereignOsMemoryOomKills",
 }
 
 
@@ -85,7 +91,9 @@ def test_every_expr_references_only_emitted_metrics():
 def test_every_alert_has_severity_for_and_runbook():
     for r in _rules():
         assert r["labels"]["severity"] in {"warning", "critical"}, r["alert"]
-        assert r["labels"].get("subsystem") in {"hardware", "perimeter", "storage", "security"}, r["alert"]
+        assert r["labels"].get("subsystem") in {
+            "hardware", "perimeter", "storage", "security", "power", "memory",
+        }, r["alert"]
         assert "for" in r, r["alert"]
         url = r["annotations"]["runbook_url"]
         assert url.startswith("https://"), r["alert"]
@@ -103,6 +111,9 @@ def test_critical_health_failures_are_critical_severity():
         "SovereignOsPerimeterDown",
         "SovereignOsZfsPoolDegraded",
         "SovereignOsThermalCritical",
+        "SovereignOsPowerShutdownGuardFired",
+        "SovereignOsPowerUpsCritical",
+        "SovereignOsMemoryOomKills",
     ):
         assert by_name[name]["labels"]["severity"] == "critical", name
 

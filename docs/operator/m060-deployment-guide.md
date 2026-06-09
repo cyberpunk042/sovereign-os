@@ -3710,6 +3710,67 @@ ls /sys/class/hwmon/ ; nvidia-smi -L 2>/dev/null   # are sensors readable?
 sensors, restore the sensor stack (kernel module / driver). The alert clears
 once the monitor runs and refreshes the timestamp.
 
+#### SovereignOsPowerShutdownGuardFired (critical)
+
+**Meaning:** `sovereign_os_power_shutdown_guard_fired > 0` — the power-shutdown
+guard reached a confirmed critical UPS state while armed and issued
+`shutdown(8)`. The host is powering off NOW to protect the state-fabric from an
+unclean loss.
+
+**Diagnosis:**
+
+```bash
+# (post-recovery) confirm the UPS state and that the fire was warranted
+grep -E 'sovereign_os_power_shutdown_guard_(fired|verdict)' \
+  /var/lib/node_exporter/textfile_collector/sovereign-os*.prom
+journalctl -u sovereign-power-shutdown-guard.service -n 50
+```
+
+**Fix:** the shutdown is intentional protection — let it complete. On return,
+restore mains power, confirm `sovereign_os_power_shutdown_guard_verdict` is back
+to 0 (ok), and re-arm the guard. A spurious fire points at a misreporting UPS or
+a too-aggressive critical threshold.
+
+#### SovereignOsPowerUpsCritical (critical)
+
+**Meaning:** `sovereign_os_power_shutdown_guard_verdict == 2` (critical) — the UPS
+reports a critical battery/runtime state; power loss is imminent. Pages before
+the guard fires shutdown so the operator can intervene.
+
+**Diagnosis:**
+
+```bash
+grep sovereign_os_power_shutdown_guard_verdict \
+  /var/lib/node_exporter/textfile_collector/sovereign-os*.prom
+# verdict codes: 0=ok 1=attention 2=critical 3=no-ups 9=error
+upsc 2>/dev/null || apcaccess 2>/dev/null   # whichever UPS client is installed
+```
+
+**Fix:** restore mains power or shed load to extend runtime. If a graceful
+shutdown is the right call, let the armed guard fire (see
+SovereignOsPowerShutdownGuardFired). The alert clears when the verdict returns
+below 2.
+
+#### SovereignOsMemoryOomKills (critical)
+
+**Meaning:** `increase(sovereign_os_memory_oom_kill_count[15m]) > 0` — the kernel
+OOM-killer terminated one or more processes in the last 15 minutes because the
+host ran out of memory. A killed inference / daemon / collector may have left
+work half-done.
+
+**Diagnosis:**
+
+```bash
+journalctl -k | grep -i 'killed process' | tail
+grep -E 'sovereign_os_memory_(oom_kill_count|available_pct|psi_full_avg10_pct)' \
+  /var/lib/node_exporter/textfile_collector/sovereign-os*.prom
+```
+
+**Fix:** identify the memory hog and reduce the working set (batch size, model
+size, concurrent jobs), add RAM, or set per-service memory limits so a single
+job can't starve the host. Restart anything the OOM-killer took down. The alert
+clears once 15m pass with no new kills.
+
 ## Project-boundary discipline (MS043 R10212)
 
 - IPS state mutation lives in **selfdef only** (selfdefd + selfdefctl +

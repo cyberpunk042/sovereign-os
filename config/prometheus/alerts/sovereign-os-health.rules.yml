@@ -225,3 +225,62 @@ groups:
             cannot fire on fresh data. Check the sovereign-thermal-watch.timer and
             that the hwmon / nvidia-smi sensors are still readable.
           runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignosthermalwatchsilent-warning"
+
+      # The power-shutdown guard actually issued shutdown(8) — the UPS hit a
+      # critical state and the host is going down NOW. This is the discrete
+      # "it fired" event (distinct from the verdict gauge below).
+      - alert: SovereignOsPowerShutdownGuardFired
+        expr: sovereign_os_power_shutdown_guard_fired > 0
+        for: 0m
+        labels:
+          severity: critical
+          subsystem: power
+        annotations:
+          summary: "sovereign-os power-shutdown guard FIRED on {{ $labels.instance }} — host is shutting down"
+          description: >
+            sovereign_os_power_shutdown_guard_fired is 1 — the power-shutdown
+            guard reached a confirmed critical UPS state while armed and issued
+            shutdown(8). The host is powering off to protect the state-fabric
+            from an unclean loss. Expect the instance to go down; on return,
+            confirm the UPS recovered (`sovereign_os_power_shutdown_guard_verdict`
+            back to 0) before re-arming.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignospowershutdownguardfired-critical"
+
+      # UPS at a critical state (verdict code 2) — imminent power loss. Pages
+      # before the guard fires shutdown so the operator can intervene (or
+      # confirm a graceful shutdown is the right call).
+      - alert: SovereignOsPowerUpsCritical
+        expr: sovereign_os_power_shutdown_guard_verdict == 2
+        for: 1m
+        labels:
+          severity: critical
+          subsystem: power
+        annotations:
+          summary: "sovereign-os UPS at CRITICAL on {{ $labels.instance }} (imminent power loss)"
+          description: >
+            sovereign_os_power_shutdown_guard_verdict is 2 (critical) — the UPS
+            reports a critical battery/runtime state. If the guard is armed it
+            will issue shutdown shortly (see SovereignOsPowerShutdownGuardFired).
+            Restore mains power or reduce load; verdict codes: 0=ok 1=attention
+            2=critical 3=no-ups 9=error.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignospowerupscritical-critical"
+
+      # Processes were killed by the OOM killer in the recent window — the host
+      # ran out of memory. increase() over 15m catches NEW kills (the gauge's
+      # cgroup component is cumulative; increase handles reboots/resets).
+      - alert: SovereignOsMemoryOomKills
+        expr: increase(sovereign_os_memory_oom_kill_count[15m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          subsystem: memory
+        annotations:
+          summary: "sovereign-os OOM kills on {{ $labels.instance }} ({{ $value }} in 15m)"
+          description: >
+            sovereign_os_memory_oom_kill_count rose in the last 15m — the kernel
+            OOM-killer terminated one or more processes because the host ran out
+            of memory (cgroup memory.events oom_kill + journal scan). A killed
+            inference / daemon / collector may have left work half-done. Identify
+            the memory hog (`journalctl -k | grep -i 'killed process'`), reduce
+            the working set (batch size, model size, concurrent jobs), or add RAM.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignosmemoryoomkills-critical"
