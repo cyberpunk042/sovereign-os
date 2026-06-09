@@ -113,9 +113,58 @@ pub fn aggregate_speedup(rounds: &[(Vec<u32>, Vec<u32>)]) -> Result<f64, SpecErr
     Ok(emitted as f64 / rounds.len() as f64)
 }
 
+/// Expected tokens emitted per target pass for a draft of length `k` whose
+/// per-token acceptance probability is `alpha` (the closed-form speedup of
+/// greedy speculative decoding, Leviathan et al.):
+///
+/// ```text
+/// E[tokens] = (1 - alpha^(k+1)) / (1 - alpha)     for alpha < 1
+///           = k + 1                                for alpha = 1
+/// ```
+///
+/// `alpha` is clamped to `[0, 1]`. Use this to reason about the win for a
+/// given draft length before running anything.
+pub fn expected_speedup(alpha: f64, k: usize) -> f64 {
+    let a = alpha.clamp(0.0, 1.0);
+    if a >= 1.0 {
+        return (k + 1) as f64;
+    }
+    (1.0 - a.powi(k as i32 + 1)) / (1.0 - a)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn expected_speedup_at_alpha_one_is_k_plus_one() {
+        assert_eq!(expected_speedup(1.0, 3), 4.0);
+        assert_eq!(expected_speedup(1.0, 0), 1.0);
+    }
+
+    #[test]
+    fn expected_speedup_at_alpha_zero_is_one() {
+        assert_eq!(expected_speedup(0.0, 5), 1.0);
+    }
+
+    #[test]
+    fn expected_speedup_closed_form() {
+        // alpha=0.5, k=3 → (1 - 0.5^4)/(1 - 0.5) = 0.9375/0.5 = 1.875
+        assert!((expected_speedup(0.5, 3) - 1.875).abs() < 1e-9);
+    }
+
+    #[test]
+    fn expected_speedup_is_monotonic_in_alpha() {
+        let lo = expected_speedup(0.3, 4);
+        let hi = expected_speedup(0.8, 4);
+        assert!(hi > lo);
+    }
+
+    #[test]
+    fn expected_speedup_clamps_out_of_range_alpha() {
+        assert_eq!(expected_speedup(1.5, 2), 3.0); // clamped to 1.0
+        assert_eq!(expected_speedup(-0.5, 7), 1.0); // clamped to 0.0
+    }
 
     #[test]
     fn full_accept_emits_all_plus_bonus() {
