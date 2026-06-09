@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-kalman"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Scalar Kalman filter (local-level model): tracks a noisy quantity by optimally fusing a prediction with each measurement, weighting them by their variances so the estimate is smooth when measurements are noisy and responsive when they are trustworthy. For online estimation of latency, throughput, or any drifting setpoint from jittery samples — with a uncertainty estimate alongside the value."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
