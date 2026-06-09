@@ -1,0 +1,15 @@
+[package]
+name = "sovereign-mmr"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Maximal Marginal Relevance re-ranking: greedily select results that are relevant to the query yet diverse from those already chosen, trading the two off with a lambda parameter. Stops a retrieval-augmented context from filling with near-duplicate passages. Works from a cosine over document vectors or a precomputed similarity matrix."
+
+[lints]
+workspace = true
+
+[dependencies]

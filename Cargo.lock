@@ -4903,6 +4903,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-mmr"
+version = "0.1.0"
+
+[[package]]
 name = "sovereign-mode-default-policy"
 version = "0.1.0"
 dependencies = [
