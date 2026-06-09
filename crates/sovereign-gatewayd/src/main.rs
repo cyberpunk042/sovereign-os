@@ -223,14 +223,19 @@ fn handle_http_conn(server: &GatewayServer, stream: TcpStream) -> std::io::Resul
         }
     }
 
-    // Body of exactly Content-Length bytes (0 for GETs).
-    let mut body = vec![0u8; content_length];
-    if content_length > 0 {
-        reader.read_exact(&mut body)?;
-    }
-    let body = String::from_utf8_lossy(&body);
-
-    let reply = http::respond(server, &method, &path, &body);
+    // Refuse an over-cap Content-Length BEFORE allocating, so a client can't
+    // exhaust memory by claiming a huge body (the buffer is never sized to it).
+    let reply = if content_length > http::MAX_BODY_BYTES {
+        http::payload_too_large()
+    } else {
+        // Body of exactly Content-Length bytes (0 for GETs).
+        let mut body = vec![0u8; content_length];
+        if content_length > 0 {
+            reader.read_exact(&mut body)?;
+        }
+        let body = String::from_utf8_lossy(&body);
+        http::respond(server, &method, &path, &body)
+    };
     let bytes = reply.body.as_bytes();
     let head = format!(
         "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",

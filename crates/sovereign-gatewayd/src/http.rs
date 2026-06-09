@@ -30,6 +30,12 @@
 use crate::{GatewayRequest, GatewayResponse, GatewayServer};
 use sovereign_cortex::CortexRequest;
 
+/// Maximum request-body size the daemon will read. A `Content-Length` larger
+/// than this is refused with `413` *before* any buffer is allocated, so a
+/// client cannot exhaust memory by claiming a huge body. Cortex requests are a
+/// few KB; 1 MiB is generous headroom.
+pub const MAX_BODY_BYTES: usize = 1 << 20;
+
 /// A rendered HTTP reply: status code + content type + body.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HttpReply {
@@ -48,9 +54,19 @@ pub fn reason(status: u16) -> &'static str {
         400 => "Bad Request",
         404 => "Not Found",
         405 => "Method Not Allowed",
+        413 => "Payload Too Large",
         422 => "Unprocessable Entity",
         _ => "Internal Server Error",
     }
+}
+
+/// The `413` reply for an over-cap `Content-Length` — emitted by the transport
+/// before the body is read, so the oversized payload is never buffered.
+pub fn payload_too_large() -> HttpReply {
+    err(
+        413,
+        format!("request body exceeds the {MAX_BODY_BYTES}-byte limit"),
+    )
 }
 
 /// Route one parsed HTTP request (method + path + body) to a reply. Pure: no
@@ -237,8 +253,18 @@ mod tests {
 
     #[test]
     fn reason_phrases_cover_emitted_codes() {
-        for code in [200, 400, 404, 405, 422] {
+        for code in [200, 400, 404, 405, 413, 422] {
             assert_ne!(reason(code), "Internal Server Error");
         }
+    }
+
+    #[test]
+    fn payload_too_large_is_413_error() {
+        let r = payload_too_large();
+        assert_eq!(r.status, 413);
+        assert_eq!(reason(413), "Payload Too Large");
+        let v = body_of(&r);
+        assert_eq!(v["kind"], "error");
+        assert!(v["message"].as_str().unwrap().contains("limit"));
     }
 }

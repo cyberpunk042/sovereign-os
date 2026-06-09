@@ -179,3 +179,26 @@ fn http_unknown_route_is_404_and_bad_body_is_400() {
     let (s400, _) = http_request(&d.addr, "POST", "/v1/messages", "{not json");
     assert!(s400.starts_with("HTTP/1.1 400"), "status: {s400}");
 }
+
+#[test]
+fn http_oversized_content_length_is_413_without_allocating() {
+    // Claim a 4 GiB body but send no payload: the daemon must refuse with 413
+    // before reading/allocating, then still be responsive afterwards.
+    let d = spawn("--http");
+    let req = "POST /v1/messages HTTP/1.1\r\nHost: x\r\n\
+               Content-Length: 4294967296\r\nConnection: close\r\n\r\n";
+    let mut stream = TcpStream::connect(&d.addr).unwrap();
+    stream.write_all(req.as_bytes()).unwrap();
+    stream.flush().unwrap();
+    let mut raw = String::new();
+    stream.read_to_string(&mut raw).unwrap();
+    assert!(
+        raw.lines().next().unwrap_or("").starts_with("HTTP/1.1 413"),
+        "expected 413, got: {}",
+        raw.lines().next().unwrap_or("")
+    );
+
+    // The daemon survived the oversized claim — a normal request still works.
+    let (status, _) = http_request(&d.addr, "GET", "/health", "");
+    assert!(status.starts_with("HTTP/1.1 200"), "status: {status}");
+}
