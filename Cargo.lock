@@ -4530,6 +4530,7 @@ dependencies = [
  "sovereign-hardware-registry",
  "sovereign-hardware-thermal-policy",
  "sovereign-observability-fabric",
+ "sovereign-pressure-reactions",
  "sovereign-pressure-sensors",
 ]
 

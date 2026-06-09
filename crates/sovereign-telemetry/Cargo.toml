@@ -18,4 +18,5 @@ sovereign-pressure-sensors = { path = "../sovereign-pressure-sensors" }
 sovereign-hardware-load-sample = { path = "../sovereign-hardware-load-sample" }
 sovereign-hardware-registry = { path = "../sovereign-hardware-registry" }
 sovereign-hardware-thermal-policy = { path = "../sovereign-hardware-thermal-policy" }
+sovereign-pressure-reactions = { path = "../sovereign-pressure-reactions" }
 sovereign-observability-fabric = { path = "../sovereign-observability-fabric" }

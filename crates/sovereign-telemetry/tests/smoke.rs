@@ -61,4 +61,17 @@ fn emits_contract_honouring_telemetry_json() {
         assert!(v["target"].is_string() && v["verdict"].is_string());
     }
     assert!(doc["derived"]["thermal_any_shutdown"].is_boolean());
+
+    // E0431 adaptive reactions: an array; each entry carries a trigger and a
+    // non-empty verbatim action list.
+    let reactions = doc["derived"]["adaptive_reactions"]
+        .as_array()
+        .expect("adaptive_reactions array");
+    for r in reactions {
+        assert!(r["trigger"].is_string());
+        assert!(
+            !r["actions"].as_array().expect("actions array").is_empty(),
+            "every fired reaction prescribes at least one action"
+        );
+    }
 }

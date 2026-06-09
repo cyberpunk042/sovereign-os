@@ -24,6 +24,7 @@ use sovereign_hardware_load_sample::{
 use sovereign_hardware_registry::{HardwareRegistry, HardwareTarget};
 use sovereign_hardware_thermal_policy::ThermalPolicy;
 use sovereign_observability_fabric::{ObservabilityFabric, ObservabilitySource, SourceState};
+use sovereign_pressure_reactions::{ReactionThresholds, derive_reactions};
 use sovereign_pressure_sensors::{PressureSnapshot, parse_psi_some_avg10};
 
 /// Unix epoch seconds as a string. The probe carries no calendar formatter, so
@@ -132,9 +133,8 @@ fn sample() -> serde_json::Value {
     if let Some(g) = gpu {
         let _ = load.update_gpu(HardwareTarget::BlackwellOracle, g, &at);
     }
-    let load_valid = load
-        .validate_against(&HardwareRegistry::canonical())
-        .is_ok();
+    let registry = HardwareRegistry::canonical();
+    let load_valid = load.validate_against(&registry).is_ok();
 
     // Observability — honest source-presence fabric.
     let fabric = observability(&at, gpu.is_some());
@@ -151,6 +151,10 @@ fn sample() -> serde_json::Value {
         .collect();
     let thermal_any_shutdown = thermal.any_shutdown(&load);
 
+    // Derived — E0431 adaptive-intelligence reactions: the operator-named
+    // scheduler actions prescribed by the live pressure + idle hardware.
+    let reactions = derive_reactions(&pressure, &load, &registry, ReactionThresholds::default());
+
     let doc = serde_json::json!({
         "schema": "sovereign-telemetry/1",
         "captured_at_unix": at,
@@ -162,6 +166,7 @@ fn sample() -> serde_json::Value {
         "derived": {
             "thermal_verdicts": thermal_verdicts,
             "thermal_any_shutdown": thermal_any_shutdown,
+            "adaptive_reactions": reactions,
         },
     });
     doc
