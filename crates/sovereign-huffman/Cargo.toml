@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-huffman"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Huffman coding over u32 symbols: build the optimal prefix-free code from symbol frequencies, then encode a token sequence into a bit-packed buffer and decode it back exactly. Gives the minimum expected code length for a known distribution — for compressing token streams and measuring their entropy."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
