@@ -33,28 +33,44 @@ fn free_port() -> u16 {
 
 /// Spawn the binary in the given mode (`""` for NDJSON TCP, `"--http"`) and
 /// wait until the port accepts connections.
+///
+/// `free_port()` drops its listener before the daemon binds, so under heavy
+/// parallel test load another process can grab the port in that window and the
+/// daemon exits. We detect the early exit (`try_wait`) and retry on a fresh
+/// port, so the test is robust to that race rather than flaking.
 // The child is reaped in `Daemon::drop` (kill + wait); clippy can't see across
 // the returned struct's Drop, so the zombie-processes lint is a false positive.
 #[allow(clippy::zombie_processes)]
 fn spawn(mode: &str) -> Daemon {
-    let port = free_port();
-    let addr = format!("127.0.0.1:{port}");
-    let mut cmd = Command::new(env!("CARGO_BIN_EXE_sovereign-gatewayd"));
-    cmd.env("SOVEREIGN_GATEWAY_ADDR", &addr);
-    if !mode.is_empty() {
-        cmd.arg(mode);
-    }
-    let child = cmd.spawn().expect("spawn sovereign-gatewayd");
-
-    // Poll until the listener is up (bounded, so a broken binary fails fast).
-    let deadline = Instant::now() + Duration::from_secs(10);
-    while Instant::now() < deadline {
-        if TcpStream::connect(&addr).is_ok() {
-            return Daemon { child, addr };
+    for attempt in 0..5 {
+        let addr = format!("127.0.0.1:{}", free_port());
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_sovereign-gatewayd"));
+        cmd.env("SOVEREIGN_GATEWAY_ADDR", &addr);
+        if !mode.is_empty() {
+            cmd.arg(mode);
         }
-        std::thread::sleep(Duration::from_millis(50));
+        let mut child = cmd.spawn().expect("spawn sovereign-gatewayd");
+
+        // Poll until the listener is up (bounded, so a broken binary fails fast).
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            // Child exited during startup (lost the port race) → retry afresh.
+            if matches!(child.try_wait(), Ok(Some(_))) {
+                break;
+            }
+            if TcpStream::connect(&addr).is_ok() {
+                return Daemon { child, addr };
+            }
+            if Instant::now() >= deadline {
+                let _ = child.kill();
+                let _ = child.wait();
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        eprintln!("spawn attempt {attempt} on {addr} did not come up; retrying");
     }
-    panic!("daemon did not start listening on {addr}");
+    panic!("daemon did not start listening after 5 attempts");
 }
 
 /// One demo cortex request as a JSON string (the binary's own example payload).
