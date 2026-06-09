@@ -5819,6 +5819,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-token-grammar-mask"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-cfg-grammar",
+]
+
+[[package]]
 name = "sovereign-token-healing"
 version = "0.1.0"
 dependencies = [

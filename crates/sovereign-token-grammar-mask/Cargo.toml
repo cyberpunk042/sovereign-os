@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-token-grammar-mask"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Bridges a character-level context-free grammar to token-level decoding: given the text generated so far, computes the boolean mask of which vocabulary tokens keep a valid parse alive, plus whether end-of-sequence is allowed. The piece that makes grammar-constrained generation work on a real tokenizer — a model emits tokens, not characters — by feeding each candidate token's string through the Earley recognizer with a cheap first-character prefilter. Composes sovereign-cfg-grammar."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+sovereign-cfg-grammar = { path = "../sovereign-cfg-grammar" }
