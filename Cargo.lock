@@ -4748,6 +4748,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-vm-workload"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-worker-fleet"
 version = "0.1.0"
 dependencies = [
