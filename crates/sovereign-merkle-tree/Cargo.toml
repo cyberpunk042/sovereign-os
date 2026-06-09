@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-merkle-tree"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Merkle tree over a list of leaves: a single root hash summarizes the whole dataset, audit proofs show a leaf belongs under that root in logarithmic size, and a tree-vs-tree diff finds exactly which leaves differ by descending only where subtree hashes disagree. For verifying and reconciling replicated state (anti-entropy sync) — comparing two snapshots in log time instead of element by element. Uses a self-contained non-cryptographic 64-bit hash."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
