@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-hnsw"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Approximate nearest-neighbour search by Hierarchical Navigable Small World (HNSW) graphs: a layered proximity graph giving logarithmic-time vector search with high recall, the index behind production vector databases. For semantic retrieval over millions of embeddings — RAG, deduplication, and similarity lookup — without the linear cost of brute-force scanning."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
