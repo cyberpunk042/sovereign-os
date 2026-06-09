@@ -185,3 +185,43 @@ groups:
             reach the security suite (a -1 sovereign_os_security_updates_available
             means the check ran but couldn't determine the count).
           runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignossecurityupdatecheckstale-warning"
+
+      # A hardware sensor is at/above its profile CRITICAL threshold (sain-01:
+      # 95C). This is the thermal-watch hook path (R172, per-sensor, profile
+      # thresholds) — distinct from the sovereign-telemetry dispatcher verdict
+      # (SovereignTelemetryThermalShutdown). Sustained critical risks throttling
+      # or thermal damage.
+      - alert: SovereignOsThermalCritical
+        expr: sovereign_os_thermal_severity{level="critical"} > 0
+        for: 2m
+        labels:
+          severity: critical
+          subsystem: hardware
+        annotations:
+          summary: "sovereign-os sensor {{ $labels.sensor }} at CRITICAL temperature on {{ $labels.instance }}"
+          description: >
+            sovereign_os_thermal_severity{sensor="{{ $labels.sensor }}",level="critical"}
+            is 1 — the sensor has held at or above its profile critical threshold
+            for 2m+ (thermal-watch R172). The host risks thermal throttling and,
+            sustained, hardware damage. Reduce load (halt inference, drop the GPU
+            power limit) and restore cooling (airflow, fan curve). Cross-check the
+            absolute temp in sovereign_os_thermal_celsius{sensor="{{ $labels.sensor }}"}.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignosthermalcritical-critical"
+
+      # The 5-minute thermal monitor has gone silent — thermal blind spot. A
+      # sensor could be cooking with no critical alert firing on fresh data.
+      - alert: SovereignOsThermalWatchSilent
+        expr: time() - sovereign_os_thermal_last_run_unix > 1800
+        for: 5m
+        labels:
+          severity: warning
+          subsystem: hardware
+        annotations:
+          summary: "sovereign-os thermal monitor silent on {{ $labels.instance }} (no run in >30m)"
+          description: >
+            sovereign_os_thermal_last_run_unix is more than 30 minutes old — the
+            5-minute thermal-watch monitor has not run, so the per-sensor
+            temperature + severity gauges are stale and SovereignOsThermalCritical
+            cannot fire on fresh data. Check the sovereign-thermal-watch.timer and
+            that the hwmon / nvidia-smi sensors are still readable.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignosthermalwatchsilent-warning"

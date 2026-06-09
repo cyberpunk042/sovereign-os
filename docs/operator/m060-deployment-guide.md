@@ -3670,6 +3670,46 @@ grep security_updates_available /var/lib/node_exporter/textfile_collector/sovere
 (network / mirror / sources.list). Run the check by hand to refresh the gauge.
 The alert clears once the timestamp updates within the window.
 
+#### SovereignOsThermalCritical (critical)
+
+**Meaning:** `sovereign_os_thermal_severity{level="critical"} > 0` for 2m+ — a
+sensor is at/above its profile critical threshold (sain-01: 95 °C). This is the
+thermal-watch hook path (R172, per-sensor), distinct from
+`SovereignTelemetryThermalShutdown` (the dispatcher verdict). Sustained critical
+risks throttling and, eventually, thermal damage.
+
+**Diagnosis:**
+
+```bash
+grep -E 'sovereign_os_thermal_(severity|celsius)' \
+  /var/lib/node_exporter/textfile_collector/sovereign-os*.prom
+sensors 2>/dev/null; nvidia-smi --query-gpu=temperature.gpu --format=csv 2>/dev/null
+```
+
+**Fix:** reduce load (halt inference, drop the GPU power limit:
+`nvidia-smi -pl <watts>`) and restore cooling (airflow, fan curve, dust). The
+gauge clears on the next 5-minute tick once the sensor falls back below its
+critical threshold. A sensor stuck critical with light load points at a failed
+fan / pump or a seating issue.
+
+#### SovereignOsThermalWatchSilent (warning)
+
+**Meaning:** `time() - sovereign_os_thermal_last_run_unix > 30m` — the 5-minute
+thermal monitor has not run, so the per-sensor gauges are stale and
+`SovereignOsThermalCritical` cannot fire on fresh data (a thermal blind spot).
+
+**Diagnosis:**
+
+```bash
+systemctl status sovereign-thermal-watch.timer
+systemctl list-timers | grep thermal-watch
+ls /sys/class/hwmon/ ; nvidia-smi -L 2>/dev/null   # are sensors readable?
+```
+
+**Fix:** re-enable / start the timer; if hwmon or nvidia-smi stopped exposing
+sensors, restore the sensor stack (kernel module / driver). The alert clears
+once the monitor runs and refreshes the timestamp.
+
 ## Project-boundary discipline (MS043 R10212)
 
 - IPS state mutation lives in **selfdef only** (selfdefd + selfdefctl +

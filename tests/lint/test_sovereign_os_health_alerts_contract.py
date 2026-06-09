@@ -39,6 +39,8 @@ EMITTED_METRICS = {
     "sovereign_os_snapshot_last_created_timestamp",
     "sovereign_os_security_updates_available",
     "sovereign_os_security_update_check_last_run_timestamp",
+    "sovereign_os_thermal_severity",
+    "sovereign_os_thermal_last_run_unix",
 }
 
 EXPECTED_ALERTS = {
@@ -50,6 +52,8 @@ EXPECTED_ALERTS = {
     "SovereignOsBackupSnapshotStale",
     "SovereignOsSecurityUpdatesPending",
     "SovereignOsSecurityUpdateCheckStale",
+    "SovereignOsThermalCritical",
+    "SovereignOsThermalWatchSilent",
 }
 
 
@@ -98,6 +102,7 @@ def test_critical_health_failures_are_critical_severity():
         "SovereignOsFrictionAuditFailing",
         "SovereignOsPerimeterDown",
         "SovereignOsZfsPoolDegraded",
+        "SovereignOsThermalCritical",
     ):
         assert by_name[name]["labels"]["severity"] == "critical", name
 
@@ -112,6 +117,7 @@ def test_staleness_alerts_use_last_run_or_created_timestamp():
         "SovereignOsZfsScrubOverdue",
         "SovereignOsBackupSnapshotStale",
         "SovereignOsSecurityUpdateCheckStale",
+        "SovereignOsThermalWatchSilent",
     ):
         expr = by_name[name]["expr"]
-        assert "time()" in expr and "timestamp" in expr, (name, expr)
+        assert "time()" in expr and ("timestamp" in expr or "last_run_unix" in expr), (name, expr)
