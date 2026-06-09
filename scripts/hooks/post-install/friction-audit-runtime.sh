@@ -152,11 +152,15 @@ for g in (d.get('hardware') or {}).get('gpu') or []:
 fi
 
 # ----------------- Memory check -----------------
-
-if command -v dmidecode >/dev/null 2>&1; then
+# Reads /proc/meminfo (always present on Linux). Do NOT gate on dmidecode — this
+# check never uses it; the old `command -v dmidecode` gate silently skipped the
+# RAM-minimum verification on any host without dmidecode installed.
+if [ -r /proc/meminfo ]; then
   installed_mem_gb=$(($(grep MemTotal /proc/meminfo | awk '{print $2}') / 1024 / 1024))
   min_gb="$(profile_field hardware.memory.minimum_gb)"
-  if [ -n "${min_gb}" ] && [ "${installed_mem_gb}" -ge "${min_gb}" ]; then
+  if [ -z "${min_gb}" ]; then
+    log_warn "  SKIP — profile declares no hardware.memory.minimum_gb to check against"
+  elif [ "${installed_mem_gb}" -ge "${min_gb}" ]; then
     log_info "  PASS — memory ${installed_mem_gb}GB ≥ profile minimum ${min_gb}GB"
   else
     log_error "  FAIL — memory ${installed_mem_gb}GB < profile minimum ${min_gb}GB"
