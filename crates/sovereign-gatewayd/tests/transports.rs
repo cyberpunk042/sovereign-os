@@ -203,6 +203,41 @@ fn ndjson_tcp_malformed_line_yields_error_not_drop() {
 }
 
 // ---------------------------------------------------------------------------
+// stdio transport (MCP / claude-code shape)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn stdio_transport_handles_ndjson() {
+    use std::process::Stdio;
+
+    // --stdio reads NDJSON on stdin and replies on stdout; no socket to poll, so
+    // spawn directly with piped stdio rather than via `spawn()`.
+    let mut child = Command::new(env!("CARGO_BIN_EXE_sovereign-gatewayd"))
+        .arg("--stdio")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("spawn --stdio");
+
+    let line = format!("{{\"op\":\"infer\",\"request\":{}}}\n", demo_request_json());
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(line.as_bytes())
+        .unwrap();
+    // stdin dropped → EOF → the read loop ends and the process exits.
+
+    let out = child.wait_with_output().expect("wait --stdio");
+    assert!(out.status.success());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let reply = stdout.lines().next().expect("a reply line");
+    let v: serde_json::Value = serde_json::from_str(reply).unwrap();
+    assert_eq!(v["kind"], "decision");
+    assert_eq!(v["decision"]["placement"]["spilled_to_cloud"], false);
+}
+
+// ---------------------------------------------------------------------------
 // HTTP transport
 // ---------------------------------------------------------------------------
 
