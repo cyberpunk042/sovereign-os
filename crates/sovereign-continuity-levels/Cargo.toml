@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-continuity-levels"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "E0456 — the 8-level continuity ladder (Level 0 stateless API call … Level 7 user-sovereign life continuity). Cloud typically provides 0-2; the sovereign station owns 3-7 — 'For real work, continuity is intelligence.'"
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
