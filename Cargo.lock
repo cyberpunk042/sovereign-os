@@ -313,6 +313,14 @@ name = "sovereign-best-of-n"
 version = "0.1.0"
 
 [[package]]
+name = "sovereign-bin-packing"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-binary-quant"
 version = "0.1.0"
 dependencies = [
@@ -4877,6 +4885,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-interval-schedule"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-interval-tree"
 version = "0.1.0"
 dependencies = [
@@ -4891,6 +4907,14 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "sovereign-isotonic"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -4963,6 +4987,14 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "sovereign-knapsack"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
