@@ -328,6 +328,23 @@ mod tests {
     }
 
     #[test]
+    fn engine_refusal_is_422() {
+        // An unknown value-plane profile is refused by the engine (not a parse
+        // error) — exercises the 422 path, distinct from 400 (bad body).
+        let s = srv();
+        let demo = demo_requests()[0].clone();
+        let body = serde_json::json!({
+            "axes": demo.axes,
+            "profile": "definitely-not-a-real-profile",
+            "expected_quality": 0.5,
+        })
+        .to_string();
+        let r = respond(&s, "POST", "/v1/simple", &body);
+        assert_eq!(r.status, 422, "unknown profile is an engine refusal");
+        assert_eq!(body_of(&r)["kind"], "error");
+    }
+
+    #[test]
     fn post_deliberate_is_best_of_n_read_only() {
         let s = srv();
         let req = demo_requests()[0].clone();
