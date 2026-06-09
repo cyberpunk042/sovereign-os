@@ -12,7 +12,9 @@
 //! every tick goes to stderr. Exit code is `1` if any request was refused,
 //! `2` if the supplied JSON could not be parsed.
 
-use sovereign_cortex::{Cortex, CortexRequest, demo_requests, seed_memory};
+use sovereign_cortex::verify::F_CLOUD_SPILL;
+use sovereign_cortex::{Cortex, CortexRequest, demo_requests, seed_memory, verify_session};
+use sovereign_symbolic_plan::{SafetyProperty, facts};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -61,6 +63,15 @@ fn main() {
         report.committed, report.total, report.learned, report.refused
     );
 
-    // Non-zero exit if any request was refused by an engine.
-    std::process::exit(if report.refused > 0 { 1 } else { 0 });
+    // Formally verify the session's decisions (AgentVerify-style): a private
+    // workstation must never spill work to the cloud.
+    let safety = [SafetyProperty::Never(facts(&[F_CLOUD_SPILL]))];
+    let safe = verify_session(&decisions, &safety);
+    eprintln!(
+        "# safety: never-cloud-spill = {}",
+        if safe { "HOLDS" } else { "VIOLATED" }
+    );
+
+    // Non-zero exit if any request was refused or a safety property failed.
+    std::process::exit(if report.refused > 0 || !safe { 1 } else { 0 });
 }
