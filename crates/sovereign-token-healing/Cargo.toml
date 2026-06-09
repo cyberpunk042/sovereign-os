@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-token-healing"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Token healing for generation: when a prompt ends mid-token, trim the trailing token(s) and constrain the first generated token to be consistent with the removed text, so the model re-chooses a natural boundary instead of being locked into a bad split. Fixes the prompt/completion seam for completion and constrained decoding."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
