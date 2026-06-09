@@ -73,8 +73,10 @@ One JSON object per line in, one per line out:
 | `POST /v1/infer` | raw engine alias → decision |
 | `POST /mcp` | MCP-bridge bind (surface 3) → decision |
 | `POST /v1/explain` | **read-only** dry-run → plain-language rationale |
+| `POST /v1/deliberate` | **read-only** best-of-N → winner + all assessments |
 
-A `POST` body is one JSON `CortexRequest`; the reply is the tagged
+A `POST` body is one JSON `CortexRequest` (except `/v1/deliberate`, whose body
+is `{request, candidates, tier}`); the reply is the tagged
 `GatewayResponse`. Wrong verb on a known route → `405`; unknown → `404`;
 malformed body → `400`; engine refusal → `422`.
 
