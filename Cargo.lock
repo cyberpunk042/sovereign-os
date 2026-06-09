@@ -4566,6 +4566,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-trace-context"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-trinity"
 version = "0.1.0"
 dependencies = [
