@@ -51,6 +51,13 @@ pub enum GatewayRequest {
         /// The end-to-end cortex request. Boxed because it is large.
         request: Box<CortexRequest>,
     },
+    /// Dry-run a request and return the plain-language rationale (M015
+    /// human-gate) — read-only: the engine decides but does not learn or
+    /// account, so an auditor can ask "what would you do, and why" safely.
+    Explain {
+        /// The end-to-end cortex request. Boxed because it is large.
+        request: Box<CortexRequest>,
+    },
     /// Return the 6-surface gateway manifest.
     Manifest,
     /// Return liveness + the never-cloud-spill invariant state.
@@ -71,6 +78,11 @@ pub enum GatewayResponse {
         decision: Box<sovereign_cortex::CortexDecision>,
         /// Whether the committed decision was admitted into Memory-OS.
         learned: bool,
+    },
+    /// The plain-language rationale for a dry-run request (read-only).
+    Explanation {
+        /// The M015 human-gate rationale (route → device → verdict → cost).
+        explanation: String,
     },
     /// The gateway manifest.
     Manifest {
@@ -203,6 +215,7 @@ impl GatewayServer {
     pub fn handle(&self, req: GatewayRequest) -> GatewayResponse {
         match req {
             GatewayRequest::Infer { request } => self.infer(*request),
+            GatewayRequest::Explain { request } => self.explain(*request),
             GatewayRequest::Manifest => GatewayResponse::Manifest {
                 manifest: self.manifest.clone(),
             },
@@ -211,6 +224,27 @@ impl GatewayServer {
             },
             GatewayRequest::Ledger => GatewayResponse::Ledger {
                 ledger: self.ledger.lock().expect("ledger poisoned").clone(),
+            },
+        }
+    }
+
+    /// Dry-run a request: decide and explain, but do **not** learn or touch the
+    /// ledger. `tick` is read-only, so this is a side-effect-free "what would
+    /// you do, and why" for an auditor. The same Privacy policy applies.
+    fn explain(&self, mut request: CortexRequest) -> GatewayResponse {
+        if self.force_local {
+            request.allow_cloud = false;
+        }
+        let result = {
+            let cortex = self.cortex.lock().expect("cortex poisoned");
+            cortex.tick(&request)
+        };
+        match result {
+            Ok(decision) => GatewayResponse::Explanation {
+                explanation: decision.explain(),
+            },
+            Err(e) => GatewayResponse::Error {
+                message: e.to_string(),
             },
         }
     }
@@ -413,6 +447,19 @@ mod tests {
         let out = s.handle_line(r#"{"op":"teleport"}"#);
         let v: serde_json::Value = serde_json::from_str(&out).unwrap();
         assert_eq!(v["kind"], "error");
+    }
+
+    #[test]
+    fn explain_op_is_read_only_and_returns_the_rationale() {
+        let s = GatewayServer::new();
+        let req = demo_requests()[0].clone();
+        let line = serde_json::json!({ "op": "explain", "request": req }).to_string();
+        let out = s.handle_line(&line);
+        let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(v["kind"], "explanation");
+        assert!(v["explanation"].as_str().unwrap().contains("Routed to"));
+        // A dry-run must not move the ledger (no infer/learn happened).
+        assert_eq!(s.ledger.lock().unwrap().total_requests, 0);
     }
 
     #[test]

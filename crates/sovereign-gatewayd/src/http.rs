@@ -16,6 +16,7 @@
 //! POST /v1/messages    -> {"kind":"decision", …}   Anthropic-path bind (surface 1)
 //! POST /v1/infer       -> {"kind":"decision", …}   raw engine alias
 //! POST /mcp            -> {"kind":"decision", …}   MCP-bridge bind (surface 3)
+//! POST /v1/explain     -> {"kind":"explanation",…} dry-run rationale (read-only)
 //! ```
 //!
 //! A `POST` body is one JSON [`CortexRequest`]; the reply is the tagged
@@ -96,14 +97,26 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
             body: server.metrics_prometheus(),
         },
 
-        ("POST", "/v1/messages") | ("POST", "/v1/infer") | ("POST", "/mcp") => {
+        ("POST", "/v1/messages")
+        | ("POST", "/v1/infer")
+        | ("POST", "/mcp")
+        | ("POST", "/v1/explain") => {
             match serde_json::from_str::<CortexRequest>(body) {
                 Ok(request) => {
-                    let resp = server.handle(GatewayRequest::Infer {
-                        request: Box::new(request),
-                    });
+                    // `/v1/explain` is the read-only dry-run; the rest run the
+                    // engine. Both share the request shape.
+                    let gw_req = if route == "/v1/explain" {
+                        GatewayRequest::Explain {
+                            request: Box::new(request),
+                        }
+                    } else {
+                        GatewayRequest::Infer {
+                            request: Box::new(request),
+                        }
+                    };
+                    let resp = server.handle(gw_req);
                     // An engine refusal is a request-level problem (422); a
-                    // genuine decision is 200.
+                    // genuine decision/explanation is 200.
                     let status = match resp {
                         GatewayResponse::Error { .. } => 422,
                         _ => 200,
@@ -118,7 +131,7 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
         (_, "/health") | (_, "/manifest") | (_, "/admin/ledger") | (_, "/metrics") => {
             err(405, format!("method {method} not allowed on {route}"))
         }
-        (_, "/v1/messages") | (_, "/v1/infer") | (_, "/mcp") => {
+        (_, "/v1/messages") | (_, "/v1/infer") | (_, "/mcp") | (_, "/v1/explain") => {
             err(405, format!("method {method} not allowed on {route}"))
         }
         _ => err(404, format!("no route for {method} {route}")),
@@ -231,6 +244,25 @@ mod tests {
         let r = respond(&srv(), "GET", "/nope", "");
         assert_eq!(r.status, 404);
         assert_eq!(body_of(&r)["kind"], "error");
+    }
+
+    #[test]
+    fn post_explain_returns_rationale_and_is_read_only() {
+        let s = srv();
+        let body = serde_json::to_string(&demo_requests()[0]).unwrap();
+        let r = respond(&s, "POST", "/v1/explain", &body);
+        assert_eq!(r.status, 200);
+        let v = body_of(&r);
+        assert_eq!(v["kind"], "explanation");
+        assert!(v["explanation"].as_str().unwrap().contains("Routed to"));
+        // Read-only: a dry-run must not move the ledger.
+        let led = body_of(&respond(&s, "GET", "/admin/ledger", ""));
+        assert_eq!(led["ledger"]["total_requests"], 0);
+    }
+
+    #[test]
+    fn get_explain_is_405() {
+        assert_eq!(respond(&srv(), "GET", "/v1/explain", "").status, 405);
     }
 
     #[test]
