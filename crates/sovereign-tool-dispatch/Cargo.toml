@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-tool-dispatch"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Tool-call parsing and dispatch: extracts a [[tool:NAME|ARGS]] call from model output and invokes the registered handler for it, returning the result to feed back into the conversation. The live execution layer above the tool catalog — turns generated text into an action and its result."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
