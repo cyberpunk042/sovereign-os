@@ -4091,6 +4091,7 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "sovereign-attention",
  "sovereign-bitlinear-core",
  "sovereign-branch-tree",
  "sovereign-control-word",

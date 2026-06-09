@@ -34,6 +34,7 @@ sovereign-symbolic-plan = { path = "../sovereign-symbolic-plan" }
 sovereign-control-word = { path = "../sovereign-control-word" }
 sovereign-branch-tree = { path = "../sovereign-branch-tree" }
 sovereign-replay-ledger = { path = "../sovereign-replay-ledger" }
+sovereign-attention = { path = "../sovereign-attention" }
 
 [dev-dependencies]
 serde_json = { workspace = true }

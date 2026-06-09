@@ -17,6 +17,7 @@
 //! crates that would run it.
 
 use serde::Serialize;
+use sovereign_attention::{Attention, DecodeStep};
 use sovereign_bitlinear_core::{BitLinearLayer, Packing, bits_per_param as ternary_bits_per_param};
 use sovereign_nvfp4_runtime::{BLOCK_SIZE, ELEMENT_BITS, QuantMatrix, SCALE_BITS};
 use sovereign_router_7axis::SrpRole;
@@ -42,6 +43,11 @@ pub struct ComputeProfile {
     /// Whether the device's actual compute kernel ran a live self-check
     /// (a micro forward pass through the real bitlinear / nvfp4 kernel).
     pub kernel_verified: bool,
+    /// Whether the attention inner loop self-checked on this device: a micro
+    /// decode step through the real online-softmax kernel, confirmed equal to
+    /// the naive softmax. Attention is precision-agnostic, so every local
+    /// role runs it; the cloud plane runs no local kernel.
+    pub attention_verified: bool,
     /// Expected tokens emitted per target pass via speculative decoding on
     /// this role — `1.0` where spec-decode doesn't apply (CPU draft / cloud),
     /// `> 1.0` on the GPU target roles (DFlash family, M077/M073 draft).
@@ -78,6 +84,35 @@ fn nvfp4_kernel_live() -> bool {
     }
 }
 
+/// Live self-check of the attention inner loop: stream three tokens through
+/// the real online-softmax [`DecodeStep`] and confirm it equals the naive
+/// full-softmax [`Attention::attend`]. Proves the device's per-token
+/// attention path is callable and numerically faithful.
+fn attention_kernel_live() -> bool {
+    let head = Attention::new(4);
+    let q = [0.5f32, -0.5, 1.0, 0.0];
+    let keys = [
+        vec![1.0f32, 0.0, 0.0, 0.0],
+        vec![0.0, 1.0, 0.0, 0.0],
+        vec![0.0, 0.0, 1.0, 0.0],
+    ];
+    let values = [vec![1.0f32, 2.0], vec![3.0, 4.0], vec![5.0, 6.0]];
+
+    let mut step = DecodeStep::new(head);
+    for (k, v) in keys.iter().zip(&values) {
+        if step.push(&q, k, v).is_err() {
+            return false;
+        }
+    }
+    match (step.output(), head.attend(&q, &keys, &values)) {
+        (Ok(stream), Ok(naive)) => {
+            stream.len() == naive.len()
+                && stream.iter().zip(&naive).all(|(a, b)| (a - b).abs() < 1e-5)
+        }
+        _ => false,
+    }
+}
+
 /// NVFP4 effective bits/param from the real format constants (M077):
 /// 16 four-bit elements share one eight-bit E4M3 scale → `(16·4+8)/16`.
 pub fn nvfp4_bits_per_param() -> f64 {
@@ -102,6 +137,7 @@ impl ComputeProfile {
                     est_model_bytes: bytes_for(bpp, model_params),
                     multiplication_free: true,
                     kernel_verified: ternary_kernel_live(),
+                    attention_verified: attention_kernel_live(),
                     expected_throughput_x: 1.0, // the draft model itself; no spec-decode
                     note: "mul → conditional add/sub; no de-quant at execution (M073)",
                 }
@@ -114,6 +150,7 @@ impl ComputeProfile {
                     est_model_bytes: bytes_for(bpp, model_params),
                     multiplication_free: false,
                     kernel_verified: nvfp4_kernel_live(),
+                    attention_verified: attention_kernel_live(),
                     expected_throughput_x: gpu_spec_throughput(),
                     note: "4-bit microscaled, 16-value blocks (M077)",
                 }
@@ -126,6 +163,7 @@ impl ComputeProfile {
                     est_model_bytes: bytes_for(bpp, model_params),
                     multiplication_free: false,
                     kernel_verified: true, // native FP16 needs no quantization kernel
+                    attention_verified: attention_kernel_live(),
                     expected_throughput_x: gpu_spec_throughput(),
                     note: "full-precision deep reasoning (M075)",
                 }
@@ -136,6 +174,7 @@ impl ComputeProfile {
                 est_model_bytes: 0,
                 multiplication_free: false,
                 kernel_verified: false, // no local kernel runs for remote work
+                attention_verified: false, // no local kernel runs for remote work
                 expected_throughput_x: 1.0, // remote; local spec-decode N/A
                 note: "executed off-node; local compute profile N/A",
             },
@@ -216,6 +255,21 @@ mod tests {
     fn ternary_and_nvfp4_kernels_are_callable() {
         assert!(ternary_kernel_live());
         assert!(nvfp4_kernel_live());
+    }
+
+    #[test]
+    fn attention_kernel_is_callable_and_faithful() {
+        assert!(attention_kernel_live());
+    }
+
+    #[test]
+    fn attention_self_checks_on_every_local_role_not_cloud() {
+        // Attention is precision-agnostic: every device that runs locally
+        // exercises it; the cloud plane runs no local kernel.
+        assert!(ComputeProfile::for_role(SrpRole::Conductor, ONE_B).attention_verified);
+        assert!(ComputeProfile::for_role(SrpRole::Logic, ONE_B).attention_verified);
+        assert!(ComputeProfile::for_role(SrpRole::Oracle, ONE_B).attention_verified);
+        assert!(!ComputeProfile::for_role(SrpRole::Cloud, ONE_B).attention_verified);
     }
 
     #[test]
