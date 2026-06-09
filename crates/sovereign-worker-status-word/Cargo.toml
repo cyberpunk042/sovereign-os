@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-worker-status-word"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "E0111 / M00212 — the worker 64-bit status word. Eight byte-fields (load / memory / thermal / queue / error / health / policy_mode / flags) packed into one u64 the engine writes and the scheduler reads. 'Telemetry becomes bits — each worker gets a status word.'"
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
