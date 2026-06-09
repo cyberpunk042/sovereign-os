@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-rerank"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "A second-stage reranker for retrieval: reorders candidate passages by how many distinct query terms each one covers (not just raw frequency), so a passage touching more of the query's concepts outranks one that merely repeats a single term. The precision pass that follows a cheap first-stage retriever."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

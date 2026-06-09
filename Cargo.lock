@@ -4987,6 +4987,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-rerank"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-retrieval"
 version = "0.1.0"
 dependencies = [
