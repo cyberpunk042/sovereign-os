@@ -12,6 +12,28 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — `sovereign-gatewayd` HTTP/1.1 surface: real clients reach the engine (2026-06-09)
+
+The gateway daemon spoke only a custom NDJSON line protocol; now it also serves
+the bind paths the M048 manifest advertises over plain HTTP, so curl / an MCP
+bridge / the cockpit can hit the engine directly:
+
+- New `--http` transport (pure-std HTTP/1.1, thread-per-connection,
+  `Connection: close`; request line + headers + `Content-Length` body parsed by
+  hand — no async runtime, no new deps, honors `unsafe_code = forbid`).
+- Routes: `GET /health`, `GET /manifest`, `GET /admin/ledger` (the CostRouteLedger
+  bind path), and `POST /v1/messages` (Anthropic surface) / `POST /v1/infer` /
+  `POST /mcp` taking one JSON `CortexRequest` → the tagged decision. Wrong verb
+  on a known route → 405; unknown → 404; malformed body → 400; engine refusal →
+  422.
+- The HTTP routing (`http::respond`) is pure and routes through the same
+  `GatewayServer::handle` as the line protocol, so the two transports can never
+  diverge. Verified live (curl + raw-socket): `GET /health` 200,
+  `POST /v1/messages` 200 with a real decision, ledger advancing, no cloud spill.
+- +9 unit tests (19 total in the crate). `cargo fmt`/`clippy -D warnings` clean
+  on the pinned 1.88.0 CI toolchain. The full Anthropic content-block schema
+  remains a later layer; this v1 carries the typed cortex request/decision.
+
 ### Fixed — `cargo workspace` CI job green: the `sovereign-telemetry` orphan repaired (2026-06-09)
 
 The `cargo workspace` check was RED **on `main` too** (pre-existing, not a

@@ -29,6 +29,8 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod http;
+
 use std::collections::BTreeMap;
 use std::sync::Mutex;
 
@@ -179,7 +181,7 @@ impl GatewayServer {
     /// `Error` response.
     pub fn handle_line(&self, line: &str) -> String {
         let response = match serde_json::from_str::<GatewayRequest>(line.trim()) {
-            Ok(req) => self.dispatch(req),
+            Ok(req) => self.handle(req),
             Err(e) => GatewayResponse::Error {
                 message: format!("malformed request: {e}"),
             },
@@ -189,7 +191,10 @@ impl GatewayServer {
         })
     }
 
-    fn dispatch(&self, req: GatewayRequest) -> GatewayResponse {
+    /// Dispatch one typed request to a typed response. Transport-agnostic: the
+    /// NDJSON line protocol ([`Self::handle_line`]) and the HTTP surface
+    /// ([`crate::http`]) both route through here, so they can never diverge.
+    pub fn handle(&self, req: GatewayRequest) -> GatewayResponse {
         match req {
             GatewayRequest::Infer { request } => self.infer(*request),
             GatewayRequest::Manifest => GatewayResponse::Manifest {
