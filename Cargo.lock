@@ -217,6 +217,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-beam-search"
+version = "0.1.0"
+dependencies = [
+ "sovereign-decoder-stack",
+ "sovereign-ffn",
+ "sovereign-rmsnorm",
+ "sovereign-sampler",
+ "sovereign-transformer-block",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-bitlinear-core"
 version = "0.1.0"
 dependencies = [

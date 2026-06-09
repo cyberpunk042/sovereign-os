@@ -1,0 +1,23 @@
+[package]
+name = "sovereign-beam-search"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Beam-search decoding: the deterministic, search-based alternative to stochastic sampling — keeps the top-B partial hypotheses by cumulative log-probability, forking each decoder's KV state to extend them, and returns the highest-scoring sequence. Composes sovereign-decoder-stack (its Clone-able model is what lets a beam fork)."
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+sovereign-decoder-stack = { path = "../sovereign-decoder-stack" }
+
+[dev-dependencies]
+sovereign-transformer-block = { path = "../sovereign-transformer-block" }
+sovereign-rmsnorm = { path = "../sovereign-rmsnorm" }
+sovereign-ffn = { path = "../sovereign-ffn" }
+sovereign-sampler = { path = "../sovereign-sampler" }
