@@ -297,6 +297,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-base-os"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-beam-search"
 version = "0.1.0"
 dependencies = [
@@ -4122,6 +4130,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cockpit-views"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-cockpit-vim-mode-indicator"
 version = "0.1.0"
 dependencies = [
@@ -4257,6 +4273,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-codegen-pipeline"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-cognitive-compiler"
 version = "0.1.0"
 dependencies = [
@@ -4294,6 +4318,14 @@ name = "sovereign-confidence-calibration"
 version = "0.1.0"
 
 [[package]]
+name = "sovereign-config-resolver"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-consistent-hash"
 version = "0.1.0"
 dependencies = [
@@ -4310,6 +4342,14 @@ dependencies = [
 
 [[package]]
 name = "sovereign-context-pack"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-continuity-levels"
 version = "0.1.0"
 dependencies = [
  "serde",
@@ -4398,6 +4438,22 @@ dependencies = [
 
 [[package]]
 name = "sovereign-count-min"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-cpu-dispatch"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-cpu-topology"
 version = "0.1.0"
 dependencies = [
  "serde",
@@ -4658,6 +4714,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-execution-env"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-execution-mode-registry"
 version = "0.1.0"
 dependencies = [
@@ -4691,6 +4755,14 @@ dependencies = [
  "serde_json",
  "sovereign-logit-mask",
  "sovereign-sampler",
+]
+
+[[package]]
+name = "sovereign-fs-boundary"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -4760,12 +4832,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-harness-layers"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-heavy-hitters"
 version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
  "sovereign-count-min",
+]
+
+[[package]]
+name = "sovereign-hibernation"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -4882,6 +4970,15 @@ dependencies = [
  "serde",
  "serde_json",
  "sovereign-aho-corasick",
+]
+
+[[package]]
+name = "sovereign-intake"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-trace-context",
 ]
 
 [[package]]
@@ -5034,6 +5131,14 @@ dependencies = [
 
 [[package]]
 name = "sovereign-language-detect"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-learning-signals"
 version = "0.1.0"
 dependencies = [
  "serde",
@@ -5253,12 +5358,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-module-facets"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-moe-gate"
 version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "sovereign-network-boundary"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-network-zerotrust"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -5299,6 +5428,15 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "sovereign-observability-events"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-trace-context",
 ]
 
 [[package]]
@@ -5344,6 +5482,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-pcie-topology"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-perplexity"
 version = "0.1.0"
 dependencies = [
@@ -5368,6 +5514,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-policy-input"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-policy-questions"
 version = "0.1.0"
 dependencies = [
@@ -5382,6 +5536,17 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "sovereign-pressure-reactions"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-hardware-load-sample",
+ "sovereign-hardware-registry",
+ "sovereign-pressure-sensors",
 ]
 
 [[package]]
@@ -5644,6 +5809,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-resource-control"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-retrieval"
 version = "0.1.0"
 dependencies = [
@@ -5751,6 +5924,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-runtime-reactions"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-sampler"
 version = "0.1.0"
 dependencies = [
@@ -5759,6 +5940,22 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "sovereign-sandbox-profile"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-save-state"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -5793,6 +5990,14 @@ dependencies = [
  "serde",
  "serde_json",
  "sovereign-embed",
+]
+
+[[package]]
+name = "sovereign-semantic-checkpoint"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -5946,11 +6151,50 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-task-lifecycle"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-task-map"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-tdigest"
 version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "sovereign-telemetry"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-hardware-load-sample",
+ "sovereign-hardware-registry",
+ "sovereign-hardware-thermal-policy",
+ "sovereign-observability-fabric",
+ "sovereign-pressure-reactions",
+ "sovereign-pressure-sensors",
+]
+
+[[package]]
+name = "sovereign-telemetry-backend"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]
@@ -6058,6 +6302,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-trace-context"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-transformer-block"
 version = "0.1.0"
 dependencies = [
@@ -6085,6 +6337,23 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "sovereign-trust-boundaries"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-typed-state"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-trace-context",
 ]
 
 [[package]]
@@ -6150,6 +6419,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-vm-channel"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-vm-workload"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-vnni"
 version = "0.1.0"
 dependencies = [
@@ -6192,7 +6477,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-whitelabel"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-wordpiece"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-worker-fleet"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-worker-status-word",
+]
+
+[[package]]
+name = "sovereign-worker-status-word"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "sovereign-workflow-graph"
 version = "0.1.0"
 dependencies = [
  "serde",
@@ -6232,6 +6550,33 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "sovereign-zfs-dataset-layout"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-zfs-provisioning-plan"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-zfs-dataset-layout",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-zfs-snapshot-policy"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
