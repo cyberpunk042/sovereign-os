@@ -12,6 +12,26 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — `sovereign-gatewayd` deployable: systemd unit + Makefile install + e2e transport tests (2026-06-09)
+
+Turns the gateway daemon from a buildable binary into a deployable managed
+service:
+
+- **`systemd/system/sovereign-gatewayd.service`** — runs `sovereign-gatewayd
+  --http`, loopback-by-default (`SOVEREIGN_GATEWAY_ADDR`, with the documented
+  `.d/bind.conf` override pattern), `Restart=on-failure`. Carries the full R171
+  defense-in-depth posture; since the daemon is pure in-memory (reads/writes no
+  files) it runs cleanly under `ProtectSystem=strict`. Passes all 245
+  systemd-hardening lint assertions + the fleet/posture/timer gates.
+- **Makefile `bins`** now builds + installs `sovereign-gatewayd` to
+  `PREFIX/bin` alongside `sovereign-telemetry` / `sovereign-resource-control`,
+  matching the `ExecStart` path.
+- **End-to-end transport tests** (`tests/transports.rs`): spin the real binary
+  on an ephemeral port and exercise both transports over actual sockets — NDJSON
+  TCP (infer→ledger across one connection; malformed line → error, not drop) and
+  HTTP (health 200, `POST /v1/messages` runs the engine, `/metrics` reflects it,
+  404/400). Locks the socket plumbing the unit tests can't reach. 25 tests total.
+
 ### Added — `sovereign-gatewayd` HTTP/1.1 surface: real clients reach the engine (2026-06-09)
 
 The gateway daemon spoke only a custom NDJSON line protocol; now it also serves
