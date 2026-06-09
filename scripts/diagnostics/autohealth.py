@@ -106,7 +106,7 @@ def classify_severity(verdict: str | None) -> str:
     v = verdict.lower()
     critical = {"degraded", "critical", "over-budget", "pull-oc-now",
                 "dampen-fully"}
-    attention = {"watch", "tight", "drift", "headroom-tight",
+    attention = {"attention", "watch", "tight", "drift", "headroom-tight",
                  "thermal-watch", "psu-watch", "both-tight",
                  "dampen-by-1", "memory-probe-unavailable",
                  "probes-unavailable", "warn"}

@@ -67,9 +67,11 @@ spec.loader.exec_module(m)
 # Critical mappings.
 for v in ('degraded', 'critical', 'over-budget', 'pull-oc-now', 'dampen-fully'):
     assert m.classify_severity(v) == 'critical', v
-# Attention mappings.
-for v in ('watch', 'tight', 'drift', 'headroom-tight', 'thermal-watch',
-          'psu-watch', 'both-tight', 'dampen-by-1', 'warn'):
+# Attention mappings. 'attention' is the literal mild verdict R269
+# memory-pressure emits; omitting it silently downgraded an attention
+# axis to informational (under-report) on a health aggregator.
+for v in ('attention', 'watch', 'tight', 'drift', 'headroom-tight',
+          'thermal-watch', 'psu-watch', 'both-tight', 'dampen-by-1', 'warn'):
     assert m.classify_severity(v) == 'attention', v
 # Informational (ok/safe/etc).
 for v in ('ok', 'safe', 'healthy', 'no-dampening', None):
