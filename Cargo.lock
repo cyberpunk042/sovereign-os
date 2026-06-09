@@ -4910,6 +4910,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-isotonic"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-ivf"
 version = "0.1.0"
 dependencies = [
