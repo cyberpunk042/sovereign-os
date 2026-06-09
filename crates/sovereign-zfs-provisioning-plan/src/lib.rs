@@ -125,6 +125,18 @@ pub fn provisioning_plan(device: &str) -> Result<Vec<ProvisioningCommand>, Devic
         create_argv.push("-O".into());
         create_argv.push("atime=off".into());
     }
+    if pool.xattr_sa {
+        create_argv.push("-O".into());
+        create_argv.push("xattr=sa".into());
+    }
+    if pool.acltype_posixacl {
+        create_argv.push("-O".into());
+        create_argv.push("acltype=posixacl".into());
+    }
+    if pool.canmount_off {
+        create_argv.push("-O".into());
+        create_argv.push("canmount=off".into());
+    }
     create_argv.push("tank".into());
     create_argv.push(device.to_string());
     plan.push(ProvisioningCommand {
@@ -223,7 +235,7 @@ mod tests {
         let line = pool.command_line();
         assert!(
             line.starts_with(
-                "zpool create -f -o ashift=12 -O compression=lz4 -O atime=off tank /dev/nvme0n1"
+                "zpool create -f -o ashift=12 -O compression=lz4 -O atime=off -O xattr=sa -O acltype=posixacl -O canmount=off tank /dev/nvme0n1"
             ),
             "{line}"
         );

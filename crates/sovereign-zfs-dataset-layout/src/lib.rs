@@ -275,6 +275,15 @@ pub struct PoolSpec {
     pub compression: Compression,
     /// Whether `atime` is off.
     pub atime_off: bool,
+    /// `xattr=sa` — store extended attributes in the dnode (fast xattrs),
+    /// rather than `on` (hidden directory). Matches the operational
+    /// `zfs-pool-create.sh`.
+    pub xattr_sa: bool,
+    /// `acltype=posixacl` — enable POSIX ACLs (vs the ZFS default `off`).
+    pub acltype_posixacl: bool,
+    /// `canmount=off` on the pool root so the top-level dataset is not mounted
+    /// (children mount explicitly).
+    pub canmount_off: bool,
 }
 
 /// The canonical pool spec: `ashift=12`, `compression=lz4`, `atime=off`.
@@ -284,6 +293,9 @@ pub fn canonical_pool() -> PoolSpec {
         ashift: 12,
         compression: Compression::Lz4,
         atime_off: true,
+        xattr_sa: true,
+        acltype_posixacl: true,
+        canmount_off: true,
     }
 }
 
@@ -569,6 +581,10 @@ mod tests {
         assert_eq!(p.ashift, 12);
         assert_eq!(p.compression, Compression::Lz4);
         assert!(p.atime_off);
+        // Match zfs-pool-create.sh's full -O option set.
+        assert!(p.xattr_sa);
+        assert!(p.acltype_posixacl);
+        assert!(p.canmount_off);
     }
 
     #[test]
