@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-readability"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Readability scoring: Flesch Reading Ease, Flesch-Kincaid Grade Level, and the Automated Readability Index over text, with a heuristic syllable counter. For checking that generated text matches a target audience's reading level. Composes sovereign-sentence-split for sentence counting."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+sovereign-sentence-split = { path = "../sovereign-sentence-split" }

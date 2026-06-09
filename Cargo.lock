@@ -5277,6 +5277,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-readability"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-sentence-split",
+]
+
+[[package]]
 name = "sovereign-regex-constrain"
 version = "0.1.0"
 dependencies = [
