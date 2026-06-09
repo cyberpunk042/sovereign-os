@@ -3498,6 +3498,24 @@ security perimeter, ZFS pool, and state-fabric backups. They were scraped but
 unalerted until this rule set; a failing audit / downed fence / degraded pool /
 stalled backup now pages instead of waiting to be noticed on a dashboard.
 
+Deploy them alongside the other rule files:
+
+```bash
+sudo install -m 0644 \
+    config/prometheus/alerts/sovereign-os-health.rules.yml \
+    /etc/prometheus/alerts/
+# Add to /etc/prometheus/prometheus.yml under rule_files:
+#   - /etc/prometheus/alerts/sovereign-os-health.rules.yml
+sudo systemctl reload prometheus
+# Verify Prometheus picked up the group:
+#   curl -s http://127.0.0.1:9090/api/v1/rules \
+#     | jq '.data.groups[] | select(.name == "sovereign-os-health")'
+```
+
+These metrics require the recurrent-hook timers to be active (the audit,
+tetragon-policy-verify, zfs-scrub, and backup-snapshot units) — without them the
+gauges never refresh and the staleness alerts will (correctly) fire.
+
 #### SovereignOsFrictionAuditFailing (critical)
 
 **Meaning:** `sovereign_os_friction_audit_failures > 0` — the runtime
