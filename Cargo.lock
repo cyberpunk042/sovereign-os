@@ -5761,6 +5761,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-space-saving"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-spec-decode"
 version = "0.1.0"
 dependencies = [
