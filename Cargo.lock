@@ -281,6 +281,14 @@ name = "sovereign-bitops"
 version = "0.1.0"
 
 [[package]]
+name = "sovereign-bloom"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-bounded-block"
 version = "0.1.0"
 dependencies = [

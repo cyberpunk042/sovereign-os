@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-bloom"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "A Bloom filter for cheap probabilistic set membership: tells you an item is definitely-absent or probably-present in constant space, with a tunable false-positive rate and no false negatives. For deduplicating prompts/documents/seen-IDs without storing them all. Optimal sizing from expected item count and target FP rate; deterministic FNV double-hashing."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
