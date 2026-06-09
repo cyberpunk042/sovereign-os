@@ -81,6 +81,8 @@ PY
 log_info "running 'make olddefconfig' to resolve deps"
 if ! make olddefconfig; then
   log_error "make olddefconfig failed — kernel symbol resolution broken"
+  emit_metric sovereign_os_build_step_kernel_config_total 1 \
+    "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"fail\""
   state_step_fail "${STEP_ID}" "olddefconfig-failed"
   exit 1
 fi
@@ -124,6 +126,8 @@ emit_metric sovereign_os_build_step_kernel_config_missing_symbols "${missing_cou
 config_out="${SOVEREIGN_OS_STATE_DIR}/kernel.config"
 if ! cp .config "${config_out}"; then
   log_error "failed to record kernel .config to state dir"
+  emit_metric sovereign_os_build_step_kernel_config_total 1 \
+    "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"fail\""
   state_step_fail "${STEP_ID}" "config-record-failed"
   exit 1
 fi
