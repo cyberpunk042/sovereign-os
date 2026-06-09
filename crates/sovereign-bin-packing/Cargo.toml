@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-bin-packing"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "One-dimensional bin packing: fit variable-size items into the fewest fixed-capacity bins by next-fit, first-fit, best-fit, or the decreasing (sorted-largest-first) heuristics, with a lower bound to gauge how close a packing is to optimal. For batching sequences into a KV-cache memory budget, placing jobs onto fixed-size workers, and any fit-as-much-as-you-can allocation."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

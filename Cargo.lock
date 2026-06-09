@@ -313,6 +313,14 @@ name = "sovereign-best-of-n"
 version = "0.1.0"
 
 [[package]]
+name = "sovereign-bin-packing"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-binary-quant"
 version = "0.1.0"
 dependencies = [
