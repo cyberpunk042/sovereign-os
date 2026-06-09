@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-stop-sequence"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Stop-sequence detection for generation control: finds the earliest occurrence of any configured stop string in generated text (to truncate a reply), plus a streaming scanner that detects stops split across token chunks while holding back only the minimum tail. The 'when to stop generating' boundary above the decode loop."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
