@@ -37,8 +37,32 @@ use sovereign_gatewayd::http;
 
 const DEFAULT_ADDR: &str = "127.0.0.1:8787";
 
+const USAGE: &str = "\
+sovereign-gatewayd — the persistent gateway service over the sovereign-cortex engine
+
+USAGE:
+    sovereign-gatewayd [MODE] [--addr HOST:PORT]
+
+MODES:
+    (default)      bind TCP and speak NDJSON (one JSON request per line)
+    --http         bind HTTP/1.1: GET /health /manifest /admin/ledger /metrics;
+                   POST /v1/messages /v1/infer /mcp
+    --stdio        read NDJSON requests on stdin, reply on stdout (MCP / claude-code)
+    --selftest     run the built-in demo session, print, exit
+    -h, --help     print this help and exit
+
+ENVIRONMENT:
+    SOVEREIGN_GATEWAY_ADDR     bind address (default 127.0.0.1:8787)
+    SOVEREIGN_GATEWAY_MAX_CONN max concurrent connections (default 256)";
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+
+    if args.iter().any(|a| a == "--help" || a == "-h") {
+        println!("{USAGE}");
+        return;
+    }
+
     let server = Arc::new(GatewayServer::new());
 
     if args.iter().any(|a| a == "--selftest") {
