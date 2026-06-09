@@ -7,6 +7,11 @@
 # probe fails, a `sovereign_telemetry_probe_failed 1` sentinel is published
 # instead of a stale or empty file, matching the codebase's textfile_emit
 # doctrine.
+#
+# LAYER-B-WAIVER: this hook IS a Layer-B emitter, but via the `sovereign-telemetry`
+# binary (--prometheus mode writes the exposition to the textfile collector
+# directly), not the shell emit_metric helper — so it deliberately does not
+# source observability.sh or call emit_metric_set.
 set -euo pipefail
 
 # Binary discovery: explicit override → on PATH (Makefile installs to
