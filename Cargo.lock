@@ -4386,6 +4386,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-llm"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-decoder-stack",
+ "sovereign-ffn",
+ "sovereign-rmsnorm",
+ "sovereign-sampler",
+ "sovereign-tokenizer",
+ "sovereign-transformer-block",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-lora-foundry"
 version = "0.1.0"
 dependencies = [

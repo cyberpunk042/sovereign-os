@@ -1,0 +1,26 @@
+[package]
+name = "sovereign-llm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "The end-to-end sovereign LLM runtime: ties the byte-level BPE tokenizer to the decoder-only transformer stack so you can go straight from a text prompt to generated text. tokenizer.encode -> decoder-stack.generate -> tokenizer.decode, deterministic per seed. The runnable text-to-text capstone of the inference engine. Composes sovereign-tokenizer and sovereign-decoder-stack."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sovereign-tokenizer = { path = "../sovereign-tokenizer" }
+sovereign-decoder-stack = { path = "../sovereign-decoder-stack" }
+
+[dev-dependencies]
+sovereign-transformer-block = { path = "../sovereign-transformer-block" }
+sovereign-rmsnorm = { path = "../sovereign-rmsnorm" }
+sovereign-ffn = { path = "../sovereign-ffn" }
+sovereign-sampler = { path = "../sovereign-sampler" }
