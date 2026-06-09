@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-logit-mask"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Constrained-decoding logit processor: applies an allow-list, ban-list, and per-token logit bias to a logit row before sampling, so generation can be confined to a permitted token set (structured/grammar output) or steered away from forbidden tokens (safety). The decode-control stage that sits between the model head and the sampler."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+sovereign-sampler = { path = "../sovereign-sampler" }

@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-interval-schedule"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Interval scheduling: choose the maximum-weight set of non-overlapping intervals by the classic sort-by-finish dynamic program (with binary search for the latest compatible job), and the maximum-count set by the earliest-finish greedy. For admitting the most valuable non-conflicting jobs onto a single resource — a GPU timeline, a reservation calendar, an exclusive lock window."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

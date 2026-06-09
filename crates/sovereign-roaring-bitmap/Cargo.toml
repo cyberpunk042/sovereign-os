@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-roaring-bitmap"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Compressed bitmap of 32-bit integers, roaring-style: values are split into 16-bit chunks, each stored as a sorted array when sparse and a dense bitset when full, so a set of document ids costs far less than a plain bitset yet still does union, intersection, and difference in near-linear time. For combining posting lists, doc-id sets, and feature flags in retrieval and filtering."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-graph-path"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Shortest paths over a graph: Dijkstra for non-negative weighted edges and BFS for unweighted, returning the path and its cost plus single-source distances. For multi-hop reasoning over a knowledge graph — finding how two entities are connected and the cheapest route between them (GraphRAG path queries)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

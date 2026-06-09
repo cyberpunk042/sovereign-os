@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-decode-loop"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "The transformer decode inner loop, assembled from the real primitives: RoPE rotates the query/keys by position, attention mixes the values over the growing KV cache, a linear head projects the context to logits, and the sampler draws the next token — one reproducible step end to end. Composes sovereign-rope, sovereign-attention, and sovereign-sampler."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sovereign-rope = { path = "../sovereign-rope" }
+sovereign-attention = { path = "../sovereign-attention" }
+sovereign-sampler = { path = "../sovereign-sampler" }

@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-pagerank"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "PageRank over a directed graph by power iteration, with damping and proper dangling-node handling: rank nodes by their link importance until the scores converge. For ranking documents or entities in a knowledge graph (GraphRAG), citation analysis, and any 'who is important here' question over a link structure."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

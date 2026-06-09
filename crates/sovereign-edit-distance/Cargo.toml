@@ -1,0 +1,13 @@
+[package]
+name = "sovereign-edit-distance"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Levenshtein edit distance and fuzzy matching: distance, a normalized similarity ratio, nearest-candidate selection, and a 'did you mean' suggestion within a threshold. The fuzzy-match utility for correcting a model's misspelled tool/command names against a known set."
+
+[lints]
+workspace = true

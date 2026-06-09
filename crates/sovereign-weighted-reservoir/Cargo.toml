@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-weighted-reservoir"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Weighted reservoir sampling (Efraimidis-Spirakis A-Res): keep a size-k sample from an unbounded stream where each item is kept with probability proportional to its weight, in O(k) space and a single pass. For importance-weighted sampling of logs, examples, or generations. Seeded and deterministic."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

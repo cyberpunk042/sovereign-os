@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-quant-calibration"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Per-layer quantization calibration: measures the output error a weight matrix incurs under each precision (f32 / ternary / NVFP4) over representative inputs, and recommends the lowest-bit precision that stays within an error budget. The mixed-precision layer-assignment decision a sovereign runtime makes to push as much compute as possible to the cheap kernels without breaking accuracy. Composes sovereign-linear."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sovereign-linear = { path = "../sovereign-linear" }

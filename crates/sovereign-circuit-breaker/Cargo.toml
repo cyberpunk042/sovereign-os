@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-circuit-breaker"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "A circuit breaker for failing downstreams: after N consecutive failures it opens (rejecting calls fast instead of hammering a dead service), after a cooldown it goes half-open to let one trial through, and a success closes it again. Time is injected for deterministic testing. Complements retry — retry rides out a blip, the breaker gives up on a persistent outage."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

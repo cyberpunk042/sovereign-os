@@ -1,0 +1,15 @@
+[package]
+name = "sovereign-significance"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Statistical significance for evaluation: percentile bootstrap confidence intervals for a metric, a paired bootstrap test for whether one system beats another on the same examples, and McNemar's test for comparing two classifiers on paired decisions. So 'A scored higher than B' comes with a confidence, not just a number."
+
+[lints]
+workspace = true
+
+[dependencies]

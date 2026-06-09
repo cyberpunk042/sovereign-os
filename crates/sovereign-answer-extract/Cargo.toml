@@ -1,0 +1,13 @@
+[package]
+name = "sovereign-answer-extract"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Final-answer extraction from chain-of-thought output: pulls the answer out of a model's reasoning by honoring 'Answer:'/'Final answer:'/'the answer is' markers (falling back to the last line), and extracts the last numeric value for math tasks. The step between reasoning and a usable answer — pairs with self-consistency voting."
+
+[lints]
+workspace = true

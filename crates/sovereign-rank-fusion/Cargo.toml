@@ -1,0 +1,15 @@
+[package]
+name = "sovereign-rank-fusion"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Rank fusion for hybrid retrieval: combine several ranked result lists into one with Reciprocal Rank Fusion (rank-based, score-free) or weighted score fusion (min-max normalized). The standard way to merge a lexical BM25 ranking with a semantic embedding ranking into a single hybrid result."
+
+[lints]
+workspace = true
+
+[dependencies]

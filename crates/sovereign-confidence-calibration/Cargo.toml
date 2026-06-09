@@ -1,0 +1,15 @@
+[package]
+name = "sovereign-confidence-calibration"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Confidence calibration for model outputs: temperature scaling (fit a single temperature that minimizes negative log-likelihood) plus calibration diagnostics — Expected Calibration Error and Brier score. So a runtime can trust, threshold, or abstain on predicted probabilities instead of taking raw softmax confidence at face value."
+
+[lints]
+workspace = true
+
+[dependencies]

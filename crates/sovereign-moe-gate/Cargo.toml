@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-moe-gate"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M022 Cognitive Frame — system-level MoE gating: top-k expert selection with softmax-normalized weights over the selected experts, plus load-balance tracking (per-expert utilization + imbalance). The expert router, distinct from the hardware-role router (M075)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

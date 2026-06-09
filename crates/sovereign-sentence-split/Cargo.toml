@@ -1,0 +1,15 @@
+[package]
+name = "sovereign-sentence-split"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Sentence segmentation: split text into sentences at ./!/? boundaries while avoiding false breaks on common abbreviations (Mr., Dr., e.g.), decimal numbers (3.14), and ellipses (...). A rule-based splitter that feeds sentence-level pipelines like semantic chunking and summarization."
+
+[lints]
+workspace = true
+
+[dependencies]

@@ -1,0 +1,13 @@
+[package]
+name = "sovereign-markdown-strip"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Strip Markdown formatting to plain prose for ingestion: removes headers, list bullets, blockquotes, emphasis and inline-code markers, and code-fence lines (keeping the code), and unwraps links/images to their text — without mangling in-word underscores. The preprocessing step before chunking and indexing a Markdown document."
+
+[lints]
+workspace = true

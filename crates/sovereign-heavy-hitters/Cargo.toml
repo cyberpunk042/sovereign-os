@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-heavy-hitters"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Approximate top-k frequent items over a stream: a Count-Min Sketch counts every item in fixed memory while a bounded heap keeps the k highest-frequency keys seen, so you get the heavy hitters of an unbounded stream without storing it all. For finding the most-frequent tokens or n-grams. Composes sovereign-count-min."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+sovereign-count-min = { path = "../sovereign-count-min" }

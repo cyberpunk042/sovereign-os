@@ -1,0 +1,26 @@
+[package]
+name = "sovereign-bounded-block"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "A bounded-memory decoder block: the same precision-selectable pre-norm structure as quant-block, but its KV cache is a sliding window with attention sinks, so it runs for an unbounded number of steps in O(1) memory. The block for endless operation. While within the window it reproduces the unbounded quant-block exactly. Composes sovereign-linear, sovereign-rmsnorm, sovereign-rope, sovereign-attention, sovereign-ffn, and sovereign-kv-window."
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+sovereign-linear = { path = "../sovereign-linear" }
+sovereign-rmsnorm = { path = "../sovereign-rmsnorm" }
+sovereign-rope = { path = "../sovereign-rope" }
+sovereign-attention = { path = "../sovereign-attention" }
+sovereign-ffn = { path = "../sovereign-ffn" }
+sovereign-kv-window = { path = "../sovereign-kv-window" }
+
+[dev-dependencies]
+sovereign-quant-block = { path = "../sovereign-quant-block" }
+sovereign-rmsnorm = { path = "../sovereign-rmsnorm" }

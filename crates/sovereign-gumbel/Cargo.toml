@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-gumbel"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Gumbel-max sampling from raw logits: adding i.i.d. Gumbel noise and taking the argmax draws a category exactly from the softmax of the logits, with no explicit normalization — and taking the top-k instead draws k distinct categories without replacement (the Gumbel-top-k trick). Seeded and deterministic, for categorical sampling and diverse parallel draws."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-knapsack"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Knapsack selection under a capacity budget: 0/1 knapsack by dynamic programming (each item taken whole or not) returning the maximum-value set, and fractional knapsack by the value-density greedy (items divisible) returning the LP-optimal fill. For choosing the most valuable items that fit a token/memory/cost budget — context packing, cache admission, resource allocation."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

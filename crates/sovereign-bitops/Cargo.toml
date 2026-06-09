@@ -1,0 +1,15 @@
+[package]
+name = "sovereign-bitops"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M008 bit-level cheats — portable references for the AVX-512 bit ops the dump exploits: VPTERNLOG (arbitrary 3-input boolean via 8-bit LUT), VPOPCNTDQ (popcount), VPCOMPRESS (mask-gather), VP2INTERSECT (set intersection masks). Numerics match the hardware instructions."
+
+[lints]
+workspace = true
+
+[dependencies]

@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-repetition-penalty"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Soft anti-repetition sampling penalties applied to logits from the generated token history: CTRL-style repetition penalty (scale), OpenAI-style frequency penalty (subtract per occurrence) and presence penalty (subtract once if seen). Discourages loops and verbatim repeats without hard-banning tokens — distinct from no-repeat-ngram and logit masking."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

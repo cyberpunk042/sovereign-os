@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-json-schema-grammar"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Compiles a JSON-Schema subset into a context-free grammar so a generator can be constrained to emit only schema-conforming JSON. Objects with fixed ordered keys, arrays, strings, numbers/integers, booleans, null, and string enums become an Earley-checkable grammar — the structured-output / function-calling use of grammar-constrained decoding, built on sovereign-cfg-grammar."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+sovereign-cfg-grammar = { path = "../sovereign-cfg-grammar" }

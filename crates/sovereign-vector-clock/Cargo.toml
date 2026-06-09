@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-vector-clock"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Causality tracking for distributed events: a vector clock that decides whether one event happened-before another or whether the two are concurrent (the question a scalar timestamp cannot answer), plus a Lamport clock for a cheap total order consistent with causality. For ordering events across replicas, detecting conflicts, and driving CRDT or gossip reconciliation."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

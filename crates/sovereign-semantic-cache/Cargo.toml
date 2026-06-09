@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-semantic-cache"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "A semantic completion cache: stores completions keyed by their prompt's embedding and returns a cached one for any new prompt whose embedding is within a cosine-similarity threshold — so near-duplicate requests (paraphrases, typos) hit the cache, not just exact repeats. The fuzzy counterpart to the exact-match completion cache. Composes sovereign-embed."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+sovereign-embed = { path = "../sovereign-embed" }

@@ -1,0 +1,21 @@
+[package]
+name = "sovereign-no-repeat-ngram"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "No-repeat n-gram blocking for decoding: given the generated token history, computes the tokens that would complete a previously-seen n-gram, so they can be banned and the model cannot loop on exact phrases. A sequence-level generation control distinct from the sampler's token-level repetition penalty; pairs with the logit mask."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+sovereign-logit-mask = { path = "../sovereign-logit-mask" }
+sovereign-sampler = { path = "../sovereign-sampler" }

@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-alias-sampler"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Walker-Vose alias method for O(1) categorical sampling: preprocess a weighted distribution in O(n) into a probability/alias table, then draw each sample in constant time with one coin flip — far faster than a linear CDF scan when you sample the same distribution many times. Seeded for deterministic, reproducible draws."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

@@ -7,13 +7,12 @@ license.workspace = true
 repository.workspace = true
 authors.workspace = true
 publish.workspace = true
-description = "M002 / M00013 — the 64-bit control word (mode/event/intensity/cooldown/neighborhood/paramA/paramB variable-width bitfields) and the branchless 64-entry rule-word LUT (E0018). Bit-level injected logic for AVX-512 lane decisions."
+description = "M002 control-word injected logic — a 64-bit control word per branch packing opcode + precision selector + flags + operand into typed bitfields. The deterministic bit-level microcode that gates each branch's behavior; exact encode/decode."
 
 [lints]
 workspace = true
 
 [dependencies]
 serde = { workspace = true }
-
-[dev-dependencies]
 serde_json = { workspace = true }
+thiserror = { workspace = true }

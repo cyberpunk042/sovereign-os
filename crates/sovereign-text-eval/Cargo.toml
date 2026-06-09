@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-text-eval"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Generation-quality metrics: BLEU (clipped n-gram precision with brevity penalty) and ROUGE-N / ROUGE-L (n-gram and longest-common-subsequence overlap) for scoring generated text against one or more references. The standard kit for evaluating summaries, translations, and completions."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

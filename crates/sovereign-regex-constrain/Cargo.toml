@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-regex-constrain"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Regex-constrained decoding: given a compiled pattern, the text generated so far, and the token vocabulary, produce a LogitMask that allows only the tokens which keep the pattern viable — so a model's output is forced onto a format. Composes sovereign-regex-nfa and sovereign-logit-mask."
+
+[lints]
+workspace = true
+
+[dependencies]
+sovereign-regex-nfa = { path = "../sovereign-regex-nfa" }
+sovereign-logit-mask = { path = "../sovereign-logit-mask" }

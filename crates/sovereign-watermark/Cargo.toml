@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-watermark"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "LLM text watermarking (green-list scheme): at each step a context-seeded hash splits the vocabulary into a 'green' set that gets a logit boost, so generated text carries a statistical signature; detection counts green tokens and reports a z-score against the null hypothesis. For provenance — telling whether text came from a watermarked model — without storing the text."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

@@ -1,0 +1,16 @@
+[package]
+name = "sovereign-context-budget"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Context-window budgeting: counts a text's tokens with the runtime tokenizer and trims it to fit a token budget, keeping the head or the tail. The bookkeeping that stops an agent's growing prompt from overflowing the model's context. Composes sovereign-tokenizer."
+
+[lints]
+workspace = true
+
+[dependencies]
+sovereign-tokenizer = { path = "../sovereign-tokenizer" }

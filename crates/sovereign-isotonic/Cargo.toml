@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-isotonic"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Isotonic regression by the pool-adjacent-violators algorithm: fit the monotonic (non-decreasing or non-increasing) step function that minimizes weighted squared error to a set of points, in linear time after sorting. The non-parametric counterpart to temperature scaling for probability calibration — it bends a model's scores into trustworthy probabilities without assuming a shape — and a general tool for enforcing a known monotonic relationship."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

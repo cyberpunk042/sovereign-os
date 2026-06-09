@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-rope"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Rotary position embeddings (RoPE): rotates each adjacent pair of a query/key vector by a position-dependent angle, so absolute positions are injected as orthogonal rotations and attention scores depend only on relative position. The position-encoding stage that sits in front of the attention kernel."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

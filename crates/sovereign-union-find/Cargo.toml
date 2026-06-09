@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-union-find"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Disjoint-set union (union-find) with path compression and union by rank: near-constant-time merging and connectivity queries over a fixed set of elements, plus extraction of the connected components. For clustering near-duplicate pairs (e.g. from LSH) into groups, grouping equivalences, and incremental connectivity."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

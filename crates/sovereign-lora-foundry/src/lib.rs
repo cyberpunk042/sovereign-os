@@ -25,6 +25,10 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod serving;
+
+pub use serving::{ServeRequest, decide_serving};
+
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 

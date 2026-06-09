@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-checkpoint"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Model checkpoint persistence: serializes a full LlmConfig (tokenizer + model weights) into a versioned, FNV-checksummed container and loads it back with magic/version/integrity validation, so a sovereign runtime can save and restore a model and detect corruption. Composes sovereign-llm."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sovereign-llm = { path = "../sovereign-llm" }

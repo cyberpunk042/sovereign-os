@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-kv-budget"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "KV-cache memory budgeting: computes the bytes a transformer's key/value cache costs for a given model shape, precision, sequence length, and batch — and inverts it to the longest context that fits a memory budget. The capacity-planning calc behind the KV hierarchy (which tier, how long a context, how big a batch)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

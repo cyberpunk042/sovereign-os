@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-cfg-grammar"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Context-free grammar recognizer with an incremental Earley parser, computing the set of terminals allowed to come next after any prefix. The engine behind grammar-constrained decoding (GBNF-style guided generation): unlike a regular-expression matcher it handles nested and recursive structure — balanced brackets, JSON, expression grammars — so a generator can be masked to only-valid continuations token by token."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

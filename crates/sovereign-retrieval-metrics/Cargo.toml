@@ -1,0 +1,15 @@
+[package]
+name = "sovereign-retrieval-metrics"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Information-retrieval evaluation metrics: Precision@k, Recall@k, F1, Mean Reciprocal Rank, Average Precision / MAP, and (normalized) Discounted Cumulative Gain. For measuring and comparing the retrieval stack — BM25, embeddings, rank fusion, MMR — against relevance judgments."
+
+[lints]
+workspace = true
+
+[dependencies]

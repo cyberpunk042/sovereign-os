@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-ddsketch"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "DDSketch relative-error quantile sketch: maps each value to a logarithmically-spaced bucket so any quantile is answered with a guaranteed relative error (e.g. 1%), in memory bounded by the value range, not the sample count. Mergeable across shards and accurate deep into the tail (p99, p999) where fixed-bucket histograms and P-squared lose resolution — the standard sketch for latency observability."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

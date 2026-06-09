@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-holt-winters"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Holt-Winters triple exponential smoothing for forecasting: tracks a series' level, trend, and additive seasonal cycle with three smoothing constants, then projects them forward any number of steps. For predicting load to drive autoscaling and capacity planning — anticipating the daily/weekly demand curve instead of reacting to it. Supports batch fitting and online updates."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

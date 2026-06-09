@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-load-balance"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Smooth weighted round-robin load balancing (nginx's SWRR): distributes requests across weighted backends so the selection matches the weights without bursting all of a heavy backend's turns together. Deterministic. For spreading work across the sovereign devices (Conductor/Logic/Oracle/Cloud) by capacity."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

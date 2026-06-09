@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-product-quantization"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Product quantization for compact vector storage and fast approximate distance: split each vector into m subspaces, learn a k-means codebook per subspace, and encode every vector as m small codes. Approximate squared distance to a query is then a sum of precomputed per-subspace lookups. Composes sovereign-kmeans; for memory-frugal embedding indexes."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sovereign-kmeans = { path = "../sovereign-kmeans" }

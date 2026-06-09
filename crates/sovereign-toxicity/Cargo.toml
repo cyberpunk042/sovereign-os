@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-toxicity"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Configurable toxicity / profanity filtering with obfuscation resistance: normalizes leetspeak and spacing before matching a severity-tiered term list in a single Aho-Corasick pass, returning matches and a score. A content-safety gate distinct from prompt-injection, PII, and secret detection. Composes sovereign-aho-corasick."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+sovereign-aho-corasick = { path = "../sovereign-aho-corasick" }

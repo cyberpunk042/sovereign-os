@@ -21,6 +21,10 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod topology;
+
+pub use topology::{HardwareTarget, Placement, PlacementError, Precision, Workload, place};
+
 use serde::{Deserialize, Serialize};
 use sovereign_router_7axis::SrpRole;
 use thiserror::Error;

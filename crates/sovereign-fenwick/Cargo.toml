@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-fenwick"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Fenwick tree (binary indexed tree) for O(log n) prefix sums with O(log n) point updates, plus cumulative-weight search for sampling from a distribution whose weights change — the dynamic counterpart to a static alias table. For frequency-penalized sampling, running rank/quantile queries, and any weighted draw over an evolving frequency table."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

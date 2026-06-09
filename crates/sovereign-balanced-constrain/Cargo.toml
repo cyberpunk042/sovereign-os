@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-balanced-constrain"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Incremental balanced-delimiter constraint for constrained decoding: a pushdown automaton that tracks open brackets and string state so generation can only emit characters that keep parentheses, brackets, braces, and quotes balanced. A context-free constraint (the Dyck language) — stronger than a regular-expression mask for nested structures like JSON or code."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

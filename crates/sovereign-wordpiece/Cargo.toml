@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-wordpiece"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "WordPiece tokenization (the BERT scheme): greedy longest-match subword segmentation against a fixed vocabulary, emitting '##'-prefixed continuation pieces and falling back to an [UNK] token for words it cannot cover. A real tokenizer variant distinct from byte-pair encoding, with detokenization back to text."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

@@ -1,0 +1,15 @@
+[package]
+name = "sovereign-matryoshka"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Matryoshka-representation utilities: truncate a nested embedding to a shorter prefix dimension and renormalize, trading a little accuracy for much smaller storage and faster search, plus coarse-to-fine retrieval (shortlist at low dimension, rerank at full). For adaptive-dimension embedding indexes."
+
+[lints]
+workspace = true
+
+[dependencies]

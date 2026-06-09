@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-line-diff"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Line-level diffing via longest-common-subsequence: computes the added, removed, and unchanged lines between two texts and renders a unified +/- diff with insertion/deletion counts. The 'what did the agent change' primitive for code- and document-editing workflows."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

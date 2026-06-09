@@ -1,0 +1,13 @@
+[package]
+name = "sovereign-chunker"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Sentence-aware text chunking for RAG ingestion: splits a document into overlapping chunks near a target size, breaking at sentence boundaries rather than mid-sentence, with a configurable overlap so context isn't lost at the seams. The ingestion step that prepares documents for the retriever and embedder."
+
+[lints]
+workspace = true

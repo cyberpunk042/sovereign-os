@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-regex-nfa"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "A small regex engine via Thompson NFA construction and simulation: matches a useful subset (literals, ., char classes, *, +, ?, alternation, groups) and — the point — supports incremental stepping over the live state set, so it can drive constrained decoding by saying which next characters a pattern still permits."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

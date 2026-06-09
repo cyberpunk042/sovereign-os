@@ -1,0 +1,26 @@
+[package]
+name = "sovereign-quant-block"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "A precision-selectable transformer decoder block: same pre-norm structure (RMSNorm -> QKV -> RoPE -> causal self-attention -> output proj -> residual -> RMSNorm -> SwiGLU -> residual) as the reference block, but every projection runs through a precision-generic Linear (f32 / ternary / NVFP4). This is quantized transformer inference made real — the block that actually executes on the low-bit kernels. Composes sovereign-linear, sovereign-rmsnorm, sovereign-rope, sovereign-attention, and sovereign-ffn."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sovereign-linear = { path = "../sovereign-linear" }
+sovereign-rmsnorm = { path = "../sovereign-rmsnorm" }
+sovereign-rope = { path = "../sovereign-rope" }
+sovereign-attention = { path = "../sovereign-attention" }
+sovereign-ffn = { path = "../sovereign-ffn" }
+
+[dev-dependencies]
+sovereign-transformer-block = { path = "../sovereign-transformer-block" }

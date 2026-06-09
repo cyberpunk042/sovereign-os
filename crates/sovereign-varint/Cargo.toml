@@ -1,0 +1,15 @@
+[package]
+name = "sovereign-varint"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "LEB128 variable-length integer coding with zigzag for signed values: encode small integers in one byte and large ones in as many as needed, plus delta-encoding helpers for monotonic sequences. For compactly serializing token-id streams, offsets, and posting lists without fixed-width waste."
+
+[lints]
+workspace = true
+
+[dependencies]

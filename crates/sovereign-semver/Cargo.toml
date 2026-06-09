@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-semver"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Semantic-version parsing, ordering, and caret-compatibility: parse MAJOR.MINOR.PATCH (with optional prerelease/build), compare per semver precedence (prerelease < release), and check whether one version satisfies another under ^ rules. For validating the crates' schema versions and gating compatibility."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

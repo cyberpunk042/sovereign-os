@@ -26,6 +26,10 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod critic;
+
+pub use critic::{BranchAssessment, BranchCritic, BranchState, FailureMode, NextAction};
+
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 

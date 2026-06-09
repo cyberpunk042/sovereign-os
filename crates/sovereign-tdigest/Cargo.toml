@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-tdigest"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "t-digest streaming quantile estimator: clusters values into centroids whose size is bounded by a scale function, so resolution is finest at the extremes (p1, p999) where it matters and coarse in the middle. Gives rank-error-bounded quantiles over an unbounded value range with a small fixed footprint, and merges across shards — the Dunning t-digest used in Elasticsearch and friends. Complements relative-error DDSketch with a different accuracy profile."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
