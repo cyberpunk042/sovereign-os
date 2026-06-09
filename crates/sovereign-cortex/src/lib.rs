@@ -181,6 +181,19 @@ pub struct Deliberation {
     pub summary: String,
 }
 
+/// Aggregate result of a [`Cortex::run_session`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct SessionReport {
+    /// Requests submitted.
+    pub total: usize,
+    /// How many committed.
+    pub committed: usize,
+    /// How many were learned into memory.
+    pub learned: usize,
+    /// How many were refused by an engine (router/scheduler).
+    pub refused: usize,
+}
+
 /// Produces the next round of candidate branches given the current best.
 ///
 /// The cortex owns the *search loop and the budget control*; generating
@@ -384,6 +397,35 @@ impl Cortex {
         let (decision, cycle) = self.act(req)?;
         let learned = self.learn(req, &decision);
         Ok((decision, cycle, learned))
+    }
+
+    /// Run a sequence of requests as one session, learning across them: each
+    /// request is decided and (if committed) learned, so later requests in
+    /// the session can recall earlier outcomes. Router/scheduler refusals
+    /// are counted, not fatal. Returns the decisions plus a [`SessionReport`].
+    pub fn run_session(&mut self, reqs: &[CortexRequest]) -> (Vec<CortexDecision>, SessionReport) {
+        let mut decisions = Vec::with_capacity(reqs.len());
+        let mut report = SessionReport {
+            total: reqs.len(),
+            committed: 0,
+            learned: 0,
+            refused: 0,
+        };
+        for req in reqs {
+            match self.tick(req) {
+                Ok(decision) => {
+                    if decision.assessment.suggested_next_action == NextAction::Commit {
+                        report.committed += 1;
+                    }
+                    if self.learn(req, &decision) {
+                        report.learned += 1;
+                    }
+                    decisions.push(decision);
+                }
+                Err(_) => report.refused += 1,
+            }
+        }
+        (decisions, report)
     }
 
     /// Best-of-N deliberation (M00444 + F02218 + F02228): evaluate several
@@ -971,6 +1013,35 @@ mod tests {
             !warm.recalled.is_empty(),
             "should recall the learned memory"
         );
+    }
+
+    // --- session runner ---
+
+    #[test]
+    fn session_decides_and_learns_each_request() {
+        let mut cortex = Cortex::new();
+        let (decisions, report) = cortex.run_session(&demo_requests());
+        assert_eq!(report.total, 2);
+        assert_eq!(decisions.len(), 2);
+        // both demo scenarios commit → both learned
+        assert_eq!(report.committed, 2);
+        assert_eq!(report.learned, 2);
+        assert_eq!(report.refused, 0);
+        assert_eq!(cortex.memory.len(), 2);
+    }
+
+    #[test]
+    fn session_counts_refusals_without_aborting() {
+        // first request is refused (private + cloud), second is fine.
+        let mut bad = req();
+        bad.axes.privacy = Privacy::Private;
+        bad.axes.locality = Locality::Cloud;
+        let good = req();
+        let mut cortex = Cortex::new();
+        let (decisions, report) = cortex.run_session(&[bad, good]);
+        assert_eq!(report.refused, 1);
+        assert_eq!(decisions.len(), 1); // the good one still decided
+        assert_eq!(report.committed, 1);
     }
 
     // --- best-of-N deliberation ---
