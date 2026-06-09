@@ -16,3 +16,4 @@ workspace = true
 serde = { workspace = true }
 serde_json = { workspace = true }
 sovereign-agent-loop = { path = "../sovereign-agent-loop" }
+sovereign-embed = { path = "../sovereign-embed" }

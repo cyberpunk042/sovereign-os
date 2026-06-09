@@ -25,10 +25,20 @@
 
 use serde::{Deserialize, Serialize};
 use sovereign_agent_loop::Responder;
+use sovereign_embed::EmbedStore;
 use std::collections::HashMap;
 
 /// Schema version of the retrieval surface.
 pub const SCHEMA_VERSION: &str = "1.0.0";
+
+/// Anything that can return the texts of the top-`k` documents for a query.
+///
+/// Implemented for the lexical [`DocStore`] and the embedding-backed
+/// [`EmbedStore`], so [`RagResponder`] can be backed by either.
+pub trait Retriever {
+    /// The texts of the top-`k` documents most relevant to `query`.
+    fn retrieve_context(&self, query: &str, k: usize) -> Vec<String>;
+}
 
 /// A stored document.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -130,20 +140,40 @@ fn token_counts(text: &str) -> HashMap<String, u32> {
     m
 }
 
-/// A [`Responder`] that grounds another responder in retrieved context.
+impl Retriever for DocStore {
+    fn retrieve_context(&self, query: &str, k: usize) -> Vec<String> {
+        self.retrieve(query, k)
+            .into_iter()
+            .map(|h| h.text)
+            .collect()
+    }
+}
+
+impl Retriever for EmbedStore {
+    fn retrieve_context(&self, query: &str, k: usize) -> Vec<String> {
+        self.retrieve(query, k)
+            .into_iter()
+            .map(|h| h.text)
+            .collect()
+    }
+}
+
+/// A [`Responder`] that grounds another responder in retrieved context. Works
+/// with any [`Retriever`] — the lexical [`DocStore`] or the embedding-backed
+/// [`EmbedStore`].
 #[derive(Debug, Clone)]
-pub struct RagResponder<R: Responder> {
+pub struct RagResponder<R: Responder, Ret: Retriever> {
     inner: R,
-    store: DocStore,
+    retriever: Ret,
     top_k: usize,
 }
 
-impl<R: Responder> RagResponder<R> {
-    /// Wrap `inner`, retrieving up to `top_k` documents per prompt from `store`.
-    pub fn new(inner: R, store: DocStore, top_k: usize) -> Self {
+impl<R: Responder, Ret: Retriever> RagResponder<R, Ret> {
+    /// Wrap `inner`, retrieving up to `top_k` documents per prompt.
+    pub fn new(inner: R, retriever: Ret, top_k: usize) -> Self {
         Self {
             inner,
-            store,
+            retriever,
             top_k,
         }
     }
@@ -151,14 +181,14 @@ impl<R: Responder> RagResponder<R> {
     /// Build the context-augmented prompt for `prompt` (exposed for testing /
     /// inspection). Returns `prompt` unchanged if nothing is retrieved.
     pub fn augment(&self, prompt: &str) -> String {
-        let hits = self.store.retrieve(prompt, self.top_k);
+        let hits = self.retriever.retrieve_context(prompt, self.top_k);
         if hits.is_empty() {
             return prompt.to_string();
         }
         let mut out = String::from("Context:\n");
         for h in &hits {
             out.push_str("- ");
-            out.push_str(&h.text);
+            out.push_str(h);
             out.push('\n');
         }
         out.push('\n');
@@ -167,7 +197,7 @@ impl<R: Responder> RagResponder<R> {
     }
 }
 
-impl<R: Responder> Responder for RagResponder<R> {
+impl<R: Responder, Ret: Retriever> Responder for RagResponder<R, Ret> {
     fn respond(&mut self, prompt: &str, seed: u64) -> Result<String, String> {
         let augmented = self.augment(prompt);
         self.inner.respond(&augmented, seed)
@@ -295,5 +325,22 @@ mod tests {
         let j = serde_json::to_string(&s).unwrap();
         let back: DocStore = serde_json::from_str(&j).unwrap();
         assert_eq!(s, back);
+    }
+
+    #[test]
+    fn rag_works_with_an_embedding_retriever() {
+        // the same RagResponder, backed by the semantic EmbedStore instead of
+        // the lexical DocStore.
+        let mut es = EmbedStore::new();
+        es.add("rust", "rust ownership and systems programming");
+        es.add("cook", "pasta tomato sauce recipe");
+        let seen = Rc::new(RefCell::new(Vec::new()));
+        let inner = Capture { seen: seen.clone() };
+        let mut rag = RagResponder::new(inner, es, 1);
+        rag.respond("rusty systems programs", 0).unwrap();
+        let prompts = seen.borrow();
+        assert!(prompts[0].starts_with("Context:\n"));
+        // subword match pulls the rust doc, not the cooking one
+        assert!(prompts[0].contains("rust ownership"));
     }
 }
