@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-telemetry"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Live hardware-telemetry probe — reads real kernel/vendor telemetry (Linux PSI, /proc/stat, nvidia-smi) and emits a validated PressureSnapshot + LoadSnapshot as JSON. The first runnable binary in the sovereign-os observability lane; exercises the pressure-sensors + hardware-load-sample ingestion end-to-end."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde_json = { workspace = true }
+sovereign-pressure-sensors = { path = "../sovereign-pressure-sensors" }
+sovereign-hardware-load-sample = { path = "../sovereign-hardware-load-sample" }
+sovereign-hardware-registry = { path = "../sovereign-hardware-registry" }
