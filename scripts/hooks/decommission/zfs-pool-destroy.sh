@@ -31,9 +31,14 @@ if ! zpool list "${SOVEREIGN_OS_POOL_NAME}" >/dev/null 2>&1; then
   exit 0
 fi
 
-# Unmount any mounted datasets first
+# Unmount any mounted datasets first. Do NOT `zpool export` here: export
+# removes the pool from the imported set, and `zpool destroy` only operates on
+# an *imported* pool — exporting first makes the destroy below fail with "no
+# such pool", which (under `set -euo pipefail`) aborts the decommission. The
+# old code only ever succeeded in the paradoxical case where the export itself
+# failed (pool busy). `zpool destroy -f` force-unmounts active datasets on its
+# own, so the explicit unmount is just a courtesy for a clean log.
 zfs unmount -a 2>/dev/null || true
-zpool export "${SOVEREIGN_OS_POOL_NAME}" 2>/dev/null || true
 
 log_info "destroying pool ${SOVEREIGN_OS_POOL_NAME}"
 zpool destroy -f "${SOVEREIGN_OS_POOL_NAME}"
