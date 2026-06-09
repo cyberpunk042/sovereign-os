@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-minhash"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "MinHash signatures for fast Jaccard-similarity estimation: reduce a set (e.g. the word shingles of a document) to a fixed-length signature so two sets can be compared in O(signature length) instead of O(set size). For near-duplicate detection — deduping retrieved RAG chunks or training documents — without storing or scanning the full sets."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
