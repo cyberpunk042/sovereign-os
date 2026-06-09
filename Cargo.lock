@@ -4711,6 +4711,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-transformer-block"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-attention",
+ "sovereign-ffn",
+ "sovereign-rmsnorm",
+ "sovereign-rope",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-trinity"
 version = "0.1.0"
 dependencies = [
