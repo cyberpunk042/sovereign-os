@@ -4690,6 +4690,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-trust-boundaries"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-typed-state"
 version = "0.1.0"
 dependencies = [
