@@ -4868,6 +4868,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-retrieval"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-agent-loop",
+]
+
+[[package]]
 name = "sovereign-rmsnorm"
 version = "0.1.0"
 dependencies = [
