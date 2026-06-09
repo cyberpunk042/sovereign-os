@@ -30,6 +30,19 @@ __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../../.." && pwd)"
 : "${SOVEREIGN_OS_SNAPSHOT_PREFIX:=sovereign}"
 : "${SOVEREIGN_OS_SNAPSHOT_KEEP:=30}"
 
+# Guard the retention count before it drives any `zfs destroy`. A NEGATIVE
+# value would make `excess = total - KEEP` exceed `total` and destroy EVERY
+# snapshot — including the one just created — plus spurious empty destroys,
+# and emit a negative count. A NON-NUMERIC value (env typo) would break the
+# `[ total -gt KEEP ]` arithmetic test. These snapshots are the
+# irreplaceable state-fabric (SDD-017); refuse to risk destroying them on a
+# bad retention value — clamp to the default instead. (0 is left as a literal
+# explicit "retain none"; only clearly-invalid values are clamped.)
+if ! [[ "${SOVEREIGN_OS_SNAPSHOT_KEEP}" =~ ^[0-9]+$ ]]; then
+  log_warn "SOVEREIGN_OS_SNAPSHOT_KEEP=${SOVEREIGN_OS_SNAPSHOT_KEEP} is not a non-negative integer; using default 30 (refusing to risk destroying snapshots on an invalid retention)"
+  SOVEREIGN_OS_SNAPSHOT_KEEP=30
+fi
+
 log_step_header "backup-snapshot" "snapshot ${SOVEREIGN_OS_SNAPSHOT_DATASET} (keep latest ${SOVEREIGN_OS_SNAPSHOT_KEEP})"
 
 if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
