@@ -5148,6 +5148,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-pagerank"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-perplexity"
 version = "0.1.0"
 dependencies = [
