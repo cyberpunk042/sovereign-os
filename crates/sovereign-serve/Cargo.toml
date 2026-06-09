@@ -12,6 +12,10 @@ description = "A cost-aware serving orchestrator: for each request it checks the
 [lints]
 workspace = true
 
+[[bin]]
+name = "sovereign-serve"
+path = "src/main.rs"
+
 [dependencies]
 thiserror = { workspace = true }
 sovereign-complexity = { path = "../sovereign-complexity" }

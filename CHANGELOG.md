@@ -12,6 +12,22 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — `sovereign-serve` is runnable: the $0-aware serving assembly runs end-to-end (2026-06-09)
+
+`sovereign-serve` composed the cache / complexity / token-meter crates into one
+`serve()` call but was lib-only — the assembly never ran. Added a `[[bin]]` +
+demo session (the workspace's 6th runnable binary) that drives requests through
+it, showing the cost-aware behaviour the crates exist for:
+
+- a repeated request is a **cache hit** — `$0`, the model never runs (`in=0 out=0`);
+- each request's **complexity tier** is estimated for routing;
+- a request that would blow the **token budget** is **refused before generating**
+  (`16 + 50 > 40`), not run and charged.
+
+The generator is a deterministic model stand-in (the point is the orchestration,
+not the text), mirroring the cortex binary's demo mode. `--help` supported.
+`fmt` + `clippy -D warnings` clean on pinned 1.88.0; the 6 lib tests still pass.
+
 ### Added — the World-Model prior now acts: a surprise engages deeper reasoning (2026-06-09)
 
 The M030 prior was observe-only; now it influences compute — conservatively.
