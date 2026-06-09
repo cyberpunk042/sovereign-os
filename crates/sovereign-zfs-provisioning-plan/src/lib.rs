@@ -45,11 +45,17 @@ pub enum DeviceError {
     /// (`[A-Za-z0-9_/.-]`) — refused to avoid shell-metacharacter injection.
     #[error("device {0:?} contains an unsafe character")]
     UnsafeChar(String),
+    /// The device path contains a `..` component — refused so a `/dev/…` prefix
+    /// can't be escaped by traversal (e.g. `/dev/../etc/passwd`).
+    #[error("device {0:?} contains a '..' path-traversal component")]
+    Traversal(String),
 }
 
 /// Validate a target block-device path. Accepts absolute `/dev/...` paths made
 /// of `[A-Za-z0-9_/.-]` (covers `/dev/nvme0n1`, `/dev/disk/by-id/…`, `/dev/sda`);
-/// rejects anything that could carry shell metacharacters.
+/// rejects anything that could carry shell metacharacters OR escape `/dev` via a
+/// `..` component (so the `/dev/` prefix is a real guarantee, not just a
+/// textual one).
 pub fn validate_device(device: &str) -> Result<(), DeviceError> {
     let d = device.trim();
     if d.is_empty() {
@@ -63,6 +69,11 @@ pub fn validate_device(device: &str) -> Result<(), DeviceError> {
         .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '/' | '.' | '-'))
     {
         return Err(DeviceError::UnsafeChar(device.to_string()));
+    }
+    // The char allow-list permits `.`, so `..` would otherwise slip through and
+    // let `/dev/../etc/passwd` escape the /dev tree. Reject any `..` component.
+    if d.split('/').any(|seg| seg == "..") {
+        return Err(DeviceError::Traversal(device.to_string()));
     }
     Ok(())
 }
@@ -169,8 +180,19 @@ mod tests {
             validate_device("/dev/$(whoami)"),
             Err(DeviceError::UnsafeChar(_))
         ));
+        // Path traversal: only safe chars, /dev/ prefix — must still be refused.
+        assert!(matches!(
+            validate_device("/dev/../etc/passwd"),
+            Err(DeviceError::Traversal(_))
+        ));
+        assert!(matches!(
+            validate_device("/dev/disk/../../root"),
+            Err(DeviceError::Traversal(_))
+        ));
         validate_device("/dev/nvme0n1").unwrap();
         validate_device("/dev/disk/by-id/nvme-Samsung_990").unwrap();
+        // A literal `..` inside a name segment (not its own component) is fine.
+        validate_device("/dev/my..disk").unwrap();
     }
 
     #[test]
