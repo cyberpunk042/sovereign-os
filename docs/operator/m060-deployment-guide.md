@@ -3426,6 +3426,70 @@ daemon is unhealthy — `systemctl restart selfdefd` and confirm a
 advancing within a tick. If retention should be OFF for this host, set
 `hot_retention_days = 0` (the alert then stops firing by design).
 
+### sovereign-telemetry alerts (M045 E0430 / M013)
+
+These fire on the `sovereign-telemetry` probe's gauges, emitted every minute to
+the node_exporter textfile collector by the `sovereign-telemetry-textfile` hook.
+
+#### SovereignTelemetryThermalShutdown (critical)
+
+**Meaning:** `sovereign_thermal_any_shutdown > 0` — at least one hardware target
+crossed its thermal-policy shutdown threshold. The scheduler should already be
+refusing dispatch onto it; act before thermal damage.
+
+**Diagnosis:**
+
+```bash
+# Which target(s) are in shutdown?
+cat /var/lib/node_exporter/textfile_collector/sovereign-os*.prom \
+  | grep -E 'sovereign_thermal_(any_shutdown|verdict)'
+# Live temps + fan state
+sovereign-osctl thermals 2>/dev/null || sensors
+```
+
+**Fix:** reduce load (halt inference / drop GPU power limit) and restore cooling
+(airflow, fan curve). The gauge clears once temps fall back under the policy
+threshold on the next probe tick.
+
+#### SovereignTelemetryHighSystemPressure (warning)
+
+**Meaning:** `sovereign_pressure_axis{axis="cpu|memory|io"} >= 0.8` for 5m — the
+kernel stalled on that resource for most of the window (PSI). The E0431 adaptive
+reaction for the axis should be active.
+
+**Diagnosis:**
+
+```bash
+cat /var/lib/node_exporter/textfile_collector/sovereign-os*.prom \
+  | grep -E 'sovereign_(pressure_axis|adaptive_reaction_active)'
+cat /proc/pressure/{cpu,memory,io}
+```
+
+**Fix:** if the adaptive reaction is active but pressure persists, reduce load
+per the reaction (branch width, batch size, cold scans). Sustained memory
+pressure with no reaction means the E0431 reactor is wedged — restart it.
+
+#### SovereignTelemetryInvalidSnapshot (warning)
+
+**Meaning:** `sovereign_telemetry_valid < 1` — the probe produced a snapshot that
+failed its own canonical invariants (axis/target counts, ranges, registry
+capacity). Decisions derived from it (thermal verdicts, adaptive reactions) are
+untrustworthy.
+
+**Diagnosis:**
+
+```bash
+# Run the probe directly to see the validation failure
+sovereign-telemetry --prometheus 2>&1 | grep -E 'sovereign_telemetry_(valid|probe_failed)'
+# Confirm the binary version on the probe host
+sovereign-telemetry --version 2>/dev/null
+```
+
+**Fix:** a `sovereign_telemetry_probe_failed 1` sentinel alongside means the
+probe couldn't read the hardware at all — check the host. A persistent
+`valid=0` with a working probe points to a version/contract skew; reinstall the
+matching `sovereign-telemetry` build.
+
 ## Project-boundary discipline (MS043 R10212)
 
 - IPS state mutation lives in **selfdef only** (selfdefd + selfdefctl +
