@@ -4672,6 +4672,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-markdown-strip"
+version = "0.1.0"
+
+[[package]]
 name = "sovereign-memory-os"
 version = "0.1.0"
 dependencies = [
