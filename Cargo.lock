@@ -242,6 +242,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-aimd-limiter"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-alias-sampler"
 version = "0.1.0"
 dependencies = [
