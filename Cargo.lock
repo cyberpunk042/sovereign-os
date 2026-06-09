@@ -4456,6 +4456,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-network-zerotrust"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-nvfp4-runtime"
 version = "0.1.0"
 dependencies = [
