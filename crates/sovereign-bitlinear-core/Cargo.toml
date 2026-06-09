@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-bitlinear-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M073 BitLinear ternary core — BitNet b1.58 {-1,0,+1} absmean quantization, information-theoretic-limit bit-packing (5 trits/byte ≈ 1.6 bits/param), and multiplication-free ternary GEMM (mul → conditional add/sub). Pure-Rust CPU reference; no de-quantization at execution. Targets the Pulse Core (M070 CCD 0) AVX-512 path (M067)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
