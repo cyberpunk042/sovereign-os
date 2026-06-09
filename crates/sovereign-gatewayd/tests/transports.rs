@@ -40,12 +40,21 @@ fn free_port() -> u16 {
 /// port, so the test is robust to that race rather than flaking.
 // The child is reaped in `Daemon::drop` (kill + wait); clippy can't see across
 // the returned struct's Drop, so the zombie-processes lint is a false positive.
-#[allow(clippy::zombie_processes)]
 fn spawn(mode: &str) -> Daemon {
+    spawn_with_env(mode, &[])
+}
+
+/// Like [`spawn`] but with extra environment variables (e.g. a low
+/// `SOVEREIGN_GATEWAY_MAX_CONN` to exercise the connection cap).
+#[allow(clippy::zombie_processes)]
+fn spawn_with_env(mode: &str, extra_env: &[(&str, &str)]) -> Daemon {
     for attempt in 0..5 {
         let addr = format!("127.0.0.1:{}", free_port());
         let mut cmd = Command::new(env!("CARGO_BIN_EXE_sovereign-gatewayd"));
         cmd.env("SOVEREIGN_GATEWAY_ADDR", &addr);
+        for (k, v) in extra_env {
+            cmd.env(k, v);
+        }
         if !mode.is_empty() {
             cmd.arg(mode);
         }
@@ -136,6 +145,47 @@ fn ndjson_tcp_oversized_line_is_refused() {
         raw.contains("exceeds") && raw.contains("limit"),
         "expected an over-limit error, got: {raw}"
     );
+}
+
+#[test]
+fn tcp_caps_concurrent_connections() {
+    // With the cap at 2, two held-open connections saturate it; the third is
+    // accepted then closed immediately (back-pressure), so its read sees EOF.
+    let d = spawn_with_env("", &[("SOVEREIGN_GATEWAY_MAX_CONN", "2")]);
+
+    // Hold two connections open (NDJSON handlers block reading a line).
+    let _c1 = connect_retry(&d.addr);
+    let _c2 = connect_retry(&d.addr);
+    // Let the daemon accept + count both before the third arrives.
+    std::thread::sleep(Duration::from_millis(300));
+
+    let mut c3 = connect_retry(&d.addr);
+    c3.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+    let mut buf = [0u8; 16];
+    let n = c3.read(&mut buf).unwrap_or(0);
+    assert_eq!(
+        n, 0,
+        "a connection over the cap should be closed immediately"
+    );
+
+    // Once a slot frees, the daemon serves again.
+    drop(_c1);
+    std::thread::sleep(Duration::from_millis(300));
+    assert_eq!(ndjson_infer_kind(&d.addr), "decision");
+}
+
+/// Send one infer over NDJSON and return the reply's `kind`.
+fn ndjson_infer_kind(addr: &str) -> String {
+    let stream = connect_retry(addr);
+    let mut reader = BufReader::new(stream.try_clone().unwrap());
+    let mut writer = stream;
+    let env = format!("{{\"op\":\"infer\",\"request\":{}}}", demo_request_json());
+    writeln!(writer, "{env}").unwrap();
+    writer.flush().unwrap();
+    let mut line = String::new();
+    reader.read_line(&mut line).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&line).unwrap();
+    v["kind"].as_str().unwrap_or("").to_string()
 }
 
 #[test]

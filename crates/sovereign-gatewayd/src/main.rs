@@ -29,6 +29,7 @@
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use sovereign_cortex::demo_requests;
 use sovereign_gatewayd::GatewayServer;
@@ -124,28 +125,73 @@ fn run_stdio(server: &GatewayServer) {
     }
 }
 
-/// Bind a TCP listener and serve one thread per connection. Each connection is
-/// an NDJSON stream: one request per line, one reply per line. Pure std — no
-/// async runtime, honoring the workspace `unsafe_code = forbid` discipline.
+/// Default cap on concurrent connection-handler threads. Once reached, new
+/// connections are accepted and closed immediately (back-pressure) rather than
+/// spawning unbounded threads under a connection flood. Override with
+/// `SOVEREIGN_GATEWAY_MAX_CONN`.
+const DEFAULT_MAX_CONNECTIONS: usize = 256;
+
+fn max_connections() -> usize {
+    std::env::var("SOVEREIGN_GATEWAY_MAX_CONN")
+        .ok()
+        .and_then(|v| v.parse::<usize>().ok())
+        .filter(|&n| n > 0)
+        .unwrap_or(DEFAULT_MAX_CONNECTIONS)
+}
+
+/// Decrements the active-connection counter when its handler thread ends.
+struct ConnGuard(Arc<AtomicUsize>);
+impl Drop for ConnGuard {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::Relaxed);
+    }
+}
+
+/// Shared accept loop: bound concurrent handler threads, then dispatch each
+/// connection to `handle` on its own thread. Pure std — no async runtime,
+/// honoring the workspace `unsafe_code = forbid` discipline.
+fn serve(
+    listener: TcpListener,
+    server: &Arc<GatewayServer>,
+    handle: fn(&GatewayServer, TcpStream) -> std::io::Result<()>,
+) -> std::io::Result<()> {
+    let max = max_connections();
+    let active = Arc::new(AtomicUsize::new(0));
+    for stream in listener.incoming() {
+        let stream = match stream {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("sovereign-gatewayd: accept failed: {e}");
+                continue;
+            }
+        };
+        if active.load(Ordering::Relaxed) >= max {
+            // At capacity — close immediately instead of spawning another
+            // thread, applying back-pressure under a connection flood.
+            drop(stream);
+            continue;
+        }
+        active.fetch_add(1, Ordering::Relaxed);
+        let guard = ConnGuard(Arc::clone(&active));
+        let server = Arc::clone(server);
+        std::thread::spawn(move || {
+            let _guard = guard; // decrements the counter on thread exit
+            if let Err(e) = handle(&server, stream) {
+                eprintln!("sovereign-gatewayd: connection ended: {e}");
+            }
+        });
+    }
+    Ok(())
+}
+
+/// Bind a TCP listener and serve NDJSON (one request per line, one reply per
+/// line) over the shared capped accept loop.
 fn run_tcp(server: &Arc<GatewayServer>, addr: &str) -> std::io::Result<()> {
     let listener = TcpListener::bind(addr)?;
     eprintln!(
         "sovereign-gatewayd: listening on {addr} (NDJSON; ops: infer/manifest/health/ledger)"
     );
-    for stream in listener.incoming() {
-        match stream {
-            Ok(stream) => {
-                let server = Arc::clone(server);
-                std::thread::spawn(move || {
-                    if let Err(e) = handle_conn(&server, stream) {
-                        eprintln!("sovereign-gatewayd: connection ended: {e}");
-                    }
-                });
-            }
-            Err(e) => eprintln!("sovereign-gatewayd: accept failed: {e}"),
-        }
-    }
-    Ok(())
+    serve(listener, server, handle_conn)
 }
 
 fn handle_conn(server: &GatewayServer, stream: TcpStream) -> std::io::Result<()> {
@@ -194,20 +240,7 @@ fn run_http(server: &Arc<GatewayServer>, addr: &str) -> std::io::Result<()> {
         "sovereign-gatewayd: HTTP listening on {addr} \
          (GET /health /manifest /admin/ledger /metrics; POST /v1/messages /v1/infer /mcp)"
     );
-    for stream in listener.incoming() {
-        match stream {
-            Ok(stream) => {
-                let server = Arc::clone(server);
-                std::thread::spawn(move || {
-                    if let Err(e) = handle_http_conn(&server, stream) {
-                        eprintln!("sovereign-gatewayd: http connection ended: {e}");
-                    }
-                });
-            }
-            Err(e) => eprintln!("sovereign-gatewayd: accept failed: {e}"),
-        }
-    }
-    Ok(())
+    serve(listener, server, handle_http_conn)
 }
 
 /// Per request-line / header-line byte cap, and the maximum header count. An

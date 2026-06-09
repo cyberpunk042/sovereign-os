@@ -102,6 +102,11 @@ bridge / the cockpit can hit the engine directly:
   Each is read through a fresh `take`, so a client can't exhaust the daemon's
   memory with a huge or unterminated request on either transport. Cortex
   requests are a few KB. Verified live (4 GiB body → 413; 9 KB header → 431).
+- **Connection cap (flood back-pressure).** Both accept loops (now DRY'd into
+  one `serve()`) bound concurrent handler threads (default 256, override
+  `SOVEREIGN_GATEWAY_MAX_CONN`); over the cap a connection is accepted and
+  closed immediately rather than spawning unbounded threads. Matters once the
+  daemon is exposed past its loopback default. Tested with the cap at 2.
 - The HTTP routing (`http::respond`) is pure and routes through the same
   `GatewayServer::handle` as the line protocol, so the two transports can never
   diverge. Verified live (curl + raw-socket): `GET /health` 200,
