@@ -16,3 +16,4 @@ workspace = true
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+sovereign-alias-sampler = { path = "../sovereign-alias-sampler" }

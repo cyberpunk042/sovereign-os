@@ -210,6 +210,42 @@ impl NgramModel {
         self.distribution(context).first().map(|&(t, _)| t)
     }
 
+    /// Sample a continuation of `prompt` from the model, up to `max_new` tokens,
+    /// using the seeded Walker-Vose [`AliasTable`](sovereign_alias_sampler) over
+    /// each step's full next-token distribution. Returns only the newly generated
+    /// tokens. Sampling is faithful to the smoothed distribution, so a
+    /// well-trained context yields its learned continuation while a flat
+    /// distribution wanders — and the reserved [`UNK`] can be drawn, exactly as
+    /// its probability dictates. Deterministic for a given `seed`.
+    ///
+    /// Returns an empty vector for an untrained model (no distribution to sample).
+    pub fn generate(&self, prompt: &[u32], max_new: usize, seed: u64) -> Vec<u32> {
+        if self.ctx_total.is_empty() {
+            return Vec::new();
+        }
+        let mut history: Vec<u32> = prompt.to_vec();
+        let mut out = Vec::with_capacity(max_new);
+        // fold the per-step seed forward so each step draws fresh randomness
+        let mut step_seed = seed;
+        for _ in 0..max_new {
+            let dist = self.distribution(&history);
+            let tokens: Vec<u32> = dist.iter().map(|&(t, _)| t).collect();
+            let weights: Vec<f64> = dist.iter().map(|&(_, p)| p).collect();
+            let mut table =
+                match sovereign_alias_sampler::AliasTable::from_weights(&weights, step_seed) {
+                    Ok(t) => t,
+                    Err(_) => break, // degenerate distribution: stop generating
+                };
+            let next = tokens[table.sample()];
+            out.push(next);
+            history.push(next);
+            step_seed = step_seed
+                .wrapping_mul(0x2545_F491_4F6C_DD1D)
+                .wrapping_add(0x9E37_79B9_7F4A_7C15);
+        }
+        out
+    }
+
     /// Perplexity of `tokens`: `exp(-1/N · Σ log p(t_i | preceding))`, the
     /// geometric-mean branching factor. Lower means the model finds the sequence
     /// more predictable. Returns `None` for an empty sequence.
@@ -330,6 +366,39 @@ mod tests {
         let back: NgramModel = serde_json::from_str(&j).unwrap();
         assert_eq!(m, back);
         assert_eq!(back.predict_next(&[1, 2]), m.predict_next(&[1, 2]));
+    }
+
+    #[test]
+    fn generate_is_deterministic_and_in_vocab() {
+        let mut m = NgramModel::new(3, 0.01).unwrap();
+        m.train(&[1, 2, 3, 1, 2, 3, 1, 2, 3, 4]);
+        let a = m.generate(&[1, 2], 10, 777);
+        let b = m.generate(&[1, 2], 10, 777);
+        assert_eq!(a, b, "same seed → same generation");
+        assert_eq!(a.len(), 10);
+        // every generated token is a known vocab member (or UNK)
+        assert!(a.iter().all(|t| [1, 2, 3, 4, UNK].contains(t)));
+    }
+
+    #[test]
+    fn generate_follows_a_deterministic_pattern() {
+        // "1 2" is almost always followed by 3, "2 3" by 1 → with light
+        // smoothing the sampler should reproduce the 1,2,3 cycle most of the time
+        let mut m = NgramModel::new(3, 0.001).unwrap();
+        let cycle: Vec<u32> = std::iter::repeat_n([1u32, 2, 3], 20).flatten().collect();
+        m.train(&cycle);
+        let seq = m.generate(&[1, 2], 9, 12345);
+        // after context [1,2], the strongly-learned continuation is 3,1,2,3,1,2...
+        assert_eq!(seq[0], 3, "got {seq:?}");
+        // the vast majority of generated tokens are in the cycle alphabet
+        let in_cycle = seq.iter().filter(|t| [1, 2, 3].contains(t)).count();
+        assert!(in_cycle >= 8, "expected mostly-cyclic output, got {seq:?}");
+    }
+
+    #[test]
+    fn untrained_model_generates_nothing() {
+        let m = NgramModel::new(2, 1.0).unwrap();
+        assert!(m.generate(&[1, 2], 5, 1).is_empty());
     }
 
     #[test]
