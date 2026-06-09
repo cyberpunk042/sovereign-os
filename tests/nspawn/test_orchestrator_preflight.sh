@@ -70,12 +70,15 @@ else
   ko "preflight mutated state.yaml"
 fi
 
-# preflight-tpm should SKIP when secure_boot != true
-# sain-01 has secure_boot=signed (not 'true'), old-workstation has signed too.
-if grep -qE "(preflight-tpm.*SKIP|secure_boot != true)" <<< "${out}"; then
-  ok "preflight-tpm SKIPs when secure_boot != true"
+# preflight-tpm must RUN its TPM/UEFI readiness checks for the signed/shim
+# postures (SDD-015 enum), NOT skip. sain-01 = secure_boot=signed, so the TPM
+# checks are required. (The old assertion expected a SKIP because the hook gated
+# on the non-existent value 'true' — that pinned the bug where the preflight
+# always skipped and secure-boot installs ran with no TPM validation.)
+if grep -qE "secure_boot=signed.*TPM|TPM \+ UEFI readiness checks required" <<< "${out}"; then
+  ok "preflight-tpm runs TPM+UEFI readiness checks for secure_boot=signed (SDD-015)"
 else
-  ko "preflight-tpm did not SKIP correctly"
+  ko "preflight-tpm did not run TPM checks for the signed posture"
 fi
 
 # --profile flag override
