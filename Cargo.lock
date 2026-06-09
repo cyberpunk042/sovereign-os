@@ -4292,6 +4292,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cuckoo-filter"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-dashboard-coverage"
 version = "0.1.0"
 dependencies = [
