@@ -117,6 +117,19 @@ if deny:
     )
     hook.chmod(0o755)
     print(f"  deny-list enforced: apt pin (-1) + purge hook for {len(deny)} package(s)")
+
+# kernel.modules.load_at_boot → /etc/modules-load.d/ (includes.chroot overlay).
+# Declared in the profile but enforced by nothing — without this the listed
+# modules (zfs / nvidia / vfio_pci) relied on implicit load paths only.
+load_at_boot = ((p.get("kernel") or {}).get("modules") or {}).get("load_at_boot") or []
+if load_at_boot:
+    mld = out / "config" / "includes.chroot" / "etc" / "modules-load.d"
+    mld.mkdir(parents=True, exist_ok=True)
+    (mld / "sovereign-os.conf").write_text(
+        "# kernel.modules.load_at_boot (profile ${profile_id})\n"
+        + "\n".join(load_at_boot) + "\n"
+    )
+    print(f"  modules-load.d enforced for {len(load_at_boot)} module(s)")
 PY
 
 # ---- hooks/normal/0010-sovereign-first-boot.hook.chroot ----

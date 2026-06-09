@@ -119,6 +119,20 @@ if deny:
 
 (out_dir / "mkosi.conf.d" / f"{profile_id}.conf").write_text(cfg)
 
+# ---- kernel.modules.load_at_boot → /etc/modules-load.d/ (mkosi.extra overlay) ----
+# The profile declares which modules must load at boot (zfs / nvidia / vfio_pci),
+# but nothing wrote them to systemd's modules-load.d, so it relied entirely on
+# implicit load paths (initramfs / udev / softdep). Emit the canonical config so
+# the declared policy is actually enforced.
+load_at_boot = ((p.get("kernel") or {}).get("modules") or {}).get("load_at_boot") or []
+if load_at_boot:
+    mld = out_dir / "mkosi.extra" / "etc" / "modules-load.d"
+    mld.mkdir(parents=True, exist_ok=True)
+    (mld / "sovereign-os.conf").write_text(
+        f"# kernel.modules.load_at_boot (profile {profile_id})\n"
+        + "\n".join(load_at_boot) + "\n"
+    )
+
 # ---- mkosi.repart for ZFS-tiered storage ----
 # mkosi handles partitioning declaratively via mkosi.repart/*.conf files.
 # For zfs-tiered, we lay out: ESP (FAT32) + root pool partition (zfs).

@@ -113,6 +113,15 @@ if [ "${PROFILE}" = "sain-01" ]; then
     ko "deny-list NOT enforced — denied packages missing from RemovePackages= (sovereignty gap)"
   fi
 
+  # kernel.modules.load_at_boot must be enforced via /etc/modules-load.d/ in the
+  # image overlay (not left to implicit load paths).
+  mld_file="${tmpdir}/mkosi.extra/etc/modules-load.d/sovereign-os.conf"
+  if [ -f "${mld_file}" ] && grep -qx "zfs" "${mld_file}" && grep -qx "vfio_pci" "${mld_file}"; then
+    ok "kernel.modules.load_at_boot enforced via modules-load.d overlay"
+  else
+    ko "kernel.modules.load_at_boot NOT enforced (missing modules-load.d overlay)"
+  fi
+
   # KernelCommandLine should contain vfio-pci.ids
   if grep -q "vfio-pci.ids=" "${profile_conf}"; then
     ok "profile config has KernelCommandLine with vfio-pci.ids"
