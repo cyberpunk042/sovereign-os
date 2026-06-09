@@ -4461,6 +4461,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-ddsketch"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-decode-loop"
 version = "0.1.0"
 dependencies = [
