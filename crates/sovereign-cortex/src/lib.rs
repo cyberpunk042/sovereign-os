@@ -150,6 +150,58 @@ pub struct CortexDecision {
     pub summary: String,
 }
 
+impl CortexDecision {
+    /// A plain-language operator rationale (M015 human-gate: "plain-language
+    /// reasons" + a cost/rollback preview), distinct from the terse
+    /// machine `summary`. This is what a human approver reads.
+    pub fn explain(&self) -> String {
+        let mut lines = vec![
+            format!("Routed to {:?}: {}", self.route.role, self.route.reason),
+            format!(
+                "Runs on {} ({}, ~{} MB at {:.1} bits/param)",
+                self.placement.device,
+                self.compute.path,
+                self.compute.est_model_bytes / 1_000_000,
+                self.compute.bits_per_param,
+            ),
+            format!("Adapter path: {:?}", self.serving),
+            format!(
+                "Verdict: {:?} (score {:.3}, risk {:.3}, uncertainty {:.3})",
+                self.assessment.suggested_next_action,
+                self.assessment.step_score,
+                self.assessment.risk_score,
+                self.assessment.uncertainty,
+            ),
+        ];
+        if !self.recalled.is_empty() {
+            lines.push(format!(
+                "Supported by {} recalled memory item(s).",
+                self.recalled.len()
+            ));
+        }
+        if let Some(r) = self.reasoning {
+            lines.push(format!(
+                "Engaged deeper reasoning ({} recurrent steps).",
+                r.steps
+            ));
+        }
+        if self.placement.spilled_to_cloud {
+            lines.push("NOTE: spilled to the cloud expert plane (off-node).".to_string());
+        } else if self.placement.fell_back {
+            lines.push("NOTE: fell back from the canonical role.".to_string());
+        }
+        let footprint = if self.compute.est_model_bytes == 0 {
+            "remote (no local footprint)".to_string()
+        } else {
+            format!("~{} MB local", self.compute.est_model_bytes / 1_000_000)
+        };
+        lines.push(format!(
+            "Cost/rollback: {footprint}; rollback = discard this branch (no host commit until ratified by the Auditor)."
+        ));
+        lines.join("\n")
+    }
+}
+
 /// Failures along the cortex pipeline.
 #[derive(Debug, Error)]
 pub enum CortexError {
@@ -963,6 +1015,18 @@ mod tests {
         // simple/local → Conductor → ternary, multiplication-free
         assert!(d.compute.multiplication_free);
         assert!((d.compute.bits_per_param - 1.6).abs() < 1e-6);
+    }
+
+    #[test]
+    fn explain_is_human_readable_rationale() {
+        let d = Cortex::with_memory(seed_memory()).tick(&req()).unwrap();
+        let text = d.explain();
+        assert!(text.contains("Routed to Conductor"));
+        assert!(text.contains("Verdict:"));
+        assert!(text.contains("Adapter path:"));
+        assert!(text.contains("Cost/rollback:"));
+        // multi-line operator rationale
+        assert!(text.lines().count() >= 4);
     }
 
     // --- LoRA serving decision wiring ---
