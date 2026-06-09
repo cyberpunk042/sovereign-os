@@ -90,6 +90,10 @@ pub enum ResourceError {
         /// max MiB.
         max: u32,
     },
+    /// The config JSON could not be parsed into a list of profiles.
+    Parse(String),
+    /// Two profiles in the set claim the same `unit` name.
+    DuplicateUnit(String),
 }
 
 impl std::fmt::Display for ResourceError {
@@ -104,6 +108,8 @@ impl std::fmt::Display for ResourceError {
             ResourceError::MemoryLowAboveMax { low, max } => {
                 write!(f, "MemoryLow={low}M exceeds MemoryMax={max}M")
             }
+            ResourceError::Parse(e) => write!(f, "config parse: {e}"),
+            ResourceError::DuplicateUnit(u) => write!(f, "duplicate unit {u:?} in profile set"),
         }
     }
 }
@@ -246,12 +252,32 @@ pub fn canonical_profiles() -> Vec<ResourceProfile> {
     ]
 }
 
-/// Validate the whole canonical set — each profile valid, unit names unique.
+/// Validate a profile set — each profile valid AND unit names unique (two
+/// profiles for the same unit would write conflicting drop-ins to the same
+/// `/etc/systemd/system/<unit>.d/` file).
 pub fn validate_profiles(profiles: &[ResourceProfile]) -> Result<(), ResourceError> {
+    use std::collections::HashSet;
+    let mut seen: HashSet<&str> = HashSet::new();
     for p in profiles {
         p.validate()?;
+        if !seen.insert(p.unit.as_str()) {
+            return Err(ResourceError::DuplicateUnit(p.unit.clone()));
+        }
     }
     Ok(())
+}
+
+/// Load operator-defined profiles from a JSON array, validating the set.
+///
+/// Lets an operator override or extend the [`canonical_profiles`] with their
+/// own boundaries (a JSON array of [`ResourceProfile`] objects). Each profile
+/// is validated and the set is checked for unique unit names, so a malformed
+/// or conflicting config is rejected before any drop-in is emitted.
+pub fn from_json(content: &str) -> Result<Vec<ResourceProfile>, ResourceError> {
+    let profiles: Vec<ResourceProfile> =
+        serde_json::from_str(content).map_err(|e| ResourceError::Parse(e.to_string()))?;
+    validate_profiles(&profiles)?;
+    Ok(profiles)
 }
 
 #[cfg(test)]
@@ -364,5 +390,50 @@ mod tests {
         let j = serde_json::to_value(p).unwrap();
         assert_eq!(j["kind"], "slice");
         assert_eq!(j["unit"], "scout.slice");
+    }
+
+    // ---- operator JSON config ----
+
+    #[test]
+    fn from_json_roundtrips_canonical() {
+        let json = serde_json::to_string(&canonical_profiles()).unwrap();
+        assert_eq!(from_json(&json).unwrap(), canonical_profiles());
+    }
+
+    #[test]
+    fn from_json_rejects_malformed() {
+        assert!(matches!(from_json("not json"), Err(ResourceError::Parse(_))));
+    }
+
+    #[test]
+    fn from_json_rejects_duplicate_unit() {
+        let mut p = canonical_profiles();
+        p[1].unit = "oracle.service".into(); // collides with p[0]
+        let json = serde_json::to_string(&p).unwrap();
+        assert!(matches!(
+            from_json(&json),
+            Err(ResourceError::DuplicateUnit(u)) if u == "oracle.service"
+        ));
+    }
+
+    #[test]
+    fn from_json_enforces_per_profile_rules() {
+        let mut p = vec![canonical_profiles()[0].clone()];
+        p[0].cpu_weight = 0; // invalid
+        let json = serde_json::to_string(&p).unwrap();
+        assert!(matches!(
+            from_json(&json),
+            Err(ResourceError::WeightOutOfRange { field: "CPUWeight", value: 0 })
+        ));
+    }
+
+    #[test]
+    fn validate_profiles_rejects_duplicate_unit() {
+        let mut p = canonical_profiles();
+        p[2].unit = p[0].unit.clone();
+        assert!(matches!(
+            validate_profiles(&p),
+            Err(ResourceError::DuplicateUnit(_))
+        ));
     }
 }
