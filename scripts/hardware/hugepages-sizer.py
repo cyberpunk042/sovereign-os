@@ -152,9 +152,23 @@ def recommend(target_gb: int, total_mem_kb: int | None,
     Caps the reservation at 75% of total RAM (HARD limit; reserving
     more risks OOM-kill of system processes). Returns rec + warnings.
     """
+    warnings: list[str] = []
+    # A negative target is nonsensical — a typo in the operator-set
+    # /etc/sovereign-os/hugepages.target-gb file, or a bad CLI arg. Never
+    # let it propagate into a negative nr_pages: that would be written
+    # verbatim into /proc/sys/vm/nr_hugepages, the persisted sysctl.d
+    # file (`vm.nr_hugepages = -N`), or a GRUB `hugepages=-N` cmdline
+    # fragment (a broken boot parameter). Clamp to 0 and surface it. The
+    # CLI additionally hard-rejects negatives with exit 2 ("invalid
+    # recommendation inputs") before reaching here.
+    if target_gb < 0:
+        warnings.append(
+            f"target_gb={target_gb} is negative; clamping to 0 "
+            f"(negative reservations are invalid)"
+        )
+        target_gb = 0
     target_kb = target_gb * 1024 * 1024
     nr_pages = (target_kb + size_kb - 1) // size_kb
-    warnings: list[str] = []
     if total_mem_kb is not None:
         cap_kb = (total_mem_kb * 75) // 100
         if target_kb > cap_kb:
@@ -354,6 +368,18 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
     verb = args.verb or "show"
     json_out = bool(args.json or getattr(args, "json_sub", False))
+
+    # Enforce the documented exit-2 contract ("invalid recommendation
+    # inputs"). A negative target is a typo, never an intent — reject it
+    # before any /proc or persistence write can be reached. 0 is allowed
+    # (it frees all reservations).
+    if verb in ("recommend", "apply") and args.target_gb < 0:
+        print(
+            f"[hugepages-sizer] invalid --target-gb {args.target_gb}: "
+            f"must be >= 0 (0 frees all reservations).",
+            file=sys.stderr,
+        )
+        return 2
 
     if verb in ("show", "status"):
         state = gather_state()
