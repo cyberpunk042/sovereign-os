@@ -5161,6 +5161,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-regex-constrain"
+version = "0.1.0"
+dependencies = [
+ "sovereign-logit-mask",
+ "sovereign-regex-nfa",
+]
+
+[[package]]
 name = "sovereign-regex-nfa"
 version = "0.1.0"
 dependencies = [
