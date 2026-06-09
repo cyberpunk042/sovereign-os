@@ -180,20 +180,59 @@ const W_VALUE: f64 = 0.001; // value is 0..1000
 pub struct MemoryStore {
     hot: Vec<HotMeta>,
     cold: HashMap<u64, GroundTruth>,
+    /// Optional capacity bound; `None` = unbounded.
+    capacity: Option<usize>,
 }
 
 impl MemoryStore {
-    /// Empty store.
+    /// Empty, unbounded store.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// A store bounded to at most `capacity` items. Admitting beyond the
+    /// bound evicts the lowest-value resident item — so a long-running,
+    /// continuously-learning cortex keeps its best memories and discards the
+    /// rest instead of growing without limit.
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            capacity: Some(capacity),
+            ..Self::default()
+        }
+    }
+
     /// Admit an item: hot metadata stays resident, the ground truth goes
-    /// cold keyed by id. Re-admitting the same id replaces both.
+    /// cold keyed by id. Re-admitting the same id replaces both. If a
+    /// capacity is set and now exceeded, the lowest-value item is evicted.
     pub fn admit(&mut self, meta: HotMeta, truth: GroundTruth) {
         self.hot.retain(|m| m.id != meta.id);
         self.hot.push(meta);
         self.cold.insert(meta.id, truth);
+        if let Some(cap) = self.capacity {
+            while self.hot.len() > cap {
+                self.evict_lowest_value();
+            }
+        }
+    }
+
+    /// Evict the lowest-`value_score` item (ties → oldest freshness, then
+    /// lowest id). Removes it from both the hot scan set and the cold store.
+    fn evict_lowest_value(&mut self) {
+        if let Some((idx, victim_id)) = self
+            .hot
+            .iter()
+            .enumerate()
+            .min_by(|(_, a), (_, b)| {
+                a.value_score
+                    .cmp(&b.value_score)
+                    .then(a.freshness.cmp(&b.freshness))
+                    .then(a.id.cmp(&b.id))
+            })
+            .map(|(i, m)| (i, m.id))
+        {
+            self.hot.remove(idx);
+            self.cold.remove(&victim_id);
+        }
     }
 
     /// Number of resident items.
@@ -381,6 +420,57 @@ mod tests {
         s.admit(base, gt("v2"));
         assert_eq!(s.len(), 1);
         assert_eq!(s.ground_truth(1).unwrap().raw_episode, "v2");
+    }
+
+    // --- bounded capacity + eviction ---
+
+    fn meta_val(id: u64, value_score: u64) -> HotMeta {
+        HotMeta::new(
+            id,
+            MemoryType::Semantic,
+            0,
+            0,
+            0,
+            100,
+            1,
+            1,
+            value_score,
+            FLAG_READABLE,
+        )
+    }
+
+    #[test]
+    fn capacity_evicts_lowest_value() {
+        let mut s = MemoryStore::with_capacity(2);
+        s.admit(meta_val(1, 100), gt("a")); // lowest value
+        s.admit(meta_val(2, 500), gt("b"));
+        s.admit(meta_val(3, 300), gt("c"));
+        assert_eq!(s.len(), 2);
+        assert!(
+            s.ground_truth(1).is_none(),
+            "lowest-value item should be evicted"
+        );
+        assert!(s.ground_truth(2).is_some());
+        assert!(s.ground_truth(3).is_some());
+    }
+
+    #[test]
+    fn capacity_one_keeps_the_highest_value() {
+        let mut s = MemoryStore::with_capacity(1);
+        s.admit(meta_val(1, 900), gt("hi"));
+        s.admit(meta_val(2, 100), gt("lo")); // lower value → evicted
+        assert_eq!(s.len(), 1);
+        assert!(s.ground_truth(1).is_some());
+        assert!(s.ground_truth(2).is_none());
+    }
+
+    #[test]
+    fn unbounded_store_keeps_everything() {
+        let mut s = MemoryStore::new();
+        for id in 0..10 {
+            s.admit(meta_val(id, id), gt("x"));
+        }
+        assert_eq!(s.len(), 10);
     }
 
     // --- retrieval scan ---
