@@ -56,6 +56,13 @@ for idx, nic in enumerate(nics):
     cfg += 'DHCP=yes\n' if not vlan else f'VLAN={role}-vlan\n'
     if not default_gw:
         cfg += 'DefaultRouteOnDevice=no\n'
+        # DefaultRouteOnDevice= only governs an *on-link* default route; it does
+        # NOT stop DHCP from installing the gateway it offers. For a non-gateway
+        # NIC running DHCP directly (no VLAN attach), refuse the DHCP-offered
+        # gateway + routes so the Zero-Trust 'no default route' invariant (§8)
+        # actually holds instead of depending on the DHCP server's goodwill.
+        if not vlan:
+            cfg += '\n[DHCPv4]\nUseGateway=no\nUseRoutes=no\n'
 
     out = out_dir / name
     out.write_text(cfg)
@@ -86,6 +93,12 @@ for idx, nic in enumerate(nics):
             vlan_cfg += f'\n[Link]\nMTUBytes={mtu}\n'
         if not default_gw:
             vlan_cfg += 'DefaultRouteOnDevice=no\n'
+            # The data VLAN runs DHCP; DefaultRouteOnDevice=no alone won't stop a
+            # DHCP-offered gateway from becoming the default route (a Zero-Trust
+            # egress hole on the high-bandwidth data plane). Refuse the gateway
+            # + routes DHCP hands out so §8's 'data NIC carries no default
+            # route' is enforced on the host, not assumed of the network.
+            vlan_cfg += '[DHCPv4]\nUseGateway=no\nUseRoutes=no\n'
         vlan_network.write_text(vlan_cfg)
         print(f'  wrote {vlan_network}')
 "
