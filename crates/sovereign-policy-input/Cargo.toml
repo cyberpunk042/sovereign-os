@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-policy-input"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "E0473/E0474/E0475 — the Policy Fabric decision contract: the 7 policy questions, the 10-field intent-based policy input (subject/action/resource/intent/profile/risk/model-provider/context-sensitivity/side-effect-class/user-approval), and the 9 memory sensitivity classes. The schema a policy engine (OPA/Cedar/OpenFGA) decides over."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
