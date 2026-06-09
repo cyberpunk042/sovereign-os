@@ -4753,6 +4753,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sovereign-minhash",
+ "sovereign-union-find",
 ]
 
 [[package]]

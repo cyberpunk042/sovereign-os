@@ -16,3 +16,4 @@ workspace = true
 serde = { workspace = true }
 serde_json = { workspace = true }
 sovereign-minhash = { path = "../sovereign-minhash" }
+sovereign-union-find = { path = "../sovereign-union-find" }

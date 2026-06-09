@@ -174,6 +174,36 @@ impl LshIndex {
         }
         Ok(self.insert(sig))
     }
+
+    /// Cluster all indexed items into near-duplicate groups. Two items join the
+    /// same group when they collide in some band *and* their signature-estimated
+    /// Jaccard is `>= min_jaccard`; those pairwise links are then transitively
+    /// closed with [`sovereign-union-find`](sovereign_union_find) so a chain of
+    /// near-duplicates ends up in one cluster. Returns the groups as sorted id
+    /// lists (every item appears in exactly one, singletons included), ordered by
+    /// smallest member.
+    ///
+    /// Only candidate pairs (band collisions) are ever scored, so this is far
+    /// cheaper than the all-pairs comparison it approximates.
+    pub fn cluster(&self, min_jaccard: f64) -> Vec<Vec<usize>> {
+        let mut ds = sovereign_union_find::DisjointSet::new(self.signatures.len());
+        // Each band bucket holds items that collided there: candidate pairs.
+        for band in &self.buckets {
+            for ids in band.values() {
+                for a in 0..ids.len() {
+                    for b in (a + 1)..ids.len() {
+                        let (i, j) = (ids[a], ids[b]);
+                        if !ds.connected(i, j)
+                            && self.signatures[i].jaccard(&self.signatures[j]) >= min_jaccard
+                        {
+                            ds.union(i, j);
+                        }
+                    }
+                }
+            }
+        }
+        ds.groups()
+    }
 }
 
 #[cfg(test)]
@@ -271,6 +301,38 @@ mod tests {
         let mh = MinHasher::new(8, 1); // produces 8-slot signatures
         let sig = mh.sign(["x"]);
         assert!(std::panic::catch_unwind(|| idx.query(&sig)).is_err());
+    }
+
+    #[test]
+    fn cluster_groups_near_duplicates() {
+        let (bands, rows) = (32, 4);
+        let mh = hasher(bands, rows);
+        let mut idx = LshIndex::new(bands, rows);
+
+        // ids 0,1,2: three near-identical variants of one sentence
+        let base = "the system shall log every request with a timestamp and a status";
+        let v0 = base.to_string();
+        let v1 = base.replace("status", "status code");
+        let v2 = base.replace("timestamp", "time stamp");
+        // ids 3,4: a different pair of near-duplicates
+        let other = "photosynthesis turns light and carbon dioxide into sugar and oxygen";
+        let o1 = other.replace("sugar", "glucose");
+        // id 5: a singleton, unrelated
+        let lone = "quarterly revenue beat every analyst estimate this fiscal year";
+
+        for s in [&v0, &v1, &v2, &other.to_string(), &o1, &lone.to_string()] {
+            idx.insert(mh.sign_text(s, 2));
+        }
+
+        let clusters = idx.cluster(0.5);
+        // every id is accounted for exactly once
+        let mut all: Vec<usize> = clusters.iter().flatten().copied().collect();
+        all.sort_unstable();
+        assert_eq!(all, vec![0, 1, 2, 3, 4, 5]);
+        // {0,1,2} cluster together, {3,4} together, {5} alone
+        assert!(clusters.contains(&vec![0, 1, 2]), "clusters: {clusters:?}");
+        assert!(clusters.contains(&vec![3, 4]), "clusters: {clusters:?}");
+        assert!(clusters.contains(&vec![5]), "clusters: {clusters:?}");
     }
 
     #[test]
