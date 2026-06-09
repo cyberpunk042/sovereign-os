@@ -57,6 +57,10 @@ fn main() {
             serde_json::to_string_pretty(decision).expect("a CortexDecision always serializes")
         );
         eprintln!("[{i}] {}", decision.summary);
+        // Operator-facing plain-language rationale (M015 human-gate).
+        for line in decision.explain().lines() {
+            eprintln!("[{i}]   {line}");
+        }
     }
     eprintln!(
         "# session: {}/{} committed, {} learned, {} refused",
