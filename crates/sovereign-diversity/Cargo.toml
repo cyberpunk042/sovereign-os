@@ -1,0 +1,16 @@
+[package]
+name = "sovereign-diversity"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Measure the diversity of a set of generations: distinct-n (fraction of unique n-grams across outputs), Self-BLEU (how much each output overlaps the others — lower is more diverse), and the unique-output ratio. For detecting mode collapse and tuning sampling temperature. Composes sovereign-text-eval."
+
+[lints]
+workspace = true
+
+[dependencies]
+sovereign-text-eval = { path = "../sovereign-text-eval" }
