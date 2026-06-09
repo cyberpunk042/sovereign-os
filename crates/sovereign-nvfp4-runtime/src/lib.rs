@@ -32,6 +32,10 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod linear;
+
+pub use linear::{LinearError, QuantMatrix, dense_f32_matvec};
+
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
