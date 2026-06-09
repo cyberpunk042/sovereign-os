@@ -244,8 +244,8 @@ mod tests {
 
     #[test]
     fn serde_round_trip() {
-        let layer = BitLinearLayer::from_weights(&[1.0, -1.0, 0.2, -0.2], 2, 2, Packing::TwoBit)
-            .unwrap();
+        let layer =
+            BitLinearLayer::from_weights(&[1.0, -1.0, 0.2, -0.2], 2, 2, Packing::TwoBit).unwrap();
         let json = serde_json::to_string(&layer).unwrap();
         let back: BitLinearLayer = serde_json::from_str(&json).unwrap();
         assert_eq!(layer, back);
