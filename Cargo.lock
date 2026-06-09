@@ -4664,6 +4664,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-heavy-hitters"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-count-min",
+]
+
+[[package]]
 name = "sovereign-histogram"
 version = "0.1.0"
 dependencies = [
