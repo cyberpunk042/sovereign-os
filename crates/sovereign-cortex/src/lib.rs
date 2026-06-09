@@ -51,12 +51,15 @@ pub use verify::{decision_facts, session_trace, verify_session};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use sovereign_control_word::{
+    ControlWord, FLAG_AUDIT, FLAG_COMMIT_GATE, FLAG_SANDBOX, FLAG_SPECULATIVE, PrecisionCode,
+};
 use sovereign_hrm_runtime::{HrmConfig, HrmRun, HrmStepper, RecurrentState};
 use sovereign_lora_foundry::{AdapterSlot, RuntimeDecision, ServeRequest, decide_serving};
 use sovereign_memory_os::{
     FLAG_READABLE, GroundTruth, Hit, HotMeta, MemoryStore, MemoryType, Query,
 };
-use sovereign_router_7axis::{RouteDecision, RouterError, Safety, TaskAxes, route};
+use sovereign_router_7axis::{RouteDecision, RouterError, Safety, SrpRole, TaskAxes, route};
 use sovereign_srp_scheduler::{
     Placement, PlacementError, RolePressure, ScheduleRequest, Workload, place,
 };
@@ -146,8 +149,22 @@ pub struct CortexDecision {
     pub reasoning: Option<HrmRun>,
     /// Per-device compute profile for the placement (footprint + precision).
     pub compute: ComputeProfile,
+    /// Per-branch control word (M002): the injected microcode encoding this
+    /// decision's precision lane + flags (commit-gate / sandbox / audit /
+    /// speculative) + opcode + recall count.
+    pub control_word: ControlWord,
     /// One-line human-readable trace of the whole path.
     pub summary: String,
+}
+
+/// Map a placed SRP role to the control word's precision lane.
+fn precision_for_role(role: SrpRole) -> PrecisionCode {
+    match role {
+        SrpRole::Conductor => PrecisionCode::Ternary,
+        SrpRole::Logic => PrecisionCode::Quantized,
+        SrpRole::Oracle => PrecisionCode::Fp16,
+        SrpRole::Cloud => PrecisionCode::Fp16, // remote; treated as full precision
+    }
 }
 
 impl CortexDecision {
@@ -363,6 +380,30 @@ impl Cortex {
         // computed by the bitlinear / nvfp4 engines themselves.
         let compute = ComputeProfile::for_role(placement.role, req.model_params);
 
+        // Control word (M002): the per-branch injected logic for this decision.
+        let opcode = match assessment.suggested_next_action {
+            NextAction::Commit => 1,
+            NextAction::Expand => 2,
+            NextAction::NeedMoreCompute => 3,
+            NextAction::Prune => 4,
+        };
+        let mut cw_flags = FLAG_AUDIT; // the cortex always routes through the Auditor
+        if assessment.suggested_next_action == NextAction::Commit {
+            cw_flags |= FLAG_COMMIT_GATE;
+        }
+        if req.axes.safety == Safety::Risky {
+            cw_flags |= FLAG_SANDBOX;
+        }
+        if reasoning.is_some() {
+            cw_flags |= FLAG_SPECULATIVE;
+        }
+        let control_word = ControlWord::new(
+            opcode,
+            precision_for_role(placement.role),
+            cw_flags,
+            recalled.len() as u32,
+        );
+
         let summary = format!(
             "route={:?} → device='{}'{} | recalled={} | action={:?} (score={:.3}, uncertainty={:.3}) | serve={:?} | reasoning={} | compute={} ({:.1} bits/param, {} MB)",
             route.role,
@@ -387,6 +428,7 @@ impl Cortex {
             serving,
             reasoning,
             compute,
+            control_word,
             summary,
         })
     }
@@ -1015,6 +1057,16 @@ mod tests {
         // simple/local → Conductor → ternary, multiplication-free
         assert!(d.compute.multiplication_free);
         assert!((d.compute.bits_per_param - 1.6).abs() < 1e-6);
+    }
+
+    #[test]
+    fn decision_emits_control_word() {
+        use sovereign_control_word::{FLAG_COMMIT_GATE, PrecisionCode};
+        let d = Cortex::with_memory(seed_memory()).tick(&req()).unwrap();
+        // simple/local → Conductor → ternary lane; committed → commit-gate flag
+        assert_eq!(d.control_word.precision(), PrecisionCode::Ternary);
+        assert!(d.control_word.has_flag(FLAG_COMMIT_GATE));
+        assert_eq!(d.control_word.operand(), d.recalled.len() as u32);
     }
 
     #[test]
