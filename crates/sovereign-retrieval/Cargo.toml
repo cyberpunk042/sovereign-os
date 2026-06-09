@@ -18,3 +18,5 @@ serde_json = { workspace = true }
 sovereign-agent-loop = { path = "../sovereign-agent-loop" }
 sovereign-embed = { path = "../sovereign-embed" }
 sovereign-chunker = { path = "../sovereign-chunker" }
+sovereign-minhash = { path = "../sovereign-minhash" }
+sovereign-lsh = { path = "../sovereign-lsh" }

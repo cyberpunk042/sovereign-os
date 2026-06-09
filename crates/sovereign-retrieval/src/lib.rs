@@ -98,6 +98,42 @@ impl DocStore {
         chunks.len()
     }
 
+    /// Ingest a long document like [`add_document`](Self::add_document) but drop
+    /// near-duplicate chunks: chunks whose MinHash-estimated Jaccard to an
+    /// already-kept chunk is `>= min_jaccard` are skipped. Overlapping or
+    /// boilerplate-heavy sources produce chunks that repeat almost the same text;
+    /// keeping all of them wastes the retrieval budget and biases ranking, so
+    /// this composes [`sovereign-minhash`](sovereign_minhash) signatures and a
+    /// [`sovereign-lsh`](sovereign_lsh) index to keep only novel chunks. Returns
+    /// the number of chunks actually added (kept chunks get sequential ids
+    /// `{id_prefix}#{j}`).
+    pub fn add_document_deduped(
+        &mut self,
+        id_prefix: &str,
+        text: &str,
+        target_chars: usize,
+        overlap_chars: usize,
+        min_jaccard: f64,
+    ) -> usize {
+        use sovereign_lsh::LshIndex;
+        use sovereign_minhash::MinHasher;
+
+        let (bands, rows) = (16, 4); // 64-slot signatures, threshold ≈ 0.5
+        let hasher = MinHasher::new(bands * rows, 0x5ED_C0DE);
+        let mut index = LshIndex::new(bands, rows);
+
+        let chunks = sovereign_chunker::chunk(text, target_chars, overlap_chars);
+        let mut kept = 0usize;
+        for c in &chunks {
+            let sig = hasher.sign_text(c, 3);
+            if index.insert_if_novel(sig, min_jaccard).is_ok() {
+                self.add(format!("{id_prefix}#{kept}"), c.clone());
+                kept += 1;
+            }
+        }
+        kept
+    }
+
     /// Number of documents.
     pub fn len(&self) -> usize {
         self.docs.len()
@@ -357,6 +393,30 @@ mod tests {
         // a query retrieves the relevant chunk, not the pasta one
         let hit = &s.retrieve("rust ownership", 1)[0];
         assert!(hit.text.to_lowercase().contains("ownership"));
+    }
+
+    #[test]
+    fn add_document_deduped_drops_repeats() {
+        let mut s = DocStore::new();
+        // a source where the same paragraph is repeated three times, plus one
+        // genuinely different paragraph.
+        let para = "Rust ownership governs memory safety without a garbage collector. \
+                    The borrow checker enforces these rules at compile time.";
+        let other = "Photosynthesis converts sunlight carbon dioxide and water into \
+                     glucose and oxygen inside chloroplasts of green plants.";
+        let doc = format!("{para} {para} {para} {other}");
+
+        // plain ingest keeps every chunk (duplicates included)
+        let mut plain = DocStore::new();
+        let all = plain.add_document("p", &doc, 120, 0);
+
+        // deduped ingest drops the repeats
+        let kept = s.add_document_deduped("d", &doc, 120, 0, 0.7);
+        assert!(kept < all, "dedup should keep fewer: kept {kept} of {all}");
+        assert_eq!(s.len(), kept);
+        // both distinct topics survive
+        assert!(!s.retrieve("ownership memory", 1).is_empty());
+        assert!(!s.retrieve("photosynthesis glucose", 1).is_empty());
     }
 
     #[test]
