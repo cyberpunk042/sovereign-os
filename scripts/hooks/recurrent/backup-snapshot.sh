@@ -93,7 +93,13 @@ if [ "${total}" -gt "${SOVEREIGN_OS_SNAPSHOT_KEEP}" ]; then
   done
 fi
 
-final_count=$((total + 1 - pruned))
+# `total` already counts the snapshot just created: the `zfs list`
+# above runs AFTER `zfs snapshot` and the new snapshot carries the
+# prefix, so it's in `all_snaps`. Remaining = total - pruned. The old
+# `total + 1` double-counted the new snapshot, so sovereign_os_snapshot_count
+# read one too high on every real ZFS run (the test only exercised the
+# non-ZFS count=0 path, so it never surfaced).
+final_count=$((total - pruned))
 log_info "snapshot complete: created 1, pruned ${pruned}, total ${final_count}"
 emit_metrics 1 "${pruned}" "${final_count}"
 exit 0
