@@ -16,3 +16,4 @@ workspace = true
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+sovereign-edit-distance = { path = "../sovereign-edit-distance" }

@@ -115,6 +115,18 @@ impl ToolRegistry {
         self.handlers.contains_key(name)
     }
 
+    /// Suggest the closest registered tool name to `name` within `max_distance`
+    /// edits — for recovering a model's misspelled tool call. Returns `None` if
+    /// `name` is already registered or nothing is close enough.
+    pub fn suggest(&self, name: &str, max_distance: usize) -> Option<String> {
+        if self.has(name) {
+            return None;
+        }
+        let names = self.names();
+        let refs: Vec<&str> = names.iter().map(String::as_str).collect();
+        sovereign_edit_distance::did_you_mean(name, &refs, max_distance).map(str::to_string)
+    }
+
     /// Invoke the handler for `name` with `args`.
     pub fn call(&self, name: &str, args: &str) -> Result<String, ToolError> {
         match self.handlers.get(name) {
@@ -216,6 +228,17 @@ mod tests {
         assert!(r.has("echo") && !r.has("ghost"));
         // Debug lists tools without panicking
         assert!(format!("{r:?}").contains("echo"));
+    }
+
+    #[test]
+    fn suggests_a_close_tool_name() {
+        let r = registry(); // echo, len, upper
+        // a misspelled "uppr" → suggest "upper"
+        assert_eq!(r.suggest("uppr", 2).as_deref(), Some("upper"));
+        // already registered → no suggestion
+        assert_eq!(r.suggest("echo", 2), None);
+        // nothing close enough
+        assert_eq!(r.suggest("xyzzy", 2), None);
     }
 
     #[test]
