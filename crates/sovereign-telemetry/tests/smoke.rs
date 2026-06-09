@@ -50,4 +50,15 @@ fn emits_contract_honouring_telemetry_json() {
         .expect("sources array");
     assert_eq!(sources.len(), 9, "nine observability sources");
     assert_eq!(doc["observability_valid"], true, "fabric validates");
+
+    // Derived: a thermal verdict per target + a shutdown flag (the telemetry
+    // → scheduling-decision chain running end-to-end).
+    let verdicts = doc["derived"]["thermal_verdicts"]
+        .as_array()
+        .expect("thermal_verdicts array");
+    assert_eq!(verdicts.len(), 5, "one thermal verdict per target");
+    for v in verdicts {
+        assert!(v["target"].is_string() && v["verdict"].is_string());
+    }
+    assert!(doc["derived"]["thermal_any_shutdown"].is_boolean());
 }

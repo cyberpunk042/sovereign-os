@@ -4517,6 +4517,7 @@ dependencies = [
  "serde_json",
  "sovereign-hardware-load-sample",
  "sovereign-hardware-registry",
+ "sovereign-hardware-thermal-policy",
  "sovereign-observability-fabric",
  "sovereign-pressure-sensors",
 ]

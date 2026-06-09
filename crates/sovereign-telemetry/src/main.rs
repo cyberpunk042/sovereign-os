@@ -22,6 +22,7 @@ use sovereign_hardware_load_sample::{
     parse_thermal_zone_temp,
 };
 use sovereign_hardware_registry::{HardwareRegistry, HardwareTarget};
+use sovereign_hardware_thermal_policy::ThermalPolicy;
 use sovereign_observability_fabric::{ObservabilityFabric, ObservabilitySource, SourceState};
 use sovereign_pressure_sensors::{PressureSnapshot, parse_psi_some_avg10};
 
@@ -137,6 +138,17 @@ fn main() {
     let fabric = observability(&at, gpu.is_some());
     let fabric_valid = fabric.validate().is_ok();
 
+    // Derived — per-target thermal verdicts from the live load (the actionable
+    // scheduling signal a thermal-aware dispatcher consumes). Separated from
+    // the raw telemetry above so consumers can tell measurement from policy.
+    let thermal = ThermalPolicy::canonical();
+    let thermal_verdicts: Vec<serde_json::Value> = thermal
+        .evaluate_snapshot(&load)
+        .into_iter()
+        .map(|(target, verdict)| serde_json::json!({ "target": target, "verdict": verdict }))
+        .collect();
+    let thermal_any_shutdown = thermal.any_shutdown(&load);
+
     let doc = serde_json::json!({
         "schema": "sovereign-telemetry/1",
         "captured_at_unix": at,
@@ -145,6 +157,10 @@ fn main() {
         "load_valid": load_valid,
         "observability": fabric,
         "observability_valid": fabric_valid,
+        "derived": {
+            "thermal_verdicts": thermal_verdicts,
+            "thermal_any_shutdown": thermal_any_shutdown,
+        },
     });
     match serde_json::to_string_pretty(&doc) {
         Ok(s) => println!("{s}"),
