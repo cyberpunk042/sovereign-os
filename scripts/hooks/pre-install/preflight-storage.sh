@@ -68,28 +68,58 @@ else
   log_info "  declared ${#declared_devices[@]} storage device(s); cross-checking against lsblk"
 fi
 
+# Normalize a human size string to bytes for the ±10% tolerance compare.
+# Accepts "4TB", "2 TB", "512GB", "1.8T", "3.7G" — decimal SI units, which is
+# close enough at a 10% tolerance (and matches how drives are marketed). Echoes
+# integer bytes, or empty on parse failure. NOTE: the old code did an exact
+# numeric-PREFIX equality on lsblk's *human* output, which never matched real
+# TB NVMe — lsblk renders a marketing-4TB drive as "3.7T" (TB vs TiB), so
+# prefix 4 != 3 and every declared TB device WARNed even when present. That
+# also silently broke the header's documented "within 10% tolerance" contract.
+size_to_bytes() {
+  local s num unit mult=1
+  s="$(echo "$1" | tr -d ' ' | tr '[:lower:]' '[:upper:]')"
+  num="$(echo "${s}" | grep -oE '^[0-9]+(\.[0-9]+)?' | head -1)"
+  unit="$(echo "${s}" | grep -oE '[KMGTP]I?B?$' | head -1)"
+  [ -n "${num}" ] || { echo ""; return; }
+  case "${unit}" in
+    K*) mult=1000 ;;
+    M*) mult=1000000 ;;
+    G*) mult=1000000000 ;;
+    T*) mult=1000000000000 ;;
+    P*) mult=1000000000000000 ;;
+    *)  mult=1 ;;
+  esac
+  awk "BEGIN{printf \"%.0f\", ${num} * ${mult}}"
+}
+
 # 2. Check each declared device is reasonably present on the system
-#    Reality check is "fuzzy" — we match by size class via lsblk -dn -o SIZE
+#    Reality check is "fuzzy" — we match by size class within ±10% (per the
+#    file header) using byte-normalized sizes via lsblk -dn -b -o SIZE.
 #    Not strict identity; physical reality often diverges from YAML.
 if command -v lsblk >/dev/null 2>&1; then
   for entry in "${declared_devices[@]}"; do
     IFS=$'\t' read -r role model size <<< "${entry}"
+    decl_bytes="$(size_to_bytes "${size}")"
+    if [ -z "${decl_bytes}" ] || [ "${decl_bytes}" = "0" ]; then
+      log_warn "  WARN — declared size '${size}' for role=${role} is unparseable; cannot reality-check (declared model: ${model})"
+      continue
+    fi
     found=0
-    # lsblk -dn -o SIZE (machine-readable form like 1.8T, 3.7G)
-    while IFS= read -r actual_size; do
-      # crude match: both contain the same numeric prefix (e.g., 4 for 4TB)
-      decl_prefix="$(echo "${size}" | grep -oE '^[0-9]+' | head -1)"
-      actual_prefix="$(echo "${actual_size}" | grep -oE '^[0-9]+' | head -1)"
-      if [ -n "${decl_prefix}" ] && [ "${decl_prefix}" = "${actual_prefix}" ]; then
+    # lsblk -dn -b -o SIZE → raw bytes, one block device per line.
+    while IFS= read -r actual_bytes; do
+      [ -n "${actual_bytes}" ] || continue
+      # within ±10% of the declared size?
+      if awk "BEGIN{d=${decl_bytes}; a=${actual_bytes}; exit !(a>=d*0.9 && a<=d*1.1)}"; then
         found=1
         break
       fi
-    done < <(lsblk -dn -o SIZE 2>/dev/null)
+    done < <(lsblk -dn -b -o SIZE 2>/dev/null)
 
     if [ "${found}" -eq 1 ]; then
-      log_info "  PASS — device matching role=${role} size~=${size} present"
+      log_info "  PASS — device matching role=${role} size~=${size} (±10%) present"
     else
-      log_warn "  WARN — no block device matches role=${role} size~=${size} (declared model: ${model})"
+      log_warn "  WARN — no block device matches role=${role} size~=${size} (±10%) (declared model: ${model})"
       # WARN not FAIL: install hardware may legitimately differ from operator's spec
     fi
   done
