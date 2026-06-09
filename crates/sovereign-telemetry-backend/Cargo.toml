@@ -1,0 +1,20 @@
+[package]
+name = "sovereign-telemetry-backend"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M013 E0107 — operator-overrideable telemetry backend selection (otel / prom / dual): token parsing for the SOVEREIGN_TELEMETRY_BACKEND env var (R02197) and the --telemetry-backend CLI flag (R02199), plus the CLI > env > profile > default resolution precedence (R02194)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
