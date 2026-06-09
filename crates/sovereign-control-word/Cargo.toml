@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-control-word"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M002 / M00013 — the 64-bit control word (mode/event/intensity/cooldown/neighborhood/paramA/paramB variable-width bitfields) and the branchless 64-entry rule-word LUT (E0018). Bit-level injected logic for AVX-512 lane decisions."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
