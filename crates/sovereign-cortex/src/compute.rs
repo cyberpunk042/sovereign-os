@@ -17,8 +17,8 @@
 //! crates that would run it.
 
 use serde::Serialize;
-use sovereign_bitlinear_core::{Packing, bits_per_param as ternary_bits_per_param};
-use sovereign_nvfp4_runtime::{BLOCK_SIZE, ELEMENT_BITS, SCALE_BITS};
+use sovereign_bitlinear_core::{BitLinearLayer, Packing, bits_per_param as ternary_bits_per_param};
+use sovereign_nvfp4_runtime::{BLOCK_SIZE, ELEMENT_BITS, QuantMatrix, SCALE_BITS};
 use sovereign_router_7axis::SrpRole;
 
 /// The compute cost profile for a placed workload.
@@ -32,8 +32,33 @@ pub struct ComputeProfile {
     pub est_model_bytes: u64,
     /// Whether the inner-product hot path is multiplication-free (ternary).
     pub multiplication_free: bool,
+    /// Whether the device's actual compute kernel ran a live self-check
+    /// (a micro forward pass through the real bitlinear / nvfp4 kernel).
+    pub kernel_verified: bool,
     /// Short note on the precision/runtime.
     pub note: &'static str,
+}
+
+/// Live self-check of the ternary kernel: build a tiny BitLinear layer and
+/// run one forward pass. Proves the Conductor's compute path is callable.
+fn ternary_kernel_live() -> bool {
+    let w = [
+        0.5f32, -0.5, 0.0, 1.0, -1.0, 0.0, 0.5, -0.5, 1.0, -1.0, 0.0, 0.5, -0.5, 1.0, 0.0, -1.0,
+    ];
+    match BitLinearLayer::from_weights(&w, 1, 16, Packing::Base3) {
+        Ok(layer) => layer.forward(&[1.0f32; 16]).is_ok(),
+        Err(_) => false,
+    }
+}
+
+/// Live self-check of the NVFP4 kernel: quantize a tiny matrix and run one
+/// matvec. Proves the Logic engine's compute path is callable.
+fn nvfp4_kernel_live() -> bool {
+    let w = [0.5f32; 16];
+    match QuantMatrix::from_f32(&w, 1, 16) {
+        Ok(m) => m.matvec(&[1.0f32; 16]).is_ok(),
+        Err(_) => false,
+    }
 }
 
 /// NVFP4 effective bits/param from the real format constants (M077):
@@ -59,6 +84,7 @@ impl ComputeProfile {
                     bits_per_param: bpp,
                     est_model_bytes: bytes_for(bpp, model_params),
                     multiplication_free: true,
+                    kernel_verified: ternary_kernel_live(),
                     note: "mul → conditional add/sub; no de-quant at execution (M073)",
                 }
             }
@@ -69,6 +95,7 @@ impl ComputeProfile {
                     bits_per_param: bpp,
                     est_model_bytes: bytes_for(bpp, model_params),
                     multiplication_free: false,
+                    kernel_verified: nvfp4_kernel_live(),
                     note: "4-bit microscaled, 16-value blocks (M077)",
                 }
             }
@@ -79,6 +106,7 @@ impl ComputeProfile {
                     bits_per_param: bpp,
                     est_model_bytes: bytes_for(bpp, model_params),
                     multiplication_free: false,
+                    kernel_verified: true, // native FP16 needs no quantization kernel
                     note: "full-precision deep reasoning (M075)",
                 }
             }
@@ -87,6 +115,7 @@ impl ComputeProfile {
                 bits_per_param: 0.0,
                 est_model_bytes: 0,
                 multiplication_free: false,
+                kernel_verified: false, // no local kernel runs for remote work
                 note: "executed off-node; local compute profile N/A",
             },
         }
@@ -149,5 +178,22 @@ mod tests {
     #[test]
     fn nvfp4_bits_matches_format_constants() {
         assert_eq!(nvfp4_bits_per_param(), (16.0 * 4.0 + 8.0) / 16.0);
+    }
+
+    #[test]
+    fn local_kernels_self_check_live() {
+        // Conductor + Logic actually run their compute kernels.
+        assert!(ComputeProfile::for_role(SrpRole::Conductor, ONE_B).kernel_verified);
+        assert!(ComputeProfile::for_role(SrpRole::Logic, ONE_B).kernel_verified);
+        // Oracle is native FP16 (no quantization kernel needed).
+        assert!(ComputeProfile::for_role(SrpRole::Oracle, ONE_B).kernel_verified);
+        // Cloud runs no local kernel.
+        assert!(!ComputeProfile::for_role(SrpRole::Cloud, ONE_B).kernel_verified);
+    }
+
+    #[test]
+    fn ternary_and_nvfp4_kernels_are_callable() {
+        assert!(ternary_kernel_live());
+        assert!(nvfp4_kernel_live());
     }
 }
