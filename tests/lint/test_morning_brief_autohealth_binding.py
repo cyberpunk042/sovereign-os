@@ -38,10 +38,31 @@ def _load_brief():
     return mod
 
 
-def test_autohealth_status_nests_verdict_under_last_tick():
-    """The producer schema the probe binds to."""
+def test_autohealth_status_nests_verdict_under_last_tick(tmp_path):
+    """The producer schema the probe binds to.
+
+    `status` only surfaces a `last_tick` object once at least one tick has
+    been recorded; on a fresh host its `last_tick` is null. So tick FIRST
+    into an isolated temp state (overlay `state_path`), then read `status`
+    from the same state — deterministic + no pollution of the host's real
+    /var/lib/sovereign-os/autohealth.jsonl.
+    """
+    state = tmp_path / "autohealth.jsonl"
+    overlay = tmp_path / "autohealth.toml"
+    overlay.write_text(f'state_path = "{state}"\n', encoding="utf-8")
+
+    tick = subprocess.run(
+        [sys.executable, str(AUTOHEALTH), "tick", "--config", str(overlay),
+         "--json"],
+        capture_output=True, text=True, timeout=30, cwd=REPO_ROOT,
+    )
+    assert tick.returncode in (0, 1), (
+        f"autohealth tick exited {tick.returncode}: {tick.stderr[:300]}"
+    )
+
     cp = subprocess.run(
-        [sys.executable, str(AUTOHEALTH), "status", "--json"],
+        [sys.executable, str(AUTOHEALTH), "status", "--config", str(overlay),
+         "--json"],
         capture_output=True, text=True, timeout=30, cwd=REPO_ROOT,
     )
     assert cp.returncode in (0, 1), (
@@ -50,8 +71,8 @@ def test_autohealth_status_nests_verdict_under_last_tick():
     doc = json.loads(cp.stdout)
     last = doc.get("last_tick")
     assert isinstance(last, dict), (
-        "autohealth status --json no longer nests `last_tick` — the "
-        "morning-brief probe reads the verdict from there."
+        "autohealth status --json (after a tick) no longer nests `last_tick` "
+        "— the morning-brief probe reads the verdict from there."
     )
     assert "verdict" in last, (
         "autohealth status last_tick no longer carries `verdict`; the brief "
