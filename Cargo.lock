@@ -4305,6 +4305,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-harness-layers"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-hibernation"
 version = "0.1.0"
 dependencies = [
@@ -4738,6 +4746,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-telemetry-backend"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-tool-catalog"
 version = "0.1.0"
 dependencies = [
@@ -4868,6 +4885,33 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "sovereign-zfs-dataset-layout"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-zfs-provisioning-plan"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-zfs-dataset-layout",
+ "thiserror",
+]
+
+[[package]]
+name = "sovereign-zfs-snapshot-policy"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
