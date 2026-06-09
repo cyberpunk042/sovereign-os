@@ -78,6 +78,19 @@ fn demo_request_json() -> String {
     serde_json::to_string(&sovereign_cortex::demo_requests()[0]).unwrap()
 }
 
+/// Connect with a few retries. Under heavy parallel test load a transient
+/// connect can fail even though the daemon is up and listening; a bare
+/// `connect().unwrap()` would then flake the test.
+fn connect_retry(addr: &str) -> TcpStream {
+    for _ in 0..40 {
+        if let Ok(s) = TcpStream::connect(addr) {
+            return s;
+        }
+        std::thread::sleep(Duration::from_millis(25));
+    }
+    TcpStream::connect(addr).expect("connect to daemon after retries")
+}
+
 // ---------------------------------------------------------------------------
 // NDJSON TCP transport
 // ---------------------------------------------------------------------------
@@ -85,7 +98,7 @@ fn demo_request_json() -> String {
 #[test]
 fn ndjson_tcp_infer_then_ledger_across_one_connection() {
     let d = spawn("");
-    let stream = TcpStream::connect(&d.addr).unwrap();
+    let stream = connect_retry(&d.addr);
     let mut reader = BufReader::new(stream.try_clone().unwrap());
     let mut writer = stream;
 
@@ -109,9 +122,26 @@ fn ndjson_tcp_infer_then_ledger_across_one_connection() {
 }
 
 #[test]
+fn ndjson_tcp_oversized_line_is_refused() {
+    // A single line larger than the cap with no newline must be refused, not
+    // buffered unboundedly (the same DoS class as the HTTP body cap).
+    let d = spawn("");
+    let mut stream = connect_retry(&d.addr);
+    let huge = "x".repeat((1 << 20) + 16);
+    stream.write_all(huge.as_bytes()).unwrap();
+    stream.shutdown(std::net::Shutdown::Write).unwrap();
+    let mut raw = String::new();
+    stream.read_to_string(&mut raw).unwrap();
+    assert!(
+        raw.contains("exceeds") && raw.contains("limit"),
+        "expected an over-limit error, got: {raw}"
+    );
+}
+
+#[test]
 fn ndjson_tcp_malformed_line_yields_error_not_drop() {
     let d = spawn("");
-    let stream = TcpStream::connect(&d.addr).unwrap();
+    let stream = connect_retry(&d.addr);
     let mut reader = BufReader::new(stream.try_clone().unwrap());
     let mut writer = stream;
     writeln!(writer, "this is not json").unwrap();
@@ -133,7 +163,7 @@ fn http_request(addr: &str, method: &str, path: &str, body: &str) -> (String, St
         "{method} {path} HTTP/1.1\r\nHost: localhost\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
         body.len()
     );
-    let mut stream = TcpStream::connect(addr).unwrap();
+    let mut stream = connect_retry(addr);
     stream.write_all(req.as_bytes()).unwrap();
     stream.flush().unwrap();
     let mut raw = String::new();
@@ -187,7 +217,7 @@ fn http_oversized_content_length_is_413_without_allocating() {
     let d = spawn("--http");
     let req = "POST /v1/messages HTTP/1.1\r\nHost: x\r\n\
                Content-Length: 4294967296\r\nConnection: close\r\n\r\n";
-    let mut stream = TcpStream::connect(&d.addr).unwrap();
+    let mut stream = connect_retry(&d.addr);
     stream.write_all(req.as_bytes()).unwrap();
     stream.flush().unwrap();
     let mut raw = String::new();

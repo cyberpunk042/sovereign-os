@@ -150,10 +150,28 @@ fn run_tcp(server: &Arc<GatewayServer>, addr: &str) -> std::io::Result<()> {
 
 fn handle_conn(server: &GatewayServer, stream: TcpStream) -> std::io::Result<()> {
     let peer = stream.peer_addr().ok();
-    let reader = BufReader::new(stream.try_clone()?);
+    let mut reader = BufReader::new(stream.try_clone()?);
     let mut writer = stream;
-    for line in reader.lines() {
-        let line = line?;
+    loop {
+        // Cap each NDJSON line so a client can't exhaust memory with one
+        // unterminated line (the same DoS class the HTTP body cap covers). A
+        // fresh `take` per line gives each its own byte budget.
+        let mut line = String::new();
+        let n = (&mut reader)
+            .take(http::MAX_BODY_BYTES as u64 + 1)
+            .read_line(&mut line)?;
+        if n == 0 {
+            break; // EOF
+        }
+        if line.len() > http::MAX_BODY_BYTES && !line.ends_with('\n') {
+            writeln!(
+                writer,
+                "{{\"kind\":\"error\",\"message\":\"request line exceeds the {}-byte limit\"}}",
+                http::MAX_BODY_BYTES
+            )?;
+            writer.flush()?;
+            break;
+        }
         if line.trim().is_empty() {
             continue;
         }
