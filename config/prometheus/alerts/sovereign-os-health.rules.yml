@@ -85,7 +85,7 @@ groups:
             days old — the daily tetragon-policy-verify timer has not run. The
             perimeter status you see may be stale; the fence could be down
             without SovereignOsPerimeterDown firing on fresh data. Check the
-            sovereign-os-tetragon-policy-verify.timer and the host's clock.
+            sovereign-tetragon-verify.timer and the host's clock.
           runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignosperimeterverifiersilent-warning"
 
       # A ZFS pool is not ONLINE (DEGRADED / FAULTED / UNAVAIL). The
@@ -122,7 +122,7 @@ groups:
             sovereign_os_zfs_scrub_last_run_timestamp{pool="{{ $labels.pool }}"}
             is more than two weeks old — the weekly zfs-scrub has not run, so
             latent checksum errors (bit-rot) on the NVMe are not being detected
-            or repaired. Check the sovereign-os-zfs-scrub.timer; kick a manual
+            or repaired. Check the sovereign-zfs-scrub.timer; kick a manual
             `zpool scrub {{ $labels.pool }}` if the host was off through the
             scheduled window.
           runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignoszfsscruboverdue-warning"
@@ -142,6 +142,6 @@ groups:
             is more than two days old — the daily backup-snapshot of the
             irreplaceable state-fabric (SDD-017) has not run. Each missed day
             widens the gap between now and the latest recoverable point. Check
-            the sovereign-os-backup-snapshot.timer and that the dataset still
+            the sovereign-backup-snapshot.timer and that the dataset still
             exists; a failing `zfs snapshot` (pool full / held) also stalls it.
           runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignosbackupsnapshotstale-warning"

@@ -3569,8 +3569,8 @@ firing on fresh data).
 **Diagnosis:**
 
 ```bash
-systemctl status sovereign-os-tetragon-policy-verify.timer
-systemctl list-timers | grep tetragon-policy-verify
+systemctl status sovereign-tetragon-verify.timer
+systemctl list-timers | grep tetragon-verify
 timedatectl   # confirm the clock isn't skewed
 ```
 
@@ -3605,7 +3605,7 @@ NVMe are going undetected.
 **Diagnosis:**
 
 ```bash
-systemctl status sovereign-os-zfs-scrub.timer
+systemctl status sovereign-zfs-scrub.timer
 zpool status "${SOVEREIGN_OS_POOL_NAME:-tank}" | grep -i scrub
 ```
 
@@ -3622,7 +3622,7 @@ day widens the gap to the latest recoverable point.
 **Diagnosis:**
 
 ```bash
-systemctl status sovereign-os-backup-snapshot.timer
+systemctl status sovereign-backup-snapshot.timer
 zfs list -t snapshot -o name,creation "${SOVEREIGN_OS_SNAPSHOT_DATASET:-tank/context}" | tail
 zpool list "${SOVEREIGN_OS_POOL_NAME:-tank}"   # a full pool blocks snapshots
 ```
