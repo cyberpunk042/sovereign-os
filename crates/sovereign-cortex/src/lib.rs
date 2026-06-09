@@ -44,7 +44,9 @@ use sovereign_router_7axis::{RouteDecision, RouterError, TaskAxes, route};
 use sovereign_srp_scheduler::{
     Placement, PlacementError, RolePressure, ScheduleRequest, Workload, place,
 };
-use sovereign_value_plane::{BranchAssessment, BranchCritic, BranchState, RewardVector};
+use sovereign_value_plane::{
+    BranchAssessment, BranchCritic, BranchState, IntelligenceTier, RewardVector,
+};
 
 /// Schema version of the cortex request/decision surface.
 pub const SCHEMA_VERSION: &str = "1.0.0";
@@ -119,6 +121,33 @@ pub enum CortexError {
     /// The requested critic profile is unknown.
     #[error("unknown value-plane profile: {0}")]
     UnknownProfile(String),
+    /// `deliberate` was called with no candidate branches.
+    #[error("deliberation requires at least one candidate branch")]
+    NoCandidates,
+}
+
+/// The result of a best-of-N deliberation over several candidate branches.
+/// Output-only (embeds `&'static` device labels), so `Serialize` only.
+#[derive(Debug, Clone, Serialize)]
+pub struct Deliberation {
+    /// Router output shared by all candidates.
+    pub route: RouteDecision,
+    /// Placement shared by all candidates.
+    pub placement: Placement,
+    /// Memory recalled once for the shared context.
+    pub recalled: Vec<Hit>,
+    /// How many candidate branches were considered.
+    pub candidates_considered: usize,
+    /// The winning (highest-value, non-pruned) branch, if any survived.
+    pub best: Option<BranchAssessment>,
+    /// Every candidate's assessment, in input order.
+    pub all: Vec<BranchAssessment>,
+    /// Whether the tier's fanout budget justifies more compute on the winner.
+    pub more_compute_justified: bool,
+    /// Compute profile for the shared placement.
+    pub compute: ComputeProfile,
+    /// One-line human-readable trace.
+    pub summary: String,
 }
 
 /// The cortex. Owns the memory store; stateless engines are called
@@ -148,49 +177,29 @@ impl Cortex {
     /// *what to do*. Any engine refusing the request short-circuits into
     /// a [`CortexError`].
     pub fn tick(&self, req: &CortexRequest) -> Result<CortexDecision, CortexError> {
-        // 1. Route — which SRP role should own this task?
-        let route = route(&req.axes)?;
+        // Shared steps: route → place → recall (with evidence boost).
+        let Prepared {
+            route,
+            placement,
+            recalled,
+            boost,
+        } = self.prepare(req)?;
 
-        // 2. Place — on which physical device can it actually run?
-        let sched_req = ScheduleRequest {
-            class: req.workload.class,
-            conductor: req.conductor,
-            logic: req.logic,
-            oracle: req.oracle,
-        };
-        let placement = place(&req.workload, &sched_req, req.allow_cloud)?;
-
-        // 3. Recall — what relevant memory supports this branch?
-        let query = Query::new(req.query_topic, req.query_entity, req.now, req.half_life);
-        let recalled = self.memory.retrieve(&query, RECALL_TOP_K);
-
-        // 4. Memory feeds the critic — supporting evidence raises the
-        //    branch's evidence + calibration before it is judged.
-        let mut reward = req.reward.clone();
-        let boost = recalled.len() as f32 * RECALL_EVIDENCE_BOOST;
-        reward.evidence = (reward.evidence + boost).min(1.0);
-        reward.confidence_calibration = (reward.confidence_calibration + boost * 0.5).min(1.0);
-
-        // 5. Assess — commit / expand / need-more-compute / prune.
+        // Memory-boosted single branch, judged by the critic.
         let critic = BranchCritic::for_profile(&req.profile)
             .ok_or_else(|| CortexError::UnknownProfile(req.profile.clone()))?;
+        let reward = boost_reward(req.reward.clone(), boost);
         let assessment = critic.assess(&BranchState::from_reward(1, reward));
 
-        // 6. Compute profile — what the placed precision actually costs,
-        //    computed by the bitlinear / nvfp4 engines themselves.
+        // Compute profile — what the placed precision actually costs,
+        // computed by the bitlinear / nvfp4 engines themselves.
         let compute = ComputeProfile::for_role(placement.role, req.model_params);
 
         let summary = format!(
             "route={:?} → device='{}'{} | recalled={} | action={:?} (score={:.3}, uncertainty={:.3}) | compute={} ({:.1} bits/param, {} MB)",
             route.role,
             placement.device,
-            if placement.spilled_to_cloud {
-                " [cloud spill]"
-            } else if placement.fell_back {
-                " [fell back]"
-            } else {
-                ""
-            },
+            placement_tag(&placement),
             recalled.len(),
             assessment.suggested_next_action,
             assessment.step_score,
@@ -208,6 +217,129 @@ impl Cortex {
             compute,
             summary,
         })
+    }
+
+    /// Best-of-N deliberation (M00444 + F02218 + F02228): evaluate several
+    /// candidate branches against the *same* routed/placed/recalled context
+    /// and pick the highest-value, non-pruned one — then report whether the
+    /// [`IntelligenceTier`]'s fanout budget justifies spending more compute
+    /// on the winner. This is the cortex doing real search, not a single
+    /// forward pass.
+    pub fn deliberate(
+        &self,
+        req: &CortexRequest,
+        candidates: &[RewardVector],
+        tier: IntelligenceTier,
+    ) -> Result<Deliberation, CortexError> {
+        if candidates.is_empty() {
+            return Err(CortexError::NoCandidates);
+        }
+        let Prepared {
+            route,
+            placement,
+            recalled,
+            boost,
+        } = self.prepare(req)?;
+
+        let critic = BranchCritic::for_profile(&req.profile)
+            .ok_or_else(|| CortexError::UnknownProfile(req.profile.clone()))?;
+
+        // Every candidate shares the recalled evidence boost.
+        let branches: Vec<BranchState> = candidates
+            .iter()
+            .enumerate()
+            .map(|(i, r)| BranchState::from_reward(i as u64, boost_reward(r.clone(), boost)))
+            .collect();
+
+        let best = critic.select_best_of_n(&branches);
+        let all: Vec<BranchAssessment> = branches.iter().map(|b| critic.assess(b)).collect();
+        let more_compute_justified = best
+            .as_ref()
+            .map(|b| critic.compute_justified(b, tier, 0))
+            .unwrap_or(false);
+        let compute = ComputeProfile::for_role(placement.role, req.model_params);
+
+        let summary = match &best {
+            Some(b) => format!(
+                "route={:?} → device='{}'{} | recalled={} | best=branch#{} action={:?} (score={:.3}) of {} candidates | more_compute={}",
+                route.role,
+                placement.device,
+                placement_tag(&placement),
+                recalled.len(),
+                b.branch_id,
+                b.suggested_next_action,
+                b.step_score,
+                candidates.len(),
+                more_compute_justified,
+            ),
+            None => format!(
+                "route={:?} → device='{}' | recalled={} | all {} candidates pruned",
+                route.role,
+                placement.device,
+                recalled.len(),
+                candidates.len(),
+            ),
+        };
+
+        Ok(Deliberation {
+            route,
+            placement,
+            recalled,
+            candidates_considered: candidates.len(),
+            best,
+            all,
+            more_compute_justified,
+            compute,
+            summary,
+        })
+    }
+
+    /// Shared front of the pipeline: route → place → recall + evidence boost.
+    fn prepare(&self, req: &CortexRequest) -> Result<Prepared, CortexError> {
+        let route = route(&req.axes)?;
+        let sched_req = ScheduleRequest {
+            class: req.workload.class,
+            conductor: req.conductor,
+            logic: req.logic,
+            oracle: req.oracle,
+        };
+        let placement = place(&req.workload, &sched_req, req.allow_cloud)?;
+        let query = Query::new(req.query_topic, req.query_entity, req.now, req.half_life);
+        let recalled = self.memory.retrieve(&query, RECALL_TOP_K);
+        let boost = recalled.len() as f32 * RECALL_EVIDENCE_BOOST;
+        Ok(Prepared {
+            route,
+            placement,
+            recalled,
+            boost,
+        })
+    }
+}
+
+/// Shared front-of-pipeline result (route + placement + recall + boost).
+struct Prepared {
+    route: RouteDecision,
+    placement: Placement,
+    recalled: Vec<Hit>,
+    boost: f32,
+}
+
+/// Apply the recall evidence boost to a reward vector: more supporting
+/// memory raises both the evidence axis and confidence calibration.
+fn boost_reward(mut reward: RewardVector, boost: f32) -> RewardVector {
+    reward.evidence = (reward.evidence + boost).min(1.0);
+    reward.confidence_calibration = (reward.confidence_calibration + boost * 0.5).min(1.0);
+    reward
+}
+
+/// Short placement annotation for summary lines.
+fn placement_tag(p: &Placement) -> &'static str {
+    if p.spilled_to_cloud {
+        " [cloud spill]"
+    } else if p.fell_back {
+        " [fell back]"
+    } else {
+        ""
     }
 }
 
@@ -461,5 +593,83 @@ mod tests {
         };
         let d = Cortex::new().tick(&r).unwrap();
         assert_eq!(format!("{:?}", d.placement.role), "Logic");
+    }
+
+    // --- decision carries a real compute profile ---
+
+    #[test]
+    fn decision_carries_compute_profile() {
+        let d = Cortex::with_memory(seed_memory()).tick(&req()).unwrap();
+        // simple/local → Conductor → ternary, multiplication-free
+        assert!(d.compute.multiplication_free);
+        assert!((d.compute.bits_per_param - 1.6).abs() < 1e-6);
+    }
+
+    // --- best-of-N deliberation ---
+
+    fn graded_reward(correctness: f32, calibration: f32) -> RewardVector {
+        RewardVector {
+            correctness,
+            evidence: 0.6,
+            schema_validity: 1.0,
+            tool_success: 1.0,
+            test_success: 1.0,
+            risk: 0.1,
+            latency: 0.2,
+            cost: 0.2,
+            novelty: 0.4,
+            user_preference: 0.6,
+            cache_reuse: 0.5,
+            confidence_calibration: calibration,
+        }
+    }
+
+    #[test]
+    fn deliberate_picks_the_strongest_candidate() {
+        let cortex = Cortex::with_memory(seed_memory());
+        let candidates = vec![
+            graded_reward(0.55, 0.9), // branch 0 — weak
+            graded_reward(0.95, 0.9), // branch 1 — strong
+            graded_reward(0.70, 0.9), // branch 2 — mid
+        ];
+        let d = cortex
+            .deliberate(&req(), &candidates, IntelligenceTier::Deliberate)
+            .unwrap();
+        assert_eq!(d.candidates_considered, 3);
+        assert_eq!(d.all.len(), 3);
+        let best = d.best.expect("a winner");
+        assert_eq!(best.branch_id, 1, "strongest branch should win");
+    }
+
+    #[test]
+    fn deliberate_empty_candidates_is_error() {
+        let err = Cortex::new()
+            .deliberate(&req(), &[], IntelligenceTier::Normal)
+            .unwrap_err();
+        assert!(matches!(err, CortexError::NoCandidates));
+    }
+
+    #[test]
+    fn deliberate_all_pruned_yields_no_winner() {
+        let cortex = Cortex::new();
+        // schema_validity 0 → every candidate is a hard failure → pruned
+        let mut bad = graded_reward(0.9, 0.9);
+        bad.schema_validity = 0.0;
+        let d = cortex
+            .deliberate(&req(), &[bad.clone(), bad], IntelligenceTier::Normal)
+            .unwrap();
+        assert!(d.best.is_none());
+        assert!(d.summary.contains("pruned"));
+    }
+
+    #[test]
+    fn deliberate_flags_more_compute_when_uncertain() {
+        let cortex = Cortex::new(); // no memory → no calibration boost
+        // low calibration → high uncertainty → more compute justified
+        let uncertain = graded_reward(0.7, 0.2);
+        let d = cortex
+            .deliberate(&req(), &[uncertain], IntelligenceTier::Deliberate)
+            .unwrap();
+        assert!(d.more_compute_justified);
     }
 }
