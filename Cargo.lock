@@ -4389,6 +4389,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-format-mask"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-logit-mask",
+ "sovereign-sampler",
+]
+
+[[package]]
 name = "sovereign-gateway"
 version = "0.1.0"
 dependencies = [
