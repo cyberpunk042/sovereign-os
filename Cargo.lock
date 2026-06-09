@@ -4165,6 +4165,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-decode-loop"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-attention",
+ "sovereign-rope",
+ "sovereign-sampler",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-doctrinal-preservation"
 version = "0.1.0"
 dependencies = [
