@@ -111,6 +111,12 @@ pub struct Ledger {
     /// Decisions that spilled to the cloud expert plane. MUST stay 0 while
     /// `force_local` is set — it is the never-cloud-spill tripwire.
     pub cloud_spills: u64,
+    /// Decisions that carried a World-Model prior (M030) — i.e. the
+    /// `(topic, role)` pair had resolved before. Cold pairs don't count.
+    pub predictions: u64,
+    /// Of those, how many had the learned prior agree with the live verdict.
+    /// The ratio is how well the engine is learning its own dynamics.
+    pub prediction_agreements: u64,
 }
 
 /// Daemon health snapshot.
@@ -238,6 +244,13 @@ impl GatewayServer {
                     // Tripwire: under force_local this must be unreachable.
                     ledger.cloud_spills += 1;
                 }
+                if let Some(prediction) = &decision.prediction {
+                    // The engine carried a learned World-Model prior (M030).
+                    ledger.predictions += 1;
+                    if prediction.agrees_with_verdict {
+                        ledger.prediction_agreements += 1;
+                    }
+                }
                 GatewayResponse::Decision {
                     decision: Box::new(decision),
                     learned,
@@ -337,6 +350,23 @@ impl GatewayServer {
         s.push_str(&format!(
             "sovereign_gateway_live_surfaces {}\n",
             self.manifest.live_count()
+        ));
+
+        s.push_str(
+            "# HELP sovereign_gateway_prediction_total Decisions that carried a World-Model prior (M030).\n",
+        );
+        s.push_str("# TYPE sovereign_gateway_prediction_total counter\n");
+        s.push_str(&format!(
+            "sovereign_gateway_prediction_total {}\n",
+            ledger.predictions
+        ));
+        s.push_str(
+            "# HELP sovereign_gateway_prediction_agreements_total Priors that agreed with the live verdict.\n",
+        );
+        s.push_str("# TYPE sovereign_gateway_prediction_agreements_total counter\n");
+        s.push_str(&format!(
+            "sovereign_gateway_prediction_agreements_total {}\n",
+            ledger.prediction_agreements
         ));
 
         s
@@ -480,6 +510,26 @@ mod tests {
         let v: serde_json::Value = serde_json::from_str(&out).unwrap();
         assert_eq!(v["kind"], "ledger");
         assert_eq!(v["ledger"]["total_requests"], 1);
+    }
+
+    #[test]
+    fn ledger_tracks_world_model_prediction_agreement() {
+        // The first request to a (topic, role) is cold (no prior); replays warm
+        // the engine's World-Model (M030) so later decisions carry a prior.
+        let s = GatewayServer::new();
+        let req = demo_requests()[0].clone();
+        for _ in 0..4 {
+            let _ = s.handle_line(&infer_line(&req));
+        }
+        let ledger = s.ledger.lock().unwrap();
+        assert!(
+            ledger.predictions >= 1,
+            "later requests should carry a learned prior, got {}",
+            ledger.predictions
+        );
+        // A stable repeated request resolves the same way every time, so the
+        // learned prior agrees with every verdict it was present for.
+        assert_eq!(ledger.prediction_agreements, ledger.predictions);
     }
 
     #[test]

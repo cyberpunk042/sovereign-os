@@ -86,6 +86,11 @@ new pipeline:
 | `sovereign_gateway_cloud_spills_total` | counter | spills to the cloud plane (must stay 0) |
 | `sovereign_gateway_never_cloud_spill_holds` | gauge | `1` while the invariant holds |
 | `sovereign_gateway_live_surfaces` | gauge | gateway surfaces currently Live |
+| `sovereign_gateway_prediction_total` | counter | decisions carrying a World-Model prior (M030) |
+| `sovereign_gateway_prediction_agreements_total` | counter | priors that agreed with the live verdict |
+
+The `prediction_agreements / prediction` ratio is how well the engine is
+learning its own routing-outcome dynamics over the process lifetime.
 
 ## Deployment
 
