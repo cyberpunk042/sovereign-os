@@ -75,7 +75,8 @@ bridge / the cockpit can hit the engine directly:
 - **`GET /metrics`** renders the live ledger + health as Prometheus
   text-exposition (`sovereign_gateway_requests_total`, `…_route_total{role}`,
   `…_decisions_total{disposition}`, `…_cloud_spills_total`,
-  `…_never_cloud_spill_holds`, `…_live_surfaces`) so the existing
+  `…_never_cloud_spill_holds`, `…_live_surfaces`, and — once the engine learns —
+  `…_prediction_total` / `…_prediction_agreements_total`) so the existing
   node_exporter→Grafana cockpit can chart the daemon with no new pipeline —
   the operator-visible surface the SHIPPED bar requires. Verified live via curl.
 - The HTTP routing (`http::respond`) is pure and routes through the same
