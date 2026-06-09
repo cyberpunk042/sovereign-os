@@ -51,6 +51,7 @@ pub use verify::{decision_facts, session_trace, verify_session};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use sovereign_branch_tree::{BranchTree, ROOT};
 use sovereign_control_word::{
     ControlWord, FLAG_AUDIT, FLAG_COMMIT_GATE, FLAG_SANDBOX, FLAG_SPECULATIVE, PrecisionCode,
 };
@@ -256,6 +257,9 @@ pub struct Deliberation {
     pub more_compute_justified: bool,
     /// Compute profile for the shared placement.
     pub compute: ComputeProfile,
+    /// The branch tree (M007): one forked branch per candidate, the winner
+    /// committed and the rest pruned.
+    pub branches: BranchTree,
     /// One-line human-readable trace.
     pub summary: String,
 }
@@ -578,19 +582,42 @@ impl Cortex {
             .ok_or_else(|| CortexError::UnknownProfile(req.profile.clone()))?;
 
         // Every candidate shares the recalled evidence boost.
-        let branches: Vec<BranchState> = candidates
+        let branch_states: Vec<BranchState> = candidates
             .iter()
             .enumerate()
             .map(|(i, r)| BranchState::from_reward(i as u64, boost_reward(r.clone(), boost)))
             .collect();
 
-        let best = critic.select_best_of_n(&branches);
-        let all: Vec<BranchAssessment> = branches.iter().map(|b| critic.assess(b)).collect();
+        let best = critic.select_best_of_n(&branch_states);
+        let all: Vec<BranchAssessment> = branch_states.iter().map(|b| critic.assess(b)).collect();
         let more_compute_justified = best
             .as_ref()
             .map(|b| critic.compute_justified(b, tier, 0))
             .unwrap_or(false);
         let compute = ComputeProfile::for_role(placement.role, req.model_params);
+
+        // Branch tree (M007): fork one branch per candidate, then commit the
+        // winner and prune the rest — best-of-N as fork-and-prune.
+        let mut branches = BranchTree::new();
+        let branch_ids: Vec<u64> = candidates
+            .iter()
+            .map(|_| branches.fork(ROOT).expect("root is active"))
+            .collect();
+        if let Some(b) = &best {
+            let winner = b.branch_id as usize;
+            for (i, &bid) in branch_ids.iter().enumerate() {
+                if i == winner {
+                    let _ = branches.commit(bid);
+                } else {
+                    let _ = branches.prune(bid);
+                }
+            }
+        } else {
+            // all candidates failed → prune every branch
+            for &bid in &branch_ids {
+                let _ = branches.prune(bid);
+            }
+        }
 
         let summary = match &best {
             Some(b) => format!(
@@ -623,6 +650,7 @@ impl Cortex {
             all,
             more_compute_justified,
             compute,
+            branches,
             summary,
         })
     }
@@ -1313,6 +1341,18 @@ mod tests {
         assert_eq!(d.all.len(), 3);
         let best = d.best.expect("a winner");
         assert_eq!(best.branch_id, 1, "strongest branch should win");
+
+        // M007 branch tree: root + 3 candidates; winner committed, rest pruned.
+        use sovereign_branch_tree::BranchState as BState;
+        assert_eq!(d.branches.len(), 4);
+        assert_eq!(
+            d.branches.get(best.branch_id + 1).unwrap().state,
+            BState::Committed
+        );
+        let pruned = (1..=3u64)
+            .filter(|&bid| d.branches.get(bid).unwrap().state == BState::Pruned)
+            .count();
+        assert_eq!(pruned, 2, "the two non-winners should be pruned");
     }
 
     #[test]

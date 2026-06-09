@@ -4083,6 +4083,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sovereign-bitlinear-core",
+ "sovereign-branch-tree",
  "sovereign-control-word",
  "sovereign-hrm-runtime",
  "sovereign-lora-foundry",

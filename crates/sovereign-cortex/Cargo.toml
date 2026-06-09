@@ -32,6 +32,7 @@ sovereign-hrm-runtime = { path = "../sovereign-hrm-runtime" }
 sovereign-spec-decode = { path = "../sovereign-spec-decode" }
 sovereign-symbolic-plan = { path = "../sovereign-symbolic-plan" }
 sovereign-control-word = { path = "../sovereign-control-word" }
+sovereign-branch-tree = { path = "../sovereign-branch-tree" }
 
 [dev-dependencies]
 serde_json = { workspace = true }
