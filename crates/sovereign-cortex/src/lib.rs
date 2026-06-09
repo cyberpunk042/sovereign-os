@@ -44,6 +44,7 @@ use sovereign_router_7axis::{RouteDecision, RouterError, TaskAxes, route};
 use sovereign_srp_scheduler::{
     Placement, PlacementError, RolePressure, ScheduleRequest, Workload, place,
 };
+use sovereign_trinity::TrinityCycle;
 use sovereign_value_plane::{
     BranchAssessment, BranchCritic, BranchState, IntelligenceTier, NextAction, RewardVector,
 };
@@ -255,6 +256,35 @@ impl Cortex {
             compute,
             summary,
         })
+    }
+
+    /// Execute a decision through the Trinity gate (M066): the local
+    /// Pulse → Weaver → Auditor cycle that turns a *decision* into a
+    /// ratified *commit*.
+    ///
+    /// - **Pulse** runs only if the work stayed on local iron — cloud-spilled
+    ///   work is executed remotely, not by the local Trinity.
+    /// - **Weaver** orchestrates unless the branch is a hard failure.
+    /// - **Auditor** — the immutable gate — passes only when the value
+    ///   plane's verdict is [`NextAction::Commit`]. The cortex *decides*;
+    ///   the Auditor *ratifies*.
+    pub fn execute(&self, decision: &CortexDecision) -> TrinityCycle {
+        let pulse_ok = !decision.placement.spilled_to_cloud;
+        let weave_ok = !decision.assessment.failure_mode.is_hard();
+        let audit_ok = decision.assessment.suggested_next_action == NextAction::Commit;
+        TrinityCycle::run(
+            (pulse_ok, decision.placement.device),
+            (weave_ok, "weaver: orchestration + state transition"),
+            (audit_ok, "auditor: value-plane commit verdict"),
+        )
+    }
+
+    /// One-shot: decide ([`Cortex::tick`]) then ratify through the Trinity
+    /// gate ([`Cortex::execute`]). Returns the decision and the cycle.
+    pub fn act(&self, req: &CortexRequest) -> Result<(CortexDecision, TrinityCycle), CortexError> {
+        let decision = self.tick(req)?;
+        let cycle = self.execute(&decision);
+        Ok((decision, cycle))
     }
 
     /// Best-of-N deliberation (M00444 + F02218 + F02228): evaluate several
@@ -906,5 +936,54 @@ mod tests {
             .unwrap();
         assert!(out.committed);
         assert_eq!(out.rounds, 0); // committed on the seed, no expansion
+    }
+
+    // --- Trinity gate execution ---
+
+    #[test]
+    fn act_commits_through_trinity_when_value_plane_commits() {
+        let cortex = Cortex::with_memory(seed_memory());
+        let (decision, cycle) = cortex.act(&req()).unwrap();
+        // strong local request → value plane Commit → Auditor ratifies
+        assert_eq!(
+            decision.assessment.suggested_next_action,
+            NextAction::Commit
+        );
+        assert!(
+            cycle.committed(),
+            "trinity should commit: {:?}",
+            cycle.stage
+        );
+        assert_eq!(cycle.reports.len(), 3);
+    }
+
+    #[test]
+    fn execute_rejects_when_value_plane_does_not_commit() {
+        let cortex = Cortex::new();
+        // weak/uncertain → Expand or NeedMoreCompute, not Commit
+        let mut r = req();
+        r.reward.confidence_calibration = 0.2; // high uncertainty
+        let decision = cortex.tick(&r).unwrap();
+        assert_ne!(
+            decision.assessment.suggested_next_action,
+            NextAction::Commit
+        );
+        let cycle = cortex.execute(&decision);
+        assert!(!cycle.committed()); // Auditor refuses to ratify
+    }
+
+    #[test]
+    fn execute_rejects_cloud_spilled_work_at_pulse() {
+        let cortex = Cortex::new();
+        // FP16 deep job, Oracle overloaded, cloud allowed → spills to cloud
+        let mut r = demo_requests().remove(1);
+        r.oracle = RolePressure::overloaded();
+        r.allow_cloud = true;
+        let decision = cortex.tick(&r).unwrap();
+        assert!(decision.placement.spilled_to_cloud);
+        let cycle = cortex.execute(&decision);
+        // local Trinity Pulse can't run remote work → rejected, only 1 report
+        assert!(!cycle.committed());
+        assert_eq!(cycle.reports.len(), 1);
     }
 }

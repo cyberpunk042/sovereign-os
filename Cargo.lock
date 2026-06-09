@@ -4065,6 +4065,7 @@ dependencies = [
  "sovereign-nvfp4-runtime",
  "sovereign-router-7axis",
  "sovereign-srp-scheduler",
+ "sovereign-trinity",
  "sovereign-value-plane",
  "thiserror",
 ]

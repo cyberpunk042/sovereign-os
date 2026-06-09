@@ -26,3 +26,4 @@ sovereign-memory-os = { path = "../sovereign-memory-os" }
 sovereign-value-plane = { path = "../sovereign-value-plane" }
 sovereign-bitlinear-core = { path = "../sovereign-bitlinear-core" }
 sovereign-nvfp4-runtime = { path = "../sovereign-nvfp4-runtime" }
+sovereign-trinity = { path = "../sovereign-trinity" }
