@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-rate-limit"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "A token-bucket rate limiter for request throttling: refills at a steady rate up to a capacity (burst), and each request consumes tokens, allowing bursts while bounding the sustained rate. Time is injected (now_ms) so the limiter is fully deterministic and testable. Throttles request frequency, distinct from token-meter's token-budget counting."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
