@@ -4397,6 +4397,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-crdt"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-cuckoo-filter"
 version = "0.1.0"
 dependencies = [
