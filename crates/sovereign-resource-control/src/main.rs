@@ -14,6 +14,17 @@ use sovereign_resource_control::{canonical_profiles, from_json};
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.iter().any(|a| a == "--help" || a == "-h") {
+        println!(
+            "sovereign-resource-control — emit systemd cgroup-v2 resource-control drop-ins\n\n\
+             USAGE:\n\
+             \x20   sovereign-resource-control                 emit all canonical unit drop-ins\n\
+             \x20   sovereign-resource-control --unit NAME     emit only the named unit\n\
+             \x20   sovereign-resource-control --config PATH   load profiles from a JSON file\n\
+             \x20   sovereign-resource-control --help          print this help and exit"
+        );
+        return;
+    }
     let only = args
         .iter()
         .position(|a| a == "--unit")

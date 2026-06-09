@@ -347,6 +347,15 @@ fn run_agent_demo() -> String {
 }
 
 fn main() {
+    if std::env::args().any(|a| a == "--help" || a == "-h") {
+        println!(
+            "sovereign-inference-demo — quantized-inference + decoding-strategies + agentic demos\n\n\
+             USAGE:\n\
+             \x20   sovereign-inference-demo        run the demos, print, exit\n\
+             \x20   sovereign-inference-demo --help print this help and exit"
+        );
+        return;
+    }
     print!("{}", run_demo());
     print!("{}", run_strategies_demo());
     print!("{}", run_agent_demo());
