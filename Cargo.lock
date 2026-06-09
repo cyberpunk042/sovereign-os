@@ -4866,6 +4866,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-json-schema-grammar"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-cfg-grammar",
+]
+
+[[package]]
 name = "sovereign-jsonl"
 version = "0.1.0"
 dependencies = [
