@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-reservoir"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Reservoir sampling (Algorithm R): keep a uniform random sample of k items from a stream of unknown, unbounded length in O(k) space — for sampling logs, traces, or generations without buffering them all. Seeded with a built-in splitmix64 RNG for fully deterministic, serializable sampling."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

@@ -5063,6 +5063,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-reservoir"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-retrieval"
 version = "0.1.0"
 dependencies = [
