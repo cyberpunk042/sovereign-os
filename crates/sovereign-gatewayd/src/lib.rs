@@ -36,9 +36,9 @@ use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 
-use sovereign_cortex::{Cortex, CortexRequest, seed_memory};
+use sovereign_cortex::{Cortex, CortexRequest, Deliberation, seed_memory};
 use sovereign_gateway::{GatewayManifest, GatewaySurface, SCHEMA_VERSION, SurfaceState};
-use sovereign_value_plane::NextAction;
+use sovereign_value_plane::{IntelligenceTier, NextAction, RewardVector};
 
 /// One request on the wire. Tagged by `op`, so a client sends e.g.
 /// `{"op":"infer","request":{…}}` or `{"op":"health"}`.
@@ -57,6 +57,17 @@ pub enum GatewayRequest {
     Explain {
         /// The end-to-end cortex request. Boxed because it is large.
         request: Box<CortexRequest>,
+    },
+    /// Best-of-N deliberation (read-only): the client supplies candidate reward
+    /// vectors and a compute tier; the engine forks one branch per candidate
+    /// and returns the winner + every assessment. The premium decision path.
+    Deliberate {
+        /// The shared end-to-end request. Boxed because it is large.
+        request: Box<CortexRequest>,
+        /// One candidate branch per reward vector (the N of best-of-N).
+        candidates: Vec<RewardVector>,
+        /// How much compute to spend (fanout budget): `reflex` … `experimental`.
+        tier: IntelligenceTier,
     },
     /// Return the 6-surface gateway manifest.
     Manifest,
@@ -83,6 +94,12 @@ pub enum GatewayResponse {
     Explanation {
         /// The M015 human-gate rationale (route → device → verdict → cost).
         explanation: String,
+    },
+    /// A best-of-N deliberation result (read-only). Output-only: it embeds the
+    /// `Serialize`-only `Deliberation`, so it is never deserialized back.
+    Deliberation {
+        /// The winner + every candidate assessment + the branch tree.
+        deliberation: Box<Deliberation>,
     },
     /// The gateway manifest.
     Manifest {
@@ -216,6 +233,11 @@ impl GatewayServer {
         match req {
             GatewayRequest::Infer { request } => self.infer(*request),
             GatewayRequest::Explain { request } => self.explain(*request),
+            GatewayRequest::Deliberate {
+                request,
+                candidates,
+                tier,
+            } => self.deliberate(*request, candidates, tier),
             GatewayRequest::Manifest => GatewayResponse::Manifest {
                 manifest: self.manifest.clone(),
             },
@@ -242,6 +264,33 @@ impl GatewayServer {
         match result {
             Ok(decision) => GatewayResponse::Explanation {
                 explanation: decision.explain(),
+            },
+            Err(e) => GatewayResponse::Error {
+                message: e.to_string(),
+            },
+        }
+    }
+
+    /// Best-of-N deliberation (read-only): fork one branch per candidate at the
+    /// requested compute tier and return the winner + all assessments. Like
+    /// `explain`, it decides without learning or touching the ledger. The same
+    /// Privacy policy applies.
+    fn deliberate(
+        &self,
+        mut request: CortexRequest,
+        candidates: Vec<RewardVector>,
+        tier: IntelligenceTier,
+    ) -> GatewayResponse {
+        if self.force_local {
+            request.allow_cloud = false;
+        }
+        let result = {
+            let cortex = self.cortex.lock().expect("cortex poisoned");
+            cortex.deliberate(&request, &candidates, tier)
+        };
+        match result {
+            Ok(deliberation) => GatewayResponse::Deliberation {
+                deliberation: Box::new(deliberation),
             },
             Err(e) => GatewayResponse::Error {
                 message: e.to_string(),
@@ -459,6 +508,26 @@ mod tests {
         assert_eq!(v["kind"], "explanation");
         assert!(v["explanation"].as_str().unwrap().contains("Routed to"));
         // A dry-run must not move the ledger (no infer/learn happened).
+        assert_eq!(s.ledger.lock().unwrap().total_requests, 0);
+    }
+
+    #[test]
+    fn deliberate_op_is_best_of_n_and_read_only() {
+        let s = GatewayServer::new();
+        let req = demo_requests()[0].clone();
+        let candidates = vec![req.reward.clone(), req.reward.clone(), req.reward.clone()];
+        let line = serde_json::json!({
+            "op": "deliberate",
+            "request": req,
+            "candidates": candidates,
+            "tier": "normal",
+        })
+        .to_string();
+        let out = s.handle_line(&line);
+        let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(v["kind"], "deliberation");
+        assert_eq!(v["deliberation"]["candidates_considered"], 3);
+        // Read-only: best-of-N decides but does not learn or account.
         assert_eq!(s.ledger.lock().unwrap().total_requests, 0);
     }
 

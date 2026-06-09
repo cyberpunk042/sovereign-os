@@ -17,6 +17,7 @@
 //! POST /v1/infer       -> {"kind":"decision", …}   raw engine alias
 //! POST /mcp            -> {"kind":"decision", …}   MCP-bridge bind (surface 3)
 //! POST /v1/explain     -> {"kind":"explanation",…} dry-run rationale (read-only)
+//! POST /v1/deliberate  -> {"kind":"deliberation",…} best-of-N (read-only)
 //! ```
 //!
 //! A `POST` body is one JSON [`CortexRequest`]; the reply is the tagged
@@ -30,6 +31,16 @@
 
 use crate::{GatewayRequest, GatewayResponse, GatewayServer};
 use sovereign_cortex::CortexRequest;
+use sovereign_value_plane::{IntelligenceTier, RewardVector};
+
+/// The `POST /v1/deliberate` body: the shared request, the candidate reward
+/// vectors (the N of best-of-N), and the compute tier.
+#[derive(serde::Deserialize)]
+struct DeliberateBody {
+    request: Box<CortexRequest>,
+    candidates: Vec<RewardVector>,
+    tier: IntelligenceTier,
+}
 
 /// Maximum request-body size the daemon will read. A `Content-Length` larger
 /// than this is refused with `413` *before* any buffer is allocated, so a
@@ -127,13 +138,31 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
             }
         }
 
+        ("POST", "/v1/deliberate") => match serde_json::from_str::<DeliberateBody>(body) {
+            Ok(b) => {
+                let resp = server.handle(GatewayRequest::Deliberate {
+                    request: b.request,
+                    candidates: b.candidates,
+                    tier: b.tier,
+                });
+                let status = match resp {
+                    GatewayResponse::Error { .. } => 422,
+                    _ => 200,
+                };
+                render(status, &resp)
+            }
+            Err(e) => err(400, format!("invalid deliberate body: {e}")),
+        },
+
         // A known resource with the wrong verb is 405; anything else is 404.
         (_, "/health") | (_, "/manifest") | (_, "/admin/ledger") | (_, "/metrics") => {
             err(405, format!("method {method} not allowed on {route}"))
         }
-        (_, "/v1/messages") | (_, "/v1/infer") | (_, "/mcp") | (_, "/v1/explain") => {
-            err(405, format!("method {method} not allowed on {route}"))
-        }
+        (_, "/v1/messages")
+        | (_, "/v1/infer")
+        | (_, "/mcp")
+        | (_, "/v1/explain")
+        | (_, "/v1/deliberate") => err(405, format!("method {method} not allowed on {route}")),
         _ => err(404, format!("no route for {method} {route}")),
     }
 }
@@ -263,6 +292,35 @@ mod tests {
     #[test]
     fn get_explain_is_405() {
         assert_eq!(respond(&srv(), "GET", "/v1/explain", "").status, 405);
+    }
+
+    #[test]
+    fn post_deliberate_is_best_of_n_read_only() {
+        let s = srv();
+        let req = demo_requests()[0].clone();
+        let body = serde_json::json!({
+            "request": req,
+            "candidates": [req.reward.clone(), req.reward.clone()],
+            "tier": "normal",
+        })
+        .to_string();
+        let r = respond(&s, "POST", "/v1/deliberate", &body);
+        assert_eq!(r.status, 200);
+        let v = body_of(&r);
+        assert_eq!(v["kind"], "deliberation");
+        assert_eq!(v["deliberation"]["candidates_considered"], 2);
+        // Read-only: ledger unchanged.
+        let led = body_of(&respond(&s, "GET", "/admin/ledger", ""));
+        assert_eq!(led["ledger"]["total_requests"], 0);
+    }
+
+    #[test]
+    fn deliberate_bad_body_is_400_and_get_is_405() {
+        assert_eq!(
+            respond(&srv(), "POST", "/v1/deliberate", "{not valid}").status,
+            400
+        );
+        assert_eq!(respond(&srv(), "GET", "/v1/deliberate", "").status, 405);
     }
 
     #[test]

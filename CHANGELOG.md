@@ -12,6 +12,24 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — gateway best-of-N: a read-only `deliberate` op (2026-06-09)
+
+The gateway exposed only the single-pass `tick`; the cortex's premium decision
+mode — best-of-N `deliberate` (fork one branch per candidate, return the
+winner + every assessment + the branch tree) — was unreachable. Added a
+`deliberate` op whose inputs are all **explicit client choices** (no
+product-default guessing): the shared `request`, the candidate `RewardVector`s
+(the N), and the compute `tier` (`reflex` … `experimental`, the fanout dial).
+
+- NDJSON `{"op":"deliberate","request":{…},"candidates":[…],"tier":"…"}` →
+  `{"kind":"deliberation",…}`; HTTP `POST /v1/deliberate` with the same body.
+- **Read-only** like `explain`: it decides but does not learn or touch the
+  ledger (verified the ledger stays 0 after a deliberation), with the same
+  `force_local` Privacy policy. Verified live over HTTP (best-of-3 → winner
+  committed, `candidates_considered=3`).
+- +4 tests (lib + http: best-of-N, read-only, bad body → 400, GET → 405). 29
+  unit + 9 integration tests pass; `fmt` + `clippy -D warnings` clean on 1.88.0.
+
 ### Added — `sovereign-chat` is runnable: multi-turn conversation with bounded history (2026-06-09)
 
 `sovereign-chat` composes `sovereign-llm` into a stateful chat session (record
