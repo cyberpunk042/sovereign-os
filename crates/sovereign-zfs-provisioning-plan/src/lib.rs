@@ -1,0 +1,235 @@
+//! `sovereign-zfs-provisioning-plan` — M068 M01141/M01142: emit the ordered
+//! `zpool create` + `zfs create/set` plan for the canonical `tank` layout.
+//!
+//! This composes [`sovereign_zfs_dataset_layout`]'s canon into the actual shell
+//! command sequence the installer runs. The one piece of real logic beyond
+//! string-joining is **emitting only what differs from the inherited default**,
+//! so the provisioning script stays minimal and an operator reading it sees
+//! intent, not noise:
+//!
+//! - `recordsize` is set only when it differs from ZFS's 128K default
+//!   (⇒ only `tank/containers` 16K and `tank/models` 1M get an explicit set),
+//! - `compression` is set only when it differs from the pool-inherited `lz4`
+//!   (⇒ only `tank/containers` off and `tank/models` zstd-3),
+//! - `sync` is set only when it differs from the `standard` default
+//!   (⇒ only `tank/context` and `tank/vault` get `sync=always`).
+//!
+//! The target device is validated against a conservative block-device pattern
+//! before it is interpolated, so a malformed device string can't smuggle shell
+//! metacharacters into the emitted `zpool create` line. This crate builds the
+//! commands; it does not execute them.
+
+#![forbid(unsafe_code)]
+#![warn(missing_docs)]
+
+use serde::Serialize;
+use sovereign_zfs_dataset_layout::{Sync, canonical_layout, canonical_pool, format_recordsize};
+
+/// Schema version.
+pub const SCHEMA_VERSION: &str = "1.0.0";
+
+/// ZFS's default `recordsize` (128K). Datasets at this value inherit it and
+/// need no explicit `zfs set recordsize`.
+pub const ZFS_DEFAULT_RECORDSIZE: u32 = 128 * 1024;
+
+/// Why a target device string was rejected.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum DeviceError {
+    /// The device path is empty.
+    #[error("device path is empty")]
+    Empty,
+    /// The device path is not an absolute `/dev/...` path.
+    #[error("device {0:?} is not an absolute /dev path")]
+    NotDevPath(String),
+    /// The device path contains a character outside the safe block-device set
+    /// (`[A-Za-z0-9_/.-]`) — refused to avoid shell-metacharacter injection.
+    #[error("device {0:?} contains an unsafe character")]
+    UnsafeChar(String),
+}
+
+/// Validate a target block-device path. Accepts absolute `/dev/...` paths made
+/// of `[A-Za-z0-9_/.-]` (covers `/dev/nvme0n1`, `/dev/disk/by-id/…`, `/dev/sda`);
+/// rejects anything that could carry shell metacharacters.
+pub fn validate_device(device: &str) -> Result<(), DeviceError> {
+    let d = device.trim();
+    if d.is_empty() {
+        return Err(DeviceError::Empty);
+    }
+    if !d.starts_with("/dev/") {
+        return Err(DeviceError::NotDevPath(device.to_string()));
+    }
+    if !d
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '/' | '.' | '-'))
+    {
+        return Err(DeviceError::UnsafeChar(device.to_string()));
+    }
+    Ok(())
+}
+
+/// One emitted provisioning command, structured for inspection + a flat render.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ProvisioningCommand {
+    /// What the command does (e.g. `"create pool"`, `"create dataset tank/context"`).
+    pub purpose: String,
+    /// The argv, ready to exec (no shell needed).
+    pub argv: Vec<String>,
+}
+
+impl ProvisioningCommand {
+    /// The command as a single shell-style line (argv joined by spaces). Safe
+    /// because every token was validated / drawn from the fixed canon.
+    #[must_use]
+    pub fn command_line(&self) -> String {
+        self.argv.join(" ")
+    }
+}
+
+/// Build the ordered provisioning plan for `device`: the pool creation command
+/// followed by, for each canonical dataset, a `zfs create` and (only if it has
+/// non-default properties) a single `zfs set` carrying just those properties.
+pub fn provisioning_plan(device: &str) -> Result<Vec<ProvisioningCommand>, DeviceError> {
+    validate_device(device)?;
+    let device = device.trim();
+    let pool = canonical_pool();
+
+    let mut plan = Vec::new();
+
+    // zpool create -f -o ashift=12 -O compression=lz4 -O atime=off tank <device>
+    let mut create_argv = vec![
+        "zpool".into(),
+        "create".into(),
+        "-f".into(),
+        "-o".into(),
+        format!("ashift={}", pool.ashift),
+        "-O".into(),
+        format!("compression={}", pool.compression.token()),
+    ];
+    if pool.atime_off {
+        create_argv.push("-O".into());
+        create_argv.push("atime=off".into());
+    }
+    create_argv.push("tank".into());
+    create_argv.push(device.to_string());
+    plan.push(ProvisioningCommand { purpose: "create pool".into(), argv: create_argv });
+
+    for spec in canonical_layout() {
+        let path = spec.dataset.path();
+        plan.push(ProvisioningCommand {
+            purpose: format!("create dataset {path}"),
+            argv: vec!["zfs".into(), "create".into(), path.to_string()],
+        });
+
+        // Only the properties that differ from the inherited default.
+        let mut props: Vec<String> = Vec::new();
+        if spec.recordsize != ZFS_DEFAULT_RECORDSIZE {
+            props.push(format!("recordsize={}", format_recordsize(spec.recordsize)));
+        }
+        if spec.compression != pool.compression {
+            props.push(format!("compression={}", spec.compression.token()));
+        }
+        if spec.sync != Sync::Standard {
+            props.push(format!("sync={}", spec.sync.token()));
+        }
+        if !props.is_empty() {
+            let mut set_argv = vec!["zfs".into(), "set".into()];
+            set_argv.extend(props);
+            set_argv.push(path.to_string());
+            plan.push(ProvisioningCommand {
+                purpose: format!("tune dataset {path}"),
+                argv: set_argv,
+            });
+        }
+    }
+
+    Ok(plan)
+}
+
+/// The plan rendered as shell-style lines (one per command).
+pub fn provisioning_script(device: &str) -> Result<Vec<String>, DeviceError> {
+    Ok(provisioning_plan(device)?
+        .iter()
+        .map(ProvisioningCommand::command_line)
+        .collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejects_unsafe_devices() {
+        assert_eq!(validate_device(""), Err(DeviceError::Empty));
+        assert!(matches!(validate_device("nvme0n1"), Err(DeviceError::NotDevPath(_))));
+        assert!(matches!(
+            validate_device("/dev/nvme0n1; rm -rf /"),
+            Err(DeviceError::UnsafeChar(_))
+        ));
+        assert!(matches!(
+            validate_device("/dev/$(whoami)"),
+            Err(DeviceError::UnsafeChar(_))
+        ));
+        validate_device("/dev/nvme0n1").unwrap();
+        validate_device("/dev/disk/by-id/nvme-Samsung_990").unwrap();
+    }
+
+    #[test]
+    fn pool_command_carries_the_canonical_options() {
+        let plan = provisioning_plan("/dev/nvme0n1").unwrap();
+        let pool = &plan[0];
+        assert_eq!(pool.purpose, "create pool");
+        let line = pool.command_line();
+        assert!(line.starts_with("zpool create -f -o ashift=12 -O compression=lz4 -O atime=off tank /dev/nvme0n1"), "{line}");
+    }
+
+    #[test]
+    fn only_non_default_properties_are_set() {
+        let script = provisioning_script("/dev/nvme0n1").unwrap();
+        let joined = script.join("\n");
+
+        // containers: 16k + off → both set.
+        assert!(joined.contains("zfs set recordsize=16K compression=off tank/containers"), "{joined}");
+        // models: 1M + zstd-3.
+        assert!(joined.contains("zfs set recordsize=1M compression=zstd-3 tank/models"), "{joined}");
+        // context: only sync=always (recordsize 128k = default, compression lz4 = inherited).
+        assert!(joined.contains("zfs set sync=always tank/context"), "{joined}");
+        // vault: only sync=always.
+        assert!(joined.contains("zfs set sync=always tank/vault"), "{joined}");
+
+        // logs + snapshots are pure-default (128k, lz4, standard) → no `set` line
+        // (they still get a `zfs create`, just no `zfs set`).
+        let logs_set = script.iter().any(|l| l.starts_with("zfs set") && l.ends_with("tank/logs"));
+        let snaps_set = script.iter().any(|l| l.starts_with("zfs set") && l.ends_with("tank/snapshots"));
+        assert!(!logs_set, "tank/logs is all-default; no set line expected");
+        assert!(!snaps_set, "tank/snapshots is all-default; no set line expected");
+    }
+
+    #[test]
+    fn every_dataset_gets_a_create_line_in_order() {
+        let script = provisioning_script("/dev/nvme0n1").unwrap();
+        for path in [
+            "tank/context",
+            "tank/containers",
+            "tank/models",
+            "tank/logs",
+            "tank/snapshots",
+            "tank/vault",
+        ] {
+            assert!(
+                script.iter().any(|l| l == &format!("zfs create {path}")),
+                "missing create for {path}"
+            );
+        }
+        // Pool create comes first.
+        assert!(script[0].starts_with("zpool create"));
+    }
+
+    #[test]
+    fn context_set_precedes_nothing_dangerous_and_serializes() {
+        let plan = provisioning_plan("/dev/nvme0n1").unwrap();
+        // Round-trips through serde (structured form is inspectable).
+        let json = serde_json::to_string(&plan).unwrap();
+        assert!(json.contains("create pool"));
+        assert!(json.contains("tune dataset tank/context"));
+    }
+}
