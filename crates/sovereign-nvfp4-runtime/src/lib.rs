@@ -33,8 +33,10 @@
 #![warn(missing_docs)]
 
 pub mod linear;
+pub mod rht;
 
 pub use linear::{LinearError, QuantMatrix, dense_f32_matvec};
+pub use rht::{RhtError, fwht, random_signs, rht_forward, rht_inverse};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
