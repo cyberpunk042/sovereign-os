@@ -389,6 +389,7 @@ impl Cortex {
                 decision.assessment.step_score
             ),
             graph_edges: vec![],
+            embedding: vec![],
             trust: trust.min(1000) as u16,
             freshness: req.now,
             summary_suspect: false,
@@ -685,6 +686,7 @@ pub fn seed_memory() -> MemoryStore {
         derived_facts: vec![],
         summary: format!("summary: {raw}"),
         graph_edges: vec![],
+        embedding: vec![],
         trust: 850,
         freshness: 100,
         summary_suspect: false,

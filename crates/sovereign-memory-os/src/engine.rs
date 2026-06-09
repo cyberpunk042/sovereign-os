@@ -103,6 +103,9 @@ pub struct GroundTruth {
     pub summary: String,
     /// Graph edges `(from_entity, to_entity)`.
     pub graph_edges: Vec<(u64, u64)>,
+    /// Dense embedding of the episode (M00466 embeddings field) — used by
+    /// the rerank stage of retrieval. May be empty when none is available.
+    pub embedding: Vec<f32>,
     /// Trust score `0..=1000`.
     pub trust: u16,
     /// Freshness epoch tick.
@@ -167,6 +170,38 @@ pub struct Hit {
     pub relevance: f64,
     /// Raw sketch-overlap popcount (topic + entity bits in common).
     pub sketch_overlap: u32,
+}
+
+/// A reranked retrieval hit — the sketch relevance plus the embedding
+/// cosine similarity that reordered it.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct RerankHit {
+    /// Item id (key into the cold store).
+    pub id: u64,
+    /// Sketch-stage relevance (from the hot scan).
+    pub sketch_relevance: f64,
+    /// Cosine similarity of the cold embedding to the query embedding.
+    pub cosine: f32,
+}
+
+/// Cosine similarity of two vectors. Returns `0.0` for empty/zero-norm/
+/// length-mismatched inputs (defensive — an absent embedding ranks last).
+pub fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
+    if a.is_empty() || a.len() != b.len() {
+        return 0.0;
+    }
+    let mut dot = 0.0f32;
+    let mut na = 0.0f32;
+    let mut nb = 0.0f32;
+    for (x, y) in a.iter().zip(b) {
+        dot += x * y;
+        na += x * x;
+        nb += y * y;
+    }
+    if na == 0.0 || nb == 0.0 {
+        return 0.0;
+    }
+    dot / (na.sqrt() * nb.sqrt())
 }
 
 // Relevance weights. Sketch overlap dominates; trust and value modulate;
@@ -314,6 +349,44 @@ impl MemoryStore {
         out
     }
 
+    /// Retrieve with the embedding **rerank** stage (the dump's 5-stage
+    /// scan, F02300): first run the hot sketch scan to gather a candidate
+    /// pool (`4 × k`), then re-rank those candidates by cosine similarity of
+    /// their cold embedding to `query_embedding`, keeping the top `k`. A
+    /// candidate with no embedding scores cosine `0.0`. This is the stage
+    /// that turns coarse bitset relevance into fine semantic ranking.
+    pub fn retrieve_reranked(
+        &self,
+        query: &Query,
+        query_embedding: &[f32],
+        k: usize,
+    ) -> Vec<RerankHit> {
+        let pool = self.retrieve(query, k.saturating_mul(4).max(k));
+        let mut hits: Vec<RerankHit> = pool
+            .iter()
+            .map(|h| {
+                let cosine = self
+                    .cold
+                    .get(&h.id)
+                    .map(|gt| cosine_similarity(&gt.embedding, query_embedding))
+                    .unwrap_or(0.0);
+                RerankHit {
+                    id: h.id,
+                    sketch_relevance: h.relevance,
+                    cosine,
+                }
+            })
+            .collect();
+        hits.sort_by(|a, b| {
+            b.cosine
+                .total_cmp(&a.cosine)
+                .then(b.sketch_relevance.total_cmp(&a.sketch_relevance))
+                .then(a.id.cmp(&b.id))
+        });
+        hits.truncate(k);
+        hits
+    }
+
     /// Apply freshness decay bookkeeping: any item older than `ttl` ticks
     /// relative to `now` has its cold summary marked suspect (it should be
     /// re-derived) without ever touching the raw episode. Returns the
@@ -352,9 +425,17 @@ mod tests {
             derived_facts: vec![],
             summary: format!("summary-of-{raw}"),
             graph_edges: vec![],
+            embedding: vec![],
             trust: 800,
             freshness: 100,
             summary_suspect: false,
+        }
+    }
+
+    fn gt_emb(raw: &str, embedding: Vec<f32>) -> GroundTruth {
+        GroundTruth {
+            embedding,
+            ..gt(raw)
         }
     }
 
@@ -471,6 +552,97 @@ mod tests {
             s.admit(meta_val(id, id), gt("x"));
         }
         assert_eq!(s.len(), 10);
+    }
+
+    // --- embedding rerank ---
+
+    #[test]
+    fn cosine_basics() {
+        assert!((cosine_similarity(&[1.0, 0.0], &[1.0, 0.0]) - 1.0).abs() < 1e-6);
+        assert!(cosine_similarity(&[1.0, 0.0], &[0.0, 1.0]).abs() < 1e-6);
+        assert_eq!(cosine_similarity(&[], &[1.0]), 0.0); // empty
+        assert_eq!(cosine_similarity(&[0.0, 0.0], &[1.0, 1.0]), 0.0); // zero norm
+    }
+
+    #[test]
+    fn rerank_reorders_by_embedding_similarity() {
+        // Two items with IDENTICAL sketch overlap, different embeddings.
+        let mut s = MemoryStore::new();
+        let meta = |id, topic| {
+            HotMeta::new(
+                id,
+                MemoryType::Semantic,
+                0,
+                0,
+                0,
+                100,
+                topic,
+                0,
+                0,
+                FLAG_READABLE,
+            )
+        };
+        s.admit(meta(1, 0b11), gt_emb("a", vec![1.0, 0.0])); // points "east"
+        s.admit(meta(2, 0b11), gt_emb("b", vec![0.0, 1.0])); // points "north"
+
+        // Query embedding aligned with item 2 ("north"); both match sketch.
+        let q = Query::new(0b11, 0, 100, 1000);
+        let hits = s.retrieve_reranked(&q, &[0.0, 1.0], 2);
+        assert_eq!(hits.len(), 2);
+        assert_eq!(hits[0].id, 2, "embedding-closer item should rank first");
+        assert!(hits[0].cosine > hits[1].cosine);
+    }
+
+    #[test]
+    fn rerank_truncates_to_k() {
+        let mut s = MemoryStore::new();
+        for id in 1..=3u64 {
+            s.admit(
+                HotMeta::new(
+                    id,
+                    MemoryType::Semantic,
+                    0,
+                    0,
+                    0,
+                    100,
+                    0b1,
+                    0,
+                    0,
+                    FLAG_READABLE,
+                ),
+                gt_emb("x", vec![1.0, 0.0]),
+            );
+        }
+        assert_eq!(
+            s.retrieve_reranked(&Query::new(0b1, 0, 100, 1000), &[1.0, 0.0], 1)
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn rerank_missing_embedding_ranks_last() {
+        let mut s = MemoryStore::new();
+        let meta = |id| {
+            HotMeta::new(
+                id,
+                MemoryType::Semantic,
+                0,
+                0,
+                0,
+                100,
+                0b1,
+                0,
+                0,
+                FLAG_READABLE,
+            )
+        };
+        s.admit(meta(1), gt("no-embedding")); // empty embedding → cosine 0
+        s.admit(meta(2), gt_emb("has-embedding", vec![1.0, 0.0]));
+        let hits = s.retrieve_reranked(&Query::new(0b1, 0, 100, 1000), &[1.0, 0.0], 2);
+        assert_eq!(hits[0].id, 2);
+        assert_eq!(hits[1].id, 1);
+        assert_eq!(hits[1].cosine, 0.0);
     }
 
     // --- retrieval scan ---

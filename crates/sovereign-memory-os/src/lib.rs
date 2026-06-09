@@ -30,7 +30,8 @@
 pub mod engine;
 
 pub use engine::{
-    FLAG_FAILURE_RELEVANT, FLAG_READABLE, GroundTruth, Hit, HotMeta, MemoryStore, Query,
+    FLAG_FAILURE_RELEVANT, FLAG_READABLE, GroundTruth, Hit, HotMeta, MemoryStore, Query, RerankHit,
+    cosine_similarity,
 };
 
 use serde::{Deserialize, Serialize};
