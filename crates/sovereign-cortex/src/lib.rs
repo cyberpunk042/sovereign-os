@@ -408,6 +408,16 @@ impl Cortex {
         Ok((decision, cycle, learned))
     }
 
+    /// Memory hygiene for long-running operation (M028 decay stage): age out
+    /// memories older than `ttl` ticks relative to `now` by marking their
+    /// summary suspect (recover-to-truth) — the raw episode is never touched.
+    /// Pairs with the capacity bound ([`Cortex::bounded`]) so an endlessly
+    /// running cortex keeps memory both small and fresh. Returns how many
+    /// memories were aged.
+    pub fn maintain(&mut self, now: u64, ttl: u64) -> usize {
+        self.memory.decay(now, ttl)
+    }
+
     /// Run a sequence of requests as one session, learning across them: each
     /// request is decided and (if committed) learned, so later requests in
     /// the session can recall earlier outcomes. Router/scheduler refusals
@@ -1066,6 +1076,19 @@ mod tests {
             "bounded to 2, got {}",
             cortex.memory.len()
         );
+    }
+
+    #[test]
+    fn maintain_ages_stale_learned_memory() {
+        let mut cortex = Cortex::new();
+        let r = req(); // freshness of learned memory = req.now (100)
+        let d = cortex.tick(&r).unwrap();
+        assert!(cortex.learn(&r, &d));
+        // far in the future relative to ttl → the memory ages out
+        let aged = cortex.maintain(10_000, 100);
+        assert_eq!(aged, 1);
+        // idempotent: already-suspect memory is not re-aged
+        assert_eq!(cortex.maintain(10_000, 100), 0);
     }
 
     // --- best-of-N deliberation ---
