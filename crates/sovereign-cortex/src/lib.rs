@@ -73,6 +73,11 @@ pub const RECALL_TOP_K: usize = 5;
 /// the critic judges it. Recall feeds the value plane.
 pub const RECALL_EVIDENCE_BOOST: f32 = 0.05;
 
+/// Additional evidence boost scaled by the best recalled embedding's cosine
+/// similarity to the query embedding — semantically closer recall yields
+/// more confidence (the embedding-rerank stage feeding the value plane).
+pub const SEMANTIC_EVIDENCE_BOOST: f32 = 0.1;
+
 /// Hard safety cap on iterative-search rounds, independent of tier budget.
 pub const MAX_SEARCH_ROUNDS: u32 = 64;
 
@@ -114,6 +119,9 @@ pub struct CortexRequest {
     pub available_adapters: Vec<AdapterSlot>,
     /// Whether the runtime can stack-merge multiple adapters.
     pub stacking_supported: bool,
+    /// Optional query embedding; when non-empty, recall adds the embedding
+    /// rerank stage and a semantic-similarity evidence boost.
+    pub query_embedding: Vec<f32>,
 }
 
 /// The cortex's single auditable decision for a request. Output-only —
@@ -535,7 +543,17 @@ impl Cortex {
         let placement = place(&req.workload, &sched_req, req.allow_cloud)?;
         let query = Query::new(req.query_topic, req.query_entity, req.now, req.half_life);
         let recalled = self.memory.retrieve(&query, RECALL_TOP_K);
-        let boost = recalled.len() as f32 * RECALL_EVIDENCE_BOOST;
+        let mut boost = recalled.len() as f32 * RECALL_EVIDENCE_BOOST;
+        // Embedding rerank stage: when a query embedding is supplied, add a
+        // boost proportional to the best recalled item's cosine similarity.
+        if !req.query_embedding.is_empty()
+            && let Some(top) = self
+                .memory
+                .retrieve_reranked(&query, &req.query_embedding, 1)
+                .first()
+        {
+            boost += top.cosine.max(0.0) * SEMANTIC_EVIDENCE_BOOST;
+        }
         Ok(Prepared {
             route,
             placement,
@@ -777,6 +795,7 @@ pub fn demo_requests() -> Vec<CortexRequest> {
             model_params: 2_000_000_000,
             available_adapters: vec![AdapterSlot::CodingStyle],
             stacking_supported: false,
+            query_embedding: vec![],
         },
         // Private, risky, complex, deep → Oracle / GPU 1, never cloud.
         CortexRequest {
@@ -808,6 +827,7 @@ pub fn demo_requests() -> Vec<CortexRequest> {
             model_params: 70_000_000_000,
             available_adapters: vec![],
             stacking_supported: false,
+            query_embedding: vec![],
         },
     ]
 }
@@ -1091,6 +1111,54 @@ mod tests {
         assert_eq!(aged, 1);
         // idempotent: already-suspect memory is not re-aged
         assert_eq!(cortex.maintain(10_000, 100), 0);
+    }
+
+    // --- embedding-rerank semantic boost ---
+
+    #[test]
+    fn query_embedding_adds_semantic_boost() {
+        // A readable memory carrying an embedding, matching the recall topic.
+        let mut store = MemoryStore::new();
+        store.admit(
+            HotMeta::new(
+                1,
+                MemoryType::Semantic,
+                0,
+                0,
+                800,
+                100,
+                0b1111,
+                0b0001,
+                700,
+                FLAG_READABLE,
+            ),
+            GroundTruth {
+                raw_episode: "e".into(),
+                derived_facts: vec![],
+                summary: "s".into(),
+                graph_edges: vec![],
+                embedding: vec![1.0, 0.0],
+                trust: 800,
+                freshness: 100,
+                summary_suspect: false,
+            },
+        );
+        let cortex = Cortex::with_memory(store);
+
+        let mut base = req();
+        base.reward.evidence = 0.4;
+        base.reward.confidence_calibration = 0.5;
+        let mut with_emb = base.clone();
+        with_emb.query_embedding = vec![1.0, 0.0]; // aligned with the memory
+
+        let plain = cortex.tick(&base).unwrap();
+        let semantic = cortex.tick(&with_emb).unwrap();
+        assert!(
+            semantic.assessment.step_score > plain.assessment.step_score,
+            "semantic match should boost the verdict: {} vs {}",
+            semantic.assessment.step_score,
+            plain.assessment.step_score
+        );
     }
 
     // --- best-of-N deliberation ---
