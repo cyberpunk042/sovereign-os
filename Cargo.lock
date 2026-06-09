@@ -4242,6 +4242,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-community-detect"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-completion-cache"
 version = "0.1.0"
 dependencies = [
