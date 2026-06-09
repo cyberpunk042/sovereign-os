@@ -27,6 +27,7 @@ sovereign-value-plane = { path = "../sovereign-value-plane" }
 sovereign-bitlinear-core = { path = "../sovereign-bitlinear-core" }
 sovereign-nvfp4-runtime = { path = "../sovereign-nvfp4-runtime" }
 sovereign-trinity = { path = "../sovereign-trinity" }
+sovereign-lora-foundry = { path = "../sovereign-lora-foundry" }
 
 [dev-dependencies]
 serde_json = { workspace = true }

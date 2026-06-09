@@ -37,10 +37,11 @@ pub use compute::ComputeProfile;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use sovereign_lora_foundry::{AdapterSlot, RuntimeDecision, ServeRequest, decide_serving};
 use sovereign_memory_os::{
     FLAG_READABLE, GroundTruth, Hit, HotMeta, MemoryStore, MemoryType, Query,
 };
-use sovereign_router_7axis::{RouteDecision, RouterError, TaskAxes, route};
+use sovereign_router_7axis::{RouteDecision, RouterError, Safety, TaskAxes, route};
 use sovereign_srp_scheduler::{
     Placement, PlacementError, RolePressure, ScheduleRequest, Workload, place,
 };
@@ -92,6 +93,10 @@ pub struct CortexRequest {
     pub profile: String,
     /// Model size (parameters) used to estimate the on-device footprint.
     pub model_params: u64,
+    /// Eval-passed LoRA adapters that match this task (may be empty).
+    pub available_adapters: Vec<AdapterSlot>,
+    /// Whether the runtime can stack-merge multiple adapters.
+    pub stacking_supported: bool,
 }
 
 /// The cortex's single auditable decision for a request. Output-only —
@@ -107,6 +112,8 @@ pub struct CortexDecision {
     pub recalled: Vec<Hit>,
     /// Value-plane critic verdict on the (recall-boosted) branch.
     pub assessment: BranchAssessment,
+    /// LoRA serving decision — which adapter path to take (M046).
+    pub serving: RuntimeDecision,
     /// Per-device compute profile for the placement (footprint + precision).
     pub compute: ComputeProfile,
     /// One-line human-readable trace of the whole path.
@@ -230,12 +237,22 @@ impl Cortex {
         let reward = boost_reward(req.reward.clone(), boost);
         let assessment = critic.assess(&BranchState::from_reward(1, reward));
 
+        // Serve — which LoRA adapter path (M046). High-stakes (risky) tasks
+        // route to oracle verification regardless of available adapters.
+        let serve_req = ServeRequest {
+            matching_adapters: req.available_adapters.clone(),
+            stacking_supported: req.stacking_supported,
+            high_stakes: req.axes.safety == Safety::Risky,
+            base_allowed: true,
+        };
+        let serving = decide_serving(&serve_req);
+
         // Compute profile — what the placed precision actually costs,
         // computed by the bitlinear / nvfp4 engines themselves.
         let compute = ComputeProfile::for_role(placement.role, req.model_params);
 
         let summary = format!(
-            "route={:?} → device='{}'{} | recalled={} | action={:?} (score={:.3}, uncertainty={:.3}) | compute={} ({:.1} bits/param, {} MB)",
+            "route={:?} → device='{}'{} | recalled={} | action={:?} (score={:.3}, uncertainty={:.3}) | serve={:?} | compute={} ({:.1} bits/param, {} MB)",
             route.role,
             placement.device,
             placement_tag(&placement),
@@ -243,6 +260,7 @@ impl Cortex {
             assessment.suggested_next_action,
             assessment.step_score,
             assessment.uncertainty,
+            serving,
             compute.path,
             compute.bits_per_param,
             compute.est_model_bytes / 1_000_000,
@@ -253,6 +271,7 @@ impl Cortex {
             placement,
             recalled,
             assessment,
+            serving,
             compute,
             summary,
         })
@@ -602,6 +621,8 @@ pub fn demo_requests() -> Vec<CortexRequest> {
             reward: strong_reward.clone(),
             profile: "fast".into(),
             model_params: 2_000_000_000,
+            available_adapters: vec![AdapterSlot::CodingStyle],
+            stacking_supported: false,
         },
         // Private, risky, complex, deep → Oracle / GPU 1, never cloud.
         CortexRequest {
@@ -631,6 +652,8 @@ pub fn demo_requests() -> Vec<CortexRequest> {
             reward: strong_reward,
             profile: "careful".into(),
             model_params: 70_000_000_000,
+            available_adapters: vec![],
+            stacking_supported: false,
         },
     ]
 }
@@ -764,6 +787,30 @@ mod tests {
         // simple/local → Conductor → ternary, multiplication-free
         assert!(d.compute.multiplication_free);
         assert!((d.compute.bits_per_param - 1.6).abs() < 1e-6);
+    }
+
+    // --- LoRA serving decision wiring ---
+
+    #[test]
+    fn safe_task_with_one_adapter_uses_it() {
+        let d = Cortex::with_memory(seed_memory()).tick(&req()).unwrap();
+        assert_eq!(d.serving, RuntimeDecision::UseAdapter);
+    }
+
+    #[test]
+    fn risky_task_routes_serving_to_oracle() {
+        let d = Cortex::with_memory(seed_memory())
+            .tick(&demo_requests().remove(1))
+            .unwrap();
+        assert_eq!(d.serving, RuntimeDecision::AskOracle);
+    }
+
+    #[test]
+    fn safe_task_no_adapter_uses_base() {
+        let mut r = req();
+        r.available_adapters.clear();
+        let d = Cortex::new().tick(&r).unwrap();
+        assert_eq!(d.serving, RuntimeDecision::UseBase);
     }
 
     // --- best-of-N deliberation ---
