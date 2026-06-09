@@ -63,7 +63,10 @@ it, showing the cost-aware behaviour the crates exist for:
 
 The generator is a deterministic model stand-in (the point is the orchestration,
 not the text), mirroring the cortex binary's demo mode. `--help` supported.
-`fmt` + `clippy -D warnings` clean on pinned 1.88.0; the 6 lib tests still pass.
+With no args it runs the demo; given `PROMPT [PROMPT…]` it serves each on an
+unlimited budget (a repeated prompt resolving as a `$0` cache hit) — an actually
+usable cost-aware serving tool, not just a fixed demo. `fmt` +
+`clippy -D warnings` clean on pinned 1.88.0; the 6 lib tests still pass.
 
 ### Added — the World-Model prior now acts: a surprise engages deeper reasoning (2026-06-09)
 

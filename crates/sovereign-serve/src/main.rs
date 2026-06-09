@@ -15,7 +15,7 @@
 //! is the orchestration, not the text. Usage: `sovereign-serve` (runs the demo
 //! session) · `sovereign-serve --help`.
 
-use sovereign_serve::{ServeResult, Server};
+use sovereign_serve::Server;
 use sovereign_token_meter::Budget;
 
 /// Whitespace-word token counter — the runtime supplies the real tokenizer; the
@@ -36,43 +36,60 @@ const USAGE: &str = "\
 sovereign-serve — the $0-aware serving assembly (cache -> complexity -> budget -> generate -> account)
 
 USAGE:
-    sovereign-serve            run the built-in demo session, print, exit
-    sovereign-serve --help     print this help and exit";
+    sovereign-serve                    run the built-in demo session, print, exit
+    sovereign-serve PROMPT [PROMPT…]   serve each prompt (unlimited budget; a
+                                       repeated prompt is a $0 cache hit)
+    sovereign-serve --help             print this help and exit";
 
 fn main() {
-    if std::env::args().any(|a| a == "--help" || a == "-h") {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.iter().any(|a| a == "--help" || a == "-h") {
         println!("{USAGE}");
         return;
     }
+    let prompts: Vec<&str> = args
+        .iter()
+        .filter(|a| !a.starts_with('-'))
+        .map(String::as_str)
+        .collect();
 
-    // Small total-token budget so the session demonstrates a real refusal.
-    let mut server = Server::with_budget(64, Budget::total(40));
+    if prompts.is_empty() {
+        // Demo: a small total-token budget so the session shows a real refusal,
+        // and a repeated prompt so it shows a $0 cache hit.
+        let mut server = Server::with_budget(64, Budget::total(40));
+        run_session(
+            &mut server,
+            &[
+                ("hello there", 3, 1),
+                ("explain raft consensus to me", 6, 2),
+                ("hello there", 3, 1),
+                ("generate a very long answer please", 50, 3),
+            ],
+        );
+    } else {
+        // Serve the operator's prompts on an unlimited budget; a repeated prompt
+        // still resolves as a $0 cache hit.
+        let mut server = Server::new(64);
+        // Fixed seed so an identical prompt resolves as a $0 cache hit.
+        let session: Vec<(&str, usize, u64)> = prompts.iter().map(|p| (*p, 16, 0u64)).collect();
+        run_session(&mut server, &session);
+    }
+}
 
-    // (prompt, max_new, seed). The third request repeats the first (cache hit);
-    // the last asks for more output than the remaining budget allows (refused).
-    let session = [
-        ("hello there", 3, 1u64),
-        ("explain raft consensus to me", 6, 2),
-        ("hello there", 3, 1),
-        ("generate a very long answer please", 50, 3),
-    ];
-
+/// Serve each `(prompt, max_new, seed)` in order, printing the cost-aware
+/// outcome per request and a usage summary at the end.
+fn run_session(server: &mut Server, session: &[(&str, usize, u64)]) {
     let mut cache_hits = 0usize;
     let mut refused = 0usize;
-    for (prompt, max_new, seed) in session {
+    for &(prompt, max_new, seed) in session {
         match server.serve(prompt, max_new, seed, words, demo_generate) {
-            Ok(ServeResult {
-                text,
-                cache_hit,
-                tier,
-                input_tokens,
-                output_tokens,
-            }) => {
-                if cache_hit {
+            Ok(r) => {
+                if r.cache_hit {
                     cache_hits += 1;
                 }
                 println!(
-                    "serve  ok   | cache_hit={cache_hit:<5} tier={tier:?} in={input_tokens} out={output_tokens} | {prompt:?} -> {text:?}"
+                    "serve  ok   | cache_hit={:<5} tier={:?} in={} out={} | {prompt:?} -> {:?}",
+                    r.cache_hit, r.tier, r.input_tokens, r.output_tokens, r.text
                 );
             }
             Err(e) => {
