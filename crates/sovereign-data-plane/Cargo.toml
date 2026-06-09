@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-data-plane"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M010 deterministic data plane — a Roaring-style compressed bitmap (CRoaring reference): u32 keys partitioned into array/bitmap containers by high 16 bits, auto-converting sparse↔dense, with union/intersection/cardinality. The deterministic set substrate for fast metadata filtering."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

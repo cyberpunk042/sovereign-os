@@ -4121,6 +4121,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-data-plane"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-doctrinal-preservation"
 version = "0.1.0"
 dependencies = [
