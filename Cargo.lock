@@ -4511,6 +4511,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-telemetry"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "sovereign-hardware-load-sample",
+ "sovereign-hardware-registry",
+ "sovereign-observability-fabric",
+ "sovereign-pressure-sensors",
+]
+
+[[package]]
 name = "sovereign-tool-catalog"
 version = "0.1.0"
 dependencies = [
