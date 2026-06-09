@@ -735,6 +735,24 @@ The codebase carries substantial production state from prior development. This s
 | `backlog/SHIPPED.md` (this file) | shipped — orthogonal production-delivery state tracker |
 | Per-milestone audit coverage | This commit widens coverage from M060-only to ~17 milestone families across the 80-milestone catalogue. Cross-cutting (cockpit crates + scripts + profiles + schemas + Grafana dashboards) cited per family rather than per-milestone where the production surface is genuinely cross-cutting (no invention — every cited path is repo-verified). |
 
+## M045 + M013 — Linux-as-governor telemetry substrate (sense → decide → enforce)
+
+**Catalogued:** M045 (E0428–E0437, "Linux as intelligence governor") + M013 (E0106–E0115, "observability as control input"). See `backlog/milestones/M045-*.md` + `M013-*.md`.
+
+**Shipped this session (complete vertical slice; engine-facing substrate + operator-visible surface):**
+
+| R-row family | Surface | Commits (sovereign-os) | Tests |
+|---|---|---|---|
+| E0430 — Pressure-as-sensation (PSI 6-axis) | `sovereign-pressure-sensors` live ingestion: `parse_psi_some_avg10` over `/proc/pressure/*` + `from_psi`/`from_readings`/`update_axis`; the six E0430 axes (cpu/memory/io/gpu/human-attention/cost) | `0439698`, `fe0dc97` | 23 unit (real PSI sample parse, validated build, range guards) |
+| E0430 — pressure sources (PSI + DCGM + CPU) | `sovereign-hardware-load-sample` live ingestion: `parse_gpu_csv` (nvidia/rocm-smi), `parse_proc_stat_cpu`+`cpu_util_pct`, `parse_thermal_zone_temp`; `from_loads`/`update_target`/`update_gpu` registry-validated | `f6c155c`, `4a77c5e`, `0682a46`, `88d687a` | 22 unit |
+| E0431 / M00760 — 5 adaptive-intelligence reactions | `sovereign-pressure-reactions` `derive_reactions(pressure, load, registry, thresholds)` — verbatim actions; pressure rules on axis≥high, idle rules presence-gated | `082a4bb` | 7 unit |
+| E0429 / M00756 — 5 systemd resource-control boundaries | `sovereign-resource-control` lib (oracle/scout/sandbox/eval/gateway profiles, `to_systemd_dropin`, validate) + `sovereign-resource-control` **binary** emitting deployable `/etc/systemd/system/<unit>.d/` drop-ins | `09b621e`, `3950cde` | 8 unit |
+| E0111 / M00212 — worker 64-bit status word | `sovereign-worker-status-word` pack/unpack (load/memory/thermal/queue/error/health/policy_mode/flags bytes) + flag bits | `3fc2304` | 6 unit |
+| E0112 / M00215 — runtime trace mapping | `sovereign-trace-context` trace_id/span_id/branch_id/commit_id + R02147 reconstructable `committed_path()` | `abb284f` | 8 unit |
+| E0430 + E0431 runnable + **operator-visible** | `sovereign-telemetry` **binary**: sense→decide end-to-end (real `/proc/stat` util verified 53% under load); `--watch` NDJSON monitor; `--prometheus` exposition; Prometheus **alert rules** (`config/prometheus/alerts/sovereign-telemetry.rules.yml`) + Grafana **dashboard** (`docs/observability/dashboards/sovereign-os-telemetry.json`) | `874464e`, `13cdbe5`, `58a1657`, `bcdf3b9`, `136ea16`, `538c8ae`, `9ec808f`, `d8b9484` | binary smoke (json+prometheus contract) + 5 alert-contract + 6 dashboard-contract |
+
+All crates auto-include via the `crates/*` workspace glob (zero shared-file edits); lib-only crates + 2 runnable binaries; the operator-visible surface (Prometheus metrics + alerts + Grafana dashboard) reaches the SHIPPED bar. Complements the engine runtime on branches — this is the inputs/observability the scheduler consumes, not the engine cores.
+
 ## Other catalogued milestones — production-shipped state TBD
 
 The 80-milestone catalogue spans extremely broad territory (the avx-plus-plus dump's full scope across substrate, runtime, agent, operator-§1g, intelligence, persistence, observability). Many milestone-specific audit rows remain to map. The 475-crate workspace + 20-dashboard webapp tree + 40 script categories + 81 profile/schema files all carry production state that future audit cycles append per-milestone above.
