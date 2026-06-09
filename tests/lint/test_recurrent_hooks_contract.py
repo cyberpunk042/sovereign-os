@@ -152,6 +152,39 @@ def test_every_timer_references_existing_service():
         )
 
 
+# A timer's [Timer] section MUST carry at least one of these — otherwise the
+# unit loads but has no trigger and NEVER fires (the recurrent hook silently
+# never runs). systemd's real-time + monotonic timer directives.
+_TRIGGER_DIRECTIVES = (
+    "OnCalendar",
+    "OnBootSec",
+    "OnStartupSec",
+    "OnActiveSec",
+    "OnUnitActiveSec",
+    "OnUnitInactiveSec",
+)
+
+
+def test_every_timer_has_a_firing_trigger():
+    """Every .timer MUST declare at least one firing trigger. The file's own
+    contract is that "each recurrent hook runs on a systemd timer cadence" —
+    but wiring tests (service exists, ExecStart present) all pass even if a
+    timer lost its OnCalendar/OnBootSec, in which case the unit loads but
+    never fires and the safety hook silently never runs. This is the
+    verification gate for that declared cadence."""
+    trigger_re = re.compile(
+        r"^\s*(" + "|".join(_TRIGGER_DIRECTIVES) + r")=\S",
+        re.M,
+    )
+    for timer in sorted(SYSTEMD_DIR.glob("sovereign-*.timer")):
+        body = _read(timer)
+        assert trigger_re.search(body), (
+            f"timer {timer.name} has no firing trigger "
+            f"({'/'.join(_TRIGGER_DIRECTIVES)}) — it would load but NEVER "
+            f"fire, so its recurrent hook silently never runs"
+        )
+
+
 # --- Operator-doc completeness: the ongoing-maintenance doc must mirror
 #     the canonical timer set ---
 
