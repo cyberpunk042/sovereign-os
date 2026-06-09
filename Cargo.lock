@@ -234,6 +234,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-arg-schema"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-attention"
 version = "0.1.0"
 dependencies = [
