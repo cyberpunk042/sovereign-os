@@ -75,6 +75,15 @@ impl WorldModel {
         self.table.len()
     }
 
+    /// Total transitions observed for one `(state, action)` pair (0 if unseen).
+    /// Lets a consumer weight a prediction by how much history backs it.
+    pub fn pair_observations(&self, state: u64, action: u64) -> u64 {
+        self.table
+            .get(&(state, action))
+            .map(|outcomes| outcomes.values().sum())
+            .unwrap_or(0)
+    }
+
     /// Predict the most-likely next state for `(state, action)` — the modal
     /// observed outcome (ties broken by lower next-state id). `None` if the
     /// pair was never observed.
@@ -145,6 +154,17 @@ mod tests {
         assert_eq!(m.predict(1, 0), Some(2));
         assert_eq!(m.observations(), 1);
         assert_eq!(m.known_pairs(), 1);
+    }
+
+    #[test]
+    fn pair_observations_counts_per_pair() {
+        let mut m = WorldModel::new();
+        m.observe(1, 0, 2);
+        m.observe(1, 0, 3);
+        m.observe(7, 0, 9);
+        assert_eq!(m.pair_observations(1, 0), 2);
+        assert_eq!(m.pair_observations(7, 0), 1);
+        assert_eq!(m.pair_observations(42, 0), 0); // unseen
     }
 
     #[test]

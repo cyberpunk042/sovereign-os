@@ -12,6 +12,32 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — cortex composes the World-Model plane (M030): learned routing-outcome priors (2026-06-09)
+
+The cortex assembly gains a ninth real engine. `sovereign-cortex` now owns a
+`sovereign-world-model` (M030) that learns `(task-topic, routing-role) →
+outcome` dynamics across requests — distinct from the symbolic planner's fixed
+effects (this learns from data, Dreamer-style):
+
+- **`Cortex::learn`** observes the transition on **every** outcome (commit,
+  prune, expand, need-more-compute), not just commits, so the model can predict
+  prunes too. Separate from the commit-gated Memory-OS admission.
+- **`Cortex::tick`** consults the model for a learned prior and annotates the
+  decision with `Option<WorldModelPrediction>` — `expected_action`, `confidence`
+  (modal probability), `observations` (history depth), and `agrees_with_verdict`
+  (a mismatch flags a task resolving differently than history). Honest `None`
+  for a cold pair — no fabrication.
+- New `WorldModel::pair_observations(state, action)` (additive) backs the
+  history-depth field.
+- The prior is read-only in `tick` and learned only in `learn`, so there's no
+  intra-request leakage: a cold pair predicts `None`, and the prediction only
+  becomes informative once the pair has resolved before.
+- Locked by a cortex test (cold → None; after one observation → agreeing
+  prediction at confidence 1.0) + a world-model test. All 53 existing cortex
+  tests still pass; `fmt` + `clippy -D warnings` clean on pinned 1.88.0; the
+  gateway (which serializes `CortexDecision`) passes unchanged — the new field
+  is additive.
+
 ### Added — `sovereign-gatewayd` deployable: systemd unit + Makefile install + e2e transport tests (2026-06-09)
 
 Turns the gateway daemon from a buildable binary into a deployable managed
