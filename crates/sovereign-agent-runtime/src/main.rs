@@ -83,12 +83,31 @@ const USAGE: &str = "\
 sovereign-agent-runtime — a tool-using ReAct agent on the real quantized inference engine
 
 USAGE:
-    sovereign-agent-runtime         run the real-runtime + scripted demos, exit
-    sovereign-agent-runtime --help  print this help and exit";
+    sovereign-agent-runtime          run the real-runtime + scripted demos, exit
+    sovereign-agent-runtime QUERY    run the real agent on your query, exit
+    sovereign-agent-runtime --help   print this help and exit";
 
 fn main() {
-    if std::env::args().any(|a| a == "--help" || a == "-h") {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.iter().any(|a| a == "--help" || a == "-h") {
         println!("{USAGE}");
+        return;
+    }
+
+    // If the operator supplied a query, run the real agent on it and exit. (With
+    // random weights the model won't emit a tool call, but the real engine drives
+    // the loop on the operator's own input.)
+    if let Some(query) = args.iter().find(|a| !a.starts_with('-')) {
+        let mut agent = AgentLoop::new(LlmResponder::new(runtime(), 6), tools(), 4);
+        match agent.run(query, 0) {
+            Ok(res) => println!(
+                "query={query:?} → completed={} steps={} answer={:?}",
+                res.completed,
+                res.steps.len(),
+                res.answer
+            ),
+            Err(e) => println!("error: {e}"),
+        }
         return;
     }
 

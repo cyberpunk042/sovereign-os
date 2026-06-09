@@ -68,11 +68,13 @@ const USAGE: &str = "\
 sovereign-chat — multi-turn conversation with bounded history on the real engine
 
 USAGE:
-    sovereign-chat         run the demo session (4 turns, history bounded), exit
-    sovereign-chat --help  print this help and exit";
+    sovereign-chat                   run the demo session (4 turns, bounded), exit
+    sovereign-chat MESSAGE [MESSAGE…] run your messages as turns (history bounded)
+    sovereign-chat --help            print this help and exit";
 
 fn main() {
-    if std::env::args().any(|a| a == "--help" || a == "-h") {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.iter().any(|a| a == "--help" || a == "-h") {
         println!("{USAGE}");
         return;
     }
@@ -83,12 +85,26 @@ fn main() {
     let mut chat = ChatSession::new(runtime(), Some("You are a sovereign local assistant."), 6)
         .with_max_turns(MAX_TURNS);
 
-    let user_turns = [
+    // Operator messages if given, else a built-in demo dialogue. Either way the
+    // history-bounding (the assembly's point) operates on the real turns.
+    let demo_turns = [
         "hello",
         "what can you do",
         "tell me about sovereignty",
         "and about cost",
     ];
+    let user_turns: Vec<&str> = {
+        let given: Vec<&str> = args
+            .iter()
+            .filter(|a| !a.starts_with('-'))
+            .map(String::as_str)
+            .collect();
+        if given.is_empty() {
+            demo_turns.to_vec()
+        } else {
+            given
+        }
+    };
 
     println!("system + bounded history (max {MAX_TURNS} non-system messages)\n");
     for (i, user) in user_turns.iter().enumerate() {
