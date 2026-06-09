@@ -1317,6 +1317,38 @@ mod tests {
     }
 
     #[test]
+    fn prediction_flags_disagreement_with_history() {
+        // Seed a conflicting prior: history says this (topic, role) pruned, but
+        // the live request commits — the prediction must flag the mismatch.
+        let mut cortex = Cortex::new();
+        let r = req();
+
+        let cold = cortex.tick(&r).unwrap();
+        assert!(cold.prediction.is_none());
+        let role = cold.route.role;
+
+        // History: this (topic, role) resolved to Prune before.
+        cortex.world_model.observe(
+            r.query_topic,
+            role_action_id(role),
+            outcome_state_id(NextAction::Prune),
+        );
+
+        let warm = cortex.tick(&r).unwrap();
+        let p = warm.prediction.expect("the pair is now known");
+        assert_eq!(p.expected_action, NextAction::Prune);
+        assert_ne!(
+            warm.assessment.suggested_next_action,
+            NextAction::Prune,
+            "the live request commits, so it must not prune"
+        );
+        assert!(
+            !p.agrees_with_verdict,
+            "a Prune prior must disagree with a non-Prune verdict"
+        );
+    }
+
+    #[test]
     fn learning_raises_confidence_on_the_next_similar_request() {
         // A weakened request the cortex commits on (strong base reward),
         // then a second identical request should recall the learned memory
