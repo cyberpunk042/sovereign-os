@@ -4601,6 +4601,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-sampler"
+version = "0.1.0"
+dependencies = [
+ "rand",
+ "rand_chacha",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-six-pillars"
 version = "0.1.0"
 dependencies = [
