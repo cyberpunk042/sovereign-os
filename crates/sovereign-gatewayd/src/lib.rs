@@ -146,6 +146,10 @@ pub struct Ledger {
     /// Of those, how many had the learned prior agree with the live verdict.
     /// The ratio is how well the engine is learning its own dynamics.
     pub prediction_agreements: u64,
+    /// Read-only ops handled (`explain` + `deliberate`). Counted for request-mix
+    /// observability; the decision-ledger fields above and the engine's learned
+    /// state are untouched by these ops — the auditor guarantee still holds.
+    pub dry_runs: u64,
 }
 
 /// Daemon health snapshot.
@@ -261,6 +265,7 @@ impl GatewayServer {
             let cortex = self.cortex.lock().expect("cortex poisoned");
             cortex.tick(&request)
         };
+        self.ledger.lock().expect("ledger poisoned").dry_runs += 1;
         match result {
             Ok(decision) => GatewayResponse::Explanation {
                 explanation: decision.explain(),
@@ -288,6 +293,7 @@ impl GatewayServer {
             let cortex = self.cortex.lock().expect("cortex poisoned");
             cortex.deliberate(&request, &candidates, tier)
         };
+        self.ledger.lock().expect("ledger poisoned").dry_runs += 1;
         match result {
             Ok(deliberation) => GatewayResponse::Deliberation {
                 deliberation: Box::new(deliberation),
@@ -436,6 +442,15 @@ impl GatewayServer {
         ));
 
         s.push_str(
+            "# HELP sovereign_gateway_dry_runs_total Read-only ops (explain + deliberate) handled.\n",
+        );
+        s.push_str("# TYPE sovereign_gateway_dry_runs_total counter\n");
+        s.push_str(&format!(
+            "sovereign_gateway_dry_runs_total {}\n",
+            ledger.dry_runs
+        ));
+
+        s.push_str(
             "# HELP sovereign_gateway_prediction_total Decisions that carried a World-Model prior (M030).\n",
         );
         s.push_str("# TYPE sovereign_gateway_prediction_total counter\n");
@@ -507,8 +522,11 @@ mod tests {
         let v: serde_json::Value = serde_json::from_str(&out).unwrap();
         assert_eq!(v["kind"], "explanation");
         assert!(v["explanation"].as_str().unwrap().contains("Routed to"));
-        // A dry-run must not move the ledger (no infer/learn happened).
-        assert_eq!(s.ledger.lock().unwrap().total_requests, 0);
+        // A dry-run must not move the decision ledger (no infer/learn happened),
+        // but it is counted for request-mix observability.
+        let ledger = s.ledger.lock().unwrap();
+        assert_eq!(ledger.total_requests, 0);
+        assert_eq!(ledger.dry_runs, 1);
     }
 
     #[test]
