@@ -82,12 +82,24 @@ emit_guard_metrics() {
 }
 emit_guard_metrics 0
 
-if [ "${adv_rc}" -eq 0 ]; then
-  log_info "verdict=${verdict} — no shutdown action"
+# Fire ONLY on a CONFIRMED critical state: the probe's documented critical code
+# (rc=1) AND verdict=critical agreeing. The probe contract is rc=0 (OK/no-UPS),
+# rc=1 (critical), rc=2 (usage error). The old gate exited only on rc==0 and
+# treated EVERY other rc as critical — so a probe usage-error (rc=2), a crash, or
+# python being absent (any non-zero rc) was misread as 'critical battery' and
+# could fire an ERRONEOUS `systemctl poweroff` on an armed host. Refuse to act on
+# an indeterminate state instead.
+if [ "${adv_rc}" -eq 1 ] && [ "${verdict}" = "critical" ]; then
+  : # confirmed critical — fall through to the arm gate below
+elif [ "${adv_rc}" -ge 2 ] || [ "${verdict}" = "error" ] || [ "${verdict}" = "unknown" ]; then
+  log_error "power probe error (rc=${adv_rc}, verdict=${verdict}) — NOT firing shutdown on an indeterminate state (fix the probe)"
+  exit 0
+else
+  log_info "verdict=${verdict} (rc=${adv_rc}) — no shutdown action"
   exit 0
 fi
 
-# Verdict is critical (adv_rc=1). Check the arm gate.
+# Confirmed critical (rc=1 + verdict=critical). Check the arm gate.
 armed_env="${SOVEREIGN_OS_POWER_SHUTDOWN_ARMED:-NO}"
 armed_cfg="$(echo "${adv_json}" | python3 -c '
 import json, sys
