@@ -4402,16 +4402,22 @@ dependencies = [
 name = "sovereign-inference-demo"
 version = "0.1.0"
 dependencies = [
+ "sovereign-beam-search",
+ "sovereign-checkpoint",
  "sovereign-decoder-layer",
+ "sovereign-decoder-stack",
  "sovereign-ffn",
  "sovereign-linear",
+ "sovereign-llm",
  "sovereign-logit-mask",
  "sovereign-mha-block",
+ "sovereign-perplexity",
  "sovereign-quant-block",
  "sovereign-quant-llm",
  "sovereign-quant-model",
  "sovereign-rmsnorm",
  "sovereign-sampler",
+ "sovereign-speculative",
  "sovereign-tokenizer",
  "sovereign-transformer-block",
 ]

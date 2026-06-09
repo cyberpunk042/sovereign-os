@@ -14,16 +14,22 @@
 
 #![forbid(unsafe_code)]
 
+use sovereign_beam_search::BeamSearch;
+use sovereign_checkpoint::{load, save};
 use sovereign_decoder_layer::{DecoderLayer, LayerStack};
+use sovereign_decoder_stack::{DecoderStack, StackConfig};
 use sovereign_ffn::SwiGlu;
 use sovereign_linear::Precision;
+use sovereign_llm::LlmConfig;
 use sovereign_logit_mask::LogitMask;
 use sovereign_mha_block::{MhaBlockWeights, MhaDecoderBlock};
+use sovereign_perplexity::evaluate;
 use sovereign_quant_block::{QuantBlockWeights, QuantDecoderBlock};
 use sovereign_quant_llm::QuantLlm;
 use sovereign_quant_model::QuantModel;
 use sovereign_rmsnorm::RmsNorm;
 use sovereign_sampler::{Sampler, SamplerConfig};
+use sovereign_speculative::Speculative;
 use sovereign_tokenizer::Tokenizer;
 use sovereign_transformer_block::{BlockWeights, DecoderBlock};
 
@@ -182,8 +188,113 @@ fn run_demo() -> String {
     out
 }
 
+/// Build a small f32 decoder-stack model (vocab 64, 1 block) for the
+/// decoding-strategy and evaluation demonstrations.
+fn build_f32_model(vocab: usize) -> StackConfig {
+    let md = MODEL_DIM;
+    let block = BlockWeights {
+        model_dim: md,
+        head_dim: md,
+        attn_norm: RmsNorm::new(md),
+        ffn_norm: RmsNorm::new(md),
+        w_q: weights(1.0, md * md),
+        w_k: weights(2.0, md * md),
+        w_v: weights(3.0, md * md),
+        w_o: weights(4.0, md * md),
+        ffn: SwiGlu::new(
+            md,
+            md,
+            weights(5.0, md * md),
+            weights(6.0, md * md),
+            weights(7.0, md * md),
+        )
+        .expect("valid swiglu"),
+    };
+    StackConfig {
+        vocab,
+        model_dim: md,
+        embedding: weights(0.5, vocab * md),
+        blocks: vec![block],
+        final_norm: RmsNorm::new(md),
+        head: weights(0.9, vocab * md),
+        sampler: Sampler::new(SamplerConfig {
+            temperature: 0.8,
+            ..SamplerConfig::default()
+        }),
+        recent_window: 64,
+    }
+}
+
+/// Demonstrate the f32 decoder-stack across all decoding strategies, perplexity
+/// evaluation, and a checkpoint round-trip.
+fn run_strategies_demo() -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let vocab = 64usize;
+    let prompt = [7usize, 11, 23];
+    let cfg = build_f32_model(vocab);
+    let model = DecoderStack::new(cfg.clone()).expect("valid model");
+
+    let _ = writeln!(
+        out,
+        "\n=== decoding strategies (f32 decoder-stack, vocab {vocab}) ==="
+    );
+
+    // sampling
+    let mut sampled = model.clone();
+    let s = sampled.generate(&prompt, 8, 42).expect("sample");
+    let _ = writeln!(out, "sampled         : {s:?}");
+
+    // beam search (deterministic)
+    let beam = BeamSearch::new(4, 8).search(&model, &prompt).expect("beam");
+    let _ = writeln!(
+        out,
+        "beam (w=4)      : {:?} (logprob {:.3})",
+        beam.tokens, beam.score
+    );
+
+    // speculative decoding (self-draft → lossless vs greedy target)
+    let spec = Speculative::new(4, 8)
+        .decode(&model, &model, &prompt)
+        .expect("spec");
+    let _ = writeln!(
+        out,
+        "speculative     : {:?} (accept {}/{} = {:.0}%)",
+        spec.tokens,
+        spec.accepted,
+        spec.proposed,
+        spec.acceptance_rate() * 100.0
+    );
+
+    // perplexity over a reference sequence
+    let reference = [7usize, 11, 23, 5, 9, 2, 14];
+    let ev = evaluate(&model, &reference).expect("perplexity");
+    let _ = writeln!(
+        out,
+        "perplexity      : {:.3} (cross-entropy {:.3} nats over {} tokens)",
+        ev.perplexity, ev.cross_entropy, ev.predicted
+    );
+
+    // checkpoint save + load round-trip
+    let llm_cfg = LlmConfig {
+        tokenizer: Tokenizer::default(),
+        model: cfg,
+    };
+    let bytes = save(&llm_cfg);
+    let restored = load(&bytes).expect("checkpoint loads");
+    let _ = writeln!(
+        out,
+        "checkpoint      : {} bytes, round-trip ok = {}",
+        bytes.len(),
+        restored == llm_cfg
+    );
+
+    out
+}
+
 fn main() {
     print!("{}", run_demo());
+    print!("{}", run_strategies_demo());
 }
 
 #[cfg(test)]
@@ -205,5 +316,28 @@ mod tests {
         let mask = LogitMask::new().allow_only((b'A' as usize)..=(b'D' as usize));
         let text = llm.complete_constrained("the cat", 12, 1, &mask).unwrap();
         assert!(text.chars().all(|c| ('A'..='D').contains(&c)), "{text:?}");
+    }
+
+    #[test]
+    fn strategies_demo_runs_and_reports_each_strategy() {
+        let report = run_strategies_demo();
+        assert!(report.contains("sampled"));
+        assert!(report.contains("beam (w=4)"));
+        assert!(report.contains("speculative"));
+        assert!(report.contains("perplexity"));
+        assert!(report.contains("round-trip ok = true"), "{report}");
+    }
+
+    #[test]
+    fn speculative_in_demo_is_lossless_vs_beam_width_one() {
+        // self-draft speculative == greedy target == beam width 1, on the demo model.
+        let cfg = build_f32_model(64);
+        let model = DecoderStack::new(cfg).unwrap();
+        let prompt = [7usize, 11, 23];
+        let spec = Speculative::new(4, 8)
+            .decode(&model, &model, &prompt)
+            .unwrap();
+        let beam1 = BeamSearch::new(1, 8).search(&model, &prompt).unwrap();
+        assert_eq!(spec.tokens, beam1.tokens);
     }
 }
