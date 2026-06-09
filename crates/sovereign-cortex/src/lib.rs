@@ -4,26 +4,38 @@
 //! composed them: there was no binary, and the engines barely referenced
 //! each other. This crate is the composition layer — one
 //! [`Cortex::tick`] runs a request through the whole local intelligence
-//! path and returns a single auditable decision:
+//! path and returns a single auditable decision; [`Cortex::act`] then
+//! ratifies it through the Trinity gate, and [`Cortex::learn`] folds a
+//! committed outcome back into memory. All eight engines compose here:
 //!
 //! ```text
 //! CortexRequest
 //!   │
-//!   ├─▶ router-7axis   route(axes)            → SRP role + reason
-//!   ├─▶ srp-scheduler  place(workload, …)     → hardware target (capability-aware)
-//!   ├─▶ memory-os      retrieve(query)        → recalled evidence
-//!   │        └─ recall boosts the branch's evidence/calibration
-//!   └─▶ value-plane    critic.assess(branch)  → commit / expand / prune
+//!   ├─▶ router-7axis    route(axes)          → SRP role + reason
+//!   ├─▶ srp-scheduler   place(workload, …)   → hardware target (capability-aware)
+//!   ├─▶ memory-os       retrieve(query)      → recalled evidence ──┐
+//!   │                                          (boosts the branch) │
+//!   ├─▶ value-plane     critic.assess(branch) → commit/expand/prune ◀┘
+//!   ├─▶ lora-foundry    decide_serving(…)    → which adapter path
+//!   ├─▶ hrm-runtime     run_with_halt(…)     → deeper reasoning (if uncertain)
+//!   └─▶ bitlinear+nvfp4 ComputeProfile       → real per-device kernel + footprint
 //!   ▼
-//! CortexDecision  (role, device, recalled, assessment, summary)
+//! CortexDecision
+//!   │
+//!   ├─▶ trinity         Pulse→Weaver→Auditor → ratified commit   (act)
+//!   └─▶ memory-os       admit(committed)     → learned for next  (learn, M016)
 //! ```
 //!
-//! The wiring is real, not nominal: the memory the cortex recalls
-//! actually modulates the reward vector the PRM critic then judges
-//! ([`Cortex::tick`] raises `evidence`/`confidence_calibration` per
-//! supporting memory found), so "more relevant memory" yields a more
-//! confident verdict — exactly what the Memory-OS doctrine ("memory is
-//! intelligence") asks of the value plane.
+//! The wiring is real, not nominal: recalled memory modulates the reward
+//! vector the PRM critic judges (more relevant memory → more confident
+//! verdict); the compute step actually runs the bitlinear/nvfp4 kernels;
+//! the Auditor ratifies only a value-plane Commit; and committed decisions
+//! are learned so later similar requests decide better — adaptation without
+//! retraining.
+//!
+//! Modes: [`Cortex::tick`] (single pass), [`Cortex::deliberate`] (best-of-N),
+//! [`Cortex::search`] (iterative, budget-bounded), [`Cortex::act`] /
+//! [`Cortex::act_and_learn`] (decide → ratify → learn).
 //!
 //! Standing rule: We do not minimize anything.
 
