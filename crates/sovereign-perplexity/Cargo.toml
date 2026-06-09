@@ -1,0 +1,23 @@
+[package]
+name = "sovereign-perplexity"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Language-model evaluation by perplexity: scores a model's per-token log-likelihood on a reference token sequence and reports cross-entropy and perplexity. The standard intrinsic LM metric, used to compare models or quantization levels. Composes sovereign-decoder-stack (its Clone-able model is scored without mutating the original)."
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+sovereign-decoder-stack = { path = "../sovereign-decoder-stack" }
+
+[dev-dependencies]
+sovereign-transformer-block = { path = "../sovereign-transformer-block" }
+sovereign-rmsnorm = { path = "../sovereign-rmsnorm" }
+sovereign-ffn = { path = "../sovereign-ffn" }
+sovereign-sampler = { path = "../sovereign-sampler" }

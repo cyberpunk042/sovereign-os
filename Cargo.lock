@@ -4612,6 +4612,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-perplexity"
+version = "0.1.0"
+dependencies = [
+ "sovereign-decoder-stack",
+ "sovereign-ffn",
+ "sovereign-rmsnorm",
+ "sovereign-sampler",
+ "sovereign-transformer-block",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-policy-questions"
 version = "0.1.0"
 dependencies = [
