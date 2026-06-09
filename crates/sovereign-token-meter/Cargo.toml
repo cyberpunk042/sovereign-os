@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-token-meter"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Token accounting and cost metering: tracks input/output tokens against optional budgets, enforces limits before a spend, and estimates cost from per-1k prices. The bookkeeping behind the sovereign runtime's $0-target, cost-aware routing — what tells you whether a request fits the budget before you run it."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
