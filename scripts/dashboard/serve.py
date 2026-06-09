@@ -49,6 +49,7 @@ L3 test can curl without spawning a separate process).
 from __future__ import annotations
 
 import argparse
+import hmac
 import html
 import json
 import os
@@ -2083,7 +2084,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
             )
             return False
         auth = self.headers.get("Authorization", "")
-        if not auth.startswith("Bearer ") or auth[len("Bearer "):] != expected:
+        # Constant-time compare (hmac.compare_digest) so the Bearer-token
+        # check can't be byte-by-byte timing-attacked — `!=` short-circuits
+        # on the first differing byte and leaks the token over repeated
+        # probes (the dashboard may be exposed via `--bind 0.0.0.0`).
+        presented = auth[len("Bearer "):] if auth.startswith("Bearer ") else ""
+        if not auth.startswith("Bearer ") or not hmac.compare_digest(
+            presented, expected
+        ):
             self._send_json(
                 {
                     "error": "unauthorized",
