@@ -4612,6 +4612,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-mirostat"
+version = "0.1.0"
+dependencies = [
+ "rand",
+ "rand_chacha",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-mirror-publisher"
 version = "0.1.0"
 dependencies = [
