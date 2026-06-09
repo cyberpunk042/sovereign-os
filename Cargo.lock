@@ -307,6 +307,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-calc"
+version = "0.1.0"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cgroup-systemd"
 version = "0.1.0"
 dependencies = [
