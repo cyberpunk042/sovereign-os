@@ -252,6 +252,34 @@ fn http_post_messages_runs_engine_and_metrics_reflect_it() {
 }
 
 #[test]
+fn http_explain_returns_rationale_over_socket() {
+    let d = spawn("--http");
+    let (status, body) = http_request(&d.addr, "POST", "/v1/explain", &demo_request_json());
+    assert!(status.starts_with("HTTP/1.1 200"), "status: {status}");
+    let v: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(v["kind"], "explanation");
+    assert!(v["explanation"].as_str().unwrap().contains("Routed to"));
+}
+
+#[test]
+fn http_deliberate_returns_best_of_n_over_socket() {
+    let d = spawn("--http");
+    let reqs = sovereign_cortex::demo_requests();
+    let req = &reqs[0];
+    let body = serde_json::json!({
+        "request": req,
+        "candidates": [req.reward.clone(), req.reward.clone()],
+        "tier": "normal",
+    })
+    .to_string();
+    let (status, rbody) = http_request(&d.addr, "POST", "/v1/deliberate", &body);
+    assert!(status.starts_with("HTTP/1.1 200"), "status: {status}");
+    let v: serde_json::Value = serde_json::from_str(&rbody).unwrap();
+    assert_eq!(v["kind"], "deliberation");
+    assert_eq!(v["deliberation"]["candidates_considered"], 2);
+}
+
+#[test]
 fn http_unknown_route_is_404_and_bad_body_is_400() {
     let d = spawn("--http");
     let (s404, _) = http_request(&d.addr, "GET", "/nope", "");
