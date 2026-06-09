@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-language-detect"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Language identification by character n-gram profiles: train a detector on sample text per language, then classify new text by the cosine similarity of its character-trigram frequency vector to each language profile. Self-contained (no bundled models) and deterministic — for routing, filtering, and tagging text by language."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
