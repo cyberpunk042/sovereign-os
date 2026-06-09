@@ -5349,6 +5349,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-rope-scaling"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-router-7axis"
 version = "0.1.0"
 dependencies = [
