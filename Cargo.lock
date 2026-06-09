@@ -4339,6 +4339,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-observability-events"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-trace-context",
+]
+
+[[package]]
 name = "sovereign-observability-fabric"
 version = "0.1.0"
 dependencies = [
