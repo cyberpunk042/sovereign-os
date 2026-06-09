@@ -5039,6 +5039,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-ngram-speculative"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-no-repeat-ngram"
 version = "0.1.0"
 dependencies = [
