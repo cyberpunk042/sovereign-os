@@ -12,6 +12,7 @@
 //! GET  /health         -> {"kind":"health", …}     liveness + never-cloud-spill
 //! GET  /manifest       -> {"kind":"manifest", …}   the 6-surface contract
 //! GET  /admin/ledger   -> {"kind":"ledger", …}     cost/route ledger (surface 6)
+//! GET  /metrics        -> Prometheus text          ledger + health for the cockpit
 //! POST /v1/messages    -> {"kind":"decision", …}   Anthropic-path bind (surface 1)
 //! POST /v1/infer       -> {"kind":"decision", …}   raw engine alias
 //! POST /mcp            -> {"kind":"decision", …}   MCP-bridge bind (surface 3)
@@ -29,12 +30,14 @@
 use crate::{GatewayRequest, GatewayResponse, GatewayServer};
 use sovereign_cortex::CortexRequest;
 
-/// A rendered HTTP reply: status code + body. The content type is always JSON.
+/// A rendered HTTP reply: status code + content type + body.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HttpReply {
     /// HTTP status code.
     pub status: u16,
-    /// JSON response body.
+    /// MIME type of the body (`application/json`, or text for `/metrics`).
+    pub content_type: &'static str,
+    /// Response body.
     pub body: String,
 }
 
@@ -64,6 +67,11 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
         ("GET", "/health") => ok(server.handle(GatewayRequest::Health)),
         ("GET", "/manifest") => ok(server.handle(GatewayRequest::Manifest)),
         ("GET", "/admin/ledger") => ok(server.handle(GatewayRequest::Ledger)),
+        ("GET", "/metrics") => HttpReply {
+            status: 200,
+            content_type: "text/plain; version=0.0.4; charset=utf-8",
+            body: server.metrics_prometheus(),
+        },
 
         ("POST", "/v1/messages") | ("POST", "/v1/infer") | ("POST", "/mcp") => {
             match serde_json::from_str::<CortexRequest>(body) {
@@ -84,7 +92,7 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
         }
 
         // A known resource with the wrong verb is 405; anything else is 404.
-        (_, "/health") | (_, "/manifest") | (_, "/admin/ledger") => {
+        (_, "/health") | (_, "/manifest") | (_, "/admin/ledger") | (_, "/metrics") => {
             err(405, format!("method {method} not allowed on {route}"))
         }
         (_, "/v1/messages") | (_, "/v1/infer") | (_, "/mcp") => {
@@ -104,7 +112,11 @@ fn render(status: u16, resp: &GatewayResponse) -> HttpReply {
     let body = serde_json::to_string(resp).unwrap_or_else(|e| {
         format!("{{\"kind\":\"error\",\"message\":\"response serialize failed: {e}\"}}")
     });
-    HttpReply { status, body }
+    HttpReply {
+        status,
+        content_type: "application/json",
+        body,
+    }
 }
 
 /// Build an error reply with a JSON body matching the daemon's error shape.
@@ -196,6 +208,31 @@ mod tests {
         let r = respond(&srv(), "GET", "/nope", "");
         assert_eq!(r.status, 404);
         assert_eq!(body_of(&r)["kind"], "error");
+    }
+
+    #[test]
+    fn metrics_is_prometheus_text_and_reflects_the_engine() {
+        let s = srv();
+        let body = serde_json::to_string(&demo_requests()[0]).unwrap();
+        let _ = respond(&s, "POST", "/v1/messages", &body); // one committed decision
+
+        let r = respond(&s, "GET", "/metrics", "");
+        assert_eq!(r.status, 200);
+        assert!(r.content_type.starts_with("text/plain"));
+        // Prometheus exposition: HELP/TYPE headers + the engine's counters.
+        assert!(
+            r.body
+                .contains("# TYPE sovereign_gateway_requests_total counter")
+        );
+        assert!(r.body.contains("sovereign_gateway_requests_total 1"));
+        assert!(
+            r.body
+                .contains("sovereign_gateway_never_cloud_spill_holds 1")
+        );
+        assert!(
+            r.body
+                .contains("sovereign_gateway_route_total{role=\"conductor\"} 1")
+        );
     }
 
     #[test]

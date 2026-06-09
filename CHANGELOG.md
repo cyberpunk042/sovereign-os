@@ -22,10 +22,16 @@ bridge / the cockpit can hit the engine directly:
   `Connection: close`; request line + headers + `Content-Length` body parsed by
   hand — no async runtime, no new deps, honors `unsafe_code = forbid`).
 - Routes: `GET /health`, `GET /manifest`, `GET /admin/ledger` (the CostRouteLedger
-  bind path), and `POST /v1/messages` (Anthropic surface) / `POST /v1/infer` /
-  `POST /mcp` taking one JSON `CortexRequest` → the tagged decision. Wrong verb
-  on a known route → 405; unknown → 404; malformed body → 400; engine refusal →
-  422.
+  bind path), `GET /metrics`, and `POST /v1/messages` (Anthropic surface) /
+  `POST /v1/infer` / `POST /mcp` taking one JSON `CortexRequest` → the tagged
+  decision. Wrong verb on a known route → 405; unknown → 404; malformed body →
+  400; engine refusal → 422.
+- **`GET /metrics`** renders the live ledger + health as Prometheus
+  text-exposition (`sovereign_gateway_requests_total`, `…_route_total{role}`,
+  `…_decisions_total{disposition}`, `…_cloud_spills_total`,
+  `…_never_cloud_spill_holds`, `…_live_surfaces`) so the existing
+  node_exporter→Grafana cockpit can chart the daemon with no new pipeline —
+  the operator-visible surface the SHIPPED bar requires. Verified live via curl.
 - The HTTP routing (`http::respond`) is pure and routes through the same
   `GatewayServer::handle` as the line protocol, so the two transports can never
   diverge. Verified live (curl + raw-socket): `GET /health` 200,

@@ -174,7 +174,7 @@ fn run_http(server: &Arc<GatewayServer>, addr: &str) -> std::io::Result<()> {
     let listener = TcpListener::bind(addr)?;
     eprintln!(
         "sovereign-gatewayd: HTTP listening on {addr} \
-         (GET /health /manifest /admin/ledger; POST /v1/messages /v1/infer /mcp)"
+         (GET /health /manifest /admin/ledger /metrics; POST /v1/messages /v1/infer /mcp)"
     );
     for stream in listener.incoming() {
         match stream {
@@ -233,9 +233,10 @@ fn handle_http_conn(server: &GatewayServer, stream: TcpStream) -> std::io::Resul
     let reply = http::respond(server, &method, &path, &body);
     let bytes = reply.body.as_bytes();
     let head = format!(
-        "HTTP/1.1 {} {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
         reply.status,
         http::reason(reply.status),
+        reply.content_type,
         bytes.len()
     );
     writer.write_all(head.as_bytes())?;

@@ -279,6 +279,68 @@ impl GatewayServer {
     pub fn manifest(&self) -> &GatewayManifest {
         &self.manifest
     }
+
+    /// Render the live ledger + health as Prometheus text-exposition, so the
+    /// existing cockpit (node_exporter scrape → Grafana) can chart the daemon
+    /// without a new pipeline. Mirrors the metric style of `sovereign-telemetry`.
+    pub fn metrics_prometheus(&self) -> String {
+        let ledger = self.ledger.lock().expect("ledger poisoned").clone();
+        let mut s = String::new();
+
+        s.push_str(
+            "# HELP sovereign_gateway_requests_total Inference requests handled by the gateway.\n",
+        );
+        s.push_str("# TYPE sovereign_gateway_requests_total counter\n");
+        s.push_str(&format!(
+            "sovereign_gateway_requests_total {}\n",
+            ledger.total_requests
+        ));
+
+        s.push_str("# HELP sovereign_gateway_decisions_total Decisions by terminal disposition.\n");
+        s.push_str("# TYPE sovereign_gateway_decisions_total counter\n");
+        for (disposition, value) in [
+            ("committed", ledger.committed),
+            ("refused", ledger.refused),
+            ("learned", ledger.learned),
+        ] {
+            s.push_str(&format!(
+                "sovereign_gateway_decisions_total{{disposition=\"{disposition}\"}} {value}\n"
+            ));
+        }
+
+        s.push_str("# HELP sovereign_gateway_route_total Decisions routed to each SRP role.\n");
+        s.push_str("# TYPE sovereign_gateway_route_total counter\n");
+        for (role, value) in &ledger.by_role {
+            s.push_str(&format!(
+                "sovereign_gateway_route_total{{role=\"{role}\"}} {value}\n"
+            ));
+        }
+
+        s.push_str(
+            "# HELP sovereign_gateway_cloud_spills_total Decisions that spilled to the cloud plane (must stay 0 under force-local).\n",
+        );
+        s.push_str("# TYPE sovereign_gateway_cloud_spills_total counter\n");
+        s.push_str(&format!(
+            "sovereign_gateway_cloud_spills_total {}\n",
+            ledger.cloud_spills
+        ));
+
+        s.push_str("# HELP sovereign_gateway_never_cloud_spill_holds 1 while the never-cloud-spill invariant holds.\n");
+        s.push_str("# TYPE sovereign_gateway_never_cloud_spill_holds gauge\n");
+        s.push_str(&format!(
+            "sovereign_gateway_never_cloud_spill_holds {}\n",
+            u8::from(ledger.cloud_spills == 0)
+        ));
+
+        s.push_str("# HELP sovereign_gateway_live_surfaces Gateway surfaces currently Live.\n");
+        s.push_str("# TYPE sovereign_gateway_live_surfaces gauge\n");
+        s.push_str(&format!(
+            "sovereign_gateway_live_surfaces {}\n",
+            self.manifest.live_count()
+        ));
+
+        s
+    }
 }
 
 impl Default for GatewayServer {
