@@ -4214,6 +4214,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-confidence-calibration"
+version = "0.1.0"
+
+[[package]]
 name = "sovereign-context-budget"
 version = "0.1.0"
 dependencies = [
