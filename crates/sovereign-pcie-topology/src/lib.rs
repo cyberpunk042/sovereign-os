@@ -6,19 +6,25 @@
 //! the recommended layout (E0028), and a validator that catches a lane-sharing
 //! conflict before it silently halves a GPU's bandwidth.
 //!
-//! # Source discrepancy — reconcile against the board manual before relying on this
+//! # Source agreement — this map matches the applied profile; the board-advisor diverges
 //!
-//! The slot map below is built from the **catalogue** (E0027/M00031), which
-//! names the lane-sharing pair as `PCIEX16_2 ↔ M.2_2`. The operational
-//! `scripts/hardware/board-advisor-x870e-creator.py` (board-manual-based)
-//! instead models the actual ASUS ProArt X870E-Creator as **three** PCIe slots
-//! (PCIE_1 / PCIE_2 / PCIE_3), with the second-GPU slot `PCIE_3` sharing lanes
-//! with `M.2_3` under x4/x4/x4/x4 bifurcation — not `PCIEX16_2 ↔ M.2_2`. The
-//! two sources disagree on slot count and on which M.2 shares. **The board
-//! manual is authoritative**; the validator here encodes the *shape* of the
-//! lane-sharing trap correctly, but the specific slot identities must be
-//! reconciled against the manual (and the board-advisor) before this map is
-//! treated as ground truth. Tracked for PO reconciliation.
+//! The lane-sharing pair `PCIEX16_2 ↔ M.2_2` here is **confirmed by the applied
+//! profile**, the operational source of truth: `profiles/sain-01.yaml`
+//! `hardware.motherboard.pcie_constraints` declares the blocker *"M.2_2 must
+//! remain empty to preserve x8/x8 GPU bifurcation (PCIEX16_2 shares lanes with
+//! M.2_2)"*, pinned by `tests/schema/test_profile_schema_conformance.py`
+//! (`test_sain01_m2_2_empty_constraint_declared`) and
+//! `tests/lint/test_sain01_profile_verbatim.py`. So this crate agrees with the
+//! tested profile and the catalogue (E0027/M00031).
+//!
+//! The one DIVERGENT source is `scripts/hardware/board-advisor-x870e-creator.py`,
+//! which models three PCIe slots (PCIE_1/2/3) with `PCIE_3 ↔ M.2_3` under
+//! x4/x4/x4/x4 bifurcation. Since the *applied, tested profile* — not an
+//! advisory script — is this project's authority, this crate's `PCIEX16_2 ↔
+//! M.2_2` model is correct; the board-advisor is the one to reconcile (its slot
+//! identities should be checked against the board manual + brought in line with
+//! the profile). (Corrects an earlier note here that wrongly treated the
+//! board-advisor as authoritative.)
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
