@@ -208,6 +208,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-agent-loop"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-tool-dispatch",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-attention"
 version = "0.1.0"
 dependencies = [
