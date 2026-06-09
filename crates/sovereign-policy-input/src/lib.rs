@@ -184,7 +184,10 @@ mod tests {
         assert_eq!(PolicyQuestion::ALL.len(), 7);
         assert_eq!(PolicyQuestion::ALL.iter().collect::<HashSet<_>>().len(), 7);
         assert_eq!(SensitivityClass::ALL.len(), 9);
-        assert_eq!(SensitivityClass::ALL.iter().collect::<HashSet<_>>().len(), 9);
+        assert_eq!(
+            SensitivityClass::ALL.iter().collect::<HashSet<_>>().len(),
+            9
+        );
     }
 
     #[test]
@@ -194,7 +197,10 @@ mod tests {
         // action, resource) triple is identical; only `intent` differs.
         let a = ssh_config_read("summarize my files", ApprovalState::NotRequested);
         let b = ssh_config_read("debug ssh connection failure", ApprovalState::Granted);
-        assert_eq!((&a.subject, &a.action, &a.resource), (&b.subject, &b.action, &b.resource));
+        assert_eq!(
+            (&a.subject, &a.action, &a.resource),
+            (&b.subject, &b.action, &b.resource)
+        );
         assert_ne!(a.intent, b.intent);
         assert_ne!(a.user_approval, b.user_approval);
     }

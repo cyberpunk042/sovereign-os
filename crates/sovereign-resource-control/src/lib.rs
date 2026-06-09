@@ -191,7 +191,9 @@ pub fn canonical_profiles() -> Vec<ResourceProfile> {
             runtime_max_secs: None, // always available
             always_on: true,
             kill_restartable: false,
-            rationale: "E0429 oracle.service: high GPU priority, memory protected, no random shell access".into(),
+            rationale:
+                "E0429 oracle.service: high GPU priority, memory protected, no random shell access"
+                    .into(),
         },
         // 2. scout.slice — medium CPU/GPU, freely killable.
         ResourceProfile {
@@ -333,7 +335,10 @@ mod tests {
         let p = canonical_profiles();
         let sandbox = p.iter().find(|x| x.unit == "sandbox.slice").unwrap();
         assert_eq!(sandbox.memory_max_mb, Some(2048));
-        assert!(sandbox.runtime_max_secs.is_some(), "sandbox has a time limit");
+        assert!(
+            sandbox.runtime_max_secs.is_some(),
+            "sandbox has a time limit"
+        );
     }
 
     #[test]
@@ -402,7 +407,10 @@ mod tests {
 
     #[test]
     fn from_json_rejects_malformed() {
-        assert!(matches!(from_json("not json"), Err(ResourceError::Parse(_))));
+        assert!(matches!(
+            from_json("not json"),
+            Err(ResourceError::Parse(_))
+        ));
     }
 
     #[test]
@@ -423,7 +431,10 @@ mod tests {
         let json = serde_json::to_string(&p).unwrap();
         assert!(matches!(
             from_json(&json),
-            Err(ResourceError::WeightOutOfRange { field: "CPUWeight", value: 0 })
+            Err(ResourceError::WeightOutOfRange {
+                field: "CPUWeight",
+                value: 0
+            })
         ));
     }
 

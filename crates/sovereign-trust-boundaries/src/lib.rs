@@ -145,7 +145,10 @@ mod tests {
 
     #[test]
     fn serde_kebab() {
-        assert_eq!(serde_json::to_string(&TrustZone::ScoutSandbox).unwrap(), "\"scout-sandbox\"");
+        assert_eq!(
+            serde_json::to_string(&TrustZone::ScoutSandbox).unwrap(),
+            "\"scout-sandbox\""
+        );
         assert_eq!(serde_json::to_string(&ToolTier::D).unwrap(), "\"d\"");
     }
 }

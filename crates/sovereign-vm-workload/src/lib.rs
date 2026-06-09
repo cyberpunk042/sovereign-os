@@ -85,8 +85,14 @@ mod tests {
     #[test]
     fn thirteen_workloads_nine_good_four_bad() {
         assert_eq!(VmWorkload::ALL.len(), 13);
-        let good = VmWorkload::ALL.iter().filter(|w| w.is_vm_appropriate()).count();
-        let bad = VmWorkload::ALL.iter().filter(|w| !w.is_vm_appropriate()).count();
+        let good = VmWorkload::ALL
+            .iter()
+            .filter(|w| w.is_vm_appropriate())
+            .count();
+        let bad = VmWorkload::ALL
+            .iter()
+            .filter(|w| !w.is_vm_appropriate())
+            .count();
         assert_eq!(good, 9);
         assert_eq!(bad, 4);
     }

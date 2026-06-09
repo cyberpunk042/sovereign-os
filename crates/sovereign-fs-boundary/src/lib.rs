@@ -128,14 +128,20 @@ mod tests {
     #[test]
     fn only_oracle_review_is_conditional() {
         assert!(ImportStep::OracleReview.is_conditional());
-        for s in ImportStep::ALL.into_iter().filter(|s| *s != ImportStep::OracleReview) {
+        for s in ImportStep::ALL
+            .into_iter()
+            .filter(|s| *s != ImportStep::OracleReview)
+        {
             assert!(!s.is_conditional(), "{s:?} must be mandatory");
         }
     }
 
     #[test]
     fn serde_kebab() {
-        assert_eq!(serde_json::to_string(&ExchangeDir::Inbox).unwrap(), "\"inbox\"");
+        assert_eq!(
+            serde_json::to_string(&ExchangeDir::Inbox).unwrap(),
+            "\"inbox\""
+        );
         assert_eq!(
             serde_json::to_string(&ImportStep::PolicyCheck).unwrap(),
             "\"policy-check\""

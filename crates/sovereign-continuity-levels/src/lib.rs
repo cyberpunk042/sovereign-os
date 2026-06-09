@@ -86,8 +86,14 @@ mod tests {
     #[test]
     fn cloud_owns_shallow_station_owns_deep() {
         // The E0456 boundary: cloud 0-2, station 3-7, partition is total.
-        let cloud = ContinuityLevel::ALL.iter().filter(|l| l.is_cloud_typical()).count();
-        let station = ContinuityLevel::ALL.iter().filter(|l| l.is_station_owned()).count();
+        let cloud = ContinuityLevel::ALL
+            .iter()
+            .filter(|l| l.is_cloud_typical())
+            .count();
+        let station = ContinuityLevel::ALL
+            .iter()
+            .filter(|l| l.is_station_owned())
+            .count();
         assert_eq!(cloud, 3);
         assert_eq!(station, 5);
         for l in ContinuityLevel::ALL {

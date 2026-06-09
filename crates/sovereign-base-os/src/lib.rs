@@ -111,7 +111,10 @@ mod tests {
 
     #[test]
     fn hardware_reality_responsibilities_are_the_imperative_three() {
-        let hw = OsResponsibility::ALL.iter().filter(|r| r.is_hardware_reality()).count();
+        let hw = OsResponsibility::ALL
+            .iter()
+            .filter(|r| r.is_hardware_reality())
+            .count();
         assert_eq!(hw, 3); // firmware / nvidia-drivers / vfio-iommu
         assert!(OsResponsibility::NvidiaDrivers.is_hardware_reality());
         assert!(!OsResponsibility::Zfs.is_hardware_reality());
@@ -120,14 +123,23 @@ mod tests {
     #[test]
     fn only_offline_cuts_the_network() {
         assert!(!OsConfigMode::Offline.network_enabled());
-        for m in OsConfigMode::ALL.into_iter().filter(|m| *m != OsConfigMode::Offline) {
+        for m in OsConfigMode::ALL
+            .into_iter()
+            .filter(|m| *m != OsConfigMode::Offline)
+        {
             assert!(m.network_enabled(), "{m:?}");
         }
     }
 
     #[test]
     fn serde_kebab() {
-        assert_eq!(serde_json::to_string(&OsConfigMode::AiDriverLatest).unwrap(), "\"ai-driver-latest\"");
-        assert_eq!(serde_json::to_string(&OsResponsibility::VfioIommu).unwrap(), "\"vfio-iommu\"");
+        assert_eq!(
+            serde_json::to_string(&OsConfigMode::AiDriverLatest).unwrap(),
+            "\"ai-driver-latest\""
+        );
+        assert_eq!(
+            serde_json::to_string(&OsResponsibility::VfioIommu).unwrap(),
+            "\"vfio-iommu\""
+        );
     }
 }

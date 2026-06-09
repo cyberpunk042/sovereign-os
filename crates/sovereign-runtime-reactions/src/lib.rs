@@ -49,7 +49,9 @@ impl ControlTrigger {
             ControlTrigger::HallucinationPattern => &["require oracle/test verifier"],
             ControlTrigger::LowMemoryQuality => &["widen map", "rerank", "ask user"],
             ControlTrigger::GpuPressureHigh => &["reduce branch width"],
-            ControlTrigger::HumanGatesTooFrequent => &["improve policy defaults", "batch approvals"],
+            ControlTrigger::HumanGatesTooFrequent => {
+                &["improve policy defaults", "batch approvals"]
+            }
         }
     }
 }

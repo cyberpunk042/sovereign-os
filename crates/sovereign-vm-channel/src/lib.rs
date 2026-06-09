@@ -141,8 +141,17 @@ mod tests {
 
     #[test]
     fn serde_kebab() {
-        assert_eq!(serde_json::to_string(&VmChannel::VirtioVsock).unwrap(), "\"virtio-vsock\"");
-        assert_eq!(serde_json::to_string(&VmMessage::PatchProposal).unwrap(), "\"patch-proposal\"");
-        assert_eq!(serde_json::to_string(&Direction::FromVm).unwrap(), "\"from-vm\"");
+        assert_eq!(
+            serde_json::to_string(&VmChannel::VirtioVsock).unwrap(),
+            "\"virtio-vsock\""
+        );
+        assert_eq!(
+            serde_json::to_string(&VmMessage::PatchProposal).unwrap(),
+            "\"patch-proposal\""
+        );
+        assert_eq!(
+            serde_json::to_string(&Direction::FromVm).unwrap(),
+            "\"from-vm\""
+        );
     }
 }

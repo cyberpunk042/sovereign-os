@@ -226,12 +226,7 @@ mod tests {
 
     #[test]
     fn minimal_span_omits_empty_optionals_in_json() {
-        let s = ObservabilitySpan::new(
-            EventKind::Checkpoint,
-            "training",
-            TraceId(1),
-            BranchId(1),
-        );
+        let s = ObservabilitySpan::new(EventKind::Checkpoint, "training", TraceId(1), BranchId(1));
         let v: serde_json::Value = serde_json::to_value(&s).unwrap();
         // a checkpoint carries no model/tokens — those keys are omitted.
         assert!(v.get("model").is_none());

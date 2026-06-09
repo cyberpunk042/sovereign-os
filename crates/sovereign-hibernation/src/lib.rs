@@ -102,8 +102,14 @@ mod tests {
     #[test]
     fn six_wait_conditions_split_external_vs_resource() {
         assert_eq!(WaitCondition::ALL.len(), 6);
-        let external = WaitCondition::ALL.iter().filter(|c| c.is_externally_driven()).count();
-        let resource = WaitCondition::ALL.iter().filter(|c| !c.is_externally_driven()).count();
+        let external = WaitCondition::ALL
+            .iter()
+            .filter(|c| c.is_externally_driven())
+            .count();
+        let resource = WaitCondition::ALL
+            .iter()
+            .filter(|c| !c.is_externally_driven())
+            .count();
         assert_eq!(external, 4); // user / long-test / download / external-event
         assert_eq!(resource, 2); // low-priority / memory-pressure
     }
@@ -117,7 +123,8 @@ mod tests {
 
     #[test]
     fn record_carries_wake_condition_and_resumability() {
-        let mut r = HibernationRecord::new("drafting parser fix", WaitCondition::WaitingForLongTest);
+        let mut r =
+            HibernationRecord::new("drafting parser fix", WaitCondition::WaitingForLongTest);
         assert_eq!(r.next_wake_condition, WaitCondition::WaitingForLongTest);
         assert!(r.is_resumable());
         r.tool_futures.push("pytest-run-7".into());

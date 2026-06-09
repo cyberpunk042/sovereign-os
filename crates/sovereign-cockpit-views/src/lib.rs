@@ -109,7 +109,10 @@ mod tests {
     fn dropping_rollback_view_is_caught() {
         // The reversibility view is load-bearing for a sovereign station.
         let mut c = CockpitCoverage::new();
-        for v in CockpitView::ALL.into_iter().filter(|v| *v != CockpitView::WhatCanBeRolledBack) {
+        for v in CockpitView::ALL
+            .into_iter()
+            .filter(|v| *v != CockpitView::WhatCanBeRolledBack)
+        {
             c.surface(v);
         }
         assert!(!c.is_complete());

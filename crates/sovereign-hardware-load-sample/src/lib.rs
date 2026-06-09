@@ -141,7 +141,10 @@ pub fn parse_proc_stat_cpu(content: &str) -> Result<CpuTimes, LoadError> {
     for line in content.lines() {
         // Aggregate line only: "cpu " (with the trailing space), not "cpuN".
         if let Some(rest) = line.strip_prefix("cpu ") {
-            let vals: Vec<u64> = rest.split_whitespace().filter_map(|t| t.parse().ok()).collect();
+            let vals: Vec<u64> = rest
+                .split_whitespace()
+                .filter_map(|t| t.parse().ok())
+                .collect();
             // Need at least user,nice,system,idle,iowait.
             if vals.len() >= 5 {
                 let idle = vals[3] + vals[4];

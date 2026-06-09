@@ -312,7 +312,11 @@ impl ObservabilityFabric {
     /// True when every canonical source is `Connected` — the fully-healthy
     /// observability posture the cockpit's source row reports green.
     pub fn all_connected(&self) -> bool {
-        self.sources.len() == 9 && self.sources.iter().all(|r| r.state == SourceState::Connected)
+        self.sources.len() == 9
+            && self
+                .sources
+                .iter()
+                .all(|r| r.state == SourceState::Connected)
     }
 }
 
@@ -553,8 +557,13 @@ mod tests {
     #[test]
     fn count_in_state_buckets_sources() {
         let mut f = ObservabilityFabric::empty_canonical();
-        f.update_source(ObservabilitySource::OtelTraces, SourceState::Connected, 5, "t")
-            .unwrap();
+        f.update_source(
+            ObservabilitySource::OtelTraces,
+            SourceState::Connected,
+            5,
+            "t",
+        )
+        .unwrap();
         f.update_source(ObservabilitySource::Journald, SourceState::Idle, 0, "t")
             .unwrap();
         f.update_source(ObservabilitySource::Dcgm, SourceState::Disabled, 0, "t")

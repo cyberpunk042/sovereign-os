@@ -130,7 +130,10 @@ struct Sample {
     load_valid: bool,
     fabric: ObservabilityFabric,
     fabric_valid: bool,
-    thermal_verdicts: Vec<(HardwareTarget, sovereign_hardware_thermal_policy::ThermalVerdict)>,
+    thermal_verdicts: Vec<(
+        HardwareTarget,
+        sovereign_hardware_thermal_policy::ThermalVerdict,
+    )>,
     thermal_any_shutdown: bool,
     reactions: Vec<sovereign_pressure_reactions::Reaction>,
 }
@@ -218,7 +221,9 @@ impl Sample {
                 r.value
             ));
         }
-        s.push_str("# HELP sovereign_load_util_pct Compute utilization percent per hardware target.\n");
+        s.push_str(
+            "# HELP sovereign_load_util_pct Compute utilization percent per hardware target.\n",
+        );
         s.push_str("# TYPE sovereign_load_util_pct gauge\n");
         for l in &self.load.loads {
             s.push_str(&format!(
@@ -245,7 +250,9 @@ impl Sample {
                 label(verdict)
             ));
         }
-        s.push_str("# HELP sovereign_thermal_any_shutdown 1 if any target is in thermal Shutdown.\n");
+        s.push_str(
+            "# HELP sovereign_thermal_any_shutdown 1 if any target is in thermal Shutdown.\n",
+        );
         s.push_str("# TYPE sovereign_thermal_any_shutdown gauge\n");
         s.push_str(&format!(
             "sovereign_thermal_any_shutdown {}\n",

@@ -108,7 +108,10 @@ mod tests {
     #[test]
     fn must_not_touch_is_never_modifiable() {
         assert!(!RebrandCategory::MustNotTouch.may_modify());
-        for c in RebrandCategory::ALL.into_iter().filter(|c| *c != RebrandCategory::MustNotTouch) {
+        for c in RebrandCategory::ALL
+            .into_iter()
+            .filter(|c| *c != RebrandCategory::MustNotTouch)
+        {
             assert!(c.may_modify(), "{c:?}");
         }
     }
@@ -116,7 +119,10 @@ mod tests {
     #[test]
     fn only_must_rebrand_is_required() {
         assert!(RebrandCategory::MustRebrand.is_required());
-        for c in RebrandCategory::ALL.into_iter().filter(|c| *c != RebrandCategory::MustRebrand) {
+        for c in RebrandCategory::ALL
+            .into_iter()
+            .filter(|c| *c != RebrandCategory::MustRebrand)
+        {
             assert!(!c.is_required(), "{c:?}");
         }
     }
@@ -129,8 +135,17 @@ mod tests {
 
     #[test]
     fn serde_kebab() {
-        assert_eq!(serde_json::to_string(&RebrandCategory::MustNotTouch).unwrap(), "\"must-not-touch\"");
-        assert_eq!(serde_json::to_string(&RenderStrategy::TemplateSubstitution).unwrap(), "\"template-substitution\"");
-        assert_eq!(serde_json::to_string(&LifecycleStage::FirstBoot).unwrap(), "\"first-boot\"");
+        assert_eq!(
+            serde_json::to_string(&RebrandCategory::MustNotTouch).unwrap(),
+            "\"must-not-touch\""
+        );
+        assert_eq!(
+            serde_json::to_string(&RenderStrategy::TemplateSubstitution).unwrap(),
+            "\"template-substitution\""
+        );
+        assert_eq!(
+            serde_json::to_string(&LifecycleStage::FirstBoot).unwrap(),
+            "\"first-boot\""
+        );
     }
 }

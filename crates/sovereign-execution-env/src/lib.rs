@@ -133,7 +133,13 @@ mod tests {
         assert_eq!(ExecutionEnv::ALL.len(), 9);
         assert_eq!(ExecutionEnv::ALL.iter().collect::<HashSet<_>>().len(), 9);
         assert_eq!(ObservationCategory::ALL.len(), 10);
-        assert_eq!(ObservationCategory::ALL.iter().collect::<HashSet<_>>().len(), 10);
+        assert_eq!(
+            ObservationCategory::ALL
+                .iter()
+                .collect::<HashSet<_>>()
+                .len(),
+            10
+        );
     }
 
     #[test]

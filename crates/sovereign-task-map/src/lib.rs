@@ -129,7 +129,11 @@ mod tests {
     fn os_admin_map_includes_rollback_points() {
         // OS/admin tasks must know their rollback points before acting.
         assert!(MapDomain::OsAdmin.components().contains(&"rollback points"));
-        assert!(MapDomain::OsAdmin.components().contains(&"hardware pressure"));
+        assert!(
+            MapDomain::OsAdmin
+                .components()
+                .contains(&"hardware pressure")
+        );
     }
 
     #[test]
@@ -157,6 +161,9 @@ mod tests {
 
     #[test]
     fn domain_serializes_kebab() {
-        assert_eq!(serde_json::to_string(&MapDomain::OsAdmin).unwrap(), "\"os-admin\"");
+        assert_eq!(
+            serde_json::to_string(&MapDomain::OsAdmin).unwrap(),
+            "\"os-admin\""
+        );
     }
 }

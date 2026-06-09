@@ -27,7 +27,10 @@ fn main() {
 
     let profiles = match config {
         None => canonical_profiles(),
-        Some(path) => match std::fs::read_to_string(&path).map_err(|e| e.to_string()).and_then(|c| from_json(&c).map_err(|e| e.to_string())) {
+        Some(path) => match std::fs::read_to_string(&path)
+            .map_err(|e| e.to_string())
+            .and_then(|c| from_json(&c).map_err(|e| e.to_string()))
+        {
             Ok(p) => p,
             Err(e) => {
                 eprintln!("sovereign-resource-control: --config {path}: {e}");

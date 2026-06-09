@@ -145,7 +145,10 @@ pub fn derive_reactions(
 
     // Rules 4–5: a present GPU sitting idle.
     for (target, trigger) in [
-        (HardwareTarget::BlackwellOracle, ReactionTrigger::GpuOracleIdle),
+        (
+            HardwareTarget::BlackwellOracle,
+            ReactionTrigger::GpuOracleIdle,
+        ),
         (HardwareTarget::Rocm3090, ReactionTrigger::Gpu3090Idle),
     ] {
         let present = registry.get(target).is_some_and(|r| r.vram_gb > 0);
@@ -196,11 +199,19 @@ mod tests {
     fn trigger_actions_are_verbatim_e0431() {
         assert_eq!(
             ReactionTrigger::MemoryPressureHigh.actions(),
-            ["hibernate branches", "shrink context", "evict low-value KV-cache"]
+            [
+                "hibernate branches",
+                "shrink context",
+                "evict low-value KV-cache"
+            ]
         );
         assert_eq!(
             ReactionTrigger::CpuPressureHigh.actions(),
-            ["reduce branch width", "move reranking to 3090", "defer evals"]
+            [
+                "reduce branch width",
+                "move reranking to 3090",
+                "defer evals"
+            ]
         );
         assert_eq!(
             ReactionTrigger::Gpu3090Idle.actions(),
@@ -229,7 +240,10 @@ mod tests {
         );
         assert_eq!(r.len(), 1);
         assert_eq!(r[0].trigger, ReactionTrigger::MemoryPressureHigh);
-        assert!(r[0].actions.contains(&"evict low-value KV-cache".to_string()));
+        assert!(
+            r[0].actions
+                .contains(&"evict low-value KV-cache".to_string())
+        );
         assert!((r[0].signal - 0.9).abs() < 1e-6);
     }
 
@@ -281,7 +295,12 @@ mod tests {
         // Oracle present too; both idle → both fire. Confirms presence-gated.
         load.update_target(HardwareTarget::BlackwellOracle, 0, 0, 0, "t")
             .unwrap();
-        let r = derive_reactions(&snap(0.0, 0.0, 0.0), &load, &reg, ReactionThresholds::default());
+        let r = derive_reactions(
+            &snap(0.0, 0.0, 0.0),
+            &load,
+            &reg,
+            ReactionThresholds::default(),
+        );
         let trigs: std::collections::HashSet<_> = r.iter().map(|x| x.trigger).collect();
         assert!(trigs.contains(&ReactionTrigger::GpuOracleIdle));
         assert!(trigs.contains(&ReactionTrigger::Gpu3090Idle));

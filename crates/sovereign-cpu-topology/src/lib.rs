@@ -125,7 +125,10 @@ impl std::fmt::Display for TopologyError {
         match self {
             TopologyError::Overlap(a, b) => write!(f, "{a:?} and {b:?} overlap"),
             TopologyError::IncompleteCover { covered } => {
-                write!(f, "allocations cover {covered:#08x}, not the 24 threads 0x00ffffff")
+                write!(
+                    f,
+                    "allocations cover {covered:#08x}, not the 24 threads 0x00ffffff"
+                )
             }
             TopologyError::CpusetMismatch(r) => write!(f, "{r:?} cpuset disagrees with its mask"),
         }

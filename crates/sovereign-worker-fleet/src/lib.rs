@@ -83,7 +83,11 @@ pub fn summarise(workers: &[WorkerStatusWord], th: FleetThresholds) -> FleetSumm
 
     let max_load = workers.iter().map(|w| w.load_bucket).max().unwrap_or(0);
     let max_memory_pressure = workers.iter().map(|w| w.memory_pressure).max().unwrap_or(0);
-    let max_thermal_pressure = workers.iter().map(|w| w.thermal_pressure).max().unwrap_or(0);
+    let max_thermal_pressure = workers
+        .iter()
+        .map(|w| w.thermal_pressure)
+        .max()
+        .unwrap_or(0);
     let max_queue_depth = workers.iter().map(|w| w.queue_depth).max().unwrap_or(0);
     let workers_in_error = workers.iter().filter(|w| w.error_state != 0).count();
     let workers_flagged = workers.iter().filter(|w| w.flags != 0).count();
@@ -151,10 +155,7 @@ mod tests {
     #[test]
     fn elevated_when_an_axis_crosses_elevated() {
         // one worker's thermal hits 200 (>= elevated 160, < saturated 224)
-        let s = summarise(
-            &[worker(10, 10, 200, 10, 0, 0)],
-            FleetThresholds::default(),
-        );
+        let s = summarise(&[worker(10, 10, 200, 10, 0, 0)], FleetThresholds::default());
         assert_eq!(s.verdict, FleetVerdict::Elevated);
         assert_eq!(s.max_thermal_pressure, 200);
     }

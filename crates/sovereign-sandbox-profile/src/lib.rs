@@ -95,7 +95,10 @@ mod tests {
             SandboxDimension::Gpu,
             SandboxDimension::Isolation,
         ] {
-            let n = SandboxProfile::ALL.iter().filter(|p| p.dimension() == dim).count();
+            let n = SandboxProfile::ALL
+                .iter()
+                .filter(|p| p.dimension() == dim)
+                .count();
             assert_eq!(n, 2, "{dim:?}");
         }
     }
@@ -114,15 +117,33 @@ mod tests {
 
     #[test]
     fn filesystem_and_isolation_profiles_classed_right() {
-        assert_eq!(SandboxProfile::ReadOnlyRepo.dimension(), SandboxDimension::Filesystem);
-        assert_eq!(SandboxProfile::Vfio3090.dimension(), SandboxDimension::Isolation);
-        assert_eq!(SandboxProfile::NetworkDocsOnly.dimension(), SandboxDimension::Network);
+        assert_eq!(
+            SandboxProfile::ReadOnlyRepo.dimension(),
+            SandboxDimension::Filesystem
+        );
+        assert_eq!(
+            SandboxProfile::Vfio3090.dimension(),
+            SandboxDimension::Isolation
+        );
+        assert_eq!(
+            SandboxProfile::NetworkDocsOnly.dimension(),
+            SandboxDimension::Network
+        );
     }
 
     #[test]
     fn serde_kebab() {
-        assert_eq!(serde_json::to_string(&SandboxProfile::Vfio3090).unwrap(), "\"vfio3090\"");
-        assert_eq!(serde_json::to_string(&SandboxProfile::ReadOnlyRepo).unwrap(), "\"read-only-repo\"");
-        assert_eq!(serde_json::to_string(&SandboxDimension::Gpu).unwrap(), "\"gpu\"");
+        assert_eq!(
+            serde_json::to_string(&SandboxProfile::Vfio3090).unwrap(),
+            "\"vfio3090\""
+        );
+        assert_eq!(
+            serde_json::to_string(&SandboxProfile::ReadOnlyRepo).unwrap(),
+            "\"read-only-repo\""
+        );
+        assert_eq!(
+            serde_json::to_string(&SandboxDimension::Gpu).unwrap(),
+            "\"gpu\""
+        );
     }
 }

@@ -103,7 +103,10 @@ impl LayeredConfig {
     /// exact allow-list (user must match it).
     #[must_use]
     pub fn resolve_capped(&self, key: &str) -> Option<String> {
-        let user = self.layers.get(&ConfigLayer::User).and_then(|kv| kv.get(key));
+        let user = self
+            .layers
+            .get(&ConfigLayer::User)
+            .and_then(|kv| kv.get(key));
         let hard = self
             .layers
             .get(&ConfigLayer::Policy)
@@ -158,7 +161,10 @@ mod tests {
         let mut c = LayeredConfig::new();
         c.set(ConfigLayer::Runtime, "cloud_allowed", "true"); // profile says yes
         c.set(ConfigLayer::Policy, "cloud_allowed", "false"); // hard policy says no
-        assert_eq!(c.resolve("cloud_allowed"), Some((ConfigLayer::Policy, "false")));
+        assert_eq!(
+            c.resolve("cloud_allowed"),
+            Some((ConfigLayer::Policy, "false"))
+        );
     }
 
     #[test]
@@ -190,7 +196,10 @@ mod tests {
 
     #[test]
     fn rule4_offline_overrides_cloud_route() {
-        assert_eq!(offline_beats_cloud(true, "cloud", "local-3090"), "local-3090");
+        assert_eq!(
+            offline_beats_cloud(true, "cloud", "local-3090"),
+            "local-3090"
+        );
         assert_eq!(offline_beats_cloud(false, "cloud", "local-3090"), "cloud");
         assert_eq!(offline_beats_cloud(true, "local", "local-3090"), "local");
     }

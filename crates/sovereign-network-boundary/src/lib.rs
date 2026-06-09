@@ -86,14 +86,20 @@ mod tests {
     fn five_profiles_strictly_ranked() {
         assert_eq!(NetworkProfile::ALL.len(), 5);
         assert!(NetworkProfile::Offline.rank() < NetworkProfile::PackageRegistries.rank());
-        assert!(NetworkProfile::ArbitraryWeb.rank() < NetworkProfile::AuthenticatedBrowserProfile.rank());
+        assert!(
+            NetworkProfile::ArbitraryWeb.rank()
+                < NetworkProfile::AuthenticatedBrowserProfile.rank()
+        );
     }
 
     #[test]
     fn narrower_intent_is_allowed_under_broader_profile() {
         let docs = ToolIntent::new(NetworkProfile::DocsWeb, "read rust docs");
         assert!(is_within_allowance(&docs, NetworkProfile::ArbitraryWeb));
-        assert!(is_within_allowance(&docs, NetworkProfile::AuthenticatedBrowserProfile));
+        assert!(is_within_allowance(
+            &docs,
+            NetworkProfile::AuthenticatedBrowserProfile
+        ));
         // exactly at the allowance is fine.
         assert!(is_within_allowance(&docs, NetworkProfile::DocsWeb));
     }
@@ -102,7 +108,10 @@ mod tests {
     fn broader_intent_is_denied_under_narrower_profile() {
         let web = ToolIntent::new(NetworkProfile::ArbitraryWeb, "fetch a blog");
         assert!(!is_within_allowance(&web, NetworkProfile::Offline));
-        assert!(!is_within_allowance(&web, NetworkProfile::PackageRegistries));
+        assert!(!is_within_allowance(
+            &web,
+            NetworkProfile::PackageRegistries
+        ));
         assert!(!is_within_allowance(&web, NetworkProfile::DocsWeb));
     }
 
@@ -110,9 +119,15 @@ mod tests {
     fn offline_allows_only_offline_intents() {
         let offline = ToolIntent::new(NetworkProfile::Offline, "pure compute");
         assert!(is_within_allowance(&offline, NetworkProfile::Offline));
-        for p in NetworkProfile::ALL.into_iter().filter(|p| *p != NetworkProfile::Offline) {
+        for p in NetworkProfile::ALL
+            .into_iter()
+            .filter(|p| *p != NetworkProfile::Offline)
+        {
             let intent = ToolIntent::new(p, "needs net");
-            assert!(!is_within_allowance(&intent, NetworkProfile::Offline), "{p:?}");
+            assert!(
+                !is_within_allowance(&intent, NetworkProfile::Offline),
+                "{p:?}"
+            );
         }
     }
 

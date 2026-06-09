@@ -601,7 +601,10 @@ mod tests {
             parse_psi_some_avg10("some avg10=150.0 total=1"), // > 100%
             Err(PressureError::PsiParse)
         ));
-        assert!(matches!(parse_psi_some_avg10(""), Err(PressureError::PsiParse)));
+        assert!(matches!(
+            parse_psi_some_avg10(""),
+            Err(PressureError::PsiParse)
+        ));
     }
 
     #[test]

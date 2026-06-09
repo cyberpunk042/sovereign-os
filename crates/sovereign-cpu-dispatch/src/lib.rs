@@ -90,13 +90,21 @@ mod tests {
 
     #[test]
     fn operator_zen5_gets_the_zen5_path() {
-        let zen5 = CpuFeatures { avx2: true, avx512: true, zen5: true };
+        let zen5 = CpuFeatures {
+            avx2: true,
+            avx512: true,
+            zen5: true,
+        };
         assert_eq!(select_best(&zen5), DispatchPath::Zen5Avx512);
     }
 
     #[test]
     fn generic_avx512_without_zen5_falls_to_generic() {
-        let intel_avx512 = CpuFeatures { avx2: true, avx512: true, zen5: false };
+        let intel_avx512 = CpuFeatures {
+            avx2: true,
+            avx512: true,
+            zen5: false,
+        };
         assert_eq!(select_best(&intel_avx512), DispatchPath::Avx512Generic);
         // Zen5 path requires both avx512 AND zen5.
         assert!(!intel_avx512.supports(DispatchPath::Zen5Avx512));
@@ -104,7 +112,11 @@ mod tests {
 
     #[test]
     fn avx2_only_and_baseline_only() {
-        let avx2 = CpuFeatures { avx2: true, avx512: false, zen5: false };
+        let avx2 = CpuFeatures {
+            avx2: true,
+            avx512: false,
+            zen5: false,
+        };
         assert_eq!(select_best(&avx2), DispatchPath::Avx2);
         let none = CpuFeatures::default();
         assert_eq!(select_best(&none), DispatchPath::ScalarBaseline);
@@ -113,12 +125,19 @@ mod tests {
     #[test]
     fn zen5_flag_without_avx512_does_not_pick_zen5_path() {
         // A Zen5 that (hypothetically) lacks AVX-512 must not take the AVX-512 path.
-        let weird = CpuFeatures { avx2: true, avx512: false, zen5: true };
+        let weird = CpuFeatures {
+            avx2: true,
+            avx512: false,
+            zen5: true,
+        };
         assert_eq!(select_best(&weird), DispatchPath::Avx2);
     }
 
     #[test]
     fn serde_kebab() {
-        assert_eq!(serde_json::to_string(&DispatchPath::Zen5Avx512).unwrap(), "\"zen5-avx512\"");
+        assert_eq!(
+            serde_json::to_string(&DispatchPath::Zen5Avx512).unwrap(),
+            "\"zen5-avx512\""
+        );
     }
 }
