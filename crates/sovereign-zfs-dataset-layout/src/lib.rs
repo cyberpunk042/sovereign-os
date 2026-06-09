@@ -1,33 +1,40 @@
-//! `sovereign-zfs-dataset-layout` — M068: the canonical `tank` ZFS layout.
+//! `sovereign-zfs-dataset-layout` — the canonical `tank` ZFS layout.
 //!
 //! The substrate storage layer is not "one big pool". Each dataset under `tank`
-//! has a *purpose* that dictates its ZFS properties, and getting them wrong has
-//! real consequences:
+//! has a *purpose* that dictates its ZFS properties, and getting them wrong
+//! silently changes storage IO characteristics or durability.
 //!
-//! - **tank/context** (sovereignty/integrity-critical state) — `sync=always`
-//!   so the ZIL commits before a write is acknowledged (F05709/F05722). Losing
-//!   this silently turns durable state into lose-on-power-cut state.
-//! - **tank/containers** (Podman graph driver) — `recordsize=16k` +
-//!   `compression=off`, matching Podman's allocation blocks (F05711/F05712).
-//!   A compressed or mis-sized dataset here causes write amplification.
-//! - **tank/models** (LLM weights) — `recordsize=1M` + `compression=zstd-3`
-//!   for large sequential weight files (F05713/F05714).
-//! - **tank/logs** — `recordsize=128k` + `compression=lz4` (F05715/F05716).
-//! - **tank/snapshots** — `recordsize=128k`, retained for M041 rollbacks
-//!   (F05717/F05718).
-//! - **tank/vault** — security audit logs (F05719).
+//! # Source of truth: the applied profile, not the backlog catalogue
+//!
+//! This crate encodes the **operator-verbatim §4.1 storage matrix** as it is
+//! actually applied and regression-tested — `profiles/sain-01.yaml`
+//! (`hardware.storage.datasets`), pinned by `tests/lint/test_zfs_datasets_
+//! verbatim.py` (R396). That authoritative matrix is **three** datasets:
+//!
+//! | dataset | recordsize | compression | other | purpose |
+//! |---------|-----------|-------------|-------|---------|
+//! | **tank/models** | 1M | lz4 | `redundant_metadata=most` | 100GB+ weight files; large sequential reads |
+//! | **tank/context** | 16k | zstd-9 | `copies=2`, `sync=always` | sovereignty/integrity-critical state fabric |
+//! | **tank/agents** | 128k | zstd-3 | — | stateful local agent storage |
+//!
+//! > Reconciliation note: the M068 *backlog catalogue* proposes a richer
+//! > 6-dataset model (`context`/`containers`/`models`/`logs`/`snapshots`/`vault`)
+//! > with different properties (e.g. catalogue `models` = zstd-3, catalogue
+//! > `context` = 128k/lz4). That catalogue is **aspirational** and DIVERGES from
+//! > the applied profile. The applied profile is authoritative for validating
+//! > the live system, so this crate follows it; adopting the catalogue's extra
+//! > datasets is a future profile change, not an existing fact.
 //!
 //! Pool-level (E0660): `ashift=12` (4K NVMe alignment), `compression=lz4`
-//! default, `atime=off` (F05702-F05705).
+//! default, `atime=off`.
 //!
-//! This crate fixes those canonical values and provides [`validate_dataset`] /
-//! [`audit_layout`]: compare an *observed* layout (parsed from `zfs get
-//! recordsize,compression,sync <dataset>`) against the canon and surface the
-//! drift, ranked by how dangerous it is. It does NOT run `zfs` — it is the
-//! pure policy + validator the installer / health-check binary consumes.
-//!
-//! All property values are extracted verbatim from M068's doctrinal anchors +
-//! F-rows (F05702-F05730); none are invented.
+//! [`validate_dataset`] / [`audit_layout`] compare an *observed* layout (parsed
+//! from `zfs get`) against this canon and rank drift by danger. Drift on
+//! `tank/context`'s `sync=always` or `copies=2` is **integrity-critical** (the
+//! state fabric — IDENTITY/SOUL/AGENTS/CLAUDE — must survive single-block
+//! corruption and power loss); recordsize / compression drift is performance.
+//! It runs no `zfs`; it is the pure policy + validator the installer /
+//! health-check binary consumes.
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
@@ -43,9 +50,8 @@ pub const SCHEMA_VERSION: &str = "1.0.0";
 /// Smallest legal ZFS recordsize (bytes).
 pub const RECORDSIZE_MIN: u32 = 512;
 /// Largest recordsize this layout uses / accepts (bytes). ZFS supports up to
-/// 16M with `large_blocks`, but the catalogued layout tops out at 1M; we cap
-/// here to keep an obviously-wrong value (e.g. a parse slip into the hundreds
-/// of MB) from validating.
+/// 16M with `large_blocks`, but the layout tops out at 1M; we cap here so an
+/// obviously-wrong value can't validate.
 pub const RECORDSIZE_MAX: u32 = 16 * 1024 * 1024;
 
 /// Why a recordsize is not a legal ZFS value.
@@ -63,9 +69,9 @@ pub enum RecordSizeError {
 }
 
 /// Parse a ZFS recordsize token (`512`, `16K`, `128K`, `1M`, `1048576`) into
-/// bytes. Case-insensitive `K`/`M` suffixes (binary, ×1024). Validates that the
-/// result is a power of two within `[RECORDSIZE_MIN, RECORDSIZE_MAX]` — exactly
-/// the constraints `zfs set recordsize` itself enforces.
+/// bytes. Case-insensitive `K`/`M` suffixes (binary, ×1024). Validates power of
+/// two within `[RECORDSIZE_MIN, RECORDSIZE_MAX]` — the constraints `zfs set
+/// recordsize` itself enforces.
 pub fn parse_recordsize(token: &str) -> Result<u32, RecordSizeError> {
     let t = token.trim();
     if t.is_empty() {
@@ -113,15 +119,16 @@ pub fn format_recordsize(bytes: u32) -> String {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Compression {
-    /// No compression (Podman graph driver alignment — tank/containers).
+    /// No compression.
     Off,
-    /// lz4 (pool default; balanced).
+    /// lz4 (pool default; balanced — `tank/models`).
     Lz4,
-    /// zstd level 3 (better ratio for LLM weights — tank/models). Renamed so
-    /// the serde wire form matches the actual ZFS token `zstd-3` (serde's
-    /// kebab-case would otherwise yield `zstd3`, which ZFS does not accept).
+    /// zstd level 3 (`tank/agents`).
     #[serde(rename = "zstd-3")]
     Zstd3,
+    /// zstd level 9 (max ratio for small state files — `tank/context`).
+    #[serde(rename = "zstd-9")]
+    Zstd9,
 }
 
 impl Compression {
@@ -132,6 +139,7 @@ impl Compression {
             "off" => Some(Compression::Off),
             "lz4" => Some(Compression::Lz4),
             "zstd-3" | "zstd_3" => Some(Compression::Zstd3),
+            "zstd-9" | "zstd_9" => Some(Compression::Zstd9),
             _ => None,
         }
     }
@@ -142,6 +150,7 @@ impl Compression {
             Compression::Off => "off",
             Compression::Lz4 => "lz4",
             Compression::Zstd3 => "zstd-3",
+            Compression::Zstd9 => "zstd-9",
         }
     }
 }
@@ -180,47 +189,62 @@ impl Sync {
     }
 }
 
+/// ZFS `redundant_metadata` setting.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum RedundantMetadata {
+    /// `all` — the ZFS default (full metadata redundancy).
+    All,
+    /// `most` — reduced metadata copies (`tank/models`: trades a little
+    /// metadata redundancy for throughput on huge sequential weight files).
+    Most,
+}
+
+impl RedundantMetadata {
+    /// Parse a `zfs get redundant_metadata` value token.
+    #[must_use]
+    pub fn from_token(token: &str) -> Option<RedundantMetadata> {
+        match token.trim().to_ascii_lowercase().as_str() {
+            "all" => Some(RedundantMetadata::All),
+            "most" => Some(RedundantMetadata::Most),
+            _ => None,
+        }
+    }
+    /// The ZFS token for this setting.
+    #[must_use]
+    pub const fn token(self) -> &'static str {
+        match self {
+            RedundantMetadata::All => "all",
+            RedundantMetadata::Most => "most",
+        }
+    }
+}
+
 // ── datasets ────────────────────────────────────────────────────────
 
-/// A dataset in the canonical `tank` hierarchy (E0661).
+/// A dataset in the canonical `tank` hierarchy (profile §4.1).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Dataset {
-    /// `tank/context` — sovereignty/integrity-critical state.
-    Context,
-    /// `tank/containers` — Podman graph driver storage.
-    Containers,
     /// `tank/models` — LLM weight files.
     Models,
-    /// `tank/logs` — runtime logs.
-    Logs,
-    /// `tank/snapshots` — M041 rollback retention.
-    Snapshots,
-    /// `tank/vault` — security audit logs.
-    Vault,
+    /// `tank/context` — sovereignty/integrity-critical state fabric.
+    Context,
+    /// `tank/agents` — stateful local agent storage.
+    Agents,
 }
 
 impl Dataset {
-    /// All six canonical datasets.
-    pub const ALL: [Dataset; 6] = [
-        Dataset::Context,
-        Dataset::Containers,
-        Dataset::Models,
-        Dataset::Logs,
-        Dataset::Snapshots,
-        Dataset::Vault,
-    ];
+    /// All three canonical datasets.
+    pub const ALL: [Dataset; 3] = [Dataset::Models, Dataset::Context, Dataset::Agents];
 
     /// The full ZFS dataset path under `tank`.
     #[must_use]
     pub const fn path(self) -> &'static str {
         match self {
-            Dataset::Context => "tank/context",
-            Dataset::Containers => "tank/containers",
             Dataset::Models => "tank/models",
-            Dataset::Logs => "tank/logs",
-            Dataset::Snapshots => "tank/snapshots",
-            Dataset::Vault => "tank/vault",
+            Dataset::Context => "tank/context",
+            Dataset::Agents => "tank/agents",
         }
     }
 }
@@ -236,9 +260,13 @@ pub struct DatasetSpec {
     pub compression: Compression,
     /// `sync`.
     pub sync: Sync,
+    /// `copies` (ZFS default 1; `tank/context` = 2 for state-fabric durability).
+    pub copies: u8,
+    /// `redundant_metadata` (`tank/models` = most; others = all/default).
+    pub redundant_metadata: RedundantMetadata,
 }
 
-/// Pool-level (`tank`) properties (E0660 / F05702-F05705).
+/// Pool-level (`tank`) properties (E0660).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PoolSpec {
     /// `ashift` — 12 for 4K-physical NVMe alignment.
@@ -255,19 +283,37 @@ pub fn canonical_pool() -> PoolSpec {
     PoolSpec { ashift: 12, compression: Compression::Lz4, atime_off: true }
 }
 
-/// The canonical per-dataset specs, verbatim from M068 F05709-F05717.
+/// The canonical per-dataset specs, verbatim from `profiles/sain-01.yaml` §4.1.
 #[must_use]
-pub fn canonical_layout() -> [DatasetSpec; 6] {
+pub fn canonical_layout() -> [DatasetSpec; 3] {
     [
-        // sovereignty-critical: sync=always; inherits lz4; default 128k record.
-        DatasetSpec { dataset: Dataset::Context, recordsize: 128 * 1024, compression: Compression::Lz4, sync: Sync::Always },
-        // Podman alignment: 16k, uncompressed.
-        DatasetSpec { dataset: Dataset::Containers, recordsize: 16 * 1024, compression: Compression::Off, sync: Sync::Standard },
-        // Large weight files: 1M, zstd-3.
-        DatasetSpec { dataset: Dataset::Models, recordsize: 1024 * 1024, compression: Compression::Zstd3, sync: Sync::Standard },
-        DatasetSpec { dataset: Dataset::Logs, recordsize: 128 * 1024, compression: Compression::Lz4, sync: Sync::Standard },
-        DatasetSpec { dataset: Dataset::Snapshots, recordsize: 128 * 1024, compression: Compression::Lz4, sync: Sync::Standard },
-        DatasetSpec { dataset: Dataset::Vault, recordsize: 128 * 1024, compression: Compression::Lz4, sync: Sync::Always },
+        // 100GB+ weight files: 1M record, lz4, reduced metadata for throughput.
+        DatasetSpec {
+            dataset: Dataset::Models,
+            recordsize: 1024 * 1024,
+            compression: Compression::Lz4,
+            sync: Sync::Standard,
+            copies: 1,
+            redundant_metadata: RedundantMetadata::Most,
+        },
+        // State fabric: small record, max compression, 2 copies, synchronous.
+        DatasetSpec {
+            dataset: Dataset::Context,
+            recordsize: 16 * 1024,
+            compression: Compression::Zstd9,
+            sync: Sync::Always,
+            copies: 2,
+            redundant_metadata: RedundantMetadata::All,
+        },
+        // Stateful agent storage: default record, zstd-3.
+        DatasetSpec {
+            dataset: Dataset::Agents,
+            recordsize: 128 * 1024,
+            compression: Compression::Zstd3,
+            sync: Sync::Standard,
+            copies: 1,
+            redundant_metadata: RedundantMetadata::All,
+        },
     ]
 }
 
@@ -286,11 +332,12 @@ pub fn canonical_spec(dataset: Dataset) -> DatasetSpec {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum DriftSeverity {
-    /// Performance / efficiency drift (e.g. wrong recordsize, wrong
-    /// compression) — wastes IO or space but does not risk data loss.
+    /// Performance / efficiency drift (wrong recordsize, wrong compression) —
+    /// wastes IO or space but does not risk data loss.
     Performance,
-    /// Integrity-critical drift — `tank/context` (or `tank/vault`) without
-    /// `sync=always` means acknowledged writes can be lost on power loss.
+    /// Integrity-critical drift — `tank/context` losing `sync=always` (writes
+    /// lost on power cut) or `copies=2` (no second copy to survive single-block
+    /// corruption of the state fabric).
     Integrity,
 }
 
@@ -299,7 +346,7 @@ pub enum DriftSeverity {
 pub struct LayoutDrift {
     /// Which dataset.
     pub dataset: Dataset,
-    /// Which property drifted (`recordsize` / `compression` / `sync`).
+    /// Which property drifted.
     pub property: String,
     /// The canonical (expected) value, as a ZFS token.
     pub expected: String,
@@ -310,13 +357,13 @@ pub struct LayoutDrift {
 }
 
 /// Compare one observed dataset spec against its canon. Returns every property
-/// that drifted (empty = matches the canon). A `sync` regression on an
-/// integrity-critical dataset (context / vault) is flagged `Integrity`; all
-/// other drift is `Performance`.
+/// that drifted (empty = matches the canon). On `tank/context`, a `sync`
+/// regression off `always` or a `copies` value below the canonical 2 is
+/// `Integrity`; everything else is `Performance`.
 #[must_use]
 pub fn validate_dataset(observed: &DatasetSpec) -> Vec<LayoutDrift> {
     let canon = canonical_spec(observed.dataset);
-    let integrity_critical = matches!(observed.dataset, Dataset::Context | Dataset::Vault);
+    let is_context = observed.dataset == Dataset::Context;
     let mut drift = Vec::new();
     if observed.recordsize != canon.recordsize {
         drift.push(LayoutDrift {
@@ -337,9 +384,7 @@ pub fn validate_dataset(observed: &DatasetSpec) -> Vec<LayoutDrift> {
         });
     }
     if observed.sync != canon.sync {
-        // Losing sync=always where the canon requires it is integrity-critical;
-        // gaining sync (stricter than canon) is merely a performance choice.
-        let severity = if canon.sync == Sync::Always && integrity_critical {
+        let severity = if canon.sync == Sync::Always && is_context {
             DriftSeverity::Integrity
         } else {
             DriftSeverity::Performance
@@ -352,15 +397,38 @@ pub fn validate_dataset(observed: &DatasetSpec) -> Vec<LayoutDrift> {
             severity,
         });
     }
+    if observed.copies != canon.copies {
+        // Dropping below the canonical copies on the state fabric is a
+        // durability gap (single-block corruption survivability).
+        let severity = if is_context && observed.copies < canon.copies {
+            DriftSeverity::Integrity
+        } else {
+            DriftSeverity::Performance
+        };
+        drift.push(LayoutDrift {
+            dataset: observed.dataset,
+            property: "copies".into(),
+            expected: canon.copies.to_string(),
+            observed: observed.copies.to_string(),
+            severity,
+        });
+    }
+    if observed.redundant_metadata != canon.redundant_metadata {
+        drift.push(LayoutDrift {
+            dataset: observed.dataset,
+            property: "redundant_metadata".into(),
+            expected: canon.redundant_metadata.token().into(),
+            observed: observed.redundant_metadata.token().into(),
+            severity: DriftSeverity::Performance,
+        });
+    }
     drift
 }
 
-/// Validate a whole observed layout. Returns all drift across all supplied
-/// datasets, integrity drift first (so the worst problems read at the top).
+/// Validate a whole observed layout. Returns all drift, integrity drift first.
 #[must_use]
 pub fn audit_layout(observed: &[DatasetSpec]) -> Vec<LayoutDrift> {
     let mut all: Vec<LayoutDrift> = observed.iter().flat_map(validate_dataset).collect();
-    // Integrity > Performance; stable within a severity for predictable output.
     all.sort_by(|a, b| b.severity.cmp(&a.severity));
     all
 }
@@ -381,8 +449,8 @@ mod tests {
     #[test]
     fn recordsize_rejects_illegal_values() {
         assert!(matches!(parse_recordsize("100K"), Err(RecordSizeError::NotPowerOfTwo(_))));
-        assert!(matches!(parse_recordsize("256"), Err(RecordSizeError::OutOfRange(_)))); // < 512
-        assert!(matches!(parse_recordsize("32M"), Err(RecordSizeError::OutOfRange(_)))); // > 16M
+        assert!(matches!(parse_recordsize("256"), Err(RecordSizeError::OutOfRange(_))));
+        assert!(matches!(parse_recordsize("32M"), Err(RecordSizeError::OutOfRange(_))));
         assert!(matches!(parse_recordsize("abc"), Err(RecordSizeError::Unparseable(_))));
         assert!(matches!(parse_recordsize(""), Err(RecordSizeError::Unparseable(_))));
     }
@@ -396,13 +464,23 @@ mod tests {
     }
 
     #[test]
-    fn every_dataset_has_a_canonical_spec() {
-        for d in Dataset::ALL {
-            let spec = canonical_spec(d);
-            assert_eq!(spec.dataset, d);
-            assert!(spec.recordsize.is_power_of_two());
-        }
-        assert_eq!(canonical_layout().len(), 6);
+    fn canon_matches_profile_section_4_1() {
+        // The three operator-verbatim datasets, exactly as profiles/sain-01.yaml
+        // declares them (and tests/lint/test_zfs_datasets_verbatim.py pins).
+        let models = canonical_spec(Dataset::Models);
+        assert_eq!(models.recordsize, 1024 * 1024);
+        assert_eq!(models.compression, Compression::Lz4);
+        assert_eq!(models.redundant_metadata, RedundantMetadata::Most);
+
+        let context = canonical_spec(Dataset::Context);
+        assert_eq!(context.recordsize, 16 * 1024);
+        assert_eq!(context.compression, Compression::Zstd9);
+        assert_eq!(context.copies, 2);
+        assert_eq!(context.sync, Sync::Always);
+
+        let agents = canonical_spec(Dataset::Agents);
+        assert_eq!(agents.recordsize, 128 * 1024);
+        assert_eq!(agents.compression, Compression::Zstd3);
     }
 
     #[test]
@@ -414,41 +492,56 @@ mod tests {
     }
 
     #[test]
-    fn context_losing_sync_always_is_integrity_critical() {
+    fn context_losing_sync_or_copies_is_integrity_critical() {
         let mut bad = canonical_spec(Dataset::Context);
-        bad.sync = Sync::Standard; // the dangerous regression
+        bad.sync = Sync::Standard;
+        bad.copies = 1; // both regressions
         let drift = validate_dataset(&bad);
-        assert_eq!(drift.len(), 1);
-        assert_eq!(drift[0].property, "sync");
-        assert_eq!(drift[0].severity, DriftSeverity::Integrity);
-        assert_eq!(drift[0].expected, "always");
-        assert_eq!(drift[0].observed, "standard");
+        assert_eq!(drift.len(), 2);
+        for d in &drift {
+            assert_eq!(d.severity, DriftSeverity::Integrity, "{}", d.property);
+        }
     }
 
     #[test]
-    fn containers_compression_drift_is_performance() {
-        let mut bad = canonical_spec(Dataset::Containers);
-        bad.compression = Compression::Lz4; // should be off for Podman
+    fn models_compression_drift_is_performance() {
+        let mut bad = canonical_spec(Dataset::Models);
+        bad.compression = Compression::Zstd3; // the catalogue value — wrong vs profile
         let drift = validate_dataset(&bad);
         assert_eq!(drift.len(), 1);
         assert_eq!(drift[0].property, "compression");
+        assert_eq!(drift[0].expected, "lz4");
+        assert_eq!(drift[0].observed, "zstd-3");
         assert_eq!(drift[0].severity, DriftSeverity::Performance);
     }
 
     #[test]
     fn audit_sorts_integrity_before_performance() {
         let observed = vec![
-            DatasetSpec { dataset: Dataset::Containers, recordsize: 16 * 1024, compression: Compression::Lz4, sync: Sync::Standard }, // perf drift
-            DatasetSpec { dataset: Dataset::Context, recordsize: 128 * 1024, compression: Compression::Lz4, sync: Sync::Standard }, // integrity drift
+            DatasetSpec {
+                dataset: Dataset::Agents,
+                recordsize: 16 * 1024, // perf drift
+                compression: Compression::Zstd3,
+                sync: Sync::Standard,
+                copies: 1,
+                redundant_metadata: RedundantMetadata::All,
+            },
+            DatasetSpec {
+                dataset: Dataset::Context,
+                recordsize: 16 * 1024,
+                compression: Compression::Zstd9,
+                sync: Sync::Standard, // integrity drift
+                copies: 2,
+                redundant_metadata: RedundantMetadata::All,
+            },
         ];
         let drift = audit_layout(&observed);
-        assert_eq!(drift.len(), 2);
-        assert_eq!(drift[0].severity, DriftSeverity::Integrity, "worst drift first");
+        assert_eq!(drift[0].severity, DriftSeverity::Integrity, "worst first");
         assert_eq!(drift[0].dataset, Dataset::Context);
     }
 
     #[test]
-    fn pool_canon_matches_doctrine() {
+    fn pool_canon() {
         let p = canonical_pool();
         assert_eq!(p.ashift, 12);
         assert_eq!(p.compression, Compression::Lz4);
@@ -458,7 +551,8 @@ mod tests {
     #[test]
     fn serde_kebab_tokens() {
         assert_eq!(serde_json::to_string(&Dataset::Context).unwrap(), "\"context\"");
-        assert_eq!(serde_json::to_string(&Compression::Zstd3).unwrap(), "\"zstd-3\"");
+        assert_eq!(serde_json::to_string(&Compression::Zstd9).unwrap(), "\"zstd-9\"");
+        assert_eq!(serde_json::to_string(&RedundantMetadata::Most).unwrap(), "\"most\"");
         assert_eq!(serde_json::to_string(&Sync::Always).unwrap(), "\"always\"");
         assert_eq!(serde_json::to_string(&DriftSeverity::Integrity).unwrap(), "\"integrity\"");
     }

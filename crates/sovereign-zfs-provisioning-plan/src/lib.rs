@@ -23,7 +23,9 @@
 #![warn(missing_docs)]
 
 use serde::Serialize;
-use sovereign_zfs_dataset_layout::{Sync, canonical_layout, canonical_pool, format_recordsize};
+use sovereign_zfs_dataset_layout::{
+    RedundantMetadata, Sync, canonical_layout, canonical_pool, format_recordsize,
+};
 
 /// Schema version.
 pub const SCHEMA_VERSION: &str = "1.0.0";
@@ -31,6 +33,9 @@ pub const SCHEMA_VERSION: &str = "1.0.0";
 /// ZFS's default `recordsize` (128K). Datasets at this value inherit it and
 /// need no explicit `zfs set recordsize`.
 pub const ZFS_DEFAULT_RECORDSIZE: u32 = 128 * 1024;
+
+/// ZFS's default `copies` (1). Datasets at this value need no explicit set.
+pub const ZFS_DEFAULT_COPIES: u8 = 1;
 
 /// Why a target device string was rejected.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -142,6 +147,12 @@ pub fn provisioning_plan(device: &str) -> Result<Vec<ProvisioningCommand>, Devic
         if spec.sync != Sync::Standard {
             props.push(format!("sync={}", spec.sync.token()));
         }
+        if spec.copies != ZFS_DEFAULT_COPIES {
+            props.push(format!("copies={}", spec.copies));
+        }
+        if spec.redundant_metadata != RedundantMetadata::All {
+            props.push(format!("redundant_metadata={}", spec.redundant_metadata.token()));
+        }
         if !props.is_empty() {
             let mut set_argv = vec!["zfs".into(), "set".into()];
             set_argv.extend(props);
@@ -209,34 +220,31 @@ mod tests {
         let script = provisioning_script("/dev/nvme0n1").unwrap();
         let joined = script.join("\n");
 
-        // containers: 16k + off → both set.
-        assert!(joined.contains("zfs set recordsize=16K compression=off tank/containers"), "{joined}");
-        // models: 1M + zstd-3.
-        assert!(joined.contains("zfs set recordsize=1M compression=zstd-3 tank/models"), "{joined}");
-        // context: only sync=always (recordsize 128k = default, compression lz4 = inherited).
-        assert!(joined.contains("zfs set sync=always tank/context"), "{joined}");
-        // vault: only sync=always.
-        assert!(joined.contains("zfs set sync=always tank/vault"), "{joined}");
-
-        // logs + snapshots are pure-default (128k, lz4, standard) → no `set` line
-        // (they still get a `zfs create`, just no `zfs set`).
-        let logs_set = script.iter().any(|l| l.starts_with("zfs set") && l.ends_with("tank/logs"));
-        let snaps_set = script.iter().any(|l| l.starts_with("zfs set") && l.ends_with("tank/snapshots"));
-        assert!(!logs_set, "tank/logs is all-default; no set line expected");
-        assert!(!snaps_set, "tank/snapshots is all-default; no set line expected");
+        // models: 1M (!=128k) + redundant_metadata=most; compression lz4 is the
+        // inherited pool default, so it is NOT re-set.
+        assert!(
+            joined.contains("zfs set recordsize=1M redundant_metadata=most tank/models"),
+            "{joined}"
+        );
+        // context: recordsize=16k + compression=zstd-9 + sync=always + copies=2.
+        assert!(
+            joined.contains("zfs set recordsize=16K compression=zstd-9 sync=always copies=2 tank/context"),
+            "{joined}"
+        );
+        // agents: only compression=zstd-3 (recordsize 128k = default, copies 1,
+        // redundant_metadata all, sync standard — all inherited).
+        assert!(joined.contains("zfs set compression=zstd-3 tank/agents"), "{joined}");
+        // agents must NOT carry a recordsize set (it's the 128k default).
+        let agents_set: Vec<&String> =
+            script.iter().filter(|l| l.starts_with("zfs set") && l.ends_with("tank/agents")).collect();
+        assert_eq!(agents_set.len(), 1, "agents has exactly one set line: {agents_set:?}");
+        assert!(!agents_set[0].contains("recordsize"), "agents 128k is default: {agents_set:?}");
     }
 
     #[test]
     fn every_dataset_gets_a_create_line_in_order() {
         let script = provisioning_script("/dev/nvme0n1").unwrap();
-        for path in [
-            "tank/context",
-            "tank/containers",
-            "tank/models",
-            "tank/logs",
-            "tank/snapshots",
-            "tank/vault",
-        ] {
+        for path in ["tank/models", "tank/context", "tank/agents"] {
             assert!(
                 script.iter().any(|l| l == &format!("zfs create {path}")),
                 "missing create for {path}"
@@ -247,7 +255,7 @@ mod tests {
     }
 
     #[test]
-    fn context_set_precedes_nothing_dangerous_and_serializes() {
+    fn context_set_serializes() {
         let plan = provisioning_plan("/dev/nvme0n1").unwrap();
         // Round-trips through serde (structured form is inspectable).
         let json = serde_json::to_string(&plan).unwrap();
