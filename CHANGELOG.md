@@ -12,6 +12,26 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — `sovereign-agent-runtime` is runnable: a tool-using ReAct agent on the real engine (2026-06-09)
+
+`sovereign-agent-runtime` bridges the real quantized inference engine
+(`sovereign-llm`) into the ReAct loop (`sovereign-agent-loop`) but was lib-only.
+Added a `[[bin]]` + demo (the workspace's 7th runnable binary) that drives the
+agent two ways:
+
+- **Real runtime** — a small `SovereignLlm` drives the loop end-to-end, proving
+  the inference stack + agentic layer compose into one running agent. (Random
+  weights → no tool call, one-step gibberish answer; the point is the real
+  engine drives the control flow.)
+- **Scripted ReAct** — a deterministic responder emits `[[tool:upper|sovereign]]`,
+  so the run shows the full loop: generate → dispatch the tool → feed the
+  observation back → final answer (`upper("sovereign") = "SOVEREIGN"`).
+
+The 7 model crates the binary needs to build a `SovereignLlm` moved from
+dev-dependencies to dependencies (no new workspace crates; Cargo.lock
+unchanged). `--help` supported. `fmt` + `clippy -D warnings` clean on pinned
+1.88.0; the 4 lib tests still pass.
+
 ### Added — `sovereign-serve` is runnable: the $0-aware serving assembly runs end-to-end (2026-06-09)
 
 `sovereign-serve` composed the cache / complexity / token-meter crates into one

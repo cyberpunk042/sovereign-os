@@ -12,12 +12,15 @@ description = "Bridges the real LLM runtime into the agent loop: an LlmResponder
 [lints]
 workspace = true
 
+[[bin]]
+name = "sovereign-agent-runtime"
+path = "src/main.rs"
+
 [dependencies]
 sovereign-agent-loop = { path = "../sovereign-agent-loop" }
 sovereign-llm = { path = "../sovereign-llm" }
 sovereign-stop-sequence = { path = "../sovereign-stop-sequence" }
-
-[dev-dependencies]
+# Used by the demo binary to build a small SovereignLlm, and by the tests.
 sovereign-tokenizer = { path = "../sovereign-tokenizer" }
 sovereign-transformer-block = { path = "../sovereign-transformer-block" }
 sovereign-rmsnorm = { path = "../sovereign-rmsnorm" }
