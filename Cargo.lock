@@ -5156,6 +5156,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-text-edit"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-token-meter"
 version = "0.1.0"
 dependencies = [
