@@ -1,0 +1,29 @@
+[package]
+name = "sovereign-quant-llm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "The quantized text-to-text runtime: binds the byte-level BPE tokenizer to the mixed-precision QuantModel so a prompt string runs through a heterogeneous f32/ternary/NVFP4 multi-head decoder and back to text. The low-precision counterpart to sovereign-llm, and the true end-to-end realization of local quantized inference. Composes sovereign-tokenizer and sovereign-quant-model."
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+sovereign-tokenizer = { path = "../sovereign-tokenizer" }
+sovereign-quant-model = { path = "../sovereign-quant-model" }
+sovereign-logit-mask = { path = "../sovereign-logit-mask" }
+
+[dev-dependencies]
+sovereign-decoder-layer = { path = "../sovereign-decoder-layer" }
+sovereign-transformer-block = { path = "../sovereign-transformer-block" }
+sovereign-quant-block = { path = "../sovereign-quant-block" }
+sovereign-mha-block = { path = "../sovereign-mha-block" }
+sovereign-rmsnorm = { path = "../sovereign-rmsnorm" }
+sovereign-ffn = { path = "../sovereign-ffn" }
+sovereign-linear = { path = "../sovereign-linear" }
+sovereign-sampler = { path = "../sovereign-sampler" }
