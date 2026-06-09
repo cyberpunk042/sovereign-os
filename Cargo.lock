@@ -5766,6 +5766,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-wer"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-edit-align",
+]
+
+[[package]]
 name = "sovereign-wordpiece"
 version = "0.1.0"
 dependencies = [
