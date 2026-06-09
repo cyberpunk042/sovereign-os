@@ -5512,6 +5512,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-rendezvous-hash"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-repetition-penalty"
 version = "0.1.0"
 dependencies = [
