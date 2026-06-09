@@ -273,6 +273,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-balanced-constrain"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-beam-search"
 version = "0.1.0"
 dependencies = [
