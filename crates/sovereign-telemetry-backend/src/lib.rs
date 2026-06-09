@@ -1,35 +1,45 @@
-//! `sovereign-telemetry-backend` — M013 E0107: which telemetry backend the
-//! runtime ships metrics/traces through, and how the operator overrides it.
+//! `sovereign-telemetry-backend` — operator-overrideable telemetry sink.
 //!
-//! The observability plane (M00198/M00199 — DCGM-to-Prometheus + OpenTelemetry)
-//! can emit through three backends:
+//! Where the runtime ships metrics/traces, and how the operator overrides it.
 //!
-//! - **prom** — Prometheus-direct (a `/metrics` exposition endpoint + the
-//!   node_exporter textfile-collector path). Lowest overhead; matches the
-//!   exposition surface the rest of the stack already scrapes.
-//! - **otel** — OpenTelemetry (traces / metrics / logs through an
-//!   otel-collector, with context propagation).
-//! - **dual** — both at once (Prometheus for cheap scrape-time gauges,
-//!   OpenTelemetry for the trace_id/span_id/branch_id correlation of M00215).
+//! # Source of truth: the profile schema, not the backlog catalogue
 //!
-//! This crate fixes the backend taxonomy and the *operator override* contract
-//! (R02194/R02197/R02199): a single token (`otel` / `prom` / `dual`) parsed
-//! from the `SOVEREIGN_TELEMETRY_BACKEND` env var, the `--telemetry-backend`
-//! CLI flag, or a profile knob, resolved by a fixed precedence. It is the
-//! consumable substrate the runtime binary reads at startup; it does NOT itself
-//! stand up a collector (that is the runtime's job).
+//! The authoritative vocabulary is the **profile field**
+//! `observability.telemetry_sink`, defined by SDD-004 (Q-013) and bound by
+//! SDD-016, declared by every profile in `profiles/*.yaml` and exercised by
+//! `tests/unit/test_profile_merger.py` + `tests/lint/test_build_lib_contract.py`.
+//! Its three values are:
+//!
+//! - **`prometheus-local`** (default) — Prometheus textfile collector at
+//!   `/var/lib/node_exporter/textfile_collector/sovereign-os.prom` (SDD-016
+//!   Layer B). Local-default, no phone-home.
+//! - **`otel`** — OpenTelemetry (remote sink; requires operator action).
+//! - **`none`** — telemetry disabled (structured logs, SDD-016 Layer A, stay on).
+//!
+//! > Reconciliation note: the M013 *backlog catalogue* (F01024/F01025) proposed
+//! > a different field (`telemetry_backend`) and value set (`otel` / `prom` /
+//! > `dual`). That catalogue is aspirational and DIVERGES from the applied
+//! > profile schema — there is no `dual` sink operationally, and the disabled
+//! > state is `none`. This crate follows the profile schema (operational truth);
+//! > a `dual` sink would be a future schema change, not an existing fact.
+//!
+//! This crate fixes the sink taxonomy and the *operator override* contract: a
+//! single token parsed from the `observability.telemetry_sink` profile field,
+//! the `SOVEREIGN_TELEMETRY_SINK` env var, or the `--telemetry-sink` CLI flag,
+//! resolved by a fixed precedence. It is consumable substrate the runtime reads
+//! at startup; it does NOT stand up a collector.
 //!
 //! ```
-//! use sovereign_telemetry_backend::{TelemetryBackend, ResolvedFrom, resolve};
+//! use sovereign_telemetry_backend::{TelemetrySink, ResolvedFrom, resolve};
 //!
 //! // CLI beats env beats profile beats the default.
-//! let r = resolve(Some("dual"), Some("otel"), Some("prom")).unwrap();
-//! assert_eq!(r.backend, TelemetryBackend::Dual);
+//! let r = resolve(Some("otel"), Some("none"), Some("prometheus-local")).unwrap();
+//! assert_eq!(r.sink, TelemetrySink::Otel);
 //! assert_eq!(r.source, ResolvedFrom::Cli);
 //!
-//! // Nothing set anywhere → the documented default (prom).
+//! // Nothing set anywhere → the documented default (prometheus-local).
 //! let r = resolve(None, None, None).unwrap();
-//! assert_eq!(r.backend, TelemetryBackend::default());
+//! assert_eq!(r.sink, TelemetrySink::default());
 //! assert_eq!(r.source, ResolvedFrom::Default);
 //! ```
 
@@ -42,117 +52,118 @@ use thiserror::Error;
 /// Schema version.
 pub const SCHEMA_VERSION: &str = "1.0.0";
 
-/// The env var that overrides the telemetry backend (R02197).
-pub const ENV_VAR: &str = "SOVEREIGN_TELEMETRY_BACKEND";
+/// The env var that overrides the telemetry sink.
+pub const ENV_VAR: &str = "SOVEREIGN_TELEMETRY_SINK";
 
-/// The CLI flag that overrides the telemetry backend (R02199).
-pub const CLI_FLAG: &str = "--telemetry-backend";
+/// The CLI flag that overrides the telemetry sink.
+pub const CLI_FLAG: &str = "--telemetry-sink";
 
-/// Which telemetry backend the runtime emits through (R02194).
+/// Where the runtime ships telemetry (`observability.telemetry_sink`, SDD-004).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum TelemetryBackend {
-    /// Prometheus-direct (`/metrics` exposition + textfile collector).
-    Prom,
-    /// OpenTelemetry (otel-collector; traces / metrics / logs).
+pub enum TelemetrySink {
+    /// Prometheus textfile collector — local-default, no phone-home.
+    #[serde(rename = "prometheus-local")]
+    PrometheusLocal,
+    /// OpenTelemetry (remote sink; operator action required).
     Otel,
-    /// Both Prometheus and OpenTelemetry simultaneously.
-    Dual,
+    /// Telemetry disabled (structured logs stay on).
+    None,
 }
 
-impl TelemetryBackend {
-    /// All three backends, in canonical order.
-    pub const ALL: [TelemetryBackend; 3] = [
-        TelemetryBackend::Prom,
-        TelemetryBackend::Otel,
-        TelemetryBackend::Dual,
-    ];
+impl TelemetrySink {
+    /// All three sinks, in canonical order.
+    pub const ALL: [TelemetrySink; 3] =
+        [TelemetrySink::PrometheusLocal, TelemetrySink::Otel, TelemetrySink::None];
 
-    /// The canonical lower-case token (`prom` / `otel` / `dual`) — the form
-    /// written in the env var, the CLI flag value, and a profile knob.
+    /// The canonical token, exactly as written in `telemetry_sink`.
     #[must_use]
     pub const fn token(self) -> &'static str {
         match self {
-            TelemetryBackend::Prom => "prom",
-            TelemetryBackend::Otel => "otel",
-            TelemetryBackend::Dual => "dual",
+            TelemetrySink::PrometheusLocal => "prometheus-local",
+            TelemetrySink::Otel => "otel",
+            TelemetrySink::None => "none",
         }
     }
 
-    /// Whether this backend emits a Prometheus exposition surface.
+    /// Whether this sink emits a Prometheus exposition / textfile surface.
     #[must_use]
     pub const fn emits_prometheus(self) -> bool {
-        matches!(self, TelemetryBackend::Prom | TelemetryBackend::Dual)
+        matches!(self, TelemetrySink::PrometheusLocal)
     }
 
-    /// Whether this backend emits through OpenTelemetry.
+    /// Whether this sink emits through OpenTelemetry.
     #[must_use]
     pub const fn emits_otel(self) -> bool {
-        matches!(self, TelemetryBackend::Otel | TelemetryBackend::Dual)
+        matches!(self, TelemetrySink::Otel)
+    }
+
+    /// Whether telemetry is enabled at all (structured logs are independent).
+    #[must_use]
+    pub const fn is_enabled(self) -> bool {
+        !matches!(self, TelemetrySink::None)
     }
 
     /// Parse an operator-supplied token. Case-insensitive and whitespace-
-    /// tolerant; accepts common aliases (`prometheus` → `prom`, `otlp`/
-    /// `opentelemetry` → `otel`, `both` → `dual`). Returns `None` for an
-    /// unrecognized token so callers can surface a precise error.
+    /// tolerant; accepts the canonical `prometheus-local` / `otel` / `none`
+    /// plus convenience aliases (`prom` / `prometheus` → `prometheus-local`,
+    /// `otlp` / `opentelemetry` → `otel`, `off` / `disabled` → `none`). Returns
+    /// `None` for an unrecognized token so callers can surface a precise error.
     #[must_use]
-    pub fn from_token(token: &str) -> Option<TelemetryBackend> {
+    pub fn from_token(token: &str) -> Option<TelemetrySink> {
         match token.trim().to_ascii_lowercase().as_str() {
-            "prom" | "prometheus" | "prom-direct" => Some(TelemetryBackend::Prom),
-            "otel" | "otlp" | "opentelemetry" | "open-telemetry" => Some(TelemetryBackend::Otel),
-            "dual" | "both" => Some(TelemetryBackend::Dual),
+            "prometheus-local" | "prometheus_local" | "prom" | "prometheus" | "prom-direct" => {
+                Some(TelemetrySink::PrometheusLocal)
+            }
+            "otel" | "otlp" | "opentelemetry" | "open-telemetry" => Some(TelemetrySink::Otel),
+            "none" | "off" | "disabled" => Some(TelemetrySink::None),
             _ => None,
         }
     }
 }
 
-impl Default for TelemetryBackend {
-    /// The documented default when the operator overrides nothing: `prom`.
-    /// Prometheus-direct is the lowest-overhead backend and matches the
-    /// exposition surface the rest of the stack already scrapes. Chosen
-    /// default (the catalogue states the override set, not a default).
+impl Default for TelemetrySink {
+    /// The profile-schema default: `prometheus-local` (SDD-016 Layer B,
+    /// local-default, no phone-home).
     fn default() -> Self {
-        TelemetryBackend::Prom
+        TelemetrySink::PrometheusLocal
     }
 }
 
-impl std::fmt::Display for TelemetryBackend {
+impl std::fmt::Display for TelemetrySink {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.token())
     }
 }
 
-/// Where a resolved backend value came from — the winning precedence rung.
-/// Returned alongside the backend so the runtime can log *why* a backend is
-/// active (operability: distinguishes "operator forced otel via CLI" from
-/// "fell through to the default").
+/// Where a resolved sink value came from — the winning precedence rung.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ResolvedFrom {
-    /// The `--telemetry-backend` CLI flag (highest precedence).
+    /// The `--telemetry-sink` CLI flag (highest precedence).
     Cli,
-    /// The `SOVEREIGN_TELEMETRY_BACKEND` env var.
+    /// The `SOVEREIGN_TELEMETRY_SINK` env var.
     Env,
-    /// A profile knob (`telemetry_backend = ...`).
+    /// The `observability.telemetry_sink` profile field.
     Profile,
     /// No override anywhere; the built-in default.
     Default,
 }
 
-/// A resolved backend plus the rung it was resolved from.
+/// A resolved sink plus the rung it was resolved from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Resolution {
-    /// The selected backend.
-    pub backend: TelemetryBackend,
+    /// The selected sink.
+    pub sink: TelemetrySink,
     /// Which precedence rung supplied it.
     pub source: ResolvedFrom,
 }
 
-/// Why a backend could not be resolved.
+/// Why a sink could not be resolved.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
-pub enum TelemetryBackendError {
-    /// A supplied override token was not a recognized backend.
-    #[error("{rung} value {token:?} is not a telemetry backend (expected one of: prom, otel, dual)")]
+pub enum TelemetrySinkError {
+    /// A supplied override token was not a recognized sink.
+    #[error("{rung} value {token:?} is not a telemetry sink (expected one of: prometheus-local, otel, none)")]
     BadToken {
         /// Which rung carried the bad token.
         rung: ResolvedFrom,
@@ -164,31 +175,30 @@ pub enum TelemetryBackendError {
 impl std::fmt::Display for ResolvedFrom {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
-            ResolvedFrom::Cli => "--telemetry-backend",
-            ResolvedFrom::Env => "SOVEREIGN_TELEMETRY_BACKEND",
-            ResolvedFrom::Profile => "profile telemetry_backend",
+            ResolvedFrom::Cli => "--telemetry-sink",
+            ResolvedFrom::Env => "SOVEREIGN_TELEMETRY_SINK",
+            ResolvedFrom::Profile => "profile telemetry_sink",
             ResolvedFrom::Default => "default",
         })
     }
 }
 
-/// Resolve the active telemetry backend by precedence (R02194):
+/// Resolve the active telemetry sink by precedence:
 ///
-/// 1. `cli` — the `--telemetry-backend` flag (operator's most explicit intent),
-/// 2. `env` — the `SOVEREIGN_TELEMETRY_BACKEND` env var,
-/// 3. `profile` — a profile knob,
-/// 4. the built-in [`TelemetryBackend::default`].
+/// 1. `cli` — the `--telemetry-sink` flag,
+/// 2. `env` — the `SOVEREIGN_TELEMETRY_SINK` env var,
+/// 3. `profile` — the `observability.telemetry_sink` field,
+/// 4. the built-in [`TelemetrySink::default`] (`prometheus-local`).
 ///
-/// Each rung is consulted only if the higher one is absent (`None`). A *present
-/// but unparseable* token is a hard error (it is not silently skipped to a
-/// lower rung — an operator who typed `--telemetry-backend otlel` wants to know
-/// they fat-fingered it, not to silently get the default). Empty / whitespace-
-/// only strings count as absent so a blank env var doesn't mask a profile knob.
+/// Each rung is consulted only if the higher one is absent (`None`). A present
+/// but unparseable token is a hard error (not silently skipped to a lower rung).
+/// Empty / whitespace-only strings count as absent so a blank env var doesn't
+/// mask a profile field.
 pub fn resolve(
     cli: Option<&str>,
     env: Option<&str>,
     profile: Option<&str>,
-) -> Result<Resolution, TelemetryBackendError> {
+) -> Result<Resolution, TelemetrySinkError> {
     for (rung, value) in [
         (ResolvedFrom::Cli, cli),
         (ResolvedFrom::Env, env),
@@ -198,18 +208,13 @@ pub fn resolve(
         if raw.trim().is_empty() {
             continue;
         }
-        let backend = TelemetryBackend::from_token(raw).ok_or_else(|| {
-            TelemetryBackendError::BadToken {
-                rung,
-                token: raw.trim().to_string(),
-            }
+        let sink = TelemetrySink::from_token(raw).ok_or_else(|| TelemetrySinkError::BadToken {
+            rung,
+            token: raw.trim().to_string(),
         })?;
-        return Ok(Resolution { backend, source: rung });
+        return Ok(Resolution { sink, source: rung });
     }
-    Ok(Resolution {
-        backend: TelemetryBackend::default(),
-        source: ResolvedFrom::Default,
-    })
+    Ok(Resolution { sink: TelemetrySink::default(), source: ResolvedFrom::Default })
 }
 
 #[cfg(test)]
@@ -217,67 +222,73 @@ mod tests {
     use super::*;
 
     #[test]
-    fn three_backends_round_trip_their_tokens() {
-        assert_eq!(TelemetryBackend::ALL.len(), 3);
-        for b in TelemetryBackend::ALL {
-            assert_eq!(TelemetryBackend::from_token(b.token()), Some(b));
+    fn three_sinks_round_trip_their_tokens() {
+        assert_eq!(TelemetrySink::ALL.len(), 3);
+        for s in TelemetrySink::ALL {
+            assert_eq!(TelemetrySink::from_token(s.token()), Some(s));
         }
     }
 
     #[test]
-    fn from_token_is_case_insensitive_and_aliased() {
-        assert_eq!(TelemetryBackend::from_token("PROM"), Some(TelemetryBackend::Prom));
-        assert_eq!(TelemetryBackend::from_token("  prometheus "), Some(TelemetryBackend::Prom));
-        assert_eq!(TelemetryBackend::from_token("OTLP"), Some(TelemetryBackend::Otel));
-        assert_eq!(TelemetryBackend::from_token("OpenTelemetry"), Some(TelemetryBackend::Otel));
-        assert_eq!(TelemetryBackend::from_token("both"), Some(TelemetryBackend::Dual));
-        assert_eq!(TelemetryBackend::from_token("otlel"), None);
-        assert_eq!(TelemetryBackend::from_token(""), None);
+    fn profile_vocabulary_parses() {
+        // The exact tokens every profiles/*.yaml uses + the SDD-004 set.
+        assert_eq!(TelemetrySink::from_token("prometheus-local"), Some(TelemetrySink::PrometheusLocal));
+        assert_eq!(TelemetrySink::from_token("otel"), Some(TelemetrySink::Otel));
+        assert_eq!(TelemetrySink::from_token("none"), Some(TelemetrySink::None));
     }
 
     #[test]
-    fn emission_predicates() {
-        assert!(TelemetryBackend::Prom.emits_prometheus());
-        assert!(!TelemetryBackend::Prom.emits_otel());
-        assert!(TelemetryBackend::Otel.emits_otel());
-        assert!(!TelemetryBackend::Otel.emits_prometheus());
-        assert!(TelemetryBackend::Dual.emits_prometheus());
-        assert!(TelemetryBackend::Dual.emits_otel());
+    fn aliases_and_case_insensitivity() {
+        assert_eq!(TelemetrySink::from_token("PROM"), Some(TelemetrySink::PrometheusLocal));
+        assert_eq!(TelemetrySink::from_token("  prometheus "), Some(TelemetrySink::PrometheusLocal));
+        assert_eq!(TelemetrySink::from_token("OTLP"), Some(TelemetrySink::Otel));
+        assert_eq!(TelemetrySink::from_token("off"), Some(TelemetrySink::None));
+        assert_eq!(TelemetrySink::from_token("dual"), None, "no dual sink operationally");
+        assert_eq!(TelemetrySink::from_token(""), None);
     }
 
     #[test]
-    fn default_is_prom() {
-        assert_eq!(TelemetryBackend::default(), TelemetryBackend::Prom);
+    fn emission_and_enabled_predicates() {
+        assert!(TelemetrySink::PrometheusLocal.emits_prometheus());
+        assert!(!TelemetrySink::PrometheusLocal.emits_otel());
+        assert!(TelemetrySink::Otel.emits_otel());
+        assert!(!TelemetrySink::Otel.emits_prometheus());
+        assert!(TelemetrySink::PrometheusLocal.is_enabled());
+        assert!(TelemetrySink::Otel.is_enabled());
+        assert!(!TelemetrySink::None.is_enabled());
+    }
+
+    #[test]
+    fn default_is_prometheus_local() {
+        assert_eq!(TelemetrySink::default(), TelemetrySink::PrometheusLocal);
     }
 
     #[test]
     fn cli_beats_env_beats_profile_beats_default() {
         assert_eq!(
-            resolve(Some("dual"), Some("otel"), Some("prom")).unwrap(),
-            Resolution { backend: TelemetryBackend::Dual, source: ResolvedFrom::Cli }
+            resolve(Some("otel"), Some("none"), Some("prometheus-local")).unwrap(),
+            Resolution { sink: TelemetrySink::Otel, source: ResolvedFrom::Cli }
         );
         assert_eq!(
-            resolve(None, Some("otel"), Some("prom")).unwrap(),
-            Resolution { backend: TelemetryBackend::Otel, source: ResolvedFrom::Env }
+            resolve(None, Some("none"), Some("prometheus-local")).unwrap(),
+            Resolution { sink: TelemetrySink::None, source: ResolvedFrom::Env }
         );
         assert_eq!(
-            resolve(None, None, Some("dual")).unwrap(),
-            Resolution { backend: TelemetryBackend::Dual, source: ResolvedFrom::Profile }
+            resolve(None, None, Some("otel")).unwrap(),
+            Resolution { sink: TelemetrySink::Otel, source: ResolvedFrom::Profile }
         );
         assert_eq!(
             resolve(None, None, None).unwrap(),
-            Resolution { backend: TelemetryBackend::Prom, source: ResolvedFrom::Default }
+            Resolution { sink: TelemetrySink::PrometheusLocal, source: ResolvedFrom::Default }
         );
     }
 
     #[test]
-    fn blank_rungs_fall_through_to_the_next() {
-        // A blank env var must not mask a real profile knob.
+    fn blank_rungs_fall_through() {
         assert_eq!(
             resolve(None, Some("   "), Some("otel")).unwrap(),
-            Resolution { backend: TelemetryBackend::Otel, source: ResolvedFrom::Profile }
+            Resolution { sink: TelemetrySink::Otel, source: ResolvedFrom::Profile }
         );
-        // Blank everywhere → default.
         assert_eq!(
             resolve(Some(""), Some(" "), Some("")).unwrap().source,
             ResolvedFrom::Default
@@ -285,25 +296,21 @@ mod tests {
     }
 
     #[test]
-    fn present_but_bad_token_is_an_error_not_a_fallthrough() {
-        // A fat-fingered CLI value must error, NOT silently use env/default.
-        let err = resolve(Some("otlel"), Some("prom"), None).unwrap_err();
+    fn present_but_bad_token_errors_naming_the_rung() {
+        let err = resolve(Some("dual"), Some("otel"), None).unwrap_err();
         assert_eq!(
             err,
-            TelemetryBackendError::BadToken {
-                rung: ResolvedFrom::Cli,
-                token: "otlel".to_string()
-            }
+            TelemetrySinkError::BadToken { rung: ResolvedFrom::Cli, token: "dual".to_string() }
         );
-        // The error names the rung so the operator knows where to look.
-        assert!(err.to_string().contains("--telemetry-backend"));
+        assert!(err.to_string().contains("--telemetry-sink"));
     }
 
     #[test]
-    fn serde_kebab_tokens() {
-        assert_eq!(serde_json::to_string(&TelemetryBackend::Prom).unwrap(), "\"prom\"");
-        assert_eq!(serde_json::to_string(&TelemetryBackend::Otel).unwrap(), "\"otel\"");
-        assert_eq!(serde_json::to_string(&TelemetryBackend::Dual).unwrap(), "\"dual\"");
+    fn serde_matches_profile_field_form() {
+        // Serde wire form must equal the token written in profiles/*.yaml.
+        assert_eq!(serde_json::to_string(&TelemetrySink::PrometheusLocal).unwrap(), "\"prometheus-local\"");
+        assert_eq!(serde_json::to_string(&TelemetrySink::Otel).unwrap(), "\"otel\"");
+        assert_eq!(serde_json::to_string(&TelemetrySink::None).unwrap(), "\"none\"");
         assert_eq!(serde_json::to_string(&ResolvedFrom::Cli).unwrap(), "\"cli\"");
     }
 }
