@@ -64,6 +64,10 @@ pub const RECALL_EVIDENCE_BOOST: f32 = 0.05;
 /// Hard safety cap on iterative-search rounds, independent of tier budget.
 pub const MAX_SEARCH_ROUNDS: u32 = 64;
 
+/// Base id for memories learned from committed decisions (kept clear of
+/// any externally-seeded ids).
+pub const LEARNED_ID_BASE: u64 = 1_000_000;
+
 /// One end-to-end request to the cortex. Every field is a real input to
 /// one of the composed engines.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -318,6 +322,56 @@ impl Cortex {
         let decision = self.tick(req)?;
         let cycle = self.execute(&decision);
         Ok((decision, cycle))
+    }
+
+    /// Learning without retraining (M016): admit a *committed* decision back
+    /// into Memory-OS so later requests on the same topic recall it and the
+    /// value plane judges them more confidently. Non-committed decisions are
+    /// not learned (we only remember outcomes we stood behind). Returns
+    /// whether anything was learned.
+    pub fn learn(&mut self, req: &CortexRequest, decision: &CortexDecision) -> bool {
+        if decision.assessment.suggested_next_action != NextAction::Commit {
+            return false;
+        }
+        let id = LEARNED_ID_BASE + self.memory.len() as u64;
+        let trust = (decision.assessment.step_score.clamp(0.0, 1.0) * 1000.0) as u64;
+        let meta = HotMeta::new(
+            id,
+            MemoryType::Episodic,
+            0,
+            req.now,
+            trust,
+            req.now,
+            req.query_topic,
+            req.query_entity,
+            trust,
+            FLAG_READABLE,
+        );
+        let truth = GroundTruth {
+            raw_episode: decision.summary.clone(),
+            derived_facts: vec![format!("{:?}", decision.route.role)],
+            summary: format!(
+                "committed decision (score {:.3})",
+                decision.assessment.step_score
+            ),
+            graph_edges: vec![],
+            trust: trust.min(1000) as u16,
+            freshness: req.now,
+            summary_suspect: false,
+        };
+        self.memory.admit(meta, truth);
+        true
+    }
+
+    /// Decide, ratify, and learn: [`Cortex::act`] then [`Cortex::learn`].
+    /// Returns the decision, the Trinity cycle, and whether it was learned.
+    pub fn act_and_learn(
+        &mut self,
+        req: &CortexRequest,
+    ) -> Result<(CortexDecision, TrinityCycle, bool), CortexError> {
+        let (decision, cycle) = self.act(req)?;
+        let learned = self.learn(req, &decision);
+        Ok((decision, cycle, learned))
     }
 
     /// Best-of-N deliberation (M00444 + F02218 + F02228): evaluate several
@@ -859,6 +913,52 @@ mod tests {
         let d = Cortex::with_memory(seed_memory()).tick(&req()).unwrap();
         assert_eq!(d.assessment.suggested_next_action, NextAction::Commit);
         assert!(d.reasoning.is_none());
+    }
+
+    // --- learning without retraining (M016) ---
+
+    #[test]
+    fn committed_decision_is_learned_into_memory() {
+        let mut cortex = Cortex::new();
+        let before = cortex.memory.len();
+        let (_d, _c, learned) = cortex.act_and_learn(&req()).unwrap();
+        assert!(learned);
+        assert_eq!(cortex.memory.len(), before + 1);
+    }
+
+    #[test]
+    fn uncommitted_decision_is_not_learned() {
+        let mut cortex = Cortex::new();
+        let mut r = req();
+        r.reward.confidence_calibration = 0.2; // → NeedMoreCompute, not Commit
+        let (_d, _c, learned) = cortex.act_and_learn(&r).unwrap();
+        assert!(!learned);
+        assert_eq!(cortex.memory.len(), 0);
+    }
+
+    #[test]
+    fn learning_raises_confidence_on_the_next_similar_request() {
+        // A weakened request the cortex commits on (strong base reward),
+        // then a second identical request should recall the learned memory
+        // and score higher than a cold cortex would.
+        let mut cortex = Cortex::new();
+        let r = req();
+
+        let cold = Cortex::new().tick(&r).unwrap();
+        let first = cortex.tick(&r).unwrap();
+        assert!(cortex.learn(&r, &first)); // learn from the committed decision
+        let warm = cortex.tick(&r).unwrap();
+
+        assert!(
+            warm.assessment.step_score >= cold.assessment.step_score,
+            "after learning, the warm score {} should be >= cold {}",
+            warm.assessment.step_score,
+            cold.assessment.step_score
+        );
+        assert!(
+            !warm.recalled.is_empty(),
+            "should recall the learned memory"
+        );
     }
 
     // --- best-of-N deliberation ---
