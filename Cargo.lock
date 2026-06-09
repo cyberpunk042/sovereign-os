@@ -4311,6 +4311,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-learning-signals"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-lora-foundry"
 version = "0.1.0"
 dependencies = [
