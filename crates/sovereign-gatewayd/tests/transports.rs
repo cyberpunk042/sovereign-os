@@ -325,6 +325,20 @@ fn http_post_messages_runs_engine_and_metrics_reflect_it() {
 }
 
 #[test]
+fn http_simple_runs_engine_from_minimal_input_over_socket() {
+    let d = spawn("--http");
+    let reqs = sovereign_cortex::demo_requests();
+    let req = &reqs[0];
+    // The client sends only the task axes + a quality dial.
+    let body = serde_json::json!({ "axes": req.axes, "expected_quality": 0.9 }).to_string();
+    let (status, rbody) = http_request(&d.addr, "POST", "/v1/simple", &body);
+    assert!(status.starts_with("HTTP/1.1 200"), "status: {status}");
+    let v: serde_json::Value = serde_json::from_str(&rbody).unwrap();
+    assert_eq!(v["kind"], "decision");
+    assert_eq!(v["decision"]["placement"]["spilled_to_cloud"], false);
+}
+
+#[test]
 fn http_explain_returns_rationale_over_socket() {
     let d = spawn("--http");
     let (status, body) = http_request(&d.addr, "POST", "/v1/explain", &demo_request_json());
