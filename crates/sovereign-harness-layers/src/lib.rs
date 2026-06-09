@@ -23,6 +23,16 @@
 //! to merge/label and L5 to operator-local, and states L1 runs every PR; L2 is
 //! pure-CI (mocked, no virtualization) exactly like L1, so it runs on every PR
 //! by the same rationale. That inference is documented at [`TestLayer::trigger`].
+//!
+//! # This models the M082 *target*, not (yet) the current workflow
+//!
+//! The gating here is the M082 design target. The current
+//! `.github/workflows/test.yml` has NOT yet implemented it: it runs L1 + L2 +
+//! L3 (nspawn) on **every PR and every push to main** (no merge/label gate),
+//! has **no L4 (qemu) job at all**, and of course no L5. So a consumer asking
+//! "what runs on a PR right now" should read the workflow, not this crate;
+//! this crate describes where the harness is *going* (merge/label gating + a
+//! qemu L4), which the workflow is expected to grow into as M082 completes.
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
