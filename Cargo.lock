@@ -4871,6 +4871,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-stream-decode"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-tokenizer",
+]
+
+[[package]]
 name = "sovereign-symbolic-plan"
 version = "0.1.0"
 dependencies = [
