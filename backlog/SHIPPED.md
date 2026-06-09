@@ -753,6 +753,21 @@ The codebase carries substantial production state from prior development. This s
 
 All crates auto-include via the `crates/*` workspace glob (zero shared-file edits); lib-only crates + 2 runnable binaries; the operator-visible surface (Prometheus metrics + alerts + Grafana dashboard) reaches the SHIPPED bar. Complements the engine runtime on branches — this is the inputs/observability the scheduler consumes, not the engine cores.
 
+## M049 — Continuity through observability and policy (the 3 fabrics + control)
+
+**Catalogued:** M049 (E0468–E0477). See `backlog/milestones/M049-*.md`.
+
+**Shipped this session (the contract/schema layer the engine decides + emits against — lib-only, engine-fed; cockpit surface follows when the engine emits):**
+
+| R-row family | Surface | Commits | Tests |
+|---|---|---|---|
+| E0470 / M00818 + M00819 — Observability Fabric: 15-event taxonomy + 13-field span | `sovereign-observability-events` (`EventKind` model_call…cost_event; `ObservabilitySpan` with `branch_id`/`trace_id` = the E0112 trace-context types) | `abc4d44` | 4 unit (15 distinct events, wire/serde lockstep, span roundtrip carrying trace coords, minimal-span omits empties) |
+| E0472 / M00821 — Telemetry As Control: 6 real-time reactions | `sovereign-runtime-reactions` `derive_controls(signals, thresholds)` (cost-spike / tool-failure-repeats / hallucination / low-memory-quality / gpu-pressure / human-gates-too-frequent), verbatim actions | `59a3d54` | 5 unit |
+| E0476 / M00827 — Config Resolver: 7 layers + 5 conflict rules | `sovereign-config-resolver` `ConfigLayer` precedence + `LayeredConfig::resolve`/`resolve_capped` + `offline_beats_cloud` (all 5 rules encoded) | `9049905` | 7 unit (one per conflict rule) |
+| E0473 / E0474 / E0475 — Policy Fabric contract | `sovereign-policy-input` (7 `PolicyQuestion`s, 10-field intent-based `PolicyInput`, 9 `SensitivityClass`es) | `d7f9d51` | 4 unit (incl. the E0474 ~/.ssh/config intent example) |
+
+Plus `sovereign-worker-fleet` (`242744b`) — fleet health summary over the M00212 worker status words (read-only observability aggregation). These are the engine-facing contracts (events/policy/config/fleet) — the engine emits/decides against them; their operator-visible surface lands when the engine produces the data.
+
 ## Other catalogued milestones — production-shipped state TBD
 
 The 80-milestone catalogue spans extremely broad territory (the avx-plus-plus dump's full scope across substrate, runtime, agent, operator-§1g, intelligence, persistence, observability). Many milestone-specific audit rows remain to map. The 475-crate workspace + 20-dashboard webapp tree + 40 script categories + 81 profile/schema files all carry production state that future audit cycles append per-milestone above.
