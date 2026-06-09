@@ -19,6 +19,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use sovereign_hardware_load_sample::{
     GpuTelemetry, LoadSnapshot, cpu_util_pct, parse_gpu_csv, parse_proc_stat_cpu,
+    parse_thermal_zone_temp,
 };
 use sovereign_hardware_registry::{HardwareRegistry, HardwareTarget};
 use sovereign_observability_fabric::{ObservabilityFabric, ObservabilitySource, SourceState};
@@ -50,6 +51,14 @@ fn cpu_util() -> Option<u8> {
     sleep(Duration::from_millis(200));
     let b = parse_proc_stat_cpu(&fs::read_to_string("/proc/stat").ok()?).ok()?;
     Some(cpu_util_pct(a, b))
+}
+
+/// First thermal zone's temperature in °C, or `None` when sysfs thermal is
+/// unavailable (e.g. inside a container without `/sys/class/thermal`).
+fn cpu_temp() -> Option<u8> {
+    fs::read_to_string("/sys/class/thermal/thermal_zone0/temp")
+        .ok()
+        .and_then(|c| parse_thermal_zone_temp(&c).ok())
 }
 
 /// The first NVIDIA GPU's telemetry via `nvidia-smi`, or `None` when the tool
@@ -114,7 +123,7 @@ fn main() {
     let mut load = LoadSnapshot::empty_canonical(&at);
     if let Some(u) = cpu_util() {
         // Sample is already range-valid; ignore the typed result deliberately.
-        let _ = load.update_target(HardwareTarget::CpuPulse, 0, u, 0, &at);
+        let _ = load.update_target(HardwareTarget::CpuPulse, 0, u, cpu_temp().unwrap_or(0), &at);
     }
     let gpu = nvidia_gpu();
     if let Some(g) = gpu {

@@ -170,6 +170,25 @@ pub fn cpu_util_pct(prev: CpuTimes, curr: CpuTimes) -> u8 {
     ((busy.saturating_mul(100)) / total_delta).min(100) as u8
 }
 
+/// Parse a `/sys/class/thermal/thermal_zoneN/temp` body (millidegrees C) into
+/// whole degrees C, clamped to the [`TargetLoad::temp_c`] (`u8`) range.
+///
+/// IO-free, like this crate's other ingestion: the caller reads the sysfs file
+/// and hands the body here. The kernel reports temperature in millidegrees, so
+/// a body of `45000` is 45 °C. A negative reading (some drivers emit a
+/// below-zero sentinel) maps to 0; values above 255 °C clamp to 255 (the u8
+/// ceiling) rather than wrapping.
+pub fn parse_thermal_zone_temp(content: &str) -> Result<u8, LoadError> {
+    let milli: i64 = content
+        .trim()
+        .parse()
+        .map_err(|_| LoadError::ThermalParse)?;
+    if milli < 0 {
+        return Ok(0);
+    }
+    Ok((milli / 1000).min(255) as u8)
+}
+
 /// Errors.
 #[derive(Debug, Error)]
 pub enum LoadError {
@@ -179,6 +198,9 @@ pub enum LoadError {
     /// A GPU telemetry CSV row could not be parsed.
     #[error("malformed GPU telemetry CSV row")]
     GpuTelemetryParse,
+    /// A sysfs thermal-zone temperature body could not be parsed.
+    #[error("malformed thermal-zone temperature")]
+    ThermalParse,
     /// The aggregate `cpu` line of `/proc/stat` could not be parsed.
     #[error("malformed /proc/stat cpu line")]
     CpuStatParse,
@@ -654,6 +676,19 @@ mod tests {
         assert!(matches!(
             parse_proc_stat_cpu("intr 1 2 3\n"), // no cpu line
             Err(LoadError::CpuStatParse)
+        ));
+    }
+
+    #[test]
+    fn parse_thermal_zone_temp_converts_millidegrees() {
+        assert_eq!(parse_thermal_zone_temp("45000\n").unwrap(), 45);
+        assert_eq!(parse_thermal_zone_temp("0").unwrap(), 0);
+        // Negative sentinel → 0; absurd high → clamp to u8 ceiling.
+        assert_eq!(parse_thermal_zone_temp("-5000").unwrap(), 0);
+        assert_eq!(parse_thermal_zone_temp("300000").unwrap(), 255);
+        assert!(matches!(
+            parse_thermal_zone_temp("warm"),
+            Err(LoadError::ThermalParse)
         ));
     }
 
