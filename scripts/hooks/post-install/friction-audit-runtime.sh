@@ -134,6 +134,7 @@ for g in (d.get('hardware') or {}).get('gpu') or []:
         # An empty group is "couldn't read it", NOT "they share a group" — don't
         # mislabel it as a FAIL, but a blocker that can't be read isn't verified.
         log_warn "  SKIP — could not read IOMMU group(s) (primary='${primary_group:-?}' vfio='${vfio_group:-?}') — blocker NOT verified; is IOMMU enabled (amd_iommu=on / intel_iommu=on)?"
+        warn=$((warn + 1))
       elif [ "${primary_group}" != "${vfio_group}" ]; then
         log_info "  PASS — primary GPU (group ${primary_group}) and VFIO GPU (group ${vfio_group}) in distinct IOMMU groups"
       else
@@ -145,9 +146,11 @@ for g in (d.get('hardware') or {}).get('gpu') or []:
       # separation" then nothing, with no PASS/FAIL — a false sense the blocker
       # passed. Surface that the check could not run.
       log_warn "  SKIP — could not resolve a GPU PCI device (primary_bdf='${primary_bdf:-not-found}' vfio_bdf='${vfio_bdf:-not-found}') — IOMMU-distinct blocker NOT verified; likely a placeholder pci_id (e.g. 10de:???? for unprocured hardware) or the GPU isn't seated"
+      warn=$((warn + 1))
     fi
   else
     log_warn "  SKIP — GPU pci_ids missing or identical in profile (primary='${primary_pid:-unset}' vfio='${vfio_pid:-unset}') — IOMMU-distinct blocker NOT verified"
+    warn=$((warn + 1))
   fi
 fi
 
@@ -160,6 +163,7 @@ if [ -r /proc/meminfo ]; then
   min_gb="$(profile_field hardware.memory.minimum_gb)"
   if [ -z "${min_gb}" ]; then
     log_warn "  SKIP — profile declares no hardware.memory.minimum_gb to check against"
+    warn=$((warn + 1))
   elif [ "${installed_mem_gb}" -ge "${min_gb}" ]; then
     log_info "  PASS — memory ${installed_mem_gb}GB ≥ profile minimum ${min_gb}GB"
   else
