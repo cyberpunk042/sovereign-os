@@ -4778,6 +4778,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-holt-winters"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-hrm-runtime"
 version = "0.1.0"
 dependencies = [
