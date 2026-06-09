@@ -4177,6 +4177,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-decoder-layer"
+version = "0.1.0"
+dependencies = [
+ "sovereign-ffn",
+ "sovereign-linear",
+ "sovereign-mha-block",
+ "sovereign-quant-block",
+ "sovereign-rmsnorm",
+ "sovereign-transformer-block",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-decoder-stack"
 version = "0.1.0"
 dependencies = [
