@@ -4124,6 +4124,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-context-budget"
+version = "0.1.0"
+dependencies = [
+ "sovereign-tokenizer",
+]
+
+[[package]]
 name = "sovereign-continuity-manager"
 version = "0.1.0"
 dependencies = [
