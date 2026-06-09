@@ -27,6 +27,12 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod engine;
+
+pub use engine::{
+    FLAG_FAILURE_RELEVANT, FLAG_READABLE, GroundTruth, Hit, HotMeta, MemoryStore, Query,
+};
+
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
