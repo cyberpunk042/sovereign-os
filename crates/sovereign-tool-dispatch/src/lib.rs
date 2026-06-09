@@ -115,6 +115,13 @@ impl ToolRegistry {
         self.handlers.contains_key(name)
     }
 
+    /// Registered tool names that start with `prefix`, sorted — for completing
+    /// a partial tool name as a model or operator types it.
+    pub fn complete(&self, prefix: &str) -> Vec<String> {
+        let trie = sovereign_trie::Trie::from_words(self.handlers.keys());
+        trie.completions(prefix)
+    }
+
     /// Suggest the closest registered tool name to `name` within `max_distance`
     /// edits — for recovering a model's misspelled tool call. Returns `None` if
     /// `name` is already registered or nothing is close enough.
@@ -239,6 +246,17 @@ mod tests {
         assert_eq!(r.suggest("echo", 2), None);
         // nothing close enough
         assert_eq!(r.suggest("xyzzy", 2), None);
+    }
+
+    #[test]
+    fn completes_tool_name_prefixes() {
+        let mut r = ToolRegistry::new();
+        r.register("search", |_| String::new());
+        r.register("search_web", |_| String::new());
+        r.register("send", |_| String::new());
+        assert_eq!(r.complete("sea"), vec!["search", "search_web"]);
+        assert_eq!(r.complete("se"), vec!["search", "search_web", "send"]);
+        assert!(r.complete("zzz").is_empty());
     }
 
     #[test]
