@@ -281,6 +281,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-chat"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-decoder-stack",
+ "sovereign-ffn",
+ "sovereign-llm",
+ "sovereign-rmsnorm",
+ "sovereign-sampler",
+ "sovereign-tokenizer",
+ "sovereign-transformer-block",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-checkpoint"
 version = "0.1.0"
 dependencies = [
