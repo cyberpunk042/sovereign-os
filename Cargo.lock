@@ -362,6 +362,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-chunker"
+version = "0.1.0"
+
+[[package]]
 name = "sovereign-cockpit-accent-color-policy"
 version = "0.1.0"
 dependencies = [
