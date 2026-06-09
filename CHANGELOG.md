@@ -12,6 +12,32 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Fixed — `cargo workspace` CI job green: the `sovereign-telemetry` orphan repaired (2026-06-09)
+
+The `cargo workspace` check was RED **on `main` too** (pre-existing, not a
+regression): `sovereign-telemetry`'s binary and `sovereign-pressure-reactions`'
+test fixtures were written against an OLD API of three model crates
+(`sovereign-pressure-sensors`, `sovereign-hardware-load-sample`,
+`sovereign-observability-fabric`) that was later slimmed to pure
+canonical-constructor snapshots — deleting `PressureSnapshot::{from_psi,
+from_readings}`, `AxisReading::new`, `LoadSnapshot::{update_target, update_gpu}`,
+`ObservabilityFabric::update_source`, and the free parsers (`parse_proc_stat_cpu`,
+`parse_gpu_csv`, `parse_psi_some_avg10`, `parse_thermal_zone_temp`,
+`cpu_util_pct`, `GpuTelemetry`). The two consumers were never updated.
+
+Repaired **without touching the model crates** (they stay pure typed snapshots):
+- The deleted OS-parsing helpers now live **in the `sovereign-telemetry` binary**
+  — where reading `/proc`, `/sys`, and `nvidia-smi` belongs — and feed the model
+  types through their public fields. The deleted mutator methods become direct
+  public-field assignment on the canonical snapshots. The binary builds, runs as
+  a real probe on a dev host (live PSI / `/proc/stat` CPU / thermal verdicts /
+  adaptive reactions), and emits both JSON and Prometheus surfaces.
+- `sovereign-pressure-reactions`' test fixtures rebuilt the same way
+  (`free_canonical` + field set; a `set_util` helper for load fixtures).
+
+`cargo check --workspace --all-targets` now exits 0; affected crates' tests green;
+`cargo fmt` clean.
+
 ### Added — `sovereign-gatewayd`: the first persistent runnable service (2026-06-09)
 
 Promotes the one-shot `sovereign-cortex` engine (PR #17) into a long-lived

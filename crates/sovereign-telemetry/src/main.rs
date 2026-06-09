@@ -17,15 +17,93 @@ use std::process::Command;
 use std::thread::sleep;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use sovereign_hardware_load_sample::{
-    GpuTelemetry, LoadSnapshot, cpu_util_pct, parse_gpu_csv, parse_proc_stat_cpu,
-    parse_thermal_zone_temp,
-};
+use sovereign_hardware_load_sample::LoadSnapshot;
 use sovereign_hardware_registry::{HardwareRegistry, HardwareTarget};
 use sovereign_hardware_thermal_policy::ThermalPolicy;
 use sovereign_observability_fabric::{ObservabilityFabric, ObservabilitySource, SourceState};
 use sovereign_pressure_reactions::{ReactionThresholds, derive_reactions};
-use sovereign_pressure_sensors::{PressureSnapshot, parse_psi_some_avg10};
+use sovereign_pressure_sensors::{PressureAxis, PressureSnapshot};
+
+// ---------------------------------------------------------------------------
+// Sampling glue.
+//
+// The model crates (`sovereign-pressure-sensors`, `sovereign-hardware-load-
+// sample`, `sovereign-observability-fabric`) are pure typed snapshots with
+// canonical constructors + validation; they intentionally carry no OS I/O.
+// Reading `/proc`, `/sys`, and `nvidia-smi` is this binary's job, so the raw
+// parsers live here and feed the model types through their public fields.
+// ---------------------------------------------------------------------------
+
+/// CPU time accumulators from `/proc/stat`'s aggregate `cpu` line.
+struct CpuTimes {
+    idle: u64,
+    total: u64,
+}
+
+/// First NVIDIA GPU reading from an `nvidia-smi` CSV row.
+struct GpuTelemetry {
+    vram_used_gb: u32,
+    util_pct: u8,
+    temp_c: u8,
+}
+
+/// Parse a PSI file's `some avg10=<pct>` into a normalised fraction 0.0..=1.0,
+/// or `None` when the line is absent/unparseable.
+fn parse_psi_some_avg10(content: &str) -> Option<f32> {
+    let rest = content.lines().find_map(|l| l.strip_prefix("some "))?;
+    let pct: f32 = rest
+        .split_whitespace()
+        .find_map(|f| f.strip_prefix("avg10="))
+        .and_then(|v| v.parse().ok())?;
+    Some((pct / 100.0).clamp(0.0, 1.0))
+}
+
+/// Parse the aggregate `cpu` line of `/proc/stat` into idle+total jiffies.
+fn parse_proc_stat_cpu(content: &str) -> Option<CpuTimes> {
+    let mut fields = content.lines().next()?.split_whitespace();
+    if fields.next()? != "cpu" {
+        return None;
+    }
+    let vals: Vec<u64> = fields.filter_map(|x| x.parse().ok()).collect();
+    if vals.len() < 4 {
+        return None;
+    }
+    // idle (3) + iowait (4, when present) count as not-busy.
+    let idle = vals[3] + vals.get(4).copied().unwrap_or(0);
+    let total: u64 = vals.iter().sum();
+    Some(CpuTimes { idle, total })
+}
+
+/// Busy-percent (0..=100) between two `/proc/stat` cpu samples.
+fn cpu_util_pct(a: CpuTimes, b: CpuTimes) -> u8 {
+    let dt = b.total.saturating_sub(a.total);
+    if dt == 0 {
+        return 0;
+    }
+    let di = b.idle.saturating_sub(a.idle);
+    let busy = dt.saturating_sub(di);
+    ((busy * 100) / dt).min(100) as u8
+}
+
+/// Parse a `thermal_zone*/temp` (millidegrees C) into whole °C.
+fn parse_thermal_zone_temp(content: &str) -> Option<u8> {
+    let milli: i64 = content.trim().parse().ok()?;
+    Some((milli / 1000).clamp(0, 255) as u8)
+}
+
+/// Parse one `nvidia-smi --format=csv,noheader,nounits` row of
+/// `memory.used[MiB], utilization.gpu[%], temperature.gpu[C]`.
+fn parse_gpu_csv(line: &str) -> Option<GpuTelemetry> {
+    let mut f = line.split(',').map(str::trim);
+    let mem_mib: u64 = f.next()?.parse().ok()?;
+    let util: f32 = f.next()?.parse().ok()?;
+    let temp: f32 = f.next()?.parse().ok()?;
+    Some(GpuTelemetry {
+        vram_used_gb: (mem_mib / 1024) as u32,
+        util_pct: util.round().clamp(0.0, 100.0) as u8,
+        temp_c: temp.round().clamp(0.0, 255.0) as u8,
+    })
+}
 
 /// Unix epoch seconds as a string. The probe carries no calendar formatter, so
 /// it stamps captures with the raw epoch; consumers convert as needed.
@@ -42,16 +120,16 @@ fn captured_at() -> String {
 fn psi(resource: &str) -> f32 {
     fs::read_to_string(format!("/proc/pressure/{resource}"))
         .ok()
-        .and_then(|c| parse_psi_some_avg10(&c).ok())
+        .and_then(|c| parse_psi_some_avg10(&c))
         .unwrap_or(0.0)
 }
 
 /// CPU utilization sampled across a 200ms window, or `None` when `/proc/stat`
 /// is unreadable.
 fn cpu_util() -> Option<u8> {
-    let a = parse_proc_stat_cpu(&fs::read_to_string("/proc/stat").ok()?).ok()?;
+    let a = parse_proc_stat_cpu(&fs::read_to_string("/proc/stat").ok()?)?;
     sleep(Duration::from_millis(200));
-    let b = parse_proc_stat_cpu(&fs::read_to_string("/proc/stat").ok()?).ok()?;
+    let b = parse_proc_stat_cpu(&fs::read_to_string("/proc/stat").ok()?)?;
     Some(cpu_util_pct(a, b))
 }
 
@@ -60,7 +138,7 @@ fn cpu_util() -> Option<u8> {
 fn cpu_temp() -> Option<u8> {
     fs::read_to_string("/sys/class/thermal/thermal_zone0/temp")
         .ok()
-        .and_then(|c| parse_thermal_zone_temp(&c).ok())
+        .and_then(|c| parse_thermal_zone_temp(&c))
 }
 
 /// The first NVIDIA GPU's telemetry via `nvidia-smi`, or `None` when the tool
@@ -77,7 +155,7 @@ fn nvidia_gpu() -> Option<GpuTelemetry> {
         return None;
     }
     let text = String::from_utf8(out.stdout).ok()?;
-    parse_gpu_csv(text.lines().next()?).ok()
+    parse_gpu_csv(text.lines().next()?)
 }
 
 /// Honest source-*presence* fabric: mark the sources this probe can detect on
@@ -93,9 +171,12 @@ fn observability(at: &str, gpu_present: bool) -> ObservabilityFabric {
         } else {
             SourceState::Disconnected
         };
-        // update_source only fails on an absent source, impossible on the
-        // canonical fabric — ignore the typed result deliberately.
-        let _ = fab.update_source(src, state, 0, at);
+        // The canonical fabric carries every source, so the lookup always
+        // hits; set presence-state + heartbeat directly on the public record.
+        if let Some(rec) = fab.sources.iter_mut().find(|r| r.source == src) {
+            rec.state = state;
+            rec.last_heartbeat_at = at.to_string();
+        }
     };
     mark(
         ObservabilitySource::Psi,
@@ -112,6 +193,14 @@ fn observability(at: &str, gpu_present: bool) -> ObservabilityFabric {
         std::path::Path::new("/proc/spl/kstat/zfs").exists(),
     );
     fab
+}
+
+/// Set one axis reading on a pressure snapshot in place (the canonical
+/// snapshot carries every axis, so the lookup always hits).
+fn set_axis(snapshot: &mut PressureSnapshot, axis: PressureAxis, value: f32) {
+    if let Some(r) = snapshot.readings.iter_mut().find(|r| r.axis == axis) {
+        r.value = value;
+    }
 }
 
 /// A serde enum's kebab-case wire string, for use as a Prometheus label value.
@@ -142,19 +231,37 @@ struct Sample {
 fn sample() -> Sample {
     let at = captured_at();
 
-    // Pressure — real Linux PSI on cpu/memory/io (0.0 each when PSI disabled).
-    let pressure = PressureSnapshot::from_psi(&at, psi("cpu"), psi("memory"), psi("io"))
-        .expect("PSI stall fractions are normalised 0..=1, so from_psi validates");
+    // Pressure — real Linux PSI on cpu/memory/io (0.0 each when PSI disabled);
+    // the Gpu/HumanAttention/Cost axes are not measured by this probe and stay
+    // at the canonical 0.0 rather than being fabricated.
+    let mut pressure = PressureSnapshot::free_canonical();
+    pressure.captured_at = at.clone();
+    set_axis(&mut pressure, PressureAxis::Cpu, psi("cpu"));
+    set_axis(&mut pressure, PressureAxis::Memory, psi("memory"));
+    set_axis(&mut pressure, PressureAxis::Io, psi("io"));
 
     // Load — cpu-pulse utilization from /proc/stat; NVIDIA GPU best-effort.
+    // Both update the canonical snapshot's public per-target records in place.
     let mut load = LoadSnapshot::empty_canonical(&at);
-    if let Some(u) = cpu_util() {
-        // Sample is already range-valid; ignore the typed result deliberately.
-        let _ = load.update_target(HardwareTarget::CpuPulse, 0, u, cpu_temp().unwrap_or(0), &at);
+    if let Some(u) = cpu_util()
+        && let Some(t) = load
+            .loads
+            .iter_mut()
+            .find(|l| l.target == HardwareTarget::CpuPulse)
+    {
+        t.util_pct = u;
+        t.temp_c = cpu_temp().unwrap_or(0);
     }
     let gpu = nvidia_gpu();
-    if let Some(g) = gpu {
-        let _ = load.update_gpu(HardwareTarget::BlackwellOracle, g, &at);
+    if let Some(g) = &gpu
+        && let Some(t) = load
+            .loads
+            .iter_mut()
+            .find(|l| l.target == HardwareTarget::BlackwellOracle)
+    {
+        t.vram_used_gb = g.vram_used_gb;
+        t.util_pct = g.util_pct;
+        t.temp_c = g.temp_c;
     }
     let registry = HardwareRegistry::canonical();
     let load_valid = load.validate_against(&registry).is_ok();
