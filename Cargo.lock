@@ -4647,6 +4647,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-graph-path"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-gumbel"
 version = "0.1.0"
 dependencies = [
