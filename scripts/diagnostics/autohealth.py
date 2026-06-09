@@ -164,14 +164,26 @@ def collect_findings(axes: list[str]) -> list[dict[str, Any]]:
             continue
         verdict = doc.get("verdict") or doc.get("status")
         severity = classify_severity(verdict)
+        message = doc.get("message") or ""
+        # Some axes (notably health-scan) signal state via `needs_attention`
+        # (bool) + per-probe severities instead of a single `verdict`/`status`
+        # string. Without this, their verdict reads as None → classify_severity
+        # floors them to "informational", which is BELOW notify_min_severity
+        # ("attention") — so autohealth would NEVER alert on them even when
+        # needs_attention is true. health-scan covers gpu/network/cpu/fs/raid,
+        # exactly the cross-cutting failures autohealth exists to surface, so
+        # this dead axis silently defeated the whole notify path. Map it.
+        if verdict is None and doc.get("needs_attention") is True:
+            verdict = "needs-attention"
+            severity = "attention"
+            summary = doc.get("summary")
+            if isinstance(summary, dict) and summary.get("attention"):
+                message = f"{summary['attention']} probe(s) need attention"
         findings.append({
             "axis": axis,
             "verdict": verdict,
             "severity": severity,
-            "message": doc.get("message") or
-                       doc.get("summary", {}).get("attention_count")
-                       if isinstance(doc.get("summary"), dict)
-                       else doc.get("message", ""),
+            "message": message,
             "probe": spec[0],
         })
     return findings
