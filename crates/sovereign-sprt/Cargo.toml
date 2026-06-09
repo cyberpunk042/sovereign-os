@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-sprt"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Wald's sequential probability ratio test for Bernoulli outcomes: accumulate the log-likelihood ratio one observation at a time and stop the moment the evidence crosses an accept-H0 or accept-H1 boundary set by the target error rates. Decides whether a success rate is closer to p0 or p1 with far fewer samples than a fixed-size test — for early-stopping online evaluation and A/B comparisons."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
