@@ -4386,6 +4386,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-linear"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-bitlinear-core",
+ "sovereign-nvfp4-runtime",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-llm"
 version = "0.1.0"
 dependencies = [
