@@ -6033,6 +6033,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-xtc-sampler"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-zfs-commit-gate"
 version = "0.1.0"
 dependencies = [
