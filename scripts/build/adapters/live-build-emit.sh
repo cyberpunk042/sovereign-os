@@ -93,6 +93,32 @@ for pkg in profile_pkgs:
     print(pkg)
 PY
 
+# ---- config/archives/sovereign-deny.pref.chroot + purge hook (sovereignty) ----
+# The profile's packages.deny is a no-phone-home policy (snapd, apport, whoopsie,
+# popularity-contest, ubuntu-advantage, …). Filtering the explicit package list
+# above does NOT stop a denied daemon pulled in as a transitive dependency, so
+# enforce it: an apt pin (Pin-Priority -1 = never install; blocks Recommends/
+# Suggests) plus a belt-and-suspenders purge hook that runs after package install.
+mkdir -p "${out_dir}/config/archives"
+python3 - <<PY
+import yaml, pathlib
+with open("${profile_yaml}") as f:
+    p = yaml.safe_load(f)
+deny = (p.get("packages") or {}).get("deny") or []
+out = pathlib.Path("${out_dir}")
+if deny:
+    pin = "Package: " + " ".join(deny) + "\nPin: release o=*\nPin-Priority: -1\n"
+    (out / "config" / "archives" / "sovereign-deny.pref.chroot").write_text(pin)
+    hook = out / "config" / "hooks" / "normal" / "0005-purge-sovereign-deny.hook.chroot"
+    hook.write_text(
+        "#!/bin/sh\n"
+        "# sovereignty: purge any phone-home / telemetry package that slipped in\n"
+        "apt-get purge -y " + " ".join(deny) + " 2>/dev/null || true\n"
+    )
+    hook.chmod(0o755)
+    print(f"  deny-list enforced: apt pin (-1) + purge hook for {len(deny)} package(s)")
+PY
+
 # ---- hooks/normal/0010-sovereign-first-boot.hook.chroot ----
 cat > "${out_dir}/config/hooks/normal/0010-sovereign-first-boot.hook.chroot" <<'EOF'
 #!/usr/bin/env bash

@@ -104,14 +104,18 @@ cmdline = " ".join(cmdline_base + cmdline_vfio)
 if cmdline:
     cfg += f"\nKernelCommandLine={cmdline}\n"
 
-# Deny list — mkosi has its own deny mechanism via 'RemoveFiles=' or
-# we just don't include them in Packages=. For phone-home daemons,
-# explicit deny via package mask:
+# Deny list — sovereignty-required (no phone-home / telemetry: snapd, apport,
+# whoopsie, popularity-contest, ubuntu-advantage, …). Emit mkosi's real
+# RemovePackages= directive so these are PURGED from the image after install,
+# which also catches a denied daemon pulled in as a transitive dependency.
+# (Previously this block emitted only '# explicitly NOT installed: …' comments,
+# which enforced nothing — the packages were never actually removed.)
 deny = (p.get("packages") or {}).get("deny") or []
 if deny:
-    cfg += "\n# deny-list (sovereignty-required; never installed)\n"
+    cfg += "\n# deny-list (sovereignty-required: no phone-home / telemetry)\n"
+    cfg += "RemovePackages=\n"
     for pkg in deny:
-        cfg += f"# explicitly NOT installed: {pkg}\n"
+        cfg += f"    {pkg}\n"
 
 (out_dir / "mkosi.conf.d" / f"{profile_id}.conf").write_text(cfg)
 
