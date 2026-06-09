@@ -66,14 +66,22 @@ else
   log_info "generating MOK key pair at ${SOVEREIGN_OS_MOK_DIR}"
   openssl req -new -x509 -newkey rsa:2048 -keyout "${key}" -outform DER \
     -out "${der}" -nodes -days 36500 \
-    -subj "/CN=sovereign-os MOK/" 2>&1 | sed 's/^/  /'
+    -subj "/CN=sovereign-os MOK/" 2>&1 | sed 's/^/  /' || {
+    log_error "MOK key generation failed (openssl req); signed-boot image cannot be produced"
+    emit_mok_metric fail
+    exit 1
+  }
   chmod 600 "${key}"
 fi
 # Always (re)derive the PEM cert from the DER. mokutil --import consumes the DER
 # (${der}); sbsign --cert (step 08) needs the cert in PEM (${crt}). Deriving here
 # unconditionally guarantees the PEM exists even when the key+DER were reused
 # from a prior run (the reuse branch above doesn't regenerate it). Idempotent.
-openssl x509 -in "${der}" -inform DER -outform PEM -out "${crt}" 2>&1 | sed 's/^/  /'
+openssl x509 -in "${der}" -inform DER -outform PEM -out "${crt}" 2>&1 | sed 's/^/  /' || {
+  log_error "MOK PEM-cert derivation failed (openssl x509); sbsign (step 08) would have no usable cert"
+  emit_mok_metric fail
+  exit 1
+}
 chmod 644 "${der}" "${crt}"
 
 # Queue for MOK manager enrollment (operator confirms at next reboot)
@@ -85,6 +93,7 @@ else
   log_warn "  Have the password ready (you'll set it now)."
   mokutil --import "${der}" || {
     log_error "mokutil --import failed"
+    emit_mok_metric fail
     exit 1
   }
 fi

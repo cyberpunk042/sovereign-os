@@ -37,7 +37,12 @@ mkdir -p "${network_dir}"
 
 # Render one .network (+ optional .netdev/.network for the VLAN) per NIC.
 # Quoted heredoc → no bash interpolation inside the Python; paths via env.
-NETWORK_DIR="${network_dir}" python3 <<'PYEOF'
+# Capture the generator's rc: a failure (unwritable /etc/systemd/network,
+# malformed profile YAML) would otherwise abort via set -e before the
+# result="configured" emit, leaving a host with NO network config and no
+# fail signal — every other terminal here reports a metric.
+network_rc=0
+NETWORK_DIR="${network_dir}" python3 <<'PYEOF' || network_rc=$?
 import os, yaml, pathlib, textwrap
 
 with open(os.environ['SOVEREIGN_OS_PROFILE_FILE']) as f:
@@ -138,6 +143,12 @@ for idx, nic in enumerate(nics):
         base_name.write_text(cfg)
         print('  wrote %s (addr=%s)' % (base_name, addr_label))
 PYEOF
+if [ "${network_rc}" -ne 0 ]; then
+  log_error "networkd unit generation failed (rc=${network_rc}); host may have NO network config — check ${network_dir} writability + profile hardware.network"
+  emit_metric sovereign_os_post_install_network_vlan_total 1 \
+    "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"fail\""
+  exit 1
+fi
 
 # Restart networkd
 if command -v systemctl >/dev/null 2>&1; then
