@@ -30,6 +30,10 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod compute;
+
+pub use compute::ComputeProfile;
+
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -80,6 +84,8 @@ pub struct CortexRequest {
     pub reward: RewardVector,
     /// Profile weighting the critic should apply (`fast`/`careful`/…).
     pub profile: String,
+    /// Model size (parameters) used to estimate the on-device footprint.
+    pub model_params: u64,
 }
 
 /// The cortex's single auditable decision for a request. Output-only —
@@ -95,6 +101,8 @@ pub struct CortexDecision {
     pub recalled: Vec<Hit>,
     /// Value-plane critic verdict on the (recall-boosted) branch.
     pub assessment: BranchAssessment,
+    /// Per-device compute profile for the placement (footprint + precision).
+    pub compute: ComputeProfile,
     /// One-line human-readable trace of the whole path.
     pub summary: String,
 }
@@ -168,8 +176,12 @@ impl Cortex {
             .ok_or_else(|| CortexError::UnknownProfile(req.profile.clone()))?;
         let assessment = critic.assess(&BranchState::from_reward(1, reward));
 
+        // 6. Compute profile — what the placed precision actually costs,
+        //    computed by the bitlinear / nvfp4 engines themselves.
+        let compute = ComputeProfile::for_role(placement.role, req.model_params);
+
         let summary = format!(
-            "route={:?} → device='{}'{} | recalled={} | action={:?} (score={:.3}, uncertainty={:.3})",
+            "route={:?} → device='{}'{} | recalled={} | action={:?} (score={:.3}, uncertainty={:.3}) | compute={} ({:.1} bits/param, {} MB)",
             route.role,
             placement.device,
             if placement.spilled_to_cloud {
@@ -183,6 +195,9 @@ impl Cortex {
             assessment.suggested_next_action,
             assessment.step_score,
             assessment.uncertainty,
+            compute.path,
+            compute.bits_per_param,
+            compute.est_model_bytes / 1_000_000,
         );
 
         Ok(CortexDecision {
@@ -190,6 +205,7 @@ impl Cortex {
             placement,
             recalled,
             assessment,
+            compute,
             summary,
         })
     }
@@ -292,6 +308,7 @@ pub fn demo_requests() -> Vec<CortexRequest> {
             half_life: 1_000,
             reward: strong_reward.clone(),
             profile: "fast".into(),
+            model_params: 2_000_000_000,
         },
         // Private, risky, complex, deep → Oracle / GPU 1, never cloud.
         CortexRequest {
@@ -320,6 +337,7 @@ pub fn demo_requests() -> Vec<CortexRequest> {
             half_life: 1_000,
             reward: strong_reward,
             profile: "careful".into(),
+            model_params: 70_000_000_000,
         },
     ]
 }

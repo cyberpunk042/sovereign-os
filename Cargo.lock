@@ -4060,7 +4060,9 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "sovereign-bitlinear-core",
  "sovereign-memory-os",
+ "sovereign-nvfp4-runtime",
  "sovereign-router-7axis",
  "sovereign-srp-scheduler",
  "sovereign-value-plane",
