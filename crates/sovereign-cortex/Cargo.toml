@@ -1,0 +1,26 @@
+[package]
+name = "sovereign-cortex"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Sovereign cortex — the first runnable assembly that composes the real engine crates into one request pipeline: 7-axis router (role) -> SRP scheduler (hardware-capability placement) -> Memory OS (recall feeds evidence) -> Value Plane PRM critic (commit/expand/prune). Provides the `sovereign-cortex` binary."
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "sovereign-cortex"
+path = "src/main.rs"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sovereign-router-7axis = { path = "../sovereign-router-7axis" }
+sovereign-srp-scheduler = { path = "../sovereign-srp-scheduler" }
+sovereign-memory-os = { path = "../sovereign-memory-os" }
+sovereign-value-plane = { path = "../sovereign-value-plane" }

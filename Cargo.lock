@@ -4055,6 +4055,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cortex"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-memory-os",
+ "sovereign-router-7axis",
+ "sovereign-srp-scheduler",
+ "sovereign-value-plane",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-dashboard-coverage"
 version = "0.1.0"
 dependencies = [
