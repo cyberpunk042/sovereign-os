@@ -465,6 +465,33 @@ def cmd_advisories(args: argparse.Namespace) -> int:
     critical_pct = float(profile.get("battery_critical_pct", 15))
     runtime_min_warn_min = float(profile.get("runtime_warn_minutes", 5))
     shutdown_min_min = float(profile.get("shutdown_minutes", 2))
+
+    # Validate the SAFETY-critical UPS thresholds. An out-of-range value
+    # silently breaks the graceful-shutdown logic in a DANGEROUS direction:
+    # battery_critical_pct > 100 → `bat_pct <= critical` is always true →
+    # shuts down at ANY battery level; ≤ 0 → never true → host hard-powers-
+    # off on depletion. A negative time threshold is equally nonsensical.
+    # Neutralize a typo by falling back to the safe default + surfacing it.
+    config_warnings: list[str] = []
+    if not (0 < critical_pct <= 100):
+        config_warnings.append(
+            f"[graceful_shutdown] battery_critical_pct={critical_pct} is out "
+            f"of range (0,100] — IGNORED, using safe default 15. (>100 shuts "
+            f"down at any level; ≤0 never shuts down.)"
+        )
+        critical_pct = 15.0
+    if shutdown_min_min < 0:
+        config_warnings.append(
+            f"[graceful_shutdown] shutdown_minutes={shutdown_min_min} is "
+            f"negative — IGNORED, using safe default 2."
+        )
+        shutdown_min_min = 2.0
+    if runtime_min_warn_min < 0:
+        config_warnings.append(
+            f"[graceful_shutdown] runtime_warn_minutes={runtime_min_warn_min} "
+            f"is negative — IGNORED, using safe default 5."
+        )
+        runtime_min_warn_min = 5.0
     ups = detect_ups()
     bat_pct = (ups or {}).get("battery_charge_pct")
     runtime = (ups or {}).get("time_left_minutes")
@@ -491,7 +518,9 @@ def cmd_advisories(args: argparse.Namespace) -> int:
             "time_left_minutes": runtime,
         },
         "verdict": "no-ups",
-        "advisories": [],
+        # Config-validation warnings first so a dangerous threshold typo is
+        # the most visible advisory (it overrides the operator's value).
+        "advisories": list(config_warnings),
         # R265 (E1.M11): thermal dimension surfaces alongside the UPS
         # dimension. Operator sees BOTH "battery is critical" AND "GPU
         # is overheating" in one advisory verdict.

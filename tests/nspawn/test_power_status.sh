@@ -124,6 +124,25 @@ if not d['ups_present']:
   && ok "advisories --json: thresholds + no-ups verdict" \
   || ko "advisories shape wrong"
 
+# ---- safety-threshold validation: dangerous typo neutralized + surfaced ----
+bad_cfg="$(mktemp --suffix=.toml)"
+printf '[graceful_shutdown]\nbattery_critical_pct = 150\nshutdown_minutes = -1\n' > "${bad_cfg}"
+out="$(python3 "${SCRIPT}" --config "${bad_cfg}" advisories --json 2>/dev/null)"
+rm -f "${bad_cfg}"
+echo "${out}" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+# Out-of-range thresholds must be clamped to the safe defaults (a >100
+# battery pct would shut down at any level; a negative time is nonsense).
+assert d['thresholds']['battery_critical_pct']==15.0, d['thresholds']
+assert d['thresholds']['shutdown_minutes']==2.0, d['thresholds']
+# ...and the override must be surfaced to the operator as an advisory.
+warns=[a for a in d['advisories'] if 'battery_critical_pct' in a]
+assert warns, 'no config-validation advisory for out-of-range battery_critical_pct'
+" \
+  && ok "advisories: out-of-range shutdown thresholds clamped + warned" \
+  || ko "out-of-range shutdown thresholds NOT validated (dangerous)"
+
 # ---- human render: psu banner + budget banner ----
 out_h="$(python3 "${SCRIPT}" psu)"
 echo "${out_h}" | grep -q "R252 sovereign-os power-status psu" \
