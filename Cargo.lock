@@ -5161,6 +5161,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-regex-nfa"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-replay-bookmark-set"
 version = "0.1.0"
 dependencies = [
