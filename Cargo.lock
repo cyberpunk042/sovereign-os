@@ -4066,6 +4066,7 @@ dependencies = [
  "sovereign-memory-os",
  "sovereign-nvfp4-runtime",
  "sovereign-router-7axis",
+ "sovereign-spec-decode",
  "sovereign-srp-scheduler",
  "sovereign-trinity",
  "sovereign-value-plane",

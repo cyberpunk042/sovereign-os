@@ -29,6 +29,7 @@ sovereign-nvfp4-runtime = { path = "../sovereign-nvfp4-runtime" }
 sovereign-trinity = { path = "../sovereign-trinity" }
 sovereign-lora-foundry = { path = "../sovereign-lora-foundry" }
 sovereign-hrm-runtime = { path = "../sovereign-hrm-runtime" }
+sovereign-spec-decode = { path = "../sovereign-spec-decode" }
 
 [dev-dependencies]
 serde_json = { workspace = true }

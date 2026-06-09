@@ -20,6 +20,13 @@ use serde::Serialize;
 use sovereign_bitlinear_core::{BitLinearLayer, Packing, bits_per_param as ternary_bits_per_param};
 use sovereign_nvfp4_runtime::{BLOCK_SIZE, ELEMENT_BITS, QuantMatrix, SCALE_BITS};
 use sovereign_router_7axis::SrpRole;
+use sovereign_spec_decode::expected_speedup;
+
+/// Nominal per-token acceptance rate assumed when estimating speculative-
+/// decoding throughput on the GPU target roles.
+pub const NOMINAL_ACCEPTANCE: f64 = 0.7;
+/// Nominal draft length for the speculative-decoding throughput estimate.
+pub const NOMINAL_DRAFT_LEN: usize = 4;
 
 /// The compute cost profile for a placed workload.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -35,8 +42,18 @@ pub struct ComputeProfile {
     /// Whether the device's actual compute kernel ran a live self-check
     /// (a micro forward pass through the real bitlinear / nvfp4 kernel).
     pub kernel_verified: bool,
+    /// Expected tokens emitted per target pass via speculative decoding on
+    /// this role — `1.0` where spec-decode doesn't apply (CPU draft / cloud),
+    /// `> 1.0` on the GPU target roles (DFlash family, M077/M073 draft).
+    pub expected_throughput_x: f64,
     /// Short note on the precision/runtime.
     pub note: &'static str,
+}
+
+/// Expected speculative-decoding throughput multiplier for the GPU target
+/// roles, at the nominal acceptance rate + draft length.
+fn gpu_spec_throughput() -> f64 {
+    expected_speedup(NOMINAL_ACCEPTANCE, NOMINAL_DRAFT_LEN)
 }
 
 /// Live self-check of the ternary kernel: build a tiny BitLinear layer and
@@ -85,6 +102,7 @@ impl ComputeProfile {
                     est_model_bytes: bytes_for(bpp, model_params),
                     multiplication_free: true,
                     kernel_verified: ternary_kernel_live(),
+                    expected_throughput_x: 1.0, // the draft model itself; no spec-decode
                     note: "mul → conditional add/sub; no de-quant at execution (M073)",
                 }
             }
@@ -96,6 +114,7 @@ impl ComputeProfile {
                     est_model_bytes: bytes_for(bpp, model_params),
                     multiplication_free: false,
                     kernel_verified: nvfp4_kernel_live(),
+                    expected_throughput_x: gpu_spec_throughput(),
                     note: "4-bit microscaled, 16-value blocks (M077)",
                 }
             }
@@ -107,6 +126,7 @@ impl ComputeProfile {
                     est_model_bytes: bytes_for(bpp, model_params),
                     multiplication_free: false,
                     kernel_verified: true, // native FP16 needs no quantization kernel
+                    expected_throughput_x: gpu_spec_throughput(),
                     note: "full-precision deep reasoning (M075)",
                 }
             }
@@ -116,6 +136,7 @@ impl ComputeProfile {
                 est_model_bytes: 0,
                 multiplication_free: false,
                 kernel_verified: false, // no local kernel runs for remote work
+                expected_throughput_x: 1.0, // remote; local spec-decode N/A
                 note: "executed off-node; local compute profile N/A",
             },
         }
@@ -195,5 +216,20 @@ mod tests {
     fn ternary_and_nvfp4_kernels_are_callable() {
         assert!(ternary_kernel_live());
         assert!(nvfp4_kernel_live());
+    }
+
+    #[test]
+    fn gpu_roles_expect_spec_decode_speedup() {
+        // GPU target roles get a >1x throughput estimate; CPU/cloud get 1x.
+        assert!(ComputeProfile::for_role(SrpRole::Logic, ONE_B).expected_throughput_x > 1.0);
+        assert!(ComputeProfile::for_role(SrpRole::Oracle, ONE_B).expected_throughput_x > 1.0);
+        assert_eq!(
+            ComputeProfile::for_role(SrpRole::Conductor, ONE_B).expected_throughput_x,
+            1.0
+        );
+        assert_eq!(
+            ComputeProfile::for_role(SrpRole::Cloud, ONE_B).expected_throughput_x,
+            1.0
+        );
     }
 }
