@@ -110,6 +110,7 @@ new pipeline:
 | `sovereign_gateway_live_surfaces` | gauge | gateway surfaces currently Live |
 | `sovereign_gateway_prediction_total` | counter | decisions carrying a World-Model prior (M030) |
 | `sovereign_gateway_prediction_agreements_total` | counter | priors that agreed with the live verdict |
+| `sovereign_gateway_dry_runs_total` | counter | read-only ops handled (`explain` + `deliberate`) |
 
 The `prediction_agreements / prediction` ratio is how well the engine is
 learning its own routing-outcome dynamics over the process lifetime.
