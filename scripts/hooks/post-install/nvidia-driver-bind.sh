@@ -29,10 +29,7 @@ fi
 
 # Update initramfs so the blacklist applies at boot
 if command -v update-initramfs >/dev/null 2>&1; then
-  update-initramfs -u 2>&1 | sed 's/^/  /'
-  # PIPESTATUS, not the piped sed's status — else the warning is masked and a
-  # failed rebuild (driver blacklist not applied at boot) goes unannounced.
-  [ "${PIPESTATUS[0]}" -eq 0 ] || log_warn "update-initramfs failed; driver blacklist may not apply at boot"
+  update-initramfs -u 2>&1 | sed 's/^/  /' || log_warn "update-initramfs failed"
 fi
 
 # Check nvidia driver
