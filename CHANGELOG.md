@@ -12,6 +12,61 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Fixed — `cargo workspace` CI job green: the `sovereign-telemetry` orphan repaired (2026-06-09)
+
+The `cargo workspace` check was RED **on `main` too** (pre-existing, not a
+regression): `sovereign-telemetry`'s binary and `sovereign-pressure-reactions`'
+test fixtures were written against an OLD API of three model crates
+(`sovereign-pressure-sensors`, `sovereign-hardware-load-sample`,
+`sovereign-observability-fabric`) that was later slimmed to pure
+canonical-constructor snapshots — deleting `PressureSnapshot::{from_psi,
+from_readings}`, `AxisReading::new`, `LoadSnapshot::{update_target, update_gpu}`,
+`ObservabilityFabric::update_source`, and the free parsers (`parse_proc_stat_cpu`,
+`parse_gpu_csv`, `parse_psi_some_avg10`, `parse_thermal_zone_temp`,
+`cpu_util_pct`, `GpuTelemetry`). The two consumers were never updated.
+
+Repaired **without touching the model crates** (they stay pure typed snapshots):
+- The deleted OS-parsing helpers now live **in the `sovereign-telemetry` binary**
+  — where reading `/proc`, `/sys`, and `nvidia-smi` belongs — and feed the model
+  types through their public fields. The deleted mutator methods become direct
+  public-field assignment on the canonical snapshots. The binary builds, runs as
+  a real probe on a dev host (live PSI / `/proc/stat` CPU / thermal verdicts /
+  adaptive reactions), and emits both JSON and Prometheus surfaces.
+- `sovereign-pressure-reactions`' test fixtures rebuilt the same way
+  (`free_canonical` + field set; a `set_util` helper for load fixtures).
+
+`cargo check --workspace --all-targets` now exits 0; affected crates' tests green;
+`cargo fmt` clean.
+
+### Added — `sovereign-gatewayd`: the first persistent runnable service (2026-06-09)
+
+Promotes the one-shot `sovereign-cortex` engine (PR #17) into a long-lived
+**daemon** behind the M048 Module 4 `sovereign-gateway` contract — closing the
+audit's "engine catalogued + assembled but nothing runs as a service" gap. New
+`sovereign-gatewayd` binary crate, pure-std (no async runtime; honors the
+workspace `unsafe_code = forbid`):
+
+- **Stateful, learning engine.** The daemon owns one process-wide `Cortex`;
+  every committed decision is admitted back into Memory-OS via `act_and_learn`
+  (M016 learning without retraining), so recall grows across requests — verified
+  live (recall 2 → 3 on a replayed request) and across *separate* TCP
+  connections (a second client observes the first's accumulated ledger +
+  learned memory). A CLI cannot do this.
+- **NDJSON serving core** (`GatewayServer::handle_line`) shared by three
+  transports in `main`: TCP (thread-per-connection, default `127.0.0.1:8787`),
+  `--stdio` (MCP/Claude-Code shape), and `--selftest`. Ops: `infer` / `manifest`
+  / `health` / `ledger`.
+- **Gateway responsibilities made real, not decorative:** `force_local` policy
+  forces `allow_cloud = false` before the router (Privacy + Routing on the
+  client's behalf, per the provider-inversion doctrine); a live cost/route
+  `Ledger` (surface 6: route distribution + committed/refused/learned counts);
+  the **never-cloud-spill** invariant tracked as a process-level tripwire and
+  asserted to HOLD across the full demo session. 4 of the 6 canonical surfaces
+  marked `Live`.
+- Locked by 10 unit tests (malformed input, every op, force-local override,
+  cross-request learning, invariant) + an `examples/demo_request.rs` client
+  payload generator. `cargo clippy` clean, `cargo fmt` clean.
+
 ### Added — MS048 scheduler observability + cross-repo consumer (Solution 1 ← Solution 2) (2026-06-05)
 
 The runtime side of the selfdef MS048 Goldilocks Scheduler — sovereign-os

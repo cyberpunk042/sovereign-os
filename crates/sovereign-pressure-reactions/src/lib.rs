@@ -168,30 +168,33 @@ pub fn derive_reactions(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sovereign_pressure_sensors::AxisReading;
 
     fn snap(mem: f32, io: f32, cpu: f32) -> PressureSnapshot {
-        PressureSnapshot::from_readings(
-            "2026-06-09T12:00:00Z",
-            vec![
-                AxisReading::new(PressureAxis::Cpu, cpu),
-                AxisReading::new(PressureAxis::Memory, mem),
-                AxisReading::new(PressureAxis::Io, io),
-                AxisReading::new(PressureAxis::Gpu, 0.0),
-                AxisReading::new(PressureAxis::HumanAttention, 0.0),
-                AxisReading::new(PressureAxis::Cost, 0.0),
-            ],
-        )
-        .unwrap()
+        let mut p = PressureSnapshot::free_canonical();
+        p.captured_at = "2026-06-09T12:00:00Z".into();
+        for r in &mut p.readings {
+            match r.axis {
+                PressureAxis::Cpu => r.value = cpu,
+                PressureAxis::Memory => r.value = mem,
+                PressureAxis::Io => r.value = io,
+                _ => {}
+            }
+        }
+        p
+    }
+
+    /// Set one target's utilization on a load snapshot in place.
+    fn set_util(load: &mut LoadSnapshot, target: HardwareTarget, util: u8) {
+        if let Some(t) = load.loads.iter_mut().find(|x| x.target == target) {
+            t.util_pct = util;
+        }
     }
 
     /// Load with both GPUs busy (so idle rules don't fire unless asked).
     fn busy_load() -> LoadSnapshot {
         let mut l = LoadSnapshot::empty_canonical("t");
-        l.update_target(HardwareTarget::BlackwellOracle, 0, 80, 0, "t")
-            .unwrap();
-        l.update_target(HardwareTarget::Rocm3090, 0, 80, 0, "t")
-            .unwrap();
+        set_util(&mut l, HardwareTarget::BlackwellOracle, 80);
+        set_util(&mut l, HardwareTarget::Rocm3090, 80);
         l
     }
 
@@ -270,8 +273,7 @@ mod tests {
     fn idle_present_gpu_fires_idle_rule() {
         let mut load = busy_load();
         // 3090 drops to idle (5% ≤ 10% default).
-        load.update_target(HardwareTarget::Rocm3090, 0, 5, 0, "t")
-            .unwrap();
+        set_util(&mut load, HardwareTarget::Rocm3090, 5);
         let r = derive_reactions(
             &snap(0.1, 0.1, 0.1),
             &load,
@@ -293,8 +295,7 @@ mod tests {
         // canonical 3090 is present (24GB) → idle fires.
         let mut load = LoadSnapshot::empty_canonical("t"); // all util 0 = idle
         // Oracle present too; both idle → both fire. Confirms presence-gated.
-        load.update_target(HardwareTarget::BlackwellOracle, 0, 0, 0, "t")
-            .unwrap();
+        set_util(&mut load, HardwareTarget::BlackwellOracle, 0);
         let r = derive_reactions(
             &snap(0.0, 0.0, 0.0),
             &load,

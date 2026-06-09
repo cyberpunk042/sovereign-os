@@ -4775,6 +4775,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-gatewayd"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-cortex",
+ "sovereign-gateway",
+ "sovereign-router-7axis",
+ "sovereign-value-plane",
+]
+
+[[package]]
 name = "sovereign-graph-path"
 version = "0.1.0"
 dependencies = [
