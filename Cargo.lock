@@ -5050,6 +5050,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-semantic-cache"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-embed",
+]
+
+[[package]]
 name = "sovereign-serve"
 version = "0.1.0"
 dependencies = [
