@@ -5683,6 +5683,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-typical-sampling"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-ulid"
 version = "0.1.0"
 dependencies = [
