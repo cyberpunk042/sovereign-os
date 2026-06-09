@@ -200,12 +200,18 @@ fn serve(
         active.fetch_add(1, Ordering::Relaxed);
         let guard = ConnGuard(Arc::clone(&active));
         let server = Arc::clone(server);
-        std::thread::spawn(move || {
+        // Use a fallible spawn: under resource pressure a thread may fail to
+        // start. Drop that one connection and keep serving rather than letting
+        // the accept loop panic and take the whole daemon down. On the Err path
+        // the closure (and its `guard`) is dropped, decrementing the counter.
+        if let Err(e) = std::thread::Builder::new().spawn(move || {
             let _guard = guard; // decrements the counter on thread exit
             if let Err(e) = handle(&server, stream) {
                 eprintln!("sovereign-gatewayd: connection ended: {e}");
             }
-        });
+        }) {
+            eprintln!("sovereign-gatewayd: could not spawn handler: {e}");
+        }
     }
     Ok(())
 }

@@ -7,12 +7,25 @@
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::process::{Child, Command};
+use std::sync::{Mutex, MutexGuard};
 use std::time::{Duration, Instant};
+
+/// Serialize the persistent-daemon tests. On a constrained CI runner, spinning
+/// up many daemon processes (each with its own threads + cortex inference) in
+/// parallel saturates resources and a connection can reset mid-test. Holding
+/// this lock for each daemon's lifetime keeps at most one running at a time
+/// within this binary. Poisoning is ignored so a panicking test can't cascade.
+fn serial_guard() -> MutexGuard<'static, ()> {
+    static SERIAL: Mutex<()> = Mutex::new(());
+    SERIAL.lock().unwrap_or_else(|e| e.into_inner())
+}
 
 /// A spawned daemon on a free loopback port, killed on drop.
 struct Daemon {
     child: Child,
     addr: String,
+    /// Held for the daemon's lifetime to serialize daemon-spawning tests.
+    _serial: MutexGuard<'static, ()>,
 }
 
 impl Drop for Daemon {
@@ -48,6 +61,9 @@ fn spawn(mode: &str) -> Daemon {
 /// `SOVEREIGN_GATEWAY_MAX_CONN` to exercise the connection cap).
 #[allow(clippy::zombie_processes)]
 fn spawn_with_env(mode: &str, extra_env: &[(&str, &str)]) -> Daemon {
+    // Held across the retries and stored in the returned Daemon, so only one
+    // daemon-spawning test runs at a time within this binary.
+    let serial = serial_guard();
     for attempt in 0..5 {
         let addr = format!("127.0.0.1:{}", free_port());
         let mut cmd = Command::new(env!("CARGO_BIN_EXE_sovereign-gatewayd"));
@@ -68,7 +84,11 @@ fn spawn_with_env(mode: &str, extra_env: &[(&str, &str)]) -> Daemon {
                 break;
             }
             if TcpStream::connect(&addr).is_ok() {
-                return Daemon { child, addr };
+                return Daemon {
+                    child,
+                    addr,
+                    _serial: serial,
+                };
             }
             if Instant::now() >= deadline {
                 let _ = child.kill();
