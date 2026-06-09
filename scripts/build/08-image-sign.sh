@@ -129,9 +129,24 @@ fi
 signed_count=0
 while IFS= read -r f; do
   log_info "signing: ${f}"
+  # Guard sbsign + mv the same way sbverify (below) is guarded: a bare
+  # sbsign under set -e would abort the step on a bad key / unsignable
+  # binary WITHOUT a result="fail" sample or state_step_fail, leaving the
+  # build in 'started' limbo — and the carefully-instrumented verify one
+  # line down would never be reached to report it.
   sbsign --key "${sign_key}" --cert "${sign_cert}" \
-    --output "${f}.signed" "${f}"
-  mv "${f}.signed" "${f}"
+    --output "${f}.signed" "${f}" || {
+    log_error "sbsign failed for ${f} (bad key/cert or unsignable binary)"
+    emit_sign_metric fail
+    state_step_fail "${STEP_ID}" "sbsign-failed"
+    exit 1
+  }
+  mv "${f}.signed" "${f}" || {
+    log_error "could not replace ${f} with its signed copy"
+    emit_sign_metric fail
+    state_step_fail "${STEP_ID}" "sbsign-mv-failed"
+    exit 1
+  }
   sbverify --cert "${sign_cert}" "${f}" || {
     log_error "verification failed for ${f}"
     emit_sign_metric fail
