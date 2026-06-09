@@ -25,11 +25,25 @@ sovereign-gatewayd --addr 0.0.0.0:9000
 sovereign-gatewayd --http          # HTTP/1.1 over the same address
 sovereign-gatewayd --stdio         # NDJSON on stdin/stdout (MCP / claude-code shape)
 sovereign-gatewayd --selftest      # run the built-in demo session, print, exit
+sovereign-gatewayd --help          # usage, then exit
 ```
 
-`SOVEREIGN_GATEWAY_ADDR` overrides the bind address. The daemon is **local-first
-by default** (`force_local`): every request is forced `allow_cloud = false`
-before it reaches the router, so a client can never push work off-node.
+Environment:
+
+| Var | Default | Meaning |
+|---|---|---|
+| `SOVEREIGN_GATEWAY_ADDR` | `127.0.0.1:8787` | bind address |
+| `SOVEREIGN_GATEWAY_MAX_CONN` | `256` | max concurrent connections (back-pressure over the cap) |
+
+The daemon is **local-first by default** (`force_local`): every request is
+forced `allow_cloud = false` before it reaches the router, so a client can never
+push work off-node.
+
+**Hardening.** Both network transports cap request size — `Content-Length` over
+1 MiB → `413`, an over-8 KiB request/header line or >100 headers → `431`, an
+over-1 MiB NDJSON line → error — each read through a bounded `take` so a huge or
+unterminated request can't exhaust memory. Concurrent connections are bounded
+(`SOVEREIGN_GATEWAY_MAX_CONN`). The systemd unit binds loopback by default.
 
 ## Wire protocols
 
