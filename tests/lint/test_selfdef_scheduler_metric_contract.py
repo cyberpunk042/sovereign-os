@@ -141,6 +141,58 @@ def test_consumer_status_ladder_intact():
         assert f'"{state}"' in text, f"status ladder missing state: {state}"
 
 
+def _load_consumer_module():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("_scheduler_status", CONSUMER)
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    return m
+
+
+def _parsed(degraded_count, pressure, emit_failed=False, last_run_unix=0):
+    return {
+        "measurements": {},
+        "state": {"cpu_pressure": pressure},
+        "substrate_health": {},
+        "substrate_degraded_count": degraded_count,
+        "last_run_unix": last_run_unix,
+        "textfile_emit_failed": emit_failed,
+        "decisions": {"in_ring": 0, "hibernate": 0, "by_route": {}},
+    }
+
+
+def test_degraded_outranks_pressured_in_status_ladder():
+    """Substrate degradation (partial observability loss) must outrank
+    backpressure (scheduler working-but-busy) in the badge. Regression:
+    the code once checked PRESSURED before DEGRADED, so a 1-2 degraded
+    state with a concurrent load signal DOWNGRADED to PRESSURED — masking
+    broken observability behind an expected-under-load indicator, and
+    creating a discontinuity at the 3-vs-2 substrate boundary (3 → BLIND
+    but 2+pressure → PRESSURED). The ladder must stay monotonic in
+    degradation."""
+    import time
+
+    m = _load_consumer_module()
+    # 1-2 degraded substrates → DEGRADED regardless of concurrent pressure.
+    for dc in (1, 2):
+        assert m.derive_card_status(_parsed(dc, pressure=True)) == "DEGRADED", dc
+        assert m.derive_card_status(_parsed(dc, pressure=False)) == "DEGRADED", dc
+    # All 3 degraded → BLIND (tops PRESSURED, as before).
+    assert m.derive_card_status(_parsed(3, pressure=True)) == "BLIND"
+    # Pressure alone (no degradation) → PRESSURED; nothing firing → OK.
+    assert m.derive_card_status(_parsed(0, pressure=True)) == "PRESSURED"
+    assert m.derive_card_status(_parsed(0, pressure=False)) == "OK"
+    # WEDGED + SILENT still top the ladder above degradation/pressure.
+    assert m.derive_card_status(
+        _parsed(1, pressure=True, emit_failed=True)
+    ) == "WEDGED"
+    old = int(time.time()) - 10_000
+    assert m.derive_card_status(
+        _parsed(0, pressure=False, last_run_unix=old)
+    ) == "SILENT"
+
+
 TASK_INPUT_RS = (
     SELFDEF_REPO
     / "crates"
