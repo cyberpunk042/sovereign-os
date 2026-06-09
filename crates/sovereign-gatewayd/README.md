@@ -86,9 +86,21 @@ M015 plain-language rationale (route → device → verdict → cost/rollback) b
 does **not** learn or touch the ledger — a side-effect-free "what would you do,
 and why".
 
+`/v1/simple` is the easy on-ramp: the client sends only the task `axes` and a
+required `expected_quality` dial (the gateway makes no hidden quality decision)
+plus optional `query_topic` / `profile`; the gateway fills the engine-internal
+fields and runs it. The fill-in defaults are documented + tunable in
+`SimpleRequest::into_cortex` (`simple_defaults`).
+
 ```sh
 curl -s localhost:8787/health
 curl -s -X POST --data-binary @request.json localhost:8787/v1/messages
+# simplest path: just the task axes + a quality dial
+curl -s -X POST localhost:8787/v1/simple -d '{
+  "axes": {"complexity":"simple","privacy":"private","safety":"safe",
+           "domain":"coding","locality":"local","latency":"fast","quality":"oracle"},
+  "expected_quality": 0.9
+}'
 ```
 
 > The full Anthropic Messages **content-block** schema (message arrays,
