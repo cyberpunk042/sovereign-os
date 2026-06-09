@@ -45,7 +45,7 @@ use sovereign_srp_scheduler::{
     Placement, PlacementError, RolePressure, ScheduleRequest, Workload, place,
 };
 use sovereign_value_plane::{
-    BranchAssessment, BranchCritic, BranchState, IntelligenceTier, RewardVector,
+    BranchAssessment, BranchCritic, BranchState, IntelligenceTier, NextAction, RewardVector,
 };
 
 /// Schema version of the cortex request/decision surface.
@@ -57,6 +57,9 @@ pub const RECALL_TOP_K: usize = 5;
 /// Per-recalled-item boost applied to the branch's evidence axis before
 /// the critic judges it. Recall feeds the value plane.
 pub const RECALL_EVIDENCE_BOOST: f32 = 0.05;
+
+/// Hard safety cap on iterative-search rounds, independent of tier budget.
+pub const MAX_SEARCH_ROUNDS: u32 = 64;
 
 /// One end-to-end request to the cortex. Every field is a real input to
 /// one of the composed engines.
@@ -144,6 +147,41 @@ pub struct Deliberation {
     pub all: Vec<BranchAssessment>,
     /// Whether the tier's fanout budget justifies more compute on the winner.
     pub more_compute_justified: bool,
+    /// Compute profile for the shared placement.
+    pub compute: ComputeProfile,
+    /// One-line human-readable trace.
+    pub summary: String,
+}
+
+/// Produces the next round of candidate branches given the current best.
+///
+/// The cortex owns the *search loop and the budget control*; generating
+/// the actual next candidates (the "expand" step — sampling, refining,
+/// re-prompting) is the model's job and is injected here. Return an empty
+/// vector to signal "no further expansion possible", which stops the loop.
+pub trait BranchExpander {
+    /// Candidates for the next round, given the current `best` and the
+    /// zero-based `round` number just completed.
+    fn expand(&self, best: &BranchAssessment, round: u32) -> Vec<RewardVector>;
+}
+
+/// The outcome of an iterative [`Cortex::search`]. Output-only (`Serialize`).
+#[derive(Debug, Clone, Serialize)]
+pub struct SearchOutcome {
+    /// Router output (shared across the search).
+    pub route: RouteDecision,
+    /// Placement (shared across the search).
+    pub placement: Placement,
+    /// Number of memory items recalled for the shared context.
+    pub recalled: usize,
+    /// Number of expansion rounds performed (0 = the seed round only).
+    pub rounds: u32,
+    /// Whether the search ended on a committable branch.
+    pub committed: bool,
+    /// The final winning branch, if any survived pruning.
+    pub final_best: Option<BranchAssessment>,
+    /// The winning branch of each round, in order.
+    pub history: Vec<BranchAssessment>,
     /// Compute profile for the shared placement.
     pub compute: ComputeProfile,
     /// One-line human-readable trace.
@@ -312,6 +350,99 @@ impl Cortex {
             placement,
             recalled,
             boost,
+        })
+    }
+
+    /// Iterative inference-time search (M035): deliberate over the seed
+    /// candidates, then keep expanding the best branch — via the injected
+    /// [`BranchExpander`] — until it is committable, no more compute is
+    /// justified for the tier, the expander yields nothing, or the safety
+    /// cap is hit. The cortex owns the loop + budget; the expander owns
+    /// candidate generation. Route/place/recall happen once, up front.
+    pub fn search(
+        &self,
+        req: &CortexRequest,
+        seed: &[RewardVector],
+        tier: IntelligenceTier,
+        expander: &dyn BranchExpander,
+    ) -> Result<SearchOutcome, CortexError> {
+        if seed.is_empty() {
+            return Err(CortexError::NoCandidates);
+        }
+        let Prepared {
+            route,
+            placement,
+            recalled,
+            boost,
+        } = self.prepare(req)?;
+        let critic = BranchCritic::for_profile(&req.profile)
+            .ok_or_else(|| CortexError::UnknownProfile(req.profile.clone()))?;
+
+        let mut current: Vec<RewardVector> = seed.to_vec();
+        let mut history: Vec<BranchAssessment> = Vec::new();
+        let mut round: u32 = 0;
+        let mut best: Option<BranchAssessment>;
+
+        loop {
+            let branches: Vec<BranchState> = current
+                .iter()
+                .enumerate()
+                .map(|(i, r)| BranchState::from_reward(i as u64, boost_reward(r.clone(), boost)))
+                .collect();
+            best = critic.select_best_of_n(&branches);
+
+            let Some(b) = best else { break }; // all pruned this round
+            history.push(b);
+
+            if b.suggested_next_action == NextAction::Commit {
+                break; // good enough + certain enough
+            }
+            if !critic.compute_justified(&b, tier, round) {
+                break; // tier fanout budget spent
+            }
+            if round + 1 >= MAX_SEARCH_ROUNDS {
+                break; // hard safety cap
+            }
+
+            let next = expander.expand(&b, round);
+            if next.is_empty() {
+                break; // nothing left to try
+            }
+            current = next;
+            round += 1;
+        }
+
+        let committed = best
+            .map(|b| b.suggested_next_action == NextAction::Commit)
+            .unwrap_or(false);
+        let compute = ComputeProfile::for_role(placement.role, req.model_params);
+        let summary = format!(
+            "route={:?} → device='{}'{} | recalled={} | rounds={} | committed={} | final={}",
+            route.role,
+            placement.device,
+            placement_tag(&placement),
+            recalled.len(),
+            round,
+            committed,
+            match &best {
+                Some(b) => format!(
+                    "branch#{} {:?} ({:.3})",
+                    b.branch_id, b.suggested_next_action, b.step_score
+                ),
+                None => "none (all pruned)".to_string(),
+            },
+        );
+
+        Ok(SearchOutcome {
+            route,
+            placement,
+            recalled: recalled.len(),
+            rounds: round,
+            committed,
+            final_best: best,
+            history,
+            compute,
+            summary,
         })
     }
 }
@@ -671,5 +802,109 @@ mod tests {
             .deliberate(&req(), &[uncertain], IntelligenceTier::Deliberate)
             .unwrap();
         assert!(d.more_compute_justified);
+    }
+
+    // --- iterative search loop ---
+
+    fn perfect_reward() -> RewardVector {
+        RewardVector {
+            correctness: 1.0,
+            evidence: 1.0,
+            schema_validity: 1.0,
+            tool_success: 1.0,
+            test_success: 1.0,
+            risk: 0.0,
+            latency: 0.0,
+            cost: 0.0,
+            novelty: 1.0,
+            user_preference: 1.0,
+            cache_reuse: 1.0,
+            confidence_calibration: 0.99,
+        }
+    }
+
+    /// Expander that returns one fully-strong candidate — convergence.
+    struct Improver;
+    impl BranchExpander for Improver {
+        fn expand(&self, _best: &BranchAssessment, _round: u32) -> Vec<RewardVector> {
+            vec![perfect_reward()]
+        }
+    }
+
+    /// Expander that never improves — always an uncertain candidate.
+    struct Stuck;
+    impl BranchExpander for Stuck {
+        fn expand(&self, _best: &BranchAssessment, _round: u32) -> Vec<RewardVector> {
+            vec![graded_reward(0.7, 0.2)]
+        }
+    }
+
+    /// Expander with nothing left to try.
+    struct Exhausted;
+    impl BranchExpander for Exhausted {
+        fn expand(&self, _best: &BranchAssessment, _round: u32) -> Vec<RewardVector> {
+            vec![]
+        }
+    }
+
+    #[test]
+    fn search_converges_to_commit() {
+        let cortex = Cortex::new();
+        let seed = vec![graded_reward(0.7, 0.2)]; // uncertain start
+        let out = cortex
+            .search(&req(), &seed, IntelligenceTier::Deliberate, &Improver)
+            .unwrap();
+        assert!(out.committed, "should converge: {}", out.summary);
+        assert!(out.rounds >= 1, "should take at least one expansion round");
+        assert!(out.final_best.is_some());
+        // history records a winner per round
+        assert_eq!(out.history.len() as u32, out.rounds + 1);
+    }
+
+    #[test]
+    fn search_respects_tier_fanout_budget() {
+        let cortex = Cortex::new();
+        let seed = vec![graded_reward(0.7, 0.2)];
+        // Normal tier fanout = 4 → stops once round reaches the budget.
+        let out = cortex
+            .search(&req(), &seed, IntelligenceTier::Normal, &Stuck)
+            .unwrap();
+        assert!(!out.committed);
+        assert_eq!(out.rounds, IntelligenceTier::Normal.fanout());
+    }
+
+    #[test]
+    fn search_stops_when_expander_exhausted() {
+        let cortex = Cortex::new();
+        let seed = vec![graded_reward(0.7, 0.2)];
+        let out = cortex
+            .search(&req(), &seed, IntelligenceTier::Deliberate, &Exhausted)
+            .unwrap();
+        assert_eq!(out.rounds, 0); // never got a second round
+        assert!(!out.committed);
+        assert!(out.final_best.is_some()); // the seed branch survived
+    }
+
+    #[test]
+    fn search_empty_seed_is_error() {
+        let err = Cortex::new()
+            .search(&req(), &[], IntelligenceTier::Normal, &Improver)
+            .unwrap_err();
+        assert!(matches!(err, CortexError::NoCandidates));
+    }
+
+    #[test]
+    fn search_commits_immediately_on_strong_seed() {
+        let cortex = Cortex::new();
+        let out = cortex
+            .search(
+                &req(),
+                &[perfect_reward()],
+                IntelligenceTier::Deliberate,
+                &Exhausted,
+            )
+            .unwrap();
+        assert!(out.committed);
+        assert_eq!(out.rounds, 0); // committed on the seed, no expansion
     }
 }
