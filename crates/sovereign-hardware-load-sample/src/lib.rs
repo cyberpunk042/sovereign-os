@@ -68,12 +68,66 @@ pub struct LoadSnapshot {
     pub loads: Vec<TargetLoad>,
 }
 
+/// One GPU's live telemetry, parsed from an `nvidia-smi` / `rocm-smi` CSV row.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GpuTelemetry {
+    /// VRAM in use, gibibytes (MiB from the tool, divided by 1024).
+    pub vram_used_gb: u32,
+    /// Compute utilization 0..=100.
+    pub util_pct: u8,
+    /// Die temperature, °C.
+    pub temp_c: u8,
+}
+
+/// Parse one CSV telemetry row as emitted by
+/// `nvidia-smi --query-gpu=memory.used,utilization.gpu,temperature.gpu
+/// --format=csv,noheader,nounits` (and the equivalent `rocm-smi` CSV) into a
+/// [`GpuTelemetry`].
+///
+/// IO-free, like [`crate`]'s other ingestion: the future telemetry binary runs
+/// the vendor tool and hands one row here, then drives the matching target via
+/// [`LoadSnapshot::update_target`]. `memory.used` is reported in MiB and
+/// converted to GiB to match [`TargetLoad::vram_used_gb`]. Out-of-range util
+/// (> 100) or a malformed row is rejected with a typed error rather than
+/// silently truncated.
+pub fn parse_gpu_csv(row: &str) -> Result<GpuTelemetry, LoadError> {
+    let mut it = row.split(',').map(str::trim);
+    let mem_mib: u32 = it
+        .next()
+        .and_then(|s| s.parse().ok())
+        .ok_or(LoadError::GpuTelemetryParse)?;
+    let util_pct: u32 = it
+        .next()
+        .and_then(|s| s.parse().ok())
+        .ok_or(LoadError::GpuTelemetryParse)?;
+    let temp_c: u32 = it
+        .next()
+        .and_then(|s| s.parse().ok())
+        .ok_or(LoadError::GpuTelemetryParse)?;
+    // Reject trailing extra columns — a shape change should surface, not be
+    // silently ignored.
+    if it.next().is_some() {
+        return Err(LoadError::GpuTelemetryParse);
+    }
+    if util_pct > 100 || temp_c > 255 {
+        return Err(LoadError::GpuTelemetryParse);
+    }
+    Ok(GpuTelemetry {
+        vram_used_gb: mem_mib / 1024,
+        util_pct: util_pct as u8,
+        temp_c: temp_c as u8,
+    })
+}
+
 /// Errors.
 #[derive(Debug, Error)]
 pub enum LoadError {
     /// Schema drift.
     #[error("schema version mismatch")]
     SchemaMismatch,
+    /// A GPU telemetry CSV row could not be parsed.
+    #[error("malformed GPU telemetry CSV row")]
+    GpuTelemetryParse,
     /// Count != 5.
     #[error("load count {0} != 5 canonical")]
     CountInvalid(usize),
@@ -221,6 +275,27 @@ impl LoadSnapshot {
         rec.temp_c = temp_c;
         rec.captured_at = captured_at.into();
         Ok(())
+    }
+
+    /// Apply a parsed [`GpuTelemetry`] reading to a GPU target in one step.
+    ///
+    /// Convenience over [`Self::update_target`] for the common path: the
+    /// telemetry binary runs `nvidia-smi`/`rocm-smi`, parses a row with
+    /// [`parse_gpu_csv`], and routes it to the matching target (e.g.
+    /// `BlackwellOracle`). `util_pct` is already range-checked by the parser.
+    pub fn update_gpu(
+        &mut self,
+        target: HardwareTarget,
+        gpu: GpuTelemetry,
+        captured_at: impl Into<String>,
+    ) -> Result<(), LoadError> {
+        self.update_target(
+            target,
+            gpu.vram_used_gb,
+            gpu.util_pct,
+            gpu.temp_c,
+            captured_at,
+        )
     }
 
     /// Sum of VRAM used across all local targets (excludes Cloud + None).
@@ -433,5 +508,52 @@ mod tests {
             })
         ));
         assert_eq!(s.avg_util_pct(), 87 / 5);
+    }
+
+    // ---- real GPU telemetry (nvidia-smi / rocm-smi CSV) ingestion ----
+
+    #[test]
+    fn parse_gpu_csv_reads_real_row() {
+        // `nvidia-smi --query-gpu=memory.used,utilization.gpu,temperature.gpu
+        //  --format=csv,noheader,nounits` → "16384, 73, 65"
+        let g = parse_gpu_csv("16384, 73, 65").unwrap();
+        assert_eq!(g.vram_used_gb, 16); // 16384 MiB / 1024
+        assert_eq!(g.util_pct, 73);
+        assert_eq!(g.temp_c, 65);
+        // Tolerates no-space CSV too.
+        assert_eq!(parse_gpu_csv("2048,0,40").unwrap().vram_used_gb, 2);
+    }
+
+    #[test]
+    fn parse_gpu_csv_rejects_malformed() {
+        assert!(matches!(
+            parse_gpu_csv("16384, 73"), // too few columns
+            Err(LoadError::GpuTelemetryParse)
+        ));
+        assert!(matches!(
+            parse_gpu_csv("16384, 73, 65, 9"), // too many columns
+            Err(LoadError::GpuTelemetryParse)
+        ));
+        assert!(matches!(
+            parse_gpu_csv("16384, 150, 65"), // util > 100
+            Err(LoadError::GpuTelemetryParse)
+        ));
+        assert!(matches!(
+            parse_gpu_csv("[N/A], 73, 65"), // non-numeric (GPU absent)
+            Err(LoadError::GpuTelemetryParse)
+        ));
+    }
+
+    #[test]
+    fn update_gpu_routes_parsed_telemetry_to_target() {
+        let mut s = LoadSnapshot::empty_canonical("t");
+        let g = parse_gpu_csv("20480, 88, 71").unwrap(); // 20 GiB, 88%, 71C
+        s.update_gpu(HardwareTarget::BlackwellOracle, g, "2026-06-09T12:00:00Z")
+            .unwrap();
+        s.validate_against(&reg()).unwrap();
+        let rec = s.get(HardwareTarget::BlackwellOracle).unwrap();
+        assert_eq!(rec.vram_used_gb, 20);
+        assert_eq!(rec.util_pct, 88);
+        assert_eq!(rec.temp_c, 71);
     }
 }
