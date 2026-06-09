@@ -84,6 +84,19 @@ pub mod simple_defaults {
     pub const MODEL_PARAMS: u64 = 7_000_000_000;
     /// Value-plane critic profile when the client doesn't specify one.
     pub const PROFILE: &str = "careful";
+
+    // Reward-mapping defaults for the inverted (lower-is-better) axes — the
+    // quality/competence axes track the client's `expected_quality` directly.
+    /// Assumed risk (0 = safest).
+    pub const REWARD_RISK: f32 = 0.1;
+    /// Assumed relative latency (0 = fastest).
+    pub const REWARD_LATENCY: f32 = 0.2;
+    /// Assumed relative cost (0 = cheapest).
+    pub const REWARD_COST: f32 = 0.2;
+    /// Assumed novelty.
+    pub const REWARD_NOVELTY: f32 = 0.5;
+    /// Assumed cache-reuse rate.
+    pub const REWARD_CACHE_REUSE: f32 = 0.5;
 }
 
 impl SimpleRequest {
@@ -129,18 +142,19 @@ impl SimpleRequest {
 /// the quality/competence axes track it; the inverted axes (risk/latency/cost)
 /// default low. Transparent and operator-tunable — no hidden quality policy.
 fn reward_from_quality(q: f32) -> RewardVector {
+    use simple_defaults as d;
     RewardVector {
         correctness: q,
         evidence: q,
         schema_validity: 1.0,
         tool_success: q,
         test_success: q,
-        risk: 0.1,
-        latency: 0.2,
-        cost: 0.2,
-        novelty: 0.5,
+        risk: d::REWARD_RISK,
+        latency: d::REWARD_LATENCY,
+        cost: d::REWARD_COST,
+        novelty: d::REWARD_NOVELTY,
         user_preference: q,
-        cache_reuse: 0.5,
+        cache_reuse: d::REWARD_CACHE_REUSE,
         confidence_calibration: q,
     }
 }
