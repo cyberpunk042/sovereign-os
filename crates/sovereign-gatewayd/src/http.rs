@@ -16,6 +16,7 @@
 //! POST /v1/messages    -> {"kind":"decision", …}   Anthropic-path bind (surface 1)
 //! POST /v1/infer       -> {"kind":"decision", …}   raw engine alias
 //! POST /mcp            -> {"kind":"decision", …}   MCP-bridge bind (surface 3)
+//! POST /v1/simple      -> {"kind":"decision", …}     simplified request (axes + quality)
 //! POST /v1/explain     -> {"kind":"explanation",…} dry-run rationale (read-only)
 //! POST /v1/deliberate  -> {"kind":"deliberation",…} best-of-N (read-only)
 //! ```
@@ -29,7 +30,7 @@
 //! this module is the pure request→response routing, unit-tested without a
 //! socket.
 
-use crate::{GatewayRequest, GatewayResponse, GatewayServer};
+use crate::{GatewayRequest, GatewayResponse, GatewayServer, SimpleRequest};
 use sovereign_cortex::CortexRequest;
 use sovereign_value_plane::{IntelligenceTier, RewardVector};
 
@@ -138,6 +139,18 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
             }
         }
 
+        ("POST", "/v1/simple") => match serde_json::from_str::<SimpleRequest>(body) {
+            Ok(request) => {
+                let resp = server.handle(GatewayRequest::SimpleInfer { request });
+                let status = match resp {
+                    GatewayResponse::Error { .. } => 422,
+                    _ => 200,
+                };
+                render(status, &resp)
+            }
+            Err(e) => err(400, format!("invalid simple request body: {e}")),
+        },
+
         ("POST", "/v1/deliberate") => match serde_json::from_str::<DeliberateBody>(body) {
             Ok(b) => {
                 let resp = server.handle(GatewayRequest::Deliberate {
@@ -162,7 +175,8 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
         | (_, "/v1/infer")
         | (_, "/mcp")
         | (_, "/v1/explain")
-        | (_, "/v1/deliberate") => err(405, format!("method {method} not allowed on {route}")),
+        | (_, "/v1/deliberate")
+        | (_, "/v1/simple") => err(405, format!("method {method} not allowed on {route}")),
         _ => err(404, format!("no route for {method} {route}")),
     }
 }
@@ -292,6 +306,25 @@ mod tests {
     #[test]
     fn get_explain_is_405() {
         assert_eq!(respond(&srv(), "GET", "/v1/explain", "").status, 405);
+    }
+
+    #[test]
+    fn post_simple_runs_the_engine_from_minimal_input() {
+        let s = srv();
+        let demo = demo_requests()[0].clone();
+        let body = serde_json::json!({ "axes": demo.axes, "expected_quality": 0.8 }).to_string();
+        let r = respond(&s, "POST", "/v1/simple", &body);
+        assert_eq!(r.status, 200);
+        assert_eq!(body_of(&r)["kind"], "decision");
+    }
+
+    #[test]
+    fn simple_bad_body_is_400_and_get_is_405() {
+        assert_eq!(
+            respond(&srv(), "POST", "/v1/simple", "{not valid}").status,
+            400
+        );
+        assert_eq!(respond(&srv(), "GET", "/v1/simple", "").status, 405);
     }
 
     #[test]

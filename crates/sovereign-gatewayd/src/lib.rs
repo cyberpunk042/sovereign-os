@@ -38,7 +38,98 @@ use serde::{Deserialize, Serialize};
 
 use sovereign_cortex::{Cortex, CortexRequest, Deliberation, seed_memory};
 use sovereign_gateway::{GatewayManifest, GatewaySurface, SCHEMA_VERSION, SurfaceState};
+use sovereign_router_7axis::{Complexity, TaskAxes};
+use sovereign_srp_scheduler::{Precision, RolePressure, Workload, WorkloadClass};
 use sovereign_value_plane::{IntelligenceTier, NextAction, RewardVector};
+
+/// A simplified client request: the client supplies the task descriptor (the
+/// 7-axis `axes`) and an explicit quality intent, and the gateway fills the
+/// runtime-state and engine-internal fields a `CortexRequest` needs. The full
+/// [`CortexRequest`] path remains for clients that want full control — this is
+/// an additive convenience so a simple client need not know the engine internals.
+///
+/// The fill-in defaults are deliberately conservative and **operator-tunable**:
+/// runtime pressures default to idle (the daemon has no live telemetry, so it
+/// assumes capacity), the cloud is never allowed (sovereign default), and the
+/// workload/precision are derived mechanically from the task's complexity. The
+/// reward is derived from the client's own `expected_quality` dial — the gateway
+/// invents no hidden quality policy.
+#[derive(Debug, Clone, Deserialize)]
+pub struct SimpleRequest {
+    /// The 7-axis task descriptor (the task's nature) — the client's domain.
+    pub axes: TaskAxes,
+    /// Topic bitset for memory recall (default 0 = no topic).
+    #[serde(default)]
+    pub query_topic: u64,
+    /// Value-plane critic profile (`fast`/`careful`/…); defaults to `careful`.
+    #[serde(default)]
+    pub profile: Option<String>,
+    /// Expected/desired answer quality, 0.0..=1.0 (default 0.7). The client's
+    /// quality dial — mapped transparently onto the reward vector.
+    #[serde(default)]
+    pub expected_quality: Option<f32>,
+}
+
+impl SimpleRequest {
+    /// Map to a full [`CortexRequest`], filling runtime-state defaults (idle,
+    /// local-only) and deriving the workload + reward from the task + quality.
+    pub fn into_cortex(self) -> CortexRequest {
+        let quality = self.expected_quality.unwrap_or(0.7).clamp(0.0, 1.0);
+        // Workload class + precision follow the task's complexity (the same
+        // split the 7-axis router uses): simple → CPU-side, complex → GPU-side.
+        let (class, precision) = match self.axes.complexity {
+            Complexity::Simple => (WorkloadClass::IntentEval, Precision::Ternary),
+            Complexity::Complex => (WorkloadClass::DeepReason, Precision::Fp16),
+        };
+        CortexRequest {
+            axes: self.axes,
+            workload: Workload {
+                class,
+                precision,
+                context_tokens: 4096,
+                // No hard VRAM floor — don't over-constrain placement; the role
+                // (from the axes) drives where the work lands.
+                min_vram_gb: 0,
+            },
+            // No live telemetry → assume capacity is free on every role.
+            conductor: RolePressure::free(),
+            logic: RolePressure::free(),
+            oracle: RolePressure::free(),
+            allow_cloud: false,
+            query_topic: self.query_topic,
+            query_entity: 0,
+            now: 0,
+            half_life: 64,
+            reward: reward_from_quality(quality),
+            profile: self.profile.unwrap_or_else(|| "careful".into()),
+            // Footprint estimate only; a mid-size default.
+            model_params: 7_000_000_000,
+            available_adapters: Vec::new(),
+            stacking_supported: false,
+            query_embedding: Vec::new(),
+        }
+    }
+}
+
+/// Map a single quality intent (0.0..=1.0) onto the value-plane reward axes:
+/// the quality/competence axes track it; the inverted axes (risk/latency/cost)
+/// default low. Transparent and operator-tunable — no hidden quality policy.
+fn reward_from_quality(q: f32) -> RewardVector {
+    RewardVector {
+        correctness: q,
+        evidence: q,
+        schema_validity: 1.0,
+        tool_success: q,
+        test_success: q,
+        risk: 0.1,
+        latency: 0.2,
+        cost: 0.2,
+        novelty: 0.5,
+        user_preference: q,
+        cache_reuse: 0.5,
+        confidence_calibration: q,
+    }
+}
 
 /// One request on the wire. Tagged by `op`, so a client sends e.g.
 /// `{"op":"infer","request":{…}}` or `{"op":"health"}`.
@@ -50,6 +141,13 @@ pub enum GatewayRequest {
     Infer {
         /// The end-to-end cortex request. Boxed because it is large.
         request: Box<CortexRequest>,
+    },
+    /// Run a simplified request: the client supplies only the task axes + a
+    /// quality intent; the gateway fills the engine-internal fields (see
+    /// [`SimpleRequest`]) and runs it like [`Self::Infer`].
+    SimpleInfer {
+        /// The simplified request.
+        request: SimpleRequest,
     },
     /// Dry-run a request and return the plain-language rationale (M015
     /// human-gate) — read-only: the engine decides but does not learn or
@@ -236,6 +334,7 @@ impl GatewayServer {
     pub fn handle(&self, req: GatewayRequest) -> GatewayResponse {
         match req {
             GatewayRequest::Infer { request } => self.infer(*request),
+            GatewayRequest::SimpleInfer { request } => self.infer(request.into_cortex()),
             GatewayRequest::Explain { request } => self.explain(*request),
             GatewayRequest::Deliberate {
                 request,
@@ -527,6 +626,39 @@ mod tests {
         let ledger = s.ledger.lock().unwrap();
         assert_eq!(ledger.total_requests, 0);
         assert_eq!(ledger.dry_runs, 1);
+    }
+
+    #[test]
+    fn simple_request_fills_conservative_defaults() {
+        let demo = demo_requests()[0].clone();
+        let req = SimpleRequest {
+            axes: demo.axes,
+            query_topic: 0,
+            profile: None,
+            expected_quality: None,
+        }
+        .into_cortex();
+        assert!(!req.allow_cloud, "sovereign default: cloud disallowed");
+        assert_eq!(req.profile, "careful");
+        assert_eq!(req.conductor.util_percent, 0, "pressures default to idle");
+        assert_eq!(req.oracle.util_percent, 0);
+    }
+
+    #[test]
+    fn simple_infer_op_maps_and_runs_the_engine() {
+        let s = GatewayServer::new();
+        let demo = demo_requests()[0].clone();
+        let line = serde_json::json!({
+            "op": "simple-infer",
+            "request": { "axes": demo.axes, "expected_quality": 0.9 },
+        })
+        .to_string();
+        let out = s.handle_line(&line);
+        let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(v["kind"], "decision");
+        assert_eq!(v["decision"]["placement"]["spilled_to_cloud"], false);
+        // It ran the engine (not read-only): the ledger advanced.
+        assert_eq!(s.ledger.lock().unwrap().total_requests, 1);
     }
 
     #[test]

@@ -72,6 +72,7 @@ One JSON object per line in, one per line out:
 | `POST /v1/messages` | Anthropic-path bind (surface 1) → decision |
 | `POST /v1/infer` | raw engine alias → decision |
 | `POST /mcp` | MCP-bridge bind (surface 3) → decision |
+| `POST /v1/simple` | simplified request (`{axes, expected_quality}`) → decision |
 | `POST /v1/explain` | **read-only** dry-run → plain-language rationale |
 | `POST /v1/deliberate` | **read-only** best-of-N → winner + all assessments |
 

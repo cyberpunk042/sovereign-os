@@ -13,12 +13,13 @@
 //!
 //! In `--http` mode the daemon answers the manifest's bind paths
 //! (`GET /health`, `GET /manifest`, `GET /admin/ledger`,
-//! `POST /v1/messages|/v1/infer|/mcp|/v1/explain|/v1/deliberate`) — see [`sovereign_gatewayd::http`].
+//! `POST /v1/messages|/v1/infer|/mcp|/v1/simple|/v1/explain|/v1/deliberate`) — see [`sovereign_gatewayd::http`].
 //!
 //! Wire protocol (one JSON object per line):
 //!
 //! ```text
 //! {"op":"infer","request":{…cortex request…}}   -> {"kind":"decision",…}
+//! {"op":"simple-infer","request":{"axes":{…},"expected_quality":0.8}} -> {"kind":"decision",…}
 //! {"op":"explain","request":{…}}                 -> {"kind":"explanation",…}  (read-only)
 //! {"op":"deliberate","request":{…},"candidates":[…],"tier":"…"} -> {"kind":"deliberation",…}
 //! {"op":"manifest"}                              -> {"kind":"manifest",…}
@@ -48,7 +49,7 @@ USAGE:
 MODES:
     (default)      bind TCP and speak NDJSON (one JSON request per line)
     --http         bind HTTP/1.1: GET /health /manifest /admin/ledger /metrics;
-                   POST /v1/messages /v1/infer /mcp /v1/explain /v1/deliberate
+                   POST /v1/messages /v1/infer /mcp /v1/simple /v1/explain /v1/deliberate
     --stdio        read NDJSON requests on stdin, reply on stdout (MCP / claude-code)
     --selftest     run the built-in demo session, print, exit
     -h, --help     print this help and exit
@@ -270,7 +271,7 @@ fn run_http(server: &Arc<GatewayServer>, addr: &str) -> std::io::Result<()> {
     let listener = TcpListener::bind(addr)?;
     eprintln!(
         "sovereign-gatewayd: HTTP listening on {addr} \
-         (GET /health /manifest /admin/ledger /metrics; POST /v1/messages /v1/infer /mcp /v1/explain /v1/deliberate)"
+         (GET /health /manifest /admin/ledger /metrics; POST /v1/messages /v1/infer /mcp /v1/simple /v1/explain /v1/deliberate)"
     );
     serve(listener, server, handle_http_conn)
 }

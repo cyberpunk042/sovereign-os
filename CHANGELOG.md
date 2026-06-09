@@ -12,6 +12,31 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — gateway `simple` op: a client need not build a full CortexRequest (2026-06-09)
+
+`POST /v1/messages` required a full `CortexRequest` (7 axes + workload +
+pressures + 12-axis reward). The new `simple` op lets a client send only the
+task `axes` + an explicit `expected_quality` dial (+ optional `query_topic` /
+`profile`); the gateway fills the engine-internal fields and runs it like
+`infer`. Additive — the full `CortexRequest` path is unchanged.
+
+- NDJSON `{"op":"simple-infer","request":{"axes":{…},"expected_quality":0.8}}`
+  and HTTP `POST /v1/simple` → `{"kind":"decision",…}`. Verified live (minimal
+  `{axes, quality}` → a real conductor/commit decision).
+
+> **⚠ Operator review needed on the fill-in defaults.** The gateway invents no
+> *hidden* quality policy — the client supplies the quality dial — but the
+> convenience does choose conservative defaults for under-specified fields, and
+> in a sovereign system those are a policy you should own. They are deliberately
+> transparent and tunable in `SimpleRequest::into_cortex`:
+> runtime pressures → **idle** (no live telemetry → assume capacity);
+> `allow_cloud` → **false** (sovereign default); workload class + precision →
+> derived from `axes.complexity` (simple → CPU/ternary, complex → GPU/fp16);
+> `min_vram_gb` → 0 (don't over-constrain placement); `profile` → `careful`;
+> `model_params` → 7B (footprint estimate only); reward → `expected_quality`
+> spread over the competence axes with risk/latency/cost low. Adjust or reject
+> these in review — the op is isolated and easy to retune or drop.
+
 ### Added — gateway best-of-N: a read-only `deliberate` op (2026-06-09)
 
 The gateway exposed only the single-pass `tick`; the cortex's premium decision
