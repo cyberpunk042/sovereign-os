@@ -4473,6 +4473,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-fenwick"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-ffn"
 version = "0.1.0"
 dependencies = [
