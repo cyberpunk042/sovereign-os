@@ -119,6 +119,57 @@ pub fn parse_gpu_csv(row: &str) -> Result<GpuTelemetry, LoadError> {
     })
 }
 
+/// Cumulative CPU jiffies snapshot from the aggregate `cpu` line of
+/// `/proc/stat`. Utilization is a *rate*, so two snapshots are required.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CpuTimes {
+    /// idle + iowait jiffies.
+    pub idle: u64,
+    /// Sum of all jiffy fields (busy + idle).
+    pub total: u64,
+}
+
+/// Parse the aggregate `cpu` line of `/proc/stat` into cumulative
+/// [`CpuTimes`].
+///
+/// IO-free, like this crate's other ingestion. The aggregate line is
+/// `cpu  user nice system idle iowait irq softirq steal guest guest_nice`;
+/// per-core `cpuN` lines are skipped. Idle is `idle + iowait`; total is the
+/// sum of every field. Pair two snapshots through [`cpu_util_pct`] to get a
+/// utilization percentage.
+pub fn parse_proc_stat_cpu(content: &str) -> Result<CpuTimes, LoadError> {
+    for line in content.lines() {
+        // Aggregate line only: "cpu " (with the trailing space), not "cpuN".
+        if let Some(rest) = line.strip_prefix("cpu ") {
+            let vals: Vec<u64> = rest.split_whitespace().filter_map(|t| t.parse().ok()).collect();
+            // Need at least user,nice,system,idle,iowait.
+            if vals.len() >= 5 {
+                let idle = vals[3] + vals[4];
+                let total: u64 = vals.iter().sum();
+                return Ok(CpuTimes { idle, total });
+            }
+            return Err(LoadError::CpuStatParse);
+        }
+    }
+    Err(LoadError::CpuStatParse)
+}
+
+/// Compute a 0..=100 CPU utilization from two `/proc/stat` snapshots.
+///
+/// Utilization is the busy fraction of the jiffies elapsed between `prev` and
+/// `curr`: `(total_delta - idle_delta) / total_delta`. A zero or non-advancing
+/// interval (same or reordered snapshots) yields 0 rather than dividing by
+/// zero. The result is clamped into the [`TargetLoad::util_pct`] range.
+pub fn cpu_util_pct(prev: CpuTimes, curr: CpuTimes) -> u8 {
+    let total_delta = curr.total.saturating_sub(prev.total);
+    if total_delta == 0 {
+        return 0;
+    }
+    let idle_delta = curr.idle.saturating_sub(prev.idle);
+    let busy = total_delta.saturating_sub(idle_delta);
+    ((busy.saturating_mul(100)) / total_delta).min(100) as u8
+}
+
 /// Errors.
 #[derive(Debug, Error)]
 pub enum LoadError {
@@ -128,6 +179,9 @@ pub enum LoadError {
     /// A GPU telemetry CSV row could not be parsed.
     #[error("malformed GPU telemetry CSV row")]
     GpuTelemetryParse,
+    /// The aggregate `cpu` line of `/proc/stat` could not be parsed.
+    #[error("malformed /proc/stat cpu line")]
+    CpuStatParse,
     /// Count != 5.
     #[error("load count {0} != 5 canonical")]
     CountInvalid(usize),
@@ -555,5 +609,61 @@ mod tests {
         assert_eq!(rec.vram_used_gb, 20);
         assert_eq!(rec.util_pct, 88);
         assert_eq!(rec.temp_c, 71);
+    }
+
+    // ---- real CPU utilization (/proc/stat) ingestion ----
+
+    #[test]
+    fn parse_proc_stat_cpu_reads_aggregate_line() {
+        let stat = "cpu  100 0 50 1000 20 0 5 0 0 0\n\
+                    cpu0 50 0 25 500 10 0 2 0 0 0\n\
+                    intr 12345\n";
+        let t = parse_proc_stat_cpu(stat).unwrap();
+        assert_eq!(t.idle, 1020); // idle 1000 + iowait 20
+        assert_eq!(t.total, 1175); // sum of all fields
+    }
+
+    #[test]
+    fn cpu_util_from_two_snapshots() {
+        let prev = parse_proc_stat_cpu("cpu  100 0 50 1000 20 0 5 0 0 0").unwrap();
+        let curr = parse_proc_stat_cpu("cpu  200 0 100 1500 40 0 10 0 0 0").unwrap();
+        // total_delta=675, idle_delta=520, busy=155 → 155*100/675 = 22%.
+        assert_eq!(cpu_util_pct(prev, curr), 22);
+    }
+
+    #[test]
+    fn cpu_util_edge_cases() {
+        let a = parse_proc_stat_cpu("cpu  100 0 50 1000 20 0 5 0 0 0").unwrap();
+        // Same snapshot → zero interval → 0, not a divide-by-zero panic.
+        assert_eq!(cpu_util_pct(a, a), 0);
+        // Reordered (curr before prev) → saturating deltas → 0.
+        let b = parse_proc_stat_cpu("cpu  200 0 100 1500 40 0 10 0 0 0").unwrap();
+        assert_eq!(cpu_util_pct(b, a), 0);
+        // Fully busy: all delta is non-idle → 100%.
+        let idle0 = parse_proc_stat_cpu("cpu  100 0 0 1000 0 0 0 0 0 0").unwrap();
+        let busy = parse_proc_stat_cpu("cpu  200 0 0 1000 0 0 0 0 0 0").unwrap();
+        assert_eq!(cpu_util_pct(idle0, busy), 100);
+    }
+
+    #[test]
+    fn parse_proc_stat_cpu_rejects_malformed() {
+        assert!(matches!(
+            parse_proc_stat_cpu("cpu  1 2\n"), // too few fields
+            Err(LoadError::CpuStatParse)
+        ));
+        assert!(matches!(
+            parse_proc_stat_cpu("intr 1 2 3\n"), // no cpu line
+            Err(LoadError::CpuStatParse)
+        ));
+    }
+
+    #[test]
+    fn parse_proc_stat_cpu_smoke_against_live_proc() {
+        // /proc/stat exists on any Linux host (unlike /proc/pressure); confirm
+        // the parser handles the real aggregate line shape.
+        if let Ok(content) = std::fs::read_to_string("/proc/stat") {
+            let t = parse_proc_stat_cpu(&content).unwrap();
+            assert!(t.total >= t.idle, "total must include idle");
+        }
     }
 }
