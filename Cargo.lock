@@ -4579,6 +4579,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-quant-calibration"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-linear",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-replay-bookmark-set"
 version = "0.1.0"
 dependencies = [
