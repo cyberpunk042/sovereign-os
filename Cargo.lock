@@ -5075,6 +5075,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-running-stats"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-sampler"
 version = "0.1.0"
 dependencies = [

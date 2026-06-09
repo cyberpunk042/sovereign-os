@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-running-stats"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Online statistics for runtime telemetry: Welford's numerically-stable streaming mean/variance/std-dev with min/max, plus an exponential moving average — for tracking latency, tokens-per-second, and acceptance rates without storing every sample."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
