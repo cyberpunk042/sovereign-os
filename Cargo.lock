@@ -4584,6 +4584,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-hyperloglog"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-inference-demo"
 version = "0.1.0"
 dependencies = [

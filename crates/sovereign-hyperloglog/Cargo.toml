@@ -1,0 +1,18 @@
+[package]
+name = "sovereign-hyperloglog"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "HyperLogLog cardinality estimation: count the number of distinct items in a stream using a few kilobytes regardless of how many there are, with a relative error around 1.04/sqrt(m). With small-range linear-counting correction and mergeable sketches — for tracking distinct-token / distinct-n-gram counts (vocabulary growth, output diversity) without storing the set."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
