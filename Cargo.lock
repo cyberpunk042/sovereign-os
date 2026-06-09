@@ -262,6 +262,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-checkpoint"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "sovereign-llm",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-choice-envelope"
 version = "0.1.0"
 dependencies = [
