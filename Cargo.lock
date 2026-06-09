@@ -5574,6 +5574,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-tool-call-parse"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-json-repair",
+]
+
+[[package]]
 name = "sovereign-tool-catalog"
 version = "0.1.0"
 dependencies = [
