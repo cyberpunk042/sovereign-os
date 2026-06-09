@@ -1,10 +1,24 @@
 //! `sovereign-pcie-topology` — M003: ProArt X870E-Creator PCIe discipline.
 //!
 //! The board exposes dual PCIe 5.0 x8/x8 to the CPU plus M.2 slots, but some
-//! slots **share lanes**: populating `PCIEX16_2` and `M.2_2` together starves
+//! slots **share lanes**: populating two lane-sharing slots together starves
 //! one of them (E0027, the "lane-sharing trap"). This crate fixes the slot map,
 //! the recommended layout (E0028), and a validator that catches a lane-sharing
 //! conflict before it silently halves a GPU's bandwidth.
+//!
+//! # Source discrepancy — reconcile against the board manual before relying on this
+//!
+//! The slot map below is built from the **catalogue** (E0027/M00031), which
+//! names the lane-sharing pair as `PCIEX16_2 ↔ M.2_2`. The operational
+//! `scripts/hardware/board-advisor-x870e-creator.py` (board-manual-based)
+//! instead models the actual ASUS ProArt X870E-Creator as **three** PCIe slots
+//! (PCIE_1 / PCIE_2 / PCIE_3), with the second-GPU slot `PCIE_3` sharing lanes
+//! with `M.2_3` under x4/x4/x4/x4 bifurcation — not `PCIEX16_2 ↔ M.2_2`. The
+//! two sources disagree on slot count and on which M.2 shares. **The board
+//! manual is authoritative**; the validator here encodes the *shape* of the
+//! lane-sharing trap correctly, but the specific slot identities must be
+//! reconciled against the manual (and the board-advisor) before this map is
+//! treated as ground truth. Tracked for PO reconciliation.
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
