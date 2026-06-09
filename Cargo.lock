@@ -4068,6 +4068,7 @@ dependencies = [
  "sovereign-router-7axis",
  "sovereign-spec-decode",
  "sovereign-srp-scheduler",
+ "sovereign-symbolic-plan",
  "sovereign-trinity",
  "sovereign-value-plane",
  "thiserror",

@@ -30,6 +30,7 @@ sovereign-trinity = { path = "../sovereign-trinity" }
 sovereign-lora-foundry = { path = "../sovereign-lora-foundry" }
 sovereign-hrm-runtime = { path = "../sovereign-hrm-runtime" }
 sovereign-spec-decode = { path = "../sovereign-spec-decode" }
+sovereign-symbolic-plan = { path = "../sovereign-symbolic-plan" }
 
 [dev-dependencies]
 serde_json = { workspace = true }

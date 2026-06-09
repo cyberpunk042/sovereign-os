@@ -43,8 +43,10 @@
 #![warn(missing_docs)]
 
 pub mod compute;
+pub mod verify;
 
 pub use compute::ComputeProfile;
+pub use verify::{decision_facts, session_trace, verify_session};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
