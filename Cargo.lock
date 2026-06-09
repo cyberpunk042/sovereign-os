@@ -256,6 +256,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-bpe-train"
+version = "0.1.0"
+dependencies = [
+ "sovereign-tokenizer",
+]
+
+[[package]]
 name = "sovereign-branch-tree"
 version = "0.1.0"
 dependencies = [
