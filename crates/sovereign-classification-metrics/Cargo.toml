@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-classification-metrics"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Classification evaluation metrics: a confusion matrix with accuracy, per-class precision/recall/F1 and macro/micro/weighted averages, Cohen's kappa, plus binary ROC-AUC by the rank (Mann-Whitney) method. For evaluating classifiers and routers such as the complexity router and intent detection."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
