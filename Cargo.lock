@@ -4644,6 +4644,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-quant-model"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-decoder-layer",
+ "sovereign-ffn",
+ "sovereign-linear",
+ "sovereign-logit-mask",
+ "sovereign-mha-block",
+ "sovereign-quant-block",
+ "sovereign-rmsnorm",
+ "sovereign-sampler",
+ "sovereign-transformer-block",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-replay-bookmark-set"
 version = "0.1.0"
 dependencies = [
