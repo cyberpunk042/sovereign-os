@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-count-min"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Count-Min Sketch for streaming frequency estimation in sublinear space: count item occurrences over an unbounded stream with a fixed grid of counters, trading exactness for memory — estimates never undercount and stay within a tunable error of the true frequency. For frequency-penalized sampling and heavy-hitter tracking without storing per-item counts."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
