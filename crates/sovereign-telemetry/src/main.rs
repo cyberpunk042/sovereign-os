@@ -114,9 +114,29 @@ fn observability(at: &str, gpu_present: bool) -> ObservabilityFabric {
     fab
 }
 
-/// Take one full telemetry sample of the running system and return it as a
-/// JSON document (raw measurement + derived scheduling signal).
-fn sample() -> serde_json::Value {
+/// A serde enum's kebab-case wire string, for use as a Prometheus label value.
+fn label(x: &impl serde::Serialize) -> String {
+    serde_json::to_value(x)
+        .ok()
+        .and_then(|v| v.as_str().map(String::from))
+        .unwrap_or_default()
+}
+
+/// One full typed telemetry sample of the running system.
+struct Sample {
+    at: String,
+    pressure: PressureSnapshot,
+    load: LoadSnapshot,
+    load_valid: bool,
+    fabric: ObservabilityFabric,
+    fabric_valid: bool,
+    thermal_verdicts: Vec<(HardwareTarget, sovereign_hardware_thermal_policy::ThermalVerdict)>,
+    thermal_any_shutdown: bool,
+    reactions: Vec<sovereign_pressure_reactions::Reaction>,
+}
+
+/// Probe the running system once into a typed [`Sample`].
+fn sample() -> Sample {
     let at = captured_at();
 
     // Pressure — real Linux PSI on cpu/memory/io (0.0 each when PSI disabled).
@@ -140,44 +160,130 @@ fn sample() -> serde_json::Value {
     let fabric = observability(&at, gpu.is_some());
     let fabric_valid = fabric.validate().is_ok();
 
-    // Derived — per-target thermal verdicts from the live load (the actionable
-    // scheduling signal a thermal-aware dispatcher consumes). Separated from
-    // the raw telemetry above so consumers can tell measurement from policy.
+    // Derived — per-target thermal verdicts + E0431 adaptive reactions.
     let thermal = ThermalPolicy::canonical();
-    let thermal_verdicts: Vec<serde_json::Value> = thermal
-        .evaluate_snapshot(&load)
-        .into_iter()
-        .map(|(target, verdict)| serde_json::json!({ "target": target, "verdict": verdict }))
-        .collect();
+    let thermal_verdicts = thermal.evaluate_snapshot(&load);
     let thermal_any_shutdown = thermal.any_shutdown(&load);
-
-    // Derived — E0431 adaptive-intelligence reactions: the operator-named
-    // scheduler actions prescribed by the live pressure + idle hardware.
     let reactions = derive_reactions(&pressure, &load, &registry, ReactionThresholds::default());
 
-    let doc = serde_json::json!({
-        "schema": "sovereign-telemetry/1",
-        "captured_at_unix": at,
-        "pressure": pressure,
-        "load": load,
-        "load_valid": load_valid,
-        "observability": fabric,
-        "observability_valid": fabric_valid,
-        "derived": {
-            "thermal_verdicts": thermal_verdicts,
-            "thermal_any_shutdown": thermal_any_shutdown,
-            "adaptive_reactions": reactions,
-        },
-    });
-    doc
+    Sample {
+        at,
+        pressure,
+        load,
+        load_valid,
+        fabric,
+        fabric_valid,
+        thermal_verdicts,
+        thermal_any_shutdown,
+        reactions,
+    }
+}
+
+impl Sample {
+    /// Render as the structured JSON document (raw measurement + derived
+    /// scheduling signal).
+    fn to_json(&self) -> serde_json::Value {
+        let thermal_verdicts: Vec<serde_json::Value> = self
+            .thermal_verdicts
+            .iter()
+            .map(|(target, verdict)| serde_json::json!({ "target": target, "verdict": verdict }))
+            .collect();
+        serde_json::json!({
+            "schema": "sovereign-telemetry/1",
+            "captured_at_unix": self.at,
+            "pressure": self.pressure,
+            "load": self.load,
+            "load_valid": self.load_valid,
+            "observability": self.fabric,
+            "observability_valid": self.fabric_valid,
+            "derived": {
+                "thermal_verdicts": thermal_verdicts,
+                "thermal_any_shutdown": self.thermal_any_shutdown,
+                "adaptive_reactions": self.reactions,
+            },
+        })
+    }
+
+    /// Render as Prometheus text-exposition — the operator-visible surface
+    /// (write to a node_exporter textfile → scrape → Grafana). Aligns with the
+    /// M00201–M00206 observability-plane metric sets.
+    fn to_prometheus(&self) -> String {
+        let mut s = String::new();
+        s.push_str("# HELP sovereign_pressure_axis Normalised 0..1 stall pressure per PSI axis.\n");
+        s.push_str("# TYPE sovereign_pressure_axis gauge\n");
+        for r in &self.pressure.readings {
+            s.push_str(&format!(
+                "sovereign_pressure_axis{{axis=\"{}\"}} {}\n",
+                label(&r.axis),
+                r.value
+            ));
+        }
+        s.push_str("# HELP sovereign_load_util_pct Compute utilization percent per hardware target.\n");
+        s.push_str("# TYPE sovereign_load_util_pct gauge\n");
+        for l in &self.load.loads {
+            s.push_str(&format!(
+                "sovereign_load_util_pct{{target=\"{}\"}} {}\n",
+                label(&l.target),
+                l.util_pct
+            ));
+        }
+        s.push_str("# HELP sovereign_load_vram_used_gb VRAM used (GiB) per hardware target.\n");
+        s.push_str("# TYPE sovereign_load_vram_used_gb gauge\n");
+        for l in &self.load.loads {
+            s.push_str(&format!(
+                "sovereign_load_vram_used_gb{{target=\"{}\"}} {}\n",
+                label(&l.target),
+                l.vram_used_gb
+            ));
+        }
+        s.push_str("# HELP sovereign_thermal_verdict 1 for the live thermal verdict per target.\n");
+        s.push_str("# TYPE sovereign_thermal_verdict gauge\n");
+        for (target, verdict) in &self.thermal_verdicts {
+            s.push_str(&format!(
+                "sovereign_thermal_verdict{{target=\"{}\",verdict=\"{}\"}} 1\n",
+                label(target),
+                label(verdict)
+            ));
+        }
+        s.push_str("# HELP sovereign_thermal_any_shutdown 1 if any target is in thermal Shutdown.\n");
+        s.push_str("# TYPE sovereign_thermal_any_shutdown gauge\n");
+        s.push_str(&format!(
+            "sovereign_thermal_any_shutdown {}\n",
+            u8::from(self.thermal_any_shutdown)
+        ));
+        s.push_str("# HELP sovereign_adaptive_reaction_active 1 per fired E0431 adaptive-reaction trigger.\n");
+        s.push_str("# TYPE sovereign_adaptive_reaction_active gauge\n");
+        for rx in &self.reactions {
+            s.push_str(&format!(
+                "sovereign_adaptive_reaction_active{{trigger=\"{}\"}} 1\n",
+                label(&rx.trigger)
+            ));
+        }
+        s.push_str("# HELP sovereign_telemetry_valid 1 when the snapshot passed validation.\n");
+        s.push_str("# TYPE sovereign_telemetry_valid gauge\n");
+        s.push_str(&format!(
+            "sovereign_telemetry_valid{{kind=\"load\"}} {}\n",
+            u8::from(self.load_valid)
+        ));
+        s.push_str(&format!(
+            "sovereign_telemetry_valid{{kind=\"observability\"}} {}\n",
+            u8::from(self.fabric_valid)
+        ));
+        s
+    }
 }
 
 fn main() {
-    // `--watch [--interval N]`: emit one compact JSON sample per N seconds
-    // (NDJSON stream) until interrupted — a continuous monitor. Without
-    // `--watch`, emit a single pretty sample and exit (the default probe).
+    // Output modes:
+    //   default        one pretty JSON sample, then exit (the probe).
+    //   --prometheus   Prometheus text-exposition (operator-visible surface;
+    //                  write to a node_exporter textfile → scrape → Grafana).
+    //   --watch [--interval N]   emit one sample per N seconds until
+    //                  interrupted — a continuous monitor (compact NDJSON, or
+    //                  repeated Prometheus blocks when combined with --prometheus).
     let args: Vec<String> = std::env::args().skip(1).collect();
     let watch = args.iter().any(|a| a == "--watch");
+    let prometheus = args.iter().any(|a| a == "--prometheus");
     let interval_secs = args
         .iter()
         .position(|a| a == "--interval")
@@ -187,18 +293,23 @@ fn main() {
         .unwrap_or(5);
 
     loop {
-        let doc = sample();
-        // Compact one-line NDJSON while watching; pretty for a single shot.
-        let rendered = if watch {
-            serde_json::to_string(&doc)
+        let s = sample();
+        if prometheus {
+            print!("{}", s.to_prometheus());
         } else {
-            serde_json::to_string_pretty(&doc)
-        };
-        match rendered {
-            Ok(s) => println!("{s}"),
-            Err(e) => {
-                eprintln!("sovereign-telemetry: serialization failed: {e}");
-                std::process::exit(1);
+            let doc = s.to_json();
+            // Compact one-line NDJSON while watching; pretty for a single shot.
+            let rendered = if watch {
+                serde_json::to_string(&doc)
+            } else {
+                serde_json::to_string_pretty(&doc)
+            };
+            match rendered {
+                Ok(out) => println!("{out}"),
+                Err(e) => {
+                    eprintln!("sovereign-telemetry: serialization failed: {e}");
+                    std::process::exit(1);
+                }
             }
         }
         if !watch {

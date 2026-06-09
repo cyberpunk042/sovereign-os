@@ -4533,6 +4533,7 @@ dependencies = [
 name = "sovereign-telemetry"
 version = "0.1.0"
 dependencies = [
+ "serde",
  "serde_json",
  "sovereign-hardware-load-sample",
  "sovereign-hardware-registry",

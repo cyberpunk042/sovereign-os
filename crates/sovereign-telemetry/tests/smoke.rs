@@ -75,3 +75,42 @@ fn emits_contract_honouring_telemetry_json() {
         );
     }
 }
+
+#[test]
+fn prometheus_mode_emits_valid_exposition() {
+    let out = Command::new(env!("CARGO_BIN_EXE_sovereign-telemetry"))
+        .arg("--prometheus")
+        .output()
+        .expect("binary runs");
+    assert!(out.status.success());
+    let text = String::from_utf8(out.stdout).expect("utf8");
+
+    // Exposition hygiene: every metric family declares HELP + TYPE, and the
+    // six pressure axes + five load targets are present as gauges.
+    for family in [
+        "sovereign_pressure_axis",
+        "sovereign_load_util_pct",
+        "sovereign_thermal_any_shutdown",
+        "sovereign_adaptive_reaction_active",
+        "sovereign_telemetry_valid",
+    ] {
+        assert!(
+            text.contains(&format!("# HELP {family} ")),
+            "missing HELP for {family}"
+        );
+        assert!(
+            text.contains(&format!("# TYPE {family} gauge")),
+            "missing TYPE for {family}"
+        );
+    }
+    let axes = text
+        .lines()
+        .filter(|l| l.starts_with("sovereign_pressure_axis{"))
+        .count();
+    assert_eq!(axes, 6, "six PSI pressure axes");
+    let targets = text
+        .lines()
+        .filter(|l| l.starts_with("sovereign_load_util_pct{"))
+        .count();
+    assert_eq!(targets, 5, "five hardware targets");
+}

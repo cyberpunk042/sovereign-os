@@ -13,6 +13,7 @@ description = "Live hardware-telemetry probe — reads real kernel/vendor teleme
 workspace = true
 
 [dependencies]
+serde = { workspace = true }
 serde_json = { workspace = true }
 sovereign-pressure-sensors = { path = "../sovereign-pressure-sensors" }
 sovereign-hardware-load-sample = { path = "../sovereign-hardware-load-sample" }
