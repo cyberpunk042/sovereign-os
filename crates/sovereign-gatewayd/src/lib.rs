@@ -645,6 +645,36 @@ mod tests {
     }
 
     #[test]
+    fn simple_request_maps_complexity_to_workload() {
+        let demo = demo_requests()[0].clone();
+        // Simple complexity → CPU-side workload (ternary).
+        let mut axes = demo.axes.clone();
+        axes.complexity = Complexity::Simple;
+        let simple = SimpleRequest {
+            axes,
+            query_topic: 0,
+            profile: None,
+            expected_quality: Some(0.9),
+        }
+        .into_cortex();
+        assert!(matches!(simple.workload.class, WorkloadClass::IntentEval));
+        assert!(matches!(simple.workload.precision, Precision::Ternary));
+
+        // Complex complexity → GPU-side workload (fp16).
+        let mut axes = demo.axes.clone();
+        axes.complexity = Complexity::Complex;
+        let complex = SimpleRequest {
+            axes,
+            query_topic: 0,
+            profile: None,
+            expected_quality: Some(0.9),
+        }
+        .into_cortex();
+        assert!(matches!(complex.workload.class, WorkloadClass::DeepReason));
+        assert!(matches!(complex.workload.precision, Precision::Fp16));
+    }
+
+    #[test]
     fn simple_infer_op_maps_and_runs_the_engine() {
         let s = GatewayServer::new();
         let demo = demo_requests()[0].clone();
