@@ -4698,6 +4698,7 @@ dependencies = [
  "sovereign-quant-model",
  "sovereign-rmsnorm",
  "sovereign-sampler",
+ "sovereign-stream-decode",
  "sovereign-tokenizer",
  "sovereign-transformer-block",
  "thiserror",

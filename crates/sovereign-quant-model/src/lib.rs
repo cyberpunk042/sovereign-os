@@ -205,6 +205,20 @@ impl QuantModel {
         seed: u64,
         mask: &LogitMask,
     ) -> Result<Vec<usize>, QuantModelError> {
+        self.generate_masked_with(prompt, max_new, seed, mask, |_| {})
+    }
+
+    /// Constrained generation that invokes `on_token` with each sampled token
+    /// id as it is produced — the hook a streaming runtime drives to emit text
+    /// token-by-token. Returns the full generated id sequence as well.
+    pub fn generate_masked_with<F: FnMut(usize)>(
+        &mut self,
+        prompt: &[usize],
+        max_new: usize,
+        seed: u64,
+        mask: &LogitMask,
+        mut on_token: F,
+    ) -> Result<Vec<usize>, QuantModelError> {
         if prompt.is_empty() {
             return Err(QuantModelError::EmptyPrompt);
         }
@@ -224,6 +238,7 @@ impl QuantModel {
             )?;
             self.recent.push(token);
             generated.push(token);
+            on_token(token);
             logits = self.forward(token)?;
         }
         Ok(generated)

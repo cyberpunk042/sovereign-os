@@ -17,6 +17,7 @@ thiserror = { workspace = true }
 sovereign-tokenizer = { path = "../sovereign-tokenizer" }
 sovereign-quant-model = { path = "../sovereign-quant-model" }
 sovereign-logit-mask = { path = "../sovereign-logit-mask" }
+sovereign-stream-decode = { path = "../sovereign-stream-decode" }
 
 [dev-dependencies]
 sovereign-decoder-layer = { path = "../sovereign-decoder-layer" }

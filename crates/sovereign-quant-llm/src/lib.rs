@@ -28,6 +28,7 @@
 
 use sovereign_logit_mask::LogitMask;
 use sovereign_quant_model::{QuantModel, QuantModelError};
+use sovereign_stream_decode::Utf8Stream;
 use sovereign_tokenizer::Tokenizer;
 use thiserror::Error;
 
@@ -143,6 +144,51 @@ impl QuantLlm {
     ) -> Result<String, QuantLlmError> {
         let ids = self.generate_ids_constrained(prompt, max_new, seed, mask)?;
         Ok(self.tokenizer.decode(&ids).unwrap_or_default())
+    }
+
+    /// Stream a completion: `on_text` is called with each incremental text
+    /// chunk as tokens are generated, with multi-byte UTF-8 characters held
+    /// across token boundaries (never split). Returns the full completion.
+    pub fn stream<F: FnMut(&str)>(
+        &mut self,
+        prompt: &str,
+        max_new: usize,
+        seed: u64,
+        on_text: F,
+    ) -> Result<String, QuantLlmError> {
+        self.stream_constrained(prompt, max_new, seed, &LogitMask::new(), on_text)
+    }
+
+    /// Streaming completion under a [`LogitMask`]. Decodes token-by-token
+    /// through a [`Utf8Stream`] so each `on_text` chunk is always valid UTF-8.
+    pub fn stream_constrained<F: FnMut(&str)>(
+        &mut self,
+        prompt: &str,
+        max_new: usize,
+        seed: u64,
+        mask: &LogitMask,
+        mut on_text: F,
+    ) -> Result<String, QuantLlmError> {
+        let ids = self.encode_prompt(prompt)?;
+        let tokenizer = &self.tokenizer;
+        let mut stream = Utf8Stream::new();
+        let mut full = String::new();
+        self.model
+            .generate_masked_with(&ids, max_new, seed, mask, |tok| {
+                if let Some(bytes) = tokenizer.token_bytes(tok as u32) {
+                    let chunk = stream.push(bytes);
+                    if !chunk.is_empty() {
+                        full.push_str(&chunk);
+                        on_text(&chunk);
+                    }
+                }
+            })?;
+        let tail = stream.finish();
+        if !tail.is_empty() {
+            full.push_str(&tail);
+            on_text(&tail);
+        }
+        Ok(full)
     }
 }
 
@@ -317,5 +363,29 @@ mod tests {
             llm.complete("", 4, 1).unwrap_err(),
             QuantLlmError::EmptyPrompt
         );
+    }
+
+    #[test]
+    fn streaming_chunks_concatenate_to_the_full_completion() {
+        let mut llm = quant_runtime(Sampler::new(SamplerConfig::default()));
+        let mut streamed = String::new();
+        let mut chunks = 0;
+        let full = llm
+            .stream("hello", 16, 9, |chunk| {
+                streamed.push_str(chunk);
+                chunks += 1;
+            })
+            .unwrap();
+        assert_eq!(streamed, full);
+        assert!(chunks >= 1);
+    }
+
+    #[test]
+    fn streaming_matches_batch_completion_same_seed() {
+        let mut a = quant_runtime(Sampler::new(SamplerConfig::default()));
+        let mut b = quant_runtime(Sampler::new(SamplerConfig::default()));
+        let batch = a.complete("the quick brown", 12, 21).unwrap();
+        let streamed = b.stream("the quick brown", 12, 21, |_| {}).unwrap();
+        assert_eq!(batch, streamed);
     }
 }
