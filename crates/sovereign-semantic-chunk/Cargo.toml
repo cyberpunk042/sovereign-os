@@ -1,0 +1,15 @@
+[package]
+name = "sovereign-semantic-chunk"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Semantic chunking: group consecutive sentences into chunks, cutting where the embedding similarity between neighbouring sentences drops — so each chunk is topically coherent, unlike fixed-size character chunking. Threshold and percentile-breakpoint variants for retrieval ingestion."
+
+[lints]
+workspace = true
+
+[dependencies]
