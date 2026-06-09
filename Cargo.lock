@@ -5727,6 +5727,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-toxicity"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-aho-corasick",
+]
+
+[[package]]
 name = "sovereign-transformer-block"
 version = "0.1.0"
 dependencies = [
