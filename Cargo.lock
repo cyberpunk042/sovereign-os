@@ -4335,6 +4335,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-module-facets"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-nvfp4-runtime"
 version = "0.1.0"
 dependencies = [
