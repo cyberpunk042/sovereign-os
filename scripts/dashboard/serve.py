@@ -2270,6 +2270,22 @@ def main() -> int:
         )
     print(f"# R225 sovereign-os dashboard serving http://{host}:{port}/")
     print(f"# R250 auth: {auth_banner}")
+    # R250 foot-gun guard: no-auth is safe on loopback (the SEED default
+    # bind) but OPEN to the network on an exposed bind. Warn loudly so an
+    # operator who `--bind 0.0.0.0` without dashboard-auth.toml sees that the
+    # dashboard is reachable + unauthenticated (reverse-proxy auth IS a valid
+    # pattern, so warn rather than refuse).
+    if AUTH_CONFIG is None and host not in (
+        "127.0.0.1", "::1", "localhost", "",
+    ):
+        print(
+            f"# R250 WARNING: dashboard bound to {host} (non-loopback) with "
+            f"NO authentication — it is reachable + UNAUTHENTICATED on the "
+            f"network. Configure /etc/sovereign-os/dashboard-auth.toml "
+            f"(allow_ips + token) or put it behind an authenticating reverse "
+            f"proxy before exposing it.",
+            file=sys.stderr,
+        )
     try:
         if args.once:
             srv.handle_request()
