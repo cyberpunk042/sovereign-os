@@ -113,7 +113,9 @@ fn observability(at: &str, gpu_present: bool) -> ObservabilityFabric {
     fab
 }
 
-fn main() {
+/// Take one full telemetry sample of the running system and return it as a
+/// JSON document (raw measurement + derived scheduling signal).
+fn sample() -> serde_json::Value {
     let at = captured_at();
 
     // Pressure — real Linux PSI on cpu/memory/io (0.0 each when PSI disabled).
@@ -162,11 +164,41 @@ fn main() {
             "thermal_any_shutdown": thermal_any_shutdown,
         },
     });
-    match serde_json::to_string_pretty(&doc) {
-        Ok(s) => println!("{s}"),
-        Err(e) => {
-            eprintln!("sovereign-telemetry: serialization failed: {e}");
-            std::process::exit(1);
+    doc
+}
+
+fn main() {
+    // `--watch [--interval N]`: emit one compact JSON sample per N seconds
+    // (NDJSON stream) until interrupted — a continuous monitor. Without
+    // `--watch`, emit a single pretty sample and exit (the default probe).
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let watch = args.iter().any(|a| a == "--watch");
+    let interval_secs = args
+        .iter()
+        .position(|a| a == "--interval")
+        .and_then(|i| args.get(i + 1))
+        .and_then(|s| s.parse::<u64>().ok())
+        .filter(|&n| n > 0)
+        .unwrap_or(5);
+
+    loop {
+        let doc = sample();
+        // Compact one-line NDJSON while watching; pretty for a single shot.
+        let rendered = if watch {
+            serde_json::to_string(&doc)
+        } else {
+            serde_json::to_string_pretty(&doc)
+        };
+        match rendered {
+            Ok(s) => println!("{s}"),
+            Err(e) => {
+                eprintln!("sovereign-telemetry: serialization failed: {e}");
+                std::process::exit(1);
+            }
         }
+        if !watch {
+            break;
+        }
+        sleep(Duration::from_secs(interval_secs));
     }
 }
