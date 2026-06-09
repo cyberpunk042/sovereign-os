@@ -38,3 +38,4 @@ sovereign-replay-ledger = { path = "../sovereign-replay-ledger" }
 [dev-dependencies]
 serde_json = { workspace = true }
 sovereign-value-plane = { path = "../sovereign-value-plane" }
+sovereign-replay-ledger = { path = "../sovereign-replay-ledger" }

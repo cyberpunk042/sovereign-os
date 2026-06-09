@@ -47,6 +47,8 @@ pub mod verify;
 
 pub use compute::ComputeProfile;
 pub use verify::{decision_facts, session_trace, verify_session};
+// Re-exported for consumers building safety properties over a cortex session.
+pub use sovereign_symbolic_plan::{SafetyProperty, facts};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
