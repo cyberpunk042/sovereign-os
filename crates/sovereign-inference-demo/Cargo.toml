@@ -35,3 +35,8 @@ sovereign-speculative = { path = "../sovereign-speculative" }
 sovereign-perplexity = { path = "../sovereign-perplexity" }
 sovereign-checkpoint = { path = "../sovereign-checkpoint" }
 sovereign-llm = { path = "../sovereign-llm" }
+sovereign-agent-loop = { path = "../sovereign-agent-loop" }
+sovereign-agent-runtime = { path = "../sovereign-agent-runtime" }
+sovereign-tool-dispatch = { path = "../sovereign-tool-dispatch" }
+sovereign-retrieval = { path = "../sovereign-retrieval" }
+sovereign-embed = { path = "../sovereign-embed" }

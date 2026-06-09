@@ -292,9 +292,64 @@ fn run_strategies_demo() -> String {
     out
 }
 
+/// Demonstrate the agentic stack: a RAG-grounded, tool-equipped agent running
+/// on the real LLM runtime, end to end.
+fn run_agent_demo() -> String {
+    use sovereign_agent_loop::AgentLoop;
+    use sovereign_agent_runtime::LlmResponder;
+    use sovereign_embed::EmbedStore;
+    use sovereign_retrieval::RagResponder;
+    use sovereign_tool_dispatch::ToolRegistry;
+    use std::fmt::Write as _;
+
+    let mut out = String::new();
+    let _ = writeln!(
+        out,
+        "\n=== agentic stack (RAG + tools + ReAct on the real runtime) ==="
+    );
+
+    // a tiny f32 runtime over the byte vocab
+    let tok = Tokenizer::default();
+    let vocab = tok.vocab_size();
+    let cfg = build_f32_model(vocab);
+    let llm = sovereign_llm::SovereignLlm::new(tok, cfg).expect("runtime");
+
+    // knowledge to ground answers (embedding-backed semantic retrieval)
+    let mut docs = EmbedStore::new();
+    docs.add(
+        "rust",
+        "rust ownership gives memory safety without a garbage collector",
+    );
+    docs.add("cook", "pasta with tomato sauce and basil");
+
+    // a tool the agent could call
+    let mut tools = ToolRegistry::new();
+    tools.register("upper", |a| a.to_uppercase());
+
+    // compose: runtime -> RAG (grounds the prompt) -> agent loop (tools + ReAct)
+    let responder = LlmResponder::new(llm, 6);
+    let rag = RagResponder::new(responder, docs, 1);
+    let mut agent = AgentLoop::new(rag, tools, 3);
+
+    let res = agent
+        .run("rust memory safety", 0xABCDEF)
+        .expect("agent run");
+    let _ = writeln!(out, "tools available : {:?}", agent.tool_names());
+    let _ = writeln!(out, "agent steps     : {}", res.steps.len());
+    let _ = writeln!(out, "completed       : {}", res.completed);
+    let _ = writeln!(
+        out,
+        "answer (len {})  : {:?}",
+        res.answer.as_deref().unwrap_or("").chars().count(),
+        res.answer.as_deref().unwrap_or("")
+    );
+    out
+}
+
 fn main() {
     print!("{}", run_demo());
     print!("{}", run_strategies_demo());
+    print!("{}", run_agent_demo());
 }
 
 #[cfg(test)]
@@ -326,6 +381,14 @@ mod tests {
         assert!(report.contains("speculative"));
         assert!(report.contains("perplexity"));
         assert!(report.contains("round-trip ok = true"), "{report}");
+    }
+
+    #[test]
+    fn agent_demo_runs_the_full_stack() {
+        let report = run_agent_demo();
+        assert!(report.contains("agentic stack"));
+        assert!(report.contains("tools available : [\"upper\"]"));
+        assert!(report.contains("completed       : true"));
     }
 
     #[test]

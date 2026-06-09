@@ -4460,10 +4460,13 @@ dependencies = [
 name = "sovereign-inference-demo"
 version = "0.1.0"
 dependencies = [
+ "sovereign-agent-loop",
+ "sovereign-agent-runtime",
  "sovereign-beam-search",
  "sovereign-checkpoint",
  "sovereign-decoder-layer",
  "sovereign-decoder-stack",
+ "sovereign-embed",
  "sovereign-ffn",
  "sovereign-linear",
  "sovereign-llm",
@@ -4473,10 +4476,12 @@ dependencies = [
  "sovereign-quant-block",
  "sovereign-quant-llm",
  "sovereign-quant-model",
+ "sovereign-retrieval",
  "sovereign-rmsnorm",
  "sovereign-sampler",
  "sovereign-speculative",
  "sovereign-tokenizer",
+ "sovereign-tool-dispatch",
  "sovereign-transformer-block",
 ]
 
