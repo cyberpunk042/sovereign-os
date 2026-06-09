@@ -72,10 +72,16 @@ One JSON object per line in, one per line out:
 | `POST /v1/messages` | Anthropic-path bind (surface 1) → decision |
 | `POST /v1/infer` | raw engine alias → decision |
 | `POST /mcp` | MCP-bridge bind (surface 3) → decision |
+| `POST /v1/explain` | **read-only** dry-run → plain-language rationale |
 
 A `POST` body is one JSON `CortexRequest`; the reply is the tagged
 `GatewayResponse`. Wrong verb on a known route → `405`; unknown → `404`;
 malformed body → `400`; engine refusal → `422`.
+
+`/v1/explain` is the auditor's surface: the engine decides and returns the
+M015 plain-language rationale (route → device → verdict → cost/rollback) but
+does **not** learn or touch the ledger — a side-effect-free "what would you do,
+and why".
 
 ```sh
 curl -s localhost:8787/health
