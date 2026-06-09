@@ -42,14 +42,21 @@ fn main() {
 
     let mut exit = 0;
     for (i, request) in requests.iter().enumerate() {
-        match cortex.tick(request) {
-            Ok(decision) => {
+        // Full loop: decide (tick) then ratify through the Trinity gate.
+        match cortex.act(request) {
+            Ok((decision, cycle)) => {
                 println!(
                     "{}",
                     serde_json::to_string_pretty(&decision)
                         .expect("a CortexDecision always serializes")
                 );
                 eprintln!("[{i}] {}", decision.summary);
+                eprintln!(
+                    "[{i}] trinity: {:?} (committed={}) — {} stage(s)",
+                    cycle.stage,
+                    cycle.committed(),
+                    cycle.reports.len()
+                );
             }
             Err(e) => {
                 eprintln!("[{i}] cortex refused: {e}");
