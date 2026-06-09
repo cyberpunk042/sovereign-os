@@ -230,6 +230,20 @@ name = "sovereign-bitops"
 version = "0.1.0"
 
 [[package]]
+name = "sovereign-bounded-block"
+version = "0.1.0"
+dependencies = [
+ "sovereign-attention",
+ "sovereign-ffn",
+ "sovereign-kv-window",
+ "sovereign-linear",
+ "sovereign-quant-block",
+ "sovereign-rmsnorm",
+ "sovereign-rope",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-branch-tree"
 version = "0.1.0"
 dependencies = [
