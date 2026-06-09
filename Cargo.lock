@@ -4054,6 +4054,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-cpu-topology"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-dashboard-coverage"
 version = "0.1.0"
 dependencies = [
