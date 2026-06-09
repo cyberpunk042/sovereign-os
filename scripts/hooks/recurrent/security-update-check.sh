@@ -14,8 +14,14 @@
 # Honors SOVEREIGN_OS_DRY_RUN=1 (skip the apt-list run).
 #
 # Tunable env:
-#   SOVEREIGN_OS_APT_ORIGIN_PATTERN  pattern to grep for security origins
-#                                    (default: 'Debian-Security')
+#   SOVEREIGN_OS_APT_ORIGIN_PATTERN  ERE matched against `apt list --upgradable`
+#                                    output to count security upgrades. Default
+#                                    '/[^ /]*-security' anchors on the SUITE
+#                                    field (e.g. trixie-security), which is what
+#                                    actually appears in that output — NOT the
+#                                    apt Label 'Debian-Security' (visible only via
+#                                    `apt policy`), the old default that matched
+#                                    nothing so the count was always 0.
 
 __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../../.." && pwd)"
@@ -24,7 +30,7 @@ __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../../.." && pwd)"
 # shellcheck source=../../build/lib/observability.sh
 . "${__REPO_ROOT}/scripts/build/lib/observability.sh"
 
-: "${SOVEREIGN_OS_APT_ORIGIN_PATTERN:=Debian-Security}"
+: "${SOVEREIGN_OS_APT_ORIGIN_PATTERN:=/[^ /]*-security}"
 
 log_step_header "security-update-check" "scan for pending security updates"
 
@@ -43,7 +49,7 @@ if ! command -v apt >/dev/null 2>&1; then
 fi
 
 if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
-  log_info "DRY-RUN — would: apt update && apt list --upgradable | grep ${SOVEREIGN_OS_APT_ORIGIN_PATTERN}"
+  log_info "DRY-RUN — would: apt update && apt list --upgradable | grep -cE '${SOVEREIGN_OS_APT_ORIGIN_PATTERN}'"
   exit 0
 fi
 
@@ -51,10 +57,13 @@ fi
 # only happens via this hook's cadence, never auto on boot)
 apt update 2>/dev/null >/dev/null || log_warn "apt update failed (network?)"
 
-# Count upgradable from security origin. Use Origin/Suite fields rather
-# than parsing prose — more robust.
+# Count upgradable packages whose SUITE field ends in '-security'
+# (trixie-security / noble-security). The pattern is anchored on the '/'-led
+# suite so a package merely NAMED '*-security' on a non-security suite isn't
+# miscounted. -E for the ERE; the leading '/' avoids grep treating the pattern
+# as an option flag.
 count="$(apt list --upgradable 2>/dev/null \
-  | grep -c "${SOVEREIGN_OS_APT_ORIGIN_PATTERN}" || true)"
+  | grep -cE "${SOVEREIGN_OS_APT_ORIGIN_PATTERN}" || true)"
 
 log_info "pending security updates: ${count}"
 

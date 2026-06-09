@@ -195,6 +195,33 @@ set -e
 
 rm -f /tmp/r225-*
 
+# ---- per-card fault isolation: one raising card must not blank the page ----
+# gather_all() aggregates every card for `/` and `/api/health`. A single card
+# that RAISES (unexpected subprocess shape, transient error) must degrade to
+# an explicit error card — never take down the whole cockpit.
+set +e
+iso_out="$(python3 -c "
+import importlib.util
+spec = importlib.util.spec_from_file_location('serve', '${SCRIPT}')
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+def card_goodtest(): return {'id':'goodtest','title':'Good','data':{'ok':True}}
+def card_boomtest(): raise KeyError('simulated unexpected shape')
+m.CARDS = [card_goodtest, card_boomtest]
+out = m.gather_all()                       # must NOT raise
+ids = {c['id']: c for c in out}
+assert ids['goodtest']['data']['ok'] is True
+assert ids['boomtest']['data'].get('card_failed') is True
+assert 'KeyError' in ids['boomtest']['data']['error']
+print('ISOLATED')
+" 2>&1)"
+rc=$?
+set -e
+if [ "${rc}" -eq 0 ] && grep -q "ISOLATED" <<< "${iso_out}"; then
+  ok "gather_all isolates a raising card (cockpit survives; error card shown)"
+else
+  ko "gather_all did NOT isolate a raising card (rc=${rc}): ${iso_out}"
+fi
+
 echo
 total=$((pass + fail))
 echo "test_dashboard: ${pass}/${total} passed"

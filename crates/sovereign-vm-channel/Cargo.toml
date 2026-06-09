@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-vm-channel"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "E0120 / M00222-M00224 — Communication Boundary: the Host↔3090 channels (virtio-vsock / gRPC-over-vsock / unix-socket-proxy / exchange-folder), the 8 message types, and the VM-propose/host-commit invariant (VM output is always a candidate, never committed directly)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

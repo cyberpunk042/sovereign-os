@@ -84,18 +84,34 @@ fi
 tally_out="$(ALERTS_JSON_PAYLOAD="${alerts_json}" python3 -c '
 import json, os, collections
 data = json.loads(os.environ["ALERTS_JSON_PAYLOAD"])
-alert = sum(1 for a in data if a.get("level") == "ALERT")
-warn = sum(1 for a in data if a.get("level") == "WARN")
+# The line-67 guard only proves the payload is valid JSON, not that it is a
+# list of alert dicts. A valid-JSON non-list (e.g. {"alerts":[...]}) or a
+# list carrying a null/scalar element would make `a.get(...)` raise and
+# crash this tally — leaving alert_count/warn_count EMPTY, which emits a
+# valueless `sovereign_os_meta_alert_count{...} ` line. That is invalid
+# Prometheus exposition: node_exporter rejects the WHOLE textfile, so every
+# metric "disappears" — the exact failure the line-65 comment promises not
+# to cause. Treat any structural malformation as "no alerts" instead.
+if not isinstance(data, list):
+    data = []
+rows = [a for a in data if isinstance(a, dict)]
+alert = sum(1 for a in rows if a.get("level") == "ALERT")
+warn = sum(1 for a in rows if a.get("level") == "WARN")
 # Histogram: (metric, level) → count. Use bare metric name (no labels)
 # so Prometheus aggregation across runs is meaningful.
 hist = collections.Counter(
-    (a.get("metric", "?"), a.get("level", "?")) for a in data
+    (a.get("metric", "?"), a.get("level", "?")) for a in rows
 )
 # Format: <alert> <warn> [<metric>|<level>|<count> ...]
 hist_lines = " ".join(f"{m}|{l}|{c}" for (m, l), c in sorted(hist.items()))
 print(f"{alert} {warn} {hist_lines}")
 ')"
 read -r alert_count warn_count histogram_lines <<< "${tally_out}"
+# Defense-in-depth: if the tally produced nothing at all (e.g. a python
+# failure outside the structural cases above), never emit a valueless
+# gauge — fall back to 0 so the Prometheus exposition stays well-formed.
+alert_count="${alert_count:-0}"
+warn_count="${warn_count:-0}"
 
 log_info "  ALERT count: ${alert_count}"
 log_info "  WARN  count: ${warn_count}"

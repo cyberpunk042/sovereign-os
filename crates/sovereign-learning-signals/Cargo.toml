@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-learning-signals"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "E0555 — Learn (lifecycle step 11): the 7 immediate learning signals (store-trace / update-memory / update-route-stats / add-eval-case / promote-skill / adjust-profile / tag-model-failure) and the 4 deferred LoRA steps, with outcome-driven derivation. 'Continuity is preserving the chain to learning.'"
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

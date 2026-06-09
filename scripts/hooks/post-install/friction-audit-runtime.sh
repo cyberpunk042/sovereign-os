@@ -130,22 +130,41 @@ for g in (d.get('hardware') or {}).get('gpu') or []:
     if [ -n "${primary_bdf}" ] && [ -n "${vfio_bdf}" ]; then
       primary_group="$(readlink /sys/bus/pci/devices/0000:${primary_bdf/:/:}/iommu_group 2>/dev/null | xargs -n1 basename)"
       vfio_group="$(readlink /sys/bus/pci/devices/0000:${vfio_bdf/:/:}/iommu_group 2>/dev/null | xargs -n1 basename)"
-      if [ -n "${primary_group}" ] && [ -n "${vfio_group}" ] && [ "${primary_group}" != "${vfio_group}" ]; then
+      if [ -z "${primary_group}" ] || [ -z "${vfio_group}" ]; then
+        # An empty group is "couldn't read it", NOT "they share a group" — don't
+        # mislabel it as a FAIL, but a blocker that can't be read isn't verified.
+        log_warn "  SKIP — could not read IOMMU group(s) (primary='${primary_group:-?}' vfio='${vfio_group:-?}') — blocker NOT verified; is IOMMU enabled (amd_iommu=on / intel_iommu=on)?"
+        warn=$((warn + 1))
+      elif [ "${primary_group}" != "${vfio_group}" ]; then
         log_info "  PASS — primary GPU (group ${primary_group}) and VFIO GPU (group ${vfio_group}) in distinct IOMMU groups"
       else
         log_error "  FAIL — GPUs share IOMMU group ${primary_group} (need distinct for VFIO)"
         fail=$((fail + 1))
       fi
+    else
+      # Previously a silent no-op: the operator saw "checking IOMMU group
+      # separation" then nothing, with no PASS/FAIL — a false sense the blocker
+      # passed. Surface that the check could not run.
+      log_warn "  SKIP — could not resolve a GPU PCI device (primary_bdf='${primary_bdf:-not-found}' vfio_bdf='${vfio_bdf:-not-found}') — IOMMU-distinct blocker NOT verified; likely a placeholder pci_id (e.g. 10de:???? for unprocured hardware) or the GPU isn't seated"
+      warn=$((warn + 1))
     fi
+  else
+    log_warn "  SKIP — GPU pci_ids missing or identical in profile (primary='${primary_pid:-unset}' vfio='${vfio_pid:-unset}') — IOMMU-distinct blocker NOT verified"
+    warn=$((warn + 1))
   fi
 fi
 
 # ----------------- Memory check -----------------
-
-if command -v dmidecode >/dev/null 2>&1; then
+# Reads /proc/meminfo (always present on Linux). Do NOT gate on dmidecode — this
+# check never uses it; the old `command -v dmidecode` gate silently skipped the
+# RAM-minimum verification on any host without dmidecode installed.
+if [ -r /proc/meminfo ]; then
   installed_mem_gb=$(($(grep MemTotal /proc/meminfo | awk '{print $2}') / 1024 / 1024))
   min_gb="$(profile_field hardware.memory.minimum_gb)"
-  if [ -n "${min_gb}" ] && [ "${installed_mem_gb}" -ge "${min_gb}" ]; then
+  if [ -z "${min_gb}" ]; then
+    log_warn "  SKIP — profile declares no hardware.memory.minimum_gb to check against"
+    warn=$((warn + 1))
+  elif [ "${installed_mem_gb}" -ge "${min_gb}" ]; then
     log_info "  PASS — memory ${installed_mem_gb}GB ≥ profile minimum ${min_gb}GB"
   else
     log_error "  FAIL — memory ${installed_mem_gb}GB < profile minimum ${min_gb}GB"

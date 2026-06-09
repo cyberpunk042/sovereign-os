@@ -49,6 +49,7 @@ L3 test can curl without spawning a separate process).
 from __future__ import annotations
 
 import argparse
+import hmac
 import html
 import json
 import os
@@ -1718,7 +1719,29 @@ def render_html(cards: list[dict[str, Any]]) -> str:
 
 
 def gather_all() -> list[dict[str, Any]]:
-    return [c() for c in CARDS]
+    # Isolate per-card failures. The dashboard is the operator's single-pane
+    # cockpit and every card already degrades honestly when ITS subsystem is
+    # down (scheduler → WEDGED, health → default fallback, …). But this
+    # aggregator had no isolation: a card that *raises* (e.g. a subprocess
+    # emitting an unexpected shape the card's post-processing doesn't fully
+    # guard) would take down the WHOLE page and /api/health, not just itself.
+    # Catch per card and substitute an explicit error card so one failing
+    # subsystem can never blank the entire cockpit.
+    out: list[dict[str, Any]] = []
+    for c in CARDS:
+        card_id = c.__name__.removeprefix("card_")
+        try:
+            out.append(c())
+        except Exception as e:  # noqa: BLE001 — cockpit must survive any one card
+            out.append({
+                "id": card_id,
+                "title": f"{card_id} (error)",
+                "data": {
+                    "error": f"{type(e).__name__}: {e}",
+                    "card_failed": True,
+                },
+            })
+    return out
 
 
 # ── R289 (E4.M9): dashboard editable forms for module configuration ──
@@ -2083,7 +2106,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
             )
             return False
         auth = self.headers.get("Authorization", "")
-        if not auth.startswith("Bearer ") or auth[len("Bearer "):] != expected:
+        # Constant-time compare (hmac.compare_digest) so the Bearer-token
+        # check can't be byte-by-byte timing-attacked — `!=` short-circuits
+        # on the first differing byte and leaks the token over repeated
+        # probes (the dashboard may be exposed via `--bind 0.0.0.0`).
+        presented = auth[len("Bearer "):] if auth.startswith("Bearer ") else ""
+        if not auth.startswith("Bearer ") or not hmac.compare_digest(
+            presented, expected
+        ):
             self._send_json(
                 {
                     "error": "unauthorized",
@@ -2192,7 +2222,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
         for c in CARDS:
             card_id = c.__name__.removeprefix("card_")
             if path == f"/api/{card_id}":
-                self._send_json(c())
+                try:
+                    self._send_json(c())
+                except Exception as e:  # noqa: BLE001 — return a clean error, not a broken socket
+                    self._send_json(
+                        {
+                            "id": card_id,
+                            "error": f"{type(e).__name__}: {e}",
+                            "card_failed": True,
+                            "round": "R225",
+                        },
+                        status=500,
+                    )
                 return
         self._send_json(
             {"error": "not found", "path": path, "round": "R225"},
@@ -2262,6 +2303,22 @@ def main() -> int:
         )
     print(f"# R225 sovereign-os dashboard serving http://{host}:{port}/")
     print(f"# R250 auth: {auth_banner}")
+    # R250 foot-gun guard: no-auth is safe on loopback (the SEED default
+    # bind) but OPEN to the network on an exposed bind. Warn loudly so an
+    # operator who `--bind 0.0.0.0` without dashboard-auth.toml sees that the
+    # dashboard is reachable + unauthenticated (reverse-proxy auth IS a valid
+    # pattern, so warn rather than refuse).
+    if AUTH_CONFIG is None and host not in (
+        "127.0.0.1", "::1", "localhost", "",
+    ):
+        print(
+            f"# R250 WARNING: dashboard bound to {host} (non-loopback) with "
+            f"NO authentication — it is reachable + UNAUTHENTICATED on the "
+            f"network. Configure /etc/sovereign-os/dashboard-auth.toml "
+            f"(allow_ips + token) or put it behind an authenticating reverse "
+            f"proxy before exposing it.",
+            file=sys.stderr,
+        )
     try:
         if args.once:
             srv.handle_request()

@@ -2,10 +2,13 @@
 # scripts/hooks/post-install/apply-server-hardening.sh
 #
 # Round 96: applies sovereign-os hardening config to role-server
-# profiles (currently: headless). Drops in:
+# profiles (currently: headless). Drops in (keep in lockstep with the
+# `actions` array below):
 #   - /etc/audit/rules.d/sovereign-os.rules
 #   - /etc/fail2ban/jail.d/sovereign-os.local
 #   - /etc/apt/apt.conf.d/52sovereign-os-unattended.conf
+#   - /etc/ssh/sshd_config.d/50sovereign-os.conf
+#   - /etc/security/pwquality.conf.d/50sovereign-os.conf
 #
 # Idempotent: re-running produces the same end state. Honors
 # SOVEREIGN_OS_DRY_RUN=1. Emits Layer B counters per SDD-016/023.

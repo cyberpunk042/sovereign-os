@@ -89,28 +89,47 @@ def sample_signals() -> dict[str, float | None]:
         "cpu_temp_c": None,
         "gpu_temp_c": None,
     }
-    # Wattage estimate via R252 power-status (best-effort).
-    ps = _run_json("scripts/hardware/power-status.py", ["--json"])
+    # Wattage estimate via R252 power-status `budget` (best-effort). NOTE:
+    # power-status.py REQUIRES a verb {psu,ups,budget,advisories} — calling
+    # it bare (`--json`, no verb) exits rc=2 with empty stdout, so the old
+    # probe captured no wattage at all. `budget` is the load/headroom view;
+    # its canonical field is `estimated_load_watts` (legacy *_w kept as
+    # fallback for robustness).
+    ps = _run_json("scripts/hardware/power-status.py", ["budget", "--json"])
     if isinstance(ps, dict):
-        # Various R252 schemas; try multiple paths.
-        w = (ps.get("summary", {}) or {}).get("estimated_load_w")
-        if w is None:
-            w = ps.get("estimated_load_w")
-        if isinstance(w, (int, float)):
-            out["wattage_w"] = float(w)
+        summary = ps.get("summary") if isinstance(
+            ps.get("summary"), dict) else {}
+        for src, key in ((ps, "estimated_load_watts"),
+                         (summary, "estimated_load_w"),
+                         (ps, "estimated_load_w")):
+            w = src.get(key)
+            if isinstance(w, (int, float)):
+                out["wattage_w"] = float(w)
+                break
 
-    # Heat probe via R265 heat-integration.
-    heat = _run_json("scripts/hardware/heat-integration.py",
+    # Heat probe via R296 thermal-oc-budget (E2.M10): `thermal.hottest_*_c`
+    # is the canonical hottest-sensor reading, present (possibly null) even
+    # with no sensors wired. (Was a dangling ref to a never-created
+    # heat-integration.py — the trend watcher never captured temps.)
+    heat = _run_json("scripts/hardware/thermal-oc-budget.py",
                       ["status", "--json"])
     if isinstance(heat, dict):
-        # CPU temp: try summary or top-level
-        for key in ("cpu_temp_max_c", "cpu_temp_c", "cpu_max_c"):
-            v = (heat.get("summary") or {}).get(key) or heat.get(key)
+        thermal = heat.get("thermal") if isinstance(
+            heat.get("thermal"), dict) else {}
+        summary = heat.get("summary") if isinstance(
+            heat.get("summary"), dict) else {}
+        # CPU temp: thermal.hottest_cpu_c (canonical), then legacy fallbacks.
+        for src, key in ((thermal, "hottest_cpu_c"),
+                         (summary, "cpu_temp_max_c"), (heat, "cpu_temp_c"),
+                         (heat, "cpu_max_c")):
+            v = src.get(key)
             if isinstance(v, (int, float)):
                 out["cpu_temp_c"] = float(v)
                 break
-        for key in ("gpu_temp_max_c", "gpu_temp_c", "gpu_max_c"):
-            v = (heat.get("summary") or {}).get(key) or heat.get(key)
+        for src, key in ((thermal, "hottest_gpu_c"),
+                         (summary, "gpu_temp_max_c"), (heat, "gpu_temp_c"),
+                         (heat, "gpu_max_c")):
+            v = src.get(key)
             if isinstance(v, (int, float)):
                 out["gpu_temp_c"] = float(v)
                 break
@@ -131,10 +150,35 @@ def classify_trend(prior_avg: float | None, last_avg: float | None,
     return "stable"
 
 
+def normalize_window_size(cfg: dict) -> tuple[int, str | None]:
+    """Return (window_size, warning). A window_size < 1 or non-numeric
+    value (an operator overlay typo) would otherwise either crash
+    derive_trends (`int("five")` → ValueError) or make its
+    `len(history) < 2*n` guard vacuous — degenerating every window to
+    empty so every signal silently reports "no-data", disabling the
+    climbing-heat detection this watcher exists to provide. Clamp to the
+    default and return a warning so the misconfig surfaces instead of
+    silently neutering a safety watcher (clamp-and-warn, mirroring
+    power-status.py's out-of-range threshold handling — a recurrent
+    safety watcher must keep running, never refuse to start)."""
+    raw = cfg.get("window_size", DEFAULTS["window_size"])
+    try:
+        n = int(raw)
+    except (TypeError, ValueError):
+        n = 0
+    if n < 1:
+        return int(DEFAULTS["window_size"]), (
+            f"window_size={raw!r} is invalid (must be a positive integer); "
+            f"using default {DEFAULTS['window_size']} — trend detection would "
+            f"otherwise be silently disabled"
+        )
+    return n, None
+
+
 def derive_trends(history: list[dict], cfg: dict) -> dict[str, Any]:
     """Walk history, split into last-N and prior-N windows per signal,
     classify each signal's trend."""
-    n = int(cfg["window_size"])
+    n, _ = normalize_window_size(cfg)
     signals = ["wattage_w", "cpu_temp_c", "gpu_temp_c"]
     out: dict[str, Any] = {}
     if len(history) < 2 * n:
@@ -239,11 +283,13 @@ def build_tick(overlay_path: Path | None) -> dict[str, Any]:
     history = load_history(state_path)
     trends = derive_trends(history, cfg)
     verdict, rc = aggregate_verdict(trends)
+    _, ws_warn = normalize_window_size(cfg)
     row["trends"] = trends
     row["verdict"] = verdict
     row["rc"] = rc
     row["history_count"] = len(history)
     row["config"] = cfg
+    row["config_warnings"] = [ws_warn] if ws_warn else []
     row["overlay"] = meta
     return row
 
@@ -254,6 +300,10 @@ def render_human(doc: dict) -> str:
              f"  history count:  {doc['history_count']}",
              f"  verdict:        {doc['verdict']} (rc={doc['rc']})",
              ""]
+    for w in (doc.get("config_warnings") or []):
+        lines.append(f"  ⚠ config:       {w}")
+    if doc.get("config_warnings"):
+        lines.append("")
     lines.append("  current signals:")
     for s, v in doc["signals"].items():
         lines.append(f"    {s:>12s}: {v}")
@@ -333,6 +383,8 @@ def main(argv: list[str] | None = None) -> int:
     # status
     trends = derive_trends(history, cfg)
     verdict, rc = aggregate_verdict(trends)
+    _, ws_warn = normalize_window_size(cfg)
+    config_warnings = [ws_warn] if ws_warn else []
     last = history[-1] if history else None
     if args.fmt == "json":
         print(json.dumps({
@@ -345,6 +397,7 @@ def main(argv: list[str] | None = None) -> int:
             "trends": trends,
             "verdict": verdict,
             "rc": rc,
+            "config_warnings": config_warnings,
             "overlay": cfg_meta,
         }, indent=2))
     else:
@@ -359,6 +412,7 @@ def main(argv: list[str] | None = None) -> int:
         last["verdict"] = verdict
         last["rc"] = rc
         last["history_count"] = len(history)
+        last["config_warnings"] = config_warnings
         print(render_human(last), end="")
     return rc
 

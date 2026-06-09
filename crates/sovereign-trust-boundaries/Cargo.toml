@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-trust-boundaries"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M014 — isolation and trust boundaries: the 4 trust zones (Host Control / Oracle / Scout-Sandbox / Disposable) and the 4-tier tool sandbox ladder A/B/C/D, with the tier→minimum-zone containment rule that keeps untrusted tools off the host."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

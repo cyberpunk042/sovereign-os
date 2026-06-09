@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-network-zerotrust"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Master spec §8 asymmetric Zero-Trust NIC segregation: the canonical two-NIC layout (mgmt Intel 2.5GbE VLAN 100 carries the default route; data Marvell 10GbE VLAN 200 MUST NOT) from profiles/sain-01.yaml hardware.network (R401-tested §8.1), plus a validator that flags a default route on the data plane as a Zero-Trust egress breach."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

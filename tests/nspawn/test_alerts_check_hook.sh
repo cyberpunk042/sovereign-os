@@ -151,6 +151,66 @@ else
   ko "zero-state emission broken"
 fi
 
+# ----- malformed alerts --json payloads must NOT break metric emission ----
+# The hook promises "Empty or malformed → treat as no alerts (still emit
+# zero counters ... never just disappears)". A valid-JSON non-list, or a
+# list carrying a null/scalar element, must not crash the tally and leave a
+# VALUELESS `sovereign_os_meta_alert_count{...} ` line — that is invalid
+# Prometheus exposition and node_exporter rejects the whole textfile.
+fake_osctl="${tmp}/fake-osctl"
+cat > "${fake_osctl}" <<'EOF'
+#!/usr/bin/env bash
+case "$*" in
+  *"alerts --json"*) printf '%s' "${MALFORMED_PAYLOAD}" ;;
+  *) exit 0 ;;
+esac
+EOF
+chmod +x "${fake_osctl}"
+
+# Case 1: valid-JSON OBJECT (not a list) → 0/0, well-formed.
+mdir_obj="${tmp}/mdir_obj"; mkdir -p "${mdir_obj}"
+set +e
+out="$(MALFORMED_PAYLOAD='{"alerts":[]}' \
+       SOVEREIGN_OS_METRICS_DIR="${mdir_obj}" \
+       SOVEREIGN_OS_ALERTS_STATE_FILE="${tmp}/obj.json" \
+       SOVEREIGN_OS_OSCTL="${fake_osctl}" \
+       "${HOOK}" 2>&1)"
+rc=$?
+set -e
+prom_obj="${mdir_obj}/sovereign-os-alerts-check.prom"
+if [ "${rc}" -eq 0 ] \
+   && grep -q 'sovereign_os_meta_alert_count{level="ALERT"} 0' "${prom_obj}" \
+   && grep -q 'sovereign_os_meta_alert_count{level="WARN"} 0' "${prom_obj}"; then
+  ok "non-list payload → well-formed 0/0 counters (no crash)"
+else
+  ko "non-list payload broke emission (rc=${rc}); out: ${out}"
+fi
+# No valueless gauge line (the bug signature: a count line ending in '} ').
+if grep -nE 'sovereign_os_meta_alert_count\{[^}]*\} *$' "${prom_obj}"; then
+  ko "emitted a VALUELESS alert_count line (invalid Prometheus exposition)"
+else
+  ok "no valueless alert_count line emitted (valid exposition)"
+fi
+
+# Case 2: list with a null + a scalar alongside one real ALERT → counts 1/0.
+mdir_junk="${tmp}/mdir_junk"; mkdir -p "${mdir_junk}"
+set +e
+out="$(MALFORMED_PAYLOAD='[{"level":"ALERT","metric":"cpu"}, null, 5]' \
+       SOVEREIGN_OS_METRICS_DIR="${mdir_junk}" \
+       SOVEREIGN_OS_ALERTS_STATE_FILE="${tmp}/junk.json" \
+       SOVEREIGN_OS_OSCTL="${fake_osctl}" \
+       "${HOOK}" 2>&1)"
+rc=$?
+set -e
+prom_junk="${mdir_junk}/sovereign-os-alerts-check.prom"
+if [ "${rc}" -eq 0 ] \
+   && grep -q 'sovereign_os_meta_alert_count{level="ALERT"} 1' "${prom_junk}" \
+   && grep -q 'sovereign_os_meta_alert_count{level="WARN"} 0' "${prom_junk}"; then
+  ok "list with null/scalar elements → counts the real dict (1/0), skips junk"
+else
+  ko "list-with-junk tally broke (rc=${rc}); out: ${out}"
+fi
+
 # ----- sovereign-osctl maintenance alerts-check dispatches ----------
 # Use the in-repo path via SOVEREIGN_OS_OSCTL — the subcommand dispatch
 # should invoke the hook. We use DRY-RUN so we don't actually emit.

@@ -192,7 +192,10 @@ def derive_recommendation(memp: dict | None, oc: dict | None,
                 "message": "Memory-pressure probe unavailable — operator "
                            "should run R269 memory-pressure to populate "
                            "the score before this advisor can advise."}
-    # R269 emits its own verdict (ok/warn/critical) — use it directly.
+    # R269 emits its own verdict (ok/attention/critical, plus `unavailable`
+    # when no memory data can be read) — use it directly. NOTE: R269's mild
+    # tier is "attention", NOT "warn"; matching "warn" here silently dead-ended
+    # the mild-pullback path so the damper only ever reacted at "critical".
     memp_verdict = memp.get("verdict")
     # PSI avg10 (when available) is the most precise signal; fall back to
     # mem_available_pct when PSI is unavailable.
@@ -229,7 +232,7 @@ def derive_recommendation(memp: dict | None, oc: dict | None,
                         "command: sovereign-osctl oc-headroom status with "
                         "overlay `gpu_oc_multiplier = 1.0`."),
         }
-    if memp_verdict == "warn":
+    if memp_verdict == "attention":
         try:
             mult = float(current_oc_mult) if current_oc_mult is not None else 1.0
         except (TypeError, ValueError):
@@ -244,7 +247,7 @@ def derive_recommendation(memp: dict | None, oc: dict | None,
             "recommended_oc_multiplier": rec_mult,
             "dampen_step": cfg["dampen_step_mild"],
             "psu_headroom_verdict": psu_verdict,
-            "message": (f"R269 reports memory-pressure WARN — back off "
+            "message": (f"R269 reports memory-pressure ATTENTION — back off "
                         f"GPU OC multiplier by {cfg['dampen_step_mild']} "
                         f"(toward {rec_mult}). Re-evaluate via R269 + R292."),
         }

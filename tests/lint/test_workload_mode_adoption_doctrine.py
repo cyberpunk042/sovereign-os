@@ -151,6 +151,34 @@ def test_each_adopter_carries_workload_mode_to_shape_map():
         )
 
 
+# The 4 canonical modes the coordinator declares (locked by
+# test_coordinator_declares_4_named_modes).
+CANONICAL_MODES = ("idle", "inference-ready", "training", "oc-burst")
+
+
+def test_each_adopter_covers_all_4_canonical_modes():
+    """SDD-035 lockstep: it is not enough that an adopter HAS a per-mode
+    map (test_each_adopter_carries_workload_mode_to_shape_map) — the map
+    MUST carry an entry for every canonical mode. Otherwise an adopter
+    could silently drop e.g. 'inference-ready' and, when the operator
+    selects that mode, modulate nothing (or fall through to a default) with
+    no signal — exactly the minimization §1g forbids, and the failure mode
+    that motivated this gate. Each canonical mode string must appear as a
+    quoted literal in the adopter source (the map/catalog keys are the only
+    place all four co-occur)."""
+    for rel, _, _ in ADOPTERS:
+        body = _read(rel)
+        missing = [
+            m for m in CANONICAL_MODES
+            if f'"{m}"' not in body and f"'{m}'" not in body
+        ]
+        assert not missing, (
+            f"{rel} does not cover canonical workload mode(s) {missing} in "
+            f"its per-mode map — every adopter MUST modulate all of "
+            f"{CANONICAL_MODES} (SDD-035 adopter↔coordinator mode lockstep)"
+        )
+
+
 def test_sdd_035_documents_never_raise_contract():
     body = SDD_PATH.read_text(encoding="utf-8")
     assert "NEVER-raise" in body or "NEVER raise" in body, (

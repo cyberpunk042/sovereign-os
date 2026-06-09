@@ -125,6 +125,21 @@ def test_script_respects_default_gateway_flag():
     )
 
 
+def test_script_refuses_dhcp_gateway_on_data_nic():
+    """Defense-in-depth for §8 Zero-Trust: DefaultRouteOnDevice=no governs only
+    an *on-link* default route — it does NOT stop a DHCP-offered gateway from
+    becoming the default route. The data NIC runs DHCP, so the script MUST also
+    refuse the DHCP gateway (UseGateway=no) or the data plane can still acquire
+    WAN egress whenever the data VLAN's DHCP hands out a router. Pin the robust
+    enforcement so it can't silently regress to the ineffective directive."""
+    body = _read_script()
+    assert "UseGateway=no" in body, (
+        "network-vlan-config.sh missing [DHCPv4] UseGateway=no for the "
+        "non-gateway NIC — DefaultRouteOnDevice=no alone does not suppress a "
+        "DHCP-offered default route, leaving a §8 Zero-Trust egress hole"
+    )
+
+
 def test_script_reloads_networkd():
     """Script MUST restart systemd-networkd after writing units
     (otherwise next reboot needed for §8.1 segregation to take effect;

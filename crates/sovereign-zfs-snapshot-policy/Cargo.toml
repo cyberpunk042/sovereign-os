@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-zfs-snapshot-policy"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M068 E0667 — ZFS snapshot retention policy: classify snapshots (pre-commit / daily / weekly / monthly), the catalogued retention windows (365 / 30 / 90 / 365 days, F05731-F05737), and a pure prune planner that keeps anything younger than its window and never prunes an unclassifiable snapshot."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

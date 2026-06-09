@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-harness-layers"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M082 — the 5-layer TDD test pyramid (schema/lint -> unit -> stage-acceptance -> integration -> hardware-conformance): per-layer virtualization needs, CI trigger gating (every-PR / merge-or-label / operator-local), test-directory classification, and the flake-retry policy, from E0788-E0794 / F06836-F06898."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

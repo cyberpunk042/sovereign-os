@@ -51,7 +51,7 @@ grep -q -- "--probe" <<< "${out}" \
 
 # ---------- ALL OK fixture: rc=0 ----------
 mkdir -p "${WORK}/all-ok"
-cat > "${WORK}/all-ok/sovereign-thermal.prom" <<'PROM'
+cat > "${WORK}/all-ok/sovereign-os-thermal-watch.prom" <<'PROM'
 # HELP x x
 # TYPE sovereign_os_thermal_celsius gauge
 sovereign_os_thermal_celsius{sensor="k10temp/Tctl"} 58
@@ -80,7 +80,7 @@ grep -q "✓ ok" <<< "${out_ok}" \
 
 # ---------- WARN fixture: rc=1 ----------
 mkdir -p "${WORK}/warn"
-cat > "${WORK}/warn/sovereign-thermal.prom" <<'PROM'
+cat > "${WORK}/warn/sovereign-os-thermal-watch.prom" <<'PROM'
 # TYPE sovereign_os_thermal_celsius gauge
 sovereign_os_thermal_celsius{sensor="k10temp/Tctl"} 88
 sovereign_os_thermal_celsius{sensor="nvme/temp1"} 38
@@ -102,7 +102,7 @@ grep -q "! warn" <<< "${out_w}" \
 
 # ---------- CRITICAL fixture: rc=2 + worst severity wins ----------
 mkdir -p "${WORK}/crit"
-cat > "${WORK}/crit/sovereign-thermal.prom" <<'PROM'
+cat > "${WORK}/crit/sovereign-os-thermal-watch.prom" <<'PROM'
 # TYPE sovereign_os_thermal_celsius gauge
 sovereign_os_thermal_celsius{sensor="k10temp/Tctl"} 88
 sovereign_os_thermal_celsius{sensor="nvidia-gpu-0"} 97

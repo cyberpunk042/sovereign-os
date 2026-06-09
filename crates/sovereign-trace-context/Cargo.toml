@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-trace-context"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "E0112 / M00215 — the runtime trace mapping: trace_id (user request) / span_id (branch step, model call, tool call) / branch_id (deterministic runtime object) / commit_id (accepted transition). Reconstructable per-trace (R02147)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

@@ -1,0 +1,214 @@
+{
+  "_comment": "Consumer-side cockpit view of selfdef AUDIT-CHAIN INTEGRITY (tamper evidence). The guardian (MS044), perimeter (MS047) + scheduler (MS048) subsystems each maintain a SHA-256 hash-chained audit log; the daemon exposes selfdef_<sub>_audit_chain_events = chain length, or -1 when integrity verification FAILS (storage corruption / log tampering / concurrent writer). selfdef-side Selfdef<Sub>ChainBroken alerts page on -1; this is the cockpit at-a-glance view.",
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {
+      "title": "operator runbook",
+      "url": "/d/sovereign-os-selfdef-disk-usage#runbook",
+      "type": "link",
+      "icon": "doc"
+    },
+    {
+      "title": "producer source",
+      "url": "https://github.com/cyberpunk042/selfdef/blob/main/packaging/scripts/selfdef-disk-usage-textfile.sh",
+      "type": "link",
+      "icon": "external link"
+    },
+    {
+      "title": "deployment guide",
+      "url": "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefdiskusagevarhigh-critical",
+      "type": "link",
+      "icon": "external link"
+    }
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "guardian audit chain",
+      "id": 1,
+      "description": "selfdef_guardian_audit_chain_events: chain length when healthy, -1 = INTEGRITY BROKEN (tamper / corruption). Investigate per the guardian audit-log-corruption runbook.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "selfdef_guardian_audit_chain_events",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "perimeter audit chain",
+      "id": 2,
+      "description": "selfdef_perimeter_audit_chain_events: chain length when healthy, -1 = INTEGRITY BROKEN (tamper / corruption). Investigate per the perimeter audit-log-corruption runbook.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "selfdef_perimeter_audit_chain_events",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "scheduler audit chain",
+      "id": 3,
+      "description": "selfdef_scheduler_audit_chain_events: chain length when healthy, -1 = INTEGRITY BROKEN (tamper / corruption). Investigate per the scheduler audit-log-corruption runbook.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "selfdef_scheduler_audit_chain_events",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "audit chain length over time (all subsystems)",
+      "id": 4,
+      "description": "Chain length per subsystem; a drop to -1 is a broken/tampered chain.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "selfdef_guardian_audit_chain_events",
+          "refId": "A",
+          "legendFormat": "guardian"
+        },
+        {
+          "expr": "selfdef_perimeter_audit_chain_events",
+          "refId": "B",
+          "legendFormat": "perimeter"
+        },
+        {
+          "expr": "selfdef_scheduler_audit_chain_events",
+          "refId": "C",
+          "legendFormat": "scheduler"
+        }
+      ],
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 7
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "sovereign-os",
+    "selfdef",
+    "audit-chain",
+    "integrity",
+    "security",
+    "IPS-spine",
+    "observability"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "selfdef \u2014 audit-chain integrity (tamper detection)",
+  "uid": "selfdef-audit-chain",
+  "version": 1,
+  "weekStart": ""
+}

@@ -67,9 +67,11 @@ spec.loader.exec_module(m)
 # Critical mappings.
 for v in ('degraded', 'critical', 'over-budget', 'pull-oc-now', 'dampen-fully'):
     assert m.classify_severity(v) == 'critical', v
-# Attention mappings.
-for v in ('watch', 'tight', 'drift', 'headroom-tight', 'thermal-watch',
-          'psu-watch', 'both-tight', 'dampen-by-1', 'warn'):
+# Attention mappings. 'attention' is the literal mild verdict R269
+# memory-pressure emits; omitting it silently downgraded an attention
+# axis to informational (under-report) on a health aggregator.
+for v in ('attention', 'watch', 'tight', 'drift', 'headroom-tight',
+          'thermal-watch', 'psu-watch', 'both-tight', 'dampen-by-1', 'warn'):
     assert m.classify_severity(v) == 'attention', v
 # Informational (ok/safe/etc).
 for v in ('ok', 'safe', 'healthy', 'no-dampening', None):
@@ -77,6 +79,36 @@ for v in ('ok', 'safe', 'healthy', 'no-dampening', None):
 print('PASS')
 " || fail "classify"
 pass "3. severity classifier maps verdicts → critical/attention/informational"
+
+# ── 3b. health-scan axis (needs_attention, no verdict) maps to attention ──
+# Regression: health-scan emits needs_attention+summary, NOT a verdict/status
+# string. autohealth previously floored it to "informational" (below the
+# attention notify threshold), so a health-scan attention NEVER alerted.
+python3 -c "
+import importlib.util
+spec = importlib.util.spec_from_file_location('ah', 'scripts/diagnostics/autohealth.py')
+m = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(m)
+# A health-scan-shaped doc WITH needs_attention=True (no verdict/status).
+m._run_axis = lambda *a, **k: {
+    'needs_attention': True,
+    'summary': {'total': 6, 'ok': 5, 'attention': 1, 'informational': 0},
+    'probes': [],
+}
+f = m.collect_findings(['health-scan'])[0]
+assert f['severity'] == 'attention', f   # was 'informational' (the bug)
+assert f['verdict'] == 'needs-attention', f
+assert 'probe(s) need attention' in f['message'], f
+# And it must now clear the default notify threshold (attention).
+cmds = m.notify_commands([f], dict(m.DEFAULTS), {})
+assert any(c['axis'] == 'health-scan' and not c.get('suppressed') for c in cmds), cmds
+# needs_attention=False stays informational (benign).
+m._run_axis = lambda *a, **k: {'needs_attention': False, 'summary': {}, 'probes': []}
+g = m.collect_findings(['health-scan'])[0]
+assert g['severity'] == 'informational', g
+print('PASS')
+" || fail "health-scan needs_attention mapping"
+pass "3b. health-scan needs_attention → attention finding (clears notify threshold)"
 
 # ── 4. State JSONL persists across ticks ────────────────────
 state=$(mktemp -u)

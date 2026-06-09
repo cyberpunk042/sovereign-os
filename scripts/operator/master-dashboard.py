@@ -667,6 +667,19 @@ def cmd_discover(args) -> int:
     builtin_ports = {r["port"] for r in DASHBOARD_ROUTES.values()}
     builtin_subpaths = {r["subpath"] for r in DASHBOARD_ROUTES.values()}
     builtin_slugs = set(DASHBOARD_ROUTES.keys())
+    # ...AND among the selfdef manifests themselves. Two cross-repo manifests
+    # claiming the same slug/port/subpath collide just as surely as one
+    # colliding with a built-in route — both would silently route to the same
+    # place. Checking each manifest only against the built-ins (as before)
+    # missed this entirely, so a pair of conflicting selfdef manifests passed
+    # discovery clean. Count occurrences across `valid` and flag any > 1.
+    sd_slug_counts: dict[str, int] = {}
+    sd_port_counts: dict[int, int] = {}
+    sd_subpath_counts: dict[str, int] = {}
+    for m in valid:
+        sd_slug_counts[m["slug"]] = sd_slug_counts.get(m["slug"], 0) + 1
+        sd_port_counts[m["port"]] = sd_port_counts.get(m["port"], 0) + 1
+        sd_subpath_counts[m["subpath"]] = sd_subpath_counts.get(m["subpath"], 0) + 1
     collisions = []
     for m in valid:
         c = []
@@ -677,6 +690,21 @@ def cmd_discover(args) -> int:
         if m["subpath"] in builtin_subpaths:
             c.append(
                 f"subpath {m['subpath']!r} collides with built-in"
+            )
+        if sd_slug_counts[m["slug"]] > 1:
+            c.append(
+                f"slug {m['slug']!r} shared by "
+                f"{sd_slug_counts[m['slug']]} selfdef manifests"
+            )
+        if sd_port_counts[m["port"]] > 1:
+            c.append(
+                f"port {m['port']} shared by "
+                f"{sd_port_counts[m['port']]} selfdef manifests"
+            )
+        if sd_subpath_counts[m["subpath"]] > 1:
+            c.append(
+                f"subpath {m['subpath']!r} shared by "
+                f"{sd_subpath_counts[m['subpath']]} selfdef manifests"
             )
         if c:
             collisions.append({"slug": m["slug"], "issues": c})

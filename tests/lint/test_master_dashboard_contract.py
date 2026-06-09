@@ -490,3 +490,36 @@ def test_osctl_help_lists_watch():
     assert "master-dashboard watch" in src, (
         "osctl help missing master-dashboard watch row"
     )
+
+
+def test_discover_detects_selfdef_to_selfdef_port_collision(tmp_path, capsys):
+    """Regression: two selfdef manifests claiming the same port collide just
+    as surely as one colliding with a built-in route. cmd_discover previously
+    checked each manifest only against the built-ins, so a selfdef↔selfdef
+    port/subpath/slug clash passed discovery silently."""
+    import argparse
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("md_collide", str(MD_PY))
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+
+    # Two manifests, distinct slugs/subpaths, but the SAME port 9100.
+    for slug, sub in (("sd-a", "/a/"), ("sd-b", "/b/")):
+        (tmp_path / f"{slug}.toml").write_text(
+            "schema_version = 1\n[dashboard]\n"
+            f'module = "{slug}"\nport = 9100\nhealthz_path = "/healthz"\n'
+            f'subpath = "{sub}"\nlabel = "{slug}"\nauth_tier = "none"\n',
+            encoding="utf-8",
+        )
+    m.SELFDEF_MANIFEST_DIR = tmp_path
+
+    m.cmd_discover(argparse.Namespace(fmt="json"))
+    out = json.loads(capsys.readouterr().out)
+
+    shared_port = {
+        c["slug"]
+        for c in out["collisions"]
+        if any("port 9100 shared" in i for i in c["issues"])
+    }
+    assert shared_port == {"sd-a", "sd-b"}, out

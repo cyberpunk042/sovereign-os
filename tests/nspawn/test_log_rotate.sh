@@ -51,6 +51,12 @@ touch -d '120 days ago' "${SOVEREIGN_OS_LOG_DIR}/archive/build-ancient.jsonl.gz"
 # Recent archive file (must remain)
 touch -d '30 days ago' "${SOVEREIGN_OS_LOG_DIR}/archive/build-recentish.jsonl.gz"
 
+# Large ACTIVE log (recent mtime, over the size cap → must size-rotate even
+# though it's fresh — the disk-fill case for continuously-appended logs).
+export SOVEREIGN_OS_LOG_MAX_BYTES=2048
+head -c 5000 /dev/zero | tr '\0' 'x' > "${SOVEREIGN_OS_LOG_DIR}/notify.jsonl"
+# (build-fresh.jsonl above is tiny — must NOT size-rotate.)
+
 # ----------- run rotation ---------------
 
 "${ROTATE}" >/dev/null 2>&1
@@ -115,6 +121,25 @@ if [ -f "${SOVEREIGN_OS_LOG_DIR}/archive/build-recentish.jsonl.gz" ]; then
   ok "recent-ish archive retained (within archive window)"
 else
   ko "recent-ish archive incorrectly purged"
+fi
+
+# Large active log must be SIZE-rotated (gone from primary, archived) even
+# though its mtime is fresh — the unbounded-growth fix.
+if [ ! -f "${SOVEREIGN_OS_LOG_DIR}/notify.jsonl" ]; then
+  ok "large active notify.jsonl size-rotated out of primary dir"
+else
+  ko "large active notify.jsonl NOT size-rotated (would grow unbounded)"
+fi
+if ls "${SOVEREIGN_OS_LOG_DIR}/archive/"notify.jsonl.*.gz >/dev/null 2>&1; then
+  ok "size-rotated notify.jsonl archived (timestamped .gz)"
+else
+  ko "size-rotated notify.jsonl not found in archive"
+fi
+# Tiny fresh log must NOT be size-rotated.
+if [ -f "${SOVEREIGN_OS_LOG_DIR}/build-fresh.jsonl" ]; then
+  ok "tiny fresh log not size-rotated (under cap)"
+else
+  ko "tiny fresh log wrongly size-rotated"
 fi
 
 # ----------- idempotency: re-run must not re-rotate anything ---------------

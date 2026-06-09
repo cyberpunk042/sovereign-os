@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-whitelabel"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "M081 — whitelabel mechanism: the surface rebrand taxonomy (must-rebrand / should-rebrand / may-leave / must-not-touch), the 4 rendering strategies (template-substitution / file-overlay / package-replacement / build-time-flag), and the 3 lifecycle stages (pre-build / install-time / first-boot)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

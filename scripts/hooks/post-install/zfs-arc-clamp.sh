@@ -55,6 +55,34 @@ fi
 
 arc_max_bytes=$((SOVEREIGN_OS_ARC_MAX_GB * 1024 * 1024 * 1024))
 
+# SDD-017 § "ZFS root layout": the operator may override the clamp
+# byte-precisely (matching zfs_arc_max's native unit) via
+# SOVEREIGN_OS_ZFS_ARC_MAX_BYTES. This is the override the SDD documents;
+# it takes precedence over the SOVEREIGN_OS_ARC_MAX_GB convenience form.
+# (Previously the SDD-named var was read by nothing — a silent no-op for
+# any operator who followed the doc.)
+if [ -n "${SOVEREIGN_OS_ZFS_ARC_MAX_BYTES:-}" ]; then
+  arc_max_bytes="${SOVEREIGN_OS_ZFS_ARC_MAX_BYTES}"
+  SOVEREIGN_OS_ARC_MAX_GB=$((arc_max_bytes / 1024 / 1024 / 1024))
+  log_info "ARC clamp overridden via SOVEREIGN_OS_ZFS_ARC_MAX_BYTES=${arc_max_bytes} (~${SOVEREIGN_OS_ARC_MAX_GB}GB)"
+fi
+
+# Safety guard: in ZFS, zfs_arc_max=0 means UNLIMITED — writing it would do the
+# EXACT OPPOSITE of this hook's job (clamp ARC so AI workloads keep their RAM)
+# and silently let ARC consume all memory. A 0 can arise from a typo'd
+# SOVEREIGN_OS_ZFS_ARC_MAX_BYTES=0 or an absurd auto-scale (mem<2GB → mem/2=0).
+# ZFS also rejects a zfs_arc_max below its own 64 MiB floor. Refuse either
+# rather than ship an un-clamping or rejected config.
+if ! [[ "${arc_max_bytes}" =~ ^[0-9]+$ ]] || [ "${arc_max_bytes}" -lt 67108864 ]; then
+  log_error "computed zfs_arc_max=${arc_max_bytes} is invalid: 0 means UNLIMITED ARC"
+  log_error "  (un-clamping memory — the opposite of this hook) and any value below"
+  log_error "  ZFS's 64 MiB floor is rejected. Refusing to write ${modprobe_file:-/etc/modprobe.d/zfs.conf}."
+  log_error "  Check SOVEREIGN_OS_ARC_MAX_GB / SOVEREIGN_OS_ZFS_ARC_MAX_BYTES and the profile memory fields."
+  emit_metric sovereign_os_post_install_arc_clamp_total 1 \
+    "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"refused-invalid-arc-max\""
+  exit 1
+fi
+
 # Persistent: /etc/modprobe.d/zfs.conf
 modprobe_file="/etc/modprobe.d/zfs.conf"
 log_info "writing ${modprobe_file} with zfs_arc_max=${arc_max_bytes} (${SOVEREIGN_OS_ARC_MAX_GB}GB)"

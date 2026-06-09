@@ -1,0 +1,230 @@
+{
+  "_comment": "Consumer-side cockpit OVERVIEW of all selfdef IPS responder action surfaces (SDD-065..078) at once: active responses + pending operator decisions per surface, off the daemon's /metrics gauges. Per-family dashboards drill into one surface; this is the fleet view \u2014 'which surfaces are active / awaiting my decision right now?'.",
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {
+      "title": "operator runbook",
+      "url": "/d/sovereign-os-selfdef-disk-usage#runbook",
+      "type": "link",
+      "icon": "doc"
+    },
+    {
+      "title": "producer source",
+      "url": "https://github.com/cyberpunk042/selfdef/blob/main/packaging/scripts/selfdef-disk-usage-textfile.sh",
+      "type": "link",
+      "icon": "external link"
+    },
+    {
+      "title": "deployment guide",
+      "url": "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#selfdefdiskusagevarhigh-critical",
+      "type": "link",
+      "icon": "external link"
+    }
+  ],
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "active responses by surface",
+      "description": "Currently-active IPS responses per action surface (selfdef_<surface>_active_count).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "selfdef_apparmor_profile_pivots_active_count",
+          "refId": "A",
+          "legendFormat": "apparmor-profile-pivots"
+        },
+        {
+          "expr": "selfdef_bpf_map_element_clears_active_count",
+          "refId": "B",
+          "legendFormat": "bpf-map-element-clears"
+        },
+        {
+          "expr": "selfdef_capability_drops_active_count",
+          "refId": "C",
+          "legendFormat": "capability-drops"
+        },
+        {
+          "expr": "selfdef_env_scrubs_active_count",
+          "refId": "D",
+          "legendFormat": "env-scrubs"
+        },
+        {
+          "expr": "selfdef_kernel_keyring_evictions_active_count",
+          "refId": "E",
+          "legendFormat": "kernel-keyring-evictions"
+        },
+        {
+          "expr": "selfdef_mfa_grant_revocations_active_count",
+          "refId": "F",
+          "legendFormat": "mfa-grant-revocations"
+        },
+        {
+          "expr": "selfdef_mount_bindings_active_count",
+          "refId": "G",
+          "legendFormat": "mount-bindings"
+        },
+        {
+          "expr": "selfdef_netns_isolations_active_count",
+          "refId": "H",
+          "legendFormat": "netns-isolations"
+        },
+        {
+          "expr": "selfdef_process_tree_freezes_active_count",
+          "refId": "I",
+          "legendFormat": "process-tree-freezes"
+        },
+        {
+          "expr": "selfdef_quarantine_active_count",
+          "refId": "J",
+          "legendFormat": "quarantine"
+        },
+        {
+          "expr": "selfdef_revocations_active_count",
+          "refId": "K",
+          "legendFormat": "revocations"
+        },
+        {
+          "expr": "selfdef_socket_fd_revocations_active_count",
+          "refId": "L",
+          "legendFormat": "socket-fd-revocations"
+        },
+        {
+          "expr": "selfdef_token_revocations_active_count",
+          "refId": "M",
+          "legendFormat": "token-revocations"
+        }
+      ],
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "pending operator decisions by surface",
+      "description": "Items awaiting an operator restore/release decision per surface.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "selfdef_apparmor_profile_pivots_pending_restores",
+          "refId": "A",
+          "legendFormat": "apparmor-profile-pivots"
+        },
+        {
+          "expr": "selfdef_bpf_map_element_clears_pending_restores",
+          "refId": "B",
+          "legendFormat": "bpf-map-element-clears"
+        },
+        {
+          "expr": "selfdef_capability_drops_pending_restores",
+          "refId": "C",
+          "legendFormat": "capability-drops"
+        },
+        {
+          "expr": "selfdef_env_scrubs_pending_restores",
+          "refId": "D",
+          "legendFormat": "env-scrubs"
+        },
+        {
+          "expr": "selfdef_kernel_keyring_evictions_pending_restores",
+          "refId": "E",
+          "legendFormat": "kernel-keyring-evictions"
+        },
+        {
+          "expr": "selfdef_mfa_grant_revocations_pending_restores",
+          "refId": "F",
+          "legendFormat": "mfa-grant-revocations"
+        },
+        {
+          "expr": "selfdef_mount_bindings_pending_rebinds",
+          "refId": "G",
+          "legendFormat": "mount-bindings"
+        },
+        {
+          "expr": "selfdef_netns_isolations_pending_releases",
+          "refId": "H",
+          "legendFormat": "netns-isolations"
+        },
+        {
+          "expr": "selfdef_process_tree_freezes_pending_thaws",
+          "refId": "I",
+          "legendFormat": "process-tree-freezes"
+        },
+        {
+          "expr": "selfdef_quarantine_pending_releases",
+          "refId": "J",
+          "legendFormat": "quarantine"
+        },
+        {
+          "expr": "selfdef_revocations_pending_restores",
+          "refId": "K",
+          "legendFormat": "revocations"
+        },
+        {
+          "expr": "selfdef_socket_fd_revocations_pending_restores",
+          "refId": "L",
+          "legendFormat": "socket-fd-revocations"
+        },
+        {
+          "expr": "selfdef_token_revocations_pending_restores",
+          "refId": "M",
+          "legendFormat": "token-revocations"
+        }
+      ],
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 10
+      },
+      "id": 2,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "sovereign-os",
+    "selfdef",
+    "responder",
+    "action-surfaces",
+    "IPS-spine",
+    "observability"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "selfdef \u2014 IPS responder fleet (active + pending, all surfaces)",
+  "uid": "selfdef-responder-fleet",
+  "version": 1,
+  "weekStart": ""
+}

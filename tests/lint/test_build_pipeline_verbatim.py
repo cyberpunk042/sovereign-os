@@ -183,6 +183,49 @@ def test_each_step_emits_a_metric():
         )
 
 
+# Tokens that mark a success-class metric emission. Two styles coexist in the
+# pipeline: direct `result="success"` labels and helper-fn dispatch like
+# `emit_substrate_metric success` (where result="$1"). 07 also uses other
+# success-ish kebab results. Match both.
+_SUCCESS_RE = re.compile(r'result=\\?"success\\?"|_metric\s+success')
+_FAIL_RE = re.compile(r'result=\\?"fail\\?"|_metric\s+fail')
+
+
+def test_each_step_has_success_fail_metric_symmetry():
+    """Fail-symmetry invariant: a step that can emit a result="success"
+    metric MUST also be able to emit result="fail".
+
+    This codifies a recurring observability defect found across the
+    pipeline: a build step that calls state_step_fail on its failure
+    paths but never emits the corresponding result="fail" metric. The
+    state machine then records WHY in state.yaml, but the Prometheus /
+    textfile series `build_step_<x>_total` shows ONLY result="success"
+    (or "dry-run") — so an operator dashboard alerting on
+    `...{result="fail"}` never fires, and a failed build is invisible as
+    the mere ABSENCE of a success sample (indistinguishable from "the
+    step never ran").
+
+    If you can report success with a metric, you MUST report failure with
+    one. Both the direct `result="fail"` label and the helper-function
+    form (`emit_<x>_metric fail`) satisfy the contract.
+    """
+    for step_id in STEPS_EXPECTED:
+        body = _read_step(step_id)
+        has_success = bool(_SUCCESS_RE.search(body))
+        if not has_success:
+            # A step with no success-class metric at all isn't subject to
+            # the symmetry rule (it reports purely via state_step_*).
+            continue
+        has_fail = bool(_FAIL_RE.search(body))
+        assert has_fail, (
+            f"{step_id}.sh emits a success-class metric but no "
+            f'result="fail" / emit_*_metric fail — a failed build would be '
+            f"invisible in build_step_*_total (only the absence of a success "
+            f"sample). Emit result=\"fail\" on every failure path that calls "
+            f"state_step_fail."
+        )
+
+
 # --- Step-specific operator-verbatim invariants ---
 
 

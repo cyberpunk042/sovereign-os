@@ -178,10 +178,19 @@ def derive_card_status(parsed: dict[str, Any]) -> str:
         return "SILENT"
     if parsed["substrate_degraded_count"] == 3:
         return "BLIND"
-    if any(parsed["state"].values()):
-        return "PRESSURED"
+    # Substrate degradation (partial observability loss) outranks
+    # backpressure (the scheduler working-but-busy) — per the ladder above
+    # and the BLIND check directly above: 3 degraded substrates is BLIND
+    # (top severity), so 1-2 degraded must be DEGRADED *before* PRESSURED is
+    # considered. Checking PRESSURED first would mean adding a load signal to
+    # a 2-degraded state DOWNGRADES the badge from DEGRADED to PRESSURED —
+    # masking broken observability behind an expected-under-load indicator,
+    # the wrong direction for a cockpit, and a discontinuity at the 3-vs-2
+    # substrate boundary.
     if parsed["substrate_degraded_count"] > 0:
         return "DEGRADED"
+    if any(parsed["state"].values()):
+        return "PRESSURED"
     return "OK"
 
 

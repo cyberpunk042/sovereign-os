@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-runtime-reactions"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "E0472 / M00821 — Telemetry As Control: the 6 real-time runtime-telemetry reaction rules (cost spike / tool failure repeats / hallucination pattern / low memory retrieval quality / GPU pressure high / human gates too frequent). The runtime-level complement to sovereign-pressure-reactions (E0431, OS pressure)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

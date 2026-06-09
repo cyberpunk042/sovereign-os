@@ -35,6 +35,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 IMAGE_SIGN = REPO_ROOT / "scripts" / "build" / "08-image-sign.sh"
+MOK_ENROLL = REPO_ROOT / "scripts" / "hooks" / "during-install" / "mok-enroll.sh"
 
 
 def _read() -> str:
@@ -44,6 +45,22 @@ def _read() -> str:
 
 def test_image_sign_file_exists():
     assert IMAGE_SIGN.is_file(), f"missing {IMAGE_SIGN}"
+
+
+def test_mok_enroll_exports_pem_cert_for_sbsign():
+    """mok-enroll must export SOVEREIGN_OS_MOK_CERT pointing at the PEM cert
+    (MOK.crt / ${crt}), NOT the DER (MOK.der / ${der}). 08-image-sign feeds
+    SOVEREIGN_OS_MOK_CERT straight to `sbsign --cert`, which requires PEM —
+    exporting the DER silently breaks the MOK secure-boot signing path."""
+    assert MOK_ENROLL.is_file(), f"missing {MOK_ENROLL}"
+    body = MOK_ENROLL.read_text(encoding="utf-8")
+    assert re.search(r'SOVEREIGN_OS_MOK_CERT="\$\{crt\}"', body), (
+        "mok-enroll.sh must export SOVEREIGN_OS_MOK_CERT=\"${crt}\" (PEM) — "
+        "exporting the DER (${der}) breaks sbsign --cert in 08-image-sign"
+    )
+    assert not re.search(r'SOVEREIGN_OS_MOK_CERT="\$\{der\}"', body), (
+        "mok-enroll.sh exports the DER cert to MOK_CERT — sbsign needs PEM"
+    )
 
 
 # --- SDD-015 3-level enum (Q-006 resolution) ---

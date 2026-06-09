@@ -174,6 +174,11 @@ def test_minimize_phrase_precision_filters_match_known_fps():
         "- **Never minimize, conflate, hack, or take shortcuts**",
         '> "Do not rush anything and do not minimize anything nor',
         "- Never minimize, conflate, hack, shortcut.",
+        # R491: gate-rationale phrasing that names what §1g forbids.
+        "the silent minimization §1g forbids: the operator built a surface",
+        "    the exact minimization §1g forbids. Lock the index ⇄",
+        "    minimization the §1g rule forbids. Auto-discovery makes",
+        '                     "from a hardening catalog is itself a minimization.",',
     ):
         assert mod._MINIMIZE_DOCTRINE_ECHO_RE.search(line), (
             f"R476: doctrine-echo filter missed: {line!r}"

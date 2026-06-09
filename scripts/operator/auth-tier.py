@@ -72,6 +72,7 @@ import json
 import os
 import pathlib
 import sys
+import tempfile
 
 # Metrics output dir
 METRICS_DIR = pathlib.Path(os.environ.get(
@@ -594,7 +595,29 @@ def cmd_set(args) -> int:
     )
     out_text = existing + new_block
     try:
-        CONFIG_PATH.write_text(out_text, encoding="utf-8")
+        # Atomic write. A truncate-then-write (the old write_text) that fails
+        # mid-way (crash / full disk) leaves CONFIG_PATH truncated — and
+        # load_registry falls back to DEFAULT_REGISTRY (mostly "no-auth") on a
+        # parse failure, so a corrupted write would silently DROP every operator
+        # tier elevation back to no-auth: a fail-open security regression.
+        # temp-in-same-dir → fsync → os.replace keeps the prior config intact
+        # on any failure (and reports write-failed below, as before).
+        fd, tmp_name = tempfile.mkstemp(
+            dir=str(CONFIG_PATH.parent),
+            prefix=f"{CONFIG_PATH.name}.", suffix=".tmp",
+        )
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                fh.write(out_text)
+                fh.flush()
+                os.fsync(fh.fileno())
+            os.replace(tmp_name, CONFIG_PATH)  # atomic on POSIX
+        except BaseException:
+            try:
+                os.unlink(tmp_name)
+            except OSError:
+                pass
+            raise
     except OSError as e:
         sys.stderr.write(f"cannot write {CONFIG_PATH}: {e}\n")
         _emit_metric(

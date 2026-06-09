@@ -96,14 +96,30 @@ if [ "${PROFILE}" = "sain-01" ]; then
     ok "kernel-image properly excluded from Packages= (ships via mkosi.extra)"
   fi
 
-  # Deny-list packages must NOT be ACTIVE entries in the Packages= directive.
-  # mkosi-emit.sh writes them as '# explicitly NOT installed: <pkg>' comments
-  # for operator visibility — those are fine. Real entries are indented
-  # without a '#' prefix.
-  if grep -E '^\s+(popularity-contest|apport|whoopsie|snapd|ubuntu-advantage-tools)\b' "${profile_conf}"; then
-    ko "deny-list package present as active entry in Packages="
+  # Deny-list enforcement (sovereignty): denied packages must NOT appear in the
+  # Packages= (install) block, and MUST appear under RemovePackages= so mkosi
+  # actually purges them (comments alone enforced nothing). Extract each block
+  # by directive so an indented entry is attributed correctly.
+  pkgs_block="$(awk '/^Packages=/{f=1;next} /^[A-Za-z#[]/{f=0} f' "${profile_conf}")"
+  remove_block="$(awk '/^RemovePackages=/{f=1;next} /^[A-Za-z#[]/{f=0} f' "${profile_conf}")"
+  if printf '%s\n' "${pkgs_block}" | grep -qE '^\s+(popularity-contest|apport|whoopsie|snapd|ubuntu-advantage-tools)\b'; then
+    ko "deny-list package present as an ACTIVE entry in Packages="
   else
-    ok "deny-list packages absent from active Packages= (comments-only is allowed)"
+    ok "deny-list packages absent from the active Packages= install block"
+  fi
+  if printf '%s\n' "${remove_block}" | grep -qE '^\s+(snapd|apport|whoopsie)\b'; then
+    ok "deny-list enforced via RemovePackages= (actually purged, not just commented)"
+  else
+    ko "deny-list NOT enforced — denied packages missing from RemovePackages= (sovereignty gap)"
+  fi
+
+  # kernel.modules.load_at_boot must be enforced via /etc/modules-load.d/ in the
+  # image overlay (not left to implicit load paths).
+  mld_file="${tmpdir}/mkosi.extra/etc/modules-load.d/sovereign-os.conf"
+  if [ -f "${mld_file}" ] && grep -qx "zfs" "${mld_file}" && grep -qx "vfio_pci" "${mld_file}"; then
+    ok "kernel.modules.load_at_boot enforced via modules-load.d overlay"
+  else
+    ko "kernel.modules.load_at_boot NOT enforced (missing modules-load.d overlay)"
   fi
 
   # KernelCommandLine should contain vfio-pci.ids

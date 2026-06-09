@@ -19,6 +19,21 @@
 # Exactly ONE profile should carry `default = true` — that's the
 # profile that fires when no operator override picks otherwise.
 
+# ─── R345 / E2.M33 / SDD-035: workload-mode coordinator adoption ───
+# power-profiles advises a recommended profile per canonical workload
+# mode (idle / inference-ready / training / oc-burst). These two
+# top-level knobs control that coupling (must appear BEFORE the
+# [[profiles]] array-tables per TOML rules):
+#
+# follow_workload_mode_coordinator — when true (default), the active
+#   canonical workload mode is read from the overlay below and used to
+#   advise the matching profile. Set false to decouple power-profiles
+#   from the coordinator (profile selection then by trigger only).
+follow_workload_mode_coordinator = true
+# workload_mode_overlay_path — where the canonical workload mode is read
+#   from (the R338 coordinator writes it). Default shown.
+workload_mode_overlay_path = "/etc/sovereign-os/workload-mode.toml"
+
 [[profiles]]
 name    = "battery-threshold-graceful-shutdown"
 default = true

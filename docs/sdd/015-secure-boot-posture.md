@@ -44,8 +44,8 @@ Operator-supplied env vars (used by `08-image-sign.sh`):
 |---|---|---|
 | `SOVEREIGN_OS_MOK_KEY` | Path to operator's private MOK key | auto-generate ephemeral key + cert; operator must enroll the auto-generated cert post-build (workflow logged) |
 | `SOVEREIGN_OS_MOK_CERT` | Path to operator's MOK certificate | (matches MOK_KEY) |
-| `SOVEREIGN_OS_PK_KEY` | Platform Key (only for `posture: signed`) | operator MUST supply or step 08 fails |
-| `SOVEREIGN_OS_PK_CERT` | Platform Key cert (only for `posture: signed`) | operator MUST supply or step 08 fails |
+| `SOVEREIGN_OS_PK_KEY` | Platform Key — **preferred** for `posture: signed` | if PK_{KEY,CERT} are set, step 08 signs with the PK (the intended no-shim chain). If PK is unset but `SOVEREIGN_OS_MOK_{KEY,CERT}` are set, step 08 **falls back to the operator's MOK key with a warning** (still an operator-owned key; operator must enrol the MOK cert via `mokutil` post-install). Step 08 fails only if **neither** the PK nor the MOK key family is supplied. (Per the Round 31 hardening review; verified by `tests/nspawn/test_image_sign_gates.sh`: "signed + only MOK → falls back with warning", "signed + no key → fails".) |
+| `SOVEREIGN_OS_PK_CERT` | Platform Key cert — preferred for `posture: signed` | (matches PK_KEY; see above) |
 
 `preflight-tpm.sh` (added 2026-05-16) gates this at install-time:
 - both `SOVEREIGN_OS_MOK_KEY` and `_CERT` set → both must be readable
@@ -118,7 +118,7 @@ no orchestrator-side conditional logic.
    `08-image-sign.sh` is the only step that signs; both refuse rather
    than fall through silently.
 4. **TPM2 reachability checked pre-install** — preflight-tpm refuses
-   when secure_boot=true but no TPM device node or no UEFI vars.
+   when secure_boot is `signed`/`shim` but no TPM device node or no UEFI vars.
 5. **API-key-safe logging** — env-var values never logged.
 
 ## Non-goals (this SDD)

@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-hibernation"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "E0453 — Hibernated Thought: the 6 wait conditions an agent hibernates on (user / long-test / download / external-event / low-priority / memory-pressure) and the 5 fields the runtime saves to hibernate-and-resume (branch summary / state vector / tool futures / context refs / next wake condition)."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

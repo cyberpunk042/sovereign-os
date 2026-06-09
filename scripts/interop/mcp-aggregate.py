@@ -84,9 +84,9 @@ SDD_VECTOR = "E7.M5 / closes Q-019 referenced in SDD-002"
 LOCAL_TOOLS = [
     # ── Hardware / CPU / GPU / PSU / Memory ─────────────────────
     {
-        "name": "hardware",
-        "summary": "Host hardware probe (CPU + memory + GPU + storage).",
-        "argv": ["sovereign-osctl", "hardware", "--json"],
+        "name": "hardware-inventory",
+        "summary": "Host hardware-inventory catalog — CPU/GPU/PSU/UPS/RAM/NVMe/board single source of truth (E1.M37).",
+        "argv": ["sovereign-osctl", "inventory", "list", "--json"],
         "categories": ["hardware", "cpu", "gpu", "memory"],
     },
     {

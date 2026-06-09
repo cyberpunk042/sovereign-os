@@ -1,0 +1,19 @@
+[package]
+name = "sovereign-network-boundary"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "E0124 / M00232 — Network Boundary: the 5-rung network-profile ladder (offline / package-registries / docs-web / arbitrary-web / authenticated-browser) and the per-branch ToolIntent (network_scope + reason), with the scope-within-allowed gate."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

@@ -3197,10 +3197,10 @@ EOF
     exit $?
   fi
 
-  # Cached-.prom path: read the latest sovereign-thermal.prom written
-  # by the timer.
+  # Cached-.prom path: read the latest sovereign-os-thermal-watch.prom
+  # written by the timer.
   : "${SOVEREIGN_OS_METRICS_DIR:=/var/lib/node_exporter/textfile_collector}"
-  local prom="${SOVEREIGN_OS_METRICS_DIR}/sovereign-thermal.prom"
+  local prom="${SOVEREIGN_OS_METRICS_DIR}/sovereign-os-thermal-watch.prom"
   if [ ! -f "${prom}" ]; then
     echo "no cached thermal readings yet at ${prom}"
     echo "  run 'sovereign-osctl thermals --probe' for a live read,"
@@ -5602,7 +5602,18 @@ cmd_install() {
       # All gates passed — execute
       log_info "writing ${image} → ${device} (this will take several minutes)"
       if command -v dd >/dev/null 2>&1; then
-        sudo dd if="${image}" of="${device}" bs=4M status=progress conv=fsync
+        # Guard dd explicitly. Under set -e a failed write (I/O error, device
+        # yanked mid-write, write-protect, sudo denied) would abort the CLI with
+        # only dd's raw stderr — leaving the operator without the one fact that
+        # matters at THE most destructive moment: the target is now PARTIALLY
+        # WRITTEN and must NOT be booted. Surface that explicitly, and don't
+        # claim "complete" on a failed dump.
+        if ! sudo dd if="${image}" of="${device}" bs=4M status=progress conv=fsync; then
+          log_error "dd FAILED writing ${image} → ${device}"
+          log_error "  ${device} is now PARTIALLY WRITTEN / UNBOOTABLE — do NOT boot from it."
+          log_error "  resolve the dd error (I/O, write-protect, device present?) and re-run the install."
+          return 1
+        fi
         log_info "image dump complete"
         log_info "sync'ing disk..."
         sudo sync

@@ -129,9 +129,24 @@ fi
 signed_count=0
 while IFS= read -r f; do
   log_info "signing: ${f}"
+  # Guard sbsign + mv the same way sbverify (below) is guarded: a bare
+  # sbsign under set -e would abort the step on a bad key / unsignable
+  # binary WITHOUT a result="fail" sample or state_step_fail, leaving the
+  # build in 'started' limbo — and the carefully-instrumented verify one
+  # line down would never be reached to report it.
   sbsign --key "${sign_key}" --cert "${sign_cert}" \
-    --output "${f}.signed" "${f}"
-  mv "${f}.signed" "${f}"
+    --output "${f}.signed" "${f}" || {
+    log_error "sbsign failed for ${f} (bad key/cert or unsignable binary)"
+    emit_sign_metric fail
+    state_step_fail "${STEP_ID}" "sbsign-failed"
+    exit 1
+  }
+  mv "${f}.signed" "${f}" || {
+    log_error "could not replace ${f} with its signed copy"
+    emit_sign_metric fail
+    state_step_fail "${STEP_ID}" "sbsign-mv-failed"
+    exit 1
+  }
   sbverify --cert "${sign_cert}" "${f}" || {
     log_error "verification failed for ${f}"
     emit_sign_metric fail
@@ -140,6 +155,19 @@ while IFS= read -r f; do
   }
   signed_count=$((signed_count + 1))
 done < <(find "${SOVEREIGN_OS_IMAGE_DIR}" \( -name 'vmlinuz*' -o -name '*.efi' -o -name 'bootx64.efi' \) 2>/dev/null)
+
+# We only reach here for the shim/signed postures (none/unknown exited earlier).
+# Signing ZERO binaries means the image will fail Secure Boot — but the loop
+# above would otherwise report success. Fail loudly: either the image layout
+# doesn't match the find patterns (vmlinuz* / *.efi) or step 07 produced no
+# bootable artifacts.
+if [ "${signed_count}" -eq 0 ]; then
+  log_error "secure_boot=${secure_boot} but NO signable binaries found under ${SOVEREIGN_OS_IMAGE_DIR}"
+  log_error "  (expected vmlinuz* / *.efi) — nothing was signed; the image would FAIL Secure Boot"
+  emit_sign_metric fail
+  state_step_fail "${STEP_ID}" "nothing-signed"
+  exit 1
+fi
 
 log_info "signed ${signed_count} binaries with ${secure_boot}-path key"
 emit_sign_metric success
