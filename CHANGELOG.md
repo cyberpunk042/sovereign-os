@@ -181,6 +181,11 @@ bridge / the cockpit can hit the engine directly:
   `SOVEREIGN_GATEWAY_MAX_CONN`); over the cap a connection is accepted and
   closed immediately rather than spawning unbounded threads. Matters once the
   daemon is exposed past its loopback default. Tested with the cap at 2.
+- **Survives a failed handler-spawn.** The accept loop uses
+  `Thread::Builder::spawn` and, if a handler thread can't start under resource
+  pressure, drops that one connection and keeps serving rather than panicking
+  the accept loop and taking the whole daemon down. The `ConnGuard` drops on the
+  failure path, so the active-connection counter stays correct.
 - The HTTP routing (`http::respond`) is pure and routes through the same
   `GatewayServer::handle` as the line protocol, so the two transports can never
   diverge. Verified live (curl + raw-socket): `GET /health` 200,
