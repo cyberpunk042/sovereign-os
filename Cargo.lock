@@ -4433,6 +4433,7 @@ dependencies = [
  "sovereign-symbolic-plan",
  "sovereign-trinity",
  "sovereign-value-plane",
+ "sovereign-world-model",
  "thiserror",
 ]
 

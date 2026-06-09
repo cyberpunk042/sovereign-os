@@ -71,6 +71,7 @@ use sovereign_trinity::TrinityCycle;
 use sovereign_value_plane::{
     BranchAssessment, BranchCritic, BranchState, IntelligenceTier, NextAction, RewardVector,
 };
+use sovereign_world_model::WorldModel;
 
 /// Schema version of the cortex request/decision surface.
 pub const SCHEMA_VERSION: &str = "1.0.0";
@@ -93,6 +94,14 @@ pub const MAX_SEARCH_ROUNDS: u32 = 64;
 /// Base id for memories learned from committed decisions (kept clear of
 /// any externally-seeded ids).
 pub const LEARNED_ID_BASE: u64 = 1_000_000;
+
+/// Minimum World-Model prior confidence for a disagreement to count as a
+/// "surprise" worth extra scrutiny (M030 → deeper reasoning).
+pub const WORLD_MODEL_SURPRISE_CONFIDENCE: f32 = 0.75;
+
+/// Minimum past observations behind the prior before a disagreement is trusted
+/// enough to act on (don't engage compute on one-off history).
+pub const WORLD_MODEL_SURPRISE_MIN_OBS: u64 = 3;
 
 /// One end-to-end request to the cortex. Every field is a real input to
 /// one of the composed engines.
@@ -157,8 +166,58 @@ pub struct CortexDecision {
     /// decision's precision lane + flags (commit-gate / sandbox / audit /
     /// speculative) + opcode + recall count.
     pub control_word: ControlWord,
+    /// Learned-dynamics prior for this `(topic, role)` (M030). `Some` once the
+    /// pair has resolved before; `None` for a cold pair.
+    pub prediction: Option<WorldModelPrediction>,
     /// One-line human-readable trace of the whole path.
     pub summary: String,
+}
+
+/// A learned-dynamics prior (M030): what the world model expects for this
+/// `(task-topic, routing-role)` pair from history. Carried on a decision only
+/// when the pair has been seen before — `None` for a cold pair, no fabrication.
+#[derive(Debug, Clone, Serialize)]
+pub struct WorldModelPrediction {
+    /// The modal historical verdict for this `(topic, role)`.
+    pub expected_action: NextAction,
+    /// Probability the model assigns that verdict (0.0..=1.0).
+    pub confidence: f32,
+    /// How many past transitions back this prediction.
+    pub observations: u64,
+    /// Whether the live value-plane verdict matches the learned prior. A
+    /// mismatch is a signal: this task is resolving differently than history.
+    pub agrees_with_verdict: bool,
+}
+
+/// Encode an SRP role as a world-model action id (M030 action space).
+fn role_action_id(role: SrpRole) -> u64 {
+    match role {
+        SrpRole::Conductor => 0,
+        SrpRole::Logic => 1,
+        SrpRole::Oracle => 2,
+        SrpRole::Cloud => 3,
+    }
+}
+
+/// Encode a value-plane verdict as a world-model outcome-state id.
+fn outcome_state_id(action: NextAction) -> u64 {
+    match action {
+        NextAction::Commit => 1,
+        NextAction::Expand => 2,
+        NextAction::NeedMoreCompute => 3,
+        NextAction::Prune => 4,
+    }
+}
+
+/// Decode a world-model outcome-state id back to a verdict.
+fn outcome_from_state_id(id: u64) -> Option<NextAction> {
+    match id {
+        1 => Some(NextAction::Commit),
+        2 => Some(NextAction::Expand),
+        3 => Some(NextAction::NeedMoreCompute),
+        4 => Some(NextAction::Prune),
+        _ => None,
+    }
 }
 
 /// Map a placed SRP role to the control word's precision lane.
@@ -323,6 +382,10 @@ pub struct Cortex {
     pub memory: MemoryStore,
     /// Tamper-evident audit trail of decisions (M012 replay plane).
     pub ledger: ReplayLedger,
+    /// Learned task→routing→outcome dynamics (M030 World Model plane). Grows
+    /// as the cortex observes how `(task-topic, routing-role)` pairs resolve,
+    /// supplying a learned prior alongside the value plane's per-branch critique.
+    pub world_model: WorldModel,
 }
 
 impl Cortex {
@@ -378,6 +441,14 @@ impl Cortex {
         let reward = boost_reward(req.reward.clone(), boost);
         let assessment = critic.assess(&BranchState::from_reward(1, reward));
 
+        // World-model prior (M030): what history expects for this
+        // (task-topic, routing-role), learned across prior transitions.
+        let prediction = self.predict_outcome(
+            req.query_topic,
+            route.role,
+            assessment.suggested_next_action,
+        );
+
         // Serve — which LoRA adapter path (M046). High-stakes (risky) tasks
         // route to oracle verification regardless of available adapters.
         let serve_req = ServeRequest {
@@ -388,13 +459,23 @@ impl Cortex {
         };
         let serving = decide_serving(&serve_req);
 
-        // Engage deeper reasoning (M080) only when the verdict is uncertain:
-        // an uncertain branch runs a bounded HRM recurrent pass.
-        let reasoning = if assessment.suggested_next_action == NextAction::NeedMoreCompute {
-            Some(engage_reasoning())
-        } else {
-            None
-        };
+        // Engage deeper reasoning (M080) when the verdict is uncertain OR when
+        // the World-Model prior (M030) strongly disagrees with it. A confident,
+        // well-observed prior that contradicts the verdict is a "surprise" — the
+        // task is resolving against history — and warrants extra scrutiny before
+        // the Auditor sees it. This never changes the verdict (so it can't cause
+        // a wrong commit); it only adds a bounded recurrent pass.
+        let surprising = prediction.as_ref().is_some_and(|p| {
+            !p.agrees_with_verdict
+                && p.confidence >= WORLD_MODEL_SURPRISE_CONFIDENCE
+                && p.observations >= WORLD_MODEL_SURPRISE_MIN_OBS
+        });
+        let reasoning =
+            if assessment.suggested_next_action == NextAction::NeedMoreCompute || surprising {
+                Some(engage_reasoning())
+            } else {
+                None
+            };
 
         // Compute profile — what the placed precision actually costs,
         // computed by the bitlinear / nvfp4 engines themselves.
@@ -449,7 +530,27 @@ impl Cortex {
             reasoning,
             compute,
             control_word,
+            prediction,
             summary,
+        })
+    }
+
+    /// The M030 world-model prior for a `(topic, role)` pair, or `None` when the
+    /// pair is cold. Read-only — learning happens in [`Cortex::learn`].
+    fn predict_outcome(
+        &self,
+        topic: u64,
+        role: SrpRole,
+        verdict: NextAction,
+    ) -> Option<WorldModelPrediction> {
+        let action = role_action_id(role);
+        let predicted_id = self.world_model.predict(topic, action)?;
+        let expected_action = outcome_from_state_id(predicted_id)?;
+        Some(WorldModelPrediction {
+            expected_action,
+            confidence: self.world_model.probability(topic, action, predicted_id) as f32,
+            observations: self.world_model.pair_observations(topic, action),
+            agrees_with_verdict: expected_action == verdict,
         })
     }
 
@@ -488,6 +589,14 @@ impl Cortex {
     /// not learned (we only remember outcomes we stood behind). Returns
     /// whether anything was learned.
     pub fn learn(&mut self, req: &CortexRequest, decision: &CortexDecision) -> bool {
+        // Learn the dynamics (M030) from EVERY outcome — the world model needs
+        // to see prunes and expansions, not just commits, to predict them. This
+        // is separate from the commit-gated memory admission below.
+        self.world_model.observe(
+            req.query_topic,
+            role_action_id(decision.route.role),
+            outcome_state_id(decision.assessment.suggested_next_action),
+        );
         if decision.assessment.suggested_next_action != NextAction::Commit {
             return false;
         }
@@ -1192,6 +1301,108 @@ mod tests {
         let (_d, _c, learned) = cortex.act_and_learn(&r).unwrap();
         assert!(!learned);
         assert_eq!(cortex.memory.len(), 0);
+    }
+
+    #[test]
+    fn world_model_learns_the_routing_outcome_prior() {
+        // A cold cortex carries no learned prior; after observing the same
+        // (task-topic, routing-role) resolve once, the next tick carries an
+        // M030 prediction that agrees with the verdict.
+        let mut cortex = Cortex::new();
+        let r = req();
+
+        let cold = cortex.tick(&r).unwrap();
+        assert!(
+            cold.prediction.is_none(),
+            "a cold (topic, role) pair has no learned prior"
+        );
+
+        // Resolve it once — learn() observes the (topic, role) → outcome.
+        cortex.learn(&r, &cold);
+
+        let warm = cortex.tick(&r).unwrap();
+        let p = warm
+            .prediction
+            .expect("after one observation the pair is known");
+        assert_eq!(p.expected_action, warm.assessment.suggested_next_action);
+        assert!(p.agrees_with_verdict);
+        assert!(
+            (p.confidence - 1.0).abs() < 1e-6,
+            "a single consistent outcome implies probability 1.0, got {}",
+            p.confidence
+        );
+        assert_eq!(p.observations, 1);
+    }
+
+    #[test]
+    fn prediction_flags_disagreement_with_history() {
+        // Seed a conflicting prior: history says this (topic, role) pruned, but
+        // the live request commits — the prediction must flag the mismatch.
+        let mut cortex = Cortex::new();
+        let r = req();
+
+        let cold = cortex.tick(&r).unwrap();
+        assert!(cold.prediction.is_none());
+        let role = cold.route.role;
+
+        // History: this (topic, role) resolved to Prune before.
+        cortex.world_model.observe(
+            r.query_topic,
+            role_action_id(role),
+            outcome_state_id(NextAction::Prune),
+        );
+
+        let warm = cortex.tick(&r).unwrap();
+        let p = warm.prediction.expect("the pair is now known");
+        assert_eq!(p.expected_action, NextAction::Prune);
+        assert_ne!(
+            warm.assessment.suggested_next_action,
+            NextAction::Prune,
+            "the live request commits, so it must not prune"
+        );
+        assert!(
+            !p.agrees_with_verdict,
+            "a Prune prior must disagree with a non-Prune verdict"
+        );
+    }
+
+    #[test]
+    fn a_surprising_prior_engages_reasoning_without_changing_the_verdict() {
+        // A confident, well-observed prior that contradicts the verdict is a
+        // surprise: it must engage deeper reasoning (extra scrutiny) but leave
+        // the verdict itself untouched — it can never cause a wrong commit.
+        let mut cortex = Cortex::new();
+        let r = req();
+
+        let cold = cortex.tick(&r).unwrap();
+        let role = cold.route.role;
+        assert_eq!(cold.assessment.suggested_next_action, NextAction::Commit);
+        assert!(
+            cold.reasoning.is_none(),
+            "a committing request engages no extra compute by default"
+        );
+
+        // Build a confident Prune history for this (topic, role).
+        for _ in 0..=WORLD_MODEL_SURPRISE_MIN_OBS {
+            cortex.world_model.observe(
+                r.query_topic,
+                role_action_id(role),
+                outcome_state_id(NextAction::Prune),
+            );
+        }
+
+        let warm = cortex.tick(&r).unwrap();
+        let p = warm.prediction.expect("the pair is now known");
+        assert!(!p.agrees_with_verdict);
+        assert!(p.confidence >= WORLD_MODEL_SURPRISE_CONFIDENCE);
+        assert!(p.observations >= WORLD_MODEL_SURPRISE_MIN_OBS);
+        // The surprise engaged deeper reasoning …
+        assert!(
+            warm.reasoning.is_some(),
+            "a confident contradicting prior should engage reasoning"
+        );
+        // … but the verdict is unchanged — still a commit.
+        assert_eq!(warm.assessment.suggested_next_action, NextAction::Commit);
     }
 
     #[test]

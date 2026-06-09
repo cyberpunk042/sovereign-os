@@ -4,11 +4,16 @@
 //! ([`sovereign_gatewayd::GatewayServer::handle_line`]):
 //!
 //! ```text
-//! sovereign-gatewayd                 # bind TCP (default 127.0.0.1:8787)
+//! sovereign-gatewayd                 # bind TCP (default 127.0.0.1:8787), NDJSON
 //! sovereign-gatewayd --addr 0.0.0.0:9000
+//! sovereign-gatewayd --http          # bind HTTP/1.1 (default 127.0.0.1:8787)
 //! sovereign-gatewayd --stdio         # read NDJSON requests on stdin, reply on stdout
 //! sovereign-gatewayd --selftest      # run the built-in demo session, print, exit
 //! ```
+//!
+//! In `--http` mode the daemon answers the manifest's bind paths
+//! (`GET /health`, `GET /manifest`, `GET /admin/ledger`,
+//! `POST /v1/messages|/v1/infer|/mcp`) — see [`sovereign_gatewayd::http`].
 //!
 //! Wire protocol (one JSON object per line):
 //!
@@ -21,17 +26,43 @@
 //!
 //! Set `SOVEREIGN_GATEWAY_ADDR` to override the default bind address.
 
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use sovereign_cortex::demo_requests;
 use sovereign_gatewayd::GatewayServer;
+use sovereign_gatewayd::http;
 
 const DEFAULT_ADDR: &str = "127.0.0.1:8787";
 
+const USAGE: &str = "\
+sovereign-gatewayd — the persistent gateway service over the sovereign-cortex engine
+
+USAGE:
+    sovereign-gatewayd [MODE] [--addr HOST:PORT]
+
+MODES:
+    (default)      bind TCP and speak NDJSON (one JSON request per line)
+    --http         bind HTTP/1.1: GET /health /manifest /admin/ledger /metrics;
+                   POST /v1/messages /v1/infer /mcp
+    --stdio        read NDJSON requests on stdin, reply on stdout (MCP / claude-code)
+    --selftest     run the built-in demo session, print, exit
+    -h, --help     print this help and exit
+
+ENVIRONMENT:
+    SOVEREIGN_GATEWAY_ADDR     bind address (default 127.0.0.1:8787)
+    SOVEREIGN_GATEWAY_MAX_CONN max concurrent connections (default 256)";
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+
+    if args.iter().any(|a| a == "--help" || a == "-h") {
+        println!("{USAGE}");
+        return;
+    }
+
     let server = Arc::new(GatewayServer::new());
 
     if args.iter().any(|a| a == "--selftest") {
@@ -48,7 +79,12 @@ fn main() {
         .or_else(|| std::env::var("SOVEREIGN_GATEWAY_ADDR").ok())
         .unwrap_or_else(|| DEFAULT_ADDR.to_string());
 
-    if let Err(e) = run_tcp(&server, &addr) {
+    let result = if args.iter().any(|a| a == "--http") {
+        run_http(&server, &addr)
+    } else {
+        run_tcp(&server, &addr)
+    };
+    if let Err(e) = result {
         eprintln!("sovereign-gatewayd: fatal: {e}");
         std::process::exit(1);
     }
@@ -113,36 +149,99 @@ fn run_stdio(server: &GatewayServer) {
     }
 }
 
-/// Bind a TCP listener and serve one thread per connection. Each connection is
-/// an NDJSON stream: one request per line, one reply per line. Pure std — no
-/// async runtime, honoring the workspace `unsafe_code = forbid` discipline.
+/// Default cap on concurrent connection-handler threads. Once reached, new
+/// connections are accepted and closed immediately (back-pressure) rather than
+/// spawning unbounded threads under a connection flood. Override with
+/// `SOVEREIGN_GATEWAY_MAX_CONN`.
+const DEFAULT_MAX_CONNECTIONS: usize = 256;
+
+fn max_connections() -> usize {
+    std::env::var("SOVEREIGN_GATEWAY_MAX_CONN")
+        .ok()
+        .and_then(|v| v.parse::<usize>().ok())
+        .filter(|&n| n > 0)
+        .unwrap_or(DEFAULT_MAX_CONNECTIONS)
+}
+
+/// Decrements the active-connection counter when its handler thread ends.
+struct ConnGuard(Arc<AtomicUsize>);
+impl Drop for ConnGuard {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::Relaxed);
+    }
+}
+
+/// Shared accept loop: bound concurrent handler threads, then dispatch each
+/// connection to `handle` on its own thread. Pure std — no async runtime,
+/// honoring the workspace `unsafe_code = forbid` discipline.
+fn serve(
+    listener: TcpListener,
+    server: &Arc<GatewayServer>,
+    handle: fn(&GatewayServer, TcpStream) -> std::io::Result<()>,
+) -> std::io::Result<()> {
+    let max = max_connections();
+    let active = Arc::new(AtomicUsize::new(0));
+    for stream in listener.incoming() {
+        let stream = match stream {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("sovereign-gatewayd: accept failed: {e}");
+                continue;
+            }
+        };
+        if active.load(Ordering::Relaxed) >= max {
+            // At capacity — close immediately instead of spawning another
+            // thread, applying back-pressure under a connection flood.
+            drop(stream);
+            continue;
+        }
+        active.fetch_add(1, Ordering::Relaxed);
+        let guard = ConnGuard(Arc::clone(&active));
+        let server = Arc::clone(server);
+        std::thread::spawn(move || {
+            let _guard = guard; // decrements the counter on thread exit
+            if let Err(e) = handle(&server, stream) {
+                eprintln!("sovereign-gatewayd: connection ended: {e}");
+            }
+        });
+    }
+    Ok(())
+}
+
+/// Bind a TCP listener and serve NDJSON (one request per line, one reply per
+/// line) over the shared capped accept loop.
 fn run_tcp(server: &Arc<GatewayServer>, addr: &str) -> std::io::Result<()> {
     let listener = TcpListener::bind(addr)?;
     eprintln!(
         "sovereign-gatewayd: listening on {addr} (NDJSON; ops: infer/manifest/health/ledger)"
     );
-    for stream in listener.incoming() {
-        match stream {
-            Ok(stream) => {
-                let server = Arc::clone(server);
-                std::thread::spawn(move || {
-                    if let Err(e) = handle_conn(&server, stream) {
-                        eprintln!("sovereign-gatewayd: connection ended: {e}");
-                    }
-                });
-            }
-            Err(e) => eprintln!("sovereign-gatewayd: accept failed: {e}"),
-        }
-    }
-    Ok(())
+    serve(listener, server, handle_conn)
 }
 
 fn handle_conn(server: &GatewayServer, stream: TcpStream) -> std::io::Result<()> {
     let peer = stream.peer_addr().ok();
-    let reader = BufReader::new(stream.try_clone()?);
+    let mut reader = BufReader::new(stream.try_clone()?);
     let mut writer = stream;
-    for line in reader.lines() {
-        let line = line?;
+    loop {
+        // Cap each NDJSON line so a client can't exhaust memory with one
+        // unterminated line (the same DoS class the HTTP body cap covers). A
+        // fresh `take` per line gives each its own byte budget.
+        let mut line = String::new();
+        let n = (&mut reader)
+            .take(http::MAX_BODY_BYTES as u64 + 1)
+            .read_line(&mut line)?;
+        if n == 0 {
+            break; // EOF
+        }
+        if line.len() > http::MAX_BODY_BYTES && !line.ends_with('\n') {
+            writeln!(
+                writer,
+                "{{\"kind\":\"error\",\"message\":\"request line exceeds the {}-byte limit\"}}",
+                http::MAX_BODY_BYTES
+            )?;
+            writer.flush()?;
+            break;
+        }
         if line.trim().is_empty() {
             continue;
         }
@@ -154,4 +253,110 @@ fn handle_conn(server: &GatewayServer, stream: TcpStream) -> std::io::Result<()>
         eprintln!("sovereign-gatewayd: {peer} disconnected");
     }
     Ok(())
+}
+
+/// Bind an HTTP/1.1 listener (thread-per-connection, `Connection: close`). Pure
+/// std — request line + headers + `Content-Length` body parsed by hand; routing
+/// delegated to [`http::respond`]. Honors the workspace `unsafe_code = forbid`.
+fn run_http(server: &Arc<GatewayServer>, addr: &str) -> std::io::Result<()> {
+    let listener = TcpListener::bind(addr)?;
+    eprintln!(
+        "sovereign-gatewayd: HTTP listening on {addr} \
+         (GET /health /manifest /admin/ledger /metrics; POST /v1/messages /v1/infer /mcp)"
+    );
+    serve(listener, server, handle_http_conn)
+}
+
+/// Per request-line / header-line byte cap, and the maximum header count. An
+/// unterminated line or a header flood is refused with `431` so neither can be
+/// buffered without bound (the request-line/header analogue of the body cap).
+const MAX_HEADER_LINE: usize = 8 * 1024;
+const MAX_HEADERS: usize = 100;
+
+/// Read one line capped at [`MAX_HEADER_LINE`]. Returns the byte count and
+/// whether the line overran the cap without a terminating newline.
+fn read_capped_line(
+    reader: &mut BufReader<TcpStream>,
+    buf: &mut String,
+) -> std::io::Result<(usize, bool)> {
+    let n = reader.take(MAX_HEADER_LINE as u64 + 1).read_line(buf)?;
+    let overran = buf.len() > MAX_HEADER_LINE && !buf.ends_with('\n');
+    Ok((n, overran))
+}
+
+/// Write one HTTP reply (status line + JSON/text body) and flush.
+fn write_http(writer: &mut TcpStream, reply: &http::HttpReply) -> std::io::Result<()> {
+    let bytes = reply.body.as_bytes();
+    let head = format!(
+        "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        reply.status,
+        http::reason(reply.status),
+        reply.content_type,
+        bytes.len()
+    );
+    writer.write_all(head.as_bytes())?;
+    writer.write_all(bytes)?;
+    writer.flush()
+}
+
+fn handle_http_conn(server: &GatewayServer, stream: TcpStream) -> std::io::Result<()> {
+    let mut reader = BufReader::new(stream.try_clone()?);
+    let mut writer = stream;
+
+    // Request line: `METHOD PATH HTTP/1.1` — capped so an endless line can't
+    // be buffered without bound.
+    let mut request_line = String::new();
+    let (n, overran) = read_capped_line(&mut reader, &mut request_line)?;
+    if n == 0 {
+        return Ok(()); // client closed before sending anything
+    }
+    if overran {
+        return write_http(&mut writer, &http::headers_too_large());
+    }
+    let mut parts = request_line.split_whitespace();
+    let method = parts.next().unwrap_or("").to_string();
+    let path = parts.next().unwrap_or("/").to_string();
+
+    // Headers until the blank line; the only one we act on is Content-Length.
+    // Each line is capped and the count is bounded (no unbounded header flood).
+    let mut content_length = 0usize;
+    let mut header_count = 0usize;
+    loop {
+        header_count += 1;
+        if header_count > MAX_HEADERS {
+            return write_http(&mut writer, &http::headers_too_large());
+        }
+        let mut line = String::new();
+        let (n, overran) = read_capped_line(&mut reader, &mut line)?;
+        if n == 0 {
+            break;
+        }
+        if overran {
+            return write_http(&mut writer, &http::headers_too_large());
+        }
+        let trimmed = line.trim_end();
+        if trimmed.is_empty() {
+            break;
+        }
+        if let Some((k, v)) = trimmed.split_once(':')
+            && k.trim().eq_ignore_ascii_case("content-length")
+        {
+            content_length = v.trim().parse().unwrap_or(0);
+        }
+    }
+
+    // Refuse an over-cap Content-Length BEFORE allocating, so a client can't
+    // exhaust memory by claiming a huge body (the buffer is never sized to it).
+    let reply = if content_length > http::MAX_BODY_BYTES {
+        http::payload_too_large()
+    } else {
+        // Body of exactly Content-Length bytes (0 for GETs).
+        let mut body = vec![0u8; content_length];
+        if content_length > 0 {
+            reader.read_exact(&mut body)?;
+        }
+        let body = String::from_utf8_lossy(&body);
+        http::respond(server, &method, &path, &body)
+    };
+    write_http(&mut writer, &reply)
 }

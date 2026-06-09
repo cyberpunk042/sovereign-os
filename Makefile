@@ -103,15 +103,17 @@ install:  ## Install sovereign-osctl + manpage to PREFIX (default: /usr/local)
 	@echo "  $(DESTDIR)$(SOVEREIGN_OS_LIB)/  (lib + hooks + profiles + inference + whitelabel)"
 	@echo "  $(DESTDIR)$(PREFIX)/share/man/man1/sovereign-osctl.1  (if pandoc)"
 
-bins:  ## Build + install the Rust binaries (sovereign-telemetry, sovereign-resource-control) to PREFIX/bin
+bins:  ## Build + install the Rust binaries (sovereign-telemetry, sovereign-resource-control, sovereign-gatewayd) to PREFIX/bin
 	@echo "Building Rust binaries (release)"
-	cargo build --release -p sovereign-telemetry -p sovereign-resource-control
+	cargo build --release -p sovereign-telemetry -p sovereign-resource-control -p sovereign-gatewayd
 	@install -d "$(DESTDIR)$(PREFIX)/bin"
 	@install -m 755 target/release/sovereign-telemetry "$(DESTDIR)$(PREFIX)/bin/sovereign-telemetry"
 	@install -m 755 target/release/sovereign-resource-control "$(DESTDIR)$(PREFIX)/bin/sovereign-resource-control"
-	@echo "Installed (on PATH for the sovereign-telemetry-textfile.timer):"
-	@echo "  $(DESTDIR)$(PREFIX)/bin/sovereign-telemetry"
+	@install -m 755 target/release/sovereign-gatewayd "$(DESTDIR)$(PREFIX)/bin/sovereign-gatewayd"
+	@echo "Installed:"
+	@echo "  $(DESTDIR)$(PREFIX)/bin/sovereign-telemetry        (sovereign-telemetry-textfile.timer)"
 	@echo "  $(DESTDIR)$(PREFIX)/bin/sovereign-resource-control"
+	@echo "  $(DESTDIR)$(PREFIX)/bin/sovereign-gatewayd         (sovereign-gatewayd.service)"
 
 uninstall:  ## Remove sovereign-osctl + manpage from PREFIX
 	@rm -f  "$(DESTDIR)$(PREFIX)/bin/sovereign-osctl"

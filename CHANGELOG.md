@@ -12,6 +12,109 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — the World-Model prior now acts: a surprise engages deeper reasoning (2026-06-09)
+
+The M030 prior was observe-only; now it influences compute — conservatively.
+When a **confident, well-observed** prior contradicts the live verdict
+(`confidence ≥ 0.75`, `observations ≥ 3`), the decision is a "surprise" (the
+task is resolving against history) and the cortex engages a bounded HRM
+recurrent pass (M080) — the same deeper-reasoning mechanism an uncertain verdict
+already triggers.
+
+Crucially, this **never changes the verdict** — it only adds a recurrent pass
+(and the speculative control-word flag) for extra scrutiny before the Auditor
+sees the branch, so it can never cause a wrong commit. Thresholds are named
+constants (`WORLD_MODEL_SURPRISE_CONFIDENCE` / `_MIN_OBS`). Locked by a test:
+seed a confident Prune history, then a committing request engages reasoning
+while keeping its Commit verdict. Cortex suite now 56 tests; `fmt` +
+`clippy -D warnings` clean on pinned 1.88.0.
+
+### Added — cortex composes the World-Model plane (M030): learned routing-outcome priors (2026-06-09)
+
+The cortex assembly gains a ninth real engine. `sovereign-cortex` now owns a
+`sovereign-world-model` (M030) that learns `(task-topic, routing-role) →
+outcome` dynamics across requests — distinct from the symbolic planner's fixed
+effects (this learns from data, Dreamer-style):
+
+- **`Cortex::learn`** observes the transition on **every** outcome (commit,
+  prune, expand, need-more-compute), not just commits, so the model can predict
+  prunes too. Separate from the commit-gated Memory-OS admission.
+- **`Cortex::tick`** consults the model for a learned prior and annotates the
+  decision with `Option<WorldModelPrediction>` — `expected_action`, `confidence`
+  (modal probability), `observations` (history depth), and `agrees_with_verdict`
+  (a mismatch flags a task resolving differently than history). Honest `None`
+  for a cold pair — no fabrication.
+- New `WorldModel::pair_observations(state, action)` (additive) backs the
+  history-depth field.
+- The prior is read-only in `tick` and learned only in `learn`, so there's no
+  intra-request leakage: a cold pair predicts `None`, and the prediction only
+  becomes informative once the pair has resolved before.
+- Locked by a cortex test (cold → None; after one observation → agreeing
+  prediction at confidence 1.0) + a world-model test. All 53 existing cortex
+  tests still pass; `fmt` + `clippy -D warnings` clean on pinned 1.88.0; the
+  gateway (which serializes `CortexDecision`) passes unchanged — the new field
+  is additive.
+
+### Added — `sovereign-gatewayd` deployable: systemd unit + Makefile install + e2e transport tests (2026-06-09)
+
+Turns the gateway daemon from a buildable binary into a deployable managed
+service:
+
+- **`systemd/system/sovereign-gatewayd.service`** — runs `sovereign-gatewayd
+  --http`, loopback-by-default (`SOVEREIGN_GATEWAY_ADDR`, with the documented
+  `.d/bind.conf` override pattern), `Restart=on-failure`. Carries the full R171
+  defense-in-depth posture; since the daemon is pure in-memory (reads/writes no
+  files) it runs cleanly under `ProtectSystem=strict`. Passes all 245
+  systemd-hardening lint assertions + the fleet/posture/timer gates.
+- **Makefile `bins`** now builds + installs `sovereign-gatewayd` to
+  `PREFIX/bin` alongside `sovereign-telemetry` / `sovereign-resource-control`,
+  matching the `ExecStart` path.
+- **End-to-end transport tests** (`tests/transports.rs`): spin the real binary
+  on an ephemeral port and exercise both transports over actual sockets — NDJSON
+  TCP (infer→ledger across one connection; malformed line → error, not drop) and
+  HTTP (health 200, `POST /v1/messages` runs the engine, `/metrics` reflects it,
+  404/400). Locks the socket plumbing the unit tests can't reach. 25 tests total.
+
+### Added — `sovereign-gatewayd` HTTP/1.1 surface: real clients reach the engine (2026-06-09)
+
+The gateway daemon spoke only a custom NDJSON line protocol; now it also serves
+the bind paths the M048 manifest advertises over plain HTTP, so curl / an MCP
+bridge / the cockpit can hit the engine directly:
+
+- New `--http` transport (pure-std HTTP/1.1, thread-per-connection,
+  `Connection: close`; request line + headers + `Content-Length` body parsed by
+  hand — no async runtime, no new deps, honors `unsafe_code = forbid`).
+- Routes: `GET /health`, `GET /manifest`, `GET /admin/ledger` (the CostRouteLedger
+  bind path), `GET /metrics`, and `POST /v1/messages` (Anthropic surface) /
+  `POST /v1/infer` / `POST /mcp` taking one JSON `CortexRequest` → the tagged
+  decision. Wrong verb on a known route → 405; unknown → 404; malformed body →
+  400; engine refusal → 422.
+- **`GET /metrics`** renders the live ledger + health as Prometheus
+  text-exposition (`sovereign_gateway_requests_total`, `…_route_total{role}`,
+  `…_decisions_total{disposition}`, `…_cloud_spills_total`,
+  `…_never_cloud_spill_holds`, `…_live_surfaces`, and — once the engine learns —
+  `…_prediction_total` / `…_prediction_agreements_total`) so the existing
+  node_exporter→Grafana cockpit can chart the daemon with no new pipeline —
+  the operator-visible surface the SHIPPED bar requires. Verified live via curl.
+- **Request-size caps (DoS hardening).** A `Content-Length` over 1 MiB → `413`
+  *before* any buffer is allocated; an over-8 KiB request line or header line,
+  or more than 100 headers → `431`; an over-1 MiB NDJSON line → error + close.
+  Each is read through a fresh `take`, so a client can't exhaust the daemon's
+  memory with a huge or unterminated request on either transport. Cortex
+  requests are a few KB. Verified live (4 GiB body → 413; 9 KB header → 431).
+- **Connection cap (flood back-pressure).** Both accept loops (now DRY'd into
+  one `serve()`) bound concurrent handler threads (default 256, override
+  `SOVEREIGN_GATEWAY_MAX_CONN`); over the cap a connection is accepted and
+  closed immediately rather than spawning unbounded threads. Matters once the
+  daemon is exposed past its loopback default. Tested with the cap at 2.
+- The HTTP routing (`http::respond`) is pure and routes through the same
+  `GatewayServer::handle` as the line protocol, so the two transports can never
+  diverge. Verified live (curl + raw-socket): `GET /health` 200,
+  `POST /v1/messages` 200 with a real decision, ledger advancing, no cloud spill.
+- +9 unit tests (19 total in the crate). `cargo fmt`/`clippy -D warnings` clean
+  on the pinned 1.88.0 CI toolchain. The full Anthropic content-block schema
+  remains a later layer; this v1 carries the typed cortex request/decision.
+
 ### Fixed — `cargo workspace` CI job green: the `sovereign-telemetry` orphan repaired (2026-06-09)
 
 The `cargo workspace` check was RED **on `main` too** (pre-existing, not a

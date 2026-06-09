@@ -29,6 +29,8 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod http;
+
 use std::collections::BTreeMap;
 use std::sync::Mutex;
 
@@ -109,6 +111,12 @@ pub struct Ledger {
     /// Decisions that spilled to the cloud expert plane. MUST stay 0 while
     /// `force_local` is set — it is the never-cloud-spill tripwire.
     pub cloud_spills: u64,
+    /// Decisions that carried a World-Model prior (M030) — i.e. the
+    /// `(topic, role)` pair had resolved before. Cold pairs don't count.
+    pub predictions: u64,
+    /// Of those, how many had the learned prior agree with the live verdict.
+    /// The ratio is how well the engine is learning its own dynamics.
+    pub prediction_agreements: u64,
 }
 
 /// Daemon health snapshot.
@@ -179,7 +187,7 @@ impl GatewayServer {
     /// `Error` response.
     pub fn handle_line(&self, line: &str) -> String {
         let response = match serde_json::from_str::<GatewayRequest>(line.trim()) {
-            Ok(req) => self.dispatch(req),
+            Ok(req) => self.handle(req),
             Err(e) => GatewayResponse::Error {
                 message: format!("malformed request: {e}"),
             },
@@ -189,7 +197,10 @@ impl GatewayServer {
         })
     }
 
-    fn dispatch(&self, req: GatewayRequest) -> GatewayResponse {
+    /// Dispatch one typed request to a typed response. Transport-agnostic: the
+    /// NDJSON line protocol ([`Self::handle_line`]) and the HTTP surface
+    /// ([`crate::http`]) both route through here, so they can never diverge.
+    pub fn handle(&self, req: GatewayRequest) -> GatewayResponse {
         match req {
             GatewayRequest::Infer { request } => self.infer(*request),
             GatewayRequest::Manifest => GatewayResponse::Manifest {
@@ -233,6 +244,13 @@ impl GatewayServer {
                     // Tripwire: under force_local this must be unreachable.
                     ledger.cloud_spills += 1;
                 }
+                if let Some(prediction) = &decision.prediction {
+                    // The engine carried a learned World-Model prior (M030).
+                    ledger.predictions += 1;
+                    if prediction.agrees_with_verdict {
+                        ledger.prediction_agreements += 1;
+                    }
+                }
                 GatewayResponse::Decision {
                     decision: Box::new(decision),
                     learned,
@@ -273,6 +291,85 @@ impl GatewayServer {
     /// The gateway manifest this daemon serves.
     pub fn manifest(&self) -> &GatewayManifest {
         &self.manifest
+    }
+
+    /// Render the live ledger + health as Prometheus text-exposition, so the
+    /// existing cockpit (node_exporter scrape → Grafana) can chart the daemon
+    /// without a new pipeline. Mirrors the metric style of `sovereign-telemetry`.
+    pub fn metrics_prometheus(&self) -> String {
+        let ledger = self.ledger.lock().expect("ledger poisoned").clone();
+        let mut s = String::new();
+
+        s.push_str(
+            "# HELP sovereign_gateway_requests_total Inference requests handled by the gateway.\n",
+        );
+        s.push_str("# TYPE sovereign_gateway_requests_total counter\n");
+        s.push_str(&format!(
+            "sovereign_gateway_requests_total {}\n",
+            ledger.total_requests
+        ));
+
+        s.push_str("# HELP sovereign_gateway_decisions_total Decisions by terminal disposition.\n");
+        s.push_str("# TYPE sovereign_gateway_decisions_total counter\n");
+        for (disposition, value) in [
+            ("committed", ledger.committed),
+            ("refused", ledger.refused),
+            ("learned", ledger.learned),
+        ] {
+            s.push_str(&format!(
+                "sovereign_gateway_decisions_total{{disposition=\"{disposition}\"}} {value}\n"
+            ));
+        }
+
+        s.push_str("# HELP sovereign_gateway_route_total Decisions routed to each SRP role.\n");
+        s.push_str("# TYPE sovereign_gateway_route_total counter\n");
+        for (role, value) in &ledger.by_role {
+            s.push_str(&format!(
+                "sovereign_gateway_route_total{{role=\"{role}\"}} {value}\n"
+            ));
+        }
+
+        s.push_str(
+            "# HELP sovereign_gateway_cloud_spills_total Decisions that spilled to the cloud plane (must stay 0 under force-local).\n",
+        );
+        s.push_str("# TYPE sovereign_gateway_cloud_spills_total counter\n");
+        s.push_str(&format!(
+            "sovereign_gateway_cloud_spills_total {}\n",
+            ledger.cloud_spills
+        ));
+
+        s.push_str("# HELP sovereign_gateway_never_cloud_spill_holds 1 while the never-cloud-spill invariant holds.\n");
+        s.push_str("# TYPE sovereign_gateway_never_cloud_spill_holds gauge\n");
+        s.push_str(&format!(
+            "sovereign_gateway_never_cloud_spill_holds {}\n",
+            u8::from(ledger.cloud_spills == 0)
+        ));
+
+        s.push_str("# HELP sovereign_gateway_live_surfaces Gateway surfaces currently Live.\n");
+        s.push_str("# TYPE sovereign_gateway_live_surfaces gauge\n");
+        s.push_str(&format!(
+            "sovereign_gateway_live_surfaces {}\n",
+            self.manifest.live_count()
+        ));
+
+        s.push_str(
+            "# HELP sovereign_gateway_prediction_total Decisions that carried a World-Model prior (M030).\n",
+        );
+        s.push_str("# TYPE sovereign_gateway_prediction_total counter\n");
+        s.push_str(&format!(
+            "sovereign_gateway_prediction_total {}\n",
+            ledger.predictions
+        ));
+        s.push_str(
+            "# HELP sovereign_gateway_prediction_agreements_total Priors that agreed with the live verdict.\n",
+        );
+        s.push_str("# TYPE sovereign_gateway_prediction_agreements_total counter\n");
+        s.push_str(&format!(
+            "sovereign_gateway_prediction_agreements_total {}\n",
+            ledger.prediction_agreements
+        ));
+
+        s
     }
 }
 
@@ -413,6 +510,26 @@ mod tests {
         let v: serde_json::Value = serde_json::from_str(&out).unwrap();
         assert_eq!(v["kind"], "ledger");
         assert_eq!(v["ledger"]["total_requests"], 1);
+    }
+
+    #[test]
+    fn ledger_tracks_world_model_prediction_agreement() {
+        // The first request to a (topic, role) is cold (no prior); replays warm
+        // the engine's World-Model (M030) so later decisions carry a prior.
+        let s = GatewayServer::new();
+        let req = demo_requests()[0].clone();
+        for _ in 0..4 {
+            let _ = s.handle_line(&infer_line(&req));
+        }
+        let ledger = s.ledger.lock().unwrap();
+        assert!(
+            ledger.predictions >= 1,
+            "later requests should carry a learned prior, got {}",
+            ledger.predictions
+        );
+        // A stable repeated request resolves the same way every time, so the
+        // learned prior agrees with every verdict it was present for.
+        assert_eq!(ledger.prediction_agreements, ledger.predictions);
     }
 
     #[test]
