@@ -5009,6 +5009,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-product-quantization"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-kmeans",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-profile-bundles"
 version = "0.1.0"
 dependencies = [
