@@ -77,6 +77,20 @@ pub struct AxisReading {
     pub value: f32,
 }
 
+impl AxisReading {
+    /// Construct one normalised axis reading.
+    ///
+    /// `value` is the normalised pressure 0.0..=1.0 a sensor reports for this
+    /// axis (e.g. the Memory axis is fed by the host's PSI / `memory-pressure`
+    /// probe). Out-of-range or non-finite values are caught by
+    /// [`PressureSnapshot::validate`] / [`PressureSnapshot::update_axis`] at the
+    /// boundary rather than here, so a bad reading surfaces as a typed error
+    /// instead of being silently clamped.
+    pub fn new(axis: PressureAxis, value: f32) -> Self {
+        Self { axis, value }
+    }
+}
+
 /// Full 6-axis snapshot.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PressureSnapshot {
@@ -219,6 +233,48 @@ impl PressureSnapshot {
     /// Whether any axis is overloaded (≥ 0.9).
     pub fn any_overloaded(&self) -> bool {
         self.readings.iter().any(|r| r.value >= 0.9)
+    }
+
+    /// Assemble a snapshot from live sensor readings, enforcing the canonical
+    /// invariants before returning.
+    ///
+    /// The live counterpart to [`Self::free_canonical`]: callers pass the
+    /// capture time plus the six real axis readings sampled from the running
+    /// system. Construction fails (rather than yielding a malformed snapshot)
+    /// if the readings aren't exactly the six canonical axes, in range, with
+    /// no duplicates — the same gate `validate()` enforces, applied at the
+    /// boundary so an invalid snapshot can never reach a consumer.
+    pub fn from_readings(
+        captured_at: impl Into<String>,
+        readings: Vec<AxisReading>,
+    ) -> Result<Self, PressureError> {
+        let snap = Self {
+            schema_version: SCHEMA_VERSION.into(),
+            captured_at: captured_at.into(),
+            readings,
+        };
+        snap.validate()?;
+        Ok(snap)
+    }
+
+    /// Update one axis's live value in place, validating it first.
+    ///
+    /// Returns [`PressureError::ValueOutOfRange`] for a non-finite or
+    /// out-of-`0.0..=1.0` value, or [`PressureError::AxisMissing`] if the axis
+    /// is absent (impossible on a snapshot that has passed `validate()`).
+    /// Because it only mutates an existing reading — never adds or removes one
+    /// — the six-axis invariant is preserved across an unbounded sample stream.
+    pub fn update_axis(&mut self, axis: PressureAxis, value: f32) -> Result<(), PressureError> {
+        if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+            return Err(PressureError::ValueOutOfRange { axis, value });
+        }
+        let rec = self
+            .readings
+            .iter_mut()
+            .find(|r| r.axis == axis)
+            .ok_or(PressureError::AxisMissing(axis))?;
+        rec.value = value;
+        Ok(())
     }
 }
 
@@ -382,5 +438,68 @@ mod tests {
         let j = serde_json::to_string(&s).unwrap();
         let back: PressureSnapshot = serde_json::from_str(&j).unwrap();
         assert_eq!(s, back);
+    }
+
+    // ---- live population / update API ----
+
+    fn six_readings(v: f32) -> Vec<AxisReading> {
+        [
+            PressureAxis::Cpu,
+            PressureAxis::Memory,
+            PressureAxis::Io,
+            PressureAxis::Gpu,
+            PressureAxis::HumanAttention,
+            PressureAxis::Cost,
+        ]
+        .into_iter()
+        .map(|a| AxisReading::new(a, v))
+        .collect()
+    }
+
+    #[test]
+    fn from_readings_builds_validated_snapshot() {
+        let s = PressureSnapshot::from_readings("2026-06-09T12:00:00Z", six_readings(0.5)).unwrap();
+        assert_eq!(s.captured_at, "2026-06-09T12:00:00Z");
+        assert!((s.mean() - 0.5).abs() < 1e-6);
+        assert!(!s.any_overloaded());
+    }
+
+    #[test]
+    fn from_readings_rejects_out_of_range() {
+        let mut r = six_readings(0.1);
+        r[1] = AxisReading::new(PressureAxis::Memory, 1.5); // PSI > 1.0
+        assert!(matches!(
+            PressureSnapshot::from_readings("t", r).unwrap_err(),
+            PressureError::ValueOutOfRange {
+                axis: PressureAxis::Memory,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn from_readings_rejects_wrong_count() {
+        let mut r = six_readings(0.1);
+        r.pop();
+        assert!(matches!(
+            PressureSnapshot::from_readings("t", r).unwrap_err(),
+            PressureError::ReadingCountInvalid(5)
+        ));
+    }
+
+    #[test]
+    fn update_axis_validates_and_preserves_invariant() {
+        let mut s = PressureSnapshot::free_canonical();
+        // A live memory-pressure sample lands on the Memory axis.
+        s.update_axis(PressureAxis::Memory, 0.95).unwrap();
+        assert_eq!(s.reading_of(PressureAxis::Memory), Some(0.95));
+        assert!(s.any_overloaded());
+        assert_eq!(s.max(), Some((PressureAxis::Memory, 0.95)));
+        // Invariant survives the live update.
+        s.validate().unwrap();
+        // Out-of-range and non-finite are rejected, leaving state untouched.
+        assert!(s.update_axis(PressureAxis::Cpu, 2.0).is_err());
+        assert!(s.update_axis(PressureAxis::Cpu, f32::NAN).is_err());
+        assert_eq!(s.reading_of(PressureAxis::Cpu), Some(0.0));
     }
 }
