@@ -150,10 +150,35 @@ def classify_trend(prior_avg: float | None, last_avg: float | None,
     return "stable"
 
 
+def normalize_window_size(cfg: dict) -> tuple[int, str | None]:
+    """Return (window_size, warning). A window_size < 1 or non-numeric
+    value (an operator overlay typo) would otherwise either crash
+    derive_trends (`int("five")` → ValueError) or make its
+    `len(history) < 2*n` guard vacuous — degenerating every window to
+    empty so every signal silently reports "no-data", disabling the
+    climbing-heat detection this watcher exists to provide. Clamp to the
+    default and return a warning so the misconfig surfaces instead of
+    silently neutering a safety watcher (clamp-and-warn, mirroring
+    power-status.py's out-of-range threshold handling — a recurrent
+    safety watcher must keep running, never refuse to start)."""
+    raw = cfg.get("window_size", DEFAULTS["window_size"])
+    try:
+        n = int(raw)
+    except (TypeError, ValueError):
+        n = 0
+    if n < 1:
+        return int(DEFAULTS["window_size"]), (
+            f"window_size={raw!r} is invalid (must be a positive integer); "
+            f"using default {DEFAULTS['window_size']} — trend detection would "
+            f"otherwise be silently disabled"
+        )
+    return n, None
+
+
 def derive_trends(history: list[dict], cfg: dict) -> dict[str, Any]:
     """Walk history, split into last-N and prior-N windows per signal,
     classify each signal's trend."""
-    n = int(cfg["window_size"])
+    n, _ = normalize_window_size(cfg)
     signals = ["wattage_w", "cpu_temp_c", "gpu_temp_c"]
     out: dict[str, Any] = {}
     if len(history) < 2 * n:
@@ -258,11 +283,13 @@ def build_tick(overlay_path: Path | None) -> dict[str, Any]:
     history = load_history(state_path)
     trends = derive_trends(history, cfg)
     verdict, rc = aggregate_verdict(trends)
+    _, ws_warn = normalize_window_size(cfg)
     row["trends"] = trends
     row["verdict"] = verdict
     row["rc"] = rc
     row["history_count"] = len(history)
     row["config"] = cfg
+    row["config_warnings"] = [ws_warn] if ws_warn else []
     row["overlay"] = meta
     return row
 
@@ -273,6 +300,10 @@ def render_human(doc: dict) -> str:
              f"  history count:  {doc['history_count']}",
              f"  verdict:        {doc['verdict']} (rc={doc['rc']})",
              ""]
+    for w in (doc.get("config_warnings") or []):
+        lines.append(f"  ⚠ config:       {w}")
+    if doc.get("config_warnings"):
+        lines.append("")
     lines.append("  current signals:")
     for s, v in doc["signals"].items():
         lines.append(f"    {s:>12s}: {v}")
@@ -352,6 +383,8 @@ def main(argv: list[str] | None = None) -> int:
     # status
     trends = derive_trends(history, cfg)
     verdict, rc = aggregate_verdict(trends)
+    _, ws_warn = normalize_window_size(cfg)
+    config_warnings = [ws_warn] if ws_warn else []
     last = history[-1] if history else None
     if args.fmt == "json":
         print(json.dumps({
@@ -364,6 +397,7 @@ def main(argv: list[str] | None = None) -> int:
             "trends": trends,
             "verdict": verdict,
             "rc": rc,
+            "config_warnings": config_warnings,
             "overlay": cfg_meta,
         }, indent=2))
     else:
@@ -378,6 +412,7 @@ def main(argv: list[str] | None = None) -> int:
         last["verdict"] = verdict
         last["rc"] = rc
         last["history_count"] = len(history)
+        last["config_warnings"] = config_warnings
         print(render_human(last), end="")
     return rc
 

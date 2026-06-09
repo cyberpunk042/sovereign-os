@@ -186,4 +186,56 @@ assert d['round'] == 'R316'
 rm -f "${cfg}" "${state}"
 pass "10. sovereign-osctl wattage-heat-trend dispatches"
 
+# ── 11. invalid window_size clamps + warns (never silently disabled) ──
+python3 -c "
+import importlib.util
+spec = importlib.util.spec_from_file_location('w', 'scripts/hardware/wattage-heat-trend-watcher.py')
+m = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(m)
+default = m.DEFAULTS['window_size']
+# window_size = 0 → clamp to default + warning (the vacuous-guard case
+# that would otherwise make every signal silently report no-data).
+n, warn = m.normalize_window_size({'window_size': 0})
+assert n == default, n
+assert warn and 'window_size' in warn, warn
+# negative likewise.
+n, warn = m.normalize_window_size({'window_size': -3})
+assert n == default and warn, (n, warn)
+# non-numeric (TOML typo window_size = \"five\") → clamp, no crash.
+n, warn = m.normalize_window_size({'window_size': 'five'})
+assert n == default and warn, (n, warn)
+# a valid positive window passes through untouched, no warning.
+n, warn = m.normalize_window_size({'window_size': 3})
+assert n == 3 and warn is None, (n, warn)
+# derive_trends must NOT crash on a bad window and must still classify
+# (using the clamped window) rather than degenerate to all-empty.
+cfg = dict(m.DEFAULTS); cfg['window_size'] = 0
+history = [{'signals': {'wattage_w': 100 + i, 'cpu_temp_c': 50, 'gpu_temp_c': 60}}
+           for i in range(12)]
+trends = m.derive_trends(history, cfg)
+for s in ('wattage_w', 'cpu_temp_c', 'gpu_temp_c'):
+    assert s in trends, s
+    assert trends[s]['trend'] != 'no-data', (s, trends[s])
+print('PASS')
+" || fail "window_size clamp+warn"
+pass "11. invalid window_size clamps to default + warns (safety watcher not silently disabled)"
+
+# ── 12. CLI tick surfaces config_warnings for a bad window_size ──
+state=$(mktemp -u)
+cfg=$(mktemp --suffix=.toml)
+cat > "${cfg}" <<TOML
+state_path = "${state}"
+window_size = 0
+TOML
+out_w="$(python3 "${SCRIPT}" tick --config "${cfg}" --json || true)"
+echo "${out_w}" | python3 -c "
+import json, sys
+d = json.loads(sys.stdin.read())
+assert 'config_warnings' in d, 'missing config_warnings key'
+assert d['config_warnings'], 'expected a warning for window_size=0'
+assert any('window_size' in w for w in d['config_warnings']), d['config_warnings']
+" || fail "config_warnings surfaced"
+rm -f "${cfg}" "${state}"
+pass "12. tick surfaces config_warnings when window_size is invalid"
+
 echo "ALL OK"
