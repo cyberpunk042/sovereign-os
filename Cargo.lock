@@ -4262,6 +4262,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-continuous-batch"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-paged-kv",
+]
+
+[[package]]
 name = "sovereign-control-word"
 version = "0.1.0"
 dependencies = [
