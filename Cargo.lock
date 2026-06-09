@@ -291,6 +291,7 @@ dependencies = [
  "sovereign-llm",
  "sovereign-rmsnorm",
  "sovereign-sampler",
+ "sovereign-stop-sequence",
  "sovereign-tokenizer",
  "sovereign-transformer-block",
  "thiserror",

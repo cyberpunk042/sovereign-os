@@ -17,6 +17,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 sovereign-llm = { path = "../sovereign-llm" }
+sovereign-stop-sequence = { path = "../sovereign-stop-sequence" }
 
 [dev-dependencies]
 sovereign-tokenizer = { path = "../sovereign-tokenizer" }

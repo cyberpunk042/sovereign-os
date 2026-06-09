@@ -28,6 +28,7 @@
 
 use serde::{Deserialize, Serialize};
 use sovereign_llm::{LlmError, SovereignLlm};
+use sovereign_stop_sequence::StopSequences;
 use thiserror::Error;
 
 /// Schema version of the chat surface.
@@ -153,11 +154,13 @@ pub struct ChatSession {
     conversation: Conversation,
     max_new: usize,
     max_turns: Option<usize>,
+    stops: StopSequences,
 }
 
 impl ChatSession {
     /// Start a session with an optional system message and a per-reply token
-    /// budget.
+    /// budget. By default the reply is cut at `"\nUser:"` (the next-turn cue)
+    /// if it appears, so the model can't role-play the user.
     pub fn new(llm: SovereignLlm, system: Option<&str>, max_new: usize) -> Self {
         let conversation = match system {
             Some(s) => Conversation::with_system(s),
@@ -168,12 +171,19 @@ impl ChatSession {
             conversation,
             max_new,
             max_turns: None,
+            stops: StopSequences::from(["\nUser:", "\nSystem:"]),
         }
     }
 
     /// Bound the retained history to `max_turns` non-system messages.
     pub fn with_max_turns(mut self, max_turns: usize) -> Self {
         self.max_turns = Some(max_turns);
+        self
+    }
+
+    /// Replace the stop sequences that truncate each reply.
+    pub fn with_stops(mut self, stops: StopSequences) -> Self {
+        self.stops = stops;
         self
     }
 
@@ -190,7 +200,9 @@ impl ChatSession {
             self.conversation.trim_to(max);
         }
         let prompt = self.conversation.render_prompt();
-        let reply = self.llm.complete(&prompt, self.max_new, seed)?;
+        let full = self.llm.complete(&prompt, self.max_new, seed)?;
+        // cut the reply at the first stop sequence (e.g. the next-turn cue)
+        let reply = self.stops.cut(&full).to_string();
         self.conversation.push(Role::Assistant, reply.clone());
         if let Some(max) = self.max_turns {
             self.conversation.trim_to(max);
@@ -317,6 +329,24 @@ mod tests {
         assert_eq!(c.messages.len(), 3); // system + 2
         assert_eq!(c.messages[1].content, "u4");
         assert_eq!(c.messages[2].content, "u5");
+    }
+
+    #[test]
+    fn replies_are_cut_at_stop_sequences() {
+        use sovereign_stop_sequence::StopSequences;
+        // Force a stop the reply will contain: with a 1-token reply over the
+        // default byte vocab the reply is a single char; instead set a stop of
+        // the empty-ish guarantee by using a permissive runtime and a stop on a
+        // common char. We assert the recorded reply never contains the stop.
+        let mut s =
+            ChatSession::new(runtime(), Some("sys"), 12).with_stops(StopSequences::from(["a"]));
+        let reply = s.say("hello", 5).unwrap();
+        assert!(
+            !reply.contains('a'),
+            "reply {reply:?} should be cut before any 'a'"
+        );
+        // and the recorded assistant message equals the cut reply
+        assert_eq!(s.history().messages.last().unwrap().content, reply);
     }
 
     #[test]
