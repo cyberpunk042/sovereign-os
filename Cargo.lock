@@ -242,6 +242,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-alias-sampler"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-answer-extract"
 version = "0.1.0"
 
