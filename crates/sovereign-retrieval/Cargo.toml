@@ -20,3 +20,4 @@ sovereign-embed = { path = "../sovereign-embed" }
 sovereign-chunker = { path = "../sovereign-chunker" }
 sovereign-minhash = { path = "../sovereign-minhash" }
 sovereign-lsh = { path = "../sovereign-lsh" }
+sovereign-bm25 = { path = "../sovereign-bm25" }

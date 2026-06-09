@@ -211,6 +211,65 @@ impl Retriever for EmbedStore {
     }
 }
 
+/// A BM25-ranked document store: the same add/retrieve surface as [`DocStore`]
+/// but scored with Okapi [`BM25`](sovereign_bm25) — IDF-weighted, tf-saturating,
+/// length-normalized — instead of raw term overlap. A stronger lexical backend
+/// for [`RagResponder`]; it keeps the document texts alongside the BM25 index so
+/// it can return them as context.
+#[derive(Debug, Clone, Default)]
+pub struct Bm25Store {
+    index: sovereign_bm25::Bm25,
+    texts: Vec<(String, String)>,
+}
+
+impl Bm25Store {
+    /// An empty store with the default BM25 parameters.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Add a document under `id`.
+    pub fn add(&mut self, id: impl Into<String>, text: impl Into<String>) {
+        let id = id.into();
+        let text = text.into();
+        self.index.add(id.clone(), &text);
+        self.texts.push((id, text));
+    }
+
+    /// Number of documents.
+    pub fn len(&self) -> usize {
+        self.texts.len()
+    }
+
+    /// Whether the store is empty.
+    pub fn is_empty(&self) -> bool {
+        self.texts.is_empty()
+    }
+
+    /// Retrieve the top-`k` `(id, text, score)` documents for `query` by BM25.
+    pub fn retrieve(&self, query: &str, k: usize) -> Vec<(String, String, f64)> {
+        self.index
+            .search(query, k)
+            .into_iter()
+            .filter_map(|hit| {
+                self.texts
+                    .iter()
+                    .find(|(id, _)| *id == hit.id)
+                    .map(|(id, text)| (id.clone(), text.clone(), hit.score))
+            })
+            .collect()
+    }
+}
+
+impl Retriever for Bm25Store {
+    fn retrieve_context(&self, query: &str, k: usize) -> Vec<String> {
+        self.retrieve(query, k)
+            .into_iter()
+            .map(|(_, text, _)| text)
+            .collect()
+    }
+}
+
 /// A [`Responder`] that grounds another responder in retrieved context. Works
 /// with any [`Retriever`] — the lexical [`DocStore`] or the embedding-backed
 /// [`EmbedStore`].
@@ -417,6 +476,31 @@ mod tests {
         // both distinct topics survive
         assert!(!s.retrieve("ownership memory", 1).is_empty());
         assert!(!s.retrieve("photosynthesis glucose", 1).is_empty());
+    }
+
+    #[test]
+    fn bm25_store_retrieves_and_drives_rag() {
+        let mut bm = Bm25Store::new();
+        bm.add(
+            "rust",
+            "Rust gives memory safety through ownership and borrowing",
+        );
+        bm.add("python", "Python is a dynamically typed scripting language");
+        bm.add("pasta", "boil the pasta then add tomato sauce and basil");
+        assert_eq!(bm.len(), 3);
+        // a lexical query pulls the rust doc
+        let hits = bm.retrieve("rust memory ownership", 2);
+        assert_eq!(hits[0].0, "rust");
+        assert!(hits[0].2 > 0.0);
+
+        // and it works as a RagResponder backend
+        let seen = Rc::new(RefCell::new(Vec::new()));
+        let inner = Capture { seen: seen.clone() };
+        let mut rag = RagResponder::new(inner, bm, 1);
+        rag.respond("rust memory safety", 0).unwrap();
+        let prompts = seen.borrow();
+        assert!(prompts[0].starts_with("Context:\n"));
+        assert!(prompts[0].contains("Rust gives memory safety"));
     }
 
     #[test]

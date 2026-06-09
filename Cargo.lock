@@ -5223,6 +5223,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sovereign-agent-loop",
+ "sovereign-bm25",
  "sovereign-chunker",
  "sovereign-embed",
  "sovereign-lsh",
