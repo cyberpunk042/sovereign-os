@@ -208,6 +208,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-bitlinear-core"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "sovereign-cgroup-systemd"
 version = "0.1.0"
 dependencies = [
