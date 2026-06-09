@@ -12,6 +12,23 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — `sovereign-chat` is runnable: multi-turn conversation with bounded history (2026-06-09)
+
+`sovereign-chat` composes `sovereign-llm` into a stateful chat session (record
+the turn → render the role-tagged history → generate → append) with **bounded
+history** for endless dialogue, but was lib-only. Added a `[[bin]]` + demo (the
+workspace's 8th runnable binary) that runs a session on a small real
+`SovereignLlm` and shows the distinct behaviour — the history grows to the cap
+(system + 4 non-system messages) then **stays bounded** as the dialogue
+continues, the earliest turns dropped while the system message is always kept.
+
+The 6 model crates moved from dev-dependencies to dependencies (no new
+workspace crates; Cargo.lock unchanged). `--help` supported. `fmt` +
+`clippy -D warnings` clean on pinned 1.88.0; the 8 lib tests still pass. This
+completes the runnable set of the four distinct decision/execution paths over
+the runtime: routing (`gatewayd`), cost (`serve`), agent (`agent-runtime`),
+conversation (`chat`).
+
 ### Added — `sovereign-agent-runtime` is runnable: a tool-using ReAct agent on the real engine (2026-06-09)
 
 `sovereign-agent-runtime` bridges the real quantized inference engine
