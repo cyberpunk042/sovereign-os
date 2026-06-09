@@ -5890,6 +5890,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-weighted-reservoir"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-wer"
 version = "0.1.0"
 dependencies = [
