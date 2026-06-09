@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-levenshtein-automaton"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Levenshtein automaton for fast fuzzy matching: recognizes every string within edit distance k of a pattern by simulating the nondeterministic Levenshtein NFA over position sets, with incremental character stepping so it can be driven down a trie or dictionary and pruned the moment no match remains reachable. The matching engine behind fuzzy search (as in Lucene/Tantivy) — distinct from a pairwise edit-distance DP or a BK-tree."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
