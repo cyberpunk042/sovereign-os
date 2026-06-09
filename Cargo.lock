@@ -5714,6 +5714,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-segment-tree"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-self-consistency"
 version = "0.1.0"
 dependencies = [
