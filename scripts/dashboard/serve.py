@@ -1719,7 +1719,29 @@ def render_html(cards: list[dict[str, Any]]) -> str:
 
 
 def gather_all() -> list[dict[str, Any]]:
-    return [c() for c in CARDS]
+    # Isolate per-card failures. The dashboard is the operator's single-pane
+    # cockpit and every card already degrades honestly when ITS subsystem is
+    # down (scheduler → WEDGED, health → default fallback, …). But this
+    # aggregator had no isolation: a card that *raises* (e.g. a subprocess
+    # emitting an unexpected shape the card's post-processing doesn't fully
+    # guard) would take down the WHOLE page and /api/health, not just itself.
+    # Catch per card and substitute an explicit error card so one failing
+    # subsystem can never blank the entire cockpit.
+    out: list[dict[str, Any]] = []
+    for c in CARDS:
+        card_id = c.__name__.removeprefix("card_")
+        try:
+            out.append(c())
+        except Exception as e:  # noqa: BLE001 — cockpit must survive any one card
+            out.append({
+                "id": card_id,
+                "title": f"{card_id} (error)",
+                "data": {
+                    "error": f"{type(e).__name__}: {e}",
+                    "card_failed": True,
+                },
+            })
+    return out
 
 
 # ── R289 (E4.M9): dashboard editable forms for module configuration ──
@@ -2200,7 +2222,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
         for c in CARDS:
             card_id = c.__name__.removeprefix("card_")
             if path == f"/api/{card_id}":
-                self._send_json(c())
+                try:
+                    self._send_json(c())
+                except Exception as e:  # noqa: BLE001 — return a clean error, not a broken socket
+                    self._send_json(
+                        {
+                            "id": card_id,
+                            "error": f"{type(e).__name__}: {e}",
+                            "card_failed": True,
+                            "round": "R225",
+                        },
+                        status=500,
+                    )
                 return
         self._send_json(
             {"error": "not found", "path": path, "round": "R225"},
