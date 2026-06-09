@@ -81,6 +81,23 @@ impl DocStore {
         });
     }
 
+    /// Ingest a long document by chunking it (sentence-aware, with overlap) and
+    /// adding each chunk under the id `{id_prefix}#{i}`. Returns the number of
+    /// chunks added. Composes [`sovereign-chunker`](sovereign_chunker).
+    pub fn add_document(
+        &mut self,
+        id_prefix: &str,
+        text: &str,
+        target_chars: usize,
+        overlap_chars: usize,
+    ) -> usize {
+        let chunks = sovereign_chunker::chunk(text, target_chars, overlap_chars);
+        for (i, c) in chunks.iter().enumerate() {
+            self.add(format!("{id_prefix}#{i}"), c.clone());
+        }
+        chunks.len()
+    }
+
     /// Number of documents.
     pub fn len(&self) -> usize {
         self.docs.len()
@@ -325,6 +342,21 @@ mod tests {
         let j = serde_json::to_string(&s).unwrap();
         let back: DocStore = serde_json::from_str(&j).unwrap();
         assert_eq!(s, back);
+    }
+
+    #[test]
+    fn add_document_chunks_and_retrieves() {
+        let mut s = DocStore::new();
+        let doc = "Rust has ownership. Ownership governs memory. \
+                   Pasta needs tomato. Tomato is a fruit.";
+        let n = s.add_document("doc", doc, 30, 0);
+        assert!(n >= 2, "expected multiple chunks, got {n}");
+        assert_eq!(s.len(), n);
+        // chunk ids are prefixed
+        assert!(s.retrieve("ownership memory", 1)[0].id.starts_with("doc#"));
+        // a query retrieves the relevant chunk, not the pasta one
+        let hit = &s.retrieve("rust ownership", 1)[0];
+        assert!(hit.text.to_lowercase().contains("ownership"));
     }
 
     #[test]
