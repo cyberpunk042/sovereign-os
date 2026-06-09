@@ -3999,6 +3999,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-codegen-pipeline"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sovereign-cognitive-compiler"
 version = "0.1.0"
 dependencies = [
