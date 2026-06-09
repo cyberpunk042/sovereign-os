@@ -1,0 +1,74 @@
+# sovereign-telemetry Prometheus alerting rules.
+#
+# These alerts fire on the textfile metrics the `sovereign-telemetry`
+# probe emits via `sovereign-telemetry --prometheus` written to
+# node_exporter's textfile_collector (M045 E0430 sensing / M013
+# observability-as-control-input). The probe samples real hardware:
+#
+#   sovereign_pressure_axis{axis}           PSI stall 0..1 per axis (E0430)
+#   sovereign_load_util_pct{target}         compute util% per target
+#   sovereign_load_vram_used_gb{target}     VRAM used per target
+#   sovereign_thermal_verdict{target,verdict}  live thermal verdict (1)
+#   sovereign_thermal_any_shutdown          1 if any target in Shutdown
+#   sovereign_adaptive_reaction_active{trigger}  fired E0431 reaction (1)
+#   sovereign_telemetry_valid{kind}         1 when the snapshot validated
+#
+# Drop into the Prometheus rule_files config:
+#   rule_files:
+#     - /etc/prometheus/alerts/sovereign-telemetry.rules.yml
+groups:
+  - name: sovereign-telemetry
+    rules:
+      # A target crossed its thermal-policy Shutdown threshold — the
+      # thermal-aware dispatcher must stop scheduling onto it NOW.
+      - alert: SovereignTelemetryThermalShutdown
+        expr: sovereign_thermal_any_shutdown > 0
+        for: 1m
+        labels:
+          severity: critical
+          subsystem: telemetry
+        annotations:
+          summary: "sovereign-telemetry: a hardware target is in thermal SHUTDOWN on {{ $labels.instance }}"
+          description: >
+            sovereign_thermal_any_shutdown is 1 — at least one target's
+            temperature crossed its thermal-policy shutdown threshold. The
+            scheduler should already be refusing dispatch onto it; investigate
+            cooling / load before thermal damage. Check
+            sovereign_thermal_verdict{verdict="shutdown"} for the target.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereigntelemetrythermalshutdown-critical"
+
+      # Sustained high PSI pressure on a system resource (cpu/memory/io) —
+      # E0431 adaptive reactions should be firing; surface it to the operator.
+      - alert: SovereignTelemetryHighSystemPressure
+        expr: sovereign_pressure_axis{axis=~"cpu|memory|io"} >= 0.8
+        for: 5m
+        labels:
+          severity: warning
+          subsystem: telemetry
+        annotations:
+          summary: "sovereign-telemetry: sustained high {{ $labels.axis }} pressure on {{ $labels.instance }}"
+          description: >
+            PSI {{ $labels.axis }} stall fraction has held at or above 0.8 for
+            5m — the kernel stalled on this resource most of the window. The
+            E0431 adaptive reaction for this axis should be active (see
+            sovereign_adaptive_reaction_active); if pressure persists, reduce
+            load (branch width, batch size, cold scans) per the reaction.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereigntelemetryhighsystempressure-warning"
+
+      # The probe is emitting snapshots that fail their own validation —
+      # the telemetry contract is broken and downstream decisions are suspect.
+      - alert: SovereignTelemetryInvalidSnapshot
+        expr: sovereign_telemetry_valid < 1
+        for: 5m
+        labels:
+          severity: warning
+          subsystem: telemetry
+        annotations:
+          summary: "sovereign-telemetry: {{ $labels.kind }} snapshot failing validation on {{ $labels.instance }}"
+          description: >
+            sovereign_telemetry_valid{kind="{{ $labels.kind }}"} is 0 — the
+            probe produced a snapshot that did not pass its canonical invariants
+            (axis/target count, ranges, registry capacity). Decisions derived
+            from it (thermal verdicts, adaptive reactions) are untrustworthy.
+            Check the probe host and sovereign-telemetry version.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereigntelemetryinvalidsnapshot-warning"
