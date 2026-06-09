@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-dag-schedule"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Dependency-graph scheduling for tasks and tool calls: Kahn topological ordering with cycle detection, parallel-wave levelling (which tasks may run concurrently), and weighted critical-path / makespan analysis. Turns a DAG of 'X must finish before Y' constraints into a runnable plan — the ordering layer for agent task graphs and tool pipelines. Distinct from ranking or shortest-path graph algorithms."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
