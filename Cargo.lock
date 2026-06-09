@@ -4854,6 +4854,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-logprobs"
+version = "0.1.0"
+
+[[package]]
 name = "sovereign-lora-foundry"
 version = "0.1.0"
 dependencies = [
