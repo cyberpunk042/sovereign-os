@@ -37,7 +37,7 @@ pub struct SlotSpec {
     /// Maximum electrical lane width when not contended.
     pub max_lanes: u8,
     /// PCIe generation.
-    pub gen: u8,
+    pub pcie_gen: u8,
     /// If populating this slot contends with another, which one (E0027).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub shares_with: Option<PcieSlot>,
@@ -47,12 +47,12 @@ pub struct SlotSpec {
 #[must_use]
 pub fn slot_map() -> [SlotSpec; 6] {
     [
-        SlotSpec { slot: PcieSlot::X16_1, max_lanes: 16, gen: 5, shares_with: None },
-        SlotSpec { slot: PcieSlot::X16_2, max_lanes: 8, gen: 5, shares_with: Some(PcieSlot::M2_2) },
-        SlotSpec { slot: PcieSlot::M2_1, max_lanes: 4, gen: 5, shares_with: None },
-        SlotSpec { slot: PcieSlot::M2_2, max_lanes: 4, gen: 5, shares_with: Some(PcieSlot::X16_2) },
-        SlotSpec { slot: PcieSlot::M2_3, max_lanes: 4, gen: 4, shares_with: None },
-        SlotSpec { slot: PcieSlot::M2_4, max_lanes: 4, gen: 4, shares_with: None },
+        SlotSpec { slot: PcieSlot::X16_1, max_lanes: 16, pcie_gen: 5, shares_with: None },
+        SlotSpec { slot: PcieSlot::X16_2, max_lanes: 8, pcie_gen: 5, shares_with: Some(PcieSlot::M2_2) },
+        SlotSpec { slot: PcieSlot::M2_1, max_lanes: 4, pcie_gen: 5, shares_with: None },
+        SlotSpec { slot: PcieSlot::M2_2, max_lanes: 4, pcie_gen: 5, shares_with: Some(PcieSlot::X16_2) },
+        SlotSpec { slot: PcieSlot::M2_3, max_lanes: 4, pcie_gen: 4, shares_with: None },
+        SlotSpec { slot: PcieSlot::M2_4, max_lanes: 4, pcie_gen: 4, shares_with: None },
     ]
 }
 
@@ -153,9 +153,10 @@ mod tests {
             place(PcieSlot::X16_2, "rocm-3090"),
             place(PcieSlot::M2_2, "nvme-extra"), // the trap
         ];
+        // X16_2 is iterated first, so it's the one whose share-conflict trips.
         assert_eq!(
             validate(&bad),
-            Err(PcieError::LaneSharingConflict(PcieSlot::M2_2, PcieSlot::X16_2))
+            Err(PcieError::LaneSharingConflict(PcieSlot::X16_2, PcieSlot::M2_2))
         );
     }
 
