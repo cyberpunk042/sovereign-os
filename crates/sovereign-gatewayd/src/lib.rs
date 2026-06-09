@@ -70,10 +70,27 @@ pub struct SimpleRequest {
     pub expected_quality: f32,
 }
 
+/// Fill-in defaults for [`SimpleRequest::into_cortex`], collected here so the
+/// operator can review and tune the simple-request policy in one place (see the
+/// CHANGELOG review note). All are deliberately conservative.
+pub mod simple_defaults {
+    /// Context window assumed for a simple request.
+    pub const CONTEXT_TOKENS: u32 = 4096;
+    /// No hard VRAM floor — don't over-constrain placement (the role drives it).
+    pub const MIN_VRAM_GB: u16 = 0;
+    /// Memory-recall freshness half-life.
+    pub const HALF_LIFE: u64 = 64;
+    /// Model size used only for the footprint estimate.
+    pub const MODEL_PARAMS: u64 = 7_000_000_000;
+    /// Value-plane critic profile when the client doesn't specify one.
+    pub const PROFILE: &str = "careful";
+}
+
 impl SimpleRequest {
     /// Map to a full [`CortexRequest`], filling runtime-state defaults (idle,
     /// local-only) and deriving the workload + reward from the task + quality.
     pub fn into_cortex(self) -> CortexRequest {
+        use simple_defaults as d;
         let quality = self.expected_quality.clamp(0.0, 1.0);
         // Workload class + precision follow the task's complexity (the same
         // split the 7-axis router uses): simple → CPU-side, complex → GPU-side.
@@ -86,10 +103,8 @@ impl SimpleRequest {
             workload: Workload {
                 class,
                 precision,
-                context_tokens: 4096,
-                // No hard VRAM floor — don't over-constrain placement; the role
-                // (from the axes) drives where the work lands.
-                min_vram_gb: 0,
+                context_tokens: d::CONTEXT_TOKENS,
+                min_vram_gb: d::MIN_VRAM_GB,
             },
             // No live telemetry → assume capacity is free on every role.
             conductor: RolePressure::free(),
@@ -99,11 +114,10 @@ impl SimpleRequest {
             query_topic: self.query_topic,
             query_entity: 0,
             now: 0,
-            half_life: 64,
+            half_life: d::HALF_LIFE,
             reward: reward_from_quality(quality),
-            profile: self.profile.unwrap_or_else(|| "careful".into()),
-            // Footprint estimate only; a mid-size default.
-            model_params: 7_000_000_000,
+            profile: self.profile.unwrap_or_else(|| d::PROFILE.into()),
+            model_params: d::MODEL_PARAMS,
             available_adapters: Vec::new(),
             stacking_supported: false,
             query_embedding: Vec::new(),
