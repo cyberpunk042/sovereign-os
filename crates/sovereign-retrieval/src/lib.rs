@@ -438,6 +438,92 @@ impl Retriever for HybridStore {
     }
 }
 
+/// An **approximate-nearest-neighbour** semantic store: documents are embedded
+/// and indexed in an [HNSW](sovereign_hnsw) graph, so retrieval is sub-linear in
+/// the corpus size instead of the brute-force cosine scan of [`EmbedStore`].
+///
+/// The embedding-backed `EmbedStore` compares the query to *every* document; that
+/// is fine for a handful of docs but scales linearly. HNSW (Hierarchical
+/// Navigable Small World) builds a navigable graph that finds the nearest
+/// neighbours in roughly logarithmic time at high recall — the standard index for
+/// scalable semantic search. This store embeds with [`sovereign-embed`] and
+/// indexes with cosine distance; [`add`](Self::add) inserts, [`retrieve`](Self::retrieve)
+/// returns the approximate top-k `(id, text, distance)`. Implements [`Retriever`],
+/// so it drops into [`RagResponder`] like the exact stores.
+#[derive(Debug, Clone)]
+pub struct AnnStore {
+    index: sovereign_hnsw::Hnsw,
+    /// `(id, text)` aligned with the HNSW insertion index.
+    docs: Vec<(String, String)>,
+}
+
+impl Default for AnnStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl AnnStore {
+    /// An empty ANN store using cosine distance over the default embedding.
+    pub fn new() -> Self {
+        Self {
+            index: sovereign_hnsw::Hnsw::new(sovereign_hnsw::HnswConfig {
+                metric: sovereign_hnsw::Metric::Cosine,
+                ..Default::default()
+            }),
+            docs: Vec::new(),
+        }
+    }
+
+    /// Embed and index a document under `id`. The HNSW node index stays aligned
+    /// with `docs` (both grow by one on a successful insert).
+    pub fn add(&mut self, id: impl Into<String>, text: impl Into<String>) {
+        let id = id.into();
+        let text = text.into();
+        let vector = sovereign_embed::embed(&text);
+        if self.index.insert(&vector).is_ok() {
+            self.docs.push((id, text));
+        }
+    }
+
+    /// Number of indexed documents.
+    pub fn len(&self) -> usize {
+        self.docs.len()
+    }
+
+    /// Whether the store is empty.
+    pub fn is_empty(&self) -> bool {
+        self.docs.is_empty()
+    }
+
+    /// Approximate top-`k` `(id, text, distance)` for `query` by cosine distance
+    /// (lower is nearer), found via the HNSW graph.
+    pub fn retrieve(&self, query: &str, k: usize) -> Vec<(String, String, f32)> {
+        if self.docs.is_empty() || k == 0 {
+            return Vec::new();
+        }
+        let q = sovereign_embed::embed(query);
+        self.index
+            .search(&q, k)
+            .into_iter()
+            .filter_map(|n| {
+                self.docs
+                    .get(n.index)
+                    .map(|(id, text)| (id.clone(), text.clone(), n.distance))
+            })
+            .collect()
+    }
+}
+
+impl Retriever for AnnStore {
+    fn retrieve_context(&self, query: &str, k: usize) -> Vec<String> {
+        self.retrieve(query, k)
+            .into_iter()
+            .map(|(_, text, _)| text)
+            .collect()
+    }
+}
+
 /// Wraps any [`Retriever`] with a second-stage **reranker**: it pulls a *wider*
 /// pool from the inner retriever, then rescores that pool for precision with
 /// [`sovereign-rerank`](sovereign_rerank)'s coverage ranking — the fraction of
@@ -1040,6 +1126,41 @@ mod tests {
         // the grounded prompt carries the clean doc, not the injection
         assert!(prompts[0].contains("orchestrates containers"));
         assert!(!prompts[0].contains("disregard all previous"));
+    }
+
+    #[test]
+    fn ann_store_retrieves_the_nearest_document() {
+        let mut s = AnnStore::new();
+        s.add("rust", "rust ownership governs memory safety");
+        s.add("python", "python is a dynamically typed scripting language");
+        s.add("cook", "pasta with tomato sauce and basil");
+        assert_eq!(s.len(), 3);
+        // a rust-flavored query finds the rust doc as the nearest neighbour
+        let hits = s.retrieve("rust memory ownership", 1);
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].0, "rust", "ANN hits {hits:?}");
+    }
+
+    #[test]
+    fn ann_store_empty_and_zero_k() {
+        assert!(AnnStore::new().retrieve("anything", 3).is_empty());
+        let mut s = AnnStore::new();
+        s.add("a", "some text here");
+        assert!(s.retrieve("text", 0).is_empty());
+    }
+
+    #[test]
+    fn ann_store_drives_rag() {
+        let mut s = AnnStore::new();
+        s.add("rust", "rust ownership and systems programming");
+        s.add("cook", "pasta tomato sauce recipe");
+        let seen = Rc::new(RefCell::new(Vec::new()));
+        let inner = Capture { seen: seen.clone() };
+        let mut rag = RagResponder::new(inner, s, 1);
+        rag.respond("rusty systems programs", 0).unwrap();
+        let prompts = seen.borrow();
+        assert!(prompts[0].starts_with("Context:\n"));
+        assert!(prompts[0].contains("rust ownership"));
     }
 
     #[test]
