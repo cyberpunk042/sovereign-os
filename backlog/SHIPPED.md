@@ -784,6 +784,23 @@ Plus `sovereign-worker-fleet` (`242744b`) — fleet health summary over the M002
 
 Pending (catalogued, not shipped): reconfig-detector (R14124-R14126; SDD-first per R14216).
 
+## M073 — 1-bit (ternary) logic + BitLinear Core (the compute substrate)
+
+**Catalogued:** 170 R-rows (R12071..R12240). See `backlog/milestones/M073-one-bit-ternary-logic-bitlinear-core.md`.
+
+**Shipped this milestone (the multiplication-free ternary FFN compute, composed + running):**
+
+| R-row family | Surface | Commits | Tests |
+|---|---|---|---|
+| F06051/F06052/F06059 — BitLinear FFN composition | `crates/sovereign-bitlinear-core/src/mlp.rs` `BitLinearMlp` — composes the ternary `BitLinearLayer` primitive into the transformer FFN block (`d_model→d_ff→d_model`, ReLU between layers), multiplication-free across the stack, bit-for-bit equal to a dense reference. Cortex Conductor self-check (`compute.rs::ternary_kernel_live`) runs a real 2-layer block. | `046083b` | 7 unit (bit-exact Base3+TwoBit, 3-layer deep stack, ReLU-gating, op-accounting, dim-chain reject, serde) |
+| F06043-F06045 — residual sublayer | `BitLinearMlp::forward_residual` — `y = x + block(x)`, the decoder's residual-wrapped FFN-sublayer shape; all-zero block = residual identity | `fa5cfb7` | 3 unit (residual exactness, zero-weight identity, non-square reject) |
+| F06051 (gated) — ternary SwiGLU | `crates/sovereign-bitlinear-core/src/swiglu.rs` `TernarySwiGlu` — `h = SiLU(W_gate·x) ⊙ (W_up·x)`, `out = W_down·h` with all three matmuls multiplication-free; the mul-free drop-in for the float SwiGLU the quant decoder block runs | `fb842b8` | 6 unit (bit-exact vs dense SwiGLU Base3+TwoBit, mul-free accounting, zero-weight residual identity, shape/serde) |
+| F06060-F06062 — packed-domain LUT forward (scalar foundation) | `BitLinearLayer::forward_packed` + block-level `BitLinearMlp`/`TernarySwiGlu::forward_packed` — single pass over the 2-bit packed codes (no `Vec<Trit>`), each `01`→add/`10`→sub/`00`→skip in place; the safe scalar form the AVX-512 LUT lane vectorizes. Conductor self-check verifies `forward_packed == forward`. | `ab7640c`, `393b924`, `3c6be8e` | 8 unit (packed==forward output+OpCount across layer/MLP/SwiGLU, TwoBit-only guard, input-mismatch) |
+
+Running evidence: `cargo run -p sovereign-inference-demo` executes a 3-layer mixed-precision stack (f32 · **ternary** · NVFP4-MHA) — the ternary BitLinear compute runs end-to-end in the assembled engine (`sovereign-linear` at `Precision::Ternary` wraps `BitLinearLayer`).
+
+Boundary (pending operator decision): the *actual* AVX-512 SIMD vectorization of `forward_packed` requires `unsafe` intrinsics, which the workspace forbids (`unsafe_code = "forbid"`, root `Cargo.toml`). The scalar packed-domain forward is the correct safe foundation; the SIMD lane is gated on relaxing that invariant for a vetted module.
+
 ## Other catalogued milestones — production-shipped state TBD
 
 The 80-milestone catalogue spans extremely broad territory (the avx-plus-plus dump's full scope across substrate, runtime, agent, operator-§1g, intelligence, persistence, observability). Many milestone-specific audit rows remain to map. The 475-crate workspace + 20-dashboard webapp tree + 40 script categories + 81 profile/schema files all carry production state that future audit cycles append per-milestone above.
