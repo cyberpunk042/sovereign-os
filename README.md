@@ -18,7 +18,7 @@ gives you a **Sovereign AI Node** — the architecture from the master
 spec at [`docs/src/sain-01-master-spec.md`](docs/src/sain-01-master-spec.md):
 
 > CPU: AMD Ryzen 9 9900X · Zen 5 · single-cycle 512-bit AVX-512.
-> GPUs: RTX PRO 6000 Blackwell (96GB) + RTX 3090 (24GB VFIO).
+> GPUs: RTX PRO 6000 Blackwell Max-Q (96GB, 300W) + RTX 4090 (24GB VFIO).
 > Storage: 2× NVMe PCIe 5.0 in ZFS RAID-0, tiered datasets.
 > Networking: 10GbE data + 2.5GbE mgmt, VLAN-asymmetric.
 > Software trinity: **Pulse** (Wasm-to-AVX-512 AOT + BitNet ternary)

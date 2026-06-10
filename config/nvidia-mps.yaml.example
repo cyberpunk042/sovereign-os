@@ -21,10 +21,10 @@ log_dir: /var/log/nvidia-mps   # MPS daemon log directory
 # nvidia-smi-visible GPUs.
 #
 # Operator's sain-01 has RTX PRO 6000 @ GPU index 0 (head) and
-# RTX 3090 @ GPU index 1 (tail). Common patterns:
-#   gpus: [0]        — MPS only on the PRO 6000 (3090 stays time-slicer)
+# RTX 4090 @ GPU index 1 (tail). Common patterns:
+#   gpus: [0]        — MPS only on the PRO 6000 (4090 stays time-slicer)
 #   gpus: [0, 1]     — MPS on both
-#   gpus: [1]        — MPS only on the 3090 (offload concurrent jobs)
+#   gpus: [1]        — MPS only on the 4090 (offload concurrent jobs)
 #
 # gpus: [0]
 
