@@ -97,7 +97,12 @@ else
   fi
 fi
 
-# Wait for the --once server to exit
+# Reap the server. The --once server only self-exits AFTER it serves a
+# request; if curl above failed to connect (slow bind / port race under CI
+# load), the server is still alive waiting for a request that never comes,
+# so a bare `wait` would block forever and the CI job gets cancelled at the
+# timeout. Kill-then-wait makes teardown hang-proof regardless.
+kill "${SRV_PID}" 2>/dev/null || true
 wait "${SRV_PID}" 2>/dev/null || true
 
 # ---- /api/health endpoint via a second --once invocation ----
@@ -165,6 +170,8 @@ PY
 else
   ko "second server failed to bind"
 fi
+# Hang-proof teardown (see the first --once server above).
+kill "${SRV_PID}" 2>/dev/null || true
 wait "${SRV_PID}" 2>/dev/null || true
 
 # ---- usage error: bad --bind ----
