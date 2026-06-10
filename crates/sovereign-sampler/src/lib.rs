@@ -29,6 +29,7 @@ use rand::Rng;
 use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use thiserror::Error;
 
 /// Schema version of the sampler surface.
@@ -65,6 +66,16 @@ pub struct SamplerConfig {
     pub typical_p: Option<f32>,
     /// Repetition penalty (`> 1.0` discourages recent tokens). Default `1.0`.
     pub repetition_penalty: f32,
+    /// OpenAI-style **presence penalty**: a flat amount subtracted from the
+    /// logit of any token that has appeared at all in `recent_tokens` (additive,
+    /// applied once regardless of count). Default `0.0`. Serde-defaulted.
+    #[serde(default)]
+    pub presence_penalty: f32,
+    /// OpenAI-style **frequency penalty**: an amount subtracted from a token's
+    /// logit **proportional to how many times** it appears in `recent_tokens`.
+    /// Default `0.0`. Serde-defaulted.
+    #[serde(default)]
+    pub frequency_penalty: f32,
 }
 
 impl Default for SamplerConfig {
@@ -76,6 +87,8 @@ impl Default for SamplerConfig {
             min_p: None,
             typical_p: None,
             repetition_penalty: 1.0,
+            presence_penalty: 0.0,
+            frequency_penalty: 0.0,
         }
     }
 }
@@ -142,6 +155,20 @@ impl Sampler {
             for &t in recent_tokens {
                 if let Some(x) = l.get_mut(t) {
                     *x = if *x > 0.0 { *x / penalty } else { *x * penalty };
+                }
+            }
+        }
+
+        // 1b. OpenAI presence/frequency penalties (additive, by occurrence count).
+        let (pp, fp) = (self.config.presence_penalty, self.config.frequency_penalty);
+        if pp != 0.0 || fp != 0.0 {
+            let mut counts: HashMap<usize, u32> = HashMap::new();
+            for &t in recent_tokens {
+                *counts.entry(t).or_insert(0) += 1;
+            }
+            for (t, c) in counts {
+                if let Some(x) = l.get_mut(t) {
+                    *x -= pp + fp * c as f32;
                 }
             }
         }
@@ -636,6 +663,8 @@ mod tests {
             min_p: Some(0.05),
             typical_p: Some(0.9),
             repetition_penalty: 1.1,
+            presence_penalty: 0.5,
+            frequency_penalty: 0.2,
         };
         let j = serde_json::to_string(&cfg).unwrap();
         let back: SamplerConfig = serde_json::from_str(&j).unwrap();
@@ -706,6 +735,48 @@ mod tests {
     fn mirostat_empty_support_is_none() {
         let mut m = Mirostat::new(3.0, 0.1);
         assert_eq!(m.sample(&[0.0, 0.0, 0.0], 0.5), None);
+    }
+
+    #[test]
+    fn presence_and_frequency_penalties_demote_recent_tokens() {
+        // Uniform logits; token 0 appears 3× and token 1 once in recent.
+        let logits = [1.0f32, 1.0, 1.0, 1.0];
+        let recent = [0usize, 0, 0, 1];
+
+        // Presence penalty: any seen token loses a flat amount once, so 0 and 1
+        // are demoted equally (count-independent), 2 and 3 untouched.
+        let pres = Sampler::new(SamplerConfig {
+            presence_penalty: 0.5,
+            ..SamplerConfig::default()
+        });
+        let d = pres.distribution(&logits, &recent).unwrap();
+        assert!((d[0] - d[1]).abs() < 1e-6, "presence is count-independent");
+        assert!(d[2] > d[0], "unseen token outranks a seen one");
+
+        // Frequency penalty: proportional to count → token 0 (3×) is demoted
+        // more than token 1 (1×).
+        let freq = Sampler::new(SamplerConfig {
+            frequency_penalty: 0.5,
+            ..SamplerConfig::default()
+        });
+        let d = freq.distribution(&logits, &recent).unwrap();
+        assert!(d[1] > d[0], "more-frequent token is demoted more");
+        assert!(d[2] > d[1], "unseen outranks the once-seen");
+    }
+
+    #[test]
+    fn zero_penalties_are_a_no_op() {
+        let logits = [2.0f32, 1.0, 0.5];
+        let s = Sampler::new(SamplerConfig {
+            temperature: 1.0,
+            ..SamplerConfig::default()
+        });
+        // default presence/frequency = 0 → distribution unchanged by recents.
+        let with_recent = s.distribution(&logits, &[0, 0, 1]).unwrap();
+        let without = s.distribution(&logits, &[]).unwrap();
+        for (a, b) in with_recent.iter().zip(&without) {
+            assert!((a - b).abs() < 1e-6);
+        }
     }
 
     #[test]
