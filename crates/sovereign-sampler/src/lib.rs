@@ -221,6 +221,89 @@ impl Sampler {
     }
 }
 
+/// A **Mirostat v2** decode controller (Basu et al.): instead of a fixed top-k
+/// / top-p truncation, it targets a constant *surprise* (perplexity) by keeping
+/// a running threshold `μ`. Each step it truncates to the tokens whose surprise
+/// `−log2 p` is within `μ`, samples one, then nudges `μ` by the error between
+/// the observed surprise and the target `τ`. This holds output perplexity steady
+/// across a generation regardless of how peaked or flat each step's distribution
+/// is — something the static filters can't do.
+///
+/// It is **stateful** (`μ` persists across `sample` calls), so it lives outside
+/// the stateless [`Sampler::distribution`] pipeline. Drive it per step with a
+/// probability vector (e.g. from a temperature-only [`Sampler::distribution`]).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct Mirostat {
+    /// Target surprise in bits (`τ`); higher = more diverse.
+    tau: f32,
+    /// Learning rate (`η`) for the `μ` update.
+    eta: f32,
+    /// Running max-surprise threshold (`μ`), initialized to `2τ`.
+    mu: f32,
+}
+
+impl Mirostat {
+    /// A controller targeting surprise `tau` bits with learning rate `eta`.
+    /// `μ` starts at `2·tau` per the paper.
+    pub fn new(tau: f32, eta: f32) -> Self {
+        Self {
+            tau,
+            eta,
+            mu: 2.0 * tau,
+        }
+    }
+
+    /// The current running threshold `μ`.
+    pub fn mu(&self) -> f32 {
+        self.mu
+    }
+
+    /// Pick a token from `probs` (assumed non-negative; the active support is
+    /// the positive entries) using one uniform draw `u ∈ [0, 1)`, and update
+    /// `μ` toward the target surprise. Returns `None` only if no token has
+    /// positive probability. Always keeps at least the most-probable token so a
+    /// tight `μ` never empties the candidate set.
+    pub fn sample(&mut self, probs: &[f32], u: f32) -> Option<usize> {
+        let mut idx: Vec<usize> = (0..probs.len()).filter(|&i| probs[i] > 0.0).collect();
+        if idx.is_empty() {
+            return None;
+        }
+        idx.sort_by(|&a, &b| {
+            probs[b]
+                .partial_cmp(&probs[a])
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        // Candidate set: surprise −log2(p) within μ; always keep the top token.
+        let mut candidates: Vec<usize> = idx
+            .iter()
+            .copied()
+            .filter(|&i| -(probs[i].log2()) <= self.mu)
+            .collect();
+        if candidates.is_empty() {
+            candidates.push(idx[0]);
+        }
+
+        // Sample from the candidates by their (renormalized) probability.
+        let total: f32 = candidates.iter().map(|&i| probs[i]).sum();
+        let threshold = u * total;
+        let mut acc = 0.0f32;
+        let mut chosen = *candidates.last().unwrap();
+        for &i in &candidates {
+            acc += probs[i];
+            if threshold < acc {
+                chosen = i;
+                break;
+            }
+        }
+
+        // Update μ by the surprise error (observed − target).
+        let observed = -(probs[chosen].log2());
+        self.mu -= self.eta * (observed - self.tau);
+        Some(chosen)
+    }
+}
+
 /// Numerically-stable softmax.
 fn softmax(logits: &[f32]) -> Vec<f32> {
     let max = logits.iter().copied().fold(f32::NEG_INFINITY, f32::max);
@@ -330,6 +413,19 @@ mod tests {
 
     fn approx(a: f32, b: f32, eps: f32) -> bool {
         (a - b).abs() <= eps
+    }
+
+    /// Deterministic splitmix64 → uniform `[0, 1)`, for reproducible tests.
+    struct Uniforms(u64);
+    impl Uniforms {
+        fn next(&mut self) -> f64 {
+            self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
+            let mut z = self.0;
+            z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+            z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+            z ^= z >> 31;
+            (z >> 11) as f64 / (1u64 << 53) as f64
+        }
     }
 
     #[test]
@@ -544,6 +640,72 @@ mod tests {
         let j = serde_json::to_string(&cfg).unwrap();
         let back: SamplerConfig = serde_json::from_str(&j).unwrap();
         assert_eq!(cfg, back);
+    }
+
+    #[test]
+    fn mirostat_inits_mu_to_two_tau_and_picks_valid_tokens() {
+        let mut m = Mirostat::new(3.0, 0.1);
+        assert!((m.mu() - 6.0).abs() < 1e-6);
+        let probs = vec![0.5, 0.25, 0.15, 0.1];
+        let t = m.sample(&probs, 0.0).unwrap();
+        assert!(t < probs.len());
+    }
+
+    #[test]
+    fn mirostat_mu_moves_toward_target_surprise() {
+        // Sampling a token whose surprise exceeds τ pushes μ down; one below τ
+        // pushes μ up — the control law.
+        // probs surprises: 0.5→1.0, 0.25→2.0, 0.15→2.74, 0.1→3.32 bits.
+        let probs = vec![0.5f32, 0.25, 0.15, 0.1];
+
+        // τ=1, μ₀=2 → candidates are tokens 0,1 (surprise ≤ 2). u≈1 samples
+        // token 1 (surprise 2.0 > τ) → μ decreases.
+        let mut hi = Mirostat::new(1.0, 0.5);
+        let mu0 = hi.mu();
+        hi.sample(&probs, 0.999);
+        assert!(
+            hi.mu() < mu0,
+            "above-τ surprise must lower μ ({} ≥ {mu0})",
+            hi.mu()
+        );
+
+        // τ=4, μ₀=8 → all tokens are candidates. u=0 samples token 0
+        // (surprise 1.0 < τ) → μ increases toward τ.
+        let mut lo = Mirostat::new(4.0, 0.5);
+        let mu1 = lo.mu();
+        lo.sample(&probs, 0.0);
+        assert!(
+            lo.mu() > mu1,
+            "below-τ surprise must raise μ ({} ≤ {mu1})",
+            lo.mu()
+        );
+    }
+
+    #[test]
+    fn mirostat_converges_observed_surprise_near_tau() {
+        // Over many steps on a fixed distribution, μ stabilizes so the average
+        // observed surprise tracks the target τ.
+        let probs = vec![0.4f32, 0.3, 0.2, 0.1];
+        let tau = 1.5f32;
+        let mut m = Mirostat::new(tau, 0.1);
+        let mut u = Uniforms(12345);
+        let mut surprise_sum = 0.0f64;
+        let trials = 4000;
+        for _ in 0..trials {
+            let t = m.sample(&probs, u.next() as f32).unwrap();
+            surprise_sum += -(probs[t].log2()) as f64;
+        }
+        let avg = surprise_sum / trials as f64;
+        assert!(
+            (avg - tau as f64).abs() < 0.5,
+            "avg surprise {avg} should track τ {tau}"
+        );
+    }
+
+    #[test]
+    fn mirostat_empty_support_is_none() {
+        let mut m = Mirostat::new(3.0, 0.1);
+        assert_eq!(m.sample(&[0.0, 0.0, 0.0], 0.5), None);
     }
 
     #[test]
