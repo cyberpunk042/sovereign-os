@@ -253,6 +253,21 @@ impl DecoderStack {
         Ok(self.project_head(&normed))
     }
 
+    /// Ingest `prefix` into the KV cache **without generating**, advancing every
+    /// layer's cache by `prefix.len()` positions. This is the prefix-KV-reuse
+    /// primitive: prime a shared prefix (e.g. a system prompt) once, then
+    /// [`clone`](Clone::clone) this primed stack per request and generate only
+    /// the per-request suffix — amortizing the prefix's forward passes across
+    /// many requests. Reuse is **transparent**: priming `prefix` then generating
+    /// `suffix` yields the same tokens as generating `prefix ++ suffix` in one
+    /// call (pinned as a test). No-op for an empty prefix.
+    pub fn prime(&mut self, prefix: &[usize]) -> Result<(), StackError> {
+        for &t in prefix {
+            self.forward(t)?;
+        }
+        Ok(())
+    }
+
     /// Ingest a prompt and autoregressively generate up to `max_new` tokens.
     /// Returns the generated tokens (excluding the prompt). Reproducible for a
     /// given `seed`.
@@ -665,6 +680,31 @@ mod tests {
         // reproducible
         let mut m2 = DecoderStack::new(cfg).unwrap();
         assert_eq!(out, m2.generate_with(&prompt, 5, &opts, |_| {}).unwrap());
+    }
+
+    #[test]
+    fn prefix_reuse_is_transparent_and_amortizes() {
+        // Priming a prefix then generating a suffix must equal generating the
+        // concatenation in one call — so a primed clone can be reused per
+        // request without changing the output.
+        let cfg = config(8, 4, 2, Sampler::new(SamplerConfig::default()));
+        let prefix = [1usize, 2, 3];
+        let suffix = [4usize, 5];
+
+        let mut whole = DecoderStack::new(cfg.clone()).unwrap();
+        let mut full = prefix.to_vec();
+        full.extend(&suffix);
+        let mono = whole.generate(&full, 6, 7).unwrap();
+
+        // Prime once, then reuse the primed state for the (here single) request.
+        let mut base = DecoderStack::new(cfg).unwrap();
+        base.prime(&prefix).unwrap();
+        assert_eq!(base.position(), 3); // cache advanced over the prefix
+        let mut reused = base.clone(); // a clone per request would share the prefix
+        let out = reused.generate(&suffix, 6, 7).unwrap();
+        assert_eq!(out, mono, "prefix reuse must be output-identical");
+        // The primed base is untouched and reusable for the next request.
+        assert_eq!(base.position(), 3);
     }
 
     #[test]
