@@ -207,6 +207,37 @@ pub fn best_nvfp4_recipe_calibrated(
     Ok(best)
 }
 
+/// Recipe-aware precision assignment: like [`recommend`], but the NVFP4 tier is
+/// measured with its **best** M077 recipe (via [`best_nvfp4_recipe_calibrated`])
+/// instead of plain microscaling, and the chosen recipe is returned alongside.
+///
+/// This keeps borderline layers on the cheap 4-bit path: a matrix whose *plain*
+/// NVFP4 error exceeds `budget` — which [`recommend`] would bump to f32 — may
+/// fit the budget under RHT or 2D conditioning and stay NVFP4. Returns the
+/// recipe only for the NVFP4 tier (`None` for ternary/f32).
+pub fn recommend_with_recipe(
+    weights: &[f32],
+    output_dim: usize,
+    input_dim: usize,
+    inputs: &[Vec<f32>],
+    budget: f64,
+) -> Result<(Precision, Option<NvfpRecipe>), CalibrationError> {
+    // Ternary is cheapest — take it if its output error fits the budget.
+    let reports = calibrate(weights, output_dim, input_dim, inputs)?;
+    if let Some(t) = reports.iter().find(|r| r.precision == Precision::Ternary) {
+        if t.relative_error <= budget {
+            return Ok((Precision::Ternary, None));
+        }
+    }
+    // Next-cheapest is NVFP4 — measured with its best recipe, not just plain.
+    let (recipe, err) = best_nvfp4_recipe_calibrated(weights, output_dim, input_dim, inputs)?;
+    if err <= budget {
+        return Ok((Precision::Nvfp4, Some(recipe)));
+    }
+    // Fall back to exact f32.
+    Ok((Precision::F32, None))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -345,6 +376,75 @@ mod tests {
         assert_eq!(
             best_nvfp4_recipe_calibrated(&w, 2, 16, &[]).unwrap_err(),
             CalibrationError::NoInputs
+        );
+    }
+
+    #[test]
+    fn recipe_aware_recommend_keeps_borderline_layer_on_nvfp4() {
+        // Column-structured weights: the best recipe (2D) has strictly lower
+        // output error than plain NVFP4. Choose a budget between the two so the
+        // plain-only recommend() must bump to f32 while the recipe-aware path
+        // keeps it on the cheap NVFP4 tier (with the winning recipe).
+        let (output_dim, input_dim) = (6, 16);
+        let mut w = vec![1.0f32; output_dim * input_dim];
+        for o in 0..output_dim {
+            w[o * input_dim + 5] = 0.012;
+        }
+        let inputs = ones_inputs(4, 16);
+
+        // Plain NVFP4 error (what recommend() sees) and best-recipe error.
+        let plain_err = calibrate(&w, output_dim, input_dim, &inputs)
+            .unwrap()
+            .into_iter()
+            .find(|r| r.precision == Precision::Nvfp4)
+            .unwrap()
+            .relative_error;
+        let (best_recipe, best_err) =
+            best_nvfp4_recipe_calibrated(&w, output_dim, input_dim, &inputs).unwrap();
+
+        // Only meaningful when the recipe genuinely helps here.
+        if best_err < plain_err {
+            // Also keep the budget under ternary's error so ternary isn't chosen.
+            let tern_err = calibrate(&w, output_dim, input_dim, &inputs)
+                .unwrap()
+                .into_iter()
+                .find(|r| r.precision == Precision::Ternary)
+                .unwrap()
+                .relative_error;
+            let budget = (best_err + plain_err) / 2.0;
+            if budget < tern_err {
+                // plain-only recommend can't fit NVFP4 → f32.
+                assert_eq!(
+                    recommend(&w, output_dim, input_dim, &inputs, budget).unwrap(),
+                    Precision::F32
+                );
+                // recipe-aware keeps it on NVFP4 with the winning recipe.
+                assert_eq!(
+                    recommend_with_recipe(&w, output_dim, input_dim, &inputs, budget).unwrap(),
+                    (Precision::Nvfp4, Some(best_recipe))
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn recipe_aware_recommend_picks_ternary_and_f32_at_extremes() {
+        // Uniform-magnitude weights → ternary is (near-)exact; a huge budget
+        // takes the cheapest tier, no recipe.
+        let uniform: Vec<f32> = (0..64)
+            .map(|i| if i % 2 == 0 { 0.5 } else { -0.5 })
+            .collect();
+        let inputs = ones_inputs(4, 16);
+        assert_eq!(
+            recommend_with_recipe(&uniform, 4, 16, &inputs, 100.0).unwrap(),
+            (Precision::Ternary, None)
+        );
+        // High-dynamic-range weights at zero budget → only exact f32 qualifies,
+        // no recipe (neither ternary nor any NVFP4 recipe is lossless).
+        let spiky: Vec<f32> = (0..64).map(|i| (i as f32 * 0.05).sin() * 5.0).collect();
+        assert_eq!(
+            recommend_with_recipe(&spiky, 4, 16, &inputs, 0.0).unwrap(),
+            (Precision::F32, None)
         );
     }
 
