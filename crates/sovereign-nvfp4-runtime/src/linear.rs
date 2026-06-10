@@ -95,6 +95,47 @@ impl QuantMatrix {
         })
     }
 
+    /// Quantize a row-major `output_dim × input_dim` matrix with
+    /// **stochastic** element rounding (the training-path recipe) — same
+    /// layout as [`QuantMatrix::from_f32`], but each element is rounded
+    /// stochastically so the quantization is unbiased in expectation.
+    pub fn from_f32_stochastic<R: rand::Rng>(
+        rng: &mut R,
+        weights: &[f32],
+        output_dim: usize,
+        input_dim: usize,
+    ) -> Result<Self, LinearError> {
+        let expected = output_dim * input_dim;
+        if weights.len() != expected {
+            return Err(LinearError::ShapeMismatch {
+                got: weights.len(),
+                expected,
+            });
+        }
+        let bpr = input_dim.div_ceil(BLOCK_SIZE);
+        let mut rows = Vec::with_capacity(output_dim);
+        for o in 0..output_dim {
+            let row = &weights[o * input_dim..(o + 1) * input_dim];
+            let mut blocks = Vec::with_capacity(bpr);
+            for b in 0..bpr {
+                let mut chunk = [0.0f32; BLOCK_SIZE];
+                for (j, slot) in chunk.iter_mut().enumerate() {
+                    let idx = b * BLOCK_SIZE + j;
+                    if idx < input_dim {
+                        *slot = row[idx];
+                    }
+                }
+                blocks.push(crate::quantize_block_stochastic(rng, &chunk));
+            }
+            rows.push(blocks);
+        }
+        Ok(Self {
+            output_dim,
+            input_dim,
+            rows,
+        })
+    }
+
     /// Forward pass `y = W·x`, computed block-wise on the dequantized
     /// NVFP4 weights. `x.len()` must equal `input_dim`.
     pub fn matvec(&self, x: &[f32]) -> Result<Vec<f32>, LinearError> {
@@ -314,6 +355,28 @@ mod tests {
     fn rht_rejects_non_power_of_two() {
         let err = RhtQuantMatrix::from_f32(&[0.0; 20], 1, 20, 7).unwrap_err();
         assert_eq!(err, LinearError::RhtInputNotPowerOfTwo(20));
+    }
+
+    #[test]
+    fn stochastic_matrix_is_a_valid_approximation() {
+        use rand::SeedableRng;
+        use rand_chacha::ChaCha20Rng;
+        let (output_dim, input_dim) = (5, 37);
+        let weights = rng_seq(output_dim * input_dim, 0x2468);
+        let x = rng_seq(input_dim, 0x1111);
+        let mut rng = ChaCha20Rng::seed_from_u64(0xBEEF);
+        let q =
+            QuantMatrix::from_f32_stochastic(&mut rng, &weights, output_dim, input_dim).unwrap();
+        let y_q = q.matvec(&x).unwrap();
+        let y_ref = dense_f32_matvec(&weights, input_dim, &x);
+        let diff: Vec<f32> = y_q.iter().zip(&y_ref).map(|(a, b)| a - b).collect();
+        let rel = l2(&diff) / l2(&y_ref).max(1e-6);
+        // A single stochastic draw is noisier than RNE but still a valid
+        // low-bit approximation.
+        assert!(
+            rel < 0.4,
+            "stochastic matvec relative error too high: {rel}"
+        );
     }
 
     #[test]
