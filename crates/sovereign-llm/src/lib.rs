@@ -150,6 +150,21 @@ impl SovereignLlm {
         }
     }
 
+    /// Complete `prompt` with composable [`GenOptions`], returning the decoded
+    /// **text** (stop tokens / special tokens decode to nothing). The
+    /// text-to-text counterpart of [`generate_ids_with`](Self::generate_ids_with)
+    /// — one call for constrained + no-repeat-ngram + early-stop + min-length
+    /// generation. Reproducible per `seed`.
+    pub fn complete_with(
+        &self,
+        prompt: &str,
+        seed: u64,
+        opts: &GenOptions,
+    ) -> Result<String, LlmError> {
+        let ids = self.generate_ids_with(prompt, seed, opts, |_| {})?;
+        Ok(self.tokenizer.decode(&ids).unwrap_or_default())
+    }
+
     /// Unified, serving-grade generation: compose constrained masking, dynamic
     /// no-repeat-ngram blocking, early-stop, and per-token streaming via
     /// [`GenOptions`] — the single configurable entry point the simpler
@@ -517,6 +532,28 @@ mod tests {
             .generate_ids_with("hello sovereign", 3, &opts, |_| {})
             .unwrap();
         assert_eq!(out, out2);
+    }
+
+    #[test]
+    fn complete_with_decodes_unified_generation() {
+        let llm = runtime_with_eos(Sampler::new(SamplerConfig::default()));
+        let eos = llm.tokenizer().special_id("<eos>").unwrap() as usize;
+        let opts = GenOptions::new(8)
+            .with_no_repeat_ngram(3)
+            .with_stop_tokens([eos]);
+        // text equals decoding the id sequence from generate_ids_with.
+        let text = llm.complete_with("hello", 3, &opts).unwrap();
+        let ids = llm.generate_ids_with("hello", 3, &opts, |_| {}).unwrap();
+        assert_eq!(text, llm.tokenizer().decode(&ids).unwrap());
+    }
+
+    #[test]
+    fn complete_with_empty_prompt_errors() {
+        let llm = runtime(Sampler::greedy());
+        assert_eq!(
+            llm.complete_with("", 1, &GenOptions::new(4)).unwrap_err(),
+            LlmError::EmptyPrompt
+        );
     }
 
     #[test]
