@@ -96,6 +96,8 @@ USAGE:
                                        (guaranteed-format output)
     sovereign-serve --max-context N PROMPT…  trim each prompt to the most recent
                                        N tokens before generating
+    sovereign-serve --xtc PROMPT…      decode with XTC (exclude-top-choices) sampling
+    sovereign-serve --dry PROMPT…      decode with DRY (don't-repeat-yourself) sampling
     sovereign-serve --help             print this help and exit";
 
 fn main() {
@@ -108,6 +110,8 @@ fn main() {
     let semantic = args.iter().any(|a| a == "--semantic");
     let redact = args.iter().any(|a| a == "--redact");
     let screen = args.iter().any(|a| a == "--screen");
+    let xtc = args.iter().any(|a| a == "--xtc");
+    let dry = args.iter().any(|a| a == "--dry");
     // Built-in content filter, built once, used by the egress screen.
     let tox = sovereign_toxicity::ToxicityFilter::with_builtin();
     // `--no-repeat-ngram N` drives the unified composable generation path.
@@ -160,6 +164,14 @@ fn main() {
         let text = if let Some(pattern) = regex.as_deref() {
             // Constrained decoding: the completion is forced to match `pattern`.
             llm.complete_regex(prompt, pattern, max_new, seed)
+                .map_err(|e| e.to_string())?
+        } else if xtc {
+            // XTC: exclude top choices for more creative output (sensible defaults).
+            llm.complete_xtc(prompt, max_new, seed, 0.1, 0.5)
+                .map_err(|e| e.to_string())?
+        } else if dry {
+            // DRY: suppress repetition loops (sensible defaults).
+            llm.complete_dry(prompt, max_new, seed, 0.8, 1.75, 2)
                 .map_err(|e| e.to_string())?
         } else if let Some(n) = no_repeat {
             let opts = GenOptions::new(max_new).with_no_repeat_ngram(n);

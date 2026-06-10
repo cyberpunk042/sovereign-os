@@ -116,6 +116,19 @@ fn max_context_flag_runs_with_a_trimmed_prompt() {
 }
 
 #[test]
+fn xtc_and_dry_flags_run_the_alternate_decoders() {
+    for flag in ["--xtc", "--dry"] {
+        let out = Command::new(env!("CARGO_BIN_EXE_sovereign-serve"))
+            .args([flag, "say something", "say something"])
+            .output()
+            .unwrap_or_else(|_| panic!("run sovereign-serve {flag}"));
+        assert!(out.status.success(), "{flag} failed");
+        let s = String::from_utf8_lossy(&out.stdout);
+        assert!(s.contains("hit=exact"), "{flag}: repeat should cache:\n{s}");
+    }
+}
+
+#[test]
 fn help_exits_zero() {
     let out = Command::new(env!("CARGO_BIN_EXE_sovereign-serve"))
         .arg("--help")
