@@ -11,8 +11,8 @@
 
 | dimension | selfdef | sovereign-os | combined |
 |---|---:|---:|---:|
-| Milestones (M*.md files) | 48 | 80 | **128** |
-| R-rows | 11,520 | 13,740 | **25,260** |
+| Milestones (M*.md files) | 48 | 81 | **129** |
+| R-rows | 11,520 | 13,910 | **25,430** |
 | Each R-row is a non-negotiable requirement; combined catalog satisfies the operator's stated "10,000+ requirements" mandate (~2.5× over). |
 
 ## Stage Gates (sovereign-os build phases — synthesized from M053 + Pulse-Tooling)
@@ -44,7 +44,7 @@
 | MS039 authority levels + MS040 profiles + MS042 tool authority + MS044 Guardian | M079 activation steering safety surface | catalog ✓ |
 | MS035 capability_word.compute_mode | M080 model portfolio extension | catalog ✓ |
 
-## The 128 milestones (by repo, by ID)
+## The 129 milestones (by repo, by ID)
 
 ### selfdef · MS001–MS048 (11,520 R-rows)
 
@@ -97,7 +97,7 @@
 - [MS047-real-time-security-perimeter-engine-tetragon-kernel-fence](../selfdef/backlog/milestones/MS047-real-time-security-perimeter-engine-tetragon-kernel-fence.md)  ·  240 R-rows  ·  MS047 — Real-Time Security Perimeter Engine — Tetragon kernel-fence (sain-01 §6)
 - [MS048-goldilocks-scheduler-hardware-aware-resource-routing](../selfdef/backlog/milestones/MS048-goldilocks-scheduler-hardware-aware-resource-routing.md)  ·  240 R-rows  ·  MS048 — Goldilocks Scheduler — hardware-aware resource routing
 
-### sovereign-os · 80 milestones (13,740 R-rows)
+### sovereign-os · 81 milestones (13,910 R-rows)
 
 - [M002-control-word-injected-logic](../backlog/milestones/M002-control-word-injected-logic.md)  ·  170 R-rows  ·  M002 — 32/64-bit injected logic / control word per branch
 - [M003-hardware-topology-pcie-discipline](../backlog/milestones/M003-hardware-topology-pcie-discipline.md)  ·  170 R-rows  ·  M003 — Hardware topology + PCIe lane discipline
@@ -179,11 +179,12 @@
 - [M080-hrm-hierarchical-reasoning-model-architectural-class](../backlog/milestones/M080-hrm-hierarchical-reasoning-model-architectural-class.md)  ·  170 R-rows  ·  M080 — HRM (Hierarchical Reasoning Model) architectural class — recurrent two-timescale brain-inspired alternative to Transformer/Mamba/BitNet
 - [M081-whitelabel-architecture-audit-and-mechanism](../backlog/milestones/M081-whitelabel-architecture-audit-and-mechanism.md)  ·  240 R-rows  ·  M081 — Whitelabel Architecture — Debian surface audit + declarative rebrand mechanism
 - [M082-tdd-harness-architecture-hardware-free-validation](../backlog/milestones/M082-tdd-harness-architecture-hardware-free-validation.md)  ·  240 R-rows  ·  M082 — TDD Harness Architecture — hardware-free validation (macro-arc PRs 9 + 10)
+- [M083-dflash-speculative-decoding-fast-path](../backlog/milestones/M083-dflash-speculative-decoding-fast-path.md)  ·  170 R-rows  ·  M083 — DFlash speculative decoding fast-path — task-type-gated 3× decode acceleration
 
 ## Status conventions (per `selfdef/context.md` + `sovereign-os/context.md`)
 
 - **catalog ✓** = the milestone's R-rows are written + traceable to the
-  source dump (avx-plus-plus or earlier). All 128 milestones meet this bar.
+  source dump (avx-plus-plus, the transposition dump, or earlier). All 129 milestones meet this bar.
 - **at prod** = the milestone's deliverable has reached production through
   all §1g layers (core → cli → tui → api → mcp → dashboard → webapp →
   service). M060 mirror producers are the most recent to reach this bar

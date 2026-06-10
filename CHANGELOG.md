@@ -12,6 +12,22 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — M083: DFlash speculative decoding catalogued (audit gap #2 closed) (2026-06-10)
+
+The 2026-06 catalog audit named DFlash as under-catalogued — "survives only as
+one incidental clause; no dedicated epic, unlike Ling-2.6 / Nemotron-3 which
+got full treatment." `backlog/milestones/M083-dflash-speculative-decoding-fast-path.md`
+closes it: 10 epics / 17 modules / 85 features / 170 R-rows decomposing the
+operator's verbatim dump-tail addition (transposition dump 1115–1131: "3 times
+faster" on code, "does not work on creative tasks in general") + the SDD-026
+design (task-type gating table, ENABLE/DISABLE override knobs with
+DISABLE-wins, vllm/llama_cpp/transformers argv shaping, disabled-no-install
+graceful fallback, `sovereign_os_dflash_*` Layer-B metrics) + the R161 router
+task-type closure. Layer-5 benchmarking + draft-model tuning catalogued as
+explicitly pending. Catalog totals updated in lockstep: 81 sovereign-os
+milestones / 13,910 R-rows (INDEX, MASTER-PLAN, SHIPPED roll-up, and the
+SHIPPED-gate literal).
+
 ### Added — gateway Grafana dashboard: the sovereignty tripwire is now visual (2026-06-10)
 
 `docs/observability/dashboards/sovereign-os-gatewayd.json` completes the

@@ -80,7 +80,7 @@ def test_rollup_table_present():
     text = _shipped_text()
     assert "## Roll-up" in text, "SHIPPED.md missing the Roll-up section"
     assert "Catalogued (total)" in text
-    assert "13,740" in text, "roll-up must reference the catalogue total"
+    assert "13,910" in text, "roll-up must reference the catalogue total"
 
 
 def test_referenced_local_commits_exist():

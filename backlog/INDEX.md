@@ -2,7 +2,7 @@
 
 > **Auto-generated factual index of `backlog/milestones/M*.md`.** Surfaces the existing requirement catalog at a glance — no invention; each row is a real milestone file + its R-row count (rows matching `^| R[0-9]+ |`).
 
-**Catalog totals:** 80 milestones · **13740 R-rows** (sovereign-os) · combines with selfdef's 11,520 R-rows for the cross-repo "~10,000+ requirements" operator mandate.
+**Catalog totals:** 81 milestones · **13910 R-rows** (sovereign-os) · combines with selfdef's 11,520 R-rows for the cross-repo "~10,000+ requirements" operator mandate.
 
 | Milestone | R-rows | Title |
 |---|---:|---|
@@ -86,6 +86,7 @@
 | [M080-hrm-hierarchical-reasoning-model-architectural-class](milestones/M080-hrm-hierarchical-reasoning-model-architectural-class.md) | 170 | M080 — HRM (Hierarchical Reasoning Model) architectural class — recurrent two-timescale brain-inspired alternative to Transformer/Mamba/BitNet |
 | [M081-whitelabel-architecture-audit-and-mechanism](milestones/M081-whitelabel-architecture-audit-and-mechanism.md) | 240 | M081 — Whitelabel Architecture — Debian surface audit + declarative rebrand mechanism |
 | [M082-tdd-harness-architecture-hardware-free-validation](milestones/M082-tdd-harness-architecture-hardware-free-validation.md) | 240 | M082 — TDD Harness Architecture — hardware-free validation (macro-arc PRs 9 + 10) |
+| [M083-dflash-speculative-decoding-fast-path](milestones/M083-dflash-speculative-decoding-fast-path.md) | 170 | M083 — DFlash speculative decoding fast-path — task-type-gated 3× decode acceleration |
 
 **Pre-existing parent rollups (per-milestone counts inherit selfdef's 240-R-row pattern; sovereign-os carries its own ranges):**
 - Epics: E0NNN catalog spans selfdef + sovereign-os.

@@ -94,6 +94,7 @@
 | M080 | HRM (Hierarchical Reasoning Model) architectural class — recurrent two-timescale brain-inspired alternative to Transformers | HRM research arc |
 | M081 | Whitelabel Architecture — Debian surface audit + declarative rebrand mechanism (PRs 7 + 8 of macro-arc; Stage Gate 4) | macro-arc dump lines 174–199 + 202–227 |
 | M082 | TDD Harness Architecture — hardware-free 5-layer test pyramid + Stage Gate 5 foundation-complete (PRs 9 + 10 of macro-arc) | macro-arc dump lines 229–278 + 280–283 |
+| M083 | DFlash speculative decoding fast-path — task-type-gated 3× decode acceleration (code+math on / creative off, operator-verbatim) | transposition dump lines 1115–1131 |
 
 ## Decomposition that each milestone owes
 

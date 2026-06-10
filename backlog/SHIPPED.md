@@ -2,7 +2,7 @@
 
 > **Production-shipped state tracker against `backlog/INDEX.md`.** Auto-maintained as commits land. Surfaces, per milestone, which catalogued R-rows have reached production code (with test coverage + cockpit-visible surface) versus which remain catalogued-only.
 >
-> The catalogue is `backlog/INDEX.md` (80 milestones / 13,740 R-rows). This file is the orthogonal "delivery state" view per the operator's standing constraint:
+> The catalogue is `backlog/INDEX.md` (81 milestones / 13,910 R-rows). This file is the orthogonal "delivery state" view per the operator's standing constraint:
 >
 > > *"You cannot mark something done if it hasn't reached Prod."*
 >
@@ -10,9 +10,9 @@
 
 ## Roll-up
 
-| State | R-rows | % of 13,740 |
+| State | R-rows | % of 13,910 |
 |---|---:|---:|
-| Catalogued (total) | 13,740 | 100% |
+| Catalogued (total) | 13,910 | 100% |
 | Shipped (production surface + tests + cockpit-visible) | partial — tracked per-milestone below | — |
 | Catalogued-only | balance | — |
 
