@@ -4947,6 +4947,7 @@ dependencies = [
  "sovereign-llm",
  "sovereign-logit-mask",
  "sovereign-mha-block",
+ "sovereign-nvfp4-runtime",
  "sovereign-perplexity",
  "sovereign-quant-block",
  "sovereign-quant-llm",

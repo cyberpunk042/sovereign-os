@@ -218,6 +218,50 @@ fn run_demo() -> String {
         recon_err * 100.0
     );
 
+    // M077 recipe selection: a column-structured NVFP4 projection (per-column
+    // magnitudes span an order of magnitude) is quantized under every
+    // applicable recipe. `best_nvfp4_recipe` picks the lowest-error one; this
+    // surfaces what the NVFP4 decoder layer above is doing per-projection.
+    let (nv_out, nv_in) = (4 * MODEL_DIM, MODEL_DIM); // nv_in = 8 (power of two → RHT eligible)
+    let nv_w: Vec<f32> = (0..nv_out * nv_in)
+        .map(|i| {
+            let (row, col) = (i / nv_in, i % nv_in);
+            // per-column scale spanning 1×..8×, alternating sign by row, plus a
+            // small deterministic residual so no recipe reconstructs exactly.
+            let sign = if row % 2 == 0 { 1.0 } else { -1.0 };
+            let residual = (((i * 2654435761) % 97) as f32 / 97.0 - 0.5) * 0.05;
+            sign * (col as f32 + 1.0) * 0.1 + residual
+        })
+        .collect();
+    let best = sovereign_linear::best_nvfp4_recipe(&nv_w, nv_out, nv_in);
+    let plain_err = sovereign_nvfp4_runtime::QuantMatrix::from_f32(&nv_w, nv_out, nv_in)
+        .map(|q| sovereign_nvfp4_runtime::relative_frobenius_error(&nv_w, &q.dequantized_weights()))
+        .unwrap_or(f64::NAN);
+    let best_recon = match best {
+        sovereign_linear::NvfpRecipe::Plain => {
+            sovereign_nvfp4_runtime::QuantMatrix::from_f32(&nv_w, nv_out, nv_in)
+                .map(|q| q.dequantized_weights())
+        }
+        sovereign_linear::NvfpRecipe::TwoD => {
+            sovereign_nvfp4_runtime::TwoDQuantMatrix::from_f32(&nv_w, nv_out, nv_in)
+                .map(|q| q.dequantized_weights())
+        }
+        sovereign_linear::NvfpRecipe::Rht(seed) => {
+            sovereign_nvfp4_runtime::RhtQuantMatrix::from_f32(&nv_w, nv_out, nv_in, seed)
+                .map(|q| q.dequantized_weights())
+        }
+    };
+    let best_err = best_recon
+        .map(|w| sovereign_nvfp4_runtime::relative_frobenius_error(&nv_w, &w))
+        .unwrap_or(f64::NAN);
+    let _ = writeln!(
+        out,
+        "nvfp4 recipe    : best {best:?} at {:.1}% error (plain {:.1}%) → {:.0}% tighter",
+        best_err * 100.0,
+        plain_err * 100.0,
+        (1.0 - best_err / plain_err) * 100.0
+    );
+
     out
 }
 
