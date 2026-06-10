@@ -65,9 +65,11 @@ fn gpu_spec_throughput() -> f64 {
 /// Live self-check of the ternary kernel: build a real two-layer FFN block
 /// (`d_model → d_ff → d_model` with a ReLU, the transformer feed-forward)
 /// and run one forward pass. Proves the Conductor's compute path *composes*
-/// — a multi-layer block, not just one projection — and that the
+/// — a multi-layer block, not just one projection — that the
 /// multiplication-free invariant holds across the whole stack (zero
-/// inner-product floating multiplies; only the per-output scales).
+/// inner-product floating multiplies; only the per-output scales), and that
+/// the single-pass **packed-domain** forward (the LUT/AVX-512 path
+/// foundation) reproduces the unpack-loop forward bit-for-bit.
 fn ternary_kernel_live() -> bool {
     let (d_model, d_ff) = (8usize, 32usize);
     let expand: Vec<f32> = (0..d_ff * d_model)
@@ -76,20 +78,33 @@ fn ternary_kernel_live() -> bool {
     let contract: Vec<f32> = (0..d_model * d_ff)
         .map(|i| ((i % 7) as f32 - 3.0) * 0.25)
         .collect();
+    let x = vec![1.0f32; d_model];
+
+    // Base3 (density-optimal) block: composes + stays multiplication-free.
     let mlp = match BitLinearMlp::ffn(&expand, &contract, d_model, d_ff, Packing::Base3) {
         Ok(m) => m,
         Err(_) => return false,
     };
-    match mlp.forward(&vec![1.0f32; d_model]) {
-        // The block must produce d_model outputs and have eliminated every
-        // inner-product multiply across both layers (mul-free composition).
+    let composes = match mlp.forward(&x) {
         Ok((y, ops)) => {
             y.len() == d_model
                 && ops.float_muls == d_ff + d_model
                 && mlp.floating_muls_eliminated() == d_ff * d_model + d_model * d_ff
         }
         Err(_) => false,
-    }
+    };
+
+    // TwoBit (byte-aligned) block: the packed-domain forward — the scalar
+    // form of the AVX-512 LUT matmul — must equal the unpack-loop forward.
+    let packed_exact = match BitLinearMlp::ffn(&expand, &contract, d_model, d_ff, Packing::TwoBit) {
+        Ok(b) => match (b.forward(&x), b.forward_packed(&x)) {
+            (Ok((y, ops)), Ok((yp, opsp))) => y == yp && ops == opsp,
+            _ => false,
+        },
+        Err(_) => false,
+    };
+
+    composes && packed_exact
 }
 
 /// Live self-check of the NVFP4 kernel: quantize a tiny matrix and run one
