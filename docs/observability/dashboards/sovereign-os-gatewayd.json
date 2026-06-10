@@ -1,0 +1,374 @@
+{
+ "_comment": "sovereign-gatewayd dashboard. Visualizes the daemon's own GET /metrics namespace (sovereign_gateway_*, served directly over HTTP — no textfile collector; add a scrape job for the daemon's bind address, default 127.0.0.1:8787). Pairs with the 2 alert rules (SovereignGatewayCloudSpill / SovereignGatewayTripwireUnmonitored) in config/prometheus/alerts/sovereign-gatewayd.rules.yml and the runbook sections in docs/operator/m060-deployment-guide.md. The headline panel is the never-cloud-spill sovereignty tripwire: the daemon forces allow_cloud=false on every request, so the holds-gauge dropping to 0 is a boundary failure, never tuning. Operator imports into Grafana via Settings → JSON Model.",
+ "annotations": {
+  "list": []
+ },
+ "editable": true,
+ "fiscalYearStartMonth": 0,
+ "graphTooltip": 0,
+ "id": null,
+ "links": [
+  {
+   "title": "producer source (sovereign-gatewayd exporter)",
+   "url": "https://github.com/cyberpunk042/sovereign-os/blob/main/crates/sovereign-gatewayd/src/lib.rs",
+   "type": "link",
+   "icon": "external link"
+  },
+  {
+   "title": "deployment guide — gateway tripwire runbooks",
+   "url": "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereigngatewaycloudspill-critical",
+   "type": "link",
+   "icon": "external link"
+  }
+ ],
+ "refresh": "30s",
+ "schemaVersion": 39,
+ "style": "dark",
+ "tags": [
+  "sovereign-os",
+  "gateway",
+  "never-cloud-spill",
+  "observability"
+ ],
+ "templating": {
+  "list": []
+ },
+ "time": {
+  "from": "now-1h",
+  "to": "now"
+ },
+ "timepicker": {},
+ "timezone": "",
+ "title": "sovereign-os — gateway daemon (never-cloud-spill)",
+ "uid": "sovereign-os-gatewayd",
+ "version": 1,
+ "weekStart": "",
+ "panels": [
+  {
+   "type": "stat",
+   "title": "never-cloud-spill invariant",
+   "description": "The sovereignty tripwire. The daemon forces allow_cloud=false on every request before routing; 1 = no decision has ever routed to the cloud plane in this process's lifetime. 0 fires SovereignGatewayCloudSpill (critical) — treat as an incident, see the runbook.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "sovereign_gateway_never_cloud_spill_holds",
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "min": 0,
+     "max": 1,
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "0": {
+         "text": "BROKEN"
+        },
+        "1": {
+         "text": "HOLDS"
+        }
+       }
+      }
+     ],
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": 0
+       },
+       {
+        "color": "green",
+        "value": 1
+       }
+      ]
+     }
+    }
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 6,
+    "x": 0,
+    "y": 0
+   }
+  },
+  {
+   "type": "stat",
+   "title": "cloud spills (process lifetime)",
+   "description": "Decisions that routed to the cloud plane. Must stay 0 — any non-zero value is the same incident as the tripwire breaking (the gauge is exactly spills == 0).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "sovereign_gateway_cloud_spills_total",
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "red",
+        "value": 1
+       }
+      ]
+     }
+    }
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 6,
+    "x": 6,
+    "y": 0
+   }
+  },
+  {
+   "type": "stat",
+   "title": "live gateway surfaces",
+   "description": "Gateway contract surfaces currently Live (of the 6 in the M048 Module-4 manifest, GET /manifest).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "sovereign_gateway_live_surfaces",
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "min": 0,
+     "max": 6,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "yellow",
+        "value": null
+       },
+       {
+        "color": "green",
+        "value": 1
+       }
+      ]
+     }
+    }
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 6,
+    "x": 12,
+    "y": 0
+   }
+  },
+  {
+   "type": "stat",
+   "title": "requests handled (lifetime)",
+   "description": "Inference requests handled since the daemon started (infer + simple-infer; read-only explain/deliberate count separately as dry-runs).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "sovereign_gateway_requests_total",
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "blue",
+        "value": null
+       }
+      ]
+     }
+    }
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 6,
+    "x": 18,
+    "y": 0
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "request + dry-run rate (5m)",
+   "description": "Decision traffic vs read-only auditing traffic. dry-runs are /v1/explain + /v1/deliberate — they never learn or touch the ledger.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "rate(sovereign_gateway_requests_total[5m])",
+     "refId": "A",
+     "legendFormat": "requests"
+    },
+    {
+     "expr": "rate(sovereign_gateway_dry_runs_total[5m])",
+     "refId": "B",
+     "legendFormat": "dry-runs (explain + deliberate)"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps",
+     "min": 0,
+     "custom": {
+      "drawStyle": "line",
+      "lineInterpolation": "smooth",
+      "lineWidth": 2,
+      "fillOpacity": 20
+     }
+    }
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 12,
+    "x": 0,
+    "y": 4
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "decisions by disposition (5m rate)",
+   "description": "committed = ran + admitted into Memory-OS · refused = engine declined (422 to the client) · learned = admitted into recall. A rising refused share means requests are arriving that the value-plane or scheduler won't accept.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "rate(sovereign_gateway_decisions_total[5m])",
+     "refId": "A",
+     "legendFormat": "{{disposition}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps",
+     "min": 0,
+     "custom": {
+      "drawStyle": "line",
+      "lineInterpolation": "smooth",
+      "lineWidth": 2,
+      "fillOpacity": 20
+     }
+    }
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 12,
+    "x": 12,
+    "y": 4
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "routing per SRP role (5m rate)",
+   "description": "Which SRP role each committed decision routed to (conductor / scout / oracle / …). The shape of this chart IS the router's live policy — a drift here without a config change is worth investigating.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "rate(sovereign_gateway_route_total[5m])",
+     "refId": "A",
+     "legendFormat": "{{role}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps",
+     "min": 0,
+     "custom": {
+      "drawStyle": "line",
+      "lineInterpolation": "smooth",
+      "lineWidth": 2,
+      "fillOpacity": 20
+     }
+    }
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 12,
+    "x": 0,
+    "y": 12
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "world-model prior agreement",
+   "description": "Of the decisions that carried an M030 World-Model prior, the fraction whose prior agreed with the live verdict — how well the engine is learning its own routing-outcome dynamics over the process lifetime. Climbs as Memory-OS accumulates (topic, role) → outcome evidence.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "targets": [
+    {
+     "expr": "sovereign_gateway_prediction_agreements_total / sovereign_gateway_prediction_total",
+     "refId": "A",
+     "legendFormat": "agreement ratio"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit",
+     "min": 0,
+     "max": 1,
+     "custom": {
+      "drawStyle": "line",
+      "lineInterpolation": "smooth",
+      "lineWidth": 2,
+      "fillOpacity": 20
+     }
+    }
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 12,
+    "x": 12,
+    "y": 12
+   }
+  },
+  {
+   "type": "text",
+   "title": "doctrine — local-first by construction",
+   "description": "",
+   "options": {
+    "mode": "markdown",
+    "content": "**never-cloud-spill** — the daemon is local-first by construction (`force_local`): every request is forced `allow_cloud = false` before it reaches the router, so a client can never push work off-node. The tripwire gauge above is the process-lifetime witness of that invariant; `config/prometheus/alerts/sovereign-gatewayd.rules.yml` pages on it breaking (critical) and on it going unobserved (`absent()`, warning). Runbooks: deployment guide § *sovereign-gatewayd alerts*. Gateway doctrine (from `sovereign-gateway`): *\"Instead of tools owning provider keys: client → Sovereign Gateway → local/cloud/model router\"*."
+   },
+   "gridPos": {
+    "h": 5,
+    "w": 24,
+    "x": 0,
+    "y": 20
+   }
+  }
+ ]
+}

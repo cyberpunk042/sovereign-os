@@ -12,6 +12,18 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — gateway Grafana dashboard: the sovereignty tripwire is now visual (2026-06-10)
+
+`docs/observability/dashboards/sovereign-os-gatewayd.json` completes the
+gateway observability triad (metrics → alerts → dashboard): headline
+never-cloud-spill tripwire stat (HOLDS/BROKEN, pairs with the
+SovereignGatewayCloudSpill alerts), cloud-spill counter, live surfaces,
+request + dry-run rates, decisions by disposition, routing per SRP role, M030
+World-Model prior-agreement ratio, and the force_local doctrine panel. The
+json-valid gate's sanctioned metric-family list gains `sovereign_gateway_*`
+(the daemon's own `GET /metrics` namespace, scraped directly over HTTP — same
+dedicated-binary precedent as `sovereign_telemetry_*`).
+
 ### Fixed — small operational symmetry + diagnosability gaps (2026-06-10)
 
 - **`make uninstall` now removes what `make bins` installs.** It removed
