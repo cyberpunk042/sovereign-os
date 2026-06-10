@@ -224,6 +224,7 @@ The codebase carries substantial production state from prior development. This s
 | Eval plane | `crates/sovereign-eval-plane/`, `crates/sovereign-eval-result-summary/`, `crates/sovereign-eval-suite-catalog/` — the 3-crate eval-driven autonomy substrate per M037's evidence-driven authority discipline |
 | Value plane | `crates/sovereign-value-plane/` — the values-projection surface the evals score against |
 | Tool invocation record | `crates/sovereign-tool-invocation-record/` — per-invocation evaluation record for the agent-eval pipeline |
+| LM eval — bits-per-byte | `crates/sovereign-perplexity/` `Eval::bits_per_token` (= log₂ perplexity) + `Eval::bits_per_byte(scored_bytes)` — the standard **tokenizer-independent** information-cost metric for cross-vocabulary model comparison, which token-normalized perplexity can't provide. Commit `ff224cf`; 2 unit (2^(bits/token) recovers perplexity; bits/byte normalizes by byte count + zero-guard) |
 
 ### M038 — Hardware-aware AIDLC
 
