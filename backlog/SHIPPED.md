@@ -499,6 +499,7 @@ The codebase carries substantial production state from prior development. This s
 |---|---|
 | Inference-backend-stack SDD | `docs/sdd/011-inference-backend-stack.md` — the v0 Cortex Runtime spec |
 | dflash speculative-decoding SDD | `docs/sdd/026-dflash-speculative-decoding.md` — the dflash variant for the v0 runtime |
+| dflash sampled (distribution-preserving) verification | `crates/sovereign-spec-decode/` `verify_sampled` — the modified rejection-sampling accept rule (Leviathan/Chen) that emits a target-distributed sequence: accept each draft token at `min(1, p_target/p_draft)`, correct from the normalized positive residual on rejection, bonus from the target on full accept. Complements the existing greedy `verify_greedy`. Commit `f0d8001`; verified by a 400k-trial statistical test (first emitted token matches `p_target` within 1%) + shape-error + accept/reject unit tests |
 | Pulse algorithmic foundation SDD | `docs/sdd/027-pulse-algorithmic-foundation.md` — the algorithmic foundation backing the v0 Cortex |
 | Trinity composition | `crates/sovereign-trinity/` (cross-ref M066) |
 
