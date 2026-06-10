@@ -236,6 +236,48 @@ impl DecoderStack {
         Ok(generated)
     }
 
+    /// Generate with **dynamic no-repeat-ngram blocking**: at every step the
+    /// blocklist is rebuilt from the full generated-so-far history (prompt +
+    /// emitted), so the model can never complete an `n`-gram it has already
+    /// produced — preventing verbatim loops that a static mask can't catch as
+    /// the sequence grows. Reproducible per `seed`.
+    pub fn generate_no_repeat_ngram(
+        &mut self,
+        prompt: &[usize],
+        max_new: usize,
+        seed: u64,
+        n: usize,
+    ) -> Result<Vec<usize>, StackError> {
+        if prompt.is_empty() {
+            return Err(StackError::EmptyPrompt);
+        }
+        let mut history: Vec<usize> = prompt.to_vec();
+        let mut logits = Vec::new();
+        for &t in prompt {
+            logits = self.forward(t)?;
+        }
+        let mut generated = Vec::with_capacity(max_new);
+        for _ in 0..max_new {
+            // Rebuild the blocklist from the live history and apply it.
+            let mut masked = logits.clone();
+            LogitMask::new()
+                .no_repeat_ngram(&history, n)
+                .apply(&mut masked);
+            let pos = self.position() as u64;
+            let recent_start = self.recent.len().saturating_sub(self.config.recent_window);
+            let token = self.config.sampler.sample_seeded(
+                &masked,
+                &self.recent[recent_start..],
+                seed.wrapping_add(pos),
+            )?;
+            self.recent.push(token);
+            history.push(token);
+            generated.push(token);
+            logits = self.forward(token)?;
+        }
+        Ok(generated)
+    }
+
     /// Generate with a stateful [`Mirostat`] controller instead of the config's
     /// static truncation: each step shapes the logits through the sampler's
     /// distribution (temperature / penalties), then lets `mirostat` pick the
@@ -417,6 +459,35 @@ mod tests {
         let mut ms2 = Mirostat::new(2.0, 0.1);
         let b = m2.generate_mirostat(&[1, 2], 6, 7, &mut ms2).unwrap();
         assert_eq!(a, b);
+    }
+
+    #[test]
+    fn no_repeat_ngram_generation_has_no_repeated_ngram() {
+        // With dynamic n=3 blocking, the full sequence (prompt + generated) must
+        // contain no repeated 3-gram, and the run is reproducible.
+        let cfg = config(8, 4, 2, Sampler::new(SamplerConfig::default()));
+        let mut m = DecoderStack::new(cfg.clone()).unwrap();
+        let prompt = [1usize, 2, 3];
+        let out = m.generate_no_repeat_ngram(&prompt, 12, 7, 3).unwrap();
+        let mut full = prompt.to_vec();
+        full.extend(&out);
+        let mut seen = std::collections::HashSet::new();
+        for w in full.windows(3) {
+            assert!(seen.insert(w.to_vec()), "3-gram {w:?} repeated");
+        }
+        // reproducible
+        let mut m2 = DecoderStack::new(cfg).unwrap();
+        assert_eq!(out, m2.generate_no_repeat_ngram(&prompt, 12, 7, 3).unwrap());
+    }
+
+    #[test]
+    fn no_repeat_ngram_empty_prompt_errors() {
+        let mut m =
+            DecoderStack::new(config(6, 4, 1, Sampler::new(SamplerConfig::default()))).unwrap();
+        assert_eq!(
+            m.generate_no_repeat_ngram(&[], 3, 1, 2).unwrap_err(),
+            StackError::EmptyPrompt
+        );
     }
 
     #[test]
