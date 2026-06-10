@@ -49,7 +49,19 @@ stage_kernel_debs() {
   local cache_dir="$1"
   if [ -n "${SOVEREIGN_OS_KERNEL_DEBS_DIR:-}" ] && [ -d "${SOVEREIGN_OS_KERNEL_DEBS_DIR}" ]; then
     mkdir -p "${cache_dir}"
-    cp "${SOVEREIGN_OS_KERNEL_DEBS_DIR}"/*.deb "${cache_dir}/" 2>/dev/null \
+    # Idempotent re-stage: drop leftovers from prior runs (a previously
+    # staged -dbg deb would otherwise ship 984M into the image).
+    rm -f "${cache_dir}"/*.deb
+    # -dbg deb excluded: 984M of debug symbols that would otherwise ship
+    # INSIDE the final image filesystem via mkosi.extra.
+    local staged=0 deb
+    for deb in "${SOVEREIGN_OS_KERNEL_DEBS_DIR}"/*.deb; do
+      [ -e "${deb}" ] || continue
+      case "${deb}" in *-dbg_*) continue ;; esac
+      cp "${deb}" "${cache_dir}/"
+      staged=$((staged + 1))
+    done
+    [ "${staged}" -gt 0 ] \
       || log_warn "no kernel .debs to copy (dry-run mode? substrate-default kernel?)"
   fi
 }

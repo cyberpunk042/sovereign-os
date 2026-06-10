@@ -653,7 +653,10 @@ var BAKED = {
       modules: { load: ["zfs","nvidia","vfio_pci"], blacklist: ["nouveau"] },
       packages: {
         base: ["openssh-server","sudo","tmux","curl","git","python3-minimal","python3-pip","htop","jq","ca-certificates"],
-        profile: ["linux-image-znver5","linux-headers-znver5","nvidia-open-kernel-dkms","nvidia-driver","nvidia-smi","nvidia-container-toolkit","zfsutils-linux","zfs-dkms","podman","tetragon","mokutil","sbsigntool"],
+        // nvidia-container-toolkit + tetragon are NOT in the Debian archive —
+        // they install at first boot (NVIDIA repo / Cilium release), verified
+        // against the pinned snapshot 2026-06-10.
+        profile: ["linux-image-znver5","linux-headers-znver5","nvidia-open-kernel-dkms","nvidia-driver","nvidia-smi","zfsutils-linux","zfs-dkms","podman","mokutil","sbsigntool"],
         deny: ["popularity-contest","apport","whoopsie","motd-news-config","snapd","ubuntu-advantage-tools"],
         placeholder: true,
       },
@@ -1457,11 +1460,11 @@ var GLOSSARY = {
   "nvidia-open-kernel-dkms": "NVIDIA's open GPU kernel modules, rebuilt by DKMS for your custom kernel.",
   "nvidia-driver": "NVIDIA userspace driver stack (libGL, CUDA driver).",
   "nvidia-smi": "GPU management CLI — also how power caps are applied (-pl).",
-  "nvidia-container-toolkit": "Exposes GPUs inside Podman containers — Weaver's inference sandboxes need it.",
+  "nvidia-container-toolkit": "Exposes GPUs inside Podman containers — NOT in the Debian archive; installs at first boot from NVIDIA's repo.",
   "zfsutils-linux": "ZFS userland: the zpool / zfs commands.",
   "zfs-dkms": "ZFS kernel-module source, rebuilt by DKMS for your custom kernel.",
   "podman": "Rootless container runtime — Weaver's substrate (no Docker daemon).",
-  "tetragon": "Cilium's eBPF runtime security — the Auditor's kernel-level perimeter.",
+  "tetragon": "Cilium's eBPF runtime security — the Auditor's kernel-level perimeter. NOT in the Debian archive; installs at first boot from Cilium's release.",
   "mokutil": "Machine Owner Key enrollment for secure boot — YOUR signing chain, not a vendor's.",
   "sbsigntool": "Signs the kernel + bootloader with your MOK.",
   "linux-image-znver5": "Your custom Zen-5-tuned kernel, packaged as a .deb.",
