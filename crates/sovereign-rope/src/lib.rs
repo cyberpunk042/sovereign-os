@@ -48,6 +48,10 @@ pub enum RopeError {
     },
 }
 
+fn unit_scale() -> f32 {
+    1.0
+}
+
 /// A RoPE configuration for one attention head.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Rope {
@@ -55,6 +59,29 @@ pub struct Rope {
     pub head_dim: usize,
     /// Frequency base `θ` (typically [`DEFAULT_THETA_BASE`]).
     pub theta_base: f32,
+    /// Linear **position-interpolation** factor (Chen et al.): every position
+    /// is multiplied by this before rotation, so `1.0` is standard RoPE and
+    /// `< 1.0` compresses positions back into the trained range to extend
+    /// context. Defaults to `1.0` for backward-compatible deserialization.
+    #[serde(default = "unit_scale")]
+    pub position_scale: f32,
+}
+
+/// The NTK-aware frequency base for extending context by `factor`× without
+/// retraining (Peng et al. / "NTK-aware scaling"): scale the base so the
+/// slowest-rotating pair gains the full `factor` of range while the fastest is
+/// barely touched. Feed the result to [`Rope::with_base`].
+///
+/// # Panics
+/// Panics if `head_dim < 2`, `head_dim` is odd, or `factor <= 0`.
+pub fn ntk_aware_base(head_dim: usize, theta_base: f32, factor: f32) -> f32 {
+    assert!(
+        head_dim >= 2 && head_dim % 2 == 0,
+        "head_dim must be even ≥ 2"
+    );
+    assert!(factor > 0.0, "factor must be > 0");
+    let exponent = head_dim as f32 / (head_dim as f32 - 2.0);
+    theta_base * factor.powf(exponent)
 }
 
 impl Rope {
@@ -80,7 +107,33 @@ impl Rope {
         Self {
             head_dim,
             theta_base,
+            position_scale: 1.0,
         }
+    }
+
+    /// A RoPE head with an explicit linear position-interpolation scale (and
+    /// the conventional base). `position_scale = train_ctx / target_ctx`
+    /// compresses an extended context back into the trained range.
+    ///
+    /// # Panics
+    /// Panics if `head_dim` is zero/odd or `position_scale <= 0`.
+    pub fn with_position_scale(head_dim: usize, position_scale: f32) -> Self {
+        assert!(position_scale > 0.0, "position_scale must be > 0");
+        let mut r = Self::new(head_dim);
+        r.position_scale = position_scale;
+        r
+    }
+
+    /// A RoPE head configured to extend context from `train_ctx` to
+    /// `target_ctx` by linear position interpolation: positions are scaled by
+    /// `train_ctx / target_ctx` so a sequence up to `target_ctx` stays within
+    /// the rotation range the model saw at `train_ctx`.
+    ///
+    /// # Panics
+    /// Panics if `head_dim` is zero/odd or either context is zero.
+    pub fn for_context_extension(head_dim: usize, train_ctx: usize, target_ctx: usize) -> Self {
+        assert!(train_ctx > 0 && target_ctx > 0, "contexts must be > 0");
+        Self::with_position_scale(head_dim, train_ctx as f32 / target_ctx as f32)
     }
 
     /// Number of rotated pairs (`head_dim / 2`).
@@ -112,7 +165,7 @@ impl Rope {
     pub fn rotate_in_place(&self, v: &mut [f32], pos: usize) -> Result<(), RopeError> {
         self.check(v)?;
         for i in 0..self.pairs() {
-            let angle = pos as f32 * self.freq(i);
+            let angle = pos as f32 * self.position_scale * self.freq(i);
             let (sin, cos) = angle.sin_cos();
             let a = v[2 * i];
             let b = v[2 * i + 1];
@@ -164,6 +217,66 @@ mod tests {
         let rope = Rope::new(8);
         let v = vec![1.0, -2.0, 0.5, 3.0, -1.0, 0.25, 4.0, -0.5];
         assert!(approx(&rope.rotate(&v, 0).unwrap(), &v, 1e-6));
+    }
+
+    #[test]
+    fn default_position_scale_is_one() {
+        assert_eq!(Rope::new(8).position_scale, 1.0);
+        // Default-scaled rotation equals plain rotation.
+        let v = vec![1.0, -2.0, 0.5, 3.0, -1.0, 0.25, 4.0, -0.5];
+        let a = Rope::new(8).rotate(&v, 7).unwrap();
+        let b = Rope::with_position_scale(8, 1.0).rotate(&v, 7).unwrap();
+        assert!(approx(&a, &b, 1e-6));
+    }
+
+    #[test]
+    fn position_interpolation_halves_the_angle() {
+        // scale 0.5 at position 2k rotates by the same angle as standard RoPE
+        // at position k — positions are linearly compressed.
+        let v = vec![1.0, -2.0, 0.5, 3.0, -1.0, 0.25, 4.0, -0.5];
+        let scaled = Rope::with_position_scale(8, 0.5);
+        let plain = Rope::new(8);
+        assert!(approx(
+            &scaled.rotate(&v, 6).unwrap(),
+            &plain.rotate(&v, 3).unwrap(),
+            1e-5
+        ));
+    }
+
+    #[test]
+    fn context_extension_sets_the_ratio_and_stays_in_range() {
+        // Extend 2048 → 8192 → scale 0.25; the last extended position rotates
+        // by the same angle the model saw at its trained max.
+        let rope = Rope::for_context_extension(8, 2048, 8192);
+        assert!((rope.position_scale - 0.25).abs() < 1e-6);
+        let v = vec![1.0, -2.0, 0.5, 3.0, -1.0, 0.25, 4.0, -0.5];
+        let extended = rope.rotate(&v, 8192).unwrap();
+        let trained = Rope::new(8).rotate(&v, 2048).unwrap();
+        assert!(approx(&extended, &trained, 1e-3));
+    }
+
+    #[test]
+    fn ntk_aware_base_grows_with_factor() {
+        let base = ntk_aware_base(8, DEFAULT_THETA_BASE, 4.0);
+        assert!(base > DEFAULT_THETA_BASE, "NTK base should grow");
+        // factor 1 leaves the base unchanged.
+        assert!((ntk_aware_base(8, DEFAULT_THETA_BASE, 1.0) - DEFAULT_THETA_BASE).abs() < 1e-3);
+        // A larger base slows the rotation of every pair (extends range).
+        let slow = Rope::with_base(8, base);
+        let fast = Rope::new(8);
+        assert!(slow.freq(1) < fast.freq(1));
+    }
+
+    #[test]
+    fn position_scale_deserializes_with_default() {
+        // Legacy JSON without position_scale → defaults to 1.0.
+        let legacy = r#"{"head_dim":8,"theta_base":10000.0}"#;
+        let rope: Rope = serde_json::from_str(legacy).unwrap();
+        assert_eq!(rope.position_scale, 1.0);
+        // Round-trip with the field present.
+        let r2 = Rope::with_position_scale(8, 0.5);
+        let j = serde_json::to_string(&r2).unwrap();
+        assert_eq!(serde_json::from_str::<Rope>(&j).unwrap(), r2);
     }
 
     #[test]
