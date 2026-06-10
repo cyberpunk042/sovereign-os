@@ -469,7 +469,8 @@ The codebase carries substantial production state from prior development. This s
 | Control plane | `crates/sovereign-gateway/`, `crates/sovereign-router-7axis/` — operator-facing control surface |
 | Memory plane | `crates/sovereign-memory-os/` + sister crates (cross-ref M014, M028) |
 | Tool plane | `crates/sovereign-tool-catalog/`, `crates/sovereign-tool-invocation-record/` (cross-ref M037, M048) |
-| Control plane — ReAct loop repeat guard | `crates/sovereign-agent-loop/` `AgentLoop::with_repeat_guard(n)` + `StopReason` enum (FinalAnswer / StepCap / RepeatedAction) — stops the loop when the model issues the same tool call (name + args) `n` times instead of spinning to the step cap; the exit cause is now explicit on `AgentResult`. Default off (behavior unchanged). Commit `8f8b75f`; 4 unit (guard breaks identical-action loop, allows distinct actions, all three stop reasons reported) |
+| Control plane — ReAct loop repeat guard | `crates/sovereign-agent-loop/` `AgentLoop::with_repeat_guard(n)` + `StopReason` enum (FinalAnswer / StepCap / RepeatedAction) — stops the loop when the model issues the same tool call (name + args) `n` times instead of spinning to the step cap; the exit cause is now explicit on `AgentResult`. Default off (behavior unchanged). Wired + surfaced in `sovereign-agent-runtime` (commit `ab2dee9`). Commit `8f8b75f`; 4 unit (guard breaks identical-action loop, allows distinct actions, all three stop reasons reported) |
+| Tool plane — parser robustness | `crates/sovereign-tool-dispatch/` `parse_call` trims whitespace around the tool name (so `[[tool: upper \|x]]` resolves; args verbatim) + `parse_all_calls` finds every marker in a reply (non-overlapping, malformed skipped). Commit `fc74f86`; 3 unit (whitespace-tolerant parse + dispatch, multi-call extraction, malformed cases) |
 
 ### M006 — Deterministic AI control substrate
 
