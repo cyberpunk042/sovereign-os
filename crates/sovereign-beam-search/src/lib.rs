@@ -142,6 +142,104 @@ impl BeamSearch {
             score: best.score,
         })
     }
+
+    /// Beam search with **EOS termination** and **length normalization** — what
+    /// a real decoder needs over the fixed-length [`search`](Self::search). A
+    /// beam that emits `eos` is finished (not extended further); the winner is
+    /// the finished/active beam with the best **length-normalized** score
+    /// `score / lenᵅ` (`length_penalty = α`), which removes raw log-prob's bias
+    /// toward short sequences (every token adds a negative log-prob, so shorter
+    /// hypotheses look "better" without normalization). `eos = None` and
+    /// `length_penalty = 0.0` reproduce [`search`](Self::search).
+    pub fn search_with(
+        &self,
+        base: &DecoderStack,
+        prompt: &[usize],
+        eos: Option<usize>,
+        length_penalty: f32,
+    ) -> Result<BeamResult, BeamError> {
+        if self.beam_width == 0 {
+            return Err(BeamError::ZeroBeam);
+        }
+        if prompt.is_empty() {
+            return Err(BeamError::EmptyPrompt);
+        }
+        let mut primed = base.clone();
+        let mut logits = Vec::new();
+        for &t in prompt {
+            logits = primed.forward(t)?;
+        }
+        let mut beams = vec![Beam {
+            model: primed,
+            tokens: Vec::new(),
+            score: 0.0,
+            logits,
+        }];
+        let mut finished: Vec<Beam> = Vec::new();
+
+        for _ in 0..self.max_new {
+            if beams.is_empty() {
+                break;
+            }
+            let mut candidates: Vec<(usize, usize, f64)> = Vec::new();
+            for (bi, beam) in beams.iter().enumerate() {
+                let logprobs = log_softmax(&beam.logits);
+                for &t in &top_indices(&logprobs, self.beam_width) {
+                    candidates.push((bi, t, beam.score + logprobs[t] as f64));
+                }
+            }
+            candidates.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
+            candidates.truncate(self.beam_width);
+
+            let mut next = Vec::with_capacity(candidates.len());
+            for (bi, t, score) in candidates {
+                let mut tokens = beams[bi].tokens.clone();
+                tokens.push(t);
+                if Some(t) == eos {
+                    // Finished — no need to extend its KV state further.
+                    finished.push(Beam {
+                        model: beams[bi].model.clone(),
+                        tokens,
+                        score,
+                        logits: Vec::new(),
+                    });
+                } else {
+                    let mut model = beams[bi].model.clone();
+                    let new_logits = model.forward(t)?;
+                    next.push(Beam {
+                        model,
+                        tokens,
+                        score,
+                        logits: new_logits,
+                    });
+                }
+            }
+            beams = next;
+        }
+        // Unfinished beams at the length cap also compete.
+        finished.extend(beams);
+
+        let lp = length_penalty;
+        let best = finished
+            .into_iter()
+            .max_by(|a, b| {
+                length_normalized_score(a.score, a.tokens.len(), lp)
+                    .partial_cmp(&length_normalized_score(b.score, b.tokens.len(), lp))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .expect("at least one beam");
+        Ok(BeamResult {
+            tokens: best.tokens,
+            score: best.score,
+        })
+    }
+}
+
+/// Length-normalized beam score `score / lenᵅ` (GNMT-style length penalty). A
+/// length of 0 is treated as 1. `α = 0` returns the raw score.
+fn length_normalized_score(score: f64, len: usize, alpha: f32) -> f64 {
+    let len = len.max(1) as f64;
+    score / len.powf(alpha as f64)
 }
 
 /// Numerically-stable log-softmax.
@@ -237,6 +335,49 @@ mod tests {
         let (gtoks, gscore) = greedy(m.clone(), &[1, 2], 6);
         assert_eq!(res.tokens, gtoks);
         assert!((res.score - gscore).abs() < 1e-5);
+    }
+
+    #[test]
+    fn length_norm_corrects_short_sequence_bias() {
+        // A long beam (10 tokens, score −10, avg −1/tok) vs a short one (2
+        // tokens, score −3, avg −1.5/tok). Raw score (α=0) prefers the short
+        // one; α=1 normalizes by length and prefers the better-per-token long one.
+        assert!(
+            length_normalized_score(-3.0, 2, 0.0) > length_normalized_score(-10.0, 10, 0.0),
+            "raw score favors the shorter beam"
+        );
+        assert!(
+            length_normalized_score(-10.0, 10, 1.0) > length_normalized_score(-3.0, 2, 1.0),
+            "length-normalized favors the better-per-token longer beam"
+        );
+        // α=0 is the raw score; len 0 treated as 1.
+        assert_eq!(length_normalized_score(-5.0, 4, 0.0), -5.0);
+        assert_eq!(length_normalized_score(-5.0, 0, 2.0), -5.0);
+    }
+
+    #[test]
+    fn search_with_defaults_equal_plain_search() {
+        // eos=None, length_penalty=0 reproduces search().
+        let m = model(10);
+        let bs = BeamSearch::new(4, 8);
+        let a = bs.search(&m, &[3, 1]).unwrap();
+        let b = bs.search_with(&m, &[3, 1], None, 0.0).unwrap();
+        assert_eq!(a.tokens, b.tokens);
+        assert!((a.score - b.score).abs() < 1e-9);
+    }
+
+    #[test]
+    fn search_with_terminates_within_cap_and_validates() {
+        let m = model(8);
+        let bs = BeamSearch::new(3, 6);
+        // An eos that may or may not be emitted — output never exceeds the cap.
+        let res = bs.search_with(&m, &[1, 2], Some(7), 0.7).unwrap();
+        assert!(res.tokens.len() <= 6);
+        assert!(res.tokens.iter().all(|&t| t < 8));
+        assert_eq!(
+            bs.search_with(&m, &[], Some(7), 0.7).unwrap_err(),
+            BeamError::EmptyPrompt
+        );
     }
 
     #[test]
