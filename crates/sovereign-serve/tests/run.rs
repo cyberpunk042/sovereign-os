@@ -74,6 +74,30 @@ fn screen_flag_runs_without_blocking_clean_output() {
 }
 
 #[test]
+fn regex_flag_constrains_completions_to_digits() {
+    // --regex [0-9]+ forces every served completion to be digits-only.
+    let out = Command::new(env!("CARGO_BIN_EXE_sovereign-serve"))
+        .args(["--regex", "[0-9]+", "give me a number"])
+        .output()
+        .expect("run sovereign-serve --regex");
+    assert!(out.status.success());
+    let s = String::from_utf8_lossy(&out.stdout);
+    // the served text (printed after `-> `) is all ASCII digits
+    let served = s
+        .lines()
+        .find(|l| l.contains("serve  ok"))
+        .and_then(|l| l.rsplit("-> ").next())
+        .unwrap_or("");
+    let digits: String = served.chars().filter(|c| c.is_ascii_digit()).collect();
+    assert!(!digits.is_empty(), "expected digits in served output:\n{s}");
+    // no letters leaked into the constrained completion
+    assert!(
+        !served.chars().any(|c| c.is_ascii_alphabetic()),
+        "non-digit leaked:\n{s}"
+    );
+}
+
+#[test]
 fn help_exits_zero() {
     let out = Command::new(env!("CARGO_BIN_EXE_sovereign-serve"))
         .arg("--help")

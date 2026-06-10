@@ -92,6 +92,8 @@ USAGE:
                                        before it is cached/returned (egress gate)
     sovereign-serve --screen PROMPT…   refuse a completion flagged toxic by the
                                        built-in content filter (egress gate)
+    sovereign-serve --regex RE PROMPT… constrain every completion to the regex RE
+                                       (guaranteed-format output)
     sovereign-serve --help             print this help and exit";
 
 fn main() {
@@ -111,11 +113,17 @@ fn main() {
     let no_repeat: Option<usize> = nrn_idx
         .and_then(|i| args.get(i + 1))
         .and_then(|v| v.parse().ok());
-    // Exclude flags (and the value following --no-repeat-ngram) from prompts.
-    let skip: std::collections::HashSet<usize> = match (nrn_idx, no_repeat.is_some()) {
-        (Some(i), true) => [i, i + 1].into_iter().collect(),
-        _ => std::collections::HashSet::new(),
-    };
+    // `--regex RE` constrains every completion to the pattern RE.
+    let regex_idx = args.iter().position(|a| a == "--regex");
+    let regex: Option<String> = regex_idx.and_then(|i| args.get(i + 1)).cloned();
+    // Exclude the values following value-taking flags from the prompt list.
+    let mut skip: std::collections::HashSet<usize> = std::collections::HashSet::new();
+    if no_repeat.is_some() {
+        skip.insert(nrn_idx.unwrap() + 1);
+    }
+    if regex.is_some() {
+        skip.insert(regex_idx.unwrap() + 1);
+    }
     let prompts: Vec<&str> = args
         .iter()
         .enumerate()
@@ -129,7 +137,11 @@ fn main() {
     // decoded completion is returned for caching + accounting.
     let llm = runtime();
     let generate = |prompt: &str, max_new: usize, seed: u64| -> Result<String, String> {
-        let text = if let Some(n) = no_repeat {
+        let text = if let Some(pattern) = regex.as_deref() {
+            // Constrained decoding: the completion is forced to match `pattern`.
+            llm.complete_regex(prompt, pattern, max_new, seed)
+                .map_err(|e| e.to_string())?
+        } else if let Some(n) = no_repeat {
             let opts = GenOptions::new(max_new).with_no_repeat_ngram(n);
             let ids = llm
                 .generate_ids_with(prompt, seed, &opts, |_| {})
