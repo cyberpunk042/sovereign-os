@@ -29,7 +29,7 @@
 use serde::{Deserialize, Serialize};
 use sovereign_logit_mask::LogitMask;
 use sovereign_rmsnorm::RmsNorm;
-use sovereign_sampler::{Sampler, SamplerError};
+use sovereign_sampler::{Mirostat, Sampler, SamplerError};
 use sovereign_transformer_block::{BlockError, BlockWeights, DecoderBlock};
 use thiserror::Error;
 
@@ -236,6 +236,47 @@ impl DecoderStack {
         Ok(generated)
     }
 
+    /// Generate with a stateful [`Mirostat`] controller instead of the config's
+    /// static truncation: each step shapes the logits through the sampler's
+    /// distribution (temperature / penalties), then lets `mirostat` pick the
+    /// token and update its running `μ` so output perplexity stays near the
+    /// controller's target. Reproducible per `seed`; `mirostat`'s state advances
+    /// across the call (and persists for the caller to inspect).
+    pub fn generate_mirostat(
+        &mut self,
+        prompt: &[usize],
+        max_new: usize,
+        seed: u64,
+        mirostat: &mut Mirostat,
+    ) -> Result<Vec<usize>, StackError> {
+        if prompt.is_empty() {
+            return Err(StackError::EmptyPrompt);
+        }
+        let mut logits = Vec::new();
+        for &t in prompt {
+            logits = self.forward(t)?;
+        }
+        let mut generated = Vec::with_capacity(max_new);
+        for _ in 0..max_new {
+            let pos = self.position() as u64;
+            let recent_start = self.recent.len().saturating_sub(self.config.recent_window);
+            let probs = self
+                .config
+                .sampler
+                .distribution(&logits, &self.recent[recent_start..])?;
+            // One deterministic uniform from seed+pos (splitmix64), so the run
+            // is reproducible like the static path.
+            let u = splitmix_uniform(seed.wrapping_add(pos)) as f32;
+            let token = mirostat
+                .sample(&probs, u)
+                .ok_or(SamplerError::AllFiltered)?;
+            self.recent.push(token);
+            generated.push(token);
+            logits = self.forward(token)?;
+        }
+        Ok(generated)
+    }
+
     /// Streaming generation: identical to [`generate_masked`](Self::generate_masked)
     /// but invokes `on_token` with each sampled token id the instant it is
     /// produced (before the next forward pass), so a server can emit tokens as
@@ -276,11 +317,21 @@ impl DecoderStack {
     }
 }
 
+/// Deterministic splitmix64 → uniform `[0, 1)` from one seed, so the Mirostat
+/// path is reproducible without threading an RNG type through the stack.
+fn splitmix_uniform(seed: u64) -> f64 {
+    let mut z = seed.wrapping_add(0x9E37_79B9_7F4A_7C15);
+    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+    z ^= z >> 31;
+    (z >> 11) as f64 / (1u64 << 53) as f64
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use sovereign_ffn::SwiGlu;
-    use sovereign_sampler::SamplerConfig;
+    use sovereign_sampler::{Mirostat, SamplerConfig};
 
     fn block(model_dim: usize, seed: f32) -> BlockWeights {
         let hd = model_dim;
@@ -348,6 +399,35 @@ mod tests {
             .unwrap();
         assert_eq!(streamed, batch);
         assert_eq!(streamed.len(), 6);
+    }
+
+    #[test]
+    fn mirostat_generation_runs_reproducibly_and_advances_mu() {
+        let cfg = config(8, 4, 2, Sampler::new(SamplerConfig::default()));
+        let mut m1 = DecoderStack::new(cfg.clone()).unwrap();
+        let mut ms1 = Mirostat::new(2.0, 0.1);
+        let a = m1.generate_mirostat(&[1, 2], 6, 7, &mut ms1).unwrap();
+        assert_eq!(a.len(), 6);
+        assert!(a.iter().all(|&t| t < 8));
+        // μ moved from its 2τ start as the controller adapted.
+        assert!((ms1.mu() - 4.0).abs() > 1e-6, "μ should have adapted");
+
+        // Same seed + fresh controller → identical sequence (reproducible).
+        let mut m2 = DecoderStack::new(cfg).unwrap();
+        let mut ms2 = Mirostat::new(2.0, 0.1);
+        let b = m2.generate_mirostat(&[1, 2], 6, 7, &mut ms2).unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn mirostat_empty_prompt_errors() {
+        let mut m =
+            DecoderStack::new(config(6, 4, 1, Sampler::new(SamplerConfig::default()))).unwrap();
+        let mut ms = Mirostat::new(3.0, 0.1);
+        assert_eq!(
+            m.generate_mirostat(&[], 3, 1, &mut ms).unwrap_err(),
+            StackError::EmptyPrompt
+        );
     }
 
     #[test]
