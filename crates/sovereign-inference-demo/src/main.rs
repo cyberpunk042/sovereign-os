@@ -117,6 +117,12 @@ fn nvfp4_mha_layer() -> MhaDecoderBlock {
 
 /// Build the demo runtime: BPE tokenizer + mixed-precision 3-layer model.
 fn build_runtime() -> QuantLlm {
+    build_runtime_with(false)
+}
+
+/// Build the demo runtime, optionally with the NVFP4 layer's KV cache
+/// NVFP4-compressed (`quantized_kv`) instead of dense f32.
+fn build_runtime_with(quantized_kv: bool) -> QuantLlm {
     // a few merges so the tokenizer does real BPE, not just raw bytes
     let merges = [("t", "h"), ("th", "e"), ("e", " ")]
         .iter()
@@ -125,10 +131,15 @@ fn build_runtime() -> QuantLlm {
     let tokenizer = Tokenizer::from_merges(merges);
     let vocab = tokenizer.vocab_size();
 
+    let nvfp4 = if quantized_kv {
+        nvfp4_mha_layer().with_quantized_kv()
+    } else {
+        nvfp4_mha_layer()
+    };
     let layers: Vec<Box<dyn DecoderLayer>> = vec![
         Box::new(f32_layer()),
         Box::new(ternary_layer()),
-        Box::new(nvfp4_mha_layer()),
+        Box::new(nvfp4),
     ];
     let stack = LayerStack::new(layers).expect("non-empty stack");
 
@@ -316,6 +327,55 @@ fn run_demo() -> String {
         }
     );
 
+    // Recipe-aware calibrated precision assignment: under a 10% output-error
+    // budget, each projection is assigned the cheapest precision that fits —
+    // ternary if it can, else NVFP4 with its best M077 recipe, else f32. This is
+    // the per-layer mixed-precision decision a calibrated loader would make.
+    let cal_inputs: Vec<Vec<f32>> = (0..4)
+        .map(|k| {
+            (0..MODEL_DIM)
+                .map(|i| ((i + k) as f32 * 0.3).sin() + 0.5)
+                .collect()
+        })
+        .collect();
+    let (mut tern, mut nvfp, mut full) = (0usize, 0usize, 0usize);
+    for (w, o, i) in &proj_w {
+        if *i != MODEL_DIM {
+            continue; // calibration inputs are model_dim-wide
+        }
+        match sovereign_quant_calibration::recommend_with_recipe(w, *o, *i, &cal_inputs, 0.10) {
+            Ok((Precision::Ternary, _)) => tern += 1,
+            Ok((Precision::Nvfp4, _)) => nvfp += 1,
+            _ => full += 1,
+        }
+    }
+    let _ = writeln!(
+        out,
+        "nvfp4 calibrated: precision assignment @10% budget → {tern} ternary, {nvfp} nvfp4, {full} f32"
+    );
+
+    // NVFP4-compressed KV cache used in the *actual* generation path: build the
+    // same model with the NVFP4 layer's cache quantized (~7× smaller), generate,
+    // and report how closely it tracks the dense-cache generation.
+    let (kv_prompt, kv_seed) = ("the cat", 0xC0FFEE);
+    let qkv_ids = build_runtime_with(true)
+        .generate_ids(kv_prompt, 12, kv_seed)
+        .expect("qkv generation");
+    let dense_ids = build_runtime()
+        .generate_ids(kv_prompt, 12, kv_seed)
+        .expect("dense generation");
+    let agree = qkv_ids
+        .iter()
+        .zip(&dense_ids)
+        .filter(|(a, b)| a == b)
+        .count();
+    let _ = writeln!(
+        out,
+        "nvfp4 kv-cache  : compressed-cache generation matches {}/{} dense tokens (~7× smaller, 4.5 vs 32 bpp)",
+        agree,
+        dense_ids.len()
+    );
+
     out
 }
 
@@ -390,11 +450,12 @@ fn run_strategies_demo() -> String {
         .expect("spec");
     let _ = writeln!(
         out,
-        "speculative     : {:?} (accept {}/{} = {:.0}%)",
+        "speculative     : {:?} (accept {}/{} = {:.0}%, {:.2}× tokens/pass)",
         spec.tokens,
         spec.accepted,
         spec.proposed,
-        spec.acceptance_rate() * 100.0
+        spec.acceptance_rate() * 100.0,
+        spec.realized_speedup()
     );
 
     // distribution-preserving speculative decoding (DFlash sampled accept rule):
@@ -409,11 +470,12 @@ fn run_strategies_demo() -> String {
         .expect("spec sampled");
     let _ = writeln!(
         out,
-        "spec (sampled)  : {:?} (accept {}/{} = {:.0}%, distribution-preserving)",
+        "spec (sampled)  : {:?} (accept {}/{} = {:.0}%, {:.2}× tokens/pass, distribution-preserving)",
         spec_s.tokens,
         spec_s.accepted,
         spec_s.proposed,
-        spec_s.acceptance_rate() * 100.0
+        spec_s.acceptance_rate() * 100.0,
+        spec_s.realized_speedup()
     );
 
     // perplexity over a reference sequence

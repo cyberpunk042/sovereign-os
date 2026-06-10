@@ -26,6 +26,7 @@
 use serde::{Deserialize, Serialize};
 use sovereign_decoder_stack::{DecoderStack, StackConfig, StackError};
 use sovereign_logit_mask::LogitMask;
+use sovereign_sampler::Mirostat;
 use sovereign_tokenizer::Tokenizer;
 use thiserror::Error;
 
@@ -129,6 +130,87 @@ impl SovereignLlm {
         seed: u64,
     ) -> Result<Vec<u32>, LlmError> {
         self.generate_ids_constrained(prompt, max_new, seed, &LogitMask::new())
+    }
+
+    /// Generate token ids, stopping early at the first token in `stop_tokens`
+    /// (which is included). The EOS / stop-sequence behaviour a real runtime
+    /// needs. Pristine cache per call.
+    pub fn generate_ids_until(
+        &self,
+        prompt: &str,
+        max_new: usize,
+        seed: u64,
+        stop_tokens: &[u32],
+    ) -> Result<Vec<u32>, LlmError> {
+        let ids: Vec<usize> = self
+            .tokenizer
+            .encode(prompt)
+            .into_iter()
+            .map(|t| t as usize)
+            .collect();
+        if ids.is_empty() {
+            return Err(LlmError::EmptyPrompt);
+        }
+        let stops: Vec<usize> = stop_tokens.iter().map(|&t| t as usize).collect();
+        let mut model = self.model.clone();
+        let generated = model.generate_until(&ids, max_new, seed, &stops)?;
+        Ok(generated.iter().map(|&t| t as u32).collect())
+    }
+
+    /// Generate token ids under a stateful [`Mirostat`] controller — output
+    /// perplexity is held near the controller's target instead of using the
+    /// config's static truncation. The controller's `μ` advances across the
+    /// call. Starts from a pristine cache (model cloned).
+    pub fn generate_ids_mirostat(
+        &self,
+        prompt: &str,
+        max_new: usize,
+        seed: u64,
+        mirostat: &mut Mirostat,
+    ) -> Result<Vec<u32>, LlmError> {
+        let ids: Vec<usize> = self
+            .tokenizer
+            .encode(prompt)
+            .into_iter()
+            .map(|t| t as usize)
+            .collect();
+        if ids.is_empty() {
+            return Err(LlmError::EmptyPrompt);
+        }
+        let mut model = self.model.clone();
+        let generated = model.generate_mirostat(&ids, max_new, seed, mirostat)?;
+        Ok(generated.iter().map(|&t| t as u32).collect())
+    }
+
+    /// Streaming generation: invoke `on_token` with each generated token id the
+    /// moment it is produced, so a caller can emit tokens as they arrive (e.g.
+    /// server-sent events) instead of waiting for the whole completion. Returns
+    /// the full id sequence too. Starts from a pristine cache (model is cloned),
+    /// so it never contaminates other calls.
+    pub fn generate_ids_streaming<F: FnMut(u32)>(
+        &self,
+        prompt: &str,
+        max_new: usize,
+        seed: u64,
+        mut on_token: F,
+    ) -> Result<Vec<u32>, LlmError> {
+        let ids: Vec<usize> = self
+            .tokenizer
+            .encode(prompt)
+            .into_iter()
+            .map(|t| t as usize)
+            .collect();
+        if ids.is_empty() {
+            return Err(LlmError::EmptyPrompt);
+        }
+        let mut model = self.model.clone();
+        let mut out = Vec::with_capacity(max_new);
+        model.generate_masked_with(&ids, max_new, seed, &LogitMask::new(), |t| {
+            let id = t as u32;
+            out.push(id);
+            on_token(id);
+        })?;
+        Ok(out)
     }
 
     /// Like [`generate_ids`](Self::generate_ids) but applies a [`LogitMask`]
@@ -269,6 +351,76 @@ mod tests {
         let llm = runtime(Sampler::greedy());
         let full = llm.complete_with_prompt("abc", 4, 1).unwrap();
         assert!(full.starts_with("abc"), "{full:?}");
+    }
+
+    #[test]
+    fn streaming_matches_batch_and_streams_each_token() {
+        let llm = runtime(Sampler::new(SamplerConfig::default()));
+        let batch = llm.generate_ids("hello sovereign", 8, 5).unwrap();
+        let mut streamed = Vec::new();
+        let returned = llm
+            .generate_ids_streaming("hello sovereign", 8, 5, |id| streamed.push(id))
+            .unwrap();
+        assert_eq!(streamed, batch, "streamed ids must match batch");
+        assert_eq!(returned, batch, "returned ids must match batch");
+        assert_eq!(streamed.len(), 8);
+    }
+
+    #[test]
+    fn streaming_empty_prompt_errors() {
+        let llm = runtime(Sampler::greedy());
+        assert_eq!(
+            llm.generate_ids_streaming("", 4, 1, |_| {}).unwrap_err(),
+            LlmError::EmptyPrompt
+        );
+    }
+
+    #[test]
+    fn mirostat_generation_runs_and_is_reproducible() {
+        let llm = runtime(Sampler::new(SamplerConfig::default()));
+        let mut ms_a = Mirostat::new(2.5, 0.1);
+        let a = llm
+            .generate_ids_mirostat("hello sovereign", 8, 3, &mut ms_a)
+            .unwrap();
+        assert_eq!(a.len(), 8);
+        let v = llm.vocab_size() as u32;
+        assert!(a.iter().all(|&t| t < v));
+        // Same seed + fresh controller → identical ids.
+        let mut ms_b = Mirostat::new(2.5, 0.1);
+        let b = llm
+            .generate_ids_mirostat("hello sovereign", 8, 3, &mut ms_b)
+            .unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn mirostat_empty_prompt_errors() {
+        let llm = runtime(Sampler::greedy());
+        let mut ms = Mirostat::new(3.0, 0.1);
+        assert_eq!(
+            llm.generate_ids_mirostat("", 4, 1, &mut ms).unwrap_err(),
+            LlmError::EmptyPrompt
+        );
+    }
+
+    #[test]
+    fn generate_until_stops_at_stop_token() {
+        let llm = runtime(Sampler::new(SamplerConfig::default()));
+        let first = llm.generate_ids("hello", 1, 4).unwrap()[0];
+        let out = llm.generate_ids_until("hello", 16, 4, &[first]).unwrap();
+        assert_eq!(out, vec![first]);
+        // empty stop set → full length
+        let full = llm.generate_ids_until("hello", 5, 4, &[]).unwrap();
+        assert_eq!(full.len(), 5);
+    }
+
+    #[test]
+    fn generate_until_empty_prompt_errors() {
+        let llm = runtime(Sampler::greedy());
+        assert_eq!(
+            llm.generate_ids_until("", 4, 1, &[0]).unwrap_err(),
+            LlmError::EmptyPrompt
+        );
     }
 
     #[test]

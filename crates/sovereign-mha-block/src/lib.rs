@@ -34,6 +34,7 @@
 use sovereign_ffn::silu;
 use sovereign_linear::{Linear, LinearError, NvfpRecipe, Precision};
 use sovereign_mha::{Mha, MhaError};
+use sovereign_nvfp4_runtime::QuantMatrix;
 use sovereign_rmsnorm::{RmsNorm, RmsNormError};
 use sovereign_rope::{Rope, RopeError};
 use thiserror::Error;
@@ -64,6 +65,69 @@ pub enum MhaBlockError {
     /// A RoPE sub-error.
     #[error("rope: {0}")]
     Rope(#[from] RopeError),
+    /// Quantizing a KV-cache vector to NVFP4 failed.
+    #[error("kv-cache quant: {0}")]
+    KvQuant(String),
+}
+
+/// The autoregressive KV cache, either dense f32 or NVFP4-compressed. The
+/// quantized variant stores each cached key/value vector at ~4.5 bits/param
+/// (4-bit elements + per-16-block E4M3 scale) instead of 32, ~7× smaller, at
+/// the cost of a bounded reconstruction error and a transient dequantization
+/// when attention reads the cache.
+#[derive(Debug, Clone)]
+enum KvStore {
+    Full(Vec<Vec<f32>>),
+    Quant(Vec<QuantMatrix>),
+}
+
+impl KvStore {
+    fn len(&self) -> usize {
+        match self {
+            KvStore::Full(v) => v.len(),
+            KvStore::Quant(v) => v.len(),
+        }
+    }
+
+    /// Append a vector, quantizing it (as a `1 × dim` matrix) when compressed.
+    fn push(&mut self, vec: Vec<f32>) -> Result<(), MhaBlockError> {
+        match self {
+            KvStore::Full(s) => s.push(vec),
+            KvStore::Quant(s) => {
+                let dim = vec.len();
+                let q = QuantMatrix::from_f32(&vec, 1, dim)
+                    .map_err(|e| MhaBlockError::KvQuant(e.to_string()))?;
+                s.push(q);
+            }
+        }
+        Ok(())
+    }
+
+    /// Drop the cached vector at `idx` (for sliding-window / attention-sink
+    /// eviction). No-op if `idx` is out of range.
+    fn remove_at(&mut self, idx: usize) {
+        match self {
+            KvStore::Full(s) => {
+                if idx < s.len() {
+                    s.remove(idx);
+                }
+            }
+            KvStore::Quant(s) => {
+                if idx < s.len() {
+                    s.remove(idx);
+                }
+            }
+        }
+    }
+
+    /// Materialize the cached vectors as dense f32 (dequantizing if compressed)
+    /// so attention can read them.
+    fn materialize(&self) -> Vec<Vec<f32>> {
+        match self {
+            KvStore::Full(s) => s.clone(),
+            KvStore::Quant(s) => s.iter().map(|q| q.dequantized_weights()).collect(),
+        }
+    }
 }
 
 /// f32 weights for a multi-head decoder block (row-major).
@@ -118,8 +182,18 @@ pub struct MhaDecoderBlock {
     down: Linear,
     rope: Rope,
     mha: Mha,
-    rotated_keys: Vec<Vec<f32>>,
-    values: Vec<Vec<f32>>,
+    rotated_keys: KvStore,
+    values: KvStore,
+    /// Sliding-window attention span: when set, each step attends to (and
+    /// retains) only the most recent `window` positions. `None` = full causal.
+    window: Option<usize>,
+    /// Number of initial "attention-sink" positions always kept in the cache
+    /// (StreamingLLM): eviction never drops the first `sink_count` entries, so
+    /// the window holds `sink_count` sinks + the most recent positions.
+    sink_count: usize,
+    /// Absolute positions processed so far (the RoPE position counter), which
+    /// keeps advancing even as the windowed cache drops old entries.
+    position: usize,
 }
 
 impl MhaDecoderBlock {
@@ -179,9 +253,83 @@ impl MhaDecoderBlock {
             down: build("down", &weights.w_down, md, hid)?,
             rope: Rope::new(hd),
             mha,
-            rotated_keys: Vec::new(),
-            values: Vec::new(),
+            rotated_keys: KvStore::Full(Vec::new()),
+            values: KvStore::Full(Vec::new()),
+            window: None,
+            sink_count: 0,
+            position: 0,
         })
+    }
+
+    /// Switch this block to an **NVFP4-compressed KV cache** (default is dense
+    /// f32). Each cached key/value vector is stored at ~4.5 bits/param instead
+    /// of 32 — about 7× smaller — trading a bounded reconstruction error and a
+    /// transient dequantization at attention time for the memory saving. Must
+    /// be called before any `step` (the cache must be empty).
+    pub fn with_quantized_kv(mut self) -> Self {
+        self.rotated_keys = KvStore::Quant(Vec::new());
+        self.values = KvStore::Quant(Vec::new());
+        self
+    }
+
+    /// Whether this block stores its KV cache NVFP4-compressed.
+    pub fn kv_quantized(&self) -> bool {
+        matches!(self.values, KvStore::Quant(_))
+    }
+
+    /// Extend this block's usable context from `train_ctx` to `target_ctx` by
+    /// RoPE linear position interpolation — positions are compressed back into
+    /// the trained rotation range so longer sequences stay in-distribution
+    /// (default is no scaling). Must be called before any `step`.
+    pub fn with_context_extension(mut self, train_ctx: usize, target_ctx: usize) -> Self {
+        self.rope = Rope::for_context_extension(self.head_dim, train_ctx, target_ctx);
+        self
+    }
+
+    /// The RoPE position-interpolation scale in effect (`1.0` = no extension).
+    pub fn rope_position_scale(&self) -> f32 {
+        self.rope.position_scale
+    }
+
+    /// Enable **sliding-window attention** with span `window`: each step
+    /// attends to (and the cache retains) only the most recent `window`
+    /// positions, bounding both attention cost and KV-cache memory at long
+    /// context (Mistral-style local attention). Default is full causal
+    /// attention. Must be called before any `step`.
+    ///
+    /// # Panics
+    /// Panics if `window` is zero.
+    pub fn with_sliding_window(mut self, window: usize) -> Self {
+        assert!(window > 0, "sliding window must be > 0");
+        self.window = Some(window);
+        self
+    }
+
+    /// The sliding-window span, or `None` for full causal attention.
+    pub fn sliding_window(&self) -> Option<usize> {
+        self.window
+    }
+
+    /// Keep the first `sinks` positions permanently cached as **attention
+    /// sinks** (StreamingLLM): under a sliding window, eviction preserves these
+    /// initial tokens (which absorb a large share of attention mass) instead of
+    /// dropping them, fixing the quality collapse of naive window eviction.
+    /// Only meaningful with a sliding window; `sinks` is capped at the window.
+    /// Must be called before any `step`.
+    pub fn with_attention_sinks(mut self, sinks: usize) -> Self {
+        self.sink_count = sinks;
+        self
+    }
+
+    /// Number of attention-sink positions kept (`0` = none).
+    pub fn attention_sinks(&self) -> usize {
+        self.sink_count
+    }
+
+    /// Number of key/value vectors currently held in the cache (bounded by the
+    /// sliding window when one is set; equals [`len`](Self::len) otherwise).
+    pub fn cache_len(&self) -> usize {
+        self.values.len()
     }
 
     /// The execution precision.
@@ -217,14 +365,16 @@ impl MhaDecoderBlock {
         self.num_kv_heads
     }
 
-    /// Number of cached positions.
+    /// Number of positions processed (advances even when the sliding window
+    /// evicts old cache entries; see [`cache_len`](Self::cache_len) for the
+    /// number actually held).
     pub fn len(&self) -> usize {
-        self.values.len()
+        self.position
     }
 
-    /// Whether the cache is empty.
+    /// Whether any position has been processed.
     pub fn is_empty(&self) -> bool {
-        self.values.is_empty()
+        self.position == 0
     }
 
     /// Rotate each `head_dim`-wide head slice of `v` by `pos`.
@@ -245,7 +395,7 @@ impl MhaDecoderBlock {
                 got: hidden.len(),
             });
         }
-        let pos = self.values.len();
+        let pos = self.position;
 
         // attention sublayer (pre-norm)
         let n1 = self.attn_norm.normalize(hidden)?;
@@ -254,10 +404,24 @@ impl MhaDecoderBlock {
         let v = self.v.forward(&n1)?;
         self.rope_heads(&mut q, self.num_q_heads, pos)?;
         self.rope_heads(&mut k, self.num_kv_heads, pos)?;
-        self.rotated_keys.push(k);
-        self.values.push(v);
+        self.rotated_keys.push(k)?;
+        self.values.push(v)?;
 
-        let ctx = self.mha.attend(&q, &self.rotated_keys, &self.values)?;
+        // Sliding-window eviction: keep only `window` entries. With attention
+        // sinks, evict the oldest *non-sink* entry (index = sink_count) so the
+        // first `sink_count` positions stay cached.
+        if let Some(w) = self.window {
+            let evict_idx = self.sink_count.min(w.saturating_sub(1));
+            while self.values.len() > w {
+                self.rotated_keys.remove_at(evict_idx);
+                self.values.remove_at(evict_idx);
+            }
+        }
+        self.position += 1;
+
+        let keys = self.rotated_keys.materialize();
+        let vals = self.values.materialize();
+        let ctx = self.mha.attend(&q, &keys, &vals)?;
         let attn_out = self.o.forward(&ctx)?;
         let h1: Vec<f32> = hidden.iter().zip(&attn_out).map(|(a, b)| a + b).collect();
 
@@ -389,6 +553,211 @@ mod tests {
         let b = MhaDecoderBlock::from_weights_selective(&w, Precision::Nvfp4, &[]).unwrap();
         assert_eq!(a.nvfp4_recipes(), b.nvfp4_recipes());
         assert_eq!(b.nvfp4_recipes().len(), 7);
+    }
+
+    #[test]
+    fn quantized_kv_cache_runs_and_tracks_length() {
+        let w = weights(8, 2, 4, 2, 16);
+        let mut block = MhaDecoderBlock::from_weights(&w, Precision::F32)
+            .unwrap()
+            .with_quantized_kv();
+        assert!(block.kv_quantized());
+        assert!(block.is_empty());
+        for step in 0..6 {
+            let x: Vec<f32> = (0..8).map(|i| ((i + step) as f32 * 0.2).sin()).collect();
+            let y = block.step(&x).unwrap();
+            assert_eq!(y.len(), 8);
+            assert!(y.iter().all(|v| v.is_finite()));
+        }
+        assert_eq!(block.len(), 6);
+    }
+
+    #[test]
+    fn quantized_kv_stays_close_to_full_cache() {
+        // model_dim 16, num_kv 4 × head_dim 4 → 16-wide KV vectors that fill one
+        // NVFP4 block exactly (the realistic case). The compressed cache should
+        // track the dense-f32 cache: small relative deviation, never diverging.
+        let w = weights(16, 4, 4, 4, 16);
+        let mut full = MhaDecoderBlock::from_weights(&w, Precision::F32).unwrap();
+        let mut quant = MhaDecoderBlock::from_weights(&w, Precision::F32)
+            .unwrap()
+            .with_quantized_kv();
+        let (mut max_dev, mut max_mag) = (0.0f32, 1e-6f32);
+        for step in 0..5 {
+            let x: Vec<f32> = (0..16).map(|i| ((i + step) as f32 * 0.3).sin()).collect();
+            let a = full.step(&x).unwrap();
+            let b = quant.step(&x).unwrap();
+            for (p, q) in a.iter().zip(&b) {
+                max_dev = max_dev.max((p - q).abs());
+                max_mag = max_mag.max(p.abs());
+            }
+        }
+        // Relative deviation stays modest with a full-block NVFP4 cache.
+        let rel = max_dev / max_mag;
+        assert!(
+            rel < 0.15,
+            "quantized-KV relative deviation {rel} too large"
+        );
+        assert!(!full.kv_quantized() && quant.kv_quantized());
+    }
+
+    #[test]
+    fn sliding_window_bounds_cache_and_tracks_position() {
+        let w = weights(8, 2, 4, 2, 16);
+        let mut block = MhaDecoderBlock::from_weights(&w, Precision::F32)
+            .unwrap()
+            .with_sliding_window(2);
+        assert_eq!(block.sliding_window(), Some(2));
+        for step in 0..6 {
+            let x: Vec<f32> = (0..8).map(|i| ((i + step) as f32 * 0.2).sin()).collect();
+            assert!(block.step(&x).unwrap().iter().all(|v| v.is_finite()));
+            assert!(block.cache_len() <= 2, "cache must stay within the window");
+        }
+        assert_eq!(block.len(), 6); // positions keep advancing
+        assert_eq!(block.cache_len(), 2); // but the cache is bounded
+    }
+
+    #[test]
+    fn sliding_window_output_depends_only_on_the_window() {
+        // Defining locality property: with window 2, the output after feeding a
+        // shared last-2 suffix is identical regardless of earlier inputs.
+        let w = weights(8, 2, 4, 2, 16);
+        let shared = [
+            vec![0.3f32, -0.2, 0.1, 0.4, -0.5, 0.2, 0.0, -0.1],
+            vec![-0.1f32, 0.5, -0.3, 0.2, 0.1, -0.4, 0.3, 0.0],
+        ];
+        let run = |prefix: &[Vec<f32>]| -> Vec<f32> {
+            let mut b = MhaDecoderBlock::from_weights(&w, Precision::F32)
+                .unwrap()
+                .with_sliding_window(2);
+            let mut last = Vec::new();
+            for x in prefix.iter().chain(shared.iter()) {
+                last = b.step(x).unwrap();
+            }
+            last
+        };
+        let a = run(&[vec![1.0f32; 8], vec![-1.0f32; 8]]);
+        let c = run(&[vec![0.2f32; 8], vec![0.7f32; 8], vec![-0.9f32; 8]]);
+        assert_eq!(a.len(), c.len());
+        for (x, y) in a.iter().zip(&c) {
+            // RoPE makes attention depend only on relative offset, so the two
+            // runs agree up to f32 rounding through different absolute angles.
+            let tol = 1e-5 * x.abs().max(1.0);
+            assert!(
+                (x - y).abs() <= tol,
+                "windowed output must depend only on the window: {x} vs {y}"
+            );
+        }
+    }
+
+    #[test]
+    fn attention_sinks_retain_the_initial_token() {
+        // window 3, 1 sink. Feed a distinguishing first token, then 5 identical
+        // tokens. With a sink the first token stays cached, so its identity
+        // still affects the output; pure SWA (no sink) would have evicted it and
+        // the outputs would be identical.
+        let w = weights(8, 2, 4, 2, 16);
+        let tail: Vec<Vec<f32>> = (0..5)
+            .map(|s| (0..8).map(|i| ((i + s) as f32 * 0.2).sin()).collect())
+            .collect();
+        let run = |first: &[f32], sinks: usize| -> Vec<f32> {
+            let mut b = MhaDecoderBlock::from_weights(&w, Precision::F32)
+                .unwrap()
+                .with_sliding_window(3)
+                .with_attention_sinks(sinks);
+            let mut last = b.step(first).unwrap();
+            for x in &tail {
+                last = b.step(x).unwrap();
+            }
+            last
+        };
+        let first_a = vec![1.0f32; 8];
+        let first_b = vec![-1.0f32; 8];
+
+        // With a sink, the differing first token still moves the output.
+        let with_sink_a = run(&first_a, 1);
+        let with_sink_b = run(&first_b, 1);
+        let sink_diff: f32 = with_sink_a
+            .iter()
+            .zip(&with_sink_b)
+            .map(|(x, y)| (x - y).abs())
+            .sum();
+        assert!(
+            sink_diff > 1e-3,
+            "sink must keep the first token influential"
+        );
+
+        // Without a sink (pure SWA), the first token is evicted → outputs equal.
+        let no_sink_a = run(&first_a, 0);
+        let no_sink_b = run(&first_b, 0);
+        for (x, y) in no_sink_a.iter().zip(&no_sink_b) {
+            let tol = 1e-5 * x.abs().max(1.0);
+            assert!((x - y).abs() <= tol, "pure SWA must have evicted token 0");
+        }
+    }
+
+    #[test]
+    fn all_long_context_optimizations_compose() {
+        // The full streaming stack at once: NVFP4-compressed KV cache + sliding
+        // window + attention sinks + RoPE context extension. They must compose
+        // and decode finite with a bounded cache.
+        let w = weights(16, 4, 4, 4, 16);
+        let mut block = MhaDecoderBlock::from_weights(&w, Precision::Nvfp4)
+            .unwrap()
+            .with_quantized_kv()
+            .with_sliding_window(4)
+            .with_attention_sinks(1)
+            .with_context_extension(2048, 8192);
+        assert!(block.kv_quantized());
+        assert_eq!(block.sliding_window(), Some(4));
+        assert_eq!(block.attention_sinks(), 1);
+        assert!((block.rope_position_scale() - 0.25).abs() < 1e-6);
+        for step in 0..12 {
+            let x: Vec<f32> = (0..16).map(|i| ((i + step) as f32 * 0.2).sin()).collect();
+            let y = block.step(&x).unwrap();
+            assert_eq!(y.len(), 16);
+            assert!(y.iter().all(|v| v.is_finite()));
+            assert!(block.cache_len() <= 4);
+        }
+        assert_eq!(block.len(), 12);
+    }
+
+    #[test]
+    fn attention_sinks_stay_within_window() {
+        let w = weights(8, 2, 4, 2, 16);
+        let mut block = MhaDecoderBlock::from_weights(&w, Precision::F32)
+            .unwrap()
+            .with_sliding_window(3)
+            .with_attention_sinks(1);
+        assert_eq!(block.attention_sinks(), 1);
+        for step in 0..8 {
+            let x: Vec<f32> = (0..8).map(|i| ((i + step) as f32 * 0.2).sin()).collect();
+            assert!(block.step(&x).unwrap().iter().all(|v| v.is_finite()));
+            assert!(block.cache_len() <= 3);
+        }
+        assert_eq!(block.len(), 8);
+    }
+
+    #[test]
+    fn context_extended_block_runs_finite() {
+        // RoPE position interpolation: 1024 → 4096 → scale 0.25, block decodes
+        // finite at extended positions.
+        let w = weights(8, 2, 4, 2, 16);
+        let mut block = MhaDecoderBlock::from_weights(&w, Precision::F32)
+            .unwrap()
+            .with_context_extension(1024, 4096);
+        assert!((block.rope_position_scale() - 0.25).abs() < 1e-6);
+        for step in 0..5 {
+            let x: Vec<f32> = (0..8).map(|i| ((i + step) as f32 * 0.2).sin()).collect();
+            assert!(block.step(&x).unwrap().iter().all(|v| v.is_finite()));
+        }
+        // A plain block has no scaling.
+        assert_eq!(
+            MhaDecoderBlock::from_weights(&w, Precision::F32)
+                .unwrap()
+                .rope_position_scale(),
+            1.0
+        );
     }
 
     #[test]

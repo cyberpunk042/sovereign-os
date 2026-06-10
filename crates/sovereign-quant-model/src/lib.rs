@@ -86,7 +86,16 @@ pub struct QuantModel {
     embedding: Vec<f32>,
     stack: LayerStack,
     final_norm: RmsNorm,
+    /// Output projection. Empty when `tied` — the projection reads the
+    /// `embedding` table directly, so the second `vocab × model_dim` matrix is
+    /// not stored.
     head: Vec<f32>,
+    /// Whether the output head is tied to the embedding table (weight tying,
+    /// as in GPT-2 / Llama). Halves the embedding-table memory.
+    tied: bool,
+    /// Optional Gemma-2-style final-logit soft cap: when set, logits are bounded
+    /// via `cap·tanh(logit/cap)`. `None` = no capping.
+    logit_softcap: Option<f32>,
     sampler: Sampler,
     recent: Vec<usize>,
     recent_window: usize,
@@ -124,10 +133,64 @@ impl QuantModel {
             stack,
             final_norm,
             head,
+            tied: false,
+            logit_softcap: None,
             sampler,
             recent: Vec::new(),
             recent_window: 64,
         })
+    }
+
+    /// Assemble a model with **tied** embedding / output weights (GPT-2 / Llama
+    /// style): the output head reuses the `embedding` table, so only one
+    /// `vocab × model_dim` matrix is stored instead of two. `logits[v]` becomes
+    /// `embedding_row[v] · hidden`.
+    pub fn new_tied(
+        vocab: usize,
+        model_dim: usize,
+        embedding: Vec<f32>,
+        stack: LayerStack,
+        final_norm: RmsNorm,
+        sampler: Sampler,
+    ) -> Result<Self, QuantModelError> {
+        let want = vocab * model_dim;
+        if embedding.len() != want {
+            return Err(QuantModelError::EmbeddingShape {
+                expected: want,
+                got: embedding.len(),
+            });
+        }
+        Ok(Self {
+            vocab,
+            model_dim,
+            embedding,
+            stack,
+            final_norm,
+            head: Vec::new(),
+            tied: true,
+            logit_softcap: None,
+            sampler,
+            recent: Vec::new(),
+            recent_window: 64,
+        })
+    }
+
+    /// Whether the output head is tied to the embedding table.
+    pub fn is_tied(&self) -> bool {
+        self.tied
+    }
+
+    /// Enable Gemma-2-style final-logit soft-capping at `cap`: every output
+    /// logit is bounded into `(−cap, cap)` via `cap·tanh(logit/cap)`. A
+    /// non-positive `cap` disables it.
+    pub fn with_logit_softcap(mut self, cap: f32) -> Self {
+        self.logit_softcap = if cap > 0.0 { Some(cap) } else { None };
+        self
+    }
+
+    /// The active final-logit soft cap, or `None`.
+    pub fn logit_softcap(&self) -> Option<f32> {
+        self.logit_softcap
     }
 
     /// Set the repetition-penalty window (default 64).
@@ -163,9 +226,15 @@ impl QuantModel {
 
     fn project_head(&self, hidden: &[f32]) -> Vec<f32> {
         let d = self.model_dim;
+        // When tied, the output projection reads the embedding table directly.
+        let table = if self.tied {
+            &self.embedding
+        } else {
+            &self.head
+        };
         let mut logits = vec![0.0f32; self.vocab];
         for (v, logit) in logits.iter_mut().enumerate() {
-            let row = &self.head[v * d..(v + 1) * d];
+            let row = &table[v * d..(v + 1) * d];
             *logit = row.iter().zip(hidden).map(|(w, h)| w * h).sum();
         }
         logits
@@ -183,7 +252,16 @@ impl QuantModel {
         let hidden = self.embed(token);
         let hidden = self.stack.run(&hidden)?;
         let normed = self.final_norm.normalize(&hidden)?;
-        Ok(self.project_head(&normed))
+        let mut logits = self.project_head(&normed);
+        // Optional Gemma-2-style logit soft-capping: bound each logit into
+        // (−cap, cap) via cap·tanh(logit/cap), which tames over-confident
+        // outliers while staying ~linear near zero and order-preserving.
+        if let Some(cap) = self.logit_softcap {
+            for l in &mut logits {
+                *l = cap * (*l / cap).tanh();
+            }
+        }
+        Ok(logits)
     }
 
     /// Ingest a prompt and autoregressively generate up to `max_new` tokens.
@@ -358,6 +436,113 @@ mod tests {
         assert!(out.iter().all(|&t| t < 8));
         // 3 prompt + 6 generated = 9 positions in the stack
         assert_eq!(m.position(), 9);
+    }
+
+    #[test]
+    fn tied_model_uses_embedding_as_output_head() {
+        let vocab = 8;
+        let emb = mat(0.5, vocab * MD);
+        let layers: Vec<Box<dyn DecoderLayer>> = vec![Box::new(transformer_layer())];
+        let stack = LayerStack::new(layers).unwrap();
+        let mut m = QuantModel::new_tied(
+            vocab,
+            MD,
+            emb.clone(),
+            stack,
+            RmsNorm::new(MD),
+            Sampler::greedy(),
+        )
+        .unwrap();
+        assert!(m.is_tied());
+        // Run a forward pass and verify each logit equals the corresponding
+        // embedding row dotted with the (normed) final hidden state — i.e. the
+        // head genuinely reuses the embedding table.
+        let logits = m.forward(3).unwrap();
+        assert_eq!(logits.len(), vocab);
+        // Re-derive the normed hidden the same way forward does, to recompute
+        // the expected tied logits independently.
+        // (We can't reach the private hidden, so instead check the tying
+        // invariant structurally: an untied model built with head == embedding
+        // produces identical logits.)
+        let layers2: Vec<Box<dyn DecoderLayer>> = vec![Box::new(transformer_layer())];
+        let mut untied = QuantModel::new(
+            vocab,
+            MD,
+            emb.clone(),
+            LayerStack::new(layers2).unwrap(),
+            RmsNorm::new(MD),
+            emb.clone(), // head == embedding
+            Sampler::greedy(),
+        )
+        .unwrap();
+        assert!(!untied.is_tied());
+        let logits_untied = untied.forward(3).unwrap();
+        for (a, b) in logits.iter().zip(&logits_untied) {
+            assert!(
+                (a - b).abs() < 1e-6,
+                "tied logits must match head==embedding"
+            );
+        }
+    }
+
+    #[test]
+    fn logit_softcap_bounds_and_preserves_order() {
+        let vocab = 8;
+        let layers: Vec<Box<dyn DecoderLayer>> = vec![Box::new(transformer_layer())];
+        let stack = LayerStack::new(layers).unwrap();
+        let mut capped = QuantModel::new(
+            vocab,
+            MD,
+            mat(0.5, vocab * MD),
+            stack,
+            RmsNorm::new(MD),
+            mat(0.9, vocab * MD),
+            Sampler::greedy(),
+        )
+        .unwrap()
+        .with_logit_softcap(2.0);
+        assert_eq!(capped.logit_softcap(), Some(2.0));
+
+        let layers2: Vec<Box<dyn DecoderLayer>> = vec![Box::new(transformer_layer())];
+        let mut plain = QuantModel::new(
+            vocab,
+            MD,
+            mat(0.5, vocab * MD),
+            LayerStack::new(layers2).unwrap(),
+            RmsNorm::new(MD),
+            mat(0.9, vocab * MD),
+            Sampler::greedy(),
+        )
+        .unwrap();
+
+        let cl = capped.forward(3).unwrap();
+        let pl = plain.forward(3).unwrap();
+        // Every capped logit is strictly inside (−2, 2).
+        assert!(
+            cl.iter().all(|&l| l.abs() < 2.0),
+            "capping must bound logits"
+        );
+        // Order is preserved (tanh is monotonic), so the argmax is unchanged.
+        let amax = |v: &[f32]| (0..v.len()).max_by(|&a, &b| v[a].total_cmp(&v[b])).unwrap();
+        assert_eq!(amax(&cl), amax(&pl));
+        // A non-positive cap disables it.
+        assert_eq!(plain.with_logit_softcap(0.0).logit_softcap(), None);
+    }
+
+    #[test]
+    fn tied_model_validates_embedding_shape() {
+        let layers: Vec<Box<dyn DecoderLayer>> = vec![Box::new(transformer_layer())];
+        let stack = LayerStack::new(layers).unwrap();
+        let err = QuantModel::new_tied(
+            8,
+            MD,
+            vec![0.0; 3],
+            stack,
+            RmsNorm::new(MD),
+            Sampler::greedy(),
+        )
+        .unwrap_err();
+        assert!(matches!(err, QuantModelError::EmbeddingShape { .. }));
     }
 
     #[test]

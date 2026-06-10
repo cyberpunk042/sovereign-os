@@ -10,7 +10,9 @@
 //! The weights are random, so the replies are gibberish — the point is that the
 //! conversation assembly runs on the real engine and the history stays bounded.
 //!
-//! Usage: `sovereign-chat` (runs the demo session) · `sovereign-chat --help`.
+//! Usage: `sovereign-chat [DECODE FLAGS] [MESSAGE…]` · `--help`. Decode flags
+//! (`--temperature`, `--top-k`, `--top-p`, `--typical-p`) build the sampler, so
+//! the generation controls are drivable from the command line.
 
 use sovereign_chat::{ChatSession, Role};
 use sovereign_decoder_stack::StackConfig;
@@ -29,8 +31,9 @@ fn mat(s: f32, n: usize) -> Vec<f32> {
     (0..n).map(|i| ((i as f32 + s) * 0.017).sin()).collect()
 }
 
-/// A small but real `SovereignLlm` (one transformer block, `model_dim = 4`).
-fn runtime() -> SovereignLlm {
+/// A small but real `SovereignLlm` (one transformer block, `model_dim = 4`),
+/// sampling under the caller-supplied decode controls.
+fn runtime(sampler: SamplerConfig) -> SovereignLlm {
     let tok = Tokenizer::default();
     let vocab = tok.vocab_size();
     let block = BlockWeights {
@@ -58,10 +61,64 @@ fn runtime() -> SovereignLlm {
         blocks: vec![block],
         final_norm: RmsNorm::new(MD),
         head: mat(0.9, vocab * MD),
-        sampler: Sampler::new(SamplerConfig::default()),
+        sampler: Sampler::new(sampler),
         recent_window: 64,
     };
     SovereignLlm::new(tok, cfg).unwrap()
+}
+
+/// Parse `--temperature/-T`, `--top-k`, `--top-p`, `--typical-p` decode flags
+/// out of `args`, returning the resulting [`SamplerConfig`] and the remaining
+/// non-flag arguments (the chat messages). Unknown flags are passed through as
+/// messages so callers see them rather than silently dropping. A flag with a
+/// missing or unparseable value falls back to the config default.
+fn parse_sampler_args(args: &[String]) -> (SamplerConfig, Vec<String>) {
+    let mut cfg = SamplerConfig::default();
+    let mut messages = Vec::new();
+    let mut i = 0;
+    while i < args.len() {
+        let a = &args[i];
+        // Accept both "--flag value" and "--flag=value" forms.
+        let (key, inline_val) = match a.split_once('=') {
+            Some((k, v)) => (k, Some(v.to_string())),
+            None => (a.as_str(), None),
+        };
+        let mut take_val = |inline: Option<String>| -> Option<String> {
+            if let Some(v) = inline {
+                Some(v)
+            } else if i + 1 < args.len() {
+                i += 1;
+                Some(args[i].clone())
+            } else {
+                None
+            }
+        };
+        match key {
+            "--temperature" | "-T" => {
+                if let Some(v) = take_val(inline_val).and_then(|s| s.parse().ok()) {
+                    cfg.temperature = v;
+                }
+            }
+            "--top-k" => {
+                if let Some(v) = take_val(inline_val).and_then(|s| s.parse().ok()) {
+                    cfg.top_k = Some(v);
+                }
+            }
+            "--top-p" => {
+                if let Some(v) = take_val(inline_val).and_then(|s| s.parse().ok()) {
+                    cfg.top_p = Some(v);
+                }
+            }
+            "--typical-p" => {
+                if let Some(v) = take_val(inline_val).and_then(|s| s.parse().ok()) {
+                    cfg.typical_p = Some(v);
+                }
+            }
+            _ => messages.push(a.clone()),
+        }
+        i += 1;
+    }
+    (cfg, messages)
 }
 
 const USAGE: &str = "\
@@ -70,20 +127,33 @@ sovereign-chat — multi-turn conversation with bounded history on the real engi
 USAGE:
     sovereign-chat                   run the demo session (4 turns, bounded), exit
     sovereign-chat MESSAGE [MESSAGE…] run your messages as turns (history bounded)
-    sovereign-chat --help            print this help and exit";
+    sovereign-chat --help            print this help and exit
+
+DECODE CONTROLS (apply to generation; any combination):
+    -T, --temperature F   softmax temperature (<=0 greedy; default 1.0)
+        --top-k N         keep only the N highest-probability tokens
+        --top-p F         nucleus threshold in (0,1]
+        --typical-p F     locally-typical mass threshold in (0,1]
+    (also accepts --flag=value form)";
 
 fn main() {
-    let args: Vec<String> = std::env::args().skip(1).collect();
-    if args.iter().any(|a| a == "--help" || a == "-h") {
+    let raw: Vec<String> = std::env::args().skip(1).collect();
+    if raw.iter().any(|a| a == "--help" || a == "-h") {
         println!("{USAGE}");
         return;
     }
 
+    let (sampler_cfg, args) = parse_sampler_args(&raw);
+
     // Bound retained history to 4 non-system messages (≈ 2 turns) so the prompt
     // stays small no matter how long the dialogue runs.
     const MAX_TURNS: usize = 4;
-    let mut chat = ChatSession::new(runtime(), Some("You are a sovereign local assistant."), 6)
-        .with_max_turns(MAX_TURNS);
+    let mut chat = ChatSession::new(
+        runtime(sampler_cfg),
+        Some("You are a sovereign local assistant."),
+        6,
+    )
+    .with_max_turns(MAX_TURNS);
 
     // Operator messages if given, else a built-in demo dialogue. Either way the
     // history-bounding (the assembly's point) operates on the real turns.
@@ -94,11 +164,7 @@ fn main() {
         "and about cost",
     ];
     let user_turns: Vec<&str> = {
-        let given: Vec<&str> = args
-            .iter()
-            .filter(|a| !a.starts_with('-'))
-            .map(String::as_str)
-            .collect();
+        let given: Vec<&str> = args.iter().map(String::as_str).collect();
         if given.is_empty() {
             demo_turns.to_vec()
         } else {
@@ -106,7 +172,8 @@ fn main() {
         }
     };
 
-    println!("system + bounded history (max {MAX_TURNS} non-system messages)\n");
+    let t = sampler_cfg.temperature;
+    println!("system + bounded history (max {MAX_TURNS} non-system messages); temperature {t}\n");
     for (i, user) in user_turns.iter().enumerate() {
         match chat.say(user, i as u64) {
             Ok(reply) => {
@@ -129,4 +196,64 @@ fn main() {
         h.len(),
         h.messages.first().map(|m| m.role)
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn s(v: &[&str]) -> Vec<String> {
+        v.iter().map(|x| x.to_string()).collect()
+    }
+
+    #[test]
+    fn parses_decode_flags_and_keeps_messages() {
+        let (cfg, msgs) = parse_sampler_args(&s(&[
+            "hello",
+            "--temperature",
+            "0.7",
+            "--top-k",
+            "40",
+            "world",
+            "--typical-p=0.9",
+        ]));
+        assert!((cfg.temperature - 0.7).abs() < 1e-6);
+        assert_eq!(cfg.top_k, Some(40));
+        assert_eq!(cfg.typical_p, Some(0.9));
+        assert_eq!(msgs, s(&["hello", "world"]));
+    }
+
+    #[test]
+    fn defaults_when_no_flags() {
+        let (cfg, msgs) = parse_sampler_args(&s(&["just", "messages"]));
+        assert_eq!(cfg, SamplerConfig::default());
+        assert_eq!(msgs, s(&["just", "messages"]));
+    }
+
+    #[test]
+    fn short_temperature_and_equals_form() {
+        let (cfg, msgs) = parse_sampler_args(&s(&["-T", "0.0", "--top-p=0.95"]));
+        assert_eq!(cfg.temperature, 0.0);
+        assert_eq!(cfg.top_p, Some(0.95));
+        assert!(msgs.is_empty());
+    }
+
+    #[test]
+    fn bad_value_falls_back_to_default() {
+        // "--top-k notanumber" → top_k stays None, and the bad value is treated
+        // as a message rather than silently consumed.
+        let (cfg, _msgs) = parse_sampler_args(&s(&["--top-k", "notanumber"]));
+        assert_eq!(cfg.top_k, None);
+    }
+
+    #[test]
+    fn runtime_builds_with_custom_sampler() {
+        let cfg = SamplerConfig {
+            temperature: 0.5,
+            top_k: Some(10),
+            ..SamplerConfig::default()
+        };
+        let llm = runtime(cfg);
+        assert!(llm.vocab_size() > 0);
+    }
 }

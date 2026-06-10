@@ -21,6 +21,7 @@ sovereign-rope = { path = "../sovereign-rope" }
 sovereign-rmsnorm = { path = "../sovereign-rmsnorm" }
 sovereign-ffn = { path = "../sovereign-ffn" }
 sovereign-linear = { path = "../sovereign-linear" }
+sovereign-nvfp4-runtime = { path = "../sovereign-nvfp4-runtime" }
 
 [dev-dependencies]
 sovereign-quant-block = { path = "../sovereign-quant-block" }

@@ -29,7 +29,7 @@
 use serde::{Deserialize, Serialize};
 use sovereign_logit_mask::LogitMask;
 use sovereign_rmsnorm::RmsNorm;
-use sovereign_sampler::{Sampler, SamplerError};
+use sovereign_sampler::{Mirostat, Sampler, SamplerError};
 use sovereign_transformer_block::{BlockError, BlockWeights, DecoderBlock};
 use thiserror::Error;
 
@@ -231,6 +231,145 @@ impl DecoderStack {
         seed: u64,
         mask: &LogitMask,
     ) -> Result<Vec<usize>, StackError> {
+        let mut generated = Vec::with_capacity(max_new);
+        self.generate_masked_with(prompt, max_new, seed, mask, |t| generated.push(t))?;
+        Ok(generated)
+    }
+
+    /// Generate with **dynamic no-repeat-ngram blocking**: at every step the
+    /// blocklist is rebuilt from the full generated-so-far history (prompt +
+    /// emitted), so the model can never complete an `n`-gram it has already
+    /// produced — preventing verbatim loops that a static mask can't catch as
+    /// the sequence grows. Reproducible per `seed`.
+    pub fn generate_no_repeat_ngram(
+        &mut self,
+        prompt: &[usize],
+        max_new: usize,
+        seed: u64,
+        n: usize,
+    ) -> Result<Vec<usize>, StackError> {
+        if prompt.is_empty() {
+            return Err(StackError::EmptyPrompt);
+        }
+        let mut history: Vec<usize> = prompt.to_vec();
+        let mut logits = Vec::new();
+        for &t in prompt {
+            logits = self.forward(t)?;
+        }
+        let mut generated = Vec::with_capacity(max_new);
+        for _ in 0..max_new {
+            // Rebuild the blocklist from the live history and apply it.
+            let mut masked = logits.clone();
+            LogitMask::new()
+                .no_repeat_ngram(&history, n)
+                .apply(&mut masked);
+            let pos = self.position() as u64;
+            let recent_start = self.recent.len().saturating_sub(self.config.recent_window);
+            let token = self.config.sampler.sample_seeded(
+                &masked,
+                &self.recent[recent_start..],
+                seed.wrapping_add(pos),
+            )?;
+            self.recent.push(token);
+            history.push(token);
+            generated.push(token);
+            logits = self.forward(token)?;
+        }
+        Ok(generated)
+    }
+
+    /// Generate with a stateful [`Mirostat`] controller instead of the config's
+    /// static truncation: each step shapes the logits through the sampler's
+    /// distribution (temperature / penalties), then lets `mirostat` pick the
+    /// token and update its running `μ` so output perplexity stays near the
+    /// controller's target. Reproducible per `seed`; `mirostat`'s state advances
+    /// across the call (and persists for the caller to inspect).
+    pub fn generate_mirostat(
+        &mut self,
+        prompt: &[usize],
+        max_new: usize,
+        seed: u64,
+        mirostat: &mut Mirostat,
+    ) -> Result<Vec<usize>, StackError> {
+        if prompt.is_empty() {
+            return Err(StackError::EmptyPrompt);
+        }
+        let mut logits = Vec::new();
+        for &t in prompt {
+            logits = self.forward(t)?;
+        }
+        let mut generated = Vec::with_capacity(max_new);
+        for _ in 0..max_new {
+            let pos = self.position() as u64;
+            let recent_start = self.recent.len().saturating_sub(self.config.recent_window);
+            let probs = self
+                .config
+                .sampler
+                .distribution(&logits, &self.recent[recent_start..])?;
+            // One deterministic uniform from seed+pos (splitmix64), so the run
+            // is reproducible like the static path.
+            let u = splitmix_uniform(seed.wrapping_add(pos)) as f32;
+            let token = mirostat
+                .sample(&probs, u)
+                .ok_or(SamplerError::AllFiltered)?;
+            self.recent.push(token);
+            generated.push(token);
+            logits = self.forward(token)?;
+        }
+        Ok(generated)
+    }
+
+    /// Generate up to `max_new` tokens, stopping early the moment a token in
+    /// `stop_tokens` is produced (the stop token **is** included in the result).
+    /// This is the EOS / stop-sequence behaviour a real runtime needs — most
+    /// completions end well before the length cap. With an empty `stop_tokens`
+    /// this is identical to [`generate`](Self::generate). Reproducible per seed.
+    pub fn generate_until(
+        &mut self,
+        prompt: &[usize],
+        max_new: usize,
+        seed: u64,
+        stop_tokens: &[usize],
+    ) -> Result<Vec<usize>, StackError> {
+        if prompt.is_empty() {
+            return Err(StackError::EmptyPrompt);
+        }
+        let mut logits = Vec::new();
+        for &t in prompt {
+            logits = self.forward(t)?;
+        }
+        let mut generated = Vec::with_capacity(max_new);
+        for _ in 0..max_new {
+            let pos = self.position() as u64;
+            let recent_start = self.recent.len().saturating_sub(self.config.recent_window);
+            let token = self.config.sampler.sample_seeded(
+                &logits,
+                &self.recent[recent_start..],
+                seed.wrapping_add(pos),
+            )?;
+            self.recent.push(token);
+            generated.push(token);
+            if stop_tokens.contains(&token) {
+                break;
+            }
+            logits = self.forward(token)?;
+        }
+        Ok(generated)
+    }
+
+    /// Streaming generation: identical to [`generate_masked`](Self::generate_masked)
+    /// but invokes `on_token` with each sampled token id the instant it is
+    /// produced (before the next forward pass), so a server can emit tokens as
+    /// they arrive instead of waiting for the whole completion. The collected
+    /// sequence is exactly what `generate_masked` would return.
+    pub fn generate_masked_with<F: FnMut(usize)>(
+        &mut self,
+        prompt: &[usize],
+        max_new: usize,
+        seed: u64,
+        mask: &LogitMask,
+        mut on_token: F,
+    ) -> Result<(), StackError> {
         if prompt.is_empty() {
             return Err(StackError::EmptyPrompt);
         }
@@ -241,7 +380,6 @@ impl DecoderStack {
             logits = self.forward(t)?;
         }
 
-        let mut generated = Vec::with_capacity(max_new);
         for _ in 0..max_new {
             mask.apply(&mut logits);
             let pos = self.position() as u64;
@@ -252,18 +390,28 @@ impl DecoderStack {
                 seed.wrapping_add(pos),
             )?;
             self.recent.push(token);
-            generated.push(token);
+            on_token(token);
             logits = self.forward(token)?;
         }
-        Ok(generated)
+        Ok(())
     }
+}
+
+/// Deterministic splitmix64 → uniform `[0, 1)` from one seed, so the Mirostat
+/// path is reproducible without threading an RNG type through the stack.
+fn splitmix_uniform(seed: u64) -> f64 {
+    let mut z = seed.wrapping_add(0x9E37_79B9_7F4A_7C15);
+    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+    z ^= z >> 31;
+    (z >> 11) as f64 / (1u64 << 53) as f64
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use sovereign_ffn::SwiGlu;
-    use sovereign_sampler::SamplerConfig;
+    use sovereign_sampler::{Mirostat, SamplerConfig};
 
     fn block(model_dim: usize, seed: f32) -> BlockWeights {
         let hd = model_dim;
@@ -314,6 +462,124 @@ mod tests {
         let out = m.generate(&[1, 2, 3], 5, 42).unwrap();
         assert_eq!(out.len(), 5);
         assert!(out.iter().all(|&t| t < 6));
+    }
+
+    #[test]
+    fn streaming_matches_batch_and_fires_per_token() {
+        // The streamed token sequence equals what generate_masked returns, and
+        // on_token fires exactly max_new times, in order.
+        let cfg = config(8, 4, 2, Sampler::new(SamplerConfig::default()));
+        let batch = DecoderStack::new(cfg.clone())
+            .unwrap()
+            .generate(&[1, 2], 6, 99)
+            .unwrap();
+        let mut streamed = Vec::new();
+        let mut m = DecoderStack::new(cfg).unwrap();
+        m.generate_masked_with(&[1, 2], 6, 99, &LogitMask::new(), |t| streamed.push(t))
+            .unwrap();
+        assert_eq!(streamed, batch);
+        assert_eq!(streamed.len(), 6);
+    }
+
+    #[test]
+    fn mirostat_generation_runs_reproducibly_and_advances_mu() {
+        let cfg = config(8, 4, 2, Sampler::new(SamplerConfig::default()));
+        let mut m1 = DecoderStack::new(cfg.clone()).unwrap();
+        let mut ms1 = Mirostat::new(2.0, 0.1);
+        let a = m1.generate_mirostat(&[1, 2], 6, 7, &mut ms1).unwrap();
+        assert_eq!(a.len(), 6);
+        assert!(a.iter().all(|&t| t < 8));
+        // μ moved from its 2τ start as the controller adapted.
+        assert!((ms1.mu() - 4.0).abs() > 1e-6, "μ should have adapted");
+
+        // Same seed + fresh controller → identical sequence (reproducible).
+        let mut m2 = DecoderStack::new(cfg).unwrap();
+        let mut ms2 = Mirostat::new(2.0, 0.1);
+        let b = m2.generate_mirostat(&[1, 2], 6, 7, &mut ms2).unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn no_repeat_ngram_generation_has_no_repeated_ngram() {
+        // With dynamic n=3 blocking, the full sequence (prompt + generated) must
+        // contain no repeated 3-gram, and the run is reproducible.
+        let cfg = config(8, 4, 2, Sampler::new(SamplerConfig::default()));
+        let mut m = DecoderStack::new(cfg.clone()).unwrap();
+        let prompt = [1usize, 2, 3];
+        let out = m.generate_no_repeat_ngram(&prompt, 12, 7, 3).unwrap();
+        let mut full = prompt.to_vec();
+        full.extend(&out);
+        let mut seen = std::collections::HashSet::new();
+        for w in full.windows(3) {
+            assert!(seen.insert(w.to_vec()), "3-gram {w:?} repeated");
+        }
+        // reproducible
+        let mut m2 = DecoderStack::new(cfg).unwrap();
+        assert_eq!(out, m2.generate_no_repeat_ngram(&prompt, 12, 7, 3).unwrap());
+    }
+
+    #[test]
+    fn generate_until_stops_at_a_stop_token() {
+        let cfg = config(8, 4, 2, Sampler::new(SamplerConfig::default()));
+        let prompt = [1usize, 2];
+        // Discover the first greedy/sampled token, then make it a stop token →
+        // generation must end after exactly one token (the stop token).
+        let first = DecoderStack::new(cfg.clone())
+            .unwrap()
+            .generate(&prompt, 1, 9)
+            .unwrap()[0];
+        let mut m = DecoderStack::new(cfg.clone()).unwrap();
+        let out = m.generate_until(&prompt, 10, 9, &[first]).unwrap();
+        assert_eq!(out, vec![first]);
+
+        // Empty stop set → identical to generate (full length).
+        let mut a = DecoderStack::new(cfg.clone()).unwrap();
+        let mut b = DecoderStack::new(cfg).unwrap();
+        assert_eq!(
+            a.generate_until(&prompt, 6, 9, &[]).unwrap(),
+            b.generate(&prompt, 6, 9).unwrap()
+        );
+    }
+
+    #[test]
+    fn generate_until_empty_prompt_errors() {
+        let mut m =
+            DecoderStack::new(config(6, 4, 1, Sampler::new(SamplerConfig::default()))).unwrap();
+        assert_eq!(
+            m.generate_until(&[], 3, 1, &[0]).unwrap_err(),
+            StackError::EmptyPrompt
+        );
+    }
+
+    #[test]
+    fn no_repeat_ngram_empty_prompt_errors() {
+        let mut m =
+            DecoderStack::new(config(6, 4, 1, Sampler::new(SamplerConfig::default()))).unwrap();
+        assert_eq!(
+            m.generate_no_repeat_ngram(&[], 3, 1, 2).unwrap_err(),
+            StackError::EmptyPrompt
+        );
+    }
+
+    #[test]
+    fn mirostat_empty_prompt_errors() {
+        let mut m =
+            DecoderStack::new(config(6, 4, 1, Sampler::new(SamplerConfig::default()))).unwrap();
+        let mut ms = Mirostat::new(3.0, 0.1);
+        assert_eq!(
+            m.generate_mirostat(&[], 3, 1, &mut ms).unwrap_err(),
+            StackError::EmptyPrompt
+        );
+    }
+
+    #[test]
+    fn streaming_empty_prompt_errors() {
+        let mut m =
+            DecoderStack::new(config(6, 4, 1, Sampler::new(SamplerConfig::default()))).unwrap();
+        let err = m
+            .generate_masked_with(&[], 3, 1, &LogitMask::new(), |_| {})
+            .unwrap_err();
+        assert_eq!(err, StackError::EmptyPrompt);
     }
 
     #[test]

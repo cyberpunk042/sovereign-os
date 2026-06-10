@@ -21,3 +21,10 @@ thiserror = { workspace = true }
 sovereign-complexity = { path = "../sovereign-complexity" }
 sovereign-completion-cache = { path = "../sovereign-completion-cache" }
 sovereign-token-meter = { path = "../sovereign-token-meter" }
+sovereign-llm = { path = "../sovereign-llm" }
+sovereign-tokenizer = { path = "../sovereign-tokenizer" }
+sovereign-decoder-stack = { path = "../sovereign-decoder-stack" }
+sovereign-transformer-block = { path = "../sovereign-transformer-block" }
+sovereign-ffn = { path = "../sovereign-ffn" }
+sovereign-rmsnorm = { path = "../sovereign-rmsnorm" }
+sovereign-sampler = { path = "../sovereign-sampler" }
