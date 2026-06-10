@@ -15,9 +15,10 @@ workspace = true
 [dependencies]
 thiserror = { workspace = true }
 sovereign-decoder-stack = { path = "../sovereign-decoder-stack" }
+sovereign-spec-decode = { path = "../sovereign-spec-decode" }
+sovereign-sampler = { path = "../sovereign-sampler" }
 
 [dev-dependencies]
 sovereign-transformer-block = { path = "../sovereign-transformer-block" }
 sovereign-rmsnorm = { path = "../sovereign-rmsnorm" }
 sovereign-ffn = { path = "../sovereign-ffn" }
-sovereign-sampler = { path = "../sovereign-sampler" }

@@ -6110,6 +6110,7 @@ dependencies = [
  "sovereign-ffn",
  "sovereign-rmsnorm",
  "sovereign-sampler",
+ "sovereign-spec-decode",
  "sovereign-transformer-block",
  "thiserror",
 ]

@@ -25,6 +25,8 @@
 #![warn(missing_docs)]
 
 use sovereign_decoder_stack::{DecoderStack, StackError};
+use sovereign_sampler::{Sampler, SamplerError};
+use sovereign_spec_decode::{SpecError, verify_sampled};
 use thiserror::Error;
 
 /// Schema version of the speculative-decoding surface.
@@ -50,6 +52,12 @@ pub enum SpeculativeError {
     /// A model forward error.
     #[error("model: {0}")]
     Model(#[from] StackError),
+    /// A sampler error while shaping a distribution.
+    #[error("sampler: {0}")]
+    Sampler(#[from] SamplerError),
+    /// A speculative-verification error.
+    #[error("verify: {0}")]
+    Verify(#[from] SpecError),
 }
 
 /// The outcome of a speculative decode.
@@ -177,6 +185,141 @@ impl Speculative {
             rounds,
         })
     }
+
+    /// Decode **sampled-but-speculatively**, distribution-preserving. Each
+    /// round the draft *samples* `draft_len` tokens from its `sampler`-shaped
+    /// distribution; the target teacher-forces those proposals on a fork to get
+    /// its own distribution at every position; then the DFlash modified
+    /// rejection rule ([`verify_sampled`]) decides the accepted prefix and the
+    /// correction/bonus. The committed sequence has the **same distribution**
+    /// as sampling the target alone with the same `sampler` and `seed` — the
+    /// sampling analogue of [`decode`]'s greedy losslessness. With a greedy
+    /// (`temperature <= 0`) sampler this reduces exactly to [`decode`].
+    pub fn decode_sampled(
+        &self,
+        draft: &DecoderStack,
+        target: &DecoderStack,
+        prompt: &[usize],
+        sampler: &Sampler,
+        seed: u64,
+    ) -> Result<SpecResult, SpeculativeError> {
+        if self.draft_len == 0 {
+            return Err(SpeculativeError::ZeroDraftLen);
+        }
+        if prompt.is_empty() {
+            return Err(SpeculativeError::EmptyPrompt);
+        }
+        if draft.vocab() != target.vocab() {
+            return Err(SpeculativeError::VocabMismatch {
+                draft: draft.vocab(),
+                target: target.vocab(),
+            });
+        }
+
+        let mut draft = draft.clone();
+        let mut target = target.clone();
+        let mut draft_logits = prime(&mut draft, prompt)?;
+        let mut target_logits = prime(&mut target, prompt)?;
+        let mut rng = SplitMix::new(seed);
+
+        let mut out = Vec::new();
+        let mut proposed = 0usize;
+        let mut accepted = 0usize;
+        let mut rounds = 0usize;
+
+        while out.len() < self.max_new {
+            rounds += 1;
+
+            // 1. draft samples `draft_len` tokens on a throwaway fork, recording
+            //    the distribution it sampled each one from.
+            let mut ds = draft.clone();
+            let mut dlog = draft_logits.clone();
+            let mut proposals = Vec::with_capacity(self.draft_len);
+            let mut p_draft = Vec::with_capacity(self.draft_len);
+            for _ in 0..self.draft_len {
+                let dist = sampler.distribution(&dlog, &[])?;
+                let t = sample_index(&dist, rng.next_uniform());
+                p_draft.push(to_f64(&dist));
+                proposals.push(t as u32);
+                dlog = ds.forward(t)?;
+            }
+            proposed += proposals.len();
+
+            // 2. target teacher-forces the proposals on a fork → one
+            //    distribution per position including the bonus (draft_len + 1).
+            let mut tf = target.clone();
+            let mut tlog = target_logits.clone();
+            let mut p_target = Vec::with_capacity(self.draft_len + 1);
+            p_target.push(to_f64(&sampler.distribution(&tlog, &[])?));
+            for &t in &proposals {
+                tlog = tf.forward(t as usize)?;
+                p_target.push(to_f64(&sampler.distribution(&tlog, &[])?));
+            }
+
+            // 3. distribution-preserving accept/correct.
+            let outcome =
+                verify_sampled(&proposals, &p_draft, &p_target, &mut || rng.next_uniform())?;
+            accepted += outcome.accepted;
+
+            // 4. commit the emitted tokens on the REAL draft + target.
+            for &e in &outcome.emitted_tokens {
+                target_logits = target.forward(e as usize)?;
+                draft_logits = draft.forward(e as usize)?;
+            }
+            out.extend(outcome.emitted_tokens.iter().map(|&e| e as usize));
+        }
+
+        out.truncate(self.max_new);
+        Ok(SpecResult {
+            tokens: out,
+            proposed,
+            accepted,
+            rounds,
+        })
+    }
+}
+
+/// A small deterministic splitmix64 → uniform `[0, 1)` source, so sampled
+/// decoding is reproducible from a seed without a heavyweight RNG dependency.
+struct SplitMix(u64);
+
+impl SplitMix {
+    fn new(seed: u64) -> Self {
+        Self(seed)
+    }
+
+    fn next_uniform(&mut self) -> f64 {
+        self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut z = self.0;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^= z >> 31;
+        (z >> 11) as f64 / (1u64 << 53) as f64
+    }
+}
+
+/// Sample a categorical index from a (possibly filtered) probability vector
+/// using one uniform draw. Robust to floating-point slack: returns the last
+/// positive index if the cumulative walk overshoots.
+fn sample_index(dist: &[f32], u: f64) -> usize {
+    let total: f64 = dist.iter().map(|&p| p.max(0.0) as f64).sum();
+    if total <= 0.0 {
+        return 0;
+    }
+    let mut threshold = u * total;
+    for (i, &p) in dist.iter().enumerate() {
+        threshold -= p.max(0.0) as f64;
+        if threshold < 0.0 {
+            return i;
+        }
+    }
+    dist.iter().rposition(|&p| p > 0.0).unwrap_or(0)
+}
+
+/// Widen an `f32` probability vector to the `f64` distributions `verify_sampled`
+/// consumes.
+fn to_f64(dist: &[f32]) -> Vec<f64> {
+    dist.iter().map(|&p| p as f64).collect()
 }
 
 /// Feed a prompt into `model`, returning the logits for the next token.
@@ -205,7 +348,7 @@ mod tests {
     use sovereign_decoder_stack::StackConfig;
     use sovereign_ffn::SwiGlu;
     use sovereign_rmsnorm::RmsNorm;
-    use sovereign_sampler::Sampler;
+    use sovereign_sampler::{Sampler, SamplerConfig};
     use sovereign_transformer_block::BlockWeights;
 
     const MD: usize = 4;
@@ -345,6 +488,84 @@ mod tests {
                 draft: 5,
                 target: 8
             }
+        );
+    }
+
+    // --- sampled (distribution-preserving) decode ---
+
+    #[test]
+    fn sampled_with_greedy_sampler_equals_greedy_decode() {
+        // The headline property: a greedy (temperature 0) sampler collapses
+        // each distribution to one-hot, so decode_sampled reduces *exactly* to
+        // the greedy decode() — same lossless output as the target alone.
+        let target = model(8, 0.0);
+        let draft = model(8, 50.0); // deliberately different draft
+        let greedy_sampler = Sampler::greedy();
+        for k in [1usize, 2, 4] {
+            let sampled = Speculative::new(k, 10)
+                .decode_sampled(&draft, &target, &[1, 2], &greedy_sampler, 0xABCDEF)
+                .unwrap();
+            let g = greedy(target.clone(), &[1, 2], 10);
+            assert_eq!(sampled.tokens, g, "draft_len {k} must match greedy target");
+        }
+    }
+
+    #[test]
+    fn sampled_is_deterministic_for_a_fixed_seed() {
+        let target = model(8, 0.0);
+        let draft = model(8, 9.0);
+        let sampler = Sampler::new(SamplerConfig {
+            temperature: 1.0,
+            ..SamplerConfig::default()
+        });
+        let a = Speculative::new(3, 12)
+            .decode_sampled(&draft, &target, &[1, 2], &sampler, 42)
+            .unwrap();
+        let b = Speculative::new(3, 12)
+            .decode_sampled(&draft, &target, &[1, 2], &sampler, 42)
+            .unwrap();
+        assert_eq!(a.tokens, b.tokens);
+        // A different seed generally yields a different trajectory.
+        let c = Speculative::new(3, 12)
+            .decode_sampled(&draft, &target, &[1, 2], &sampler, 43)
+            .unwrap();
+        // (not asserting inequality — small vocab can collide — just that it runs)
+        assert_eq!(c.tokens.len(), 12);
+    }
+
+    #[test]
+    fn sampled_returns_exactly_max_new_and_leaves_models_untouched() {
+        let target = model(8, 0.0);
+        let draft = model(8, 7.0);
+        let sampler = Sampler::new(SamplerConfig {
+            temperature: 0.9,
+            ..SamplerConfig::default()
+        });
+        let spec = Speculative::new(3, 9)
+            .decode_sampled(&draft, &target, &[1], &sampler, 7)
+            .unwrap();
+        assert_eq!(spec.tokens.len(), 9);
+        assert!(spec.accepted <= spec.proposed);
+        assert_eq!(target.position(), 0);
+        assert_eq!(draft.position(), 0);
+    }
+
+    #[test]
+    fn sampled_validates_inputs_like_greedy() {
+        let target = model(8, 0.0);
+        let draft = model(8, 7.0);
+        let sampler = Sampler::greedy();
+        assert_eq!(
+            Speculative::new(0, 4)
+                .decode_sampled(&draft, &target, &[1], &sampler, 0)
+                .unwrap_err(),
+            SpeculativeError::ZeroDraftLen
+        );
+        assert_eq!(
+            Speculative::new(2, 4)
+                .decode_sampled(&draft, &target, &[], &sampler, 0)
+                .unwrap_err(),
+            SpeculativeError::EmptyPrompt
         );
     }
 }
