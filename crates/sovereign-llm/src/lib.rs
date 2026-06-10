@@ -26,6 +26,7 @@
 use serde::{Deserialize, Serialize};
 use sovereign_decoder_stack::{DecoderStack, StackConfig, StackError};
 use sovereign_logit_mask::LogitMask;
+use sovereign_sampler::Mirostat;
 use sovereign_tokenizer::Tokenizer;
 use thiserror::Error;
 
@@ -129,6 +130,31 @@ impl SovereignLlm {
         seed: u64,
     ) -> Result<Vec<u32>, LlmError> {
         self.generate_ids_constrained(prompt, max_new, seed, &LogitMask::new())
+    }
+
+    /// Generate token ids under a stateful [`Mirostat`] controller — output
+    /// perplexity is held near the controller's target instead of using the
+    /// config's static truncation. The controller's `μ` advances across the
+    /// call. Starts from a pristine cache (model cloned).
+    pub fn generate_ids_mirostat(
+        &self,
+        prompt: &str,
+        max_new: usize,
+        seed: u64,
+        mirostat: &mut Mirostat,
+    ) -> Result<Vec<u32>, LlmError> {
+        let ids: Vec<usize> = self
+            .tokenizer
+            .encode(prompt)
+            .into_iter()
+            .map(|t| t as usize)
+            .collect();
+        if ids.is_empty() {
+            return Err(LlmError::EmptyPrompt);
+        }
+        let mut model = self.model.clone();
+        let generated = model.generate_mirostat(&ids, max_new, seed, mirostat)?;
+        Ok(generated.iter().map(|&t| t as u32).collect())
     }
 
     /// Streaming generation: invoke `on_token` with each generated token id the
@@ -320,6 +346,34 @@ mod tests {
         let llm = runtime(Sampler::greedy());
         assert_eq!(
             llm.generate_ids_streaming("", 4, 1, |_| {}).unwrap_err(),
+            LlmError::EmptyPrompt
+        );
+    }
+
+    #[test]
+    fn mirostat_generation_runs_and_is_reproducible() {
+        let llm = runtime(Sampler::new(SamplerConfig::default()));
+        let mut ms_a = Mirostat::new(2.5, 0.1);
+        let a = llm
+            .generate_ids_mirostat("hello sovereign", 8, 3, &mut ms_a)
+            .unwrap();
+        assert_eq!(a.len(), 8);
+        let v = llm.vocab_size() as u32;
+        assert!(a.iter().all(|&t| t < v));
+        // Same seed + fresh controller → identical ids.
+        let mut ms_b = Mirostat::new(2.5, 0.1);
+        let b = llm
+            .generate_ids_mirostat("hello sovereign", 8, 3, &mut ms_b)
+            .unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn mirostat_empty_prompt_errors() {
+        let llm = runtime(Sampler::greedy());
+        let mut ms = Mirostat::new(3.0, 0.1);
+        assert_eq!(
+            llm.generate_ids_mirostat("", 4, 1, &mut ms).unwrap_err(),
             LlmError::EmptyPrompt
         );
     }
