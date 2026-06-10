@@ -310,6 +310,18 @@ fn dense_matvec(w: &[f32], x: &[f32], rows: usize, cols: usize) -> Vec<f32> {
 /// considered when `input_dim` is a power of two; ties favor the earlier
 /// (simpler) recipe. Use it to feed [`Linear::from_f32_nvfp4`].
 pub fn best_nvfp4_recipe(weights: &[f32], output_dim: usize, input_dim: usize) -> NvfpRecipe {
+    best_nvfp4_recipe_with_error(weights, output_dim, input_dim).0
+}
+
+/// Like [`best_nvfp4_recipe`] but also returns the winning recipe's relative
+/// reconstruction error `‖W − Ŵ‖/‖W‖`. The error is what selective-HP needs:
+/// a layer whose best recipe still has high error is a candidate to keep in
+/// higher precision (see [`recommend_high_precision`]).
+pub fn best_nvfp4_recipe_with_error(
+    weights: &[f32],
+    output_dim: usize,
+    input_dim: usize,
+) -> (NvfpRecipe, f64) {
     let mut best = NvfpRecipe::Plain;
     let mut best_err = f64::INFINITY;
     let mut consider = |recipe: NvfpRecipe, recon: Option<Vec<f32>>| {
@@ -341,7 +353,46 @@ pub fn best_nvfp4_recipe(weights: &[f32], output_dim: usize, input_dim: usize) -
                 .map(|q| q.dequantized_weights()),
         );
     }
-    best
+    (best, best_err)
+}
+
+/// A named projection's weights and shape, for [`recommend_high_precision`].
+pub struct NamedProjection<'a> {
+    /// The projection's name (e.g. `"lm_head"`, `"layer3.gate"`).
+    pub name: &'a str,
+    /// Row-major `output_dim × input_dim` weights.
+    pub weights: &'a [f32],
+    /// Output dimension (rows).
+    pub output_dim: usize,
+    /// Input dimension (columns).
+    pub input_dim: usize,
+}
+
+/// Data-driven selective-HP: given the model's projections, return the names
+/// that should stay in higher precision because even their *best* NVFP4 recipe
+/// leaves a relative reconstruction error above `tolerance`. Results are ranked
+/// worst-error-first and capped at `budget` (the selective-HP layer budget).
+///
+/// This replaces a hardcoded high-precision-layer list with a measurement: the
+/// layers NVFP4 hurts most are protected, whatever they are named. An empty
+/// result means every projection quantizes within tolerance.
+pub fn recommend_high_precision<'a>(
+    projections: &[NamedProjection<'a>],
+    tolerance: f64,
+    budget: usize,
+) -> Vec<&'a str> {
+    let mut scored: Vec<(&'a str, f64)> = projections
+        .iter()
+        .map(|p| {
+            let (_, err) = best_nvfp4_recipe_with_error(p.weights, p.output_dim, p.input_dim);
+            (p.name, err)
+        })
+        .filter(|(_, err)| *err > tolerance)
+        .collect();
+    // Worst error first; NaN (degenerate) sorts last.
+    scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+    scored.truncate(budget);
+    scored.into_iter().map(|(name, _)| name).collect()
 }
 
 #[cfg(test)]
@@ -459,6 +510,76 @@ mod tests {
             lin.forward(&vec![1.0f32; input_dim]).unwrap().len(),
             output_dim
         );
+    }
+
+    #[test]
+    fn recommend_high_precision_flags_the_worst_projection() {
+        // benign: equal-magnitude weights → absmean scale maps every weight
+        // onto the E2M1 grid almost exactly (near-zero NVFP4 error).
+        // awkward: weights sitting between grid points → higher NVFP4 error.
+        // Self-calibrate the tolerance from the measured errors so the test is
+        // robust to the exact NVFP4 numerics.
+        let benign = vec![0.5f32; 64];
+        let awkward: Vec<f32> = (0..64).map(|i| 0.07 + (i % 11) as f32 * 0.013).collect();
+        let (_, e_benign) = best_nvfp4_recipe_with_error(&benign, 4, 16);
+        let (_, e_awkward) = best_nvfp4_recipe_with_error(&awkward, 4, 16);
+        assert!(
+            e_awkward > e_benign,
+            "awkward {e_awkward} should exceed benign {e_benign}"
+        );
+        let tol = (e_benign + e_awkward) / 2.0;
+        let projs = [
+            NamedProjection {
+                name: "benign",
+                weights: &benign,
+                output_dim: 4,
+                input_dim: 16,
+            },
+            NamedProjection {
+                name: "awkward",
+                weights: &awkward,
+                output_dim: 4,
+                input_dim: 16,
+            },
+        ];
+        let hp = recommend_high_precision(&projs, tol, 4);
+        assert_eq!(
+            hp,
+            vec!["awkward"],
+            "only awkward exceeds tol {tol}: {hp:?}"
+        );
+    }
+
+    #[test]
+    fn recommend_high_precision_respects_budget_and_tolerance() {
+        let awkward: Vec<f32> = (0..32).map(|i| 0.07 + (i % 11) as f32 * 0.013).collect();
+        let (_, err) = best_nvfp4_recipe_with_error(&awkward, 2, 16);
+        let projs: Vec<NamedProjection> = ["a", "b", "c"]
+            .iter()
+            .map(|name| NamedProjection {
+                name,
+                weights: &awkward,
+                output_dim: 2,
+                input_dim: 16,
+            })
+            .collect();
+        // All three exceed a tolerance just under their (shared) error; budget
+        // caps the protected count at 2.
+        assert_eq!(recommend_high_precision(&projs, err * 0.5, 2).len(), 2);
+        // A tolerance above every error protects nothing.
+        assert!(recommend_high_precision(&projs, err * 2.0, 4).is_empty());
+    }
+
+    #[test]
+    fn best_nvfp4_recipe_with_error_agrees_with_recipe() {
+        let (output_dim, input_dim) = (6, 16);
+        let mut weights = vec![1.0f32; output_dim * input_dim];
+        for o in 0..output_dim {
+            weights[o * input_dim + 5] = 0.012;
+        }
+        let (recipe, err) = best_nvfp4_recipe_with_error(&weights, output_dim, input_dim);
+        assert_eq!(recipe, best_nvfp4_recipe(&weights, output_dim, input_dim));
+        assert!(err.is_finite() && err >= 0.0);
     }
 
     #[test]
