@@ -29,7 +29,7 @@
 
 use serde::{Deserialize, Serialize};
 use sovereign_bitlinear_core::{BitLinearLayer, EnergyReport, Packing};
-use sovereign_nvfp4_runtime::QuantMatrix;
+use sovereign_nvfp4_runtime::{QuantMatrix, RhtQuantMatrix, TwoDQuantMatrix};
 use thiserror::Error;
 
 /// Schema version of the linear-layer surface.
@@ -75,12 +75,29 @@ pub enum LinearError {
     Backend(String),
 }
 
+/// Which NVFP4 accuracy recipe (M077) a `Precision::Nvfp4` layer uses. All
+/// store at the same 4.5 bits/param; they differ in how the weights are
+/// conditioned before 4-bit microscaling.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum NvfpRecipe {
+    /// Plain per-row block microscaling.
+    #[default]
+    Plain,
+    /// Random Hadamard transform — spreads block outliers (seeded).
+    Rht(u64),
+    /// Two-dimensional per-row + per-column scaling.
+    TwoD,
+}
+
 /// The precision-specific stored weights.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 enum Backend {
     F32(Vec<f32>),
     Ternary(BitLinearLayer),
     Nvfp4(QuantMatrix),
+    Nvfp4Rht(RhtQuantMatrix),
+    Nvfp4TwoD(TwoDQuantMatrix),
 }
 
 /// A linear layer `y = W·x` with a selectable execution precision.
@@ -129,6 +146,46 @@ impl Linear {
         })
     }
 
+    /// Build a `Precision::Nvfp4` layer that uses a specific M077 accuracy
+    /// [`NvfpRecipe`] — the integration point that lets the decoder's NVFP4
+    /// projections select RHT outlier-spreading or 2D per-row+per-column
+    /// scaling instead of plain microscaling, for sensitive weight matrices.
+    pub fn from_f32_nvfp4(
+        weights: &[f32],
+        output_dim: usize,
+        input_dim: usize,
+        recipe: NvfpRecipe,
+    ) -> Result<Self, LinearError> {
+        let expected = output_dim * input_dim;
+        if weights.len() != expected {
+            return Err(LinearError::WeightShape {
+                expected,
+                output_dim,
+                input_dim,
+                got: weights.len(),
+            });
+        }
+        let backend = match recipe {
+            NvfpRecipe::Plain => Backend::Nvfp4(
+                QuantMatrix::from_f32(weights, output_dim, input_dim)
+                    .map_err(|e| LinearError::Backend(e.to_string()))?,
+            ),
+            NvfpRecipe::Rht(seed) => Backend::Nvfp4Rht(
+                RhtQuantMatrix::from_f32(weights, output_dim, input_dim, seed)
+                    .map_err(|e| LinearError::Backend(e.to_string()))?,
+            ),
+            NvfpRecipe::TwoD => Backend::Nvfp4TwoD(
+                TwoDQuantMatrix::from_f32(weights, output_dim, input_dim)
+                    .map_err(|e| LinearError::Backend(e.to_string()))?,
+            ),
+        };
+        Ok(Self {
+            output_dim,
+            input_dim,
+            backend,
+        })
+    }
+
     /// Output dimension (rows).
     pub fn output_dim(&self) -> usize {
         self.output_dim
@@ -144,7 +201,7 @@ impl Linear {
         match self.backend {
             Backend::F32(_) => Precision::F32,
             Backend::Ternary(_) => Precision::Ternary,
-            Backend::Nvfp4(_) => Precision::Nvfp4,
+            Backend::Nvfp4(_) | Backend::Nvfp4Rht(_) | Backend::Nvfp4TwoD(_) => Precision::Nvfp4,
         }
     }
 
@@ -154,6 +211,9 @@ impl Linear {
             Backend::F32(_) => 32.0,
             Backend::Ternary(b) => b.bits_per_param(),
             Backend::Nvfp4(q) => q.bits_per_param(),
+            Backend::Nvfp4Rht(q) => q.bits_per_param(),
+            // 4-bit core + per-row + per-column scales — the NVFP4 nominal.
+            Backend::Nvfp4TwoD(_) => 4.5,
         }
     }
 
@@ -198,6 +258,8 @@ impl Linear {
                 .map(|(y, _ops)| y)
                 .map_err(|e| LinearError::Backend(e.to_string())),
             Backend::Nvfp4(q) => q.matvec(x).map_err(|e| LinearError::Backend(e.to_string())),
+            Backend::Nvfp4Rht(q) => q.matvec(x).map_err(|e| LinearError::Backend(e.to_string())),
+            Backend::Nvfp4TwoD(q) => q.matvec(x).map_err(|e| LinearError::Backend(e.to_string())),
         }
     }
 }
@@ -257,6 +319,26 @@ mod tests {
         for p in [Precision::F32, Precision::Nvfp4] {
             let lin = Linear::from_f32(&w, 2, 4, p).unwrap();
             assert!(lin.energy_report(&[1.0f32; 4]).unwrap().is_none());
+        }
+    }
+
+    #[test]
+    fn nvfp4_recipes_selectable_through_linear() {
+        // The decoder's NVFP4 projections can now pick any M077 recipe.
+        let (output_dim, input_dim) = (3, 16);
+        let w: Vec<f32> = (0..output_dim * input_dim)
+            .map(|i| ((i % 5) as f32 - 2.0) * 0.4)
+            .collect();
+        let x = vec![1.0f32; input_dim];
+        for recipe in [NvfpRecipe::Plain, NvfpRecipe::Rht(0xABCD), NvfpRecipe::TwoD] {
+            let lin = Linear::from_f32_nvfp4(&w, output_dim, input_dim, recipe).unwrap();
+            // All recipes report NVFP4 precision and ~4.5 bits/param.
+            assert_eq!(lin.precision(), Precision::Nvfp4);
+            assert!((lin.bits_per_param() - 4.5).abs() < 0.01);
+            // ...and run a valid forward.
+            let y = lin.forward(&x).unwrap();
+            assert_eq!(y.len(), output_dim);
+            assert!(y.iter().all(|v| v.is_finite()));
         }
     }
 
