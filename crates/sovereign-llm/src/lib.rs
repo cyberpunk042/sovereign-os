@@ -132,6 +132,24 @@ impl SovereignLlm {
         self.generate_ids_constrained(prompt, max_new, seed, &LogitMask::new())
     }
 
+    /// Generate token ids, stopping at the tokenizer's special token named
+    /// `eos` (e.g. `"<eos>"`) — the natural serving loop. If that special is
+    /// registered, generation stops the moment the model emits it (it is
+    /// included); otherwise this is a plain `max_new` generation. Pairs the
+    /// tokenizer's special tokens with early-stop.
+    pub fn generate_ids_until_eos(
+        &self,
+        prompt: &str,
+        max_new: usize,
+        seed: u64,
+        eos: &str,
+    ) -> Result<Vec<u32>, LlmError> {
+        match self.tokenizer.special_id(eos) {
+            Some(id) => self.generate_ids_until(prompt, max_new, seed, &[id]),
+            None => self.generate_ids(prompt, max_new, seed),
+        }
+    }
+
     /// Unified, serving-grade generation: compose constrained masking, dynamic
     /// no-repeat-ngram blocking, early-stop, and per-token streaming via
     /// [`GenOptions`] — the single configurable entry point the simpler
@@ -343,6 +361,35 @@ mod tests {
         let tok = Tokenizer::default(); // 256-token base vocab
         let cfg = model_config(tok.vocab_size(), 4, 2, sampler);
         SovereignLlm::new(tok, cfg).unwrap()
+    }
+
+    /// A runtime whose tokenizer reserves an `<eos>` special token.
+    fn runtime_with_eos(sampler: Sampler) -> SovereignLlm {
+        let tok = Tokenizer::default().with_specials(["<eos>"]); // vocab 257
+        let cfg = model_config(tok.vocab_size(), 4, 2, sampler);
+        SovereignLlm::new(tok, cfg).unwrap()
+    }
+
+    #[test]
+    fn generate_until_eos_uses_the_special_token() {
+        let llm = runtime_with_eos(Sampler::new(SamplerConfig::default()));
+        let eos = llm.tokenizer().special_id("<eos>").unwrap();
+        // eos-aware generation equals generate_ids_until with the resolved id.
+        let a = llm.generate_ids_until_eos("hello", 8, 4, "<eos>").unwrap();
+        let b = llm.generate_ids_until("hello", 8, 4, &[eos]).unwrap();
+        assert_eq!(a, b);
+        assert!(a.len() <= 8);
+    }
+
+    #[test]
+    fn generate_until_eos_unregistered_name_is_plain_generation() {
+        let llm = runtime_with_eos(Sampler::new(SamplerConfig::default()));
+        let plain = llm.generate_ids("hello", 6, 4).unwrap();
+        let eos = llm
+            .generate_ids_until_eos("hello", 6, 4, "<not-registered>")
+            .unwrap();
+        assert_eq!(eos, plain);
+        assert_eq!(eos.len(), 6);
     }
 
     #[test]
