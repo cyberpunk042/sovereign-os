@@ -14,8 +14,10 @@
 //! backs the `serve()` generate step, so the cost-aware path actually drives
 //! the inference stack — a `$0` cache hit still short-circuits before the model
 //! runs. The weights are random, so the text is gibberish; the point is that
-//! the serving assembly and the model are wired together and run.
-//! Usage: `sovereign-serve` (runs the demo session) · `sovereign-serve --help`.
+//! the serving assembly and the model are wired together and run. With
+//! `--stream`, each generated token is printed the instant the model emits it
+//! (via the engine's streaming API) before the served result is recorded.
+//! Usage: `sovereign-serve [--stream] [PROMPT…]` · `sovereign-serve --help`.
 
 use sovereign_decoder_stack::StackConfig;
 use sovereign_ffn::SwiGlu;
@@ -82,6 +84,7 @@ USAGE:
     sovereign-serve                    run the built-in demo session, print, exit
     sovereign-serve PROMPT [PROMPT…]   serve each prompt (unlimited budget; a
                                        repeated prompt is a $0 cache hit)
+    sovereign-serve --stream PROMPT…   stream each generated token as it arrives
     sovereign-serve --help             print this help and exit";
 
 fn main() {
@@ -90,6 +93,7 @@ fn main() {
         println!("{USAGE}");
         return;
     }
+    let stream = args.iter().any(|a| a == "--stream");
     let prompts: Vec<&str> = args
         .iter()
         .filter(|a| !a.starts_with('-'))
@@ -97,11 +101,25 @@ fn main() {
         .collect();
 
     // Build the engine once; its `complete` (immutable, reproducible per seed)
-    // backs every generate step.
+    // backs every generate step. With `--stream`, each token is printed the
+    // instant the model emits it, then the decoded completion is returned for
+    // caching + accounting.
     let llm = runtime();
     let generate = |prompt: &str, max_new: usize, seed: u64| -> Result<String, String> {
-        llm.complete(prompt, max_new, seed)
-            .map_err(|e| e.to_string())
+        if stream {
+            print!("  stream:");
+            let ids = llm
+                .generate_ids_streaming(prompt, max_new, seed, |id| {
+                    print!(" {id}");
+                    let _ = std::io::Write::flush(&mut std::io::stdout());
+                })
+                .map_err(|e| e.to_string())?;
+            println!();
+            Ok(llm.tokenizer().decode(&ids).unwrap_or_default())
+        } else {
+            llm.complete(prompt, max_new, seed)
+                .map_err(|e| e.to_string())
+        }
     };
 
     if prompts.is_empty() {
