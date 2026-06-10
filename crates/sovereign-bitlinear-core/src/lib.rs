@@ -121,6 +121,15 @@ pub enum BitLinearError {
         /// `input_dim` of the consuming layer.
         next_input_dim: usize,
     },
+    /// [`mlp::BitLinearMlp::forward_residual`] requires the block to map the
+    /// residual stream back to itself (`input_dim == output_dim`).
+    #[error("residual forward needs input_dim == output_dim, got {input_dim} and {output_dim}")]
+    ResidualShapeMismatch {
+        /// The block's input width.
+        input_dim: usize,
+        /// The block's output width.
+        output_dim: usize,
+    },
 }
 
 #[cfg(test)]

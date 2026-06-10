@@ -35,6 +35,16 @@ concrete step from "single kernel callable" toward "a network block that
 runs." Additive: two new `BitLinearError` variants (`EmptyStack`,
 `StackShapeMismatch`); no existing API changed.
 
+`BitLinearMlp::forward_residual` then completes the block into a real
+transformer **FFN sublayer** (`y = x + block(x)`, the residual-wrapped
+shape a decoder uses), guarded to `input_dim == output_dim`. Tests prove
+the residual is exactly `x + block(x)`, that an all-zero block is the
+residual *identity* (the trainability property deep stacks rely on), and
+that a non-square block is rejected — the missing piece to drop the
+multiplication-free ternary FFN into the residual stream where the quant
+decoder block today still runs a float SwiGLU. Additive variant
+`ResidualShapeMismatch`.
+
 ### Added — guardian dropout metrics + flap alert (M084 R14127–R14133) (2026-06-10)
 
 A single Tetragon-stream EOF is self-healing (BindsTo + Restart=always close

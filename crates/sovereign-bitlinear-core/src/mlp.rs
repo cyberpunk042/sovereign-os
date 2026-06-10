@@ -146,6 +146,30 @@ impl BitLinearMlp {
     pub fn floating_muls_eliminated(&self) -> usize {
         self.layers.iter().map(|l| l.output_dim * l.input_dim).sum()
     }
+
+    /// Residual-wrapped forward — `y = x + block(x)` — the way a transformer
+    /// uses the FFN: a sublayer whose output is *added* to the residual
+    /// stream rather than replacing it. Requires `input_dim == output_dim`
+    /// (the block must map the residual stream back to itself); returns
+    /// [`BitLinearError::ResidualShapeMismatch`] otherwise.
+    ///
+    /// The residual add is the structural identity guarantee: a block whose
+    /// weights are all `0` (every projection outputs zero) leaves the
+    /// residual stream untouched, so stacking such sublayers can never
+    /// degrade the signal — the property that makes deep stacks trainable.
+    pub fn forward_residual(&self, x: &[f32]) -> Result<(Vec<f32>, OpCount), BitLinearError> {
+        if self.input_dim() != self.output_dim() {
+            return Err(BitLinearError::ResidualShapeMismatch {
+                input_dim: self.input_dim(),
+                output_dim: self.output_dim(),
+            });
+        }
+        let (mut y, ops) = self.forward(x)?;
+        for (yi, &xi) in y.iter_mut().zip(x.iter()) {
+            *yi += xi;
+        }
+        Ok((y, ops))
+    }
 }
 
 #[cfg(test)]
@@ -295,5 +319,58 @@ mod tests {
         let json = serde_json::to_string(&mlp).unwrap();
         let back: BitLinearMlp = serde_json::from_str(&json).unwrap();
         assert_eq!(mlp, back);
+    }
+
+    #[test]
+    fn residual_equals_input_plus_block() {
+        // A square FFN (d_model == output, via d_model -> d_ff -> d_model).
+        let (d_model, d_ff) = (10, 40);
+        let mut next = rng(0x0BAD_C0DE_F00D_1234);
+        let expand: Vec<f32> = (0..d_ff * d_model).map(|_| next()).collect();
+        let contract: Vec<f32> = (0..d_model * d_ff).map(|_| next()).collect();
+        let x: Vec<f32> = (0..d_model).map(|_| next()).collect();
+        let mlp = BitLinearMlp::ffn(&expand, &contract, d_model, d_ff, Packing::Base3).unwrap();
+
+        let (plain, _) = mlp.forward(&x).unwrap();
+        let (res, _) = mlp.forward_residual(&x).unwrap();
+        let manual: Vec<f32> = plain.iter().zip(&x).map(|(b, xi)| b + xi).collect();
+        assert_eq!(res, manual, "residual must be exactly x + block(x)");
+    }
+
+    #[test]
+    fn zero_weight_block_is_residual_identity() {
+        // All-zero weights → every projection outputs 0 → the residual
+        // sublayer is the identity on the stream (the trainability property).
+        let (d_model, d_ff) = (8, 16);
+        let mlp = BitLinearMlp::ffn(
+            &vec![0.0f32; d_ff * d_model],
+            &vec![0.0f32; d_model * d_ff],
+            d_model,
+            d_ff,
+            Packing::Base3,
+        )
+        .unwrap();
+        let x: Vec<f32> = (0..d_model).map(|i| i as f32 - 3.5).collect();
+        let (res, _) = mlp.forward_residual(&x).unwrap();
+        assert_eq!(
+            res, x,
+            "zero block must leave the residual stream untouched"
+        );
+    }
+
+    #[test]
+    fn residual_rejects_non_square_block() {
+        // d_model=4 -> d_ff=8 -> 6 (output != input) cannot be residual.
+        let l0 = BitLinearLayer::from_weights(&[0.3; 32], 8, 4, Packing::Base3).unwrap();
+        let l1 = BitLinearLayer::from_weights(&[0.3; 48], 6, 8, Packing::Base3).unwrap();
+        let mlp = BitLinearMlp::new(vec![l0, l1], Activation::Relu).unwrap();
+        let err = mlp.forward_residual(&[1.0f32; 4]).unwrap_err();
+        assert!(matches!(
+            err,
+            BitLinearError::ResidualShapeMismatch {
+                input_dim: 4,
+                output_dim: 6,
+            }
+        ));
     }
 }
