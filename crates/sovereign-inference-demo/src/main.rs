@@ -397,6 +397,25 @@ fn run_strategies_demo() -> String {
         spec.acceptance_rate() * 100.0
     );
 
+    // distribution-preserving speculative decoding (DFlash sampled accept rule):
+    // self-draft, temperature sampling, output distributed as target samples.
+    let spec_sampler = Sampler::new(SamplerConfig {
+        temperature: 0.8,
+        top_k: Some(40),
+        ..SamplerConfig::default()
+    });
+    let spec_s = Speculative::new(4, 8)
+        .decode_sampled(&model, &model, &prompt, &spec_sampler, 42)
+        .expect("spec sampled");
+    let _ = writeln!(
+        out,
+        "spec (sampled)  : {:?} (accept {}/{} = {:.0}%, distribution-preserving)",
+        spec_s.tokens,
+        spec_s.accepted,
+        spec_s.proposed,
+        spec_s.acceptance_rate() * 100.0
+    );
+
     // perplexity over a reference sequence
     let reference = [7usize, 11, 23, 5, 9, 2, 14];
     let ev = evaluate(&model, &reference).expect("perplexity");
