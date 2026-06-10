@@ -66,6 +66,28 @@ pub struct Eval {
     pub perplexity: f64,
 }
 
+impl Eval {
+    /// Mean **bits per token** = `cross_entropy / ln 2` (log₂ of the
+    /// perplexity). Bits are the comparable unit across exp/log bases.
+    pub fn bits_per_token(&self) -> f64 {
+        self.cross_entropy / std::f64::consts::LN_2
+    }
+
+    /// **Bits per byte** — the model's total information cost over the scored
+    /// tokens, re-normalized from per-token to per-byte using `scored_bytes`
+    /// (the total byte length of the predicted tokens). Unlike perplexity,
+    /// which depends on how text is tokenized, bits/byte is **tokenizer-
+    /// independent**, so it is the standard way to compare models with
+    /// different vocabularies. Returns `0.0` if `scored_bytes == 0`.
+    pub fn bits_per_byte(&self, scored_bytes: usize) -> f64 {
+        if scored_bytes == 0 {
+            return 0.0;
+        }
+        let total_bits = -self.total_logprob / std::f64::consts::LN_2;
+        total_bits / scored_bytes as f64
+    }
+}
+
 /// Score `model`'s perplexity on `tokens` (teacher-forced). The model is
 /// cloned, so the caller's instance is not advanced.
 pub fn evaluate(model: &DecoderStack, tokens: &[usize]) -> Result<Eval, PerplexityError> {
@@ -146,6 +168,39 @@ mod tests {
     use sovereign_rmsnorm::RmsNorm;
     use sovereign_sampler::Sampler;
     use sovereign_transformer_block::BlockWeights;
+
+    #[test]
+    fn bits_per_token_is_log2_perplexity() {
+        // cross_entropy = ln(4) → ppl 4 → 2 bits/token.
+        let ce = 4.0_f64.ln();
+        let e = Eval {
+            predicted: 3,
+            total_logprob: -ce * 3.0,
+            cross_entropy: ce,
+            perplexity: ce.exp(),
+        };
+        assert!((e.bits_per_token() - 2.0).abs() < 1e-9);
+        // 2^(bits/token) recovers the perplexity.
+        assert!((2.0_f64.powf(e.bits_per_token()) - e.perplexity).abs() < 1e-9);
+    }
+
+    #[test]
+    fn bits_per_byte_normalizes_by_bytes() {
+        let ce = 2.0_f64.ln(); // 1 bit/token
+        let e = Eval {
+            predicted: 4,
+            total_logprob: -ce * 4.0,
+            cross_entropy: ce,
+            perplexity: ce.exp(),
+        };
+        // total bits = 4; over 4 bytes → 1 bit/byte (== bits/token here).
+        assert!((e.bits_per_byte(4) - 1.0).abs() < 1e-9);
+        assert!((e.bits_per_byte(4) - e.bits_per_token()).abs() < 1e-9);
+        // Twice the bytes → half the bits/byte (longer tokens are cheaper/byte).
+        assert!((e.bits_per_byte(8) - 0.5).abs() < 1e-9);
+        // Zero bytes is guarded.
+        assert_eq!(e.bits_per_byte(0), 0.0);
+    }
 
     const MD: usize = 4;
 
