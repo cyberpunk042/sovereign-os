@@ -61,6 +61,13 @@ impl LogitMask {
         self
     }
 
+    /// Ban the tokens that would complete an `n`-gram already present in
+    /// `history` (no-repeat-ngram blocking) — see [`no_repeat_ngram_bans`].
+    /// Convenience for `ban_all(no_repeat_ngram_bans(history, n))`.
+    pub fn no_repeat_ngram(self, history: &[usize], n: usize) -> Self {
+        self.ban_all(no_repeat_ngram_bans(history, n))
+    }
+
     /// Add a logit bias for a token (positive encourages, negative discourages).
     pub fn bias(mut self, token: usize, delta: f32) -> Self {
         *self.bias.entry(token).or_insert(0.0) += delta;
@@ -110,6 +117,32 @@ impl LogitMask {
         self.apply(&mut out);
         out
     }
+}
+
+/// The tokens that, if appended to `history`, would complete an `n`-gram that
+/// already occurs in `history` — the **no-repeat-ngram** blocklist (common in
+/// beam search and sampling to stop verbatim loops). It matches the current
+/// `(n−1)`-token suffix against every earlier position and collects the token
+/// that followed each match. Returns an empty list when `n ≤ 1` or the history
+/// is shorter than `n−1` (no suffix to repeat yet).
+pub fn no_repeat_ngram_bans(history: &[usize], n: usize) -> Vec<usize> {
+    if n <= 1 {
+        return Vec::new();
+    }
+    let prefix = n - 1;
+    if history.len() < prefix {
+        return Vec::new();
+    }
+    let suffix = &history[history.len() - prefix..];
+    let mut bans = Vec::new();
+    // Each `i` is the start of a prior `(n−1)`-gram that has a following token
+    // at `i + prefix`; if it matches the current suffix, that token repeats.
+    for i in 0..history.len().saturating_sub(prefix) {
+        if &history[i..i + prefix] == suffix {
+            bans.push(history[i + prefix]);
+        }
+    }
+    bans
 }
 
 #[cfg(test)]
@@ -203,6 +236,41 @@ mod tests {
             let t = sampler.sample_seeded(&masked, &[], seed).unwrap();
             assert_ne!(t, 1, "banned token 1 was sampled at seed {seed}");
         }
+    }
+
+    #[test]
+    fn no_repeat_ngram_blocks_the_repeating_token() {
+        // history: a b c a b — the suffix "a b" occurred earlier at index 0,
+        // followed by c. With n=3, appending c would repeat the 3-gram "a b c",
+        // so c (token 2) is blocked.
+        let history = [0usize, 1, 2, 0, 1];
+        let bans = no_repeat_ngram_bans(&history, 3);
+        assert_eq!(bans, vec![2]);
+        // The mask helper bans it; an eligible token stays eligible.
+        let mask = LogitMask::new().no_repeat_ngram(&history, 3);
+        assert!(!mask.is_eligible(2));
+        assert!(mask.is_eligible(9));
+    }
+
+    #[test]
+    fn no_repeat_ngram_edge_cases() {
+        // n<=1 → never blocks.
+        assert!(no_repeat_ngram_bans(&[0, 1, 2], 1).is_empty());
+        // history shorter than n-1 → nothing to repeat.
+        assert!(no_repeat_ngram_bans(&[0], 3).is_empty());
+        // no prior occurrence of the suffix → no bans.
+        assert!(no_repeat_ngram_bans(&[0, 1, 2, 3], 2).is_empty());
+        // bigram repeat: suffix "1" recurs after 0,1,0,1 → next was 1? history
+        // 0 1 0 1: suffix "1"; earlier "1" at idx1 followed by 0 → ban 0.
+        assert_eq!(no_repeat_ngram_bans(&[0, 1, 0, 1], 2), vec![0]);
+    }
+
+    #[test]
+    fn no_repeat_ngram_collects_all_matches() {
+        // suffix "a" appears multiple times with different followers.
+        let history = [0usize, 1, 0, 2, 0];
+        // n=2, suffix "0"; prior "0" at idx0→1, idx2→2 → bans [1,2].
+        assert_eq!(no_repeat_ngram_bans(&history, 2), vec![1, 2]);
     }
 
     #[test]
