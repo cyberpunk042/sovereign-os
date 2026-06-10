@@ -114,6 +114,12 @@ top = textwrap.dedent(f"""\
     [Content]
     Bootable=yes
     Bootloader=systemd-boot
+    # Explicit: mkosi must assemble the UKI itself and install it into the
+    # ESP (EFI/Linux/). The kernel arrives via postinst with
+    # KERNEL_INSTALL_BYPASS=1 (no ESP in the chroot), which also bypasses
+    # boot-entry generation — without this the ESP shipped with an EMPTY
+    # EFI/Linux and no bootable kernel (caught by 08's verify, 2026-06-10).
+    UnifiedKernelImages=yes
     """) + validation_block + repos_block + env_block
 (out_dir / "mkosi.conf").write_text(top)
 
@@ -218,6 +224,14 @@ postinst.write_text(textwrap.dedent("""\
     # otherwise die with 'Couldn't find EFI system partition'.
     export KERNEL_INSTALL_BYPASS=1
 
+    # Operator-only secure-boot chain: drop the DISTRO-presigned
+    # systemd-boot binaries ('Debian Secure Boot CA') — bootctl prefers
+    # *.efi.signed, but the firmware db enrolls ONLY the operator cert,
+    # so Debian's signature would be rejected at boot. With these gone,
+    # mkosi signs the unsigned binaries with the operator key instead
+    # (caught by 08's sbverify on the first signed image, 2026-06-10).
+    rm -f /usr/lib/systemd/boot/efi/*.efi.signed
+
     debs=()
     for d in /var/cache/local-debs/*.deb; do
         case "$d" in *-dbg_*) continue ;; esac   # 984M debug deb stays out
@@ -265,8 +279,14 @@ if storage_layout == "zfs-tiered":
         [Partition]
         Type=esp
         Format=vfat
+        # The ESP must CARRY the boot trees — without CopyFiles= repart
+        # formats an EMPTY vfat and the signed systemd-boot + UKI end up
+        # unreachable inside the root partition ('no EFI binaries found
+        # inside the image ESP', first real image build 2026-06-10).
+        CopyFiles=/efi:/
+        CopyFiles=/boot:/
         SizeMinBytes=512M
-        SizeMaxBytes=512M
+        SizeMaxBytes=1G
         """))
     (out_dir / "mkosi.repart" / "10-root-zfs.conf").write_text(textwrap.dedent("""\
         [Partition]
@@ -281,8 +301,13 @@ if storage_layout == "zfs-tiered":
         # — not inside this image.
         Format=ext4
         # Populate the partition from the built rootfs — without CopyFiles
-        # the root would be formatted but EMPTY.
+        # the root would be formatted but EMPTY. /boot and /efi CONTENTS are
+        # excluded (trailing slash = keep the dirs as mountpoints): they
+        # belong to the ESP partition above, and CopyFiles=/ would otherwise
+        # duplicate them into the root.
         CopyFiles=/
+        ExcludeFiles=/boot/
+        ExcludeFiles=/efi/
         SizeMinBytes=16G
         """))
 else:
@@ -291,8 +316,14 @@ else:
         [Partition]
         Type=esp
         Format=vfat
+        # The ESP must CARRY the boot trees — without CopyFiles= repart
+        # formats an EMPTY vfat and the signed systemd-boot + UKI end up
+        # unreachable inside the root partition ('no EFI binaries found
+        # inside the image ESP', first real image build 2026-06-10).
+        CopyFiles=/efi:/
+        CopyFiles=/boot:/
         SizeMinBytes=512M
-        SizeMaxBytes=512M
+        SizeMaxBytes=1G
         """))
     (out_dir / "mkosi.repart" / "10-root.conf").write_text(textwrap.dedent("""\
         [Partition]

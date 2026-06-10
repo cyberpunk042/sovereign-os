@@ -86,8 +86,12 @@ case "${SOVEREIGN_OS_SUBSTRATE}" in
       exit 0
     fi
     require_command mkosi
-    log_info "running 'mkosi build' in ${SOVEREIGN_OS_BUILD_OUT}"
-    if mkosi build 2>&1 | tee "${SOVEREIGN_OS_LOG_DIR}/image-build-${SOVEREIGN_OS_BUILD_ID}.log"; then
+    log_info "running 'mkosi --force build' in ${SOVEREIGN_OS_BUILD_OUT}"
+    # --force: without it mkosi sees an existing output and exits 0 doing
+    # NOTHING — step 07 then reports success over a stale image (caught
+    # on the first real rebuild, 2026-06-10). Rebuild decisions belong to
+    # the orchestrator's state machine, not mkosi's output cache.
+    if mkosi --force build 2>&1 | tee "${SOVEREIGN_OS_LOG_DIR}/image-build-${SOVEREIGN_OS_BUILD_ID}.log"; then
       emit_build_metric success
     else
       rc=${PIPESTATUS[0]}

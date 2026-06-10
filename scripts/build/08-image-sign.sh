@@ -125,6 +125,79 @@ if [ -z "${SOVEREIGN_OS_IMAGE_DIR:-}" ] || [ ! -d "${SOVEREIGN_OS_IMAGE_DIR}" ];
   exit 1
 fi
 
+# ---- mkosi substrate: verify-in-place instead of signing loose files ----
+# A mkosi disk image carries its boot binaries INSIDE the ESP partition,
+# already signed at build time via [Validation] SecureBootKey= with the
+# operator key (mkosi-emit.sh). There are no loose vmlinuz*/*.efi in the
+# output dir to sbsign — the old find-based loop found nothing and failed
+# with 'NO signable binaries' on the first real image (2026-06-10). The
+# correct job here is to loop-mount the ESP read-only and sbverify every
+# EFI binary against the operator cert — which doubles as a boot-chain
+# sanity check (systemd-boot + UKI must both be present and signed).
+raw_image="$(find "${SOVEREIGN_OS_IMAGE_DIR}" -maxdepth 1 -name '*.raw' 2>/dev/null | head -1)"
+if [ -n "${raw_image}" ]; then
+  log_info "mkosi disk image: ${raw_image}"
+  log_info "boot binaries signed at image-build time (mkosi [Validation], operator cert) — verifying in place"
+  require_root
+  require_command losetup
+
+  loopdev="$(losetup --find --show --read-only --partscan "${raw_image}")" || {
+    log_error "losetup failed for ${raw_image}"
+    emit_sign_metric fail
+    state_step_fail "${STEP_ID}" "losetup-failed"
+    exit 1
+  }
+  esp_mnt="$(mktemp -d)"
+  cleanup_loop() {
+    umount "${esp_mnt}" 2>/dev/null || true
+    losetup -d "${loopdev}" 2>/dev/null || true
+    rmdir "${esp_mnt}" 2>/dev/null || true
+  }
+  trap cleanup_loop EXIT
+
+  # Find the vfat (ESP) partition rather than assuming an index.
+  esp_part=""
+  for part in "${loopdev}"p*; do
+    [ -b "${part}" ] || continue
+    if [ "$(blkid -o value -s TYPE "${part}" 2>/dev/null)" = "vfat" ]; then
+      esp_part="${part}"
+      break
+    fi
+  done
+  if [ -z "${esp_part}" ]; then
+    log_error "no vfat ESP partition found in ${raw_image}"
+    emit_sign_metric fail
+    state_step_fail "${STEP_ID}" "no-esp"
+    exit 1
+  fi
+  mount -o ro "${esp_part}" "${esp_mnt}"
+
+  verified=0
+  while IFS= read -r f; do
+    if sbverify --cert "${sign_cert}" "${f}" >/dev/null 2>&1; then
+      log_info "verified: ${f#"${esp_mnt}"/} ✓"
+      verified=$((verified + 1))
+    else
+      log_error "signature verification FAILED for ${f#"${esp_mnt}"/} against ${sign_cert}"
+      emit_sign_metric fail
+      state_step_fail "${STEP_ID}" "sbverify-failed"
+      exit 1
+    fi
+  done < <(find "${esp_mnt}" -iname '*.efi' 2>/dev/null)
+
+  if [ "${verified}" -eq 0 ]; then
+    log_error "no EFI binaries found inside the image ESP — image would not boot"
+    emit_sign_metric fail
+    state_step_fail "${STEP_ID}" "esp-empty"
+    exit 1
+  fi
+  log_info "ESP signature verification: ${verified} EFI binaries verified against operator cert"
+  emit_sign_metric success
+  state_step_complete "${STEP_ID}"
+  log_info "step ${STEP_ID} complete"
+  exit 0
+fi
+
 # Sign every kernel + EFI binary in the image
 signed_count=0
 while IFS= read -r f; do
