@@ -54,20 +54,49 @@ pub struct ToolOutcome {
     pub result: String,
 }
 
-/// Find the first `[[tool:NAME|ARGS]]` call in `text`, if any.
-pub fn parse_call(text: &str) -> Option<ToolCall> {
-    let start = text.find(OPEN)?;
-    let inner_start = start + OPEN.len();
-    let end_rel = text[inner_start..].find(CLOSE)?;
-    let inner = &text[inner_start..inner_start + end_rel];
+/// Parse the inside of a `[[tool:…]]` marker (the text between the markers).
+/// The name is **trimmed** so whitespace from model formatting
+/// (`[[tool: upper |x]]`) still resolves; args are kept verbatim after the
+/// first `|`. Returns `None` for an empty name.
+fn parse_inner(inner: &str) -> Option<ToolCall> {
     let (name, args) = match inner.find('|') {
-        Some(b) => (inner[..b].to_string(), inner[b + 1..].to_string()),
-        None => (inner.to_string(), String::new()),
+        Some(b) => (inner[..b].trim().to_string(), inner[b + 1..].to_string()),
+        None => (inner.trim().to_string(), String::new()),
     };
     if name.is_empty() {
         return None;
     }
     Some(ToolCall { name, args })
+}
+
+/// Find the first `[[tool:NAME|ARGS]]` call in `text`, if any. The name is
+/// whitespace-trimmed; args are verbatim.
+pub fn parse_call(text: &str) -> Option<ToolCall> {
+    let start = text.find(OPEN)?;
+    let inner_start = start + OPEN.len();
+    let end_rel = text[inner_start..].find(CLOSE)?;
+    parse_inner(&text[inner_start..inner_start + end_rel])
+}
+
+/// Find **every** `[[tool:NAME|ARGS]]` call in `text`, in order, scanning
+/// non-overlapping markers. Useful when a model emits multiple tool calls in
+/// one reply (the loop still dispatches the first, but a runtime can inspect or
+/// validate them all). Malformed markers (no closing `]]`, empty name) are
+/// skipped.
+pub fn parse_all_calls(text: &str) -> Vec<ToolCall> {
+    let mut calls = Vec::new();
+    let mut offset = 0;
+    while let Some(rel_start) = text[offset..].find(OPEN) {
+        let inner_start = offset + rel_start + OPEN.len();
+        let Some(end_rel) = text[inner_start..].find(CLOSE) else {
+            break;
+        };
+        if let Some(call) = parse_inner(&text[inner_start..inner_start + end_rel]) {
+            calls.push(call);
+        }
+        offset = inner_start + end_rel + CLOSE.len();
+    }
+    calls
 }
 
 /// A tool handler: maps an argument string to a result string.
@@ -192,6 +221,38 @@ mod tests {
         let c = parse_call("[[tool:a|1]] then [[tool:b|2]]").unwrap();
         assert_eq!(c.name, "a");
         assert_eq!(c.args, "1");
+    }
+
+    #[test]
+    fn parse_trims_whitespace_in_the_name() {
+        // Model formatting puts spaces around the name → still resolves.
+        let c = parse_call("ok [[tool: upper |hello]] done").unwrap();
+        assert_eq!(c.name, "upper");
+        assert_eq!(c.args, "hello"); // args verbatim after the first '|'
+        // No-args form trims too.
+        assert_eq!(parse_call("[[tool:  ping  ]]").unwrap().name, "ping");
+    }
+
+    #[test]
+    fn dispatch_tolerates_whitespace_in_name() {
+        let r = registry();
+        let out = r.dispatch("[[tool: upper |hello]]").unwrap().unwrap();
+        assert_eq!(out.call.name, "upper");
+        assert_eq!(out.result, "HELLO");
+    }
+
+    #[test]
+    fn parse_all_calls_finds_every_marker() {
+        let calls = parse_all_calls("[[tool:upper|a]] then [[tool:echo|b]] and [[tool: upper |c]]");
+        assert_eq!(calls.len(), 3);
+        assert_eq!(calls[0].name, "upper");
+        assert_eq!(calls[0].args, "a");
+        assert_eq!(calls[1].name, "echo");
+        assert_eq!(calls[2].name, "upper");
+        assert_eq!(calls[2].args, "c");
+        // No calls → empty; a malformed (unterminated) marker is skipped.
+        assert!(parse_all_calls("plain text").is_empty());
+        assert!(parse_all_calls("[[tool:upper|never closed").is_empty());
     }
 
     #[test]
