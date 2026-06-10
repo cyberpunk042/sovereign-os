@@ -47,6 +47,20 @@ fn semantic_flag_serves_a_paraphrase_for_free() {
 }
 
 #[test]
+fn redact_flag_runs_the_egress_gate() {
+    // The model emits gibberish (no real secrets), so this checks the egress
+    // path runs end-to-end and still serves; the scrub logic itself is unit-
+    // tested in sovereign-llm.
+    let out = Command::new(env!("CARGO_BIN_EXE_sovereign-serve"))
+        .args(["--redact", "tell me a secret", "tell me a secret"])
+        .output()
+        .expect("run sovereign-serve --redact");
+    assert!(out.status.success());
+    let s = String::from_utf8_lossy(&out.stdout);
+    assert!(s.contains("hit=exact"), "repeat should still cache:\n{s}");
+}
+
+#[test]
 fn help_exits_zero() {
     let out = Command::new(env!("CARGO_BIN_EXE_sovereign-serve"))
         .arg("--help")

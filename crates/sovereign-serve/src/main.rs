@@ -88,6 +88,8 @@ USAGE:
     sovereign-serve --no-repeat-ngram N PROMPT…  block repeated N-grams (unified path)
     sovereign-serve --semantic PROMPT… enable the semantic cache tier: a
                                        paraphrase of a served prompt is a $0 hit
+    sovereign-serve --redact PROMPT…   scrub secrets + PII from each completion
+                                       before it is cached/returned (egress gate)
     sovereign-serve --help             print this help and exit";
 
 fn main() {
@@ -98,6 +100,7 @@ fn main() {
     }
     let stream = args.iter().any(|a| a == "--stream");
     let semantic = args.iter().any(|a| a == "--semantic");
+    let redact = args.iter().any(|a| a == "--redact");
     // `--no-repeat-ngram N` drives the unified composable generation path.
     let nrn_idx = args.iter().position(|a| a == "--no-repeat-ngram");
     let no_repeat: Option<usize> = nrn_idx
@@ -121,12 +124,12 @@ fn main() {
     // decoded completion is returned for caching + accounting.
     let llm = runtime();
     let generate = |prompt: &str, max_new: usize, seed: u64| -> Result<String, String> {
-        if let Some(n) = no_repeat {
+        let text = if let Some(n) = no_repeat {
             let opts = GenOptions::new(max_new).with_no_repeat_ngram(n);
             let ids = llm
                 .generate_ids_with(prompt, seed, &opts, |_| {})
                 .map_err(|e| e.to_string())?;
-            Ok(llm.tokenizer().decode(&ids).unwrap_or_default())
+            llm.tokenizer().decode(&ids).unwrap_or_default()
         } else if stream {
             print!("  stream:");
             let ids = llm
@@ -136,11 +139,17 @@ fn main() {
                 })
                 .map_err(|e| e.to_string())?;
             println!();
-            Ok(llm.tokenizer().decode(&ids).unwrap_or_default())
+            llm.tokenizer().decode(&ids).unwrap_or_default()
         } else {
             llm.complete(prompt, max_new, seed)
-                .map_err(|e| e.to_string())
-        }
+                .map_err(|e| e.to_string())?
+        };
+        // Egress gate: scrub secrets then PII before the text is cached/returned.
+        Ok(if redact {
+            sovereign_pii_redact::redact(&sovereign_secret_scan::redact(&text))
+        } else {
+            text
+        })
     };
 
     if prompts.is_empty() {

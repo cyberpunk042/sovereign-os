@@ -28,3 +28,5 @@ sovereign-transformer-block = { path = "../sovereign-transformer-block" }
 sovereign-ffn = { path = "../sovereign-ffn" }
 sovereign-rmsnorm = { path = "../sovereign-rmsnorm" }
 sovereign-sampler = { path = "../sovereign-sampler" }
+sovereign-secret-scan = { path = "../sovereign-secret-scan" }
+sovereign-pii-redact = { path = "../sovereign-pii-redact" }
