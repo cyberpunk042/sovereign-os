@@ -29,7 +29,9 @@
 
 use serde::{Deserialize, Serialize};
 use sovereign_bitlinear_core::{BitLinearLayer, EnergyReport, Packing};
-use sovereign_nvfp4_runtime::{QuantMatrix, RhtQuantMatrix, TwoDQuantMatrix};
+use sovereign_nvfp4_runtime::{
+    QuantMatrix, RhtQuantMatrix, TwoDQuantMatrix, relative_frobenius_error,
+};
 use thiserror::Error;
 
 /// Schema version of the linear-layer surface.
@@ -274,6 +276,47 @@ fn dense_matvec(w: &[f32], x: &[f32], rows: usize, cols: usize) -> Vec<f32> {
     out
 }
 
+/// Pick the NVFP4 [`NvfpRecipe`] with the lowest reconstruction error for a
+/// given weight matrix — the actionable per-layer recipe decision (the
+/// NVFP4 analogue of `is_ternary_friendly`). Builds each applicable recipe,
+/// measures `‖W − Ŵ‖/‖W‖`, and returns the cheapest. `Rht` is only
+/// considered when `input_dim` is a power of two; ties favor the earlier
+/// (simpler) recipe. Use it to feed [`Linear::from_f32_nvfp4`].
+pub fn best_nvfp4_recipe(weights: &[f32], output_dim: usize, input_dim: usize) -> NvfpRecipe {
+    let mut best = NvfpRecipe::Plain;
+    let mut best_err = f64::INFINITY;
+    let mut consider = |recipe: NvfpRecipe, recon: Option<Vec<f32>>| {
+        if let Some(w) = recon {
+            let e = relative_frobenius_error(weights, &w);
+            if e < best_err {
+                best_err = e;
+                best = recipe;
+            }
+        }
+    };
+    consider(
+        NvfpRecipe::Plain,
+        QuantMatrix::from_f32(weights, output_dim, input_dim)
+            .ok()
+            .map(|q| q.dequantized_weights()),
+    );
+    consider(
+        NvfpRecipe::TwoD,
+        TwoDQuantMatrix::from_f32(weights, output_dim, input_dim)
+            .ok()
+            .map(|q| q.dequantized_weights()),
+    );
+    if input_dim.is_power_of_two() {
+        consider(
+            NvfpRecipe::Rht(0),
+            RhtQuantMatrix::from_f32(weights, output_dim, input_dim, 0)
+                .ok()
+                .map(|q| q.dequantized_weights()),
+        );
+    }
+    best
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -320,6 +363,37 @@ mod tests {
             let lin = Linear::from_f32(&w, 2, 4, p).unwrap();
             assert!(lin.energy_report(&[1.0f32; 4]).unwrap().is_none());
         }
+    }
+
+    #[test]
+    fn best_nvfp4_recipe_picks_2d_for_column_structure() {
+        // A systematically-tiny column → 2D's per-column scale reconstructs
+        // it best, so the selector should prefer TwoD.
+        let (output_dim, input_dim) = (6, 16);
+        let mut weights = vec![1.0f32; output_dim * input_dim];
+        for o in 0..output_dim {
+            weights[o * input_dim + 5] = 0.012;
+        }
+        assert_eq!(
+            best_nvfp4_recipe(&weights, output_dim, input_dim),
+            NvfpRecipe::TwoD
+        );
+    }
+
+    #[test]
+    fn best_nvfp4_recipe_runs_through_from_f32_nvfp4() {
+        let (output_dim, input_dim) = (4, 16);
+        let weights: Vec<f32> = (0..output_dim * input_dim)
+            .map(|i| ((i % 5) as f32 - 2.0) * 0.4)
+            .collect();
+        let recipe = best_nvfp4_recipe(&weights, output_dim, input_dim);
+        // The chosen recipe builds a working layer.
+        let lin = Linear::from_f32_nvfp4(&weights, output_dim, input_dim, recipe).unwrap();
+        assert_eq!(lin.precision(), Precision::Nvfp4);
+        assert_eq!(
+            lin.forward(&vec![1.0f32; input_dim]).unwrap().len(),
+            output_dim
+        );
     }
 
     #[test]

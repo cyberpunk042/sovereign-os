@@ -287,6 +287,24 @@ impl RhtQuantMatrix {
     pub fn bits_per_param(&self) -> f64 {
         self.quant.bits_per_param()
     }
+
+    /// Reconstruct the original f32 weights: de-quantize the rotated rows,
+    /// then rotate each back by `Rᵀ` (`rht_inverse`), undoing the forward
+    /// rotation applied at construction.
+    pub fn dequantized_weights(&self) -> Vec<f32> {
+        let rotated = self.quant.dequantized_weights();
+        let input_dim = self.quant.input_dim;
+        let mut out = Vec::with_capacity(rotated.len());
+        for row in rotated.chunks(input_dim) {
+            // rht_inverse only fails on a power-of-two / length mismatch,
+            // which construction already guaranteed.
+            match crate::rht_inverse(row, &self.signs) {
+                Ok(r) => out.extend(r),
+                Err(_) => out.extend_from_slice(row),
+            }
+        }
+        out
+    }
 }
 
 /// A weight matrix under **two-dimensional** NVFP4 quantization (M077,
@@ -389,6 +407,18 @@ impl TwoDQuantMatrix {
             *yo = self.row_scales[o] * acc;
         }
         Ok(y)
+    }
+
+    /// Reconstruct the original f32 weights: `W[o,j] ≈ r[o]·q[o,j]·c[j]`.
+    pub fn dequantized_weights(&self) -> Vec<f32> {
+        let mut out = vec![0.0f32; self.output_dim * self.input_dim];
+        for o in 0..self.output_dim {
+            for j in 0..self.input_dim {
+                let idx = o * self.input_dim + j;
+                out[idx] = self.row_scales[o] * self.core[idx].to_f32() * self.col_scales[j];
+            }
+        }
+        out
     }
 }
 
