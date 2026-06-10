@@ -343,6 +343,101 @@ impl Retriever for Bm25Store {
     }
 }
 
+/// A **hybrid** document store: lexical (BM25) **and** semantic (embedding)
+/// retrieval over the same documents, fused into one ranking with Reciprocal
+/// Rank Fusion.
+///
+/// Lexical and semantic retrieval fail in opposite ways — BM25 misses
+/// paraphrases that share no terms; embeddings miss exact tokens (names, error
+/// codes, rare identifiers) that don't survive into the embedding. The strongest
+/// retrieval runs both and fuses their result lists, and [RRF](sovereign_rank_fusion)
+/// is the standard fuser because it is *rank*-based: it never compares a BM25
+/// score to a cosine similarity (which live on incomparable scales), only their
+/// positions, so a document ranked highly by **both** backends rises to the top.
+///
+/// [`add`](Self::add) feeds both backends; [`retrieve`](Self::retrieve) pulls a
+/// candidate pool from each, fuses with [`rrf`](sovereign_rank_fusion::rrf), and
+/// returns the top `k` `(id, text, fused_score)`. Composes [`Bm25Store`] +
+/// [`EmbedStore`] + [`sovereign-rank-fusion`](sovereign_rank_fusion).
+#[derive(Debug, Clone, Default)]
+pub struct HybridStore {
+    lexical: Bm25Store,
+    semantic: EmbedStore,
+    texts: Vec<(String, String)>,
+}
+
+impl HybridStore {
+    /// An empty hybrid store (default BM25 params + default embedding params).
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Add a document under `id` to **both** the lexical and semantic backends.
+    pub fn add(&mut self, id: impl Into<String>, text: impl Into<String>) {
+        let id = id.into();
+        let text = text.into();
+        self.lexical.add(id.clone(), text.clone());
+        self.semantic.add(id.clone(), text.clone());
+        self.texts.push((id, text));
+    }
+
+    /// Number of documents.
+    pub fn len(&self) -> usize {
+        self.texts.len()
+    }
+
+    /// Whether the store is empty.
+    pub fn is_empty(&self) -> bool {
+        self.texts.is_empty()
+    }
+
+    /// Retrieve the top-`k` documents for `query` by fusing BM25 and embedding
+    /// rankings with RRF. A deeper candidate pool (`max(k, 10)`) is pulled from
+    /// each backend before fusion so a document the two backends disagree on can
+    /// still surface. Returns `(id, text, fused_score)` best-first.
+    pub fn retrieve(&self, query: &str, k: usize) -> Vec<(String, String, f64)> {
+        if self.texts.is_empty() || k == 0 {
+            return Vec::new();
+        }
+        let pool = k.max(10);
+
+        // Two rankings as id lists, best-first.
+        let lexical_ids: Vec<String> = self
+            .lexical
+            .retrieve(query, pool)
+            .into_iter()
+            .map(|(id, _, _)| id)
+            .collect();
+        let semantic_ids: Vec<String> = self
+            .semantic
+            .retrieve(query, pool)
+            .into_iter()
+            .map(|h| h.id)
+            .collect();
+
+        let fused = sovereign_rank_fusion::rrf(&[lexical_ids, semantic_ids]);
+        fused
+            .into_iter()
+            .take(k)
+            .filter_map(|(id, score)| {
+                self.texts
+                    .iter()
+                    .find(|(tid, _)| *tid == id)
+                    .map(|(tid, text)| (tid.clone(), text.clone(), score))
+            })
+            .collect()
+    }
+}
+
+impl Retriever for HybridStore {
+    fn retrieve_context(&self, query: &str, k: usize) -> Vec<String> {
+        self.retrieve(query, k)
+            .into_iter()
+            .map(|(_, text, _)| text)
+            .collect()
+    }
+}
+
 /// A [`Responder`] that grounds another responder in retrieved context. Works
 /// with any [`Retriever`] — the lexical [`DocStore`] or the embedding-backed
 /// [`EmbedStore`].
@@ -618,6 +713,73 @@ mod tests {
         let prompts = seen.borrow();
         assert!(prompts[0].starts_with("Context:\n"));
         assert!(prompts[0].contains("Rust gives memory safety"));
+    }
+
+    #[test]
+    fn hybrid_fuses_lexical_and_semantic_rankings() {
+        let mut h = HybridStore::new();
+        h.add(
+            "rust",
+            "Rust gives memory safety through ownership and borrowing",
+        );
+        h.add("python", "Python is a dynamically typed scripting language");
+        h.add("pasta", "boil the pasta then add tomato sauce and basil");
+        assert_eq!(h.len(), 3);
+
+        // A query both backends rank the rust doc highly for → it wins the fusion.
+        let hits = h.retrieve("rust memory ownership safety", 3);
+        assert!(!hits.is_empty());
+        assert_eq!(hits[0].0, "rust", "fused {hits:?}");
+        // fused scores are descending
+        assert!(hits.windows(2).all(|w| w[0].2 >= w[1].2));
+        // the irrelevant cooking doc is not the top hit
+        assert_ne!(hits[0].0, "pasta");
+    }
+
+    #[test]
+    fn hybrid_agreement_outranks_single_backend_preference() {
+        // "alpha" and "bravo" are both on-topic (they score in BM25 *and* in the
+        // embedding backend); "zulu" is an off-topic recipe that only trickles
+        // into the semantic list at the bottom. Fusing both backends sums two
+        // contributions for each on-topic doc, so the top 2 are alpha + bravo and
+        // the recipe is truncated away.
+        let mut h = HybridStore::new();
+        h.add("alpha", "kubernetes kubernetes orchestration cluster");
+        h.add(
+            "bravo",
+            "container scheduling and cluster orchestration system",
+        );
+        h.add("zulu", "a recipe for sourdough bread and butter");
+        let hits = h.retrieve("kubernetes cluster orchestration", 2);
+        let ids: Vec<&str> = hits.iter().map(|(id, _, _)| id.as_str()).collect();
+        assert!(ids.contains(&"alpha"), "term-exact doc missing: {ids:?}");
+        assert!(ids.contains(&"bravo"), "related doc missing: {ids:?}");
+        assert!(!ids.contains(&"zulu"), "recipe should rank below the top 2");
+    }
+
+    #[test]
+    fn hybrid_empty_and_zero_k() {
+        assert!(HybridStore::new().retrieve("anything", 3).is_empty());
+        let mut h = HybridStore::new();
+        h.add("a", "some text here");
+        assert!(h.retrieve("text", 0).is_empty());
+    }
+
+    #[test]
+    fn hybrid_drives_rag() {
+        let mut h = HybridStore::new();
+        h.add(
+            "rust",
+            "Rust ownership governs memory without a garbage collector",
+        );
+        h.add("cook", "pasta tomato sauce recipe with basil");
+        let seen = Rc::new(RefCell::new(Vec::new()));
+        let inner = Capture { seen: seen.clone() };
+        let mut rag = RagResponder::new(inner, h, 1);
+        rag.respond("rust memory ownership", 0).unwrap();
+        let prompts = seen.borrow();
+        assert!(prompts[0].starts_with("Context:\n"));
+        assert!(prompts[0].contains("Rust ownership"));
     }
 
     #[test]

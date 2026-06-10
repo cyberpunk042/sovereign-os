@@ -5855,6 +5855,7 @@ dependencies = [
  "sovereign-embed",
  "sovereign-lsh",
  "sovereign-minhash",
+ "sovereign-rank-fusion",
 ]
 
 [[package]]
