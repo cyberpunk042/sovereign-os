@@ -57,6 +57,17 @@ residual identity, and shape-rejection tests (6 new). This is the genuine
 multiplication-free drop-in for the float SwiGLU the quant decoder block
 runs today — the M073 FFN at the shape a real decoder uses.
 
+`BitLinearLayer::forward_packed` implements the dump's still-unbuilt
+F06060-F06062 ask: a forward that runs **directly on the 2-bit packed
+codes** — a single pass over the packed bytes, no intermediate
+`Vec<Trit>`, each weight a `01`→add / `10`→subtract / `00`→skip decision
+read in place. This is the scalar form of the AVX-512 lookup-table matmul
+("no de-quantization, single-pass through CPU registers") — the
+correctness foundation a SIMD lane must reproduce. Gated bit-for-bit
+(output *and* `OpCount`) against `forward()` over random weights;
+restricted to `Packing::TwoBit` (the byte-aligned LUT target) via the new
+`PackedForwardUnsupported` variant.
+
 ### Added — guardian dropout metrics + flap alert (M084 R14127–R14133) (2026-06-10)
 
 A single Tetragon-stream EOF is self-healing (BindsTo + Restart=always close

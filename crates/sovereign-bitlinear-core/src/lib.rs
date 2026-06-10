@@ -132,6 +132,13 @@ pub enum BitLinearError {
         /// The block's output width.
         output_dim: usize,
     },
+    /// [`linear::BitLinearLayer::forward_packed`] only supports the
+    /// byte-aligned [`Packing::TwoBit`] codes the LUT path targets.
+    #[error("packed forward needs Packing::TwoBit, got {packing:?}")]
+    PackedForwardUnsupported {
+        /// The packing the layer actually uses.
+        packing: Packing,
+    },
 }
 
 #[cfg(test)]
