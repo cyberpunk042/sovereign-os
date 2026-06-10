@@ -478,6 +478,19 @@ fn run_strategies_demo() -> String {
         spec_s.realized_speedup()
     );
 
+    // prompt-lookup decoding (draft-free): no second model, lossless vs greedy.
+    let spec_pl = Speculative::new(4, 8)
+        .decode_prompt_lookup(&model, &prompt, 2, 4)
+        .expect("spec lookup");
+    let _ = writeln!(
+        out,
+        "spec (lookup)   : {:?} (draft-free, accept {}/{}, {:.2}× tokens/pass)",
+        spec_pl.tokens,
+        spec_pl.accepted,
+        spec_pl.proposed,
+        spec_pl.realized_speedup()
+    );
+
     // no-repeat-ngram: dynamic blocking → no 3-gram repeats in the output.
     let nrn = model
         .clone()
