@@ -35,6 +35,9 @@ pub enum LinearError {
         /// Expected `input_dim`.
         expected: usize,
     },
+    /// The random Hadamard transform requires a power-of-two `input_dim`.
+    #[error("RHT requires a power-of-two input_dim, got {0}")]
+    RhtInputNotPowerOfTwo(usize),
 }
 
 /// A weight matrix quantized to NVFP4, row-major, each row a run of
@@ -131,6 +134,84 @@ impl QuantMatrix {
     }
 }
 
+/// An NVFP4 weight matrix quantized **after** a random Hadamard rotation —
+/// the accuracy recipe the dump's NVFP4 work (M077) calls for.
+///
+/// 4-bit microscaling quantizes each 16-element block against a single
+/// shared scale, so one outlier weight inflates the scale and rounds the
+/// rest of the block toward zero. The random Hadamard transform `R`
+/// (orthonormal: `RᵀR = I`) *spreads* each block's outliers across all
+/// dimensions before quantization, so no element dominates the block scale.
+///
+/// Because `R` preserves inner products, rotating both the weight rows and
+/// the activations leaves the result unchanged in exact arithmetic
+/// (`(R·wₒ)·(R·x) = wₒ·x`); only the *quantization error* is reduced. The
+/// rotation is the same on both sides, recovered from the stored `signs`.
+///
+/// `input_dim` must be a power of two (the fast Walsh-Hadamard constraint).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RhtQuantMatrix {
+    /// NVFP4-quantized **rotated** weights (`W·Rᵀ`, row-major).
+    pub quant: QuantMatrix,
+    /// The RHT sign vector (length `input_dim`); defines the rotation `R`.
+    pub signs: Vec<i8>,
+}
+
+impl RhtQuantMatrix {
+    /// Quantize a row-major `output_dim × input_dim` matrix after rotating
+    /// each row by `R = rht_forward(·, signs)`, with `signs` drawn from
+    /// `seed`. `input_dim` must be a power of two.
+    pub fn from_f32(
+        weights: &[f32],
+        output_dim: usize,
+        input_dim: usize,
+        seed: u64,
+    ) -> Result<Self, LinearError> {
+        let expected = output_dim * input_dim;
+        if weights.len() != expected {
+            return Err(LinearError::ShapeMismatch {
+                got: weights.len(),
+                expected,
+            });
+        }
+        if !input_dim.is_power_of_two() {
+            return Err(LinearError::RhtInputNotPowerOfTwo(input_dim));
+        }
+        let signs = crate::random_signs(input_dim, seed);
+        let mut rotated = Vec::with_capacity(expected);
+        for o in 0..output_dim {
+            let row = &weights[o * input_dim..(o + 1) * input_dim];
+            let r = crate::rht_forward(row, &signs)
+                .map_err(|_| LinearError::RhtInputNotPowerOfTwo(input_dim))?;
+            rotated.extend(r);
+        }
+        let quant = QuantMatrix::from_f32(&rotated, output_dim, input_dim)?;
+        Ok(Self { quant, signs })
+    }
+
+    /// Forward `y = W·x`: rotate `x` by the same `R`, then matvec on the
+    /// rotated quantized weights. Equal to `W·x` up to NVFP4 quantization
+    /// error — lower than plain [`QuantMatrix::matvec`] for outlier-heavy
+    /// weights, identical (within tolerance) for benign ones.
+    pub fn matvec(&self, x: &[f32]) -> Result<Vec<f32>, LinearError> {
+        if x.len() != self.quant.input_dim {
+            return Err(LinearError::InputMismatch {
+                got: x.len(),
+                expected: self.quant.input_dim,
+            });
+        }
+        let xr = crate::rht_forward(x, &self.signs)
+            .map_err(|_| LinearError::RhtInputNotPowerOfTwo(self.quant.input_dim))?;
+        self.quant.matvec(&xr)
+    }
+
+    /// Effective bits per parameter — the underlying NVFP4 cost (the sign
+    /// vector is a per-tensor seed, amortized to ~0 per weight).
+    pub fn bits_per_param(&self) -> f64 {
+        self.quant.bits_per_param()
+    }
+}
+
 /// Dense f32 reference `y = W·x` (multiply-based), for accuracy checks.
 pub fn dense_f32_matvec(weights: &[f32], input_dim: usize, x: &[f32]) -> Vec<f32> {
     let output_dim = weights.len() / input_dim;
@@ -180,6 +261,59 @@ mod tests {
         }
         let rel = l2(&diff) / l2(&y_ref).max(1e-6);
         assert!(rel < 0.25, "relative error too high: {rel}");
+    }
+
+    #[test]
+    fn rht_matvec_approximates_f32_reference() {
+        let (output_dim, input_dim) = (4, 32); // power of two
+        let weights = rng_seq(output_dim * input_dim, 0x5151);
+        let x = rng_seq(input_dim, 0x9999);
+
+        let q = RhtQuantMatrix::from_f32(&weights, output_dim, input_dim, 0xC0FFEE).unwrap();
+        let y_q = q.matvec(&x).unwrap();
+        let y_ref = dense_f32_matvec(&weights, input_dim, &x);
+
+        let diff: Vec<f32> = y_q.iter().zip(&y_ref).map(|(a, b)| a - b).collect();
+        let rel = l2(&diff) / l2(&y_ref).max(1e-6);
+        assert!(rel < 0.25, "RHT relative error too high: {rel}");
+    }
+
+    #[test]
+    fn rht_reduces_error_on_outlier_weights() {
+        // Each 16-wide row: one big outlier + 15 small values. Plain NVFP4
+        // lets the outlier dominate the block scale and rounds the smalls to
+        // ~0; RHT spreads the outlier so the block quantizes more uniformly.
+        let (output_dim, input_dim) = (4, 16);
+        let mut weights = vec![0.0f32; output_dim * input_dim];
+        for o in 0..output_dim {
+            weights[o * input_dim] = 12.0; // the outlier
+            for j in 1..input_dim {
+                weights[o * input_dim + j] = 0.15;
+            }
+        }
+        let x = vec![1.0f32; input_dim];
+        let y_ref = dense_f32_matvec(&weights, input_dim, &x);
+
+        let plain = QuantMatrix::from_f32(&weights, output_dim, input_dim).unwrap();
+        let rht = RhtQuantMatrix::from_f32(&weights, output_dim, input_dim, 0x1357).unwrap();
+        let y_plain = plain.matvec(&x).unwrap();
+        let y_rht = rht.matvec(&x).unwrap();
+
+        let err = |y: &[f32]| {
+            let d: Vec<f32> = y.iter().zip(&y_ref).map(|(a, b)| a - b).collect();
+            l2(&d) / l2(&y_ref).max(1e-6)
+        };
+        let (e_plain, e_rht) = (err(&y_plain), err(&y_rht));
+        assert!(
+            e_rht < e_plain,
+            "RHT did not reduce outlier error: plain {e_plain} vs rht {e_rht}"
+        );
+    }
+
+    #[test]
+    fn rht_rejects_non_power_of_two() {
+        let err = RhtQuantMatrix::from_f32(&[0.0; 20], 1, 20, 7).unwrap_err();
+        assert_eq!(err, LinearError::RhtInputNotPowerOfTwo(20));
     }
 
     #[test]
