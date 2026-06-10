@@ -635,7 +635,10 @@ var BAKED = {
         source: "kernel.org-stable",
         version_minimum: "6.12",
         march: "znver5",
-        kcflags: "-march=znver5 -O3 -pipe -mabm -madx -mavx512f -mavx512dq -mavx512bw -mavx512vl -mavx512bf16",
+        // vector ISA explicitly disabled: kernel code can't use AVX/SSE
+        // (XCR0 unset at early boot → #UD; caught by the first hardware
+        // boot 2026-06-10). AVX-512 lives in userspace, not kernel codegen.
+        kcflags: "-march=znver5 -mno-mmx -mno-sse -mno-sse2 -mno-avx -mno-avx2 -mno-avx512f -O3 -pipe -mabm -madx",
         // reconciled against a real 6.12 olddefconfig (first build 2026-06-10):
         // AQTION is the real symbol for the Aquantia driver; ZFS is dkms-built
         // (no in-tree symbol); AMD_IOMMU_V2 + SECURITY_BPF_LSM don't exist on 6.12.
@@ -1559,7 +1562,7 @@ var STATIC_TIPS = [
   ["Kernel config — enable", "Symbols forced on in the custom kernel .config. Unchecking one records an explicit disable in your overlay."],
   ["Kernel cmdline — base", "Cosmetic / log-level boot parameters — safe to toggle."],
   ["Kernel cmdline — VFIO", "The passthrough plumbing. Disable these only if you drop GPU passthrough entirely."],
-  ["KCFLAGS", "Compiler flags for the kernel build itself: -march=znver5 emits Zen-5-native code (won't boot older CPUs); -O3 + AVX-512 flags let the compiler vectorize kernel hot paths."],
+  ["KCFLAGS", "Compiler flags for the kernel build itself: -march=znver5 for Zen-5 scheduling + scalar ISA, with vector families explicitly RE-disabled (-mno-avx512f etc.) — kernel code can't use vector registers (XCR0 unset at early boot → instant #UD; learned from the first hardware boot). AVX-512 belongs to userspace."],
   ["Runtime tuning preset", "Named sysctl bundle from the R239 kernel-tuning matrix, applied at runtime via osctl. The cmdline hints shown are pasted into GRUB manually — never auto-applied."],
   ["AI assistants", "npm-global agents preinstalled into the image — ready at first login."],
   ["BIOS checklist", "Firmware settings the image cannot flip for you — confirm each one in BIOS, then tick it here. Blockers break VFIO or the 96GB card if skipped."],

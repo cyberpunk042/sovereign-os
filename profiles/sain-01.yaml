@@ -152,9 +152,17 @@ kernel:
   version_minimum: "6.12"
   packaging: bindeb-pkg
   compile_flags:
-    # -mavx512fp16 removed 2026-06-10: not a Zen 5 instruction (verified on
-    # the physical 9900X) — forcing it emits code the target CPU traps on.
-    KCFLAGS: "-march=znver5 -O3 -pipe -mabm -madx -mavx512f -mavx512dq -mavx512bw -mavx512vl -mavx512bf16"
+    # NO VECTOR ISA IN KERNEL CODEGEN — root cause of the first boot
+    # failure (2026-06-10, #UD in the first microseconds, firmware fell
+    # back to the old OS): kernel code must never use FPU/vector regs
+    # outside kernel_fpu_begin(), and at early boot XCR0 isn't configured
+    # so the first compiler-emitted EVEX instruction traps. KCFLAGS lands
+    # AFTER the kernel's protective -mno-sse/-mno-avx flags, and even bare
+    # -march=znver5 re-implies AVX-512 — so the vector families are
+    # explicitly re-disabled here. Zen 5 scheduling + scalar ISA (ABM,
+    # ADX, BMI) stay. AVX-512 belongs to USERSPACE (Pulse/BitNet/vLLM)
+    # and the kernel's own hand-written FPU-managed crypto paths.
+    KCFLAGS: "-march=znver5 -mno-mmx -mno-sse -mno-sse2 -mno-avx -mno-avx2 -mno-avx512f -O3 -pipe -mabm -madx"
     KCPPFLAGS: "-march=znver5"
     KBUILD_BUILD_USER: "sovereign-os"
     KBUILD_BUILD_HOST: "sovereign-os"
