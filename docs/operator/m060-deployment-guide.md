@@ -3771,6 +3771,39 @@ size, concurrent jobs), add RAM, or set per-service memory limits so a single
 job can't starve the host. Restart anything the OOM-killer took down. The alert
 clears once 15m pass with no new kills.
 
+### sovereign-os auditor alerts (Tetragon-dropout resilience, M084)
+
+These fire on the guardian's textfile metrics (`sovereign-os-auditor.prom`).
+Deploy `config/prometheus/alerts/sovereign-os-auditor.rules.yml` alongside the
+other rule files.
+
+#### SovereignOsAuditorStreamEofChurn (warning)
+
+**Meaning:** `increase(sovereign_os_auditor_stream_eof_total[30m]) >= 3` — the
+guardian's Tetragon event stream hit end-of-file three or more times in 30
+minutes. One EOF is self-healing (`BindsTo=tetragon.service` +
+`Restart=always` close the perimeter-blind window in ~1–2s, with `[EOF]`
+journal evidence); churn means the management path is flapping — the
+transposition dump's OPNsense/SD-WAN interface re-shuffle gotcha — and the
+containment loop is being blinded repeatedly.
+
+**Diagnosis:**
+
+```bash
+# How often, and when
+journalctl -u sovereign-guardian-core | grep -F '[EOF]' | tail
+systemctl status sovereign-guardian-core tetragon
+# Is the management interface bouncing? (lease drops / re-shuffles)
+journalctl -u systemd-networkd --since -1h | tail -50
+sovereign-osctl perimeter status 2>/dev/null
+```
+
+**Fix:** the guardian is recovering itself — the work is on the network side.
+Stabilize the management-path lease/interface behavior at the OPNsense/SD-WAN
+firewall (static lease for the management NIC, avoid interface re-shuffles on
+the VLAN carrying Tetragon log streams). The alert clears once 30m pass with
+fewer than 3 dropouts.
+
 ### sovereign-gatewayd alerts (never-cloud-spill tripwire)
 
 These fire on the gauges `sovereign-gatewayd` serves directly on `GET /metrics`

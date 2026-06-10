@@ -37,6 +37,7 @@ Layer B metrics:
   sovereign_os_auditor_neutralization_total{result}
   sovereign_os_auditor_event_parse_total{outcome}
   sovereign_os_auditor_last_neutralization_timestamp
+  sovereign_os_auditor_stream_eof_total
 """
 
 from __future__ import annotations
@@ -235,6 +236,7 @@ def main() -> int:
         f"[EOF] tetragon event stream at {SOCKET_PATH} closed — "
         f"perimeter blind; exiting for systemd restart\n"
     )
+    _emit_metric("sovereign_os_auditor_stream_eof_total", 1)
     return 1
 
 

@@ -12,6 +12,17 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — guardian dropout metrics + flap alert (M084 R14127–R14133) (2026-06-10)
+
+A single Tetragon-stream EOF is self-healing (BindsTo + Restart=always close
+the blind window in ~1–2s); what must page is **churn**. The guardian now
+emits `sovereign_os_auditor_stream_eof_total` on the EOF fall-through
+(inventoried), and `sovereign-os-auditor.rules.yml` pages
+`SovereignOsAuditorStreamEofChurn` (warning) at ≥3 dropouts in 30m — the
+dump's flapping OPNsense/SD-WAN management-path scenario — with a runbook
+section routing the operator to the firewall/lease behavior, not the
+guardian (which is recovering itself).
+
 ### Added — M084: OPNsense/SD-WAN boundary contract catalogued + guardian dropout prevention built (audit gap #3 closed) (2026-06-10)
 
 The audit's gap #3: "the VLAN concept is catalogued (M003) but the firewall

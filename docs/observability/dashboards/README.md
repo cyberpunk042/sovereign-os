@@ -242,6 +242,7 @@ Auditor (Tetragon eBPF event-loop guardian; master spec § 10):
 - `sovereign_os_auditor_neutralization_total{result}` — `podman kill` outcomes per perimeter violation (success/kill-failed/no-container-id/dry-run)
 - `sovereign_os_auditor_event_parse_total{outcome}` — Tetragon event parse classification (trigger/benign/bad-json)
 - `sovereign_os_auditor_last_neutralization_timestamp` — last neutralization event
+- `sovereign_os_auditor_stream_eof_total` — Tetragon event-stream EOF dropouts (the OPNsense/SD-WAN reconfig gotcha, dump 761-765); each is a perimeter-blind window closed by the systemd failure-restart
 
 ### Inference fabric extensions (R156-R157)
 
