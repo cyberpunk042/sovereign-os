@@ -343,6 +343,26 @@ fn run_demo() -> String {
         "nvfp4 calibrated: precision assignment @10% budget → {tern} ternary, {nvfp} nvfp4, {full} f32"
     );
 
+    // NVFP4-compressed KV cache: run the NVFP4 block with its cache quantized
+    // and confirm it decodes finite — the cache stores K/V at ~4.5 bits/param
+    // instead of 32 (~7× smaller).
+    let mut qkv = nvfp4_mha_layer().with_quantized_kv();
+    let mut kv_ok = true;
+    for s in 0..3 {
+        let h: Vec<f32> = (0..MODEL_DIM)
+            .map(|i| ((i + s) as f32 * 0.2).sin())
+            .collect();
+        kv_ok &= qkv
+            .step(&h)
+            .map(|y| y.iter().all(|v| v.is_finite()))
+            .unwrap_or(false);
+    }
+    let _ = writeln!(
+        out,
+        "nvfp4 kv-cache  : compressed cache decodes {} positions (finite={kv_ok}), ~7× smaller (4.5 vs 32 bpp)",
+        qkv.len()
+    );
+
     out
 }
 
