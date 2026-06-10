@@ -25,7 +25,7 @@
 
 use crate::{
     BitLinearError,
-    linear::{BitLinearLayer, OpCount},
+    linear::{BitLinearLayer, EnergyReport, OpCount},
 };
 use serde::{Deserialize, Serialize};
 
@@ -145,6 +145,15 @@ impl BitLinearMlp {
     /// shapes would spend — all of which this block eliminates.
     pub fn floating_muls_eliminated(&self) -> usize {
         self.layers.iter().map(|l| l.output_dim * l.input_dim).sum()
+    }
+
+    /// Energy / arithmetic profile of a forward through the whole block —
+    /// the dump's energy monitor at the FFN level (F06067-F06070). Runs the
+    /// forward and aggregates its [`OpCount`] against the block's eliminated
+    /// inner-product multiplies.
+    pub fn energy_report(&self, x: &[f32]) -> Result<EnergyReport, BitLinearError> {
+        let (_y, ops) = self.forward(x)?;
+        Ok(ops.energy_report(self.floating_muls_eliminated()))
     }
 
     /// Block-level packed-domain forward: every layer runs
@@ -407,6 +416,23 @@ mod tests {
             err,
             BitLinearError::PackedForwardUnsupported { .. }
         ));
+    }
+
+    #[test]
+    fn energy_report_at_block_level() {
+        let (d_model, d_ff) = (6, 24);
+        let mlp = BitLinearMlp::ffn(
+            &vec![0.5f32; d_ff * d_model],
+            &vec![0.5f32; d_model * d_ff],
+            d_model,
+            d_ff,
+            Packing::Base3,
+        )
+        .unwrap();
+        let r = mlp.energy_report(&vec![1.0f32; d_model]).unwrap();
+        assert_eq!(r.muls_eliminated, d_ff * d_model + d_model * d_ff);
+        assert_eq!(r.float_muls, d_ff + d_model);
+        assert!(r.energy_saving_ratio > 0.9);
     }
 
     #[test]

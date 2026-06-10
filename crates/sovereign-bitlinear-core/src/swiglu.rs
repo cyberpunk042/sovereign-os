@@ -31,7 +31,7 @@
 
 use crate::{
     BitLinearError, Packing,
-    linear::{BitLinearLayer, OpCount},
+    linear::{BitLinearLayer, EnergyReport, OpCount},
 };
 use serde::{Deserialize, Serialize};
 
@@ -135,6 +135,15 @@ impl TernarySwiGlu {
     pub fn floating_muls_eliminated(&self) -> usize {
         let hd = self.hidden() * self.dim();
         hd + hd + self.dim() * self.hidden()
+    }
+
+    /// Energy / arithmetic profile of a forward through the gated FFN — the
+    /// dump's energy monitor at the SwiGLU level (F06067-F06070). Accounts
+    /// the three ternary matmuls; the `O(hidden)` SiLU-gate products are the
+    /// separate intended float cost and are not counted as eliminated.
+    pub fn energy_report(&self, x: &[f32]) -> Result<EnergyReport, BitLinearError> {
+        let (_out, ops) = self.forward(x)?;
+        Ok(ops.energy_report(self.floating_muls_eliminated()))
     }
 
     /// Residual-wrapped forward — `y = x + swiglu(x)` — the decoder's FFN
@@ -296,5 +305,28 @@ mod tests {
         let json = serde_json::to_string(&ffn).unwrap();
         let back: TernarySwiGlu = serde_json::from_str(&json).unwrap();
         assert_eq!(ffn, back);
+    }
+
+    #[test]
+    fn energy_report_at_swiglu_level() {
+        let (dim, hidden) = (6, 18);
+        let ffn = TernarySwiGlu::from_weights(
+            &vec![0.5f32; hidden * dim],
+            &vec![0.5f32; hidden * dim],
+            &vec![0.5f32; dim * hidden],
+            dim,
+            hidden,
+            Packing::Base3,
+        )
+        .unwrap();
+        let r = ffn.energy_report(&vec![1.0f32; dim]).unwrap();
+        // All three projections' inner-product multiplies eliminated.
+        assert_eq!(
+            r.muls_eliminated,
+            hidden * dim + hidden * dim + dim * hidden
+        );
+        // float_muls = per-output scales: gate (hidden) + up (hidden) + down (dim).
+        assert_eq!(r.float_muls, hidden + hidden + dim);
+        assert!(r.energy_saving_ratio > 0.9);
     }
 }
