@@ -262,6 +262,23 @@ fn run_demo() -> String {
         (1.0 - best_err / plain_err) * 100.0
     );
 
+    // ...and what the *actual* NVFP4 decoder layer above chose: each of its 7
+    // projections auto-selected its own M077 recipe at build time.
+    let chosen = nvfp4_mha_layer().nvfp4_recipes();
+    let (mut plain, mut rht, mut twod) = (0, 0, 0);
+    for (_, r) in &chosen {
+        match r {
+            sovereign_linear::NvfpRecipe::Plain => plain += 1,
+            sovereign_linear::NvfpRecipe::Rht(_) => rht += 1,
+            sovereign_linear::NvfpRecipe::TwoD => twod += 1,
+        }
+    }
+    let _ = writeln!(
+        out,
+        "nvfp4 layer     : {} projections auto-quantized ({plain} plain, {rht} RHT, {twod} 2D)",
+        chosen.len()
+    );
+
     out
 }
 
