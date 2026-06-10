@@ -780,7 +780,9 @@ Plus `sovereign-worker-fleet` (`242744b`) — fleet health summary over the M002
 | R14102 / R14105 / R14111-R14113 — EOF sentinel | `scripts/auditor/guardian-core.py` read-loop EOF fall-through no longer returns 0: logs `[EOF] ... perimeter blind` + exits nonzero so the `Restart=always` recovery is journal-recorded as a failure-restart | `47632d0` | `tests/lint/test_guardian_core_verbatim.py` + bidir gate, all green |
 | R14127-R14133 — dropout metrics + flap alert | `sovereign_os_auditor_stream_eof_total` emitted on the EOF fall-through (inventoried in `docs/observability/dashboards/README.md`); `SovereignOsAuditorStreamEofChurn` (warning, ≥3 EOFs in 30m — the flapping-management-path scenario) in `config/prometheus/alerts/sovereign-os-auditor.rules.yml`; runbook section in the m060 deployment guide | `73bf7c4` | anchor-coverage + fleet-integrity + metric-inventory + observability-coverage + guardian gates, all green |
 
-Pending (catalogued, not shipped): reconfig-detector (R14124-R14126), VLAN-contract lint (R14217).
+| R14217 — VLAN-contract lint | pre-existing: `tests/lint/test_network_vlan_verbatim.py` already locks the §8.1 role table (Intel→VLAN 100 mgmt + default-gw; Marvell→VLAN 200 data + MTU 9000 + no-default-gw + DHCP-gateway refusal on the data NIC) against script + profile — verified during the M084 audit, no new gate needed | (pre-existing) | the gate itself |
+
+Pending (catalogued, not shipped): reconfig-detector (R14124-R14126; SDD-first per R14216).
 
 ## Other catalogued milestones — production-shipped state TBD
 
