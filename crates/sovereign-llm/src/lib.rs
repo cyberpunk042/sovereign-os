@@ -150,6 +150,23 @@ impl SovereignLlm {
         Ok(self.tokenizer.decode(&generated).unwrap_or_default())
     }
 
+    /// Complete `prompt` and **extract the first balanced JSON value** from the
+    /// output (`sovereign-json-extract`), returning `Some(value)` or `None` if the
+    /// completion contains no JSON. Models emit structured answers wrapped in
+    /// prose — `Sure! {"city":"Paris"}` — and a tool-calling / structured-output
+    /// runtime needs just the value; this is the post-hoc extraction step (it
+    /// scans for the first `{`/`[`, respects string literals, and hands the
+    /// balanced span to `serde_json`). Reproducible per `seed`.
+    pub fn complete_json(
+        &self,
+        prompt: &str,
+        max_new: usize,
+        seed: u64,
+    ) -> Result<Option<serde_json::Value>, LlmError> {
+        let text = self.complete(prompt, max_new, seed)?;
+        Ok(sovereign_json_extract::extract_value(&text).ok())
+    }
+
     /// Generate a completion for `prompt` and report the model's **confidence**
     /// in the tokens it produced. The prompt+completion is scored teacher-forced
     /// (`perplexity::token_logprobs`) and the *generated* slice is summarized with
@@ -776,6 +793,23 @@ mod tests {
         // the report is exactly analyze() of that text — the wiring is faithful
         assert_eq!(report, analyze(&text, &cfg));
         assert!((0.0..=1.0).contains(&report.distinct_ngram_ratio));
+    }
+
+    #[test]
+    fn complete_json_matches_extracting_from_the_completion() {
+        let llm = runtime(Sampler::greedy());
+        let raw = llm.complete("hello", 12, 5).unwrap();
+        let expected = sovereign_json_extract::extract_value(&raw).ok();
+        assert_eq!(llm.complete_json("hello", 12, 5).unwrap(), expected);
+    }
+
+    #[test]
+    fn json_extraction_pulls_value_from_prose() {
+        // The capability complete_json exposes: balanced JSON out of wrapped prose.
+        let v = sovereign_json_extract::extract_value("Sure! {\"city\":\"Paris\"} ok").unwrap();
+        assert_eq!(v["city"], "Paris");
+        // no JSON → the method maps the error to None
+        assert!(sovereign_json_extract::extract_value("no json here").is_err());
     }
 
     #[test]

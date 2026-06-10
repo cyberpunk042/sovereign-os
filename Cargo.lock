@@ -5204,6 +5204,7 @@ dependencies = [
  "sovereign-degeneration",
  "sovereign-diversity",
  "sovereign-ffn",
+ "sovereign-json-extract",
  "sovereign-logit-mask",
  "sovereign-logprobs",
  "sovereign-perplexity",
