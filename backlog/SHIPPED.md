@@ -568,6 +568,7 @@ The codebase carries substantial production state from prior development. This s
 | Inference-service hardening SDD | `docs/sdd/036-inference-service-hardening-doctrine.md` (cross-ref M006) — the production-hardened serving topology |
 | Inference scripts | `scripts/inference/` — operator-runtime surface for the local inference fabric |
 | Semantic completion cache | `crates/sovereign-completion-cache/` `SemanticCache` — GPTCache-style `$0` serving: returns a cached completion when a new prompt is embedding-similar (cosine ≥ threshold) to a stored one, so paraphrases/near-duplicates hit (which the exact-key `CompletionCache` can't). Composes `sovereign-embed` cosine; bounded + hit/miss stats. Commit `935c40b`; 3 unit (hits a paraphrase + misses unrelated; exact always hits; oldest-evict) |
+| Semantic cache wired into serving | `crates/sovereign-serve/` `Server::with_semantic` + `--semantic` flag — the `SemanticCache` is now *used* end-to-end as a second tier: exact cache → semantic cache → generate, so a paraphrase of an already-served prompt is a `$0` hit instead of a fresh model run. `ServeResult.semantic_hit` distinguishes the tier; binary prints `hit=exact`/`hit=semantic` and a `[N exact, N semantic]` summary. Commit `5a808cd`; 2 lib (paraphrase served free + model not re-run; default server still runs the paraphrase) + 1 binary integration (`--semantic` shows `hit=semantic`) |
 
 ### M019 — Intelligence creation (composable cognitive operators)
 
