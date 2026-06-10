@@ -526,6 +526,14 @@ fn run_strategies_demo() -> String {
         "perplexity      : {:.3} (cross-entropy {:.3} nats over {} tokens)",
         ev.perplexity, ev.cross_entropy, ev.predicted
     );
+    // tokenizer-independent metrics: bits/token (= log2 ppl) and bits/byte
+    // (each reference id < 256 → 1 byte, so scored_bytes == predicted here).
+    let _ = writeln!(
+        out,
+        "info-cost       : {:.3} bits/token, {:.3} bits/byte",
+        ev.bits_per_token(),
+        ev.bits_per_byte(ev.predicted)
+    );
 
     // checkpoint save + load round-trip
     let llm_cfg = LlmConfig {
