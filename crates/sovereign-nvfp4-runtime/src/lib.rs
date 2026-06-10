@@ -347,6 +347,32 @@ impl RuntimeConfig {
         }
         Ok(())
     }
+
+    /// Whether a named layer is kept in **high precision** (un-quantized)
+    /// under the selective-HP recipe — the actionable per-layer decision a
+    /// model loader uses to pick FP16/F32 over NVFP4 for sensitive layers
+    /// (typically embeddings + `lm_head`, where 4-bit hurts most).
+    ///
+    /// Selective-HP only applies when the recipe enables it
+    /// ([`Recipe::selective_hp_layers`] `> 0`); otherwise every layer is
+    /// quantized and this returns `false`.
+    pub fn is_high_precision(&self, layer: &str) -> bool {
+        self.recipe.selective_hp_layers() > 0
+            && self.high_precision_layers.iter().any(|l| l == layer)
+    }
+
+    /// Verify every declared high-precision layer exists in `model_layers`,
+    /// so a typo'd selective-HP entry fails loudly at load instead of
+    /// silently quantizing a layer the operator meant to protect
+    /// ([`RuntimeError::HpLayerMissing`]).
+    pub fn check_high_precision_layers(&self, model_layers: &[String]) -> Result<(), RuntimeError> {
+        for hp in &self.high_precision_layers {
+            if !model_layers.iter().any(|l| l == hp) {
+                return Err(RuntimeError::HpLayerMissing(hp.clone()));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -354,6 +380,35 @@ mod tests {
     use super::*;
     use rand::SeedableRng;
     use rand_chacha::ChaCha20Rng;
+
+    #[test]
+    fn selective_hp_decision_is_actionable() {
+        // Default config keeps embeddings + lm_head in high precision.
+        let cfg = RuntimeConfig::default();
+        assert!(cfg.is_high_precision("embed.in"));
+        assert!(cfg.is_high_precision("embed.out"));
+        assert!(cfg.is_high_precision("lm_head"));
+        // ...and quantizes everything else.
+        assert!(!cfg.is_high_precision("decoder.0.ffn.down"));
+        assert!(!cfg.is_high_precision("decoder.3.attn.q"));
+    }
+
+    #[test]
+    fn high_precision_layers_must_exist_in_model() {
+        let cfg = RuntimeConfig::default();
+        let full = [
+            "embed.in".to_string(),
+            "embed.out".to_string(),
+            "lm_head".to_string(),
+            "decoder.0".to_string(),
+        ];
+        assert!(cfg.check_high_precision_layers(&full).is_ok());
+        // A model missing a protected layer fails loudly (a typo would
+        // otherwise silently quantize a layer the operator meant to keep).
+        let missing = ["embed.in".to_string()];
+        let err = cfg.check_high_precision_layers(&missing).unwrap_err();
+        assert!(matches!(err, RuntimeError::HpLayerMissing(name) if name == "embed.out"));
+    }
 
     #[test]
     fn block_size_is_16() {
