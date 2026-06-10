@@ -41,6 +41,65 @@ impl OpCount {
         }
         self.floating_muls_eliminated(output_dim, input_dim) as f64 / dense as f64
     }
+
+    /// Aggregate energy / arithmetic profile of this op count (F06046,
+    /// F06067-F06070, R12107-R12110 — the dump's energy monitor).
+    ///
+    /// `dense_inner_muls` is the inner-product multiply count a dense GEMM of
+    /// the same shape(s) would spend and BitLinear eliminated — i.e.
+    /// `Σ output_dim · input_dim` over every layer that contributed to this
+    /// count (use [`BitLinearLayer::output_dim`]·`input_dim` for one layer,
+    /// or `BitLinearMlp::floating_muls_eliminated` for a block). The report
+    /// composes across a whole FFN, not just one projection.
+    pub fn energy_report(&self, dense_inner_muls: usize) -> EnergyReport {
+        let weights = self.adds + self.subs + self.skips;
+        let dense_total = dense_inner_muls + self.float_muls;
+        EnergyReport {
+            adds: self.adds,
+            subs: self.subs,
+            skips: self.skips,
+            float_muls: self.float_muls,
+            muls_eliminated: dense_inner_muls,
+            energy_saving_ratio: if dense_total == 0 {
+                0.0
+            } else {
+                dense_inner_muls as f64 / dense_total as f64
+            },
+            sparsity: if weights == 0 {
+                0.0
+            } else {
+                self.skips as f64 / weights as f64
+            },
+        }
+    }
+}
+
+/// The energy / arithmetic profile of a (possibly multi-layer) ternary
+/// forward — the dump's energy monitor (F06046, F06067-F06070).
+///
+/// The headline numbers are [`EnergyReport::muls_eliminated`] (the
+/// floating-point inner-product multiplies a dense GEMM would have spent and
+/// BitLinear did not) and [`EnergyReport::energy_saving_ratio`] (the fraction
+/// of all the GEMM's multiplies removed). [`EnergyReport::sparsity`] is the
+/// share of weights that were `0` (skipped entirely — free), the structural
+/// saving on top of the multiplication-free property.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct EnergyReport {
+    /// `+1` weights — activations added.
+    pub adds: usize,
+    /// `-1` weights — activations subtracted.
+    pub subs: usize,
+    /// `0` weights — skipped, no arithmetic at all.
+    pub skips: usize,
+    /// Floating-point multiplies actually performed (the per-output scales).
+    pub float_muls: usize,
+    /// Inner-product multiplies a dense GEMM would have done and BitLinear
+    /// eliminated.
+    pub muls_eliminated: usize,
+    /// Fraction of the dense GEMM's total multiplies removed, in `[0, 1]`.
+    pub energy_saving_ratio: f64,
+    /// Fraction of weights that were `0` and skipped entirely, in `[0, 1]`.
+    pub sparsity: f64,
 }
 
 /// A ternary linear projection layer (F06078).
@@ -346,5 +405,62 @@ mod tests {
         let layer = BitLinearLayer::from_weights(&[1.0; 6], 2, 3, Packing::TwoBit).unwrap();
         let err = layer.forward_packed(&[1.0, 2.0]).unwrap_err();
         assert!(matches!(err, BitLinearError::InputMismatch { .. }));
+    }
+
+    #[test]
+    fn energy_report_accounts_a_single_layer() {
+        // 4×8 layer of all-0.5 weights → all +1 trits (absmean = 0.5).
+        let (output_dim, input_dim) = (4, 8);
+        let layer = BitLinearLayer::from_weights(
+            &vec![0.5f32; output_dim * input_dim],
+            output_dim,
+            input_dim,
+            Packing::Base3,
+        )
+        .unwrap();
+        let (_y, ops) = layer.forward(&vec![1.0f32; input_dim]).unwrap();
+        let r = ops.energy_report(output_dim * input_dim);
+
+        assert_eq!(r.muls_eliminated, output_dim * input_dim); // 32 inner muls removed
+        assert_eq!(r.float_muls, output_dim); // only the 4 per-row scales
+        // ratio = 32 / (32 + 4) = 0.888…
+        assert!((r.energy_saving_ratio - 32.0 / 36.0).abs() < 1e-12);
+        // all weights non-zero here → zero sparsity.
+        assert_eq!(r.sparsity, 0.0);
+        assert_eq!(r.adds, output_dim * input_dim);
+    }
+
+    #[test]
+    fn energy_report_measures_sparsity() {
+        // Half-zero weights → ~50% skips. Row of [0, 0, 1, 1] pattern.
+        let weights = [0.0f32, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0];
+        let layer = BitLinearLayer::from_weights(&weights, 2, 4, Packing::Base3).unwrap();
+        let (_y, ops) = layer.forward(&[1.0f32; 4]).unwrap();
+        let r = ops.energy_report(2 * 4);
+        // 4 of 8 weights are zero → sparsity 0.5.
+        assert_eq!(r.skips, 4);
+        assert_eq!(r.sparsity, 0.5);
+    }
+
+    #[test]
+    fn energy_report_is_serializable() {
+        let ops = OpCount {
+            adds: 10,
+            subs: 5,
+            skips: 1,
+            float_muls: 2,
+        };
+        let r = ops.energy_report(64);
+        let json = serde_json::to_string(&r).unwrap();
+        let back: EnergyReport = serde_json::from_str(&json).unwrap();
+        // Integer fields round-trip exactly; the f64 ratios within one ULP
+        // (JSON's decimal text loses the last bit of an f64).
+        assert_eq!(r.adds, back.adds);
+        assert_eq!(r.subs, back.subs);
+        assert_eq!(r.skips, back.skips);
+        assert_eq!(r.float_muls, back.float_muls);
+        assert_eq!(r.muls_eliminated, back.muls_eliminated);
+        assert!((r.energy_saving_ratio - back.energy_saving_ratio).abs() < 1e-12);
+        assert!((r.sparsity - back.sparsity).abs() < 1e-12);
     }
 }

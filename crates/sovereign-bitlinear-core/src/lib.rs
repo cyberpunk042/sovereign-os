@@ -48,7 +48,7 @@ pub mod validate;
 
 use thiserror::Error;
 
-pub use linear::{BitLinearLayer, OpCount};
+pub use linear::{BitLinearLayer, EnergyReport, OpCount};
 pub use mlp::{Activation, BitLinearMlp};
 pub use pack::{Packing, bits_per_param};
 pub use swiglu::{TernarySwiGlu, silu};
