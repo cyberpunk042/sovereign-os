@@ -56,6 +56,18 @@ pub struct AgentStep {
     pub tool: Option<ToolOutcome>,
 }
 
+/// Why an agent run ended.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StopReason {
+    /// The model produced a reply with no tool call — the final answer.
+    FinalAnswer,
+    /// The step cap was reached without a final answer.
+    StepCap,
+    /// The repeat guard tripped: the same tool call (name + args) was issued
+    /// `max_repeats` times, so the loop was broken to avoid spinning.
+    RepeatedAction,
+}
+
 /// The outcome of a loop run.
 #[derive(Debug, Clone, PartialEq)]
 pub struct AgentResult {
@@ -65,6 +77,8 @@ pub struct AgentResult {
     pub steps: Vec<AgentStep>,
     /// Whether the loop ended with a final answer (`true`) or hit the step cap.
     pub completed: bool,
+    /// Why the run ended.
+    pub stop_reason: StopReason,
 }
 
 /// A ReAct agent loop over a responder and a tool registry.
@@ -72,6 +86,9 @@ pub struct AgentLoop<R: Responder> {
     responder: R,
     tools: ToolRegistry,
     max_steps: usize,
+    /// Stop early if the same tool call (name + args) is issued this many times.
+    /// `0` disables the guard (default).
+    max_repeats: usize,
 }
 
 impl<R: Responder> AgentLoop<R> {
@@ -81,7 +98,18 @@ impl<R: Responder> AgentLoop<R> {
             responder,
             tools,
             max_steps,
+            max_repeats: 0,
         }
+    }
+
+    /// Enable the **repeat guard**: if the same tool call (name + args) is
+    /// issued `max_repeats` times across the run, stop early with
+    /// [`StopReason::RepeatedAction`] instead of spinning until the step cap.
+    /// `0` disables it (the default). A real safeguard against models that get
+    /// stuck re-issuing an identical action.
+    pub fn with_repeat_guard(mut self, max_repeats: usize) -> Self {
+        self.max_repeats = max_repeats;
+        self
     }
 
     /// The registered tool names, sorted.
@@ -94,6 +122,8 @@ impl<R: Responder> AgentLoop<R> {
     pub fn run(&mut self, user: &str, seed: u64) -> Result<AgentResult, AgentError> {
         let mut transcript = format!("User: {user}\n");
         let mut steps = Vec::new();
+        let mut action_counts: std::collections::HashMap<(String, String), usize> =
+            std::collections::HashMap::new();
 
         for step in 0..self.max_steps {
             let prompt = format!("{transcript}Assistant:");
@@ -109,10 +139,25 @@ impl<R: Responder> AgentLoop<R> {
                         "Assistant: {reply}\nObservation: {}\n",
                         outcome.result
                     ));
+                    let key = (outcome.call.name.clone(), outcome.call.args.clone());
                     steps.push(AgentStep {
                         reply,
                         tool: Some(outcome),
                     });
+                    // Repeat guard: stop if this identical action has now been
+                    // issued max_repeats times.
+                    if self.max_repeats > 0 {
+                        let count = action_counts.entry(key).or_insert(0);
+                        *count += 1;
+                        if *count >= self.max_repeats {
+                            return Ok(AgentResult {
+                                answer: None,
+                                steps,
+                                completed: false,
+                                stop_reason: StopReason::RepeatedAction,
+                            });
+                        }
+                    }
                 }
                 None => {
                     // no tool call → this is the final answer
@@ -124,6 +169,7 @@ impl<R: Responder> AgentLoop<R> {
                         answer: Some(reply),
                         steps,
                         completed: true,
+                        stop_reason: StopReason::FinalAnswer,
                     });
                 }
             }
@@ -134,6 +180,7 @@ impl<R: Responder> AgentLoop<R> {
             answer: None,
             steps,
             completed: false,
+            stop_reason: StopReason::StepCap,
         })
     }
 }
@@ -221,6 +268,42 @@ mod tests {
         assert!(!res.completed);
         assert_eq!(res.answer, None);
         assert_eq!(res.steps.len(), 2); // capped
+        assert_eq!(res.stop_reason, StopReason::StepCap);
+    }
+
+    #[test]
+    fn repeat_guard_breaks_an_identical_action_loop() {
+        // The model keeps issuing the exact same call; the guard stops it on the
+        // 2nd identical action instead of running to the (large) step cap.
+        let responder = ScriptedResponder::new([
+            "[[tool:upper|x]]",
+            "[[tool:upper|x]]",
+            "[[tool:upper|x]]",
+            "[[tool:upper|x]]",
+        ]);
+        let mut agent = AgentLoop::new(responder, calc_tools(), 50).with_repeat_guard(2);
+        let res = agent.run("spin", 0).unwrap();
+        assert_eq!(res.stop_reason, StopReason::RepeatedAction);
+        assert!(!res.completed);
+        assert_eq!(res.steps.len(), 2); // stopped on the 2nd identical call
+    }
+
+    #[test]
+    fn repeat_guard_allows_distinct_actions() {
+        // Different args are not "the same action" → the guard does not trip.
+        let responder = ScriptedResponder::new(["[[tool:upper|a]]", "[[tool:upper|b]]", "done"]);
+        let mut agent = AgentLoop::new(responder, calc_tools(), 50).with_repeat_guard(2);
+        let res = agent.run("vary", 0).unwrap();
+        assert_eq!(res.stop_reason, StopReason::FinalAnswer);
+        assert_eq!(res.answer.as_deref(), Some("done"));
+    }
+
+    #[test]
+    fn final_answer_sets_stop_reason() {
+        let responder = ScriptedResponder::new(["just an answer"]);
+        let mut agent = AgentLoop::new(responder, calc_tools(), 5);
+        let res = agent.run("q", 0).unwrap();
+        assert_eq!(res.stop_reason, StopReason::FinalAnswer);
     }
 
     #[test]
