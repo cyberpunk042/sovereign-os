@@ -731,6 +731,22 @@ fn run_rag_quality_demo() -> String {
         "regex [0-9]+     : {digits:?} (all digits = {all_digits})"
     );
 
+    // Grammar-constrained decoding: a JSON Schema confines output to its alphabet.
+    let schema = sovereign_json_schema_grammar::Schema::object([(
+        "ok".to_string(),
+        sovereign_json_schema_grammar::Schema::Boolean,
+    )]);
+    let js = llm
+        .complete_json_schema("emit json: ", &schema, 40, 7)
+        .expect("json-schema");
+    let alphabet: std::collections::HashSet<char> = "{}\":oktruefalse \t\n\r".chars().collect();
+    let in_grammar = js.chars().all(|c| alphabet.contains(&c));
+    let _ = writeln!(
+        out,
+        "json-schema {{ok:bool}}: {:?} (in-grammar = {in_grammar})",
+        js.trim()
+    );
+
     out
 }
 
@@ -804,6 +820,9 @@ mod tests {
         // constrained decoding actually produced digits-only output
         assert!(report.contains("regex [0-9]+     :"));
         assert!(report.contains("all digits = true"), "{report}");
+        // grammar-constrained output stayed within the schema's alphabet
+        assert!(report.contains("json-schema {ok:bool}:"));
+        assert!(report.contains("in-grammar = true"), "{report}");
     }
 
     #[test]

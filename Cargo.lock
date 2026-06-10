@@ -4946,6 +4946,7 @@ dependencies = [
  "sovereign-degeneration",
  "sovereign-embed",
  "sovereign-ffn",
+ "sovereign-json-schema-grammar",
  "sovereign-linear",
  "sovereign-llm",
  "sovereign-logit-mask",
