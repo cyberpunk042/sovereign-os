@@ -10,26 +10,69 @@
 //! * a request that would blow the **token budget** is refused *before*
 //!   generating, not run and charged.
 //!
-//! The generator here is a deterministic stand-in for a model (it echoes the
-//! prompt back, uppercased, padded/truncated to `max_new` "tokens") — the point
-//! is the orchestration, not the text. Usage: `sovereign-serve` (runs the demo
-//! session) · `sovereign-serve --help`.
+//! Generation runs on the **real** engine: a small `SovereignLlm` (built once)
+//! backs the `serve()` generate step, so the cost-aware path actually drives
+//! the inference stack — a `$0` cache hit still short-circuits before the model
+//! runs. The weights are random, so the text is gibberish; the point is that
+//! the serving assembly and the model are wired together and run.
+//! Usage: `sovereign-serve` (runs the demo session) · `sovereign-serve --help`.
 
+use sovereign_decoder_stack::StackConfig;
+use sovereign_ffn::SwiGlu;
+use sovereign_llm::SovereignLlm;
+use sovereign_rmsnorm::RmsNorm;
+use sovereign_sampler::{Sampler, SamplerConfig};
 use sovereign_serve::Server;
 use sovereign_token_meter::Budget;
+use sovereign_tokenizer::Tokenizer;
+use sovereign_transformer_block::BlockWeights;
 
-/// Whitespace-word token counter — the runtime supplies the real tokenizer; the
-/// demo counts words so the accounting is readable and deterministic.
+const MD: usize = 4;
+
+/// Whitespace-word token counter — keeps the printed accounting readable and
+/// deterministic (the engine's own tokenizer drives generation length).
 fn words(s: &str) -> usize {
     s.split_whitespace().count()
 }
 
-/// A deterministic stand-in for a model: echo the prompt's words back,
-/// uppercased, padded/truncated to exactly `max_new` "tokens" (words).
-fn demo_generate(prompt: &str, max_new: usize, _seed: u64) -> Result<String, String> {
-    let mut out: Vec<String> = prompt.split_whitespace().map(str::to_uppercase).collect();
-    out.resize(max_new.max(1), "…".to_string());
-    Ok(out.join(" "))
+/// Deterministic weight filler so the demo runs without a checkpoint.
+fn mat(s: f32, n: usize) -> Vec<f32> {
+    (0..n).map(|i| ((i as f32 + s) * 0.017).sin()).collect()
+}
+
+/// A small but real `SovereignLlm` (one transformer block, `model_dim = 4`).
+fn runtime() -> SovereignLlm {
+    let tok = Tokenizer::default();
+    let vocab = tok.vocab_size();
+    let block = BlockWeights {
+        model_dim: MD,
+        head_dim: MD,
+        attn_norm: RmsNorm::new(MD),
+        ffn_norm: RmsNorm::new(MD),
+        w_q: mat(1.0, MD * MD),
+        w_k: mat(2.0, MD * MD),
+        w_v: mat(3.0, MD * MD),
+        w_o: mat(4.0, MD * MD),
+        ffn: SwiGlu::new(
+            MD,
+            MD,
+            mat(5.0, MD * MD),
+            mat(6.0, MD * MD),
+            mat(7.0, MD * MD),
+        )
+        .unwrap(),
+    };
+    let cfg = StackConfig {
+        vocab,
+        model_dim: MD,
+        embedding: mat(0.5, vocab * MD),
+        blocks: vec![block],
+        final_norm: RmsNorm::new(MD),
+        head: mat(0.9, vocab * MD),
+        sampler: Sampler::new(SamplerConfig::default()),
+        recent_window: 64,
+    };
+    SovereignLlm::new(tok, cfg).unwrap()
 }
 
 const USAGE: &str = "\
@@ -53,6 +96,14 @@ fn main() {
         .map(String::as_str)
         .collect();
 
+    // Build the engine once; its `complete` (immutable, reproducible per seed)
+    // backs every generate step.
+    let llm = runtime();
+    let generate = |prompt: &str, max_new: usize, seed: u64| -> Result<String, String> {
+        llm.complete(prompt, max_new, seed)
+            .map_err(|e| e.to_string())
+    };
+
     if prompts.is_empty() {
         // Demo: a small total-token budget so the session shows a real refusal,
         // and a repeated prompt so it shows a $0 cache hit.
@@ -65,6 +116,7 @@ fn main() {
                 ("hello there", 3, 1),
                 ("generate a very long answer please", 50, 3),
             ],
+            generate,
         );
     } else {
         // Serve the operator's prompts on an unlimited budget; a repeated prompt
@@ -72,17 +124,20 @@ fn main() {
         let mut server = Server::new(64);
         // Fixed seed so an identical prompt resolves as a $0 cache hit.
         let session: Vec<(&str, usize, u64)> = prompts.iter().map(|p| (*p, 16, 0u64)).collect();
-        run_session(&mut server, &session);
+        run_session(&mut server, &session, generate);
     }
 }
 
-/// Serve each `(prompt, max_new, seed)` in order, printing the cost-aware
-/// outcome per request and a usage summary at the end.
-fn run_session(server: &mut Server, session: &[(&str, usize, u64)]) {
+/// Serve each `(prompt, max_new, seed)` in order on the real engine `generate`,
+/// printing the cost-aware outcome per request and a usage summary at the end.
+fn run_session<G>(server: &mut Server, session: &[(&str, usize, u64)], mut generate: G)
+where
+    G: FnMut(&str, usize, u64) -> Result<String, String>,
+{
     let mut cache_hits = 0usize;
     let mut refused = 0usize;
     for &(prompt, max_new, seed) in session {
-        match server.serve(prompt, max_new, seed, words, demo_generate) {
+        match server.serve(prompt, max_new, seed, words, &mut generate) {
             Ok(r) => {
                 if r.cache_hit {
                     cache_hits += 1;

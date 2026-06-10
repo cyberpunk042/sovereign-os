@@ -6053,7 +6053,14 @@ version = "0.1.0"
 dependencies = [
  "sovereign-completion-cache",
  "sovereign-complexity",
+ "sovereign-decoder-stack",
+ "sovereign-ffn",
+ "sovereign-llm",
+ "sovereign-rmsnorm",
+ "sovereign-sampler",
  "sovereign-token-meter",
+ "sovereign-tokenizer",
+ "sovereign-transformer-block",
  "thiserror",
 ]
 
