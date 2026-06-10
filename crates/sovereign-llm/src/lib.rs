@@ -153,6 +153,59 @@ impl SovereignLlm {
         Ok(self.tokenizer.decode(&generated).unwrap_or_default())
     }
 
+    /// Complete `prompt` with **token healing** at the prompt/completion seam.
+    /// Whole-prompt tokenization fixes the last token to whatever split the
+    /// tokenizer chose at the cut — often *not* the split the model would pick
+    /// (handed `http`, it can't emit the single token `https`). Healing
+    /// (`sovereign-token-healing`) trims that trailing token, keeps its surface as
+    /// a prefix constraint, and forces the **first** generated token to be
+    /// consistent with the prefix (re-choose/extend the boundary) via the dynamic
+    /// mask — so the model picks the natural boundary. Returns the continuation
+    /// beyond the original prompt (the re-formed boundary prefix is stripped).
+    /// Falls back to plain [`complete`](Self::complete) when there is nothing to
+    /// heal (single-token or empty prompt). Reproducible per `seed`.
+    pub fn complete_healed(
+        &self,
+        prompt: &str,
+        max_new: usize,
+        seed: u64,
+    ) -> Result<String, LlmError> {
+        let prompt_ids = self.tokenizer.encode(prompt);
+        let vocab: Vec<String> = (0..self.tokenizer.vocab_size())
+            .map(|id| self.tokenizer.decode(&[id as u32]).unwrap_or_default())
+            .collect();
+        let healer = sovereign_token_healing::TokenHealer::new(vocab);
+        let healed = healer.heal(&prompt_ids);
+        // Can't heal a single-token / empty prompt (trimming leaves nothing to
+        // prime the model) — fall back to a normal completion.
+        if healed.trimmed.is_empty() || healed.prefix.is_empty() {
+            return self.complete(prompt, max_new, seed);
+        }
+        let allowed: Vec<usize> = healer
+            .allowed_continuations(&healed.prefix)
+            .into_iter()
+            .map(|t| t as usize)
+            .collect();
+        let trimmed: Vec<usize> = healed.trimmed.iter().map(|&i| i as usize).collect();
+        let mut model = self.model.clone();
+        let gen_ids = model.generate_dynamic_mask(&trimmed, max_new, seed, |generated| {
+            if generated.is_empty() {
+                // First step: only boundary-consistent tokens are allowed.
+                LogitMask::new().allow_only(allowed.iter().copied())
+            } else {
+                LogitMask::new()
+            }
+        })?;
+        let out_ids: Vec<u32> = gen_ids.iter().map(|&i| i as u32).collect();
+        let text = self.tokenizer.decode(&out_ids).unwrap_or_default();
+        // The re-formed boundary reconstructs the trimmed surface; strip it so the
+        // result continues the original prompt rather than repeating its tail.
+        Ok(text
+            .strip_prefix(&healed.prefix)
+            .unwrap_or(&text)
+            .to_string())
+    }
+
     /// **Constrained decoding**: generate a completion for `prompt` that is forced
     /// to match the regular expression `pattern`. At every step the live
     /// constraint (`sovereign-regex-constrain` over `sovereign-regex-nfa`) builds a
@@ -835,6 +888,45 @@ mod tests {
         // the report is exactly analyze() of that text — the wiring is faithful
         assert_eq!(report, analyze(&text, &cfg));
         assert!((0.0..=1.0).contains(&report.distinct_ngram_ratio));
+    }
+
+    #[test]
+    fn token_healing_allows_only_boundary_consistent_first_tokens() {
+        // Build a healer over the runtime's (byte) vocab and confirm the first-step
+        // constraint complete_healed applies: after trimming the 'b' from "ab", only
+        // tokens consistent with the prefix "b" are allowed.
+        let llm = runtime(Sampler::greedy());
+        let vocab: Vec<String> = (0..llm.vocab_size())
+            .map(|id| llm.tokenizer().decode(&[id as u32]).unwrap_or_default())
+            .collect();
+        let healer = sovereign_token_healing::TokenHealer::new(vocab);
+        let ids = llm.tokenizer().encode("ab");
+        let healed = healer.heal(&ids);
+        assert_eq!(healed.prefix, "b");
+        let allowed = healer.allowed_continuations("b");
+        // the 'b' byte (98) is consistent; 'z' (122) is not
+        assert!(allowed.contains(&(b'b' as u32)));
+        assert!(!allowed.contains(&(b'z' as u32)));
+    }
+
+    #[test]
+    fn complete_healed_falls_back_for_single_token_prompt() {
+        let llm = runtime(Sampler::greedy());
+        // a single-byte prompt has nothing to trim → identical to plain complete
+        assert_eq!(
+            llm.complete_healed("a", 6, 4).unwrap(),
+            llm.complete("a", 6, 4).unwrap()
+        );
+    }
+
+    #[test]
+    fn complete_healed_is_reproducible() {
+        let a = runtime(Sampler::new(SamplerConfig::default()));
+        let b = runtime(Sampler::new(SamplerConfig::default()));
+        assert_eq!(
+            a.complete_healed("hello", 6, 2).unwrap(),
+            b.complete_healed("hello", 6, 2).unwrap()
+        );
     }
 
     #[test]

@@ -31,6 +31,7 @@ sovereign-toxicity = { path = "../sovereign-toxicity" }
 sovereign-logprobs = { path = "../sovereign-logprobs" }
 sovereign-json-extract = { path = "../sovereign-json-extract" }
 sovereign-regex-constrain = { path = "../sovereign-regex-constrain" }
+sovereign-token-healing = { path = "../sovereign-token-healing" }
 
 [dev-dependencies]
 sovereign-transformer-block = { path = "../sovereign-transformer-block" }

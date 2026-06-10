@@ -5214,6 +5214,7 @@ dependencies = [
  "sovereign-rmsnorm",
  "sovereign-sampler",
  "sovereign-secret-scan",
+ "sovereign-token-healing",
  "sovereign-tokenizer",
  "sovereign-toxicity",
  "sovereign-transformer-block",
