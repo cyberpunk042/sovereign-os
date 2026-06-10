@@ -33,24 +33,20 @@
 #   note                      — operator-readable rationale
 
 [gpu."NVIDIA RTX PRO 6000"]
-safe_limit_watts = 600
+safe_limit_watts = 300
 tolerance_watts  = 10
-max_sustained_draw_watts = 580
-note = "RTX PRO 6000 Blackwell 96 GiB. Master spec target — full TDP allowed; warn if sustained draw within 20 W of cap (cooling envelope tight on the ProArt X870E case)."
+max_sustained_draw_watts = 290
+note = "RTX PRO 6000 Blackwell Max-Q 96 GiB — the 300 W edition, NOT the 600 W workstation card. Full Max-Q TDP allowed; warn if sustained draw within 10 W of cap."
 
-[gpu."RTX 3090"]
-safe_limit_watts = 280
+[gpu."GeForce RTX 4090"]
+safe_limit_watts = 320
 tolerance_watts  = 10
-max_sustained_draw_watts = 270
-note = "RTX 3090 nominal cap is 350 W; operator-imposed slightly-reduced 280 W per the SDD-026 Z-5 directive ('which should be slightly reduce which isn't'). Apply with: nvidia-smi -i 1 -pl 280"
+max_sustained_draw_watts = 310
+note = "RTX 4090 stock cap is 450 W; operator-agreed optimization to the ~320 W efficiency point (~95% inference perf) per the SDD-026 Z-5 slightly-reduce directive, applied to the 4090 that replaced the 3090. Apply with: nvidia-smi -i 1 -pl 320"
 
 # Operators add more tables as they install other GPU classes.
 # Examples (commented):
 #
 # [gpu."NVIDIA L40S"]
 # safe_limit_watts = 350
-# tolerance_watts  = 10
-#
-# [gpu."GeForce RTX 4090"]
-# safe_limit_watts = 320
 # tolerance_watts  = 10

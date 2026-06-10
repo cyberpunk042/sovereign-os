@@ -82,6 +82,13 @@ cd sovereign-os
 #    sets up the dev environment, runs preflight.
 scripts/onboard.sh
 
+# 2b. (optional) Prefer to point-and-click the choices? Launch the build
+#     configurator dashboard — pick profile / kernel / modules / CPU features /
+#     packages / prepackaged tools (Claude Code, OpenCode, …) and it GENERATES
+#     the exact `orchestrate.sh` command + overlay.yaml + operator-deps.toml.
+#     Read-only, loopback-bound; it never builds anything itself.
+python3 scripts/operator/build-configurator-api.py   # then open http://127.0.0.1:8100/
+
 # 3. Validate the build plan without running anything
 SOVEREIGN_OS_PROFILE=sain-01 scripts/build/orchestrate.sh run --dry-run
 

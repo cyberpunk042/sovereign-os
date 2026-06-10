@@ -62,17 +62,18 @@ hardware:
 
   gpu:
     - vendor: nvidia
-      model: rtx-pro-6000-blackwell
+      model: rtx-pro-6000-blackwell-max-q
       pci_id: "10de:????"
       vram_gb: 96
       role: primary
       driver: nvidia-560-open
+      tdp_watts: 300   # Max-Q (300W) edition — NOT the 600W workstation card
     - vendor: nvidia
-      model: rtx-3090
-      pci_id: "10de:2204"
+      model: rtx-4090
+      pci_id: "10de:2684"
       vram_gb: 24
       role: vfio
-      vfio_companion: "10de:1ad8"
+      vfio_companion: "10de:22ba"
 
   memory:
     minimum_gb: 128
@@ -138,7 +139,7 @@ hardware:
       - description: "M.2_2 must remain empty to preserve x8/x8 GPU bifurcation (PCIEX16_2 shares lanes with M.2_2)"
         check: m2_2_empty
         severity: blocker
-      - description: "Blackwell + 3090 must be in distinct IOMMU groups for clean VFIO binding"
+      - description: "Blackwell + 4090 must be in distinct IOMMU groups for clean VFIO binding"
         check: iommu_groups_distinct
         severity: blocker
 
@@ -172,7 +173,7 @@ kernel:
       - splash
       - "loglevel=3"
     vfio:
-      - "vfio-pci.ids=10de:2204,10de:1ad8"
+      - "vfio-pci.ids=10de:2684,10de:22ba"
       - "amd_iommu=on"
       - "iommu=pt"
       - "pcie_aspm=off"
@@ -282,6 +283,10 @@ hooks:
       type: maintenance
       schedule: daily
       script: scripts/hooks/recurrent/model-catalog-sync.sh
+    - id: selfdef-sync
+      type: maintenance
+      schedule: weekly
+      script: scripts/hooks/recurrent/selfdef-sync.sh
 
   decommission:
     - id: secure-wipe-context
