@@ -128,21 +128,40 @@ impl MhaDecoderBlock {
         weights: &MhaBlockWeights,
         precision: Precision,
     ) -> Result<Self, MhaBlockError> {
+        Self::from_weights_selective(weights, precision, &[])
+    }
+
+    /// Quantize `weights` at `precision`, but keep the projections named in
+    /// `high_precision` (by `"q"/"k"/"v"/"o"/"gate"/"up"/"down"`) in dense
+    /// f32. This is how M077 selective-HP is enforced at build time: pass the
+    /// names that [`sovereign_linear::recommend_high_precision`] flagged and
+    /// those sensitive projections skip quantization while the rest run at the
+    /// quantized base precision. With an `f32` base, `high_precision` is a
+    /// no-op (everything is already dense).
+    pub fn from_weights_selective(
+        weights: &MhaBlockWeights,
+        precision: Precision,
+        high_precision: &[&str],
+    ) -> Result<Self, MhaBlockError> {
         let md = weights.model_dim;
         let hd = weights.head_dim;
         let hid = weights.hidden_dim;
         let q_dim = weights.num_q_heads * hd;
         let kv_dim = weights.num_kv_heads * hd;
         let mha = Mha::new(weights.num_q_heads, weights.num_kv_heads, hd)?;
-        // For NVFP4, each projection auto-selects the M077 accuracy recipe its
-        // weight distribution needs (plain / RHT / 2D); other precisions build
-        // their single backend directly.
-        let build = |w: &[f32], out: usize, inp: usize| -> Result<Linear, LinearError> {
-            match precision {
-                Precision::Nvfp4 => Linear::from_f32_nvfp4_auto(w, out, inp),
-                _ => Linear::from_f32(w, out, inp, precision),
-            }
-        };
+        // A flagged projection builds at dense f32; otherwise NVFP4 auto-selects
+        // its M077 recipe (plain / RHT / 2D) and other precisions build their
+        // single backend directly.
+        let build =
+            |name: &str, w: &[f32], out: usize, inp: usize| -> Result<Linear, LinearError> {
+                if high_precision.contains(&name) {
+                    return Linear::from_f32(w, out, inp, Precision::F32);
+                }
+                match precision {
+                    Precision::Nvfp4 => Linear::from_f32_nvfp4_auto(w, out, inp),
+                    _ => Linear::from_f32(w, out, inp, precision),
+                }
+            };
         Ok(Self {
             model_dim: md,
             head_dim: hd,
@@ -151,13 +170,13 @@ impl MhaDecoderBlock {
             precision,
             attn_norm: weights.attn_norm.clone(),
             ffn_norm: weights.ffn_norm.clone(),
-            q: build(&weights.w_q, q_dim, md)?,
-            k: build(&weights.w_k, kv_dim, md)?,
-            v: build(&weights.w_v, kv_dim, md)?,
-            o: build(&weights.w_o, md, q_dim)?,
-            gate: build(&weights.w_gate, hid, md)?,
-            up: build(&weights.w_up, hid, md)?,
-            down: build(&weights.w_down, md, hid)?,
+            q: build("q", &weights.w_q, q_dim, md)?,
+            k: build("k", &weights.w_k, kv_dim, md)?,
+            v: build("v", &weights.w_v, kv_dim, md)?,
+            o: build("o", &weights.w_o, md, q_dim)?,
+            gate: build("gate", &weights.w_gate, hid, md)?,
+            up: build("up", &weights.w_up, hid, md)?,
+            down: build("down", &weights.w_down, md, hid)?,
             rope: Rope::new(hd),
             mha,
             rotated_keys: Vec::new(),
@@ -340,6 +359,36 @@ mod tests {
         );
         let f32_block = MhaDecoderBlock::from_weights(&w, Precision::F32).unwrap();
         assert!(f32_block.nvfp4_recipes().is_empty());
+    }
+
+    #[test]
+    fn selective_hp_keeps_flagged_projection_dense() {
+        // An NVFP4 block with "gate" flagged high-precision builds 6 NVFP4
+        // projections + a dense f32 gate; the flagged one has no NVFP4 recipe.
+        let w = weights(8, 2, 4, 2, 16);
+        let block =
+            MhaDecoderBlock::from_weights_selective(&w, Precision::Nvfp4, &["gate"]).unwrap();
+        let recipes = block.nvfp4_recipes();
+        assert_eq!(recipes.len(), 6, "gate should be dense: {recipes:?}");
+        assert!(
+            !recipes.iter().any(|(n, _)| *n == "gate"),
+            "gate must not have an NVFP4 recipe: {recipes:?}"
+        );
+        assert!(recipes.iter().any(|(n, _)| *n == "up"));
+        // Still runs end-to-end with mixed precision inside one block.
+        let mut block = block;
+        let x: Vec<f32> = (0..8).map(|i| (i as f32 * 0.2).sin()).collect();
+        assert!(block.step(&x).unwrap().iter().all(|v| v.is_finite()));
+    }
+
+    #[test]
+    fn selective_hp_empty_matches_plain_nvfp4() {
+        // An empty HP set is identical to a plain NVFP4 block: all 7 quantized.
+        let w = weights(8, 2, 4, 2, 16);
+        let a = MhaDecoderBlock::from_weights(&w, Precision::Nvfp4).unwrap();
+        let b = MhaDecoderBlock::from_weights_selective(&w, Precision::Nvfp4, &[]).unwrap();
+        assert_eq!(a.nvfp4_recipes(), b.nvfp4_recipes());
+        assert_eq!(b.nvfp4_recipes().len(), 7);
     }
 
     #[test]
