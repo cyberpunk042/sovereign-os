@@ -22,6 +22,7 @@ sovereign-logit-mask = { path = "../sovereign-logit-mask" }
 sovereign-sampler = { path = "../sovereign-sampler" }
 sovereign-perplexity = { path = "../sovereign-perplexity" }
 sovereign-prompt-compress = { path = "../sovereign-prompt-compress" }
+sovereign-diversity = { path = "../sovereign-diversity" }
 
 [dev-dependencies]
 sovereign-transformer-block = { path = "../sovereign-transformer-block" }

@@ -64,6 +64,25 @@ pub struct LlmConfig {
     pub model: StackConfig,
 }
 
+/// Diversity metrics over a best-of-n sample set (see
+/// [`SovereignLlm::sample_diversity`]). All ratios are in `[0, 1]`; lower
+/// distinct-n / unique-ratio and higher Self-BLEU mean *less* diverse (more
+/// collapse).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SampleDiversity {
+    /// Number of samples measured.
+    pub samples: usize,
+    /// distinct-1 (distinct unigrams / total unigrams across all samples).
+    pub distinct_1: f64,
+    /// distinct-2 (distinct bigrams / total bigrams across all samples).
+    pub distinct_2: f64,
+    /// Mean Self-BLEU (each sample vs the others; high = samples resemble each
+    /// other).
+    pub self_bleu: f64,
+    /// Fraction of samples that are exactly-distinct strings.
+    pub unique_ratio: f64,
+}
+
 /// A runnable text-to-text LLM: tokenizer + stacked decoder model.
 #[derive(Debug, Clone)]
 pub struct SovereignLlm {
@@ -206,6 +225,34 @@ impl SovereignLlm {
         (0..n)
             .map(|i| self.generate_ids(prompt, max_new, base_seed.wrapping_add(i as u64)))
             .collect()
+    }
+
+    /// Diversity metrics over `n` independent samples for `prompt` — the
+    /// best-of-n set from [`generate_ids_n`], decoded to text and measured with
+    /// [`sovereign_diversity`]. A serving loop uses this to detect **mode
+    /// collapse**: a sampler set too cold (or a degenerate model) returns near-
+    /// identical samples — low distinct-n and unique-ratio, high Self-BLEU —
+    /// whereas a healthy sampler spreads out. Reproducible per `base_seed`.
+    pub fn sample_diversity(
+        &self,
+        prompt: &str,
+        n: usize,
+        max_new: usize,
+        base_seed: u64,
+    ) -> Result<SampleDiversity, LlmError> {
+        let id_sets = self.generate_ids_n(prompt, n, max_new, base_seed)?;
+        let texts: Vec<String> = id_sets
+            .iter()
+            .map(|ids| self.tokenizer.decode(ids).unwrap_or_default())
+            .collect();
+        let refs: Vec<&str> = texts.iter().map(String::as_str).collect();
+        Ok(SampleDiversity {
+            samples: refs.len(),
+            distinct_1: sovereign_diversity::distinct_n_str(&refs, 1),
+            distinct_2: sovereign_diversity::distinct_n_str(&refs, 2),
+            self_bleu: sovereign_diversity::self_bleu_str(&refs, 4),
+            unique_ratio: sovereign_diversity::unique_ratio(&refs),
+        })
     }
 
     /// Generate token ids, stopping at the tokenizer's special token named
@@ -533,6 +580,39 @@ mod tests {
         let kept = llm.compress_prompt(text, 1.0).unwrap();
         // keep_ratio 1.0 → every token survives → round-trips to the same ids
         assert_eq!(llm.tokenizer().encode(&kept), ids);
+    }
+
+    #[test]
+    fn sample_diversity_detects_greedy_collapse() {
+        // Greedy ignores the seed, so all n samples are identical → the bluntest
+        // collapse signal: only one distinct string among n.
+        let llm = runtime(Sampler::greedy());
+        let d = llm.sample_diversity("hello world", 4, 6, 100).unwrap();
+        assert_eq!(d.samples, 4);
+        assert!((d.unique_ratio - 0.25).abs() < 1e-9); // 1 distinct / 4
+        // every metric is a valid ratio
+        for v in [d.distinct_1, d.distinct_2, d.self_bleu, d.unique_ratio] {
+            assert!((0.0..=1.0).contains(&v), "out of range: {v}");
+        }
+    }
+
+    #[test]
+    fn sample_diversity_single_sample() {
+        let llm = runtime(Sampler::greedy());
+        let d = llm.sample_diversity("hello", 1, 6, 1).unwrap();
+        assert_eq!(d.samples, 1);
+        assert_eq!(d.unique_ratio, 1.0); // one sample is trivially unique
+        assert_eq!(d.self_bleu, 0.0); // Self-BLEU needs ≥ 2 samples
+    }
+
+    #[test]
+    fn sample_diversity_is_reproducible() {
+        let a = runtime(Sampler::new(SamplerConfig::default()));
+        let b = runtime(Sampler::new(SamplerConfig::default()));
+        assert_eq!(
+            a.sample_diversity("the diversity prompt", 5, 8, 3).unwrap(),
+            b.sample_diversity("the diversity prompt", 5, 8, 3).unwrap()
+        );
     }
 
     #[test]

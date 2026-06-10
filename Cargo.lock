@@ -5197,6 +5197,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sovereign-decoder-stack",
+ "sovereign-diversity",
  "sovereign-ffn",
  "sovereign-logit-mask",
  "sovereign-perplexity",
