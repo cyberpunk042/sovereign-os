@@ -88,24 +88,39 @@ impl Eval {
     }
 }
 
-/// Score `model`'s perplexity on `tokens` (teacher-forced). The model is
-/// cloned, so the caller's instance is not advanced.
-pub fn evaluate(model: &DecoderStack, tokens: &[usize]) -> Result<Eval, PerplexityError> {
+/// The model's **per-token log-probability** for each predicted token in
+/// `tokens` (teacher-forced): the returned vector has length `tokens.len() − 1`,
+/// where element `i` is the natural-log probability the model assigned to
+/// `tokens[i + 1]` given `tokens[0..=i]`. Token 0 has no predecessor and so is
+/// not scored. The model is cloned, so the caller's instance is not advanced.
+///
+/// This is the raw surprisal signal (`−logprob`) that [`evaluate`] averages into
+/// cross-entropy, exposed directly so callers can drive **selective prompt
+/// compression** (LLMLingua: drop the tokens the model already predicts) without
+/// recomputing the scoring pass.
+pub fn token_logprobs(model: &DecoderStack, tokens: &[usize]) -> Result<Vec<f64>, PerplexityError> {
     if tokens.len() < 2 {
         return Err(PerplexityError::TooShort { got: tokens.len() });
     }
     let mut m = model.clone();
-    let mut total_logprob = 0.0f64;
+    let mut out = Vec::with_capacity(tokens.len() - 1);
 
     // Feed token 0, then for each subsequent token read its assigned log-prob.
     let mut logits = m.forward(tokens[0])?;
     for &next in &tokens[1..] {
         let lp = log_softmax(&logits);
-        total_logprob += lp[next] as f64;
+        out.push(lp[next] as f64);
         logits = m.forward(next)?;
     }
+    Ok(out)
+}
 
-    let predicted = tokens.len() - 1;
+/// Score `model`'s perplexity on `tokens` (teacher-forced). The model is
+/// cloned, so the caller's instance is not advanced.
+pub fn evaluate(model: &DecoderStack, tokens: &[usize]) -> Result<Eval, PerplexityError> {
+    let logprobs = token_logprobs(model, tokens)?;
+    let total_logprob: f64 = logprobs.iter().sum();
+    let predicted = logprobs.len();
     let cross_entropy = -total_logprob / predicted as f64;
     Ok(Eval {
         predicted,
@@ -307,6 +322,34 @@ mod tests {
             evaluate(&m, &[1]).unwrap_err(),
             PerplexityError::TooShort { got: 1 }
         );
+        assert_eq!(
+            token_logprobs(&m, &[1]).unwrap_err(),
+            PerplexityError::TooShort { got: 1 }
+        );
+    }
+
+    #[test]
+    fn token_logprobs_align_with_evaluate() {
+        let m = model(8, false);
+        let seq = [1usize, 3, 5, 2, 4];
+        let lps = token_logprobs(&m, &seq).unwrap();
+        // one logprob per predicted token (all but the first)
+        assert_eq!(lps.len(), seq.len() - 1);
+        // each is a valid log-probability (≤ 0)
+        assert!(lps.iter().all(|&l| l <= 1e-9));
+        // their sum is exactly evaluate()'s total_logprob
+        let ev = evaluate(&m, &seq).unwrap();
+        assert!((lps.iter().sum::<f64>() - ev.total_logprob).abs() < 1e-9);
+    }
+
+    #[test]
+    fn token_logprobs_uniform_model_is_neg_ln_vocab() {
+        let vocab = 7;
+        let m = model(vocab, true);
+        let lps = token_logprobs(&m, &[0, 1, 2, 3, 0, 1]).unwrap();
+        // uniform → every token has probability 1/vocab → logprob == -ln(vocab)
+        let expected = -(vocab as f64).ln();
+        assert!(lps.iter().all(|&l| (l - expected).abs() < 1e-4));
     }
 
     // --- quantized-model evaluation ---

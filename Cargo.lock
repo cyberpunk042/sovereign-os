@@ -5199,6 +5199,8 @@ dependencies = [
  "sovereign-decoder-stack",
  "sovereign-ffn",
  "sovereign-logit-mask",
+ "sovereign-perplexity",
+ "sovereign-prompt-compress",
  "sovereign-rmsnorm",
  "sovereign-sampler",
  "sovereign-tokenizer",

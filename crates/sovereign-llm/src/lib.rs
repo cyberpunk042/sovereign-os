@@ -50,6 +50,9 @@ pub enum LlmError {
     /// A model/stack error bubbled up.
     #[error("model: {0}")]
     Stack(#[from] StackError),
+    /// Scoring the prompt for compression failed.
+    #[error("scoring: {0}")]
+    Perplexity(#[from] sovereign_perplexity::PerplexityError),
 }
 
 /// The serializable definition of a runtime: a tokenizer + a model config.
@@ -134,6 +137,37 @@ impl SovereignLlm {
             Some(i) => full[..i].to_string(),
             None => full,
         })
+    }
+
+    /// Compress `text` by dropping the tokens this model can already predict
+    /// (selective prompt compression, the LLMLingua idea). The text is tokenized,
+    /// every token is scored by its surprisal under **this** model (via
+    /// [`sovereign_perplexity::token_logprobs`]), and the most-predictable tokens
+    /// are dropped until about `keep_ratio` of them survive; the kept tokens are
+    /// returned, decoded back to text, in their original order. The first and last
+    /// tokens are always kept as anchors — the first is unscored (it has no
+    /// predecessor) and a boundary token is rarely safe to drop.
+    ///
+    /// This composes the runtime's own scoring pass with
+    /// [`sovereign_prompt_compress`] so a long retrieved/context prompt can be
+    /// shrunk to fit a budget before generation, spending no extra model passes
+    /// beyond the single scoring forward. `keep_ratio` is clamped to `[0, 1]`;
+    /// text of fewer than two tokens is returned unchanged (nothing to score).
+    pub fn compress_prompt(&self, text: &str, keep_ratio: f64) -> Result<String, LlmError> {
+        let ids: Vec<u32> = self.tokenizer.encode(text);
+        if ids.len() < 2 {
+            return Ok(text.to_string());
+        }
+        let scored: Vec<usize> = ids.iter().map(|&i| i as usize).collect();
+        // `token_logprobs` scores tokens[1..]; token 0 has no predecessor, so
+        // prepend a sentinel (0.0 = perfectly predictable) and rely on the anchor
+        // flag to keep it — the real surprisal drives selection of the rest.
+        let mut logprobs = Vec::with_capacity(ids.len());
+        logprobs.push(0.0);
+        logprobs.extend(sovereign_perplexity::token_logprobs(&self.model, &scored)?);
+        let keep = sovereign_prompt_compress::select_informative(&logprobs, keep_ratio, true);
+        let kept = sovereign_prompt_compress::compress(&ids, &keep);
+        Ok(self.tokenizer.decode(&kept).unwrap_or_default())
     }
 
     /// Complete `prompt`, returning the prompt followed by the generated text.
@@ -475,6 +509,48 @@ mod tests {
             .unwrap();
         assert_eq!(eos, plain);
         assert_eq!(eos.len(), 6);
+    }
+
+    #[test]
+    fn compress_prompt_shrinks_and_stays_decodable() {
+        let llm = runtime(Sampler::greedy());
+        let text = "the quick brown fox jumps over the lazy dog repeatedly";
+        let full = llm.tokenizer().encode(text).len();
+        // keep ~half the tokens
+        let compressed = llm.compress_prompt(text, 0.5).unwrap();
+        let kept = llm.tokenizer().encode(&compressed).len();
+        assert!(kept < full, "compressed {kept} should be < original {full}");
+        assert!(kept >= 2, "anchors keep at least the boundary tokens");
+        // result is valid (decoded) text
+        assert!(compressed.is_empty() || compressed.is_char_boundary(0));
+    }
+
+    #[test]
+    fn compress_prompt_ratio_one_keeps_everything() {
+        let llm = runtime(Sampler::greedy());
+        let text = "alpha beta gamma delta";
+        let ids = llm.tokenizer().encode(text);
+        let kept = llm.compress_prompt(text, 1.0).unwrap();
+        // keep_ratio 1.0 → every token survives → round-trips to the same ids
+        assert_eq!(llm.tokenizer().encode(&kept), ids);
+    }
+
+    #[test]
+    fn compress_prompt_short_text_is_unchanged() {
+        let llm = runtime(Sampler::greedy());
+        // a single-byte/token input cannot be scored → returned verbatim
+        assert_eq!(llm.compress_prompt("x", 0.5).unwrap(), "x");
+    }
+
+    #[test]
+    fn compress_prompt_is_reproducible() {
+        let a = runtime(Sampler::greedy());
+        let b = runtime(Sampler::greedy());
+        let t = "reproducible compression over the same model and text";
+        assert_eq!(
+            a.compress_prompt(t, 0.6).unwrap(),
+            b.compress_prompt(t, 0.6).unwrap()
+        );
     }
 
     #[test]
