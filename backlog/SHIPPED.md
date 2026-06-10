@@ -812,8 +812,9 @@ Boundary (pending operator decision): the *actual* AVX-512 SIMD vectorization of
 |---|---|---|---|
 | RHT (random Hadamard transform) — inference accuracy | `crates/sovereign-nvfp4-runtime/src/linear.rs` `RhtQuantMatrix` — rotates weight rows + activations by the orthonormal `R = rht_forward` before/at NVFP4 quant, so `(R·w)·(R·x)=w·x` exactly but block outliers spread for better 4-bit microscaling. The `rht` primitive existed but nothing used it. | `a7d3857` | 4 unit (approximates dense ref; **reduces error vs plain quant on outlier weights**; power-of-two enforced) |
 | Stochastic rounding — training-path accuracy | `quantize_block_stochastic` + `QuantMatrix::from_f32_stochastic` — deterministic block scale, stochastic per-element E2M1 rounding → unbiased in expectation. `quantize_stochastic` existed per-element but was unwired at block/matrix level. | `5315455` | 2 unit (**4000-draw ensemble mean beats biased RNE on off-grid values**; matrix path valid approximation) |
+| Selective high-precision — keep sensitive layers un-quantized | `RuntimeConfig::is_high_precision` (per-layer FP-vs-NVFP4 decision a loader uses for embeddings / `lm_head`) + `check_high_precision_layers` (raises the previously-dead `HpLayerMissing` so a typo fails loudly instead of silently quantizing a protected layer). The `high_precision_layers` list had no method applying it. | `5fe91d2` | 2 unit (default keeps embeddings+lm_head, quantizes the rest; missing protected layer errors) |
 
-These are P4 closures: the M077 accuracy recipes were declared (config flags + tested primitives) but not wired into the quant path; they are now wired with their motivating properties empirically verified.
+These are P4 closures: three of M077's four named accuracy recipes (RHT · stochastic rounding · selective-HP) were declared (config flags + tested primitives) but not wired into the quant path; they are now wired with their motivating properties empirically verified. (2D block quantization — the fourth — needs a new algorithm, not just wiring; catalogued, not yet built.)
 
 ## Other catalogued milestones — production-shipped state TBD
 
