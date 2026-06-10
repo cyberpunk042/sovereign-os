@@ -12,6 +12,28 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — M084: OPNsense/SD-WAN boundary contract catalogued + guardian dropout prevention built (audit gap #3 closed) (2026-06-10)
+
+The audit's gap #3: "the VLAN concept is catalogued (M003) but the firewall
+interface + Tetragon-socket-dropout gotcha isn't." Two-part closure:
+
+- **Built first**: the transposition dump's prevention (lines 761–765,
+  verbatim) was only half-implemented — `sovereign-guardian-core.service`
+  gains the required `BindsTo=tetragon.service`, and guardian-core.py's
+  read-loop EOF fall-through (which silently returned 0, hiding the
+  "blinding your real-time exploit containment system" event) now logs
+  `[EOF] … perimeter blind` + exits nonzero so the `Restart=always` recovery
+  is a journal-recorded failure-restart.
+- **Catalogued**: `M084-opnsense-sdwan-boundary-contract-tetragon-dropout-resilience.md`
+  — 170 R-rows decomposing the dual-NIC Zero-Trust topology (VLAN 100
+  management/telemetry on the Intel 2.5GbE; VLAN 200 model-ingestion with NO
+  outbound WAN on the Marvell 10GbE), the firewall observation surface
+  (E11.M8 reachability ladder), and the gotcha/prevention pair; the
+  reconfig-detector, dropout metrics, and flap alert are catalogued as
+  explicitly pending. Catalog totals: 82 milestones / 14,080 R-rows
+  (lockstep across INDEX, MASTER-PLAN, SHIPPED + gate literal); SHIPPED
+  gains an M084 section citing the prevention commit.
+
 ### Added — M083: DFlash speculative decoding catalogued (audit gap #2 closed) (2026-06-10)
 
 The 2026-06 catalog audit named DFlash as under-catalogued — "survives only as

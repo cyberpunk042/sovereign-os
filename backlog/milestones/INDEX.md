@@ -95,6 +95,7 @@
 | M081 | Whitelabel Architecture — Debian surface audit + declarative rebrand mechanism (PRs 7 + 8 of macro-arc; Stage Gate 4) | macro-arc dump lines 174–199 + 202–227 |
 | M082 | TDD Harness Architecture — hardware-free 5-layer test pyramid + Stage Gate 5 foundation-complete (PRs 9 + 10 of macro-arc) | macro-arc dump lines 229–278 + 280–283 |
 | M083 | DFlash speculative decoding fast-path — task-type-gated 3× decode acceleration (code+math on / creative off, operator-verbatim) | transposition dump lines 1115–1131 |
+| M084 | OPNsense/SD-WAN boundary contract + Tetragon-dropout resilience — Zero-Trust dual-NIC perimeter (VLAN 100/200) + the guardian dropout gotcha/prevention | transposition dump lines 420–424 + 456–475 + 761–765 |
 
 ## Decomposition that each milestone owes
 

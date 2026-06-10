@@ -2,7 +2,7 @@
 
 > **Production-shipped state tracker against `backlog/INDEX.md`.** Auto-maintained as commits land. Surfaces, per milestone, which catalogued R-rows have reached production code (with test coverage + cockpit-visible surface) versus which remain catalogued-only.
 >
-> The catalogue is `backlog/INDEX.md` (81 milestones / 13,910 R-rows). This file is the orthogonal "delivery state" view per the operator's standing constraint:
+> The catalogue is `backlog/INDEX.md` (82 milestones / 14,080 R-rows). This file is the orthogonal "delivery state" view per the operator's standing constraint:
 >
 > > *"You cannot mark something done if it hasn't reached Prod."*
 >
@@ -10,9 +10,9 @@
 
 ## Roll-up
 
-| State | R-rows | % of 13,910 |
+| State | R-rows | % of 14,080 |
 |---|---:|---:|
-| Catalogued (total) | 13,910 | 100% |
+| Catalogued (total) | 14,080 | 100% |
 | Shipped (production surface + tests + cockpit-visible) | partial — tracked per-milestone below | — |
 | Catalogued-only | balance | — |
 
@@ -767,6 +767,19 @@ All crates auto-include via the `crates/*` workspace glob (zero shared-file edit
 | E0473 / E0474 / E0475 — Policy Fabric contract | `sovereign-policy-input` (7 `PolicyQuestion`s, 10-field intent-based `PolicyInput`, 9 `SensitivityClass`es) | `d7f9d51` | 4 unit (incl. the E0474 ~/.ssh/config intent example) |
 
 Plus `sovereign-worker-fleet` (`242744b`) — fleet health summary over the M00212 worker status words (read-only observability aggregation). These are the engine-facing contracts (events/policy/config/fleet) — the engine emits/decides against them; their operator-visible surface lands when the engine produces the data.
+
+## M084 — OPNsense/SD-WAN boundary contract + Tetragon-dropout resilience
+
+**Catalogued:** 170 R-rows (R14081..R14250). See `backlog/milestones/M084-opnsense-sdwan-boundary-contract-tetragon-dropout-resilience.md`.
+
+**Shipped this milestone (the dropout prevention, dump 761-765 verbatim):**
+
+| R-row family | Surface | Commits | Tests |
+|---|---|---|---|
+| R14101 / R14104 — BindsTo binding control | `systemd/system/sovereign-guardian-core.service` gains the verbatim-required `BindsTo=tetragon.service` (alongside the master-spec § 10.2 After=/Requires=) so a tetragon stop during a network reconfiguration stops the guardian instead of leaving it tailing a dead stream | `47632d0` | `tests/lint/test_guardian_core_service_bidir.py` (binding consistency) + R171 hardening gates, all green |
+| R14102 / R14105 / R14111-R14113 — EOF sentinel | `scripts/auditor/guardian-core.py` read-loop EOF fall-through no longer returns 0: logs `[EOF] ... perimeter blind` + exits nonzero so the `Restart=always` recovery is journal-recorded as a failure-restart | `47632d0` | `tests/lint/test_guardian_core_verbatim.py` + bidir gate, all green |
+
+Pending (catalogued, not shipped): reconfig-detector (R14124-R14126), dropout metrics (R14127-R14130), flap alert (R14131-R14133), VLAN-contract lint (R14217).
 
 ## Other catalogued milestones — production-shipped state TBD
 
