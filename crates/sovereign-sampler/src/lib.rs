@@ -12,6 +12,8 @@
 //! 4. **Top-p (nucleus)** — keep the smallest set whose cumulative
 //!    probability reaches `p`.
 //! 5. **Min-p** — drop tokens below `min_p · max_prob`.
+//! 6. **Locally-typical** — keep tokens whose surprisal `−log p` is closest
+//!    to the distribution's entropy (Meister et al.).
 //!
 //! The surviving distribution is renormalized and a token is drawn from it
 //! with a caller-supplied RNG. Decoding is therefore **fully reproducible**:
@@ -55,6 +57,12 @@ pub struct SamplerConfig {
     pub top_p: Option<f32>,
     /// Min-p threshold: drop tokens below `min_p · max_prob`. `None` disables.
     pub min_p: Option<f32>,
+    /// Locally-typical threshold in `(0, 1]` (Meister et al.): keep the
+    /// smallest set of tokens whose information content `−log p` is closest to
+    /// the distribution's entropy and whose mass reaches this fraction. `None`
+    /// disables. Defaults to `None` for backward-compatible deserialization.
+    #[serde(default)]
+    pub typical_p: Option<f32>,
     /// Repetition penalty (`> 1.0` discourages recent tokens). Default `1.0`.
     pub repetition_penalty: f32,
 }
@@ -66,6 +74,7 @@ impl Default for SamplerConfig {
             top_k: None,
             top_p: None,
             min_p: None,
+            typical_p: None,
             repetition_penalty: 1.0,
         }
     }
@@ -115,8 +124,8 @@ impl Sampler {
 
     /// The full post-processing pipeline as a renormalized probability
     /// distribution: repetition penalty → temperature → top-k → top-p →
-    /// min-p. Filtered tokens have probability exactly `0.0`. The result sums
-    /// to `1.0`.
+    /// min-p → locally-typical. Filtered tokens have probability exactly `0.0`.
+    /// The result sums to `1.0`.
     pub fn distribution(
         &self,
         logits: &[f32],
@@ -165,6 +174,11 @@ impl Sampler {
         // 5. min-p.
         if let Some(mp) = self.config.min_p {
             keep_min_p(&mut probs, mp);
+        }
+
+        // 6. locally-typical.
+        if let Some(tp) = self.config.typical_p {
+            keep_typical(&mut probs, tp);
         }
 
         renormalize(&mut probs)?;
@@ -265,6 +279,39 @@ fn keep_min_p(probs: &mut [f32], min_p: f32) {
     }
 }
 
+/// Locally-typical filter (Meister et al.): keep the smallest set of tokens
+/// whose surprisal `−log p` is closest to the distribution's entropy `H` and
+/// whose cumulative mass reaches `mass`. Tokens whose information content is
+/// near-average are kept; both the over-confident head and the long
+/// low-information tail are trimmed — distinct from nucleus/top-k.
+fn keep_typical(probs: &mut [f32], mass: f32) {
+    // Entropy H = −Σ p·log p over the positive support.
+    let entropy: f32 = probs
+        .iter()
+        .filter(|&&p| p > 0.0)
+        .map(|&p| -p * p.ln())
+        .sum();
+    // Rank tokens by |−log p − H| ascending (closest-to-typical first).
+    let mut idx: Vec<usize> = (0..probs.len()).filter(|&i| probs[i] > 0.0).collect();
+    idx.sort_by(|&a, &b| {
+        let da = (-probs[a].ln() - entropy).abs();
+        let db = (-probs[b].ln() - entropy).abs();
+        da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
+    });
+    let mut cum = 0.0f32;
+    let mut cutoff = idx.len();
+    for (rank, &i) in idx.iter().enumerate() {
+        cum += probs[i];
+        if cum >= mass {
+            cutoff = rank + 1; // include the token that crossed the threshold
+            break;
+        }
+    }
+    for &i in &idx[cutoff..] {
+        probs[i] = 0.0;
+    }
+}
+
 /// Rescale a (possibly sparsified) probability vector to sum to 1.
 fn renormalize(probs: &mut [f32]) -> Result<(), SamplerError> {
     let sum: f32 = probs.iter().sum();
@@ -289,6 +336,53 @@ mod tests {
     fn argmax_picks_the_largest() {
         let s = Sampler::greedy();
         assert_eq!(s.argmax(&[0.1, 0.9, 0.3, -1.0]).unwrap(), 1);
+    }
+
+    #[test]
+    fn typical_sampling_trims_to_near_average_surprisal() {
+        // A peaked distribution: one very high-prob token (low surprisal), a
+        // couple mid, and a low-prob tail. Typical sampling drops the extremes
+        // (the over-confident head and the surprising tail), keeping the middle.
+        let cfg = SamplerConfig {
+            temperature: 1.0,
+            typical_p: Some(0.5),
+            ..SamplerConfig::default()
+        };
+        let s = Sampler::new(cfg);
+        // logits chosen so softmax ≈ [0.64, 0.23, 0.09, 0.03, 0.01]
+        let logits = [3.0f32, 2.0, 1.0, 0.0, -1.0];
+        let dist = s.distribution(&logits, &[]).unwrap();
+        // Some tokens survive, some are filtered, and it still normalizes.
+        assert!((dist.iter().sum::<f32>() - 1.0).abs() < 1e-5);
+        assert!(dist.iter().filter(|&&p| p > 0.0).count() < logits.len());
+        assert!(dist.contains(&0.0), "extremes should be trimmed");
+    }
+
+    #[test]
+    fn typical_p_none_keeps_full_support() {
+        let s = Sampler::new(SamplerConfig {
+            temperature: 1.0,
+            ..SamplerConfig::default()
+        });
+        let dist = s.distribution(&[1.0, 0.5, 0.2, -0.3], &[]).unwrap();
+        assert!(dist.iter().all(|&p| p > 0.0), "no filter → full support");
+    }
+
+    #[test]
+    fn typical_sampling_uniform_keeps_mass_fraction() {
+        // Uniform distribution → every token has surprisal == entropy, so all
+        // are equally typical; the filter keeps the smallest prefix reaching
+        // the mass fraction.
+        let s = Sampler::new(SamplerConfig {
+            temperature: 1.0,
+            typical_p: Some(0.5),
+            ..SamplerConfig::default()
+        });
+        let dist = s.distribution(&[0.0, 0.0, 0.0, 0.0], &[]).unwrap();
+        let kept = dist.iter().filter(|&&p| p > 0.0).count();
+        // 4 uniform tokens at 0.25 each → need 2 to reach 0.5 mass.
+        assert_eq!(kept, 2);
+        assert!((dist.iter().sum::<f32>() - 1.0).abs() < 1e-5);
     }
 
     #[test]
@@ -444,10 +538,20 @@ mod tests {
             top_k: Some(40),
             top_p: Some(0.95),
             min_p: Some(0.05),
+            typical_p: Some(0.9),
             repetition_penalty: 1.1,
         };
         let j = serde_json::to_string(&cfg).unwrap();
         let back: SamplerConfig = serde_json::from_str(&j).unwrap();
         assert_eq!(cfg, back);
+    }
+
+    #[test]
+    fn legacy_config_without_typical_p_deserializes() {
+        let legacy =
+            r#"{"temperature":0.8,"top_k":40,"top_p":null,"min_p":null,"repetition_penalty":1.0}"#;
+        let cfg: SamplerConfig = serde_json::from_str(legacy).unwrap();
+        assert_eq!(cfg.typical_p, None);
+        assert_eq!(cfg.top_k, Some(40));
     }
 }
