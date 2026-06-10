@@ -12,6 +12,17 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Fixed — small operational symmetry + diagnosability gaps (2026-06-10)
+
+- **`make uninstall` now removes what `make bins` installs.** It removed
+  sovereign-osctl + lib + manpage but left the three Rust binaries behind in
+  `PREFIX/bin`. Verified symmetric via a DESTDIR sandbox.
+- **Layer-3 `make lint` failures now show WHICH tests broke.** The
+  makefile-execution harness captured the 4644-test pytest output and then
+  printed only `FAIL — make lint failed`; a CI flake on 2026-06-10 was
+  diagnosable only by inference from the sibling layer-1 job. On failure the
+  harness now prints the FAILED/ERROR lines + the summary tail.
+
 ### Added — the never-cloud-spill invariant now pages (2026-06-10)
 
 The gateway daemon has tracked its sovereignty tripwire since birth

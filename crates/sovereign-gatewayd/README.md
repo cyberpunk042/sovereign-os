@@ -128,6 +128,11 @@ new pipeline:
 The `prediction_agreements / prediction` ratio is how well the engine is
 learning its own routing-outcome dynamics over the process lifetime.
 
+The never-cloud-spill tripwire **pages**: deploy
+`config/prometheus/alerts/sovereign-gatewayd.rules.yml` (critical on the
+holds-gauge dropping, warning on the gauge going `absent()`) — runbooks in
+`docs/operator/m060-deployment-guide.md` § "sovereign-gatewayd alerts".
+
 ## Deployment
 
 ```sh
