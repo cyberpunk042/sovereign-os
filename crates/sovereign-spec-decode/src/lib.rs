@@ -70,6 +70,156 @@ pub enum SpecError {
         /// Target greedy length supplied.
         target: usize,
     },
+    /// One distribution list had the wrong length for the draft.
+    #[error("distribution count {got} must equal {want}")]
+    DistCount {
+        /// Distributions supplied.
+        got: usize,
+        /// Distributions required.
+        want: usize,
+    },
+    /// Two distributions that must share a vocabulary had different lengths.
+    #[error("vocab mismatch: {a} vs {b}")]
+    VocabMismatch {
+        /// First vocabulary size.
+        a: usize,
+        /// Second vocabulary size.
+        b: usize,
+    },
+    /// A draft token id fell outside the distribution's vocabulary.
+    #[error("draft token {token} out of vocab {vocab}")]
+    TokenOutOfVocab {
+        /// The offending token id.
+        token: u32,
+        /// Vocabulary size.
+        vocab: usize,
+    },
+}
+
+/// Outcome of one **sampled** speculative round (the distribution-preserving
+/// variant): the accepted draft prefix plus exactly one correction/bonus
+/// token, all sampled so the emitted sequence has the same distribution as if
+/// every token were drawn from the target model directly.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SampledOutcome {
+    /// Number of draft tokens accepted (the matching prefix length).
+    pub accepted: usize,
+    /// The tokens emitted this round: the `accepted` accepted draft tokens
+    /// followed by one correction (on rejection) or bonus (on full accept).
+    pub emitted_tokens: Vec<u32>,
+    /// How many tokens the draft proposed.
+    pub draft_len: usize,
+}
+
+impl SampledOutcome {
+    /// Tokens emitted per single target verification pass — the speedup.
+    pub fn speedup(&self) -> f64 {
+        self.emitted_tokens.len() as f64
+    }
+
+    /// Acceptance rate in `[0, 1]`.
+    pub fn acceptance_rate(&self) -> f64 {
+        if self.draft_len == 0 {
+            0.0
+        } else {
+            self.accepted as f64 / self.draft_len as f64
+        }
+    }
+}
+
+/// Sample a categorical index from `dist` (assumed non-negative, summing to
+/// `> 0`) using one uniform draw `u ∈ [0, 1)`. Falls back to the last index
+/// for floating-point edge cases.
+fn sample_categorical(dist: &[f64], u: f64) -> u32 {
+    let total: f64 = dist.iter().map(|p| p.max(0.0)).sum();
+    if total <= 0.0 {
+        return 0;
+    }
+    let mut threshold = u * total;
+    for (i, &p) in dist.iter().enumerate() {
+        threshold -= p.max(0.0);
+        if threshold < 0.0 {
+            return i as u32;
+        }
+    }
+    (dist.len() - 1) as u32
+}
+
+/// Sampled speculative verification — the **modified rejection sampling** rule
+/// (Leviathan et al. / Chen et al.) that DFlash relies on for sampling-based
+/// decoding. For each draft position the draft token is accepted with
+/// probability `min(1, p_target / p_draft)`; on the first rejection a
+/// correction is drawn from the normalized residual `(p_target − p_draft)₊`,
+/// and the round ends. If the whole draft is accepted, a bonus token is drawn
+/// from the target distribution at the bonus position.
+///
+/// The point that distinguishes it from [`verify_greedy`]: the emitted
+/// sequence is distributed **exactly** as target-model samples — no accuracy
+/// is traded for the speedup. `p_draft` has one distribution per draft token;
+/// `p_target` has one per draft token **plus** the bonus position (so
+/// `p_target.len() == draft.len() + 1`). All distributions share a vocabulary.
+/// `next_uniform` yields independent draws in `[0, 1)`.
+pub fn verify_sampled(
+    draft: &[u32],
+    p_draft: &[Vec<f64>],
+    p_target: &[Vec<f64>],
+    next_uniform: &mut dyn FnMut() -> f64,
+) -> Result<SampledOutcome, SpecError> {
+    if p_draft.len() != draft.len() {
+        return Err(SpecError::DistCount {
+            got: p_draft.len(),
+            want: draft.len(),
+        });
+    }
+    if p_target.len() != draft.len() + 1 {
+        return Err(SpecError::DistCount {
+            got: p_target.len(),
+            want: draft.len() + 1,
+        });
+    }
+
+    let mut emitted = Vec::with_capacity(draft.len() + 1);
+    for (i, &tok) in draft.iter().enumerate() {
+        let (pd, pt) = (&p_draft[i], &p_target[i]);
+        if pd.len() != pt.len() {
+            return Err(SpecError::VocabMismatch {
+                a: pd.len(),
+                b: pt.len(),
+            });
+        }
+        let t = tok as usize;
+        if t >= pt.len() {
+            return Err(SpecError::TokenOutOfVocab {
+                token: tok,
+                vocab: pt.len(),
+            });
+        }
+        let (ptt, pdt) = (pt[t].max(0.0), pd[t].max(0.0));
+        // Accept with prob min(1, p_target/p_draft); pd==0 → the draft could
+        // not have proposed this honestly, accept (ratio saturates to 1).
+        let ratio = if pdt > 0.0 { (ptt / pdt).min(1.0) } else { 1.0 };
+        if next_uniform() < ratio {
+            emitted.push(tok);
+        } else {
+            // Correction from the normalized positive residual.
+            let residual: Vec<f64> = pt.iter().zip(pd).map(|(a, b)| (a - b).max(0.0)).collect();
+            let corr = sample_categorical(&residual, next_uniform());
+            emitted.push(corr);
+            return Ok(SampledOutcome {
+                accepted: i,
+                emitted_tokens: emitted,
+                draft_len: draft.len(),
+            });
+        }
+    }
+    // Whole draft accepted → bonus from the target at the bonus position.
+    let bonus = sample_categorical(&p_target[draft.len()], next_uniform());
+    emitted.push(bonus);
+    Ok(SampledOutcome {
+        accepted: draft.len(),
+        emitted_tokens: emitted,
+        draft_len: draft.len(),
+    })
 }
 
 /// Greedy speculative verification (the DFlash accept rule).
@@ -240,5 +390,117 @@ mod tests {
         let j = serde_json::to_string(&o).unwrap();
         let back: SpecOutcome = serde_json::from_str(&j).unwrap();
         assert_eq!(o, back);
+    }
+
+    // --- sampled (distribution-preserving) verification ---
+
+    /// Deterministic splitmix64 → uniform `[0, 1)` stream, for reproducible
+    /// statistical tests without a `rand` dependency.
+    struct Uniforms(u64);
+    impl Uniforms {
+        fn next(&mut self) -> f64 {
+            self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
+            let mut z = self.0;
+            z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+            z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+            z ^= z >> 31;
+            // 53-bit mantissa → [0,1)
+            (z >> 11) as f64 / (1u64 << 53) as f64
+        }
+    }
+
+    #[test]
+    fn sampled_full_accept_emits_draft_plus_bonus() {
+        // p_target == p_draft and u always < 1 ratio → every draft accepted.
+        let draft = [0u32, 1];
+        let pd = vec![vec![0.5, 0.5], vec![0.5, 0.5]];
+        let pt = vec![vec![0.5, 0.5], vec![0.5, 0.5], vec![1.0, 0.0]];
+        let mut u = Uniforms(1);
+        let o = verify_sampled(&draft, &pd, &pt, &mut || u.next()).unwrap();
+        assert_eq!(o.accepted, 2);
+        assert_eq!(o.emitted_tokens.len(), 3); // 2 accepted + bonus
+        assert_eq!(o.emitted_tokens[0..2], [0, 1]);
+        assert_eq!(o.emitted_tokens[2], 0); // bonus dist is [1,0] → token 0
+    }
+
+    #[test]
+    fn sampled_rejection_emits_residual_correction() {
+        // Draft proposes token 0, but target never emits it (p_target[0]=0) and
+        // the draft is certain of it → guaranteed rejection. Residual = target.
+        let draft = [0u32];
+        let pd = vec![vec![1.0, 0.0, 0.0]];
+        let pt = vec![vec![0.0, 0.4, 0.6], vec![1.0, 0.0, 0.0]];
+        let mut u = Uniforms(7);
+        let o = verify_sampled(&draft, &pd, &pt, &mut || u.next()).unwrap();
+        assert_eq!(o.accepted, 0);
+        assert_eq!(o.emitted_tokens.len(), 1);
+        assert!(matches!(o.emitted_tokens[0], 1 | 2)); // from residual {1,2}
+    }
+
+    #[test]
+    fn sampled_preserves_the_target_distribution() {
+        // The defining property: across many rounds the first emitted token is
+        // distributed exactly as p_target[0], whatever the draft proposes or
+        // how wrong p_draft is. vocab = 3, single draft token.
+        let p_target0 = [0.2_f64, 0.3, 0.5];
+        let pd = vec![vec![0.7, 0.2, 0.1]]; // deliberately mismatched draft
+        let pt = vec![p_target0.to_vec(), vec![1.0, 0.0, 0.0]];
+        let mut u = Uniforms(0xDEADBEEF);
+        let trials = 400_000;
+        let mut counts = [0u64; 3];
+        for _ in 0..trials {
+            // Draft token sampled from the draft model itself.
+            let draft_tok = sample_categorical(&pd[0], u.next());
+            let o = verify_sampled(&[draft_tok], &pd, &pt, &mut || u.next()).unwrap();
+            counts[o.emitted_tokens[0] as usize] += 1;
+        }
+        for (k, &want) in p_target0.iter().enumerate() {
+            let got = counts[k] as f64 / trials as f64;
+            assert!(
+                (got - want).abs() < 0.01,
+                "token {k}: empirical {got} vs target {want}"
+            );
+        }
+    }
+
+    #[test]
+    fn sampled_high_target_prob_always_accepts() {
+        // p_target[draft] >= p_draft[draft] → ratio saturates to 1, accept for
+        // any uniform draw, so the draft token is always emitted first.
+        let draft = [1u32];
+        let pd = vec![vec![0.5, 0.5]];
+        let pt = vec![vec![0.1, 0.9], vec![1.0, 0.0]];
+        for seed in 0..50u64 {
+            let mut u = Uniforms(seed);
+            let o = verify_sampled(&draft, &pd, &pt, &mut || u.next()).unwrap();
+            assert_eq!(o.emitted_tokens[0], 1);
+            assert_eq!(o.accepted, 1);
+        }
+    }
+
+    #[test]
+    fn sampled_shape_errors() {
+        let mut u = Uniforms(1);
+        // wrong p_draft count
+        assert_eq!(
+            verify_sampled(&[0], &[], &[vec![1.0], vec![1.0]], &mut || u.next()).unwrap_err(),
+            SpecError::DistCount { got: 0, want: 1 }
+        );
+        // wrong p_target count (needs draft+1)
+        assert_eq!(
+            verify_sampled(&[0], &[vec![1.0]], &[vec![1.0]], &mut || u.next()).unwrap_err(),
+            SpecError::DistCount { got: 1, want: 2 }
+        );
+        // token out of vocab
+        assert_eq!(
+            verify_sampled(
+                &[5],
+                &[vec![1.0, 0.0]],
+                &[vec![1.0, 0.0], vec![1.0, 0.0]],
+                &mut || u.next()
+            )
+            .unwrap_err(),
+            SpecError::TokenOutOfVocab { token: 5, vocab: 2 }
+        );
     }
 }
