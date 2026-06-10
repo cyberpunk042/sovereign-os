@@ -87,9 +87,55 @@ pub fn quantize_absmean(weights: &[f32]) -> (Vec<Trit>, f32) {
     (trits, scale)
 }
 
+/// Relative reconstruction error of absmean ternary quantization:
+/// `‖W − Ŵ‖_F / ‖W‖_F`, where `Ŵ[i] = γ · value(quantize(W[i]))`.
+///
+/// This is the standard quality metric for whether a weight matrix is
+/// *ternary-friendly*: `0.0` means the 1.58-bit approximation is lossless
+/// for this tensor (every weight already sits at `−γ`, `0`, or `+γ`);
+/// values approaching `1.0` mean most of the tensor's energy is lost to the
+/// approximation. Use it to decide per-layer whether ternary is safe or a
+/// higher precision (NVFP4 / FP16) is warranted.
+///
+/// An all-zero (or empty) tensor reconstructs exactly and returns `0.0`.
+pub fn ternary_reconstruction_error(weights: &[f32]) -> f64 {
+    let (trits, scale) = quantize_absmean(weights);
+    let mut num = 0.0f64;
+    let mut den = 0.0f64;
+    for (&w, t) in weights.iter().zip(&trits) {
+        let recon = scale as f64 * t.value() as f64;
+        let diff = w as f64 - recon;
+        num += diff * diff;
+        den += (w as f64) * (w as f64);
+    }
+    if den == 0.0 { 0.0 } else { (num / den).sqrt() }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reconstruction_error_lossless_for_equal_magnitudes() {
+        // All |w| equal → absmean scale = |w|, each weight maps to ±1·scale
+        // exactly → zero reconstruction error.
+        let w = [2.0f32, -2.0, 2.0, -2.0];
+        assert_eq!(ternary_reconstruction_error(&w), 0.0);
+    }
+
+    #[test]
+    fn reconstruction_error_zero_tensor_is_zero() {
+        assert_eq!(ternary_reconstruction_error(&[0.0f32; 8]), 0.0);
+        assert_eq!(ternary_reconstruction_error(&[]), 0.0);
+    }
+
+    #[test]
+    fn reconstruction_error_bounded_and_positive_for_spread_weights() {
+        // A spread of magnitudes loses information to the ternary clamp/round.
+        let w = [0.1f32, 0.9, -0.2, 3.0, -1.5, 0.05];
+        let e = ternary_reconstruction_error(&w);
+        assert!(e > 0.0 && e < 1.0, "error out of (0,1): {e}");
+    }
 
     #[test]
     fn trit_values() {
