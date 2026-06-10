@@ -111,9 +111,32 @@ pub fn ternary_reconstruction_error(weights: &[f32]) -> f64 {
     if den == 0.0 { 0.0 } else { (num / den).sqrt() }
 }
 
+/// Whether absmean ternary quantization is safe for this tensor at a given
+/// relative-error tolerance — the actionable, operator-facing per-layer
+/// decision (R12201/R12228: exempt layers that quantize poorly from the
+/// ternary requirement). Returns `true` when
+/// [`ternary_reconstruction_error`] is at or below `max_relative_error`.
+///
+/// A lossless tensor (all magnitudes equal, or all-zero) is ternary-friendly
+/// at any non-negative tolerance.
+pub fn is_ternary_friendly(weights: &[f32], max_relative_error: f64) -> bool {
+    ternary_reconstruction_error(weights) <= max_relative_error
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ternary_friendly_accepts_lossless_and_rejects_lossy() {
+        // Lossless (equal magnitudes) → friendly at any tolerance, incl. 0.
+        assert!(is_ternary_friendly(&[2.0f32, -2.0, 2.0], 0.0));
+        // A spread tensor has positive error; a zero tolerance rejects it,
+        // a generous tolerance accepts it.
+        let spread = [0.1f32, 0.9, -0.2, 3.0, -1.5, 0.05];
+        assert!(!is_ternary_friendly(&spread, 0.0));
+        assert!(is_ternary_friendly(&spread, 1.0));
+    }
 
     #[test]
     fn reconstruction_error_lossless_for_equal_magnitudes() {

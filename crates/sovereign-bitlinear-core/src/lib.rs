@@ -52,7 +52,7 @@ pub use linear::{BitLinearLayer, EnergyReport, OpCount};
 pub use mlp::{Activation, BitLinearMlp};
 pub use pack::{Packing, bits_per_param};
 pub use swiglu::{TernarySwiGlu, silu};
-pub use ternary::{Trit, quantize_absmean, ternary_reconstruction_error};
+pub use ternary::{Trit, is_ternary_friendly, quantize_absmean, ternary_reconstruction_error};
 pub use validate::{InfoTheoryReport, validate_bits_per_param};
 
 /// Schema version of the BitLinear ternary surface (F06079).
