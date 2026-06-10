@@ -115,8 +115,11 @@ bins:  ## Build + install the Rust binaries (sovereign-telemetry, sovereign-reso
 	@echo "  $(DESTDIR)$(PREFIX)/bin/sovereign-resource-control"
 	@echo "  $(DESTDIR)$(PREFIX)/bin/sovereign-gatewayd         (sovereign-gatewayd.service)"
 
-uninstall:  ## Remove sovereign-osctl + manpage from PREFIX
+uninstall:  ## Remove sovereign-osctl + manpage + the `bins` binaries from PREFIX
 	@rm -f  "$(DESTDIR)$(PREFIX)/bin/sovereign-osctl"
 	@rm -f  "$(DESTDIR)$(PREFIX)/share/man/man1/sovereign-osctl.1"
 	@rm -rf "$(DESTDIR)$(SOVEREIGN_OS_LIB)"
-	@echo "Uninstalled sovereign-osctl + lib + manpage from PREFIX=$(PREFIX)"
+	@rm -f  "$(DESTDIR)$(PREFIX)/bin/sovereign-telemetry"
+	@rm -f  "$(DESTDIR)$(PREFIX)/bin/sovereign-resource-control"
+	@rm -f  "$(DESTDIR)$(PREFIX)/bin/sovereign-gatewayd"
+	@echo "Uninstalled sovereign-osctl + lib + manpage + bins from PREFIX=$(PREFIX)"
