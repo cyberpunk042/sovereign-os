@@ -117,6 +117,12 @@ fn nvfp4_mha_layer() -> MhaDecoderBlock {
 
 /// Build the demo runtime: BPE tokenizer + mixed-precision 3-layer model.
 fn build_runtime() -> QuantLlm {
+    build_runtime_with(false)
+}
+
+/// Build the demo runtime, optionally with the NVFP4 layer's KV cache
+/// NVFP4-compressed (`quantized_kv`) instead of dense f32.
+fn build_runtime_with(quantized_kv: bool) -> QuantLlm {
     // a few merges so the tokenizer does real BPE, not just raw bytes
     let merges = [("t", "h"), ("th", "e"), ("e", " ")]
         .iter()
@@ -125,10 +131,15 @@ fn build_runtime() -> QuantLlm {
     let tokenizer = Tokenizer::from_merges(merges);
     let vocab = tokenizer.vocab_size();
 
+    let nvfp4 = if quantized_kv {
+        nvfp4_mha_layer().with_quantized_kv()
+    } else {
+        nvfp4_mha_layer()
+    };
     let layers: Vec<Box<dyn DecoderLayer>> = vec![
         Box::new(f32_layer()),
         Box::new(ternary_layer()),
-        Box::new(nvfp4_mha_layer()),
+        Box::new(nvfp4),
     ];
     let stack = LayerStack::new(layers).expect("non-empty stack");
 
@@ -343,24 +354,26 @@ fn run_demo() -> String {
         "nvfp4 calibrated: precision assignment @10% budget → {tern} ternary, {nvfp} nvfp4, {full} f32"
     );
 
-    // NVFP4-compressed KV cache: run the NVFP4 block with its cache quantized
-    // and confirm it decodes finite — the cache stores K/V at ~4.5 bits/param
-    // instead of 32 (~7× smaller).
-    let mut qkv = nvfp4_mha_layer().with_quantized_kv();
-    let mut kv_ok = true;
-    for s in 0..3 {
-        let h: Vec<f32> = (0..MODEL_DIM)
-            .map(|i| ((i + s) as f32 * 0.2).sin())
-            .collect();
-        kv_ok &= qkv
-            .step(&h)
-            .map(|y| y.iter().all(|v| v.is_finite()))
-            .unwrap_or(false);
-    }
+    // NVFP4-compressed KV cache used in the *actual* generation path: build the
+    // same model with the NVFP4 layer's cache quantized (~7× smaller), generate,
+    // and report how closely it tracks the dense-cache generation.
+    let (kv_prompt, kv_seed) = ("the cat", 0xC0FFEE);
+    let qkv_ids = build_runtime_with(true)
+        .generate_ids(kv_prompt, 12, kv_seed)
+        .expect("qkv generation");
+    let dense_ids = build_runtime()
+        .generate_ids(kv_prompt, 12, kv_seed)
+        .expect("dense generation");
+    let agree = qkv_ids
+        .iter()
+        .zip(&dense_ids)
+        .filter(|(a, b)| a == b)
+        .count();
     let _ = writeln!(
         out,
-        "nvfp4 kv-cache  : compressed cache decodes {} positions (finite={kv_ok}), ~7× smaller (4.5 vs 32 bpp)",
-        qkv.len()
+        "nvfp4 kv-cache  : compressed-cache generation matches {}/{} dense tokens (~7× smaller, 4.5 vs 32 bpp)",
+        agree,
+        dense_ids.len()
     );
 
     out
