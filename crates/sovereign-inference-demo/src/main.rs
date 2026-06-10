@@ -720,6 +720,17 @@ fn run_rag_quality_demo() -> String {
         .expect("screened");
     let _ = writeln!(out, "toxicity screen  : flagged={toxic}");
 
+    // Constrained decoding: the regex mask forces digits-only output regardless
+    // of the (random) weights — guaranteed-format generation.
+    let digits = llm
+        .complete_regex("pick a number: ", "[0-9]+", 8, 7)
+        .expect("regex");
+    let all_digits = digits.chars().all(|c| c.is_ascii_digit());
+    let _ = writeln!(
+        out,
+        "regex [0-9]+     : {digits:?} (all digits = {all_digits})"
+    );
+
     out
 }
 
@@ -790,6 +801,9 @@ mod tests {
         assert!(report.contains("degeneration     :"));
         assert!(report.contains("confidence       :"));
         assert!(report.contains("toxicity screen  :"));
+        // constrained decoding actually produced digits-only output
+        assert!(report.contains("regex [0-9]+     :"));
+        assert!(report.contains("all digits = true"), "{report}");
     }
 
     #[test]
