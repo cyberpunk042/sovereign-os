@@ -62,6 +62,10 @@ __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 : "${SOVEREIGN_OS_PROFILE:=sain-01}"
 : "${SOVEREIGN_OS_SUBSTRATE:=mkosi}"   # working hypothesis; Q-001 locks at Gate 2
+# Steps run as child processes — without export, a sudo env_reset run leaves
+# these as unexported shell vars and every `set -u` step dies at its first
+# ${SOVEREIGN_OS_PROFILE} reference (caught by the first real build, 2026-06-10).
+export SOVEREIGN_OS_PROFILE SOVEREIGN_OS_SUBSTRATE
 
 # Ordered list of steps. Each is a sibling script that sources the
 # common lib and registers under its step-id.
