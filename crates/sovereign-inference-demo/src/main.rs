@@ -185,6 +185,28 @@ fn run_demo() -> String {
     let again = llm2.generate_ids(prompt, 12, seed).expect("generation");
     let _ = writeln!(out, "reproducible    : {}", again == ids);
 
+    // M073 energy monitor: a representative ternary FFN projection
+    // (model_dim → 4·model_dim, ~⅓ zero weights) reports its
+    // multiplication-free savings. The ternary decoder layer above runs the
+    // same BitLinear kernel; this surfaces what that kernel saves.
+    let (out_dim, in_dim) = (4 * MODEL_DIM, MODEL_DIM);
+    let ffn_w: Vec<f32> = (0..out_dim * in_dim)
+        .map(|i| if i % 3 == 0 { 0.0 } else { 0.5 })
+        .collect();
+    if let Ok(proj) =
+        sovereign_linear::Linear::from_f32(&ffn_w, out_dim, in_dim, Precision::Ternary)
+    {
+        if let Ok(Some(e)) = proj.energy_report(&vec![1.0f32; in_dim]) {
+            let _ = writeln!(
+                out,
+                "ternary FFN proj: {} inner-muls eliminated, {:.1}% energy saved, {:.0}% weight-sparse",
+                e.muls_eliminated,
+                e.energy_saving_ratio * 100.0,
+                e.sparsity * 100.0
+            );
+        }
+    }
+
     out
 }
 
