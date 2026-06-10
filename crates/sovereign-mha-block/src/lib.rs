@@ -34,6 +34,7 @@
 use sovereign_ffn::silu;
 use sovereign_linear::{Linear, LinearError, NvfpRecipe, Precision};
 use sovereign_mha::{Mha, MhaError};
+use sovereign_nvfp4_runtime::QuantMatrix;
 use sovereign_rmsnorm::{RmsNorm, RmsNormError};
 use sovereign_rope::{Rope, RopeError};
 use thiserror::Error;
@@ -64,6 +65,52 @@ pub enum MhaBlockError {
     /// A RoPE sub-error.
     #[error("rope: {0}")]
     Rope(#[from] RopeError),
+    /// Quantizing a KV-cache vector to NVFP4 failed.
+    #[error("kv-cache quant: {0}")]
+    KvQuant(String),
+}
+
+/// The autoregressive KV cache, either dense f32 or NVFP4-compressed. The
+/// quantized variant stores each cached key/value vector at ~4.5 bits/param
+/// (4-bit elements + per-16-block E4M3 scale) instead of 32, ~7× smaller, at
+/// the cost of a bounded reconstruction error and a transient dequantization
+/// when attention reads the cache.
+#[derive(Debug, Clone)]
+enum KvStore {
+    Full(Vec<Vec<f32>>),
+    Quant(Vec<QuantMatrix>),
+}
+
+impl KvStore {
+    fn len(&self) -> usize {
+        match self {
+            KvStore::Full(v) => v.len(),
+            KvStore::Quant(v) => v.len(),
+        }
+    }
+
+    /// Append a vector, quantizing it (as a `1 × dim` matrix) when compressed.
+    fn push(&mut self, vec: Vec<f32>) -> Result<(), MhaBlockError> {
+        match self {
+            KvStore::Full(s) => s.push(vec),
+            KvStore::Quant(s) => {
+                let dim = vec.len();
+                let q = QuantMatrix::from_f32(&vec, 1, dim)
+                    .map_err(|e| MhaBlockError::KvQuant(e.to_string()))?;
+                s.push(q);
+            }
+        }
+        Ok(())
+    }
+
+    /// Materialize the cached vectors as dense f32 (dequantizing if compressed)
+    /// so attention can read them.
+    fn materialize(&self) -> Vec<Vec<f32>> {
+        match self {
+            KvStore::Full(s) => s.clone(),
+            KvStore::Quant(s) => s.iter().map(|q| q.dequantized_weights()).collect(),
+        }
+    }
 }
 
 /// f32 weights for a multi-head decoder block (row-major).
@@ -118,8 +165,8 @@ pub struct MhaDecoderBlock {
     down: Linear,
     rope: Rope,
     mha: Mha,
-    rotated_keys: Vec<Vec<f32>>,
-    values: Vec<Vec<f32>>,
+    rotated_keys: KvStore,
+    values: KvStore,
 }
 
 impl MhaDecoderBlock {
@@ -179,9 +226,25 @@ impl MhaDecoderBlock {
             down: build("down", &weights.w_down, md, hid)?,
             rope: Rope::new(hd),
             mha,
-            rotated_keys: Vec::new(),
-            values: Vec::new(),
+            rotated_keys: KvStore::Full(Vec::new()),
+            values: KvStore::Full(Vec::new()),
         })
+    }
+
+    /// Switch this block to an **NVFP4-compressed KV cache** (default is dense
+    /// f32). Each cached key/value vector is stored at ~4.5 bits/param instead
+    /// of 32 — about 7× smaller — trading a bounded reconstruction error and a
+    /// transient dequantization at attention time for the memory saving. Must
+    /// be called before any `step` (the cache must be empty).
+    pub fn with_quantized_kv(mut self) -> Self {
+        self.rotated_keys = KvStore::Quant(Vec::new());
+        self.values = KvStore::Quant(Vec::new());
+        self
+    }
+
+    /// Whether this block stores its KV cache NVFP4-compressed.
+    pub fn kv_quantized(&self) -> bool {
+        matches!(self.values, KvStore::Quant(_))
     }
 
     /// The execution precision.
@@ -224,7 +287,7 @@ impl MhaDecoderBlock {
 
     /// Whether the cache is empty.
     pub fn is_empty(&self) -> bool {
-        self.values.is_empty()
+        self.values.len() == 0
     }
 
     /// Rotate each `head_dim`-wide head slice of `v` by `pos`.
@@ -254,10 +317,12 @@ impl MhaDecoderBlock {
         let v = self.v.forward(&n1)?;
         self.rope_heads(&mut q, self.num_q_heads, pos)?;
         self.rope_heads(&mut k, self.num_kv_heads, pos)?;
-        self.rotated_keys.push(k);
-        self.values.push(v);
+        self.rotated_keys.push(k)?;
+        self.values.push(v)?;
 
-        let ctx = self.mha.attend(&q, &self.rotated_keys, &self.values)?;
+        let keys = self.rotated_keys.materialize();
+        let vals = self.values.materialize();
+        let ctx = self.mha.attend(&q, &keys, &vals)?;
         let attn_out = self.o.forward(&ctx)?;
         let h1: Vec<f32> = hidden.iter().zip(&attn_out).map(|(a, b)| a + b).collect();
 
@@ -389,6 +454,52 @@ mod tests {
         let b = MhaDecoderBlock::from_weights_selective(&w, Precision::Nvfp4, &[]).unwrap();
         assert_eq!(a.nvfp4_recipes(), b.nvfp4_recipes());
         assert_eq!(b.nvfp4_recipes().len(), 7);
+    }
+
+    #[test]
+    fn quantized_kv_cache_runs_and_tracks_length() {
+        let w = weights(8, 2, 4, 2, 16);
+        let mut block = MhaDecoderBlock::from_weights(&w, Precision::F32)
+            .unwrap()
+            .with_quantized_kv();
+        assert!(block.kv_quantized());
+        assert!(block.is_empty());
+        for step in 0..6 {
+            let x: Vec<f32> = (0..8).map(|i| ((i + step) as f32 * 0.2).sin()).collect();
+            let y = block.step(&x).unwrap();
+            assert_eq!(y.len(), 8);
+            assert!(y.iter().all(|v| v.is_finite()));
+        }
+        assert_eq!(block.len(), 6);
+    }
+
+    #[test]
+    fn quantized_kv_stays_close_to_full_cache() {
+        // model_dim 16, num_kv 4 × head_dim 4 → 16-wide KV vectors that fill one
+        // NVFP4 block exactly (the realistic case). The compressed cache should
+        // track the dense-f32 cache: small relative deviation, never diverging.
+        let w = weights(16, 4, 4, 4, 16);
+        let mut full = MhaDecoderBlock::from_weights(&w, Precision::F32).unwrap();
+        let mut quant = MhaDecoderBlock::from_weights(&w, Precision::F32)
+            .unwrap()
+            .with_quantized_kv();
+        let (mut max_dev, mut max_mag) = (0.0f32, 1e-6f32);
+        for step in 0..5 {
+            let x: Vec<f32> = (0..16).map(|i| ((i + step) as f32 * 0.3).sin()).collect();
+            let a = full.step(&x).unwrap();
+            let b = quant.step(&x).unwrap();
+            for (p, q) in a.iter().zip(&b) {
+                max_dev = max_dev.max((p - q).abs());
+                max_mag = max_mag.max(p.abs());
+            }
+        }
+        // Relative deviation stays modest with a full-block NVFP4 cache.
+        let rel = max_dev / max_mag;
+        assert!(
+            rel < 0.15,
+            "quantized-KV relative deviation {rel} too large"
+        );
+        assert!(!full.kv_quantized() && quant.kv_quantized());
     }
 
     #[test]
