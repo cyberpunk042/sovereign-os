@@ -21,6 +21,7 @@ use sovereign_attention::{Attention, DecodeStep};
 use sovereign_bitlinear_core::{BitLinearMlp, Packing, bits_per_param as ternary_bits_per_param};
 use sovereign_nvfp4_runtime::{
     BLOCK_SIZE, ELEMENT_BITS, QuantMatrix, RhtQuantMatrix, SCALE_BITS, TwoDQuantMatrix,
+    relative_frobenius_error,
 };
 use sovereign_router_7axis::SrpRole;
 use sovereign_spec_decode::expected_speedup;
@@ -137,7 +138,24 @@ fn nvfp4_kernel_live() -> bool {
         Ok(y) if finite(&y)
     );
 
-    plain && rht && two_d
+    // The recipes are genuinely distinct, not aliases: on a column-structured
+    // matrix (one systematically-tiny column that plain's per-row scale rounds
+    // toward zero) the 2D recipe's per-column scale reconstructs the weights at
+    // least as well as plain microscaling. This is the property recipe
+    // selection exploits, so the self-check asserts it, not just finiteness.
+    let mut col_w = vec![1.0f32; out_dim * in_dim];
+    for o in 0..out_dim {
+        col_w[o * in_dim + 5] = 0.012;
+    }
+    let plain_err = QuantMatrix::from_f32(&col_w, out_dim, in_dim)
+        .map(|m| relative_frobenius_error(&col_w, &m.dequantized_weights()))
+        .unwrap_or(f64::INFINITY);
+    let two_d_err = TwoDQuantMatrix::from_f32(&col_w, out_dim, in_dim)
+        .map(|m| relative_frobenius_error(&col_w, &m.dequantized_weights()))
+        .unwrap_or(f64::INFINITY);
+    let two_d_wins = two_d_err <= plain_err + 1e-9;
+
+    plain && rht && two_d && two_d_wins
 }
 
 /// Live self-check of the attention inner loop: stream three tokens through
