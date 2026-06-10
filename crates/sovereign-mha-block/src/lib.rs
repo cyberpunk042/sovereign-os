@@ -32,7 +32,7 @@
 #![warn(missing_docs)]
 
 use sovereign_ffn::silu;
-use sovereign_linear::{Linear, LinearError, Precision};
+use sovereign_linear::{Linear, LinearError, NvfpRecipe, Precision};
 use sovereign_mha::{Mha, MhaError};
 use sovereign_rmsnorm::{RmsNorm, RmsNormError};
 use sovereign_rope::{Rope, RopeError};
@@ -134,6 +134,15 @@ impl MhaDecoderBlock {
         let q_dim = weights.num_q_heads * hd;
         let kv_dim = weights.num_kv_heads * hd;
         let mha = Mha::new(weights.num_q_heads, weights.num_kv_heads, hd)?;
+        // For NVFP4, each projection auto-selects the M077 accuracy recipe its
+        // weight distribution needs (plain / RHT / 2D); other precisions build
+        // their single backend directly.
+        let build = |w: &[f32], out: usize, inp: usize| -> Result<Linear, LinearError> {
+            match precision {
+                Precision::Nvfp4 => Linear::from_f32_nvfp4_auto(w, out, inp),
+                _ => Linear::from_f32(w, out, inp, precision),
+            }
+        };
         Ok(Self {
             model_dim: md,
             head_dim: hd,
@@ -142,13 +151,13 @@ impl MhaDecoderBlock {
             precision,
             attn_norm: weights.attn_norm.clone(),
             ffn_norm: weights.ffn_norm.clone(),
-            q: Linear::from_f32(&weights.w_q, q_dim, md, precision)?,
-            k: Linear::from_f32(&weights.w_k, kv_dim, md, precision)?,
-            v: Linear::from_f32(&weights.w_v, kv_dim, md, precision)?,
-            o: Linear::from_f32(&weights.w_o, md, q_dim, precision)?,
-            gate: Linear::from_f32(&weights.w_gate, hid, md, precision)?,
-            up: Linear::from_f32(&weights.w_up, hid, md, precision)?,
-            down: Linear::from_f32(&weights.w_down, md, hid, precision)?,
+            q: build(&weights.w_q, q_dim, md)?,
+            k: build(&weights.w_k, kv_dim, md)?,
+            v: build(&weights.w_v, kv_dim, md)?,
+            o: build(&weights.w_o, md, q_dim)?,
+            gate: build(&weights.w_gate, hid, md)?,
+            up: build(&weights.w_up, hid, md)?,
+            down: build(&weights.w_down, md, hid)?,
             rope: Rope::new(hd),
             mha,
             rotated_keys: Vec::new(),
@@ -159,6 +168,24 @@ impl MhaDecoderBlock {
     /// The execution precision.
     pub fn precision(&self) -> Precision {
         self.precision
+    }
+
+    /// The M077 NVFP4 recipe each projection auto-selected, as
+    /// `(name, recipe)` pairs, or empty when the block is not NVFP4. Lets the
+    /// engine report which projections needed RHT / 2D over plain microscaling.
+    pub fn nvfp4_recipes(&self) -> Vec<(&'static str, NvfpRecipe)> {
+        [
+            ("q", &self.q),
+            ("k", &self.k),
+            ("v", &self.v),
+            ("o", &self.o),
+            ("gate", &self.gate),
+            ("up", &self.up),
+            ("down", &self.down),
+        ]
+        .into_iter()
+        .filter_map(|(name, lin)| lin.nvfp4_recipe().map(|r| (name, r)))
+        .collect()
     }
 
     /// Number of query heads.
@@ -295,6 +322,24 @@ mod tests {
                 assert!((a - b).abs() < 1e-5, "step {step}: {ya:?} vs {yb:?}");
             }
         }
+    }
+
+    #[test]
+    fn nvfp4_block_reports_a_recipe_per_projection() {
+        // An NVFP4 block auto-selects a recipe for all 7 projections; an F32
+        // block reports none.
+        let w = weights(8, 2, 4, 2, 16);
+        let block = MhaDecoderBlock::from_weights(&w, Precision::Nvfp4).unwrap();
+        let recipes = block.nvfp4_recipes();
+        assert_eq!(recipes.len(), 7);
+        assert!(
+            recipes.iter().all(|(_, r)| matches!(
+                r,
+                NvfpRecipe::Plain | NvfpRecipe::Rht(_) | NvfpRecipe::TwoD
+            ))
+        );
+        let f32_block = MhaDecoderBlock::from_weights(&w, Precision::F32).unwrap();
+        assert!(f32_block.nvfp4_recipes().is_empty());
     }
 
     #[test]
