@@ -17,7 +17,7 @@
 #![warn(missing_docs)]
 
 use serde::{Deserialize, Serialize};
-use sovereign_linear::{Linear, LinearError, Precision};
+use sovereign_linear::{Linear, LinearError, NvfpRecipe, Precision};
 use thiserror::Error;
 
 /// Schema version of the calibration surface.
@@ -152,6 +152,61 @@ pub fn recommend(
     Ok(Precision::F32)
 }
 
+/// Activation-aware NVFP4 recipe selection: build each applicable M077 recipe
+/// (plain / 2D, plus RHT when `input_dim` is a power of two), run it over
+/// `inputs`, and return the recipe whose **output** is closest to the f32
+/// reference (lowest relative L2 error `‖Ŵx − Wx‖/‖Wx‖`), with that error.
+///
+/// This is the activation-aware complement to
+/// [`sovereign_linear::best_nvfp4_recipe`], which ranks by *weight*
+/// reconstruction error alone. What matters at inference is the error in `Wx`,
+/// and a recipe that conditions the weights better for the activation
+/// distribution can win here even when weight error is similar.
+pub fn best_nvfp4_recipe_calibrated(
+    weights: &[f32],
+    output_dim: usize,
+    input_dim: usize,
+    inputs: &[Vec<f32>],
+) -> Result<(NvfpRecipe, f64), CalibrationError> {
+    if inputs.is_empty() {
+        return Err(CalibrationError::NoInputs);
+    }
+    let reference = Linear::from_f32(weights, output_dim, input_dim, Precision::F32)?;
+    let refs: Vec<Vec<f32>> = inputs
+        .iter()
+        .map(|x| reference.forward(x))
+        .collect::<Result<_, _>>()?;
+
+    let mut recipes = vec![NvfpRecipe::Plain, NvfpRecipe::TwoD];
+    if input_dim.is_power_of_two() {
+        recipes.push(NvfpRecipe::Rht(0));
+    }
+
+    let mut best = (NvfpRecipe::Plain, f64::INFINITY);
+    for recipe in recipes {
+        let layer = Linear::from_f32_nvfp4(weights, output_dim, input_dim, recipe)?;
+        let mut sq_err = 0.0f64; // Σ‖Δ‖²
+        let mut sq_ref = 0.0f64; // Σ‖ref‖²
+        for (x, r) in inputs.iter().zip(&refs) {
+            let y = layer.forward(x)?;
+            for (yi, ri) in y.iter().zip(r) {
+                let d = (*yi as f64) - (*ri as f64);
+                sq_err += d * d;
+                sq_ref += (*ri as f64) * (*ri as f64);
+            }
+        }
+        let rel = if sq_ref > 0.0 {
+            (sq_err / sq_ref).sqrt()
+        } else {
+            0.0
+        };
+        if rel < best.1 {
+            best = (recipe, rel);
+        }
+    }
+    Ok(best)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -248,6 +303,47 @@ mod tests {
         let w = vec![1.0; 32];
         assert_eq!(
             calibrate(&w, 2, 16, &[]).unwrap_err(),
+            CalibrationError::NoInputs
+        );
+    }
+
+    #[test]
+    fn calibrated_recipe_beats_or_matches_plain() {
+        // Column-structured weights: 2D conditioning should give output error
+        // no worse than plain microscaling under real activations.
+        let (output_dim, input_dim) = (6, 16);
+        let mut w = vec![1.0f32; output_dim * input_dim];
+        for o in 0..output_dim {
+            w[o * input_dim + 5] = 0.012;
+        }
+        let inputs = ones_inputs(4, 16);
+        let (recipe, err) =
+            best_nvfp4_recipe_calibrated(&w, output_dim, input_dim, &inputs).unwrap();
+        // The chosen recipe's output error must not exceed plain's.
+        let plain = Linear::from_f32_nvfp4(&w, output_dim, input_dim, NvfpRecipe::Plain).unwrap();
+        let reference = Linear::from_f32(&w, output_dim, input_dim, Precision::F32).unwrap();
+        let (mut sq_err, mut sq_ref) = (0.0f64, 0.0f64);
+        for x in &inputs {
+            let y = plain.forward(x).unwrap();
+            let r = reference.forward(x).unwrap();
+            for (yi, ri) in y.iter().zip(&r) {
+                let d = *yi as f64 - *ri as f64;
+                sq_err += d * d;
+                sq_ref += (*ri as f64) * (*ri as f64);
+            }
+        }
+        let plain_err = (sq_err / sq_ref).sqrt();
+        assert!(
+            err <= plain_err + 1e-9,
+            "chosen {recipe:?} err {err} should be ≤ plain {plain_err}"
+        );
+    }
+
+    #[test]
+    fn calibrated_recipe_no_inputs_is_an_error() {
+        let w = vec![1.0f32; 32];
+        assert_eq!(
+            best_nvfp4_recipe_calibrated(&w, 2, 16, &[]).unwrap_err(),
             CalibrationError::NoInputs
         );
     }
