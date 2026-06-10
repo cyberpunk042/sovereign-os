@@ -188,6 +188,33 @@ impl Linear {
         })
     }
 
+    /// Build a `Precision::Nvfp4` layer that auto-selects the lowest-error
+    /// M077 [`NvfpRecipe`] for this weight matrix via [`best_nvfp4_recipe`].
+    /// This is the per-projection integration point the model builder uses so
+    /// each NVFP4 layer gets the accuracy recipe its weight distribution needs
+    /// (outlier-heavy → RHT, column-structured → 2D, well-behaved → plain)
+    /// without a hand-tuned per-layer table.
+    pub fn from_f32_nvfp4_auto(
+        weights: &[f32],
+        output_dim: usize,
+        input_dim: usize,
+    ) -> Result<Self, LinearError> {
+        let recipe = best_nvfp4_recipe(weights, output_dim, input_dim);
+        Self::from_f32_nvfp4(weights, output_dim, input_dim, recipe)
+    }
+
+    /// The M077 [`NvfpRecipe`] backing this layer, or `None` if the layer is
+    /// not NVFP4. Lets the model builder report which recipe each projection
+    /// auto-selected.
+    pub fn nvfp4_recipe(&self) -> Option<NvfpRecipe> {
+        match &self.backend {
+            Backend::Nvfp4(_) => Some(NvfpRecipe::Plain),
+            Backend::Nvfp4Rht(q) => Some(NvfpRecipe::Rht(q.seed())),
+            Backend::Nvfp4TwoD(_) => Some(NvfpRecipe::TwoD),
+            _ => None,
+        }
+    }
+
     /// Output dimension (rows).
     pub fn output_dim(&self) -> usize {
         self.output_dim
@@ -414,6 +441,40 @@ mod tests {
             assert_eq!(y.len(), output_dim);
             assert!(y.iter().all(|v| v.is_finite()));
         }
+    }
+
+    #[test]
+    fn nvfp4_auto_selects_best_recipe_and_reports_it() {
+        // Column-structured weights → auto-constructor must pick TwoD and a
+        // layer built that way must report TwoD via nvfp4_recipe().
+        let (output_dim, input_dim) = (6, 16);
+        let mut weights = vec![1.0f32; output_dim * input_dim];
+        for o in 0..output_dim {
+            weights[o * input_dim + 5] = 0.012;
+        }
+        let lin = Linear::from_f32_nvfp4_auto(&weights, output_dim, input_dim).unwrap();
+        assert_eq!(lin.precision(), Precision::Nvfp4);
+        assert_eq!(lin.nvfp4_recipe(), Some(NvfpRecipe::TwoD));
+        assert_eq!(
+            lin.forward(&vec![1.0f32; input_dim]).unwrap().len(),
+            output_dim
+        );
+    }
+
+    #[test]
+    fn nvfp4_recipe_roundtrips_through_each_backend() {
+        // Each explicitly-built recipe is faithfully reported back, including
+        // the RHT seed; non-NVFP4 layers report None.
+        let (output_dim, input_dim) = (3, 16);
+        let w: Vec<f32> = (0..output_dim * input_dim)
+            .map(|i| ((i % 5) as f32 - 2.0) * 0.4)
+            .collect();
+        for recipe in [NvfpRecipe::Plain, NvfpRecipe::Rht(0xABCD), NvfpRecipe::TwoD] {
+            let lin = Linear::from_f32_nvfp4(&w, output_dim, input_dim, recipe).unwrap();
+            assert_eq!(lin.nvfp4_recipe(), Some(recipe));
+        }
+        let f32_lin = Linear::from_f32(&w, output_dim, input_dim, Precision::F32).unwrap();
+        assert_eq!(f32_lin.nvfp4_recipe(), None);
     }
 
     #[test]

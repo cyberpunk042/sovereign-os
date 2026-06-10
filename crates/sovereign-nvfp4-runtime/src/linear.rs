@@ -232,6 +232,9 @@ pub struct RhtQuantMatrix {
     pub quant: QuantMatrix,
     /// The RHT sign vector (length `input_dim`); defines the rotation `R`.
     pub signs: Vec<i8>,
+    /// The seed the sign vector was drawn from. Retained so the recipe is
+    /// reportable (`signs` already fully determine the rotation).
+    pub seed: u64,
 }
 
 impl RhtQuantMatrix {
@@ -263,7 +266,12 @@ impl RhtQuantMatrix {
             rotated.extend(r);
         }
         let quant = QuantMatrix::from_f32(&rotated, output_dim, input_dim)?;
-        Ok(Self { quant, signs })
+        Ok(Self { quant, signs, seed })
+    }
+
+    /// The seed the RHT sign vector was drawn from.
+    pub fn seed(&self) -> u64 {
+        self.seed
     }
 
     /// Forward `y = W·x`: rotate `x` by the same `R`, then matvec on the
