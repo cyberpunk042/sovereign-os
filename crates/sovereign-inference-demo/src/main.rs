@@ -390,11 +390,12 @@ fn run_strategies_demo() -> String {
         .expect("spec");
     let _ = writeln!(
         out,
-        "speculative     : {:?} (accept {}/{} = {:.0}%)",
+        "speculative     : {:?} (accept {}/{} = {:.0}%, {:.2}× tokens/pass)",
         spec.tokens,
         spec.accepted,
         spec.proposed,
-        spec.acceptance_rate() * 100.0
+        spec.acceptance_rate() * 100.0,
+        spec.realized_speedup()
     );
 
     // distribution-preserving speculative decoding (DFlash sampled accept rule):
@@ -409,11 +410,12 @@ fn run_strategies_demo() -> String {
         .expect("spec sampled");
     let _ = writeln!(
         out,
-        "spec (sampled)  : {:?} (accept {}/{} = {:.0}%, distribution-preserving)",
+        "spec (sampled)  : {:?} (accept {}/{} = {:.0}%, {:.2}× tokens/pass, distribution-preserving)",
         spec_s.tokens,
         spec_s.accepted,
         spec_s.proposed,
-        spec_s.acceptance_rate() * 100.0
+        spec_s.acceptance_rate() * 100.0,
+        spec_s.realized_speedup()
     );
 
     // perplexity over a reference sequence
