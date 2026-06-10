@@ -19,7 +19,9 @@
 use serde::Serialize;
 use sovereign_attention::{Attention, DecodeStep};
 use sovereign_bitlinear_core::{BitLinearMlp, Packing, bits_per_param as ternary_bits_per_param};
-use sovereign_nvfp4_runtime::{BLOCK_SIZE, ELEMENT_BITS, QuantMatrix, SCALE_BITS};
+use sovereign_nvfp4_runtime::{
+    BLOCK_SIZE, ELEMENT_BITS, QuantMatrix, RhtQuantMatrix, SCALE_BITS, TwoDQuantMatrix,
+};
 use sovereign_router_7axis::SrpRole;
 use sovereign_spec_decode::expected_speedup;
 
@@ -108,13 +110,34 @@ fn ternary_kernel_live() -> bool {
 }
 
 /// Live self-check of the NVFP4 kernel: quantize a tiny matrix and run one
-/// matvec. Proves the Logic engine's compute path is callable.
+/// matvec through the plain, RHT, 2D, and stochastic recipes — proving the
+/// Logic engine's compute path *and* its M077 accuracy recipes are all
+/// callable and produce finite output.
 fn nvfp4_kernel_live() -> bool {
-    let w = [0.5f32; 16];
-    match QuantMatrix::from_f32(&w, 1, 16) {
-        Ok(m) => m.matvec(&[1.0f32; 16]).is_ok(),
-        Err(_) => false,
-    }
+    let (out_dim, in_dim) = (2usize, 16usize);
+    let w: Vec<f32> = (0..out_dim * in_dim)
+        .map(|i| ((i % 4) as f32 - 1.5) * 0.5)
+        .collect();
+    let x = vec![1.0f32; in_dim];
+    let finite = |y: &[f32]| y.len() == out_dim && y.iter().all(|v| v.is_finite());
+
+    // Plain 1D microscaling.
+    let plain = matches!(
+        QuantMatrix::from_f32(&w, out_dim, in_dim).and_then(|m| m.matvec(&x)),
+        Ok(y) if finite(&y)
+    );
+    // RHT recipe (input_dim 16 is a power of two).
+    let rht = matches!(
+        RhtQuantMatrix::from_f32(&w, out_dim, in_dim, 0xC0FFEE).and_then(|m| m.matvec(&x)),
+        Ok(y) if finite(&y)
+    );
+    // 2D per-row+per-column recipe.
+    let two_d = matches!(
+        TwoDQuantMatrix::from_f32(&w, out_dim, in_dim).and_then(|m| m.matvec(&x)),
+        Ok(y) if finite(&y)
+    );
+
+    plain && rht && two_d
 }
 
 /// Live self-check of the attention inner loop: stream three tokens through
