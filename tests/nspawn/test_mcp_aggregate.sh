@@ -71,7 +71,7 @@ pass "2. cross-axis coverage (every §1b-named axis has ≥1 MCP tool)"
 
 # Hardware-specific name-level checks (so renaming a tool breaks
 # the test on purpose, not silently).
-for name in hardware gpu-watch gpu-card-advisor cpu-mode bios-info \
+for name in hardware-inventory gpu-watch gpu-card-advisor cpu-mode bios-info \
             ram-advisor power-status zmm-ternary wasm-aot \
             memory-pressure pcie-policy virt-info kernel \
             network dns-advisor reverse-proxy perimeter \
