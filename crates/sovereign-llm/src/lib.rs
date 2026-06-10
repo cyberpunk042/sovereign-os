@@ -24,7 +24,7 @@
 #![warn(missing_docs)]
 
 use serde::{Deserialize, Serialize};
-use sovereign_decoder_stack::{DecoderStack, StackConfig, StackError};
+use sovereign_decoder_stack::{DecoderStack, GenOptions, StackConfig, StackError};
 use sovereign_logit_mask::LogitMask;
 use sovereign_sampler::Mirostat;
 use sovereign_tokenizer::Tokenizer;
@@ -130,6 +130,38 @@ impl SovereignLlm {
         seed: u64,
     ) -> Result<Vec<u32>, LlmError> {
         self.generate_ids_constrained(prompt, max_new, seed, &LogitMask::new())
+    }
+
+    /// Unified, serving-grade generation: compose constrained masking, dynamic
+    /// no-repeat-ngram blocking, early-stop, and per-token streaming via
+    /// [`GenOptions`] — the single configurable entry point the simpler
+    /// `generate_ids*` methods specialize. The `on_token` callback fires with
+    /// each generated id; the full id sequence is returned. Pristine cache per
+    /// call.
+    pub fn generate_ids_with<F: FnMut(u32)>(
+        &self,
+        prompt: &str,
+        seed: u64,
+        opts: &GenOptions,
+        mut on_token: F,
+    ) -> Result<Vec<u32>, LlmError> {
+        let ids: Vec<usize> = self
+            .tokenizer
+            .encode(prompt)
+            .into_iter()
+            .map(|t| t as usize)
+            .collect();
+        if ids.is_empty() {
+            return Err(LlmError::EmptyPrompt);
+        }
+        let mut model = self.model.clone();
+        let mut out = Vec::with_capacity(opts.max_new);
+        model.generate_with(&ids, seed, opts, |t| {
+            let id = t as u32;
+            out.push(id);
+            on_token(id);
+        })?;
+        Ok(out)
     }
 
     /// Generate token ids, stopping early at the first token in `stop_tokens`
@@ -419,6 +451,33 @@ mod tests {
         let llm = runtime(Sampler::greedy());
         assert_eq!(
             llm.generate_ids_until("", 4, 1, &[0]).unwrap_err(),
+            LlmError::EmptyPrompt
+        );
+    }
+
+    #[test]
+    fn generate_with_composes_and_streams() {
+        let llm = runtime(Sampler::new(SamplerConfig::default()));
+        let opts = GenOptions::new(8).with_no_repeat_ngram(3);
+        let mut streamed = Vec::new();
+        let out = llm
+            .generate_ids_with("hello sovereign", 3, &opts, |id| streamed.push(id))
+            .unwrap();
+        assert_eq!(streamed, out);
+        assert!(out.len() <= 8);
+        // reproducible
+        let out2 = llm
+            .generate_ids_with("hello sovereign", 3, &opts, |_| {})
+            .unwrap();
+        assert_eq!(out, out2);
+    }
+
+    #[test]
+    fn generate_with_empty_prompt_errors() {
+        let llm = runtime(Sampler::greedy());
+        assert_eq!(
+            llm.generate_ids_with("", 1, &GenOptions::new(4), |_| {})
+                .unwrap_err(),
             LlmError::EmptyPrompt
         );
     }
