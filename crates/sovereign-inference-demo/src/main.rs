@@ -279,6 +279,43 @@ fn run_demo() -> String {
         chosen.len()
     );
 
+    // M077 selective-HP: rank the same projections by their best-NVFP4 error
+    // and report which (if any) the data-driven policy would keep in higher
+    // precision at a 15% tolerance — replacing a hardcoded HP-layer list.
+    let (nq, nkv, hd, md) = (4usize, 2usize, 2usize, MODEL_DIM);
+    let (q_dim, kv_dim) = (nq * hd, nkv * hd);
+    let proj_w: [(Vec<f32>, usize, usize); 7] = [
+        (weights(15.0, q_dim * md), q_dim, md),   // q
+        (weights(16.0, kv_dim * md), kv_dim, md), // k
+        (weights(17.0, kv_dim * md), kv_dim, md), // v
+        (weights(18.0, md * q_dim), md, q_dim),   // o
+        (weights(19.0, md * md), md, md),         // gate
+        (weights(20.0, md * md), md, md),         // up
+        (weights(21.0, md * md), md, md),         // down
+    ];
+    let names = ["q", "k", "v", "o", "gate", "up", "down"];
+    let projections: Vec<sovereign_linear::NamedProjection> = proj_w
+        .iter()
+        .zip(names)
+        .map(|((w, o, i), name)| sovereign_linear::NamedProjection {
+            name,
+            weights: w,
+            output_dim: *o,
+            input_dim: *i,
+        })
+        .collect();
+    let hp = sovereign_linear::recommend_high_precision(&projections, 0.15, 3);
+    let _ = writeln!(
+        out,
+        "nvfp4 selective : {} of 7 projections flagged for high precision (>15% err){}",
+        hp.len(),
+        if hp.is_empty() {
+            String::new()
+        } else {
+            format!(": {}", hp.join(", "))
+        }
+    );
+
     out
 }
 
