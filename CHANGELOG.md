@@ -12,6 +12,27 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — the never-cloud-spill invariant now pages (2026-06-10)
+
+The gateway daemon has tracked its sovereignty tripwire since birth
+(`sovereign_gateway_never_cloud_spill_holds` on `GET /metrics`), but nothing
+*paged* on it — a spill would sit unread in a ledger until someone looked at a
+dashboard. New `config/prometheus/alerts/sovereign-gatewayd.rules.yml`:
+
+- **SovereignGatewayCloudSpill** (critical, deliberately `for:`-less — one
+  confirmed scrape pages): the holds-gauge dropped to 0, meaning a decision
+  routed to the cloud plane despite `force_local`. An incident, never tuning.
+- **SovereignGatewayTripwireUnmonitored** (warning, 10m): `absent()` on the
+  gauge — an invariant nobody can see is not enforced from the operator's
+  seat (daemon down / scrape job broken / bind moved).
+
+Runbook sections (meaning → diagnosis → fix, with the scrape-job snippet —
+the daemon serves `/metrics` itself, no textfile collector) added to
+`docs/operator/m060-deployment-guide.md`; per-file contract gate
+`tests/lint/test_sovereign_gatewayd_alerts_contract.py` reads the emitted
+metric set straight out of `lib.rs` so an exporter rename kills the alert
+file in CI instead of leaving a dead alert.
+
 ### Added — gateway `simple` op: a client need not build a full CortexRequest (2026-06-09)
 
 `POST /v1/messages` required a full `CortexRequest` (7 axes + workload +
