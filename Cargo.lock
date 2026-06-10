@@ -4590,6 +4590,7 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "sovereign-dry-sampler",
  "sovereign-ffn",
  "sovereign-logit-mask",
  "sovereign-rmsnorm",
@@ -5206,6 +5207,7 @@ dependencies = [
  "sovereign-decoder-stack",
  "sovereign-degeneration",
  "sovereign-diversity",
+ "sovereign-dry-sampler",
  "sovereign-ffn",
  "sovereign-json-extract",
  "sovereign-json-schema-grammar",

@@ -153,6 +153,35 @@ impl SovereignLlm {
         Ok(self.tokenizer.decode(&generated).unwrap_or_default())
     }
 
+    /// Complete `prompt` using **DRY** (Don't Repeat Yourself) sampling to
+    /// suppress repetition loops: each step penalizes candidates by how long a
+    /// previously-generated sequence they would extend (exponential in match
+    /// length, scaled by `multiplier`/`base` past `allowed_length`), so a long
+    /// verbatim loop becomes exponentially hard to continue while legitimate reuse
+    /// is barely touched — unlike a flat penalty or a hard n-gram ban. Composes
+    /// DRY with this runtime's configured sampler. Reproducible per `seed`.
+    pub fn complete_dry(
+        &self,
+        prompt: &str,
+        max_new: usize,
+        seed: u64,
+        multiplier: f32,
+        base: f32,
+        allowed_length: usize,
+    ) -> Result<String, LlmError> {
+        let dry = sovereign_dry_sampler::DrySampler::new(multiplier, base, allowed_length);
+        let prompt_ids: Vec<usize> = self
+            .tokenizer
+            .encode(prompt)
+            .iter()
+            .map(|&i| i as usize)
+            .collect();
+        let mut model = self.model.clone();
+        let gen_ids = model.generate_dry(&prompt_ids, max_new, seed, &dry)?;
+        let out_ids: Vec<u32> = gen_ids.iter().map(|&i| i as u32).collect();
+        Ok(self.tokenizer.decode(&out_ids).unwrap_or_default())
+    }
+
     /// Complete `prompt` using **XTC** (Exclude Top Choices) sampling: when the
     /// model is confident about several tokens, the most-probable ones are
     /// dropped (above `threshold`, with per-step `probability`) so a
@@ -987,6 +1016,26 @@ mod tests {
         // the report is exactly analyze() of that text — the wiring is faithful
         assert_eq!(report, analyze(&text, &cfg));
         assert!((0.0..=1.0).contains(&report.distinct_ngram_ratio));
+    }
+
+    #[test]
+    fn complete_dry_inactive_equals_plain_complete() {
+        let llm = runtime(Sampler::greedy());
+        // multiplier 0 → DRY inactive → identical to plain complete
+        assert_eq!(
+            llm.complete_dry("hello", 6, 4, 0.0, 1.75, 2).unwrap(),
+            llm.complete("hello", 6, 4).unwrap()
+        );
+    }
+
+    #[test]
+    fn complete_dry_is_reproducible() {
+        let a = runtime(Sampler::greedy());
+        let b = runtime(Sampler::greedy());
+        assert_eq!(
+            a.complete_dry("hello there", 8, 4, 2.0, 1.75, 1).unwrap(),
+            b.complete_dry("hello there", 8, 4, 2.0, 1.75, 1).unwrap()
+        );
     }
 
     #[test]

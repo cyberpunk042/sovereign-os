@@ -602,6 +602,46 @@ impl DecoderStack {
         Ok(generated)
     }
 
+    /// Generate up to `max_new` tokens applying **DRY** (Don't Repeat Yourself)
+    /// to the logits each step before sampling: each candidate is penalized by how
+    /// long a previously-generated sequence picking it would extend (exponential
+    /// in the match length), so a long verbatim loop becomes exponentially hard to
+    /// continue while ordinary reuse is barely touched — targeted loop suppression
+    /// without the collateral damage of a flat repetition penalty or a hard n-gram
+    /// ban. The penalty is computed over the tokens generated in this call.
+    /// Reproducible per `seed`.
+    pub fn generate_dry(
+        &mut self,
+        prompt: &[usize],
+        max_new: usize,
+        seed: u64,
+        dry: &sovereign_dry_sampler::DrySampler,
+    ) -> Result<Vec<usize>, StackError> {
+        if prompt.is_empty() {
+            return Err(StackError::EmptyPrompt);
+        }
+        let mut logits = Vec::new();
+        for &t in prompt {
+            logits = self.forward(t)?;
+        }
+        let mut generated: Vec<usize> = Vec::with_capacity(max_new);
+        for _ in 0..max_new {
+            let history: Vec<u32> = generated.iter().map(|&i| i as u32).collect();
+            dry.apply(&mut logits, &history);
+            let pos = self.position() as u64;
+            let recent_start = self.recent.len().saturating_sub(self.config.recent_window);
+            let token = self.config.sampler.sample_seeded(
+                &logits,
+                &self.recent[recent_start..],
+                seed.wrapping_add(pos),
+            )?;
+            self.recent.push(token);
+            generated.push(token);
+            logits = self.forward(token)?;
+        }
+        Ok(generated)
+    }
+
     /// Like [`generate_dynamic_mask`](Self::generate_dynamic_mask) but the mask
     /// hook may **stop** generation: `mask_fn(&generated)` returns `None` to end
     /// (e.g. a grammar constraint signalling the output is a complete sentence, or
@@ -724,6 +764,40 @@ mod tests {
             .unwrap();
         assert_eq!(out.len(), 6);
         assert!(out.iter().all(|&t| (1..=2).contains(&t)), "{out:?}");
+    }
+
+    #[test]
+    fn dry_inactive_equals_plain_generate() {
+        use sovereign_dry_sampler::DrySampler;
+        // multiplier 0 → DRY inactive → identical to plain generation.
+        let cfg = config(8, 4, 2, Sampler::greedy());
+        let plain = DecoderStack::new(cfg.clone())
+            .unwrap()
+            .generate(&[1, 2], 6, 9)
+            .unwrap();
+        let dry = DrySampler::new(0.0, 1.75, 2);
+        let with_dry = DecoderStack::new(cfg)
+            .unwrap()
+            .generate_dry(&[1, 2], 6, 9, &dry)
+            .unwrap();
+        assert_eq!(plain, with_dry);
+    }
+
+    #[test]
+    fn dry_active_is_reproducible() {
+        use sovereign_dry_sampler::DrySampler;
+        let cfg = config(8, 4, 2, Sampler::greedy());
+        let dry = DrySampler::new(2.0, 1.75, 1);
+        let a = DecoderStack::new(cfg.clone())
+            .unwrap()
+            .generate_dry(&[1, 2], 8, 4, &dry)
+            .unwrap();
+        let b = DecoderStack::new(cfg)
+            .unwrap()
+            .generate_dry(&[1, 2], 8, 4, &dry)
+            .unwrap();
+        assert_eq!(a, b);
+        assert_eq!(a.len(), 8);
     }
 
     #[test]
