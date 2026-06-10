@@ -17,6 +17,7 @@ thiserror = { workspace = true }
 sovereign-decoder-stack = { path = "../sovereign-decoder-stack" }
 sovereign-spec-decode = { path = "../sovereign-spec-decode" }
 sovereign-sampler = { path = "../sovereign-sampler" }
+sovereign-ngram-lm = { path = "../sovereign-ngram-lm" }
 
 [dev-dependencies]
 sovereign-transformer-block = { path = "../sovereign-transformer-block" }

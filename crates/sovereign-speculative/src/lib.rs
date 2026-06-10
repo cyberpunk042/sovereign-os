@@ -202,6 +202,96 @@ impl Speculative {
         })
     }
 
+    /// Speculative decoding with an **n-gram language model as the draft**
+    /// (`sovereign-ngram-lm`): each round the n-gram model proposes up to
+    /// `draft_len` tokens via `predict_next` over the growing context, and the
+    /// target verifies them greedily — accepting the matching prefix, correcting
+    /// the first mismatch, and adding a bonus token when all match. A statistical
+    /// draft generalizes from its training corpus, unlike
+    /// [`decode_prompt_lookup`](Self::decode_prompt_lookup) which can only copy
+    /// verbatim from the prompt — yet needs no second neural model. Greedy
+    /// verification keeps it **lossless**: the output is identical to greedy target
+    /// decoding, only faster when the draft tracks the target. If the n-gram model
+    /// has no prediction for a context, that round simply commits one target token.
+    pub fn decode_ngram(
+        &self,
+        target: &DecoderStack,
+        ngram: &sovereign_ngram_lm::NgramModel,
+        prompt: &[usize],
+    ) -> Result<SpecResult, SpeculativeError> {
+        if self.draft_len == 0 {
+            return Err(SpeculativeError::ZeroDraftLen);
+        }
+        if prompt.is_empty() {
+            return Err(SpeculativeError::EmptyPrompt);
+        }
+
+        let mut target = target.clone();
+        let mut target_logits = prime(&mut target, prompt)?;
+        let mut out: Vec<usize> = Vec::new();
+        let mut context: Vec<u32> = prompt.iter().map(|&i| i as u32).collect();
+        let mut proposed = 0usize;
+        let mut accepted = 0usize;
+        let mut rounds = 0usize;
+
+        while out.len() < self.max_new {
+            rounds += 1;
+
+            // 1. the n-gram model proposes up to `draft_len` tokens.
+            let mut proposals: Vec<usize> = Vec::with_capacity(self.draft_len);
+            let mut ctx = context.clone();
+            for _ in 0..self.draft_len {
+                match ngram.predict_next(&ctx) {
+                    Some(t) => {
+                        proposals.push(t as usize);
+                        ctx.push(t);
+                    }
+                    None => break,
+                }
+            }
+            proposed += proposals.len();
+
+            // 2. target verifies; accept while it matches the target's argmax.
+            let mut emitted: Vec<usize> = Vec::new();
+            let mut tlog = target_logits;
+            let mut all_accepted = true;
+            for &q in &proposals {
+                let a = argmax(&tlog);
+                if a == q {
+                    accepted += 1;
+                    emitted.push(q);
+                    tlog = target.forward(q)?;
+                } else {
+                    emitted.push(a); // corrected token (the target's argmax)
+                    tlog = target.forward(a)?;
+                    all_accepted = false;
+                    break;
+                }
+            }
+            // 3. all proposals matched (or none proposed) → one bonus target token.
+            if all_accepted {
+                let bonus = argmax(&tlog);
+                emitted.push(bonus);
+                tlog = target.forward(bonus)?;
+            }
+            target_logits = tlog;
+
+            // 4. grow the context with the committed tokens for the next lookup.
+            for &e in &emitted {
+                context.push(e as u32);
+            }
+            out.extend_from_slice(&emitted);
+        }
+
+        out.truncate(self.max_new);
+        Ok(SpecResult {
+            tokens: out,
+            proposed,
+            accepted,
+            rounds,
+        })
+    }
+
     /// Decode greedily-but-speculatively with an **adaptive draft length**: the
     /// number of proposed tokens per round is retuned from the running
     /// acceptance rate via `optimal_draft_length(α, cost_ratio, max_draft)`, so
@@ -601,6 +691,39 @@ mod tests {
             .unwrap();
         let g = greedy(target.clone(), &[1, 2], 10);
         assert_eq!(spec.tokens, g, "speculative must equal greedy target");
+    }
+
+    #[test]
+    fn ngram_draft_is_lossless_vs_greedy_target() {
+        use sovereign_ngram_lm::NgramModel;
+        let target = model(8, 0.0);
+        let g = greedy(target.clone(), &[1, 2], 10);
+        // a trained n-gram drafts tokens; greedy verification corrects them to the
+        // target's own sequence, so the output is identical to greedy decoding.
+        let mut ng = NgramModel::new(2, 0.5).unwrap();
+        ng.train(&[1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4]);
+        let spec = Speculative::new(4, 10)
+            .decode_ngram(&target, &ng, &[1, 2])
+            .unwrap();
+        assert_eq!(
+            spec.tokens, g,
+            "ngram-draft speculative must equal greedy target"
+        );
+    }
+
+    #[test]
+    fn ngram_draft_with_no_predictions_still_decodes() {
+        use sovereign_ngram_lm::NgramModel;
+        let target = model(8, 0.0);
+        let g = greedy(target.clone(), &[1, 2], 6);
+        // an untrained n-gram predicts nothing → each round commits one target
+        // token; the output is still the full greedy target sequence.
+        let ng = NgramModel::new(2, 0.5).unwrap();
+        let spec = Speculative::new(4, 6)
+            .decode_ngram(&target, &ng, &[1, 2])
+            .unwrap();
+        assert_eq!(spec.tokens, g);
+        assert_eq!(spec.proposed, 0); // nothing drafted
     }
 
     #[test]

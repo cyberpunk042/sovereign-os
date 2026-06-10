@@ -6149,6 +6149,7 @@ version = "0.1.0"
 dependencies = [
  "sovereign-decoder-stack",
  "sovereign-ffn",
+ "sovereign-ngram-lm",
  "sovereign-rmsnorm",
  "sovereign-sampler",
  "sovereign-spec-decode",
