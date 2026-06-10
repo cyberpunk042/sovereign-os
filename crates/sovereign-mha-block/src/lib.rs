@@ -697,6 +697,32 @@ mod tests {
     }
 
     #[test]
+    fn all_long_context_optimizations_compose() {
+        // The full streaming stack at once: NVFP4-compressed KV cache + sliding
+        // window + attention sinks + RoPE context extension. They must compose
+        // and decode finite with a bounded cache.
+        let w = weights(16, 4, 4, 4, 16);
+        let mut block = MhaDecoderBlock::from_weights(&w, Precision::Nvfp4)
+            .unwrap()
+            .with_quantized_kv()
+            .with_sliding_window(4)
+            .with_attention_sinks(1)
+            .with_context_extension(2048, 8192);
+        assert!(block.kv_quantized());
+        assert_eq!(block.sliding_window(), Some(4));
+        assert_eq!(block.attention_sinks(), 1);
+        assert!((block.rope_position_scale() - 0.25).abs() < 1e-6);
+        for step in 0..12 {
+            let x: Vec<f32> = (0..16).map(|i| ((i + step) as f32 * 0.2).sin()).collect();
+            let y = block.step(&x).unwrap();
+            assert_eq!(y.len(), 16);
+            assert!(y.iter().all(|v| v.is_finite()));
+            assert!(block.cache_len() <= 4);
+        }
+        assert_eq!(block.len(), 12);
+    }
+
+    #[test]
     fn attention_sinks_stay_within_window() {
         let w = weights(8, 2, 4, 2, 16);
         let mut block = MhaDecoderBlock::from_weights(&w, Precision::F32)
