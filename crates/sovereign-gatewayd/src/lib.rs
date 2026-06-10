@@ -36,9 +36,128 @@ use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 
-use sovereign_cortex::{Cortex, CortexRequest, seed_memory};
+use sovereign_cortex::{Cortex, CortexRequest, Deliberation, seed_memory};
 use sovereign_gateway::{GatewayManifest, GatewaySurface, SCHEMA_VERSION, SurfaceState};
-use sovereign_value_plane::NextAction;
+use sovereign_router_7axis::{Complexity, TaskAxes};
+use sovereign_srp_scheduler::{Precision, RolePressure, Workload, WorkloadClass};
+use sovereign_value_plane::{IntelligenceTier, NextAction, RewardVector};
+
+/// A simplified client request: the client supplies the task descriptor (the
+/// 7-axis `axes`) and an explicit quality intent, and the gateway fills the
+/// runtime-state and engine-internal fields a `CortexRequest` needs. The full
+/// [`CortexRequest`] path remains for clients that want full control — this is
+/// an additive convenience so a simple client need not know the engine internals.
+///
+/// The fill-in defaults are deliberately conservative and **operator-tunable**:
+/// runtime pressures default to idle (the daemon has no live telemetry, so it
+/// assumes capacity), the cloud is never allowed (sovereign default), and the
+/// workload/precision are derived mechanically from the task's complexity. The
+/// reward is derived from the client's own `expected_quality` dial — the gateway
+/// invents no hidden quality policy.
+#[derive(Debug, Clone, Deserialize)]
+pub struct SimpleRequest {
+    /// The 7-axis task descriptor (the task's nature) — the client's domain.
+    pub axes: TaskAxes,
+    /// Topic bitset for memory recall (default 0 = no topic).
+    #[serde(default)]
+    pub query_topic: u64,
+    /// Value-plane critic profile (`fast`/`careful`/…); defaults to `careful`.
+    #[serde(default)]
+    pub profile: Option<String>,
+    /// Expected/desired answer quality, 0.0..=1.0. **Required** — the client
+    /// always supplies the quality dial, so the gateway makes no hidden quality
+    /// decision; it is mapped transparently onto the reward vector.
+    pub expected_quality: f32,
+}
+
+/// Fill-in defaults for [`SimpleRequest::into_cortex`], collected here so the
+/// operator can review and tune the simple-request policy in one place (see the
+/// CHANGELOG review note). All are deliberately conservative.
+pub mod simple_defaults {
+    /// Context window assumed for a simple request.
+    pub const CONTEXT_TOKENS: u32 = 4096;
+    /// No hard VRAM floor — don't over-constrain placement (the role drives it).
+    pub const MIN_VRAM_GB: u16 = 0;
+    /// Memory-recall freshness half-life.
+    pub const HALF_LIFE: u64 = 64;
+    /// Model size used only for the footprint estimate.
+    pub const MODEL_PARAMS: u64 = 7_000_000_000;
+    /// Value-plane critic profile when the client doesn't specify one.
+    pub const PROFILE: &str = "careful";
+
+    // Reward-mapping defaults for the inverted (lower-is-better) axes — the
+    // quality/competence axes track the client's `expected_quality` directly.
+    /// Assumed risk (0 = safest).
+    pub const REWARD_RISK: f32 = 0.1;
+    /// Assumed relative latency (0 = fastest).
+    pub const REWARD_LATENCY: f32 = 0.2;
+    /// Assumed relative cost (0 = cheapest).
+    pub const REWARD_COST: f32 = 0.2;
+    /// Assumed novelty.
+    pub const REWARD_NOVELTY: f32 = 0.5;
+    /// Assumed cache-reuse rate.
+    pub const REWARD_CACHE_REUSE: f32 = 0.5;
+}
+
+impl SimpleRequest {
+    /// Map to a full [`CortexRequest`], filling runtime-state defaults (idle,
+    /// local-only) and deriving the workload + reward from the task + quality.
+    pub fn into_cortex(self) -> CortexRequest {
+        use simple_defaults as d;
+        let quality = self.expected_quality.clamp(0.0, 1.0);
+        // Workload class + precision follow the task's complexity (the same
+        // split the 7-axis router uses): simple → CPU-side, complex → GPU-side.
+        let (class, precision) = match self.axes.complexity {
+            Complexity::Simple => (WorkloadClass::IntentEval, Precision::Ternary),
+            Complexity::Complex => (WorkloadClass::DeepReason, Precision::Fp16),
+        };
+        CortexRequest {
+            axes: self.axes,
+            workload: Workload {
+                class,
+                precision,
+                context_tokens: d::CONTEXT_TOKENS,
+                min_vram_gb: d::MIN_VRAM_GB,
+            },
+            // No live telemetry → assume capacity is free on every role.
+            conductor: RolePressure::free(),
+            logic: RolePressure::free(),
+            oracle: RolePressure::free(),
+            allow_cloud: false,
+            query_topic: self.query_topic,
+            query_entity: 0,
+            now: 0,
+            half_life: d::HALF_LIFE,
+            reward: reward_from_quality(quality),
+            profile: self.profile.unwrap_or_else(|| d::PROFILE.into()),
+            model_params: d::MODEL_PARAMS,
+            available_adapters: Vec::new(),
+            stacking_supported: false,
+            query_embedding: Vec::new(),
+        }
+    }
+}
+
+/// Map a single quality intent (0.0..=1.0) onto the value-plane reward axes:
+/// the quality/competence axes track it; the inverted axes (risk/latency/cost)
+/// default low. Transparent and operator-tunable — no hidden quality policy.
+fn reward_from_quality(q: f32) -> RewardVector {
+    use simple_defaults as d;
+    RewardVector {
+        correctness: q,
+        evidence: q,
+        schema_validity: 1.0,
+        tool_success: q,
+        test_success: q,
+        risk: d::REWARD_RISK,
+        latency: d::REWARD_LATENCY,
+        cost: d::REWARD_COST,
+        novelty: d::REWARD_NOVELTY,
+        user_preference: q,
+        cache_reuse: d::REWARD_CACHE_REUSE,
+        confidence_calibration: q,
+    }
+}
 
 /// One request on the wire. Tagged by `op`, so a client sends e.g.
 /// `{"op":"infer","request":{…}}` or `{"op":"health"}`.
@@ -50,6 +169,31 @@ pub enum GatewayRequest {
     Infer {
         /// The end-to-end cortex request. Boxed because it is large.
         request: Box<CortexRequest>,
+    },
+    /// Run a simplified request: the client supplies only the task axes + a
+    /// quality intent; the gateway fills the engine-internal fields (see
+    /// [`SimpleRequest`]) and runs it like [`Self::Infer`].
+    SimpleInfer {
+        /// The simplified request.
+        request: SimpleRequest,
+    },
+    /// Dry-run a request and return the plain-language rationale (M015
+    /// human-gate) — read-only: the engine decides but does not learn or
+    /// account, so an auditor can ask "what would you do, and why" safely.
+    Explain {
+        /// The end-to-end cortex request. Boxed because it is large.
+        request: Box<CortexRequest>,
+    },
+    /// Best-of-N deliberation (read-only): the client supplies candidate reward
+    /// vectors and a compute tier; the engine forks one branch per candidate
+    /// and returns the winner + every assessment. The premium decision path.
+    Deliberate {
+        /// The shared end-to-end request. Boxed because it is large.
+        request: Box<CortexRequest>,
+        /// One candidate branch per reward vector (the N of best-of-N).
+        candidates: Vec<RewardVector>,
+        /// How much compute to spend (fanout budget): `reflex` … `experimental`.
+        tier: IntelligenceTier,
     },
     /// Return the 6-surface gateway manifest.
     Manifest,
@@ -71,6 +215,17 @@ pub enum GatewayResponse {
         decision: Box<sovereign_cortex::CortexDecision>,
         /// Whether the committed decision was admitted into Memory-OS.
         learned: bool,
+    },
+    /// The plain-language rationale for a dry-run request (read-only).
+    Explanation {
+        /// The M015 human-gate rationale (route → device → verdict → cost).
+        explanation: String,
+    },
+    /// A best-of-N deliberation result (read-only). Output-only: it embeds the
+    /// `Serialize`-only `Deliberation`, so it is never deserialized back.
+    Deliberation {
+        /// The winner + every candidate assessment + the branch tree.
+        deliberation: Box<Deliberation>,
     },
     /// The gateway manifest.
     Manifest {
@@ -117,6 +272,10 @@ pub struct Ledger {
     /// Of those, how many had the learned prior agree with the live verdict.
     /// The ratio is how well the engine is learning its own dynamics.
     pub prediction_agreements: u64,
+    /// Read-only ops handled (`explain` + `deliberate`). Counted for request-mix
+    /// observability; the decision-ledger fields above and the engine's learned
+    /// state are untouched by these ops — the auditor guarantee still holds.
+    pub dry_runs: u64,
 }
 
 /// Daemon health snapshot.
@@ -203,6 +362,13 @@ impl GatewayServer {
     pub fn handle(&self, req: GatewayRequest) -> GatewayResponse {
         match req {
             GatewayRequest::Infer { request } => self.infer(*request),
+            GatewayRequest::SimpleInfer { request } => self.infer(request.into_cortex()),
+            GatewayRequest::Explain { request } => self.explain(*request),
+            GatewayRequest::Deliberate {
+                request,
+                candidates,
+                tier,
+            } => self.deliberate(*request, candidates, tier),
             GatewayRequest::Manifest => GatewayResponse::Manifest {
                 manifest: self.manifest.clone(),
             },
@@ -211,6 +377,56 @@ impl GatewayServer {
             },
             GatewayRequest::Ledger => GatewayResponse::Ledger {
                 ledger: self.ledger.lock().expect("ledger poisoned").clone(),
+            },
+        }
+    }
+
+    /// Dry-run a request: decide and explain, but do **not** learn or touch the
+    /// ledger. `tick` is read-only, so this is a side-effect-free "what would
+    /// you do, and why" for an auditor. The same Privacy policy applies.
+    fn explain(&self, mut request: CortexRequest) -> GatewayResponse {
+        if self.force_local {
+            request.allow_cloud = false;
+        }
+        let result = {
+            let cortex = self.cortex.lock().expect("cortex poisoned");
+            cortex.tick(&request)
+        };
+        self.ledger.lock().expect("ledger poisoned").dry_runs += 1;
+        match result {
+            Ok(decision) => GatewayResponse::Explanation {
+                explanation: decision.explain(),
+            },
+            Err(e) => GatewayResponse::Error {
+                message: e.to_string(),
+            },
+        }
+    }
+
+    /// Best-of-N deliberation (read-only): fork one branch per candidate at the
+    /// requested compute tier and return the winner + all assessments. Like
+    /// `explain`, it decides without learning or touching the ledger. The same
+    /// Privacy policy applies.
+    fn deliberate(
+        &self,
+        mut request: CortexRequest,
+        candidates: Vec<RewardVector>,
+        tier: IntelligenceTier,
+    ) -> GatewayResponse {
+        if self.force_local {
+            request.allow_cloud = false;
+        }
+        let result = {
+            let cortex = self.cortex.lock().expect("cortex poisoned");
+            cortex.deliberate(&request, &candidates, tier)
+        };
+        self.ledger.lock().expect("ledger poisoned").dry_runs += 1;
+        match result {
+            Ok(deliberation) => GatewayResponse::Deliberation {
+                deliberation: Box::new(deliberation),
+            },
+            Err(e) => GatewayResponse::Error {
+                message: e.to_string(),
             },
         }
     }
@@ -353,6 +569,15 @@ impl GatewayServer {
         ));
 
         s.push_str(
+            "# HELP sovereign_gateway_dry_runs_total Read-only ops (explain + deliberate) handled.\n",
+        );
+        s.push_str("# TYPE sovereign_gateway_dry_runs_total counter\n");
+        s.push_str(&format!(
+            "sovereign_gateway_dry_runs_total {}\n",
+            ledger.dry_runs
+        ));
+
+        s.push_str(
             "# HELP sovereign_gateway_prediction_total Decisions that carried a World-Model prior (M030).\n",
         );
         s.push_str("# TYPE sovereign_gateway_prediction_total counter\n");
@@ -413,6 +638,105 @@ mod tests {
         let out = s.handle_line(r#"{"op":"teleport"}"#);
         let v: serde_json::Value = serde_json::from_str(&out).unwrap();
         assert_eq!(v["kind"], "error");
+    }
+
+    #[test]
+    fn explain_op_is_read_only_and_returns_the_rationale() {
+        let s = GatewayServer::new();
+        let req = demo_requests()[0].clone();
+        let line = serde_json::json!({ "op": "explain", "request": req }).to_string();
+        let out = s.handle_line(&line);
+        let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(v["kind"], "explanation");
+        assert!(v["explanation"].as_str().unwrap().contains("Routed to"));
+        // A dry-run must not move the decision ledger (no infer/learn happened),
+        // but it is counted for request-mix observability.
+        let ledger = s.ledger.lock().unwrap();
+        assert_eq!(ledger.total_requests, 0);
+        assert_eq!(ledger.dry_runs, 1);
+    }
+
+    #[test]
+    fn simple_request_fills_conservative_defaults() {
+        let demo = demo_requests()[0].clone();
+        let req = SimpleRequest {
+            axes: demo.axes,
+            query_topic: 0,
+            profile: None,
+            expected_quality: 0.7,
+        }
+        .into_cortex();
+        assert!(!req.allow_cloud, "sovereign default: cloud disallowed");
+        assert_eq!(req.profile, "careful");
+        assert_eq!(req.conductor.util_percent, 0, "pressures default to idle");
+        assert_eq!(req.oracle.util_percent, 0);
+    }
+
+    #[test]
+    fn simple_request_maps_complexity_to_workload() {
+        let demo = demo_requests()[0].clone();
+        // Simple complexity → CPU-side workload (ternary).
+        let mut axes = demo.axes.clone();
+        axes.complexity = Complexity::Simple;
+        let simple = SimpleRequest {
+            axes,
+            query_topic: 0,
+            profile: None,
+            expected_quality: 0.9,
+        }
+        .into_cortex();
+        assert!(matches!(simple.workload.class, WorkloadClass::IntentEval));
+        assert!(matches!(simple.workload.precision, Precision::Ternary));
+
+        // Complex complexity → GPU-side workload (fp16).
+        let mut axes = demo.axes.clone();
+        axes.complexity = Complexity::Complex;
+        let complex = SimpleRequest {
+            axes,
+            query_topic: 0,
+            profile: None,
+            expected_quality: 0.9,
+        }
+        .into_cortex();
+        assert!(matches!(complex.workload.class, WorkloadClass::DeepReason));
+        assert!(matches!(complex.workload.precision, Precision::Fp16));
+    }
+
+    #[test]
+    fn simple_infer_op_maps_and_runs_the_engine() {
+        let s = GatewayServer::new();
+        let demo = demo_requests()[0].clone();
+        let line = serde_json::json!({
+            "op": "simple-infer",
+            "request": { "axes": demo.axes, "expected_quality": 0.9 },
+        })
+        .to_string();
+        let out = s.handle_line(&line);
+        let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(v["kind"], "decision");
+        assert_eq!(v["decision"]["placement"]["spilled_to_cloud"], false);
+        // It ran the engine (not read-only): the ledger advanced.
+        assert_eq!(s.ledger.lock().unwrap().total_requests, 1);
+    }
+
+    #[test]
+    fn deliberate_op_is_best_of_n_and_read_only() {
+        let s = GatewayServer::new();
+        let req = demo_requests()[0].clone();
+        let candidates = vec![req.reward.clone(), req.reward.clone(), req.reward.clone()];
+        let line = serde_json::json!({
+            "op": "deliberate",
+            "request": req,
+            "candidates": candidates,
+            "tier": "normal",
+        })
+        .to_string();
+        let out = s.handle_line(&line);
+        let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(v["kind"], "deliberation");
+        assert_eq!(v["deliberation"]["candidates_considered"], 3);
+        // Read-only: best-of-N decides but does not learn or account.
+        assert_eq!(s.ledger.lock().unwrap().total_requests, 0);
     }
 
     #[test]

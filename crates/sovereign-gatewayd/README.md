@@ -72,14 +72,35 @@ One JSON object per line in, one per line out:
 | `POST /v1/messages` | Anthropic-path bind (surface 1) → decision |
 | `POST /v1/infer` | raw engine alias → decision |
 | `POST /mcp` | MCP-bridge bind (surface 3) → decision |
+| `POST /v1/simple` | simplified request (`{axes, expected_quality}`) → decision |
+| `POST /v1/explain` | **read-only** dry-run → plain-language rationale |
+| `POST /v1/deliberate` | **read-only** best-of-N → winner + all assessments |
 
-A `POST` body is one JSON `CortexRequest`; the reply is the tagged
+A `POST` body is one JSON `CortexRequest` (except `/v1/deliberate`, whose body
+is `{request, candidates, tier}`); the reply is the tagged
 `GatewayResponse`. Wrong verb on a known route → `405`; unknown → `404`;
 malformed body → `400`; engine refusal → `422`.
+
+`/v1/explain` is the auditor's surface: the engine decides and returns the
+M015 plain-language rationale (route → device → verdict → cost/rollback) but
+does **not** learn or touch the ledger — a side-effect-free "what would you do,
+and why".
+
+`/v1/simple` is the easy on-ramp: the client sends only the task `axes` and a
+required `expected_quality` dial (the gateway makes no hidden quality decision)
+plus optional `query_topic` / `profile`; the gateway fills the engine-internal
+fields and runs it. The fill-in defaults are documented + tunable in
+`SimpleRequest::into_cortex` (`simple_defaults`).
 
 ```sh
 curl -s localhost:8787/health
 curl -s -X POST --data-binary @request.json localhost:8787/v1/messages
+# simplest path: just the task axes + a quality dial
+curl -s -X POST localhost:8787/v1/simple -d '{
+  "axes": {"complexity":"simple","privacy":"private","safety":"safe",
+           "domain":"coding","locality":"local","latency":"fast","quality":"oracle"},
+  "expected_quality": 0.9
+}'
 ```
 
 > The full Anthropic Messages **content-block** schema (message arrays,
@@ -102,9 +123,15 @@ new pipeline:
 | `sovereign_gateway_live_surfaces` | gauge | gateway surfaces currently Live |
 | `sovereign_gateway_prediction_total` | counter | decisions carrying a World-Model prior (M030) |
 | `sovereign_gateway_prediction_agreements_total` | counter | priors that agreed with the live verdict |
+| `sovereign_gateway_dry_runs_total` | counter | read-only ops handled (`explain` + `deliberate`) |
 
 The `prediction_agreements / prediction` ratio is how well the engine is
 learning its own routing-outcome dynamics over the process lifetime.
+
+The never-cloud-spill tripwire **pages**: deploy
+`config/prometheus/alerts/sovereign-gatewayd.rules.yml` (critical on the
+holds-gauge dropping, warning on the gauge going `absent()`) — runbooks in
+`docs/operator/m060-deployment-guide.md` § "sovereign-gatewayd alerts".
 
 ## Deployment
 

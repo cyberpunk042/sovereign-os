@@ -12,6 +12,139 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Fixed — small operational symmetry + diagnosability gaps (2026-06-10)
+
+- **`make uninstall` now removes what `make bins` installs.** It removed
+  sovereign-osctl + lib + manpage but left the three Rust binaries behind in
+  `PREFIX/bin`. Verified symmetric via a DESTDIR sandbox.
+- **Layer-3 `make lint` failures now show WHICH tests broke.** The
+  makefile-execution harness captured the 4644-test pytest output and then
+  printed only `FAIL — make lint failed`; a CI flake on 2026-06-10 was
+  diagnosable only by inference from the sibling layer-1 job. On failure the
+  harness now prints the FAILED/ERROR lines + the summary tail.
+
+### Added — the never-cloud-spill invariant now pages (2026-06-10)
+
+The gateway daemon has tracked its sovereignty tripwire since birth
+(`sovereign_gateway_never_cloud_spill_holds` on `GET /metrics`), but nothing
+*paged* on it — a spill would sit unread in a ledger until someone looked at a
+dashboard. New `config/prometheus/alerts/sovereign-gatewayd.rules.yml`:
+
+- **SovereignGatewayCloudSpill** (critical, deliberately `for:`-less — one
+  confirmed scrape pages): the holds-gauge dropped to 0, meaning a decision
+  routed to the cloud plane despite `force_local`. An incident, never tuning.
+- **SovereignGatewayTripwireUnmonitored** (warning, 10m): `absent()` on the
+  gauge — an invariant nobody can see is not enforced from the operator's
+  seat (daemon down / scrape job broken / bind moved).
+
+Runbook sections (meaning → diagnosis → fix, with the scrape-job snippet —
+the daemon serves `/metrics` itself, no textfile collector) added to
+`docs/operator/m060-deployment-guide.md`; per-file contract gate
+`tests/lint/test_sovereign_gatewayd_alerts_contract.py` reads the emitted
+metric set straight out of `lib.rs` so an exporter rename kills the alert
+file in CI instead of leaving a dead alert.
+
+### Added — gateway `simple` op: a client need not build a full CortexRequest (2026-06-09)
+
+`POST /v1/messages` required a full `CortexRequest` (7 axes + workload +
+pressures + 12-axis reward). The new `simple` op lets a client send only the
+task `axes` + an explicit `expected_quality` dial (+ optional `query_topic` /
+`profile`); the gateway fills the engine-internal fields and runs it like
+`infer`. Additive — the full `CortexRequest` path is unchanged.
+
+- NDJSON `{"op":"simple-infer","request":{"axes":{…},"expected_quality":0.8}}`
+  and HTTP `POST /v1/simple` → `{"kind":"decision",…}`. Verified live (minimal
+  `{axes, quality}` → a real conductor/commit decision).
+
+> **⚠ Operator review needed on the fill-in defaults.** The gateway invents no
+> *hidden* quality policy — `expected_quality` is a **required** field, so the
+> client always supplies the quality dial — but the convenience does choose
+> conservative defaults for the remaining under-specified (mostly mechanical or
+> non-decision-affecting) fields, and in a sovereign system those are a policy
+> you should own. They are deliberately transparent and tunable in
+> `SimpleRequest::into_cortex`:
+> runtime pressures → **idle** (no live telemetry → assume capacity);
+> `allow_cloud` → **false** (sovereign default); workload class + precision →
+> derived from `axes.complexity` (simple → CPU/ternary, complex → GPU/fp16);
+> `min_vram_gb` → 0 (don't over-constrain placement); `profile` → `careful`;
+> `model_params` → 7B (footprint estimate only); reward → `expected_quality`
+> spread over the competence axes with risk/latency/cost low. Adjust or reject
+> these in review — the op is isolated and easy to retune or drop.
+
+### Added — gateway best-of-N: a read-only `deliberate` op (2026-06-09)
+
+The gateway exposed only the single-pass `tick`; the cortex's premium decision
+mode — best-of-N `deliberate` (fork one branch per candidate, return the
+winner + every assessment + the branch tree) — was unreachable. Added a
+`deliberate` op whose inputs are all **explicit client choices** (no
+product-default guessing): the shared `request`, the candidate `RewardVector`s
+(the N), and the compute `tier` (`reflex` … `experimental`, the fanout dial).
+
+- NDJSON `{"op":"deliberate","request":{…},"candidates":[…],"tier":"…"}` →
+  `{"kind":"deliberation",…}`; HTTP `POST /v1/deliberate` with the same body.
+- **Read-only** like `explain`: it decides but does not learn or touch the
+  ledger (verified the ledger stays 0 after a deliberation), with the same
+  `force_local` Privacy policy. Verified live over HTTP (best-of-3 → winner
+  committed, `candidates_considered=3`).
+- +4 tests (lib + http: best-of-N, read-only, bad body → 400, GET → 405). 29
+  unit + 9 integration tests pass; `fmt` + `clippy -D warnings` clean on 1.88.0.
+
+### Added — `sovereign-chat` is runnable: multi-turn conversation with bounded history (2026-06-09)
+
+`sovereign-chat` composes `sovereign-llm` into a stateful chat session (record
+the turn → render the role-tagged history → generate → append) with **bounded
+history** for endless dialogue, but was lib-only. Added a `[[bin]]` + demo (the
+workspace's 8th runnable binary) that runs a session on a small real
+`SovereignLlm` and shows the distinct behaviour — the history grows to the cap
+(system + 4 non-system messages) then **stays bounded** as the dialogue
+continues, the earliest turns dropped while the system message is always kept.
+
+The 6 model crates moved from dev-dependencies to dependencies (no new
+workspace crates; Cargo.lock unchanged). `--help` supported. `fmt` +
+`clippy -D warnings` clean on pinned 1.88.0; the 8 lib tests still pass. This
+completes the runnable set of the four distinct decision/execution paths over
+the runtime: routing (`gatewayd`), cost (`serve`), agent (`agent-runtime`),
+conversation (`chat`).
+
+### Added — `sovereign-agent-runtime` is runnable: a tool-using ReAct agent on the real engine (2026-06-09)
+
+`sovereign-agent-runtime` bridges the real quantized inference engine
+(`sovereign-llm`) into the ReAct loop (`sovereign-agent-loop`) but was lib-only.
+Added a `[[bin]]` + demo (the workspace's 7th runnable binary) that drives the
+agent two ways:
+
+- **Real runtime** — a small `SovereignLlm` drives the loop end-to-end, proving
+  the inference stack + agentic layer compose into one running agent. (Random
+  weights → no tool call, one-step gibberish answer; the point is the real
+  engine drives the control flow.)
+- **Scripted ReAct** — a deterministic responder emits `[[tool:upper|sovereign]]`,
+  so the run shows the full loop: generate → dispatch the tool → feed the
+  observation back → final answer (`upper("sovereign") = "SOVEREIGN"`).
+
+The 7 model crates the binary needs to build a `SovereignLlm` moved from
+dev-dependencies to dependencies (no new workspace crates; Cargo.lock
+unchanged). `--help` supported. `fmt` + `clippy -D warnings` clean on pinned
+1.88.0; the 4 lib tests still pass.
+
+### Added — `sovereign-serve` is runnable: the $0-aware serving assembly runs end-to-end (2026-06-09)
+
+`sovereign-serve` composed the cache / complexity / token-meter crates into one
+`serve()` call but was lib-only — the assembly never ran. Added a `[[bin]]` +
+demo session (the workspace's 6th runnable binary) that drives requests through
+it, showing the cost-aware behaviour the crates exist for:
+
+- a repeated request is a **cache hit** — `$0`, the model never runs (`in=0 out=0`);
+- each request's **complexity tier** is estimated for routing;
+- a request that would blow the **token budget** is **refused before generating**
+  (`16 + 50 > 40`), not run and charged.
+
+The generator is a deterministic model stand-in (the point is the orchestration,
+not the text), mirroring the cortex binary's demo mode. `--help` supported.
+With no args it runs the demo; given `PROMPT [PROMPT…]` it serves each on an
+unlimited budget (a repeated prompt resolving as a `$0` cache hit) — an actually
+usable cost-aware serving tool, not just a fixed demo. `fmt` +
+`clippy -D warnings` clean on pinned 1.88.0; the 6 lib tests still pass.
+
 ### Added — the World-Model prior now acts: a surprise engages deeper reasoning (2026-06-09)
 
 The M030 prior was observe-only; now it influences compute — conservatively.
@@ -107,6 +240,11 @@ bridge / the cockpit can hit the engine directly:
   `SOVEREIGN_GATEWAY_MAX_CONN`); over the cap a connection is accepted and
   closed immediately rather than spawning unbounded threads. Matters once the
   daemon is exposed past its loopback default. Tested with the cap at 2.
+- **Survives a failed handler-spawn.** The accept loop uses
+  `Thread::Builder::spawn` and, if a handler thread can't start under resource
+  pressure, drops that one connection and keeps serving rather than panicking
+  the accept loop and taking the whole daemon down. The `ConnGuard` drops on the
+  failure path, so the active-connection counter stays correct.
 - The HTTP routing (`http::respond`) is pure and routes through the same
   `GatewayServer::handle` as the line protocol, so the two transports can never
   diverge. Verified live (curl + raw-socket): `GET /health` 200,

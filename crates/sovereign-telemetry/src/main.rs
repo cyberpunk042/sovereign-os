@@ -396,6 +396,17 @@ fn main() {
     //                  interrupted — a continuous monitor (compact NDJSON, or
     //                  repeated Prometheus blocks when combined with --prometheus).
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.iter().any(|a| a == "--help" || a == "-h") {
+        println!(
+            "sovereign-telemetry — live hardware-telemetry probe\n\n\
+             USAGE:\n\
+             \x20   sovereign-telemetry                      one JSON sample, then exit\n\
+             \x20   sovereign-telemetry --prometheus         Prometheus text-exposition\n\
+             \x20   sovereign-telemetry --watch [--interval N]  continuous monitor (default 5s)\n\
+             \x20   sovereign-telemetry --help               print this help and exit"
+        );
+        return;
+    }
     let watch = args.iter().any(|a| a == "--watch");
     let prometheus = args.iter().any(|a| a == "--prometheus");
     let interval_secs = args

@@ -4784,6 +4784,7 @@ dependencies = [
  "sovereign-cortex",
  "sovereign-gateway",
  "sovereign-router-7axis",
+ "sovereign-srp-scheduler",
  "sovereign-value-plane",
 ]
 

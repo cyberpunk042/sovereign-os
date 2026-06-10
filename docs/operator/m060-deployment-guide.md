@@ -3771,6 +3771,73 @@ size, concurrent jobs), add RAM, or set per-service memory limits so a single
 job can't starve the host. Restart anything the OOM-killer took down. The alert
 clears once 15m pass with no new kills.
 
+### sovereign-gatewayd alerts (never-cloud-spill tripwire)
+
+These fire on the gauges `sovereign-gatewayd` serves directly on `GET /metrics`
+(no textfile collector — scrape the daemon's HTTP address). The daemon is
+local-first by construction: every request is forced `allow_cloud = false`
+before it reaches the router, and the process-lifetime ledger counts any
+decision that nonetheless routed to the cloud plane. These alerts make that
+sovereignty invariant page instead of sitting unread in a ledger.
+
+Deploy alongside the other rule files and add a scrape job for the daemon:
+
+```bash
+sudo cp config/prometheus/alerts/sovereign-gatewayd.rules.yml /etc/prometheus/alerts/
+# /etc/prometheus/prometheus.yml
+#   rule_files:
+#     - /etc/prometheus/alerts/sovereign-gatewayd.rules.yml
+#   scrape_configs:
+#     - job_name: sovereign-gatewayd
+#       static_configs: [{targets: ["127.0.0.1:8787"]}]
+sudo systemctl reload prometheus
+```
+
+#### SovereignGatewayCloudSpill (critical)
+
+**Meaning:** `sovereign_gateway_never_cloud_spill_holds < 1` — the daemon's own
+tripwire reports that at least one decision in this process's lifetime routed
+to the cloud plane. This must never happen: the gateway forces
+`allow_cloud = false` on every request before routing, so a spill means the
+sovereignty boundary itself is broken, not merely a misconfigured client.
+
+**Diagnosis:**
+
+```bash
+# How many spills, and what else the ledger saw
+curl -s 127.0.0.1:8787/admin/ledger
+curl -s 127.0.0.1:8787/metrics | grep -E 'sovereign_gateway_(cloud_spills_total|never_cloud_spill_holds)'
+# Confirm the daemon's safety posture (health carries the invariant too)
+curl -s 127.0.0.1:8787/health
+```
+
+**Fix:** treat as an incident, not a tuning knob. Stop new traffic if needed,
+capture `/admin/ledger`, and find what produced a cloud-plane verdict despite
+`force_local` — a router/scheduler regression or a tampered build are the
+plausible causes; there is no legitimate one. The gauge stays 0 for the life of
+the process (the spill already happened); after the root cause is fixed,
+restarting the daemon re-arms the tripwire at 1.
+
+#### SovereignGatewayTripwireUnmonitored (warning)
+
+**Meaning:** `absent(sovereign_gateway_never_cloud_spill_holds) == 1` for 10m —
+Prometheus has no current sample of the tripwire gauge. An invariant you cannot
+see is not being enforced from the operator's seat: the daemon is down, the
+scrape job is missing/broken, or the bind address changed.
+
+**Diagnosis:**
+
+```bash
+systemctl status sovereign-gatewayd
+curl -s 127.0.0.1:8787/health        # daemon up + serving?
+curl -s 127.0.0.1:9090/api/v1/targets | grep -A3 sovereign-gatewayd
+```
+
+**Fix:** restart the daemon if it is down (`systemctl restart
+sovereign-gatewayd`); otherwise repair the scrape config (job name, address,
+`SOVEREIGN_GATEWAY_ADDR` override). The alert clears as soon as the gauge is
+scraped again.
+
 ## Project-boundary discipline (MS043 R10212)
 
 - IPS state mutation lives in **selfdef only** (selfdefd + selfdefctl +
