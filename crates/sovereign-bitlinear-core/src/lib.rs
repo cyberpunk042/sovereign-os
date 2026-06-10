@@ -21,11 +21,28 @@
 //!   with **no de-quantization back to floating point** at execution;
 //!   the only float multiplies are the `output_dim` per-row scale
 //!   applications, never the `output_dim × input_dim` inner products.
-//! - **Energy / op accounting** (F06046, F06067) — counts add/sub/skip
-//!   and the floating-point multiplies eliminated versus a dense GEMM.
+//! - **Packed-domain forward** (F06060-F06062) —
+//!   [`BitLinearLayer::forward_packed`] runs the matmul in a single pass
+//!   directly over the 2-bit packed codes (no `Vec<Trit>`), the safe scalar
+//!   form of the AVX-512 lookup-table matmul.
+//! - **FFN block composition** — [`BitLinearMlp`] stacks the primitive into
+//!   the transformer feed-forward block (with [`mlp::BitLinearMlp::forward_residual`]
+//!   for the residual sublayer shape), and [`TernarySwiGlu`] builds the
+//!   multiplication-free *gated* SwiGLU FFN a modern decoder runs. Both
+//!   propagate the packed-domain forward to the block level and stay
+//!   bit-for-bit equal to a dense reference across the whole stack.
+//! - **Energy / op accounting** (F06046, F06067-F06070) — counts
+//!   add/sub/skip and the floating-point multiplies eliminated versus a
+//!   dense GEMM; [`EnergyReport`] (`OpCount::energy_report`, block-level
+//!   `energy_report`) aggregates muls-eliminated, energy-saving ratio, and
+//!   weight sparsity across a whole FFN.
 //! - **Information-theory validator** (F06074, F06075) — verifies a
 //!   packing stores `≈ 1.585` bits/param and *rejects* any encoding that
 //!   exceeds 2 bits/param for ternary weights.
+//! - **Quantization-quality metrics** (R12201/R12228) —
+//!   [`ternary_reconstruction_error`] measures the relative Frobenius loss
+//!   of the 1.58-bit approximation, and [`is_ternary_friendly`] turns it
+//!   into the actionable per-layer ternary-vs-higher-precision decision.
 //!
 //! The numerics are exact: [`BitLinearLayer::forward`] produces bit-for-bit
 //! the same result as the multiply-based reference
