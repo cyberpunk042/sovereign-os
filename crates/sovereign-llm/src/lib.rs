@@ -111,6 +111,31 @@ impl SovereignLlm {
         Ok(self.tokenizer.decode(&generated).unwrap_or_default())
     }
 
+    /// Complete `prompt`, returning the generated text **truncated at the first
+    /// occurrence of any stop string** (the OpenAI `stop` parameter, which
+    /// operates on text and so can span several tokens — unlike a single stop
+    /// *token*). Empty stop strings are ignored; with no match the full
+    /// completion is returned. Reproducible per `seed`. (Reference impl:
+    /// generates up to `max_new` then trims.)
+    pub fn complete_until_string(
+        &self,
+        prompt: &str,
+        max_new: usize,
+        seed: u64,
+        stops: &[&str],
+    ) -> Result<String, LlmError> {
+        let full = self.complete(prompt, max_new, seed)?;
+        let cut = stops
+            .iter()
+            .filter(|s| !s.is_empty())
+            .filter_map(|s| full.find(*s))
+            .min();
+        Ok(match cut {
+            Some(i) => full[..i].to_string(),
+            None => full,
+        })
+    }
+
     /// Complete `prompt`, returning the prompt followed by the generated text.
     pub fn complete_with_prompt(
         &self,
@@ -615,6 +640,33 @@ mod tests {
         // tie (each once) → earliest-seen wins.
         assert_eq!(majority_sequence(&[b.clone(), a.clone()]), Some((b, 1)));
         assert_eq!(majority_sequence(&[]), None);
+    }
+
+    #[test]
+    fn complete_until_string_truncates_at_a_stop_sequence() {
+        let llm = runtime(Sampler::new(SamplerConfig::default()));
+        let full = llm.complete("hi there", 12, 7).unwrap();
+        // No stops / non-matching stop → full completion.
+        assert_eq!(
+            llm.complete_until_string("hi there", 12, 7, &[]).unwrap(),
+            full
+        );
+        assert_eq!(
+            llm.complete_until_string("hi there", 12, 7, &["ZZ_UNLIKELY_ZZ"])
+                .unwrap(),
+            full
+        );
+        // Stopping at the first character truncates to empty.
+        if let Some(c) = full.chars().next() {
+            let stop = c.to_string();
+            let out = llm
+                .complete_until_string("hi there", 12, 7, &[&stop])
+                .unwrap();
+            assert!(
+                out.is_empty(),
+                "should truncate before the first char: {out:?}"
+            );
+        }
     }
 
     #[test]
