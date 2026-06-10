@@ -92,6 +92,12 @@ if [ "${rc}" -eq 0 ] && grep -qE "passed" <<< "${out}"; then
   ok "make lint passes Layer 1"
 else
   ko "make lint failed"
+  # Without this, the only CI evidence is "make lint failed" — surface
+  # WHICH tests broke (pytest prints FAILED lines + a summary tail).
+  echo "  ---- make lint failure detail (rc=${rc}) ----"
+  grep -E "FAILED|ERROR" <<< "${out}" | head -20 | sed 's/^/  | /'
+  tail -5 <<< "${out}" | sed 's/^/  | /'
+  echo "  ---- end detail ----"
 fi
 
 # ----------- make l3-fast (uses test_state_lib etc.) ---------------
