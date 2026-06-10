@@ -26,7 +26,9 @@
 
 use sovereign_decoder_stack::{DecoderStack, StackError};
 use sovereign_sampler::{Sampler, SamplerError};
-use sovereign_spec_decode::{SpecError, prompt_lookup_draft, verify_greedy, verify_sampled};
+use sovereign_spec_decode::{
+    SpecError, optimal_draft_length, prompt_lookup_draft, verify_greedy, verify_sampled,
+};
 use thiserror::Error;
 
 /// Schema version of the speculative-decoding surface.
@@ -189,6 +191,102 @@ impl Speculative {
                 draft_logits = draft.forward(e)?;
             }
             out.extend_from_slice(&emitted);
+        }
+
+        out.truncate(self.max_new);
+        Ok(SpecResult {
+            tokens: out,
+            proposed,
+            accepted,
+            rounds,
+        })
+    }
+
+    /// Decode greedily-but-speculatively with an **adaptive draft length**: the
+    /// number of proposed tokens per round is retuned from the running
+    /// acceptance rate via `optimal_draft_length(α, cost_ratio, max_draft)`, so
+    /// the draft grows when the draft tracks the target well and shrinks when it
+    /// doesn't — maximizing throughput for the given draft `cost_ratio`. Starts
+    /// from this decoder's `draft_len` (clamped to `1..=max_draft`). The output
+    /// is identical to [`decode`](Self::decode) / greedy target decoding
+    /// (lossless); only the speed adapts.
+    pub fn decode_adaptive(
+        &self,
+        draft: &DecoderStack,
+        target: &DecoderStack,
+        prompt: &[usize],
+        cost_ratio: f64,
+        max_draft: usize,
+    ) -> Result<SpecResult, SpeculativeError> {
+        if prompt.is_empty() {
+            return Err(SpeculativeError::EmptyPrompt);
+        }
+        if draft.vocab() != target.vocab() {
+            return Err(SpeculativeError::VocabMismatch {
+                draft: draft.vocab(),
+                target: target.vocab(),
+            });
+        }
+        let max_draft = max_draft.max(1);
+        let mut k = self.draft_len.clamp(1, max_draft);
+
+        let mut draft = draft.clone();
+        let mut target = target.clone();
+        let mut draft_logits = prime(&mut draft, prompt)?;
+        let mut target_logits = prime(&mut target, prompt)?;
+
+        let mut out = Vec::new();
+        let mut proposed = 0usize;
+        let mut accepted = 0usize;
+        let mut rounds = 0usize;
+
+        while out.len() < self.max_new {
+            rounds += 1;
+
+            // 1. draft proposes `k` tokens on a throwaway fork.
+            let mut ds = draft.clone();
+            let mut dlog = draft_logits.clone();
+            let mut proposals = Vec::with_capacity(k);
+            for _ in 0..k {
+                let t = argmax(&dlog);
+                proposals.push(t);
+                dlog = ds.forward(t)?;
+            }
+            proposed += proposals.len();
+
+            // 2. target verifies greedily; accept the matching prefix.
+            let mut emitted = Vec::new();
+            let mut tlog = target_logits;
+            let mut all_accepted = true;
+            for &q in &proposals {
+                let a = argmax(&tlog);
+                if a == q {
+                    accepted += 1;
+                    emitted.push(q);
+                    tlog = target.forward(q)?;
+                } else {
+                    emitted.push(a);
+                    tlog = target.forward(a)?;
+                    all_accepted = false;
+                    break;
+                }
+            }
+            if all_accepted {
+                let bonus = argmax(&tlog);
+                emitted.push(bonus);
+                tlog = target.forward(bonus)?;
+            }
+            target_logits = tlog;
+            for &e in &emitted {
+                draft_logits = draft.forward(e)?;
+            }
+            out.extend_from_slice(&emitted);
+
+            // 3. retune the draft length from the running acceptance rate.
+            if proposed > 0 {
+                let alpha = accepted as f64 / proposed as f64;
+                k = optimal_draft_length(alpha, cost_ratio, max_draft);
+            }
         }
 
         out.truncate(self.max_new);
@@ -541,6 +639,44 @@ mod tests {
                 .decode_prompt_lookup(&target, &[], 2, 3)
                 .unwrap_err(),
             SpeculativeError::EmptyPrompt
+        );
+    }
+
+    #[test]
+    fn adaptive_decode_is_lossless_vs_greedy() {
+        // The adaptive draft length must not change the output — still exactly
+        // greedy target decoding — for any cost_ratio / max_draft.
+        let target = model(10, 0.0);
+        let draft = model(10, 21.0);
+        let g = greedy(target.clone(), &[3, 1, 4], 12);
+        for (cost, maxk) in [(0.1, 8usize), (0.5, 4), (0.9, 6)] {
+            let spec = Speculative::new(4, 12)
+                .decode_adaptive(&draft, &target, &[3, 1, 4], cost, maxk)
+                .unwrap();
+            assert_eq!(spec.tokens, g, "cost {cost}, max_draft {maxk}");
+            assert!(spec.accepted <= spec.proposed);
+        }
+    }
+
+    #[test]
+    fn adaptive_decode_validates_inputs() {
+        let target = model(8, 0.0);
+        let draft = model(8, 7.0);
+        assert_eq!(
+            Speculative::new(3, 6)
+                .decode_adaptive(&draft, &target, &[], 0.2, 4)
+                .unwrap_err(),
+            SpeculativeError::EmptyPrompt
+        );
+        let small = model(5, 0.0);
+        assert_eq!(
+            Speculative::new(3, 6)
+                .decode_adaptive(&small, &target, &[1], 0.2, 4)
+                .unwrap_err(),
+            SpeculativeError::VocabMismatch {
+                draft: 5,
+                target: 8
+            }
         );
     }
 
