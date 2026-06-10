@@ -167,12 +167,48 @@ impl QuantMatrix {
         (BLOCK_SIZE as f64 * 4.0 + 8.0) / BLOCK_SIZE as f64
     }
 
+    /// Reconstruct the full row-major f32 weight matrix from the quantized
+    /// blocks (the de-quantized view, padding trimmed back to `input_dim`).
+    pub fn dequantized_weights(&self) -> Vec<f32> {
+        let mut out = vec![0.0f32; self.output_dim * self.input_dim];
+        for (o, blocks) in self.rows.iter().enumerate() {
+            for (b, block) in blocks.iter().enumerate() {
+                let w = dequantize_block(block);
+                for (j, &wj) in w.iter().enumerate() {
+                    let idx = b * BLOCK_SIZE + j;
+                    if idx < self.input_dim {
+                        out[o * self.input_dim + idx] = wj;
+                    }
+                }
+            }
+        }
+        out
+    }
+
     /// Stored size in bytes: 16 elements (4 bits each = 8 bytes) + 1 scale
     /// byte per block.
     pub fn quantized_bytes(&self) -> usize {
         let blocks: usize = self.rows.iter().map(|r| r.len()).sum();
         blocks * (BLOCK_SIZE / 2 + 1)
     }
+}
+
+/// Relative reconstruction error `‖W − Ŵ‖_F / ‖W‖_F` between an original
+/// f32 weight tensor and a quantizer's de-quantized view — the NVFP4
+/// quant-quality metric (parallel to `sovereign-bitlinear-core`'s
+/// `ternary_reconstruction_error`). `0.0` = lossless; a higher value means
+/// more energy lost to 4-bit microscaling, so a loader can decide whether to
+/// reach for RHT / 2D / selective-HP on that layer. Zero/empty tensors
+/// return `0.0`.
+pub fn relative_frobenius_error(original: &[f32], reconstructed: &[f32]) -> f64 {
+    let mut num = 0.0f64;
+    let mut den = 0.0f64;
+    for (a, b) in original.iter().zip(reconstructed) {
+        let d = *a as f64 - *b as f64;
+        num += d * d;
+        den += (*a as f64) * (*a as f64);
+    }
+    if den == 0.0 { 0.0 } else { (num / den).sqrt() }
 }
 
 /// An NVFP4 weight matrix quantized **after** a random Hadamard rotation —
@@ -458,6 +494,53 @@ mod tests {
     fn rht_rejects_non_power_of_two() {
         let err = RhtQuantMatrix::from_f32(&[0.0; 20], 1, 20, 7).unwrap_err();
         assert_eq!(err, LinearError::RhtInputNotPowerOfTwo(20));
+    }
+
+    #[test]
+    fn nvfp4_reconstruction_error_is_bounded_and_lossless_when_uniform() {
+        // Uniform-magnitude weights quantize losslessly under NVFP4.
+        let uniform = vec![1.5f32; 32];
+        let q = QuantMatrix::from_f32(&uniform, 2, 16).unwrap();
+        let e0 = relative_frobenius_error(&uniform, &q.dequantized_weights());
+        assert!(e0 < 1e-6, "uniform weights should be ~lossless: {e0}");
+
+        // A spread of magnitudes loses some energy, but stays bounded.
+        let spread = rng_seq(2 * 16, 0x4242);
+        let qs = QuantMatrix::from_f32(&spread, 2, 16).unwrap();
+        let e = relative_frobenius_error(&spread, &qs.dequantized_weights());
+        assert!(e > 0.0 && e < 0.5, "spread error out of range: {e}");
+    }
+
+    #[test]
+    fn two_d_reconstructs_column_structure_better_than_1d() {
+        // The metric-level analogue of the matvec test: 2D's per-column
+        // scale recovers a systematically-tiny column that 1D rounds to ~0.
+        let (output_dim, input_dim) = (6, 16);
+        let mut weights = vec![1.0f32; output_dim * input_dim];
+        for o in 0..output_dim {
+            weights[o * input_dim + 5] = 0.012;
+        }
+        let one_d = QuantMatrix::from_f32(&weights, output_dim, input_dim).unwrap();
+        let two_d = TwoDQuantMatrix::from_f32(&weights, output_dim, input_dim).unwrap();
+        // Reconstruct just the small column from each and compare its error.
+        let e1 = relative_frobenius_error(&weights, &one_d.dequantized_weights());
+        // 2D stores per-column scale, so the tiny column survives → lower error.
+        // (TwoDQuantMatrix has no dequantized_weights; compare via its matvec
+        // reconstruction of the small column using a one-hot probe.)
+        let mut probe = vec![0.0f32; input_dim];
+        probe[5] = 1.0;
+        let col_ref: Vec<f32> = (0..output_dim)
+            .map(|o| weights[o * input_dim + 5])
+            .collect();
+        let col_2d = two_d.matvec(&probe).unwrap();
+        let col_1d = one_d.matvec(&probe).unwrap();
+        let e_col_2d = relative_frobenius_error(&col_ref, &col_2d);
+        let e_col_1d = relative_frobenius_error(&col_ref, &col_1d);
+        assert!(
+            e_col_2d < e_col_1d,
+            "2D did not recover the small column better: 1d {e_col_1d} vs 2d {e_col_2d}"
+        );
+        assert!(e1 > 0.0); // 1D loses the small column → nonzero overall error
     }
 
     #[test]
