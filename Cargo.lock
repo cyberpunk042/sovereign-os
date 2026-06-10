@@ -4595,6 +4595,7 @@ dependencies = [
  "sovereign-rmsnorm",
  "sovereign-sampler",
  "sovereign-transformer-block",
+ "sovereign-xtc-sampler",
  "thiserror",
 ]
 
@@ -5222,6 +5223,7 @@ dependencies = [
  "sovereign-tokenizer",
  "sovereign-toxicity",
  "sovereign-transformer-block",
+ "sovereign-xtc-sampler",
  "thiserror",
 ]
 

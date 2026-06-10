@@ -35,6 +35,7 @@ sovereign-token-healing = { path = "../sovereign-token-healing" }
 sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }
 sovereign-token-grammar-mask = { path = "../sovereign-token-grammar-mask" }
 sovereign-context-budget = { path = "../sovereign-context-budget" }
+sovereign-xtc-sampler = { path = "../sovereign-xtc-sampler" }
 
 [dev-dependencies]
 sovereign-transformer-block = { path = "../sovereign-transformer-block" }

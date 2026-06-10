@@ -20,6 +20,7 @@ sovereign-transformer-block = { path = "../sovereign-transformer-block" }
 sovereign-rmsnorm = { path = "../sovereign-rmsnorm" }
 sovereign-sampler = { path = "../sovereign-sampler" }
 sovereign-logit-mask = { path = "../sovereign-logit-mask" }
+sovereign-xtc-sampler = { path = "../sovereign-xtc-sampler" }
 
 [dev-dependencies]
 sovereign-ffn = { path = "../sovereign-ffn" }

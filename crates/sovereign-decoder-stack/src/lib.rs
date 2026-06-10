@@ -559,6 +559,49 @@ impl DecoderStack {
         Ok(generated)
     }
 
+    /// Generate up to `max_new` tokens applying **XTC** (Exclude Top Choices)
+    /// to the logits each step before sampling: when several tokens clear the
+    /// confidence threshold, the most-probable ones are dropped (with the
+    /// configured per-step probability) so a lower-but-plausible token can win —
+    /// more creative output without the word-salad of hot temperature, and a
+    /// no-op when only one token is confident (it stays on track). The XTC roll
+    /// uses a seed stream distinct from the sampler's, so both are reproducible
+    /// per `seed`. Returns the generated ids.
+    pub fn generate_xtc(
+        &mut self,
+        prompt: &[usize],
+        max_new: usize,
+        seed: u64,
+        xtc: &sovereign_xtc_sampler::XtcSampler,
+    ) -> Result<Vec<usize>, StackError> {
+        if prompt.is_empty() {
+            return Err(StackError::EmptyPrompt);
+        }
+        let mut logits = Vec::new();
+        for &t in prompt {
+            logits = self.forward(t)?;
+        }
+        let mut generated = Vec::with_capacity(max_new);
+        for _ in 0..max_new {
+            let pos = self.position() as u64;
+            // distinct seed stream for the XTC roll (offset from the sampler's).
+            xtc.apply_seeded(
+                &mut logits,
+                seed.wrapping_add(pos).wrapping_add(0x5743_4358),
+            );
+            let recent_start = self.recent.len().saturating_sub(self.config.recent_window);
+            let token = self.config.sampler.sample_seeded(
+                &logits,
+                &self.recent[recent_start..],
+                seed.wrapping_add(pos),
+            )?;
+            self.recent.push(token);
+            generated.push(token);
+            logits = self.forward(token)?;
+        }
+        Ok(generated)
+    }
+
     /// Like [`generate_dynamic_mask`](Self::generate_dynamic_mask) but the mask
     /// hook may **stop** generation: `mask_fn(&generated)` returns `None` to end
     /// (e.g. a grammar constraint signalling the output is a complete sentence, or
@@ -681,6 +724,42 @@ mod tests {
             .unwrap();
         assert_eq!(out.len(), 6);
         assert!(out.iter().all(|&t| (1..=2).contains(&t)), "{out:?}");
+    }
+
+    #[test]
+    fn xtc_inactive_equals_plain_generate() {
+        use sovereign_xtc_sampler::XtcSampler;
+        // probability 0 → XTC never fires → identical to plain generation.
+        let cfg = config(8, 4, 2, Sampler::greedy());
+        let plain = DecoderStack::new(cfg.clone())
+            .unwrap()
+            .generate(&[1, 2], 6, 9)
+            .unwrap();
+        let xtc = XtcSampler::new(0.1, 0.0);
+        let with_xtc = DecoderStack::new(cfg)
+            .unwrap()
+            .generate_xtc(&[1, 2], 6, 9, &xtc)
+            .unwrap();
+        assert_eq!(plain, with_xtc);
+    }
+
+    #[test]
+    fn xtc_active_can_change_the_output_and_is_reproducible() {
+        use sovereign_xtc_sampler::XtcSampler;
+        // an always-firing, low-threshold XTC excludes top choices, so the output
+        // can differ from greedy; and it is reproducible for a fixed seed.
+        let cfg = config(8, 4, 2, Sampler::greedy());
+        let xtc = XtcSampler::new(0.01, 1.0);
+        let a = DecoderStack::new(cfg.clone())
+            .unwrap()
+            .generate_xtc(&[1, 2], 8, 4, &xtc)
+            .unwrap();
+        let b = DecoderStack::new(cfg)
+            .unwrap()
+            .generate_xtc(&[1, 2], 8, 4, &xtc)
+            .unwrap();
+        assert_eq!(a, b, "reproducible for a fixed seed");
+        assert_eq!(a.len(), 8);
     }
 
     #[test]

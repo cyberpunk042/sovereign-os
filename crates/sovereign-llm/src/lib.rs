@@ -153,6 +153,34 @@ impl SovereignLlm {
         Ok(self.tokenizer.decode(&generated).unwrap_or_default())
     }
 
+    /// Complete `prompt` using **XTC** (Exclude Top Choices) sampling: when the
+    /// model is confident about several tokens, the most-probable ones are
+    /// dropped (above `threshold`, with per-step `probability`) so a
+    /// lower-but-plausible token can win — more creative output than the base
+    /// sampler without the incoherence of high temperature, and a no-op when only
+    /// one token is confident. Composes XTC with this runtime's configured
+    /// sampler. Reproducible per `seed`.
+    pub fn complete_xtc(
+        &self,
+        prompt: &str,
+        max_new: usize,
+        seed: u64,
+        threshold: f32,
+        probability: f32,
+    ) -> Result<String, LlmError> {
+        let xtc = sovereign_xtc_sampler::XtcSampler::new(threshold, probability);
+        let prompt_ids: Vec<usize> = self
+            .tokenizer
+            .encode(prompt)
+            .iter()
+            .map(|&i| i as usize)
+            .collect();
+        let mut model = self.model.clone();
+        let gen_ids = model.generate_xtc(&prompt_ids, max_new, seed, &xtc)?;
+        let out_ids: Vec<u32> = gen_ids.iter().map(|&i| i as u32).collect();
+        Ok(self.tokenizer.decode(&out_ids).unwrap_or_default())
+    }
+
     /// Complete `prompt` after **fitting it to a context budget**: if the prompt
     /// exceeds `max_context` tokens it is trimmed to the most recent `max_context`
     /// (`sovereign-context-budget`, keeping the tail — the text nearest where
@@ -959,6 +987,27 @@ mod tests {
         // the report is exactly analyze() of that text — the wiring is faithful
         assert_eq!(report, analyze(&text, &cfg));
         assert!((0.0..=1.0).contains(&report.distinct_ngram_ratio));
+    }
+
+    #[test]
+    fn complete_xtc_inactive_equals_plain_complete() {
+        let llm = runtime(Sampler::greedy());
+        // probability 0 → XTC never fires → identical to plain complete
+        assert_eq!(
+            llm.complete_xtc("hello", 6, 4, 0.1, 0.0).unwrap(),
+            llm.complete("hello", 6, 4).unwrap()
+        );
+    }
+
+    #[test]
+    fn complete_xtc_is_reproducible() {
+        let a = runtime(Sampler::greedy());
+        let b = runtime(Sampler::greedy());
+        // always-firing XTC is still fully reproducible per seed
+        assert_eq!(
+            a.complete_xtc("hello there", 8, 4, 0.01, 1.0).unwrap(),
+            b.complete_xtc("hello there", 8, 4, 0.01, 1.0).unwrap()
+        );
     }
 
     #[test]
