@@ -197,6 +197,65 @@ impl EmbedStore {
         hits.truncate(k);
         hits
     }
+
+    /// Retrieve the top-`k` documents with **Maximal Marginal Relevance**
+    /// re-ranking (Carbonell & Goldstein): greedily pick the document that
+    /// maximizes `λ·sim(d, query) − (1−λ)·maxₛ sim(d, s)` over the
+    /// already-selected set `s`. `lambda = 1.0` is pure relevance (identical to
+    /// [`retrieve`](Self::retrieve)); `lambda = 0.0` is pure diversity. This
+    /// avoids returning several near-duplicate chunks — a query budget the plain
+    /// top-k wastes when the corpus is redundant. `lambda` is clamped to
+    /// `[0, 1]`; only documents with positive query similarity are candidates.
+    pub fn retrieve_mmr(&self, query: &str, k: usize, lambda: f32) -> Vec<Hit> {
+        let lambda = lambda.clamp(0.0, 1.0);
+        let q = embed_with(query, self.dim, self.n);
+        // Candidates: (doc, relevance) with positive query similarity.
+        let mut candidates: Vec<(&EmbeddedDoc, f32)> = self
+            .docs
+            .iter()
+            .filter_map(|d| {
+                let rel = cosine(&q, &d.vector);
+                (rel > 0.0).then_some((d, rel))
+            })
+            .collect();
+
+        // Embeddings of the already-selected docs (for the diversity penalty).
+        let mut selected_vecs: Vec<Vec<f32>> = Vec::new();
+        let mut selected: Vec<Hit> = Vec::with_capacity(k.min(candidates.len()));
+        while selected.len() < k && !candidates.is_empty() {
+            // Pick the candidate maximizing the MMR objective; deterministic
+            // tie-break by relevance (desc) then id (asc).
+            let mut best_idx = 0usize;
+            let mut best: Option<(f32, f32, &str)> = None; // (mmr, rel, id)
+            for (i, &(d, rel)) in candidates.iter().enumerate() {
+                let max_sim = selected_vecs
+                    .iter()
+                    .map(|sv| cosine(&d.vector, sv))
+                    .fold(0.0f32, f32::max);
+                let mmr = lambda * rel - (1.0 - lambda) * max_sim;
+                let better = match best {
+                    None => true,
+                    Some((bm, br, bid)) => {
+                        mmr > bm + 1e-9
+                            || (mmr >= bm - 1e-9
+                                && (rel > br + 1e-9 || (rel >= br - 1e-9 && d.id.as_str() < bid)))
+                    }
+                };
+                if better {
+                    best = Some((mmr, rel, d.id.as_str()));
+                    best_idx = i;
+                }
+            }
+            let (d, rel) = candidates.remove(best_idx);
+            selected_vecs.push(d.vector.clone());
+            selected.push(Hit {
+                id: d.id.clone(),
+                text: d.text.clone(),
+                score: rel,
+            });
+        }
+        selected
+    }
 }
 
 impl Default for EmbedStore {
@@ -208,6 +267,60 @@ impl Default for EmbedStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mmr_avoids_near_duplicates() {
+        // a1 and a2 are identical text (cosine 1.0); b shares the query term but
+        // is otherwise different. Plain top-2 returns the two duplicates; MMR
+        // swaps the redundant a2 for the diverse b.
+        let mut s = EmbedStore::new();
+        s.add("a1", "rust systems programming ownership");
+        s.add("a2", "rust systems programming ownership"); // duplicate of a1
+        s.add("b", "rust concurrency speed channels");
+        let q = "rust systems";
+
+        let plain: Vec<String> = s.retrieve(q, 2).into_iter().map(|h| h.id).collect();
+        assert_eq!(plain, vec!["a1", "a2"], "plain top-2 keeps both duplicates");
+
+        let mmr: Vec<String> = s
+            .retrieve_mmr(q, 2, 0.5)
+            .into_iter()
+            .map(|h| h.id)
+            .collect();
+        assert!(mmr.contains(&"a1".to_string()));
+        assert!(
+            mmr.contains(&"b".to_string()),
+            "MMR must pick the diverse b: {mmr:?}"
+        );
+        assert!(
+            !mmr.contains(&"a2".to_string()),
+            "MMR must drop the duplicate: {mmr:?}"
+        );
+    }
+
+    #[test]
+    fn mmr_lambda_one_equals_plain_retrieve() {
+        let mut s = EmbedStore::new();
+        s.add("x", "alpha beta gamma");
+        s.add("y", "beta gamma delta");
+        s.add("z", "gamma delta epsilon");
+        let q = "beta gamma";
+        let plain: Vec<String> = s.retrieve(q, 3).into_iter().map(|h| h.id).collect();
+        let mmr: Vec<String> = s
+            .retrieve_mmr(q, 3, 1.0)
+            .into_iter()
+            .map(|h| h.id)
+            .collect();
+        assert_eq!(plain, mmr, "λ=1 is pure relevance");
+    }
+
+    #[test]
+    fn mmr_empty_store_and_no_match() {
+        assert!(EmbedStore::new().retrieve_mmr("q", 3, 0.5).is_empty());
+        let mut s = EmbedStore::new();
+        s.add("a", "totally unrelated text");
+        assert!(s.retrieve_mmr("xyzzy nonexistent", 3, 0.5).is_empty());
+    }
 
     #[test]
     fn embedding_is_unit_norm() {
