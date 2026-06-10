@@ -53,16 +53,25 @@ stage_kernel_debs() {
     # staged -dbg deb would otherwise ship 984M into the image).
     rm -f "${cache_dir}"/*.deb
     # -dbg deb excluded: 984M of debug symbols that would otherwise ship
-    # INSIDE the final image filesystem via mkosi.extra.
-    local staged=0 deb
-    for deb in "${SOVEREIGN_OS_KERNEL_DEBS_DIR}"/*.deb; do
+    # INSIDE the final image filesystem via mkosi.extra. Newest revision
+    # per package only: the forge accumulates a .deb per rebuild
+    # (6.12.0-1.. -7 after the first real build's fix iterations) and
+    # dpkg would otherwise unpack every one of them in sequence.
+    local deb base name
+    declare -A latest=()
+    while IFS= read -r deb; do
       [ -e "${deb}" ] || continue
       case "${deb}" in *-dbg_*) continue ;; esac
-      cp "${deb}" "${cache_dir}/"
-      staged=$((staged + 1))
-    done
-    [ "${staged}" -gt 0 ] \
-      || log_warn "no kernel .debs to copy (dry-run mode? substrate-default kernel?)"
+      base="$(basename "${deb}")"
+      name="${base%%_*}"
+      latest["${name}"]="${deb}"   # sort -V order → last seen wins
+    done < <(printf '%s\n' "${SOVEREIGN_OS_KERNEL_DEBS_DIR}"/*.deb | sort -V)
+    if [ "${#latest[@]}" -gt 0 ]; then
+      cp "${latest[@]}" "${cache_dir}/"
+      log_info "staged ${#latest[@]} kernel .deb(s) (newest revision each): ${!latest[*]}"
+    else
+      log_warn "no kernel .debs to copy (dry-run mode? substrate-default kernel?)"
+    fi
   fi
 }
 

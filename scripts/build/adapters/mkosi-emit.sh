@@ -136,13 +136,18 @@ if "systemd-boot" not in all_packages:
     all_packages.append("systemd-boot")
 
 # DKMS module builds (nvidia/zfs) happen INSIDE the image against the
-# custom kernel. The Debian-seeded config has DEBUG_INFO_BTF_MODULES=y,
-# so module builds invoke pahole — without it every dkms build dies
-# ('bad exit status: 2', first real image build 2026-06-10). bc is the
-# classic kernel-scripts straggler.
-for tool in ("pahole", "bc"):
-    if tool not in all_packages:
-        all_packages.append(tool)
+# custom kernel — they need a real toolchain there. mkosi installs with
+# Install-Recommends=false, so nothing pulls it implicitly: without
+# build-essential both dkms builds die at 'no acceptable C compiler
+# found in $PATH' (first real image build, 2026-06-10). trixie's
+# default gcc (14.2) matches the kernel-forge gcc-14 exactly, so
+# NVIDIA's CC-version check passes without IGNORE_CC_MISMATCH.
+# DEBUG_INFO_BTF_MODULES=y additionally makes every module build invoke
+# pahole; bc is the classic kernel-scripts straggler.
+if any(pkg.endswith("-dkms") for pkg in all_packages):
+    for tool in ("build-essential", "pahole", "bc"):
+        if tool not in all_packages:
+            all_packages.append(tool)
 
 cfg = textwrap.dedent(f"""\
     # auto-generated profile-specific config for {profile_id}
@@ -164,17 +169,14 @@ if cmdline:
     cfg += f"\nKernelCommandLine={cmdline}\n"
 
 # Deny list — sovereignty-required (no phone-home / telemetry: snapd, apport,
-# whoopsie, popularity-contest, ubuntu-advantage, …). Emit mkosi's real
-# RemovePackages= directive so these are PURGED from the image after install,
-# which also catches a denied daemon pulled in as a transitive dependency.
-# (Previously this block emitted only '# explicitly NOT installed: …' comments,
-# which enforced nothing — the packages were never actually removed.)
+# whoopsie, popularity-contest, ubuntu-advantage, …). NOT emitted as
+# mkosi RemovePackages= — that runs apt purge, which hard-errors on names
+# absent from the distro archive (whoopsie/motd-news-config/
+# ubuntu-advantage-tools are Ubuntu-only; killed the first real Debian
+# image build, 2026-06-10). Enforced instead in mkosi.postinst.chroot as
+# purge-if-present via dpkg, which is distro-agnostic and still catches a
+# denied daemon pulled in as a transitive dependency.
 deny = (p.get("packages") or {}).get("deny") or []
-if deny:
-    cfg += "\n# deny-list (sovereignty-required: no phone-home / telemetry)\n"
-    cfg += "RemovePackages=\n"
-    for pkg in deny:
-        cfg += f"    {pkg}\n"
 
 (out_dir / "mkosi.conf.d" / f"{profile_id}.conf").write_text(cfg)
 
@@ -186,6 +188,23 @@ if deny:
 # build ('No kernel headers were found') — caught by the first real
 # image build, 2026-06-10. Installing headers+image here also triggers
 # the dkms autoinstall for nvidia/zfs against the custom kernel.
+# deny-list enforcement appended below the kernel install (plain-string
+# composition — the bash body is full of ${...} that an f-string would eat)
+deny_block = ""
+if deny:
+    deny_block = textwrap.dedent("""\
+
+        # deny-list enforcement (sovereignty: no phone-home / telemetry).
+        # purge-if-present via dpkg: distro-agnostic, tolerates names the
+        # archive has never heard of (Ubuntu-only packages on Debian).
+        for pkg in %s; do
+            if dpkg -s "$pkg" >/dev/null 2>&1; then
+                echo "postinst: purging deny-listed package: $pkg" >&2
+                dpkg --purge --force-depends "$pkg"
+            fi
+        done
+        """) % " ".join(deny)
+
 postinst = out_dir / "mkosi.postinst.chroot"
 postinst.write_text(textwrap.dedent("""\
     #!/bin/bash
@@ -205,21 +224,22 @@ postinst.write_text(textwrap.dedent("""\
         debs+=("$d")
     done
     if [ ${#debs[@]} -eq 0 ]; then
+        # no early exit — the deny-list purge below must still run
         echo "postinst: no staged local debs (substrate-default kernel)" >&2
-        exit 0
+    else
+        echo "postinst: installing ${#debs[@]} staged kernel .deb(s)" >&2
+        # No apt fallback: the image intentionally ships without apt-get at
+        # this stage; dpkg -i over the full set resolves inter-deb deps.
+        if ! dpkg -i "${debs[@]}"; then
+            echo "postinst: dpkg failed — dumping DKMS logs for diagnosis" >&2
+            for log in /var/lib/dkms/*/*/build/make.log; do
+                echo "───── ${log} (last 60 lines) ─────" >&2
+                tail -n 60 "$log" >&2 || true
+            done
+            exit 1
+        fi
     fi
-    echo "postinst: installing ${#debs[@]} staged kernel .deb(s)" >&2
-    # No apt fallback: the image intentionally ships without apt-get at
-    # this stage; dpkg -i over the full set resolves inter-deb deps.
-    if ! dpkg -i "${debs[@]}"; then
-        echo "postinst: dpkg failed — dumping DKMS logs for diagnosis" >&2
-        for log in /var/lib/dkms/*/*/build/make.log; do
-            echo "───── ${log} (last 60 lines) ─────" >&2
-            tail -n 60 "$log" >&2 || true
-        done
-        exit 1
-    fi
-    """))
+    """) + deny_block)
 postinst.chmod(0o755)
 
 # ---- kernel.modules.load_at_boot → /etc/modules-load.d/ (mkosi.extra overlay) ----
@@ -251,11 +271,19 @@ if storage_layout == "zfs-tiered":
     (out_dir / "mkosi.repart" / "10-root-zfs.conf").write_text(textwrap.dedent("""\
         [Partition]
         Type=root
-        # ZFS pool created post-install by hook scripts; mkosi just
-        # reserves the partition. Actual pool creation lives in
-        # scripts/hooks/during-install/zfs-pool-create.sh.
-        Format=none
-        SizeMinBytes=64G
+        # Root is ext4 BY DESIGN, not a placeholder: systemd-repart cannot
+        # create ZFS (there is no mkfs.zfs — pools come from zpool create),
+        # and Format=none produced an unbootable image with an empty root
+        # ('mkfs binary for none is not available', first real image build
+        # 2026-06-10). The zfs-tiered layout lives in the TANK DATA POOL
+        # (tank/models, tank/context, tank/agents), created on the target
+        # at install time by scripts/hooks/during-install/zfs-pool-create.sh
+        # — not inside this image.
+        Format=ext4
+        # Populate the partition from the built rootfs — without CopyFiles
+        # the root would be formatted but EMPTY.
+        CopyFiles=/
+        SizeMinBytes=16G
         """))
 else:
     # Default: single root partition (ext4)
