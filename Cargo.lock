@@ -5201,6 +5201,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sovereign-answer-extract",
+ "sovereign-context-budget",
  "sovereign-decoder-stack",
  "sovereign-degeneration",
  "sovereign-diversity",

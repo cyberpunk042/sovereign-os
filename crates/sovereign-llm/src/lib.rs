@@ -153,6 +153,29 @@ impl SovereignLlm {
         Ok(self.tokenizer.decode(&generated).unwrap_or_default())
     }
 
+    /// Complete `prompt` after **fitting it to a context budget**: if the prompt
+    /// exceeds `max_context` tokens it is trimmed to the most recent `max_context`
+    /// (`sovereign-context-budget`, keeping the tail — the text nearest where
+    /// generation continues) before completing. A long prompt that would overflow
+    /// the model's effective context window is bounded instead of silently
+    /// degrading. A prompt that already fits is completed unchanged. Reproducible
+    /// per `seed`.
+    pub fn complete_within_context(
+        &self,
+        prompt: &str,
+        max_context: usize,
+        max_new: usize,
+        seed: u64,
+    ) -> Result<String, LlmError> {
+        let trimmed = sovereign_context_budget::trim(
+            &self.tokenizer,
+            prompt,
+            max_context,
+            sovereign_context_budget::Keep::Tail,
+        );
+        self.complete(&trimmed, max_new, seed)
+    }
+
     /// Complete `prompt` with **token healing** at the prompt/completion seam.
     /// Whole-prompt tokenization fixes the last token to whatever split the
     /// tokenizer chose at the cut — often *not* the split the model would pick
@@ -936,6 +959,34 @@ mod tests {
         // the report is exactly analyze() of that text — the wiring is faithful
         assert_eq!(report, analyze(&text, &cfg));
         assert!((0.0..=1.0).contains(&report.distinct_ngram_ratio));
+    }
+
+    #[test]
+    fn complete_within_context_trims_an_overlong_prompt() {
+        let llm = runtime(Sampler::greedy());
+        let long = "the quick brown fox jumps over the lazy dog again and again";
+        // faithful wiring: equals completing the tail-trimmed prompt
+        let trimmed = sovereign_context_budget::trim(
+            llm.tokenizer(),
+            long,
+            8,
+            sovereign_context_budget::Keep::Tail,
+        );
+        assert!(sovereign_context_budget::token_count(llm.tokenizer(), &trimmed) <= 8);
+        assert_eq!(
+            llm.complete_within_context(long, 8, 6, 4).unwrap(),
+            llm.complete(&trimmed, 6, 4).unwrap()
+        );
+    }
+
+    #[test]
+    fn complete_within_context_leaves_a_fitting_prompt_unchanged() {
+        let llm = runtime(Sampler::greedy());
+        // a short prompt within budget completes exactly like plain complete
+        assert_eq!(
+            llm.complete_within_context("hello", 64, 6, 4).unwrap(),
+            llm.complete("hello", 6, 4).unwrap()
+        );
     }
 
     #[test]
