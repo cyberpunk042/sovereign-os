@@ -28,6 +28,7 @@ sovereign-answer-extract = { path = "../sovereign-answer-extract" }
 sovereign-secret-scan = { path = "../sovereign-secret-scan" }
 sovereign-pii-redact = { path = "../sovereign-pii-redact" }
 sovereign-toxicity = { path = "../sovereign-toxicity" }
+sovereign-logprobs = { path = "../sovereign-logprobs" }
 
 [dev-dependencies]
 sovereign-transformer-block = { path = "../sovereign-transformer-block" }

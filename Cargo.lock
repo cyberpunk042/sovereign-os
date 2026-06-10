@@ -5203,6 +5203,7 @@ dependencies = [
  "sovereign-diversity",
  "sovereign-ffn",
  "sovereign-logit-mask",
+ "sovereign-logprobs",
  "sovereign-perplexity",
  "sovereign-pii-redact",
  "sovereign-prompt-compress",

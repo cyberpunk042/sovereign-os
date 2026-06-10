@@ -83,6 +83,23 @@ pub struct SampleDiversity {
     pub unique_ratio: f64,
 }
 
+/// Confidence / uncertainty over a generated completion (see
+/// [`SovereignLlm::completion_confidence`]). Built from the model's own
+/// per-token log-probabilities for the tokens it generated.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ConfidenceReport {
+    /// Number of generated tokens scored.
+    pub tokens: usize,
+    /// Mean per-token log-probability (nats; closer to 0 = more confident).
+    pub mean_logprob: f64,
+    /// Perplexity over the generated tokens (`≥ 1`; lower = more confident).
+    pub perplexity: f64,
+    /// Index (within the completion) of the least-confident token, if any.
+    pub weakest_index: Option<usize>,
+    /// The log-probability of that least-confident token.
+    pub weakest_logprob: f64,
+}
+
 /// A runnable text-to-text LLM: tokenizer + stacked decoder model.
 #[derive(Debug, Clone)]
 pub struct SovereignLlm {
@@ -131,6 +148,46 @@ impl SovereignLlm {
         let generated = self.generate_ids(prompt, max_new, seed)?;
         // ids come straight from the model's own vocab, so decode never fails.
         Ok(self.tokenizer.decode(&generated).unwrap_or_default())
+    }
+
+    /// Generate a completion for `prompt` and report the model's **confidence**
+    /// in the tokens it produced. The prompt+completion is scored teacher-forced
+    /// (`perplexity::token_logprobs`) and the *generated* slice is summarized with
+    /// [`sovereign-logprobs`](sovereign_logprobs): mean log-prob, perplexity, and
+    /// the weakest (least-confident) token. A serving loop uses a high perplexity
+    /// / very low weakest-token logprob to flag an unreliable answer for review or
+    /// regeneration. Returns `None` if nothing was generated (`max_new == 0` or an
+    /// empty prompt). Reproducible per `seed`.
+    pub fn completion_confidence(
+        &self,
+        prompt: &str,
+        max_new: usize,
+        seed: u64,
+    ) -> Result<Option<ConfidenceReport>, LlmError> {
+        let prompt_ids = self.tokenizer.encode(prompt);
+        let gen_ids = self.generate_ids(prompt, max_new, seed)?;
+        if gen_ids.is_empty() {
+            return Ok(None);
+        }
+        // Score the whole prompt+completion, then keep the generated tail: each
+        // generated token scored given everything before it.
+        let mut full: Vec<usize> = prompt_ids.iter().map(|&i| i as usize).collect();
+        full.extend(gen_ids.iter().map(|&i| i as usize));
+        if full.len() < 2 {
+            return Ok(None);
+        }
+        let all = sovereign_perplexity::token_logprobs(&self.model, &full)?;
+        // `all` scores tokens[1..]; the generated tokens are the last gen_ids.len().
+        let start = all.len().saturating_sub(gen_ids.len());
+        let gen_lps = &all[start..];
+        let weakest = sovereign_logprobs::weakest_token(gen_lps);
+        Ok(Some(ConfidenceReport {
+            tokens: gen_lps.len(),
+            mean_logprob: sovereign_logprobs::mean_logprob(gen_lps),
+            perplexity: sovereign_logprobs::perplexity(gen_lps),
+            weakest_index: weakest.map(|(i, _)| i),
+            weakest_logprob: weakest.map(|(_, lp)| lp).unwrap_or(0.0),
+        }))
     }
 
     /// Complete `prompt`, then **scrub the output**: redact any secrets (API
@@ -719,6 +776,39 @@ mod tests {
         // the report is exactly analyze() of that text — the wiring is faithful
         assert_eq!(report, analyze(&text, &cfg));
         assert!((0.0..=1.0).contains(&report.distinct_ngram_ratio));
+    }
+
+    #[test]
+    fn completion_confidence_summarizes_generated_tokens() {
+        let llm = runtime(Sampler::greedy());
+        let report = llm.completion_confidence("hello", 8, 5).unwrap().unwrap();
+        // one logprob per generated token
+        assert_eq!(
+            report.tokens,
+            llm.generate_ids("hello", 8, 5).unwrap().len()
+        );
+        // perplexity is a valid LM perplexity; mean logprob is a log-prob (≤ 0)
+        assert!(report.perplexity >= 1.0 - 1e-9 && report.perplexity.is_finite());
+        assert!(report.mean_logprob <= 1e-9);
+        // the weakest token is no more confident than the mean
+        assert!(report.weakest_logprob <= report.mean_logprob + 1e-9);
+        assert!(report.weakest_index.unwrap() < report.tokens);
+    }
+
+    #[test]
+    fn completion_confidence_zero_max_new_is_none() {
+        let llm = runtime(Sampler::greedy());
+        assert_eq!(llm.completion_confidence("hello", 0, 5).unwrap(), None);
+    }
+
+    #[test]
+    fn completion_confidence_is_reproducible() {
+        let a = runtime(Sampler::new(SamplerConfig::default()));
+        let b = runtime(Sampler::new(SamplerConfig::default()));
+        assert_eq!(
+            a.completion_confidence("confidence prompt", 8, 2).unwrap(),
+            b.completion_confidence("confidence prompt", 8, 2).unwrap()
+        );
     }
 
     #[test]
