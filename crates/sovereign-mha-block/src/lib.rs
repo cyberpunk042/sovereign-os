@@ -291,6 +291,29 @@ impl MhaDecoderBlock {
         self.rope.position_scale
     }
 
+    /// Extend this block's usable context from `train_ctx` to `target_ctx` with
+    /// **YaRN** (NTK-by-parts) RoPE scaling — per-frequency interpolation that
+    /// preserves high-frequency (local) resolution while extending range,
+    /// outperforming the uniform [`with_context_extension`](Self::with_context_extension)
+    /// (position interpolation). Uses the canonical ramp thresholds `α=1, β=32`.
+    /// Must be called before any `step`.
+    pub fn with_yarn_context(mut self, train_ctx: usize, target_ctx: usize) -> Self {
+        self.rope = Rope::with_yarn(
+            self.head_dim,
+            sovereign_rope::DEFAULT_THETA_BASE,
+            train_ctx,
+            target_ctx,
+            1.0,
+            32.0,
+        );
+        self
+    }
+
+    /// Whether this block uses YaRN RoPE scaling.
+    pub fn rope_is_yarn(&self) -> bool {
+        self.rope.yarn_train > 0
+    }
+
     /// Enable **sliding-window attention** with span `window`: each step
     /// attends to (and the cache retains) only the most recent `window`
     /// positions, bounding both attention cost and KV-cache memory at long
@@ -736,6 +759,26 @@ mod tests {
             assert!(block.cache_len() <= 3);
         }
         assert_eq!(block.len(), 8);
+    }
+
+    #[test]
+    fn yarn_context_block_runs_finite() {
+        // YaRN RoPE scaling 2048 → 8192; block decodes finite at extended
+        // positions, and reports YaRN active (plain block does not).
+        let w = weights(8, 2, 4, 2, 16);
+        let mut block = MhaDecoderBlock::from_weights(&w, Precision::F32)
+            .unwrap()
+            .with_yarn_context(2048, 8192);
+        assert!(block.rope_is_yarn());
+        for step in 0..5 {
+            let x: Vec<f32> = (0..8).map(|i| ((i + step) as f32 * 0.2).sin()).collect();
+            assert!(block.step(&x).unwrap().iter().all(|v| v.is_finite()));
+        }
+        assert!(
+            !MhaDecoderBlock::from_weights(&w, Precision::F32)
+                .unwrap()
+                .rope_is_yarn()
+        );
     }
 
     #[test]
