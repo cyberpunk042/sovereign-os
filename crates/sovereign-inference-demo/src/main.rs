@@ -28,7 +28,7 @@ use sovereign_quant_block::{QuantBlockWeights, QuantDecoderBlock};
 use sovereign_quant_llm::QuantLlm;
 use sovereign_quant_model::QuantModel;
 use sovereign_rmsnorm::RmsNorm;
-use sovereign_sampler::{Sampler, SamplerConfig};
+use sovereign_sampler::{Mirostat, Sampler, SamplerConfig};
 use sovereign_speculative::Speculative;
 use sovereign_tokenizer::Tokenizer;
 use sovereign_transformer_block::{BlockWeights, DecoderBlock};
@@ -476,6 +476,46 @@ fn run_strategies_demo() -> String {
         spec_s.proposed,
         spec_s.acceptance_rate() * 100.0,
         spec_s.realized_speedup()
+    );
+
+    // no-repeat-ngram: dynamic blocking → no 3-gram repeats in the output.
+    let nrn = model
+        .clone()
+        .generate_no_repeat_ngram(&prompt, 8, 42, 3)
+        .expect("no-repeat-ngram");
+    let mut full = prompt.to_vec();
+    full.extend(&nrn);
+    let repeat_free = {
+        let mut seen = std::collections::HashSet::new();
+        full.windows(3).all(|w| seen.insert(w.to_vec()))
+    };
+    let _ = writeln!(
+        out,
+        "no-repeat-3gram : {nrn:?} (no 3-gram repeats: {repeat_free})"
+    );
+
+    // Mirostat v2: perplexity-targeting decode (τ = 3 bits).
+    let mut mirostat = Mirostat::new(3.0, 0.1);
+    let miro = model
+        .clone()
+        .generate_mirostat(&prompt, 8, 42, &mut mirostat)
+        .expect("mirostat");
+    let _ = writeln!(
+        out,
+        "mirostat (τ=3)  : {miro:?} (μ settled at {:.2})",
+        mirostat.mu()
+    );
+
+    // early-stop: stop the moment the first sampled token recurs as a "stop".
+    let stop = nrn[0];
+    let stopped = model
+        .clone()
+        .generate_until(&prompt, 8, 42, &[stop])
+        .expect("until");
+    let _ = writeln!(
+        out,
+        "early-stop      : {stopped:?} (stops at token {stop}; {} of ≤8 tokens)",
+        stopped.len()
     );
 
     // perplexity over a reference sequence
