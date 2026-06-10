@@ -574,6 +574,63 @@ impl<R: Retriever> Retriever for InjectionFiltered<R> {
     }
 }
 
+/// Wraps any [`Retriever`] with a **query-distillation** stage: before
+/// delegating, it RAKE-extracts the top keyphrases from the query
+/// ([`sovereign-keywords`](sovereign_keywords)) and retrieves on those instead
+/// of the raw text.
+///
+/// When the "query" is a long, verbose passage — a pasted paragraph, a chat
+/// turn full of filler — the salient terms are drowned out by function words and
+/// incidental matches. Distilling to the top keyphrases focuses retrieval on
+/// what the passage is actually about. For an already-terse query RAKE returns
+/// essentially the same terms, so this is a safe default. If extraction yields
+/// nothing (e.g. an all-stopword query) it falls back to the raw query. Since it
+/// is a [`Retriever`] it composes in front of [`HybridStore`] / [`Reranked`] /
+/// [`InjectionFiltered`] and drops into [`RagResponder`].
+#[derive(Debug, Clone)]
+pub struct KeyphraseQuery<R: Retriever> {
+    inner: R,
+    /// How many keyphrases to keep when distilling the query.
+    top_phrases: usize,
+}
+
+impl<R: Retriever> KeyphraseQuery<R> {
+    /// Wrap `inner`, distilling each query to its top `top_phrases` keyphrases
+    /// (clamped to ≥ 1) before retrieval.
+    pub fn new(inner: R, top_phrases: usize) -> Self {
+        Self {
+            inner,
+            top_phrases: top_phrases.max(1),
+        }
+    }
+
+    /// Wrap `inner` keeping the top 5 keyphrases (a sensible default).
+    pub fn with_defaults(inner: R) -> Self {
+        Self::new(inner, 5)
+    }
+
+    /// The distilled query for `query`: the top keyphrases joined by spaces, or
+    /// the raw query if extraction yields nothing.
+    pub fn distill(&self, query: &str) -> String {
+        let phrases = sovereign_keywords::extract(query, self.top_phrases);
+        if phrases.is_empty() {
+            return query.to_string();
+        }
+        phrases
+            .into_iter()
+            .map(|k| k.phrase)
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+}
+
+impl<R: Retriever> Retriever for KeyphraseQuery<R> {
+    fn retrieve_context(&self, query: &str, k: usize) -> Vec<String> {
+        let distilled = self.distill(query);
+        self.inner.retrieve_context(&distilled, k)
+    }
+}
+
 /// A [`Responder`] that grounds another responder in retrieved context. Works
 /// with any [`Retriever`] — the lexical [`DocStore`] or the embedding-backed
 /// [`EmbedStore`].
@@ -983,6 +1040,45 @@ mod tests {
         // the grounded prompt carries the clean doc, not the injection
         assert!(prompts[0].contains("orchestrates containers"));
         assert!(!prompts[0].contains("disregard all previous"));
+    }
+
+    #[test]
+    fn keyphrase_query_distills_and_drops_stopwords() {
+        let kq = KeyphraseQuery::new(DocStore::new(), 5);
+        let verbose = "could you please tell me about rust memory safety";
+        let d = kq.distill(verbose);
+        // the salient terms survive; the function words are gone
+        assert!(d.contains("rust") && d.contains("memory") && d.contains("safety"));
+        assert!(!d.split_whitespace().any(|w| w == "you" || w == "about"));
+    }
+
+    #[test]
+    fn keyphrase_query_falls_back_on_all_stopwords() {
+        let kq = KeyphraseQuery::new(DocStore::new(), 3);
+        // nothing salient to extract → raw query is used unchanged
+        assert_eq!(kq.distill("the and or of to"), "the and or of to");
+    }
+
+    #[test]
+    fn keyphrase_query_retrieves_via_distilled_terms() {
+        let mut s = DocStore::new();
+        s.add("rust", "rust ownership governs memory safety");
+        let kq = KeyphraseQuery::with_defaults(s);
+        let out = kq.retrieve_context("could you please tell me about rust memory", 1);
+        assert!(out.iter().any(|t| t.contains("ownership governs memory")));
+    }
+
+    #[test]
+    fn keyphrase_query_drives_rag() {
+        let mut s = DocStore::new();
+        s.add("rust", "rust ownership governs memory safety");
+        let kq = KeyphraseQuery::with_defaults(s);
+        let seen = Rc::new(RefCell::new(Vec::new()));
+        let inner = Capture { seen: seen.clone() };
+        let mut rag = RagResponder::new(inner, kq, 1);
+        rag.respond("could you tell me about rust memory", 0)
+            .unwrap();
+        assert!(seen.borrow()[0].contains("ownership governs memory"));
     }
 
     #[test]
