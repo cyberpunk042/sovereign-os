@@ -103,6 +103,22 @@ impl KvStore {
         Ok(())
     }
 
+    /// Drop the oldest cached vector (for sliding-window eviction).
+    fn remove_front(&mut self) {
+        match self {
+            KvStore::Full(s) => {
+                if !s.is_empty() {
+                    s.remove(0);
+                }
+            }
+            KvStore::Quant(s) => {
+                if !s.is_empty() {
+                    s.remove(0);
+                }
+            }
+        }
+    }
+
     /// Materialize the cached vectors as dense f32 (dequantizing if compressed)
     /// so attention can read them.
     fn materialize(&self) -> Vec<Vec<f32>> {
@@ -167,6 +183,12 @@ pub struct MhaDecoderBlock {
     mha: Mha,
     rotated_keys: KvStore,
     values: KvStore,
+    /// Sliding-window attention span: when set, each step attends to (and
+    /// retains) only the most recent `window` positions. `None` = full causal.
+    window: Option<usize>,
+    /// Absolute positions processed so far (the RoPE position counter), which
+    /// keeps advancing even as the windowed cache drops old entries.
+    position: usize,
 }
 
 impl MhaDecoderBlock {
@@ -228,6 +250,8 @@ impl MhaDecoderBlock {
             mha,
             rotated_keys: KvStore::Full(Vec::new()),
             values: KvStore::Full(Vec::new()),
+            window: None,
+            position: 0,
         })
     }
 
@@ -259,6 +283,31 @@ impl MhaDecoderBlock {
     /// The RoPE position-interpolation scale in effect (`1.0` = no extension).
     pub fn rope_position_scale(&self) -> f32 {
         self.rope.position_scale
+    }
+
+    /// Enable **sliding-window attention** with span `window`: each step
+    /// attends to (and the cache retains) only the most recent `window`
+    /// positions, bounding both attention cost and KV-cache memory at long
+    /// context (Mistral-style local attention). Default is full causal
+    /// attention. Must be called before any `step`.
+    ///
+    /// # Panics
+    /// Panics if `window` is zero.
+    pub fn with_sliding_window(mut self, window: usize) -> Self {
+        assert!(window > 0, "sliding window must be > 0");
+        self.window = Some(window);
+        self
+    }
+
+    /// The sliding-window span, or `None` for full causal attention.
+    pub fn sliding_window(&self) -> Option<usize> {
+        self.window
+    }
+
+    /// Number of key/value vectors currently held in the cache (bounded by the
+    /// sliding window when one is set; equals [`len`](Self::len) otherwise).
+    pub fn cache_len(&self) -> usize {
+        self.values.len()
     }
 
     /// The execution precision.
@@ -294,14 +343,16 @@ impl MhaDecoderBlock {
         self.num_kv_heads
     }
 
-    /// Number of cached positions.
+    /// Number of positions processed (advances even when the sliding window
+    /// evicts old cache entries; see [`cache_len`](Self::cache_len) for the
+    /// number actually held).
     pub fn len(&self) -> usize {
-        self.values.len()
+        self.position
     }
 
-    /// Whether the cache is empty.
+    /// Whether any position has been processed.
     pub fn is_empty(&self) -> bool {
-        self.values.len() == 0
+        self.position == 0
     }
 
     /// Rotate each `head_dim`-wide head slice of `v` by `pos`.
@@ -322,7 +373,7 @@ impl MhaDecoderBlock {
                 got: hidden.len(),
             });
         }
-        let pos = self.values.len();
+        let pos = self.position;
 
         // attention sublayer (pre-norm)
         let n1 = self.attn_norm.normalize(hidden)?;
@@ -333,6 +384,15 @@ impl MhaDecoderBlock {
         self.rope_heads(&mut k, self.num_kv_heads, pos)?;
         self.rotated_keys.push(k)?;
         self.values.push(v)?;
+
+        // Sliding-window eviction: keep only the most recent `window` entries.
+        if let Some(w) = self.window {
+            while self.values.len() > w {
+                self.rotated_keys.remove_front();
+                self.values.remove_front();
+            }
+        }
+        self.position += 1;
 
         let keys = self.rotated_keys.materialize();
         let vals = self.values.materialize();
@@ -514,6 +574,55 @@ mod tests {
             "quantized-KV relative deviation {rel} too large"
         );
         assert!(!full.kv_quantized() && quant.kv_quantized());
+    }
+
+    #[test]
+    fn sliding_window_bounds_cache_and_tracks_position() {
+        let w = weights(8, 2, 4, 2, 16);
+        let mut block = MhaDecoderBlock::from_weights(&w, Precision::F32)
+            .unwrap()
+            .with_sliding_window(2);
+        assert_eq!(block.sliding_window(), Some(2));
+        for step in 0..6 {
+            let x: Vec<f32> = (0..8).map(|i| ((i + step) as f32 * 0.2).sin()).collect();
+            assert!(block.step(&x).unwrap().iter().all(|v| v.is_finite()));
+            assert!(block.cache_len() <= 2, "cache must stay within the window");
+        }
+        assert_eq!(block.len(), 6); // positions keep advancing
+        assert_eq!(block.cache_len(), 2); // but the cache is bounded
+    }
+
+    #[test]
+    fn sliding_window_output_depends_only_on_the_window() {
+        // Defining locality property: with window 2, the output after feeding a
+        // shared last-2 suffix is identical regardless of earlier inputs.
+        let w = weights(8, 2, 4, 2, 16);
+        let shared = [
+            vec![0.3f32, -0.2, 0.1, 0.4, -0.5, 0.2, 0.0, -0.1],
+            vec![-0.1f32, 0.5, -0.3, 0.2, 0.1, -0.4, 0.3, 0.0],
+        ];
+        let run = |prefix: &[Vec<f32>]| -> Vec<f32> {
+            let mut b = MhaDecoderBlock::from_weights(&w, Precision::F32)
+                .unwrap()
+                .with_sliding_window(2);
+            let mut last = Vec::new();
+            for x in prefix.iter().chain(shared.iter()) {
+                last = b.step(x).unwrap();
+            }
+            last
+        };
+        let a = run(&[vec![1.0f32; 8], vec![-1.0f32; 8]]);
+        let c = run(&[vec![0.2f32; 8], vec![0.7f32; 8], vec![-0.9f32; 8]]);
+        assert_eq!(a.len(), c.len());
+        for (x, y) in a.iter().zip(&c) {
+            // RoPE makes attention depend only on relative offset, so the two
+            // runs agree up to f32 rounding through different absolute angles.
+            let tol = 1e-5 * x.abs().max(1.0);
+            assert!(
+                (x - y).abs() <= tol,
+                "windowed output must depend only on the window: {x} vs {y}"
+            );
+        }
     }
 
     #[test]
