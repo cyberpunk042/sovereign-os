@@ -24,7 +24,7 @@
 #![warn(missing_docs)]
 
 use serde::{Deserialize, Serialize};
-use sovereign_decoder_stack::{DecoderStack, StackConfig, StackError};
+use sovereign_decoder_stack::{DecoderStack, GenOptions, StackConfig, StackError};
 use sovereign_logit_mask::LogitMask;
 use sovereign_sampler::Mirostat;
 use sovereign_tokenizer::Tokenizer;
@@ -50,6 +50,9 @@ pub enum LlmError {
     /// A model/stack error bubbled up.
     #[error("model: {0}")]
     Stack(#[from] StackError),
+    /// Scoring the prompt for compression failed.
+    #[error("scoring: {0}")]
+    Perplexity(#[from] sovereign_perplexity::PerplexityError),
 }
 
 /// The serializable definition of a runtime: a tokenizer + a model config.
@@ -59,6 +62,25 @@ pub struct LlmConfig {
     pub tokenizer: Tokenizer,
     /// The decoder-only model configuration.
     pub model: StackConfig,
+}
+
+/// Diversity metrics over a best-of-n sample set (see
+/// [`SovereignLlm::sample_diversity`]). All ratios are in `[0, 1]`; lower
+/// distinct-n / unique-ratio and higher Self-BLEU mean *less* diverse (more
+/// collapse).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SampleDiversity {
+    /// Number of samples measured.
+    pub samples: usize,
+    /// distinct-1 (distinct unigrams / total unigrams across all samples).
+    pub distinct_1: f64,
+    /// distinct-2 (distinct bigrams / total bigrams across all samples).
+    pub distinct_2: f64,
+    /// Mean Self-BLEU (each sample vs the others; high = samples resemble each
+    /// other).
+    pub self_bleu: f64,
+    /// Fraction of samples that are exactly-distinct strings.
+    pub unique_ratio: f64,
 }
 
 /// A runnable text-to-text LLM: tokenizer + stacked decoder model.
@@ -111,6 +133,101 @@ impl SovereignLlm {
         Ok(self.tokenizer.decode(&generated).unwrap_or_default())
     }
 
+    /// Complete `prompt`, then **scrub the output**: redact any secrets (API
+    /// keys, tokens — `sovereign-secret-scan`) and then any PII (emails, SSNs,
+    /// phone numbers — `sovereign-pii-redact`) from the generated text before
+    /// returning it. A grounded runtime can echo sensitive material that leaked
+    /// in from a retrieved document or the prompt; this is the egress filter that
+    /// keeps it out of the response. Secrets are scrubbed first so a token that
+    /// also looks like PII is tagged as the secret. Reproducible per `seed`.
+    pub fn complete_redacted(
+        &self,
+        prompt: &str,
+        max_new: usize,
+        seed: u64,
+    ) -> Result<String, LlmError> {
+        let text = self.complete(prompt, max_new, seed)?;
+        let no_secrets = sovereign_secret_scan::redact(&text);
+        Ok(sovereign_pii_redact::redact(&no_secrets))
+    }
+
+    /// Complete `prompt`, then run a **degeneration check** on the output: the
+    /// completion text is analysed (`sovereign-degeneration`) for loop/repeat
+    /// collapse — longest repeated substring, rep-n diversity, repeat coverage —
+    /// against `config`, returning the text alongside the
+    /// [`DegenerationReport`](sovereign_degeneration::DegenerationReport). A
+    /// serving loop uses the report's `is_degenerate` flag to reject or
+    /// regenerate a looping completion instead of returning it. Reproducible per
+    /// `seed`; pass [`sovereign_degeneration::Config::default`] for standard
+    /// thresholds.
+    pub fn complete_checked(
+        &self,
+        prompt: &str,
+        max_new: usize,
+        seed: u64,
+        config: &sovereign_degeneration::Config,
+    ) -> Result<(String, sovereign_degeneration::DegenerationReport), LlmError> {
+        let text = self.complete(prompt, max_new, seed)?;
+        let report = sovereign_degeneration::analyze(&text, config);
+        Ok((text, report))
+    }
+
+    /// Complete `prompt`, returning the generated text **truncated at the first
+    /// occurrence of any stop string** (the OpenAI `stop` parameter, which
+    /// operates on text and so can span several tokens — unlike a single stop
+    /// *token*). Empty stop strings are ignored; with no match the full
+    /// completion is returned. Reproducible per `seed`. (Reference impl:
+    /// generates up to `max_new` then trims.)
+    pub fn complete_until_string(
+        &self,
+        prompt: &str,
+        max_new: usize,
+        seed: u64,
+        stops: &[&str],
+    ) -> Result<String, LlmError> {
+        let full = self.complete(prompt, max_new, seed)?;
+        let cut = stops
+            .iter()
+            .filter(|s| !s.is_empty())
+            .filter_map(|s| full.find(*s))
+            .min();
+        Ok(match cut {
+            Some(i) => full[..i].to_string(),
+            None => full,
+        })
+    }
+
+    /// Compress `text` by dropping the tokens this model can already predict
+    /// (selective prompt compression, the LLMLingua idea). The text is tokenized,
+    /// every token is scored by its surprisal under **this** model (via
+    /// [`sovereign_perplexity::token_logprobs`]), and the most-predictable tokens
+    /// are dropped until about `keep_ratio` of them survive; the kept tokens are
+    /// returned, decoded back to text, in their original order. The first and last
+    /// tokens are always kept as anchors — the first is unscored (it has no
+    /// predecessor) and a boundary token is rarely safe to drop.
+    ///
+    /// This composes the runtime's own scoring pass with
+    /// [`sovereign_prompt_compress`] so a long retrieved/context prompt can be
+    /// shrunk to fit a budget before generation, spending no extra model passes
+    /// beyond the single scoring forward. `keep_ratio` is clamped to `[0, 1]`;
+    /// text of fewer than two tokens is returned unchanged (nothing to score).
+    pub fn compress_prompt(&self, text: &str, keep_ratio: f64) -> Result<String, LlmError> {
+        let ids: Vec<u32> = self.tokenizer.encode(text);
+        if ids.len() < 2 {
+            return Ok(text.to_string());
+        }
+        let scored: Vec<usize> = ids.iter().map(|&i| i as usize).collect();
+        // `token_logprobs` scores tokens[1..]; token 0 has no predecessor, so
+        // prepend a sentinel (0.0 = perfectly predictable) and rely on the anchor
+        // flag to keep it — the real surprisal drives selection of the rest.
+        let mut logprobs = Vec::with_capacity(ids.len());
+        logprobs.push(0.0);
+        logprobs.extend(sovereign_perplexity::token_logprobs(&self.model, &scored)?);
+        let keep = sovereign_prompt_compress::select_informative(&logprobs, keep_ratio, true);
+        let kept = sovereign_prompt_compress::compress(&ids, &keep);
+        Ok(self.tokenizer.decode(&kept).unwrap_or_default())
+    }
+
     /// Complete `prompt`, returning the prompt followed by the generated text.
     pub fn complete_with_prompt(
         &self,
@@ -130,6 +247,142 @@ impl SovereignLlm {
         seed: u64,
     ) -> Result<Vec<u32>, LlmError> {
         self.generate_ids_constrained(prompt, max_new, seed, &LogitMask::new())
+    }
+
+    /// Generate `n` independent samples for `prompt` (the OpenAI `n` / best-of
+    /// parameter): sample `i` uses `base_seed + i`, so the set is diverse yet
+    /// reproducible. With a non-greedy sampler the samples vary; under a greedy
+    /// sampler they are identical. Feeds self-consistency voting via
+    /// [`majority_sequence`].
+    pub fn generate_ids_n(
+        &self,
+        prompt: &str,
+        n: usize,
+        max_new: usize,
+        base_seed: u64,
+    ) -> Result<Vec<Vec<u32>>, LlmError> {
+        (0..n)
+            .map(|i| self.generate_ids(prompt, max_new, base_seed.wrapping_add(i as u64)))
+            .collect()
+    }
+
+    /// Diversity metrics over `n` independent samples for `prompt` — the
+    /// best-of-n set from [`generate_ids_n`], decoded to text and measured with
+    /// [`sovereign_diversity`]. A serving loop uses this to detect **mode
+    /// collapse**: a sampler set too cold (or a degenerate model) returns near-
+    /// identical samples — low distinct-n and unique-ratio, high Self-BLEU —
+    /// whereas a healthy sampler spreads out. Reproducible per `base_seed`.
+    pub fn sample_diversity(
+        &self,
+        prompt: &str,
+        n: usize,
+        max_new: usize,
+        base_seed: u64,
+    ) -> Result<SampleDiversity, LlmError> {
+        let id_sets = self.generate_ids_n(prompt, n, max_new, base_seed)?;
+        let texts: Vec<String> = id_sets
+            .iter()
+            .map(|ids| self.tokenizer.decode(ids).unwrap_or_default())
+            .collect();
+        let refs: Vec<&str> = texts.iter().map(String::as_str).collect();
+        Ok(SampleDiversity {
+            samples: refs.len(),
+            distinct_1: sovereign_diversity::distinct_n_str(&refs, 1),
+            distinct_2: sovereign_diversity::distinct_n_str(&refs, 2),
+            self_bleu: sovereign_diversity::self_bleu_str(&refs, 4),
+            unique_ratio: sovereign_diversity::unique_ratio(&refs),
+        })
+    }
+
+    /// **Self-consistency with answer extraction**: generate `n` samples for
+    /// `prompt`, pull the final answer out of each (`sovereign-answer-extract`
+    /// honors `Final answer:` / `the answer is` / `Answer:` markers, else the
+    /// last line), and return the **majority** answer with its vote count.
+    /// Extracting before voting groups equivalent conclusions reached through
+    /// different reasoning prose — the standard self-consistency recipe — which a
+    /// raw-sequence vote ([`majority_sequence`]) misses. `None` only if `n == 0`.
+    /// Reproducible per `base_seed`.
+    pub fn consistent_answer(
+        &self,
+        prompt: &str,
+        n: usize,
+        max_new: usize,
+        base_seed: u64,
+    ) -> Result<Option<(String, usize)>, LlmError> {
+        let id_sets = self.generate_ids_n(prompt, n, max_new, base_seed)?;
+        let answers: Vec<String> = id_sets
+            .iter()
+            .map(|ids| {
+                let text = self.tokenizer.decode(ids).unwrap_or_default();
+                sovereign_answer_extract::extract_answer(&text)
+            })
+            .collect();
+        Ok(majority_answer(&answers))
+    }
+
+    /// Generate token ids, stopping at the tokenizer's special token named
+    /// `eos` (e.g. `"<eos>"`) — the natural serving loop. If that special is
+    /// registered, generation stops the moment the model emits it (it is
+    /// included); otherwise this is a plain `max_new` generation. Pairs the
+    /// tokenizer's special tokens with early-stop.
+    pub fn generate_ids_until_eos(
+        &self,
+        prompt: &str,
+        max_new: usize,
+        seed: u64,
+        eos: &str,
+    ) -> Result<Vec<u32>, LlmError> {
+        match self.tokenizer.special_id(eos) {
+            Some(id) => self.generate_ids_until(prompt, max_new, seed, &[id]),
+            None => self.generate_ids(prompt, max_new, seed),
+        }
+    }
+
+    /// Complete `prompt` with composable [`GenOptions`], returning the decoded
+    /// **text** (stop tokens / special tokens decode to nothing). The
+    /// text-to-text counterpart of [`generate_ids_with`](Self::generate_ids_with)
+    /// — one call for constrained + no-repeat-ngram + early-stop + min-length
+    /// generation. Reproducible per `seed`.
+    pub fn complete_with(
+        &self,
+        prompt: &str,
+        seed: u64,
+        opts: &GenOptions,
+    ) -> Result<String, LlmError> {
+        let ids = self.generate_ids_with(prompt, seed, opts, |_| {})?;
+        Ok(self.tokenizer.decode(&ids).unwrap_or_default())
+    }
+
+    /// Unified, serving-grade generation: compose constrained masking, dynamic
+    /// no-repeat-ngram blocking, early-stop, and per-token streaming via
+    /// [`GenOptions`] — the single configurable entry point the simpler
+    /// `generate_ids*` methods specialize. The `on_token` callback fires with
+    /// each generated id; the full id sequence is returned. Pristine cache per
+    /// call.
+    pub fn generate_ids_with<F: FnMut(u32)>(
+        &self,
+        prompt: &str,
+        seed: u64,
+        opts: &GenOptions,
+        mut on_token: F,
+    ) -> Result<Vec<u32>, LlmError> {
+        let ids: Vec<usize> = self
+            .tokenizer
+            .encode(prompt)
+            .into_iter()
+            .map(|t| t as usize)
+            .collect();
+        if ids.is_empty() {
+            return Err(LlmError::EmptyPrompt);
+        }
+        let mut model = self.model.clone();
+        let mut out = Vec::with_capacity(opts.max_new);
+        model.generate_with(&ids, seed, opts, |t| {
+            let id = t as u32;
+            out.push(id);
+            on_token(id);
+        })?;
+        Ok(out)
     }
 
     /// Generate token ids, stopping early at the first token in `stop_tokens`
@@ -251,6 +504,60 @@ impl SovereignLlm {
     }
 }
 
+/// **Self-consistency** vote: the sequence that occurs most often across
+/// `samples` (e.g. from [`generate_ids_n`](SovereignLlm::generate_ids_n)), with
+/// its count. Ties break toward the sequence that appears earliest in
+/// `samples` (stable). Returns `None` for an empty input. Sampling several
+/// completions and keeping the majority is a simple, effective accuracy boost
+/// for tasks with a single correct answer.
+pub fn majority_sequence(samples: &[Vec<u32>]) -> Option<(Vec<u32>, usize)> {
+    if samples.is_empty() {
+        return None;
+    }
+    let mut best: Option<(usize, usize)> = None; // (first-seen index, count)
+    for (i, s) in samples.iter().enumerate() {
+        // Only score the first occurrence of each distinct sequence.
+        if samples[..i].iter().any(|p| p == s) {
+            continue;
+        }
+        let count = samples.iter().filter(|p| *p == s).count();
+        let better = match best {
+            None => true,
+            Some((_, bc)) => count > bc, // strict: ties keep the earlier seen
+        };
+        if better {
+            best = Some((i, count));
+        }
+    }
+    best.map(|(i, count)| (samples[i].clone(), count))
+}
+
+/// **Self-consistency** vote over already-extracted answer *strings*: the answer
+/// that occurs most often, with its count. Unlike [`majority_sequence`] (which
+/// votes on raw token sequences), this groups equivalent conclusions reached via
+/// different reasoning — the point of extracting the answer first. Ties break
+/// toward the earliest-seen answer; returns `None` for an empty input.
+pub fn majority_answer(answers: &[String]) -> Option<(String, usize)> {
+    if answers.is_empty() {
+        return None;
+    }
+    let mut best: Option<(usize, usize)> = None; // (first-seen index, count)
+    for (i, a) in answers.iter().enumerate() {
+        if answers[..i].iter().any(|p| p == a) {
+            continue;
+        }
+        let count = answers.iter().filter(|p| *p == a).count();
+        let better = match best {
+            None => true,
+            Some((_, bc)) => count > bc,
+        };
+        if better {
+            best = Some((i, count));
+        }
+    }
+    best.map(|(i, count)| (answers[i].clone(), count))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -311,6 +618,207 @@ mod tests {
         let tok = Tokenizer::default(); // 256-token base vocab
         let cfg = model_config(tok.vocab_size(), 4, 2, sampler);
         SovereignLlm::new(tok, cfg).unwrap()
+    }
+
+    /// A runtime whose tokenizer reserves an `<eos>` special token.
+    fn runtime_with_eos(sampler: Sampler) -> SovereignLlm {
+        let tok = Tokenizer::default().with_specials(["<eos>"]); // vocab 257
+        let cfg = model_config(tok.vocab_size(), 4, 2, sampler);
+        SovereignLlm::new(tok, cfg).unwrap()
+    }
+
+    #[test]
+    fn generate_until_eos_uses_the_special_token() {
+        let llm = runtime_with_eos(Sampler::new(SamplerConfig::default()));
+        let eos = llm.tokenizer().special_id("<eos>").unwrap();
+        // eos-aware generation equals generate_ids_until with the resolved id.
+        let a = llm.generate_ids_until_eos("hello", 8, 4, "<eos>").unwrap();
+        let b = llm.generate_ids_until("hello", 8, 4, &[eos]).unwrap();
+        assert_eq!(a, b);
+        assert!(a.len() <= 8);
+    }
+
+    #[test]
+    fn generate_until_eos_unregistered_name_is_plain_generation() {
+        let llm = runtime_with_eos(Sampler::new(SamplerConfig::default()));
+        let plain = llm.generate_ids("hello", 6, 4).unwrap();
+        let eos = llm
+            .generate_ids_until_eos("hello", 6, 4, "<not-registered>")
+            .unwrap();
+        assert_eq!(eos, plain);
+        assert_eq!(eos.len(), 6);
+    }
+
+    #[test]
+    fn compress_prompt_shrinks_and_stays_decodable() {
+        let llm = runtime(Sampler::greedy());
+        let text = "the quick brown fox jumps over the lazy dog repeatedly";
+        let full = llm.tokenizer().encode(text).len();
+        // keep ~half the tokens
+        let compressed = llm.compress_prompt(text, 0.5).unwrap();
+        let kept = llm.tokenizer().encode(&compressed).len();
+        assert!(kept < full, "compressed {kept} should be < original {full}");
+        assert!(kept >= 2, "anchors keep at least the boundary tokens");
+        // result is valid (decoded) text
+        assert!(compressed.is_empty() || compressed.is_char_boundary(0));
+    }
+
+    #[test]
+    fn compress_prompt_ratio_one_keeps_everything() {
+        let llm = runtime(Sampler::greedy());
+        let text = "alpha beta gamma delta";
+        let ids = llm.tokenizer().encode(text);
+        let kept = llm.compress_prompt(text, 1.0).unwrap();
+        // keep_ratio 1.0 → every token survives → round-trips to the same ids
+        assert_eq!(llm.tokenizer().encode(&kept), ids);
+    }
+
+    #[test]
+    fn sample_diversity_detects_greedy_collapse() {
+        // Greedy ignores the seed, so all n samples are identical → the bluntest
+        // collapse signal: only one distinct string among n.
+        let llm = runtime(Sampler::greedy());
+        let d = llm.sample_diversity("hello world", 4, 6, 100).unwrap();
+        assert_eq!(d.samples, 4);
+        assert!((d.unique_ratio - 0.25).abs() < 1e-9); // 1 distinct / 4
+        // every metric is a valid ratio
+        for v in [d.distinct_1, d.distinct_2, d.self_bleu, d.unique_ratio] {
+            assert!((0.0..=1.0).contains(&v), "out of range: {v}");
+        }
+    }
+
+    #[test]
+    fn complete_checked_wires_the_degeneration_report() {
+        use sovereign_degeneration::{Config, analyze};
+        let llm = runtime(Sampler::greedy());
+        let cfg = Config::default();
+        let (text, report) = llm.complete_checked("hello", 12, 7, &cfg).unwrap();
+        // the text is exactly what complete() produces for the same args
+        assert_eq!(text, llm.complete("hello", 12, 7).unwrap());
+        // the report is exactly analyze() of that text — the wiring is faithful
+        assert_eq!(report, analyze(&text, &cfg));
+        assert!((0.0..=1.0).contains(&report.distinct_ngram_ratio));
+    }
+
+    #[test]
+    fn complete_redacted_matches_the_manual_scrub_pipeline() {
+        let llm = runtime(Sampler::greedy());
+        let raw = llm.complete("hello", 12, 5).unwrap();
+        let expected = sovereign_pii_redact::redact(&sovereign_secret_scan::redact(&raw));
+        assert_eq!(llm.complete_redacted("hello", 12, 5).unwrap(), expected);
+    }
+
+    #[test]
+    fn scrub_pipeline_removes_a_planted_secret_and_email() {
+        // The composition the runtime applies removes both classes: an AWS key
+        // (secret) and an email (PII) are gone after the two-stage scrub.
+        let leaky = "key AKIAIOSFODNN7EXAMPLE and email bob@mail.com here";
+        let scrubbed = sovereign_pii_redact::redact(&sovereign_secret_scan::redact(leaky));
+        assert!(!scrubbed.contains("AKIAIOSFODNN7EXAMPLE"), "{scrubbed}");
+        assert!(!scrubbed.contains("bob@mail.com"), "{scrubbed}");
+    }
+
+    #[test]
+    fn complete_checked_flags_a_degenerate_loop() {
+        // We can't force the random model to loop, so verify the gate itself
+        // fires on a known decoding loop fed through the same config.
+        use sovereign_degeneration::{Config, analyze};
+        let loop_text = "go on and on and on and on and on and on and on and on";
+        let r = analyze(loop_text, &Config::default());
+        assert!(r.is_degenerate, "loop should be flagged: {r:?}");
+    }
+
+    #[test]
+    fn complete_checked_is_reproducible() {
+        use sovereign_degeneration::Config;
+        let a = runtime(Sampler::new(SamplerConfig::default()));
+        let b = runtime(Sampler::new(SamplerConfig::default()));
+        let cfg = Config::default();
+        assert_eq!(
+            a.complete_checked("repeat me", 10, 2, &cfg).unwrap(),
+            b.complete_checked("repeat me", 10, 2, &cfg).unwrap()
+        );
+    }
+
+    #[test]
+    fn majority_answer_votes_and_breaks_ties_earliest() {
+        let answers: Vec<String> = ["42", "the answer", "42", "other"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        assert_eq!(
+            majority_answer(&answers),
+            Some(("42".to_string(), 2)) // most common
+        );
+        // all distinct → earliest-seen wins the tie (count 1)
+        let distinct: Vec<String> = ["b", "a", "c"].iter().map(|s| s.to_string()).collect();
+        assert_eq!(majority_answer(&distinct), Some(("b".to_string(), 1)));
+        assert_eq!(majority_answer(&[]), None);
+    }
+
+    #[test]
+    fn consistent_answer_greedy_matches_single_extraction() {
+        // Greedy → all n samples identical → the majority answer is just the
+        // extracted answer of the one completion, with full vote count.
+        let llm = runtime(Sampler::greedy());
+        let one = llm.complete("hello", 10, 3).unwrap();
+        let expected = sovereign_answer_extract::extract_answer(&one);
+        let (ans, votes) = llm.consistent_answer("hello", 4, 10, 3).unwrap().unwrap();
+        assert_eq!(ans, expected);
+        assert_eq!(votes, 4); // all four agree under greedy
+    }
+
+    #[test]
+    fn consistent_answer_zero_n_is_none() {
+        let llm = runtime(Sampler::greedy());
+        assert_eq!(llm.consistent_answer("hello", 0, 10, 1).unwrap(), None);
+    }
+
+    #[test]
+    fn consistent_answer_is_reproducible() {
+        let a = runtime(Sampler::new(SamplerConfig::default()));
+        let b = runtime(Sampler::new(SamplerConfig::default()));
+        assert_eq!(
+            a.consistent_answer("vote prompt", 5, 8, 9).unwrap(),
+            b.consistent_answer("vote prompt", 5, 8, 9).unwrap()
+        );
+    }
+
+    #[test]
+    fn sample_diversity_single_sample() {
+        let llm = runtime(Sampler::greedy());
+        let d = llm.sample_diversity("hello", 1, 6, 1).unwrap();
+        assert_eq!(d.samples, 1);
+        assert_eq!(d.unique_ratio, 1.0); // one sample is trivially unique
+        assert_eq!(d.self_bleu, 0.0); // Self-BLEU needs ≥ 2 samples
+    }
+
+    #[test]
+    fn sample_diversity_is_reproducible() {
+        let a = runtime(Sampler::new(SamplerConfig::default()));
+        let b = runtime(Sampler::new(SamplerConfig::default()));
+        assert_eq!(
+            a.sample_diversity("the diversity prompt", 5, 8, 3).unwrap(),
+            b.sample_diversity("the diversity prompt", 5, 8, 3).unwrap()
+        );
+    }
+
+    #[test]
+    fn compress_prompt_short_text_is_unchanged() {
+        let llm = runtime(Sampler::greedy());
+        // a single-byte/token input cannot be scored → returned verbatim
+        assert_eq!(llm.compress_prompt("x", 0.5).unwrap(), "x");
+    }
+
+    #[test]
+    fn compress_prompt_is_reproducible() {
+        let a = runtime(Sampler::greedy());
+        let b = runtime(Sampler::greedy());
+        let t = "reproducible compression over the same model and text";
+        assert_eq!(
+            a.compress_prompt(t, 0.6).unwrap(),
+            b.compress_prompt(t, 0.6).unwrap()
+        );
     }
 
     #[test]
@@ -419,6 +927,107 @@ mod tests {
         let llm = runtime(Sampler::greedy());
         assert_eq!(
             llm.generate_ids_until("", 4, 1, &[0]).unwrap_err(),
+            LlmError::EmptyPrompt
+        );
+    }
+
+    #[test]
+    fn generate_with_composes_and_streams() {
+        let llm = runtime(Sampler::new(SamplerConfig::default()));
+        let opts = GenOptions::new(8).with_no_repeat_ngram(3);
+        let mut streamed = Vec::new();
+        let out = llm
+            .generate_ids_with("hello sovereign", 3, &opts, |id| streamed.push(id))
+            .unwrap();
+        assert_eq!(streamed, out);
+        assert!(out.len() <= 8);
+        // reproducible
+        let out2 = llm
+            .generate_ids_with("hello sovereign", 3, &opts, |_| {})
+            .unwrap();
+        assert_eq!(out, out2);
+    }
+
+    #[test]
+    fn complete_with_decodes_unified_generation() {
+        let llm = runtime_with_eos(Sampler::new(SamplerConfig::default()));
+        let eos = llm.tokenizer().special_id("<eos>").unwrap() as usize;
+        let opts = GenOptions::new(8)
+            .with_no_repeat_ngram(3)
+            .with_stop_tokens([eos]);
+        // text equals decoding the id sequence from generate_ids_with.
+        let text = llm.complete_with("hello", 3, &opts).unwrap();
+        let ids = llm.generate_ids_with("hello", 3, &opts, |_| {}).unwrap();
+        assert_eq!(text, llm.tokenizer().decode(&ids).unwrap());
+    }
+
+    #[test]
+    fn generate_ids_n_produces_n_samples() {
+        let llm = runtime(Sampler::new(SamplerConfig::default()));
+        let samples = llm.generate_ids_n("hello", 5, 6, 100).unwrap();
+        assert_eq!(samples.len(), 5);
+        // sample i uses base_seed + i → equals the single-call result.
+        assert_eq!(samples[2], llm.generate_ids("hello", 6, 102).unwrap());
+        // greedy sampler → all samples identical.
+        let g = runtime(Sampler::greedy());
+        let gs = g.generate_ids_n("hello", 4, 6, 0).unwrap();
+        assert!(gs.windows(2).all(|w| w[0] == w[1]));
+    }
+
+    #[test]
+    fn majority_sequence_picks_the_most_common() {
+        let a = vec![1u32, 2, 3];
+        let b = vec![9u32, 9];
+        // a appears 3×, b once → a wins with count 3.
+        let samples = vec![a.clone(), b.clone(), a.clone(), a.clone()];
+        assert_eq!(majority_sequence(&samples), Some((a.clone(), 3)));
+        // tie (each once) → earliest-seen wins.
+        assert_eq!(majority_sequence(&[b.clone(), a.clone()]), Some((b, 1)));
+        assert_eq!(majority_sequence(&[]), None);
+    }
+
+    #[test]
+    fn complete_until_string_truncates_at_a_stop_sequence() {
+        let llm = runtime(Sampler::new(SamplerConfig::default()));
+        let full = llm.complete("hi there", 12, 7).unwrap();
+        // No stops / non-matching stop → full completion.
+        assert_eq!(
+            llm.complete_until_string("hi there", 12, 7, &[]).unwrap(),
+            full
+        );
+        assert_eq!(
+            llm.complete_until_string("hi there", 12, 7, &["ZZ_UNLIKELY_ZZ"])
+                .unwrap(),
+            full
+        );
+        // Stopping at the first character truncates to empty.
+        if let Some(c) = full.chars().next() {
+            let stop = c.to_string();
+            let out = llm
+                .complete_until_string("hi there", 12, 7, &[&stop])
+                .unwrap();
+            assert!(
+                out.is_empty(),
+                "should truncate before the first char: {out:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn complete_with_empty_prompt_errors() {
+        let llm = runtime(Sampler::greedy());
+        assert_eq!(
+            llm.complete_with("", 1, &GenOptions::new(4)).unwrap_err(),
+            LlmError::EmptyPrompt
+        );
+    }
+
+    #[test]
+    fn generate_with_empty_prompt_errors() {
+        let llm = runtime(Sampler::greedy());
+        assert_eq!(
+            llm.generate_ids_with("", 1, &GenOptions::new(4), |_| {})
+                .unwrap_err(),
             LlmError::EmptyPrompt
         );
     }

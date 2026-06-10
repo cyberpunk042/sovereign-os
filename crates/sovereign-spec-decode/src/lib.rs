@@ -222,6 +222,33 @@ pub fn verify_sampled(
     })
 }
 
+/// **Prompt-lookup draft** (PLD; Saxena 2023) — a *draft-model-free*
+/// speculative proposal. Instead of running a cheap draft model, take the last
+/// `ngram` tokens of `context` and search for an earlier occurrence; if found,
+/// propose the up-to-`max_draft` tokens that *followed* that occurrence as the
+/// speculative draft. This is cheap and surprisingly effective for repetitive
+/// generation (code, structured output, quote-heavy text), where the next
+/// tokens often echo earlier ones. The draft is then checked by
+/// [`verify_greedy`] / [`verify_sampled`] exactly like a model draft — so PLD
+/// drops straight into the same accept loop. Returns an empty draft when
+/// `ngram == 0`, the context is shorter than `ngram`, `max_draft == 0`, or no
+/// earlier occurrence exists. The **most recent** earlier match is used.
+pub fn prompt_lookup_draft(context: &[u32], ngram: usize, max_draft: usize) -> Vec<u32> {
+    if ngram == 0 || max_draft == 0 || context.len() <= ngram {
+        return Vec::new();
+    }
+    let suffix = &context[context.len() - ngram..];
+    // Earlier ngram occurrences start in 0..(len-ngram); search most-recent first.
+    for start in (0..context.len() - ngram).rev() {
+        if &context[start..start + ngram] == suffix {
+            let cont_start = start + ngram;
+            let cont_end = (cont_start + max_draft).min(context.len());
+            return context[cont_start..cont_end].to_vec();
+        }
+    }
+    Vec::new()
+}
+
 /// Greedy speculative verification (the DFlash accept rule).
 ///
 /// `draft` is the cheap model's proposed tokens; `target_greedy` is the
@@ -282,6 +309,33 @@ pub fn expected_speedup(alpha: f64, k: usize) -> f64 {
     (1.0 - a.powi(k as i32 + 1)) / (1.0 - a)
 }
 
+/// **Cost-aware** wall-clock speedup (Leviathan et al.). [`expected_speedup`]
+/// counts emitted tokens per target pass but ignores that running the draft
+/// also costs time. A round runs `k` draft steps — each costing `cost_ratio`
+/// of a target step (`cost_ratio ∈ [0, 1]`, the draft-to-target per-step cost)
+/// — plus one target verification pass, so the wall-clock factor is
+/// `E[tokens] / (1 + cost_ratio·k)`. With `cost_ratio = 0` this equals
+/// [`expected_speedup`]; a costlier draft shrinks the win.
+pub fn cost_aware_speedup(alpha: f64, k: usize, cost_ratio: f64) -> f64 {
+    let cost = 1.0 + cost_ratio.max(0.0) * k as f64;
+    expected_speedup(alpha, k) / cost
+}
+
+/// The draft length in `1..=max_k` that **maximizes** [`cost_aware_speedup`] —
+/// the throughput-optimal number of speculative tokens for a given acceptance
+/// rate `alpha` and draft `cost_ratio`. Higher acceptance favors longer drafts;
+/// a costlier draft favors shorter ones. Returns `1` when `max_k == 0`.
+pub fn optimal_draft_length(alpha: f64, cost_ratio: f64, max_k: usize) -> usize {
+    let max_k = max_k.max(1);
+    (1..=max_k)
+        .max_by(|&a, &b| {
+            cost_aware_speedup(alpha, a, cost_ratio)
+                .partial_cmp(&cost_aware_speedup(alpha, b, cost_ratio))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .unwrap_or(1)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -304,6 +358,40 @@ mod tests {
     }
 
     #[test]
+    fn cost_aware_speedup_matches_expected_at_zero_cost() {
+        for (a, k) in [(0.5, 3), (0.8, 5), (0.3, 2)] {
+            assert!((cost_aware_speedup(a, k, 0.0) - expected_speedup(a, k)).abs() < 1e-9);
+        }
+        // A costlier draft strictly lowers the speedup.
+        assert!(cost_aware_speedup(0.7, 4, 0.5) < cost_aware_speedup(0.7, 4, 0.1));
+    }
+
+    #[test]
+    fn optimal_draft_length_responds_to_acceptance_and_cost() {
+        // Higher acceptance → longer (or equal) optimal draft.
+        let lo = optimal_draft_length(0.3, 0.2, 16);
+        let hi = optimal_draft_length(0.9, 0.2, 16);
+        assert!(
+            hi >= lo,
+            "higher alpha should not shorten the optimal draft"
+        );
+        // A more expensive draft → shorter (or equal) optimal draft.
+        let cheap = optimal_draft_length(0.8, 0.05, 16);
+        let dear = optimal_draft_length(0.8, 0.8, 16);
+        assert!(
+            dear <= cheap,
+            "costlier draft should not lengthen the optimum"
+        );
+        // It is the argmax of cost_aware_speedup over 1..=max_k.
+        let k = optimal_draft_length(0.7, 0.3, 10);
+        let best = cost_aware_speedup(0.7, k, 0.3);
+        for j in 1..=10 {
+            assert!(cost_aware_speedup(0.7, j, 0.3) <= best + 1e-12);
+        }
+        assert_eq!(optimal_draft_length(0.5, 0.2, 0), 1); // max_k 0 → 1
+    }
+
+    #[test]
     fn expected_speedup_is_monotonic_in_alpha() {
         let lo = expected_speedup(0.3, 4);
         let hi = expected_speedup(0.8, 4);
@@ -314,6 +402,48 @@ mod tests {
     fn expected_speedup_clamps_out_of_range_alpha() {
         assert_eq!(expected_speedup(1.5, 2), 3.0); // clamped to 1.0
         assert_eq!(expected_speedup(-0.5, 7), 1.0); // clamped to 0.0
+    }
+
+    #[test]
+    fn prompt_lookup_proposes_the_earlier_continuation() {
+        // "the cat sat the cat" → suffix "the cat" recurred; the tokens that
+        // followed the earlier "the cat" were "sat …" → proposed as the draft.
+        let ctx = [10u32, 11, 12, 10, 11]; // (the, cat, sat, the, cat)
+        let draft = prompt_lookup_draft(&ctx, 2, 3);
+        // earlier "10,11" at index 0 → continuation from index 2: [12, 10, 11]
+        assert_eq!(draft, vec![12, 10, 11]);
+        // the first proposed token is the one that followed the earlier match.
+        assert_eq!(draft[0], 12);
+    }
+
+    #[test]
+    fn prompt_lookup_uses_most_recent_match() {
+        // suffix "9" recurs; the most recent earlier "9" is at index 3,
+        // followed by 7 → draft starts with 7 (not the older continuation).
+        let ctx = [9u32, 5, 6, 9, 7, 8, 9];
+        let draft = prompt_lookup_draft(&ctx, 1, 2);
+        assert_eq!(draft, vec![7, 8]);
+    }
+
+    #[test]
+    fn prompt_lookup_empty_when_no_match_or_degenerate() {
+        assert!(prompt_lookup_draft(&[1, 2, 3, 4], 2, 3).is_empty()); // no repeat
+        assert!(prompt_lookup_draft(&[1, 2], 0, 3).is_empty()); // ngram 0
+        assert!(prompt_lookup_draft(&[1, 2], 2, 3).is_empty()); // len <= ngram
+        assert!(prompt_lookup_draft(&[1, 2, 1, 2], 2, 0).is_empty()); // max_draft 0
+    }
+
+    #[test]
+    fn prompt_lookup_draft_feeds_verify_greedy() {
+        // PLD draft + a target greedy run go straight into the accept rule.
+        let ctx = [1u32, 2, 3, 1, 2];
+        let draft = prompt_lookup_draft(&ctx, 2, 2); // [3, 1]
+        assert_eq!(draft, vec![3, 1]);
+        // target greedy agrees on the first, diverges on the second.
+        let target = [3u32, 9, 0];
+        let outcome = verify_greedy(&draft, &target).unwrap();
+        assert_eq!(outcome.accepted, 1);
+        assert_eq!(outcome.emitted, 2);
     }
 
     #[test]

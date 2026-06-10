@@ -108,6 +108,60 @@ pub struct StackConfig {
     pub recent_window: usize,
 }
 
+/// Composable decode controls for [`DecoderStack::generate_with`]. Defaults to
+/// plain generation (no mask, no n-gram blocking, no stop tokens); set only the
+/// fields you need.
+#[derive(Debug, Clone, Default)]
+pub struct GenOptions {
+    /// Maximum tokens to generate.
+    pub max_new: usize,
+    /// A base logit mask applied every step (constrained / allow-list / bias).
+    pub mask: LogitMask,
+    /// If set, block any token completing an already-seen `n`-gram each step.
+    pub no_repeat_ngram: Option<usize>,
+    /// Stop generation the moment one of these tokens is produced (it is
+    /// included in the output).
+    pub stop_tokens: Vec<usize>,
+    /// Minimum tokens to generate before a `stop_tokens` token may be emitted:
+    /// the stop tokens are masked out for the first `min_new` steps, forcing a
+    /// minimum response length (a common serving constraint). `0` = no minimum.
+    pub min_new: usize,
+}
+
+impl GenOptions {
+    /// Options that just generate `max_new` tokens with no extra controls.
+    pub fn new(max_new: usize) -> Self {
+        Self {
+            max_new,
+            ..Self::default()
+        }
+    }
+
+    /// Set the base logit mask.
+    pub fn with_mask(mut self, mask: LogitMask) -> Self {
+        self.mask = mask;
+        self
+    }
+
+    /// Enable dynamic no-repeat-ngram blocking of size `n`.
+    pub fn with_no_repeat_ngram(mut self, n: usize) -> Self {
+        self.no_repeat_ngram = Some(n);
+        self
+    }
+
+    /// Set the stop tokens for early termination.
+    pub fn with_stop_tokens(mut self, stops: impl IntoIterator<Item = usize>) -> Self {
+        self.stop_tokens = stops.into_iter().collect();
+        self
+    }
+
+    /// Force at least `min_new` tokens before any stop token may be emitted.
+    pub fn with_min_new(mut self, min_new: usize) -> Self {
+        self.min_new = min_new;
+        self
+    }
+}
+
 /// A runnable decoder-only model with each layer's autoregressive KV cache.
 #[derive(Debug, Clone)]
 pub struct DecoderStack {
@@ -207,6 +261,21 @@ impl DecoderStack {
             .normalize(&hidden)
             .map_err(BlockError::from)?;
         Ok(self.project_head(&normed))
+    }
+
+    /// Ingest `prefix` into the KV cache **without generating**, advancing every
+    /// layer's cache by `prefix.len()` positions. This is the prefix-KV-reuse
+    /// primitive: prime a shared prefix (e.g. a system prompt) once, then
+    /// [`clone`](Clone::clone) this primed stack per request and generate only
+    /// the per-request suffix — amortizing the prefix's forward passes across
+    /// many requests. Reuse is **transparent**: priming `prefix` then generating
+    /// `suffix` yields the same tokens as generating `prefix ++ suffix` in one
+    /// call (pinned as a test). No-op for an empty prefix.
+    pub fn prime(&mut self, prefix: &[usize]) -> Result<(), StackError> {
+        for &t in prefix {
+            self.forward(t)?;
+        }
+        Ok(())
     }
 
     /// Ingest a prompt and autoregressively generate up to `max_new` tokens.
@@ -314,6 +383,58 @@ impl DecoderStack {
                 .ok_or(SamplerError::AllFiltered)?;
             self.recent.push(token);
             generated.push(token);
+            logits = self.forward(token)?;
+        }
+        Ok(generated)
+    }
+
+    /// Unified, serving-grade generation that **composes** the decode controls
+    /// that the single-purpose methods can only apply one at a time: a base
+    /// [`LogitMask`] (constrained decoding), dynamic no-repeat-ngram blocking,
+    /// early stop on a stop token, and a per-token streaming callback — all in
+    /// one loop. Reproducible per `seed`. See [`GenOptions`].
+    pub fn generate_with<F: FnMut(usize)>(
+        &mut self,
+        prompt: &[usize],
+        seed: u64,
+        opts: &GenOptions,
+        mut on_token: F,
+    ) -> Result<Vec<usize>, StackError> {
+        if prompt.is_empty() {
+            return Err(StackError::EmptyPrompt);
+        }
+        let mut history: Vec<usize> = prompt.to_vec();
+        let mut logits = Vec::new();
+        for &t in prompt {
+            logits = self.forward(t)?;
+        }
+        let mut generated = Vec::with_capacity(opts.max_new);
+        for _ in 0..opts.max_new {
+            let mut l = logits.clone();
+            opts.mask.apply(&mut l);
+            if let Some(n) = opts.no_repeat_ngram {
+                LogitMask::new().no_repeat_ngram(&history, n).apply(&mut l);
+            }
+            // Min-length: forbid stop tokens until `min_new` tokens are out.
+            if generated.len() < opts.min_new && !opts.stop_tokens.is_empty() {
+                LogitMask::new()
+                    .ban_all(opts.stop_tokens.iter().copied())
+                    .apply(&mut l);
+            }
+            let pos = self.position() as u64;
+            let recent_start = self.recent.len().saturating_sub(self.config.recent_window);
+            let token = self.config.sampler.sample_seeded(
+                &l,
+                &self.recent[recent_start..],
+                seed.wrapping_add(pos),
+            )?;
+            self.recent.push(token);
+            history.push(token);
+            generated.push(token);
+            on_token(token);
+            if opts.stop_tokens.contains(&token) {
+                break;
+            }
             logits = self.forward(token)?;
         }
         Ok(generated)
@@ -539,6 +660,107 @@ mod tests {
             a.generate_until(&prompt, 6, 9, &[]).unwrap(),
             b.generate(&prompt, 6, 9).unwrap()
         );
+    }
+
+    #[test]
+    fn generate_with_composes_all_controls() {
+        // No-repeat-3gram + early-stop + streaming, all at once.
+        let cfg = config(8, 4, 2, Sampler::new(SamplerConfig::default()));
+        let prompt = [1usize, 2, 3];
+        // Discover a token to use as a stop, then compose everything.
+        let probe = DecoderStack::new(cfg.clone())
+            .unwrap()
+            .generate(&prompt, 1, 5)
+            .unwrap()[0];
+        let opts = GenOptions::new(12)
+            .with_no_repeat_ngram(3)
+            .with_stop_tokens([probe]);
+        let mut streamed = Vec::new();
+        let mut m = DecoderStack::new(cfg.clone()).unwrap();
+        let out = m
+            .generate_with(&prompt, 5, &opts, |t| streamed.push(t))
+            .unwrap();
+        // streaming fired for every produced token
+        assert_eq!(streamed, out);
+        // ended at the stop token (or hit the cap)
+        assert!(out.len() <= 12);
+        if out.len() < 12 {
+            assert_eq!(*out.last().unwrap(), probe);
+        }
+        // no 3-gram repeats across prompt + output
+        let mut full = prompt.to_vec();
+        full.extend(&out);
+        let mut seen = std::collections::HashSet::new();
+        assert!(full.windows(3).all(|w| seen.insert(w.to_vec())));
+
+        // reproducible
+        let mut m2 = DecoderStack::new(cfg).unwrap();
+        assert_eq!(out, m2.generate_with(&prompt, 5, &opts, |_| {}).unwrap());
+    }
+
+    #[test]
+    fn prefix_reuse_is_transparent_and_amortizes() {
+        // Priming a prefix then generating a suffix must equal generating the
+        // concatenation in one call — so a primed clone can be reused per
+        // request without changing the output.
+        let cfg = config(8, 4, 2, Sampler::new(SamplerConfig::default()));
+        let prefix = [1usize, 2, 3];
+        let suffix = [4usize, 5];
+
+        let mut whole = DecoderStack::new(cfg.clone()).unwrap();
+        let mut full = prefix.to_vec();
+        full.extend(&suffix);
+        let mono = whole.generate(&full, 6, 7).unwrap();
+
+        // Prime once, then reuse the primed state for the (here single) request.
+        let mut base = DecoderStack::new(cfg).unwrap();
+        base.prime(&prefix).unwrap();
+        assert_eq!(base.position(), 3); // cache advanced over the prefix
+        let mut reused = base.clone(); // a clone per request would share the prefix
+        let out = reused.generate(&suffix, 6, 7).unwrap();
+        assert_eq!(out, mono, "prefix reuse must be output-identical");
+        // The primed base is untouched and reusable for the next request.
+        assert_eq!(base.position(), 3);
+    }
+
+    #[test]
+    fn generate_with_min_new_defers_the_stop_token() {
+        // Make the first sampled token a stop token; with min_new it cannot be
+        // emitted until at least min_new tokens are out, so the output is longer.
+        let cfg = config(8, 4, 2, Sampler::new(SamplerConfig::default()));
+        let prompt = [1usize, 2];
+        let first = DecoderStack::new(cfg.clone())
+            .unwrap()
+            .generate(&prompt, 1, 9)
+            .unwrap()[0];
+
+        // Without min_new: stops immediately at the stop token.
+        let opts_stop = GenOptions::new(10).with_stop_tokens([first]);
+        let mut a = DecoderStack::new(cfg.clone()).unwrap();
+        let stopped = a.generate_with(&prompt, 9, &opts_stop, |_| {}).unwrap();
+        assert_eq!(stopped, vec![first]);
+
+        // With min_new = 4: the stop token is masked for the first 4 tokens.
+        let opts_min = GenOptions::new(10)
+            .with_stop_tokens([first])
+            .with_min_new(4);
+        let mut b = DecoderStack::new(cfg).unwrap();
+        let out = b.generate_with(&prompt, 9, &opts_min, |_| {}).unwrap();
+        assert!(out.len() >= 4, "min_new must force ≥4 tokens: {out:?}");
+        // None of the first 4 emitted tokens is the (banned) stop token.
+        assert!(out[..4].iter().all(|&t| t != first));
+    }
+
+    #[test]
+    fn generate_with_plain_equals_generate() {
+        let cfg = config(8, 4, 2, Sampler::new(SamplerConfig::default()));
+        let prompt = [1usize, 2];
+        let mut a = DecoderStack::new(cfg.clone()).unwrap();
+        let mut b = DecoderStack::new(cfg).unwrap();
+        let plain = a
+            .generate_with(&prompt, 9, &GenOptions::new(6), |_| {})
+            .unwrap();
+        assert_eq!(plain, b.generate(&prompt, 6, 9).unwrap());
     }
 
     #[test]

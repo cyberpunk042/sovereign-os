@@ -98,10 +98,13 @@ fn main() {
     // random weights the model won't emit a tool call, but the real engine drives
     // the loop on the operator's own input.)
     if let Some(query) = args.iter().find(|a| !a.starts_with('-')) {
-        let mut agent = AgentLoop::new(LlmResponder::new(runtime(), 6), tools(), 4);
+        // Repeat guard on: a model stuck re-issuing one action stops early.
+        let mut agent =
+            AgentLoop::new(LlmResponder::new(runtime(), 6), tools(), 4).with_repeat_guard(3);
         match agent.run(query, 0) {
             Ok(res) => println!(
-                "query={query:?} → completed={} steps={} answer={:?}",
+                "query={query:?} → stop={:?} completed={} steps={} answer={:?}",
+                res.stop_reason,
                 res.completed,
                 res.steps.len(),
                 res.answer
@@ -150,7 +153,10 @@ fn main() {
                     None => println!("step {i}: final answer = {:?}", step.reply),
                 }
             }
-            println!("completed={} answer={:?}", res.completed, res.answer);
+            println!(
+                "completed={} stop={:?} answer={:?}",
+                res.completed, res.stop_reason, res.answer
+            );
         }
         Err(e) => println!("error: {e}"),
     }

@@ -53,23 +53,35 @@ pub struct Tokenizer {
     token_to_id: HashMap<Vec<u8>, u32>,
     /// (left, right) byte-sequence pair → merge rank (lower = higher priority).
     merge_rank: HashMap<(Vec<u8>, Vec<u8>), usize>,
+    /// Reserved **special tokens** (e.g. `<bos>`, `<eos>`), occupying ids at the
+    /// top of the vocabulary (`bpe_vocab_size + index`). They are never produced
+    /// by [`encode`](Self::encode) (control markers, not text) and decode to
+    /// nothing.
+    specials: Vec<String>,
 }
 
-/// The serializable projection of a [`Tokenizer`] — just its merge list.
+/// The serializable projection of a [`Tokenizer`] — its merge list plus any
+/// registered special tokens.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct TokenizerData {
     merges: Vec<(Vec<u8>, Vec<u8>)>,
+    /// Special tokens, in id order. Defaulted for backward-compatible loading.
+    #[serde(default)]
+    specials: Vec<String>,
 }
 
 impl From<TokenizerData> for Tokenizer {
     fn from(data: TokenizerData) -> Self {
-        Tokenizer::from_merges(data.merges)
+        Tokenizer::from_merges(data.merges).with_specials(data.specials)
     }
 }
 
 impl From<Tokenizer> for TokenizerData {
     fn from(tok: Tokenizer) -> Self {
-        TokenizerData { merges: tok.merges }
+        TokenizerData {
+            merges: tok.merges,
+            specials: tok.specials,
+        }
     }
 }
 
@@ -110,12 +122,52 @@ impl Tokenizer {
             id_to_token,
             token_to_id,
             merge_rank,
+            specials: Vec::new(),
         }
     }
 
-    /// Total vocabulary size (base bytes + merged tokens).
-    pub fn vocab_size(&self) -> usize {
+    /// Register **special tokens** (in order), each reserved at a fresh id above
+    /// the BPE vocabulary. Duplicates (and names already registered) are
+    /// ignored. Returns `self` for chaining. Use [`special_id`](Self::special_id)
+    /// to look one up — e.g. an `<eos>` to pass as a stop token to generation.
+    pub fn with_specials<I, S>(mut self, names: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        for name in names {
+            let name = name.into();
+            if !name.is_empty() && !self.specials.contains(&name) {
+                self.specials.push(name);
+            }
+        }
+        self
+    }
+
+    /// The BPE vocabulary size (base bytes + merged tokens), excluding specials.
+    pub fn bpe_vocab_size(&self) -> usize {
         self.id_to_token.len()
+    }
+
+    /// Total vocabulary size (base bytes + merged tokens + special tokens).
+    pub fn vocab_size(&self) -> usize {
+        self.id_to_token.len() + self.specials.len()
+    }
+
+    /// The id of the special token named `name`, if registered.
+    pub fn special_id(&self, name: &str) -> Option<u32> {
+        self.specials
+            .iter()
+            .position(|s| s == name)
+            .map(|i| (self.id_to_token.len() + i) as u32)
+    }
+
+    /// The name of the special token with id `id`, if `id` is a special.
+    pub fn special_name(&self, id: u32) -> Option<&str> {
+        let base = self.id_to_token.len() as u32;
+        (id >= base)
+            .then(|| self.specials.get((id - base) as usize).map(String::as_str))
+            .flatten()
     }
 
     /// The bytes of a token id, if it exists.
@@ -159,6 +211,10 @@ impl Tokenizer {
     pub fn decode(&self, ids: &[u32]) -> Result<String, TokenizerError> {
         let mut bytes = Vec::new();
         for &id in ids {
+            // Special tokens are control markers → emit no text.
+            if self.special_name(id).is_some() {
+                continue;
+            }
             let tok = self
                 .id_to_token
                 .get(id as usize)
@@ -178,6 +234,51 @@ mod tests {
             .iter()
             .map(|(a, b)| (a.as_bytes().to_vec(), b.as_bytes().to_vec()))
             .collect()
+    }
+
+    #[test]
+    fn special_tokens_reserve_ids_above_bpe_vocab() {
+        let t = Tokenizer::from_merges(merges(&[("a", "b")])).with_specials(["<bos>", "<eos>"]);
+        let bpe = t.bpe_vocab_size(); // 256 + 1 merge = 257
+        assert_eq!(bpe, 257);
+        assert_eq!(t.vocab_size(), 259); // + 2 specials
+        assert_eq!(t.special_id("<bos>"), Some(257));
+        assert_eq!(t.special_id("<eos>"), Some(258));
+        assert_eq!(t.special_id("<missing>"), None);
+        assert_eq!(t.special_name(258), Some("<eos>"));
+        assert_eq!(t.special_name(0), None); // a byte, not special
+    }
+
+    #[test]
+    fn encode_never_emits_specials_and_decode_skips_them() {
+        let t = Tokenizer::default().with_specials(["<eos>"]);
+        let eos = t.special_id("<eos>").unwrap();
+        let ids = t.encode("hi");
+        assert!(
+            ids.iter().all(|&id| id != eos),
+            "encode must not emit <eos>"
+        );
+        // A sequence with the special interleaved decodes to just the text.
+        let mut with_special = t.encode("hi");
+        with_special.push(eos);
+        with_special.extend(t.encode("!"));
+        assert_eq!(t.decode(&with_special).unwrap(), "hi!");
+    }
+
+    #[test]
+    fn specials_dedupe_and_ignore_empty() {
+        let t = Tokenizer::default().with_specials(["<eos>", "<eos>", "", "<pad>"]);
+        assert_eq!(t.vocab_size(), 256 + 2); // <eos>, <pad> only
+        assert_eq!(t.special_id("<pad>"), Some(257));
+    }
+
+    #[test]
+    fn specials_survive_serde_round_trip() {
+        let t = Tokenizer::from_merges(merges(&[("a", "b")])).with_specials(["<bos>", "<eos>"]);
+        let data: TokenizerData = t.clone().into();
+        let back: Tokenizer = data.into();
+        assert_eq!(back.vocab_size(), t.vocab_size());
+        assert_eq!(back.special_id("<eos>"), t.special_id("<eos>"));
     }
 
     #[test]

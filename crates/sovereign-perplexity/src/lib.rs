@@ -66,24 +66,61 @@ pub struct Eval {
     pub perplexity: f64,
 }
 
-/// Score `model`'s perplexity on `tokens` (teacher-forced). The model is
-/// cloned, so the caller's instance is not advanced.
-pub fn evaluate(model: &DecoderStack, tokens: &[usize]) -> Result<Eval, PerplexityError> {
+impl Eval {
+    /// Mean **bits per token** = `cross_entropy / ln 2` (log₂ of the
+    /// perplexity). Bits are the comparable unit across exp/log bases.
+    pub fn bits_per_token(&self) -> f64 {
+        self.cross_entropy / std::f64::consts::LN_2
+    }
+
+    /// **Bits per byte** — the model's total information cost over the scored
+    /// tokens, re-normalized from per-token to per-byte using `scored_bytes`
+    /// (the total byte length of the predicted tokens). Unlike perplexity,
+    /// which depends on how text is tokenized, bits/byte is **tokenizer-
+    /// independent**, so it is the standard way to compare models with
+    /// different vocabularies. Returns `0.0` if `scored_bytes == 0`.
+    pub fn bits_per_byte(&self, scored_bytes: usize) -> f64 {
+        if scored_bytes == 0 {
+            return 0.0;
+        }
+        let total_bits = -self.total_logprob / std::f64::consts::LN_2;
+        total_bits / scored_bytes as f64
+    }
+}
+
+/// The model's **per-token log-probability** for each predicted token in
+/// `tokens` (teacher-forced): the returned vector has length `tokens.len() − 1`,
+/// where element `i` is the natural-log probability the model assigned to
+/// `tokens[i + 1]` given `tokens[0..=i]`. Token 0 has no predecessor and so is
+/// not scored. The model is cloned, so the caller's instance is not advanced.
+///
+/// This is the raw surprisal signal (`−logprob`) that [`evaluate`] averages into
+/// cross-entropy, exposed directly so callers can drive **selective prompt
+/// compression** (LLMLingua: drop the tokens the model already predicts) without
+/// recomputing the scoring pass.
+pub fn token_logprobs(model: &DecoderStack, tokens: &[usize]) -> Result<Vec<f64>, PerplexityError> {
     if tokens.len() < 2 {
         return Err(PerplexityError::TooShort { got: tokens.len() });
     }
     let mut m = model.clone();
-    let mut total_logprob = 0.0f64;
+    let mut out = Vec::with_capacity(tokens.len() - 1);
 
     // Feed token 0, then for each subsequent token read its assigned log-prob.
     let mut logits = m.forward(tokens[0])?;
     for &next in &tokens[1..] {
         let lp = log_softmax(&logits);
-        total_logprob += lp[next] as f64;
+        out.push(lp[next] as f64);
         logits = m.forward(next)?;
     }
+    Ok(out)
+}
 
-    let predicted = tokens.len() - 1;
+/// Score `model`'s perplexity on `tokens` (teacher-forced). The model is
+/// cloned, so the caller's instance is not advanced.
+pub fn evaluate(model: &DecoderStack, tokens: &[usize]) -> Result<Eval, PerplexityError> {
+    let logprobs = token_logprobs(model, tokens)?;
+    let total_logprob: f64 = logprobs.iter().sum();
+    let predicted = logprobs.len();
     let cross_entropy = -total_logprob / predicted as f64;
     Ok(Eval {
         predicted,
@@ -146,6 +183,39 @@ mod tests {
     use sovereign_rmsnorm::RmsNorm;
     use sovereign_sampler::Sampler;
     use sovereign_transformer_block::BlockWeights;
+
+    #[test]
+    fn bits_per_token_is_log2_perplexity() {
+        // cross_entropy = ln(4) → ppl 4 → 2 bits/token.
+        let ce = 4.0_f64.ln();
+        let e = Eval {
+            predicted: 3,
+            total_logprob: -ce * 3.0,
+            cross_entropy: ce,
+            perplexity: ce.exp(),
+        };
+        assert!((e.bits_per_token() - 2.0).abs() < 1e-9);
+        // 2^(bits/token) recovers the perplexity.
+        assert!((2.0_f64.powf(e.bits_per_token()) - e.perplexity).abs() < 1e-9);
+    }
+
+    #[test]
+    fn bits_per_byte_normalizes_by_bytes() {
+        let ce = 2.0_f64.ln(); // 1 bit/token
+        let e = Eval {
+            predicted: 4,
+            total_logprob: -ce * 4.0,
+            cross_entropy: ce,
+            perplexity: ce.exp(),
+        };
+        // total bits = 4; over 4 bytes → 1 bit/byte (== bits/token here).
+        assert!((e.bits_per_byte(4) - 1.0).abs() < 1e-9);
+        assert!((e.bits_per_byte(4) - e.bits_per_token()).abs() < 1e-9);
+        // Twice the bytes → half the bits/byte (longer tokens are cheaper/byte).
+        assert!((e.bits_per_byte(8) - 0.5).abs() < 1e-9);
+        // Zero bytes is guarded.
+        assert_eq!(e.bits_per_byte(0), 0.0);
+    }
 
     const MD: usize = 4;
 
@@ -252,6 +322,34 @@ mod tests {
             evaluate(&m, &[1]).unwrap_err(),
             PerplexityError::TooShort { got: 1 }
         );
+        assert_eq!(
+            token_logprobs(&m, &[1]).unwrap_err(),
+            PerplexityError::TooShort { got: 1 }
+        );
+    }
+
+    #[test]
+    fn token_logprobs_align_with_evaluate() {
+        let m = model(8, false);
+        let seq = [1usize, 3, 5, 2, 4];
+        let lps = token_logprobs(&m, &seq).unwrap();
+        // one logprob per predicted token (all but the first)
+        assert_eq!(lps.len(), seq.len() - 1);
+        // each is a valid log-probability (≤ 0)
+        assert!(lps.iter().all(|&l| l <= 1e-9));
+        // their sum is exactly evaluate()'s total_logprob
+        let ev = evaluate(&m, &seq).unwrap();
+        assert!((lps.iter().sum::<f64>() - ev.total_logprob).abs() < 1e-9);
+    }
+
+    #[test]
+    fn token_logprobs_uniform_model_is_neg_ln_vocab() {
+        let vocab = 7;
+        let m = model(vocab, true);
+        let lps = token_logprobs(&m, &[0, 1, 2, 3, 0, 1]).unwrap();
+        // uniform → every token has probability 1/vocab → logprob == -ln(vocab)
+        let expected = -(vocab as f64).ln();
+        assert!(lps.iter().all(|&l| (l - expected).abs() < 1e-4));
     }
 
     // --- quantized-model evaluation ---

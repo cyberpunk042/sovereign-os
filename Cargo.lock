@@ -4303,6 +4303,7 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "sovereign-embed",
 ]
 
 [[package]]
@@ -4941,6 +4942,7 @@ dependencies = [
  "sovereign-checkpoint",
  "sovereign-decoder-layer",
  "sovereign-decoder-stack",
+ "sovereign-degeneration",
  "sovereign-embed",
  "sovereign-ffn",
  "sovereign-linear",
@@ -5195,11 +5197,18 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "sovereign-answer-extract",
  "sovereign-decoder-stack",
+ "sovereign-degeneration",
+ "sovereign-diversity",
  "sovereign-ffn",
  "sovereign-logit-mask",
+ "sovereign-perplexity",
+ "sovereign-pii-redact",
+ "sovereign-prompt-compress",
  "sovereign-rmsnorm",
  "sovereign-sampler",
+ "sovereign-secret-scan",
  "sovereign-tokenizer",
  "sovereign-transformer-block",
  "thiserror",
@@ -5852,8 +5861,11 @@ dependencies = [
  "sovereign-bm25",
  "sovereign-chunker",
  "sovereign-embed",
+ "sovereign-injection-detect",
  "sovereign-lsh",
  "sovereign-minhash",
+ "sovereign-rank-fusion",
+ "sovereign-rerank",
 ]
 
 [[package]]
