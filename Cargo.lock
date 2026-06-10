@@ -5210,6 +5210,7 @@ dependencies = [
  "sovereign-perplexity",
  "sovereign-pii-redact",
  "sovereign-prompt-compress",
+ "sovereign-regex-constrain",
  "sovereign-rmsnorm",
  "sovereign-sampler",
  "sovereign-secret-scan",

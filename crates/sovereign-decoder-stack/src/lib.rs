@@ -516,6 +516,48 @@ impl DecoderStack {
         }
         Ok(())
     }
+
+    /// Generate up to `max_new` tokens, recomputing the logit mask **each step**
+    /// from the tokens generated so far. `mask_fn(&generated)` returns the
+    /// [`LogitMask`] to apply before sampling the next token — the hook that lets
+    /// a stateful constraint (a regex/grammar automaton) forbid every token that
+    /// would leave the constraint unsatisfiable, so the model can only ever emit
+    /// strings the constraint accepts. Returns the generated token ids.
+    /// Reproducible per `seed`.
+    pub fn generate_dynamic_mask<M>(
+        &mut self,
+        prompt: &[usize],
+        max_new: usize,
+        seed: u64,
+        mut mask_fn: M,
+    ) -> Result<Vec<usize>, StackError>
+    where
+        M: FnMut(&[usize]) -> LogitMask,
+    {
+        if prompt.is_empty() {
+            return Err(StackError::EmptyPrompt);
+        }
+        let mut logits = Vec::new();
+        for &t in prompt {
+            logits = self.forward(t)?;
+        }
+        let mut generated = Vec::with_capacity(max_new);
+        for _ in 0..max_new {
+            let mask = mask_fn(&generated);
+            mask.apply(&mut logits);
+            let pos = self.position() as u64;
+            let recent_start = self.recent.len().saturating_sub(self.config.recent_window);
+            let token = self.config.sampler.sample_seeded(
+                &logits,
+                &self.recent[recent_start..],
+                seed.wrapping_add(pos),
+            )?;
+            self.recent.push(token);
+            generated.push(token);
+            logits = self.forward(token)?;
+        }
+        Ok(generated)
+    }
 }
 
 /// Deterministic splitmix64 → uniform `[0, 1)` from one seed, so the Mirostat
@@ -583,6 +625,37 @@ mod tests {
         let out = m.generate(&[1, 2, 3], 5, 42).unwrap();
         assert_eq!(out.len(), 5);
         assert!(out.iter().all(|&t| t < 6));
+    }
+
+    #[test]
+    fn dynamic_mask_confines_every_token_to_the_allowed_set() {
+        // A mask_fn that always allows only tokens 1..=2 — the dynamic loop must
+        // apply it each step, so every generated token is in the set.
+        let mut m = DecoderStack::new(config(8, 4, 2, Sampler::greedy())).unwrap();
+        let out = m
+            .generate_dynamic_mask(&[3, 4], 6, 7, |_generated| {
+                LogitMask::new().allow_only(1..=2)
+            })
+            .unwrap();
+        assert_eq!(out.len(), 6);
+        assert!(out.iter().all(|&t| (1..=2).contains(&t)), "{out:?}");
+    }
+
+    #[test]
+    fn dynamic_mask_can_tighten_as_generation_proceeds() {
+        // The mask depends on how many tokens have been generated: first step
+        // allows token 5, afterwards only token 2 — proving the hook sees state.
+        let mut m = DecoderStack::new(config(8, 4, 2, Sampler::greedy())).unwrap();
+        let out = m
+            .generate_dynamic_mask(&[1], 4, 1, |generated| {
+                if generated.is_empty() {
+                    LogitMask::new().allow_only(5..=5)
+                } else {
+                    LogitMask::new().allow_only(2..=2)
+                }
+            })
+            .unwrap();
+        assert_eq!(out, vec![5, 2, 2, 2]);
     }
 
     #[test]

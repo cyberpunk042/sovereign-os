@@ -53,6 +53,9 @@ pub enum LlmError {
     /// Scoring the prompt for compression failed.
     #[error("scoring: {0}")]
     Perplexity(#[from] sovereign_perplexity::PerplexityError),
+    /// The constraint pattern for constrained decoding was invalid.
+    #[error("regex: {0}")]
+    Regex(String),
 }
 
 /// The serializable definition of a runtime: a tokenizer + a model config.
@@ -148,6 +151,45 @@ impl SovereignLlm {
         let generated = self.generate_ids(prompt, max_new, seed)?;
         // ids come straight from the model's own vocab, so decode never fails.
         Ok(self.tokenizer.decode(&generated).unwrap_or_default())
+    }
+
+    /// **Constrained decoding**: generate a completion for `prompt` that is forced
+    /// to match the regular expression `pattern`. At every step the live
+    /// constraint (`sovereign-regex-constrain` over `sovereign-regex-nfa`) builds a
+    /// [`LogitMask`] allowing only the tokens that keep the pattern *satisfiable*,
+    /// so the model can never emit a string the pattern rejects — the basis of
+    /// guaranteed-format output (digits-only, dates, enums, JSON shapes). Drives
+    /// the decoder's [`generate_dynamic_mask`](sovereign_decoder_stack::DecoderStack::generate_dynamic_mask)
+    /// loop on a fresh model clone (stateless). Returns the generated text;
+    /// reproducible per `seed`. Errors if `pattern` is not a valid regex.
+    pub fn complete_regex(
+        &self,
+        prompt: &str,
+        pattern: &str,
+        max_new: usize,
+        seed: u64,
+    ) -> Result<String, LlmError> {
+        let constraint = sovereign_regex_constrain::RegexConstraint::new(pattern)
+            .map_err(|e| LlmError::Regex(e.to_string()))?;
+        let prompt_ids: Vec<usize> = self
+            .tokenizer
+            .encode(prompt)
+            .iter()
+            .map(|&i| i as usize)
+            .collect();
+        // Per-token vocab strings (each id decoded on its own).
+        let vocab: Vec<String> = (0..self.tokenizer.vocab_size())
+            .map(|id| self.tokenizer.decode(&[id as u32]).unwrap_or_default())
+            .collect();
+        let vocab_refs: Vec<&str> = vocab.iter().map(String::as_str).collect();
+        let mut model = self.model.clone();
+        let gen_ids = model.generate_dynamic_mask(&prompt_ids, max_new, seed, |generated| {
+            let so_far: Vec<u32> = generated.iter().map(|&i| i as u32).collect();
+            let text = self.tokenizer.decode(&so_far).unwrap_or_default();
+            constraint.mask(&text, &vocab_refs)
+        })?;
+        let out_ids: Vec<u32> = gen_ids.iter().map(|&i| i as u32).collect();
+        Ok(self.tokenizer.decode(&out_ids).unwrap_or_default())
     }
 
     /// Complete `prompt` and **extract the first balanced JSON value** from the
@@ -793,6 +835,31 @@ mod tests {
         // the report is exactly analyze() of that text — the wiring is faithful
         assert_eq!(report, analyze(&text, &cfg));
         assert!((0.0..=1.0).contains(&report.distinct_ngram_ratio));
+    }
+
+    #[test]
+    fn complete_regex_confines_output_to_the_pattern() {
+        // The digit-only pattern masks every non-digit token each step, so the
+        // model — whatever its weights — can only emit ASCII digits.
+        let llm = runtime(Sampler::greedy());
+        let out = llm.complete_regex("number: ", "[0-9]+", 6, 7).unwrap();
+        assert_eq!(out.chars().count(), 6);
+        assert!(out.chars().all(|c| c.is_ascii_digit()), "{out:?}");
+    }
+
+    #[test]
+    fn complete_regex_is_reproducible_and_rejects_bad_patterns() {
+        let a = runtime(Sampler::new(SamplerConfig::default()));
+        let b = runtime(Sampler::new(SamplerConfig::default()));
+        assert_eq!(
+            a.complete_regex("x", "[a-c]+", 5, 3).unwrap(),
+            b.complete_regex("x", "[a-c]+", 5, 3).unwrap()
+        );
+        // an invalid pattern is a Regex error, not a panic
+        assert!(matches!(
+            a.complete_regex("x", "[", 4, 1),
+            Err(LlmError::Regex(_))
+        ));
     }
 
     #[test]
