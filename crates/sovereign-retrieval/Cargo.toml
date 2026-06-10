@@ -23,3 +23,4 @@ sovereign-lsh = { path = "../sovereign-lsh" }
 sovereign-bm25 = { path = "../sovereign-bm25" }
 sovereign-rank-fusion = { path = "../sovereign-rank-fusion" }
 sovereign-rerank = { path = "../sovereign-rerank" }
+sovereign-injection-detect = { path = "../sovereign-injection-detect" }

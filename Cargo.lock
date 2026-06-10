@@ -5857,6 +5857,7 @@ dependencies = [
  "sovereign-bm25",
  "sovereign-chunker",
  "sovereign-embed",
+ "sovereign-injection-detect",
  "sovereign-lsh",
  "sovereign-minhash",
  "sovereign-rank-fusion",
