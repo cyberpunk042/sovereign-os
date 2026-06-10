@@ -147,6 +147,30 @@ impl BitLinearMlp {
         self.layers.iter().map(|l| l.output_dim * l.input_dim).sum()
     }
 
+    /// Block-level packed-domain forward: every layer runs
+    /// [`BitLinearLayer::forward_packed`] (single pass over the 2-bit codes,
+    /// no `Vec<Trit>`), with the activation applied between layers exactly as
+    /// in [`BitLinearMlp::forward`]. Bit-for-bit equal to `forward`; requires
+    /// every layer to use [`Packing::TwoBit`], else
+    /// [`BitLinearError::PackedForwardUnsupported`].
+    pub fn forward_packed(&self, x: &[f32]) -> Result<(Vec<f32>, OpCount), BitLinearError> {
+        let n = self.layers.len();
+        let mut cur = x.to_vec();
+        let mut total = OpCount::default();
+        for (i, layer) in self.layers.iter().enumerate() {
+            let (mut y, ops) = layer.forward_packed(&cur)?;
+            total.adds += ops.adds;
+            total.subs += ops.subs;
+            total.skips += ops.skips;
+            total.float_muls += ops.float_muls;
+            if i + 1 < n {
+                self.activation.apply(&mut y);
+            }
+            cur = y;
+        }
+        Ok((cur, total))
+    }
+
     /// Residual-wrapped forward — `y = x + block(x)` — the way a transformer
     /// uses the FFN: a sublayer whose output is *added* to the residual
     /// stream rather than replacing it. Requires `input_dim == output_dim`
@@ -356,6 +380,33 @@ mod tests {
             res, x,
             "zero block must leave the residual stream untouched"
         );
+    }
+
+    #[test]
+    fn packed_forward_matches_forward() {
+        // The block-level packed-domain forward equals the unpack-loop
+        // forward bit-for-bit (output + OpCount) when every layer is TwoBit.
+        let (d_model, d_ff) = (9, 36);
+        let mut next = rng(0x5EED_1357_2468_ACEF);
+        let expand: Vec<f32> = (0..d_ff * d_model).map(|_| next()).collect();
+        let contract: Vec<f32> = (0..d_model * d_ff).map(|_| next()).collect();
+        let x: Vec<f32> = (0..d_model).map(|_| next()).collect();
+        let mlp = BitLinearMlp::ffn(&expand, &contract, d_model, d_ff, Packing::TwoBit).unwrap();
+
+        let (y_ref, ops_ref) = mlp.forward(&x).unwrap();
+        let (y_packed, ops_packed) = mlp.forward_packed(&x).unwrap();
+        assert_eq!(y_packed, y_ref);
+        assert_eq!(ops_packed, ops_ref);
+    }
+
+    #[test]
+    fn packed_forward_rejects_base3_block() {
+        let mlp = BitLinearMlp::ffn(&[0.5; 8], &[0.5; 8], 2, 4, Packing::Base3).unwrap();
+        let err = mlp.forward_packed(&[1.0, 1.0]).unwrap_err();
+        assert!(matches!(
+            err,
+            BitLinearError::PackedForwardUnsupported { .. }
+        ));
     }
 
     #[test]

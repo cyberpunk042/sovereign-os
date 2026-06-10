@@ -110,6 +110,26 @@ impl TernarySwiGlu {
         Ok((out, total))
     }
 
+    /// Packed-domain forward: the three matmuls run
+    /// [`BitLinearLayer::forward_packed`] (single pass over the 2-bit codes),
+    /// with the identical SiLU gate. Bit-for-bit equal to
+    /// [`TernarySwiGlu::forward`]; requires every projection to use
+    /// [`Packing::TwoBit`], else
+    /// [`BitLinearError::PackedForwardUnsupported`].
+    pub fn forward_packed(&self, x: &[f32]) -> Result<(Vec<f32>, OpCount), BitLinearError> {
+        let (g, og) = self.gate.forward_packed(x)?;
+        let (u, ou) = self.up.forward_packed(x)?;
+        let h: Vec<f32> = g.iter().zip(&u).map(|(gi, ui)| silu(*gi) * ui).collect();
+        let (out, od) = self.down.forward_packed(&h)?;
+        let total = OpCount {
+            adds: og.adds + ou.adds + od.adds,
+            subs: og.subs + ou.subs + od.subs,
+            skips: og.skips + ou.skips + od.skips,
+            float_muls: og.float_muls + ou.float_muls + od.float_muls,
+        };
+        Ok((out, total))
+    }
+
     /// Inner-product multiplies a dense GEMM of all three projections would
     /// spend — every one of which this block eliminates.
     pub fn floating_muls_eliminated(&self) -> usize {
@@ -226,6 +246,37 @@ mod tests {
         assert_eq!(out, vec![0.0f32; dim], "zero block must output zero");
         let (res, _) = ffn.forward_residual(&x).unwrap();
         assert_eq!(res, x, "zero block residual must be the identity");
+    }
+
+    #[test]
+    fn packed_forward_matches_forward() {
+        // Packed-domain gated FFN equals the unpack-loop forward bit-for-bit.
+        let (dim, hidden) = (8, 24);
+        let mut next = rng(0xFACE_0FF1_CE15_600D);
+        let w_gate: Vec<f32> = (0..hidden * dim).map(|_| next()).collect();
+        let w_up: Vec<f32> = (0..hidden * dim).map(|_| next()).collect();
+        let w_down: Vec<f32> = (0..dim * hidden).map(|_| next()).collect();
+        let x: Vec<f32> = (0..dim).map(|_| next()).collect();
+        let ffn =
+            TernarySwiGlu::from_weights(&w_gate, &w_up, &w_down, dim, hidden, Packing::TwoBit)
+                .unwrap();
+
+        let (y_ref, ops_ref) = ffn.forward(&x).unwrap();
+        let (y_packed, ops_packed) = ffn.forward_packed(&x).unwrap();
+        assert_eq!(y_packed, y_ref);
+        assert_eq!(ops_packed, ops_ref);
+    }
+
+    #[test]
+    fn packed_forward_rejects_base3() {
+        let ffn =
+            TernarySwiGlu::from_weights(&[0.5; 8], &[0.5; 8], &[0.5; 8], 2, 4, Packing::Base3)
+                .unwrap();
+        let err = ffn.forward_packed(&[1.0, 1.0]).unwrap_err();
+        assert!(matches!(
+            err,
+            BitLinearError::PackedForwardUnsupported { .. }
+        ));
     }
 
     #[test]
