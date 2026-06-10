@@ -6078,6 +6078,7 @@ dependencies = [
  "sovereign-secret-scan",
  "sovereign-token-meter",
  "sovereign-tokenizer",
+ "sovereign-toxicity",
  "sovereign-transformer-block",
  "thiserror",
 ]

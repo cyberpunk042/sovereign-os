@@ -90,6 +90,8 @@ USAGE:
                                        paraphrase of a served prompt is a $0 hit
     sovereign-serve --redact PROMPT…   scrub secrets + PII from each completion
                                        before it is cached/returned (egress gate)
+    sovereign-serve --screen PROMPT…   refuse a completion flagged toxic by the
+                                       built-in content filter (egress gate)
     sovereign-serve --help             print this help and exit";
 
 fn main() {
@@ -101,6 +103,9 @@ fn main() {
     let stream = args.iter().any(|a| a == "--stream");
     let semantic = args.iter().any(|a| a == "--semantic");
     let redact = args.iter().any(|a| a == "--redact");
+    let screen = args.iter().any(|a| a == "--screen");
+    // Built-in content filter, built once, used by the egress screen.
+    let tox = sovereign_toxicity::ToxicityFilter::with_builtin();
     // `--no-repeat-ngram N` drives the unified composable generation path.
     let nrn_idx = args.iter().position(|a| a == "--no-repeat-ngram");
     let no_repeat: Option<usize> = nrn_idx
@@ -145,11 +150,16 @@ fn main() {
                 .map_err(|e| e.to_string())?
         };
         // Egress gate: scrub secrets then PII before the text is cached/returned.
-        Ok(if redact {
+        let text = if redact {
             sovereign_pii_redact::redact(&sovereign_secret_scan::redact(&text))
         } else {
             text
-        })
+        };
+        // Egress gate: refuse a completion the content filter flags as toxic.
+        if screen && tox.is_toxic(&text, 0.5) {
+            return Err("blocked: completion flagged toxic by content filter".to_string());
+        }
+        Ok(text)
     };
 
     if prompts.is_empty() {

@@ -61,6 +61,19 @@ fn redact_flag_runs_the_egress_gate() {
 }
 
 #[test]
+fn screen_flag_runs_without_blocking_clean_output() {
+    // The demo model emits gibberish (not toxic), so the screen gate passes the
+    // completion through; this checks the egress-screen path runs end-to-end.
+    let out = Command::new(env!("CARGO_BIN_EXE_sovereign-serve"))
+        .args(["--screen", "hello there", "hello there"])
+        .output()
+        .expect("run sovereign-serve --screen");
+    assert!(out.status.success());
+    let s = String::from_utf8_lossy(&out.stdout);
+    assert!(s.contains("hit=exact"), "repeat should still cache:\n{s}");
+}
+
+#[test]
 fn help_exits_zero() {
     let out = Command::new(env!("CARGO_BIN_EXE_sovereign-serve"))
         .arg("--help")

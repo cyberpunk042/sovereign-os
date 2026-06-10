@@ -30,3 +30,4 @@ sovereign-rmsnorm = { path = "../sovereign-rmsnorm" }
 sovereign-sampler = { path = "../sovereign-sampler" }
 sovereign-secret-scan = { path = "../sovereign-secret-scan" }
 sovereign-pii-redact = { path = "../sovereign-pii-redact" }
+sovereign-toxicity = { path = "../sovereign-toxicity" }
