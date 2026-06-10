@@ -151,6 +151,27 @@ impl SovereignLlm {
         Ok(sovereign_pii_redact::redact(&no_secrets))
     }
 
+    /// Complete `prompt`, then run a **content-safety screen** on the output:
+    /// the completion is scanned by `filter` (`sovereign-toxicity`, which
+    /// normalizes leetspeak/obfuscation before matching a severity-tiered term
+    /// list) and the text is returned with a `bool` verdict — `true` if its
+    /// toxicity score is at or above `threshold`. A serving loop uses the verdict
+    /// to block or regenerate a toxic completion. The caller supplies the
+    /// configured filter (e.g. [`ToxicityFilter::with_builtin`](sovereign_toxicity::ToxicityFilter::with_builtin)).
+    /// Reproducible per `seed`.
+    pub fn complete_screened(
+        &self,
+        prompt: &str,
+        max_new: usize,
+        seed: u64,
+        filter: &sovereign_toxicity::ToxicityFilter,
+        threshold: f64,
+    ) -> Result<(String, bool), LlmError> {
+        let text = self.complete(prompt, max_new, seed)?;
+        let toxic = filter.is_toxic(&text, threshold);
+        Ok((text, toxic))
+    }
+
     /// Complete `prompt`, then run a **degeneration check** on the output: the
     /// completion text is analysed (`sovereign-degeneration`) for loop/repeat
     /// collapse — longest repeated substring, rep-n diversity, repeat coverage —
@@ -698,6 +719,27 @@ mod tests {
         // the report is exactly analyze() of that text — the wiring is faithful
         assert_eq!(report, analyze(&text, &cfg));
         assert!((0.0..=1.0).contains(&report.distinct_ngram_ratio));
+    }
+
+    #[test]
+    fn complete_screened_wires_the_toxicity_filter() {
+        use sovereign_toxicity::{Severity, ToxicityFilter};
+        let llm = runtime(Sampler::greedy());
+        let mut filter = ToxicityFilter::new();
+        filter.add_term("zzbadzz", Severity::Severe);
+        let (text, toxic) = llm.complete_screened("hello", 12, 5, &filter, 0.5).unwrap();
+        // text is the plain completion; verdict is exactly the filter's verdict
+        assert_eq!(text, llm.complete("hello", 12, 5).unwrap());
+        assert_eq!(toxic, filter.is_toxic(&text, 0.5));
+    }
+
+    #[test]
+    fn toxicity_filter_flags_a_planted_severe_term() {
+        use sovereign_toxicity::{Severity, ToxicityFilter};
+        let mut f = ToxicityFilter::new();
+        f.add_term("badword", Severity::Severe);
+        assert!(f.is_toxic("you said badword again", 0.5));
+        assert!(!f.is_toxic("a perfectly clean sentence", 0.5));
     }
 
     #[test]

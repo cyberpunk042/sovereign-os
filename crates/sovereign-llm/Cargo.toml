@@ -27,6 +27,7 @@ sovereign-degeneration = { path = "../sovereign-degeneration" }
 sovereign-answer-extract = { path = "../sovereign-answer-extract" }
 sovereign-secret-scan = { path = "../sovereign-secret-scan" }
 sovereign-pii-redact = { path = "../sovereign-pii-redact" }
+sovereign-toxicity = { path = "../sovereign-toxicity" }
 
 [dev-dependencies]
 sovereign-transformer-block = { path = "../sovereign-transformer-block" }

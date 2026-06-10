@@ -5210,6 +5210,7 @@ dependencies = [
  "sovereign-sampler",
  "sovereign-secret-scan",
  "sovereign-tokenizer",
+ "sovereign-toxicity",
  "sovereign-transformer-block",
  "thiserror",
 ]
