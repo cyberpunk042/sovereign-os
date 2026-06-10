@@ -316,6 +316,33 @@ fn run_demo() -> String {
         }
     );
 
+    // Recipe-aware calibrated precision assignment: under a 10% output-error
+    // budget, each projection is assigned the cheapest precision that fits —
+    // ternary if it can, else NVFP4 with its best M077 recipe, else f32. This is
+    // the per-layer mixed-precision decision a calibrated loader would make.
+    let cal_inputs: Vec<Vec<f32>> = (0..4)
+        .map(|k| {
+            (0..MODEL_DIM)
+                .map(|i| ((i + k) as f32 * 0.3).sin() + 0.5)
+                .collect()
+        })
+        .collect();
+    let (mut tern, mut nvfp, mut full) = (0usize, 0usize, 0usize);
+    for (w, o, i) in &proj_w {
+        if *i != MODEL_DIM {
+            continue; // calibration inputs are model_dim-wide
+        }
+        match sovereign_quant_calibration::recommend_with_recipe(w, *o, *i, &cal_inputs, 0.10) {
+            Ok((Precision::Ternary, _)) => tern += 1,
+            Ok((Precision::Nvfp4, _)) => nvfp += 1,
+            _ => full += 1,
+        }
+    }
+    let _ = writeln!(
+        out,
+        "nvfp4 calibrated: precision assignment @10% budget → {tern} ternary, {nvfp} nvfp4, {full} f32"
+    );
+
     out
 }
 
