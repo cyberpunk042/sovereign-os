@@ -817,6 +817,8 @@ Boundary (pending operator decision): the *actual* AVX-512 SIMD vectorization of
 
 **All four M077 accuracy recipes are now built** (RHT · stochastic rounding · selective-HP · 2D quantization), each with its motivating property empirically verified. The first three were P4 closures (declared config flags + tested primitives, unwired into the quant path); 2D quantization was a new per-row+per-column algorithm.
 
+| Linear integration — recipes selectable by the decoder | `sovereign_linear::Linear::from_f32_nvfp4` + `NvfpRecipe {Plain, Rht, TwoD}` + `Backend::Nvfp4Rht/Nvfp4TwoD` — the production precision-generic layer the decoder runs can now pick RHT/2D instead of plain microscaling (additive; default `Precision::Nvfp4` unchanged). Both kernels verified in the cortex Logic-engine self-check (`nvfp4_kernel_live`). | `2376f44`, `7301c70` | 1 unit (all recipes → Nvfp4 / ~4.5 bpp / valid forward) + cortex self-check |
+
 ## Other catalogued milestones — production-shipped state TBD
 
 The 80-milestone catalogue spans extremely broad territory (the avx-plus-plus dump's full scope across substrate, runtime, agent, operator-§1g, intelligence, persistence, observability). Many milestone-specific audit rows remain to map. The 475-crate workspace + 20-dashboard webapp tree + 40 script categories + 81 profile/schema files all carry production state that future audit cycles append per-milestone above.
