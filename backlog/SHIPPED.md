@@ -802,6 +802,19 @@ Running evidence: `cargo run -p sovereign-inference-demo` executes a 3-layer mix
 
 Boundary (pending operator decision): the *actual* AVX-512 SIMD vectorization of `forward_packed` requires `unsafe` intrinsics, which the workspace forbids (`unsafe_code = "forbid"`, root `Cargo.toml`). The scalar packed-domain forward is the correct safe foundation; the SIMD lane is gated on relaxing that invariant for a vetted module.
 
+## M077 — NVFP4 pretraining + inference pipeline (the Logic-engine accuracy recipes)
+
+**Catalogued:** 170 R-rows (R12751..R12920). See `backlog/milestones/M077-nvfp4-pretraining-and-inference-pipeline.md` (title names RHT + 2D + stochastic rounding + selective-HP).
+
+**Shipped this milestone (two previously-unwired accuracy mechanisms wired + verified):**
+
+| R-row family | Surface | Commits | Tests |
+|---|---|---|---|
+| RHT (random Hadamard transform) — inference accuracy | `crates/sovereign-nvfp4-runtime/src/linear.rs` `RhtQuantMatrix` — rotates weight rows + activations by the orthonormal `R = rht_forward` before/at NVFP4 quant, so `(R·w)·(R·x)=w·x` exactly but block outliers spread for better 4-bit microscaling. The `rht` primitive existed but nothing used it. | `a7d3857` | 4 unit (approximates dense ref; **reduces error vs plain quant on outlier weights**; power-of-two enforced) |
+| Stochastic rounding — training-path accuracy | `quantize_block_stochastic` + `QuantMatrix::from_f32_stochastic` — deterministic block scale, stochastic per-element E2M1 rounding → unbiased in expectation. `quantize_stochastic` existed per-element but was unwired at block/matrix level. | `5315455` | 2 unit (**4000-draw ensemble mean beats biased RNE on off-grid values**; matrix path valid approximation) |
+
+These are P4 closures: the M077 accuracy recipes were declared (config flags + tested primitives) but not wired into the quant path; they are now wired with their motivating properties empirically verified.
+
 ## Other catalogued milestones — production-shipped state TBD
 
 The 80-milestone catalogue spans extremely broad territory (the avx-plus-plus dump's full scope across substrate, runtime, agent, operator-§1g, intelligence, persistence, observability). Many milestone-specific audit rows remain to map. The 475-crate workspace + 20-dashboard webapp tree + 40 script categories + 81 profile/schema files all carry production state that future audit cycles append per-milestone above.
