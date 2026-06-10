@@ -247,6 +247,20 @@ impl MhaDecoderBlock {
         matches!(self.values, KvStore::Quant(_))
     }
 
+    /// Extend this block's usable context from `train_ctx` to `target_ctx` by
+    /// RoPE linear position interpolation — positions are compressed back into
+    /// the trained rotation range so longer sequences stay in-distribution
+    /// (default is no scaling). Must be called before any `step`.
+    pub fn with_context_extension(mut self, train_ctx: usize, target_ctx: usize) -> Self {
+        self.rope = Rope::for_context_extension(self.head_dim, train_ctx, target_ctx);
+        self
+    }
+
+    /// The RoPE position-interpolation scale in effect (`1.0` = no extension).
+    pub fn rope_position_scale(&self) -> f32 {
+        self.rope.position_scale
+    }
+
     /// The execution precision.
     pub fn precision(&self) -> Precision {
         self.precision
@@ -500,6 +514,28 @@ mod tests {
             "quantized-KV relative deviation {rel} too large"
         );
         assert!(!full.kv_quantized() && quant.kv_quantized());
+    }
+
+    #[test]
+    fn context_extended_block_runs_finite() {
+        // RoPE position interpolation: 1024 → 4096 → scale 0.25, block decodes
+        // finite at extended positions.
+        let w = weights(8, 2, 4, 2, 16);
+        let mut block = MhaDecoderBlock::from_weights(&w, Precision::F32)
+            .unwrap()
+            .with_context_extension(1024, 4096);
+        assert!((block.rope_position_scale() - 0.25).abs() < 1e-6);
+        for step in 0..5 {
+            let x: Vec<f32> = (0..8).map(|i| ((i + step) as f32 * 0.2).sin()).collect();
+            assert!(block.step(&x).unwrap().iter().all(|v| v.is_finite()));
+        }
+        // A plain block has no scaling.
+        assert_eq!(
+            MhaDecoderBlock::from_weights(&w, Precision::F32)
+                .unwrap()
+                .rope_position_scale(),
+            1.0
+        );
     }
 
     #[test]
