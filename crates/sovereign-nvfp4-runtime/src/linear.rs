@@ -12,7 +12,7 @@
 //! Rows are zero-padded up to a 16-multiple so any `input_dim` is allowed;
 //! padding quantizes to zero and contributes nothing.
 
-use crate::{BLOCK_SIZE, QuantBlock, dequantize_block, quantize_block_rne};
+use crate::{BLOCK_SIZE, E2m1, QuantBlock, dequantize_block, quantize_block_rne};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -253,6 +253,109 @@ impl RhtQuantMatrix {
     }
 }
 
+/// A weight matrix under **two-dimensional** NVFP4 quantization (M077,
+/// F06388-F06390): a per-row scale `r` *and* a per-column scale `c`, so the
+/// factorization `W[o,j] ≈ r[o] · q[o,j] · c[j]` gives consistent
+/// representations whether the matrix is read row-wise (the forward pass
+/// `W·x`) or column-wise (the backward pass `Wᵀ·g`). Plain 1D NVFP4
+/// ([`QuantMatrix`]) carries only the per-row block scale, so a column with
+/// systematically small magnitudes rounds toward zero everywhere; the
+/// per-column scale `c` restores it.
+///
+/// `q[o,j]` is the 4-bit E2M1 core (the residual after both scales divide
+/// out). Forward: `y[o] = r[o] · Σ_j q[o,j] · (c[j]·x[j])` — scale `x` by the
+/// columns, 4-bit matvec, scale the output by the rows.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TwoDQuantMatrix {
+    /// Output rows.
+    pub output_dim: usize,
+    /// Input columns.
+    pub input_dim: usize,
+    /// Per-row scales (`output_dim`).
+    pub row_scales: Vec<f32>,
+    /// Per-column scales (`input_dim`).
+    pub col_scales: Vec<f32>,
+    /// The 4-bit E2M1 core, row-major `output_dim × input_dim`.
+    pub core: Vec<E2m1>,
+}
+
+impl TwoDQuantMatrix {
+    /// Quantize with per-row + per-column scales. The scales are extracted
+    /// in two passes (rows, then columns of the row-normalized matrix); the
+    /// residual is rounded to E2M1.
+    pub fn from_f32(
+        weights: &[f32],
+        output_dim: usize,
+        input_dim: usize,
+    ) -> Result<Self, LinearError> {
+        let expected = output_dim * input_dim;
+        if weights.len() != expected {
+            return Err(LinearError::ShapeMismatch {
+                got: weights.len(),
+                expected,
+            });
+        }
+        // Pass 1: per-row scale = max|row| / 3 (E2M1's largest magnitude).
+        let mut row_scales = vec![1.0f32; output_dim];
+        for (o, rs) in row_scales.iter_mut().enumerate() {
+            let row = &weights[o * input_dim..(o + 1) * input_dim];
+            let m = row.iter().copied().map(f32::abs).fold(0.0f32, f32::max);
+            *rs = if m > 0.0 { m / 3.0 } else { 1.0 };
+        }
+        // Pass 2: per-column scale from the row-normalized matrix.
+        let mut col_scales = vec![1.0f32; input_dim];
+        for (j, cs) in col_scales.iter_mut().enumerate() {
+            let mut m = 0.0f32;
+            for o in 0..output_dim {
+                let v = (weights[o * input_dim + j] / row_scales[o]).abs();
+                m = m.max(v);
+            }
+            *cs = if m > 0.0 { m / 3.0 } else { 1.0 };
+        }
+        // Core: round the doubly-normalized residual to E2M1.
+        let mut core = vec![E2m1::default(); expected];
+        for o in 0..output_dim {
+            for j in 0..input_dim {
+                let idx = o * input_dim + j;
+                let norm = weights[idx] / (row_scales[o] * col_scales[j]);
+                core[idx] = E2m1::from_f32_rne(norm);
+            }
+        }
+        Ok(Self {
+            output_dim,
+            input_dim,
+            row_scales,
+            col_scales,
+            core,
+        })
+    }
+
+    /// Forward `y = W·x` on the 2D-quantized weights: scale `x` by the
+    /// columns, 4-bit accumulate, scale the output by the rows.
+    pub fn matvec(&self, x: &[f32]) -> Result<Vec<f32>, LinearError> {
+        if x.len() != self.input_dim {
+            return Err(LinearError::InputMismatch {
+                got: x.len(),
+                expected: self.input_dim,
+            });
+        }
+        let xc: Vec<f32> = x
+            .iter()
+            .zip(&self.col_scales)
+            .map(|(xi, c)| xi * c)
+            .collect();
+        let mut y = vec![0.0f32; self.output_dim];
+        for (o, yo) in y.iter_mut().enumerate() {
+            let mut acc = 0.0f32;
+            for j in 0..self.input_dim {
+                acc += self.core[o * self.input_dim + j].to_f32() * xc[j];
+            }
+            *yo = self.row_scales[o] * acc;
+        }
+        Ok(y)
+    }
+}
+
 /// Dense f32 reference `y = W·x` (multiply-based), for accuracy checks.
 pub fn dense_f32_matvec(weights: &[f32], input_dim: usize, x: &[f32]) -> Vec<f32> {
     let output_dim = weights.len() / input_dim;
@@ -355,6 +458,49 @@ mod tests {
     fn rht_rejects_non_power_of_two() {
         let err = RhtQuantMatrix::from_f32(&[0.0; 20], 1, 20, 7).unwrap_err();
         assert_eq!(err, LinearError::RhtInputNotPowerOfTwo(20));
+    }
+
+    #[test]
+    fn two_d_matvec_approximates_f32_reference() {
+        let (output_dim, input_dim) = (5, 24);
+        let weights = rng_seq(output_dim * input_dim, 0x77AA);
+        let x = rng_seq(input_dim, 0x33BB);
+        let q = TwoDQuantMatrix::from_f32(&weights, output_dim, input_dim).unwrap();
+        let y_q = q.matvec(&x).unwrap();
+        let y_ref = dense_f32_matvec(&weights, input_dim, &x);
+        let diff: Vec<f32> = y_q.iter().zip(&y_ref).map(|(a, b)| a - b).collect();
+        let rel = l2(&diff) / l2(&y_ref).max(1e-6);
+        assert!(rel < 0.25, "2D relative error too high: {rel}");
+    }
+
+    #[test]
+    fn two_d_beats_1d_on_column_structured_weights() {
+        // Most entries ~1.0, but one column is systematically tiny. 1D's
+        // per-row scale rounds that column to ~0 everywhere; the per-column
+        // scale in 2D restores it.
+        let (output_dim, input_dim) = (6, 16);
+        let small_col = 5usize;
+        let mut weights = vec![1.0f32; output_dim * input_dim];
+        for o in 0..output_dim {
+            weights[o * input_dim + small_col] = 0.012;
+        }
+        let x = vec![1.0f32; input_dim];
+        let y_ref = dense_f32_matvec(&weights, input_dim, &x);
+
+        let one_d = QuantMatrix::from_f32(&weights, output_dim, input_dim).unwrap();
+        let two_d = TwoDQuantMatrix::from_f32(&weights, output_dim, input_dim).unwrap();
+        let err = |y: &[f32]| {
+            let d: Vec<f32> = y.iter().zip(&y_ref).map(|(a, b)| a - b).collect();
+            l2(&d) / l2(&y_ref).max(1e-6)
+        };
+        let (e1, e2) = (
+            err(&one_d.matvec(&x).unwrap()),
+            err(&two_d.matvec(&x).unwrap()),
+        );
+        assert!(
+            e2 < e1,
+            "2D did not beat 1D on column structure: 1d {e1} vs 2d {e2}"
+        );
     }
 
     #[test]
