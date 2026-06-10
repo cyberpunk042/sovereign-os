@@ -45,6 +45,18 @@ multiplication-free ternary FFN into the residual stream where the quant
 decoder block today still runs a float SwiGLU. Additive variant
 `ResidualShapeMismatch`.
 
+`TernarySwiGlu` (new `swiglu.rs`) then builds the *gated* FFN the decoder
+actually runs — `h = SiLU(W_gate·x) ⊙ (W_up·x)`, `out = W_down·h` — with
+all three projections as multiplication-free `BitLinearLayer`s. The heavy
+`O(hidden·dim)` matmuls are fully ternary (every inner-product multiply
+eliminated, summed `OpCount`); the only genuine multiplies left are the
+`O(hidden)` elementwise SiLU-gate products — exactly the BitNet trade.
+Proven bit-for-bit equal to a dense SwiGLU on the de-quantized weights
+(over `Base3` + `TwoBit`), with mul-free accounting, the zero-weight
+residual identity, and shape-rejection tests (6 new). This is the genuine
+multiplication-free drop-in for the float SwiGLU the quant decoder block
+runs today — the M073 FFN at the shape a real decoder uses.
+
 ### Added — guardian dropout metrics + flap alert (M084 R14127–R14133) (2026-06-10)
 
 A single Tetragon-stream EOF is self-healing (BindsTo + Restart=always close

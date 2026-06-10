@@ -42,6 +42,7 @@ pub mod linear;
 pub mod mlp;
 pub mod pack;
 pub mod reference;
+pub mod swiglu;
 pub mod ternary;
 pub mod validate;
 
@@ -50,6 +51,7 @@ use thiserror::Error;
 pub use linear::{BitLinearLayer, OpCount};
 pub use mlp::{Activation, BitLinearMlp};
 pub use pack::{Packing, bits_per_param};
+pub use swiglu::{TernarySwiGlu, silu};
 pub use ternary::{Trit, quantize_absmean};
 pub use validate::{InfoTheoryReport, validate_bits_per_param};
 
