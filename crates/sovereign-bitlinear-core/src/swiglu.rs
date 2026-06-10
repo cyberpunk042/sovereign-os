@@ -309,7 +309,10 @@ mod tests {
 
     #[test]
     fn energy_report_at_swiglu_level() {
-        let (dim, hidden) = (6, 18);
+        // Realistic widths: the saving ratio = 3·dim·hidden /
+        // (3·dim·hidden + 2·hidden + dim) approaches 1 as the matmuls
+        // dominate the per-output scales.
+        let (dim, hidden) = (16, 64);
         let ffn = TernarySwiGlu::from_weights(
             &vec![0.5f32; hidden * dim],
             &vec![0.5f32; hidden * dim],
