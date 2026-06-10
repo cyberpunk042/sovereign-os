@@ -4937,6 +4937,7 @@ dependencies = [
  "sovereign-agent-loop",
  "sovereign-agent-runtime",
  "sovereign-beam-search",
+ "sovereign-bitlinear-core",
  "sovereign-checkpoint",
  "sovereign-decoder-layer",
  "sovereign-decoder-stack",

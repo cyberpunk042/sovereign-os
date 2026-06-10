@@ -27,6 +27,7 @@ sovereign-mha-block = { path = "../sovereign-mha-block" }
 sovereign-rmsnorm = { path = "../sovereign-rmsnorm" }
 sovereign-ffn = { path = "../sovereign-ffn" }
 sovereign-linear = { path = "../sovereign-linear" }
+sovereign-bitlinear-core = { path = "../sovereign-bitlinear-core" }
 sovereign-sampler = { path = "../sovereign-sampler" }
 sovereign-logit-mask = { path = "../sovereign-logit-mask" }
 sovereign-decoder-stack = { path = "../sovereign-decoder-stack" }

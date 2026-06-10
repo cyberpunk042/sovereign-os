@@ -207,6 +207,17 @@ fn run_demo() -> String {
         }
     }
 
+    // M073 quantization quality: how much the 1.58-bit approximation costs
+    // this projection, and whether it stays within a 25% relative-error
+    // tolerance (the per-layer ternary-vs-higher-precision decision).
+    let recon_err = sovereign_bitlinear_core::ternary_reconstruction_error(&ffn_w);
+    let friendly = sovereign_bitlinear_core::is_ternary_friendly(&ffn_w, 0.25);
+    let _ = writeln!(
+        out,
+        "ternary quant   : {:.1}% reconstruction error → ternary-friendly: {friendly}",
+        recon_err * 100.0
+    );
+
     out
 }
 
