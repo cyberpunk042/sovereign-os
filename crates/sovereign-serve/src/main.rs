@@ -94,6 +94,8 @@ USAGE:
                                        built-in content filter (egress gate)
     sovereign-serve --regex RE PROMPT… constrain every completion to the regex RE
                                        (guaranteed-format output)
+    sovereign-serve --max-context N PROMPT…  trim each prompt to the most recent
+                                       N tokens before generating
     sovereign-serve --help             print this help and exit";
 
 fn main() {
@@ -116,6 +118,11 @@ fn main() {
     // `--regex RE` constrains every completion to the pattern RE.
     let regex_idx = args.iter().position(|a| a == "--regex");
     let regex: Option<String> = regex_idx.and_then(|i| args.get(i + 1)).cloned();
+    // `--max-context N` trims each prompt to its most recent N tokens.
+    let mctx_idx = args.iter().position(|a| a == "--max-context");
+    let max_context: Option<usize> = mctx_idx
+        .and_then(|i| args.get(i + 1))
+        .and_then(|v| v.parse().ok());
     // Exclude the values following value-taking flags from the prompt list.
     let mut skip: std::collections::HashSet<usize> = std::collections::HashSet::new();
     if no_repeat.is_some() {
@@ -123,6 +130,9 @@ fn main() {
     }
     if regex.is_some() {
         skip.insert(regex_idx.unwrap() + 1);
+    }
+    if max_context.is_some() {
+        skip.insert(mctx_idx.unwrap() + 1);
     }
     let prompts: Vec<&str> = args
         .iter()
@@ -137,6 +147,16 @@ fn main() {
     // decoded completion is returned for caching + accounting.
     let llm = runtime();
     let generate = |prompt: &str, max_new: usize, seed: u64| -> Result<String, String> {
+        // Context budget: trim the prompt to its most recent N tokens if asked.
+        let trimmed_owned = max_context.map(|n| {
+            sovereign_context_budget::trim(
+                llm.tokenizer(),
+                prompt,
+                n,
+                sovereign_context_budget::Keep::Tail,
+            )
+        });
+        let prompt: &str = trimmed_owned.as_deref().unwrap_or(prompt);
         let text = if let Some(pattern) = regex.as_deref() {
             // Constrained decoding: the completion is forced to match `pattern`.
             llm.complete_regex(prompt, pattern, max_new, seed)

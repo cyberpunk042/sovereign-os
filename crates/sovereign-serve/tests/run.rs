@@ -98,6 +98,24 @@ fn regex_flag_constrains_completions_to_digits() {
 }
 
 #[test]
+fn max_context_flag_runs_with_a_trimmed_prompt() {
+    // A long prompt with --max-context 4 still serves (the prompt is trimmed
+    // before generation); a repeat still cache-hits on the original prompt.
+    let out = Command::new(env!("CARGO_BIN_EXE_sovereign-serve"))
+        .args([
+            "--max-context",
+            "4",
+            "the quick brown fox jumps over the lazy dog",
+            "the quick brown fox jumps over the lazy dog",
+        ])
+        .output()
+        .expect("run sovereign-serve --max-context");
+    assert!(out.status.success());
+    let s = String::from_utf8_lossy(&out.stdout);
+    assert!(s.contains("hit=exact"), "repeat should cache:\n{s}");
+}
+
+#[test]
 fn help_exits_zero() {
     let out = Command::new(env!("CARGO_BIN_EXE_sovereign-serve"))
         .arg("--help")
