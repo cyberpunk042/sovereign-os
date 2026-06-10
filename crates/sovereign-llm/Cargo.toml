@@ -24,6 +24,7 @@ sovereign-perplexity = { path = "../sovereign-perplexity" }
 sovereign-prompt-compress = { path = "../sovereign-prompt-compress" }
 sovereign-diversity = { path = "../sovereign-diversity" }
 sovereign-degeneration = { path = "../sovereign-degeneration" }
+sovereign-answer-extract = { path = "../sovereign-answer-extract" }
 
 [dev-dependencies]
 sovereign-transformer-block = { path = "../sovereign-transformer-block" }

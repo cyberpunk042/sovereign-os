@@ -276,6 +276,32 @@ impl SovereignLlm {
         })
     }
 
+    /// **Self-consistency with answer extraction**: generate `n` samples for
+    /// `prompt`, pull the final answer out of each (`sovereign-answer-extract`
+    /// honors `Final answer:` / `the answer is` / `Answer:` markers, else the
+    /// last line), and return the **majority** answer with its vote count.
+    /// Extracting before voting groups equivalent conclusions reached through
+    /// different reasoning prose — the standard self-consistency recipe — which a
+    /// raw-sequence vote ([`majority_sequence`]) misses. `None` only if `n == 0`.
+    /// Reproducible per `base_seed`.
+    pub fn consistent_answer(
+        &self,
+        prompt: &str,
+        n: usize,
+        max_new: usize,
+        base_seed: u64,
+    ) -> Result<Option<(String, usize)>, LlmError> {
+        let id_sets = self.generate_ids_n(prompt, n, max_new, base_seed)?;
+        let answers: Vec<String> = id_sets
+            .iter()
+            .map(|ids| {
+                let text = self.tokenizer.decode(ids).unwrap_or_default();
+                sovereign_answer_extract::extract_answer(&text)
+            })
+            .collect();
+        Ok(majority_answer(&answers))
+    }
+
     /// Generate token ids, stopping at the tokenizer's special token named
     /// `eos` (e.g. `"<eos>"`) — the natural serving loop. If that special is
     /// registered, generation stops the moment the model emits it (it is
@@ -488,6 +514,32 @@ pub fn majority_sequence(samples: &[Vec<u32>]) -> Option<(Vec<u32>, usize)> {
     best.map(|(i, count)| (samples[i].clone(), count))
 }
 
+/// **Self-consistency** vote over already-extracted answer *strings*: the answer
+/// that occurs most often, with its count. Unlike [`majority_sequence`] (which
+/// votes on raw token sequences), this groups equivalent conclusions reached via
+/// different reasoning — the point of extracting the answer first. Ties break
+/// toward the earliest-seen answer; returns `None` for an empty input.
+pub fn majority_answer(answers: &[String]) -> Option<(String, usize)> {
+    if answers.is_empty() {
+        return None;
+    }
+    let mut best: Option<(usize, usize)> = None; // (first-seen index, count)
+    for (i, a) in answers.iter().enumerate() {
+        if answers[..i].iter().any(|p| p == a) {
+            continue;
+        }
+        let count = answers.iter().filter(|p| *p == a).count();
+        let better = match best {
+            None => true,
+            Some((_, bc)) => count > bc,
+        };
+        if better {
+            best = Some((i, count));
+        }
+    }
+    best.map(|(i, count)| (answers[i].clone(), count))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -649,6 +701,50 @@ mod tests {
         assert_eq!(
             a.complete_checked("repeat me", 10, 2, &cfg).unwrap(),
             b.complete_checked("repeat me", 10, 2, &cfg).unwrap()
+        );
+    }
+
+    #[test]
+    fn majority_answer_votes_and_breaks_ties_earliest() {
+        let answers: Vec<String> = ["42", "the answer", "42", "other"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        assert_eq!(
+            majority_answer(&answers),
+            Some(("42".to_string(), 2)) // most common
+        );
+        // all distinct → earliest-seen wins the tie (count 1)
+        let distinct: Vec<String> = ["b", "a", "c"].iter().map(|s| s.to_string()).collect();
+        assert_eq!(majority_answer(&distinct), Some(("b".to_string(), 1)));
+        assert_eq!(majority_answer(&[]), None);
+    }
+
+    #[test]
+    fn consistent_answer_greedy_matches_single_extraction() {
+        // Greedy → all n samples identical → the majority answer is just the
+        // extracted answer of the one completion, with full vote count.
+        let llm = runtime(Sampler::greedy());
+        let one = llm.complete("hello", 10, 3).unwrap();
+        let expected = sovereign_answer_extract::extract_answer(&one);
+        let (ans, votes) = llm.consistent_answer("hello", 4, 10, 3).unwrap().unwrap();
+        assert_eq!(ans, expected);
+        assert_eq!(votes, 4); // all four agree under greedy
+    }
+
+    #[test]
+    fn consistent_answer_zero_n_is_none() {
+        let llm = runtime(Sampler::greedy());
+        assert_eq!(llm.consistent_answer("hello", 0, 10, 1).unwrap(), None);
+    }
+
+    #[test]
+    fn consistent_answer_is_reproducible() {
+        let a = runtime(Sampler::new(SamplerConfig::default()));
+        let b = runtime(Sampler::new(SamplerConfig::default()));
+        assert_eq!(
+            a.consistent_answer("vote prompt", 5, 8, 9).unwrap(),
+            b.consistent_answer("vote prompt", 5, 8, 9).unwrap()
         );
     }
 

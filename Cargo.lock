@@ -5197,6 +5197,7 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "sovereign-answer-extract",
  "sovereign-decoder-stack",
  "sovereign-degeneration",
  "sovereign-diversity",
