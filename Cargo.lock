@@ -5856,6 +5856,7 @@ dependencies = [
  "sovereign-lsh",
  "sovereign-minhash",
  "sovereign-rank-fusion",
+ "sovereign-rerank",
 ]
 
 [[package]]

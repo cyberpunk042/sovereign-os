@@ -438,6 +438,82 @@ impl Retriever for HybridStore {
     }
 }
 
+/// Wraps any [`Retriever`] with a second-stage **reranker**: it pulls a *wider*
+/// pool from the inner retriever, then rescores that pool for precision with
+/// [`sovereign-rerank`](sovereign_rerank)'s coverage ranking — the fraction of
+/// the query's distinct terms a passage actually touches — and keeps the top `k`.
+///
+/// First-stage retrieval (BM25, embedding, or the fused [`HybridStore`]) is tuned
+/// for cheap recall: it returns plausible passages but its ordering is crude — a
+/// passage repeating one query word can outrank one covering every query concept.
+/// Reranking is the precision pass that fixes the *order* of that pool. This makes
+/// [`sovereign-rerank`] (previously **zero consumers**) actually used in the RAG
+/// path, and since `Reranked` is itself a [`Retriever`] it drops straight into
+/// [`RagResponder`].
+///
+/// The coverage reranker is lexical: a candidate sharing **no** query term has
+/// zero coverage and is dropped. So that a purely-semantic pool (retrieved by
+/// embedding similarity with no term overlap) is never silently emptied, this
+/// wrapper **falls back** to the inner retriever's own top-`k` ordering whenever
+/// the rerank pass would return nothing.
+#[derive(Debug, Clone)]
+pub struct Reranked<R: Retriever> {
+    inner: R,
+    /// How many candidates to pull before reranking, as a multiple of `k`.
+    pool_factor: usize,
+    /// A floor on the candidate pool so small `k` still reranks a real pool.
+    min_pool: usize,
+}
+
+impl<R: Retriever> Reranked<R> {
+    /// Wrap `inner`, retrieving `max(k · pool_factor, min_pool)` candidates and
+    /// reranking them down to `k`. `pool_factor` is clamped to at least 1.
+    pub fn new(inner: R, pool_factor: usize, min_pool: usize) -> Self {
+        Self {
+            inner,
+            pool_factor: pool_factor.max(1),
+            min_pool,
+        }
+    }
+
+    /// Wrap `inner` with sensible defaults (`pool_factor = 4`, `min_pool = 20`).
+    pub fn with_defaults(inner: R) -> Self {
+        Self::new(inner, 4, 20)
+    }
+
+    /// The candidate-pool size for a requested `k`.
+    fn pool_size(&self, k: usize) -> usize {
+        (k.saturating_mul(self.pool_factor)).max(self.min_pool)
+    }
+}
+
+impl<R: Retriever> Retriever for Reranked<R> {
+    fn retrieve_context(&self, query: &str, k: usize) -> Vec<String> {
+        if k == 0 {
+            return Vec::new();
+        }
+        let pool = self.inner.retrieve_context(query, self.pool_size(k));
+        // rerank keys on ids only for tie-breaking; the pool order is already the
+        // inner retriever's ranking, so a positional id keeps that as the tiebreak.
+        let candidates: Vec<(String, String)> = pool
+            .iter()
+            .enumerate()
+            .map(|(i, t)| (format!("{i:06}"), t.clone()))
+            .collect();
+        let reranked: Vec<String> = sovereign_rerank::rerank(query, &candidates, k)
+            .into_iter()
+            .map(|h| h.text)
+            .collect();
+        // Coverage reranking drops zero-overlap candidates; if that empties a
+        // (e.g. purely semantic) pool, keep the inner retriever's own top-k.
+        if reranked.is_empty() {
+            pool.into_iter().take(k).collect()
+        } else {
+            reranked
+        }
+    }
+}
+
 /// A [`Responder`] that grounds another responder in retrieved context. Works
 /// with any [`Retriever`] — the lexical [`DocStore`] or the embedding-backed
 /// [`EmbedStore`].
@@ -755,6 +831,70 @@ mod tests {
         assert!(ids.contains(&"alpha"), "term-exact doc missing: {ids:?}");
         assert!(ids.contains(&"bravo"), "related doc missing: {ids:?}");
         assert!(!ids.contains(&"zulu"), "recipe should rank below the top 2");
+    }
+
+    #[test]
+    fn rerank_reorders_a_recall_pool_for_precision() {
+        // The lexical DocStore ranks by raw term frequency, so a doc spamming one
+        // query word outranks a doc covering every query concept. Wrapping it in
+        // Reranked fixes the order: coverage wins.
+        let mut s = DocStore::new();
+        s.add("spam", "rust rust rust rust rust rust");
+        s.add("good", "rust ownership governs memory safety");
+        // First-stage ordering: "spam" first (frequency 6 > 1).
+        let raw = s.retrieve_context("rust ownership memory", 2);
+        assert_eq!(raw[0], "rust rust rust rust rust rust");
+        // After reranking, the doc covering all three terms comes first.
+        let rr = Reranked::new(s, 4, 20);
+        let out = rr.retrieve_context("rust ownership memory", 2);
+        assert_eq!(out[0], "rust ownership governs memory safety");
+    }
+
+    #[test]
+    fn rerank_falls_back_when_coverage_empties_the_pool() {
+        // A retriever whose pool shares no term with the query: coverage rerank
+        // would drop everything, so the wrapper keeps the inner top-k instead.
+        struct Fixed;
+        impl Retriever for Fixed {
+            fn retrieve_context(&self, _q: &str, k: usize) -> Vec<String> {
+                vec!["alpha".to_string(), "bravo".to_string()]
+                    .into_iter()
+                    .take(k.max(1))
+                    .collect()
+            }
+        }
+        let rr = Reranked::with_defaults(Fixed);
+        let out = rr.retrieve_context("zzz nonexistent terms", 2);
+        assert_eq!(out, vec!["alpha".to_string(), "bravo".to_string()]);
+    }
+
+    #[test]
+    fn rerank_zero_k_is_empty() {
+        let mut s = DocStore::new();
+        s.add("a", "rust ownership");
+        let rr = Reranked::with_defaults(s);
+        assert!(rr.retrieve_context("rust", 0).is_empty());
+    }
+
+    #[test]
+    fn rerank_drives_rag_over_hybrid() {
+        // Full pipeline: hybrid retrieve → rerank → RagResponder.
+        let mut h = HybridStore::new();
+        h.add("spam", "kubernetes kubernetes kubernetes kubernetes");
+        h.add(
+            "good",
+            "kubernetes orchestrates containers across a cluster",
+        );
+        h.add("off", "a recipe for sourdough bread");
+        let rr = Reranked::new(h, 4, 20);
+        let seen = Rc::new(RefCell::new(Vec::new()));
+        let inner = Capture { seen: seen.clone() };
+        let mut rag = RagResponder::new(inner, rr, 1);
+        rag.respond("kubernetes cluster containers", 0).unwrap();
+        let prompts = seen.borrow();
+        assert!(prompts[0].starts_with("Context:\n"));
+        // the higher-coverage doc, not the keyword-spam doc, is injected
+        assert!(prompts[0].contains("orchestrates containers"));
     }
 
     #[test]
