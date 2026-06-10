@@ -65,6 +65,20 @@ pub struct Rope {
     /// context. Defaults to `1.0` for backward-compatible deserialization.
     #[serde(default = "unit_scale")]
     pub position_scale: f32,
+    /// **YaRN** (NTK-by-parts) trained context length. `0` disables YaRN; when
+    /// `> 0`, [`freq`](Self::freq) interpolates each pair's frequency per the
+    /// ramp below (high-freq extrapolates, low-freq interpolates). Defaulted.
+    #[serde(default)]
+    pub yarn_train: u32,
+    /// YaRN target (extended) context length. Only read when `yarn_train > 0`.
+    #[serde(default)]
+    pub yarn_target: u32,
+    /// YaRN low rotation-count ramp threshold (typical `1`). Read when active.
+    #[serde(default)]
+    pub yarn_alpha: f32,
+    /// YaRN high rotation-count ramp threshold (typical `32`). Read when active.
+    #[serde(default)]
+    pub yarn_beta: f32,
 }
 
 /// The NTK-aware frequency base for extending context by `factor`× without
@@ -108,7 +122,41 @@ impl Rope {
             head_dim,
             theta_base,
             position_scale: 1.0,
+            yarn_train: 0,
+            yarn_target: 0,
+            yarn_alpha: 0.0,
+            yarn_beta: 0.0,
         }
+    }
+
+    /// Configure **YaRN** (NTK-by-parts; Peng et al. 2023) context extension
+    /// from `train_ctx` to `target_ctx`. Each pair's frequency is interpolated
+    /// by a smooth ramp on how many rotations it completes over the trained
+    /// context: high-frequency pairs (many rotations) are left to extrapolate
+    /// (unchanged), low-frequency pairs (few rotations) are scaled down by
+    /// `train_ctx/target_ctx` (interpolated), with a smooth blend between the
+    /// `alpha`/`beta` rotation thresholds (typical `1`/`32`). This preserves
+    /// local resolution while extending range — outperforming the uniform
+    /// position-interpolation / NTK-base methods. `head_dim` even ≥ 2.
+    ///
+    /// # Panics
+    /// Panics on a zero/odd `head_dim`, non-positive base/contexts, or `beta <= alpha`.
+    pub fn with_yarn(
+        head_dim: usize,
+        theta_base: f32,
+        train_ctx: usize,
+        target_ctx: usize,
+        alpha: f32,
+        beta: f32,
+    ) -> Self {
+        assert!(train_ctx > 0 && target_ctx > 0, "contexts must be > 0");
+        assert!(beta > alpha, "beta must exceed alpha");
+        let mut r = Self::with_base(head_dim, theta_base);
+        r.yarn_train = train_ctx as u32;
+        r.yarn_target = target_ctx as u32;
+        r.yarn_alpha = alpha;
+        r.yarn_beta = beta;
+        r
     }
 
     /// A RoPE head with an explicit linear position-interpolation scale (and
@@ -148,7 +196,18 @@ impl Rope {
     pub fn freq(&self, pair: usize) -> f32 {
         assert!(pair < self.pairs(), "pair out of range");
         let exponent = (2 * pair) as f32 / self.head_dim as f32;
-        self.theta_base.powf(-exponent)
+        let base_freq = self.theta_base.powf(-exponent);
+        if self.yarn_train == 0 {
+            return base_freq;
+        }
+        // YaRN (NTK-by-parts): blend interpolated vs extrapolated frequency by a
+        // ramp on how many rotations this pair completes over the trained ctx.
+        let scale = self.yarn_target as f32 / self.yarn_train as f32;
+        let wavelength = std::f32::consts::TAU / base_freq;
+        let rotations = self.yarn_train as f32 / wavelength;
+        let gamma =
+            ((rotations - self.yarn_alpha) / (self.yarn_beta - self.yarn_alpha)).clamp(0.0, 1.0);
+        (1.0 - gamma) * (base_freq / scale) + gamma * base_freq
     }
 
     fn check(&self, v: &[f32]) -> Result<(), RopeError> {
@@ -253,6 +312,53 @@ mod tests {
         let extended = rope.rotate(&v, 8192).unwrap();
         let trained = Rope::new(8).rotate(&v, 2048).unwrap();
         assert!(approx(&extended, &trained, 1e-3));
+    }
+
+    #[test]
+    fn yarn_preserves_high_freq_and_interpolates_low_freq() {
+        // 8192 extension of a 2048-trained model. The fastest pair (pair 0, many
+        // rotations) should keep ~its original frequency (extrapolate); the
+        // slowest pair (few rotations) should be scaled down ≈ by train/target.
+        let plain = Rope::new(64);
+        let yarn = Rope::with_yarn(64, DEFAULT_THETA_BASE, 2048, 8192, 1.0, 32.0);
+        assert_eq!(yarn.pairs(), plain.pairs());
+
+        // High-frequency pair 0: rotations ≫ beta → unchanged.
+        assert!((yarn.freq(0) - plain.freq(0)).abs() < 1e-6 * plain.freq(0).max(1.0));
+
+        // Low-frequency last pair: few rotations → interpolated (scaled by ~1/4).
+        let last = plain.pairs() - 1;
+        let scale = 8192.0 / 2048.0;
+        let expected_low = plain.freq(last) / scale;
+        assert!(
+            (yarn.freq(last) - expected_low).abs() < 1e-6 * plain.freq(last).max(1e-9),
+            "low-freq pair should be interpolated: {} vs {expected_low}",
+            yarn.freq(last)
+        );
+        // And every yarn freq lies between the interpolated and the original.
+        for i in 0..plain.pairs() {
+            let lo = plain.freq(i) / scale;
+            let hi = plain.freq(i);
+            assert!(yarn.freq(i) >= lo - 1e-6 && yarn.freq(i) <= hi + 1e-6);
+        }
+    }
+
+    #[test]
+    fn yarn_rotation_preserves_norm_and_serdes() {
+        let yarn = Rope::with_yarn(8, DEFAULT_THETA_BASE, 1024, 4096, 1.0, 32.0);
+        let v = vec![1.0, -2.0, 0.5, 3.0, -1.0, 0.25, 4.0, -0.5];
+        let before: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+        let after: f32 = yarn
+            .rotate(&v, 100)
+            .unwrap()
+            .iter()
+            .map(|x| x * x)
+            .sum::<f32>()
+            .sqrt();
+        assert!((before - after).abs() < 1e-4, "rotation is orthogonal");
+        // serde round-trips the per-pair freqs.
+        let j = serde_json::to_string(&yarn).unwrap();
+        assert_eq!(serde_json::from_str::<Rope>(&j).unwrap(), yarn);
     }
 
     #[test]
