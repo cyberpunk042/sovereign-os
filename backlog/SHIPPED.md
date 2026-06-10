@@ -567,6 +567,7 @@ The codebase carries substantial production state from prior development. This s
 | Inference backend stack SDD | `docs/sdd/011-inference-backend-stack.md` (cross-ref M009-M011) |
 | Inference-service hardening SDD | `docs/sdd/036-inference-service-hardening-doctrine.md` (cross-ref M006) — the production-hardened serving topology |
 | Inference scripts | `scripts/inference/` — operator-runtime surface for the local inference fabric |
+| Semantic completion cache | `crates/sovereign-completion-cache/` `SemanticCache` — GPTCache-style `$0` serving: returns a cached completion when a new prompt is embedding-similar (cosine ≥ threshold) to a stored one, so paraphrases/near-duplicates hit (which the exact-key `CompletionCache` can't). Composes `sovereign-embed` cosine; bounded + hit/miss stats. Commit `935c40b`; 3 unit (hits a paraphrase + misses unrelated; exact always hits; oldest-evict) |
 
 ### M019 — Intelligence creation (composable cognitive operators)
 
