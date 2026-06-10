@@ -131,6 +131,37 @@ impl SovereignLlm {
         self.generate_ids_constrained(prompt, max_new, seed, &LogitMask::new())
     }
 
+    /// Streaming generation: invoke `on_token` with each generated token id the
+    /// moment it is produced, so a caller can emit tokens as they arrive (e.g.
+    /// server-sent events) instead of waiting for the whole completion. Returns
+    /// the full id sequence too. Starts from a pristine cache (model is cloned),
+    /// so it never contaminates other calls.
+    pub fn generate_ids_streaming<F: FnMut(u32)>(
+        &self,
+        prompt: &str,
+        max_new: usize,
+        seed: u64,
+        mut on_token: F,
+    ) -> Result<Vec<u32>, LlmError> {
+        let ids: Vec<usize> = self
+            .tokenizer
+            .encode(prompt)
+            .into_iter()
+            .map(|t| t as usize)
+            .collect();
+        if ids.is_empty() {
+            return Err(LlmError::EmptyPrompt);
+        }
+        let mut model = self.model.clone();
+        let mut out = Vec::with_capacity(max_new);
+        model.generate_masked_with(&ids, max_new, seed, &LogitMask::new(), |t| {
+            let id = t as u32;
+            out.push(id);
+            on_token(id);
+        })?;
+        Ok(out)
+    }
+
     /// Like [`generate_ids`](Self::generate_ids) but applies a [`LogitMask`]
     /// at every step — constrained decoding (allow-list / bans / bias).
     pub fn generate_ids_constrained(
@@ -269,6 +300,28 @@ mod tests {
         let llm = runtime(Sampler::greedy());
         let full = llm.complete_with_prompt("abc", 4, 1).unwrap();
         assert!(full.starts_with("abc"), "{full:?}");
+    }
+
+    #[test]
+    fn streaming_matches_batch_and_streams_each_token() {
+        let llm = runtime(Sampler::new(SamplerConfig::default()));
+        let batch = llm.generate_ids("hello sovereign", 8, 5).unwrap();
+        let mut streamed = Vec::new();
+        let returned = llm
+            .generate_ids_streaming("hello sovereign", 8, 5, |id| streamed.push(id))
+            .unwrap();
+        assert_eq!(streamed, batch, "streamed ids must match batch");
+        assert_eq!(returned, batch, "returned ids must match batch");
+        assert_eq!(streamed.len(), 8);
+    }
+
+    #[test]
+    fn streaming_empty_prompt_errors() {
+        let llm = runtime(Sampler::greedy());
+        assert_eq!(
+            llm.generate_ids_streaming("", 4, 1, |_| {}).unwrap_err(),
+            LlmError::EmptyPrompt
+        );
     }
 
     #[test]

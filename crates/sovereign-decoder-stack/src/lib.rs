@@ -231,6 +231,24 @@ impl DecoderStack {
         seed: u64,
         mask: &LogitMask,
     ) -> Result<Vec<usize>, StackError> {
+        let mut generated = Vec::with_capacity(max_new);
+        self.generate_masked_with(prompt, max_new, seed, mask, |t| generated.push(t))?;
+        Ok(generated)
+    }
+
+    /// Streaming generation: identical to [`generate_masked`](Self::generate_masked)
+    /// but invokes `on_token` with each sampled token id the instant it is
+    /// produced (before the next forward pass), so a server can emit tokens as
+    /// they arrive instead of waiting for the whole completion. The collected
+    /// sequence is exactly what `generate_masked` would return.
+    pub fn generate_masked_with<F: FnMut(usize)>(
+        &mut self,
+        prompt: &[usize],
+        max_new: usize,
+        seed: u64,
+        mask: &LogitMask,
+        mut on_token: F,
+    ) -> Result<(), StackError> {
         if prompt.is_empty() {
             return Err(StackError::EmptyPrompt);
         }
@@ -241,7 +259,6 @@ impl DecoderStack {
             logits = self.forward(t)?;
         }
 
-        let mut generated = Vec::with_capacity(max_new);
         for _ in 0..max_new {
             mask.apply(&mut logits);
             let pos = self.position() as u64;
@@ -252,10 +269,10 @@ impl DecoderStack {
                 seed.wrapping_add(pos),
             )?;
             self.recent.push(token);
-            generated.push(token);
+            on_token(token);
             logits = self.forward(token)?;
         }
-        Ok(generated)
+        Ok(())
     }
 }
 
@@ -314,6 +331,33 @@ mod tests {
         let out = m.generate(&[1, 2, 3], 5, 42).unwrap();
         assert_eq!(out.len(), 5);
         assert!(out.iter().all(|&t| t < 6));
+    }
+
+    #[test]
+    fn streaming_matches_batch_and_fires_per_token() {
+        // The streamed token sequence equals what generate_masked returns, and
+        // on_token fires exactly max_new times, in order.
+        let cfg = config(8, 4, 2, Sampler::new(SamplerConfig::default()));
+        let batch = DecoderStack::new(cfg.clone())
+            .unwrap()
+            .generate(&[1, 2], 6, 99)
+            .unwrap();
+        let mut streamed = Vec::new();
+        let mut m = DecoderStack::new(cfg).unwrap();
+        m.generate_masked_with(&[1, 2], 6, 99, &LogitMask::new(), |t| streamed.push(t))
+            .unwrap();
+        assert_eq!(streamed, batch);
+        assert_eq!(streamed.len(), 6);
+    }
+
+    #[test]
+    fn streaming_empty_prompt_errors() {
+        let mut m =
+            DecoderStack::new(config(6, 4, 1, Sampler::new(SamplerConfig::default()))).unwrap();
+        let err = m
+            .generate_masked_with(&[], 3, 1, &LogitMask::new(), |_| {})
+            .unwrap_err();
+        assert_eq!(err, StackError::EmptyPrompt);
     }
 
     #[test]
