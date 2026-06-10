@@ -104,6 +104,39 @@ def test_service_after_tetragon():
     )
 
 
+def test_service_binds_to_tetragon():
+    """Transposition-dump dropout prevention (lines 761-765, verbatim:
+    'must include explicit service binding controls
+    (BindsTo=tetragon.service)'). Requires= alone leaves guardian
+    tailing a dead stream when tetragon stops during an OPNsense/SD-WAN
+    interface re-shuffle — the exact 'blinding your real-time exploit
+    containment system' gotcha. M084 R14101/R14110."""
+    body = _read(GUARDIAN_SERVICE)
+    assert "BindsTo=tetragon.service" in body, (
+        "sovereign-guardian-core.service missing BindsTo=tetragon.service "
+        "(dump 765 verbatim prevention — drift = guardian tails a dead "
+        "stream through tetragon stops, perimeter silently blind)"
+    )
+
+
+def test_script_eof_exits_nonzero():
+    """The dropout prevention's second half (dump 765: 'instantly
+    restart the security loop if the local UNIX socket encounters an
+    end-of-file (EOF) exception'). The read loop's EOF fall-through
+    MUST NOT return 0 — a clean exit hides the perimeter going blind.
+    M084 R14111-R14113."""
+    body = _read(GUARDIAN_SCRIPT)
+    assert "perimeter blind" in body and "[EOF]" in body, (
+        "guardian-core.py EOF fall-through must log the [EOF]/perimeter-"
+        "blind evidence before exiting (dump 765 prevention)"
+    )
+    tail = body.split("[EOF]", 1)[1]
+    assert "return 1" in tail, (
+        "guardian-core.py must exit nonzero after the EOF log so the "
+        "systemd restart is recorded as a failure-recovery"
+    )
+
+
 def test_service_restart_always():
     """Auditor MUST be always-on (§ 17 'always-on, kernel-driven').
     Drift to Restart=on-failure = a clean exit leaves the perimeter
