@@ -132,6 +132,23 @@ impl SovereignLlm {
         self.generate_ids_constrained(prompt, max_new, seed, &LogitMask::new())
     }
 
+    /// Generate `n` independent samples for `prompt` (the OpenAI `n` / best-of
+    /// parameter): sample `i` uses `base_seed + i`, so the set is diverse yet
+    /// reproducible. With a non-greedy sampler the samples vary; under a greedy
+    /// sampler they are identical. Feeds self-consistency voting via
+    /// [`majority_sequence`].
+    pub fn generate_ids_n(
+        &self,
+        prompt: &str,
+        n: usize,
+        max_new: usize,
+        base_seed: u64,
+    ) -> Result<Vec<Vec<u32>>, LlmError> {
+        (0..n)
+            .map(|i| self.generate_ids(prompt, max_new, base_seed.wrapping_add(i as u64)))
+            .collect()
+    }
+
     /// Generate token ids, stopping at the tokenizer's special token named
     /// `eos` (e.g. `"<eos>"`) — the natural serving loop. If that special is
     /// registered, generation stops the moment the model emits it (it is
@@ -314,6 +331,34 @@ impl SovereignLlm {
         let generated = self.generate_ids_constrained(prompt, max_new, seed, mask)?;
         Ok(self.tokenizer.decode(&generated).unwrap_or_default())
     }
+}
+
+/// **Self-consistency** vote: the sequence that occurs most often across
+/// `samples` (e.g. from [`generate_ids_n`](SovereignLlm::generate_ids_n)), with
+/// its count. Ties break toward the sequence that appears earliest in
+/// `samples` (stable). Returns `None` for an empty input. Sampling several
+/// completions and keeping the majority is a simple, effective accuracy boost
+/// for tasks with a single correct answer.
+pub fn majority_sequence(samples: &[Vec<u32>]) -> Option<(Vec<u32>, usize)> {
+    if samples.is_empty() {
+        return None;
+    }
+    let mut best: Option<(usize, usize)> = None; // (first-seen index, count)
+    for (i, s) in samples.iter().enumerate() {
+        // Only score the first occurrence of each distinct sequence.
+        if samples[..i].iter().any(|p| p == s) {
+            continue;
+        }
+        let count = samples.iter().filter(|p| *p == s).count();
+        let better = match best {
+            None => true,
+            Some((_, bc)) => count > bc, // strict: ties keep the earlier seen
+        };
+        if better {
+            best = Some((i, count));
+        }
+    }
+    best.map(|(i, count)| (samples[i].clone(), count))
 }
 
 #[cfg(test)]
@@ -545,6 +590,31 @@ mod tests {
         let text = llm.complete_with("hello", 3, &opts).unwrap();
         let ids = llm.generate_ids_with("hello", 3, &opts, |_| {}).unwrap();
         assert_eq!(text, llm.tokenizer().decode(&ids).unwrap());
+    }
+
+    #[test]
+    fn generate_ids_n_produces_n_samples() {
+        let llm = runtime(Sampler::new(SamplerConfig::default()));
+        let samples = llm.generate_ids_n("hello", 5, 6, 100).unwrap();
+        assert_eq!(samples.len(), 5);
+        // sample i uses base_seed + i → equals the single-call result.
+        assert_eq!(samples[2], llm.generate_ids("hello", 6, 102).unwrap());
+        // greedy sampler → all samples identical.
+        let g = runtime(Sampler::greedy());
+        let gs = g.generate_ids_n("hello", 4, 6, 0).unwrap();
+        assert!(gs.windows(2).all(|w| w[0] == w[1]));
+    }
+
+    #[test]
+    fn majority_sequence_picks_the_most_common() {
+        let a = vec![1u32, 2, 3];
+        let b = vec![9u32, 9];
+        // a appears 3×, b once → a wins with count 3.
+        let samples = vec![a.clone(), b.clone(), a.clone(), a.clone()];
+        assert_eq!(majority_sequence(&samples), Some((a.clone(), 3)));
+        // tie (each once) → earliest-seen wins.
+        assert_eq!(majority_sequence(&[b.clone(), a.clone()]), Some((b, 1)));
+        assert_eq!(majority_sequence(&[]), None);
     }
 
     #[test]
