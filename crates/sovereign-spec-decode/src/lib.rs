@@ -222,6 +222,33 @@ pub fn verify_sampled(
     })
 }
 
+/// **Prompt-lookup draft** (PLD; Saxena 2023) — a *draft-model-free*
+/// speculative proposal. Instead of running a cheap draft model, take the last
+/// `ngram` tokens of `context` and search for an earlier occurrence; if found,
+/// propose the up-to-`max_draft` tokens that *followed* that occurrence as the
+/// speculative draft. This is cheap and surprisingly effective for repetitive
+/// generation (code, structured output, quote-heavy text), where the next
+/// tokens often echo earlier ones. The draft is then checked by
+/// [`verify_greedy`] / [`verify_sampled`] exactly like a model draft — so PLD
+/// drops straight into the same accept loop. Returns an empty draft when
+/// `ngram == 0`, the context is shorter than `ngram`, `max_draft == 0`, or no
+/// earlier occurrence exists. The **most recent** earlier match is used.
+pub fn prompt_lookup_draft(context: &[u32], ngram: usize, max_draft: usize) -> Vec<u32> {
+    if ngram == 0 || max_draft == 0 || context.len() <= ngram {
+        return Vec::new();
+    }
+    let suffix = &context[context.len() - ngram..];
+    // Earlier ngram occurrences start in 0..(len-ngram); search most-recent first.
+    for start in (0..context.len() - ngram).rev() {
+        if &context[start..start + ngram] == suffix {
+            let cont_start = start + ngram;
+            let cont_end = (cont_start + max_draft).min(context.len());
+            return context[cont_start..cont_end].to_vec();
+        }
+    }
+    Vec::new()
+}
+
 /// Greedy speculative verification (the DFlash accept rule).
 ///
 /// `draft` is the cheap model's proposed tokens; `target_greedy` is the
@@ -314,6 +341,48 @@ mod tests {
     fn expected_speedup_clamps_out_of_range_alpha() {
         assert_eq!(expected_speedup(1.5, 2), 3.0); // clamped to 1.0
         assert_eq!(expected_speedup(-0.5, 7), 1.0); // clamped to 0.0
+    }
+
+    #[test]
+    fn prompt_lookup_proposes_the_earlier_continuation() {
+        // "the cat sat the cat" → suffix "the cat" recurred; the tokens that
+        // followed the earlier "the cat" were "sat …" → proposed as the draft.
+        let ctx = [10u32, 11, 12, 10, 11]; // (the, cat, sat, the, cat)
+        let draft = prompt_lookup_draft(&ctx, 2, 3);
+        // earlier "10,11" at index 0 → continuation from index 2: [12, 10, 11]
+        assert_eq!(draft, vec![12, 10, 11]);
+        // the first proposed token is the one that followed the earlier match.
+        assert_eq!(draft[0], 12);
+    }
+
+    #[test]
+    fn prompt_lookup_uses_most_recent_match() {
+        // suffix "9" recurs; the most recent earlier "9" is at index 3,
+        // followed by 7 → draft starts with 7 (not the older continuation).
+        let ctx = [9u32, 5, 6, 9, 7, 8, 9];
+        let draft = prompt_lookup_draft(&ctx, 1, 2);
+        assert_eq!(draft, vec![7, 8]);
+    }
+
+    #[test]
+    fn prompt_lookup_empty_when_no_match_or_degenerate() {
+        assert!(prompt_lookup_draft(&[1, 2, 3, 4], 2, 3).is_empty()); // no repeat
+        assert!(prompt_lookup_draft(&[1, 2], 0, 3).is_empty()); // ngram 0
+        assert!(prompt_lookup_draft(&[1, 2], 2, 3).is_empty()); // len <= ngram
+        assert!(prompt_lookup_draft(&[1, 2, 1, 2], 2, 0).is_empty()); // max_draft 0
+    }
+
+    #[test]
+    fn prompt_lookup_draft_feeds_verify_greedy() {
+        // PLD draft + a target greedy run go straight into the accept rule.
+        let ctx = [1u32, 2, 3, 1, 2];
+        let draft = prompt_lookup_draft(&ctx, 2, 2); // [3, 1]
+        assert_eq!(draft, vec![3, 1]);
+        // target greedy agrees on the first, diverges on the second.
+        let target = [3u32, 9, 0];
+        let outcome = verify_greedy(&draft, &target).unwrap();
+        assert_eq!(outcome.accepted, 1);
+        assert_eq!(outcome.emitted, 2);
     }
 
     #[test]
