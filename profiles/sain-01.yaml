@@ -38,16 +38,19 @@ hardware:
     march: znver5
     features:
       required:
+        # avx512_fp16 removed 2026-06-10: verified absent on the physical
+        # 9900X (/proc/cpuinfo) — AVX512-FP16 is Intel-only (Sapphire
+        # Rapids+); Zen 5 ships BF16 but not FP16. Requiring it (and the
+        # former -mavx512fp16 KCFLAG) would SIGILL on the target itself.
         - avx512f
         - avx512_vnni
         - avx512_bf16
-        - avx512_fp16
         - avx512dq
         - avx512bw
         - avx512vl
       preferred:
         - sha_ni
-        - avxvnni
+        - avx_vnni   # kernel /proc/cpuinfo flag name (was 'avxvnni')
         - movdiri
         - movdir64b
         - prefetchi
@@ -63,7 +66,8 @@ hardware:
   gpu:
     - vendor: nvidia
       model: rtx-pro-6000-blackwell-max-q
-      pci_id: "10de:????"
+      pci_id: "10de:2bb4"   # GB202GL — verified via lspci -nn on the physical host 2026-06-10
+      audio_fn: "10de:22e8"
       vram_gb: 96
       role: primary
       driver: nvidia-560-open
@@ -148,7 +152,9 @@ kernel:
   version_minimum: "6.12"
   packaging: bindeb-pkg
   compile_flags:
-    KCFLAGS: "-march=znver5 -O3 -pipe -mabm -madx -mavx512f -mavx512dq -mavx512bw -mavx512vl -mavx512bf16 -mavx512fp16"
+    # -mavx512fp16 removed 2026-06-10: not a Zen 5 instruction (verified on
+    # the physical 9900X) — forcing it emits code the target CPU traps on.
+    KCFLAGS: "-march=znver5 -O3 -pipe -mabm -madx -mavx512f -mavx512dq -mavx512bw -mavx512vl -mavx512bf16"
     KCPPFLAGS: "-march=znver5"
     KBUILD_BUILD_USER: "sovereign-os"
     KBUILD_BUILD_HOST: "sovereign-os"

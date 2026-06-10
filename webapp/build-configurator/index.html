@@ -635,15 +635,17 @@ var BAKED = {
         source: "kernel.org-stable",
         version_minimum: "6.12",
         march: "znver5",
-        kcflags: "-march=znver5 -O3 -pipe -mabm -madx -mavx512f -mavx512dq -mavx512bw -mavx512vl -mavx512bf16 -mavx512fp16",
+        kcflags: "-march=znver5 -O3 -pipe -mabm -madx -mavx512f -mavx512dq -mavx512bw -mavx512vl -mavx512bf16",
         enable: ["ATLANTIC","ZFS","VFIO_PCI","VFIO_IOMMU_TYPE1","INTEL_IOMMU","AMD_IOMMU","AMD_IOMMU_V2","SECURITY_BPF_LSM","BPF_LSM","KVM_AMD","KVM_INTEL"],
         microcode: ["amd","intel"], microcode_default: "amd",
         cmdline_base: ["quiet","splash","loglevel=3"],
         cmdline_vfio: ["vfio-pci.ids=10de:2684,10de:22ba","amd_iommu=on","iommu=pt","pcie_aspm=off"],
       },
       cpu: {
-        required: ["avx512f","avx512_vnni","avx512_bf16","avx512_fp16","avx512dq","avx512bw","avx512vl"],
-        preferred: ["sha_ni","avxvnni","movdiri","movdir64b","prefetchi"],
+        // avx512_fp16 removed: verified absent on the physical 9900X —
+        // AVX512-FP16 is Intel-only; Zen 5 has BF16, not FP16.
+        required: ["avx512f","avx512_vnni","avx512_bf16","avx512dq","avx512bw","avx512vl"],
+        preferred: ["sha_ni","avx_vnni","movdiri","movdir64b","prefetchi"],
       },
       modules: { load: ["zfs","nvidia","vfio_pci"], blacklist: ["nouveau"] },
       packages: {
@@ -1433,7 +1435,8 @@ var GLOSSARY = {
   "avx512f": "AVX-512 Foundation — the 512-bit vector base; every other AVX-512 extension builds on it.",
   "avx512_vnni": "Vector Neural Network Instructions — fused int8/int16 dot-products; the workhorse of quantized inference.",
   "avx512_bf16": "bfloat16 vector arithmetic — the numeric format most model weights ship in.",
-  "avx512_fp16": "IEEE FP16 vector arithmetic in 512-bit registers.",
+  "avx512_fp16": "IEEE FP16 vector arithmetic — Intel-only (Sapphire Rapids+); verified ABSENT on the physical 9900X. Do not require on Zen 5.",
+  "avx_vnni": "VNNI on 256-bit AVX — fallback int8 path (kernel flag name; verified present on the 9900X).",
   "avx512dq": "AVX-512 double/quad-word integer operations (64/128-bit lanes).",
   "avx512bw": "AVX-512 byte/word integer operations — string + tokenizer hot paths.",
   "avx512vl": "Vector-length extension: AVX-512 instructions on 128/256-bit registers too.",
