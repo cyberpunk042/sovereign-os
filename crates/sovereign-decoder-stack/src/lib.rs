@@ -122,6 +122,10 @@ pub struct GenOptions {
     /// Stop generation the moment one of these tokens is produced (it is
     /// included in the output).
     pub stop_tokens: Vec<usize>,
+    /// Minimum tokens to generate before a `stop_tokens` token may be emitted:
+    /// the stop tokens are masked out for the first `min_new` steps, forcing a
+    /// minimum response length (a common serving constraint). `0` = no minimum.
+    pub min_new: usize,
 }
 
 impl GenOptions {
@@ -148,6 +152,12 @@ impl GenOptions {
     /// Set the stop tokens for early termination.
     pub fn with_stop_tokens(mut self, stops: impl IntoIterator<Item = usize>) -> Self {
         self.stop_tokens = stops.into_iter().collect();
+        self
+    }
+
+    /// Force at least `min_new` tokens before any stop token may be emitted.
+    pub fn with_min_new(mut self, min_new: usize) -> Self {
+        self.min_new = min_new;
         self
     }
 }
@@ -404,6 +414,12 @@ impl DecoderStack {
             opts.mask.apply(&mut l);
             if let Some(n) = opts.no_repeat_ngram {
                 LogitMask::new().no_repeat_ngram(&history, n).apply(&mut l);
+            }
+            // Min-length: forbid stop tokens until `min_new` tokens are out.
+            if generated.len() < opts.min_new && !opts.stop_tokens.is_empty() {
+                LogitMask::new()
+                    .ban_all(opts.stop_tokens.iter().copied())
+                    .apply(&mut l);
             }
             let pos = self.position() as u64;
             let recent_start = self.recent.len().saturating_sub(self.config.recent_window);
@@ -705,6 +721,34 @@ mod tests {
         assert_eq!(out, mono, "prefix reuse must be output-identical");
         // The primed base is untouched and reusable for the next request.
         assert_eq!(base.position(), 3);
+    }
+
+    #[test]
+    fn generate_with_min_new_defers_the_stop_token() {
+        // Make the first sampled token a stop token; with min_new it cannot be
+        // emitted until at least min_new tokens are out, so the output is longer.
+        let cfg = config(8, 4, 2, Sampler::new(SamplerConfig::default()));
+        let prompt = [1usize, 2];
+        let first = DecoderStack::new(cfg.clone())
+            .unwrap()
+            .generate(&prompt, 1, 9)
+            .unwrap()[0];
+
+        // Without min_new: stops immediately at the stop token.
+        let opts_stop = GenOptions::new(10).with_stop_tokens([first]);
+        let mut a = DecoderStack::new(cfg.clone()).unwrap();
+        let stopped = a.generate_with(&prompt, 9, &opts_stop, |_| {}).unwrap();
+        assert_eq!(stopped, vec![first]);
+
+        // With min_new = 4: the stop token is masked for the first 4 tokens.
+        let opts_min = GenOptions::new(10)
+            .with_stop_tokens([first])
+            .with_min_new(4);
+        let mut b = DecoderStack::new(cfg).unwrap();
+        let out = b.generate_with(&prompt, 9, &opts_min, |_| {}).unwrap();
+        assert!(out.len() >= 4, "min_new must force ≥4 tokens: {out:?}");
+        // None of the first 4 emitted tokens is the (banned) stop token.
+        assert!(out[..4].iter().all(|&t| t != first));
     }
 
     #[test]
