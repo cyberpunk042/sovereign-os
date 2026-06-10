@@ -86,7 +86,13 @@ pub struct QuantModel {
     embedding: Vec<f32>,
     stack: LayerStack,
     final_norm: RmsNorm,
+    /// Output projection. Empty when `tied` — the projection reads the
+    /// `embedding` table directly, so the second `vocab × model_dim` matrix is
+    /// not stored.
     head: Vec<f32>,
+    /// Whether the output head is tied to the embedding table (weight tying,
+    /// as in GPT-2 / Llama). Halves the embedding-table memory.
+    tied: bool,
     sampler: Sampler,
     recent: Vec<usize>,
     recent_window: usize,
@@ -124,10 +130,49 @@ impl QuantModel {
             stack,
             final_norm,
             head,
+            tied: false,
             sampler,
             recent: Vec::new(),
             recent_window: 64,
         })
+    }
+
+    /// Assemble a model with **tied** embedding / output weights (GPT-2 / Llama
+    /// style): the output head reuses the `embedding` table, so only one
+    /// `vocab × model_dim` matrix is stored instead of two. `logits[v]` becomes
+    /// `embedding_row[v] · hidden`.
+    pub fn new_tied(
+        vocab: usize,
+        model_dim: usize,
+        embedding: Vec<f32>,
+        stack: LayerStack,
+        final_norm: RmsNorm,
+        sampler: Sampler,
+    ) -> Result<Self, QuantModelError> {
+        let want = vocab * model_dim;
+        if embedding.len() != want {
+            return Err(QuantModelError::EmbeddingShape {
+                expected: want,
+                got: embedding.len(),
+            });
+        }
+        Ok(Self {
+            vocab,
+            model_dim,
+            embedding,
+            stack,
+            final_norm,
+            head: Vec::new(),
+            tied: true,
+            sampler,
+            recent: Vec::new(),
+            recent_window: 64,
+        })
+    }
+
+    /// Whether the output head is tied to the embedding table.
+    pub fn is_tied(&self) -> bool {
+        self.tied
     }
 
     /// Set the repetition-penalty window (default 64).
@@ -163,9 +208,15 @@ impl QuantModel {
 
     fn project_head(&self, hidden: &[f32]) -> Vec<f32> {
         let d = self.model_dim;
+        // When tied, the output projection reads the embedding table directly.
+        let table = if self.tied {
+            &self.embedding
+        } else {
+            &self.head
+        };
         let mut logits = vec![0.0f32; self.vocab];
         for (v, logit) in logits.iter_mut().enumerate() {
-            let row = &self.head[v * d..(v + 1) * d];
+            let row = &table[v * d..(v + 1) * d];
             *logit = row.iter().zip(hidden).map(|(w, h)| w * h).sum();
         }
         logits
@@ -358,6 +409,69 @@ mod tests {
         assert!(out.iter().all(|&t| t < 8));
         // 3 prompt + 6 generated = 9 positions in the stack
         assert_eq!(m.position(), 9);
+    }
+
+    #[test]
+    fn tied_model_uses_embedding_as_output_head() {
+        let vocab = 8;
+        let emb = mat(0.5, vocab * MD);
+        let layers: Vec<Box<dyn DecoderLayer>> = vec![Box::new(transformer_layer())];
+        let stack = LayerStack::new(layers).unwrap();
+        let mut m = QuantModel::new_tied(
+            vocab,
+            MD,
+            emb.clone(),
+            stack,
+            RmsNorm::new(MD),
+            Sampler::greedy(),
+        )
+        .unwrap();
+        assert!(m.is_tied());
+        // Run a forward pass and verify each logit equals the corresponding
+        // embedding row dotted with the (normed) final hidden state — i.e. the
+        // head genuinely reuses the embedding table.
+        let logits = m.forward(3).unwrap();
+        assert_eq!(logits.len(), vocab);
+        // Re-derive the normed hidden the same way forward does, to recompute
+        // the expected tied logits independently.
+        // (We can't reach the private hidden, so instead check the tying
+        // invariant structurally: an untied model built with head == embedding
+        // produces identical logits.)
+        let layers2: Vec<Box<dyn DecoderLayer>> = vec![Box::new(transformer_layer())];
+        let mut untied = QuantModel::new(
+            vocab,
+            MD,
+            emb.clone(),
+            LayerStack::new(layers2).unwrap(),
+            RmsNorm::new(MD),
+            emb.clone(), // head == embedding
+            Sampler::greedy(),
+        )
+        .unwrap();
+        assert!(!untied.is_tied());
+        let logits_untied = untied.forward(3).unwrap();
+        for (a, b) in logits.iter().zip(&logits_untied) {
+            assert!(
+                (a - b).abs() < 1e-6,
+                "tied logits must match head==embedding"
+            );
+        }
+    }
+
+    #[test]
+    fn tied_model_validates_embedding_shape() {
+        let layers: Vec<Box<dyn DecoderLayer>> = vec![Box::new(transformer_layer())];
+        let stack = LayerStack::new(layers).unwrap();
+        let err = QuantModel::new_tied(
+            8,
+            MD,
+            vec![0.0; 3],
+            stack,
+            RmsNorm::new(MD),
+            Sampler::greedy(),
+        )
+        .unwrap_err();
+        assert!(matches!(err, QuantModelError::EmbeddingShape { .. }));
     }
 
     #[test]
