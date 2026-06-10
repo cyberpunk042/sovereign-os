@@ -60,6 +60,17 @@ pub struct ScoredDoc {
     pub score: u32,
 }
 
+/// A document with its BM25 relevance score.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Bm25Doc {
+    /// The document's id.
+    pub id: String,
+    /// The document's text.
+    pub text: String,
+    /// BM25 score against the query (higher = more relevant).
+    pub score: f32,
+}
+
 /// A lexical document store.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct DocStore {
@@ -162,6 +173,68 @@ impl DocStore {
             })
             .collect();
         scored.sort_by(|a, b| b.score.cmp(&a.score).then_with(|| a.id.cmp(&b.id)));
+        scored.truncate(k);
+        scored
+    }
+
+    /// Rank documents by **BM25** (Robertson/Sparck-Jones) — the standard
+    /// sparse-retrieval score that the raw term-overlap [`retrieve`](Self::retrieve)
+    /// lacks. Each query term contributes `IDF(t) · tf·(k1+1) /
+    /// (tf + k1·(1 − b + b·|d|/avgdl))`, so **rare** terms weigh more (IDF) and
+    /// long documents don't win on raw counts alone (length normalization).
+    /// Uses the canonical `k1 = 1.5`, `b = 0.75`. Returns the top `k` by score
+    /// (ties broken by id).
+    pub fn retrieve_bm25(&self, query: &str, k: usize) -> Vec<Bm25Doc> {
+        const K1: f32 = 1.5;
+        const B: f32 = 0.75;
+        let n = self.docs.len();
+        if n == 0 {
+            return Vec::new();
+        }
+        let q_terms = unique_tokens(query);
+
+        // Per-doc token counts + lengths, and document frequency per term.
+        let per_doc: Vec<(HashMap<String, u32>, usize)> = self
+            .docs
+            .iter()
+            .map(|d| {
+                let counts = token_counts(&d.text);
+                let len: usize = counts.values().map(|&c| c as usize).sum();
+                (counts, len)
+            })
+            .collect();
+        let avgdl = (per_doc.iter().map(|(_, l)| *l).sum::<usize>() as f32 / n as f32).max(1e-9);
+
+        let mut scored: Vec<Bm25Doc> = self
+            .docs
+            .iter()
+            .zip(&per_doc)
+            .filter_map(|(d, (counts, dl))| {
+                let mut score = 0.0f32;
+                for t in &q_terms {
+                    let tf = *counts.get(t).unwrap_or(&0) as f32;
+                    if tf == 0.0 {
+                        continue;
+                    }
+                    let df = per_doc.iter().filter(|(c, _)| c.contains_key(t)).count() as f32;
+                    // BM25 idf (always non-negative variant).
+                    let idf = ((n as f32 - df + 0.5) / (df + 0.5) + 1.0).ln();
+                    let norm = tf + K1 * (1.0 - B + B * (*dl as f32 / avgdl));
+                    score += idf * (tf * (K1 + 1.0)) / norm;
+                }
+                (score > 0.0).then(|| Bm25Doc {
+                    id: d.id.clone(),
+                    text: d.text.clone(),
+                    score,
+                })
+            })
+            .collect();
+        scored.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.id.cmp(&b.id))
+        });
         scored.truncate(k);
         scored
     }
@@ -342,6 +415,50 @@ mod tests {
         assert!(!hits.is_empty());
         assert_eq!(hits[0].id, "ownership"); // contains rust + ownership + memory
         assert!(hits.iter().all(|h| h.score > 0));
+    }
+
+    #[test]
+    fn bm25_idf_breaks_a_raw_overlap_tie_toward_the_rare_term() {
+        // "common" is in every doc (low IDF); "rare" is in one (high IDF).
+        let mut s = DocStore::new();
+        s.add("filler1", "common");
+        s.add("filler2", "common");
+        s.add("a", "common common"); // matches only the common term (twice)
+        s.add("b", "common rare"); // matches common + the rare term
+        // Raw term-overlap ties a and b at 2 → id order puts "a" first.
+        let raw = s.retrieve("common rare", 2);
+        assert_eq!(raw[0].score, raw[1].score);
+        assert_eq!(raw[0].id, "a");
+        // BM25 weights the rare term heavily → "b" wins decisively.
+        let bm = s.retrieve_bm25("common rare", 2);
+        assert_eq!(bm[0].id, "b", "rare-term doc must win under BM25: {bm:?}");
+        assert!(bm[0].score > bm[1].score);
+    }
+
+    #[test]
+    fn bm25_length_normalizes() {
+        // Two docs with the same single query-term hit; the shorter doc scores
+        // higher because BM25 penalizes length (the term is a larger fraction
+        // of it).
+        let mut s = DocStore::new();
+        s.add("short", "kubernetes");
+        s.add(
+            "long",
+            "kubernetes is one topic among many here including networking storage scheduling and more",
+        );
+        let hits = s.retrieve_bm25("kubernetes", 2);
+        assert_eq!(hits.len(), 2);
+        assert_eq!(
+            hits[0].id, "short",
+            "shorter doc should rank first: {hits:?}"
+        );
+    }
+
+    #[test]
+    fn bm25_empty_and_no_match() {
+        assert!(DocStore::new().retrieve_bm25("anything", 3).is_empty());
+        let s = store();
+        assert!(s.retrieve_bm25("zzz nonexistent", 3).is_empty());
     }
 
     #[test]
