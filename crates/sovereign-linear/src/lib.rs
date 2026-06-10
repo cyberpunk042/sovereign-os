@@ -28,7 +28,7 @@
 #![warn(missing_docs)]
 
 use serde::{Deserialize, Serialize};
-use sovereign_bitlinear_core::{BitLinearLayer, Packing};
+use sovereign_bitlinear_core::{BitLinearLayer, EnergyReport, Packing};
 use sovereign_nvfp4_runtime::QuantMatrix;
 use thiserror::Error;
 
@@ -157,6 +157,31 @@ impl Linear {
         }
     }
 
+    /// Energy / arithmetic profile of a ternary forward — the dump's energy
+    /// monitor (F06067-F06070) surfaced at the production linear layer.
+    ///
+    /// Returns `Some(report)` only at [`Precision::Ternary`], where the
+    /// inner products are multiplication-free and the savings are real;
+    /// `None` for F32 / NVFP4, which spend genuine floating-point multiplies
+    /// and have no mul-free accounting to report.
+    pub fn energy_report(&self, x: &[f32]) -> Result<Option<EnergyReport>, LinearError> {
+        if x.len() != self.input_dim {
+            return Err(LinearError::InputWidth {
+                expected: self.input_dim,
+                got: x.len(),
+            });
+        }
+        match &self.backend {
+            Backend::Ternary(b) => {
+                let (_y, ops) = b
+                    .forward(x)
+                    .map_err(|e| LinearError::Backend(e.to_string()))?;
+                Ok(Some(ops.energy_report(self.output_dim * self.input_dim)))
+            }
+            _ => Ok(None),
+        }
+    }
+
     /// Run `y = W·x`. `x.len()` must equal [`input_dim`](Self::input_dim);
     /// the result has length [`output_dim`](Self::output_dim).
     pub fn forward(&self, x: &[f32]) -> Result<Vec<f32>, LinearError> {
@@ -209,6 +234,30 @@ mod tests {
         let y = lin.forward(&[1.0, 2.0, 3.0]).unwrap();
         // row0: 1*1+0*2-1*3 = -2 ; row1: 2*1+1*2+0*3 = 4
         assert_eq!(y, vec![-2.0, 4.0]);
+    }
+
+    #[test]
+    fn ternary_energy_report_surfaced() {
+        // A 4×8 ternary layer reports its mul-free savings.
+        let (output_dim, input_dim) = (4, 8);
+        let w = vec![0.5f32; output_dim * input_dim];
+        let lin = Linear::from_f32(&w, output_dim, input_dim, Precision::Ternary).unwrap();
+        let r = lin
+            .energy_report(&vec![1.0f32; input_dim])
+            .unwrap()
+            .expect("ternary layer reports energy");
+        assert_eq!(r.muls_eliminated, output_dim * input_dim);
+        assert_eq!(r.float_muls, output_dim); // only the per-row scales
+        assert!(r.energy_saving_ratio > 0.8);
+    }
+
+    #[test]
+    fn non_ternary_has_no_energy_report() {
+        let w = vec![0.5f32; 8];
+        for p in [Precision::F32, Precision::Nvfp4] {
+            let lin = Linear::from_f32(&w, 2, 4, p).unwrap();
+            assert!(lin.energy_report(&[1.0f32; 4]).unwrap().is_none());
+        }
     }
 
     #[test]
