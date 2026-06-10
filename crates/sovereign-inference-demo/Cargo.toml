@@ -44,3 +44,4 @@ sovereign-tool-dispatch = { path = "../sovereign-tool-dispatch" }
 sovereign-retrieval = { path = "../sovereign-retrieval" }
 sovereign-embed = { path = "../sovereign-embed" }
 sovereign-degeneration = { path = "../sovereign-degeneration" }
+sovereign-toxicity = { path = "../sovereign-toxicity" }

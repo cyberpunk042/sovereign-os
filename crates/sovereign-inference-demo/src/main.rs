@@ -703,6 +703,23 @@ fn run_rag_quality_demo() -> String {
         report.is_degenerate, report.distinct_ngram_ratio
     );
 
+    if let Some(conf) = llm
+        .completion_confidence("rust memory", 16, 7)
+        .expect("confidence")
+    {
+        let _ = writeln!(
+            out,
+            "confidence       : tokens={} perplexity={:.2} mean_logprob={:.2}",
+            conf.tokens, conf.perplexity, conf.mean_logprob
+        );
+    }
+
+    let filter = sovereign_toxicity::ToxicityFilter::with_builtin();
+    let (_t, toxic) = llm
+        .complete_screened("rust memory", 16, 7, &filter, 0.5)
+        .expect("screened");
+    let _ = writeln!(out, "toxicity screen  : flagged={toxic}");
+
     out
 }
 
@@ -771,6 +788,8 @@ mod tests {
         assert!(report.contains("prompt compress  :"));
         assert!(report.contains("best-of-4 divers.:"));
         assert!(report.contains("degeneration     :"));
+        assert!(report.contains("confidence       :"));
+        assert!(report.contains("toxicity screen  :"));
     }
 
     #[test]
