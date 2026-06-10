@@ -558,6 +558,48 @@ impl DecoderStack {
         }
         Ok(generated)
     }
+
+    /// Like [`generate_dynamic_mask`](Self::generate_dynamic_mask) but the mask
+    /// hook may **stop** generation: `mask_fn(&generated)` returns `None` to end
+    /// (e.g. a grammar constraint signalling the output is a complete sentence, or
+    /// that no token can keep the parse valid) or `Some(mask)` to apply and
+    /// continue. Generates at most `max_new` tokens. Returns the generated ids.
+    pub fn generate_dynamic_mask_until<M>(
+        &mut self,
+        prompt: &[usize],
+        max_new: usize,
+        seed: u64,
+        mut mask_fn: M,
+    ) -> Result<Vec<usize>, StackError>
+    where
+        M: FnMut(&[usize]) -> Option<LogitMask>,
+    {
+        if prompt.is_empty() {
+            return Err(StackError::EmptyPrompt);
+        }
+        let mut logits = Vec::new();
+        for &t in prompt {
+            logits = self.forward(t)?;
+        }
+        let mut generated = Vec::with_capacity(max_new);
+        for _ in 0..max_new {
+            let Some(mask) = mask_fn(&generated) else {
+                break;
+            };
+            mask.apply(&mut logits);
+            let pos = self.position() as u64;
+            let recent_start = self.recent.len().saturating_sub(self.config.recent_window);
+            let token = self.config.sampler.sample_seeded(
+                &logits,
+                &self.recent[recent_start..],
+                seed.wrapping_add(pos),
+            )?;
+            self.recent.push(token);
+            generated.push(token);
+            logits = self.forward(token)?;
+        }
+        Ok(generated)
+    }
 }
 
 /// Deterministic splitmix64 → uniform `[0, 1)` from one seed, so the Mirostat
@@ -639,6 +681,23 @@ mod tests {
             .unwrap();
         assert_eq!(out.len(), 6);
         assert!(out.iter().all(|&t| (1..=2).contains(&t)), "{out:?}");
+    }
+
+    #[test]
+    fn dynamic_mask_until_stops_when_hook_returns_none() {
+        // Allow token 2 for the first 3 steps, then stop — so exactly [2,2,2] is
+        // generated even though max_new is larger.
+        let mut m = DecoderStack::new(config(8, 4, 2, Sampler::greedy())).unwrap();
+        let out = m
+            .generate_dynamic_mask_until(&[1], 10, 5, |generated| {
+                if generated.len() < 3 {
+                    Some(LogitMask::new().allow_only(2..=2))
+                } else {
+                    None
+                }
+            })
+            .unwrap();
+        assert_eq!(out, vec![2, 2, 2]);
     }
 
     #[test]

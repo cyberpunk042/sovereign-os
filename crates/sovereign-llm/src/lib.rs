@@ -245,6 +245,54 @@ impl SovereignLlm {
         Ok(self.tokenizer.decode(&out_ids).unwrap_or_default())
     }
 
+    /// **Grammar-constrained decoding to a JSON Schema**: generate a completion
+    /// that is guaranteed to be a JSON value conforming to `schema`. The schema is
+    /// compiled to a grammar (`sovereign-json-schema-grammar`); at each step
+    /// `sovereign-token-grammar-mask` reports exactly which tokens keep a valid
+    /// parse reachable (the rest are masked), and generation **stops** the moment
+    /// the emitted text is a complete sentence of the grammar — so the output is
+    /// always well-formed and conforming, never truncated mid-structure. The
+    /// strongest form of structured / tool-call output. Drives the decoder's
+    /// stoppable dynamic-mask loop on a fresh model clone; reproducible per `seed`.
+    pub fn complete_json_schema(
+        &self,
+        prompt: &str,
+        schema: &sovereign_json_schema_grammar::Schema,
+        max_new: usize,
+        seed: u64,
+    ) -> Result<String, LlmError> {
+        let grammar = sovereign_json_schema_grammar::compile(schema);
+        let vocab: Vec<String> = (0..self.tokenizer.vocab_size())
+            .map(|id| self.tokenizer.decode(&[id as u32]).unwrap_or_default())
+            .collect();
+        let tgm = sovereign_token_grammar_mask::TokenGrammarMask::new(grammar, vocab);
+        let prompt_ids: Vec<usize> = self
+            .tokenizer
+            .encode(prompt)
+            .iter()
+            .map(|&i| i as usize)
+            .collect();
+        let mut model = self.model.clone();
+        let gen_ids =
+            model.generate_dynamic_mask_until(&prompt_ids, max_new, seed, |generated| {
+                let so_far: Vec<u32> = generated.iter().map(|&i| i as u32).collect();
+                let prefix = self.tokenizer.decode(&so_far).unwrap_or_default();
+                let mask = tgm.mask(&prefix);
+                // Stop once the output is a complete sentence of the grammar, or if no
+                // token can keep the parse valid (avoids sampling from an all-masked set).
+                if mask.eos {
+                    return None;
+                }
+                let allowed = mask.allowed_ids();
+                if allowed.is_empty() {
+                    return None;
+                }
+                Some(LogitMask::new().allow_only(allowed))
+            })?;
+        let out_ids: Vec<u32> = gen_ids.iter().map(|&i| i as u32).collect();
+        Ok(self.tokenizer.decode(&out_ids).unwrap_or_default())
+    }
+
     /// Complete `prompt` and **extract the first balanced JSON value** from the
     /// output (`sovereign-json-extract`), returning `Some(value)` or `None` if the
     /// completion contains no JSON. Models emit structured answers wrapped in
@@ -952,6 +1000,52 @@ mod tests {
             a.complete_regex("x", "[", 4, 1),
             Err(LlmError::Regex(_))
         ));
+    }
+
+    #[test]
+    fn complete_json_schema_confines_output_to_the_grammar_alphabet() {
+        use sovereign_json_schema_grammar::Schema;
+        let llm = runtime(Sampler::greedy());
+        // For {"ok": <bool>} the grammar can only ever emit the structural chars,
+        // the key "ok", the booleans, and whitespace. The mask forbids everything
+        // else every step — so no out-of-grammar char (a digit, a stray letter
+        // like 'z') can appear, whatever the (random) weights.
+        let schema = Schema::object([("ok".to_string(), Schema::Boolean)]);
+        let out = llm.complete_json_schema("emit: ", &schema, 40, 7).unwrap();
+        let allowed: std::collections::HashSet<char> = "{}\":oktruefalse \t\n\r".chars().collect();
+        assert!(
+            out.chars().all(|c| allowed.contains(&c)),
+            "out-of-grammar char in {out:?}"
+        );
+    }
+
+    #[test]
+    fn json_schema_mask_forbids_invalid_continuations() {
+        use sovereign_json_schema_grammar::{Schema, compile};
+        // The grammar mask, over the runtime vocab, allows a boolean to start
+        // after `{"ok":` but forbids an unrelated letter.
+        let llm = runtime(Sampler::greedy());
+        let vocab: Vec<String> = (0..llm.vocab_size())
+            .map(|id| llm.tokenizer().decode(&[id as u32]).unwrap_or_default())
+            .collect();
+        let schema = Schema::object([("ok".to_string(), Schema::Boolean)]);
+        let tgm = sovereign_token_grammar_mask::TokenGrammarMask::new(compile(&schema), vocab);
+        let mask = tgm.mask("{\"ok\":");
+        assert!(mask.allows(b't' as usize), "true should be allowed");
+        assert!(mask.allows(b'f' as usize), "false should be allowed");
+        assert!(!mask.allows(b'z' as usize), "z must be forbidden");
+    }
+
+    #[test]
+    fn complete_json_schema_is_reproducible() {
+        use sovereign_json_schema_grammar::Schema;
+        let a = runtime(Sampler::new(SamplerConfig::default()));
+        let b = runtime(Sampler::new(SamplerConfig::default()));
+        let schema = Schema::Integer;
+        assert_eq!(
+            a.complete_json_schema("n=", &schema, 16, 3).unwrap(),
+            b.complete_json_schema("n=", &schema, 16, 3).unwrap()
+        );
     }
 
     #[test]
