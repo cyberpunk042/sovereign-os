@@ -132,6 +132,31 @@ impl SovereignLlm {
         self.generate_ids_constrained(prompt, max_new, seed, &LogitMask::new())
     }
 
+    /// Generate token ids, stopping early at the first token in `stop_tokens`
+    /// (which is included). The EOS / stop-sequence behaviour a real runtime
+    /// needs. Pristine cache per call.
+    pub fn generate_ids_until(
+        &self,
+        prompt: &str,
+        max_new: usize,
+        seed: u64,
+        stop_tokens: &[u32],
+    ) -> Result<Vec<u32>, LlmError> {
+        let ids: Vec<usize> = self
+            .tokenizer
+            .encode(prompt)
+            .into_iter()
+            .map(|t| t as usize)
+            .collect();
+        if ids.is_empty() {
+            return Err(LlmError::EmptyPrompt);
+        }
+        let stops: Vec<usize> = stop_tokens.iter().map(|&t| t as usize).collect();
+        let mut model = self.model.clone();
+        let generated = model.generate_until(&ids, max_new, seed, &stops)?;
+        Ok(generated.iter().map(|&t| t as u32).collect())
+    }
+
     /// Generate token ids under a stateful [`Mirostat`] controller — output
     /// perplexity is held near the controller's target instead of using the
     /// config's static truncation. The controller's `μ` advances across the
@@ -374,6 +399,26 @@ mod tests {
         let mut ms = Mirostat::new(3.0, 0.1);
         assert_eq!(
             llm.generate_ids_mirostat("", 4, 1, &mut ms).unwrap_err(),
+            LlmError::EmptyPrompt
+        );
+    }
+
+    #[test]
+    fn generate_until_stops_at_stop_token() {
+        let llm = runtime(Sampler::new(SamplerConfig::default()));
+        let first = llm.generate_ids("hello", 1, 4).unwrap()[0];
+        let out = llm.generate_ids_until("hello", 16, 4, &[first]).unwrap();
+        assert_eq!(out, vec![first]);
+        // empty stop set → full length
+        let full = llm.generate_ids_until("hello", 5, 4, &[]).unwrap();
+        assert_eq!(full.len(), 5);
+    }
+
+    #[test]
+    fn generate_until_empty_prompt_errors() {
+        let llm = runtime(Sampler::greedy());
+        assert_eq!(
+            llm.generate_ids_until("", 4, 1, &[0]).unwrap_err(),
             LlmError::EmptyPrompt
         );
     }

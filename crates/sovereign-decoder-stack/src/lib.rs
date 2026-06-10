@@ -319,6 +319,44 @@ impl DecoderStack {
         Ok(generated)
     }
 
+    /// Generate up to `max_new` tokens, stopping early the moment a token in
+    /// `stop_tokens` is produced (the stop token **is** included in the result).
+    /// This is the EOS / stop-sequence behaviour a real runtime needs — most
+    /// completions end well before the length cap. With an empty `stop_tokens`
+    /// this is identical to [`generate`](Self::generate). Reproducible per seed.
+    pub fn generate_until(
+        &mut self,
+        prompt: &[usize],
+        max_new: usize,
+        seed: u64,
+        stop_tokens: &[usize],
+    ) -> Result<Vec<usize>, StackError> {
+        if prompt.is_empty() {
+            return Err(StackError::EmptyPrompt);
+        }
+        let mut logits = Vec::new();
+        for &t in prompt {
+            logits = self.forward(t)?;
+        }
+        let mut generated = Vec::with_capacity(max_new);
+        for _ in 0..max_new {
+            let pos = self.position() as u64;
+            let recent_start = self.recent.len().saturating_sub(self.config.recent_window);
+            let token = self.config.sampler.sample_seeded(
+                &logits,
+                &self.recent[recent_start..],
+                seed.wrapping_add(pos),
+            )?;
+            self.recent.push(token);
+            generated.push(token);
+            if stop_tokens.contains(&token) {
+                break;
+            }
+            logits = self.forward(token)?;
+        }
+        Ok(generated)
+    }
+
     /// Streaming generation: identical to [`generate_masked`](Self::generate_masked)
     /// but invokes `on_token` with each sampled token id the instant it is
     /// produced (before the next forward pass), so a server can emit tokens as
@@ -478,6 +516,39 @@ mod tests {
         // reproducible
         let mut m2 = DecoderStack::new(cfg).unwrap();
         assert_eq!(out, m2.generate_no_repeat_ngram(&prompt, 12, 7, 3).unwrap());
+    }
+
+    #[test]
+    fn generate_until_stops_at_a_stop_token() {
+        let cfg = config(8, 4, 2, Sampler::new(SamplerConfig::default()));
+        let prompt = [1usize, 2];
+        // Discover the first greedy/sampled token, then make it a stop token →
+        // generation must end after exactly one token (the stop token).
+        let first = DecoderStack::new(cfg.clone())
+            .unwrap()
+            .generate(&prompt, 1, 9)
+            .unwrap()[0];
+        let mut m = DecoderStack::new(cfg.clone()).unwrap();
+        let out = m.generate_until(&prompt, 10, 9, &[first]).unwrap();
+        assert_eq!(out, vec![first]);
+
+        // Empty stop set → identical to generate (full length).
+        let mut a = DecoderStack::new(cfg.clone()).unwrap();
+        let mut b = DecoderStack::new(cfg).unwrap();
+        assert_eq!(
+            a.generate_until(&prompt, 6, 9, &[]).unwrap(),
+            b.generate(&prompt, 6, 9).unwrap()
+        );
+    }
+
+    #[test]
+    fn generate_until_empty_prompt_errors() {
+        let mut m =
+            DecoderStack::new(config(6, 4, 1, Sampler::new(SamplerConfig::default()))).unwrap();
+        assert_eq!(
+            m.generate_until(&[], 3, 1, &[0]).unwrap_err(),
+            StackError::EmptyPrompt
+        );
     }
 
     #[test]
