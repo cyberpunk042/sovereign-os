@@ -19,7 +19,7 @@
 //! (via the engine's streaming API) before the served result is recorded.
 //! Usage: `sovereign-serve [--stream] [PROMPT…]` · `sovereign-serve --help`.
 
-use sovereign_decoder_stack::StackConfig;
+use sovereign_decoder_stack::{GenOptions, StackConfig};
 use sovereign_ffn::SwiGlu;
 use sovereign_llm::SovereignLlm;
 use sovereign_rmsnorm::RmsNorm;
@@ -85,6 +85,7 @@ USAGE:
     sovereign-serve PROMPT [PROMPT…]   serve each prompt (unlimited budget; a
                                        repeated prompt is a $0 cache hit)
     sovereign-serve --stream PROMPT…   stream each generated token as it arrives
+    sovereign-serve --no-repeat-ngram N PROMPT…  block repeated N-grams (unified path)
     sovereign-serve --help             print this help and exit";
 
 fn main() {
@@ -94,19 +95,36 @@ fn main() {
         return;
     }
     let stream = args.iter().any(|a| a == "--stream");
+    // `--no-repeat-ngram N` drives the unified composable generation path.
+    let nrn_idx = args.iter().position(|a| a == "--no-repeat-ngram");
+    let no_repeat: Option<usize> = nrn_idx
+        .and_then(|i| args.get(i + 1))
+        .and_then(|v| v.parse().ok());
+    // Exclude flags (and the value following --no-repeat-ngram) from prompts.
+    let skip: std::collections::HashSet<usize> = match (nrn_idx, no_repeat.is_some()) {
+        (Some(i), true) => [i, i + 1].into_iter().collect(),
+        _ => std::collections::HashSet::new(),
+    };
     let prompts: Vec<&str> = args
         .iter()
-        .filter(|a| !a.starts_with('-'))
-        .map(String::as_str)
+        .enumerate()
+        .filter(|(j, a)| !a.starts_with('-') && !skip.contains(j))
+        .map(|(_, a)| a.as_str())
         .collect();
 
     // Build the engine once; its `complete` (immutable, reproducible per seed)
-    // backs every generate step. With `--stream`, each token is printed the
-    // instant the model emits it, then the decoded completion is returned for
-    // caching + accounting.
+    // backs every generate step. `--no-repeat-ngram N` uses the unified
+    // GenOptions path; `--stream` prints each token as the model emits it; the
+    // decoded completion is returned for caching + accounting.
     let llm = runtime();
     let generate = |prompt: &str, max_new: usize, seed: u64| -> Result<String, String> {
-        if stream {
+        if let Some(n) = no_repeat {
+            let opts = GenOptions::new(max_new).with_no_repeat_ngram(n);
+            let ids = llm
+                .generate_ids_with(prompt, seed, &opts, |_| {})
+                .map_err(|e| e.to_string())?;
+            Ok(llm.tokenizer().decode(&ids).unwrap_or_default())
+        } else if stream {
             print!("  stream:");
             let ids = llm
                 .generate_ids_streaming(prompt, max_new, seed, |id| {
