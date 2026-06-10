@@ -133,6 +133,24 @@ impl SovereignLlm {
         Ok(self.tokenizer.decode(&generated).unwrap_or_default())
     }
 
+    /// Complete `prompt`, then **scrub the output**: redact any secrets (API
+    /// keys, tokens — `sovereign-secret-scan`) and then any PII (emails, SSNs,
+    /// phone numbers — `sovereign-pii-redact`) from the generated text before
+    /// returning it. A grounded runtime can echo sensitive material that leaked
+    /// in from a retrieved document or the prompt; this is the egress filter that
+    /// keeps it out of the response. Secrets are scrubbed first so a token that
+    /// also looks like PII is tagged as the secret. Reproducible per `seed`.
+    pub fn complete_redacted(
+        &self,
+        prompt: &str,
+        max_new: usize,
+        seed: u64,
+    ) -> Result<String, LlmError> {
+        let text = self.complete(prompt, max_new, seed)?;
+        let no_secrets = sovereign_secret_scan::redact(&text);
+        Ok(sovereign_pii_redact::redact(&no_secrets))
+    }
+
     /// Complete `prompt`, then run a **degeneration check** on the output: the
     /// completion text is analysed (`sovereign-degeneration`) for loop/repeat
     /// collapse — longest repeated substring, rep-n diversity, repeat coverage —
@@ -680,6 +698,24 @@ mod tests {
         // the report is exactly analyze() of that text — the wiring is faithful
         assert_eq!(report, analyze(&text, &cfg));
         assert!((0.0..=1.0).contains(&report.distinct_ngram_ratio));
+    }
+
+    #[test]
+    fn complete_redacted_matches_the_manual_scrub_pipeline() {
+        let llm = runtime(Sampler::greedy());
+        let raw = llm.complete("hello", 12, 5).unwrap();
+        let expected = sovereign_pii_redact::redact(&sovereign_secret_scan::redact(&raw));
+        assert_eq!(llm.complete_redacted("hello", 12, 5).unwrap(), expected);
+    }
+
+    #[test]
+    fn scrub_pipeline_removes_a_planted_secret_and_email() {
+        // The composition the runtime applies removes both classes: an AWS key
+        // (secret) and an email (PII) are gone after the two-stage scrub.
+        let leaky = "key AKIAIOSFODNN7EXAMPLE and email bob@mail.com here";
+        let scrubbed = sovereign_pii_redact::redact(&sovereign_secret_scan::redact(leaky));
+        assert!(!scrubbed.contains("AKIAIOSFODNN7EXAMPLE"), "{scrubbed}");
+        assert!(!scrubbed.contains("bob@mail.com"), "{scrubbed}");
     }
 
     #[test]

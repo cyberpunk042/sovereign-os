@@ -25,6 +25,8 @@ sovereign-prompt-compress = { path = "../sovereign-prompt-compress" }
 sovereign-diversity = { path = "../sovereign-diversity" }
 sovereign-degeneration = { path = "../sovereign-degeneration" }
 sovereign-answer-extract = { path = "../sovereign-answer-extract" }
+sovereign-secret-scan = { path = "../sovereign-secret-scan" }
+sovereign-pii-redact = { path = "../sovereign-pii-redact" }
 
 [dev-dependencies]
 sovereign-transformer-block = { path = "../sovereign-transformer-block" }
