@@ -82,6 +82,20 @@ impl SpecResult {
             self.accepted as f64 / self.proposed as f64
         }
     }
+
+    /// Realized speedup: committed tokens per verification round — i.e. tokens
+    /// emitted per single target pass. This is the headline DFlash number, the
+    /// *measured* analogue of `sovereign_spec_decode::expected_speedup`. `1.0`
+    /// means no win (one token per pass); higher is better. `0.0` if no rounds
+    /// ran. Note `tokens` is truncated to `max_new`, so a partial final round
+    /// can make this a slight underestimate of the per-round acceptance.
+    pub fn realized_speedup(&self) -> f64 {
+        if self.rounds == 0 {
+            0.0
+        } else {
+            self.tokens.len() as f64 / self.rounds as f64
+        }
+    }
 }
 
 /// A speculative decoder.
@@ -548,6 +562,25 @@ mod tests {
         assert!(spec.accepted <= spec.proposed);
         assert_eq!(target.position(), 0);
         assert_eq!(draft.position(), 0);
+    }
+
+    #[test]
+    fn realized_speedup_is_tokens_per_round() {
+        // Self-draft → every proposal accepted → each round commits draft_len+1
+        // tokens, so the realized speedup approaches draft_len+1.
+        let target = model(8, 0.0);
+        let spec = Speculative::new(4, 100)
+            .decode(&target, &target, &[1, 2])
+            .unwrap();
+        assert!(
+            (spec.realized_speedup() - spec.tokens.len() as f64 / spec.rounds as f64).abs() < 1e-9
+        );
+        // With 100% acceptance and draft_len 4, each round emits ~5 tokens.
+        assert!(
+            spec.realized_speedup() > 4.0,
+            "speedup {} should exceed 4 at full acceptance",
+            spec.realized_speedup()
+        );
     }
 
     #[test]
