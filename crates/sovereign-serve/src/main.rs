@@ -86,6 +86,8 @@ USAGE:
                                        repeated prompt is a $0 cache hit)
     sovereign-serve --stream PROMPT…   stream each generated token as it arrives
     sovereign-serve --no-repeat-ngram N PROMPT…  block repeated N-grams (unified path)
+    sovereign-serve --semantic PROMPT… enable the semantic cache tier: a
+                                       paraphrase of a served prompt is a $0 hit
     sovereign-serve --help             print this help and exit";
 
 fn main() {
@@ -95,6 +97,7 @@ fn main() {
         return;
     }
     let stream = args.iter().any(|a| a == "--stream");
+    let semantic = args.iter().any(|a| a == "--semantic");
     // `--no-repeat-ngram N` drives the unified composable generation path.
     let nrn_idx = args.iter().position(|a| a == "--no-repeat-ngram");
     let no_repeat: Option<usize> = nrn_idx
@@ -144,6 +147,9 @@ fn main() {
         // Demo: a small total-token budget so the session shows a real refusal,
         // and a repeated prompt so it shows a $0 cache hit.
         let mut server = Server::with_budget(64, Budget::total(40));
+        if semantic {
+            server = server.with_semantic(64, 0.6);
+        }
         run_session(
             &mut server,
             &[
@@ -158,6 +164,9 @@ fn main() {
         // Serve the operator's prompts on an unlimited budget; a repeated prompt
         // still resolves as a $0 cache hit.
         let mut server = Server::new(64);
+        if semantic {
+            server = server.with_semantic(64, 0.6);
+        }
         // Fixed seed so an identical prompt resolves as a $0 cache hit.
         let session: Vec<(&str, usize, u64)> = prompts.iter().map(|p| (*p, 16, 0u64)).collect();
         run_session(&mut server, &session, generate);
@@ -171,6 +180,7 @@ where
     G: FnMut(&str, usize, u64) -> Result<String, String>,
 {
     let mut cache_hits = 0usize;
+    let mut semantic_hits = 0usize;
     let mut refused = 0usize;
     for &(prompt, max_new, seed) in session {
         match server.serve(prompt, max_new, seed, words, &mut generate) {
@@ -178,9 +188,19 @@ where
                 if r.cache_hit {
                     cache_hits += 1;
                 }
+                if r.semantic_hit {
+                    semantic_hits += 1;
+                }
+                let kind = if r.semantic_hit {
+                    "semantic"
+                } else if r.cache_hit {
+                    "exact"
+                } else {
+                    "miss"
+                };
                 println!(
-                    "serve  ok   | cache_hit={:<5} tier={:?} in={} out={} | {prompt:?} -> {:?}",
-                    r.cache_hit, r.tier, r.input_tokens, r.output_tokens, r.text
+                    "serve  ok   | hit={kind:<8} tier={:?} in={} out={} | {prompt:?} -> {:?}",
+                    r.tier, r.input_tokens, r.output_tokens, r.text
                 );
             }
             Err(e) => {
@@ -191,8 +211,9 @@ where
     }
 
     let usage = server.meter().usage();
+    let exact_hits = cache_hits - semantic_hits;
     println!(
-        "# session: {} request(s), {cache_hits} cache hit(s) ($0), {refused} refused",
+        "# session: {} request(s), {cache_hits} cache hit(s) ($0) [{exact_hits} exact, {semantic_hits} semantic], {refused} refused",
         session.len()
     );
     println!(

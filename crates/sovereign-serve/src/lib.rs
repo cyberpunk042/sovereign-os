@@ -21,7 +21,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-use sovereign_completion_cache::{CompletionCache, request_key};
+use sovereign_completion_cache::{CompletionCache, SemanticCache, request_key};
 use sovereign_complexity::{Complexity, Tier};
 use sovereign_token_meter::{Budget, MeterError, TokenMeter};
 use thiserror::Error;
@@ -45,8 +45,13 @@ pub enum ServeError {
 pub struct ServeResult {
     /// The completion text.
     pub text: String,
-    /// Whether it came from cache (and so cost nothing to produce).
+    /// Whether it came from a cache (exact **or** semantic) and so cost nothing
+    /// to produce.
     pub cache_hit: bool,
+    /// Whether the hit came from the **semantic** cache — a near-duplicate
+    /// (paraphrased) prompt reused, rather than a byte-identical request.
+    /// Always `false` on an exact hit or a miss.
+    pub semantic_hit: bool,
     /// The request's estimated complexity tier.
     pub tier: Tier,
     /// Input tokens charged (0 on a cache hit).
@@ -59,6 +64,9 @@ pub struct ServeResult {
 #[derive(Debug, Clone)]
 pub struct Server {
     cache: CompletionCache,
+    /// Optional second-tier semantic cache: when the exact cache misses, a
+    /// near-duplicate (paraphrased) prompt can still be served for `$0`.
+    semantic: Option<SemanticCache>,
     meter: TokenMeter,
 }
 
@@ -67,6 +75,7 @@ impl Server {
     pub fn new(cache_capacity: usize) -> Self {
         Self {
             cache: CompletionCache::new(cache_capacity),
+            semantic: None,
             meter: TokenMeter::new(),
         }
     }
@@ -75,8 +84,29 @@ impl Server {
     pub fn with_budget(cache_capacity: usize, budget: Budget) -> Self {
         Self {
             cache: CompletionCache::new(cache_capacity),
+            semantic: None,
             meter: TokenMeter::with_budget(budget),
         }
+    }
+
+    /// Enable a second-tier **semantic** cache holding up to `capacity` prompts,
+    /// returning a `$0` hit when a new prompt's cosine similarity to a
+    /// previously-served prompt is at least `threshold` (e.g. `0.9`). The exact
+    /// cache is still checked first; the semantic layer catches paraphrases the
+    /// byte-exact key would miss. Fluent: `Server::new(64).with_semantic(64, 0.9)`.
+    pub fn with_semantic(mut self, capacity: usize, threshold: f32) -> Self {
+        self.semantic = Some(SemanticCache::new(capacity, threshold));
+        self
+    }
+
+    /// Whether the semantic cache tier is enabled.
+    pub fn has_semantic(&self) -> bool {
+        self.semantic.is_some()
+    }
+
+    /// Semantic-cache hit rate so far (`0.0` if disabled or never queried).
+    pub fn semantic_hit_rate(&self) -> f64 {
+        self.semantic.as_ref().map_or(0.0, SemanticCache::hit_rate)
     }
 
     /// The token meter (usage + budget).
@@ -108,12 +138,27 @@ impl Server {
         let complexity: Complexity = sovereign_complexity::estimate(prompt);
         let tier = complexity.tier();
 
-        // 1. cache — a hit costs nothing
+        // 1. exact cache — a byte-identical request costs nothing
         let key = request_key(prompt, max_new, seed);
         if let Some(text) = self.cache.get(key) {
             return Ok(ServeResult {
                 text,
                 cache_hit: true,
+                semantic_hit: false,
+                tier,
+                input_tokens: 0,
+                output_tokens: 0,
+            });
+        }
+
+        // 2. semantic cache — a paraphrase of a served prompt also costs nothing
+        if let Some(sem) = self.semantic.as_mut()
+            && let Some(text) = sem.get(prompt)
+        {
+            return Ok(ServeResult {
+                text,
+                cache_hit: true,
+                semantic_hit: true,
                 tier,
                 input_tokens: 0,
                 output_tokens: 0,
@@ -136,14 +181,18 @@ impl Server {
         let text = generate(prompt, max_new, seed).map_err(ServeError::Generate)?;
         let output_tokens = count_tokens(&text);
 
-        // 5. account & cache
+        // 5. account & cache (exact key always; semantic tier if enabled)
         self.meter.record_input(input_tokens);
         self.meter.record_output(output_tokens);
         self.cache.put(key, text.clone());
+        if let Some(sem) = self.semantic.as_mut() {
+            sem.insert(prompt, text.clone());
+        }
 
         Ok(ServeResult {
             text,
             cache_hit: false,
+            semantic_hit: false,
             tier,
             input_tokens,
             output_tokens,
@@ -243,6 +292,55 @@ mod tests {
             srv.serve("p", 4, 1, words, g).unwrap_err(),
             ServeError::Generate("model died".to_string())
         );
+    }
+
+    #[test]
+    fn semantic_cache_serves_a_paraphrase_for_free() {
+        let mut srv = Server::new(8).with_semantic(8, 0.6);
+        assert!(srv.has_semantic());
+        let calls = Cell::new(0);
+        let g = |_p: &str, _m: usize, _s: u64| {
+            calls.set(calls.get() + 1);
+            Ok("click forgot password".to_string())
+        };
+
+        // First request runs the model and seeds both cache tiers.
+        let r1 = srv
+            .serve("how do I reset my password", 10, 1, words, g)
+            .unwrap();
+        assert!(!r1.cache_hit);
+        assert_eq!(calls.get(), 1);
+
+        // A paraphrase with a *different* seed misses the exact key but hits the
+        // semantic tier → served for $0, model NOT run again.
+        let r2 = srv
+            .serve("how can I reset the password", 10, 2, words, g)
+            .unwrap();
+        assert!(r2.cache_hit);
+        assert!(r2.semantic_hit);
+        assert_eq!(r2.text, "click forgot password");
+        assert_eq!(r2.output_tokens, 0);
+        assert_eq!(calls.get(), 1); // unchanged — no generation
+        assert!(srv.semantic_hit_rate() > 0.0);
+    }
+
+    #[test]
+    fn without_semantic_a_paraphrase_runs_the_model() {
+        // Default server has no semantic tier: a paraphrase is a fresh request.
+        let mut srv = Server::new(8);
+        assert!(!srv.has_semantic());
+        let calls = Cell::new(0);
+        let g = |_p: &str, _m: usize, _s: u64| {
+            calls.set(calls.get() + 1);
+            Ok("answer".to_string())
+        };
+        srv.serve("how do I reset my password", 10, 1, words, g)
+            .unwrap();
+        let r2 = srv
+            .serve("how can I reset the password", 10, 1, words, g)
+            .unwrap();
+        assert!(!r2.cache_hit);
+        assert_eq!(calls.get(), 2); // both ran
     }
 
     #[test]
