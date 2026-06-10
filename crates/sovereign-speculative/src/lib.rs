@@ -26,7 +26,7 @@
 
 use sovereign_decoder_stack::{DecoderStack, StackError};
 use sovereign_sampler::{Sampler, SamplerError};
-use sovereign_spec_decode::{SpecError, verify_sampled};
+use sovereign_spec_decode::{SpecError, prompt_lookup_draft, verify_greedy, verify_sampled};
 use thiserror::Error;
 
 /// Schema version of the speculative-decoding surface.
@@ -291,6 +291,82 @@ impl Speculative {
             rounds,
         })
     }
+
+    /// Decode **draft-free** speculatively via prompt-lookup (PLD): instead of a
+    /// draft model, each round proposes the continuation of the most-recent
+    /// earlier occurrence of the current `ngram` suffix (capped at `max_draft`),
+    /// then the target verifies it greedily — committing the accepted prefix +
+    /// one corrected token. When no lookup match exists, it emits a single
+    /// target-greedy token. Like [`decode`](Self::decode) the output is exactly
+    /// the target's greedy decoding (lossless); only the *speed* depends on how
+    /// often the context repeats. Needs no second model.
+    pub fn decode_prompt_lookup(
+        &self,
+        target: &DecoderStack,
+        prompt: &[usize],
+        ngram: usize,
+        max_draft: usize,
+    ) -> Result<SpecResult, SpeculativeError> {
+        if prompt.is_empty() {
+            return Err(SpeculativeError::EmptyPrompt);
+        }
+        let mut target = target.clone();
+        let mut target_logits = prime(&mut target, prompt)?;
+        let mut context: Vec<u32> = prompt.iter().map(|&t| t as u32).collect();
+
+        let mut out = Vec::new();
+        let mut proposed = 0usize;
+        let mut accepted = 0usize;
+        let mut rounds = 0usize;
+
+        while out.len() < self.max_new {
+            rounds += 1;
+            let draft = prompt_lookup_draft(&context, ngram, max_draft);
+
+            if draft.is_empty() {
+                // No lookup match → emit one greedy target token.
+                let t = argmax(&target_logits);
+                out.push(t);
+                context.push(t as u32);
+                target_logits = target.forward(t)?;
+                continue;
+            }
+            proposed += draft.len();
+
+            // Teacher-force the target over the draft to get its greedy token at
+            // each position (including the bonus), on a fork.
+            let mut tf = target.clone();
+            let mut tlog = target_logits.clone();
+            let mut target_greedy = Vec::with_capacity(draft.len() + 1);
+            target_greedy.push(argmax(&tlog) as u32);
+            for &d in &draft {
+                tlog = tf.forward(d as usize)?;
+                target_greedy.push(argmax(&tlog) as u32);
+            }
+
+            // Greedy accept rule → accepted prefix + one corrected token.
+            let outcome = verify_greedy(&draft, &target_greedy)?;
+            accepted += outcome.accepted;
+            let emitted: Vec<usize> = draft[..outcome.accepted]
+                .iter()
+                .map(|&t| t as usize)
+                .chain(std::iter::once(outcome.corrected_token as usize))
+                .collect();
+            for &e in &emitted {
+                target_logits = target.forward(e)?;
+                context.push(e as u32);
+                out.push(e);
+            }
+        }
+
+        out.truncate(self.max_new);
+        Ok(SpecResult {
+            tokens: out,
+            proposed,
+            accepted,
+            rounds,
+        })
+    }
 }
 
 /// A small deterministic splitmix64 → uniform `[0, 1)` source, so sampled
@@ -440,6 +516,32 @@ mod tests {
                 .unwrap();
             assert_eq!(spec.tokens, g, "draft_len {k}");
         }
+    }
+
+    #[test]
+    fn prompt_lookup_decode_is_lossless_vs_greedy() {
+        // Draft-free PLD speculative decoding must equal greedy target decoding,
+        // regardless of how often (or whether) the context repeats.
+        let target = model(10, 0.0);
+        let g = greedy(target.clone(), &[3, 1, 4, 1, 5], 12);
+        for (ngram, max_draft) in [(1usize, 3usize), (2, 4), (3, 2)] {
+            let spec = Speculative::new(4, 12)
+                .decode_prompt_lookup(&target, &[3, 1, 4, 1, 5], ngram, max_draft)
+                .unwrap();
+            assert_eq!(spec.tokens, g, "ngram {ngram}, max_draft {max_draft}");
+            assert!(spec.accepted <= spec.proposed);
+        }
+    }
+
+    #[test]
+    fn prompt_lookup_decode_empty_prompt_errors() {
+        let target = model(8, 0.0);
+        assert_eq!(
+            Speculative::new(3, 6)
+                .decode_prompt_lookup(&target, &[], 2, 3)
+                .unwrap_err(),
+            SpeculativeError::EmptyPrompt
+        );
     }
 
     #[test]
