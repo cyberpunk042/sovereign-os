@@ -135,11 +135,18 @@ rc=$?
 set -e
 wait $WRITER 2>/dev/null || true
 
-# Expected exit-code: stream EOFed normally → 0
-if [ "${rc}" -eq 0 ]; then
-  ok "guardian exits cleanly on EOF"
+# Expected exit-code: the event stream reaching EOF means the Tetragon
+# producer went away — the M084 dropout contract (transposition dump 765
+# verbatim: "instantly restart the security loop if the local UNIX socket
+# encounters an end-of-file (EOF) exception"). guardian-core.py logs
+# [EOF]/perimeter-blind and exits NONZERO so the systemd Restart=always
+# recovery is recorded as a failure-restart. rc==1 + the [EOF] evidence is
+# the pass condition (was rc==0 pre-M084; changed deliberately, locked by
+# tests/lint/test_guardian_core_service_bidir.py::test_script_eof_exits_nonzero).
+if [ "${rc}" -eq 1 ] && grep -q "\[EOF\]" "${TMPDIR_TEST}/stdout"; then
+  ok "guardian exits nonzero + logs [EOF] on stream dropout (M084)"
 else
-  ko "guardian rc=${rc}"
+  ko "guardian rc=${rc} (expected 1 + [EOF] evidence per M084 dropout contract)"
 fi
 
 # audit log got exactly one VIOLATION line
