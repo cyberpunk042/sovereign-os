@@ -24,7 +24,7 @@ use sovereign_nvfp4_runtime::{
     relative_frobenius_error,
 };
 use sovereign_router_7axis::SrpRole;
-use sovereign_spec_decode::expected_speedup;
+use sovereign_spec_decode::{expected_speedup, verify_sampled};
 
 /// Nominal per-token acceptance rate assumed when estimating speculative-
 /// decoding throughput on the GPU target roles.
@@ -55,8 +55,42 @@ pub struct ComputeProfile {
     /// this role — `1.0` where spec-decode doesn't apply (CPU draft / cloud),
     /// `> 1.0` on the GPU target roles (DFlash family, M077/M073 draft).
     pub expected_throughput_x: f64,
+    /// Whether the DFlash speculative-decoding accept path self-checked live on
+    /// this role: a real distribution-preserving [`verify_sampled`] round
+    /// confirmed callable + correct. Only the GPU target roles verify the
+    /// spec-decode path they actually use; the CPU draft and cloud planes don't.
+    pub spec_decode_verified: bool,
     /// Short note on the precision/runtime.
     pub note: &'static str,
+}
+
+/// Live self-check of the speculative-decoding accept path: run the real
+/// distribution-preserving [`verify_sampled`] through a full-accept round and
+/// a forced-rejection round, confirming the accept rule and residual
+/// correction behave exactly. Proves the GPU target role's spec-decode path is
+/// callable and correct, not just an estimated multiplier.
+fn spec_decode_kernel_live() -> bool {
+    // Full accept: target == draft, u = 0 < ratio 1 → both tokens accepted,
+    // bonus appended from the bonus distribution ([0,1] → token 1).
+    let draft = [0u32, 1];
+    let pd = [vec![0.5, 0.5], vec![0.5, 0.5]];
+    let pt = [vec![0.5, 0.5], vec![0.5, 0.5], vec![0.0, 1.0]];
+    let mut zero = || 0.0f64;
+    let full = matches!(
+        verify_sampled(&draft, &pd, &pt, &mut zero),
+        Ok(o) if o.accepted == 2 && o.emitted_tokens == vec![0u32, 1, 1]
+    );
+    // Forced reject: draft token 0 has target prob 0 → ratio 0, u = 0 →
+    // rejected; correction drawn from the positive residual, never token 0.
+    let rdraft = [0u32];
+    let rpd = [vec![1.0, 0.0, 0.0]];
+    let rpt = [vec![0.0, 0.5, 0.5], vec![1.0, 0.0, 0.0]];
+    let mut zero2 = || 0.0f64;
+    let rejected = matches!(
+        verify_sampled(&rdraft, &rpd, &rpt, &mut zero2),
+        Ok(o) if o.accepted == 0 && o.emitted_tokens.len() == 1 && o.emitted_tokens[0] != 0
+    );
+    full && rejected
 }
 
 /// Expected speculative-decoding throughput multiplier for the GPU target
@@ -213,6 +247,7 @@ impl ComputeProfile {
                     kernel_verified: ternary_kernel_live(),
                     attention_verified: attention_kernel_live(),
                     expected_throughput_x: 1.0, // the draft model itself; no spec-decode
+                    spec_decode_verified: false, // draft model; doesn't verify the target path
                     note: "mul → conditional add/sub; no de-quant at execution (M073)",
                 }
             }
@@ -226,6 +261,7 @@ impl ComputeProfile {
                     kernel_verified: nvfp4_kernel_live(),
                     attention_verified: attention_kernel_live(),
                     expected_throughput_x: gpu_spec_throughput(),
+                    spec_decode_verified: spec_decode_kernel_live(),
                     note: "4-bit microscaled, 16-value blocks (M077)",
                 }
             }
@@ -239,6 +275,7 @@ impl ComputeProfile {
                     kernel_verified: true, // native FP16 needs no quantization kernel
                     attention_verified: attention_kernel_live(),
                     expected_throughput_x: gpu_spec_throughput(),
+                    spec_decode_verified: spec_decode_kernel_live(),
                     note: "full-precision deep reasoning (M075)",
                 }
             }
@@ -250,6 +287,7 @@ impl ComputeProfile {
                 kernel_verified: false, // no local kernel runs for remote work
                 attention_verified: false, // no local kernel runs for remote work
                 expected_throughput_x: 1.0, // remote; local spec-decode N/A
+                spec_decode_verified: false, // no local kernel runs for remote work
                 note: "executed off-node; local compute profile N/A",
             },
         }
@@ -334,6 +372,21 @@ mod tests {
     #[test]
     fn attention_kernel_is_callable_and_faithful() {
         assert!(attention_kernel_live());
+    }
+
+    #[test]
+    fn spec_decode_kernel_is_callable_and_correct() {
+        assert!(spec_decode_kernel_live());
+    }
+
+    #[test]
+    fn gpu_roles_verify_spec_decode_others_dont() {
+        // Logic + Oracle run the GPU target spec-decode path → verified live.
+        assert!(ComputeProfile::for_role(SrpRole::Logic, ONE_B).spec_decode_verified);
+        assert!(ComputeProfile::for_role(SrpRole::Oracle, ONE_B).spec_decode_verified);
+        // Conductor is the draft model; Cloud is remote → neither verifies it.
+        assert!(!ComputeProfile::for_role(SrpRole::Conductor, ONE_B).spec_decode_verified);
+        assert!(!ComputeProfile::for_role(SrpRole::Cloud, ONE_B).spec_decode_verified);
     }
 
     #[test]
