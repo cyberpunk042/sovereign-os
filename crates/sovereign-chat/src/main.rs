@@ -121,6 +121,39 @@ fn parse_sampler_args(args: &[String]) -> (SamplerConfig, Vec<String>) {
     (cfg, messages)
 }
 
+/// Extract a `--format NAME` / `--format=NAME` flag from `args`, returning the
+/// selected [`ChatFormat`] (if any and recognized) and the remaining arguments.
+/// An unrecognized name is ignored (left to the plain default).
+fn extract_format(args: &[String]) -> (Option<sovereign_chat_template::ChatFormat>, Vec<String>) {
+    use sovereign_chat_template::ChatFormat;
+    let mut format = None;
+    let mut rest = Vec::new();
+    let mut i = 0;
+    while i < args.len() {
+        let a = &args[i];
+        let (key, inline) = match a.split_once('=') {
+            Some((k, v)) => (k, Some(v.to_string())),
+            None => (a.as_str(), None),
+        };
+        if key == "--format" {
+            let val = inline.or_else(|| {
+                i += 1;
+                args.get(i).cloned()
+            });
+            format = match val.as_deref().map(str::to_lowercase).as_deref() {
+                Some("chatml") => Some(ChatFormat::ChatML),
+                Some("llama2") => Some(ChatFormat::Llama2),
+                Some("alpaca") => Some(ChatFormat::Alpaca),
+                _ => format, // unrecognized → keep prior (None) and drop the flag
+            };
+        } else {
+            rest.push(a.clone());
+        }
+        i += 1;
+    }
+    (format, rest)
+}
+
 const USAGE: &str = "\
 sovereign-chat — multi-turn conversation with bounded history on the real engine
 
@@ -134,6 +167,8 @@ DECODE CONTROLS (apply to generation; any combination):
         --top-k N         keep only the N highest-probability tokens
         --top-p F         nucleus threshold in (0,1]
         --typical-p F     locally-typical mass threshold in (0,1]
+        --format NAME     chat-template dialect: chatml | llama2 | alpaca
+                          (default: plain Role:-labelled prompt)
     (also accepts --flag=value form)";
 
 fn main() {
@@ -144,6 +179,7 @@ fn main() {
     }
 
     let (sampler_cfg, args) = parse_sampler_args(&raw);
+    let (format, args) = extract_format(&args);
 
     // Bound retained history to 4 non-system messages (≈ 2 turns) so the prompt
     // stays small no matter how long the dialogue runs.
@@ -154,6 +190,9 @@ fn main() {
         6,
     )
     .with_max_turns(MAX_TURNS);
+    if let Some(fmt) = format {
+        chat = chat.with_format(fmt);
+    }
 
     // Operator messages if given, else a built-in demo dialogue. Either way the
     // history-bounding (the assembly's point) operates on the real turns.
@@ -244,6 +283,25 @@ mod tests {
         // as a message rather than silently consumed.
         let (cfg, _msgs) = parse_sampler_args(&s(&["--top-k", "notanumber"]));
         assert_eq!(cfg.top_k, None);
+    }
+
+    #[test]
+    fn extracts_format_flag_and_keeps_messages() {
+        use sovereign_chat_template::ChatFormat;
+        let (fmt, msgs) = extract_format(&s(&["hello", "--format", "chatml", "world"]));
+        assert_eq!(fmt, Some(ChatFormat::ChatML));
+        assert_eq!(msgs, s(&["hello", "world"]));
+        // equals form + alpaca
+        let (fmt2, _) = extract_format(&s(&["--format=alpaca"]));
+        assert_eq!(fmt2, Some(ChatFormat::Alpaca));
+        // unrecognized → None, flag dropped
+        let (fmt3, m3) = extract_format(&s(&["--format", "bogus", "hi"]));
+        assert_eq!(fmt3, None);
+        assert_eq!(m3, s(&["hi"]));
+        // absent → None, messages untouched
+        let (fmt4, m4) = extract_format(&s(&["just", "talk"]));
+        assert_eq!(fmt4, None);
+        assert_eq!(m4, s(&["just", "talk"]));
     }
 
     #[test]

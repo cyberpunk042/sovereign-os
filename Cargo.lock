@@ -434,6 +434,7 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "sovereign-chat-template",
  "sovereign-decoder-stack",
  "sovereign-ffn",
  "sovereign-llm",

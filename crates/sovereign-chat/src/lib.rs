@@ -129,6 +129,28 @@ impl Conversation {
         s
     }
 
+    /// Render the history using a real chat-template dialect (ChatML / Llama-2 /
+    /// Alpaca / custom) via [`sovereign-chat-template`](sovereign_chat_template)'s
+    /// `apply_chat_template`, appending the assistant generation cue. Use this
+    /// when the model was trained on a specific turn format — the plain
+    /// [`render_prompt`](Self::render_prompt) labels (`User:`/`Assistant:`) are a
+    /// neutral default, but an instruction-tuned model needs its exact dialect.
+    pub fn render_prompt_with(&self, format: &sovereign_chat_template::ChatFormat) -> String {
+        let msgs: Vec<sovereign_chat_template::Message> = self
+            .messages
+            .iter()
+            .map(|m| {
+                let role = match m.role {
+                    Role::System => sovereign_chat_template::Role::System,
+                    Role::User => sovereign_chat_template::Role::User,
+                    Role::Assistant => sovereign_chat_template::Role::Assistant,
+                };
+                sovereign_chat_template::Message::new(role, m.content.clone())
+            })
+            .collect();
+        sovereign_chat_template::render(&msgs, format, true)
+    }
+
     /// Trim to at most `max_turns` non-system messages, keeping the most recent
     /// (the leading system message, if any, is always retained).
     pub fn trim_to(&mut self, max_turns: usize) {
@@ -155,6 +177,9 @@ pub struct ChatSession {
     max_new: usize,
     max_turns: Option<usize>,
     stops: StopSequences,
+    /// When set, render each prompt in this chat-template dialect instead of the
+    /// plain `Role:`-labelled default.
+    format: Option<sovereign_chat_template::ChatFormat>,
 }
 
 impl ChatSession {
@@ -172,12 +197,21 @@ impl ChatSession {
             max_new,
             max_turns: None,
             stops: StopSequences::from(["\nUser:", "\nSystem:"]),
+            format: None,
         }
     }
 
     /// Bound the retained history to `max_turns` non-system messages.
     pub fn with_max_turns(mut self, max_turns: usize) -> Self {
         self.max_turns = Some(max_turns);
+        self
+    }
+
+    /// Render prompts in a specific chat-template dialect (ChatML / Llama-2 /
+    /// Alpaca / custom) via [`Conversation::render_prompt_with`], instead of the
+    /// plain `Role:`-labelled default — for a model trained on that exact format.
+    pub fn with_format(mut self, format: sovereign_chat_template::ChatFormat) -> Self {
+        self.format = Some(format);
         self
     }
 
@@ -199,7 +233,10 @@ impl ChatSession {
         if let Some(max) = self.max_turns {
             self.conversation.trim_to(max);
         }
-        let prompt = self.conversation.render_prompt();
+        let prompt = match &self.format {
+            Some(fmt) => self.conversation.render_prompt_with(fmt),
+            None => self.conversation.render_prompt(),
+        };
         let full = self.llm.complete(&prompt, self.max_new, seed)?;
         // cut the reply at the first stop sequence (e.g. the next-turn cue)
         let reply = self.stops.cut(&full).to_string();
@@ -273,6 +310,32 @@ mod tests {
         assert!(p.contains("User: hi\n"));
         assert!(p.contains("Assistant: hello\n"));
         assert!(p.ends_with("Assistant:"));
+    }
+
+    #[test]
+    fn render_prompt_with_chatml_uses_turn_markers() {
+        use sovereign_chat_template::ChatFormat;
+        let mut c = Conversation::with_system("be terse");
+        c.push(Role::User, "hi");
+        let p = c.render_prompt_with(&ChatFormat::ChatML);
+        // ChatML wraps each turn in <|im_start|>role … <|im_end|> and cues the
+        // assistant turn at the end (add_generation_prompt).
+        assert!(p.contains("<|im_start|>system\nbe terse<|im_end|>"), "{p}");
+        assert!(p.contains("<|im_start|>user\nhi<|im_end|>"), "{p}");
+        assert!(p.trim_end().ends_with("<|im_start|>assistant"), "{p}");
+        // it differs from the plain default render
+        assert_ne!(p, c.render_prompt());
+    }
+
+    #[test]
+    fn session_with_format_uses_the_dialect() {
+        use sovereign_chat_template::ChatFormat;
+        // A formatted session still records turns correctly (the format only
+        // changes how the prompt is rendered to the model).
+        let mut s = ChatSession::new(runtime(), Some("sys"), 6).with_format(ChatFormat::ChatML);
+        let reply = s.say("hello there", 42).unwrap();
+        assert_eq!(s.history().len(), 3);
+        assert_eq!(s.history().messages[2].content, reply);
     }
 
     #[test]

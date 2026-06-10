@@ -21,6 +21,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 sovereign-llm = { path = "../sovereign-llm" }
+sovereign-chat-template = { path = "../sovereign-chat-template" }
 sovereign-stop-sequence = { path = "../sovereign-stop-sequence" }
 # Used by the demo binary to build a small SovereignLlm, and by the tests.
 sovereign-tokenizer = { path = "../sovereign-tokenizer" }
