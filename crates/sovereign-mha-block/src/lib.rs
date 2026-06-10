@@ -103,17 +103,18 @@ impl KvStore {
         Ok(())
     }
 
-    /// Drop the oldest cached vector (for sliding-window eviction).
-    fn remove_front(&mut self) {
+    /// Drop the cached vector at `idx` (for sliding-window / attention-sink
+    /// eviction). No-op if `idx` is out of range.
+    fn remove_at(&mut self, idx: usize) {
         match self {
             KvStore::Full(s) => {
-                if !s.is_empty() {
-                    s.remove(0);
+                if idx < s.len() {
+                    s.remove(idx);
                 }
             }
             KvStore::Quant(s) => {
-                if !s.is_empty() {
-                    s.remove(0);
+                if idx < s.len() {
+                    s.remove(idx);
                 }
             }
         }
@@ -186,6 +187,10 @@ pub struct MhaDecoderBlock {
     /// Sliding-window attention span: when set, each step attends to (and
     /// retains) only the most recent `window` positions. `None` = full causal.
     window: Option<usize>,
+    /// Number of initial "attention-sink" positions always kept in the cache
+    /// (StreamingLLM): eviction never drops the first `sink_count` entries, so
+    /// the window holds `sink_count` sinks + the most recent positions.
+    sink_count: usize,
     /// Absolute positions processed so far (the RoPE position counter), which
     /// keeps advancing even as the windowed cache drops old entries.
     position: usize,
@@ -251,6 +256,7 @@ impl MhaDecoderBlock {
             rotated_keys: KvStore::Full(Vec::new()),
             values: KvStore::Full(Vec::new()),
             window: None,
+            sink_count: 0,
             position: 0,
         })
     }
@@ -302,6 +308,22 @@ impl MhaDecoderBlock {
     /// The sliding-window span, or `None` for full causal attention.
     pub fn sliding_window(&self) -> Option<usize> {
         self.window
+    }
+
+    /// Keep the first `sinks` positions permanently cached as **attention
+    /// sinks** (StreamingLLM): under a sliding window, eviction preserves these
+    /// initial tokens (which absorb a large share of attention mass) instead of
+    /// dropping them, fixing the quality collapse of naive window eviction.
+    /// Only meaningful with a sliding window; `sinks` is capped at the window.
+    /// Must be called before any `step`.
+    pub fn with_attention_sinks(mut self, sinks: usize) -> Self {
+        self.sink_count = sinks;
+        self
+    }
+
+    /// Number of attention-sink positions kept (`0` = none).
+    pub fn attention_sinks(&self) -> usize {
+        self.sink_count
     }
 
     /// Number of key/value vectors currently held in the cache (bounded by the
@@ -385,11 +407,14 @@ impl MhaDecoderBlock {
         self.rotated_keys.push(k)?;
         self.values.push(v)?;
 
-        // Sliding-window eviction: keep only the most recent `window` entries.
+        // Sliding-window eviction: keep only `window` entries. With attention
+        // sinks, evict the oldest *non-sink* entry (index = sink_count) so the
+        // first `sink_count` positions stay cached.
         if let Some(w) = self.window {
+            let evict_idx = self.sink_count.min(w.saturating_sub(1));
             while self.values.len() > w {
-                self.rotated_keys.remove_front();
-                self.values.remove_front();
+                self.rotated_keys.remove_at(evict_idx);
+                self.values.remove_at(evict_idx);
             }
         }
         self.position += 1;
@@ -623,6 +648,68 @@ mod tests {
                 "windowed output must depend only on the window: {x} vs {y}"
             );
         }
+    }
+
+    #[test]
+    fn attention_sinks_retain_the_initial_token() {
+        // window 3, 1 sink. Feed a distinguishing first token, then 5 identical
+        // tokens. With a sink the first token stays cached, so its identity
+        // still affects the output; pure SWA (no sink) would have evicted it and
+        // the outputs would be identical.
+        let w = weights(8, 2, 4, 2, 16);
+        let tail: Vec<Vec<f32>> = (0..5)
+            .map(|s| (0..8).map(|i| ((i + s) as f32 * 0.2).sin()).collect())
+            .collect();
+        let run = |first: &[f32], sinks: usize| -> Vec<f32> {
+            let mut b = MhaDecoderBlock::from_weights(&w, Precision::F32)
+                .unwrap()
+                .with_sliding_window(3)
+                .with_attention_sinks(sinks);
+            let mut last = b.step(first).unwrap();
+            for x in &tail {
+                last = b.step(x).unwrap();
+            }
+            last
+        };
+        let first_a = vec![1.0f32; 8];
+        let first_b = vec![-1.0f32; 8];
+
+        // With a sink, the differing first token still moves the output.
+        let with_sink_a = run(&first_a, 1);
+        let with_sink_b = run(&first_b, 1);
+        let sink_diff: f32 = with_sink_a
+            .iter()
+            .zip(&with_sink_b)
+            .map(|(x, y)| (x - y).abs())
+            .sum();
+        assert!(
+            sink_diff > 1e-3,
+            "sink must keep the first token influential"
+        );
+
+        // Without a sink (pure SWA), the first token is evicted → outputs equal.
+        let no_sink_a = run(&first_a, 0);
+        let no_sink_b = run(&first_b, 0);
+        for (x, y) in no_sink_a.iter().zip(&no_sink_b) {
+            let tol = 1e-5 * x.abs().max(1.0);
+            assert!((x - y).abs() <= tol, "pure SWA must have evicted token 0");
+        }
+    }
+
+    #[test]
+    fn attention_sinks_stay_within_window() {
+        let w = weights(8, 2, 4, 2, 16);
+        let mut block = MhaDecoderBlock::from_weights(&w, Precision::F32)
+            .unwrap()
+            .with_sliding_window(3)
+            .with_attention_sinks(1);
+        assert_eq!(block.attention_sinks(), 1);
+        for step in 0..8 {
+            let x: Vec<f32> = (0..8).map(|i| ((i + step) as f32 * 0.2).sin()).collect();
+            assert!(block.step(&x).unwrap().iter().all(|v| v.is_finite()));
+            assert!(block.cache_len() <= 3);
+        }
+        assert_eq!(block.len(), 8);
     }
 
     #[test]
