@@ -140,6 +140,15 @@ all_packages = [pkg for pkg in all_packages if not pkg.startswith("linux-image-"
 # build, 2026-06-10).
 if "systemd-boot" not in all_packages:
     all_packages.append("systemd-boot")
+# systemd-boot Depends on 'systemd-boot-efi-signed | systemd-boot-efi' and
+# apt picks the FIRST alternative — a package that ships ONLY the
+# Debian-presigned systemd-bootx64.efi.signed: no linuxx64.efi.stub (UKI
+# build dies with 'systemd-stub not found') and no unsigned binaries for
+# mkosi to sign with the OPERATOR key. Pull the real package explicitly;
+# the postinst below then strips the Debian-signed shadow copies.
+# (Single root cause of two failures on the first signed image, 2026-06-10.)
+if "systemd-boot-efi" not in all_packages:
+    all_packages.append("systemd-boot-efi")
 
 # DKMS module builds (nvidia/zfs) happen INSIDE the image against the
 # custom kernel — they need a real toolchain there. mkosi installs with
@@ -308,7 +317,10 @@ if storage_layout == "zfs-tiered":
         CopyFiles=/
         ExcludeFiles=/boot/
         ExcludeFiles=/efi/
-        SizeMinBytes=16G
+        # 8G floor (content is ~2G): a '16GB' USB key is only ~14.9 GiB, so a
+        # 16G root made the image unwritable to the operator's install media.
+        # On the target NVMe the partition grows at install time.
+        SizeMinBytes=8G
         """))
 else:
     # Default: single root partition (ext4)
