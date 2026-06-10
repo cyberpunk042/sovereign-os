@@ -4942,6 +4942,7 @@ dependencies = [
  "sovereign-checkpoint",
  "sovereign-decoder-layer",
  "sovereign-decoder-stack",
+ "sovereign-degeneration",
  "sovereign-embed",
  "sovereign-ffn",
  "sovereign-linear",
