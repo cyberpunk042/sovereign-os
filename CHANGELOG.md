@@ -12,6 +12,29 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — ternary BitLinear MLP: the engine composes a real FFN block (M073) (2026-06-10)
+
+The bitlinear-core crate had a real single-layer ternary projection
+(`BitLinearLayer`) but the engine only ever ran it as a one-layer
+self-check. `BitLinearMlp` (new `crates/sovereign-bitlinear-core/src/mlp.rs`)
+composes the primitive into the transformer **feed-forward block** — the
+dominant ternary compute — with a ReLU between layers and the standard
+`d_model → d_ff → d_model` `ffn()` constructor. It preserves both core
+invariants *across the stack*: every layer's inner products stay
+multiplication-free (summed `OpCount`), and the stacked forward is
+bit-for-bit identical to a dense multiply-based reference (ReLU + ±1 muls
+are exact) — proven by `forward_matches_dense_reference` over `Base3` +
+`TwoBit` packings, plus deep-stack (3-layer), ReLU-gating, op-accounting,
+dim-chain-validation, and serde tests (7 new, all green on
+`cargo +1.88.0`). The cortex's Conductor self-check
+(`compute.rs::ternary_kernel_live`) now runs a real two-layer FFN block
+instead of one layer, asserting mul-free composition end-to-end — so
+`kernel_verified` means "a real multi-layer ternary FFN ran
+multiplication-free," a strictly stronger guarantee. Moves the runtime a
+concrete step from "single kernel callable" toward "a network block that
+runs." Additive: two new `BitLinearError` variants (`EmptyStack`,
+`StackShapeMismatch`); no existing API changed.
+
 ### Added — guardian dropout metrics + flap alert (M084 R14127–R14133) (2026-06-10)
 
 A single Tetragon-stream EOF is self-healing (BindsTo + Restart=always close

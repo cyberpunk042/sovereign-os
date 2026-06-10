@@ -39,6 +39,7 @@
 #![warn(missing_docs)]
 
 pub mod linear;
+pub mod mlp;
 pub mod pack;
 pub mod reference;
 pub mod ternary;
@@ -47,6 +48,7 @@ pub mod validate;
 use thiserror::Error;
 
 pub use linear::{BitLinearLayer, OpCount};
+pub use mlp::{Activation, BitLinearMlp};
 pub use pack::{Packing, bits_per_param};
 pub use ternary::{Trit, quantize_absmean};
 pub use validate::{InfoTheoryReport, validate_bits_per_param};
@@ -100,6 +102,24 @@ pub enum BitLinearError {
         bits_per_param: f64,
         /// The ceiling that was exceeded.
         ceiling: f64,
+    },
+    /// A [`mlp::BitLinearMlp`] was built with no layers.
+    #[error("a BitLinear MLP must have at least one layer")]
+    EmptyStack,
+    /// Two consecutive [`mlp::BitLinearMlp`] layers do not chain: layer
+    /// `index`'s `output_dim` must equal the next layer's `input_dim`.
+    #[error(
+        "layer {index} output_dim {output_dim} does not feed layer {next} input_dim {next_input_dim}"
+    )]
+    StackShapeMismatch {
+        /// Index of the producing layer.
+        index: usize,
+        /// `output_dim` of the producing layer.
+        output_dim: usize,
+        /// Index of the consuming layer.
+        next: usize,
+        /// `input_dim` of the consuming layer.
+        next_input_dim: usize,
     },
 }
 

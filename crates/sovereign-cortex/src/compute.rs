@@ -18,7 +18,7 @@
 
 use serde::Serialize;
 use sovereign_attention::{Attention, DecodeStep};
-use sovereign_bitlinear_core::{BitLinearLayer, Packing, bits_per_param as ternary_bits_per_param};
+use sovereign_bitlinear_core::{BitLinearMlp, Packing, bits_per_param as ternary_bits_per_param};
 use sovereign_nvfp4_runtime::{BLOCK_SIZE, ELEMENT_BITS, QuantMatrix, SCALE_BITS};
 use sovereign_router_7axis::SrpRole;
 use sovereign_spec_decode::expected_speedup;
@@ -62,14 +62,32 @@ fn gpu_spec_throughput() -> f64 {
     expected_speedup(NOMINAL_ACCEPTANCE, NOMINAL_DRAFT_LEN)
 }
 
-/// Live self-check of the ternary kernel: build a tiny BitLinear layer and
-/// run one forward pass. Proves the Conductor's compute path is callable.
+/// Live self-check of the ternary kernel: build a real two-layer FFN block
+/// (`d_model → d_ff → d_model` with a ReLU, the transformer feed-forward)
+/// and run one forward pass. Proves the Conductor's compute path *composes*
+/// — a multi-layer block, not just one projection — and that the
+/// multiplication-free invariant holds across the whole stack (zero
+/// inner-product floating multiplies; only the per-output scales).
 fn ternary_kernel_live() -> bool {
-    let w = [
-        0.5f32, -0.5, 0.0, 1.0, -1.0, 0.0, 0.5, -0.5, 1.0, -1.0, 0.0, 0.5, -0.5, 1.0, 0.0, -1.0,
-    ];
-    match BitLinearLayer::from_weights(&w, 1, 16, Packing::Base3) {
-        Ok(layer) => layer.forward(&[1.0f32; 16]).is_ok(),
+    let (d_model, d_ff) = (8usize, 32usize);
+    let expand: Vec<f32> = (0..d_ff * d_model)
+        .map(|i| ((i % 5) as f32 - 2.0) * 0.5)
+        .collect();
+    let contract: Vec<f32> = (0..d_model * d_ff)
+        .map(|i| ((i % 7) as f32 - 3.0) * 0.25)
+        .collect();
+    let mlp = match BitLinearMlp::ffn(&expand, &contract, d_model, d_ff, Packing::Base3) {
+        Ok(m) => m,
+        Err(_) => return false,
+    };
+    match mlp.forward(&vec![1.0f32; d_model]) {
+        // The block must produce d_model outputs and have eliminated every
+        // inner-product multiply across both layers (mul-free composition).
+        Ok((y, ops)) => {
+            y.len() == d_model
+                && ops.float_muls == d_ff + d_model
+                && mlp.floating_muls_eliminated() == d_ff * d_model + d_model * d_ff
+        }
         Err(_) => false,
     }
 }
