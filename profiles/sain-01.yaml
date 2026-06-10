@@ -159,15 +159,17 @@ kernel:
     KBUILD_BUILD_USER: "sovereign-os"
     KBUILD_BUILD_HOST: "sovereign-os"
   config:
+    # Reconciled against a real 6.12 olddefconfig (first build, 2026-06-10):
+    #   ATLANTIC → AQTION (driver dir is 'atlantic', Kconfig symbol is AQTION)
+    #   ZFS removed — out-of-tree, built by zfs-dkms from packages (no CONFIG_ZFS upstream)
+    #   AMD_IOMMU_V2 removed — folded into core AMD_IOMMU in kernel 6.7
+    #   SECURITY_BPF_LSM removed — not a Kconfig symbol; BPF_LSM is the real one
     enable:
-      - ATLANTIC
-      - ZFS
+      - AQTION
       - VFIO_PCI
       - VFIO_IOMMU_TYPE1
       - INTEL_IOMMU
       - AMD_IOMMU
-      - AMD_IOMMU_V2
-      - SECURITY_BPF_LSM
       - BPF_LSM
       - KVM_AMD
       - KVM_INTEL

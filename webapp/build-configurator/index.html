@@ -636,7 +636,10 @@ var BAKED = {
         version_minimum: "6.12",
         march: "znver5",
         kcflags: "-march=znver5 -O3 -pipe -mabm -madx -mavx512f -mavx512dq -mavx512bw -mavx512vl -mavx512bf16",
-        enable: ["ATLANTIC","ZFS","VFIO_PCI","VFIO_IOMMU_TYPE1","INTEL_IOMMU","AMD_IOMMU","AMD_IOMMU_V2","SECURITY_BPF_LSM","BPF_LSM","KVM_AMD","KVM_INTEL"],
+        // reconciled against a real 6.12 olddefconfig (first build 2026-06-10):
+        // AQTION is the real symbol for the Aquantia driver; ZFS is dkms-built
+        // (no in-tree symbol); AMD_IOMMU_V2 + SECURITY_BPF_LSM don't exist on 6.12.
+        enable: ["AQTION","VFIO_PCI","VFIO_IOMMU_TYPE1","INTEL_IOMMU","AMD_IOMMU","BPF_LSM","KVM_AMD","KVM_INTEL"],
         microcode: ["amd","intel"], microcode_default: "amd",
         cmdline_base: ["quiet","splash","loglevel=3"],
         cmdline_vfio: ["vfio-pci.ids=10de:2684,10de:22ba","amd_iommu=on","iommu=pt","pcie_aspm=off"],
@@ -1420,7 +1423,7 @@ function tryMirror(){
    labels up here; applyStaticTips() covers static legends/labels/headers. */
 var GLOSSARY = {
   // kernel config symbols
-  "ATLANTIC": "Driver for the Marvell AQC113 10GbE NIC — the VLAN-200 model-ingestion interface.",
+  "AQTION": "Driver for the Aquantia/Marvell AQC113 10GbE NIC (driver dir 'atlantic', symbol AQTION) — the VLAN-200 model-ingestion interface.",
   "ZFS": "In-kernel ZFS support — the tank pool (models / context / agents) depends on it.",
   "VFIO_PCI": "PCI passthrough driver: claims the 4090 so guests get the bare device and the host never initializes it.",
   "VFIO_IOMMU_TYPE1": "IOMMU-backed DMA isolation for VFIO devices — the safety layer under passthrough.",
