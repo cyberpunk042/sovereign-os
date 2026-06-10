@@ -4,6 +4,11 @@ Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/aud
 # Master spec § 10.2 verbatim dependency declaration:
 After=tetragon.service
 Requires=tetragon.service
+# Transposition-dump OPNsense/Tetragon-dropout prevention (verbatim:
+# "must include explicit service binding controls (BindsTo=tetragon.service)"):
+# if tetragon stops during a network reconfiguration event, stop with it
+# rather than tailing a dead stream — restart re-binds when tetragon returns.
+BindsTo=tetragon.service
 
 [Service]
 Type=simple
