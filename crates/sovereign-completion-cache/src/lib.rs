@@ -154,6 +154,103 @@ impl CompletionCache {
     }
 }
 
+/// A **semantic** completion cache (GPTCache-style): unlike [`CompletionCache`],
+/// which only hits on an *identical* prompt, this returns a cached completion
+/// when a new prompt is **embedding-similar** (cosine ≥ `threshold`) to a stored
+/// one — so paraphrases and near-duplicate requests are served for `$0`. It
+/// composes [`sovereign_embed`]'s deterministic n-gram embeddings + cosine.
+/// Bounded capacity with oldest-first eviction; tracks hit/miss like the exact
+/// cache.
+#[derive(Debug, Clone)]
+pub struct SemanticCache {
+    capacity: usize,
+    threshold: f32,
+    /// (prompt embedding, completion), oldest first.
+    entries: Vec<(Vec<f32>, String)>,
+    hits: u64,
+    misses: u64,
+}
+
+impl SemanticCache {
+    /// A cache holding up to `capacity` entries, returning a hit when a query's
+    /// cosine similarity to a stored prompt is at least `threshold` (in
+    /// `[0, 1]`; e.g. `0.9` for "near-identical").
+    ///
+    /// # Panics
+    /// Panics if `capacity == 0`.
+    pub fn new(capacity: usize, threshold: f32) -> Self {
+        assert!(capacity > 0, "capacity must be > 0");
+        Self {
+            capacity,
+            threshold,
+            entries: Vec::new(),
+            hits: 0,
+            misses: 0,
+        }
+    }
+
+    /// Number of cached entries.
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    /// Whether the cache is empty.
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
+    /// Cache hits / misses so far.
+    pub fn hits(&self) -> u64 {
+        self.hits
+    }
+    /// Cache misses so far.
+    pub fn misses(&self) -> u64 {
+        self.misses
+    }
+    /// Hit rate in `[0, 1]` (`0.0` before any lookup).
+    pub fn hit_rate(&self) -> f64 {
+        let total = self.hits + self.misses;
+        if total == 0 {
+            0.0
+        } else {
+            self.hits as f64 / total as f64
+        }
+    }
+
+    /// Look up `prompt`: return the completion of the **most similar** stored
+    /// prompt whose cosine similarity is ≥ `threshold`, or `None`. Counts a
+    /// hit/miss.
+    pub fn get(&mut self, prompt: &str) -> Option<String> {
+        let q = sovereign_embed::embed(prompt);
+        let mut best: Option<(usize, f32)> = None;
+        for (i, (vec, _)) in self.entries.iter().enumerate() {
+            let sim = sovereign_embed::cosine(&q, vec);
+            if sim >= self.threshold && best.is_none_or(|(_, bs)| sim > bs) {
+                best = Some((i, sim));
+            }
+        }
+        match best {
+            Some((i, _)) => {
+                self.hits += 1;
+                Some(self.entries[i].1.clone())
+            }
+            None => {
+                self.misses += 1;
+                None
+            }
+        }
+    }
+
+    /// Store `prompt → completion`, evicting the oldest entry if at capacity.
+    pub fn insert(&mut self, prompt: &str, completion: impl Into<String>) {
+        let vec = sovereign_embed::embed(prompt);
+        if self.entries.len() >= self.capacity {
+            self.entries.remove(0);
+        }
+        self.entries.push((vec, completion.into()));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -172,6 +269,38 @@ mod tests {
         let mut c = CompletionCache::new(4);
         assert_eq!(c.get(99), None);
         assert_eq!(c.misses(), 1);
+    }
+
+    #[test]
+    fn semantic_cache_hits_a_similar_prompt() {
+        let mut c = SemanticCache::new(8, 0.6);
+        c.insert("how do I reset my password", "click forgot password");
+        // A paraphrase sharing subword structure is a semantic hit.
+        let hit = c.get("how can I reset the password");
+        assert_eq!(hit.as_deref(), Some("click forgot password"));
+        // An unrelated query misses (below threshold) → None.
+        assert_eq!(c.get("what is the capital of france"), None);
+        assert_eq!(c.hits(), 1);
+        assert_eq!(c.misses(), 1);
+        assert!((c.hit_rate() - 0.5).abs() < 1e-9);
+    }
+
+    #[test]
+    fn semantic_cache_exact_prompt_always_hits() {
+        let mut c = SemanticCache::new(4, 0.95);
+        c.insert("alpha beta gamma", "X");
+        assert_eq!(c.get("alpha beta gamma").as_deref(), Some("X")); // cosine 1.0
+    }
+
+    #[test]
+    fn semantic_cache_evicts_oldest_at_capacity() {
+        let mut c = SemanticCache::new(2, 0.99);
+        c.insert("one one one", "1");
+        c.insert("two two two", "2");
+        c.insert("three three three", "3"); // evicts "one"
+        assert_eq!(c.len(), 2);
+        assert_eq!(c.get("one one one"), None); // evicted
+        assert_eq!(c.get("three three three").as_deref(), Some("3"));
     }
 
     #[test]
