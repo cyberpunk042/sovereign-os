@@ -309,6 +309,33 @@ pub fn expected_speedup(alpha: f64, k: usize) -> f64 {
     (1.0 - a.powi(k as i32 + 1)) / (1.0 - a)
 }
 
+/// **Cost-aware** wall-clock speedup (Leviathan et al.). [`expected_speedup`]
+/// counts emitted tokens per target pass but ignores that running the draft
+/// also costs time. A round runs `k` draft steps — each costing `cost_ratio`
+/// of a target step (`cost_ratio ∈ [0, 1]`, the draft-to-target per-step cost)
+/// — plus one target verification pass, so the wall-clock factor is
+/// `E[tokens] / (1 + cost_ratio·k)`. With `cost_ratio = 0` this equals
+/// [`expected_speedup`]; a costlier draft shrinks the win.
+pub fn cost_aware_speedup(alpha: f64, k: usize, cost_ratio: f64) -> f64 {
+    let cost = 1.0 + cost_ratio.max(0.0) * k as f64;
+    expected_speedup(alpha, k) / cost
+}
+
+/// The draft length in `1..=max_k` that **maximizes** [`cost_aware_speedup`] —
+/// the throughput-optimal number of speculative tokens for a given acceptance
+/// rate `alpha` and draft `cost_ratio`. Higher acceptance favors longer drafts;
+/// a costlier draft favors shorter ones. Returns `1` when `max_k == 0`.
+pub fn optimal_draft_length(alpha: f64, cost_ratio: f64, max_k: usize) -> usize {
+    let max_k = max_k.max(1);
+    (1..=max_k)
+        .max_by(|&a, &b| {
+            cost_aware_speedup(alpha, a, cost_ratio)
+                .partial_cmp(&cost_aware_speedup(alpha, b, cost_ratio))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .unwrap_or(1)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -328,6 +355,40 @@ mod tests {
     fn expected_speedup_closed_form() {
         // alpha=0.5, k=3 → (1 - 0.5^4)/(1 - 0.5) = 0.9375/0.5 = 1.875
         assert!((expected_speedup(0.5, 3) - 1.875).abs() < 1e-9);
+    }
+
+    #[test]
+    fn cost_aware_speedup_matches_expected_at_zero_cost() {
+        for (a, k) in [(0.5, 3), (0.8, 5), (0.3, 2)] {
+            assert!((cost_aware_speedup(a, k, 0.0) - expected_speedup(a, k)).abs() < 1e-9);
+        }
+        // A costlier draft strictly lowers the speedup.
+        assert!(cost_aware_speedup(0.7, 4, 0.5) < cost_aware_speedup(0.7, 4, 0.1));
+    }
+
+    #[test]
+    fn optimal_draft_length_responds_to_acceptance_and_cost() {
+        // Higher acceptance → longer (or equal) optimal draft.
+        let lo = optimal_draft_length(0.3, 0.2, 16);
+        let hi = optimal_draft_length(0.9, 0.2, 16);
+        assert!(
+            hi >= lo,
+            "higher alpha should not shorten the optimal draft"
+        );
+        // A more expensive draft → shorter (or equal) optimal draft.
+        let cheap = optimal_draft_length(0.8, 0.05, 16);
+        let dear = optimal_draft_length(0.8, 0.8, 16);
+        assert!(
+            dear <= cheap,
+            "costlier draft should not lengthen the optimum"
+        );
+        // It is the argmax of cost_aware_speedup over 1..=max_k.
+        let k = optimal_draft_length(0.7, 0.3, 10);
+        let best = cost_aware_speedup(0.7, k, 0.3);
+        for j in 1..=10 {
+            assert!(cost_aware_speedup(0.7, j, 0.3) <= best + 1e-12);
+        }
+        assert_eq!(optimal_draft_length(0.5, 0.2, 0), 1); // max_k 0 → 1
     }
 
     #[test]
