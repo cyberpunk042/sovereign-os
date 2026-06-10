@@ -108,6 +108,50 @@ pub struct StackConfig {
     pub recent_window: usize,
 }
 
+/// Composable decode controls for [`DecoderStack::generate_with`]. Defaults to
+/// plain generation (no mask, no n-gram blocking, no stop tokens); set only the
+/// fields you need.
+#[derive(Debug, Clone, Default)]
+pub struct GenOptions {
+    /// Maximum tokens to generate.
+    pub max_new: usize,
+    /// A base logit mask applied every step (constrained / allow-list / bias).
+    pub mask: LogitMask,
+    /// If set, block any token completing an already-seen `n`-gram each step.
+    pub no_repeat_ngram: Option<usize>,
+    /// Stop generation the moment one of these tokens is produced (it is
+    /// included in the output).
+    pub stop_tokens: Vec<usize>,
+}
+
+impl GenOptions {
+    /// Options that just generate `max_new` tokens with no extra controls.
+    pub fn new(max_new: usize) -> Self {
+        Self {
+            max_new,
+            ..Self::default()
+        }
+    }
+
+    /// Set the base logit mask.
+    pub fn with_mask(mut self, mask: LogitMask) -> Self {
+        self.mask = mask;
+        self
+    }
+
+    /// Enable dynamic no-repeat-ngram blocking of size `n`.
+    pub fn with_no_repeat_ngram(mut self, n: usize) -> Self {
+        self.no_repeat_ngram = Some(n);
+        self
+    }
+
+    /// Set the stop tokens for early termination.
+    pub fn with_stop_tokens(mut self, stops: impl IntoIterator<Item = usize>) -> Self {
+        self.stop_tokens = stops.into_iter().collect();
+        self
+    }
+}
+
 /// A runnable decoder-only model with each layer's autoregressive KV cache.
 #[derive(Debug, Clone)]
 pub struct DecoderStack {
@@ -314,6 +358,52 @@ impl DecoderStack {
                 .ok_or(SamplerError::AllFiltered)?;
             self.recent.push(token);
             generated.push(token);
+            logits = self.forward(token)?;
+        }
+        Ok(generated)
+    }
+
+    /// Unified, serving-grade generation that **composes** the decode controls
+    /// that the single-purpose methods can only apply one at a time: a base
+    /// [`LogitMask`] (constrained decoding), dynamic no-repeat-ngram blocking,
+    /// early stop on a stop token, and a per-token streaming callback — all in
+    /// one loop. Reproducible per `seed`. See [`GenOptions`].
+    pub fn generate_with<F: FnMut(usize)>(
+        &mut self,
+        prompt: &[usize],
+        seed: u64,
+        opts: &GenOptions,
+        mut on_token: F,
+    ) -> Result<Vec<usize>, StackError> {
+        if prompt.is_empty() {
+            return Err(StackError::EmptyPrompt);
+        }
+        let mut history: Vec<usize> = prompt.to_vec();
+        let mut logits = Vec::new();
+        for &t in prompt {
+            logits = self.forward(t)?;
+        }
+        let mut generated = Vec::with_capacity(opts.max_new);
+        for _ in 0..opts.max_new {
+            let mut l = logits.clone();
+            opts.mask.apply(&mut l);
+            if let Some(n) = opts.no_repeat_ngram {
+                LogitMask::new().no_repeat_ngram(&history, n).apply(&mut l);
+            }
+            let pos = self.position() as u64;
+            let recent_start = self.recent.len().saturating_sub(self.config.recent_window);
+            let token = self.config.sampler.sample_seeded(
+                &l,
+                &self.recent[recent_start..],
+                seed.wrapping_add(pos),
+            )?;
+            self.recent.push(token);
+            history.push(token);
+            generated.push(token);
+            on_token(token);
+            if opts.stop_tokens.contains(&token) {
+                break;
+            }
             logits = self.forward(token)?;
         }
         Ok(generated)
@@ -539,6 +629,54 @@ mod tests {
             a.generate_until(&prompt, 6, 9, &[]).unwrap(),
             b.generate(&prompt, 6, 9).unwrap()
         );
+    }
+
+    #[test]
+    fn generate_with_composes_all_controls() {
+        // No-repeat-3gram + early-stop + streaming, all at once.
+        let cfg = config(8, 4, 2, Sampler::new(SamplerConfig::default()));
+        let prompt = [1usize, 2, 3];
+        // Discover a token to use as a stop, then compose everything.
+        let probe = DecoderStack::new(cfg.clone())
+            .unwrap()
+            .generate(&prompt, 1, 5)
+            .unwrap()[0];
+        let opts = GenOptions::new(12)
+            .with_no_repeat_ngram(3)
+            .with_stop_tokens([probe]);
+        let mut streamed = Vec::new();
+        let mut m = DecoderStack::new(cfg.clone()).unwrap();
+        let out = m
+            .generate_with(&prompt, 5, &opts, |t| streamed.push(t))
+            .unwrap();
+        // streaming fired for every produced token
+        assert_eq!(streamed, out);
+        // ended at the stop token (or hit the cap)
+        assert!(out.len() <= 12);
+        if out.len() < 12 {
+            assert_eq!(*out.last().unwrap(), probe);
+        }
+        // no 3-gram repeats across prompt + output
+        let mut full = prompt.to_vec();
+        full.extend(&out);
+        let mut seen = std::collections::HashSet::new();
+        assert!(full.windows(3).all(|w| seen.insert(w.to_vec())));
+
+        // reproducible
+        let mut m2 = DecoderStack::new(cfg).unwrap();
+        assert_eq!(out, m2.generate_with(&prompt, 5, &opts, |_| {}).unwrap());
+    }
+
+    #[test]
+    fn generate_with_plain_equals_generate() {
+        let cfg = config(8, 4, 2, Sampler::new(SamplerConfig::default()));
+        let prompt = [1usize, 2];
+        let mut a = DecoderStack::new(cfg.clone()).unwrap();
+        let mut b = DecoderStack::new(cfg).unwrap();
+        let plain = a
+            .generate_with(&prompt, 9, &GenOptions::new(6), |_| {})
+            .unwrap();
+        assert_eq!(plain, b.generate(&prompt, 6, 9).unwrap());
     }
 
     #[test]
