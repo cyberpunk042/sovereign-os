@@ -133,6 +133,27 @@ impl SovereignLlm {
         Ok(self.tokenizer.decode(&generated).unwrap_or_default())
     }
 
+    /// Complete `prompt`, then run a **degeneration check** on the output: the
+    /// completion text is analysed (`sovereign-degeneration`) for loop/repeat
+    /// collapse — longest repeated substring, rep-n diversity, repeat coverage —
+    /// against `config`, returning the text alongside the
+    /// [`DegenerationReport`](sovereign_degeneration::DegenerationReport). A
+    /// serving loop uses the report's `is_degenerate` flag to reject or
+    /// regenerate a looping completion instead of returning it. Reproducible per
+    /// `seed`; pass [`sovereign_degeneration::Config::default`] for standard
+    /// thresholds.
+    pub fn complete_checked(
+        &self,
+        prompt: &str,
+        max_new: usize,
+        seed: u64,
+        config: &sovereign_degeneration::Config,
+    ) -> Result<(String, sovereign_degeneration::DegenerationReport), LlmError> {
+        let text = self.complete(prompt, max_new, seed)?;
+        let report = sovereign_degeneration::analyze(&text, config);
+        Ok((text, report))
+    }
+
     /// Complete `prompt`, returning the generated text **truncated at the first
     /// occurrence of any stop string** (the OpenAI `stop` parameter, which
     /// operates on text and so can span several tokens — unlike a single stop
@@ -594,6 +615,41 @@ mod tests {
         for v in [d.distinct_1, d.distinct_2, d.self_bleu, d.unique_ratio] {
             assert!((0.0..=1.0).contains(&v), "out of range: {v}");
         }
+    }
+
+    #[test]
+    fn complete_checked_wires_the_degeneration_report() {
+        use sovereign_degeneration::{Config, analyze};
+        let llm = runtime(Sampler::greedy());
+        let cfg = Config::default();
+        let (text, report) = llm.complete_checked("hello", 12, 7, &cfg).unwrap();
+        // the text is exactly what complete() produces for the same args
+        assert_eq!(text, llm.complete("hello", 12, 7).unwrap());
+        // the report is exactly analyze() of that text — the wiring is faithful
+        assert_eq!(report, analyze(&text, &cfg));
+        assert!((0.0..=1.0).contains(&report.distinct_ngram_ratio));
+    }
+
+    #[test]
+    fn complete_checked_flags_a_degenerate_loop() {
+        // We can't force the random model to loop, so verify the gate itself
+        // fires on a known decoding loop fed through the same config.
+        use sovereign_degeneration::{Config, analyze};
+        let loop_text = "go on and on and on and on and on and on and on and on";
+        let r = analyze(loop_text, &Config::default());
+        assert!(r.is_degenerate, "loop should be flagged: {r:?}");
+    }
+
+    #[test]
+    fn complete_checked_is_reproducible() {
+        use sovereign_degeneration::Config;
+        let a = runtime(Sampler::new(SamplerConfig::default()));
+        let b = runtime(Sampler::new(SamplerConfig::default()));
+        let cfg = Config::default();
+        assert_eq!(
+            a.complete_checked("repeat me", 10, 2, &cfg).unwrap(),
+            b.complete_checked("repeat me", 10, 2, &cfg).unwrap()
+        );
     }
 
     #[test]
