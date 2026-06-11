@@ -39,6 +39,12 @@ Endpoints:
                           baked snapshots, same as this page does.
   GET /panels.json      — discovery: every webapp/ panel (id + title)
   GET /panels/          — generated HTML index of all panels
+  GET /api/<svc>/...    — DEV GATEWAY: proxies to the local sovereign-*-api
+                          process for that prefix (ports mirror the systemd
+                          units). Lets statically-served panels reach their
+                          live data without sovereign-gatewayd. 502 with a
+                          JSON error when the backing API isn't running —
+                          panels then fall back to their baked snapshots.
   GET /version          — service version + module identity
   GET /healthz          — liveness (always 200)
 
@@ -513,6 +519,26 @@ RUN_LOCK = threading.Lock()
 CURRENT_JOB: dict = {"proc": None, "action": None}
 ANSI_RE = re.compile(rb"\x1b\[[0-9;]*[A-Za-z]")
 
+# ── dev gateway: /api/<prefix>/ → local service port. Ports mirror the
+#    Environment=*_PORT lines in systemd/system/sovereign-*-api.service;
+#    services serve their full /api/... paths, so forwarding is verbatim.
+#    sovereign-gatewayd (Rust, port 8000) replaces this in production. ──
+DEV_GATEWAY_ROUTES = {
+    "/api/m060/": 8160,            # sovereign-m060-health-api
+    "/api/ms022/": 7711,           # sovereign-ms022-sse-quota-api
+    "/api/four-watchdog/": 7712,   # sovereign-four-watchdog-api
+    "/api/node-exporter/": 9100,   # node_exporter (path rewritten below)
+}
+# Exact paths the master-dashboard expects on ITS origin (it is designed
+# to be served by master-dashboard-api at :8090). NOTE: this deliberately
+# shadows this server's own /version — the cockpit's registry identity
+# wins; use /healthz for this server's liveness.
+DEV_GATEWAY_EXACT = {
+    "/routes": 8090, "/collisions": 8090, "/discover": 8090,
+    "/toggles": 8090, "/health": 8090, "/version": 8090,
+    "/metrics": 9100,              # node_exporter direct fallback
+}
+
 
 def assemble_data() -> dict:
     profiles = [
@@ -552,6 +578,14 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split("?", 1)[0].rstrip("/") or "/"
         if path == "/healthz":
             return self._send(200, json.dumps({"ok": True}))
+        # Gateway routes come BEFORE this server's own /version — the
+        # cockpit's registry identity deliberately shadows it (use
+        # /healthz for this server's liveness).
+        for prefix, port in DEV_GATEWAY_ROUTES.items():
+            if path.startswith(prefix):
+                return self._proxy(port, path)
+        if path in DEV_GATEWAY_EXACT:
+            return self._proxy(DEV_GATEWAY_EXACT[path], path)
         if path == "/version":
             return self._send(200, json.dumps(
                 {"module": "build-configurator-api", "version": VERSION}))
@@ -581,6 +615,26 @@ class Handler(BaseHTTPRequestHandler):
             if ctype:
                 return self._send(200, target.read_bytes(), ctype)
         return self._send(404, json.dumps({"error": "not found", "path": path}))
+
+    def _proxy(self, port: int, path: str):
+        """Forward a GET to the local backing API verbatim (node_exporter
+        is the one path-rewrite: /api/node-exporter/X → /X)."""
+        import urllib.error
+        import urllib.request
+        if path.startswith("/api/node-exporter/"):
+            path = path[len("/api/node-exporter"):]
+        url = f"http://127.0.0.1:{port}{path}"
+        try:
+            with urllib.request.urlopen(url, timeout=5) as r:
+                self._send(r.status, r.read(),
+                           r.headers.get("Content-Type", "application/json"))
+        except (urllib.error.URLError, OSError) as e:
+            self._send(502, json.dumps({
+                "error": f"backing API on :{port} not reachable",
+                "detail": str(e),
+                "hint": "make panel starts the dashboard tile APIs; "
+                        "panels fall back to baked snapshots on 502",
+            }))
 
     def _read_json_body(self) -> dict | None:
         try:

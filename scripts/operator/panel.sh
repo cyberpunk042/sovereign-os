@@ -70,13 +70,34 @@ else
   pids+=($!)
 fi
 
+# Cockpit data APIs — the master dashboard's live tiles. Ports mirror the
+# systemd units; the configurator's /api/* dev gateway proxies to them.
+declare -A COCKPIT_APIS=(
+  ["master-dashboard-api"]=8090
+  ["m060-health-api"]=8160
+  ["ms022-sse-quota-api"]=7711
+  ["four-watchdog-api"]=7712
+)
+cockpit_up=0
+for api in "${!COCKPIT_APIS[@]}"; do
+  port="${COCKPIT_APIS[$api]}"
+  if [ "$(port_busy "${port}")" = "busy" ]; then
+    cockpit_up=$((cockpit_up+1))   # already running counts as up
+  elif [ -f "scripts/operator/${api}.py" ]; then
+    python3 "scripts/operator/${api}.py" >/dev/null 2>&1 &
+    pids+=($!)
+    cockpit_up=$((cockpit_up+1))
+  fi
+done
+
 sleep 0.7
 panel_count="$(find "${__REPO_ROOT}/webapp" -mindepth 2 -maxdepth 2 -name index.html | wc -l)"
 echo -e "  ${green}●${reset} build configurator   ${cyan}http://127.0.0.1:${CFG_PORT}/${reset}"
 echo -e "      ├ Run console: ▶ validate · ▶ preflight work now; ▶ BUILD needs ${bold}sudo -E scripts/operator/panel.sh${reset}"
 echo -e "      └ manage THIS host: click ${bold}target: image build${reset} in the topbar"
 echo -e "  ${green}●${reset} ALL ${panel_count} PANELS        ${cyan}http://127.0.0.1:${CFG_PORT}/panels${reset}"
-echo -e "  ${green}●${reset} cockpit              ${cyan}http://127.0.0.1:${CFG_PORT}/master-dashboard/${reset}"
+echo -e "  ${green}●${reset} cockpit (LIVE)       ${cyan}http://127.0.0.1:${CFG_PORT}/master-dashboard/${reset}"
+echo -e "      └ ${cockpit_up}/4 data APIs up (m060 :8160 · ms022 :7711 · four-watchdog :7712 · registry :8090)"
 echo -e "  ${green}●${reset} runtime dashboard    ${cyan}http://${DASH_BIND}/${reset}"
 echo
 echo -e "  Host-mutating commands stay ${bold}⚡ YOU RUN${reset}; the Run console executes"
