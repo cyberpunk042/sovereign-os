@@ -98,6 +98,19 @@ if secure_boot not in ("none", "disabled"):
         SecureBootCertificate={sb_cert}
         """)
 
+# ---- operator login credential ----
+# mkosi locks root unless told otherwise — an image without this boots to
+# a login prompt that can never accept anyone (proven by VM screenshot,
+# first boot validation 2026-06-10). The credential comes from the
+# environment, never the repo. first-login-assistant rotates it.
+root_password = os.environ.get("SOVEREIGN_OS_ROOT_PASSWORD", "")
+root_pw_block = ""
+if root_password:
+    root_pw_block = f"RootPassword={root_password}\n"
+else:
+    print("mkosi-emit: WARNING — SOVEREIGN_OS_ROOT_PASSWORD unset: root will be "
+          "LOCKED in the image (console login impossible)", file=sys.stderr)
+
 # ---- top-level mkosi.conf (distro-agnostic baseline) ----
 top = textwrap.dedent(f"""\
     # auto-generated from profiles/{profile_id}.yaml
@@ -114,7 +127,7 @@ top = textwrap.dedent(f"""\
     [Content]
     Bootable=yes
     Bootloader=systemd-boot
-    # Explicit: mkosi must assemble the UKI itself and install it into the
+    {root_pw_block}    # Explicit: mkosi must assemble the UKI itself and install it into the
     # ESP (EFI/Linux/). The kernel arrives via postinst with
     # KERNEL_INSTALL_BYPASS=1 (no ESP in the chroot), which also bypasses
     # boot-entry generation — without this the ESP shipped with an EMPTY
