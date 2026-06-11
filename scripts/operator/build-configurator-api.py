@@ -28,6 +28,10 @@ Sovereignty:
 Endpoints:
   GET /                 — the build-configurator webapp (single file)
   GET /data.json        — assembled real profile + operator-deps data
+  GET /host.json        — LIVE host probe (manage-this-OS mode): kernel,
+                          cmdline, kconfig, modules, packages, cpu flags,
+                          sovereign-* unit states, GPUs, ZFS pools.
+                          Read-only probes; never mutates the host.
   GET /version          — service version + module identity
   GET /healthz          — liveness (always 200)
 
@@ -40,6 +44,10 @@ from __future__ import annotations
 
 import json
 import os
+import platform
+import re
+import shutil
+import subprocess
 import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -295,6 +303,121 @@ def _deps_tools() -> dict:
     }
 
 
+def _run(cmd: list[str], timeout: int = 5) -> str | None:
+    """Run a read-only probe command; None on any failure (absent tool,
+    timeout, non-zero exit). The host probe NEVER mutates the system."""
+    try:
+        out = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=timeout,
+        )
+        return out.stdout if out.returncode == 0 else None
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+
+def _host_kconfig() -> dict[str, str]:
+    """CONFIG_* symbols of the RUNNING kernel (y/m), from /boot/config-$(uname -r)."""
+    cfg = Path(f"/boot/config-{platform.release()}")
+    out: dict[str, str] = {}
+    if not cfg.is_file():
+        return out
+    try:
+        for line in cfg.read_text(encoding="utf-8", errors="replace").splitlines():
+            m = re.match(r"^CONFIG_([A-Za-z0-9_]+)=([ym])$", line)
+            if m:
+                out[m.group(1)] = m.group(2)
+    except OSError:
+        pass
+    return out
+
+
+def _host_units() -> dict[str, dict]:
+    """sovereign-* unit state on the running host: installed/enabled/active."""
+    units: dict[str, dict] = {}
+    listed = _run(["systemctl", "list-unit-files", "sovereign-*",
+                   "--no-legend", "--plain", "--no-pager"]) or ""
+    for line in listed.splitlines():
+        parts = line.split()
+        if len(parts) >= 2:
+            units[parts[0]] = {"installed": True, "enabled": parts[1],
+                               "active": "inactive"}
+    active = _run(["systemctl", "list-units", "sovereign-*", "--all",
+                   "--no-legend", "--plain", "--no-pager"]) or ""
+    for line in active.splitlines():
+        parts = line.split()
+        if len(parts) >= 3 and parts[0] in units:
+            units[parts[0]]["active"] = parts[2]
+    return units
+
+
+def assemble_host() -> dict:
+    """LIVE probe of the running OS — the 'manage this host' data source.
+    Every probe is read-only and degrades to absent-key on failure."""
+    host: dict = {
+        "hostname": platform.node(),
+        "kernel": platform.release(),
+        "probed_from_repo": str(REPO),
+    }
+    try:
+        host["cmdline"] = Path("/proc/cmdline").read_text().split()
+    except OSError:
+        host["cmdline"] = []
+    try:
+        cpuinfo = Path("/proc/cpuinfo").read_text()
+        m = re.search(r"^flags\s*:\s*(.+)$", cpuinfo, re.M)
+        host["cpu_flags"] = sorted(m.group(1).split()) if m else []
+        m = re.search(r"^model name\s*:\s*(.+)$", cpuinfo, re.M)
+        if m:
+            host["cpu_model"] = m.group(1).strip()
+    except OSError:
+        host["cpu_flags"] = []
+    try:
+        host["modules"] = sorted(
+            line.split()[0]
+            for line in Path("/proc/modules").read_text().splitlines() if line
+        )
+    except OSError:
+        host["modules"] = []
+    host["kconfig"] = _host_kconfig()
+
+    dpkg = _run(["dpkg-query", "-W", "-f", "${Package}\t${Status}\n"],
+                timeout=15) or ""
+    host["packages"] = sorted(
+        line.split("\t")[0] for line in dpkg.splitlines()
+        if line.endswith("install ok installed")
+    )
+
+    host["units"] = _host_units()
+    host["osctl"] = (shutil.which("sovereign-osctl")
+                     or (str(REPO / "scripts" / "sovereign-osctl")
+                         if (REPO / "scripts" / "sovereign-osctl").exists()
+                         else None))
+    host["opt_symlink"] = os.path.realpath("/opt/sovereign-os") \
+        if os.path.exists("/opt/sovereign-os") else None
+    active = REPO / ".sovereign-os" / "active-profile"
+    host["active_profile"] = (
+        active.read_text().strip() if active.is_file() else None
+    )
+
+    smi = _run(["nvidia-smi", "--query-gpu=name,power.limit",
+                "--format=csv,noheader"])
+    if smi:
+        host["gpus"] = [
+            {"name": n.strip(), "power_limit": p.strip()}
+            for n, _, p in (ln.partition(",") for ln in smi.splitlines() if ln)
+        ]
+    zpools = _run(["zpool", "list", "-H", "-o", "name"])
+    if zpools is not None:
+        host["zpools"] = [p for p in zpools.split() if p]
+    host["tool_bins"] = {
+        name: bool(shutil.which(name))
+        for name in ("claude", "opencode", "tailscale", "ollama", "podman",
+                     "nvidia-smi", "zpool", "tetragon", "prometheus", "git",
+                     "rg", "jq", "fdfind", "sensors", "wasmtime")
+    }
+    return host
+
+
 def assemble_data() -> dict:
     profiles = [
         {"id": pid, "name": name, "default": is_def, "desc": desc}
@@ -338,6 +461,8 @@ class Handler(BaseHTTPRequestHandler):
                 {"module": "build-configurator-api", "version": VERSION}))
         if path in ("/data.json", "/data"):
             return self._send(200, json.dumps(assemble_data(), indent=2))
+        if path in ("/host.json", "/host"):
+            return self._send(200, json.dumps(assemble_host(), indent=2))
         if path == "/":
             if WEBAPP.exists():
                 return self._send(200, WEBAPP.read_bytes(), "text/html; charset=utf-8")

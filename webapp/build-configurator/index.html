@@ -146,6 +146,9 @@
   .pill.blocker { color:var(--danger); border-color:rgba(232,136,136,.5); }
   .pill.advisory { color:var(--warn); border-color:rgba(230,192,123,.5); }
   .pill.src { color:var(--muted); }
+  .pill.lv-on  { color:var(--ok);     border-color:rgba(127,209,138,.5); }
+  .pill.lv-off { color:var(--danger); border-color:rgba(232,136,136,.5); }
+  .pill.lv-na  { color:var(--muted); }
   hr.sep { border:0; border-top:1px solid var(--border); margin:1rem 0; }
   .status-line { font-size:.74rem; color:var(--muted); margin-top:.4rem; }
 
@@ -240,6 +243,7 @@
   <span class="crumbs">walk every layer → generate the build</span>
   <span class="spacer"></span>
   <span class="status-line" id="src-status">data: built-in snapshot</span>
+  <button class="btn" id="btn-target" title="switch between composing an image build and managing the OS this page is served from">target: image build</button>
   <button class="btn" id="btn-guide" title="restart the step-by-step walkthrough">guide me</button>
   <button class="btn" id="btn-xall">collapse all</button>
   <a class="nav" href="../master-dashboard/">cockpit ↗</a>
@@ -256,6 +260,16 @@
       <strong>This page never builds anything itself</strong> — a real build
       needs <code>sudo</code> and ~30&nbsp;min on the build host. Section
       headers fold (click to collapse).
+    </div>
+
+    <div class="banner" id="host-banner" style="display:none">
+      <strong>Managing the running OS</strong> (<code id="host-id"></code>).
+      Every option now carries a <span class="pill lv-on">live ✓</span> /
+      <span class="pill lv-off">live ✗</span> badge showing whether it is
+      ACTUALLY present on this host (kernel config · cmdline · modules ·
+      packages · CPU flags · sovereign units). The right panel generates the
+      <code>sovereign-osctl</code> + systemd commands to converge the host on
+      your selections. <strong>Still read-only</strong> — you copy, you run.
     </div>
 
     <section class="card" id="sec-hw">
@@ -534,12 +548,12 @@
     </div>
 
     <div class="out-head">
-      <h3>Build command</h3>
+      <h3 id="out-cmd-title">Build command</h3>
       <span class="spacer"></span>
       <button class="btn" data-copy="out-cmd">copy</button>
     </div>
     <pre class="out" id="out-cmd"></pre>
-    <p class="small muted">Run on the build host (Debian 13 / Ubuntu 24.04). First build is ~30 min. Add <code>--dry-run</code> to validate the plan without building.</p>
+    <p class="small muted" id="out-cmd-note">Run on the build host (Debian 13 / Ubuntu 24.04). First build is ~30 min. Add <code>--dry-run</code> to validate the plan without building.</p>
 
     <div class="out-head">
       <h3>Profile overlay <span class="muted small">overlay.yaml · SDD-030</span></h3>
@@ -790,6 +804,7 @@ D.hw = D.hw || BAKED.hw; D.tuning = D.tuning || BAKED.tuning;
 
 /* ───────────────────────────── state ───────────────────────────── */
 var state = {
+  target: "image",   // "image" = compose a build · "host" = manage the running OS
   profile: (D.profiles.find(function(p){return p.default;}) || D.profiles[0]).id,
   substrate: "mkosi", secureboot: "signed", encryption: "none",
   snapshot: "20260515T000000Z",
@@ -830,6 +845,13 @@ function chk(container, label, checked, onToggle, opts){
   if (opts.locked){ var lk=document.createElement("span"); lk.className="pill"; lk.textContent="mandatory"; l.appendChild(lk); }
   if (opts.isNew){ var n=document.createElement("span"); n.className="pill new"; n.textContent="new"; l.appendChild(n); }
   if (opts.note){ var nn=document.createElement("span"); nn.className="pill"; nn.textContent=opts.note; l.appendChild(nn); }
+  if (opts.live !== undefined && opts.live !== null){
+    var lv=document.createElement("span");
+    lv.className = "pill " + (opts.live ? "lv-on" : "lv-off");
+    lv.textContent = opts.live ? "live ✓" : "live ✗";
+    lv.title = opts.live ? "present on this host right now" : "NOT present on this host right now";
+    l.appendChild(lv);
+  }
   container.appendChild(l);
 }
 
@@ -845,8 +867,60 @@ function renderList(elId, items, stateBag, opts){
     chk(el, label, stateBag[key], function(v){ stateBag[key] = v; },
         { required: opts.required, danger: opts.danger, isNew: it && it.isNew,
           tip: (it && it.tip) || GLOSSARY[key],
+          live: opts.live ? opts.live(key) : null,
           note: it && (it.note || (it.url ? it.url.replace(/^https?:\/\//,"") : null)) });
   });
+}
+
+/* ───────────────────── manage-this-host (live) ─────────────────────
+   state.target: "image" (classic — generate the orchestrate.sh build) or
+   "host" (manage the OS this page is served from). In host mode every
+   option gets a live ✓/✗ badge from /host.json and the right panel emits
+   the sovereign-osctl + systemd convergence plan instead of a build cmd. */
+function hostLive(kind){
+  if (state.target !== "host" || !D.host) return null;
+  var H = D.host;
+  switch (kind){
+    case "kconfig": return function(k){ return H.kconfig && Object.keys(H.kconfig).length ? !!H.kconfig[k] : null; };
+    case "cmdline": return function(k){ return (H.cmdline||[]).indexOf(k) >= 0; };
+    case "cpuflag": return function(k){ return (H.cpu_flags||[]).indexOf(k) >= 0; };
+    case "module":  return function(k){ return (H.modules||[]).indexOf(k.replace(/-/g,"_")) >= 0; };
+    case "pkg":     return function(k){ return (H.packages||[]).indexOf(k) >= 0; };
+    case "bin":     return function(k){
+      var bin = HOST_BIN_NAMES[k] || k;
+      return H.tool_bins && (bin in H.tool_bins) ? !!H.tool_bins[bin]
+           : (H.packages||[]).indexOf(k) >= 0;
+    };
+  }
+  return null;
+}
+/* configurator item key → host binary probed by /host.json tool_bins */
+var HOST_BIN_NAMES = {
+  "@anthropic-ai/claude-code":"claude", "opencode-ai":"opencode",
+  "fd-find":"fdfind", "lm-sensors":"sensors", "ripgrep":"rg",
+  "dnsutils":"dig", "apcupsd":"apcupsd",
+};
+/* recurrent hook id → systemd timer slug (mirror of the repo's
+   HOOK_TO_TIMER_SLUG contract for the hooks this page surfaces) */
+var HOOK_TIMER_SLUG = {
+  "zfs-scrub":"sovereign-zfs-scrub",
+  "tetragon-policy-verify":"sovereign-tetragon-verify",
+  "model-catalog-sync":"sovereign-models-sync",
+  "selfdef-sync":"sovereign-selfdef-sync",
+};
+function hookTimer(id){ return (HOOK_TIMER_SLUG[id] || "sovereign-"+id) + ".timer"; }
+function hookUnitState(id){
+  if (!D.host || !D.host.units) return null;
+  var u = D.host.units[hookTimer(id)];
+  return u ? (u.active === "active" ? "active" : u.enabled) : "not installed";
+}
+function fetchHost(then){
+  fetch("./host.json", {cache:"no-store"}).then(function(r){
+    if (!r.ok) throw 0; return r.json();
+  }).then(function(h){
+    D.host = h;
+    if (then) then();
+  }).catch(function(){ if (then) then(); });
 }
 
 /* ───────────────────────── section 0: hardware preflight ───────────────────────── */
@@ -1092,9 +1166,15 @@ function renderHooks(det){
     fs.appendChild(row);
     hooks.forEach(function(h){
       state.hooks[key][h.id] = true;
+      var live = null;
+      if (state.target === "host" && key === "post_install_recurrent"){
+        var st = hookUnitState(h.id);
+        live = (st === "active" || st === "enabled");
+      }
       chk(row, h.id + (h.schedule ? " ("+h.schedule+")" : ""), true,
           function(v){ state.hooks[key][h.id] = v; },
-          { locked: h.mandatory, note: h.note ? "reads profile PCI IDs" : (h.type !== "setup" ? h.type : null) });
+          { locked: h.mandatory, live: live,
+            note: h.note ? "reads profile PCI IDs" : (h.type !== "setup" ? h.type : null) });
     });
     c.appendChild(fs);
   });
@@ -1115,19 +1195,19 @@ function loadProfile(){
   document.getElementById("kernel-tag").textContent = det.kernel.source + " · " + det.kernel.march;
   document.getElementById("mixins-line").textContent = (det.mixins||[]).join(" + ") || "—";
 
-  renderList("k-enable", det.kernel.enable, state.kEnable, {});
+  renderList("k-enable", det.kernel.enable, state.kEnable, { live: hostLive("kconfig") });
   renderMicrocode(det.kernel.microcode, det.kernel.microcode_default);
-  renderList("cmd-base", det.kernel.cmdline_base || [], state.cmdBase, {});
-  renderList("cmd-vfio", det.kernel.cmdline_vfio || [], state.cmdVfio, {});
+  renderList("cmd-base", det.kernel.cmdline_base || [], state.cmdBase, { live: hostLive("cmdline") });
+  renderList("cmd-vfio", det.kernel.cmdline_vfio || [], state.cmdVfio, { live: hostLive("cmdline") });
 
-  renderList("cpu-required",  det.cpu.required,  state.cpuReq,  { required:true });
-  renderList("cpu-preferred", det.cpu.preferred, state.cpuPref, {});
-  renderList("mod-load",      det.modules.load,      state.modLoad,  {});
-  renderList("mod-blacklist", det.modules.blacklist, state.modBlack, { danger:true });
+  renderList("cpu-required",  det.cpu.required,  state.cpuReq,  { required:true, live: hostLive("cpuflag") });
+  renderList("cpu-preferred", det.cpu.preferred, state.cpuPref, { live: hostLive("cpuflag") });
+  renderList("mod-load",      det.modules.load,      state.modLoad,  { live: hostLive("module") });
+  renderList("mod-blacklist", det.modules.blacklist, state.modBlack, { danger:true, live: hostLive("module") });
 
-  renderList("pkg-base",    det.packages.base,    state.pkgBase,    {});
-  renderList("pkg-profile", det.packages.profile, state.pkgProfile, {});
-  renderList("pkg-deny",    det.packages.deny,    state.pkgDeny,    { danger:true });
+  renderList("pkg-base",    det.packages.base,    state.pkgBase,    { live: hostLive("pkg") });
+  renderList("pkg-profile", det.packages.profile, state.pkgProfile, { live: hostLive("pkg") });
+  renderList("pkg-deny",    det.packages.deny,    state.pkgDeny,    { danger:true, live: hostLive("pkg") });
 
   document.getElementById("pkg-placeholder-note").textContent =
     det.packages.placeholder
@@ -1166,6 +1246,47 @@ function buildCommand(){
     "SOVEREIGN_OS_OVERLAY_PSU_OC=psu-oc.toml \\",
     "  sudo scripts/build/orchestrate.sh run",
   ].join("\n");
+}
+
+function buildHostPlan(){
+  var H = D.host || {};
+  var L = [];
+  var recur = (state.hooks.post_install_recurrent) ? on(state.hooks.post_install_recurrent) : [];
+  var toEnable = recur.filter(function(id){ return hookUnitState(id) !== "active"; });
+  var slugs = toEnable.map(function(id){ return hookTimer(id); });
+  L.push("# ── converge THIS host (" + (H.hostname||"?") + " · kernel " + (H.kernel||"?") + ") on the selections ──");
+  L.push("# Copy-paste per block; this page never executes anything (read-only API).");
+  L.push("");
+  if (!H.osctl || H.osctl.indexOf("/scripts/") >= 0){
+    L.push("# 1 · install the management CLI + libs + hooks (once)");
+    L.push("sudo make install");
+    L.push('sudo ln -sfn "$(pwd)" /opt/sovereign-os   # units ExecStart from /opt/sovereign-os');
+    L.push("");
+  }
+  if (slugs.length){
+    L.push("# 2 · install + enable the selected recurrent hooks (" + toEnable.join(", ") + ")");
+    L.push("sudo cp " + slugs.map(function(s){ return "systemd/system/" + s.replace(".timer","") + ".{service,timer}"; }).join(" \\\n        ") + " /etc/systemd/system/");
+    L.push("sudo systemctl daemon-reload");
+    L.push("sudo systemctl enable --now " + slugs.join(" "));
+    L.push("");
+  }
+  if (H.active_profile !== state.profile){
+    L.push("# 3 · switch the active profile (" + (H.active_profile||"none") + " → " + state.profile + ")");
+    L.push("sovereign-osctl profiles switch " + state.profile);
+    L.push("");
+  }
+  var aiOn = D.tools.ai.filter(function(x){ return state.tools.ai[x.pkg]; });
+  var missingTools = aiOn.filter(function(x){ var f = hostLive("bin"); return f && f(x.pkg) === false; });
+  L.push("# 4 · operator tools — declarative install (DRY-RUN first; --apply is gated)"
+         + (missingTools.length ? "  ⚠ missing now: " + missingTools.map(function(x){return x.label;}).join(", ") : ""));
+  L.push("python3 scripts/install/operator-deps.py --deps operator-deps.toml          # report only");
+  L.push("python3 scripts/install/operator-deps.py --deps operator-deps.toml --apply  # confirmed apply");
+  L.push("");
+  L.push("# 5 · inspect the result");
+  L.push("sovereign-osctl status");
+  L.push("sovereign-osctl doctor");
+  L.push("sovereign-osctl audit drift");
+  return L.join("\n");
 }
 
 function buildOverlay(){
@@ -1321,23 +1442,41 @@ function buildPreflight(power){
 
 function regenerate(){
   var power = powerCalc();
-  document.getElementById("out-cmd").textContent       = buildCommand();
+  var hostMode = state.target === "host";
+  document.getElementById("out-cmd-title").textContent = hostMode ? "Host apply plan" : "Build command";
+  document.getElementById("out-cmd-note").innerHTML = hostMode
+    ? "Convergence commands for <strong>this</strong> machine. Run blocks top-to-bottom; every mutation is yours to paste — the page only reads."
+    : "Run on the build host (Debian 13 / Ubuntu 24.04). First build is ~30 min. Add <code>--dry-run</code> to validate the plan without building.";
+  document.getElementById("out-cmd").textContent       = hostMode ? buildHostPlan() : buildCommand();
   document.getElementById("out-overlay").textContent   = buildOverlay();
   document.getElementById("out-deps").textContent      = buildDeps();
   document.getElementById("out-psu").textContent       = buildPsuToml();
   document.getElementById("out-preflight").textContent = buildPreflight(power);
 
   var aiOn = D.tools.ai.filter(function(x){return state.tools.ai[x.pkg];}).map(function(x){return x.label;});
-  document.getElementById("sel-summary").textContent =
-    "Building " + state.profile + " · " + state.substrate +
-    " · " + on(state.pkgProfile).length + " profile pkgs · tuning: " + state.tuning +
-    " · " + (aiOn.length ? aiOn.join(" + ") : "no AI assistant selected");
+  document.getElementById("sel-summary").textContent = hostMode
+    ? "Managing " + ((D.host&&D.host.hostname)||"this host") + " · profile " + state.profile +
+      (D.host && D.host.active_profile === state.profile ? " (active)" : "") +
+      " · " + Object.keys((D.host&&D.host.units)||{}).length + " sovereign unit(s) installed"
+    : "Building " + state.profile + " · " + state.substrate +
+      " · " + on(state.pkgProfile).length + " profile pkgs · tuning: " + state.tuning +
+      " · " + (aiOn.length ? aiOn.join(" + ") : "no AI assistant selected");
 
   var warns = [];
-  var blockers = D.hw.board.bios.filter(function(i){ return i.sev==="blocker" && !state.bios[i.id]; });
-  if (blockers.length) warns.push("⚠ " + blockers.length + " BIOS blocker(s) unconfirmed: " + blockers.map(function(i){return i.id;}).join(", "));
-  if (power.cls !== "ok") warns.push("⚠ power: " + power.verdict);
-  if (!state.psuOc) warns.push("⚠ PSU OC mode declared off (dual-GPU transient risk — see § 0)");
+  if (hostMode && D.host){
+    var recur = state.hooks.post_install_recurrent ? on(state.hooks.post_install_recurrent) : [];
+    if (recur.indexOf("zfs-scrub") >= 0 && !(D.host.zpools && D.host.zpools.length))
+      warns.push("⚠ zfs-scrub selected but this host has no ZFS pool (hook will report absent)");
+    if (!D.host.gpus && on(state.modLoad).indexOf("nvidia") >= 0)
+      warns.push("⚠ nvidia module selected but no NVIDIA driver answers on this host yet");
+    if (D.host.kernel && D.host.kernel.indexOf("znver5") < 0)
+      warns.push("ℹ running the stock Debian kernel (" + D.host.kernel + ") — kernel/cmdline choices need the custom-kernel install to land");
+  } else {
+    var blockers = D.hw.board.bios.filter(function(i){ return i.sev==="blocker" && !state.bios[i.id]; });
+    if (blockers.length) warns.push("⚠ " + blockers.length + " BIOS blocker(s) unconfirmed: " + blockers.map(function(i){return i.id;}).join(", "));
+    if (power.cls !== "ok") warns.push("⚠ power: " + power.verdict);
+    if (!state.psuOc) warns.push("⚠ PSU OC mode declared off (dual-GPU transient risk — see § 0)");
+  }
   document.getElementById("sel-warnings").innerHTML = warns.join("<br>");
 }
 
@@ -1349,6 +1488,28 @@ function regenerate(){
 });
 document.getElementById("snapshot").addEventListener("input", regenerate);
 document.getElementById("kcflags").addEventListener("input", regenerate);
+
+// target toggle: image build ↔ manage the running host
+document.getElementById("btn-target").addEventListener("click", function(){
+  var b = this;
+  function applyTarget(){
+    b.textContent = "target: " + (state.target === "host" ? "this host (live)" : "image build");
+    document.getElementById("intro-banner").style.display = state.target === "host" ? "none" : "";
+    var hb = document.getElementById("host-banner");
+    hb.style.display = state.target === "host" ? "" : "none";
+    if (state.target === "host" && D.host)
+      document.getElementById("host-id").textContent =
+        (D.host.hostname||"?") + " · " + (D.host.kernel||"?");
+    loadProfile(); renderTools();   // re-render with/without live badges
+  }
+  if (state.target === "image"){
+    state.target = "host";
+    fetchHost(applyTarget);        // refresh live state on every entry
+  } else {
+    state.target = "image";
+    applyTarget();
+  }
+});
 ["p-cpu","p-chassis","p-dimms","p-mts","p-gpuoc"].forEach(function(id){
   document.getElementById(id).addEventListener("input", function(){ powerCalc(); regenerate(); });
 });
@@ -1386,10 +1547,10 @@ document.addEventListener("click", function(e){
 });
 
 function renderTools(){
-  renderList("tools-ai",   D.tools.ai,   state.tools.ai,   {});
-  renderList("tools-apt",  D.tools.apt,  state.tools.apt,  {});
+  renderList("tools-ai",   D.tools.ai,   state.tools.ai,   { live: hostLive("bin") });
+  renderList("tools-apt",  D.tools.apt,  state.tools.apt,  { live: hostLive("bin") });
   renderList("tools-pip",  D.tools.pip,  state.tools.pip,  {});
-  renderList("tools-curl", D.tools.curl, state.tools.curl, { danger:true });
+  renderList("tools-curl", D.tools.curl, state.tools.curl, { danger:true, live: hostLive("bin") });
 }
 
 /* live mirror merge: tools + any parseable profile detail + hw configs */
@@ -1414,6 +1575,7 @@ function tryMirror(){
       tools: (j.tools && j.tools.ai) ? j.tools : D.tools,
       hw: hw,
       tuning: (j.tuning && j.tuning.length) ? j.tuning : D.tuning,
+      host: D.host,   // live host probe survives mirror refreshes
     };
     window.SOC_DATA = D;
     document.getElementById("p-cpu").value = D.hw.power.cpu_tdp;
