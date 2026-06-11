@@ -41,6 +41,15 @@ __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../../.." && pwd)"
 : "${SOVEREIGN_OS_SELFDEF_REMOTE:=origin}"
 : "${SOVEREIGN_OS_SELFDEF_BRANCH:=main}"
 
+# The systemd unit runs as root while the checkout is typically owned by
+# the operator — git then refuses with "dubious ownership" (exit 128,
+# first live run 2026-06-12). The operator explicitly configured this
+# directory via SOVEREIGN_OS_SELFDEF_DIR, so trusting it is by design,
+# scoped to this process only (no global gitconfig mutation).
+export GIT_CONFIG_COUNT=1 \
+       GIT_CONFIG_KEY_0=safe.directory \
+       GIT_CONFIG_VALUE_0="${SOVEREIGN_OS_SELFDEF_DIR}"
+
 log_step_header "selfdef-sync" "freshness check for selfdef checkout at ${SOVEREIGN_OS_SELFDEF_DIR}"
 
 emit_summary() {

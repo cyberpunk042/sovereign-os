@@ -7,11 +7,24 @@ if [ -n "${__SOVEREIGN_OS_COMMON_LIB_LOADED:-}" ]; then
 fi
 __SOVEREIGN_OS_COMMON_LIB_LOADED=1
 
-# Discover repo root (relative to this lib file)
+# Discover the sovereign-os root (relative to this lib file). Two layouts
+# exist (caught on the first installed-CLI run 2026-06-12 — doctor died
+# silently looking for /usr/profiles/):
+#   in-repo:    <root>/scripts/build/lib/common.sh   → root is 3 up
+#   installed:  <PREFIX>/lib/sovereign-os/lib/common.sh (make install
+#               flattens) → root is 1 up (profiles/ is a SIBLING of lib/)
+# A pre-set SOVEREIGN_OS_ROOT (e.g. from sovereign-osctl's own context
+# detection) always wins.
 __LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Split declare+export so a failed `cd ... && pwd` is caught by `set -e`
-# (an `export X=$(cmd)` masks the subshell's non-zero exit — SC2155).
-SOVEREIGN_OS_ROOT="$(cd "${__LIB_DIR}/../../.." && pwd)"
+if [ -z "${SOVEREIGN_OS_ROOT:-}" ]; then
+  # Split declare+export so a failed `cd ... && pwd` is caught by `set -e`
+  # (an `export X=$(cmd)` masks the subshell's non-zero exit — SC2155).
+  if [ -d "${__LIB_DIR}/../profiles" ]; then
+    SOVEREIGN_OS_ROOT="$(cd "${__LIB_DIR}/.." && pwd)"
+  else
+    SOVEREIGN_OS_ROOT="$(cd "${__LIB_DIR}/../../.." && pwd)"
+  fi
+fi
 export SOVEREIGN_OS_ROOT
 
 # Standard layout

@@ -22,6 +22,11 @@ RestrictRealtime=true
 RestrictSUIDSGID=true
 RestrictNamespaces=true
 LockPersonality=true
-ReadWritePaths=/mnt/vault/models /var/lib/sovereign-os /var/lib/node_exporter/textfile_collector
+# StateDirectory/LogsDirectory CREATE their /var dirs; '-' tolerates
+# absent host paths — a bare ReadWritePaths entry refuses to spawn the
+# unit (226/NAMESPACE) on hosts missing the dir (first host bring-up
+# 2026-06-12).
+StateDirectory=sovereign-os
+ReadWritePaths=-/mnt/vault/models -/var/lib/node_exporter/textfile_collector
 NoNewPrivileges=true
 PrivateTmp=true

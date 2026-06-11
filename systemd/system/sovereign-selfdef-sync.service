@@ -37,6 +37,10 @@ LockPersonality=true
 # Override SOVEREIGN_OS_SELFDEF_DIR + this path via drop-in if the
 # checkout lives elsewhere.
 ReadWritePaths=-/root/selfdef
-ReadWritePaths=/var/lib/sovereign-os /var/lib/node_exporter/textfile_collector
+# StateDirectory CREATES /var/lib/sovereign-os (a bare ReadWritePaths
+# entry without '-' refuses to spawn when the dir is missing —
+# status=226/NAMESPACE on the first host bring-up 2026-06-12).
+StateDirectory=sovereign-os
+ReadWritePaths=-/var/lib/node_exporter/textfile_collector
 NoNewPrivileges=true
 PrivateTmp=true
