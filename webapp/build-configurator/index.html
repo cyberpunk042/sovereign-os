@@ -133,6 +133,29 @@
   }
   button.btn:hover { border-color:var(--accent); color:var(--accent); }
   button.btn.copied { border-color:var(--ok); color:var(--ok); }
+  /* ── action hierarchy (grammar: webapp/_shared/design-grammar.md) ──
+     .btn               ghost  — tertiary: copy, fold, nav chrome
+     .btn.action        filled — REAL actions; bigger, always colored:
+       .primary  accent — the view's main path (max one per view)
+       .go       green  — safe executable step
+       .heavy    amber  — long/expensive, confirm-gated
+     A user must find the page's primary action without reading. */
+  button.btn.action { font-size:.84rem; font-weight:700; padding:.45rem .95rem;
+    border:0; color:#10131a; border-radius:5px; }
+  button.btn.action.primary { background:var(--accent); }
+  button.btn.action.go      { background:var(--ok); }
+  button.btn.action.heavy   { background:var(--warn); }
+  button.btn.action:hover   { filter:brightness(1.15); color:#10131a; }
+  button.btn.action:disabled{ opacity:.35; cursor:not-allowed; filter:none; }
+  #run-console { border:1px solid var(--border); border-left:4px solid var(--ok);
+    border-radius:6px; padding:.75rem .85rem 1rem; margin-bottom:1.1rem;
+    background:rgba(127,209,138,.05); }
+  #run-console h3 { margin:0 0 .6rem; font-size:.95rem;
+    display:flex; align-items:center; gap:.5rem; }
+  .run-dot { width:.62rem; height:.62rem; border-radius:50%;
+    background:var(--muted); display:inline-block; flex:none; }
+  .run-dot.busy { background:var(--warn); animation:run-pulse 1s infinite; }
+  @keyframes run-pulse { 50% { opacity:.25; } }
   .banner {
     border:1px solid var(--border); border-left:3px solid var(--accent);
     background:rgba(155,209,255,.06); border-radius:4px; padding:.55rem .7rem;
@@ -246,6 +269,7 @@
   <button class="btn" id="btn-target" title="switch between composing an image build and managing the OS this page is served from">target: image build</button>
   <button class="btn" id="btn-guide" title="restart the step-by-step walkthrough">guide me</button>
   <button class="btn" id="btn-xall">collapse all</button>
+  <a class="nav" href="../panels">all panels ↗</a>
   <a class="nav" href="../master-dashboard/">cockpit ↗</a>
 </header>
 
@@ -256,10 +280,14 @@
     <div class="banner" id="intro-banner">
       This is the <strong>build-time</strong> surface (the runtime cockpit is the
       D-NN dashboards). Walk the layers top-to-bottom; the right panel generates
-      the exact <code>orchestrate.sh</code> command + every overlay file.
-      <strong>This page never builds anything itself</strong> — a real build
-      needs <code>sudo</code> and ~30&nbsp;min on the build host. Section
-      headers fold (click to collapse).
+      the exact <code>orchestrate.sh</code> command + every overlay file, and the
+      <strong>Run console</strong> executes it: <em>validate</em> and
+      <em>preflight</em> work immediately; <em>BUILD</em> (the real ~30 min
+      image) needs the panel started with <code>sudo -E scripts/operator/panel.sh</code>.
+      Host-mutating commands stay ⚡ YOU RUN. Launched via <code>make panel</code>
+      (also starts the :8443 runtime dashboard) · all panels:
+      <code>/panels</code> · runbook: <code>docs/src/ops/run-on-host.md</code>.
+      Section headers fold (click).
     </div>
 
     <div class="banner" id="host-banner" style="display:none">
@@ -269,7 +297,9 @@
       ACTUALLY present on this host (kernel config · cmdline · modules ·
       packages · CPU flags · sovereign units). The right panel generates the
       <code>sovereign-osctl</code> + systemd commands to converge the host on
-      your selections. <strong>Still read-only</strong> — you copy, you run.
+      your selections. <strong>Still read-only</strong> — every block is
+      ⚡ YOU RUN: you copy, you paste, you decide. Runbook:
+      <code>docs/src/ops/run-on-host.md</code>.
     </div>
 
     <section class="card" id="sec-hw">
@@ -545,6 +575,19 @@
     <div class="banner warn" style="margin-bottom:.8rem">
       <strong id="sel-summary"></strong>
       <div class="small" id="sel-warnings" style="margin-top:.3rem"></div>
+    </div>
+
+    <div id="run-console">
+      <h3><span class="run-dot" id="run-dot"></span>Run console
+        <span class="muted small" style="font-weight:400">executes on the server — the exception to ⚡ YOU RUN</span></h3>
+      <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:.5rem">
+        <button class="btn action primary" id="run-dry"       title="orchestrate.sh run --dry-run — validates the 9-step plan, builds nothing">▶ validate (dry-run)</button>
+        <button class="btn action go" id="run-preflight" title="orchestrate.sh preflight — runs the pre-install hooks (friction audit)">▶ preflight</button>
+        <button class="btn action heavy" id="run-build"     title="orchestrate.sh run — the REAL ~30 min image build; needs the panel started with sudo">▶ BUILD image (~30 min)</button>
+        <button class="btn" id="run-cancel" disabled>■ cancel</button>
+        <span class="small muted" id="run-status" style="align-self:center"></span>
+      </div>
+      <pre class="out" id="run-log" style="max-height:280px; min-height:2.2rem; margin:0">(idle — output streams here live)</pre>
     </div>
 
     <div class="out-head">
@@ -1255,7 +1298,8 @@ function buildHostPlan(){
   var toEnable = recur.filter(function(id){ return hookUnitState(id) !== "active"; });
   var slugs = toEnable.map(function(id){ return hookTimer(id); });
   L.push("# ── converge THIS host (" + (H.hostname||"?") + " · kernel " + (H.kernel||"?") + ") on the selections ──");
-  L.push("# Copy-paste per block; this page never executes anything (read-only API).");
+  L.push("# Every block is ⚡ YOU RUN — copy-paste per block, top to bottom;");
+  L.push("# this page never executes anything (read-only API). Doc: docs/src/ops/run-on-host.md");
   L.push("");
   if (!H.osctl || H.osctl.indexOf("/scripts/") >= 0){
     L.push("# 1 · install the management CLI + libs + hooks (once)");
@@ -1489,11 +1533,64 @@ function regenerate(){
 document.getElementById("snapshot").addEventListener("input", regenerate);
 document.getElementById("kcflags").addEventListener("input", regenerate);
 
+/* ── Run console: POST /api/run, stream the log live. The ONE deliberate
+   exception to read-only — actions are server-whitelisted (dry-run /
+   preflight / build); BUILD needs the panel started with sudo. ── */
+function setRunBusy(busy, label){
+  ["run-dry","run-preflight","run-build"].forEach(function(id){
+    document.getElementById(id).disabled = busy;
+  });
+  document.getElementById("run-cancel").disabled = !busy;
+  document.getElementById("run-dot").className = "run-dot" + (busy ? " busy" : "");
+  document.getElementById("run-status").textContent =
+    busy ? ("running " + label + "…") : "";
+}
+function runAction(action){
+  if (action === "build" &&
+      !confirm("REAL image build (~30 min, writes to build/). Continue?")) return;
+  var log = document.getElementById("run-log");
+  log.textContent = "";
+  setRunBusy(true, action);
+  fetch("./api/run", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({action: action, profile: state.profile}),
+  }).then(function(r){
+    if (!r.ok) return r.text().then(function(t){
+      var msg = t; try { var j = JSON.parse(t); msg = j.error + (j.fix ? "\n→ " + j.fix : ""); } catch(e){}
+      log.textContent = "✗ " + msg;
+      setRunBusy(false, "");
+    });
+    var reader = r.body.getReader(), dec = new TextDecoder();
+    function pump(){
+      return reader.read().then(function(x){
+        if (x.done){ setRunBusy(false, ""); return; }
+        log.textContent += dec.decode(x.value, {stream: true});
+        log.scrollTop = log.scrollHeight;
+        return pump();
+      });
+    }
+    return pump();
+  }).catch(function(e){
+    log.textContent += "\n✗ " + e;
+    setRunBusy(false, "");
+  });
+}
+document.getElementById("run-dry").addEventListener("click", function(){ runAction("dry-run"); });
+document.getElementById("run-preflight").addEventListener("click", function(){ runAction("preflight"); });
+document.getElementById("run-build").addEventListener("click", function(){ runAction("build"); });
+document.getElementById("run-cancel").addEventListener("click", function(){
+  fetch("./api/cancel", {method:"POST"});
+});
+
 // target toggle: image build ↔ manage the running host
 document.getElementById("btn-target").addEventListener("click", function(){
   var b = this;
   function applyTarget(){
     b.textContent = "target: " + (state.target === "host" ? "this host (live)" : "image build");
+    // mode switch is a primary affordance: filled accent while in host mode
+    b.classList.toggle("action", state.target === "host");
+    b.classList.toggle("primary", state.target === "host");
     document.getElementById("intro-banner").style.display = state.target === "host" ? "none" : "";
     var hb = document.getElementById("host-banner");
     hb.style.display = state.target === "host" ? "" : "none";

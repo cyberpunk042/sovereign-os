@@ -32,8 +32,27 @@ Endpoints:
                           cmdline, kconfig, modules, packages, cpu flags,
                           sovereign-* unit states, GPUs, ZFS pools.
                           Read-only probes; never mutates the host.
+  GET /<panel>/...      — any sibling webapp/ panel served statically
+                          (master-dashboard, trinity, auditor, …) so the
+                          cockpit links work from this one process. Pages
+                          whose data APIs aren't running degrade to their
+                          baked snapshots, same as this page does.
+  GET /panels.json      — discovery: every webapp/ panel (id + title)
+  GET /panels/          — generated HTML index of all panels
   GET /version          — service version + module identity
   GET /healthz          — liveness (always 200)
+
+  POST /api/run         — EXECUTE a whitelisted repo action and stream its
+                          log back (text/plain, line-buffered):
+                            {"action": "dry-run"|"preflight"|"build",
+                             "profile": "<id>"}
+                          One job at a time (409 if busy). "build" requires
+                          the server to run as root (start the panel with
+                          sudo) — otherwise 403 with instructions. This is
+                          the ONE deliberate exception to the read-only
+                          rule, added on operator request 2026-06-12: the
+                          builder page must be able to actually build.
+  POST /api/cancel      — kill the currently-streaming job (process group)
 
 Env vars:
   BUILD_CONFIGURATOR_API_BIND   (default: 127.0.0.1)
@@ -42,6 +61,7 @@ Env vars:
 """
 from __future__ import annotations
 
+import html as html_mod
 import json
 import os
 import platform
@@ -49,7 +69,8 @@ import re
 import shutil
 import subprocess
 import sys
-from http.server import BaseHTTPRequestHandler, HTTPServer
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 API_BIND = os.environ.get("BUILD_CONFIGURATOR_API_BIND", "127.0.0.1")
@@ -59,7 +80,19 @@ VERSION = "0.1.0"
 
 REPO = Path(__file__).resolve().parents[2]
 PROFILES_DIR = REPO / "profiles"
-WEBAPP = REPO / "webapp" / "build-configurator" / "index.html"
+WEBAPP_ROOT = REPO / "webapp"
+WEBAPP = WEBAPP_ROOT / "build-configurator" / "index.html"
+
+STATIC_TYPES = {
+    ".html": "text/html; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".js": "application/javascript; charset=utf-8",
+    ".json": "application/json",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".ico": "image/x-icon",
+    ".woff2": "font/woff2",
+}
 
 # Profiles surfaced in the picker, in display order, with one-liners.
 PROFILE_META = [
@@ -418,6 +451,69 @@ def assemble_host() -> dict:
     return host
 
 
+def list_panels() -> list[dict]:
+    """Discovery: every webapp/<dir>/index.html, with its <title>."""
+    panels = []
+    for d in sorted(WEBAPP_ROOT.iterdir()):
+        idx = d / "index.html"
+        if not (d.is_dir() and idx.is_file()) or d.name.startswith("_"):
+            continue
+        title = d.name
+        try:
+            m = re.search(r"<title>(.*?)</title>",
+                          idx.read_text(encoding="utf-8", errors="replace"),
+                          re.S | re.I)
+            if m:
+                title = re.sub(r"\s+", " ", m.group(1)).strip() or d.name
+        except OSError:
+            pass
+        panels.append({"id": d.name, "title": title, "path": f"/{d.name}/"})
+    return panels
+
+
+def panels_index_html() -> str:
+    """Generated index page for /panels/ — every panel, honestly labeled."""
+    rows = "\n".join(
+        f'<li><a href="{p["path"]}">{html_mod.escape(p["id"])}</a>'
+        f'<span class="t">{html_mod.escape(p["title"])}</span></li>'
+        for p in list_panels()
+    )
+    n = len(list_panels())
+    return f"""<!doctype html><html><head><meta charset="utf-8">
+<title>sovereign-os · panel index</title>
+<style>
+ body{{font:14px/1.5 system-ui,sans-serif;background:#10131a;color:#cdd3e0;max-width:780px;margin:2rem auto;padding:0 1rem}}
+ h1{{font-size:1.2rem}} a{{color:#7fb3ff;text-decoration:none}} a:hover{{text-decoration:underline}}
+ li{{margin:.25rem 0;list-style:none}} .t{{color:#7d8597;margin-left:.8rem;font-size:.85em}}
+ .note{{background:#1a2030;border:1px solid #2a3350;border-radius:6px;padding:.7rem .9rem;margin:1rem 0}}
+ ul{{padding:0}}
+</style></head><body>
+<h1>sovereign-os · all {n} panels</h1>
+<div class="note">Served statically from <code>webapp/</code>. Panels are
+seeded with baked snapshots; ones backed by a <code>sovereign-*-api</code>
+service show LIVE data only once that service is installed and running
+(<code>docs/src/ops/run-on-host.md</code> § 2 — same flow as the hook
+timers). The <a href="/">build configurator</a> and its
+<a href="/host.json">host probe</a> are live right now.</div>
+<ul>{rows}</ul>
+</body></html>"""
+
+
+# ── /api/run — the one deliberate exception to read-only (operator
+#    request 2026-06-12: "there is no even a way to build in the builder
+#    page"). Whitelisted actions only; one at a time; logs stream back. ──
+
+RUN_ACTIONS = {
+    # action id → (argv builder, needs_root)
+    "dry-run":   (lambda: ["scripts/build/orchestrate.sh", "run", "--dry-run"], False),
+    "preflight": (lambda: ["scripts/build/orchestrate.sh", "preflight"], False),
+    "build":     (lambda: ["scripts/build/orchestrate.sh", "run"], True),
+}
+RUN_LOCK = threading.Lock()
+CURRENT_JOB: dict = {"proc": None, "action": None}
+ANSI_RE = re.compile(rb"\x1b\[[0-9;]*[A-Za-z]")
+
+
 def assemble_data() -> dict:
     profiles = [
         {"id": pid, "name": name, "default": is_def, "desc": desc}
@@ -463,20 +559,135 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, json.dumps(assemble_data(), indent=2))
         if path in ("/host.json", "/host"):
             return self._send(200, json.dumps(assemble_host(), indent=2))
+        if path == "/panels.json":
+            return self._send(200, json.dumps(list_panels(), indent=2))
+        if path == "/panels":
+            return self._send(200, panels_index_html(), "text/html; charset=utf-8")
         if path == "/":
             if WEBAPP.exists():
                 return self._send(200, WEBAPP.read_bytes(), "text/html; charset=utf-8")
             return self._send(404, json.dumps({"error": "webapp not found"}))
+        # Static sibling panels: /<panel>/ → webapp/<panel>/index.html.
+        # resolve() + relative_to guard keeps every read inside webapp/.
+        try:
+            target = (WEBAPP_ROOT / path.lstrip("/")).resolve()
+            target.relative_to(WEBAPP_ROOT.resolve())
+        except (ValueError, OSError):
+            return self._send(404, json.dumps({"error": "not found", "path": path}))
+        if target.is_dir():
+            target = target / "index.html"
+        if target.is_file():
+            ctype = STATIC_TYPES.get(target.suffix.lower())
+            if ctype:
+                return self._send(200, target.read_bytes(), ctype)
         return self._send(404, json.dumps({"error": "not found", "path": path}))
+
+    def _read_json_body(self) -> dict | None:
+        try:
+            n = int(self.headers.get("Content-Length", "0"))
+            return json.loads(self.rfile.read(n) or b"{}")
+        except (ValueError, OSError):
+            return None
+
+    def do_POST(self):
+        path = self.path.split("?", 1)[0].rstrip("/")
+        if path == "/api/cancel":
+            proc = CURRENT_JOB.get("proc")
+            if proc and proc.poll() is None:
+                try:
+                    os.killpg(os.getpgid(proc.pid), 15)
+                except (OSError, ProcessLookupError):
+                    pass
+                return self._send(200, json.dumps(
+                    {"cancelled": CURRENT_JOB.get("action")}))
+            return self._send(200, json.dumps({"cancelled": None}))
+        if path == "/api/run":
+            return self._run_action()
+        return self._send(404, json.dumps({"error": "not found", "path": path}))
+
+    def _run_action(self):
+        body = self._read_json_body()
+        if body is None:
+            return self._send(400, json.dumps({"error": "bad JSON body"}))
+        action = body.get("action")
+        profile = body.get("profile", "sain-01")
+        if action not in RUN_ACTIONS:
+            return self._send(400, json.dumps(
+                {"error": f"unknown action {action!r}",
+                 "allowed": sorted(RUN_ACTIONS)}))
+        if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", profile or "") \
+                or not (PROFILES_DIR / f"{profile}.yaml").is_file():
+            return self._send(400, json.dumps({"error": f"unknown profile {profile!r}"}))
+        argv_fn, needs_root = RUN_ACTIONS[action]
+        argv = argv_fn()
+        elevation_note = ""
+        if needs_root and os.geteuid() != 0:
+            pkexec = shutil.which("pkexec")
+            if not pkexec:
+                return self._send(403, json.dumps({
+                    "error": "a real build needs root and pkexec is unavailable",
+                    "fix": "stop this panel, then:  sudo -E scripts/operator/panel.sh "
+                           "— the BUILD button works when the server runs as root. "
+                           "dry-run + preflight work right now without it.",
+                }))
+            # GUI session: polkit pops the system password dialog on the
+            # operator's desktop; the build then runs as root. pkexec
+            # sanitizes env, so re-inject what orchestrate.sh needs.
+            argv = [pkexec, "env",
+                    f"SOVEREIGN_OS_PROFILE={profile}",
+                    f"PATH={os.environ.get('PATH', '/usr/sbin:/usr/bin:/sbin:/bin')}",
+                    str(REPO / argv[0]), *argv[1:]]
+            elevation_note = ("  (look for the system password prompt on "
+                              "your desktop — polkit/pkexec)\n")
+        if not RUN_LOCK.acquire(blocking=False):
+            return self._send(409, json.dumps(
+                {"error": f"a job is already running: {CURRENT_JOB.get('action')}"}))
+        try:
+            env = dict(os.environ, SOVEREIGN_OS_PROFILE=profile)
+            proc = subprocess.Popen(
+                argv, cwd=REPO, env=env, stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT, start_new_session=True,
+            )
+            CURRENT_JOB.update(proc=proc, action=action)
+            # Stream: HTTP/1.0-style close-delimited plain text, line-buffered.
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Accel-Buffering", "no")
+            self.end_headers()
+            self.wfile.write(
+                f"▶ {action} · profile {profile} · pid {proc.pid}\n"
+                f"{elevation_note}\n".encode())
+            self.wfile.flush()
+            try:
+                for raw in proc.stdout:
+                    self.wfile.write(ANSI_RE.sub(b"", raw))
+                    self.wfile.flush()
+                rc = proc.wait()
+                self.wfile.write(
+                    f"\n{'✓' if rc == 0 else '✗'} exit code {rc}\n".encode())
+                self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError):
+                # client went away — stop the job rather than orphan it
+                if proc.poll() is None:
+                    try:
+                        os.killpg(os.getpgid(proc.pid), 15)
+                    except (OSError, ProcessLookupError):
+                        pass
+        finally:
+            CURRENT_JOB.update(proc=None, action=None)
+            RUN_LOCK.release()
 
 
 def main():
     if DRY_RUN:
         print(json.dumps(assemble_data(), indent=2))
         return
-    httpd = HTTPServer((API_BIND, API_PORT), Handler)
+    httpd = ThreadingHTTPServer((API_BIND, API_PORT), Handler)
+    root = " · running as ROOT (BUILD button armed)" if os.geteuid() == 0 else ""
     print(f"build-configurator-api on http://{API_BIND}:{API_PORT}/ "
-          f"(webapp at /, data at /data.json) — read-only, Ctrl-C to stop",
+          f"(webapp at /, panels at /panels/, data at /data.json, "
+          f"run console at POST /api/run){root} — Ctrl-C to stop",
           file=sys.stderr)
     try:
         httpd.serve_forever()

@@ -6,7 +6,7 @@ SHELL := /bin/bash
 PROFILE ?= sain-01
 
 .PHONY: help setup validate lint unit l3 l3-fast test smoke dry-run \
-        preflight ci all clean dashboards-lint install uninstall bins
+        preflight ci all clean dashboards-lint install uninstall bins panel
 
 .DEFAULT_GOAL := help
 
@@ -23,6 +23,9 @@ help:  ## Show this help
 
 setup:  ## One-command fresh-clone bootstrap (git hooks + deps + smoke)
 	scripts/setup.sh
+
+panel:  ## Start the operator panels (build configurator :8100 + runtime dashboard :8443) — no sudo
+	scripts/operator/panel.sh
 
 validate:  ## Validate all profiles against schema + mixin merger
 	scripts/validate-profiles.sh
