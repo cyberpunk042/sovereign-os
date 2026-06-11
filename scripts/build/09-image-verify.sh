@@ -75,6 +75,40 @@ else
 
   log_info "booting (timeout ${SOVEREIGN_OS_QEMU_TIMEOUT}s, mem ${SOVEREIGN_OS_QEMU_MEM})"
 
+  # mkosi raw images are UEFI/GPT: boot through OVMF firmware with NO
+  # -kernel so the REAL chain runs (firmware → systemd-boot → UKI). The
+  # old direct-kernel line globbed a vmlinuz that doesn't exist in the
+  # output dir (it lives inside the image) and bypassed the boot chain
+  # step 08 just signature-verified (first real image, 2026-06-10).
+  # Non-raw artifacts (live-build) keep the direct-kernel path.
+  qemu_boot_args=()
+  qemu_skip_reason=""
+  case "${image_file}" in
+    *.raw)
+      ovmf_code="$(ls /usr/share/OVMF/OVMF_CODE*.fd 2>/dev/null | head -1)"
+      if [ -n "${ovmf_code}" ]; then
+        qemu_boot_args=(-bios "${ovmf_code}")
+      else
+        qemu_skip_reason="OVMF firmware not found (apt install ovmf)"
+      fi
+      ;;
+    *)
+      vmlinuz_file="$(find "${SOVEREIGN_OS_IMAGE_DIR}" -maxdepth 1 -name 'vmlinuz*' -type f 2>/dev/null | head -1)"
+      if [ -n "${vmlinuz_file}" ]; then
+        qemu_boot_args=(-kernel "${vmlinuz_file}")
+      else
+        qemu_skip_reason="no vmlinuz in image dir for direct-kernel boot"
+      fi
+      ;;
+  esac
+  command -v qemu-system-x86_64 >/dev/null 2>&1 \
+    || qemu_skip_reason="qemu-system-x86_64 not installed (apt install qemu-system-x86)"
+
+  if [ -n "${qemu_skip_reason}" ]; then
+    log_warn "skipping QEMU boot smoke: ${qemu_skip_reason}"
+    log_warn "  checksums + provenance still emitted; boot test falls to real hardware"
+    : > "${SOVEREIGN_OS_LOG_DIR}/qemu-boot-${SOVEREIGN_OS_BUILD_ID}.log"
+  else
   timeout "${SOVEREIGN_OS_QEMU_TIMEOUT}" \
     qemu-system-x86_64 \
       -m "${SOVEREIGN_OS_QEMU_MEM}" \
@@ -82,7 +116,7 @@ else
       -nographic \
       -no-reboot \
       -drive "file=${image_file},format=raw,if=virtio,readonly=on" \
-      -kernel "${SOVEREIGN_OS_IMAGE_DIR}/$(ls "${SOVEREIGN_OS_IMAGE_DIR}" | grep vmlinuz | head -1)" \
+      "${qemu_boot_args[@]}" \
       2>&1 | tee "${SOVEREIGN_OS_LOG_DIR}/qemu-boot-${SOVEREIGN_OS_BUILD_ID}.log" || {
       rc=$?
       if [ $rc -eq 124 ]; then
@@ -102,6 +136,7 @@ else
     log_info "boot log contains userspace markers"
   else
     log_warn "boot log lacks userspace markers; image may not boot cleanly"
+  fi
   fi
 fi
 

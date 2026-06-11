@@ -49,8 +49,29 @@ stage_kernel_debs() {
   local cache_dir="$1"
   if [ -n "${SOVEREIGN_OS_KERNEL_DEBS_DIR:-}" ] && [ -d "${SOVEREIGN_OS_KERNEL_DEBS_DIR}" ]; then
     mkdir -p "${cache_dir}"
-    cp "${SOVEREIGN_OS_KERNEL_DEBS_DIR}"/*.deb "${cache_dir}/" 2>/dev/null \
-      || log_warn "no kernel .debs to copy (dry-run mode? substrate-default kernel?)"
+    # Idempotent re-stage: drop leftovers from prior runs (a previously
+    # staged -dbg deb would otherwise ship 984M into the image).
+    rm -f "${cache_dir}"/*.deb
+    # -dbg deb excluded: 984M of debug symbols that would otherwise ship
+    # INSIDE the final image filesystem via mkosi.extra. Newest revision
+    # per package only: the forge accumulates a .deb per rebuild
+    # (6.12.0-1.. -7 after the first real build's fix iterations) and
+    # dpkg would otherwise unpack every one of them in sequence.
+    local deb base name
+    declare -A latest=()
+    while IFS= read -r deb; do
+      [ -e "${deb}" ] || continue
+      case "${deb}" in *-dbg_*) continue ;; esac
+      base="$(basename "${deb}")"
+      name="${base%%_*}"
+      latest["${name}"]="${deb}"   # sort -V order → last seen wins
+    done < <(printf '%s\n' "${SOVEREIGN_OS_KERNEL_DEBS_DIR}"/*.deb | sort -V)
+    if [ "${#latest[@]}" -gt 0 ]; then
+      cp "${latest[@]}" "${cache_dir}/"
+      log_info "staged ${#latest[@]} kernel .deb(s) (newest revision each): ${!latest[*]}"
+    else
+      log_warn "no kernel .debs to copy (dry-run mode? substrate-default kernel?)"
+    fi
   fi
 }
 
@@ -65,8 +86,12 @@ case "${SOVEREIGN_OS_SUBSTRATE}" in
       exit 0
     fi
     require_command mkosi
-    log_info "running 'mkosi build' in ${SOVEREIGN_OS_BUILD_OUT}"
-    if mkosi build 2>&1 | tee "${SOVEREIGN_OS_LOG_DIR}/image-build-${SOVEREIGN_OS_BUILD_ID}.log"; then
+    log_info "running 'mkosi --force build' in ${SOVEREIGN_OS_BUILD_OUT}"
+    # --force: without it mkosi sees an existing output and exits 0 doing
+    # NOTHING — step 07 then reports success over a stale image (caught
+    # on the first real rebuild, 2026-06-10). Rebuild decisions belong to
+    # the orchestrator's state machine, not mkosi's output cache.
+    if mkosi --force build 2>&1 | tee "${SOVEREIGN_OS_LOG_DIR}/image-build-${SOVEREIGN_OS_BUILD_ID}.log"; then
       emit_build_metric success
     else
       rc=${PIPESTATUS[0]}

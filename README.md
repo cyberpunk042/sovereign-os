@@ -18,7 +18,7 @@ gives you a **Sovereign AI Node** — the architecture from the master
 spec at [`docs/src/sain-01-master-spec.md`](docs/src/sain-01-master-spec.md):
 
 > CPU: AMD Ryzen 9 9900X · Zen 5 · single-cycle 512-bit AVX-512.
-> GPUs: RTX PRO 6000 Blackwell (96GB) + RTX 3090 (24GB VFIO).
+> GPUs: RTX PRO 6000 Blackwell Max-Q (96GB, 300W) + RTX 4090 (24GB VFIO).
 > Storage: 2× NVMe PCIe 5.0 in ZFS RAID-0, tiered datasets.
 > Networking: 10GbE data + 2.5GbE mgmt, VLAN-asymmetric.
 > Software trinity: **Pulse** (Wasm-to-AVX-512 AOT + BitNet ternary)
@@ -81,6 +81,13 @@ cd sovereign-os
 #    (profile · substrate · secure-boot posture · encryption · whitelabel),
 #    sets up the dev environment, runs preflight.
 scripts/onboard.sh
+
+# 2b. (optional) Prefer to point-and-click the choices? Launch the build
+#     configurator dashboard — pick profile / kernel / modules / CPU features /
+#     packages / prepackaged tools (Claude Code, OpenCode, …) and it GENERATES
+#     the exact `orchestrate.sh` command + overlay.yaml + operator-deps.toml.
+#     Read-only, loopback-bound; it never builds anything itself.
+python3 scripts/operator/build-configurator-api.py   # then open http://127.0.0.1:8100/
 
 # 3. Validate the build plan without running anything
 SOVEREIGN_OS_PROFILE=sain-01 scripts/build/orchestrate.sh run --dry-run

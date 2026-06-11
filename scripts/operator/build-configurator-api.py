@@ -1,0 +1,363 @@
+#!/usr/bin/env python3
+"""
+scripts/operator/build-configurator-api.py — Read-only HTTP API + webapp
+for the BUILD-TIME configurator surface.
+
+This is the build-time sibling of the D-NN runtime cockpit. It serves the
+single-file composer at webapp/build-configurator/index.html and a
+`/data.json` assembled from the REAL repo files so the page reflects the
+operator's actual options instead of the baked-in offline snapshot:
+
+  - profiles/*.yaml          → profile list + per-profile kernel/cpu/
+                               modules/packages detail
+  - config/operator-deps.toml (or .example) → apt/pip/npm/curl_shell tools
+
+Materializes the 2026-05-16 arc-opening directive (info-hub
+raw/notes/2026-05-16-user-directive-sovereign-os-arc-opening.md:7):
+"an assistant feeling as we are going through the building and all the
+layer and/or chosing the flavor and options."
+
+Sovereignty:
+  - Read-only verbs ONLY. This daemon NEVER triggers a build; it reads
+    spec files and renders choices. The operator copies the generated
+    command and runs orchestrate.sh themselves (sudo + ~30 min).
+  - Loopback-bind by default (127.0.0.1).
+  - stdlib-first; PyYAML/tomllib used if present, with graceful fallback
+    to the page's baked snapshot when a parser is unavailable.
+
+Endpoints:
+  GET /                 — the build-configurator webapp (single file)
+  GET /data.json        — assembled real profile + operator-deps data
+  GET /version          — service version + module identity
+  GET /healthz          — liveness (always 200)
+
+Env vars:
+  BUILD_CONFIGURATOR_API_BIND   (default: 127.0.0.1)
+  BUILD_CONFIGURATOR_API_PORT   (default: 8100)
+  BUILD_CONFIGURATOR_DRY_RUN    (set to 1 = print assembled data + exit)
+"""
+from __future__ import annotations
+
+import json
+import os
+import sys
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
+
+API_BIND = os.environ.get("BUILD_CONFIGURATOR_API_BIND", "127.0.0.1")
+API_PORT = int(os.environ.get("BUILD_CONFIGURATOR_API_PORT", "8100"))
+DRY_RUN = bool(os.environ.get("BUILD_CONFIGURATOR_DRY_RUN"))
+VERSION = "0.1.0"
+
+REPO = Path(__file__).resolve().parents[2]
+PROFILES_DIR = REPO / "profiles"
+WEBAPP = REPO / "webapp" / "build-configurator" / "index.html"
+
+# Profiles surfaced in the picker, in display order, with one-liners.
+PROFILE_META = [
+    ("sain-01", "SAIN-01 AI Workstation", True,
+     "Zen5 + dual-NVIDIA, ZFS-tiered, VFIO, Tetragon, SRP trinity."),
+    ("developer", "developer", False, "polyglot dev workstation."),
+    ("headless", "headless", False, "bare-metal server (auditd/fail2ban/chrony)."),
+    ("minimal", "minimal", False, "VM baseline to try the pipeline."),
+    ("old-workstation", "old-workstation", False, "constrained dev box (single 3090, ext4)."),
+]
+
+# AI assistants we offer as npm-global installs. Claude Code ships in the
+# repo's operator-deps; OpenCode is offered here per the operator request
+# (not yet in config/operator-deps.toml.example).
+AI_TOOLS = [
+    {"pkg": "@anthropic-ai/claude-code", "label": "Claude Code", "on": True,
+     "note": "operator's primary AI assistant"},
+    {"pkg": "opencode-ai", "label": "OpenCode", "on": False,
+     "note": "open-source terminal agent", "isNew": True},
+]
+
+
+def _load_yaml(path: Path):
+    try:
+        import yaml  # PyYAML — declared build prerequisite
+    except Exception:
+        return None
+    try:
+        return yaml.safe_load(path.read_text())
+    except Exception:
+        return None
+
+
+def _load_toml(path: Path):
+    try:
+        import tomllib  # py3.11+ stdlib
+        return tomllib.loads(path.read_text())
+    except Exception:
+        pass
+    try:
+        import tomli
+        return tomli.loads(path.read_text())
+    except Exception:
+        return None
+
+
+def _profile_detail(doc: dict) -> dict | None:
+    """Project a parsed profile YAML into the page's `detail` shape."""
+    if not isinstance(doc, dict):
+        return None
+    k = doc.get("kernel", {}) or {}
+    cfg = k.get("config", {}) or {}
+    hw = doc.get("hardware", {}) or {}
+    cpu = hw.get("cpu", {}) or {}
+    feats = cpu.get("features", {}) or {}
+    mods = k.get("modules", {}) or {}
+    pkgs = doc.get("packages", {}) or {}
+    cmdline = k.get("cmdline", {}) or {}
+    storage = hw.get("storage", {}) or {}
+    cflags = (k.get("compile_flags", {}) or {}).get("KCFLAGS", "")
+    mc = cfg.get("require_microcode") or "amd"
+
+    datasets = [
+        {
+            "name": d.get("name", "?"),
+            "recordsize": str(d.get("recordsize", "128k")),
+            "compression": str(d.get("compression", "lz4")),
+            "extra": " ".join(
+                f"{key}={d[key]}" for key in ("copies", "sync", "redundant_metadata")
+                if key in d
+            ),
+            "purpose": (d.get("purpose", "") or "").split(";")[0],
+        }
+        for d in storage.get("datasets", []) or []
+    ]
+    network = [
+        {
+            "role": n.get("role", "?"),
+            "nic": f"{n.get('vendor','?')} {n.get('model','?')} {n.get('speed_gbps','?')}GbE",
+            "vlan": n.get("vlan", 0),
+            "address": n.get("address", ""),
+            "mtu": n.get("mtu", 1500),
+            "default_gateway": bool(n.get("default_gateway")),
+            "gateway": n.get("gateway", ""),
+            "iface": n.get("iface_hint", ""),
+        }
+        for n in hw.get("network", []) or []
+    ]
+    hooks = {}
+    for phase, entries in (doc.get("hooks", {}) or {}).items():
+        hooks[phase] = [
+            {
+                "id": h.get("id", "?"),
+                "type": h.get("type", ""),
+                "mandatory": bool(h.get("mandatory")),
+                **({"schedule": h["schedule"]} if "schedule" in h else {}),
+            }
+            for h in entries or []
+        ]
+    return {
+        "mixins": doc.get("mixins", []) or [],
+        "kernel": {
+            "source": k.get("source", "kernel.org-stable"),
+            "version_minimum": str(k.get("version_minimum", "6.12")),
+            "march": (cpu.get("march") or "znver5"),
+            "kcflags": cflags,
+            "enable": cfg.get("enable", []) or [],
+            "microcode": ["amd", "intel"],
+            "microcode_default": mc,
+            "cmdline_base": cmdline.get("base", []) or [],
+            "cmdline_vfio": cmdline.get("vfio", []) or [],
+        },
+        "cpu": {
+            "required": feats.get("required", []) or [],
+            "preferred": feats.get("preferred", []) or [],
+        },
+        "modules": {
+            "load": mods.get("load_at_boot", []) or [],
+            "blacklist": mods.get("blacklist", []) or [],
+        },
+        "packages": {
+            "base": pkgs.get("base", []) or [],
+            "profile": pkgs.get("profile", []) or [],
+            "deny": pkgs.get("deny", []) or [],
+            # the sain-01 header marks these PLACEHOLDER until Stage 2+.
+            "placeholder": True,
+        },
+        "storage": {
+            "layout": storage.get("layout", ""),
+            "datasets": datasets,
+        },
+        "network": network,
+        "hooks": hooks,
+    }
+
+
+def _config_path(name: str) -> Path | None:
+    """Prefer the operator's real config, fall back to the .example."""
+    for cand in (REPO / "config" / name, REPO / "config" / f"{name}.example"):
+        if cand.exists():
+            return cand
+    return None
+
+
+def _hw_section() -> dict | None:
+    """Assemble the hardware-preflight data from the R260/R292/R294 configs.
+
+    Board advisories come from known-boards.toml; the structured BIOS
+    checklist (what-to-set + why) stays curated in the webapp's snapshot —
+    advisories here are appended as extra items so operator-added boards
+    surface without a page edit. PSUs + power scalars parse live.
+    """
+    boards = _load_toml(_config_path("known-boards.toml") or Path("/nonexistent"))
+    psu = _load_toml(_config_path("psu-oc.toml") or Path("/nonexistent"))
+    headroom = _load_toml(_config_path("oc-headroom.toml") or Path("/nonexistent"))
+    if not (boards or psu or headroom):
+        return None
+
+    psus = []
+    for p in (psu or {}).get("known_psus", []) or []:
+        psus.append({
+            "model": p.get("model", "?"),
+            "rated": p.get("rated_standard_watts", 0),
+            "peak": p.get("brief_peak_watts", 0),
+            "atx": str(p.get("atx_revision", "")),
+            "eff": p.get("efficiency", ""),
+            "oc": p.get("oc_mode_semantics", ""),
+            "reference": "§1b" in (p.get("operator_notes", "") or ""),
+        })
+
+    power = {
+        "cpu_tdp": (headroom or {}).get("cpu_tdp_watts", 170),
+        "chassis": (headroom or {}).get("chassis_baseline_watts", 80),
+        "dimm_base": (headroom or {}).get("memory_dimm_base_watts", 4),
+        "mts_premium_per_1000": (headroom or {}).get("memory_mts_premium_per_1000", 1),
+        "safety_margin_pct": (headroom or {}).get("safety_margin_pct", 20),
+    }
+
+    # Board advisories from known-boards.toml are already curated into the
+    # webapp's structured BIOS checklist (what-to-set + why per item); we
+    # don't re-emit them raw here or they would render twice.
+    out = {"psus": psus or None, "power": power}
+    return {k: v for k, v in out.items() if v}
+
+
+def _tuning_section() -> list | None:
+    doc = _load_toml(_config_path("kernel-tuning.toml") or Path("/nonexistent"))
+    if not isinstance(doc, dict):
+        return None
+    out = []
+    for name, p in (doc.get("presets", {}) or {}).items():
+        hints = (p.get("cmdline_hints", {}) or {}).get("hints", []) or []
+        out.append({
+            "name": name,
+            "summary": p.get("summary", ""),
+            "sysctl": p.get("sysctl", {}) or {},
+            "hints": hints,
+        })
+    return out or None
+
+
+def _deps_tools() -> dict:
+    """Read config/operator-deps.toml (or .example) into the tool bags."""
+    src = REPO / "config" / "operator-deps.toml"
+    if not src.exists():
+        src = REPO / "config" / "operator-deps.toml.example"
+    doc = _load_toml(src) if src.exists() else None
+
+    apt = pip = []
+    npm_global = []
+    curl = []
+    if isinstance(doc, dict):
+        apt = (doc.get("apt", {}) or {}).get("install", []) or []
+        pip = (doc.get("pip", {}) or {}).get("install", []) or []
+        npm_global = (doc.get("npm", {}) or {}).get("global", []) or []
+        curl = (doc.get("curl_shell", {}) or {}).get("installs", []) or []
+
+    # Merge the repo's npm globals into the AI-tool offering so anything the
+    # operator already declared shows as on; keep our OpenCode offer too.
+    ai = [dict(t) for t in AI_TOOLS]
+    known = {t["pkg"] for t in ai}
+    for g in npm_global:
+        if g in known:
+            for t in ai:
+                if t["pkg"] == g:
+                    t["on"] = True
+        else:
+            ai.append({"pkg": g, "label": g, "on": True})
+
+    return {
+        "ai": ai,
+        "apt": [{"pkg": p, "on": True} for p in apt],
+        "pip": [{"pkg": p, "on": True} for p in pip],
+        "curl": [
+            {"pkg": c.get("name", "?"), "on": False, "url": c.get("url", "")}
+            for c in curl if isinstance(c, dict)
+        ] or [
+            {"pkg": "tailscale", "on": False, "url": "https://tailscale.com/install.sh"},
+            {"pkg": "ollama", "on": False, "url": "https://ollama.ai/install.sh"},
+        ],
+    }
+
+
+def assemble_data() -> dict:
+    profiles = [
+        {"id": pid, "name": name, "default": is_def, "desc": desc}
+        for (pid, name, is_def, desc) in PROFILE_META
+    ]
+    detail = {}
+    for pid, *_ in PROFILE_META:
+        doc = _load_yaml(PROFILES_DIR / f"{pid}.yaml")
+        d = _profile_detail(doc) if doc else None
+        if d:
+            detail[pid] = d
+    out = {"profiles": profiles, "detail": detail, "tools": _deps_tools()}
+    hw = _hw_section()
+    if hw:
+        out["hw"] = hw
+    tuning = _tuning_section()
+    if tuning:
+        out["tuning"] = tuning
+    return out
+
+
+class Handler(BaseHTTPRequestHandler):
+    def _send(self, code, body, ctype="application/json"):
+        data = body if isinstance(body, bytes) else body.encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(data)
+
+    def log_message(self, *a):  # quiet; loopback read-only daemon
+        pass
+
+    def do_GET(self):
+        path = self.path.split("?", 1)[0].rstrip("/") or "/"
+        if path == "/healthz":
+            return self._send(200, json.dumps({"ok": True}))
+        if path == "/version":
+            return self._send(200, json.dumps(
+                {"module": "build-configurator-api", "version": VERSION}))
+        if path in ("/data.json", "/data"):
+            return self._send(200, json.dumps(assemble_data(), indent=2))
+        if path == "/":
+            if WEBAPP.exists():
+                return self._send(200, WEBAPP.read_bytes(), "text/html; charset=utf-8")
+            return self._send(404, json.dumps({"error": "webapp not found"}))
+        return self._send(404, json.dumps({"error": "not found", "path": path}))
+
+
+def main():
+    if DRY_RUN:
+        print(json.dumps(assemble_data(), indent=2))
+        return
+    httpd = HTTPServer((API_BIND, API_PORT), Handler)
+    print(f"build-configurator-api on http://{API_BIND}:{API_PORT}/ "
+          f"(webapp at /, data at /data.json) — read-only, Ctrl-C to stop",
+          file=sys.stderr)
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        pass
+
+
+if __name__ == "__main__":
+    main()

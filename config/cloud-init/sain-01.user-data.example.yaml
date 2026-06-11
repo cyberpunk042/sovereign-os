@@ -108,5 +108,5 @@ final_message: |
   ║  Verify with: sovereign-osctl status                             ║
   ║                                                                  ║
   ║  If VFIO binding was needed, REBOOT now for vfio-pci to claim    ║
-  ║  the RTX 3090 from the initramfs.                                ║
+  ║  the RTX 4090 from the initramfs.                                ║
   ╚══════════════════════════════════════════════════════════════════╝

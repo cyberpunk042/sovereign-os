@@ -1,0 +1,1808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os build configurator</title>
+<meta name="x-sovereign-module" content="build-configurator-webapp">
+<meta name="x-sovereign-shipped-in" content="build-time composer — materializes the 2026-05-16 arc-opening directive (info-hub raw/notes/2026-05-16-user-directive-sovereign-os-arc-opening.md:7): 'an assistant feeling as we are going through the building and all the layer and/or chosing the flavor and options'">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<!-- Build-TIME surface (distinct from the D-NN runtime cockpit). The operator
+     walks every layer — hardware preflight (BIOS + PSU OC + power headroom),
+     profile, substrate, kernel, cmdline + tuning preset, CPU features,
+     modules, packages, prepackaged tools, ZFS storage, networking, hooks,
+     observability/whitelabel — and the right panel GENERATES the exact
+     orchestrate.sh invocation + overlay.yaml (SDD-030) + operator-deps.toml
+     (R284) + psu-oc.toml (R294) + a BIOS/PSU preflight checklist. It NEVER
+     triggers a build itself — builds need sudo + ~30 min on the build host. -->
+
+<!-- personalization apply-snippet (verbatim from the cockpit dashboards) -->
+<script>
+  (function(){
+    var KEY = 'sovereign-os.personalization', SCHEMA_V = 1;
+    var DEF = { schema: SCHEMA_V, theme: 'auto', accent: '#9bd1ff', font_scale: 1 };
+    var p;
+    try {
+      var raw = localStorage.getItem(KEY);
+      p = raw ? JSON.parse(raw) : null;
+      if (!p || p.schema !== SCHEMA_V) p = null;
+    } catch(e) { p = null; }
+    if (!p) p = DEF;
+    var resolved = (p.theme === 'dark' || p.theme === 'light') ? p.theme
+      : ((window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark');
+    document.documentElement.setAttribute('data-theme', resolved);
+    document.documentElement.style.setProperty('--so-accent', p.accent || DEF.accent);
+    document.documentElement.style.setProperty('--accent', p.accent || DEF.accent);
+    document.documentElement.style.setProperty('--font-scale', String(p.font_scale || 1));
+  })();
+</script>
+
+<style>
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888;
+    --panel:#171717; --border:#262626;
+    --accent:#9bd1ff; --so-accent:#9bd1ff;
+    --ok:#7fd18a; --warn:#e6c07b; --danger:#e88;
+    --font-scale:1;
+  }
+  html[data-theme="light"] {
+    --bg:#f6f6f6; --fg:#0e0e0e; --muted:#555;
+    --panel:#ffffff; --border:#d8d8d8;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; background:var(--bg); color:var(--fg); }
+  body {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: calc(14px * var(--font-scale));
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); }
+  header.topbar {
+    position: sticky; top:0; z-index:50;
+    background: var(--panel); border-bottom:1px solid var(--border);
+    padding:.7rem 1.1rem; display:flex; align-items:center; gap:1rem; flex-wrap:wrap;
+  }
+  header.topbar h1 { font-size:1rem; margin:0; font-weight:600; }
+  header.topbar .crumbs { color:var(--muted); font-size:.8rem; }
+  header.topbar .spacer { flex:1; }
+  header.topbar a.nav { color:var(--muted); font-size:.78rem; text-decoration:none;
+    border:1px solid var(--border); padding:.2rem .55rem; border-radius:3px; }
+  header.topbar a.nav:hover { color:var(--fg); border-color:var(--accent); }
+  .wrap { display:grid; grid-template-columns: 1fr 470px; gap:0; align-items:start; }
+  @media (max-width: 1050px){ .wrap { grid-template-columns: 1fr; } }
+  .left { padding:1.1rem 1.2rem 4rem; }
+  .right {
+    position: sticky; top:54px; max-height: calc(100vh - 54px); overflow:auto;
+    border-left:1px solid var(--border); padding:1.1rem 1.1rem 3rem; background:var(--bg);
+  }
+  @media (max-width: 1050px){ .right { position:static; max-height:none; border-left:0; border-top:1px solid var(--border);} }
+  section.card {
+    border:1px solid var(--border); border-radius:5px; background:var(--panel);
+    margin-bottom:1rem; overflow:hidden;
+  }
+  section.card > h2 {
+    margin:0; padding:.6rem .85rem; font-size:.82rem; font-weight:600;
+    border-bottom:1px solid var(--border); display:flex; align-items:center; gap:.5rem;
+    background:rgba(155,209,255,.05); cursor:pointer; user-select:none;
+  }
+  section.card > h2 .tag { color:var(--muted); font-weight:400; font-size:.72rem; }
+  section.card > h2 .spacer { flex:1; }
+  section.card > h2 .tw { color:var(--muted); font-size:.72rem; }
+  section.card.closed > .body { display:none; }
+  section.card > .body { padding:.7rem .85rem; }
+  .muted { color:var(--muted); }
+  .small { font-size:.76rem; }
+  .row { display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; }
+  label.chk, label.profile {
+    display:inline-flex; align-items:center; gap:.45rem; cursor:pointer;
+    border:1px solid var(--border); border-radius:4px; padding:.28rem .55rem;
+    font-size:.78rem; user-select:none; margin:.18rem .18rem .18rem 0;
+  }
+  label.chk:hover, label.profile:hover { border-color:var(--accent); }
+  label.chk input, label.profile input { accent-color: var(--accent); margin:0; }
+  label.chk.required { border-color: rgba(127,209,138,.5); }
+  label.chk.danger-tag { border-color: rgba(232,136,136,.4); }
+  label.chk.locked { opacity:.75; cursor:not-allowed; }
+  label.chk .req { color:var(--ok); font-size:.66rem; }
+  .profiles { display:grid; grid-template-columns: repeat(auto-fill, minmax(180px,1fr)); gap:.4rem; }
+  label.profile { display:block; padding:.55rem .7rem; margin:0; }
+  label.profile.sel { border-color:var(--accent); background:rgba(155,209,255,.08); }
+  label.profile .pname { font-weight:600; }
+  label.profile .pdesc { color:var(--muted); font-size:.72rem; display:block; margin-top:.2rem; }
+  select, input[type=text], input[type=number] {
+    background:var(--bg); color:var(--fg); border:1px solid var(--border);
+    border-radius:4px; padding:.3rem .5rem; font-family:inherit; font-size:.78rem;
+  }
+  input[type=number] { width:6.2rem; }
+  .kv { display:grid; grid-template-columns: 150px 1fr; gap:.35rem .7rem; align-items:center; font-size:.78rem; }
+  .kv code { color:var(--accent); }
+  fieldset { border:0; padding:0; margin:0 0 .5rem; }
+  fieldset legend { font-size:.74rem; color:var(--muted); padding:0 0 .25rem; }
+  pre.out {
+    margin:0; white-space:pre-wrap; word-break:break-word;
+    background:var(--bg); border:1px solid var(--border); border-radius:4px;
+    padding:.65rem .7rem; font-size:.72rem; line-height:1.45; max-height:260px; overflow:auto;
+  }
+  .out-head { display:flex; align-items:center; gap:.5rem; margin:.9rem 0 .35rem; }
+  .out-head h3 { margin:0; font-size:.8rem; }
+  .out-head .spacer { flex:1; }
+  button.btn {
+    background:var(--bg); color:var(--fg); border:1px solid var(--border);
+    border-radius:4px; padding:.28rem .6rem; font-family:inherit; font-size:.74rem; cursor:pointer;
+  }
+  button.btn:hover { border-color:var(--accent); color:var(--accent); }
+  button.btn.copied { border-color:var(--ok); color:var(--ok); }
+  .banner {
+    border:1px solid var(--border); border-left:3px solid var(--accent);
+    background:rgba(155,209,255,.06); border-radius:4px; padding:.55rem .7rem;
+    font-size:.76rem; margin-bottom:1rem;
+  }
+  .banner.warn { border-left-color:var(--warn); background:rgba(230,192,123,.06); }
+  .banner.danger { border-left-color:var(--danger); background:rgba(232,136,136,.06); }
+  .pill { display:inline-block; font-size:.66rem; padding:.05rem .4rem; border:1px solid var(--border);
+    border-radius:10px; color:var(--muted); margin-left:.3rem; }
+  .pill.new { color:var(--ok); border-color:rgba(127,209,138,.5); }
+  .pill.blocker { color:var(--danger); border-color:rgba(232,136,136,.5); }
+  .pill.advisory { color:var(--warn); border-color:rgba(230,192,123,.5); }
+  .pill.src { color:var(--muted); }
+  hr.sep { border:0; border-top:1px solid var(--border); margin:1rem 0; }
+  .status-line { font-size:.74rem; color:var(--muted); margin-top:.4rem; }
+
+  /* BIOS checklist */
+  .bios-item {
+    border:1px solid var(--border); border-radius:4px; padding:.5rem .65rem;
+    margin-bottom:.45rem; font-size:.78rem;
+  }
+  .bios-item.checked { border-color: rgba(127,209,138,.4); }
+  .bios-item .bi-head { display:flex; align-items:flex-start; gap:.5rem; cursor:pointer; }
+  .bios-item .bi-head input { accent-color:var(--accent); margin-top:.2rem; }
+  .bios-item .bi-set { font-weight:600; }
+  .bios-item .bi-why { color:var(--muted); font-size:.73rem; margin:.25rem 0 0 1.55rem; }
+
+  /* power meter */
+  .meter { height:10px; border:1px solid var(--border); border-radius:5px; overflow:hidden;
+    background:var(--bg); margin:.4rem 0; }
+  .meter > div { height:100%; background:var(--ok); transition:width .2s, background .2s; }
+  .meter.warn > div { background:var(--warn); }
+  .meter.danger > div { background:var(--danger); }
+  .power-verdict { font-weight:600; }
+  .power-verdict.ok { color:var(--ok); }
+  .power-verdict.warn { color:var(--warn); }
+  .power-verdict.danger { color:var(--danger); }
+  table.mini { border-collapse:collapse; font-size:.75rem; width:100%; }
+  table.mini th, table.mini td { border:1px solid var(--border); padding:.25rem .5rem; text-align:left; }
+  table.mini th { color:var(--muted); font-weight:400; }
+  table.mini input { width:5.5rem; }
+  table.mini input.wide { width:10rem; }
+
+  /* ── tooltips (single JS-positioned box; dotted underline marks a term) ── */
+  .has-tip { border-bottom:1px dotted var(--muted); cursor:help; }
+  #so-tipbox {
+    position:fixed; z-index:9500; max-width:360px; display:none;
+    background:var(--panel); border:1px solid var(--accent); border-radius:4px;
+    padding:.45rem .6rem; font-size:.74rem; line-height:1.45; color:var(--fg);
+    pointer-events:none; box-shadow:0 4px 16px rgba(0,0,0,.5);
+  }
+
+  /* ── learn-more fold-outs ── */
+  details.learn { margin:0 0 .6rem; font-size:.76rem; }
+  details.learn summary { cursor:pointer; color:var(--accent); user-select:none; }
+  details.learn .learn-body { color:var(--muted); border-left:2px solid var(--border);
+    padding:.4rem .7rem; margin-top:.35rem; line-height:1.5; }
+  details.learn .learn-body code { color:var(--accent); }
+
+  /* ── assistant guide ── */
+  .guide-bar { position:fixed; left:0; right:0; bottom:0; z-index:8000;
+    background:var(--panel); border-top:2px solid var(--accent);
+    padding:.6rem 1rem .55rem; display:none; }
+  .guide-bar.on { display:block; }
+  .guide-inner { max-width:1200px; margin:0 auto; display:flex; gap:1rem; align-items:flex-start; }
+  .guide-step-no { color:var(--accent); font-weight:600; white-space:nowrap; font-size:.78rem; padding-top:.1rem; }
+  .guide-text { flex:1; font-size:.78rem; min-width:0; }
+  .guide-text .gt-title { font-weight:600; }
+  .guide-text .gt-body { color:var(--muted); margin-top:.1rem; }
+  .guide-text .gt-body code { color:var(--accent); }
+  .guide-btns { display:flex; gap:.4rem; align-items:center; padding-top:.1rem; flex-wrap:wrap; }
+  .guide-progress { height:3px; background:var(--border); border-radius:2px; margin-top:.55rem; }
+  .guide-progress > div { height:100%; background:var(--accent); border-radius:2px; transition:width .25s; }
+  section.card.guide-active { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent); }
+  .right.guide-active { outline:2px solid var(--accent); outline-offset:-2px; }
+  body.guide-on { padding-bottom:130px; }
+  body.guide-on .right { max-height: calc(100vh - 54px - 118px); }
+
+  /* ── printable BIOS/PSU sheet — paper survives the firmware screens ── */
+  #print-sheet { display:none; }
+  @media print {
+    body > *:not(#print-sheet) { display:none !important; }
+    #print-sheet { display:block !important; }
+    body { background:#fff; color:#000; font-size:11pt; }
+    #print-sheet { font-family: ui-monospace, Menlo, Consolas, monospace; padding:0; }
+    #print-sheet h1 { font-size:14pt; margin:0 0 2pt; }
+    #print-sheet .ps-sub { font-size:9pt; color:#444; margin:0 0 10pt; }
+    #print-sheet h2 { font-size:11.5pt; margin:12pt 0 5pt; border-bottom:1pt solid #000; padding-bottom:2pt; }
+    #print-sheet .ps-item { margin:0 0 8pt; page-break-inside:avoid; }
+    #print-sheet .ps-box { display:inline-block; width:11pt; height:11pt; border:1.2pt solid #000;
+      vertical-align:-1.5pt; margin-right:6pt; }
+    #print-sheet .ps-box.done { background:#000; }
+    #print-sheet .ps-set { font-weight:bold; }
+    #print-sheet .ps-sev { font-size:8pt; border:0.8pt solid #000; padding:0 3pt; margin-left:4pt; }
+    #print-sheet .ps-why { font-size:9pt; color:#333; margin:1pt 0 0 17pt; }
+    #print-sheet .ps-note { font-size:9pt; margin:2pt 0; }
+    #print-sheet .ps-write { border-bottom:0.8pt solid #888; display:inline-block; min-width:120pt; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <h1>sovereign-os · build configurator</h1>
+  <span class="crumbs">walk every layer → generate the build</span>
+  <span class="spacer"></span>
+  <span class="status-line" id="src-status">data: built-in snapshot</span>
+  <button class="btn" id="btn-guide" title="restart the step-by-step walkthrough">guide me</button>
+  <button class="btn" id="btn-xall">collapse all</button>
+  <a class="nav" href="../master-dashboard/">cockpit ↗</a>
+</header>
+
+<div class="wrap">
+  <!-- ───────────────────────── LEFT: choices ───────────────────────── -->
+  <div class="left">
+
+    <div class="banner" id="intro-banner">
+      This is the <strong>build-time</strong> surface (the runtime cockpit is the
+      D-NN dashboards). Walk the layers top-to-bottom; the right panel generates
+      the exact <code>orchestrate.sh</code> command + every overlay file.
+      <strong>This page never builds anything itself</strong> — a real build
+      needs <code>sudo</code> and ~30&nbsp;min on the build host. Section
+      headers fold (click to collapse).
+    </div>
+
+    <section class="card" id="sec-hw">
+      <h2>0 · Hardware preflight <span class="tag">BIOS · PSU OC · power headroom</span><span class="spacer"></span><span class="tw">▾</span></h2>
+      <div class="body">
+        <p class="small muted" style="margin-top:0">
+          Things the image <em>cannot</em> set for you — physical switches and
+          firmware screens you must visit BEFORE first boot. Sources:
+          <code>config/known-boards.toml</code> (R260) ·
+          <code>config/psu-oc.toml</code> (R294) ·
+          <code>config/oc-headroom.toml</code> (R292) · profile
+          <code>pcie_constraints</code>.
+        </p>
+
+        <fieldset>
+          <legend>BIOS checklist — <span id="bios-board-name"></span> <span class="pill src" id="bios-progress"></span>
+            <button class="btn" id="btn-print-bios" style="margin-left:.5rem" title="print a paper checklist — this panel isn't visible from inside the firmware screens">⎙ print BIOS sheet</button>
+          </legend>
+          <div id="bios-list"></div>
+        </fieldset>
+
+        <fieldset>
+          <legend>PSU &amp; OC mode (R294 — "My PSU even have an overclock mode which might be important")</legend>
+          <div class="kv" style="margin-bottom:.5rem">
+            <span>PSU model</span>
+            <span><select id="psu-model"></select></span>
+            <span>OC-mode switch</span>
+            <span>
+              <label class="chk" style="margin:0"><input type="checkbox" id="psu-oc"> enabled (physical switch on the PSU)</label>
+            </span>
+          </div>
+          <div class="banner" id="psu-explainer" style="margin-bottom:.5rem"></div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Power headroom @ 100% usage (R292 model: CPU + GPUs + memory + chassis vs PSU)</legend>
+          <table class="mini" id="gpu-table">
+            <thead><tr><th>GPU</th><th>role</th><th>stock W</th><th>power cap W (nvidia-smi -pl)</th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <div class="kv" style="margin:.5rem 0">
+            <span>CPU TDP (W)</span><span><input type="number" id="p-cpu" value="170"> <span class="muted small">Zen 5 9900X</span></span>
+            <span>Chassis baseline (W)</span><span><input type="number" id="p-chassis" value="80"> <span class="muted small">fans + mobo + NVMe + NICs</span></span>
+            <span>DIMMs × speed</span><span><input type="number" id="p-dimms" value="4" style="width:4rem"> × <input type="number" id="p-mts" value="6000" style="width:6rem"> MT/s</span>
+            <span>GPU OC multiplier</span><span><input type="number" id="p-gpuoc" value="1.0" step="0.05" min="1"> <span class="muted small">1.0 = stock · 1.15 = +15% OC</span></span>
+          </div>
+          <div class="meter" id="power-meter"><div style="width:0%"></div></div>
+          <div class="small" id="power-readout"></div>
+        </fieldset>
+      </div>
+    </section>
+
+    <section class="card" id="sec-profile">
+      <h2>1 · Profile <span class="tag">starting flavor</span><span class="spacer"></span><span class="tw">▾</span></h2>
+      <div class="body">
+        <div class="profiles" id="profiles"></div>
+        <p class="small muted" id="profile-note" style="margin:.6rem 0 0"></p>
+        <p class="small muted" style="margin:.3rem 0 0">Mixins composed in: <code id="mixins-line"></code></p>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>2 · Substrate &amp; posture <span class="tag">how it's assembled</span><span class="spacer"></span><span class="tw">▾</span></h2>
+      <div class="body">
+        <div class="kv">
+          <span>Substrate</span>
+          <span>
+            <select id="substrate">
+              <option value="mkosi">mkosi (default, SDD-003)</option>
+              <option value="live-build">live-build (alternate, .iso)</option>
+            </select>
+          </span>
+          <span>Secure boot</span>
+          <span>
+            <select id="secureboot">
+              <option value="signed">signed (operator MOK chain)</option>
+              <option value="setup">setup-mode (enroll on first boot)</option>
+              <option value="disabled">disabled</option>
+            </select>
+          </span>
+          <span>Root encryption</span>
+          <span>
+            <select id="encryption">
+              <option value="none">none</option>
+              <option value="luks">LUKS (full-disk)</option>
+              <option value="zfs-native">ZFS native encryption</option>
+            </select>
+          </span>
+          <span>Debian snapshot</span>
+          <span><input type="text" id="snapshot" value="20260515T000000Z" size="20"></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>3 · Kernel <span class="tag" id="kernel-tag"></span><span class="spacer"></span><span class="tw">▾</span></h2>
+      <div class="body">
+        <div class="kv" style="margin-bottom:.6rem">
+          <span>Source</span><span><code id="k-source"></code></span>
+          <span>Min version</span><span><code id="k-version"></code></span>
+          <span><code>-march</code></span><span><code id="k-march"></code></span>
+        </div>
+        <fieldset>
+          <legend>KCFLAGS (compile flags — editable)</legend>
+          <input type="text" id="kcflags" style="width:100%">
+        </fieldset>
+        <fieldset>
+          <legend>Kernel config — enable</legend>
+          <div id="k-enable" class="row"></div>
+        </fieldset>
+        <fieldset>
+          <legend>Microcode</legend>
+          <div id="k-microcode" class="row"></div>
+        </fieldset>
+        <fieldset>
+          <legend>Kernel cmdline — base</legend>
+          <div id="cmd-base" class="row"></div>
+        </fieldset>
+        <fieldset>
+          <legend>Kernel cmdline — VFIO (binds the passthrough GPU at boot)</legend>
+          <div id="cmd-vfio" class="row"></div>
+        </fieldset>
+        <fieldset>
+          <legend>Runtime tuning preset (R239 kernel-tuning matrix — sysctl + cmdline hints)</legend>
+          <select id="tuning-preset"></select>
+          <pre class="out" id="tuning-preview" style="margin-top:.45rem; max-height:160px"></pre>
+        </fieldset>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>4 · CPU features <span class="tag">znver5 ISA</span><span class="spacer"></span><span class="tw">▾</span></h2>
+      <div class="body">
+        <fieldset>
+          <legend>required (build asserts these)</legend>
+          <div id="cpu-required" class="row"></div>
+        </fieldset>
+        <fieldset>
+          <legend>preferred (used if present)</legend>
+          <div id="cpu-preferred" class="row"></div>
+        </fieldset>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>5 · Modules <span class="tag">load &amp; blacklist</span><span class="spacer"></span><span class="tw">▾</span></h2>
+      <div class="body">
+        <fieldset>
+          <legend>load at boot</legend>
+          <div id="mod-load" class="row"></div>
+        </fieldset>
+        <fieldset>
+          <legend>blacklist</legend>
+          <div id="mod-blacklist" class="row"></div>
+        </fieldset>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>6 · Packages <span class="tag">apt layers</span><span class="spacer"></span><span class="tw">▾</span></h2>
+      <div class="body">
+        <fieldset>
+          <legend>base</legend>
+          <div id="pkg-base" class="row"></div>
+        </fieldset>
+        <fieldset>
+          <legend>profile-specific</legend>
+          <div id="pkg-profile" class="row"></div>
+        </fieldset>
+        <fieldset>
+          <legend>deny (kept OUT of the image)</legend>
+          <div id="pkg-deny" class="row"></div>
+        </fieldset>
+        <p class="small" style="color:var(--warn)" id="pkg-placeholder-note"></p>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>7 · Prepackaged operator tools <span class="tag">Claude Code, OpenCode &amp; deps (R284)</span><span class="spacer"></span><span class="tw">▾</span></h2>
+      <div class="body">
+        <p class="small muted" style="margin-top:0">
+          Declarative install hook — written to <code>operator-deps.toml</code>.
+          DRY-RUN by default; <code>--apply</code> needs confirmation; curl-shell
+          entries additionally need <code>--confirm-curl-shell</code>.
+        </p>
+        <fieldset>
+          <legend>AI assistants &amp; agents (npm global)</legend>
+          <div id="tools-ai" class="row"></div>
+        </fieldset>
+        <fieldset>
+          <legend>apt</legend>
+          <div id="tools-apt" class="row"></div>
+        </fieldset>
+        <fieldset>
+          <legend>pip</legend>
+          <div id="tools-pip" class="row"></div>
+        </fieldset>
+        <fieldset>
+          <legend>curl | sh (operator-trusted; gated)</legend>
+          <div id="tools-curl" class="row"></div>
+        </fieldset>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>8 · Storage &amp; ZFS <span class="tag">tiered datasets</span><span class="spacer"></span><span class="tw">▾</span></h2>
+      <div class="body">
+        <div class="kv" style="margin-bottom:.5rem">
+          <span>Layout</span><span><code id="st-layout"></code></span>
+        </div>
+        <table class="mini" id="ds-table">
+          <thead><tr><th>dataset</th><th>recordsize</th><th>compression</th><th>purpose</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <p class="small muted" style="margin:.45rem 0 0">
+          <code>tank/models</code> 1M recordsize for 100GB+ sequential weight reads;
+          <code>tank/context</code> 16k + <code>copies=2</code> + <code>sync=always</code>
+          for race-free atomic state (Weaver writes; Pulse + Auditor read);
+          <code>tank/agents</code> middle-ground scratch.
+        </p>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>9 · Networking <span class="tag">VLAN-asymmetric zero-trust</span><span class="spacer"></span><span class="tw">▾</span></h2>
+      <div class="body">
+        <table class="mini" id="net-table">
+          <thead><tr><th>role</th><th>NIC</th><th>VLAN</th><th>address</th><th>MTU</th><th>default route</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <p class="small muted" style="margin:.45rem 0 0">
+          Master spec § 8: the 10GbE data NIC (Marvell) must NOT carry the
+          default route — model ingestion only, no outbound WAN. Management +
+          telemetry ride the 2.5GbE Intel NIC on VLAN 100.
+        </p>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>10 · Hooks <span class="tag">pre · during · first-boot · recurrent · decommission</span><span class="spacer"></span><span class="tw">▾</span></h2>
+      <div class="body">
+        <p class="small muted" style="margin-top:0">Mandatory hooks are locked (the build refuses to skip them). Optional hooks toggle.</p>
+        <div id="hooks-all"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>11 · Observability &amp; whitelabel <span class="tag">layer A/B/C · branding</span><span class="spacer"></span><span class="tw">▾</span></h2>
+      <div class="body">
+        <div class="kv">
+          <span>Telemetry sink</span>
+          <span><select id="obs-sink">
+            <option value="prometheus-local">prometheus-local (default — nothing leaves the box)</option>
+            <option value="none">none</option>
+          </select></span>
+          <span>Log retention (days)</span>
+          <span><input type="number" id="obs-retention" value="30"></span>
+          <span>Metrics endpoint</span>
+          <span><input type="text" id="obs-endpoint" value="127.0.0.1:9090" size="18"></span>
+          <span>Whitelabel</span>
+          <span><select id="wl-profile">
+            <option value="default">default (dfsg-only)</option>
+            <option value="custom">custom (whitelabel/ tree)</option>
+          </select></span>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ───────────────────────── RIGHT: generated output ───────────────────────── -->
+  <div class="right">
+    <div class="banner warn" style="margin-bottom:.8rem">
+      <strong id="sel-summary"></strong>
+      <div class="small" id="sel-warnings" style="margin-top:.3rem"></div>
+    </div>
+
+    <div class="out-head">
+      <h3>Build command</h3>
+      <span class="spacer"></span>
+      <button class="btn" data-copy="out-cmd">copy</button>
+    </div>
+    <pre class="out" id="out-cmd"></pre>
+    <p class="small muted">Run on the build host (Debian 13 / Ubuntu 24.04). First build is ~30 min. Add <code>--dry-run</code> to validate the plan without building.</p>
+
+    <div class="out-head">
+      <h3>Profile overlay <span class="muted small">overlay.yaml · SDD-030</span></h3>
+      <span class="spacer"></span>
+      <button class="btn" data-download="overlay.yaml" data-src="out-overlay">save</button>
+      <button class="btn" data-copy="out-overlay">copy</button>
+    </div>
+    <pre class="out" id="out-overlay"></pre>
+
+    <div class="out-head">
+      <h3>operator-deps.toml</h3>
+      <span class="spacer"></span>
+      <button class="btn" data-download="operator-deps.toml" data-src="out-deps">save</button>
+      <button class="btn" data-copy="out-deps">copy</button>
+    </div>
+    <pre class="out" id="out-deps"></pre>
+
+    <div class="out-head">
+      <h3>psu-oc.toml <span class="muted small">R294</span></h3>
+      <span class="spacer"></span>
+      <button class="btn" data-download="psu-oc.toml" data-src="out-psu">save</button>
+      <button class="btn" data-copy="out-psu">copy</button>
+    </div>
+    <pre class="out" id="out-psu"></pre>
+
+    <div class="out-head">
+      <h3>BIOS/PSU preflight checklist <span class="muted small">printable</span></h3>
+      <span class="spacer"></span>
+      <button class="btn" id="btn-print-bios-2">⎙ print</button>
+      <button class="btn" data-download="bios-psu-preflight.md" data-src="out-preflight">save</button>
+      <button class="btn" data-copy="out-preflight">copy</button>
+    </div>
+    <pre class="out" id="out-preflight"></pre>
+
+    <hr class="sep">
+    <p class="small muted">
+      Apply with <code>SOVEREIGN_OS_OVERLAY_PROFILE=overlay.yaml</code>,
+      <code>SOVEREIGN_OS_OVERLAY_OPERATOR_DEPS=operator-deps.toml</code>,
+      <code>SOVEREIGN_OS_OVERLAY_PSU_OC=psu-oc.toml</code>, or drop them at
+      <code>/etc/sovereign-os/</code>. Prefer the guided CLI path?
+      <code>scripts/onboard.sh</code>.
+    </p>
+  </div>
+</div>
+
+<!-- assistant guide bar — the "assistant feeling as we are going through the
+     building and all the layer and/or chosing the flavor and options"
+     (2026-05-16 arc-opening directive, verbatim). Auto-starts on first visit;
+     'guide me' in the topbar restarts it. -->
+<div class="guide-bar" id="guide-bar" role="region" aria-label="assistant guide">
+  <div class="guide-inner">
+    <span class="guide-step-no" id="g-no"></span>
+    <div class="guide-text">
+      <div class="gt-title" id="g-title"></div>
+      <div class="gt-body" id="g-body"></div>
+    </div>
+    <div class="guide-btns">
+      <button class="btn" id="g-back">← back</button>
+      <button class="btn" id="g-next">next →</button>
+      <button class="btn" id="g-exit">exit tour</button>
+    </div>
+  </div>
+  <div class="guide-progress"><div id="g-prog" style="width:0%"></div></div>
+</div>
+
+<!-- print-only BIOS/PSU sheet — filled by buildPrintSheet() at print time.
+     Paper survives the firmware screens; this panel doesn't. -->
+<div id="print-sheet" aria-hidden="true"></div>
+
+<script>
+/* ───────────────────────────────────────────────────────────────────────
+   DATA SNAPSHOT — mirrors the real repo files so the page works standalone
+   (file:// or static serve). The mirror API (build-configurator-api.py)
+   merges live data over this at runtime. Sources: profiles/sain-01.yaml ·
+   config/operator-deps.toml.example · config/known-boards.toml.example ·
+   config/psu-oc.toml.example · config/oc-headroom.toml.example ·
+   config/kernel-tuning.toml.example · config/gpu-policy.toml.example
+   ─────────────────────────────────────────────────────────────────────── */
+window.SOC_DATA = window.SOC_DATA || {};
+var BAKED = {
+  profiles: [
+    { id:"sain-01",         name:"SAIN-01 AI Workstation", default:true,
+      desc:"Zen5 + RTX PRO 6000 Max-Q + RTX 4090, ZFS-tiered, VFIO, Tetragon, SRP trinity." },
+    { id:"developer",       name:"developer",     desc:"polyglot dev workstation." },
+    { id:"headless",        name:"headless",      desc:"bare-metal server (auditd/fail2ban/chrony)." },
+    { id:"minimal",         name:"minimal",       desc:"VM baseline to try the pipeline." },
+    { id:"old-workstation", name:"old-workstation", desc:"constrained dev box (single GPU, ext4)." },
+  ],
+  detail: {
+    "sain-01": {
+      mixins: ["role-workstation","whitelabel-default","observability-tier-1"],
+      kernel: {
+        source: "kernel.org-stable",
+        version_minimum: "6.12",
+        march: "znver5",
+        // vector ISA explicitly disabled: kernel code can't use AVX/SSE
+        // (XCR0 unset at early boot → #UD; caught by the first hardware
+        // boot 2026-06-10). AVX-512 lives in userspace, not kernel codegen.
+        kcflags: "-march=znver5 -mno-mmx -mno-sse -mno-sse2 -mno-avx -mno-avx2 -mno-avx512f -O3 -pipe -mabm -madx",
+        // reconciled against a real 6.12 olddefconfig (first build 2026-06-10):
+        // AQTION is the real symbol for the Aquantia driver; ZFS is dkms-built
+        // (no in-tree symbol); AMD_IOMMU_V2 + SECURITY_BPF_LSM don't exist on 6.12.
+        enable: ["AQTION","VFIO_PCI","VFIO_IOMMU_TYPE1","INTEL_IOMMU","AMD_IOMMU","BPF_LSM","KVM_AMD","KVM_INTEL"],
+        microcode: ["amd","intel"], microcode_default: "amd",
+        cmdline_base: ["quiet","splash","loglevel=3"],
+        cmdline_vfio: ["vfio-pci.ids=10de:2684,10de:22ba","amd_iommu=on","iommu=pt","pcie_aspm=off"],
+      },
+      cpu: {
+        // avx512_fp16 removed: verified absent on the physical 9900X —
+        // AVX512-FP16 is Intel-only; Zen 5 has BF16, not FP16.
+        required: ["avx512f","avx512_vnni","avx512_bf16","avx512dq","avx512bw","avx512vl"],
+        preferred: ["sha_ni","avx_vnni","movdiri","movdir64b","prefetchi"],
+      },
+      modules: { load: ["zfs","nvidia","vfio_pci"], blacklist: ["nouveau"] },
+      packages: {
+        base: ["openssh-server","sudo","tmux","curl","git","python3-minimal","python3-pip","htop","jq","ca-certificates"],
+        // nvidia-container-toolkit + tetragon are NOT in the Debian archive —
+        // they install at first boot (NVIDIA repo / Cilium release), verified
+        // against the pinned snapshot 2026-06-10.
+        profile: ["linux-image-znver5","linux-headers-znver5","nvidia-open-kernel-dkms","nvidia-driver","nvidia-smi","zfsutils-linux","zfs-dkms","podman","mokutil","sbsigntool"],
+        deny: ["popularity-contest","apport","whoopsie","motd-news-config","snapd","ubuntu-advantage-tools"],
+        placeholder: true,
+      },
+      storage: {
+        layout: "zfs-tiered (2× NVMe PCIe 5.0 RAID-0)",
+        datasets: [
+          { name:"tank/models",  recordsize:"1M",   compression:"lz4",    extra:"redundant_metadata=most", purpose:"100GB+ weight files; sequential reads" },
+          { name:"tank/context", recordsize:"16k",  compression:"zstd-9", extra:"copies=2 sync=always",    purpose:"state-fabric atomic transitions" },
+          { name:"tank/agents",  recordsize:"128k", compression:"zstd-3", extra:"",                        purpose:"runtime cache + sub-agent scratch" },
+        ],
+      },
+      network: [
+        { role:"mgmt", nic:"Intel I226-V 2.5GbE",     vlan:100, address:"10.0.100.50/24", mtu:1500, default_gateway:true,  gateway:"10.0.100.1", iface:"enp6s0" },
+        { role:"data", nic:"Marvell AQC113C 10GbE",   vlan:200, address:"10.0.200.50/24", mtu:9000, default_gateway:false, gateway:"",           iface:"enp5s0" },
+      ],
+      hooks: {
+        pre_install: [
+          { id:"friction-audit-spec", type:"validation", mandatory:true },
+        ],
+        during_install: [
+          { id:"zfs-pool-create",     type:"setup",       mandatory:true },
+          { id:"zfs-datasets-create", type:"setup",       mandatory:true },
+          { id:"mok-enroll",          type:"secure-boot", mandatory:false },
+        ],
+        post_install_first_boot: [
+          { id:"friction-audit-runtime",        type:"validation",  mandatory:true },
+          { id:"vfio-bind-3090",                type:"setup",       mandatory:true, note:"binds the 4090 — script reads PCI IDs from profile; legacy name" },
+          { id:"network-vlan-config",           type:"network",     mandatory:true },
+          { id:"tetragon-policy-load",          type:"security",    mandatory:true },
+          { id:"arc-clamp-128gb",               type:"setup",       mandatory:true },
+          { id:"apply-workstation-hardening",   type:"setup",       mandatory:true },
+          { id:"first-login-assistant",         type:"interactive", mandatory:false },
+        ],
+        post_install_recurrent: [
+          { id:"zfs-scrub",              type:"maintenance", schedule:"weekly", mandatory:false },
+          { id:"tetragon-policy-verify", type:"security",    schedule:"daily",  mandatory:false },
+          { id:"model-catalog-sync",     type:"maintenance", schedule:"daily",  mandatory:false },
+          { id:"selfdef-sync",           type:"maintenance", schedule:"weekly", mandatory:false },
+        ],
+        decommission: [
+          { id:"secure-wipe-context", type:"cleanup", mandatory:true },
+          { id:"zfs-pool-destroy",    type:"cleanup", mandatory:true },
+        ],
+      },
+    },
+  },
+  tools: {
+    ai: [
+      { pkg:"@anthropic-ai/claude-code", label:"Claude Code", on:true,  note:"operator's primary AI assistant" },
+      { pkg:"opencode-ai",               label:"OpenCode",    on:false, note:"open-source terminal agent", isNew:true },
+    ],
+    apt: [
+      { pkg:"jq", on:true }, { pkg:"ripgrep", on:true }, { pkg:"fd-find", on:true },
+      { pkg:"dnsutils", on:true }, { pkg:"lm-sensors", on:true }, { pkg:"apcupsd", on:true },
+      { pkg:"wasmtime", on:true },
+    ],
+    pip: [
+      { pkg:"huggingface_hub", on:true }, { pkg:"transformers", on:true }, { pkg:"vllm", on:true },
+      { pkg:"trl", on:true }, { pkg:"lm-eval", on:true }, { pkg:"mteb", on:true }, { pkg:"tomli", on:true },
+    ],
+    curl: [
+      { pkg:"tailscale", on:false, url:"https://tailscale.com/install.sh" },
+      { pkg:"ollama",    on:false, url:"https://ollama.ai/install.sh" },
+    ],
+  },
+  hw: {
+    board: {
+      name: "ProArt X870E-CREATOR WIFI",
+      vendor: "ASUSTeK", chipset: "AMD X870E", socket: "AM5",
+      // Each item: what to SET in firmware + WHY. Sources: known-boards.toml
+      // (R260) advisories + profile pcie_constraints + configurator additions.
+      bios: [
+        { id:"expo", set:"Ai Tweaker → AMD EXPO → enabled (DDR5-6000 profile)", sev:"advisory", src:"known-boards.toml",
+          why:"Default JEDEC-5600 wastes the kit's rated speed. EXPO is AMD's XMP; the R292 headroom model assumes the tuned MT/s you declare below." },
+        { id:"fw1303", set:"BIOS version ≥ 1303 (check: dmidecode -t bios; flash if older)", sev:"advisory", src:"known-boards.toml",
+          why:"Firmware ≥ 1303 fixes the EXPO-instability bug with high-density 64GB DIMMs — random training-run crashes look like bad RAM but are firmware." },
+        { id:"svm", set:"Advanced → CPU Configuration → SVM Mode → enabled", sev:"blocker", src:"known-boards.toml",
+          why:"AMD-V. Without it KVM/nspawn virtualization and the VFIO sandbox can't start. Off by default on some firmware revisions." },
+        { id:"iommu", set:"Advanced → AMD CBS → IOMMU → enabled (+ ACS where offered)", sev:"blocker", src:"known-boards.toml",
+          why:"VFIO passthrough of the 4090 requires IOMMU groups. Pairs with the kernel cmdline amd_iommu=on iommu=pt this page generates." },
+        { id:"above4g", set:"Boot → Above 4G Decoding → enabled · Resizable BAR → enabled", sev:"blocker", src:"configurator",
+          why:"The 96GB Blackwell card cannot map its BAR without Above-4G decoding; ReBAR lets the CPU see whole-VRAM apertures (faster weight loads)." },
+        { id:"m2_2", set:"Leave M.2_2 slot physically EMPTY", sev:"blocker", src:"profile pcie_constraints",
+          why:"M.2_2 steals lanes from PCIEX16_2 and silently breaks the x8/x8 GPU bifurcation (profile marks this severity: blocker)." },
+        { id:"x8x8", set:"GPUs in PCIEX16_1 + PCIEX16_2 (both drop to PCIe5 x8)", sev:"advisory", src:"known-boards.toml",
+          why:"x8 PCIe5 is ~64 GB/s per card — fine for inference. Don't chase x16: there is no slot layout on this board that gives dual x16." },
+        { id:"iommu_groups", set:"Verify Blackwell + 4090 land in DISTINCT IOMMU groups after boot", sev:"blocker", src:"profile pcie_constraints",
+          why:"Shared groups would force passing both GPUs together. Check: find /sys/kernel/iommu_groups/ -type l. ACS override is the escape hatch (security tradeoff)." },
+        { id:"secureboot", set:"Boot → Secure Boot → Other OS / custom mode (when posture = signed: enroll your MOK at first boot)", sev:"advisory", src:"configurator",
+          why:"'Windows UEFI' mode rejects the operator-signed kernel. The mok-enroll hook handles enrollment; the firmware just has to allow custom keys." },
+        { id:"aqc113", set:"If the 10GbE port shows TX hangs: ethtool -K enp5s0 tso off gso off (or use the 2.5GbE)", sev:"advisory", src:"known-boards.toml",
+          why:"Marvell AQC113 + some kernel versions clash under load. Known erratum; the data VLAN can fall back to the Intel NIC at reduced speed." },
+      ],
+    },
+    psus: [
+      { model:"be Quiet! Dark Power Pro 13 1600W", rated:1600, peak:3200, atx:"3.1", eff:"Titanium",
+        oc:"Multi-rail (4×) → single-rail consolidation.", reference:true },
+      { model:"be Quiet! Dark Power Pro 13 1300W", rated:1300, peak:2600, atx:"3.1", eff:"Titanium",
+        oc:"Same multi-rail → single-rail toggle." },
+      { model:"Corsair AX1600i", rated:1600, peak:1800, atx:"2.4", eff:"Titanium",
+        oc:"No dedicated OC-mode switch." },
+    ],
+    power: { cpu_tdp:170, chassis:80, dimm_base:4, mts_premium_per_1000:1, safety_margin_pct:20 },
+    gpus: [
+      { model:"RTX PRO 6000 Blackwell Max-Q", role:"primary (inference)", watts:300, cap:300,
+        note:"the 300W Max-Q edition — NOT the 600W workstation card; full Max-Q TDP allowed (gpu-policy)" },
+      { model:"RTX 4090",                     role:"vfio (passthrough)",  watts:450, cap:320,
+        note:"agreed optimization (SDD-026 Z-5 → gpu-policy): 320W ≈ efficiency point, ~95% perf; stock 450W" },
+    ],
+  },
+  tuning: [
+    { name:"defaults",        summary:"Conservative defaults for general workload + low latency",
+      sysctl:{ "vm.swappiness":10, "vm.dirty_ratio":20, "vm.dirty_background_ratio":10, "net.core.somaxconn":1024, "net.core.netdev_max_backlog":16384 }, hints:[] },
+    { name:"inference-burst", summary:"Sustained-burst inference — minimize tail latency, max throughput",
+      sysctl:{ "vm.swappiness":1, "vm.dirty_ratio":5, "vm.dirty_background_ratio":2, "vm.zone_reclaim_mode":0, "vm.overcommit_memory":1, "net.core.somaxconn":65535, "net.core.netdev_max_backlog":250000, "net.ipv4.tcp_fastopen":3, "kernel.numa_balancing":0 },
+      hints:["transparent_hugepage=madvise","intel_pstate=passive","mitigations=auto,nosmt","isolcpus=managed_irq,nohz,domain,0-3"] },
+    { name:"low-power",       summary:"Low-power idle posture for fanless/battery hosts",
+      sysctl:{ "vm.swappiness":60, "vm.laptop_mode":5, "kernel.timer_migration":1 },
+      hints:["intel_pstate=passive","pcie_aspm=force"] },
+    { name:"server-headless", summary:"Headless-server posture — audit-friendly, conservative network",
+      sysctl:{ "vm.swappiness":10, "net.ipv4.tcp_syncookies":1 }, hints:[] },
+  ],
+};
+// merge any pre-set live data over the baked snapshot
+var D = Object.assign({}, BAKED, window.SOC_DATA);
+D.detail = Object.assign({}, BAKED.detail, (window.SOC_DATA.detail||{}));
+D.hw = D.hw || BAKED.hw; D.tuning = D.tuning || BAKED.tuning;
+
+/* ───────────────────────────── state ───────────────────────────── */
+var state = {
+  profile: (D.profiles.find(function(p){return p.default;}) || D.profiles[0]).id,
+  substrate: "mkosi", secureboot: "signed", encryption: "none",
+  snapshot: "20260515T000000Z",
+  kcflags: "", microcode: "amd", tuning: "inference-burst",
+  kEnable:{}, cpuReq:{}, cpuPref:{}, modLoad:{}, modBlack:{},
+  cmdBase:{}, cmdVfio:{},
+  pkgBase:{}, pkgProfile:{}, pkgDeny:{},
+  tools:{ ai:{}, apt:{}, pip:{}, curl:{} },
+  bios:{}, psuModel:null, psuOc:false,
+  gpus:[],            // [{model, role, watts, cap}]
+  hooks:{},           // phase -> id -> bool
+  datasets:[], net:[],
+  obs:{ sink:"prometheus-local", retention:30, endpoint:"127.0.0.1:9090" },
+  whitelabel:"default",
+};
+
+function detailFor(pid){ return D.detail[pid] || D.detail["sain-01"]; }
+function isDraft(pid){ return !D.detail[pid]; }
+
+/* ───────────────────────── shared widgets ───────────────────────── */
+function chk(container, label, checked, onToggle, opts){
+  opts = opts || {};
+  var id = container.id + "-" + label.replace(/[^a-z0-9]/gi,"_");
+  var l = document.createElement("label");
+  l.className = "chk" + (opts.required ? " required" : "") + (opts.danger ? " danger-tag" : "") + (opts.locked ? " locked" : "");
+  l.htmlFor = id;
+  var box = document.createElement("input");
+  box.type = "checkbox"; box.id = id; box.checked = checked;
+  if (opts.locked) box.disabled = true;
+  box.addEventListener("change", function(){ onToggle(box.checked); regenerate(); });
+  l.appendChild(box);
+  var span = document.createElement("span");
+  span.textContent = label;
+  var tip = opts.tip || GLOSSARY[label.split(" (")[0]] || GLOSSARY[label];
+  if (tip){ span.className = "has-tip"; span.setAttribute("data-tip", tip); }
+  l.appendChild(span);
+  if (opts.required){ var r=document.createElement("span"); r.className="req"; r.textContent="req"; l.appendChild(r); }
+  if (opts.locked){ var lk=document.createElement("span"); lk.className="pill"; lk.textContent="mandatory"; l.appendChild(lk); }
+  if (opts.isNew){ var n=document.createElement("span"); n.className="pill new"; n.textContent="new"; l.appendChild(n); }
+  if (opts.note){ var nn=document.createElement("span"); nn.className="pill"; nn.textContent=opts.note; l.appendChild(nn); }
+  container.appendChild(l);
+}
+
+function renderList(elId, items, stateBag, opts){
+  opts = opts || {};
+  var el = document.getElementById(elId);
+  el.innerHTML = "";
+  items.forEach(function(it){
+    var key = (typeof it === "string") ? it : it.pkg;
+    var label = (typeof it === "string") ? it : (it.label || it.pkg);
+    var def = (typeof it === "string") ? (opts.defaultOn !== false) : (it.on !== false);
+    if (stateBag[key] === undefined) stateBag[key] = def;
+    chk(el, label, stateBag[key], function(v){ stateBag[key] = v; },
+        { required: opts.required, danger: opts.danger, isNew: it && it.isNew,
+          tip: (it && it.tip) || GLOSSARY[key],
+          note: it && (it.note || (it.url ? it.url.replace(/^https?:\/\//,"") : null)) });
+  });
+}
+
+/* ───────────────────────── section 0: hardware preflight ───────────────────────── */
+function renderBios(){
+  var b = D.hw.board;
+  document.getElementById("bios-board-name").textContent = b.name + " (" + b.chipset + ", " + b.socket + ")";
+  var c = document.getElementById("bios-list");
+  c.innerHTML = "";
+  b.bios.forEach(function(item){
+    if (state.bios[item.id] === undefined) state.bios[item.id] = false;
+    var div = document.createElement("div");
+    div.className = "bios-item" + (state.bios[item.id] ? " checked" : "");
+    var head = document.createElement("div"); head.className = "bi-head";
+    var box = document.createElement("input"); box.type="checkbox"; box.checked = state.bios[item.id];
+    box.addEventListener("change", function(){
+      state.bios[item.id] = box.checked;
+      div.className = "bios-item" + (box.checked ? " checked" : "");
+      biosProgress(); regenerate();
+    });
+    head.appendChild(box);
+    var set = document.createElement("span"); set.className="bi-set"; set.textContent = item.set;
+    var sev = document.createElement("span"); sev.className = "pill " + item.sev; sev.textContent = item.sev;
+    var src = document.createElement("span"); src.className = "pill src"; src.textContent = item.src;
+    head.appendChild(set); head.appendChild(sev); head.appendChild(src);
+    head.addEventListener("click", function(e){ if (e.target !== box){ box.checked = !box.checked; box.dispatchEvent(new Event("change")); }});
+    div.appendChild(head);
+    var why = document.createElement("div"); why.className = "bi-why"; why.textContent = "why: " + item.why;
+    div.appendChild(why);
+    c.appendChild(div);
+  });
+  biosProgress();
+}
+function biosProgress(){
+  var total = D.hw.board.bios.length;
+  var done = D.hw.board.bios.filter(function(i){ return state.bios[i.id]; }).length;
+  document.getElementById("bios-progress").textContent = done + "/" + total + " confirmed";
+}
+
+function psuByModel(m){ return D.hw.psus.find(function(p){ return p.model === m; }) || D.hw.psus[0]; }
+function renderPsu(){
+  var sel = document.getElementById("psu-model");
+  sel.innerHTML = "";
+  D.hw.psus.forEach(function(p){
+    var o = document.createElement("option");
+    o.value = p.model; o.textContent = p.model + (p.reference ? "  (§1b reference)" : "");
+    sel.appendChild(o);
+  });
+  state.psuModel = state.psuModel || D.hw.psus[0].model;
+  sel.value = state.psuModel;
+  sel.addEventListener("change", function(){ state.psuModel = sel.value; psuExplain(); powerCalc(); regenerate(); });
+  document.getElementById("psu-oc").addEventListener("change", function(e){
+    state.psuOc = e.target.checked; psuExplain(); powerCalc(); regenerate();
+  });
+  psuExplain();
+}
+function psuExplain(){
+  var p = psuByModel(state.psuModel);
+  var el = document.getElementById("psu-explainer");
+  var hasOc = p.oc.indexOf("No dedicated") === -1;
+  var html = "<strong>What the OC-mode switch does:</strong> " + p.oc + " ";
+  if (hasOc){
+    html += "In standard (multi-rail) mode each 12V rail has its own over-current protection. " +
+      "A GPU transient on ONE rail can trip that rail's OCP and hard-shut the machine mid-inference " +
+      "even though TOTAL draw was fine. OC mode pools the full " + p.rated + "W (brief peak " + p.peak +
+      "W per ATX " + p.atx + " excursion allowance) into one rail.<br><br>" +
+      "<strong>For dual-GPU SAIN-01 the recommendation is: enable it.</strong> The RTX 4090 is " +
+      "notorious for sub-millisecond transients up to ~2× its power limit — even capped at 320 W it can " +
+      "spike well past 600 W for microseconds (the Max-Q is tame by comparison). Sustained headroom is " +
+      "comfortable on this build; per-rail OCP trips are about single-connector spikes, not totals. Tradeoff: single-rail means a " +
+      "genuine short can draw the full capacity before tripping; acceptable in a clean fixed build. " +
+      "<em>It is a physical switch on the PSU — flip it, then declare it here so the headroom model matches.</em>";
+    if (!state.psuOc) html += "<br><br>⚠ You have it declared OFF — with both GPUs under load, expect possible spurious shutdowns under transient alignment.";
+    else html += "<br><br>✓ Declared ON — matches the dual-GPU recommendation.";
+  } else {
+    html += "This PSU pools a single rail natively (or offers no switch) — nothing to flip; transient handling rides on its " + p.peak + "W peak rating.";
+  }
+  el.innerHTML = html;
+}
+
+function renderGpuTable(){
+  state.gpus = D.hw.gpus.map(function(g){ return { model:g.model, role:g.role, watts:g.watts, cap:(g.cap!==undefined?g.cap:g.watts), note:g.note }; });
+  var tb = document.querySelector("#gpu-table tbody");
+  tb.innerHTML = "";
+  state.gpus.forEach(function(g, i){
+    var tr = document.createElement("tr");
+    var capIn = document.createElement("input"); capIn.type="number"; capIn.value=g.cap; capIn.min=100; capIn.max=g.watts;
+    capIn.addEventListener("input", function(){ g.cap = Number(capIn.value)||g.watts; powerCalc(); regenerate(); });
+    var td1=document.createElement("td"); td1.textContent=g.model; if (g.note){ var p=document.createElement("div"); p.className="muted small"; p.textContent=g.note; td1.appendChild(p);} tr.appendChild(td1);
+    var td2=document.createElement("td"); td2.textContent=g.role; tr.appendChild(td2);
+    var td3=document.createElement("td"); td3.textContent=g.watts; tr.appendChild(td3);
+    var td4=document.createElement("td"); td4.appendChild(capIn); tr.appendChild(td4);
+    tb.appendChild(tr);
+  });
+}
+
+function powerInputs(){
+  return {
+    cpu: Number(document.getElementById("p-cpu").value)||0,
+    chassis: Number(document.getElementById("p-chassis").value)||0,
+    dimms: Number(document.getElementById("p-dimms").value)||0,
+    mts: Number(document.getElementById("p-mts").value)||4800,
+    gpuOc: Number(document.getElementById("p-gpuoc").value)||1,
+  };
+}
+function powerCalc(){
+  var pw = powerInputs();
+  var pm = D.hw.power;
+  var memW = pw.dimms * (pm.dimm_base + pm.mts_premium_per_1000 * Math.max(0,(pw.mts-4800))/1000);
+  var gpuW = state.gpus.reduce(function(s,g){ return s + Math.min(g.watts, g.cap) * pw.gpuOc; }, 0);
+  var total = pw.cpu + pw.chassis + memW + gpuW;
+  var psu = psuByModel(state.psuModel);
+  var headW = psu.rated - total;
+  var headPct = headW / psu.rated * 100;
+  var verdict, cls;
+  if (headW < 0){ verdict = "OVER-BUDGET — the PSU cannot sustain this at 100% usage"; cls = "danger"; }
+  else if (headPct < pm.safety_margin_pct){ verdict = "headroom-tight (< " + pm.safety_margin_pct + "% margin) — transients may trip protection"; cls = "warn"; }
+  else { verdict = "ok — " + Math.round(headPct) + "% sustained headroom"; cls = "ok"; }
+  var meter = document.getElementById("power-meter");
+  meter.className = "meter" + (cls==="ok" ? "" : " "+cls);
+  meter.firstElementChild.style.width = Math.min(100, total/psu.rated*100) + "%";
+  document.getElementById("power-readout").innerHTML =
+    "projected 100%-usage draw: <strong>" + Math.round(total) + " W</strong> of " + psu.rated +
+    " W rated (CPU " + pw.cpu + " + chassis " + pw.chassis + " + memory " + Math.round(memW) +
+    " + GPUs " + Math.round(gpuW) + ") · brief-peak allowance " + psu.peak + " W · verdict: " +
+    "<span class='power-verdict " + cls + "'>" + verdict + "</span>" +
+    (state.psuOc ? "" : " · <span class='muted'>OC mode off — multi-rail OCP applies per-rail, see explainer above</span>");
+  return { total: Math.round(total), headW: Math.round(headW), headPct: Math.round(headPct), verdict: verdict, cls: cls, psu: psu };
+}
+
+/* ───────────────────────── sections 1-7 (profile-driven) ───────────────────────── */
+function renderProfiles(){
+  var c = document.getElementById("profiles");
+  c.innerHTML = "";
+  D.profiles.forEach(function(p){
+    var l = document.createElement("label");
+    l.className = "profile" + (p.id === state.profile ? " sel" : "");
+    var radio = document.createElement("input");
+    radio.type="radio"; radio.name="profile"; radio.value=p.id; radio.checked = p.id===state.profile;
+    radio.style.display="none";
+    l.appendChild(radio);
+    var nm = document.createElement("span"); nm.className="pname"; nm.textContent = p.name;
+    if (p.default){ var d=document.createElement("span"); d.className="pill"; d.textContent="default"; nm.appendChild(d); }
+    if (isDraft(p.id)){ var dr=document.createElement("span"); dr.className="pill"; dr.textContent="draft"; nm.appendChild(dr); }
+    l.appendChild(nm);
+    var ds = document.createElement("span"); ds.className="pdesc"; ds.textContent = p.desc || "";
+    l.appendChild(ds);
+    l.addEventListener("click", function(){ state.profile = p.id; loadProfile(); });
+    c.appendChild(l);
+  });
+}
+
+function renderMicrocode(opts, def){
+  var el = document.getElementById("k-microcode");
+  el.innerHTML = "";
+  opts.forEach(function(mc){
+    var id = "mc-"+mc;
+    var l = document.createElement("label"); l.className="chk"; l.htmlFor=id;
+    var r = document.createElement("input"); r.type="radio"; r.name="microcode"; r.id=id;
+    r.value=mc; r.checked = (mc === (state.microcode||def));
+    r.addEventListener("change", function(){ state.microcode = mc; regenerate(); });
+    l.appendChild(r);
+    var s=document.createElement("span"); s.textContent=mc; l.appendChild(s);
+    el.appendChild(l);
+  });
+}
+
+function renderTuning(){
+  var sel = document.getElementById("tuning-preset");
+  sel.innerHTML = "";
+  D.tuning.forEach(function(t){
+    var o = document.createElement("option"); o.value=t.name; o.textContent = t.name + " — " + t.summary;
+    sel.appendChild(o);
+  });
+  sel.value = state.tuning;
+  sel.addEventListener("change", function(){ state.tuning = sel.value; tuningPreview(); regenerate(); });
+  tuningPreview();
+}
+function tuningPreview(){
+  var t = D.tuning.find(function(x){ return x.name === state.tuning; }) || D.tuning[0];
+  var lines = Object.keys(t.sysctl).map(function(k){ return k + " = " + t.sysctl[k]; });
+  if (t.hints && t.hints.length) lines.push("", "# GRUB cmdline hints (operator pastes; not auto-applied):", t.hints.map(function(h){return "#   "+h;}).join("\n"));
+  document.getElementById("tuning-preview").textContent = lines.join("\n");
+}
+
+/* ───────────────────────── sections 8-10 (storage/net/hooks) ───────────────────────── */
+function renderStorage(det){
+  document.getElementById("st-layout").textContent = det.storage.layout;
+  state.datasets = det.storage.datasets.map(function(d){ return Object.assign({}, d); });
+  var tb = document.querySelector("#ds-table tbody");
+  tb.innerHTML = "";
+  state.datasets.forEach(function(d){
+    var tr = document.createElement("tr");
+    var n=document.createElement("td"); n.innerHTML="<code>"+d.name+"</code>" + (d.extra?" <span class='pill'>"+d.extra+"</span>":""); tr.appendChild(n);
+    ["recordsize","compression"].forEach(function(f){
+      var td=document.createElement("td"); var inp=document.createElement("input"); inp.type="text"; inp.value=d[f];
+      inp.addEventListener("input", function(){ d[f]=inp.value; regenerate(); });
+      td.appendChild(inp); tr.appendChild(td);
+    });
+    var p=document.createElement("td"); p.className="muted"; p.textContent=d.purpose; tr.appendChild(p);
+    tb.appendChild(tr);
+  });
+}
+
+function renderNet(det){
+  state.net = det.network.map(function(n){ return Object.assign({}, n); });
+  var tb = document.querySelector("#net-table tbody");
+  tb.innerHTML = "";
+  state.net.forEach(function(n){
+    var tr = document.createElement("tr");
+    var r=document.createElement("td"); r.textContent=n.role; tr.appendChild(r);
+    var nic=document.createElement("td"); nic.className="muted"; nic.textContent=n.nic + " ("+n.iface+")"; tr.appendChild(nic);
+    [["vlan",false],["address",true],["mtu",false]].forEach(function(spec){
+      var f=spec[0], wide=spec[1];
+      var td=document.createElement("td"); var inp=document.createElement("input"); inp.type="text"; inp.value=n[f];
+      if (wide) inp.className="wide";
+      inp.addEventListener("input", function(){ n[f]=inp.value; regenerate(); });
+      td.appendChild(inp); tr.appendChild(td);
+    });
+    var dg=document.createElement("td"); dg.textContent = n.default_gateway ? "YES ("+n.gateway+")" : "no (spec § 8: never)"; tr.appendChild(dg);
+    tb.appendChild(tr);
+  });
+}
+
+var HOOK_PHASES = [
+  ["pre_install","pre-install (on the build host, before anything)"],
+  ["during_install","during-install (inside the image build)"],
+  ["post_install_first_boot","post-install · first boot (on the target)"],
+  ["post_install_recurrent","post-install · recurrent (systemd timers)"],
+  ["decommission","decommission (secure teardown)"],
+];
+function renderHooks(det){
+  state.hooks = {};
+  var c = document.getElementById("hooks-all");
+  c.innerHTML = "";
+  HOOK_PHASES.forEach(function(ph){
+    var key=ph[0], label=ph[1];
+    var hooks = (det.hooks||{})[key] || [];
+    if (!hooks.length) return;
+    state.hooks[key] = {};
+    var fs = document.createElement("fieldset");
+    var lg = document.createElement("legend"); lg.textContent = label; fs.appendChild(lg);
+    var row = document.createElement("div"); row.className="row"; row.id = "hooks-"+key;
+    fs.appendChild(row);
+    hooks.forEach(function(h){
+      state.hooks[key][h.id] = true;
+      chk(row, h.id + (h.schedule ? " ("+h.schedule+")" : ""), true,
+          function(v){ state.hooks[key][h.id] = v; },
+          { locked: h.mandatory, note: h.note ? "reads profile PCI IDs" : (h.type !== "setup" ? h.type : null) });
+    });
+    c.appendChild(fs);
+  });
+}
+
+/* ───────────────────────── profile load ───────────────────────── */
+function loadProfile(){
+  var det = detailFor(state.profile);
+  state.kEnable={}; state.cpuReq={}; state.cpuPref={}; state.modLoad={}; state.modBlack={};
+  state.pkgBase={}; state.pkgProfile={}; state.pkgDeny={}; state.cmdBase={}; state.cmdVfio={};
+  state.kcflags = det.kernel.kcflags;
+  state.microcode = det.kernel.microcode_default;
+
+  document.getElementById("k-source").textContent  = det.kernel.source;
+  document.getElementById("k-version").textContent = ">= " + det.kernel.version_minimum;
+  document.getElementById("k-march").textContent   = det.kernel.march;
+  document.getElementById("kcflags").value         = det.kernel.kcflags;
+  document.getElementById("kernel-tag").textContent = det.kernel.source + " · " + det.kernel.march;
+  document.getElementById("mixins-line").textContent = (det.mixins||[]).join(" + ") || "—";
+
+  renderList("k-enable", det.kernel.enable, state.kEnable, {});
+  renderMicrocode(det.kernel.microcode, det.kernel.microcode_default);
+  renderList("cmd-base", det.kernel.cmdline_base || [], state.cmdBase, {});
+  renderList("cmd-vfio", det.kernel.cmdline_vfio || [], state.cmdVfio, {});
+
+  renderList("cpu-required",  det.cpu.required,  state.cpuReq,  { required:true });
+  renderList("cpu-preferred", det.cpu.preferred, state.cpuPref, {});
+  renderList("mod-load",      det.modules.load,      state.modLoad,  {});
+  renderList("mod-blacklist", det.modules.blacklist, state.modBlack, { danger:true });
+
+  renderList("pkg-base",    det.packages.base,    state.pkgBase,    {});
+  renderList("pkg-profile", det.packages.profile, state.pkgProfile, {});
+  renderList("pkg-deny",    det.packages.deny,    state.pkgDeny,    { danger:true });
+
+  document.getElementById("pkg-placeholder-note").textContent =
+    det.packages.placeholder
+      ? "⚠ The repo marks this profile's package/hooks blocks as PLACEHOLDER (sain-01.yaml header). Treat the package list as provisional until Stage 2+."
+      : "";
+
+  var note = document.getElementById("profile-note");
+  note.textContent = isDraft(state.profile)
+    ? "This profile ships as a draft; option universe shown is sain-01's. Build it to materialize its own profiles/" + state.profile + ".yaml."
+    : "";
+
+  if (det.storage) renderStorage(det);
+  if (det.network) renderNet(det);
+  if (det.hooks)   renderHooks(det);
+
+  renderProfiles();
+  regenerate();
+}
+
+/* ───────────────────────── generation ───────────────────────── */
+function on(bag){ return Object.keys(bag).filter(function(k){ return bag[k]; }); }
+function off(bag){ return Object.keys(bag).filter(function(k){ return !bag[k]; }); }
+function yamlList(arr, indent){
+  if (!arr.length) return " []";
+  return "\n" + arr.map(function(x){ return indent + "- " + (/[:#{}]/.test(String(x)) ? '"'+x+'"' : x); }).join("\n");
+}
+
+function buildCommand(){
+  return [
+    "SOURCE_DATE_EPOCH=$(date +%s) \\",
+    "DEBIAN_SNAPSHOT=" + (document.getElementById("snapshot").value || state.snapshot) + " \\",
+    "SOVEREIGN_OS_PROFILE=" + state.profile + " \\",
+    "SOVEREIGN_OS_SUBSTRATE=" + state.substrate + " \\",
+    "SOVEREIGN_OS_OVERLAY_PROFILE=overlay.yaml \\",
+    "SOVEREIGN_OS_OVERLAY_OPERATOR_DEPS=operator-deps.toml \\",
+    "SOVEREIGN_OS_OVERLAY_PSU_OC=psu-oc.toml \\",
+    "  sudo scripts/build/orchestrate.sh run",
+  ].join("\n");
+}
+
+function buildOverlay(){
+  var t = D.tuning.find(function(x){ return x.name === state.tuning; }) || D.tuning[0];
+  var L = [];
+  L.push("# sovereign-os profile overlay — generated by build-configurator");
+  L.push("# Sparse override applied on top of profiles/" + state.profile + ".yaml (SDD-030).");
+  L.push("schema_version: \"1.0.0\"");
+  L.push("overlay_for: " + state.profile);
+  L.push("");
+  L.push("kernel:");
+  L.push("  compile_flags:");
+  L.push("    KCFLAGS: \"" + (document.getElementById("kcflags").value) + "\"");
+  L.push("  config:");
+  L.push("    enable:" + yamlList(on(state.kEnable), "      "));
+  var disabledCfg = off(state.kEnable);
+  if (disabledCfg.length) L.push("    disable:" + yamlList(disabledCfg, "      "));
+  L.push("  require_microcode: " + state.microcode);
+  L.push("  cmdline:");
+  L.push("    base:" + yamlList(on(state.cmdBase), "      "));
+  L.push("    vfio:" + yamlList(on(state.cmdVfio), "      "));
+  L.push("  tuning_preset: " + state.tuning + "   # R239 kernel-tuning matrix");
+  if (t.hints.length) L.push("  # preset cmdline hints (paste into GRUB_CMDLINE_LINUX):" + yamlList(t.hints, "  #   ").replace(/- /g,""));
+  L.push("  modules:");
+  L.push("    load_at_boot:" + yamlList(on(state.modLoad), "      "));
+  L.push("    blacklist:" + yamlList(on(state.modBlack), "      "));
+  L.push("");
+  L.push("hardware:");
+  L.push("  cpu:");
+  L.push("    features:");
+  L.push("      required:" + yamlList(on(state.cpuReq), "        "));
+  L.push("      preferred:" + yamlList(on(state.cpuPref), "        "));
+  L.push("  gpu_power_caps:   # applied post-install via nvidia-smi -pl (gpu-policy.toml)");
+  state.gpus.forEach(function(g){
+    L.push("    - model: " + g.model);
+    L.push("      power_limit_watts: " + g.cap);
+  });
+  L.push("");
+  if (state.datasets.length){
+    L.push("storage:");
+    L.push("  datasets:");
+    state.datasets.forEach(function(d){
+      L.push("    - name: " + d.name);
+      L.push("      recordsize: " + d.recordsize);
+      L.push("      compression: " + d.compression);
+    });
+    L.push("");
+  }
+  if (state.net.length){
+    L.push("network:");
+    state.net.forEach(function(n){
+      L.push("  - role: " + n.role);
+      L.push("    vlan: " + n.vlan);
+      L.push("    address: \"" + n.address + "\"");
+      L.push("    mtu: " + n.mtu);
+      L.push("    default_gateway: " + n.default_gateway);
+    });
+    L.push("");
+  }
+  var disabledHooks = [];
+  Object.keys(state.hooks).forEach(function(ph){
+    Object.keys(state.hooks[ph]).forEach(function(id){
+      if (!state.hooks[ph][id]) disabledHooks.push(ph + "/" + id);
+    });
+  });
+  L.push("hooks:");
+  L.push("  disabled:" + yamlList(disabledHooks, "    "));
+  L.push("");
+  L.push("observability:");
+  L.push("  telemetry_sink: " + state.obs.sink);
+  L.push("  log_retention_days: " + state.obs.retention);
+  L.push("  metrics_endpoint: \"" + state.obs.endpoint + "\"");
+  L.push("");
+  L.push("whitelabel:");
+  L.push("  profile: " + state.whitelabel);
+  L.push("");
+  L.push("substrate: " + state.substrate);
+  L.push("secure_boot: " + state.secureboot);
+  L.push("root_encryption: " + state.encryption);
+  return L.join("\n");
+}
+
+function buildDeps(){
+  var t = D.tools;
+  var L = [];
+  L.push("# operator-deps.toml — generated by build-configurator (R284 / SDD-030).");
+  L.push("# DRY-RUN by default; --apply needs --confirm; curl_shell needs --confirm-curl-shell.");
+  L.push("");
+  var apt = t.apt.filter(function(x){ return state.tools.apt[x.pkg]; }).map(function(x){return x.pkg;});
+  L.push("[apt]");
+  L.push("install = [" + apt.map(function(p){return "\""+p+"\"";}).join(", ") + "]");
+  L.push("");
+  var pip = t.pip.filter(function(x){ return state.tools.pip[x.pkg]; }).map(function(x){return x.pkg;});
+  L.push("[pip]");
+  L.push("install = [" + pip.map(function(p){return "\""+p+"\"";}).join(", ") + "]");
+  L.push("");
+  var ai = t.ai.filter(function(x){ return state.tools.ai[x.pkg]; }).map(function(x){return x.pkg;});
+  L.push("[npm]");
+  L.push("global = [" + ai.map(function(p){return "\""+p+"\"";}).join(", ") + "]");
+  L.push("");
+  var curl = t.curl.filter(function(x){ return state.tools.curl[x.pkg]; });
+  L.push("[curl_shell]");
+  if (curl.length){
+    L.push("installs = [");
+    curl.forEach(function(x){ L.push("    { name = \""+x.pkg+"\", url = \""+x.url+"\", verify = \"skip\" },"); });
+    L.push("]");
+  } else {
+    L.push("installs = []");
+  }
+  return L.join("\n");
+}
+
+function buildPsuToml(){
+  var p = psuByModel(state.psuModel);
+  var pm = D.hw.power;
+  return [
+    "# psu-oc.toml — generated by build-configurator (R294 / SDD-030).",
+    "operator_psu_model         = \"" + p.model + "\"",
+    "oc_mode_enabled            = " + (state.psuOc ? "true" : "false"),
+    "sustained_safety_margin_pct = " + pm.safety_margin_pct,
+  ].join("\n");
+}
+
+function buildPreflight(power){
+  var b = D.hw.board, p = psuByModel(state.psuModel), pw = powerInputs();
+  var L = [];
+  L.push("# SAIN-01 BIOS / PSU preflight — generated by build-configurator");
+  L.push("");
+  L.push("Board: " + b.name + " (" + b.vendor + ", " + b.chipset + ", " + b.socket + ")");
+  L.push("");
+  L.push("## Firmware settings (do these in BIOS before first boot)");
+  L.push("");
+  b.bios.forEach(function(i){
+    L.push("- [" + (state.bios[i.id] ? "x" : " ") + "] **" + i.set + "**  (" + i.sev + " · " + i.src + ")");
+    L.push("      why: " + i.why);
+  });
+  L.push("");
+  L.push("## PSU");
+  L.push("");
+  L.push("- Model: " + p.model + " — " + p.rated + " W rated · " + p.peak + " W brief peak · ATX " + p.atx + " · " + p.eff);
+  L.push("- OC-mode switch: " + (state.psuOc ? "ENABLED (single-rail)" : "disabled (multi-rail)"));
+  L.push("- Semantics: " + p.oc);
+  L.push("- Dual-GPU guidance: enable OC mode so simultaneous GPU transients (4090 spikes ~2× PL for <1 ms) draw from the pooled rail instead of tripping one rail's OCP.");
+  L.push("");
+  L.push("## Power budget @ 100% usage (R292 model)");
+  L.push("");
+  L.push("- CPU " + pw.cpu + " W + chassis " + pw.chassis + " W + GPUs (" +
+    state.gpus.map(function(g){ return g.model + " @ " + g.cap + "W"; }).join(" + ") +
+    ") × OC " + pw.gpuOc + " + " + pw.dimms + "× DIMM @ " + pw.mts + " MT/s");
+  L.push("- Projected: **" + power.total + " W** of " + power.psu.rated + " W → " + power.verdict);
+  return L.join("\n");
+}
+
+function regenerate(){
+  var power = powerCalc();
+  document.getElementById("out-cmd").textContent       = buildCommand();
+  document.getElementById("out-overlay").textContent   = buildOverlay();
+  document.getElementById("out-deps").textContent      = buildDeps();
+  document.getElementById("out-psu").textContent       = buildPsuToml();
+  document.getElementById("out-preflight").textContent = buildPreflight(power);
+
+  var aiOn = D.tools.ai.filter(function(x){return state.tools.ai[x.pkg];}).map(function(x){return x.label;});
+  document.getElementById("sel-summary").textContent =
+    "Building " + state.profile + " · " + state.substrate +
+    " · " + on(state.pkgProfile).length + " profile pkgs · tuning: " + state.tuning +
+    " · " + (aiOn.length ? aiOn.join(" + ") : "no AI assistant selected");
+
+  var warns = [];
+  var blockers = D.hw.board.bios.filter(function(i){ return i.sev==="blocker" && !state.bios[i.id]; });
+  if (blockers.length) warns.push("⚠ " + blockers.length + " BIOS blocker(s) unconfirmed: " + blockers.map(function(i){return i.id;}).join(", "));
+  if (power.cls !== "ok") warns.push("⚠ power: " + power.verdict);
+  if (!state.psuOc) warns.push("⚠ PSU OC mode declared off (dual-GPU transient risk — see § 0)");
+  document.getElementById("sel-warnings").innerHTML = warns.join("<br>");
+}
+
+/* ───────────────────────── wiring ───────────────────────── */
+["substrate","secureboot","encryption"].forEach(function(id){
+  document.getElementById(id).addEventListener("change", function(e){
+    state[id==="secureboot"?"secureboot":id]=e.target.value; regenerate();
+  });
+});
+document.getElementById("snapshot").addEventListener("input", regenerate);
+document.getElementById("kcflags").addEventListener("input", regenerate);
+["p-cpu","p-chassis","p-dimms","p-mts","p-gpuoc"].forEach(function(id){
+  document.getElementById(id).addEventListener("input", function(){ powerCalc(); regenerate(); });
+});
+document.getElementById("obs-sink").addEventListener("change", function(e){ state.obs.sink=e.target.value; regenerate(); });
+document.getElementById("obs-retention").addEventListener("input", function(e){ state.obs.retention=e.target.value; regenerate(); });
+document.getElementById("obs-endpoint").addEventListener("input", function(e){ state.obs.endpoint=e.target.value; regenerate(); });
+document.getElementById("wl-profile").addEventListener("change", function(e){ state.whitelabel=e.target.value; regenerate(); });
+
+// fold/unfold section cards
+Array.prototype.forEach.call(document.querySelectorAll("section.card > h2"), function(h){
+  h.addEventListener("click", function(e){
+    if (e.target.closest("input,select,button,a,label")) return;
+    var card = h.parentElement;
+    card.classList.toggle("closed");
+    h.querySelector(".tw").textContent = card.classList.contains("closed") ? "▸" : "▾";
+  });
+});
+
+// copy / download buttons
+document.addEventListener("click", function(e){
+  var b = e.target.closest("button.btn"); if (!b) return;
+  if (b.dataset.copy){
+    var txt = document.getElementById(b.dataset.copy).textContent;
+    navigator.clipboard && navigator.clipboard.writeText(txt);
+    var old=b.textContent; b.textContent="copied ✓"; b.classList.add("copied");
+    setTimeout(function(){ b.textContent=old; b.classList.remove("copied"); }, 1200);
+  }
+  if (b.dataset.download){
+    var data = document.getElementById(b.dataset.src).textContent;
+    var blob = new Blob([data], {type:"text/plain"});
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = b.dataset.download;
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+});
+
+function renderTools(){
+  renderList("tools-ai",   D.tools.ai,   state.tools.ai,   {});
+  renderList("tools-apt",  D.tools.apt,  state.tools.apt,  {});
+  renderList("tools-pip",  D.tools.pip,  state.tools.pip,  {});
+  renderList("tools-curl", D.tools.curl, state.tools.curl, { danger:true });
+}
+
+/* live mirror merge: tools + any parseable profile detail + hw configs */
+function tryMirror(){
+  fetch("./data.json", {cache:"no-store"}).then(function(r){
+    if (!r.ok) throw 0; return r.json();
+  }).then(function(j){
+    var liveDetail = j.detail && Object.keys(j.detail).length;
+    // hw merges per-subfield: board+gpus stay curated in the snapshot;
+    // psus + power scalars come live from psu-oc.toml / oc-headroom.toml.
+    var hw = Object.assign({}, D.hw);
+    if (j.hw && j.hw.psus && j.hw.psus.length) hw.psus = j.hw.psus;
+    if (j.hw && j.hw.power) hw.power = Object.assign({}, hw.power, {
+      cpu_tdp: j.hw.power.cpu_tdp, chassis: j.hw.power.chassis,
+      dimm_base: j.hw.power.dimm_base,
+      mts_premium_per_1000: j.hw.power.mts_premium_per_1000,
+      safety_margin_pct: j.hw.power.safety_margin_pct,
+    });
+    D = {
+      profiles: (j.profiles && j.profiles.length) ? j.profiles : D.profiles,
+      detail: Object.assign({}, BAKED.detail, j.detail || {}),
+      tools: (j.tools && j.tools.ai) ? j.tools : D.tools,
+      hw: hw,
+      tuning: (j.tuning && j.tuning.length) ? j.tuning : D.tuning,
+    };
+    window.SOC_DATA = D;
+    document.getElementById("p-cpu").value = D.hw.power.cpu_tdp;
+    document.getElementById("p-chassis").value = D.hw.power.chassis;
+    document.getElementById("src-status").textContent =
+      "data: live mirror" + (liveDetail ? "" : " (configs live · profile detail from snapshot — PyYAML absent on host)");
+    renderProfiles(); renderTools(); renderBios(); renderPsu(); renderGpuTable(); renderTuning(); loadProfile();
+  }).catch(function(){ /* offline snapshot stands */ });
+}
+
+/* ───────────────────────── glossary & tooltips ─────────────────────────
+   Every cryptic toggle gets a hover explanation. chk()/renderList() look
+   labels up here; applyStaticTips() covers static legends/labels/headers. */
+var GLOSSARY = {
+  // kernel config symbols
+  "AQTION": "Driver for the Aquantia/Marvell AQC113 10GbE NIC (driver dir 'atlantic', symbol AQTION) — the VLAN-200 model-ingestion interface.",
+  "ZFS": "In-kernel ZFS support — the tank pool (models / context / agents) depends on it.",
+  "VFIO_PCI": "PCI passthrough driver: claims the 4090 so guests get the bare device and the host never initializes it.",
+  "VFIO_IOMMU_TYPE1": "IOMMU-backed DMA isolation for VFIO devices — the safety layer under passthrough.",
+  "INTEL_IOMMU": "Intel VT-d DMA remapping — harmless on AMD; kept so the kernel works cross-vendor.",
+  "AMD_IOMMU": "AMD-Vi DMA remapping — required for clean VFIO groups on this board.",
+  "AMD_IOMMU_V2": "Extended AMD IOMMU features (PASID/PRI) used by some GPU compute paths.",
+  "SECURITY_BPF_LSM": "Lets eBPF programs attach to LSM security hooks — Tetragon's enforcement point.",
+  "BPF_LSM": "The BPF Linux Security Module itself — pairs with SECURITY_BPF_LSM.",
+  "KVM_AMD": "Hardware virtualization on AMD (SVM) — the VFIO sandbox VMs need it.",
+  "KVM_INTEL": "Hardware virtualization on Intel (VT-x) — kept for cross-vendor kernels.",
+  // CPU features
+  "avx512f": "AVX-512 Foundation — the 512-bit vector base; every other AVX-512 extension builds on it.",
+  "avx512_vnni": "Vector Neural Network Instructions — fused int8/int16 dot-products; the workhorse of quantized inference.",
+  "avx512_bf16": "bfloat16 vector arithmetic — the numeric format most model weights ship in.",
+  "avx512_fp16": "IEEE FP16 vector arithmetic — Intel-only (Sapphire Rapids+); verified ABSENT on the physical 9900X. Do not require on Zen 5.",
+  "avx_vnni": "VNNI on 256-bit AVX — fallback int8 path (kernel flag name; verified present on the 9900X).",
+  "avx512dq": "AVX-512 double/quad-word integer operations (64/128-bit lanes).",
+  "avx512bw": "AVX-512 byte/word integer operations — string + tokenizer hot paths.",
+  "avx512vl": "Vector-length extension: AVX-512 instructions on 128/256-bit registers too.",
+  "sha_ni": "Hardware SHA-1/SHA-256 — faster signing, checksumming, git.",
+  "avxvnni": "VNNI on 256-bit AVX — fallback int8 path for code not compiled for 512-bit.",
+  "movdiri": "Direct-store instruction — low-latency uncached doorbell writes (NIC/GPU queues).",
+  "movdir64b": "64-byte atomic direct store — full cache-line writes, same family as movdiri.",
+  "prefetchi": "Instruction-cache prefetch hint — a Zen 5 addition.",
+  // modules
+  "zfs": "OpenZFS kernel module (DKMS-built per kernel) — must load before the pool imports.",
+  "nvidia": "NVIDIA driver for the PRO 6000 primary GPU.",
+  "vfio_pci": "Claims the 4090 by PCI ID at boot — keeps every other driver off it.",
+  "nouveau": "Community NVIDIA driver — blacklisted so it can't race the real driver (or VFIO) for the cards.",
+  // packages — profile
+  "nvidia-open-kernel-dkms": "NVIDIA's open GPU kernel modules, rebuilt by DKMS for your custom kernel.",
+  "nvidia-driver": "NVIDIA userspace driver stack (libGL, CUDA driver).",
+  "nvidia-smi": "GPU management CLI — also how power caps are applied (-pl).",
+  "nvidia-container-toolkit": "Exposes GPUs inside Podman containers — NOT in the Debian archive; installs at first boot from NVIDIA's repo.",
+  "zfsutils-linux": "ZFS userland: the zpool / zfs commands.",
+  "zfs-dkms": "ZFS kernel-module source, rebuilt by DKMS for your custom kernel.",
+  "podman": "Rootless container runtime — Weaver's substrate (no Docker daemon).",
+  "tetragon": "Cilium's eBPF runtime security — the Auditor's kernel-level perimeter. NOT in the Debian archive; installs at first boot from Cilium's release.",
+  "mokutil": "Machine Owner Key enrollment for secure boot — YOUR signing chain, not a vendor's.",
+  "sbsigntool": "Signs the kernel + bootloader with your MOK.",
+  "linux-image-znver5": "Your custom Zen-5-tuned kernel, packaged as a .deb.",
+  "linux-headers-znver5": "Headers matching the custom kernel — DKMS (zfs, nvidia) builds against these.",
+  // packages — deny
+  "popularity-contest": "Reports your installed packages to Debian — phone-home, denied.",
+  "apport": "Ubuntu crash reporter — uploads core dumps; denied.",
+  "whoopsie": "Apport's upload daemon — denied.",
+  "motd-news-config": "Fetches remote 'news' into your login banner — denied.",
+  "snapd": "Canonical's snap daemon — auto-updating, remotely-controlled packages; denied.",
+  "ubuntu-advantage-tools": "Ubuntu Pro subscription nagware — denied.",
+  // packages — base
+  "openssh-server": "Remote shell access — the mgmt VLAN's primary door.",
+  "sudo": "Privilege escalation for the operator account.",
+  "tmux": "Terminal multiplexer — long builds survive disconnects.",
+  "curl": "HTTP client — installers and healthchecks.",
+  "git": "Version control — the repo IS the OS spec.",
+  "python3-minimal": "Python runtime for the sovereign-os tooling.",
+  "python3-pip": "Python package installer — operator-deps [pip] uses it.",
+  "htop": "Interactive process / CPU / memory viewer.",
+  "ca-certificates": "TLS root store — apt, curl and pip break without it.",
+  // cmdline
+  "quiet": "Suppress boot chatter on the console.",
+  "splash": "Show a splash screen during boot.",
+  "loglevel=3": "Console shows errors only (KERN_ERR and worse).",
+  "vfio-pci.ids=10de:2684,10de:22ba": "PCI IDs vfio-pci claims at boot: the RTX 4090 + its audio function — both, or the IOMMU group won't detach cleanly.",
+  "amd_iommu=on": "Enable AMD-Vi DMA remapping (pairs with the BIOS IOMMU setting in § 0).",
+  "iommu=pt": "Passthrough mode: identity-map host devices — full isolation only where VFIO needs it, no DMA-translation overhead elsewhere.",
+  "pcie_aspm=off": "Disable PCIe link power management — the latency spikes + AQC113 instability aren't worth the watts.",
+  // operator tools
+  "Claude Code": "Anthropic's terminal AI assistant (npm global) — the operator's primary agent.",
+  "OpenCode": "Open-source terminal coding agent — runs alongside Claude Code.",
+  "jq": "Command-line JSON processor — half the ops scripts depend on it.",
+  "ripgrep": "Very fast recursive grep (rg).",
+  "fd-find": "Fast, friendly find replacement (fdfind).",
+  "dnsutils": "dig + nslookup — dns-advisor and perf-baseline use dig.",
+  "lm-sensors": "CPU/board temperature + fan sensors — thermal-watch reads these.",
+  "apcupsd": "APC UPS daemon — the R252 power-status integration.",
+  "wasmtime": "WebAssembly runtime — Pulse's Wasm-to-AVX-512 AOT pipeline (R281).",
+  "huggingface_hub": "Model up/downloads from Hugging Face (R242 toolchain).",
+  "transformers": "Hugging Face reference runtime — workload-fit checks.",
+  "vllm": "High-throughput LLM serving engine — the Oracle-tier RLM backend.",
+  "trl": "Transformer RL: SFT / DPO fine-tuning pipeline.",
+  "lm-eval": "EleutherAI eval harness (R232).",
+  "mteb": "Embedding-model benchmark suite.",
+  "tomli": "TOML parser backport for Python ≤ 3.10.",
+  "tailscale": "Mesh VPN — curl-pipe-sh install, gated behind --confirm-curl-shell.",
+  "ollama": "Local model runner — curl-pipe-sh install, gated behind --confirm-curl-shell.",
+  // hooks
+  "friction-audit-spec": "Validates the build plan against the friction-audit spec before anything runs.",
+  "zfs-pool-create": "Creates the tank pool (2× NVMe RAID-0) during install.",
+  "zfs-datasets-create": "Creates tank/models, tank/context, tank/agents with their tuned properties.",
+  "mok-enroll": "Enrolls your Machine Owner Key into firmware — needed for the 'signed' posture; skip if secure boot is off.",
+  "friction-audit-runtime": "First-boot re-validation that the running system matches the spec.",
+  "vfio-bind-3090": "Binds the passthrough GPU to vfio-pci. Reads PCI IDs from the profile, so it binds the 4090 despite the legacy name.",
+  "network-vlan-config": "Applies the VLAN-asymmetric layout (mgmt 100 / data 200).",
+  "tetragon-policy-load": "Loads the kernel-perimeter eBPF policies.",
+  "arc-clamp-128gb": "Clamps the ZFS ARC cache so it can't starve model inference of RAM.",
+  "apply-workstation-hardening": "Applies the workstation hardening baseline (sysctl, auditd rules, permissions).",
+  "first-login-assistant": "Interactive first-login walkthrough on the target — the runtime sibling of this page.",
+  "zfs-scrub": "Weekly pool integrity scrub.",
+  "tetragon-policy-verify": "Daily check that loaded perimeter policies still match the spec.",
+  "model-catalog-sync": "Daily model-catalog refresh from your declared sources.",
+  "selfdef-sync": "Weekly selfdef freshness check: reports how far the IPS checkout is behind upstream; pulls + rebuilds ONLY with SOVEREIGN_OS_CONFIRM_SELFDEF_SYNC=YES (fast-forward only, refuses diverged trees).",
+  "secure-wipe-context": "Decommission: cryptographically wipes tank/context (the state fabric) before disposal.",
+  "zfs-pool-destroy": "Decommission: destroys the pool after the wipe.",
+};
+
+/* static labels / legends / table headers → tips (matched by exact text or prefix) */
+var STATIC_TIPS = [
+  ["Substrate", "The image-assembly tool. mkosi (systemd's builder) emits a raw bootable disk image — the SDD-003 default; live-build emits an ISO instead."],
+  ["Secure boot", "signed: kernel + bootloader signed with YOUR Machine Owner Key (mokutil enrolls it) — no vendor chain. setup-mode defers enrollment to first boot. disabled: no signature checks."],
+  ["Root encryption", "LUKS: whole-disk encryption beneath ZFS. ZFS native: per-dataset keys, less overhead. none: fastest, no protection at rest."],
+  ["Debian snapshot", "Pins apt to snapshot.debian.org at this timestamp — same inputs, same bytes. Change only to rebase the whole image."],
+  ["Microcode", "CPU vendor microcode embedded into early boot — Zen 5 erratum fixes land here. amd for this build."],
+  ["PSU model", "From the known-PSU registry (config/psu-oc.toml) — rated watts + brief-peak allowance feed the headroom math."],
+  ["OC-mode switch", "A PHYSICAL switch on the PSU. Declaring it here keeps the headroom model honest — it cannot be flipped in software."],
+  ["CPU TDP (W)", "Sustained package power at 100% load — 170 W for the 9900X."],
+  ["Chassis baseline (W)", "Everything that isn't CPU/GPU/RAM: fans, NVMe, NICs, USB, the board. 80 W is conservative for this build."],
+  ["DIMMs × speed", "Memory power scales with module count and EXPO speed — the R292 model adds ~1 W per +1000 MT/s over JEDEC 4800."],
+  ["GPU OC multiplier", "Sustained draw above stock power limit when you overclock. 1.0 stock; 1.15 ≈ +15% OC."],
+  ["Layout", "Pool topology — RAID-0 across both PCIe 5.0 NVMe drives: maximum speed, zero redundancy. copies=2 on tank/context is the targeted hedge."],
+  ["recordsize", "ZFS block size per dataset. Match the IO: 1M for streaming weights, 16k for small atomic state writes, 128k general-purpose."],
+  ["compression", "lz4 ≈ free speed. zstd-9: max ratio for cold data, costs CPU on write. zstd-3: balanced."],
+  ["VLAN", "802.1Q segment — 100 = management/telemetry, 200 = model ingestion (no WAN route, by spec)."],
+  ["MTU", "9000 = jumbo frames on the data path (fewer packets per weight file). Switch AND NIC must both support it."],
+  ["default route", "Which interface reaches the internet. Spec § 8: ONLY the management NIC — never the model-ingestion path."],
+  ["Telemetry sink", "prometheus-local scrapes on loopback only — nothing leaves the machine. The Layer A/B/C dashboards read from it."],
+  ["Log retention (days)", "journald + audit log rotation horizon."],
+  ["Metrics endpoint", "Where the local Prometheus listens — loopback by default; keep it that way."],
+  ["Whitelabel", "Rebrands every surface (names, logos, MOTD) via the whitelabel/ tree — dfsg-only legal baseline by default."],
+  ["Kernel config — enable", "Symbols forced on in the custom kernel .config. Unchecking one records an explicit disable in your overlay."],
+  ["Kernel cmdline — base", "Cosmetic / log-level boot parameters — safe to toggle."],
+  ["Kernel cmdline — VFIO", "The passthrough plumbing. Disable these only if you drop GPU passthrough entirely."],
+  ["KCFLAGS", "Compiler flags for the kernel build itself: -march=znver5 for Zen-5 scheduling + scalar ISA, with vector families explicitly RE-disabled (-mno-avx512f etc.) — kernel code can't use vector registers (XCR0 unset at early boot → instant #UD; learned from the first hardware boot). AVX-512 belongs to userspace."],
+  ["Runtime tuning preset", "Named sysctl bundle from the R239 kernel-tuning matrix, applied at runtime via osctl. The cmdline hints shown are pasted into GRUB manually — never auto-applied."],
+  ["AI assistants", "npm-global agents preinstalled into the image — ready at first login."],
+  ["BIOS checklist", "Firmware settings the image cannot flip for you — confirm each one in BIOS, then tick it here. Blockers break VFIO or the 96GB card if skipped."],
+];
+
+function initTooltips(){
+  var box = document.createElement("div");
+  box.id = "so-tipbox";
+  document.body.appendChild(box);
+  function show(el){
+    var t = el.getAttribute("data-tip"); if (!t) return;
+    box.textContent = t; box.style.display = "block";
+    var r = el.getBoundingClientRect();
+    var x = Math.max(6, Math.min(r.left, window.innerWidth - 380));
+    box.style.left = x + "px";
+    var y = r.bottom + 6;
+    if (y + box.offsetHeight > window.innerHeight - 8) y = r.top - box.offsetHeight - 6;
+    box.style.top = Math.max(6, y) + "px";
+  }
+  function hide(){ box.style.display = "none"; }
+  document.addEventListener("mouseover", function(e){
+    var el = e.target.closest ? e.target.closest("[data-tip]") : null;
+    if (el) show(el); else hide();
+  });
+  document.addEventListener("focusin", function(e){
+    var el = e.target.closest ? e.target.closest("[data-tip]") : null;
+    if (el) show(el); else hide();
+  });
+  window.addEventListener("scroll", hide, true);
+}
+
+function applyStaticTips(){
+  var els = document.querySelectorAll(".kv > span, fieldset legend, table.mini th");
+  Array.prototype.forEach.call(els, function(el){
+    if (el.hasAttribute("data-tip")) return;
+    if (el.querySelector("input,select")) return;   // value cells, not labels
+    var t = (el.textContent || "").trim().replace(/\s+/g, " ");
+    for (var i = 0; i < STATIC_TIPS.length; i++){
+      if (t === STATIC_TIPS[i][0] || t.indexOf(STATIC_TIPS[i][0]) === 0){
+        el.classList.add("has-tip");
+        el.setAttribute("data-tip", STATIC_TIPS[i][1]);
+        break;
+      }
+    }
+  });
+}
+
+/* ───────────────────────── learn-more fold-outs ─────────────────────────
+   One 'ⓘ' details block injected at the top of each section, index-aligned
+   with the .left card order. Collapsed by default — depth on demand. */
+var CARDS = Array.prototype.slice.call(document.querySelectorAll(".left section.card"));
+var LEARN = [
+  { t:"how this preflight works", h:"The image can configure software, but firmware lives in NVRAM and the PSU switch is mechanical — only you can set them. After first boot, verify VFIO grouping with <code>find /sys/kernel/iommu_groups/ -type l | sort</code>: the 4090 (10de:2684) and its audio function must sit in their own group. If they share one with other devices, the ACS-override cmdline is the escape hatch — it works, but weakens inter-device DMA isolation, so prefer the BIOS ACS option when present." },
+  { t:"profiles, mixins & overlays", h:"A profile is schema-validated YAML (SDD-004) describing hardware + kernel + packages + hooks. Mixins are shared fragments composed in (role-workstation, whitelabel, observability tiers). Your choices on this page NEVER edit the profile — they become a sparse <code>overlay.yaml</code> applied on top (SDD-030), so the base stays pristine and your customization is one reviewable file." },
+  { t:"reproducibility & signing", h:"Two pins make builds byte-reproducible: <code>SOURCE_DATE_EPOCH</code> (timestamps) and the Debian snapshot (package universe). mkosi is the default substrate per SDD-003. The 'signed' posture uses YOUR Machine Owner Key: sbsigntool signs the kernel, mokutil enrolls the key — no Microsoft chain anywhere." },
+  { t:"what the kernel build actually does", h:"Source from kernel.org (≥ 6.12), compiled with your KCFLAGS into .deb packages (bindeb-pkg) — this is the 30-minute step. Enabled symbols are baked into .config; DKMS later rebuilds zfs + nvidia against the matching headers. Tuning-preset cmdline hints are advisory: paste them into <code>/etc/default/grub</code> yourself; the sysctl values apply at runtime via osctl." },
+  { t:"required vs preferred semantics", h:"'required' features are assertions: the build refuses unsupported hardware AND the compiler assumes the instructions unconditionally — binaries trap with illegal-instruction on lesser CPUs. 'preferred' features are runtime-detected: used when present, with fallbacks compiled in." },
+  { t:"module ordering & blacklists", h:"load_at_boot lands in <code>/etc/modules-load.d/</code> — zfs must load before the pool imports, vfio_pci before any GPU driver enumerates, so it can claim the 4090 by ID first. The blacklist goes to <code>/etc/modprobe.d/</code>; nouveau would otherwise race for the cards at boot." },
+  { t:"package layering & the deny list", h:"Final set = base ∪ role-mixin ∪ profile, minus deny. Deny isn't 'not installed' — it's an apt pin that blocks the package even as a dependency. Everything on the default deny list phones home or installs remotely-controlled software; that's the sovereignty bar, not an aesthetic." },
+  { t:"the triple gate", h:"operator-deps runs DRY-RUN unless <code>--apply</code>; --apply needs <code>--confirm</code> (or the env var); curl-pipe-shell entries additionally need <code>--confirm-curl-shell</code> because they execute remote code. One gate per blast radius — defense in depth." },
+  { t:"choosing recordsize & compression", h:"recordsize should match the IO pattern: tank/models streams 100GB+ files sequentially → 1M records minimize metadata overhead; tank/context does small synchronous state writes → 16k + <code>sync=always</code> for atomicity, plus <code>copies=2</code> so the redundancy-free RAID-0 still survives bitrot on the data that matters most. lz4 is effectively free; zstd-9 only pays off on cold, compressible data." },
+  { t:"why the data NIC has no default route", h:"Master spec § 8: the 10GbE Marvell carries model ingestion on VLAN 200 and must never reach the WAN — if a supply-chain payload lands in a model file, the interface it arrived on cannot exfiltrate. Management, telemetry and updates ride the 2.5GbE Intel on VLAN 100. Jumbo frames (MTU 9000) only on the data path." },
+  { t:"the five hook phases — and the selfdef link", h:"pre-install runs on the BUILD host (validation only) · during-install runs inside the image build (pool + datasets, MOK) · first-boot runs once on the TARGET (VFIO bind, VLANs, Tetragon, hardening) · recurrent installs systemd timers · decommission is the secure teardown: wipe tank/context, then destroy the pool. Mandatory hooks are contract — the orchestrator refuses to skip them.<br><br><strong>selfdef:</strong> sovereign-os BUILDS, selfdef RUNS, info-hub SYNTHESIZES (SDD-001). selfdef is the intrusion-prevention service living in its own repo; it publishes typed-mirror JSON to <code>/run/sovereign-os/selfdef-mirror/</code>, which the D-13..D-18 cockpit dashboards render READ-ONLY — sovereign-os never mutates IPS state (issue/revoke is <code>selfdefctl</code> on the selfdef side). The <code>selfdef-sync</code> recurrent hook keeps that checkout fresh after install: weekly behind-count report, gated fast-forward update + rebuild." },
+  { t:"observability layers A/B/C", h:"Layer A: node + service metrics into a loopback Prometheus. Layer B: per-feature counters via textfile collectors. Layer C: derived alerts evaluated from rules — no Grafana or Alertmanager required, nothing listens beyond 127.0.0.1, nothing leaves the box." },
+];
+function injectLearn(){
+  CARDS.forEach(function(c, i){
+    if (!LEARN[i]) return;
+    var body = c.querySelector(".body");
+    if (!body || body.querySelector("details.learn")) return;
+    var d = document.createElement("details");
+    d.className = "learn";
+    d.innerHTML = "<summary>ⓘ " + LEARN[i].t + "</summary><div class='learn-body'>" + LEARN[i].h + "</div>";
+    body.insertBefore(d, body.firstChild);
+  });
+}
+
+/* ───────────────────────── assistant guide ─────────────────────────
+   14 steps: welcome → the 12 layers → review. Collapses everything but
+   the active section, scrolls to it, explains what to do and why. */
+var GUIDE = [
+  { card:-1, title:"Welcome — let's compose your sovereign image",
+    body:"I'll walk you through all 12 layers, top to bottom — hardware preflight through observability. Nothing on this page triggers a build: at the end you get the exact command plus four overlay files to run yourself. Dotted-underlined terms have hover tooltips, and every section has an <em>ⓘ</em> fold-out with the deeper story. About 10 minutes." },
+  { card:0, title:"0 · Hardware preflight",
+    body:"Start with what the image <em>can't</em> do for you. Work through the BIOS checklist — blockers break VFIO or the 96GB card if skipped — ticking items as you confirm them in firmware (use <em>print BIOS sheet</em> to take it on paper into the firmware screens). Then declare your PSU. With the agreed caps (Max-Q at its full 300 W, 4090 at the agreed 320 W) the meter reads comfortably green at ~890 W of 1600 — even uncapping the 4090 to stock 450 W keeps you inside margin." },
+  { card:1, title:"1 · Profile",
+    body:"Your starting flavor. sain-01 IS your hardware (Zen 5 + PRO 6000 + 4090); the others reuse the same pipeline on smaller targets. Every section below re-renders from this choice — and your tweaks become a sparse overlay, never an edit to the profile itself." },
+  { card:2, title:"2 · Substrate & posture",
+    body:"How the image is assembled and trusted. mkosi → raw disk image (the default); 'signed' secure boot = your own MOK chain; the snapshot timestamp pins the package universe so the build is byte-reproducible. The defaults here are right unless you know otherwise." },
+  { card:3, title:"3 · Kernel",
+    body:"The 30-minute centerpiece: a kernel compiled natively for Zen 5 (<code>-march=znver5</code>, AVX-512 throughout). The config toggles bake in ZFS + VFIO + the eBPF-LSM hooks Tetragon attaches to; the VFIO cmdline claims the 4090 at boot. Pick a tuning preset — <code>inference-burst</code> is the intended default for this box." },
+  { card:4, title:"4 · CPU features",
+    body:"Assertions, not wishes: 'required' makes the build refuse lesser silicon and lets the compiler assume the instructions unconditionally. Leave required alone unless you're targeting different hardware — 'preferred' is the safe place to experiment." },
+  { card:5, title:"5 · Modules",
+    body:"Boot ordering: zfs before the pool imports, vfio_pci before any GPU driver can enumerate the 4090. nouveau stays blacklisted so nothing races the NVIDIA driver for the cards." },
+  { card:6, title:"6 · Packages",
+    body:"Three apt layers: base (every profile gets these), profile-specific (your GPU/ZFS/security stack), and deny — packages actively pinned OUT, mostly phone-home daemons. Hover any package to see why it's there." },
+  { card:7, title:"7 · Operator tools",
+    body:"Your day-one toolbelt, preinstalled in the image. Claude Code is on by default — toggle OpenCode beside it if you want both agents. Installs run through the triple-gated operator-deps hook; curl-pipe-sh entries stay off unless you opt in." },
+  { card:8, title:"8 · Storage & ZFS",
+    body:"Datasets tuned per IO pattern: 1M records to stream weights, 16k + copies=2 + sync=always for the shared state fabric, 128k scratch. The defaults encode the master spec — adjust only if your workload genuinely differs." },
+  { card:9, title:"9 · Networking",
+    body:"Asymmetric zero-trust: management on the 2.5GbE Intel (VLAN 100, carries the default route); model ingestion on the 10GbE Marvell (VLAN 200, jumbo frames, NO WAN route — by spec, so ingested payloads can't exfiltrate on the path they arrived)." },
+  { card:10, title:"10 · Hooks",
+    body:"Lifecycle automation across five phases — build-host validation through secure decommission. Mandatory hooks are locked; the optional ones are MOK enrollment (skip if secure boot is off) and the first-login assistant." },
+  { card:11, title:"11 · Observability & whitelabel",
+    body:"Local-only by default: loopback Prometheus, 30-day retention, alerts from rules without Alertmanager. Whitelabel rebrands every surface if you ship images to others." },
+  { card:-2, title:"Review & build", body: function(){
+      var w = document.getElementById("sel-warnings").textContent.trim();
+      var out = "Everything on this panel is generated live from your choices. <strong>Save the four files</strong>, <strong>copy the build command</strong>, and run it on the build host (sudo, ~30 min first time — add <code>--dry-run</code> first to validate the plan).";
+      if (w) out += "<br>Outstanding: " + w.split("⚠").map(function(s){return s.trim();}).filter(Boolean).join(" · ");
+      else out += "<br>✓ No warnings — clean to build.";
+      return out;
+    } },
+];
+var GUIDE_LS_STEP = "sovereign-os.build-configurator.guide-step";
+var GUIDE_LS_DONE = "sovereign-os.build-configurator.guide-done";
+var guideStep = 0;
+
+function setAllCards(closed){
+  CARDS.forEach(function(c){
+    c.classList.toggle("closed", closed);
+    var tw = c.querySelector(".tw"); if (tw) tw.textContent = closed ? "▸" : "▾";
+  });
+}
+function guideGo(n){
+  guideStep = Math.max(0, Math.min(GUIDE.length - 1, n));
+  try{ localStorage.setItem(GUIDE_LS_STEP, String(guideStep)); }catch(e){}
+  var st = GUIDE[guideStep];
+  CARDS.forEach(function(c){ c.classList.remove("guide-active"); });
+  document.querySelector(".right").classList.remove("guide-active");
+  if (st.card >= 0){
+    setAllCards(true);
+    var c = CARDS[st.card];
+    c.classList.remove("closed");
+    var tw = c.querySelector(".tw"); if (tw) tw.textContent = "▾";
+    c.classList.add("guide-active");
+    setTimeout(function(){ c.scrollIntoView({behavior:"smooth", block:"start"}); }, 60);
+  } else if (st.card === -2){
+    setAllCards(true);
+    var r = document.querySelector(".right");
+    r.classList.add("guide-active");
+    setTimeout(function(){ r.scrollIntoView({behavior:"smooth", block:"start"}); }, 60);
+  } else {
+    window.scrollTo({top:0, behavior:"smooth"});
+  }
+  document.getElementById("g-no").textContent = (guideStep + 1) + "/" + GUIDE.length;
+  document.getElementById("g-title").textContent = st.title;
+  document.getElementById("g-body").innerHTML = (typeof st.body === "function") ? st.body() : st.body;
+  document.getElementById("g-back").disabled = guideStep === 0;
+  document.getElementById("g-next").textContent = guideStep === GUIDE.length - 1 ? "finish ✓" : "next →";
+  document.getElementById("g-prog").style.width = ((guideStep + 1) / GUIDE.length * 100) + "%";
+}
+function guideStart(){
+  document.getElementById("guide-bar").classList.add("on");
+  document.body.classList.add("guide-on");
+  var saved = 0;
+  try{ saved = Number(localStorage.getItem(GUIDE_LS_STEP)) || 0; }catch(e){}
+  guideGo(saved);
+}
+function guideExit(){
+  document.getElementById("guide-bar").classList.remove("on");
+  document.body.classList.remove("guide-on");
+  CARDS.forEach(function(c){ c.classList.remove("guide-active"); });
+  document.querySelector(".right").classList.remove("guide-active");
+  setAllCards(false);
+  try{ localStorage.setItem(GUIDE_LS_DONE, "1"); }catch(e){}
+}
+document.getElementById("g-next").addEventListener("click", function(){
+  if (guideStep === GUIDE.length - 1) guideExit(); else guideGo(guideStep + 1);
+});
+document.getElementById("g-back").addEventListener("click", function(){ guideGo(guideStep - 1); });
+document.getElementById("g-exit").addEventListener("click", guideExit);
+document.getElementById("btn-guide").addEventListener("click", function(){
+  try{ localStorage.setItem(GUIDE_LS_STEP, "0"); }catch(e){}
+  guideStart();
+});
+document.getElementById("btn-xall").addEventListener("click", function(){
+  var anyOpen = CARDS.some(function(c){ return !c.classList.contains("closed"); });
+  setAllCards(anyOpen);
+  this.textContent = anyOpen ? "expand all" : "collapse all";
+});
+
+/* ───────────────────────── printable BIOS/PSU sheet ─────────────────────────
+   Paper survives the firmware screens; the panel doesn't. Filled at print
+   time from live state: confirmed items print as filled boxes, the rest as
+   empty boxes to tick with a pen. */
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
+function buildPrintSheet(){
+  var b = D.hw.board, p = psuByModel(state.psuModel), power = powerCalc(), pw = powerInputs();
+  var H = [];
+  H.push("<h1>SAIN-01 BIOS / PSU preflight sheet</h1>");
+  H.push("<p class='ps-sub'>" + esc(b.name) + " (" + esc(b.chipset) + ", " + esc(b.socket) + ") · profile " +
+         esc(state.profile) + " · printed from the sovereign-os build configurator</p>");
+  H.push("<h2>Firmware settings — confirm each in BIOS, tick on paper</h2>");
+  b.bios.forEach(function(i){
+    H.push("<div class='ps-item'>" +
+      "<span class='ps-box" + (state.bios[i.id] ? " done" : "") + "'></span>" +
+      "<span class='ps-set'>" + esc(i.set) + "</span>" +
+      "<span class='ps-sev'>" + esc(i.sev) + "</span>" +
+      "<div class='ps-why'>why: " + esc(i.why) + "</div></div>");
+  });
+  H.push("<h2>PSU — physical switch</h2>");
+  H.push("<div class='ps-item'><span class='ps-box" + (state.psuOc ? " done" : "") + "'></span>" +
+    "<span class='ps-set'>OC-mode switch → " + (state.psuOc ? "ENABLED (single-rail)" : "set to your declared choice: disabled (multi-rail)") + "</span>" +
+    "<div class='ps-why'>" + esc(p.model) + " · " + p.rated + " W rated · " + p.peak + " W brief peak · " + esc(p.oc) +
+    " Recommendation for dual GPU: enable — 4090 transients spike past 600 W for microseconds even capped at 320 W.</div></div>");
+  H.push("<h2>Power budget (for reference at the bench)</h2>");
+  H.push("<p class='ps-note'>Projected 100%-usage: <strong>" + power.total + " W</strong> of " + p.rated +
+    " W — " + esc(power.verdict) + "</p>");
+  H.push("<p class='ps-note'>GPU caps to apply post-install: " +
+    state.gpus.map(function(g){ return esc(g.model) + " → " + g.cap + " W"; }).join(" · ") +
+    " (nvidia-smi -i N -pl CAP)</p>");
+  H.push("<h2>After first boot — verify (write results)</h2>");
+  H.push("<p class='ps-note'>IOMMU groups distinct (find /sys/kernel/iommu_groups/ -type l): <span class='ps-write'></span></p>");
+  H.push("<p class='ps-note'>BIOS version (dmidecode -t bios): <span class='ps-write'></span></p>");
+  H.push("<p class='ps-note'>EXPO active at 6000 MT/s (dmidecode -t memory | grep Speed): <span class='ps-write'></span></p>");
+  document.getElementById("print-sheet").innerHTML = H.join("\n");
+}
+function printSheet(){ buildPrintSheet(); window.print(); }
+document.getElementById("btn-print-bios").addEventListener("click", function(e){ e.preventDefault(); printSheet(); });
+document.getElementById("btn-print-bios-2").addEventListener("click", printSheet);
+
+/* ───────────────────────── boot ───────────────────────── */
+renderProfiles();
+renderTools();
+renderBios();
+renderPsu();
+renderGpuTable();
+renderTuning();
+loadProfile();
+injectLearn();
+applyStaticTips();
+initTooltips();
+tryMirror();
+(function(){
+  var done = false;
+  try{ done = !!localStorage.getItem(GUIDE_LS_DONE); }catch(e){}
+  if (!done) guideStart();
+})();
+</script>
+</body>
+</html>
