@@ -689,6 +689,10 @@ class Handler(BaseHTTPRequestHandler):
         if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", profile or "") \
                 or not (PROFILES_DIR / f"{profile}.yaml").is_file():
             return self._send(400, json.dumps({"error": f"unknown profile {profile!r}"}))
+        snapshot = body.get("snapshot") or ""
+        if snapshot and not re.fullmatch(r"\d{8}T\d{6}Z", snapshot):
+            return self._send(400, json.dumps(
+                {"error": f"bad snapshot {snapshot!r} (want YYYYMMDDTHHMMSSZ)"}))
         argv_fn, needs_root = RUN_ACTIONS[action]
         argv = argv_fn()
         elevation_note = ""
@@ -707,6 +711,7 @@ class Handler(BaseHTTPRequestHandler):
             argv = [pkexec, "env",
                     f"SOVEREIGN_OS_PROFILE={profile}",
                     f"PATH={os.environ.get('PATH', '/usr/sbin:/usr/bin:/sbin:/bin')}",
+                    *([f"DEBIAN_SNAPSHOT={snapshot}"] if snapshot else []),
                     *[f"{k}={v}" for k, v in operator_key_env().items()],
                     str(REPO / argv[0]), *argv[1:]]
             elevation_note = ("  (look for the system password prompt on "
@@ -717,6 +722,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             env = dict(os.environ, SOVEREIGN_OS_PROFILE=profile,
                        **operator_key_env())
+            if snapshot:
+                env["DEBIAN_SNAPSHOT"] = snapshot
             proc = subprocess.Popen(
                 argv, cwd=REPO, env=env, stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT, start_new_session=True,

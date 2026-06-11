@@ -37,18 +37,20 @@ profile_id = p["identity"]["id"]
 source_date_epoch = os.environ.get("SOURCE_DATE_EPOCH", "")
 debian_snapshot = os.environ.get("DEBIAN_SNAPSHOT", "")
 
-# Build distribution repository line. Default mkosi pulls from
-# deb.debian.org; with DEBIAN_SNAPSHOT set, we pin to a snapshot.debian.org
-# stamp for bit-identical apt resolution.
-repos_block = ""
+# Build distribution repository block. The component list is
+# UNCONDITIONAL: main alone strands the GPU/ZFS stack — nvidia-* live in
+# non-free, zfs* in contrib (caught by the first real image build
+# 2026-06-10, then AGAIN by the first Run-console build 2026-06-12,
+# which sets no DEBIAN_SNAPSHOT and so skipped this whole block when it
+# was snapshot-conditional). Only the Mirror pin depends on the snapshot.
+repos_lines = [
+    "[Distribution]",
+    "Repositories=main contrib non-free non-free-firmware",
+]
 if debian_snapshot:
-    repos_block = textwrap.dedent(f"""
-        [Distribution]
-        # main alone strands the GPU/ZFS stack: nvidia-* live in non-free,
-        # zfs* in contrib (caught by the first real image build, 2026-06-10).
-        Repositories=main contrib non-free non-free-firmware
-        Mirror=http://snapshot.debian.org/archive/debian/{debian_snapshot}
-        """)
+    repos_lines.append(
+        f"Mirror=http://snapshot.debian.org/archive/debian/{debian_snapshot}")
+repos_block = "\n" + "\n".join(repos_lines) + "\n"
 
 env_block = ""
 if source_date_epoch:

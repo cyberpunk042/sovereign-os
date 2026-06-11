@@ -579,7 +579,9 @@
 
     <div id="run-console">
       <h3><span class="run-dot" id="run-dot"></span>Run console
-        <span class="muted small" style="font-weight:400">executes on the server — the exception to ⚡ YOU RUN</span></h3>
+        <span class="muted small" style="font-weight:400">executes on the server — the exception to ⚡ YOU RUN</span>
+        <span class="spacer" style="flex:1"></span>
+        <button class="btn" data-copy="run-log">copy log</button></h3>
       <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:.5rem">
         <button class="btn action primary" id="run-dry"       title="orchestrate.sh run --dry-run — validates the 9-step plan, builds nothing">▶ validate (dry-run)</button>
         <button class="btn action go" id="run-preflight" title="orchestrate.sh preflight — runs the pre-install hooks (friction audit)">▶ preflight</button>
@@ -588,6 +590,7 @@
         <span class="small muted" id="run-status" style="align-self:center"></span>
       </div>
       <pre class="out" id="run-log" style="max-height:280px; min-height:2.2rem; margin:0">(idle — output streams here live)</pre>
+      <div class="banner danger" id="run-errors" style="display:none; margin:.55rem 0 0"></div>
     </div>
 
     <div class="out-head">
@@ -1554,16 +1557,41 @@ function setRunBusy(busy, label){
   document.getElementById("run-status").textContent =
     busy ? ("running " + label + "…") : "";
 }
+/* Distill the failure out of a long build log — the operator should not
+   have to scroll 2000 lines to find the 5 that matter. */
+function summarizeRunErrors(text){
+  var box = document.getElementById("run-errors");
+  var m = text.match(/✗ exit code (\d+)/);
+  if (!m || m[1] === "0"){ box.style.display = "none"; return; }
+  var hits = [], seen = {};
+  text.split("\n").forEach(function(line){
+    if (/^(E: |ERROR |error: |fatal: |.*command failed: |.*returned non-zero exit code)/.test(line.trim())){
+      var key = line.trim().slice(0, 160);
+      if (!seen[key]){ seen[key] = 1; hits.push(key); }
+    }
+  });
+  var html = "<strong>failed (exit " + m[1] + ")</strong>";
+  if (hits.length){
+    html += " — " + hits.length + " error line(s):<br>" +
+      hits.slice(0, 8).map(function(h){ return "<code>" + esc(h) + "</code>"; }).join("<br>");
+    if (hits.length > 8) html += "<br>… +" + (hits.length - 8) + " more (copy log for all)";
+  }
+  box.innerHTML = html;
+  box.style.display = "";
+}
+
 function runAction(action){
   if (action === "build" &&
       !confirm("REAL image build (~30 min, writes to build/). Continue?")) return;
   var log = document.getElementById("run-log");
   log.textContent = "";
+  document.getElementById("run-errors").style.display = "none";
   setRunBusy(true, action);
   fetch("./api/run", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({action: action, profile: state.profile}),
+    body: JSON.stringify({action: action, profile: state.profile,
+                          snapshot: document.getElementById("snapshot").value || ""}),
   }).then(function(r){
     if (!r.ok) return r.text().then(function(t){
       var msg = t; try { var j = JSON.parse(t); msg = j.error + (j.fix ? "\n→ " + j.fix : ""); } catch(e){}
@@ -1573,7 +1601,7 @@ function runAction(action){
     var reader = r.body.getReader(), dec = new TextDecoder();
     function pump(){
       return reader.read().then(function(x){
-        if (x.done){ setRunBusy(false, ""); return; }
+        if (x.done){ setRunBusy(false, ""); summarizeRunErrors(log.textContent); return; }
         log.textContent += dec.decode(x.value, {stream: true});
         log.scrollTop = log.scrollHeight;
         return pump();
