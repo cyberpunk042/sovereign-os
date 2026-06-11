@@ -85,11 +85,40 @@ else
   qemu_skip_reason=""
   case "${image_file}" in
     *.raw)
-      ovmf_code="$(ls /usr/share/OVMF/OVMF_CODE*.fd 2>/dev/null | head -1)"
+      # Split OVMF (CODE/VARS) must be loaded as a pflash PAIR — feeding
+      # the CODE half to -bios fails with 'could not load PC BIOS' (the
+      # 2026-06-10 'proper OVMF pflash pair' consolidation note; bit for
+      # real on the first button build, 2026-06-12). Pick the PLAIN
+      # variant deliberately: the .ms one enrolls Microsoft's certs,
+      # which would REJECT the operator-signed UKI; plain VARS has no
+      # keys → SB off → the signed chain still boot-tests.
+      ovmf_code=""
+      for c in /usr/share/OVMF/OVMF_CODE_4M.fd /usr/share/OVMF/OVMF_CODE.fd; do
+        [ -f "$c" ] && { ovmf_code="$c"; break; }
+      done
       if [ -n "${ovmf_code}" ]; then
-        qemu_boot_args=(-bios "${ovmf_code}")
+        ovmf_vars_src="${ovmf_code/CODE/VARS}"
+        ovmf_vars="${SOVEREIGN_OS_LOG_DIR}/ovmf-vars-${SOVEREIGN_OS_BUILD_ID}.fd"
+        cp "${ovmf_vars_src}" "${ovmf_vars}"
+        qemu_boot_args=(
+          -machine q35
+          -drive "if=pflash,format=raw,readonly=on,file=${ovmf_code}"
+          -drive "if=pflash,format=raw,file=${ovmf_vars}"
+        )
+      elif [ -f /usr/share/ovmf/OVMF.fd ]; then
+        # unified single-file build — -bios is correct for this one
+        qemu_boot_args=(-bios /usr/share/ovmf/OVMF.fd)
       else
         qemu_skip_reason="OVMF firmware not found (apt install ovmf)"
+      fi
+      # The kernel is compiled -march=znver5: default qemu64 TCG lacks
+      # its scalar ISA (bmi/adx) → early crash. KVM+host-cpu when the
+      # invoking user can reach /dev/kvm; -cpu max (full TCG feature
+      # set) otherwise.
+      if [ -w /dev/kvm ]; then
+        qemu_boot_args+=(-enable-kvm -cpu host)
+      else
+        qemu_boot_args+=(-cpu max)
       fi
       ;;
     *)
