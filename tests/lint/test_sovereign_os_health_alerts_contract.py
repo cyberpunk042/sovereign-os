@@ -44,6 +44,9 @@ EMITTED_METRICS = {
     "sovereign_os_power_shutdown_guard_fired",
     "sovereign_os_power_shutdown_guard_verdict",
     "sovereign_os_memory_oom_kill_count",
+    "sovereign_os_selfdef_sync_behind_commits",
+    "sovereign_os_selfdef_sync_result",
+    "sovereign_os_selfdef_sync_last_run_timestamp",
 }
 
 EXPECTED_ALERTS = {
@@ -60,6 +63,9 @@ EXPECTED_ALERTS = {
     "SovereignOsPowerShutdownGuardFired",
     "SovereignOsPowerUpsCritical",
     "SovereignOsMemoryOomKills",
+    "SovereignOsSelfdefCheckoutBehind",
+    "SovereignOsSelfdefCheckoutUnhealthy",
+    "SovereignOsSelfdefSyncStale",
 }
 
 

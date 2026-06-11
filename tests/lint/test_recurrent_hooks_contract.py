@@ -2,8 +2,8 @@
 consistency (7th bidirectional-consistency lint).
 
 Extends R387-R411 operational-artifact pinning to:
-  scripts/hooks/recurrent/      (13 timer-driven hooks)
-  systemd/system/sovereign-*.timer  (13 timer units)
+  scripts/hooks/recurrent/      (15 timer-driven hooks)
+  systemd/system/sovereign-*.timer  (15 timer units)
 
 Each recurrent hook runs on a systemd timer cadence and emits a Layer B
 metric snapshot. They form the operator-named operational telemetry +
@@ -22,6 +22,7 @@ maintenance + alerting cadence:
   wattage-heat-trend-tick— 1min        (wattage+heat trend verdict, E1.M36)
   wattage-sample         — daily 04:15 (RAPL/IPMI wattage sample)
   zfs-scrub              — weekly Sun  (ZFS pool scrub kick)
+  selfdef-sync           — weekly Sun  (selfdef checkout freshness, SDD-001)
 
 7th bidirectional-consistency lint:
   Every hook in scripts/hooks/recurrent/ MUST have a matching timer
@@ -54,6 +55,7 @@ EXPECTED_RECURRENT_HOOKS = [
     "notify-dispatch.sh",
     "power-shutdown-guard.sh",
     "security-update-check.sh",
+    "selfdef-sync.sh",
     "sovereign-telemetry-textfile.sh",
     "tetragon-policy-verify.sh",
     "thermal-watch.sh",
@@ -74,6 +76,7 @@ HOOK_TO_TIMER_SLUG = {
     "notify-dispatch.sh": "sovereign-notify-dispatch",
     "power-shutdown-guard.sh": "sovereign-power-shutdown-guard",
     "security-update-check.sh": "sovereign-security-update-check",
+    "selfdef-sync.sh": "sovereign-selfdef-sync",
     "sovereign-telemetry-textfile.sh": "sovereign-telemetry-textfile",
     "tetragon-policy-verify.sh": "sovereign-tetragon-verify",
     "thermal-watch.sh": "sovereign-thermal-watch",
@@ -102,19 +105,19 @@ def test_all_recurrent_hooks_exist():
         p = RECURRENT_DIR / name
         assert p.is_file(), (
             f"recurrent hook missing: {p} (operator-named cadence "
-            f"contract — 13-hook telemetry/maintenance set)"
+            f"contract — 15-hook telemetry/maintenance set)"
         )
 
 
 def test_hook_count_matches_expected():
-    """Exactly 14 recurrent hooks (13 shell-convention + 1 binary wrapper,
+    """Exactly 15 recurrent hooks (14 shell-convention + 1 binary wrapper,
     sovereign-telemetry-textfile). Drift adding ungated hooks or
     removing operator-named cadence breaks the contract."""
     actual = sorted(p.name for p in RECURRENT_DIR.glob("*.sh"))
     expected = sorted(EXPECTED_RECURRENT_HOOKS)
     assert actual == expected, (
         f"recurrent hook set drift: actual={actual} vs "
-        f"expected={expected} (operator-named 13-hook cadence)"
+        f"expected={expected} (operator-named 15-hook cadence)"
     )
 
 

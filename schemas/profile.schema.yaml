@@ -110,6 +110,14 @@ properties:
             vfio_companion:
               type: string
               pattern: '^[0-9a-fA-F]{4}:[0-9a-fA-F?]{4}$'
+            audio_fn:
+              type: string
+              pattern: '^[0-9a-fA-F]{4}:[0-9a-fA-F?]{4}$'
+              description: PCI id of the GPU's HDMI/DP audio function (same-IOMMU-group companion)
+            tdp_watts:
+              type: integer
+              minimum: 1
+              description: Board power limit in watts (distinguishes e.g. Max-Q 300W from the 600W workstation edition)
       memory:
         type: object
         required: [minimum_gb, type]

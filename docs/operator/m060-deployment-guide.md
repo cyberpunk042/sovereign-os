@@ -3771,6 +3771,61 @@ size, concurrent jobs), add RAM, or set per-service memory limits so a single
 job can't starve the host. Restart anything the OOM-killer took down. The alert
 clears once 15m pass with no new kills.
 
+#### SovereignOsSelfdefCheckoutBehind (warning)
+
+**Meaning:** `sovereign_os_selfdef_sync_behind_commits > 0` for over a day — the
+selfdef (IPS) checkout is behind its upstream. The installed defense modules
+keep running, but the operator is not receiving the latest IPS updates
+(SDD-001: selfdef RUNS, sovereign-os only keeps the checkout fresh).
+
+**Diagnosis:**
+
+```bash
+systemctl status sovereign-selfdef-sync.timer
+git -C "${SOVEREIGN_OS_SELFDEF_DIR:-$HOME/selfdef}" log --oneline HEAD..@{upstream} | head
+```
+
+**Fix:** run the gated update —
+`SOVEREIGN_OS_CONFIRM_SELFDEF_SYNC=YES scripts/hooks/recurrent/selfdef-sync.sh`
+(fast-forward-only pull + selfdef `make build` + `systemctl try-restart
+'selfdef*'`). The gauge clears on the next weekly check once 0 commits remain.
+
+#### SovereignOsSelfdefCheckoutUnhealthy (warning)
+
+**Meaning:** `sovereign_os_selfdef_sync_result{result=~"diverged|absent"} == 1` —
+either no selfdef checkout exists at `SOVEREIGN_OS_SELFDEF_DIR` (absent) or the
+local tree diverged from upstream and the fast-forward-only sync refuses to
+touch it (diverged). No further IPS updates can land until resolved.
+
+**Diagnosis:**
+
+```bash
+ls -d "${SOVEREIGN_OS_SELFDEF_DIR:-$HOME/selfdef}/.git"
+git -C "${SOVEREIGN_OS_SELFDEF_DIR:-$HOME/selfdef}" status -sb
+```
+
+**Fix:** for *absent*, clone selfdef to the expected path (or point
+`SOVEREIGN_OS_SELFDEF_DIR` + the unit's `ReadWritePaths` drop-in at the real
+checkout). For *diverged*, resolve manually in the selfdef working tree
+(rebase or reset local commits), then re-run the hook.
+
+#### SovereignOsSelfdefSyncStale (warning)
+
+**Meaning:** `time() - sovereign_os_selfdef_sync_last_run_timestamp > 2 weeks` —
+the weekly selfdef-sync has not reported, so the behind-commits gauge is stale
+and the IPS update posture is unknown.
+
+**Diagnosis:**
+
+```bash
+systemctl status sovereign-selfdef-sync.timer sovereign-selfdef-sync.service
+journalctl -u sovereign-selfdef-sync.service -n 50
+```
+
+**Fix:** re-enable the timer; if the unit fails on sandboxing, confirm the
+checkout path is covered by the service's `ReadWritePaths`. The alert clears
+when the next run refreshes the timestamp.
+
 ### sovereign-os auditor alerts (Tetragon-dropout resilience, M084)
 
 These fire on the guardian's textfile metrics (`sovereign-os-auditor.prom`).

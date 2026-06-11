@@ -18,6 +18,9 @@
 #   sovereign_os_zfs_pool_health{pool}                       zfs-scrub.sh
 #   sovereign_os_zfs_scrub_last_run_timestamp{pool}          zfs-scrub.sh
 #   sovereign_os_snapshot_last_created_timestamp{dataset}    backup-snapshot.sh
+#   sovereign_os_selfdef_sync_behind_commits                 selfdef-sync.sh
+#   sovereign_os_selfdef_sync_result{result}                         (same)
+#   sovereign_os_selfdef_sync_last_run_timestamp                     (same)
 #
 # Drop into the Prometheus rule_files config:
 #   rule_files:
@@ -284,3 +287,67 @@ groups:
             the memory hog (`journalctl -k | grep -i 'killed process'`), reduce
             the working set (batch size, model size, concurrent jobs), or add RAM.
           runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignosmemoryoomkills-critical"
+
+      # The selfdef (IPS) checkout has been behind upstream for a sustained
+      # window — the operator is running stale defense modules / mirror
+      # schemas. The weekly selfdef-sync hook reports drift; APPLY is gated
+      # (SOVEREIGN_OS_CONFIRM_SELFDEF_SYNC=YES), so this page is the nudge
+      # to run the gated update.
+      - alert: SovereignOsSelfdefCheckoutBehind
+        expr: sovereign_os_selfdef_sync_behind_commits > 0
+        for: 24h
+        labels:
+          severity: warning
+          subsystem: security
+        annotations:
+          summary: "sovereign-os selfdef checkout {{ $value }} commit(s) behind upstream on {{ $labels.instance }}"
+          description: >
+            sovereign_os_selfdef_sync_behind_commits is {{ $value }} — the
+            selfdef (IPS) checkout has been behind its upstream for over a day
+            past the weekly check. Stale defense modules and mirror schemas
+            keep running, but the operator is not receiving the latest IPS
+            updates (SDD-001: selfdef RUNS, sovereign-os only keeps the
+            checkout fresh). Run the gated update:
+            SOVEREIGN_OS_CONFIRM_SELFDEF_SYNC=YES selfdef-sync.sh.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignosselfdefcheckoutbehind-warning"
+
+      # The selfdef checkout is in a state the sync hook cannot resolve
+      # (diverged from upstream) or is missing entirely (absent) — fast-
+      # forward updates are impossible until the operator intervenes.
+      - alert: SovereignOsSelfdefCheckoutUnhealthy
+        expr: sovereign_os_selfdef_sync_result{result=~"diverged|absent"} == 1
+        for: 1h
+        labels:
+          severity: warning
+          subsystem: security
+        annotations:
+          summary: "sovereign-os selfdef checkout {{ $labels.result }} on {{ $labels.instance }}"
+          description: >
+            sovereign_os_selfdef_sync_result reports {{ $labels.result }} —
+            either no selfdef checkout exists at SOVEREIGN_OS_SELFDEF_DIR
+            (absent) or the local tree has diverged from upstream and the
+            fast-forward-only sync refuses to touch it (diverged). The IPS
+            keeps running its installed version, but no further updates can
+            land until the checkout is restored or the divergence is resolved
+            manually in the selfdef working tree.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignosselfdefcheckoutunhealthy-warning"
+
+      # The weekly selfdef-sync hasn't reported in over two weeks — the
+      # freshness gauges above are stale and the IPS update posture is
+      # unknown.
+      - alert: SovereignOsSelfdefSyncStale
+        expr: time() - sovereign_os_selfdef_sync_last_run_timestamp > 1209600
+        for: 10m
+        labels:
+          severity: warning
+          subsystem: security
+        annotations:
+          summary: "sovereign-os selfdef-sync silent on {{ $labels.instance }} (no run in >2 weeks)"
+          description: >
+            sovereign_os_selfdef_sync_last_run_timestamp is more than two weeks
+            old — the weekly selfdef freshness check has not run, so the
+            behind-commits gauge is stale and the operator's IPS update posture
+            is unknown. Check the sovereign-selfdef-sync.timer and that the
+            checkout at SOVEREIGN_OS_SELFDEF_DIR is reachable from the unit's
+            sandbox (ReadWritePaths).
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignosselfdefsyncstale-warning"
