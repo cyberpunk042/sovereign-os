@@ -1279,16 +1279,25 @@ function yamlList(arr, indent){
 }
 
 function buildCommand(){
-  return [
+  var lines = [
     "SOURCE_DATE_EPOCH=$(date +%s) \\",
     "DEBIAN_SNAPSHOT=" + (document.getElementById("snapshot").value || state.snapshot) + " \\",
     "SOVEREIGN_OS_PROFILE=" + state.profile + " \\",
     "SOVEREIGN_OS_SUBSTRATE=" + state.substrate + " \\",
+  ];
+  if (state.secureboot !== "disabled"){
+    // signed/setup posture needs the operator MOK in the env (SDD-015 —
+    // keys live on the host, never in the repo; step 05 refuses without)
+    lines.push("SOVEREIGN_OS_MOK_KEY=/etc/sovereign-os/keys/mok.key \\");
+    lines.push("SOVEREIGN_OS_MOK_CERT=/etc/sovereign-os/keys/mok.crt \\");
+  }
+  lines.push(
     "SOVEREIGN_OS_OVERLAY_PROFILE=overlay.yaml \\",
     "SOVEREIGN_OS_OVERLAY_OPERATOR_DEPS=operator-deps.toml \\",
     "SOVEREIGN_OS_OVERLAY_PSU_OC=psu-oc.toml \\",
-    "  sudo scripts/build/orchestrate.sh run",
-  ].join("\n");
+    "  sudo -E scripts/build/orchestrate.sh run"
+  );
+  return lines.join("\n");
 }
 
 function buildHostPlan(){

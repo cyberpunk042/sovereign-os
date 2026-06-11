@@ -517,6 +517,23 @@ RUN_ACTIONS = {
 }
 RUN_LOCK = threading.Lock()
 CURRENT_JOB: dict = {"proc": None, "action": None}
+
+# Operator MOK keys (SDD-015: keys live on the host, NEVER in the repo).
+# The signed-posture build needs them in the env; the first Run-console
+# build died at step 05 because only the terminal invocation ever passed
+# them (caught 2026-06-12). Auto-inject from the canonical path when the
+# operator hasn't set them explicitly.
+OPERATOR_KEY_DIR = Path("/etc/sovereign-os/keys")
+
+
+def operator_key_env() -> dict[str, str]:
+    if "SOVEREIGN_OS_MOK_KEY" in os.environ or "SOVEREIGN_OS_PK_KEY" in os.environ:
+        return {}
+    key, crt = OPERATOR_KEY_DIR / "mok.key", OPERATOR_KEY_DIR / "mok.crt"
+    if key.is_file() and crt.is_file():
+        return {"SOVEREIGN_OS_MOK_KEY": str(key),
+                "SOVEREIGN_OS_MOK_CERT": str(crt)}
+    return {}
 ANSI_RE = re.compile(rb"\x1b\[[0-9;]*[A-Za-z]")
 
 # ── dev gateway: /api/<prefix>/ → local service port. Ports mirror the
@@ -690,6 +707,7 @@ class Handler(BaseHTTPRequestHandler):
             argv = [pkexec, "env",
                     f"SOVEREIGN_OS_PROFILE={profile}",
                     f"PATH={os.environ.get('PATH', '/usr/sbin:/usr/bin:/sbin:/bin')}",
+                    *[f"{k}={v}" for k, v in operator_key_env().items()],
                     str(REPO / argv[0]), *argv[1:]]
             elevation_note = ("  (look for the system password prompt on "
                               "your desktop — polkit/pkexec)\n")
@@ -697,7 +715,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(409, json.dumps(
                 {"error": f"a job is already running: {CURRENT_JOB.get('action')}"}))
         try:
-            env = dict(os.environ, SOVEREIGN_OS_PROFILE=profile)
+            env = dict(os.environ, SOVEREIGN_OS_PROFILE=profile,
+                       **operator_key_env())
             proc = subprocess.Popen(
                 argv, cwd=REPO, env=env, stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT, start_new_session=True,
@@ -709,9 +728,11 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "no-store")
             self.send_header("X-Accel-Buffering", "no")
             self.end_headers()
+            key_note = ("  signing: operator MOK auto-injected from "
+                        f"{OPERATOR_KEY_DIR}\n" if operator_key_env() else "")
             self.wfile.write(
                 f"▶ {action} · profile {profile} · pid {proc.pid}\n"
-                f"{elevation_note}\n".encode())
+                f"{elevation_note}{key_note}\n".encode())
             self.wfile.flush()
             try:
                 for raw in proc.stdout:

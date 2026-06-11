@@ -863,9 +863,23 @@ def test_modules_catalog_probe_detects_count_low():
 
 
 def test_main_exit_code_2_on_unreachable():
-    """When every vertical is unreachable (proxies down), exit code 2."""
-    mod = _load_module()
-    out = mod.main(["--json"])
+    """When every vertical is unreachable (proxies down), exit code 2.
+
+    Probes are pinned to a dead port via the verb's env overrides: the
+    test used to assume a silent host, which broke the moment the cockpit
+    APIs ran for real on their default ports (make panel, 2026-06-12) —
+    a live host is now the EXPECTED state, not an anomaly."""
+    import os
+    from unittest.mock import patch as _patch
+    dead = "http://127.0.0.1:1"
+    with _patch.dict(os.environ, {
+        "SOVEREIGN_OS_M060_URL": dead,
+        "SOVEREIGN_OS_MS022_PROXY_URL": dead,
+        "SOVEREIGN_OS_FOUR_WATCHDOG_PROXY_URL": dead,
+        "SOVEREIGN_OS_NODE_EXPORTER_URL": dead + "/metrics",
+    }):
+        mod = _load_module()
+        out = mod.main(["--json"])
     # All probes unreachable -> exit 2 (no proxies, no node_exporter).
     assert out == 2
 
