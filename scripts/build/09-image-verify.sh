@@ -161,7 +161,12 @@ else
 
   # Basic check: did the boot reach userspace? Look for systemd or
   # /etc/os-release in the boot log.
-  if grep -q "Welcome to\|systemd\[1\]\|sovereign" "${SOVEREIGN_OS_LOG_DIR}/qemu-boot-${SOVEREIGN_OS_BUILD_ID}.log"; then
+  # Case-insensitive: the whitelabel banner says 'Sovereign OS' (capital S
+  # missed the old lowercase grep). 'login:' = the serial getty prompt —
+  # the definitive userspace-reached marker now that console=ttyS0 is in
+  # the profile cmdline.
+  if grep -qiE "welcome to|systemd\[1\]|sovereign|login:" \
+      "${SOVEREIGN_OS_LOG_DIR}/qemu-boot-${SOVEREIGN_OS_BUILD_ID}.log"; then
     log_info "boot log contains userspace markers"
   else
     log_warn "boot log lacks userspace markers; image may not boot cleanly"

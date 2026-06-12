@@ -188,6 +188,11 @@ kernel:
       - quiet
       - splash
       - "loglevel=3"
+      # serial console: systemd auto-spawns serial-getty@ttyS0, whose
+      # /etc/issue banner gives the QEMU smoke test (step 09) a real
+      # userspace marker instead of a warn-skip — and gives ops a serial
+      # console on hardware. First green button build, 2026-06-12.
+      - "console=ttyS0"
     vfio:
       - "vfio-pci.ids=10de:2684,10de:22ba"
       - "amd_iommu=on"

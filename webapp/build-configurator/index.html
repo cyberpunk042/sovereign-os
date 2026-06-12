@@ -704,7 +704,7 @@ var BAKED = {
         // (no in-tree symbol); AMD_IOMMU_V2 + SECURITY_BPF_LSM don't exist on 6.12.
         enable: ["AQTION","VFIO_PCI","VFIO_IOMMU_TYPE1","INTEL_IOMMU","AMD_IOMMU","BPF_LSM","KVM_AMD","KVM_INTEL"],
         microcode: ["amd","intel"], microcode_default: "amd",
-        cmdline_base: ["quiet","splash","loglevel=3"],
+        cmdline_base: ["quiet","splash","loglevel=3","console=ttyS0"],
         cmdline_vfio: ["vfio-pci.ids=10de:2684,10de:22ba","amd_iommu=on","iommu=pt","pcie_aspm=off"],
       },
       cpu: {
