@@ -2079,6 +2079,11 @@ cmd_audit() {
         esac
       done
       local manifest="${1:-}"
+      # Accept the artifacts DIRECTORY too — the operator naturally passes
+      # build/<profile>/output (first green button-build, 2026-06-12).
+      if [ -n "${manifest}" ] && [ -d "${manifest}" ]; then
+        manifest="${manifest%/}/build-provenance.json"
+      fi
       if [ -z "${manifest}" ]; then
         for candidate in \
           "/var/lib/sovereign-os/build-provenance.json" \
