@@ -28,7 +28,10 @@ wl_profile_name="$(profile_field whitelabel.profile)"
 wl_file="${SOVEREIGN_OS_WHITELABEL_DIR}/${wl_profile_name}.yaml"
 require_file "${wl_file}"
 
-inputs_hash="$(state_inputs_hash "${BASH_SOURCE[0]}" "${SOVEREIGN_OS_PROFILE_FILE}" "${wl_file}")"
+# The render ENGINE is an input too — same stale-skip trap as step 05's
+# adapter (2026-06-12): a fixed render.py must invalidate the step.
+inputs_hash="$(state_inputs_hash "${BASH_SOURCE[0]}" "${SOVEREIGN_OS_PROFILE_FILE}" "${wl_file}" \
+  "${SOVEREIGN_OS_ROOT}/scripts/whitelabel/render.py")"
 
 if ! state_step_should_run "${STEP_ID}" "${inputs_hash}"; then
   log_info "step ${STEP_ID} already completed with matching inputs — skipping"
