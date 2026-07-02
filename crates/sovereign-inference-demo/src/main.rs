@@ -1897,6 +1897,68 @@ fn run_rag_quality_demo() -> String {
         bounded.capacity()
     );
 
+    // Agent-orchestration plane: map the work into a typed workflow graph,
+    // schedule its dependencies into parallel waves, and drive a task through its
+    // lifecycle state machine. workflow-graph (E0552 Plan/Compile) validates a DAG
+    // of typed nodes and yields an execution order; dag-schedule turns "X before Y"
+    // constraints into topological waves + a critical-path length; task-lifecycle
+    // (E0548) enforces the legal state transitions a task may take.
+    use sovereign_workflow_graph::{Edge, Node, NodeType, WorkflowGraph};
+    let wf = WorkflowGraph {
+        nodes: vec![
+            Node {
+                id: "read".into(),
+                node_type: NodeType::MemoryRead,
+            },
+            Node {
+                id: "draft".into(),
+                node_type: NodeType::ModelCall,
+            },
+            Node {
+                id: "apply".into(),
+                node_type: NodeType::ToolCall,
+            },
+            Node {
+                id: "commit".into(),
+                node_type: NodeType::Commit,
+            },
+        ],
+        edges: vec![
+            Edge {
+                from: "read".into(),
+                to: "draft".into(),
+            },
+            Edge {
+                from: "draft".into(),
+                to: "apply".into(),
+            },
+            Edge {
+                from: "apply".into(),
+                to: "commit".into(),
+            },
+        ],
+    };
+    let wf_ok = wf.validate().is_ok();
+    let wf_order = wf.topological_order().map(|o| o.len()).unwrap_or(0);
+
+    // 0 -> {1,2} -> 3 -> 4 : tasks 1 and 2 can run concurrently
+    let mut dag = sovereign_dag_schedule::Dag::new(5);
+    for (before, after) in [(0, 1), (0, 2), (1, 3), (2, 3), (3, 4)] {
+        dag.add_dependency(before, after).expect("dependency");
+    }
+    let waves = dag.waves().map(|w| w.len()).unwrap_or(0);
+    let critical = dag.critical_path_length().unwrap_or(0);
+
+    // an Active task may settle into Completed, but may not jump straight to the
+    // terminal Archived state — the lifecycle forbids it
+    use sovereign_task_lifecycle::TaskState;
+    let legal = TaskState::Active.can_transition_to(TaskState::Completed);
+    let illegal = TaskState::Active.can_transition_to(TaskState::Archived);
+    let _ = writeln!(
+        out,
+        "orchestration    : wf_ok={wf_ok} wf_order={wf_order} waves={waves} critical={critical} legal={legal} illegal={illegal}"
+    );
+
     out
 }
 
@@ -2144,6 +2206,15 @@ mod tests {
         assert!(
             report.contains(
                 "gen integrity    : p@3=0.667 mrr=1.000 balanced_ok=true unbalanced=false seen=1000 retained=10 cap=10"
+            ),
+            "{report}"
+        );
+        // agent-orchestration plane ran: the workflow graph validated + topo-ordered
+        // its 4 nodes, the DAG scheduled into 4 waves with a critical path of 4, and
+        // the lifecycle allowed Active→Completed but forbade Active→Archived
+        assert!(
+            report.contains(
+                "orchestration    : wf_ok=true wf_order=4 waves=4 critical=4 legal=true illegal=false"
             ),
             "{report}"
         );

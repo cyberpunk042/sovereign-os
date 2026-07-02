@@ -149,3 +149,6 @@ sovereign-bitops = { path = "../sovereign-bitops" }
 sovereign-retrieval-metrics = { path = "../sovereign-retrieval-metrics" }
 sovereign-balanced-constrain = { path = "../sovereign-balanced-constrain" }
 sovereign-bounded-block = { path = "../sovereign-bounded-block" }
+sovereign-workflow-graph = { path = "../sovereign-workflow-graph" }
+sovereign-dag-schedule = { path = "../sovereign-dag-schedule" }
+sovereign-task-lifecycle = { path = "../sovereign-task-lifecycle" }

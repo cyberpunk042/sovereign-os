@@ -4965,6 +4965,7 @@ dependencies = [
  "sovereign-continuous-batch",
  "sovereign-cuckoo-filter",
  "sovereign-cusum",
+ "sovereign-dag-schedule",
  "sovereign-ddsketch",
  "sovereign-decoder-layer",
  "sovereign-decoder-stack",
@@ -5053,6 +5054,7 @@ dependencies = [
  "sovereign-sprt",
  "sovereign-sse-parse",
  "sovereign-suffix-automaton",
+ "sovereign-task-lifecycle",
  "sovereign-tdigest",
  "sovereign-telemetry-backend",
  "sovereign-text-edit",
@@ -5073,6 +5075,7 @@ dependencies = [
  "sovereign-weighted-reservoir",
  "sovereign-wer",
  "sovereign-wordpiece",
+ "sovereign-workflow-graph",
  "sovereign-workspace-folder-registry",
 ]
 
