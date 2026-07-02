@@ -110,4 +110,7 @@ sovereign-trust-boundaries = { path = "../sovereign-trust-boundaries" }
 sovereign-telemetry-backend = { path = "../sovereign-telemetry-backend" }
 sovereign-runtime-reactions = { path = "../sovereign-runtime-reactions" }
 sovereign-workspace-folder-registry = { path = "../sovereign-workspace-folder-registry" }
+sovereign-semantic-checkpoint = { path = "../sovereign-semantic-checkpoint" }
+sovereign-eval-result-summary = { path = "../sovereign-eval-result-summary" }
+sovereign-eval-suite-catalog = { path = "../sovereign-eval-suite-catalog" }
 sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }

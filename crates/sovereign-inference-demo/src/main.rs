@@ -683,6 +683,34 @@ fn run_strategies_demo() -> String {
         vbytes.len()
     );
 
+    // Agent durability + eval rollup: a semantic checkpoint (resumable agent
+    // state) and an eval-suite result summary.
+    let ck = sovereign_semantic_checkpoint::SemanticCheckpoint {
+        container_process_state: "pid=42".into(),
+        filesystem_snapshot: "snap-1".into(),
+        workflow_node: "step-3".into(),
+        branch_state: "main@abc".into(),
+        open_tool_futures: vec![],
+        memory_refs: vec![],
+        risk_state: "low".into(),
+        cost_so_far: 1.5,
+        expected_next_action: "decode".into(),
+        human_gate_state: "none".into(),
+    };
+    let complete = ck.is_semantically_complete() && ck.has_machinery();
+    let eval = sovereign_eval_result_summary::EvalResultSummary::new(
+        sovereign_eval_suite_catalog::SuiteId::Smoke,
+        "t0",
+        "t1",
+        8,
+        2,
+    );
+    let _ = writeln!(
+        out,
+        "eval/checkpoint  : pass_rate_bps={} checkpoint_complete={complete}",
+        eval.pass_rate_bps()
+    );
+
     // Runtime infra: telemetry sink from a token, runtime-signal control
     // reactions, and a workspace folder registry.
     let sink = sovereign_telemetry_backend::TelemetrySink::from_token("otel");
@@ -1690,6 +1718,10 @@ mod tests {
         );
         assert!(
             report.contains("runtime infra    : sink=Some(Otel) controls=2 folder_ok=true"),
+            "{report}"
+        );
+        assert!(
+            report.contains("eval/checkpoint  : pass_rate_bps=8000 checkpoint_complete=true"),
             "{report}"
         );
         assert!(
