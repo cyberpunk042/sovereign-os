@@ -65,6 +65,52 @@ impl Tiers {
     pub fn any(&self) -> bool {
         self.t1_quant_dot || self.t2_bitwise_attn || self.t3_structure_kv
     }
+
+    /// The tiers that are BOTH requested (`self`) AND available on the host
+    /// (`available`) — the per-field AND. Use it to gate an *opt-in* against
+    /// *detected capability*: a tier the CPU lacks is turned off.
+    pub fn gated_by(self, available: Tiers) -> Tiers {
+        Tiers {
+            t1_quant_dot: self.t1_quant_dot && available.t1_quant_dot,
+            t2_bitwise_attn: self.t2_bitwise_attn && available.t2_bitwise_attn,
+            t3_structure_kv: self.t3_structure_kv && available.t3_structure_kv,
+        }
+    }
+
+    /// Tier labels opted into by `self` but **not** provided by `available` —
+    /// the tiers that would be silently dropped by [`gated_by`](Self::gated_by).
+    pub fn unsupported_by(self, available: Tiers) -> Vec<&'static str> {
+        let mut out = Vec::new();
+        if self.t1_quant_dot && !available.t1_quant_dot {
+            out.push("T1");
+        }
+        if self.t2_bitwise_attn && !available.t2_bitwise_attn {
+            out.push("T2");
+        }
+        if self.t3_structure_kv && !available.t3_structure_kv {
+            out.push("T3");
+        }
+        out
+    }
+
+    /// The AVX-512 tiers **actually available on the current host**, detected at
+    /// runtime: T1 ⇐ `avx512vnni`, T2 ⇐ `avx512f`, T3 ⇐ `avx512vbmi2`. On any
+    /// non-x86 target (or a CPU without AVX-512) this is [`Tiers::NONE`], so a
+    /// profile gated by it falls back to the portable scalar paths.
+    pub fn detect() -> Tiers {
+        #[cfg(target_arch = "x86_64")]
+        {
+            Tiers {
+                t1_quant_dot: std::arch::is_x86_feature_detected!("avx512vnni"),
+                t2_bitwise_attn: std::arch::is_x86_feature_detected!("avx512f"),
+                t3_structure_kv: std::arch::is_x86_feature_detected!("avx512vbmi2"),
+            }
+        }
+        #[cfg(not(target_arch = "x86_64"))]
+        {
+            Tiers::NONE
+        }
+    }
 }
 
 impl Default for Tiers {
@@ -131,6 +177,30 @@ impl PrecisionProfile {
             name: "int8-hot".into(),
             ..Self::uniform(Precision::Int8)
         }
+    }
+
+    /// BF16 everywhere — the other T1 dot path (`VDPBF16PS`), f32 range at half
+    /// the weight memory.
+    pub fn bf16() -> Self {
+        Self {
+            name: "bf16".into(),
+            ..Self::uniform(Precision::Bf16)
+        }
+    }
+
+    /// Gate this profile's tier opt-ins to what the host CPU actually provides,
+    /// turning off any tier the hardware lacks (the scalar path still runs). The
+    /// per-layer precision plan is unchanged — only the SIMD-exploit flags are
+    /// clamped. Pass [`Tiers::detect`] for the current host.
+    pub fn gated_by(&self, available: Tiers) -> Self {
+        let mut p = self.clone();
+        p.tiers = self.tiers.gated_by(available);
+        p
+    }
+
+    /// Tier labels this profile opts into that `available` does not provide.
+    pub fn unsupported_tiers(&self, available: Tiers) -> Vec<&'static str> {
+        self.tiers.unsupported_by(available)
     }
 
     /// A mixed stack that demonstrates every precision in one residual stream:
@@ -210,6 +280,7 @@ fn precision_slug(p: Precision) -> &'static str {
         Precision::Ternary => "ternary",
         Precision::Nvfp4 => "nvfp4",
         Precision::Int8 => "int8",
+        Precision::Bf16 => "bf16",
     }
 }
 
@@ -303,6 +374,54 @@ mod tests {
         assert!(p.tiers.t1_quant_dot);
         assert!(!p.tiers.t2_bitwise_attn);
         assert!(p.tiers.any());
+    }
+
+    #[test]
+    fn bf16_preset_and_slug() {
+        let p = PrecisionProfile::bf16();
+        assert_eq!(p.plan(3), vec![Precision::Bf16; 3]);
+        assert_eq!(p.name, "bf16");
+        assert!(p.quantizes());
+        assert!(p.tiers.any());
+    }
+
+    #[test]
+    fn tiers_gate_to_detected_capability() {
+        // A profile opts into all three tiers, but the host provides only T1.
+        let host = Tiers {
+            t1_quant_dot: true,
+            t2_bitwise_attn: false,
+            t3_structure_kv: false,
+        };
+        let p = PrecisionProfile::mixed(); // tiers = ALL
+        assert_eq!(p.unsupported_tiers(host), vec!["T2", "T3"]);
+        let gated = p.gated_by(host);
+        // only T1 survives; T2/T3 are turned off (scalar fallback)
+        assert!(gated.tiers.t1_quant_dot);
+        assert!(!gated.tiers.t2_bitwise_attn);
+        assert!(!gated.tiers.t3_structure_kv);
+        // gating never changes the per-layer precision plan
+        assert_eq!(gated.plan(4), p.plan(4));
+    }
+
+    #[test]
+    fn gating_by_none_disables_every_tier() {
+        let gated = PrecisionProfile::int8_hot().gated_by(Tiers::NONE);
+        assert!(!gated.tiers.any());
+        // a fully-supported host drops nothing.
+        assert!(
+            PrecisionProfile::mixed()
+                .unsupported_tiers(Tiers::ALL)
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn detect_returns_a_valid_capability_set() {
+        // detect() must not panic and returns NONE off-x86 / on non-AVX-512.
+        let d = Tiers::detect();
+        // it is a well-formed Tiers (any of the three, or none).
+        let _ = d.any();
     }
 
     #[test]

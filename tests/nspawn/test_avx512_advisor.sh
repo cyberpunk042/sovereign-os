@@ -32,7 +32,7 @@ import json, sys
 d = json.load(sys.stdin)
 assert d['round'] == 'R272', d
 assert 'avx512_supported' in d, d
-assert d['extension_counts']['total'] == 16, d
+assert d['extension_counts']['total'] == 17, d
 # Required keys per extension
 for e in d['extensions']:
     for k in ('flag','cpuinfo_flag','present','summary'):
@@ -51,7 +51,7 @@ echo "${out}" | python3 -c "
 import json, sys
 d = json.load(sys.stdin)
 assert d['round'] == 'R272', d
-assert d['workload_count'] == 9, d
+assert d['workload_count'] == 11, d
 # Critical workloads must be present
 names = {w['workload'] for w in d['workloads']}
 for needed in ('bitnet-ternary-inference','bf16-inference','fp16-mixed-precision',
@@ -95,7 +95,7 @@ spec = importlib.util.spec_from_file_location('av','${SCRIPT}')
 m = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(m)
 ext = m.detect_avx512_extensions()
-assert len(ext) == 16, ext
+assert len(ext) == 17, ext
 # Every key has a bool value
 for k, v in ext.items():
     assert isinstance(v, bool), f'{k}={v!r} not bool'

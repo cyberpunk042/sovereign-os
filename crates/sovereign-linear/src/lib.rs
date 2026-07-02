@@ -16,6 +16,9 @@
 //!   asymmetric `u8` activations with zero-point correction, `i32`
 //!   accumulation via VPDPBUSD-style dots ([`sovereign-vnni`]) — the Zen-5
 //!   tier-1 hot path from the operator's AVX-512 note (M085).
+//! * [`Precision::Bf16`] — BF16 weights, f32 accumulation via VDPBF16PS-style
+//!   dots (the operator's `VPDOTBF16PLUS`, [`sovereign-vnni`] `MatBf16`) — the
+//!   second Zen-5 tier-1 dot path: half f32's weight memory at f32 range.
 //!
 //! [`sovereign-vnni`]: https://docs.rs/sovereign-vnni
 //!
@@ -38,7 +41,7 @@ use sovereign_bitlinear_core::{BitLinearLayer, EnergyReport, Packing};
 use sovereign_nvfp4_runtime::{
     QuantMatrix, RhtQuantMatrix, TwoDQuantMatrix, relative_frobenius_error,
 };
-use sovereign_vnni::MatI8;
+use sovereign_vnni::{MatBf16, MatI8};
 use thiserror::Error;
 
 /// Schema version of the linear-layer surface.
@@ -57,6 +60,10 @@ pub enum Precision {
     /// INT8 VNNI (VPDPBUSD): per-row symmetric `i8` weights, asymmetric `u8`
     /// activations, `i32` accumulation — the Zen-5 tier-1 hot path.
     Int8,
+    /// BF16 (VDPBF16PS / the operator's `VPDOTBF16PLUS`): weights stored as
+    /// BFloat16, dot products accumulated in f32 — half the weight memory of
+    /// f32 at f32 range, the second Zen-5 tier-1 dot path.
+    Bf16,
 }
 
 /// Things that can go wrong building or running a linear layer.
@@ -188,6 +195,7 @@ enum Backend {
     Nvfp4Rht(RhtQuantMatrix),
     Nvfp4TwoD(TwoDQuantMatrix),
     Int8(Int8Layer),
+    Bf16(MatBf16),
 }
 
 /// A linear layer `y = W·x` with a selectable execution precision.
@@ -229,6 +237,10 @@ impl Linear {
                     .map_err(|e| LinearError::Backend(e.to_string()))?,
             ),
             Precision::Int8 => Backend::Int8(Int8Layer::from_f32(weights, output_dim, input_dim)?),
+            Precision::Bf16 => Backend::Bf16(
+                MatBf16::from_f32(weights, output_dim, input_dim)
+                    .map_err(|e| LinearError::Backend(e.to_string()))?,
+            ),
         };
         Ok(Self {
             output_dim,
@@ -321,6 +333,7 @@ impl Linear {
             Backend::Ternary(_) => Precision::Ternary,
             Backend::Nvfp4(_) | Backend::Nvfp4Rht(_) | Backend::Nvfp4TwoD(_) => Precision::Nvfp4,
             Backend::Int8(_) => Precision::Int8,
+            Backend::Bf16(_) => Precision::Bf16,
         }
     }
 
@@ -338,6 +351,8 @@ impl Linear {
                 let params = (self.output_dim * self.input_dim) as f64;
                 (8.0 * params + 64.0 * l.row_scales.len() as f64) / params
             }
+            // BF16 is a flat 16 bits per weight (no per-row side data).
+            Backend::Bf16(_) => 16.0,
         }
     }
 
@@ -385,6 +400,7 @@ impl Linear {
             Backend::Nvfp4Rht(q) => q.matvec(x).map_err(|e| LinearError::Backend(e.to_string())),
             Backend::Nvfp4TwoD(q) => q.matvec(x).map_err(|e| LinearError::Backend(e.to_string())),
             Backend::Int8(l) => l.forward(x),
+            Backend::Bf16(m) => m.matvec(x).map_err(|e| LinearError::Backend(e.to_string())),
         }
     }
 }
@@ -758,6 +774,7 @@ mod tests {
             Precision::Ternary,
             Precision::Nvfp4,
             Precision::Int8,
+            Precision::Bf16,
         ] {
             let lin = Linear::from_f32(&w, 2, 4, p).unwrap();
             let y = lin.forward(&x).unwrap();
@@ -831,6 +848,53 @@ mod tests {
     }
 
     #[test]
+    fn bf16_forward_is_close_to_f32() {
+        // BF16 keeps ~7 mantissa bits → matvec stays within ~1% of exact f32.
+        let (output_dim, input_dim) = (4, 16);
+        let w: Vec<f32> = (0..output_dim * input_dim)
+            .map(|i| ((i as f32) * 0.37).sin())
+            .collect();
+        let x: Vec<f32> = (0..input_dim).map(|i| ((i as f32) * 0.71).cos()).collect();
+        let f32_lin = Linear::from_f32(&w, output_dim, input_dim, Precision::F32).unwrap();
+        let bf16 = Linear::from_f32(&w, output_dim, input_dim, Precision::Bf16).unwrap();
+        assert_eq!(bf16.precision(), Precision::Bf16);
+        let yf = f32_lin.forward(&x).unwrap();
+        let yb = bf16.forward(&x).unwrap();
+        let norm: f32 = yf.iter().map(|v| v * v).sum::<f32>().sqrt();
+        for (a, b) in yf.iter().zip(&yb) {
+            assert!(
+                (a - b).abs() < 0.02 * norm.max(1.0),
+                "f32 {yf:?} vs bf16 {yb:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn bf16_exact_on_representable_weights_and_preserves_argmax() {
+        // powers-of-two weights are exact in BF16 → forward matches f32 exactly.
+        let w = vec![0.5f32, -2.0, 1.0, 4.0, 2.0, -0.25]; // 2x3, all exact
+        let f32_lin = Linear::from_f32(&w, 2, 3, Precision::F32).unwrap();
+        let bf16 = Linear::from_f32(&w, 2, 3, Precision::Bf16).unwrap();
+        assert_eq!(
+            f32_lin.forward(&[1.0, 1.0, 1.0]).unwrap(),
+            bf16.forward(&[1.0, 1.0, 1.0]).unwrap()
+        );
+        // argmax preserved on separated rows.
+        let w2 = vec![0.1, 0.1, 0.1, 0.1, 2.0, 2.0, 2.0, 2.0, 0.5, 0.5, 0.5, 0.5];
+        let nb = Linear::from_f32(&w2, 3, 4, Precision::Bf16).unwrap();
+        assert_eq!(argmax(&nb.forward(&[1.0, 1.0, 1.0, 1.0]).unwrap()), 1);
+    }
+
+    #[test]
+    fn bf16_bits_per_param_is_sixteen() {
+        let w: Vec<f32> = (0..64).map(|i| ((i as f32) * 0.013).sin()).collect();
+        let bf16 = Linear::from_f32(&w, 8, 8, Precision::Bf16).unwrap();
+        assert_eq!(bf16.bits_per_param(), 16.0);
+        // BF16 spends real FMAs → no mul-free energy report.
+        assert!(bf16.energy_report(&[1.0; 8]).unwrap().is_none());
+    }
+
+    #[test]
     fn int8_bits_per_param_near_eight() {
         let w: Vec<f32> = (0..256).map(|i| ((i as f32) * 0.013).sin()).collect();
         let int8 = Linear::from_f32(&w, 16, 16, Precision::Int8).unwrap();
@@ -879,6 +943,7 @@ mod tests {
             Precision::Ternary,
             Precision::Nvfp4,
             Precision::Int8,
+            Precision::Bf16,
         ] {
             let lin = Linear::from_f32(&w, 2, 3, p).unwrap();
             let j = serde_json::to_string(&lin).unwrap();

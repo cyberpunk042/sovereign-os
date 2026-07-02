@@ -210,6 +210,27 @@ fn run_demo() -> String {
         profile.tiers.t2_bitwise_attn,
         profile.tiers.t3_structure_kv
     );
+    // Capability gate: what the requested tiers become on THIS host. A tier the
+    // CPU lacks is dropped (the scalar path still runs). `Tiers::detect()` reads
+    // avx512vnni/avx512f/avx512vbmi2 at runtime; NONE off-x86 / on non-AVX-512.
+    let caps = sovereign_precision_profile::Tiers::detect();
+    let gated = profile.gated_by(caps);
+    let dropped = profile.unsupported_tiers(caps);
+    let _ = writeln!(
+        out,
+        "host caps        : T1={} T2={} T3={} → gated tiers T1={} T2={} T3={}{}",
+        caps.t1_quant_dot,
+        caps.t2_bitwise_attn,
+        caps.t3_structure_kv,
+        gated.tiers.t1_quant_dot,
+        gated.tiers.t2_bitwise_attn,
+        gated.tiers.t3_structure_kv,
+        if dropped.is_empty() {
+            String::new()
+        } else {
+            format!("  (dropped {dropped:?} → scalar fallback)")
+        }
+    );
     let _ = writeln!(out, "prompt          : {prompt:?}");
 
     let ids = llm.generate_ids(prompt, 12, seed).expect("generation");
@@ -814,6 +835,8 @@ mod tests {
         // the precision plan is a profile (opt-in/out), reported + resolved
         assert!(report.contains("precision profile: \"mixed\""), "{report}");
         assert!(report.contains("F32, Ternary, Nvfp4, Int8"), "{report}");
+        // the tier opt-in is gated to detected host capability
+        assert!(report.contains("host caps        :"), "{report}");
         // reproducibility line must report true
         assert!(report.contains("reproducible    : true"), "{report}");
     }

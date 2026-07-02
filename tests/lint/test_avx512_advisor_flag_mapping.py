@@ -44,3 +44,19 @@ def test_avx512_family_flags_keep_their_prefix():
     assert m.FLAG_LOWERCASE["F"] == "avx512f"
     assert m.FLAG_LOWERCASE["VNNI"] == "avx512_vnni"
     assert m.FLAG_LOWERCASE["BF16"] == "avx512_bf16"
+    # VP2INTERSECT (the note's T2 correlation op) must be in the map.
+    assert m.FLAG_LOWERCASE["VP2INTERSECT"] == "avx512_vp2intersect"
+
+
+def test_m085_tier_instructions_map_to_real_flags():
+    # Every instruction in the operator's three-tier note maps to a flag that
+    # exists in AVX512_FLAGS, and VP2INTERSECT is the only one Zen 5 lacks.
+    m = _load()
+    for entry in m.TIER_INSTRUCTIONS:
+        assert entry["flag"] in m.AVX512_FLAGS, entry
+        for key in ("tier", "instruction", "operator_mnemonic", "engine", "note"):
+            assert key in entry, entry
+    assert m.ZEN5_ABSENT_FLAGS == {"VP2INTERSECT"}
+    # T1 is the wired tier (INT8 + BF16 in the model path).
+    t1 = [e for e in m.TIER_INSTRUCTIONS if e["tier"] == "T1"]
+    assert t1 and all(e["engine"] == "wired" for e in t1), t1
