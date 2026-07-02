@@ -683,6 +683,23 @@ fn run_strategies_demo() -> String {
         vbytes.len()
     );
 
+    // Distributed-systems primitives: ULID (sortable id, round-trips through its
+    // string form), SemVer (caret compatibility), vector clock (causal order).
+    let mut ulidgen = sovereign_ulid::UlidGenerator::new(42);
+    let u = ulidgen.generate(1_700_000_000_000);
+    let ulid_ok = sovereign_ulid::Ulid::parse(&u.to_string()) == Some(u);
+    let ver = sovereign_semver::Version::parse("1.4.2").expect("semver");
+    let compat = ver.satisfies_caret(&sovereign_semver::Version::new(1, 0, 0));
+    let mut vc_a = sovereign_vector_clock::VectorClock::new();
+    vc_a.tick(1);
+    let mut vc_b = vc_a.clone();
+    vc_b.tick(2);
+    let _ = writeln!(
+        out,
+        "distributed ids  : ulid_ok={ulid_ok} semver_compat={compat} causal={}",
+        vc_a.happens_before(&vc_b)
+    );
+
     // Agent scaffolding: parse a JSON tool call, index skills by tag, render a
     // variable-slot prompt template.
     let calls = sovereign_tool_call_parse::parse_tool_calls(
@@ -1548,6 +1565,10 @@ mod tests {
             report.contains(
                 "agent scaffold   : tool_call=\"search\" nlp_skills=2 render=\"Hello rust.\""
             ),
+            "{report}"
+        );
+        assert!(
+            report.contains("distributed ids  : ulid_ok=true semver_compat=true causal=true"),
             "{report}"
         );
         assert!(

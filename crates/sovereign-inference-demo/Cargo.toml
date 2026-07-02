@@ -95,4 +95,7 @@ sovereign-skill-library = { path = "../sovereign-skill-library" }
 sovereign-prompt-template-registry = { path = "../sovereign-prompt-template-registry" }
 sovereign-execution-mode-registry = { path = "../sovereign-execution-mode-registry" }
 sovereign-profile-bundles = { path = "../sovereign-profile-bundles" }
+sovereign-ulid = { path = "../sovereign-ulid" }
+sovereign-semver = { path = "../sovereign-semver" }
+sovereign-vector-clock = { path = "../sovereign-vector-clock" }
 sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }
