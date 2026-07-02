@@ -70,15 +70,26 @@ else
   ko "sovereign.list.chroot missing"
 fi
 
-# Profile packages must appear; kernel-image must not
+# Profile packages must appear; kernel-image must not.
+# tetragon is deliberately NOT expected here: it is not in the Debian
+# archive and installs at first boot from Cilium's release tarball (see the
+# packages comment in profiles/sain-01.yaml + the tetragon-policy-load hook).
 if [ "${PROFILE}" = "sain-01" ]; then
-  for p in openssh-server podman tetragon zfsutils-linux; do
+  for p in openssh-server podman zfsutils-linux; do
     if grep -q "^${p}\$" "${pkg_list}"; then
       ok "package list includes: ${p}"
     else
       ko "package list missing: ${p}"
     fi
   done
+
+  # ...and the replacement mechanism must actually be carried: the profile
+  # keeps the tetragon first-boot hook in place of the archive package.
+  if grep -q "tetragon-policy-load" "${profile_file}"; then
+    ok "tetragon first-boot hook present in profile (archive package deliberately absent)"
+  else
+    ko "tetragon absent from packages AND no tetragon-policy-load hook in profile"
+  fi
 
   if grep -qE "^linux-image-|^linux-headers-" "${pkg_list}"; then
     ko "kernel-image package leaked into package list (should go via includes.chroot)"
@@ -107,10 +118,19 @@ fi
 # This is the substrate-agnostic invariant: a single profile YAML can be
 # consumed by EITHER adapter without modification. We already ran live-build
 # above; rerun mkosi against the same profile in a fresh dir.
+#
+# The profile's secure_boot=signed posture makes mkosi-emit require operator
+# key env vars (SDD-015: real keys are NEVER in the repo or CI). Placeholder
+# files satisfy the presence gate — the adapter only embeds the *paths* into
+# the emitted conf; mkosi itself validates key material at build time. Same
+# pattern as tests/nspawn/test_image_sign_gates.sh.
 mkosi_dir="$(mktemp -d)"
 trap 'rm -rf "${tmpdir}" "${mkosi_dir}"' EXIT
+touch "${mkosi_dir}/ci-mok.key" "${mkosi_dir}/ci-mok.crt"
 
-if "${__REPO_ROOT}/scripts/build/adapters/mkosi-emit.sh" "${profile_file}" "${mkosi_dir}" >/dev/null 2>&1; then
+if SOVEREIGN_OS_MOK_KEY="${mkosi_dir}/ci-mok.key" \
+   SOVEREIGN_OS_MOK_CERT="${mkosi_dir}/ci-mok.crt" \
+   "${__REPO_ROOT}/scripts/build/adapters/mkosi-emit.sh" "${profile_file}" "${mkosi_dir}" >/dev/null 2>&1; then
   ok "same profile YAML feeds BOTH adapters cleanly (substrate-agnostic invariant)"
 else
   ko "mkosi adapter failed against the profile that live-build succeeded against"

@@ -32,13 +32,26 @@ export SOVEREIGN_OS_STATE_DIR="${tmp}/state"
 export SOVEREIGN_OS_LOG_DIR="${tmp}/log"
 export SOVEREIGN_OS_NONINTERACTIVE=1
 
+# Step 05 reads profiles/ and scripts/build/adapters/ from SOVEREIGN_OS_ROOT
+# (read-only; all writes go to SOVEREIGN_OS_BUILD_OUT / STATE / LOG below), so
+# ROOT must be the real repo, not an empty scratch dir.
+REPO_ROOT_ARG="${__REPO_ROOT}"
+
+# The sain-01 profile's secure_boot=signed posture makes the mkosi adapter
+# require operator key env vars (SDD-015: real keys are NEVER in the repo/CI).
+# Placeholder files satisfy the presence gate — the adapter embeds only the
+# key *paths*. Same pattern as tests/nspawn/test_image_sign_gates.sh.
+export SOVEREIGN_OS_MOK_KEY="${tmp}/ci-mok.key"
+export SOVEREIGN_OS_MOK_CERT="${tmp}/ci-mok.crt"
+touch "${SOVEREIGN_OS_MOK_KEY}" "${SOVEREIGN_OS_MOK_CERT}"
+
 # ----------- mkosi substrate (default) ---------------
 
 rm -rf "${SOVEREIGN_OS_STATE_DIR}"
 set +e
 out="$(SOVEREIGN_OS_PROFILE=sain-01 \
        SOVEREIGN_OS_SUBSTRATE=mkosi \
-       SOVEREIGN_OS_ROOT="${tmp}/repo" \
+       SOVEREIGN_OS_ROOT="${REPO_ROOT_ARG}" \
        SOVEREIGN_OS_BUILD_OUT="${tmp}/build" \
        "${STEP}" 2>&1)"
 rc=$?
@@ -55,7 +68,7 @@ rm -rf "${SOVEREIGN_OS_STATE_DIR}" "${tmp}/build2"
 set +e
 out="$(SOVEREIGN_OS_PROFILE=sain-01 \
        SOVEREIGN_OS_SUBSTRATE=live-build \
-       SOVEREIGN_OS_ROOT="${tmp}/repo" \
+       SOVEREIGN_OS_ROOT="${REPO_ROOT_ARG}" \
        SOVEREIGN_OS_BUILD_OUT="${tmp}/build2" \
        "${STEP}" 2>&1)"
 rc=$?
@@ -72,7 +85,7 @@ rm -rf "${SOVEREIGN_OS_STATE_DIR}"
 set +e
 out="$(SOVEREIGN_OS_PROFILE=sain-01 \
        SOVEREIGN_OS_SUBSTRATE=rpm-ostree \
-       SOVEREIGN_OS_ROOT="${tmp}/repo" \
+       SOVEREIGN_OS_ROOT="${REPO_ROOT_ARG}" \
        SOVEREIGN_OS_BUILD_OUT="${tmp}/build3" \
        "${STEP}" 2>&1)"
 rc=$?
@@ -89,7 +102,7 @@ rm -rf "${SOVEREIGN_OS_STATE_DIR}"
 set +e
 out="$(SOVEREIGN_OS_PROFILE=sain-01 \
        SOVEREIGN_OS_SUBSTRATE=bogus-substrate \
-       SOVEREIGN_OS_ROOT="${tmp}/repo" \
+       SOVEREIGN_OS_ROOT="${REPO_ROOT_ARG}" \
        SOVEREIGN_OS_BUILD_OUT="${tmp}/build4" \
        "${STEP}" 2>&1)"
 rc=$?
@@ -106,7 +119,7 @@ rm -rf "${SOVEREIGN_OS_STATE_DIR}"
 set +e
 out="$(SOVEREIGN_OS_PROFILE=sain-01 \
        SOVEREIGN_OS_SUBSTRATE=mkosi \
-       SOVEREIGN_OS_ROOT="${tmp}/repo" \
+       SOVEREIGN_OS_ROOT="${REPO_ROOT_ARG}" \
        SOVEREIGN_OS_BUILD_OUT="${tmp}/build5" \
        SOVEREIGN_OS_DRY_RUN=1 \
        "${STEP}" 2>&1)"
@@ -129,7 +142,7 @@ export SOVEREIGN_OS_METRICS_DIR="${tmp}/metrics"
 rm -rf "${SOVEREIGN_OS_STATE_DIR}"
 SOVEREIGN_OS_PROFILE=sain-01 \
 SOVEREIGN_OS_SUBSTRATE=mkosi \
-SOVEREIGN_OS_ROOT="${tmp}/repo" \
+SOVEREIGN_OS_ROOT="${REPO_ROOT_ARG}" \
 SOVEREIGN_OS_BUILD_OUT="${tmp}/build6" \
 "${STEP}" >/dev/null 2>&1
 
