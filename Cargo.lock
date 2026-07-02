@@ -6384,6 +6384,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sovereign-edit-distance",
+ "sovereign-jaro-winkler",
  "sovereign-trie",
  "thiserror",
 ]

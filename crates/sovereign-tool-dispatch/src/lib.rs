@@ -163,6 +163,30 @@ impl ToolRegistry {
         sovereign_edit_distance::did_you_mean(name, &refs, max_distance).map(str::to_string)
     }
 
+    /// Suggest the registered tool name most **similar** to `name` by
+    /// Jaro-Winkler similarity (`sovereign-jaro-winkler`), if it clears
+    /// `min_similarity` in `[0, 1]`. Unlike the edit-distance [`suggest`](Self::suggest),
+    /// Jaro-Winkler rewards a shared prefix and tolerates transpositions — so a
+    /// short mistyped tool name (`"uppe"`, `"upepr"`) still resolves to `"upper"`.
+    /// Returns `None` if `name` is already registered or nothing is close enough;
+    /// ties break to the lexicographically smaller name (deterministic).
+    pub fn suggest_similar(&self, name: &str, min_similarity: f64) -> Option<String> {
+        if self.has(name) {
+            return None;
+        }
+        let mut scored: Vec<(String, f64)> = self
+            .names()
+            .into_iter()
+            .map(|n| {
+                let s = sovereign_jaro_winkler::jaro_winkler(name, &n);
+                (n, s)
+            })
+            .filter(|(_, s)| *s >= min_similarity)
+            .collect();
+        scored.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
+        scored.into_iter().next().map(|(n, _)| n)
+    }
+
     /// Invoke the handler for `name` with `args`.
     pub fn call(&self, name: &str, args: &str) -> Result<String, ToolError> {
         match self.handlers.get(name) {
@@ -208,6 +232,23 @@ mod tests {
         let c = parse_call("[[tool:now]]").unwrap();
         assert_eq!(c.name, "now");
         assert_eq!(c.args, "");
+    }
+
+    #[test]
+    fn suggest_similar_recovers_a_mistyped_tool_name() {
+        let r = registry();
+        // a transposition and a truncation both resolve to "upper"
+        assert_eq!(r.suggest_similar("upepr", 0.8).as_deref(), Some("upper"));
+        assert_eq!(r.suggest_similar("uppe", 0.8).as_deref(), Some("upper"));
+        // an exact name is not "suggested" (it's already registered)
+        assert_eq!(r.suggest_similar("echo", 0.8), None);
+    }
+
+    #[test]
+    fn suggest_similar_returns_none_when_nothing_is_close() {
+        let r = registry();
+        // unrelated string clears no reasonable threshold
+        assert_eq!(r.suggest_similar("xyzzy", 0.85), None);
     }
 
     #[test]

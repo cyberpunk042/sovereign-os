@@ -703,6 +703,14 @@ fn run_agent_demo() -> String {
     let mut tools = ToolRegistry::new();
     tools.register("upper", |a| a.to_uppercase());
 
+    // Jaro-Winkler "did you mean": a mistyped tool call (transposition) resolves
+    // to the registered name before it would fail as unknown.
+    let _ = writeln!(
+        out,
+        "did-you-mean     : \"upepr\" -> {:?}",
+        tools.suggest_similar("upepr", 0.8)
+    );
+
     // compose: runtime -> RAG (grounds the prompt) -> agent loop (tools + ReAct)
     let responder = LlmResponder::new(llm, 6);
     let rag = RagResponder::new(responder, docs, 1);
@@ -1132,6 +1140,10 @@ mod tests {
         let report = run_agent_demo();
         assert!(report.contains("agentic stack"));
         assert!(report.contains("tools available : [\"upper\"]"));
+        assert!(
+            report.contains("did-you-mean     : \"upepr\" -> Some(\"upper\")"),
+            "{report}"
+        );
         assert!(report.contains("completed       : true"));
     }
 

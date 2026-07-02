@@ -383,12 +383,12 @@ impl SovereignLlm {
             let mut correct = Vec::with_capacity(labels.len());
             for (lg, &label) in logits_list.iter().zip(&labels) {
                 let probs = sovereign_confidence_calibration::softmax_t(lg, temp);
-                let (arg, max_p) = probs
-                    .iter()
-                    .enumerate()
-                    .fold((0usize, f64::NEG_INFINITY), |(bi, bp), (i, &p)| {
+                let (arg, max_p) = probs.iter().enumerate().fold(
+                    (0usize, f64::NEG_INFINITY),
+                    |(bi, bp), (i, &p)| {
                         if p > bp { (i, p) } else { (bi, bp) }
-                    });
+                    },
+                );
                 confidences.push(max_p);
                 correct.push(arg == label);
             }
