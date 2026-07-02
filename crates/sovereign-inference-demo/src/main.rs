@@ -1959,6 +1959,45 @@ fn run_rag_quality_demo() -> String {
         "orchestration    : wf_ok={wf_ok} wf_order={wf_order} waves={waves} critical={critical} legal={legal} illegal={illegal}"
     );
 
+    // Runtime-governance plane: resolve layered config by precedence, hold task
+    // state as typed components (not a transcript), and pick each bundle's default
+    // execution mode. config-resolver (E0476) stacks 7 config layers and lets the
+    // supreme Policy layer override a Runtime route; typed-state (E0557) counts how
+    // many of the 8 typed components a state carries; mode-default-policy maps each
+    // trust bundle to its landing mode (Private→Plan, Fast→Execute).
+    let mut cfg = sovereign_config_resolver::LayeredConfig::new();
+    cfg.set(
+        sovereign_config_resolver::ConfigLayer::Runtime,
+        "route",
+        "cloud-gpt",
+    );
+    cfg.set(
+        sovereign_config_resolver::ConfigLayer::Policy,
+        "route",
+        "local-only",
+    );
+    let (cfg_layer, cfg_val) = cfg.resolve("route").expect("route resolves");
+
+    let mut state = sovereign_typed_state::TypedState::new();
+    state.frames.push(sovereign_typed_state::Frame {
+        id: "f1".into(),
+        kind: "goal".into(),
+    });
+    state.routes.push(sovereign_typed_state::RouteRecord {
+        node: "draft".into(),
+        target: "rocm-4090".into(),
+    });
+    state.memory_refs.push("mem-7".into());
+    let state_components = state.populated_components();
+
+    let mode_policy = sovereign_mode_default_policy::ModeDefaultPolicy::canonical();
+    let private_mode = mode_policy.landing_mode(sovereign_profile_bundles::BundleName::Private);
+    let fast_mode = mode_policy.landing_mode(sovereign_profile_bundles::BundleName::Fast);
+    let _ = writeln!(
+        out,
+        "governance II    : cfg_layer={cfg_layer:?} cfg_val={cfg_val:?} state_components={state_components} private_mode={private_mode:?} fast_mode={fast_mode:?}"
+    );
+
     out
 }
 
@@ -2215,6 +2254,15 @@ mod tests {
         assert!(
             report.contains(
                 "orchestration    : wf_ok=true wf_order=4 waves=4 critical=4 legal=true illegal=false"
+            ),
+            "{report}"
+        );
+        // runtime-governance plane ran: the supreme Policy layer overrode the
+        // Runtime route, the typed state carried 3 of 8 components, and the default
+        // policy landed Private on Plan and Fast on Execute
+        assert!(
+            report.contains(
+                "governance II    : cfg_layer=Policy cfg_val=\"local-only\" state_components=3 private_mode=Some(Plan) fast_mode=Some(Execute)"
             ),
             "{report}"
         );

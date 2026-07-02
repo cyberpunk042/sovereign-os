@@ -152,3 +152,6 @@ sovereign-bounded-block = { path = "../sovereign-bounded-block" }
 sovereign-workflow-graph = { path = "../sovereign-workflow-graph" }
 sovereign-dag-schedule = { path = "../sovereign-dag-schedule" }
 sovereign-task-lifecycle = { path = "../sovereign-task-lifecycle" }
+sovereign-config-resolver = { path = "../sovereign-config-resolver" }
+sovereign-typed-state = { path = "../sovereign-typed-state" }
+sovereign-mode-default-policy = { path = "../sovereign-mode-default-policy" }
