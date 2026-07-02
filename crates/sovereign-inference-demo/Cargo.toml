@@ -53,4 +53,7 @@ sovereign-injection-detect = { path = "../sovereign-injection-detect" }
 sovereign-language-detect = { path = "../sovereign-language-detect" }
 sovereign-readability = { path = "../sovereign-readability" }
 sovereign-wer = { path = "../sovereign-wer" }
+sovereign-tdigest = { path = "../sovereign-tdigest" }
+sovereign-running-stats = { path = "../sovereign-running-stats" }
+sovereign-histogram = { path = "../sovereign-histogram" }
 sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }

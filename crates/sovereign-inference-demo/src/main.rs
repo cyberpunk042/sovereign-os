@@ -623,6 +623,28 @@ fn run_strategies_demo() -> String {
         .expect("gumbel");
     let _ = writeln!(out, "gumbel-max      : {gum:?}");
 
+    // Single-pass streaming stats over a longer generation's token ids:
+    // t-digest quantiles, Welford mean/variance, and a bucketed histogram.
+    let stream = model.clone().generate(&prompt, 40, 7).expect("stream");
+    let mut td = sovereign_tdigest::TDigest::with_default();
+    let mut rs = sovereign_running_stats::RunningStats::new();
+    let mut hist = sovereign_histogram::Histogram::new(vec![16.0, 32.0, 48.0]);
+    for &t in &stream {
+        td.add(t as f64);
+        rs.push(t as f64);
+        hist.record(t as f64);
+    }
+    let _ = writeln!(
+        out,
+        "stream stats     : n={} mean={:.1} std={:.1} p50={:.0} p90={:.0} hist_med={:.0}",
+        rs.count(),
+        rs.mean(),
+        rs.std_dev(),
+        td.quantile(0.5).unwrap_or(0.0),
+        td.quantile(0.9).unwrap_or(0.0),
+        hist.median().unwrap_or(0.0)
+    );
+
     // early-stop: stop the moment the first sampled token recurs as a "stop".
     let stop = nrn[0];
     let stopped = model
@@ -1187,6 +1209,12 @@ mod tests {
             "{report}"
         );
         assert!(report.contains("gumbel-max      :"), "{report}");
+        assert!(
+            report.contains("stream stats     : n=40 mean=")
+                && report.contains("p50=")
+                && report.contains("hist_med="),
+            "{report}"
+        );
         assert!(report.contains("perplexity"));
         assert!(report.contains("round-trip ok = true"), "{report}");
     }
