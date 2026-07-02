@@ -704,7 +704,7 @@ fn run_rag_quality_demo() -> String {
     use sovereign_llm::SovereignLlm;
     use sovereign_retrieval::{
         BinaryHammingStore, Deduped, HybridStore, InjectionFiltered, IvfStore, KeyphraseQuery,
-        Reranked, Retriever,
+        MatryoshkaStore, Reranked, Retriever,
     };
     use std::fmt::Write as _;
 
@@ -788,6 +788,28 @@ fn run_rag_quality_demo() -> String {
         ivf.len(),
         ivf.is_built(),
         ivf_hits
+            .first()
+            .map(|(id, _, _)| id.as_str())
+            .unwrap_or("-")
+    );
+
+    // Matryoshka coarse-to-fine: rank on a truncated 64-d prefix to shortlist,
+    // then rerank the shortlist at full 256-d — most accuracy, a fraction of cost.
+    let mut matr = MatryoshkaStore::new();
+    matr.add("rust", "rust ownership gives memory safety without a gc");
+    matr.add(
+        "borrow",
+        "the borrow checker enforces aliasing at compile time",
+    );
+    matr.add("cook", "pasta with tomato sauce and basil");
+    let matr_hits = matr.retrieve("rust memory safety", 1);
+    let _ = writeln!(
+        out,
+        "matryoshka       : {} doc(s), coarse_dim={} (saving {:.0}%), nearest={:?}",
+        matr.len(),
+        matr.coarse_dim(),
+        matr.coarse_saving() * 100.0,
+        matr_hits
             .first()
             .map(|(id, _, _)| id.as_str())
             .unwrap_or("-")
@@ -1000,6 +1022,13 @@ mod tests {
         // the semantic cache missed on the first call and hit on the repeat
         assert!(
             report.contains("semantic cache   : first cached=false, repeat cached=true"),
+            "{report}"
+        );
+        // the Matryoshka coarse-to-fine store ranked and retrieved the rust doc
+        assert!(
+            report.contains(
+                "matryoshka       : 3 doc(s), coarse_dim=64 (saving 75%), nearest=\"rust\""
+            ),
             "{report}"
         );
         // the SimHash dedup filter collapsed the duplicate passages to one

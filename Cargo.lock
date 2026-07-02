@@ -5900,6 +5900,7 @@ dependencies = [
  "sovereign-ivf",
  "sovereign-keywords",
  "sovereign-lsh",
+ "sovereign-matryoshka",
  "sovereign-minhash",
  "sovereign-rank-fusion",
  "sovereign-rerank",

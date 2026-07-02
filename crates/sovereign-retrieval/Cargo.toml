@@ -29,3 +29,4 @@ sovereign-hnsw = { path = "../sovereign-hnsw" }
 sovereign-binary-quant = { path = "../sovereign-binary-quant" }
 sovereign-ivf = { path = "../sovereign-ivf" }
 sovereign-simhash = { path = "../sovereign-simhash" }
+sovereign-matryoshka = { path = "../sovereign-matryoshka" }

@@ -747,6 +747,114 @@ impl Retriever for IvfStore {
     }
 }
 
+/// A **Matryoshka** (coarse-to-fine) semantic store: it embeds documents once at
+/// full dimension but ranks in two passes — first a cheap pass over a truncated
+/// `coarse_dim` prefix of every vector to build a shortlist, then a precise
+/// rerank of just that shortlist at the full dimension. Matryoshka-style
+/// embeddings pack the most information into their leading dimensions, so the
+/// coarse prefix is a faithful-enough proxy to prune the field before the
+/// expensive full-width comparison — most of the accuracy for a fraction of the
+/// per-candidate cost.
+///
+/// Backed by [`sovereign-matryoshka`], previously built but unused; this store is
+/// its consumer.
+///
+/// [`sovereign-matryoshka`]: https://docs.rs/sovereign-matryoshka
+pub struct MatryoshkaStore {
+    /// `(id, text)` aligned by index with `vectors`.
+    docs: Vec<(String, String)>,
+    /// One full-dimension embedding per document, aligned with `docs`.
+    vectors: Vec<Vec<f32>>,
+    /// Prefix length used for the cheap coarse ranking pass.
+    coarse_dim: usize,
+    /// Shortlist size for a requested `k`, as a multiple of `k`.
+    shortlist_factor: usize,
+}
+
+impl Default for MatryoshkaStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl MatryoshkaStore {
+    /// An empty store ranking coarsely on a 64-dimension prefix (a quarter of the
+    /// 256-d default embedding), shortlisting `4 · k` before the full rerank.
+    pub fn new() -> Self {
+        Self::with_coarse_dim(64)
+    }
+
+    /// An empty store ranking coarsely on a `coarse_dim`-length prefix.
+    pub fn with_coarse_dim(coarse_dim: usize) -> Self {
+        Self {
+            docs: Vec::new(),
+            vectors: Vec::new(),
+            coarse_dim: coarse_dim.max(1),
+            shortlist_factor: 4,
+        }
+    }
+
+    /// Embed `text` at full dimension and index it under `id`.
+    pub fn add(&mut self, id: impl Into<String>, text: impl Into<String>) {
+        let id = id.into();
+        let text = text.into();
+        self.vectors.push(sovereign_embed::embed(&text));
+        self.docs.push((id, text));
+    }
+
+    /// Number of indexed documents.
+    pub fn len(&self) -> usize {
+        self.docs.len()
+    }
+
+    /// Whether the store is empty.
+    pub fn is_empty(&self) -> bool {
+        self.docs.is_empty()
+    }
+
+    /// The coarse-ranking prefix length.
+    pub fn coarse_dim(&self) -> usize {
+        self.coarse_dim
+    }
+
+    /// The storage/compute fraction saved by the coarse pass versus a full-width
+    /// scan (`1 − coarse_dim/full_dim`); `0.0` before anything is indexed.
+    pub fn coarse_saving(&self) -> f64 {
+        match self.vectors.first() {
+            Some(v) => sovereign_matryoshka::storage_saving(self.coarse_dim, v.len()),
+            None => 0.0,
+        }
+    }
+
+    /// Top-`k` `(id, text, full_similarity)` for `query`, best-first: a coarse
+    /// pass over the `coarse_dim` prefix shortlists `shortlist_factor · k`
+    /// candidates, then those are reranked at full dimension.
+    pub fn retrieve(&self, query: &str, k: usize) -> Vec<(String, String, f32)> {
+        if self.docs.is_empty() || k == 0 {
+            return Vec::new();
+        }
+        let q = sovereign_embed::embed(query);
+        let shortlist = k.saturating_mul(self.shortlist_factor).max(k);
+        sovereign_matryoshka::coarse_to_fine(&q, &self.vectors, self.coarse_dim, shortlist, k)
+            .into_iter()
+            .filter_map(|(i, sim)| {
+                self.docs
+                    .get(i)
+                    .map(|(id, text)| (id.clone(), text.clone(), sim))
+            })
+            .collect()
+    }
+}
+
+impl Retriever for MatryoshkaStore {
+    fn retrieve_context(&self, query: &str, k: usize) -> Vec<String> {
+        self.retrieve(query, k)
+            .into_iter()
+            .map(|(_, text, _)| text)
+            .collect()
+    }
+}
+
 /// Wraps any [`Retriever`] with a second-stage **reranker**: it pulls a *wider*
 /// pool from the inner retriever, then rescores that pool for precision with
 /// [`sovereign-rerank`](sovereign_rerank)'s coverage ranking — the fraction of
@@ -1566,6 +1674,46 @@ mod tests {
             ("rust", "rust ownership and systems programming"),
             ("cook", "pasta tomato sauce recipe"),
         ]);
+        let seen = Rc::new(RefCell::new(Vec::new()));
+        let inner = Capture { seen: seen.clone() };
+        let mut rag = RagResponder::new(inner, s, 1);
+        rag.respond("rusty systems programs", 0).unwrap();
+        let prompts = seen.borrow();
+        assert!(prompts[0].starts_with("Context:\n"));
+        assert!(prompts[0].contains("rust ownership"));
+    }
+
+    #[test]
+    fn matryoshka_store_retrieves_the_nearest_document() {
+        let mut s = MatryoshkaStore::new();
+        s.add("rust", "rust ownership governs memory safety");
+        s.add("python", "python is a dynamically typed scripting language");
+        s.add("cook", "pasta with tomato sauce and basil");
+        assert_eq!(s.len(), 3);
+        let hits = s.retrieve("rust memory ownership", 1);
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].0, "rust", "matryoshka hits {hits:?}");
+    }
+
+    #[test]
+    fn matryoshka_store_coarse_saving_and_empty() {
+        assert!(MatryoshkaStore::new().retrieve("anything", 3).is_empty());
+        let mut s = MatryoshkaStore::new();
+        s.add("a", "some text here");
+        assert!(s.retrieve("text", 0).is_empty());
+        // 64-of-256 coarse prefix → 75% of the per-candidate work skipped
+        assert!(
+            (s.coarse_saving() - 0.75).abs() < 1e-9,
+            "{}",
+            s.coarse_saving()
+        );
+    }
+
+    #[test]
+    fn matryoshka_store_drives_rag() {
+        let mut s = MatryoshkaStore::new();
+        s.add("rust", "rust ownership and systems programming");
+        s.add("cook", "pasta tomato sauce recipe");
         let seen = Rc::new(RefCell::new(Vec::new()));
         let inner = Capture { seen: seen.clone() };
         let mut rag = RagResponder::new(inner, s, 1);
