@@ -908,6 +908,17 @@ fn run_rag_quality_demo() -> String {
         vote.count, vote.total, vote.agreement
     );
 
+    // Best-of-n: draw several completions and keep the one the model is most
+    // confident in (highest mean log-prob), rather than one stochastic decode.
+    let best = llm
+        .complete_best_of_n("rust memory", 12, 7, 4)
+        .expect("best-of-n");
+    let _ = writeln!(
+        out,
+        "best-of-4        : kept the highest-confidence of 4 candidates ({} chars)",
+        best.len()
+    );
+
     // Constrained decoding: the regex mask forces digits-only output regardless
     // of the (random) weights — guaranteed-format generation.
     let digits = llm
@@ -1064,6 +1075,10 @@ mod tests {
         assert!(report.contains("prompt compress  :"));
         assert!(
             report.contains("self-consistency :") && report.contains("agree (agreement="),
+            "{report}"
+        );
+        assert!(
+            report.contains("best-of-4        : kept the highest-confidence"),
             "{report}"
         );
         assert!(report.contains("best-of-4 divers.:"));

@@ -300,6 +300,38 @@ impl SovereignLlm {
             .map_err(|e| LlmError::SelfConsistency(e.to_string()))
     }
 
+    /// Complete `prompt` **`n` times** (seeds `base_seed..base_seed+n`) and return
+    /// the single completion the model is **most confident** in — the one with the
+    /// highest mean per-token log-probability (`completion_confidence`), picked
+    /// with [`sovereign-best-of-n`](sovereign_best_of_n). Best-of-`n` sampling
+    /// trades compute for quality: draw several candidates and keep the one the
+    /// model scores highest, rather than committing to a single stochastic decode.
+    /// `n` is clamped to at least 1 (so `n = 0` reduces to a single completion at
+    /// `base_seed`); ties go to the earliest seed. Reproducible per `base_seed`.
+    pub fn complete_best_of_n(
+        &self,
+        prompt: &str,
+        max_new: usize,
+        base_seed: u64,
+        n: usize,
+    ) -> Result<String, LlmError> {
+        let n = n.max(1);
+        let mut candidates: Vec<(String, f64)> = Vec::with_capacity(n);
+        for i in 0..n {
+            let seed = base_seed + i as u64;
+            let text = self.complete(prompt, max_new, seed)?;
+            // score each candidate by the model's own mean log-prob over the
+            // generated tokens (higher = more confident); an empty generation
+            // scores worst so it can never win.
+            let score = self
+                .completion_confidence(prompt, max_new, seed)?
+                .map(|c| c.mean_logprob)
+                .unwrap_or(f64::NEG_INFINITY);
+            candidates.push((text, score));
+        }
+        Ok(sovereign_best_of_n::best(&candidates).expect("n >= 1 → non-empty"))
+    }
+
     /// Complete `prompt` after **fitting it to a context budget**: if the prompt
     /// exceeds `max_context` tokens it is trimmed to the most recent `max_context`
     /// (`sovereign-context-budget`, keeping the tail — the text nearest where
@@ -1158,6 +1190,50 @@ mod tests {
             llm.complete_self_consistent("hello", 6, 4, 0),
             Err(LlmError::SelfConsistency(_))
         ));
+    }
+
+    #[test]
+    fn best_of_n_greedy_equals_single_complete() {
+        // greedy → every candidate identical → the best is that same completion
+        let llm = runtime(Sampler::greedy());
+        assert_eq!(
+            llm.complete_best_of_n("hello", 6, 4, 5).unwrap(),
+            llm.complete("hello", 6, 4).unwrap()
+        );
+    }
+
+    #[test]
+    fn best_of_n_zero_clamps_to_single() {
+        // n = 0 clamps to 1 → a single completion at base_seed
+        let llm = runtime(Sampler::greedy());
+        assert_eq!(
+            llm.complete_best_of_n("hello", 6, 4, 0).unwrap(),
+            llm.complete("hello", 6, 4).unwrap()
+        );
+    }
+
+    #[test]
+    fn best_of_n_picks_a_produced_candidate_and_is_reproducible() {
+        // with a stochastic sampler the winner must be one of the n candidates,
+        // and the choice is fully reproducible per base_seed
+        let cfg = || {
+            Sampler::new(SamplerConfig {
+                temperature: 0.9,
+                top_k: Some(40),
+                ..SamplerConfig::default()
+            })
+        };
+        let a = runtime(cfg());
+        let b = runtime(cfg());
+        let winner = a.complete_best_of_n("hello there", 8, 7, 4).unwrap();
+        assert_eq!(
+            winner,
+            b.complete_best_of_n("hello there", 8, 7, 4).unwrap()
+        );
+        let candidates: Vec<String> = (0..4)
+            .map(|i| a.complete("hello there", 8, 7 + i).unwrap())
+            .collect();
+        assert!(candidates.contains(&winner), "winner not among candidates");
     }
 
     #[test]
