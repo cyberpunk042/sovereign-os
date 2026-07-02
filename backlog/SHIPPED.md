@@ -323,6 +323,8 @@ The codebase carries substantial production state from prior development. This s
 |---|---|
 | Hardware-stack consolidation SDD | `docs/sdd/029-hardware-stack-consolidation.md` (cross-ref M007, M008, M039, M070) — anchors the AVX-512 VNNI hardware-fusion path in the consolidated hardware-stack architecture |
 | AVX-512 advisor | `scripts/hardware/avx512-advisor.py` (cross-ref M007, M008, M039) — the operator-side surface for the VNNI hardware-fusion decisions |
+| VDPBF16PS BF16 reference (M085 T1) | `crates/sovereign-vnni/` `f32_to_bf16` (round-to-nearest-even, NaN-quieting — the `VCVTNE2PS2BF16` conversion) + `bf16_to_f32` + `vdpbf16ps_lane` (2 BF16 pairs → one f32 accumulator lane) + `dot_bf16` + `MatBf16` matvec — the note's T1 "multiplication floues BF16" beside VPDPBUSD, halving weight memory at f32 range. Plus `MatI8::row_sums` (the zero-point correction term an asymmetric INT8 scheme needs). Commit `af681c7`; 8 unit (round-trip on representables; RNE at the exact halfway point; lane accumulate; dot == f32 on representables; matvec exact/close; guards + serde; row sums) |
+| **INT8 VNNI precision activated in the model path** (M085 T1, built → used) | `crates/sovereign-linear/` `Precision::Int8` + `Int8Layer` — per-row symmetric `i8` weights (`max\|W[r]\|/127`), asymmetric `u8` activations with a zero point, `i32` accumulation via `sovereign-vnni::MatI8` (VPDPBUSD-style dots), dequantized with the row-sum correction `y = s_w·s_x·(acc − zp·Σ Wq)`. Makes `sovereign-vnni` (previously **zero consumers**) the execution backend of a first-class model precision: `MhaDecoderBlock::from_weights(&w, Precision::Int8)` works unchanged, and the running demo's stack is now **4 layers across 4 precisions** (`f32 \| ternary \| NVFP4-MHA \| INT8-VNNI-MHA`, one residual stream). Commit `af681c7`; 6 linear unit (close-to-f32 within 2% norm; argmax preserved; negative activations via zero-point; constant-input row-sum path; bits/param ≈8–13 + no energy report; contract + serde loops include Int8) + 1 mha-block e2e (INT8 block steps a sequence, tracks f32 within 5% norm) + demo asserts 4 layers / INT8-VNNI line |
 
 ### M075 — SRP hardware topology mapping
 
@@ -456,6 +458,15 @@ The codebase carries substantial production state from prior development. This s
 |---|---|
 | HRM runtime crate | `crates/sovereign-hrm-runtime/` — recurrent two-timescale brain-inspired architectural class as a parallel to the Transformer/Mamba/BitNet runtime family |
 
+### M085 — Zen 5 AVX-512 three-tier instruction exploitation
+
+| Surface | Shipped artifact |
+|---|---|
+| Milestone + verbatim note transcription | `backlog/milestones/M085-zen5-avx512-three-tier-instruction-exploitation.md` — the operator's handwritten 2026-07-02 note (9900X dual native 512-bit pipes; T1 quant/dot VNNI · T2 bitwise/attention ternary-mask · T3 structure/prune/KV VBMI/CD; PAM-3 GDDR7 + VPOPCNT margin) transcribed verbatim with image provenance; 8 epics E0808–E0815 |
+| T1 built + activated | see M074 rows (commit `af681c7`): VDPBF16PS BF16 reference + `Precision::Int8` VNNI live in the model path; the demo runs 4 precisions in one residual stream |
+| T3 completed | see M008 row (commit `af681c7`): `vpermb` / `vpshldv` / `expand` references with the compress→expand round trip pinned |
+| T2 + margin status | VPTERNLOG / VP2INTERSECT / VPOPCNT references pre-existed in `crates/sovereign-bitops/`; their attention/ternary kernel consumers are tracked open as E0810/E0811/E0814. PAM-3/GDDR7 (E0815) is catalog-only — a memory-substrate property, cross-ref M038/M058 |
+
 ### M004 — Oracle / Scout / Vector Arbiter role split
 
 | Surface | Shipped artifact |
@@ -504,6 +515,7 @@ The codebase carries substantial production state from prior development. This s
 |---|---|
 | Hardware-stack consolidation SDD | `docs/sdd/029-hardware-stack-consolidation.md` (cross-ref M007) |
 | AVX-512 advisor + BIOS directives | `scripts/hardware/avx512-advisor.py`, `scripts/hardware/bios-directives.py`, `scripts/hardware/bios-info.py` — operator-side surface for the bit-level-AVX-512 infrastructure choice |
+| T3 structure/prune/KV references (M085) | `crates/sovereign-bitops/` — the note's T3 tier completed: `vpermb` (`VPERMB`/VBMI 64-byte table permute, index masked to 6 bits like the hardware — "alignement & shuffling de tokens"), `vpshldv` (`VPSHLDVQ`/VBMI2 concatenated variable funnel shift-left), and `expand` (`VPEXPAND`, the inverse of the existing `compress` — "compactage dynamique"; compress→expand reconstruction of kept lanes pinned as a test). Commit `af681c7`; 4 unit (scatter to masked lanes + fill semantics; compress round trip; permute + 6-bit index masking; funnel shift incl. count-0/count-64/full-funnel edges) |
 
 ### M009 — Deterministic Cortex Runtime v0
 
