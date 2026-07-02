@@ -161,3 +161,6 @@ sovereign-conversation-search-index = { path = "../sovereign-conversation-search
 sovereign-crdt = { path = "../sovereign-crdt" }
 sovereign-interval-schedule = { path = "../sovereign-interval-schedule" }
 sovereign-retry = { path = "../sovereign-retry" }
+sovereign-task-map = { path = "../sovereign-task-map" }
+sovereign-doctrine-citation = { path = "../sovereign-doctrine-citation" }
+sovereign-codegen-pipeline = { path = "../sovereign-codegen-pipeline" }

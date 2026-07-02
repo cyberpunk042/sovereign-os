@@ -2079,6 +2079,35 @@ fn run_rag_quality_demo() -> String {
         "distributed rt   : crdt_val={crdt_val} converged={converged} admitted={admitted} admit_weight={admit_weight} backoff0={backoff0} backoff2={backoff2} retry3={retry3}"
     );
 
+    // Agent-lifecycle-gates plane: map the territory before acting, cite the
+    // doctrine each action rests on, and gate generated code through its promotion
+    // ladder. task-map (E0551) gathers a domain's map components; doctrine-citation
+    // computes the doctrine tags a canonical action shape must carry;
+    // codegen-pipeline (E0216) enforces the 7-step path + 5-rung promotion ladder
+    // so generated code climbs one rung at a time, never trusted on arrival.
+    let mut map = sovereign_task_map::TaskMap::new(sovereign_task_map::MapDomain::Code);
+    map.gather("repo structure", "workspace of ~500 crates");
+    map.gather("test commands", "cargo test --workspace");
+    let map_missing = map.missing_components().len();
+    let map_complete = map.is_complete();
+
+    let citation = sovereign_doctrine_citation::cite(
+        "trace-9",
+        sovereign_doctrine_citation::ActionShape::ToolInvocation,
+        sovereign_execution_mode_registry::ExecutionMode::Execute,
+    );
+    let cite_tags = citation.tags.len();
+
+    let step_next = sovereign_codegen_pipeline::CodegenStep::Propose.next();
+    let promote_ok = sovereign_codegen_pipeline::PromotionRung::AdHoc
+        .can_promote_to(sovereign_codegen_pipeline::PromotionRung::SandboxedScript);
+    let promote_skip = sovereign_codegen_pipeline::PromotionRung::AdHoc
+        .can_promote_to(sovereign_codegen_pipeline::PromotionRung::TrustedPrimitive);
+    let _ = writeln!(
+        out,
+        "lifecycle gates  : map_missing={map_missing} map_complete={map_complete} cite_tags={cite_tags} step_next={step_next:?} promote_ok={promote_ok} promote_skip={promote_skip}"
+    );
+
     out
 }
 
@@ -2361,6 +2390,15 @@ mod tests {
         assert!(
             report.contains(
                 "distributed rt   : crdt_val=8 converged=true admitted=2 admit_weight=7 backoff0=100 backoff2=400 retry3=true"
+            ),
+            "{report}"
+        );
+        // agent-lifecycle-gates plane ran: the Code map still misses 5 of 7
+        // components (incomplete), a tool-invocation action cited 4 doctrine tags,
+        // codegen advanced one step and could promote one rung but not skip to trusted
+        assert!(
+            report.contains(
+                "lifecycle gates  : map_missing=5 map_complete=false cite_tags=4 step_next=Some(ValidateCaps) promote_ok=true promote_skip=false"
             ),
             "{report}"
         );
