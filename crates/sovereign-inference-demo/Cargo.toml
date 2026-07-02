@@ -101,4 +101,6 @@ sovereign-vector-clock = { path = "../sovereign-vector-clock" }
 sovereign-line-diff = { path = "../sovereign-line-diff" }
 sovereign-text-edit = { path = "../sovereign-text-edit" }
 sovereign-sse-parse = { path = "../sovereign-sse-parse" }
+sovereign-continuous-batch = { path = "../sovereign-continuous-batch" }
+sovereign-prompt-history-ring = { path = "../sovereign-prompt-history-ring" }
 sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }

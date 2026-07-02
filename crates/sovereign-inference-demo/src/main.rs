@@ -683,6 +683,30 @@ fn run_strategies_demo() -> String {
         vbytes.len()
     );
 
+    // Continuous batching scheduler (admit requests into a running batch) +
+    // a bounded prompt-history ring buffer.
+    let mut sched = sovereign_continuous_batch::Scheduler::new(64, 16, 4);
+    sched.add_request(sovereign_continuous_batch::Request {
+        id: 1,
+        prompt_len: 10,
+        max_tokens: 5,
+    });
+    sched.add_request(sovereign_continuous_batch::Request {
+        id: 2,
+        prompt_len: 8,
+        max_tokens: 3,
+    });
+    let admitted = sched.step().admitted.len();
+    let mut ring = sovereign_prompt_history_ring::PromptHistoryRing::new();
+    let _ = ring.push("first prompt");
+    let _ = ring.push("second prompt");
+    let _ = ring.push("third prompt");
+    let _ = writeln!(
+        out,
+        "serving/history  : admitted={admitted} history_len={}",
+        ring.len()
+    );
+
     // Text ops: line diff, find/replace edits, and an SSE streaming parser
     // (the shape a streaming LLM client + a code-edit tool need).
     let diff = sovereign_line_diff::diff("a\nb\nc", "a\nB\nc\nd");
@@ -1596,6 +1620,10 @@ mod tests {
         );
         assert!(
             report.contains("text ops         : diff_inserts=2 edit=\"hi rust\" sse_events=2"),
+            "{report}"
+        );
+        assert!(
+            report.contains("serving/history  : admitted=2 history_len=3"),
             "{report}"
         );
         assert!(
