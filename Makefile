@@ -6,7 +6,7 @@ SHELL := /bin/bash
 PROFILE ?= sain-01
 
 .PHONY: help setup validate lint unit l3 l3-fast test smoke dry-run \
-        preflight ci all clean dashboards-lint install uninstall bins panel
+        preflight ci all clean dashboards-lint install uninstall bins panel bootstrap
 
 .DEFAULT_GOAL := help
 
@@ -26,6 +26,9 @@ setup:  ## One-command fresh-clone bootstrap (git hooks + deps + smoke)
 
 panel:  ## Start the operator panels (build configurator :8100 + runtime dashboard :8443) — no sudo
 	scripts/operator/panel.sh
+
+bootstrap:  ## One command: enable apt components + install ALL build-host deps (zfs, mkosi, qemu…). Self-sudo.
+	scripts/install/bootstrap-host.sh
 
 validate:  ## Validate all profiles against schema + mixin merger
 	scripts/validate-profiles.sh

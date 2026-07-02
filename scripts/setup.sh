@@ -114,6 +114,7 @@ fi
 echo -e "${bold}${green}setup complete${reset}"
 echo
 echo "Next steps:"
+echo "  scripts/install/bootstrap-host.sh             # ONE-TIME: enable apt components + install ALL build-host deps (zfs, mkosi, qemu…)"
 echo "  scripts/build/orchestrate.sh run --dry-run    # validate build plan"
 echo "  scripts/build/orchestrate.sh preflight        # run pre-install hooks"
 echo "  sudo scripts/build/orchestrate.sh run         # actual build (operator-only)"

@@ -141,11 +141,12 @@ if [ "${storage_layout}" = "zfs-tiered" ]; then
   check "zfs binary available (required by zfs-tiered layout)" \
     command -v zfs
   if [ "${zfs_missing}" -eq 1 ]; then
-    log_error "  REMEDIATION — install the ZFS userland on this build/installer host:"
-    log_error "      sudo apt install -y zfsutils-linux   # provides zpool + zfs (Debian contrib)"
-    log_error "    zfs-tiered also needs the kernel module at install time:"
-    log_error "      sudo apt install -y zfs-dkms         # builds against the installed kernel headers"
-    log_error "      sudo modprobe zfs"
+    log_error "  REMEDIATION — one command fixes this (and every other host dep):"
+    log_error "      scripts/install/bootstrap-host.sh"
+    log_error "    It ENABLES the contrib/non-free apt components first (a bare"
+    log_error "    'apt install zfsutils-linux' fails with 'no installation"
+    log_error "    candidate' because a stock Debian host ships main only), then"
+    log_error "    installs the full build-host toolchain incl. zpool + zfs."
     log_error "    Or set hardware.storage.layout to a non-zfs layout in the profile if you don't want ZFS."
   fi
 fi
