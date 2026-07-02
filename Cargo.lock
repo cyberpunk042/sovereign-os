@@ -4954,6 +4954,7 @@ dependencies = [
  "sovereign-ffn",
  "sovereign-injection-detect",
  "sovereign-json-schema-grammar",
+ "sovereign-language-detect",
  "sovereign-linear",
  "sovereign-llm",
  "sovereign-logit-mask",

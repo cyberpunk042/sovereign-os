@@ -799,6 +799,29 @@ fn run_rag_quality_demo() -> String {
         det.accuracy, det.precision, det.recall, det.f1, det.samples
     );
 
+    // Language detection (Cavnar-Trenkle char-trigrams): train a few languages,
+    // then classify a query — useful for routing or tagging retrieved text.
+    let mut langs = sovereign_language_detect::LanguageDetector::new();
+    langs.add_language(
+        "en",
+        "the quick brown fox jumps over the lazy dog and runs away",
+    );
+    langs.add_language(
+        "fr",
+        "le renard brun rapide saute par dessus le chien paresseux",
+    );
+    langs.add_language("es", "el rapido zorro marron salta sobre el perro perezoso");
+    let detected = langs
+        .detect("the memory safety of the borrow checker")
+        .map(|(l, _)| l)
+        .unwrap_or_default();
+    let _ = writeln!(
+        out,
+        "language detect  : {} languages, query -> {:?}",
+        langs.len(),
+        detected
+    );
+
     // Binary-quantized shortlist: sign-bit codes (32x smaller than the f32
     // vectors), ranked by XOR-popcount Hamming distance — the cheap first stage
     // that narrows the field before a full-precision rerank.
@@ -1222,6 +1245,11 @@ mod tests {
         // the injection detector scored a perfect verdict on the labeled set
         assert!(
             report.contains("detector quality : acc=1.00 P=1.00 R=1.00 F1=1.00 over 4 labeled"),
+            "{report}"
+        );
+        // language detection classified the English query correctly
+        assert!(
+            report.contains("language detect  : 3 languages, query -> \"en\""),
             "{report}"
         );
         // the generation quality controls all ran and reported
