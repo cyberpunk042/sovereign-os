@@ -710,9 +710,10 @@ catalog:
       quantization: bf16
       size_class: m
       purpose: [reasoning, code]
-      status: operator-must-confirm
-      license: apache-2.0
-      closest_real_alternative: mit-oasys/rlm-qwen3-8b-v0.1
+      status: verified-real
+      license: mit
+      hf_repo_id: mit-oasys/rlm-qwen3-8b-v0.1
+      parameters_millions: 8191
       master_spec_section: "operator handwritten catalog addition 2026-07-02"
       runtime_profile_bindings: []
       operator_note: "Operator handwritten catalog 2026-07-02 — note: RLM code reasoner. Coined; RLM substrate (mit-oasys/rlm-qwen3-8b-v0.1) is the closest real base."
@@ -1125,8 +1126,9 @@ catalog:
       quantization: ternary-1.58bit
       size_class: s
       purpose: [agent]
-      status: operator-must-confirm
+      status: aspirational
       license: other
+      closest_real_alternative: showlab/ShowUI-2B
       master_spec_section: "operator handwritten catalog addition 2026-07-02"
       runtime_profile_bindings: []
       operator_note: "Operator handwritten catalog 2026-07-02 — note: coined UI-specialist ternary model (purpose=ui->agent); no real repo found."
@@ -1164,8 +1166,9 @@ catalog:
       quantization: ternary-1.58bit
       size_class: s
       purpose: [chat]
-      status: operator-must-confirm
+      status: aspirational
       license: other
+      closest_real_alternative: DeepHat/DeepHat-V1-7B
       master_spec_section: "operator handwritten catalog addition 2026-07-02"
       runtime_profile_bindings: []
       operator_note: "Operator handwritten catalog 2026-07-02 — note: coined security(OWASP)-specialist ternary model; no real repo found."
@@ -1177,8 +1180,9 @@ catalog:
       quantization: ternary-1.58bit
       size_class: s
       purpose: [chat, agent]
-      status: operator-must-confirm
+      status: aspirational
       license: other
+      closest_real_alternative: DeepHat/DeepHat-V1-7B
       master_spec_section: "operator handwritten catalog addition 2026-07-02"
       runtime_profile_bindings: []
       operator_note: "Operator handwritten catalog 2026-07-02 — note: coined security/pentest tiny model; no real repo found."

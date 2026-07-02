@@ -10,8 +10,8 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 
 | Tier | Count | Verified-real | Aspirational |
 |------|-------|---------------|--------------|
-| pulse | 28 | 9 | 11 |
-| logic | 22 | 5 | 7 |
+| pulse | 28 | 9 | 14 |
+| logic | 22 | 6 | 7 |
 | oracle | 13 | 7 | 5 |
 | router | 5 | 4 | 0 |
 
@@ -504,7 +504,7 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 
 ### Tiny-Ternary-UI-3B
 
-- **Status:** ? operator-must-confirm
+- **Status:** ◌ aspirational
 - **Class:** `ternary-lm` — Ternary LM (1.58-bit)
 - **Quantization:** `ternary-1.58bit`
 - **Size class:** `s`
@@ -512,6 +512,7 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 - **Engine:** `bitnet.cpp`
 - **License:** other
 - **Master spec:** operator handwritten catalog addition 2026-07-02
+- **Closest real alternative:** `showlab/ShowUI-2B`
 
 **Operator note:**
 
@@ -519,7 +520,7 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 
 ### OWASP-Ternary-3B
 
-- **Status:** ? operator-must-confirm
+- **Status:** ◌ aspirational
 - **Class:** `ternary-lm` — Ternary LM (1.58-bit)
 - **Quantization:** `ternary-1.58bit`
 - **Size class:** `s`
@@ -527,6 +528,7 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 - **Engine:** `bitnet.cpp`
 - **License:** other
 - **Master spec:** operator handwritten catalog addition 2026-07-02
+- **Closest real alternative:** `DeepHat/DeepHat-V1-7B`
 
 **Operator note:**
 
@@ -534,7 +536,7 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 
 ### HackerLM-tiny-3B
 
-- **Status:** ? operator-must-confirm
+- **Status:** ◌ aspirational
 - **Class:** `ternary-lm` — Ternary LM (1.58-bit)
 - **Quantization:** `ternary-1.58bit`
 - **Size class:** `s`
@@ -542,6 +544,7 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 - **Engine:** `bitnet.cpp`
 - **License:** other
 - **Master spec:** operator handwritten catalog addition 2026-07-02
+- **Closest real alternative:** `DeepHat/DeepHat-V1-7B`
 
 **Operator note:**
 
@@ -716,13 +719,15 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 
 ### RLM-Code-Reasoner-8B
 
-- **Status:** ? operator-must-confirm
+- **Status:** ✓ verified-real
 - **Class:** `rlm` — RLM (reasoning)
 - **Quantization:** `bf16`
 - **Size class:** `m`
 - **Purpose:** `reasoning`, `code`
 - **Engine:** `vllm`
-- **License:** apache-2.0
+- **License:** mit
+- **HF repo id:** `mit-oasys/rlm-qwen3-8b-v0.1`
+- **Parameters:** 8191.0 M
 - **Master spec:** operator handwritten catalog addition 2026-07-02
 
 **Operator note:**
