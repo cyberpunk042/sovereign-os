@@ -725,6 +725,40 @@ impl DecoderStack {
         Ok(generated)
     }
 
+    /// Generate up to `max_new` tokens by the **Gumbel-max trick**
+    /// (`sovereign-gumbel`): each step adds one i.i.d. Gumbel sample to every
+    /// logit and takes the `argmax`, which is distributed *exactly* as
+    /// `softmax(logits)` — a branch-free way to draw from the raw logits with no
+    /// explicit normalization (equivalent to multinomial sampling at temperature
+    /// 1). It bypasses the config sampler's truncation entirely; forbidden
+    /// (`-inf`) logits stay forbidden. Reproducible per `seed` (one seeded Gumbel
+    /// stream drives the whole call).
+    pub fn generate_gumbel(
+        &mut self,
+        prompt: &[usize],
+        max_new: usize,
+        seed: u64,
+    ) -> Result<Vec<usize>, StackError> {
+        if prompt.is_empty() {
+            return Err(StackError::EmptyPrompt);
+        }
+        let mut logits = Vec::new();
+        for &t in prompt {
+            logits = self.forward(t)?;
+        }
+        let mut gumbel = sovereign_gumbel::GumbelSampler::new(seed);
+        let mut generated = Vec::with_capacity(max_new);
+        for _ in 0..max_new {
+            let logits_f64: Vec<f64> = logits.iter().map(|&l| l as f64).collect();
+            // vocab is always non-empty, so `sample` yields a token.
+            let token = gumbel.sample(&logits_f64).unwrap_or(0);
+            self.recent.push(token);
+            generated.push(token);
+            logits = self.forward(token)?;
+        }
+        Ok(generated)
+    }
+
     /// Generate up to `max_new` tokens applying **DRY** (Don't Repeat Yourself)
     /// to the logits each step before sampling: each candidate is penalized by how
     /// long a previously-generated sequence picking it would extend (exponential
@@ -919,6 +953,37 @@ mod tests {
             out.iter().all(|&t| ![0, 1, 5, 6, 7].contains(&t)),
             "banned token leaked: {out:?}"
         );
+    }
+
+    #[test]
+    fn gumbel_generates_in_range_and_is_reproducible() {
+        let cfg = config(8, 4, 2, Sampler::new(SamplerConfig::default()));
+        let a = DecoderStack::new(cfg.clone())
+            .unwrap()
+            .generate_gumbel(&[1, 2, 3], 6, 42)
+            .unwrap();
+        let b = DecoderStack::new(cfg)
+            .unwrap()
+            .generate_gumbel(&[1, 2, 3], 6, 42)
+            .unwrap();
+        assert_eq!(a.len(), 6);
+        assert!(a.iter().all(|&t| t < 8), "{a:?}");
+        assert_eq!(a, b, "same seed must reproduce the Gumbel draw");
+    }
+
+    #[test]
+    fn gumbel_sample_matches_softmax_on_a_peaked_distribution() {
+        // Gumbel-max draws exactly softmax(logits); a dominant logit should win a
+        // large majority of single-step draws.
+        let mut wins = 0;
+        for s in 0..400u64 {
+            let mut g = sovereign_gumbel::GumbelSampler::new(s);
+            // token 3 is far above the rest → softmax mass ~concentrated there
+            if g.sample(&[0.0, 0.0, 0.0, 6.0, 0.0, 0.0]) == Some(3) {
+                wins += 1;
+            }
+        }
+        assert!(wins > 360, "peaked logit won only {wins}/400");
     }
 
     #[test]

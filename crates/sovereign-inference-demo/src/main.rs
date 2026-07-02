@@ -615,6 +615,14 @@ fn run_strategies_demo() -> String {
         "logit pipeline  : {piped:?} (2 processors; banned leaked: {banned_leaked})"
     );
 
+    // Gumbel-max sampling: add Gumbel noise to the logits and take argmax —
+    // exactly softmax-distributed, branch-free, no explicit normalization.
+    let gum = model
+        .clone()
+        .generate_gumbel(&prompt, 8, 42)
+        .expect("gumbel");
+    let _ = writeln!(out, "gumbel-max      : {gum:?}");
+
     // early-stop: stop the moment the first sampled token recurs as a "stop".
     let stop = nrn[0];
     let stopped = model
@@ -1086,6 +1094,7 @@ mod tests {
             report.contains("logit pipeline  :") && report.contains("banned leaked: false"),
             "{report}"
         );
+        assert!(report.contains("gumbel-max      :"), "{report}");
         assert!(report.contains("perplexity"));
         assert!(report.contains("round-trip ok = true"), "{report}");
     }

@@ -21,6 +21,7 @@ sovereign-rmsnorm = { path = "../sovereign-rmsnorm" }
 sovereign-sampler = { path = "../sovereign-sampler" }
 sovereign-logit-mask = { path = "../sovereign-logit-mask" }
 sovereign-logit-pipeline = { path = "../sovereign-logit-pipeline" }
+sovereign-gumbel = { path = "../sovereign-gumbel" }
 sovereign-xtc-sampler = { path = "../sovereign-xtc-sampler" }
 sovereign-dry-sampler = { path = "../sovereign-dry-sampler" }
 sovereign-repetition-penalty = { path = "../sovereign-repetition-penalty" }

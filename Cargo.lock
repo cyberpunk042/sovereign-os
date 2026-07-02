@@ -4592,6 +4592,7 @@ dependencies = [
  "serde_json",
  "sovereign-dry-sampler",
  "sovereign-ffn",
+ "sovereign-gumbel",
  "sovereign-logit-mask",
  "sovereign-logit-pipeline",
  "sovereign-repetition-penalty",
