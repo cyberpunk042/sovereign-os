@@ -94,7 +94,7 @@ groups:
           runbook_url: "https://github.com/cyberpunk042/selfdef/blob/main/docs/operator/ms048-scheduler-failure-modes.md#12-sustained-routing-deferral-high-hibernate-rate"
 
       - alert: SelfdefSchedulerMultipleBackpressureFiring
-        expr: (selfdef_scheduler_cpu_pressure + selfdef_scheduler_ram_pressure + selfdef_scheduler_io_pressure + selfdef_scheduler_blackwell_vram_high + selfdef_scheduler_gpu4090_busy + selfdef_scheduler_human_gate_queue_high) >= 3
+        expr: (selfdef_scheduler_cpu_pressure + selfdef_scheduler_ram_pressure + selfdef_scheduler_io_pressure + selfdef_scheduler_blackwell_vram_high + selfdef_scheduler_gpu3090_busy + selfdef_scheduler_human_gate_queue_high) >= 3
         for: 15m
         labels:
           severity: warning

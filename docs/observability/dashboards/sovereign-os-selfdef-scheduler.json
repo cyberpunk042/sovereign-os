@@ -34,7 +34,7 @@
       "title": "backpressure surfaces firing (of 6)",
       "description": "cpu + ram + io + Blackwell VRAM + 4090 busy + human-gate-high.",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"expr": "selfdef_scheduler_cpu_pressure + selfdef_scheduler_ram_pressure + selfdef_scheduler_io_pressure + selfdef_scheduler_blackwell_vram_high + selfdef_scheduler_gpu4090_busy + selfdef_scheduler_human_gate_queue_high", "refId": "A"}],
+      "targets": [{"expr": "selfdef_scheduler_cpu_pressure + selfdef_scheduler_ram_pressure + selfdef_scheduler_io_pressure + selfdef_scheduler_blackwell_vram_high + selfdef_scheduler_gpu3090_busy + selfdef_scheduler_human_gate_queue_high", "refId": "A"}],
       "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 6, "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 1}, {"color": "red", "value": 3}]}}},
       "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
     },
@@ -67,7 +67,7 @@
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "targets": [
         {"expr": "selfdef_scheduler_blackwell_vram_util", "legendFormat": "Blackwell VRAM", "refId": "A"},
-        {"expr": "selfdef_scheduler_gpu4090_util", "legendFormat": "4090 compute", "refId": "B"}
+        {"expr": "selfdef_scheduler_gpu3090_util", "legendFormat": "4090 compute", "refId": "B"}
       ],
       "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1}},
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
@@ -82,7 +82,7 @@
         {"expr": "selfdef_scheduler_ram_pressure", "legendFormat": "ram_pressure", "refId": "B"},
         {"expr": "selfdef_scheduler_io_pressure", "legendFormat": "io_pressure", "refId": "C"},
         {"expr": "selfdef_scheduler_blackwell_vram_high", "legendFormat": "blackwell_vram_high", "refId": "D"},
-        {"expr": "selfdef_scheduler_gpu4090_busy", "legendFormat": "gpu4090_busy", "refId": "E"},
+        {"expr": "selfdef_scheduler_gpu3090_busy", "legendFormat": "gpu3090_busy", "refId": "E"},
         {"expr": "selfdef_scheduler_human_gate_queue_high", "legendFormat": "human_gate_queue_high", "refId": "F"}
       ],
       "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 1, "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 30}}},

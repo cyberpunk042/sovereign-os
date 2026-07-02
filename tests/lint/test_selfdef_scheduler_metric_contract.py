@@ -48,7 +48,7 @@ def _extract_metric_names(path: Path) -> set[str]:
     raw = set(METRIC_NAME_RE.findall(text))
     # Drop trailing-underscore artifacts (e.g. `selfdef_scheduler_decisions_`
     # in a docstring comment) and the bare-prefix `_gpu` (truncated regex
-    # match on `_gpu4090_*`).
+    # match on `_gpu3090_*`).
     return {
         n
         for n in raw
