@@ -2,7 +2,7 @@
 
 # Model catalog — Genesis Trinity (master spec § 17)
 
-Canonical declaration of the 19 models this system intends to host across Pulse / Logic / Oracle / Router tiers, spanning the full R212 taxonomy (class × quantization × size_class × purpose).
+Canonical declaration of the 29 models this system intends to host across Pulse / Logic / Oracle / Router tiers, spanning the full R212 taxonomy (class × quantization × size_class × purpose).
 
 This doc is regenerated from `models/catalog.yaml` on every invocation of `scripts/models/render-catalog-md.py`. The same YAML drives `scripts/models/pull.sh` (operator-driven pull) and `scripts/models/verify.sh` (resident integrity check), so the doc, the puller, and the verifier can never drift.
 
@@ -10,42 +10,42 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 
 | Tier | Count | Verified-real | Aspirational |
 |------|-------|---------------|--------------|
-| pulse | 5 | 3 | 2 |
-| logic | 4 | 2 | 1 |
+| pulse | 11 | 9 | 2 |
+| logic | 7 | 5 | 1 |
 | oracle | 7 | 7 | 0 |
-| router | 3 | 3 | 0 |
+| router | 4 | 4 | 0 |
 
 ## Catalog by class (R212 taxonomy)
 
 | Class | Count |
 |-------|-------|
-| `code` — Code-specialised | 1 |
-| `embed` — Embedding | 1 |
+| `code` — Code-specialised | 4 |
+| `embed` — Embedding | 2 |
 | `llm` — LLM (general) | 1 |
 | `lora-adapter` — LoRA adapter | 1 |
 | `mixture` — Mixture-of-Experts | 1 |
 | `multimodal` — Multimodal | 3 |
 | `reranker` — Reranker (cross-encoder) | 1 |
-| `rlm` — RLM (reasoning) | 2 |
+| `rlm` — RLM (reasoning) | 3 |
 | `slm` — SLM (small) | 2 |
 | `speculative` — Speculative draft | 1 |
-| `ternary-lm` — Ternary LM (1.58-bit) | 4 |
+| `ternary-lm` — Ternary LM (1.58-bit) | 9 |
 | `vision` — Vision | 1 |
 
 ## Catalog by purpose (R212 taxonomy)
 
 | Purpose | Count |
 |---------|-------|
-| `agent` | 4 |
+| `agent` | 7 |
 | `audio` | 3 |
-| `chat` | 9 |
-| `code` | 5 |
+| `chat` | 16 |
+| `code` | 9 |
 | `distillation-base` | 1 |
-| `embedding` | 1 |
-| `function-calling` | 4 |
+| `embedding` | 2 |
+| `function-calling` | 6 |
 | `multimodal` | 4 |
-| `rag` | 2 |
-| `reasoning` | 8 |
+| `rag` | 3 |
+| `reasoning` | 10 |
 | `reranking` | 1 |
 | `speculation` | 1 |
 | `vision` | 4 |
@@ -159,6 +159,137 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 > small footprint; ideal for code-heavy agent loops with a long
 > instruction buffer. GGUF Q5_K_M ships well-quantized.
 
+### Prism-Ternary-Bonsai-8B
+
+- **Status:** ✓ verified-real
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `m`
+- **Purpose:** `chat`, `code`, `agent`
+- **Engine:** `llama.cpp`
+- **License:** apache-2.0
+- **HF repo id:** `prism-ml/Ternary-Bonsai-8B-unpacked`
+- **Parameters:** 8000.0 M
+- **VRAM minimum (GiB):** 3
+- **Context window (tokens):** 32,768
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 ("Prism ML: Ternary
+> Bonsai"). prism-ml/Ternary-Bonsai is a real active HF line
+> (1.7B/4B/8B; unpacked + gguf + mlx-2bit; Qwen3-based, ternary
+> 1.58-bit). The note said "70B" — no 70B exists; largest is 8B
+> (this entry). gguf variant prism-ml/Ternary-Bonsai-8B-gguf
+> ships for llama.cpp. vram + context estimated (Qwen3-8B lineage).
+
+### Spectra-TriLM-3.9B
+
+- **Status:** ✓ verified-real
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `s`
+- **Purpose:** `chat`, `reasoning`
+- **Engine:** `llama.cpp`
+- **License:** apache-2.0
+- **HF repo id:** `SpectraSuite/TriLM_3.9B_Unpacked`
+- **Parameters:** 3992.0 M
+- **VRAM minimum (GiB):** 1.6
+- **Context window (tokens):** 2,048
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 ("Spectra-TriLM-3.9B").
+> SpectraSuite TriLM = ternary LM (weights in {-1,0,1}). Real on
+> HF (3992M). context 2048 (Spectra training); verify if a
+> longer-context release lands.
+
+### 1bitLLM-bitnet-b1.58-large
+
+- **Status:** ✓ verified-real
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `xs`
+- **Purpose:** `chat`
+- **Engine:** `bitnet.cpp`
+- **License:** mit
+- **HF repo id:** `1bitLLM/bitnet_b1_58-large`
+- **Parameters:** 729.0 M
+- **VRAM minimum (GiB):** 0.5
+- **Context window (tokens):** 2,048
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 ("1bitLLM/bitnet
+> b1.58 large"). Reproduction of the BitNet b1.58 paper
+> (arxiv 2402.17764), ~729M. Real on HF.
+
+### Falcon3-10B-Instruct-1.58bit
+
+- **Status:** ✓ verified-real
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `m`
+- **Purpose:** `chat`, `agent`
+- **Engine:** `bitnet.cpp`
+- **License:** other
+- **HF repo id:** `tiiuae/Falcon3-10B-Instruct-1.58bit`
+- **Parameters:** 10300.0 M
+- **VRAM minimum (GiB):** 3
+- **Context window (tokens):** 32,768
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 ("tiiuae/Falcon3-10B
+> -1.58bit prequantized"). TII's BitNet-ified Falcon3-10B (~10.3B
+> params; the HF repo's tensor metadata reports ~3181M for the
+> packed 1.58-bit representation). Falcon3 32k context.
+
+### Falcon-E-3B-Instruct
+
+- **Status:** ✓ verified-real
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `xs`
+- **Purpose:** `chat`, `agent`
+- **Engine:** `bitnet.cpp`
+- **License:** other
+- **HF repo id:** `tiiuae/Falcon-E-3B-Instruct`
+- **Parameters:** 864.0 M
+- **VRAM minimum (GiB):** 0.7
+- **Context window (tokens):** 32,768
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 ("Falcon-E-3B"). TII
+> BitNet "edge" model; HF card reports ~864M despite the "3B"
+> name. Real on HF. context estimated.
+
+### Qwen2.5-Coder-1.5B-Instruct
+
+- **Status:** ✓ verified-real
+- **Class:** `code` — Code-specialised
+- **Quantization:** `bf16`
+- **Size class:** `s`
+- **Purpose:** `code`, `function-calling`
+- **Engine:** `vllm`
+- **License:** apache-2.0
+- **HF repo id:** `Qwen/Qwen2.5-Coder-1.5B-Instruct`
+- **Parameters:** 1544.0 M
+- **VRAM minimum (GiB):** 4
+- **Context window (tokens):** 32,768
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 ("Qwen-Coder ... 1.5B
+> Inline Completion"). Small coder for low-latency inline
+> completion. Real on HF.
+
 ## Logic tier (master spec § 17)
 
 ### Qwen-32B-Ternary-Quant
@@ -245,6 +376,69 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 > supplied (community/research adapters land here as they pass
 > operator review). The `base_model` field is REQUIRED for
 > class=lora-adapter per schema 1.1.0.
+
+### Qwen2.5-Coder-14B-Instruct
+
+- **Status:** ✓ verified-real
+- **Class:** `code` — Code-specialised
+- **Quantization:** `bf16`
+- **Size class:** `m`
+- **Purpose:** `code`, `chat`, `function-calling`
+- **Engine:** `vllm`
+- **License:** apache-2.0
+- **HF repo id:** `Qwen/Qwen2.5-Coder-14B-Instruct`
+- **Parameters:** 14770.0 M
+- **VRAM minimum (GiB):** 30
+- **Context window (tokens):** 32,768
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 ("Qwen-Coder ... 14B
+> Chat & Refactoring"). Mid coder for chat + refactoring. Real
+> on HF. Native 32k (extendable to 128k via YaRN).
+
+### StarCoder2-3B
+
+- **Status:** ✓ verified-real
+- **Class:** `code` — Code-specialised
+- **Quantization:** `bf16`
+- **Size class:** `s`
+- **Purpose:** `code`
+- **Engine:** `vllm`
+- **License:** other
+- **HF repo id:** `bigcode/starcoder2-3b`
+- **Parameters:** 3030.0 M
+- **VRAM minimum (GiB):** 7
+- **Context window (tokens):** 16,384
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 ("StarCoder2-3B").
+> BigCode code model. Real on HF. License bigcode-openrail-m
+> (mapped to 'other').
+
+### OpenThinker-7B
+
+- **Status:** ✓ verified-real
+- **Class:** `rlm` — RLM (reasoning)
+- **Quantization:** `bf16`
+- **Size class:** `m`
+- **Purpose:** `reasoning`, `chat`
+- **Engine:** `vllm`
+- **License:** apache-2.0
+- **HF repo id:** `open-thoughts/OpenThinker-7B`
+- **Parameters:** 7616.0 M
+- **VRAM minimum (GiB):** 16
+- **Context window (tokens):** 32,768
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 ("OpenThinking ~7B").
+> Real name OpenThinker-7B (open-thoughts): a Qwen2.5-7B
+> reasoning finetune — NOT ternary. Real on HF.
 
 ## Oracle tier (master spec § 17)
 
@@ -494,6 +688,28 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 > R212 — draft model for the Qwen-32B + Qwen3-Coder-32B
 > oracles. Composes with sovereign-os DFlash speculative
 > decoding wrapper (SDD-026).
+
+### BAAI-bge-m3
+
+- **Status:** ✓ verified-real
+- **Class:** `embed` — Embedding
+- **Quantization:** `bf16`
+- **Size class:** `xs`
+- **Purpose:** `embedding`, `rag`
+- **Engine:** `transformers`
+- **License:** mit
+- **HF repo id:** `BAAI/bge-m3`
+- **Parameters:** 568.0 M
+- **VRAM minimum (GiB):** 1.5
+- **Context window (tokens):** 8,192
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 ("BGE-M3 (Embedding)").
+> Multilingual dense+sparse+colbert embedding model. Real on HF
+> (8192 ctx). Complements the existing nomic-embed + bge-reranker
+> RAG surface.
 
 ## Cross-references
 

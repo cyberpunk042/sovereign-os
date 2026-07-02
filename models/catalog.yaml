@@ -479,3 +479,217 @@ catalog:
         supplied (community/research adapters land here as they pass
         operator review). The `base_model` field is REQUIRED for
         class=lora-adapter per schema 1.1.0.
+
+    # ============================================================
+    # Operator handwritten catalog additions (2026-07-02)
+    # Folded in from the operator's photos (via research wiki
+    # raw/notes/2026-07-02-...). Every entry below is HF-verified
+    # verified-real this pass. vram_gib_min / context_window are
+    # quantization-aware estimates where the model card omits them.
+    # ============================================================
+
+    - id: Prism-Ternary-Bonsai-8B
+      tier: pulse
+      engine: llama.cpp
+      class: ternary-lm
+      quantization: ternary-1.58bit
+      size_class: m
+      purpose: [chat, code, agent]
+      status: verified-real
+      license: apache-2.0
+      hf_repo_id: prism-ml/Ternary-Bonsai-8B-unpacked
+      parameters_millions: 8000
+      vram_gib_min: 3
+      context_window_tokens: 32768
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: |
+        Operator handwritten catalog 2026-07-02 ("Prism ML: Ternary
+        Bonsai"). prism-ml/Ternary-Bonsai is a real active HF line
+        (1.7B/4B/8B; unpacked + gguf + mlx-2bit; Qwen3-based, ternary
+        1.58-bit). The note said "70B" — no 70B exists; largest is 8B
+        (this entry). gguf variant prism-ml/Ternary-Bonsai-8B-gguf
+        ships for llama.cpp. vram + context estimated (Qwen3-8B lineage).
+
+    - id: Spectra-TriLM-3.9B
+      tier: pulse
+      engine: llama.cpp
+      class: ternary-lm
+      quantization: ternary-1.58bit
+      size_class: s
+      purpose: [chat, reasoning]
+      status: verified-real
+      license: apache-2.0
+      hf_repo_id: SpectraSuite/TriLM_3.9B_Unpacked
+      parameters_millions: 3992
+      vram_gib_min: 1.6
+      context_window_tokens: 2048
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: |
+        Operator handwritten catalog 2026-07-02 ("Spectra-TriLM-3.9B").
+        SpectraSuite TriLM = ternary LM (weights in {-1,0,1}). Real on
+        HF (3992M). context 2048 (Spectra training); verify if a
+        longer-context release lands.
+
+    - id: 1bitLLM-bitnet-b1.58-large
+      tier: pulse
+      engine: bitnet.cpp
+      class: ternary-lm
+      quantization: ternary-1.58bit
+      size_class: xs
+      purpose: [chat]
+      status: verified-real
+      license: mit
+      hf_repo_id: 1bitLLM/bitnet_b1_58-large
+      parameters_millions: 729
+      vram_gib_min: 0.5
+      context_window_tokens: 2048
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: |
+        Operator handwritten catalog 2026-07-02 ("1bitLLM/bitnet
+        b1.58 large"). Reproduction of the BitNet b1.58 paper
+        (arxiv 2402.17764), ~729M. Real on HF.
+
+    - id: Falcon3-10B-Instruct-1.58bit
+      tier: pulse
+      engine: bitnet.cpp
+      class: ternary-lm
+      quantization: ternary-1.58bit
+      size_class: m
+      purpose: [chat, agent]
+      status: verified-real
+      license: other
+      hf_repo_id: tiiuae/Falcon3-10B-Instruct-1.58bit
+      parameters_millions: 10300
+      vram_gib_min: 3
+      context_window_tokens: 32768
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: |
+        Operator handwritten catalog 2026-07-02 ("tiiuae/Falcon3-10B
+        -1.58bit prequantized"). TII's BitNet-ified Falcon3-10B (~10.3B
+        params; the HF repo's tensor metadata reports ~3181M for the
+        packed 1.58-bit representation). Falcon3 32k context.
+
+    - id: Falcon-E-3B-Instruct
+      tier: pulse
+      engine: bitnet.cpp
+      class: ternary-lm
+      quantization: ternary-1.58bit
+      size_class: xs
+      purpose: [chat, agent]
+      status: verified-real
+      license: other
+      hf_repo_id: tiiuae/Falcon-E-3B-Instruct
+      parameters_millions: 864
+      vram_gib_min: 0.7
+      context_window_tokens: 32768
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: |
+        Operator handwritten catalog 2026-07-02 ("Falcon-E-3B"). TII
+        BitNet "edge" model; HF card reports ~864M despite the "3B"
+        name. Real on HF. context estimated.
+
+    - id: Qwen2.5-Coder-1.5B-Instruct
+      tier: pulse
+      engine: vllm
+      class: code
+      quantization: bf16
+      size_class: s
+      purpose: [code, function-calling]
+      status: verified-real
+      license: apache-2.0
+      hf_repo_id: Qwen/Qwen2.5-Coder-1.5B-Instruct
+      parameters_millions: 1544
+      vram_gib_min: 4
+      context_window_tokens: 32768
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: |
+        Operator handwritten catalog 2026-07-02 ("Qwen-Coder ... 1.5B
+        Inline Completion"). Small coder for low-latency inline
+        completion. Real on HF.
+
+    - id: Qwen2.5-Coder-14B-Instruct
+      tier: logic
+      engine: vllm
+      class: code
+      quantization: bf16
+      size_class: m
+      purpose: [code, chat, function-calling]
+      status: verified-real
+      license: apache-2.0
+      hf_repo_id: Qwen/Qwen2.5-Coder-14B-Instruct
+      parameters_millions: 14770
+      vram_gib_min: 30
+      context_window_tokens: 32768
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: |
+        Operator handwritten catalog 2026-07-02 ("Qwen-Coder ... 14B
+        Chat & Refactoring"). Mid coder for chat + refactoring. Real
+        on HF. Native 32k (extendable to 128k via YaRN).
+
+    - id: StarCoder2-3B
+      tier: logic
+      engine: vllm
+      class: code
+      quantization: bf16
+      size_class: s
+      purpose: [code]
+      status: verified-real
+      license: other
+      hf_repo_id: bigcode/starcoder2-3b
+      parameters_millions: 3030
+      vram_gib_min: 7
+      context_window_tokens: 16384
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: |
+        Operator handwritten catalog 2026-07-02 ("StarCoder2-3B").
+        BigCode code model. Real on HF. License bigcode-openrail-m
+        (mapped to 'other').
+
+    - id: OpenThinker-7B
+      tier: logic
+      engine: vllm
+      class: rlm
+      quantization: bf16
+      size_class: m
+      purpose: [reasoning, chat]
+      status: verified-real
+      license: apache-2.0
+      hf_repo_id: open-thoughts/OpenThinker-7B
+      parameters_millions: 7616
+      vram_gib_min: 16
+      context_window_tokens: 32768
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: |
+        Operator handwritten catalog 2026-07-02 ("OpenThinking ~7B").
+        Real name OpenThinker-7B (open-thoughts): a Qwen2.5-7B
+        reasoning finetune — NOT ternary. Real on HF.
+
+    - id: BAAI-bge-m3
+      tier: router
+      engine: transformers
+      class: embed
+      quantization: bf16
+      size_class: xs
+      purpose: [embedding, rag]
+      status: verified-real
+      license: mit
+      hf_repo_id: BAAI/bge-m3
+      parameters_millions: 568
+      vram_gib_min: 1.5
+      context_window_tokens: 8192
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: |
+        Operator handwritten catalog 2026-07-02 ("BGE-M3 (Embedding)").
+        Multilingual dense+sparse+colbert embedding model. Real on HF
+        (8192 ctx). Complements the existing nomic-embed + bge-reranker
+        RAG surface.
