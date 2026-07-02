@@ -166,3 +166,6 @@ sovereign-doctrine-citation = { path = "../sovereign-doctrine-citation" }
 sovereign-codegen-pipeline = { path = "../sovereign-codegen-pipeline" }
 sovereign-policy-input = { path = "../sovereign-policy-input" }
 sovereign-choice-envelope = { path = "../sovereign-choice-envelope" }
+sovereign-rope = { path = "../sovereign-rope" }
+sovereign-attention = { path = "../sovereign-attention" }
+sovereign-decode-loop = { path = "../sovereign-decode-loop" }

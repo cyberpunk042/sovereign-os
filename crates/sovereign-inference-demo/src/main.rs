@@ -2153,6 +2153,39 @@ fn run_rag_quality_demo() -> String {
         "sovereignty pol  : questions={questions} same_triple={same_triple} intent_differs={intent_differs} axes={axes} side0={side0:?} envelope_ok={envelope_ok}"
     );
 
+    // Decode-loop plane: the transformer decode inner loop, assembled from the
+    // three primitive engines. `append_token` grows the RoPE-rotated KV cache (each
+    // key rotated by its own position); `decode_next` rotates the query by the
+    // current position, attends over the cache, projects the context to vocab
+    // logits through the output head, and samples one token — the loop a real
+    // autoregressive decoder runs, deterministic under a seed and fully replayable.
+    let rope = sovereign_rope::Rope::new(4);
+    let attention = sovereign_attention::Attention::new(4);
+    let decode_sampler = Sampler::new(SamplerConfig::default());
+    let head = sovereign_decode_loop::OutputHead::new(3, 2, vec![1.0, 0.0, 0.0, 1.0, -1.0, -1.0]);
+    let mut decoder = sovereign_decode_loop::DecodeLoop::new(rope, attention, decode_sampler, head);
+    decoder
+        .append_token(&[1.0, 0.0, 0.0, 0.0], vec![1.0, 0.0])
+        .expect("append token");
+    decoder
+        .append_token(&[0.0, 1.0, 0.0, 0.0], vec![0.0, 1.0])
+        .expect("append token");
+    decoder
+        .append_token(&[0.0, 0.0, 1.0, 0.0], vec![1.0, 1.0])
+        .expect("append token");
+    let cache_len = decoder.len();
+    let tok1 = decoder
+        .decode_next(&[1.0, 0.0, 0.0, 0.0], 1)
+        .expect("decode next");
+    let tok2 = decoder
+        .decode_next(&[0.0, 1.0, 0.0, 0.0], 2)
+        .expect("decode next");
+    let emitted = decoder.emitted().len();
+    let _ = writeln!(
+        out,
+        "decode loop      : cache_len={cache_len} tok1={tok1} tok2={tok2} emitted={emitted} vocab=3"
+    );
+
     out
 }
 
@@ -2454,6 +2487,12 @@ mod tests {
             report.contains(
                 "sovereignty pol  : questions=7 same_triple=true intent_differs=true axes=9 side0=Some(Left) envelope_ok=true"
             ),
+            "{report}"
+        );
+        // decode-loop plane ran: the assembled rope+attention+head+sampler loop
+        // held a 3-entry KV cache and emitted 2 deterministic tokens over vocab 3
+        assert!(
+            report.contains("decode loop      : cache_len=3 tok1=0 tok2=0 emitted=2 vocab=3"),
             "{report}"
         );
         // the IVF-PQ store compressed each vector to a few bytes and retrieved
