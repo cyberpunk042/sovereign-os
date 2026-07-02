@@ -25,6 +25,7 @@ install = [
     "lm-sensors",   # thermal-watch
     "apcupsd",      # UPS interop (R252 power-status)
     "wasmtime",     # R281 Wasm-AOT pipeline (if packaged)
+    "zfsutils-linux",  # zpool + zfs userland — required by zfs-tiered profiles (preflight-storage)
 ]
 
 # ─── Python pip packages ───

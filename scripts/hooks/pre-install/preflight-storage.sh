@@ -127,13 +127,27 @@ else
   log_warn "  SKIP — lsblk unavailable; cannot reality-check device sizes"
 fi
 
-# 3. For zfs-tiered layout, require zpool + zfs binaries
+# 3. For zfs-tiered layout, require zpool + zfs binaries. On a fresh Debian
+#    build/installer host the ZFS userland is NOT installed by default (it lives
+#    in contrib), so a bare FAIL here is a common first-run stumble — emit an
+#    actionable remediation instead of leaving the operator to guess.
 storage_layout="$(profile_field hardware.storage.layout 2>/dev/null || echo unknown)"
 if [ "${storage_layout}" = "zfs-tiered" ]; then
+  zfs_missing=0
+  command -v zpool >/dev/null 2>&1 || zfs_missing=1
+  command -v zfs   >/dev/null 2>&1 || zfs_missing=1
   check "zpool binary available (required by zfs-tiered layout)" \
     command -v zpool
   check "zfs binary available (required by zfs-tiered layout)" \
     command -v zfs
+  if [ "${zfs_missing}" -eq 1 ]; then
+    log_error "  REMEDIATION — install the ZFS userland on this build/installer host:"
+    log_error "      sudo apt install -y zfsutils-linux   # provides zpool + zfs (Debian contrib)"
+    log_error "    zfs-tiered also needs the kernel module at install time:"
+    log_error "      sudo apt install -y zfs-dkms         # builds against the installed kernel headers"
+    log_error "      sudo modprobe zfs"
+    log_error "    Or set hardware.storage.layout to a non-zfs layout in the profile if you don't want ZFS."
+  fi
 fi
 
 # 4. Sanity: at least one writable block device large enough for an OS install (>10G)
