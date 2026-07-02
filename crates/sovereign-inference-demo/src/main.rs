@@ -2050,6 +2050,35 @@ fn run_rag_quality_demo() -> String {
         "conversation     : op_turns={op_turns} fork_ok={fork_ok} descendants={descendants} search_hits={search_hits}"
     );
 
+    // Distributed-runtime plane: converge shared state without coordination, admit
+    // the best non-conflicting jobs onto one resource, and back off on transient
+    // failure. crdt's grow-only counter lets two replicas count concurrently then
+    // merge to the same total; interval-schedule picks the max-weight set of
+    // non-overlapping jobs for one GPU timeline; retry is exponential backoff.
+    let mut node_a = sovereign_crdt::GCounter::new();
+    let mut node_b = sovereign_crdt::GCounter::new();
+    node_a.increment(1, 3); // replica 1, offline
+    node_b.increment(2, 5); // replica 2, concurrent, no coordination
+    node_a.merge(&node_b);
+    node_b.merge(&node_a);
+    let crdt_val = node_a.value();
+    let converged = node_a.value() == node_b.value();
+
+    // three jobs on one GPU timeline; the best non-overlapping set is [0,4)+[5,9)
+    let jobs = [(0i64, 4i64, 3.0), (3, 7, 2.0), (5, 9, 4.0)];
+    let sched = sovereign_interval_schedule::max_weight(&jobs);
+    let admitted = sched.selected.len();
+    let admit_weight = sched.total_weight;
+
+    let policy = sovereign_retry::RetryPolicy::new(5, 100);
+    let backoff0 = policy.delay_for(0);
+    let backoff2 = policy.delay_for(2);
+    let retry3 = policy.should_retry(3);
+    let _ = writeln!(
+        out,
+        "distributed rt   : crdt_val={crdt_val} converged={converged} admitted={admitted} admit_weight={admit_weight} backoff0={backoff0} backoff2={backoff2} retry3={retry3}"
+    );
+
     out
 }
 
@@ -2324,6 +2353,15 @@ mod tests {
         assert!(
             report
                 .contains("conversation     : op_turns=2 fork_ok=true descendants=1 search_hits=1"),
+            "{report}"
+        );
+        // distributed-runtime plane ran: two CRDT replicas merged to the same total
+        // 8, interval scheduling admitted the 2 non-overlapping jobs (weight 7), and
+        // the retry policy gave exponential backoff (100→400ms) and retried attempt 3
+        assert!(
+            report.contains(
+                "distributed rt   : crdt_val=8 converged=true admitted=2 admit_weight=7 backoff0=100 backoff2=400 retry3=true"
+            ),
             "{report}"
         );
         // the IVF-PQ store compressed each vector to a few bytes and retrieved

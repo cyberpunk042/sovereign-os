@@ -158,3 +158,6 @@ sovereign-mode-default-policy = { path = "../sovereign-mode-default-policy" }
 sovereign-conversation-thread = { path = "../sovereign-conversation-thread" }
 sovereign-conversation-fork-event = { path = "../sovereign-conversation-fork-event" }
 sovereign-conversation-search-index = { path = "../sovereign-conversation-search-index" }
+sovereign-crdt = { path = "../sovereign-crdt" }
+sovereign-interval-schedule = { path = "../sovereign-interval-schedule" }
+sovereign-retry = { path = "../sovereign-retry" }
