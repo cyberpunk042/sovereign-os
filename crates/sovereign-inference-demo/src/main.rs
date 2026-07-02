@@ -1998,6 +1998,58 @@ fn run_rag_quality_demo() -> String {
         "governance II    : cfg_layer={cfg_layer:?} cfg_val={cfg_val:?} state_components={state_components} private_mode={private_mode:?} fast_mode={fast_mode:?}"
     );
 
+    // Conversation-state plane: manage the branching multi-turn history an agent
+    // works over. A ConversationThread holds ordered turns on named branches;
+    // conversation-fork-event logs an operator forking a new branch off a real turn
+    // (and rejects a fork point past the end); conversation-search-index does
+    // substring + role + branch search across indexed threads.
+    use sovereign_conversation_thread::{ConversationThread, Turn, TurnRole};
+    let mut thread = ConversationThread::new("thread-1", "2026-07-02T00:00:00Z");
+    let mk_turn = |role: TurnRole, text: &str| Turn {
+        index: 0,
+        role,
+        tokens_in: 8,
+        tokens_out: 8,
+        provider: "local:rocm-4090".into(),
+        started_at: "2026-07-02T00:00:00Z".into(),
+        completed_at: "2026-07-02T00:00:01Z".into(),
+        branch_id: "main".into(),
+        text: text.into(),
+    };
+    thread.append(mk_turn(TurnRole::Operator, "how do I quantize a model"));
+    thread.append(mk_turn(TurnRole::Model, "use NVFP4 microscaling"));
+    thread.append(mk_turn(TurnRole::Operator, "what about ternary weights"));
+    let op_turns = thread.count_by_role(TurnRole::Operator);
+
+    let mut forks = sovereign_conversation_fork_event::ForkLog::new();
+    let fork = sovereign_conversation_fork_event::ForkEvent {
+        thread_id: "thread-1".into(),
+        parent_branch_id: "main".into(),
+        new_branch_id: "explore-ternary".into(),
+        fork_at_turn: 1,
+        actor: "operator".into(),
+        trace_id: "trace-9".into(),
+        at: "2026-07-02T00:01:00Z".into(),
+    };
+    let fork_ok = forks.record(fork, &thread).is_ok();
+    let descendants = forks.descendants_of("main").len();
+
+    let mut index = sovereign_conversation_search_index::SearchIndex::new();
+    index.add(thread);
+    let search_hits = index
+        .search(&sovereign_conversation_search_index::SearchQuery {
+            needle: "ternary".into(),
+            role: None,
+            branch_id: None,
+            max_hits: 10,
+        })
+        .map(|h| h.len())
+        .unwrap_or(0);
+    let _ = writeln!(
+        out,
+        "conversation     : op_turns={op_turns} fork_ok={fork_ok} descendants={descendants} search_hits={search_hits}"
+    );
+
     out
 }
 
@@ -2264,6 +2316,14 @@ mod tests {
             report.contains(
                 "governance II    : cfg_layer=Policy cfg_val=\"local-only\" state_components=3 private_mode=Some(Plan) fast_mode=Some(Execute)"
             ),
+            "{report}"
+        );
+        // conversation-state plane ran: a 3-turn thread (2 operator turns), an
+        // operator fork off turn 1 recorded + validated (1 descendant of main), and
+        // a substring search found the 1 turn mentioning "ternary"
+        assert!(
+            report
+                .contains("conversation     : op_turns=2 fork_ok=true descendants=1 search_hits=1"),
             "{report}"
         );
         // the IVF-PQ store compressed each vector to a few bytes and retrieved

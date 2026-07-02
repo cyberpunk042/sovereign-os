@@ -155,3 +155,6 @@ sovereign-task-lifecycle = { path = "../sovereign-task-lifecycle" }
 sovereign-config-resolver = { path = "../sovereign-config-resolver" }
 sovereign-typed-state = { path = "../sovereign-typed-state" }
 sovereign-mode-default-policy = { path = "../sovereign-mode-default-policy" }
+sovereign-conversation-thread = { path = "../sovereign-conversation-thread" }
+sovereign-conversation-fork-event = { path = "../sovereign-conversation-fork-event" }
+sovereign-conversation-search-index = { path = "../sovereign-conversation-search-index" }
