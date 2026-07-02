@@ -4955,6 +4955,7 @@ dependencies = [
  "sovereign-embed",
  "sovereign-ffn",
  "sovereign-histogram",
+ "sovereign-huffman",
  "sovereign-hyperloglog",
  "sovereign-injection-detect",
  "sovereign-json-schema-grammar",
@@ -4984,6 +4985,7 @@ dependencies = [
  "sovereign-tool-dispatch",
  "sovereign-toxicity",
  "sovereign-transformer-block",
+ "sovereign-varint",
  "sovereign-wer",
 ]
 

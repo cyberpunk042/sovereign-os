@@ -645,6 +645,25 @@ fn run_strategies_demo() -> String {
         hist.median().unwrap_or(0.0)
     );
 
+    // Lossless coding of the token stream: Huffman (entropy code) + varint
+    // (delta) — both round-trip; the raw baseline is 6 bits/token at vocab 64.
+    let syms: Vec<u32> = stream.iter().map(|&t| t as u32).collect();
+    let huff = sovereign_huffman::HuffmanCode::from_sequence(&syms).expect("huffman");
+    let encoded = huff.encode(&syms).expect("encode");
+    let huff_ok = huff.decode(&encoded).map(|d| d == syms).unwrap_or(false);
+    let deltas: Vec<u64> = stream.iter().map(|&t| t as u64).collect();
+    let vbytes = sovereign_varint::encode_deltas(&deltas);
+    let var_ok = sovereign_varint::decode_deltas(&vbytes)
+        .map(|d| d == deltas)
+        .unwrap_or(false);
+    let _ = writeln!(
+        out,
+        "coding           : huffman {} bits (raw {}) ok={huff_ok}; varint {} bytes ok={var_ok}",
+        encoded.bit_len(),
+        syms.len() * 6,
+        vbytes.len()
+    );
+
     // early-stop: stop the moment the first sampled token recurs as a "stop".
     let stop = nrn[0];
     let stopped = model
@@ -1236,6 +1255,12 @@ mod tests {
             report.contains("stream stats     : n=40 mean=")
                 && report.contains("p50=")
                 && report.contains("hist_med="),
+            "{report}"
+        );
+        assert!(
+            report.contains(
+                "coding           : huffman 149 bits (raw 240) ok=true; varint 40 bytes ok=true"
+            ),
             "{report}"
         );
         assert!(report.contains("perplexity"));

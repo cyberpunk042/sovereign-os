@@ -59,4 +59,6 @@ sovereign-histogram = { path = "../sovereign-histogram" }
 sovereign-bloom = { path = "../sovereign-bloom" }
 sovereign-cuckoo-filter = { path = "../sovereign-cuckoo-filter" }
 sovereign-hyperloglog = { path = "../sovereign-hyperloglog" }
+sovereign-huffman = { path = "../sovereign-huffman" }
+sovereign-varint = { path = "../sovereign-varint" }
 sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }
