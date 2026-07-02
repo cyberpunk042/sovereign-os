@@ -683,6 +683,29 @@ fn run_strategies_demo() -> String {
         vbytes.len()
     );
 
+    // Text ops: line diff, find/replace edits, and an SSE streaming parser
+    // (the shape a streaming LLM client + a code-edit tool need).
+    let diff = sovereign_line_diff::diff("a\nb\nc", "a\nB\nc\nd");
+    let inserts = diff
+        .iter()
+        .filter(|l| l.tag == sovereign_line_diff::Tag::Insert)
+        .count();
+    let edited = sovereign_text_edit::apply_all(
+        "hello world",
+        &[
+            sovereign_text_edit::Edit::new("hello", "hi"),
+            sovereign_text_edit::Edit::new("world", "rust"),
+        ],
+    )
+    .unwrap_or_default();
+    let mut sse = sovereign_sse_parse::SseParser::new();
+    let events = sse.push("data: hello\n\ndata: world\n\n");
+    let _ = writeln!(
+        out,
+        "text ops         : diff_inserts={inserts} edit={edited:?} sse_events={}",
+        events.len()
+    );
+
     // Distributed-systems primitives: ULID (sortable id, round-trips through its
     // string form), SemVer (caret compatibility), vector clock (causal order).
     let mut ulidgen = sovereign_ulid::UlidGenerator::new(42);
@@ -1569,6 +1592,10 @@ mod tests {
         );
         assert!(
             report.contains("distributed ids  : ulid_ok=true semver_compat=true causal=true"),
+            "{report}"
+        );
+        assert!(
+            report.contains("text ops         : diff_inserts=2 edit=\"hi rust\" sse_events=2"),
             "{report}"
         );
         assert!(

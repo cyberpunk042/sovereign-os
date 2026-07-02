@@ -98,4 +98,7 @@ sovereign-profile-bundles = { path = "../sovereign-profile-bundles" }
 sovereign-ulid = { path = "../sovereign-ulid" }
 sovereign-semver = { path = "../sovereign-semver" }
 sovereign-vector-clock = { path = "../sovereign-vector-clock" }
+sovereign-line-diff = { path = "../sovereign-line-diff" }
+sovereign-text-edit = { path = "../sovereign-text-edit" }
+sovereign-sse-parse = { path = "../sovereign-sse-parse" }
 sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }
