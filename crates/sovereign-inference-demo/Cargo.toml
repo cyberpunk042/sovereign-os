@@ -51,4 +51,6 @@ sovereign-degeneration = { path = "../sovereign-degeneration" }
 sovereign-toxicity = { path = "../sovereign-toxicity" }
 sovereign-injection-detect = { path = "../sovereign-injection-detect" }
 sovereign-language-detect = { path = "../sovereign-language-detect" }
+sovereign-readability = { path = "../sovereign-readability" }
+sovereign-wer = { path = "../sovereign-wer" }
 sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }

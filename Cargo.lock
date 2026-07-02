@@ -4968,6 +4968,7 @@ dependencies = [
  "sovereign-quant-calibration",
  "sovereign-quant-llm",
  "sovereign-quant-model",
+ "sovereign-readability",
  "sovereign-repetition-penalty",
  "sovereign-retrieval",
  "sovereign-rmsnorm",
@@ -4977,6 +4978,7 @@ dependencies = [
  "sovereign-tool-dispatch",
  "sovereign-toxicity",
  "sovereign-transformer-block",
+ "sovereign-wer",
 ]
 
 [[package]]

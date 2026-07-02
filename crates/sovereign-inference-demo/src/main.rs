@@ -992,6 +992,24 @@ fn run_rag_quality_demo() -> String {
         "prompt compress  : {before} -> {after} tokens (keep ~0.5)"
     );
 
+    // Readability of the reference (Flesch reading ease: higher = easier).
+    let read = sovereign_readability::analyze(long);
+    let _ = writeln!(
+        out,
+        "readability      : flesch={:.0} grade={:.1} ({} words / {} sentence)",
+        read.flesch_reading_ease, read.flesch_kincaid_grade, read.words, read.sentences
+    );
+
+    // Word error rate of a lightly-corrupted hypothesis against the reference —
+    // one substitution + one deletion out of the reference's words.
+    let hypothesis = "the quick brown fox leaps over the dog while a curious cat watches";
+    let wer = sovereign_wer::word_error_rate(long, hypothesis);
+    let _ = writeln!(
+        out,
+        "word error rate  : {:.2} ({}S {}I {}D over {} words)",
+        wer.error_rate, wer.substitutions, wer.insertions, wer.deletions, wer.reference_len
+    );
+
     let div = llm
         .sample_diversity("rust memory", 4, 8, 7)
         .expect("diversity");
@@ -1254,6 +1272,14 @@ mod tests {
         );
         // the generation quality controls all ran and reported
         assert!(report.contains("prompt compress  :"));
+        assert!(
+            report.contains("readability      : flesch=84 grade=5.0 (14 words / 1 sentence)"),
+            "{report}"
+        );
+        assert!(
+            report.contains("word error rate  : 0.14 (1S 0I 1D over 14 words)"),
+            "{report}"
+        );
         assert!(
             report.contains("self-consistency :") && report.contains("agree (agreement="),
             "{report}"
