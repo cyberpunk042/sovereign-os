@@ -664,6 +664,28 @@ fn run_strategies_demo() -> String {
         vbytes.len()
     );
 
+    // Regression + sequential testing: streaming least-squares (slope of a
+    // trend), isotonic monotonic fit, and a Wald SPRT (early accept/reject).
+    let mut ols = sovereign_online_regression::OnlineRegression::new();
+    for (x, y) in [(1.0, 2.1), (2.0, 4.0), (3.0, 5.9), (4.0, 8.1), (5.0, 9.8)] {
+        ols.push(x, y);
+    }
+    let iso = sovereign_isotonic::IsotonicRegression::fit(
+        &[(1.0, 1.0), (2.0, 3.0), (3.0, 2.5), (4.0, 5.0)],
+        true,
+    );
+    let mut sprt = sovereign_sprt::Sprt::new(0.5, 0.8, 0.05, 0.05);
+    let mut decision = sovereign_sprt::Decision::Continue;
+    for _ in 0..20 {
+        decision = sprt.observe(true); // all successes → strong evidence for H1
+    }
+    let _ = writeln!(
+        out,
+        "regress/test     : slope={:.1} iso@3={:.1} sprt={decision:?}",
+        ols.slope().unwrap_or(0.0),
+        iso.predict(3.0).unwrap_or(0.0)
+    );
+
     // Decision / optimization under budget: 0-1 knapsack (max value under a
     // weight cap), bin packing (requests into fixed-capacity bins), and a
     // multi-armed bandit (best arm after reward feedback).
@@ -1373,6 +1395,10 @@ mod tests {
         );
         assert!(
             report.contains("optimize/decide  : knapsack_val=9.0 bins=3 best_arm=1"),
+            "{report}"
+        );
+        assert!(
+            report.contains("regress/test     : slope=1.9 iso@3=2.8 sprt=AcceptH1"),
             "{report}"
         );
         assert!(report.contains("perplexity"));

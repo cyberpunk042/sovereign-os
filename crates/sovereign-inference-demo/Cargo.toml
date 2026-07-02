@@ -73,4 +73,7 @@ sovereign-local-align = { path = "../sovereign-local-align" }
 sovereign-knapsack = { path = "../sovereign-knapsack" }
 sovereign-bin-packing = { path = "../sovereign-bin-packing" }
 sovereign-bandit = { path = "../sovereign-bandit" }
+sovereign-online-regression = { path = "../sovereign-online-regression" }
+sovereign-isotonic = { path = "../sovereign-isotonic" }
+sovereign-sprt = { path = "../sovereign-sprt" }
 sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }
