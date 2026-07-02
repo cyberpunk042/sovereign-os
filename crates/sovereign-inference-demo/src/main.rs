@@ -1848,6 +1848,55 @@ fn run_rag_quality_demo() -> String {
         "data structs II  : posting_and={posting_and} win_sum={win_sum} win_max={win_max} popcount={popcount} ternlog_maj={ternlog_maj:#06b}"
     );
 
+    // Generation-integrity plane: measure retrieval, keep structured output
+    // balanced, and decode endlessly in bounded memory. retrieval-metrics scores a
+    // ranking against known-relevant ids (precision@k, reciprocal rank);
+    // balanced-constrain is the pushdown automaton a constrained sampler consults so
+    // every '{'/'[' is closed (a context-free property a regex cannot enforce);
+    // bounded-block is a StreamingLLM decoder block whose sink+window KV cache caps
+    // memory no matter how many tokens pass — what makes endless operation endless.
+    let retrieved = ["d1", "d2", "d3", "d4", "d5"];
+    let relevant: std::collections::HashSet<&str> = ["d1", "d3", "d6"].into_iter().collect();
+    let p_at3 = sovereign_retrieval_metrics::precision_at_k(&retrieved, &relevant, 3);
+    let mrr = sovereign_retrieval_metrics::reciprocal_rank(&retrieved, &relevant);
+
+    let constraint = sovereign_balanced_constrain::BalanceConstraint::new(
+        &[('{', '}'), ('[', ']')],
+        &['"'],
+        '\\',
+    );
+    let balanced_ok = constraint.is_balanced("{\"items\": [1, 2, 3]}");
+    let unbalanced = constraint.is_balanced("{\"items\": [1, 2}");
+
+    let bw = sovereign_bounded_block::BoundedBlockWeights {
+        model_dim: 4,
+        head_dim: 4,
+        hidden_dim: 4,
+        attn_norm: RmsNorm::new(4),
+        ffn_norm: RmsNorm::new(4),
+        w_q: (0..16).map(|i| ((i as f32 + 1.0) * 0.017).sin()).collect(),
+        w_k: (0..16).map(|i| ((i as f32 + 2.0) * 0.017).sin()).collect(),
+        w_v: (0..16).map(|i| ((i as f32 + 3.0) * 0.017).sin()).collect(),
+        w_o: (0..16).map(|i| ((i as f32 + 4.0) * 0.017).sin()).collect(),
+        w_gate: (0..16).map(|i| ((i as f32 + 5.0) * 0.017).sin()).collect(),
+        w_up: (0..16).map(|i| ((i as f32 + 6.0) * 0.017).sin()).collect(),
+        w_down: (0..16).map(|i| ((i as f32 + 7.0) * 0.017).sin()).collect(),
+    };
+    let mut bounded =
+        sovereign_bounded_block::BoundedDecoderBlock::from_weights(&bw, Precision::F32, 2, 8)
+            .expect("bounded block");
+    for step in 0..1000 {
+        let x: Vec<f32> = (0..4).map(|i| ((i + step) as f32 * 0.21).sin()).collect();
+        let _ = bounded.step(&x).expect("bounded step");
+    }
+    let _ = writeln!(
+        out,
+        "gen integrity    : p@3={p_at3:.3} mrr={mrr:.3} balanced_ok={balanced_ok} unbalanced={unbalanced} seen={} retained={} cap={}",
+        bounded.seen(),
+        bounded.retained(),
+        bounded.capacity()
+    );
+
     out
 }
 
@@ -2086,6 +2135,15 @@ mod tests {
         assert!(
             report.contains(
                 "data structs II  : posting_and=3 win_sum=15 win_max=5 popcount=5 ternlog_maj=0b1110"
+            ),
+            "{report}"
+        );
+        // generation-integrity plane ran: retrieval metrics scored p@3=0.667 /
+        // MRR=1.0, the balance automaton accepted balanced JSON and rejected the
+        // unbalanced case, and the bounded block held 10 KV entries over 1000 steps
+        assert!(
+            report.contains(
+                "gen integrity    : p@3=0.667 mrr=1.000 balanced_ok=true unbalanced=false seen=1000 retained=10 cap=10"
             ),
             "{report}"
         );

@@ -146,3 +146,6 @@ serde_json = { workspace = true }
 sovereign-roaring-bitmap = { path = "../sovereign-roaring-bitmap" }
 sovereign-segment-tree = { path = "../sovereign-segment-tree" }
 sovereign-bitops = { path = "../sovereign-bitops" }
+sovereign-retrieval-metrics = { path = "../sovereign-retrieval-metrics" }
+sovereign-balanced-constrain = { path = "../sovereign-balanced-constrain" }
+sovereign-bounded-block = { path = "../sovereign-bounded-block" }
