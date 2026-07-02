@@ -143,3 +143,6 @@ sovereign-context-pack = { path = "../sovereign-context-pack" }
 sovereign-tool-invocation-record = { path = "../sovereign-tool-invocation-record" }
 sovereign-tool-catalog = { path = "../sovereign-tool-catalog" }
 serde_json = { workspace = true }
+sovereign-roaring-bitmap = { path = "../sovereign-roaring-bitmap" }
+sovereign-segment-tree = { path = "../sovereign-segment-tree" }
+sovereign-bitops = { path = "../sovereign-bitops" }

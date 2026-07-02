@@ -1819,6 +1819,35 @@ fn run_rag_quality_demo() -> String {
         packed.total_tokens
     );
 
+    // Data-structures plane II: the set / range / bit primitives retrieval and
+    // serving run on. Roaring bitmaps hold document-id sets compactly and
+    // intersect fast (the AND of two posting lists); a lazy segment tree does
+    // O(log n) range-add + range-sum for windowed token accounting; bitops are
+    // the scalar references for the AVX-512 bit tricks (popcount, VPTERNLOG).
+    let mut docs_a = sovereign_roaring_bitmap::RoaringBitmap::new();
+    for id in [2u32, 5, 9, 12, 40] {
+        docs_a.insert(id);
+    }
+    let mut docs_b = sovereign_roaring_bitmap::RoaringBitmap::new();
+    for id in [5u32, 9, 13, 40] {
+        docs_b.insert(id);
+    }
+    let posting_and = docs_a.intersection(&docs_b).len(); // docs with both terms
+
+    let mut seg = sovereign_segment_tree::SegmentTree::zeros(8);
+    seg.range_add(2, 5, 3); // +3 over one window
+    seg.range_add(4, 7, 2); // overlapping window
+    let win_sum = seg.range_sum(0, 8);
+    let win_max = seg.range_max(0, 8).unwrap_or(0);
+
+    let popcount = sovereign_bitops::popcount(0b1011_0101);
+    // VPTERNLOG immediate 0xE8 selects the 3-input majority function
+    let ternlog_maj = sovereign_bitops::vpternlog(0b1100, 0b1010, 0b0110, 0xE8);
+    let _ = writeln!(
+        out,
+        "data structs II  : posting_and={posting_and} win_sum={win_sum} win_max={win_max} popcount={popcount} ternlog_maj={ternlog_maj:#06b}"
+    );
+
     out
 }
 
@@ -2048,6 +2077,15 @@ mod tests {
         assert!(
             report.contains(
                 "agent tooling    : args_ok=true arg_errs=2 record_ok=true packed=2 pack_tokens=50"
+            ),
+            "{report}"
+        );
+        // set/range/bit primitives ran: roaring intersected two posting lists to
+        // 3 shared docs, the lazy segment tree summed overlapping range-adds
+        // (sum 15, peak 5), and bitops popcount + majority-VPTERNLOG matched
+        assert!(
+            report.contains(
+                "data structs II  : posting_and=3 win_sum=15 win_max=5 popcount=5 ternlog_maj=0b1110"
             ),
             "{report}"
         );
