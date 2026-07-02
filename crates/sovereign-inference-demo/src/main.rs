@@ -722,8 +722,8 @@ fn run_rag_quality_demo() -> String {
     use sovereign_degeneration::Config as DegenConfig;
     use sovereign_llm::SovereignLlm;
     use sovereign_retrieval::{
-        BinaryHammingStore, Deduped, FuzzyTermStore, HybridStore, InjectionFiltered, IvfStore,
-        KeyphraseQuery, MatryoshkaStore, Reranked, Retriever, VpTreeStore,
+        BinaryHammingStore, Deduped, FuzzyTermStore, HybridStore, InjectionFiltered, IvfPqStore,
+        IvfStore, KeyphraseQuery, MatryoshkaStore, Reranked, Retriever, VpTreeStore,
     };
     use std::fmt::Write as _;
 
@@ -807,6 +807,29 @@ fn run_rag_quality_demo() -> String {
         ivf.len(),
         ivf.is_built(),
         ivf_hits
+            .first()
+            .map(|(id, _, _)| id.as_str())
+            .unwrap_or("-")
+    );
+
+    // IVF-PQ: like IVF but stores each vector as a few product-quantized bytes
+    // instead of the full 256 floats — compressed vector search (FAISS IVFADC).
+    let ivfpq = IvfPqStore::from_docs([
+        ("rust", "rust ownership gives memory safety without a gc"),
+        (
+            "borrow",
+            "the borrow checker enforces aliasing at compile time",
+        ),
+        ("cook", "pasta with tomato sauce and basil"),
+    ]);
+    let ivfpq_hits = ivfpq.retrieve("rust memory safety", 1);
+    let _ = writeln!(
+        out,
+        "ivf-pq (compact) : {} doc(s), {} bytes/vec ({:.0}x smaller), nearest={:?}",
+        ivfpq.len(),
+        ivfpq.code_len(),
+        ivfpq.compression(),
+        ivfpq_hits
             .first()
             .map(|(id, _, _)| id.as_str())
             .unwrap_or("-")
@@ -1094,6 +1117,13 @@ mod tests {
         // the semantic cache missed on the first call and hit on the repeat
         assert!(
             report.contains("semantic cache   : first cached=false, repeat cached=true"),
+            "{report}"
+        );
+        // the IVF-PQ store compressed each vector to a few bytes and retrieved
+        assert!(
+            report.contains(
+                "ivf-pq (compact) : 3 doc(s), 4 bytes/vec (256x smaller), nearest=\"rust\""
+            ),
             "{report}"
         );
         // the Matryoshka coarse-to-fine store ranked and retrieved the rust doc

@@ -1125,6 +1125,171 @@ impl Retriever for FuzzyTermStore {
     }
 }
 
+/// An **IVF-PQ** (inverted-file + product-quantization) semantic store: like
+/// [`IvfStore`] it files documents into Voronoi cells around a trained coarse
+/// quantizer, but instead of keeping each full embedding it stores the
+/// **product-quantized residual** — the vector's offset from its cell centroid,
+/// compressed by a product quantizer into a handful of bytes (`code_len`). A
+/// 256-d float embedding (1 KiB) collapses to a few bytes at the cost of
+/// approximate distances — the FAISS IVFADC method that fits a vector index in
+/// memory nothing else reaches. It reports both the byte budget per vector and
+/// the compression ratio versus the raw floats.
+///
+/// The two quantizers are *trained* over the corpus, so the store is
+/// **batch-built** (`add` all → [`build`](IvfPqStore::build), or
+/// [`from_docs`](IvfPqStore::from_docs)); cell count and codebook size are
+/// clamped to the corpus size so small corpora still build. Retrieval before a
+/// build returns nothing.
+///
+/// Backed by [`sovereign-ivf-pq`], previously built but unused; this store is its
+/// consumer.
+///
+/// [`sovereign-ivf-pq`]: https://docs.rs/sovereign-ivf-pq
+pub struct IvfPqStore {
+    /// `(id, text)` aligned by index with `vectors`.
+    docs: Vec<(String, String)>,
+    /// Full embeddings, kept only to (re)train the index on `build`.
+    vectors: Vec<Vec<f32>>,
+    /// The trained compressed index; `None` until [`build`](Self::build) runs.
+    index: Option<sovereign_ivf_pq::IvfPqIndex>,
+    /// Requested cell count (clamped to the corpus size at build).
+    num_lists: usize,
+}
+
+impl Default for IvfPqStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl IvfPqStore {
+    /// An empty IVF-PQ store defaulting to 16 cells (clamped to the corpus size).
+    pub fn new() -> Self {
+        Self::with_lists(16)
+    }
+
+    /// An empty IVF-PQ store targeting `num_lists` cells.
+    pub fn with_lists(num_lists: usize) -> Self {
+        Self {
+            docs: Vec::new(),
+            vectors: Vec::new(),
+            index: None,
+            num_lists: num_lists.max(1),
+        }
+    }
+
+    /// Build an IVF-PQ store from `(id, text)` pairs in one shot.
+    pub fn from_docs<I, S1, S2>(docs: I) -> Self
+    where
+        I: IntoIterator<Item = (S1, S2)>,
+        S1: Into<String>,
+        S2: Into<String>,
+    {
+        let mut store = Self::new();
+        for (id, text) in docs {
+            store.add(id, text);
+        }
+        store.build();
+        store
+    }
+
+    /// Embed `text` and buffer it under `id`. Invalidates any built index (both
+    /// quantizers train over the whole corpus), so call [`build`](Self::build) again.
+    pub fn add(&mut self, id: impl Into<String>, text: impl Into<String>) {
+        let id = id.into();
+        let text = text.into();
+        self.vectors.push(sovereign_embed::embed(&text));
+        self.docs.push((id, text));
+        self.index = None;
+    }
+
+    /// Train the coarse + product quantizers over the buffered vectors. Cell
+    /// count and codebook size are clamped to the corpus size so a small corpus
+    /// still builds; a no-op (index left unbuilt) when empty.
+    pub fn build(&mut self) {
+        if self.vectors.is_empty() {
+            self.index = None;
+            return;
+        }
+        let n = self.vectors.len();
+        let dim = self.vectors[0].len();
+        // 4 PQ subspaces (256-d embedding → 64-d per subspace, divisible); fall
+        // back to 1 subspace for the rare non-divisible dim.
+        let pq_subspaces = if dim % 4 == 0 { 4 } else { 1 };
+        let config = sovereign_ivf_pq::IvfPqConfig {
+            num_lists: self.num_lists.min(n).max(1),
+            pq_subspaces,
+            // one codebook centroid per vector at most, so a tiny corpus trains.
+            pq_centroids: n.clamp(1, 256),
+            ..Default::default()
+        };
+        self.index = sovereign_ivf_pq::IvfPqIndex::build(&self.vectors, config).ok();
+    }
+
+    /// Number of buffered documents.
+    pub fn len(&self) -> usize {
+        self.docs.len()
+    }
+
+    /// Whether the store holds no documents.
+    pub fn is_empty(&self) -> bool {
+        self.docs.is_empty()
+    }
+
+    /// Whether the index has been built (retrieval returns results only then).
+    pub fn is_built(&self) -> bool {
+        self.index.is_some()
+    }
+
+    /// Bytes stored per vector in the compressed code (the PQ code length).
+    pub fn code_len(&self) -> usize {
+        self.index.as_ref().map(|i| i.code_len()).unwrap_or(0)
+    }
+
+    /// Compression ratio versus the raw `f32` embedding (`4·dim / code_len`);
+    /// `0.0` before a build.
+    pub fn compression(&self) -> f64 {
+        match &self.index {
+            Some(i) if i.code_len() > 0 => {
+                let raw = self.vectors.first().map(|v| v.len() * 4).unwrap_or(0);
+                raw as f64 / i.code_len() as f64
+            }
+            _ => 0.0,
+        }
+    }
+
+    /// Approximate top-`k` `(id, text, distance)` for `query` (lower is nearer),
+    /// found by probing the nearest cells and scoring PQ codes. Empty until
+    /// [`build`](Self::build) has run.
+    pub fn retrieve(&self, query: &str, k: usize) -> Vec<(String, String, f32)> {
+        let Some(index) = &self.index else {
+            return Vec::new();
+        };
+        if k == 0 {
+            return Vec::new();
+        }
+        let q = sovereign_embed::embed(query);
+        index
+            .search(&q, k)
+            .into_iter()
+            .filter_map(|n| {
+                self.docs
+                    .get(n.index)
+                    .map(|(id, text)| (id.clone(), text.clone(), n.distance as f32))
+            })
+            .collect()
+    }
+}
+
+impl Retriever for IvfPqStore {
+    fn retrieve_context(&self, query: &str, k: usize) -> Vec<String> {
+        self.retrieve(query, k)
+            .into_iter()
+            .map(|(_, text, _)| text)
+            .collect()
+    }
+}
+
 /// Wraps any [`Retriever`] with a second-stage **reranker**: it pulls a *wider*
 /// pool from the inner retriever, then rescores that pool for precision with
 /// [`sovereign-rerank`](sovereign_rerank)'s coverage ranking — the fraction of
@@ -2104,6 +2269,59 @@ mod tests {
         // "programing" (one edit) still grounds on the rust doc
         let mut rag = RagResponder::new(inner, s, 1);
         rag.respond("systems programing", 0).unwrap();
+        let prompts = seen.borrow();
+        assert!(prompts[0].contains("rust ownership"), "{}", prompts[0]);
+    }
+
+    #[test]
+    fn ivfpq_store_retrieves_the_nearest_document() {
+        let s = IvfPqStore::from_docs([
+            ("rust", "rust ownership governs memory safety"),
+            ("python", "python is a dynamically typed scripting language"),
+            ("cook", "pasta with tomato sauce and basil"),
+        ]);
+        assert_eq!(s.len(), 3);
+        assert!(s.is_built());
+        let hits = s.retrieve("rust memory ownership", 1);
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].0, "rust", "ivf-pq hits {hits:?}");
+    }
+
+    #[test]
+    fn ivfpq_store_compresses_and_gates_on_build() {
+        let mut s = IvfPqStore::new();
+        s.add("rust", "rust ownership and memory safety");
+        s.add("cook", "pasta tomato sauce recipe");
+        s.add("python", "python scripting and typing");
+        // nothing until built
+        assert!(!s.is_built());
+        assert!(s.retrieve("rust", 1).is_empty());
+        s.build();
+        assert!(s.is_built());
+        // a 256-d f32 vector (1024 bytes) collapses to a few PQ bytes → big ratio
+        assert!(
+            s.code_len() > 0 && s.code_len() <= 8,
+            "code_len {}",
+            s.code_len()
+        );
+        assert!(s.compression() > 100.0, "compression {}", s.compression());
+        // an add re-invalidates the trained quantizers
+        s.add("go", "go concurrency goroutines");
+        assert!(!s.is_built());
+    }
+
+    #[test]
+    fn ivfpq_store_empty_zero_k_and_drives_rag() {
+        assert!(IvfPqStore::new().retrieve("anything", 3).is_empty());
+        let s = IvfPqStore::from_docs([
+            ("rust", "rust ownership and systems programming"),
+            ("cook", "pasta tomato sauce recipe"),
+        ]);
+        assert!(s.retrieve("rust", 0).is_empty());
+        let seen = Rc::new(RefCell::new(Vec::new()));
+        let inner = Capture { seen: seen.clone() };
+        let mut rag = RagResponder::new(inner, s, 1);
+        rag.respond("rusty systems programs", 0).unwrap();
         let prompts = seen.borrow();
         assert!(prompts[0].contains("rust ownership"), "{}", prompts[0]);
     }

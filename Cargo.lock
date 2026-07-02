@@ -5903,6 +5903,7 @@ dependencies = [
  "sovereign-hnsw",
  "sovereign-injection-detect",
  "sovereign-ivf",
+ "sovereign-ivf-pq",
  "sovereign-keywords",
  "sovereign-lsh",
  "sovereign-matryoshka",

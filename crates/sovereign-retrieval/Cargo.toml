@@ -32,3 +32,4 @@ sovereign-simhash = { path = "../sovereign-simhash" }
 sovereign-matryoshka = { path = "../sovereign-matryoshka" }
 sovereign-vptree = { path = "../sovereign-vptree" }
 sovereign-bktree = { path = "../sovereign-bktree" }
+sovereign-ivf-pq = { path = "../sovereign-ivf-pq" }
