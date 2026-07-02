@@ -1290,6 +1290,76 @@ impl Retriever for IvfPqStore {
     }
 }
 
+/// Wraps any [`Retriever`] with **Maximal Marginal Relevance** diversity
+/// re-ranking: it pulls a *wider* pool from the inner retriever, embeds each
+/// passage, and greedily picks the `k` that maximize `λ·relevance − (1−λ)·max
+/// similarity-to-already-picked` (`sovereign-mmr`). A high `λ` favours relevance,
+/// a low `λ` favours coverage; the effect is that near-duplicate passages don't
+/// all crowd the top-`k`, so the retrieved set spans more of the query's facets.
+///
+/// This is the general form of `EmbedStore::retrieve_mmr` (which only diversifies
+/// that one store's own index): as a [`Retriever`] wrapper it re-ranks the output
+/// of *any* backend — lexical, hybrid, IVF, VP-tree — and composes with the other
+/// wrappers. Makes the standalone `sovereign-mmr` crate (previously **zero
+/// consumers**) actually used.
+#[derive(Debug, Clone)]
+pub struct Diversified<R: Retriever> {
+    inner: R,
+    /// Relevance-vs-diversity trade-off in `[0, 1]` (1 = pure relevance).
+    lambda: f64,
+    /// How many candidates to pull before diversifying, as a multiple of `k`.
+    pool_factor: usize,
+    /// A floor on the candidate pool so small `k` still diversifies a real pool.
+    min_pool: usize,
+}
+
+impl<R: Retriever> Diversified<R> {
+    /// Wrap `inner`, diversifying with trade-off `lambda`, pulling
+    /// `max(k · pool_factor, min_pool)` candidates. `pool_factor` is clamped to at
+    /// least 1 and `lambda` into `[0, 1]`.
+    pub fn new(inner: R, lambda: f64, pool_factor: usize, min_pool: usize) -> Self {
+        Self {
+            inner,
+            lambda: lambda.clamp(0.0, 1.0),
+            pool_factor: pool_factor.max(1),
+            min_pool,
+        }
+    }
+
+    /// Wrap `inner` with sensible defaults (`lambda = 0.7`, `pool_factor = 4`,
+    /// `min_pool = 20`).
+    pub fn with_defaults(inner: R) -> Self {
+        Self::new(inner, 0.7, 4, 20)
+    }
+
+    /// The candidate-pool size for a requested `k`.
+    fn pool_size(&self, k: usize) -> usize {
+        (k.saturating_mul(self.pool_factor)).max(self.min_pool)
+    }
+}
+
+impl<R: Retriever> Retriever for Diversified<R> {
+    fn retrieve_context(&self, query: &str, k: usize) -> Vec<String> {
+        if k == 0 {
+            return Vec::new();
+        }
+        let pool = self.inner.retrieve_context(query, self.pool_size(k));
+        if pool.len() <= k {
+            return pool; // nothing to trim → nothing to diversify
+        }
+        let q = sovereign_embed::embed(query);
+        let vectors: Vec<Vec<f32>> = pool.iter().map(|t| sovereign_embed::embed(t)).collect();
+        let relevance: Vec<f64> = vectors
+            .iter()
+            .map(|v| sovereign_mmr::cosine(&q, v))
+            .collect();
+        sovereign_mmr::select(&relevance, &vectors, self.lambda, k)
+            .into_iter()
+            .filter_map(|i| pool.get(i).cloned())
+            .collect()
+    }
+}
+
 /// Wraps any [`Retriever`] with a second-stage **reranker**: it pulls a *wider*
 /// pool from the inner retriever, then rescores that pool for precision with
 /// [`sovereign-rerank`](sovereign_rerank)'s coverage ranking — the fraction of
@@ -2324,6 +2394,46 @@ mod tests {
         rag.respond("rusty systems programs", 0).unwrap();
         let prompts = seen.borrow();
         assert!(prompts[0].contains("rust ownership"), "{}", prompts[0]);
+    }
+
+    #[test]
+    fn diversified_avoids_duplicate_crowding() {
+        let inner = list_of(&[
+            "rust ownership gives memory safety",
+            "rust ownership gives memory safety", // duplicate content
+            "pasta with tomato sauce and basil",
+        ]);
+        let div = Diversified::new(inner, 0.0, 4, 20); // pure diversity
+        let hits = div.retrieve_context("rust memory", 2);
+        assert_eq!(hits.len(), 2);
+        // the two picks must differ — diversity avoided crowding the duplicate pair
+        assert_ne!(hits[0], hits[1], "diversity kept two copies: {hits:?}");
+        assert!(hits.iter().any(|h| h.contains("pasta")), "{hits:?}");
+    }
+
+    #[test]
+    fn diversified_small_pool_passes_through() {
+        // pool has <= k candidates → nothing to diversify, returned unchanged
+        let div = Diversified::with_defaults(list_of(&["only one document here"]));
+        assert_eq!(
+            div.retrieve_context("q", 3),
+            vec!["only one document here".to_string()]
+        );
+    }
+
+    #[test]
+    fn diversified_zero_k_and_drives_rag() {
+        assert!(
+            Diversified::with_defaults(list_of(&["a", "b"]))
+                .retrieve_context("q", 0)
+                .is_empty()
+        );
+        let inner = list_of(&["rust ownership systems", "pasta tomato sauce"]);
+        let seen = Rc::new(RefCell::new(Vec::new()));
+        let capture = Capture { seen: seen.clone() };
+        let mut rag = RagResponder::new(capture, Diversified::with_defaults(inner), 2);
+        rag.respond("rust", 0).unwrap();
+        assert!(seen.borrow()[0].starts_with("Context:\n"));
     }
 
     // A retriever that returns a fixed passage list (truncated to the pool size),

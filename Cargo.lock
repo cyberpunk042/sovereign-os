@@ -5909,6 +5909,7 @@ dependencies = [
  "sovereign-lsh",
  "sovereign-matryoshka",
  "sovereign-minhash",
+ "sovereign-mmr",
  "sovereign-rank-fusion",
  "sovereign-rerank",
  "sovereign-simhash",

@@ -730,8 +730,8 @@ fn run_rag_quality_demo() -> String {
     use sovereign_degeneration::Config as DegenConfig;
     use sovereign_llm::SovereignLlm;
     use sovereign_retrieval::{
-        BinaryHammingStore, Deduped, FuzzyTermStore, HybridStore, InjectionFiltered, IvfPqStore,
-        IvfStore, KeyphraseQuery, MatryoshkaStore, Reranked, Retriever, VpTreeStore,
+        BinaryHammingStore, Deduped, Diversified, FuzzyTermStore, HybridStore, InjectionFiltered,
+        IvfPqStore, IvfStore, KeyphraseQuery, MatryoshkaStore, Reranked, Retriever, VpTreeStore,
     };
     use std::fmt::Write as _;
 
@@ -915,6 +915,21 @@ fn run_rag_quality_demo() -> String {
     let _ = writeln!(
         out,
         "dedup filter     : {raw_n} passage(s) -> {dedup_n} after near-dup drop"
+    );
+
+    // MMR diversity: greedily pick passages that cover more facets instead of
+    // crowding the top-k with near-duplicates (pure diversity, lambda=0).
+    let mut div_store = HybridStore::new();
+    div_store.add("rust1", "rust ownership gives memory safety");
+    div_store.add("rust2", "rust ownership gives memory safety");
+    div_store.add("rust3", "rust performance benchmarks and raw speed");
+    let diversified = Diversified::new(div_store, 0.0, 4, 3);
+    let div_hits = diversified.retrieve_context("rust", 2);
+    let distinct = div_hits.first() != div_hits.get(1);
+    let _ = writeln!(
+        out,
+        "mmr diversify    : {} passage(s), distinct={distinct}",
+        div_hits.len()
     );
 
     // Generation quality controls on the real runtime.
@@ -1157,6 +1172,11 @@ mod tests {
         // the SimHash dedup filter collapsed the duplicate passages to one
         assert!(
             report.contains("dedup filter     : 2 passage(s) -> 1 after near-dup drop"),
+            "{report}"
+        );
+        // MMR diversity returned two distinct passages instead of a duplicate pair
+        assert!(
+            report.contains("mmr diversify    : 2 passage(s), distinct=true"),
             "{report}"
         );
         // the generation quality controls all ran and reported
