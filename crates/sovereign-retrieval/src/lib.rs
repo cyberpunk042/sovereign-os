@@ -605,6 +605,148 @@ impl Retriever for BinaryHammingStore {
     }
 }
 
+/// An **IVF** (inverted-file) semantic store: it embeds documents and, once
+/// built, files them into Voronoi cells around a trained coarse quantizer, so a
+/// query only scans the few nearest cells (`n_probe`) instead of the whole
+/// corpus — sub-linear semantic search that scales past a brute-force cosine
+/// pass, and a different point on the ANN trade-off curve than `AnnStore`'s HNSW
+/// graph. Because the coarse quantizer is *trained* on the corpus, the index is
+/// **batch-built**: add all documents, call [`IvfStore::build`] (or use
+/// [`IvfStore::from_docs`]), then retrieve. Retrieval before a build returns
+/// nothing.
+///
+/// Backed by [`sovereign-ivf`], previously built but unused; this store is its
+/// consumer.
+///
+/// [`sovereign-ivf`]: https://docs.rs/sovereign-ivf
+pub struct IvfStore {
+    /// `(id, text)` aligned by index with `vectors`.
+    docs: Vec<(String, String)>,
+    /// One embedding per document, aligned with `docs`.
+    vectors: Vec<Vec<f32>>,
+    /// The trained index; `None` until [`IvfStore::build`] runs (and again after
+    /// an [`IvfStore::add`] invalidates it).
+    index: Option<sovereign_ivf::IvfIndex>,
+    /// Requested number of Voronoi cells (clamped to the corpus size at build).
+    num_lists: usize,
+}
+
+impl Default for IvfStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl IvfStore {
+    /// An empty IVF store defaulting to 16 cells (clamped to the corpus size at
+    /// build time, so small corpora still build).
+    pub fn new() -> Self {
+        Self::with_lists(16)
+    }
+
+    /// An empty IVF store targeting `num_lists` Voronoi cells.
+    pub fn with_lists(num_lists: usize) -> Self {
+        Self {
+            docs: Vec::new(),
+            vectors: Vec::new(),
+            index: None,
+            num_lists: num_lists.max(1),
+        }
+    }
+
+    /// Build an IVF store from `(id, text)` pairs in one shot: add all, then
+    /// [`build`](Self::build).
+    pub fn from_docs<I, S1, S2>(docs: I) -> Self
+    where
+        I: IntoIterator<Item = (S1, S2)>,
+        S1: Into<String>,
+        S2: Into<String>,
+    {
+        let mut store = Self::new();
+        for (id, text) in docs {
+            store.add(id, text);
+        }
+        store.build();
+        store
+    }
+
+    /// Embed `text` and buffer it under `id`. This **invalidates** any built
+    /// index (the coarse quantizer must be retrained over the new corpus), so
+    /// call [`build`](Self::build) again before retrieving.
+    pub fn add(&mut self, id: impl Into<String>, text: impl Into<String>) {
+        let id = id.into();
+        let text = text.into();
+        self.vectors.push(sovereign_embed::embed(&text));
+        self.docs.push((id, text));
+        self.index = None;
+    }
+
+    /// Train the coarse quantizer over the buffered vectors and file each into
+    /// its cell (cosine metric). The cell count is clamped to the corpus size so
+    /// small corpora still build. A no-op (leaving the index unbuilt) when empty.
+    pub fn build(&mut self) {
+        if self.vectors.is_empty() {
+            self.index = None;
+            return;
+        }
+        let num_lists = self.num_lists.min(self.vectors.len()).max(1);
+        let config = sovereign_ivf::IvfConfig {
+            num_lists,
+            metric: sovereign_ivf::Metric::Cosine,
+            ..Default::default()
+        };
+        // inputs are validated above (non-empty, uniform embedding dim), so a
+        // build failure is not reachable here; drop the index if it ever is.
+        self.index = sovereign_ivf::IvfIndex::build(&self.vectors, config).ok();
+    }
+
+    /// Number of buffered documents.
+    pub fn len(&self) -> usize {
+        self.docs.len()
+    }
+
+    /// Whether the store holds no documents.
+    pub fn is_empty(&self) -> bool {
+        self.docs.is_empty()
+    }
+
+    /// Whether the index has been built (retrieval returns results only then).
+    pub fn is_built(&self) -> bool {
+        self.index.is_some()
+    }
+
+    /// Top-`k` `(id, text, distance)` for `query` by cosine distance (lower is
+    /// nearer), found by probing the nearest cells. Empty until [`build`](Self::build)
+    /// has run.
+    pub fn retrieve(&self, query: &str, k: usize) -> Vec<(String, String, f32)> {
+        let Some(index) = &self.index else {
+            return Vec::new();
+        };
+        if k == 0 {
+            return Vec::new();
+        }
+        let q = sovereign_embed::embed(query);
+        index
+            .search(&q, k)
+            .into_iter()
+            .filter_map(|n| {
+                self.docs
+                    .get(n.index)
+                    .map(|(id, text)| (id.clone(), text.clone(), n.distance))
+            })
+            .collect()
+    }
+}
+
+impl Retriever for IvfStore {
+    fn retrieve_context(&self, query: &str, k: usize) -> Vec<String> {
+        self.retrieve(query, k)
+            .into_iter()
+            .map(|(_, text, _)| text)
+            .collect()
+    }
+}
+
 /// Wraps any [`Retriever`] with a second-stage **reranker**: it pulls a *wider*
 /// pool from the inner retriever, then rescores that pool for precision with
 /// [`sovereign-rerank`](sovereign_rerank)'s coverage ranking — the fraction of
@@ -1292,6 +1434,58 @@ mod tests {
         let hits = reranked.retrieve_context("rust memory safety ownership", 1);
         assert_eq!(hits.len(), 1);
         assert!(hits[0].contains("rust ownership"), "reranked hits {hits:?}");
+    }
+
+    #[test]
+    fn ivf_store_retrieves_the_nearest_document() {
+        let s = IvfStore::from_docs([
+            ("rust", "rust ownership governs memory safety"),
+            ("python", "python is a dynamically typed scripting language"),
+            ("cook", "pasta with tomato sauce and basil"),
+        ]);
+        assert_eq!(s.len(), 3);
+        assert!(s.is_built());
+        let hits = s.retrieve("rust memory ownership", 1);
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].0, "rust", "IVF hits {hits:?}");
+    }
+
+    #[test]
+    fn ivf_store_returns_nothing_until_built() {
+        let mut s = IvfStore::new();
+        s.add("rust", "rust ownership and memory safety");
+        s.add("cook", "pasta tomato sauce recipe");
+        // an add leaves the index unbuilt → no results yet
+        assert!(!s.is_built());
+        assert!(s.retrieve("rust memory", 1).is_empty());
+        s.build();
+        assert!(s.is_built());
+        assert_eq!(s.retrieve("rust memory", 1)[0].0, "rust");
+        // a further add re-invalidates the trained quantizer
+        s.add("go", "go concurrency with goroutines");
+        assert!(!s.is_built());
+    }
+
+    #[test]
+    fn ivf_store_empty_and_zero_k() {
+        assert!(IvfStore::new().retrieve("anything", 3).is_empty());
+        let s = IvfStore::from_docs([("a", "some text here")]);
+        assert!(s.retrieve("text", 0).is_empty());
+    }
+
+    #[test]
+    fn ivf_store_drives_rag() {
+        let s = IvfStore::from_docs([
+            ("rust", "rust ownership and systems programming"),
+            ("cook", "pasta tomato sauce recipe"),
+        ]);
+        let seen = Rc::new(RefCell::new(Vec::new()));
+        let inner = Capture { seen: seen.clone() };
+        let mut rag = RagResponder::new(inner, s, 1);
+        rag.respond("rusty systems programs", 0).unwrap();
+        let prompts = seen.borrow();
+        assert!(prompts[0].starts_with("Context:\n"));
+        assert!(prompts[0].contains("rust ownership"));
     }
 
     #[test]

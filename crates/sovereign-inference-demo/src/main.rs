@@ -703,7 +703,8 @@ fn run_rag_quality_demo() -> String {
     use sovereign_degeneration::Config as DegenConfig;
     use sovereign_llm::SovereignLlm;
     use sovereign_retrieval::{
-        BinaryHammingStore, HybridStore, InjectionFiltered, KeyphraseQuery, Reranked, Retriever,
+        BinaryHammingStore, HybridStore, InjectionFiltered, IvfStore, KeyphraseQuery, Reranked,
+        Retriever,
     };
     use std::fmt::Write as _;
 
@@ -768,6 +769,28 @@ fn run_rag_quality_demo() -> String {
             .map(|(id, _, _)| id.as_str())
             .unwrap_or("-"),
         shortlist.first().map(|(_, _, d)| *d).unwrap_or(0)
+    );
+
+    // IVF inverted-file index: a trained coarse quantizer files docs into cells
+    // so a query probes only the nearest cells — sub-linear semantic search.
+    let ivf = IvfStore::from_docs([
+        ("rust", "rust ownership gives memory safety without a gc"),
+        (
+            "borrow",
+            "the borrow checker enforces aliasing at compile time",
+        ),
+        ("cook", "pasta with tomato sauce and basil"),
+    ]);
+    let ivf_hits = ivf.retrieve("rust memory safety", 1);
+    let _ = writeln!(
+        out,
+        "ivf index        : {} doc(s), built={}, nearest={:?}",
+        ivf.len(),
+        ivf.is_built(),
+        ivf_hits
+            .first()
+            .map(|(id, _, _)| id.as_str())
+            .unwrap_or("-")
     );
 
     // Generation quality controls on the real runtime.
@@ -922,6 +945,11 @@ mod tests {
         // the binary-quantized shortlist ran and picked the rust doc as nearest
         assert!(
             report.contains("binary shortlist : 3 code(s), nearest=\"rust\""),
+            "{report}"
+        );
+        // the IVF inverted-file index built and retrieved the rust doc
+        assert!(
+            report.contains("ivf index        : 3 doc(s), built=true, nearest=\"rust\""),
             "{report}"
         );
         // the generation quality controls all ran and reported

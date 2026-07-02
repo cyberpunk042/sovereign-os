@@ -5895,6 +5895,7 @@ dependencies = [
  "sovereign-embed",
  "sovereign-hnsw",
  "sovereign-injection-detect",
+ "sovereign-ivf",
  "sovereign-keywords",
  "sovereign-lsh",
  "sovereign-minhash",
