@@ -197,11 +197,11 @@ mod tests {
     #[test]
     fn rule4_offline_overrides_cloud_route() {
         assert_eq!(
-            offline_beats_cloud(true, "cloud", "local-3090"),
-            "local-3090"
+            offline_beats_cloud(true, "cloud", "local-4090"),
+            "local-4090"
         );
-        assert_eq!(offline_beats_cloud(false, "cloud", "local-3090"), "cloud");
-        assert_eq!(offline_beats_cloud(true, "local", "local-3090"), "local");
+        assert_eq!(offline_beats_cloud(false, "cloud", "local-4090"), "cloud");
+        assert_eq!(offline_beats_cloud(true, "local", "local-4090"), "local");
     }
 
     #[test]

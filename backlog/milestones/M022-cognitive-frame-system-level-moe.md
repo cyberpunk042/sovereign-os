@@ -34,7 +34,7 @@
 | M00362 | Frame loop step — OBSERVE (capture result / metrics / side effects) | 6125–6126 | E0202 |
 | M00363 | Frame loop step — COMMIT (accept/reject/update state under policy) | 6128–6129 | E0202 |
 | M00364 | Frame loop step — LOOP (emit next frames) | 6131–6132 | E0202 |
-| M00365 | System-MoE expert registry — Blackwell oracle / 3090 scout / Nano perception / embedding / reranker / Python REPL / shell sandbox / simdjson validator / Hyperscan policy scanner / ZFS replay store / human approval | 6178–6190 | E0204 |
+| M00365 | System-MoE expert registry — Blackwell oracle / 4090 scout / Nano perception / embedding / reranker / Python REPL / shell sandbox / simdjson validator / Hyperscan policy scanner / ZFS replay store / human approval | 6178–6190 | E0204 |
 | M00366 | AVX-512 router 7 named masks — alive_mask / tool_mask / oracle_mask / scout_mask / repl_mask / memory_mask / human_mask | 6199–6206 | E0205 |
 | M00367 | AVX-512 router 6 named queues — oracle_queue / scout_queue / repl_queue / tool_queue / human_queue / memory_queue | 6211–6217 | E0205 |
 | M00368 | CoT-to-Frame conversion — model prose → ToolIntentFrame / HypothesisFrame | 6225–6245 | E0206 |
@@ -83,7 +83,7 @@
 | F01821 | Frame-loop step 5 — COMMIT | 6128 | M00363 | composite | false |
 | F01822 | Frame-loop step 6 — LOOP | 6131 | M00364 | composite | false |
 | F01823 | System-MoE expert — Blackwell oracle | 6179 | M00365 | composite | false |
-| F01824 | System-MoE expert — 3090 scout | 6180 | M00365 | composite | false |
+| F01824 | System-MoE expert — 4090 scout | 6180 | M00365 | composite | false |
 | F01825 | System-MoE expert — Nano perception model | 6181 | M00365 | composite | false |
 | F01826 | System-MoE expert — embedding model | 6182 | M00365 | composite | false |
 | F01827 | System-MoE expert — reranker | 6183 | M00365 | composite | false |
@@ -196,7 +196,7 @@
 | R03629 | Token MoE — `token → router → expert layer` | 6169–6170 | E0204 | non-negotiable | false | 10 |
 | R03630 | System MoE — `frame → AVX-512 router → GPU/model/tool/human/memory expert` | 6172–6173 | E0204 | non-negotiable | false | 10 |
 | R03631 | System-MoE expert — Blackwell oracle | 6179 | M00365 | non-negotiable | false | 10 |
-| R03632 | System-MoE expert — 3090 scout | 6180 | M00365 | non-negotiable | false | 10 |
+| R03632 | System-MoE expert — 4090 scout | 6180 | M00365 | non-negotiable | false | 10 |
 | R03633 | System-MoE expert — Nano perception model | 6181 | M00365 | non-negotiable | false | 10 |
 | R03634 | System-MoE expert — embedding model | 6182 | M00365 | non-negotiable | false | 10 |
 | R03635 | System-MoE expert — reranker | 6183 | M00365 | non-negotiable | false | 10 |

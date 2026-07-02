@@ -33,7 +33,7 @@ c = d['item']
 # §17.1 operator-verbatim per-agent phrases — MUST appear unchanged
 must = [
     'The Conductor Agent (CPU Bound)',
-    'The Logic Engine (GPU 0 - RTX 3090)',
+    'The Logic Engine (GPU 0 - RTX 4090)',
     'The Oracle Core (GPU 1 - Blackwell PRO 6000)',
     'evaluates incoming user intent' if False else 'Evaluates incoming user intent',
     'updates CLAUDE.md',

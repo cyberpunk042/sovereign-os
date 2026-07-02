@@ -9,7 +9,7 @@ For `sain-01`:
 | Hook | Purpose |
 |---|---|
 | `friction-audit-runtime.sh` | Verify actual lspci / lscpu / IOMMU groups match profile; GPU-BDF-scoped PCIe lane check (corrects L0 dump's wide-scope bug per SDD-006) |
-| `vfio-bind-3090.sh` | Configure GRUB cmdline `vfio-pci.ids=10de:2204,10de:1ad8`; write `/etc/modprobe.d/vfio.conf`; rebuild initramfs |
+| `vfio-bind-4090.sh` | Configure GRUB cmdline `vfio-pci.ids=10de:2684,10de:22ba`; write `/etc/modprobe.d/vfio.conf`; rebuild initramfs |
 | `network-vlan-config.sh` | Emit systemd-networkd .network + .netdev units for VLAN 100 (mgmt) + 200 (data MTU 9000) |
 | `tetragon-policy-load.sh` | Install `sovereign-kernel-fence.yaml` TracingPolicy; enable + restart tetragon |
 | `zfs-arc-clamp.sh` | Clamp `zfs_arc_max` to 128 GB; write `/etc/modprobe.d/zfs.conf`; rebuild initramfs |
@@ -29,7 +29,7 @@ Stage-2 next round: TUI elaboration via `whiptail` / `textual` (Q-018-D); pre-ad
 
 ```
 1. friction-audit-runtime (validate)
-2. vfio-bind-3090           ── reboot required after
+2. vfio-bind-4090           ── reboot required after
 3. (REBOOT)
 4. network-vlan-config
 5. tetragon-policy-load

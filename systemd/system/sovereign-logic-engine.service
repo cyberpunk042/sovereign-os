@@ -1,9 +1,9 @@
 [Unit]
-Description=sovereign-os Logic Engine — vLLM/llama.cpp on RTX 3090 (VFIO sandbox)
+Description=sovereign-os Logic Engine — vLLM/llama.cpp on RTX 4090 (VFIO sandbox)
 Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/docs/sdd/011-inference-backend-stack.md
 After=network-online.target podman.service nvidia-persistenced.service
 Wants=network-online.target
-# Logic Engine needs the 3090 VFIO binding active; tetragon perimeter loaded first
+# Logic Engine needs the 4090 VFIO binding active; tetragon perimeter loaded first
 After=tetragon.service
 Requires=tetragon.service
 

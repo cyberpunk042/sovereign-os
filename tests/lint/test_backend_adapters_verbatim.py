@@ -14,7 +14,7 @@ runtime invariants at the ARGV construction layer — the layer where
 Master spec §17.1 + E109 + SDD-005 verbatim:
   - Pulse: bitnet.cpp + TL2 x86 kernel default + CCD 0 cores 0-5 +
            model microsoft/bitnet-b1.58-2B-4T
-  - Logic Engine: vLLM in podman wrapper (VFIO 3090 isolation) +
+  - Logic Engine: vLLM in podman wrapper (VFIO 4090 isolation) +
                   port 8082 + tensor-parallel-size 1
   - Oracle Core: vLLM native (Blackwell host-resident) + port 8083 +
                  fp8 KV cache default + DFlash speculative decoding
@@ -23,7 +23,7 @@ Master spec §17.1 + E109 + SDD-005 verbatim:
 If a future agent silently:
   - changes DEFAULT_KERNEL from TL2 (Pulse loses x86 optimization)
   - drops `taskset -c` from bitnet argv (CCD 0 pinning lost = §17.1 SRP)
-  - changes vLLM podman flag for Logic Engine (3090 isolation breaks)
+  - changes vLLM podman flag for Logic Engine (4090 isolation breaks)
   - changes Oracle Core fp8 default (halves effective context length)
   - removes --speculative-config from DFlash path (E109 spec-decode lost)
 …the §17.1 + E109 contract silently breaks at argv-construction layer.
@@ -130,14 +130,14 @@ def test_vllm_min_version_pinned():
 
 
 def test_vllm_logic_engine_uses_podman():
-    """SDD-011 + §17.1: Logic Engine on VFIO-bound 3090 MUST use podman
+    """SDD-011 + §17.1: Logic Engine on VFIO-bound 4090 MUST use podman
     container wrapping (process isolation from host's Blackwell driver).
-    Drift to native breaks 3090 VFIO isolation contract."""
+    Drift to native breaks 4090 VFIO isolation contract."""
     body = _read(VLLM)
     # for_logic_engine() MUST set podman=True
     assert ("podman=True" in body or 'podman = True' in body), (
         "vllm.py for_logic_engine() MUST use podman=True "
-        "(SDD-011 + §17.1 — 3090 VFIO isolation requires container wrapping)"
+        "(SDD-011 + §17.1 — 4090 VFIO isolation requires container wrapping)"
     )
 
 

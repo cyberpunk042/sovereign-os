@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """scripts/hardware/gpu-wattage-catalog.py — R303 (E1.M28).
 
-Operator-named (§1b mandate row, verbatim): "GPU too, watts, RTX 3090
+Operator-named (§1b mandate row, verbatim): "GPU too, watts, RTX 4090
 details and possibilities established and non-established, same for
 the RTX Pro 6000". Closes E1.M28.
 
 Per-card, per-operational-mode wattage catalog. Each entry binds:
 
-  - card                 RTX 3090 / RTX PRO 6000
+  - card                 RTX 4090 / RTX PRO 6000
   - mode                 idle / typical-inference / peak-training / oc-peak
   - watts                operator-pinned reference (datasheet + bench)
   - source               where the number came from (datasheet, R258 sampler)
@@ -21,7 +21,7 @@ planning budget.
 CLI:
   gpu-wattage-catalog.py list   [--card C] [--mode M] [--config P] [--json|--human]
   gpu-wattage-catalog.py show   <card> <mode> [--config P] [--json|--human]
-  gpu-wattage-catalog.py budget [--config-3090 M] [--config-pro6000 M]
+  gpu-wattage-catalog.py budget [--config-4090 M] [--config-pro6000 M]
                                  [--config P] [--json|--human]
                             sums per-card mode → operator-readable
                             dual-card budget projection
@@ -58,16 +58,16 @@ SDD_VECTOR = "E1.M28"
 
 # ── Per-card per-mode wattage catalog ──────────────────────────────
 DEFAULT_CATALOG: list[dict[str, Any]] = [
-    # ── RTX 3090 (Ampere, GA102, 24 GB GDDR6X) ──────────────────
+    # ── RTX 4090 (Ada, AD102, 24 GB GDDR6X) ──────────────────
     {
-        "card": "RTX 3090",
+        "card": "RTX 4090",
         "mode": "idle",
         "watts": 22,
         "source": "datasheet + R258 sampler typical desktop idle",
         "operator_note": "Display-on idle with operator's monitors lit.",
     },
     {
-        "card": "RTX 3090",
+        "card": "RTX 4090",
         "mode": "typical-inference",
         "watts": 220,
         "source": "operator-pinned: BF16 inference at ~70% utilization",
@@ -75,7 +75,7 @@ DEFAULT_CATALOG: list[dict[str, Any]] = [
                          "operator-helpdesk-eval task on Qwen2-7B.",
     },
     {
-        "card": "RTX 3090",
+        "card": "RTX 4090",
         "mode": "peak-training",
         "watts": 350,
         "source": "datasheet TGP (factory)",
@@ -83,7 +83,7 @@ DEFAULT_CATALOG: list[dict[str, Any]] = [
                          "BF16 + AdamW — saturates power_limit.",
     },
     {
-        "card": "RTX 3090",
+        "card": "RTX 4090",
         "mode": "oc-peak",
         "watts": 420,
         "source": "operator-mandate §1b 'OC profile' headroom + NVIDIA "
@@ -98,7 +98,7 @@ DEFAULT_CATALOG: list[dict[str, Any]] = [
         "mode": "idle",
         "watts": 35,
         "source": "datasheet + workstation-SKU baseline",
-        "operator_note": "Higher idle than 3090 due to ECC + 96 GB "
+        "operator_note": "Higher idle than 4090 due to ECC + 96 GB "
                          "memory refresh — operator pays the floor.",
     },
     {
@@ -240,8 +240,8 @@ def main(argv: list[str] | None = None) -> int:
     ps.set_defaults(fmt="json")
 
     pb = sub.add_parser("budget")
-    pb.add_argument("--mode-3090", default="typical-inference",
-                     help="operational mode for RTX 3090 (default: typical-inference)")
+    pb.add_argument("--mode-4090", default="typical-inference",
+                     help="operational mode for RTX 4090 (default: typical-inference)")
     pb.add_argument("--mode-pro6000", default="typical-inference",
                      help="operational mode for RTX PRO 6000")
     pb.add_argument("--psu-rated-watts", type=int, default=1600,
@@ -298,19 +298,19 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.verb == "budget":
-        e3090 = resolve_entry(catalog, "RTX 3090", args.mode_3090)
+        e4090 = resolve_entry(catalog, "RTX 4090", args.mode_4090)
         epro = resolve_entry(catalog, "RTX PRO 6000", args.mode_pro6000)
-        if e3090 is None or epro is None:
+        if e4090 is None or epro is None:
             print(json.dumps({
                 "error": "could not resolve one of the GPU modes",
-                "rtx_3090_mode": args.mode_3090,
-                "rtx_3090_resolved": e3090 is not None,
+                "rtx_4090_mode": args.mode_4090,
+                "rtx_4090_resolved": e4090 is not None,
                 "rtx_pro_6000_mode": args.mode_pro6000,
                 "rtx_pro_6000_resolved": epro is not None,
                 "round": ROUND,
             }, indent=2), file=sys.stderr)
             return 1
-        gpu_total = e3090["watts"] + epro["watts"]
+        gpu_total = e4090["watts"] + epro["watts"]
         projected = args.cpu_tdp_watts + gpu_total + args.chassis_baseline_watts
         headroom = args.psu_rated_watts - projected
         headroom_pct = round((headroom / args.psu_rated_watts) * 100.0, 1) \
@@ -322,7 +322,7 @@ def main(argv: list[str] | None = None) -> int:
             "schema_version": SCHEMA_VERSION,
             "round": ROUND,
             "sdd_vector": SDD_VECTOR,
-            "rtx_3090": {"mode": args.mode_3090, "watts": e3090["watts"]},
+            "rtx_4090": {"mode": args.mode_4090, "watts": e4090["watts"]},
             "rtx_pro_6000": {"mode": args.mode_pro6000, "watts": epro["watts"]},
             "gpu_total_watts": gpu_total,
             "cpu_tdp_watts": args.cpu_tdp_watts,
@@ -338,7 +338,7 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(doc, indent=2))
         else:
             print(f"── R303 GPU dual-card budget (E1.M28) ──")
-            print(f"  RTX 3090       @ {args.mode_3090:20s}  {e3090['watts']:>4} W")
+            print(f"  RTX 4090       @ {args.mode_4090:20s}  {e4090['watts']:>4} W")
             print(f"  RTX PRO 6000   @ {args.mode_pro6000:20s}  {epro['watts']:>4} W")
             print(f"  + CPU TDP                                  {args.cpu_tdp_watts:>4} W")
             print(f"  + chassis baseline                         {args.chassis_baseline_watts:>4} W")

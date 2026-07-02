@@ -9,7 +9,7 @@ workstation exposes:
 
   - SRP topology (M075)      tier pulse→Conductor (CPU/CCD0 cores 0-5,
                              bitnet.cpp ternary), tier logic→Logic Engine
-                             (RTX 3090 24GB, VFIO), tier oracle→Oracle Core
+                             (RTX 4090 24GB, VFIO), tier oracle→Oracle Core
                              (RTX PRO 6000 Blackwell 96GB, NVFP4-capable).
   - GPU live (nvidia-smi)    per-GPU util / VRAM-used / temp / power /
                              compute-capability. Blackwell (cc≥10.0) is the
@@ -70,7 +70,7 @@ TIER_TO_ROLE = {
     "router": "logic",  # RAG/draft helpers ride the Logic GPU by default
 }
 
-# Oracle = Blackwell (NVFP4); Logic = RTX 3090 (24GB). Declared VRAM ceilings
+# Oracle = Blackwell (NVFP4); Logic = RTX 4090 (24GB). Declared VRAM ceilings
 # the dashboard gauges divide against (frontend hard-codes 24 / 96).
 ROLE_VRAM_CEILING_GB = {"logic": 24.0, "oracle": 96.0}
 
@@ -270,7 +270,7 @@ def collect_gpus() -> list[dict[str, Any]]:
 def _assign_gpu_roles(gpus: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     """oracle ← Blackwell (cc≥10.0) else highest-VRAM GPU; logic ← the other.
     Mirrors start-oracle-core.sh's Blackwell-detection + start-logic-engine.sh
-    (RTX 3090) role split. Empty when no GPUs present."""
+    (RTX 4090) role split. Empty when no GPUs present."""
     role_gpu: dict[str, dict[str, Any]] = {}
     if not gpus:
         return role_gpu
@@ -352,7 +352,7 @@ def snapshot() -> dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
         "summary": {
-            "total": total, "blackwell": bw, "rtx3090": rtx, "cpu": cpu,
+            "total": total, "blackwell": bw, "rtx4090": rtx, "cpu": cpu,
             "source": "runtime" if loaded else "catalog",
         },
         "roles": roles,

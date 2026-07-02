@@ -94,7 +94,7 @@ The 6 redefinitions (severity):
 | F05129 | Scheduler redef — earlier sections had scheduler as component (312, 677, 1325) | dump 312 + 677 + 1325 |
 | F05130 | Scheduler redef — later section makes scheduler first-class policy layer (17914-18268) | dump 17914-18268 |
 | F05131 | Scheduler redef — 6 scheduling policies per profile (fast/careful/private/autonomous/experimental/production) | dump 18001-18030 |
-| F05132 | Scheduler redef — 8 resource types + 8 queue types + Blackwell/3090/CPU policies + Backpressure + Goldilocks | dump 17920-18209 |
+| F05132 | Scheduler redef — 8 resource types + 8 queue types + Blackwell/4090/CPU policies + Backpressure + Goldilocks | dump 17920-18209 |
 | F05133 | Scheduler redef — Key Scheduling Law: "never let expensive cognition wait on cheap preparation" | dump 18261-18264 |
 | F05134 | Scheduler redef — CANONICAL: policy-layer scheduler with per-profile scheduling | dump 17914-18268 |
 | F05135 | Scheduler redef — affected: sovereign-os M005 M007 M009 (citations to component-scheduler must layer policy-layer canon) | backward-sweep findings |
@@ -213,7 +213,7 @@ The 6 redefinitions (severity):
 | R10258 | Scheduler redef — later section makes scheduler first-class policy layer at dump 17914-18268 | dump 17914-18268 | F05130 | non-negotiable | false | 10 |
 | R10259 | Scheduler redef — 6 scheduling policies per profile (fast/careful/private/autonomous/experimental/production) | dump 18001-18030 | F05131 | non-negotiable | false | 10 |
 | R10260 | Scheduler redef — 8 resource types + 8 queue types | dump 17920-17999 | F05132 | non-negotiable | false | 10 |
-| R10261 | Scheduler redef — Blackwell/3090/CPU policies + Backpressure + Goldilocks objective | dump 18040-18209 | F05132 | non-negotiable | false | 10 |
+| R10261 | Scheduler redef — Blackwell/4090/CPU policies + Backpressure + Goldilocks objective | dump 18040-18209 | F05132 | non-negotiable | false | 10 |
 | R10262 | Scheduler redef — Key Scheduling Law "never let expensive cognition wait on cheap preparation" | dump 18261-18264 | F05133 | non-negotiable | false | 10 |
 | R10263 | Scheduler redef — CANONICAL: policy-layer scheduler with per-profile scheduling | dump 17914-18268 | F05134 | non-negotiable | false | 10 |
 | R10264 | Scheduler redef — affected: sovereign-os M005 M007 M009 | backward-sweep findings | F05135 | non-negotiable | false | 10 |

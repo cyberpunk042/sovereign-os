@@ -45,7 +45,7 @@ mkdir -p "${TMP}/peak"
 cat > "${TMP}/peak/sovereign-os-gpu-watch.prom" <<'PROM'
 # HELP
 # TYPE sovereign_os_gpu_power_draw_watts gauge
-sovereign_os_gpu_power_draw_watts{gpu="3090",idx="0"} 240
+sovereign_os_gpu_power_draw_watts{gpu="4090",idx="0"} 240
 sovereign_os_gpu_power_draw_watts{gpu="6000",idx="1"} 80
 PROM
 out="$(SOVEREIGN_OS_METRICS_DIR="${TMP}/peak" python3 "${SCRIPT}" auto --json)"
@@ -63,7 +63,7 @@ assert '200' in d['reason'], d
 # ---- mid GPU draw → sustained-burst ----
 mkdir -p "${TMP}/mid"
 cat > "${TMP}/mid/sovereign-os-gpu-watch.prom" <<'PROM'
-sovereign_os_gpu_power_draw_watts{gpu="3090",idx="0"} 150
+sovereign_os_gpu_power_draw_watts{gpu="4090",idx="0"} 150
 PROM
 out="$(SOVEREIGN_OS_METRICS_DIR="${TMP}/mid" python3 "${SCRIPT}" auto --json)"
 echo "${out}" | python3 -c "
@@ -82,7 +82,7 @@ sovereign_os_inference_router_class_total{class="llm"} 42
 sovereign_os_inference_router_class_total{class="slm"} 17
 PROM
 cat > "${TMP}/active/sovereign-os-gpu-watch.prom" <<'PROM'
-sovereign_os_gpu_power_draw_watts{gpu="3090",idx="0"} 25
+sovereign_os_gpu_power_draw_watts{gpu="4090",idx="0"} 25
 PROM
 out="$(SOVEREIGN_OS_METRICS_DIR="${TMP}/active" python3 "${SCRIPT}" auto --json)"
 echo "${out}" | python3 -c "

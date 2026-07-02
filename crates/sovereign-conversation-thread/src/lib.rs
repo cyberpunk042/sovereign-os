@@ -44,7 +44,7 @@ pub struct Turn {
     pub tokens_in: u32,
     /// Tokens out (completion side).
     pub tokens_out: u32,
-    /// Provider label (e.g. "cloud-anthropic", "local:rocm-3090").
+    /// Provider label (e.g. "cloud-anthropic", "local:rocm-4090").
     pub provider: String,
     /// ISO-8601 UTC.
     pub started_at: String,
@@ -200,7 +200,7 @@ mod tests {
             role,
             tokens_in,
             tokens_out,
-            provider: "local:rocm-3090".into(),
+            provider: "local:rocm-4090".into(),
             started_at: "2026-05-19T03:00:00Z".into(),
             completed_at: "2026-05-19T03:00:01Z".into(),
             branch_id: branch.into(),

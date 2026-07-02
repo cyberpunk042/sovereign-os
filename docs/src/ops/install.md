@@ -20,7 +20,7 @@ sudo scripts/hooks/during-install/zfs-datasets-create.sh
 
 # 5. Run post-install hooks
 sudo scripts/hooks/post-install/friction-audit-runtime.sh
-sudo scripts/hooks/post-install/vfio-bind-3090.sh
+sudo scripts/hooks/post-install/vfio-bind-4090.sh
 # ... full list in the install runbook
 
 # 6. Install systemd units

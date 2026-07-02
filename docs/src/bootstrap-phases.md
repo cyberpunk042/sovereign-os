@@ -105,7 +105,7 @@ This doc is regenerated from `config/bootstrap/phases.yaml` on every invocation 
 
 **Artifacts:**
 
-- `scripts/hooks/post-install/vfio-bind-3090.sh` *(post-install-hook)*
+- `scripts/hooks/post-install/vfio-bind-4090.sh` *(post-install-hook)*
 - `scripts/hooks/post-install/network-vlan-config.sh` *(post-install-hook)*
 - `scripts/network/render-asymmetric.sh` *(tooling)*
 - `systemd/system/sovereign-vfio-bind.service` *(systemd-unit)*

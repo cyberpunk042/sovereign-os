@@ -16,7 +16,7 @@
 | E0043 | AVX-512 scheduler tick — decrement / drop / boost / route / merge / admit / evict | 776–787 |
 | E0044 | Constraint automata — JSON / grammar / tool / shell-command / patch FSMs | 911–913 |
 | E0045 | Auditable replay log — input / chunks / drafts / oracle / tools / patches / tests / final | 898–907 |
-| E0046 | Three big wins — oracle calls scarce / 3090 specialists / CPU constraint automata | 826–933 |
+| E0046 | Three big wins — oracle calls scarce / 4090 specialists / CPU constraint automata | 826–933 |
 
 ## Modules (M00062–M00078) — 17 modules
 
@@ -26,13 +26,13 @@
 | M00063 | Branch ops — drafted / verified / merged / killed / expanded / routed / summarized / tool-executed / committed | 1260–1271 | E0042 |
 | M00064 | Scheduler tick — decrement budgets / drop dead / boost promising / route uncertain / route cheap / enforce constraints / merge dups / admit-evict memory | 776–787 | E0043 |
 | M00065 | 8-bit control word fields — bits 0..3 model route / 4..7 task type / 8..15 max speculation / 16..23 risk / 24..31 tool perms / 32..39 memory policy / 40..47 grammar mode / 48..55 priority / 56..63 lifecycle flags | 793–805 | E0041 |
-| M00066 | 3090 proposal format — N tokens + confidence + grammar state + tool intent | 810–812 | E0042 |
+| M00066 | 4090 proposal format — N tokens + confidence + grammar state + tool intent | 810–812 | E0042 |
 | M00067 | CPU decision format — no shell / keep N tokens / oracle for X / embedding around Y / kill branch Z | 815–820 | E0042 |
 | M00068 | Oracle scarce + high-value invariant | 826 | E0046 |
-| M00069 | Cheap cognition services on 3090 — draft / embedding / reranker / small code / vision / classifier / preference / summarizer / tool-risk | 829–839 | E0046 |
-| M00070 | Specialist market on 3090 — CPU as exchange | 842–845 | E0046 |
-| M00071 | Request lifecycle — user / root branch / context candidates / 3090 rerank-summarize-expand / CPU packs prompt / RTX PRO generates / 3090 drafts ahead / CPU validates / RTX PRO finalizes / memory logs | 850–860 | E0046 |
-| M00072 | Coding workflow split — 3090 (grep / small-patch / speculation / test-classification) / CPU (dep-graph / risk-scoring / scheduling / grammar / merge) / RTX PRO (architectural / final-review / hard-bug / long-context) | 862–882 | E0046 |
+| M00069 | Cheap cognition services on 4090 — draft / embedding / reranker / small code / vision / classifier / preference / summarizer / tool-risk | 829–839 | E0046 |
+| M00070 | Specialist market on 4090 — CPU as exchange | 842–845 | E0046 |
+| M00071 | Request lifecycle — user / root branch / context candidates / 4090 rerank-summarize-expand / CPU packs prompt / RTX PRO generates / 4090 drafts ahead / CPU validates / RTX PRO finalizes / memory logs | 850–860 | E0046 |
+| M00072 | Coding workflow split — 4090 (grep / small-patch / speculation / test-classification) / CPU (dep-graph / risk-scoring / scheduling / grammar / merge) / RTX PRO (architectural / final-review / hard-bug / long-context) | 862–882 | E0046 |
 | M00073 | Auditable trace — input / chunks / drafts / oracle / tool calls / patches / tests / final | 898–907 | E0045 |
 | M00074 | Deterministic JSON FSM on CPU | 916 | E0044 |
 | M00075 | Deterministic tool-call masking on CPU | 917 | E0044 |
@@ -92,7 +92,7 @@
 | F00386 | Dashboard surface — Control word bit-layout inspector | 793–805 | M00065 | dashboard | true |
 | F00387 | Test — control word v2 decode covers all 9 fields | 793–805 | M00065 | test | true |
 | F00388 | Personalization — operator-defined control-word field bit-widths | 793–805 | M00065 | configuration | true |
-| F00389 | Toggle 3090 proposal-format mode | 810–812 | M00066 | mode | true |
+| F00389 | Toggle 4090 proposal-format mode | 810–812 | M00066 | mode | true |
 | F00390 | Profile knob — `scout_proposal_format = v1 \| v2 \| operator_defined` | 810–812 | M00066 | profile | true |
 | F00391 | Env var `SOVEREIGN_SCOUT_PROPOSAL_FORMAT` | 810–812 | M00066 | env_var | true |
 | F00392 | API `POST /v1/scout/proposal` — accept N-token + confidence + grammar-state + tool-intent | 810–812 | M00066 | api_endpoint | true |
@@ -106,7 +106,7 @@
 | F00400 | Profile knob — `oracle_scarcity_threshold` | 826 | M00068 | profile | true |
 | F00401 | Env var `SOVEREIGN_ORACLE_SCARCITY_THRESHOLD` | 826 | M00068 | env_var | true |
 | F00402 | Test — oracle calls scarce-by-default proven via load test | 826 | M00068 | test | true |
-| F00403 | Toggle 3090-specialist-market mode | 842–845 | M00070 | mode | true |
+| F00403 | Toggle 4090-specialist-market mode | 842–845 | M00070 | mode | true |
 | F00404 | Profile knob — `scout_specialist_registry_path` | 842–845 | M00070 | profile | true |
 | F00405 | Env var `SOVEREIGN_SCOUT_SPECIALIST_REGISTRY_PATH` | 842–845 | M00070 | env_var | true |
 | F00406 | CLI `sovereign-osctl scout specialists list` | 842–845 | M00070 | cli_verb | true |
@@ -120,7 +120,7 @@
 | F00414 | Toggle coding-workflow-split mode | 862–882 | M00072 | mode | true |
 | F00415 | Profile knob — `coding_workflow_split = standard \| operator_defined` | 862–882 | M00072 | profile | true |
 | F00416 | Dashboard surface — Coding workflow per-organ task assignment | 862–882 | M00072 | dashboard | true |
-| F00417 | Test — 3090 receives grep / small-patch / speculation / test-classification only | 862–882 | M00072 | test | true |
+| F00417 | Test — 4090 receives grep / small-patch / speculation / test-classification only | 862–882 | M00072 | test | true |
 | F00418 | Test — CPU receives dep-graph / risk-scoring / scheduling / grammar / merge only | 862–882 | M00072 | test | true |
 | F00419 | Test — RTX PRO receives architectural / final-review / hard-bug / long-context only | 862–882 | M00072 | test | true |
 | F00420 | Toggle auditable-trace replay mode | 898–907 | M00073 | mode | true |
@@ -217,17 +217,17 @@
 | R00761 | CLI `scout specialists list` returns JSON of registered specialists | 842–845 | F00406 | non-negotiable | true | 10 |
 | R00762 | Dashboard scout specialist registry table shows specialist name + role + GPU + latency | 842–845 | F00407 | non-negotiable | true | 10 |
 | R00763 | API `GET /v1/scout/specialists` returns JSON specialist list | 842–845 | F00408 | non-negotiable | true | 10 |
-| R00764 | Request lifecycle pipeline order — user → root branch → context → 3090 rerank-summarize-expand → CPU pack → RTX PRO generate → 3090 draft ahead → CPU validate → RTX PRO finalize → memory log | 850–860 | F00409 | non-negotiable | false | 10 |
+| R00764 | Request lifecycle pipeline order — user → root branch → context → 4090 rerank-summarize-expand → CPU pack → RTX PRO generate → 4090 draft ahead → CPU validate → RTX PRO finalize → memory log | 850–860 | F00409 | non-negotiable | false | 10 |
 | R00765 | Profile `request_lifecycle_pipeline` accepts `standard` / `custom_<name>` | 850–860 | F00410 | non-negotiable | true | 10 |
 | R00766 | Env var `SOVEREIGN_REQUEST_LIFECYCLE_PIPELINE` accepts same enum | 850–860 | F00411 | non-negotiable | true | 10 |
 | R00767 | Dashboard request lifecycle pipeline shows live per-stage status | 850–860 | F00412 | non-negotiable | true | 10 |
 | R00768 | Test — request lifecycle pipeline ordering deterministic across runs | 850–860 | F00413 | non-negotiable | false | 10 |
-| R00769 | Coding workflow split 3090 = grep / small-patch / speculation / test-classification | 866–870 | F00414 | non-negotiable | false | 10 |
+| R00769 | Coding workflow split 4090 = grep / small-patch / speculation / test-classification | 866–870 | F00414 | non-negotiable | false | 10 |
 | R00770 | Coding workflow split CPU = dep-graph / risk-scoring / scheduling / grammar / merge | 871–876 | F00414 | non-negotiable | false | 10 |
 | R00771 | Coding workflow split RTX PRO = architectural / final-review / hard-bug / long-context | 877–882 | F00414 | non-negotiable | false | 10 |
 | R00772 | Profile `coding_workflow_split` accepts `standard` / `operator_defined` | 862–882 | F00415 | non-negotiable | true | 10 |
 | R00773 | Dashboard coding workflow per-organ task assignment shows live load | 862–882 | F00416 | non-negotiable | true | 10 |
-| R00774 | Test — 3090 task class allowlist enforced | 862–882 | F00417 | non-negotiable | false | 10 |
+| R00774 | Test — 4090 task class allowlist enforced | 862–882 | F00417 | non-negotiable | false | 10 |
 | R00775 | Test — CPU task class allowlist enforced | 862–882 | F00418 | non-negotiable | false | 10 |
 | R00776 | Test — RTX PRO task class allowlist enforced | 862–882 | F00419 | non-negotiable | false | 10 |
 | R00777 | Auditable trace covers — input / chunks / drafts / oracle / tool calls / patches / tests / final | 898–907 | F00420 | non-negotiable | false | 10 |
@@ -249,7 +249,7 @@
 | R00793 | Branch lifecycle transitions emit OTel events | 1260–1271 | M00063 | non-negotiable | false | 10 |
 | R00794 | Branch lifecycle transitions immutable in replay log | 1260–1271 | M00063 | non-negotiable | false | 10 |
 | R00795 | Branch lifecycle transitions content-addressed via blake3 in replay log | 1260–1271 | M00063 | non-negotiable | false | 10 |
-| R00796 | Three big wins — oracle calls scarce + 3090 specialists + CPU constraint automata | 826–933 | M00068 | non-negotiable | false | 10 |
+| R00796 | Three big wins — oracle calls scarce + 4090 specialists + CPU constraint automata | 826–933 | M00068 | non-negotiable | false | 10 |
 | R00797 | Three big wins measurable via Prometheus dashboards | 826–933 | M00068 | non-negotiable | false | 10 |
 | R00798 | Three big wins measurable via OTel spans | 826–933 | M00068 | non-negotiable | false | 10 |
 | R00799 | Three big wins surfaced on main cockpit | 826–933 | M00068 | non-negotiable | false | 10 |
@@ -285,10 +285,10 @@
 | R00829 | Request lifecycle observability — child spans carry stage name + organ + latency | 850–860 | M00071 | non-negotiable | false | 10 |
 | R00830 | Request lifecycle replay supports operator-driven fast-forward / rewind | 850–860 | M00071 | non-negotiable | true | 10 |
 | R00831 | Request lifecycle replay supports operator-driven step-into per organ | 850–860 | M00071 | non-negotiable | true | 10 |
-| R00832 | Coding workflow split — 3090 grep tool runs ripgrep | 866 | M00072 | non-negotiable | false | 10 |
-| R00833 | Coding workflow split — 3090 small-patch tool runs scout model on diff context | 867 | M00072 | non-negotiable | false | 10 |
-| R00834 | Coding workflow split — 3090 speculation tool runs scout model on N-token continuation | 868 | M00072 | non-negotiable | false | 10 |
-| R00835 | Coding workflow split — 3090 test-classification tool tags failures (assertion/import/timeout/permission) | 869 | M00072 | non-negotiable | false | 10 |
+| R00832 | Coding workflow split — 4090 grep tool runs ripgrep | 866 | M00072 | non-negotiable | false | 10 |
+| R00833 | Coding workflow split — 4090 small-patch tool runs scout model on diff context | 867 | M00072 | non-negotiable | false | 10 |
+| R00834 | Coding workflow split — 4090 speculation tool runs scout model on N-token continuation | 868 | M00072 | non-negotiable | false | 10 |
+| R00835 | Coding workflow split — 4090 test-classification tool tags failures (assertion/import/timeout/permission) | 869 | M00072 | non-negotiable | false | 10 |
 | R00836 | Coding workflow split — CPU dep-graph tool parses imports/requires/dependencies | 872 | M00072 | non-negotiable | false | 10 |
 | R00837 | Coding workflow split — CPU risk-scoring tool emits per-path risk class | 873 | M00072 | non-negotiable | false | 10 |
 | R00838 | Coding workflow split — CPU scheduling tool packs queue | 874 | M00072 | non-negotiable | false | 10 |

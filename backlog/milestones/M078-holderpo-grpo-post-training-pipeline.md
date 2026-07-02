@@ -148,7 +148,7 @@ M046 LoRA Foundry + M048 Eval-Value mention RL lightly. M078 adds two concrete p
 | F06544 | CLI — `--json` flag returns structured output | architecture |
 | F06545 | Closing — M078 covers arXiv 2605.12058 verbatim; M079 Activation Steering Surface next | arXiv 2605.12058 |
 
-## Requirements (R12921-R13090)
+## Requirements (R12921-R14090)
 
 | req | description | source | feature | priority | exception | sub-reqs |
 |---|---|---|---|---|---|---|
@@ -321,7 +321,7 @@ M046 LoRA Foundry + M048 Eval-Value mention RL lightly. M078 adds two concrete p
 | R13087 | Closing — combined R-rows ~23650 | architecture | F06545 | non-negotiable | false | 10 |
 | R13088 | Closing — combined enforced sub-reqs ~236500 | architecture | F06545 | non-negotiable | false | 10 |
 | R13089 | Closing — every R-row carries 10 hard non-negotiable sub-requirements | operator standing direction | F06467 | non-negotiable | false | 10 |
-| R13090 | Closing — M078 covers HölderPO + GRPO scope verbatim; M079 Activation Steering Surface next | arXiv 2605.12058 + operator standing direction | F06545 | non-negotiable | false | 10 |
+| R14090 | Closing — M078 covers HölderPO + GRPO scope verbatim; M079 Activation Steering Surface next | arXiv 2605.12058 + operator standing direction | F06545 | non-negotiable | false | 10 |
 
 ## Sub-requirements accounting
 

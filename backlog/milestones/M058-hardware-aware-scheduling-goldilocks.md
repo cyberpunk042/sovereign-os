@@ -1,7 +1,7 @@
 # M058 — Hardware-aware scheduling — the Goldilocks scheduler
 
 **Parent**: sovereign-os runtime — AI workstation intelligence layer
-**Source**: `~/infohub/raw/dumps/2026-05-18-the-ultimate-exploitation-of-the-tech-stack-AVX-plus-plus.md` lines 17914-18268 (Hardware-aware scheduling: Resource Types / Queue Types / Scheduling Policies / Blackwell / 3090 / CPU AVX / KV-Context / Memory / Tool / Backpressure / Objective / Concrete Example / Key Law)
+**Source**: `~/infohub/raw/dumps/2026-05-18-the-ultimate-exploitation-of-the-tech-stack-AVX-plus-plus.md` lines 17914-18268 (Hardware-aware scheduling: Resource Types / Queue Types / Scheduling Policies / Blackwell / 4090 / CPU AVX / KV-Context / Memory / Tool / Backpressure / Objective / Concrete Example / Key Law)
 
 ## Doctrinal anchor
 
@@ -15,11 +15,11 @@
 
 | epic | name | source |
 |---|---|---|
-| E0558 | Resource Types catalog — CPU/GPU-Blackwell/GPU-3090/RAM/NVMe-ZFS/Network/Human | dump 17920-17970 |
+| E0558 | Resource Types catalog — CPU/GPU-Blackwell/GPU-4090/RAM/NVMe-ZFS/Network/Human | dump 17920-17970 |
 | E0559 | Queue Types catalog — 8 queues (oracle/scout/embedding/tool/eval/memory/human-gate/background) | dump 17972-17999 |
 | E0560 | Scheduling Policies — 6 profile-specific policies (fast/careful/private/autonomous/experimental/production) | dump 18001-18030 |
 | E0561 | Blackwell Scheduling — accept hard reasoning, avoid cheap classification | dump 18040-18060 |
-| E0562 | 3090 Scheduling — work-ahead drafts/scouts/embeddings/rerank/vision | dump 18062-18095 |
+| E0562 | 4090 Scheduling — work-ahead drafts/scouts/embeddings/rerank/vision | dump 18062-18095 |
 | E0563 | CPU AVX Scheduling — batch hot operations, "batch when useful, don't worship SIMD" | dump 18097-18130 |
 | E0564 | KV/Context Scheduling — prefix-cache awareness, prefill-vs-decode aware | dump 18132-18156 |
 | E0565 | Memory + Tool Scheduling — staged retrieval + read-only-parallel + destructive-human-gate | dump 18158-18190 |
@@ -34,7 +34,7 @@
 | M00970 | sovereign-scheduler-queue-multiplexer | dump 17972-17999 |
 | M00971 | sovereign-scheduler-policy-engine | dump 18001-18030 |
 | M00972 | sovereign-scheduler-blackwell-arbitrator | dump 18040-18060 |
-| M00973 | sovereign-scheduler-3090-prefetcher | dump 18062-18095 |
+| M00973 | sovereign-scheduler-4090-prefetcher | dump 18062-18095 |
 | M00974 | sovereign-scheduler-avx-batcher | dump 18097-18130 |
 | M00975 | sovereign-scheduler-kv-cache-affinity | dump 18132-18156 |
 | M00976 | sovereign-scheduler-memory-staged-retriever | dump 18158-18172 |
@@ -59,10 +59,10 @@
 | F04850 | GPU Blackwell resource tracked: compute | dump 17929 |
 | F04851 | GPU Blackwell resource tracked: KV cache | dump 17930 |
 | F04852 | GPU Blackwell resource tracked: batch slots | dump 17931 |
-| F04853 | GPU 3090 resource tracked: VRAM | dump 17934 |
-| F04854 | GPU 3090 resource tracked: compute | dump 17935 |
-| F04855 | GPU 3090 resource tracked: sandbox availability | dump 17936 |
-| F04856 | GPU 3090 resource tracked: draft/scout queues | dump 17937 |
+| F04853 | GPU 4090 resource tracked: VRAM | dump 17934 |
+| F04854 | GPU 4090 resource tracked: compute | dump 17935 |
+| F04855 | GPU 4090 resource tracked: sandbox availability | dump 17936 |
+| F04856 | GPU 4090 resource tracked: draft/scout queues | dump 17937 |
 | F04857 | RAM resource tracked: context arenas | dump 17940 |
 | F04858 | RAM resource tracked: memory graph | dump 17941 |
 | F04859 | RAM resource tracked: ZFS ARC | dump 17942 |
@@ -109,16 +109,16 @@
 | F04900 | Blackwell avoid: noisy branch expansion | dump 18051 |
 | F04901 | Blackwell avoid: repeated boilerplate prefill | dump 18052 |
 | F04902 | "Keep the Blackwell hot with meaningful work, not busy with junk." | dump 18056 |
-| F04903 | 3090 use for: draft branches | dump 18065 |
-| F04904 | 3090 use for: small models | dump 18066 |
-| F04905 | 3090 use for: rerank | dump 18067 |
-| F04906 | 3090 use for: embeddings | dump 18068 |
-| F04907 | 3090 use for: vision/perception | dump 18069 |
-| F04908 | 3090 use for: tool-plan sketches | dump 18070 |
-| F04909 | 3090 use for: failure classification | dump 18071 |
-| F04910 | 3090 work-ahead: idle + uncertain → generate candidate branches | dump 18078-18080 |
-| F04911 | 3090 work-ahead: Blackwell busy → scout prepares summaries + verification candidates | dump 18082-18084 |
-| F04912 | 3090 work-ahead: Blackwell idle → feed compressed high-value batch | dump 18086-18088 |
+| F04903 | 4090 use for: draft branches | dump 18065 |
+| F04904 | 4090 use for: small models | dump 18066 |
+| F04905 | 4090 use for: rerank | dump 18067 |
+| F04906 | 4090 use for: embeddings | dump 18068 |
+| F04907 | 4090 use for: vision/perception | dump 18069 |
+| F04908 | 4090 use for: tool-plan sketches | dump 18070 |
+| F04909 | 4090 use for: failure classification | dump 18071 |
+| F04910 | 4090 work-ahead: idle + uncertain → generate candidate branches | dump 18078-18080 |
+| F04911 | 4090 work-ahead: Blackwell busy → scout prepares summaries + verification candidates | dump 18082-18084 |
+| F04912 | 4090 work-ahead: Blackwell idle → feed compressed high-value batch | dump 18086-18088 |
 | F04913 | AVX hot ops: filter branches | dump 18101 |
 | F04914 | AVX hot ops: score candidates | dump 18102 |
 | F04915 | AVX hot ops: match memory | dump 18103 |
@@ -146,7 +146,7 @@
 | R09692 | Doctrinal — human attention belongs in the scheduler | dump 17970 | F04867 | non-negotiable | false | 10 |
 | R09693 | Doctrinal — "batch when useful, don't worship SIMD" | dump 18118 | F04921 | non-negotiable | false | 10 |
 | R09694 | Doctrinal — keep Blackwell hot with meaningful work, not busy with junk | dump 18056 | F04902 | non-negotiable | false | 10 |
-| R09695 | Doctrinal — 3090 should work ahead | dump 18074 | F04910 | non-negotiable | false | 10 |
+| R09695 | Doctrinal — 4090 should work ahead | dump 18074 | F04910 | non-negotiable | false | 10 |
 | R09696 | Doctrinal — the CPU decides | dump 18099 | F04913 | non-negotiable | false | 10 |
 | R09697 | Doctrinal — do not throw every memory query at a model | dump 18172 | F04926 | non-negotiable | false | 10 |
 | R09698 | Doctrinal — tools are slow and risky compared to pure logic | dump 18175 | F04927 | non-negotiable | false | 10 |
@@ -159,10 +159,10 @@
 | R09705 | Resource — track Blackwell compute (SM occupancy) | dump 17929 | F04850 | non-negotiable | false | 10 |
 | R09706 | Resource — track Blackwell KV cache occupancy | dump 17930 | F04851 | non-negotiable | false | 10 |
 | R09707 | Resource — track Blackwell batch slots | dump 17931 | F04852 | non-negotiable | false | 10 |
-| R09708 | Resource — track 3090 VRAM (24GB GDDR6X) | dump 17934 | F04853 | non-negotiable | false | 10 |
-| R09709 | Resource — track 3090 compute | dump 17935 | F04854 | non-negotiable | false | 10 |
-| R09710 | Resource — track 3090 sandbox availability | dump 17936 | F04855 | non-negotiable | false | 10 |
-| R09711 | Resource — track 3090 draft/scout queue depth | dump 17937 | F04856 | non-negotiable | false | 10 |
+| R09708 | Resource — track 4090 VRAM (24GB GDDR6X) | dump 17934 | F04853 | non-negotiable | false | 10 |
+| R09709 | Resource — track 4090 compute | dump 17935 | F04854 | non-negotiable | false | 10 |
+| R09710 | Resource — track 4090 sandbox availability | dump 17936 | F04855 | non-negotiable | false | 10 |
+| R09711 | Resource — track 4090 draft/scout queue depth | dump 17937 | F04856 | non-negotiable | false | 10 |
 | R09712 | Resource — track RAM context arenas | dump 17940 | F04857 | non-negotiable | false | 10 |
 | R09713 | Resource — track RAM memory graph footprint | dump 17941 | F04858 | non-negotiable | false | 10 |
 | R09714 | Resource — track RAM ZFS ARC usage | dump 17942 | F04859 | non-negotiable | false | 10 |
@@ -222,17 +222,17 @@
 | R09768 | Blackwell avoid — noisy branch expansion | dump 18051 | F04900 | non-negotiable | false | 10 |
 | R09769 | Blackwell avoid — repeated boilerplate prefill | dump 18052 | F04901 | non-negotiable | false | 10 |
 | R09770 | Blackwell — protect it (doctrinal directive) | dump 18040 | F04902 | non-negotiable | false | 10 |
-| R09771 | 3090 use — draft branches | dump 18065 | F04903 | non-negotiable | false | 10 |
-| R09772 | 3090 use — small models (SLM, draft models) | dump 18066 | F04904 | non-negotiable | false | 10 |
-| R09773 | 3090 use — rerank | dump 18067 | F04905 | non-negotiable | false | 10 |
-| R09774 | 3090 use — embeddings | dump 18068 | F04906 | non-negotiable | false | 10 |
-| R09775 | 3090 use — vision/perception | dump 18069 | F04907 | non-negotiable | false | 10 |
-| R09776 | 3090 use — tool-plan sketches | dump 18070 | F04908 | non-negotiable | false | 10 |
-| R09777 | 3090 use — failure classification | dump 18071 | F04909 | non-negotiable | false | 10 |
-| R09778 | 3090 — exploit it (doctrinal directive) | dump 18062 | F04902 | non-negotiable | false | 10 |
-| R09779 | 3090 work-ahead — if idle and active task uncertain, generate candidate branches | dump 18078-18080 | F04910 | non-negotiable | false | 10 |
-| R09780 | 3090 work-ahead — if Blackwell busy, scout prepares summaries + verification candidates | dump 18082-18084 | F04911 | non-negotiable | false | 10 |
-| R09781 | 3090 work-ahead — if Blackwell idle, feed compressed high-value batch | dump 18086-18088 | F04912 | non-negotiable | false | 10 |
+| R09771 | 4090 use — draft branches | dump 18065 | F04903 | non-negotiable | false | 10 |
+| R09772 | 4090 use — small models (SLM, draft models) | dump 18066 | F04904 | non-negotiable | false | 10 |
+| R09773 | 4090 use — rerank | dump 18067 | F04905 | non-negotiable | false | 10 |
+| R09774 | 4090 use — embeddings | dump 18068 | F04906 | non-negotiable | false | 10 |
+| R09775 | 4090 use — vision/perception | dump 18069 | F04907 | non-negotiable | false | 10 |
+| R09776 | 4090 use — tool-plan sketches | dump 18070 | F04908 | non-negotiable | false | 10 |
+| R09777 | 4090 use — failure classification | dump 18071 | F04909 | non-negotiable | false | 10 |
+| R09778 | 4090 — exploit it (doctrinal directive) | dump 18062 | F04902 | non-negotiable | false | 10 |
+| R09779 | 4090 work-ahead — if idle and active task uncertain, generate candidate branches | dump 18078-18080 | F04910 | non-negotiable | false | 10 |
+| R09780 | 4090 work-ahead — if Blackwell busy, scout prepares summaries + verification candidates | dump 18082-18084 | F04911 | non-negotiable | false | 10 |
+| R09781 | 4090 work-ahead — if Blackwell idle, feed compressed high-value batch | dump 18086-18088 | F04912 | non-negotiable | false | 10 |
 | R09782 | AVX hot op — filter branches | dump 18101 | F04913 | non-negotiable | false | 10 |
 | R09783 | AVX hot op — score candidates | dump 18102 | F04914 | non-negotiable | false | 10 |
 | R09784 | AVX hot op — match memory | dump 18103 | F04915 | non-negotiable | false | 10 |
@@ -265,8 +265,8 @@
 | R09811 | Backpressure — Blackwell VRAM high → reduce context | dump 18194 | F04928 | non-negotiable | false | 10 |
 | R09812 | Backpressure — Blackwell VRAM high → evict low-value KV | dump 18194 | F04928 | non-negotiable | false | 10 |
 | R09813 | Backpressure — Blackwell VRAM high → switch smaller oracle | dump 18194 | F04928 | non-negotiable | false | 10 |
-| R09814 | Backpressure — 3090 busy → reduce branch width | dump 18196 | F04928 | non-negotiable | false | 10 |
-| R09815 | Backpressure — 3090 busy → use CPU classifiers | dump 18196 | F04928 | non-negotiable | false | 10 |
+| R09814 | Backpressure — 4090 busy → reduce branch width | dump 18196 | F04928 | non-negotiable | false | 10 |
+| R09815 | Backpressure — 4090 busy → use CPU classifiers | dump 18196 | F04928 | non-negotiable | false | 10 |
 | R09816 | Backpressure — CPU pressure high → defer background indexing/evals | dump 18197 | F04928 | non-negotiable | false | 10 |
 | R09817 | Backpressure — RAM pressure high → hibernate branches | dump 18198 | F04928 | non-negotiable | false | 10 |
 | R09818 | Backpressure — RAM pressure high → compact memory | dump 18198 | F04928 | non-negotiable | false | 10 |
@@ -286,12 +286,12 @@
 | R09832 | Objective — explicitly NOT maximum throughput | dump 18203 | F04929 | non-negotiable | false | 10 |
 | R09833 | Concrete example task — code bug | dump 18213 | F04929 | non-negotiable | false | 10 |
 | R09834 | Concrete step 1 (Map) — CPU + tools inspect repo | dump 18215 | F04920 | non-negotiable | false | 10 |
-| R09835 | Concrete step 2 (Draft) — 3090 produces 4 patch candidates | dump 18217 | F04903 | non-negotiable | false | 10 |
+| R09835 | Concrete step 2 (Draft) — 4090 produces 4 patch candidates | dump 18217 | F04903 | non-negotiable | false | 10 |
 | R09836 | Concrete step 3 (Filter) — AVX checks touched paths, risk, duplicate edits | dump 18219 | F04913 | non-negotiable | false | 10 |
 | R09837 | Concrete step 4 (Verify) — Blackwell reviews top 2 | dump 18221 | F04895 | non-negotiable | false | 10 |
 | R09838 | Concrete step 5 (Test) — sandbox runs targeted tests | dump 18223 | F04874 | non-negotiable | false | 10 |
 | R09839 | Concrete step 6 (Commit) — if pass, ZFS snapshot + apply | dump 18225 | F04862 | non-negotiable | false | 10 |
-| R09840 | Concrete fallback — if Blackwell busy: 3090 generates more diagnostics | dump 18229 | F04911 | non-negotiable | false | 10 |
+| R09840 | Concrete fallback — if Blackwell busy: 4090 generates more diagnostics | dump 18229 | F04911 | non-negotiable | false | 10 |
 | R09841 | Concrete fallback — if Blackwell busy: CPU runs static checks | dump 18230 | F04913 | non-negotiable | false | 10 |
 | R09842 | Concrete fallback — if Blackwell busy: memory retrieves similar failures | dump 18231 | F04915 | non-negotiable | false | 10 |
 | R09843 | Concrete fallback — if tests slow: branch hibernates | dump 18234 | F04927 | non-negotiable | false | 10 |
@@ -301,7 +301,7 @@
 | R09847 | Key Law part 2 — never let cheap speculation commit without expensive verification when risk demands | dump 18262-18264 | F04930 | non-negotiable | false | 10 |
 | R09848 | Hardware reality — Ryzen 9 9900X Zen 5 AVX-512 substrate | architecture + cross-ref M044 | F04847 | non-negotiable | false | 10 |
 | R09849 | Hardware reality — RTX PRO 6000 Blackwell 96GB GDDR7 FP4 substrate | architecture + cross-ref M044 | F04849 | non-negotiable | false | 10 |
-| R09850 | Hardware reality — RTX 3090 24GB GDDR6X substrate | architecture + cross-ref M044 | F04853 | non-negotiable | false | 10 |
+| R09850 | Hardware reality — RTX 4090 24GB GDDR6X substrate | architecture + cross-ref M044 | F04853 | non-negotiable | false | 10 |
 | R09851 | Hardware reality — 256GB DDR5 RAM substrate | architecture + cross-ref M044 | F04857 | non-negotiable | false | 10 |
 | R09852 | Hardware reality — NVMe + ZFS substrate | architecture + cross-ref M044 | F04861 | non-negotiable | false | 10 |
 | R09853 | Hardware reality — ProArt X870E-Creator 10GbE + 2.5GbE substrate | architecture + cross-ref M044 | F04864 | non-negotiable | false | 10 |
@@ -319,7 +319,7 @@ Every R-row carries 10 hard non-negotiable sub-requirements per operator standin
 
 ## Cross-references
 
-- **M044** — sovereign-os substrate (Ryzen 9 9900X / Blackwell 96GB / 3090 24GB / 256GB RAM / NVMe ZFS / ProArt X870E)
+- **M044** — sovereign-os substrate (Ryzen 9 9900X / Blackwell 96GB / 4090 24GB / 256GB RAM / NVMe ZFS / ProArt X870E)
 - **M045** — Linux as intelligence governor (cgroup v2 / systemd / PSI / eBPF)
 - **M046** — beat-the-cloud runtime adaptation + LoRA Foundry
 - **M047** — continuity (CRIU + ZFS + warm sandboxes + hibernated thought)

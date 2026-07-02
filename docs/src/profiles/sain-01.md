@@ -8,7 +8,7 @@ The SAIN-01 AI Workstation. See [`profiles/sain-01.yaml`](https://github.com/cyb
 |---|---|
 | **CPU** | AMD Ryzen 9 9900X — Zen 5; 12C/24T dual-CCD; `-march=znver5` with single-cycle 512-bit AVX-512 + VNNI |
 | **Primary GPU** | NVIDIA RTX PRO 6000 Blackwell 96 GB — host-resident; hosts the Oracle Core |
-| **VFIO GPU** | NVIDIA RTX 3090 24 GB — `vfio-pci` bound; isolated for Logic Engine sandbox |
+| **VFIO GPU** | NVIDIA RTX 4090 24 GB — `vfio-pci` bound; isolated for Logic Engine sandbox |
 | **Memory** | 256 GB DDR5 (128 GB minimum); ECC unavailable on consumer DDR5 |
 | **Storage** | Dual PCIe 5.0 NVMe in RAID 0 (operator-accepted no-redundancy trade-off) |
 | **Network** | Intel I226-V 2.5 GbE (mgmt VLAN 100) + Marvell AQC113C 10 GbE (data VLAN 200, MTU 9000) |
@@ -35,7 +35,7 @@ CCD 1  (cores 10-11, mask 0xf00000)   → Host / kernel / IRQ
 | Tier | Backend | Hardware |
 |---|---|---|
 | **Pulse** | bitnet.cpp | CCD 0 (CPU) |
-| **Logic Engine** | vLLM (primary) + llama.cpp (fallback) | RTX 3090 (VFIO sandbox via podman) |
+| **Logic Engine** | vLLM (primary) + llama.cpp (fallback) | RTX 4090 (VFIO sandbox via podman) |
 | **Oracle Core** | vLLM + DFlash drafts | RTX PRO 6000 Blackwell (host-resident) |
 | **Router** | OpenAI-compatible front | 127.0.0.1:8080 |
 
@@ -80,7 +80,7 @@ SOVEREIGN_OS_CONFIRM_DESTROY=YES \
 
 First-boot hook order:
 1. `friction-audit-runtime` — confirms x8/x8 PCIe + AVX-512 + ZFS health
-2. `vfio-bind-3090` — binds 3090 to vfio-pci
+2. `vfio-bind-4090` — binds 4090 to vfio-pci
 3. `network-vlan-config` — applies asymmetric VLAN (R158 lands master-spec defaults)
 4. `tetragon-policy-load` — loads sovereign-kernel-fence
 5. `arc-clamp-128gb` — clamps ZFS ARC at 128 GB
@@ -107,7 +107,7 @@ sovereign-osctl maintenance arc-status       # ZFS ARC stats
 |---|---|
 | Build fails mid-step | `scripts/build/orchestrate.sh recover` (4 ranked options) |
 | friction-audit FAIL at boot (PCIe x8) | Power down · check M.2_2 is empty · check BIOS bifurcation |
-| VFIO bind FAIL | Check kernel cmdline has `vfio-pci.ids=10de:2204,10de:1ad8` · `dmesg \| grep -i iommu` |
+| VFIO bind FAIL | Check kernel cmdline has `vfio-pci.ids=10de:2684,10de:22ba` · `dmesg \| grep -i iommu` |
 | Tetragon not active | `systemctl status tetragon` · `sovereign-osctl perimeter reload` |
 | Hardening drop-in mismatch | `sovereign-osctl audit drift` to see which; re-apply with the post-install hook |
 

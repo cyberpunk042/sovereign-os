@@ -90,7 +90,7 @@ phases:
       - Asymmetric network rendered (data vs control plane on separate VLANs)
       - Podman storage driver pointed at the tank ai-workspace dataset
     artifacts:
-      - scripts/hooks/post-install/vfio-bind-3090.sh
+      - scripts/hooks/post-install/vfio-bind-4090.sh
       - scripts/hooks/post-install/network-vlan-config.sh
       - scripts/network/render-asymmetric.sh
       - systemd/system/sovereign-vfio-bind.service

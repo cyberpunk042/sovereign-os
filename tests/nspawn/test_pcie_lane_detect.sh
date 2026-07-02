@@ -42,7 +42,7 @@ m = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(m)
 
 # Synthetic lspci -vv block: an x16 Gen4 GPU running at x8 Gen4 (split).
-fixture = '''01:00.0 VGA compatible controller [0300]: NVIDIA RTX 3090 [10de:2204]
+fixture = '''01:00.0 VGA compatible controller [0300]: NVIDIA RTX 4090 [10de:2684]
 \tCapabilities: [a0] Express (v2) Endpoint, MSI 00
 \t\tLnkCap:\tPort #0, Speed 16GT/s, Width x16, ASPM not supported
 \t\tLnkSta:\tSpeed 16GT/s, Width x8, ClockPM- Suprise- LLActRep- BWNot-

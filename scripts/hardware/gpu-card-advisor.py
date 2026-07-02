@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
 """scripts/hardware/gpu-card-advisor.py — R271 (E1.M13).
 
-Operator-named (verbatim, 2026-05-17): "GPU too, watts, RTX 3090
+Operator-named (verbatim, 2026-05-17): "GPU too, watts, RTX 4090
 details and possibilities established and non-established, same for
 the RTX Pro 6000".
 
 R219 gpu-watch tracks watt deviance generically. R249 gpu-remediate
 applies fixes. R271 closes E1.M13: per-card OPERATOR-SPECIFIC
-advisory layer that knows the SAIN-01 dual-card layout (RTX 3090 +
+advisory layer that knows the SAIN-01 dual-card layout (RTX 4090 +
 RTX PRO 6000 Blackwell) and surfaces hints unique to those models.
 
 Per-card knowledge table:
-  RTX 3090       Ampere GA102, 24 GB GDDR6X, 350W stock TDP,
+  RTX 4090       Ada AD102, 24 GB GDDR6X, 450W stock TDP,
                  operator-stated "should be slightly reduced" —
                  recommend 280-320W cap for sustained inference,
                  GDDR6X memory is notoriously hot (junction temps).
   RTX PRO 6000   Blackwell GB202, 96 GB GDDR7, 600W TDP,
                  PCIe 5.0 x16 (drops to x8 when SAIN-01 slot 2
-                 populated), runs cool relative to 3090's GDDR6X.
+                 populated), runs cool relative to 4090's GDDR6X.
 
 The advisor cross-correlates:
   - nvidia-smi probe (which cards are actually present)
@@ -30,7 +30,7 @@ CLI:
   gpu-card-advisor.py detect [--json]      probe nvidia-smi + classify
   gpu-card-advisor.py advisories [--json]  curated hints per detected card
   gpu-card-advisor.py dual-card [--json]   focused on the SAIN-01 dual-
-                                           card scenario (3090 + PRO 6000)
+                                           card scenario (4090 + PRO 6000)
 
 Exit codes:
   0  no advisories OR informational only
@@ -50,17 +50,17 @@ from typing import Any
 
 # Operator-stated cards on SAIN-01. Each entry carries operator-specific
 # advisories — not generic NVIDIA advice, but tuned to operator's stated
-# setup ("RTX 3090 which should be slightly reduce which isn't").
+# setup ("RTX 4090 which should be slightly reduce which isn't").
 KNOWN_CARDS: dict[str, dict[str, Any]] = {
-    "RTX 3090": {
-        "architecture": "Ampere GA102",
+    "RTX 4090": {
+        "architecture": "Ada AD102",
         "vram_gb": 24,
         "vram_type": "GDDR6X",
         "stock_tdp_watts": 350,
         "operator_recommended_cap_watts": [280, 320],
         "pcie_rated": "PCIe 4.0 x16",
         "advisories": [
-            "Operator-stated 'RTX 3090 should be slightly reduced': cap power "
+            "Operator-stated 'RTX 4090 should be slightly reduced': cap power "
             "limit to 280-320 W via `nvidia-smi -pl 300` (sustained inference) "
             "or 250 W (long-running fine-tunes). Stock 350 W produces ~10 dB "
             "more fan noise + GDDR6X reaches Tjmax under sustained load.",
@@ -88,7 +88,7 @@ KNOWN_CARDS: dict[str, dict[str, Any]] = {
             "PCIe5 x16. The slot 1 of ASUS ProArt X870E-CREATOR WIFI runs "
             "x16 PCIe5 (~128 GB/s) WHEN slot 2 is empty; populating slot 2 "
             "drops both to x8 PCIe5 (~64 GB/s each).",
-            "GDDR7 runs cooler than 3090's GDDR6X — operator can sustain "
+            "GDDR7 runs cooler than 4090's GDDR6X — operator can sustain "
             "full 600 W without hitting GDDR junction limits. No watt-cap "
             "recommended at stock TDP.",
             "Blackwell adds native FP4/FP6 tensor ops — vLLM 0.6+ and "
@@ -148,7 +148,7 @@ def probe_nvidia_smi() -> list[dict[str, Any]]:
 
 def classify_card(name: str) -> dict[str, Any] | None:
     """Match nvidia-smi name against KNOWN_CARDS table. Substring match
-    because nvidia-smi may report e.g. "NVIDIA GeForce RTX 3090" or
+    because nvidia-smi may report e.g. "NVIDIA GeForce RTX 4090" or
     "NVIDIA RTX PRO 6000 Blackwell"."""
     for key, meta in KNOWN_CARDS.items():
         if key in name:
@@ -258,9 +258,9 @@ def cmd_advisories(args: argparse.Namespace) -> int:
 def cmd_dual_card(args: argparse.Namespace) -> int:
     cards = probe_nvidia_smi()
     classifications = [classify_card(c["name"]) for c in cards]
-    has_3090 = any(c and c["matched_key"] == "RTX 3090" for c in classifications)
+    has_4090 = any(c and c["matched_key"] == "RTX 4090" for c in classifications)
     has_pro_6000 = any(c and c["matched_key"] == "RTX PRO 6000" for c in classifications)
-    is_sain01_dual = has_3090 and has_pro_6000
+    is_sain01_dual = has_4090 and has_pro_6000
     findings: list[str] = []
     if is_sain01_dual:
         findings.append(
@@ -273,31 +273,31 @@ def cmd_dual_card(args: argparse.Namespace) -> int:
             "Both cards on SAIN-01 share the X870E-CREATOR WIFI lane fabric. "
             "Slot 1 (PCIEX16_1) takes the higher-bandwidth card — operator "
             "should place RTX PRO 6000 there (it benefits from PCIe5 most). "
-            "Slot 2 (PCIEX16_2) takes the RTX 3090. M2_2 NVMe MUST be empty "
+            "Slot 2 (PCIEX16_2) takes the RTX 4090. M2_2 NVMe MUST be empty "
             "on this layout (it would steal lanes from slot 2)."
         )
         findings.append(
-            "Inference router config: route ternary-LM tasks to RTX 3090 "
+            "Inference router config: route ternary-LM tasks to RTX 4090 "
             "(bitnet.cpp doesn't need >24GB VRAM); route long-context LLM "
             "tasks to RTX PRO 6000 (96 GB VRAM unlocks 70B-class at FP8 "
             "or 200B-class at FP4 with vLLM 0.6+)."
         )
     elif has_pro_6000:
         findings.append(
-            "RTX PRO 6000 detected but no RTX 3090. Single-card mode is fine — "
+            "RTX PRO 6000 detected but no RTX 4090. Single-card mode is fine — "
             "PCIEX16_1 runs full x16 PCIe5 (~128 GB/s) which RTX PRO 6000 "
             "actually uses for KV-cache spill on long-context."
         )
-    elif has_3090:
+    elif has_4090:
         findings.append(
-            "RTX 3090 detected but no RTX PRO 6000. Apply the 280-320 W "
+            "RTX 4090 detected but no RTX PRO 6000. Apply the 280-320 W "
             "power cap per E1.M13 curated advisory + monitor memory junction "
             "temp (GDDR6X)."
         )
     out = {
         "round": "R271",
         "vector": "E1.M13 (gpu-card-dual)",
-        "rtx_3090_present": has_3090,
+        "rtx_4090_present": has_4090,
         "rtx_pro_6000_present": has_pro_6000,
         "sain01_dual_card_layout": is_sain01_dual,
         "findings": findings,
@@ -306,7 +306,7 @@ def cmd_dual_card(args: argparse.Namespace) -> int:
         print(json.dumps(out, indent=2))
         return 0
     print(f"── R271 sovereign-os gpu-card-advisor dual-card (E1.M13) ──")
-    print(f"  RTX 3090:        {has_3090}")
+    print(f"  RTX 4090:        {has_4090}")
     print(f"  RTX PRO 6000:    {has_pro_6000}")
     print(f"  SAIN-01 layout:  {is_sain01_dual}")
     print()
@@ -320,7 +320,7 @@ def cmd_dual_card(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="gpu-card-advisor.py",
-        description="R271 (E1.M13) — RTX 3090 + RTX PRO 6000 dual-card advisor.",
+        description="R271 (E1.M13) — RTX 4090 + RTX PRO 6000 dual-card advisor.",
     )
     sub = p.add_subparsers(dest="verb", required=True)
     pd = sub.add_parser("detect", help="probe + classify against KNOWN_CARDS")

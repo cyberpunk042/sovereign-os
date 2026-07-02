@@ -107,7 +107,7 @@
 | F05745 | Replay validator — detects unauthorized snapshot deletion | cross-ref selfdef MS009 + MS003 |
 | F05746 | Replay validator — emits OCSF Detection 2004 on chain break | cross-ref selfdef MS026 |
 | F05747 | Replay validator — runs daily as systemd timer | cross-ref selfdef MS009 |
-| F05748 | Layer allocation — Layer 0-30 pinned to high-throughput GPU 0 (RTX 3090) | dump 916-917 |
+| F05748 | Layer allocation — Layer 0-30 pinned to high-throughput GPU 0 (RTX 4090) | dump 916-917 |
 | F05749 | Layer allocation — Layer 31-80 pinned to massive VRAM GPU 1 (Blackwell 96GB) | dump 916-917 |
 | F05750 | Layer allocation — KV Cache compressed to 4-bit width | dump 918 |
 | F05751 | Layer allocation — fp8 KV-cache dtype option (--kv-cache-dtype fp8) | dump 924 |
@@ -216,7 +216,7 @@
 | R11459 | Replay validator — emits OCSF Detection 2004 on chain break | cross-ref selfdef MS026 | F05746 | non-negotiable | false | 10 |
 | R11460 | Replay validator — runs daily as systemd timer | cross-ref selfdef MS009 | F05747 | non-negotiable | false | 10 |
 | R11461 | Replay validator — failures halt new high-risk commits | architecture | F05744 | non-negotiable | false | 10 |
-| R11462 | Layer allocation — Layer 0-30 pinned to high-throughput GPU 0 (3090) | dump 916-917 | F05748 | non-negotiable | false | 10 |
+| R11462 | Layer allocation — Layer 0-30 pinned to high-throughput GPU 0 (4090) | dump 916-917 | F05748 | non-negotiable | false | 10 |
 | R11463 | Layer allocation — Layer 31-80 pinned to massive VRAM GPU 1 (Blackwell 96GB) | dump 916-917 | F05749 | non-negotiable | false | 10 |
 | R11464 | Layer allocation — KV cache compressed to 4-bit width to maximize active token context length | dump 918 | F05750 | non-negotiable | false | 10 |
 | R11465 | Layer allocation — fp8 KV-cache dtype option | dump 924 | F05751 | non-negotiable | false | 10 |

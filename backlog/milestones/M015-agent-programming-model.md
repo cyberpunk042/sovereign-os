@@ -29,7 +29,7 @@
 | M00236 | `AgentState` Rust struct — task_id / branch_id / control / risk / budget / memory_refs / kv_refs / tool_intents / artifacts / trace_id | 3769–3781 | E0129 |
 | M00237 | Model output typed envelopes — PlanProposal / ToolIntent / PatchProposal / MemoryWrite / VerificationResult / FinalAnswer | 3787–3793 | E0129 |
 | M00238 | Node class 1 — Deterministic Node (pure CPU logic, parsers, masks, policy, validation) | 3802–3804 | E0130 |
-| M00239 | Node class 2 — Scout Node (3090 model, cheap exploration/proposals) | 3805–3807 | E0130 |
+| M00239 | Node class 2 — Scout Node (4090 model, cheap exploration/proposals) | 3805–3807 | E0130 |
 | M00240 | Node class 3 — Oracle Node (Blackwell model, expensive synthesis/verification) | 3808–3810 | E0130 |
 | M00241 | Node class 4 — Tool Node (shell/browser/file/API, always gated) | 3811–3813 | E0130 |
 | M00242 | Node class 5 — Human Gate Node (explicit pause/resume with full context) | 3814–3816 | E0130 |
@@ -191,7 +191,7 @@
 | R02434 | Typed envelope — FinalAnswer | 3793 | M00237 | non-negotiable | false | 10 |
 | R02435 | This is how you stop the model from smuggling authority through prose | 3795 | M00237 | non-negotiable | false | 10 |
 | R02436 | Node class 1 — Deterministic Node (pure CPU logic, parsers, masks, policy, validation) | 3802–3804 | M00238 | non-negotiable | false | 10 |
-| R02437 | Node class 2 — Scout Node (3090 model, cheap exploration/proposals) | 3805–3807 | M00239 | non-negotiable | false | 10 |
+| R02437 | Node class 2 — Scout Node (4090 model, cheap exploration/proposals) | 3805–3807 | M00239 | non-negotiable | false | 10 |
 | R02438 | Node class 3 — Oracle Node (Blackwell model, expensive synthesis/verification) | 3808–3810 | M00240 | non-negotiable | false | 10 |
 | R02439 | Node class 4 — Tool Node (shell/browser/file/API, always gated) | 3811–3813 | M00241 | non-negotiable | false | 10 |
 | R02440 | Node class 5 — Human Gate Node (explicit pause/resume with full context) | 3814–3816 | M00242 | non-negotiable | false | 10 |
@@ -237,7 +237,7 @@
 | R02480 | Agent DSL — `nodes:` block lists per-node configs | 3896 | M00247 | non-negotiable | false | 10 |
 | R02481 | Agent DSL node carries `type` field (deterministic / memory / scout / oracle / tool) | 3898 | M00247 | non-negotiable | false | 10 |
 | R02482 | Agent DSL node carries `policy` field | 3901 | M00247 | non-negotiable | true | 10 |
-| R02483 | Agent DSL node carries `gpu` field (rtx3090 / blackwell) | 3904 | M00247 | non-negotiable | true | 10 |
+| R02483 | Agent DSL node carries `gpu` field (rtx4090 / blackwell) | 3904 | M00247 | non-negotiable | true | 10 |
 | R02484 | Agent DSL node carries `output` field (typed envelope name) | 3905 | M00247 | non-negotiable | false | 10 |
 | R02485 | Agent DSL node carries `requires` field (precondition list) | 3912 | M00247 | non-negotiable | true | 10 |
 | R02486 | Agent DSL `requires` may include `workspace_write` | 3913 | M00247 | non-negotiable | true | 10 |
@@ -289,7 +289,7 @@
 | R02532 | Test — each typed envelope round-trip preserves declared fields | 3787–3793 | M00237 | non-negotiable | false | 10 |
 | R02533 | Test — Deterministic Node refuses to call model | 3802–3804 | M00238 | non-negotiable | false | 10 |
 | R02534 | Test — Scout Node refuses Blackwell route | 3805–3807 | M00239 | non-negotiable | false | 10 |
-| R02535 | Test — Oracle Node refuses 3090 route | 3808–3810 | M00240 | non-negotiable | false | 10 |
+| R02535 | Test — Oracle Node refuses 4090 route | 3808–3810 | M00240 | non-negotiable | false | 10 |
 | R02536 | Test — Tool Node refuses ungated tool call | 3811–3813 | M00241 | non-negotiable | false | 10 |
 | R02537 | Test — Human Gate persists state on pause and resumes on action | 3814–3816, 3849 | M00242 | non-negotiable | false | 10 |
 | R02538 | Test — each human-gate display field present when shown | 3826–3836 | M00243 | non-negotiable | false | 10 |

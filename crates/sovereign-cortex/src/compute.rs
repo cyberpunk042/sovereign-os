@@ -254,7 +254,7 @@ impl ComputeProfile {
             SrpRole::Logic => {
                 let bpp = nvfp4_bits_per_param();
                 ComputeProfile {
-                    path: "NVFP4 E2M1 + E4M3 scale (RTX 3090 / GPU 0)",
+                    path: "NVFP4 E2M1 + E4M3 scale (RTX 4090 / GPU 0)",
                     bits_per_param: bpp,
                     est_model_bytes: bytes_for(bpp, model_params),
                     multiplication_free: false,

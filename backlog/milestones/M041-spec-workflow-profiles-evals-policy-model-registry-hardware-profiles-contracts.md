@@ -14,10 +14,10 @@
 | E0391 | MAP paradigm (arxiv.org/abs/2605.13037) — "Do not act before understanding the environment" → "MAP phase before ACT phase" → methodology: MAP → SPEC → TEST → ACT → EVAL → COMMIT → LEARN; "MAP is especially important for long-horizon coding, GUI use, repo work, and agent autonomy" | 11832–11848 |
 | E0392 | OpenAI Symphony SPEC (github.com/openai/symphony/blob/main/SPEC.md) — 6 takeaways: WORKFLOW.md as repo-owned contract / per-issue isolated workspaces / bounded concurrency / retry-reconciliation / structured observability / dynamic workflow reload; "Symphony is narrower than your vision — it is issue-to-agent orchestration; your system should generalize it into workflow contracts for any intelligence run"; big takeaway: "Workflow policy belongs in the repo/environment, versioned beside the work"; "That fits your Spec/TDD/SDLC world beautifully" | 11850–11864 |
 | E0393 | LiteLLM Agent Platform (docs.litellm-agent-platform.ai/introduction) — sandboxed agent sessions / persistent environments / vault proxy with stub credentials / Claude Code-Codex-OpenCode harness support; "vault sidecar idea: agent sees fake-stub key + sidecar swaps real key at wire boundary + real secret never enters agent process"; station translation: Claude-first gateway / real keys protected / cost ledger central / model routing central / sandbox session observable | 11866–11881 |
-| E0394 | Fast BLT (arxiv.org/abs/2605.08044) — memory bandwidth is a frontier bottleneck / byte-level models can become practical through diffusion-speculative generation / parallel byte generation matters; "not immediate station infrastructure unless serving code matures"; deeper principle: reduce forward passes / reduce memory bandwidth waste / speculate cheaply / verify carefully — "exactly the Blackwell + 3090 + AVX-512 architecture" | 11883–11900 |
+| E0394 | Fast BLT (arxiv.org/abs/2605.08044) — memory bandwidth is a frontier bottleneck / byte-level models can become practical through diffusion-speculative generation / parallel byte generation matters; "not immediate station infrastructure unless serving code matures"; deeper principle: reduce forward passes / reduce memory bandwidth waste / speculate cheaply / verify carefully — "exactly the Blackwell + 4090 + AVX-512 architecture" | 11883–11900 |
 | E0395 | Model portfolio + routing — LLM compression-llmcompressor lesson "model portfolio must be measured, not guessed" → station model lab (BF16 baseline / FP8 / GPTQ / SmoothQuant / AWQ / NVFP4-MXFP4 when stable / KV quantization) "every model earns a profile slot through evals"; NadirClaw routing lesson "cheap local classification before expensive model routing" → adaptive Goldilocks router (prompt classifier / privacy classifier / risk classifier / difficulty estimator / domain classifier / profile selector) | 11902–11921 |
 | E0396 | What we have NOT fully mined yet (deferred passes) — MAP PDF (exact map representation + benchmark setup + what "map" should contain) / Fast BLT PDF (BLT-D-BLT-S-BLT-DV practical serving target) / LiteLLM docs (sandbox architecture + vault proxy details + compatibility boundaries) / Symphony SPEC (exact WORKFLOW.md schema we could adapt into PROFILE/SPEC contract) / Agent Harness survey (full taxonomy + project list) / Claude Code integration (exact Anthropic-compatible gateway behavior + hooks + MCP + subagents) / Hardware stack (MIG behavior on RTX PRO 6000 + VFIO topology + ZFS layout + AVX-512 prototype); "we extracted the architecture, not yet the full implementation bill of materials" | 11923–11991 |
-| E0397 | The Strong Synthesis — 7 canonical contracts (SPEC.md "what should be true" / WORKFLOW.md "how agents should behave in this repo-environment" / PROFILES.yaml "how much intelligence-risk-cost-autonomy-verification to spend" / EVALS.yaml "how success is measured" / MAP.json "what the system knows about the environment before acting" / MODEL_REGISTRY.yaml "which models exist where they run what they are good at" / POLICY.yaml "what actions are allowed-gated-sandboxed-or-forbidden") + Runtime compile pipeline (Task → MAP → SPEC/TDD plan → workflow DAG → model/tool routing → sandbox execution → tests/evals → oracle/human review → commit → memory update) + Hardware overlay (Ryzen-9900X-AVX512 / RTX-PRO-6000-Blackwell / RTX-3090 / 256GB-RAM / NVMe-ZFS / 10GbE-2.5GbE) + North Star "programmable intelligence harness" with 9 properties (SMART routing / adaptive profiles / spec+TDD contracts / agent evals / model portfolio / hardware-aware scheduling / safe sandboxes / cost tracking / memory and replay); next artifact: Jean Station Architecture Spec v0.1 | 11993–12081 |
+| E0397 | The Strong Synthesis — 7 canonical contracts (SPEC.md "what should be true" / WORKFLOW.md "how agents should behave in this repo-environment" / PROFILES.yaml "how much intelligence-risk-cost-autonomy-verification to spend" / EVALS.yaml "how success is measured" / MAP.json "what the system knows about the environment before acting" / MODEL_REGISTRY.yaml "which models exist where they run what they are good at" / POLICY.yaml "what actions are allowed-gated-sandboxed-or-forbidden") + Runtime compile pipeline (Task → MAP → SPEC/TDD plan → workflow DAG → model/tool routing → sandbox execution → tests/evals → oracle/human review → commit → memory update) + Hardware overlay (Ryzen-9900X-AVX512 / RTX-PRO-6000-Blackwell / RTX-4090 / 256GB-RAM / NVMe-ZFS / 10GbE-2.5GbE) + North Star "programmable intelligence harness" with 9 properties (SMART routing / adaptive profiles / spec+TDD contracts / agent evals / model portfolio / hardware-aware scheduling / safe sandboxes / cost tracking / memory and replay); next artifact: Jean Station Architecture Spec v0.1 | 11993–12081 |
 
 ## Modules (M00680–M00696)
 
@@ -38,7 +38,7 @@
 | M00692 | MODEL_REGISTRY.yaml contract — "which models exist, where they run, what they are good at" | 12010 | E0397 |
 | M00693 | POLICY.yaml contract — "what actions are allowed, gated, sandboxed, or forbidden" | 12013 | E0397 |
 | M00694 | Runtime compile pipeline — Task → MAP → SPEC/TDD plan → workflow DAG → model/tool routing → sandbox execution → tests/evals → oracle/human review → commit → memory update | 12016–12027 | E0397 |
-| M00695 | Hardware overlay — Ryzen-9900X-AVX512 / RTX-PRO-6000-Blackwell / RTX-3090 / 256GB-RAM / NVMe-ZFS / 10GbE-2.5GbE | 12031–12053 | E0397 |
+| M00695 | Hardware overlay — Ryzen-9900X-AVX512 / RTX-PRO-6000-Blackwell / RTX-4090 / 256GB-RAM / NVMe-ZFS / 10GbE-2.5GbE | 12031–12053 | E0397 |
 | M00696 | North-Star "programmable intelligence harness" — 9 properties (SMART routing / adaptive profiles / spec+TDD contracts / agent evals / model portfolio / hardware-aware scheduling / safe sandboxes / cost tracking / memory and replay) | 12060–12079 | E0397 |
 
 ## Features (F03401–F03485)
@@ -102,7 +102,7 @@
 | F03455 | Deeper principle — reduce memory bandwidth waste | 11894 | E0394 |
 | F03456 | Deeper principle — speculate cheaply | 11895 | E0394 |
 | F03457 | Deeper principle — verify carefully | 11896 | E0394 |
-| F03458 | Architecture confirmation — "exactly the Blackwell + 3090 + AVX-512 architecture" | 11900 | E0394 |
+| F03458 | Architecture confirmation — "exactly the Blackwell + 4090 + AVX-512 architecture" | 11900 | E0394 |
 | F03459 | LLM-compressor lesson — model portfolio must be measured, not guessed | 11904 | E0395 |
 | F03460 | Model-lab roster — BF16 baseline | 11908 | E0395 |
 | F03461 | Model-lab roster — FP8 | 11909 | E0395 |
@@ -233,7 +233,7 @@
 | R06896 | Deeper principle — reduce memory bandwidth waste | 11894 | F03455 | non-negotiable | false | 10 |
 | R06897 | Deeper principle — speculate cheaply | 11895 | F03456 | non-negotiable | false | 10 |
 | R06898 | Deeper principle — verify carefully | 11896 | F03457 | non-negotiable | false | 10 |
-| R06899 | "Exactly the Blackwell + 3090 + AVX-512 architecture" | 11900 | F03458 | non-negotiable | false | 10 |
+| R06899 | "Exactly the Blackwell + 4090 + AVX-512 architecture" | 11900 | F03458 | non-negotiable | false | 10 |
 | R06900 | LLM compression — "model portfolio must be measured, not guessed" | 11904 | F03459 | non-negotiable | false | 10 |
 | R06901 | Model-lab slot — BF16 baseline | 11908 | F03460 | non-negotiable | false | 10 |
 | R06902 | Model-lab slot — FP8 | 11909 | F03461 | non-negotiable | false | 10 |
@@ -297,7 +297,7 @@
 | R06960 | Runtime compile pipeline — memory update | 12026 | M00694 | non-negotiable | false | 10 |
 | R06961 | Hardware overlay — Ryzen 9900X AVX-512 (policy masks / branch routing / memory bitsets / workflow scheduling) | 12031–12033 | M00695 | non-negotiable | false | 10 |
 | R06962 | Hardware overlay — RTX PRO 6000 Blackwell (oracle / final synthesis / long-context verifier / large model lab) | 12035–12037 | M00695 | non-negotiable | false | 10 |
-| R06963 | Hardware overlay — RTX 3090 (scout / SLM swarm / draft-speculation / embeddings / perception / sandbox model) | 12039–12041 | M00695 | non-negotiable | false | 10 |
+| R06963 | Hardware overlay — RTX 4090 (scout / SLM swarm / draft-speculation / embeddings / perception / sandbox model) | 12039–12041 | M00695 | non-negotiable | false | 10 |
 | R06964 | Hardware overlay — 256GB RAM (memory graph / hot indexes / context arenas / ZFS ARC) | 12043–12045 | M00695 | non-negotiable | false | 10 |
 | R06965 | Hardware overlay — NVMe/ZFS (replay / snapshots / workspaces / eval artifacts / model cache) | 12047–12049 | M00695 | non-negotiable | false | 10 |
 | R06966 | Hardware overlay — 10GbE / 2.5GbE (data plane vs management plane) | 12051–12053 | M00695 | non-negotiable | false | 10 |

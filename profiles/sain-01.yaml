@@ -273,9 +273,9 @@ hooks:
       type: validation
       script: scripts/hooks/post-install/friction-audit-runtime.sh
       mandatory: true
-    - id: vfio-bind-3090
+    - id: vfio-bind-4090
       type: setup
-      script: scripts/hooks/post-install/vfio-bind-3090.sh
+      script: scripts/hooks/post-install/vfio-bind-4090.sh
       mandatory: true
     - id: network-vlan-config
       type: network

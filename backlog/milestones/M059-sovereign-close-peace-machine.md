@@ -18,7 +18,7 @@
 | epic | name | source |
 |---|---|---|
 | E0568 | Sovereign workstation definition — local intelligence OS, not "machine that runs models" | dump 18272-18278 |
-| E0569 | 7-component substrate — Ryzen / Blackwell / 3090 / RAM-ZFS-NVMe / Debian-Ubuntu / Gateway | dump 18280-18297 |
+| E0569 | 7-component substrate — Ryzen / Blackwell / 4090 / RAM-ZFS-NVMe / Debian-Ubuntu / Gateway | dump 18280-18297 |
 | E0570 | Core Law 6-line — Models propose / Runtime routes / CPU enforces / Tools prove / ZFS remembers / User chooses | dump 18299-18305 |
 | E0571 | "Situated intelligence" beats cloud — repos / tests / memory / hardware / policies / cost / continuity / rollback / consent | dump 18307-18313 |
 | E0572 | Runtime loop — MAP → SPEC → TEST → ACT → EVAL → COMMIT → LEARN | dump 18315-18318 |
@@ -42,7 +42,7 @@
 | M00993 | sovereign-close-peace-machine-validator | dump 18338-18341 |
 | M00994 | sovereign-close-cortex-binding (Ryzen 9900X AVX-512 = deterministic cortex) | dump 18282-18285 |
 | M00995 | sovereign-close-oracle-binding (Blackwell = oracle) | dump 18287-18289 |
-| M00996 | sovereign-close-scout-binding (3090 = scout) | dump 18291-18293 |
+| M00996 | sovereign-close-scout-binding (4090 = scout) | dump 18291-18293 |
 | M00997 | sovereign-close-continuity-binding (RAM + ZFS + NVMe = continuity) | dump 18295-18297 |
 | M00998 | sovereign-close-os-binding (Debian 13 / Ubuntu 24 substrate) | dump 18299 + cross-ref M044 |
 | M00999 | sovereign-close-gateway-binding (Anthropic-first, OpenAI-compatible, Claude Code/Cline/OpenCode-ready) | dump 18297 |
@@ -69,12 +69,12 @@
 | F04943 | Blackwell oracle role — long context | dump 18288 |
 | F04944 | Blackwell oracle role — final reasoning | dump 18289 |
 | F04945 | Blackwell oracle role — verification | dump 18289 |
-| F04946 | Substrate component — RTX 3090 = scout | dump 18291-18293 |
-| F04947 | 3090 scout role — SLMs | dump 18292 |
-| F04948 | 3090 scout role — drafts | dump 18292 |
-| F04949 | 3090 scout role — embeddings | dump 18292 |
-| F04950 | 3090 scout role — perception | dump 18293 |
-| F04951 | 3090 scout role — sandboxed exploration | dump 18293 |
+| F04946 | Substrate component — RTX 4090 = scout | dump 18291-18293 |
+| F04947 | 4090 scout role — SLMs | dump 18292 |
+| F04948 | 4090 scout role — drafts | dump 18292 |
+| F04949 | 4090 scout role — embeddings | dump 18292 |
+| F04950 | 4090 scout role — perception | dump 18293 |
+| F04951 | 4090 scout role — sandboxed exploration | dump 18293 |
 | F04952 | Substrate component — RAM + ZFS + NVMe = continuity | dump 18295-18297 |
 | F04953 | Continuity capability — memory graph | dump 18296 |
 | F04954 | Continuity capability — replay | dump 18296 |
@@ -180,13 +180,13 @@
 | R09894 | Substrate — Blackwell oracle handles final reasoning | dump 18289 | F04944 | non-negotiable | false | 10 |
 | R09895 | Substrate — Blackwell oracle handles verification | dump 18289 | F04945 | non-negotiable | false | 10 |
 | R09896 | Substrate — Blackwell 96GB GDDR7 FP4 capability | architecture + cross-ref M044 | F04941 | non-negotiable | false | 10 |
-| R09897 | Substrate — RTX 3090 = scout | dump 18291-18293 | F04946 | non-negotiable | false | 10 |
-| R09898 | Substrate — 3090 scout handles SLMs | dump 18292 | F04947 | non-negotiable | false | 10 |
-| R09899 | Substrate — 3090 scout handles drafts | dump 18292 | F04948 | non-negotiable | false | 10 |
-| R09900 | Substrate — 3090 scout handles embeddings | dump 18292 | F04949 | non-negotiable | false | 10 |
-| R09901 | Substrate — 3090 scout handles perception | dump 18293 | F04950 | non-negotiable | false | 10 |
-| R09902 | Substrate — 3090 scout handles sandboxed exploration | dump 18293 | F04951 | non-negotiable | false | 10 |
-| R09903 | Substrate — 3090 24GB GDDR6X capability | architecture + cross-ref M044 | F04946 | non-negotiable | false | 10 |
+| R09897 | Substrate — RTX 4090 = scout | dump 18291-18293 | F04946 | non-negotiable | false | 10 |
+| R09898 | Substrate — 4090 scout handles SLMs | dump 18292 | F04947 | non-negotiable | false | 10 |
+| R09899 | Substrate — 4090 scout handles drafts | dump 18292 | F04948 | non-negotiable | false | 10 |
+| R09900 | Substrate — 4090 scout handles embeddings | dump 18292 | F04949 | non-negotiable | false | 10 |
+| R09901 | Substrate — 4090 scout handles perception | dump 18293 | F04950 | non-negotiable | false | 10 |
+| R09902 | Substrate — 4090 scout handles sandboxed exploration | dump 18293 | F04951 | non-negotiable | false | 10 |
+| R09903 | Substrate — 4090 24GB GDDR6X capability | architecture + cross-ref M044 | F04946 | non-negotiable | false | 10 |
 | R09904 | Substrate — RAM + ZFS + NVMe = continuity | dump 18295-18297 | F04952 | non-negotiable | false | 10 |
 | R09905 | Substrate — continuity provides memory graph | dump 18296 | F04953 | non-negotiable | false | 10 |
 | R09906 | Substrate — continuity provides replay | dump 18296 | F04954 | non-negotiable | false | 10 |
@@ -250,7 +250,7 @@
 | R09964 | Peace-machine — flexible enough to evolve | dump 18340 | F05015 | non-negotiable | false | 10 |
 | R09965 | Peace-machine — sovereign enough that intelligence remains in the user's hands | dump 18340-18341 | F05015 | non-negotiable | false | 10 |
 | R09966 | Peace-machine — five properties enforced by M048..M058 modules collectively | architecture + dump 18338-18341 | F05012 | non-negotiable | false | 10 |
-| R09967 | Peace-machine — "powerful" backed by Blackwell oracle + 3090 scout + AVX cortex | dump 18338 + cross-ref M058 | F05012 | non-negotiable | false | 10 |
+| R09967 | Peace-machine — "powerful" backed by Blackwell oracle + 4090 scout + AVX cortex | dump 18338 + cross-ref M058 | F05012 | non-negotiable | false | 10 |
 | R09968 | Peace-machine — "disciplined" backed by M049 observability + M033 policy trace | cross-ref M049 + selfdef MS033 | F05013 | non-negotiable | false | 10 |
 | R09969 | Peace-machine — "reversible" backed by M047 CRIU + ZFS snapshots + signed rollback | cross-ref M047 | F05014 | non-negotiable | false | 10 |
 | R09970 | Peace-machine — "flexible" backed by M046 runtime adaptation + LoRA Foundry | cross-ref M046 | F05015 | non-negotiable | false | 10 |
@@ -322,7 +322,7 @@ Every R-row carries 10 hard non-negotiable sub-requirements per operator standin
 ## Cross-references
 
 - **All M001..M058** — this milestone closes the sovereign-os catalog and references the entire chain
-- **M044** — substrate (Ryzen 9 9900X / Blackwell 96GB / 3090 24GB / 256GB RAM / NVMe ZFS / ProArt X870E)
+- **M044** — substrate (Ryzen 9 9900X / Blackwell 96GB / 4090 24GB / 256GB RAM / NVMe ZFS / ProArt X870E)
 - **M045** — Linux as intelligence governor (cgroup v2 / systemd / PSI / eBPF)
 - **M046** — beat-the-cloud runtime adaptation + LoRA Foundry
 - **M047** — continuity (CRIU + ZFS + warm sandboxes + hibernated thought)

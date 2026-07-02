@@ -12,7 +12,7 @@
 | E0189 | Common core — 7 named expressions of the same skeleton (REPL / CoT / ReAct / Workflow / MoE / Logic / Intelligence) | 5759–5784 |
 | E0190 | Research substrate — ReAct / ToT / GoT / PAL / PoT / MoE / DSPy + "Intelligence is controlled conditional computation over state" | 5786–5799 |
 | E0191 | Where they connect — REPL = execution loop / CoT = candidate state / Tree-Graph = topology / Workflow = deterministic shell / MoE = routing | 5801–5859 |
-| E0192 | System-level MoE — whole workstation is mixture-of-experts; CPU router decides which expert activates (Blackwell oracle / 3090 scout / AVX-512 logic engine / REPL+tool sandboxes / memory retrieval / human gate / ZFS replay) | 5860–5874 |
+| E0192 | System-level MoE — whole workstation is mixture-of-experts; CPU router decides which expert activates (Blackwell oracle / 4090 scout / AVX-512 logic engine / REPL+tool sandboxes / memory retrieval / human gate / ZFS replay) | 5860–5874 |
 | E0193 | The Handhold — 13-instruction semantic ISA + 8-field per-instruction contract | 5876–5911 |
 | E0194 | The Architecture — 6-layer weave (REPL / Thought / Workflow / MoE / Logic / Intelligence) + full-loop integration | 5913–5952 |
 | E0195 | Why AVX-512 is special — CPU owns hot deterministic state with 8-field branch SoA + 7-question bulk-law operation + 9-field branch control word | 5954–5996 |
@@ -34,7 +34,7 @@
 | M00345 | Typed-thought externalization — Plan / Hypothesis / ToolIntent / PatchProposal / VerificationResult / MemoryWrite | 5821–5829 | E0191 |
 | M00346 | Topology — chain / tree / graph of thoughts | 5833–5837 | E0191 |
 | M00347 | Workflow deterministic shell — node-may-run / output-schema-required / side-effect-forbidden / branch-needs-oracle | 5839–5846 | E0191 |
-| M00348 | System-level MoE expert registry — Blackwell oracle / 3090 scout / AVX-512 logic engine / REPL-tool sandboxes / memory retrieval / human gate / ZFS replay | 5862–5874 | E0192 |
+| M00348 | System-level MoE expert registry — Blackwell oracle / 4090 scout / AVX-512 logic engine / REPL-tool sandboxes / memory retrieval / human gate / ZFS replay | 5862–5874 | E0192 |
 | M00349 | Semantic ISA (this milestone) — OBSERVE / RETRIEVE / DRAFT / REASON / EXECUTE_REPL / VERIFY / CRITIQUE / ROUTE / MERGE / COMMIT / ROLLBACK / WRITE_MEMORY / ASK_HUMAN | 5881–5894 | E0193 |
 | M00350 | Per-instruction contract — input_schema / output_schema / capability_mask / risk_class / budget / model_route / cache_policy / commit_rule | 5898–5907 | E0193 |
 | M00351 | 6-layer architecture — REPL / Thought / Workflow / MoE / Logic / Intelligence | 5915–5935 | E0194 |
@@ -77,7 +77,7 @@
 | F01730 | MoE distinction — token-level MoE (model routes tokens to experts) | 5853–5854 | M00342 | composite | false |
 | F01731 | MoE distinction — system-level MoE (runtime routes tasks to models/tools/workflows) | 5856–5857 | M00342 | composite | false |
 | F01732 | System-level MoE expert — Blackwell oracle | 5865 | M00348 | composite | false |
-| F01733 | System-level MoE expert — 3090 scout | 5866 | M00348 | composite | false |
+| F01733 | System-level MoE expert — 4090 scout | 5866 | M00348 | composite | false |
 | F01734 | System-level MoE expert — AVX-512 logic engine | 5867 | M00348 | composite | false |
 | F01735 | System-level MoE expert — REPL/tool sandboxes | 5868 | M00348 | composite | false |
 | F01736 | System-level MoE expert — memory retrieval | 5869 | M00348 | composite | false |
@@ -108,7 +108,7 @@
 | F01761 | 6-layer architecture — Layer 1 REPL Layer (Python / shell / browser / code-tests / simulators) | 5916–5920 | M00351 | composite | false |
 | F01762 | 6-layer architecture — Layer 2 Thought Layer (candidate plans / hypotheses / branches / critiques) | 5922–5924 | M00351 | composite | false |
 | F01763 | 6-layer architecture — Layer 3 Workflow Layer (durable graph of typed nodes + transitions) | 5926–5928 | M00351 | composite | false |
-| F01764 | 6-layer architecture — Layer 4 MoE Layer (model+tool+hardware router; Blackwell / 3090 / CPU / sandbox / memory / human) | 5930–5932 | M00351 | composite | false |
+| F01764 | 6-layer architecture — Layer 4 MoE Layer (model+tool+hardware router; Blackwell / 4090 / CPU / sandbox / memory / human) | 5930–5932 | M00351 | composite | false |
 | F01765 | 6-layer architecture — Layer 5 Logic Layer (AVX-512 masks / permissions / grammar / budgets / automata) | 5934–5936 | M00351 | composite | false |
 | F01766 | 6-layer architecture — Layer 6 Intelligence Layer (search + memory + tools + verification + feedback) | 5938–5940 | M00351 | composite | false |
 | F01767 | Hot SoA field — `branch_id[]` | 5959 | M00352 | data_model | false |
@@ -178,7 +178,7 @@
 | R03441 | System-level MoE — runtime routes tasks to models/tools/workflows | 5856–5857 | M00342 | non-negotiable | false | 10 |
 | R03442 | Whole workstation becomes a mixture-of-experts system | 5862 | E0192 | non-negotiable | false | 10 |
 | R03443 | System-level MoE expert — Blackwell oracle | 5865 | M00348 | non-negotiable | false | 10 |
-| R03444 | System-level MoE expert — 3090 scout | 5866 | M00348 | non-negotiable | false | 10 |
+| R03444 | System-level MoE expert — 4090 scout | 5866 | M00348 | non-negotiable | false | 10 |
 | R03445 | System-level MoE expert — AVX-512 logic engine | 5867 | M00348 | non-negotiable | false | 10 |
 | R03446 | System-level MoE expert — REPL/tool sandboxes | 5868 | M00348 | non-negotiable | false | 10 |
 | R03447 | System-level MoE expert — memory retrieval | 5869 | M00348 | non-negotiable | false | 10 |
@@ -212,7 +212,7 @@
 | R03475 | Layer 1 — REPL Layer (Python / shell / browser / code tests / simulators) | 5916–5920 | M00351 | non-negotiable | false | 10 |
 | R03476 | Layer 2 — Thought Layer (candidate plans / hypotheses / branches / critiques) | 5922–5924 | M00351 | non-negotiable | false | 10 |
 | R03477 | Layer 3 — Workflow Layer (durable graph of typed nodes and transitions) | 5926–5928 | M00351 | non-negotiable | false | 10 |
-| R03478 | Layer 4 — MoE Layer (model/tool/hardware router — Blackwell / 3090 / CPU / sandbox / memory / human) | 5930–5932 | M00351 | non-negotiable | false | 10 |
+| R03478 | Layer 4 — MoE Layer (model/tool/hardware router — Blackwell / 4090 / CPU / sandbox / memory / human) | 5930–5932 | M00351 | non-negotiable | false | 10 |
 | R03479 | Layer 5 — Logic Layer (AVX-512 masks / permissions / grammar / budgets / automata) | 5934–5936 | M00351 | non-negotiable | false | 10 |
 | R03480 | Layer 6 — Intelligence Layer (search + memory + tools + verification + feedback) | 5938–5940 | M00351 | non-negotiable | false | 10 |
 | R03481 | Weave step 1 — Model proposes thought | 5942 | E0194 | non-negotiable | false | 10 |

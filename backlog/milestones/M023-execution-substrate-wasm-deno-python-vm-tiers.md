@@ -11,7 +11,7 @@
 | E0208 | Execution substrate question — what kind of hand: shell / Python / Deno / WASM / VM / Container | 6381–6388 |
 | E0209 | Research substrate — Deno secure-by-default permissions + Deno sandbox security (untrusted/AI-generated workloads) + Extism WASM plugins + WASI / MCP-SandboxScan | 6390–6395 |
 | E0210 | Principle — tools must be capability-shaped (not "agent can run X" but "agent can read these files / write this dir / call this host / run this function / spend this budget / return this schema") | 6397–6420 |
-| E0211 | Execution Tiers — Tier 0 Pure Logic / Tier 1 WASM Plugins / Tier 2 Deno Scripts / Tier 3 Python REPL / Tier 4 Containers-MicroVMs / Tier 5 VFIO 3090 VM | 6422–6459 |
+| E0211 | Execution Tiers — Tier 0 Pure Logic / Tier 1 WASM Plugins / Tier 2 Deno Scripts / Tier 3 Python REPL / Tier 4 Containers-MicroVMs / Tier 5 VFIO 4090 VM | 6422–6459 |
 | E0212 | REPL Is Not One Thing — 8 named REPLs (math / Python / Deno / SQL / shell / browser / simulation / WASM-plugin) each with capability descriptor YAML | 6461–6493 |
 | E0213 | WASM As Tool ABI — common tool interfaces (parse / score / filter / transform / validate) implemented as WASM plugins in Rust/Go/Zig/TinyGo | 6495–6521 |
 | E0214 | Capability Words — 64-bit per-execution capability word (8 bitfields: runtime_tier / fs_scope / net_scope / subprocess_scope / time_budget / memory_budget / trust_level / audit_flags) + AVX-512 batch check | 6523–6547 |
@@ -28,7 +28,7 @@
 | M00373 | Tier 2 — Deno Scripts (JS/TS tools with explicit file/net/env/run permissions; web/API glue + agent-authored scripts) | 6435–6438 | E0211 |
 | M00374 | Tier 3 — Python REPL (rich science/data/code environment; powerful but more dangerous) | 6439–6441 | E0211 |
 | M00375 | Tier 4 — Containers / MicroVMs (package installs / builds / untrusted code / browsers) | 6443–6444 | E0211 |
-| M00376 | Tier 5 — VFIO 3090 VM (heavy sandboxed model work / risky tool exploration / perception agents) | 6446–6447 | E0211 |
+| M00376 | Tier 5 — VFIO 4090 VM (heavy sandboxed model work / risky tool exploration / perception agents) | 6446–6447 | E0211 |
 | M00377 | REPL — math REPL | 6466 | E0212 |
 | M00378 | REPL — Python REPL | 6467 | E0212 |
 | M00379 | REPL — Deno/TypeScript REPL | 6468 | E0212 |
@@ -55,7 +55,7 @@
 | F01877 | Tier 2 — Deno Script runtime with explicit permissions | 6435–6438 | M00373 | composite | true |
 | F01878 | Tier 3 — Python REPL (jupyter-style kernel) | 6439–6441 | M00374 | composite | true |
 | F01879 | Tier 4 — Container / MicroVM (Podman / Firecracker) | 6443–6444 | M00375 | composite | true |
-| F01880 | Tier 5 — VFIO 3090 VM (heavy sandboxed model work) | 6446–6447 | M00376 | composite | true |
+| F01880 | Tier 5 — VFIO 4090 VM (heavy sandboxed model work) | 6446–6447 | M00376 | composite | true |
 | F01881 | Tier-selection rule — router chooses lowest tier that can solve the problem | 6450 | E0211 | composite | false |
 | F01882 | Tier-preference rule — Prefer pure logic over code | 6455 | E0211 | composite | false |
 | F01883 | Tier-preference rule — Prefer WASM over shell | 6456 | E0211 | composite | false |
@@ -159,7 +159,7 @@
 | R03761 | Tier 2 — Deno Scripts (JS/TS tools with explicit file/net/env/run permissions / web-API glue / agent-authored scripts) | 6435–6438 | M00373 | non-negotiable | false | 10 |
 | R03762 | Tier 3 — Python REPL (rich science/data/code environment / powerful but more dangerous) | 6439–6441 | M00374 | non-negotiable | false | 10 |
 | R03763 | Tier 4 — Containers / MicroVMs (package installs / builds / untrusted code / browsers) | 6443–6444 | M00375 | non-negotiable | false | 10 |
-| R03764 | Tier 5 — VFIO 3090 VM (heavy sandboxed model work / risky tool exploration / perception agents) | 6446–6447 | M00376 | non-negotiable | false | 10 |
+| R03764 | Tier 5 — VFIO 4090 VM (heavy sandboxed model work / risky tool exploration / perception agents) | 6446–6447 | M00376 | non-negotiable | false | 10 |
 | R03765 | Router chooses the lowest tier that can solve the problem | 6450 | E0211 | non-negotiable | false | 10 |
 | R03766 | Tier preference — Prefer pure logic over code | 6455 | E0211 | non-negotiable | false | 10 |
 | R03767 | Tier preference — Prefer WASM over shell | 6456 | E0211 | non-negotiable | false | 10 |
@@ -258,7 +258,7 @@
 | R03860 | Tier 2 implementation — `deno run --allow-...` explicit-permissions runner | 6435–6438 | F01877 | non-negotiable | true | 10 |
 | R03861 | Tier 3 implementation — ipykernel-backed jupyter-style Python REPL | 6439–6441 | F01878 | non-negotiable | true | 10 |
 | R03862 | Tier 4 implementation — Podman + Firecracker microVM hybrid | 6443–6444 | F01879 | non-negotiable | true | 10 |
-| R03863 | Tier 5 implementation — VFIO PCI passthrough to 3090 GPU within QEMU/KVM VM | 6446–6447 | F01880 | non-negotiable | true | 10 |
+| R03863 | Tier 5 implementation — VFIO PCI passthrough to 4090 GPU within QEMU/KVM VM | 6446–6447 | F01880 | non-negotiable | true | 10 |
 | R03864 | REPL capability descriptor YAML round-trips through serde | 6478–6491 | M00385 | non-negotiable | false | 10 |
 | R03865 | Capability word 64-bit encoding round-trips through bitfield encode/decode | 6527–6536 | M00387 | non-negotiable | false | 10 |
 | R03866 | Tool-ABI manifest round-trips through JSON serde with all 8 fields | 6553–6563 | M00388 | non-negotiable | false | 10 |
@@ -282,7 +282,7 @@
 | R03884 | Test — Tier 2 Deno refuses on un-allowlisted write path | 6486–6487 | M00373 | non-negotiable | false | 10 |
 | R03885 | Test — Tier 3 Python honors `allow_run = false` | 6488 | M00374 | non-negotiable | false | 10 |
 | R03886 | Test — Tier 4 container refuses outbound when no `network_scope` granted | 6530 | M00375 | non-negotiable | false | 10 |
-| R03887 | Test — Tier 5 VFIO VM passthrough to 3090 honors capability budget | 6446–6447 | M00376 | non-negotiable | true | 10 |
+| R03887 | Test — Tier 5 VFIO VM passthrough to 4090 honors capability budget | 6446–6447 | M00376 | non-negotiable | true | 10 |
 | R03888 | Test — generated-code 7-step pipeline rejects at correct step for each failure type | 6572–6578 | E0216 | non-negotiable | false | 10 |
 | R03889 | Test — promotion ladder transition (ad-hoc → script → tool → WASM → primitive) preserves traces | 6622–6624 | E0216 | non-negotiable | false | 10 |
 | R03890 | Test — router chooses lowest tier that can solve a synthetic task | 6450 | E0211 | non-negotiable | false | 10 |

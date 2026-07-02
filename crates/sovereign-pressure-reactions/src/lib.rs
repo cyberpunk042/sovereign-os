@@ -15,10 +15,10 @@
 //!    low-value KV-cache
 //! 2. IO pressure high → stop cold memory scans / delay replay compaction /
 //!    prefer RAM-hot context
-//! 3. CPU pressure high → reduce branch width / move reranking to 3090 /
+//! 3. CPU pressure high → reduce branch width / move reranking to 4090 /
 //!    defer evals
 //! 4. GPU oracle idle → increase verification batch
-//! 5. 3090 idle → widen scout speculation
+//! 5. 4090 idle → widen scout speculation
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
@@ -40,8 +40,8 @@ pub enum ReactionTrigger {
     CpuPressureHigh,
     /// The oracle GPU (`blackwell-oracle`) is idle and present.
     GpuOracleIdle,
-    /// The scout GPU (`rocm-3090`) is idle and present.
-    Gpu3090Idle,
+    /// The scout GPU (`rocm-4090`) is idle and present.
+    Gpu4090Idle,
 }
 
 impl ReactionTrigger {
@@ -61,11 +61,11 @@ impl ReactionTrigger {
             ],
             ReactionTrigger::CpuPressureHigh => &[
                 "reduce branch width",
-                "move reranking to 3090",
+                "move reranking to 4090",
                 "defer evals",
             ],
             ReactionTrigger::GpuOracleIdle => &["increase verification batch"],
-            ReactionTrigger::Gpu3090Idle => &["widen scout speculation"],
+            ReactionTrigger::Gpu4090Idle => &["widen scout speculation"],
         }
     }
 }
@@ -119,9 +119,9 @@ impl Default for ReactionThresholds {
 /// The pressure rules (1–3) fire when the matching axis is at or above
 /// `pressure_high`. The idle rules (4–5) fire only when the target is *real*
 /// (declared with VRAM capacity in `registry`, so we never prescribe
-/// "widen scout speculation" on a host that has no 3090) **and** its
+/// "widen scout speculation" on a host that has no 4090) **and** its
 /// utilization is at or below `idle_util_pct`. Returned in canonical rule
-/// order (memory, io, cpu, oracle-idle, 3090-idle).
+/// order (memory, io, cpu, oracle-idle, 4090-idle).
 #[must_use]
 pub fn derive_reactions(
     pressure: &PressureSnapshot,
@@ -149,7 +149,7 @@ pub fn derive_reactions(
             HardwareTarget::BlackwellOracle,
             ReactionTrigger::GpuOracleIdle,
         ),
-        (HardwareTarget::Rocm3090, ReactionTrigger::Gpu3090Idle),
+        (HardwareTarget::Rocm4090, ReactionTrigger::Gpu4090Idle),
     ] {
         let present = registry.get(target).is_some_and(|r| r.vram_gb > 0);
         if !present {
@@ -194,7 +194,7 @@ mod tests {
     fn busy_load() -> LoadSnapshot {
         let mut l = LoadSnapshot::empty_canonical("t");
         set_util(&mut l, HardwareTarget::BlackwellOracle, 80);
-        set_util(&mut l, HardwareTarget::Rocm3090, 80);
+        set_util(&mut l, HardwareTarget::Rocm4090, 80);
         l
     }
 
@@ -212,12 +212,12 @@ mod tests {
             ReactionTrigger::CpuPressureHigh.actions(),
             [
                 "reduce branch width",
-                "move reranking to 3090",
+                "move reranking to 4090",
                 "defer evals"
             ]
         );
         assert_eq!(
-            ReactionTrigger::Gpu3090Idle.actions(),
+            ReactionTrigger::Gpu4090Idle.actions(),
             ["widen scout speculation"]
         );
     }
@@ -272,8 +272,8 @@ mod tests {
     #[test]
     fn idle_present_gpu_fires_idle_rule() {
         let mut load = busy_load();
-        // 3090 drops to idle (5% ≤ 10% default).
-        set_util(&mut load, HardwareTarget::Rocm3090, 5);
+        // 4090 drops to idle (5% ≤ 10% default).
+        set_util(&mut load, HardwareTarget::Rocm4090, 5);
         let r = derive_reactions(
             &snap(0.1, 0.1, 0.1),
             &load,
@@ -281,7 +281,7 @@ mod tests {
             ReactionThresholds::default(),
         );
         assert_eq!(r.len(), 1);
-        assert_eq!(r[0].trigger, ReactionTrigger::Gpu3090Idle);
+        assert_eq!(r[0].trigger, ReactionTrigger::Gpu4090Idle);
         assert_eq!(r[0].actions, ["widen scout speculation"]);
     }
 
@@ -292,7 +292,7 @@ mod tests {
         // assert the guard: an all-idle load on a present GPU fires, proving
         // the presence gate is what suppresses absent hardware.
         let reg = HardwareRegistry::canonical();
-        // canonical 3090 is present (24GB) → idle fires.
+        // canonical 4090 is present (24GB) → idle fires.
         let mut load = LoadSnapshot::empty_canonical("t"); // all util 0 = idle
         // Oracle present too; both idle → both fire. Confirms presence-gated.
         set_util(&mut load, HardwareTarget::BlackwellOracle, 0);
@@ -304,7 +304,7 @@ mod tests {
         );
         let trigs: std::collections::HashSet<_> = r.iter().map(|x| x.trigger).collect();
         assert!(trigs.contains(&ReactionTrigger::GpuOracleIdle));
-        assert!(trigs.contains(&ReactionTrigger::Gpu3090Idle));
+        assert!(trigs.contains(&ReactionTrigger::Gpu4090Idle));
         // cpu-pulse / cloud / no-hardware are NOT GPU idle triggers regardless.
         assert_eq!(r.len(), 2, "only the two real GPUs fire idle: {r:?}");
     }

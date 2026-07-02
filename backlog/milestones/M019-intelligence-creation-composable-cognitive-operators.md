@@ -29,7 +29,7 @@
 | M00304 | Recipe — research graph (decompose → retrieve/search → summarize shards → debate claims → verify citations → synthesize) | 5081–5084 | E0169 |
 | M00305 | Recipe — UI automation graph (perceive screen → propose actions → policy gate → sandbox action → observe → update state) | 5087–5090 | E0169 |
 | M00306 | Recipe — hard reasoning graph (generate tree → score nodes → expand frontier → debate top paths → oracle verify → final) | 5093–5096 | E0169 |
-| M00307 | Hardware-mapping for intelligence-as-search — 3090 generate-many / AVX-512 score+filter+pack+dedupe+route / RTX PRO 6000 verify+synthesize+resolve-conflicts / RAM+ZFS remember+replay+learn | 5120–5132 | E0170 |
+| M00307 | Hardware-mapping for intelligence-as-search — 4090 generate-many / AVX-512 score+filter+pack+dedupe+route / RTX PRO 6000 verify+synthesize+resolve-conflicts / RAM+ZFS remember+replay+learn | 5120–5132 | E0170 |
 | M00308 | Router inputs — task_type / risk / latency target / required modality / context size / tool requirement / estimated difficulty / privacy level / cache state / current GPU load / past success stats | 5141–5152 | E0171 |
 | M00309 | Router outputs — model choice / precision / backend / speculation depth / debate width / oracle threshold / human gate threshold / cache policy | 5156–5164 | E0171 |
 | M00310 | Recipe — Fast Executor (scout → deterministic checks → answer) | 5176–5178 | E0172 |
@@ -64,7 +64,7 @@
 | F01545 | Recipe — research graph (M00304) | 5081–5084 | M00304 | composite | true |
 | F01546 | Recipe — UI automation graph (M00305) | 5087–5090 | M00305 | composite | true |
 | F01547 | Recipe — hard reasoning graph (M00306) | 5093–5096 | M00306 | composite | true |
-| F01548 | Hardware-mapping — 3090 generates many cheap candidates | 5122 | M00307 | composite | false |
+| F01548 | Hardware-mapping — 4090 generates many cheap candidates | 5122 | M00307 | composite | false |
 | F01549 | Hardware-mapping — AVX-512 CPU scores, filters, packs, dedupes, routes | 5125 | M00307 | composite | false |
 | F01550 | Hardware-mapping — RTX PRO 6000 verifies, synthesizes, resolves conflicts | 5128 | M00307 | composite | false |
 | F01551 | Hardware-mapping — RAM/ZFS remembers, replays, learns from traces | 5131 | M00307 | composite | false |
@@ -166,7 +166,7 @@
 | R03087 | Each task builds a graph from operators | 5072 | M00302 | non-negotiable | false | 10 |
 | R03088 | Recipe — coding-bug graph: decompose → retrieve repo context → scout patch x4 → verify with oracle → run tests → reflect → commit | 5075–5078 | M00303 | non-negotiable | true | 10 |
 | R03089 | Recipe — research graph: decompose → retrieve/search → summarize shards → debate claims → verify citations → synthesize | 5081–5084 | M00304 | non-negotiable | true | 10 |
-| R03090 | Recipe — UI automation graph: perceive screen → propose actions → policy gate → sandbox action → observe → update state | 5087–5090 | M00305 | non-negotiable | true | 10 |
+| R04090 | Recipe — UI automation graph: perceive screen → propose actions → policy gate → sandbox action → observe → update state | 5087–5090 | M00305 | non-negotiable | true | 10 |
 | R03091 | Recipe — hard reasoning graph: generate tree → score nodes → expand frontier → debate top paths → oracle verify → final | 5093–5096 | M00306 | non-negotiable | true | 10 |
 | R03092 | Same substrate, different graph | 5098 | E0169 | non-negotiable | false | 10 |
 | R03093 | Workstation creates intelligence by spending compute deliberately | 5102 | E0170 | non-negotiable | false | 10 |
@@ -177,7 +177,7 @@
 | R03098 | Smarter runtime — verify expensively | 5112 | E0170 | non-negotiable | false | 10 |
 | R03099 | Smarter runtime — remember outcomes | 5113 | E0170 | non-negotiable | false | 10 |
 | R03100 | This is intelligence amplification | 5116 | E0170 | non-negotiable | false | 10 |
-| R03101 | Hardware map — 3090 generate many cheap candidates | 5122 | M00307 | non-negotiable | false | 10 |
+| R03101 | Hardware map — 4090 generate many cheap candidates | 5122 | M00307 | non-negotiable | false | 10 |
 | R03102 | Hardware map — AVX-512 CPU score, filter, pack, dedupe, route | 5125 | M00307 | non-negotiable | false | 10 |
 | R03103 | Hardware map — RTX PRO 6000 verify, synthesize, resolve conflicts | 5128 | M00307 | non-negotiable | false | 10 |
 | R03104 | Hardware map — RAM/ZFS remember, replay, learn from traces | 5131 | M00307 | non-negotiable | false | 10 |
@@ -250,7 +250,7 @@
 | R03171 | Diversity — Nemotron 3 Nano fast scout / long-context efficient agent | 5273–5274 | E0175 | non-negotiable | false | 10 |
 | R03172 | Diversity — Nemotron 3 Nano Omni perception / document / GUI / audio-video | 5276–5277 | E0175 | non-negotiable | false | 10 |
 | R03173 | Diversity — Qwen/Kimi/DeepSeek variants for coding, reasoning, long-context, MoE diversity | 5279–5280 | E0175 | non-negotiable | false | 10 |
-| R03174 | Diversity — Small CPU/3090 models for classifiers, routers, embedding, quick critics | 5282–5283 | E0175 | non-negotiable | false | 10 |
+| R03174 | Diversity — Small CPU/4090 models for classifiers, routers, embedding, quick critics | 5282–5283 | E0175 | non-negotiable | false | 10 |
 | R03175 | Diversity — Blackwell oracle for strongest local final synthesis | 5285–5286 | E0175 | non-negotiable | false | 10 |
 | R03176 | Heterogeneous cognition is required | 5289 | E0175 | non-negotiable | false | 10 |
 | R03177 | Different models fail differently | 5291 | E0175 | non-negotiable | false | 10 |

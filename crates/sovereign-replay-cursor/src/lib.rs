@@ -226,7 +226,7 @@ mod tests {
             role,
             tokens_in: 0,
             tokens_out: 0,
-            provider: "local:rocm-3090".into(),
+            provider: "local:rocm-4090".into(),
             started_at: "2026-05-19T03:00:00Z".into(),
             completed_at: "2026-05-19T03:00:01Z".into(),
             branch_id: "main".into(),

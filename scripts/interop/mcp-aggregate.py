@@ -91,13 +91,13 @@ LOCAL_TOOLS = [
     },
     {
         "name": "gpu-watch",
-        "summary": "Live GPU watt + temperature + utilization (RTX 3090 / RTX PRO 6000).",
+        "summary": "Live GPU watt + temperature + utilization (RTX 4090 / RTX PRO 6000).",
         "argv": ["sovereign-osctl", "gpu-watch", "--json"],
         "categories": ["gpu", "power", "thermal"],
     },
     {
         "name": "gpu-card-advisor",
-        "summary": "Per-card advisories for RTX 3090 + RTX PRO 6000 dual-rig.",
+        "summary": "Per-card advisories for RTX 4090 + RTX PRO 6000 dual-rig.",
         "argv": ["sovereign-osctl", "gpu-card-advisor", "--json"],
         "categories": ["gpu", "advisor"],
     },

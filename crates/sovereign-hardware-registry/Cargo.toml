@@ -7,7 +7,7 @@ license.workspace = true
 repository.workspace = true
 authors.workspace = true
 publish.workspace = true
-description = "Runtime hardware registry — 5-tier catalog (CPU/RDNA-3090/Blackwell/Cloud/None) carrying vram + role + latency-tier so the SRP scheduler + router can dispatch deterministically. Mirrors selfdef HardwareTarget discriminator surface."
+description = "Runtime hardware registry — 5-tier catalog (CPU/RDNA-4090/Blackwell/Cloud/None) carrying vram + role + latency-tier so the SRP scheduler + router can dispatch deterministically. Mirrors selfdef HardwareTarget discriminator surface."
 
 [lints]
 workspace = true

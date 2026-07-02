@@ -41,7 +41,7 @@
 | M00262 | Skill YAML contract — name / inputs / preconditions / commands / risk / side_effects / success_metric | 4161–4173 | E0142 |
 | M00263 | Skill promotion 6-stage pipeline — candidate → sandbox → deterministic-validation → oracle review → user-approval-if-risky → store-as-draft → promote-after-repeated-success | 4181–4188 | E0143 |
 | M00264 | Policy-update record — condition_mask / old_policy / new_policy / evidence_count / success_delta / approved_by / rollback_ref | 4217–4224 | E0144 |
-| M00265 | Hardware-aware tree search — 3090 expands / CPU prunes / Blackwell evaluates / ZFS logs + 8-field tree node + 5 AVX-512 frontier operations | 4230–4262 | E0145 |
+| M00265 | Hardware-aware tree search — 4090 expands / CPU prunes / Blackwell evaluates / ZFS logs + 8-field tree node + 5 AVX-512 frontier operations | 4230–4262 | E0145 |
 | M00266 | ReWOO-inspired plan-batch-collect-synthesize pipeline | 4267–4294 | E0145 |
 | M00267 | Learning Plane (8th plane) — mutates branch policies / routing thresholds / retrieval filters / prompt+program templates / skill library / cache admission / tool schemas / human gate thresholds | 4316–4344 | E0145 |
 
@@ -240,7 +240,7 @@
 | R02649 | Policy updates are deterministic, auditable, reversible | 4226 | M00264 | non-negotiable | false | 10 |
 | R02650 | LATS-style tree search is expensive | 4230 | M00265 | non-negotiable | false | 10 |
 | R02651 | Hardware makes tree search practical if controlled | 4230 | M00265 | non-negotiable | false | 10 |
-| R02652 | Tree search — 3090 expands candidate branches | 4235 | M00265 | non-negotiable | false | 10 |
+| R02652 | Tree search — 4090 expands candidate branches | 4235 | M00265 | non-negotiable | false | 10 |
 | R02653 | Tree search — CPU prunes with bit policies | 4236 | M00265 | non-negotiable | false | 10 |
 | R02654 | Tree search — Blackwell evaluates only frontier winners | 4237 | M00265 | non-negotiable | false | 10 |
 | R02655 | Tree search — ZFS logs tree outcomes | 4238 | M00265 | non-negotiable | false | 10 |
@@ -263,7 +263,7 @@
 | R02672 | ReWOO pipeline — batch tool calls | 4280 | M00266 | non-negotiable | false | 10 |
 | R02673 | ReWOO pipeline — collect observations | 4281 | M00266 | non-negotiable | false | 10 |
 | R02674 | ReWOO pipeline — synthesize once | 4282 | M00266 | non-negotiable | false | 10 |
-| R02675 | Research/retrieval task — 3090 drafts observation plan / CPU deduplicates / tools batch / Blackwell synthesizes | 4288–4292 | M00266 | non-negotiable | false | 10 |
+| R02675 | Research/retrieval task — 4090 drafts observation plan / CPU deduplicates / tools batch / Blackwell synthesizes | 4288–4292 | M00266 | non-negotiable | false | 10 |
 | R02676 | Saves tokens and tool latency | 4295 | M00266 | non-negotiable | false | 10 |
 | R02677 | Learning loop step 1 — Execute task with branch runtime | 4302 | E0145 | non-negotiable | false | 10 |
 | R02678 | Learning loop step 2 — Record trace, metrics, outcome | 4303 | E0145 | non-negotiable | false | 10 |

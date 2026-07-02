@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # R295 (E1.M23) — GPU possibility catalog L3.
 #
-# Operator-named (§1b mandate row): "RTX 3090 details and possibilities
+# Operator-named (§1b mandate row): "RTX 4090 details and possibilities
 # established and non-established, same for the RTX Pro 6000 and the
 # CPU and AVX512".
 
@@ -27,7 +27,7 @@ assert d['total_count'] >= 10
 pass "1. list --json envelope"
 
 # ── 2. ALL operator-named subjects present ──────────────────
-# §1b verbatim names four: "RTX 3090 ... the RTX Pro 6000 and the CPU
+# §1b verbatim names four: "RTX 4090 ... the RTX Pro 6000 and the CPU
 # and AVX512". Anchoring only the two GPUs would itself minimize the
 # operator's named set — lock all four (the CPU/AVX-512 card covers the
 # 'CPU and AVX512' subjects).
@@ -35,10 +35,10 @@ echo "${out}" | python3 -c "
 import json, sys
 d = json.loads(sys.stdin.read())
 cards = set(d['cards'])
-for card in ('RTX 3090', 'RTX PRO 6000', 'CPU (AVX-512)'):
+for card in ('RTX 4090', 'RTX PRO 6000', 'CPU (AVX-512)'):
     assert card in cards, (card, cards)
 " || fail "operator-named subjects missing"
-pass "2. RTX 3090 + RTX PRO 6000 + CPU (AVX-512) all present (4 operator-named subjects)"
+pass "2. RTX 4090 + RTX PRO 6000 + CPU (AVX-512) all present (4 operator-named subjects)"
 
 # ── 3. Entries partitioned by status (established + non-established) ──
 echo "${out}" | python3 -c "
@@ -54,14 +54,14 @@ for e in d['entries']:
 pass "3. entries partitioned into established / non-established with full shape"
 
 # ── 4. --card filter narrows to one card ────────────────────
-out_3090="$(python3 "${SCRIPT}" list --card 'RTX 3090' --json)"
-echo "${out_3090}" | python3 -c "
+out_4090="$(python3 "${SCRIPT}" list --card 'RTX 4090' --json)"
+echo "${out_4090}" | python3 -c "
 import json, sys
 d = json.loads(sys.stdin.read())
 for e in d['entries']:
-    assert e['card'] == 'RTX 3090', e
+    assert e['card'] == 'RTX 4090', e
 " || fail "--card filter"
-pass "4. --card filter narrows to RTX 3090 only"
+pass "4. --card filter narrows to RTX 4090 only"
 
 # ── 5. --status filter narrows to one status ────────────────
 out_est="$(python3 "${SCRIPT}" list --status established --json)"
@@ -126,7 +126,7 @@ out_bad="$(python3 "${SCRIPT}" list --config "${bad}" --json)"
 echo "${out_bad}" | python3 -c "
 import json, sys
 d = json.loads(sys.stdin.read())
-assert 'RTX 3090' in d['cards']
+assert 'RTX 4090' in d['cards']
 assert '_parse_error' in d['overlay']
 " || fail "malformed-overlay fallback"
 rm -f "${bad}"

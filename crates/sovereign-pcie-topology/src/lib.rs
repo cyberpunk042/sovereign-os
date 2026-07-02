@@ -115,7 +115,7 @@ pub struct Placement {
     pub device: String,
 }
 
-/// The recommended layout (E0028): Blackwell x8 + 3090 x8 + M.2_1 x4 + chipset
+/// The recommended layout (E0028): Blackwell x8 + 4090 x8 + M.2_1 x4 + chipset
 /// NVMe — deliberately leaving `M.2_2` empty so the secondary GPU keeps its x8.
 #[must_use]
 pub fn recommended_layout() -> Vec<Placement> {
@@ -126,7 +126,7 @@ pub fn recommended_layout() -> Vec<Placement> {
         },
         Placement {
             slot: PcieSlot::X16_2,
-            device: "rocm-3090".into(),
+            device: "rocm-4090".into(),
         },
         Placement {
             slot: PcieSlot::M2_1,
@@ -220,7 +220,7 @@ mod tests {
     #[test]
     fn lane_sharing_trap_is_detected() {
         let bad = vec![
-            place(PcieSlot::X16_2, "rocm-3090"),
+            place(PcieSlot::X16_2, "rocm-4090"),
             place(PcieSlot::M2_2, "nvme-extra"), // the trap
         ];
         // X16_2 is iterated first, so it's the one whose share-conflict trips.

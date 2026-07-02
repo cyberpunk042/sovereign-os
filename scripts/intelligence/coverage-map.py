@@ -119,7 +119,7 @@ DEFAULT_AXES: list[dict[str, Any]] = [
      "notes": ("R307 cpu-hotswap pinned mode + R338 workload-mode "
                 "coordinator + R340 adoption.")},
     {"id": "A-04",
-     "axis_verbatim": ("GPU too, watts, RTX 3090 details and "
+     "axis_verbatim": ("GPU too, watts, RTX 4090 details and "
                         "possibilities established and non-established, "
                         "same for the RTX Pro 6000 and the CPU and "
                         "AVX512"),
@@ -135,7 +135,7 @@ DEFAULT_AXES: list[dict[str, Any]] = [
      "status": "✓ shipped",
      "notes": ("R271 gpu-card-advisor + R272 avx512 + R294 psu-oc-mode "
                 "+ R303 gpu-wattage; inventory-catalog R317 surfaces "
-                "RTX 3090 / RTX PRO 6000 / Ryzen 9 9900X specifics.")},
+                "RTX 4090 / RTX PRO 6000 / Ryzen 9 9900X specifics.")},
     {"id": "A-05",
      "axis_verbatim": "autohealth and doctor",
      "source": "hook drop 2026-05-17",

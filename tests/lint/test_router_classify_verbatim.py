@@ -93,7 +93,7 @@ def test_tier_logic_engine_key_present():
     endpoints = _extract_tier_endpoints()
     assert "logic_engine" in endpoints, (
         "router.py TIER_ENDPOINTS missing 'logic_engine' tier key "
-        "(operator-named §17.1 — Logic Engine / RTX 3090 tier)"
+        "(operator-named §17.1 — Logic Engine / RTX 4090 tier)"
     )
 
 

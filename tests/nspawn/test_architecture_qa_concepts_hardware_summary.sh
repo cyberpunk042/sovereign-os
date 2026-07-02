@@ -39,7 +39,7 @@ must = [
     'IOMMU topology support for VFIO isolation',
     'RTX PRO 6000 Blackwell (96GB)',
     '96GB VRAM for large-scale model residence',
-    'RTX 3090 (24GB)',
+    'RTX 4090 (24GB)',
     'speculative decoding or security agent offloading',
     '256GB DDR5',
     '(Initial: 128GB)',

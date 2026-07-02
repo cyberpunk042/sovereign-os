@@ -28,7 +28,7 @@
 | M00200 | eBPF layer — kernel/runtime observability for I/O / process / network / syscalls | 3045 | E0107 |
 | M00201 | Observability Plane metric set — GPU telemetry / CPU counters / AVX-512 engine timing / KV cache hit/miss / branch acceptance / speculative success / tool failure / memory retrieval quality / ZFS+IO latency / replay log throughput | 3076–3087 | E0108 |
 | M00202 | Blackwell oracle metric set — utilization / vram_used / memory_bandwidth / batch_tokens / prefill_time / decode_time / idle_ms / verification_accept_rate | 3095–3104 | E0109 |
-| M00203 | 3090 scout metric set — utilization / draft_tokens_per_sec / draft_acceptance_rate / draft_rejection_reason / rerank_latency / embedding_batch_size | 3108–3115 | E0109 |
+| M00203 | 4090 scout metric set — utilization / draft_tokens_per_sec / draft_acceptance_rate / draft_rejection_reason / rerank_latency / embedding_batch_size | 3108–3115 | E0109 |
 | M00204 | CPU deterministic-layer metric set — branches_active / branches_killed_{budget,policy,grammar} / branches_sent_{oracle,scout} / avx_scheduler_tick_us / mask_compute_us / json_validate_us / policy_scan_us | 3119–3130 | E0109 |
 | M00205 | KV/memory metric set — kv_{hit,prefix_hit,nonprefix_hit}_rate / kv_evictions / kv_offload_bytes / context_prefill_saved_ms / memory_candidates_{before_filter, after_bitset, after_rerank} | 3134–3144 | E0109 |
 | M00206 | Tool metric set — tool_intents_{generated, rejected, user_confirmed} / tool_failures / tool_side_effects_committed | 3148–3154 | E0109 |
@@ -126,7 +126,7 @@
 | F01098 | eBPF probe — container/VM boundary behavior observer | 3281 | M00200 | composite | true |
 | F01099 | eBPF probe — GPU-process mapping (paired with NVML/DCGM) | 3282 | M00200 | composite | true |
 | F01100 | Dashboard — "Is the Blackwell idle?" | 3304 | E0115 | dashboard | true |
-| F01101 | Dashboard — "Is the 3090 helping?" + "Is speculation worth it?" + "Are token masks expensive?" + "Is KV reuse saving prefill?" + "Are tools being rejected too often?" + "Are branches dying for useful reasons?" + "Is storage latency hurting context?" + "Is the system becoming more efficient over time?" | 3305–3312 | E0115 | dashboard | true |
+| F01101 | Dashboard — "Is the 4090 helping?" + "Is speculation worth it?" + "Are token masks expensive?" + "Is KV reuse saving prefill?" + "Are tools being rejected too often?" + "Are branches dying for useful reasons?" + "Is storage latency hurting context?" + "Is the system becoming more efficient over time?" | 3305–3312 | E0115 | dashboard | true |
 | F01102 | Runtime tuning — speculation profile by task type / best draft model by domain / best context retrieval policy by repo / tool failure patterns / grammar schemas that slow decoding / memory chunks repeatedly useful | 3319–3326 | E0115 | composite | true |
 | F01103 | Composite — Six-plane architecture confirmed with Observability Plane as plane 6 | 3334–3352 | E0108 | composite | false |
 | F01104 | Composite — Observability plane closes the loop | 3354 | E0108 | composite | false |
@@ -145,7 +145,7 @@
 | R02047 | Telemetry feeds the scheduler — high-standard move | 3051 | E0106 | non-negotiable | false | 10 |
 | R02048 | Not just "Grafana shows GPU hot" | 3057 | E0106 | non-negotiable | false | 10 |
 | R02049 | GPU memory bandwidth saturated → reduce oracle batch shape | 3063 | M00208 | non-negotiable | true | 10 |
-| R02050 | 3090 underused → increase speculative width | 3064 | M00207 | non-negotiable | true | 10 |
+| R02050 | 4090 underused → increase speculative width | 3064 | M00207 | non-negotiable | true | 10 |
 | R02051 | Blackwell waiting → prefetch context / pack larger batch | 3065 | M00207 | non-negotiable | true | 10 |
 | R02052 | CPU hot → reduce grammar-mask concurrency | 3066 | M00210 | non-negotiable | true | 10 |
 | R02053 | NVMe queue latency high → stop cold memory promotion | 3067 | M00205 | non-negotiable | true | 10 |
@@ -263,7 +263,7 @@
 | R02165 | Agent process spawns are recorded by the runtime | 3294–3295 | E0114 | non-negotiable | false | 10 |
 | R02166 | Dashboard does NOT show vanity graphs | 3299 | E0115 | non-negotiable | false | 10 |
 | R02167 | Dashboard answers — "Is the Blackwell idle?" | 3304 | E0115 | non-negotiable | false | 10 |
-| R02168 | Dashboard answers — "Is the 3090 helping?" | 3305 | E0115 | non-negotiable | false | 10 |
+| R02168 | Dashboard answers — "Is the 4090 helping?" | 3305 | E0115 | non-negotiable | false | 10 |
 | R02169 | Dashboard answers — "Is speculation worth it?" | 3306 | E0115 | non-negotiable | false | 10 |
 | R02170 | Dashboard answers — "Are token masks expensive?" | 3307 | E0115 | non-negotiable | false | 10 |
 | R02171 | Dashboard answers — "Is KV reuse saving prefill?" | 3308 | E0115 | non-negotiable | false | 10 |
@@ -279,7 +279,7 @@
 | R02181 | Runtime tuning — grammar schemas that slow decoding | 3324 | E0115 | non-negotiable | true | 10 |
 | R02182 | Runtime tuning — memory chunks repeatedly useful | 3325 | E0115 | non-negotiable | true | 10 |
 | R02183 | Not model fine-tuning first; runtime tuning first | 3328 | E0115 | non-negotiable | false | 10 |
-| R02184 | Plane 1 — Inference Plane (Blackwell oracle, 3090 scout) | 3335–3336 | E0108 | non-negotiable | false | 10 |
+| R02184 | Plane 1 — Inference Plane (Blackwell oracle, 4090 scout) | 3335–3336 | E0108 | non-negotiable | false | 10 |
 | R02185 | Plane 2 — Control Plane (AVX-512 branch/policy/grammar scheduler) | 3338–3339 | E0108 | non-negotiable | false | 10 |
 | R02186 | Plane 3 — Memory Plane (semantic memory, KV refs, bitmaps, embeddings) | 3341–3342 | E0108 | non-negotiable | false | 10 |
 | R02187 | Plane 4 — Storage Plane (ZFS replay, snapshots, caches, artifacts) | 3344–3345 | E0108 | non-negotiable | false | 10 |

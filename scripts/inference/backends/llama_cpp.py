@@ -2,7 +2,7 @@
 
 GGUF models on CPU or GPU (CUDA / Vulkan); operator picks via build.
 Used on sain-01 as the non-DFlash quantized-model fallback on the
-3090 when vLLM isn't suitable; primary backend on old-workstation.
+4090 when vLLM isn't suitable; primary backend on old-workstation.
 """
 
 from __future__ import annotations
@@ -69,7 +69,7 @@ class LlamaCppBackend(Backend):
 
     @classmethod
     def for_sain01_fallback(cls, model_path: str) -> "LlamaCppBackend":
-        """Used on the 3090 (VFIO-bound) as a non-DFlash fallback."""
+        """Used on the 4090 (VFIO-bound) as a non-DFlash fallback."""
         cfg = BackendConfig(
             model_path=model_path,
             host="127.0.0.1",

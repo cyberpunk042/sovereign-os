@@ -91,8 +91,8 @@ def parse_textfile(text: str) -> dict[str, Any]:
             measurements["io_psi"] = float(value_raw)
         elif name == "selfdef_scheduler_blackwell_vram_util":
             measurements["blackwell_vram_util"] = float(value_raw)
-        elif name == "selfdef_scheduler_gpu3090_util":
-            measurements["gpu3090_util"] = float(value_raw)
+        elif name == "selfdef_scheduler_gpu4090_util":
+            measurements["gpu4090_util"] = float(value_raw)
         elif name == "selfdef_scheduler_human_gate_queue_depth":
             measurements["human_gate_queue_depth"] = int(float(value_raw))
         elif name == "selfdef_scheduler_cpu_pressure":
@@ -103,8 +103,8 @@ def parse_textfile(text: str) -> dict[str, Any]:
             state["io_pressure"] = value_raw == "1"
         elif name == "selfdef_scheduler_blackwell_vram_high":
             state["blackwell_vram_high"] = value_raw == "1"
-        elif name == "selfdef_scheduler_gpu3090_busy":
-            state["gpu3090_busy"] = value_raw == "1"
+        elif name == "selfdef_scheduler_gpu4090_busy":
+            state["gpu4090_busy"] = value_raw == "1"
         elif name == "selfdef_scheduler_human_gate_queue_high":
             state["human_gate_queue_high"] = value_raw == "1"
         elif name == "selfdef_scheduler_substrate_healthy":
@@ -213,7 +213,7 @@ def render_human(parsed: dict[str, Any], status: str) -> str:
             f"mem={m.get('mem_psi', 0)*100:.1f}% "
             f"io={m.get('io_psi', 0)*100:.1f}% "
             f"bw_vram={m.get('blackwell_vram_util', 0)*100:.1f}% "
-            f"gpu3090={m.get('gpu3090_util', 0)*100:.1f}% "
+            f"gpu4090={m.get('gpu4090_util', 0)*100:.1f}% "
             f"hg={m.get('human_gate_queue_depth', 0)}"
         )
     fired = [k for k, v in parsed["state"].items() if v]
@@ -228,7 +228,7 @@ def render_human(parsed: dict[str, Any], status: str) -> str:
         by_route = dec.get("by_route", {})
         route_str = " ".join(
             f"{r}={by_route.get(r, 0)}"
-            for r in ("blackwell", "rtx3090", "cpu", "hybrid", "hibernate")
+            for r in ("blackwell", "rtx4090", "cpu", "hybrid", "hibernate")
         )
         lines.append(f"  decisions (ring={in_ring}): {route_str}")
         hib = dec.get("hibernate", 0)

@@ -10,7 +10,7 @@
 //!
 //! Roles:
 //! - **Conductor Agent** — CPU bound — Routing & State Fabric (E0719)
-//! - **Logic Engine** — GPU 0 RTX 3090 — Ingestion & Translation (E0720)
+//! - **Logic Engine** — GPU 0 RTX 4090 — Ingestion & Translation (E0720)
 //! - **Oracle Core** — GPU 1 Blackwell PRO 6000 — Long-Term Deep Reasoning (E0721)
 //!
 //! Each work-class lands on exactly one SRP role; cross-role traffic
@@ -233,7 +233,7 @@ mod tests {
     fn overloaded_canonical_falls_back() {
         let mut r = free_req(WorkloadClass::DeepReason);
         r.oracle = RolePressure::overloaded(); // canonical role busy
-        // Fallback should be Logic (3090) next in topology order.
+        // Fallback should be Logic (4090) next in topology order.
         let role = schedule(&r).unwrap();
         assert_eq!(role, SrpRole::Logic);
     }

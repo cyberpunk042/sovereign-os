@@ -13,10 +13,10 @@
 | E0370 | CPU Hot Path — Structure-of-Arrays (SoA) form for hot state — 9 arrays (branch_id[] / control_u64[] / budget_u16[] / risk_u8[] / score_q16[] / route_u8[] / model_id_u16[] / memory_ref_u64[] / kv_ref_u64[]); Zen 5 eats this as 8 x u64 lanes / 16 x u32 lanes / 32 x u16 lanes / 64 x u8 lanes / 512 boolean flags | 11204–11228 |
 | E0371 | Scheduler bulk questions — Zen 5 AVX-512 answers in bulk (which branches alive / which need oracle / which can stay on scout / which need tests / which violated policy / which memories match / which actions reversible); "CPU is the goldilocks brainstem" | 11230–11242 |
 | E0372 | AVX-512 tricks that actually matter — simdjson AVX-512 path (meaningful JSON parsing uplift; Phoronix) + VP2INTERSECT for extremely fast phrase-search style set intersection (Gabriel Menezes blog); pattern is "AVX-512 is not only HPC math; accelerates parsing, masks, search, bitsets, and set operations"; mapping to station: simdjson=fast parsing of traces+tool calls+API payloads / VP2INTERSECT=memory ID intersections+repo symbol search+phrase/context matching / VPOPCNTDQ=semantic sketch scoring / VPTERNLOG=policy fusion / VPCOMPRESS=pack sparse branches into dense GPU batches; "exactly the kind of glue agent systems drown in" | 11244–11267 |
-| E0373 | GPU Roles Stay Separate — RTX PRO 6000 Blackwell protected from garbage work (oracle / final synthesis / large model / long context / verifier / high-value RLM parent); 3090 (SLM swarm / draft+speculation / embeddings+reranking / perception / sandboxed experiments / cheap branch expansion); CPU job = keep Blackwell fed with dense+valuable batches + keep 3090 busy exploring | 11269–11291 |
+| E0373 | GPU Roles Stay Separate — RTX PRO 6000 Blackwell protected from garbage work (oracle / final synthesis / large model / long context / verifier / high-value RLM parent); 4090 (SLM swarm / draft+speculation / embeddings+reranking / perception / sandboxed experiments / cheap branch expansion); CPU job = keep Blackwell fed with dense+valuable batches + keep 4090 busy exploring | 11269–11291 |
 | E0374 | PCIe Discipline — Send compact symbols (tokens / scores / candidate refs / memory ids / tool intents / patch summaries / branch states); AVOID KV tensors + activations + layer-split traffic + constant sync; "Avoid tiny chatty cross-GPU exchanges" | 11293–11310 |
 | E0375 | Blackwell FP4 frontier lever, qualify it — NVIDIA RTX PRO 6000 FP4 support real; TensorRT/Torch-TensorRT/vLLM/llm-compressor ecosystems moving toward NVFP4/MXFP4; local RTX Blackwell support moving fast and sometimes unevenly (especially MoE/SM120 kernels); "FP4 a model-lab track, not a blind default"; 4-tier quantization (Baseline BF16/FP16 quality / Production-fast FP8 if evals hold / Big-local NVFP4/MXFP4 when backend proven / Scout INT4/GPTQ/AWQ acceptable if task eval passes); "every quantized model must earn a slot through your evals" | 11312–11332 |
-| E0376 | Hardware-Aware AIDLC (extends M038) — 6-phase per-hardware assignment (Map: CPU scans repo+metadata / 3090 summarizes-classifies / Blackwell resolves architecture uncertainty; Spec: Blackwell drafts-refines high-level contracts / CPU validates structure+links to tests; Test: CPU+sandbox executes deterministic checks / 3090 classifies failures / Blackwell diagnoses hard failures; Implement: 3090 drafts patches / CPU gates diffs+paths / Blackwell reviews high-risk changes; Evaluate: CPU computes metrics / 3090 tags trajectories / Blackwell writes lessons+spec updates; Commit: ZFS snapshot + policy gate + human/oracle review); "that is how hardware becomes methodology" | 11334–11369 |
+| E0376 | Hardware-Aware AIDLC (extends M038) — 6-phase per-hardware assignment (Map: CPU scans repo+metadata / 4090 summarizes-classifies / Blackwell resolves architecture uncertainty; Spec: Blackwell drafts-refines high-level contracts / CPU validates structure+links to tests; Test: CPU+sandbox executes deterministic checks / 4090 classifies failures / Blackwell diagnoses hard failures; Implement: 4090 drafts patches / CPU gates diffs+paths / Blackwell reviews high-risk changes; Evaluate: CPU computes metrics / 4090 tags trajectories / Blackwell writes lessons+spec updates; Commit: ZFS snapshot + policy gate + human/oracle review); "that is how hardware becomes methodology" | 11334–11369 |
 | E0377 | Next Concrete Frontier — first prototype worth building is NOT a giant model server; it is the AVX-aware metadata core (5 tables: branch / memory-ref / model-registry / capability / eval-result; 6 operations: filter / score / intersect / compress / route / log); once exists, every higher-level idea becomes runnable (MAP / SPEC / TDD / RLM / SLM swarm / router / cost tracking / agent evals / Claude-compatible gateway); closing — "the metal tells us the shape: dense neural work on GPUs, deterministic sparse law on AVX-512, durable truth on ZFS, and adaptive routing over all of it" | 11371–11408 |
 
 ## Modules (M00646–M00662)
@@ -98,14 +98,14 @@
 | F03281 | RTX PRO 6000 Blackwell — long context role | 11277 | E0373 | composite | true |
 | F03282 | RTX PRO 6000 Blackwell — verifier role | 11278 | E0373 | composite | true |
 | F03283 | RTX PRO 6000 Blackwell — high-value RLM parent role | 11279 | E0373 | composite | true |
-| F03284 | RTX 3090 — SLM swarm role | 11282 | E0373 | composite | true |
-| F03285 | RTX 3090 — draft/speculation role | 11283 | E0373 | composite | true |
-| F03286 | RTX 3090 — embeddings/reranking role | 11284 | E0373 | composite | true |
-| F03287 | RTX 3090 — perception role | 11285 | E0373 | composite | true |
-| F03288 | RTX 3090 — sandboxed experiments role | 11286 | E0373 | composite | true |
-| F03289 | RTX 3090 — cheap branch expansion role | 11287 | E0373 | composite | true |
+| F03284 | RTX 4090 — SLM swarm role | 11282 | E0373 | composite | true |
+| F03285 | RTX 4090 — draft/speculation role | 11283 | E0373 | composite | true |
+| F03286 | RTX 4090 — embeddings/reranking role | 11284 | E0373 | composite | true |
+| F03287 | RTX 4090 — perception role | 11285 | E0373 | composite | true |
+| F03288 | RTX 4090 — sandboxed experiments role | 11286 | E0373 | composite | true |
+| F03289 | RTX 4090 — cheap branch expansion role | 11287 | E0373 | composite | true |
 | F03290 | CPU job — keep Blackwell fed with dense + valuable batches | 11291 | E0373 | composite | false |
-| F03291 | CPU job — keep 3090 busy exploring | 11291 | E0373 | composite | false |
+| F03291 | CPU job — keep 4090 busy exploring | 11291 | E0373 | composite | false |
 | F03292 | Avoid tiny chatty cross-GPU exchanges | 11291 | E0374 | composite | false |
 | F03293 | PCIe — send compact symbols (tokens) | 11294 | E0374 | composite | true |
 | F03294 | PCIe — send compact symbols (scores) | 11295 | E0374 | composite | true |
@@ -189,14 +189,14 @@
 | R06512 | RTX PRO 6000 Blackwell — long context role | 11277 | F03281 | non-negotiable | true | 10 |
 | R06513 | RTX PRO 6000 Blackwell — verifier role | 11278 | F03282 | non-negotiable | true | 10 |
 | R06514 | RTX PRO 6000 Blackwell — high-value RLM parent role | 11279 | F03283 | non-negotiable | true | 10 |
-| R06515 | RTX 3090 — SLM swarm role | 11282 | F03284 | non-negotiable | true | 10 |
-| R06516 | RTX 3090 — draft/speculation role | 11283 | F03285 | non-negotiable | true | 10 |
-| R06517 | RTX 3090 — embeddings/reranking role | 11284 | F03286 | non-negotiable | true | 10 |
-| R06518 | RTX 3090 — perception role | 11285 | F03287 | non-negotiable | true | 10 |
-| R06519 | RTX 3090 — sandboxed experiments role | 11286 | F03288 | non-negotiable | true | 10 |
-| R06520 | RTX 3090 — cheap branch expansion role | 11287 | F03289 | non-negotiable | true | 10 |
+| R06515 | RTX 4090 — SLM swarm role | 11282 | F03284 | non-negotiable | true | 10 |
+| R06516 | RTX 4090 — draft/speculation role | 11283 | F03285 | non-negotiable | true | 10 |
+| R06517 | RTX 4090 — embeddings/reranking role | 11284 | F03286 | non-negotiable | true | 10 |
+| R06518 | RTX 4090 — perception role | 11285 | F03287 | non-negotiable | true | 10 |
+| R06519 | RTX 4090 — sandboxed experiments role | 11286 | F03288 | non-negotiable | true | 10 |
+| R06520 | RTX 4090 — cheap branch expansion role | 11287 | F03289 | non-negotiable | true | 10 |
 | R06521 | CPU job — keep Blackwell fed with dense + valuable batches | 11291 | F03290 | non-negotiable | false | 10 |
-| R06522 | CPU job — keep 3090 busy exploring | 11291 | F03291 | non-negotiable | false | 10 |
+| R06522 | CPU job — keep 4090 busy exploring | 11291 | F03291 | non-negotiable | false | 10 |
 | R06523 | Avoid tiny chatty cross-GPU exchanges | 11291 | F03292 | non-negotiable | false | 10 |
 | R06524 | PCIe — send compact symbol (tokens) | 11294 | F03293 | non-negotiable | true | 10 |
 | R06525 | PCIe — send compact symbol (scores) | 11295 | F03294 | non-negotiable | true | 10 |
@@ -222,18 +222,18 @@
 | R06545 | Quantization tier — Scout INT4/GPTQ/AWQ acceptable if task eval passes | 11328–11329 | F03311 | non-negotiable | true | 10 |
 | R06546 | "Every quantized model must earn a slot through your evals" | 11332 | F03312 | non-negotiable | false | 10 |
 | R06547 | Hardware-aware AIDLC — Map phase: CPU scans repo and metadata | 11339–11340 | M00661 | non-negotiable | true | 10 |
-| R06548 | Hardware-aware AIDLC — Map phase: 3090 summarizes/classifies | 11341 | M00661 | non-negotiable | true | 10 |
+| R06548 | Hardware-aware AIDLC — Map phase: 4090 summarizes/classifies | 11341 | M00661 | non-negotiable | true | 10 |
 | R06549 | Hardware-aware AIDLC — Map phase: Blackwell resolves architecture uncertainty | 11342 | M00661 | non-negotiable | true | 10 |
 | R06550 | Hardware-aware AIDLC — Spec phase: Blackwell drafts/refines high-level contracts | 11345 | M00661 | non-negotiable | true | 10 |
 | R06551 | Hardware-aware AIDLC — Spec phase: CPU validates structure and links to tests | 11346 | M00661 | non-negotiable | true | 10 |
 | R06552 | Hardware-aware AIDLC — Test phase: CPU/sandbox executes deterministic checks | 11349 | M00661 | non-negotiable | true | 10 |
-| R06553 | Hardware-aware AIDLC — Test phase: 3090 classifies failures | 11350 | M00661 | non-negotiable | true | 10 |
+| R06553 | Hardware-aware AIDLC — Test phase: 4090 classifies failures | 11350 | M00661 | non-negotiable | true | 10 |
 | R06554 | Hardware-aware AIDLC — Test phase: Blackwell diagnoses hard failures | 11351 | M00661 | non-negotiable | true | 10 |
-| R06555 | Hardware-aware AIDLC — Implement phase: 3090 drafts patches | 11354 | M00661 | non-negotiable | true | 10 |
+| R06555 | Hardware-aware AIDLC — Implement phase: 4090 drafts patches | 11354 | M00661 | non-negotiable | true | 10 |
 | R06556 | Hardware-aware AIDLC — Implement phase: CPU gates diffs and paths | 11355 | M00661 | non-negotiable | true | 10 |
 | R06557 | Hardware-aware AIDLC — Implement phase: Blackwell reviews high-risk changes | 11356 | M00661 | non-negotiable | true | 10 |
 | R06558 | Hardware-aware AIDLC — Evaluate phase: CPU computes metrics | 11359 | M00661 | non-negotiable | true | 10 |
-| R06559 | Hardware-aware AIDLC — Evaluate phase: 3090 tags trajectories | 11360 | M00661 | non-negotiable | true | 10 |
+| R06559 | Hardware-aware AIDLC — Evaluate phase: 4090 tags trajectories | 11360 | M00661 | non-negotiable | true | 10 |
 | R06560 | Hardware-aware AIDLC — Evaluate phase: Blackwell writes lessons/spec updates | 11361 | M00661 | non-negotiable | true | 10 |
 | R06561 | Hardware-aware AIDLC — Commit phase: ZFS snapshot | 11364 | M00661 | non-negotiable | true | 10 |
 | R06562 | Hardware-aware AIDLC — Commit phase: policy gate | 11365 | M00661 | non-negotiable | true | 10 |
@@ -282,7 +282,7 @@
 | R06605 | Quantization tier mapping — Baseline used for Blackwell oracle role | 11319 + 11274–11279 | F03308 + F03278 | non-negotiable | false | 10 |
 | R06606 | Quantization tier mapping — Production-fast FP8 used for Blackwell large-model role | 11322 + 11276 | F03309 + F03280 | non-negotiable | false | 10 |
 | R06607 | Quantization tier mapping — Big-local NVFP4/MXFP4 used for Blackwell when backend proven | 11325–11326 + 11274 | F03310 + F03278 | non-negotiable | false | 10 |
-| R06608 | Quantization tier mapping — Scout INT4/GPTQ/AWQ used for 3090 SLM-swarm / draft / embedding roles | 11328–11329 + 11282–11284 | F03311 + F03284 + F03285 + F03286 | non-negotiable | false | 10 |
+| R06608 | Quantization tier mapping — Scout INT4/GPTQ/AWQ used for 4090 SLM-swarm / draft / embedding roles | 11328–11329 + 11282–11284 | F03311 + F03284 + F03285 + F03286 | non-negotiable | false | 10 |
 | R06609 | Quantization tier gating — "every quantized model must earn a slot through your evals" (operator-set bar) | 11332 | F03312 | non-negotiable | false | 10 |
 | R06610 | AVX-512 doctrine — bursts not sustained burn (Zen 5 adaptive clocking strategy) | 11192 + 11191 | F03238 + M00646 | non-negotiable | false | 10 |
 | R06611 | AVX-512 doctrine — SoA hot path (NOT AoS) for vectorization | 11206 | F03246 | non-negotiable | false | 10 |
@@ -290,21 +290,21 @@
 | R06613 | AVX-512 instruction discovery via runtime CPUID (per selfdef MS010 R02236 selfdef-hardware crate) | cross-ref selfdef MS010 | E0372 | non-negotiable | false | 10 |
 | R06614 | AVX-512 instruction fallback when subset absent — scalar code path (no fail) | architecture + cross-ref MS010 | E0372 | non-negotiable | false | 10 |
 | R06615 | Compiler convention — workstation build uses `-march=znver5` + `-mprefer-vector-width=512` | 11189 + cross-ref selfdef MS010 R02240-R02243 | E0369 | non-negotiable | false | 10 |
-| R06616 | GPU separation invariant — Blackwell + 3090 are SEPARATE EXPERTS, not unified pool | 11271 + cross-ref M038 R06311 | E0373 | non-negotiable | false | 10 |
-| R06617 | CPU job invariant — keep Blackwell fed dense+valuable batches; keep 3090 busy exploring | 11291 | F03290 + F03291 | non-negotiable | false | 10 |
+| R06616 | GPU separation invariant — Blackwell + 4090 are SEPARATE EXPERTS, not unified pool | 11271 + cross-ref M038 R06311 | E0373 | non-negotiable | false | 10 |
+| R06617 | CPU job invariant — keep Blackwell fed dense+valuable batches; keep 4090 busy exploring | 11291 | F03290 + F03291 | non-negotiable | false | 10 |
 | R06618 | PCIe traffic invariant — compact symbols ONLY (NOT tensors / activations / layer-split / sync) | 11291 + 11294–11308 | E0374 | non-negotiable | false | 10 |
 | R06619 | "Avoid tiny chatty cross-GPU exchanges" | 11291 | F03292 | non-negotiable | false | 10 |
 | R06620 | Layer-B metric (implied) — `sovereign_os_cortex_burst_total{op}` (scan/compress/merge/validate/rank/dispatch) | architecture + 11194–11199 | E0369 | non-negotiable | true | 10 |
 | R06621 | Layer-B metric (implied) — `sovereign_os_cortex_soa_array_capacity{array}` per of 9 SoA arrays | architecture + 11209–11217 | M00648-M00656 | non-negotiable | true | 10 |
 | R06622 | Layer-B metric (implied) — `sovereign_os_cortex_avx512_op_total{instruction}` (simdjson/VP2INTERSECT/VPOPCNTDQ/VPTERNLOG/VPCOMPRESS) | architecture + 11251–11265 | M00659 | non-negotiable | true | 10 |
-| R06623 | Layer-B metric (implied) — `sovereign_os_cortex_gpu_role_current{gpu, role}` (Blackwell/3090) | architecture + 11271–11289 | E0373 | non-negotiable | true | 10 |
+| R06623 | Layer-B metric (implied) — `sovereign_os_cortex_gpu_role_current{gpu, role}` (Blackwell/4090) | architecture + 11271–11289 | E0373 | non-negotiable | true | 10 |
 | R06624 | Layer-B metric (implied) — `sovereign_os_cortex_quantization_tier_in_use{model_id, tier}` | architecture + 11319–11329 | M00660 | non-negotiable | true | 10 |
 | R06625 | M039 doctrine — first build is NOT giant model server; build AVX-aware metadata core first | 11373 | E0377 | non-negotiable | false | 10 |
 | R06626 | M039 doctrine — once metadata core exists, all higher-level ideas become runnable | 11394 | E0377 | non-negotiable | false | 10 |
 | R06627 | M039 closing law — "metal tells us the shape: dense neural work on GPUs, deterministic sparse law on AVX-512, durable truth on ZFS, and adaptive routing over all of it" | 11408 | E0377 | non-negotiable | false | 10 |
 | R06628 | AVX-aware metadata core is the SECOND-NAMED foundational implementation target (per closing) | 11371 + 11373 + 11394 | E0377 | non-negotiable | false | 10 |
 | R06629 | AVX-aware metadata core is the bridge between M038 hardware-aware AIDLC + M037 evidence-driven autonomy + M025 cognitive compiler | 11375–11405 + cross-refs | E0377 | non-negotiable | false | 10 |
-| R06630 | Composite — M039 AVX-512 cortex hot path operationalizes M038's "CPU = deterministic router" via SoA hot state (9 arrays) + Zen 5 lane counts (8/16/32/64/512) + 7 scheduler bulk questions + 5 AVX-512 instructions mapped to station roles (simdjson/VP2INTERSECT/VPOPCNTDQ/VPTERNLOG/VPCOMPRESS); GPU roles separated (Blackwell oracle / 3090 scout); PCIe compact symbols only (NOT tensors); 4-tier quantization with eval-earned slot ("every quantized model must earn a slot"); 6-phase hardware-aware AIDLC; AVX-aware metadata core (5 tables + 6 ops) is first concrete prototype; closing "the metal tells us the shape" | 11169–11408 | E0368 + E0369 + E0370 + E0371 + E0372 + E0373 + E0374 + E0375 + E0376 + E0377 | non-negotiable | false | 10 |
+| R06630 | Composite — M039 AVX-512 cortex hot path operationalizes M038's "CPU = deterministic router" via SoA hot state (9 arrays) + Zen 5 lane counts (8/16/32/64/512) + 7 scheduler bulk questions + 5 AVX-512 instructions mapped to station roles (simdjson/VP2INTERSECT/VPOPCNTDQ/VPTERNLOG/VPCOMPRESS); GPU roles separated (Blackwell oracle / 4090 scout); PCIe compact symbols only (NOT tensors); 4-tier quantization with eval-earned slot ("every quantized model must earn a slot"); 6-phase hardware-aware AIDLC; AVX-aware metadata core (5 tables + 6 ops) is first concrete prototype; closing "the metal tells us the shape" | 11169–11408 | E0368 + E0369 + E0370 + E0371 + E0372 + E0373 + E0374 + E0375 + E0376 + E0377 | non-negotiable | false | 10 |
 
 ## Cross-references
 

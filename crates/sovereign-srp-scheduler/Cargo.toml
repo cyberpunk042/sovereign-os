@@ -7,7 +7,7 @@ license.workspace = true
 repository.workspace = true
 authors.workspace = true
 publish.workspace = true
-description = "M075 SRP work-placement scheduler — Conductor (CPU) / Logic Engine (RTX 3090) / Oracle Core (Blackwell PRO 6000). Maps incoming workload class to physical-hardware SRP role per E0719-E0721 + dump 813-837. Doctrine: 'we map the Single Responsibility Principle (SRP) directly to physical hardware layers' (verbatim dump 813)."
+description = "M075 SRP work-placement scheduler — Conductor (CPU) / Logic Engine (RTX 4090) / Oracle Core (Blackwell PRO 6000). Maps incoming workload class to physical-hardware SRP role per E0719-E0721 + dump 813-837. Doctrine: 'we map the Single Responsibility Principle (SRP) directly to physical hardware layers' (verbatim dump 813)."
 
 [lints]
 workspace = true

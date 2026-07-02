@@ -1,6 +1,6 @@
 //! `sovereign-vm-channel` — E0120 / M00222–M00224: the Communication Boundary.
 //!
-//! The quarantined 3090 VM exchanges only **compact messages** with the host,
+//! The quarantined 4090 VM exchanges only **compact messages** with the host,
 //! never bulk tensors. Communication crosses one of four narrow channels, in a
 //! fixed set of message types, under one invariant (M00224): **VM output is a
 //! candidate, never a commit** — the host AVX-512 layer policy-filters, the
@@ -12,7 +12,7 @@
 
 use serde::{Deserialize, Serialize};
 
-/// The four Host↔3090 channels (M00222).
+/// The four Host↔4090 channels (M00222).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum VmChannel {
@@ -46,7 +46,7 @@ pub enum Direction {
     FromVm,
 }
 
-/// The eight Host↔3090 message types (M00223).
+/// The eight Host↔4090 message types (M00223).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum VmMessage {

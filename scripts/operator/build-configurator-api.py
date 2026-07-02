@@ -107,7 +107,7 @@ PROFILE_META = [
     ("developer", "developer", False, "polyglot dev workstation."),
     ("headless", "headless", False, "bare-metal server (auditd/fail2ban/chrony)."),
     ("minimal", "minimal", False, "VM baseline to try the pipeline."),
-    ("old-workstation", "old-workstation", False, "constrained dev box (single 3090, ext4)."),
+    ("old-workstation", "old-workstation", False, "constrained dev box (single 4090, ext4)."),
 ]
 
 # AI assistants we offer as npm-global installs. Claude Code ships in the

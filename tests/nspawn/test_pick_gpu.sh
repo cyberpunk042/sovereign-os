@@ -49,7 +49,7 @@ cat > "${WORK}/schedule.json" <<'JSON'
     {
       "gpu_index": 1,
       "role": "auxiliary",
-      "model_hint": "NVIDIA GeForce RTX 3090",
+      "model_hint": "NVIDIA GeForce RTX 4090",
       "vram_bytes": 25769803776,
       "power_limit_watts": 350
     }
@@ -75,7 +75,7 @@ rc=$?
 set -e
 [ "${rc}" -eq 0 ] && ok "auxiliary role exits 0" || ko "rc=${rc}"
 [ "${out}" = "CUDA_VISIBLE_DEVICES=1" ] \
-  && ok "auxiliary → CUDA_VISIBLE_DEVICES=1 (RTX 3090)" \
+  && ok "auxiliary → CUDA_VISIBLE_DEVICES=1 (RTX 4090)" \
   || ko "wrong gpu: '${out}'"
 
 # ---------- --json mode emits full entry ----------

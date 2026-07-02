@@ -79,7 +79,7 @@ KNOWN_BOARDS: dict[str, dict[str, Any]] = {
         "advisories": [
             "Enable AMD EXPO (XMP-equivalent) in BIOS to hit DDR5-6000+ — "
             "default JEDEC-5600 wastes the kit's rated speed.",
-            "If running RTX 3090 + RTX PRO 6000 simultaneously, populate "
+            "If running RTX 4090 + RTX PRO 6000 simultaneously, populate "
             "PCIEX16_1 AND PCIEX16_2; both drop to PCIe5 x8 which is fine "
             "for inference (~64 GB/s each).",
             "Enable SVM Mode (AMD-V) in BIOS for KVM / nspawn virtualization "

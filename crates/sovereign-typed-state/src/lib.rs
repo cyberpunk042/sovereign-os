@@ -134,7 +134,7 @@ mod tests {
         });
         s.routes.push(RouteRecord {
             node: "draft".into(),
-            target: "rocm-3090".into(),
+            target: "rocm-4090".into(),
         });
         s.policies.push(PolicyResult {
             question: "file-mutation".into(),

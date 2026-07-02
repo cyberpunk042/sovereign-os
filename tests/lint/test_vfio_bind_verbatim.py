@@ -1,21 +1,21 @@
 """R398 (E10.M42) — VFIO-bind operator-verbatim §4.3 content lint.
 
 Extends R387-R397 operational-artifact pinning to:
-  scripts/hooks/post-install/vfio-bind-3090.sh
+  scripts/hooks/post-install/vfio-bind-4090.sh
 
 Master spec §4.3 verbatim GRUB cmdline:
   GRUB_CMDLINE_LINUX_DEFAULT="quiet splash amd_iommu=on iommu=pt
                               kvm_amd.npt=1 kvm_amd.avic=1
-                              vfio-pci.ids=10de:2204,10de:1ad8
+                              vfio-pci.ids=10de:2684,10de:22ba
                               nvidia-drm.modeset=1
                               nvidia.NVreg_EnableGpuFirmware=1"
 
-  - 10de:2204 = RTX 3090 GPU PCI ID (operator-verbatim §4.3)
-  - 10de:1ad8 = RTX 3090 Audio Controller PCI ID
+  - 10de:2684 = RTX 4090 GPU PCI ID (operator-verbatim §4.3)
+  - 10de:22ba = RTX 4090 Audio Controller PCI ID
   - amd_iommu=on + iommu=pt = IOMMU passthrough for VFIO
 
 If a future agent silently drops amd_iommu=on OR uses wrong VFIO
-PCI IDs, the RTX 3090 isolation breaks — secondary GPU bleeds into
+PCI IDs, the RTX 4090 isolation breaks — secondary GPU bleeds into
 host (security perimeter violation per operator §17 dual-GPU SRP).
 """
 from __future__ import annotations
@@ -24,7 +24,7 @@ import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-VFIO_BIND = REPO_ROOT / "scripts" / "hooks" / "post-install" / "vfio-bind-3090.sh"
+VFIO_BIND = REPO_ROOT / "scripts" / "hooks" / "post-install" / "vfio-bind-4090.sh"
 
 
 def _read_vfio() -> str:
@@ -92,7 +92,7 @@ def test_vfio_pci_module_options():
 
 def test_pci_id_pattern_well_formed():
     """If specific PCI IDs are referenced (master spec §4.3 verbatim
-    examples 10de:2204 + 10de:1ad8), they MUST be well-formed
+    examples 10de:2684 + 10de:22ba), they MUST be well-formed
     (XXXX:XXXX hex format)."""
     body = _read_vfio()
     pci_ids = re.findall(r"\b[0-9a-fA-F]{4}:[0-9a-fA-F]{4}\b", body)

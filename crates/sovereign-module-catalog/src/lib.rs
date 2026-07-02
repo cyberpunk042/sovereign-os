@@ -130,7 +130,7 @@ pub struct ModuleEntry {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ContinuityLayer {
-    /// Hardware layer (Blackwell / 3090 / AVX / ZFS).
+    /// Hardware layer (Blackwell / 4090 / AVX / ZFS).
     Hardware,
     /// OS layer (Debian 13 / Ubuntu 24 / systemd / kernel).
     Os,

@@ -101,7 +101,7 @@
 | F00817 | Env var `SOVEREIGN_BITSET_FILTER_AXES` | 2378–2380 | M00153 | env_var | true |
 | F00818 | CLI `--bitset-filter-axes <csv>` | 2378–2380 | M00153 | cli_verb | true |
 | F00819 | Sketch-overlap scorer — `popcount(query_sketch & memory_sketch)` | 2382–2384 | M00161 | composite | true |
-| F00820 | 3090 reranker stage — cheap neural judgment on sketch survivors | 2386–2388 | M00153 | composite | true |
+| F00820 | 4090 reranker stage — cheap neural judgment on sketch survivors | 2386–2388 | M00153 | composite | true |
 | F00821 | Blackwell oracle stage — only for hard synthesis | 2389–2391 | M00153 | composite | true |
 | F00822 | Memory-item row — `u64 topic_sketch` field | 2398 | M00161 | data_model | false |
 | F00823 | Memory-item row — `u64 entity_sketch` field | 2399 | M00161 | data_model | false |
@@ -190,7 +190,7 @@
 | R01581 | Layer 1 — deterministic bitset filters (tool) | 2380 | M00153 | non-negotiable | false | 10 |
 | R01582 | Layer 1 — deterministic bitset filters (topic) | 2380 | M00153 | non-negotiable | false | 10 |
 | R01583 | Layer 2 — sketch overlap `popcount(query_sketch & memory_sketch)` | 2382–2384 | M00161 | non-negotiable | false | 10 |
-| R01584 | Layer 3 — 3090 reranker for cheap neural judgment on survivors | 2386–2388 | M00153 | non-negotiable | false | 10 |
+| R01584 | Layer 3 — 4090 reranker for cheap neural judgment on survivors | 2386–2388 | M00153 | non-negotiable | false | 10 |
 | R01585 | Layer 4 — Blackwell oracle only for hard synthesis | 2389–2391 | M00153 | non-negotiable | false | 10 |
 | R01586 | Layered-filter cascade saves enormous GPU waste | 2393 | M00153 | non-negotiable | false | 10 |
 | R01587 | Memory-item row carries `u64 topic_sketch` | 2398 | M00161 | non-negotiable | false | 10 |
@@ -220,7 +220,7 @@
 | R01611 | CPU-pipeline Validate stage — CPU masks + parses + scans + checks | 2442–2443 | M00163 | non-negotiable | false | 10 |
 | R01612 | CPU-pipeline Retire stage — Blackwell verifies high-value transitions | 2445–2446 | M00163 | non-negotiable | false | 10 |
 | R01613 | CPU-pipeline Commit stage — deterministic log writes accepted state | 2448–2449 | M00163 | non-negotiable | false | 10 |
-| R01614 | The 3090 speculates | 2453 | E0085 | non-negotiable | false | 10 |
+| R01614 | The 4090 speculates | 2453 | E0085 | non-negotiable | false | 10 |
 | R01615 | The RTX PRO 6000 verifies | 2454 | E0085 | non-negotiable | false | 10 |
 | R01616 | The AVX-512 CPU retires instructions of thought | 2455 | E0085 | non-negotiable | false | 10 |
 | R01617 | Architecture is speculative AI execution with deterministic commit | 2457 | E0085 | non-negotiable | false | 10 |
@@ -232,7 +232,7 @@
 | R01623 | Token-law mask layers operator-configurable (csv: grammar,schema,tool,safety,...) | 2349–2351 | F00793 | non-negotiable | true | 10 |
 | R01624 | Bitset-filter axes operator-configurable (csv: project,file,date,trust,tool,topic,...) | 2378–2380 | F00816 | non-negotiable | true | 10 |
 | R01625 | CPU-pipeline retire threshold operator-tunable (when Blackwell engaged) | 2445–2446 | F00845 | non-negotiable | true | 10 |
-| R01626 | Speculative-execution organ-binding can be overridden by operator (e.g. dry-run 3090-only mode) | 2453–2455 | E0085 | preferable | true | 10 |
+| R01626 | Speculative-execution organ-binding can be overridden by operator (e.g. dry-run 4090-only mode) | 2453–2455 | E0085 | preferable | true | 10 |
 | R01627 | Dashboard — JSON validator throughput (GB/sec) | 2285 | F00770 | non-negotiable | true | 10 |
 | R01628 | Dashboard — regex match-rate + active-patterns count | 2274 | F00779 | non-negotiable | true | 10 |
 | R01629 | Dashboard — bitmap density + AND/OR/XOR throughput | 2275 | F00788 | non-negotiable | true | 10 |
@@ -282,7 +282,7 @@
 | R01673 | Test — VPOPCNTDQ popcount correctness vs `u64::count_ones()` reference | 2324–2325 | M00161 | non-negotiable | false | 10 |
 | R01674 | Test — VBMI byte-shuffle correctness vs scalar reference | 2333–2334 | M00148 | non-negotiable | false | 10 |
 | R01675 | Test — k-mask register branch validity round-trip | 2336–2337 | E0080 | non-negotiable | false | 10 |
-| R01676 | Test — layered filter cascade order is bitset → sketch → 3090 → Blackwell | 2378–2391 | M00153 | non-negotiable | false | 10 |
+| R01676 | Test — layered filter cascade order is bitset → sketch → 4090 → Blackwell | 2378–2391 | M00153 | non-negotiable | false | 10 |
 | R01677 | Test — memory-item six-sketch row layout fits in single 64-byte cache line | 2398–2403 | M00161 | preferable | false | 10 |
 | R01678 | Test — tool-call 8-stage pipeline rejects at correct stage for each failure type | 2412–2421 | M00162 | non-negotiable | false | 10 |
 | R01679 | Test — CPU-pipeline 6-stage runtime sequences stages in order on every request | 2431–2449 | M00163 | non-negotiable | false | 10 |
@@ -296,7 +296,7 @@
 | R01687 | Test — JSON commit validator rejects every non-conformant tool-call before any side effect | 2355–2356 | M00157 | non-negotiable | false | 10 |
 | R01688 | Test — Policy Scanner Hyperscan multi-pattern match on tool intent corpus | 2352–2353 | M00156 | non-negotiable | false | 10 |
 | R01689 | Test — Policy Scanner Hyperscan multi-pattern match on tool output corpus | 2352–2353 | M00156 | non-negotiable | false | 10 |
-| R01690 | Test — speculative-organ binding (3090 speculates, RTX PRO verifies, Ryzen retires) enforced by API | 2453–2455 | E0085 | non-negotiable | false | 10 |
+| R01690 | Test — speculative-organ binding (4090 speculates, RTX PRO verifies, Ryzen retires) enforced by API | 2453–2455 | E0085 | non-negotiable | false | 10 |
 | R01691 | Mode `simdjson-disable` falls back to serde_json | 2273, 2285 | F00766 | non-negotiable | true | 10 |
 | R01692 | Mode `hyperscan-disable` falls back to RE2 / `regex` crate | 2274, 2285 | F00775 | non-negotiable | true | 10 |
 | R01693 | Mode `croaring-disable` falls back to `roaring` Rust crate | 2275, 2285 | F00784 | non-negotiable | true | 10 |

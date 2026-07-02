@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scripts/hooks/post-install/vfio-bind-3090.sh
+# scripts/hooks/post-install/vfio-bind-4090.sh
 #
 # Bind GPUs declared with role=vfio to vfio-pci at boot. Reads PCI IDs
 # from the profile's hardware.gpu list (vendor:device IDs).

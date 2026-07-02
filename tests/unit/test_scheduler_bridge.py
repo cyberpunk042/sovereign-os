@@ -78,7 +78,7 @@ def test_build_task_omits_request_id_when_absent():
 def test_route_to_tier_covers_all_five_routes():
     assert bridge.ROUTE_TO_TIER == {
         "blackwell": "oracle",
-        "rtx3090": "scout",
+        "rtx4090": "scout",
         "cpu": "cortex",
         "hybrid": "hybrid",
         "hibernate": "defer",
@@ -102,7 +102,7 @@ def test_route_to_service_via_tier(tmp_path):
     # the three compute routes map to the three running services
     for route, service in [
         ("blackwell", "Oracle Core"),
-        ("rtx3090", "Logic Engine"),
+        ("rtx4090", "Logic Engine"),
         ("cpu", "Pulse"),
     ]:
         b = _fake_decide_binary(tmp_path, route)

@@ -9,12 +9,12 @@
 | Epic ID | Phrase | Dump line |
 |---|---|---|
 | E0478 | Operator directive + Architect seat — "Now lets return to the archtecture. the AVX, the whole hardware and stack. return to the Architect and Engineer seet and software and devops specialist and fullstacka and AI expert"; AI response "Yes. Architect seat back on" | 15120 + 15124 |
-| E0479 | Workstation as heterogeneous intelligence system — "The workstation should be designed as a **heterogeneous intelligence system**, not a 'PC that runs models'"; 7-component hardware-mapping: Ryzen 9900X AVX-512 = deterministic control plane / RTX PRO 6000 96GB = oracle / resident high-value cognition / RTX 3090 24GB = scout / sandbox / SLM / perception / draft engine / 256GB RAM = active memory, context arena, ZFS ARC / NVMe + ZFS = replay, snapshots, model cache, rollback / Debian/Ubuntu base = sovereign OS substrate / Anthropic gateway = external/client compatibility layer | 15126–15144 |
-| E0480 | Core Architecture 5-layer — Clients (Claude Code, OpenCode, Cline, local UI, CLI, APIs) / Gateway (Anthropic-first facade + OpenAI-compatible shim + cost ledger + provider routing + policy/redaction) / Cognitive Runtime (workflow compiler + branch scheduler + profile resolver + memory router + eval/value engine + tool gate) / Hardware Execution (Blackwell oracle + 3090 scout/sandbox + AVX-512 control engine + container/VM/REPL tools) / Persistence (ZFS snapshots + replay logs + memory graph + model registry + eval history) | 15148–15182 |
+| E0479 | Workstation as heterogeneous intelligence system — "The workstation should be designed as a **heterogeneous intelligence system**, not a 'PC that runs models'"; 7-component hardware-mapping: Ryzen 9900X AVX-512 = deterministic control plane / RTX PRO 6000 96GB = oracle / resident high-value cognition / RTX 4090 24GB = scout / sandbox / SLM / perception / draft engine / 256GB RAM = active memory, context arena, ZFS ARC / NVMe + ZFS = replay, snapshots, model cache, rollback / Debian/Ubuntu base = sovereign OS substrate / Anthropic gateway = external/client compatibility layer | 15126–15144 |
+| E0480 | Core Architecture 5-layer — Clients (Claude Code, OpenCode, Cline, local UI, CLI, APIs) / Gateway (Anthropic-first facade + OpenAI-compatible shim + cost ledger + provider routing + policy/redaction) / Cognitive Runtime (workflow compiler + branch scheduler + profile resolver + memory router + eval/value engine + tool gate) / Hardware Execution (Blackwell oracle + 4090 scout/sandbox + AVX-512 control engine + container/VM/REPL tools) / Persistence (ZFS snapshots + replay logs + memory graph + model registry + eval history) | 15148–15182 |
 | E0481 | The AVX-512 Role — "The CPU is not 'backup compute.' It is the **logic accelerator**"; 9 use cases: branch filtering / policy masks / permission checks / memory bitset search / tool routing / schema/token mask fusion / candidate compression / reward-vector scoring / workflow state transitions | 15186–15208 |
 | E0482 | Columnar hot data + bulk masks — 9 SoA arrays: branch_id[] / control_word[] / risk[] / budget[] / score[] / route[] / memory_ref[] / kv_ref[] / flags[]; 6 bulk-eval masks: alive_mask / tool_allowed_mask / oracle_needed_mask / sandbox_required_mask / memory_hit_mask / commit_allowed_mask; "This is where deterministic AI infrastructure becomes fast" | 15212–15240 |
-| E0483 | GPU Roles — "Do not fuse the GPUs mentally"; Blackwell 7 roles (large oracle model / final synthesis / long-context verification / high-risk code review / deep RLM parent calls / FP8/FP4 model lab) + 3090 7 roles (SLM swarm / draft/speculative decoding / embeddings/reranking / perception/GUI / failure classification / sandboxed experiments / cheap branch expansion); compact artifacts to move: tokens / scores / branch refs / memory ids / tool intents / patch summaries; avoid moving: KV tensors / activations / layer-split traffic / huge intermediate states | 15244–15292 |
-| E0484 | DevOps Stack — "Use Linux primitives as first-class architecture"; 7 primitives: systemd (service lifecycle + watchdogs + slices) / cgroup v2 (CPU/memory/IO/PID budgets) / AppArmor+seccomp (sandbox boundaries) / eBPF (truth sensor for file/network/process behavior) / ZFS (snapshots + rollback + replay + clone workspaces) / Podman/Quadlet (systemd-managed containers) / VFIO (hard isolate 3090 when needed); 8 profile bundles realize: fast / careful / private / offline / research / autonomous / production / experimental | 15296–15322 |
+| E0483 | GPU Roles — "Do not fuse the GPUs mentally"; Blackwell 7 roles (large oracle model / final synthesis / long-context verification / high-risk code review / deep RLM parent calls / FP8/FP4 model lab) + 4090 7 roles (SLM swarm / draft/speculative decoding / embeddings/reranking / perception/GUI / failure classification / sandboxed experiments / cheap branch expansion); compact artifacts to move: tokens / scores / branch refs / memory ids / tool intents / patch summaries; avoid moving: KV tensors / activations / layer-split traffic / huge intermediate states | 15244–15292 |
+| E0484 | DevOps Stack — "Use Linux primitives as first-class architecture"; 7 primitives: systemd (service lifecycle + watchdogs + slices) / cgroup v2 (CPU/memory/IO/PID budgets) / AppArmor+seccomp (sandbox boundaries) / eBPF (truth sensor for file/network/process behavior) / ZFS (snapshots + rollback + replay + clone workspaces) / Podman/Quadlet (systemd-managed containers) / VFIO (hard isolate 4090 when needed); 8 profile bundles realize: fast / careful / private / offline / research / autonomous / production / experimental | 15296–15322 |
 | E0485 | AI Runtime Loop — 7-step MAP→SPEC→TEST→ACT→EVAL→COMMIT→LEARN: MAP (inspect environment, repo, tools, memory, risk) / SPEC (define intended behavior and constraints) / TEST (generate or select executable truth) / ACT (route work to scout/oracle/tools) / EVAL (judge outcome, trajectory, cost, risk) / COMMIT (gated write, snapshot, replay) / LEARN (update memory, routing, profiles, later LoRAs) | 15326–15346 |
 | E0486 | Fullstack Surface — 5 entry points: local web dashboard (traces + costs + profiles + model health + approvals) / CLI (run task + inspect trace + resume session + switch profile) / API (Anthropic-compatible primary + OpenAI-compatible secondary) / MCP/tools (controlled capability layer) / Project integration (Claude Code / Cline / OpenCode point at local gateway) | 15350–15364 |
 | E0487 | The Design Law + cloud-vs-station closing — 6-line Design Law: "Models propose. / Runtime routes. / CPU enforces. / Tools prove. / ZFS remembers. / User chooses."; "That is the architecture"; "The cloud has scale. This machine has locality, continuity, hardware control, private context, rollback, and user sovereignty. That is how it becomes better for real work" | 15368–15384 |
@@ -26,7 +26,7 @@
 | M00833 | Architect seat re-entry — DevOps + Fullstack + AI-expert roles re-enabled | 15120 | E0478 |
 | M00834 | Hardware mapping — Ryzen 9900X AVX-512 = deterministic control plane | 15130 | E0479 |
 | M00835 | Hardware mapping — RTX PRO 6000 96GB = oracle/resident high-value cognition | 15132 | E0479 |
-| M00836 | Hardware mapping — RTX 3090 24GB = scout/sandbox/SLM/perception/draft engine | 15134 | E0479 |
+| M00836 | Hardware mapping — RTX 4090 24GB = scout/sandbox/SLM/perception/draft engine | 15134 | E0479 |
 | M00837 | Hardware mapping — 256GB RAM = active memory + context arena + ZFS ARC | 15136 | E0479 |
 | M00838 | Hardware mapping — NVMe + ZFS = replay + snapshots + model cache + rollback | 15138 | E0479 |
 | M00839 | Hardware mapping — Debian/Ubuntu base = sovereign OS substrate | 15140 | E0479 |
@@ -35,7 +35,7 @@
 | M00842 | AVX-512 9 use cases — branch filtering + policy masks + permission checks + memory bitset search + tool routing + schema/token mask fusion + candidate compression + reward-vector scoring + workflow state transitions | 15192–15208 | E0481 |
 | M00843 | 9-SoA columnar hot-data layout — branch_id/control_word/risk/budget/score/route/memory_ref/kv_ref/flags | 15216–15232 | E0482 |
 | M00844 | 6-bulk-eval masks — alive_mask / tool_allowed_mask / oracle_needed_mask / sandbox_required_mask / memory_hit_mask / commit_allowed_mask | 15236–15240 | E0482 |
-| M00845 | Blackwell 7-role + 3090 7-role taxonomy + compact-move vs avoid-move artifact lists | 15248–15292 | E0483 |
+| M00845 | Blackwell 7-role + 4090 7-role taxonomy + compact-move vs avoid-move artifact lists | 15248–15292 | E0483 |
 | M00846 | DevOps 7-primitive stack — systemd + cgroup v2 + AppArmor/seccomp + eBPF + ZFS + Podman/Quadlet + VFIO | 15300–15318 | E0484 |
 | M00847 | 7-step AI Runtime Loop with definitions — MAP/SPEC/TEST/ACT/EVAL/COMMIT/LEARN | 15330–15344 | E0485 |
 | M00848 | Fullstack Surface — 5 entry points (web dashboard / CLI / API / MCP-tools / Project integration) | 15354–15364 | E0486 |
@@ -55,11 +55,11 @@
 | F04173 | Hardware role — Ryzen 9900X AVX-512 = deterministic control plane | 15130 | M00834 |
 | F04174 | Hardware role — RTX PRO 6000 96GB = oracle | 15132 | M00835 |
 | F04175 | Hardware role — RTX PRO 6000 96GB = resident high-value cognition | 15132 | M00835 |
-| F04176 | Hardware role — RTX 3090 24GB = scout | 15134 | M00836 |
-| F04177 | Hardware role — RTX 3090 24GB = sandbox | 15134 | M00836 |
-| F04178 | Hardware role — RTX 3090 24GB = SLM | 15134 | M00836 |
-| F04179 | Hardware role — RTX 3090 24GB = perception | 15134 | M00836 |
-| F04180 | Hardware role — RTX 3090 24GB = draft engine | 15134 | M00836 |
+| F04176 | Hardware role — RTX 4090 24GB = scout | 15134 | M00836 |
+| F04177 | Hardware role — RTX 4090 24GB = sandbox | 15134 | M00836 |
+| F04178 | Hardware role — RTX 4090 24GB = SLM | 15134 | M00836 |
+| F04179 | Hardware role — RTX 4090 24GB = perception | 15134 | M00836 |
+| F04180 | Hardware role — RTX 4090 24GB = draft engine | 15134 | M00836 |
 | F04181 | Hardware role — 256GB RAM = active memory | 15136 | M00837 |
 | F04182 | Hardware role — 256GB RAM = context arena | 15136 | M00837 |
 | F04183 | Hardware role — 256GB RAM = ZFS ARC | 15136 | M00837 |
@@ -72,7 +72,7 @@
 | F04190 | Layer — Clients (Claude Code + OpenCode + Cline + local UI + CLI + APIs) | 15150–15154 | M00841 |
 | F04191 | Layer — Gateway (Anthropic-first facade + OpenAI-compatible shim + cost ledger + provider routing + policy/redaction) | 15156–15162 | M00841 |
 | F04192 | Layer — Cognitive Runtime (workflow compiler + branch scheduler + profile resolver + memory router + eval/value engine + tool gate) | 15164–15172 | M00841 |
-| F04193 | Layer — Hardware Execution (Blackwell oracle + 3090 scout/sandbox + AVX-512 control engine + container/VM/REPL tools) | 15174–15180 | M00841 |
+| F04193 | Layer — Hardware Execution (Blackwell oracle + 4090 scout/sandbox + AVX-512 control engine + container/VM/REPL tools) | 15174–15180 | M00841 |
 | F04194 | Layer — Persistence (ZFS snapshots + replay logs + memory graph + model registry + eval history) | 15182–15186 | M00841 |
 | F04195 | AVX-512 doctrine — "The CPU is not 'backup compute'" | 15188 | E0481 |
 | F04196 | AVX-512 doctrine — "It is the logic accelerator" | 15190 | E0481 |
@@ -104,7 +104,7 @@
 | F04222 | "This is where deterministic AI infrastructure becomes fast" | 15240 | E0482 |
 | F04223 | GPU doctrine — "Do not fuse the GPUs mentally" | 15246 | E0483 |
 | F04224 | Blackwell role — large oracle model + final synthesis + long-context verification + high-risk code review + deep RLM parent calls + FP8/FP4 model lab | 15250–15262 | M00845 |
-| F04225 | 3090 role — SLM swarm + draft/speculative decoding + embeddings/reranking + perception/GUI + failure classification + sandboxed experiments + cheap branch expansion | 15266–15280 | M00845 |
+| F04225 | 4090 role — SLM swarm + draft/speculative decoding + embeddings/reranking + perception/GUI + failure classification + sandboxed experiments + cheap branch expansion | 15266–15280 | M00845 |
 | F04226 | Compact move — tokens + scores + branch refs + memory ids + tool intents + patch summaries | 15284–15290 | M00845 |
 | F04227 | Avoid move — KV tensors + activations + layer-split traffic + huge intermediate states | 15294–15300 | M00845 |
 | F04228 | DevOps doctrine — "Use Linux primitives as first-class architecture" | 15300 | E0484 |
@@ -114,7 +114,7 @@
 | F04232 | Primitive — eBPF (truth sensor for file/network/process behavior) | 15310 | M00846 |
 | F04233 | Primitive — ZFS (snapshots + rollback + replay + clone workspaces) | 15312 | M00846 |
 | F04234 | Primitive — Podman/Quadlet (systemd-managed containers) | 15314 | M00846 |
-| F04235 | Primitive — VFIO (hard isolate 3090 when needed) | 15316 | M00846 |
+| F04235 | Primitive — VFIO (hard isolate 4090 when needed) | 15316 | M00846 |
 | F04236 | Profile bundle — fast | 15320 | M00846 |
 | F04237 | Profile bundle — careful | 15321 | M00846 |
 | F04238 | Profile bundle — private | 15322 | M00846 |
@@ -145,11 +145,11 @@
 | R08338 | Hardware — Ryzen 9900X AVX-512 = deterministic control plane | 15130 | F04173 | non-negotiable | false | 10 |
 | R08339 | Hardware — RTX PRO 6000 96GB = oracle | 15132 | F04174 | non-negotiable | false | 10 |
 | R08340 | Hardware — RTX PRO 6000 96GB = resident high-value cognition | 15132 | F04175 | non-negotiable | false | 10 |
-| R08341 | Hardware — RTX 3090 24GB = scout | 15134 | F04176 | non-negotiable | false | 10 |
-| R08342 | Hardware — RTX 3090 24GB = sandbox | 15134 | F04177 | non-negotiable | false | 10 |
-| R08343 | Hardware — RTX 3090 24GB = SLM | 15134 | F04178 | non-negotiable | false | 10 |
-| R08344 | Hardware — RTX 3090 24GB = perception | 15134 | F04179 | non-negotiable | false | 10 |
-| R08345 | Hardware — RTX 3090 24GB = draft engine | 15134 | F04180 | non-negotiable | false | 10 |
+| R08341 | Hardware — RTX 4090 24GB = scout | 15134 | F04176 | non-negotiable | false | 10 |
+| R08342 | Hardware — RTX 4090 24GB = sandbox | 15134 | F04177 | non-negotiable | false | 10 |
+| R08343 | Hardware — RTX 4090 24GB = SLM | 15134 | F04178 | non-negotiable | false | 10 |
+| R08344 | Hardware — RTX 4090 24GB = perception | 15134 | F04179 | non-negotiable | false | 10 |
+| R08345 | Hardware — RTX 4090 24GB = draft engine | 15134 | F04180 | non-negotiable | false | 10 |
 | R08346 | Hardware — 256GB RAM = active memory | 15136 | F04181 | non-negotiable | false | 10 |
 | R08347 | Hardware — 256GB RAM = context arena | 15136 | F04182 | non-negotiable | false | 10 |
 | R08348 | Hardware — 256GB RAM = ZFS ARC | 15136 | F04183 | non-negotiable | false | 10 |
@@ -177,7 +177,7 @@
 | R08370 | Layer 3 Cognitive Runtime — eval/value engine | 15170 | F04192 | non-negotiable | false | 10 |
 | R08371 | Layer 3 Cognitive Runtime — tool gate | 15171 | F04192 | non-negotiable | false | 10 |
 | R08372 | Layer 4 Hardware Execution — Blackwell oracle | 15176 | F04193 | non-negotiable | false | 10 |
-| R08373 | Layer 4 Hardware Execution — 3090 scout/sandbox | 15177 | F04193 | non-negotiable | false | 10 |
+| R08373 | Layer 4 Hardware Execution — 4090 scout/sandbox | 15177 | F04193 | non-negotiable | false | 10 |
 | R08374 | Layer 4 Hardware Execution — AVX-512 control engine | 15178 | F04193 | non-negotiable | false | 10 |
 | R08375 | Layer 4 Hardware Execution — container/VM/REPL tools | 15179 | F04193 | non-negotiable | false | 10 |
 | R08376 | Layer 5 Persistence — ZFS snapshots | 15184 | F04194 | non-negotiable | false | 10 |
@@ -220,13 +220,13 @@
 | R08413 | Blackwell role — high-risk code review | 15256 | F04224 | non-negotiable | false | 10 |
 | R08414 | Blackwell role — deep RLM parent calls | 15258 | F04224 | non-negotiable | false | 10 |
 | R08415 | Blackwell role — FP8/FP4 model lab | 15260 | F04224 | non-negotiable | false | 10 |
-| R08416 | 3090 role — SLM swarm | 15266 | F04225 | non-negotiable | false | 10 |
-| R08417 | 3090 role — draft/speculative decoding | 15268 | F04225 | non-negotiable | false | 10 |
-| R08418 | 3090 role — embeddings/reranking | 15270 | F04225 | non-negotiable | false | 10 |
-| R08419 | 3090 role — perception/GUI | 15272 | F04225 | non-negotiable | false | 10 |
-| R08420 | 3090 role — failure classification | 15274 | F04225 | non-negotiable | false | 10 |
-| R08421 | 3090 role — sandboxed experiments | 15276 | F04225 | non-negotiable | false | 10 |
-| R08422 | 3090 role — cheap branch expansion | 15278 | F04225 | non-negotiable | false | 10 |
+| R08416 | 4090 role — SLM swarm | 15266 | F04225 | non-negotiable | false | 10 |
+| R08417 | 4090 role — draft/speculative decoding | 15268 | F04225 | non-negotiable | false | 10 |
+| R08418 | 4090 role — embeddings/reranking | 15270 | F04225 | non-negotiable | false | 10 |
+| R08419 | 4090 role — perception/GUI | 15272 | F04225 | non-negotiable | false | 10 |
+| R08420 | 4090 role — failure classification | 15274 | F04225 | non-negotiable | false | 10 |
+| R08421 | 4090 role — sandboxed experiments | 15276 | F04225 | non-negotiable | false | 10 |
+| R08422 | 4090 role — cheap branch expansion | 15278 | F04225 | non-negotiable | false | 10 |
 | R08423 | Compact move — tokens | 15284 | F04226 | non-negotiable | false | 10 |
 | R08424 | Compact move — scores | 15285 | F04226 | non-negotiable | false | 10 |
 | R08425 | Compact move — branch refs | 15286 | F04226 | non-negotiable | false | 10 |
@@ -246,7 +246,7 @@
 | R08439 | Primitive — eBPF: truth sensor for file/network/process behavior | 15310 | F04232 | non-negotiable | false | 10 |
 | R08440 | Primitive — ZFS: snapshots + rollback + replay + clone workspaces | 15312 | F04233 | non-negotiable | false | 10 |
 | R08441 | Primitive — Podman/Quadlet: systemd-managed containers | 15314 | F04234 | non-negotiable | false | 10 |
-| R08442 | Primitive — VFIO: hard isolate 3090 when needed | 15316 | F04235 | non-negotiable | false | 10 |
+| R08442 | Primitive — VFIO: hard isolate 4090 when needed | 15316 | F04235 | non-negotiable | false | 10 |
 | R08443 | "This lets profiles become real" | 15318 | E0484 | non-negotiable | false | 10 |
 | R08444 | Profile bundle — fast | 15320 | F04236 | non-negotiable | false | 10 |
 | R08445 | Profile bundle — careful | 15321 | F04237 | non-negotiable | false | 10 |
@@ -301,14 +301,14 @@
 | R08494 | Layer mapping — Cognitive Runtime → Hardware Execution: AVX-512 hot tables + CUDA streams | architecture + 15174 | M00841 | non-negotiable | false | 10 |
 | R08495 | Layer mapping — Hardware Execution → Persistence: ZFS write-ahead + replay log + memory writes | architecture + 15182 | M00841 | non-negotiable | false | 10 |
 | R08496 | Layer mapping — Persistence → memory router (closes loop) | architecture + 15169 | M00841 | non-negotiable | false | 10 |
-| R08497 | Cross-repo — selfdef MS010 hardware-tune-cache + MS028 bitnet + MS029 slm-cpu-loop + MS030 tensor-parallel + MS031 wasm-aot-cache realize the AVX-512 + Blackwell + 3090 + RAM + ZFS hardware mapping | cross-ref MS010 + MS028 + MS029 + MS030 + MS031 | E0479 | non-negotiable | false | 10 |
+| R08497 | Cross-repo — selfdef MS010 hardware-tune-cache + MS028 bitnet + MS029 slm-cpu-loop + MS030 tensor-parallel + MS031 wasm-aot-cache realize the AVX-512 + Blackwell + 4090 + RAM + ZFS hardware mapping | cross-ref MS010 + MS028 + MS029 + MS030 + MS031 | E0479 | non-negotiable | false | 10 |
 | R08498 | Cross-repo — selfdef MS017 agent-guard + MS019 threat-model + MS020 L1-L5 test harness + MS027 observability realize the DevOps 7-primitive stack | cross-ref MS017 + MS019 + MS020 + MS027 | E0484 | non-negotiable | false | 10 |
 | R08499 | Cross-repo — selfdef MS022 SSE quota + MS023 polarproxy + MS024 bridge-l2 + MS025 detect-host realize Gateway + Hardware Execution surfaces | cross-ref MS022 + MS023 + MS024 + MS025 | E0480 | non-negotiable | false | 10 |
-| R08500 | Composite — M050 (10 epics / 17 modules / 85 features / 170 reqs) catalogs Architect+Engineer+DevOps+Fullstack+AI-expert seat: workstation as heterogeneous intelligence system NOT "PC that runs models" + 7-component hardware mapping (Ryzen-AVX-512=control plane / RTX-PRO-6000=oracle / RTX-3090=scout-sandbox / 256GB-RAM=arena / NVMe-ZFS=replay / Debian-Ubuntu=sovereign substrate / Anthropic-gateway=external compatibility) + 5-layer Core Architecture (Clients / Gateway / Cognitive Runtime / Hardware Execution / Persistence) + AVX-512 9-use-case logic accelerator + 9-SoA columnar hot data + 6-bulk-eval-mask + Blackwell 7-role + 3090 7-role + compact-move-vs-avoid-move artifact list + DevOps 7-primitive Linux stack (systemd + cgroup v2 + AppArmor-seccomp + eBPF + ZFS + Podman-Quadlet + VFIO) + 8 profile bundles + 7-step MAP→SPEC→TEST→ACT→EVAL→COMMIT→LEARN runtime loop + 5-entry-point Fullstack Surface (dashboard + CLI + API + MCP-tools + project integration) + Design Law 6-line ("Models propose. Runtime routes. CPU enforces. Tools prove. ZFS remembers. User chooses.") + cloud-vs-station 6-property advantage ("locality + continuity + hardware control + private context + rollback + user sovereignty") + KEY LINE "That is how it becomes better for real work" | 15120–15390 | E0478-E0487 | non-negotiable | false | 10 |
+| R08500 | Composite — M050 (10 epics / 17 modules / 85 features / 170 reqs) catalogs Architect+Engineer+DevOps+Fullstack+AI-expert seat: workstation as heterogeneous intelligence system NOT "PC that runs models" + 7-component hardware mapping (Ryzen-AVX-512=control plane / RTX-PRO-6000=oracle / RTX-4090=scout-sandbox / 256GB-RAM=arena / NVMe-ZFS=replay / Debian-Ubuntu=sovereign substrate / Anthropic-gateway=external compatibility) + 5-layer Core Architecture (Clients / Gateway / Cognitive Runtime / Hardware Execution / Persistence) + AVX-512 9-use-case logic accelerator + 9-SoA columnar hot data + 6-bulk-eval-mask + Blackwell 7-role + 4090 7-role + compact-move-vs-avoid-move artifact list + DevOps 7-primitive Linux stack (systemd + cgroup v2 + AppArmor-seccomp + eBPF + ZFS + Podman-Quadlet + VFIO) + 8 profile bundles + 7-step MAP→SPEC→TEST→ACT→EVAL→COMMIT→LEARN runtime loop + 5-entry-point Fullstack Surface (dashboard + CLI + API + MCP-tools + project integration) + Design Law 6-line ("Models propose. Runtime routes. CPU enforces. Tools prove. ZFS remembers. User chooses.") + cloud-vs-station 6-property advantage ("locality + continuity + hardware control + private context + rollback + user sovereignty") + KEY LINE "That is how it becomes better for real work" | 15120–15390 | E0478-E0487 | non-negotiable | false | 10 |
 
 ## Sub-requirements accounting
 
-- 170 requirements covering: operator directive (R08331–R08335) + heterogeneous-intelligence-system doctrine (R08336–R08337) + 7-component hardware mapping (R08338–R08354) + 5-layer Core Architecture (R08355–R08380) + AVX-512 doctrine + 9 use cases (R08381–R08391) + 9-SoA columnar + 6 bulk masks + "deterministic AI infrastructure becomes fast" (R08392–R08408) + GPU doctrine + Blackwell 6 roles + 3090 7 roles + compact-move 6 + avoid-move 4 (R08409–R08432) + DevOps 7-primitive stack + "profiles become real" + 8 profile bundles (R08433–R08451) + 7-step AI Runtime Loop with definitions (R08452–R08465) + 5-entry-point Fullstack Surface (R08466–R08474) + Design Law 6 lines + "That is the architecture" + cloud-vs-station 6-property advantage + "better for real work" (R08475–R08489) + architect-seat scope + layer mapping invariants (R08490–R08496) + cross-repo binding (R08497–R08499) + composite (R08500)
+- 170 requirements covering: operator directive (R08331–R08335) + heterogeneous-intelligence-system doctrine (R08336–R08337) + 7-component hardware mapping (R08338–R08354) + 5-layer Core Architecture (R08355–R08380) + AVX-512 doctrine + 9 use cases (R08381–R08391) + 9-SoA columnar + 6 bulk masks + "deterministic AI infrastructure becomes fast" (R08392–R08408) + GPU doctrine + Blackwell 6 roles + 4090 7 roles + compact-move 6 + avoid-move 4 (R08409–R08432) + DevOps 7-primitive stack + "profiles become real" + 8 profile bundles (R08433–R08451) + 7-step AI Runtime Loop with definitions (R08452–R08465) + 5-entry-point Fullstack Surface (R08466–R08474) + Design Law 6 lines + "That is the architecture" + cloud-vs-station 6-property advantage + "better for real work" (R08475–R08489) + architect-seat scope + layer mapping invariants (R08490–R08496) + cross-repo binding (R08497–R08499) + composite (R08500)
 - Source range 15120–15390 yields 270 lines; 170 R-rows represent ~63% line-coverage at the verbatim-citation level
 - Project boundary — M050 is sovereign-os architect/engineer/DevOps/fullstack/AI-expert seat consolidation; selfdef IPS-side substrate (MS001–MS031) realizes the hardware-execution + DevOps + observability + policy planes; cross-repo binding via MS007 typed-mirror crates
 
@@ -319,11 +319,11 @@
 - Core Architecture 5-layer — generalizes M048 13-module map into Clients/Gateway/Cognitive Runtime/Hardware Execution/Persistence layering
 - AVX-512 9 use cases — directly maps to M039 AVX-512 cortex hot path + M043 AVX-512 Routing Brain (10 hot-metadata fields + 8 bulk-eval decisions)
 - 9-SoA columnar + 6 bulk masks — extends M043 AVX-512 Routing Brain with explicit SoA naming + mask semantics
-- GPU 7+7 role split — extends M043 Blackwell-as-Context-Sovereign (5 roles) + 3090-as-Cognitive-Scratchpad (8 uses) with the "do not fuse the GPUs mentally" doctrine
+- GPU 7+7 role split — extends M043 Blackwell-as-Context-Sovereign (5 roles) + 4090-as-Cognitive-Scratchpad (8 uses) with the "do not fuse the GPUs mentally" doctrine
 - DevOps 7-primitive stack — codifies M045 Linux as intelligence governor's 8 OS primitives + M048 Module 3 Container/Sandbox Fabric's Podman-Quadlet pattern
 - 8 profile bundles — extends M042 Choice Architecture's 4 profile bundles + M045's 5 sovereign profiles + M044's 4 security profiles into the canonical 8 (fast/careful/private/offline/research/autonomous/production/experimental)
 - 7-step AI Runtime Loop — finalizes M036 MAP+M041 6-contract+M042 8-axis-choice into MAP→SPEC→TEST→ACT→EVAL→COMMIT→LEARN
 - 5-entry-point Fullstack Surface — realizes M033 Compatibility Gateway + M034 Anthropic-first Gateway + M048 Module 4 Gateway via dashboard + CLI + API + MCP + project-integration entries
 - Design Law 6-line — unifying frame: "Models propose. Runtime routes. CPU enforces. Tools prove. ZFS remembers. User chooses." — synthesizes all prior milestones
-- Selfdef integration — selfdef MS010 hardware-tune-cache + MS028 bitnet + MS029 slm-cpu-loop + MS030 tensor-parallel + MS031 wasm-aot-cache realize the AVX-512 + Blackwell + 3090 + RAM + ZFS hardware mapping; selfdef MS017 + MS019 + MS020 + MS027 realize the DevOps 7-primitive stack; selfdef MS022 + MS023 + MS024 + MS025 realize Gateway + Hardware Execution surfaces; cross-repo binding via MS007 typed-mirror crates (8/8 SATURATED)
-- Operator references: AMD Zen 5 9900X spec + NVIDIA RTX PRO 6000 Blackwell 96GB spec + NVIDIA RTX 3090 24GB spec + ProArt X870E-Creator motherboard + OpenZFS docs + Anthropic API spec + OpenAI Chat Completions API spec
+- Selfdef integration — selfdef MS010 hardware-tune-cache + MS028 bitnet + MS029 slm-cpu-loop + MS030 tensor-parallel + MS031 wasm-aot-cache realize the AVX-512 + Blackwell + 4090 + RAM + ZFS hardware mapping; selfdef MS017 + MS019 + MS020 + MS027 realize the DevOps 7-primitive stack; selfdef MS022 + MS023 + MS024 + MS025 realize Gateway + Hardware Execution surfaces; cross-repo binding via MS007 typed-mirror crates (8/8 SATURATED)
+- Operator references: AMD Zen 5 9900X spec + NVIDIA RTX PRO 6000 Blackwell 96GB spec + NVIDIA RTX 4090 24GB spec + ProArt X870E-Creator motherboard + OpenZFS docs + Anthropic API spec + OpenAI Chat Completions API spec

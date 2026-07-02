@@ -589,7 +589,7 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 
 > Master spec § 18.2 names Qwen-32B-Ternary-Quant. No
 > ternary-quantized 32B Qwen on HF; AWQ 4-bit is the operator
-> substitute. vllm-vulkan engine compatible with the 3090.
+> substitute. vllm-vulkan engine compatible with the 4090.
 
 ### Qwen3-Coder-32B-Instruct
 
@@ -1000,7 +1000,7 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 
 > R212 — Same upstream as the FP16 entry, declared as the
 > GGUF-Q4_K_M variant for hosts that need to share VRAM with
-> a concurrent vllm workload. Lands cleanly on a single 3090.
+> a concurrent vllm workload. Lands cleanly on a single 4090.
 
 ### DeepSeek-V3-Quant
 
@@ -1130,7 +1130,7 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 > B200, etc.). Checkpoint size: 22.4 GiB on HF.
 > Same Nemotron 3 Nano Omni 30B-A3B multimodal model as the
 > BF16 + FP8 entries above; this is the operator's
-> smallest-footprint variant — fits the secondary RTX 3090
+> smallest-footprint variant — fits the secondary RTX 4090
 > (24GB VRAM) with thin margin (offload + careful KV
 > management) AND leaves substantial headroom on the
 > RTX PRO 6000 for parallel workloads.

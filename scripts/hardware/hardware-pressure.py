@@ -11,7 +11,7 @@ cockpit dashboard:
   - Dual-CCD topology (M070) per-CCD core set + L3-miss + Infinity
                              Fabric latency (Zen 5 9950X: CCD0 cores 0-7,
                              CCD1 cores 8-15)
-  - GPU (Blackwell + 3090)   util / VRAM / temp / power via nvidia-smi
+  - GPU (Blackwell + 4090)   util / VRAM / temp / power via nvidia-smi
                              (+ KV-cache + VFIO-sandbox status when the
                              inference layer publishes them)
   - ZFS (M068)               pool IOPS + read/write latency + per-dataset
