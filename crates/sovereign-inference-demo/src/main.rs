@@ -821,6 +821,29 @@ fn run_rag_quality_demo() -> String {
         det.accuracy, det.precision, det.recall, det.f1, det.samples
     );
 
+    // Approximate membership + cardinality over a term stream (all sublinear):
+    // Bloom (set membership), Cuckoo (membership + delete), HyperLogLog (distinct).
+    let corpus_words: Vec<&str> =
+        "rust ownership memory safety borrow checker pasta tomato sauce basil rust memory"
+            .split_whitespace()
+            .collect();
+    let mut bloom = sovereign_bloom::BloomFilter::with_capacity(64, 0.01);
+    let mut cuckoo = sovereign_cuckoo_filter::CuckooFilter::new(128, 7);
+    let mut hll = sovereign_hyperloglog::HyperLogLog::new(10).expect("valid precision");
+    for w in &corpus_words {
+        bloom.insert_str(w);
+        let _ = cuckoo.insert(w.as_bytes());
+        hll.add_str(w);
+    }
+    let bloom_ok = bloom.contains_str("ownership");
+    let cuckoo_del = cuckoo.contains(b"rust") && cuckoo.delete(b"rust");
+    let distinct = hll.estimate().round() as usize;
+    let _ = writeln!(
+        out,
+        "membership/card  : bloom_ok={bloom_ok} cuckoo_del={cuckoo_del} hll_distinct~{distinct} (of {} terms)",
+        corpus_words.len()
+    );
+
     // Language detection (Cavnar-Trenkle char-trigrams): train a few languages,
     // then classify a query — useful for routing or tagging retrieved text.
     let mut langs = sovereign_language_detect::LanguageDetector::new();
@@ -1291,6 +1314,13 @@ mod tests {
         // the injection detector scored a perfect verdict on the labeled set
         assert!(
             report.contains("detector quality : acc=1.00 P=1.00 R=1.00 F1=1.00 over 4 labeled"),
+            "{report}"
+        );
+        // membership (Bloom/Cuckoo) + HyperLogLog cardinality over the term stream
+        assert!(
+            report.contains(
+                "membership/card  : bloom_ok=true cuckoo_del=true hll_distinct~10 (of 12 terms)"
+            ),
             "{report}"
         );
         // language detection classified the English query correctly
