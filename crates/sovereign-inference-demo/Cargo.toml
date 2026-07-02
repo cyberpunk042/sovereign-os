@@ -34,6 +34,7 @@ sovereign-quant-calibration = { path = "../sovereign-quant-calibration" }
 sovereign-sampler = { path = "../sovereign-sampler" }
 sovereign-logit-mask = { path = "../sovereign-logit-mask" }
 sovereign-decoder-stack = { path = "../sovereign-decoder-stack" }
+sovereign-repetition-penalty = { path = "../sovereign-repetition-penalty" }
 sovereign-beam-search = { path = "../sovereign-beam-search" }
 sovereign-speculative = { path = "../sovereign-speculative" }
 sovereign-perplexity = { path = "../sovereign-perplexity" }

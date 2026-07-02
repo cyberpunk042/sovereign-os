@@ -602,6 +602,86 @@ impl DecoderStack {
         Ok(generated)
     }
 
+    /// Generate up to `max_new` tokens applying **repetition / frequency /
+    /// presence penalties** to the logits each step before sampling. The penalty
+    /// history is the prompt plus everything generated so far: repetition scales
+    /// down the logit of any already-seen token (CTRL-style), frequency subtracts
+    /// proportionally to how often it appeared, and presence subtracts a flat
+    /// amount for any prior appearance — the classic trio that discourages loops
+    /// and over-used tokens. Identity `penalties` leave the logits untouched, so
+    /// this reduces to the base sampler. Reproducible per `seed`.
+    pub fn generate_penalized(
+        &mut self,
+        prompt: &[usize],
+        max_new: usize,
+        seed: u64,
+        penalties: &sovereign_repetition_penalty::Penalties,
+    ) -> Result<Vec<usize>, StackError> {
+        if prompt.is_empty() {
+            return Err(StackError::EmptyPrompt);
+        }
+        let mut logits = Vec::new();
+        for &t in prompt {
+            logits = self.forward(t)?;
+        }
+        // penalty history: the prompt plus everything generated in this call.
+        let mut history: Vec<usize> = prompt.to_vec();
+        let mut generated = Vec::with_capacity(max_new);
+        for _ in 0..max_new {
+            penalties.apply(&mut logits, &history);
+            let pos = self.position() as u64;
+            let recent_start = self.recent.len().saturating_sub(self.config.recent_window);
+            let token = self.config.sampler.sample_seeded(
+                &logits,
+                &self.recent[recent_start..],
+                seed.wrapping_add(pos),
+            )?;
+            self.recent.push(token);
+            generated.push(token);
+            history.push(token);
+            logits = self.forward(token)?;
+        }
+        Ok(generated)
+    }
+
+    /// Generate up to `max_new` tokens using **locally-typical sampling** at
+    /// cumulative `mass`: each step keeps only the tokens whose surprisal is
+    /// closest to the distribution's entropy (the "typical set") and masks the
+    /// rest before sampling — suppressing both the bland high-probability tokens
+    /// and the incoherent tail, which reads as more human than plain top-p. A
+    /// `mass` of `1.0` keeps everything (reduces to the base sampler).
+    /// Reproducible per `seed`.
+    pub fn generate_typical(
+        &mut self,
+        prompt: &[usize],
+        max_new: usize,
+        seed: u64,
+        mass: f64,
+    ) -> Result<Vec<usize>, StackError> {
+        if prompt.is_empty() {
+            return Err(StackError::EmptyPrompt);
+        }
+        let mut logits = Vec::new();
+        for &t in prompt {
+            logits = self.forward(t)?;
+        }
+        let mut generated = Vec::with_capacity(max_new);
+        for _ in 0..max_new {
+            sovereign_typical_sampling::typical_mask_logits(&mut logits, mass);
+            let pos = self.position() as u64;
+            let recent_start = self.recent.len().saturating_sub(self.config.recent_window);
+            let token = self.config.sampler.sample_seeded(
+                &logits,
+                &self.recent[recent_start..],
+                seed.wrapping_add(pos),
+            )?;
+            self.recent.push(token);
+            generated.push(token);
+            logits = self.forward(token)?;
+        }
+        Ok(generated)
+    }
+
     /// Generate up to `max_new` tokens applying **DRY** (Don't Repeat Yourself)
     /// to the logits each step before sampling: each candidate is penalized by how
     /// long a previously-generated sequence picking it would extend (exponential

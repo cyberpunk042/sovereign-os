@@ -574,6 +574,28 @@ fn run_strategies_demo() -> String {
         mirostat.mu()
     );
 
+    // repetition / frequency / presence penalties on the logits each step.
+    let penalties = sovereign_repetition_penalty::Penalties {
+        repetition: 1.3,
+        frequency: 0.5,
+        presence: 0.2,
+    };
+    let pen = model
+        .clone()
+        .generate_penalized(&prompt, 8, 42, &penalties)
+        .expect("penalized");
+    let _ = writeln!(
+        out,
+        "penalized       : {pen:?} (rep 1.3 / freq 0.5 / pres 0.2)"
+    );
+
+    // locally-typical sampling: keep the tokens nearest the entropy (mass 0.9).
+    let typ = model
+        .clone()
+        .generate_typical(&prompt, 8, 42, 0.9)
+        .expect("typical");
+    let _ = writeln!(out, "typical (m=0.9) : {typ:?}");
+
     // early-stop: stop the moment the first sampled token recurs as a "stop".
     let stop = nrn[0];
     let stopped = model
@@ -877,6 +899,8 @@ mod tests {
         assert!(report.contains("sampled"));
         assert!(report.contains("beam (w=4)"));
         assert!(report.contains("speculative"));
+        assert!(report.contains("penalized       :"), "{report}");
+        assert!(report.contains("typical (m=0.9) :"), "{report}");
         assert!(report.contains("perplexity"));
         assert!(report.contains("round-trip ok = true"), "{report}");
     }

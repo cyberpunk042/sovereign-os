@@ -210,6 +210,65 @@ impl SovereignLlm {
         Ok(self.tokenizer.decode(&out_ids).unwrap_or_default())
     }
 
+    /// Complete `prompt` applying **repetition / frequency / presence penalties**
+    /// (`sovereign-repetition-penalty`) to the logits each step: `repetition`
+    /// scales down any already-seen token (CTRL-style; `1.0` = off), `frequency`
+    /// subtracts proportionally to a token's prior count, and `presence` subtracts
+    /// a flat amount for any prior appearance (`0.0` = off) — the classic trio for
+    /// discouraging loops and over-used tokens. The penalty history is the prompt
+    /// plus the tokens generated in this call. Identity penalties reduce to the
+    /// base sampler. Reproducible per `seed`.
+    pub fn complete_penalized(
+        &self,
+        prompt: &str,
+        max_new: usize,
+        seed: u64,
+        repetition: f32,
+        frequency: f32,
+        presence: f32,
+    ) -> Result<String, LlmError> {
+        let penalties = sovereign_repetition_penalty::Penalties {
+            repetition,
+            frequency,
+            presence,
+        };
+        let prompt_ids: Vec<usize> = self
+            .tokenizer
+            .encode(prompt)
+            .iter()
+            .map(|&i| i as usize)
+            .collect();
+        let mut model = self.model.clone();
+        let gen_ids = model.generate_penalized(&prompt_ids, max_new, seed, &penalties)?;
+        let out_ids: Vec<u32> = gen_ids.iter().map(|&i| i as u32).collect();
+        Ok(self.tokenizer.decode(&out_ids).unwrap_or_default())
+    }
+
+    /// Complete `prompt` using **locally-typical sampling** at cumulative `mass`
+    /// (`sovereign-typical-sampling`): each step keeps only the tokens whose
+    /// surprisal is nearest the distribution's entropy (the typical set) and masks
+    /// the rest before sampling — trimming both the blandest and the most
+    /// incoherent candidates for more human-reading output. A `mass` of `1.0`
+    /// keeps everything (reduces to the base sampler). Reproducible per `seed`.
+    pub fn complete_typical(
+        &self,
+        prompt: &str,
+        max_new: usize,
+        seed: u64,
+        mass: f64,
+    ) -> Result<String, LlmError> {
+        let prompt_ids: Vec<usize> = self
+            .tokenizer
+            .encode(prompt)
+            .iter()
+            .map(|&i| i as usize)
+            .collect();
+        let mut model = self.model.clone();
+        let gen_ids = model.generate_typical(&prompt_ids, max_new, seed, mass)?;
+        let out_ids: Vec<u32> = gen_ids.iter().map(|&i| i as u32).collect();
+        Ok(self.tokenizer.decode(&out_ids).unwrap_or_default())
+    }
+
     /// Complete `prompt` after **fitting it to a context budget**: if the prompt
     /// exceeds `max_context` tokens it is trimmed to the most recent `max_context`
     /// (`sovereign-context-budget`, keeping the tail — the text nearest where
@@ -1056,6 +1115,49 @@ mod tests {
         assert_eq!(
             a.complete_xtc("hello there", 8, 4, 0.01, 1.0).unwrap(),
             b.complete_xtc("hello there", 8, 4, 0.01, 1.0).unwrap()
+        );
+    }
+
+    #[test]
+    fn complete_penalized_identity_equals_plain_complete() {
+        let llm = runtime(Sampler::greedy());
+        // repetition 1.0 + frequency 0 + presence 0 → identity → plain complete
+        assert_eq!(
+            llm.complete_penalized("hello", 6, 4, 1.0, 0.0, 0.0)
+                .unwrap(),
+            llm.complete("hello", 6, 4).unwrap()
+        );
+    }
+
+    #[test]
+    fn complete_penalized_is_reproducible() {
+        let a = runtime(Sampler::greedy());
+        let b = runtime(Sampler::greedy());
+        assert_eq!(
+            a.complete_penalized("hello there", 8, 4, 1.3, 0.5, 0.2)
+                .unwrap(),
+            b.complete_penalized("hello there", 8, 4, 1.3, 0.5, 0.2)
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn complete_typical_full_mass_equals_plain_complete() {
+        let llm = runtime(Sampler::greedy());
+        // mass 1.0 keeps the whole vocab → identical to plain complete
+        assert_eq!(
+            llm.complete_typical("hello", 6, 4, 1.0).unwrap(),
+            llm.complete("hello", 6, 4).unwrap()
+        );
+    }
+
+    #[test]
+    fn complete_typical_is_reproducible() {
+        let a = runtime(Sampler::greedy());
+        let b = runtime(Sampler::greedy());
+        assert_eq!(
+            a.complete_typical("hello there", 8, 4, 0.9).unwrap(),
+            b.complete_typical("hello there", 8, 4, 0.9).unwrap()
         );
     }
 
