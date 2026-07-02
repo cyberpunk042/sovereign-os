@@ -117,4 +117,7 @@ sovereign-prompt-rationale = { path = "../sovereign-prompt-rationale" }
 sovereign-routing-decision-log = { path = "../sovereign-routing-decision-log" }
 sovereign-provider-catalog = { path = "../sovereign-provider-catalog" }
 sovereign-doctrinal-preservation = { path = "../sovereign-doctrinal-preservation" }
+sovereign-fenwick = { path = "../sovereign-fenwick" }
+sovereign-interval-tree = { path = "../sovereign-interval-tree" }
+sovereign-merkle-tree = { path = "../sovereign-merkle-tree" }
 sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }

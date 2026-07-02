@@ -683,6 +683,20 @@ fn run_strategies_demo() -> String {
         vbytes.len()
     );
 
+    // Data structures: Fenwick prefix sums, an interval tree, and a Merkle tree.
+    let fw = sovereign_fenwick::Fenwick::from_values(&[1, 2, 3, 4, 5]);
+    let itree =
+        sovereign_interval_tree::IntervalTree::build(vec![(1, 5, 'a'), (3, 8, 'b'), (10, 12, 'c')]);
+    let mt = sovereign_merkle_tree::MerkleTree::from_leaves(&[b"a", b"b", b"c", b"d"]);
+    let _ = writeln!(
+        out,
+        "data structs     : fenwick_psum={} interval_hits={} merkle_root_nonzero={} proof={}",
+        fw.prefix_sum(2),
+        itree.query_point(4).len(),
+        mt.root() != 0,
+        mt.proof(0).is_some()
+    );
+
     // Provenance: a structured prompt rationale (why this template/provider) and
     // an append-only routing-decision log (which provider served each request).
     let rationale = sovereign_prompt_rationale::Rationale::build(
@@ -1755,6 +1769,10 @@ mod tests {
         );
         assert!(
             report.contains("provenance       : used_template=true routing_entries=1"),
+            "{report}"
+        );
+        assert!(
+            report.contains("data structs     : fenwick_psum=3 interval_hits=2 merkle_root_nonzero=true proof=true"),
             "{report}"
         );
         assert!(
