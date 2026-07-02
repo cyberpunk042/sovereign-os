@@ -4952,6 +4952,7 @@ dependencies = [
  "sovereign-degeneration",
  "sovereign-embed",
  "sovereign-ffn",
+ "sovereign-injection-detect",
  "sovereign-json-schema-grammar",
  "sovereign-linear",
  "sovereign-llm",
@@ -5002,6 +5003,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sovereign-aho-corasick",
+ "sovereign-classification-metrics",
 ]
 
 [[package]]

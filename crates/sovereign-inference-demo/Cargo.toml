@@ -49,4 +49,5 @@ sovereign-retrieval = { path = "../sovereign-retrieval" }
 sovereign-embed = { path = "../sovereign-embed" }
 sovereign-degeneration = { path = "../sovereign-degeneration" }
 sovereign-toxicity = { path = "../sovereign-toxicity" }
+sovereign-injection-detect = { path = "../sovereign-injection-detect" }
 sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }

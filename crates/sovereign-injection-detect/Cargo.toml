@@ -16,3 +16,4 @@ workspace = true
 serde = { workspace = true }
 serde_json = { workspace = true }
 sovereign-aho-corasick = { path = "../sovereign-aho-corasick" }
+sovereign-classification-metrics = { path = "../sovereign-classification-metrics" }
