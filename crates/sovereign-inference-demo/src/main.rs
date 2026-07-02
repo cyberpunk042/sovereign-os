@@ -704,7 +704,7 @@ fn run_rag_quality_demo() -> String {
     use sovereign_llm::SovereignLlm;
     use sovereign_retrieval::{
         BinaryHammingStore, Deduped, HybridStore, InjectionFiltered, IvfStore, KeyphraseQuery,
-        MatryoshkaStore, Reranked, Retriever,
+        MatryoshkaStore, Reranked, Retriever, VpTreeStore,
     };
     use std::fmt::Write as _;
 
@@ -813,6 +813,25 @@ fn run_rag_quality_demo() -> String {
             .first()
             .map(|(id, _, _)| id.as_str())
             .unwrap_or("-")
+    );
+
+    // Vantage-point tree: exact nearest-neighbour search (triangle-inequality
+    // pruning) — the same results as brute force, in sub-linear expected time.
+    let vptree = VpTreeStore::from_docs([
+        ("rust", "rust ownership gives memory safety without a gc"),
+        (
+            "borrow",
+            "the borrow checker enforces aliasing at compile time",
+        ),
+        ("cook", "pasta with tomato sauce and basil"),
+    ]);
+    let vp_hits = vptree.retrieve("rust memory safety", 1);
+    let _ = writeln!(
+        out,
+        "vp-tree (exact)  : {} doc(s), built={}, nearest={:?}",
+        vptree.len(),
+        vptree.is_built(),
+        vp_hits.first().map(|(id, _, _)| id.as_str()).unwrap_or("-")
     );
 
     // Near-duplicate filter: a SimHash fingerprint collapses re-crawled / copied
@@ -1029,6 +1048,11 @@ mod tests {
             report.contains(
                 "matryoshka       : 3 doc(s), coarse_dim=64 (saving 75%), nearest=\"rust\""
             ),
+            "{report}"
+        );
+        // the vantage-point tree built and exactly retrieved the rust doc
+        assert!(
+            report.contains("vp-tree (exact)  : 3 doc(s), built=true, nearest=\"rust\""),
             "{report}"
         );
         // the SimHash dedup filter collapsed the duplicate passages to one

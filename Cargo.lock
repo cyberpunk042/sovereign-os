@@ -5905,6 +5905,7 @@ dependencies = [
  "sovereign-rank-fusion",
  "sovereign-rerank",
  "sovereign-simhash",
+ "sovereign-vptree",
 ]
 
 [[package]]

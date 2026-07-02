@@ -855,6 +855,132 @@ impl Retriever for MatryoshkaStore {
     }
 }
 
+/// A **vantage-point tree** semantic store: it embeds documents and, once built,
+/// indexes them in a [`VpTree`](sovereign_vptree::VpTree) — a metric-space binary
+/// tree that partitions points by their distance to a chosen vantage point, so
+/// the triangle inequality prunes whole subtrees a query can't possibly beat.
+/// Unlike the graph/quantizer indexes (`AnnStore` HNSW, `IvfStore`) its `knn` is
+/// **exact** — the same results a brute-force scan would give — but reached in
+/// expected sub-linear time. Embeddings are unit vectors, so the tree's
+/// Euclidean nearest-neighbour order matches cosine order.
+///
+/// The tree is trained over the whole point set, so the store is **batch-built**:
+/// add all documents, call [`VpTreeStore::build`] (or use [`VpTreeStore::from_docs`]),
+/// then retrieve. Retrieval before a build returns nothing.
+///
+/// Backed by [`sovereign-vptree`], previously built but unused; this store is its
+/// consumer.
+///
+/// [`sovereign-vptree`]: https://docs.rs/sovereign-vptree
+pub struct VpTreeStore {
+    /// `(id, text)` aligned by index with `vectors`.
+    docs: Vec<(String, String)>,
+    /// One embedding per document, aligned with `docs`.
+    vectors: Vec<Vec<f32>>,
+    /// The built tree; `None` until [`VpTreeStore::build`] runs (and again after
+    /// an [`VpTreeStore::add`] invalidates it).
+    tree: Option<sovereign_vptree::VpTree>,
+}
+
+impl Default for VpTreeStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl VpTreeStore {
+    /// An empty vantage-point-tree store.
+    pub fn new() -> Self {
+        Self {
+            docs: Vec::new(),
+            vectors: Vec::new(),
+            tree: None,
+        }
+    }
+
+    /// Build a store from `(id, text)` pairs in one shot: add all, then
+    /// [`build`](Self::build).
+    pub fn from_docs<I, S1, S2>(docs: I) -> Self
+    where
+        I: IntoIterator<Item = (S1, S2)>,
+        S1: Into<String>,
+        S2: Into<String>,
+    {
+        let mut store = Self::new();
+        for (id, text) in docs {
+            store.add(id, text);
+        }
+        store.build();
+        store
+    }
+
+    /// Embed `text` and buffer it under `id`. This **invalidates** any built tree
+    /// (the vantage-point partition is over the whole point set), so call
+    /// [`build`](Self::build) again before retrieving.
+    pub fn add(&mut self, id: impl Into<String>, text: impl Into<String>) {
+        let id = id.into();
+        let text = text.into();
+        self.vectors.push(sovereign_embed::embed(&text));
+        self.docs.push((id, text));
+        self.tree = None;
+    }
+
+    /// Build the vantage-point tree over the buffered vectors. A no-op (leaving
+    /// the tree unbuilt) when empty.
+    pub fn build(&mut self) {
+        self.tree = if self.vectors.is_empty() {
+            None
+        } else {
+            Some(sovereign_vptree::VpTree::build(self.vectors.clone()))
+        };
+    }
+
+    /// Number of buffered documents.
+    pub fn len(&self) -> usize {
+        self.docs.len()
+    }
+
+    /// Whether the store holds no documents.
+    pub fn is_empty(&self) -> bool {
+        self.docs.is_empty()
+    }
+
+    /// Whether the tree has been built (retrieval returns results only then).
+    pub fn is_built(&self) -> bool {
+        self.tree.is_some()
+    }
+
+    /// Exact top-`k` `(id, text, distance)` for `query` by Euclidean distance
+    /// (lower is nearer), found via the vantage-point tree. Empty until
+    /// [`build`](Self::build) has run.
+    pub fn retrieve(&self, query: &str, k: usize) -> Vec<(String, String, f64)> {
+        let Some(tree) = &self.tree else {
+            return Vec::new();
+        };
+        if k == 0 {
+            return Vec::new();
+        }
+        let q = sovereign_embed::embed(query);
+        tree.knn(&q, k)
+            .into_iter()
+            .filter_map(|(i, dist)| {
+                self.docs
+                    .get(i)
+                    .map(|(id, text)| (id.clone(), text.clone(), dist))
+            })
+            .collect()
+    }
+}
+
+impl Retriever for VpTreeStore {
+    fn retrieve_context(&self, query: &str, k: usize) -> Vec<String> {
+        self.retrieve(query, k)
+            .into_iter()
+            .map(|(_, text, _)| text)
+            .collect()
+    }
+}
+
 /// Wraps any [`Retriever`] with a second-stage **reranker**: it pulls a *wider*
 /// pool from the inner retriever, then rescores that pool for precision with
 /// [`sovereign-rerank`](sovereign_rerank)'s coverage ranking — the fraction of
@@ -1721,6 +1847,77 @@ mod tests {
         let prompts = seen.borrow();
         assert!(prompts[0].starts_with("Context:\n"));
         assert!(prompts[0].contains("rust ownership"));
+    }
+
+    #[test]
+    fn vptree_store_retrieves_the_nearest_document() {
+        let s = VpTreeStore::from_docs([
+            ("rust", "rust ownership governs memory safety"),
+            ("python", "python is a dynamically typed scripting language"),
+            ("cook", "pasta with tomato sauce and basil"),
+        ]);
+        assert_eq!(s.len(), 3);
+        assert!(s.is_built());
+        let hits = s.retrieve("rust memory ownership", 1);
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].0, "rust", "vptree hits {hits:?}");
+    }
+
+    #[test]
+    fn vptree_store_returns_nothing_until_built() {
+        let mut s = VpTreeStore::new();
+        s.add("rust", "rust ownership and memory safety");
+        s.add("cook", "pasta tomato sauce recipe");
+        assert!(!s.is_built());
+        assert!(s.retrieve("rust memory", 1).is_empty());
+        s.build();
+        assert!(s.is_built());
+        assert_eq!(s.retrieve("rust memory", 1)[0].0, "rust");
+        // a further add re-invalidates the vantage-point partition
+        s.add("go", "go concurrency with goroutines");
+        assert!(!s.is_built());
+    }
+
+    #[test]
+    fn vptree_store_knn_is_exact() {
+        // the tree's ranking must match a brute-force Euclidean scan (it's exact)
+        let docs = [
+            ("a", "rust ownership and borrow checking"),
+            ("b", "python dynamic typing and duck typing"),
+            ("c", "pasta tomato sauce and fresh basil"),
+            ("d", "distributed systems consensus and raft"),
+        ];
+        let s = VpTreeStore::from_docs(docs);
+        let q = sovereign_embed::embed("rust memory safety ownership");
+        let mut brute: Vec<(usize, f64)> = docs
+            .iter()
+            .enumerate()
+            .map(|(i, (_, t))| {
+                let v = sovereign_embed::embed(t);
+                let d: f64 = q
+                    .iter()
+                    .zip(&v)
+                    .map(|(x, y)| ((x - y) as f64).powi(2))
+                    .sum::<f64>()
+                    .sqrt();
+                (i, d)
+            })
+            .collect();
+        brute.sort_by(|a, b| a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)));
+        let brute_ids: Vec<&str> = brute.iter().map(|(i, _)| docs[*i].0).collect();
+        let tree_ids: Vec<String> = s
+            .retrieve("rust memory safety ownership", 4)
+            .into_iter()
+            .map(|(id, _, _)| id)
+            .collect();
+        assert_eq!(tree_ids, brute_ids, "vptree order must equal brute force");
+    }
+
+    #[test]
+    fn vptree_store_empty_and_zero_k() {
+        assert!(VpTreeStore::new().retrieve("anything", 3).is_empty());
+        let s = VpTreeStore::from_docs([("a", "some text here")]);
+        assert!(s.retrieve("text", 0).is_empty());
     }
 
     // A retriever that returns a fixed passage list (truncated to the pool size),
