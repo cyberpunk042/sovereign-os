@@ -135,3 +135,6 @@ sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }
 sovereign-bpe-train = { path = "../sovereign-bpe-train" }
 sovereign-wordpiece = { path = "../sovereign-wordpiece" }
 sovereign-unigram-tokenizer = { path = "../sovereign-unigram-tokenizer" }
+sovereign-consistent-hash = { path = "../sovereign-consistent-hash" }
+sovereign-rendezvous-hash = { path = "../sovereign-rendezvous-hash" }
+sovereign-p2c-balance = { path = "../sovereign-p2c-balance" }

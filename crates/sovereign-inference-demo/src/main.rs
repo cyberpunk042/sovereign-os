@@ -1739,6 +1739,44 @@ fn run_rag_quality_demo() -> String {
         uni_seg.len()
     );
 
+    // Serving-placement plane: three ways to map a request to a backend replica.
+    // Consistent hashing keeps a key on its node across membership changes (only
+    // ~1/n keys move when a *different* node leaves); rendezvous (highest-random-
+    // weight) hashing does the same ring-free by scoring every node; power-of-two-
+    // choices balances live load by sampling two backends and taking the less busy.
+    let replicas = ["replica-a", "replica-b", "replica-c"];
+    let mut ring = sovereign_consistent_hash::HashRing::with_vnodes(64);
+    for node in replicas {
+        ring.add_node(node);
+    }
+    let owner = ring.get("session-42").expect("owner").to_string();
+    // remove a node the key does NOT map to — its assignment must not move
+    let victim = replicas.iter().find(|n| **n != owner).expect("non-owner");
+    ring.remove_node(victim);
+    let ch_stable = ring.get("session-42") == Some(owner.as_str());
+
+    let mut hrw = sovereign_rendezvous_hash::RendezvousHash::new();
+    for node in replicas {
+        hrw.add_node(node, 1.0);
+    }
+    let hrw_pick = hrw.select_str("session-42").map(str::to_string);
+    let hrw_k = hrw.select_k(b"session-42", 2).len();
+
+    let mut p2c = sovereign_p2c_balance::P2cBalancer::uniform(replicas.len(), 7);
+    for _ in 0..6 {
+        let _ = p2c.pick();
+    }
+    let p2c_max = p2c.loads().into_iter().max().unwrap_or(0);
+    let _ = writeln!(
+        out,
+        "placement        : ch_stable={} hrw_pick={:?} hrw_k={} p2c_maxload={} p2c_total={}",
+        ch_stable,
+        hrw_pick,
+        hrw_k,
+        p2c_max,
+        p2c.total_in_flight()
+    );
+
     out
 }
 
@@ -1950,6 +1988,15 @@ mod tests {
         assert!(
             report.contains(
                 "tokenizers       : bpe_merges=7 bpe_ids=3 wp=\"play ##ing\" roundtrip_ok=true unigram_tok=2"
+            ),
+            "{report}"
+        );
+        // three request-to-replica placement strategies ran: consistent-hash kept
+        // the key on its node when a non-owner left, rendezvous scored a top node,
+        // and power-of-two-choices spread 6 requests to a max load of 2
+        assert!(
+            report.contains(
+                "placement        : ch_stable=true hrw_pick=Some(\"replica-c\") hrw_k=2 p2c_maxload=2 p2c_total=6"
             ),
             "{report}"
         );
