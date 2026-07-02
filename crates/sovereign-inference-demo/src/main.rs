@@ -683,6 +683,35 @@ fn run_strategies_demo() -> String {
         vbytes.len()
     );
 
+    // Provenance: a structured prompt rationale (why this template/provider) and
+    // an append-only routing-decision log (which provider served each request).
+    let rationale = sovereign_prompt_rationale::Rationale::build(
+        "trace-1",
+        sovereign_provider_catalog::ProviderId::LocalOllama,
+        "greet",
+        sovereign_profile_bundles::BundleName::Sovereign,
+        sovereign_execution_mode_registry::ExecutionMode::Execute,
+        sovereign_doctrinal_preservation::DoctrineTag::RuntimeFirst,
+        "cheapest local model",
+        "t0",
+    );
+    let mut rlog = sovereign_routing_decision_log::RoutingDecisionLog::new();
+    let _ = rlog.record(sovereign_routing_decision_log::RoutingEntry {
+        trace_id: "trace-1".into(),
+        selected_provider: sovereign_provider_catalog::ProviderId::LocalOllama,
+        bundle: sovereign_profile_bundles::BundleName::Sovereign,
+        mode: sovereign_execution_mode_registry::ExecutionMode::Execute,
+        reason: "local-first".into(),
+        elapsed_ms: 12,
+        at: "t0".into(),
+    });
+    let _ = writeln!(
+        out,
+        "provenance       : used_template={} routing_entries={}",
+        rationale.used_template(),
+        rlog.entries.len()
+    );
+
     // Agent durability + eval rollup: a semantic checkpoint (resumable agent
     // state) and an eval-suite result summary.
     let ck = sovereign_semantic_checkpoint::SemanticCheckpoint {
@@ -1722,6 +1751,10 @@ mod tests {
         );
         assert!(
             report.contains("eval/checkpoint  : pass_rate_bps=8000 checkpoint_complete=true"),
+            "{report}"
+        );
+        assert!(
+            report.contains("provenance       : used_template=true routing_entries=1"),
             "{report}"
         );
         assert!(

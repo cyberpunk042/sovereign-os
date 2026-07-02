@@ -113,4 +113,8 @@ sovereign-workspace-folder-registry = { path = "../sovereign-workspace-folder-re
 sovereign-semantic-checkpoint = { path = "../sovereign-semantic-checkpoint" }
 sovereign-eval-result-summary = { path = "../sovereign-eval-result-summary" }
 sovereign-eval-suite-catalog = { path = "../sovereign-eval-suite-catalog" }
+sovereign-prompt-rationale = { path = "../sovereign-prompt-rationale" }
+sovereign-routing-decision-log = { path = "../sovereign-routing-decision-log" }
+sovereign-provider-catalog = { path = "../sovereign-provider-catalog" }
+sovereign-doctrinal-preservation = { path = "../sovereign-doctrinal-preservation" }
 sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }
