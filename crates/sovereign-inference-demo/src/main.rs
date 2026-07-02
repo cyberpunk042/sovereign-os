@@ -683,6 +683,23 @@ fn run_strategies_demo() -> String {
         vbytes.len()
     );
 
+    // Resilience: a circuit breaker (trips open after failures), an AIMD
+    // concurrency limiter, and weighted round-robin backend selection.
+    let mut cb = sovereign_circuit_breaker::CircuitBreaker::new(2, 1000);
+    cb.record_failure(0);
+    cb.record_failure(0);
+    let cb_open = !cb.allow(10);
+    let mut aimd = sovereign_aimd_limiter::AimdLimiter::new(10.0, 1.0, 100.0, 1.0, 0.5);
+    aimd.record_success(); // additive increase 10 -> 11
+    aimd.record_overload(); // multiplicative decrease 11 -> 5.5
+    let mut lb = sovereign_load_balance::WeightedRoundRobin::new([("a", 2i64), ("b", 1i64)]);
+    let _ = writeln!(
+        out,
+        "resilience       : cb_open={cb_open} aimd_limit={:.1} lb_pick={:?}",
+        aimd.limit(),
+        lb.pick().unwrap_or_default()
+    );
+
     // Standalone samplers: a Mirostat controller + n-gram (prompt-lookup)
     // speculative drafting with prefix-acceptance verification.
     let mut miro = sovereign_mirostat::Mirostat::new(3.0, 0.1);
@@ -1842,6 +1859,10 @@ mod tests {
         );
         assert!(
             report.contains("sampling extra   : mirostat_tok=3 draft_len=3 accepted=1"),
+            "{report}"
+        );
+        assert!(
+            report.contains("resilience       : cb_open=true aimd_limit=5.0 lb_pick=\"a\""),
             "{report}"
         );
         assert!(

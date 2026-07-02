@@ -4944,6 +4944,7 @@ version = "0.1.0"
 dependencies = [
  "sovereign-agent-loop",
  "sovereign-agent-runtime",
+ "sovereign-aimd-limiter",
  "sovereign-bandit",
  "sovereign-beam-search",
  "sovereign-bin-packing",
@@ -4951,6 +4952,7 @@ dependencies = [
  "sovereign-bloom",
  "sovereign-calc",
  "sovereign-checkpoint",
+ "sovereign-circuit-breaker",
  "sovereign-community-detect",
  "sovereign-continuous-batch",
  "sovereign-cuckoo-filter",
@@ -4988,6 +4990,7 @@ dependencies = [
  "sovereign-line-diff",
  "sovereign-linear",
  "sovereign-llm",
+ "sovereign-load-balance",
  "sovereign-local-align",
  "sovereign-logit-mask",
  "sovereign-logit-pipeline",
