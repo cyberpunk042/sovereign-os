@@ -981,6 +981,150 @@ impl Retriever for VpTreeStore {
     }
 }
 
+/// A **typo-tolerant** lexical store: it indexes documents by their words and
+/// keeps every distinct term in a [`BkTree`](sovereign_bktree::BkTree), so a
+/// query term that isn't in the vocabulary is first **corrected** to the nearest
+/// real term within an edit-distance radius ("retreival" → "retrieval") before
+/// the usual term-overlap ranking. Embedding retrievers are naturally
+/// spelling-robust, but a purely lexical index normally misses a misspelling
+/// entirely; the BK-tree's triangle-inequality pruning makes the "did you mean"
+/// correction sublinear in the vocabulary.
+///
+/// Makes [`sovereign-bktree`](sovereign_bktree) (previously unused) actually
+/// used; the vocabulary grows incrementally as documents are added (no rebuild),
+/// and the store implements [`Retriever`] so it drops into [`RagResponder`].
+///
+/// [`sovereign-bktree`]: https://docs.rs/sovereign-bktree
+pub struct FuzzyTermStore {
+    /// `(id, lowercased-token-list)` per document.
+    docs: Vec<(String, String, Vec<String>)>,
+    /// Every distinct term seen, for edit-distance correction.
+    vocab: sovereign_bktree::BkTree,
+    /// Maximum edit distance a query term may be corrected across.
+    max_distance: usize,
+}
+
+impl Default for FuzzyTermStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl FuzzyTermStore {
+    /// An empty store correcting query terms across up to 2 edits.
+    pub fn new() -> Self {
+        Self::with_max_distance(2)
+    }
+
+    /// An empty store correcting query terms across up to `max_distance` edits.
+    pub fn with_max_distance(max_distance: usize) -> Self {
+        Self {
+            docs: Vec::new(),
+            vocab: sovereign_bktree::BkTree::new(),
+            max_distance,
+        }
+    }
+
+    /// Lowercase, split on whitespace, and strip surrounding non-alphanumerics.
+    fn tokenize(text: &str) -> Vec<String> {
+        text.split_whitespace()
+            .map(|w| {
+                w.chars()
+                    .filter(|c| c.is_alphanumeric())
+                    .flat_map(char::to_lowercase)
+                    .collect::<String>()
+            })
+            .filter(|w| !w.is_empty())
+            .collect()
+    }
+
+    /// Index `text` under `id`, adding its terms to the correction vocabulary.
+    pub fn add(&mut self, id: impl Into<String>, text: impl Into<String>) {
+        let id = id.into();
+        let text = text.into();
+        let tokens = Self::tokenize(&text);
+        for t in &tokens {
+            self.vocab.insert(t.clone());
+        }
+        self.docs.push((id, text, tokens));
+    }
+
+    /// Number of indexed documents.
+    pub fn len(&self) -> usize {
+        self.docs.len()
+    }
+
+    /// Whether the store is empty.
+    pub fn is_empty(&self) -> bool {
+        self.docs.is_empty()
+    }
+
+    /// Number of distinct terms in the correction vocabulary.
+    pub fn vocab_len(&self) -> usize {
+        self.vocab.len()
+    }
+
+    /// Correct `query`'s terms against the vocabulary: an in-vocabulary term is
+    /// kept as-is, otherwise it is replaced by the nearest term within
+    /// `max_distance` (unchanged if nothing is close enough).
+    pub fn correct(&self, query: &str) -> Vec<String> {
+        Self::tokenize(query)
+            .into_iter()
+            .map(|term| {
+                if self.vocab.contains(&term) {
+                    term
+                } else {
+                    self.vocab
+                        .closest(&term, self.max_distance)
+                        .map(|h| h.term)
+                        .unwrap_or(term)
+                }
+            })
+            .collect()
+    }
+
+    /// Top-`k` `(id, text, score)` by term-overlap on the **corrected** query
+    /// (each corrected term contributes its occurrence count in the document),
+    /// best-first; ties by insertion order.
+    pub fn retrieve(&self, query: &str, k: usize) -> Vec<(String, String, u32)> {
+        if self.docs.is_empty() || k == 0 {
+            return Vec::new();
+        }
+        let terms = self.correct(query);
+        let mut scored: Vec<(usize, u32)> = self
+            .docs
+            .iter()
+            .enumerate()
+            .map(|(i, (_, _, tokens))| {
+                let score: u32 = terms
+                    .iter()
+                    .map(|q| tokens.iter().filter(|t| *t == q).count() as u32)
+                    .sum();
+                (i, score)
+            })
+            .filter(|(_, s)| *s > 0)
+            .collect();
+        scored.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+        scored.truncate(k);
+        scored
+            .into_iter()
+            .map(|(i, s)| {
+                let (id, text, _) = &self.docs[i];
+                (id.clone(), text.clone(), s)
+            })
+            .collect()
+    }
+}
+
+impl Retriever for FuzzyTermStore {
+    fn retrieve_context(&self, query: &str, k: usize) -> Vec<String> {
+        self.retrieve(query, k)
+            .into_iter()
+            .map(|(_, text, _)| text)
+            .collect()
+    }
+}
+
 /// Wraps any [`Retriever`] with a second-stage **reranker**: it pulls a *wider*
 /// pool from the inner retriever, then rescores that pool for precision with
 /// [`sovereign-rerank`](sovereign_rerank)'s coverage ranking — the fraction of
@@ -1918,6 +2062,50 @@ mod tests {
         assert!(VpTreeStore::new().retrieve("anything", 3).is_empty());
         let s = VpTreeStore::from_docs([("a", "some text here")]);
         assert!(s.retrieve("text", 0).is_empty());
+    }
+
+    #[test]
+    fn fuzzy_store_corrects_a_misspelled_query() {
+        let mut s = FuzzyTermStore::new();
+        s.add("rust", "rust ownership governs memory safety");
+        s.add("cook", "pasta with tomato sauce and basil");
+        // a typo'd query term is corrected before ranking
+        let corrected = s.correct("retreival ownrship");
+        assert!(
+            corrected.contains(&"ownership".to_string()),
+            "{corrected:?}"
+        );
+        // and the misspelled query still finds the rust doc
+        let hits = s.retrieve("ownrship safty", 1);
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].0, "rust", "fuzzy hits {hits:?}");
+    }
+
+    #[test]
+    fn fuzzy_store_exact_terms_pass_through() {
+        let mut s = FuzzyTermStore::new();
+        s.add("rust", "rust ownership and memory safety");
+        // an exact in-vocab term is unchanged; an unrelated term with no close
+        // match is left as-is (and simply scores nothing)
+        assert_eq!(s.correct("ownership"), vec!["ownership".to_string()]);
+        assert_eq!(s.correct("xyzzyplugh"), vec!["xyzzyplugh".to_string()]);
+        assert!(s.vocab_len() >= 4);
+    }
+
+    #[test]
+    fn fuzzy_store_empty_zero_k_and_drives_rag() {
+        assert!(FuzzyTermStore::new().retrieve("anything", 3).is_empty());
+        let mut s = FuzzyTermStore::new();
+        s.add("rust", "rust ownership and systems programming");
+        s.add("cook", "pasta tomato sauce recipe");
+        assert!(s.retrieve("rust", 0).is_empty());
+        let seen = Rc::new(RefCell::new(Vec::new()));
+        let inner = Capture { seen: seen.clone() };
+        // "programing" (one edit) still grounds on the rust doc
+        let mut rag = RagResponder::new(inner, s, 1);
+        rag.respond("systems programing", 0).unwrap();
+        let prompts = seen.borrow();
+        assert!(prompts[0].contains("rust ownership"), "{}", prompts[0]);
     }
 
     // A retriever that returns a fixed passage list (truncated to the pool size),

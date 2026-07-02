@@ -5893,6 +5893,7 @@ dependencies = [
  "serde_json",
  "sovereign-agent-loop",
  "sovereign-binary-quant",
+ "sovereign-bktree",
  "sovereign-bm25",
  "sovereign-chunker",
  "sovereign-embed",

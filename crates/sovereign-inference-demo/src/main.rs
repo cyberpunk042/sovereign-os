@@ -703,8 +703,8 @@ fn run_rag_quality_demo() -> String {
     use sovereign_degeneration::Config as DegenConfig;
     use sovereign_llm::SovereignLlm;
     use sovereign_retrieval::{
-        BinaryHammingStore, Deduped, HybridStore, InjectionFiltered, IvfStore, KeyphraseQuery,
-        MatryoshkaStore, Reranked, Retriever, VpTreeStore,
+        BinaryHammingStore, Deduped, FuzzyTermStore, HybridStore, InjectionFiltered, IvfStore,
+        KeyphraseQuery, MatryoshkaStore, Reranked, Retriever, VpTreeStore,
     };
     use std::fmt::Write as _;
 
@@ -832,6 +832,25 @@ fn run_rag_quality_demo() -> String {
         vptree.len(),
         vptree.is_built(),
         vp_hits.first().map(|(id, _, _)| id.as_str()).unwrap_or("-")
+    );
+
+    // Typo-tolerant lexical store: a BK-tree corrects misspelled query terms by
+    // edit distance ("retreival" -> "retrieval") before term-overlap ranking.
+    let mut fuzzy = FuzzyTermStore::new();
+    fuzzy.add("rust", "rust ownership gives memory safety");
+    fuzzy.add("borrow", "the borrow checker enforces aliasing");
+    fuzzy.add("cook", "pasta with tomato sauce and basil");
+    let corrected = fuzzy.correct("ownrship safty");
+    let fuzzy_hits = fuzzy.retrieve("ownrship safty", 1);
+    let _ = writeln!(
+        out,
+        "fuzzy (typo-ok)  : {} vocab terms, \"ownrship safty\" -> {:?}, nearest={:?}",
+        fuzzy.vocab_len(),
+        corrected,
+        fuzzy_hits
+            .first()
+            .map(|(id, _, _)| id.as_str())
+            .unwrap_or("-")
     );
 
     // Near-duplicate filter: a SimHash fingerprint collapses re-crawled / copied
@@ -1064,6 +1083,13 @@ mod tests {
         // the vantage-point tree built and exactly retrieved the rust doc
         assert!(
             report.contains("vp-tree (exact)  : 3 doc(s), built=true, nearest=\"rust\""),
+            "{report}"
+        );
+        // the BK-tree corrected the misspelled query terms and still retrieved
+        assert!(
+            report.contains(
+                "fuzzy (typo-ok)  : 16 vocab terms, \"ownrship safty\" -> [\"ownership\", \"safety\"], nearest=\"rust\""
+            ),
             "{report}"
         );
         // the SimHash dedup filter collapsed the duplicate passages to one
