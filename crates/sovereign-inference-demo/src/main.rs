@@ -683,6 +683,19 @@ fn run_strategies_demo() -> String {
         vbytes.len()
     );
 
+    // Policy: canonical routing-preference weights + trust-boundary placement.
+    let prefs = sovereign_routing_preference::RoutingPreferences::canonical();
+    let wtotal = prefs.weight_total(sovereign_profile_bundles::BundleName::Sovereign);
+    let safe = sovereign_trust_boundaries::is_placement_safe(
+        sovereign_trust_boundaries::ToolTier::A,
+        sovereign_trust_boundaries::TrustZone::Host,
+    );
+    let _ = writeln!(
+        out,
+        "policy           : route_weight={wtotal} tierA@host_safe={safe} host_containment={}",
+        sovereign_trust_boundaries::TrustZone::Host.containment()
+    );
+
     // Governance/learning: the six-pillars governance model + deriving learning
     // signals from a task outcome.
     let pillars = sovereign_six_pillars::Pillar::all().len();
@@ -1640,6 +1653,12 @@ mod tests {
         );
         assert!(
             report.contains("governance       : pillars=6 learning_signals=6"),
+            "{report}"
+        );
+        assert!(
+            report.contains(
+                "policy           : route_weight=290 tierA@host_safe=true host_containment=0"
+            ),
             "{report}"
         );
         assert!(

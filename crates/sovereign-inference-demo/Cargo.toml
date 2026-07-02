@@ -105,4 +105,6 @@ sovereign-continuous-batch = { path = "../sovereign-continuous-batch" }
 sovereign-prompt-history-ring = { path = "../sovereign-prompt-history-ring" }
 sovereign-six-pillars = { path = "../sovereign-six-pillars" }
 sovereign-learning-signals = { path = "../sovereign-learning-signals" }
+sovereign-routing-preference = { path = "../sovereign-routing-preference" }
+sovereign-trust-boundaries = { path = "../sovereign-trust-boundaries" }
 sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }
