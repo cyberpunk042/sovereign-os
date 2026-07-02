@@ -693,3 +693,561 @@ catalog:
         Multilingual dense+sparse+colbert embedding model. Real on HF
         (8192 ctx). Complements the existing nomic-embed + bge-reranker
         RAG surface.
+
+
+    # ============================================================
+    # Operator handwritten catalog — aspirational / operator-must-confirm
+    # (2026-07-02). Coined + target models from the photos, captured with
+    # honest status: aspirational => a real base exists to quantize/substitute
+    # (closest_real_alternative); operator-must-confirm => coined, no HF repo
+    # found this pass (searched 2026-07-02).
+    # ============================================================
+
+    - id: RLM-Code-Reasoner-8B
+      tier: logic
+      engine: vllm
+      class: rlm
+      quantization: bf16
+      size_class: m
+      purpose: [reasoning, code]
+      status: operator-must-confirm
+      license: apache-2.0
+      closest_real_alternative: mit-oasys/rlm-qwen3-8b-v0.1
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: RLM code reasoner. Coined; RLM substrate (mit-oasys/rlm-qwen3-8b-v0.1) is the closest real base."
+
+    - id: Thinking-Machines-Interaction-1B
+      tier: pulse
+      engine: vllm
+      class: slm
+      quantization: bf16
+      size_class: s
+      purpose: [chat, agent]
+      status: operator-must-confirm
+      license: other
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: coined interaction SLM; no real repo found on HF."
+
+    - id: TernLM-3-8B-Instruct
+      tier: pulse
+      engine: bitnet.cpp
+      class: ternary-lm
+      quantization: ternary-1.58bit
+      size_class: m
+      purpose: [chat]
+      status: aspirational
+      license: mit
+      context_window_tokens: 4096
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: ternary 8B instruct target (1.58-bit); no exact HF repo."
+
+    - id: Phi-3-Mini-Ternary
+      tier: pulse
+      engine: bitnet.cpp
+      class: ternary-lm
+      quantization: ternary-1.58bit
+      size_class: s
+      purpose: [chat, code]
+      status: aspirational
+      license: mit
+      closest_real_alternative: microsoft/Phi-3-mini-4k-instruct
+      context_window_tokens: 4096
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: ternary quant of Phi-3-mini (base verified real on HF)."
+
+    - id: BitNet-70B
+      tier: oracle
+      engine: bitnet.cpp
+      class: ternary-lm
+      quantization: ternary-1.58bit
+      size_class: xl
+      purpose: [chat, reasoning]
+      status: aspirational
+      license: mit
+      closest_real_alternative: microsoft/bitnet-b1.58-2B-4T
+      context_window_tokens: 4096
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: no public 70B/120B BitNet exists; largest real is 2B-4T (the substitute)."
+
+    - id: Llama3-8B-Ternary
+      tier: pulse
+      engine: bitnet.cpp
+      class: ternary-lm
+      quantization: ternary-1.58bit
+      size_class: m
+      purpose: [chat, code]
+      status: aspirational
+      license: other
+      closest_real_alternative: meta-llama/Llama-3.1-8B
+      context_window_tokens: 131072
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: ternary quant of Llama-3.1-8B (base verified real, gated)."
+
+    - id: Mistral-2B-Ternary
+      tier: pulse
+      engine: bitnet.cpp
+      class: ternary-lm
+      quantization: ternary-1.58bit
+      size_class: s
+      purpose: [chat]
+      status: aspirational
+      license: other
+      closest_real_alternative: mistralai/Ministral-8B-Instruct-2410
+      context_window_tokens: 32768
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: small ternary Mistral; Ministral-3B is API-only, 8B is the open closest."
+
+    - id: Deepseek-V3-Ternary
+      tier: oracle
+      engine: vllm
+      class: ternary-lm
+      quantization: ternary-1.58bit
+      size_class: xxl
+      purpose: [reasoning, chat, code]
+      status: aspirational
+      license: other
+      closest_real_alternative: deepseek-ai/DeepSeek-V3
+      parameters_millions: 684531
+      context_window_tokens: 131072
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: PT2-LLM ternary DeepSeek-V3 (671B MoE base verified real). Distinct from the existing fp8 DeepSeek-V3-Quant entry."
+
+    - id: Gemma-4-LiteRt-2B
+      tier: pulse
+      engine: llama.cpp
+      class: slm
+      quantization: bf16
+      size_class: s
+      purpose: [chat, agent]
+      status: aspirational
+      license: other
+      closest_real_alternative: google/gemma-3-4b-it
+      context_window_tokens: 32768
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: 'Gemma 4' does not exist yet (latest is Gemma 3); LiteRT on-device. Name misremembered."
+
+    - id: TernaLM3-15B-Instruct
+      tier: logic
+      engine: bitnet.cpp
+      class: ternary-lm
+      quantization: ternary-1.58bit
+      size_class: m
+      purpose: [chat, reasoning]
+      status: aspirational
+      license: other
+      context_window_tokens: 4096
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: ternary 15B instruct target; no exact HF repo."
+
+    - id: BitNet-70B-132k-Context
+      tier: oracle
+      engine: bitnet.cpp
+      class: ternary-lm
+      quantization: ternary-1.58bit
+      size_class: xl
+      purpose: [reasoning]
+      status: aspirational
+      license: mit
+      closest_real_alternative: microsoft/bitnet-b1.58-2B-4T
+      context_window_tokens: 131072
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: long-context BitNet target; no public 70B BitNet exists."
+
+    - id: Nexus-Spec-1.1B
+      tier: router
+      engine: vllm
+      class: speculative
+      quantization: bf16
+      size_class: s
+      purpose: [speculation]
+      status: operator-must-confirm
+      license: other
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: coined speculative draft model; no real repo found."
+
+    - id: Deepseek-R1-Ternary-8B
+      tier: logic
+      engine: bitnet.cpp
+      class: ternary-lm
+      quantization: ternary-1.58bit
+      size_class: m
+      purpose: [reasoning]
+      status: aspirational
+      license: mit
+      closest_real_alternative: deepseek-ai/DeepSeek-R1-Distill-Llama-8B
+      context_window_tokens: 131072
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: ternary quant of DeepSeek-R1-Distill-Llama-8B (base verified real)."
+
+    - id: Llama-3-Tiny-3B
+      tier: pulse
+      engine: bitnet.cpp
+      class: ternary-lm
+      quantization: ternary-1.58bit
+      size_class: s
+      purpose: [agent]
+      status: aspirational
+      license: other
+      closest_real_alternative: meta-llama/Llama-3.2-3B-Instruct
+      context_window_tokens: 131072
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: ternary quant of Llama-3.2-3B (base verified real, gated)."
+
+    - id: Mistral-Tiny-3B
+      tier: pulse
+      engine: bitnet.cpp
+      class: ternary-lm
+      quantization: ternary-1.58bit
+      size_class: s
+      purpose: [agent]
+      status: aspirational
+      license: other
+      closest_real_alternative: mistralai/Ministral-8B-Instruct-2410
+      context_window_tokens: 32768
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: small ternary Mistral agent; Ministral-8B closest open."
+
+    - id: TernaryLM-132M
+      tier: pulse
+      engine: bitnet.cpp
+      class: ternary-lm
+      quantization: ternary-1.58bit
+      size_class: xs
+      purpose: [agent]
+      status: operator-must-confirm
+      license: other
+      parameters_millions: 132
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: tiny 132M ternary LM for CPU agent fallback; no real repo found."
+
+    - id: TRM-Recursive-Reasoner
+      tier: logic
+      engine: custom
+      class: rlm
+      quantization: bf16
+      size_class: xs
+      purpose: [reasoning]
+      status: operator-must-confirm
+      license: other
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: Tiny-Recursive-Model style reasoner; no matching HF repo found (2026-07-02)."
+
+    - id: Document-Ternary-3B
+      tier: logic
+      engine: bitnet.cpp
+      class: ternary-lm
+      quantization: ternary-1.58bit
+      size_class: s
+      purpose: [reasoning]
+      status: operator-must-confirm
+      license: other
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: coined document/reasoning ternary model; no real repo found."
+
+    - id: Recursive-Ref-Validator-2B
+      tier: logic
+      engine: vllm
+      class: rlm
+      quantization: bf16
+      size_class: s
+      purpose: [reasoning]
+      status: operator-must-confirm
+      license: other
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: coined reference-validation reasoner; no real repo found."
+
+    - id: Llama-3-thought-8B
+      tier: logic
+      engine: vllm
+      class: rlm
+      quantization: bf16
+      size_class: m
+      purpose: [reasoning]
+      status: aspirational
+      license: other
+      closest_real_alternative: meta-llama/Llama-3.1-8B
+      context_window_tokens: 131072
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: Llama-3 reasoning finetune target; base verified real."
+
+    - id: Qwen2.5-32B-trit-uniform
+      tier: logic
+      engine: bitnet.cpp
+      class: ternary-lm
+      quantization: ternary-1.58bit
+      size_class: l
+      purpose: [chat, code]
+      status: aspirational
+      license: apache-2.0
+      closest_real_alternative: Qwen/Qwen2.5-32B
+      context_window_tokens: 32768
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: trit-uniform (ternary) quant of Qwen2.5-32B (base verified real). mergekit base."
+
+    - id: Xinyuan-T-MoE-8x7B
+      tier: logic
+      engine: vllm
+      class: mixture
+      quantization: bf16
+      size_class: l
+      purpose: [chat, reasoning]
+      status: operator-must-confirm
+      license: apache-2.0
+      context_window_tokens: 32768
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: T-MoE 8x7B; no HF repo found under this name (2026-07-02). mergekit/MoE base."
+
+    - id: Zihan-Wang-coe
+      tier: logic
+      engine: vllm
+      class: mixture
+      quantization: bf16
+      size_class: m
+      purpose: [reasoning]
+      status: operator-must-confirm
+      license: other
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: 'Zihan Wang / coe' mergekit base; reading uncertain, no repo confirmed."
+
+    - id: Qwen2.5-Coder-72B-1.58bit
+      tier: oracle
+      engine: bitnet.cpp
+      class: ternary-lm
+      quantization: ternary-1.58bit
+      size_class: xl
+      purpose: [code]
+      status: aspirational
+      license: apache-2.0
+      closest_real_alternative: Qwen/Qwen2.5-Coder-32B-Instruct
+      context_window_tokens: 32768
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: no 72B Qwen2.5-Coder exists (largest real is 32B, the substitute); 1.58-bit target."
+
+    - id: Bash-Tiny-Coder-1B
+      tier: pulse
+      engine: llama.cpp
+      class: code
+      quantization: bf16
+      size_class: s
+      purpose: [code]
+      status: operator-must-confirm
+      license: other
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: coined shell/code tiny model; no real repo found."
+
+    - id: Flex-Prompt-Tiny-1B
+      tier: pulse
+      engine: llama.cpp
+      class: slm
+      quantization: bf16
+      size_class: s
+      purpose: [agent]
+      status: operator-must-confirm
+      license: other
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: coined prompt-shaping tiny model; no real repo found."
+
+    - id: Security-Phi-3-Mini
+      tier: pulse
+      engine: bitnet.cpp
+      class: ternary-lm
+      quantization: ternary-1.58bit
+      size_class: s
+      purpose: [chat, agent]
+      status: aspirational
+      license: mit
+      closest_real_alternative: microsoft/Phi-3-mini-4k-instruct
+      context_window_tokens: 4096
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: security-tuned ternary Phi-3-mini (purpose=security; base verified real)."
+
+    - id: Linux-Kernel-Tiny-1.5B
+      tier: pulse
+      engine: llama.cpp
+      class: slm
+      quantization: bf16
+      size_class: s
+      purpose: [code]
+      status: operator-must-confirm
+      license: other
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: coined kernel-specialist tiny model; no real repo found."
+
+    - id: BitNet-Math-Expert-30B
+      tier: logic
+      engine: bitnet.cpp
+      class: ternary-lm
+      quantization: ternary-1.58bit
+      size_class: l
+      purpose: [reasoning]
+      status: aspirational
+      license: mit
+      closest_real_alternative: microsoft/bitnet-b1.58-2B-4T
+      context_window_tokens: 4096
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: math-specialist ternary target (purpose=math->reasoning); no 30B BitNet exists."
+
+    - id: Tiny-Ternary-UI-3B
+      tier: pulse
+      engine: bitnet.cpp
+      class: ternary-lm
+      quantization: ternary-1.58bit
+      size_class: s
+      purpose: [agent]
+      status: operator-must-confirm
+      license: other
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: coined UI-specialist ternary model (purpose=ui->agent); no real repo found."
+
+    - id: Hive-Gate-7B
+      tier: logic
+      engine: vllm
+      class: mixture
+      quantization: bf16
+      size_class: m
+      purpose: [agent]
+      status: operator-must-confirm
+      license: other
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: coined coordination/gating model; no real repo found."
+
+    - id: TRM-Logic-Validator-2B
+      tier: logic
+      engine: custom
+      class: rlm
+      quantization: bf16
+      size_class: s
+      purpose: [reasoning]
+      status: operator-must-confirm
+      license: other
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: coined logic-validation reasoner; no real repo found."
+
+    - id: OWASP-Ternary-3B
+      tier: pulse
+      engine: bitnet.cpp
+      class: ternary-lm
+      quantization: ternary-1.58bit
+      size_class: s
+      purpose: [chat]
+      status: operator-must-confirm
+      license: other
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: coined security(OWASP)-specialist ternary model; no real repo found."
+
+    - id: HackerLM-tiny-3B
+      tier: pulse
+      engine: bitnet.cpp
+      class: ternary-lm
+      quantization: ternary-1.58bit
+      size_class: s
+      purpose: [chat, agent]
+      status: operator-must-confirm
+      license: other
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: coined security/pentest tiny model; no real repo found."
+
+    - id: LLaMA-Ternary-Context-1B
+      tier: pulse
+      engine: bitnet.cpp
+      class: ternary-lm
+      quantization: ternary-1.58bit
+      size_class: s
+      purpose: [chat]
+      status: aspirational
+      license: other
+      closest_real_alternative: meta-llama/Llama-3.2-1B
+      context_window_tokens: 131072
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: long-context ternary Llama-1B target; Llama-3.2-1B closest base."
+
+    - id: Logic-Loop-8B
+      tier: logic
+      engine: vllm
+      class: rlm
+      quantization: bf16
+      size_class: m
+      purpose: [reasoning]
+      status: operator-must-confirm
+      license: other
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: coined logic-loop reasoner; no real repo found."
+
+    - id: CodeLlama-Ternary-34B
+      tier: logic
+      engine: bitnet.cpp
+      class: ternary-lm
+      quantization: ternary-1.58bit
+      size_class: l
+      purpose: [code]
+      status: aspirational
+      license: other
+      closest_real_alternative: codellama/CodeLlama-34b-Instruct-hf
+      context_window_tokens: 16384
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: ternary quant of CodeLlama-34B (base verified real)."
+
+    - id: Mistral-Large-Ternary-80B
+      tier: oracle
+      engine: bitnet.cpp
+      class: ternary-lm
+      quantization: ternary-1.58bit
+      size_class: xl
+      purpose: [chat, reasoning]
+      status: aspirational
+      license: other
+      closest_real_alternative: mistralai/Mistral-Large-Instruct-2411
+      context_window_tokens: 131072
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: ternary quant of Mistral-Large (base is 123B, not 80B; verified real)."
+
+    - id: Mistral-Ternary-3x-70B
+      tier: oracle
+      engine: vllm
+      class: mixture
+      quantization: ternary-1.58bit
+      size_class: xl
+      purpose: [chat, reasoning]
+      status: operator-must-confirm
+      license: other
+      master_spec_section: "operator handwritten catalog addition 2026-07-02"
+      runtime_profile_bindings: []
+      operator_note: "Operator handwritten catalog 2026-07-02 — note: operator 'Mistral-Ternary 3x70B' — a replicated/ensemble group of 3; captured as a single mixture entry pending real base + composition decision."
