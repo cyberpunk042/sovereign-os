@@ -383,12 +383,15 @@ impl SovereignLlm {
             let mut correct = Vec::with_capacity(labels.len());
             for (lg, &label) in logits_list.iter().zip(&labels) {
                 let probs = sovereign_confidence_calibration::softmax_t(lg, temp);
-                let (arg, max_p) = probs.iter().enumerate().fold(
-                    (0usize, f64::NEG_INFINITY),
-                    |(bi, bp), (i, &p)| {
-                        if p > bp { (i, p) } else { (bi, bp) }
-                    },
-                );
+                // argmax of the (temperature-scaled) distribution.
+                let mut arg = 0usize;
+                let mut max_p = f64::NEG_INFINITY;
+                for (i, &p) in probs.iter().enumerate() {
+                    if p > max_p {
+                        max_p = p;
+                        arg = i;
+                    }
+                }
                 confidences.push(max_p);
                 correct.push(arg == label);
             }
