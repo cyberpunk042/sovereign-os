@@ -664,6 +664,28 @@ fn run_strategies_demo() -> String {
         vbytes.len()
     );
 
+    // Time-series monitoring of a metric stream with a level shift at t=6:
+    // Kalman smooths noise, Holt-Winters forecasts, CUSUM alarms on the shift.
+    let signal = [10.0, 10.4, 9.7, 10.2, 9.9, 10.1, 14.0, 14.3, 13.8, 14.1];
+    let mut kf = sovereign_kalman::KalmanFilter::new(10.0, 1.0, 0.01, 0.25);
+    let mut hw = sovereign_holt_winters::HoltWinters::new(0.5, 0.3, 0.0, 1).expect("hw");
+    hw.fit(&signal[..4]).expect("hw fit"); // seed level/trend from the first points
+    let mut cusum = sovereign_cusum::CusumDetector::new(10.0, 0.5, 4.0);
+    let mut smoothed = 0.0;
+    let mut alarm_at = None;
+    for (i, &x) in signal.iter().enumerate() {
+        smoothed = kf.observe(x);
+        let _ = hw.observe(x);
+        if alarm_at.is_none() && cusum.observe(x).is_some() {
+            alarm_at = Some(i);
+        }
+    }
+    let forecast = hw.forecast(1).unwrap_or(0.0);
+    let _ = writeln!(
+        out,
+        "time series      : kalman~{smoothed:.1} hw_forecast~{forecast:.1} cusum_alarm_at={alarm_at:?}"
+    );
+
     // early-stop: stop the moment the first sampled token recurs as a "stop".
     let stop = nrn[0];
     let stopped = model
@@ -1300,6 +1322,11 @@ mod tests {
             report.contains(
                 "coding           : huffman 149 bits (raw 240) ok=true; varint 40 bytes ok=true"
             ),
+            "{report}"
+        );
+        assert!(
+            report
+                .contains("time series      : kalman~12.4 hw_forecast~15.1 cusum_alarm_at=Some(7)"),
             "{report}"
         );
         assert!(report.contains("perplexity"));

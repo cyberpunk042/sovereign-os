@@ -64,4 +64,7 @@ sovereign-varint = { path = "../sovereign-varint" }
 sovereign-heavy-hitters = { path = "../sovereign-heavy-hitters" }
 sovereign-space-saving = { path = "../sovereign-space-saving" }
 sovereign-reservoir = { path = "../sovereign-reservoir" }
+sovereign-kalman = { path = "../sovereign-kalman" }
+sovereign-holt-winters = { path = "../sovereign-holt-winters" }
+sovereign-cusum = { path = "../sovereign-cusum" }
 sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }
