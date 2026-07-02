@@ -81,4 +81,7 @@ sovereign-p2-quantile = { path = "../sovereign-p2-quantile" }
 sovereign-weighted-reservoir = { path = "../sovereign-weighted-reservoir" }
 sovereign-moe-gate = { path = "../sovereign-moe-gate" }
 sovereign-rope-scaling = { path = "../sovereign-rope-scaling" }
+sovereign-levenshtein-automaton = { path = "../sovereign-levenshtein-automaton" }
+sovereign-significance = { path = "../sovereign-significance" }
+sovereign-calc = { path = "../sovereign-calc" }
 sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }

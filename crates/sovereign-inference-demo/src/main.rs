@@ -705,6 +705,23 @@ fn run_strategies_demo() -> String {
         iso.predict(3.0).unwrap_or(0.0)
     );
 
+    // Fuzzy automaton match (bounded edit distance), a paired significance test,
+    // and a safe arithmetic expression evaluator.
+    let lev = sovereign_levenshtein_automaton::LevenshteinAutomaton::new("memory", 1);
+    let lev_ok = lev.accepts("memery") && !lev.accepts("network");
+    // A (a new variant) scores consistently above B (baseline) → small p-value.
+    let pvalue = sovereign_significance::paired_bootstrap_pvalue(
+        &[12.0, 14.0, 13.0, 15.0, 14.0, 13.0],
+        &[10.0, 11.0, 9.0, 12.0, 10.0, 11.0],
+        2000,
+        7,
+    );
+    let calc = sovereign_calc::eval("2 * (3 + 4) - 1").unwrap_or(0.0);
+    let _ = writeln!(
+        out,
+        "misc primitives  : lev_ok={lev_ok} pvalue={pvalue:.2} calc={calc:.0}"
+    );
+
     // System-level MoE gating (route to the top experts) + RoPE context scaling
     // (extend the usable context window by linear position interpolation).
     let gate = sovereign_moe_gate::top_k_gate(&[0.5, 2.0, 1.0, 0.2], 2);
@@ -1442,6 +1459,10 @@ mod tests {
         );
         assert!(
             report.contains("moe/rope         : top_expert=1 weight=0.73 ctx 2048->8192"),
+            "{report}"
+        );
+        assert!(
+            report.contains("misc primitives  : lev_ok=true pvalue=0.00 calc=13"),
             "{report}"
         );
         assert!(report.contains("perplexity"));
