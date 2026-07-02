@@ -116,13 +116,13 @@ c = m.classify_card('NVIDIA GeForce RTX 4090')
 assert c is not None and c['matched_key'] == 'RTX 4090'
 c = m.classify_card('NVIDIA RTX PRO 6000 Blackwell')
 assert c is not None and c['matched_key'] == 'RTX PRO 6000'
-# Unmatched
-c = m.classify_card('NVIDIA RTX 4090')
+# Unmatched (3090 is no longer in the operator's rig; the card is now a 4090)
+c = m.classify_card('NVIDIA RTX 3090')
 assert c is None
 c = m.classify_card('NVIDIA T4')
 assert c is None
 " \
-  && ok "classify_card: substring matches 3090/PRO 6000, unmatched for 4090/T4" \
+  && ok "classify_card: substring matches 4090/PRO 6000, unmatched for 3090/T4" \
   || ko "classify heuristics wrong"
 
 # ---- live-findings logic: power_limit > operator cap → finding ----
