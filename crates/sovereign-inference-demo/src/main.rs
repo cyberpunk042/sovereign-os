@@ -885,6 +885,23 @@ fn run_rag_quality_demo() -> String {
         corpus_words.len()
     );
 
+    // String matching over text: Rabin-Karp substring search (rolling hash),
+    // suffix-automaton membership, and Smith-Waterman local alignment.
+    let haystack = b"the borrow checker enforces aliasing at compile time";
+    let positions = sovereign_rolling_hash::find_all(haystack, b"aliasing");
+    let sa = sovereign_suffix_automaton::SuffixAutomaton::build("rust ownership and memory safety");
+    let sa_hit = sa.contains("memory") && !sa.contains("python");
+    let aln = sovereign_local_align::align_str(
+        "memory safety",
+        "memroy safety",
+        sovereign_local_align::Scoring::default(),
+    );
+    let _ = writeln!(
+        out,
+        "string match     : rk_pos={positions:?} sa_hit={sa_hit} align_matches={}",
+        aln.alignment.matches()
+    );
+
     // Frequent-items + sampling over a skewed term stream (all sublinear):
     // Count-Min heavy-hitters, Space-Saving top-k, and reservoir sampling.
     let terms = [
@@ -1418,6 +1435,11 @@ mod tests {
         assert!(
             report
                 .contains("freq/sample      : hh_top=\"rust\" ss_top=\"rust\" reservoir_n=3 of 10"),
+            "{report}"
+        );
+        // string matching: Rabin-Karp + suffix-automaton + local alignment
+        assert!(
+            report.contains("string match     : rk_pos=[28] sa_hit=true align_matches=12"),
             "{report}"
         );
         // language detection classified the English query correctly

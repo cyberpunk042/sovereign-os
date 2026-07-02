@@ -67,4 +67,7 @@ sovereign-reservoir = { path = "../sovereign-reservoir" }
 sovereign-kalman = { path = "../sovereign-kalman" }
 sovereign-holt-winters = { path = "../sovereign-holt-winters" }
 sovereign-cusum = { path = "../sovereign-cusum" }
+sovereign-rolling-hash = { path = "../sovereign-rolling-hash" }
+sovereign-suffix-automaton = { path = "../sovereign-suffix-automaton" }
+sovereign-local-align = { path = "../sovereign-local-align" }
 sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }
