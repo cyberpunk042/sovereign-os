@@ -90,4 +90,9 @@ sovereign-kv-budget = { path = "../sovereign-kv-budget" }
 sovereign-viterbi = { path = "../sovereign-viterbi" }
 sovereign-watermark = { path = "../sovereign-watermark" }
 sovereign-semantic-chunk = { path = "../sovereign-semantic-chunk" }
+sovereign-tool-call-parse = { path = "../sovereign-tool-call-parse" }
+sovereign-skill-library = { path = "../sovereign-skill-library" }
+sovereign-prompt-template-registry = { path = "../sovereign-prompt-template-registry" }
+sovereign-execution-mode-registry = { path = "../sovereign-execution-mode-registry" }
+sovereign-profile-bundles = { path = "../sovereign-profile-bundles" }
 sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }

@@ -683,6 +683,42 @@ fn run_strategies_demo() -> String {
         vbytes.len()
     );
 
+    // Agent scaffolding: parse a JSON tool call, index skills by tag, render a
+    // variable-slot prompt template.
+    let calls = sovereign_tool_call_parse::parse_tool_calls(
+        r#"{"name":"search","arguments":{"q":"rust traits"}}"#,
+    );
+    let call_name = calls.first().map(|c| c.name.clone()).unwrap_or_default();
+    let mut skills = sovereign_skill_library::SkillLibrary::new();
+    let _ = skills.add(sovereign_skill_library::Skill::new(
+        "summarize",
+        "condense text",
+        &["read", "compress"],
+        &["nlp"],
+    ));
+    let _ = skills.add(sovereign_skill_library::Skill::new(
+        "translate",
+        "convert language",
+        &["detect", "map"],
+        &["nlp"],
+    ));
+    let mut reg = sovereign_prompt_template_registry::TemplateRegistry::new();
+    let _ = reg.add(sovereign_prompt_template_registry::PromptTemplate {
+        name: "greet".into(),
+        body: "Hello {{name}}.".into(),
+        variables: vec!["name".into()],
+        allowed_modes: vec![sovereign_execution_mode_registry::ExecutionMode::Execute],
+        allowed_bundles: vec![sovereign_profile_bundles::BundleName::Sovereign],
+    });
+    let mut vars = std::collections::BTreeMap::new();
+    vars.insert("name".to_string(), "rust".to_string());
+    let rendered = reg.render("greet", &vars).unwrap_or_default();
+    let _ = writeln!(
+        out,
+        "agent scaffold   : tool_call={call_name:?} nlp_skills={} render={rendered:?}",
+        skills.all_for("nlp").len()
+    );
+
     // Viterbi HMM decoding, LLM watermark detection, semantic text chunking.
     let hmm = sovereign_viterbi::Hmm::new(vec![0.6, 0.4], vec![vec![0.7, 0.3], vec![0.4, 0.6]])
         .expect("hmm");
@@ -1506,6 +1542,12 @@ mod tests {
         );
         assert!(
             report.contains("decode/text      : viterbi=[0, 1, 1] wm_z=7.7 chunks=4"),
+            "{report}"
+        );
+        assert!(
+            report.contains(
+                "agent scaffold   : tool_call=\"search\" nlp_skills=2 render=\"Hello rust.\""
+            ),
             "{report}"
         );
         assert!(
