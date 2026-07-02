@@ -103,4 +103,6 @@ sovereign-text-edit = { path = "../sovereign-text-edit" }
 sovereign-sse-parse = { path = "../sovereign-sse-parse" }
 sovereign-continuous-batch = { path = "../sovereign-continuous-batch" }
 sovereign-prompt-history-ring = { path = "../sovereign-prompt-history-ring" }
+sovereign-six-pillars = { path = "../sovereign-six-pillars" }
+sovereign-learning-signals = { path = "../sovereign-learning-signals" }
 sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }

@@ -683,6 +683,18 @@ fn run_strategies_demo() -> String {
         vbytes.len()
     );
 
+    // Governance/learning: the six-pillars governance model + deriving learning
+    // signals from a task outcome.
+    let pillars = sovereign_six_pillars::Pillar::all().len();
+    let signals = sovereign_learning_signals::derive_learning(
+        sovereign_learning_signals::TaskOutcome::Success,
+    )
+    .len();
+    let _ = writeln!(
+        out,
+        "governance       : pillars={pillars} learning_signals={signals}"
+    );
+
     // Continuous batching scheduler (admit requests into a running batch) +
     // a bounded prompt-history ring buffer.
     let mut sched = sovereign_continuous_batch::Scheduler::new(64, 16, 4);
@@ -1624,6 +1636,10 @@ mod tests {
         );
         assert!(
             report.contains("serving/history  : admitted=2 history_len=3"),
+            "{report}"
+        );
+        assert!(
+            report.contains("governance       : pillars=6 learning_signals=6"),
             "{report}"
         );
         assert!(
