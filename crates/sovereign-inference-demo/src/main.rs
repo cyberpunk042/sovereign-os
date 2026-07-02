@@ -89,10 +89,15 @@ fn ternary_layer() -> QuantDecoderBlock {
     .expect("valid ternary block")
 }
 
-/// An NVFP4 multi-head (GQA) block: 4 query heads, 2 KV heads, head_dim 2.
-fn nvfp4_mha_layer() -> MhaDecoderBlock {
+/// A multi-head (GQA) block at the **precision the profile resolved** for it —
+/// 4 query heads, 2 KV heads, head_dim 2. Nothing here is hardcoded to a
+/// precision: the caller passes whatever `PrecisionProfile::resolve` returned,
+/// so opting a layer from NVFP4 to INT8-VNNI (or f32) is a profile edit, not a
+/// code edit. `seed_base` offsets the deterministic demo weights per layer.
+fn mha_layer(precision: Precision, seed_base: f32) -> MhaDecoderBlock {
     let md = MODEL_DIM;
     let (nq, nkv, hd) = (4, 2, 2);
+    let s = |o: f32, n: usize| weights(seed_base + o, n);
     MhaDecoderBlock::from_weights(
         &MhaBlockWeights {
             model_dim: md,
@@ -102,48 +107,30 @@ fn nvfp4_mha_layer() -> MhaDecoderBlock {
             hidden_dim: md,
             attn_norm: RmsNorm::new(md),
             ffn_norm: RmsNorm::new(md),
-            w_q: weights(15.0, nq * hd * md),
-            w_k: weights(16.0, nkv * hd * md),
-            w_v: weights(17.0, nkv * hd * md),
-            w_o: weights(18.0, md * nq * hd),
-            w_gate: weights(19.0, md * md),
-            w_up: weights(20.0, md * md),
-            w_down: weights(21.0, md * md),
+            w_q: s(0.0, nq * hd * md),
+            w_k: s(1.0, nkv * hd * md),
+            w_v: s(2.0, nkv * hd * md),
+            w_o: s(3.0, md * nq * hd),
+            w_gate: s(4.0, md * md),
+            w_up: s(5.0, md * md),
+            w_down: s(6.0, md * md),
         },
-        Precision::Nvfp4,
+        precision,
     )
-    .expect("valid nvfp4 mha block")
+    .expect("valid mha block")
 }
 
-/// An INT8 VNNI (VPDPBUSD) multi-head block — the Zen-5 tier-1 hot path from
-/// the operator's AVX-512 note: per-row symmetric `i8` weights, asymmetric
-/// `u8` activations, `i32` accumulation.
-fn int8_mha_layer() -> MhaDecoderBlock {
-    let md = MODEL_DIM;
-    let (nq, nkv, hd) = (4, 2, 2);
-    MhaDecoderBlock::from_weights(
-        &MhaBlockWeights {
-            model_dim: md,
-            head_dim: hd,
-            num_q_heads: nq,
-            num_kv_heads: nkv,
-            hidden_dim: md,
-            attn_norm: RmsNorm::new(md),
-            ffn_norm: RmsNorm::new(md),
-            w_q: weights(22.0, nq * hd * md),
-            w_k: weights(23.0, nkv * hd * md),
-            w_v: weights(24.0, nkv * hd * md),
-            w_o: weights(25.0, md * nq * hd),
-            w_gate: weights(26.0, md * md),
-            w_up: weights(27.0, md * md),
-            w_down: weights(28.0, md * md),
-        },
-        Precision::Int8,
-    )
-    .expect("valid int8 mha block")
+/// The demo's precision plan. It is an ordinary [`PrecisionProfile`] value —
+/// swap it for `PrecisionProfile::f32()` to opt the whole stack out of
+/// quantization, or `int8_hot()` / `all_ternary()` / a hand-authored profile —
+/// and the stack rebuilds accordingly. `mixed()` resolves layers 0..=3 to
+/// f32 · ternary · NVFP4 · INT8-VNNI.
+fn demo_profile() -> sovereign_precision_profile::PrecisionProfile {
+    sovereign_precision_profile::PrecisionProfile::mixed()
 }
 
-/// Build the demo runtime: BPE tokenizer + mixed-precision 4-layer model.
+/// Build the demo runtime: BPE tokenizer + a 4-layer model whose per-layer
+/// precisions come from [`demo_profile`].
 fn build_runtime() -> QuantLlm {
     build_runtime_with(false)
 }
@@ -159,16 +146,21 @@ fn build_runtime_with(quantized_kv: bool) -> QuantLlm {
     let tokenizer = Tokenizer::from_merges(merges);
     let vocab = tokenizer.vocab_size();
 
-    let nvfp4 = if quantized_kv {
-        nvfp4_mha_layer().with_quantized_kv()
+    // Layers 2 and 3 are multi-head blocks built at whatever precision the
+    // profile resolves for them — not hardcoded. (Layers 0/1 use the dedicated
+    // dense-f32 and ternary block types; the profile's plan matches them.)
+    let profile = demo_profile();
+    let mha2 = mha_layer(profile.resolve(2), 15.0);
+    let mha2 = if quantized_kv {
+        mha2.with_quantized_kv()
     } else {
-        nvfp4_mha_layer()
+        mha2
     };
     let layers: Vec<Box<dyn DecoderLayer>> = vec![
         Box::new(f32_layer()),
         Box::new(ternary_layer()),
-        Box::new(nvfp4),
-        Box::new(int8_mha_layer()),
+        Box::new(mha2),
+        Box::new(mha_layer(profile.resolve(3), 22.0)),
     ];
     let stack = LayerStack::new(layers).expect("non-empty stack");
 
@@ -201,10 +193,22 @@ fn run_demo() -> String {
     let mut llm = build_runtime();
     let _ = writeln!(out, "=== sovereign quantized inference demo ===");
     let _ = writeln!(out, "tokenizer vocab : {}", llm.vocab_size());
+    // The precision plan is a profile value, not hardcoded — resolve + report it.
+    let profile = demo_profile();
+    let plan = profile.plan(llm.layers());
     let _ = writeln!(
         out,
         "decoder layers  : {} (f32 | ternary | NVFP4-MHA | INT8-VNNI-MHA)",
         llm.layers()
+    );
+    let _ = writeln!(
+        out,
+        "precision profile: {:?} → {:?} (opt-in/out; f32() opts all out) | tiers T1={} T2={} T3={}",
+        profile.name,
+        plan,
+        profile.tiers.t1_quant_dot,
+        profile.tiers.t2_bitwise_attn,
+        profile.tiers.t3_structure_kv
     );
     let _ = writeln!(out, "prompt          : {prompt:?}");
 
@@ -303,8 +307,9 @@ fn run_demo() -> String {
     );
 
     // ...and what the *actual* NVFP4 decoder layer above chose: each of its 7
-    // projections auto-selected its own M077 recipe at build time.
-    let chosen = nvfp4_mha_layer().nvfp4_recipes();
+    // projections auto-selected its own M077 recipe at build time. Layer 2 is
+    // the NVFP4 slot in the demo profile's plan.
+    let chosen = mha_layer(demo_profile().resolve(2), 15.0).nvfp4_recipes();
     let (mut plain, mut rht, mut twod) = (0, 0, 0);
     for (_, r) in &chosen {
         match r {
@@ -806,6 +811,9 @@ mod tests {
         // all four precisions run in one residual stream
         assert!(report.contains("decoder layers  : 4"));
         assert!(report.contains("INT8-VNNI-MHA"));
+        // the precision plan is a profile (opt-in/out), reported + resolved
+        assert!(report.contains("precision profile: \"mixed\""), "{report}");
+        assert!(report.contains("F32, Ternary, Nvfp4, Int8"), "{report}");
         // reproducibility line must report true
         assert!(report.contains("reproducible    : true"), "{report}");
     }

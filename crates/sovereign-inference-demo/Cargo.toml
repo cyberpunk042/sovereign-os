@@ -27,6 +27,7 @@ sovereign-mha-block = { path = "../sovereign-mha-block" }
 sovereign-rmsnorm = { path = "../sovereign-rmsnorm" }
 sovereign-ffn = { path = "../sovereign-ffn" }
 sovereign-linear = { path = "../sovereign-linear" }
+sovereign-precision-profile = { path = "../sovereign-precision-profile" }
 sovereign-bitlinear-core = { path = "../sovereign-bitlinear-core" }
 sovereign-nvfp4-runtime = { path = "../sovereign-nvfp4-runtime" }
 sovereign-quant-calibration = { path = "../sovereign-quant-calibration" }

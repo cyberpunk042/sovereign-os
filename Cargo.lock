@@ -4955,6 +4955,7 @@ dependencies = [
  "sovereign-mha-block",
  "sovereign-nvfp4-runtime",
  "sovereign-perplexity",
+ "sovereign-precision-profile",
  "sovereign-quant-block",
  "sovereign-quant-calibration",
  "sovereign-quant-llm",
@@ -5579,6 +5580,15 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "sovereign-precision-profile"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-linear",
 ]
 
 [[package]]
