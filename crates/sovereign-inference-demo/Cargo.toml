@@ -35,6 +35,8 @@ sovereign-sampler = { path = "../sovereign-sampler" }
 sovereign-logit-mask = { path = "../sovereign-logit-mask" }
 sovereign-decoder-stack = { path = "../sovereign-decoder-stack" }
 sovereign-repetition-penalty = { path = "../sovereign-repetition-penalty" }
+sovereign-logit-pipeline = { path = "../sovereign-logit-pipeline" }
+sovereign-no-repeat-ngram = { path = "../sovereign-no-repeat-ngram" }
 sovereign-beam-search = { path = "../sovereign-beam-search" }
 sovereign-speculative = { path = "../sovereign-speculative" }
 sovereign-perplexity = { path = "../sovereign-perplexity" }

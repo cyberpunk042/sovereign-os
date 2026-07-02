@@ -682,6 +682,49 @@ impl DecoderStack {
         Ok(generated)
     }
 
+    /// Generate up to `max_new` tokens driving each step's logits through a
+    /// **[`LogitPipeline`](sovereign_logit_pipeline::LogitPipeline)** — an ordered
+    /// list of logit processors (allow/ban masks, no-repeat-n-gram blocking, or
+    /// any caller-supplied [`LogitProcessor`](sovereign_logit_pipeline::LogitProcessor))
+    /// applied in one defined order over the prompt+generated history before
+    /// sampling. This is the composable generalization of the single-control
+    /// methods (`generate_masked`, `generate_no_repeat_ngram`): every control is
+    /// one entry in the pipeline, so their order is explicit and they can't be
+    /// forgotten. An empty pipeline is identical to [`generate`](Self::generate).
+    /// Reproducible per `seed`.
+    pub fn generate_piped(
+        &mut self,
+        prompt: &[usize],
+        max_new: usize,
+        seed: u64,
+        pipeline: &sovereign_logit_pipeline::LogitPipeline,
+    ) -> Result<Vec<usize>, StackError> {
+        if prompt.is_empty() {
+            return Err(StackError::EmptyPrompt);
+        }
+        let mut history: Vec<usize> = prompt.to_vec();
+        let mut logits = Vec::new();
+        for &t in prompt {
+            logits = self.forward(t)?;
+        }
+        let mut generated = Vec::with_capacity(max_new);
+        for _ in 0..max_new {
+            pipeline.apply(&history, &mut logits);
+            let pos = self.position() as u64;
+            let recent_start = self.recent.len().saturating_sub(self.config.recent_window);
+            let token = self.config.sampler.sample_seeded(
+                &logits,
+                &self.recent[recent_start..],
+                seed.wrapping_add(pos),
+            )?;
+            self.recent.push(token);
+            history.push(token);
+            generated.push(token);
+            logits = self.forward(token)?;
+        }
+        Ok(generated)
+    }
+
     /// Generate up to `max_new` tokens applying **DRY** (Don't Repeat Yourself)
     /// to the logits each step before sampling: each candidate is penalized by how
     /// long a previously-generated sequence picking it would extend (exponential
@@ -844,6 +887,38 @@ mod tests {
             .unwrap();
         assert_eq!(out.len(), 6);
         assert!(out.iter().all(|&t| (1..=2).contains(&t)), "{out:?}");
+    }
+
+    #[test]
+    fn piped_empty_pipeline_equals_plain_generate() {
+        use sovereign_logit_pipeline::LogitPipeline;
+        let cfg = config(8, 4, 2, Sampler::greedy());
+        let plain = DecoderStack::new(cfg.clone())
+            .unwrap()
+            .generate(&[1, 2], 6, 9)
+            .unwrap();
+        let piped = DecoderStack::new(cfg)
+            .unwrap()
+            .generate_piped(&[1, 2], 6, 9, &LogitPipeline::new())
+            .unwrap();
+        assert_eq!(piped, plain);
+    }
+
+    #[test]
+    fn piped_composes_multiple_ban_processors() {
+        use sovereign_logit_pipeline::{LogitPipeline, MaskProcessor};
+        // two mask processors, each banning a different token — the pipeline must
+        // apply BOTH each step, so neither banned token can ever be emitted.
+        let mut m = DecoderStack::new(config(8, 4, 2, Sampler::greedy())).unwrap();
+        let pipeline = LogitPipeline::new()
+            .with(Box::new(MaskProcessor(LogitMask::new().ban_all([5, 6, 7]))))
+            .with(Box::new(MaskProcessor(LogitMask::new().ban_all([0, 1]))));
+        let out = m.generate_piped(&[2, 3], 8, 7, &pipeline).unwrap();
+        assert_eq!(out.len(), 8);
+        assert!(
+            out.iter().all(|&t| ![0, 1, 5, 6, 7].contains(&t)),
+            "banned token leaked: {out:?}"
+        );
     }
 
     #[test]

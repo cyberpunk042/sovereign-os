@@ -596,6 +596,25 @@ fn run_strategies_demo() -> String {
         .expect("typical");
     let _ = writeln!(out, "typical (m=0.9) : {typ:?}");
 
+    // composable logit pipeline: ban a token AND block 2-gram repeats, in one
+    // ordered pass — every control is an entry in the pipeline.
+    let pipeline = sovereign_logit_pipeline::LogitPipeline::new()
+        .with(Box::new(sovereign_logit_pipeline::MaskProcessor(
+            sovereign_logit_mask::LogitMask::new().ban_all([0, 1, 2]),
+        )))
+        .with(Box::new(sovereign_logit_pipeline::NoRepeatProcessor(
+            sovereign_no_repeat_ngram::NoRepeatNgram::new(2),
+        )));
+    let piped = model
+        .clone()
+        .generate_piped(&prompt, 8, 42, &pipeline)
+        .expect("piped");
+    let banned_leaked = piped.iter().any(|&t| [0usize, 1, 2].contains(&t));
+    let _ = writeln!(
+        out,
+        "logit pipeline  : {piped:?} (2 processors; banned leaked: {banned_leaked})"
+    );
+
     // early-stop: stop the moment the first sampled token recurs as a "stop".
     let stop = nrn[0];
     let stopped = model
@@ -1040,6 +1059,10 @@ mod tests {
         assert!(report.contains("speculative"));
         assert!(report.contains("penalized       :"), "{report}");
         assert!(report.contains("typical (m=0.9) :"), "{report}");
+        assert!(
+            report.contains("logit pipeline  :") && report.contains("banned leaked: false"),
+            "{report}"
+        );
         assert!(report.contains("perplexity"));
         assert!(report.contains("round-trip ok = true"), "{report}");
     }
