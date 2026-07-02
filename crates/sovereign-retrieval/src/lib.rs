@@ -524,6 +524,87 @@ impl Retriever for AnnStore {
     }
 }
 
+/// A **binary-quantized** semantic store: it embeds each document, keeps only the
+/// *sign bit* of every component (a 32× memory cut over the `f32` vectors), and
+/// ranks by **Hamming distance** — an XOR-and-popcount that tracks cosine order
+/// for centered embeddings. This is the cheap *shortlist* stage of the standard
+/// binary recipe: scan the codes to narrow the field, then rerank the survivors
+/// with full precision. It composes directly with [`Reranked`] to do exactly
+/// that (binary shortlist → coverage rerank).
+///
+/// Backed by [`sovereign-binary-quant`], which was previously built but unused;
+/// this store is its consumer.
+///
+/// [`sovereign-binary-quant`]: https://docs.rs/sovereign-binary-quant
+pub struct BinaryHammingStore {
+    /// `(id, text)` aligned by index with `codes`.
+    docs: Vec<(String, String)>,
+    /// One binary code per document, aligned with `docs`.
+    codes: Vec<sovereign_binary_quant::BinaryCode>,
+}
+
+impl Default for BinaryHammingStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl BinaryHammingStore {
+    /// An empty binary-quantized store over the default embedding.
+    pub fn new() -> Self {
+        Self {
+            docs: Vec::new(),
+            codes: Vec::new(),
+        }
+    }
+
+    /// Embed `text`, binary-quantize it, and index it under `id`. The code index
+    /// stays aligned with `docs` (both grow by one).
+    pub fn add(&mut self, id: impl Into<String>, text: impl Into<String>) {
+        let id = id.into();
+        let text = text.into();
+        let code = sovereign_binary_quant::quantize(&sovereign_embed::embed(&text));
+        self.codes.push(code);
+        self.docs.push((id, text));
+    }
+
+    /// Number of indexed documents.
+    pub fn len(&self) -> usize {
+        self.docs.len()
+    }
+
+    /// Whether the store is empty.
+    pub fn is_empty(&self) -> bool {
+        self.docs.is_empty()
+    }
+
+    /// Top-`k` `(id, text, hamming)` for `query` by Hamming distance over the
+    /// binary codes (lower is nearer; ties by insertion index).
+    pub fn retrieve(&self, query: &str, k: usize) -> Vec<(String, String, u32)> {
+        if self.docs.is_empty() || k == 0 {
+            return Vec::new();
+        }
+        let q = sovereign_binary_quant::quantize(&sovereign_embed::embed(query));
+        sovereign_binary_quant::search(&q, &self.codes, k)
+            .into_iter()
+            .filter_map(|(i, dist)| {
+                self.docs
+                    .get(i)
+                    .map(|(id, text)| (id.clone(), text.clone(), dist))
+            })
+            .collect()
+    }
+}
+
+impl Retriever for BinaryHammingStore {
+    fn retrieve_context(&self, query: &str, k: usize) -> Vec<String> {
+        self.retrieve(query, k)
+            .into_iter()
+            .map(|(_, text, _)| text)
+            .collect()
+    }
+}
+
 /// Wraps any [`Retriever`] with a second-stage **reranker**: it pulls a *wider*
 /// pool from the inner retriever, then rescores that pool for precision with
 /// [`sovereign-rerank`](sovereign_rerank)'s coverage ranking — the fraction of
@@ -1161,6 +1242,56 @@ mod tests {
         let prompts = seen.borrow();
         assert!(prompts[0].starts_with("Context:\n"));
         assert!(prompts[0].contains("rust ownership"));
+    }
+
+    #[test]
+    fn binary_hamming_store_shortlists_the_nearest_document() {
+        let mut s = BinaryHammingStore::new();
+        s.add("rust", "rust ownership governs memory safety");
+        s.add("python", "python is a dynamically typed scripting language");
+        s.add("cook", "pasta with tomato sauce and basil");
+        assert_eq!(s.len(), 3);
+        // the binary shortlist finds the rust doc nearest by Hamming distance
+        let hits = s.retrieve("rust memory ownership", 1);
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].0, "rust", "binary hits {hits:?}");
+    }
+
+    #[test]
+    fn binary_hamming_store_empty_and_zero_k() {
+        assert!(BinaryHammingStore::new().retrieve("anything", 3).is_empty());
+        let mut s = BinaryHammingStore::new();
+        s.add("a", "some text here");
+        assert!(s.retrieve("text", 0).is_empty());
+    }
+
+    #[test]
+    fn binary_hamming_store_drives_rag() {
+        let mut s = BinaryHammingStore::new();
+        s.add("rust", "rust ownership and systems programming");
+        s.add("cook", "pasta tomato sauce recipe");
+        let seen = Rc::new(RefCell::new(Vec::new()));
+        let inner = Capture { seen: seen.clone() };
+        let mut rag = RagResponder::new(inner, s, 1);
+        rag.respond("rusty systems programs", 0).unwrap();
+        let prompts = seen.borrow();
+        assert!(prompts[0].starts_with("Context:\n"));
+        assert!(prompts[0].contains("rust ownership"));
+    }
+
+    #[test]
+    fn binary_shortlist_then_rerank_recipe() {
+        // The canonical two-stage: a cheap binary Hamming shortlist feeding a
+        // precision coverage rerank. Reranked pulls a wider pool from the binary
+        // store, then rescores it — the query-covering doc must survive on top.
+        let mut s = BinaryHammingStore::new();
+        s.add("rust", "rust ownership and borrow checker memory safety");
+        s.add("python", "python scripting and dynamic typing");
+        s.add("cook", "pasta with tomato sauce and fresh basil");
+        let reranked = Reranked::new(s, 3, 3);
+        let hits = reranked.retrieve_context("rust memory safety ownership", 1);
+        assert_eq!(hits.len(), 1);
+        assert!(hits[0].contains("rust ownership"), "reranked hits {hits:?}");
     }
 
     #[test]

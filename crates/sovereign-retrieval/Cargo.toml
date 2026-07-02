@@ -26,3 +26,4 @@ sovereign-rerank = { path = "../sovereign-rerank" }
 sovereign-injection-detect = { path = "../sovereign-injection-detect" }
 sovereign-keywords = { path = "../sovereign-keywords" }
 sovereign-hnsw = { path = "../sovereign-hnsw" }
+sovereign-binary-quant = { path = "../sovereign-binary-quant" }

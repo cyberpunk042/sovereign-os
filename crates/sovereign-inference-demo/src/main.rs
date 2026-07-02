@@ -681,7 +681,7 @@ fn run_rag_quality_demo() -> String {
     use sovereign_degeneration::Config as DegenConfig;
     use sovereign_llm::SovereignLlm;
     use sovereign_retrieval::{
-        HybridStore, InjectionFiltered, KeyphraseQuery, Reranked, Retriever,
+        BinaryHammingStore, HybridStore, InjectionFiltered, KeyphraseQuery, Reranked, Retriever,
     };
     use std::fmt::Write as _;
 
@@ -724,6 +724,28 @@ fn run_rag_quality_demo() -> String {
         out,
         "poisoned leaked  : {}",
         hits.iter().any(|h| h.contains("ignore previous"))
+    );
+
+    // Binary-quantized shortlist: sign-bit codes (32x smaller than the f32
+    // vectors), ranked by XOR-popcount Hamming distance — the cheap first stage
+    // that narrows the field before a full-precision rerank.
+    let mut binstore = BinaryHammingStore::new();
+    binstore.add("rust", "rust ownership gives memory safety without a gc");
+    binstore.add(
+        "borrow",
+        "the borrow checker enforces aliasing at compile time",
+    );
+    binstore.add("cook", "pasta with tomato sauce and basil");
+    let shortlist = binstore.retrieve("rust memory safety", 2);
+    let _ = writeln!(
+        out,
+        "binary shortlist : {} code(s), nearest={:?} @ hamming {}",
+        binstore.len(),
+        shortlist
+            .first()
+            .map(|(id, _, _)| id.as_str())
+            .unwrap_or("-"),
+        shortlist.first().map(|(_, _, d)| *d).unwrap_or(0)
     );
 
     // Generation quality controls on the real runtime.
@@ -873,6 +895,11 @@ mod tests {
         // the safety pipeline kept the poisoned passage out of the context
         assert!(report.contains("poisoned leaked  : false"), "{report}");
         assert!(report.contains("ownership gives memory safety"), "{report}");
+        // the binary-quantized shortlist ran and picked the rust doc as nearest
+        assert!(
+            report.contains("binary shortlist : 3 code(s), nearest=\"rust\""),
+            "{report}"
+        );
         // the generation quality controls all ran and reported
         assert!(report.contains("prompt compress  :"));
         assert!(report.contains("best-of-4 divers.:"));
