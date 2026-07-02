@@ -138,3 +138,8 @@ sovereign-unigram-tokenizer = { path = "../sovereign-unigram-tokenizer" }
 sovereign-consistent-hash = { path = "../sovereign-consistent-hash" }
 sovereign-rendezvous-hash = { path = "../sovereign-rendezvous-hash" }
 sovereign-p2c-balance = { path = "../sovereign-p2c-balance" }
+sovereign-arg-schema = { path = "../sovereign-arg-schema" }
+sovereign-context-pack = { path = "../sovereign-context-pack" }
+sovereign-tool-invocation-record = { path = "../sovereign-tool-invocation-record" }
+sovereign-tool-catalog = { path = "../sovereign-tool-catalog" }
+serde_json = { workspace = true }

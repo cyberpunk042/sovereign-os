@@ -1777,6 +1777,48 @@ fn run_rag_quality_demo() -> String {
         p2c.total_in_flight()
     );
 
+    // Agent-tooling plane: validate a tool call's arguments, record the
+    // invocation immutably, and pack retrieved context into the window. arg-schema
+    // type-checks the JSON the model produced for a tool (collecting every
+    // violation); the invocation record is the immutable audit row for the call;
+    // context-pack solves the 0/1 knapsack of which retrieved chunks fit the token
+    // budget by relevance — not just top-k-until-full.
+    let schema = sovereign_arg_schema::Schema::new()
+        .require("path", sovereign_arg_schema::FieldType::String)
+        .optional("limit", sovereign_arg_schema::FieldType::Number);
+    let good = serde_json::json!({"path": "/etc/hostname", "limit": 40});
+    let bad = serde_json::json!({"limit": "many"}); // missing path + wrong type
+    let args_ok = schema.is_valid(&good);
+    let arg_errs = schema.validate(&bad).err().map(|e| e.len()).unwrap_or(0);
+
+    let record = sovereign_tool_invocation_record::InvocationRecord::new(
+        "trace-001",
+        sovereign_tool_catalog::ToolId::FsRead,
+        sovereign_execution_mode_registry::ExecutionMode::Plan,
+        sovereign_profile_bundles::BundleName::Private,
+        "2026-07-02T00:00:00Z",
+        "2026-07-02T00:00:01Z",
+        sovereign_tool_invocation_record::ExitKind::Success,
+        128,
+    );
+    let record_ok = record.validate(None).is_ok();
+
+    let chunks = [
+        sovereign_context_pack::Item::new(30, 0.9),
+        sovereign_context_pack::Item::new(50, 1.0),
+        sovereign_context_pack::Item::new(20, 0.5),
+    ];
+    let packed = sovereign_context_pack::pack(&chunks, 60);
+    let _ = writeln!(
+        out,
+        "agent tooling    : args_ok={} arg_errs={} record_ok={} packed={} pack_tokens={}",
+        args_ok,
+        arg_errs,
+        record_ok,
+        packed.selected.len(),
+        packed.total_tokens
+    );
+
     out
 }
 
@@ -1997,6 +2039,15 @@ mod tests {
         assert!(
             report.contains(
                 "placement        : ch_stable=true hrw_pick=Some(\"replica-c\") hrw_k=2 p2c_maxload=2 p2c_total=6"
+            ),
+            "{report}"
+        );
+        // agent tooling ran: arg-schema accepted a valid tool call and found 2
+        // violations in a bad one, the invocation record validated, and
+        // context-pack fit 2 chunks (50 tokens) into a 60-token budget by value
+        assert!(
+            report.contains(
+                "agent tooling    : args_ok=true arg_errs=2 record_ok=true packed=2 pack_tokens=50"
             ),
             "{report}"
         );

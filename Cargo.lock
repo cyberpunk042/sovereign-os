@@ -4942,9 +4942,11 @@ dependencies = [
 name = "sovereign-inference-demo"
 version = "0.1.0"
 dependencies = [
+ "serde_json",
  "sovereign-agent-loop",
  "sovereign-agent-runtime",
  "sovereign-aimd-limiter",
+ "sovereign-arg-schema",
  "sovereign-bandit",
  "sovereign-beam-search",
  "sovereign-bin-packing",
@@ -4956,6 +4958,7 @@ dependencies = [
  "sovereign-circuit-breaker",
  "sovereign-community-detect",
  "sovereign-consistent-hash",
+ "sovereign-context-pack",
  "sovereign-continuous-batch",
  "sovereign-cuckoo-filter",
  "sovereign-cusum",
@@ -5049,7 +5052,9 @@ dependencies = [
  "sovereign-text-edit",
  "sovereign-tokenizer",
  "sovereign-tool-call-parse",
+ "sovereign-tool-catalog",
  "sovereign-tool-dispatch",
+ "sovereign-tool-invocation-record",
  "sovereign-toxicity",
  "sovereign-transformer-block",
  "sovereign-trust-boundaries",
