@@ -856,6 +856,17 @@ fn run_rag_quality_demo() -> String {
         .expect("screened");
     let _ = writeln!(out, "toxicity screen  : flagged={toxic}");
 
+    // Self-consistency: draw several samples and majority-vote; the agreement
+    // fraction is a cheap confidence signal on the voted answer.
+    let vote = llm
+        .complete_self_consistent("rust memory", 12, 7, 5)
+        .expect("self-consistency");
+    let _ = writeln!(
+        out,
+        "self-consistency : {}/{} agree (agreement={:.2}) on the majority answer",
+        vote.count, vote.total, vote.agreement
+    );
+
     // Constrained decoding: the regex mask forces digits-only output regardless
     // of the (random) weights — guaranteed-format generation.
     let digits = llm
@@ -998,6 +1009,10 @@ mod tests {
         );
         // the generation quality controls all ran and reported
         assert!(report.contains("prompt compress  :"));
+        assert!(
+            report.contains("self-consistency :") && report.contains("agree (agreement="),
+            "{report}"
+        );
         assert!(report.contains("best-of-4 divers.:"));
         assert!(report.contains("degeneration     :"));
         assert!(report.contains("confidence       :"));

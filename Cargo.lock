@@ -5226,6 +5226,7 @@ dependencies = [
  "sovereign-rmsnorm",
  "sovereign-sampler",
  "sovereign-secret-scan",
+ "sovereign-self-consistency",
  "sovereign-semantic-cache",
  "sovereign-token-grammar-mask",
  "sovereign-token-healing",

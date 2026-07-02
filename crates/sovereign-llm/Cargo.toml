@@ -40,6 +40,7 @@ sovereign-dry-sampler = { path = "../sovereign-dry-sampler" }
 sovereign-repetition-penalty = { path = "../sovereign-repetition-penalty" }
 sovereign-typical-sampling = { path = "../sovereign-typical-sampling" }
 sovereign-semantic-cache = { path = "../sovereign-semantic-cache" }
+sovereign-self-consistency = { path = "../sovereign-self-consistency" }
 
 [dev-dependencies]
 sovereign-transformer-block = { path = "../sovereign-transformer-block" }

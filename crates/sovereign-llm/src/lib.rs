@@ -30,6 +30,10 @@ use sovereign_sampler::Mirostat;
 use sovereign_tokenizer::Tokenizer;
 use thiserror::Error;
 
+/// The majority-vote result of [`SovereignLlm::complete_self_consistent`],
+/// re-exported from [`sovereign-self-consistency`](sovereign_self_consistency).
+pub use sovereign_self_consistency::Vote;
+
 /// Schema version of the LLM runtime surface.
 pub const SCHEMA_VERSION: &str = "1.0.0";
 
@@ -56,6 +60,9 @@ pub enum LlmError {
     /// The constraint pattern for constrained decoding was invalid.
     #[error("regex: {0}")]
     Regex(String),
+    /// A self-consistency vote failed (zero samples, or all draws errored).
+    #[error("self-consistency: {0}")]
+    SelfConsistency(String),
 }
 
 /// The serializable definition of a runtime: a tokenizer + a model config.
@@ -267,6 +274,30 @@ impl SovereignLlm {
         let gen_ids = model.generate_typical(&prompt_ids, max_new, seed, mass)?;
         let out_ids: Vec<u32> = gen_ids.iter().map(|&i| i as u32).collect();
         Ok(self.tokenizer.decode(&out_ids).unwrap_or_default())
+    }
+
+    /// Complete `prompt` **`samples` times** (seeds `base_seed..base_seed+samples`)
+    /// and return the **majority answer** with its agreement fraction
+    /// (`sovereign-self-consistency`). Drawing several independent completions and
+    /// voting is the self-consistency trick: for a task with one right answer,
+    /// the majority across samples is more reliable than any single greedy decode,
+    /// and the returned `agreement` is a cheap confidence signal. With a
+    /// deterministic (e.g. greedy) sampler all samples coincide (agreement `1.0`);
+    /// a temperature sampler produces the spread the vote is meant to resolve.
+    /// Reproducible per `base_seed`.
+    pub fn complete_self_consistent(
+        &self,
+        prompt: &str,
+        max_new: usize,
+        base_seed: u64,
+        samples: usize,
+    ) -> Result<Vote, LlmError> {
+        sovereign_self_consistency::SelfConsistency::new(samples)
+            .run(base_seed, |seed| {
+                self.complete(prompt, max_new, seed)
+                    .map_err(|e| e.to_string())
+            })
+            .map_err(|e| LlmError::SelfConsistency(e.to_string()))
     }
 
     /// Complete `prompt` after **fitting it to a context budget**: if the prompt
@@ -1087,6 +1118,46 @@ mod tests {
         let tok = Tokenizer::default().with_specials(["<eos>"]); // vocab 257
         let cfg = model_config(tok.vocab_size(), 4, 2, sampler);
         SovereignLlm::new(tok, cfg).unwrap()
+    }
+
+    #[test]
+    fn self_consistent_greedy_is_unanimous() {
+        // a deterministic sampler makes every sample identical → full agreement,
+        // and the voted answer equals a single greedy completion
+        let llm = runtime(Sampler::greedy());
+        let vote = llm.complete_self_consistent("hello", 6, 4, 5).unwrap();
+        assert_eq!(vote.total, 5);
+        assert_eq!(vote.count, 5);
+        assert!((vote.agreement - 1.0).abs() < 1e-9);
+        assert_eq!(vote.answer, llm.complete("hello", 6, 4).unwrap());
+    }
+
+    #[test]
+    fn self_consistent_is_reproducible() {
+        let a = runtime(Sampler::new(SamplerConfig {
+            temperature: 0.9,
+            top_k: Some(40),
+            ..SamplerConfig::default()
+        }));
+        let b = runtime(Sampler::new(SamplerConfig {
+            temperature: 0.9,
+            top_k: Some(40),
+            ..SamplerConfig::default()
+        }));
+        let va = a.complete_self_consistent("hello there", 8, 7, 4).unwrap();
+        let vb = b.complete_self_consistent("hello there", 8, 7, 4).unwrap();
+        assert_eq!(va.answer, vb.answer);
+        assert_eq!(va.count, vb.count);
+        assert_eq!(va.total, 4);
+    }
+
+    #[test]
+    fn self_consistent_zero_samples_errors() {
+        let llm = runtime(Sampler::greedy());
+        assert!(matches!(
+            llm.complete_self_consistent("hello", 6, 4, 0),
+            Err(LlmError::SelfConsistency(_))
+        ));
     }
 
     #[test]
