@@ -61,4 +61,7 @@ sovereign-cuckoo-filter = { path = "../sovereign-cuckoo-filter" }
 sovereign-hyperloglog = { path = "../sovereign-hyperloglog" }
 sovereign-huffman = { path = "../sovereign-huffman" }
 sovereign-varint = { path = "../sovereign-varint" }
+sovereign-heavy-hitters = { path = "../sovereign-heavy-hitters" }
+sovereign-space-saving = { path = "../sovereign-space-saving" }
+sovereign-reservoir = { path = "../sovereign-reservoir" }
 sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }

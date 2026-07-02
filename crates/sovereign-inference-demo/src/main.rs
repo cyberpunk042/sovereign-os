@@ -863,6 +863,45 @@ fn run_rag_quality_demo() -> String {
         corpus_words.len()
     );
 
+    // Frequent-items + sampling over a skewed term stream (all sublinear):
+    // Count-Min heavy-hitters, Space-Saving top-k, and reservoir sampling.
+    let terms = [
+        "rust",
+        "rust",
+        "rust",
+        "memory",
+        "memory",
+        "safety",
+        "ownership",
+        "rust",
+        "memory",
+        "borrow",
+    ];
+    let mut hh = sovereign_heavy_hitters::HeavyHitters::new(3, 0.01, 0.01);
+    let mut ss = sovereign_space_saving::SpaceSaving::new(4);
+    let mut res = sovereign_reservoir::Reservoir::new(3, 7);
+    for t in terms {
+        hh.offer(t);
+        ss.observe(t.to_string());
+        res.offer(t.to_string());
+    }
+    let hh_top = hh
+        .top_k()
+        .first()
+        .map(|(k, _)| k.clone())
+        .unwrap_or_default();
+    let ss_top = ss
+        .top_k(1)
+        .first()
+        .map(|e| e.item.clone())
+        .unwrap_or_default();
+    let _ = writeln!(
+        out,
+        "freq/sample      : hh_top={hh_top:?} ss_top={ss_top:?} reservoir_n={} of {}",
+        res.samples().len(),
+        terms.len()
+    );
+
     // Language detection (Cavnar-Trenkle char-trigrams): train a few languages,
     // then classify a query — useful for routing or tagging retrieved text.
     let mut langs = sovereign_language_detect::LanguageDetector::new();
@@ -1346,6 +1385,12 @@ mod tests {
             report.contains(
                 "membership/card  : bloom_ok=true cuckoo_del=true hll_distinct~10 (of 12 terms)"
             ),
+            "{report}"
+        );
+        // frequent-items (heavy-hitters + space-saving) agree; reservoir sampled
+        assert!(
+            report
+                .contains("freq/sample      : hh_top=\"rust\" ss_top=\"rust\" reservoir_n=3 of 10"),
             "{report}"
         );
         // language detection classified the English query correctly
