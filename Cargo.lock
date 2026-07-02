@@ -5902,6 +5902,7 @@ dependencies = [
  "sovereign-minhash",
  "sovereign-rank-fusion",
  "sovereign-rerank",
+ "sovereign-simhash",
 ]
 
 [[package]]

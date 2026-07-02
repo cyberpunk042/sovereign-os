@@ -703,8 +703,8 @@ fn run_rag_quality_demo() -> String {
     use sovereign_degeneration::Config as DegenConfig;
     use sovereign_llm::SovereignLlm;
     use sovereign_retrieval::{
-        BinaryHammingStore, HybridStore, InjectionFiltered, IvfStore, KeyphraseQuery, Reranked,
-        Retriever,
+        BinaryHammingStore, Deduped, HybridStore, InjectionFiltered, IvfStore, KeyphraseQuery,
+        Reranked, Retriever,
     };
     use std::fmt::Write as _;
 
@@ -791,6 +791,20 @@ fn run_rag_quality_demo() -> String {
             .first()
             .map(|(id, _, _)| id.as_str())
             .unwrap_or("-")
+    );
+
+    // Near-duplicate filter: a SimHash fingerprint collapses re-crawled / copied
+    // passages so they don't each burn a slot in the top-k.
+    let mut dup_store = HybridStore::new();
+    dup_store.add("a", "rust ownership gives memory safety without a gc");
+    dup_store.add("b", "rust ownership gives memory safety without a gc");
+    dup_store.add("c", "pasta with tomato sauce and basil");
+    let raw_n = dup_store.retrieve_context("rust memory", 3).len();
+    let deduped = Deduped::with_defaults(dup_store);
+    let dedup_n = deduped.retrieve_context("rust memory", 3).len();
+    let _ = writeln!(
+        out,
+        "dedup filter     : {raw_n} passage(s) -> {dedup_n} after near-dup drop"
     );
 
     // Generation quality controls on the real runtime.
@@ -975,6 +989,11 @@ mod tests {
         // the semantic cache missed on the first call and hit on the repeat
         assert!(
             report.contains("semantic cache   : first cached=false, repeat cached=true"),
+            "{report}"
+        );
+        // the SimHash dedup filter collapsed the duplicate passages to one
+        assert!(
+            report.contains("dedup filter     : 2 passage(s) -> 1 after near-dup drop"),
             "{report}"
         );
         // the generation quality controls all ran and reported

@@ -823,6 +823,93 @@ impl<R: Retriever> Retriever for Reranked<R> {
     }
 }
 
+/// Wraps any [`Retriever`] with a **near-duplicate filter**: it pulls a *wider*
+/// pool from the inner retriever, fingerprints each passage with a 64-bit
+/// [`SimHash`](sovereign_simhash::SimHash), and keeps a passage only when its
+/// fingerprint is not within `max_hamming` bits of an already-kept one — so
+/// near-identical chunks (boilerplate, re-crawled pages, lightly-edited copies)
+/// don't each burn a slot in the top `k`.
+///
+/// RAG corpora are full of near-duplicates; plain top-`k` will happily return
+/// three copies of the same passage and waste the context budget the model most
+/// needs. SimHash makes the dedup cheap — one 64-bit fingerprint per passage and
+/// a Hamming compare — and shingling keeps lightly-reordered text close. This
+/// makes [`sovereign-simhash`](sovereign_simhash) (previously **zero consumers**)
+/// actually used, and since `Deduped` is itself a [`Retriever`] it drops into
+/// [`RagResponder`] and composes with the other wrappers.
+#[derive(Debug, Clone)]
+pub struct Deduped<R: Retriever> {
+    inner: R,
+    /// How many candidates to pull before deduping, as a multiple of `k`.
+    pool_factor: usize,
+    /// A floor on the candidate pool so small `k` still dedups a real pool.
+    min_pool: usize,
+    /// Two passages whose fingerprints differ by at most this many bits are
+    /// treated as duplicates.
+    max_hamming: u32,
+    /// Shingle size (consecutive-word windows) for the fingerprint.
+    shingle_k: usize,
+}
+
+impl<R: Retriever> Deduped<R> {
+    /// Wrap `inner`, pulling `max(k · pool_factor, min_pool)` candidates and
+    /// keeping the first `k` whose fingerprints are pairwise more than
+    /// `max_hamming` bits apart. `pool_factor` and `shingle_k` are clamped to at
+    /// least 1.
+    pub fn new(
+        inner: R,
+        pool_factor: usize,
+        min_pool: usize,
+        max_hamming: u32,
+        shingle_k: usize,
+    ) -> Self {
+        Self {
+            inner,
+            pool_factor: pool_factor.max(1),
+            min_pool,
+            max_hamming,
+            shingle_k: shingle_k.max(1),
+        }
+    }
+
+    /// Wrap `inner` with sensible defaults (`pool_factor = 4`, `min_pool = 20`,
+    /// `max_hamming = 3`, `shingle_k = 2`).
+    pub fn with_defaults(inner: R) -> Self {
+        Self::new(inner, 4, 20, 3, 2)
+    }
+
+    /// The candidate-pool size for a requested `k`.
+    fn pool_size(&self, k: usize) -> usize {
+        (k.saturating_mul(self.pool_factor)).max(self.min_pool)
+    }
+}
+
+impl<R: Retriever> Retriever for Deduped<R> {
+    fn retrieve_context(&self, query: &str, k: usize) -> Vec<String> {
+        if k == 0 {
+            return Vec::new();
+        }
+        let pool = self.inner.retrieve_context(query, self.pool_size(k));
+        let mut kept: Vec<String> = Vec::new();
+        let mut kept_hashes: Vec<sovereign_simhash::SimHash> = Vec::new();
+        for text in pool {
+            let h = sovereign_simhash::simhash_text(&text, self.shingle_k);
+            if kept_hashes
+                .iter()
+                .any(|kh| kh.is_near(&h, self.max_hamming))
+            {
+                continue; // a near-duplicate of something already kept
+            }
+            kept_hashes.push(h);
+            kept.push(text);
+            if kept.len() == k {
+                break;
+            }
+        }
+        kept
+    }
+}
+
 /// Wraps any [`Retriever`] with an **indirect prompt-injection filter**: each
 /// retrieved passage is scanned with [`sovereign-injection-detect`](sovereign_injection_detect)
 /// and any passage whose risk score is at or above `threshold` (it contains
@@ -1486,6 +1573,75 @@ mod tests {
         let prompts = seen.borrow();
         assert!(prompts[0].starts_with("Context:\n"));
         assert!(prompts[0].contains("rust ownership"));
+    }
+
+    // A retriever that returns a fixed passage list (truncated to the pool size),
+    // for exercising the wrapper filters.
+    struct ListRetriever(Vec<String>);
+    impl Retriever for ListRetriever {
+        fn retrieve_context(&self, _q: &str, k: usize) -> Vec<String> {
+            self.0.iter().take(k.max(1)).cloned().collect()
+        }
+    }
+
+    fn list_of(items: &[&str]) -> ListRetriever {
+        ListRetriever(items.iter().map(|s| s.to_string()).collect())
+    }
+
+    #[test]
+    fn deduped_collapses_duplicate_passages() {
+        // two identical passages (Hamming 0) collapse to one; the distinct one stays
+        let inner = list_of(&[
+            "rust ownership gives memory safety",
+            "rust ownership gives memory safety",
+            "pasta with tomato sauce and basil",
+        ]);
+        let deduped = Deduped::with_defaults(inner);
+        let hits = deduped.retrieve_context("anything", 3);
+        assert_eq!(hits.len(), 2, "duplicate not collapsed: {hits:?}");
+        assert!(hits.iter().any(|h| h.contains("rust ownership")));
+        assert!(hits.iter().any(|h| h.contains("pasta")));
+    }
+
+    #[test]
+    fn deduped_keeps_all_distinct_passages() {
+        let inner = list_of(&[
+            "rust ownership and borrow checking",
+            "python dynamic typing and duck typing",
+            "pasta tomato sauce and fresh basil",
+        ]);
+        // a large max_hamming would over-merge; the default (3) keeps clearly
+        // different passages apart
+        let deduped = Deduped::with_defaults(inner);
+        let hits = deduped.retrieve_context("anything", 3);
+        assert_eq!(hits.len(), 3, "distinct passages were merged: {hits:?}");
+    }
+
+    #[test]
+    fn deduped_zero_k_is_empty() {
+        let deduped = Deduped::with_defaults(list_of(&["a", "b"]));
+        assert!(deduped.retrieve_context("q", 0).is_empty());
+    }
+
+    #[test]
+    fn deduped_drives_rag() {
+        let inner = list_of(&[
+            "rust ownership and systems programming",
+            "rust ownership and systems programming",
+        ]);
+        let seen = Rc::new(RefCell::new(Vec::new()));
+        let capture = Capture { seen: seen.clone() };
+        let mut rag = RagResponder::new(capture, Deduped::with_defaults(inner), 2);
+        rag.respond("rusty systems", 0).unwrap();
+        let prompts = seen.borrow();
+        // the duplicate collapsed, so the context block carries one copy
+        assert!(prompts[0].starts_with("Context:\n"));
+        assert_eq!(
+            prompts[0].matches("rust ownership").count(),
+            1,
+            "{}",
+            prompts[0]
+        );
     }
 
     #[test]
