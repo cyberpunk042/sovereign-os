@@ -683,6 +683,25 @@ fn run_strategies_demo() -> String {
         vbytes.len()
     );
 
+    // KV-cache serving: budget the per-token KV bytes, place blocks across the
+    // VRAM/RAM/NVMe tiers, and reuse a shared prompt prefix.
+    let shape = sovereign_kv_budget::KvShape::new(32, 8, 128, 2); // layers, kv-heads, head-dim, f16
+    let kv_per_tok = shape.bytes_per_token();
+    let max_seq = shape.max_seq_len(2 * 1024 * 1024 * 1024, 1); // seq len fitting 2 GiB
+    let mut kv = sovereign_kv_cache::KvCache::new(8192, 65536, 1 << 20);
+    kv.insert(1, 900); // fits the VRAM tier
+    kv.insert(2, 4000); // also fits VRAM
+    let tier1 = kv.lookup(1);
+    let mut prefix: sovereign_prefix_cache::PrefixCache<usize> =
+        sovereign_prefix_cache::PrefixCache::new();
+    prefix.insert(&[1, 2, 3, 4], 4);
+    let pm = prefix.longest_prefix_match(&[1, 2, 3, 9]);
+    let _ = writeln!(
+        out,
+        "kv serving       : kv/tok={kv_per_tok}B max_seq={max_seq} tier1={tier1:?} prefix_reuse={}",
+        pm.matched_len
+    );
+
     // Regression + sequential testing: streaming least-squares (slope of a
     // trend), isotonic monotonic fit, and a Wald SPRT (early accept/reject).
     let mut ols = sovereign_online_regression::OnlineRegression::new();
@@ -1455,6 +1474,12 @@ mod tests {
         );
         assert!(
             report.contains("regress/test     : slope=1.9 iso@3=2.8 sprt=AcceptH1"),
+            "{report}"
+        );
+        assert!(
+            report.contains(
+                "kv serving       : kv/tok=131072B max_seq=16384 tier1=Some(Vram) prefix_reuse=3"
+            ),
             "{report}"
         );
         assert!(
