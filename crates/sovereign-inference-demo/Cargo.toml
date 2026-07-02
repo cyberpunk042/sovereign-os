@@ -164,3 +164,5 @@ sovereign-retry = { path = "../sovereign-retry" }
 sovereign-task-map = { path = "../sovereign-task-map" }
 sovereign-doctrine-citation = { path = "../sovereign-doctrine-citation" }
 sovereign-codegen-pipeline = { path = "../sovereign-codegen-pipeline" }
+sovereign-policy-input = { path = "../sovereign-policy-input" }
+sovereign-choice-envelope = { path = "../sovereign-choice-envelope" }

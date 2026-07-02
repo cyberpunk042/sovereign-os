@@ -2108,6 +2108,51 @@ fn run_rag_quality_demo() -> String {
         "lifecycle gates  : map_missing={map_missing} map_complete={map_complete} cite_tags={cite_tags} step_next={step_next:?} promote_ok={promote_ok} promote_skip={promote_skip}"
     );
 
+    // Sovereignty-policy plane: the decision contracts that gate what an agent may
+    // do. policy-input (E0474) is the 10-field authorization question — crucially it
+    // carries *intent*, so the same (subject, action, resource) triple resolves
+    // differently for "summarize" vs "debug ssh"; choice-envelope (M042) is the
+    // 9-axis sovereignty boundary, each axis a chosen side with a recorded reason.
+    let questions = sovereign_policy_input::PolicyQuestion::ALL.len();
+    let ssh_read = |intent: &str, approval| sovereign_policy_input::PolicyInput {
+        subject: "agent:scout".into(),
+        action: "read".into(),
+        resource: "~/.ssh/config".into(),
+        intent: intent.into(),
+        profile: "inference-ready".into(),
+        risk: sovereign_policy_input::RiskLevel::High,
+        model_provider: "local:oracle".into(),
+        context_sensitivity: sovereign_policy_input::SensitivityClass::Private,
+        side_effect_class: sovereign_policy_input::SideEffectClass::ReadOnly,
+        user_approval: approval,
+    };
+    let summarize = ssh_read(
+        "summarize my files",
+        sovereign_policy_input::ApprovalState::NotRequested,
+    );
+    let debug = ssh_read(
+        "debug ssh failure",
+        sovereign_policy_input::ApprovalState::Granted,
+    );
+    let same_triple = (&summarize.subject, &summarize.action, &summarize.resource)
+        == (&debug.subject, &debug.action, &debug.resource);
+    let intent_differs = summarize.intent != debug.intent;
+
+    let mut envelope = sovereign_choice_envelope::ChoiceEnvelope::empty_canonical();
+    let axes = sovereign_choice_envelope::BoundaryAxis::all().len();
+    let axis0 = sovereign_choice_envelope::BoundaryAxis::all()[0];
+    envelope.set_side(
+        axis0,
+        sovereign_choice_envelope::AxisSide::Left,
+        "local-first",
+    );
+    let side0 = envelope.side_of(axis0);
+    let envelope_ok = envelope.validate().is_ok();
+    let _ = writeln!(
+        out,
+        "sovereignty pol  : questions={questions} same_triple={same_triple} intent_differs={intent_differs} axes={axes} side0={side0:?} envelope_ok={envelope_ok}"
+    );
+
     out
 }
 
@@ -2399,6 +2444,15 @@ mod tests {
         assert!(
             report.contains(
                 "lifecycle gates  : map_missing=5 map_complete=false cite_tags=4 step_next=Some(ValidateCaps) promote_ok=true promote_skip=false"
+            ),
+            "{report}"
+        );
+        // sovereignty-policy plane ran: 7 policy questions, the same read triple
+        // resolves under differing intent (E0474), and the 9-axis choice envelope
+        // set + read back one axis's side and validated
+        assert!(
+            report.contains(
+                "sovereignty pol  : questions=7 same_triple=true intent_differs=true axes=9 side0=Some(Left) envelope_ok=true"
             ),
             "{report}"
         );
