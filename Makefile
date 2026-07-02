@@ -109,9 +109,21 @@ install:  ## Install sovereign-osctl + manpage to PREFIX (default: /usr/local)
 	@echo "  $(DESTDIR)$(SOVEREIGN_OS_LIB)/  (lib + hooks + profiles + inference + whitelabel)"
 	@echo "  $(DESTDIR)$(PREFIX)/share/man/man1/sovereign-osctl.1  (if pandoc)"
 
-bins:  ## Build + install the Rust binaries (sovereign-telemetry, sovereign-resource-control, sovereign-gatewayd) to PREFIX/bin
-	@echo "Building Rust binaries (release)"
-	cargo build --release -p sovereign-telemetry -p sovereign-resource-control -p sovereign-gatewayd
+# SDD-043 Phase 1: the Rust binaries compile for the active profile's CPU
+# ISA (VNNI/BF16/popcnt/… derived from hardware.cpu.features by
+# scripts/build/cpu-features.py), so the inference crates actually exploit
+# the declared hardware. Set SOVEREIGN_OS_BINS_TUNE=0 for a portable build
+# (e.g. cross-host CI, or a build host that isn't the target CPU).
+SOVEREIGN_OS_BINS_TUNE ?= 1
+
+bins:  ## Build + install the Rust binaries (CPU-tuned for PROFILE) to PREFIX/bin
+	@if [ "$(SOVEREIGN_OS_BINS_TUNE)" = "1" ]; then \
+	   tune="$$(scripts/build/cpu-features.py --profile $(PROFILE))"; \
+	   echo "Building Rust binaries (release) — CPU-tuned for $(PROFILE):"; \
+	   echo "  RUSTFLAGS += $$tune"; \
+	 else tune=""; echo "Building Rust binaries (release) — portable (SOVEREIGN_OS_BINS_TUNE=0)"; fi; \
+	 RUSTFLAGS="$${RUSTFLAGS:+$$RUSTFLAGS }$$tune" \
+	   cargo build --release -p sovereign-telemetry -p sovereign-resource-control -p sovereign-gatewayd
 	@install -d "$(DESTDIR)$(PREFIX)/bin"
 	@install -m 755 target/release/sovereign-telemetry "$(DESTDIR)$(PREFIX)/bin/sovereign-telemetry"
 	@install -m 755 target/release/sovereign-resource-control "$(DESTDIR)$(PREFIX)/bin/sovereign-resource-control"
