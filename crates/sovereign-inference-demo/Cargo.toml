@@ -120,4 +120,7 @@ sovereign-doctrinal-preservation = { path = "../sovereign-doctrinal-preservation
 sovereign-fenwick = { path = "../sovereign-fenwick" }
 sovereign-interval-tree = { path = "../sovereign-interval-tree" }
 sovereign-merkle-tree = { path = "../sovereign-merkle-tree" }
+sovereign-pagerank = { path = "../sovereign-pagerank" }
+sovereign-graph-path = { path = "../sovereign-graph-path" }
+sovereign-community-detect = { path = "../sovereign-community-detect" }
 sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }

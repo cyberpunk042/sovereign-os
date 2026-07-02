@@ -683,6 +683,28 @@ fn run_strategies_demo() -> String {
         vbytes.len()
     );
 
+    // Graph algorithms: PageRank centrality, BFS shortest path, community detect.
+    let gedges = [(0usize, 1usize), (1, 2), (2, 0), (3, 2)];
+    let scores =
+        sovereign_pagerank::pagerank(4, &gedges, sovereign_pagerank::PageRankConfig::default());
+    let pr_top = sovereign_pagerank::top_k(&scores, 1)
+        .first()
+        .map(|(i, _)| *i)
+        .unwrap_or(0);
+    let bfs_hops = sovereign_graph_path::bfs_path(4, &gedges, 3, 0)
+        .map(|p| p.nodes.len() - 1)
+        .unwrap_or(0);
+    let labels = sovereign_community_detect::detect(
+        4,
+        &gedges,
+        sovereign_community_detect::Config::default(),
+    );
+    let _ = writeln!(
+        out,
+        "graph algos      : pr_top={pr_top} bfs_hops={bfs_hops} communities={}",
+        sovereign_community_detect::communities(&labels).len()
+    );
+
     // Data structures: Fenwick prefix sums, an interval tree, and a Merkle tree.
     let fw = sovereign_fenwick::Fenwick::from_values(&[1, 2, 3, 4, 5]);
     let itree =
@@ -1773,6 +1795,10 @@ mod tests {
         );
         assert!(
             report.contains("data structs     : fenwick_psum=3 interval_hits=2 merkle_root_nonzero=true proof=true"),
+            "{report}"
+        );
+        assert!(
+            report.contains("graph algos      : pr_top=2 bfs_hops=2 communities=1"),
             "{report}"
         );
         assert!(
