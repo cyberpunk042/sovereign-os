@@ -126,4 +126,6 @@ sovereign-community-detect = { path = "../sovereign-community-detect" }
 sovereign-jsonl = { path = "../sovereign-jsonl" }
 sovereign-markdown-strip = { path = "../sovereign-markdown-strip" }
 sovereign-format-mask = { path = "../sovereign-format-mask" }
+sovereign-mirostat = { path = "../sovereign-mirostat" }
+sovereign-ngram-speculative = { path = "../sovereign-ngram-speculative" }
 sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }

@@ -683,6 +683,19 @@ fn run_strategies_demo() -> String {
         vbytes.len()
     );
 
+    // Standalone samplers: a Mirostat controller + n-gram (prompt-lookup)
+    // speculative drafting with prefix-acceptance verification.
+    let mut miro = sovereign_mirostat::Mirostat::new(3.0, 0.1);
+    let miro_tok = miro.sample_seeded(&[0.1, 0.5, 2.0, 0.3], 42);
+    let spec = sovereign_ngram_speculative::NgramSpeculator::new(3, 1, 4);
+    let draft = spec.propose(&[1u32, 2, 3, 1, 2]); // "1 2" seen before → drafts "3…"
+    let accepted = sovereign_ngram_speculative::accepted_prefix(&draft, &[3, 9]);
+    let _ = writeln!(
+        out,
+        "sampling extra   : mirostat_tok={miro_tok} draft_len={} accepted={accepted}",
+        draft.len()
+    );
+
     // Text/format: JSONL parse, Markdown strip, and a format mask (constrained
     // output shape like "12-A").
     let (jvals, _) = sovereign_jsonl::parse("{\"a\":1}\n{\"b\":2}\n{\"c\":3}\n");
@@ -1825,6 +1838,10 @@ mod tests {
             report.contains(
                 "text/format      : jsonl_vals=3 strip_clean=true slot_ok=true mask_complete=true"
             ),
+            "{report}"
+        );
+        assert!(
+            report.contains("sampling extra   : mirostat_tok=3 draft_len=3 accepted=1"),
             "{report}"
         );
         assert!(
