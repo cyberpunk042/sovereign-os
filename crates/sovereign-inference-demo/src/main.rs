@@ -1710,6 +1710,35 @@ fn run_rag_quality_demo() -> String {
         cached.cache_misses()
     );
 
+    // Tokenizer-training plane: three subword schemes over related text. BPE
+    // *learns* an ordered merge table from a corpus (byte-level, lossless);
+    // WordPiece greedily splits a word into longest vocab pieces and detokenizes
+    // losslessly via its `##` continuation prefix; Unigram finds the globally
+    // optimal (Viterbi) segmentation for a probabilistic vocab. All three turn
+    // raw text into the token units a model actually decodes over.
+    let corpus = "low lower lowest slow slower slowest";
+    let bpe_merges = sovereign_bpe_train::train(corpus, 8);
+    let bpe_tok = sovereign_bpe_train::train_tokenizer(corpus, 8);
+    let bpe_ids = bpe_tok.encode("slower");
+    let wp =
+        sovereign_wordpiece::WordPiece::new(["play", "##ing", "##er", "low", "##est"], "[UNK]");
+    let wp_pieces = wp.tokenize("playing");
+    let wp_round = wp.detokenize(&wp_pieces);
+    let unigram = sovereign_unigram_tokenizer::UnigramTokenizer::new(
+        [("low", -1.0), ("est", -2.0), ("slow", -1.5), ("er", -2.5)],
+        -20.0,
+    );
+    let uni_seg = unigram.tokenize("lowest");
+    let _ = writeln!(
+        out,
+        "tokenizers       : bpe_merges={} bpe_ids={} wp=\"{}\" roundtrip_ok={} unigram_tok={}",
+        bpe_merges.len(),
+        bpe_ids.len(),
+        wp_pieces.join(" "),
+        wp_round == "playing",
+        uni_seg.len()
+    );
+
     out
 }
 
@@ -1914,6 +1943,14 @@ mod tests {
         // the semantic cache missed on the first call and hit on the repeat
         assert!(
             report.contains("semantic cache   : first cached=false, repeat cached=true"),
+            "{report}"
+        );
+        // three subword tokenizers ran: BPE learned 7 merges, WordPiece split
+        // and losslessly rejoined "playing", Unigram found a 2-piece Viterbi split
+        assert!(
+            report.contains(
+                "tokenizers       : bpe_merges=7 bpe_ids=3 wp=\"play ##ing\" roundtrip_ok=true unigram_tok=2"
+            ),
             "{report}"
         );
         // the IVF-PQ store compressed each vector to a few bytes and retrieved

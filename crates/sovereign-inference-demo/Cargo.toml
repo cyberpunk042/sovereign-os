@@ -132,3 +132,6 @@ sovereign-circuit-breaker = { path = "../sovereign-circuit-breaker" }
 sovereign-aimd-limiter = { path = "../sovereign-aimd-limiter" }
 sovereign-load-balance = { path = "../sovereign-load-balance" }
 sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }
+sovereign-bpe-train = { path = "../sovereign-bpe-train" }
+sovereign-wordpiece = { path = "../sovereign-wordpiece" }
+sovereign-unigram-tokenizer = { path = "../sovereign-unigram-tokenizer" }

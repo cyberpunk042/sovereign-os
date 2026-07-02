@@ -4950,6 +4950,7 @@ dependencies = [
  "sovereign-bin-packing",
  "sovereign-bitlinear-core",
  "sovereign-bloom",
+ "sovereign-bpe-train",
  "sovereign-calc",
  "sovereign-checkpoint",
  "sovereign-circuit-breaker",
@@ -5050,12 +5051,14 @@ dependencies = [
  "sovereign-transformer-block",
  "sovereign-trust-boundaries",
  "sovereign-ulid",
+ "sovereign-unigram-tokenizer",
  "sovereign-varint",
  "sovereign-vector-clock",
  "sovereign-viterbi",
  "sovereign-watermark",
  "sovereign-weighted-reservoir",
  "sovereign-wer",
+ "sovereign-wordpiece",
  "sovereign-workspace-folder-registry",
 ]
 
