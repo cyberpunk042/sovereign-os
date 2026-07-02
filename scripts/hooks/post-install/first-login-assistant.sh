@@ -56,6 +56,19 @@ cat <<EOF
 
 EOF
 
+# ---- dashboards entry point (shown when the GUI+dashboards path is installed) ----
+if systemctl is-enabled sovereign-dashboards.service >/dev/null 2>&1 \
+   || [ -f /usr/share/applications/sovereign-dashboards.desktop ]; then
+  cat <<'EOF'
+  Dashboards are running on this host (loopback):
+    → http://127.0.0.1:8100/          the hub — every panel + a /panels/ index
+    → "Sovereign Dashboards"          in the app menu, on the desktop, and
+                                      auto-opened in the browser at login
+  Expose beyond loopback only if you mean to (see the service's bind.conf note).
+
+EOF
+fi
+
 # ---- track choices ----
 declare -A choices=()
 

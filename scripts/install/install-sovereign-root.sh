@@ -26,6 +26,10 @@ PRIMARY_USER="${SOVEREIGN_OS_USER:-jfortin}"
 SUITE="${SOVEREIGN_OS_SUITE:-trixie}"
 MIRROR="${SOVEREIGN_OS_MIRROR:-http://deb.debian.org/debian}"
 MNT=/mnt/sovereign-install
+REPO_SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# GUI desktop + dashboards on by default (operator directive 2026-07-02).
+# Set SOVEREIGN_OS_INSTALL_GUI=0 for a headless install.
+INSTALL_GUI="${SOVEREIGN_OS_INSTALL_GUI:-1}"
 
 red()  { printf '\033[31m%s\033[0m\n' "$*"; }
 grn()  { printf '\033[32m%s\033[0m\n' "$*"; }
@@ -172,6 +176,25 @@ CHROOT
 chmod +x "${MNT}/tmp/chroot-setup.sh"
 chroot "${MNT}" /tmp/chroot-setup.sh
 
+# ── GUI desktop + dashboards (default ON — operator directive 2026-07-02) ──
+# Runs while dev/proc/sys + resolv.conf are still bound (apt works in-chroot).
+if [ "${INSTALL_GUI}" = 1 ]; then
+  step "installing GUI desktop + dashboards (SOVEREIGN_OS_INSTALL_GUI=1)"
+  STAGE=/opt/sovereign-os-src
+  mkdir -p "${MNT}${STAGE}"
+  for d in scripts webapp profiles config systemd share; do
+    [ -d "${REPO_SRC}/${d}" ] && cp -a "${REPO_SRC}/${d}" "${MNT}${STAGE}/"
+  done
+  chroot "${MNT}" env \
+    DEBIAN_FRONTEND=noninteractive \
+    SOVEREIGN_OS_SRC="${STAGE}" \
+    SOVEREIGN_OS_DESKTOP="${SOVEREIGN_OS_DESKTOP:-gnome}" \
+    bash "${STAGE}/scripts/install/install-gui-dashboards.sh"
+  info "GUI + dashboards installed (hub on :8100, launcher in app menu + autostart)"
+else
+  info "SOVEREIGN_OS_INSTALL_GUI=0 — headless install; run scripts/install/install-gui-dashboards.sh later to add the GUI"
+fi
+
 # ── cleanup ──
 step "unmounting"
 sync
@@ -195,8 +218,22 @@ Log in as ${PRIMARY_USER} with your usual password. Your files are already there
 
 Old Debian is untouched on ${RUN_ROOT_DISK}; pick it from the same boot menu anytime.
 
-This is a MUTABLE system: apt works. Next, from inside sovereign-os, add what
-you want — GUI (apt install gnome-core / the desktop you pick), the nvidia +
-zfs stack (DKMS builds against the headers we installed), the sovereign
-dashboards. Toggling = normal apt, not a reflash; /home survives regardless.
+This is a MUTABLE system: apt works. /home survives regardless of what you toggle.
 EOF
+
+if [ "${INSTALL_GUI}" = 1 ]; then
+  cat <<EOF
+GUI + dashboards are ON by default:
+  - Debian ${SUITE} desktop (${SOVEREIGN_OS_DESKTOP:-gnome}) boots to graphical.target.
+  - The dashboard hub runs on boot (loopback): http://127.0.0.1:8100/
+  - Log in and look for "Sovereign Dashboards" — it's in the app menu, on the
+    desktop, and auto-opens in the browser on first login.
+Add the nvidia + zfs stack anytime (DKMS builds against the headers we installed).
+EOF
+else
+  cat <<EOF
+Headless install (SOVEREIGN_OS_INSTALL_GUI=0). Reach the dashboards over ssh /
+loopback, or add the GUI later from inside sovereign-os:
+  sudo scripts/install/install-gui-dashboards.sh
+EOF
+fi

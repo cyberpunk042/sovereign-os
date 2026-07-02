@@ -12,6 +12,38 @@ Cross-references:
 
 ## [Unreleased] — Stage-2 onset (post-Gate-5)
 
+### Added — GUI + dashboards ON by default for the root-of-machine install (2026-07-02)
+
+Operator directive (verbatim): *"lets make with GUI by default when we install
+at the root of the machine, I will keep Debian 13 GUI to explore the dashboards
+and lets make sure we have them running by default and that I can easily find
+them on a fresh install."* This **reverses the prior non-GUI-by-default stance**
+(R225, `scripts/dashboard/serve.py`) for the root install only — headless is
+still available via `SOVEREIGN_OS_INSTALL_GUI=0`.
+
+- **New `scripts/install/install-gui-dashboards.sh`** (idempotent, root): installs
+  a Debian 13 desktop (GNOME by default; `minimal`=XFCE or `none` selectable via
+  `SOVEREIGN_OS_DESKTOP`) + a browser, deploys the dashboard app tree to
+  `/usr/local/lib/sovereign-os`, enables the dashboard services on boot, and drops
+  a discoverable **"Sovereign Dashboards"** launcher into the app menu, the
+  desktop, and login autostart. Runs both in the install chroot (offline
+  wants-symlink) and on a live system.
+- **New `systemd/system/sovereign-dashboards.service`**: runs the panel **hub**
+  (`build-configurator-api.py`) on boot, loopback-bound (`127.0.0.1:8100`), full
+  R171 defense-in-depth block (passes the systemd fleet-hardening gate). The hub
+  statically serves every `webapp/` panel — verified serving **37 panels**
+  (master-dashboard + d-01..d-20 + siblings) with a `/panels/` discovery index.
+- **New `share/applications/sovereign-dashboards.desktop`**: XDG launcher that
+  `xdg-open`s `http://127.0.0.1:8100/` in the operator's browser.
+- **`scripts/install/install-sovereign-root.sh`**: `SOVEREIGN_OS_INSTALL_GUI`
+  (default `1`) now provisions GUI + dashboards inside the chroot before unmount;
+  the closing message tells the operator exactly where to find them.
+- **`scripts/hooks/post-install/first-login-assistant.sh`**: prints the dashboard
+  hub URL + how to find the launcher when the GUI path is installed.
+
+Exposure stays the operator's call: everything binds loopback; a documented
+`bind.conf` drop-in opens it to LAN/tailscale for a headless box.
+
 ### Added — ternary BitLinear MLP: the engine composes a real FFN block (M073) (2026-06-10)
 
 The bitlinear-core crate had a real single-layer ternary projection

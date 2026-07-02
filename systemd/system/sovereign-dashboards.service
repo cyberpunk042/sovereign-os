@@ -1,0 +1,61 @@
+[Unit]
+Description=Sovereign dashboards hub — serves every operator panel (read-only, loopback)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/build-configurator-api.py
+# The panel hub: build-configurator-api.py statically serves every
+# webapp/ panel (master-dashboard + d-01..d-20 + siblings) plus a
+# discovery index at /panels/. This is the single "explore the
+# dashboards" entry point a GUI install opens by default.
+#
+# Operator directive 2026-07-02 (verbatim): "lets make with GUI by
+# default when we install at the root of the machine, I will keep
+# Debian 13 GUI to explore the dashboards and lets make sure we have
+# them running by default and that I can easily find them on a fresh
+# install." This reverses the prior non-GUI-by-default stance (R225)
+# for the root-of-machine install: the hub now runs on boot so the
+# dashboards are up and discoverable without a manual `make panel`.
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/usr/local/lib/sovereign-os
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/build-configurator-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default — operator-§1g exposure decision is theirs.
+# To expose beyond loopback (e.g. a headless box reached over the LAN
+# or tailscale), drop an override at
+# /etc/systemd/system/sovereign-dashboards.service.d/bind.conf:
+#   [Service]
+#   Environment=BUILD_CONFIGURATOR_API_BIND=0.0.0.0
+Environment=BUILD_CONFIGURATOR_API_BIND=127.0.0.1
+Environment=BUILD_CONFIGURATOR_API_PORT=8100
+
+# Defense-in-depth — this is a read-only HTTP surface serving static
+# webapp/ files + probing loopback API ports. It only needs read on the
+# deployed repo tree and append on the metrics textfile collector dir.
+# R171 defense-in-depth (Layer 1 lint enforced)
+ProtectSystem=strict
+ProtectHome=true
+ProtectClock=true
+ProtectHostname=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true
+# Loopback default — capability lockdown matches.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target
