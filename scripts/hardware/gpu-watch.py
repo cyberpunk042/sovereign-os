@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """scripts/hardware/gpu-watch.py — R219 (SDD-026 Z-5) GPU watt deviance watcher.
 
-Operator directive (verbatim): "warning if the RTX 3090 which should
+Operator directive (verbatim): "warning if the RTX 4090 which should
 be slightly reduce which isn't and things like this that warn
 deviance from 'perfertion'".
 

@@ -142,7 +142,7 @@ DEFAULT_DIRECTIVES: list[dict[str, Any]] = [
         "menu_path": "Advanced > AMD CBS > PCIe / GFX Configuration > PCIEX16_1 > [Gen5]",
         "recommended": "Gen5 (or Auto)",
         "default": "Auto",
-        "rationale": "RTX PRO 6000 + RTX 3090 dual-card means both "
+        "rationale": "RTX PRO 6000 + RTX 4090 dual-card means both "
                      "drop to x8. Gen5 x8 = Gen4 x16 bandwidth. Force "
                      "Gen5 to keep tensor-parallel split happy.",
         "workload_axis": ["pcie", "dual-gpu", "ai-inference"],

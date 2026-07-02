@@ -45,22 +45,22 @@ rec = d['recommendation']
 assert rec is not None, 'no recommendation'
 assert rec['fits_on_gpu_index'] == 1  # PRO 6000
 assert 'PRO 6000' in rec['fits_on_gpu_model']
-assert rec['finetune_vram_gib'] > 24  # won't fit on 3090
+assert rec['finetune_vram_gib'] > 24  # won't fit on 4090
 " || fail "reasoning"
 pass "3. recommend reasoning → recipe fits ONLY on PRO 6000 (>24 GiB FT VRAM)"
 
-# ── 4. recommend code --target-gpu 0 → 3090-fitting recipe ──────────
+# ── 4. recommend code --target-gpu 0 → 4090-fitting recipe ──────────
 out="$(python3 "${ADAPT}" recommend code --target-gpu 0 --json || true)"
 echo "${out}" | python3 -c "
 import json, sys
 d = json.loads(sys.stdin.read())
 rec = d['recommendation']
 assert rec is not None
-assert rec['fits_on_gpu_index'] == 0  # 3090
+assert rec['fits_on_gpu_index'] == 0  # 4090
 assert rec['finetune_vram_gib'] <= 24
 assert rec['fits_headroom_gib'] >= 0
-" || fail "code 3090"
-pass "4. recommend code --target-gpu 0 → recipe fits the 3090 (FT ≤24 GiB)"
+" || fail "code 4090"
+pass "4. recommend code --target-gpu 0 → recipe fits the 4090 (FT ≤24 GiB)"
 
 # ── 5. recommend unknown task → rc=1 + reason explains ──────────────
 rc=0

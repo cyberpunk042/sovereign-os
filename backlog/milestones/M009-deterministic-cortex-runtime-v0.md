@@ -35,7 +35,7 @@
 | M00140 | 64-bit branch control word bit order — route 0..3 / task 4..7 / lifecycle 8..15 / budget 16..23 / risk 24..31 / grammar 32..39 / memory 40..47 / spec_depth 48..55 / flags 56..63 | 2093–2103 | E0074 |
 | M00141 | Bit-order rationale — most frequently tested fields packed low | 2105 | E0074 |
 | M00142 | Scheduler tick steps — load 8 / extract route+task+budget+risk / compute alive mask / compute permission mask / compute oracle-needed mask / compress survivors / enqueue dense batches | 2110–2118 | E0075 |
-| M00143 | Speculative-CPU analogy — RTX 3090 predictor / RTX PRO retirement / Ryzen reorder+commit / RAM+ZFS architectural state | 2126–2137 | E0076 |
+| M00143 | Speculative-CPU analogy — RTX 4090 predictor / RTX PRO retirement / Ryzen reorder+commit / RAM+ZFS architectural state | 2126–2137 | E0076 |
 | M00144 | Models propose transitions / deterministic runtime commits transitions invariant | 2143–2146 | E0076 |
 | M00145 | VPTERNLOG policy fusion — `commit = (oracle_ok & grammar_ok) \| (trusted_fast_path & low_risk)` | 2156 | E0077 |
 | M00146 | Sketches-before-embeddings cheap deterministic rejection | 2201–2207 | E0077 |
@@ -72,7 +72,7 @@
 | F00706 | CLI `sovereign-osctl avx hot-cold separator stats` | 2069–2085 | M00138 | cli_verb | true |
 | F00707 | CLI `sovereign-osctl avx bit-order inspect` | 2089–2105 | M00140 | cli_verb | true |
 | F00708 | CLI `sovereign-osctl scheduler tick algorithm` | 2107–2118 | M00142 | cli_verb | true |
-| F00709 | CLI `sovereign-osctl analogy show` (RTX 3090 = predictor / RTX PRO = retirement / Ryzen = reorder+commit) | 2123–2137 | M00143 | cli_verb | true |
+| F00709 | CLI `sovereign-osctl analogy show` (RTX 4090 = predictor / RTX PRO = retirement / Ryzen = reorder+commit) | 2123–2137 | M00143 | cli_verb | true |
 | F00710 | Dashboard surface — AVX-512 feature catalog table | 2056–2065 | M00130 | dashboard | true |
 | F00711 | Dashboard surface — hot vs cold tier separator visualization | 2069–2085 | M00138 | dashboard | true |
 | F00712 | Dashboard surface — bit-order rationale audit per branch | 2089–2105 | M00140 | dashboard | true |
@@ -89,7 +89,7 @@
 | F00723 | Metric `sovereign_os_hot_tier_operations_total` | 2070–2080 | M00138 | observability_metric | true |
 | F00724 | Metric `sovereign_os_cold_tier_loads_total` | 2080–2086 | M00139 | observability_metric | true |
 | F00725 | Metric `sovereign_os_scheduler_tick_passes_total{pass}` | 2107–2118 | M00142 | observability_metric | true |
-| F00726 | Metric `sovereign_os_speculative_cpu_predictor_ops_total` (3090) | 2126–2137 | M00143 | observability_metric | true |
+| F00726 | Metric `sovereign_os_speculative_cpu_predictor_ops_total` (4090) | 2126–2137 | M00143 | observability_metric | true |
 | F00727 | Metric `sovereign_os_speculative_cpu_retirement_ops_total` (RTX PRO) | 2126–2137 | M00143 | observability_metric | true |
 | F00728 | Metric `sovereign_os_speculative_cpu_reorder_commit_ops_total` (Ryzen) | 2126–2137 | M00143 | observability_metric | true |
 | F00729 | Metric `sovereign_os_models_propose_runtime_commits_invariant_violations_total` | 2143–2146 | M00144 | observability_metric | true |
@@ -103,7 +103,7 @@
 | F00737 | Test — hot-tier ops never load cold text | 2069–2085 | M00138 | test | true |
 | F00738 | Test — bit-order rationale validated (low-frequency fields ≥ bit 48) | 2105 | M00141 | test | true |
 | F00739 | Test — scheduler tick 7-step pipeline produces correct survivors | 2107–2118 | M00142 | test | true |
-| F00740 | Test — speculative-CPU analogy invariant held — 3090 ahead, RTX PRO retires | 2126–2137 | M00143 | test | true |
+| F00740 | Test — speculative-CPU analogy invariant held — 4090 ahead, RTX PRO retires | 2126–2137 | M00143 | test | true |
 | F00741 | Test — models-propose / runtime-commits invariant violation impossible by API design | 2143–2146 | M00144 | test | true |
 | F00742 | Test — VPTERNLOG policy fusion correctness on `(oracle & grammar) | (fast_path & low_risk)` | 2156 | M00145 | test | true |
 | F00743 | Test — sketches-before-embeddings rejects obvious junk before GPU call | 2201–2207 | M00146 | test | true |
@@ -196,11 +196,11 @@
 | R01420 | Scheduler tick step 6 — compress survivors | 2115 | M00142 | non-negotiable | false | 10 |
 | R01421 | Scheduler tick step 7 — enqueue dense batches | 2116 | M00142 | non-negotiable | false | 10 |
 | R01422 | Scheduler tick = CPU-style execution applied to cognition | 2119 | M00142 | non-negotiable | false | 10 |
-| R01423 | Speculative-CPU analogy — RTX 3090 = branch predictor / scout / draft generator | 2127–2128 | M00143 | non-negotiable | false | 10 |
+| R01423 | Speculative-CPU analogy — RTX 4090 = branch predictor / scout / draft generator | 2127–2128 | M00143 | non-negotiable | false | 10 |
 | R01424 | Speculative-CPU analogy — RTX PRO 6000 = retirement unit / oracle / verifier | 2130–2131 | M00143 | non-negotiable | false | 10 |
 | R01425 | Speculative-CPU analogy — Ryzen AVX-512 = reorder buffer / commit logic / policy engine | 2133–2134 | M00143 | non-negotiable | false | 10 |
 | R01426 | Speculative-CPU analogy — RAM + ZFS = architectural state / replay log / memory hierarchy | 2136–2137 | M00143 | non-negotiable | false | 10 |
-| R01427 | 3090 allowed to be wrong | 2139 | M00143 | non-negotiable | false | 10 |
+| R01427 | 4090 allowed to be wrong | 2139 | M00143 | non-negotiable | false | 10 |
 | R01428 | Blackwell card expensive — kept for high-value verification | 2139 | M00143 | non-negotiable | false | 10 |
 | R01429 | CPU decides what is allowed to commit | 2139 | M00143 | non-negotiable | false | 10 |
 | R01430 | Models propose transitions — runtime commits transitions invariant | 2143–2146 | M00144 | non-negotiable | false | 10 |
@@ -256,7 +256,7 @@
 | R01480 | Test — hot-tier ops never load cold text (read trace shows zero cold-page faults) | 2069–2085 | F00737 | non-negotiable | false | 10 |
 | R01481 | Test — bit-order rationale enforced (low-frequency fields ≥ bit 48) | 2105 | F00738 | non-negotiable | false | 10 |
 | R01482 | Test — scheduler tick 7-step pipeline produces correct survivors on synthetic load | 2107–2118 | F00739 | non-negotiable | false | 10 |
-| R01483 | Test — speculative-CPU analogy invariant held (3090 ahead, RTX PRO retires) | 2126–2137 | F00740 | non-negotiable | false | 10 |
+| R01483 | Test — speculative-CPU analogy invariant held (4090 ahead, RTX PRO retires) | 2126–2137 | F00740 | non-negotiable | false | 10 |
 | R01484 | Test — models-propose / runtime-commits API design prohibits invariant violation | 2143–2146 | F00741 | non-negotiable | false | 10 |
 | R01485 | Test — VPTERNLOG policy fusion correctness on `(oracle & grammar) | (fast_path & low_risk)` | 2156 | F00742 | non-negotiable | false | 10 |
 | R01486 | Test — sketches-before-embeddings reject obvious junk (popcount < threshold) before GPU call | 2201–2207 | F00743 | non-negotiable | false | 10 |
@@ -284,7 +284,7 @@
 | R01508 | Composite F00765 all AVX-512 instructions usable in isolation OR composed | 2056–2249 | F00765 | non-negotiable | true | 10 |
 | R01509 | Hot-tier operations measured to consume < 1 µs per 8-branch batch on Zen 5 | 2070–2080 | M00138 | preferable | false | 10 |
 | R01510 | Cold-tier load measured to consume ≥ 10 µs (lazy mmap page-fault) | 2080–2086 | M00139 | preferable | false | 10 |
-| R01511 | Speculative-CPU analogy enforced via API (3090 never commits) | 2127 | M00143 | non-negotiable | false | 10 |
+| R01511 | Speculative-CPU analogy enforced via API (4090 never commits) | 2127 | M00143 | non-negotiable | false | 10 |
 | R01512 | Speculative-CPU analogy enforced via API (RTX PRO never drafts; only verifies/synthesizes) | 2130 | M00143 | non-negotiable | false | 10 |
 | R01513 | Speculative-CPU analogy enforced via API (Ryzen never produces tokens; only routes and commits) | 2133 | M00143 | non-negotiable | false | 10 |
 | R01514 | Speculative-CPU analogy enforced via API (RAM + ZFS = read-only architectural state across organ boundaries) | 2136 | M00143 | non-negotiable | false | 10 |

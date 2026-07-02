@@ -450,7 +450,7 @@ a11y; contract test catches drift.
 <div class="row">
   <div class="stat"><div class="k">total loaded</div><div class="v" id="total-loaded">—</div></div>
   <div class="stat"><div class="k">Blackwell models</div><div class="v ok" id="bw-count">—</div></div>
-  <div class="stat"><div class="k">3090 models</div><div class="v warn" id="rtx-count">—</div></div>
+  <div class="stat"><div class="k">4090 models</div><div class="v warn" id="rtx-count">—</div></div>
   <div class="stat"><div class="k">CPU/Pulse models</div><div class="v accent" id="cpu-count">—</div></div>
 </div>
 
@@ -477,7 +477,7 @@ a11y; contract test catches drift.
   </div>
 
   <div class="role-card logic">
-    <h3>Logic Engine — GPU 0 RTX 3090 (24GB)</h3>
+    <h3>Logic Engine — GPU 0 RTX 4090 (24GB)</h3>
     <div class="scope">M075 R12441-R12446: Llama-3-70B Q4_K_M / IQ4_NL in Podman</div>
     <div class="row" style="margin:.5rem 0">
       <div style="flex:1">
@@ -622,7 +622,7 @@ async function refresh() {
   // Top summary
   $('total-loaded').textContent = s.summary.total ?? 0;
   $('bw-count').textContent = s.summary.blackwell ?? 0;
-  $('rtx-count').textContent = s.summary.rtx3090 ?? 0;
+  $('rtx-count').textContent = s.summary.rtx4090 ?? 0;
   $('cpu-count').textContent = s.summary.cpu ?? 0;
   // SRP roles
   const r = s.roles || {};

@@ -522,7 +522,7 @@ a11y; contract test catches drift.
     </div>
     <div>
       <div class="stat">
-        <div class="k">RTX 3090 — Scout (24GB GDDR6X, VFIO)</div>
+        <div class="k">RTX 4090 — Scout (24GB GDDR6X, VFIO)</div>
         <div class="v" id="gpu-1-util">—<span class="u"> % util</span></div>
         <div class="gauge"><div class="fill" id="gpu-1-util-fill" style="width:0%"><span class="label" id="gpu-1-util-label">—</span></div></div>
         <div class="muted" style="font-size:.72rem;margin-top:.3rem">
@@ -571,9 +571,9 @@ a11y; contract test catches drift.
     <span><span class="src">Blackwell VRAM &gt; 90%</span> → <span class="action">reduce context + evict low-value KV + switch smaller oracle</span></span>
     <span class="pill" id="rule-blackwell-vram">idle</span>
   </div>
-  <div class="backpressure-rule" data-rule="3090-busy">
-    <span><span class="src">3090 busy (util &gt; 85%)</span> → <span class="action">reduce branch width + use CPU classifiers</span></span>
-    <span class="pill" id="rule-3090-busy">idle</span>
+  <div class="backpressure-rule" data-rule="4090-busy">
+    <span><span class="src">4090 busy (util &gt; 85%)</span> → <span class="action">reduce branch width + use CPU classifiers</span></span>
+    <span class="pill" id="rule-4090-busy">idle</span>
   </div>
   <div class="backpressure-rule" data-rule="cpu-pressure">
     <span><span class="src">CPU PSI &gt; 30%</span> → <span class="action">defer background indexing + evals</span></span>
@@ -690,7 +690,7 @@ async function refresh() {
   $('gpu-0-temp').textContent = g0.temp_c ?? '—';
   $('gpu-0-pow').textContent = g0.power_w ?? '—';
   $('gpu-0-kv').textContent = g0.kv_cache_pct ?? '—';
-  const g1 = gpu['1'] || gpu.rtx3090 || {};
+  const g1 = gpu['1'] || gpu.rtx4090 || {};
   $('gpu-1-util').firstChild.textContent = g1.util_pct ?? '—';
   setGauge('gpu-1-util-fill', 'gpu-1-util-label', g1.util_pct);
   $('gpu-1-vram').textContent = g1.vram_used_gb != null ? g1.vram_used_gb.toFixed(1) : '—';
@@ -717,7 +717,7 @@ async function refresh() {
   }
   // Backpressure rules
   const bp = s.backpressure || {};
-  ['blackwell-vram','3090-busy','cpu-pressure','ram-pressure','io-pressure','human-gate'].forEach(r => setRule(r, bp[r] || 'idle'));
+  ['blackwell-vram','4090-busy','cpu-pressure','ram-pressure','io-pressure','human-gate'].forEach(r => setRule(r, bp[r] || 'idle'));
 }
 
 $('refresh-btn').addEventListener('click', refresh);

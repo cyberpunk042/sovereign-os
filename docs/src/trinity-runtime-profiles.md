@@ -54,7 +54,7 @@ maintenance · idle hours.
 
 Asymmetric load balancing across all three hardware planes:
 BitNet-13B on full CCD0+CCD1 (CPU cores 0-11),
-Qwen-32B-Ternary on RTX 3090 (vfio sandbox via vllm-vulkan),
+Qwen-32B-Ternary on RTX 4090 (vfio sandbox via vllm-vulkan),
 DeepSeek-R1-Distill-Llama-70B on Blackwell (llama.cpp FP16).
 Use for: multi-agent code-repo processing · long-running parallel
 inference tasks · burst workloads.

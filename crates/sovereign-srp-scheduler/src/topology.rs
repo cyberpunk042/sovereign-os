@@ -8,7 +8,7 @@
 //! | Role | Device | Precision it hosts | VRAM | Context ceiling |
 //! |------|--------|--------------------|------|-----------------|
 //! | Conductor | Host CPU (CCD 0) | ternary / bitnet.cpp (F06221) | — | small blocks (F06225) |
-//! | Logic | GPU 0 — RTX 3090 24 GB | quantized Q4/IQ4 (F06235) | 24 GB (F06239) | mid |
+//! | Logic | GPU 0 — RTX 4090 24 GB | quantized Q4/IQ4 (F06235) | 24 GB (F06239) | mid |
 //! | Oracle | GPU 1 — Blackwell PRO 6000 | un-quantized FP16 (F06214) | 96 GB | deep (F06244) |
 //!
 //! So a pressure-only fallback is wrong: you cannot run an un-quantized,
@@ -31,7 +31,7 @@ use thiserror::Error;
 pub enum Precision {
     /// 1.58-bit ternary (bitnet.cpp on CPU) — F06221.
     Ternary,
-    /// Quantized Q4/IQ4 mid-scale (RTX 3090) — F06235.
+    /// Quantized Q4/IQ4 mid-scale (RTX 4090) — F06235.
     Quantized,
     /// Un-quantized FP16 (Blackwell PRO 6000) — F06214.
     Fp16,
@@ -65,7 +65,7 @@ impl HardwareTarget {
             },
             SrpRole::Logic => HardwareTarget {
                 role,
-                device: "GPU 0 — RTX 3090 24GB",
+                device: "GPU 0 — RTX 4090 24GB",
                 vram_gb: 24,
                 max_precision: Precision::Quantized,
                 max_context_tokens: 32_768,

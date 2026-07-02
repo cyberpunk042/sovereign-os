@@ -170,7 +170,7 @@ wired them as a systemd `oneshot`. Otherwise invoke manually:
 
 ```sh
 sudo scripts/hooks/post-install/friction-audit-runtime.sh      # validate real hardware
-sudo scripts/hooks/post-install/vfio-bind-3090.sh              # bind 3090 to vfio-pci
+sudo scripts/hooks/post-install/vfio-bind-4090.sh              # bind 4090 to vfio-pci
 sudo scripts/hooks/post-install/network-vlan-config.sh         # VLAN 100/200 split
 sudo scripts/hooks/post-install/tetragon-policy-load.sh        # load sovereign-kernel-fence
 sudo scripts/hooks/post-install/zfs-arc-clamp.sh               # clamp ARC to 128 GB
@@ -179,8 +179,8 @@ sudo scripts/hooks/post-install/workstation-shell-setup.sh     # bash-completion
 sudo scripts/hooks/post-install/first-login-assistant.sh       # interactive customization
 ```
 
-Reboot once after `vfio-bind-3090.sh` so the VFIO module owns the
-3090 from initramfs.
+Reboot once after `vfio-bind-4090.sh` so the VFIO module owns the
+4090 from initramfs.
 
 ## 4. POST-INSTALL — inference stack
 
@@ -359,7 +359,7 @@ sovereign-osctl journal errors               # warn+error across all runs
 |---|---|
 | Build crashes mid-kernel-compile | `scripts/build/orchestrate.sh status` → re-run; resumes |
 | friction-audit fails M.2_2 check | Power down; remove anything in M.2_2 slot; reboot |
-| `nvidia-smi` shows both GPUs (3090 should be hidden) | VFIO didn't load early enough; check `/proc/cmdline` for `vfio-pci.ids=`; rebuild initramfs |
+| `nvidia-smi` shows both GPUs (4090 should be hidden) | VFIO didn't load early enough; check `/proc/cmdline` for `vfio-pci.ids=`; rebuild initramfs |
 | Tetragon SIGKILLing legitimate process | `sudo journalctl -u tetragon -f`; add allowlist entry to `sovereign-kernel-fence.yaml`; reload |
 | Oracle Core OOM | `ORACLE_KV_CACHE_DTYPE=fp8` (default for sain-01); reduce `gpu_memory_utilization` in vLLM start script |
 | Router 502 for tier X | `sovereign-osctl inference logs <tier>`; tier daemon likely crashed/not started |
@@ -374,7 +374,7 @@ others differ in concrete ways:
 - `kernel.source: substrate-default` — steps 02/03/04 short-circuit (Q18-A)
 - `storage.layout: ext4` — rootfs-format-ext4 handles disk
 - `kernel.cmdline.secure_boot: shim` — operator enrolls MOK post-install
-- Inference: `SOVEREIGN_OS_LOGIC_BACKEND=llama_cpp` (3090 only); no
+- Inference: `SOVEREIGN_OS_LOGIC_BACKEND=llama_cpp` (4090 only); no
   Pulse + no Oracle Core + no DFlash. Tetragon optional.
 
 ```sh

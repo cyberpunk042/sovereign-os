@@ -36,14 +36,14 @@ pub enum SandboxProfile {
     NetworkDenied,
     /// Network limited to documentation.
     NetworkDocsOnly,
-    /// 3090 scout GPU access.
+    /// 4090 scout GPU access.
     GpuScout,
     /// No GPU.
     NoGpu,
     /// VM-isolated.
     VmIsolated,
-    /// VFIO-passthrough of the 3090.
-    Vfio3090,
+    /// VFIO-passthrough of the 4090.
+    Vfio4090,
 }
 
 impl SandboxProfile {
@@ -56,7 +56,7 @@ impl SandboxProfile {
         SandboxProfile::GpuScout,
         SandboxProfile::NoGpu,
         SandboxProfile::VmIsolated,
-        SandboxProfile::Vfio3090,
+        SandboxProfile::Vfio4090,
     ];
 
     /// The dimension this profile constrains.
@@ -70,15 +70,15 @@ impl SandboxProfile {
                 SandboxDimension::Network
             }
             SandboxProfile::GpuScout | SandboxProfile::NoGpu => SandboxDimension::Gpu,
-            SandboxProfile::VmIsolated | SandboxProfile::Vfio3090 => SandboxDimension::Isolation,
+            SandboxProfile::VmIsolated | SandboxProfile::Vfio4090 => SandboxDimension::Isolation,
         }
     }
 
     /// Whether this profile grants the sandbox any GPU. Only the two GPU
-    /// profiles that explicitly expose a device do (`gpu-scout`, `vfio-3090`).
+    /// profiles that explicitly expose a device do (`gpu-scout`, `vfio-4090`).
     #[must_use]
     pub fn grants_gpu(self) -> bool {
-        matches!(self, SandboxProfile::GpuScout | SandboxProfile::Vfio3090)
+        matches!(self, SandboxProfile::GpuScout | SandboxProfile::Vfio4090)
     }
 }
 
@@ -106,10 +106,10 @@ mod tests {
     #[test]
     fn only_explicit_gpu_profiles_grant_gpu() {
         assert!(SandboxProfile::GpuScout.grants_gpu());
-        assert!(SandboxProfile::Vfio3090.grants_gpu());
+        assert!(SandboxProfile::Vfio4090.grants_gpu());
         for p in SandboxProfile::ALL
             .into_iter()
-            .filter(|p| !matches!(p, SandboxProfile::GpuScout | SandboxProfile::Vfio3090))
+            .filter(|p| !matches!(p, SandboxProfile::GpuScout | SandboxProfile::Vfio4090))
         {
             assert!(!p.grants_gpu(), "{p:?}");
         }
@@ -122,7 +122,7 @@ mod tests {
             SandboxDimension::Filesystem
         );
         assert_eq!(
-            SandboxProfile::Vfio3090.dimension(),
+            SandboxProfile::Vfio4090.dimension(),
             SandboxDimension::Isolation
         );
         assert_eq!(
@@ -134,8 +134,8 @@ mod tests {
     #[test]
     fn serde_kebab() {
         assert_eq!(
-            serde_json::to_string(&SandboxProfile::Vfio3090).unwrap(),
-            "\"vfio3090\""
+            serde_json::to_string(&SandboxProfile::Vfio4090).unwrap(),
+            "\"vfio4090\""
         );
         assert_eq!(
             serde_json::to_string(&SandboxProfile::ReadOnlyRepo).unwrap(),

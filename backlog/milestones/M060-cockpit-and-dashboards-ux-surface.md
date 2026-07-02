@@ -65,7 +65,7 @@
 |---|---|---|
 | F05016 | Dashboard rule — never show vanity graphs | dump 3299 |
 | F05017 | Dashboard question 1 — Is the Blackwell idle? | dump 3304 |
-| F05018 | Dashboard question 2 — Is the 3090 helping? | dump 3305 |
+| F05018 | Dashboard question 2 — Is the 4090 helping? | dump 3305 |
 | F05019 | Dashboard question 3 — Is speculation worth it? | dump 3306 |
 | F05020 | Dashboard question 4 — Are token masks expensive? | dump 3307 |
 | F05021 | Dashboard question 5 — Is KV reuse saving prefill? | dump 3308 |
@@ -85,7 +85,7 @@
 | F05035 | D-02 profile choices — current-profile envelope visualization (L0..L6 ladder + ring 0..4 highlights) | dump 16453 + cross-ref MS039 + MS040 |
 | F05036 | D-02 profile choices — profile-change history with timestamps + actor | dump 16453 + cross-ref MS040 |
 | F05037 | D-02 profile choices — predeclared-gate editor (autonomous profile only) | cross-ref MS040 + dump 16453 |
-| F05038 | D-03 model health — Blackwell/3090/CPU status indicators | dump 16454 + cross-ref M058 |
+| F05038 | D-03 model health — Blackwell/4090/CPU status indicators | dump 16454 + cross-ref M058 |
 | F05039 | D-03 model health — VRAM occupancy + KV cache utilization charts | dump 16454 + cross-ref M058 |
 | F05040 | D-03 model health — per-model latency p50/p95/p99 | dump 16454 |
 | F05041 | D-03 model health — model availability heatmap | dump 16454 |
@@ -108,7 +108,7 @@
 | F05058 | D-08 rollback points — rollback-preview action (dry-run) | dump 16459 + cross-ref MS041 |
 | F05059 | D-08 rollback points — rollback-apply action (gated by operator confirmation) | dump 16459 + cross-ref MS041 + MS003 |
 | F05060 | D-09 hardware pressure — Linux PSI gauges (CPU / IO / memory) | dump 16460 + cross-ref M045 + M058 |
-| F05061 | D-09 hardware pressure — DCGM GPU pressure gauges (Blackwell + 3090) | dump 16460 + cross-ref M058 |
+| F05061 | D-09 hardware pressure — DCGM GPU pressure gauges (Blackwell + 4090) | dump 16460 + cross-ref M058 |
 | F05062 | D-09 hardware pressure — backpressure-rule live indicators | dump 16460 + cross-ref M058 |
 | F05063 | D-10 eval history — per-task eval pass/fail trend | dump 16461 + cross-ref M049 |
 | F05064 | D-10 eval history — per-model eval-score over time | dump 16461 + cross-ref M046 |
@@ -164,7 +164,7 @@
 | R10039 | Operator direction — many modes and profiles | operator standing direction 2026-05-19 + cross-ref MS040 | F05034 | non-negotiable | false | 10 |
 | R10040 | Operator direction — "you cannot re-invent what UX mean" (use industry-standard UX patterns) | operator standing direction 2026-05-19 | F05098 | non-negotiable | false | 10 |
 | R10041 | Question 1 — Is the Blackwell idle? answered in D-09 | dump 3304 + cross-ref D09 | F05017 | non-negotiable | false | 10 |
-| R10042 | Question 2 — Is the 3090 helping? answered in D-03 + D-09 | dump 3305 | F05018 | non-negotiable | false | 10 |
+| R10042 | Question 2 — Is the 4090 helping? answered in D-03 + D-09 | dump 3305 | F05018 | non-negotiable | false | 10 |
 | R10043 | Question 3 — Is speculation worth it? answered in D-10 eval history | dump 3306 | F05019 | non-negotiable | false | 10 |
 | R10044 | Question 4 — Are token masks expensive? answered in D-03 + D-09 | dump 3307 | F05020 | non-negotiable | false | 10 |
 | R10045 | Question 5 — Is KV reuse saving prefill? answered in D-03 KV cache utilization | dump 3308 | F05021 | non-negotiable | false | 10 |
@@ -191,7 +191,7 @@
 | R10066 | D-02 profile choices — profile-change history (timestamps + actor) | cross-ref MS040 | F05036 | non-negotiable | false | 10 |
 | R10067 | D-02 profile choices — predeclared-gate editor (autonomous only) | cross-ref MS040 | F05037 | non-negotiable | false | 10 |
 | R10068 | D-02 profile choices — accessible via Cmd-3 / Ctrl-3 shortcut | operator standing direction 2026-05-19 | F05030 | non-negotiable | false | 10 |
-| R10069 | D-03 model health — Blackwell/3090/CPU status indicators | cross-ref M058 | F05038 | non-negotiable | false | 10 |
+| R10069 | D-03 model health — Blackwell/4090/CPU status indicators | cross-ref M058 | F05038 | non-negotiable | false | 10 |
 | R10070 | D-03 model health — VRAM occupancy charts | cross-ref M058 | F05039 | non-negotiable | false | 10 |
 | R10071 | D-03 model health — KV cache utilization charts | cross-ref M058 | F05039 | non-negotiable | false | 10 |
 | R10072 | D-03 model health — per-model latency p50/p95/p99 | cross-ref M049 | F05040 | non-negotiable | false | 10 |

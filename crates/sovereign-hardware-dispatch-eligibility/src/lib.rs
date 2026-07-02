@@ -97,7 +97,7 @@ impl EligibilityTableau {
         let mut results = Vec::with_capacity(5);
         for target in [
             HardwareTarget::CpuPulse,
-            HardwareTarget::Rocm3090,
+            HardwareTarget::Rocm4090,
             HardwareTarget::BlackwellOracle,
             HardwareTarget::Cloud,
             HardwareTarget::NoHardware,
@@ -238,8 +238,8 @@ mod tests {
             t.get(HardwareTarget::NoHardware).unwrap().reason,
             Some(ExclusionReason::InsufficientVram)
         );
-        // 3090 (24GB) and Blackwell (96GB) eligible
-        assert!(t.get(HardwareTarget::Rocm3090).unwrap().eligible);
+        // 4090 (24GB) and Blackwell (96GB) eligible
+        assert!(t.get(HardwareTarget::Rocm4090).unwrap().eligible);
         assert!(t.get(HardwareTarget::BlackwellOracle).unwrap().eligible);
     }
 
@@ -251,9 +251,9 @@ mod tests {
         // CpuPulse Snap, NoHardware Snap → eligible
         assert!(t.get(HardwareTarget::CpuPulse).unwrap().eligible);
         assert!(t.get(HardwareTarget::NoHardware).unwrap().eligible);
-        // Rocm3090 Brisk, Blackwell Steady, Cloud Heavy → excluded
+        // Rocm4090 Brisk, Blackwell Steady, Cloud Heavy → excluded
         assert_eq!(
-            t.get(HardwareTarget::Rocm3090).unwrap().reason,
+            t.get(HardwareTarget::Rocm4090).unwrap().reason,
             Some(ExclusionReason::LatencyTooHigh)
         );
         assert_eq!(
@@ -279,7 +279,7 @@ mod tests {
     fn util_cap_excludes_saturated() {
         let mut load = empty_load();
         for l in load.loads.iter_mut() {
-            if l.target == HardwareTarget::Rocm3090 {
+            if l.target == HardwareTarget::Rocm4090 {
                 l.util_pct = 95;
             }
         }
@@ -287,7 +287,7 @@ mod tests {
         req.max_util_pct = 80;
         let t = EligibilityTableau::compute(&req, &reg(), &load).unwrap();
         assert_eq!(
-            t.get(HardwareTarget::Rocm3090).unwrap().reason,
+            t.get(HardwareTarget::Rocm4090).unwrap().reason,
             Some(ExclusionReason::UtilizationSaturated)
         );
         assert!(t.get(HardwareTarget::BlackwellOracle).unwrap().eligible);
@@ -297,15 +297,15 @@ mod tests {
     fn vram_used_subtracts_from_capacity() {
         let mut load = empty_load();
         for l in load.loads.iter_mut() {
-            if l.target == HardwareTarget::Rocm3090 {
+            if l.target == HardwareTarget::Rocm4090 {
                 l.vram_used_gb = 20;
             }
         }
         let mut req = request_default();
-        req.vram_needed_gb = 8; // need 8GB, 3090 has 4GB free (24-20) → excluded
+        req.vram_needed_gb = 8; // need 8GB, 4090 has 4GB free (24-20) → excluded
         let t = EligibilityTableau::compute(&req, &reg(), &load).unwrap();
         assert_eq!(
-            t.get(HardwareTarget::Rocm3090).unwrap().reason,
+            t.get(HardwareTarget::Rocm4090).unwrap().reason,
             Some(ExclusionReason::InsufficientVram)
         );
         // Blackwell has 96GB free → eligible

@@ -5,7 +5,7 @@ Operator §1g (verbatim, sacrosanct):
   "AVX-512 + 256GB RAM"  /  "Wasm-to-AVX-512 AOT"
   "1-bit / ternary models in ZMM"
 
-The sain-01 baseline (256GB DDR5 + RTX PRO 6000 96GB + RTX 3090 24GB)
+The sain-01 baseline (256GB DDR5 + RTX PRO 6000 96GB + RTX 4090 24GB)
 runs llama.cpp / vllm / bitnet inference on huge weight tensors. The
 Linux page allocator's 4KB pages cause TLB pressure that costs 5-15%
 throughput on CPU-side inference; 2MB hugepages cut the working-set

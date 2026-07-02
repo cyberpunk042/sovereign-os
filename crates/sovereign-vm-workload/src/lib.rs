@@ -1,6 +1,6 @@
-//! `sovereign-vm-workload` — E0119 / M00220–M00221: 3090-VM workload suitability.
+//! `sovereign-vm-workload` — E0119 / M00220–M00221: 4090-VM workload suitability.
 //!
-//! The 3090 runs in a VFIO VM as a *quarantined* cognition engine. That makes
+//! The 4090 runs in a VFIO VM as a *quarantined* cognition engine. That makes
 //! it ideal for risky, isolatable work — and unfit for anything needing tight
 //! cross-GPU coupling (which the isolation boundary deliberately severs). This
 //! crate fixes both lists and the suitability gate the scheduler reads before
@@ -11,7 +11,7 @@
 
 use serde::{Deserialize, Serialize};
 
-/// A kind of workload that might be routed to the quarantined 3090 VM.
+/// A kind of workload that might be routed to the quarantined 4090 VM.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum VmWorkload {

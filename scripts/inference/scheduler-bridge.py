@@ -12,7 +12,7 @@ producer binary, parses the returned `Decision`, and maps the route to a
 runtime backend tier — honoring the three consumer obligations:
 
   1. honor Hibernate  — never force a deferred request onto a tier
-  2. map route → tier — Blackwell→oracle, Rtx3090→scout, Cpu→cortex
+  2. map route → tier — Blackwell→oracle, Rtx4090→scout, Cpu→cortex
   3. read-only        — the runtime NEVER writes selfdef IPS state
 
 PROJECT-BOUNDARY DISCIPLINE (operator: "Respect the projects"): the
@@ -48,7 +48,7 @@ DEFAULT_BIN = os.environ.get(
 # Prometheus labels.
 ROUTE_TO_TIER = {
     "blackwell": "oracle",
-    "rtx3090": "scout",
+    "rtx4090": "scout",
     "cpu": "cortex",
     "hybrid": "hybrid",
     "hibernate": "defer",
@@ -57,7 +57,7 @@ HIBERNATE_ROUTE = "hibernate"
 
 # Abstract tier role → the runtime's actual inference service (per
 # scripts/inference/INDEX.md + router.py: Pulse=bitnet.cpp on CPU, Logic
-# Engine=vLLM on RTX 3090, Oracle Core=vLLM+DFlash on Blackwell). This makes
+# Engine=vLLM on RTX 4090, Oracle Core=vLLM+DFlash on Blackwell). This makes
 # the scheduler's hardware-tier decision directly actionable by the gateway —
 # it names which of the three running services to dispatch to. `hybrid` leaves
 # the split to the runtime; `defer` is the Hibernate signal (no service).

@@ -110,7 +110,7 @@
 | F05228 | PR 5 — trade-off section: inheritance vs composition / rigid vs extensible / YAML vs TOML vs HCL | dump 138 |
 | F05229 | PR 5 — LOC estimate ~1000 | dump 140 |
 | F05230 | PR 5 — depends on PR 3 + parallel with PR 4/7 | dump 142 |
-| F05231 | PR 6 — profiles/sain-01.yaml (~200 LOC) — full hardware target (Ryzen 9 9900X / Blackwell + 3090 VFIO / 256GB / ZFS RAID 0 / 10GbE+2.5GbE / ProArt X870E) | dump 147-149 |
+| F05231 | PR 6 — profiles/sain-01.yaml (~200 LOC) — full hardware target (Ryzen 9 9900X / Blackwell + 4090 VFIO / 256GB / ZFS RAID 0 / 10GbE+2.5GbE / ProArt X870E) | dump 147-149 |
 | F05232 | PR 6 — profiles/old-workstation.yaml (~100 LOC) — older hardware (11GB RAM, 8GB GPU) | dump 150 |
 | F05233 | PR 6 — profiles/INDEX.md catalog of declared profiles | dump 151 |
 | F05234 | PR 6 — docs/sdd/005-initial-profiles.md (~300 LOC) — justifies seed set + reserves minimal/developer/headless | dump 152 |
@@ -250,7 +250,7 @@
 | R10463 | PR 6 — title: profiles: declare sain-01 and old-workstation as schema-conformant stubs | dump 144 | F05231 | non-negotiable | false | 10 |
 | R10464 | PR 6 — scope: first two profile instances, schema-conformant, body placeholder | dump 146 | F05231 | non-negotiable | false | 10 |
 | R10465 | PR 6 — profiles/sain-01.yaml hardware: Ryzen 9 9900X | dump 147 | F05231 | non-negotiable | false | 10 |
-| R10466 | PR 6 — profiles/sain-01.yaml hardware: RTX PRO 6000 + RTX 3090 VFIO | dump 148 | F05231 | non-negotiable | false | 10 |
+| R10466 | PR 6 — profiles/sain-01.yaml hardware: RTX PRO 6000 + RTX 4090 VFIO | dump 148 | F05231 | non-negotiable | false | 10 |
 | R10467 | PR 6 — profiles/sain-01.yaml hardware: 256 GB DDR5 | dump 148 | F05231 | non-negotiable | false | 10 |
 | R10468 | PR 6 — profiles/sain-01.yaml hardware: dual PCIe 5 NVMe ZFS RAID 0 | dump 148 | F05231 | non-negotiable | false | 10 |
 | R10469 | PR 6 — profiles/sain-01.yaml hardware: Marvell 10GbE + Intel 2.5GbE | dump 149 | F05231 | non-negotiable | false | 10 |

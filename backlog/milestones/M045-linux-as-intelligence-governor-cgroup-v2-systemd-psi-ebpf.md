@@ -11,11 +11,11 @@
 | E0428 | Linux as intelligence governor — 8 primitives (cgroup v2 resource control / systemd lifecycle service-boundaries slices scopes / PSI pressure sensing CPU-memory-IO / eBPF + LSM observation possible-enforcement / AppArmor mandatory access boundaries / namespaces isolation / ZFS rollback durable memory / LUKS-TPM-FIDO2 identity sealed storage); "This is not incidental. This is the peace-machine substrate" | 13564–13594 |
 | E0429 | Linux Resource Intelligence — cgroup v2 controls CPU + memory + IO + PIDs + delegation; systemd exposes CPUWeight + MemoryMax + IOWeight + task limits + slices + scopes; sources: kernel.org/doc/html/latest/admin-guide/cgroup-v2.html + freedesktop.org/software/systemd/man/devel/systemd.resource-control.html; "agent workloads can be given real boundaries"; 5 example boundaries (oracle.service high GPU priority memory protected no random shell access / scout.slice medium CPU-GPU can be killed-restarted freely / sandbox.slice strict memory IO network time limits / eval.slice low priority background / gateway.service protected always-on small trusted surface); "This is how 'profiles' become real OS behavior" | 13602–13632 |
 | E0430 | Pressure As Sensation — Linux PSI reports time tasks stalled because of CPU memory IO pressure via /proc/pressure/* (kernel.org/doc/html/v6.0/accounting/psi.html); AI scheduler should ask 6 pressure questions: CPU pressure / Memory pressure / IO pressure / GPU pressure / Human-attention pressure / Cost pressure; "PSI gives system pressure. DCGM gives GPU pressure. The runtime gives cost and attention pressure" | 13636–13660 |
-| E0431 | Adaptive intelligence reactions (5 profile-adaptation rules) — if memory pressure high (hibernate branches / shrink context / evict low-value KV-cache); if IO pressure high (stop cold memory scans / delay replay compaction / prefer RAM-hot context); if CPU pressure high (reduce branch width / move reranking to 3090 / defer evals); if GPU oracle idle (increase verification batch); if 3090 idle (widen scout speculation); "This is adaptive intelligence grounded in the OS" | 13664–13688 |
+| E0431 | Adaptive intelligence reactions (5 profile-adaptation rules) — if memory pressure high (hibernate branches / shrink context / evict low-value KV-cache); if IO pressure high (stop cold memory scans / delay replay compaction / prefer RAM-hot context); if CPU pressure high (reduce branch width / move reranking to 4090 / defer evals); if GPU oracle idle (increase verification batch); if 4090 idle (widen scout speculation); "This is adaptive intelligence grounded in the OS" | 13664–13688 |
 | E0432 | eBPF As Truth Sensor — eBPF can observe what processes actually do; eBPF LSM programs can attach to Linux Security Module hooks and allow/deny operations such as socket creation depending on policy (docs.ebpf.io/linux/program-type/BPF_PROG_TYPE_LSM); for Sovereign-OS: model claims "I only read files" / eBPF observes "process opened network socket" / runtime: "block, log, alert, quarantine"; "This is a peace feature: reality over claims"; "Use eBPF carefully. It is powerful and sharp. But as an observability/enforcement layer for high-risk agent sandboxes, it fits" | 13692–13714 |
 | E0433 | Systemd As Agent Lifecycle Manager — "Agent sessions should not be loose processes. They should be scopes/services"; 7 example unit names: agent-session@123.service / agent-sandbox@abc.scope / model-server@blackwell.service / model-server@scout.service / gateway.service / memory-os.service / eval-worker.slice; 8 OS operations: start / stop / restart / limit / observe / journal / kill zombies / freeze-hibernate; "This maps directly to the AgentRM idea of scheduling, zombie reaping, and context lifecycle management" | 13718–13740 |
-| E0434 | Sovereign Profiles As OS Profiles — "User choice becomes enforceable"; 5 enforceable profiles: Offline Peace Mode (network egress denied / cloud providers disabled / local models only) / Research Mode (network allowed through gateway / citations required / cost tracked) / Autonomous Code Mode (sandbox required / ZFS snapshot before writes / tests required before commit) / High-Risk Mode (VM-microVM only / no host filesystem write / human gate for promotion) / Fast Local Mode (3090 scout first / shallow memory / oracle only if confidence low); "These are not prompt styles. They are OS policies + runtime policies" | 13744–13766 |
-| E0435 | Hardware Meets OS — 7 layer mappings: AVX-512 fast policy and scheduling decisions / cgroup-systemd enforce resource decisions / PSI-DCGM sense pressure / AppArmor-eBPF observe and constrain behavior / ZFS make action reversible / VFIO hard isolate the 3090 sandbox / Gateway make all model-API communication auditable; "This is the bridge: hardware capability becomes social trust only when the OS can govern it" | 13770–13790 |
+| E0434 | Sovereign Profiles As OS Profiles — "User choice becomes enforceable"; 5 enforceable profiles: Offline Peace Mode (network egress denied / cloud providers disabled / local models only) / Research Mode (network allowed through gateway / citations required / cost tracked) / Autonomous Code Mode (sandbox required / ZFS snapshot before writes / tests required before commit) / High-Risk Mode (VM-microVM only / no host filesystem write / human gate for promotion) / Fast Local Mode (4090 scout first / shallow memory / oracle only if confidence low); "These are not prompt styles. They are OS policies + runtime policies" | 13744–13766 |
+| E0435 | Hardware Meets OS — 7 layer mappings: AVX-512 fast policy and scheduling decisions / cgroup-systemd enforce resource decisions / PSI-DCGM sense pressure / AppArmor-eBPF observe and constrain behavior / ZFS make action reversible / VFIO hard isolate the 4090 sandbox / Gateway make all model-API communication auditable; "This is the bridge: hardware capability becomes social trust only when the OS can govern it" | 13770–13790 |
 | E0436 | Anti-war framing — peace machine needs 8 virtues + 8 technical-primitive mappings: clarity (explain what is happening) → traces/dashboard / consent (ask when boundaries matter) → human gates/profiles / reversibility (rollback when possible) → ZFS/snapshots / proportionality (spend just enough intelligence) → scheduler/profiles / containment (risky action stays sandboxed) → cgroups/AppArmor/VMs / memory (learn from harm and success) → memory OS/replay / communication (translate between humans systems models tools) → Anthropic-first gateway/MCP / truth (tests traces observations not vibes) → tests/eBPF/PSI/evals; "Those are not abstract virtues. They map to technical primitives"; "That is where Sovereign-OS becomes something more than an OS image. It becomes an environment where intelligence can act without becoming opaque power" | 13794–13820 |
 | E0437 | Operator final affirmation — "yes indeed. continue like do. you can do online research too. we will make this even better than the cloud provider... so much better... even before I train and retrain and adapt weights and add my LORAs and such and whatnot.." | 13825 |
 
@@ -35,7 +35,7 @@
 | M00757 | 5 example workload boundaries — oracle.service / scout.slice / sandbox.slice / eval.slice / gateway.service | 13613–13627 | E0429 |
 | M00758 | 6 pressure questions — CPU / Memory / IO / GPU / Human-attention / Cost | 13648–13655 | E0430 |
 | M00759 | Pressure sources — PSI (system) / DCGM (GPU) / runtime (cost + attention) | 13658–13660 | E0430 |
-| M00760 | 5 adaptive-intelligence reactions — memory-pressure / IO-pressure / CPU-pressure / GPU-oracle-idle / 3090-idle | 13664–13688 | E0431 |
+| M00760 | 5 adaptive-intelligence reactions — memory-pressure / IO-pressure / CPU-pressure / GPU-oracle-idle / 4090-idle | 13664–13688 | E0431 |
 | M00761 | 7 systemd unit-name examples + 8 OS operations + AgentRM mapping | 13724–13740 | E0433 |
 | M00762 | 5 enforceable Sovereign Profiles — Offline Peace / Research / Autonomous Code / High-Risk / Fast Local | 13746–13766 | E0434 |
 | M00763 | Hardware-meets-OS 7 layer mapping (AVX-512 / cgroup-systemd / PSI-DCGM / AppArmor-eBPF / ZFS / VFIO / Gateway) | 13772–13788 | E0435 |
@@ -97,10 +97,10 @@
 | F03790 | Adaptive reaction — IO pressure high: delay replay compaction | 13671 | M00760 |
 | F03791 | Adaptive reaction — IO pressure high: prefer RAM-hot context | 13672 | M00760 |
 | F03792 | Adaptive reaction — CPU pressure high: reduce branch width | 13675 | M00760 |
-| F03793 | Adaptive reaction — CPU pressure high: move reranking to 3090 | 13676 | M00760 |
+| F03793 | Adaptive reaction — CPU pressure high: move reranking to 4090 | 13676 | M00760 |
 | F03794 | Adaptive reaction — CPU pressure high: defer evals | 13677 | M00760 |
 | F03795 | Adaptive reaction — GPU oracle idle: increase verification batch | 13682 | M00760 |
-| F03796 | Adaptive reaction — 3090 idle: widen scout speculation | 13686 | M00760 |
+| F03796 | Adaptive reaction — 4090 idle: widen scout speculation | 13686 | M00760 |
 | F03797 | "This is adaptive intelligence grounded in the OS" | 13688 | E0431 |
 | F03798 | eBPF heading — "eBPF As Truth Sensor" | 13692 | E0432 |
 | F03799 | eBPF — observes what processes actually do | 13694 | M00751 |
@@ -128,7 +128,7 @@
 | F03821 | Profile — Offline Peace Mode (network egress denied + cloud providers disabled + local models only) | 13748–13752 | M00762 |
 | F03822 | Profile — Research Mode (network allowed through gateway + citations required + cost tracked) | 13754–13757 | M00762 |
 | F03823 | Profile — Autonomous Code Mode (sandbox required + ZFS snapshot before writes + tests required before commit) | 13759–13762 | M00762 |
-| F03824 | Profile — High-Risk Mode (VM/microVM only + no host filesystem write + human gate for promotion) + Fast Local Mode (3090 scout first + shallow memory + oracle only if confidence low) + "not prompt styles" + "OS policies + runtime policies" | 13759–13766 | M00762 |
+| F03824 | Profile — High-Risk Mode (VM/microVM only + no host filesystem write + human gate for promotion) + Fast Local Mode (4090 scout first + shallow memory + oracle only if confidence low) + "not prompt styles" + "OS policies + runtime policies" | 13759–13766 | M00762 |
 | F03825 | Hardware-meets-OS 7 mappings + 8 anti-war virtue-to-primitive + key line "environment where intelligence can act without becoming opaque power" + operator final affirmation "better than the cloud provider...even before I train...add my LORAs" | 13770–13825 | M00763 + M00764 + E0437 |
 
 ## Requirements (R07481–R07650)
@@ -212,10 +212,10 @@
 | R07555 | Adaptive reaction — IO pressure high: delay replay compaction | 13671 | F03790 | non-negotiable | false | 10 |
 | R07556 | Adaptive reaction — IO pressure high: prefer RAM-hot context | 13672 | F03791 | non-negotiable | false | 10 |
 | R07557 | Adaptive reaction — CPU pressure high: reduce branch width | 13675 | F03792 | non-negotiable | false | 10 |
-| R07558 | Adaptive reaction — CPU pressure high: move reranking to 3090 | 13676 | F03793 | non-negotiable | false | 10 |
+| R07558 | Adaptive reaction — CPU pressure high: move reranking to 4090 | 13676 | F03793 | non-negotiable | false | 10 |
 | R07559 | Adaptive reaction — CPU pressure high: defer evals | 13677 | F03794 | non-negotiable | false | 10 |
 | R07560 | Adaptive reaction — GPU oracle idle: increase verification batch | 13682 | F03795 | non-negotiable | false | 10 |
-| R07561 | Adaptive reaction — 3090 idle: widen scout speculation | 13686 | F03796 | non-negotiable | false | 10 |
+| R07561 | Adaptive reaction — 4090 idle: widen scout speculation | 13686 | F03796 | non-negotiable | false | 10 |
 | R07562 | "This is adaptive intelligence grounded in the OS" | 13688 | F03797 | non-negotiable | false | 10 |
 | R07563 | eBPF section header | 13692 | F03798 | non-negotiable | false | 10 |
 | R07564 | eBPF — observes what processes actually do | 13694 | F03799 | non-negotiable | false | 10 |
@@ -268,7 +268,7 @@
 | R07611 | Profile High-Risk Mode — VM/microVM only | 13765 | F03824 | non-negotiable | false | 10 |
 | R07612 | Profile High-Risk Mode — no host filesystem write | 13766 | F03824 | non-negotiable | false | 10 |
 | R07613 | Profile High-Risk Mode — human gate for promotion | 13767 | F03824 | non-negotiable | false | 10 |
-| R07614 | Profile Fast Local Mode — 3090 scout first | 13770 | F03824 | non-negotiable | false | 10 |
+| R07614 | Profile Fast Local Mode — 4090 scout first | 13770 | F03824 | non-negotiable | false | 10 |
 | R07615 | Profile Fast Local Mode — shallow memory | 13771 | F03824 | non-negotiable | false | 10 |
 | R07616 | Profile Fast Local Mode — oracle only if confidence low | 13772 | F03824 | non-negotiable | false | 10 |
 | R07617 | "These are not prompt styles" | 13774 | F03824 | non-negotiable | false | 10 |
@@ -278,7 +278,7 @@
 | R07621 | Hardware-meets-OS — PSI/DCGM: sense pressure | 13782 | M00763 | non-negotiable | false | 10 |
 | R07622 | Hardware-meets-OS — AppArmor/eBPF: observe and constrain behavior | 13784 | M00763 | non-negotiable | false | 10 |
 | R07623 | Hardware-meets-OS — ZFS: make action reversible | 13786 | M00763 | non-negotiable | false | 10 |
-| R07624 | Hardware-meets-OS — VFIO: hard isolate the 3090 sandbox | 13788 | M00763 | non-negotiable | false | 10 |
+| R07624 | Hardware-meets-OS — VFIO: hard isolate the 4090 sandbox | 13788 | M00763 | non-negotiable | false | 10 |
 | R07625 | Hardware-meets-OS — Gateway: make all model/API communication auditable | 13790 | M00763 | non-negotiable | false | 10 |
 | R07626 | "This is the bridge: hardware capability becomes social trust only when the OS can govern it" | 13794 | E0435 | non-negotiable | false | 10 |
 | R07627 | Anti-war framing — clarity → traces/dashboard | 13806 | M00764 | non-negotiable | false | 10 |
@@ -317,7 +317,7 @@
 - Adjacent dump-range milestones: M044 Sovereign-OS substrate Debian 13/Ubuntu 24 (13307–13546) / M046 Beat the cloud — runtime adaptation + LoRA foundry (next; dump 13825–14107)
 - Plane integration — M045 sits on M044's Sovereign-OS 8-plane substrate (Kernel + Security + Compute + Storage + Sandbox + Gateway + Observability + Choice); refines the Sandbox + Security + Observability planes with cgroup v2 / systemd / PSI / eBPF; extends M043 hardware-aware intelligence scheduling with kernel-level pressure sensing
 - Profile integration — M045's 5 enforceable Sovereign Profiles (Offline Peace / Research / Autonomous Code / High-Risk / Fast Local) extend M044's 4 security profiles (secure / developer / agent-lab / high-risk) and M042's 4 profile bundles (private / careful / fast / sovereign)
-- Adaptive intelligence — 5 pressure-reactions (memory / IO / CPU / GPU oracle idle / 3090 idle) realize M043's AVX-512 Routing Brain 8 bulk-eval decisions at the OS-pressure-feedback layer
+- Adaptive intelligence — 5 pressure-reactions (memory / IO / CPU / GPU oracle idle / 4090 idle) realize M043's AVX-512 Routing Brain 8 bulk-eval decisions at the OS-pressure-feedback layer
 - AgentRM integration — systemd unit-management (start/stop/restart/limit/observe/journal/kill zombies/freeze-hibernate) is the AgentRM idea grounded in OS primitives
 - Selfdef integration — MS017 agent-guard 2 profiles + 2 scope strategies align with M045's 5 sovereign profiles; MS016 eBPF (Tetragon TracingPolicies) implements the eBPF LSM truth sensor; MS019 threat model treats cgroup/AppArmor/eBPF as defense layer
 - Operator references: kernel.org/doc/html/latest/admin-guide/cgroup-v2.html + freedesktop.org/software/systemd/man/devel/systemd.resource-control.html + kernel.org/doc/html/v6.0/accounting/psi.html + docs.ebpf.io/linux/program-type/BPF_PROG_TYPE_LSM + Linux cgroup v2 resource control systemd delegation containers official docs (web search)

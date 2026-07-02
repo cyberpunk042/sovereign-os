@@ -102,7 +102,10 @@ jobs:
   layer3-stage-acceptance:
     name: layer 3 — stage acceptance (nspawn-style)
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # 5 min was only ever enough because an early test failure (e.g. gpu-watch)
+    # aborted the run before the full suite ran. With every nspawn test now
+    # passing, the complete suite needs more headroom.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:

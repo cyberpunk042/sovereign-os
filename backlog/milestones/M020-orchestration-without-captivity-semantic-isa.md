@@ -198,7 +198,7 @@
 | R03288 | Basic intelligence loop step 6 — Update policy/memory | 5529 | E0184 | non-negotiable | false | 10 |
 | R03289 | Basic intelligence loop step 7 — Repeat under constraints | 5530 | E0184 | non-negotiable | false | 10 |
 | R03290 | This is the operating system of intelligence | 5533 | E0184 | non-negotiable | false | 10 |
-| R03291 | Hardware mapping — Generate alternatives uses 3090 scout / small models / Ling-Nemotron executors | 5538–5539 | E0184 | non-negotiable | false | 10 |
+| R03291 | Hardware mapping — Generate alternatives uses 4090 scout / small models / Ling-Nemotron executors | 5538–5539 | E0184 | non-negotiable | false | 10 |
 | R03292 | Hardware mapping — Evaluate uses AVX-512 filters / oracle model / tests / tools | 5541–5542 | E0184 | non-negotiable | false | 10 |
 | R03293 | Hardware mapping — Preserve state uses RAM/ZFS / replay logs / memory index / skill library | 5544–5545 | E0184 | non-negotiable | false | 10 |
 | R03294 | Hardware mapping — Act uses sandboxed tools / shell / browser / code / APIs | 5547–5548 | E0184 | non-negotiable | false | 10 |

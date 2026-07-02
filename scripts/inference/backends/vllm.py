@@ -1,4 +1,4 @@
-"""vLLM adapter — Logic Engine (3090 VFIO) + Oracle Core (Blackwell).
+"""vLLM adapter — Logic Engine (4090 VFIO) + Oracle Core (Blackwell).
 
 Per SDD-011 + E109 (DFlash integration): vLLM v0.20.1+ pinned.
 DFlash speculative-decoding drafts wired when the target model has a
@@ -41,7 +41,7 @@ class VllmBackend(Backend):
     def start_command(self) -> list[str]:
         argv: list[str] = []
 
-        # Podman wrapping for VFIO-isolated 3090 (Logic Engine);
+        # Podman wrapping for VFIO-isolated 4090 (Logic Engine);
         # native for Blackwell (Oracle Core).
         if self.config.podman:
             argv += [
@@ -88,7 +88,7 @@ class VllmBackend(Backend):
             host="127.0.0.1",
             port=8082,
             podman=True,
-            # 3090 is VFIO-bound; podman injects it as the only visible GPU
+            # 4090 is VFIO-bound; podman injects it as the only visible GPU
             cuda_visible_devices="0",
         )
         return cls(cfg, tier="logic_engine", tensor_parallel_size=1)
@@ -107,7 +107,7 @@ class VllmBackend(Backend):
             port=8083,
             podman=False,
             # Blackwell is host-resident; assumes index 0 after VFIO
-            # claims the 3090 (which lives in a separate IOMMU group).
+            # claims the 4090 (which lives in a separate IOMMU group).
             cuda_visible_devices="0",
         )
         return cls(

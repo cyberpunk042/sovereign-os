@@ -107,7 +107,7 @@ DEFAULT_TOPICS: list[dict[str, Any]] = [
         "axis": "hardware",
         "mission": (
             "The physical SAIN-01 reference rig — Ryzen 9 9900X + dual-GPU "
-            "(RTX 3090 + RTX PRO 6000) + 4-DIMM CMK128GX5M2B6400C42 "
+            "(RTX 4090 + RTX PRO 6000) + 4-DIMM CMK128GX5M2B6400C42 "
             "(256GB) + dual Samsung 990 EVO Plus + APC SMT2200C UPS. "
             "Inventory-catalog (R317) is the single source of truth; every "
             "hardware advisor cross-refs from it."
@@ -142,7 +142,7 @@ DEFAULT_TOPICS: list[dict[str, Any]] = [
         "cross_refs": ["SDD-035 workload-mode", "R317 inventory-catalog"],
         "bios_or_hw_caveats": [
             "ASUS ProArt X870E-CREATOR WiFi: PCIE_1 = primary Gen5 x16 "
-            "(operator-pinned to RTX 3090 per R311); enabling dual-GPU may "
+            "(operator-pinned to RTX 4090 per R311); enabling dual-GPU may "
             "require BIOS 'PCIe Bifurcation = x8/x8' on PCIE_1+PCIE_2; "
             "fan headers gated by Q-Fan Tuning + Allow Software Override.",
             "be Quiet! Dark Power Pro 13 1600W: physical OC switch on rear "
@@ -153,7 +153,7 @@ DEFAULT_TOPICS: list[dict[str, Any]] = [
         "topic": "gpu",
         "axis": "hardware",
         "mission": (
-            "Dual-GPU configuration: RTX 3090 (24 GiB, host-facing, "
+            "Dual-GPU configuration: RTX 4090 (24 GiB, host-facing, "
             "VFIO-eligible) + RTX PRO 6000 Blackwell (98 GiB, native). "
             "How the operator interacts with each card — established VRAM, "
             "non-established overclock headroom, wattage budget, mode-pinning."
@@ -164,7 +164,7 @@ DEFAULT_TOPICS: list[dict[str, Any]] = [
             "3. Sustained wattage budget (R303 gpu-wattage)",
             "4. OC headroom under PSU rating (R292 oc-headroom; R315 xmp-oc-room)",
             "5. Mode pinning (R338 workload-mode — dual_gpu_active per mode)",
-            "6. VFIO bind for 3090 (R234 vfio-bind state)",
+            "6. VFIO bind for 4090 (R234 vfio-bind state)",
         ],
         "operator_verbs": [
             "sovereign-osctl gpu-status --json",
@@ -175,18 +175,18 @@ DEFAULT_TOPICS: list[dict[str, Any]] = [
             "sovereign-osctl vfio-bind --json",
         ],
         "thresholds": {
-            "rtx-3090-sustained-w":
+            "rtx-4090-sustained-w":
                 "~420W under sustained load; +10% per OC notch (R315 default)",
             "rtx-pro-6000-sustained-w":
                 "~600W TGP — operator's high-VRAM workhorse for training",
             "single-gpu-idle":
-                "R338 'idle' mode = PRO 6000 only (3090 in VFIO standby); "
+                "R338 'idle' mode = PRO 6000 only (4090 in VFIO standby); "
                 "drops estimated_total_w by ≥400W vs 'training'",
         },
         "cross_refs": ["SDD-035 workload-mode", "R315 xmp-oc-room",
                        "R234 vfio-bind"],
         "bios_or_hw_caveats": [
-            "RTX 3090: established sustained 420W under PSU OC mode; "
+            "RTX 4090: established sustained 420W under PSU OC mode; "
             "non-established: shunt-mod could lift to 480W but voids warranty.",
             "RTX PRO 6000 Blackwell: 600W TGP confirmed; PCIe Gen5 x16 on "
             "PCIE_1 OR x8 if dual-GPU sharing — check ASUS BIOS lane split.",
@@ -366,14 +366,14 @@ DEFAULT_TOPICS: list[dict[str, Any]] = [
         ],
         "thresholds": {
             "pulse-on":         "bitnet.cpp on CPU (no GPU)",
-            "logic-engine-on":  "vLLM on RTX 3090 (VFIO sandbox)",
+            "logic-engine-on":  "vLLM on RTX 4090 (VFIO sandbox)",
             "oracle-core-on":   "vLLM + DFlash on RTX PRO 6000 (host)",
             "router-on":        "FastAPI proxy + admission control",
         },
         "cross_refs": ["SDD-011 inference backend stack",
                        "SDD-036 inference-service hardening"],
         "bios_or_hw_caveats": [
-            "logic-engine on VFIO-bound RTX 3090: requires "
+            "logic-engine on VFIO-bound RTX 4090: requires "
             "sovereign-vfio-bind.service ordering + tetragon perimeter; "
             "if VFIO bind fails, logic-engine won't start.",
         ],

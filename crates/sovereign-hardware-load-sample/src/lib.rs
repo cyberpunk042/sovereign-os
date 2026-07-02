@@ -81,7 +81,7 @@ impl LoadSnapshot {
     pub fn empty_canonical(at: &str) -> Self {
         let loads = [
             HardwareTarget::CpuPulse,
-            HardwareTarget::Rocm3090,
+            HardwareTarget::Rocm4090,
             HardwareTarget::BlackwellOracle,
             HardwareTarget::Cloud,
             HardwareTarget::NoHardware,
@@ -112,7 +112,7 @@ impl LoadSnapshot {
         }
         let required = [
             HardwareTarget::CpuPulse,
-            HardwareTarget::Rocm3090,
+            HardwareTarget::Rocm4090,
             HardwareTarget::BlackwellOracle,
             HardwareTarget::Cloud,
             HardwareTarget::NoHardware,
@@ -186,7 +186,7 @@ mod tests {
         assert_eq!(s.loads.len(), 5);
         for t in [
             HardwareTarget::CpuPulse,
-            HardwareTarget::Rocm3090,
+            HardwareTarget::Rocm4090,
             HardwareTarget::BlackwellOracle,
             HardwareTarget::Cloud,
             HardwareTarget::NoHardware,
@@ -231,15 +231,15 @@ mod tests {
     #[test]
     fn vram_overflow_caught() {
         let mut s = LoadSnapshot::empty_canonical("t");
-        // rocm-3090 has 24GB capacity in canonical registry
+        // rocm-4090 has 24GB capacity in canonical registry
         for l in s.loads.iter_mut() {
-            if l.target == HardwareTarget::Rocm3090 {
+            if l.target == HardwareTarget::Rocm4090 {
                 l.vram_used_gb = 30;
             }
         }
         match s.validate_against(&reg()).unwrap_err() {
             LoadError::VramOverflow { target, used, cap } => {
-                assert_eq!(target, HardwareTarget::Rocm3090);
+                assert_eq!(target, HardwareTarget::Rocm4090);
                 assert_eq!(used, 30);
                 assert_eq!(cap, 24);
             }
@@ -251,7 +251,7 @@ mod tests {
     fn local_vram_totalling() {
         let mut s = LoadSnapshot::empty_canonical("t");
         for l in s.loads.iter_mut() {
-            if l.target == HardwareTarget::Rocm3090 {
+            if l.target == HardwareTarget::Rocm4090 {
                 l.vram_used_gb = 18;
             }
             if l.target == HardwareTarget::BlackwellOracle {

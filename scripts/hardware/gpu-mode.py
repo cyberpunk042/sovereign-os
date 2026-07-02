@@ -3,7 +3,7 @@
 
 Operator-named (verbatim, 2026-05-17 expansion): "Same for the GPU I
 guess and this like the tracking of the state like the watt set
-consumption for the GPU... with a warning if the RTX 3090 which should
+consumption for the GPU... with a warning if the RTX 4090 which should
 be sliglly reduce which isn't and things like this that warn deviance
 from 'perfertion'".
 
@@ -15,14 +15,14 @@ show/list/set/auto verbs, advisory-by-default policy.
 Modes (per-GPU power-limit watt targets):
 
   conservative   reduce TDP to operator-friendly cool baseline
-                 (3090 → 250 W, RTX PRO 6000 → 450 W). Designed
+                 (4090 → 250 W, RTX PRO 6000 → 450 W). Designed
                  to keep cooling headroom for sustained inference.
 
-  balanced       split-the-difference (3090 → 300 W, 6000 → 500 W).
+  balanced       split-the-difference (4090 → 300 W, 6000 → 500 W).
                  Default for mixed workloads — chat + light agent.
 
   sustained      stock TDP, but cap any post-overclock excursion
-                 (3090 → 350 W, 6000 → 600 W).
+                 (4090 → 350 W, 6000 → 600 W).
 
   peak           full TDP every card supports. Operator-driven for
                  synchronous low-batch inference where every watt

@@ -49,7 +49,7 @@ PEACE_CHECK = Path(os.environ.get(
 # validator; this is the always-true contract the dashboard renders.
 PROPERTIES = (
     {"key": "powerful", "name": "Powerful", "quote": "powerful enough to act",
-     "backed": "Blackwell + 3090 + AVX compute online (M058 scheduler, R09967)"},
+     "backed": "Blackwell + 4090 + AVX compute online (M058 scheduler, R09967)"},
     {"key": "disciplined", "name": "Disciplined", "quote": "disciplined enough to explain itself",
      "backed": "M049 13-field span + MS033 policy trace active (R09968)"},
     {"key": "reversible", "name": "Reversible", "quote": "reversible enough to trust",

@@ -16,7 +16,7 @@ Operator-supplied verbatim (this round's spec drop):
   - PSU:    be Quiet! Dark Power Pro 13 1600W (R313)
   - Board:  ASUS ProArt X870E-Creator WiFi (R312)
   - CPU:    Ryzen 9 9900X (Zen5, AVX-512 native)
-  - GPU1:   RTX 3090 24GB
+  - GPU1:   RTX 4090 24GB
   - GPU2:   RTX PRO 6000 98GB
 
 Operator caveat: "Not that we want to be rigid but if that help for
@@ -213,7 +213,7 @@ DEFAULT_COMPONENTS: list[dict[str, Any]] = [
     {
         "slot": "gpu-pcie-0",
         "category": "gpu",
-        "model": "NVIDIA GeForce RTX 3090",
+        "model": "NVIDIA GeForce RTX 4090",
         "vendor": "NVIDIA",
         "vram_gib": 24,
         "board_slot": "PCIE_1 or PCIE_3 (operator choice)",

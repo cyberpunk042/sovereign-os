@@ -8,7 +8,7 @@ Wires the 8 post-install hook scripts as systemd `oneshot` services + a target. 
 |---|---|---|---|
 | `sovereign-firstboot.target` | (group target) | — | — |
 | `sovereign-friction-audit.service` | `post-install/friction-audit-runtime.sh` | `ConditionFirstBoot=yes` | 1 |
-| `sovereign-vfio-bind.service` | `post-install/vfio-bind-3090.sh` | `ConditionFirstBoot=yes` | 2 (after friction) |
+| `sovereign-vfio-bind.service` | `post-install/vfio-bind-4090.sh` | `ConditionFirstBoot=yes` | 2 (after friction) |
 | `sovereign-network-vlan.service` | `post-install/network-vlan-config.sh` | `ConditionFirstBoot=yes` | 2 (after friction) |
 | `sovereign-tetragon-policy-load.service` | `post-install/tetragon-policy-load.sh` | `ConditionFirstBoot=yes` | 3 (after Tetragon daemon + ZFS) |
 | `sovereign-zfs-arc-clamp.service` | `post-install/zfs-arc-clamp.sh` | `ConditionFirstBoot=yes` | 2 (after ZFS) |

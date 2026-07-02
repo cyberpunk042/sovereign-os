@@ -14,10 +14,10 @@
 | E0381 | Hyper Feature 3 — AVX-512 As A Bit Engine — Zen 5 is deterministic accelerator; hyper feature is NOT just vector math but policy fusion + branch compaction + memory bitmap search + grammar masks + tool permission checks + reward-vector filtering + workflow state transitions; "makes adaptive profiles cheap enough to run constantly"; 512 candidate memories per bitset chunk / 8 branches per u64 vector / 64 tiny state flags per vector; 6 hot tables (BranchTable / MemoryMetaTable / ToolCapabilityTable / ModelRegistryTable / EvalResultTable / KVBlockTable); 5 operations (filter / intersect / popcount score / compress survivors / route batches) | 11521–11564 |
 | E0382 | Hyper Feature 4 — GPUDirect Storage / NVMe To GPU — future/advanced; NVIDIA GDS documents direct path between local/remote storage and GPU memory, bypassing CPU bounce buffers; RAPIDS KvikIO wraps for GPU-friendly I/O; use carefully; wins: large model load / embedding-vector shard load / dataset streaming / GPU-side preprocessing / large binary cache movement; NOT first priority for: small prompts / agent traces / JSON logs / tool calls / workflow metadata; 3-phase plan (Phase 1 ZFS+normal-mmap-iouring+RAM cache / Phase 2 profile model/data load bottlenecks / Phase 3 test GDS-KvikIO for model/cache datasets); "Do not build around GDS until profiling proves it matters" | 11566–11605 |
 | E0383 | Hyper Feature 5 — USB4 / External Expansion + Hyper Feature 6 — 10GbE + 2.5GbE Network Split — ProArt dual USB4 40Gbps (fast external backup / portable dataset drives / capture devices / external display / possible eGPU experiments not ideal); USB4 NOT main model path; 10GbE data plane (NAS / dataset sync / model artifact transfer / cluster peer) + 2.5GbE management (web dashboard / SSH / observability); Linux NIC support needs care — AQC113C/atlantic quirks on ProArt X870E + I226-V ASPM/WoL issues; NIC validation in setup (iperf3 10Gb test / ASPM stability test / suspend-resume test / driver-kernel pin / management VLAN failover); "Networking is part of reliability" | 11607–11654 |
-| E0384 | Hyper Feature 7 — VFIO / IOMMU — second GPU (3090) becomes hard trust boundary; 3090 bare-metal (lower latency, simpler local services) vs 3090 VFIO VM (stronger isolation, sandboxed agents, risky tools) vs 3090 passthrough profile (computer-use agent / web automation / untrusted model-tool experiments); profile-level choice (performance: 3090 on host / security: 3090 in VM / experiment: snapshot VM, run wild, discard) | 11656–11684 |
+| E0384 | Hyper Feature 7 — VFIO / IOMMU — second GPU (4090) becomes hard trust boundary; 4090 bare-metal (lower latency, simpler local services) vs 4090 VFIO VM (stronger isolation, sandboxed agents, risky tools) vs 4090 passthrough profile (computer-use agent / web automation / untrusted model-tool experiments); profile-level choice (performance: 4090 on host / security: 4090 in VM / experiment: snapshot VM, run wild, discard) | 11656–11684 |
 | E0385 | Hyper Feature 8 — ZFS Snapshots As Commit Gate — ZFS is autonomy infrastructure (NOT just storage); before agent writes: snapshot → apply patch → test → commit or rollback; for experiments: clone workspace → run branch → compare artifacts → promote or destroy; "gives safe aggressive agents" | 11686–11708 |
-| E0386 | Hyper Feature 9 — NPU Absence Is A Non-Issue — Ryzen 9000 desktop CPUs generally do not include Ryzen AI NPU; 9900X is not NPU platform; NPU equivalent = AVX-512 CPU (deterministic control) + 3090 (cheap SLM/perception) + Blackwell (oracle); "Do not chase NPU unless you add a separate Ryzen AI box later" | 11710–11720 |
-| E0387 | Hyper Feature 10 — Modes As Hardware Configurations + Big Hardware Law — profiles should control hardware NOT just prompts; 4 example YAML profiles (max_oracle blackwell.mig=off + largest_oracle FP8 + 3090 scout + AVX high + cloud false; secure_agent_lab blackwell.mig=on slices oracle+verifier + 3090 vfio true sandbox + tools.network gated + zfs.snapshot_before_write true; fast_code blackwell.model=code_oracle + 3090 code_scout + CPU route aggressive + tests targeted; research_deep blackwell.oracle long_context + 3090 rerank + memory.graph_expansion high + eval.citation_verification true); "profiles drive the whole machine"; Big Hardware Law — "A feature is only powerful if the runtime can choose when to use it"; MIG / FP4 / VFIO / AVX-512 / ZFS / GDS / 10GbE / USB4 / quantization / cloud fallback: NONE should be hardcoded; "programmable knobs in your intelligence OS" | 11722–11784 |
+| E0386 | Hyper Feature 9 — NPU Absence Is A Non-Issue — Ryzen 9000 desktop CPUs generally do not include Ryzen AI NPU; 9900X is not NPU platform; NPU equivalent = AVX-512 CPU (deterministic control) + 4090 (cheap SLM/perception) + Blackwell (oracle); "Do not chase NPU unless you add a separate Ryzen AI box later" | 11710–11720 |
+| E0387 | Hyper Feature 10 — Modes As Hardware Configurations + Big Hardware Law — profiles should control hardware NOT just prompts; 4 example YAML profiles (max_oracle blackwell.mig=off + largest_oracle FP8 + 4090 scout + AVX high + cloud false; secure_agent_lab blackwell.mig=on slices oracle+verifier + 4090 vfio true sandbox + tools.network gated + zfs.snapshot_before_write true; fast_code blackwell.model=code_oracle + 4090 code_scout + CPU route aggressive + tests targeted; research_deep blackwell.oracle long_context + 4090 rerank + memory.graph_expansion high + eval.citation_verification true); "profiles drive the whole machine"; Big Hardware Law — "A feature is only powerful if the runtime can choose when to use it"; MIG / FP4 / VFIO / AVX-512 / ZFS / GDS / 10GbE / USB4 / quantization / cloud fallback: NONE should be hardcoded; "programmable knobs in your intelligence OS" | 11722–11784 |
 
 ## Modules (M00663–M00679)
 
@@ -37,9 +37,9 @@
 | M00674 | AVX-512 hot table — KVBlockTable | 11553 | E0381 |
 | M00675 | AVX-512 ops — filter / intersect / popcount-score / compress-survivors / route-batches | 11558–11563 | E0381 |
 | M00676 | GDS adoption phases — Phase 1 ZFS+mmap+iouring+RAM / Phase 2 profile bottlenecks / Phase 3 test GDS-KvikIO | 11595–11603 | E0382 |
-| M00677 | VFIO 3090 profile (performance/security/experiment) | 11675–11684 | E0384 |
+| M00677 | VFIO 4090 profile (performance/security/experiment) | 11675–11684 | E0384 |
 | M00678 | ZFS commit-gate cycle — snapshot → apply patch → test → commit or rollback | 11692–11697 | E0385 |
-| M00679 | NPU substitute trio — AVX-512 CPU + 3090 + Blackwell (replaces NPU) | 11713–11718 | E0386 |
+| M00679 | NPU substitute trio — AVX-512 CPU + 4090 + Blackwell (replaces NPU) | 11713–11718 | E0386 |
 
 ## Features (F03316–F03400)
 
@@ -125,10 +125,10 @@
 | F03393 | Network validation — iperf3 10Gb test / ASPM stability test / suspend-resume test / driver-kernel pin / management VLAN failover | 11647–11651 | E0383 | composite | true |
 | F03394 | "Networking is part of reliability" | 11654 | E0383 | composite | false |
 | F03395 | VFIO hyper feature — second GPU becomes hard trust boundary | 11658 | E0384 | composite | false |
-| F03396 | VFIO profiles — 3090 bare-metal (perf) / 3090 VFIO VM (security) / 3090 passthrough (computer-use+web automation+untrusted experiments) | 11661–11671 | M00677 | composite | true |
-| F03397 | VFIO profile — performance (3090 on host) / security (3090 in VM) / experiment (snapshot VM, run wild, discard) | 11676–11684 | M00677 | composite | true |
+| F03396 | VFIO profiles — 4090 bare-metal (perf) / 4090 VFIO VM (security) / 4090 passthrough (computer-use+web automation+untrusted experiments) | 11661–11671 | M00677 | composite | true |
+| F03397 | VFIO profile — performance (4090 on host) / security (4090 in VM) / experiment (snapshot VM, run wild, discard) | 11676–11684 | M00677 | composite | true |
 | F03398 | ZFS hyper feature — autonomy infrastructure (NOT just storage); commit-gate cycle snapshot → apply → test → commit-or-rollback | 11688–11708 | M00678 | composite | false |
-| F03399 | NPU absence is a non-issue — AVX-512 + 3090 + Blackwell substitute trio | 11710–11720 | M00679 | composite | false |
+| F03399 | NPU absence is a non-issue — AVX-512 + 4090 + Blackwell substitute trio | 11710–11720 | M00679 | composite | false |
 | F03400 | Composite — Hyper Feature 10 Modes As Hardware Configurations (4 example YAML profiles: max_oracle / secure_agent_lab / fast_code / research_deep) + Big Hardware Law "A feature is only powerful if the runtime can choose when to use it" (MIG/FP4/VFIO/AVX-512/ZFS/GDS/10GbE/USB4/quantization/cloud-fallback all programmable knobs, NONE hardcoded) | 11722–11784 | E0387 | composite | false |
 
 ## Requirements (R06631–R06800)
@@ -226,11 +226,11 @@
 | R06719 | NIC validation — management VLAN failover | 11651 | F03393 | non-negotiable | true | 10 |
 | R06720 | "Networking is part of reliability" | 11654 | F03394 | non-negotiable | false | 10 |
 | R06721 | VFIO hyper feature — second GPU becomes hard trust boundary | 11658 | F03395 | non-negotiable | false | 10 |
-| R06722 | VFIO profile — 3090 bare-metal (lower latency, simpler local services) | 11661 | F03396 | non-negotiable | true | 10 |
-| R06723 | VFIO profile — 3090 VFIO VM (stronger isolation, sandboxed agents, risky tools) | 11664 | F03396 | non-negotiable | true | 10 |
-| R06724 | VFIO profile — 3090 passthrough profile (computer-use agent / web automation / untrusted model-tool experiments) | 11667–11670 | F03396 | non-negotiable | true | 10 |
-| R06725 | VFIO profile-level choice — performance profile (3090 on host) | 11676 | F03397 | non-negotiable | true | 10 |
-| R06726 | VFIO profile-level choice — security profile (3090 in VM) | 11679 | F03397 | non-negotiable | true | 10 |
+| R06722 | VFIO profile — 4090 bare-metal (lower latency, simpler local services) | 11661 | F03396 | non-negotiable | true | 10 |
+| R06723 | VFIO profile — 4090 VFIO VM (stronger isolation, sandboxed agents, risky tools) | 11664 | F03396 | non-negotiable | true | 10 |
+| R06724 | VFIO profile — 4090 passthrough profile (computer-use agent / web automation / untrusted model-tool experiments) | 11667–11670 | F03396 | non-negotiable | true | 10 |
+| R06725 | VFIO profile-level choice — performance profile (4090 on host) | 11676 | F03397 | non-negotiable | true | 10 |
+| R06726 | VFIO profile-level choice — security profile (4090 in VM) | 11679 | F03397 | non-negotiable | true | 10 |
 | R06727 | VFIO profile-level choice — experiment profile (snapshot VM, run wild, discard) | 11682 | F03397 | non-negotiable | true | 10 |
 | R06728 | ZFS hyper feature — autonomy infrastructure (NOT just storage) | 11688 | F03398 | non-negotiable | false | 10 |
 | R06729 | ZFS commit-gate before agent writes — snapshot | 11693 | M00678 | non-negotiable | true | 10 |
@@ -245,14 +245,14 @@
 | R06738 | NPU absence — Ryzen 9000 desktop CPUs generally do not include Ryzen AI NPU | 11712 | F03399 | non-negotiable | false | 10 |
 | R06739 | NPU absence — 9900X is not your NPU platform | 11712 | F03399 | non-negotiable | false | 10 |
 | R06740 | NPU equivalent — AVX-512 CPU for deterministic control | 11715 | F03399 | non-negotiable | true | 10 |
-| R06741 | NPU equivalent — 3090 for cheap SLM/perception | 11716 | F03399 | non-negotiable | true | 10 |
+| R06741 | NPU equivalent — 4090 for cheap SLM/perception | 11716 | F03399 | non-negotiable | true | 10 |
 | R06742 | NPU equivalent — Blackwell for oracle | 11717 | F03399 | non-negotiable | true | 10 |
 | R06743 | "Do not chase NPU unless you add a separate Ryzen AI box later" | 11720 | F03399 | non-negotiable | false | 10 |
 | R06744 | Hyper Feature 10 — Modes As Hardware Configurations; profiles control hardware NOT just prompts | 11722–11724 | F03400 | non-negotiable | false | 10 |
-| R06745 | Profile YAML — max_oracle (blackwell.mig=off + largest_oracle + fp8 + 3090 scout + AVX high + cloud false) | 11727–11737 | E0387 | non-negotiable | true | 10 |
-| R06746 | Profile YAML — secure_agent_lab (blackwell.mig=on + slices=[oracle, verifier] + rtx3090.vfio=true + sandbox + tools.network=gated + zfs.snapshot_before_write=true) | 11739–11750 | E0387 | non-negotiable | true | 10 |
-| R06747 | Profile YAML — fast_code (blackwell.model=code_oracle + 3090 code_scout + CPU route=aggressive + tests=targeted) | 11751–11759 | E0387 | non-negotiable | true | 10 |
-| R06748 | Profile YAML — research_deep (blackwell.oracle=long_context + 3090 rerank + memory.graph_expansion=high + eval.citation_verification=true) | 11761–11770 | E0387 | non-negotiable | true | 10 |
+| R06745 | Profile YAML — max_oracle (blackwell.mig=off + largest_oracle + fp8 + 4090 scout + AVX high + cloud false) | 11727–11737 | E0387 | non-negotiable | true | 10 |
+| R06746 | Profile YAML — secure_agent_lab (blackwell.mig=on + slices=[oracle, verifier] + rtx4090.vfio=true + sandbox + tools.network=gated + zfs.snapshot_before_write=true) | 11739–11750 | E0387 | non-negotiable | true | 10 |
+| R06747 | Profile YAML — fast_code (blackwell.model=code_oracle + 4090 code_scout + CPU route=aggressive + tests=targeted) | 11751–11759 | E0387 | non-negotiable | true | 10 |
+| R06748 | Profile YAML — research_deep (blackwell.oracle=long_context + 4090 rerank + memory.graph_expansion=high + eval.citation_verification=true) | 11761–11770 | E0387 | non-negotiable | true | 10 |
 | R06749 | "Profiles drive the whole machine" | 11772 | F03400 | non-negotiable | false | 10 |
 | R06750 | Big Hardware Law — "A feature is only powerful if the runtime can choose when to use it" | 11776 | F03400 | non-negotiable | false | 10 |
 | R06751 | Programmable knob — MIG | 11780 | F03400 | non-negotiable | true | 10 |
@@ -269,10 +269,10 @@
 | R06762 | They should be programmable knobs in your intelligence OS | 11782 | F03400 | non-negotiable | false | 10 |
 | R06763 | "That is how you avoid locking yourself into one profile while still exploiting every breakthrough" | 11784 | F03400 | non-negotiable | false | 10 |
 | R06764 | M040 integrates with M025 cognitive compiler — profile YAML compiles to runtime DAG with hardware knobs | 11722–11770 + cross-ref M025 | F03400 | non-negotiable | false | 10 |
-| R06765 | M040 integrates with M026 SLM swarm + RLM engine — 3090 scout role + MIG slices host SLM swarm | cross-ref M026 + 11005 + 11444 | M00664 + F03396 | non-negotiable | false | 10 |
+| R06765 | M040 integrates with M026 SLM swarm + RLM engine — 4090 scout role + MIG slices host SLM swarm | cross-ref M026 + 11005 + 11444 | M00664 + F03396 | non-negotiable | false | 10 |
 | R06766 | M040 integrates with M027 Value Plane — reward-vector filtering is an AVX-512 hyper feature | 11533 + cross-ref M027 | F03354 | non-negotiable | false | 10 |
 | R06767 | M040 integrates with M028 Memory OS — MemoryMetaTable + KVBlockTable + memory bitmap search are hot tables | 11530 + 11549 + 11553 + cross-ref M028 | M00670 + M00674 + F03351 | non-negotiable | false | 10 |
-| R06768 | M040 integrates with M029 Computer-Use Plane — 3090 VFIO passthrough for computer-use agent + web automation | 11668–11669 + cross-ref M029 | F03396 | non-negotiable | false | 10 |
+| R06768 | M040 integrates with M029 Computer-Use Plane — 4090 VFIO passthrough for computer-use agent + web automation | 11668–11669 + cross-ref M029 | F03396 | non-negotiable | false | 10 |
 | R06769 | M040 integrates with M030 World Model Plane — ZFS snapshot/commit/rollback is the World-Model rollback channel | 11690–11708 + cross-ref M030 | M00678 | non-negotiable | false | 10 |
 | R06770 | M040 integrates with M031 Symbolic Planning Plane — tool permission checks + grammar masks are AVX-512 hyper features | 11531 + 11532 + cross-ref M031 | F03352 + F03353 | non-negotiable | false | 10 |
 | R06771 | M040 integrates with M032 Cloud Expert Plane — cloud fallback is one of 10 programmable knobs | 11780 + cross-ref M032 | R06760 | non-negotiable | false | 10 |
@@ -284,7 +284,7 @@
 | R06777 | M040 integrates with M039 AVX-512 Cortex Hot Path — AVX-512 hyper feature 3 catalogs the same 6 hot tables + 5 operations | 11548–11563 + cross-ref M039 | M00669-M00674 + M00675 | non-negotiable | false | 10 |
 | R06778 | Project boundary — M040 covers sovereign-os hyper features; selfdef MS010 [requires_hardware] gates check MIG/FP4/VFIO availability | architecture + MS010 | E0387 | non-negotiable | false | 10 |
 | R06779 | Project boundary — selfdef MS007 typed-mirror crates may carry profile-YAML schema for cross-repo audit | MS007 + SDD-038 | E0387 | non-negotiable | false | 10 |
-| R06780 | Project boundary — selfdef MS017 agent-guard may enforce Hyper Feature 7 VFIO trust boundary (3090 in VM for sandboxed agents) | MS017 + 11664 | F03396 | non-negotiable | false | 10 |
+| R06780 | Project boundary — selfdef MS017 agent-guard may enforce Hyper Feature 7 VFIO trust boundary (4090 in VM for sandboxed agents) | MS017 + 11664 | F03396 | non-negotiable | false | 10 |
 | R06781 | MIG enablement workflow — Hyper Feature 1 toggle on/off via profile (NOT default-on; opt-in per workload) | 11458 + 11460 | R06640 | non-negotiable | false | 10 |
 | R06782 | FP4 enablement workflow — Hyper Feature 2 model-lab qualification gate (NOT blind trust) | 11486–11496 | E0380 | non-negotiable | false | 10 |
 | R06783 | AVX-512 enablement workflow — Hyper Feature 3 hot-table maintenance via runtime feeders | 11545–11546 | E0381 | non-negotiable | false | 10 |
@@ -299,7 +299,7 @@
 | R06792 | Layer-B metric (implied) — `sovereign_os_profile_in_use{name}` (max_oracle / secure_agent_lab / fast_code / research_deep / etc.) | architecture + 11727–11770 | F03400 | non-negotiable | true | 10 |
 | R06793 | Layer-B metric (implied) — `sovereign_os_mig_slice_count_total{role}` (oracle/verifier/embedding/service) | architecture + 11443–11447 | M00664 | non-negotiable | true | 10 |
 | R06794 | Layer-B metric (implied) — `sovereign_os_zfs_commit_gate_outcomes_total{outcome}` (commit/rollback) | architecture + 11696 | M00678 | non-negotiable | true | 10 |
-| R06795 | Layer-B metric (implied) — `sovereign_os_vfio_3090_passthrough_active` (gauge) | architecture + 11667 | F03396 | non-negotiable | true | 10 |
+| R06795 | Layer-B metric (implied) — `sovereign_os_vfio_4090_passthrough_active` (gauge) | architecture + 11667 | F03396 | non-negotiable | true | 10 |
 | R06796 | Layer-B metric (implied) — `sovereign_os_avx512_hot_table_rows{table}` (BranchTable / MemoryMetaTable / etc.) | architecture + 11548–11553 | M00669-M00674 | non-negotiable | true | 10 |
 | R06797 | Doctrine — every hyper feature is a SOFTWARE-EXPOSED HARDWARE AFFORDANCE; runtime decides when to use | 11429 + 11776 | F03317 + F03400 | non-negotiable | false | 10 |
 | R06798 | Doctrine — profile YAML is the canonical operator-facing surface (NOT prompt-only configuration) | 11725 | F03400 | non-negotiable | false | 10 |

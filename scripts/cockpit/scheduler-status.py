@@ -213,7 +213,7 @@ def render_human(parsed: dict[str, Any], status: str) -> str:
             f"mem={m.get('mem_psi', 0)*100:.1f}% "
             f"io={m.get('io_psi', 0)*100:.1f}% "
             f"bw_vram={m.get('blackwell_vram_util', 0)*100:.1f}% "
-            f"gpu3090={m.get('gpu3090_util', 0)*100:.1f}% "
+            f"gpu4090={m.get('gpu3090_util', 0)*100:.1f}% "
             f"hg={m.get('human_gate_queue_depth', 0)}"
         )
     fired = [k for k, v in parsed["state"].items() if v]
@@ -228,7 +228,7 @@ def render_human(parsed: dict[str, Any], status: str) -> str:
         by_route = dec.get("by_route", {})
         route_str = " ".join(
             f"{r}={by_route.get(r, 0)}"
-            for r in ("blackwell", "rtx3090", "cpu", "hybrid", "hibernate")
+            for r in ("blackwell", "rtx4090", "cpu", "hybrid", "hibernate")
         )
         lines.append(f"  decisions (ring={in_ring}): {route_str}")
         hib = dec.get("hibernate", 0)

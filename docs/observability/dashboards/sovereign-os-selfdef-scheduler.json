@@ -32,7 +32,7 @@
     {
       "type": "stat",
       "title": "backpressure surfaces firing (of 6)",
-      "description": "cpu + ram + io + Blackwell VRAM + 3090 busy + human-gate-high.",
+      "description": "cpu + ram + io + Blackwell VRAM + 4090 busy + human-gate-high.",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "targets": [{"expr": "selfdef_scheduler_cpu_pressure + selfdef_scheduler_ram_pressure + selfdef_scheduler_io_pressure + selfdef_scheduler_blackwell_vram_high + selfdef_scheduler_gpu3090_busy + selfdef_scheduler_human_gate_queue_high", "refId": "A"}],
       "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 6, "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 1}, {"color": "red", "value": 3}]}}},
@@ -62,12 +62,12 @@
     },
     {
       "type": "timeseries",
-      "title": "GPU substrate over time (Blackwell VRAM / 3090 util)",
-      "description": "Blackwell VRAM util threshold 0.90 (R11333); 3090 busy threshold 0.80 (R11337).",
+      "title": "GPU substrate over time (Blackwell VRAM / 4090 util)",
+      "description": "Blackwell VRAM util threshold 0.90 (R11333); 4090 busy threshold 0.80 (R11337).",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "targets": [
         {"expr": "selfdef_scheduler_blackwell_vram_util", "legendFormat": "Blackwell VRAM", "refId": "A"},
-        {"expr": "selfdef_scheduler_gpu3090_util", "legendFormat": "3090 compute", "refId": "B"}
+        {"expr": "selfdef_scheduler_gpu3090_util", "legendFormat": "4090 compute", "refId": "B"}
       ],
       "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1}},
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
@@ -143,8 +143,8 @@
           "refId": "A"
         },
         {
-          "expr": "selfdef_scheduler_decisions_by_route{route=\"rtx3090\"}",
-          "legendFormat": "rtx3090 (scout)",
+          "expr": "selfdef_scheduler_decisions_by_route{route=\"rtx4090\"}",
+          "legendFormat": "rtx4090 (scout)",
           "refId": "B"
         },
         {

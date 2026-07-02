@@ -21,7 +21,7 @@
 //! - private + risky → local Oracle (Blackwell, no cloud egress)
 //! - simple + cheap + fast → Conductor (CPU ternary, lowest cost)
 //! - complex + careful + oracle → Oracle (Blackwell PRO 6000)
-//! - all in-between → Logic Engine (RTX 3090 NVFP4)
+//! - all in-between → Logic Engine (RTX 4090 NVFP4)
 //!
 //! Standing rule: We do not minimize anything. We catalogue the 7-axis
 //! decision per the published NadirClaw doctrine; we do not invent.
@@ -135,7 +135,7 @@ pub struct TaskAxes {
 pub enum SrpRole {
     /// Conductor — CPU ternary (M073). Lowest cost.
     Conductor,
-    /// Logic Engine — RTX 3090 NVFP4. Mid cost.
+    /// Logic Engine — RTX 4090 NVFP4. Mid cost.
     Logic,
     /// Oracle Core — Blackwell PRO 6000. Highest cost.
     Oracle,
@@ -190,9 +190,9 @@ fn decide_role(a: &TaskAxes) -> SrpRole {
             SrpRole::Oracle
         };
     }
-    // 3. GUI domain → Logic Engine (3090 with VFIO browser/CUDA paths).
+    // 3. GUI domain → Logic Engine (4090 with VFIO browser/CUDA paths).
     // Must precede the simple+cheap+fast Conductor path: GUI inherently
-    // needs the 3090 substrate even for "simple" requests.
+    // needs the 4090 substrate even for "simple" requests.
     if a.domain == Domain::Gui {
         return SrpRole::Logic;
     }
@@ -218,7 +218,7 @@ fn explain(a: &TaskAxes, role: SrpRole) -> String {
             a.complexity, a.quality, a.latency
         ),
         SrpRole::Logic => format!(
-            "Logic Engine (3090 NVFP4): {:?} domain or complex+careful",
+            "Logic Engine (4090 NVFP4): {:?} domain or complex+careful",
             a.domain
         ),
         SrpRole::Oracle => {

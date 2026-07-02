@@ -67,7 +67,7 @@ gpu_count_min = 1
 gpu_vram_gib_min = 40
 TOML
 
-# SAIN-01-shaped caps (RTX PRO 6000 + RTX 3090)
+# SAIN-01-shaped caps (RTX PRO 6000 + RTX 4090)
 cat > "${WORK}/caps/hardware-capabilities.json" <<'JSON'
 {
   "schema_version": "1.2.0",

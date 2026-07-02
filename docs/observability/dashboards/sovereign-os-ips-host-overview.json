@@ -265,7 +265,7 @@
     {
       "type": "stat",
       "title": "scheduler backpressure surfaces firing (of 6)",
-      "description": "cpu + ram + io + Blackwell VRAM + 3090 busy + human-gate-high. The scheduler is throttling autonomous routing while ≥1 surface fires.",
+      "description": "cpu + ram + io + Blackwell VRAM + 4090 busy + human-gate-high. The scheduler is throttling autonomous routing while ≥1 surface fires.",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "targets": [{"expr": "selfdef_scheduler_cpu_pressure + selfdef_scheduler_ram_pressure + selfdef_scheduler_io_pressure + selfdef_scheduler_blackwell_vram_high + selfdef_scheduler_gpu3090_busy + selfdef_scheduler_human_gate_queue_high", "refId": "A"}],
       "fieldConfig": {"defaults": {"unit": "none", "min": 0, "max": 6, "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 1}, {"color": "red", "value": 3}]}}},

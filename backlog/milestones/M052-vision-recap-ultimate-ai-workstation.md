@@ -10,7 +10,7 @@
 |---|---|---|
 | E0498 | Operator vision-recap directive + AI confirmation — "Remember what we are doing... vision or visions I should say is/are clear" / "We have not lost it. The vision is clear, and it has multiple interlocking forms" | 15705 + 15710 |
 | E0499 | Highest-level definition — "Ultimate AI Workstation = hardware-aware intelligence OS + sovereign user control + local model ecology + deterministic runtime + memory/continuity + safe execution + adaptive learning + later fine-tuning / LoRA / retraining" | 15716–15724 |
-| E0500 | Hardware Vision — 5-tier with per-tier capability lists: Ryzen 9900X / Zen 5 AVX-512 (deterministic cortex + branch scheduling + policy masks + token/schema masks + memory bitsets + routing + eval scoring + workflow state) + RTX PRO 6000 Blackwell 96GB (oracle + large resident models + long-context synthesis + final verification + FP8/FP4 model lab + high-risk reasoning) + RTX 3090 24GB (scout + SLM swarm + embeddings/rerankers + perception/GUI + draft/speculation + sandboxed experiments) + 256GB RAM (active memory graph + context arenas + ZFS ARC + warm caches) + NVMe + ZFS (snapshots + replay + rollback + model artifacts + datasets + eval history) | 15730–15780 |
+| E0500 | Hardware Vision — 5-tier with per-tier capability lists: Ryzen 9900X / Zen 5 AVX-512 (deterministic cortex + branch scheduling + policy masks + token/schema masks + memory bitsets + routing + eval scoring + workflow state) + RTX PRO 6000 Blackwell 96GB (oracle + large resident models + long-context synthesis + final verification + FP8/FP4 model lab + high-risk reasoning) + RTX 4090 24GB (scout + SLM swarm + embeddings/rerankers + perception/GUI + draft/speculation + sandboxed experiments) + 256GB RAM (active memory graph + context arenas + ZFS ARC + warm caches) + NVMe + ZFS (snapshots + replay + rollback + model artifacts + datasets + eval history) | 15730–15780 |
 | E0501 | OS Vision — "Debian 13 / Ubuntu 24 base as Sovereign-OS"; 10 primitives: systemd / cgroup v2 / AppArmor / eBPF / LUKS+TPM+FIDO2 / Podman+Quadlet / VFIO+IOMMU / ZFS / OpenTelemetry / DCGM; "The OS is not just a platform. It governs intelligence" | 15784–15806 |
 | E0502 | Runtime Vision — 6-line Design Law (Models propose / Runtime routes / AVX-512 enforces / Tools prove / ZFS remembers / User chooses) + 7-step loop (MAP → SPEC → TEST → ACT → EVAL → COMMIT → LEARN); "But flexible, not locked"; 9 profile bundles: fast / careful / private / offline / research / autonomous / experimental / production / communication-peace | 15810–15838 |
 | E0503 | Intelligence Vision — "Not one model. A model ecology"; 6 model types: LLM (deep reasoning / synthesis) / SLM (fast reflexes / tool use / classification) / RLM (recursive context navigation) / RM-PRM (reward and process scoring) / VLM (GUI, documents, perception) / LoRA-adapters (project/user/domain specialization); "The 'super-model' is the routed system, not a single checkpoint" | 15842–15864 |
@@ -27,7 +27,7 @@
 | M00868 | 8-line highest-level definition — hardware-aware intelligence OS + sovereign user control + local model ecology + deterministic runtime + memory/continuity + safe execution + adaptive learning + fine-tuning/LoRA/retraining | 15716–15724 | E0499 |
 | M00869 | Ryzen 9900X / Zen 5 AVX-512 — 8 roles (deterministic cortex / branch scheduling / policy masks / token-schema masks / memory bitsets / routing / eval scoring / workflow state) | 15732–15744 | E0500 |
 | M00870 | RTX PRO 6000 Blackwell 96GB — 6 roles (oracle / large resident models / long-context synthesis / final verification / FP8-FP4 model lab / high-risk reasoning) | 15748–15760 | E0500 |
-| M00871 | RTX 3090 24GB — 6 roles (scout / SLM swarm / embeddings-rerankers / perception-GUI / draft-speculation / sandboxed experiments) | 15764–15774 | E0500 |
+| M00871 | RTX 4090 24GB — 6 roles (scout / SLM swarm / embeddings-rerankers / perception-GUI / draft-speculation / sandboxed experiments) | 15764–15774 | E0500 |
 | M00872 | 256GB RAM — 4 uses (active memory graph + context arenas + ZFS ARC + warm caches) | 15777 | E0500 |
 | M00873 | NVMe + ZFS — 6 uses (snapshots + replay + rollback + model artifacts + datasets + eval history) | 15780 | E0500 |
 | M00874 | Sovereign-OS 10-primitive substrate — systemd + cgroup v2 + AppArmor + eBPF + LUKS-TPM-FIDO2 + Podman-Quadlet + VFIO-IOMMU + ZFS + OpenTelemetry + DCGM | 15788–15806 | E0501 |
@@ -74,12 +74,12 @@
 | F04362 | Blackwell role — final verification | 15756 | M00870 |
 | F04363 | Blackwell role — FP8/FP4 model lab | 15758 | M00870 |
 | F04364 | Blackwell role — high-risk reasoning | 15760 | M00870 |
-| F04365 | 3090 role — scout | 15764 | M00871 |
-| F04366 | 3090 role — SLM swarm | 15766 | M00871 |
-| F04367 | 3090 role — embeddings/rerankers | 15768 | M00871 |
-| F04368 | 3090 role — perception/GUI | 15770 | M00871 |
-| F04369 | 3090 role — draft/speculation | 15772 | M00871 |
-| F04370 | 3090 role — sandboxed experiments | 15774 | M00871 |
+| F04365 | 4090 role — scout | 15764 | M00871 |
+| F04366 | 4090 role — SLM swarm | 15766 | M00871 |
+| F04367 | 4090 role — embeddings/rerankers | 15768 | M00871 |
+| F04368 | 4090 role — perception/GUI | 15770 | M00871 |
+| F04369 | 4090 role — draft/speculation | 15772 | M00871 |
+| F04370 | 4090 role — sandboxed experiments | 15774 | M00871 |
 | F04371 | RAM 256GB — active memory graph | 15777 | M00872 |
 | F04372 | RAM 256GB — context arenas | 15778 | M00872 |
 | F04373 | RAM 256GB — ZFS ARC | 15779 | M00872 |
@@ -164,12 +164,12 @@
 | R08697 | Blackwell role — final verification | 15756 | F04362 | non-negotiable | false | 10 |
 | R08698 | Blackwell role — FP8/FP4 model lab | 15758 | F04363 | non-negotiable | false | 10 |
 | R08699 | Blackwell role — high-risk reasoning | 15760 | F04364 | non-negotiable | false | 10 |
-| R08700 | 3090 role — scout | 15764 | F04365 | non-negotiable | false | 10 |
-| R08701 | 3090 role — SLM swarm | 15766 | F04366 | non-negotiable | false | 10 |
-| R08702 | 3090 role — embeddings/rerankers | 15768 | F04367 | non-negotiable | false | 10 |
-| R08703 | 3090 role — perception/GUI | 15770 | F04368 | non-negotiable | false | 10 |
-| R08704 | 3090 role — draft/speculation | 15772 | F04369 | non-negotiable | false | 10 |
-| R08705 | 3090 role — sandboxed experiments | 15774 | F04370 | non-negotiable | false | 10 |
+| R08700 | 4090 role — scout | 15764 | F04365 | non-negotiable | false | 10 |
+| R08701 | 4090 role — SLM swarm | 15766 | F04366 | non-negotiable | false | 10 |
+| R08702 | 4090 role — embeddings/rerankers | 15768 | F04367 | non-negotiable | false | 10 |
+| R08703 | 4090 role — perception/GUI | 15770 | F04368 | non-negotiable | false | 10 |
+| R08704 | 4090 role — draft/speculation | 15772 | F04369 | non-negotiable | false | 10 |
+| R08705 | 4090 role — sandboxed experiments | 15774 | F04370 | non-negotiable | false | 10 |
 | R08706 | RAM 256GB use — active memory graph | 15777 | F04371 | non-negotiable | false | 10 |
 | R08707 | RAM 256GB use — context arenas | 15778 | F04372 | non-negotiable | false | 10 |
 | R08708 | RAM 256GB use — ZFS ARC | 15779 | F04373 | non-negotiable | false | 10 |
@@ -261,7 +261,7 @@
 | R08794 | Core — "turns local compute, memory, tools, and models into a continuous intelligence environment" | 15940 | F04418 | non-negotiable | false | 10 |
 | R08795 | Operator transition — "now lets start talking more in language to transpose all this in a future implementation conversation" | 15915 | F04419 | non-negotiable | false | 10 |
 | R08796 | Operator transition — "making sure we output enough details and reasonings. we are about to do complex things" | 15915 | F04420 | non-negotiable | false | 10 |
-| R08797 | Cross-repo realization — selfdef MS010+MS028+MS029+MS030+MS031 + sovereign-os M039+M043+M050+M051 realize the Hardware Vision Ryzen+Blackwell+3090+RAM+NVMe-ZFS substrate | cross-ref MS010 + MS028 + MS029 + MS030 + MS031 + M039 + M043 + M050 + M051 | M00869 + M00870 + M00871 + M00872 + M00873 | non-negotiable | false | 10 |
+| R08797 | Cross-repo realization — selfdef MS010+MS028+MS029+MS030+MS031 + sovereign-os M039+M043+M050+M051 realize the Hardware Vision Ryzen+Blackwell+4090+RAM+NVMe-ZFS substrate | cross-ref MS010 + MS028 + MS029 + MS030 + MS031 + M039 + M043 + M050 + M051 | M00869 + M00870 + M00871 + M00872 + M00873 | non-negotiable | false | 10 |
 | R08798 | Cross-repo realization — selfdef MS016+MS017+MS019+MS020+MS027 + sovereign-os M044+M045+M048+M049 realize the OS Vision 10-primitive Sovereign-OS substrate | cross-ref MS016 + MS017 + MS019 + MS020 + MS027 + M044 + M045 + M048 + M049 | M00874 | non-negotiable | false | 10 |
 | R08799 | Cross-repo realization — sovereign-os M050 6-line Design Law (Models propose / Runtime routes / CPU enforces / Tools prove / ZFS remembers / User chooses) matches Runtime Vision Design Law exactly | cross-ref M050 + dump 15814–15824 | M00875 | non-negotiable | false | 10 |
 | R08800 | Cross-repo realization — sovereign-os M036+M037+M041+M042+M049 realize the Runtime Vision MAP→SPEC→TEST→ACT→EVAL→COMMIT→LEARN loop | cross-ref M036 + M037 + M041 + M042 + M049 | M00876 | non-negotiable | false | 10 |
@@ -304,7 +304,7 @@
 | R08837 | Doctrine — M052 vision recap IS the bridge between architectural exploration (M001-M051) + implementation execution (M053+) | dump 15705 + 15915 | E0507 | non-negotiable | false | 10 |
 | R08838 | Doctrine — every M053+ implementation milestone MUST cite this M052 vision recap as parent doctrine | architecture + cross-ref M053+ | E0507 | non-negotiable | false | 10 |
 | R08839 | Doctrine — vision recap content (R08677–R08792) is OPERATOR-OWNED + AI MUST NOT modify or simplify | dump 15705 | E0498 | non-negotiable | false | 10 |
-| R08840 | Composite — M052 (10 epics / 17 modules / 85 features / 170 reqs) catalogs the Vision Recap from dump 15705-15940: operator vision-recap directive + AI confirmation "We have not lost it. The vision is clear, and it has multiple interlocking forms" + 8-component highest-level definition (hardware-aware intelligence OS / sovereign user control / local model ecology / deterministic runtime / memory-continuity / safe execution / adaptive learning / fine-tuning-LoRA-retraining) + Hardware Vision 5-tier with per-tier roles (Ryzen-Zen5 8 roles / Blackwell 6 roles / 3090 6 roles / RAM 4 uses / NVMe-ZFS 6 uses) + OS Vision 10-primitive Sovereign-OS substrate "governs intelligence" + Runtime Vision 6-line Design Law + 7-step loop + 9 flexible profile bundles + Intelligence Vision 6 model types "super-model is routed system not single checkpoint" + Continuity Vision 11-type taxonomy "Cloud has scale. This has situated intelligence" + Fine-Tuning Vision 7-before + 7-then "Fine-tuning is not the first step. It is what crystallizes proven behavior" + Sovereign Vision 9-boundary-choice "peace machine: logic, communication, reversibility, consent, and intelligence everywhere" + core definition "user-sovereign, hardware-aware, adaptive AI workstation that turns local compute, memory, tools, and models into a continuous intelligence environment" + operator transition directive to M053+ implementation conversation "we are about to do complex things". Every row cites verbatim dump line. | dump 15705–15940 + cross-ref MS001-MS033 + M001-M051 | E0498-E0507 | non-negotiable | false | 10 |
+| R08840 | Composite — M052 (10 epics / 17 modules / 85 features / 170 reqs) catalogs the Vision Recap from dump 15705-15940: operator vision-recap directive + AI confirmation "We have not lost it. The vision is clear, and it has multiple interlocking forms" + 8-component highest-level definition (hardware-aware intelligence OS / sovereign user control / local model ecology / deterministic runtime / memory-continuity / safe execution / adaptive learning / fine-tuning-LoRA-retraining) + Hardware Vision 5-tier with per-tier roles (Ryzen-Zen5 8 roles / Blackwell 6 roles / 4090 6 roles / RAM 4 uses / NVMe-ZFS 6 uses) + OS Vision 10-primitive Sovereign-OS substrate "governs intelligence" + Runtime Vision 6-line Design Law + 7-step loop + 9 flexible profile bundles + Intelligence Vision 6 model types "super-model is routed system not single checkpoint" + Continuity Vision 11-type taxonomy "Cloud has scale. This has situated intelligence" + Fine-Tuning Vision 7-before + 7-then "Fine-tuning is not the first step. It is what crystallizes proven behavior" + Sovereign Vision 9-boundary-choice "peace machine: logic, communication, reversibility, consent, and intelligence everywhere" + core definition "user-sovereign, hardware-aware, adaptive AI workstation that turns local compute, memory, tools, and models into a continuous intelligence environment" + operator transition directive to M053+ implementation conversation "we are about to do complex things". Every row cites verbatim dump line. | dump 15705–15940 + cross-ref MS001-MS033 + M001-M051 | E0498-E0507 | non-negotiable | false | 10 |
 
 ## Sub-requirements accounting
 

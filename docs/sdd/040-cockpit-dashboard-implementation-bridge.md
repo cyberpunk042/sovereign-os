@@ -46,7 +46,7 @@ Meta requirements (every dashboard):
 | D-00 | main index + global health + active-session count + quick-action bar + Cmd-K palette | `/webapp/master-dashboard/index.html` | **✓ shipped** | M060 R10050-R10058 |
 | D-01 | active sessions (per-task M057 lifecycle step + profile + ETA + hibernate/resume/kill) | `/webapp/d-01-active-sessions/` + `scripts/operator/sessions-api.py` (+ core `scripts/lifecycle/session-registry.py`, CLI `sovereign-osctl sessions`, service `sovereign-sessions-api.service`) | **✓ shipped (full stack → prod)** | M060 R10059-R10062 |
 | D-02 | profile choices (six-profile selector + L0..L6 envelope + Ring 0..4 highlights + history + predeclared-gate editor) | `/webapp/d-02-profile-choices/` + `scripts/operator/profile-mirror-api.py` (+ READ-ONLY mirror core `scripts/mirror/selfdef-profile-mirror.py`, CLI `sovereign-osctl profile-mirror`, service `sovereign-profile-mirror-api.service`) | **✓ shipped (full stack → prod, read-only selfdef MS040 mirror)** | M060 R10063-R10068 |
-| D-03 | model health (Blackwell/3090/CPU + VRAM + KV cache + p50/p95/p99 latency + heatmap) | `/webapp/d-03-model-health/` + `scripts/operator/model-health-api.py` (+ core `scripts/inference/model-health.py`, CLI `sovereign-osctl model-health`, service `sovereign-model-health-api.service`) | **✓ shipped (full stack → prod)** | M060 R10069-R10074 |
+| D-03 | model health (Blackwell/4090/CPU + VRAM + KV cache + p50/p95/p99 latency + heatmap) | `/webapp/d-03-model-health/` + `scripts/operator/model-health-api.py` (+ core `scripts/inference/model-health.py`, CLI `sovereign-osctl model-health`, service `sovereign-model-health-api.service`) | **✓ shipped (full stack → prod)** | M060 R10069-R10074 |
 | D-04 | costs (daily budget + per-request + project/profile/model breakdowns + forecast + alert thresholds) | `/webapp/d-04-costs/` + `scripts/operator/costs-api.py` (+ core `scripts/observability/cost-tracker.py`, CLI `sovereign-osctl costs`, service `sovereign-costs-api.service`) | **✓ shipped (full stack → prod)** | M060 R10075-R10082 |
 | D-05 | traces (M049 13-field span search/filter + span tree + replay + OCSF detail panel) | `/webapp/d-05-traces/` + `scripts/operator/traces-api.py` (+ core `scripts/observability/trace-store.py`, CLI `sovereign-osctl traces`, service `sovereign-traces-api.service`) | **✓ shipped (full stack → prod)** | M060 R10083-R10087 |
 | D-06 | pending approvals (operator queue + context + approve/deny/defer + batch-approve) | `/webapp/d-06-pending-approvals/` + `scripts/operator/approvals-api.py` (+ core `scripts/lifecycle/approval-queue.py`, CLI `sovereign-osctl approvals`, service `sovereign-approvals-api.service`) | **✓ shipped (full stack → prod)** | M060 R10088-R10092 |
@@ -110,7 +110,7 @@ Phase B (observability + cost):
 6. **D-09 hardware pressure** — PSI + DCGM gauges. Required for M058 scheduler visibility.
 
 Phase C (model + memory ops):
-7. **D-03 model health** — Blackwell + 3090 + CPU + VRAM + KV cache.
+7. **D-03 model health** — Blackwell + 4090 + CPU + VRAM + KV cache.
 8. **D-10 eval history** — adapter-promotion candidate surface for M046 LoRA Foundry.
 9. **D-11 adapter status** — LoRA inventory + promotion gates + rollback.
 10. **D-07 memory changes** — memory graph diff + promote/forget/pin.

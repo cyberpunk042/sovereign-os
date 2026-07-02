@@ -443,11 +443,11 @@ selfdef) and now also CONSUMES it:
 - **Cross-repo consumer bridge** (`scripts/inference/scheduler-bridge.py`):
   the runtime gateway consults `selfdef-scheduler-decide` (read-only subprocess)
   per the integration contract — builds a task descriptor, parses the Decision,
-  maps route → backend tier (blackwell→oracle / rtx3090→scout / cpu→cortex /
+  maps route → backend tier (blackwell→oracle / rtx4090→scout / cpu→cortex /
   hibernate→defer), honoring **honor-Hibernate · map-route→tier · read-only**.
   Graceful-offline: binary absent/errored → `scheduler_available=False` so the
   gateway falls back to its own SDD-011 routing (never crashes, never fabricates
-  a route). Maps route → runtime service (blackwell→Oracle Core / rtx3090→Logic
+  a route). Maps route → runtime service (blackwell→Oracle Core / rtx4090→Logic
   Engine / cpu→Pulse). Locked by `tests/unit/test_scheduler_bridge.py` (10
   cases, fake binary). Registered in the inference INDEX.
 - **Router opt-in advisory** (`router.py`): when `SOVEREIGN_OS_CONSULT_SCHEDULER=1`

@@ -30,7 +30,7 @@
 | M00269 | Ling-2.6-flash entry — `inclusionAI/Ling-2.6-flash` (hybrid linear, 104B total, smaller active) | 4389 | E0147 |
 | M00270 | Nemotron 3 family entry — Super / Ultra / Nano / Nano Omni; hybrid Mamba-Transformer MoE; ≤ 1M context; RL; reasoning budget control; MTP + NVFP4 on Super/Ultra | 4391–4393 | E0148 |
 | M00271 | Blackwell role binding — Ling-2.6-flash FP8/INT4/BF16 + Nemotron 3 Super/Ultra NVFP4 + Kimi/Qwen/DeepSeek large MoE quantized + oracle verification + final synthesis + long-context resident sessions | 4400–4406 | E0150 |
-| M00272 | 3090 role binding — Nemotron 3 Nano / Nano Omni (if precision-fit) + Qwen small coder / reranker / embedding / vision / draft / sandboxed experiments / tool-use scout | 4408–4413 | E0150 |
+| M00272 | 4090 role binding — Nemotron 3 Nano / Nano Omni (if precision-fit) + Qwen small coder / reranker / embedding / vision / draft / sandboxed experiments / tool-use scout | 4408–4413 | E0150 |
 | M00273 | Ryzen 9900X AVX-512 role binding — grammar masks / branch scheduler / KV-cache controller / bitset retrieval / policy engine / tool gate / telemetry-driven routing | 4415–4422 | E0150 |
 | M00274 | Blackwell precision ladder — BF16/FP16 (quality) / FP8 (balanced) / NVFP4-MXFP4 (Blackwell-native compression for larger MoE) | 4433–4437 | E0151 |
 | M00275 | Serving backend — vLLM (flexible serving, batching, prefix caching, broad model support) | 4442–4443 | E0152 |
@@ -69,9 +69,9 @@
 | F01379 | Catalog entry — Kimi (large MoE quantized) | 4403 | M00271 | data_model | true |
 | F01380 | Catalog entry — Qwen large MoE quantized | 4403 | M00271 | data_model | true |
 | F01381 | Catalog entry — DeepSeek large MoE quantized | 4403 | M00271 | data_model | true |
-| F01382 | Catalog entry — small Qwen coder / reranker / embedding / vision (3090) | 4410 | M00272 | data_model | true |
+| F01382 | Catalog entry — small Qwen coder / reranker / embedding / vision (4090) | 4410 | M00272 | data_model | true |
 | F01383 | Per-organ binding — Blackwell hosts oracle verification + final synthesis + long-context resident sessions | 4404–4406 | M00271 | composite | false |
-| F01384 | Per-organ binding — 3090 hosts Nemotron 3 Nano / Nano Omni + Qwen small / draft / sandboxed / scout | 4408–4413 | M00272 | composite | false |
+| F01384 | Per-organ binding — 4090 hosts Nemotron 3 Nano / Nano Omni + Qwen small / draft / sandboxed / scout | 4408–4413 | M00272 | composite | false |
 | F01385 | Per-organ binding — Ryzen AVX-512 hosts grammar masks + branch scheduler + KV controller + bitset retrieval + policy + tool gate + telemetry routing | 4415–4422 | M00273 | composite | false |
 | F01386 | Precision mode — BF16/FP16 (quality matters, model fits) | 4434 | M00274 | mode | true |
 | F01387 | Precision mode — FP8 (balanced throughput/memory) | 4435 | M00274 | mode | true |
@@ -102,9 +102,9 @@
 | F01412 | Role taxonomy — Oracle (highest-quality model that fits on 96GB with useful context) | 4520–4521 | M00281 | composite | false |
 | F01413 | Role taxonomy — Executor (token-efficient agent model like Ling-2.6-flash) | 4523–4524 | M00281 | composite | false |
 | F01414 | Role taxonomy — Perception (Nemotron 3 Nano Omni for GUI/video/document/audio) | 4526–4527 | M00281 | composite | false |
-| F01415 | Role taxonomy — Scout (Nemotron 3 Nano / small Qwen / small coder on 3090) | 4529–4530 | M00281 | composite | false |
+| F01415 | Role taxonomy — Scout (Nemotron 3 Nano / small Qwen / small coder on 4090) | 4529–4530 | M00281 | composite | false |
 | F01416 | Role taxonomy — Verifier (same oracle with strict prompt, or specialized judge/reward) | 4532–4533 | M00281 | composite | false |
-| F01417 | Role taxonomy — Retriever (embedding + reranker, 3090 or CPU per size) | 4535–4536 | M00281 | composite | false |
+| F01417 | Role taxonomy — Retriever (embedding + reranker, 4090 or CPU per size) | 4535–4536 | M00281 | composite | false |
 | F01418 | Role taxonomy — Fallback (llama.cpp/GGUF local models, robust offline) | 4538–4539 | M00281 | composite | false |
 | F01419 | Telemetry-driven routing — `if task.visual: route perception to Nano Omni` | 4588 | M00282 | composite | true |
 | F01420 | Telemetry-driven routing — `if task.agentic_fast: route draft to Ling/Nemotron Nano` | 4591 | M00282 | composite | true |
@@ -113,8 +113,8 @@
 | F01423 | Telemetry-driven routing — `if branch.low_value: keep on scout or kill` | 4600 | M00282 | composite | true |
 | F01424 | Telemetry-driven routing — `if oracle_idle: increase batch or verification depth` | 4603 | M00282 | composite | true |
 | F01425 | Model registry — `ling_2_6_flash` entry (role: executor / gpu: blackwell / precision: fp8_or_int4 / context_policy: medium_long) | 4559–4564 | M00283 | data_model | false |
-| F01426 | Model registry — `nemotron_3_nano` entry (role: scout / gpu: rtx3090_or_blackwell / precision: fp8_or_4bit) | 4566–4570 | M00283 | data_model | false |
-| F01427 | Model registry — `nemotron_3_nano_omni` entry (role: perception / vision-audio-video-docs-gui / gpu: rtx3090_or_blackwell / precision: fp8_or_4bit) | 4572–4576 | M00283 | data_model | false |
+| F01426 | Model registry — `nemotron_3_nano` entry (role: scout / gpu: rtx4090_or_blackwell / precision: fp8_or_4bit) | 4566–4570 | M00283 | data_model | false |
+| F01427 | Model registry — `nemotron_3_nano_omni` entry (role: perception / vision-audio-video-docs-gui / gpu: rtx4090_or_blackwell / precision: fp8_or_4bit) | 4572–4576 | M00283 | data_model | false |
 | F01428 | Model registry — `large_oracle` entry (role: verifier / deep-reasoning + final-synthesis / gpu: blackwell / precision: bf16_fp8_nvfp4) | 4578–4583 | M00283 | data_model | false |
 | F01429 | Model registry YAML schema — per-model `role` field | 4555–4583 | M00283 | data_model | false |
 | F01430 | Model registry YAML schema — per-model `strengths` list | 4555–4583 | M00283 | data_model | false |
@@ -131,7 +131,7 @@
 | F01441 | Metric — `sovereign_model_route_decision_total{model,reason}` | 4587–4605 | M00282 | observability_metric | true |
 | F01442 | Metric — `sovereign_serving_backend_active{backend}` | 4441–4453 | E0152 | observability_metric | true |
 | F01443 | Composite — model portfolio is hot-swappable workers inside deterministic replayable vectorized environment | 4626–4629 | M00284 | composite | false |
-| F01444 | Composite — CPU is law / Blackwell is depth / 3090 is parallel perception+speculation / ZFS+RAM is memory / Observability is adaptation | 4622–4627 | M00284 | composite | false |
+| F01444 | Composite — CPU is law / Blackwell is depth / 4090 is parallel perception+speculation / ZFS+RAM is memory / Observability is adaptation | 4622–4627 | M00284 | composite | false |
 | F01445 | Composite — Ultimate Station is "a local agentic AI workstation where the newest models are hot-swappable workers inside a deterministic, replayable, vectorized operating environment" | 4628–4629 | M00284 | composite | false |
 
 ## Requirements (R02721–R02890)
@@ -180,11 +180,11 @@
 | R02760 | Blackwell hosts oracle verification | 4404 | M00271 | non-negotiable | false | 10 |
 | R02761 | Blackwell hosts final synthesis | 4405 | M00271 | non-negotiable | false | 10 |
 | R02762 | Blackwell hosts long context resident sessions | 4406 | M00271 | non-negotiable | false | 10 |
-| R02763 | 3090 hosts Nemotron 3 Nano / Nano Omni if precision fits | 4409 | M00272 | non-negotiable | false | 10 |
-| R02764 | 3090 hosts Qwen small coder / reranker / embedding / vision helpers | 4410 | M00272 | non-negotiable | false | 10 |
-| R02765 | 3090 hosts draft models for speculation | 4411 | M00272 | non-negotiable | false | 10 |
-| R02766 | 3090 hosts sandboxed model experiments | 4412 | M00272 | non-negotiable | false | 10 |
-| R02767 | 3090 hosts tool-use scout | 4413 | M00272 | non-negotiable | false | 10 |
+| R02763 | 4090 hosts Nemotron 3 Nano / Nano Omni if precision fits | 4409 | M00272 | non-negotiable | false | 10 |
+| R02764 | 4090 hosts Qwen small coder / reranker / embedding / vision helpers | 4410 | M00272 | non-negotiable | false | 10 |
+| R02765 | 4090 hosts draft models for speculation | 4411 | M00272 | non-negotiable | false | 10 |
+| R02766 | 4090 hosts sandboxed model experiments | 4412 | M00272 | non-negotiable | false | 10 |
+| R02767 | 4090 hosts tool-use scout | 4413 | M00272 | non-negotiable | false | 10 |
 | R02768 | Ryzen 9900X AVX-512 hosts grammar masks | 4416 | M00273 | non-negotiable | false | 10 |
 | R02769 | Ryzen 9900X AVX-512 hosts branch scheduler | 4417 | M00273 | non-negotiable | false | 10 |
 | R02770 | Ryzen 9900X AVX-512 hosts KV-cache controller | 4418 | M00273 | non-negotiable | false | 10 |
@@ -193,7 +193,7 @@
 | R02773 | Ryzen 9900X AVX-512 hosts tool gate | 4421 | M00273 | non-negotiable | false | 10 |
 | R02774 | Ryzen 9900X AVX-512 hosts telemetry-driven routing | 4422 | M00273 | non-negotiable | false | 10 |
 | R02775 | The 96GB card is where the high-value model lives | 4425 | M00271 | non-negotiable | false | 10 |
-| R02776 | The 3090 becomes fast auxiliary cognition | 4425 | M00272 | non-negotiable | false | 10 |
+| R02776 | The 4090 becomes fast auxiliary cognition | 4425 | M00272 | non-negotiable | false | 10 |
 | R02777 | The CPU becomes law | 4425 | M00273 | non-negotiable | false | 10 |
 | R02778 | Blackwell precision — BF16/FP16 when quality matters and model fits | 4434 | M00274 | non-negotiable | true | 10 |
 | R02779 | Blackwell precision — FP8 when balanced throughput/memory matters | 4435 | M00274 | non-negotiable | true | 10 |
@@ -234,20 +234,20 @@
 | R02814 | Ultimate station is a local AI operating system | 4485 | E0154 | non-negotiable | false | 10 |
 | R02815 | Ultimate station layer 1 — Oracle Layer (Large model on RTX PRO 6000) | 4488–4490 | M00280 | non-negotiable | false | 10 |
 | R02816 | Ultimate station layer 1 — best model available for the task: Ling, Nemotron Super, Kimi, Qwen, DeepSeek | 4490 | M00280 | non-negotiable | false | 10 |
-| R02817 | Ultimate station layer 2 — Scout Layer (3090 runs Nano/Flash/small coder/perception models) | 4492–4495 | M00280 | non-negotiable | false | 10 |
+| R02817 | Ultimate station layer 2 — Scout Layer (4090 runs Nano/Flash/small coder/perception models) | 4492–4495 | M00280 | non-negotiable | false | 10 |
 | R02818 | Ultimate station layer 2 — produces drafts, plans, embeddings, reranks, GUI/audio/document perception | 4494 | M00280 | non-negotiable | false | 10 |
 | R02819 | Ultimate station layer 3 — Deterministic Cortex (AVX-512 branch engine) | 4496–4499 | M00280 | non-negotiable | false | 10 |
 | R02820 | Ultimate station layer 3 — controls routing, policy, grammar, tool permissions, replay, KV cache, batching | 4498 | M00280 | non-negotiable | false | 10 |
 | R02821 | Ultimate station layer 4 — Memory Hierarchy (VRAM KV = hot active / RAM = warm context+cache / ZFS+NVMe = replay+artifacts+cold+model library) | 4500–4503 | M00280 | non-negotiable | false | 10 |
-| R02822 | Ultimate station layer 5 — Isolation Layer (VFIO 3090 VM, host owns truth, VM proposes host commits) | 4505–4508 | M00280 | non-negotiable | false | 10 |
+| R02822 | Ultimate station layer 5 — Isolation Layer (VFIO 4090 VM, host owns truth, VM proposes host commits) | 4505–4508 | M00280 | non-negotiable | false | 10 |
 | R02823 | Ultimate station layer 6 — Observability Layer (DCGM / OTel / eBPF / Prometheus, telemetry feeds scheduling) | 4510–4512 | M00280 | non-negotiable | false | 10 |
 | R02824 | Classify models by role, not hype | 4517 | M00281 | non-negotiable | false | 10 |
 | R02825 | Role — Oracle (highest quality model that fits on 96GB with useful context) | 4520–4521 | M00281 | non-negotiable | false | 10 |
 | R02826 | Role — Executor (token-efficient agent model like Ling-2.6-flash) | 4523–4524 | M00281 | non-negotiable | false | 10 |
 | R02827 | Role — Perception (Nemotron 3 Nano Omni for GUI, video, document, audio) | 4526–4527 | M00281 | non-negotiable | false | 10 |
-| R02828 | Role — Scout (Nemotron 3 Nano / small Qwen / small coder on 3090) | 4529–4530 | M00281 | non-negotiable | false | 10 |
+| R02828 | Role — Scout (Nemotron 3 Nano / small Qwen / small coder on 4090) | 4529–4530 | M00281 | non-negotiable | false | 10 |
 | R02829 | Role — Verifier (same oracle with strict prompt OR specialized judge/reward model) | 4532–4533 | M00281 | non-negotiable | false | 10 |
-| R02830 | Role — Retriever (embedding + reranker, 3090 or CPU per size) | 4535–4536 | M00281 | non-negotiable | false | 10 |
+| R02830 | Role — Retriever (embedding + reranker, 4090 or CPU per size) | 4535–4536 | M00281 | non-negotiable | false | 10 |
 | R02831 | Role — Fallback (llama.cpp / GGUF, robust offline operation) | 4538–4539 | M00281 | non-negotiable | false | 10 |
 | R02832 | Runtime chooses dynamically — fast tool plan → Scout | 4545 | M00282 | non-negotiable | false | 10 |
 | R02833 | Runtime chooses dynamically — visual screen state → Nano Omni | 4546 | M00282 | non-negotiable | false | 10 |
@@ -263,11 +263,11 @@
 | R02843 | Model registry entry — `ling_2_6_flash` context_policy: medium_long | 4564 | M00283 | non-negotiable | false | 10 |
 | R02844 | Model registry entry — `nemotron_3_nano` role: scout | 4566–4570 | M00283 | non-negotiable | false | 10 |
 | R02845 | Model registry entry — `nemotron_3_nano` strengths: [fast, agentic, long-context] | 4568 | M00283 | non-negotiable | false | 10 |
-| R02846 | Model registry entry — `nemotron_3_nano` gpu: rtx3090_or_blackwell | 4569 | M00283 | non-negotiable | false | 10 |
+| R02846 | Model registry entry — `nemotron_3_nano` gpu: rtx4090_or_blackwell | 4569 | M00283 | non-negotiable | false | 10 |
 | R02847 | Model registry entry — `nemotron_3_nano` precision: fp8_or_4bit | 4570 | M00283 | non-negotiable | false | 10 |
 | R02848 | Model registry entry — `nemotron_3_nano_omni` role: perception | 4572–4576 | M00283 | non-negotiable | false | 10 |
 | R02849 | Model registry entry — `nemotron_3_nano_omni` strengths: [vision, audio, video, docs, gui] | 4574 | M00283 | non-negotiable | false | 10 |
-| R02850 | Model registry entry — `nemotron_3_nano_omni` gpu: rtx3090_or_blackwell | 4575 | M00283 | non-negotiable | false | 10 |
+| R02850 | Model registry entry — `nemotron_3_nano_omni` gpu: rtx4090_or_blackwell | 4575 | M00283 | non-negotiable | false | 10 |
 | R02851 | Model registry entry — `nemotron_3_nano_omni` precision: fp8_or_4bit | 4576 | M00283 | non-negotiable | false | 10 |
 | R02852 | Model registry entry — `large_oracle` role: verifier | 4578–4583 | M00283 | non-negotiable | false | 10 |
 | R02853 | Model registry entry — `large_oracle` strengths: [deep reasoning, final synthesis] | 4580 | M00283 | non-negotiable | false | 10 |
@@ -288,7 +288,7 @@
 | R02868 | Ultimate station should become a model router with deterministic infrastructure | 4621 | M00284 | non-negotiable | false | 10 |
 | R02869 | The CPU gives you law | 4623 | M00284 | non-negotiable | false | 10 |
 | R02870 | The Blackwell gives you depth | 4624 | M00284 | non-negotiable | false | 10 |
-| R02871 | The 3090 gives you cheap parallel perception and speculation | 4625 | M00284 | non-negotiable | false | 10 |
+| R02871 | The 4090 gives you cheap parallel perception and speculation | 4625 | M00284 | non-negotiable | false | 10 |
 | R02872 | ZFS/RAM give you memory | 4626 | M00284 | non-negotiable | false | 10 |
 | R02873 | Observability gives you adaptation | 4627 | M00284 | non-negotiable | false | 10 |
 | R02874 | High-end move — local agentic AI workstation where newest models are hot-swappable workers inside deterministic replayable vectorized operating environment | 4628–4629 | M00284 | non-negotiable | false | 10 |

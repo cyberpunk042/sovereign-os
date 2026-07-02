@@ -67,7 +67,7 @@ def resolve_state_path() -> Path:
 # Benchmark catalog — declarative. Each entry binds an operator-
 # friendly name to the harness invocation + the target model classes
 # it makes sense for. Cost estimate is wall-clock for a single-shot
-# eval on SAIN-01 (RTX PRO 6000 + 3090); a SEED estimate, refined
+# eval on SAIN-01 (RTX PRO 6000 + 4090); a SEED estimate, refined
 # once real evals land.
 BENCHMARKS: dict[str, dict[str, Any]] = {
     "mmlu": {

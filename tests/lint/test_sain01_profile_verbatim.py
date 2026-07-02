@@ -14,7 +14,7 @@ Pinned content (revised 2026-06-10 after the first real hardware build —
 the original §2.2 avx512-KCFLAGS list caused early boot failures because
 the kernel cannot use vector ISA, and avx512_fp16 is absent on the
 physical 9900X; the secondary GPU procured is an RTX 4090, not the
-originally-spec'd RTX 3090):
+originally-spec'd RTX 4090):
   - §2.2 KCFLAGS string (11-flag list: -march=znver5 + 6 -mno-* vector
     ISA opt-outs + -O3 -pipe -mabm -madx)
   - §2.2 KCPPFLAGS (-march=znver5)

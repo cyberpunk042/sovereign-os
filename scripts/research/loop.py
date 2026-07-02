@@ -168,7 +168,7 @@ DEFAULT_TOPICS = [
     },
     {
         "name": "vllm-tensor-parallel-dual-gpu",
-        "mandate_anchor": "E1.M13 (RTX 3090 + RTX PRO 6000 dual-card)",
+        "mandate_anchor": "E1.M13 (RTX 4090 + RTX PRO 6000 dual-card)",
         "sdd_anchor": "SDD-029 (Hardware-stack consolidation Z-18)",
         "question": "Does vllm support the asymmetric VRAM split (24 GB + 98 GB) for tensor-parallel serving without manual layer pinning?",
         "signal": "vllm version + scripts/hardware/gpu-card-advisor.py output.",

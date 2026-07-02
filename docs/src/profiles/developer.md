@@ -29,7 +29,7 @@
 | Mixins | role-developer + whitelabel-default + observability-tier-1 | role-workstation for sain-01 |
 | Kernel | substrate-default | custom for sain-01 |
 | ZFS | none — ext4 | zfs-tiered for sain-01 |
-| VFIO | none | binds 3090 for sain-01 |
+| VFIO | none | binds 4090 for sain-01 |
 | Tetragon | not active | active for sain-01 |
 | First-login assistant | interactive (operator picks setup) | sain-01 has it as opt-in too |
 | Hardening | NONE (role-developer mixin, deliberate — devs need flexibility) | sain-01 has role-workstation hardening |

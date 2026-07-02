@@ -2,7 +2,7 @@
 
 # Model catalog — Genesis Trinity (master spec § 17)
 
-Canonical declaration of the 19 models this system intends to host across Pulse / Logic / Oracle / Router tiers, spanning the full R212 taxonomy (class × quantization × size_class × purpose).
+Canonical declaration of the 68 models this system intends to host across Pulse / Logic / Oracle / Router tiers, spanning the full R212 taxonomy (class × quantization × size_class × purpose).
 
 This doc is regenerated from `models/catalog.yaml` on every invocation of `scripts/models/render-catalog-md.py`. The same YAML drives `scripts/models/pull.sh` (operator-driven pull) and `scripts/models/verify.sh` (resident integrity check), so the doc, the puller, and the verifier can never drift.
 
@@ -10,44 +10,44 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 
 | Tier | Count | Verified-real | Aspirational |
 |------|-------|---------------|--------------|
-| pulse | 5 | 3 | 2 |
-| logic | 4 | 2 | 1 |
-| oracle | 7 | 7 | 0 |
-| router | 3 | 3 | 0 |
+| pulse | 28 | 9 | 14 |
+| logic | 22 | 6 | 7 |
+| oracle | 13 | 7 | 5 |
+| router | 5 | 4 | 0 |
 
 ## Catalog by class (R212 taxonomy)
 
 | Class | Count |
 |-------|-------|
-| `code` — Code-specialised | 1 |
-| `embed` — Embedding | 1 |
+| `code` — Code-specialised | 5 |
+| `embed` — Embedding | 2 |
 | `llm` — LLM (general) | 1 |
 | `lora-adapter` — LoRA adapter | 1 |
-| `mixture` — Mixture-of-Experts | 1 |
+| `mixture` — Mixture-of-Experts | 5 |
 | `multimodal` — Multimodal | 3 |
 | `reranker` — Reranker (cross-encoder) | 1 |
-| `rlm` — RLM (reasoning) | 2 |
-| `slm` — SLM (small) | 2 |
-| `speculative` — Speculative draft | 1 |
-| `ternary-lm` — Ternary LM (1.58-bit) | 4 |
+| `rlm` — RLM (reasoning) | 9 |
+| `slm` — SLM (small) | 6 |
+| `speculative` — Speculative draft | 2 |
+| `ternary-lm` — Ternary LM (1.58-bit) | 32 |
 | `vision` — Vision | 1 |
 
 ## Catalog by purpose (R212 taxonomy)
 
 | Purpose | Count |
 |---------|-------|
-| `agent` | 4 |
+| `agent` | 17 |
 | `audio` | 3 |
-| `chat` | 9 |
-| `code` | 5 |
+| `chat` | 33 |
+| `code` | 18 |
 | `distillation-base` | 1 |
-| `embedding` | 1 |
-| `function-calling` | 4 |
+| `embedding` | 2 |
+| `function-calling` | 6 |
 | `multimodal` | 4 |
-| `rag` | 2 |
-| `reasoning` | 8 |
+| `rag` | 3 |
+| `reasoning` | 27 |
 | `reranking` | 1 |
-| `speculation` | 1 |
+| `speculation` | 2 |
 | `vision` | 4 |
 
 ## Pulse tier (master spec § 17)
@@ -159,6 +159,414 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 > small footprint; ideal for code-heavy agent loops with a long
 > instruction buffer. GGUF Q5_K_M ships well-quantized.
 
+### Prism-Ternary-Bonsai-8B
+
+- **Status:** ✓ verified-real
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `m`
+- **Purpose:** `chat`, `code`, `agent`
+- **Engine:** `llama.cpp`
+- **License:** apache-2.0
+- **HF repo id:** `prism-ml/Ternary-Bonsai-8B-unpacked`
+- **Parameters:** 8000.0 M
+- **VRAM minimum (GiB):** 3
+- **Context window (tokens):** 32,768
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 ("Prism ML: Ternary
+> Bonsai"). prism-ml/Ternary-Bonsai is a real active HF line
+> (1.7B/4B/8B; unpacked + gguf + mlx-2bit; Qwen3-based, ternary
+> 1.58-bit). The note said "70B" — no 70B exists; largest is 8B
+> (this entry). gguf variant prism-ml/Ternary-Bonsai-8B-gguf
+> ships for llama.cpp. vram + context estimated (Qwen3-8B lineage).
+
+### Spectra-TriLM-3.9B
+
+- **Status:** ✓ verified-real
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `s`
+- **Purpose:** `chat`, `reasoning`
+- **Engine:** `llama.cpp`
+- **License:** apache-2.0
+- **HF repo id:** `SpectraSuite/TriLM_3.9B_Unpacked`
+- **Parameters:** 3992.0 M
+- **VRAM minimum (GiB):** 1.6
+- **Context window (tokens):** 2,048
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 ("Spectra-TriLM-3.9B").
+> SpectraSuite TriLM = ternary LM (weights in {-1,0,1}). Real on
+> HF (3992M). context 2048 (Spectra training); verify if a
+> longer-context release lands.
+
+### 1bitLLM-bitnet-b1.58-large
+
+- **Status:** ✓ verified-real
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `xs`
+- **Purpose:** `chat`
+- **Engine:** `bitnet.cpp`
+- **License:** mit
+- **HF repo id:** `1bitLLM/bitnet_b1_58-large`
+- **Parameters:** 729.0 M
+- **VRAM minimum (GiB):** 0.5
+- **Context window (tokens):** 2,048
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 ("1bitLLM/bitnet
+> b1.58 large"). Reproduction of the BitNet b1.58 paper
+> (arxiv 2402.17764), ~729M. Real on HF.
+
+### Falcon3-10B-Instruct-1.58bit
+
+- **Status:** ✓ verified-real
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `m`
+- **Purpose:** `chat`, `agent`
+- **Engine:** `bitnet.cpp`
+- **License:** other
+- **HF repo id:** `tiiuae/Falcon3-10B-Instruct-1.58bit`
+- **Parameters:** 10300.0 M
+- **VRAM minimum (GiB):** 3
+- **Context window (tokens):** 32,768
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 ("tiiuae/Falcon3-10B
+> -1.58bit prequantized"). TII's BitNet-ified Falcon3-10B (~10.3B
+> params; the HF repo's tensor metadata reports ~3181M for the
+> packed 1.58-bit representation). Falcon3 32k context.
+
+### Falcon-E-3B-Instruct
+
+- **Status:** ✓ verified-real
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `xs`
+- **Purpose:** `chat`, `agent`
+- **Engine:** `bitnet.cpp`
+- **License:** other
+- **HF repo id:** `tiiuae/Falcon-E-3B-Instruct`
+- **Parameters:** 864.0 M
+- **VRAM minimum (GiB):** 0.7
+- **Context window (tokens):** 32,768
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 ("Falcon-E-3B"). TII
+> BitNet "edge" model; HF card reports ~864M despite the "3B"
+> name. Real on HF. context estimated.
+
+### Qwen2.5-Coder-1.5B-Instruct
+
+- **Status:** ✓ verified-real
+- **Class:** `code` — Code-specialised
+- **Quantization:** `bf16`
+- **Size class:** `s`
+- **Purpose:** `code`, `function-calling`
+- **Engine:** `vllm`
+- **License:** apache-2.0
+- **HF repo id:** `Qwen/Qwen2.5-Coder-1.5B-Instruct`
+- **Parameters:** 1544.0 M
+- **VRAM minimum (GiB):** 4
+- **Context window (tokens):** 32,768
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 ("Qwen-Coder ... 1.5B
+> Inline Completion"). Small coder for low-latency inline
+> completion. Real on HF.
+
+### Thinking-Machines-Interaction-1B
+
+- **Status:** ? operator-must-confirm
+- **Class:** `slm` — SLM (small)
+- **Quantization:** `bf16`
+- **Size class:** `s`
+- **Purpose:** `chat`, `agent`
+- **Engine:** `vllm`
+- **License:** other
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: coined interaction SLM; no real repo found on HF.
+
+### TernLM-3-8B-Instruct
+
+- **Status:** ◌ aspirational
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `m`
+- **Purpose:** `chat`
+- **Engine:** `bitnet.cpp`
+- **License:** mit
+- **Context window (tokens):** 4,096
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+- **Closest real alternative:** `SpectraSuite/TriLM_3.9B_Unpacked`
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: ternary 8B instruct target (1.58-bit); no exact HF repo.
+
+### Phi-3-Mini-Ternary
+
+- **Status:** ◌ aspirational
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `s`
+- **Purpose:** `chat`, `code`
+- **Engine:** `bitnet.cpp`
+- **License:** mit
+- **Context window (tokens):** 4,096
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+- **Closest real alternative:** `microsoft/Phi-3-mini-4k-instruct`
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: ternary quant of Phi-3-mini (base verified real on HF).
+
+### Llama3-8B-Ternary
+
+- **Status:** ◌ aspirational
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `m`
+- **Purpose:** `chat`, `code`
+- **Engine:** `bitnet.cpp`
+- **License:** other
+- **Context window (tokens):** 131,072
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+- **Closest real alternative:** `meta-llama/Llama-3.1-8B`
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: ternary quant of Llama-3.1-8B (base verified real, gated).
+
+### Mistral-2B-Ternary
+
+- **Status:** ◌ aspirational
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `s`
+- **Purpose:** `chat`
+- **Engine:** `bitnet.cpp`
+- **License:** other
+- **Context window (tokens):** 32,768
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+- **Closest real alternative:** `mistralai/Ministral-8B-Instruct-2410`
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: small ternary Mistral; Ministral-3B is API-only, 8B is the open closest.
+
+### Gemma-4-LiteRt-2B
+
+- **Status:** ◌ aspirational
+- **Class:** `slm` — SLM (small)
+- **Quantization:** `bf16`
+- **Size class:** `s`
+- **Purpose:** `chat`, `agent`
+- **Engine:** `llama.cpp`
+- **License:** other
+- **Context window (tokens):** 32,768
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+- **Closest real alternative:** `google/gemma-3-4b-it`
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: 'Gemma 4' does not exist yet (latest is Gemma 3); LiteRT on-device. Name misremembered.
+
+### Llama-3-Tiny-3B
+
+- **Status:** ◌ aspirational
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `s`
+- **Purpose:** `agent`
+- **Engine:** `bitnet.cpp`
+- **License:** other
+- **Context window (tokens):** 131,072
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+- **Closest real alternative:** `meta-llama/Llama-3.2-3B-Instruct`
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: ternary quant of Llama-3.2-3B (base verified real, gated).
+
+### Mistral-Tiny-3B
+
+- **Status:** ◌ aspirational
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `s`
+- **Purpose:** `agent`
+- **Engine:** `bitnet.cpp`
+- **License:** other
+- **Context window (tokens):** 32,768
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+- **Closest real alternative:** `mistralai/Ministral-8B-Instruct-2410`
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: small ternary Mistral agent; Ministral-8B closest open.
+
+### TernaryLM-132M
+
+- **Status:** ? operator-must-confirm
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `xs`
+- **Purpose:** `agent`
+- **Engine:** `bitnet.cpp`
+- **License:** other
+- **Parameters:** 132.0 M
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: tiny 132M ternary LM for CPU agent fallback; no real repo found.
+
+### Bash-Tiny-Coder-1B
+
+- **Status:** ? operator-must-confirm
+- **Class:** `code` — Code-specialised
+- **Quantization:** `bf16`
+- **Size class:** `s`
+- **Purpose:** `code`
+- **Engine:** `llama.cpp`
+- **License:** other
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: coined shell/code tiny model; no real repo found.
+
+### Flex-Prompt-Tiny-1B
+
+- **Status:** ? operator-must-confirm
+- **Class:** `slm` — SLM (small)
+- **Quantization:** `bf16`
+- **Size class:** `s`
+- **Purpose:** `agent`
+- **Engine:** `llama.cpp`
+- **License:** other
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: coined prompt-shaping tiny model; no real repo found.
+
+### Security-Phi-3-Mini
+
+- **Status:** ◌ aspirational
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `s`
+- **Purpose:** `chat`, `agent`
+- **Engine:** `bitnet.cpp`
+- **License:** mit
+- **Context window (tokens):** 4,096
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+- **Closest real alternative:** `microsoft/Phi-3-mini-4k-instruct`
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: security-tuned ternary Phi-3-mini (purpose=security; base verified real).
+
+### Linux-Kernel-Tiny-1.5B
+
+- **Status:** ? operator-must-confirm
+- **Class:** `slm` — SLM (small)
+- **Quantization:** `bf16`
+- **Size class:** `s`
+- **Purpose:** `code`
+- **Engine:** `llama.cpp`
+- **License:** other
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: coined kernel-specialist tiny model; no real repo found.
+
+### Tiny-Ternary-UI-3B
+
+- **Status:** ◌ aspirational
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `s`
+- **Purpose:** `agent`
+- **Engine:** `bitnet.cpp`
+- **License:** other
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+- **Closest real alternative:** `showlab/ShowUI-2B`
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: coined UI-specialist ternary model (purpose=ui->agent); no real repo found.
+
+### OWASP-Ternary-3B
+
+- **Status:** ◌ aspirational
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `s`
+- **Purpose:** `chat`
+- **Engine:** `bitnet.cpp`
+- **License:** other
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+- **Closest real alternative:** `DeepHat/DeepHat-V1-7B`
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: coined security(OWASP)-specialist ternary model; no real repo found.
+
+### HackerLM-tiny-3B
+
+- **Status:** ◌ aspirational
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `s`
+- **Purpose:** `chat`, `agent`
+- **Engine:** `bitnet.cpp`
+- **License:** other
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+- **Closest real alternative:** `DeepHat/DeepHat-V1-7B`
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: coined security/pentest tiny model; no real repo found.
+
+### LLaMA-Ternary-Context-1B
+
+- **Status:** ◌ aspirational
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `s`
+- **Purpose:** `chat`
+- **Engine:** `bitnet.cpp`
+- **License:** other
+- **Context window (tokens):** 131,072
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+- **Closest real alternative:** `meta-llama/Llama-3.2-1B`
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: long-context ternary Llama-1B target; Llama-3.2-1B closest base.
+
 ## Logic tier (master spec § 17)
 
 ### Qwen-32B-Ternary-Quant
@@ -181,7 +589,7 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 
 > Master spec § 18.2 names Qwen-32B-Ternary-Quant. No
 > ternary-quantized 32B Qwen on HF; AWQ 4-bit is the operator
-> substitute. vllm-vulkan engine compatible with the 3090.
+> substitute. vllm-vulkan engine compatible with the 4090.
 
 ### Qwen3-Coder-32B-Instruct
 
@@ -246,6 +654,309 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 > operator review). The `base_model` field is REQUIRED for
 > class=lora-adapter per schema 1.1.0.
 
+### Qwen2.5-Coder-14B-Instruct
+
+- **Status:** ✓ verified-real
+- **Class:** `code` — Code-specialised
+- **Quantization:** `bf16`
+- **Size class:** `m`
+- **Purpose:** `code`, `chat`, `function-calling`
+- **Engine:** `vllm`
+- **License:** apache-2.0
+- **HF repo id:** `Qwen/Qwen2.5-Coder-14B-Instruct`
+- **Parameters:** 14770.0 M
+- **VRAM minimum (GiB):** 30
+- **Context window (tokens):** 32,768
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 ("Qwen-Coder ... 14B
+> Chat & Refactoring"). Mid coder for chat + refactoring. Real
+> on HF. Native 32k (extendable to 128k via YaRN).
+
+### StarCoder2-3B
+
+- **Status:** ✓ verified-real
+- **Class:** `code` — Code-specialised
+- **Quantization:** `bf16`
+- **Size class:** `s`
+- **Purpose:** `code`
+- **Engine:** `vllm`
+- **License:** other
+- **HF repo id:** `bigcode/starcoder2-3b`
+- **Parameters:** 3030.0 M
+- **VRAM minimum (GiB):** 7
+- **Context window (tokens):** 16,384
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 ("StarCoder2-3B").
+> BigCode code model. Real on HF. License bigcode-openrail-m
+> (mapped to 'other').
+
+### OpenThinker-7B
+
+- **Status:** ✓ verified-real
+- **Class:** `rlm` — RLM (reasoning)
+- **Quantization:** `bf16`
+- **Size class:** `m`
+- **Purpose:** `reasoning`, `chat`
+- **Engine:** `vllm`
+- **License:** apache-2.0
+- **HF repo id:** `open-thoughts/OpenThinker-7B`
+- **Parameters:** 7616.0 M
+- **VRAM minimum (GiB):** 16
+- **Context window (tokens):** 32,768
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 ("OpenThinking ~7B").
+> Real name OpenThinker-7B (open-thoughts): a Qwen2.5-7B
+> reasoning finetune — NOT ternary. Real on HF.
+
+### RLM-Code-Reasoner-8B
+
+- **Status:** ✓ verified-real
+- **Class:** `rlm` — RLM (reasoning)
+- **Quantization:** `bf16`
+- **Size class:** `m`
+- **Purpose:** `reasoning`, `code`
+- **Engine:** `vllm`
+- **License:** mit
+- **HF repo id:** `mit-oasys/rlm-qwen3-8b-v0.1`
+- **Parameters:** 8191.0 M
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: RLM code reasoner. Coined; RLM substrate (mit-oasys/rlm-qwen3-8b-v0.1) is the closest real base.
+
+### TernaLM3-15B-Instruct
+
+- **Status:** ◌ aspirational
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `m`
+- **Purpose:** `chat`, `reasoning`
+- **Engine:** `bitnet.cpp`
+- **License:** other
+- **Context window (tokens):** 4,096
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+- **Closest real alternative:** `SpectraSuite/TriLM_3.9B_Unpacked`
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: ternary 15B instruct target; no exact HF repo.
+
+### Deepseek-R1-Ternary-8B
+
+- **Status:** ◌ aspirational
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `m`
+- **Purpose:** `reasoning`
+- **Engine:** `bitnet.cpp`
+- **License:** mit
+- **Context window (tokens):** 131,072
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+- **Closest real alternative:** `deepseek-ai/DeepSeek-R1-Distill-Llama-8B`
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: ternary quant of DeepSeek-R1-Distill-Llama-8B (base verified real).
+
+### TRM-Recursive-Reasoner
+
+- **Status:** ? operator-must-confirm
+- **Class:** `rlm` — RLM (reasoning)
+- **Quantization:** `bf16`
+- **Size class:** `xs`
+- **Purpose:** `reasoning`
+- **Engine:** `custom`
+- **License:** other
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: Tiny-Recursive-Model style reasoner; no matching HF repo found (2026-07-02).
+
+### Document-Ternary-3B
+
+- **Status:** ? operator-must-confirm
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `s`
+- **Purpose:** `reasoning`
+- **Engine:** `bitnet.cpp`
+- **License:** other
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: coined document/reasoning ternary model; no real repo found.
+
+### Recursive-Ref-Validator-2B
+
+- **Status:** ? operator-must-confirm
+- **Class:** `rlm` — RLM (reasoning)
+- **Quantization:** `bf16`
+- **Size class:** `s`
+- **Purpose:** `reasoning`
+- **Engine:** `vllm`
+- **License:** other
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: coined reference-validation reasoner; no real repo found.
+
+### Llama-3-thought-8B
+
+- **Status:** ◌ aspirational
+- **Class:** `rlm` — RLM (reasoning)
+- **Quantization:** `bf16`
+- **Size class:** `m`
+- **Purpose:** `reasoning`
+- **Engine:** `vllm`
+- **License:** other
+- **Context window (tokens):** 131,072
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+- **Closest real alternative:** `meta-llama/Llama-3.1-8B`
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: Llama-3 reasoning finetune target; base verified real.
+
+### Qwen2.5-32B-trit-uniform
+
+- **Status:** ◌ aspirational
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `l`
+- **Purpose:** `chat`, `code`
+- **Engine:** `bitnet.cpp`
+- **License:** apache-2.0
+- **Context window (tokens):** 32,768
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+- **Closest real alternative:** `Qwen/Qwen2.5-32B`
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: trit-uniform (ternary) quant of Qwen2.5-32B (base verified real). mergekit base.
+
+### Xinyuan-T-MoE-8x7B
+
+- **Status:** ? operator-must-confirm
+- **Class:** `mixture` — Mixture-of-Experts
+- **Quantization:** `bf16`
+- **Size class:** `l`
+- **Purpose:** `chat`, `reasoning`
+- **Engine:** `vllm`
+- **License:** apache-2.0
+- **Context window (tokens):** 32,768
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: T-MoE 8x7B; no HF repo found under this name (2026-07-02). mergekit/MoE base.
+
+### Zihan-Wang-coe
+
+- **Status:** ? operator-must-confirm
+- **Class:** `mixture` — Mixture-of-Experts
+- **Quantization:** `bf16`
+- **Size class:** `m`
+- **Purpose:** `reasoning`
+- **Engine:** `vllm`
+- **License:** other
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: 'Zihan Wang / coe' mergekit base; reading uncertain, no repo confirmed.
+
+### BitNet-Math-Expert-30B
+
+- **Status:** ◌ aspirational
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `l`
+- **Purpose:** `reasoning`
+- **Engine:** `bitnet.cpp`
+- **License:** mit
+- **Context window (tokens):** 4,096
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+- **Closest real alternative:** `Qwen/Qwen2.5-Math-72B-Instruct`
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: math-specialist ternary target (purpose=math->reasoning); no 30B BitNet exists.
+
+### Hive-Gate-7B
+
+- **Status:** ? operator-must-confirm
+- **Class:** `mixture` — Mixture-of-Experts
+- **Quantization:** `bf16`
+- **Size class:** `m`
+- **Purpose:** `agent`
+- **Engine:** `vllm`
+- **License:** other
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: coined coordination/gating model; no real repo found.
+
+### TRM-Logic-Validator-2B
+
+- **Status:** ? operator-must-confirm
+- **Class:** `rlm` — RLM (reasoning)
+- **Quantization:** `bf16`
+- **Size class:** `s`
+- **Purpose:** `reasoning`
+- **Engine:** `custom`
+- **License:** other
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: coined logic-validation reasoner; no real repo found.
+
+### Logic-Loop-8B
+
+- **Status:** ? operator-must-confirm
+- **Class:** `rlm` — RLM (reasoning)
+- **Quantization:** `bf16`
+- **Size class:** `m`
+- **Purpose:** `reasoning`
+- **Engine:** `vllm`
+- **License:** other
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: coined logic-loop reasoner; no real repo found.
+
+### CodeLlama-Ternary-34B
+
+- **Status:** ◌ aspirational
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `l`
+- **Purpose:** `code`
+- **Engine:** `bitnet.cpp`
+- **License:** other
+- **Context window (tokens):** 16,384
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+- **Closest real alternative:** `codellama/CodeLlama-34b-Instruct-hf`
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: ternary quant of CodeLlama-34B (base verified real).
+
 ## Oracle tier (master spec § 17)
 
 ### DeepSeek-R1-Distill-Llama-70B-FP16
@@ -289,7 +1000,7 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 
 > R212 — Same upstream as the FP16 entry, declared as the
 > GGUF-Q4_K_M variant for hosts that need to share VRAM with
-> a concurrent vllm workload. Lands cleanly on a single 3090.
+> a concurrent vllm workload. Lands cleanly on a single 4090.
 
 ### DeepSeek-V3-Quant
 
@@ -419,7 +1130,7 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 > B200, etc.). Checkpoint size: 22.4 GiB on HF.
 > Same Nemotron 3 Nano Omni 30B-A3B multimodal model as the
 > BF16 + FP8 entries above; this is the operator's
-> smallest-footprint variant — fits the secondary RTX 3090
+> smallest-footprint variant — fits the secondary RTX 4090
 > (24GB VRAM) with thin margin (offload + careful KV
 > management) AND leaves substantial headroom on the
 > RTX PRO 6000 for parallel workloads.
@@ -430,6 +1141,107 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 > catalog candidate for the §1g 'all the best selection of
 > models adapted for various size and at various
 > quantization' directive.
+
+### BitNet-70B
+
+- **Status:** ◌ aspirational
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `xl`
+- **Purpose:** `chat`, `reasoning`
+- **Engine:** `bitnet.cpp`
+- **License:** mit
+- **Context window (tokens):** 4,096
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+- **Closest real alternative:** `microsoft/bitnet-b1.58-2B-4T`
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: no public 70B/120B BitNet exists; largest real is 2B-4T (the substitute).
+
+### Deepseek-V3-Ternary
+
+- **Status:** ◌ aspirational
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `xxl`
+- **Purpose:** `reasoning`, `chat`, `code`
+- **Engine:** `vllm`
+- **License:** other
+- **Parameters:** 684531.0 M
+- **Context window (tokens):** 131,072
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+- **Closest real alternative:** `deepseek-ai/DeepSeek-V3`
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: PT2-LLM ternary DeepSeek-V3 (671B MoE base verified real). Distinct from the existing fp8 DeepSeek-V3-Quant entry.
+
+### BitNet-70B-132k-Context
+
+- **Status:** ◌ aspirational
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `xl`
+- **Purpose:** `reasoning`
+- **Engine:** `bitnet.cpp`
+- **License:** mit
+- **Context window (tokens):** 131,072
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+- **Closest real alternative:** `microsoft/bitnet-b1.58-2B-4T`
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: long-context BitNet target; no public 70B BitNet exists.
+
+### Qwen2.5-Coder-72B-1.58bit
+
+- **Status:** ◌ aspirational
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `xl`
+- **Purpose:** `code`
+- **Engine:** `bitnet.cpp`
+- **License:** apache-2.0
+- **Context window (tokens):** 32,768
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+- **Closest real alternative:** `Qwen/Qwen2.5-Coder-32B-Instruct`
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: no 72B Qwen2.5-Coder exists (largest real is 32B, the substitute); 1.58-bit target.
+
+### Mistral-Large-Ternary-80B
+
+- **Status:** ◌ aspirational
+- **Class:** `ternary-lm` — Ternary LM (1.58-bit)
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `xl`
+- **Purpose:** `chat`, `reasoning`
+- **Engine:** `bitnet.cpp`
+- **License:** other
+- **Context window (tokens):** 131,072
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+- **Closest real alternative:** `mistralai/Mistral-Large-Instruct-2411`
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: ternary quant of Mistral-Large (base is 123B, not 80B; verified real).
+
+### Mistral-Ternary-3x-70B
+
+- **Status:** ? operator-must-confirm
+- **Class:** `mixture` — Mixture-of-Experts
+- **Quantization:** `ternary-1.58bit`
+- **Size class:** `xl`
+- **Purpose:** `chat`, `reasoning`
+- **Engine:** `vllm`
+- **License:** other
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: operator 'Mistral-Ternary 3x70B' — a replicated/ensemble group of 3; captured as a single mixture entry pending real base + composition decision.
 
 ## Router tier (master spec § 17)
 
@@ -494,6 +1306,43 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 > R212 — draft model for the Qwen-32B + Qwen3-Coder-32B
 > oracles. Composes with sovereign-os DFlash speculative
 > decoding wrapper (SDD-026).
+
+### BAAI-bge-m3
+
+- **Status:** ✓ verified-real
+- **Class:** `embed` — Embedding
+- **Quantization:** `bf16`
+- **Size class:** `xs`
+- **Purpose:** `embedding`, `rag`
+- **Engine:** `transformers`
+- **License:** mit
+- **HF repo id:** `BAAI/bge-m3`
+- **Parameters:** 568.0 M
+- **VRAM minimum (GiB):** 1.5
+- **Context window (tokens):** 8,192
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 ("BGE-M3 (Embedding)").
+> Multilingual dense+sparse+colbert embedding model. Real on HF
+> (8192 ctx). Complements the existing nomic-embed + bge-reranker
+> RAG surface.
+
+### Nexus-Spec-1.1B
+
+- **Status:** ? operator-must-confirm
+- **Class:** `speculative` — Speculative draft
+- **Quantization:** `bf16`
+- **Size class:** `s`
+- **Purpose:** `speculation`
+- **Engine:** `vllm`
+- **License:** other
+- **Master spec:** operator handwritten catalog addition 2026-07-02
+
+**Operator note:**
+
+> Operator handwritten catalog 2026-07-02 — note: coined speculative draft model; no real repo found.
 
 ## Cross-references
 

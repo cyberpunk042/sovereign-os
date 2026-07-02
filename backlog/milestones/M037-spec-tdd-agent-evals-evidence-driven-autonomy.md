@@ -74,7 +74,7 @@
 | F03087 | Reflex profile detail — local model | 10804 | M00620 | composite | false |
 | F03088 | Reflex profile detail — fast answer | 10805 | M00620 | composite | false |
 | F03089 | Reflex profile detail — minimal tests | 10806 | M00620 | composite | false |
-| F03090 | Goldilocks Profile — Careful | 10808 | M00621 | composite | true |
+| F04090 | Goldilocks Profile — Careful | 10808 | M00621 | composite | true |
 | F03091 | Careful profile detail — map repo/environment | 10809 | M00621 | composite | false |
 | F03092 | Careful profile detail — write/update spec | 10810 | M00621 | composite | false |
 | F03093 | Careful profile detail — generate tests | 10811 | M00621 | composite | false |
@@ -163,7 +163,7 @@
 | R06146 | Reflex profile detail — local model | 10804 | F03087 | non-negotiable | false | 10 |
 | R06147 | Reflex profile detail — fast answer | 10805 | F03088 | non-negotiable | false | 10 |
 | R06148 | Reflex profile detail — minimal tests | 10806 | F03089 | non-negotiable | false | 10 |
-| R06149 | Goldilocks Profile — Careful | 10808 | F03090 | non-negotiable | true | 10 |
+| R06149 | Goldilocks Profile — Careful | 10808 | F04090 | non-negotiable | true | 10 |
 | R06150 | Careful profile detail — map repo/environment | 10809 | F03091 | non-negotiable | false | 10 |
 | R06151 | Careful profile detail — write/update spec | 10810 | F03092 | non-negotiable | false | 10 |
 | R06152 | Careful profile detail — generate tests | 10811 | F03093 | non-negotiable | false | 10 |
@@ -270,12 +270,12 @@
 | R06253 | Project boundary — WorkItem schema may be carried as a typed-mirror crate (MS007) for cross-repo consumers | MS007 + SDD-038 | M00627 | non-negotiable | false | 10 |
 | R06254 | Project boundary — TRACE.log content may flow into selfdef-collector-eventstream (MS002) for incident correlation (metadata only, not prompt content) | architecture + MS002 | M00618 | non-negotiable | false | 10 |
 | R06255 | Goldilocks-Reflex maps to claude-jean-fast (M034 alias) | 10801 + cross-ref M034 R05664 | F03084 | non-negotiable | false | 10 |
-| R06256 | Goldilocks-Careful maps to claude-jean-careful (M034 alias) | 10808 + cross-ref M034 R05666 | F03090 | non-negotiable | false | 10 |
+| R06256 | Goldilocks-Careful maps to claude-jean-careful (M034 alias) | 10808 + cross-ref M034 R05666 | F04090 | non-negotiable | false | 10 |
 | R06257 | Goldilocks-Experimental maps to claude-jean-sandbox (M033 profile alias) | 10816 + cross-ref M033 R05480 | F03097 | non-negotiable | false | 10 |
 | R06258 | Goldilocks-Production maps to claude-jean-hybrid + jean/oracle (M033/M034 aliases) | 10823 + cross-ref M033 R05498 + M034 R05669 | F03103 | non-negotiable | false | 10 |
 | R06259 | Goldilocks-Autonomous maps to claude-jean-autonomous (operator-defined alias per M035 R05904) | 10831 + cross-ref M035 R05904 | F03110 | non-negotiable | false | 10 |
 | R06260 | Reflex profile — minimal map + spec / local model only / fast | 10802–10806 | F03084 | non-negotiable | false | 10 |
-| R06261 | Careful profile — full Spec/TDD round-trip with oracle review | 10809–10814 | F03090 | non-negotiable | false | 10 |
+| R06261 | Careful profile — full Spec/TDD round-trip with oracle review | 10809–10814 | F04090 | non-negotiable | false | 10 |
 | R06262 | Experimental profile — sandbox-only; no commit; high novelty | 10817–10821 | F03097 | non-negotiable | false | 10 |
 | R06263 | Production profile — TDD required + property tests + security + human gate + rollback | 10825–10829 | F03103 | non-negotiable | false | 10 |
 | R06264 | Autonomous profile — issue/task driven + isolated workspace + persistent session + retry/recover + report packet | 10832–10836 | F03110 | non-negotiable | false | 10 |

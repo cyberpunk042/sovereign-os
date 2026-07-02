@@ -7,7 +7,7 @@ operator-discovery surface for the running inference stack.
 
 Per master spec §17.1 the runtime mapping is:
   Pulse        → ternary CPU inference (bitnet.cpp on CCD 0)
-  Logic Engine → vLLM/llama.cpp on RTX 3090 (VFIO sandbox)
+  Logic Engine → vLLM/llama.cpp on RTX 4090 (VFIO sandbox)
   Oracle Core  → vLLM + DFlash on Blackwell (host-resident)
   Router       → OpenAI-compatible front for the direct stack
 
@@ -30,7 +30,7 @@ TRINITY_UNITS = {
         "spec_ref": "§17.1 + §19.2",
     },
     "sovereign-logic-engine.service": {
-        "must_have": ["Logic Engine", "RTX 3090", "VFIO"],
+        "must_have": ["Logic Engine", "RTX 4090", "VFIO"],
         "must_have_one_of": ["vLLM", "llama.cpp"],
         "spec_ref": "§17.1",
     },
@@ -87,7 +87,7 @@ def test_pulse_description_verbatim():
 
 
 def test_logic_engine_description_verbatim():
-    """Logic Engine unit Description references RTX 3090 + VFIO
+    """Logic Engine unit Description references RTX 4090 + VFIO
     (§17.1 operator-named GPU 0 sandbox runtime)."""
     unit = SYSTEMD_DIR / "sovereign-logic-engine.service"
     desc = _read_description(unit)

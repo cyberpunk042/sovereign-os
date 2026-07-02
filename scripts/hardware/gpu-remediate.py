@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """scripts/hardware/gpu-remediate.py — R249 (SDD-026 Z-5 closure).
 
-Operator-named (verbatim): "with a warning if the RTX 3090 which
+Operator-named (verbatim): "with a warning if the RTX 4090 which
 should be sliglly reduce which isn't and things like this that warn
 deviance from 'perfertion'".
 

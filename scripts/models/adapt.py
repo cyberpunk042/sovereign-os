@@ -16,7 +16,7 @@ operator hands off to R232 eval plan → operator decides to promote.
 
 Recommendations are hardware-aware: VRAM ceiling per card pulled
 from R317 inventory-catalog via R348 inventory_consult helper.
-RTX 3090 (24 GiB) and RTX PRO 6000 (98 GiB) get DIFFERENT
+RTX 4090 (24 GiB) and RTX PRO 6000 (98 GiB) get DIFFERENT
 recommendations for the same task.
 
 CLI:
@@ -80,8 +80,8 @@ RECIPES: list[dict[str, Any]] = [
         "finetune_vram_gib": 16,
         "method": "qlora-trl",
         "target_tasks": ["code", "agent", "tool-use"],
-        "cost_estimate": "~2-4h on RTX 3090 (24 GiB) at 1k rows",
-        "rationale": ("7B code model + qlora 4-bit fits the 3090; ideal "
+        "cost_estimate": "~2-4h on RTX 4090 (24 GiB) at 1k rows",
+        "rationale": ("7B code model + qlora 4-bit fits the 4090; ideal "
                        "for operator-specific tool-use fine-tunes without "
                        "displacing oracle-core."),
     },
@@ -92,9 +92,9 @@ RECIPES: list[dict[str, Any]] = [
         "finetune_vram_gib": 22,
         "method": "lora-unsloth",
         "target_tasks": ["chat", "instruction-following"],
-        "cost_estimate": "~3-5h on RTX 3090 (24 GiB) at 2k rows",
+        "cost_estimate": "~3-5h on RTX 4090 (24 GiB) at 2k rows",
         "rationale": ("13B chat model + lora unsloth FA2 path is the "
-                       "sweet spot for the 3090; oracle-core stays free."),
+                       "sweet spot for the 4090; oracle-core stays free."),
     },
     {
         "recipe_id": "qlora-32b-reasoning",
@@ -105,7 +105,7 @@ RECIPES: list[dict[str, Any]] = [
         "target_tasks": ["reasoning", "math", "long-context"],
         "cost_estimate": "~6-10h on RTX PRO 6000 (98 GiB) at 1k rows",
         "rationale": ("32B reasoning model: PRO 6000 has the VRAM for "
-                       "qlora + long-context windows. Won't fit on 3090 "
+                       "qlora + long-context windows. Won't fit on 4090 "
                        "during fine-tune."),
     },
     {
@@ -118,7 +118,7 @@ RECIPES: list[dict[str, Any]] = [
         "cost_estimate": "~12-20h on RTX PRO 6000 (98 GiB) at 1k rows",
         "rationale": ("70B instruct + lora unsloth saturates PRO 6000 "
                        "VRAM; operator should pause logic-engine "
-                       "(3090 VFIO) workloads during the run."),
+                       "(4090 VFIO) workloads during the run."),
     },
     {
         "recipe_id": "sft-3b-edge",
@@ -151,7 +151,7 @@ RECIPES: list[dict[str, Any]] = [
 DEFAULT_GPUS: list[dict[str, Any]] = [
     {
         "index": 0,
-        "model": "RTX 3090",
+        "model": "RTX 4090",
         "vram_gib": 24,
         "role_hint": "VFIO sandbox (logic-engine when active)",
     },

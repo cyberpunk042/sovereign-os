@@ -95,7 +95,7 @@ execution scaffold; operator can re-scope any PR at any gate.
 ### D-003 — 2026-05-16 — SAIN-01 is the default profile; old-workstation is the alternate (schema-first, multi-profile from day 1)
 
 **Decision**: The default OS profile is `sain-01` (Ryzen 9 9900X + RTX
-PRO 6000 Blackwell + RTX 3090 + 256 GB DDR5 + dual PCIe 5 NVMe + Marvell
+PRO 6000 Blackwell + RTX 4090 + 256 GB DDR5 + dual PCIe 5 NVMe + Marvell
 10 GbE + Intel 2.5 GbE on ASUS ProArt X870E-Creator). The alternate
 declared-from-day-1 profile is `old-workstation` (11 GB RAM + 8 GB GPU
 class). Future profiles (`minimal`, `developer`, `headless`) are

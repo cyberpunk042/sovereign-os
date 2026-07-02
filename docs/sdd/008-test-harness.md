@@ -75,7 +75,7 @@ Tests each lifecycle stage's invariants in a controlled environment:
 #### Post-install first-boot stage
 - Tetragon policy loads cleanly (`tetragon` daemon status active)
 - `tank/context/security_audit.log` writable + Tetragon writes a test event
-- VFIO binding hides the RTX 3090 from host's `nvidia-smi` output
+- VFIO binding hides the RTX 4090 from host's `nvidia-smi` output
 - First-login assistant script executes without error in a non-interactive harness
 - ARC clamp: `arcstat -s c` returns 128GB target
 

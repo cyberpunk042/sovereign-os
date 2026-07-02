@@ -31,14 +31,14 @@ from; everything else is operator-customized.
 | **CPU** | AMD Ryzen 9 9900X (Zen 5) | Single-cycle native AVX-512 (true 512-bit ZMM registers; legacy Zens double-pumped 256-bit) |
 | **Motherboard** | ASUS ProArt X870E-Creator | Dual PCIe 5.0 slots in x8/x8 symmetric · IOMMU topology for VFIO |
 | **GPU primary** | RTX PRO 6000 Blackwell (96GB GDDR7) | Oracle Core — large-scale model residence; FP16 / un-quantized |
-| **GPU secondary** | RTX 3090 (24GB GDDR6X) | Logic Engine — VFIO-isolated sandbox; speculative decoding |
+| **GPU secondary** | RTX 4090 (24GB GDDR6X) | Logic Engine — VFIO-isolated sandbox; speculative decoding |
 | **Memory** | 256GB DDR5 (initial 128GB) | High system context + ZFS ARC headroom |
 | **Storage** | 2× NVMe PCIe 5.0 in ZFS RAID-0 | 31.5 GB/s sequential target |
 | **Network** | Marvell AQC113C 10GbE + Intel I226-V 2.5GbE | Asymmetric VLAN — mgmt vs data |
 
 ### Hardware constraints (operator MUST honor these)
 
-- **PCIe lane symmetry**: Slot 1 (Blackwell) and Slot 2 (3090) MUST operate
+- **PCIe lane symmetry**: Slot 1 (Blackwell) and Slot 2 (4090) MUST operate
   at x8/x8. The CPU has 24 usable PCIe lanes; this is the only symmetric
   configuration that runs both GPUs at full bandwidth.
 - **M.2_2 MUST remain empty**. Populating it triggers bifurcation that drops
@@ -114,7 +114,7 @@ avoids constant small-kernel context-switching on the GPUs.
 
 **Runtime selection**:
 - Rootless Podman for sub-agent containers (no Docker daemon overhead)
-- VFIO 3090 for the Logic Engine sandbox
+- VFIO 4090 for the Logic Engine sandbox
 - Atomic state writes via O_DIRECT + POSIX AIO + ZFS `sync=always` on
   `tank/context`
 
@@ -141,7 +141,7 @@ zfs set logbias=latency tank/context
 - `scripts/hooks/during-install/zfs-pool-create.sh` creates the pool.
 - `scripts/hooks/during-install/zfs-datasets-create.sh` creates `tank/context`
   with the prescribed recordsize/compression/copies/sync settings per SDD-017.
-- VFIO bind exists at `scripts/hooks/post-install/vfio-bind-3090.sh`.
+- VFIO bind exists at `scripts/hooks/post-install/vfio-bind-4090.sh`.
 - **NOT YET BUILT**: the atomic state transition protocol primitives
   (`scripts/weaver/atomic-state.py` per master spec § 21.1's Python blueprint).
   Tracked in R154.
@@ -271,14 +271,14 @@ ZFS ARC clamped to 128GB (half of 256GB) via
 
 **Master spec sections**: 12 Phase IV + §§ 4.3 (VFIO), 8 (asymmetric networking).
 
-**What happens**: Podman installed (rootless ready) → VFIO 3090 bound at
-boot (`vfio-pci.ids=10de:2204,10de:1ad8` in kernel cmdline) → asymmetric
+**What happens**: Podman installed (rootless ready) → VFIO 4090 bound at
+boot (`vfio-pci.ids=10de:2684,10de:22ba` in kernel cmdline) → asymmetric
 networking applied:
 - `enp6s0` (Intel 2.5GbE) → mgmt VLAN 100, default gateway, DNS
 - `enp5s0` (Marvell 10GbE) → data VLAN 200, MTU 9000 jumbo, no default gateway
 
 **In repo**:
-- `scripts/hooks/post-install/vfio-bind-3090.sh` (VFIO ✅)
+- `scripts/hooks/post-install/vfio-bind-4090.sh` (VFIO ✅)
 - `scripts/hooks/post-install/network-vlan-config.sh` (generic VLAN
   renderer; profile-driven ✅)
 - `scripts/network/render-asymmetric.sh` (R158: opinionated master
@@ -369,7 +369,7 @@ podman run --device nvidia.com/gpu=all -v /mnt/vault/models:/models:ro \
 |---|---|---|---|
 | **BitNet-b1.58-3B** | Conductor (low-power) | Pulse / CPU | Backend stub at `scripts/inference/backends/bitnet.py` (R152) |
 | **BitNet-b1.58-13B** | Conductor (high-concurrency) | Pulse / CPU | same |
-| **Qwen-32B-Ternary-Quant** | Translator / Logic Engine | vllm-vulkan / 3090 | not configured (R156) |
+| **Qwen-32B-Ternary-Quant** | Translator / Logic Engine | vllm-vulkan / 4090 | not configured (R156) |
 | **DeepSeek-R1-Distill-Llama-70B-FP16** | Deep Reasoner | llama.cpp / Blackwell | not configured (R156) |
 | **DeepSeek-V3-Quant** | Unified-memory inference | vLLM tensor-parallel | not configured (R156) |
 | **Ling-2.6-flash** (107B bailing_hybrid; MIT) | Operator-added candidate | TBD | not configured (R156) |

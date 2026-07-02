@@ -299,7 +299,7 @@ def test_m060_d16_audit_producer_consumer_contract():
         "spans": [
             {"trace_id": "t1", "profile": "careful",
              "model": "qwen3-coder-32b", "provider": "local-cuda",
-             "hardware": "3090_logic", "tokens_prompt": 100,
+             "hardware": "4090_logic", "tokens_prompt": 100,
              "tokens_completion": 50, "latency_ms": 1500,
              "cost_millicents": 5, "risk_score": 12,
              "memory_refs": [], "tool_refs": ["read-only-host"],

@@ -16,7 +16,7 @@
 | E0064 | Mini lookup tables inside 64 bits | 1777–1818 |
 | E0065 | Two-level rule tables | 1820–1836 |
 | E0066 | Speculative execution with deterministic commit | 1838–1860 |
-| E0067 | Branch prediction analogy — 3090 predictor / Blackwell retirement / AVX reorder-commit | 1862–1886 |
+| E0067 | Branch prediction analogy — 4090 predictor / Blackwell retirement / AVX reorder-commit | 1862–1886 |
 | E0068 | Bloom filters / sketches — popcount(query & memory) | 1888–1908 |
 | E0069 | SIMD finite-state machines | 1910–1944 |
 | E0070 | Cheapest-first filter cascade | 1946–1961 |
@@ -96,7 +96,7 @@
 | F00641 | Test — accept = oracle & grammar & tool & budget & memory short-circuits correctly | 1838–1860 | M00120 | test | true |
 | F00642 | Toggle branch-prediction analogy infrastructure | 1862–1886 | M00121 | mode | true |
 | F00643 | Profile knob — `branch_prediction_analogy_enabled` | 1862–1886 | M00121 | profile | true |
-| F00644 | Dashboard surface — 3090 predictor / Blackwell retirement / AVX reorder-commit pipeline | 1862–1886 | M00121 | dashboard | true |
+| F00644 | Dashboard surface — 4090 predictor / Blackwell retirement / AVX reorder-commit pipeline | 1862–1886 | M00121 | dashboard | true |
 | F00645 | Metric `sovereign_os_branch_prediction_speculative_total` | 1862–1886 | M00121 | observability_metric | true |
 | F00646 | Metric `sovereign_os_branch_prediction_retired_total` | 1862–1886 | M00121 | observability_metric | true |
 | F00647 | Toggle bloom-sketch popcount-overlap mode | 1888–1908 | M00122 | mode | true |
@@ -208,7 +208,7 @@
 | R01258 | Dashboard accept predicate audit shows per-branch predicate outcomes | 1838–1860 | F00639 | non-negotiable | true | 10 |
 | R01259 | Metric `sovereign_os_speculative_acceptance_total` is Prometheus counter labeled by outcome | 1838–1860 | F00640 | non-negotiable | false | 10 |
 | R01260 | Test — accept predicate short-circuits on first false | 1838–1860 | F00641 | non-negotiable | false | 10 |
-| R01261 | Branch prediction analogy — 3090 = predictor / RTX PRO = retirement / AVX = reorder buffer + commit | 1869–1873 | M00121 | non-negotiable | false | 10 |
+| R01261 | Branch prediction analogy — 4090 = predictor / RTX PRO = retirement / AVX = reorder buffer + commit | 1869–1873 | M00121 | non-negotiable | false | 10 |
 | R01262 | System speculates ahead, commits valid transitions only | 1876 | M00121 | non-negotiable | false | 10 |
 | R01263 | Draft branches speculative / tool calls side-effect-gated / memory writes pending / oracle verification retires / CPU commits in order or by policy | 1879–1884 | M00121 | non-negotiable | false | 10 |
 | R01264 | Profile `branch_prediction_analogy_enabled` accepts boolean | 1862–1886 | F00643 | non-negotiable | true | 10 |
@@ -294,7 +294,7 @@
 | R01344 | Bit-order rationale — most frequently tested fields packed low | 2105 | M00103 | non-negotiable | false | 10 |
 | R01345 | Bit-order rationale — expensive or rarer policy sits higher | 2105 | M00103 | non-negotiable | false | 10 |
 | R01346 | Scheduler tick pseudocode — load 8 branches / extract route+task+budget+risk / compute alive mask / compute permission mask / compute oracle-needed mask / compress survivors / enqueue dense batches | 2110–2118 | M00100 | non-negotiable | false | 10 |
-| R01347 | Speculative CPU analogy — RTX 3090 = branch predictor / RTX PRO = retirement unit / Ryzen = reorder buffer + commit logic / RAM + ZFS = architectural state + replay log | 2126–2137 | M00121 | non-negotiable | false | 10 |
+| R01347 | Speculative CPU analogy — RTX 4090 = branch predictor / RTX PRO = retirement unit / Ryzen = reorder buffer + commit logic / RAM + ZFS = architectural state + replay log | 2126–2137 | M00121 | non-negotiable | false | 10 |
 | R01348 | Models propose transitions / deterministic runtime commits transitions | 2143–2146 | M00120 | non-negotiable | false | 10 |
 | R01349 | Revolution — AVX-512 = accelerating law | 2148 | M00129 | non-negotiable | false | 10 |
 | R01350 | Concrete trick — VPTERNLOG policy fusion `commit = (oracle_ok & grammar_ok) | (trusted_fast_path & low_risk)` | 2156 | M00114 | non-negotiable | false | 10 |

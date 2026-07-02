@@ -235,7 +235,7 @@
 | R04517 | MCTS — transition = observation result | 7966–7967 | E0256 | non-negotiable | false | 10 |
 | R04518 | MCTS — reward = PRM + tests + policy + user feedback | 7969–7970 | E0256 | non-negotiable | false | 10 |
 | R04519 | MCTS — selection = choose branch with best UCB-style score | 7972–7973 | E0256 | non-negotiable | false | 10 |
-| R04520 | MCTS — expansion = 3090/SLM generates options | 7975–7976 | E0256 | non-negotiable | false | 10 |
+| R04520 | MCTS — expansion = 4090/SLM generates options | 7975–7976 | E0256 | non-negotiable | false | 10 |
 | R04521 | MCTS — simulation = cheap SLM rollout or tool dry-run | 7978–7979 | E0256 | non-negotiable | false | 10 |
 | R04522 | MCTS — backup = update branch value | 7981–7982 | E0256 | non-negotiable | false | 10 |
 | R04523 | Blackwell oracle is not used everywhere — used at important frontier points | 7985 | E0256 | non-negotiable | false | 10 |

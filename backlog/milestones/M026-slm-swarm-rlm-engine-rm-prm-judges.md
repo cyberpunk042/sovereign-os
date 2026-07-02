@@ -14,7 +14,7 @@
 | E0241 | Judge class — RM/RRM/PRM (reward / process scoring / candidate ranking / branch value estimation) | 7436–7441 |
 | E0242 | SLMs are microservices of intelligence — 11-role SLM swarm + "big model is your judge not your janitor" | 7445–7465 |
 | E0243 | RLM is the context operating system — RLM loop (read task / inspect external context via code / spawn sub-call on relevant slice / aggregate / repeat / return) vs RAG | 7467–7504 |
-| E0244 | Hardware mapping — Blackwell=parent-RLM+oracle / 3090=child-RLM+SLM-scouts+tool-use / Ryzen-AVX-512=context-index+branch-scheduler+recursion-budget / RAM-ZFS=external-context-environment | 7506–7535 |
+| E0244 | Hardware mapping — Blackwell=parent-RLM+oracle / 4090=child-RLM+SLM-scouts+tool-use / Ryzen-AVX-512=context-index+branch-scheduler+recursion-budget / RAM-ZFS=external-context-environment | 7506–7535 |
 | E0245 | RLM + AVX-512 — per-subcall 8-field control word + 7-question bulk-law per subcall + "RLM without control can explode; RLM with AVX-512 scheduling becomes disciplined recursion" | 7537–7567 |
 | E0246 | Reward Models As Value Functions — 4-reward-source taxonomy (rule / process / model / system) + 8-field reward vector + profiles-become-reward-policies (careful_research vs fast_local example) | 7569–7642 |
 | E0247 | RLM+SLM combination + adaptation + new architecture components (SLM Swarm + RLM Engine + Reward Plane + Profile Optimizer) + closing 8-clause key-line | 7644–7729 |
@@ -31,7 +31,7 @@
 | M00428 | RLM loop — 6-step (read task / inspect external context via code / spawn sub-call on relevant slice / aggregate result / repeat / return answer) | 7491–7499 | E0243 |
 | M00429 | RLM vs RAG distinction — RAG retrieves for the model; RLM lets the model navigate context as an environment | 7503–7504 | E0243 |
 | M00430 | Hardware mapping — Blackwell parent-RLM + oracle synthesis + hard recursive calls + final verification | 7509–7512 | E0244 |
-| M00431 | Hardware mapping — 3090 child RLM calls + SLM scouts + tool-use agents + perception+rerankers | 7514–7518 | E0244 |
+| M00431 | Hardware mapping — 4090 child RLM calls + SLM scouts + tool-use agents + perception+rerankers | 7514–7518 | E0244 |
 | M00432 | Hardware mapping — Ryzen AVX-512 context index + branch scheduler + recursion budget + duplicate detection + uncertainty routing + reward/vector scoring | 7520–7526 | E0244 |
 | M00433 | Hardware mapping — RAM/ZFS external context environment (variables / files / logs / memory chunks / replay) | 7528–7531 | E0244 |
 | M00434 | RLM subcall 8-field control word — parent_id / depth / context_slice_ref / question_ref / budget / uncertainty / reward_score / visited_hash | 7543–7552 | E0245 |
@@ -90,10 +90,10 @@
 | F02167 | RLM vs RAG — RLM lets the model navigate context as an environment | 7504 | M00429 | composite | false |
 | F02168 | Hardware binding — Blackwell hosts parent RLM | 7510 | M00430 | composite | false |
 | F02169 | Hardware binding — Blackwell handles hard recursive calls | 7511 | M00430 | composite | false |
-| F02170 | Hardware binding — 3090 hosts child RLM calls | 7515 | M00431 | composite | false |
-| F02171 | Hardware binding — 3090 hosts SLM scouts | 7516 | M00431 | composite | false |
-| F02172 | Hardware binding — 3090 hosts tool-use agents | 7517 | M00431 | composite | false |
-| F02173 | Hardware binding — 3090 hosts perception+rerankers | 7518 | M00431 | composite | false |
+| F02170 | Hardware binding — 4090 hosts child RLM calls | 7515 | M00431 | composite | false |
+| F02171 | Hardware binding — 4090 hosts SLM scouts | 7516 | M00431 | composite | false |
+| F02172 | Hardware binding — 4090 hosts tool-use agents | 7517 | M00431 | composite | false |
+| F02173 | Hardware binding — 4090 hosts perception+rerankers | 7518 | M00431 | composite | false |
 | F02174 | Hardware binding — Ryzen AVX-512 context index | 7521 | M00432 | composite | false |
 | F02175 | Hardware binding — Ryzen AVX-512 branch scheduler | 7522 | M00432 | composite | false |
 | F02176 | Hardware binding — Ryzen AVX-512 recursion budget | 7523 | M00432 | composite | false |
@@ -175,7 +175,7 @@
 | R04287 | SLM role — query reformulator | 7459 | F02157 | non-negotiable | true | 10 |
 | R04288 | SLM role — test failure classifier | 7460 | F02158 | non-negotiable | true | 10 |
 | R04289 | Do not send small decisions to the Blackwell oracle unless needed | 7463 | M00424 | non-negotiable | false | 10 |
-| R04290 | A 1B-8B SLM on 3090 or CPU handles thousands of little decisions | 7465 | M00424 | non-negotiable | false | 10 |
+| R04290 | A 1B-8B SLM on 4090 or CPU handles thousands of little decisions | 7465 | M00424 | non-negotiable | false | 10 |
 | R04291 | The big model should be your judge, not your janitor | 7465 | F02159 | non-negotiable | false | 10 |
 | R04292 | RLM changes the long-context problem | 7469 | E0243 | non-negotiable | false | 10 |
 | R04293 | RLM replaces "stuff everything into context + hope attention finds the right facts" | 7473–7476 | E0243 | non-negotiable | false | 10 |
@@ -198,10 +198,10 @@
 | R04310 | Hardware binding — Blackwell oracle synthesis | 7511 | F02168 | non-negotiable | false | 10 |
 | R04311 | Hardware binding — Blackwell hard recursive calls | 7511 | F02169 | non-negotiable | false | 10 |
 | R04312 | Hardware binding — Blackwell final verification | 7512 | F02168 | non-negotiable | false | 10 |
-| R04313 | Hardware binding — 3090 child RLM calls | 7515 | F02170 | non-negotiable | false | 10 |
-| R04314 | Hardware binding — 3090 SLM scouts | 7516 | F02171 | non-negotiable | false | 10 |
-| R04315 | Hardware binding — 3090 tool-use agents | 7517 | F02172 | non-negotiable | false | 10 |
-| R04316 | Hardware binding — 3090 perception+rerankers | 7518 | F02173 | non-negotiable | false | 10 |
+| R04313 | Hardware binding — 4090 child RLM calls | 7515 | F02170 | non-negotiable | false | 10 |
+| R04314 | Hardware binding — 4090 SLM scouts | 7516 | F02171 | non-negotiable | false | 10 |
+| R04315 | Hardware binding — 4090 tool-use agents | 7517 | F02172 | non-negotiable | false | 10 |
+| R04316 | Hardware binding — 4090 perception+rerankers | 7518 | F02173 | non-negotiable | false | 10 |
 | R04317 | Hardware binding — Ryzen AVX-512 context index | 7521 | F02174 | non-negotiable | false | 10 |
 | R04318 | Hardware binding — Ryzen AVX-512 branch scheduler | 7522 | F02175 | non-negotiable | false | 10 |
 | R04319 | Hardware binding — Ryzen AVX-512 recursion budget | 7523 | F02176 | non-negotiable | false | 10 |

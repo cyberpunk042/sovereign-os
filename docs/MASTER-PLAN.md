@@ -79,7 +79,7 @@
 - [MS029-slm-cpu-loop-module](../selfdef/backlog/milestones/MS029-slm-cpu-loop-module.md)  ·  240 R-rows  ·  MS029 — SLM CPU loop module
 - [MS030-tensor-parallel-inference-module](../selfdef/backlog/milestones/MS030-tensor-parallel-inference-module.md)  ·  240 R-rows  ·  MS030 — Tensor parallel inference module
 - [MS031-wasm-aot-cache-module](../selfdef/backlog/milestones/MS031-wasm-aot-cache-module.md)  ·  240 R-rows  ·  MS031 — WASM AOT cache module
-- [MS032-sandbox-tiers](../selfdef/backlog/milestones/MS032-sandbox-tiers.md)  ·  240 R-rows  ·  MS032 — Sandbox tiers — read-only / workspace-write / Podman / network-denied / network-allowed / VFIO 3090 / browser-GUI / CRIU / ZFS clone
+- [MS032-sandbox-tiers](../selfdef/backlog/milestones/MS032-sandbox-tiers.md)  ·  240 R-rows  ·  MS032 — Sandbox tiers — read-only / workspace-write / Podman / network-denied / network-allowed / VFIO 4090 / browser-GUI / CRIU / ZFS clone
 - [MS033-policy-and-trace](../selfdef/backlog/milestones/MS033-policy-and-trace.md)  ·  240 R-rows  ·  MS033 — Policy and trace — every action observable + governed
 - [MS034-communication-boundary](../selfdef/backlog/milestones/MS034-communication-boundary.md)  ·  240 R-rows  ·  MS034 — Communication boundary
 - [MS035-capability-tokens-typed-authority-handles](../selfdef/backlog/milestones/MS035-capability-tokens-typed-authority-handles.md)  ·  240 R-rows  ·  MS035 — Capability tokens — typed authority handles

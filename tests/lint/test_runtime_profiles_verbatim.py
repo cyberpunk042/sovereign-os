@@ -50,7 +50,7 @@ KNOWN_TIERS = {"pulse", "logic", "oracle"}
 KNOWN_ENGINES = {
     "bitnet.cpp",
     "vllm",
-    "vllm-vulkan",  # vLLM with Vulkan backend (3090 path)
+    "vllm-vulkan",  # vLLM with Vulkan backend (4090 path)
     "llama.cpp",
 }
 

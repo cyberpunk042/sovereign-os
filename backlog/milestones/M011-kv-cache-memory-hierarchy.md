@@ -14,7 +14,7 @@
 | E0087 | KV cache as memory hierarchy — new thesis | 2477–2497 |
 | E0088 | The CPU As KV Cache Controller | 2499–2541 |
 | E0089 | The Killer Optimization — Tool Schema KV | 2543–2572 |
-| E0090 | Speculation Becomes Tree Execution — 3090 drafts / CPU packs / Blackwell verifies / CPU commits | 2574–2610 |
+| E0090 | Speculation Becomes Tree Execution — 4090 drafts / CPU packs / Blackwell verifies / CPU commits | 2574–2610 |
 | E0091 | Branch + KV Cache Fusion — every branch carries its KV refs | 2612–2646 |
 | E0092 | Memory Admission Policy — cache-yes / cache-no bitfield law | 2648–2680 |
 | E0093 | Strong Runtime Shape — Deterministic Cortex Runtime + KV plane | 2682–2699 |
@@ -35,7 +35,7 @@
 | M00171 | Tool schema KV — system / tool / project / repo / user / grammar prefill caches | 2549–2556 | E0089 |
 | M00172 | Cached-invariant-prefix + live-delta request shape | 2560–2562 | E0089 |
 | M00173 | Content-addressing — `hash(model_id, tokenizer_id, prompt_bytes, schema_version)` | 2568–2572 | E0089 |
-| M00174 | Speculative-tree organ pipeline — 3090 creates / CPU packs / Blackwell verifies / CPU commits | 2580–2585 | E0090 |
+| M00174 | Speculative-tree organ pipeline — 4090 creates / CPU packs / Blackwell verifies / CPU commits | 2580–2585 | E0090 |
 | M00175 | `TokenNode` compact tree row — token / parent / depth / child_mask / score / flags | 2589–2598 | E0090 |
 | M00176 | AVX-512 tree maintenance — filter / merge / dedup / pack-verification-batches / track-accepted-subtree | 2600–2608 | E0090 |
 | M00177 | Branch row carries KV refs — branch_id / parent_branch_id / kv_prefix_ref / kv_delta_ref / control_word / budget / score | 2618–2626 | E0091 |
@@ -83,11 +83,11 @@
 | F00884 | API `POST /v1/kv-cache/content-address` (returns content hash) | 2568–2572 | M00173 | api_endpoint | true |
 | F00885 | Test — content-addressing collision rate ≤ scalar reference | 2568–2572 | M00173 | test | false |
 | F00886 | Test — content-addressing is deterministic across runs + boots | 2568–2572 | M00173 | test | false |
-| F00887 | Speculative-tree pipeline — 3090 creates tree | 2581 | M00174 | composite | true |
+| F00887 | Speculative-tree pipeline — 4090 creates tree | 2581 | M00174 | composite | true |
 | F00888 | Speculative-tree pipeline — CPU stores tree as bit-packed branch records | 2582 | M00174 | composite | true |
 | F00889 | Speculative-tree pipeline — Blackwell verifies tree chunks | 2583 | M00174 | composite | true |
 | F00890 | Speculative-tree pipeline — CPU commits accepted path | 2584 | M00174 | composite | true |
-| F00891 | Profile knob — `speculative_tree_draft_organ = 3090 \| cpu_simulated \| disabled` | 2580–2585 | M00174 | profile | true |
+| F00891 | Profile knob — `speculative_tree_draft_organ = 4090 \| cpu_simulated \| disabled` | 2580–2585 | M00174 | profile | true |
 | F00892 | Env var `SOVEREIGN_SPEC_TREE_DRAFT_ORGAN` | 2580–2585 | M00174 | env_var | true |
 | F00893 | CLI `--spec-tree-draft-organ <name>` | 2580–2585 | M00174 | cli_verb | true |
 | F00894 | Dashboard surface — speculative-tree depth × width × acceptance-rate | 2580–2608 | M00176 | dashboard | true |
@@ -197,7 +197,7 @@
 | R01758 | SpecInfer speculative token trees are verified in parallel by the large model | 2576 | M00174 | non-negotiable | false | 10 |
 | R01759 | Medusa adds multiple decoding heads to predict future tokens in parallel | 2576 | M00174 | non-negotiable | false | 10 |
 | R01760 | EAGLE speculative family claims lossless generation relative to vanilla decoding | 2576 | M00174 | non-negotiable | false | 10 |
-| R01761 | Hardware version — 3090 creates speculative tree | 2581 | M00174 | non-negotiable | false | 10 |
+| R01761 | Hardware version — 4090 creates speculative tree | 2581 | M00174 | non-negotiable | false | 10 |
 | R01762 | Hardware version — CPU stores tree as bit-packed branch records | 2582 | M00174 | non-negotiable | false | 10 |
 | R01763 | Hardware version — Blackwell verifies tree chunks | 2583 | M00174 | non-negotiable | false | 10 |
 | R01764 | Hardware version — CPU commits accepted path | 2584 | M00174 | non-negotiable | false | 10 |
@@ -274,7 +274,7 @@
 | R01835 | The workstation stops being "a PC with GPUs" and becomes a local AI operating system | 2727 | E0095 | non-negotiable | false | 10 |
 | R01836 | KV-cache-controller backend operator-overrideable (native / vllm-apc / lmcache / dynamo / sglang-radix) | 2483–2486 | F00851 | non-negotiable | true | 10 |
 | R01837 | Tool-schema-KV prefill set operator-configurable (csv subset of system,tool,project,repo,user,grammar) | 2549–2556 | F00878 | non-negotiable | true | 10 |
-| R01838 | Speculative-tree draft organ operator-selectable (3090 / cpu_simulated / disabled) | 2580–2585 | F00891 | non-negotiable | true | 10 |
+| R01838 | Speculative-tree draft organ operator-selectable (4090 / cpu_simulated / disabled) | 2580–2585 | F00891 | non-negotiable | true | 10 |
 | R01839 | Memory-admission policy bitfield layout operator-tunable | 2673–2680 | F00928 | non-negotiable | true | 10 |
 | R01840 | Dashboard — KV hierarchy tier occupancy (VRAM/RAM/NVMe) | 2491–2494 | F00855 | non-negotiable | true | 10 |
 | R01841 | Dashboard — KV block hit-rate per tier | 2491–2494 | F00856 | non-negotiable | true | 10 |

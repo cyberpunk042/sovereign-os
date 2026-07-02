@@ -95,11 +95,11 @@ hardware:
       role: primary                 # primary | vfio | headless
       driver: nvidia-560-open
     - vendor: nvidia
-      model: rtx-3090
-      pci_id: "10de:2204"
+      model: rtx-4090
+      pci_id: "10de:2684"
       vram_gb: 24
       role: vfio
-      vfio_companion: "10de:1ad8"   # audio device alongside
+      vfio_companion: "10de:22ba"   # audio device alongside
   memory:
     minimum_gb: 128
     target_gb: 256
@@ -183,7 +183,7 @@ kernel:
       - quiet
       - splash
     vfio:
-      - "vfio-pci.ids=10de:2204,10de:1ad8"
+      - "vfio-pci.ids=10de:2684,10de:22ba"
       - "amd_iommu=on"
       - "iommu=pt"
     secure_boot: signed              # signed | shim | disabled (Q-006)

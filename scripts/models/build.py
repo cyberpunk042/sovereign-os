@@ -94,7 +94,7 @@ BUILD_RECIPES: list[dict[str, Any]] = [
             "--adapter {adapter} --output {out}"
         ),
         "min_vram_gib": 16,
-        "cost_estimate": "~5-10 min on RTX 3090 for 7B; ~30 min for 13B",
+        "cost_estimate": "~5-10 min on RTX 4090 for 7B; ~30 min for 13B",
         "output_extension": ".safetensors (dir)",
         "rationale": ("Folds LoRA delta back into base weights so the "
                        "artifact can be loaded by any standard runtime "
@@ -126,7 +126,7 @@ BUILD_RECIPES: list[dict[str, Any]] = [
             "--group-size 128 --output {out}"
         ),
         "min_vram_gib": 24,
-        "cost_estimate": "~1-2 hours on RTX 3090 for 7B; ~3-5h for 32B",
+        "cost_estimate": "~1-2 hours on RTX 4090 for 7B; ~3-5h for 32B",
         "output_extension": ".safetensors (AWQ dir)",
         "rationale": ("AWQ keeps salient weights in higher precision; "
                        "loaded by vLLM (oracle-core/logic-engine) with "
@@ -160,7 +160,7 @@ DEFAULT_HISTORY_PATH = "/var/lib/sovereign-os/model-build.jsonl"
 # Default GPUs — mirrors R350 but R353 only needs the highest VRAM
 # card for can-this-build-run-here decisions.
 DEFAULT_GPUS = [
-    {"index": 0, "model": "RTX 3090", "vram_gib": 24},
+    {"index": 0, "model": "RTX 4090", "vram_gib": 24},
     {"index": 1, "model": "RTX PRO 6000 Blackwell", "vram_gib": 98},
 ]
 

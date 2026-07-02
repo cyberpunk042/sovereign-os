@@ -31,7 +31,7 @@ Reproducible builds (same inputs → same bytes). No phone-home defaults.
 Layer A/B/C observability without Grafana/Alertmanager required.
 
 If you don't have SAIN-01 hardware, you can still build:
-- `old-workstation` (constrained dev box: single 3090, ext4)
+- `old-workstation` (constrained dev box: single 4090, ext4)
 - `minimal` (VM baseline, useful for trying the pipeline)
 - `developer` (polyglot dev workstation)
 - `headless` (bare-metal server with auditd/fail2ban/chrony)
