@@ -683,6 +683,26 @@ fn run_strategies_demo() -> String {
         vbytes.len()
     );
 
+    // Text/format: JSONL parse, Markdown strip, and a format mask (constrained
+    // output shape like "12-A").
+    let (jvals, _) = sovereign_jsonl::parse("{\"a\":1}\n{\"b\":2}\n{\"c\":3}\n");
+    let plain = sovereign_markdown_strip::strip("# Title\n**bold** and `code`");
+    let strip_clean = !plain.contains('#') && !plain.contains('*') && plain.contains("Title");
+    let slot_ok = sovereign_format_mask::Slot::Digit.accepts(b'5')
+        && !sovereign_format_mask::Slot::Digit.accepts(b'X');
+    let mask = sovereign_format_mask::Pattern::new(vec![
+        sovereign_format_mask::Slot::Digit,
+        sovereign_format_mask::Slot::Digit,
+        sovereign_format_mask::Slot::Literal(b'-'),
+        sovereign_format_mask::Slot::Upper,
+    ]);
+    let _ = writeln!(
+        out,
+        "text/format      : jsonl_vals={} strip_clean={strip_clean} slot_ok={slot_ok} mask_complete={}",
+        jvals.len(),
+        mask.is_complete(4) && !mask.is_complete(2)
+    );
+
     // Graph algorithms: PageRank centrality, BFS shortest path, community detect.
     let gedges = [(0usize, 1usize), (1, 2), (2, 0), (3, 2)];
     let scores =
@@ -1799,6 +1819,12 @@ mod tests {
         );
         assert!(
             report.contains("graph algos      : pr_top=2 bfs_hops=2 communities=1"),
+            "{report}"
+        );
+        assert!(
+            report.contains(
+                "text/format      : jsonl_vals=3 strip_clean=true slot_ok=true mask_complete=true"
+            ),
             "{report}"
         );
         assert!(
