@@ -935,6 +935,91 @@ pub fn majority_answer(answers: &[String]) -> Option<(String, usize)> {
     best.map(|(i, count)| (answers[i].clone(), count))
 }
 
+/// The result of a [`SemanticCachedLlm::complete`] call.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CachedCompletion {
+    /// The completion text (served from cache or freshly generated).
+    pub text: String,
+    /// Whether it was served from the semantic cache (no model run).
+    pub cached: bool,
+    /// The cosine similarity of the matched prompt, when `cached`.
+    pub similarity: Option<f32>,
+}
+
+/// A [`SovereignLlm`] fronted by a **semantic completion cache**: before running
+/// the model it looks the prompt up by embedding similarity, and returns a
+/// cached completion when a previously-seen prompt clears the similarity
+/// threshold — so a paraphrase of an earlier request (different words, same
+/// meaning) is served for free instead of decoding again. Misses run the model
+/// and populate the cache. Because both the embeddings and the decode are
+/// deterministic per seed, the cache is reproducible.
+///
+/// Activates [`sovereign-semantic-cache`], previously built but unused.
+///
+/// [`sovereign-semantic-cache`]: https://docs.rs/sovereign-semantic-cache
+pub struct SemanticCachedLlm {
+    inner: SovereignLlm,
+    cache: sovereign_semantic_cache::SemanticCache,
+}
+
+impl SemanticCachedLlm {
+    /// Wrap `inner`, returning a cache hit when a prior prompt's cosine
+    /// similarity is `≥ threshold`, holding up to `capacity` entries.
+    ///
+    /// # Panics
+    /// Panics if `capacity == 0`.
+    pub fn new(inner: SovereignLlm, threshold: f32, capacity: usize) -> Self {
+        Self {
+            inner,
+            cache: sovereign_semantic_cache::SemanticCache::new(threshold, capacity),
+        }
+    }
+
+    /// Complete `prompt`, serving a semantically-similar cached completion when
+    /// one clears the threshold; otherwise run the model and cache the result.
+    pub fn complete(
+        &mut self,
+        prompt: &str,
+        max_new: usize,
+        seed: u64,
+    ) -> Result<CachedCompletion, LlmError> {
+        if let Some(hit) = self.cache.get(prompt) {
+            return Ok(CachedCompletion {
+                text: hit.completion,
+                cached: true,
+                similarity: Some(hit.similarity),
+            });
+        }
+        let text = self.inner.complete(prompt, max_new, seed)?;
+        self.cache.put(prompt, text.clone());
+        Ok(CachedCompletion {
+            text,
+            cached: false,
+            similarity: None,
+        })
+    }
+
+    /// Cache hits observed so far.
+    pub fn cache_hits(&self) -> u64 {
+        self.cache.hits()
+    }
+
+    /// Cache misses observed so far.
+    pub fn cache_misses(&self) -> u64 {
+        self.cache.misses()
+    }
+
+    /// Number of cached entries.
+    pub fn cache_len(&self) -> usize {
+        self.cache.len()
+    }
+
+    /// The wrapped runtime.
+    pub fn inner(&self) -> &SovereignLlm {
+        &self.inner
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1002,6 +1087,46 @@ mod tests {
         let tok = Tokenizer::default().with_specials(["<eos>"]); // vocab 257
         let cfg = model_config(tok.vocab_size(), 4, 2, sampler);
         SovereignLlm::new(tok, cfg).unwrap()
+    }
+
+    #[test]
+    fn semantic_cache_first_call_misses_then_repeat_hits() {
+        let mut llm = SemanticCachedLlm::new(runtime(Sampler::greedy()), 0.9, 8);
+        let first = llm.complete("hello world", 6, 4).unwrap();
+        assert!(!first.cached, "first call must run the model");
+        assert_eq!(llm.cache_len(), 1);
+        assert_eq!(llm.cache_misses(), 1);
+        // an exact repeat embeds identically (similarity 1.0) → served from cache
+        let second = llm.complete("hello world", 6, 4).unwrap();
+        assert!(second.cached, "exact repeat must hit the cache");
+        assert_eq!(second.text, first.text);
+        assert!(second.similarity.unwrap() > 0.999);
+        assert_eq!(llm.cache_hits(), 1);
+    }
+
+    #[test]
+    fn semantic_cache_miss_matches_plain_complete() {
+        // faithful wiring: a cache miss returns exactly what the bare runtime would
+        let plain = runtime(Sampler::greedy()).complete("hello", 6, 4).unwrap();
+        let mut cached = SemanticCachedLlm::new(runtime(Sampler::greedy()), 0.9, 8);
+        let r = cached.complete("hello", 6, 4).unwrap();
+        assert!(!r.cached);
+        assert_eq!(r.text, plain);
+    }
+
+    #[test]
+    fn semantic_cache_threshold_one_only_hits_identical_prompts() {
+        // threshold 1.0 → only an identical embedding hits; a distinct prompt misses
+        let mut llm = SemanticCachedLlm::new(runtime(Sampler::greedy()), 1.0, 8);
+        assert!(!llm.complete("the quick brown fox", 6, 4).unwrap().cached);
+        assert!(
+            !llm.complete("a completely different sentence", 6, 4)
+                .unwrap()
+                .cached
+        );
+        assert!(llm.complete("the quick brown fox", 6, 4).unwrap().cached);
+        assert_eq!(llm.cache_hits(), 1);
+        assert_eq!(llm.cache_misses(), 2);
     }
 
     #[test]

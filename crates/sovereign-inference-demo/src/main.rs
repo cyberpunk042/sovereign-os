@@ -869,6 +869,26 @@ fn run_rag_quality_demo() -> String {
         js.trim()
     );
 
+    // Semantic completion cache: a repeated request is served from cache (no
+    // decode) instead of running the model again — paraphrase-tolerant $0 hits.
+    let cache_tok = Tokenizer::default();
+    let cache_cfg = build_f32_model(cache_tok.vocab_size());
+    let mut cached = sovereign_llm::SemanticCachedLlm::new(
+        SovereignLlm::new(cache_tok, cache_cfg).expect("runtime"),
+        0.9,
+        16,
+    );
+    let c1 = cached.complete("rust memory safety", 8, 7).expect("cache");
+    let c2 = cached.complete("rust memory safety", 8, 7).expect("cache");
+    let _ = writeln!(
+        out,
+        "semantic cache   : first cached={}, repeat cached={} (hits={}, misses={})",
+        c1.cached,
+        c2.cached,
+        cached.cache_hits(),
+        cached.cache_misses()
+    );
+
     out
 }
 
@@ -950,6 +970,11 @@ mod tests {
         // the IVF inverted-file index built and retrieved the rust doc
         assert!(
             report.contains("ivf index        : 3 doc(s), built=true, nearest=\"rust\""),
+            "{report}"
+        );
+        // the semantic cache missed on the first call and hit on the repeat
+        assert!(
+            report.contains("semantic cache   : first cached=false, repeat cached=true"),
             "{report}"
         );
         // the generation quality controls all ran and reported
