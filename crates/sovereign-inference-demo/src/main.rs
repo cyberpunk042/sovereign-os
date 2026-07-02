@@ -705,6 +705,22 @@ fn run_strategies_demo() -> String {
         iso.predict(3.0).unwrap_or(0.0)
     );
 
+    // System-level MoE gating (route to the top experts) + RoPE context scaling
+    // (extend the usable context window by linear position interpolation).
+    let gate = sovereign_moe_gate::top_k_gate(&[0.5, 2.0, 1.0, 0.2], 2);
+    let (top_expert, top_weight) = gate
+        .first()
+        .map(|r| (r.expert, r.weight))
+        .unwrap_or((0, 0.0));
+    let ext = sovereign_rope_scaling::effective_max_context(
+        2048,
+        sovereign_rope_scaling::ScalingMethod::Linear { factor: 4.0 },
+    );
+    let _ = writeln!(
+        out,
+        "moe/rope         : top_expert={top_expert} weight={top_weight:.2} ctx 2048->{ext}"
+    );
+
     // Decision / optimization under budget: 0-1 knapsack (max value under a
     // weight cap), bin packing (requests into fixed-capacity bins), and a
     // multi-armed bandit (best arm after reward feedback).
@@ -1422,6 +1438,10 @@ mod tests {
         );
         assert!(
             report.contains("regress/test     : slope=1.9 iso@3=2.8 sprt=AcceptH1"),
+            "{report}"
+        );
+        assert!(
+            report.contains("moe/rope         : top_expert=1 weight=0.73 ctx 2048->8192"),
             "{report}"
         );
         assert!(report.contains("perplexity"));
