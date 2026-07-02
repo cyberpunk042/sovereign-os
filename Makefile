@@ -118,7 +118,7 @@ SOVEREIGN_OS_BINS_TUNE ?= 1
 
 bins:  ## Build + install the Rust binaries (CPU-tuned for PROFILE) to PREFIX/bin
 	@if [ "$(SOVEREIGN_OS_BINS_TUNE)" = "1" ]; then \
-	   tune="$$(scripts/build/cpu-features.py --profile $(PROFILE))"; \
+	   tune="$$(scripts/build/cpu-features.py --profile $(PROFILE) --verify)"; \
 	   echo "Building Rust binaries (release) — CPU-tuned for $(PROFILE):"; \
 	   echo "  RUSTFLAGS += $$tune"; \
 	 else tune=""; echo "Building Rust binaries (release) — portable (SOVEREIGN_OS_BINS_TUNE=0)"; fi; \

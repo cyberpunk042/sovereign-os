@@ -42,20 +42,34 @@ hardware:
         # 9900X (/proc/cpuinfo) — AVX512-FP16 is Intel-only (Sapphire
         # Rapids+); Zen 5 ships BF16 but not FP16. Requiring it (and the
         # former -mavx512fp16 KCFLAG) would SIGILL on the target itself.
-        - avx512f
-        - avx512_vnni
-        - avx512_bf16
+        # SDD-043: the tiered AVX-512 exploitation surface — every flag
+        # verified PRESENT on the physical 9900X (/proc/cpuinfo 2026-07-02).
+        # T1 foundation
+        - avx512f          # VPTERNLOG{D,Q}, VPCOMPRESS{D,Q}
+        - avx512cd         # VPCONFLICT / VPLZCNTD
         - avx512dq
         - avx512bw
         - avx512vl
+        # T2 compute
+        - avx512_vnni      # VPDPBUSD — INT8 fused MAC
+        - avx512_bf16      # VDPBF16PS — BF16 dot
+        - avx512_vpopcntdq # VPOPCNT{D,Q} — vector popcount (ternary accelerator)
+        - avx512_vp2intersect # VP2INTERSECT{D,Q} — set-intersection masks
+        - avx512ifma       # VPMADD52 — 52-bit integer FMA
+        # T3 byte/permute
+        - avx512vbmi       # VPERMB — 64-byte table permute (token permute)
+        - avx512_vbmi2     # VPSHLDV / VPCOMPRESSB / VPEXPANDB
+        - avx512_bitalg    # VPOPCNT{B,W} / VPSHUFBITQMB
       preferred:
+        - gfni       # GF2P8AFFINEQB — Galois-field affine bit transforms
+        - vaes       # vector AES
+        - vpclmulqdq # vector carryless multiply
         - sha_ni
         - avx_vnni   # kernel /proc/cpuinfo flag name (was 'avxvnni')
         - movdiri
         - movdir64b
         - prefetchi
-        - popcnt     # SDD-043 Phase 1: population count — load-bearing for the
-                     # ternary/BitNet path (sovereign-bitops) on the Pulse tier
+        - popcnt     # scalar population count — ternary/BitNet path (sovereign-bitops)
     cores:
       physical: 12
       threads: 24

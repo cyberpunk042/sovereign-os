@@ -46,15 +46,31 @@ FEATURE_MAP: dict[str, str] = {
     "fma": "fma",
     "bmi2": "bmi2",
     "aes": "aes",
-    # AVX-512 family (Zen 5 Pulse tier)
-    "avx512f": "avx512f",
+    # AVX-512 family (Zen 5 Pulse tier). Tiered per the exploitation plan;
+    # every one verified PRESENT on the physical 9900X (/proc/cpuinfo,
+    # 2026-07-02) — Zen 5 ships nearly the full AVX-512 surface.
+    #   T1 foundation
+    "avx512f": "avx512f",          # VPTERNLOG{D,Q} (arbitrary 3-input boolean), VPCOMPRESS{D,Q}
+    "avx512cd": "avx512cd",        # VPCONFLICT / VPLZCNTD — conflict detection
     "avx512dq": "avx512dq",
     "avx512bw": "avx512bw",
     "avx512vl": "avx512vl",
+    #   T2 compute
     "avx512_vnni": "avx512vnni",   # VPDPBUSD — INT8 fused MAC (sovereign-vnni)
     "avx512_bf16": "avx512bf16",   # VDPBF16PS — BF16 dot (bf16 inference)
+    "avx512_vpopcntdq": "avx512vpopcntdq",  # VPOPCNT{D,Q} — VECTOR popcount (ternary accelerator)
+    "avx512_vp2intersect": "avx512vp2intersect",  # VP2INTERSECT{D,Q} — set-intersection masks
+    "avx512ifma": "avx512ifma",    # VPMADD52 — 52-bit integer FMA
+    #   T3 byte/permute
+    "avx512vbmi": "avx512vbmi",    # VPERMB — full 64-byte table permute (token permute)
+    "avx512_vbmi2": "avx512vbmi2", # VPSHLDV / VPCOMPRESSB / VPEXPANDB — concat-shift + byte compress/expand
+    "avx512_bitalg": "avx512bitalg",  # VPOPCNT{B,W} / VPSHUFBITQMB — byte/word bit algorithms
+    # crypto / field ops (opportunistic)
+    "gfni": "gfni",                # GF2P8AFFINEQB — Galois-field affine (bit-matrix transforms)
+    "vaes": "vaes",                # vector AES
+    "vpclmulqdq": "vpclmulqdq",    # vector carryless multiply
     # scalar / misc exploited by the ternary + tokenization paths
-    "popcnt": "popcnt",            # population count — ternary/BitNet (sovereign-bitops)
+    "popcnt": "popcnt",            # scalar population count — ternary/BitNet (sovereign-bitops)
     "sha_ni": "sha",               # SHA extensions
     "avx_vnni": "avxvnni",         # VEX-encoded VNNI (256-bit)
     "movdiri": "movdiri",
@@ -121,12 +137,47 @@ def cpu_features(profile: dict) -> tuple[str | None, list[str]]:
     return march, out
 
 
-def rustflags(march: str | None, features: list[str]) -> str:
+def rustc_accepted_features() -> set[str] | None:
+    """The target-features the LOCAL rustc accepts, or None if rustc is
+    absent. Used to filter emitted flags so `make bins` degrades (warn +
+    drop) instead of erroring on a feature a given toolchain/LLVM doesn't
+    expose (e.g. avx512vp2intersect on an older rustc). SDD-043's
+    honest-degradation principle."""
+    import shutil
+    import subprocess
+    if not shutil.which("rustc"):
+        return None
+    try:
+        out = subprocess.run(["rustc", "--print", "target-features"],
+                             capture_output=True, text=True, timeout=15)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if out.returncode != 0:
+        return None
+    accepted: set[str] = set()
+    for line in out.stdout.splitlines():
+        tok = line.strip().split()
+        if tok and not tok[0].startswith("-"):
+            accepted.add(tok[0])
+    return accepted or None
+
+
+def rustflags(march: str | None, features: list[str], verify: bool = False) -> str:
+    feats = list(features)
+    if verify:
+        accepted = rustc_accepted_features()
+        if accepted is not None:
+            dropped = [f for f in feats if f not in accepted]
+            if dropped:
+                print(f"warning: local rustc does not expose target-feature(s) "
+                      f"{dropped} — dropped from the build (hardware has them; "
+                      f"a newer toolchain would enable them)", file=sys.stderr)
+            feats = [f for f in feats if f in accepted]
     parts: list[str] = []
     if march:
         parts.append(f"-C target-cpu={MARCH_MAP[march]}")
-    if features:
-        parts.append("-C target-feature=" + ",".join("+" + f for f in features))
+    if feats:
+        parts.append("-C target-feature=" + ",".join("+" + f for f in feats))
     return " ".join(parts)
 
 
@@ -135,11 +186,14 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--profile", default=os.environ.get("SOVEREIGN_OS_PROFILE"))
     ap.add_argument("--format", choices=["rustflags", "env", "list", "cargo"],
                     default="rustflags")
+    ap.add_argument("--verify", action="store_true",
+                    help="filter to target-features the local rustc accepts "
+                         "(warn+drop unknowns so the build never errors)")
     args = ap.parse_args(argv)
 
     path = resolve_profile_path(args.profile)
     march, features = cpu_features(_load_yaml(path))
-    flags = rustflags(march, features)
+    flags = rustflags(march, features, verify=args.verify)
 
     if args.format == "rustflags":
         print(flags)
