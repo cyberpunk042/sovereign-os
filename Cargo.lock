@@ -5000,6 +5000,7 @@ dependencies = [
  "sovereign-rope-scaling",
  "sovereign-running-stats",
  "sovereign-sampler",
+ "sovereign-semantic-chunk",
  "sovereign-significance",
  "sovereign-space-saving",
  "sovereign-speculative",
@@ -5011,6 +5012,8 @@ dependencies = [
  "sovereign-toxicity",
  "sovereign-transformer-block",
  "sovereign-varint",
+ "sovereign-viterbi",
+ "sovereign-watermark",
  "sovereign-weighted-reservoir",
  "sovereign-wer",
 ]

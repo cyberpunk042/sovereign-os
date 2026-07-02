@@ -87,4 +87,7 @@ sovereign-calc = { path = "../sovereign-calc" }
 sovereign-kv-cache = { path = "../sovereign-kv-cache" }
 sovereign-prefix-cache = { path = "../sovereign-prefix-cache" }
 sovereign-kv-budget = { path = "../sovereign-kv-budget" }
+sovereign-viterbi = { path = "../sovereign-viterbi" }
+sovereign-watermark = { path = "../sovereign-watermark" }
+sovereign-semantic-chunk = { path = "../sovereign-semantic-chunk" }
 sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }

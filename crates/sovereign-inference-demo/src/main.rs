@@ -683,6 +683,34 @@ fn run_strategies_demo() -> String {
         vbytes.len()
     );
 
+    // Viterbi HMM decoding, LLM watermark detection, semantic text chunking.
+    let hmm = sovereign_viterbi::Hmm::new(vec![0.6, 0.4], vec![vec![0.7, 0.3], vec![0.4, 0.6]])
+        .expect("hmm");
+    let emissions = vec![vec![0.9, 0.1], vec![0.2, 0.8], vec![0.3, 0.7]];
+    let vpath = hmm
+        .decode_probs(&emissions)
+        .ok()
+        .flatten()
+        .map(|d| d.path)
+        .unwrap_or_default();
+    let wm = sovereign_watermark::Watermark::new(0.5, 2.0, 42);
+    let mut wt = vec![1usize];
+    for _ in 0..60 {
+        let prev = *wt.last().unwrap();
+        let g = (0..64).find(|&t| wm.is_green(prev, t)).unwrap_or(0);
+        wt.push(g); // build an all-green (watermarked) sequence
+    }
+    let chunks = sovereign_semantic_chunk::chunk_text(
+        "Rust has ownership. It ensures memory safety. Pasta needs tomato sauce. Basil is aromatic.",
+        50.0,
+    );
+    let _ = writeln!(
+        out,
+        "decode/text      : viterbi={vpath:?} wm_z={:.1} chunks={}",
+        wm.detect(&wt),
+        chunks.len()
+    );
+
     // KV-cache serving: budget the per-token KV bytes, place blocks across the
     // VRAM/RAM/NVMe tiers, and reuse a shared prompt prefix.
     let shape = sovereign_kv_budget::KvShape::new(32, 8, 128, 2); // layers, kv-heads, head-dim, f16
@@ -1474,6 +1502,10 @@ mod tests {
         );
         assert!(
             report.contains("regress/test     : slope=1.9 iso@3=2.8 sprt=AcceptH1"),
+            "{report}"
+        );
+        assert!(
+            report.contains("decode/text      : viterbi=[0, 1, 1] wm_z=7.7 chunks=4"),
             "{report}"
         );
         assert!(
