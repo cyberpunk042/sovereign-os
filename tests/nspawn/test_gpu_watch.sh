@@ -35,9 +35,9 @@ trap 'rm -rf "${WORK}"' EXIT
 
 # ---- Fake nvidia-smi shim that emits the canonical CSV format ----
 # 3 GPUs:
-#   idx=0  RTX PRO 6000 Blackwell  draw=275 limit=600  → within policy
+#   idx=0  RTX PRO 6000 Blackwell  draw=275 limit=300  → within policy (300W Max-Q)
 #   idx=1  RTX 4090                 draw=180 limit=350  → DEVIANCE
-#                                                        (policy wants 280)
+#                                                        (policy wants 320)
 #   idx=2  Tesla T4                 draw=15  limit=70   → unpoliced (no
 #                                                        policy match)
 SHIM_DIR="${WORK}/bin"
@@ -48,7 +48,7 @@ cat > "${SHIM_DIR}/nvidia-smi" <<'EOF'
 case "$*" in
   *"--query-gpu=index,name,power.draw,power.limit"*)
     cat <<CSV
-0, NVIDIA RTX PRO 6000 Blackwell, 275, 600
+0, NVIDIA RTX PRO 6000 Blackwell, 275, 300
 1, NVIDIA GeForce RTX 4090, 180, 350
 2, Tesla T4, 15, 70
 CSV
@@ -71,18 +71,18 @@ grep -q "R219 sovereign-os gpu-watch" "${WORK}/banner.txt" \
   && ok "R219 banner present" || ko "no R219 banner"
 
 # RTX PRO 6000 should pass (within 10 W tolerance of 600 W).
-grep -qE "✓ NVIDIA RTX PRO 6000.*draw=275W.*limit=600W" "${WORK}/banner.txt" \
-  && ok "RTX PRO 6000 passes (draw=275 limit=600 within policy)" \
+grep -qE "✓ NVIDIA RTX PRO 6000.*draw=275W.*limit=300W" "${WORK}/banner.txt" \
+  && ok "RTX PRO 6000 passes (draw=275 limit=300 within policy)" \
   || ko "RTX PRO 6000 line wrong: $(grep -F PRO ${WORK}/banner.txt)"
 
-# RTX 4090 should DEVIATE (350 > 280 + 10 tolerance).
+# RTX 4090 should DEVIATE (350 > 320 + 10 tolerance).
 grep -qE "⚠ NVIDIA GeForce RTX 4090.*draw=180W.*limit=350W" "${WORK}/banner.txt" \
   && ok "RTX 4090 flagged with banner emoji" \
   || ko "RTX 4090 deviance line missing"
-grep -q "350W is above operator-set safe_limit 280W" "${WORK}/banner.txt" \
+grep -q "350W is above operator-set safe_limit 320W" "${WORK}/banner.txt" \
   && ok "deviance reason cites actual + safe + direction" \
   || ko "deviance reason wrong"
-grep -q "nvidia-smi -i 1 -pl 280" "${WORK}/banner.txt" \
+grep -q "nvidia-smi -i 1 -pl 320" "${WORK}/banner.txt" \
   && ok "actionable fix command cited" || ko "fix command missing"
 
 # Tesla T4 should be unpoliced (no model_hint match).
@@ -111,8 +111,8 @@ assert pro6000["flags"] == [], pro6000["flags"]
 rtx4090 = next(g for g in gpus if "RTX 4090" in g["name"])
 assert rtx4090["policed"] is True
 assert len(rtx4090["flags"]) >= 1
-assert "350" in rtx4090["flags"][0] and "280" in rtx4090["flags"][0]
-assert rtx4090["fix_command"] == "nvidia-smi -i 1 -pl 280"
+assert "350" in rtx4090["flags"][0] and "320" in rtx4090["flags"][0]
+assert rtx4090["fix_command"] == "nvidia-smi -i 1 -pl 320"
 t4 = next(g for g in gpus if g["name"] == "Tesla T4")
 assert t4["policed"] is False, t4
 PY
@@ -127,8 +127,8 @@ set -e
   || ko "metrics file missing"
 grep -q "^# TYPE sovereign_os_gpu_power_limit_deviance_watts gauge" "${metrics_path}" \
   && ok "deviance gauge declared" || ko "deviance gauge missing"
-grep -qE '^sovereign_os_gpu_power_limit_deviance_watts\{gpu="NVIDIA GeForce RTX 4090",idx="1"\} 70' "${metrics_path}" \
-  && ok "RTX 4090 deviance gauge = 70 W (350 - 280)" \
+grep -qE '^sovereign_os_gpu_power_limit_deviance_watts\{gpu="NVIDIA GeForce RTX 4090",idx="1"\} 30' "${metrics_path}" \
+  && ok "RTX 4090 deviance gauge = 30 W (350 - 320)" \
   || ko "deviance gauge wrong"
 grep -qE '^sovereign_os_gpu_power_draw_watts\{gpu="NVIDIA RTX PRO 6000 Blackwell",idx="0"\} 275' "${metrics_path}" \
   && ok "RTX PRO 6000 draw gauge correct" || ko "draw gauge wrong"
@@ -136,7 +136,7 @@ grep -qE '^sovereign_os_gpu_power_draw_watts\{gpu="NVIDIA RTX PRO 6000 Blackwell
 # ---- Case 4: all-conformant policy → rc=0 ----
 cat > "${WORK}/conformant.toml" <<'EOF'
 [gpu."NVIDIA RTX PRO 6000"]
-safe_limit_watts = 600
+safe_limit_watts = 300
 tolerance_watts  = 10
 
 [gpu."RTX 4090"]
