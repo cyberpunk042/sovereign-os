@@ -5193,6 +5193,7 @@ dependencies = [
  "serde_json",
  "sovereign-bitlinear-core",
  "sovereign-nvfp4-runtime",
+ "sovereign-vnni",
  "thiserror",
 ]
 

@@ -12,6 +12,12 @@
 //!   weights, a multiplication-free hot path ([`sovereign-bitlinear-core`]).
 //! * [`Precision::Nvfp4`] — 4-bit NVFP4 microscaling, 16-value blocks sharing
 //!   one E4M3 scale ([`sovereign-nvfp4-runtime`]).
+//! * [`Precision::Int8`] — INT8 VNNI: per-row symmetric `i8` weights,
+//!   asymmetric `u8` activations with zero-point correction, `i32`
+//!   accumulation via VPDPBUSD-style dots ([`sovereign-vnni`]) — the Zen-5
+//!   tier-1 hot path from the operator's AVX-512 note (M085).
+//!
+//! [`sovereign-vnni`]: https://docs.rs/sovereign-vnni
 //!
 //! The point is *substitutability*: the same `forward(x)` contract regardless
 //! of precision, so a model can pick a precision per layer and the rest of the
@@ -32,6 +38,7 @@ use sovereign_bitlinear_core::{BitLinearLayer, EnergyReport, Packing};
 use sovereign_nvfp4_runtime::{
     QuantMatrix, RhtQuantMatrix, TwoDQuantMatrix, relative_frobenius_error,
 };
+use sovereign_vnni::MatI8;
 use thiserror::Error;
 
 /// Schema version of the linear-layer surface.
@@ -47,6 +54,9 @@ pub enum Precision {
     Ternary,
     /// 4-bit NVFP4 microscaling.
     Nvfp4,
+    /// INT8 VNNI (VPDPBUSD): per-row symmetric `i8` weights, asymmetric `u8`
+    /// activations, `i32` accumulation — the Zen-5 tier-1 hot path.
+    Int8,
 }
 
 /// Things that can go wrong building or running a linear layer.
@@ -92,6 +102,83 @@ pub enum NvfpRecipe {
     TwoD,
 }
 
+/// An INT8 (VNNI) weight backend: per-row symmetrically quantized `i8`
+/// weights plus the per-row scales and row sums the asymmetric-activation
+/// dequantization needs.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct Int8Layer {
+    /// The `i8` weight matrix (executed via VPDPBUSD-style dots).
+    mat: MatI8,
+    /// Per-row dequantization scales (`max|W[r]| / 127`).
+    row_scales: Vec<f32>,
+    /// Per-row weight sums (`Σ_j Wq[r][j]`), the zero-point correction term.
+    row_sums: Vec<i32>,
+}
+
+impl Int8Layer {
+    /// Quantize a row-major f32 matrix: each row symmetric to `i8` with its
+    /// own scale (an all-zero row gets scale 0 and stays all-zero).
+    fn from_f32(weights: &[f32], output_dim: usize, input_dim: usize) -> Result<Self, LinearError> {
+        let mut q = vec![0i8; weights.len()];
+        let mut row_scales = vec![0.0f32; output_dim];
+        for r in 0..output_dim {
+            let row = &weights[r * input_dim..(r + 1) * input_dim];
+            let max_abs = row.iter().fold(0.0f32, |m, &w| m.max(w.abs()));
+            if max_abs > 0.0 {
+                let scale = max_abs / 127.0;
+                row_scales[r] = scale;
+                for (j, &w) in row.iter().enumerate() {
+                    q[r * input_dim + j] = (w / scale).round().clamp(-127.0, 127.0) as i8;
+                }
+            }
+        }
+        let mat = MatI8::from_i8(&q, output_dim, input_dim)
+            .map_err(|e| LinearError::Backend(e.to_string()))?;
+        let row_sums = mat.row_sums();
+        Ok(Self {
+            mat,
+            row_scales,
+            row_sums,
+        })
+    }
+
+    /// INT8 forward: quantize the f32 activations to `u8` (asymmetric, with a
+    /// zero point), run the VNNI `i32` matvec, then dequantize with the
+    /// zero-point correction `y_r = s_w[r]·s_x·(acc_r − zp·Σ Wq[r])`.
+    fn forward(&self, x: &[f32]) -> Result<Vec<f32>, LinearError> {
+        let (lo, hi) = x
+            .iter()
+            .fold((0.0f32, 0.0f32), |(lo, hi), &v| (lo.min(v), hi.max(v)));
+        let span = hi - lo;
+        if span <= 0.0 {
+            // A constant-zero-span input quantizes to a single code; with x
+            // uniformly `lo`, y = lo · Σ_j W[r][j] reconstructed from row data.
+            return Ok(self
+                .row_sums
+                .iter()
+                .zip(&self.row_scales)
+                .map(|(&s, &scale)| lo * scale * s as f32)
+                .collect());
+        }
+        let x_scale = span / 255.0;
+        let zp = (-lo / x_scale).round().clamp(0.0, 255.0) as u8;
+        let q: Vec<u8> = x
+            .iter()
+            .map(|&v| ((v / x_scale) + zp as f32).round().clamp(0.0, 255.0) as u8)
+            .collect();
+        let acc = self
+            .mat
+            .matvec(&q)
+            .map_err(|e| LinearError::Backend(e.to_string()))?;
+        Ok(acc
+            .iter()
+            .zip(&self.row_scales)
+            .zip(&self.row_sums)
+            .map(|((&a, &w_scale), &rs)| w_scale * x_scale * (a - zp as i32 * rs) as f32)
+            .collect())
+    }
+}
+
 /// The precision-specific stored weights.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 enum Backend {
@@ -100,6 +187,7 @@ enum Backend {
     Nvfp4(QuantMatrix),
     Nvfp4Rht(RhtQuantMatrix),
     Nvfp4TwoD(TwoDQuantMatrix),
+    Int8(Int8Layer),
 }
 
 /// A linear layer `y = W·x` with a selectable execution precision.
@@ -140,6 +228,7 @@ impl Linear {
                 QuantMatrix::from_f32(weights, output_dim, input_dim)
                     .map_err(|e| LinearError::Backend(e.to_string()))?,
             ),
+            Precision::Int8 => Backend::Int8(Int8Layer::from_f32(weights, output_dim, input_dim)?),
         };
         Ok(Self {
             output_dim,
@@ -231,6 +320,7 @@ impl Linear {
             Backend::F32(_) => Precision::F32,
             Backend::Ternary(_) => Precision::Ternary,
             Backend::Nvfp4(_) | Backend::Nvfp4Rht(_) | Backend::Nvfp4TwoD(_) => Precision::Nvfp4,
+            Backend::Int8(_) => Precision::Int8,
         }
     }
 
@@ -243,6 +333,11 @@ impl Linear {
             Backend::Nvfp4Rht(q) => q.bits_per_param(),
             // 4-bit core + per-row + per-column scales — the NVFP4 nominal.
             Backend::Nvfp4TwoD(_) => 4.5,
+            // 8-bit weights + one f32 scale and one i32 row sum per row.
+            Backend::Int8(l) => {
+                let params = (self.output_dim * self.input_dim) as f64;
+                (8.0 * params + 64.0 * l.row_scales.len() as f64) / params
+            }
         }
     }
 
@@ -289,6 +384,7 @@ impl Linear {
             Backend::Nvfp4(q) => q.matvec(x).map_err(|e| LinearError::Backend(e.to_string())),
             Backend::Nvfp4Rht(q) => q.matvec(x).map_err(|e| LinearError::Backend(e.to_string())),
             Backend::Nvfp4TwoD(q) => q.matvec(x).map_err(|e| LinearError::Backend(e.to_string())),
+            Backend::Int8(l) => l.forward(x),
         }
     }
 }
@@ -657,13 +753,96 @@ mod tests {
         // Same shapes + input width regardless of precision.
         let w = vec![0.25; 8]; // 2x4
         let x = [1.0, 1.0, 1.0, 1.0];
-        for p in [Precision::F32, Precision::Ternary, Precision::Nvfp4] {
+        for p in [
+            Precision::F32,
+            Precision::Ternary,
+            Precision::Nvfp4,
+            Precision::Int8,
+        ] {
             let lin = Linear::from_f32(&w, 2, 4, p).unwrap();
             let y = lin.forward(&x).unwrap();
             assert_eq!(y.len(), 2, "precision {p:?}");
             assert_eq!(lin.output_dim(), 2);
             assert_eq!(lin.input_dim(), 4);
         }
+    }
+
+    #[test]
+    fn int8_forward_is_close_to_f32() {
+        // 8-bit weights + 8-bit activations keep the matvec within ~1% of the
+        // exact f32 result on well-conditioned data.
+        let (output_dim, input_dim) = (4, 16);
+        let w: Vec<f32> = (0..output_dim * input_dim)
+            .map(|i| ((i as f32) * 0.37).sin())
+            .collect();
+        let x: Vec<f32> = (0..input_dim).map(|i| ((i as f32) * 0.71).cos()).collect();
+        let f32_lin = Linear::from_f32(&w, output_dim, input_dim, Precision::F32).unwrap();
+        let int8 = Linear::from_f32(&w, output_dim, input_dim, Precision::Int8).unwrap();
+        let yf = f32_lin.forward(&x).unwrap();
+        let yq = int8.forward(&x).unwrap();
+        let norm: f32 = yf.iter().map(|v| v * v).sum::<f32>().sqrt();
+        for (a, b) in yf.iter().zip(&yq) {
+            assert!(
+                (a - b).abs() < 0.02 * norm.max(1.0),
+                "f32 {yf:?} vs int8 {yq:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn int8_preserves_argmax_on_separated_rows() {
+        let w = vec![
+            0.1, 0.1, 0.1, 0.1, // row 0 small
+            2.0, 2.0, 2.0, 2.0, // row 1 large
+            0.5, 0.5, 0.5, 0.5, // row 2 medium
+        ];
+        let int8 = Linear::from_f32(&w, 3, 4, Precision::Int8).unwrap();
+        let y = int8.forward(&[1.0, 1.0, 1.0, 1.0]).unwrap();
+        assert_eq!(argmax(&y), 1);
+        assert!(y.iter().all(|v| v.is_finite()));
+    }
+
+    #[test]
+    fn int8_handles_negative_activations_via_zero_point() {
+        // The asymmetric activation scheme must reconstruct dots with negative
+        // inputs correctly (the zero-point row-sum correction at work).
+        let w = vec![1.0f32, -1.0, 0.5, -0.5, 2.0, 0.0]; // 2x3
+        let x = [-1.0f32, 2.0, -0.5];
+        let f32_lin = Linear::from_f32(&w, 2, 3, Precision::F32).unwrap();
+        let int8 = Linear::from_f32(&w, 2, 3, Precision::Int8).unwrap();
+        let yf = f32_lin.forward(&x).unwrap();
+        let yq = int8.forward(&x).unwrap();
+        for (a, b) in yf.iter().zip(&yq) {
+            assert!((a - b).abs() < 0.05, "f32 {yf:?} vs int8 {yq:?}");
+        }
+    }
+
+    #[test]
+    fn int8_constant_input_reconstructs_from_row_sums() {
+        // A zero-span (constant) activation vector exercises the degenerate
+        // quantization path: y = c · Σ_j W[r][j] via the stored row data.
+        let w = vec![1.0f32, -2.0, 3.0, -1.0, 2.0, -3.0]; // rows sum to 2, -2
+        let int8 = Linear::from_f32(&w, 2, 3, Precision::Int8).unwrap();
+        let y = int8.forward(&[0.5, 0.5, 0.5]).unwrap();
+        assert!((y[0] - 1.0).abs() < 0.05, "{y:?}");
+        assert!((y[1] + 1.0).abs() < 0.05, "{y:?}");
+        // and all-zero input gives exactly zero.
+        assert_eq!(int8.forward(&[0.0, 0.0, 0.0]).unwrap(), vec![0.0, 0.0]);
+    }
+
+    #[test]
+    fn int8_bits_per_param_near_eight() {
+        let w: Vec<f32> = (0..256).map(|i| ((i as f32) * 0.013).sin()).collect();
+        let int8 = Linear::from_f32(&w, 16, 16, Precision::Int8).unwrap();
+        assert_eq!(int8.precision(), Precision::Int8);
+        // 8 bits + (32-bit scale + 32-bit row sum)/16 cols = 12 bits at 16x16.
+        assert!(
+            int8.bits_per_param() > 8.0 && int8.bits_per_param() < 13.0,
+            "{}",
+            int8.bits_per_param()
+        );
+        // no mul-free accounting: INT8 spends real multiplies.
+        assert!(int8.energy_report(&[1.0; 16]).unwrap().is_none());
     }
 
     #[test]
@@ -695,7 +874,12 @@ mod tests {
     #[test]
     fn serde_round_trip_each_precision() {
         let w = vec![0.5, -0.5, 1.0, -1.0, 0.5, -0.5];
-        for p in [Precision::F32, Precision::Ternary, Precision::Nvfp4] {
+        for p in [
+            Precision::F32,
+            Precision::Ternary,
+            Precision::Nvfp4,
+            Precision::Int8,
+        ] {
             let lin = Linear::from_f32(&w, 2, 3, p).unwrap();
             let j = serde_json::to_string(&lin).unwrap();
             let back: Linear = serde_json::from_str(&j).unwrap();

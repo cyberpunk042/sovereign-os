@@ -7,7 +7,7 @@ license.workspace = true
 repository.workspace = true
 authors.workspace = true
 publish.workspace = true
-description = "A precision-generic linear layer: one Linear type that runs y = W.x in dense f32, ternary 1.58-bit BitLinear (multiplication-free), or NVFP4 4-bit microscaling, chosen per layer. The bridge that lets the transformer's projections actually run on the quantization kernels instead of plain f32. Composes sovereign-bitlinear-core and sovereign-nvfp4-runtime."
+description = "A precision-generic linear layer: one Linear type that runs y = W.x in dense f32, ternary 1.58-bit BitLinear (multiplication-free), NVFP4 4-bit microscaling, or INT8 VNNI (VPDPBUSD-style), chosen per layer. The bridge that lets the transformer's projections actually run on the quantization kernels instead of plain f32. Composes sovereign-bitlinear-core, sovereign-nvfp4-runtime, and sovereign-vnni."
 
 [lints]
 workspace = true
@@ -18,3 +18,4 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 sovereign-bitlinear-core = { path = "../sovereign-bitlinear-core" }
 sovereign-nvfp4-runtime = { path = "../sovereign-nvfp4-runtime" }
+sovereign-vnni = { path = "../sovereign-vnni" }

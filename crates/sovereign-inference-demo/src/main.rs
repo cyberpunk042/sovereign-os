@@ -115,7 +115,35 @@ fn nvfp4_mha_layer() -> MhaDecoderBlock {
     .expect("valid nvfp4 mha block")
 }
 
-/// Build the demo runtime: BPE tokenizer + mixed-precision 3-layer model.
+/// An INT8 VNNI (VPDPBUSD) multi-head block — the Zen-5 tier-1 hot path from
+/// the operator's AVX-512 note: per-row symmetric `i8` weights, asymmetric
+/// `u8` activations, `i32` accumulation.
+fn int8_mha_layer() -> MhaDecoderBlock {
+    let md = MODEL_DIM;
+    let (nq, nkv, hd) = (4, 2, 2);
+    MhaDecoderBlock::from_weights(
+        &MhaBlockWeights {
+            model_dim: md,
+            head_dim: hd,
+            num_q_heads: nq,
+            num_kv_heads: nkv,
+            hidden_dim: md,
+            attn_norm: RmsNorm::new(md),
+            ffn_norm: RmsNorm::new(md),
+            w_q: weights(22.0, nq * hd * md),
+            w_k: weights(23.0, nkv * hd * md),
+            w_v: weights(24.0, nkv * hd * md),
+            w_o: weights(25.0, md * nq * hd),
+            w_gate: weights(26.0, md * md),
+            w_up: weights(27.0, md * md),
+            w_down: weights(28.0, md * md),
+        },
+        Precision::Int8,
+    )
+    .expect("valid int8 mha block")
+}
+
+/// Build the demo runtime: BPE tokenizer + mixed-precision 4-layer model.
 fn build_runtime() -> QuantLlm {
     build_runtime_with(false)
 }
@@ -140,6 +168,7 @@ fn build_runtime_with(quantized_kv: bool) -> QuantLlm {
         Box::new(f32_layer()),
         Box::new(ternary_layer()),
         Box::new(nvfp4),
+        Box::new(int8_mha_layer()),
     ];
     let stack = LayerStack::new(layers).expect("non-empty stack");
 
@@ -174,7 +203,7 @@ fn run_demo() -> String {
     let _ = writeln!(out, "tokenizer vocab : {}", llm.vocab_size());
     let _ = writeln!(
         out,
-        "decoder layers  : {} (f32 | ternary | NVFP4-MHA)",
+        "decoder layers  : {} (f32 | ternary | NVFP4-MHA | INT8-VNNI-MHA)",
         llm.layers()
     );
     let _ = writeln!(out, "prompt          : {prompt:?}");
@@ -774,7 +803,9 @@ mod tests {
     fn demo_runs_end_to_end() {
         let report = run_demo();
         assert!(report.contains("sovereign quantized inference demo"));
-        assert!(report.contains("decoder layers  : 3"));
+        // all four precisions run in one residual stream
+        assert!(report.contains("decoder layers  : 4"));
+        assert!(report.contains("INT8-VNNI-MHA"));
         // reproducibility line must report true
         assert!(report.contains("reproducible    : true"), "{report}");
     }

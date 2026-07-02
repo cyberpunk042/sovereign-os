@@ -549,6 +549,33 @@ mod tests {
     }
 
     #[test]
+    fn int8_block_runs_end_to_end_and_tracks_f32() {
+        // The Zen-5 T1 tier: an INT8 (VNNI) block builds through the same
+        // from_weights path, steps a sequence with finite outputs, and stays
+        // close to the f32 reference block on the same inputs.
+        let w = weights(8, 2, 4, 2, 16);
+        let mut int8 = MhaDecoderBlock::from_weights(&w, Precision::Int8).unwrap();
+        let mut dense = MhaDecoderBlock::from_weights(&w, Precision::F32).unwrap();
+        assert_eq!(int8.precision(), Precision::Int8);
+        assert!(int8.nvfp4_recipes().is_empty()); // not an NVFP4 block
+        for step in 0..4 {
+            let x: Vec<f32> = (0..8).map(|i| ((i + step) as f32 * 0.2).sin()).collect();
+            let yq = int8.step(&x).unwrap();
+            let yf = dense.step(&x).unwrap();
+            assert_eq!(yq.len(), 8);
+            assert!(yq.iter().all(|v| v.is_finite()));
+            // INT8 tracks f32 closely on this small well-conditioned block.
+            let norm: f32 = yf.iter().map(|v| v * v).sum::<f32>().sqrt();
+            for (a, b) in yf.iter().zip(&yq) {
+                assert!(
+                    (a - b).abs() < 0.05 * norm.max(1.0),
+                    "step {step}: f32 {yf:?} vs int8 {yq:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn selective_hp_keeps_flagged_projection_dense() {
         // An NVFP4 block with "gate" flagged high-precision builds 6 NVFP4
         // projections + a dense f32 gate; the flagged one has no NVFP4 recipe.
