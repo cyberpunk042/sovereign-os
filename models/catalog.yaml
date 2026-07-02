@@ -738,6 +738,7 @@ catalog:
       size_class: m
       purpose: [chat]
       status: aspirational
+      closest_real_alternative: SpectraSuite/TriLM_3.9B_Unpacked
       license: mit
       context_window_tokens: 4096
       master_spec_section: "operator handwritten catalog addition 2026-07-02"
@@ -843,6 +844,7 @@ catalog:
       size_class: m
       purpose: [chat, reasoning]
       status: aspirational
+      closest_real_alternative: SpectraSuite/TriLM_3.9B_Unpacked
       license: other
       context_window_tokens: 4096
       master_spec_section: "operator handwritten catalog addition 2026-07-02"
@@ -1110,7 +1112,7 @@ catalog:
       purpose: [reasoning]
       status: aspirational
       license: mit
-      closest_real_alternative: microsoft/bitnet-b1.58-2B-4T
+      closest_real_alternative: Qwen/Qwen2.5-Math-72B-Instruct
       context_window_tokens: 4096
       master_spec_section: "operator handwritten catalog addition 2026-07-02"
       runtime_profile_bindings: []

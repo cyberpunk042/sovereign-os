@@ -316,6 +316,7 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 - **License:** mit
 - **Context window (tokens):** 4,096
 - **Master spec:** operator handwritten catalog addition 2026-07-02
+- **Closest real alternative:** `SpectraSuite/TriLM_3.9B_Unpacked`
 
 **Operator note:**
 
@@ -739,6 +740,7 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 - **License:** other
 - **Context window (tokens):** 4,096
 - **Master spec:** operator handwritten catalog addition 2026-07-02
+- **Closest real alternative:** `SpectraSuite/TriLM_3.9B_Unpacked`
 
 **Operator note:**
 
@@ -882,7 +884,7 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 - **License:** mit
 - **Context window (tokens):** 4,096
 - **Master spec:** operator handwritten catalog addition 2026-07-02
-- **Closest real alternative:** `microsoft/bitnet-b1.58-2B-4T`
+- **Closest real alternative:** `Qwen/Qwen2.5-Math-72B-Instruct`
 
 **Operator note:**
 
