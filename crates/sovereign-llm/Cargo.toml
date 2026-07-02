@@ -42,6 +42,7 @@ sovereign-typical-sampling = { path = "../sovereign-typical-sampling" }
 sovereign-semantic-cache = { path = "../sovereign-semantic-cache" }
 sovereign-self-consistency = { path = "../sovereign-self-consistency" }
 sovereign-best-of-n = { path = "../sovereign-best-of-n" }
+sovereign-confidence-calibration = { path = "../sovereign-confidence-calibration" }
 
 [dev-dependencies]
 sovereign-transformer-block = { path = "../sovereign-transformer-block" }

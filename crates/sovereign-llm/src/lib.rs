@@ -34,6 +34,22 @@ use thiserror::Error;
 /// re-exported from [`sovereign-self-consistency`](sovereign_self_consistency).
 pub use sovereign_self_consistency::Vote;
 
+/// The result of [`SovereignLlm::calibrate`]: the fitted temperature and the
+/// expected calibration error before and after applying it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Calibration {
+    /// The temperature `T` that best calibrates the model's confidence (`>1`
+    /// softens over-confidence, `<1` sharpens under-confidence; never changes the
+    /// argmax).
+    pub temperature: f64,
+    /// Expected calibration error at `T = 1` (the raw model).
+    pub ece_before: f64,
+    /// Expected calibration error after dividing logits by the fitted `T`.
+    pub ece_after: f64,
+    /// Number of teacher-forced next-token predictions scored.
+    pub samples: usize,
+}
+
 /// Schema version of the LLM runtime surface.
 pub const SCHEMA_VERSION: &str = "1.0.0";
 
@@ -330,6 +346,64 @@ impl SovereignLlm {
             candidates.push((text, score));
         }
         Ok(sovereign_best_of_n::best(&candidates).expect("n >= 1 → non-empty"))
+    }
+
+    /// **Temperature-scaling calibration** of the model's next-token confidence
+    /// over a `reference` sequence (`sovereign-confidence-calibration`). Teacher-
+    /// forcing the model along the reference gives, at each position, a predicted
+    /// distribution whose *label* is the actual next token; `fit_temperature`
+    /// learns the single scalar `T` (logits ÷ `T`) that best calibrates those
+    /// predictions, and the **expected calibration error** is reported before
+    /// (`T = 1`) and after — how far the model's stated confidence sits from its
+    /// accuracy, and how much a one-parameter fix closes the gap. Returns `None`
+    /// for a reference under two tokens. Deterministic (reproducible).
+    pub fn calibrate(&self, reference: &str, bins: usize) -> Result<Option<Calibration>, LlmError> {
+        let toks: Vec<usize> = self
+            .tokenizer
+            .encode(reference)
+            .iter()
+            .map(|&i| i as usize)
+            .collect();
+        if toks.len() < 2 {
+            return Ok(None);
+        }
+        // teacher-force: the logits after feeding toks[..=i] predict toks[i+1].
+        let mut model = self.model.clone();
+        let mut logits_list: Vec<Vec<f64>> = Vec::with_capacity(toks.len() - 1);
+        let mut labels: Vec<usize> = Vec::with_capacity(toks.len() - 1);
+        let mut logits = model.forward(toks[0])?;
+        for &next in &toks[1..] {
+            logits_list.push(logits.iter().map(|&l| l as f64).collect());
+            labels.push(next);
+            logits = model.forward(next)?;
+        }
+        let temperature = sovereign_confidence_calibration::fit_temperature(&logits_list, &labels);
+        let ece_at = |temp: f64| {
+            let mut confidences = Vec::with_capacity(labels.len());
+            let mut correct = Vec::with_capacity(labels.len());
+            for (lg, &label) in logits_list.iter().zip(&labels) {
+                let probs = sovereign_confidence_calibration::softmax_t(lg, temp);
+                let (arg, max_p) = probs
+                    .iter()
+                    .enumerate()
+                    .fold((0usize, f64::NEG_INFINITY), |(bi, bp), (i, &p)| {
+                        if p > bp { (i, p) } else { (bi, bp) }
+                    });
+                confidences.push(max_p);
+                correct.push(arg == label);
+            }
+            sovereign_confidence_calibration::expected_calibration_error(
+                &confidences,
+                &correct,
+                bins.max(1),
+            )
+        };
+        Ok(Some(Calibration {
+            temperature,
+            ece_before: ece_at(1.0),
+            ece_after: ece_at(temperature),
+            samples: labels.len(),
+        }))
     }
 
     /// Complete `prompt` after **fitting it to a context budget**: if the prompt
@@ -1190,6 +1264,32 @@ mod tests {
             llm.complete_self_consistent("hello", 6, 4, 0),
             Err(LlmError::SelfConsistency(_))
         ));
+    }
+
+    #[test]
+    fn calibrate_fits_a_temperature_and_reports_ece() {
+        let llm = runtime(Sampler::greedy());
+        let report = llm
+            .calibrate("the quick brown fox jumps over the lazy dog", 10)
+            .unwrap()
+            .expect("enough tokens");
+        // a real temperature was fit and a full teacher-forced pass was scored
+        assert!(report.temperature > 0.0 && report.temperature.is_finite());
+        assert!(report.samples >= 1);
+        // ECE is a probability-scale error in [0, 1]
+        assert!((0.0..=1.0).contains(&report.ece_before), "{report:?}");
+        assert!((0.0..=1.0).contains(&report.ece_after), "{report:?}");
+    }
+
+    #[test]
+    fn calibrate_none_for_too_short_and_is_reproducible() {
+        let llm = runtime(Sampler::greedy());
+        // a single token gives no next-token prediction to calibrate on
+        assert!(llm.calibrate("a", 10).unwrap().is_none());
+        // deterministic: same reference → same fit
+        let a = llm.calibrate("hello there world", 8).unwrap();
+        let b = llm.calibrate("hello there world", 8).unwrap();
+        assert_eq!(a, b);
     }
 
     #[test]

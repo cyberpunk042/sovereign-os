@@ -1003,6 +1003,19 @@ fn run_rag_quality_demo() -> String {
         best.len()
     );
 
+    // Confidence calibration: teacher-force a reference, fit a temperature that
+    // best calibrates the model's next-token confidence, report ECE before/after.
+    if let Some(cal) = llm
+        .calibrate("the quick brown fox jumps over the lazy dog", 10)
+        .expect("calibrate")
+    {
+        let _ = writeln!(
+            out,
+            "calibration      : T={:.2}, ECE {:.3} -> {:.3} over {} preds",
+            cal.temperature, cal.ece_before, cal.ece_after, cal.samples
+        );
+    }
+
     // Constrained decoding: the regex mask forces digits-only output regardless
     // of the (random) weights — guaranteed-format generation.
     let digits = llm
@@ -1185,6 +1198,7 @@ mod tests {
             report.contains("self-consistency :") && report.contains("agree (agreement="),
             "{report}"
         );
+        assert!(report.contains("calibration      : T="), "{report}");
         assert!(
             report.contains("best-of-4        : kept the highest-confidence"),
             "{report}"
