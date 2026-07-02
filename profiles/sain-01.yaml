@@ -54,6 +54,8 @@ hardware:
         - movdiri
         - movdir64b
         - prefetchi
+        - popcnt     # SDD-043 Phase 1: population count — load-bearing for the
+                     # ternary/BitNet path (sovereign-bitops) on the Pulse tier
     cores:
       physical: 12
       threads: 24
