@@ -645,6 +645,25 @@ fn run_strategies_demo() -> String {
         hist.median().unwrap_or(0.0)
     );
 
+    // More streaming quantile/sampling estimators over the same token ids:
+    // DDSketch (relative-error quantiles), P² (single-quantile, O(1) memory),
+    // and weighted reservoir sampling.
+    let mut dd = sovereign_ddsketch::DDSketch::new(0.01).expect("ddsketch");
+    let mut p2 = sovereign_p2_quantile::P2Quantile::new(0.9);
+    let mut wres = sovereign_weighted_reservoir::WeightedReservoir::new(3, 7);
+    for (i, &t) in stream.iter().enumerate() {
+        dd.add(t as f64);
+        p2.observe(t as f64);
+        wres.offer(t, (i + 1) as f64); // later tokens weighted heavier
+    }
+    let _ = writeln!(
+        out,
+        "quantile est.    : ddsketch_p90={:.0} p2_p90={:.0} wsample_n={}",
+        dd.quantile(0.9).unwrap_or(0.0),
+        p2.quantile().unwrap_or(0.0),
+        wres.samples().len()
+    );
+
     // Lossless coding of the token stream: Huffman (entropy code) + varint
     // (delta) — both round-trip; the raw baseline is 6 bits/token at vocab 64.
     let syms: Vec<u32> = stream.iter().map(|&t| t as u32).collect();
@@ -1386,6 +1405,10 @@ mod tests {
             report.contains(
                 "coding           : huffman 149 bits (raw 240) ok=true; varint 40 bytes ok=true"
             ),
+            "{report}"
+        );
+        assert!(
+            report.contains("quantile est.    : ddsketch_p90=18 p2_p90=19 wsample_n=3"),
             "{report}"
         );
         assert!(

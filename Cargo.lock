@@ -4952,6 +4952,7 @@ dependencies = [
  "sovereign-checkpoint",
  "sovereign-cuckoo-filter",
  "sovereign-cusum",
+ "sovereign-ddsketch",
  "sovereign-decoder-layer",
  "sovereign-decoder-stack",
  "sovereign-degeneration",
@@ -4977,6 +4978,7 @@ dependencies = [
  "sovereign-no-repeat-ngram",
  "sovereign-nvfp4-runtime",
  "sovereign-online-regression",
+ "sovereign-p2-quantile",
  "sovereign-perplexity",
  "sovereign-precision-profile",
  "sovereign-quant-block",
@@ -5001,6 +5003,7 @@ dependencies = [
  "sovereign-toxicity",
  "sovereign-transformer-block",
  "sovereign-varint",
+ "sovereign-weighted-reservoir",
  "sovereign-wer",
 ]
 

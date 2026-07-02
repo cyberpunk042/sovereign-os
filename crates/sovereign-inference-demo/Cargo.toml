@@ -76,4 +76,7 @@ sovereign-bandit = { path = "../sovereign-bandit" }
 sovereign-online-regression = { path = "../sovereign-online-regression" }
 sovereign-isotonic = { path = "../sovereign-isotonic" }
 sovereign-sprt = { path = "../sovereign-sprt" }
+sovereign-ddsketch = { path = "../sovereign-ddsketch" }
+sovereign-p2-quantile = { path = "../sovereign-p2-quantile" }
+sovereign-weighted-reservoir = { path = "../sovereign-weighted-reservoir" }
 sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }
