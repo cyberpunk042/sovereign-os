@@ -664,6 +664,31 @@ fn run_strategies_demo() -> String {
         vbytes.len()
     );
 
+    // Decision / optimization under budget: 0-1 knapsack (max value under a
+    // weight cap), bin packing (requests into fixed-capacity bins), and a
+    // multi-armed bandit (best arm after reward feedback).
+    let items = [(3u64, 4.0), (4, 5.0), (2, 3.0), (5, 6.0)]; // (weight, value)
+    let ks = sovereign_knapsack::knapsack_01(&items, 7);
+    let packing = sovereign_bin_packing::pack(
+        &[4, 3, 2, 5, 2],
+        6,
+        sovereign_bin_packing::Strategy::FirstFitDecreasing,
+    )
+    .expect("pack");
+    let mut bandit = sovereign_bandit::Bandit::new(3, 7);
+    for _ in 0..20 {
+        bandit.update(1, 1.0); // arm 1 pays off; the others rarely do
+    }
+    bandit.update(0, 0.1);
+    bandit.update(2, 0.2);
+    let _ = writeln!(
+        out,
+        "optimize/decide  : knapsack_val={:.1} bins={} best_arm={}",
+        ks.total_value,
+        packing.bins.len(),
+        bandit.best_arm()
+    );
+
     // Time-series monitoring of a metric stream with a level shift at t=6:
     // Kalman smooths noise, Holt-Winters forecasts, CUSUM alarms on the shift.
     let signal = [10.0, 10.4, 9.7, 10.2, 9.9, 10.1, 14.0, 14.3, 13.8, 14.1];
@@ -1344,6 +1369,10 @@ mod tests {
         assert!(
             report
                 .contains("time series      : kalman~12.4 hw_forecast~15.1 cusum_alarm_at=Some(7)"),
+            "{report}"
+        );
+        assert!(
+            report.contains("optimize/decide  : knapsack_val=9.0 bins=3 best_arm=1"),
             "{report}"
         );
         assert!(report.contains("perplexity"));

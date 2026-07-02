@@ -4944,7 +4944,9 @@ version = "0.1.0"
 dependencies = [
  "sovereign-agent-loop",
  "sovereign-agent-runtime",
+ "sovereign-bandit",
  "sovereign-beam-search",
+ "sovereign-bin-packing",
  "sovereign-bitlinear-core",
  "sovereign-bloom",
  "sovereign-checkpoint",
@@ -4963,6 +4965,7 @@ dependencies = [
  "sovereign-injection-detect",
  "sovereign-json-schema-grammar",
  "sovereign-kalman",
+ "sovereign-knapsack",
  "sovereign-language-detect",
  "sovereign-linear",
  "sovereign-llm",
