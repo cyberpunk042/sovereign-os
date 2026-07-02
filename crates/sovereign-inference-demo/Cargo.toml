@@ -107,4 +107,7 @@ sovereign-six-pillars = { path = "../sovereign-six-pillars" }
 sovereign-learning-signals = { path = "../sovereign-learning-signals" }
 sovereign-routing-preference = { path = "../sovereign-routing-preference" }
 sovereign-trust-boundaries = { path = "../sovereign-trust-boundaries" }
+sovereign-telemetry-backend = { path = "../sovereign-telemetry-backend" }
+sovereign-runtime-reactions = { path = "../sovereign-runtime-reactions" }
+sovereign-workspace-folder-registry = { path = "../sovereign-workspace-folder-registry" }
 sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }

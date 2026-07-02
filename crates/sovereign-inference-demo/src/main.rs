@@ -683,6 +683,33 @@ fn run_strategies_demo() -> String {
         vbytes.len()
     );
 
+    // Runtime infra: telemetry sink from a token, runtime-signal control
+    // reactions, and a workspace folder registry.
+    let sink = sovereign_telemetry_backend::TelemetrySink::from_token("otel");
+    let signals = sovereign_runtime_reactions::RuntimeSignals {
+        cost_spike: true,
+        tool_failure_streak: 5,
+        ..Default::default()
+    };
+    let controls = sovereign_runtime_reactions::derive_controls(
+        &signals,
+        sovereign_runtime_reactions::ControlThresholds::default(),
+    );
+    let mut folders = sovereign_workspace_folder_registry::WorkspaceFolderRegistry::new();
+    let _ = folders.add(sovereign_workspace_folder_registry::Folder {
+        label: "repo".into(),
+        root_path: "/repo".into(),
+        scope: sovereign_workspace_folder_registry::FolderScope::Repo,
+        read_only: false,
+        max_size_gb: 10,
+    });
+    let _ = writeln!(
+        out,
+        "runtime infra    : sink={sink:?} controls={} folder_ok={}",
+        controls.len(),
+        folders.resolve("/repo").is_some()
+    );
+
     // Policy: canonical routing-preference weights + trust-boundary placement.
     let prefs = sovereign_routing_preference::RoutingPreferences::canonical();
     let wtotal = prefs.weight_total(sovereign_profile_bundles::BundleName::Sovereign);
@@ -1659,6 +1686,10 @@ mod tests {
             report.contains(
                 "policy           : route_weight=290 tierA@host_safe=true host_containment=0"
             ),
+            "{report}"
+        );
+        assert!(
+            report.contains("runtime infra    : sink=Some(Otel) controls=2 folder_ok=true"),
             "{report}"
         );
         assert!(

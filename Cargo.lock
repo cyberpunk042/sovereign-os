@@ -5007,6 +5007,7 @@ dependencies = [
  "sovereign-rope-scaling",
  "sovereign-routing-preference",
  "sovereign-running-stats",
+ "sovereign-runtime-reactions",
  "sovereign-sampler",
  "sovereign-semantic-chunk",
  "sovereign-semver",
@@ -5019,6 +5020,7 @@ dependencies = [
  "sovereign-sse-parse",
  "sovereign-suffix-automaton",
  "sovereign-tdigest",
+ "sovereign-telemetry-backend",
  "sovereign-text-edit",
  "sovereign-tokenizer",
  "sovereign-tool-call-parse",
@@ -5033,6 +5035,7 @@ dependencies = [
  "sovereign-watermark",
  "sovereign-weighted-reservoir",
  "sovereign-wer",
+ "sovereign-workspace-folder-registry",
 ]
 
 [[package]]
