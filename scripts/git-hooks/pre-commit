@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # scripts/git-hooks/pre-commit — sovereign-os operator pre-commit gate.
 #
-# Runs Layer 1 lint suite + (optionally) layer-3 fast tests before
-# every commit so CI failures surface locally first.
+# FAST BY DEFAULT. A plain `git commit` runs only a quick shellcheck of the
+# STAGED shell files (~1s) so commits are instant. The full local gate
+# (Layer 1 `pytest tests/schema tests/lint` + validate-profiles.sh + a full
+# lint of scripts + the L3 nspawn suite, ~90s) is OPT-IN — and CI runs the
+# full suite on every push regardless, so nothing ships unchecked.
 #
 # Install via:
 #   ln -sf "$(pwd)/scripts/git-hooks/pre-commit" .git/hooks/pre-commit
@@ -10,11 +13,12 @@
 # Disable for one commit via:
 #   git commit --no-verify
 # (sovereign-os direct-push workflow means operator commits straight to
-# main, so the local gate is the only pre-merge enforcement.)
+# main; CI is the pre-merge enforcement, the local gate is convenience.)
 #
 # Tunable env:
-#   SOVEREIGN_OS_PRECOMMIT_SKIP_L3=1   Skip the (fast) L3 sample
-#   SOVEREIGN_OS_PRECOMMIT_FULL=1      Run the entire L3 suite (slow)
+#   SOVEREIGN_OS_PRECOMMIT_FULL=1      Run the ENTIRE local gate (L1 + profiles
+#                                      + shellcheck + full L3) — the heavy path.
+#   SOVEREIGN_OS_PRECOMMIT_SKIP_L3=1   In FULL mode, skip the L3 nspawn suite.
 
 set -euo pipefail
 
@@ -22,24 +26,41 @@ __REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "${__REPO_ROOT}"
 
 bold='\033[1m'; red='\033[31m'; green='\033[32m'; yellow='\033[33m'; reset='\033[0m'
-
-echo -e "${bold}sovereign-os pre-commit gate${reset}"
-echo
-
 failed=0
 
-# ----------- Layer 1 lint ---------------
+# ─────────────────────────── FAST PATH (default) ───────────────────────────
+if [ -z "${SOVEREIGN_OS_PRECOMMIT_FULL:-}" ]; then
+  # Only shellcheck the STAGED *.sh files — quick, catches obvious breakage.
+  if command -v shellcheck >/dev/null 2>&1; then
+    mapfile -t staged < <(git diff --cached --name-only --diff-filter=ACM 2>/dev/null | grep -E '\.sh$' || true)
+    if [ "${#staged[@]}" -gt 0 ]; then
+      if shellcheck --severity=error --source-path=scripts/build/lib --external-sources "${staged[@]}" 2>/dev/null; then
+        echo -e "${green}✓${reset} pre-commit (fast): ${#staged[@]} staged shell file(s) shellcheck-clean"
+      else
+        echo -e "${red}✗${reset} staged shell file has a shellcheck ERROR (above)"
+        failed=1
+      fi
+    fi
+  fi
+  if [ "${failed}" -ne 0 ]; then
+    echo -e "${red}✗ pre-commit failed${reset} — fix, or \`git commit --no-verify\`."
+    exit 1
+  fi
+  echo -e "  ${yellow}·${reset} fast mode. Full local gate: ${bold}SOVEREIGN_OS_PRECOMMIT_FULL=1 git commit${reset} (CI runs it regardless)."
+  exit 0
+fi
+
+# ─────────────────────────── FULL PATH (opt-in) ────────────────────────────
+echo -e "${bold}sovereign-os pre-commit gate — FULL${reset}"
+echo
 
 echo -e "${bold}[L1] schema + lint pytest${reset}"
 if python3 -m pytest tests/schema tests/lint -q 2>&1 | tail -3; then
   echo -e "  ${green}✓${reset} Layer 1 passes"
 else
-  echo -e "  ${red}✗${reset} Layer 1 FAILED"
-  failed=1
+  echo -e "  ${red}✗${reset} Layer 1 FAILED"; failed=1
 fi
 echo
-
-# ----------- profile validation ---------------
 
 if [ -x "${__REPO_ROOT}/scripts/validate-profiles.sh" ]; then
   echo -e "${bold}[profiles] schema-validate all${reset}"
@@ -47,13 +68,10 @@ if [ -x "${__REPO_ROOT}/scripts/validate-profiles.sh" ]; then
     echo -e "  ${green}✓${reset} all profiles validate"
   else
     echo -e "  ${red}✗${reset} profile validation FAILED"
-    "${__REPO_ROOT}/scripts/validate-profiles.sh" 2>&1 | tail -10
-    failed=1
+    "${__REPO_ROOT}/scripts/validate-profiles.sh" 2>&1 | tail -10; failed=1
   fi
   echo
 fi
-
-# ----------- shellcheck (warning-only, mirrors CI) ---------------
 
 if command -v shellcheck >/dev/null 2>&1; then
   echo -e "${bold}[shellcheck] scripts/${reset}"
@@ -68,41 +86,23 @@ if command -v shellcheck >/dev/null 2>&1; then
   echo
 fi
 
-# ----------- L3 sample (fast subset by default) ---------------
-
 if [ -z "${SOVEREIGN_OS_PRECOMMIT_SKIP_L3:-}" ]; then
-  if [ -n "${SOVEREIGN_OS_PRECOMMIT_FULL:-}" ]; then
-    echo -e "${bold}[L3 — full suite]${reset} (this can take 30+ seconds)"
-    sample_tests=(tests/nspawn/test_*.sh)
-  else
-    # Fast representative sample — full suite available via _FULL=1
-    echo -e "${bold}[L3 — fast sample]${reset}"
-    sample_tests=(
-      tests/nspawn/test_common_lib.sh
-      tests/nspawn/test_state_lib.sh
-      tests/nspawn/test_observability_lib.sh
-      tests/nspawn/test_orchestrator_dry_run.sh
-    )
-  fi
-  for t in "${sample_tests[@]}"; do
+  echo -e "${bold}[L3 — full nspawn suite]${reset} (30+ seconds)"
+  for t in tests/nspawn/test_*.sh; do
     [ -x "${t}" ] || continue
     name="$(basename "${t}" .sh)"
     if "${t}" >/dev/null 2>&1; then
       echo -e "  ${green}✓${reset} ${name}"
     else
-      echo -e "  ${red}✗${reset} ${name} FAILED — run \`${t}\` to see details"
-      failed=1
+      echo -e "  ${red}✗${reset} ${name} FAILED — run \`${t}\` to see details"; failed=1
     fi
   done
   echo
 fi
 
-# ----------- result ---------------
-
 if [ "${failed}" -ne 0 ]; then
-  echo -e "${bold}${red}✗ pre-commit gate FAILED${reset} — fix issues or use \`git commit --no-verify\` to bypass (last resort)"
+  echo -e "${bold}${red}✗ pre-commit gate FAILED${reset} — fix issues or use \`git commit --no-verify\` (last resort)"
   exit 1
 fi
-
-echo -e "${bold}${green}✓ pre-commit gate clean${reset} — commit proceeding"
+echo -e "${bold}${green}✓ pre-commit gate clean${reset}"
 exit 0
