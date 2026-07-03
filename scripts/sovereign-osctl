@@ -483,6 +483,9 @@ COMMANDS:
 
   router status                R516 router surface (SDD-011) — service + listen check
   router classify <prompt>     Show routing decision for a prompt (delegates to inference route)
+  router plan <prompt> [--task-type T] [--think] [--json]
+                               SDD-043: full thinking-orchestration plan — route tier +
+                               escalation (CoT · validator · self-consistency · MoE)
   router rules                 Print the 5 routing rules verbatim (SDD-011)
   router metrics               R517 — routing decision counts from Layer B textfile
   router watch                 R516 refresh-loop TUI (router + 4 tiers at a glance)
@@ -4018,6 +4021,13 @@ cmd_router() {
       ;;
     classify)
       cmd_inference route "$@"
+      ;;
+    plan)
+      # SDD-043 Phase 4: full thinking-orchestration plan for a prompt —
+      # route tier + escalation (CoT / validator / self-consistency / MoE).
+      local prompt="${1:?usage: router plan <prompt> [--task-type T] [--think] [--json]}"
+      shift || true
+      python3 "${__REPO_ROOT}/scripts/inference/thinking-plan.py" --prompt "${prompt}" "$@"
       ;;
     rules)
       _router_rules
