@@ -142,6 +142,17 @@ if [ -z "${SOVEREIGN_OS_PANEL_APIS_OFF:-}" ]; then
     # the intended skip path; keep the assignment from ever aborting.
     port="$(grep -oiE '[A-Z0-9_]*PORT=[0-9]+' "${unit}" 2>/dev/null | head -1 | grep -oE '[0-9]+$' || true)"
     [ -n "${port}" ] || continue   # no port declared → can't manage it here
+    # Collision guard: NEVER start a data API on the configurator's or the
+    # runtime-dashboard's port. Those are owned by the two main servers started
+    # above, and start_server's takeover would otherwise EVICT the configurator
+    # — leaving the wrong daemon on :8100 so every panel 404s (caught
+    # 2026-07-03: sovereign-ux-design-audit-api ships PORT=8100 == CFG_PORT).
+    # The configurator serves that panel statically anyway; its data API just
+    # can't share :8100 in this dev launcher.
+    if [ "${port}" = "${CFG_PORT}" ] || [ "${port}" = "${DASH_PORT}" ]; then
+      echo -e "  ${yellow}⚠${reset} ${name}-api declares :${port} (owned by a main server) — not started (collision guard)"
+      continue
+    fi
     cockpit_total=$((cockpit_total+1))
     start_server "${name}-api" "${port}" /healthz python3 "${api}" \
       && cockpit_up=$((cockpit_up+1))
