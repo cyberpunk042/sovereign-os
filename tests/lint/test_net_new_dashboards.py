@@ -53,3 +53,12 @@ def test_models_catalog_live():
 
 def test_models_catalog_endpoint():
     _api_serves("/models-catalog.json", "_load_models_catalog")
+
+
+# ── cpu-features (CPU / AVX-512 choice) ──────────────────────────────
+def test_cpu_features_live():
+    _assert_live_panel("cpu-features", "cpu-features-webapp", "/cpu-avx.json")
+
+
+def test_cpu_features_endpoint():
+    _api_serves("/cpu-avx.json", "_load_cpu_avx")

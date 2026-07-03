@@ -52,9 +52,9 @@ dashboards:
   - {slug: models-catalog, category: models, label: "Models & Catalog", path: /models-catalog/, status: live,
      cli: "sovereign-osctl models {query,select,suggest,info,eval,toolchains,fine-tune}",
      description: "The full model catalog (68 models across ternary-lm/RLM/SLM/LLM/mixture, every quantization) with VRAM-aware selection — browse and filter by class/quant/tier/purpose/VRAM. Backed by models/catalog.yaml (served at /models-catalog.json); operator CLI e.g. models select --class rlm --vram 48.", refs: [R212, R214, R231, SDD-043]}
-  - {slug: cpu-features, category: models, label: "CPU / AVX-512 Choice", path: null, status: planned,
+  - {slug: cpu-features, category: models, label: "CPU / AVX-512 Choice", path: /cpu-features/, status: live,
      cli: "scripts/build/cpu-features.py · scripts/hardware/avx512-advisor.py · sovereign-osctl cpu-mode",
-     description: "The tiered AVX-512 exploitation surface — which instructions (VNNI/BF16/VPOPCNTDQ/VP2INTERSECT/VBMI…) the profile enables and how they map to the Pulse ternary path. TODAY: CLI + build flags. PLANNED: a capability matrix + per-tier fit UI.", refs: [SDD-043, R272]}
+     description: "The tiered AVX-512 exploitation surface — which instructions (F/VL/BW/VNNI/BF16/VPOPCNTDQ…) THIS CPU exposes and how they map to the AI workloads they enable (Pulse ternary path). Live probe via avx512-advisor (R272), served at /cpu-avx.json.", refs: [SDD-043, R272]}
   - {slug: orchestration, category: models, label: "Thinking Router / Orchestration", path: null, status: planned,
      cli: "sovereign-osctl router plan <prompt>",
      description: "The per-request orchestration plan — route tier + escalation (chain-of-thought → Validator → self-consistency → MoE). Policy is per-profile (thinking_policy). TODAY: CLI. PLANNED: a live decision + policy-editor UI.", refs: [SDD-043 P4]}

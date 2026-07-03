@@ -521,6 +521,32 @@ def _load_models_catalog() -> dict | None:
         return None
 
 
+AVX_ADVISOR = REPO / "scripts" / "hardware" / "avx512-advisor.py"
+
+
+def _load_cpu_avx() -> dict:
+    """SDD-045 §5 — the CPU / AVX-512 capability matrix the cpu-features
+    dashboard renders. Runs the R272 avx512-advisor (read-only probe of THIS
+    CPU) and aggregates probe (extensions) + workloads (per-workload fit) +
+    advisory. Honest-degraded per verb if the advisor is unavailable."""
+    import subprocess
+    import sys as _sys
+    out: dict = {}
+    for verb in ("probe", "workloads", "advisory"):
+        try:
+            r = subprocess.run(
+                [_sys.executable, str(AVX_ADVISOR), verb, "--json"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if r.returncode == 0 and r.stdout.strip():
+                out[verb] = json.loads(r.stdout)
+            else:
+                out[verb] = {"error": (r.stderr or "no output").strip()[:200]}
+        except Exception as e:  # noqa: BLE001 — operator-visible degradation
+            out[verb] = {"error": str(e)}
+    return out
+
+
 def panels_index_html() -> str:
     """The GLOBAL VIEW: every surface — panels AND un-paneled feature
     domains — grouped by category, each with a real description, rendered
@@ -708,6 +734,8 @@ class Handler(BaseHTTPRequestHandler):
         if path in ("/models-catalog.json",):
             mc = _load_models_catalog()
             return self._send(200, json.dumps(mc or {"error": "models catalog absent"}, indent=2))
+        if path in ("/cpu-avx.json",):
+            return self._send(200, json.dumps(_load_cpu_avx(), indent=2))
         if path == "/panels":
             return self._send(200, panels_index_html(), "text/html; charset=utf-8")
         if path == "/":
