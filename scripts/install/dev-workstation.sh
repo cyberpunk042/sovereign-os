@@ -58,24 +58,31 @@ have() { command -v "$1" >/dev/null 2>&1; }
 
 echo -e "${bold}sovereign-os · dev workstation${rst}  (target user: ${TARGET_USER})${DRY_RUN:+  ${ylw}(dry-run)${rst}}"
 
-# ── (1) node + npm, at the version claude-code needs ─────────────────
+# ── (1) node ≥ MIN_NODE — actually install it (claude-code's floor) ──
+# Debian trixie ships node 20; claude-code needs ≥22. We install the real
+# thing from NodeSource (the canonical current-node apt channel) rather
+# than warn-and-limp. NodeSource's repo also brings npm.
 echo -e "\n${bold}[1/4] node ≥ ${MIN_NODE}${rst}"
 node_major=0
 have node && node_major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
 if [ "${node_major}" -ge "${MIN_NODE}" ] 2>/dev/null; then
   ok "node $(node --version) · npm $(npm --version 2>/dev/null)"
 else
-  if [ "${node_major}" -eq 0 ]; then
-    warn "node absent — installing Debian's nodejs (root)"
-    as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs npm
+  if [ "${node_major}" -eq 0 ]; then warn "node absent — installing NodeSource ${MIN_NODE}.x"; else warn "node v${node_major} < ${MIN_NODE} — replacing with NodeSource ${MIN_NODE}.x"; fi
+  # NodeSource setup: adds deb.nodesource.com repo pinned to MIN_NODE, then
+  # apt installs a nodejs that bundles the matching npm. Root (repo + apt).
+  if [ -n "${DRY_RUN}" ]; then
+    echo -e "  ${cyn}dry-run[root]\$${rst} curl -fsSL https://deb.nodesource.com/setup_${MIN_NODE}.x | bash -"
+    echo -e "  ${cyn}dry-run[root]\$${rst} apt-get install -y nodejs"
+  else
+    as_root bash -c "curl -fsSL https://deb.nodesource.com/setup_${MIN_NODE}.x | bash -"
+    as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
     have node && node_major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
-  fi
-  if [ "${node_major}" -lt "${MIN_NODE}" ] 2>/dev/null; then
-    warn "node v${node_major} < ${MIN_NODE} — claude-code needs ≥${MIN_NODE}. Debian ships an older node."
-    warn "  Upgrade path (pick one), then re-run dev-setup:"
-    warn "    • NodeSource:  curl -fsSL https://deb.nodesource.com/setup_${MIN_NODE}.x | sudo -E bash - && sudo apt-get install -y nodejs"
-    warn "    • nvm (per-user, no root):  nvm install ${MIN_NODE} && nvm use ${MIN_NODE}"
-    warn "  Continuing — claude-code will install but may warn/misbehave on node v${node_major}."
+    if [ "${node_major}" -ge "${MIN_NODE}" ] 2>/dev/null; then
+      ok "node $(node --version) · npm $(npm --version 2>/dev/null)"
+    else
+      warn "node still < ${MIN_NODE} after NodeSource — check the apt output above"
+    fi
   fi
 fi
 
