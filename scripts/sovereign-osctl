@@ -99,6 +99,14 @@ COMMANDS:
   perimeter verify             Run perimeter integrity audit
   perimeter reload             Reload Tetragon TracingPolicies
 
+  selfdef status               selfdef (IPS) on/off dashboard: checkout · units · mirror
+  selfdef on | off             Enable+start / stop+disable all selfdef units (root)
+  selfdef start|stop|restart   Runtime lifecycle without changing enablement (root)
+  selfdef logs [N]             Tail the selfdef guardian journal
+  selfdef sync                 Refresh the selfdef checkout (freshness/gated update, SDD-001)
+  selfdef doctor               Run selfdef's own doctor (or freshness sync)
+  selfdef install-units        Wire selfdef's shipped systemd units into /etc/systemd/system (root)
+
   models docs [--check|--stdout]  Regenerate docs/src/model-catalog.md (R206, SDD-028 pattern)
   models query [--class C] [--tier T] [--purpose P] [--size-class S] [--quantization Q] [--status S] [--max-vram N] [--min-context N] [--engine E] [--base-model B] [--json]
                                R213: filter catalog by R212 taxonomy
@@ -1837,6 +1845,116 @@ cmd_whitelabel() {
 }
 
 # ------------------------------ perimeter ------------------------------------
+
+# List installed selfdef unit names (services + timers + guardian-core).
+_selfdef_units() {
+  systemctl list-unit-files --no-legend --no-pager 'selfdef*' 'guardian-core*' 2>/dev/null \
+    | awk '{print $1}' | grep -E '\.(service|timer)$' || true
+}
+
+# selfdef lifecycle management (SDD-001: selfdef RUNS from its own repo;
+# sovereign-os keeps the checkout fresh + renders the mirror READ-ONLY.
+# This surface manages the LIFECYCLE of selfdef's own shipped units —
+# on/off/status/logs — without mutating selfdef's internal state.)
+cmd_selfdef() {
+  local sub="${1:-status}"
+  shift || true
+  : "${SOVEREIGN_OS_SELFDEF_DIR:=${HOME}/selfdef}"
+
+  case "${sub}" in
+    status)
+      local co="ABSENT" units n_units n_en n_act verdict mirror="absent"
+      [ -d "${SOVEREIGN_OS_SELFDEF_DIR}/.git" ] && co="present (${SOVEREIGN_OS_SELFDEF_DIR})"
+      units="$(_selfdef_units)"
+      n_units="$(printf '%s\n' "${units}" | grep -c . || true)"
+      n_en=0; n_act=0
+      if [ "${n_units}" -gt 0 ]; then
+        while read -r u; do
+          [ -z "$u" ] && continue
+          systemctl is-enabled --quiet "$u" 2>/dev/null && n_en=$((n_en+1))
+          systemctl is-active  --quiet "$u" 2>/dev/null && n_act=$((n_act+1))
+        done <<< "${units}"
+      fi
+      for d in /run/sovereign-os/selfdef-mirror /etc/selfdef; do
+        [ -d "$d" ] && mirror="$d"
+      done
+      if [ "${n_units}" -eq 0 ]; then verdict="OFF — no selfdef units installed"
+      elif [ "${n_act}" -eq 0 ]; then verdict="OFF — installed but stopped"
+      elif [ "${n_act}" -lt "${n_units}" ]; then verdict="PARTIAL — ${n_act}/${n_units} active"
+      else verdict="ON — ${n_act}/${n_units} active"; fi
+      echo "selfdef status"
+      echo "=============="
+      echo
+      echo "  checkout:  ${co}"
+      command -v selfdef >/dev/null 2>&1 && echo "  binary:    $(command -v selfdef)" || echo "  binary:    (not on PATH — build via 'make -C ${SOVEREIGN_OS_SELFDEF_DIR} build')"
+      echo "  units:     ${n_units} installed · ${n_en} enabled · ${n_act} active"
+      echo "  mirror:    ${mirror}"
+      echo
+      echo "  ${verdict}"
+      [ "${n_units}" -eq 0 ] && echo "  → install units:  sovereign-osctl selfdef install-units   (then: selfdef on)"
+      ;;
+    install-units)
+      # Bridge: copy selfdef's SHIPPED units into /etc/systemd/system so
+      # they can be enabled. selfdef's BINARIES still come from its own
+      # build (SDD-001) — this only wires the unit files.
+      require_root
+      local src="${SOVEREIGN_OS_SELFDEF_DIR}/packaging/systemd"
+      [ -d "$src" ] || { log_error "no selfdef units at ${src} (is the checkout present?)"; return 1; }
+      local n=0
+      for f in "${src}"/*.service "${src}"/*.timer; do
+        [ -f "$f" ] || continue
+        install -m 644 "$f" /etc/systemd/system/ && n=$((n+1))
+      done
+      systemctl daemon-reload
+      log_info "installed ${n} selfdef unit file(s) → /etc/systemd/system"
+      log_warn "selfdef BINARIES come from its own build (SDD-001):"
+      log_warn "  make -C ${SOVEREIGN_OS_SELFDEF_DIR} build   # then: sovereign-osctl selfdef on"
+      ;;
+    on|enable)
+      require_root
+      local units; units="$(_selfdef_units)"
+      [ -n "${units}" ] || { log_error "no selfdef units installed — run: sovereign-osctl selfdef install-units"; return 1; }
+      while read -r u; do [ -n "$u" ] && systemctl enable --now "$u"; done <<< "${units}"
+      log_info "selfdef ON"; cmd_selfdef status
+      ;;
+    off|disable)
+      require_root
+      local units; units="$(_selfdef_units)"
+      [ -n "${units}" ] || { log_warn "no selfdef units installed — nothing to disable"; return 0; }
+      while read -r u; do [ -n "$u" ] && systemctl disable --now "$u"; done <<< "${units}"
+      log_info "selfdef OFF"
+      ;;
+    start|stop|restart)
+      require_root
+      local units; units="$(_selfdef_units)"
+      [ -n "${units}" ] || { log_error "no selfdef units installed"; return 1; }
+      # shellcheck disable=SC2086
+      systemctl "${sub}" ${units}
+      log_info "selfdef ${sub} issued"
+      ;;
+    logs)
+      journalctl -u 'selfdef*' -u 'guardian-core*' -n "${1:-50}" --no-pager 2>/dev/null \
+        || log_error "no selfdef journal (units installed?)"
+      ;;
+    sync)
+      SOVEREIGN_OS_SELFDEF_DIR="${SOVEREIGN_OS_SELFDEF_DIR}" \
+        "${__REPO_ROOT}/scripts/hooks/recurrent/selfdef-sync.sh"
+      ;;
+    doctor)
+      if systemctl list-unit-files --no-legend 'selfdef-doctor*' 2>/dev/null | grep -q .; then
+        require_root; systemctl start selfdef-doctor.service && journalctl -u selfdef-doctor.service -n 30 --no-pager
+      else
+        log_warn "selfdef-doctor unit not installed; falling back to freshness sync"
+        cmd_selfdef sync
+      fi
+      ;;
+    *)
+      log_error "unknown selfdef subcommand: ${sub}"
+      echo "usage: sovereign-osctl selfdef {status|on|off|start|stop|restart|logs|sync|doctor|install-units}" >&2
+      exit 2
+      ;;
+  esac
+}
 
 cmd_perimeter() {
   local sub="${1:-status}"
@@ -6267,6 +6385,7 @@ case "${cmd}" in
   profiles)      cmd_profiles "$@" ;;
   whitelabel)    cmd_whitelabel "$@" ;;
   perimeter)     cmd_perimeter "$@" ;;
+  selfdef)       cmd_selfdef "$@" ;;
   models)        cmd_models "$@" ;;
   audit)         cmd_audit "$@" ;;
   hooks)         cmd_hooks "$@" ;;
