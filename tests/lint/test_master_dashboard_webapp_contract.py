@@ -325,6 +325,20 @@ def test_api_daemon_serves_described_catalog_in_webapp():
         proc.wait(timeout=3)
 
 
+def test_palette_sources_from_full_catalog():
+    """SDD-045 Phase G front door — the Cmd-K palette must source from the FULL
+    catalog (/catalog) so it searches every surface (label + description +
+    category), not a hardcoded subset."""
+    body = WEBAPP_HTML.read_text(encoding="utf-8")
+    assert "loadCatalogIntoPalette" in body, (
+        "master-dashboard palette must load the full catalog"
+    )
+    assert "fetch('/catalog'" in body or 'fetch("/catalog"' in body, (
+        "palette must fetch /catalog (same-origin) to cover every surface"
+    )
+    assert "d.desc" in body, "palette rows must surface each surface's description"
+
+
 def test_webapp_surface_quotes_standing_rule_in_footer():
     """The webapp footer MUST quote operator §1g verbatim — the
     standing-rule provenance is sacrosanct, never paraphrased."""

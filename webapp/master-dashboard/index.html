@@ -72,7 +72,11 @@
     font-weight: 600; color: var(--accent, #9bd1ff);
     min-width: 3.5rem; font-size: .82rem;
   }
-  .so-palette-row .lbl { flex: 1; }
+  .so-palette-row .lbl { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .so-palette-row .pdesc {
+    color: var(--muted, #888); font-size: .72rem; font-weight: 400;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
   .so-palette-row .hint {
     font-size: .72rem; color: var(--muted, #888);
   }
@@ -121,7 +125,34 @@
     ];
     function jump(d) { window.location.href = ROOT + d.dir + '/'; }
     var SHORTCUT = {};
-    DASHBOARDS.forEach(function(d) { if (d.shortcut) SHORTCUT[d.shortcut] = d; });
+    function rebuildShortcuts() { SHORTCUT = {}; DASHBOARDS.forEach(function(d) { if (d.shortcut) SHORTCUT[d.shortcut] = d; }); }
+    rebuildShortcuts();
+
+    // SDD-045 Phase G — front door over the FULL catalog: repopulate the
+    // palette from /catalog so Cmd-K searches EVERY surface (label +
+    // description + category), not just the hardcoded core. Falls back to the
+    // static list if /catalog is unavailable.
+    function loadCatalogIntoPalette() {
+      fetch('/catalog', { headers: { Accept: 'application/json' } })
+        .then(function(r) { return r.json(); })
+        .then(function(cat) {
+          if (!cat || !cat.dashboards || !cat.dashboards.length) return;
+          var prev = {}; DASHBOARDS.forEach(function(d) { prev[d.dir] = d; });
+          var cats = {}; (cat.categories || []).forEach(function(c) { cats[c.id] = c.label || c.id; });
+          var merged = [];
+          cat.dashboards.forEach(function(d) {
+            if (!d.path) return;                 // only reachable panels
+            var p = prev[d.slug] || {};
+            merged.push({ id: p.id || d.slug, dir: d.slug, label: d.label || d.slug,
+                          desc: d.description || '', cat: cats[d.category] || d.category || '',
+                          shortcut: p.shortcut || null });
+          });
+          if (merged.length) {
+            DASHBOARDS = merged; rebuildShortcuts();
+            if (backdrop && backdrop.classList.contains('open')) filterPalette();
+          }
+        }).catch(function() {});
+    }
 
     var backdrop, input, results, activeIdx = 0, filtered = [];
     function openPalette() {
@@ -136,10 +167,13 @@
     function renderResults() {
       var html = '';
       filtered.forEach(function(d, i) {
+        var desc = d.desc ? (d.desc.length > 84 ? d.desc.slice(0, 84) + '…' : d.desc) : '';
         html += '<div class="so-palette-row' + (i === activeIdx ? ' active' : '') +
-                '" data-idx="' + i + '"><span class="id">' + d.id + '</span>' +
-                '<span class="lbl">' + d.label + '</span>' +
-                (d.shortcut ? '<span class="hint">⌘' + d.shortcut + '</span>' : '') +
+                '" data-idx="' + i + '"><span class="id">' + (d.id || '') + '</span>' +
+                '<span class="lbl">' + d.label +
+                (desc ? '<span class="pdesc">' + desc + '</span>' : '') + '</span>' +
+                (d.shortcut ? '<span class="hint">⌘' + d.shortcut + '</span>'
+                            : (d.cat ? '<span class="hint">' + d.cat + '</span>' : '')) +
                 '</div>';
       });
       results.innerHTML = html;
@@ -152,9 +186,11 @@
     function filterPalette() {
       var q = (input.value || '').trim().toLowerCase();
       filtered = q ? DASHBOARDS.filter(function(d) {
-        return d.id.toLowerCase().indexOf(q) >= 0 ||
+        return (d.id || '').toLowerCase().indexOf(q) >= 0 ||
                d.label.toLowerCase().indexOf(q) >= 0 ||
-               d.dir.toLowerCase().indexOf(q) >= 0;
+               d.dir.toLowerCase().indexOf(q) >= 0 ||
+               (d.desc || '').toLowerCase().indexOf(q) >= 0 ||
+               (d.cat || '').toLowerCase().indexOf(q) >= 0;
       }) : DASHBOARDS.slice();
       activeIdx = 0;
       renderResults();
@@ -222,6 +258,7 @@
       if (!backdrop || !input || !results) return;
       input.addEventListener('input', filterPalette);
       backdrop.addEventListener('click', function(e) { if (e.target === backdrop) closePalette(); });
+      loadCatalogIntoPalette();   // SDD-045 — front door over the full catalog
     }
     // Always bind keydown immediately (init may run later)
     window.addEventListener('keydown', onKeydown);
