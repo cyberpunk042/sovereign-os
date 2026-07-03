@@ -104,6 +104,20 @@ def test_cli_only_waivers_have_rationale():
         )
 
 
+def test_coverage_endpoint_and_front_door():
+    """The completeness proof is surfaced LIVE: build-configurator-api serves
+    /feature-coverage, and the master-dashboard renders the coverage capstone
+    (the visible 'nothing is invisible' answer)."""
+    api = (REPO / "scripts" / "operator" / "build-configurator-api.py").read_text(encoding="utf-8")
+    assert "/feature-coverage" in api and "_load_feature_coverage" in api, (
+        "build-configurator-api must serve /feature-coverage"
+    )
+    md = (REPO / "webapp" / "master-dashboard" / "index.html").read_text(encoding="utf-8")
+    assert "renderCoverage" in md and 'fetchJSON("/feature-coverage")' in md, (
+        "master-dashboard must render the live coverage capstone"
+    )
+
+
 def test_no_stale_coverage_entries():
     """Every verb listed in the ledger must still exist in the dispatch (catches
     a mapping left behind after a verb was renamed/removed)."""

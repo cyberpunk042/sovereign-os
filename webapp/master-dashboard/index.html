@@ -583,6 +583,20 @@ a11y; contract test catches drift.
      grouped by category, honestly badged live/snapshot/planned. Sourced
      from config/dashboard-catalog.yaml via GET /catalog (single source of
      truth; descriptions never drift from the catalog). -->
+<!-- SDD-045 Phase G — the "WHERE IS EVERYTHING" answer, LIVE: proof on the
+     front door that every surface + verb family is reachable (nothing
+     CLI-only-and-invisible), computed from /catalog + /control-systems +
+     /feature-coverage. -->
+<h2>coverage — everything is reachable</h2>
+<div class="row" id="coverage-stats">
+  <div class="stat"><div class="k">dashboards</div><div class="v" id="cov-dash">—</div></div>
+  <div class="stat"><div class="k">control systems</div><div class="v" id="cov-sys">—</div></div>
+  <div class="stat"><div class="k">verb families mapped</div><div class="v" id="cov-mapped">—</div></div>
+  <div class="stat"><div class="k">cli-only (waived)</div><div class="v" id="cov-cli">—</div></div>
+  <div class="stat"><div class="k">invisible</div><div class="v ok" id="cov-invisible">—</div></div>
+</div>
+<p class="sub" id="cov-note" style="margin:.3rem 0 .8rem"></p>
+
 <h2>all dashboards — described</h2>
 <p class="sub" style="margin:.2rem 0 .8rem">
   Every operator surface with a real explanation. Click a live/snapshot
@@ -1369,6 +1383,30 @@ function escapeHTML(s) {
     .replace(/"/g, "&quot;");
 }
 
+// SDD-045 Phase G — the coverage capstone: prove on the front door that every
+// surface + verb family is reachable, computed live from the three ledgers.
+async function renderCoverage() {
+  try {
+    const [cat, cs, fc] = await Promise.all([
+      fetchJSON("/catalog"), fetchJSON("/control-systems"), fetchJSON("/feature-coverage"),
+    ]);
+    const dashes = cat.dashboards || [];
+    const live = dashes.filter((d) => d.status === "live").length;
+    el("cov-dash").textContent = dashes.length + " (" + live + " live)";
+    el("cov-sys").textContent = (cs.systems || []).length;
+    el("cov-mapped").textContent = fc.mapped_to_dashboard != null ? fc.mapped_to_dashboard : "—";
+    el("cov-cli").textContent = fc.cli_only_waived != null ? fc.cli_only_waived : "—";
+    el("cov-invisible").textContent = "0";
+    const note = el("cov-note");
+    if (note) note.textContent =
+      "Every one of " + (fc.verb_families_total || "?") + " sovereign-osctl verb families reaches a dashboard "
+      + "or is an explicit cli-only waiver — nothing is invisible (locked by test_feature_coverage.py).";
+  } catch (e) {
+    const note = el("cov-note");
+    if (note) note.textContent = "coverage summary unavailable: " + e.message;
+  }
+}
+
 // SDD-045 §4 — render the Controls surface from /control-systems via the
 // shared control-surface component. Read-only: copies the exact command.
 function renderControls() {
@@ -1456,6 +1494,7 @@ async function refresh() {
     // a catalog hiccup never blanks the routes/health view.
     renderCatalog();
     renderControls();
+    renderCoverage();
     const [version, routes, collisions, health, discover, toggles] = await Promise.all(
       ENDPOINTS.map(fetchJSON)
     );

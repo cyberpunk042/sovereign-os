@@ -506,6 +506,32 @@ def _load_control_systems() -> dict | None:
         return None
 
 
+FEATURE_COVERAGE_FILE = REPO / "config" / "feature-coverage.yaml"
+
+
+def _load_feature_coverage() -> dict | None:
+    """SDD-045 §7 — the completeness ledger (every verb family → a dashboard
+    or a cli-only waiver). Served so the master-dashboard can prove, live, that
+    nothing is CLI-only-and-invisible."""
+    if not FEATURE_COVERAGE_FILE.is_file():
+        return None
+    try:
+        import yaml
+        cov = yaml.safe_load(FEATURE_COVERAGE_FILE.read_text())
+        mapped = sum(len(v) for v in (cov.get("coverage") or {}).values())
+        waived = len(cov.get("cli_only") or [])
+        return {
+            "verb_families_total": mapped + waived,
+            "mapped_to_dashboard": mapped,
+            "cli_only_waived": waived,
+            "dashboards_governing": len(cov.get("coverage") or {}),
+            "coverage": cov.get("coverage") or {},
+            "cli_only": cov.get("cli_only") or [],
+        }
+    except Exception:
+        return None
+
+
 MODELS_CATALOG_FILE = REPO / "models" / "catalog.yaml"
 
 
@@ -801,6 +827,9 @@ class Handler(BaseHTTPRequestHandler):
         if path in ("/control-systems.json", "/control-systems"):
             cs = _load_control_systems()
             return self._send(200, json.dumps(cs or {"error": "control-systems absent"}, indent=2))
+        if path in ("/feature-coverage.json", "/feature-coverage"):
+            fc = _load_feature_coverage()
+            return self._send(200, json.dumps(fc or {"error": "feature-coverage absent"}, indent=2))
         if path in ("/models-catalog.json",):
             mc = _load_models_catalog()
             return self._send(200, json.dumps(mc or {"error": "models catalog absent"}, indent=2))
