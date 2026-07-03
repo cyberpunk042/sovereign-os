@@ -116,9 +116,25 @@ root_password = os.environ.get("SOVEREIGN_OS_ROOT_PASSWORD", "")
 root_pw_block = ""
 if root_password:
     root_pw_block = f"RootPassword={root_password}\n"
+elif os.environ.get("SOVEREIGN_OS_ALLOW_LOCKED_ROOT"):
+    # Operator EXPLICITLY opts into a locked-root image (login must then come
+    # via SSH keys / autologin / a first-boot flow — NOT the console).
+    print("mkosi-emit: SOVEREIGN_OS_ROOT_PASSWORD unset + SOVEREIGN_OS_ALLOW_LOCKED_ROOT "
+          "set — shipping a LOCKED-root image (no console login).", file=sys.stderr)
 else:
-    print("mkosi-emit: WARNING — SOVEREIGN_OS_ROOT_PASSWORD unset: root will be "
-          "LOCKED in the image (console login impossible)", file=sys.stderr)
+    # HARD FAIL (parity with the secure-boot-keys gate above): a build that
+    # locks root produces an image that boots to a login prompt nobody can
+    # ever satisfy — it looked "done + preflight-passed" but was unusable on
+    # hardware (caught 2026-07-03, sain-01 flash-prep). Never silent again.
+    sys.exit(
+        "mkosi-emit: SOVEREIGN_OS_ROOT_PASSWORD is unset — mkosi would LOCK root and\n"
+        "the image would boot to a login prompt that can NEVER accept anyone\n"
+        "(unusable on hardware). Set a bootstrap password (first-login-assistant\n"
+        "rotates it on first boot):\n"
+        "  SOVEREIGN_OS_ROOT_PASSWORD='<bootstrap-pw>' scripts/build/orchestrate.sh run\n"
+        "  # or a hash:  SOVEREIGN_OS_ROOT_PASSWORD=\"hashed:$(openssl passwd -6)\"\n"
+        "To INTENTIONALLY ship a locked-root image (SSH-key / autologin only), set:\n"
+        "  SOVEREIGN_OS_ALLOW_LOCKED_ROOT=1")
 
 # ---- top-level mkosi.conf (distro-agnostic baseline) ----
 top = textwrap.dedent(f"""\
