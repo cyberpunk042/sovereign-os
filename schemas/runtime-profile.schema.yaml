@@ -50,7 +50,12 @@ properties:
             - agent_id
             - target_hardware
             - engine
-            - model
+          # SDD-043 Phase 2 (Q-2 answered): an allocation binds its model
+          # EITHER by a hardcoded `model` id OR by a `tier_intent` block the
+          # VRAM-aware selector resolves against the catalog — exactly one.
+          oneOf:
+            - required: [model]
+            - required: [tier_intent]
           properties:
             agent_id:
               type: string
@@ -87,6 +92,8 @@ properties:
               enum: [bitnet.cpp, vllm, vllm-vulkan, llama.cpp]
             model:
               type: string
+            tier_intent:
+              $ref: "#/$defs/tier-intent"
             runtime_invocation:
               type: string
 
@@ -110,6 +117,41 @@ properties:
         additionalProperties: true
 
 $defs:
+  tier-intent:
+    description: |
+      SDD-043 Phase 2 — declare a tier's model by INTENT instead of a
+      hardcoded id. scripts/models/select-by-intent.py resolves this
+      against models/catalog.yaml to the best concrete model +
+      quantization that fits the VRAM budget, so 20+ OS×GPU1×GPU2 combos
+      need not hand-pin every model per profile.
+    type: object
+    required: [class, vram_budget_gib]
+    additionalProperties: false
+    properties:
+      class:
+        description: Acceptable model classes, in preference order.
+        type: array
+        minItems: 1
+        items:
+          type: string
+          enum: [llm, slm, rlm, ternary-lm, lora-adapter, embed, vision,
+                 multimodal, code, mixture, speculative, reranker]
+      vram_budget_gib:
+        description: Max VRAM (GiB) the selector may spend on this tier.
+        type: number
+        exclusiveMinimum: 0
+      purpose:
+        description: Optional purpose tags the model must satisfy (any-of).
+        type: array
+        items: {type: string}
+      min_context_tokens:
+        type: integer
+        minimum: 1
+      prefer:
+        description: verified-real (default) selects live HF models first.
+        type: string
+        enum: [verified-real, any]
+
   gpu-state:
     type: object
     required: [mode, command]
