@@ -28,11 +28,15 @@ make panel          # or: scripts/operator/panel.sh
 | URL | What it is | Mutates? |
 |---|---|---|
 | `http://127.0.0.1:8100/` | **Build configurator** — walk every layer; topbar button toggles `target: image build` ↔ `target: this host (live)` | only via the Run console (below) |
-| `http://127.0.0.1:8100/panels` | **Index of ALL panels** (~38) with links | never |
-| `http://127.0.0.1:8100/master-dashboard/` | Cockpit + every other webapp panel, served statically | never |
+| `http://127.0.0.1:8100/panels` | **Index of ALL dashboards** (~43, described + categorized) | never |
+| `http://127.0.0.1:8100/master-dashboard/` | **The cockpit front door** — coverage summary, control surface, described catalog, ⌘K palette, + every panel served statically | copies commands; never mutates |
 | `http://127.0.0.1:8443/` | **Runtime dashboard** — live GPU / network / CPU / FS / RAID cards | never |
 
 `Ctrl-C` in that terminal stops both servers.
+
+Every dashboard is a **control surface** — profiles, modes and feature toggles
+you can drive (it copies the exact `sovereign-osctl` command; the web never
+mutates). Full tour: **[The cockpit — dashboards + control surface](./cockpit.md)**.
 
 ### The Run console (the one exception to ⚡ YOU RUN)
 

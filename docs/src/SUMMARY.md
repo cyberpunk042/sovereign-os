@@ -58,5 +58,6 @@
 - [Image installation](./ops/install.md)
 - [Lifecycle management](./ops/manage.md)
 - [Managing THIS OS (run-on-host)](./ops/run-on-host.md)
+- [The cockpit — dashboards + control surface](./ops/cockpit.md)
 - [Profile authoring](./ops/profiles.md)
 - [Whitelabel authoring](./ops/whitelabel.md)
