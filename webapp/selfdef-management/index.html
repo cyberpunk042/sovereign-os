@@ -50,12 +50,38 @@
 <h2>status detail</h2>
 <pre id="detail" class="muted">loading…</pre>
 
+<h2>the 6 selfdef mirror dashboards (D-13..D-18)</h2>
+<div class="mirror-grid" id="mirrors"></div>
+<style>
+  .mirror-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.5rem;margin:.4rem 0}
+  .mirror{display:flex;flex-direction:column;gap:.2rem;padding:.6rem .7rem;border:1px solid var(--border);border-radius:.4rem;background:rgba(255,255,255,.02);text-decoration:none;color:inherit}
+  .mirror:hover{border-color:var(--accent)}
+  .mirror .mid{font-weight:600;color:var(--accent);font-size:.8rem}
+  .mirror .mlbl{font-size:.82rem}
+</style>
+
 <div class="panel muted">
   Controls (on / off / start / stop / sync / doctor · perimeter reload) are in
   the <b>Controls</b> surface below — e.g. <code>sovereign-osctl selfdef on</code>,
-  <code>sovereign-osctl perimeter reload</code>. Mirrors:
-  <code>/d-13-filesystem-grants/</code> … <code>/d-18-trust-scores/</code>.
+  <code>sovereign-osctl perimeter reload</code>.
 </div>
+<script>
+(function () {
+  var mirrors = [
+    { id: "D-13", lbl: "filesystem grants", dir: "d-13-filesystem-grants" },
+    { id: "D-14", lbl: "capability tokens", dir: "d-14-capability-tokens" },
+    { id: "D-15", lbl: "sandboxes",         dir: "d-15-sandboxes" },
+    { id: "D-16", lbl: "audit chain",       dir: "d-16-audit" },
+    { id: "D-17", lbl: "quarantine",        dir: "d-17-quarantine" },
+    { id: "D-18", lbl: "trust scores",      dir: "d-18-trust-scores" }
+  ];
+  var g = document.getElementById("mirrors");
+  if (g) g.innerHTML = mirrors.map(function (m) {
+    return '<a class="mirror" href="../' + m.dir + '/"><span class="mid">' + m.id
+      + '</span><span class="mlbl">' + m.lbl + "</span></a>";
+  }).join("");
+})();
+</script>
 
 
 <!-- SDD-045 Phase C — control surface (INLINED per the single-file doctrine).
