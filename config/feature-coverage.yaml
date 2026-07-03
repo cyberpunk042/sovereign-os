@@ -1,0 +1,120 @@
+# config/feature-coverage.yaml — SDD-045 §7 — the completeness ledger.
+#
+# The operator asked "WHERE IS EVERYTHING… 1000+ features". This file is the
+# mechanical proof that every top-level `sovereign-osctl` verb family reaches
+# a dashboard (or is an explicit, rationalised CLI-only waiver) — so nothing
+# is CLI-only-and-invisible. tests/lint/test_feature_coverage.py enumerates
+# the dispatch verbs from scripts/sovereign-osctl and fails if ANY verb is not
+# accounted for here (no silent caps).
+#
+#   coverage:  dashboard-slug -> [verb families it surfaces/governs]
+#   cli_only:  verbs that legitimately have no dashboard home, each with why
+schema_version: "1.0.0"
+
+coverage:
+  d-09-hardware-pressure:
+    [apc-profile, battery-ladder, bios-directives, bios-info, board-advisor,
+     ccd-pinning, cpu-hotswap, fan-advisor, fs, gpu-card-advisor, gpu-possibility,
+     gpu-remediate, gpu-watch, gpu-wattage, hardware-pressure, heat-oc-throttle,
+     memory-pressure, memory-pressure-damper, memory-profile, oc-headroom,
+     pcie-lane-detect, pcie-policy, power-shutdown, power-status, psu-oc,
+     psu-oc-mode, raid, ram-advisor, storage-health, thermal-oc-budget, thermals,
+     virt-info, wattage-heat-trend, xmp-oc-room, diagnose]
+  runtime-modes:
+    [cpu-mode, cpu-isolation, gpu-mode, hugepages, irq-affinity, nvidia-mps,
+     nvidia-persistence, power-profiles, thp-mode, workload-knobs, workload-mode,
+     kernel, kernel-cmdline]
+  cpu-features:
+    [avx512-advisor, wasm-aot, zmm-ternary]
+  models-catalog:
+    [models, model-build, model-params, model-adapt, search, lifecycle]
+  d-03-model-health:
+    [model-health]
+  d-19-super-model-manifest:
+    [super-model]
+  d-10-eval-history:
+    [evals]
+  d-11-adapter-status:
+    [adapters]
+  trinity:
+    [trinity, inference, weaver, auditor]
+  weaver:
+    [state-fabric]
+  d-20-peace-machine-health:
+    [peace-machine]
+  router:
+    [router]
+  orchestration:
+    [cot, mcp-aggregate, research-loop, architecture-qa]
+  d-01-active-sessions:
+    [sessions]
+  d-05-traces:
+    [traces]
+  d-06-pending-approvals:
+    [approvals]
+  d-07-memory-changes:
+    [memory-changes]
+  d-08-rollback-points:
+    [rollback, snapshot, snapshot-diff, config-snapshot, config-snapshot-diff,
+     config-restore]
+  d-02-profile-choices:
+    [profiles, profile-mirror, hooks, overlay-drift, module-state]
+  d-04-costs:
+    [costs]
+  d-12-networking:
+    [network, network-stack, network-topology, dns-advisor, net-perf, services,
+     services-advisor, reverse-proxy, notify]
+  network-edge:
+    [network-edge, network-install-advisor]
+  edge-firewall:
+    [edge-firewall]
+  auth-tier:
+    [auth-tier]
+  compliance:
+    [compliance, doctrine-status, apply-audit, operator-posture]
+  selfdef-management:
+    [selfdef, perimeter]
+  auditor:
+    [audit, audit-mirror, autohealth]
+  d-13-filesystem-grants:
+    [grants-mirror]
+  d-14-capability-tokens:
+    [capability-mirror]
+  d-15-sandboxes:
+    [sandbox-mirror]
+  d-16-audit:
+    [rules-mirror]
+  d-17-quarantine:
+    [quarantine-mirror]
+  d-18-trust-scores:
+    [trust-mirror]
+  surface-map:
+    [surface-map, cli-mirror, tui-mirror]
+  doc-coverage:
+    [doc-coverage, verbatim-render]
+  ux-design-audit:
+    [ux-design-audit]
+  anti-minimization-audit:
+    [anti-minimization-audit]
+  master-dashboard:
+    [master-dashboard, dashboard, dashboards, fleet-aggregate, overview, status,
+     health, doctor, insights, next-action, next-steps, morning-brief, guide,
+     m060-doctor, m060-health, ms022-doctor, severity, observability-status,
+     obs-status, self-test, coverage, layers, quarterly-review, rounds,
+     maintenance, maintenance-window, events, service-deps, env]
+  global-history:
+    [global-history, history, journal, metrics, alerts]
+  build-configurator:
+    [install, install-mode, install-paths, init, wizard, bootstrap, decommission,
+     operator-deps, hardening-base, inventory, secure-boot]
+  personalization:
+    [whitelabel]
+
+cli_only:
+  - {verb: assistant, rationale: "first-login interactive guide (modal onboarding flow), not a persistent dashboard surface"}
+  - {verb: bashrc, rationale: "shell integration installer (aliases + completion) — a dotfile action, no dashboard"}
+  - {verb: repl, rationale: "interactive read-eval-print shell — a terminal, not a dashboard"}
+  - {verb: workflow, rationale: "multi-agent workflow script runner — an execution engine, not a viewable surface"}
+  - {verb: version, rationale: "prints the CLI version string; nothing to render"}
+  - {verb: operator-rules, rationale: "the rules-retention tool itself (versioned memory apply/capture) — an install-time CLI, no live panel"}
+  - {verb: help, rationale: "the CLI help command itself"}

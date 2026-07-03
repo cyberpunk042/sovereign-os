@@ -328,6 +328,26 @@ Each phase ends green (lint + panels render). No phase is a stub.
   master-dashboard page into the quick-action + Cmd-K front door over the
   full catalog. Close all §9 questions.
 
+### Delivery status (2026-07-03)
+
+- **Phase A — SHIPPED.** `config/control-systems.yaml` (11 systems) +
+  `webapp/_shared/control-surface.{js,css}` + master-dashboard Controls.
+- **Phase B — SHIPPED.** Real descriptions in both lists (master-dashboard +
+  `/panels`), single-sourced from `config/dashboard-catalog.yaml`.
+- **Phase C — SHIPPED (option A: inline, doctrine-preserving).** The control
+  surface is inlined into ALL 37 panels (global controls + per-panel
+  filterSlug), lockstep-linted. Every dashboard is a control surface.
+- **Phase E — SHIPPED.** All 5 net-new dashboards live with real backing
+  endpoints: models-catalog, cpu-features, orchestration, profile-generation,
+  selfdef-management (`planned → live`).
+- **Phase G — completeness gate SHIPPED.** `config/feature-coverage.yaml` maps
+  all 176 `sovereign-osctl` verb families to a dashboard or an explicit
+  cli-only waiver; `tests/lint/test_feature_coverage.py` fails if any verb is
+  unmapped (no silent caps). The master-dashboard front-door upgrade
+  (quick-action + Cmd-K over the full catalog) remains.
+- **Phase D / F — remaining.** Deeper per-dashboard Features/Options rails
+  beyond the shared control surface (cost thresholds, span filters, …).
+
 ---
 
 ## 9. Open questions
