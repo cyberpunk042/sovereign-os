@@ -75,9 +75,28 @@ stage_kernel_debs() {
   fi
 }
 
+# Stage the selfdef SOURCE into the image (mkosi.extra → /opt/selfdef) so
+# the postinst can build+install it — the operator's "ready after flash,
+# no manual compile" (SOVEREIGN_OS_BAKE_SELFDEF). Excludes the heavy
+# target/ + .git; the emit's postinst runs `make build` in /opt/selfdef.
+stage_selfdef_source() {
+  local dest="$1"
+  local src="${SOVEREIGN_OS_SELFDEF_DIR:-${HOME}/selfdef}"
+  [ -n "${SOVEREIGN_OS_BAKE_SELFDEF:-}" ] || return 0
+  if [ ! -d "${src}/.git" ] && [ ! -f "${src}/Cargo.toml" ]; then
+    log_warn "SOVEREIGN_OS_BAKE_SELFDEF set but no selfdef checkout at ${src} — skipping stage"
+    return 0
+  fi
+  log_info "staging selfdef source → ${dest} (baked build at postinst)"
+  mkdir -p "${dest}"
+  ( cd "${src}" && tar --exclude=./target --exclude=./.git -cf - . ) \
+    | ( cd "${dest}" && tar -xf - )
+}
+
 case "${SOVEREIGN_OS_SUBSTRATE}" in
   mkosi)
     stage_kernel_debs "${SOVEREIGN_OS_BUILD_OUT}/mkosi.extra/var/cache/local-debs"
+    stage_selfdef_source "${SOVEREIGN_OS_BUILD_OUT}/mkosi.extra/opt/selfdef"
     cd "${SOVEREIGN_OS_BUILD_OUT}" || exit 1
     if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
       log_warn "SOVEREIGN_OS_DRY_RUN — skipping 'mkosi build'"

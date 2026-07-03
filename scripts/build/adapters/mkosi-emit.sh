@@ -37,6 +37,13 @@ profile_id = p["identity"]["id"]
 source_date_epoch = os.environ.get("SOURCE_DATE_EPOCH", "")
 debian_snapshot = os.environ.get("DEBIAN_SNAPSHOT", "")
 
+# Build-time baking knobs (operator "ready after flash"). Off by default —
+# a lean image. When set, the postinst bakes the operator's dev tools /
+# selfdef INTO the image so a flashed box is self-contained.
+bake_dev_tools = bool(os.environ.get("SOVEREIGN_OS_BAKE_DEV_TOOLS"))
+bake_selfdef = bool(os.environ.get("SOVEREIGN_OS_BAKE_SELFDEF"))
+node_major = os.environ.get("SOVEREIGN_OS_NODE_MAJOR", "22")
+
 # Build distribution repository block. The component list is
 # UNCONDITIONAL: main alone strands the GPU/ZFS stack — nvidia-* live in
 # non-free, zfs* in contrib (caught by the first real image build
@@ -179,6 +186,17 @@ if any(pkg.endswith("-dkms") for pkg in all_packages):
         if tool not in all_packages:
             all_packages.append(tool)
 
+# Bake-time package prerequisites. selfdef is Rust → needs cargo IN the
+# image to build at postinst; dev-tools need curl for the NodeSource setup.
+if bake_selfdef:
+    for tool in ("cargo", "rustc", "git", "pkg-config", "libssl-dev"):
+        if tool not in all_packages:
+            all_packages.append(tool)
+if bake_dev_tools:
+    for tool in ("curl", "ca-certificates"):
+        if tool not in all_packages:
+            all_packages.append(tool)
+
 cfg = textwrap.dedent(f"""\
     # auto-generated profile-specific config for {profile_id}
     [Distribution]
@@ -235,6 +253,48 @@ if deny:
         done
         """) % " ".join(deny)
 
+# ---- bake blocks (operator "ready after flash", build-time knobs) ----
+# Appended to the postinst AFTER the critical kernel install + deny purge.
+# FAILURE-TOLERANT by design: the postinst runs `set -uo pipefail` (no -e),
+# and every step here ends in `|| echo ...(non-fatal)` so a dev-tool hiccup
+# never bricks the image build (unlike the kernel install, which exits 1).
+# apt + network are available at postinst (before mkosi's finalize strips
+# dpkg), so NodeSource + npm + cargo work here.
+bake_block = ""
+if bake_dev_tools:
+    bake_block += textwrap.dedent("""\
+
+        # ---- dev tools (SOVEREIGN_OS_BAKE_DEV_TOOLS): Claude Code on node >=%(nn)s ----
+        echo "postinst: baking dev tools (node %(nn)s + claude-code)" >&2
+        if command -v curl >/dev/null 2>&1; then
+            curl -fsSL "https://deb.nodesource.com/setup_%(nn)s.x" | bash - \\
+                2>&1 || echo "postinst: NodeSource setup failed (non-fatal)" >&2
+            apt-get install -y nodejs 2>&1 || echo "postinst: nodejs install failed (non-fatal)" >&2
+            command -v npm >/dev/null 2>&1 && { npm install -g @anthropic-ai/claude-code \\
+                2>&1 || echo "postinst: claude-code install failed (non-fatal)" >&2; }
+        else
+            echo "postinst: curl missing — dev-tools bake skipped (non-fatal)" >&2
+        fi
+        """) % {"nn": node_major}
+if bake_selfdef:
+    bake_block += textwrap.dedent("""\
+
+        # ---- selfdef (SOVEREIGN_OS_BAKE_SELFDEF): build + install its units ----
+        # Source staged into /opt/selfdef by step 07. Build here so the flashed
+        # image ships selfdef ready to enable (no manual compile). Non-fatal.
+        if [ -d /opt/selfdef ] && command -v cargo >/dev/null 2>&1; then
+            echo "postinst: building selfdef in /opt/selfdef" >&2
+            ( cd /opt/selfdef && make build ) 2>&1 \\
+                || echo "postinst: selfdef build failed (non-fatal)" >&2
+            for u in /opt/selfdef/packaging/systemd/*.service /opt/selfdef/packaging/systemd/*.timer; do
+                [ -f "$u" ] && install -m 644 "$u" /etc/systemd/system/ 2>/dev/null || true
+            done
+            echo "postinst: selfdef units installed — enable via 'sovereign-osctl selfdef on'" >&2
+        else
+            echo "postinst: selfdef not staged or cargo absent — bake skipped (non-fatal)" >&2
+        fi
+        """)
+
 postinst = out_dir / "mkosi.postinst.chroot"
 postinst.write_text(textwrap.dedent("""\
     #!/bin/bash
@@ -277,7 +337,7 @@ postinst.write_text(textwrap.dedent("""\
             exit 1
         fi
     fi
-    """) + deny_block)
+    """) + deny_block + bake_block)
 postinst.chmod(0o755)
 
 # ---- kernel.modules.load_at_boot → /etc/modules-load.d/ (mkosi.extra overlay) ----

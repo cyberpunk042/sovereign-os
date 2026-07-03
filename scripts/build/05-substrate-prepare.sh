@@ -36,7 +36,10 @@ inputs_hash="$(state_inputs_hash "${BASH_SOURCE[0]}" "${SOVEREIGN_OS_PROFILE_FIL
   "snapshot=${DEBIAN_SNAPSHOT:-}" \
   "epoch=${SOURCE_DATE_EPOCH:-}" \
   "sb_key=${SOVEREIGN_OS_PK_KEY:-${SOVEREIGN_OS_MOK_KEY:-}}" \
-  "root_pw=$([ -n "${SOVEREIGN_OS_ROOT_PASSWORD:-}" ] && echo set || echo unset)")"
+  "root_pw=$([ -n "${SOVEREIGN_OS_ROOT_PASSWORD:-}" ] && echo set || echo unset)" \
+  "bake_dev=${SOVEREIGN_OS_BAKE_DEV_TOOLS:-}" \
+  "bake_selfdef=${SOVEREIGN_OS_BAKE_SELFDEF:-}" \
+  "node_major=${SOVEREIGN_OS_NODE_MAJOR:-22}")"
 
 if ! state_step_should_run "${STEP_ID}" "${inputs_hash}"; then
   log_info "step ${STEP_ID} already completed with matching inputs — skipping"
