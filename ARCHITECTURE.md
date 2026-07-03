@@ -42,7 +42,7 @@
 
    Fourth repo:
    ┌───────────────────────┐
-   │  root-ghostproxy      │   currently dormant
+   │  root-ghostproxy      │   active (endpoint mode; SDD-046)
    └───────────────────────┘
 ```
 
@@ -53,7 +53,7 @@
 | **`cyberpunk042/sovereign-os`** (this) | Builds the OS image; specifies profile schema; provides lifecycle-management tools. |
 | **`cyberpunk042/devops-solutions-information-hub`** | Synthesizes the knowledge baseline; owns the SAIN-01 milestone + 11 epics + L1–L3 layers. Authoritative for architectural design decisions ABOUT the OS. |
 | **`cyberpunk042/selfdef`** | Provides the security daemon that RUNS on the produced OS (agent-guard Tetragon module + 12 notifier channels + persistent escalations). Authoritative for runtime-defense decisions. |
-| **`cyberpunk042/root-ghostproxy`** | Dormant. Receives /view + /questions skill installs and infrastructure-of-thought primitives; no active product surface. |
+| **`cyberpunk042/root-ghostproxy`** | Active as an endpoint-mode consumption dependency (SDD-046, since 2026-07-03): supplies the AI-agent safety envelope (Claude Code + opencode machine-level hooks + integrity sentinel) installed on SAIN-01 nodes via its own `install.sh --profile base --mode endpoint`. Proxy/IPS half (L2 bridge, Suricata/PolarProxy) stays DISABLED per operator directive. Authoritative for the AI-agent tool-call safety policy. Previously dormant (received /view + /questions skill installs in a prior arc). |
 
 Full boundary semantics — what flows, what doesn't, what cross-references
 are allowed — live in [`docs/sdd/001-cross-repo-boundaries.md`](docs/sdd/001-cross-repo-boundaries.md).

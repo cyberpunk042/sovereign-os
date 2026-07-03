@@ -108,6 +108,11 @@ EXEMPT_PATTERNS: list[tuple[str, str]] = [
     (r"^sovereign_os_post_install_[a-z0-9_]+$",
      "post-install hook lifecycle telemetry (applied/result counters); "
      "install-time one-shot, not a runtime health gauge."),
+    (r"^sovereign_os_ghostproxy_endpoint_install_(result|last_run_timestamp)$",
+     "first-boot root-ghostproxy envelope install-hook telemetry (SDD-046; "
+     "report-only/installed/install-failed one-shot + last-run marker); the "
+     "RUNTIME health signal is the weekly verify pair, paged via "
+     "SovereignOsGhostproxyEnvelopeUnhealthy / SovereignOsGhostproxyVerifyStale."),
     (r"^sovereign_os_pulse_[a-z0-9_]+$",
      "pulse build telemetry (bitnet / wasm-aot build counters + timestamps); "
      "build-time, not runtime health."),

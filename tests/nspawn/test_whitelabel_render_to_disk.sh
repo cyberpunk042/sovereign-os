@@ -88,25 +88,25 @@ echo "  output dir: ${tmpdir}"
 echo
 
 # 1. os-release exists + contains operator-chosen ID
-assert_file_exists "${tmpdir}/mkosi.skeleton/etc/os-release" "os-release rendered"
-assert_file_contains "${tmpdir}/mkosi.skeleton/etc/os-release" "ID=sovereign" "os-release has ID=sovereign (from whitelabel branding.os_id)"
+assert_file_exists "${tmpdir}/mkosi.extra/etc/os-release" "os-release rendered"
+assert_file_contains "${tmpdir}/mkosi.extra/etc/os-release" "ID=sovereign" "os-release has ID=sovereign (from whitelabel branding.os_id)"
 
 # 2. /etc/issue has the operator-verbatim motd
-assert_file_contains "${tmpdir}/mkosi.skeleton/etc/issue" "quality over quantity" \
+assert_file_contains "${tmpdir}/mkosi.extra/etc/issue" "quality over quantity" \
   "/etc/issue contains operator-verbatim motd"
-assert_file_contains "${tmpdir}/mkosi.skeleton/etc/issue" "honesty over cheats" \
+assert_file_contains "${tmpdir}/mkosi.extra/etc/issue" "honesty over cheats" \
   "/etc/issue contains 'honesty over cheats' (full verbatim)"
 
 # 3. /etc/dpkg/origins/sovereign preserves Debian provenance
-assert_file_contains "${tmpdir}/mkosi.skeleton/etc/dpkg/origins/sovereign" "Parent: Debian" \
+assert_file_contains "${tmpdir}/mkosi.extra/etc/dpkg/origins/sovereign" "Parent: Debian" \
   "dpkg origins file preserves 'Parent: Debian' provenance"
 
 # 4. /etc/debian_version must NOT be in the skeleton (legal floor)
-assert_not_present "${tmpdir}/mkosi.skeleton/etc/debian_version" \
+assert_not_present "${tmpdir}/mkosi.extra/etc/debian_version" \
   "/etc/debian_version legal-floor preservation"
 
 # 5. /usr/share/doc/* must NOT have rendered copyright overrides
-assert_not_present "${tmpdir}/mkosi.skeleton/usr/share/doc" \
+assert_not_present "${tmpdir}/mkosi.extra/usr/share/doc" \
   "/usr/share/doc/ legal-floor preservation"
 
 # 6. Manifest must contain the /etc/default/grub line-replace action.

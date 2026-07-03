@@ -47,6 +47,8 @@ EMITTED_METRICS = {
     "sovereign_os_selfdef_sync_behind_commits",
     "sovereign_os_selfdef_sync_result",
     "sovereign_os_selfdef_sync_last_run_timestamp",
+    "sovereign_os_ghostproxy_endpoint_verify_result",
+    "sovereign_os_ghostproxy_endpoint_verify_last_run_timestamp",
 }
 
 EXPECTED_ALERTS = {
