@@ -85,6 +85,10 @@ COMMANDS:
   profiles active              Show active profile id
   profiles switch <id>         Swap active profile (flags items requiring rebuild)
   profiles validate            Schema-validate all profiles (raw + resolved)
+  profiles generate-runtime <os-profile> <strategy> [--out <path>]
+                               SDD-043: generate a runtime profile from hardware +
+                               strategy (efficiency | high-concurrency | deep-context).
+                               tier_intent allocations, validated + catalog-resolved.
 
   whitelabel show              Show active whitelabel branding
   whitelabel apply <id>        Re-render whitelabel surfaces on the running system
@@ -1709,6 +1713,16 @@ PY
       local sub2="${1:-show}"
       shift || true
       "${__REPO_ROOT}/scripts/hardware/profile-flex.py" "${sub2}" "$@"
+      ;;
+    generate-runtime)
+      # SDD-043 Phase 3: generate a runtime profile from an OS profile's
+      # hardware + a strategy. Emits tier_intent allocations sized to the
+      # declared GPUs/CPU, validated + catalog-resolved before it prints.
+      local hw="${1:?usage: profiles generate-runtime <os-profile> <efficiency|high-concurrency|deep-context> [--out <path>]}"
+      local strat="${2:?usage: profiles generate-runtime <os-profile> <efficiency|high-concurrency|deep-context> [--out <path>]}"
+      shift 2 || true
+      python3 "${__REPO_ROOT}/scripts/operator/generate-runtime-profile.py" \
+        --hardware "${hw}" --strategy "${strat}" "$@"
       ;;
     *)
       log_error "unknown profiles subcommand: ${sub}"

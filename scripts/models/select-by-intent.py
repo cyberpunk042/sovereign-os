@@ -84,9 +84,9 @@ def select(models: list[dict], intent: dict, tier: str | None = None) -> dict | 
         real = 0 if m.get("status") == "verified-real" else 1
         return (
             real,                                              # verified-real first
-            -float(m.get("vram_gib_min") or 0),                # spend the budget
+            class_rank.get(m.get("class"), len(classes)),      # HONOR class-preference order
+            -float(m.get("vram_gib_min") or 0),                # then spend the budget WITHIN the class
             -int(m.get("context_window_tokens") or 0),         # more context
-            class_rank.get(m.get("class"), len(classes)),      # class preference
             str(m.get("id")),                                  # stable
         )
 
