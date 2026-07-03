@@ -13,6 +13,9 @@ import copy
 import importlib.util
 from pathlib import Path
 
+import pytest
+import yaml
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PLANNER = REPO_ROOT / "scripts" / "inference" / "thinking-plan.py"
 ROUTER = REPO_ROOT / "scripts" / "inference" / "router.py"
@@ -107,6 +110,56 @@ def test_self_consistency_and_moe_are_policy_driven():
     kinds = {s["step"] for s in plan["steps"]}
     assert "self_consistency" in kinds
     assert "moe" in kinds
+
+
+def test_schema_accepts_thinking_policy_block():
+    """A runtime profile may carry a sparse thinking_policy; the schema
+    accepts it and rejects an invalid validate.mode (SDD-043 P4 —
+    the router policy is profile-driven, not hardcoded)."""
+    jsonschema = pytest.importorskip("jsonschema")
+    schema = yaml.safe_load((REPO_ROOT / "schemas" / "runtime-profile.schema.yaml").read_text())
+    prof = {
+        "schema_version": "1.0.0",
+        "runtime_profile": {
+            "id": "tp-demo", "name": "t", "description": "x" * 40,
+            "hardware_profile_compat": ["sain-01"],
+            "allocations": [{"agent_id": "o1", "tier": "oracle",
+                             "target_hardware": "cuda:0", "engine": "vllm",
+                             "model": "DeepSeek-R1-Distill-Llama-70B-Q4_K_M"}],
+            "thinking_policy": {"validate": {"mode": "off"},
+                                "self_consistency": {"samples": 3}},
+        },
+    }
+    jsonschema.Draft202012Validator(schema).validate(prof)
+    prof["runtime_profile"]["thinking_policy"]["validate"]["mode"] = "bogus"
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.Draft202012Validator(schema).validate(prof)
+
+
+def test_planner_honors_active_profile_policy(tmp_path, monkeypatch):
+    """The planner merges the ACTIVE runtime profile's thinking_policy over
+    the default — validator OFF in the profile drops the validate step."""
+    p = _planner()
+    runtime_dir = REPO_ROOT / "profiles" / "runtime"
+    fixture = runtime_dir / "_test_tp_honoring.yaml"
+    fixture.write_text(
+        "schema_version: \"1.0.0\"\n"
+        "runtime_profile:\n"
+        "  id: _test_tp_honoring\n  name: t\n"
+        "  description: '" + "x" * 40 + "'\n"
+        "  hardware_profile_compat: [sain-01]\n"
+        "  allocations:\n"
+        "    - {agent_id: o1, tier: oracle, target_hardware: 'cuda:0', engine: vllm, model: DeepSeek-R1-Distill-Llama-70B-Q4_K_M}\n"
+        "  thinking_policy:\n    validate: {mode: 'off'}\n"
+    )
+    try:
+        monkeypatch.setenv("SOVEREIGN_OS_RUNTIME_PROFILE", "_test_tp_honoring")
+        policy = p.load_policy()
+        plan = p.plan(_body("prove sqrt(2) irrational"), policy)
+        assert plan["escalated"] is True
+        assert all(s["step"] != "validate" for s in plan["steps"]), plan["steps"]
+    finally:
+        fixture.unlink(missing_ok=True)
 
 
 def test_think_model_classes_are_valid_taxonomy():

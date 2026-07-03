@@ -115,6 +115,9 @@ COMMANDS:
   models suggest --list        R214: profile-aware suggester — flags
                                aspirational + VRAM-overrun allocations
                                + suggests smaller-quant alternatives
+  models select --class C[,C] --vram N [--tier T] [--purpose P] [--json]
+                               SDD-043: VRAM-aware pick — best model of a
+                               class that fits N GiB (the tier_intent engine)
   models info <slug> [--json]  R231 (SDD-026 Z-2): LM-Studio-equivalent
                                rich detail for one catalog model
                                (class / quant / size / params / vram /
@@ -2117,6 +2120,12 @@ cmd_models() {
       # R212 catalog, flag aspirational entries + VRAM overruns, and
       # suggest smaller-quantization alternatives.
       "${__REPO_ROOT}/scripts/models/suggest-by-profile.py" "$@"
+      ;;
+    select)
+      # SDD-043 Phase 2: VRAM-aware tier_intent resolution — "give me the
+      # best model of class C that fits N GiB". The engine behind
+      # tier_intent-driven runtime profiles.
+      "${__REPO_ROOT}/scripts/models/select-by-intent.py" "$@"
       ;;
     info)
       # R231 (SDD-026 Z-2): LM-Studio-equivalent rich detail for one

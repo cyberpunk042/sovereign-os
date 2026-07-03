@@ -73,8 +73,35 @@ def _deep_merge(base: dict, over: dict) -> dict:
     return out
 
 
+def _active_runtime_profile_policy() -> dict | None:
+    """The `thinking_policy` block of the ACTIVE runtime profile, if any.
+    Resolution mirrors runtime-profile.sh: SOVEREIGN_OS_RUNTIME_PROFILE, then
+    /etc/… or ~/.sovereign-os/active-runtime-profile → profiles/runtime/<id>.yaml."""
+    import os
+    rid = os.environ.get("SOVEREIGN_OS_RUNTIME_PROFILE")
+    if not rid:
+        for cand in ("/etc/sovereign-os/active-runtime-profile",
+                     str(Path.home() / ".sovereign-os" / "active-runtime-profile")):
+            if Path(cand).is_file():
+                rid = Path(cand).read_text().strip()
+                break
+    if not rid:
+        return None
+    yml = REPO_ROOT / "profiles" / "runtime" / f"{rid}.yaml"
+    if not yml.is_file():
+        return None
+    import yaml
+    doc = yaml.safe_load(yml.read_text()) or {}
+    return (doc.get("runtime_profile") or {}).get("thinking_policy")
+
+
 def load_policy(path: Path | None = None, override: dict | None = None) -> dict:
+    """Compose the policy: DEFAULT_POLICY ← active-profile thinking_policy ←
+    --policy file ← explicit override. Later sources win; each is sparse."""
     policy = DEFAULT_POLICY
+    prof_policy = _active_runtime_profile_policy()
+    if prof_policy:
+        policy = _deep_merge(policy, prof_policy)
     if path is not None:
         import yaml
         doc = yaml.safe_load(Path(path).read_text()) or {}

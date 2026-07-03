@@ -116,7 +116,59 @@ properties:
         type: object
         additionalProperties: true
 
+      thinking_policy:
+        $ref: "#/$defs/thinking-policy"
+
 $defs:
+  thinking-policy:
+    description: |
+      SDD-043 Phase 4 — per-profile orchestration policy for the thinking
+      router (scripts/inference/thinking-plan.py). Declares WHEN a request
+      escalates into a thinking flow and WHICH primitives compose it —
+      chain-of-thought, a Validator pass/tier, self-consistency, MoE.
+      Sparse: any omitted field falls back to the shipped DEFAULT_POLICY,
+      so a profile overrides only what it wants. Nothing is cemented.
+    type: object
+    additionalProperties: false
+    properties:
+      escalate:
+        type: object
+        additionalProperties: false
+        properties:
+          task_types: {type: array, items: {type: string}}
+          tiers: {type: array, items: {type: string}}
+          explicit_flag: {type: string}
+      think:
+        type: object
+        additionalProperties: false
+        properties:
+          enabled: {type: boolean}
+          model_class:
+            type: array
+            items:
+              type: string
+              enum: [llm, slm, rlm, ternary-lm, lora-adapter, embed, vision,
+                     multimodal, code, mixture, speculative, reranker]
+      validate:
+        type: object
+        additionalProperties: false
+        properties:
+          mode: {type: string, enum: [pass, tier, "off"]}   # quote off — YAML would read it as false
+          model_class:
+            type: array
+            items: {type: string}
+      self_consistency:
+        type: object
+        additionalProperties: false
+        properties:
+          samples: {type: integer, minimum: 1}
+      moe:
+        type: object
+        additionalProperties: false
+        properties:
+          enabled: {type: boolean}
+          top_k: {type: integer, minimum: 1}
+
   tier-intent:
     description: |
       SDD-043 Phase 2 — declare a tier's model by INTENT instead of a
