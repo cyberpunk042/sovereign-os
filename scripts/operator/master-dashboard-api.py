@@ -79,6 +79,16 @@ WEBAPP_PATH = Path(os.environ.get(
     "MASTER_DASHBOARD_WEBAPP_PATH", str(_WEBAPP_DEFAULT)
 ))
 
+# SDD-045 Phase B — the described dashboard catalog. This is the single
+# source of truth for the operator's global view: every surface with a
+# real description + category + status + how-to-reach. The webapp renders
+# it as the "all dashboards (described)" section so the operator sees a
+# real explanation next to each label — not a bare slug list.
+_CATALOG_DEFAULT = _REPO_ROOT / "config" / "dashboard-catalog.yaml"
+CATALOG_PATH = Path(os.environ.get(
+    "SOVEREIGN_OS_DASHBOARD_CATALOG", str(_CATALOG_DEFAULT)
+))
+
 # Master-dashboard CLI module — import directly so the API serves
 # from the SAME data model the operator-facing CLI uses (no drift).
 _THIS_DIR = Path(__file__).resolve().parent
@@ -191,6 +201,168 @@ def _toggles_payload() -> dict:
     }
 
 
+def _catalog_payload() -> dict:
+    """SDD-045 Phase B — serve the described catalog as JSON so the webapp
+    renders label + REAL description + category + status + link for every
+    surface. Parsed with a stdlib-only mini-YAML reader when PyYAML is
+    absent, so the read-only API keeps zero hard third-party deps.
+
+    Honest-degraded: if the catalog is unreadable, returns an error payload
+    (never a fabricated list) so the webapp shows the gap instead of hiding
+    it — per the standing rule, no minimizing.
+    """
+    try:
+        raw = CATALOG_PATH.read_text(encoding="utf-8")
+    except OSError as e:
+        return {"error": f"catalog unreadable: {e}",
+                "expected_path": str(CATALOG_PATH),
+                "categories": [], "dashboards": []}
+    try:
+        import yaml  # type: ignore
+        doc = yaml.safe_load(raw)
+    except ModuleNotFoundError:
+        doc = _mini_yaml_catalog(raw)
+    except Exception as e:  # noqa: BLE001 — malformed catalog is operator-visible
+        return {"error": f"catalog parse failed: {e}",
+                "path": str(CATALOG_PATH), "categories": [], "dashboards": []}
+    cats = doc.get("categories", []) if isinstance(doc, dict) else []
+    dash = doc.get("dashboards", []) if isinstance(doc, dict) else []
+    # order category blurbs the way the webapp groups them
+    return {
+        "source": str(CATALOG_PATH),
+        "schema_version": (doc or {}).get("schema_version"),
+        "category_count": len(cats),
+        "dashboard_count": len(dash),
+        "categories": cats,
+        "dashboards": dash,
+    }
+
+
+def _mini_yaml_catalog(raw: str) -> dict:
+    """Last-resort stdlib parse of dashboard-catalog.yaml when PyYAML is
+    absent (the API daemon aims for zero hard deps). The catalog uses a
+    single, regular flow-map-per-entry shape; parse exactly that. If the
+    shape ever diverges this raises, surfacing the drift rather than
+    silently returning a partial list."""
+    import ast
+    import re
+
+    def _flow_to_obj(block: str) -> dict:
+        # convert a YAML flow map `{k: v, k2: "v2", list: [a, b]}` (possibly
+        # multi-line) into a Python dict via a tolerant tokenizer.
+        obj: dict = {}
+        # normalize whitespace/newlines inside the flow map
+        body = block.strip()
+        if body.startswith("{"):
+            body = body[1:]
+        if body.endswith("}"):
+            body = body[:-1]
+        # split top-level commas (respect [] and "" nesting)
+        parts, depth, buf, instr = [], 0, [], None
+        for ch in body:
+            if instr:
+                buf.append(ch)
+                if ch == instr:
+                    instr = None
+                continue
+            if ch in "\"'":
+                instr = ch; buf.append(ch); continue
+            if ch in "[{":
+                depth += 1
+            elif ch in "]}":
+                depth -= 1
+            if ch == "," and depth == 0:
+                parts.append("".join(buf)); buf = []
+            else:
+                buf.append(ch)
+        if buf:
+            parts.append("".join(buf))
+        for p in parts:
+            if ":" not in p:
+                continue
+            k, v = p.split(":", 1)
+            k, v = k.strip(), v.strip()
+            if not k:
+                continue
+            if v.startswith("[") and v.endswith("]"):
+                inner = v[1:-1].strip()
+                obj[k] = [x.strip().strip("\"'") for x in inner.split(",") if x.strip()] if inner else []
+            elif v in ("null", "~", ""):
+                obj[k] = None
+            elif (v.startswith('"') and v.endswith('"')) or (v.startswith("'") and v.endswith("'")):
+                try:
+                    obj[k] = ast.literal_eval(v)
+                except (ValueError, SyntaxError):
+                    obj[k] = v.strip("\"'")
+            else:
+                obj[k] = v
+        return obj
+
+    def _scalar(v: str):
+        v = v.strip()
+        if v in ("null", "~", ""):
+            return None
+        if (v.startswith('"') and v.endswith('"')) or (v.startswith("'") and v.endswith("'")):
+            try:
+                return ast.literal_eval(v)
+            except (ValueError, SyntaxError):
+                return v.strip("\"'")
+        return v
+
+    categories: list = []
+    dashboards: list = []
+    section = None
+    lines = raw.splitlines()
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        stripped = line.strip()
+        if stripped.startswith("#") or not stripped:
+            i += 1; continue
+        if re.match(r"^categories:\s*$", line):
+            section = "categories"; i += 1; continue
+        if re.match(r"^dashboards:\s*$", line):
+            section = "dashboards"; i += 1; continue
+        if re.match(r"^schema_version:", line):
+            i += 1; continue
+        if stripped.startswith("- "):
+            entry = stripped[2:]
+            target = categories if section == "categories" else dashboards
+            if entry.startswith("{"):
+                # flow-map list item — gather until braces balance
+                depth = entry.count("{") - entry.count("}")
+                buf = [entry]
+                while depth > 0 and i + 1 < len(lines):
+                    i += 1
+                    nxt = lines[i]
+                    buf.append(nxt.strip())
+                    depth += nxt.count("{") - nxt.count("}")
+                target.append(_flow_to_obj(" ".join(buf)))
+                i += 1; continue
+            # block-mapping list item (e.g. categories): first pair on the
+            # `- ` line, continuation `key: value` lines at deeper indent.
+            obj: dict = {}
+            if ":" in entry:
+                k, v = entry.split(":", 1)
+                obj[k.strip()] = _scalar(v)
+            base_indent = len(line) - len(line.lstrip())
+            while i + 1 < len(lines):
+                nxt = lines[i + 1]
+                if not nxt.strip() or nxt.strip().startswith("#"):
+                    i += 1; continue
+                nxt_indent = len(nxt) - len(nxt.lstrip())
+                if nxt_indent <= base_indent or nxt.strip().startswith("- "):
+                    break
+                if ":" in nxt:
+                    k, v = nxt.strip().split(":", 1)
+                    obj[k.strip()] = _scalar(v)
+                i += 1
+            target.append(obj)
+            i += 1; continue
+        i += 1
+    return {"categories": categories, "dashboards": dashboards}
+
+
 def _version_payload() -> dict:
     return {
         "module": "master-dashboard-api",
@@ -211,6 +383,7 @@ _ENDPOINT_HANDLERS = {
     "/health":     _health_payload,
     "/discover":   _discover_payload,
     "/toggles":    _toggles_payload,
+    "/catalog":    _catalog_payload,  # SDD-045 Phase B — described global view
 }
 
 

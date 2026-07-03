@@ -334,10 +334,14 @@ Each phase ends green (lint + panels render). No phase is a stub.
 
 | Q | Question | Status |
 |---|----------|--------|
-| Q-1 | Global header controls (profile/auth/toggle) as a shared web-component include, or server-rendered by each `*-api`? (leaning shared include — one build, all panels) | open |
-| Q-2 | Do the Features rail's on/off controls ever call a *loopback-only, no-auth* mutate endpoint for non-privileged toggles (dashboard on/off, flex-set), or always copy-command? (§1g says copy-command for privileged; loopback dashboard-toggle may be safe to mutate) | open |
-| Q-3 | Runtime-mode switch from a panel: does it invoke `trinity profile switch` (which touches systemd) via an operator-confirmation modal, or strictly copy-command like other privileged ops? | open |
-| Q-4 | The `cli-only` waiver list for §7 completeness — which verb families legitimately have no dashboard home (pure internal libs, first-boot-only wizards)? Needs an explicit reviewed list. | open |
+| Q-1 | Global header controls (profile/auth/toggle) as a shared web-component include, or server-rendered by each `*-api`? | **RESOLVED (lean): shared include** — one `webapp/_shared/control-surface.js` build, all panels get the header. Revisit only if an `*-api` needs server-side auth-tier gating. |
+| Q-2 | Do the Features rail's on/off controls ever call a *loopback-only, no-auth* mutate endpoint for non-privileged toggles, or always copy-command? | **RESOLVED (operator, 2026-07-03): copy-command everywhere.** No control mutates state from the web surface, privileged or not. Every Features-rail control copies the exact `sovereign-osctl …` command. Uniform with §1g; nothing to defend server-side. |
+| Q-3 | Runtime-mode / OS-profile switch from a panel: copy-command, or operator-confirmation modal that invokes? | **RESOLVED (operator, 2026-07-03): both.** The Profiles/Modes selector offers BOTH — a copy-command (default, always present) AND an optional confirm-modal that invokes `trinity profile switch` / `profiles switch` after explicit operator confirmation. Mode switching is the one high-signal action that earns the one-click path, gated behind the modal. |
+| Q-4 | The `cli-only` waiver list for §7 completeness — which verb families legitimately have no dashboard home? | open — resolved during Phase G against the real §7 mapping (pure internal libs, first-boot-only wizards). |
+
+**Execution order (operator, 2026-07-03):** start with **Phase B** (descriptions
+in three places) — the most visible fix, what the operator found missing first.
+Phase A's shared component follows to carry the rails.
 
 ---
 

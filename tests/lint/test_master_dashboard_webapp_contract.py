@@ -158,7 +158,7 @@ def test_webapp_advertises_read_only_endpoints():
     (mutation verbs stay CLI-only — operator §17 sovereignty boundary)."""
     body = WEBAPP_HTML.read_text(encoding="utf-8")
     for path in ("/version", "/routes", "/collisions",
-                 "/health", "/discover"):
+                 "/health", "/discover", "/catalog"):
         assert path in body, (
             f"webapp must wire against R498 endpoint {path!r}"
         )
@@ -267,6 +267,62 @@ def test_master_dashboard_surface_map_extended_to_webapp():
     assert webapp_row.get("state") == "shipped", (
         f"master-dashboard webapp surface must be shipped; got {webapp_row}"
     )
+
+
+def test_webapp_renders_described_catalog():
+    """SDD-045 Phase B — the described global view. The webapp MUST carry
+    the 'all dashboards — described' section that fetches /catalog and
+    renders a REAL description next to every label (the operator's 'IN THE
+    LIST WHERE IS THE DESCRIPTIONS' fix). Static-source check: the section
+    header, the render function, the container, and the /catalog fetch are
+    all present."""
+    body = WEBAPP_HTML.read_text(encoding="utf-8")
+    assert "all dashboards — described" in body, (
+        "webapp missing the described-global-view section header"
+    )
+    assert "renderCatalog" in body, (
+        "webapp missing the renderCatalog() function"
+    )
+    assert 'id="catalog-body"' in body, (
+        "webapp missing the catalog-body container"
+    )
+    assert 'fetchJSON("/catalog")' in body, (
+        "webapp must fetch the described /catalog endpoint"
+    )
+    # the render must be wired into the refresh cycle
+    assert "renderCatalog();" in body, (
+        "renderCatalog() must be called from refresh()"
+    )
+
+
+def test_api_daemon_serves_described_catalog_in_webapp():
+    """Live-spawn: GET /webapp/ contains the described section AND GET
+    /catalog returns described entries — proving the list the operator
+    looks at now shows real descriptions, not bare slugs."""
+    port = _free_port()
+    proc = _spawn_api(port)
+    try:
+        with urllib.request.urlopen(
+            f"http://127.0.0.1:{port}/webapp/", timeout=3
+        ) as r:
+            html = r.read().decode("utf-8")
+        assert "all dashboards — described" in html
+        with urllib.request.urlopen(
+            f"http://127.0.0.1:{port}/catalog", timeout=3
+        ) as r:
+            data = json.loads(r.read())
+        assert data.get("dashboard_count", 0) >= 30, (
+            f"/catalog should describe the full surface; got {data.get('dashboard_count')}"
+        )
+        # every served entry carries a real description
+        undescribed = [d["slug"] for d in data["dashboards"]
+                       if len((d.get("description") or "").strip()) < 30]
+        assert not undescribed, (
+            f"/catalog served entries with no real description: {undescribed}"
+        )
+    finally:
+        proc.kill()
+        proc.wait(timeout=3)
 
 
 def test_webapp_surface_quotes_standing_rule_in_footer():

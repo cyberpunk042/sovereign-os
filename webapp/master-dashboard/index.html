@@ -417,6 +417,40 @@ a11y; contract test catches drift.
   <div class="stat"><div class="k">api version</div><div class="v muted" id="stat-version">—</div></div>
 </div>
 
+<!-- SDD-045 Phase B — the described global view. THE list the operator
+     asked for: every dashboard with a REAL description (not a bare label),
+     grouped by category, honestly badged live/snapshot/planned. Sourced
+     from config/dashboard-catalog.yaml via GET /catalog (single source of
+     truth; descriptions never drift from the catalog). -->
+<h2>all dashboards — described</h2>
+<p class="sub" style="margin:.2rem 0 .8rem">
+  Every operator surface with a real explanation. Click a live/snapshot
+  card to open it; a <span class="pill">planned</span> card shows the CLI
+  that reaches the feature today. <span id="catalog-count" class="muted"></span>
+</p>
+<div id="catalog-body">
+  <div class="muted">loading described catalog…</div>
+</div>
+<style>
+  .cat-group { margin: .4rem 0 1.1rem; }
+  .cat-group > .cat-head { display:flex; align-items:baseline; gap:.6rem; margin:.6rem 0 .3rem; }
+  .cat-group > .cat-head .cat-label { color:var(--accent); font-weight:600; font-size:.95rem; }
+  .cat-group > .cat-head .cat-blurb { color:var(--muted); font-size:.8rem; }
+  .cat-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:.5rem; }
+  .dash-card { display:flex; flex-direction:column; gap:.3rem; padding:.6rem .75rem;
+    border:1px solid var(--border); border-radius:.4rem; background:rgba(255,255,255,.02);
+    text-decoration:none; color:inherit; transition:border-color .1s ease, transform .1s ease; }
+  a.dash-card:hover { border-color:var(--accent); transform:translateY(-1px); }
+  .dash-card .dc-head { display:flex; align-items:center; gap:.5rem; }
+  .dash-card .dc-label { font-weight:600; font-size:.9rem; flex:1; }
+  .dash-card .dc-desc { color:var(--muted); font-size:.8rem; line-height:1.45; }
+  .dash-card .dc-cli { font-size:.74rem; color:var(--fg); background:var(--bg);
+    border:1px solid var(--border); border-radius:3px; padding:.2rem .4rem; overflow-x:auto; white-space:nowrap; }
+  .pill.live     { background:#143d14; color:var(--good); }
+  .pill.snapshot { background:#3a3410; color:var(--warn); }
+  .pill.planned  { background:#26262e; color:var(--accent); }
+</style>
+
 <h2>routes</h2>
 <div class="panel" id="routes-panel">
   <table>
@@ -1150,8 +1184,92 @@ async function renderM060Grid() {
   }
 }
 
+// SDD-045 Phase B — the described global view. Fetches GET /catalog
+// (the described dashboard-catalog) and renders every surface with its
+// REAL description, grouped by category, honestly badged. Web is
+// read-only: live/snapshot cards LINK to the panel; planned cards show
+// the CLI that reaches the feature today (copy-on-click). Escapes all
+// catalog text — the catalog is trusted-authored but we never inject raw.
+function escapeHTML(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+async function renderCatalog() {
+  const body = el("catalog-body");
+  if (!body) return;
+  let cat;
+  try {
+    cat = await fetchJSON("/catalog");
+  } catch (e) {
+    body.innerHTML = '<div class="err">catalog unavailable: ' + escapeHTML(e.message) + '</div>';
+    return;
+  }
+  if (cat.error) {
+    body.innerHTML = '<div class="err">catalog error: ' + escapeHTML(cat.error) + '</div>';
+    return;
+  }
+  const cats = cat.categories || [];
+  const dashboards = cat.dashboards || [];
+  const countEl = el("catalog-count");
+  if (countEl) {
+    countEl.textContent = "— " + dashboards.length + " surfaces across " + cats.length + " categories";
+  }
+  // group dashboards by category, preserving the catalog's category order
+  const byCat = {};
+  for (const d of dashboards) (byCat[d.category] = byCat[d.category] || []).push(d);
+  // ROOT for building panel links (mirrors the palette's ROOT logic)
+  const ROOT = (function () {
+    var p = window.location.pathname.replace(/\/[^/]*$/, "/");
+    return p || "/";
+  })();
+  let html = "";
+  for (const c of cats) {
+    const items = byCat[c.id] || [];
+    if (!items.length) continue;
+    html += '<div class="cat-group"><div class="cat-head">' +
+      '<span class="cat-label">' + escapeHTML(c.label || c.id) + '</span>' +
+      '<span class="cat-blurb">' + escapeHTML(c.blurb || "") + '</span>' +
+      '</div><div class="cat-grid">';
+    for (const d of items) {
+      const status = escapeHTML(d.status || "");
+      const label = escapeHTML(d.label || d.slug);
+      const desc = escapeHTML(d.description || "");
+      const head = '<div class="dc-head"><span class="dc-label">' + label + '</span>' +
+        '<span class="pill ' + status + '">' + status + '</span></div>';
+      const descEl = '<div class="dc-desc">' + desc + '</div>';
+      if (d.path) {
+        // live/snapshot — the whole card links to the panel
+        const href = ROOT + escapeHTML(String(d.slug)) + "/";
+        html += '<a class="dash-card" href="' + href + '">' + head + descEl + '</a>';
+      } else {
+        // planned (no panel yet) — show the CLI that reaches it today
+        const cli = d.cli ? '<div class="dc-cli" title="click to copy" data-cli="' +
+          escapeHTML(d.cli) + '">$ ' + escapeHTML(d.cli) + '</div>' : "";
+        html += '<div class="dash-card">' + head + descEl + cli + '</div>';
+      }
+    }
+    html += '</div></div>';
+  }
+  body.innerHTML = html || '<div class="muted">(catalog empty)</div>';
+  // copy-on-click for planned CLI chips (web is read-only; operator pastes)
+  Array.prototype.forEach.call(body.querySelectorAll(".dc-cli[data-cli]"), function (chip) {
+    chip.style.cursor = "pointer";
+    chip.addEventListener("click", function () {
+      navigator.clipboard.writeText(chip.dataset.cli).then(function () {
+        showCopyToast("copied: " + chip.dataset.cli);
+      });
+    });
+  });
+}
+
 async function refresh() {
   try {
+    // The described catalog is served by the same daemon; render it on
+    // every refresh so status badges stay current. Fired independently so
+    // a catalog hiccup never blanks the routes/health view.
+    renderCatalog();
     const [version, routes, collisions, health, discover, toggles] = await Promise.all(
       ENDPOINTS.map(fetchJSON)
     );
