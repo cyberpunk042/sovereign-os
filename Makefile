@@ -30,6 +30,9 @@ panel:  ## Start the operator panels (build configurator :8100 + runtime dashboa
 bootstrap:  ## One command: enable apt components + install ALL build-host deps (zfs, mkosi, qemu…). Self-sudo.
 	scripts/install/bootstrap-host.sh
 
+dev-setup:  ## Dev workstation: node + Claude Code + Claude VS Code extension + ~/.claude (GUI-aware)
+	scripts/install/dev-workstation.sh
+
 validate:  ## Validate all profiles against schema + mixin merger
 	scripts/validate-profiles.sh
 
