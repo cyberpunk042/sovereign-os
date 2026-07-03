@@ -56,7 +56,14 @@ takeover_port() { # <port> → 0 if free (possibly after takeover), 1 if foreign
   [ -z "${pid}" ] && return 0
   cmd="$(tr '\0' ' ' < "/proc/${pid}/cmdline" 2>/dev/null || true)"
   case "${cmd}" in
-    *build-configurator-api.py*|*dashboard/serve.py*|*master-dashboard-api.py*|\
+    # Every panel process THIS launcher starts is reclaimable on restart:
+    # the two main servers, AND all scripts/operator/*-api.py data services
+    # (the wildcard). Without the *-api.py wildcard, a prior run's data
+    # APIs are seen as FOREIGN and block a fresh `make panel` (caught
+    # 2026-07-03: :8107/:8110/… "held by a FOREIGN process" after an
+    # abandoned run — the launcher could not restart itself).
+    *scripts/operator/*-api.py*|*build-configurator-api.py*|\
+    *dashboard/serve.py*|*master-dashboard-api.py*|\
     *m060-health-api.py*|*ms022-sse-quota-api.py*|*four-watchdog-api.py*)
       echo -e "  ${yellow}↻${reset} :${port} held by previous panel (pid ${pid}) — replacing"
       kill "${pid}" 2>/dev/null || sudo -n kill "${pid}" 2>/dev/null || {
@@ -123,8 +130,17 @@ if [ -z "${SOVEREIGN_OS_PANEL_APIS_OFF:-}" ]; then
   for api in scripts/operator/*-api.py; do
     [ -f "${api}" ] || continue
     name="$(basename "${api}" -api.py)"
+    # build-configurator-api IS the main configurator (started above on
+    # :8100) and ships no systemd unit — never re-manage it here.
+    [ "${name}" = "build-configurator" ] && continue
     unit="systemd/system/sovereign-${name}-api.service"
-    port="$(grep -oiE '[A-Z0-9_]*PORT=[0-9]+' "${unit}" 2>/dev/null | head -1 | grep -oE '[0-9]+$')"
+    # `|| true` is load-bearing: with pipefail, a missing unit or a
+    # unit with no PORT= makes this pipe exit non-zero, and under set -e
+    # the bare assignment would ABORT the whole launcher (caught 2026-07-03:
+    # build-configurator-api.py has no unit → the trap tore down every
+    # panel right after the banner). The `[ -n … ] || continue` below is
+    # the intended skip path; keep the assignment from ever aborting.
+    port="$(grep -oiE '[A-Z0-9_]*PORT=[0-9]+' "${unit}" 2>/dev/null | head -1 | grep -oE '[0-9]+$' || true)"
     [ -n "${port}" ] || continue   # no port declared → can't manage it here
     cockpit_total=$((cockpit_total+1))
     start_server "${name}-api" "${port}" /healthz python3 "${api}" \
