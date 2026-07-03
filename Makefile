@@ -33,6 +33,9 @@ bootstrap:  ## One command: enable apt components + install ALL build-host deps 
 dev-setup:  ## Dev workstation: node + Claude Code + Claude VS Code extension + ~/.claude (GUI-aware)
 	scripts/install/dev-workstation.sh
 
+provision:  ## Resume setup in ONE command: bootstrap + dev tools + selfdef(build+enable) + operator-deps (idempotent)
+	scripts/install/provision.sh
+
 validate:  ## Validate all profiles against schema + mixin merger
 	scripts/validate-profiles.sh
 
