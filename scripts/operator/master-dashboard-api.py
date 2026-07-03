@@ -376,6 +376,51 @@ def _version_payload() -> dict:
     }
 
 
+_CONTROL_SYSTEMS_PATH = _REPO_ROOT / "config" / "control-systems.yaml"
+_FEATURE_COVERAGE_PATH = _REPO_ROOT / "config" / "feature-coverage.yaml"
+
+
+def _yaml_payload(path: Path) -> dict:
+    """SDD-045 — serve a config YAML as JSON so the SHARED master-dashboard
+    webapp works when served from THIS daemon (:8090) too, not only
+    build-configurator-api (:8100). Honest-degraded on read/parse error."""
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except OSError as e:
+        return {"error": f"unreadable: {e}", "path": str(path)}
+    try:
+        import yaml  # type: ignore
+        return yaml.safe_load(raw) or {}
+    except ModuleNotFoundError:
+        return {"error": "PyYAML absent on this host", "path": str(path)}
+    except Exception as e:  # noqa: BLE001 — malformed config is operator-visible
+        return {"error": f"parse failed: {e}", "path": str(path)}
+
+
+def _control_systems_payload() -> dict:
+    """SDD-045 §4 — the 11 on/off + mode + profile systems the control surface
+    renders (parity with build-configurator-api's /control-systems)."""
+    return _yaml_payload(_CONTROL_SYSTEMS_PATH)
+
+
+def _feature_coverage_payload() -> dict:
+    """SDD-045 §7 — the completeness ledger with computed totals (parity with
+    build-configurator-api's /feature-coverage)."""
+    cov = _yaml_payload(_FEATURE_COVERAGE_PATH)
+    if cov.get("error"):
+        return cov
+    mapped = sum(len(v) for v in (cov.get("coverage") or {}).values())
+    waived = len(cov.get("cli_only") or [])
+    return {
+        "verb_families_total": mapped + waived,
+        "mapped_to_dashboard": mapped,
+        "cli_only_waived": waived,
+        "dashboards_governing": len(cov.get("coverage") or {}),
+        "coverage": cov.get("coverage") or {},
+        "cli_only": cov.get("cli_only") or [],
+    }
+
+
 _ENDPOINT_HANDLERS = {
     "/version":    _version_payload,
     "/routes":     _routes_payload,
@@ -384,6 +429,8 @@ _ENDPOINT_HANDLERS = {
     "/discover":   _discover_payload,
     "/toggles":    _toggles_payload,
     "/catalog":    _catalog_payload,  # SDD-045 Phase B — described global view
+    "/control-systems": _control_systems_payload,   # SDD-045 §4 — control surface
+    "/feature-coverage": _feature_coverage_payload,  # SDD-045 §7 — coverage capstone
 }
 
 

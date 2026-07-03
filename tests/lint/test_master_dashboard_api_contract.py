@@ -217,6 +217,25 @@ def test_api_endpoint_catalog():
         proc.wait(timeout=2.0)
 
 
+def test_api_serves_control_systems_and_feature_coverage():
+    """SDD-045 — the SHARED master-dashboard webapp fetches /control-systems +
+    /feature-coverage (for the control surface + coverage capstone). This
+    daemon serves the same webapp at /webapp/, so it MUST serve those
+    endpoints too — otherwise the cockpit breaks with 'unknown endpoint' 404s
+    when served from :8090 (parity with build-configurator-api at :8100)."""
+    proc, port = _start_daemon()
+    try:
+        st, cs = _get_json(port, "/control-systems")
+        assert st == 200, f"/control-systems not served: {st}"
+        assert len(cs.get("systems", [])) >= 11, "control-systems payload thin"
+        st, fc = _get_json(port, "/feature-coverage")
+        assert st == 200, f"/feature-coverage not served: {st}"
+        assert fc.get("verb_families_total", 0) >= 100, "feature-coverage payload thin"
+    finally:
+        proc.terminate()
+        proc.wait(timeout=2.0)
+
+
 def test_api_endpoint_collisions():
     proc, port = _start_daemon()
     try:
