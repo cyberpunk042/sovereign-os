@@ -693,6 +693,15 @@ class Handler(BaseHTTPRequestHandler):
         if snapshot and not re.fullmatch(r"\d{8}T\d{6}Z", snapshot):
             return self._send(400, json.dumps(
                 {"error": f"bad snapshot {snapshot!r} (want YYYYMMDDTHHMMSSZ)"}))
+        # SDD "ready after flash" bake knobs — the page can request a
+        # self-contained image (dev tools + selfdef baked in). Only apply
+        # to the real build (dry-run/preflight don't emit the image).
+        bake_env: dict[str, str] = {}
+        if action == "build":
+            if body.get("bake_dev"):
+                bake_env["SOVEREIGN_OS_BAKE_DEV_TOOLS"] = "1"
+            if body.get("bake_selfdef"):
+                bake_env["SOVEREIGN_OS_BAKE_SELFDEF"] = "1"
         argv_fn, needs_root = RUN_ACTIONS[action]
         argv = argv_fn()
         elevation_note = ""
@@ -712,6 +721,7 @@ class Handler(BaseHTTPRequestHandler):
                     f"SOVEREIGN_OS_PROFILE={profile}",
                     f"PATH={os.environ.get('PATH', '/usr/sbin:/usr/bin:/sbin:/bin')}",
                     *([f"DEBIAN_SNAPSHOT={snapshot}"] if snapshot else []),
+                    *[f"{k}={v}" for k, v in bake_env.items()],
                     *[f"{k}={v}" for k, v in operator_key_env().items()],
                     str(REPO / argv[0]), *argv[1:]]
             elevation_note = ("  (look for the system password prompt on "
@@ -721,7 +731,7 @@ class Handler(BaseHTTPRequestHandler):
                 {"error": f"a job is already running: {CURRENT_JOB.get('action')}"}))
         try:
             env = dict(os.environ, SOVEREIGN_OS_PROFILE=profile,
-                       **operator_key_env())
+                       **operator_key_env(), **bake_env)
             if snapshot:
                 env["DEBIAN_SNAPSHOT"] = snapshot
             proc = subprocess.Popen(

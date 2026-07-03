@@ -589,6 +589,10 @@
         <button class="btn" id="run-cancel" disabled>■ cancel</button>
         <span class="small muted" id="run-status" style="align-self:center"></span>
       </div>
+      <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:.5rem" title="Bake operator software INTO the image so a flashed box is self-contained (bigger image, zero-touch after flash)">
+        <label class="chk" style="margin:0"><input type="checkbox" id="bake-dev"> bake dev tools <span class="muted small">(node 22 + Claude Code)</span></label>
+        <label class="chk" style="margin:0"><input type="checkbox" id="bake-selfdef"> bake selfdef <span class="muted small">(built + ready to enable)</span></label>
+      </div>
       <pre class="out" id="run-log" style="max-height:280px; min-height:2.2rem; margin:0">(idle — output streams here live)</pre>
       <div class="banner danger" id="run-errors" style="display:none; margin:.55rem 0 0"></div>
     </div>
@@ -1294,6 +1298,9 @@ function buildCommand(){
     lines.push("SOVEREIGN_OS_MOK_KEY=/etc/sovereign-os/keys/mok.key \\");
     lines.push("SOVEREIGN_OS_MOK_CERT=/etc/sovereign-os/keys/mok.crt \\");
   }
+  var bd = document.getElementById("bake-dev"), bs = document.getElementById("bake-selfdef");
+  if (bd && bd.checked) lines.push("SOVEREIGN_OS_BAKE_DEV_TOOLS=1 \\");
+  if (bs && bs.checked) lines.push("SOVEREIGN_OS_BAKE_SELFDEF=1 \\");
   lines.push(
     "SOVEREIGN_OS_OVERLAY_PROFILE=overlay.yaml \\",
     "SOVEREIGN_OS_OVERLAY_OPERATOR_DEPS=operator-deps.toml \\",
@@ -1591,7 +1598,9 @@ function runAction(action){
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({action: action, profile: state.profile,
-                          snapshot: document.getElementById("snapshot").value || ""}),
+                          snapshot: document.getElementById("snapshot").value || "",
+                          bake_dev: document.getElementById("bake-dev").checked,
+                          bake_selfdef: document.getElementById("bake-selfdef").checked}),
   }).then(function(r){
     if (!r.ok) return r.text().then(function(t){
       var msg = t; try { var j = JSON.parse(t); msg = j.error + (j.fix ? "\n→ " + j.fix : ""); } catch(e){}
@@ -1613,6 +1622,8 @@ function runAction(action){
     setRunBusy(false, "");
   });
 }
+document.getElementById("bake-dev").addEventListener("change", regenerate);
+document.getElementById("bake-selfdef").addEventListener("change", regenerate);
 document.getElementById("run-dry").addEventListener("click", function(){ runAction("dry-run"); });
 document.getElementById("run-preflight").addEventListener("click", function(){ runAction("preflight"); });
 document.getElementById("run-build").addEventListener("click", function(){ runAction("build"); });
