@@ -11,6 +11,7 @@
 - [Verbatim-preservation surface (SDD-037)](./verbatim-surface.md)
 - [§1g 8-surface delivery contract (SDD-039)](./verbatim-surface.md#c-28--1g-8-surface-delivery-contract-r453-anchor--sdd-039-doctrine)
 - [Flexible tiered feature+model exploitation (SDD-043)](../sdd/043-flexible-tiered-feature-model-exploitation.md)
+- [Unified dashboard surface (SDD-044)](../sdd/044-unified-dashboard-surface.md)
 
 # The 10-PR foundation phase
 
