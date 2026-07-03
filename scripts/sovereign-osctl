@@ -573,6 +573,18 @@ COMMANDS:
                                --confirm-curl-shell (defense-in-depth).
                                First cross-script consumer of the
                                R283 operator-overlay helper (SDD-030).
+  operator-rules status|apply|capture|compat [--dry-run] [--json]
+                               Retain + re-apply the operator's Claude
+                               Code interaction rules (operator-is-driver,
+                               words-sacrosanct, do-not-minimize, …) across
+                               a fresh flash. Versioned in
+                               assets/operator-memory/; applied to
+                               ~/.claude/projects/<project>/memory/. status
+                               shows drift; apply re-installs (fresh-flash
+                               resume); capture versions live edits; compat
+                               checks path-disjointness vs root-ghostproxy.
+                               sovereign-os-owned — works with NO opt-in to
+                               root-ghostproxy.
   mcp-aggregate manifest [--upstream-selfdef H:P] [--config P] [--json|--human]
   mcp-aggregate probe-upstream H:P [--timeout SECS] [--json]
                                R286 (E7.M5 / SDD-031): cross-repo
@@ -6583,6 +6595,22 @@ case "${cmd}" in
         ;;
       *)
         log_error "unknown operator-deps subverb: ${sub} (available: list, plan, apply)"
+        exit 2
+        ;;
+    esac
+    ;;
+  operator-rules)
+    # Retain + re-apply the operator's Claude Code interaction rules across a
+    # fresh flash (sovereign-os-owned; store = assets/operator-memory/; live =
+    # ~/.claude/projects/<project>/memory/). Disjoint from root-ghostproxy.
+    sub="${1:-status}"
+    shift || true
+    case "${sub}" in
+      status|apply|capture|compat)
+        "${__REPO_ROOT}/scripts/operator/operator-rules.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown operator-rules subverb: ${sub} (available: status, apply, capture, compat)"
         exit 2
         ;;
     esac
