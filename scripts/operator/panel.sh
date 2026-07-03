@@ -31,8 +31,18 @@ bold='\033[1m'; green='\033[32m'; yellow='\033[33m'; cyan='\033[36m'; reset='\03
 
 command -v python3 >/dev/null || { echo "python3 required"; exit 2; }
 
-LOG_DIR="${TMPDIR:-/tmp}/sovereign-panels"
-mkdir -p "${LOG_DIR}"
+# Per-user log dir — a PRIOR `sudo` panel run left /tmp/sovereign-panels
+# owned by root:root, and under /tmp's sticky bit a normal user can neither
+# write into it NOR delete it (caught 2026-07-03: "Permission denied" on
+# configurator.log killed the whole launch under `set -e`). Scoping the dir
+# by UID means root's run and jfortin's run never share a directory, so no
+# prior run can ever poison the next. If a legacy shared dir exists and we
+# can't write it, we fall through to the per-user one rather than dying.
+LOG_DIR="${TMPDIR:-/tmp}/sovereign-panels-$(id -u)"
+if ! mkdir -p "${LOG_DIR}" 2>/dev/null || [ ! -w "${LOG_DIR}" ]; then
+  # last resort: a mktemp dir we definitely own
+  LOG_DIR="$(mktemp -d "${TMPDIR:-/tmp}/sovereign-panels.XXXXXX")"
+fi
 
 # Take over a port we own: previous panel runs (any user) leave servers
 # behind; "assumed running" turned out to be a footgun — the old server
