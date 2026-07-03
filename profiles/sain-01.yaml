@@ -318,6 +318,16 @@ hooks:
       type: interactive
       script: scripts/hooks/post-install/first-login-assistant.sh
       mandatory: false
+    # SDD-046 — root-ghostproxy endpoint AI-agent safety envelope
+    # (proxy mode DISABLED per operator directive 2026-07-03; mode
+    # pinned endpoint inside the hook — auto-detect would promote this
+    # dual-NIC host to bridge). Triple-gated: report-only until
+    # SOVEREIGN_OS_CONFIRM_GHOSTPROXY_INSTALL=YES. mandatory: false
+    # per Q-046-001 (checkout may not exist at first boot).
+    - id: root-ghostproxy-endpoint-install
+      type: security
+      script: scripts/hooks/post-install/root-ghostproxy-endpoint-install.sh
+      mandatory: false
 
   post_install_recurrent:
     - id: zfs-scrub
@@ -336,6 +346,10 @@ hooks:
       type: maintenance
       schedule: weekly
       script: scripts/hooks/recurrent/selfdef-sync.sh
+    - id: root-ghostproxy-verify
+      type: security
+      schedule: weekly
+      script: scripts/hooks/recurrent/root-ghostproxy-verify.sh
 
   decommission:
     - id: secure-wipe-context

@@ -180,7 +180,7 @@ Every PR in this repo is reviewed against these.
 | **`cyberpunk042/sovereign-os`** (this) | BUILDS the OS — image generation + customization + lifecycle tools |
 | [`cyberpunk042/selfdef`](https://github.com/cyberpunk042/selfdef) | RUNS on the OS — security daemon (Tetragon + agent-guard + notifier channels) |
 | [`cyberpunk042/devops-solutions-information-hub`](https://github.com/cyberpunk042/devops-solutions-information-hub) | SYNTHESIZES knowledge — wiki second-brain; SAIN-01 master spec lives here |
-| `cyberpunk042/root-ghostproxy` | dormant |
+| `cyberpunk042/root-ghostproxy` | GOVERNS AI agents on the OS — endpoint-mode safety envelope (proxy half disabled; SDD-046) |
 
 ---
 

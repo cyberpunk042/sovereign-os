@@ -21,6 +21,8 @@
 #   sovereign_os_selfdef_sync_behind_commits                 selfdef-sync.sh
 #   sovereign_os_selfdef_sync_result{result}                         (same)
 #   sovereign_os_selfdef_sync_last_run_timestamp                     (same)
+#   sovereign_os_ghostproxy_endpoint_verify_result{result}   root-ghostproxy-verify.sh
+#   sovereign_os_ghostproxy_endpoint_verify_last_run_timestamp       (same)
 #
 # Drop into the Prometheus rule_files config:
 #   rule_files:
@@ -351,3 +353,47 @@ groups:
             checkout at SOVEREIGN_OS_SELFDEF_DIR is reachable from the unit's
             sandbox (ReadWritePaths).
           runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignosselfdefsyncstale-warning"
+
+      # The root-ghostproxy AI-agent safety envelope (SDD-046 — endpoint
+      # mode, proxy half OFF) has drifted from its spec, or the checkout
+      # the weekly verify runs against is missing. The envelope keeps
+      # running as-installed, but drift means the machine-level Claude
+      # Code / opencode safety policy no longer matches what
+      # root-ghostproxy's installer would deploy.
+      - alert: SovereignOsGhostproxyEnvelopeUnhealthy
+        expr: sovereign_os_ghostproxy_endpoint_verify_result{result=~"drift|absent"} == 1
+        for: 1h
+        labels:
+          severity: warning
+          subsystem: security
+        annotations:
+          summary: "sovereign-os root-ghostproxy envelope {{ $labels.result }} on {{ $labels.instance }}"
+          description: >
+            sovereign_os_ghostproxy_endpoint_verify_result reports
+            {{ $labels.result }} — either the deployed AI-agent safety
+            envelope no longer matches root-ghostproxy's spec (drift) or
+            no checkout exists at SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR
+            (absent). Remediation is gated (SDD-046): re-run the install
+            hook with SOVEREIGN_OS_CONFIRM_GHOSTPROXY_INSTALL=YES. The
+            proxy half stays OFF — the hook pins --mode endpoint.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignosghostproxyenvelopeunhealthy-warning"
+
+      # The weekly root-ghostproxy verify hasn't reported in over two
+      # weeks — the drift gauge above is stale and the AI-agent envelope
+      # posture is unknown.
+      - alert: SovereignOsGhostproxyVerifyStale
+        expr: time() - sovereign_os_ghostproxy_endpoint_verify_last_run_timestamp > 1209600
+        for: 10m
+        labels:
+          severity: warning
+          subsystem: security
+        annotations:
+          summary: "sovereign-os root-ghostproxy verify silent on {{ $labels.instance }} (no run in >2 weeks)"
+          description: >
+            sovereign_os_ghostproxy_endpoint_verify_last_run_timestamp is
+            more than two weeks old — the weekly AI-agent envelope drift
+            check has not run, so the operator's endpoint-safety posture
+            is unknown. Check sovereign-ghostproxy-verify.timer and that
+            the checkout at SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR is reachable
+            from the unit's sandbox.
+          runbook_url: "https://github.com/cyberpunk042/sovereign-os/blob/main/docs/operator/m060-deployment-guide.md#sovereignosghostproxyverifystale-warning"

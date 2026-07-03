@@ -1,0 +1,41 @@
+[Unit]
+Description=root-ghostproxy endpoint-envelope drift verify — read-only (SDD-046)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/hooks/recurrent/root-ghostproxy-verify.sh
+
+[Service]
+Type=oneshot
+ExecStart=/opt/sovereign-os/scripts/hooks/recurrent/root-ghostproxy-verify.sh
+TimeoutStartSec=300s
+StandardOutput=journal
+StandardError=journal
+# OBSERVATION, not REMEDIATION (D-018 contract): this unit only runs the
+# upstream installer's --check (read-only op_verify) in the pinned
+# endpoint posture (proxy half OFF per operator directive 2026-07-03).
+# Remediation is the first-boot install hook under its explicit confirm
+# gate (SOVEREIGN_OS_CONFIRM_GHOSTPROXY_INSTALL=YES), run manually — not
+# by this timer-driven unit.
+# HARDENING-WAIVER: ProtectHome is read-only (not true) — the checkout
+# this hook verifies lives under a home directory
+# (SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR defaults to ${HOME}/root-ghostproxy)
+# and the deployed envelope it checks lives at ~/.claude/; ProtectHome=true
+# mounts /root + /home inaccessible, blinding the check on every real
+# deployment. read-only is the tightest working set — the check itself
+# never writes (metrics go to the textfile collector below).
+ProtectSystem=strict
+ProtectHome=read-only
+RestrictNamespaces=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+# StateDirectory CREATES /var/lib/sovereign-os (a bare ReadWritePaths
+# entry without '-' refuses to spawn when the dir is missing —
+# status=226/NAMESPACE on the first host bring-up 2026-06-12).
+StateDirectory=sovereign-os
+ReadWritePaths=-/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true

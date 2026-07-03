@@ -46,8 +46,9 @@ Ordered most-frequent first:
 | `sovereign-security-update-check.timer` | Daily 04:15 | Security-update availability check |
 | `sovereign-zfs-scrub.timer` | Weekly (Sun 02:00) | ZFS pool scrub |
 | `sovereign-selfdef-sync.timer` | Weekly (Sun 05:30) | selfdef checkout freshness check (SDD-001) |
+| `sovereign-ghostproxy-verify.timer` | Weekly (Sun 06:00) | root-ghostproxy AI-agent envelope drift verify — read-only `--check`, endpoint mode (SDD-046) |
 
-This table is the operator-facing mirror of the canonical 15-hook cadence
+This table is the operator-facing mirror of the canonical 16-hook cadence
 locked by `tests/lint/test_recurrent_hooks_contract.py`; adding or removing
 a recurrent hook means updating both.
 

@@ -7,7 +7,8 @@
 ## At a glance
 
 - **Four repos**: sovereign-os BUILDS, selfdef RUNS, info-hub
-  SYNTHESIZES, root-ghostproxy dormant.
+  SYNTHESIZES, root-ghostproxy GOVERNS AI agents (endpoint mode,
+  proxy half disabled — SDD-046).
 - **11 SAIN-01 epics** (E100–E110) — architectural baseline owned by
   info-hub; sovereign-os materializes them; never re-derived.
 - **4 lifecycle stages**: pre-install · during-install · post-install ·

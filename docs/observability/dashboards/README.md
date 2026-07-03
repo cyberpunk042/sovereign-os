@@ -175,6 +175,10 @@ panel queries lock to them.
 - `sovereign_os_selfdef_sync_behind_commits` — commits the selfdef (IPS) checkout is behind upstream at the last weekly freshness check
 - `sovereign_os_selfdef_sync_result{result}` — one-hot outcome of the last selfdef-sync run (current / behind / updated / absent / diverged)
 - `sovereign_os_selfdef_sync_last_run_timestamp`
+- `sovereign_os_ghostproxy_endpoint_install_result{result}` — one-hot outcome of the first-boot root-ghostproxy endpoint-envelope install hook (report-only / installed / install-failed / absent); proxy half stays OFF per SDD-046
+- `sovereign_os_ghostproxy_endpoint_install_last_run_timestamp`
+- `sovereign_os_ghostproxy_endpoint_verify_result{result}` — one-hot outcome of the weekly read-only AI-agent envelope drift verify (current / drift / absent), upstream `install.sh --check --mode endpoint`
+- `sovereign_os_ghostproxy_endpoint_verify_last_run_timestamp`
 - `sovereign_os_meta_alert_count{level}` — count of derived alerts by level (ALERT/WARN) from the hourly alerts-check
 - `sovereign_os_meta_alert_by_metric{metric,level}` — per-(metric,level) histogram of derived alerts; lets operators graph which underlying metric is the noisiest
 - `sovereign_os_meta_alerts_check_last_run_timestamp`
