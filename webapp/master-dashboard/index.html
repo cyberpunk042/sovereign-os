@@ -399,6 +399,11 @@ a11y; contract test catches drift.
   footer a{color:var(--accent)}
   .standing-rule{color:var(--accent);font-style:italic;margin-top:.4rem}
 </style>
+<!-- SDD-045 shared control-surface component (same-origin, no CDN) —
+     renders config/control-systems.yaml (served at /control-systems) as the
+     Controls surface below; reused by every dashboard. -->
+<link rel="stylesheet" href="../_shared/control-surface.css">
+<script src="../_shared/control-surface.js"></script>
 </head>
 <body>
 <h1>sovereign-os master-dashboard</h1>
@@ -450,6 +455,18 @@ a11y; contract test catches drift.
   .pill.snapshot { background:#3a3410; color:var(--warn); }
   .pill.planned  { background:#26262e; color:var(--accent); }
 </style>
+
+<!-- SDD-045 §4 — the Controls surface: everything that can be turned on/off,
+     every mode + profile, from config/control-systems.yaml. -->
+<h2>controls — profiles, modes &amp; feature toggles</h2>
+<p class="sub" style="margin:.2rem 0 .8rem">
+  Everything that can be turned on/off, every mode and profile. Web is
+  read-only: click a control to copy the exact <code>sovereign-osctl</code>
+  command. <span id="controls-count" class="muted"></span>
+</p>
+<div id="control-surface" class="cs-grid">
+  <div class="cs-empty">loading controls…</div>
+</div>
 
 <h2>routes</h2>
 <div class="panel" id="routes-panel">
@@ -1196,6 +1213,18 @@ function escapeHTML(s) {
     .replace(/"/g, "&quot;");
 }
 
+// SDD-045 §4 — render the Controls surface from /control-systems via the
+// shared control-surface component. Read-only: copies the exact command.
+function renderControls() {
+  const box = el("control-surface");
+  if (!box || !window.SovereignControlSurface) return;
+  SovereignControlSurface.load(box, { onCopy: (cmd) => showCopyToast("copied: " + cmd) })
+    .then((n) => {
+      const c = el("controls-count");
+      if (c) c.textContent = "— " + n + " control systems";
+    });
+}
+
 async function renderCatalog() {
   const body = el("catalog-body");
   if (!body) return;
@@ -1270,6 +1299,7 @@ async function refresh() {
     // every refresh so status badges stay current. Fired independently so
     // a catalog hiccup never blanks the routes/health view.
     renderCatalog();
+    renderControls();
     const [version, routes, collisions, health, discover, toggles] = await Promise.all(
       ENDPOINTS.map(fetchJSON)
     );

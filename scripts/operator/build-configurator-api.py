@@ -490,6 +490,22 @@ def _load_catalog() -> dict | None:
         return None
 
 
+CONTROL_SYSTEMS_FILE = REPO / "config" / "control-systems.yaml"
+
+
+def _load_control_systems() -> dict | None:
+    """SDD-045 §4 — the 11 on/off + mode + profile systems the shared
+    control-surface component renders (the operator's 'everything can be
+    turned on and off + tons of modes and profiles')."""
+    if not CONTROL_SYSTEMS_FILE.is_file():
+        return None
+    try:
+        import yaml
+        return yaml.safe_load(CONTROL_SYSTEMS_FILE.read_text())
+    except Exception:
+        return None
+
+
 def panels_index_html() -> str:
     """The GLOBAL VIEW: every surface — panels AND un-paneled feature
     domains — grouped by category, each with a real description, rendered
@@ -671,6 +687,9 @@ class Handler(BaseHTTPRequestHandler):
         if path in ("/catalog.json", "/catalog"):
             cat = _load_catalog()
             return self._send(200, json.dumps(cat or {"error": "catalog absent"}, indent=2))
+        if path in ("/control-systems.json", "/control-systems"):
+            cs = _load_control_systems()
+            return self._send(200, json.dumps(cs or {"error": "control-systems absent"}, indent=2))
         if path == "/panels":
             return self._send(200, panels_index_html(), "text/html; charset=utf-8")
         if path == "/":
