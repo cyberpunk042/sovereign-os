@@ -103,31 +103,32 @@ DASH_PORT="${DASH_BIND##*:}"
 start_server runtime-dashboard "${DASH_PORT}" / \
   python3 scripts/dashboard/serve.py --bind "${DASH_BIND}" && dash_ok=1
 
-# Cockpit data APIs — the master dashboard's live tiles. Ports mirror the
-# systemd units; the configurator's /api/* dev gateway proxies to them.
-declare -A COCKPIT_APIS=(
-  ["master-dashboard-api"]=8090
-  ["m060-health-api"]=8160
-  ["ms022-sse-quota-api"]=7711
-  ["four-watchdog-api"]=7712
-)
-cockpit_up=0
-for api in "${!COCKPIT_APIS[@]}"; do
-  port="${COCKPIT_APIS[$api]}"
-  if [ -f "scripts/operator/${api}.py" ]; then
-    start_server "${api}" "${port}" /healthz \
-      python3 "scripts/operator/${api}.py" && cockpit_up=$((cockpit_up+1))
-  fi
-done
-panel_count="$(find "${__REPO_ROOT}/webapp" -mindepth 2 -maxdepth 2 -name index.html | wc -l)"
+# Panel data APIs — start EVERY scripts/operator/*-api.py so the panels
+# have live data (not empty tiles). Each API's port comes from its systemd
+# unit (Environment=…PORT=NNNN). Best-effort: an API that can't bind/start
+# is logged and skipped, never blocks the others. Set
+# SOVEREIGN_OS_PANEL_APIS_OFF=1 to skip them all (lean: just the builder).
+cockpit_up=0; cockpit_total=0
+if [ -z "${SOVEREIGN_OS_PANEL_APIS_OFF:-}" ]; then
+  for api in scripts/operator/*-api.py; do
+    [ -f "${api}" ] || continue
+    name="$(basename "${api}" -api.py)"
+    unit="systemd/system/sovereign-${name}-api.service"
+    port="$(grep -oiE '[A-Z0-9_]*PORT=[0-9]+' "${unit}" 2>/dev/null | head -1 | grep -oE '[0-9]+$')"
+    [ -n "${port}" ] || continue   # no port declared → can't manage it here
+    cockpit_total=$((cockpit_total+1))
+    start_server "${name}-api" "${port}" /healthz python3 "${api}" \
+      && cockpit_up=$((cockpit_up+1))
+  done
+fi
 [ "${cfg_ok}" = 1 ] || echo -e "  ${yellow}✗ CONFIGURATOR DOWN — see ${LOG_DIR}/configurator.log${reset}"
 [ "${dash_ok}" = 1 ] || echo -e "  ${yellow}✗ runtime dashboard down — see ${LOG_DIR}/runtime-dashboard.log${reset}"
 echo -e "  ${green}●${reset} build configurator   ${cyan}http://127.0.0.1:${CFG_PORT}/${reset}"
 echo -e "      ├ Run console: ▶ validate · ▶ preflight work now; ▶ BUILD needs ${bold}sudo -E scripts/operator/panel.sh${reset}"
 echo -e "      └ manage THIS host: click ${bold}target: image build${reset} in the topbar"
-echo -e "  ${green}●${reset} ALL ${panel_count} PANELS        ${cyan}http://127.0.0.1:${CFG_PORT}/panels${reset}"
-echo -e "  ${green}●${reset} cockpit (LIVE)       ${cyan}http://127.0.0.1:${CFG_PORT}/master-dashboard/${reset}"
-echo -e "      └ ${cockpit_up}/4 data APIs up (m060 :8160 · ms022 :7711 · four-watchdog :7712 · registry :8090)"
+echo -e "  ${green}●${reset} GLOBAL VIEW          ${cyan}http://127.0.0.1:${CFG_PORT}/panels${reset}  ${bold}← every surface, described${reset}"
+echo -e "  ${green}●${reset} cockpit              ${cyan}http://127.0.0.1:${CFG_PORT}/master-dashboard/${reset}"
+echo -e "      └ ${cockpit_up}/${cockpit_total} panel data APIs up (SOVEREIGN_OS_PANEL_APIS_OFF=1 for lean mode)"
 echo -e "  ${green}●${reset} runtime dashboard    ${cyan}http://${DASH_BIND}/${reset}"
 echo
 echo -e "  Host-mutating commands stay ${bold}⚡ YOU RUN${reset}; the Run console executes"

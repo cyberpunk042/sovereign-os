@@ -477,31 +477,87 @@ def list_panels() -> list[dict]:
     return panels
 
 
+CATALOG_FILE = REPO / "config" / "dashboard-catalog.yaml"
+
+
+def _load_catalog() -> dict | None:
+    if not CATALOG_FILE.is_file():
+        return None
+    try:
+        import yaml
+        return yaml.safe_load(CATALOG_FILE.read_text())
+    except Exception:
+        return None
+
+
 def panels_index_html() -> str:
-    """Generated index page for /panels/ — every panel, honestly labeled."""
-    rows = "\n".join(
-        f'<li><a href="{p["path"]}">{html_mod.escape(p["id"])}</a>'
-        f'<span class="t">{html_mod.escape(p["title"])}</span></li>'
-        for p in list_panels()
-    )
-    n = len(list_panels())
+    """The GLOBAL VIEW: every surface — panels AND un-paneled feature
+    domains — grouped by category, each with a real description, rendered
+    from config/dashboard-catalog.yaml. Falls back to a flat list if the
+    catalog is absent."""
+    cat = _load_catalog()
+    esc = html_mod.escape
+    if not cat:
+        rows = "\n".join(f'<li><a href="{p["path"]}">{esc(p["id"])}</a> '
+                         f'<span class="muted">{esc(p["title"])}</span></li>'
+                         for p in list_panels())
+        return (f"<!doctype html><meta charset=utf-8><title>panels</title>"
+                f"<h1>{len(list_panels())} panels</h1><ul>{rows}</ul>")
+
+    by_cat: dict[str, list] = {}
+    for d in cat["dashboards"]:
+        by_cat.setdefault(d["category"], []).append(d)
+    n_live = sum(1 for d in cat["dashboards"] if d.get("status") == "live")
+    n_planned = sum(1 for d in cat["dashboards"] if d.get("status") == "planned")
+
+    sections = []
+    for c in cat["categories"]:
+        items = by_cat.get(c["id"], [])
+        if not items:
+            continue
+        cards = []
+        for d in items:
+            status = d.get("status", "live")
+            badge = {"live": '<span class="b live">live</span>',
+                     "snapshot": '<span class="b snap">snapshot</span>',
+                     "planned": '<span class="b plan">no panel yet</span>'}.get(status, "")
+            if d.get("path"):
+                head = f'<a href="{esc(d["path"])}">{esc(d["label"])}</a>'
+            else:
+                head = f'<span class="nolink">{esc(d["label"])}</span>'
+            access = ""
+            if d.get("cli"):
+                access = f'<div class="cli">▶ {esc(d["cli"])}</div>'
+            refs = f'<span class="refs">{esc(", ".join(d.get("refs") or []))}</span>' if d.get("refs") else ""
+            cards.append(
+                f'<div class="card {status}"><div class="ct">{head}{badge}</div>'
+                f'<div class="cd">{esc(d["description"])}</div>{access}{refs}</div>')
+        sections.append(
+            f'<section><h2>{esc(c["label"])}</h2>'
+            f'<p class="blurb">{esc(c["blurb"])}</p><div class="grid">{"".join(cards)}</div></section>')
+
     return f"""<!doctype html><html><head><meta charset="utf-8">
-<title>sovereign-os · panel index</title>
+<title>sovereign-os · global view</title>
 <style>
- body{{font:14px/1.5 system-ui,sans-serif;background:#10131a;color:#cdd3e0;max-width:780px;margin:2rem auto;padding:0 1rem}}
- h1{{font-size:1.2rem}} a{{color:#7fb3ff;text-decoration:none}} a:hover{{text-decoration:underline}}
- li{{margin:.25rem 0;list-style:none}} .t{{color:#7d8597;margin-left:.8rem;font-size:.85em}}
- .note{{background:#1a2030;border:1px solid #2a3350;border-radius:6px;padding:.7rem .9rem;margin:1rem 0}}
- ul{{padding:0}}
+ body{{font:14px/1.55 system-ui,sans-serif;background:#0e1117;color:#cdd3e0;max-width:1100px;margin:1.5rem auto;padding:0 1rem}}
+ h1{{font-size:1.35rem;margin:.2rem 0}} h2{{font-size:1.02rem;margin:1.4rem 0 .2rem;color:#e6edf3}}
+ a{{color:#7fb3ff;text-decoration:none;font-weight:600}} a:hover{{text-decoration:underline}}
+ .muted{{color:#7d8597}} .blurb{{color:#8b97a8;margin:.1rem 0 .6rem;font-size:.9em}}
+ .grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:.6rem}}
+ .card{{background:#161b22;border:1px solid #263041;border-left:3px solid #30475e;border-radius:7px;padding:.6rem .7rem}}
+ .card.planned{{border-left-color:#e6c07b}} .card.snapshot{{border-left-color:#7d8597}} .card.live{{border-left-color:#7fd18a}}
+ .ct{{display:flex;align-items:center;gap:.5rem;margin-bottom:.25rem}} .nolink{{color:#c9d3e0;font-weight:600}}
+ .cd{{color:#a9b4c2;font-size:.87em}} .cli{{color:#7fd18a;font-family:ui-monospace,monospace;font-size:.8em;margin-top:.3rem;word-break:break-all}}
+ .refs{{color:#5a6472;font-size:.72em}} .note{{background:#161b22;border:1px solid #263041;border-radius:7px;padding:.7rem .9rem;margin:.7rem 0}}
+ .b{{font-size:.66em;padding:.05rem .4rem;border-radius:10px;border:1px solid}}
+ .b.live{{color:#7fd18a;border-color:#2f5c3a}} .b.snap{{color:#7d8597;border-color:#3a424f}} .b.plan{{color:#e6c07b;border-color:#5c4f2f}}
 </style></head><body>
-<h1>sovereign-os · all {n} panels</h1>
-<div class="note">Served statically from <code>webapp/</code>. Panels are
-seeded with baked snapshots; ones backed by a <code>sovereign-*-api</code>
-service show LIVE data only once that service is installed and running
-(<code>docs/src/ops/run-on-host.md</code> § 2 — same flow as the hook
-timers). The <a href="/">build configurator</a> and its
-<a href="/host.json">host probe</a> are live right now.</div>
-<ul>{rows}</ul>
+<h1>sovereign-os · global view</h1>
+<div class="note"><strong>{len(cat['dashboards'])} surfaces</strong> across {len(cat['categories'])} categories —
+{n_live} live panels · {n_planned} feature domains with <em>no panel yet</em> (reachable via the CLI shown).
+A <span class="b live">live</span> panel only shows data when its <code>sovereign-*-api</code> is running —
+<code>make panel</code> now starts them all. <a href="/master-dashboard/">cockpit</a> · <a href="/">build configurator</a>.</div>
+{"".join(sections)}
 </body></html>"""
 
 
@@ -612,6 +668,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, json.dumps(assemble_host(), indent=2))
         if path == "/panels.json":
             return self._send(200, json.dumps(list_panels(), indent=2))
+        if path in ("/catalog.json", "/catalog"):
+            cat = _load_catalog()
+            return self._send(200, json.dumps(cat or {"error": "catalog absent"}, indent=2))
         if path == "/panels":
             return self._send(200, panels_index_html(), "text/html; charset=utf-8")
         if path == "/":
