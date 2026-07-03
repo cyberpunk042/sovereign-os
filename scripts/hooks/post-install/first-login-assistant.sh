@@ -159,6 +159,23 @@ done
 
 log_info "state written: ${state_file}"
 
+# Resume-setup prompt: if the one-command provisioner hasn't run yet, lead
+# with it — this is the operator-run "finish setup after a flash" step
+# (installs dev tools, builds+enables selfdef, applies operator-deps).
+if [ ! -f "${HOME}/.sovereign-os/provision-complete" ]; then
+cat <<EOF
+
+╔════════════════════════════════════════════════════════════════════╗
+║  ▶ FINISH SETUP — one command completes the workstation:           ║
+║                                                                    ║
+║      make provision            (or: scripts/install/provision.sh)  ║
+║                                                                    ║
+║  Idempotent + resumable: dev tools (Claude Code + VS Code ext),    ║
+║  selfdef built + enabled (no manual compile), operator-deps.       ║
+╚════════════════════════════════════════════════════════════════════╝
+EOF
+fi
+
 cat <<EOF
 
 ╔════════════════════════════════════════════════════════════════════╗
@@ -166,6 +183,7 @@ cat <<EOF
 ║   Assistant complete. Next steps:                                  ║
 ║                                                                    ║
 ║     sovereign-osctl status         — see system state              ║
+║     sovereign-osctl selfdef status — IPS on/off (selfdef on|off)   ║
 ║     sovereign-osctl models list    — manage model catalog          ║
 ║     sovereign-osctl perimeter      — manage Tetragon policy        ║
 ║     sovereign-osctl whitelabel     — manage whitelabel             ║
