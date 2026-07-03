@@ -55,12 +55,12 @@ dashboards:
   - {slug: cpu-features, category: models, label: "CPU / AVX-512 Choice", path: /cpu-features/, status: live,
      cli: "scripts/build/cpu-features.py · scripts/hardware/avx512-advisor.py · sovereign-osctl cpu-mode",
      description: "The tiered AVX-512 exploitation surface — which instructions (F/VL/BW/VNNI/BF16/VPOPCNTDQ…) THIS CPU exposes and how they map to the AI workloads they enable (Pulse ternary path). Live probe via avx512-advisor (R272), served at /cpu-avx.json.", refs: [SDD-043, R272]}
-  - {slug: orchestration, category: models, label: "Thinking Router / Orchestration", path: null, status: planned,
+  - {slug: orchestration, category: models, label: "Thinking Router / Orchestration", path: /orchestration/, status: live,
      cli: "sovereign-osctl router plan <prompt>",
-     description: "The per-request orchestration plan — route tier + escalation (chain-of-thought → Validator → self-consistency → MoE). Policy is per-profile (thinking_policy). TODAY: CLI. PLANNED: a live decision + policy-editor UI.", refs: [SDD-043 P4]}
-  - {slug: profile-generation, category: models, label: "Runtime-Profile Generation", path: null, status: planned,
+     description: "The thinking-router / orchestration view — the 7-axis routing rules (SDD-011) + live routing metrics (which tier/class/task-type requests landed on) + the per-profile escalation (CoT → Validator → self-consistency → MoE). Served at /orchestration.json (router rules|metrics).", refs: [SDD-043 P4]}
+  - {slug: profile-generation, category: models, label: "Runtime-Profile Generation", path: /profile-generation/, status: live,
      cli: "sovereign-osctl profiles generate-runtime <hw> <strategy>",
-     description: "Generate a whole runtime profile from hardware × strategy, with tier_intent resolved against the catalog (the '20+ combos' producer). TODAY: CLI. PLANNED: a strategy wizard + resolved-allocation preview.", refs: [SDD-043 P3]}
+     description: "Generate a whole runtime profile from hardware × strategy, with tier_intent resolved against the catalog (the '20+ combos' producer) — shows the resolved allocations each strategy produces + the generate command. Served at /profile-generation.json from profiles/runtime/*.yaml.", refs: [SDD-043 P3]}
   - {slug: d-10-eval-history, category: models, label: "D-10 Eval History", path: /d-10-eval-history/, api: sovereign-evals-api, status: live,
      description: "Per-task/model eval results (mmlu/humaneval/gsm8k/…), white-box + black-box.", refs: [R232]}
   - {slug: d-11-adapter-status, category: models, label: "D-11 Adapter Status", path: /d-11-adapter-status/, api: sovereign-adapters-api, status: live,
@@ -83,9 +83,9 @@ dashboards:
      description: "Compose an OS image (or manage this host) and RUN the build — the Run console (validate/preflight/BUILD, bake toggles). The one page that actually builds sovereign-os.", refs: [SDD-043]}
 
   # ── Security & selfdef ──────────────────────────────────────────────
-  - {slug: selfdef-management, category: security, label: "selfdef (IPS) Management", path: null, status: planned,
+  - {slug: selfdef-management, category: security, label: "selfdef (IPS) Management", path: /selfdef-management/, status: live,
      cli: "sovereign-osctl selfdef {status,on,off,start,stop,logs,sync,doctor,install-units}",
-     description: "The intrusion-prevention system — turn it on/off, watch its units + mirror health. TODAY: CLI (selfdef status/on/off). PLANNED: a control panel unifying the 6 mirror dashboards (D-13..D-18) + guardian tail.", refs: [SDD-001]}
+     description: "The intrusion-prevention system — live on/off state + unit/mirror health, unifying the 6 mirror dashboards (D-13..D-18) + perimeter. Served at /selfdef-management.json (selfdef status); controls (on/off/sync/doctor + perimeter) via the Controls surface.", refs: [SDD-001]}
   - {slug: edge-firewall, category: security, label: "Edge Firewall", path: /edge-firewall/, api: sovereign-edge-firewall-api, status: live,
      description: "Host firewall posture — nftables / fail2ban / crowdsec / suricata state + install recommendations.", refs: []}
   - {slug: network-edge, category: security, label: "Network Edge", path: /network-edge/, api: sovereign-network-edge-api, status: live,

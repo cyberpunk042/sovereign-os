@@ -62,3 +62,39 @@ def test_cpu_features_live():
 
 def test_cpu_features_endpoint():
     _api_serves("/cpu-avx.json", "_load_cpu_avx")
+
+
+# ── orchestration (thinking router) ──────────────────────────────────
+def test_orchestration_live():
+    _assert_live_panel("orchestration", "orchestration-webapp", "/orchestration.json")
+
+
+def test_orchestration_endpoint():
+    _api_serves("/orchestration.json", "_load_orchestration")
+
+
+# ── profile-generation ───────────────────────────────────────────────
+def test_profile_generation_live():
+    _assert_live_panel("profile-generation", "profile-generation-webapp", "/profile-generation.json")
+
+
+def test_profile_generation_endpoint():
+    _api_serves("/profile-generation.json", "_load_profile_generation")
+
+
+# ── selfdef-management ───────────────────────────────────────────────
+def test_selfdef_management_live():
+    _assert_live_panel("selfdef-management", "selfdef-management-webapp", "/selfdef-management.json")
+
+
+def test_selfdef_management_endpoint():
+    _api_serves("/selfdef-management.json", "_load_selfdef")
+
+
+# ── the whole Phase E set: no 'planned' models/selfdef domains remain ─
+def test_all_five_net_new_dashboards_are_live():
+    cat = yaml.safe_load(CATALOG.read_text(encoding="utf-8"))
+    live = {d["slug"] for d in cat["dashboards"] if d.get("status") == "live"}
+    for slug in ("models-catalog", "cpu-features", "orchestration",
+                 "profile-generation", "selfdef-management"):
+        assert slug in live, f"net-new dashboard {slug} is not live yet"

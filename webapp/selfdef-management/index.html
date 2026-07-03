@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os · selfdef (IPS) management</title>
+<meta name="x-sovereign-module" content="selfdef-management-webapp">
+<meta name="x-sovereign-shipped-in" content="SDD-045 §5 (Phase E) — net-new selfdef management dashboard">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<style>
+  :root{
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  body{padding:1.2rem;max-width:1000px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
+  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:1rem;font-size:.85rem}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  .big{display:flex;align-items:center;gap:.7rem;font-size:1.1rem}
+  .pill{display:inline-block;padding:2px 10px;border-radius:4px;font-size:.85rem;background:var(--border)}
+  .pill.on{background:#143d14;color:var(--good)}
+  .pill.off{background:#3d1414;color:var(--bad)}
+  .pill.unknown{background:#3a3410;color:var(--warn)}
+  pre{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem;overflow-x:auto;font-size:.8rem;white-space:pre-wrap}
+  .muted{color:var(--muted)}
+  code{background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:0 .3rem;font-size:.9em}
+  .status{font-size:.75rem} .status.ok{color:var(--good)} .status.bad{color:var(--bad)}
+  footer{margin-top:2rem;color:var(--muted);font-size:.75rem;border-top:1px solid var(--border);padding-top:.8rem}
+  .standing-rule{color:var(--accent);font-style:italic;margin-top:.4rem}
+</style>
+</head>
+<body>
+<h1>selfdef (IPS) management</h1>
+<p class="sub">
+  The intrusion-prevention system — its live on/off state + unit / mirror
+  health, unifying the 6 mirror dashboards (D-13..D-18) and the perimeter.
+  Turn it on/off and drive its lifecycle from the Controls surface below (the
+  web copies the command; it never mutates). <span id="status" class="status">loading…</span>
+</p>
+
+<div class="panel">
+  <div class="big">selfdef is <span id="state" class="pill unknown">…</span></div>
+</div>
+
+<h2>status detail</h2>
+<pre id="detail" class="muted">loading…</pre>
+
+<div class="panel muted">
+  Controls (on / off / start / stop / sync / doctor · perimeter reload) are in
+  the <b>Controls</b> surface below — e.g. <code>sovereign-osctl selfdef on</code>,
+  <code>sovereign-osctl perimeter reload</code>. Mirrors:
+  <code>/d-13-filesystem-grants/</code> … <code>/d-18-trust-scores/</code>.
+</div>
+
+
+<!-- SDD-045 Phase C — control surface (INLINED per the single-file doctrine).
+     Renders config/control-systems.yaml (served at /control-systems): the
+     global controls (profile / dashboard on-off / auth tier) + the modes &
+     feature toggles that govern THIS panel. Read-only: each control copies
+     its exact sovereign-osctl command. Canonical source (lockstep-linted):
+     webapp/_shared/control-surface.{css,js}. -->
+<h2>controls — profiles, modes &amp; feature toggles</h2>
+<div id="control-surface" class="cs-grid"><div class="cs-empty">loading controls…</div></div>
+<style>
+/* webapp/_shared/control-surface.css — SDD-045 shared control-surface.
+ * Renders the control-systems registry (profiles / modes / feature toggles)
+ * as a grid of control cards. Monochrome, framework-free; inherits the
+ * panel palette variables (--bg/--fg/--muted/--accent/--border/--mono). */
+.cs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: .5rem; }
+.cs-card {
+  display: flex; flex-direction: column; gap: .35rem;
+  padding: .6rem .75rem; border: 1px solid var(--border, #262626);
+  border-radius: .4rem; background: rgba(255, 255, 255, .02);
+}
+.cs-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.cs-label { font-weight: 600; flex: 1; }
+.cs-kind {
+  font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted, #888); border: 1px solid var(--border, #262626);
+  border-radius: 3px; padding: 0 .35rem;
+}
+.cs-global {
+  font-size: .7rem; color: var(--accent, #9bd1ff);
+  border: 1px solid var(--accent, #9bd1ff); border-radius: 3px; padding: 0 .35rem;
+}
+.cs-desc { color: var(--muted, #888); font-size: .8rem; line-height: 1.45; }
+.cs-opts { display: flex; flex-wrap: wrap; gap: .3rem; }
+.cs-opt { font-size: .72rem; background: var(--border, #262626); border-radius: 3px; padding: 1px 6px; }
+.cs-cmd {
+  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
+  text-align: left; color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
+  border: 1px solid var(--border, #262626); border-radius: 3px;
+  padding: .25rem .4rem; cursor: pointer; overflow-x: auto; white-space: nowrap;
+}
+.cs-cmd:hover { border-color: var(--accent, #9bd1ff); }
+.cs-empty { color: var(--muted, #888); }
+</style>
+<script>
+/* webapp/_shared/control-surface.js — SDD-045 shared control-surface renderer.
+ *
+ * Renders the control-systems registry (config/control-systems.yaml, served
+ * as GET /control-systems) — the operator's "everything can be turned on and
+ * off + tons of modes and profiles" — as a grid of control cards. Reused by
+ * every dashboard so each becomes a CONTROL surface.
+ *
+ * Web is READ-ONLY: each control shows its options and copies its exact
+ * `change_cli` for the operator to run. It NEVER mutates privileged state
+ * (§1g / hardening lint). No framework, no CDN — a single same-origin file.
+ *
+ * Usage:
+ *   const n = SovereignControlSurface.render(el, systems, {
+ *     filterSlug: 'runtime-modes',   // only global + systems governing this slug
+ *     onCopy: (cmd) => showToast(cmd) // optional copy callback
+ *   });
+ */
+(function (global) {
+  "use strict";
+
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function render(containerEl, systems, opts) {
+    opts = opts || {};
+    var slug = opts.filterSlug || null;
+    var list = (systems || []).filter(function (s) {
+      if (!slug) return true;                       // no filter → all systems
+      return s.scope === "global" ||                // globals show everywhere
+        (s.applies_to || []).indexOf(slug) >= 0;    // + systems governing slug
+    });
+    var html = list.map(function (s) {
+      var pills = (s.options || []).map(function (o) {
+        return '<span class="cs-opt">' + esc(o) + "</span>";
+      }).join("");
+      var change = esc(s.change_cli || "");
+      return '<div class="cs-card cs-' + esc(s.kind) + '">'
+        + '<div class="cs-head">'
+        + '<span class="cs-label">' + esc(s.label) + "</span>"
+        + '<span class="cs-kind">' + esc(s.kind) + "</span>"
+        + (s.scope === "global" ? '<span class="cs-global">global</span>' : "")
+        + "</div>"
+        + '<div class="cs-desc">' + esc(s.description) + "</div>"
+        + '<div class="cs-opts">' + pills + "</div>"
+        + (change
+            ? '<button class="cs-cmd" data-cmd="' + change
+              + '" title="click to copy the operator command">$ ' + change + "</button>"
+            : "")
+        + "</div>";
+    }).join("");
+    containerEl.innerHTML = html || '<div class="cs-empty">(no controls for this surface)</div>';
+    Array.prototype.forEach.call(containerEl.querySelectorAll(".cs-cmd"), function (b) {
+      b.addEventListener("click", function () {
+        var cmd = b.getAttribute("data-cmd");
+        if (navigator.clipboard) navigator.clipboard.writeText(cmd);
+        if (typeof opts.onCopy === "function") opts.onCopy(cmd);
+      });
+    });
+    return list.length;
+  }
+
+  // Convenience: fetch /control-systems (same-origin) and render.
+  function load(containerEl, opts) {
+    return fetch("/control-systems", { headers: { Accept: "application/json" } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.error) {
+          containerEl.innerHTML = '<div class="cs-empty">controls unavailable: '
+            + esc(data.error) + "</div>";
+          return 0;
+        }
+        return render(containerEl, (data && data.systems) || [], opts);
+      })
+      .catch(function (e) {
+        containerEl.innerHTML = '<div class="cs-empty">controls unavailable: '
+          + esc(e && e.message) + "</div>";
+        return 0;
+      });
+  }
+
+  global.SovereignControlSurface = { render: render, load: load };
+})(window);
+</script>
+<script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'selfdef-management'});</script>
+
+<footer>
+  <div>SDD-045 §5 · data: <code>GET /selfdef-management.json</code> ← <code>sovereign-osctl selfdef status</code> (SDD-001)</div>
+  <div class="standing-rule">"We do not minimize anything." — operator §1g standing rule</div>
+</footer>
+
+<script>
+"use strict";
+const el = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;" }[c]));
+
+async function load() {
+  try {
+    const r = await fetch("/selfdef-management.json", { headers: { Accept: "application/json" } });
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+    const state = d.state || "unknown";
+    el("status").textContent = "live ✓";
+    el("status").className = "status ok";
+    el("state").textContent = state.toUpperCase();
+    el("state").className = "pill " + state;
+    el("detail").textContent = d.text || "(no status output)";
+    el("detail").className = "";
+  } catch (e) {
+    el("status").textContent = "live ✗ — " + e.message;
+    el("status").className = "status bad";
+    el("state").textContent = "UNAVAILABLE";
+    el("detail").textContent = "selfdef status unavailable: " + e.message;
+  }
+}
+load();
+</script>
+</body>
+</html>

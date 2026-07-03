@@ -547,6 +547,76 @@ def _load_cpu_avx() -> dict:
     return out
 
 
+OSCTL = REPO / "scripts" / "sovereign-osctl"
+
+
+def _osctl_json(args: list[str]) -> dict:
+    """Run a read-only `sovereign-osctl ... --json` and parse it. Honest-
+    degraded (returns {error} instead of raising) so a panel shows the gap."""
+    import subprocess
+    try:
+        r = subprocess.run(
+            [str(OSCTL), *args, "--json"],
+            capture_output=True, text=True, timeout=12, cwd=str(REPO),
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            return json.loads(r.stdout)
+        return {"error": (r.stderr or "no output").strip()[:200]}
+    except Exception as e:  # noqa: BLE001
+        return {"error": str(e)}
+
+
+def _load_orchestration() -> dict:
+    """SDD-045 §5 — the thinking-router / orchestration view: the 7-axis
+    routing rules (SDD-011) + live routing metrics (which tier/class/task-type
+    requests landed on). Read-only via `router rules|metrics --json`."""
+    return {
+        "rules": _osctl_json(["router", "rules"]),
+        "metrics": _osctl_json(["router", "metrics"]),
+    }
+
+
+def _load_profile_generation() -> dict:
+    """SDD-045 §5 — the runtime-profile generator view: the strategies and the
+    resolved runtime profiles they produce (allocations + tier_intent). Reads
+    profiles/runtime/*.yaml (the '20+ combos' producer output)."""
+    import yaml
+    rd = REPO / "profiles" / "runtime"
+    profiles = []
+    if rd.is_dir():
+        for p in sorted(rd.glob("*.yaml")):
+            try:
+                doc = yaml.safe_load(p.read_text()) or {}
+                profiles.append({"id": p.stem, "runtime_profile": doc.get("runtime_profile", doc)})
+            except Exception as e:  # noqa: BLE001
+                profiles.append({"id": p.stem, "error": str(e)})
+    return {"strategies": [p["id"] for p in profiles], "profiles": profiles}
+
+
+def _load_selfdef() -> dict:
+    """SDD-045 §5 — the selfdef (IPS) management view. `selfdef status` prints
+    human text (no --json), so return it raw + a parsed on/off state. The
+    actual controls (on/off/sync/doctor + perimeter) come from the inlined
+    control surface (copy-command; web never mutates)."""
+    import subprocess
+    try:
+        r = subprocess.run(
+            [str(OSCTL), "selfdef", "status"],
+            capture_output=True, text=True, timeout=12, cwd=str(REPO),
+        )
+        text = (r.stdout or "").strip()
+        # `selfdef status` ends with an explicit "OFF — …" / "ON — …" verdict.
+        if "OFF" in text.upper():
+            state = "off"
+        elif "ON —" in text or "ON -" in text:
+            state = "on"
+        else:
+            state = "unknown"
+        return {"text": text, "state": state, "returncode": r.returncode}
+    except Exception as e:  # noqa: BLE001
+        return {"error": str(e)}
+
+
 def panels_index_html() -> str:
     """The GLOBAL VIEW: every surface — panels AND un-paneled feature
     domains — grouped by category, each with a real description, rendered
@@ -736,6 +806,12 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, json.dumps(mc or {"error": "models catalog absent"}, indent=2))
         if path in ("/cpu-avx.json",):
             return self._send(200, json.dumps(_load_cpu_avx(), indent=2))
+        if path in ("/orchestration.json",):
+            return self._send(200, json.dumps(_load_orchestration(), indent=2))
+        if path in ("/profile-generation.json",):
+            return self._send(200, json.dumps(_load_profile_generation(), indent=2))
+        if path in ("/selfdef-management.json",):
+            return self._send(200, json.dumps(_load_selfdef(), indent=2))
         if path == "/panels":
             return self._send(200, panels_index_html(), "text/html; charset=utf-8")
         if path == "/":
