@@ -80,6 +80,7 @@ EXPECTED_STRUCTURAL_BELOW_8 = {
     "lm-status-operability",  # 4/8 — cockpit panel over the shared model-health core (cli/tui/dashboard/mcp n/a)
     "lm-orchestration",       # 4/8 — cockpit panel over model-health + runtime-modes cores (cli/tui/dashboard/mcp n/a)
     "models-catalog",         # 4/8 — cockpit panel over the shared load_catalog core (cli/tui/dashboard/mcp n/a)
+    "cpu-features",           # 4/8 — cockpit panel over the shared avx512-advisor (cli/tui/dashboard/mcp n/a)
 }
 
 
@@ -313,7 +314,7 @@ def test_milestone_count_self_consistency():
         capture_output=True, text=True, timeout=10,
     )
     data = json.loads(result.stdout)
-    assert data["total_modules"] == 25
+    assert data["total_modules"] == 26
     assert (
         data["at_structural_ceiling_count"]
         == len(data["at_full_8_surfaces"])

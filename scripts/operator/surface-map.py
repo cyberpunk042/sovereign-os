@@ -140,6 +140,16 @@ SURFACE_IDS = [s["id"] for s in SURFACES]
 # accuracy. "waivers" enumerate surfaces the module legitimately doesn't
 # ship on with operator-named rationale.
 MODULE_COVERAGE = {
+    "cpu-features": {
+        "shipped_in": "D-24-cpu-features (cockpit panel — deep AVX-512 capability + workload-fit + advisory; reuses avx512-advisor)",
+        "surfaces": ["core", "api", "webapp", "service"],
+        "waivers": {
+            "cli":       "not applicable — CLI is `scripts/hardware/avx512-advisor.py`",
+            "tui":       "not applicable — cockpit web panel, not an interactive TUI",
+            "dashboard": "not applicable — the webapp IS this panel's operator dashboard",
+            "mcp":       "not applicable — read-only render of the shared advisor",
+        },
+    },
     "models-catalog": {
         "shipped_in": "D-23-models-catalog (cockpit panel — the canonical model registry by SRP tier; reuses the model-health load_catalog core)",
         "surfaces": ["core", "api", "webapp", "service"],
