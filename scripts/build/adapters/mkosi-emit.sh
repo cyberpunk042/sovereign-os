@@ -188,6 +188,18 @@ if "systemd-boot" not in all_packages:
 if "systemd-boot-efi" not in all_packages:
     all_packages.append("systemd-boot-efi")
 
+# Debian trixie split the shadow suite: /usr/bin/login + /etc/pam.d/login now
+# ship in the 'login' package, while 'login.defs' ships ONLY the config file.
+# 'login' is Priority: required, but mkosi's minimal Debian bootstrap does NOT
+# pull all required-priority packages — it installed login.defs (a transitive
+# config dep of passwd/pam) yet left out 'login' itself. Result: the image had
+# NO console login binary, so agetty exec'd a nonexistent /bin/login, exited,
+# and systemd (Restart=always) respawned the getty forever — an endless
+# 'localhost login:' loop, image unloginnable on console. Pull it explicitly.
+# (Root-caused via QEMU serial-login emulation, 2026-07-07.)
+if "login" not in all_packages:
+    all_packages.append("login")
+
 # DKMS module builds (nvidia/zfs) happen INSIDE the image against the
 # custom kernel — they need a real toolchain there. mkosi installs with
 # Install-Recommends=false, so nothing pulls it implicitly: without
@@ -369,6 +381,24 @@ if load_at_boot:
         f"# kernel.modules.load_at_boot (profile {profile_id})\n"
         + "\n".join(load_at_boot) + "\n"
     )
+
+# ---- mask systemd-networkd-wait-online (mkosi.extra overlay) ----
+# systemd-networkd is enabled but the image ships NO .network config — the
+# actual link/VLAN setup is done by the network-vlan-config first-boot hook.
+# With nothing to configure, systemd-networkd-wait-online had no link to bring
+# 'online' and blocked boot for its full 120s timeout, then exited FAILED
+# (res=failed): a ~2-minute stall on EVERY boot plus a failed unit. Nothing in
+# the image pulls network-online.target as a boot ordering barrier, so masking
+# the wait is safe and standard for a headless / first-boot-configured box
+# (networkd itself still runs; the box still gets network from the hook).
+# Masked declaratively (symlink → /dev/null) so it survives systemd preset.
+# (Caught by QEMU verbose-boot emulation, 2026-07-07.)
+wait_online = (out_dir / "mkosi.extra" / "etc" / "systemd" / "system"
+               / "systemd-networkd-wait-online.service")
+wait_online.parent.mkdir(parents=True, exist_ok=True)
+if wait_online.is_symlink() or wait_online.exists():
+    wait_online.unlink()
+wait_online.symlink_to("/dev/null")
 
 # ---- mkosi.repart for ZFS-tiered storage ----
 # mkosi handles partitioning declaratively via mkosi.repart/*.conf files.

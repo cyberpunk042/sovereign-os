@@ -23,6 +23,14 @@ set -euo pipefail
 
 DEST="/etc/sudoers.d/sovereign-os-operator"
 OPERATOR="${SOVEREIGN_OS_OPERATOR_USER:-${SUDO_USER:-$(id -un)}}"
+# Granting NOPASSWD to root is meaningless (root already has everything). When
+# the script is run DIRECTLY as root (no SUDO_USER), target the repo owner
+# instead — the operator who actually runs the panels + the agent. Override
+# with SOVEREIGN_OS_OPERATOR_USER=<name>.
+if [ "${OPERATOR}" = "root" ] && [ -z "${SOVEREIGN_OS_OPERATOR_USER:-}" ]; then
+  __repo_owner="$(stat -c '%U' "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)" 2>/dev/null || true)"
+  [ -n "${__repo_owner}" ] && [ "${__repo_owner}" != "root" ] && OPERATOR="${__repo_owner}"
+fi
 # visudo lives in /usr/sbin — often absent from a login PATH.
 VISUDO="$(command -v visudo 2>/dev/null || true)"; [ -n "${VISUDO}" ] || VISUDO="/usr/sbin/visudo"
 
