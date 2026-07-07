@@ -21,7 +21,8 @@ CANONICAL_VERTICALS = ("m060", "ms022", "four_watchdog",
                        "listening_sockets", "disk_usage", "time_sync",
                        "kernel_modules", "fail2ban", "nftables", "cron",
                        "sshd_config", "package_state", "journal_disk",
-                       "blockset", "quarantine", "revocations")
+                       "blockset", "quarantine", "revocations",
+                       "token_revocations", "mfa_grant_revocations")
 
 
 def _load_module():
@@ -73,6 +74,7 @@ def test_probe_functions_exist():
         "probe_fail2ban", "probe_nftables", "probe_cron",
         "probe_sshd_config", "probe_package_state", "probe_journal_disk",
         "probe_blockset", "probe_quarantine", "probe_revocations",
+        "probe_token_revocations", "probe_mfa_grant_revocations",
     ):
         assert hasattr(mod, fn), f"missing probe function {fn}"
 
