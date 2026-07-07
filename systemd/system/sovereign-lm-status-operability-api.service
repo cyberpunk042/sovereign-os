@@ -1,0 +1,49 @@
+[Unit]
+Description=Sovereign LM status & operability read-only API + D-22 dashboard host
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/lm-status-operability-api.py
+# Read-only observation surface: reshapes the shared model-health core
+# (scripts/inference/model-health.py — same data the D-03 panel + CLI use)
+# into a per-device (CPU0/GPU0/GPU1) Model 0/1/2 status + operability view.
+# There is NO mutation surface — model/agent actions are MS003-signed CLI
+# verbs, never web mutations (R10212).
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/lm-status-operability-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default — operator-§1g exposure decision is theirs. To expose
+# beyond loopback, drop /etc/systemd/system/sovereign-lm-status-operability-api.service.d/bind.conf:
+#   [Service]
+#   Environment=LM_STATUS_API_BIND=0.0.0.0
+Environment=LM_STATUS_API_BIND=127.0.0.1
+Environment=LM_STATUS_API_PORT=8122
+
+# R171 defense-in-depth (Layer-1 lint enforced). Read-only HTTP surface;
+# reads models/catalog.yaml + optional /run/sovereign-os/*.json + exec
+# nvidia-smi (read-only) and appends the metrics textfile.
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os D-22 language model status &amp; operability</title>
+<meta name="x-sovereign-module" content="d-22-lm-status-operability-webapp">
+<meta name="x-sovereign-shipped-in" content="D-22-lm-status-operability">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<meta name="x-sovereign-catalog-source" content="reuses scripts/inference/model-health.py (M060 D-03) + M075 SRP topology (Conductor/Logic/Oracle)">
+<!-- personalization apply-snippet (same shape shipped in every dashboard
+     <head>; reads prefs from localStorage and applies pre-paint, no FOUC.
+     Canonical control surface is /webapp/personalization/. -->
+<script>
+  (function(){
+    var KEY = 'sovereign-os.personalization', SCHEMA_V = 1;
+    var DEF = { schema: SCHEMA_V, theme: 'auto', accent: '#9bd1ff', font_scale: 1 };
+    var p;
+    try {
+      var raw = localStorage.getItem(KEY);
+      p = raw ? JSON.parse(raw) : null;
+      if (!p || p.schema !== SCHEMA_V) p = null;
+    } catch(e) { p = null; }
+    if (!p) p = DEF;
+    var resolved = (p.theme === 'dark' || p.theme === 'light') ? p.theme
+      : ((window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark');
+    document.documentElement.setAttribute('data-theme', resolved);
+    document.documentElement.style.setProperty('--so-accent', p.accent || DEF.accent);
+    document.documentElement.style.setProperty('--accent', p.accent || DEF.accent);
+    document.documentElement.style.setProperty('--font-scale', String(p.font_scale || 1));
+  })();
+</script>
+<style>
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --panel:#171717;
+    --border:#262626; --accent:#9bd1ff; --good:#66d19e; --warn:#e6c34a;
+    --bad:#e06c6c; --font-scale:1;
+  }
+  html[data-theme="light"] {
+    --bg:#f6f6f6; --fg:#0e0e0e; --muted:#555; --panel:#ffffff; --border:#d8d8d8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin:0; background:var(--bg); color:var(--fg);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: calc(14px * var(--font-scale)); line-height:1.5;
+  }
+  header { padding:1rem 1.25rem; border-bottom:1px solid var(--border); }
+  h1 { margin:0; font-size:1.1rem; }
+  h1 .sub { color:var(--muted); font-weight:400; font-size:.8rem; margin-left:.5rem; }
+  main { padding:1rem 1.25rem; max-width:1200px; }
+  .device {
+    border:1px solid var(--border); border-radius:6px; margin:0 0 1rem;
+    background:var(--panel); overflow:hidden;
+  }
+  .device > h2 {
+    margin:0; padding:.6rem .9rem; font-size:.95rem;
+    border-bottom:1px solid var(--border); display:flex;
+    justify-content:space-between; align-items:baseline; gap:1rem;
+  }
+  .device > h2 .hw { color:var(--muted); font-weight:400; font-size:.8rem; }
+  .tabs { display:flex; gap:.35rem; padding:.5rem .9rem 0; flex-wrap:wrap; }
+  .tab {
+    padding:.25rem .6rem; border:1px solid var(--border);
+    border-bottom:none; border-radius:4px 4px 0 0; cursor:pointer;
+    font-size:.8rem; color:var(--muted); background:transparent;
+  }
+  .tab.active { color:var(--accent); border-color:var(--accent); }
+  .tab.empty { opacity:.4; cursor:default; }
+  .body { padding:.75rem .9rem; }
+  table { width:100%; border-collapse:collapse; font-size:.82rem; }
+  th, td { text-align:left; padding:.3rem .5rem; border-bottom:1px solid var(--border); }
+  th { color:var(--muted); font-weight:600; }
+  td.num { text-align:right; }
+  .muted { color:var(--muted); }
+  code { color:var(--accent); }
+  .pill {
+    display:inline-block; padding:0 .4rem; border-radius:3px;
+    border:1px solid var(--border); font-size:.72rem; color:var(--muted);
+  }
+  .actions { margin-top:.6rem; display:flex; gap:.4rem; flex-wrap:wrap; }
+  button.act {
+    padding:.25rem .6rem; border:1px solid var(--border); border-radius:4px;
+    background:transparent; color:var(--fg); cursor:pointer; font:inherit;
+    font-size:.78rem;
+  }
+  button.act:hover { border-color:var(--accent); color:var(--accent); }
+  button.act.test { border-style:dashed; }
+  .selected-bar { margin:.5rem 0; }
+  .chip {
+    display:inline-block; padding:.15rem .5rem; margin-right:.35rem;
+    border:1px solid var(--border); border-radius:4px; cursor:pointer;
+    font-size:.78rem; color:var(--muted);
+  }
+  .chip.on { color:var(--accent); border-color:var(--accent); }
+  .chat {
+    border:1px solid var(--border); border-radius:6px; background:var(--panel);
+    margin-top:1rem;
+  }
+  .chat > h2 { margin:0; padding:.6rem .9rem; font-size:.95rem; border-bottom:1px solid var(--border); }
+  .chat-log { padding:.75rem .9rem; min-height:120px; max-height:320px; overflow-y:auto; font-size:.85rem; }
+  .chat-msg { margin:0 0 .5rem; }
+  .chat-msg .who { color:var(--accent); }
+  .composer { display:flex; gap:.5rem; padding:.5rem .9rem .9rem; }
+  .composer textarea {
+    flex:1; background:var(--bg); color:var(--fg); border:1px solid var(--border);
+    border-radius:4px; padding:.5rem; font:inherit; font-size:.85rem; resize:vertical;
+    min-height:44px;
+  }
+  .banner { font-size:.78rem; color:var(--muted); margin:.5rem 0; }
+  footer { padding:1rem 1.25rem; border-top:1px solid var(--border); color:var(--muted); font-size:.75rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1>D-22 · Language Model Status &amp; Operability
+    <span class="sub">per-device model status · operability actions · chat (M075 SRP topology)</span></h1>
+</header>
+<main>
+  <div class="banner" id="data-source-banner">connecting to <code>/api/lm-status/devices</code>…</div>
+
+  <div id="devices"></div>
+
+  <div class="chat">
+    <h2>Chat <span class="muted" style="font-weight:400;font-size:.8rem">— targets: <span id="selected-summary">(none)</span></span></h2>
+    <div class="selected-bar">
+      <span style="padding:0 .9rem;color:var(--muted);font-size:.78rem">Selected:</span>
+      <span class="chip" data-slot="CPU0">CPU0</span>
+      <span class="chip" data-slot="GPU0">GPU0</span>
+      <span class="chip" data-slot="GPU1">GPU1</span>
+    </div>
+    <div class="chat-log" id="chat-log">
+      <p class="chat-msg muted">Render-only in this build (R10212 read-only cockpit): the composer
+      builds a signed inference invocation and <strong>copies it to the clipboard</strong> for the
+      operator to run. Live streaming is wired when an inference producer publishes
+      <code>/run/sovereign-os/model-state.json</code>.</p>
+    </div>
+    <div class="composer">
+      <textarea id="chat-input" placeholder="Prompt to the selected device(s)…"></textarea>
+      <button class="act" id="chat-send">Send (copy signed cmd)</button>
+    </div>
+  </div>
+  <p class="banner" id="last-fetch"></p>
+</main>
+<footer>
+  sovereign-os cockpit · D-22 · read-only mirror of the model-health core.
+  Operator §1g standing rule (sacrosanct): <strong>We do not minimize anything.</strong>
+</footer>
+<script>
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const fmtMs = v => v == null ? '—' : (v >= 1000 ? (v/1000).toFixed(2)+'s' : Math.round(v)+'ms');
+
+  // Per-device active-tab (Model 0/1/2) state + selected devices for chat.
+  const activeTab = {CPU0:0, GPU0:0, GPU1:0};
+  const selected = new Set();
+
+  async function copyCmd(cmd, note) {
+    try { await navigator.clipboard.writeText(cmd); alert((note ? note+'\n\n' : '') + '  ' + cmd); }
+    catch (e) { prompt('Copy + run:', cmd); }
+  }
+
+  function renderDataSourceBanner(ok, err) {
+    $('data-source-banner').innerHTML = ok
+      ? 'consuming <code>/api/lm-status/devices</code> from the lm-status-operability API daemon'
+      : 'cannot reach <code>/api/lm-status/devices</code> — is the lm-status-operability API daemon running?' +
+        (err ? ' <span class="muted">('+esc(err)+')</span>' : '');
+  }
+
+  function modelRows(dev, idx) {
+    const m = (dev.models || [])[idx];
+    if (!m || !m.id) return '<tr><td colspan="2" class="muted">no model in this slot</td></tr>';
+    return `
+      <tr><th>Model</th><td><code>${esc(m.id)}</code> ${m.precision ? '<span class="pill">'+esc(m.precision)+'</span>' : ''}</td></tr>
+      <tr><th>Status</th><td class="muted">${esc(m.status || '—')}</td></tr>
+      <tr><th>Context</th><td class="num">${m.context_window_tokens ? m.context_window_tokens.toLocaleString() : '—'}</td></tr>
+      <tr><th>Latency p50 / p95 / p99</th><td class="num">${fmtMs(m.p50_ms)} / ${fmtMs(m.p95_ms)} / ${fmtMs(m.p99_ms)}</td></tr>
+      <tr><th>Requests / min</th><td class="num muted">${m.req_per_min ?? '—'}</td></tr>`;
+  }
+
+  function renderDevice(dev) {
+    const idx = activeTab[dev.slot] || 0;
+    const tabs = [0,1,2].map(i => {
+      const has = (dev.models || [])[i] && dev.models[i].id;
+      const cls = 'tab' + (i === idx ? ' active' : '') + (has ? '' : ' empty');
+      return `<span class="${cls}" data-slot="${esc(dev.slot)}" data-tab="${i}">Model ${i}</span>`;
+    }).join('');
+    const util = dev.util_pct != null ? dev.util_pct.toFixed(0)+'%' : '—';
+    const vram = dev.vram_used_gb != null ? `${dev.vram_used_gb.toFixed(1)} / ${dev.vram_total_gb ?? '—'} GB` :
+                 (dev.tokens_per_sec != null ? dev.tokens_per_sec.toFixed(1)+' tok/s' : '—');
+    return `
+      <div class="device">
+        <h2>${esc(dev.slot)} <span class="hw">${esc(dev.label)} · ${esc(dev.role)} · util ${util} · ${vram} · source ${esc(dev.model_source || '—')}</span></h2>
+        <div class="tabs">${tabs}</div>
+        <div class="body">
+          <table><tbody>
+            <tr><th style="width:180px">History | Selected</th><td class="muted">slot Model ${idx} — showing latest catalog/runtime state</td></tr>
+            ${modelRows(dev, idx)}
+          </tbody></table>
+          <div class="actions">
+            <button class="act" data-act="load" data-slot="${esc(dev.slot)}" data-role="${esc(dev.role)}">Action · load</button>
+            <button class="act" data-act="toggle" data-slot="${esc(dev.slot)}" data-role="${esc(dev.role)}">Action · toggle</button>
+            <button class="act" data-act="override" data-slot="${esc(dev.slot)}" data-role="${esc(dev.role)}">Action · override</button>
+            <button class="act test" data-act="eval" data-slot="${esc(dev.slot)}" data-role="${esc(dev.role)}">Test · eval</button>
+            <button class="act test" data-act="bench" data-slot="${esc(dev.slot)}" data-role="${esc(dev.role)}">Test · bench</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // Clipboard-copied MS003-signed CLI verbs (R10212: web NEVER mutates).
+  function actionCmd(act, role, model) {
+    const m = model || '<model-id>';
+    switch (act) {
+      case 'load':     return `sovereign model load ${m} --role ${role} --precision <ternary|fp8|nvfp4|fp16|bf16>`;
+      case 'toggle':   return `sovereign srp toggle ${role}`;
+      case 'override': return `sovereign srp override <task> ${role}`;
+      case 'eval':     return `sovereign models eval ${m} --dry-run`;
+      case 'bench':    return `sovereign srp benchmark ${role} --dry-run`;
+      default:         return `sovereign srp show`;
+    }
+  }
+
+  let LAST = {devices: []};
+
+  function bind() {
+    document.querySelectorAll('.tab:not(.empty)').forEach(t => t.addEventListener('click', () => {
+      activeTab[t.dataset.slot] = parseInt(t.dataset.tab, 10);
+      draw(LAST);
+    }));
+    document.querySelectorAll('button.act').forEach(b => b.addEventListener('click', () => {
+      const dev = (LAST.devices || []).find(d => d.slot === b.dataset.slot) || {};
+      const idx = activeTab[b.dataset.slot] || 0;
+      const model = (dev.models || [])[idx] && dev.models[idx].id;
+      const cmd = actionCmd(b.dataset.act, b.dataset.role, model);
+      copyCmd(cmd, `${b.dataset.slot} · ${b.dataset.act} — MS003-signed CLI verb copied (R10212 read-only cockpit):`);
+    }));
+  }
+
+  function draw(data) {
+    LAST = data;
+    $('devices').innerHTML = (data.devices || []).map(renderDevice).join('');
+    bind();
+  }
+
+  function renderSelected() {
+    document.querySelectorAll('.chip').forEach(c =>
+      c.classList.toggle('on', selected.has(c.dataset.slot)));
+    $('selected-summary').textContent = selected.size ? [...selected].join(', ') : '(none)';
+  }
+  document.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => {
+    if (selected.has(c.dataset.slot)) selected.delete(c.dataset.slot); else selected.add(c.dataset.slot);
+    renderSelected();
+  }));
+  $('chat-send').addEventListener('click', () => {
+    const prompt_ = $('chat-input').value.trim();
+    const targets = selected.size ? [...selected].join(',') : 'CPU0';
+    const cmd = `sovereign infer --targets ${targets} --prompt ${JSON.stringify(prompt_ || '<prompt>')}`;
+    copyCmd(cmd, `Chat send is render-only in this build — signed invocation copied (R10212):`);
+  });
+
+  async function fetchDevices() {
+    try {
+      const res = await fetch('/api/lm-status/devices', {credentials:'same-origin'});
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      renderDataSourceBanner(true);
+      return data;
+    } catch (e) {
+      renderDataSourceBanner(false, e.message);
+      return {devices: [], error: e.message};
+    }
+  }
+
+  async function refresh() {
+    const data = await fetchDevices();
+    draw(data);
+    renderSelected();
+    $('last-fetch').textContent = 'last fetch: ' + new Date().toLocaleTimeString();
+  }
+
+  try {
+    const es = new EventSource('/api/lm-status/stream');
+    es.addEventListener('model-state-change', refresh);
+    es.addEventListener('error', () => setInterval(refresh, 5000));
+  } catch (e) { setInterval(refresh, 5000); }
+
+  refresh();
+</script>
+</body>
+</html>

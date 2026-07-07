@@ -140,6 +140,16 @@ SURFACE_IDS = [s["id"] for s in SURFACES]
 # accuracy. "waivers" enumerate surfaces the module legitimately doesn't
 # ship on with operator-named rationale.
 MODULE_COVERAGE = {
+    "lm-status-operability": {
+        "shipped_in": "D-22-lm-status-operability (cockpit panel — per-device LM status + operability + render-only chat; reuses the model-health core)",
+        "surfaces": ["core", "api", "webapp", "service"],
+        "waivers": {
+            "cli":       "not applicable — CLI is `sovereign-osctl model-health` on the shared core",
+            "tui":       "not applicable — cockpit web panel, not an interactive TUI",
+            "dashboard": "not applicable — the webapp IS this panel's operator dashboard",
+            "mcp":       "not applicable — read-only render of the shared model-health core",
+        },
+    },
     "auth-tier": {
         "shipped_in": "R450 (E11.M7) + R484 (E11.M7+ Grafana dashboard) + R501 (E11.M7++ read-only REST API + systemd service) + R502 (E11.M7++ MCP surface) + R503 (E11.M7++ webapp surface)",
         "surfaces": ["core", "cli", "dashboard", "api", "service", "mcp", "webapp"],
