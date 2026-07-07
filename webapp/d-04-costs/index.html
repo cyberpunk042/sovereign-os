@@ -641,7 +641,7 @@ $('halt-btn').addEventListener('click', async () => {
   catch (e) { prompt('Copy + run:', cmd); }
 });
 $('export-btn').addEventListener('click', async () => {
-  const cmd = 'sovereign costs export --window 30d --format csv > costs-30d.csv';
+  const cmd = 'sovereign-osctl costs export --window 30d --format csv > costs-30d.csv';
   try { await navigator.clipboard.writeText(cmd); alert(`Export cmd copied:\n\n  ${cmd}`); }
   catch (e) { prompt('Copy + run:', cmd); }
 });
