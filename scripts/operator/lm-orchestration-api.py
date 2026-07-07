@@ -223,6 +223,24 @@ def _version_payload() -> dict:
     }
 
 
+_CONTROL_SYSTEMS_FILE = _REPO_ROOT / "config" / "control-systems.yaml"
+
+
+def _load_control_systems():
+    """SDD-045 control-surface registry (config/control-systems.yaml) served
+    at GET /control-systems for the inlined control surface. yaml is an
+    optional dependency — degrade to empty (never raise) when absent so the
+    daemon stays functional on a stdlib-only host."""
+    try:
+        import yaml  # optional
+    except ImportError:
+        return None
+    try:
+        return yaml.safe_load(_CONTROL_SYSTEMS_FILE.read_text())
+    except OSError:
+        return None
+
+
 class LmOrchAPIHandler(BaseHTTPRequestHandler):
     server_version = f"sovereign-os-lm-orchestration-api/{API_VERSION}"
     sys_version = ""
@@ -281,6 +299,11 @@ class LmOrchAPIHandler(BaseHTTPRequestHandler):
         if path in ("/", "/healthz"):
             self._send_json(200, {"status": "ok", "version": API_VERSION})
             _emit_metric("healthz" if path == "/healthz" else "root", "ok")
+            return
+        if path in ("/control-systems", "/control-systems.json"):
+            cs = _load_control_systems()
+            self._send_json(200, cs if cs is not None else {"systems": []})
+            _emit_metric("control-systems", "ok")
             return
         if path in ("/webapp", "/webapp/index.html"):
             self._send_webapp()

@@ -1,0 +1,231 @@
+# config/control-systems.yaml — SDD-045 §4 — the control-systems registry.
+#
+# The operator directive: "everything can be turned on and off and there are
+# also a tons of modes and profiles." This file is the single source of truth
+# for those controls — the 11 real on/off + mode + profile systems that
+# already exist as CLI/state in sovereign-os, mapped to the dashboards they
+# govern. The shared control-surface component renders the Profiles/Modes
+# selector + Features rail from this registry, so every dashboard becomes a
+# CONTROL surface, not a read-only view.
+#
+# The web surface NEVER mutates privileged state (§1g / hardening lint): every
+# control copies the exact `change_cli` for the operator to run. Two systems
+# are `scope: global` — they appear on EVERY panel header.
+#
+# kind:
+#   profile    — pick one named profile (OS archetype)
+#   mode       — pick one of a small fixed set of modes
+#   toggle     — on/off (per-item for dashboard-toggle / inference tiers)
+#   lifecycle  — start/stop/reload a running subsystem
+# scope:
+#   global     — renders on every panel header
+#   scoped     — renders only on the dashboards in `applies_to`
+# A lint (tests/lint/test_control_systems_registry.py) locks completeness +
+# that every applies_to slug exists in config/dashboard-catalog.yaml.
+schema_version: "1.0.0"
+
+systems:
+  # ── 1. OS profiles — the hardware archetype (global header selector) ──
+  - id: os-profile
+    kind: profile
+    scope: global
+    label: "OS Profile"
+    description: >-
+      The active hardware/role archetype (sain-01 dual-GPU AI workstation,
+      developer, minimal VM, headless server, old-workstation). Selects
+      kernel, packages, mixins, and the runtime envelope. Switching flags
+      items that need a rebuild.
+    options: [sain-01, developer, minimal, headless, old-workstation]
+    options_cli: "sovereign-osctl profiles list"
+    state_cli: "sovereign-osctl profiles active"
+    change_cli: "sovereign-osctl profiles switch <id>"
+    state_path: "/etc/sovereign-os/active-profile"
+    privileged: true
+    applies_to: [d-02-profile-choices, build-configurator, personalization]
+    refs: [schemas/profile.schema.yaml]
+
+  # ── 2. Runtime profiles / modes (master-spec §18) ────────────────────
+  - id: runtime-mode
+    kind: mode
+    scope: scoped
+    label: "Runtime Mode"
+    description: >-
+      The master-spec §18 runtime profile — how the 3 Trinity tiers are
+      allocated across CPU/GPU: ultra-sovereign-efficiency (CPU-only
+      background), high-concurrency-burst (multi-agent, all tiers), or
+      deep-context-synthesis (whole-system, 1M+ tokens on Oracle). Drives
+      core pinning, GPU power, and tier_intent model selection.
+    options: [ultra-sovereign-efficiency, high-concurrency-burst, deep-context-synthesis]
+    options_cli: "sovereign-osctl trinity profile list"
+    state_cli: "sovereign-osctl trinity profile active"
+    change_cli: "sovereign-osctl trinity profile switch <id>"
+    state_path: "/run/sovereign-os/active-runtime-mode"
+    privileged: true
+    applies_to: [runtime-modes, trinity, d-01-active-sessions, d-03-model-health, router, orchestration]
+    refs: [schemas/runtime-profile.schema.yaml, SDD-043]
+
+  # ── 3. Flex-profiles — per-allocation runtime deltas ─────────────────
+  - id: flex-profile
+    kind: mode
+    scope: scoped
+    label: "Flex Deltas"
+    description: >-
+      Reversible per-allocation overrides on top of the runtime mode —
+      GPU utilization, KV-cache dtype (fp8/fp16/bf16/int8), tensor-parallel
+      size. An append-only, fully auditable delta log; reset returns to the
+      YAML baseline.
+    options: ["gpu.utilization", "kv_cache_dtype", "tensor_parallel_size"]
+    options_cli: "sovereign-osctl profiles flex show"
+    state_cli: "sovereign-osctl profiles flex show"
+    change_cli: "sovereign-osctl profiles flex set <key> <value>"
+    state_path: "/var/lib/sovereign-os/flex-profile.json"
+    privileged: false
+    applies_to: [runtime-modes, d-02-profile-choices, d-03-model-health, trinity]
+    refs: [scripts/hardware/profile-flex.py]
+
+  # ── 4. CPU modes — scaling governor ──────────────────────────────────
+  - id: cpu-mode
+    kind: mode
+    scope: scoped
+    label: "CPU Mode"
+    description: >-
+      Per-CPU frequency governor + energy-perf bias — ultra-low-power (idle
+      daemons), balanced (default desktop), sustained-burst (multi-hour
+      pegged inference), peak-inference (min-latency low-batch). `auto`
+      recommends from live GPU wattage + inference load.
+    options: [ultra-low-power, balanced, sustained-burst, peak-inference]
+    options_cli: "sovereign-osctl cpu-mode list"
+    state_cli: "sovereign-osctl cpu-mode show"
+    change_cli: "sovereign-osctl cpu-mode set <mode>"
+    state_path: "/sys/devices/system/cpu/cpu*/cpufreq/scaling_governor"
+    privileged: true
+    applies_to: [runtime-modes, d-09-hardware-pressure, cpu-features]
+    refs: [scripts/hardware/cpu-mode.py]
+
+  # ── 5. GPU modes — power policy ──────────────────────────────────────
+  - id: gpu-mode
+    kind: mode
+    scope: scoped
+    label: "GPU Mode"
+    description: >-
+      Per-GPU power mode derived from the operator's safe_limit_watts —
+      conservative / balanced / sustained / peak. `auto` recommends from
+      live draw. Pairs with the R219 watt-deviance watcher.
+    options: [conservative, balanced, sustained, peak]
+    options_cli: "sovereign-osctl gpu-mode list"
+    state_cli: "sovereign-osctl gpu-mode show"
+    change_cli: "sovereign-osctl gpu-mode set <mode>"
+    state_path: "/etc/sovereign-os/gpu-policy.toml"
+    privileged: true
+    applies_to: [runtime-modes, d-09-hardware-pressure]
+    refs: [config/gpu-policy.toml.example]
+
+  # ── 6. Dashboard toggles — every dashboard on/off (global) ───────────
+  - id: dashboard-toggle
+    kind: toggle
+    scope: global
+    label: "Dashboard On/Off"
+    description: >-
+      Turn any dashboard on or off. Absent slug ships enabled (opt-out
+      model). State is MS003-signed and emits an OCSF 5001 Configuration
+      Change span. This is the literal "everything can be turned on and off"
+      control — per-dashboard, from the master index.
+    options: [on, off]
+    options_cli: "sovereign-osctl dashboards list"
+    state_cli: "sovereign-osctl dashboards status <slug>"
+    change_cli: "sovereign-osctl dashboards {enable|disable} <slug>"
+    state_path: "/etc/sovereign-os/dashboards.toml"
+    privileged: true
+    applies_to: [master-dashboard]
+    refs: [scripts/manifest/dashboard-toggles.py]
+
+  # ── 7. Auth tiers — per-surface auth ladder (global badge) ───────────
+  - id: auth-tier
+    kind: mode
+    scope: global
+    label: "Auth Tier"
+    description: >-
+      The 6-tier auth ladder per surface — no-auth (loopback) → basic →
+      advanced (token) → social (OAuth) → enterprise (SSO) → network-level
+      (IP-allowlist + VPN). Shown as a per-panel badge; changing a tier is
+      triple-gated.
+    options: [no-auth, basic, advanced, social, enterprise, network-level]
+    options_cli: "sovereign-osctl auth-tier list-tiers"
+    state_cli: "sovereign-osctl auth-tier show <dashboard>"
+    change_cli: "sovereign-osctl auth-tier set <dashboard> <tier> --apply --confirm-tier-set"
+    state_path: "/etc/sovereign-os/auth-tier.toml"
+    privileged: true
+    applies_to: [auth-tier]
+    refs: [scripts/operator/auth-tier.py]
+
+  # ── 8. selfdef IPS — on/off + lifecycle ──────────────────────────────
+  - id: selfdef
+    kind: lifecycle
+    scope: scoped
+    label: "selfdef (IPS)"
+    description: >-
+      The intrusion-prevention system — turn the whole IPS on or off, or
+      drive its lifecycle (start/stop/restart/sync/doctor) without changing
+      enablement. Backs the 6 mirror dashboards D-13..D-18.
+    options: [on, off, start, stop, restart, sync, doctor]
+    options_cli: "sovereign-osctl selfdef status"
+    state_cli: "sovereign-osctl selfdef status"
+    change_cli: "sovereign-osctl selfdef {on|off}"
+    state_path: "systemd (selfdef units) + /run marker"
+    privileged: true
+    applies_to: [selfdef-management, auditor, d-13-filesystem-grants, d-14-capability-tokens, d-15-sandboxes, d-16-audit, d-17-quarantine, d-18-trust-scores]
+    refs: [SDD-001]
+
+  # ── 9. Perimeter — Tetragon eBPF ─────────────────────────────────────
+  - id: perimeter
+    kind: lifecycle
+    scope: scoped
+    label: "Perimeter (Tetragon)"
+    description: >-
+      The kernel-level syscall-tracing perimeter (Tetragon eBPF). Verify,
+      reload tracing policies, or check for policy overlap. The last line
+      that cannot be bypassed.
+    options: [status, verify, reload, check-overlap]
+    options_cli: "sovereign-osctl perimeter status"
+    state_cli: "sovereign-osctl perimeter status"
+    change_cli: "sovereign-osctl perimeter reload"
+    state_path: "systemd (tetragon) + /etc/tetragon/tracing-policies/"
+    privileged: true
+    applies_to: [auditor, d-16-audit, selfdef-management]
+    refs: [SDD-015]
+
+  # ── 10. Inference tiers — per-tier start/stop ────────────────────────
+  - id: inference-tier
+    kind: toggle
+    scope: scoped
+    label: "Inference Tiers"
+    description: >-
+      Start/stop/restart each Trinity inference tier independently — Pulse
+      (CPU/AVX-512 bitnet.cpp), Logic (vLLM GPU0), Oracle (vLLM Blackwell),
+      Router (OpenAI-compatible front-end). Health-probes /healthz per tier.
+    options: [pulse, logic, oracle, router]
+    options_cli: "sovereign-osctl inference status"
+    state_cli: "sovereign-osctl inference health"
+    change_cli: "sovereign-osctl inference {start|stop|restart} <tier>"
+    state_path: "systemd (sovereign-{pulse,logic-engine,oracle-core,router} units)"
+    privileged: true
+    applies_to: [trinity, router, d-03-model-health]
+    refs: [SDD-011]
+
+  # ── 11. Workload knobs — inference-latency primitives ────────────────
+  - id: workload-knobs
+    kind: toggle
+    scope: scoped
+    label: "Workload Knobs"
+    description: >-
+      The atomic bundle of inference-latency primitives — NVIDIA MPS, 2MiB/
+      1GiB HugePages, Transparent HugePages, IRQ affinity, CPU isolation,
+      driver persistence. Toggle individually or apply the coordinated set.
+    options: [mps, hugepages, thp, irq-affinity, cpu-isolation, nvidia-persistence]
+    options_cli: "sovereign-osctl workload-knobs show"
+    state_cli: "sovereign-osctl workload-knobs show"
+    change_cli: "sovereign-osctl workload-knobs set <knob> <value>"
+    state_path: "kernel + systemd fragments"
+    privileged: true
+    applies_to: [runtime-modes, d-09-hardware-pressure]
+    refs: [scripts/intelligence/workload-knobs.py]
