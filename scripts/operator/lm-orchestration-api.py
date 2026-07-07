@@ -85,9 +85,22 @@ def _import(name: str, path: Path):
     return mod
 
 
-# Reuse the SAME shipped data sources (no new model, no drift).
+def _import_optional(name: str, path: Path):
+    """Load a NON-essential reused source. Unlike _import, a missing or
+    broken module degrades the corresponding panel row (empty) rather than
+    killing the daemon — production resilience for the optional Profiles
+    row (the grid + features remain fully functional)."""
+    try:
+        return _import(name, path)
+    except (OSError, ImportError, SyntaxError, SystemExit) as e:
+        sys.stderr.write(f"[degraded] optional source {path} unavailable: {e}\n")
+        return None
+
+
+# Reuse the SAME shipped data sources (no new model, no drift). model-health
+# is essential (the assignment grid); runtime-modes is optional (Profiles row).
 _core = _import("_modelhealth_core", _REPO_ROOT / "scripts" / "inference" / "model-health.py")
-_rtmodes = _import("_runtimemodes_api", _REPO_ROOT / "scripts" / "operator" / "runtime-modes-api.py")
+_rtmodes = _import_optional("_runtimemodes_api", _REPO_ROOT / "scripts" / "operator" / "runtime-modes-api.py")
 
 # The panel's four hardware cells (M075 SRP topology + the sketched Ext-GPU).
 GRID = [
@@ -172,7 +185,7 @@ def profiles_view() -> dict[str, Any]:
     shipped runtime-modes lister so the two panels never drift. Each entry
     carries the id/name/description + its Apply verb (clipboard-copied)."""
     try:
-        profiles = _rtmodes._list_profiles()
+        profiles = _rtmodes._list_profiles() if _rtmodes is not None else []
     except Exception:  # noqa: BLE001
         profiles = []
     for p in profiles:
