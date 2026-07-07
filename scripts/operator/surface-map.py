@@ -180,6 +180,16 @@ MODULE_COVERAGE = {
             "mcp":       "not applicable — read-only render of the shared model-health core",
         },
     },
+    "selfdef-management": {
+        "shipped_in": "D-25-selfdef-management (cockpit panel — READ-ONLY consumer view of the selfdef IPS: on/off enablement + M060 mirror-chain health + links to the 6 domain panels D-13..D-18; reuses the m060-health probe() consumer proxy — R10212)",
+        "surfaces": ["core", "api", "webapp", "service"],
+        "waivers": {
+            "cli":       "not applicable — the selfdef producer owns the CLI (`sovereign-osctl selfdef {status,on,off}`); this READ-ONLY consumer never mutates",
+            "tui":       "not applicable — cockpit web panel, not an interactive TUI",
+            "dashboard": "not applicable — the webapp IS this panel's operator dashboard",
+            "mcp":       "not applicable — read-only render of the shared m060-health consumer proxy",
+        },
+    },
     "auth-tier": {
         "shipped_in": "R450 (E11.M7) + R484 (E11.M7+ Grafana dashboard) + R501 (E11.M7++ read-only REST API + systemd service) + R502 (E11.M7++ MCP surface) + R503 (E11.M7++ webapp surface)",
         "surfaces": ["core", "cli", "dashboard", "api", "service", "mcp", "webapp"],

@@ -91,9 +91,9 @@ dashboards:
      description: "Compose an OS image (or manage this host) and RUN the build — the Run console (validate/preflight/BUILD, bake toggles). The one page that actually builds sovereign-os.", refs: [SDD-043]}
 
   # ── Security & selfdef ──────────────────────────────────────────────
-  - {slug: selfdef-management, category: security, label: "selfdef (IPS) Management", path: /selfdef-management/, status: live,
+  - {slug: selfdef-management, category: security, label: "selfdef (IPS) Management", path: /selfdef-management/, api: sovereign-selfdef-management-api, status: live,
      cli: "sovereign-osctl selfdef {status,on,off,start,stop,logs,sync,doctor,install-units}",
-     description: "The intrusion-prevention system — live on/off state + unit/mirror health, unifying the 6 mirror dashboards (D-13..D-18) + perimeter. Served at /selfdef-management.json (selfdef status); controls (on/off/sync/doctor + perimeter) via the Controls surface.", refs: [SDD-001]}
+     description: "The intrusion-prevention system — READ-ONLY consumer view (R10212) of live on/off enablement + M060 mirror-chain health, unifying the 6 mirror dashboards (D-13..D-18) + perimeter. D-25 cockpit panel served at /d-25-selfdef-management/ over /api/selfdef-management/state; controls (on/off/sync/doctor + perimeter) are clipboard-copied signed CLI verbs via the Controls surface.", refs: [SDD-001]}
   - {slug: edge-firewall, category: security, label: "Edge Firewall", path: /edge-firewall/, api: sovereign-edge-firewall-api, status: live,
      description: "Host firewall posture — nftables / fail2ban / crowdsec / suricata state + install recommendations.", refs: []}
   - {slug: network-edge, category: security, label: "Network Edge", path: /network-edge/, api: sovereign-network-edge-api, status: live,
