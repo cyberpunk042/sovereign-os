@@ -51,6 +51,8 @@ dashboards:
      description: "The canonical model registry (models/catalog.yaml) browsed by SRP tier — id, class, engine, precision, params, context, license, purpose, status. The portfolio view (distinct from D-03 live health).", refs: [M017, M075]}
   - {slug: d-22-lm-status-operability, category: models, label: "D-22 LM Status & Operability", path: /d-22-lm-status-operability/, api: sovereign-lm-status-operability-api, status: live,
      description: "Per-device (CPU0/GPU0/GPU1) Model 0/1/2 status + History|Selected latency + operability Actions/Tests + render-only Chat. Reuses the model-health core; Actions copy signed CLI verbs.", refs: [M075, R10212]}
+  - {slug: d-25-selfdef-management, category: security, label: "D-25 Self-Defense Management", path: /d-25-selfdef-management/, api: sovereign-selfdef-management-api, status: live,
+     description: "READ-ONLY consumer view (R10212) of the selfdef IPS — on/off enablement + M060 mirror-chain health + links to the 6 domain panels (D-13..D-18). Derives state via the m060-health probe() proxy; on/off is a clipboard-copied signed CLI verb.", refs: [M060, R10212, SDD-001]}
   - {slug: d-03-model-health, category: trinity, label: "D-03 Model Health", path: /d-03-model-health/, api: sovereign-model-health-api, status: live,
      description: "Per-tier inference health — SRP role, GPU binding, KV-cache pressure, latency. The live-serving view (distinct from the catalog).", refs: []}
   - {slug: d-05-traces, category: trinity, label: "D-05 Traces", path: /d-05-traces/, api: sovereign-traces-api, status: snapshot,
@@ -91,9 +93,9 @@ dashboards:
      description: "Compose an OS image (or manage this host) and RUN the build — the Run console (validate/preflight/BUILD, bake toggles). The one page that actually builds sovereign-os.", refs: [SDD-043]}
 
   # ── Security & selfdef ──────────────────────────────────────────────
-  - {slug: selfdef-management, category: security, label: "selfdef (IPS) Management", path: /selfdef-management/, api: sovereign-selfdef-management-api, status: live,
+  - {slug: selfdef-management, category: security, label: "selfdef (IPS) Management", path: /selfdef-management/, status: live,
      cli: "sovereign-osctl selfdef {status,on,off,start,stop,logs,sync,doctor,install-units}",
-     description: "The intrusion-prevention system — READ-ONLY consumer view (R10212) of live on/off enablement + M060 mirror-chain health, unifying the 6 mirror dashboards (D-13..D-18) + perimeter. D-25 cockpit panel served at /d-25-selfdef-management/ over /api/selfdef-management/state; controls (on/off/sync/doctor + perimeter) are clipboard-copied signed CLI verbs via the Controls surface.", refs: [SDD-001]}
+     description: "The intrusion-prevention system — live on/off state + unit/mirror health, unifying the 6 mirror dashboards (D-13..D-18) + perimeter. Served at /selfdef-management.json (selfdef status); controls (on/off/sync/doctor + perimeter) via the Controls surface.", refs: [SDD-001]}
   - {slug: edge-firewall, category: security, label: "Edge Firewall", path: /edge-firewall/, api: sovereign-edge-firewall-api, status: live,
      description: "Host firewall posture — nftables / fail2ban / crowdsec / suricata state + install recommendations.", refs: []}
   - {slug: network-edge, category: security, label: "Network Edge", path: /network-edge/, api: sovereign-network-edge-api, status: live,
