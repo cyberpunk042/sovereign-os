@@ -6,7 +6,8 @@ SHELL := /bin/bash
 PROFILE ?= sain-01
 
 .PHONY: help setup validate lint unit l3 l3-fast test smoke dry-run \
-        preflight ci all clean dashboards-lint install uninstall bins panel bootstrap
+        preflight ci all clean dashboards-lint install uninstall bins panel bootstrap \
+        operator-sudo operator-sudo-uninstall
 
 .DEFAULT_GOAL := help
 
@@ -35,6 +36,12 @@ dev-setup:  ## Dev workstation: node + Claude Code + Claude VS Code extension + 
 
 provision:  ## Resume setup in ONE command: bootstrap + dev tools + selfdef(build+enable) + operator-deps (idempotent)
 	scripts/install/provision.sh
+
+operator-sudo:  ## Install the SCOPED NOPASSWD sudoers drop-in (preview first: scripts/operator/operator-sudoers.sh --print)
+	sudo scripts/operator/operator-sudoers.sh
+
+operator-sudo-uninstall:  ## Remove the operator NOPASSWD sudoers drop-in
+	sudo scripts/operator/operator-sudoers.sh --uninstall
 
 validate:  ## Validate all profiles against schema + mixin merger
 	scripts/validate-profiles.sh
