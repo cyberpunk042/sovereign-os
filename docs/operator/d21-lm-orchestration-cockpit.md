@@ -24,9 +24,11 @@ An **Ext-GPU** cell shows N/A until an external card is registered.
 
 The cockpit **never mutates SRP topology**. The API daemon fail-closes on
 POST/PUT/DELETE (`405`). The central **Apply** composes and **clipboard-copies**
-the MS003-signed profile verb (`sovereign-osctl runtime-modes apply <profile>`);
-model→hardware assignment is `sovereign srp override` / `sovereign model load
---role …` per M075 R12509/R12564.
+the signed profile verb (`sovereign-osctl trinity profile switch <profile>`);
+per-allocation and hardware controls are `sovereign-osctl profiles flex set` /
+`cpu-mode set` / `gpu-mode set` / `inference {start|stop|restart} <tier>` — the
+real verbs from `config/control-systems.yaml`. (`sovereign srp …` is
+aspirational per M075 R12509/R12564; not yet a CLI verb.)
 
 ## Surfaces (§1g ladder)
 

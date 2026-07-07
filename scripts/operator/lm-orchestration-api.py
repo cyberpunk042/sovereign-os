@@ -21,9 +21,10 @@ drift):
 Per operator §1g (verbatim, sacrosanct): "We do not minimize anything."
 
 Sovereignty (stdlib-only, zero deps): loopback-bind, READ-ONLY (all
-model→hardware assignment is MS003-signed CLI verbs — `sovereign srp
-override` / `sovereign model load --role …` — never web mutations, per
-R10212). do_POST/PUT/DELETE fail-closed 405.
+model→hardware assignment is signed `sovereign-osctl` CLI verbs —
+`trinity profile switch` / `profiles flex set` / `inference start …` per
+config/control-systems.yaml — never web mutations, per R10212).
+do_POST/PUT/DELETE fail-closed 405.
 
 Endpoints (the exact contract webapp/d-21-lm-orchestration/index.html
 fetches):
@@ -190,7 +191,10 @@ def profiles_view() -> dict[str, Any]:
         profiles = []
     for p in profiles:
         pid = p.get("id") or p.get("mode_id") or "?"
-        p["apply_cmd"] = f"sovereign-osctl runtime-modes apply {pid}"
+        # Authoritative verb per config/control-systems.yaml runtime-mode
+        # change_cli (the real `sovereign-osctl` surface — there is no
+        # `runtime-modes apply` verb).
+        p["apply_cmd"] = f"sovereign-osctl trinity profile switch {pid}"
     return {"profiles": profiles, "count": len(profiles),
             "note": "orchestration-intent profile family (Coding/Thinking/"
                     "Hybrid) is operator-decision-pending — the 3 M076 "

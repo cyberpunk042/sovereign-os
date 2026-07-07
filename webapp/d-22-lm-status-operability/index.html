@@ -210,15 +210,21 @@
   }
 
   // Clipboard-copied MS003-signed CLI verbs (R10212: web NEVER mutates).
+  // Authoritative `sovereign-osctl` verbs (config/control-systems.yaml
+  // change_cli + `sovereign-osctl` dispatch). SRP role → inference tier:
+  // conductor=pulse, logic=logic, oracle=oracle. There is no `srp` /
+  // `model load` verb — the real controls are inference-tier + profile.
+  const ROLE_TIER = {conductor:'pulse', logic:'logic', oracle:'oracle'};
   function actionCmd(act, role, model) {
-    const m = model || '<model-id>';
+    const m = model || '<slug>';
+    const tier = ROLE_TIER[role] || role;
     switch (act) {
-      case 'load':     return `sovereign model load ${m} --role ${role} --precision <ternary|fp8|nvfp4|fp16|bf16>`;
-      case 'toggle':   return `sovereign srp toggle ${role}`;
-      case 'override': return `sovereign srp override <task> ${role}`;
-      case 'eval':     return `sovereign models eval ${m} --dry-run`;
-      case 'bench':    return `sovereign srp benchmark ${role} --dry-run`;
-      default:         return `sovereign srp show`;
+      case 'load':     return `sovereign-osctl inference start ${tier}`;
+      case 'toggle':   return `sovereign-osctl inference restart ${tier}`;
+      case 'override': return `sovereign-osctl trinity profile switch <profile>`;
+      case 'eval':     return `sovereign-osctl models eval ${m}`;
+      case 'bench':    return `sovereign-osctl inference status`;
+      default:         return `sovereign-osctl inference status`;
     }
   }
 
@@ -254,10 +260,13 @@
     renderSelected();
   }));
   $('chat-send').addEventListener('click', () => {
-    const prompt_ = $('chat-input').value.trim();
     const targets = selected.size ? [...selected].join(',') : 'CPU0';
-    const cmd = `sovereign infer --targets ${targets} --prompt ${JSON.stringify(prompt_ || '<prompt>')}`;
-    copyCmd(cmd, `Chat send is render-only in this build — signed invocation copied (R10212):`);
+    // No single-prompt inference CLI exists yet (inference is
+    // start/stop/status/health per tier); live chat awaits the M058
+    // inference producer. Copy a real verb — the tier status for the
+    // selected devices — rather than a phantom command.
+    const cmd = `sovereign-osctl inference status   # targets: ${targets} — live chat pending the M058 inference producer`;
+    copyCmd(cmd, `Chat is render-only in this build (no inference CLI yet, R10212). Copied a real status verb:`);
   });
 
   async function fetchDevices() {

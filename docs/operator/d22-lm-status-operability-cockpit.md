@@ -43,14 +43,17 @@ The panel **never mutates**. The API daemon fail-closes on POST/PUT/DELETE
 the equivalent **MS003-signed CLI verb** and **copies it to the clipboard** for
 the operator to run out-of-band:
 
+Verbs are the real `sovereign-osctl` surface (SRP role → inference tier:
+conductor=pulse, logic=logic, oracle=oracle):
+
 | Button | Copied signed verb |
 |--------|--------------------|
-| Action · load | `sovereign model load <model> --role <conductor\|logic\|oracle> --precision …` |
-| Action · toggle | `sovereign srp toggle <role>` |
-| Action · override | `sovereign srp override <task> <role>` |
-| Test · eval | `sovereign models eval <model> --dry-run` |
-| Test · bench | `sovereign srp benchmark <role> --dry-run` |
-| Chat · Send | `sovereign infer --targets <CPU0,GPU0,GPU1> --prompt "…"` |
+| Action · load | `sovereign-osctl inference start <tier>` |
+| Action · toggle | `sovereign-osctl inference restart <tier>` |
+| Action · override | `sovereign-osctl trinity profile switch <profile>` |
+| Test · eval | `sovereign-osctl models eval <slug>` |
+| Test · bench | `sovereign-osctl inference status` |
+| Chat · Send | `sovereign-osctl inference status` (render-only — no single-prompt inference CLI yet; awaits the M058 producer) |
 
 ## Run it
 

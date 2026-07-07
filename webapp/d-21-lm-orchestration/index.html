@@ -175,7 +175,7 @@
   // (R10212: web NEVER mutates SRP topology).
   $('apply-btn').addEventListener('click', () => {
     const p = PROFILES.find(x => (x.id || x.mode_id) === selectedProfile);
-    const cmd = (p && p.apply_cmd) || `sovereign-osctl runtime-modes apply ${selectedProfile || '<profile>'}`;
+    const cmd = (p && p.apply_cmd) || `sovereign-osctl trinity profile switch ${selectedProfile || '<profile>'}`;
     copyCmd(cmd, `Apply — MS003-signed profile verb copied (R10212 read-only cockpit):`);
   });
 
