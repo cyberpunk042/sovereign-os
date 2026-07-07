@@ -679,18 +679,23 @@ async function refresh() {
 
 $('refresh-btn').addEventListener('click', refresh);
 $('load-model-btn').addEventListener('click', async () => {
-  const cmd = 'sovereign model load <model-id> --role <conductor|logic|oracle> --precision <ternary|fp8|nvfp4|fp16|bf16>';
-  try { await navigator.clipboard.writeText(cmd); alert(`Load model cmd template copied:\n\n  ${cmd}\n\nOperator MS003-signed. Role assignment per M075 SRP topology.`); }
+  // Activate a role's tier (loads its profile-configured model). Real
+  // sovereign-osctl verb — there is no `sovereign model load`. SRP role →
+  // tier: conductor=pulse, logic=logic, oracle=oracle.
+  const cmd = 'sovereign-osctl inference start <pulse|logic|oracle>';
+  try { await navigator.clipboard.writeText(cmd); alert(`Start-tier cmd copied:\n\n  ${cmd}\n\nStarts the role's tier with its active-profile model (M075 SRP topology).`); }
   catch (e) { prompt('Copy + run:', cmd); }
 });
 $('unload-idle-btn').addEventListener('click', async () => {
-  const cmd = 'sovereign model unload --idle-for 30m --dry-run';
-  try { await navigator.clipboard.writeText(cmd); alert(`Idle unload cmd copied (dry-run first):\n\n  ${cmd}\n\nRemove --dry-run to apply.`); }
+  const cmd = 'sovereign-osctl inference stop <pulse|logic|oracle>';
+  try { await navigator.clipboard.writeText(cmd); alert(`Stop-tier cmd copied:\n\n  ${cmd}\n\nStops the tier (frees its VRAM).`); }
   catch (e) { prompt('Copy + run:', cmd); }
 });
 $('warm-kv-btn').addEventListener('click', async () => {
-  const cmd = 'sovereign kv-cache warm --profile deep-context-synthesis --dtype fp8';
-  try { await navigator.clipboard.writeText(cmd); alert(`KV warm cmd copied:\n\n  ${cmd}\n\nM076 Profile 3 Deep Context Synthesis. M077 supports --dtype nvfp4 for 2× VRAM savings.`); }
+  // KV-cache dtype is set by the runtime profile (deep-context-synthesis
+  // pins fp8). There is no `sovereign kv-cache` verb.
+  const cmd = 'sovereign-osctl trinity profile switch deep-context-synthesis';
+  try { await navigator.clipboard.writeText(cmd); alert(`Profile-switch cmd copied:\n\n  ${cmd}\n\nM076 Deep Context Synthesis — pins fp8 KV cache across both GPUs.`); }
   catch (e) { prompt('Copy + run:', cmd); }
 });
 
