@@ -140,6 +140,16 @@ SURFACE_IDS = [s["id"] for s in SURFACES]
 # accuracy. "waivers" enumerate surfaces the module legitimately doesn't
 # ship on with operator-named rationale.
 MODULE_COVERAGE = {
+    "models-catalog": {
+        "shipped_in": "D-23-models-catalog (cockpit panel — the canonical model registry by SRP tier; reuses the model-health load_catalog core)",
+        "surfaces": ["core", "api", "webapp", "service"],
+        "waivers": {
+            "cli":       "not applicable — CLI is `sovereign-osctl models` on the shared catalog",
+            "tui":       "not applicable — cockpit web panel, not an interactive TUI",
+            "dashboard": "not applicable — the webapp IS this panel's operator dashboard",
+            "mcp":       "not applicable — read-only render of the shared catalog reader",
+        },
+    },
     "lm-orchestration": {
         "shipped_in": "D-21-lm-orchestration (cockpit panel — profiles + model→hardware assignment grid + AVX-512/GPU capabilities; reuses the model-health core + runtime-modes profile lister)",
         "surfaces": ["core", "api", "webapp", "service"],
