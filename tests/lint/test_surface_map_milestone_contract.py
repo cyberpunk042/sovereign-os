@@ -78,6 +78,7 @@ EXPECTED_STRUCTURAL_BELOW_8 = {
     "quarantine-mirror", # 6/8 — same M060 cross-repo mirror pattern
     "trust-mirror",      # 6/8 — same M060 cross-repo mirror pattern
     "lm-status-operability",  # 4/8 — cockpit panel over the shared model-health core (cli/tui/dashboard/mcp n/a)
+    "lm-orchestration",       # 4/8 — cockpit panel over model-health + runtime-modes cores (cli/tui/dashboard/mcp n/a)
 }
 
 
@@ -311,7 +312,7 @@ def test_milestone_count_self_consistency():
         capture_output=True, text=True, timeout=10,
     )
     data = json.loads(result.stdout)
-    assert data["total_modules"] == 23
+    assert data["total_modules"] == 24
     assert (
         data["at_structural_ceiling_count"]
         == len(data["at_full_8_surfaces"])

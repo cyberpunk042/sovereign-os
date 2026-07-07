@@ -1,0 +1,52 @@
+[Unit]
+Description=Sovereign LM orchestration read-only API + D-21 dashboard host
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/lm-orchestration-api.py
+# Read-only observation surface: composes the shared model-health core
+# (scripts/inference/model-health.py) into a GPU0/GPU1/Ext-GPU/CPU0
+# model→hardware assignment grid, the M076 runtime profiles (via the
+# runtime-modes lister), and CPU AVX-512 / GPU capability flags. There is
+# NO mutation surface — model→hardware assignment is MS003-signed CLI
+# verbs (sovereign srp override / sovereign model load --role …), never
+# web mutations (R10212).
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/lm-orchestration-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default — operator-§1g exposure decision is theirs. To expose
+# beyond loopback, drop /etc/systemd/system/sovereign-lm-orchestration-api.service.d/bind.conf:
+#   [Service]
+#   Environment=LM_ORCH_API_BIND=0.0.0.0
+Environment=LM_ORCH_API_BIND=127.0.0.1
+Environment=LM_ORCH_API_PORT=8121
+
+# R171 defense-in-depth (Layer-1 lint enforced). Read-only HTTP surface;
+# reads models/catalog.yaml + profiles/runtime/*.yaml + /proc/cpuinfo +
+# optional /run/sovereign-os/*.json + exec nvidia-smi (read-only) and
+# appends the metrics textfile.
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target

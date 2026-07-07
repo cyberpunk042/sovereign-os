@@ -1,0 +1,134 @@
+# config/dashboard-catalog.yaml — the described, categorized catalog of
+# EVERY operator surface: the 38 webapp panels AND the feature domains that
+# have no panel yet (Models, AVX-choice, orchestration, selfdef…). This is
+# the single source of truth the master index renders — so the operator
+# gets a global view with a real description + how-to-reach for each thing.
+#
+# status:  live      — backed by a running sovereign-*-api (data when the API is up)
+#          snapshot  — ships a baked snapshot (no live API / localStorage only)
+#          planned   — no dashboard yet; reachable TODAY via the CLI/API noted
+#
+# A lint (tests/lint/test_dashboard_catalog_complete.py) locks that every
+# webapp/<panel>/ dir has an entry here, so descriptions never drift.
+schema_version: "1.0.0"
+
+categories:
+  - id: trinity
+    label: "Trinity & Orchestration"
+    blurb: "The 3-tier AI runtime — how requests get routed, which model thinks, and how the sandbox + gatekeeper hold the line."
+  - id: models
+    label: "Models & Compute"
+    blurb: "The model catalog, the CPU/AVX-512 exploitation choices, and the profile generation that binds models to hardware."
+  - id: hardware
+    label: "Hardware & Operations"
+    blurb: "Thermals, power, storage, cost, rollbacks — the physical box and its day-to-day running."
+  - id: security
+    label: "Security & selfdef"
+    blurb: "The IPS (selfdef) on/off + mirrors, the network perimeter, approvals, and the trust/audit surfaces."
+  - id: governance
+    label: "Governance & Meta"
+    blurb: "Coverage audits, the build configurator, the aggregator itself, and operator personalization."
+
+dashboards:
+  # ── Trinity & Orchestration ─────────────────────────────────────────
+  - {slug: trinity, category: trinity, label: "Trinity", path: /trinity/, api: sovereign-trinity-api, status: live,
+     description: "The 3-tier runtime at a glance — Pulse (CPU/AVX-512 ternary), Weaver (sandboxed GPU fabric), Auditor (immutable gatekeeper): live tier status, model assignments, health.", refs: [master-spec §17]}
+  - {slug: weaver, category: trinity, label: "Weaver (fabric)", path: /weaver/, api: sovereign-weaver-api, status: live,
+     description: "The sandboxed fabric layer — Podman/VFIO isolation, the state-fabric (tank/context) writers, CCD1 allocation. Where untrusted work runs.", refs: [master-spec §17]}
+  - {slug: auditor, category: trinity, label: "Auditor (gatekeeper)", path: /auditor/, api: sovereign-auditor-api, status: live,
+     description: "The always-on immutable gatekeeper — Tetragon eBPF perimeter + Guardian violation tail. The last line that cannot be bypassed.", refs: [master-spec §17, M084]}
+  - {slug: router, category: trinity, label: "Router", path: /router/, api: sovereign-router-api, status: live,
+     description: "The deterministic request router (SDD-011): which tier answers a prompt, per-rule classification, routing-decision metrics. Pairs with the thinking-router planner (CLI: router plan).", refs: [SDD-011, R516]}
+  - {slug: runtime-modes, category: trinity, label: "Runtime Modes", path: /runtime-modes/, api: sovereign-runtime-modes-api, status: live,
+     description: "The master-spec §18 runtime profiles (ultra-sovereign-efficiency / high-concurrency / deep-context) — pick the mode; it drives core pinning, GPU power, model allocation.", refs: [M076, SDD-043]}
+  - {slug: d-01-active-sessions, category: trinity, label: "D-01 Active Sessions", path: /d-01-active-sessions/, api: sovereign-sessions-api, status: live,
+     description: "The 12-step task lifecycle per live operator session (init → inference → response → validation → cleanup).", refs: [M057]}
+  - {slug: d-21-lm-orchestration, category: models, label: "D-21 LM Orchestration", path: /d-21-lm-orchestration/, api: sovereign-lm-orchestration-api, status: live,
+     description: "Profiles + model→hardware assignment grid (GPU0/GPU1/CPU0 = Logic/Oracle/Conductor per M075) + CPU AVX-512 / GPU capability panel. Read-only: Apply copies the signed profile verb.", refs: [M075, M076, R10212]}
+  - {slug: d-22-lm-status-operability, category: models, label: "D-22 LM Status & Operability", path: /d-22-lm-status-operability/, api: sovereign-lm-status-operability-api, status: live,
+     description: "Per-device (CPU0/GPU0/GPU1) Model 0/1/2 status + History|Selected latency + operability Actions/Tests + render-only Chat. Reuses the model-health core; Actions copy signed CLI verbs.", refs: [M075, R10212]}
+  - {slug: d-03-model-health, category: trinity, label: "D-03 Model Health", path: /d-03-model-health/, api: sovereign-model-health-api, status: live,
+     description: "Per-tier inference health — SRP role, GPU binding, KV-cache pressure, latency. The live-serving view (distinct from the catalog).", refs: []}
+  - {slug: d-05-traces, category: trinity, label: "D-05 Traces", path: /d-05-traces/, api: sovereign-traces-api, status: snapshot,
+     description: "Distributed span search — 13-field trace tree, OCSF export. Debug why a request went where it did.", refs: [M049]}
+
+  # ── Models & Compute (mostly un-paneled — the gap you found) ─────────
+  - {slug: models-catalog, category: models, label: "Models & Catalog", path: /models-catalog/, status: live,
+     cli: "sovereign-osctl models {query,select,suggest,info,eval,toolchains,fine-tune}",
+     description: "The full model catalog (68 models across ternary-lm/RLM/SLM/LLM/mixture, every quantization) with VRAM-aware selection — browse and filter by class/quant/tier/purpose/VRAM. Backed by models/catalog.yaml (served at /models-catalog.json); operator CLI e.g. models select --class rlm --vram 48.", refs: [R212, R214, R231, SDD-043]}
+  - {slug: cpu-features, category: models, label: "CPU / AVX-512 Choice", path: /cpu-features/, status: live,
+     cli: "scripts/build/cpu-features.py · scripts/hardware/avx512-advisor.py · sovereign-osctl cpu-mode",
+     description: "The tiered AVX-512 exploitation surface — which instructions (F/VL/BW/VNNI/BF16/VPOPCNTDQ…) THIS CPU exposes and how they map to the AI workloads they enable (Pulse ternary path). Live probe via avx512-advisor (R272), served at /cpu-avx.json.", refs: [SDD-043, R272]}
+  - {slug: orchestration, category: models, label: "Thinking Router / Orchestration", path: /orchestration/, status: live,
+     cli: "sovereign-osctl router plan <prompt>",
+     description: "The thinking-router / orchestration view — the 7-axis routing rules (SDD-011) + live routing metrics (which tier/class/task-type requests landed on) + the per-profile escalation (CoT → Validator → self-consistency → MoE). Served at /orchestration.json (router rules|metrics).", refs: [SDD-043 P4]}
+  - {slug: profile-generation, category: models, label: "Runtime-Profile Generation", path: /profile-generation/, status: live,
+     cli: "sovereign-osctl profiles generate-runtime <hw> <strategy>",
+     description: "Generate a whole runtime profile from hardware × strategy, with tier_intent resolved against the catalog (the '20+ combos' producer) — shows the resolved allocations each strategy produces + the generate command. Served at /profile-generation.json from profiles/runtime/*.yaml.", refs: [SDD-043 P3]}
+  - {slug: d-10-eval-history, category: models, label: "D-10 Eval History", path: /d-10-eval-history/, api: sovereign-evals-api, status: live,
+     description: "Per-task/model eval results (mmlu/humaneval/gsm8k/…), white-box + black-box.", refs: [R232]}
+  - {slug: d-11-adapter-status, category: models, label: "D-11 Adapter Status", path: /d-11-adapter-status/, api: sovereign-adapters-api, status: live,
+     description: "LoRA adapter inventory + rollback state — which fine-tunes are resident and active.", refs: [MS041]}
+  - {slug: d-19-super-model-manifest, category: models, label: "D-19 Super-Model Manifest", path: /d-19-super-model-manifest/, api: sovereign-super-model-api, status: live,
+     description: "The live super-model version + the M001..M080 module table — what capabilities are shipped.", refs: []}
+
+  # ── Hardware & Operations ───────────────────────────────────────────
+  - {slug: d-09-hardware-pressure, category: hardware, label: "D-09 Hardware Pressure", path: /d-09-hardware-pressure/, api: sovereign-hardware-pressure-api, status: live,
+     description: "Live PSI (CPU/mem/IO), per-CCD load, GPU utilization + power, ZFS pool health. The physical-stress view.", refs: []}
+  - {slug: d-04-costs, category: hardware, label: "D-04 Costs", path: /d-04-costs/, api: sovereign-costs-api, status: live,
+     description: "Budget + spend by project / profile / model — local compute cost + any cloud fallback.", refs: []}
+  - {slug: d-08-rollback-points, category: hardware, label: "D-08 Rollback Points", path: /d-08-rollback-points/, api: sovereign-rollback-api, status: live,
+     description: "ZFS snapshots as recovery points, with a dry-run preview of what a rollback would change.", refs: [SDD-017]}
+  - {slug: d-02-profile-choices, category: hardware, label: "D-02 Profile Choices", path: /d-02-profile-choices/, api: sovereign-profile-mirror-api, status: live,
+     description: "The active OS profile mirrored read-only — hardware, kernel, packages, hooks in effect.", refs: []}
+  - {slug: global-history, category: hardware, label: "Global History", path: /global-history/, api: sovereign-global-history-api, status: live,
+     description: "A unified change log across 6 sources (apt/dpkg/shell/osctl/events/modules) — 'what changed since I last looked?'", refs: [R448]}
+  - {slug: build-configurator, category: hardware, label: "Build Configurator", path: /build-configurator/, api: sovereign-build-configurator-api, status: live,
+     description: "Compose an OS image (or manage this host) and RUN the build — the Run console (validate/preflight/BUILD, bake toggles). The one page that actually builds sovereign-os.", refs: [SDD-043]}
+
+  # ── Security & selfdef ──────────────────────────────────────────────
+  - {slug: selfdef-management, category: security, label: "selfdef (IPS) Management", path: /selfdef-management/, status: live,
+     cli: "sovereign-osctl selfdef {status,on,off,start,stop,logs,sync,doctor,install-units}",
+     description: "The intrusion-prevention system — live on/off state + unit/mirror health, unifying the 6 mirror dashboards (D-13..D-18) + perimeter. Served at /selfdef-management.json (selfdef status); controls (on/off/sync/doctor + perimeter) via the Controls surface.", refs: [SDD-001]}
+  - {slug: edge-firewall, category: security, label: "Edge Firewall", path: /edge-firewall/, api: sovereign-edge-firewall-api, status: live,
+     description: "Host firewall posture — nftables / fail2ban / crowdsec / suricata state + install recommendations.", refs: []}
+  - {slug: network-edge, category: security, label: "Network Edge", path: /network-edge/, api: sovereign-network-edge-api, status: live,
+     description: "The edge topology — OPNsense bridge, ISP NAT layers, VPN, per-interface state. Where the box sits in the network.", refs: [R449]}
+  - {slug: d-12-networking, category: security, label: "D-12 Networking", path: /d-12-networking/, api: sovereign-network-edge-api, status: live,
+     description: "The cockpit networking view — VLAN-asymmetric zero-trust NICs, the mgmt/data plane split, per-interface addresses + routes.", refs: [master-spec §8]}
+  - {slug: d-06-pending-approvals, category: security, label: "D-06 Pending Approvals", path: /d-06-pending-approvals/, api: sovereign-approvals-api, status: live,
+     description: "The operator approval queue + stage gates — actions waiting for a human yes/no.", refs: []}
+  - {slug: d-07-memory-changes, category: security, label: "D-07 Memory Changes", path: /d-07-memory-changes/, api: sovereign-memory-changes-api, status: live,
+     description: "The 8-type memory-graph diff — what the agent's memory added/changed/removed.", refs: [M028]}
+  - {slug: d-13-filesystem-grants, category: security, label: "D-13 Filesystem Grants", path: /d-13-filesystem-grants/, api: sovereign-grants-mirror-api, status: live,
+     description: "selfdef filesystem-grant mirror (read-only) — which paths are granted to whom.", refs: [selfdef MS007]}
+  - {slug: d-14-capability-tokens, category: security, label: "D-14 Capability Tokens", path: /d-14-capability-tokens/, api: sovereign-capability-mirror-api, status: live,
+     description: "selfdef capability-token mirror — issued/revoked capabilities.", refs: [selfdef MS035]}
+  - {slug: d-15-sandboxes, category: security, label: "D-15 Sandboxes", path: /d-15-sandboxes/, api: sovereign-sandbox-mirror-api, status: live,
+     description: "selfdef sandbox mirror — active sandboxes + their isolation state.", refs: [selfdef MS032]}
+  - {slug: d-16-audit, category: security, label: "D-16 Audit Chain", path: /d-16-audit/, api: sovereign-audit-mirror-api, status: live,
+     description: "selfdef append-only audit-chain mirror — the tamper-evident event log.", refs: [selfdef MS016]}
+  - {slug: d-17-quarantine, category: security, label: "D-17 Quarantine", path: /d-17-quarantine/, api: sovereign-quarantine-mirror-api, status: live,
+     description: "selfdef quarantine mirror — what's been isolated and why.", refs: [selfdef MS042]}
+  - {slug: d-18-trust-scores, category: security, label: "D-18 Trust Scores", path: /d-18-trust-scores/, api: sovereign-trust-mirror-api, status: live,
+     description: "selfdef trust-score mirror — per-entity trust levels driving policy.", refs: [selfdef MS042]}
+  - {slug: d-20-peace-machine-health, category: security, label: "D-20 Peace Machine Health", path: /d-20-peace-machine-health/, api: sovereign-peace-machine-api, status: live,
+     description: "The M059 peace-machine 5-property verdict — the top-level 'is the system at peace' signal.", refs: [M059]}
+  - {slug: compliance, category: security, label: "Compliance", path: /compliance/, api: sovereign-compliance-api, status: live,
+     description: "The §1g/§1h compliance aggregator — per-module pass/fail against the operator mandate.", refs: [R458]}
+  - {slug: auth-tier, category: security, label: "Auth Tier", path: /auth-tier/, api: sovereign-auth-tier-api, status: live,
+     description: "The 6-tier auth ladder (no-auth → basic → advanced → social → enterprise → network) + per-surface requirement.", refs: [R450]}
+  - {slug: anti-minimization-audit, category: security, label: "Anti-Minimization Audit", path: /anti-minimization-audit/, api: sovereign-anti-min-api, status: live,
+     description: "The 'do not minimize' audit — flags where scope was silently shrunk vs the mandate.", refs: [R456]}
+
+  # ── Governance & Meta ───────────────────────────────────────────────
+  - {slug: master-dashboard, category: governance, label: "Master Dashboard", path: /master-dashboard/, api: sovereign-master-dashboard-api, status: live,
+     description: "The aggregator — the route table + health of every panel + selfdef cross-repo manifest discovery. The front door (this catalog is its new global index).", refs: [R452, R500]}
+  - {slug: surface-map, category: governance, label: "Surface Map", path: /surface-map/, api: sovereign-surface-map-api, status: live,
+     description: "The §1g 8-surface taxonomy coverage — which of the 8 operator surfaces each module delivers.", refs: [R453, SDD-039]}
+  - {slug: doc-coverage, category: governance, label: "Doc Coverage", path: /doc-coverage/, api: sovereign-doc-coverage-api, status: live,
+     description: "Documentation coverage per module — what's documented vs shipped.", refs: [R454]}
+  - {slug: ux-design-audit, category: governance, label: "UX Design Audit", path: /ux-design-audit/, api: sovereign-ux-design-audit-api, status: live,
+     description: "The UX design-stage audit — consistency/accessibility scoring across the panels.", refs: [R457]}
+  - {slug: personalization, category: governance, label: "Personalization", path: /personalization/, status: snapshot,
+     description: "Theme / accent / typography control (localStorage-backed) applied across all panels before paint.", refs: [R10137]}

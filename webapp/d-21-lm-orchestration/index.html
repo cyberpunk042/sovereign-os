@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sovereign-os D-21 language model orchestration</title>
+<meta name="x-sovereign-module" content="d-21-lm-orchestration-webapp">
+<meta name="x-sovereign-shipped-in" content="D-21-lm-orchestration">
+<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
+<meta name="x-sovereign-catalog-source" content="reuses model-health.py (M060 D-03 grid) + runtime-modes M076 profiles + /proc/cpuinfo AVX-512 flags; M075 SRP topology (Conductor/Logic/Oracle)">
+<script>
+  (function(){
+    var KEY = 'sovereign-os.personalization', SCHEMA_V = 1;
+    var DEF = { schema: SCHEMA_V, theme: 'auto', accent: '#9bd1ff', font_scale: 1 };
+    var p;
+    try {
+      var raw = localStorage.getItem(KEY);
+      p = raw ? JSON.parse(raw) : null;
+      if (!p || p.schema !== SCHEMA_V) p = null;
+    } catch(e) { p = null; }
+    if (!p) p = DEF;
+    var resolved = (p.theme === 'dark' || p.theme === 'light') ? p.theme
+      : ((window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark');
+    document.documentElement.setAttribute('data-theme', resolved);
+    document.documentElement.style.setProperty('--so-accent', p.accent || DEF.accent);
+    document.documentElement.style.setProperty('--accent', p.accent || DEF.accent);
+    document.documentElement.style.setProperty('--font-scale', String(p.font_scale || 1));
+  })();
+</script>
+<style>
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --panel:#171717;
+    --border:#262626; --mono:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; --accent:#9bd1ff; --good:#7ad17a; --warn:#e6c062;
+    --bad:#ff7676; --font-scale:1;
+  }
+  html[data-theme="light"] {
+    --bg:#f6f6f6; --fg:#0e0e0e; --muted:#555; --panel:#ffffff; --border:#d8d8d8;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--bg); color:var(--fg);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: calc(14px * var(--font-scale)); line-height:1.5;
+  }
+  header { padding:1rem 1.25rem; border-bottom:1px solid var(--border); }
+  h1 { margin:0; font-size:1.1rem; }
+  h1 .sub { color:var(--muted); font-weight:400; font-size:.8rem; margin-left:.5rem; }
+  main { padding:1rem 1.25rem; max-width:1200px; }
+  h2 { font-size:.95rem; margin:1.2rem 0 .5rem; }
+  .banner { font-size:.78rem; color:var(--muted); margin:.5rem 0; }
+  .muted { color:var(--muted); }
+  code { color:var(--accent); }
+  /* profiles */
+  .profiles { display:flex; flex-wrap:wrap; gap:.5rem; }
+  .profile {
+    border:1px solid var(--border); border-radius:6px; background:var(--panel);
+    padding:.5rem .75rem; cursor:pointer; min-width:200px; flex:1;
+  }
+  .profile.on { border-color:var(--accent); }
+  .profile .name { color:var(--accent); font-weight:600; }
+  .profile .desc { color:var(--muted); font-size:.76rem; margin-top:.2rem; }
+  /* grid */
+  .grid {
+    display:grid; grid-template-columns:1fr 1fr; gap:1px;
+    background:var(--border); border:1px solid var(--border); border-radius:6px;
+    overflow:hidden; position:relative;
+  }
+  .cell { background:var(--panel); padding:.75rem .9rem; min-height:120px; }
+  .cell h3 { margin:0 0 .4rem; font-size:.9rem; display:flex; justify-content:space-between; gap:.5rem; }
+  .cell h3 .slot { color:var(--muted); font-size:.78rem; font-weight:400; }
+  .cell.na { display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:1.4rem; }
+  .mslot { font-size:.8rem; margin:.15rem 0; }
+  .mslot .k { color:var(--muted); }
+  .pill { display:inline-block; padding:0 .4rem; border-radius:3px; border:1px solid var(--border); font-size:.72rem; color:var(--muted); }
+  .apply-wrap { text-align:center; margin:.75rem 0; }
+  button.apply {
+    border:1px solid var(--accent); background:transparent; color:var(--accent);
+    border-radius:50%; width:88px; height:88px; cursor:pointer; font:inherit;
+    font-size:.95rem;
+  }
+  button.apply:hover { background:rgba(155,209,255,.10); }
+  /* features */
+  .features { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+  .fcol { border:1px solid var(--border); border-radius:6px; background:var(--panel); padding:.6rem .9rem; }
+  .fcol h3 { margin:0 0 .4rem; font-size:.88rem; }
+  .frow { font-size:.8rem; display:flex; justify-content:space-between; padding:.15rem 0; border-bottom:1px solid var(--border); }
+  .yes { color:var(--good); } .no { color:var(--muted); }
+  footer { padding:1rem 1.25rem; border-top:1px solid var(--border); color:var(--muted); font-size:.75rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1>D-21 · Language Model Orchestration
+    <span class="sub">profiles · model→hardware assignment grid · capabilities (M075 SRP · M076 profiles)</span></h1>
+</header>
+<main>
+  <div class="banner" id="data-source-banner">connecting to <code>/api/lm-orchestration/grid</code>…</div>
+
+  <h2>Profiles · Language Model</h2>
+  <div class="banner muted" id="profiles-note"></div>
+  <div class="profiles" id="profiles"></div>
+
+  <h2>Model → hardware assignment</h2>
+  <div class="apply-wrap"><button class="apply" id="apply-btn" title="Copy the signed apply verb-chain for the selected profile">Apply</button></div>
+  <div class="grid" id="grid"></div>
+
+  <h2>Capabilities</h2>
+  <div class="features">
+    <div class="fcol"><h3>Features CPU (AVX-512)</h3><div id="features-cpu"></div></div>
+    <div class="fcol"><h3>Features GPUs</h3><div id="features-gpu"></div></div>
+  </div>
+  <p class="banner" id="last-fetch"></p>
+</main>
+<footer>
+  sovereign-os cockpit · D-21 · read-only mirror. Model→hardware assignment is
+  MS003-signed CLI verbs (R10212 — web never mutates).
+  Operator §1g standing rule (sacrosanct): <strong>We do not minimize anything.</strong>
+</footer>
+<script>
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  let PROFILES = [];
+  let selectedProfile = null;
+
+  async function copyCmd(cmd, note) {
+    try { await navigator.clipboard.writeText(cmd); alert((note ? note+'\n\n' : '') + '  ' + cmd); }
+    catch (e) { prompt('Copy + run:', cmd); }
+  }
+
+  function renderProfiles(data) {
+    PROFILES = data.profiles || [];
+    $('profiles-note').textContent = data.note || '';
+    if (selectedProfile == null && PROFILES.length) selectedProfile = (PROFILES[0].id || PROFILES[0].mode_id);
+    $('profiles').innerHTML = PROFILES.map(p => {
+      const id = p.id || p.mode_id;
+      const on = id === selectedProfile ? ' on' : '';
+      return `<div class="profile${on}" data-id="${esc(id)}">
+        <div class="name">${esc(p.name || id)}</div>
+        <div class="desc">${esc((p.description || '').split('\n')[0].slice(0,120))}</div>
+      </div>`;
+    }).join('');
+    document.querySelectorAll('.profile').forEach(el => el.addEventListener('click', () => {
+      selectedProfile = el.dataset.id; renderProfiles({profiles: PROFILES, note: data.note});
+    }));
+  }
+
+  function cellHtml(c) {
+    if (!c.present) return `<div class="cell na" title="${esc(c.label)}">${esc(c.slot)} · N/A</div>`;
+    const models = (c.models || []).map(m =>
+      `<div class="mslot"><span class="k">Model ${m.slot}${m.core_range ? ' (Core '+esc(m.core_range)+')' : ''}:</span> ${m.id ? '<code>'+esc(m.id)+'</code>' : '<span class="muted">—</span>'} ${m.precision ? '<span class="pill">'+esc(m.precision)+'</span>' : ''}</div>`
+    ).join('');
+    const util = c.util_pct != null ? c.util_pct.toFixed(0)+'%' : '—';
+    return `<div class="cell">
+      <h3>${esc(c.label)} <span class="slot">${esc(c.slot)} · mode ${esc(c.mode || '—')} · util ${util}</span></h3>
+      ${models}
+    </div>`;
+  }
+
+  function renderGrid(data) {
+    $('grid').innerHTML = (data.cells || []).map(cellHtml).join('');
+  }
+
+  function renderFeatures(f) {
+    $('features-cpu').innerHTML = (f.cpu || []).map(x =>
+      `<div class="frow"><span>${esc(x.label)}</span><span class="${x.present ? 'yes' : 'no'}">${x.present ? '✓' : '—'}</span></div>`
+    ).join('') || '<div class="muted">/proc/cpuinfo not readable</div>';
+    $('features-gpu').innerHTML = (f.gpu || []).length ? f.gpu.map(g =>
+      `<div class="frow"><span><code>${esc(g.name)}</code> (cc ${esc(g.compute_cap)})</span><span>${g.nvfp4_capable ? '<span class="yes">NVFP4</span> ' : ''}${g.tensor_cores ? '<span class="yes">TensorCore</span>' : ''}</span></div>`
+    ).join('') : '<div class="muted">no GPU telemetry (nvidia-smi absent or no GPU)</div>';
+  }
+
+  // Apply = clipboard-copy the signed verb-chain for the selected profile
+  // (R10212: web NEVER mutates SRP topology).
+  $('apply-btn').addEventListener('click', () => {
+    const p = PROFILES.find(x => (x.id || x.mode_id) === selectedProfile);
+    const cmd = (p && p.apply_cmd) || `sovereign-osctl runtime-modes apply ${selectedProfile || '<profile>'}`;
+    copyCmd(cmd, `Apply — MS003-signed profile verb copied (R10212 read-only cockpit):`);
+  });
+
+  async function fetchJson(path) {
+    const res = await fetch(path, {credentials:'same-origin'});
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  }
+
+  async function refresh() {
+    try {
+      const [grid, profiles, features] = await Promise.all([
+        fetchJson('/api/lm-orchestration/grid'),
+        fetchJson('/api/lm-orchestration/profiles'),
+        fetchJson('/api/lm-orchestration/features'),
+      ]);
+      $('data-source-banner').innerHTML = 'consuming <code>/api/lm-orchestration/{grid,profiles,features}</code>';
+      renderProfiles(profiles);
+      renderGrid(grid);
+      renderFeatures(features);
+    } catch (e) {
+      $('data-source-banner').innerHTML = 'cannot reach the lm-orchestration API daemon <span class="muted">('+esc(e.message)+')</span>';
+    }
+    $('last-fetch').textContent = 'last fetch: ' + new Date().toLocaleTimeString();
+  }
+
+  try {
+    const es = new EventSource('/api/lm-orchestration/stream');
+    es.addEventListener('state-change', refresh);
+    es.addEventListener('error', () => setInterval(refresh, 5000));
+  } catch (e) { setInterval(refresh, 5000); }
+
+  refresh();
+</script>
+
+<!-- SDD-045 shared control-surface (inlined verbatim from webapp/_shared/control-surface.{css,js}; lockstep-linted). -->
+<section style="max-width:1200px;padding:0 1.25rem 1rem"><h2>Controls · features &amp; profiles</h2>
+<div id="control-surface" class="cs-grid"><div class="cs-empty">loading controls…</div></div></section>
+<style>
+/* webapp/_shared/control-surface.css — SDD-045 shared control-surface.
+ * Renders the control-systems registry (profiles / modes / feature toggles)
+ * as a grid of control cards. Monochrome, framework-free; inherits the
+ * panel palette variables (--bg/--fg/--muted/--accent/--border/--mono). */
+.cs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: .5rem; }
+.cs-card {
+  display: flex; flex-direction: column; gap: .35rem;
+  padding: .6rem .75rem; border: 1px solid var(--border, #262626);
+  border-radius: .4rem; background: rgba(255, 255, 255, .02);
+}
+.cs-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.cs-label { font-weight: 600; flex: 1; }
+.cs-kind {
+  font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted, #888); border: 1px solid var(--border, #262626);
+  border-radius: 3px; padding: 0 .35rem;
+}
+.cs-global {
+  font-size: .7rem; color: var(--accent, #9bd1ff);
+  border: 1px solid var(--accent, #9bd1ff); border-radius: 3px; padding: 0 .35rem;
+}
+.cs-desc { color: var(--muted, #888); font-size: .8rem; line-height: 1.45; }
+.cs-opts { display: flex; flex-wrap: wrap; gap: .3rem; }
+.cs-opt { font-size: .72rem; background: var(--border, #262626); border-radius: 3px; padding: 1px 6px; }
+.cs-cmd {
+  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
+  text-align: left; color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
+  border: 1px solid var(--border, #262626); border-radius: 3px;
+  padding: .25rem .4rem; cursor: pointer; overflow-x: auto; white-space: nowrap;
+}
+.cs-cmd:hover { border-color: var(--accent, #9bd1ff); }
+.cs-empty { color: var(--muted, #888); }
+</style>
+<script>
+/* webapp/_shared/control-surface.js — SDD-045 shared control-surface renderer.
+ *
+ * Renders the control-systems registry (config/control-systems.yaml, served
+ * as GET /control-systems) — the operator's "everything can be turned on and
+ * off + tons of modes and profiles" — as a grid of control cards. Reused by
+ * every dashboard so each becomes a CONTROL surface.
+ *
+ * Web is READ-ONLY: each control shows its options and copies its exact
+ * `change_cli` for the operator to run. It NEVER mutates privileged state
+ * (§1g / hardening lint). No framework, no CDN — a single same-origin file.
+ *
+ * Usage:
+ *   const n = SovereignControlSurface.render(el, systems, {
+ *     filterSlug: 'runtime-modes',   // only global + systems governing this slug
+ *     onCopy: (cmd) => showToast(cmd) // optional copy callback
+ *   });
+ */
+(function (global) {
+  "use strict";
+
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function render(containerEl, systems, opts) {
+    opts = opts || {};
+    var slug = opts.filterSlug || null;
+    var list = (systems || []).filter(function (s) {
+      if (!slug) return true;                       // no filter → all systems
+      return s.scope === "global" ||                // globals show everywhere
+        (s.applies_to || []).indexOf(slug) >= 0;    // + systems governing slug
+    });
+    var html = list.map(function (s) {
+      var pills = (s.options || []).map(function (o) {
+        return '<span class="cs-opt">' + esc(o) + "</span>";
+      }).join("");
+      var change = esc(s.change_cli || "");
+      return '<div class="cs-card cs-' + esc(s.kind) + '">'
+        + '<div class="cs-head">'
+        + '<span class="cs-label">' + esc(s.label) + "</span>"
+        + '<span class="cs-kind">' + esc(s.kind) + "</span>"
+        + (s.scope === "global" ? '<span class="cs-global">global</span>' : "")
+        + "</div>"
+        + '<div class="cs-desc">' + esc(s.description) + "</div>"
+        + '<div class="cs-opts">' + pills + "</div>"
+        + (change
+            ? '<button class="cs-cmd" data-cmd="' + change
+              + '" title="click to copy the operator command">$ ' + change + "</button>"
+            : "")
+        + "</div>";
+    }).join("");
+    containerEl.innerHTML = html || '<div class="cs-empty">(no controls for this surface)</div>';
+    Array.prototype.forEach.call(containerEl.querySelectorAll(".cs-cmd"), function (b) {
+      b.addEventListener("click", function () {
+        var cmd = b.getAttribute("data-cmd");
+        if (navigator.clipboard) navigator.clipboard.writeText(cmd);
+        if (typeof opts.onCopy === "function") opts.onCopy(cmd);
+      });
+    });
+    return list.length;
+  }
+
+  // Convenience: fetch /control-systems (same-origin) and render.
+  function load(containerEl, opts) {
+    return fetch("/control-systems", { headers: { Accept: "application/json" } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.error) {
+          containerEl.innerHTML = '<div class="cs-empty">controls unavailable: '
+            + esc(data.error) + "</div>";
+          return 0;
+        }
+        return render(containerEl, (data && data.systems) || [], opts);
+      })
+      .catch(function (e) {
+        containerEl.innerHTML = '<div class="cs-empty">controls unavailable: '
+          + esc(e && e.message) + "</div>";
+        return 0;
+      });
+  }
+
+  global.SovereignControlSurface = { render: render, load: load };
+})(window);
+</script>
+<script>
+(function(){
+  var el = document.getElementById("control-surface");
+  if (el && window.SovereignControlSurface) {
+    SovereignControlSurface.load(el, {filterSlug:'d-21-lm-orchestration'});
+  }
+})();
+</script>
+</body>
+</html>
