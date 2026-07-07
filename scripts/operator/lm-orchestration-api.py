@@ -181,24 +181,76 @@ def grid_view() -> dict[str, Any]:
             "summary": snap.get("summary", {}), "cells": cells}
 
 
+_ORCH_DIR = _REPO_ROOT / "profiles" / "orchestration"
+
+
+def _orchestration_profiles() -> list[dict[str, Any]]:
+    """Read the orchestration-intent profile family (profiles/orchestration/
+    *.yaml) with a minimal stdlib parser (the daemon stays dependency-free
+    like every sibling). Extracts the top-level id/name/description/intent
+    under the `orchestration_profile:` key — enough for the Profiles row.
+    Absent dir / malformed file → skipped (never raises)."""
+    out: list[dict[str, Any]] = []
+    if not _ORCH_DIR.is_dir():
+        return out
+    for path in sorted(_ORCH_DIR.glob("*.yaml")):
+        try:
+            lines = path.read_text().splitlines()
+        except OSError:
+            continue
+        rec: dict[str, Any] = {"family": "orchestration"}
+        in_block = None
+        for raw in lines:
+            s = raw.strip()
+            if in_block is not None:
+                # first non-empty line of a `description: |` block is the summary
+                if s and "description" not in rec:
+                    rec["description"] = s
+                if s and (len(raw) - len(raw.lstrip())) <= in_block:
+                    in_block = None
+                continue
+            if s.startswith("#") or not s:
+                continue
+            for key in ("id", "name", "intent"):
+                if s.startswith(f"{key}:"):
+                    val = s.split(":", 1)[1].strip().strip('"\'')
+                    if val and val != "|":
+                        rec[key] = val
+            if s.startswith("description:"):
+                val = s.split(":", 1)[1].strip()
+                if val in ("|", ">"):
+                    in_block = len(raw) - len(raw.lstrip())
+                elif val:
+                    rec["description"] = val.strip('"\'')
+        if rec.get("id"):
+            out.append(rec)
+    return out
+
+
 def profiles_view() -> dict[str, Any]:
-    """The M076 runtime profiles the Profiles row renders — reuses the
-    shipped runtime-modes lister so the two panels never drift. Each entry
-    carries the id/name/description + its Apply verb (clipboard-copied)."""
+    """The profiles the Profiles row renders. Two families, both surfaced:
+      - the 3 M076 runtime load-balancing profiles (reused via the shipped
+        runtime-modes lister — the two panels never drift), and
+      - the 5 orchestration-intent profiles (profiles/orchestration/).
+    Each entry carries id/name/description + its Apply verb (clipboard-copied)."""
     try:
-        profiles = _rtmodes._list_profiles() if _rtmodes is not None else []
+        runtime = _rtmodes._list_profiles() if _rtmodes is not None else []
     except Exception:  # noqa: BLE001
-        profiles = []
-    for p in profiles:
+        runtime = []
+    for p in runtime:
         pid = p.get("id") or p.get("mode_id") or "?"
+        p["family"] = "runtime"
         # Authoritative verb per config/control-systems.yaml runtime-mode
-        # change_cli (the real `sovereign-osctl` surface — there is no
-        # `runtime-modes apply` verb).
+        # change_cli (the real `sovereign-osctl` surface).
         p["apply_cmd"] = f"sovereign-osctl trinity profile switch {pid}"
+    orchestration = _orchestration_profiles()
+    for p in orchestration:
+        p["apply_cmd"] = f"sovereign-osctl trinity profile switch {p['id']}"
+    profiles = runtime + orchestration
     return {"profiles": profiles, "count": len(profiles),
-            "note": "orchestration-intent profile family (Coding/Thinking/"
-                    "Hybrid) is operator-decision-pending — the 3 M076 "
-                    "load-balancing profiles render here today"}
+            "runtime_count": len(runtime), "orchestration_count": len(orchestration),
+            "note": "two families: the 3 M076 runtime load-balancing profiles + "
+                    "the 5 orchestration-intent profiles (profiles/orchestration/)"}
 
 
 def features_view() -> dict[str, Any]:

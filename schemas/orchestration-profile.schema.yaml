@@ -1,0 +1,93 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://github.com/cyberpunk042/sovereign-os/schemas/orchestration-profile.schema.yaml"
+title: sovereign-os orchestration-profile schema
+description: |
+  Schema for an orchestration-intent profile YAML at
+  `profiles/orchestration/<id>.yaml`. This is a SEPARATE family from the
+  master-spec §18 runtime load-balancing profiles (profiles/runtime/, which
+  is verbatim-locked to exactly 3). Orchestration profiles express the
+  operator's WORKLOAD INTENT (full-orchestration / coding-focus /
+  thinking-focus / hybrid / full-hybrid) — which SRP tiers carry which model
+  role for a given kind of work — and are surfaced by the D-21 LM
+  Orchestration cockpit panel. The distinct top-level key
+  `orchestration_profile` guarantees no collision with the runtime-profile
+  lint or reader.
+
+type: object
+required:
+  - schema_version
+  - orchestration_profile
+
+properties:
+  schema_version:
+    type: string
+    pattern: '^\d+\.\d+\.\d+$'
+
+  orchestration_profile:
+    type: object
+    required:
+      - id
+      - name
+      - description
+      - intent
+      - hardware_profile_compat
+      - allocations
+    properties:
+      id:
+        type: string
+        pattern: '^[a-z][a-z0-9-]*$'
+      name:
+        type: string
+      description:
+        type: string
+        minLength: 30
+      intent:
+        description: The workload-intent this profile optimizes for.
+        type: string
+        enum: [full-orchestration, coding, thinking, hybrid, full-hybrid]
+      hardware_profile_compat:
+        type: array
+        items:
+          type: string
+          pattern: '^[a-z][a-z0-9-]*$'
+        minItems: 1
+
+      allocations:
+        type: array
+        minItems: 1
+        items:
+          type: object
+          required:
+            - agent_id
+            - tier
+            - target_hardware
+            - engine
+            - model
+          properties:
+            agent_id:
+              type: string
+              pattern: '^[a-z][a-z0-9_-]*$'
+            tier:
+              type: string
+              enum: [pulse, logic, oracle, router]
+            role:
+              description: SRP role label (Conductor / Logic / Oracle).
+              type: string
+              enum: [conductor, logic, oracle]
+            target_hardware:
+              type: string
+              pattern: '^(cpu|cuda:[0-9](,cuda:[0-9])*)$'
+            core_mask:
+              type: string
+            engine:
+              type: string
+              enum: [bitnet.cpp, vllm, vllm-vulkan, llama.cpp]
+            model:
+              type: string
+            active:
+              description: Whether this allocation is active in the intent (idle tiers set false).
+              type: boolean
+
+      observability:
+        type: object
+        additionalProperties: true
