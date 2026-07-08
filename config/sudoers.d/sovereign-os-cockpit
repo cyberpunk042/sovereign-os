@@ -47,7 +47,10 @@ Cmnd_Alias SOVEREIGN_OS_COCKPIT = \
     /usr/local/bin/sovereign-osctl cost-policy *, \
     /usr/local/bin/sovereign-osctl traces replay-verify *, \
     /usr/local/bin/sovereign-osctl rollback apply --to latest --confirm, \
-    /usr/local/bin/sovereign-osctl approvals *
+    /usr/local/bin/sovereign-osctl approvals *, \
+    /usr/local/bin/sovereign-osctl models load *, \
+    /usr/local/bin/sovereign-osctl models unload *, \
+    /usr/local/bin/sovereign-osctl models warm *
 
 # Granted to the OPERATOR USER (the account the panel APIs + agent run as), per
 # operator-sudoers.sh's model — NOT a dedicated service account. `%operator` is

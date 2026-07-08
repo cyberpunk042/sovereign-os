@@ -371,3 +371,63 @@ systems:
     privileged: true
     applies_to: [d-06-pending-approvals]
     refs: [scripts/lifecycle/approval-decide.py]
+
+  # ── 19. Model load — put a catalog model on its tier (D-03, SDD-049) ──
+  - id: model-load
+    kind: lifecycle
+    scope: scoped
+    label: "Load Model"
+    description: >-
+      Load a catalog model onto its Trinity tier (SDD-049) — resolves the id to
+      its tier + on-disk path, VRAM-fit-checks the role's GPU (refuse unless
+      --force), writes the tier env drop-in, and restarts the tier unit (no
+      hot-swap exists; loading = binding the tier to the model). DRY-RUN by
+      default; the real load is operator-key + type-to-confirm gated. Publishes
+      /run/sovereign-os/model-state.json for the D-03 overlay.
+    options: [latest]
+    options_cli: "sovereign-osctl models list"
+    state_cli: "sovereign-osctl models registered"
+    change_cli: "sovereign-osctl models load <id> --confirm"
+    state_path: "/run/sovereign-os/model-state.json + /etc/sovereign-os/inference-<tier>.env + systemd tier units"
+    privileged: true
+    applies_to: [d-03-model-health]
+    refs: [scripts/models/load.py]
+
+  # ── 20. Model unload — stop a role's tier (D-03, SDD-049) ────────────
+  - id: model-unload
+    kind: lifecycle
+    scope: scoped
+    label: "Unload Model"
+    description: >-
+      Unload the model on a GPU tier (SDD-049) — stop the role's Trinity tier
+      unit (logic or oracle) and clear its model-state.json entry, freeing the
+      GPU. DRY-RUN by default; the real unload is operator-key + type-to-confirm
+      gated. Idle-auto-unload is a later follow-up.
+    options: [logic, oracle]
+    options_cli: "sovereign-osctl inference status"
+    state_cli: "sovereign-osctl inference status"
+    change_cli: "sovereign-osctl models unload {logic|oracle} --confirm"
+    state_path: "/run/sovereign-os/model-state.json + systemd tier units"
+    privileged: true
+    applies_to: [d-03-model-health]
+    refs: [scripts/models/unload.py]
+
+  # ── 21. KV warm — prime a running tier's model (D-03, SDD-049) ───────
+  - id: model-warm
+    kind: lifecycle
+    scope: scoped
+    label: "Warm KV Cache"
+    description: >-
+      Warm a running GPU tier (SDD-049) — send a 1-token /v1/completions prime
+      request to the tier's vLLM server (logic :8082 / oracle :8083) to load
+      weights and prime the KV cache. Non-privileged (loopback HTTP, no host
+      mutation); graceful when the tier is down. A richer profile/dtype-aware
+      warm is a later follow-up.
+    options: [logic, oracle]
+    options_cli: "sovereign-osctl inference health"
+    state_cli: "sovereign-osctl inference health"
+    change_cli: "sovereign-osctl models warm {logic|oracle}"
+    state_path: "vLLM OpenAI servers (loopback :8082/:8083) — read-only prime"
+    privileged: false
+    applies_to: [d-03-model-health]
+    refs: [scripts/models/warm.py]

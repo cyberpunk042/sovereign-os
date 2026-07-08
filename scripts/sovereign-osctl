@@ -2139,6 +2139,23 @@ cmd_models() {
       # tier_intent-driven runtime profiles.
       "${__REPO_ROOT}/scripts/models/select-by-intent.py" "$@"
       ;;
+    load)
+      # SDD-049: load model <id> into its tier — resolve id → (tier, on-disk
+      # path), VRAM-fit gate (refuse unless --force), write the tier env
+      # drop-in, restart the tier unit, publish model-state.json. DRY-RUN by
+      # default; --confirm applies. The D-03 model-load control targets this.
+      "${__REPO_ROOT}/scripts/models/load.py" "$@"
+      ;;
+    unload)
+      # SDD-049: unload {logic|oracle} — stop the role's tier unit + clear its
+      # model-state.json entry. DRY-RUN by default; --confirm applies.
+      "${__REPO_ROOT}/scripts/models/unload.py" "$@"
+      ;;
+    warm)
+      # SDD-049: warm {logic|oracle} — prime the tier's running vLLM server with
+      # a 1-token /v1/completions request (load weights + KV). Non-privileged.
+      "${__REPO_ROOT}/scripts/models/warm.py" "$@"
+      ;;
     info)
       # R231 (SDD-026 Z-2): LM-Studio-equivalent rich detail for one
       # catalog model — every field the YAML declares (class /
