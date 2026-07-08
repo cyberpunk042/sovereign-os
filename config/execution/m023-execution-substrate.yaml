@@ -1,0 +1,60 @@
+# config/execution/m023-execution-substrate.yaml
+# ============================================================================
+# M023 "Execution substrate — WASM/Deno/Python/VM tiers" — the execution-tier
+# CONTRACT. Materializes the milestone spec (backlog/milestones/M023-..., dump
+# 6427-6563): the 6 execution tiers (E0211), the 8 REPLs + REPL capability
+# descriptor (E0212), the WASM tool interface (E0213), the 64-bit capability word
+# (E0214), and the Tool-ABI manifest (E0215). No invention — every entry traces
+# to a module + dump line range; where the dump gives a COUNT but not names
+# (capability-word bitfields, tool-ABI fields) the count is recorded with a
+# cross-ref, never fabricated names.
+#
+# The 6 tiers extend M014's A/B/C/D tool sandboxes; the capability word is the
+# M014 capability_word (M00225) at the execution layer.
+# STATUS: spec-materialization (SDD+TDD — precedes the execution runtime).
+# Locked to spec by tests/lint/test_m023_execution_substrate.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M023
+source_dump_lines: "6427-6563"
+
+# ── E0211 — the 6 execution tiers (M00371-M00376, dump 6427-6447) — VERBATIM ──
+execution_tiers:
+  - {tier: 0, module: M00371, name: Pure Logic, note: "AVX-512 masks / parsers / validators / FSMs; no side effects"}
+  - {tier: 1, module: M00372, name: WASM Plugins, note: "deterministic-ish / portable / capability-limited; parsers/filters/scorers/transforms"}
+  - {tier: 2, module: M00373, name: Deno Scripts, note: "JS/TS with explicit file/net/env/run permissions; web/API glue + agent scripts"}
+  - {tier: 3, module: M00374, name: Python REPL, note: "rich science/data/code environment; powerful but more dangerous"}
+  - {tier: 4, module: M00375, name: Containers / MicroVMs, note: "package installs / builds / untrusted code / browsers"}
+  - {tier: 5, module: M00376, name: VFIO 4090 VM, note: "heavy sandboxed model work / risky tool exploration / perception agents"}
+
+# ── E0212 — the 8 REPLs (M00377-M00384, dump 6466-6473) — VERBATIM ──
+repls:
+  module_range: "M00377-M00384"
+  kinds: [math, Python, "Deno/TypeScript", SQL, shell, browser, simulation, "WASM plugin"]
+
+# ── E0212 — REPL capability descriptor YAML (M00385, dump 6478-6491) — VERBATIM ──
+repl_capability_descriptor:
+  module: M00385
+  fields: [runtime, allow_net, allow_read, allow_write, allow_run, max_time_ms, output_schema]
+
+# ── E0213 — WASM tool interface, 5 named signatures (M00386, dump 6500-6507) ──
+wasm_tool_interface:
+  module: M00386
+  signatures: [parse, score, filter, transform, validate]
+
+# ── E0214 — 64-bit capability word (M00387, dump 6527-6536) ──
+# The dump specifies "8 bitfields"; names = the M014 capability_word (M00225).
+capability_word:
+  module: M00387
+  width_bits: 64
+  bitfield_count: 8
+  fields_ref: "M014 capability_word (M00225): allowed_tools/fs_scope/network_scope/max_runtime/max_memory/output_type/trust_level/flags"
+
+# ── E0215 — Tool-ABI manifest (M00388, dump 6553-6563) ──
+# The dump specifies "8 named fields"; names to be extracted from the dump line
+# range at implementation time (count recorded, not fabricated).
+tool_abi_manifest:
+  module: M00388
+  named_field_count: 8
+  dump_lines: "6553-6563"
