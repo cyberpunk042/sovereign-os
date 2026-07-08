@@ -24,7 +24,7 @@ source_dump_lines: "3726-3992"
 canonical_workflow:
   module: M00234
   stages: [Intake, Classify, Retrieve, DraftPlan, PolicyCheck, OracleReview,
-           ToolIntent, HumanGate?, ExecuteSandbox, ValidateResult, Commit,
+           ToolIntent, "HumanGate?", ExecuteSandbox, ValidateResult, Commit,
            SummarizeMemory]
 
 # ── E0128 — per-node contract (M00235, dump 3752-3761) — VERBATIM ──
