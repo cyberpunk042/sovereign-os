@@ -431,3 +431,67 @@ systems:
     privileged: false
     applies_to: [d-03-model-health]
     refs: [scripts/models/warm.py]
+
+  # ── 22. Snapshot create — take a manual ZFS snapshot (D-08, SDD-050) ──
+  - id: snapshot-create
+    kind: lifecycle
+    scope: scoped
+    label: "Create Snapshot"
+    description: >-
+      Create a manual ZFS snapshot of a sovereign dataset (SDD-050) — `zfs
+      snapshot <dataset>@<tag>`. The dataset is an enum of short keys
+      (os / context / models / agents) resolved to the real '/'-bearing path
+      INSIDE the engine, never a '/'-arg through the exec allowlist. The tag is
+      validated (no '/', '@', spaces). DRY-RUN by default; the real create is
+      operator-key + type-to-confirm gated.
+    options: [os, context, models, agents]
+    options_cli: "sovereign-osctl rollback snapshot"
+    state_cli: "sovereign-osctl rollback snapshot"
+    change_cli: "sovereign-osctl rollback create --dataset {os|context|models|agents} --tag <tag> --confirm"
+    state_path: "ZFS snapshots on rpool/sovereign-os + tank/{context,models,agents} via zfs snapshot"
+    privileged: true
+    applies_to: [d-08-rollback-points]
+    refs: [scripts/lifecycle/rollback-points.py]
+
+  # ── 23. Snapshot prune — destroy aged ZFS snapshots (D-08, SDD-050) ──
+  - id: snapshot-prune
+    kind: lifecycle
+    scope: scoped
+    label: "Prune Snapshots"
+    description: >-
+      Prune ZFS snapshots older than the retention window (SDD-050) — `zfs
+      destroy` per dataset, EXCEPT a hard floor: never the very latest, and
+      never the newest 3 per dataset unless --force (a logged, CLI-only
+      escalation). Old-but-floor-protected snapshots are withheld and reported
+      (refuse-by-default), not destroyed. DRY-RUN by default; the real prune is
+      operator-key + type-to-confirm gated.
+    options: [14, 7, 30, 90]
+    options_cli: "sovereign-osctl rollback snapshot"
+    state_cli: "sovereign-osctl rollback snapshot"
+    change_cli: "sovereign-osctl rollback prune --retain-days {14|7|30|90} --confirm"
+    state_path: "ZFS snapshots on rpool/sovereign-os + tank/{context,models,agents} via zfs destroy"
+    privileged: true
+    applies_to: [d-08-rollback-points]
+    refs: [scripts/lifecycle/rollback-points.py]
+
+  # ── 24. Rollback (recent) — roll back to a recent snapshot (D-08, SDD-050) ──
+  - id: rollback-recent
+    kind: lifecycle
+    scope: scoped
+    label: "Rollback (recent snapshot)"
+    description: >-
+      Roll back to one of the recent ZFS snapshots (SDD-050) — the destructive
+      `zfs rollback -r` targeting a bounded positional token (recent-1 = newest,
+      … recent-5). The token is resolved to the live '@'-name INSIDE the engine,
+      so the '/'+'@' snapshot id never crosses the exec allowlist; the dry-run
+      plan shows the resolved target before confirm. Complements the one-click
+      Rollback (latest). DRY-RUN by default; the real rollback is operator-key +
+      type-to-confirm gated.
+    options: [recent-1, recent-2, recent-3, recent-4, recent-5]
+    options_cli: "sovereign-osctl rollback snapshot"
+    state_cli: "sovereign-osctl rollback snapshot"
+    change_cli: "sovereign-osctl rollback apply --to {recent-1|recent-2|recent-3|recent-4|recent-5} --confirm"
+    state_path: "ZFS snapshots (rpool/tank) + git commit history"
+    privileged: true
+    applies_to: [d-08-rollback-points]
+    refs: [scripts/lifecycle/rollback-points.py]
