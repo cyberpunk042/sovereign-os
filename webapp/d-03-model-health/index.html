@@ -678,18 +678,19 @@ async function refresh() {
 }
 
 $('refresh-btn').addEventListener('click', refresh);
-$('load-model-btn').addEventListener('click', async () => {
-  // NEUTRALIZED (operator directive: no phantom/broken actions) — `sovereign model` is not a real sovereign-osctl verb (planned).
-      alert('This action is planned — not yet available in sovereign-osctl.\n\nNothing was copied. Tracked for a future release; real controls execute from the Controls rail below.');
-});
-$('unload-idle-btn').addEventListener('click', async () => {
-  // NEUTRALIZED (operator directive: no phantom/broken actions) — `sovereign model` is not a real sovereign-osctl verb (planned).
-      alert('This action is planned — not yet available in sovereign-osctl.\n\nNothing was copied. Tracked for a future release; real controls execute from the Controls rail below.');
-});
-$('warm-kv-btn').addEventListener('click', async () => {
-  // NEUTRALIZED (operator directive: no phantom/broken actions) — `sovereign kv-cache` is not a real sovereign-osctl verb (planned).
-      alert('This action is planned — not yet available in sovereign-osctl.\n\nNothing was copied. Tracked for a future release; real controls execute from the Controls rail below.');
-});
+// FUNCTIONAL (SDD-049) — the three model-runtime actions are now real controls.
+// Each button jumps to its card in the Controls rail, where the operator picks
+// the arg and Executes through control-exec-api (dry-run default, key + confirm
+// gated for load/unload). Real command remains the documented fallback.
+function jumpToControl(cid) {
+  const surf = document.getElementById('control-surface');
+  const card = surf && surf.querySelector('[data-cid="' + cid + '"]');
+  (card || surf).scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (card) { card.style.outline = '2px solid var(--accent, #9bd1ff)'; setTimeout(() => { card.style.outline = ''; }, 1600); }
+}
+$('load-model-btn').addEventListener('click', () => jumpToControl('model-load'));
+$('unload-idle-btn').addEventListener('click', () => jumpToControl('model-unload'));
+$('warm-kv-btn').addEventListener('click', () => jumpToControl('model-warm'));
 
 document.addEventListener('keydown', e => { if ((e.metaKey||e.ctrlKey) && e.key === '4') { e.preventDefault(); refresh(); } });
 

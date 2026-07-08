@@ -23,7 +23,7 @@ EXPECTED_IDS = {
     "dashboard-toggle", "auth-tier", "selfdef", "perimeter",
     "inference-tier", "workload-knobs", "maintenance", "eval-run",
     "costs-export", "cost-policy", "trace-replay", "rollback-apply",
-    "approvals-decide",
+    "approvals-decide", "model-load", "model-unload", "model-warm",
 }
 VALID_KINDS = {"profile", "mode", "toggle", "lifecycle"}
 VALID_SCOPES = {"global", "scoped"}
