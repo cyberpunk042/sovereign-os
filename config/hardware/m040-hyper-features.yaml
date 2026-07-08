@@ -1,0 +1,57 @@
+# config/hardware/m040-hyper-features.yaml
+# ============================================================================
+# M040 "Hyper features — MIG / FP4 / VFIO / ZFS commit gate" — the hyper-feature
+# CONTRACT. Materializes the milestone spec (backlog/milestones/M040-..., dump
+# 11440-11603): the 4 MIG profiles (E0379), the FP4 quantization roster + model
+# qualification axes (E0380), the 6 AVX-512 hot tables + ops (E0381), and the GDS
+# adoption phases (E0382). No invention — every entry traces to a module + dump
+# line range.
+#
+# Ties: the Multi-tenant MIG profile (Claude Code + OpenCode/Cline + background
+# evals) connects to root-ghostproxy endpoint safety (SDD-046); the ZFS commit
+# gate connects to crates/sovereign-zfs-commit-gate; the 6 hot tables extend
+# M039's hot-path SoA + M024's 5 registries.
+# STATUS: spec-materialization (SDD+TDD — hyper-feature contract).
+# Locked to spec by tests/lint/test_m040_hyper_features.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M040
+source_dump_lines: "11440-11603"
+
+# ── E0379 — the 4 MIG profiles (M00663-M00666, dump 11440-11455) — VERBATIM ──
+mig_profiles:
+  - {module: M00663, profile: Monolith, layout: "full 96GB Blackwell for one large oracle"}
+  - {module: M00664, profile: Partition, layout: "oracle slice + verifier slice + embedding-rerank slice + service slice"}
+  - {module: M00665, profile: Sandbox, layout: "isolate experimental model from production oracle"}
+  - {module: M00666, profile: Multi-tenant, layout: "one slice Claude Code + one OpenCode/Cline + one background evals"}
+
+# ── E0380 — FP4 quantization roster (M00667, dump 11491-11496) — VERBATIM ──
+fp4_roster:
+  module: M00667
+  candidates: ["BF16-baseline", FP8, "NVFP4-MXFP4", "GPTQ-AWQ-SmoothQuant", "KV-quantized"]
+
+# ── E0380 — model qualification test axes, 9 (M00668, dump 11501-11509) — VERBATIM ──
+qualification_axes:
+  module: M00668
+  axes: [coding, tool_use, schema_validity, agent_trajectory, long_context_recall,
+         reasoning, latency, vram, energy]
+
+# ── E0381 — the 6 AVX-512 hot tables (M00669-M00674, dump 11548-11553) — VERBATIM ──
+hot_tables:
+  module_range: "M00669-M00674"
+  tables: [BranchTable, MemoryMetaTable, ToolCapabilityTable, ModelRegistryTable,
+           EvalResultTable, KVBlockTable]
+
+# ── E0381 — AVX-512 ops (M00675, dump 11558-11563) — VERBATIM ──
+avx512_ops:
+  module: M00675
+  ops: [filter, intersect, popcount-score, compress-survivors, route-batches]
+
+# ── E0382 — GDS adoption phases (M00676, dump 11595-11603) — VERBATIM ──
+gds_adoption_phases:
+  module: M00676
+  phases:
+    - {phase: 1, plan: "ZFS + mmap + io_uring + RAM"}
+    - {phase: 2, plan: "profile bottlenecks"}
+    - {phase: 3, plan: "test GDS-KvikIO"}
