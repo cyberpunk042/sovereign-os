@@ -1,0 +1,162 @@
+# config/agent/m048-modules-catalog.yaml
+# ============================================================================
+# M048 "Modules — Base OS / Compute Fabric / Sandbox Fabric / Gateway / Memory OS
+# / Workflow Compiler / Eval-Value / Continuity / Observability / Policy / Config
+# Resolver / LoRA Foundry / Hardware Profiler" — the module-organ CONTRACT.
+# Materializes the milestone spec (backlog/milestones/M048-..., dump 14402-14812):
+# the continuity 7-question standard (E0458), the 10 module organs (E0459-E0465),
+# the 3-level configuration surfaces (E0466), and the 6-layer Continuity Stack
+# (E0467). No invention — every entry traces to a module + dump line range.
+#
+# Operator directive 14402/14812 (sacrosanct): "Think of every modules and
+# features and configurations and continuity of what we are doing". Doctrine
+# (dump 14422): "modules as living organs of Sovereign-OS". KEY LINE (dump 14810):
+# "Every module is a controlled continuation of user intent across hardware,
+# software, memory, and time". Ties: this catalog is the module-decomposition of
+# M044's 8 planes; every organ answers the 7-question continuity standard from
+# M047; the Compute Fabric realizes M043's placement layer; the LoRA Foundry is
+# M046's adapter foundry.
+# STATUS: spec-materialization (SDD+TDD — the 10 module organs).
+# Locked to spec by tests/lint/test_m048_modules_catalog.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M048
+source_dump_lines: "14402-14812"
+
+# ── E0458 — continuity 7-question standard (M00799, dump 14428-14442) — VERBATIM ──
+continuity_standard:
+  module: M00799
+  doctrine: "modules as living organs of Sovereign-OS"
+  questions: ["How does it start?", "How does it stop?", "How does it recover?",
+              "How does it checkpoint?", "How does it expose cost/risk?",
+              "How does the user choose its behavior?", "How does it prove what happened?"]
+  closing: "That is the continuity standard"
+
+# ── E0459-E0465 — the 10 module organs — VERBATIM ──
+module_organs:
+  # Module 1 — Base OS (M00800, dump 14448-14488)
+  - id: 1
+    module: M00800
+    name: "Base OS"
+    base: "Debian 13 / Ubuntu 24"
+    responsibilities: [kernel, firmware, "NVIDIA drivers", AppArmor, "cgroup v2",
+                       systemd, ZFS, LUKS, networking, "VFIO/IOMMU"]
+    config_modes: [stable, "ai-driver-latest", secure, developer, offline]
+    principle: "declarative where it protects continuity / imperative where hardware reality demands adaptation"
+
+  # Module 2 — Compute Fabric (M00801/M00802/M00803, dump 14498-14534)
+  - id: 2
+    module: M00801
+    name: "Compute Fabric"
+    workers: ["blackwell-oracle", "4090-scout", "cpu-avx-cortex", "cloud-optional"]
+    worker_capability_schema: [capabilities, "model roles", "current load",
+                               "memory pressure", "cost estimate", "privacy class",
+                               "available precision"]
+    dynamic_placement: ["local SLM", "4090 scout", "Blackwell oracle",
+                        "cloud Anthropic", "cloud OpenAI", "human gate"]
+    hyper_feature: "The user chooses profile; runtime chooses exact placement"
+
+  # Module 3 — Container/Sandbox Fabric (M00804/M00805, dump 14542-14578)
+  - id: 3
+    module: M00804
+    name: "Container/Sandbox Fabric"
+    quadlet: "Podman Quadlet runs Podman containers under systemd declaratively"
+    nvidia_cdi: "NVIDIA Container Toolkit CDI specs expose NVIDIA devices to Podman/CRI-O/containerd"
+    clean_pattern: ["agent containers as systemd-managed units", "GPU access through CDI when allowed",
+                    "rootless where possible", "rootful only when needed",
+                    "resource limits through cgroup v2"]
+    sandbox_profiles: ["read-only repo", "write-workspace", "network-denied",
+                       "network-docs-only", "gpu-scout", "no-gpu", "vm-isolated", "vfio-4090"]
+
+  # Module 4 — Gateway (M00806, dump 14586-14608)
+  - id: 4
+    module: M00806
+    name: "Gateway"
+    posture: "Anthropic-first"
+    surfaces: ["Anthropic Messages-compatible API", "OpenAI-compatible API shim",
+               "MCP bridge", "Claude Code integration", "OpenCode-Cline compatibility",
+               "cost and route ledger"]
+    provider_inversion: "Instead of tools owning provider keys: client -> Sovereign Gateway -> local/cloud/model router"
+    responsibilities: [cost, privacy, redaction, routing, profiles, approval, tracing]
+
+  # Module 5 — Memory OS (M00807, dump 14616-14644)
+  - id: 5
+    module: M00807
+    name: "Memory OS"
+    memory_types: [working, episodic, semantic, procedural, "temporal graph",
+                   "value memory", "KV-prefix cache", "artifact memory"]
+    continuity_rules: ["raw trace never destroyed without policy",
+                       "summaries are derived not truth", "memory writes gated by trust",
+                       "user can inspect-remove-export"]
+    memory_as_tools: [search, write, link, verify, forget, promote]
+
+  # Module 6 — Workflow Compiler (M00808, dump 14648-14672)
+  - id: 6
+    module: M00808
+    name: "Workflow Compiler"
+    inputs: ["user goal", profile, "environment map", policy, "model registry",
+             "tool catalog", "hardware pressure"]
+    outputs: ["workflow DAG", "tool calls", "model calls", checkpoints,
+              "human gates", evals, "commit conditions"]
+    adaptive_recompile: "If tests fail or context changes: do not blindly continue. re-map / re-plan / re-route"
+
+  # Module 7 — Eval/Value Plane (M00809, dump 14682-14702)
+  - id: 7
+    module: M00809
+    name: "Eval/Value Plane"
+    dimensions: [correctness, evidence, "test pass", "schema validity", risk, cost,
+                 latency, "human burden", reversibility, "learning value"]
+    profile_weights: [fast, careful, offline, research, autonomous, production,
+                      experimental, "communication-peace"]
+
+  # Module 8 — Continuity Manager (M00810, dump 14706-14718)
+  - id: 8
+    module: M00810
+    name: "Continuity Manager"
+    note: "sleeper module"
+    primitives: ["ZFS snapshots", "Podman-CRIU checkpoints", "workflow hibernation",
+                 "context compaction", "model server warm pools", "session resume"]
+    states: [active, paused, hibernated, checkpointed, archived, quarantined,
+             promoted, "rolled back"]
+
+  # Module 9 — Observability (M00811, dump 14728-14744)
+  - id: 9
+    module: M00811
+    name: "Observability"
+    sources: ["OpenTelemetry traces", journald, DCGM, PSI, eBPF, "ZFS events",
+              "test output", "gateway logs", "cost ledger"]
+    questions: ["what happened?", "what changed?", "which model decided?",
+                "which policy allowed it?", "what did it cost?",
+                "what pressure did hardware experience?"]
+
+  # Module 10 — LoRA Foundry (M00812, dump 14748-14756)
+  - id: 10
+    module: M00812
+    name: "LoRA Foundry"
+    before_training: ["profile tuning", "router tuning", "memory tuning",
+                      "workflow tuning", "prompt-program tuning", "model choice"]
+    training_to_deployment: ["trace curation", "dataset creation", "LoRA training",
+                             "adapter serving", "eval gating", "profile assignment"]
+
+# ── E0466 — 3-level configuration surfaces (M00813, dump 14764-14778) — VERBATIM ──
+configuration_surfaces:
+  module: M00813
+  levels:
+    - {level: User, exposes: "simple profiles and prompts"}
+    - {level: "Power user", exposes: "toggles + budgets + allowed providers + sandbox levels"}
+    - {level: System, exposes: "policy + hardware profile + routing weights + eval thresholds"}
+  closing: "That is how you keep flexibility without chaos"
+
+# ── E0467 — 6-layer Continuity Stack + KEY LINE (M00814/M00815, 14784-14810) — VERBATIM ──
+continuity_stack:
+  module: M00814
+  layers:
+    - {layer: "Hardware continuity", holds: "stable drivers + thermal/power profiles + GPU service health"}
+    - {layer: "OS continuity", holds: "systemd services + cgroups + AppArmor + ZFS + LUKS"}
+    - {layer: "Agent continuity", holds: "workflow checkpoints + session hibernation + sandbox snapshots"}
+    - {layer: "Memory continuity", holds: "traces + graph + skills + evals + user preferences"}
+    - {layer: "Model continuity", holds: "warm servers + adapters + registry + quant-eval lineage"}
+    - {layer: "Human continuity", holds: "visible choices + consent + explanations + rollback"}
+  difference: "Cloud gives model continuity. Sovereign-OS gives life/work continuity"
+key_line: "Every module is a controlled continuation of user intent across hardware, software, memory, and time"
