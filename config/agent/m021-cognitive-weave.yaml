@@ -1,0 +1,83 @@
+# config/agent/m021-cognitive-weave.yaml
+# ============================================================================
+# M021 "REPL / CoT / MoE / workflow / logic / intelligence weave" — the
+# cognitive-weave CONTRACT. Materializes the milestone spec
+# (backlog/milestones/M021-..., dump 5752-5995): the primitive loop + 7 common
+# cores (E0188/E0189), typed-thought externalization + topology + workflow shell
+# (E0191), the system-level MoE expert registry (E0192), the M021 Semantic ISA +
+# per-instruction contract (E0193), the 6-layer architecture (E0194), and the hot
+# deterministic-state SoA + 64-bit branch word (E0195). No invention — every
+# entry traces to a module + dump line range.
+#
+# NOTE: M021's Semantic ISA (M00349) is a per-milestone VARIANT of M020's
+# (M00335) — materialized here verbatim as the M021 set (backward-sweep additive
+# redefinition per operator standing direction).
+# STATUS: spec-materialization (SDD+TDD — precedes the weave runtime).
+# Locked to spec by tests/lint/test_m021_cognitive_weave.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M021
+source_dump_lines: "5752-5995"
+
+# ── E0188 — the primitive loop (M00337, dump 5752-5754) — VERBATIM ──
+primitive_loop:
+  module: M00337
+  steps: [state, proposal, evaluation, action, observation, updated-state]
+
+# ── E0189 — the 7 common cores (M00338-M00344, dump 5762-5781) — VERBATIM ──
+common_cores:
+  - {module: M00338, core: REPL, shape: "read / evaluate / print / loop"}
+  - {module: M00339, core: CoT, shape: "problem / intermediate reasoning / answer"}
+  - {module: M00340, core: ReAct, shape: "thought / action / observation / updated thought"}
+  - {module: M00341, core: Workflow, shape: "node / transition / node / commit"}
+  - {module: M00342, core: MoE, shape: "token-state / router / experts / combined output"}
+  - {module: M00343, core: Logic, shape: "premise-state / rule / consequence"}
+  - {module: M00344, core: Intelligence, shape: "perceive / model / choose / act / learn"}
+
+# ── E0191 — typed-thought externalization (M00345, dump 5821-5829) — VERBATIM ──
+typed_thoughts:
+  module: M00345
+  types: [Plan, Hypothesis, ToolIntent, PatchProposal, VerificationResult, MemoryWrite]
+
+# ── E0191 — thought topology (M00346) + workflow shell (M00347) ──
+thought_topology:
+  module: M00346
+  topologies: [chain, tree, graph]
+workflow_shell:
+  module: M00347
+  rules: [node-may-run, output-schema-required, side-effect-forbidden, branch-needs-oracle]
+
+# ── E0192 — system-level MoE expert registry (M00348, dump 5862-5874) — VERBATIM ──
+moe_expert_registry:
+  module: M00348
+  experts: [Blackwell-oracle, "4090-scout", AVX-512-logic-engine, REPL-tool-sandboxes,
+            memory-retrieval, human-gate, ZFS-replay]
+
+# ── E0193 — M021 Semantic ISA (M00349, dump 5881-5894) — VERBATIM (13 instr) ──
+semantic_isa_m021:
+  module: M00349
+  instructions: [OBSERVE, RETRIEVE, DRAFT, REASON, EXECUTE_REPL, VERIFY, CRITIQUE,
+                 ROUTE, MERGE, COMMIT, ROLLBACK, WRITE_MEMORY, ASK_HUMAN]
+
+# ── E0193 — per-instruction contract (M00350, dump 5898-5907) — VERBATIM ──
+instruction_contract:
+  module: M00350
+  fields: [input_schema, output_schema, capability_mask, risk_class, budget,
+           model_route, cache_policy, commit_rule]
+
+# ── E0194 — the 6-layer architecture (M00351, dump 5915-5935) — VERBATIM ──
+six_layer_architecture:
+  module: M00351
+  layers: [REPL, Thought, Workflow, MoE, Logic, Intelligence]
+
+# ── E0195 — hot deterministic state SoA (M00352) + 64-bit branch word (M00353) ──
+hot_state_soa:
+  module: M00352
+  arrays: [branch_id, control_word, budget, risk, route, grammar_state, memory_ref, score]
+branch_word_encoding:
+  module: M00353
+  width_bits: 64
+  bit_layout_proposed: true          # SB-095 agent-draft flag (encoding fields verbatim)
+  fields: [route, workflow_node, expert_choice, tool_permission, risk, budget,
+           grammar, memory_policy, flags]
