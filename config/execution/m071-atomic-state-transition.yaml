@@ -1,0 +1,61 @@
+# config/execution/m071-atomic-state-transition.yaml
+# ============================================================================
+# M071 "Atomic State Transition Protocol (The Weaver Execution) — O_DIRECT +
+# POSIX AIO + lockless ZFS" — the atomic-mutation CONTRACT. Materializes the
+# milestone spec (backlog/milestones/M071-...; source raw/dumps/2026-05-15-sain-01-
+# master-spec-...md Section 21 lines 1051-1089): the 4-step Weaver write sequence
+# (E0678-E0682), the Python code blueprint (E0683), the POSIX flags (E0684), the
+# memory-aligned encoding (E0685), the atomic rename (E0686), and lockless
+# loopback (E0687). No invention — every entry (including the verbatim error
+# string, typo preserved) traces to a module + dump line range.
+#
+# Doctrinal anchors (dump 1052/1069/1086): "To ensure that state adjustments
+# across CLAUDE.md, SOUL.md, and IDENTITY.md happen without filesytem lag or
+# concurrent write collisions, The Weaver executes a strict, lockless loopback
+# write sequence on the ZFS layer" / "This python primitive is injected into the
+# core environment to enforce the zero-shortcut transactional architecture" /
+# "[FATAL STRUCURAL FRICTION] Atomic state transaction failed". Ties: the Weaver
+# runs on M070's CCD 1 (Core 12); Step 2 mutation is AVX-512-pinned on M070's CCD
+# 0 Pulse core; Step 3 targets M068's tank/context (sync=always); the mutation is
+# MS003-signed and the broadcast emits M049 trace + OCSF-5001.
+# STATUS: spec-materialization (SDD+TDD — the atomic state-mutation IaC).
+# Locked to spec by tests/lint/test_m071_atomic_state_transition.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M071
+source_dump_lines: "1051-1089"
+
+purpose: "state adjustments across CLAUDE.md / SOUL.md / IDENTITY.md without filesystem lag or concurrent write collisions — a strict, lockless loopback write sequence on the ZFS layer"
+state_files: ["CLAUDE.md", "SOUL.md", "IDENTITY.md"]
+context_path: "/mnt/vault/context/CLAUDE.md"
+python_primitive: "commit_state_atomically(mutated_payload)"
+
+# ── E0678-E0682 — 4-step Weaver write sequence (M01173-M01180) — VERBATIM ──
+write_sequence:
+  - {step: 1, name: "Read Atomic Input", detail: "mmap() zero-copy read from memory-mapped /mnt/vault/context/CLAUDE.md"}
+  - {step: 2, name: "Process State Mutation", detail: "AVX-512 pinned (Pulse Core CCD 0); mutation signed via MS003 (pre-write integrity)"}
+  - {step: 3, name: "Write via O_DIRECT / POSIX AIO", detail: "bypass page cache; async I/O to ZFS Pool tank/context (sync=always)"}
+  - {step: 4, name: "Broadcast State Synced", detail: "gRPC notification to sub-agents; emits M049 trace + OCSF Configuration Change 5001"}
+
+# ── E0684 — POSIX flags (M01176, dump 1077) — VERBATIM ──
+posix_flags:
+  module: M01176
+  flags: ["O_WRONLY", "O_CREAT", "O_TRUNC", "O_DIRECT", "O_SYNC"]
+
+# ── E0685 — memory-aligned encoding (dump 1080) — VERBATIM ──
+memory_alignment: "NVMe physical block alignment 4K boundary"
+
+# ── E0686 — atomic rename (M01179, dump 1083) — VERBATIM ──
+atomic_rename:
+  module: M01179
+  call: "os.rename(TMP_CONTEXT_PATH, CONTEXT_PATH)"
+  guarantee: "no reader ever sees partial"
+
+# ── E0687 — lockless loopback (dump 1054) — VERBATIM ──
+lockless_loopback: "no filesystem locks, ZFS sync=always provides ordering"
+
+# ── error message (M01181, dump 1086) — VERBATIM (typo 'STRUCURAL' preserved) ──
+error_message:
+  module: M01181
+  fatal: "[FATAL STRUCURAL FRICTION] Atomic state transaction failed"
