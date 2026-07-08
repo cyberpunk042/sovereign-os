@@ -1,0 +1,67 @@
+# config/inference/m033-compatibility-gateway.yaml
+# ============================================================================
+# M033 "Compatibility Gateway — what we expose" — the API-gateway CONTRACT.
+# Materializes the milestone spec (backlog/milestones/M033-..., dump 9770-9940):
+# the OpenAI + Anthropic facades (E0310), the compatibility translation + model
+# router + profile registry + cost tracker + policy + observability (E0311), and
+# the streaming translator (E0315). No invention — every entry traces to a module
+# + dump line range.
+#
+# Extends SDD-002's OpenAI-compatible gateway; requests translate to M022's
+# internal Frame; the policy layer (redact secrets / require approval) is the
+# cloud-boundary R10212 discipline; observability feeds M013.
+# STATUS: spec-materialization (SDD+TDD — precedes the gateway).
+# Locked to spec by tests/lint/test_m033_compatibility_gateway.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M033
+source_dump_lines: "9770-9940"
+
+# ── E0310 — OpenAI facade endpoints (M00544-M00547, dump 9770-9773) — VERBATIM ──
+openai_facade:
+  module_range: "M00544-M00547"
+  endpoints: [/v1/chat/completions, /v1/responses, /v1/embeddings, /v1/models]
+
+# ── E0310 — Anthropic facade endpoints (M00548-M00550, dump 9776-9778) — VERBATIM ──
+anthropic_facade:
+  module_range: "M00548-M00550"
+  endpoints: [/v1/messages, /v1/models]
+  extras: [token-counting-if-needed]
+
+# ── E0311 — compatibility translation (M00551, dump 9792-9795) — VERBATIM ──
+translation:
+  module: M00551
+  rule: "OpenAI request → internal Frame; Anthropic request → internal Frame; internal result → client-compatible response"
+
+# ── E0311 — model router alias resolution (M00552, dump 9797-9801) — VERBATIM ──
+model_router_aliases:
+  module: M00552
+  example: '"gpt-5.2" → local oracle profile OR cloud OpenAI OR fallback; "claude-sonnet" → local route OR Anthropic OR policy-denied'
+
+# ── E0311 — profile registry, 7 example aliases (M00553, dump 9803-9810) — VERBATIM ──
+profile_registry:
+  module: M00553
+  aliases: ["jean/fast", "jean/careful", "jean/local-only", "jean/oracle",
+            "jean/code", "jean/research", "jean/sandbox"]
+
+# ── E0311 — cost tracker (M00554, dump 9813-9817) — VERBATIM ──
+cost_tracker:
+  module: M00554
+  tracks: [tokens_in_out, local_gpu_time, cloud_spend, cache_hits, per_client_budget]
+
+# ── E0311 — policy layer (M00555, dump 9820-9823) — VERBATIM ──
+policy_layer:
+  module: M00555
+  policies: [block-cloud-for-private-work, require-approval-for-paid-remote-calls,
+             enforce-project-level-limits, redact-secrets-before-remote-apis]
+
+# ── E0311 — observability (M00556, dump 9826-9827) — VERBATIM ──
+observability:
+  module: M00556
+  traces: [request, latency, model_route, cost, cache, failures]
+
+# ── E0315 — streaming translator (M00557, dump 9940) — VERBATIM ──
+streaming_translator:
+  module: M00557
+  bridges: "OpenAI SSE chunks ↔ Anthropic event stream ↔ internal frame stream"
