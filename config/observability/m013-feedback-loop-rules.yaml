@@ -27,7 +27,7 @@ rules:
     module: M00207
     dump_lines: "3163-3166"
     trigger:
-      metric: sovereign_os_oracle_idle_ms
+      metric: sovereign_oracle_idle_ms
       condition: high        # oracle sitting idle
     actions:
       - increase branch packing
@@ -39,7 +39,7 @@ rules:
     module: M00208
     dump_lines: "3168-3171"
     trigger:
-      metric: sovereign_os_oracle_vram_used_bytes
+      metric: sovereign_oracle_vram_used_bytes
       condition: high        # VRAM pressure
     actions:
       - reduce active branches
@@ -51,7 +51,7 @@ rules:
     module: M00209
     dump_lines: "3173-3176"
     trigger:
-      metric: sovereign_os_scout_draft_acceptance_rate
+      metric: sovereign_scout_draft_acceptance_rate
       condition: low
     actions:
       - reduce speculation depth
@@ -63,7 +63,7 @@ rules:
     module: M00210
     dump_lines: "3178-3181"
     trigger:
-      metric: sovereign_os_cpu_mask_compute_us
+      metric: sovereign_cpu_mask_compute_us
       condition: high
     actions:
       - cache by grammar state
@@ -75,7 +75,7 @@ rules:
     module: M00211
     dump_lines: "3183-3186"
     trigger:
-      metric: sovereign_os_tool_intents_rejected_total
+      metric: sovereign_tool_intents_rejected_total
       condition: high
     actions:
       - route planning to oracle
