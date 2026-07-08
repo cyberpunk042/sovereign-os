@@ -308,3 +308,23 @@ systems:
     privileged: true
     applies_to: [d-04-costs]
     refs: [scripts/observability/cost-policy.py]
+
+  # ── 16. Trace replay-verify — MS009 integrity check (D-05) ───────────
+  - id: trace-replay
+    kind: lifecycle
+    scope: scoped
+    label: "Trace Replay-Verify"
+    description: >-
+      Replay-verify a trace (MS009) — re-read its spans and check integrity: all
+      13 M049 keys present, every span signed, chronological ordering, and parent
+      linkage resolvable within the trace. Read-only; `latest` verifies the most
+      recent trace. Emits a per-check verdict and mutates nothing (not
+      privileged, no sudo).
+    options: [latest]
+    options_cli: "sovereign-osctl traces summary"
+    state_cli: "sovereign-osctl traces summary"
+    change_cli: "sovereign-osctl traces replay-verify <trace-id>"
+    state_path: "M049 span log (read-only replay)"
+    privileged: false
+    applies_to: [d-05-traces]
+    refs: [scripts/observability/trace-store.py]

@@ -702,9 +702,14 @@ $('clear-btn').addEventListener('click', () => {
   refresh();
 });
 $('refresh-btn').addEventListener('click', refresh);
-$('replay-verify-btn').addEventListener('click', async () => {
-  // NEUTRALIZED (operator directive: no phantom/broken actions) — `sovereign trace` is not a real sovereign-osctl verb (planned).
-      alert('This action is planned — not yet available in sovereign-osctl.\n\nNothing was copied. Tracked for a future release; real controls execute from the Controls rail below.');
+$('replay-verify-btn').addEventListener('click', () => {
+  // FUNCTIONAL — "Trace Replay-Verify" is now a real control (sovereign-osctl
+  // traces replay-verify <trace-id>). Jump to it in the Controls rail (read-only
+  // integrity check; `latest` verifies the most recent trace).
+  const surf = document.getElementById('control-surface');
+  const card = surf && surf.querySelector('[data-cid="trace-replay"]');
+  (card || surf).scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (card) { card.style.outline = '2px solid var(--accent, #9bd1ff)'; setTimeout(() => { card.style.outline = ''; }, 1600); }
 });
 $('search-input').addEventListener('keydown', e => { if (e.key === 'Enter') refresh(); });
 
