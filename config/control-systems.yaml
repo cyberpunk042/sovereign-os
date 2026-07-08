@@ -541,3 +541,47 @@ systems:
     privileged: true
     applies_to: [d-07-memory-changes]
     refs: [scripts/intelligence/memory-decide.py]
+
+  # ── 27. Session lifecycle decision — hibernate/resume/kill a session (D-01, SDD-053) ──
+  - id: session-decide
+    kind: lifecycle
+    scope: scoped
+    label: "Session Lifecycle"
+    description: >-
+      Transition an M057 task session (SDD-053) — hibernate (active → hibernated),
+      resume (hibernated → active), or kill (non-terminal → archived; refused if
+      already terminal). Pick the verb and a session id. The registry-state
+      transition is recorded here; the real M047 CRIU + ZFS checkpoint/restore is
+      the M057 engine (Stage 3). DRY-RUN by default; the real decision is
+      operator-key + type-to-confirm gated. Recorded to a durable ledger + an
+      OCSF-5001 audit span (D-05/D-16). MS003 signing delegated to selfdef
+      (signature unsigned-pending-MS003).
+    options: [hibernate, resume, kill]
+    options_cli: "sovereign-osctl sessions active"
+    state_cli: "sovereign-osctl sessions active"
+    change_cli: "sovereign-osctl sessions {hibernate|resume|kill} <id> --confirm"
+    state_path: "session registry /run/sovereign-os/sessions.json"
+    privileged: true
+    applies_to: [d-01-active-sessions]
+    refs: [scripts/lifecycle/session-decide.py]
+
+  # ── 28. Hibernate all — bulk-hibernate every active session (D-01, SDD-053) ──
+  - id: session-hibernate-all
+    kind: lifecycle
+    scope: scoped
+    label: "Hibernate All Sessions"
+    description: >-
+      Bulk-hibernate every active M057 task session in one gated action (SDD-053) —
+      transitions each active session → hibernated. The registry-state transition
+      is recorded here; the real M047 CRIU + ZFS checkpoint is the M057 engine
+      (Stage 3). DRY-RUN by default; the real action is operator-key +
+      type-to-confirm gated. Recorded to a durable ledger + OCSF-5001 audit spans.
+      MS003 signing delegated to selfdef (signature unsigned-pending-MS003).
+    options: [all]
+    options_cli: "sovereign-osctl sessions active"
+    state_cli: "sovereign-osctl sessions summary"
+    change_cli: "sovereign-osctl sessions hibernate-all --confirm"
+    state_path: "session registry /run/sovereign-os/sessions.json"
+    privileged: true
+    applies_to: [d-01-active-sessions]
+    refs: [scripts/lifecycle/session-decide.py]

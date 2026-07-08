@@ -8178,9 +8178,29 @@ case "${cmd}" in
     # sessions.json) and projects each task session onto its M057 12-step
     # lifecycle position + profile envelope + SRP agent (M075) + ETA +
     # branch count. Read-only; the sovereign-sessions-api daemon serves the
-    # D-01 cockpit dashboard from this same core. Verbs: active / summary /
-    # steps (+ --json).
-    "${__REPO_ROOT}/scripts/lifecycle/session-registry.py" "$@"
+    # D-01 cockpit dashboard from this same core. READ verbs (active / summary /
+    # steps) → session-registry.py (never mutates). WRITE verbs (hibernate /
+    # resume / kill / hibernate-all, SDD-053) → session-decide.py: transition a
+    # session's M057 state + record a durable, audited decision. Decisions are
+    # --confirm + operator-key + type-to-confirm gated (via the cockpit exec
+    # daemon) and DRY-RUN by default; the real M047 CRIU+ZFS effect is the M057
+    # engine, MS003 signing deferred to selfdef ("unsigned-pending-MS003"). The
+    # sovereign-sessions-api daemon stays read-only (405) — the ONLY write path is
+    # control-exec-api → `sessions hibernate|resume|kill|hibernate-all`.
+    sub="${1:-active}"
+    shift || true
+    case "${sub}" in
+      active|summary|steps)
+        "${__REPO_ROOT}/scripts/lifecycle/session-registry.py" "${sub}" "$@"
+        ;;
+      hibernate|resume|kill|hibernate-all)
+        "${__REPO_ROOT}/scripts/lifecycle/session-decide.py" "${sub}" "$@"
+        ;;
+      *)
+        log_error "unknown sessions subverb: ${sub} (available: active, summary, steps, hibernate, resume, kill, hibernate-all)"
+        exit 2
+        ;;
+    esac
     ;;
   approvals)
     # M060 D-06 (R10088-R10092): operator approval-queue + stage-gate core.
