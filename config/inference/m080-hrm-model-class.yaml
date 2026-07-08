@@ -1,0 +1,68 @@
+# config/inference/m080-hrm-model-class.yaml
+# ============================================================================
+# M080 "HRM (Hierarchical Reasoning Model) architectural class — recurrent
+# two-timescale brain-inspired alternative to Transformer/Mamba/BitNet" — the
+# fourth-model-class CONTRACT. Materializes the milestone spec (backlog/milestones/
+# M080-...; source arXiv 2506.21734 + sapientinc/HRM-Text-1B + arXiv 2510.04871
+# TRM): HRM as a novel recurrent architecture (E0768), brain-inspired two-timescale
+# processing (E0769), the high/low modules (E0770/E0771), single-forward-pass
+# (E0772), training efficiency (E0773), the scaled + tiny variants (E0774/E0775),
+# the benchmarks (E0776), and portfolio integration (E0777). No invention —
+# verbatim quotes preserved; provenance via HF MCP paper_search + hub_repo_details.
+#
+# Doctrinal anchor (arXiv 2506.21734 verbatim): "Inspired by the hierarchical and
+# multi-timescale processing in the human brain, we propose the Hierarchical
+# Reasoning Model (HRM), a novel recurrent architecture that attains significant
+# computational depth while maintaining both training stability and efficiency...
+# two interdependent recurrent modules: a high-level module responsible for slow,
+# abstract planning, and a low-level module handling rapid, detailed computations".
+# CATALOG POSITIONING: HRM is a fundamentally DISTINCT fourth architectural class
+# (recurrent + hierarchical + two-timescale + brain-inspired) added to the
+# sovereign-os portfolio alongside Trinity (M066) WITHOUT replacing it — Conductor
+# stays ternary, Logic stays Transformer/Mamba quantized, Oracle stays FP16/NVFP4;
+# HRM is a fourth-class option for reasoning-heavy workloads (puzzles, ARC, path
+# finding). Per operator "you cannot invent crap" — published + public HF model.
+# STATUS: spec-materialization (SDD+TDD — the HRM fourth-model-class portfolio entry).
+# Locked to spec by tests/lint/test_m080_hrm_model_class.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M080
+source: "arXiv 2506.21734 (HRM) + sapientinc/HRM-Text-1B + arXiv 2510.04871 (TRM)"
+
+# ── E0768/E0769 — HRM novel recurrent architecture (M01326) — VERBATIM ──
+architecture:
+  module: M01326
+  class: "novel recurrent architecture (4th class beyond Transformer/Mamba/BitNet)"
+  inspiration: "hierarchical and multi-timescale processing in the human brain"
+
+# ── E0770/E0771 — the two recurrent modules — VERBATIM ──
+modules:
+  - {module: "high-level", responsibility: "slow, abstract planning", recurrent: true}
+  - {module: "low-level", responsibility: "rapid, detailed computations", recurrent: true}
+
+# ── E0772 — single forward pass (M01327/M01328) — VERBATIM ──
+single_forward_pass: "executes sequential reasoning tasks in a single forward pass without explicit supervision of the intermediate process (no CoT)"
+
+# ── E0773 — training efficiency (arXiv 2506.21734) — VERBATIM ──
+training_efficiency:
+  canonical_params: "27 million parameters"
+  samples: "1000 training samples"
+  note: "operates without pre-training or CoT data"
+
+# ── E0774/E0775 — scaled + tiny variants — VERBATIM ──
+variants:
+  - {name: "HRM (canonical)", params: "27M", source: "arXiv 2506.21734"}
+  - {name: "HRM-Text-1B", params: "1182.8M", arch_class: "hrm_text", license: "apache-2.0", source: "sapientinc/HRM-Text-1B"}
+  - {name: "TRM", params: "7M", layers: 2, source: "arXiv 2510.04871"}
+
+# ── E0776 — benchmarks (M01326-adjacent) — VERBATIM ──
+benchmarks:
+  hrm: "nearly perfect performance on complex Sudoku puzzles and optimal path finding in large mazes; outperforms much larger models on ARC (Abstraction and Reasoning Corpus)"
+  trm: "45% test accuracy on ARC-AGI-1; 8% test accuracy on ARC-AGI-2; outperforms Deepseek R1, o3-mini, Gemini 2.5 Pro with <0.01% the parameters"
+
+# ── E0777 — portfolio integration (architecture + M075) — VERBATIM ──
+portfolio_integration:
+  role: "fourth model class alongside Trinity Conductor/Logic/Oracle (M075)"
+  use_when: "reasoning-heavy workloads where the Transformer/Mamba/BitNet stack is overkill (puzzle solving, ARC benchmarks, path finding)"
+  does_not_replace: "Conductor stays ternary, Logic stays Transformer/Mamba quantized, Oracle stays uncompromised FP16/NVFP4"
