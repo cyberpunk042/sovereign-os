@@ -1,0 +1,71 @@
+# config/agent/m022-cognitive-frame.yaml
+# ============================================================================
+# M022 "Cognitive Frame — system-level MoE" — the cognitive-frame CONTRACT.
+# Materializes the milestone spec (backlog/milestones/M022-..., dump 6065-6354):
+# the substrates (E0199), the CognitiveFrame struct + variant catalog (E0201),
+# the 6-step frame loop (E0202), the REPL-attaches-to-reality routing (E0203),
+# the system-MoE expert registry (E0204), the AVX-512 router masks + queues
+# (E0205), CoT-to-Frame conversion (E0206), and the 9 system primitives (E0207).
+# No invention — every entry traces to a module + dump line range.
+#
+# The Cognitive Frame is the unifying object beneath M021's cores + M019's
+# operators + M020's ISA; the human expert/mask/queue = the cockpit human-gate.
+# STATUS: spec-materialization (SDD+TDD — precedes the frame runtime).
+# Locked to spec by tests/lint/test_m022_cognitive_frame.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M022
+source_dump_lines: "6065-6354"
+
+# ── E0199 — the 3 substrates (M00354-M00356, dump 6065-6067) ──
+substrates:
+  - {module: M00354, substrate: "LlamaIndex Workflows", note: "event-driven steps handle and emit events"}
+  - {module: M00355, substrate: Temporal, note: "durable execution resumes after crashes / network failures / long delays"}
+  - {module: M00356, substrate: "Ray Serve LLM", note: "engine-agnostic serving (vLLM/SGLang) + OpenAI APIs + prefill-decode disaggregation"}
+
+# ── E0201 — CognitiveFrame struct (M00357, dump 6084-6094) — VERBATIM ──
+cognitive_frame:
+  module: M00357
+  fields: [id, parent, workflow_node, control, capability, evidence, memory_ref, trace_ref]
+
+# ── E0201 — frame variant catalog (M00358, dump 6097-6109) — VERBATIM ──
+frame_variants:
+  module: M00358
+  variants: [thought, branch, tool-call, model-request, workflow-step,
+             memory-write, verification-task, REPL-execution, candidate-answer]
+
+# ── E0202 — the 6-step frame loop (M00359-M00364, dump 6116-6132) — VERBATIM ORDER ──
+frame_loop:
+  steps:
+    - {module: M00359, step: READ, does: "ingest user/task/tool observation/memory event"}
+    - {module: M00360, step: ROUTE, does: "choose expert: oracle / scout / REPL / memory / human / tool"}
+    - {module: M00361, step: EVALUATE, does: "model inference / deterministic logic / parser / test / retrieval"}
+    - {module: M00362, step: OBSERVE, does: "capture result / metrics / side effects"}
+    - {module: M00363, step: COMMIT, does: "accept/reject/update state under policy"}
+    - {module: M00364, step: LOOP, does: "emit next frames"}
+
+# ── E0204 — system-MoE expert registry (M00365, dump 6178-6190) — VERBATIM ──
+expert_registry:
+  module: M00365
+  experts: [Blackwell-oracle, "4090-scout", Nano-perception, embedding, reranker,
+            Python-REPL, shell-sandbox, simdjson-validator, Hyperscan-policy-scanner,
+            ZFS-replay-store, human-approval]
+
+# ── E0205 — AVX-512 router masks (M00366) + queues (M00367) — VERBATIM ──
+router_masks:
+  module: M00366
+  masks: [alive_mask, tool_mask, oracle_mask, scout_mask, repl_mask, memory_mask, human_mask]
+router_queues:
+  module: M00367
+  queues: [oracle_queue, scout_queue, repl_queue, tool_queue, human_queue, memory_queue]
+
+# ── E0203 — REPL-attaches-language-to-reality (M00369, dump 6255-6263) — VERBATIM ──
+repl_reality_routing:
+  module: M00369
+  decisions: [can-execute, can-parse, can-test, can-measure]
+
+# ── E0207 — the 9 system primitives (M00370, dump 6326-6354) — VERBATIM ──
+system_primitives:
+  module: M00370
+  primitives: [Frame, Event, Expert, Router, Workflow, Policy, Replay, Memory, Eval]
