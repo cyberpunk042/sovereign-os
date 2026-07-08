@@ -138,3 +138,53 @@ def test_every_rule_has_actions_and_condition():
         assert r.get("id") and r.get("actions"), f"rule {r.get('module')}: missing id/actions"
         assert r.get("trigger", {}).get("condition") in {"high", "low"}, (
             f"rule {r.get('id')!r}: trigger.condition must be high|low")
+
+
+# ── M013 E0111 bit-control + E0112 tracing (M00212-M00215) ───────────────────
+
+BITTRACE = REPO_ROOT / "config" / "observability" / "m013-bit-control-and-tracing.yaml"
+
+
+def _bt() -> dict:
+    return yaml.safe_load(BITTRACE.read_text())
+
+
+def test_status_word_8_fields_verbatim_nonoverlapping_64bit():
+    """M00212: the 8 spec fields present, bit layout packs into 64 without
+    overlap (widths are agent-proposed but must be internally consistent)."""
+    sw = _bt()["worker_status_word"]
+    assert sw["module"] == "M00212" and sw["width_bits"] == 64
+    assert sw.get("bit_layout_proposed") is True, "bit widths must be flagged agent-proposed (SB-095)"
+    names = [f["name"] for f in sw["fields"]]
+    assert names == ["load", "memory", "thermal", "queue", "error", "health",
+                     "policy_mode", "flags"], f"M00212 field drift: {names}"
+    # non-overlap + within 64
+    used = []
+    for f in sw["fields"]:
+        span = range(f["offset"], f["offset"] + f["bits"])
+        assert f["offset"] + f["bits"] <= 64, f"{f['name']} exceeds 64 bits"
+        assert not (set(span) & set(used)), f"{f['name']} bit range overlaps another field"
+        used += list(span)
+
+
+def test_routing_masks_verbatim():
+    masks = {m["id"]: m for m in _bt()["branch_routing_masks"]}
+    assert masks["route_to_oracle"]["expression"] == \
+        "value_high & oracle_healthy & not_vram_pressure & branch_needs_verification"
+    assert masks["route_to_scout"]["expression"] == \
+        "scout_healthy & low_risk & draft_expected_useful & branch_budget_ok"
+    for m in masks.values():
+        # terms list must match the & -joined expression exactly (no minimization)
+        assert m["terms"] == [t.strip() for t in m["expression"].split("&")]
+
+
+def test_trace_mapping_four_levels_verbatim():
+    tm = _bt()["trace_mapping"]
+    assert tm["module"] == "M00215"
+    got = {l["id"]: l["maps_to"] for l in tm["levels"]}
+    assert got == {
+        "trace_id": "user request",
+        "span_id": "branch step / model call / tool call",
+        "branch_id": "runtime object",
+        "commit_id": "accepted transition",
+    }, f"M00215 trace mapping drift: {got}"
