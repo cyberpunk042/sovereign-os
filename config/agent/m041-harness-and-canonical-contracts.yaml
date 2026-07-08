@@ -1,0 +1,96 @@
+# config/agent/m041-harness-and-canonical-contracts.yaml
+# ============================================================================
+# M041 "Spec / WORKFLOW / PROFILES / EVALS / POLICY / MODEL_REGISTRY /
+# HARDWARE_PROFILES contracts" — the harness-architecture CONTRACT. Materializes
+# the milestone spec (backlog/milestones/M041-..., dump 11790-12094): the 7-layer
+# agent harness (E0389/E0390), the MAP methodology (E0391), the 7 canonical
+# contracts + 10-step runtime compile pipeline + 6-tier hardware overlay +
+# 9-property North Star (E0397). No invention — every entry traces to a module +
+# dump line range.
+#
+# Ties: this is the harness-layer overlay atop ALL prior planes — M025 Cognitive
+# Compiler compiles SPEC+WORKFLOW+PROFILES+POLICY into the workflow DAG; M028
+# Memory OS is the Context layer; M029/M030 implement MAP.json; M033/M034 are the
+# Tool-interface layer; M038/M039/M040 consume HARDWARE_PROFILES via PROFILES.yaml.
+# Selfdef parallel — MS013 27-SDD ledger = IPS-side SPEC.md; MS017 agent-guard =
+# IPS-side POLICY.yaml subset (R10212 producer/consumer boundary preserved).
+# STATUS: spec-materialization (SDD+TDD — the programmable-intelligence harness).
+# Locked to spec by tests/lint/test_m041_harness_and_canonical_contracts.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M041
+source_dump_lines: "11790-12094"
+
+# ── E0389/E0390 — the 7-layer agent harness + station mapping (M00680-M00686) ──
+# VERBATIM. "production reliability depends less on the raw model and more on the
+# agent harness around it" (dump 11804). Maps almost one-to-one to the station.
+harness_layers:
+  - {layer: 1, module: M00680, name: "Execution environment",
+     station: "sandboxes / VM / REPL / ZFS workspaces"}
+  - {layer: 2, module: M00681, name: "Tool interface",
+     station: "MCP / Claude Code / OpenCode / Cline / gateway"}
+  - {layer: 3, module: M00682, name: "Context management",
+     station: "memory OS / KV cache / RLM / MAP"}
+  - {layer: 4, module: M00683, name: "Lifecycle / orchestration",
+     station: "workflows / Symphony-like orchestration / profiles"}
+  - {layer: 5, module: M00684, name: "Observability",
+     station: "traces / cost / DCGM / eBPF / evals"}
+  - {layer: 6, module: M00685, name: "Verification",
+     station: "tests / TDD / PRM-RM / oracle / formal checks"}
+  - {layer: 7, module: M00686, name: "Governance",
+     station: "policy bits / capabilities / secrets / human gates"}
+
+# ── E0391 — MAP methodology (dump 11836-11848) — VERBATIM ──
+# "Do not act before understanding the environment" -> "MAP phase before ACT phase".
+map_methodology:
+  doctrine: "Do not act before understanding the environment"
+  rule: "MAP phase before ACT phase"
+  steps: [MAP, SPEC, TEST, ACT, EVAL, COMMIT, LEARN]
+  especially_important_for: ["long-horizon coding", "GUI use", "repo work", "agent autonomy"]
+
+# ── E0397 — the 7 canonical contracts (M00687-M00693, dump 11995-12014) — VERBATIM ──
+canonical_contracts:
+  - {module: M00687, contract: "SPEC.md", purpose: "What should be true"}
+  - {module: M00688, contract: "WORKFLOW.md", purpose: "How agents should behave in this repo/environment"}
+  - {module: M00689, contract: "PROFILES.yaml", purpose: "How much intelligence, risk, cost, autonomy, and verification to spend"}
+  - {module: M00690, contract: "EVALS.yaml", purpose: "How success is measured"}
+  - {module: M00691, contract: "MAP.json", purpose: "What the system knows about the environment before acting"}
+  - {module: M00692, contract: "MODEL_REGISTRY.yaml", purpose: "Which models exist, where they run, what they are good at"}
+  - {module: M00693, contract: "POLICY.yaml", purpose: "What actions are allowed, gated, sandboxed, or forbidden"}
+
+# ── E0397 — 10-step runtime compile pipeline (M00694, dump 12017-12026) — VERBATIM ──
+runtime_compile_pipeline:
+  module: M00694
+  steps: [Task, MAP, "SPEC/TDD plan", "workflow DAG", "model/tool routing",
+          "sandbox execution", "tests/evals", "oracle/human review", commit,
+          "memory update"]
+
+# ── E0397 — 6-tier hardware overlay (M00695, dump 12031-12053) — VERBATIM ──
+hardware_overlay:
+  module: M00695
+  tiers:
+    - {tier: "Ryzen 9900X AVX-512", role: "policy masks / branch routing / memory bitsets / workflow scheduling"}
+    - {tier: "RTX PRO 6000 Blackwell", role: "oracle / final synthesis / long-context verifier / large model lab"}
+    - {tier: "RTX 4090", role: "scout / SLM swarm / draft-speculation / embeddings / perception / sandbox model"}
+    - {tier: "256GB RAM", role: "memory graph / hot indexes / context arenas / ZFS ARC"}
+    - {tier: "NVMe/ZFS", role: "replay / snapshots / workspaces / eval artifacts / model cache"}
+    - {tier: "10GbE / 2.5GbE", role: "data plane vs management plane"}
+
+# ── E0397 — North Star: programmable intelligence harness (M00696, 12057-12079) ──
+# VERBATIM. NOT "one best model / one best workflow / one best agent framework".
+north_star:
+  module: M00696
+  is_not: ["one best model", "one best workflow", "one best agent framework"]
+  is: "a programmable intelligence harness"
+  properties: ["SMART routing", "adaptive profiles", "spec+TDD contracts",
+               "agent evals", "model portfolio", "hardware-aware scheduling",
+               "safe sandboxes", "cost tracking", "memory and replay"]
+  next_artifact: "Jean Station Architecture Spec v0.1"
+
+# ── E0395 — adaptive Goldilocks router (M00695-adjacent, dump 11918-11921) — VERBATIM ──
+# "cheap local classification before expensive model routing" (NadirClaw lesson).
+adaptive_goldilocks_router:
+  principle: "cheap local classification before expensive model routing"
+  classifiers: ["prompt classifier", "privacy classifier", "risk classifier",
+                "difficulty estimator", "domain classifier", "profile selector"]
