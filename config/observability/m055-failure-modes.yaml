@@ -1,0 +1,154 @@
+# config/observability/m055-failure-modes.yaml
+# ============================================================================
+# M055 "Failure modes — 10 taxonomies with detect / contain / explain / recover /
+# learn" — the failure-architecture CONTRACT. Materializes the milestone spec
+# (backlog/milestones/M055-..., dump 16896-17215): the 10 failure-mode taxonomies
+# (E0529-E0533), the System-Wide Recovery Pattern (E0534), and the Architectural
+# Law (E0535/E0536). No invention — every entry traces to a module + dump line range.
+#
+# Framing (dump 16906): "A serious architecture is defined by what happens when
+# reality bites". Architectural Law (dump 17210): "Failures are not exceptions.
+# Failures are training signals and control signals" -> "Sovereign-OS should
+# metabolize failure into intelligence". Ties: the 10 taxonomies REALIZE M049's
+# 16-event taxonomy + M048's Observability/Policy/Eval/Continuity fabrics; each
+# failure emits a class_uid=2004 Detection Finding (selfdef MS026 pattern); the
+# per-interface failure surfaces are the negative-path contracts for M054's 11
+# typed interfaces. R10212 boundary preserved — sovereign-os owns runtime failure
+# handling; selfdef MS017/MS019/MS036 own the IPS-side enforcement.
+# STATUS: spec-materialization (SDD+TDD — the production-readiness failure taxonomy).
+# Locked to spec by tests/lint/test_m055_failure_modes.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M055
+source_dump_lines: "16896-17215"
+
+framing: "A serious architecture is not defined only by what it does when things work. It is defined by what happens when reality bites"
+
+# ── E0529-E0533 — the 10 failure-mode taxonomies — VERBATIM ──
+failure_modes:
+  # 1 — Model Failure (M00919, dump 16914-16940)
+  - id: 1
+    module: M00919
+    name: "Model Failure"
+    types: ["hallucinated fact", "invalid tool call", "wrong file path", "bad code patch",
+            "unsafe recommendation", "format-schema drift", "overconfidence",
+            "context loss", "looping"]
+    mitigation: ["detect", "classify", "trace", "retry with altered route",
+                 "escalate to oracle or human", "store failure pattern"]
+    doctrine: "A model failure should become training/eval material, not just an error"
+
+  # 2 — Router Failure (M00920, dump 16948-16974)
+  - id: 2
+    module: M00920
+    name: "Router Failure"
+    types: ["cheap model chosen for hard task", "oracle overused",
+            "cloud called when local required", "private context routed externally",
+            "wrong adapter selected", "bad fallback"]
+    mitigation: ["policy veto before route", "trace route reasoning",
+                 "eval route after outcome", "update router statistics",
+                 "user-visible route override"]
+    doctrine: "Router decisions must be explainable"
+
+  # 3 — Policy Failure (M00921, dump 16982-17006)
+  - id: 3
+    module: M00921
+    name: "Policy Failure"
+    types: ["allowed too much", "blocked useful action", "ambiguous user intent",
+            "profile conflict", "project policy conflict", "cloud-privacy mismatch"]
+    mitigation: ["deny by default for high-risk ambiguity", "ask user when intent matters",
+                 "record policy reason", "support temporary grants", "support revocation"]
+    doctrine: "Policy must never be only prompt-based"
+
+  # 4 — Tool Failure (M00922, dump 17012-17030)
+  - id: 4
+    module: M00922
+    name: "Tool Failure"
+    types: ["command timeout", "nonzero exit", "partial write", "network failure",
+            "dependency failure", "bad working directory", "unexpected side effect",
+            "permission denied"]
+    mitigation: ["sandbox first", "timeout always", "capture stdout-stderr",
+                 "detect changed files", "rollback if needed", "summarize failure",
+                 "feed back into workflow"]
+    doctrine: "Tool output is observation, not truth until interpreted"
+
+  # 5 — Sandbox Failure (M00923, dump 17040-17064)
+  - id: 5
+    module: M00923
+    name: "Sandbox Failure"
+    types: ["container escape risk", "mount misconfiguration", "network leakage",
+            "GPU device overexposed", "filesystem too broad", "secret leaked into sandbox",
+            "checkpoint restore failed"]
+    mitigation: ["least privilege mounts", "stub credentials", "network namespaces",
+                 "AppArmor-seccomp", "eBPF observation", "ZFS snapshots",
+                 "VM for high-risk tasks"]
+    doctrine: "The 4090 VFIO VM is the hard boundary profile"
+
+  # 6 — Memory Failure (M00924, dump 17072-17086)
+  - id: 6
+    module: M00924
+    name: "Memory Failure"
+    types: ["stale fact", "contradictory memory", "private memory exposed",
+            "bad summary promoted", "poisoned memory", "irrelevant retrieval",
+            "context bloat"]
+    mitigation: ["trust-freshness metadata", "raw trace preservation", "quarantine state",
+                 "memory provenance", "forget-delete support", "verification before promotion",
+                 "policy check on read"]
+    doctrine: "Summaries are derived artifacts, not authority"
+
+  # 7 — Eval Failure (M00925, dump 17094-17110)
+  - id: 7
+    module: M00925
+    name: "Eval Failure"
+    types: ["wrong metric", "judge model bias", "test too shallow", "benchmark contamination",
+            "reward hacking", "passing tests but bad behavior"]
+    mitigation: ["multiple eval types", "human spot checks", "local project evals",
+                 "trajectory evals", "negative cases", "regression sets"]
+    doctrine: "Evals are instruments, not gods"
+
+  # 8 — Hardware Failure (M00926, dump 17118-17142)
+  - id: 8
+    module: M00926
+    name: "Hardware Failure"
+    types: ["GPU OOM", "driver crash", "NCCL-P2P weirdness", "thermal throttling",
+            "NVMe throttling", "ZFS degraded pool", "RAM pressure", "PCIe lane surprise",
+            "NIC instability"]
+    mitigation: ["health probes", "DCGM metrics", "PSI pressure signals", "fallback routes",
+                 "smaller model route", "context reduction", "checkpoint before risk",
+                 "no critical dependency on P2P"]
+    doctrine: "Hardware is part of the runtime state"
+
+  # 9 — Continuity Failure (M00927, dump 17150-17172)
+  - id: 9
+    module: M00927
+    name: "Continuity Failure"
+    types: ["resume loses context", "checkpoint stale", "workflow state mismatched",
+            "tool future disappeared", "sandbox restored but files changed",
+            "user returns after policy changed"]
+    mitigation: ["semantic checkpoint", "versioned workflow state", "trace replay",
+                 "state reconciliation", "resume summary", "user confirmation on stale resume"]
+    doctrine: "Continuity must be explicit"
+
+  # 10 — Human Interface Failure (M00928, dump 17180-17192)
+  - id: 10
+    module: M00928
+    name: "Human Interface Failure"
+    types: ["too many approvals", "unclear risk explanation", "hidden cost",
+            "unreadable trace", "bad defaults", "false sense of autonomy"]
+    mitigation: ["batch approvals", "plain-language reasons", "cost preview",
+                 "rollback preview", "profile clarity", "progressive disclosure"]
+    doctrine: "Sovereignty fails if the user is overwhelmed"
+
+# ── E0534 — System-Wide Recovery Pattern (M00929/M00930, dump 17198-17208) — VERBATIM ──
+recovery_pattern:
+  module: M00929
+  steps: [detect, contain, explain, recover, learn]
+  worked_example: ["Tool command fails", "contain in sandbox", "summarize error",
+                   "route to scout for diagnosis", "oracle if high-value",
+                   "update memory/eval", "resume workflow"]
+
+# ── E0535/E0536 — Architectural Law (M00931/M00932/M00933, dump 17210-17214) — VERBATIM ──
+architectural_law:
+  law: "Failures are not exceptions. Failures are training signals and control signals"
+  doctrine: "This is how the workstation becomes better with use"
+  cloud_vs_station: "Cloud systems often hide failure. Sovereign-OS should metabolize failure into intelligence"
