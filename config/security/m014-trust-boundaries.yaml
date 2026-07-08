@@ -1,0 +1,77 @@
+# config/security/m014-trust-boundaries.yaml
+# ============================================================================
+# M014 "Isolation and trust boundaries" — the trust-architecture CONTRACT.
+# Materializes the milestone spec (backlog/milestones/M014-..., dump 3370-3676)
+# into a structured, consumable contract: the 4 trust zones (E0118), the 64-bit
+# capability word (E0121), the 6 enforcement layers, the A/B/C/D tool-sandbox
+# ladder (E0122), the /ai-exchange filesystem boundary (E0123), and the
+# network-profile ladder (E0124). No invention: every entry traces to a module +
+# dump line range. Capability-word FIELDS are verbatim; per-field bit WIDTHS are
+# `proposed: true` (SB-095 agent-draft, operator-revisable — the dump specifies
+# the 8 fields + "64-bit" but not exact bit positions).
+#
+# This is the producer-side (selfdef) trust model that the sovereign-os cockpit
+# CONSUMES read-only via D-13..D-18 (capability tokens = D-14, sandboxes = D-15,
+# quarantine = D-17, trust scores = D-18) + D-25 — R10212 producer/consumer split.
+#
+# CANON: interpreted under the AVX++ 2026-05-19 backward-sweep redefinition
+# (Authority Levels 0..6 + Trust Rings 0..4, ADDITIVE); canonical pinning at M061.
+# STATUS: spec-materialization (SDD+TDD — precedes the runtime/hypervisor).
+# Locked to spec by tests/lint/test_m014_trust_boundaries.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M014
+source_dump_lines: "3385-3676"
+
+# ── E0118 — the four trust zones (M00216-M00219, dump 3404-3414) ──
+trust_zones:
+  - {zone: 0, module: M00216, name: Host Control Plane, hardware: CPU, note: "AVX-512 scheduler / policy engine / replay log / ZFS / observability"}
+  - {zone: 1, module: M00217, name: Oracle Plane, hardware: "RTX PRO 6000", note: "main inference, trusted-but-not-omnipotent"}
+  - {zone: 2, module: M00218, name: Scout/Sandbox Plane, hardware: "RTX 4090 VM", note: "draft models, experimental agents, risky code, web/tool trials"}
+  - {zone: 3, module: M00219, name: Disposable Tool Sandboxes, hardware: "microVM/container-per-task", note: "one per task, destroyed after"}
+
+# ── E0121 — 64-bit capability word (M00225, dump 3492-3502) ──
+# Every request carries this word. FIELDS verbatim; bit widths agent-PROPOSED.
+capability_word:
+  module: M00225
+  dump_lines: "3492-3502"
+  width_bits: 64
+  bit_layout_proposed: true          # SB-095 agent-draft flag
+  fields:
+    - {name: allowed_tools,  offset: 0,  bits: 16}
+    - {name: fs_scope,       offset: 16, bits: 8}
+    - {name: network_scope,  offset: 24, bits: 8}
+    - {name: max_runtime,    offset: 32, bits: 8}
+    - {name: max_memory,     offset: 40, bits: 8}
+    - {name: output_type,    offset: 48, bits: 4}
+    - {name: trust_level,    offset: 52, bits: 4}
+    - {name: flags,          offset: 56, bits: 8}
+
+# ── M00226 — the 6 capability enforcement layers (dump 3517-3523) ──
+enforcement_layers:
+  module: M00226
+  layers: [CPU policy, VM config, filesystem mounts, network namespace, tool wrapper, eBPF observation]
+
+# ── E0122 — the A/B/C/D tool-sandbox ladder (M00227-M00230, dump 3533-3543) ──
+tool_tiers:
+  - {tier: A, module: M00227, name: deterministic host tools, examples: "rg, parsers, formatters, read-only queries"}
+  - {tier: B, module: M00228, name: controlled host tools, examples: "tests, builds, package managers, file edits"}
+  - {tier: C, module: M00229, name: VM tools, examples: "risky dependency installs, unknown scripts, browser actions"}
+  - {tier: D, module: M00230, name: disposable microVM, examples: "untrusted binaries, unknown archives, hostile inputs"}
+
+# ── E0123 — filesystem boundary (M00231, dump 3554-3592) ──
+filesystem_boundary:
+  module: M00231
+  exchange_dirs: [/ai-exchange/inbox, /ai-exchange/outbox, /ai-exchange/artifacts]
+  import_pipeline: [parse, scan, diff, policy-check, oracle-review-if-needed, commit]
+
+# ── E0124 — network-profile ladder (M00232, dump 3600-3608) ──
+network_profiles:
+  module: M00232
+  ladder: [offline, package-registries, docs-web, arbitrary-web, authenticated-browser-profile]
+
+# ── E0120 — VM-propose / host-commit invariant (M00224, dump 3478-3487) ──
+propose_commit_invariant:
+  module: M00224
+  chain: "VM output = candidate → host AVX-512 = policy filter → oracle = verify → replay log = commit"
