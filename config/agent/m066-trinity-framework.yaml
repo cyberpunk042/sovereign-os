@@ -1,0 +1,64 @@
+# config/agent/m066-trinity-framework.yaml
+# ============================================================================
+# M066 "Trinity Framework Genesis — The Pulse / The Weaver / The Auditor" — the
+# architectural-lineage CONTRACT. Materializes the milestone spec (backlog/
+# milestones/M066-...; source raw/dumps/2026-05-15-sain-01-master-spec-...md lines
+# 936-987, Block 6 The Genesis): the genesis narrative + SRP anchor (E0638/E0639),
+# the 3 trinity modules Pulse/Weaver/Auditor with software->hardware manifestation
+# (E0640-E0643), the chronological synthesis 5 phases (E0644), the project
+# boundary (E0645), and the cohesive lineage (E0646/E0647). No invention — every
+# entry traces to a module + dump line range.
+#
+# Doctrinal anchors (dump 939/953/987): "this ecosystem was conceived as a pure,
+# decoupled software trinity" / "The Pulse (Vector Core) / The Weaver (Sandboxed
+# Fabric) / The Auditor (Immutable Gatekeeper)" / "The software modules required
+# the specialized hardware topology to function at full capacity, and the hardware
+# required a custom, stripped-down operating system configuration". PROJECT
+# BOUNDARY (R10212): the Pulse + Weaver live in sovereign-os runtime; the Auditor's
+# IPS implementation (guardian daemon / Tetragon eBPF / SIGKILL enforcement) lives
+# in selfdef MS044 — sovereign-os catalogs only the Auditor's architectural
+# narrative, never its enforcement. Ties: the Pulse is M075's Conductor cortex +
+# M073 ternary core; the Weaver is M048's Sandbox Fabric; the 5 phases are the
+# Zero-to-Hero roadmap.
+# STATUS: spec-materialization (SDD+TDD — the Trinity architectural lineage).
+# Locked to spec by tests/lint/test_m066_trinity_framework.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M066
+source_dump_lines: "936-987"
+
+# ── E0638/E0639 — genesis narrative + SRP anchor (M01105/M01106) — VERBATIM ──
+genesis:
+  narrative: "this ecosystem was conceived as a pure, decoupled software trinity (pre-hardware)"
+  srp_anchor: "Single Responsibility Principle — technical anchor for the 'Zero to Hero' developer roadmap"
+  roadmap: "transitioning execution from simple scripting straight into autonomous agent fleets running on sovereign metal"
+
+# ── E0640-E0643 — the 3 trinity modules (M01108/M01112/M01116) — VERBATIM ──
+trinity:
+  - {module: M01108, name: "The Pulse", subtitle: "Vector Core",
+     original_concept: "MASM + Wasm primitives, bit-plane transposition, low-bit matrices on bare iron, bypassing heavy runtimes",
+     physical_manifestation: "512-bit orientation, Ryzen 9 9900X, custom Linux kernel -march=znver5, single-cycle AVX-512, ZMM bit-packing, 1-bit/ternary bitnet.cpp"}
+  - {module: M01112, name: "The Weaver", subtitle: "Sandboxed Fabric",
+     original_concept: "Wasm-based sandboxing, multi-agent orchestration",
+     physical_manifestation: "Podman + VFIO isolation"}
+  - {module: M01116, name: "The Auditor", subtitle: "Immutable Gatekeeper",
+     original_concept: "uncompromised security / logging / validation",
+     physical_manifestation: "Tetragon eBPF",
+     implementation_home: "selfdef MS044 (pending)"}
+
+# ── E0644 — chronological synthesis, 5 phases (M01118, dump 983-986) — VERBATIM ──
+chronological_synthesis:
+  module: M01118
+  phases: ["Basic Automation", "Deep Logic", "Contextual Sandboxing",
+           "Total System Defense", "Sovereign Synthesis"]
+
+# ── E0645 — project boundary (M01116) — VERBATIM ──
+project_boundary:
+  sovereign_os_owns: ["The Pulse", "The Weaver"]
+  selfdef_owns: "The Auditor implementation (guardian daemon / Tetragon eBPF / SIGKILL enforcement) — MS044"
+
+# ── E0646/E0647 — cohesive lineage + completed node (dump 987/985) — VERBATIM ──
+cohesive_lineage:
+  statement: "The software modules required the specialized hardware topology to function at full capacity, and the hardware required a custom, stripped-down operating system configuration to prevent standard distribution bloat from causing execution friction"
+  vibe_managing_platform: "9900X + 96GB Blackwell + Isolated 4090"
