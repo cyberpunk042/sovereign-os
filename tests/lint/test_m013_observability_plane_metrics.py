@@ -78,3 +78,45 @@ def test_traces_to_real_milestone():
     body = MILESTONE.read_text()
     for mod in EXPECTED_MODULES:
         assert mod in body, f"{mod} not in the M013 milestone (registry must trace to spec)"
+
+
+# ── M013 E0110 feedback-loop rules (M00207-M00211) ───────────────────────────
+
+RULES = REPO_ROOT / "config" / "observability" / "m013-feedback-loop-rules.yaml"
+EXPECTED_RULE_MODULES = {"M00207", "M00208", "M00209", "M00210", "M00211"}
+
+
+def _rules() -> dict:
+    return yaml.safe_load(RULES.read_text())
+
+
+def _all_metric_names() -> set[str]:
+    return {m["name"] for s in _doc()["metric_sets"] for m in s["metrics"]}
+
+
+def test_feedback_rules_present_and_cover_five_modules():
+    assert RULES.is_file(), f"missing {RULES}"
+    d = _rules()
+    assert d.get("milestone") == "M013" and d.get("epic") == "E0110"
+    mods = {r.get("module") for r in d["rules"]}
+    assert mods == EXPECTED_RULE_MODULES, (
+        f"M013 feedback-rule module drift: {sorted(mods)} vs {sorted(EXPECTED_RULE_MODULES)}")
+
+
+def test_every_rule_trigger_metric_exists_in_contract():
+    """The feedback loop is observability-AS-control-input: every rule must react
+    to a metric that the metric contract actually declares — no dangling
+    triggers."""
+    known = _all_metric_names()
+    for r in _rules()["rules"]:
+        metric = r.get("trigger", {}).get("metric")
+        assert metric in known, (
+            f"rule {r.get('id')!r} triggers on {metric!r}, which is not in the "
+            f"M013 metric contract")
+
+
+def test_every_rule_has_actions_and_condition():
+    for r in _rules()["rules"]:
+        assert r.get("id") and r.get("actions"), f"rule {r.get('module')}: missing id/actions"
+        assert r.get("trigger", {}).get("condition") in {"high", "low"}, (
+            f"rule {r.get('id')!r}: trigger.condition must be high|low")

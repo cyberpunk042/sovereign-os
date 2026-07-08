@@ -1,0 +1,82 @@
+# config/observability/m013-feedback-loop-rules.yaml
+# ============================================================================
+# M013 "Observability as control input" — the FEEDBACK-LOOP RULE set (epic
+# E0110, modules M00207-M00211, dump lines 3163-3186). This is the "the
+# scheduler should react" half of M013: declarative condition→action rules that
+# consume the observability-plane metric contract
+# (m013-observability-plane-metrics.yaml) and drive the deterministic branch
+# scheduler. Materialized verbatim from the milestone spec — no invention; each
+# rule traces to a module + dump line range.
+#
+# STATUS: spec-materialization (SDD+TDD — the rules precede the scheduler that
+# enforces them; wiring is implementation work gated on the runtime). Locked to
+# the M013 spec + cross-checked against the metric contract by
+# tests/lint/test_m013_observability_plane_metrics.py. Each `trigger.metric`
+# MUST exist in the metric contract.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M013
+epic: E0110
+source_dump_lines: "3163-3186"
+metric_contract: m013-observability-plane-metrics.yaml
+
+rules:
+  # ── M00207 — oracle idle → pack more work ──
+  - id: oracle-idle-increase-packing
+    module: M00207
+    dump_lines: "3163-3166"
+    trigger:
+      metric: sovereign_os_oracle_idle_ms
+      condition: high        # oracle sitting idle
+    actions:
+      - increase branch packing
+      - lower scout acceptance threshold
+      - prefetch likely KV
+
+  # ── M00208 — oracle VRAM pressure → shed load ──
+  - id: oracle-vram-pressure-shed
+    module: M00208
+    dump_lines: "3168-3171"
+    trigger:
+      metric: sovereign_os_oracle_vram_used_bytes
+      condition: high        # VRAM pressure
+    actions:
+      - reduce active branches
+      - evict low-heat KV
+      - lower scout max-context
+
+  # ── M00209 — low draft acceptance → cut speculation ──
+  - id: low-draft-acceptance-cut-speculation
+    module: M00209
+    dump_lines: "3173-3176"
+    trigger:
+      metric: sovereign_os_scout_draft_acceptance_rate
+      condition: low
+    actions:
+      - reduce speculation depth
+      - switch draft model
+      - use n-gram or suffix speculation
+
+  # ── M00210 — grammar mask time high → cache/relax structure ──
+  - id: grammar-mask-time-high-cache
+    module: M00210
+    dump_lines: "3178-3181"
+    trigger:
+      metric: sovereign_os_cpu_mask_compute_us
+      condition: high
+    actions:
+      - cache by grammar state
+      - fewer structured branches
+      - relax structure until final output
+
+  # ── M00211 — high tool rejection → route to oracle / tighten schema ──
+  - id: high-tool-rejection-route-oracle
+    module: M00211
+    dump_lines: "3183-3186"
+    trigger:
+      metric: sovereign_os_tool_intents_rejected_total
+      condition: high
+    actions:
+      - route planning to oracle
+      - tighten prompt / tool schema
