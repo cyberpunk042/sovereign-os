@@ -1,0 +1,64 @@
+# config/inference/m018-serving-topology.yaml
+# ============================================================================
+# M018 "Serving topology — local inference fabric" — the serving-fabric CONTRACT.
+# Materializes the milestone spec (backlog/milestones/M018-..., dump 4670-4990):
+# the 6 serving roles (E0159), the 3 serving modes (E0161), the request envelope
+# (E0162), the speculation triangle + 9 named queues + 6-axis queue weights
+# (E0163/E0164), the batching rules + multi-backend strategy + backend
+# abstraction (E0165), and the Final Serving Fabric (E0166). No invention — every
+# entry traces to a module + dump line range.
+#
+# Ties: extends M017's 4 serving backends + SDD-011 inference stack; the serving
+# roles realize M075 SRP topology (Oracle=GPU1, Scout=GPU0, Control=CPU); the
+# human_gate queue connects to M015's Human Gate Node + the cockpit.
+# STATUS: spec-materialization (SDD+TDD — precedes the fabric).
+# Locked to spec by tests/lint/test_m018_serving_topology.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M018
+source_dump_lines: "4670-4990"
+
+# ── E0159 — the 6 serving roles (M00285-M00290, dump 4670-4693) ──
+serving_roles:
+  - {module: M00285, role: Oracle Server, hardware: "RTX PRO 6000", note: "large model, final verification, synthesis, long context"}
+  - {module: M00286, role: Scout Server, hardware: "RTX 4090 or VM", note: "draft model, small agent, reranker, perception, speculative expansion"}
+  - {module: M00287, role: Perception Server, hardware: "4090 (optional)", note: "Nemotron Nano Omni screen/doc/audio/video understanding"}
+  - {module: M00288, role: Embedding/Rerank Server, hardware: "4090 or CPU", note: "memory retrieval support"}
+  - {module: M00289, role: Control Runtime, hardware: "CPU AVX-512", note: "receives user task, chooses routes, owns branch state"}
+  - {module: M00290, role: KV/Memory Service, hardware: "RAM/ZFS", note: "content-addressed KV refs, prompt blocks, cache metadata"}
+
+# ── E0161 — the 3 serving modes (M00291-M00293, dump 4741-4785) ──
+serving_modes:
+  - {mode: A, module: M00291, name: Low-Latency Interactive, for: "chat / coding help / command planning"}
+  - {mode: B, module: M00292, name: Agentic Batch, for: "coding/research/automation agents"}
+  - {mode: C, module: M00293, name: Long-Context Workbench, for: "repo-wide / documents / audits"}
+
+# ── E0162 — request envelope for routing (M00294, dump 4801-4810) — VERBATIM ──
+request_envelope:
+  module: M00294
+  fields: [model_id, tokenizer_id, prompt_hashes, kv_ref_candidates, branch_parent, cache_policy]
+
+# ── E0164 — the 9 named queues (M00296, dump 4849-4858) — VERBATIM ──
+queues:
+  module: M00296
+  names: [oracle_prefill, oracle_decode, oracle_verify, scout_draft, scout_rerank,
+          perception, embedding, tool_intent, human_gate]
+
+# ── E0164 — per-queue 6-axis weight (M00297, dump 4862-4870) — VERBATIM ──
+queue_weight_axes:
+  module: M00297
+  axes: [priority, deadline, batchability, risk, cache_affinity, model_affinity]
+
+# ── E0165 — backend abstraction surface (M00300, dump 4912-4922) — VERBATIM ──
+backend_abstraction:
+  module: M00300
+  surface: [Generate, Embed, Rerank, Perceive, Verify]
+  multi_backend_rule: "vLLM / SGLang / TensorRT-LLM / llama.cpp — do not marry one"
+
+# ── E0166 — Final Serving Fabric (M00301, dump 4943-4990) — VERBATIM ──
+serving_fabric:
+  module: M00301
+  components: [Control Runtime, Model Gateway, Cache Router, GPU Workers,
+               Tool Workers, Telemetry]
+  rule: "model-server-dumb, runtime-smart"
