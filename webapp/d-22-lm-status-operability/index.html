@@ -161,6 +161,24 @@
     catch (e) { prompt('Copy + run:', cmd); }
   }
 
+  // SDD-055 — scroll to a functional control in the rail + highlight it. Controls
+  // EXECUTE via the R10274 control-exec-api rail (operator-key + type-to-confirm
+  // gated); web itself never mutates (R10212).
+  function jumpToControl(cid) {
+    const s = document.getElementById('control-surface');
+    const c = s && s.querySelector('[data-cid="' + cid + '"]');
+    (c || s || document.body).scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (c) {
+      c.style.outline = '2px solid var(--accent,#9bd1ff)';
+      setTimeout(() => { c.style.outline = ''; }, 1600);
+    }
+  }
+  // SDD-055 — map each per-device action to its existing R10274 control.
+  const ACT_CONTROL = {
+    load: 'inference-tier', toggle: 'inference-tier',
+    override: 'runtime-mode', eval: 'eval-run', bench: 'eval-run',
+  };
+
   function renderDataSourceBanner(ok, err) {
     $('data-source-banner').innerHTML = ok
       ? 'consuming <code>/api/lm-status/devices</code> from the lm-status-operability API daemon'
@@ -236,11 +254,11 @@
       draw(LAST);
     }));
     document.querySelectorAll('button.act').forEach(b => b.addEventListener('click', () => {
-      const dev = (LAST.devices || []).find(d => d.slot === b.dataset.slot) || {};
-      const idx = activeTab[b.dataset.slot] || 0;
-      const model = (dev.models || [])[idx] && dev.models[idx].id;
-      const cmd = actionCmd(b.dataset.act, b.dataset.role, model);
-      copyCmd(cmd, `${b.dataset.slot} · ${b.dataset.act} — MS003-signed CLI verb copied (R10212 read-only cockpit):`);
+      // SDD-055 — each action EXECUTES via its existing R10274 control (rendered
+      // on D-22): load/toggle → inference-tier, override → runtime-mode,
+      // eval/bench → eval-run. Pick args in the control card + Execute (dry-run
+      // default, operator-key + type-to-confirm). R10212 intact — web never mutates.
+      jumpToControl(ACT_CONTROL[b.dataset.act] || 'inference-tier');
     }));
   }
 
