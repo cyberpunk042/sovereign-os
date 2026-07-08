@@ -35,6 +35,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -51,6 +52,25 @@ ROLLBACK_LOG = Path(os.environ.get(
 ))
 # git repo the commit history is read from (defaults to this checkout).
 GIT_REPO = Path(os.environ.get("SOVEREIGN_OS_GIT_REPO", str(_REPO_ROOT)))
+
+# SDD-050 snapshot write actuation.
+# Dataset ENUM — the cockpit control passes a short key (`_SAFE_VALUE`-clean, no
+# '/'); the '/'-bearing real dataset path is resolved HERE, never through the
+# exec-daemon's arg allowlist (which forbids '/'). Same pattern as SDD-049's
+# model id→path resolution. (Q-050-A — operator may extend.)
+_DATASETS = {
+    "os": "rpool/sovereign-os",
+    "context": "tank/context",
+    "models": "tank/models",
+    "agents": "tank/agents",
+}
+# Snapshot tag: stricter than the exec rail's _SAFE_VALUE (which permits '@'/':'/
+# '=') — a tag must never carry the '@' dataset separator or a path '/'.
+_SAFE_TAG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+_RECENT_RE = re.compile(r"^recent-(\d+)$")
+# Prune floor: never destroy the newest N snapshots per dataset (nor the very
+# latest, absolutely) without --force. (Q-050-B — operator may tune.)
+_PRUNE_FLOOR = 3
 
 
 def _run(cmd: list[str], timeout: float = 5.0, cwd: str | None = None) -> str | None:
@@ -299,8 +319,15 @@ def apply(to: str, confirm: bool = False) -> dict[str, Any]:
     rollback stays a manual CLI op."""
     dry = (not confirm) or os.environ.get("SOVEREIGN_OS_DRY_RUN") == "1"
     snaps = collect_snapshots()
+    m = _RECENT_RE.match(to)
     if to == "latest":
         target = snaps[0]["id"] if snaps else None
+    elif m:
+        # SDD-050: `recent-N` is a stable positional token (the cockpit
+        # `rollback-recent` control enum) — resolve to the Nth-newest live
+        # snapshot HERE, so the '/'+'@' id never crosses the exec allowlist.
+        n = int(m.group(1))
+        target = snaps[n - 1]["id"] if 1 <= n <= len(snaps) else None
     else:
         target = next((s["id"] for s in snaps if to in (s["id"], s["tag"])), None)
     if dry:
@@ -318,6 +345,95 @@ def apply(to: str, confirm: bool = False) -> dict[str, Any]:
             "ok": out is not None, "ran": ["zfs", "rollback", "-r", target]}
 
 
+def create(dataset_key: str, tag: str, confirm: bool = False) -> dict[str, Any]:
+    """SDD-050 — create a ZFS snapshot `<dataset>@<tag>`. `dataset_key` is a
+    short enum key (`_DATASETS`) resolved to the real '/'-bearing path HERE (never
+    a '/'-arg through the exec allowlist); `tag` is validated `_SAFE_TAG`. DRY-RUN
+    unless --confirm AND SOVEREIGN_OS_DRY_RUN is unset. sovereign-os-owned ZFS
+    storage op (R10212: not selfdef)."""
+    dataset = _DATASETS.get(dataset_key)
+    if dataset is None:
+        return {"verb": "create", "ok": False, "dataset_key": dataset_key,
+                "error": f"unknown dataset key {dataset_key!r} "
+                         f"(known: {sorted(_DATASETS)})"}
+    if not _SAFE_TAG.match(tag or ""):
+        return {"verb": "create", "ok": False, "dataset": dataset, "tag": tag,
+                "error": f"invalid tag {tag!r} — must match "
+                         r"[A-Za-z0-9][A-Za-z0-9._-]* (no '/', '@', spaces)"}
+    snap = f"{dataset}@{tag}"
+    dry = (not confirm) or os.environ.get("SOVEREIGN_OS_DRY_RUN") == "1"
+    if dry:
+        why = "no --confirm" if not confirm else "SOVEREIGN_OS_DRY_RUN=1"
+        return {"verb": "create", "dataset": dataset, "tag": tag, "target": snap,
+                "dry_run": True, "would_run": ["zfs", "snapshot", snap],
+                "note": f"DRY-RUN ({why}) — creates a ZFS snapshot; "
+                        "apply is --confirm + operator-key + type-to-confirm gated"}
+    out = _run(["zfs", "snapshot", snap], timeout=60)
+    return {"verb": "create", "dataset": dataset, "tag": tag, "target": snap,
+            "ok": out is not None, "ran": ["zfs", "snapshot", snap]}
+
+
+def prune(retain_days: int, confirm: bool = False, force: bool = False,
+          floor: int = _PRUNE_FLOOR) -> dict[str, Any]:
+    """SDD-050 — destroy ZFS snapshots older than `retain_days`, per dataset,
+    EXCEPT a hard floor: never the very latest (absolute), and never the newest
+    `floor` per dataset unless --force. Old-but-floor-protected snapshots are
+    WITHHELD (reported, `refused=True`) rather than destroyed — refuse-by-default
+    (Q-050-C). DESTRUCTIVE (`zfs destroy`); DRY-RUN unless --confirm AND
+    SOVEREIGN_OS_DRY_RUN unset."""
+    try:
+        days = int(retain_days)
+    except (TypeError, ValueError):
+        return {"verb": "prune", "ok": False,
+                "error": f"invalid --retain-days {retain_days!r} (must be an int)"}
+    if days < 0:
+        return {"verb": "prune", "ok": False,
+                "error": "--retain-days must be >= 0"}
+    cutoff = time.time() - days * 86400
+    by_ds: dict[str, list[dict[str, Any]]] = {}
+    for s in collect_snapshots():  # newest-first
+        by_ds.setdefault(s["dataset"], []).append(s)
+    to_destroy: list[str] = []
+    withheld: list[str] = []
+    for rows in by_ds.values():
+        for idx, s in enumerate(rows):
+            creation = s.get("_creation")
+            if creation is None or creation >= cutoff:
+                continue  # not older than retain window
+            if idx == 0:
+                continue  # never the very latest (absolute floor)
+            if idx < floor and not force:
+                withheld.append(s["id"])  # floor-protected — needs --force
+                continue
+            to_destroy.append(s["id"])
+    refused = bool(withheld)  # (only populated when not force)
+    result: dict[str, Any] = {
+        "verb": "prune", "retain_days": days, "floor": floor, "force": force,
+        "to_destroy": to_destroy, "withheld_by_floor": withheld, "refused": refused,
+    }
+    dry = (not confirm) or os.environ.get("SOVEREIGN_OS_DRY_RUN") == "1"
+    if dry:
+        why = "no --confirm" if not confirm else "SOVEREIGN_OS_DRY_RUN=1"
+        result["dry_run"] = True
+        result["would_run"] = [["zfs", "destroy", t] for t in to_destroy]
+        note = (f"DRY-RUN ({why}) — would destroy {len(to_destroy)} snapshot(s)"
+                " older than the retain window; DESTRUCTIVE on --confirm")
+        if withheld:
+            note += (f"; {len(withheld)} old snapshot(s) WITHHELD by the "
+                     f"newest-{floor} floor (use --force to prune them)")
+        result["note"] = note
+        return result
+    ran: list[str] = []
+    failed: list[str] = []
+    for t in to_destroy:
+        out = _run(["zfs", "destroy", t], timeout=60)
+        (ran if out is not None else failed).append(t)
+    result["ran"] = ran
+    result["failed"] = failed
+    result["ok"] = not failed
+    return result
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="rollback-points core (M060 D-08)")
     sub = p.add_subparsers(dest="cmd")
@@ -332,6 +448,16 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--to", required=True)
     ap.add_argument("--confirm", action="store_true")
     ap.add_argument("--json", action="store_true")
+    cr = sub.add_parser("create")
+    cr.add_argument("--dataset", required=True)
+    cr.add_argument("--tag", required=True)
+    cr.add_argument("--confirm", action="store_true")
+    cr.add_argument("--json", action="store_true")
+    pr = sub.add_parser("prune")
+    pr.add_argument("--retain-days", type=int, required=True)
+    pr.add_argument("--confirm", action="store_true")
+    pr.add_argument("--force", action="store_true")
+    pr.add_argument("--json", action="store_true")
     args = p.parse_args(argv)
     cmd = args.cmd or "snapshot"
     if cmd == "preview":
@@ -340,6 +466,10 @@ def main(argv: list[str] | None = None) -> int:
         _print(_git_log(since="24 hours ago", limit=50))
     elif cmd == "apply":
         _print(apply(args.to, confirm=args.confirm))
+    elif cmd == "create":
+        _print(create(args.dataset, args.tag, confirm=args.confirm))
+    elif cmd == "prune":
+        _print(prune(args.retain_days, confirm=args.confirm, force=args.force))
     else:
         _print(snapshot())
     return 0
