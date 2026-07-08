@@ -1,0 +1,116 @@
+# config/execution/m047-continuity.yaml
+# ============================================================================
+# M047 "Continuity — CRIU + ZFS + warm sandboxes + hibernated thought" — the
+# continuity CONTRACT. Materializes the milestone spec (backlog/milestones/
+# M047-..., dump 14107-14402): the 7-type continuity taxonomy (E0448),
+# Checkpointed Agent Sessions via CRIU (E0449), Semantic Checkpoints (E0450),
+# ZFS + CRIU Together (E0451), Warm Sandboxes (E0452), Hibernated Thought
+# (E0453), Systemd Continuity (E0454), Userspace Soft Reboot (E0455), the 8-level
+# continuity ladder (E0456), and the 11-step Hyper Loop With Continuity (E0457).
+# No invention — every entry traces to a module + dump line range.
+#
+# Operator directive 14107 (sacrosanct): "Think of hyper features and continuity
+# of what we are doing". KEY LINE (dump 14400): "Continuity turns inference into
+# practice. A cloud model can answer. A sovereign station can keep working,
+# pause, restore, compare, learn, and resume without losing the world". Ties: the
+# 5-layer save-state binds M044's Storage Plane (ZFS) + M045's systemd lifecycle;
+# the branch-search pattern is the runtime realization of M043's placement layer;
+# hibernated thought is AgentRM-style resource management (M045 agent_lifecycle).
+# STATUS: spec-materialization (SDD+TDD — the continuity / save-state layer).
+# Locked to spec by tests/lint/test_m047_continuity.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M047
+source_dump_lines: "14107-14402"
+
+# ── E0448 — 7-type continuity taxonomy (M00782/M00783, dump 14126-14146) — VERBATIM ──
+continuity_taxonomy:
+  contrast: "Cloud agents are mostly request/response, provider-shaped; the station can have machine-native continuity"
+  types: [process, container, workspace, memory, model, workflow, "user-intent"]
+  closing: "That is how it gets better than the cloud before weight training"
+
+# ── E0449 — Checkpointed Agent Sessions via CRIU (M00784-M00788) — VERBATIM ──
+checkpointed_sessions:
+  primitive: "CRIU (Checkpoint/Restore In Userspace)"
+  podman: "Podman integrates checkpoint/restore through CRIU; containers can be frozen and restored later"
+  warm_scenario: ["dependencies installed", "dev server warm", "test DB seeded",
+                  "browser logged into sandbox", "model/tool process ready"]
+  capabilities: ["fast retries", "branch experiments", "safe rollback",
+                 "session migration", "forensics", "reproducible agent state"]
+  caveat: "CRIU is not magic. GPU state, complex drivers, open network sockets, browsers, and some namespaces can be difficult. But for CPU/container sandboxes, build/test environments, and warmed tool sessions, it is worth testing"
+
+# ── E0450 — Semantic Checkpoints (M00789, dump 14204-14216) — VERBATIM ──
+semantic_checkpoints:
+  module: M00789
+  doctrine: "raw process checkpoint is not enough. agent checkpoint needs semantic state"
+  fields: ["container/process state", "filesystem snapshot", "workflow node",
+           "branch state", "open tool futures", "memory refs", "risk state",
+           "cost so far", "expected next action", "human gate state"]
+  closing: "This is continuity with meaning"
+
+# ── E0451 — ZFS + CRIU Together, 5-layer save-state (M00790, 14228-14238) — VERBATIM ──
+save_state_layers:
+  module: M00790
+  layers:
+    - {layer: 1, name: "ZFS snapshot", holds: "files + repo + caches + artifacts"}
+    - {layer: 2, name: "CRIU checkpoint", holds: "running process/container state"}
+    - {layer: 3, name: "Replay log", holds: "why the state exists"}
+    - {layer: 4, name: "Memory record", holds: "what was learned"}
+    - {layer: 5, name: "Profile state", holds: "what permissions and budgets apply"}
+  closing: "That becomes a true agent save-state. Cloud providers rarely give you this level of continuity"
+
+# ── E0452 — Warm Sandboxes + branch-search (M00791, dump 14250-14278) — VERBATIM ──
+warm_sandboxes:
+  cold_pattern: ["create container", "install deps", "start services", "run tests"]
+  warm_pattern: ["restore checkpoint", "apply patch", "run tests"]
+  branch_search: ["restore baseline checkpoint", "try patch A", "measure", "rollback",
+                  "restore baseline", "try patch B", "measure"]
+  closing: "This is test-time compute for software engineering"
+
+# ── E0453 — Hibernated Thought (M00792/M00793, dump 14286-14304) — VERBATIM ──
+hibernated_thought:
+  doctrine: "Agents should hibernate when waiting"
+  wait_conditions: ["waiting for user", "waiting for long test", "waiting for download",
+                    "waiting for external event", "low priority branch", "memory pressure"]
+  state_fields: ["branch summary", "state vector", "tool futures", "context refs",
+                 "next wake condition"]
+  note: "This is AgentRM-style resource management made local and sovereign"
+
+# ── E0454 — Systemd Continuity (M00794/M00795, dump 14316-14334) — VERBATIM ──
+systemd_continuity:
+  oomd: "systemd-oomd uses cgroup v2 and PSI to react before kernel OOM"
+  unit_examples: ["gateway.service", "oracle-blackwell.service", "scout-4090.service",
+                  "memory-os.service", "agent-session@.service", "sandbox@.scope",
+                  "eval-worker.slice"]
+  doctrine: "model servers and agent sessions should be OS-managed. The OS can restart, limit, observe, or kill them"
+
+# ── E0455 — Userspace Soft Reboot (M00796, dump 14342-14364) — VERBATIM ──
+soft_reboot:
+  module: M00796
+  definition: "systemd added soft reboot — restart userspace without full hardware/kernel reboot"
+  capabilities: ["reload gateway/runtime userspace", "keep kernel-hardware stable",
+                 "restore model services", "resume checkpoints"]
+  caution: "This could support fast updates to the intelligence stack without rebooting the machine. But with NVIDIA/GPU services, test carefully"
+
+# ── E0456 — 8-level continuity ladder (M00797, dump 14372-14388) — VERBATIM ──
+continuity_ladder:
+  module: M00797
+  levels:
+    - {level: 0, name: "stateless API call"}
+    - {level: 1, name: "conversation memory"}
+    - {level: 2, name: "workflow checkpoint"}
+    - {level: 3, name: "filesystem snapshot"}
+    - {level: 4, name: "process/container checkpoint"}
+    - {level: 5, name: "warm model/KV context"}
+    - {level: 6, name: "learned skill/profile/policy"}
+    - {level: 7, name: "user-sovereign life continuity"}
+  split: "Cloud usually gives level 0-2. Your station can own level 3-7. That is a major advantage"
+
+# ── E0457 — 11-step Hyper Loop With Continuity + KEY LINE (M00798, 14380-14400) — VERBATIM ──
+hyper_loop_continuity:
+  module: M00798
+  steps: ["Map environment", "Create checkpoint", "Try action branch", "Measure result",
+          "Restore if bad", "Promote if good", "Store trace", "Update profile-memory",
+          "Keep warm context if useful", "Hibernate if idle", "Resume later"]
+  key_line: "Continuity turns inference into practice. A cloud model can answer. A sovereign station can keep working, pause, restore, compare, learn, and resume without losing the world"
