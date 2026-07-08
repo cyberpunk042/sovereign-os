@@ -1,0 +1,62 @@
+# config/storage/m068-zfs-storage-architecture.yaml
+# ============================================================================
+# M068 "ZFS storage architecture (tank/context + sync=always + ashift=12 + lz4 +
+# recordsize)" — the storage CONTRACT. Materializes the milestone spec (backlog/
+# milestones/M068-...; source raw/dumps/2026-05-15-sain-01-master-spec-...md
+# Phase III lines 680-695 + Phase IV 705-707 + 913-925): the ZFS DKMS init
+# (E0658/E0659), pool hardening (E0660), the tank dataset hierarchy (E0661),
+# sync=always for tank/context (E0662), recordsize=16k for tank/containers
+# (E0663), recordsize tuning (E0664), layer allocation + KV-cache fp8 (E0665), and
+# the snapshot policy (E0667). No invention — every entry traces to a module +
+# dump line range.
+#
+# Doctrinal anchors (dump 693/694/695/706): "zpool create -f -o ashift=12 -O
+# compression=lz4 -O atime=off tank /dev/nvme0n1" / "zfs create tank/context" /
+# "zfs set sync=always tank/context" / "Map Podman's internal graph driver storage
+# to write directly into an uncompressed ZFS data dataset (tank/containers)
+# optimized with matching allocation block sizes (recordsize=16k)". PROJECT
+# BOUNDARY (R10212): M068 catalogs ZFS pool architecture for sovereign-os; selfdef
+# MS037 handles IPS-side filesystem boundary enforcement (cross-repo binding via
+# MS007 mirrors only). Ties: tank/context is M047/M059's continuity substrate; the
+# snapshot policy is M041/M065's pre-commit-snapshot gate; DKMS binds the
+# M067 znver5 kernel.
+# STATUS: spec-materialization (SDD+TDD — the ZFS storage IaC).
+# Locked to spec by tests/lint/test_m068_zfs_storage_architecture.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M068
+source_dump_lines: "680-695,705-707,913-925"
+
+# ── E0658/E0659 — ZFS DKMS init (M01139/M01140, dump 682-688) — VERBATIM ──
+dkms:
+  module: M01139
+  packages: ["dkms", "zfs-dkms", "zfsutils-linux"]
+  validation: "dkms status shows zfs module loaded for 6.12-znver5 kernel; DKMS errors halt installation"
+
+# ── E0660 — pool hardening (M01141, dump 691-693) — VERBATIM ──
+pool:
+  module: M01141
+  create_command: "zpool create -f -o ashift=12 -O compression=lz4 -O atime=off tank /dev/nvme0n1"
+  ashift: 12
+  compression: "lz4"
+  atime: "off"
+  name: "tank"
+
+# ── E0661-E0664 — tank dataset hierarchy (M01142/M01143/M01144, dump 693-706) — VERBATIM ──
+datasets:
+  - {dataset: "tank", role: "pool root"}
+  - {dataset: "tank/context", role: "sovereignty-critical state (matrix-weights)", sync: "always"}
+  - {dataset: "tank/containers", role: "Podman graph driver (uncompressed)", recordsize: "16k"}
+  - {dataset: "tank/models", role: "model weights / artifacts"}
+  - {dataset: "tank/logs", role: "logs / traces"}
+
+# ── E0665 — layer allocation + KV-cache fp8 (M01151/M01152, dump 911-925) — VERBATIM ──
+layer_allocation:
+  module: M01151
+  scheme: "layer maps + KV cache fp8 compression for inference engines"
+
+# ── E0667 — snapshot policy (M01148, cross-ref M041/MS041) — VERBATIM ──
+snapshot_policy:
+  module: M01148
+  rule: "every high-risk commit (M041) creates pre-commit snapshot retained 365 days"
