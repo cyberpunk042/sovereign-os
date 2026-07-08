@@ -1,0 +1,42 @@
+# config/inference/m034-anthropic-first-gateway.yaml
+# ============================================================================
+# M034 "Anthropic-first gateway + MCP + Claude Code integration" — the
+# Anthropic-first gateway CONTRACT. Materializes the milestone spec
+# (backlog/milestones/M034-..., dump 9982-10008): the Anthropic PRIMARY surface +
+# OpenAI SECONDARY surface (E0319) and the Claude Code extension points (E0320).
+# No invention — every entry traces to a module + dump line range.
+#
+# "Anthropic-first": the /v1/messages surface is primary, OpenAI-compat secondary
+# (inverts M033's ordering by design). The Claude Code hooks/MCP/subagents
+# extension points connect to root-ghostproxy's endpoint safety envelope (SDD-046)
+# + the sovereign-os cockpit.
+# STATUS: spec-materialization (SDD+TDD — precedes the gateway).
+# Locked to spec by tests/lint/test_m034_anthropic_first_gateway.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M034
+source_dump_lines: "9982-10008"
+
+# ── E0319 — Anthropic PRIMARY surface (M00561-M00566, dump 9982-9987) — VERBATIM ──
+anthropic_primary_surface:
+  module_range: "M00561-M00566"
+  surfaces:
+    - {module: M00561, surface: "/v1/messages (Anthropic Messages API)"}
+    - {module: M00562, surface: "/v1/models (Anthropic models-list)"}
+    - {module: M00563, surface: "/v1/messages/count_tokens"}
+    - {module: M00564, surface: "streaming events (Anthropic event-stream)"}
+    - {module: M00565, surface: "tool_use / tool_result blocks"}
+    - {module: M00566, surface: "system + messages format"}
+
+# ── E0319 — OpenAI SECONDARY surface (M00567-M00570, dump 9993-9996) — VERBATIM ──
+openai_secondary_surface:
+  module_range: "M00567-M00570"
+  endpoints: [/v1/chat/completions, /v1/responses, /v1/embeddings, /v1/models]
+
+# ── E0320 — Claude Code extension points (M00571-M00574, dump 10005-10008) ──
+claude_code_extension_points:
+  - {module: M00571, point: Hooks, intercepts: "tool calls / prompt submission / subagent activity / completion"}
+  - {module: M00572, point: MCP, provides: "tool+resource connection; servers expose prompts as slash commands"}
+  - {module: M00573, point: Subagents, provides: "specialized delegated agents with own context + MCP tool access"}
+  - {module: M00574, point: "Agent SDK", provides: "structured output + typed integration surfaces (TypeScript SDK)"}
