@@ -1,0 +1,122 @@
+# config/inference/m058-goldilocks-scheduler.yaml
+# ============================================================================
+# M058 "Hardware-aware scheduling — the Goldilocks scheduler" — the scheduler
+# CONTRACT. Materializes the milestone spec (backlog/milestones/M058-..., dump
+# 17914-18268): the 7 Resource Types (E0558), the 8 Queue Types (E0559), the 6
+# Scheduling Policies (E0560), Blackwell/4090/CPU-AVX scheduling (E0561-E0563),
+# KV/Context scheduling (E0564), Memory + Tool scheduling (E0565), Backpressure
+# (E0566), and the Goldilocks Objective + Key Law (E0567). No invention — every
+# entry traces to a module + dump line range.
+#
+# Doctrinal anchor (dump 17916): "The runtime should not simply execute tasks. It
+# should schedule intelligence across the machine". Key Law (dump 18261): "Never
+# let expensive cognition wait on cheap preparation. Never let cheap speculation
+# commit without expensive verification when risk demands it". Ties: this scheduler
+# is the runtime engine behind M057's Step 6 Route + Step 7 Execute; it consumes
+# M045's PSI/DCGM backpressure signals; the AVX hot ops are M051's cortex; the KV
+# affinity extends M043's Context Residency; hibernation bridges to M047.
+# STATUS: spec-materialization (SDD+TDD — the Goldilocks intelligence scheduler).
+# Locked to spec by tests/lint/test_m058_goldilocks_scheduler.py.
+# Per operator §1g (sacrosanct): "We do not minimize anything."
+# ============================================================================
+schema_version: "1.0.0"
+milestone: M058
+source_dump_lines: "17914-18268"
+
+doctrinal_anchor: "The runtime should not simply execute tasks. It should schedule intelligence across the machine"
+
+# ── E0558 — 7 Resource Types (M00969, dump 17920-17970) — VERBATIM ──
+resource_types:
+  - {resource: CPU, tracked: ["scalar cores", "AVX-512 lanes", "cache pressure"]}
+  - {resource: "GPU-Blackwell", tracked: ["VRAM", "compute", "KV cache", "batch slots"]}
+  - {resource: "GPU-4090", tracked: ["VRAM", "compute", "sandbox availability", "draft/scout queues"]}
+  - {resource: RAM, tracked: ["context arenas", "memory graph", "ZFS ARC", "active traces"]}
+  - {resource: "NVMe-ZFS", tracked: ["read/write bandwidth", "snapshot pressure", "replay writes"]}
+  - {resource: Network, tracked: ["local LAN", "internet/cloud", "approved domains"]}
+  - {resource: Human, tracked: ["approval attention", "interruption budget"]}
+human_in_scheduler: "Human attention belongs in the scheduler"
+
+# ── E0559 — 8 Queue Types + 8 queue item fields (M00970, dump 17972-17999) — VERBATIM ──
+queues:
+  module: M00970
+  types:
+    - {queue: oracle_queue, admits: "high-value model calls"}
+    - {queue: scout_queue, admits: "cheap drafts, classifiers, SLM"}
+    - {queue: embedding_queue, admits: "memory and retrieval"}
+    - {queue: tool_queue, admits: "shell, file, API, browser"}
+    - {queue: eval_queue, admits: "tests, judges, metrics"}
+    - {queue: memory_queue, admits: "read/write/promote/forget"}
+    - {queue: human_gate_queue, admits: "approvals and clarifications"}
+    - {queue: background_queue, admits: "compression, indexing, eval mining"}
+  item_fields: [priority, deadline, risk, cost, expected_value, profile,
+                hardware_affinity, cache_affinity]
+
+# ── E0560 — 6 Scheduling Policies (M00971, dump 18001-18032) — VERBATIM ──
+scheduling_policies:
+  module: M00971
+  policies:
+    - {profile: fast, policy: "favor latency, scout-first, shallow verification"}
+    - {profile: careful, policy: "favor correctness, oracle verification, tests required"}
+    - {profile: private, policy: "local-only, cloud routes disabled, strict memory exposure"}
+    - {profile: autonomous, policy: "preserve continuity, batch approvals, sandbox-first, checkpoint often"}
+    - {profile: experimental, policy: "wide branch search, sandbox only, no host commit"}
+    - {profile: production, policy: "strict commit gates, low variance, strong observability"}
+  note: "Same request schedules differently under different profiles"
+
+# ── E0561 — Blackwell Scheduling (M00972, dump 18042-18056) — VERBATIM ──
+blackwell_scheduling:
+  module: M00972
+  accept: ["final synthesis", "hard reasoning", "high-risk verification",
+           "long-context parent calls", "batch verification"]
+  avoid: ["cheap classification", "trivial rewrites", "noisy branch expansion",
+          "repeated boilerplate prefill"]
+  rule: "Keep the Blackwell hot with meaningful work, not busy with junk"
+
+# ── E0562 — 4090 Scheduling (M00973, dump 18065-18088) — VERBATIM ──
+scheduling_4090:
+  module: M00973
+  use_for: ["draft branches", "small models", "rerank", "embeddings", "vision/perception",
+            "tool-plan sketches", "failure classification"]
+  work_ahead:
+    - "idle + uncertain -> generate candidate branches"
+    - "Blackwell busy -> scout prepares summaries + verification candidates"
+    - "Blackwell idle -> feed compressed high-value batch"
+
+# ── E0563 — CPU AVX Scheduling (M00974, dump 18101-18118) — VERBATIM ──
+avx_scheduling:
+  module: M00974
+  hot_ops: ["filter branches", "score candidates", "match memory", "merge policy",
+            "detect duplicates", "compress queues", "apply budgets", "compute route masks"]
+  rule: "batch when useful, don't worship SIMD"
+
+# ── E0564 — KV/Context Scheduling (M00975, dump 18137-18143) — VERBATIM ──
+kv_scheduling:
+  module: M00975
+  strategies: ["prefix-cache awareness", "parent context sharing",
+               "prefill-vs-decode classification", "eviction-value calculation"]
+
+# ── E0565 — Memory + Tool Scheduling (M00976/M00977, dump 18162-18190) — VERBATIM ──
+memory_scheduling:
+  module: M00976
+  staged_retrieval: [bitset, popcount, embedding, graph, oracle]
+  doctrine: "do not throw every memory query at a model"
+tool_scheduling:
+  module: M00977
+  classification: ["read-only parallel", "write snapshot/policy", "network profile",
+                   "destructive human-gate"]
+  doctrine: "tools are slow and risky compared to pure logic"
+
+# ── E0566 — Backpressure (M00978, dump 18192-18201) — VERBATIM ──
+backpressure:
+  module: M00978
+  signals: ["PSI", "DCGM", "trace metrics"]
+  note: "PSI + DCGM + trace metrics feed the scheduler"
+
+# ── E0567 — Goldilocks Objective + Key Law (M00981/M00982, dump 18203-18264) — VERBATIM ──
+goldilocks_objective:
+  module: M00981
+  objective: "maximize useful intelligence per unit of"
+  per_unit_of: [latency, cost, risk, energy, "human attention", "hardware pressure"]
+key_law:
+  module: M00982
+  law: "Never let expensive cognition wait on cheap preparation. Never let cheap speculation commit without expensive verification when risk demands it."
